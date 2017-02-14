@@ -1,115 +1,257 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Mon, 13 Feb 2017 17:32:37 -0800
-Message-ID: <CAKgT0UeGRUytaA9MVF_YitYBq_49uXBgAPrDHbbaykYCXpJj6A@mail.gmail.com>
-References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
- <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
- <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
- <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
- <CANn89iJfLu8ai1SDGDt5aowAGibdxumDA89Y44f6SjTTt+sGBg@mail.gmail.com>
- <CAKgT0UdgnKzJ8PJFPfvJiOSZQ3E3Sw5nWjyrROuERv0=-dxmxQ@mail.gmail.com>
- <CANn89iLgUsPDL0wbuHk5RaehzJ+TRLQ=WkVBMTB65scrEjO3Ug@mail.gmail.com>
- <CAKgT0Uex--jLtBtJ+wp8wmkZuUfTu7ktYTvBF9623Ztm_NrGxw@mail.gmail.com>
- <CANn89iJ+kn4ycP2HV_um5JUfPWpX9KJ0KFtXyx3562c=kCBYyQ@mail.gmail.com>
- <CAKgT0Uf-JhOn+OOyjO8GH5SepA68j36eSY2m-buWJ5AH_82o2g@mail.gmail.com>
- <1487033175.8227.37.camel@edumazet-glaptop3.roam.corp.google.com> <1487033855.8227.40.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH][CFT] Saner error handling in skb_copy_datagram_iter() et.al.
+ (was Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b))
+Date: Tue, 14 Feb 2017 01:33:06 +0000
+Message-ID: <20170214013306.GS13195@ZenIV.linux.org.uk>
+References: <20160728012253.GT2356@ZenIV.linux.org.uk>
+ <6129494.xvkFqTsVzW@debian64>
+ <20170212054209.GQ13195@ZenIV.linux.org.uk>
+ <2337836.67BmyCWMtR@debian64>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Alan Curry <rlwinm@sdf.org>,
+        alexmcwhirter@triadic.us, David Miller <davem@davemloft.net>,
+        Christian Lamparter <chunkeey@googlemail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:34793 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751494AbdBNBcj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 20:32:39 -0500
-Received: by mail-it0-f65.google.com with SMTP id r141so1894252ita.1
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 17:32:38 -0800 (PST)
-In-Reply-To: <1487033855.8227.40.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:51360 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751637AbdBNBdQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 20:33:16 -0500
+Content-Disposition: inline
+In-Reply-To: <2337836.67BmyCWMtR@debian64>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2017 at 4:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->> Alex, be assured that I implemented the full thing, of course.
->
-> Patch was :
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index aa074e57ce06fb2842fa1faabd156c3cd2fe10f5..0ae1b544668d26c24044dbdefdd9b12253596ff9 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -68,6 +68,7 @@ static int mlx4_alloc_page(struct mlx4_en_priv *priv,
->         frag->page = page;
->         frag->dma = dma;
->         frag->page_offset = priv->rx_headroom;
-> +       frag->pagecnt_bias = 1;
->         return 0;
->  }
->
-> @@ -97,7 +98,7 @@ static void mlx4_en_free_frag(const struct mlx4_en_priv *priv,
->         if (frag->page) {
->                 dma_unmap_page(priv->ddev, frag->dma,
->                                PAGE_SIZE, priv->dma_dir);
-> -               __free_page(frag->page);
-> +               __page_frag_cache_drain(frag->page, frag->pagecnt_bias);
->         }
->         /* We need to clear all fields, otherwise a change of priv->log_rx_info
->          * could lead to see garbage later in frag->page.
-> @@ -470,6 +471,7 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
->  {
->         const struct mlx4_en_frag_info *frag_info = priv->frag_info;
->         unsigned int truesize = 0;
-> +       unsigned int pagecnt_bias;
->         int nr, frag_size;
->         struct page *page;
->         dma_addr_t dma;
-> @@ -491,9 +493,10 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
->                                      frag_size);
->
->                 truesize += frag_info->frag_stride;
-> +               pagecnt_bias = frags->pagecnt_bias--;
->                 if (frag_info->frag_stride == PAGE_SIZE / 2) {
->                         frags->page_offset ^= PAGE_SIZE / 2;
-> -                       release = page_count(page) != 1 ||
-> +                       release = page_count(page) != pagecnt_bias ||
->                                   page_is_pfmemalloc(page) ||
->                                   page_to_nid(page) != numa_mem_id();
->                 } else {
-> @@ -504,9 +507,13 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
->                 }
->                 if (release) {
->                         dma_unmap_page(priv->ddev, dma, PAGE_SIZE, priv->dma_dir);
-> +                       __page_frag_cache_drain(page, --pagecnt_bias);
->                         frags->page = NULL;
->                 } else {
-> -                       page_ref_inc(page);
-> +                       if (pagecnt_bias == 1) {
-> +                               page_ref_add(page, USHRT_MAX);
-> +                               frags->pagecnt_bias = USHRT_MAX;
-> +                       }
->                 }
->
->                 nr++;
+On Mon, Feb 13, 2017 at 10:56:46PM +0100, Christian Lamparter wrote:
 
-You might want to examine the code while running perf.  What you
-should see is the page_ref_inc here go from eating a significant
-amount of time prior to the patch to something negligable after the
-patch.  If the page_ref_inc isn't adding much pressure then maybe that
-is why it didn't provide any significant gain on mlx4. I suppose it's
-a possibility that the mlx4 code is different enough that maybe their
-code is just running in a different environment, for example there
-might not be any MMIO pressure to put any serious pressure on the
-atomic op so it is processed more quickly.
+> Ok, thank you for sticking around. As for the patch: I've tested it with
+> the dlbug program from <https://lkml.org/lkml/2016/7/26/25> (modified to
+> pull from a local server) and the netem corruption policy as described
+> in <https://lkml.org/lkml/2016/8/3/181>. 
+> It works as expected. I did not get a single corruption with the patch
+> applied. Without the patch: every try had corruptions in random places. 
+> 
+> Tested-by: Christian Lamparter <chunkeey@googlemail.com>
 
-Also back when I was hammering on this it was back when I was mostly
-focused on routing and doing micro-benchmarks.  Odds are it is
-probably one of those things that won't show up unless you are really
-looking for it so no need to worry about addressing it now.
+OK...  Remaining interesting question is whether it adds a noticable
+overhead.  Could somebody try it on assorted benchmarks and see if
+it slows the things down?  The patch in question follows:
 
-- Alex
+Saner error handling in skb_copy_datagram_iter() et.al.
+
+skb_copy_datagram_{iter,msg}() and skb_copy_and_csum_datagram_msg()
+return 0 on success and -ve on error; there is no way to report
+a partially successful copy.  We definitely should not leave iterator
+advanced in case of -EINVAL (checksum failure); we will be asking for
+retransmit and we'll attempt to copy the retransmitted packet when
+it arrives.  We want it copied into the same place, not after the
+(corrupt) copy we'd got the first time.  That got broken a while ago
+when skb_copy_and_csum_datagram_msg() had been switched to use of
+iov_iter primitives, resulting in rsync failures on noisy links, etc.
+since commit e5a4b0bb803b in v3.19 ("switch memcpy_to_msg() and
+skb_copy{,_and_csum}_datagram_msg() to primitives").
+
+The other error possible there (-EFAULT) also should get the same
+treatment - we do not tell the caller how much got copied, so we
+shouldn't advance the iterator.  Unlike the -EINVAL case, such failures
+normally terminate recvmsg(), so it's less damaging, but it's still asking
+for trouble.  E.g. TCP receive fastpath treats failure to copy skb as
+"just leave it to slowpath".  Unfortunately, EFAULT _may_ transient if
+attacker is e.g. playing with mprotect() from another thread, and we end
+up with tp->ucopy.len out of sync with tp->ucopy.msg->msg_iter without
+being guaranteed that all subsequent attempts to copy anything will fail
+anyway.
+
+For consistency sake, let's make all these primitives restore the
+state of iterator in all error cases.  Old skb_copy_datagram_iter()
+renamed to __skb_copy_datagram_iter(), while skb_copy_datagram_iter(),
+skb_copy_datagram_msg()/skb_csum_and_copy_datagram_msg() take care to
+restore the original state of iterator.
+
+Tested-by: Christian Lamparter <chunkeey@googlemail.com>
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index c27011bbe30c..14ae17e77603 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -848,7 +848,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
+ 		total += VLAN_HLEN;
+ 
+-		ret = skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
++		ret = __skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
+ 		if (ret || !iov_iter_count(iter))
+ 			goto done;
+ 
+@@ -857,7 +857,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 			goto done;
+ 	}
+ 
+-	ret = skb_copy_datagram_iter(skb, vlan_offset, iter,
++	ret = __skb_copy_datagram_iter(skb, vlan_offset, iter,
+ 				     skb->len - vlan_offset);
+ 
+ done:
+@@ -899,11 +899,14 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+ 		finish_wait(sk_sleep(&q->sk), &wait);
+ 
+ 	if (skb) {
++		struct iov_iter saved = *to;
+ 		ret = macvtap_put_user(q, skb, to);
+-		if (unlikely(ret < 0))
++		if (unlikely(ret < 0)) {
++			*to = saved;
+ 			kfree_skb(skb);
+-		else
++		} else {
+ 			consume_skb(skb);
++		}
+ 	}
+ 	return ret;
+ }
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index a411b43a69eb..0d8badc3c4e9 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -480,7 +480,7 @@ static ssize_t ppp_read(struct file *file, char __user *buf,
+ 	iov.iov_base = buf;
+ 	iov.iov_len = count;
+ 	iov_iter_init(&to, READ, &iov, 1, count);
+-	if (skb_copy_datagram_iter(skb, 0, &to, skb->len))
++	if (__skb_copy_datagram_iter(skb, 0, &to, skb->len))
+ 		goto outf;
+ 	ret = skb->len;
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 30863e378925..2003b8c9970e 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1430,7 +1430,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 
+ 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
+ 
+-		ret = skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
++		ret = __skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
+ 		if (ret || !iov_iter_count(iter))
+ 			goto done;
+ 
+@@ -1439,7 +1439,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			goto done;
+ 	}
+ 
+-	skb_copy_datagram_iter(skb, vlan_offset, iter, skb->len - vlan_offset);
++	/* XXX: no error check? */
++	__skb_copy_datagram_iter(skb, vlan_offset, iter, skb->len - vlan_offset);
+ 
+ done:
+ 	/* caller is in process context, */
+@@ -1501,6 +1502,7 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ {
+ 	struct sk_buff *skb;
+ 	ssize_t ret;
++	struct iov_iter saved;
+ 	int err;
+ 
+ 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
+@@ -1513,11 +1515,14 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 	if (!skb)
+ 		return err;
+ 
++	saved = *to;
+ 	ret = tun_put_user(tun, tfile, skb, to);
+-	if (unlikely(ret < 0))
++	if (unlikely(ret < 0)) {
++		*to = saved;
+ 		kfree_skb(skb);
+-	else
++	} else {
+ 		consume_skb(skb);
++	}
+ 
+ 	return ret;
+ }
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f1adddc1c5ac..ee8d962373af 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3060,8 +3060,17 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags, int noblock,
+ 				  int *err);
+ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ 			   struct poll_table_struct *wait);
+-int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
++int __skb_copy_datagram_iter(const struct sk_buff *from, int offset,
+ 			   struct iov_iter *to, int size);
++static inline int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
++					struct iov_iter *to, int size)
++{
++	struct iov_iter saved = *to;
++	int res = __skb_copy_datagram_iter(from, offset, to, size);
++	if (unlikely(res))
++		*to = saved;
++	return res;
++}
+ static inline int skb_copy_datagram_msg(const struct sk_buff *from, int offset,
+ 					struct msghdr *msg, int size)
+ {
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ea633342ab0d..33ff2046dda1 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -394,7 +394,7 @@ EXPORT_SYMBOL(skb_kill_datagram);
+  *	@to: iovec iterator to copy to
+  *	@len: amount of data to copy from buffer to iovec
+  */
+-int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
++int __skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 			   struct iov_iter *to, int len)
+ {
+ 	int start = skb_headlen(skb);
+@@ -445,7 +445,7 @@ int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 		if ((copy = end - offset) > 0) {
+ 			if (copy > len)
+ 				copy = len;
+-			if (skb_copy_datagram_iter(frag_iter, offset - start,
++			if (__skb_copy_datagram_iter(frag_iter, offset - start,
+ 						   to, copy))
+ 				goto fault;
+ 			if ((len -= copy) == 0)
+@@ -471,7 +471,7 @@ int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(skb_copy_datagram_iter);
++EXPORT_SYMBOL(__skb_copy_datagram_iter);
+ 
+ /**
+  *	skb_copy_datagram_from_iter - Copy a datagram from an iov_iter.
+@@ -750,14 +750,16 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
+ {
+ 	__wsum csum;
+ 	int chunk = skb->len - hlen;
++	struct iov_iter saved;
+ 
+ 	if (!chunk)
+ 		return 0;
+ 
++	saved = msg->msg_iter;
+ 	if (msg_data_left(msg) < chunk) {
+ 		if (__skb_checksum_complete(skb))
+ 			goto csum_error;
+-		if (skb_copy_datagram_msg(skb, hlen, msg, chunk))
++		if (__skb_copy_datagram_iter(skb, hlen, &msg->msg_iter, chunk))
+ 			goto fault;
+ 	} else {
+ 		csum = csum_partial(skb->data, hlen, skb->csum);
+@@ -771,8 +773,10 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
+ 	}
+ 	return 0;
+ csum_error:
++	msg->msg_iter = saved;
+ 	return -EINVAL;
+ fault:
++	msg->msg_iter = saved;
+ 	return -EFAULT;
+ }
+ EXPORT_SYMBOL(skb_copy_and_csum_datagram_msg);
