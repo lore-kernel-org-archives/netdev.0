@@ -1,33 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] afs: Use system UUID generation
-Date: Mon, 13 Feb 2017 22:09:54 -0500 (EST)
-Message-ID: <20170213.220954.1817553128967975340.davem@davemloft.net>
-References: <148674517199.6350.17724845267620917182.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH 1/2] net: fs_enet: Fix an error handling path
+Date: Mon, 13 Feb 2017 22:12:34 -0500 (EST)
+Message-ID: <20170213.221234.1010801525970370907.davem@davemloft.net>
+References: <20170210201706.16588-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+        linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <148674517199.6350.17724845267620917182.stgit@warthog.procyon.org.uk>
+In-Reply-To: <20170210201706.16588-1-christophe.jaillet@wanadoo.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 10 Feb 2017 16:46:12 +0000
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Fri, 10 Feb 2017 21:17:06 +0100
 
-> There is now a general function for generating a UUID and AFS should make
-> use of it.  It's also been recommended to me that I switch to using random
-> rather than time plus MAC address-based UUIDs which this function does.
+> 'of_node_put(fpi->phy_node)' should also be called if we branch to
+> 'out_deregister_fixed_link' error handling path.
 > 
-> The patches can be found here also:
-> 
-> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-> 
-> Tagged thusly:
-> 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-> 	rxrpc-rewrite-20170210
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Pulled, thanks David.
+Applied.
