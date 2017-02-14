@@ -1,37 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] packet: fix races in fanout_add()
-Date: Tue, 14 Feb 2017 15:05:49 -0500 (EST)
-Message-ID: <20170214.150549.1660822376531685873.davem@davemloft.net>
-References: <1487091831.8227.62.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH 1/2] net: xilinx_emaclite: fix receive buffer overflow
+Date: Tue, 14 Feb 2017 15:12:59 -0500 (EST)
+Message-ID: <20170214.151259.1157334352658192111.davem@davemloft.net>
+References: <20170214171145.26953-1-anssi.hannula@bitwise.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, willemb@google.com
-To: eric.dumazet@gmail.com
+Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
+        netdev@vger.kernel.org
+To: anssi.hannula@bitwise.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42064 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42162 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751837AbdBNUFu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 15:05:50 -0500
-In-Reply-To: <1487091831.8227.62.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1755082AbdBNUNG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 15:13:06 -0500
+In-Reply-To: <20170214171145.26953-1-anssi.hannula@bitwise.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 14 Feb 2017 09:03:51 -0800
+From: Anssi Hannula <anssi.hannula@bitwise.fi>
+Date: Tue, 14 Feb 2017 19:11:44 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> xilinx_emaclite looks at the received data to try to determine the
+> Ethernet packet length but does not properly clamp it if
+> proto_type == ETH_P_IP or 1500 < proto_type <= 1518, causing a buffer
+> overflow and a panic via skb_panic() as the length exceeds the allocated
+> skb size.
 > 
-> Multiple threads can call fanout_add() at the same time.
+> Fix those cases.
 > 
-> We need to grab fanout_mutex earlier to avoid races that could
-> lead to one thread freeing po->rollover that was set by another thread.
+> Also add an additional unconditional check with WARN_ON() at the end.
 > 
-> Do the same in fanout_release(), for peace of mind, and to help us
-> finding lockdep issues earlier.
-> 
-> Fixes: dc99f600698d ("packet: Add fanout support.")
-> Fixes: 0648ab70afe6 ("packet: rollover prepare: per-socket state")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Anssi Hannula <anssi.hannula@bitwise.fi>
+> Fixes: bb81b2ddfa19 ("net: add Xilinx emac lite device driver")
 
-Applied and queued up for -stable, thanks.
+Why does this driver do all of this crazy stuff parsing the packet
+headers?
+
+It should be able to just read the length provided by the device
+at XEL_RPLR_OFFSET and just use that.
