@@ -1,35 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] net: fec: fix multicast filtering hardware
- setup
-Date: Tue, 14 Feb 2017 12:15:53 -0500 (EST)
-Message-ID: <20170214.121553.2045090305512818190.davem@davemloft.net>
-References: <1486951285-30668-1-git-send-email-fugang.duan@nxp.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Tue, 14 Feb 2017 17:17:22 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE63512@AcuExch.aculab.com>
+References: <20170214131206.44b644f6@redhat.com>
+        <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
+        <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
+ <20170214.120426.2032015522492111544.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, festevam@gmail.com,
-        stephen@networkplumber.org
-To: fugang.duan@nxp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37048 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753176AbdBNRPz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 12:15:55 -0500
-In-Reply-To: <1486951285-30668-1-git-send-email-fugang.duan@nxp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: "edumazet@google.com" <edumazet@google.com>, "brouer@redhat.com"
+	<brouer@redhat.com>, "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "tariqt@mellanox.com"
+	<tariqt@mellanox.com>, "kafai@fb.com" <kafai@fb.com>, "saeedm@mellanox.com"
+	<saeedm@mellanox.com>, "willemb@google.com" <willemb@google.com>,
+	"bblanco@plumgrid.com" <bblanco@plumgrid.com>, "ast@kernel.org"
+	<ast@kernel.org>, "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: 'David Miller' <davem@davemloft.net>, "ttoukan.linux@gmail.com"
+	<ttoukan.linux@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170214.120426.2032015522492111544.davem@davemloft.net>
+Content-Language: en-US
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Duan <fugang.duan@nxp.com>
-Date: Mon, 13 Feb 2017 10:01:25 +0800
+From: David Miller
+> Sent: 14 February 2017 17:04
+...
+> One path I see around all of this is full integration.  Meaning that
+> we can free pages into the page allocator which are still DMA mapped.
+> And future allocations from that device are prioritized to take still
+> DMA mapped objects.
+...
 
-> From: Rui Sousa <rui.sousa@nxp.com>
-> 
-> Fix hardware setup of multicast address hash:
-> - Never clear the hardware hash (to avoid packet loss)
-> - Construct the hash register values in software and then write once
-> to hardware
-> 
-> Signed-off-by: Rui Sousa <rui.sousa@nxp.com>
-> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+For systems with 'expensive' iommu has anyone tried separating the
+allocation of iommu resource (eg page table slots) from their
+assignment to physical pages?
 
-Applied, thanks.
+Provided the page sizes all match, setting up a receive buffer might
+be as simple as writing the physical address into the iommu slot
+that matches the ring entry.
+
+Or am I thinking about hardware that is much simpler than real life?
+
+	David
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
