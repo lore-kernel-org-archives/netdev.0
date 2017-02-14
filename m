@@ -1,64 +1,87 @@
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Subject: Re: [PATCH] uapi: fix linux/if_pppol2tp.h userspace compilation errors
-Date: Tue, 14 Feb 2017 23:29:50 +0300
-Message-ID: <20170214202950.GB17325@altlinux.org>
-References: <20170214103353.GA8394@altlinux.org> <20170214.143723.629330014459224649.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
+Date: Tue, 14 Feb 2017 21:31:57 +0100
+Message-ID: <20170214213157.32e37148@redhat.com>
+References: <20170208234127.3041579-1-tom@herbertland.com>
+        <20170208234127.3041579-2-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?utf-8?Q?Asbj=C3=B8rn_Sloth_T=C3=B8nnesen?= <asbjorn@asbjorn.st>,
-        jchapman@katalix.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vmicros1.altlinux.org ([194.107.17.57]:54510 "EHLO
-        vmicros1.altlinux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753943AbdBNU3x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 15:29:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20170214.143723.629330014459224649.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:36664 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754220AbdBNUcC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Feb 2017 15:32:02 -0500
+In-Reply-To: <20170208234127.3041579-2-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2017 at 02:37:23PM -0500, David Miller wrote:
-> From: "Dmitry V. Levin" <ldv@altlinux.org>
-> Date: Tue, 14 Feb 2017 13:33:53 +0300
-> 
-> > In file included from /usr/include/linux/l2tp.h:12:0,
-> >                  from /usr/include/linux/if_pppol2tp.h:21,
-> > /usr/include/netinet/in.h:31:8: error: redefinition of 'struct in_addr'
-> 
-> This is protected properly by __UAPI_DEF_IN_ADDR, so whichever gets
-> included first makes the definition.
-> 
-> This whole thing is designed so that if GLIBC headers are included
-> first, __UAPI_DEF_IN_ADDR will be defined to zero, therefore
-> linux/in.h won't try to make the definition.  Otherwise it will.
-> 
-> The facility should not be so fragile that we have to play all
-> kinds of header ordering games.  We would be imposing the same
-> strange rules on userspace applications including these headers
-> which is completely unacceptable.
+On Wed, 8 Feb 2017 15:41:20 -0800
+Tom Herbert <tom@herbertland.com> wrote:
 
-The facility is so fragile that netinet/in.h cannot be included after
-linux/in.h:
+> +static inline int __xdp_run_one_hook(struct xdp_hook *hook,
+> +				     struct xdp_buff *xdp)
+> +{
+> +	void *priv = rcu_dereference(hook->priv);
+> +
+> +	if (hook->is_bpf) {
+> +		/* Run BPF programs directly do avoid one layer of
+> +		 * indirection.
+> +		 */
+> +		return BPF_PROG_RUN((struct bpf_prog *)priv, (void *)xdp);
+> +	} else {
+> +		return hook->hookfn(priv, xdp);
+> +	}
+> +}
+> +
+> +/* Core function to run the XDP hooks. This must be as fast as possible */
+> +static inline int __xdp_hook_run(struct xdp_hook_set *hook_set,
+> +				 struct xdp_buff *xdp,
+> +				 struct xdp_hook **last_hook)
+> +{
+> +	struct xdp_hook *hook;
+> +	int i, ret;
+> +
+> +	if (unlikely(!hook_set))
+> +		return XDP_PASS;
+> +
+> +	hook = &hook_set->hooks[0];
+> +	ret = __xdp_run_one_hook(hook, xdp);
+> +	*last_hook = hook;
+> +
+> +	for (i = 1; i < hook_set->num; i++) {
+> +		if (ret != XDP_PASS)
+> +			break;
+> +		hook = &hook_set->hooks[i];
+> +		ret = __xdp_run_one_hook(hook, xdp);
+> +	}
+> +
+> +	return ret;
+> +}
 
-$ gcc -S -o/dev/null -xc /dev/null -include /usr/include/linux/in.h -include /usr/include/netinet/in.h
-In file included from <command-line>:32:0:
-/usr/include/netinet/in.h:31:8: error: redefinition of 'struct in_addr'
- struct in_addr
-        ^~~~~~~
-In file included from <command-line>:32:0:
-/usr/include/linux/in.h:84:8: note: originally defined here
- struct in_addr {
-        ^~~~~~~
+There is one basic problem with this approach.  There is no bulking and
+no reuse of instruction cache.  There is no revolution in this approach.
+We will end-up with the same known performance problems when more hook
+users get added.
 
-> So if the facility isn't working correctly, let's fix that instead
-> of fidgeting with include ordering all over the tree.
+Calling N-number of hooks per every packet, will just end-up flushing
+the instruction cache (like the issues we have today).
 
-I don't mind if the whole facility will get fixed someday.
-My humble objective was just to fix the regression introduced in v4.10-rc1
-by commit 47c3e7783be4.
+Instead take N-packets, and then call the hooks by turn (store action
+verdicts in packet-vector).  Such an architecture would be inline with
+that VPP, Snabb and DPDK is doing.  Optimizing icache usage, and opens
+up for smarter prefetching of lookup tables.  Imagine, having hook-1
+identify lookup bucket and start prefetch, hook-2 access the bucket and
+prefetch table data, and hook-3 read data.  This is what DPDK is doing
+see[1], and VPP is doing similar tricks to get it to scale to large
+route lookup tables.
 
+[1] http://dpdk.org/doc/guides/prog_guide/packet_framework.html#figure-figure35
 
 -- 
-ldv
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
