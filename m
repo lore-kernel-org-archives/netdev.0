@@ -1,60 +1,44 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH 1/8] net: stmmac: remove useless parenthesis
-Date: Tue, 14 Feb 2017 20:54:34 +0100
-Message-ID: <20170214195441.30425-2-clabbe.montjoie@gmail.com>
-References: <20170214195441.30425-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170214195441.30425-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] ibmvnic: Fix initial MTU settings
+Date: Tue, 14 Feb 2017 14:58:10 -0500 (EST)
+Message-ID: <20170214.145810.826153305226199095.davem@davemloft.net>
+References: <1487089379-29498-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nfont@linux.vnet.ibm.com,
+        jallen@linux.vnet.ibm.com
+To: tlfalcon@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41894 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754778AbdBNT6M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 14:58:12 -0500
+In-Reply-To: <1487089379-29498-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch remove some useless parenthesis.
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Tue, 14 Feb 2017 10:22:59 -0600
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 8 ++++----
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 2 +-
- 2 files changed, 5 insertions(+), 5 deletions(-)
+> In the current driver, the MTU is set to the maximum value
+> capable for the backing device. This decision turned out to
+> be a mistake as it led to confusion among users. The expected
+> initial MTU value used for other IBM vNIC capable operating
+> systems is 1500, with the maximum value (9000) reserved for
+> when Jumbo frames are enabled. This patch sets the MTU to
+> the default value for a net device.
+> 
+> It also corrects a discrepancy between MTU values received from
+> firmware, which includes the ethernet header length, and net
+> device MTU values.
+> 
+> Finally, it removes redundant min/max MTU assignments after device
+> initialization.
+> 
+> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> ---
+> v2: included more detailed commit message addressing why
+>     this patch is needed
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 7251871..ee1dbf4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -716,15 +716,15 @@ static void stmmac_adjust_link(struct net_device *dev)
- 			new_state = 1;
- 			switch (phydev->speed) {
- 			case 1000:
--				if (likely((priv->plat->has_gmac) ||
--					   (priv->plat->has_gmac4)))
-+				if (likely(priv->plat->has_gmac ||
-+					   priv->plat->has_gmac4))
- 					ctrl &= ~priv->hw->link.port;
- 				stmmac_hw_fix_mac_speed(priv);
- 				break;
- 			case 100:
- 			case 10:
--				if (likely((priv->plat->has_gmac) ||
--					   (priv->plat->has_gmac4))) {
-+				if (likely(priv->plat->has_gmac ||
-+					   priv->plat->has_gmac4)) {
- 					ctrl |= priv->hw->link.port;
- 					if (phydev->speed == SPEED_100) {
- 						ctrl |= priv->hw->link.speed;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index d9893cf..a695773 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -257,7 +257,7 @@ int stmmac_mdio_register(struct net_device *ndev)
- 			 * If an IRQ was provided to be assigned after
- 			 * the bus probe, do it here.
- 			 */
--			if ((!mdio_bus_data->irqs) &&
-+			if (!mdio_bus_data->irqs &&
- 			    (mdio_bus_data->probed_phy_irq > 0)) {
- 				new_bus->irq[addr] =
- 					mdio_bus_data->probed_phy_irq;
--- 
-2.10.2
+Applied, thanks.
