@@ -1,68 +1,44 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Tue, 14 Feb 2017 06:12:41 -0800
-Message-ID: <CANn89iK6qWxqWNf+Tb7nTXNhkREKSmj=HCMSVZhDZOaw5Qo9Aw@mail.gmail.com>
-References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
- <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
- <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
- <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
- <20170214131206.44b644f6@redhat.com> <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] net_sched: nla_memdup_cookie() can be static
+Date: Tue, 14 Feb 2017 14:19:32 +0000
+Message-ID: <20170214141932.15115-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>, "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>,
-	Martin KaFai Lau <kafai@fb.com>, Saeed Mahameed <saeedm@mellanox.com>,
-	Willem de Bruijn <willemb@google.com>, Brenden Blanco <bblanco@plumgrid.com>,
-	Alexei Starovoitov <ast@kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>, linux-mm <linux-mm@kvack.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f194.google.com ([209.85.213.194]:32779 "EHLO
+        mail-yb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753912AbdBNOTk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 09:19:40 -0500
+Received: by mail-yb0-f194.google.com with SMTP id 123so5512631ybe.0
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 06:19:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2017 at 5:45 AM, Eric Dumazet <edumazet@google.com> wrote:
->
-> Could we now please Ack this v3 and merge it ?
->
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-BTW I found the limitation on sender side.
+Fixes the following sparse warning:
 
-After doing :
+net/sched/act_api.c:532:5: warning:
+ symbol 'nla_memdup_cookie' was not declared. Should it be static?
 
-lpaa23:~# ethtool -c eth0
-Coalesce parameters for eth0:
-Adaptive RX: on  TX: off
-stats-block-usecs: 0
-sample-interval: 0
-pkt-rate-low: 400000
-pkt-rate-high: 450000
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ net/sched/act_api.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-rx-usecs: 16
-rx-frames: 44
-rx-usecs-irq: 0
-rx-frames-irq: 0
-
-tx-usecs: 16
-tx-frames: 16
-tx-usecs-irq: 0
-tx-frames-irq: 256
-
-rx-usecs-low: 0
-rx-frame-low: 0
-tx-usecs-low: 0
-tx-frame-low: 0
-
-rx-usecs-high: 128
-rx-frame-high: 0
-tx-usecs-high: 0
-tx-frame-high: 0
-
-lpaa23:~# ethtool -C eth0 tx-usecs 8 tx-frames 8
-
--> 36 Gbit on a single TCP flow, this is the highest number I ever got.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 3c5e29b..f219ff3 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -529,7 +529,7 @@ int tcf_action_dump(struct sk_buff *skb, struct list_head *actions,
+ 	return err;
+ }
+ 
+-int nla_memdup_cookie(struct tc_action *a, struct nlattr **tb)
++static int nla_memdup_cookie(struct tc_action *a, struct nlattr **tb)
+ {
+ 	a->act_cookie = kzalloc(sizeof(*a->act_cookie), GFP_KERNEL);
+ 	if (!a->act_cookie)
