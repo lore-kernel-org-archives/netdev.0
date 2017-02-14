@@ -1,102 +1,65 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
-Date: Tue, 14 Feb 2017 12:47:18 -0800
-Message-ID: <CALx6S34mpo+Q_gsP37ENDqC8yEhk9s=in9v0S_c26z0JTM=adQ@mail.gmail.com>
-References: <20170208234127.3041579-1-tom@herbertland.com> <20170208234127.3041579-2-tom@herbertland.com>
- <20170214213157.32e37148@redhat.com>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH 2/2] pcnet32: fix BNC/AUI port on AM79C970A
+Date: Tue, 14 Feb 2017 21:54:58 +0100
+Message-ID: <201702142154.59035.linux@rainbow-software.org>
+References: <1487025947-28867-1-git-send-email-linux@rainbow-software.org> <1487025947-28867-2-git-send-email-linux@rainbow-software.org> <20170214.142856.670670406050328036.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:32918 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751941AbdBNUrU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 15:47:20 -0500
-Received: by mail-qt0-f195.google.com with SMTP id n13so18942819qtc.0
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 12:47:19 -0800 (PST)
-In-Reply-To: <20170214213157.32e37148@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: pcnet32@frontier.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170214.142856.670670406050328036.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 14, 2017 at 12:31 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Wed, 8 Feb 2017 15:41:20 -0800
-> Tom Herbert <tom@herbertland.com> wrote:
+On Tuesday 14 February 2017 20:28:56 David Miller wrote:
+> From: Ondrej Zary <linux@rainbow-software.org>
+> Date: Mon, 13 Feb 2017 23:45:47 +0100
 >
->> +static inline int __xdp_run_one_hook(struct xdp_hook *hook,
->> +                                  struct xdp_buff *xdp)
->> +{
->> +     void *priv = rcu_dereference(hook->priv);
->> +
->> +     if (hook->is_bpf) {
->> +             /* Run BPF programs directly do avoid one layer of
->> +              * indirection.
->> +              */
->> +             return BPF_PROG_RUN((struct bpf_prog *)priv, (void *)xdp);
->> +     } else {
->> +             return hook->hookfn(priv, xdp);
->> +     }
->> +}
->> +
->> +/* Core function to run the XDP hooks. This must be as fast as possible */
->> +static inline int __xdp_hook_run(struct xdp_hook_set *hook_set,
->> +                              struct xdp_buff *xdp,
->> +                              struct xdp_hook **last_hook)
->> +{
->> +     struct xdp_hook *hook;
->> +     int i, ret;
->> +
->> +     if (unlikely(!hook_set))
->> +             return XDP_PASS;
->> +
->> +     hook = &hook_set->hooks[0];
->> +     ret = __xdp_run_one_hook(hook, xdp);
->> +     *last_hook = hook;
->> +
->> +     for (i = 1; i < hook_set->num; i++) {
->> +             if (ret != XDP_PASS)
->> +                     break;
->> +             hook = &hook_set->hooks[i];
->> +             ret = __xdp_run_one_hook(hook, xdp);
->> +     }
->> +
->> +     return ret;
->> +}
+> > Even though the port autoselection is enabled by default on AM79C970A,
+> > BNC/AUI port does not work because the link is always reported to be
+> > down. The link state reported by the chip belongs only to the TP port
+> > but the driver uses it regardless of the port used. The chip can't
+> > detect BNC/AUI link state.
+> >
+> > Disable port autoselection and use TP port by default to keep current
+> > behavior (link detection works on TP port, BNC/AUI port does not work).
+> >
+> > Implement ethtool autoneg, port and duplex configuration to allow
+> > using the BNC/AUI port.
+> >
+> > Report the TP link state only if the TP port is selected. When the
+> > port autoselection is enabled or AUI port is selected, report the link
+> > as always up.
+> >
+> > Move pcnet32_suspend() and pcnet32_clr_suspend() functions to avoid
+> > forward declarations.
+> >
+> > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 >
-> There is one basic problem with this approach.  There is no bulking and
-> no reuse of instruction cache.  There is no revolution in this approach.
-> We will end-up with the same known performance problems when more hook
-> users get added.
+> Also applied to net-next, thanks.
 >
-> Calling N-number of hooks per every packet, will just end-up flushing
-> the instruction cache (like the issues we have today).
->
-> Instead take N-packets, and then call the hooks by turn (store action
-> verdicts in packet-vector).  Such an architecture would be inline with
-> that VPP, Snabb and DPDK is doing.  Optimizing icache usage, and opens
-> up for smarter prefetching of lookup tables.  Imagine, having hook-1
-> identify lookup bucket and start prefetch, hook-2 access the bucket and
-> prefetch table data, and hook-3 read data.  This is what DPDK is doing
-> see[1], and VPP is doing similar tricks to get it to scale to large
-> route lookup tables.
->
-Conceptually, that's a good extension, basically provide VPP-like
-interface in the kernel. Unfortunately though, we need the return
-codes to be processed in the driver so that API and driver model would
-have to change more. If we do this I suggest it's done sooner than
-later, as more drivers adopt XDP changing all the drivers for that API
-become much harder (as I saw with just the second version of this
-patch).
+> Are you really sure the is no way to discover the BNC/AUI link state
+> from the hardware?
 
-Tom
+Yes, searched through the datasheet: http://support.amd.com/TechDocs/19436.pdf
 
+Even the TP link detection seems a bit wrong - the driver reads link LED state 
+(there's no other way) but does not ensure that the LED is really programmed 
+to represent link state. But I'm better not touching that - it works for me 
+and probably for other people too.
 
-> [1] http://dpdk.org/doc/guides/prog_guide/packet_framework.html#figure-figure35
->
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   LinkedIn: http://www.linkedin.com/in/brouer
+Thought at first that the card (Microdyne NE5500+) is faulty as BNC didn't 
+work in Linux and also in Windows XP. But then I tested Windows 98 and it 
+worked fine (the driver uses port autoselect).
+
+Turned out that the Windows XP driver is broken. It uses manual port 
+selection - works in TP mode (including link state detection) but does not 
+work in BNC/AUI mode.
+
+-- 
+Ondrej Zary
