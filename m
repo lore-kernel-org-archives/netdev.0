@@ -1,38 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 2/8] gtp: switch from struct socket to
- struct sock for the GTP sockets
-Date: Tue, 14 Feb 2017 12:48:15 -0500 (EST)
-Message-ID: <20170214.124815.217549517821684819.davem@davemloft.net>
-References: <20170213153624.14170-1-aschultz@tpip.net>
-        <20170213153624.14170-3-aschultz@tpip.net>
+From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: Re: ath6kl: Use net_device_stats from struct net_device
+Date: Tue, 14 Feb 2017 09:57:54 -0800
+Message-ID: <5bff5d456de54c548b0b9e8e25f3f825@eusanexr01a.eu.qualcomm.com>
+References: <20170209112117.23994-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org, laforge@gnumonks.org,
-        Lionel.Gauthier@eurecom.fr, osmocom-net-gprs@lists.osmocom.org,
-        jonas@southpole.se
-To: aschultz@tpip.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38262 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753057AbdBNRsR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 12:48:17 -0500
-In-Reply-To: <20170213153624.14170-3-aschultz@tpip.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170209112117.23994-1-tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andreas Schultz <aschultz@tpip.net>
-Date: Mon, 13 Feb 2017 16:36:18 +0100
+Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org> wrote:
+> Instead of using a private copy of struct net_device_stats in struct
+> ath6kl_vif, use stats from struct net_device. Also remove the now
+> unnecessary .ndo_get_stats function.
+> 
+> Signed-off-by: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
 
-> +	if (gtp->sk0) {
-> +		udp_sk(gtp->sk0)->encap_type = 0;
-> +		rcu_assign_sk_user_data(gtp->sk0, NULL);
-> +		sock_put(gtp->sk0);
->  	}
+Patch applied to ath-next branch of ath.git, thanks.
 
-This does "sock_put(NULL);" because you are assigning gtp->sk0 to
-NULL before the sock_put() call.  So you are leaking the socket,
-at best.
+1235a3b66cbf ath6kl: Use net_device_stats from struct net_device
 
-You need to load the socket pointer into a local variable in order
-to do this correctly.
+-- 
+https://patchwork.kernel.org/patch/9564413/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
