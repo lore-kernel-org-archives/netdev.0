@@ -1,61 +1,64 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
-Date: Tue, 14 Feb 2017 10:16:44 +0100
-Message-ID: <CACT4Y+a7-TXY2f14Cn0wUapiJ5BYv=2wkJ4vcMGMnbDjqTPnVw@mail.gmail.com>
-References: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
- <20170214070854.GH30338@gauss.secunet.com> <CACT4Y+aPd8drh7MQf8cXLs_9f-oymf6YiWfN+owUsSYYz0yMzA@mail.gmail.com>
- <20170214090816.GJ30338@gauss.secunet.com>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Tue, 14 Feb 2017 10:19:37 +0100
+Message-ID: <20170214091937.GA18546@krava>
+References: <20170214091250.57d054b2@canb.auug.org.au>
+ <20170214064221.GB10242@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
         David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+        Arnaldo Carvalho de Melo <acme@infradead.org>
+To: Ingo Molnar <mingo@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170214090816.GJ30338@gauss.secunet.com>
+Content-Disposition: inline
+In-Reply-To: <20170214064221.GB10242@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 14, 2017 at 10:08 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> On Tue, Feb 14, 2017 at 09:41:35AM +0100, Dmitry Vyukov wrote:
->> On Tue, Feb 14, 2017 at 8:08 AM, Steffen Klassert
->> <steffen.klassert@secunet.com> wrote:
->> > On Mon, Feb 13, 2017 at 03:46:56PM +0100, Dmitry Vyukov wrote:
->> >>
->> >> On commit 7089db84e356562f8ba737c29e472cc42d530dbc.
->> >>
->> >>
->> >> struct flowi4 fl4_stack allocated on stack in udp_sendmsg is being
->> >> casted to larger struct flowi and then accessed.
->> >
->> > Looks like the problem is when using IPv4-mapped IPv6 addresses.
->> >
->> > Does the patch below help?
->>
->>
->> Steffen, can you please run the reproducer I provided?
->> I specifically spent time to supply you with a simple, reliable
->> reproducer. I am not even saying about adding a test case for the bug.
->> Kernel development practices seem to encourage developers to not
->> bother with tests. But at least testing a patch that you are sending
->> looks like a reasonable thing to do.
->
-> I tested this with my socket policy testcases of course.
-> I dont have a IPv4-mapped IPv6 addresses testcase and
-> changing userspace in my test setup means to rebuild
-> the system iso image.
->
-> Asking for a test is not so uncommon. You have the
-> testcase, why not running it again?
+On Tue, Feb 14, 2017 at 07:42:21AM +0100, Ingo Molnar wrote:
+> 
+> * Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> 
+> > Hi all,
+> > 
+> > After merging the net tree, today's linux-next build (powerpc64le perf)
+> > failed like this:
+> > 
+> > Warning: tools/include/uapi/linux/bpf.h differs from kernel
+> > bpf.c: In function 'bpf_prog_attach':
+> > bpf.c:180:6: error: 'union bpf_attr' has no member named 'attach_flags'; did you mean 'map_flags'?
+> >   attr.attach_flags  = flags;
+> >       ^
+> > 
+> > Caused by commit
+> > 
+> >   7f677633379b ("bpf: introduce BPF_F_ALLOW_OVERRIDE flag")
+> > 
+> > Unfortunately, the perf header files are kept separate from the kernel
+> > header files proper and are not automatically copied over :-(
+> 
+> No, that's wrong, the problem is not that headers were not shared, the problem is 
+> that a tooling interdependency was not properly tested *and* that the dependency 
+> was not properly implemented in the build system either.
+> 
+> Note that we had similar build breakages when include headers _were_ shared as 
+> well, so sharing the headers would only have worked around this particular bug and 
+> would have introduced fragility in other places...
+> 
+> The best, most robust solution in this particular case would be to fix the 
+> (tooling) build system to express the dependency, that would have shown the build 
+> failure right when the modification was done.
 
+so we have the warning now:
+  Warning: tools/include/uapi/linux/bpf.h differs from kernel
 
-Because there are too many kernel subsystems and bugs. I need more
-than 24h per day to reports and retest them.
+do you want to change it into the build failure?
 
-I've run the repro with you patch and don't see the bug any more:
-
-Tested-by: Dmitry Vyukov <dvyukov@google.com>
+jirka
