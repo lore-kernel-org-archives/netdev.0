@@ -1,32 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ethernet: ti: cpsw: fix cpsw assignment in
- resume
-Date: Tue, 14 Feb 2017 14:54:48 -0500 (EST)
-Message-ID: <20170214.145448.42455339055289365.davem@davemloft.net>
-References: <1487076135-4798-1-git-send-email-ivan.khoronzhuk@linaro.org>
+From: Ricardo Nabinger Sanchez <rnsanchez@gmail.com>
+Subject: Re: possible unannotated irqs-off
+Date: Tue, 14 Feb 2017 17:55:12 -0200
+Message-ID: <CAMyjOU+1CAC-VLL0JBABnbzWGZPLncqy6jXWQpVkd6vnXi-3pA@mail.gmail.com>
+References: <20170214172858.07d4393a@darkbook.lan.box>
+ <20170214.144648.771654199689384203.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: ivan.khoronzhuk@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487076135-4798-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:33412 "EHLO
+        mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753812AbdBNTzV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 14:55:21 -0500
+Received: by mail-yw0-f179.google.com with SMTP id u68so72016006ywg.0
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 11:55:21 -0800 (PST)
+Received: from darkbook.lan.box ([179.233.226.113])
+        by smtp.gmail.com with ESMTPSA id h3sm524897ywc.54.2017.02.14.11.55.14
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Tue, 14 Feb 2017 11:55:14 -0800 (PST)
+In-Reply-To: <20170214.144648.771654199689384203.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Date: Tue, 14 Feb 2017 14:42:15 +0200
+On Tue, Feb 14, 2017 at 5:46 PM, David Miller <davem@davemloft.net>
+wrote:
 
-> There is a copy-paste error, which hides breaking of resume
-> for CPSW driver: there was replaced netdev_priv() to ndev_to_cpsw(ndev)
-> in suspend, but left it unchanged in resume.
-> 
-> Fixes: 606f39939595a4d4540406bfc11f265b2036af6d
-> (ti: cpsw: move platform data and slaves info to cpsw_common)
-> 
-> Reported-by: Alexey Starikovskiy <AStarikovskiy@topcon.com>
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> From: Ricardo Nabinger Sanchez <rnsanchez@gmail.com>
+> Date: Tue, 14 Feb 2017 17:28:58 -0200
+>
+> > [   93.509167]  ? jtcp_rcv_established+0x8e/0x2d0
+> > [   93.509173]  jtcp_rcv_established+0x8e/0x2d0
+>
+> What are you using this TCP probe for?  That's where the locking
+> problem is happening.
+>
 
-Applied and queued up for -stable, thanks.
+I just have a kernel build with most tracing/profiling things included
+for the sake of LTTng and perf being as verbose as possible.  It's all
+vanilla, I haven't patched or modified any of the code.
+
+My way of reproducing it is checking for updates for my Slackware64
+system (i.e., "slackpkg update").
+
+Cheers,
+
+-- 
+Ricardo Nabinger Sanchez    http://rnsanchez.wait4.org/
+        "You never learned anything by doing it right."
