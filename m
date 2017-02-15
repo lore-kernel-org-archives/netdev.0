@@ -1,54 +1,66 @@
-From: Anoob Soman <anoob.soman@citrix.com>
-Subject: Re: [PATCH net] packet: Do not call fanout_release from atomic
- contexts
-Date: Wed, 15 Feb 2017 11:07:21 +0000
-Message-ID: <7fbe1936-2305-73bb-7808-f830db424436@citrix.com>
-References: <1486730384-18749-1-git-send-email-anoob.soman@citrix.com>
- <1486735077.7793.149.camel@edumazet-glaptop3.roam.corp.google.com>
- <822618dc-9e7f-83dd-1920-6a69aaf27dc0@citrix.com>
- <1486995964.8227.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <64b9aba2-71c7-6e69-630e-aba995306dbf@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH net-next] e1000: Omit private ndo_get_stats function
+Date: Wed, 15 Feb 2017 12:08:11 +0100
+Message-ID: <20170215110811.29976-1-tklauser@distanz.ch>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, Joe Perches <joe@perches.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:57375 "EHLO
-        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751600AbdBOLHq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 06:07:46 -0500
-In-Reply-To: <64b9aba2-71c7-6e69-630e-aba995306dbf@citrix.com>
+Received: from mail.zhinst.com ([212.126.164.98]:49556 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751655AbdBOLIY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 06:08:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13/02/17 14:50, Anoob Soman wrote:
-> On 13/02/17 14:26, Eric Dumazet wrote:
->> On Mon, 2017-02-13 at 13:28 +0000, Anoob Soman wrote:
->>
->>> Wouldn't it be easier to call synchronize_net(), before calling
->>> fanout_release_data() and kfree(f).
->>> The behavior, wrt synchronize_net, would be same as before and
->>> fanout_release() will cleanup everything without leaving any residue.
->> So we would require two synchronize_net() calls instead of one ?
->>
->> synchronize_net() is very expensive on some hosts, it is a big hammer.
->>
->>
->>
->
-> Yes, one before fanout_release_data() (will be called only if 
-> fanout->sk_ref == 0) and one after fanout_release().
->
-> I understand synchronize_net() is expensive, but adding another 
-> synchronize_net(),  before fanout_release_data(), will be no different 
-> from what we have in the existing code.
->
-> I can also make sure second synchronize_net() doesn't get called 
-> again, if fanout_release() calls synchronize_net(), by making 
-> fanout_release() return something to indicate it has done 
-> synchronize_net().
+e1000_get_stats() just returns dev->stats so we can leave it
+out altogether and let dev_get_stats() do the job.
 
-Hi Eric,
+Suggested-by: Joe Perches <joe@perches.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 15 ---------------
+ 1 file changed, 15 deletions(-)
 
-Did you get a chance to looks at my comments ?
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 93fc6c67306b..bd8b05fe8258 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -131,7 +131,6 @@ static void e1000_watchdog(struct work_struct *work);
+ static void e1000_82547_tx_fifo_stall_task(struct work_struct *work);
+ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 				    struct net_device *netdev);
+-static struct net_device_stats *e1000_get_stats(struct net_device *netdev);
+ static int e1000_change_mtu(struct net_device *netdev, int new_mtu);
+ static int e1000_set_mac(struct net_device *netdev, void *p);
+ static irqreturn_t e1000_intr(int irq, void *data);
+@@ -846,7 +845,6 @@ static const struct net_device_ops e1000_netdev_ops = {
+ 	.ndo_open		= e1000_open,
+ 	.ndo_stop		= e1000_close,
+ 	.ndo_start_xmit		= e1000_xmit_frame,
+-	.ndo_get_stats		= e1000_get_stats,
+ 	.ndo_set_rx_mode	= e1000_set_rx_mode,
+ 	.ndo_set_mac_address	= e1000_set_mac,
+ 	.ndo_tx_timeout		= e1000_tx_timeout,
+@@ -3530,19 +3528,6 @@ static void e1000_reset_task(struct work_struct *work)
+ }
+ 
+ /**
+- * e1000_get_stats - Get System Network Statistics
+- * @netdev: network interface device structure
+- *
+- * Returns the address of the device statistics structure.
+- * The statistics are actually updated from the watchdog.
+- **/
+-static struct net_device_stats *e1000_get_stats(struct net_device *netdev)
+-{
+-	/* only return the current stats */
+-	return &netdev->stats;
+-}
+-
+-/**
+  * e1000_change_mtu - Change the Maximum Transfer Unit
+  * @netdev: network interface device structure
+  * @new_mtu: new value for maximum frame size
+-- 
+2.11.0
