@@ -1,74 +1,63 @@
-From: Vadim Fedorenko <vfedorenko@yandex-team.ru>
-Subject: [PATCH] Implement full-functionality option for ECN encapsulation in tunnel
-Date: Wed, 15 Feb 2017 16:33:56 +0300
-Message-ID: <1487165636-10157-1-git-send-email-vfedorenko@yandex-team.ru>
-Cc: Vadim Fedorenko <vfedorenko@yandex-team.ru>,
-        netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-To: Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>,
-        Julian Anastasov <ja@ssi.bg>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] packet: Do not call fanout_release from atomic
+ contexts
+Date: Wed, 15 Feb 2017 05:46:23 -0800
+Message-ID: <1487166383.1311.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1486730384-18749-1-git-send-email-anoob.soman@citrix.com>
+         <1486735077.7793.149.camel@edumazet-glaptop3.roam.corp.google.com>
+         <822618dc-9e7f-83dd-1920-6a69aaf27dc0@citrix.com>
+         <1486995964.8227.34.camel@edumazet-glaptop3.roam.corp.google.com>
+         <64b9aba2-71c7-6e69-630e-aba995306dbf@citrix.com>
+         <7fbe1936-2305-73bb-7808-f830db424436@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Anoob Soman <anoob.soman@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33362 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750719AbdBONqZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 08:46:25 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 16so1634747pgg.0
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 05:46:25 -0800 (PST)
+In-Reply-To: <7fbe1936-2305-73bb-7808-f830db424436@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-IPVS tunnel mode works as simple tunnel (see RFC 3168) copying ECN field
-to outer header. That's result in packet drops on egress tunnels in case
-the egress tunnel operates as ECN-capable with Full-functionality option
-(like ip_tunnel and ip6_tunnel kernel modules), according to RFC 3168
-section 9.1.1 recommendation.
+On Wed, 2017-02-15 at 11:07 +0000, Anoob Soman wrote:
+> On 13/02/17 14:50, Anoob Soman wrote:
+> > On 13/02/17 14:26, Eric Dumazet wrote:
+> >> On Mon, 2017-02-13 at 13:28 +0000, Anoob Soman wrote:
+> >>
+> >>> Wouldn't it be easier to call synchronize_net(), before calling
+> >>> fanout_release_data() and kfree(f).
+> >>> The behavior, wrt synchronize_net, would be same as before and
+> >>> fanout_release() will cleanup everything without leaving any residue.
+> >> So we would require two synchronize_net() calls instead of one ?
+> >>
+> >> synchronize_net() is very expensive on some hosts, it is a big hammer.
+> >>
+> >>
+> >>
+> >
+> > Yes, one before fanout_release_data() (will be called only if 
+> > fanout->sk_ref == 0) and one after fanout_release().
+> >
+> > I understand synchronize_net() is expensive, but adding another 
+> > synchronize_net(),  before fanout_release_data(), will be no different 
+> > from what we have in the existing code.
+> >
+> > I can also make sure second synchronize_net() doesn't get called 
+> > again, if fanout_release() calls synchronize_net(), by making 
+> > fanout_release() return something to indicate it has done 
+> > synchronize_net().
+> 
+> Hi Eric,
+> 
+> Did you get a chance to looks at my comments ?
 
-This patch implements ECN full-functionality option into ipvs xmit code.
+You misunderstood my suggestion. 
 
-Cc: netdev@vger.kernel.org
-Cc: lvs-devel@vger.kernel.org
-Signed-off-by: Vadim Fedorenko <vfedorenko@yandex-team.ru>
-Reviewed-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
----
- net/netfilter/ipvs/ip_vs_xmit.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 01d3d89..b3286f3 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -879,6 +879,7 @@ static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
- {
- 	struct sk_buff *new_skb = NULL;
- 	struct iphdr *old_iph = NULL;
-+	__u8 old_dsfield;
- #ifdef CONFIG_IP_VS_IPV6
- 	struct ipv6hdr *old_ipv6h = NULL;
- #endif
-@@ -903,7 +904,7 @@ static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
- 			*payload_len =
- 				ntohs(old_ipv6h->payload_len) +
- 				sizeof(*old_ipv6h);
--		*dsfield = ipv6_get_dsfield(old_ipv6h);
-+		old_dsfield = ipv6_get_dsfield(old_ipv6h);
- 		*ttl = old_ipv6h->hop_limit;
- 		if (df)
- 			*df = 0;
-@@ -918,12 +919,15 @@ static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
- 
- 		/* fix old IP header checksum */
- 		ip_send_check(old_iph);
--		*dsfield = ipv4_get_dsfield(old_iph);
-+		old_dsfield = ipv4_get_dsfield(old_iph);
- 		*ttl = old_iph->ttl;
- 		if (payload_len)
- 			*payload_len = ntohs(old_iph->tot_len);
- 	}
- 
-+	/* Implement full-functionality option for ECN encapsulation */
-+	*dsfield = INET_ECN_encapsulate(old_dsfield, old_dsfield);
-+
- 	return skb;
- error:
- 	kfree_skb(skb);
--- 
-1.9.1
-
+I simply suggested to move the code, not adding another
+synchronize_net()
