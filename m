@@ -1,40 +1,33 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] tcp: tcp_probe: use spin_lock_bh()
-Date: Tue, 14 Feb 2017 22:24:10 -0800
-Message-ID: <20170214222410.5ccbd61d@plumbers-lap.home.lan>
-References: <20170214172858.07d4393a@darkbook.lan.box>
-        <20170214.144648.771654199689384203.davem@davemloft.net>
-        <CAMyjOU+1CAC-VLL0JBABnbzWGZPLncqy6jXWQpVkd6vnXi-3pA@mail.gmail.com>
-        <1487121074.8227.71.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
+Date: Wed, 15 Feb 2017 07:26:22 +0100
+Message-ID: <20170215062622.GO30338@gauss.secunet.com>
+References: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
+ <20170214070854.GH30338@gauss.secunet.com>
+ <CACT4Y+aPd8drh7MQf8cXLs_9f-oymf6YiWfN+owUsSYYz0yMzA@mail.gmail.com>
+ <20170214090816.GJ30338@gauss.secunet.com>
+ <CACT4Y+a7-TXY2f14Cn0wUapiJ5BYv=2wkJ4vcMGMnbDjqTPnVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ricardo Nabinger Sanchez <rnsanchez@gmail.com>,
-        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35284 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750829AbdBOGYO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 01:24:14 -0500
-Received: by mail-pf0-f174.google.com with SMTP id 202so25959406pfx.2
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 22:24:13 -0800 (PST)
-In-Reply-To: <1487121074.8227.71.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+a7-TXY2f14Cn0wUapiJ5BYv=2wkJ4vcMGMnbDjqTPnVw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Feb 2017 17:11:14 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Tue, Feb 14, 2017 at 10:16:44AM +0100, Dmitry Vyukov wrote:
+> 
+> I've run the repro with you patch and don't see the bug any more:
+> 
+> Tested-by: Dmitry Vyukov <dvyukov@google.com>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> tcp_rcv_established() can now run in process context.
-> 
-> We need to disable BH while acquiring tcp probe spinlock,
-> or risk a deadlock.
-> 
-> Fixes: 5413d1babe8f ("net: do not block BH while processing socket backlog")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Ricardo Nabinger Sanchez <rnsanchez@gmail.com>
+I've applied this to the ipsec tree now.
 
-Thanks. Also glad to see people are still using TCP probe.
+Thanks for testing!
