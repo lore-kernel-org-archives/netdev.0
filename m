@@ -1,52 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Wed, 15 Feb 2017 07:26:37 -0800
-Message-ID: <1487172397.1311.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
-         <82f68be0-95fb-0d61-9d0a-4c74afb626b5@mellanox.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/2] net: xilinx_emaclite: fix receive buffer overflow
+Date: Wed, 15 Feb 2017 15:31:43 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE673AC@AcuExch.aculab.com>
+References: <20170214171145.26953-1-anssi.hannula@bitwise.fi>
+ <20170214.151259.1157334352658192111.davem@davemloft.net>
+ <62dad5ad-cafb-7569-b010-cb355f7affc7@bitwise.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>, jackm@mellanox.com
-To: "Matan Barak (External)" <matanb@mellanox.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "michal.simek@xilinx.com" <michal.simek@xilinx.com>,
+        "soren.brinkmann@xilinx.com" <soren.brinkmann@xilinx.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Anssi Hannula' <anssi.hannula@bitwise.fi>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36424 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751588AbdBOP0u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 10:26:50 -0500
-Received: by mail-pf0-f193.google.com with SMTP id 19so8989236pfo.3
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 07:26:45 -0800 (PST)
-In-Reply-To: <82f68be0-95fb-0d61-9d0a-4c74afb626b5@mellanox.com>
+Received: from smtp-out6.electric.net ([192.162.217.193]:65239 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751317AbdBOPbv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 10:31:51 -0500
+In-Reply-To: <62dad5ad-cafb-7569-b010-cb355f7affc7@bitwise.fi>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-15 at 16:52 +0200, Matan Barak (External) wrote:
+From: Anssi Hannula
+> Sent: 15 February 2017 08:29
+...
+> Looking through the product guide [1] I don't see the actual receive
+> packet length provided anywhere, so I guess that is why the crazy stuff
+> is done.
 
-> So, in case of RDMA CQs, we add some per-CQE overhead of comparing the 
-> list pointers and condition upon that. Maybe we could add an 
-> invoke_tasklet boolean field on mlx4_cq and return its value from 
-> mlx4_cq_completion.
-> That's way we could do invoke_tasklet |= mlx4_cq_completion(....);
-> 
-> Outside the while loop we could just
-> if (invoke_tasklet)
->      tasklet_schedule
-> 
-> Anyway, I guess that even with per-CQE overhead, the performance impact 
-> here is pretty negligible - so I guess that's fine too :)
+If the hardware doesn't provide the receive packet length then I suggest
+you 'fix' the hardware with an angle grinder :-)
+Not fit for purpose.
 
-
-Real question or suggestion would be to use/fire a tasklet only under
-stress.
-
-Firing a tasklet adds a lot of latencies for user-space CQ completion,
-since softirqs might have to be handled by a kernel thread (ksoftirqd)
-
-I would be surprised if no customer was hit by your commit,
-( net/mlx4_core: Use tasklet for user-space CQ completion events )
-especially when using specific (RT) scheduler classes.
+	David
