@@ -1,48 +1,51 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2] vhost: introduce O(1) vq metadata cache
-Date: Wed, 15 Feb 2017 13:37:17 +0800
-Message-ID: <ab222583-17ac-a4fb-0547-487caa8b866d@redhat.com>
-References: <1481709237-19827-1-git-send-email-jasowang@redhat.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] rt2500usb: don't mark register accesses as inline
+Date: Wed, 15 Feb 2017 07:49:38 +0200
+Message-ID: <8760kcovf1.fsf@kamboji.qca.qualcomm.com>
+References: <20170214212846.2809141-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: vkaplans@redhat.com, maxime.coquelin@redhat.com, wexu@redhat.com
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1481709237-19827-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        Mathias Kresin <dev@kresin.me>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170214212846.2809141-1-arnd@arndb.de> (Arnd Bergmann's message
+        of "Tue, 14 Feb 2017 22:28:33 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE25bm0MTLmnIgxNOaXpSAxNzo1MywgSmFzb24gV2FuZyB3cm90ZToKPiBXaGVuIGRl
-dmljZSBJT1RMQiBpcyBlbmFibGVkLCBhbGwgYWRkcmVzcyB0cmFuc2xhdGlvbnMgd2VyZSBzdG9y
-ZWQgaW4KPiBpbnRlcnZhbCB0cmVlLiBPKGxnTikgc2VhcmNoaW5nIHRpbWUgY291bGQgYmUgc2xv
-dyBmb3IgdmlydHF1ZXVlCj4gbWV0YWRhdGEgKGF2YWlsLCB1c2VkIGFuZCBkZXNjcmlwdG9ycykg
-c2luY2UgdGhleSB3ZXJlIGFjY2Vzc2VkIG11Y2gKPiBvZnRlbiB0aGFuIG90aGVyIGFkZHJlc3Nl
-cy4gU28gdGhpcyBwYXRjaCBpbnRyb2R1Y2VzIGFuIE8oMSkgYXJyYXkKPiB3aGljaCBwb2ludHMg
-dG8gdGhlIGludGVydmFsIHRyZWUgbm9kZXMgdGhhdCBzdG9yZSB0aGUgdHJhbnNsYXRpb25zIG9m
-Cj4gdnEgbWV0YWRhdGEuIFRob3NlIGFycmF5IHdlcmUgdXBkYXRlIGR1cmluZyB2cSBJT1RMQiBw
-cmVmZXRjaGluZyBhbmQKPiB3ZXJlIHJlc2V0IGR1cmluZyBlYWNoIGludmFsaWRhdGlvbiBhbmQg
-dGxiIHVwZGF0ZS4gRWFjaCB0aW1lIHdlIHdhbnQKPiB0byBhY2Nlc3MgdnEgbWV0YWRhdGEsIHRo
-aXMgc21hbGwgYXJyYXkgd2VyZSBxdWVyaWVkIGJlZm9yZSBpbnRlcnZhbAo+IHRyZWUuIFRoaXMg
-d291bGQgYmUgc3VmZmljaWVudCBmb3Igc3RhdGljIG1hcHBpbmdzIGJ1dCBub3QgZHluYW1pYwo+
-IG1hcHBpbmdzLCB3ZSBjb3VsZCBkbyBvcHRpbWl6YXRpb25zIG9uIHRvcC4KPgo+IFRlc3Qgd2Vy
-ZSBkb25lIHdpdGggbDJmd2QgaW4gZ3Vlc3QgKDJNIGh1Z2VwYWdlKToKPgo+ICAgICBub2lvbW11
-ICB8IGJlZm9yZSAgICAgICAgfCBhZnRlcgo+IHR4IDEuMzJNcHBzIHwgMS4wNk1wcHMoODIlKSB8
-IDEuMzBNcHBzKDk4JSkKPiByeCAyLjMzTXBwcyB8IDEuNDZNcHBzKDYzJSkgfCAyLjI5TXBwcyg5
-OCUpCj4KPiBXZSBjYW4gYWxtb3N0IHJlYWNoIHRoZSBzYW1lIHBlcmZvcm1hbmNlIGFzIG5vaW9t
-bXUgbW9kZS4KPgo+IFNpZ25lZC1vZmYtYnk6IEphc29uIFdhbmc8amFzb3dhbmdAcmVkaGF0LmNv
-bT4KPiAtLS0KPiBDaGFuZ2VzIGZyb20gVjE6Cj4gLSBzaWxlbnQgMzJiaXQgYnVpbGQgd2Fybmlu
-ZwoKcGluZwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpW
-aXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91
-bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlz
-dGluZm8vdmlydHVhbGl6YXRpb24=
+Arnd Bergmann <arnd@arndb.de> writes:
+
+> When CONFIG_KASAN is set, we get a rather large stack here:
+>
+> drivers/net/wireless/ralink/rt2x00/rt2500usb.c: In function 'rt2500usb_set_device_state':
+> drivers/net/wireless/ralink/rt2x00/rt2500usb.c:1074:1: error: the frame size of 3032 bytes is larger than 100 bytes [-Werror=frame-larger-than=]
+>
+> If we don't force those functions to be inline, the compiler can figure this
+> out better itself and not inline the functions when doing so would be harmful,
+> reducing the stack size to a merge 256 bytes.
+>
+> Note that there is another problem that manifests in this driver, as a result
+> of the typecheck() macro causing even larger stack frames.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+[...]
+
+> -static inline void rt2500usb_register_multiread(struct rt2x00_dev *rt2x00dev,
+> -						const unsigned int offset,
+> -						void *value, const u16 length)
+> -{
+> -	rt2x00usb_vendor_request_buff(rt2x00dev, USB_MULTI_READ,
+> -				      USB_VENDOR_REQUEST_IN, offset,
+> -				      value, length);
+> -}
+> -
+
+I guess you removed this because it was not actually used anywhere? Just
+checking.
+
+-- 
+Kalle Valo
