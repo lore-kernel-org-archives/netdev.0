@@ -1,117 +1,58 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V3 3/7] net/sched: Reflect HW offload status
-Date: Wed, 15 Feb 2017 18:19:17 +0200
-Message-ID: <CAJ3xEMg32qMp0Hh+BQbHdoMCKwX_ivvZVwo30njvXubR7ZQ8xA@mail.gmail.com>
-References: <1487148757-24809-1-git-send-email-ogerlitz@mellanox.com> <1487148757-24809-4-git-send-email-ogerlitz@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Amir Vadai <amir@vadai.me>, Ido Schimmel <idosch@mellanox.com>
-To: David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@mellanox.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net] ibmvnic: Fix endian error when requesting device capabilities
+Date: Wed, 15 Feb 2017 10:32:11 -0600
+Message-ID: <1487176331-16256-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f195.google.com ([74.125.82.195]:35518 "EHLO
-        mail-ot0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751802AbdBOQTS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 11:19:18 -0500
-Received: by mail-ot0-f195.google.com with SMTP id y13so1251327oty.2
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 08:19:18 -0800 (PST)
-In-Reply-To: <1487148757-24809-4-git-send-email-ogerlitz@mellanox.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:52281 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751223AbdBOQcY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 11:32:24 -0500
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1FGTF9Z071349
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 11:32:23 -0500
+Received: from e34.co.us.ibm.com (e34.co.us.ibm.com [32.97.110.152])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 28mq9k1spa-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 11:32:22 -0500
+Received: from localhost
+        by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Wed, 15 Feb 2017 09:32:21 -0700
+Received: from b01cxnp22035.gho.pok.ibm.com (b01cxnp22035.gho.pok.ibm.com [9.57.198.25])
+        by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 427C93E40048
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 09:32:18 -0700 (MST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2017 at 10:52 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> Currently there is no way of querying whether a filter is
-> offloaded to HW or not when using "both" policy (where none
-> of skip_sw or skip_hw flags are set by user-space).
+When a vNIC client driver requests a faulty device setting, the
+server returns an acceptable value for the client to request.
+This 64 bit value was incorrectly being swapped as a 32 bit value,
+resulting in loss of data. This patch corrects that by using
+the 64 bit swap function.
 
-> Add two new flags, "in hw" and "not in hw" such that user
-> space can determine if a filter is actually offloaded to
-> hw or not. The "in hw" UAPI semantics was chosen so it's
-> similar to the "skip hw" flag logic.
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-To make things a bit more clear, the semantics of the "in hw"
-thing relates to the time of dumping the rule.
-
-Currently in all of the offloading drivers/cases, when the driver returns
-success for the ndo_setup_tc call, the flow is offloaded to hw.
-
-But moving fwd that might change, a flow might be not offloaded to HW
-on some window of time.
-
-The coming up example, is support for neigh updates w.r.t to IP tunnel
-encapsulation offloads in mlx5 SRIOV switchdev mode.
-
-Today we offload tunnel encap flow only if the kernel has valid neigh
-to the tunnel destination. Under the works is a code to offload/un-offload
-the flow to/from HW when the neigh becomes valid/invalid or goes through
-hardware address change etc.
-
-So what I basically suggest here is to enhance that future mlx5 series
-with patches
-under which the dump code of all the classifiers will invoke the
-tc_setup_ndo with
-a fourth sub command (today there are add/del/stats) which will return
-the actual
-"in hw" status.
-
-This is aligned with the general architecture/approach in the kernel
-for switchdev and other
-offloads.
-
-Note that this future change doesn't change the UAPI, it will still
-have two values, "in hw"
-and "not in hw". The values with this series are the actual values and
-later with that change,
-they will keep being the actual values, just the kernel method to
-retrieve them will be different.
-
-
-Or.
-
-> If none of these two flags are set, this signals running
-> over older kernel.
-
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reviewed-by: Amir Vadai <amir@vadai.me>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/net/pkt_cls.h        | 5 +++++
->  include/uapi/linux/pkt_cls.h | 6 ++++--
->  2 files changed, 9 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-> index 71b266c..15cfe15 100644
-> --- a/include/net/pkt_cls.h
-> +++ b/include/net/pkt_cls.h
-> @@ -475,6 +475,11 @@ static inline bool tc_flags_valid(u32 flags)
->         return true;
->  }
->
-> +static inline bool tc_in_hw(u32 flags)
-> +{
-> +       return (flags & TCA_CLS_FLAGS_IN_HW) ? true : false;
-> +}
-> +
->  enum tc_fl_command {
->         TC_CLSFLOWER_REPLACE,
->         TC_CLSFLOWER_DESTROY,
-> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-> index 345551e..7a69f2a 100644
-> --- a/include/uapi/linux/pkt_cls.h
-> +++ b/include/uapi/linux/pkt_cls.h
-> @@ -103,8 +103,10 @@ enum {
->  #define TCA_POLICE_MAX (__TCA_POLICE_MAX - 1)
->
->  /* tca flags definitions */
-> -#define TCA_CLS_FLAGS_SKIP_HW  (1 << 0)
-> -#define TCA_CLS_FLAGS_SKIP_SW  (1 << 1)
-> +#define TCA_CLS_FLAGS_SKIP_HW  (1 << 0) /* don't offload filter to HW */
-> +#define TCA_CLS_FLAGS_SKIP_SW  (1 << 1) /* don't use filter in SW */
-> +#define TCA_CLS_FLAGS_IN_HW    (1 << 2) /* filter is offloaded to HW */
-> +#define TCA_CLS_FLAGS_NOT_IN_HW (1 << 3) /* filter isn't offloaded to HW */
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 5b66b4f..158b49a 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -2389,10 +2389,10 @@ static void handle_request_cap_rsp(union ibmvnic_crq *crq,
+ 	case PARTIALSUCCESS:
+ 		dev_info(dev, "req=%lld, rsp=%ld in %s queue, retrying.\n",
+ 			 *req_value,
+-			 (long int)be32_to_cpu(crq->request_capability_rsp.
++			 (long int)be64_to_cpu(crq->request_capability_rsp.
+ 					       number), name);
+ 		release_sub_crqs_no_irqs(adapter);
+-		*req_value = be32_to_cpu(crq->request_capability_rsp.number);
++		*req_value = be64_to_cpu(crq->request_capability_rsp.number);
+ 		init_sub_crqs(adapter, 1);
+ 		return;
+ 	default:
+-- 
+1.8.3.1
