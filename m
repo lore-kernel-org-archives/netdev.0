@@ -1,216 +1,230 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next 1/3] iplink: add support for xstats subcommand
-Date: Wed, 15 Feb 2017 15:23:11 +0100
-Message-ID: <1487168593-31321-2-git-send-email-nikolay@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next 2/3] iplink: bridge: add support for displaying xstats
+Date: Wed, 15 Feb 2017 15:23:12 +0100
+Message-ID: <1487168593-31321-3-git-send-email-nikolay@cumulusnetworks.com>
 References: <1487168593-31321-1-git-send-email-nikolay@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
         Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f171.google.com ([209.85.128.171]:34843 "EHLO
-        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751022AbdBOOX2 (ORCPT
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:38536 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751108AbdBOOX2 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 09:23:28 -0500
-Received: by mail-wr0-f171.google.com with SMTP id c4so34153040wrd.2
+Received: by mail-wm0-f43.google.com with SMTP id r141so41838356wmg.1
         for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 06:23:27 -0800 (PST)
 In-Reply-To: <1487168593-31321-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for a new xstats link subcommand which uses the
-specified link type's new parse/print_ifla_xstats callbacks to display
-extended statistics.
+Add support for the new parse/print_ifla_xstats callbacks and use them to
+print the per-bridge multicast stats.
+Example:
+$ ip link xstats type bridge
+br0
+                    IGMP queries:
+                      RX: v1 0 v2 0 v3 0
+                      TX: v1 0 v2 0 v3 0
+                    IGMP reports:
+                      RX: v1 0 v2 0 v3 0
+                      TX: v1 0 v2 0 v3 0
+                    IGMP leaves: RX: 0 TX: 0
+                    IGMP parse errors: 0
+                    MLD queries:
+                      RX: v1 0 v2 0
+                      TX: v1 0 v2 0
+                    MLD reports:
+                      RX: v1 0 v2 0
+                      TX: v1 0 v2 0
+                    MLD leaves: RX: 0 TX: 0
+                    MLD parse errors: 0
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- ip/Makefile           |  2 +-
- ip/ip_common.h        |  9 ++++--
- ip/iplink.c           |  5 ++++
- ip/iplink_xstats.c    | 81 +++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/ip-link.8.in | 12 ++++++++
- 5 files changed, 106 insertions(+), 3 deletions(-)
- create mode 100644 ip/iplink_xstats.c
+ ip/iplink_bridge.c | 153 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 153 insertions(+)
 
-diff --git a/ip/Makefile b/ip/Makefile
-index 1928489e7f90..4276a34b529e 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -8,7 +8,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
-     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o \
-     iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o \
-     iplink_geneve.o iplink_vrf.o iproute_lwtunnel.o ipmacsec.o ipila.o \
--    ipvrf.o
-+    ipvrf.o iplink_xstats.o
+diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
+index a17ff3555488..62ceee6b571e 100644
+--- a/ip/iplink_bridge.c
++++ b/ip/iplink_bridge.c
+@@ -12,13 +12,19 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <netinet/in.h>
+ #include <linux/if_link.h>
++#include <linux/if_bridge.h>
+ #include <netinet/ether.h>
++#include <net/if.h>
  
- RTMONOBJ=rtmon.o
+ #include "rt_names.h"
+ #include "utils.h"
+ #include "ip_common.h"
  
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index ab6a83431fd6..071c3db280f2 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -61,6 +61,7 @@ int do_ipvrf(int argc, char **argv);
- void vrf_reset(void);
- 
- int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
-+int iplink_ifla_xstats(int argc, char **argv);
- 
- static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
++static unsigned int xstats_print_attr;
++static int filter_index;
++
+ static void print_explain(FILE *f)
  {
-@@ -84,9 +85,13 @@ struct link_util {
- 	void			(*print_opt)(struct link_util *, FILE *,
- 					     struct rtattr *[]);
- 	void			(*print_xstats)(struct link_util *, FILE *,
--					     struct rtattr *);
-+						struct rtattr *);
- 	void			(*print_help)(struct link_util *, int, char **,
--					     FILE *);
-+					      FILE *);
-+	int			(*parse_ifla_xstats)(struct link_util *,
-+						     int, char **);
-+	int			(*print_ifla_xstats)(const struct sockaddr_nl *,
-+						     struct nlmsghdr *, void *);
- };
+ 	fprintf(f,
+@@ -582,10 +588,157 @@ static void bridge_print_help(struct link_util *lu, int argc, char **argv,
+ 	print_explain(f);
+ }
  
- struct link_util *get_link_kind(const char *kind);
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 2638408c23b8..00fed9006ea6 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -98,6 +98,8 @@ void iplink_usage(void)
- 		"\n"
- 		"       ip link show [ DEVICE | group GROUP ] [up] [master DEV] [vrf NAME] [type TYPE]\n");
- 
-+	fprintf(stderr, "\n       ip link xstats type TYPE [ ARGS ]\n");
-+
- 	if (iplink_have_newlink()) {
- 		fprintf(stderr,
- 			"\n"
-@@ -1411,6 +1413,9 @@ int do_iplink(int argc, char **argv)
- 	    matches(*argv, "list") == 0)
- 		return ipaddr_list_link(argc-1, argv+1);
- 
-+	if (matches(*argv, "xstats") == 0)
-+		return iplink_ifla_xstats(argc-1, argv+1);
-+
- 	if (matches(*argv, "help") == 0) {
- 		do_help(argc-1, argv+1);
- 		return 0;
-diff --git a/ip/iplink_xstats.c b/ip/iplink_xstats.c
-new file mode 100644
-index 000000000000..10f953bc4584
---- /dev/null
-+++ b/ip/iplink_xstats.c
-@@ -0,0 +1,81 @@
-+/*
-+ * iplink_stats.c       Extended statistics commands
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <linux/if_link.h>
-+#include <netinet/ether.h>
-+
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void print_explain(FILE *f)
++static void bridge_print_xstats_help(struct link_util *lu, FILE *f)
 +{
-+	fprintf(f, "Usage: ... xstats type TYPE [ ARGS ]\n");
++	fprintf(f, "Usage: ... %s [ igmp ] [ dev DEVICE ]\n", lu->id);
 +}
 +
-+int iplink_ifla_xstats(int argc, char **argv)
++static void bridge_print_stats_attr(FILE *f, struct rtattr *attr, int ifindex)
 +{
-+	struct link_util *lu = NULL;
-+	__u32 filt_mask;
++	struct rtattr *brtb[LINK_XSTATS_TYPE_MAX+1];
++	struct br_mcast_stats *mstats;
++	struct rtattr *i, *list;
++	const char *ifname = "";
++	int rem;
 +
-+	if (!argc) {
-+		fprintf(stderr, "xstats: missing argument\n");
++	parse_rtattr(brtb, LINK_XSTATS_TYPE_MAX, RTA_DATA(attr),
++	RTA_PAYLOAD(attr));
++	if (!brtb[LINK_XSTATS_TYPE_BRIDGE])
++		return;
++
++	list = brtb[LINK_XSTATS_TYPE_BRIDGE];
++	rem = RTA_PAYLOAD(list);
++	for (i = RTA_DATA(list); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
++		if (xstats_print_attr && i->rta_type != xstats_print_attr)
++			continue;
++		switch (i->rta_type) {
++		case BRIDGE_XSTATS_MCAST:
++			mstats = RTA_DATA(i);
++			ifname = ll_index_to_name(ifindex);
++			fprintf(f, "%-16s\n", ifname);
++			fprintf(f, "%-16s    IGMP queries:\n", "");
++			fprintf(f, "%-16s      RX: v1 %llu v2 %llu v3 %llu\n",
++				"",
++				mstats->igmp_v1queries[BR_MCAST_DIR_RX],
++				mstats->igmp_v2queries[BR_MCAST_DIR_RX],
++				mstats->igmp_v3queries[BR_MCAST_DIR_RX]);
++			fprintf(f, "%-16s      TX: v1 %llu v2 %llu v3 %llu\n",
++				"",
++				mstats->igmp_v1queries[BR_MCAST_DIR_TX],
++				mstats->igmp_v2queries[BR_MCAST_DIR_TX],
++				mstats->igmp_v3queries[BR_MCAST_DIR_TX]);
++
++			fprintf(f, "%-16s    IGMP reports:\n", "");
++			fprintf(f, "%-16s      RX: v1 %llu v2 %llu v3 %llu\n",
++				"",
++				mstats->igmp_v1reports[BR_MCAST_DIR_RX],
++				mstats->igmp_v2reports[BR_MCAST_DIR_RX],
++				mstats->igmp_v3reports[BR_MCAST_DIR_RX]);
++			fprintf(f, "%-16s      TX: v1 %llu v2 %llu v3 %llu\n",
++				"",
++				mstats->igmp_v1reports[BR_MCAST_DIR_TX],
++				mstats->igmp_v2reports[BR_MCAST_DIR_TX],
++				mstats->igmp_v3reports[BR_MCAST_DIR_TX]);
++
++			fprintf(f, "%-16s    IGMP leaves: RX: %llu TX: %llu\n",
++				"",
++				mstats->igmp_leaves[BR_MCAST_DIR_RX],
++				mstats->igmp_leaves[BR_MCAST_DIR_TX]);
++
++			fprintf(f, "%-16s    IGMP parse errors: %llu\n",
++				"", mstats->igmp_parse_errors);
++
++			fprintf(f, "%-16s    MLD queries:\n", "");
++			fprintf(f, "%-16s      RX: v1 %llu v2 %llu\n",
++				"",
++				mstats->mld_v1queries[BR_MCAST_DIR_RX],
++				mstats->mld_v2queries[BR_MCAST_DIR_RX]);
++			fprintf(f, "%-16s      TX: v1 %llu v2 %llu\n",
++				"",
++				mstats->mld_v1queries[BR_MCAST_DIR_TX],
++				mstats->mld_v2queries[BR_MCAST_DIR_TX]);
++
++			fprintf(f, "%-16s    MLD reports:\n", "");
++			fprintf(f, "%-16s      RX: v1 %llu v2 %llu\n",
++				"",
++				mstats->mld_v1reports[BR_MCAST_DIR_RX],
++				mstats->mld_v2reports[BR_MCAST_DIR_RX]);
++			fprintf(f, "%-16s      TX: v1 %llu v2 %llu\n",
++				"",
++				mstats->mld_v1reports[BR_MCAST_DIR_TX],
++				mstats->mld_v2reports[BR_MCAST_DIR_TX]);
++
++			fprintf(f, "%-16s    MLD leaves: RX: %llu TX: %llu\n",
++				"",
++				mstats->mld_leaves[BR_MCAST_DIR_RX],
++				mstats->mld_leaves[BR_MCAST_DIR_TX]);
++
++			fprintf(f, "%-16s    MLD parse errors: %llu\n",
++				"", mstats->mld_parse_errors);
++			break;
++		}
++	}
++}
++
++static int bridge_print_xstats(const struct sockaddr_nl *who,
++			       struct nlmsghdr *n, void *arg)
++{
++	struct if_stats_msg *ifsm = NLMSG_DATA(n);
++	struct rtattr *tb[IFLA_STATS_MAX+1];
++	int len = n->nlmsg_len;
++	FILE *fp = arg;
++
++	len -= NLMSG_LENGTH(sizeof(*ifsm));
++	if (len < 0) {
++		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
 +		return -1;
 +	}
-+
-+	if (matches(*argv, "type") == 0) {
-+		NEXT_ARG();
-+		lu = get_link_kind(*argv);
-+		if (!lu)
-+			invarg("invalid type", *argv);
-+	} else if (matches(*argv, "help") == 0) {
-+		print_explain(stdout);
++	if (filter_index && filter_index != ifsm->ifindex)
 +		return 0;
-+	} else {
-+		invarg("unknown argument", *argv);
-+	}
 +
-+	if (!lu) {
-+		print_explain(stderr);
-+		return -1;
-+	}
++	parse_rtattr(tb, IFLA_STATS_MAX, IFLA_STATS_RTA(ifsm), len);
++	if (tb[IFLA_STATS_LINK_XSTATS])
++		bridge_print_stats_attr(fp, tb[IFLA_STATS_LINK_XSTATS],
++					ifsm->ifindex);
 +
-+	if (!lu->print_ifla_xstats) {
-+		fprintf(stderr, "xstats: link type %s doesn't support xstats\n",
-+			lu->id);
-+		return -1;
-+	}
++	if (tb[IFLA_STATS_LINK_XSTATS_SLAVE])
++		bridge_print_stats_attr(fp, tb[IFLA_STATS_LINK_XSTATS_SLAVE],
++					ifsm->ifindex);
 +
-+	if (lu->parse_ifla_xstats &&
-+	    lu->parse_ifla_xstats(lu, argc-1, argv+1))
-+		return -1;
++	return 0;
++}
 +
-+	if (strstr(lu->id, "_slave"))
-+		filt_mask = IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_XSTATS_SLAVE);
-+	else
-+		filt_mask = IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_XSTATS);
-+
-+	if (rtnl_wilddump_stats_req_filter(&rth, AF_UNSPEC,
-+					   RTM_GETSTATS,
-+					   filt_mask) < 0) {
-+		perror("Cannont send dump request");
-+		return -1;
-+	}
-+
-+	if (rtnl_dump_filter(&rth, lu->print_ifla_xstats, stdout) < 0) {
-+		fprintf(stderr, "Dump terminated\n");
-+		return -1;
++static int bridge_parse_xstats(struct link_util *lu, int argc, char **argv)
++{
++	while (argc > 0) {
++		if (strcmp(*argv, "igmp") == 0 || strcmp(*argv, "mcast") == 0) {
++			xstats_print_attr = BRIDGE_XSTATS_MCAST;
++		} else if (strcmp(*argv, "dev") == 0) {
++			NEXT_ARG();
++			filter_index = if_nametoindex(*argv);
++			if (filter_index == 0) {
++				fprintf(stderr, "Cannot find device \"%s\"\n",
++					*argv);
++				return -1;
++			}
++		} else if (strcmp(*argv, "help") == 0) {
++			bridge_print_xstats_help(lu, stdout);
++			exit(0);
++		} else {
++			invarg("unknown attribute", *argv);
++		}
++		argc--; argv++;
 +	}
 +
 +	return 0;
 +}
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 116034dc620a..2cbdefeb749a 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -169,6 +169,11 @@ ip-link \- network device configuration
- .IR NAME " ]"
- 
- .ti -8
-+.B ip link xstats
-+.BI type " TYPE"
-+.RI "[ " ARGS " ]"
 +
-+.ti -8
- .B ip link help
- .RI "[ " TYPE " ]"
- 
-@@ -1616,6 +1621,13 @@ interface list by comparing it with the relevant attribute in case the kernel
- didn't filter already. Therefore any string is accepted, but may lead to empty
- output.
- 
-+.SS  ip link xstats - display extended statistics
-+
-+.TP
-+.BI type " TYPE "
-+.I TYPE
-+specifies the type of devices to display extended statistics for.
-+
- .SS  ip link help - display help
- 
- .PP
+ struct link_util bridge_link_util = {
+ 	.id		= "bridge",
+ 	.maxattr	= IFLA_BR_MAX,
+ 	.parse_opt	= bridge_parse_opt,
+ 	.print_opt	= bridge_print_opt,
+ 	.print_help     = bridge_print_help,
++	.parse_ifla_xstats = bridge_parse_xstats,
++	.print_ifla_xstats = bridge_print_xstats,
+ };
 -- 
 2.1.4
