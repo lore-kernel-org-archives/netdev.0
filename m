@@ -1,86 +1,94 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 net-next] virtio: Fix affinity for #VCPUs != #queue
- pairs
-Date: Wed, 15 Feb 2017 23:49:32 +0200
-Message-ID: <20170215234333-mutt-send-email-mst@kernel.org>
-References: <20170207181506.36668-1-serebrin@google.com>
- <20170208205353-mutt-send-email-mst@kernel.org>
- <CAN+hb0Uen4_bHR8xPcUNZG+aKPYAvjUqY1Z4PA7WWOs7jG3EAA@mail.gmail.com>
- <20170214225629-mutt-send-email-mst@kernel.org>
- <CAF=yD-La6wL16Ej0jGw1ztiKOGpWoaY86E3Qe4KmskrjczrC_A@mail.gmail.com>
- <20170215185413-mutt-send-email-mst@kernel.org>
- <CAN+hb0V5hcMkWwQhk=5G4B+vWBARyEq+g-=XVaygH5s-s7mPZw@mail.gmail.com>
- <20170215210941-mutt-send-email-mst@kernel.org>
- <CAN+hb0X4UWmDvA0=5gpC6+Qt7vDgz0u5B79CM4KqQ-yuJmAO7Q@mail.gmail.com>
+From: Pavel Belous <pavel.belous@aquantia.com>
+Subject: Re: [PATCH net-next 11/13] net: ethernet: aquantia: Refactoring
+ buffers copying.
+Date: Thu, 16 Feb 2017 00:50:32 +0300
+Message-ID: <37d674eb-1173-52ec-3dc2-957e5161251b@aquantia.com>
+References: <cover.1487187192.git.pavel.belous@aquantia.com>
+ <de4d3c34fac8c7bbbb614f776ca1255fd6aa03a6.1487187192.git.pavel.belous@aquantia.com>
+ <4262ef98-4ba5-3f1a-5b72-208be51bdd6f@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Christian Borntraeger <borntraeger@de.ibm.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Jason Wang <jasowang@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        Venkatesh Srinivas <venkateshs@google.com>,
-        "Jon Olson (Google Drive)" <jonolson@google.com>,
-        Rick Jones <rick.jones2@hpe.com>,
-        James Mattson <jmattson@google.com>,
-        linux-s390 <linux-s390@vger.kernel.org>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
-To: Benjamin Serebrin <serebrin@google.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAN+hb0X4UWmDvA0=5gpC6+Qt7vDgz0u5B79CM4KqQ-yuJmAO7Q@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0084.outbound.protection.outlook.com ([104.47.32.84]:4916
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751338AbdBOVut (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 16:50:49 -0500
+In-Reply-To: <4262ef98-4ba5-3f1a-5b72-208be51bdd6f@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2017 at 01:38:48PM -0800, Benjamin Serebrin wrote:
-> On Wed, Feb 15, 2017 at 11:17 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> 
-> > Right. But userspace knows it's random at least. If kernel supplies
-> > affinity e.g. the way your patch does, userspace ATM accepts this as a
-> > gospel.
-> 
-> The existing code supplies the same affinity gospels in the #vcpu ==
-> #queue case today.
-> And the patch (unless it has a bug in it) should not affect the #vcpu
-> == #queue case's
-> behavior.  I don't quite understand what property we'd be changing
-> with the patch.
-> 
-> Here's the same dump of smp_affinity_list, on a 16 VCPU machine with
-> unmodified kernel:
-> 
-> 0
-> 0
-> 1
-> 1
-> 2
-> 2
-> [..]
-> 15
-> 15
-> 
-> And xps_cpus
-> 00000001
-> 00000002
-> [...]
-> 00008000
-> 
-> This patch causes #vcpu != #queue case to follow the same pattern.
-> 
-> 
-> Thanks again!
-> Ben
+Thank you.
 
-The logic is simple really. With #VCPUs == #queues we can reasonably
-assume this box is mostly doing networking so we can set affinity
-the way we like. With VCPUs > queues clearly VM is doing more stuff
-so we need a userspace policy to take that into account,
-we don't know ourselves what is the right thing to do.
+I will think about how to avoid copying..
 
-Arguably for #VCPUs == #queues we are not always doing the right thing
-either but I see this as an argument to move more smarts
-into core kernel not for adding more dumb heuristics in the driver.
+Regards,
+Pavel
 
--- 
-MST
+
+On 16.02.2017 00:31, Lino Sanfilippo wrote:
+> On 15.02.2017 21:01, Pavel Belous wrote:
+>> From: Pavel Belous <pavel.belous@aquantia.com>
+>>
+>> This fix simplified copying data to the ring buffer.
+>> Also, there was an error in the code when the second memcpy
+>> is called with zero length. It didn't break the driver, but it's bad.
+>>
+>> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+>> ---
+>>  drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 25
+>> ++++++++++++------------
+>>  1 file changed, 13 insertions(+), 12 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+>> b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+>> index 4c40644..8ebed0d 100644
+>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+>> @@ -108,18 +108,19 @@ void aq_ring_tx_append_buffs(struct aq_ring_s
+>> *self,
+>>                   struct aq_ring_buff_s *buffer,
+>>                   unsigned int buffers)
+>>  {
+>> -    if (likely(self->sw_tail + buffers < self->size)) {
+>> -        memcpy(&self->buff_ring[self->sw_tail], buffer,
+>> -               sizeof(buffer[0]) * buffers);
+>> -    } else {
+>> -        unsigned int first_part = self->size - self->sw_tail;
+>> -        unsigned int second_part = buffers - first_part;
+>> -
+>> -        memcpy(&self->buff_ring[self->sw_tail], buffer,
+>> -               sizeof(buffer[0]) * first_part);
+>> -
+>> -        memcpy(&self->buff_ring[0], &buffer[first_part],
+>> -               sizeof(buffer[0]) * second_part);
+>> +    int buff_len = min(self->size - self->sw_tail, buffers);
+>> +
+>> +    memcpy(&self->buff_ring[self->sw_tail],
+>> +           buffer,
+>> +           sizeof(struct aq_ring_buff_s) * buff_len);
+>> +
+>> +    /* We are in the end of the ring.
+>> +     *  Copy remains data to beginning of the ring
+>> +     */
+>> +    if (buffers > buff_len) {
+>> +        memcpy(self->buff_ring,
+>> +               &buffer[buff_len],
+>> +               sizeof(struct aq_ring_buff_s) * (buffers - buff_len));
+>>      }
+>>  }
+>
+> Well, you should really try to avoid copying the tx buffers _at all_.
+> E.g. by passing self->buff_ring to aq_ring_tx_append_buffs() instead of
+> the temporary array.
+>
+> Regards,
+> Lino
+> buffer array.
+>
