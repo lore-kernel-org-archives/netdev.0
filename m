@@ -1,58 +1,138 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: [PATCH] netfilter: ipset: Null pointer exception in ipset list:set
-Date: Wed, 15 Feb 2017 17:45:26 -0500
-Message-ID: <1487198726-21866-1-git-send-email-vpai@akamai.com>
-Cc: Vishwanath Pai <vpai@akamai.com>, johunt@akamai.com,
-        pai.vishwain@gmail.com, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next V3 3/7] net/sched: Reflect HW offload status
+Date: Wed, 15 Feb 2017 15:07:08 -0800
+Message-ID: <20170215150708.52454abc@cakuba.netronome.com>
+References: <1487148757-24809-1-git-send-email-ogerlitz@mellanox.com>
+        <1487148757-24809-4-git-send-email-ogerlitz@mellanox.com>
+        <CAJ3xEMg32qMp0Hh+BQbHdoMCKwX_ivvZVwo30njvXubR7ZQ8xA@mail.gmail.com>
+        <20170215102821.12f419e7@cakuba.netronome.com>
+        <CAJ3xEMgu+BUaUgyziqiLy+WU6x=1kHgL=kNqhQj-+xumq2OH3Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Amir Vadai <amir@vadai.me>, Ido Schimmel <idosch@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:33940 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752886AbdBOXHR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 18:07:17 -0500
+Received: by mail-pg0-f45.google.com with SMTP id z67so316690pgb.1
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 15:07:12 -0800 (PST)
+In-Reply-To: <CAJ3xEMgu+BUaUgyziqiLy+WU6x=1kHgL=kNqhQj-+xumq2OH3Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If we use before/after to add an element to an empty list it will cause
-a kernel panic.
+On Wed, 15 Feb 2017 23:56:53 +0200, Or Gerlitz wrote:
+> On Wed, Feb 15, 2017 at 8:28 PM, Jakub Kicinski
+> <jakub.kicinski@netronome.com> wrote:
+> > On Wed, 15 Feb 2017 18:19:17 +0200, Or Gerlitz wrote:  
+> >> On Wed, Feb 15, 2017 at 10:52 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:  
+> >>> Currently there is no way of querying whether a filter is
+> >>> offloaded to HW or not when using "both" policy (where none
+> >>> of skip_sw or skip_hw flags are set by user-space).  
+> 
+> >>> Add two new flags, "in hw" and "not in hw" such that user
+> >>> space can determine if a filter is actually offloaded to
+> >>> hw or not. The "in hw" UAPI semantics was chosen so it's
+> >>> similar to the "skip hw" flag logic.  
+> 
+> >> To make things a bit more clear, the semantics of the "in hw"
+> >> thing relates to the time of dumping the rule.  
+> 
+> >> Note that this future change doesn't change the UAPI, it will still
+> >> have two values, "in hw" and "not in hw".
+> >> The values with this series are the actual values and later with that change,
+> >> they will keep being the actual values, just the kernel method to
+> >> retrieve them will be different.  
+> 
+> > Thanks for explaining this, I was actually hoping to take this in
+> > slightly different direction.  
+> 
+> > What worries me is that the moment we started offloading packet
+> > modification we run at the risk of modifying packets twice.  This used
+> > to be a problem only for eBPF but now mlx5 can also offload things like
+> > ttl decrement.  
+> 
+> hey, did you broke into my private git... joking, we submitted the tc
+> pedit enhancements for easy enablement of hw offloading but not yet
+> the offloading bits... but this is indeed coming up.
+> 
+> When the HW terminates packets that were matched by an offloaded
+> filter - e.g drop, encap/decap and/or push/pop vlan + fwd to wire/VM,
+> the SW TC DP (data path) will not see them and the problem doesn't
+> exist. In the case of non SRIOV NIC header re-write on RX, indeed, the
+> packet will be seen by the SW DP and if the SW control plane
+> programmed the rule to the SW DP too they could have a problem.
+> 
+> Re your TTL example, if we're offloading router, with matching on L2
+> src/dst addresses following by HW re-write of the L2 addresses and
+> decrements of TTL, the SW DP will not match and the action will not be
+> carried out twice.
+> 
+> Same for offloading NAT, if the matching is on L3/L4 addresses and
+> then the HW action is to re-write them, the SW DP will not match and
+> not re-write again.
 
-$> cat crash.restore
-create a hash:ip
-create b hash:ip
-create test list:set timeout 5 size 4
-add test b before a
+Indeed, but also there could be a catch-all rule at the end of ruleset
+to drop unmatched packets (firewall+NAT scenario).  I admit, I don't
+have great practical examples at the moment.
 
-$> ipset -R < crash.restore
+> So this is not very common to happen, but possible -- user space
+> application can avoid that by having such filters be set to only one
+> of the DPs, SW or HW.
 
-Executing the above will crash the kernel.
+Yes, I agree this should not commonly happen in simple SR-IOV
+forwarding.  But I feel like this is a fundamental problem with the
+opportunistic offload model we currently have.  We should guarantee
+actions will not be performed twice if the operation of passing packets
+through the ruleset is not idempotent.  I think with the flags you are
+proposing in your current series we can easily achieve that by skipping
+in software DP rules which are in_hw, but we need to make sure that the
+in_hw check can be performed efficiently.
 
-Signed-off-by: Vishwanath Pai <vpai@akamai.com>
-Reviewed-by: Josh Hunt <johunt@akamai.com>
----
- net/netfilter/ipset/ip_set_list_set.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+> > For filters which have no skip_* flags set and get
+> > offloaded if packet doesn't get redirected or modified significantly it
+> > will match the filter both in HW and on the host and therefore have the
+> > actions applied twice.  And it will get counted twice.  (It seems nobody
+> > ever raised this so perhaps I'm mistaken in thinking that this can happen?)  
+> 
+> see above this is very rare and donno if there are real life examples
+> for such cases, but if it happens, yes, will be counted twice.
+> 
+> > Back to your patch set, I was hoping we will be able to use the new
+> > IN_HW flag to skip filters in software even if they don't have skip_sw
+> > set.  If we need to eject actions from HW based on external events, that
+> > obviously complicates things.  Three trivial solutions to the problem  
+> 
+> can you clarify what is the precise problem you refer to? is that the
+> two DPs working on the same packet you mentioned above?
 
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index 51077c5..178d4eb 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -260,11 +260,14 @@ struct list_set {
- 		else
- 			prev = e;
- 	}
-+
-+	/* If before/after is used on an empty set */
-+	if ((d->before > 0 && !next) ||
-+	    (d->before < 0 && !prev))
-+		return -IPSET_ERR_REF_EXIST;
-+
- 	/* Re-add already existing element */
- 	if (n) {
--		if ((d->before > 0 && !next) ||
--		    (d->before < 0 && !prev))
--			return -IPSET_ERR_REF_EXIST;
- 		if (!flag_exist)
- 			return -IPSET_ERR_EXIST;
- 		/* Update extensions */
--- 
-1.9.1
+Yes.
 
+> > I could think of are:
+> >  - pass a pointer to filter's flags down to the driver and let it do
+> >    atomic bitops? on it to set/clear the IN_HW status;
+> >  - add a way of driver calling back into TC;
+> >  - use one of recently freed skb TC bits to mark packets which were
+> >    supposed to be processed in HW by could not as needing software
+> >    fallback (I think this could work for you without parsing the packet
+> >    in the driver, you could replace the tunnel action with mark action
+> >    and leave the matching rule in HW classifier/TCAM; for BPF I have a
+> >    descriptor flag telling me if offloaded BPF completed successfully).  
+> 
+> 
+> > FWIW this patch set looks good to me!  
+> 
+> thanks, so you are okay we move forward with this series and if needed
+> address the matters you raised here in follow ups?
+
+Yes, 100%.  I am only commenting on the idea of extending the in_hw
+querying down to the driver in the future.
