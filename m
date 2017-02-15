@@ -1,70 +1,68 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3 net-next] net: phy: Add LED mode driver for Microsemi
- PHYs.
-Date: Wed, 15 Feb 2017 10:45:40 -0600
-Message-ID: <20170215164540.eok7bnudfffzoyi4@rob-hp-laptop>
-References: <1486474826-29426-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v2 net-next] virtio: Fix affinity for #VCPUs != #queue pairs
+Date: Wed, 15 Feb 2017 08:50:34 -0800
+Message-ID: <CAF=yD-La6wL16Ej0jGw1ztiKOGpWoaY86E3Qe4KmskrjczrC_A@mail.gmail.com>
+References: <20170207181506.36668-1-serebrin@google.com> <20170208205353-mutt-send-email-mst@kernel.org>
+ <CAN+hb0Uen4_bHR8xPcUNZG+aKPYAvjUqY1Z4PA7WWOs7jG3EAA@mail.gmail.com> <20170214225629-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
-To: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1486474826-29426-1-git-send-email-Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Benjamin Serebrin <serebrin@google.com>,
+        Christian Borntraeger <borntraeger@de.ibm.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Jason Wang <jasowang@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Venkatesh Srinivas <venkateshs@google.com>,
+        "Jon Olson (Google Drive)" <jonolson@google.com>,
+        Rick Jones <rick.jones2@hpe.com>,
+        James Mattson <jmattson@google.com>,
+        linux-s390 <linux-s390@vger.kernel.org>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20170214225629-mutt-send-email-mst@kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 07, 2017 at 07:10:26PM +0530, Raju Lakkaraju wrote:
-> From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-> 
-> LED Mode:
-> Microsemi PHY support 2 LEDs (LED[0] and LED[1]) to display different
-> status information that can be selected by setting LED mode.
-> 
-> LED Mode parameter (vsc8531, led-0-mode) and (vsc8531, led-1-mode) get
-> from Device Tree.
-> 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-> ---
-> Change set:
-> v0:
-> - Initial version of LED driver for Microsemi PHYs.
-> v1:
-> - Update all review comments given by Andrew.
-> - Add new header file "mscc-phy-vsc8531.h" to define DT macros.
-> - Add error/range check for DT LED mode input
-> v2:
-> - Fixed x86_64 build error.
-> v3:
-> - Update all review comments.
-> - Fix the error check condition.
-> 
->  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 10 +++
->  drivers/net/phy/mscc.c                             | 85 +++++++++++++++++++++-
->  include/dt-bindings/net/mscc-phy-vsc8531.h         | 29 ++++++++
->  3 files changed, 123 insertions(+), 1 deletion(-)
->  create mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
-> 
-> diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> index bdefefc6..0eedabe 100644
-> --- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> +++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> @@ -27,6 +27,14 @@ Optional properties:
->  			  'vddmac'.
->  			  Default value is 0%.
->  			  Ref: Table:1 - Edge rate change (below).
-> +- vsc8531,led-0-mode	: LED mode. Specify how the LED[0] should behave.
-> +			  Allowed values are define in
-> +			  "include/dt-bindings/net/mscc-phy-vsc8531.h".
-> +			  Default value is VSC8531_LINK_1000_ACTIVITY (1).
-> +- vsc8531,led-1-mode	: LED mode. Specify how the LED[1] should behave.
+On Tue, Feb 14, 2017 at 1:05 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Tue, Feb 14, 2017 at 11:17:41AM -0800, Benjamin Serebrin wrote:
+>> On Wed, Feb 8, 2017 at 11:37 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>>
+>> > IIRC irqbalance will bail out and avoid touching affinity
+>> > if you set affinity from driver.  Breaking that's not nice.
+>> > Pls correct me if I'm wrong.
+>>
+>>
+>> I believe you're right that irqbalance will leave the affinity alone.
+>>
+>> Irqbalance has had changes that may or may not be in the versions bundled with
+>> various guests, and I don't have a definitive cross-correlation of irqbalance
+>> version to guest version.  But in the existing code, the driver does
+>> set affinity for #VCPUs==#queues, so that's been happening anyway.
+>
+> Right - the idea being we load all CPUs equally so we don't
+> need help from irqbalance - hopefully packets will be spread
+> across queues in a balanced way.
+>
+> When we have less queues the load isn't balanced so we
+> definitely need something fancier to take into account
+> the overall system load.
 
-You failed to address my comment on v2. vsc8531 is not a vendor prefix. 
-Please fix in a new patch since David already applied it.
+For pure network load, assigning each txqueue IRQ exclusively
+to one of the cores that generates traffic on that queue is the
+optimal layout in terms of load spreading. Irqbalance does
+not have the XPS information to make this optimal decision.
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Overall system load affects this calculation both in the case of 1:1
+mapping uneven queue distribution. In both cases, irqbalance
+is hopefully smart enough to migrate other non-pinned IRQs to
+cpus with lower overall load.
+
+> But why the first N cpus? That's more or less the same as assigning them
+> at random.
+
+CPU selection is an interesting point. Spreading equally across numa
+nodes would be preferable over first N. Aside from that, the first N
+should work best to minimize the chance of hitting multiple
+hyperthreads on the same core -- if all architectures lay out
+hyperthreads in the same way as x86_64.
