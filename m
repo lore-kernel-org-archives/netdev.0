@@ -1,144 +1,42 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Wed, 15 Feb 2017 15:59:18 +0200
-Message-ID: <CALzJLG-Akhsxx6JjJckhdYwN0dFeyX17x7RQk1uBm3zc8fkFEw@mail.gmail.com>
+Date: Wed, 15 Feb 2017 06:04:03 -0800
+Message-ID: <1487167443.1311.8.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com> <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
+         <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
         Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>,
         Matan Barak <matanb@mellanox.com>, jackm@mellanox.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:36465 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750829AbdBON7j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 08:59:39 -0500
-Received: by mail-qk0-f194.google.com with SMTP id p22so15695894qka.3
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 05:59:39 -0800 (PST)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34696 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750719AbdBOOEF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 09:04:05 -0500
+Received: by mail-pf0-f194.google.com with SMTP id o64so7882476pfb.1
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 06:04:05 -0800 (PST)
 In-Reply-To: <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2017 at 3:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-02-15 at 13:10 +0200, Saeed Mahameed wrote:
->> On Fri, Feb 10, 2017 at 2:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > From: Eric Dumazet <edumazet@google.com>
->> >
->> > All rx and rx netdev interrupts are handled by respectively
->> > by mlx4_en_rx_irq() and mlx4_en_tx_irq() which simply schedule a NAPI.
->> >
->> > But mlx4_eq_int() also fires a tasklet to service all items that were
->> > queued via mlx4_add_cq_to_tasklet(), but this handler was not called
->> > unless user cqe was handled.
->> >
->> > This is very confusing, as "mpstat -I SCPU ..." show huge number of
->> > tasklet invocations.
->> >
->> > This patch saves this overhead, by carefully firing the tasklet directly
->> > from mlx4_add_cq_to_tasklet(), removing four atomic operations per IRQ.
->> >
->> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->> > Cc: Tariq Toukan <tariqt@mellanox.com>
->> > Cc: Saeed Mahameed <saeedm@mellanox.com>
->> > ---
->> >  drivers/net/ethernet/mellanox/mlx4/cq.c |    6 +++++-
->> >  drivers/net/ethernet/mellanox/mlx4/eq.c |    9 +--------
->> >  2 files changed, 6 insertions(+), 9 deletions(-)
->> >
->> > diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
->> > index 6b8635378f1fcb2aae4e8ac390bcd09d552c2256..fa6d2354a0e910ee160863e3cbe21a512d77bf03 100644
->> > --- a/drivers/net/ethernet/mellanox/mlx4/cq.c
->> > +++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
->> > @@ -81,8 +81,9 @@ void mlx4_cq_tasklet_cb(unsigned long data)
->> >
->> >  static void mlx4_add_cq_to_tasklet(struct mlx4_cq *cq)
->> >  {
->> > -       unsigned long flags;
->> >         struct mlx4_eq_tasklet *tasklet_ctx = cq->tasklet_ctx.priv;
->> > +       unsigned long flags;
->> > +       bool kick;
->> >
->> >         spin_lock_irqsave(&tasklet_ctx->lock, flags);
->> >         /* When migrating CQs between EQs will be implemented, please note
->> > @@ -92,7 +93,10 @@ static void mlx4_add_cq_to_tasklet(struct mlx4_cq *cq)
->> >          */
->> >         if (list_empty_careful(&cq->tasklet_ctx.list)) {
->> >                 atomic_inc(&cq->refcount);
->> > +               kick = list_empty(&tasklet_ctx->list);
->>
->> So first one in would fire the tasklet, but wouldn't this cause CQE
->> processing loss
->> in the same mlx4_eq_int loop if the tasklet was fast enough to
->> schedule and while other CQEs are going to add themselves to the
->> tasklet_ctx->list ?
->
->
+On Wed, 2017-02-15 at 05:29 -0800, Eric Dumazet wrote:
+
+> 
 > mlx4_eq_int() is a hard irq handler.
->
+> 
 > How a tasklet could run in the middle of it ?
->
-
-can the tasklet run on a different core ?
-
+> 
 > A tasklet is a softirq handler.
->
-> softirq must wait that the current hard irq handler is done.
->>
->> Anyway i tried to find race scenarios that could cause such thing but
->> synchronization looks good.
->>
->> >                 list_add_tail(&cq->tasklet_ctx.list, &tasklet_ctx->list);
->> > +               if (kick)
->> > +                       tasklet_schedule(&tasklet_ctx->task);
->> >         }
->> >         spin_unlock_irqrestore(&tasklet_ctx->lock, flags);
->> >  }
->> > diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
->> > index 0509996957d9664b612358dd805359f4bc67b8dc..39232b6a974f4b4b961d3b0b8634f04e6b9d0caa 100644
->> > --- a/drivers/net/ethernet/mellanox/mlx4/eq.c
->> > +++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
->> > @@ -494,7 +494,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
->> >  {
->> >         struct mlx4_priv *priv = mlx4_priv(dev);
->> >         struct mlx4_eqe *eqe;
->> > -       int cqn = -1;
->> > +       int cqn;
->> >         int eqes_found = 0;
->> >         int set_ci = 0;
->> >         int port;
->> > @@ -840,13 +840,6 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
->> >
->> >         eq_set_ci(eq, 1);
->> >
->> > -       /* cqn is 24bit wide but is initialized such that its higher bits
->> > -        * are ones too. Thus, if we got any event, cqn's high bits should be off
->> > -        * and we need to schedule the tasklet.
->> > -        */
->> > -       if (!(cqn & ~0xffffff))
->>
->> what if we simply change this condition to:
->> if (!list_empty_careful(eq->tasklet_ctx.list))
->>
->> Wouldn't this be sort of equivalent to what you did ? and this way we
->> would simply fire the tasklet only when needed and not on every
->> handled CQE.
->
-> Still this test would be done one million time per second on my hosts.
->
-> What is the point exactly ?
->
 
-the point is that if the EQ is full of CQEs from different CQs you would
-do the "  kick = list_empty(&tasklet_ctx->list);" test per empty CQ
-list rather than once at the end.
+Speaking of mlx4_eq_int() , 50% of cycles are spent on mb() (mfence)
+in eq_set_ci()
 
-in mlx4_en case, you have only two CQs on each EQ but in RoCE/IB you
-can have as many CQs as you want.
-
-> Thanks.
->
->
+I wonder why this very expensive mb() is required, right before exiting
+the interrupt handler.
+ 
