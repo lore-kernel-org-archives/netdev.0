@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next 10/13] net: ethernet: aquantia: Checking for success dma_map_single.
-Date: Wed, 15 Feb 2017 23:01:18 +0300
-Message-ID: <6ad9fef330a2c9b59139621efbb7c77e746d9f25.1487187192.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next 08/13] net: ethernet: aquantia: Null pointer check for aq_nic_ndev_alloc.
+Date: Wed, 15 Feb 2017 23:01:16 +0300
+Message-ID: <34586a7fe70a07e8713b20e82a2191a3530b8ff1.1487187192.git.pavel.belous@aquantia.com>
 References: <cover.1487187192.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,62 +15,42 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-co1nam03on0063.outbound.protection.outlook.com ([104.47.40.63]:44304
         "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751751AbdBOUDl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Feb 2017 15:03:41 -0500
+        id S1751860AbdBOUDj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 15:03:39 -0500
 In-Reply-To: <cover.1487187192.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-Dma mapping can fail. We should check the result.
+We should check for a null pointer for aq_nic_ndev_alloc
+instead netdev_priv.
 
 Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index daed4c1..7000b9f 100644
+index 4cf633c..e50fba2 100644
 --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
 +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -476,11 +476,15 @@ static unsigned int aq_nic_map_skb_frag(struct aq_nic_s *self,
- 	unsigned int ret = 0U;
- 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
- 	unsigned int frag_count = 0U;
-+	struct device *dev = aq_nic_get_dev(self);
+@@ -202,12 +202,13 @@ struct aq_nic_s *aq_nic_alloc_cold(const struct net_device_ops *ndev_ops,
+ 	int err = 0;
  
- 	dx->flags = 0U;
- 	dx->len = skb_headlen(skb);
--	dx->pa = dma_map_single(aq_nic_get_dev(self), skb->data, dx->len,
--				DMA_TO_DEVICE);
-+	dx->pa = dma_map_single(dev, skb->data, dx->len, DMA_TO_DEVICE);
+ 	ndev = aq_nic_ndev_alloc();
+-	self = netdev_priv(ndev);
+-	if (!self) {
+-		err = -EINVAL;
++	if (!ndev) {
++		err = -ENOMEM;
+ 		goto err_exit;
+ 	}
+ 
++	self = netdev_priv(ndev);
 +
-+	if (unlikely(dma_mapping_error(dev, dx->pa)))
-+		goto err_exit;
-+
- 	dx->len_pkt = skb->len;
- 	dx->is_sop = 1U;
- 	dx->is_mapped = 1U;
-@@ -502,8 +506,10 @@ static unsigned int aq_nic_map_skb_frag(struct aq_nic_s *self,
- 
- 		frag_len = skb_frag_size(frag);
- 
--		frag_pa = skb_frag_dma_map(aq_nic_get_dev(self), frag, 0,
-+		frag_pa = skb_frag_dma_map(dev, frag, 0,
- 					   frag_len, DMA_TO_DEVICE);
-+		if (unlikely(dma_mapping_error(dev, frag_pa)))
-+			goto err_exit;
- 
- 		while (frag_len > AQ_CFG_TX_FRAME_MAX) {
- 			++dx;
-@@ -529,6 +535,7 @@ static unsigned int aq_nic_map_skb_frag(struct aq_nic_s *self,
- 	dx->is_eop = 1U;
- 	dx->skb = skb;
- 
-+err_exit:
- 	return ret;
- }
+ 	ndev->netdev_ops = ndev_ops;
+ 	ndev->ethtool_ops = et_ops;
  
 -- 
 2.7.4
