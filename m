@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next 13/13] net: ethernet: aquantia: Fixed memory allocation if AQ_CFG_RX_FRAME_MAX > 1 page.
-Date: Wed, 15 Feb 2017 23:01:21 +0300
-Message-ID: <83f96add943935ee794c708c06c898c048825df5.1487187192.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next 10/13] net: ethernet: aquantia: Checking for success dma_map_single.
+Date: Wed, 15 Feb 2017 23:01:18 +0300
+Message-ID: <6ad9fef330a2c9b59139621efbb7c77e746d9f25.1487187192.git.pavel.belous@aquantia.com>
 References: <cover.1487187192.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,63 +12,65 @@ Cc: netdev@vger.kernel.org,
         Pavel Belous <pavel.belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0043.outbound.protection.outlook.com ([104.47.40.43]:35328
+Received: from mail-co1nam03on0063.outbound.protection.outlook.com ([104.47.40.63]:44304
         "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752005AbdBOUDv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Feb 2017 15:03:51 -0500
+        id S1751751AbdBOUDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 15:03:41 -0500
 In-Reply-To: <cover.1487187192.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-We should allocate the number of pages based on the config parameter
-AQ_CFG_RX_FRAME_MAX.
+Dma mapping can fail. We should check the result.
 
 Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c  | 4 ++--
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 4 +++-
- 2 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index 7000b9f..5e10732 100644
+index daed4c1..7000b9f 100644
 --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
 +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -603,9 +603,9 @@ __acquires(&ring->lock)
+@@ -476,11 +476,15 @@ static unsigned int aq_nic_map_skb_frag(struct aq_nic_s *self,
+ 	unsigned int ret = 0U;
+ 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
+ 	unsigned int frag_count = 0U;
++	struct device *dev = aq_nic_get_dev(self);
  
- 	do {
- 		if (spin_trylock(&ring->header.lock)) {
--			frags = aq_nic_map_skb(self, skb, &buffers[0]);
-+			frags = aq_nic_map_skb(self, skb, buffers);
+ 	dx->flags = 0U;
+ 	dx->len = skb_headlen(skb);
+-	dx->pa = dma_map_single(aq_nic_get_dev(self), skb->data, dx->len,
+-				DMA_TO_DEVICE);
++	dx->pa = dma_map_single(dev, skb->data, dx->len, DMA_TO_DEVICE);
++
++	if (unlikely(dma_mapping_error(dev, dx->pa)))
++		goto err_exit;
++
+ 	dx->len_pkt = skb->len;
+ 	dx->is_sop = 1U;
+ 	dx->is_mapped = 1U;
+@@ -502,8 +506,10 @@ static unsigned int aq_nic_map_skb_frag(struct aq_nic_s *self,
  
--			aq_ring_tx_append_buffs(ring, &buffers[0], frags);
-+			aq_ring_tx_append_buffs(ring, buffers, frags);
+ 		frag_len = skb_frag_size(frag);
  
- 			err = self->aq_hw_ops.hw_ring_tx_xmit(self->aq_hw,
- 							      ring, frags);
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-index 8ebed0d..b747d10 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-@@ -279,6 +279,8 @@ int aq_ring_rx_fill(struct aq_ring_s *self)
- 	struct aq_ring_buff_s *buff = NULL;
- 	int err = 0;
- 	int i = 0;
-+	unsigned int pages_order = fls(AQ_CFG_RX_FRAME_MAX / PAGE_SIZE +
-+		(AQ_CFG_RX_FRAME_MAX % PAGE_SIZE ? 1 : 0)) - 1;
+-		frag_pa = skb_frag_dma_map(aq_nic_get_dev(self), frag, 0,
++		frag_pa = skb_frag_dma_map(dev, frag, 0,
+ 					   frag_len, DMA_TO_DEVICE);
++		if (unlikely(dma_mapping_error(dev, frag_pa)))
++			goto err_exit;
  
- 	for (i = aq_ring_avail_dx(self); i--;
- 		self->sw_tail = aq_ring_next_dx(self, self->sw_tail)) {
-@@ -288,7 +290,7 @@ int aq_ring_rx_fill(struct aq_ring_s *self)
- 		buff->len = AQ_CFG_RX_FRAME_MAX;
+ 		while (frag_len > AQ_CFG_TX_FRAME_MAX) {
+ 			++dx;
+@@ -529,6 +535,7 @@ static unsigned int aq_nic_map_skb_frag(struct aq_nic_s *self,
+ 	dx->is_eop = 1U;
+ 	dx->skb = skb;
  
- 		buff->page = alloc_pages(GFP_ATOMIC | __GFP_COLD |
--					 __GFP_COMP, 0);
-+					 __GFP_COMP, pages_order);
- 		if (!buff->page) {
- 			err = -ENOMEM;
- 			goto err_exit;
++err_exit:
+ 	return ret;
+ }
+ 
 -- 
 2.7.4
