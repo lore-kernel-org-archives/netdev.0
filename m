@@ -1,50 +1,38 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v3 net] packet: Do not call fanout_release from atomic
  contexts
-Date: Wed, 15 Feb 2017 13:33:58 -0800
-Message-ID: <1487194438.1311.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 15 Feb 2017 13:34:32 -0800
+Message-ID: <1487194472.1311.31.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1487190339-6366-1-git-send-email-anoob.soman@citrix.com>
          <1487192551.1311.28.camel@edumazet-glaptop3.roam.corp.google.com>
+         <83b09a68-b759-2ae5-5918-53581731c9bf@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net
 To: Anoob Soman <anoob.soman@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33764 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752133AbdBOVeA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 16:34:00 -0500
-Received: by mail-pf0-f195.google.com with SMTP id e4so9524692pfg.0
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 13:34:00 -0800 (PST)
-In-Reply-To: <1487192551.1311.28.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:33830 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752371AbdBOVee (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 16:34:34 -0500
+Received: by mail-pg0-f47.google.com with SMTP id z67so8008353pgb.1
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 13:34:34 -0800 (PST)
+In-Reply-To: <83b09a68-b759-2ae5-5918-53581731c9bf@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-15 at 13:02 -0800, Eric Dumazet wrote:
-> On Wed, 2017-02-15 at 20:25 +0000, Anoob Soman wrote:
-> 
-> > +static struct packet_fanout *fanout_release(struct sock *sk)
-> >  {
-> >  	struct packet_sock *po = pkt_sk(sk);
-> >  	struct packet_fanout *f;
-> > @@ -1728,17 +1736,17 @@ static void fanout_release(struct sock *sk)
-> >  	if (f) {
-> >  		po->fanout = NULL;
-> >  
-> > -		if (atomic_dec_and_test(&f->sk_ref)) {
-> > +		if (atomic_dec_and_test(&f->sk_ref))
-> >  			list_del(&f->list);
-> > -			dev_remove_pack(&f->prot_hook);
-> > -			fanout_release_data(f);
-> > -			kfree(f);
-> > -		}
-> > +		else
-> > +			f = NULL;
-> 
-> 
-> Patch looks good, except this coding style issue.
+On Wed, 2017-02-15 at 21:30 +0000, Anoob Soman wrote:
 
-Oh well, sorry , I missed we only had one left line ;)
+> If statement looks like this.
+> if (atomic_dec_and_test(sk_ref))
+>      list_del(f->list);
+> else
+>     f = NULL;
+> 
+> there are no multiple lines under if.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+
+Yes, I just noticed that.
+
+Thanks.
