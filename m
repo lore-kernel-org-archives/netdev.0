@@ -1,54 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "Matan Barak (External)" <matanb@mellanox.com>
 Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Wed, 15 Feb 2017 06:34:14 -0800
-Message-ID: <1487169254.1311.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 15 Feb 2017 16:52:43 +0200
+Message-ID: <82f68be0-95fb-0d61-9d0a-4c74afb626b5@mellanox.com>
 References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
-         <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG-Akhsxx6JjJckhdYwN0dFeyX17x7RQk1uBm3zc8fkFEw@mail.gmail.com>
+ <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>, jackm@mellanox.com
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+        "Tariq Toukan" <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>, <jackm@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34025 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751063AbdBOOeR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 09:34:17 -0500
-Received: by mail-pf0-f196.google.com with SMTP id o64so7932242pfb.1
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 06:34:16 -0800 (PST)
-In-Reply-To: <CALzJLG-Akhsxx6JjJckhdYwN0dFeyX17x7RQk1uBm3zc8fkFEw@mail.gmail.com>
+Received: from mail-he1eur01on0085.outbound.protection.outlook.com ([104.47.0.85]:27904
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751352AbdBOOxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 09:53:11 -0500
+In-Reply-To: <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-15 at 15:59 +0200, Saeed Mahameed wrote:
+On 15/02/2017 13:10, Saeed Mahameed wrote:
+> On Fri, Feb 10, 2017 at 2:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> All rx and rx netdev interrupts are handled by respectively
+>> by mlx4_en_rx_irq() and mlx4_en_tx_irq() which simply schedule a NAPI.
+>>
+>> But mlx4_eq_int() also fires a tasklet to service all items that were
+>> queued via mlx4_add_cq_to_tasklet(), but this handler was not called
+>> unless user cqe was handled.
+>>
+>> This is very confusing, as "mpstat -I SCPU ..." show huge number of
+>> tasklet invocations.
+>>
+>> This patch saves this overhead, by carefully firing the tasklet directly
+>> from mlx4_add_cq_to_tasklet(), removing four atomic operations per IRQ.
+>>
 
-> can the tasklet run on a different core ?
+So, in case of RDMA CQs, we add some per-CQE overhead of comparing the 
+list pointers and condition upon that. Maybe we could add an 
+invoke_tasklet boolean field on mlx4_cq and return its value from 
+mlx4_cq_completion.
+That's way we could do invoke_tasklet |= mlx4_cq_completion(....);
 
-No. tasklets are scheduled on local cpu, like softirqs in general.
+Outside the while loop we could just
+if (invoke_tasklet)
+     tasklet_schedule
 
-They are not migrated, unless cpu is removed (hotplug)
-
-
-> 
-> the point is that if the EQ is full of CQEs from different CQs you would
-> do the "  kick = list_empty(&tasklet_ctx->list);" test per empty CQ
-> list rather than once at the end.
-> 
-> in mlx4_en case, you have only two CQs on each EQ but in RoCE/IB you
-> can have as many CQs as you want.
-
-list_empty() before one list_add_tail() is a single instruction.
-
-By doing this right before manipulating the list, it comes with a zero
-cache line penalty.
-
-While if you do it at the wrong place, it incurs one extra cache line
-miss.
-
-This extra tasklet invocations can cost 3 % of cpu cycles.
+Anyway, I guess that even with per-CQE overhead, the performance impact 
+here is pretty negligible - so I guess that's fine too :)
