@@ -1,39 +1,42 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] sctp: change to use uint<size>_t in uapi sctp.h
-Date: Wed, 15 Feb 2017 09:17:56 -0500
-Message-ID: <20170215141756.GA24734@neilslaptop.think-freely.org>
-References: <05fb9cd9aed85d33cc8d635a18b0dcd3e7c0ff29.1487060628.git.lucien.xin@gmail.com>
- <20170214.112604.827348279100654183.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC 2/2] net: emac: add support for device-tree based PHY
+ discovery and setup
+Date: Wed, 15 Feb 2017 15:23:08 +0100
+Message-ID: <20170215142308.GB10670@lunn.ch>
+References: <f57a340f615991ed2771d8af4b1a908dec436a5e.1486333475.git.chunkeey@googlemail.com>
+ <d696cd93-120d-e23f-3cce-5c3b64c7dc31@gmail.com>
+ <2122984.F6mzWerJKz@debian64>
+ <2409103.Lage0nq55N@debian64>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, marcelo.leitner@gmail.com,
-        vyasevich@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        Christian Lamparter <chunkeey@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Ivan Mikhaylov <ivan@de.ibm.com>,
+        vivien.didelot@savoirfairelinux.com
+To: Christian Lamparter <chunkeey@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56296 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750905AbdBOOSJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 09:18:09 -0500
+Received: from vps0.lunn.ch ([178.209.37.122]:40488 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750760AbdBOOXN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 09:23:13 -0500
 Content-Disposition: inline
-In-Reply-To: <20170214.112604.827348279100654183.davem@davemloft.net>
+In-Reply-To: <2409103.Lage0nq55N@debian64>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2017 at 11:26:04AM -0500, David Miller wrote:
-> From: Xin Long <lucien.xin@gmail.com>
-> Date: Tue, 14 Feb 2017 16:23:48 +0800
-> 
-> > All structures in uapi sctp.h are exported for userspace, their members'
-> > types should use uint<size>_t instead of __u<size>.
-> 
-> This is not true.
-> 
-> __u<size> is in fact preferred for userspace exported datastructures.
-> 
+> > > Is the PHY just powered down by chance (BMCR_PWRDN set?) and resetting
+> > > it implicitly clears the power down that seems to be what is going on.
+> > 
+> > Yes, the PHY is just in the BMCR_PDOWN state. I can do the same
+> > on the WNDR4700, by messing with u-boot:
 
-I'll admit that I can never remember which is which, but the files in uapi seem
-pretty evenly split between the two types, and I always thought the uint<size>_t
-was the one meant for user space
+Hi Christian
 
-Neil
+What happens if you list the PHYs in the device tree, with their PHY
+ID. That should avoid it looking for the ID and getting 0xffff
+back. It should just probe the correct PHY driver. If the first thing
+the drivers probe function does it reset the power down bit, it might
+work.
+
+	Andrew
