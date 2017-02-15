@@ -1,56 +1,64 @@
-From: Marty Plummer <netz.kernel@gmail.com>
-Subject: Re: net: hix5hd2_gmac uninitialized net_device
-Date: Tue, 14 Feb 2017 17:59:55 -0600
-Message-ID: <20170214235954.xhuikgj4bbfjq7fv@tha-monstah.mydomain>
-References: <20170210074118.vchxsn7fag6tlsmg@tha-monstah.mydomain>
- <20170210074544.eoabpjf522pmwoui@tha-monstah.mydomain>
- <589D942F.7070700@hisilicon.com>
- <20170211005132.xdk2d7etb732scqo@tha-monstah.mydomain>
- <58A10B12.8050400@hisilicon.com>
+From: Marcus Huewe <suse-tux@gmx.de>
+Subject: [PATCH net] net: neigh: Fix netevent
+ NETEVENT_DELAY_PROBE_TIME_UPDATE notification
+Date: Wed, 15 Feb 2017 01:00:36 +0100
+Message-ID: <20170215000036.qzzglyaasqfy7vsn@linux.fritz.box>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, yisen.zhuang@huawei.com,
-        salil.mehta@huawei.com
-To: Dongpo Li <lidongpo@hisilicon.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36020 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750766AbdBNX7I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 18:59:08 -0500
-Received: by mail-oi0-f66.google.com with SMTP id u143so2626009oif.3
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 15:59:08 -0800 (PST)
+Received: from mout.gmx.net ([212.227.17.21]:59100 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750791AbdBOAAp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Feb 2017 19:00:45 -0500
 Content-Disposition: inline
-In-Reply-To: <58A10B12.8050400@hisilicon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2017 at 09:25:38AM +0800, Dongpo Li wrote:
-> 
-> 
-> On 2017/2/11 8:51, Marty Plummer wrote:
-> > On Fri, Feb 10, 2017 at 06:21:35PM +0800, Dongpo Li wrote:
-> >> I think the error "No irq resource" happened for some other reason, has no relation with
-> >> the info "(unnamed net_device) (uninitialized):".
-> >> You can add more debug info to find bug.
-> > Do you have any particular suggestions as to what to check out, or is
-> > this just a general 'debug more' instruction?
-> I haven't encountered such a problem. So it needs you to debug what happens.
->
-Yes, I've figured out the origin here. It was user error, in that I was
-not nesting the device node under the soc node, which had the
-interrupt-parent property. Moving it there fixed that issue.
+When setting a neigh related sysctl parameter, we always send a
+NETEVENT_DELAY_PROBE_TIME_UPDATE netevent. For instance, when
+executing
 
-In any case, I've ran into another problem. Basic gist is, I was giving
-it a go on my hi3521a board, because reading the registers for that and
-comparing it to the source, I find they are nearly bit-for-bit
-identical, but I suppose there is some tweakage needed to make it work
-100%.
+	sysctl net.ipv6.neigh.wlp3s0.retrans_time_ms=2000
 
-What information would it take to have this driver expanded to enable a
-new, similar SoC?
-> 
->     Regards,
->     Dongpo
-> 
-> .
-> 
+a NETEVENT_DELAY_PROBE_TIME_UPDATE netevent is generated.
+
+This is caused by commit 2a4501ae18b5 ("neigh: Send a
+notification when DELAY_PROBE_TIME changes"). According to the
+commit's description, it was intended to generate such an event
+when setting the "delay_first_probe_time" sysctl parameter.
+
+In order to fix this, only generate this event when actually
+setting the "delay_first_probe_time" sysctl parameter. This fix
+should not have any unintended side-effects, because all but one
+registered netevent callbacks check for other netevent event
+types (the registered callbacks were obtained by grepping for
+"register_netevent_notifier"). The only callback that uses the
+NETEVENT_DELAY_PROBE_TIME_UPDATE event is
+mlxsw_sp_router_netevent_event() (in
+drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c): in case
+of this event, it only accesses the DELAY_PROBE_TIME of the
+passed neigh_parms.
+
+Signed-off-by: Marcus Huewe <suse-tux@gmx.de>
+---
+ net/core/neighbour.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 7bb12e07ffef..e7c12caa20c8 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2923,7 +2923,8 @@ static void neigh_proc_update(struct ctl_table *ctl, int write)
+ 		return;
+ 
+ 	set_bit(index, p->data_state);
+-	call_netevent_notifiers(NETEVENT_DELAY_PROBE_TIME_UPDATE, p);
++	if (index == NEIGH_VAR_DELAY_PROBE_TIME)
++		call_netevent_notifiers(NETEVENT_DELAY_PROBE_TIME_UPDATE, p);
+ 	if (!dev) /* NULL dev means this is default value */
+ 		neigh_copy_dflt_parms(net, p, index);
+ }
+-- 
+2.11.0
