@@ -1,7 +1,8 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next 00/13] net: ethernet: aquantia: improvements and fixes
-Date: Wed, 15 Feb 2017 23:01:08 +0300
-Message-ID: <cover.1487187192.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next 01/13] net: ethernet: aquantia: Removed extra assignment for skb->dev.
+Date: Wed, 15 Feb 2017 23:01:09 +0300
+Message-ID: <31d152c1fba6779d0ed1a00c620cba34db3df8a2.1487187192.git.pavel.belous@aquantia.com>
+References: <cover.1487187192.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org,
@@ -11,51 +12,35 @@ Cc: netdev@vger.kernel.org,
         Pavel Belous <pavel.belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0049.outbound.protection.outlook.com ([104.47.34.49]:65264
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0056.outbound.protection.outlook.com ([104.47.40.56]:2683
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750791AbdBOUCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Feb 2017 15:02:46 -0500
+        id S1751067AbdBOUDL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 15:03:11 -0500
+In-Reply-To: <cover.1487187192.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-The following patchset contains improvements and fixes for aQuantia
-AQtion ethernet driver from net-next tree.
+This assignment is not needed.
 
-Most fixes are based on the comments from Lino Sanfilippo.
+Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Sanity testing was performed on real HW.
-
-Please review.
-Thanks.
-
-
-Pavel Belous (13):
-  net: ethernet: aquantia: Removed extra assignment for skb->dev.
-  net: ethernet: aquantia: Removed busy_count field.
-  net: ethernet: aquantia: Removed unnecessary comparsion "old_mtu ==
-    new_mtu".
-  net: ethernet: aquantia: Using module_pci_driver.
-  net: ethernet: aquantia: Superfluous initialization of "err".
-  net: ethernet: aquantia: Fixed missing rtnl_unlock.
-  net: ethernet: aquantia: Using NETDEV_TX_OK instead 0.
-  net: ethernet: aquantia: Null pointer check for aq_nic_ndev_alloc.
-  net: ethernet: aquantia: Call netdev_register after all initialized.
-  net: ethernet: aquantia: Checking for success dma_map_single.
-  net: ethernet: aquantia: Refactoring buffers copying.
-  net: ethernet: aquantia: Fixed incorrect buff->len calculation.
-  net: ethernet: aquantia: Fixed memory allocation if
-    AQ_CFG_RX_FRAME_MAX > 1 page.
-
- drivers/net/ethernet/aquantia/atlantic/aq_main.c   | 34 ++------------
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 52 +++++++++++-----------
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c   | 30 +++++++------
- drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |  1 -
- .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |  4 +-
- .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |  4 +-
- 6 files changed, 50 insertions(+), 75 deletions(-)
-
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+index dea9e9b..4c40644 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+@@ -214,7 +214,6 @@ int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
+ 				goto err_exit;
+ 			}
+ 
+-			skb->dev = ndev;
+ 			skb_put(skb, buff->len);
+ 		} else {
+ 			skb = netdev_alloc_skb(ndev, ETH_HLEN);
 -- 
 2.7.4
