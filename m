@@ -1,153 +1,51 @@
-From: mdf@kernel.org
-Subject: [PATCH] net: ethernet: cadence: Add fixed-link functionality
-Date: Wed, 15 Feb 2017 12:44:05 -0800
-Message-ID: <1487191445-5353-1-git-send-email-mdf@kernel.org>
-Cc: netdev@vger.kernel.org, moritz.fischer@ettus.com,
-        Moritz Fischer <mdf@kernel.org>,
-        Nicolas Ferre <nicolas.ferre@microchip.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH net-next 01/13] net: ethernet: aquantia: Removed extra
+ assignment for skb->dev.
+Date: Wed, 15 Feb 2017 21:53:54 +0100
+Message-ID: <ea14de65-6ad8-7601-aadc-6be1fc1ebb88@gmx.de>
+References: <cover.1487187192.git.pavel.belous@aquantia.com>
+ <31d152c1fba6779d0ed1a00c620cba34db3df8a2.1487187192.git.pavel.belous@aquantia.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>
+To: Pavel Belous <Pavel.Belous@aquantia.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.15]:58693 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751356AbdBOUyG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 15:54:06 -0500
+In-Reply-To: <31d152c1fba6779d0ed1a00c620cba34db3df8a2.1487187192.git.pavel.belous@aquantia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Moritz Fischer <mdf@kernel.org>
+Hi,
 
-This allows 'fixed-link' direct MAC connections to be declared
-in devicetree.
+On 15.02.2017 21:01, Pavel Belous wrote:
+> From: Pavel Belous <pavel.belous@aquantia.com>
+>
+> This assignment is not needed.
+>
+> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+> ---
+>  drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 1 -
+>  1 file changed, 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+> index dea9e9b..4c40644 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+> @@ -214,7 +214,6 @@ int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
+>  				goto err_exit;
+>  			}
+>
+> -			skb->dev = ndev;
+>  			skb_put(skb, buff->len);
+>  		} else {
+>  			skb = netdev_alloc_skb(ndev, ETH_HLEN);
+>
 
-Signed-off-by: Moritz Fischer <mdf@kernel.org>
-Cc: Nicolas Ferre <nicolas.ferre@microchip.com>
----
- drivers/net/ethernet/cadence/macb.c | 61 ++++++++++++++++++++++++++++++++++---
- drivers/net/ethernet/cadence/macb.h |  1 +
- 2 files changed, 57 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 30606b1..af443a8 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -469,6 +469,34 @@ static int macb_mii_probe(struct net_device *dev)
- 	return 0;
- }
- 
-+static int macb_fixed_init(struct macb *bp)
-+{
-+	struct phy_device *phydev;
-+
-+	phydev = of_phy_connect(bp->dev, bp->phy_node,
-+				&macb_handle_link_change, 0,
-+				bp->phy_interface);
-+	if (!phydev)
-+		return -ENODEV;
-+
-+	/* mask with MAC supported features */
-+	if (macb_is_gem(bp) && bp->caps & MACB_CAPS_GIGABIT_MODE_AVAILABLE)
-+		phydev->supported &= PHY_GBIT_FEATURES;
-+	else
-+		phydev->supported &= PHY_BASIC_FEATURES;
-+
-+	if (bp->caps & MACB_CAPS_NO_GIGABIT_HALF)
-+		phydev->supported &= ~SUPPORTED_1000baseT_Half;
-+
-+	phydev->advertising = phydev->supported;
-+
-+	bp->link = 0;
-+	bp->speed = 0;
-+	bp->duplex = -1;
-+
-+	return 0;
-+}
-+
- static int macb_mii_init(struct macb *bp)
- {
- 	struct macb_platform_data *pdata;
-@@ -3245,6 +3273,7 @@ static int macb_probe(struct platform_device *pdev)
- 	const char *mac;
- 	struct macb *bp;
- 	int err;
-+	bool fixed_link = false;
- 
- 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	mem = devm_ioremap_resource(&pdev->dev, regs);
-@@ -3342,8 +3371,18 @@ static int macb_probe(struct platform_device *pdev)
- 		macb_get_hwaddr(bp);
- 
- 	/* Power up the PHY if there is a GPIO reset */
--	phy_node =  of_get_next_available_child(np, NULL);
--	if (phy_node) {
-+	phy_node = of_parse_phandle(np, "phy-handle", 0);
-+	if (!phy_node && of_phy_is_fixed_link(np)) {
-+		err = of_phy_register_fixed_link(np);
-+		if (err < 0) {
-+			dev_err(&pdev->dev, "broken fixed-link specification");
-+			goto failed_phy;
-+		}
-+		/* in case of a fixed PHY, the DT node is the ethernet MAC */
-+		phy_node = of_node_get(np);
-+		bp->phy_node = phy_node;
-+		fixed_link = true;
-+	} else {
- 		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
- 
- 		if (gpio_is_valid(gpio)) {
-@@ -3369,7 +3408,10 @@ static int macb_probe(struct platform_device *pdev)
- 	if (err)
- 		goto err_out_free_netdev;
- 
--	err = macb_mii_init(bp);
-+	if (!fixed_link)
-+		err = macb_mii_init(bp);
-+	else
-+		err = macb_fixed_init(bp);
- 	if (err)
- 		goto err_out_free_netdev;
- 
-@@ -3400,6 +3442,9 @@ static int macb_probe(struct platform_device *pdev)
- 	if (bp->reset_gpio)
- 		gpiod_set_value(bp->reset_gpio, 0);
- 
-+failed_phy:
-+	of_node_put(phy_node);
-+
- err_out_free_netdev:
- 	free_netdev(dev);
- 
-@@ -3423,9 +3468,14 @@ static int macb_remove(struct platform_device *pdev)
- 		bp = netdev_priv(dev);
- 		if (dev->phydev)
- 			phy_disconnect(dev->phydev);
--		mdiobus_unregister(bp->mii_bus);
-+
-+		if (!bp->phy_node)
-+			mdiobus_unregister(bp->mii_bus);
-+
- 		dev->phydev = NULL;
--		mdiobus_free(bp->mii_bus);
-+
-+		if (!bp->phy_node)
-+			mdiobus_free(bp->mii_bus);
- 
- 		/* Shutdown the PHY if there is a GPIO reset */
- 		if (bp->reset_gpio)
-@@ -3435,6 +3485,7 @@ static int macb_remove(struct platform_device *pdev)
- 		clk_disable_unprepare(bp->tx_clk);
- 		clk_disable_unprepare(bp->hclk);
- 		clk_disable_unprepare(bp->pclk);
-+		of_node_put(bp->phy_node);
- 		clk_disable_unprepare(bp->rx_clk);
- 		free_netdev(dev);
- 	}
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 234a49e..d9a9b6f 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -931,6 +931,7 @@ struct macb {
- 	struct macb_or_gem_ops	macbgem_ops;
- 
- 	struct mii_bus		*mii_bus;
-+	struct device_node	*phy_node;
- 	int 			link;
- 	int 			speed;
- 	int 			duplex;
--- 
-2.7.4
+Reviewed-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
