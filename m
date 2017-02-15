@@ -1,79 +1,50 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH net-next 11/13] net: ethernet: aquantia: Refactoring
- buffers copying.
-Date: Wed, 15 Feb 2017 22:31:18 +0100
-Message-ID: <4262ef98-4ba5-3f1a-5b72-208be51bdd6f@gmx.de>
-References: <cover.1487187192.git.pavel.belous@aquantia.com>
- <de4d3c34fac8c7bbbb614f776ca1255fd6aa03a6.1487187192.git.pavel.belous@aquantia.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net] packet: Do not call fanout_release from atomic
+ contexts
+Date: Wed, 15 Feb 2017 13:33:58 -0800
+Message-ID: <1487194438.1311.30.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1487190339-6366-1-git-send-email-anoob.soman@citrix.com>
+         <1487192551.1311.28.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>
-To: Pavel Belous <Pavel.Belous@aquantia.com>,
-        "David S . Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Anoob Soman <anoob.soman@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:58584 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751356AbdBOVbb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Feb 2017 16:31:31 -0500
-In-Reply-To: <de4d3c34fac8c7bbbb614f776ca1255fd6aa03a6.1487187192.git.pavel.belous@aquantia.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33764 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752133AbdBOVeA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 16:34:00 -0500
+Received: by mail-pf0-f195.google.com with SMTP id e4so9524692pfg.0
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 13:34:00 -0800 (PST)
+In-Reply-To: <1487192551.1311.28.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15.02.2017 21:01, Pavel Belous wrote:
-> From: Pavel Belous <pavel.belous@aquantia.com>
->
-> This fix simplified copying data to the ring buffer.
-> Also, there was an error in the code when the second memcpy
-> is called with zero length. It didn't break the driver, but it's bad.
->
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
-> ---
->  drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 25 ++++++++++++------------
->  1 file changed, 13 insertions(+), 12 deletions(-)
->
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-> index 4c40644..8ebed0d 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-> @@ -108,18 +108,19 @@ void aq_ring_tx_append_buffs(struct aq_ring_s *self,
->  			     struct aq_ring_buff_s *buffer,
->  			     unsigned int buffers)
->  {
-> -	if (likely(self->sw_tail + buffers < self->size)) {
-> -		memcpy(&self->buff_ring[self->sw_tail], buffer,
-> -		       sizeof(buffer[0]) * buffers);
-> -	} else {
-> -		unsigned int first_part = self->size - self->sw_tail;
-> -		unsigned int second_part = buffers - first_part;
-> -
-> -		memcpy(&self->buff_ring[self->sw_tail], buffer,
-> -		       sizeof(buffer[0]) * first_part);
-> -
-> -		memcpy(&self->buff_ring[0], &buffer[first_part],
-> -		       sizeof(buffer[0]) * second_part);
-> +	int buff_len = min(self->size - self->sw_tail, buffers);
-> +
-> +	memcpy(&self->buff_ring[self->sw_tail],
-> +	       buffer,
-> +	       sizeof(struct aq_ring_buff_s) * buff_len);
-> +
-> +	/* We are in the end of the ring.
-> +	 *  Copy remains data to beginning of the ring
-> +	 */
-> +	if (buffers > buff_len) {
-> +		memcpy(self->buff_ring,
-> +		       &buffer[buff_len],
-> +		       sizeof(struct aq_ring_buff_s) * (buffers - buff_len));
->  	}
->  }
+On Wed, 2017-02-15 at 13:02 -0800, Eric Dumazet wrote:
+> On Wed, 2017-02-15 at 20:25 +0000, Anoob Soman wrote:
+> 
+> > +static struct packet_fanout *fanout_release(struct sock *sk)
+> >  {
+> >  	struct packet_sock *po = pkt_sk(sk);
+> >  	struct packet_fanout *f;
+> > @@ -1728,17 +1736,17 @@ static void fanout_release(struct sock *sk)
+> >  	if (f) {
+> >  		po->fanout = NULL;
+> >  
+> > -		if (atomic_dec_and_test(&f->sk_ref)) {
+> > +		if (atomic_dec_and_test(&f->sk_ref))
+> >  			list_del(&f->list);
+> > -			dev_remove_pack(&f->prot_hook);
+> > -			fanout_release_data(f);
+> > -			kfree(f);
+> > -		}
+> > +		else
+> > +			f = NULL;
+> 
+> 
+> Patch looks good, except this coding style issue.
 
-Well, you should really try to avoid copying the tx buffers _at all_.
-E.g. by passing self->buff_ring to aq_ring_tx_append_buffs() instead of
-the temporary array.
+Oh well, sorry , I missed we only had one left line ;)
 
-Regards,
-Lino
-buffer array.
+Acked-by: Eric Dumazet <edumazet@google.com>
