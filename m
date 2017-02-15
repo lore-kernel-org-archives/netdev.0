@@ -1,118 +1,39 @@
-From: Quentin Schulz <quentin.schulz@free-electrons.com>
-Subject: [RESEND PATCH 1/1] can: m_can: fix bitrate setup on latest silicon
-Date: Wed, 15 Feb 2017 15:08:19 +0100
-Message-ID: <20170215140819.879-1-quentin.schulz@free-electrons.com>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, boris.brezillon@free-electrons.com,
-        alexandre.belloni@free-electrons.com, nicolas.ferre@atmel.com
-To: wg@grandegger.com, mkl@pengutronix.de, fvallee@eukrea.fr
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next] sctp: change to use uint<size>_t in uapi sctp.h
+Date: Wed, 15 Feb 2017 09:17:56 -0500
+Message-ID: <20170215141756.GA24734@neilslaptop.think-freely.org>
+References: <05fb9cd9aed85d33cc8d635a18b0dcd3e7c0ff29.1487060628.git.lucien.xin@gmail.com>
+ <20170214.112604.827348279100654183.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, marcelo.leitner@gmail.com,
+        vyasevich@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:43691 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750773AbdBOOKH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 09:10:07 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56296 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750905AbdBOOSJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 09:18:09 -0500
+Content-Disposition: inline
+In-Reply-To: <20170214.112604.827348279100654183.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Vallee <fvallee@eukrea.fr>
+On Tue, Feb 14, 2017 at 11:26:04AM -0500, David Miller wrote:
+> From: Xin Long <lucien.xin@gmail.com>
+> Date: Tue, 14 Feb 2017 16:23:48 +0800
+> 
+> > All structures in uapi sctp.h are exported for userspace, their members'
+> > types should use uint<size>_t instead of __u<size>.
+> 
+> This is not true.
+> 
+> __u<size> is in fact preferred for userspace exported datastructures.
+> 
 
-According to the m_can user manual changelog the BTP register layout was
-updated with core revision 3.1.0
+I'll admit that I can never remember which is which, but the files in uapi seem
+pretty evenly split between the two types, and I always thought the uint<size>_t
+was the one meant for user space
 
-This change is not backward-compatible and using the current driver along
-with a recent IP results in an incorrect bitrate on the wire.
-
-Tested with a SAMA5D2 SoC (CREL = 0x31040730)
-
-Signed-off-by: Florian Vallee <fvallee@eukrea.fr>
-Tested-by: Quentin Schulz <quentin.schulz@free-electrons.com>
----
- drivers/net/can/m_can/m_can.c | 38 +++++++++++++++++++++++++++++++++++---
- 1 file changed, 35 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 195f15e..246584e 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -105,6 +105,10 @@ enum m_can_mram_cfg {
- 	MRAM_CFG_NUM,
- };
- 
-+/* Core Release Register (CREL) */
-+#define CRR_REL_MASK		0xfff
-+#define CRR_REL_SHIFT		20
-+
- /* Fast Bit Timing & Prescaler Register (FBTP) */
- #define FBTR_FBRP_MASK		0x1f
- #define FBTR_FBRP_SHIFT		16
-@@ -136,7 +140,7 @@ enum m_can_mram_cfg {
- #define CCCR_INIT		BIT(0)
- #define CCCR_CANFD		0x10
- 
--/* Bit Timing & Prescaler Register (BTP) */
-+/* Bit Timing & Prescaler Register (BTP) (M_CAN IP < 3.1.0) */
- #define BTR_BRP_MASK		0x3ff
- #define BTR_BRP_SHIFT		16
- #define BTR_TSEG1_SHIFT		8
-@@ -146,6 +150,16 @@ enum m_can_mram_cfg {
- #define BTR_SJW_SHIFT		0
- #define BTR_SJW_MASK		0xf
- 
-+/* Nominal Bit Timing & Prescaler Register (NBTP) (M_CAN IP >= 3.1.0) */
-+#define NBTR_SJW_SHIFT		25
-+#define NBTR_SJW_MASK		(0x7f << NBTR_SJW_SHIFT)
-+#define NBTR_BRP_SHIFT		16
-+#define NBTR_BRP_MASK		(0x3ff << NBTR_BRP_SHIFT)
-+#define NBTR_TSEG1_SHIFT	8
-+#define NBTR_TSEG1_MASK		(0xff << NBTR_TSEG1_SHIFT)
-+#define NBTR_TSEG2_SHIFT	0
-+#define NBTR_TSEG2_MASK		(0x7f << NBTR_TSEG2_SHIFT)
-+
- /* Error Counter Register(ECR) */
- #define ECR_RP			BIT(15)
- #define ECR_REC_SHIFT		8
-@@ -200,6 +214,9 @@ enum m_can_mram_cfg {
- 			 IR_RF1L | IR_RF0L)
- #define IR_ERR_ALL	(IR_ERR_STATE | IR_ERR_BUS)
- 
-+/* Core Version */
-+#define M_CAN_COREREL_3_1_0	0x310
-+
- /* Interrupt Line Select (ILS) */
- #define ILS_ALL_INT0	0x0
- #define ILS_ALL_INT1	0xFFFFFFFF
-@@ -357,6 +374,13 @@ static inline void m_can_disable_all_interrupts(const struct m_can_priv *priv)
- 	m_can_write(priv, M_CAN_ILE, 0x0);
- }
- 
-+static inline int m_can_read_core_rev(const struct m_can_priv *priv)
-+{
-+	u32 reg = m_can_read(priv, M_CAN_CREL);
-+
-+	return ((reg >> CRR_REL_SHIFT) & CRR_REL_MASK);
-+}
-+
- static void m_can_read_fifo(struct net_device *dev, u32 rxfs)
- {
- 	struct net_device_stats *stats = &dev->stats;
-@@ -811,8 +835,16 @@ static int m_can_set_bittiming(struct net_device *dev)
- 	sjw = bt->sjw - 1;
- 	tseg1 = bt->prop_seg + bt->phase_seg1 - 1;
- 	tseg2 = bt->phase_seg2 - 1;
--	reg_btp = (brp << BTR_BRP_SHIFT) | (sjw << BTR_SJW_SHIFT) |
--			(tseg1 << BTR_TSEG1_SHIFT) | (tseg2 << BTR_TSEG2_SHIFT);
-+
-+	if (m_can_read_core_rev(priv) < M_CAN_COREREL_3_1_0)
-+		reg_btp = (brp << BTR_BRP_SHIFT) | (sjw << BTR_SJW_SHIFT) |
-+				(tseg1 << BTR_TSEG1_SHIFT) |
-+				(tseg2 << BTR_TSEG2_SHIFT);
-+	else
-+		reg_btp = (brp << NBTR_BRP_SHIFT) | (sjw << NBTR_SJW_SHIFT) |
-+				(tseg1 << NBTR_TSEG1_SHIFT) |
-+				(tseg2 << NBTR_TSEG2_SHIFT);
-+
- 	m_can_write(priv, M_CAN_BTP, reg_btp);
- 
- 	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
--- 
-2.9.3
+Neil
