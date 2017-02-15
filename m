@@ -1,31 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ibmvnic: Fix endian errors in error reporting
- output
-Date: Wed, 15 Feb 2017 14:49:14 -0500 (EST)
-Message-ID: <20170215.144914.1443528426798877626.davem@davemloft.net>
-References: <1487176413-16523-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Subject: [PATCH net-next 00/13] net: ethernet: aquantia: improvements and fixes
+Date: Wed, 15 Feb 2017 23:01:08 +0300
+Message-ID: <cover.1487187192.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nfont@linux.vnet.ibm.com,
-        jallen@linux.vnet.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        Pavel Belous <pavel.belous@aquantia.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38302 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751313AbdBOTtQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 14:49:16 -0500
-In-Reply-To: <1487176413-16523-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Received: from mail-by2nam01on0049.outbound.protection.outlook.com ([104.47.34.49]:65264
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750791AbdBOUCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 15:02:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Wed, 15 Feb 2017 10:33:33 -0600
+From: Pavel Belous <pavel.belous@aquantia.com>
 
-> Error reports received from firmware were not being converted from
-> big endian values, leading to bogus error codes reported on little
-> endian systems.
-> 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+The following patchset contains improvements and fixes for aQuantia
+AQtion ethernet driver from net-next tree.
 
-Applied.
+Most fixes are based on the comments from Lino Sanfilippo.
+
+Sanity testing was performed on real HW.
+
+Please review.
+Thanks.
+
+
+Pavel Belous (13):
+  net: ethernet: aquantia: Removed extra assignment for skb->dev.
+  net: ethernet: aquantia: Removed busy_count field.
+  net: ethernet: aquantia: Removed unnecessary comparsion "old_mtu ==
+    new_mtu".
+  net: ethernet: aquantia: Using module_pci_driver.
+  net: ethernet: aquantia: Superfluous initialization of "err".
+  net: ethernet: aquantia: Fixed missing rtnl_unlock.
+  net: ethernet: aquantia: Using NETDEV_TX_OK instead 0.
+  net: ethernet: aquantia: Null pointer check for aq_nic_ndev_alloc.
+  net: ethernet: aquantia: Call netdev_register after all initialized.
+  net: ethernet: aquantia: Checking for success dma_map_single.
+  net: ethernet: aquantia: Refactoring buffers copying.
+  net: ethernet: aquantia: Fixed incorrect buff->len calculation.
+  net: ethernet: aquantia: Fixed memory allocation if
+    AQ_CFG_RX_FRAME_MAX > 1 page.
+
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c   | 34 ++------------
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 52 +++++++++++-----------
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c   | 30 +++++++------
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |  1 -
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |  4 +-
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |  4 +-
+ 6 files changed, 50 insertions(+), 75 deletions(-)
+
+-- 
+2.7.4
