@@ -1,199 +1,85 @@
-From: Anoob Soman <anoob.soman@citrix.com>
-Subject: [PATCH v2 net] packet: Do not call fanout_release from atomic contexts
-Date: Wed, 15 Feb 2017 16:43:50 +0000
-Message-ID: <1487177030-2980-1-git-send-email-anoob.soman@citrix.com>
+From: Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [kernel-hardening] Re: [RFC][PATCH] nfsd: add +1 to reference
+ counting scheme for struct nfsd4_session
+Date: Wed, 15 Feb 2017 11:45:05 -0500
+Message-ID: <20170215164505.GA14912@fieldses.org>
+References: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
+ <CAEXv5_jUa8Av4JABoKSAueiLHSLzibMvaE-8DrVcxZHFceckMg@mail.gmail.com>
+ <20170213105422.snaw65btejr3vsdi@ishxps>
+ <CAEXv5_hP39k7HSLP-G_khx7MMQHnk=8Z5caa+U5n3bYvUTE1gQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-        Anoob Soman <anoob.soman@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:58824 "EHLO
-        SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751175AbdBOQn4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 11:43:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org,
+        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAEXv5_hP39k7HSLP-G_khx7MMQHnk=8Z5caa+U5n3bYvUTE1gQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Commit 6664498280cf ("packet: call fanout_release, while UNREGISTERING a
-netdev"), unfortunately, introduced the following issues.
+On Mon, Feb 13, 2017 at 06:46:19AM -0500, David Windsor wrote:
+> On Mon, Feb 13, 2017 at 5:54 AM, Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > On Sat, Feb 11, 2017 at 01:42:53AM -0500, David Windsor wrote:
+> >>
+> >> <snip>
+> >>
+> >>> Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >>> ---
+> >>>  fs/nfsd/nfs4state.c | 6 +++---
+> >>>  1 file changed, 3 insertions(+), 3 deletions(-)
+> >>>
+> >>> diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
+> >>> index a0dee8a..b0f3010 100644
+> >>> --- a/fs/nfsd/nfs4state.c
+> >>> +++ b/fs/nfsd/nfs4state.c
+> >>> @@ -196,7 +196,7 @@ static void nfsd4_put_session_locked(struct
+> >>> nfsd4_session *ses)
+> >>>
+> >>>         lockdep_assert_held(&nn->client_lock);
+> >>>
+> >>> -       if (atomic_dec_and_test(&ses->se_ref) && is_session_dead(ses))
+> >>> +       if (!atomic_add_unless(&ses->se_ref, -1, 1) &&
+> >>> is_session_des(ses))
+> >>
+> >>
+> >> This should read:
+> >> if (!atomic_add_unless(&ses->se_ref, -1, 1) && is_session_dead(ses))
+> >>
+> >>>                 free_session(ses);
+> >
+> >
+> > Hi,
+> > I'm not sure if I have this correctly; But both before and after the patch
+> > free_session gets called when se_ref count was 1, shouldn't this have
+> > changed with the +1 scheme?
+> >
+> > Also, since the !atomic_add_unless doesn't actually decrement when at 1,
+> > doesn't this leave the se_ref as 1 when it's destroyed? The function seems
+> > to always be locked, so perhaps this doesn't matter, but still seems a bit
+> > risky.
+> >
+> 
+> Yes; I forgot the additional call to atomic_dec_and_test() before
+> free_session().  Thanks!
+> 
+> I'll resubmit this after seeing how the rest of this discussion goes.
+> We may end up abandoning this refcounting case.
 
-1. calling mutex_lock(&fanout_mutex) (fanout_release()) from inside
-rcu_read-side critical section. rcu_read_lock disables preemption, most often,
-which prohibits calling sleeping functions.
+I could live with it.
 
-[  ] include/linux/rcupdate.h:560 Illegal context switch in RCU read-side critical section!
-[  ]
-[  ] rcu_scheduler_active = 1, debug_locks = 0
-[  ] 4 locks held by ovs-vswitchd/1969:
-[  ]  #0:  (cb_lock){++++++}, at: [<ffffffff8158a6c9>] genl_rcv+0x19/0x40
-[  ]  #1:  (ovs_mutex){+.+.+.}, at: [<ffffffffa04878ca>] ovs_vport_cmd_del+0x4a/0x100 [openvswitch]
-[  ]  #2:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81564157>] rtnl_lock+0x17/0x20
-[  ]  #3:  (rcu_read_lock){......}, at: [<ffffffff81614165>] packet_notifier+0x5/0x3f0
-[  ]
-[  ] Call Trace:
-[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
-[  ]  [<ffffffff810c9077>] lockdep_rcu_suspicious+0x107/0x110
-[  ]  [<ffffffff810a2da7>] ___might_sleep+0x57/0x210
-[  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
-[  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
-[  ]  [<ffffffff810de93f>] ? vprintk_default+0x1f/0x30
-[  ]  [<ffffffff81186e88>] ? printk+0x4d/0x4f
-[  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
-[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
+My knee jerk reaction is like Jeff's--it just seems more natural to me
+for reference count 0 to mean "not in use, OK to free" in cases like
+this--but maybe I just need to get used to the idea.
 
-2. calling mutex_lock(&fanout_mutex) inside spin_lock(&po->bind_lock).
-"sleeping function called from invalid context"
+It'd be interesting to see what the final result looks like after
+conversion to refcount_t.
 
-[  ] BUG: sleeping function called from invalid context at kernel/locking/mutex.c:620
-[  ] in_atomic(): 1, irqs_disabled(): 0, pid: 1969, name: ovs-vswitchd
-[  ] INFO: lockdep is turned off.
-[  ] Call Trace:
-[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
-[  ]  [<ffffffff810a2f52>] ___might_sleep+0x202/0x210
-[  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
-[  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
-[  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
-[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
-
-3. calling dev_remove_pack(&fanout->prot_hook), from inside
-spin_lock(&po->bind_lock) or rcu_read-side critical-section. dev_remove_pack()
--> synchronize_net(), which might sleep.
-
-[  ] BUG: scheduling while atomic: ovs-vswitchd/1969/0x00000002
-[  ] INFO: lockdep is turned off.
-[  ] Call Trace:
-[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
-[  ]  [<ffffffff81186274>] __schedule_bug+0x64/0x73
-[  ]  [<ffffffff8162b8cb>] __schedule+0x6b/0xd10
-[  ]  [<ffffffff8162c5db>] schedule+0x6b/0x80
-[  ]  [<ffffffff81630b1d>] schedule_timeout+0x38d/0x410
-[  ]  [<ffffffff810ea3fd>] synchronize_sched_expedited+0x53d/0x810
-[  ]  [<ffffffff810ea6de>] synchronize_rcu_expedited+0xe/0x10
-[  ]  [<ffffffff8154eab5>] synchronize_net+0x35/0x50
-[  ]  [<ffffffff8154eae3>] dev_remove_pack+0x13/0x20
-[  ]  [<ffffffff8161077e>] fanout_release+0xbe/0xe0
-[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
-
-4. fanout_release() races with calls from different CPU.
-
-To fix the above problems, remove the call to fanout_release() under
-rcu_read_lock(). Instead, call __dev_remove_pack(&fanout->prot_hook) and
-netdev_run_todo will be happy that &dev->ptype_specific list is empty. In order
-to achieve this, I moved dev_{add,remove}_pack() out of fanout_{add,release} to
-__fanout_{link,unlink}. So, call to {,__}unregister_prot_hook() will make sure
-fanout->prot_hook is removed as well.
-
-Fixes: 6664498280cf ("packet: call fanout_release, while UNREGISTERING a netdev")
-Reported-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
----
-
-Changes in v2:
- - Incorporated Eric's suggestion to do fanout_release_data() and kfree() after
-    synchronize_net()
-
- net/packet/af_packet.c | 29 ++++++++++++++++++++++-------
- 1 file changed, 22 insertions(+), 7 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index d56ee46..af29510 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1497,6 +1497,8 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po)
- 	f->arr[f->num_members] = sk;
- 	smp_wmb();
- 	f->num_members++;
-+	if (f->num_members == 1)
-+		dev_add_pack(&f->prot_hook);
- 	spin_unlock(&f->lock);
- }
- 
-@@ -1513,6 +1515,8 @@ static void __fanout_unlink(struct sock *sk, struct packet_sock *po)
- 	BUG_ON(i >= f->num_members);
- 	f->arr[i] = f->arr[f->num_members - 1];
- 	f->num_members--;
-+	if (f->num_members == 0)
-+		__dev_remove_pack(&f->prot_hook);
- 	spin_unlock(&f->lock);
- }
- 
-@@ -1687,7 +1691,6 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		match->prot_hook.func = packet_rcv_fanout;
- 		match->prot_hook.af_packet_priv = match;
- 		match->prot_hook.id_match = match_fanout_group;
--		dev_add_pack(&match->prot_hook);
- 		list_add(&match->list, &fanout_list);
- 	}
- 	err = -EINVAL;
-@@ -1712,10 +1715,16 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	return err;
- }
- 
--static void fanout_release(struct sock *sk)
-+/* If pkt_sk(sk)->fanout->sk_ref is zero, this functuon removes
-+ * pkt_sk(sk)->fanout from fanout_list and returns pkt_sk(sk)->fanout.
-+ * It is the responsibility of the caller to call fanout_release_data() and
-+ * free the returned packet_fanout (after synchronize_net())
-+ */
-+static struct packet_fanout *fanout_release(struct sock *sk)
- {
- 	struct packet_sock *po = pkt_sk(sk);
- 	struct packet_fanout *f;
-+	bool ret_fanout = false;
- 
- 	f = po->fanout;
- 	if (!f)
-@@ -1726,14 +1735,14 @@ static void fanout_release(struct sock *sk)
- 
- 	if (atomic_dec_and_test(&f->sk_ref)) {
- 		list_del(&f->list);
--		dev_remove_pack(&f->prot_hook);
--		fanout_release_data(f);
--		kfree(f);
-+		ret_fanout = true;
- 	}
- 	mutex_unlock(&fanout_mutex);
- 
- 	if (po->rollover)
- 		kfree_rcu(po->rollover, rcu);
-+
-+	return ret_fanout ? f : NULL;
- }
- 
- static bool packet_extra_vlan_len_allowed(const struct net_device *dev,
-@@ -2907,6 +2916,7 @@ static int packet_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po;
-+	struct packet_fanout *f;
- 	struct net *net;
- 	union tpacket_req_u req_u;
- 
-@@ -2946,9 +2956,15 @@ static int packet_release(struct socket *sock)
- 		packet_set_ring(sk, &req_u, 1, 1);
- 	}
- 
--	fanout_release(sk);
-+	f = fanout_release(sk);
- 
- 	synchronize_net();
-+
-+	if (f) {
-+		fanout_release_data(f);
-+		kfree(f);
-+	}
-+
- 	/*
- 	 *	Now the socket is dead. No more input will appear.
- 	 */
-@@ -3900,7 +3916,6 @@ static int packet_notifier(struct notifier_block *this,
- 				}
- 				if (msg == NETDEV_UNREGISTER) {
- 					packet_cached_dev_reset(po);
--					fanout_release(sk);
- 					po->ifindex = -1;
- 					if (po->prot_hook.dev)
- 						dev_put(po->prot_hook.dev);
--- 
-2.7.4
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
