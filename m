@@ -1,66 +1,44 @@
-From: Benjamin Serebrin <serebrin@google.com>
-Subject: Re: [PATCH v2 net-next] virtio: Fix affinity for #VCPUs != #queue pairs
-Date: Wed, 15 Feb 2017 13:38:48 -0800
-Message-ID: <CAN+hb0X4UWmDvA0=5gpC6+Qt7vDgz0u5B79CM4KqQ-yuJmAO7Q@mail.gmail.com>
-References: <20170207181506.36668-1-serebrin@google.com> <20170208205353-mutt-send-email-mst@kernel.org>
- <CAN+hb0Uen4_bHR8xPcUNZG+aKPYAvjUqY1Z4PA7WWOs7jG3EAA@mail.gmail.com>
- <20170214225629-mutt-send-email-mst@kernel.org> <CAF=yD-La6wL16Ej0jGw1ztiKOGpWoaY86E3Qe4KmskrjczrC_A@mail.gmail.com>
- <20170215185413-mutt-send-email-mst@kernel.org> <CAN+hb0V5hcMkWwQhk=5G4B+vWBARyEq+g-=XVaygH5s-s7mPZw@mail.gmail.com>
- <20170215210941-mutt-send-email-mst@kernel.org>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next V3 5/7] net/sched: cls_matchall: Reflect HW
+ offloading status
+Date: Wed, 15 Feb 2017 23:40:02 +0200
+Message-ID: <CAJ3xEMi7EeEA=y-fGCOGCpk52kes+d=522zapH0pv2usTZMKXg@mail.gmail.com>
+References: <1487148757-24809-1-git-send-email-ogerlitz@mellanox.com>
+ <1487148757-24809-6-git-send-email-ogerlitz@mellanox.com> <20170215.131556.2072311430827899930.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Christian Borntraeger <borntraeger@de.ibm.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Jason Wang <jasowang@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        Venkatesh Srinivas <venkateshs@google.com>,
-        "Jon Olson (Google Drive)" <jonolson@google.com>,
-        Rick Jones <rick.jones2@hpe.com>,
-        James Mattson <jmattson@google.com>,
-        linux-s390 <linux-s390@vger.kernel.org>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20170215210941-mutt-send-email-mst@kernel.org>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:34901 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750719AbdBOVkD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 16:40:03 -0500
+Received: by mail-oi0-f67.google.com with SMTP id x84so460033oix.2
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 13:40:03 -0800 (PST)
+In-Reply-To: <20170215.131556.2072311430827899930.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2017 at 11:17 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+On Wed, Feb 15, 2017 at 8:15 PM, David Miller <davem@davemloft.net> wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> Date: Wed, 15 Feb 2017 10:52:35 +0200
+>
+>> @@ -194,6 +199,9 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+>>               }
+>>       }
+>>
+>> +     if (!(tc_in_hw(new->flags)))
+>> +             new->flags |= TCA_CLS_FLAGS_NOT_IN_HW;
+>
+> Too many parenthesis, please make this:
+>
+>         if (!tc_in_hw(new->flags))
+>                 new->flags |= TCA_CLS_FLAGS_NOT_IN_HW;
 
-> Right. But userspace knows it's random at least. If kernel supplies
-> affinity e.g. the way your patch does, userspace ATM accepts this as a
-> gospel.
-
-The existing code supplies the same affinity gospels in the #vcpu ==
-#queue case today.
-And the patch (unless it has a bug in it) should not affect the #vcpu
-== #queue case's
-behavior.  I don't quite understand what property we'd be changing
-with the patch.
-
-Here's the same dump of smp_affinity_list, on a 16 VCPU machine with
-unmodified kernel:
-
-0
-0
-1
-1
-2
-2
-[..]
-15
-15
-
-And xps_cpus
-00000001
-00000002
-[...]
-00008000
-
-This patch causes #vcpu != #queue case to follow the same pattern.
-
-
-Thanks again!
-Ben
+OKay, Dave, I will fix that along with the other places
