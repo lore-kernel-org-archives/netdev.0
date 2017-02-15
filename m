@@ -1,116 +1,66 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [lkp-robot] [net] 0148239373: ltp.test_1_to_1_sockopt.fail
-Date: Wed, 15 Feb 2017 10:02:40 +0800
-Message-ID: <CA+6hz4qnvo7+Qd=2Uqf+t2+SqQ2ggoM_ggCvcxaeih1Tx=ySEg@mail.gmail.com>
-References: <1486559235-13633-1-git-send-email-fgao@ikuai8.com> <20170215014612.GQ18272@yexl-desktop>
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Subject: [PATCH v2] uapi: fix linux/if_pppol2tp.h userspace compilation errors
+Date: Wed, 15 Feb 2017 05:23:26 +0300
+Message-ID: <20170215022326.GA21493@altlinux.org>
+References: <20170214103353.GA8394@altlinux.org> <20170214.143723.629330014459224649.davem@davemloft.net> <20170214202950.GB17325@altlinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        lkp@01.org, ltp@lists.linux.it
-To: kernel test robot <xiaolong.ye@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg65.qq.com ([103.7.28.233]:2604 "EHLO smtpbg65.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750931AbdBOCDE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Feb 2017 21:03:04 -0500
-Received: from mail-ua0-f171.google.com (unknown [209.85.217.171])
-        by esmtp4.qq.com (ESMTP) with SMTP id 0
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 10:02:41 +0800 (CST)
-Received: by mail-ua0-f171.google.com with SMTP id 96so97818489uaq.3
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 18:02:42 -0800 (PST)
-In-Reply-To: <20170215014612.GQ18272@yexl-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: =?utf-8?Q?Asbj=C3=B8rn_Sloth_T=C3=B8nnesen?= <asbjorn@asbjorn.st>,
+        James Chapman <jchapman@katalix.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170214202950.GB17325@altlinux.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Xiaolong,
+Because of <linux/libc-compat.h> interface limitations, <netinet/in.h>
+provided by libc cannot be included after <linux/in.h>, therefore any
+header that includes <netinet/in.h> cannot be included after <linux/in.h>.
 
-On Wed, Feb 15, 2017 at 9:46 AM, kernel test robot
-<xiaolong.ye@intel.com> wrote:
->
-> FYI, we noticed the following commit:
->
-> commit: 0148239373801a9c0c63eefc481b710ae7ce2941 ("net: sock: Use double send/recv buff value to compare with max value")
-> url: https://github.com/0day-ci/linux/commits/fgao-ikuai8-com/net-sock-Use-double-send-recv-buff-value-to-compare-with-max-value/20170208-213745
->
->
-> in testcase: ltp
-> with following parameters:
->
->         test: net.sctp
->
-> test-description: The LTP testsuite contains a collection of tools for testing the Linux kernel and related features.
-> test-url: http://linux-test-project.github.io/
->
->
-> on test machine: 88 threads Intel(R) Xeon(R) CPU E5-2699 v4 @ 2.20GHz with 128G memory
->
-> caused below changes (please refer to attached dmesg/kmsg for entire log/backtrace):
->
->
->
-> user  :notice: [   54.674772] tag=test_1_to_1_sockopt stime=1487093637
->
-> user  :notice: [   54.675078] cmdline="test_1_to_1_sockopt"
->
-> user  :notice: [   54.675194] contacts=""
->
-> user  :notice: [   54.675333] analysis=exit
->
-> user  :notice: [   54.675513] <<<test_output>>>
->
-> user  :notice: [   54.676497] test_1_to_1_sockopt.c    1  TPASS  :  setsockopt() with a bad socket descriptor - EBADF
->
-> user  :notice: [   54.677439] test_1_to_1_sockopt.c    2  TPASS  :  setsockopt() with an invalid socket - ENOTSOCK
->
-> user  :notice: [   54.678409] test_1_to_1_sockopt.c    3  TPASS  :  setsockopt() with an invalid level - ENOPROTOOPT
->
-> user  :notice: [   54.679378] test_1_to_1_sockopt.c    4  TPASS  :  setsockopt() with invalid option buffer - EFAULT
->
-> user  :notice: [   54.680375] test_1_to_1_sockopt.c    5  TPASS  :  setsockopt() with invalid option name - EOPNOTSUPP
->
-> user  :notice: [   54.681354] test_1_to_1_sockopt.c    6  TPASS  :  getsockopt() with a bad socket descriptor - EBADF
->
-> user  :notice: [   54.682297] test_1_to_1_sockopt.c    7  TPASS  :  getsockopt() with an invalid socket - ENOTSOCK
->
-> user  :notice: [   54.683265] test_1_to_1_sockopt.c    8  TPASS  :  getsockopt() with invalid option buffer - EFAULT
->
-> user  :notice: [   54.684267] test_1_to_1_sockopt.c    9  TPASS  :  getsockopt() with invalid option name - EOPNOTSUPP
->
-> user  :notice: [   54.685079] test_1_to_1_sockopt.c   10  TPASS  :  getsockopt() SCTP_INITMSG - SUCCESS
->
-> user  :notice: [   54.685885] test_1_to_1_sockopt.c   11  TPASS  :  setsockopt() SCTP_INITMSG - SUCCESS
->
-> user  :notice: [   54.686653] test_1_to_1_sockopt.c   12  TPASS  :  setsockopt() SO_LINGER - SUCCESS
->
-> user  :notice: [   54.687418] test_1_to_1_sockopt.c   13  TPASS  :  getsockopt() SO_LINGER - SUCCESS
->
-> user  :notice: [   54.688187] test_1_to_1_sockopt.c   14  TPASS  :  getsockopt() SO_RCVBUF - SUCCESS
->
-> user  :notice: [   54.688979] test_1_to_1_sockopt.c   15  TPASS  :  getsockopt() SCTP_STATUS - SUCCESS
->
-> user  :notice: [   54.689752] test_1_to_1_sockopt.c   16  TPASS  :  setsockopt() SO_RCVBUF - SUCCESS
->
-> user  :notice: [   54.691539] test_1_to_1_sockopt.c   17  TBROK  :  test_1_to_1_sockopt.c:341: Comparison failed:Set value and got value differs Set Value=4096 Get Value=8192
->
-> user  :notice: [   54.692520] test_1_to_1_sockopt.c   18  TBROK  :  test_1_to_1_sockopt.c:341: Remaining cases broken
->
->
->
-> To reproduce:
->
->         git clone git://git.kernel.org/pub/scm/linux/kernel/git/wfg/lkp-tests.git
->         cd lkp-tests
->         bin/lkp install job.yaml  # job file is attached in this email
->         bin/lkp run     job.yaml
->
->
->
-> Thanks,
-> Xiaolong
+Change uapi/linux/l2tp.h, the last uapi header that includes
+<netinet/in.h>, to include <linux/in.h> and <linux/in6.h> instead of
+<netinet/in.h> and use __SOCK_SIZE__ instead of sizeof(struct sockaddr)
+the same way as uapi/linux/in.h does, to fix linux/if_pppol2tp.h userspace
+compilation errors like this:
 
-This commit is not accepted, thanks.
-After discuss with Eric, I know it is too late to correct it.
+In file included from /usr/include/linux/l2tp.h:12:0,
+                 from /usr/include/linux/if_pppol2tp.h:21,
+/usr/include/netinet/in.h:31:8: error: redefinition of 'struct in_addr'
 
-Regards
-Feng
+Fixes: 47c3e7783be4 ("net: l2tp: deprecate PPPOL2TP_MSG_* in favour of L2TP_MSG_*")
+Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+---
+v2: change uapi/linux/l2tp.h to fix <linux/if_pppol2tp.h>
+
+ include/uapi/linux/l2tp.h | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/include/uapi/linux/l2tp.h b/include/uapi/linux/l2tp.h
+index 85ddb74..b23c191 100644
+--- a/include/uapi/linux/l2tp.h
++++ b/include/uapi/linux/l2tp.h
+@@ -9,9 +9,8 @@
+ 
+ #include <linux/types.h>
+ #include <linux/socket.h>
+-#ifndef __KERNEL__
+-#include <netinet/in.h>
+-#endif
++#include <linux/in.h>
++#include <linux/in6.h>
+ 
+ #define IPPROTO_L2TP		115
+ 
+@@ -31,7 +30,7 @@ struct sockaddr_l2tpip {
+ 	__u32		l2tp_conn_id;	/* Connection ID of tunnel */
+ 
+ 	/* Pad to size of `struct sockaddr'. */
+-	unsigned char	__pad[sizeof(struct sockaddr) -
++	unsigned char	__pad[__SOCK_SIZE__ -
+ 			      sizeof(__kernel_sa_family_t) -
+ 			      sizeof(__be16) - sizeof(struct in_addr) -
+ 			      sizeof(__u32)];
+-- 
+ldv
