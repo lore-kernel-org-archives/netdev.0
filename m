@@ -1,37 +1,60 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/2] net: xilinx_emaclite: fix receive buffer overflow
-Date: Wed, 15 Feb 2017 15:31:43 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE673AC@AcuExch.aculab.com>
-References: <20170214171145.26953-1-anssi.hannula@bitwise.fi>
- <20170214.151259.1157334352658192111.davem@davemloft.net>
- <62dad5ad-cafb-7569-b010-cb355f7affc7@bitwise.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "michal.simek@xilinx.com" <michal.simek@xilinx.com>,
-        "soren.brinkmann@xilinx.com" <soren.brinkmann@xilinx.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Anssi Hannula' <anssi.hannula@bitwise.fi>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.193]:65239 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751317AbdBOPbv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 10:31:51 -0500
-In-Reply-To: <62dad5ad-cafb-7569-b010-cb355f7affc7@bitwise.fi>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH] atm: idt77252, use setup_timer and mod_timer
+Date: Wed, 15 Feb 2017 16:59:35 +0100
+Message-ID: <20170215155935.27606-1-jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org,
+        Jan Koniarik <jan.koniarik@trustica.cz>,
+        Jiri Slaby <jslaby@suse.cz>,
+        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+To: 3chas3@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anssi Hannula
-> Sent: 15 February 2017 08:29
-...
-> Looking through the product guide [1] I don't see the actual receive
-> packet length provided anywhere, so I guess that is why the crazy stuff
-> is done.
+From: Jan Koniarik <jan.koniarik@trustica.cz>
 
-If the hardware doesn't provide the receive packet length then I suggest
-you 'fix' the hardware with an angle grinder :-)
-Not fit for purpose.
+Stop accessing timer struct members directly and use setup_timer and
+mod_timer helpers intended for that use. It makes the code cleaner and
+will allow for easier change of the timer struct internals.
 
-	David
+Signed-off-by: Jan Koniarik <jan.koniarik@trustica.cz>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Chas Williams <3chas3@gmail.com>
+Cc: <linux-atm-general@lists.sourceforge.net>
+Cc: <netdev@vger.kernel.org>
+---
+ drivers/atm/idt77252.c | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
+index 471ddfd93ea8..5ec109533bb9 100644
+--- a/drivers/atm/idt77252.c
++++ b/drivers/atm/idt77252.c
+@@ -2132,12 +2132,8 @@ idt77252_init_est(struct vc_map *vc, int pcr)
+ 
+ 	est->interval = 2;		/* XXX: make this configurable */
+ 	est->ewma_log = 2;		/* XXX: make this configurable */
+-	init_timer(&est->timer);
+-	est->timer.data = (unsigned long)vc;
+-	est->timer.function = idt77252_est_timer;
+-
+-	est->timer.expires = jiffies + ((HZ / 4) << est->interval);
+-	add_timer(&est->timer);
++	setup_timer(&est->timer, idt77252_est_timer, (unsigned long)vc);
++	mod_timer(&est->timer, jiffies + ((HZ / 4) << est->interval));
+ 
+ 	return est;
+ }
+@@ -3638,9 +3634,7 @@ static int idt77252_init_one(struct pci_dev *pcidev,
+ 	spin_lock_init(&card->cmd_lock);
+ 	spin_lock_init(&card->tst_lock);
+ 
+-	init_timer(&card->tst_timer);
+-	card->tst_timer.data = (unsigned long)card;
+-	card->tst_timer.function = tst_timer;
++	setup_timer(&card->tst_timer, tst_timer, (unsigned long)card);
+ 
+ 	/* Do the I/O remapping... */
+ 	card->membase = ioremap(membase, 1024);
+-- 
+2.11.1
