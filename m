@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlx4: do not use rwlock in fast path
-Date: Wed, 15 Feb 2017 12:10:39 -0500 (EST)
-Message-ID: <20170215.121039.185981521813042079.davem@davemloft.net>
-References: <1486660204.7793.104.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next v1] bpf: Remove redundant ifdef
+Date: Wed, 15 Feb 2017 12:15:12 -0500 (EST)
+Message-ID: <20170215.121512.968038975885762468.davem@davemloft.net>
+References: <20170211193708.18191-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com,
-        sbohrer@rgmadvisors.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35258 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751317AbdBORKo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 12:10:44 -0500
-In-Reply-To: <1486660204.7793.104.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
+        wangnan0@huawei.com, netdev@vger.kernel.org
+To: mic@digikod.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170211193708.18191-1-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Feb 2017 09:10:04 -0800
+From: Mickaël Salaün <mic@digikod.net>
+Date: Sat, 11 Feb 2017 20:37:08 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> Remove a useless ifdef __NR_bpf as requested by Wang Nan.
 > 
-> Using a reader-writer lock in fast path is silly, when we can
-> instead use RCU or a seqlock.
+> Inline one-line static functions as it was in the bpf_sys.h file.
 > 
-> For mlx4 hwstamp clock, a seqlock is the way to go, removing
-> two atomic operations and false sharing. 
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Mickaël Salaün <mic@digikod.net>
+> Cc: Alexei Starovoitov <ast@fb.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Wang Nan <wangnan0@huawei.com>
+> Link: https://lkml.kernel.org/r/828ab1ff-4dcf-53ff-c97b-074adb895006@huawei.com
 
-Applied, thanks Eric.
+Applied.
