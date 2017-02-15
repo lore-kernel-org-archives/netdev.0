@@ -1,117 +1,199 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Wed, 15 Feb 2017 18:42:14 +0200
-Message-ID: <ccc4cb9e-9863-02e1-2789-4869aea3c661@mellanox.com>
-References: <20170213195858.5215-1-edumazet@google.com>
- <20170213195858.5215-9-edumazet@google.com>
- <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
- <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
- <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
- <20170214131206.44b644f6@redhat.com>
- <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
- <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
- <1487087488.8227.53.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S3530_2DYU-3VRmvRYZ3n05OqJZpJ3x02vXQd6Q7FUJQvw@mail.gmail.com>
+From: Anoob Soman <anoob.soman@citrix.com>
+Subject: [PATCH v2 net] packet: Do not call fanout_release from atomic contexts
+Date: Wed, 15 Feb 2017 16:43:50 +0000
+Message-ID: <1487177030-2980-1-git-send-email-anoob.soman@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, Jesper Dangaard Brouer
-	<brouer@redhat.com>, Alexander Duyck <alexander.duyck@gmail.com>, "David S .
- Miller" <davem@davemloft.net>, netdev <netdev@vger.kernel.org>, Tariq Toukan
-	<tariqt@mellanox.com>, Martin KaFai Lau <kafai@fb.com>, Saeed Mahameed
-	<saeedm@mellanox.com>, Willem de Bruijn <willemb@google.com>, Brenden Blanco
-	<bblanco@plumgrid.com>, Alexei Starovoitov <ast@kernel.org>, linux-mm
-	<linux-mm@kvack.org>
-To: Tom Herbert <tom@herbertland.com>, Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CALx6S3530_2DYU-3VRmvRYZ3n05OqJZpJ3x02vXQd6Q7FUJQvw@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+        Anoob Soman <anoob.soman@citrix.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:58824 "EHLO
+        SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751175AbdBOQn4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 11:43:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Commit 6664498280cf ("packet: call fanout_release, while UNREGISTERING a
+netdev"), unfortunately, introduced the following issues.
 
+1. calling mutex_lock(&fanout_mutex) (fanout_release()) from inside
+rcu_read-side critical section. rcu_read_lock disables preemption, most often,
+which prohibits calling sleeping functions.
 
-On 14/02/2017 7:29 PM, Tom Herbert wrote:
-> On Tue, Feb 14, 2017 at 7:51 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Tue, 2017-02-14 at 16:56 +0200, Tariq Toukan wrote:
->>
->>> As the previous series caused hangs, we must run functional regression
->>> tests over this series as well.
->>> Run has already started, and results will be available tomorrow morning.
->>>
->>> In general, I really like this series. The re-factorization looks more
->>> elegant and more correct, functionally.
->>>
->>> However, performance wise: we fear that the numbers will be drastically
->>> lower with this transition to order-0 pages,
->>> because of the (becoming critical) page allocator and dma operations
->>> bottlenecks, especially on systems with costly
->>> dma operations, such as ARM, iommu=on, etc...
->>>
->> So, again, performance after this patch series his higher,
->> once you have sensible RX queues parameters, for the expected workload.
->>
->> Only in pathological cases, you might have some regression.
->>
->> The old schem was _maybe_ better _when_ memory is not fragmented.
->>
->> When you run hosts for months, memory _is_ fragmented.
->>
->> You never see that on benchmarks, unless you force memory being
->> fragmented.
->>
->>
->>
->>> We already have this exact issue in mlx5, where we moved to order-0
->>> allocations with a fixed size cache, but that was not enough.
->>> Customers of mlx5 have already complained about the performance
->>> degradation, and currently this is hurting our business.
->>> We get a clear nack from our performance regression team regarding doing
->>> the same in mlx4.
->>> So, the question is, can we live with this degradation until those
->>> bottleneck challenges are addressed?
->> Again, there is no degradation.
->>
->> We have been using order-0 pages for years at Google.
->>
->> Only when we made the mistake to rebase from the upstream driver and
->> order-3 pages we got horrible regressions, causing production outages.
->>
->> I was silly to believe that mm layer got better.
->>
->>> Following our perf experts feedback, I cannot just simply Ack. We need
->>> to have a clear plan to close the perf gap or reduce the impact.
->> Your perf experts need to talk to me, or any experts at Google and
->> Facebook, really.
->>
-> I agree with this 100%! To be blunt, power users like this are testing
-> your drivers far beyond what Mellanox is doing and understand how
-> performance gains in benchmarks translate to possible gains in real
-> production way more than your perf experts can. Listen to Eric!
->
-> Tom
->
->
->> Anything _relying_ on order-3 pages being available to impress
->> friends/customers is a lie.
+[  ] include/linux/rcupdate.h:560 Illegal context switch in RCU read-side critical section!
+[  ]
+[  ] rcu_scheduler_active = 1, debug_locks = 0
+[  ] 4 locks held by ovs-vswitchd/1969:
+[  ]  #0:  (cb_lock){++++++}, at: [<ffffffff8158a6c9>] genl_rcv+0x19/0x40
+[  ]  #1:  (ovs_mutex){+.+.+.}, at: [<ffffffffa04878ca>] ovs_vport_cmd_del+0x4a/0x100 [openvswitch]
+[  ]  #2:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81564157>] rtnl_lock+0x17/0x20
+[  ]  #3:  (rcu_read_lock){......}, at: [<ffffffff81614165>] packet_notifier+0x5/0x3f0
+[  ]
+[  ] Call Trace:
+[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
+[  ]  [<ffffffff810c9077>] lockdep_rcu_suspicious+0x107/0x110
+[  ]  [<ffffffff810a2da7>] ___might_sleep+0x57/0x210
+[  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
+[  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
+[  ]  [<ffffffff810de93f>] ? vprintk_default+0x1f/0x30
+[  ]  [<ffffffff81186e88>] ? printk+0x4d/0x4f
+[  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
+[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
 
-Isn't it the same principle in page_frag_alloc() ?
-It is called form __netdev_alloc_skb()/__napi_alloc_skb().
+2. calling mutex_lock(&fanout_mutex) inside spin_lock(&po->bind_lock).
+"sleeping function called from invalid context"
 
-Why is it ok to have order-3 pages (PAGE_FRAG_CACHE_MAX_ORDER) there?
-By using netdev/napi_alloc_skb, you'll get that the SKB's linear data is 
-a frag of a huge page,
-and it is not going to be freed before the other non-linear frags.
-Cannot this cause the same threats (memory pinning and so...)?
+[  ] BUG: sleeping function called from invalid context at kernel/locking/mutex.c:620
+[  ] in_atomic(): 1, irqs_disabled(): 0, pid: 1969, name: ovs-vswitchd
+[  ] INFO: lockdep is turned off.
+[  ] Call Trace:
+[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
+[  ]  [<ffffffff810a2f52>] ___might_sleep+0x202/0x210
+[  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
+[  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
+[  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
+[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
 
-Currently, mlx4 doesn't use this generic API, while most other drivers do.
+3. calling dev_remove_pack(&fanout->prot_hook), from inside
+spin_lock(&po->bind_lock) or rcu_read-side critical-section. dev_remove_pack()
+-> synchronize_net(), which might sleep.
 
-Similar claims are true for TX:
-https://github.com/torvalds/linux/commit/5640f7685831e088fe6c2e1f863a6805962f8e81
+[  ] BUG: scheduling while atomic: ovs-vswitchd/1969/0x00000002
+[  ] INFO: lockdep is turned off.
+[  ] Call Trace:
+[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
+[  ]  [<ffffffff81186274>] __schedule_bug+0x64/0x73
+[  ]  [<ffffffff8162b8cb>] __schedule+0x6b/0xd10
+[  ]  [<ffffffff8162c5db>] schedule+0x6b/0x80
+[  ]  [<ffffffff81630b1d>] schedule_timeout+0x38d/0x410
+[  ]  [<ffffffff810ea3fd>] synchronize_sched_expedited+0x53d/0x810
+[  ]  [<ffffffff810ea6de>] synchronize_rcu_expedited+0xe/0x10
+[  ]  [<ffffffff8154eab5>] synchronize_net+0x35/0x50
+[  ]  [<ffffffff8154eae3>] dev_remove_pack+0x13/0x20
+[  ]  [<ffffffff8161077e>] fanout_release+0xbe/0xe0
+[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
 
->>
+4. fanout_release() races with calls from different CPU.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To fix the above problems, remove the call to fanout_release() under
+rcu_read_lock(). Instead, call __dev_remove_pack(&fanout->prot_hook) and
+netdev_run_todo will be happy that &dev->ptype_specific list is empty. In order
+to achieve this, I moved dev_{add,remove}_pack() out of fanout_{add,release} to
+__fanout_{link,unlink}. So, call to {,__}unregister_prot_hook() will make sure
+fanout->prot_hook is removed as well.
+
+Fixes: 6664498280cf ("packet: call fanout_release, while UNREGISTERING a netdev")
+Reported-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
+---
+
+Changes in v2:
+ - Incorporated Eric's suggestion to do fanout_release_data() and kfree() after
+    synchronize_net()
+
+ net/packet/af_packet.c | 29 ++++++++++++++++++++++-------
+ 1 file changed, 22 insertions(+), 7 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index d56ee46..af29510 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1497,6 +1497,8 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po)
+ 	f->arr[f->num_members] = sk;
+ 	smp_wmb();
+ 	f->num_members++;
++	if (f->num_members == 1)
++		dev_add_pack(&f->prot_hook);
+ 	spin_unlock(&f->lock);
+ }
+ 
+@@ -1513,6 +1515,8 @@ static void __fanout_unlink(struct sock *sk, struct packet_sock *po)
+ 	BUG_ON(i >= f->num_members);
+ 	f->arr[i] = f->arr[f->num_members - 1];
+ 	f->num_members--;
++	if (f->num_members == 0)
++		__dev_remove_pack(&f->prot_hook);
+ 	spin_unlock(&f->lock);
+ }
+ 
+@@ -1687,7 +1691,6 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 		match->prot_hook.func = packet_rcv_fanout;
+ 		match->prot_hook.af_packet_priv = match;
+ 		match->prot_hook.id_match = match_fanout_group;
+-		dev_add_pack(&match->prot_hook);
+ 		list_add(&match->list, &fanout_list);
+ 	}
+ 	err = -EINVAL;
+@@ -1712,10 +1715,16 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 	return err;
+ }
+ 
+-static void fanout_release(struct sock *sk)
++/* If pkt_sk(sk)->fanout->sk_ref is zero, this functuon removes
++ * pkt_sk(sk)->fanout from fanout_list and returns pkt_sk(sk)->fanout.
++ * It is the responsibility of the caller to call fanout_release_data() and
++ * free the returned packet_fanout (after synchronize_net())
++ */
++static struct packet_fanout *fanout_release(struct sock *sk)
+ {
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	struct packet_fanout *f;
++	bool ret_fanout = false;
+ 
+ 	f = po->fanout;
+ 	if (!f)
+@@ -1726,14 +1735,14 @@ static void fanout_release(struct sock *sk)
+ 
+ 	if (atomic_dec_and_test(&f->sk_ref)) {
+ 		list_del(&f->list);
+-		dev_remove_pack(&f->prot_hook);
+-		fanout_release_data(f);
+-		kfree(f);
++		ret_fanout = true;
+ 	}
+ 	mutex_unlock(&fanout_mutex);
+ 
+ 	if (po->rollover)
+ 		kfree_rcu(po->rollover, rcu);
++
++	return ret_fanout ? f : NULL;
+ }
+ 
+ static bool packet_extra_vlan_len_allowed(const struct net_device *dev,
+@@ -2907,6 +2916,7 @@ static int packet_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct packet_sock *po;
++	struct packet_fanout *f;
+ 	struct net *net;
+ 	union tpacket_req_u req_u;
+ 
+@@ -2946,9 +2956,15 @@ static int packet_release(struct socket *sock)
+ 		packet_set_ring(sk, &req_u, 1, 1);
+ 	}
+ 
+-	fanout_release(sk);
++	f = fanout_release(sk);
+ 
+ 	synchronize_net();
++
++	if (f) {
++		fanout_release_data(f);
++		kfree(f);
++	}
++
+ 	/*
+ 	 *	Now the socket is dead. No more input will appear.
+ 	 */
+@@ -3900,7 +3916,6 @@ static int packet_notifier(struct notifier_block *this,
+ 				}
+ 				if (msg == NETDEV_UNREGISTER) {
+ 					packet_cached_dev_reset(po);
+-					fanout_release(sk);
+ 					po->ifindex = -1;
+ 					if (po->prot_hook.dev)
+ 						dev_put(po->prot_hook.dev);
+-- 
+2.7.4
