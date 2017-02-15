@@ -1,55 +1,112 @@
-From: Moritz Fischer <mdf@kernel.org>
-Subject: Re: [PATCH] net: ethernet: cadence: Add fixed-link functionality
-Date: Wed, 15 Feb 2017 14:30:25 -0800
-Message-ID: <CAAtXAHdSExjVc-Dhy=5vAkEgk97gTSderDtSRY7VXaSPOdX_vg@mail.gmail.com>
-References: <1487191445-5353-1-git-send-email-mdf@kernel.org> <20170215221249.GB6096@lunn.ch>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 2/6] ARM: dts: armada-xp-98dx3236: combine dfx server
+ nodes
+Date: Wed, 15 Feb 2017 16:40:25 -0600
+Message-ID: <20170215224025.cwxzthotooiuvuq5@rob-hp-laptop>
+References: <20170207202815.20226-1-chris.packham@alliedtelesis.co.nz>
+ <20170207202815.20226-3-chris.packham@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@microchip.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org,
+        Mark Rutland <mark.rutland@arm.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Russell King <linux@armlinux.org.uk>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chris Packham <chris.packham@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:54034 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751210AbdBOWaf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Feb 2017 17:30:35 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-        by mail.kernel.org (Postfix) with ESMTP id BA94D20220
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 22:30:28 +0000 (UTC)
-Received: from mail-qk0-f171.google.com (mail-qk0-f171.google.com [209.85.220.171])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
-        (No client certificate requested)
-        by mail.kernel.org (Postfix) with ESMTPSA id A2E2820211
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 22:30:26 +0000 (UTC)
-Received: by mail-qk0-f171.google.com with SMTP id u25so283239qki.2
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 14:30:26 -0800 (PST)
-In-Reply-To: <20170215221249.GB6096@lunn.ch>
+Received: from mail-ot0-f193.google.com ([74.125.82.193]:36367 "EHLO
+        mail-ot0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751298AbdBOWk1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 17:40:27 -0500
+Content-Disposition: inline
+In-Reply-To: <20170207202815.20226-3-chris.packham@alliedtelesis.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew,
+On Wed, Feb 08, 2017 at 09:28:11AM +1300, Chris Packham wrote:
+> Rather than having a separate node for the dfx server add a reg property
+> to the parent node. This give somes compatibility with the Marvell
+> supplied SDK.
 
-On Wed, Feb 15, 2017 at 2:12 PM, Andrew Lunn <andrew@lunn.ch> wrote:
->> @@ -3342,8 +3371,18 @@ static int macb_probe(struct platform_device *pdev)
->>               macb_get_hwaddr(bp);
->>
->>       /* Power up the PHY if there is a GPIO reset */
->> -     phy_node =  of_get_next_available_child(np, NULL);
->> -     if (phy_node) {
->> +     phy_node = of_parse_phandle(np, "phy-handle", 0);
->> +     if (!phy_node && of_phy_is_fixed_link(np)) {
->> +             err = of_phy_register_fixed_link(np);
->
-> Hi Moritz
->
-> I don't see any calls to of_phy_deregister_fixed_link(), either in the
-> error path, or the remove code.
+But breaks upstream compatibility. Need to explain why that's okay.
 
-Whoops, yeah I rebased it from like a year ago. Must've not survived my
-merge conflict resolution.
+> 
+> Signed-off-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+> ---
+> 
+> Notes:
+>     Changes in v2:
+>     - none
+> 
+>  Documentation/devicetree/bindings/net/marvell,prestera.txt | 13 +++++--------
+>  arch/arm/boot/dts/armada-xp-98dx3236.dtsi                  |  8 ++------
+>  2 files changed, 7 insertions(+), 14 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/marvell,prestera.txt b/Documentation/devicetree/bindings/net/marvell,prestera.txt
+> index 5fbab29718e8..c329608fa887 100644
+> --- a/Documentation/devicetree/bindings/net/marvell,prestera.txt
+> +++ b/Documentation/devicetree/bindings/net/marvell,prestera.txt
+> @@ -32,19 +32,16 @@ DFX Server bindings
+>  -------------------
+>  
+>  Required properties:
+> -- compatible: must be "marvell,dfx-server"
+> +- compatible: must be "marvell,dfx-server", "simple-bus"
+> +- ranges: describes the address mapping of a memory-mapped bus.
+>  - reg: address and length of the register set for the device.
+>  
+>  Example:
+>  
+> -dfx-registers {
+> -	compatible = "simple-bus";
+> +dfx-server {
+> +	compatible = "marvell,dfx-server", "simple-bus";
+>  	#address-cells = <1>;
+>  	#size-cells = <1>;
+>  	ranges = <0 MBUS_ID(0x08, 0x00) 0 0x100000>;
+> -
+> -	dfx: dfx@0 {
+> -		compatible = "marvell,dfx-server";
+> -		reg = <0 0x100000>;
+> -	};
+> +	reg = <MBUS_ID(0x08, 0x00) 0 0x100000>;
+>  };
+> diff --git a/arch/arm/boot/dts/armada-xp-98dx3236.dtsi b/arch/arm/boot/dts/armada-xp-98dx3236.dtsi
+> index f6a03dcee5ef..bd8261fdec81 100644
+> --- a/arch/arm/boot/dts/armada-xp-98dx3236.dtsi
+> +++ b/arch/arm/boot/dts/armada-xp-98dx3236.dtsi
+> @@ -195,11 +195,12 @@
+>  			};
+>  		};
+>  
+> -		dfxr: dfx-registers@ac000000 {
+> +		dfx: dfx-server@ac000000 {
+>  			compatible = "simple-bus";
 
-I'll rework it.
+Missing marvell,dfx-server?
 
-Thanks,
-
-Moritz
+>  			#address-cells = <1>;
+>  			#size-cells = <1>;
+>  			ranges = <0 MBUS_ID(0x08, 0x00) 0 0x100000>;
+> +			reg = <MBUS_ID(0x08, 0x00) 0 0x100000>;
+>  
+>  			dfx_coredivclk: corediv-clock@f8268 {
+>  				compatible = "marvell,mv98dx3236-corediv-clock";
+> @@ -208,11 +209,6 @@
+>  				clocks = <&mainpll>;
+>  				clock-output-names = "nand";
+>  			};
+> -
+> -			dfx: dfx@0 {
+> -				compatible = "marvell,dfx-server";
+> -				reg = <0 0x100000>;
+> -			};
+>  		};
+>  
+>  		switch: switch@a8000000 {
+> -- 
+> 2.11.0.24.ge6920cf
+> 
