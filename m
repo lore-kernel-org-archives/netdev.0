@@ -1,51 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] sched: have stub for tcf_destroy_chain in case NET_CLS is not configured
-Date: Wed, 15 Feb 2017 11:57:50 +0100
-Message-ID: <1487156270-31132-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, mlxsw@mellanox.com,
-        sd@queasysnail.net
-To: netdev@vger.kernel.org
+From: Anoob Soman <anoob.soman@citrix.com>
+Subject: Re: [PATCH net] packet: Do not call fanout_release from atomic
+ contexts
+Date: Wed, 15 Feb 2017 11:07:21 +0000
+Message-ID: <7fbe1936-2305-73bb-7808-f830db424436@citrix.com>
+References: <1486730384-18749-1-git-send-email-anoob.soman@citrix.com>
+ <1486735077.7793.149.camel@edumazet-glaptop3.roam.corp.google.com>
+ <822618dc-9e7f-83dd-1920-6a69aaf27dc0@citrix.com>
+ <1486995964.8227.34.camel@edumazet-glaptop3.roam.corp.google.com>
+ <64b9aba2-71c7-6e69-630e-aba995306dbf@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35880 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751452AbdBOK5x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 05:57:53 -0500
-Received: by mail-wm0-f68.google.com with SMTP id r18so7576640wmd.3
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 02:57:53 -0800 (PST)
+Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:57375 "EHLO
+        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751600AbdBOLHq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 06:07:46 -0500
+In-Reply-To: <64b9aba2-71c7-6e69-630e-aba995306dbf@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On 13/02/17 14:50, Anoob Soman wrote:
+> On 13/02/17 14:26, Eric Dumazet wrote:
+>> On Mon, 2017-02-13 at 13:28 +0000, Anoob Soman wrote:
+>>
+>>> Wouldn't it be easier to call synchronize_net(), before calling
+>>> fanout_release_data() and kfree(f).
+>>> The behavior, wrt synchronize_net, would be same as before and
+>>> fanout_release() will cleanup everything without leaving any residue.
+>> So we would require two synchronize_net() calls instead of one ?
+>>
+>> synchronize_net() is very expensive on some hosts, it is a big hammer.
+>>
+>>
+>>
+>
+> Yes, one before fanout_release_data() (will be called only if 
+> fanout->sk_ref == 0) and one after fanout_release().
+>
+> I understand synchronize_net() is expensive, but adding another 
+> synchronize_net(),  before fanout_release_data(), will be no different 
+> from what we have in the existing code.
+>
+> I can also make sure second synchronize_net() doesn't get called 
+> again, if fanout_release() calls synchronize_net(), by making 
+> fanout_release() return something to indicate it has done 
+> synchronize_net().
 
-This fixes broken build for !NET_CLS:
+Hi Eric,
 
-net/built-in.o: In function `fq_codel_destroy':
-/home/sab/linux/net-next/net/sched/sch_fq_codel.c:468: undefined reference to `tcf_destroy_chain'
-
-Fixes: cf1facda2f61 ("sched: move tcf_proto_destroy and tcf_destroy_chain helpers into cls_api")
-Reported-by: Sabrina Dubroca <sd@queasysnail.net>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/pkt_cls.h | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 71b266c..be5c12a 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -17,7 +17,13 @@ struct tcf_walker {
- int register_tcf_proto_ops(struct tcf_proto_ops *ops);
- int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
- 
-+#ifdef CONFIG_NET_CLS
- void tcf_destroy_chain(struct tcf_proto __rcu **fl);
-+#else
-+static inline void tcf_destroy_chain(struct tcf_proto __rcu **fl)
-+{
-+}
-+#endif
- 
- static inline unsigned long
- __cls_set_class(unsigned long *clp, unsigned long cl)
--- 
-2.7.4
+Did you get a chance to looks at my comments ?
