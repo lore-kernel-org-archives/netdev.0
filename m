@@ -1,36 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] sched: have stub for tcf_destroy_chain in
- case NET_CLS is not configured
-Date: Wed, 15 Feb 2017 12:23:06 -0500 (EST)
-Message-ID: <20170215.122306.126875220822657132.davem@davemloft.net>
-References: <1487156270-31132-1-git-send-email-jiri@resnulli.us>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [RFC PATCH  v2] net: ethtool: add support for forward error
+ correction modes
+Date: Wed, 15 Feb 2017 17:38:07 +0000
+Message-ID: <MWHPR12MB1600C9C8528A929DD0404943C85B0@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <1486727004-11316-1-git-send-email-vidya@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, mlxsw@mellanox.com,
-        sd@queasysnail.net
-To: jiri@resnulli.us
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+        "dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>,
+        "odedw@mellanox.com" <odedw@mellanox.com>,
+        "ariela@mellanox.com" <ariela@mellanox.com>,
+        "Yuval.Mintz@qlogic.com" <Yuval.Mintz@qlogic.com>,
+        "galp@mellanox.com" <galp@mellanox.com>,
+        "vidya.chowdary@gmail.com" <vidya.chowdary@gmail.com>
+To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linville@tuxdriver.com" <linville@tuxdriver.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35460 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752320AbdBORXI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 12:23:08 -0500
-In-Reply-To: <1487156270-31132-1-git-send-email-jiri@resnulli.us>
+Received: from mail-sn1nam02on0098.outbound.protection.outlook.com ([104.47.36.98]:42787
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750905AbdBORiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 12:38:09 -0500
+In-Reply-To: <1486727004-11316-1-git-send-email-vidya@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 15 Feb 2017 11:57:50 +0100
+  Vidya and I have been in communication on how to support Forward Error Co=
+rrection Management on Links.  My own thoughts are that we should consider =
+using the new Get/Set Link Ksettiongs API because FEC is a low-level Link p=
+arameter which is either negotiated at the same time as Link Speed if Auto-=
+Negotiation is in use, or must be set identically on both Link Peers is AN =
+is not in use.  I'm not convinced that FEC Management should use a separate=
+ ethtool/Kernel Driver API ala Pause Frame settings.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> This fixes broken build for !NET_CLS:
-> 
-> net/built-in.o: In function `fq_codel_destroy':
-> /home/sab/linux/net-next/net/sched/sch_fq_codel.c:468: undefined reference to `tcf_destroy_chain'
-> 
-> Fixes: cf1facda2f61 ("sched: move tcf_proto_destroy and tcf_destroy_chain helpers into cls_api")
-> Reported-by: Sabrina Dubroca <sd@queasysnail.net>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+  I'm hoping to meet with Vidya and his collaborators at Cumulus Networks i=
+n the very near term to hash these issues out.
 
-Applied, thanks Jiri.
+Casey
