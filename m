@@ -1,92 +1,153 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] Implement full-functionality option for ECN encapsulation
- in tunnel
-Date: Wed, 15 Feb 2017 22:39:16 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1702152235410.1942@ja.home.ssi.bg>
-References: <1487165636-10157-1-git-send-email-vfedorenko@yandex-team.ru>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        lvs-devel@vger.kernel.org
-To: Vadim Fedorenko <vfedorenko@yandex-team.ru>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1487165636-10157-1-git-send-email-vfedorenko@yandex-team.ru>
-Sender: lvs-devel-owner@vger.kernel.org
+From: mdf@kernel.org
+Subject: [PATCH] net: ethernet: cadence: Add fixed-link functionality
+Date: Wed, 15 Feb 2017 12:44:05 -0800
+Message-ID: <1487191445-5353-1-git-send-email-mdf@kernel.org>
+Cc: netdev@vger.kernel.org, moritz.fischer@ettus.com,
+        Moritz Fischer <mdf@kernel.org>,
+        Nicolas Ferre <nicolas.ferre@microchip.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Moritz Fischer <mdf@kernel.org>
 
-	Hello,
+This allows 'fixed-link' direct MAC connections to be declared
+in devicetree.
 
-On Wed, 15 Feb 2017, Vadim Fedorenko wrote:
+Signed-off-by: Moritz Fischer <mdf@kernel.org>
+Cc: Nicolas Ferre <nicolas.ferre@microchip.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 61 ++++++++++++++++++++++++++++++++++---
+ drivers/net/ethernet/cadence/macb.h |  1 +
+ 2 files changed, 57 insertions(+), 5 deletions(-)
 
-> IPVS tunnel mode works as simple tunnel (see RFC 3168) copying ECN field
-> to outer header. That's result in packet drops on egress tunnels in case
-> the egress tunnel operates as ECN-capable with Full-functionality option
-> (like ip_tunnel and ip6_tunnel kernel modules), according to RFC 3168
-> section 9.1.1 recommendation.
-> 
-> This patch implements ECN full-functionality option into ipvs xmit code.
-> 
-> Cc: netdev@vger.kernel.org
-> Cc: lvs-devel@vger.kernel.org
-> Signed-off-by: Vadim Fedorenko <vfedorenko@yandex-team.ru>
-> Reviewed-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-
-	Looks good to me, thanks!
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-> ---
->  net/netfilter/ipvs/ip_vs_xmit.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-> index 01d3d89..b3286f3 100644
-> --- a/net/netfilter/ipvs/ip_vs_xmit.c
-> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
-> @@ -879,6 +879,7 @@ static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
->  {
->  	struct sk_buff *new_skb = NULL;
->  	struct iphdr *old_iph = NULL;
-> +	__u8 old_dsfield;
->  #ifdef CONFIG_IP_VS_IPV6
->  	struct ipv6hdr *old_ipv6h = NULL;
->  #endif
-> @@ -903,7 +904,7 @@ static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
->  			*payload_len =
->  				ntohs(old_ipv6h->payload_len) +
->  				sizeof(*old_ipv6h);
-> -		*dsfield = ipv6_get_dsfield(old_ipv6h);
-> +		old_dsfield = ipv6_get_dsfield(old_ipv6h);
->  		*ttl = old_ipv6h->hop_limit;
->  		if (df)
->  			*df = 0;
-> @@ -918,12 +919,15 @@ static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
->  
->  		/* fix old IP header checksum */
->  		ip_send_check(old_iph);
-> -		*dsfield = ipv4_get_dsfield(old_iph);
-> +		old_dsfield = ipv4_get_dsfield(old_iph);
->  		*ttl = old_iph->ttl;
->  		if (payload_len)
->  			*payload_len = ntohs(old_iph->tot_len);
->  	}
->  
-> +	/* Implement full-functionality option for ECN encapsulation */
-> +	*dsfield = INET_ECN_encapsulate(old_dsfield, old_dsfield);
-> +
->  	return skb;
->  error:
->  	kfree_skb(skb);
-> -- 
-> 1.9.1
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 30606b1..af443a8 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -469,6 +469,34 @@ static int macb_mii_probe(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int macb_fixed_init(struct macb *bp)
++{
++	struct phy_device *phydev;
++
++	phydev = of_phy_connect(bp->dev, bp->phy_node,
++				&macb_handle_link_change, 0,
++				bp->phy_interface);
++	if (!phydev)
++		return -ENODEV;
++
++	/* mask with MAC supported features */
++	if (macb_is_gem(bp) && bp->caps & MACB_CAPS_GIGABIT_MODE_AVAILABLE)
++		phydev->supported &= PHY_GBIT_FEATURES;
++	else
++		phydev->supported &= PHY_BASIC_FEATURES;
++
++	if (bp->caps & MACB_CAPS_NO_GIGABIT_HALF)
++		phydev->supported &= ~SUPPORTED_1000baseT_Half;
++
++	phydev->advertising = phydev->supported;
++
++	bp->link = 0;
++	bp->speed = 0;
++	bp->duplex = -1;
++
++	return 0;
++}
++
+ static int macb_mii_init(struct macb *bp)
+ {
+ 	struct macb_platform_data *pdata;
+@@ -3245,6 +3273,7 @@ static int macb_probe(struct platform_device *pdev)
+ 	const char *mac;
+ 	struct macb *bp;
+ 	int err;
++	bool fixed_link = false;
+ 
+ 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	mem = devm_ioremap_resource(&pdev->dev, regs);
+@@ -3342,8 +3371,18 @@ static int macb_probe(struct platform_device *pdev)
+ 		macb_get_hwaddr(bp);
+ 
+ 	/* Power up the PHY if there is a GPIO reset */
+-	phy_node =  of_get_next_available_child(np, NULL);
+-	if (phy_node) {
++	phy_node = of_parse_phandle(np, "phy-handle", 0);
++	if (!phy_node && of_phy_is_fixed_link(np)) {
++		err = of_phy_register_fixed_link(np);
++		if (err < 0) {
++			dev_err(&pdev->dev, "broken fixed-link specification");
++			goto failed_phy;
++		}
++		/* in case of a fixed PHY, the DT node is the ethernet MAC */
++		phy_node = of_node_get(np);
++		bp->phy_node = phy_node;
++		fixed_link = true;
++	} else {
+ 		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
+ 
+ 		if (gpio_is_valid(gpio)) {
+@@ -3369,7 +3408,10 @@ static int macb_probe(struct platform_device *pdev)
+ 	if (err)
+ 		goto err_out_free_netdev;
+ 
+-	err = macb_mii_init(bp);
++	if (!fixed_link)
++		err = macb_mii_init(bp);
++	else
++		err = macb_fixed_init(bp);
+ 	if (err)
+ 		goto err_out_free_netdev;
+ 
+@@ -3400,6 +3442,9 @@ static int macb_probe(struct platform_device *pdev)
+ 	if (bp->reset_gpio)
+ 		gpiod_set_value(bp->reset_gpio, 0);
+ 
++failed_phy:
++	of_node_put(phy_node);
++
+ err_out_free_netdev:
+ 	free_netdev(dev);
+ 
+@@ -3423,9 +3468,14 @@ static int macb_remove(struct platform_device *pdev)
+ 		bp = netdev_priv(dev);
+ 		if (dev->phydev)
+ 			phy_disconnect(dev->phydev);
+-		mdiobus_unregister(bp->mii_bus);
++
++		if (!bp->phy_node)
++			mdiobus_unregister(bp->mii_bus);
++
+ 		dev->phydev = NULL;
+-		mdiobus_free(bp->mii_bus);
++
++		if (!bp->phy_node)
++			mdiobus_free(bp->mii_bus);
+ 
+ 		/* Shutdown the PHY if there is a GPIO reset */
+ 		if (bp->reset_gpio)
+@@ -3435,6 +3485,7 @@ static int macb_remove(struct platform_device *pdev)
+ 		clk_disable_unprepare(bp->tx_clk);
+ 		clk_disable_unprepare(bp->hclk);
+ 		clk_disable_unprepare(bp->pclk);
++		of_node_put(bp->phy_node);
+ 		clk_disable_unprepare(bp->rx_clk);
+ 		free_netdev(dev);
+ 	}
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 234a49e..d9a9b6f 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -931,6 +931,7 @@ struct macb {
+ 	struct macb_or_gem_ops	macbgem_ops;
+ 
+ 	struct mii_bus		*mii_bus;
++	struct device_node	*phy_node;
+ 	int 			link;
+ 	int 			speed;
+ 	int 			duplex;
+-- 
+2.7.4
