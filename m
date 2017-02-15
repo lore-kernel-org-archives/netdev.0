@@ -1,38 +1,44 @@
-From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: Re: linux-next: build failure after merge of the rdma tree
-Date: Wed, 15 Feb 2017 10:39:44 +0530
-Message-ID: <CA+sbYW3GyZ1cf9NfdJTF6Pn-XcMW2cKMVxSycsnp62N-r0Pi9g@mail.gmail.com>
-References: <20170215113003.4c730d86@canb.auug.org.au> <ad8c1dc5-9d96-b45f-fe89-115ea4d0174c@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Eddie Wai <eddie.wai@broadcom.com>,
-        Devesh Sharma <devesh.sharma@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: Doug Ledford <dledford@redhat.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <ad8c1dc5-9d96-b45f-fe89-115ea4d0174c@redhat.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net-next] openvswitch: Set internal device max mtu to ETH_MAX_MTU.
+Date: Tue, 14 Feb 2017 21:16:28 -0800
+Message-ID: <1487135788-37601-1-git-send-email-jarno@ovn.org>
+Cc: jarno@ovn.org, jarod@redhat.com, pshelar@ovn.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:44283 "EHLO
+        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750781AbdBOFQo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 00:16:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2017 at 6:35 AM, Doug Ledford <dledford@redhat.com> wrote:
->> From: Stephen Rothwell <sfr@canb.auug.org.au>
->> Date: Wed, 15 Feb 2017 11:23:25 +1100
->> Subject: [PATCH] RDMA/bnxt_re: fix for "bnxt_en: Update to firmware interface spec 1.7.0."
->>
->> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
->
-> Thanks Stephen.  I had been forewarned about this by Selvin and I
-> instructed him to send me a fixup patch that would resolve the issue.  I
-> would apply it to my tree before merging with Linus.  He just hadn't
-> time to send it yet.  Your patch is sufficient as well, so I may just
-> pull it in.  Thanks again.
+Commit 91572088e3fd ("net: use core MTU range checking in core net
+infra") changed the openvswitch internal device to use the core net
+infra for controlling the MTU range, but failed to actually set the
+max_mtu as described in the commit message, which now defaults to
+ETH_DATA_LEN.
 
-Thanks Stephen and Doug for taking care of this.
+This patch fixes this by setting max_mtu to ETH_MAX_MTU after
+ether_setup() call.
 
-Acked-by: Selvin Xavier <selvin.xavier@broadcom.com>
+Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ net/openvswitch/vport-internal_dev.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 09141a1..89193a6 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -149,6 +149,8 @@ static void do_setup(struct net_device *netdev)
+ {
+ 	ether_setup(netdev);
+ 
++	netdev->max_mtu = ETH_MAX_MTU;
++
+ 	netdev->netdev_ops = &internal_dev_netdev_ops;
+ 
+ 	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
+-- 
+2.1.4
