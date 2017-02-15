@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 2/8] net: stmmac: likely is useless in occasional function
-Date: Wed, 15 Feb 2017 10:46:39 +0100
-Message-ID: <20170215094645.591-3-clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 3/8] net: stmmac: use SPEED_UNKNOWN/DUPLEX_UNKNOWN
+Date: Wed, 15 Feb 2017 10:46:40 +0100
+Message-ID: <20170215094645.591-4-clabbe.montjoie@gmail.com>
 References: <20170215094645.591-1-clabbe.montjoie@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -11,40 +11,53 @@ In-Reply-To: <20170215094645.591-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The stmmac_adjust_link() function is called too rarely for having
-likely() macros being useful.
-Just remove likely annotation in it.
+It is better to use DUPLEX_UNKNOWN instead of just "-1".
+Using 0 for an invalid speed is bad since 0 is a valid value for speed.
+So this patch replace 0 by SPEED_UNKNOWN.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Reviewed-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index ee1dbf4..511c47c 100644
+index 511c47c..a87071d 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -716,15 +716,15 @@ static void stmmac_adjust_link(struct net_device *dev)
- 			new_state = 1;
- 			switch (phydev->speed) {
- 			case 1000:
--				if (likely(priv->plat->has_gmac ||
--					   priv->plat->has_gmac4))
-+				if (priv->plat->has_gmac ||
-+				    priv->plat->has_gmac4)
- 					ctrl &= ~priv->hw->link.port;
- 				stmmac_hw_fix_mac_speed(priv);
- 				break;
- 			case 100:
- 			case 10:
--				if (likely(priv->plat->has_gmac ||
--					   priv->plat->has_gmac4)) {
-+				if (priv->plat->has_gmac ||
-+				    priv->plat->has_gmac4) {
- 					ctrl |= priv->hw->link.port;
- 					if (phydev->speed == SPEED_100) {
- 						ctrl |= priv->hw->link.speed;
+@@ -754,8 +754,8 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 	} else if (priv->oldlink) {
+ 		new_state = 1;
+ 		priv->oldlink = 0;
+-		priv->speed = 0;
+-		priv->oldduplex = -1;
++		priv->speed = SPEED_UNKNOWN;
++		priv->oldduplex = DUPLEX_UNKNOWN;
+ 	}
+ 
+ 	if (new_state && netif_msg_link(priv))
+@@ -817,8 +817,8 @@ static int stmmac_init_phy(struct net_device *dev)
+ 	int interface = priv->plat->interface;
+ 	int max_speed = priv->plat->max_speed;
+ 	priv->oldlink = 0;
+-	priv->speed = 0;
+-	priv->oldduplex = -1;
++	priv->speed = SPEED_UNKNOWN;
++	priv->oldduplex = DUPLEX_UNKNOWN;
+ 
+ 	if (priv->plat->phy_node) {
+ 		phydev = of_phy_connect(dev, priv->plat->phy_node,
+@@ -3434,8 +3434,8 @@ int stmmac_suspend(struct device *dev)
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+ 	priv->oldlink = 0;
+-	priv->speed = 0;
+-	priv->oldduplex = -1;
++	priv->speed = SPEED_UNKNOWN;
++	priv->oldduplex = DUPLEX_UNKNOWN;
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(stmmac_suspend);
 -- 
 2.10.2
