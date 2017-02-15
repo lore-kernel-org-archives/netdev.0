@@ -1,85 +1,70 @@
-From: Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [kernel-hardening] Re: [RFC][PATCH] nfsd: add +1 to reference
- counting scheme for struct nfsd4_session
-Date: Wed, 15 Feb 2017 11:45:05 -0500
-Message-ID: <20170215164505.GA14912@fieldses.org>
-References: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
- <CAEXv5_jUa8Av4JABoKSAueiLHSLzibMvaE-8DrVcxZHFceckMg@mail.gmail.com>
- <20170213105422.snaw65btejr3vsdi@ishxps>
- <CAEXv5_hP39k7HSLP-G_khx7MMQHnk=8Z5caa+U5n3bYvUTE1gQ@mail.gmail.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 net-next] net: phy: Add LED mode driver for Microsemi
+ PHYs.
+Date: Wed, 15 Feb 2017 10:45:40 -0600
+Message-ID: <20170215164540.eok7bnudfffzoyi4@rob-hp-laptop>
+References: <1486474826-29426-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org,
-        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
+To: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAEXv5_hP39k7HSLP-G_khx7MMQHnk=8Z5caa+U5n3bYvUTE1gQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1486474826-29426-1-git-send-email-Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 13, 2017 at 06:46:19AM -0500, David Windsor wrote:
-> On Mon, Feb 13, 2017 at 5:54 AM, Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On Sat, Feb 11, 2017 at 01:42:53AM -0500, David Windsor wrote:
-> >>
-> >> <snip>
-> >>
-> >>> Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >>> ---
-> >>>  fs/nfsd/nfs4state.c | 6 +++---
-> >>>  1 file changed, 3 insertions(+), 3 deletions(-)
-> >>>
-> >>> diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
-> >>> index a0dee8a..b0f3010 100644
-> >>> --- a/fs/nfsd/nfs4state.c
-> >>> +++ b/fs/nfsd/nfs4state.c
-> >>> @@ -196,7 +196,7 @@ static void nfsd4_put_session_locked(struct
-> >>> nfsd4_session *ses)
-> >>>
-> >>>         lockdep_assert_held(&nn->client_lock);
-> >>>
-> >>> -       if (atomic_dec_and_test(&ses->se_ref) && is_session_dead(ses))
-> >>> +       if (!atomic_add_unless(&ses->se_ref, -1, 1) &&
-> >>> is_session_des(ses))
-> >>
-> >>
-> >> This should read:
-> >> if (!atomic_add_unless(&ses->se_ref, -1, 1) && is_session_dead(ses))
-> >>
-> >>>                 free_session(ses);
-> >
-> >
-> > Hi,
-> > I'm not sure if I have this correctly; But both before and after the patch
-> > free_session gets called when se_ref count was 1, shouldn't this have
-> > changed with the +1 scheme?
-> >
-> > Also, since the !atomic_add_unless doesn't actually decrement when at 1,
-> > doesn't this leave the se_ref as 1 when it's destroyed? The function seems
-> > to always be locked, so perhaps this doesn't matter, but still seems a bit
-> > risky.
-> >
+On Tue, Feb 07, 2017 at 07:10:26PM +0530, Raju Lakkaraju wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
 > 
-> Yes; I forgot the additional call to atomic_dec_and_test() before
-> free_session().  Thanks!
+> LED Mode:
+> Microsemi PHY support 2 LEDs (LED[0] and LED[1]) to display different
+> status information that can be selected by setting LED mode.
 > 
-> I'll resubmit this after seeing how the rest of this discussion goes.
-> We may end up abandoning this refcounting case.
+> LED Mode parameter (vsc8531, led-0-mode) and (vsc8531, led-1-mode) get
+> from Device Tree.
+> 
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> ---
+> Change set:
+> v0:
+> - Initial version of LED driver for Microsemi PHYs.
+> v1:
+> - Update all review comments given by Andrew.
+> - Add new header file "mscc-phy-vsc8531.h" to define DT macros.
+> - Add error/range check for DT LED mode input
+> v2:
+> - Fixed x86_64 build error.
+> v3:
+> - Update all review comments.
+> - Fix the error check condition.
+> 
+>  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 10 +++
+>  drivers/net/phy/mscc.c                             | 85 +++++++++++++++++++++-
+>  include/dt-bindings/net/mscc-phy-vsc8531.h         | 29 ++++++++
+>  3 files changed, 123 insertions(+), 1 deletion(-)
+>  create mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
+> 
+> diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> index bdefefc6..0eedabe 100644
+> --- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> +++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> @@ -27,6 +27,14 @@ Optional properties:
+>  			  'vddmac'.
+>  			  Default value is 0%.
+>  			  Ref: Table:1 - Edge rate change (below).
+> +- vsc8531,led-0-mode	: LED mode. Specify how the LED[0] should behave.
+> +			  Allowed values are define in
+> +			  "include/dt-bindings/net/mscc-phy-vsc8531.h".
+> +			  Default value is VSC8531_LINK_1000_ACTIVITY (1).
+> +- vsc8531,led-1-mode	: LED mode. Specify how the LED[1] should behave.
 
-I could live with it.
+You failed to address my comment on v2. vsc8531 is not a vendor prefix. 
+Please fix in a new patch since David already applied it.
 
-My knee jerk reaction is like Jeff's--it just seems more natural to me
-for reference count 0 to mean "not in use, OK to free" in cases like
-this--but maybe I just need to get used to the idea.
-
-It'd be interesting to see what the final result looks like after
-conversion to refcount_t.
-
---b.
+Rob
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
