@@ -1,77 +1,56 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next v7 0/2] qed*: Add support for PTP
-Date: Wed, 15 Feb 2017 10:24:09 +0200
-Message-ID: <1487147051-14350-1-git-send-email-Yuval.Mintz@cavium.com>
+From: Anssi Hannula <anssi.hannula@bitwise.fi>
+Subject: Re: [PATCH 1/2] net: xilinx_emaclite: fix receive buffer overflow
+Date: Wed, 15 Feb 2017 10:28:57 +0200
+Message-ID: <62dad5ad-cafb-7569-b010-cb355f7affc7@bitwise.fi>
+References: <20170214171145.26953-1-anssi.hannula@bitwise.fi>
+ <20170214.151259.1157334352658192111.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <richardcochran@gmail.com>, <Sudarsana.Kalluru@cavium.com>,
-        Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53243 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750979AbdBOIY2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 03:24:28 -0500
+Received: from mail.bitwise.fi ([109.204.228.163]:54634 "EHLO mail.bitwise.fi"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750716AbdBOI3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 03:29:04 -0500
+In-Reply-To: <20170214.151259.1157334352658192111.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds required changes for qed/qede drivers for
-supporting the IEEE Precision Time Protocol (PTP).
+On 14.2.2017 22:12, David Miller wrote:
+> From: Anssi Hannula <anssi.hannula@bitwise.fi>
+> Date: Tue, 14 Feb 2017 19:11:44 +0200
+>
+>> xilinx_emaclite looks at the received data to try to determine the
+>> Ethernet packet length but does not properly clamp it if
+>> proto_type == ETH_P_IP or 1500 < proto_type <= 1518, causing a buffer
+>> overflow and a panic via skb_panic() as the length exceeds the allocated
+>> skb size.
+>>
+>> Fix those cases.
+>>
+>> Also add an additional unconditional check with WARN_ON() at the end.
+>>
+>> Signed-off-by: Anssi Hannula <anssi.hannula@bitwise.fi>
+>> Fixes: bb81b2ddfa19 ("net: add Xilinx emac lite device driver")
+> Why does this driver do all of this crazy stuff parsing the packet
+> headers?
+>
+> It should be able to just read the length provided by the device
+> at XEL_RPLR_OFFSET and just use that.
 
-Dave,
-Please consider applying this series to "net-next".
+Looks like XEL_RPLR_OFFSET == XEL_HEADER_OFFSET + XEL_RXBUFF_OFFSET and
+that is where the driver reads the on-wire Type/Length field.
 
-Thanks,
-Yuval
+Looking through the product guide [1] I don't see the actual receive
+packet length provided anywhere, so I guess that is why the crazy stuff
+is done.
 
-Changes from previous versions:
--------------------------------
-v7: Fixed Kbuild robot warnings.
-
-v6: Corrected broken loop iteration in previous version.
-    Reduced approximation error of adjfreq.
-
-v5: Removed two divisions from the adjust-frequency loop.
-    Resulting logic would use 8 divisions [instead of 24].
-
-v4: Remove the loop iteration for value '0' in the qed_ptp_hw_adjfreq()
-    implementation.
-
-v3: Use div_s64 for 64-bit divisions as do_div gives error for signed
-    types.
-    Incorporated review comments from Richard Cochran.
-      - Clear timestamp resgisters as soon as timestamp is read.
-      - Use shift operation in the place of 'divide by 16'.
-
-v2: Use do_div for 64-bit divisions.
-
-Sudarsana Reddy Kalluru (2):
-  qed: Add infrastructure for PTP support
-  qede: Add driver support for PTP
-
-
- drivers/net/ethernet/qlogic/Kconfig             |   1 +
- drivers/net/ethernet/qlogic/qed/Makefile        |   2 +-
- drivers/net/ethernet/qlogic/qed/qed.h           |   2 +
- drivers/net/ethernet/qlogic/qed/qed_l2.c        |   5 +
- drivers/net/ethernet/qlogic/qed/qed_l2.h        |   1 +
- drivers/net/ethernet/qlogic/qed/qed_main.c      |  15 +
- drivers/net/ethernet/qlogic/qed/qed_ptp.c       | 323 ++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_ptp.h       |  47 +++
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  31 ++
- drivers/net/ethernet/qlogic/qede/Makefile       |   2 +-
- drivers/net/ethernet/qlogic/qede/qede.h         |   4 +
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  10 +
- drivers/net/ethernet/qlogic/qede/qede_fp.c      |   5 +
- drivers/net/ethernet/qlogic/qede/qede_main.c    |  39 ++
- drivers/net/ethernet/qlogic/qede/qede_ptp.c     | 536 ++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qede/qede_ptp.h     |  65 +++
- include/linux/qed/qed_eth_if.h                  |  22 +
- 17 files changed, 1108 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
- create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.c
- create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.h
+[1]
+https://www.xilinx.com/support/documentation/ip_documentation/axi_ethernetlite/v3_0/pg135-axi-ethernetlite.pdf
 
 -- 
-1.9.3
+Anssi Hannula / Bitwise Oy
++358503803997
