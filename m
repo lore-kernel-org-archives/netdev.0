@@ -1,44 +1,38 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V3 5/7] net/sched: cls_matchall: Reflect HW
- offloading status
-Date: Wed, 15 Feb 2017 23:40:02 +0200
-Message-ID: <CAJ3xEMi7EeEA=y-fGCOGCpk52kes+d=522zapH0pv2usTZMKXg@mail.gmail.com>
-References: <1487148757-24809-1-git-send-email-ogerlitz@mellanox.com>
- <1487148757-24809-6-git-send-email-ogerlitz@mellanox.com> <20170215.131556.2072311430827899930.davem@davemloft.net>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH net-next 10/13] net: ethernet: aquantia: Checking for
+ success dma_map_single.
+Date: Wed, 15 Feb 2017 22:40:23 +0100
+Message-ID: <f52f06ff-0666-865a-74b5-e7840fde3a3c@gmx.de>
+References: <cover.1487187192.git.pavel.belous@aquantia.com>
+ <6ad9fef330a2c9b59139621efbb7c77e746d9f25.1487187192.git.pavel.belous@aquantia.com>
+ <60f99adb-f29f-1527-0a0a-406c39c99d0f@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>
+To: Pavel Belous <Pavel.Belous@aquantia.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:34901 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750719AbdBOVkD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 16:40:03 -0500
-Received: by mail-oi0-f67.google.com with SMTP id x84so460033oix.2
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 13:40:03 -0800 (PST)
-In-Reply-To: <20170215.131556.2072311430827899930.davem@davemloft.net>
+Received: from mout.gmx.net ([212.227.17.20]:51695 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752583AbdBOVkh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 16:40:37 -0500
+In-Reply-To: <60f99adb-f29f-1527-0a0a-406c39c99d0f@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2017 at 8:15 PM, David Miller <davem@davemloft.net> wrote:
-> From: Or Gerlitz <ogerlitz@mellanox.com>
-> Date: Wed, 15 Feb 2017 10:52:35 +0200
->
->> @@ -194,6 +199,9 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
->>               }
->>       }
->>
->> +     if (!(tc_in_hw(new->flags)))
->> +             new->flags |= TCA_CLS_FLAGS_NOT_IN_HW;
->
-> Too many parenthesis, please make this:
->
->         if (!tc_in_hw(new->flags))
->                 new->flags |= TCA_CLS_FLAGS_NOT_IN_HW;
+On 15.02.2017 22:23, Lino Sanfilippo wrote:
 
-OKay, Dave, I will fix that along with the other places
+>
+>
+> In case of this error you have to undo all mappings that you have
+> done so far (i.e the complete frag list and the head buffer).
+>
+
+And, since mapping failed, set ret = 0 and handle this case in the
+caller, too.
+
+Regards,
+Lino
