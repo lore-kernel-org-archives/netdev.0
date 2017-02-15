@@ -1,62 +1,29 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 8/8] net: stmmac: invert the logic for dumping regs
-Date: Wed, 15 Feb 2017 10:46:45 +0100
-Message-ID: <20170215094645.591-9-clabbe.montjoie@gmail.com>
-References: <20170215094645.591-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170215094645.591-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: hip04: Omit private ndo_get_stats function
+Date: Wed, 15 Feb 2017 02:28:08 -0800
+Message-ID: <1487154488.6214.53.camel@perches.com>
+References: <20170214141006.11510-1-tklauser@distanz.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com
+To: Tobias Klauser <tklauser@distanz.ch>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0249.hostedemail.com ([216.40.44.249]:60725 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751304AbdBOK2M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 05:28:12 -0500
+In-Reply-To: <20170214141006.11510-1-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is easier to follow the logic by removing the not operator
+On Tue, 2017-02-14 at 15:10 +0100, Tobias Klauser wrote:
+> hip04_get_stats() just returns dev->stats so we can leave it
+> out altogether and let dev_get_stats() do the job.
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Reviewed-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+This could be done for at least a few more drivers:
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index aab895d..5ff6bc4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -442,24 +442,24 @@ static void stmmac_ethtool_gregs(struct net_device *dev,
- 
- 	memset(reg_space, 0x0, REG_SPACE_SIZE);
- 
--	if (!(priv->plat->has_gmac || priv->plat->has_gmac4)) {
-+	if (priv->plat->has_gmac || priv->plat->has_gmac4) {
- 		/* MAC registers */
--		for (i = 0; i < 12; i++)
-+		for (i = 0; i < 55; i++)
- 			reg_space[i] = readl(priv->ioaddr + (i * 4));
- 		/* DMA registers */
--		for (i = 0; i < 9; i++)
--			reg_space[i + 12] =
-+		for (i = 0; i < 22; i++)
-+			reg_space[i + 55] =
- 			    readl(priv->ioaddr + (DMA_BUS_MODE + (i * 4)));
--		reg_space[22] = readl(priv->ioaddr + DMA_CUR_TX_BUF_ADDR);
--		reg_space[23] = readl(priv->ioaddr + DMA_CUR_RX_BUF_ADDR);
- 	} else {
- 		/* MAC registers */
--		for (i = 0; i < 55; i++)
-+		for (i = 0; i < 12; i++)
- 			reg_space[i] = readl(priv->ioaddr + (i * 4));
- 		/* DMA registers */
--		for (i = 0; i < 22; i++)
--			reg_space[i + 55] =
-+		for (i = 0; i < 9; i++)
-+			reg_space[i + 12] =
- 			    readl(priv->ioaddr + (DMA_BUS_MODE + (i * 4)));
-+		reg_space[22] = readl(priv->ioaddr + DMA_CUR_TX_BUF_ADDR);
-+		reg_space[23] = readl(priv->ioaddr + DMA_CUR_RX_BUF_ADDR);
- 	}
- }
- 
--- 
-2.10.2
+drivers/net/ethernet/chelsio/cxgb/sge.c
+drivers/net/ethernet/intel/e1000/e1000_main.c
+drivers/net/ethernet/intel/ixgb/ixgb_main.c
+drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
