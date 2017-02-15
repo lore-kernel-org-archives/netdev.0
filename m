@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: tcp_probe: use spin_lock_bh()
-Date: Tue, 14 Feb 2017 22:21:06 -0500 (EST)
-Message-ID: <20170214.222106.759474350285723219.davem@davemloft.net>
-References: <20170214.144648.771654199689384203.davem@davemloft.net>
-        <CAMyjOU+1CAC-VLL0JBABnbzWGZPLncqy6jXWQpVkd6vnXi-3pA@mail.gmail.com>
-        <1487121074.8227.71.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH] net: ethernet: ti: cpsw: use var instead of func for
+ usage count
+Date: Tue, 14 Feb 2017 22:30:56 -0500 (EST)
+Message-ID: <20170214.223056.1842864503781156614.davem@davemloft.net>
+References: <1487080956-28661-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rnsanchez@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48910 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751429AbdBODVn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 22:21:43 -0500
-In-Reply-To: <1487121074.8227.71.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: ivan.khoronzhuk@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1487080956-28661-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 14 Feb 2017 17:11:14 -0800
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Tue, 14 Feb 2017 16:02:36 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> The usage count function is based on ndev_running flag that is
+> updated before calling ndo_open/close, but if ndo is called in
+> another place, as with suspend/resume, the counter is not changed,
+> that breaks sus/resume. For common resource no difference which
+> device is using it, does matter only device count. So, replace
+> usage count function on var and inc and dec it in ndo_open/close.
 > 
-> tcp_rcv_established() can now run in process context.
-> 
-> We need to disable BH while acquiring tcp probe spinlock,
-> or risk a deadlock.
-> 
-> Fixes: 5413d1babe8f ("net: do not block BH while processing socket backlog")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Ricardo Nabinger Sanchez <rnsanchez@gmail.com>
+> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> ---
+> Based on net-next/master
 
-Patch applied, thanks Eric.
+Applied, thanks.
