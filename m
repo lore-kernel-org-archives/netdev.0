@@ -1,80 +1,139 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next 3/3] iplink: bridge_slave: add support for displaying xstats
-Date: Wed, 15 Feb 2017 15:23:13 +0100
-Message-ID: <1487168593-31321-4-git-send-email-nikolay@cumulusnetworks.com>
-References: <1487168593-31321-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:36191 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750999AbdBOOX3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 09:23:29 -0500
-Received: by mail-wr0-f170.google.com with SMTP id k90so191646590wrc.3
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 06:23:28 -0800 (PST)
-In-Reply-To: <1487168593-31321-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Dupuis, Chad" <chad.dupuis@cavium.com>
+Subject: [PATCH V5 0/2] Add QLogic FastLinQ FCoE (qedf) driver
+Date: Wed, 15 Feb 2017 06:28:21 -0800
+Message-ID: <1487168903-16646-1-git-send-email-chad.dupuis@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-scsi@vger.kernel.org>, <fcoe-devel@open-fcoe.org>,
+        <netdev@vger.kernel.org>, <yuval.mintz@cavium.com>,
+        <QLogic-Storage-Upstream@cavium.com>
+To: <martin.petersen@oracle.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support to the bridge_slave link type for displaying
-xstats by reusing the previously added bridge xstats callbacks.
+From: "Dupuis, Chad" <chad.dupuis@cavium.com>
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- ip/ip_common.h           | 3 +++
- ip/iplink_bridge.c       | 6 +++---
- ip/iplink_bridge_slave.c | 2 ++
- 3 files changed, 8 insertions(+), 3 deletions(-)
+Dave, please apply the qed patch to net-next at your earliest convenience.
+Martin, the qed patch needs to be applied first as the qedf patch is dependent
+on the FCoE bits in the first qed driver patch.
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index 071c3db280f2..9c3cd294d79e 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -97,6 +97,9 @@ struct link_util {
- struct link_util *get_link_kind(const char *kind);
- 
- void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
-+int bridge_parse_xstats(struct link_util *lu, int argc, char **argv);
-+int bridge_print_xstats(const struct sockaddr_nl *who,
-+			struct nlmsghdr *n, void *arg);
- 
- __u32 ipvrf_get_table(const char *name);
- int name_is_vrf(const char *name);
-diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
-index 62ceee6b571e..818b43c89b5b 100644
---- a/ip/iplink_bridge.c
-+++ b/ip/iplink_bridge.c
-@@ -680,8 +680,8 @@ static void bridge_print_stats_attr(FILE *f, struct rtattr *attr, int ifindex)
- 	}
- }
- 
--static int bridge_print_xstats(const struct sockaddr_nl *who,
--			       struct nlmsghdr *n, void *arg)
-+int bridge_print_xstats(const struct sockaddr_nl *who,
-+			struct nlmsghdr *n, void *arg)
- {
- 	struct if_stats_msg *ifsm = NLMSG_DATA(n);
- 	struct rtattr *tb[IFLA_STATS_MAX+1];
-@@ -708,7 +708,7 @@ static int bridge_print_xstats(const struct sockaddr_nl *who,
- 	return 0;
- }
- 
--static int bridge_parse_xstats(struct link_util *lu, int argc, char **argv)
-+int bridge_parse_xstats(struct link_util *lu, int argc, char **argv)
- {
- 	while (argc > 0) {
- 		if (strcmp(*argv, "igmp") == 0 || strcmp(*argv, "mcast") == 0) {
-diff --git a/ip/iplink_bridge_slave.c b/ip/iplink_bridge_slave.c
-index 6353fc533bf9..3e883328ae0c 100644
---- a/ip/iplink_bridge_slave.c
-+++ b/ip/iplink_bridge_slave.c
-@@ -312,4 +312,6 @@ struct link_util bridge_slave_link_util = {
- 	.print_opt	= bridge_slave_print_opt,
- 	.parse_opt	= bridge_slave_parse_opt,
- 	.print_help     = bridge_slave_print_help,
-+	.parse_ifla_xstats = bridge_parse_xstats,
-+	.print_ifla_xstats = bridge_print_xstats,
- };
+This series introduces the hardware offload FCoE initiator driver for the
+41000 Series Converged Network Adapters (579xx chip) by Cavium. The overall
+driver design includes a common module ('qed') and protocol specific
+dependent modules ('qedf' for FCoE).
+
+This driver uses the kernel components of libfc and libfcoe as is and does not
+make use of the open-fcoe user space components.  Therefore, no changes will need to be
+made to any open-fcoe components.
+
+The 'qed' common module, under drivers/net/ethernet/qlogic/qed/, is
+enhanced with functionality required for FCoE support.
+
+Changes from V4 -> V5
+
+- Fix code alignment, function and variable formatting based on review comments
+  in qed patch
+
+Changes from V3 -> V4
+
+- Minor update to banner text in qed_fcoe.c|h files
+- Fix kbuild robot error on 32-bit systems in qedf
+- Remove unneeded double memcpy for offloaded ELS commands in qedf
+
+Changes from V2 -> V3
+
+- Fix uninitialized variables reported by kbuild robot in qedf
+- Remove superfluous comments from qedf.h
+- Introduce new qedf_ctx flag to different stopping I/O for debug purposes.
+- Don't take lport->disc.disc_mutex when restarting an rport.
+- Remove extra whitespace in qedf_hsi.h
+
+Changes from V1 -> V2
+
+Changes in qed:
+- Fix compiler warning when CONFIG_DCB is not set.
+
+Fixes in qedf:
+- Add qedf to scsi directory Makefile.
+- Updates to convert LightL2 and I/O processing kthreads to workqueues.
+
+Changes from RFC -> V1
+
+- Squash qedf patches to one patch now that the initial review has taken place
+- Convert qedf to use hotplug state machine
+- Return via va_end to match corresponding va_start in logging functions
+- Convert qedf_ctx offloaded port list to a RCU list so searches do not need
+  to make use of spinlocks.  Also eliminates the need to fcport conn_id's.
+- Use IS_ERR(fp) in qedf_flogi_resp() instead of checking individual FC_EX_* errors.
+- Remove scsi_block_target when executing TMF request.
+- Checkpatch fixes in the qed and qedf patches
+
+Arun Easi (1):
+  qed: Add support for hardware offloaded FCoE.
+
+Dupuis, Chad (1):
+  qedf: Add QLogic FastLinQ offload FCoE driver framework.
+
+ MAINTAINERS                                       |    6 +
+ drivers/net/ethernet/qlogic/Kconfig               |    3 +
+ drivers/net/ethernet/qlogic/qed/Makefile          |    1 +
+ drivers/net/ethernet/qlogic/qed/qed.h             |   11 +
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c         |   98 +-
+ drivers/net/ethernet/qlogic/qed/qed_cxt.h         |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.c        |   13 +-
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.h        |    5 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c         |  205 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h     |   42 +
+ drivers/net/ethernet/qlogic/qed/qed_fcoe.c        | 1014 +++++++
+ drivers/net/ethernet/qlogic/qed/qed_fcoe.h        |   87 +
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h         |  781 ++++-
+ drivers/net/ethernet/qlogic/qed/qed_hw.c          |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c         |   25 +
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h         |    2 +-
+ drivers/net/ethernet/qlogic/qed/qed_main.c        |    7 +
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c         |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h         |    1 +
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h    |    8 +
+ drivers/net/ethernet/qlogic/qed/qed_sp.h          |    4 +
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |    3 +
+ drivers/scsi/Kconfig                              |    1 +
+ drivers/scsi/Makefile                             |    1 +
+ drivers/scsi/qedf/Kconfig                         |   11 +
+ drivers/scsi/qedf/Makefile                        |    5 +
+ drivers/scsi/qedf/qedf.h                          |  545 ++++
+ drivers/scsi/qedf/qedf_attr.c                     |  165 +
+ drivers/scsi/qedf/qedf_dbg.c                      |  195 ++
+ drivers/scsi/qedf/qedf_dbg.h                      |  154 +
+ drivers/scsi/qedf/qedf_debugfs.c                  |  460 +++
+ drivers/scsi/qedf/qedf_els.c                      |  949 ++++++
+ drivers/scsi/qedf/qedf_fip.c                      |  269 ++
+ drivers/scsi/qedf/qedf_hsi.h                      |  422 +++
+ drivers/scsi/qedf/qedf_io.c                       | 2282 ++++++++++++++
+ drivers/scsi/qedf/qedf_main.c                     | 3336 +++++++++++++++++++++
+ drivers/scsi/qedf/qedf_version.h                  |   15 +
+ include/linux/qed/common_hsi.h                    |   10 +-
+ include/linux/qed/fcoe_common.h                   |  715 +++++
+ include/linux/qed/qed_fcoe_if.h                   |  145 +
+ include/linux/qed/qed_if.h                        |   41 +-
+ 41 files changed, 12027 insertions(+), 19 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_fcoe.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_fcoe.h
+ create mode 100644 drivers/scsi/qedf/Kconfig
+ create mode 100644 drivers/scsi/qedf/Makefile
+ create mode 100644 drivers/scsi/qedf/qedf.h
+ create mode 100644 drivers/scsi/qedf/qedf_attr.c
+ create mode 100644 drivers/scsi/qedf/qedf_dbg.c
+ create mode 100644 drivers/scsi/qedf/qedf_dbg.h
+ create mode 100644 drivers/scsi/qedf/qedf_debugfs.c
+ create mode 100644 drivers/scsi/qedf/qedf_els.c
+ create mode 100644 drivers/scsi/qedf/qedf_fip.c
+ create mode 100644 drivers/scsi/qedf/qedf_hsi.h
+ create mode 100644 drivers/scsi/qedf/qedf_io.c
+ create mode 100644 drivers/scsi/qedf/qedf_main.c
+ create mode 100644 drivers/scsi/qedf/qedf_version.h
+ create mode 100644 include/linux/qed/fcoe_common.h
+ create mode 100644 include/linux/qed/qed_fcoe_if.h
+
 -- 
-2.1.4
+1.8.5.6
