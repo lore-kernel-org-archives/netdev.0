@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next 12/13] net: ethernet: aquantia: Fixed incorrect buff->len calculation.
-Date: Wed, 15 Feb 2017 23:01:20 +0300
-Message-ID: <ab5139eca1493e73c036c4279c5baf37f74ba934.1487187192.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next 13/13] net: ethernet: aquantia: Fixed memory allocation if AQ_CFG_RX_FRAME_MAX > 1 page.
+Date: Wed, 15 Feb 2017 23:01:21 +0300
+Message-ID: <83f96add943935ee794c708c06c898c048825df5.1487187192.git.pavel.belous@aquantia.com>
 References: <cover.1487187192.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,53 +15,60 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-co1nam03on0043.outbound.protection.outlook.com ([104.47.40.43]:35328
         "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751430AbdBOUDu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Feb 2017 15:03:50 -0500
+        id S1752005AbdBOUDv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 15:03:51 -0500
 In-Reply-To: <cover.1487187192.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-rxd_wb->pkt_len is the total length of the packet.
-If we received a large packet (with length > AQ_CFG_RX_FRAME_MAX) then we
-will get multiple buffers. We need to fix the length of the last buffer.
+We should allocate the number of pages based on the config parameter
+AQ_CFG_RX_FRAME_MAX.
 
 Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 4 ++--
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c  | 4 ++--
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 4 +++-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-index 1f38805..a2b746a 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-@@ -659,8 +659,8 @@ static int hw_atl_a0_hw_ring_rx_receive(struct aq_hw_s *self,
- 			}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+index 7000b9f..5e10732 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+@@ -603,9 +603,9 @@ __acquires(&ring->lock)
  
- 			if (HW_ATL_A0_RXD_WB_STAT2_EOP & rxd_wb->status) {
--				buff->len = (rxd_wb->pkt_len &
--						(AQ_CFG_RX_FRAME_MAX - 1U));
-+				buff->len = rxd_wb->pkt_len %
-+					AQ_CFG_RX_FRAME_MAX;
- 				buff->len = buff->len ?
- 					buff->len : AQ_CFG_RX_FRAME_MAX;
- 				buff->next = 0U;
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-index e7e694f..cab2931 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-@@ -673,8 +673,8 @@ static int hw_atl_b0_hw_ring_rx_receive(struct aq_hw_s *self,
- 			}
+ 	do {
+ 		if (spin_trylock(&ring->header.lock)) {
+-			frags = aq_nic_map_skb(self, skb, &buffers[0]);
++			frags = aq_nic_map_skb(self, skb, buffers);
  
- 			if (HW_ATL_B0_RXD_WB_STAT2_EOP & rxd_wb->status) {
--				buff->len = (rxd_wb->pkt_len &
--						(AQ_CFG_RX_FRAME_MAX - 1U));
-+				buff->len = rxd_wb->pkt_len %
-+					AQ_CFG_RX_FRAME_MAX;
- 				buff->len = buff->len ?
- 					buff->len : AQ_CFG_RX_FRAME_MAX;
- 				buff->next = 0U;
+-			aq_ring_tx_append_buffs(ring, &buffers[0], frags);
++			aq_ring_tx_append_buffs(ring, buffers, frags);
+ 
+ 			err = self->aq_hw_ops.hw_ring_tx_xmit(self->aq_hw,
+ 							      ring, frags);
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+index 8ebed0d..b747d10 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+@@ -279,6 +279,8 @@ int aq_ring_rx_fill(struct aq_ring_s *self)
+ 	struct aq_ring_buff_s *buff = NULL;
+ 	int err = 0;
+ 	int i = 0;
++	unsigned int pages_order = fls(AQ_CFG_RX_FRAME_MAX / PAGE_SIZE +
++		(AQ_CFG_RX_FRAME_MAX % PAGE_SIZE ? 1 : 0)) - 1;
+ 
+ 	for (i = aq_ring_avail_dx(self); i--;
+ 		self->sw_tail = aq_ring_next_dx(self, self->sw_tail)) {
+@@ -288,7 +290,7 @@ int aq_ring_rx_fill(struct aq_ring_s *self)
+ 		buff->len = AQ_CFG_RX_FRAME_MAX;
+ 
+ 		buff->page = alloc_pages(GFP_ATOMIC | __GFP_COLD |
+-					 __GFP_COMP, 0);
++					 __GFP_COMP, pages_order);
+ 		if (!buff->page) {
+ 			err = -ENOMEM;
+ 			goto err_exit;
 -- 
 2.7.4
