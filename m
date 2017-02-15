@@ -1,59 +1,200 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next 03/13] net: ethernet: aquantia: Removed unnecessary comparsion "old_mtu == new_mtu".
-Date: Wed, 15 Feb 2017 23:01:11 +0300
-Message-ID: <a1cf5e938fa5997041c56cf898fadd830eb488f9.1487187192.git.pavel.belous@aquantia.com>
-References: <cover.1487187192.git.pavel.belous@aquantia.com>
+From: Anoob Soman <anoob.soman@citrix.com>
+Subject: [PATCH v3 net] packet: Do not call fanout_release from atomic contexts
+Date: Wed, 15 Feb 2017 20:25:39 +0000
+Message-ID: <1487190339-6366-1-git-send-email-anoob.soman@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: netdev@vger.kernel.org,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>,
-        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        Pavel Belous <pavel.belous@aquantia.com>
-To: "David S . Miller" <davem@davemloft.net>
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+        Anoob Soman <anoob.soman@citrix.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0063.outbound.protection.outlook.com ([104.47.40.63]:44304
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751578AbdBOUDX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Feb 2017 15:03:23 -0500
-In-Reply-To: <cover.1487187192.git.pavel.belous@aquantia.com>
+Received: from smtp.citrix.com ([66.165.176.89]:61671 "EHLO SMTP.CITRIX.COM"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750918AbdBOU01 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Feb 2017 15:26:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <pavel.belous@aquantia.com>
+Commit 6664498280cf ("packet: call fanout_release, while UNREGISTERING a
+netdev"), unfortunately, introduced the following issues.
 
-This check is not needed. Function aq_ndev_change_mtu wont be called
-if mtu has not changed.
+1. calling mutex_lock(&fanout_mutex) (fanout_release()) from inside
+rcu_read-side critical section. rcu_read_lock disables preemption, most often,
+which prohibits calling sleeping functions.
 
-Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+[  ] include/linux/rcupdate.h:560 Illegal context switch in RCU read-side critical section!
+[  ]
+[  ] rcu_scheduler_active = 1, debug_locks = 0
+[  ] 4 locks held by ovs-vswitchd/1969:
+[  ]  #0:  (cb_lock){++++++}, at: [<ffffffff8158a6c9>] genl_rcv+0x19/0x40
+[  ]  #1:  (ovs_mutex){+.+.+.}, at: [<ffffffffa04878ca>] ovs_vport_cmd_del+0x4a/0x100 [openvswitch]
+[  ]  #2:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81564157>] rtnl_lock+0x17/0x20
+[  ]  #3:  (rcu_read_lock){......}, at: [<ffffffff81614165>] packet_notifier+0x5/0x3f0
+[  ]
+[  ] Call Trace:
+[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
+[  ]  [<ffffffff810c9077>] lockdep_rcu_suspicious+0x107/0x110
+[  ]  [<ffffffff810a2da7>] ___might_sleep+0x57/0x210
+[  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
+[  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
+[  ]  [<ffffffff810de93f>] ? vprintk_default+0x1f/0x30
+[  ]  [<ffffffff81186e88>] ? printk+0x4d/0x4f
+[  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
+[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
+
+2. calling mutex_lock(&fanout_mutex) inside spin_lock(&po->bind_lock).
+"sleeping function called from invalid context"
+
+[  ] BUG: sleeping function called from invalid context at kernel/locking/mutex.c:620
+[  ] in_atomic(): 1, irqs_disabled(): 0, pid: 1969, name: ovs-vswitchd
+[  ] INFO: lockdep is turned off.
+[  ] Call Trace:
+[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
+[  ]  [<ffffffff810a2f52>] ___might_sleep+0x202/0x210
+[  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
+[  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
+[  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
+[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
+
+3. calling dev_remove_pack(&fanout->prot_hook), from inside
+spin_lock(&po->bind_lock) or rcu_read-side critical-section. dev_remove_pack()
+-> synchronize_net(), which might sleep.
+
+[  ] BUG: scheduling while atomic: ovs-vswitchd/1969/0x00000002
+[  ] INFO: lockdep is turned off.
+[  ] Call Trace:
+[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
+[  ]  [<ffffffff81186274>] __schedule_bug+0x64/0x73
+[  ]  [<ffffffff8162b8cb>] __schedule+0x6b/0xd10
+[  ]  [<ffffffff8162c5db>] schedule+0x6b/0x80
+[  ]  [<ffffffff81630b1d>] schedule_timeout+0x38d/0x410
+[  ]  [<ffffffff810ea3fd>] synchronize_sched_expedited+0x53d/0x810
+[  ]  [<ffffffff810ea6de>] synchronize_rcu_expedited+0xe/0x10
+[  ]  [<ffffffff8154eab5>] synchronize_net+0x35/0x50
+[  ]  [<ffffffff8154eae3>] dev_remove_pack+0x13/0x20
+[  ]  [<ffffffff8161077e>] fanout_release+0xbe/0xe0
+[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
+
+4. fanout_release() races with calls from different CPU.
+
+To fix the above problems, remove the call to fanout_release() under
+rcu_read_lock(). Instead, call __dev_remove_pack(&fanout->prot_hook) and
+netdev_run_todo will be happy that &dev->ptype_specific list is empty. In order
+to achieve this, I moved dev_{add,remove}_pack() out of fanout_{add,release} to
+__fanout_{link,unlink}. So, call to {,__}unregister_prot_hook() will make sure
+fanout->prot_hook is removed as well.
+
+Fixes: 6664498280cf ("packet: call fanout_release, while UNREGISTERING a netdev")
+Reported-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_main.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ Changes in v3:
+ - Removed extra variable from fanout_release(), per Eric's suggestion.
+ Changes in v2:
+ - Incorporated Eric's suggestion to do fanout_release_data() and kfree() after
+   synchronize_net()
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
-index c17c70a..e5539c8 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
-@@ -102,17 +102,15 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
- 	struct aq_nic_s *aq_nic = netdev_priv(ndev);
- 	int err = 0;
+ net/packet/af_packet.c | 31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 0f03f6a..70f5b6a 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1497,6 +1497,8 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po)
+ 	f->arr[f->num_members] = sk;
+ 	smp_wmb();
+ 	f->num_members++;
++	if (f->num_members == 1)
++		dev_add_pack(&f->prot_hook);
+ 	spin_unlock(&f->lock);
+ }
  
--	if (new_mtu == ndev->mtu) {
--		err = 0;
--		goto err_exit;
--	}
- 	if (new_mtu < 68) {
- 		err = -EINVAL;
- 		goto err_exit;
+@@ -1513,6 +1515,8 @@ static void __fanout_unlink(struct sock *sk, struct packet_sock *po)
+ 	BUG_ON(i >= f->num_members);
+ 	f->arr[i] = f->arr[f->num_members - 1];
+ 	f->num_members--;
++	if (f->num_members == 0)
++		__dev_remove_pack(&f->prot_hook);
+ 	spin_unlock(&f->lock);
+ }
+ 
+@@ -1693,7 +1697,6 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 		match->prot_hook.func = packet_rcv_fanout;
+ 		match->prot_hook.af_packet_priv = match;
+ 		match->prot_hook.id_match = match_fanout_group;
+-		dev_add_pack(&match->prot_hook);
+ 		list_add(&match->list, &fanout_list);
  	}
-+
- 	err = aq_nic_set_mtu(aq_nic, new_mtu + ETH_HLEN);
- 	if (err < 0)
- 		goto err_exit;
-+
- 	ndev->mtu = new_mtu;
+ 	err = -EINVAL;
+@@ -1718,7 +1721,12 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 	return err;
+ }
  
- 	if (netif_running(ndev)) {
+-static void fanout_release(struct sock *sk)
++/* If pkt_sk(sk)->fanout->sk_ref is zero, this function removes
++ * pkt_sk(sk)->fanout from fanout_list and returns pkt_sk(sk)->fanout.
++ * It is the responsibility of the caller to call fanout_release_data() and
++ * free the returned packet_fanout (after synchronize_net())
++ */
++static struct packet_fanout *fanout_release(struct sock *sk)
+ {
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	struct packet_fanout *f;
+@@ -1728,17 +1736,17 @@ static void fanout_release(struct sock *sk)
+ 	if (f) {
+ 		po->fanout = NULL;
+ 
+-		if (atomic_dec_and_test(&f->sk_ref)) {
++		if (atomic_dec_and_test(&f->sk_ref))
+ 			list_del(&f->list);
+-			dev_remove_pack(&f->prot_hook);
+-			fanout_release_data(f);
+-			kfree(f);
+-		}
++		else
++			f = NULL;
+ 
+ 		if (po->rollover)
+ 			kfree_rcu(po->rollover, rcu);
+ 	}
+ 	mutex_unlock(&fanout_mutex);
++
++	return f;
+ }
+ 
+ static bool packet_extra_vlan_len_allowed(const struct net_device *dev,
+@@ -2912,6 +2920,7 @@ static int packet_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct packet_sock *po;
++	struct packet_fanout *f;
+ 	struct net *net;
+ 	union tpacket_req_u req_u;
+ 
+@@ -2951,9 +2960,14 @@ static int packet_release(struct socket *sock)
+ 		packet_set_ring(sk, &req_u, 1, 1);
+ 	}
+ 
+-	fanout_release(sk);
++	f = fanout_release(sk);
+ 
+ 	synchronize_net();
++
++	if (f) {
++		fanout_release_data(f);
++		kfree(f);
++	}
+ 	/*
+ 	 *	Now the socket is dead. No more input will appear.
+ 	 */
+@@ -3905,7 +3919,6 @@ static int packet_notifier(struct notifier_block *this,
+ 				}
+ 				if (msg == NETDEV_UNREGISTER) {
+ 					packet_cached_dev_reset(po);
+-					fanout_release(sk);
+ 					po->ifindex = -1;
+ 					if (po->prot_hook.dev)
+ 						dev_put(po->prot_hook.dev);
 -- 
 2.7.4
