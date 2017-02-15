@@ -1,49 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: hip04: Omit private ndo_get_stats function
-Date: Wed, 15 Feb 2017 02:51:21 -0800
-Message-ID: <1487155881.6214.54.camel@perches.com>
-References: <20170214141006.11510-1-tklauser@distanz.ch>
-         <1487154488.6214.53.camel@perches.com> <20170215103858.GA27277@distanz.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tobias Klauser <tklauser@distanz.ch>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] sched: have stub for tcf_destroy_chain in case NET_CLS is not configured
+Date: Wed, 15 Feb 2017 11:57:50 +0100
+Message-ID: <1487156270-31132-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, mlxsw@mellanox.com,
+        sd@queasysnail.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0148.hostedemail.com ([216.40.44.148]:56158 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751789AbdBOKvY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 05:51:24 -0500
-In-Reply-To: <20170215103858.GA27277@distanz.ch>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35880 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751452AbdBOK5x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 05:57:53 -0500
+Received: by mail-wm0-f68.google.com with SMTP id r18so7576640wmd.3
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 02:57:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-15 at 11:38 +0100, Tobias Klauser wrote:
-> On 2017-02-15 at 11:28:08 +0100, Joe Perches <joe@perches.com> wrote:
-> > On Tue, 2017-02-14 at 15:10 +0100, Tobias Klauser wrote:
-> > > hip04_get_stats() just returns dev->stats so we can leave it
-> > > out altogether and let dev_get_stats() do the job.
-> > 
-> > This could be done for at least a few more drivers:
-> > 
-> > drivers/net/ethernet/chelsio/cxgb/sge.c
-> 
-> I don't see an .ndo_get_stats being defined/set in this file. AFAICT,
-> this driver sets .ndo_get_stats to t1_get_stats(), which does some
-> additional extraction of statistics from device registers and thus
-> shouldn't be removed.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Right.
+This fixes broken build for !NET_CLS:
 
-> > drivers/net/ethernet/intel/e1000/e1000_main.c
-> > drivers/net/ethernet/intel/ixgb/ixgb_main.c
-> 
-> Will cover these in follow-up patches, thanks.
+net/built-in.o: In function `fq_codel_destroy':
+/home/sab/linux/net-next/net/sched/sch_fq_codel.c:468: undefined reference to `tcf_destroy_chain'
 
-Thanks.
+Fixes: cf1facda2f61 ("sched: move tcf_proto_destroy and tcf_destroy_chain helpers into cls_api")
+Reported-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/pkt_cls.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-> > drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> 
-> A patch for pch_gbe already landed in net-next.
-
-Great, cheers, Joe
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 71b266c..be5c12a 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -17,7 +17,13 @@ struct tcf_walker {
+ int register_tcf_proto_ops(struct tcf_proto_ops *ops);
+ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+ 
++#ifdef CONFIG_NET_CLS
+ void tcf_destroy_chain(struct tcf_proto __rcu **fl);
++#else
++static inline void tcf_destroy_chain(struct tcf_proto __rcu **fl)
++{
++}
++#endif
+ 
+ static inline unsigned long
+ __cls_set_class(unsigned long *clp, unsigned long cl)
+-- 
+2.7.4
