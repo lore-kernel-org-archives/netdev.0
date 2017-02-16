@@ -1,69 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Thu, 16 Feb 2017 14:03:55 -0500 (EST)
-Message-ID: <20170216.140355.2079700662225068523.davem@davemloft.net>
-References: <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
-        <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com>
-        <CALx6S36xcEJ9YssZtzQKOy-tufrWWJO533J0nTEzp_ckb5dVjA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tariqt@mellanox.com, edumazet@google.com, brouer@redhat.com,
-        eric.dumazet@gmail.com, alexander.duyck@gmail.com,
-        netdev@vger.kernel.org, kafai@fb.com, saeedm@mellanox.com,
-        willemb@google.com, bblanco@plumgrid.com, ast@kernel.org,
-        linux-mm@kvack.org
-To: tom@herbertland.com
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next] bridge: vlan_tunnel: explicitly reset metadata attrs to NULL on failure
+Date: Thu, 16 Feb 2017 11:29:21 -0800
+Message-ID: <1487273361-51517-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55496 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754810AbdBPTD6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 14:03:58 -0500
-In-Reply-To: <CALx6S36xcEJ9YssZtzQKOy-tufrWWJO533J0nTEzp_ckb5dVjA@mail.gmail.com>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:36278 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932344AbdBPT3b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 14:29:31 -0500
+Received: by mail-pf0-f175.google.com with SMTP id 189so7591831pfu.3
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 11:29:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Thu, 16 Feb 2017 09:05:26 -0800
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> On Thu, Feb 16, 2017 at 5:08 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
->>
->> On 15/02/2017 6:57 PM, Eric Dumazet wrote:
->>>
->>> On Wed, Feb 15, 2017 at 8:42 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
->>>>
->>>> Isn't it the same principle in page_frag_alloc() ?
->>>> It is called form __netdev_alloc_skb()/__napi_alloc_skb().
->>>>
->>>> Why is it ok to have order-3 pages (PAGE_FRAG_CACHE_MAX_ORDER) there?
->>>
->>> This is not ok.
->>>
->>> This is a very well known problem, we already mentioned that here in the
->>> past,
->>> but at least core networking stack uses  order-0 pages on PowerPC.
->>
->> You're right, we should have done this as well in mlx4 on PPC.
->>>
->>> mlx4 driver suffers from this problem 100% more than other drivers ;)
->>>
->>> One problem at a time Tariq. Right now, only mlx4 has this big problem
->>> compared to other NIC.
->>
->> We _do_ agree that the series improves the driver's quality, stability,
->> and performance in a fragmented system.
->>
->> But due to the late rc we're in, and the fact that we know what benchmarks
->> our customers are going to run, we cannot Ack the series and get it
->> as is inside kernel 4.11.
->>
-> You're admitting that Eric's patches improve driver quality,
-> stability, and performance but you're not allowing this in the kernel
-> because "we know what benchmarks our customers are going to run".
-> Sorry, but that is a weak explanation.
+Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/bridge/br_vlan_tunnel.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-I have to agree with Tom and Eric.
-
-If your customers have gotten into the habit of using metrics which
-actually do not represent real life performance, that is a completely
-inappropriate reason to not include Eric's changes as-is.
+diff --git a/net/bridge/br_vlan_tunnel.c b/net/bridge/br_vlan_tunnel.c
+index b2b79a0..6d2c4ee 100644
+--- a/net/bridge/br_vlan_tunnel.c
++++ b/net/bridge/br_vlan_tunnel.c
+@@ -85,6 +85,8 @@ static int __vlan_tunnel_info_add(struct net_bridge_vlan_group *vg,
+ 	return 0;
+ out:
+ 	dst_release(&vlan->tinfo.tunnel_dst->dst);
++	vlan->tinfo.tunnel_dst = NULL;
++	vlan->tinfo.tunnel_id = 0;
+ 
+ 	return err;
+ }
+-- 
+1.7.10.4
