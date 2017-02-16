@@ -1,47 +1,53 @@
-From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Subject: Re: RE: [PATCH net-next 11/13] net: ethernet: aquantia: Refactoring
- buffers copying.
-Date: Thu, 16 Feb 2017 17:02:28 +0100
-Message-ID: <trinity-c726d458-78f5-41bf-8d00-ac6d55a03c35-1487260948543@3capp-gmx-bs24>
-References: <cover.1487187192.git.pavel.belous@aquantia.com>
- <de4d3c34fac8c7bbbb614f776ca1255fd6aa03a6.1487187192.git.pavel.belous@aquantia.com>
- <4262ef98-4ba5-3f1a-5b72-208be51bdd6f@gmx.de>,
- <063D6719AE5E284EB5DD2968C1650D6DCFE68133@AcuExch.aculab.com>
+From: lkml@pengaru.com
+Subject: Re: [BUG] 4.10-rc8 - ping spinning?
+Date: Thu, 16 Feb 2017 08:08:06 -0800
+Message-ID: <20170216160806.GL582@shells.gnugeneration.com>
+References: <20170216120547.GK582@shells.gnugeneration.com>
+ <CACSApvYq-7HGAO+UTsoCu6JVt_E4mdXKgpUbRD0YDP_M02ZdkQ@mail.gmail.com>
+ <CACSApvYbP9peXPm2L4EFJokdXbGV7bTLgZNOEKEiHjLWcOOZHA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Pavel Belous" <Pavel.Belous@aquantia.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Simon Edelhaus" <Simon.Edelhaus@aquantia.com>,
-        "Alexey Andriyanov" <Alexey.Andriyanov@aquantia.com>
-To: "David Laight" <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:53840 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754441AbdBPQCs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 11:02:48 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFE68133@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Soheil Hassas Yeganeh <soheil@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACSApvYbP9peXPm2L4EFJokdXbGV7bTLgZNOEKEiHjLWcOOZHA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-> ...
-> > Well, you should really try to avoid copying the tx buffers _at all_.
-> > E.g. by passing self->buff_ring to aq_ring_tx_append_buffs() instead of
-> > the temporary array.
+On Thu, Feb 16, 2017 at 10:52:19AM -0500, Soheil Hassas Yeganeh wrote:
+> On Thu, Feb 16, 2017 at 10:50 AM, Soheil Hassas Yeganeh
+> <soheil@google.com> wrote:
+> > Thank you Vito for the report.
+> >
+> > The patch you cited actually resolves a similar backward compatibility
+> > problem for traceroute.
+> >
+> > I suspect the problem here is that there's a local error queued on the
+> > error queue after an ICMP message. ping apparently expect the
+> > sk->sk_err to be set for the local errors as well, and hence the
+> > error. Ideally, ping should read the error queue if there an EPOLLERR,
+> > because local errors never sk->sk_err on their own. That is, if we
+> > have
 > 
-> Copying can help for horridly fragmented frames or when iommu (etc)
-> setup is expensive.
-> At least some ethernet hardware has minimum fragment lengths.
+> [oops] That is, if we have only one local error on the error queue, we
+> cannot rely on having an error on recvmsg (i.e., sk->sk_err being set)
+> even in 4.9.
 > 
+> <snip>
 
-I was referring to the copy of tx descriptors, not the frames/fragments itself. 
-I wrote "tx buffers" because in this driver a descriptor is represented as
- a struct "aq_ring_buff_s". I cannot see a reason why this descriptor copy
- should be necessary.
-However I agree that there can be circumstances that would justify even the
-copy of frame/fragment data.
+Hi Soheil,
 
-Regards,
-Lino
+This doesn't appear to be trivially reproducible here by just running ping
+as it were originally discovered.  I'll see if I can reliably cause the
+malfunction somehow, but until then I can't meaningfully test patches.
+
+Perhaps a form of fault injection would make more sense if there's a
+reasonable idea of what this is stemming from?
+
+I've opened an issue with iputils on github in the event that this is found
+to be a ping bug.  Your input might be helpful there as well:
+https://github.com/iputils/iputils/issues/74
+
+Thanks,
+Vito Caputo
