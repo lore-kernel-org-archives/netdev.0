@@ -1,279 +1,167 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 1/4] ip vrf: Handle vrf in a cgroup hierarchy
-Date: Thu, 16 Feb 2017 08:58:55 -0800
-Message-ID: <1487264338-17588-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 3/4] ip vrf: Handle VRF nesting in namespace
+Date: Thu, 16 Feb 2017 08:58:57 -0800
+Message-ID: <1487264338-17588-4-git-send-email-dsa@cumulusnetworks.com>
 References: <1487264338-17588-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org,
         luto@amacapital.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:36856 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932338AbdBPQ7F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 11:59:05 -0500
-Received: by mail-pf0-f179.google.com with SMTP id 189so6837545pfu.3
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 08:59:05 -0800 (PST)
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:34063 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932338AbdBPQ7R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 11:59:17 -0500
+Received: by mail-pf0-f173.google.com with SMTP id e4so6844968pfg.1
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 08:59:06 -0800 (PST)
 In-Reply-To: <1487264338-17588-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for VRF in a pre-existing hierarchy. For example, if the
-current process is running in CGRP/foo/bar, the 'ip vrf exec NAME CMD'
-should run CMD in the cgroup CGRP/foo/bar/vrf/NAME.
+Since cgroups are not namespace aware, the directory heirarchy used by
+ip vrf should account for network namespaces. In this case, change the
+path from CGRP/BASE/vrf/NAME to CGRP/BASE/NETNS/vrf/NAME where CGRP is
+the cgroup2 mount path, BASE in any base heirarchy inherited before VRF
+is applied and NAME is the VRF name.
 
-When listing process ids in a VRF, search for the directory vrf/NAME
-regardless of base path (foo/bar/vrf/NAME and vrf/NAME) are still
-running against the same vrf NAME.
+The intent is as follows: a user logs into the box into some namespace
+with a name known to iproute2. Some other policy may have put the
+process into a BASE heirarchy. From there the user executes a task in
+a VRF and in doing so the task heirarchy becomes CGRP/BASE/NETNS/vrf/NAME.
+The namespace level is omitted for the default namespace.
 
 Reported-by: Andy Lutomirski <luto@amacapital.net>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- ip/ipvrf.c | 173 +++++++++++++++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 145 insertions(+), 28 deletions(-)
+ ip/ipvrf.c | 63 ++++++++++++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 55 insertions(+), 8 deletions(-)
 
 diff --git a/ip/ipvrf.c b/ip/ipvrf.c
-index 8bd99d6251f2..8d61d0718c66 100644
+index 8d61d0718c66..cb7f9fa6d1db 100644
 --- a/ip/ipvrf.c
 +++ b/ip/ipvrf.c
-@@ -21,6 +21,7 @@
- #include <stdlib.h>
- #include <unistd.h>
- #include <string.h>
-+#include <dirent.h>
- #include <errno.h>
- #include <limits.h>
- 
-@@ -40,6 +41,10 @@ static void usage(void)
- 	exit(-1);
- }
- 
-+/*
-+ * parse process based cgroup file looking for PATH/vrf/NAME where
-+ * NAME is the name of the vrf the process is associated with
-+ */
- static int vrf_identify(pid_t pid, char *name, size_t len)
- {
- 	char path[PATH_MAX];
-@@ -55,9 +60,13 @@ static int vrf_identify(pid_t pid, char *name, size_t len)
- 	memset(name, 0, len);
- 
- 	while (fgets(buf, sizeof(buf), fp)) {
--		vrf = strstr(buf, "::/vrf/");
-+		/* want the controller-less cgroup */
-+		if (strstr(buf, "::/") == NULL)
-+			continue;
-+
-+		vrf = strstr(buf, "/vrf/");
- 		if (vrf) {
--			vrf += 7;  /* skip past "::/vrf/" */
-+			vrf += 5;  /* skip past "/vrf/" */
- 			end = strchr(vrf, '\n');
- 			if (end)
- 				*end = '\0';
-@@ -97,50 +106,101 @@ static int ipvrf_identify(int argc, char **argv)
- 	return rc;
- }
- 
--static int ipvrf_pids(int argc, char **argv)
-+/* read PATH/vrf/NAME/cgroup.procs file */
-+static void read_cgroup_pids(const char *base_path, char *name)
- {
- 	char path[PATH_MAX];
- 	char buf[4096];
--	char *mnt, *vrf;
--	int fd, rc = -1;
- 	ssize_t n;
-+	int fd;
- 
--	if (argc != 1) {
--		fprintf(stderr, "Invalid arguments\n");
--		return -1;
--	}
--
--	vrf = argv[0];
--
--	mnt = find_cgroup2_mount();
--	if (!mnt)
--		return -1;
-+	if (snprintf(path, sizeof(path), "%s/vrf/%s%s",
-+		     base_path, name, CGRP_PROC_FILE) >= sizeof(path))
-+		return;
- 
--	snprintf(path, sizeof(path), "%s/vrf/%s%s", mnt, vrf, CGRP_PROC_FILE);
--	free(mnt);
- 	fd = open(path, O_RDONLY);
- 	if (fd < 0)
--		return 0; /* no cgroup file, nothing to show */
-+		return; /* no cgroup file, nothing to show */
- 
-+	/* dump contents (pids) of cgroup.procs */
- 	while (1) {
- 		n = read(fd, buf, sizeof(buf) - 1);
--		if (n < 0) {
--			fprintf(stderr,
--				"Failed to read cgroups file: %s\n",
--				strerror(errno));
-+		if (n <= 0)
- 			break;
--		} else if (n == 0) {
--			rc = 0;
--			break;
--		}
-+
- 		printf("%s", buf);
- 	}
- 
+@@ -134,8 +134,8 @@ static void read_cgroup_pids(const char *base_path, char *name)
  	close(fd);
-+}
-+
-+/* recurse path looking for PATH/vrf/NAME */
-+static int recurse_dir(char *base_path, char *name)
-+{
-+	char path[PATH_MAX];
-+	struct dirent *de;
-+	struct stat fstat;
-+	int rc;
-+	DIR *d;
-+
-+	d = opendir(base_path);
-+	if (!d)
-+		return -1;
-+
-+	while ((de = readdir(d)) != NULL) {
-+		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
-+			continue;
-+
-+		if (!strcmp(de->d_name, "vrf")) {
-+			read_cgroup_pids(base_path, name);
-+			continue;
-+		}
-+
-+		/* is this a subdir that needs to be walked */
-+		if (snprintf(path, sizeof(path), "%s/%s",
-+			     base_path, de->d_name) >= sizeof(path))
-+			continue;
-+
-+		if (lstat(path, &fstat) < 0)
-+			continue;
-+
-+		if (S_ISDIR(fstat.st_mode)) {
-+			rc = recurse_dir(path, name);
-+			if (rc != 0)
-+				goto out;
-+		}
-+	}
-+
-+	rc = 0;
-+out:
-+	closedir(d);
+ }
  
+-/* recurse path looking for PATH/vrf/NAME */
+-static int recurse_dir(char *base_path, char *name)
++/* recurse path looking for PATH[/NETNS]/vrf/NAME */
++static int recurse_dir(char *base_path, char *name, const char *netns)
+ {
+ 	char path[PATH_MAX];
+ 	struct dirent *de;
+@@ -152,7 +152,15 @@ static int recurse_dir(char *base_path, char *name)
+ 			continue;
+ 
+ 		if (!strcmp(de->d_name, "vrf")) {
+-			read_cgroup_pids(base_path, name);
++			const char *pdir = strrchr(base_path, '/');
++
++			/* found a 'vrf' directory. if it is for the given
++			 * namespace then dump the cgroup pids
++			 */
++			if (*netns == '\0' ||
++			    (pdir && !strcmp(pdir+1, netns)))
++				read_cgroup_pids(base_path, name);
++
+ 			continue;
+ 		}
+ 
+@@ -165,7 +173,7 @@ static int recurse_dir(char *base_path, char *name)
+ 			continue;
+ 
+ 		if (S_ISDIR(fstat.st_mode)) {
+-			rc = recurse_dir(path, name);
++			rc = recurse_dir(path, name, netns);
+ 			if (rc != 0)
+ 				goto out;
+ 		}
+@@ -178,10 +186,25 @@ static int recurse_dir(char *base_path, char *name)
  	return rc;
  }
  
-+static int ipvrf_pids(int argc, char **argv)
++static int ipvrf_get_netns(char *netns, int len)
 +{
-+	char *mnt, *vrf;
-+	int ret;
-+
-+	if (argc != 1) {
-+		fprintf(stderr, "Invalid arguments\n");
++	if (netns_identify_pid("self", netns, len-3)) {
++		fprintf(stderr, "Failed to get name of network namespace: %s\n",
++			strerror(errno));
 +		return -1;
 +	}
 +
-+	vrf = argv[0];
-+
-+	mnt = find_cgroup2_mount();
-+	if (!mnt)
-+		return -1;
-+
-+	ret = recurse_dir(mnt, vrf);
-+
-+	free(mnt);
-+
-+	return ret;
-+}
-+
- /* load BPF program to set sk_bound_dev_if for sockets */
- static char bpf_log_buf[256*1024];
- 
-@@ -203,9 +263,60 @@ static int vrf_configure_cgroup(const char *path, int ifindex)
- 	return rc;
- }
- 
-+/* get base path for controller-less cgroup for a process.
-+ * path returned does not include /vrf/NAME if it exists
-+ */
-+static int vrf_path(char *vpath, size_t len)
-+{
-+	char path[PATH_MAX];
-+	char buf[4096];
-+	char *vrf;
-+	FILE *fp;
-+
-+	snprintf(path, sizeof(path), "/proc/%d/cgroup", getpid());
-+	fp = fopen(path, "r");
-+	if (!fp)
-+		return -1;
-+
-+	vpath[0] = '\0';
-+
-+	while (fgets(buf, sizeof(buf), fp)) {
-+		char *start, *nl;
-+
-+		start = strstr(buf, "::/");
-+		if (!start)
-+			continue;
-+
-+		/* advance past '::' */
-+		start += 2;
-+
-+		nl = strchr(start, '\n');
-+		if (nl)
-+			*nl = '\0';
-+
-+		vrf = strstr(start, "/vrf");
-+		if (vrf)
-+			*vrf = '\0';
-+
-+		strncpy(vpath, start, len - 1);
-+		vpath[len - 1] = '\0';
-+
-+		/* if vrf path is just / then return nothing */
-+		if (!strcmp(vpath, "/"))
-+			vpath[0] = '\0';
-+
-+		break;
-+	}
-+
-+	fclose(fp);
++	if (*netns != '\0')
++		strcat(netns, "-ns");
 +
 +	return 0;
 +}
 +
- static int vrf_switch(const char *name)
+ static int ipvrf_pids(int argc, char **argv)
  {
- 	char path[PATH_MAX], *mnt, pid[16];
-+	char vpath[PATH_MAX];
- 	int ifindex = 0;
- 	int rc = -1, len, fd = -1;
+ 	char *mnt, *vrf;
+-	int ret;
++	char netns[256];
++	int ret = -1;
  
-@@ -221,11 +332,17 @@ static int vrf_switch(const char *name)
+ 	if (argc != 1) {
+ 		fprintf(stderr, "Invalid arguments\n");
+@@ -194,8 +217,12 @@ static int ipvrf_pids(int argc, char **argv)
  	if (!mnt)
  		return -1;
  
-+	if (vrf_path(vpath, sizeof(vpath)) < 0) {
-+		fprintf(stderr, "Failed to get base cgroup path: %s\n",
-+			strerror(errno));
+-	ret = recurse_dir(mnt, vrf);
++	if (ipvrf_get_netns(netns, sizeof(netns)) < 0)
++		goto out;
++
++	ret = recurse_dir(mnt, vrf, netns);
+ 
++out:
+ 	free(mnt);
+ 
+ 	return ret;
+@@ -316,7 +343,7 @@ static int vrf_path(char *vpath, size_t len)
+ static int vrf_switch(const char *name)
+ {
+ 	char path[PATH_MAX], *mnt, pid[16];
+-	char vpath[PATH_MAX];
++	char vpath[PATH_MAX], netns[256];
+ 	int ifindex = 0;
+ 	int rc = -1, len, fd = -1;
+ 
+@@ -332,17 +359,37 @@ static int vrf_switch(const char *name)
+ 	if (!mnt)
+ 		return -1;
+ 
++	/* -1 on length to add '/' to the end */
++	if (ipvrf_get_netns(netns, sizeof(netns) - 1) < 0)
 +		return -1;
++
+ 	if (vrf_path(vpath, sizeof(vpath)) < 0) {
+ 		fprintf(stderr, "Failed to get base cgroup path: %s\n",
+ 			strerror(errno));
+ 		return -1;
+ 	}
+ 
++	/* if path already ends in netns then don't add it again */
++	if (*netns != '\0') {
++		char *pdir = strrchr(vpath, '/');
++
++		if (!pdir)
++			pdir = vpath;
++		else
++			pdir++;
++
++		if (strcmp(pdir, netns) == 0)
++			*pdir = '\0';
++
++		strcat(netns, "/");
 +	}
 +
  	/* path to cgroup; make sure buffer has room to cat "/cgroup.procs"
  	 * to the end of the path
  	 */
--	len = snprintf(path, sizeof(path) - sizeof(CGRP_PROC_FILE), "%s/vrf/%s",
--		       mnt, ifindex ? name : "");
-+	len = snprintf(path, sizeof(path) - sizeof(CGRP_PROC_FILE),
-+		       "%s%s/vrf/%s", mnt, vpath, ifindex ? name : "");
+ 	len = snprintf(path, sizeof(path) - sizeof(CGRP_PROC_FILE),
+-		       "%s%s/vrf/%s", mnt, vpath, ifindex ? name : "");
++		       "%s%s/%svrf/%s",
++		       mnt, vpath, netns, ifindex ? name : "");
  	if (len > sizeof(path) - sizeof(CGRP_PROC_FILE)) {
  		fprintf(stderr, "Invalid path to cgroup2 mount\n");
  		goto out;
