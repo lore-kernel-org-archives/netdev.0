@@ -1,14 +1,14 @@
 From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 04/21] ARM: sun8i: dt: Add DT bindings
- documentation for Allwinner dwmac-sun8i
-Date: Thu, 16 Feb 2017 19:48:18 +0100
-Message-ID: <20170216184818.hwexzuqacbemsxo7@lukather>
+Subject: Re: [PATCH 08/21] ARM: dts: sun8i-h3: add dwmac-sun8i
+ rgmii pins
+Date: Thu, 16 Feb 2017 20:06:32 +0100
+Message-ID: <20170216190632.hezcacn3hw5uhxcn@lukather>
 References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
- <20170216124859.14346-5-clabbe.montjoie@gmail.com>
+ <20170216124859.14346-9-clabbe.montjoie@gmail.com>
 Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="r2d7za65jyewaw3i"
+	protocol="application/pgp-signature"; boundary="62ryoqpqlfab5l3f"
 Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
 	wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
@@ -19,7 +19,7 @@ To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-sunxi+bncBDSJBYGBRIMBBLHNTLCQKGQENQQ5SEQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <20170216124859.14346-5-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <20170216124859.14346-9-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <https://groups.google.com/group/linux-sunxi
@@ -29,95 +29,49 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
 List-Id: netdev.vger.kernel.org
 
 
---r2d7za65jyewaw3i
+--62ryoqpqlfab5l3f
 Content-Type: text/plain; charset=UTF-8
 Content-Disposition: inline
 
-Hi,
-
-On Thu, Feb 16, 2017 at 01:48:42PM +0100, Corentin Labbe wrote:
-> This patch adds documentation for Device-Tree bindings for the
-> Allwinner dwmac-sun8i driver.
+On Thu, Feb 16, 2017 at 01:48:46PM +0100, Corentin Labbe wrote:
+> This patch add pinctrl node for dwmac-sun8i on H3.
 > 
 > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 86 ++++++++++++++++++++++
->  1 file changed, 86 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+>  arch/arm/boot/dts/sun8i-h3.dtsi | 11 +++++++++++
+>  1 file changed, 11 insertions(+)
 > 
-> diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> new file mode 100644
-> index 0000000..ac806c6
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> @@ -0,0 +1,86 @@
-> +* Allwinner sun8i GMAC ethernet controller
-> +
-> +This device is a platform glue layer for stmmac.
-> +Please see stmmac.txt for the other unchanged properties.
-> +
-> +Required properties:
-> +- compatible: should be one of the following string:
-> +		"allwinner,sun8i-a83t-emac"
-> +		"allwinner,sun8i-h3-emac"
-> +		"allwinner,sun50i-a64-emac"
-> +- reg: address and length of the register for the device.
-> +- interrupts: interrupt for the device
-> +- interrupt-names: should be "macirq"
-> +- clocks: A phandle to the reference clock for this device
-> +- clock-names: should be "stmmaceth"
-> +- resets: A phandle to the reset control for this device
-> +- reset-names: should be "stmmaceth"
-> +- phy-mode: See ethernet.txt
-> +- phy-handle: See ethernet.txt
-> +- #address-cells: shall be 1
-> +- #size-cells: shall be 0
-> +- syscon: A phandle to the syscon of the SoC with one of the following
-> + compatible string:
-> +  - allwinner,sun8i-h3-system-controller
-> +  - allwinner,sun8i-a64-system-controller
-> +  - allwinner,sun8i-a83t-system-controller
-> +
-> +Optional properties:
-> +- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
-> +- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
-> +Both delay properties does not have units, there are arbitrary value.
-> +The TX/RX clock delay chain settings are board specific and could be found
-> +in vendor FEX files.
-> +
-> +Optional properties for "allwinner,sun8i-h3-emac":
-> +- allwinner,leds-active-low: EPHY LEDs are active low
-> +
-> +Required child node of emac:
-> +- mdio bus node: should be named mdio
-> +
-> +Required properties of the mdio node:
-> +- #address-cells: shall be 1
-> +- #size-cells: shall be 0
-> +
-> +The device node referenced by "phy" or "phy-handle" should be a child node
-> +of the mdio node. See phy.txt for the generic PHY bindings.
-> +
-> +Required properties of the phy node with "allwinner,sun8i-h3-emac":
-> +- clocks: an extra phandle to the reference clock for the EPHY
-> +- resets: an extra phandle to the reset control for the EPHY
-> +
-> +Required properties for the system controller:
-> +- reg: address and length of the register for the device.
-> +- compatible: should be "syscon" and one of the following string:
-> +		"allwinner,sun8i-h3-system-controller"
-> +		"allwinner,sun8i-a64-system-controller"
-> +		"allwinner,sun8i-a83t-system-controller"
+> diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
+> index 61d56d2..59ed40e 100644
+> --- a/arch/arm/boot/dts/sun8i-h3.dtsi
+> +++ b/arch/arm/boot/dts/sun8i-h3.dtsi
+> @@ -349,6 +349,17 @@
+>  				function = "i2c2";
+>  			};
+>  
+> +			emac_rgmii_pins: emac0@0 {
+> +				allwinner,pins = "PD0", "PD1", "PD2", "PD3",
+> +						"PD4", "PD5", "PD7",
+> +						"PD8", "PD9", "PD10",
+> +						"PD12", "PD13", "PD15",
+> +						"PD16", "PD17";
+> +				allwinner,function = "emac";
 
-This should be in a separate binding document.
+Please use the generic pin config properties (ie. pins and functions).
 
-What does it describe / represent?
+> +				allwinner,drive = <SUN4I_PINCTRL_40_MA>;
 
-Thanks,
+Why do you need to use 40mA?
+
+> +				allwinner,pull = <SUN4I_PINCTRL_NO_PULL>;
+
+This is the default now.
+
+Thanks!
 Maxime
 
 -- 
 Maxime Ripard, Free Electrons
 Embedded Linux and Kernel engineering
 http://free-electrons.com
---r2d7za65jyewaw3i--
+--62ryoqpqlfab5l3f--
