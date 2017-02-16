@@ -1,36 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] dccp: fix freeing skb too early for IPV6_RECVPKTINFO
-Date: Thu, 16 Feb 2017 10:28:10 -0800
-Message-ID: <1487269690.1311.56.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170216162246.12783-1-andreyknvl@google.com>
+From: Sriram V <vshrirama@gmail.com>
+Subject: Autoneg off in TI cpsw driver
+Date: Fri, 17 Feb 2017 00:01:32 +0530
+Message-ID: <CAH9_wRMwiZA6GxdwMbOZjs-t-hnMaCRB1RSQ6nGoLOUJ+PxzRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>
-To: Andrey Konovalov <andreyknvl@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: mugunthanvnm@ti.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33516 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932302AbdBPS2M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 13:28:12 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 5so2619798pgj.0
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 10:28:12 -0800 (PST)
-In-Reply-To: <20170216162246.12783-1-andreyknvl@google.com>
+Received: from mail-vk0-f46.google.com ([209.85.213.46]:33723 "EHLO
+        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932302AbdBPSbd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 13:31:33 -0500
+Received: by mail-vk0-f46.google.com with SMTP id k127so15749832vke.0
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 10:31:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-16 at 17:22 +0100, Andrey Konovalov wrote:
-> In the current DCCP implementation an skb for a DCCP_PKT_REQUEST packet
-> is forcibly freed via __kfree_skb in dccp_rcv_state_process if
-> dccp_v6_conn_request successfully returns.
-> 
-> 			goto discard;
+Hi,
 
-Thanks a lot Andrey !
+I am using a Linux Kernel 4.1 Kernel. on AM437X with dual emac configuration.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+What i find is if i do the following the Link does not come up.
+
+1. run ethtool -s eth1 speed 10 duplex full autoneg off
+2. remove cable
+3. plug it in.
+
+With the above sequence. The link does not come up. the plug in is not detected
+
+Am i missing something or is this the default behaviour.
+
+Regards,
+Sriram
