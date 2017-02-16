@@ -1,250 +1,1210 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [BUG] 4.10-rc8 - ping spinning?
-Date: Thu, 16 Feb 2017 10:52:19 -0500
-Message-ID: <CACSApvYbP9peXPm2L4EFJokdXbGV7bTLgZNOEKEiHjLWcOOZHA@mail.gmail.com>
-References: <20170216120547.GK582@shells.gnugeneration.com> <CACSApvYq-7HGAO+UTsoCu6JVt_E4mdXKgpUbRD0YDP_M02ZdkQ@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next RFC 1/8] devlink: Support for pipeline debug
+ (dpipe)
+Date: Thu, 16 Feb 2017 07:57:53 -0800
+Message-ID: <58A5CC01.5070409@gmail.com>
+References: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
+ <1487258564-3775-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: lkml@pengaru.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACSApvYq-7HGAO+UTsoCu6JVt_E4mdXKgpUbRD0YDP_M02ZdkQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
+        roopa@cumulusnetworks.com, f.fainelli@gmail.com,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34690 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932224AbdBPP6K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 10:58:10 -0500
+Received: by mail-pg0-f65.google.com with SMTP id v184so2320762pgv.1
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 07:58:09 -0800 (PST)
+In-Reply-To: <1487258564-3775-2-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2017 at 10:50 AM, Soheil Hassas Yeganeh
-<soheil@google.com> wrote:
-> Thank you Vito for the report.
->
-> The patch you cited actually resolves a similar backward compatibility
-> problem for traceroute.
->
-> I suspect the problem here is that there's a local error queued on the
-> error queue after an ICMP message. ping apparently expect the
-> sk->sk_err to be set for the local errors as well, and hence the
-> error. Ideally, ping should read the error queue if there an EPOLLERR,
-> because local errors never sk->sk_err on their own. That is, if we
-> have
+On 17-02-16 07:22 AM, Jiri Pirko wrote:
+> From: Arkadi Sharshevsky <arkadis@mellanox.com>
+> 
+> The pipeline debug is used to export the pipeline abstractions
+> for the main objects - tables, headers and entries. The only support for
+> set is for changing the counter parameter on specific table.
+> 
 
-[oops] That is, if we have only one local error on the error queue, we
-cannot rely on having an error on recvmsg (i.e., sk->sk_err being set)
-even in 4.9.
+Couple quick comments this morning I'll review the code later today.
 
-Thanks,
-Soheil
+> The basic structures:
+> 
+> Header - can represent a real protocol header information or internal
+>          metadata. Generic protocol headers like IPv4 can be shared
+>          between drivers. Each driver can add local headers.
+> 
+> Field - part of a header. Can represent protocol field or specific
+>         ASIC metadata field. Hardware special metadata fields can
+>         be mapped to different resources, for example switch ASIC
+>        	ports can have internal number which from the systems
+>         point of view is mapped to netdeivce ifindex.
+> 
+> Hfield - Specific combination of header:field. This object is used
+>          to represent the table behavior in terms of match/action.
+> 
+> Hfield_val - Represents value of specific Hfield.
+> 
+> Table - represents a hardware block which can be described with
+>         match/action behavior. The match/action can be done on the
+>         packets data or on the internal metadata that it gathered
+>         along the packets traversal throw the pipeline which is vendor
+>         specific and should be exported in order to provide
+>         understanding of ASICs behavior.
+> 
+> Entry - represents single record in a specific table. The entry is
+>         identified by specific combination of Hfield_vals for match
+>         /action.
 
-> But as a workaround, would you mind trying the following patch to see
-> if it resolves the issue reported?
->
-> From: Soheil Hassas Yeganeh <soheil@google.com>
-> Date: Thu, 16 Feb 2017 10:48:24 -0500
+Should actions have their own type? I think this helps user space and
+in general keep things clean.
+
+> 
+> Prior to accessing the tables/entries the drivers provide the header/
+> field data base which is used by driver to user-space. The data base
+> is split between the shared headers and unique headers.
+> 
+
+Having a header definition file in uapi that has known field:header values
+is a nice optimization for user space that deals with multiple devices.
+This way I can avoid string parsing and just look for my ipv6 header if
+I am writing a simple user space application. More advanced (and I'm guessing
+the stuff being used on the mlx switch or at least a lot of the applications
+I use) probably don't need this but it is helpful on the lower end less
+specialized equipment.
+
+Thanks for doing this quick scan looks nice.
+John
+
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 > ---
->  net/core/skbuff.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 734c71468b01..2b774b564024 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3717,7 +3717,8 @@ EXPORT_SYMBOL(sock_queue_err_skb);
->  static bool is_icmp_err_skb(const struct sk_buff *skb)
+>  include/net/devlink.h        | 224 ++++++++++++-
+>  include/uapi/linux/devlink.h |  50 ++-
+>  net/core/devlink.c           | 747 +++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 1019 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/devlink.h b/include/net/devlink.h
+> index d29e5fc..d480669 100644
+> --- a/include/net/devlink.h
+> +++ b/include/net/devlink.h
+> @@ -25,6 +25,8 @@ struct devlink {
+>  	struct list_head list;
+>  	struct list_head port_list;
+>  	struct list_head sb_list;
+> +	struct list_head dpipe_table_list;
+> +	struct devlink_dpipe_headers *dpipe_headers;
+>  	const struct devlink_ops *ops;
+>  	struct device *dev;
+>  	possible_net_t _net;
+> @@ -49,6 +51,157 @@ struct devlink_sb_pool_info {
+>  	enum devlink_sb_threshold_type threshold_type;
+>  };
+>  
+> +/**
+> + * struct devlink_dpipe_field - dpipe field object
+> + * @name: field name
+> + * @id: id inside header fields array
+> + * @bitwidth: bitwidth
+> + * @mapping_type: mapping type
+> + */
+> +struct devlink_dpipe_field {
+> +	const char *name;
+> +	unsigned int id;
+> +	unsigned int bitwidth;
+> +	enum devlink_dpipe_field_mapping_type mapping_type;
+> +};
+> +
+> +/**
+> + * struct devlink_dpipe_header - dpipe header object
+> + * @name: header name
+> + * @id: id, global/local detrmined by global bit
+> + * @fields: fields
+> + * @fields_count: number of fields
+> + * @global: indicates of header is shared like most protocol header
+> + *	    or driver specific
+> + */
+> +struct devlink_dpipe_header {
+> +	const char *name;
+> +	unsigned int id;
+> +	struct devlink_dpipe_field *fields;
+> +	unsigned int fields_count;
+> +	bool global;
+> +};
+> +
+> +/**
+> + * struct devlink_dpipe_hfield - represents header:field tuple
+> + * @header: header
+> + * @filed_id: field index
+> + */
+> +struct devlink_dpipe_hfield {
+> +	struct devlink_dpipe_header *header;
+> +	unsigned int field_id;
+> +};
+> +
+> +/**
+> + * struct devlink_dpipe_hfield_val - represents a value of specific
+> + *				     tuple
+> + * @hfield: the tuple the value is relevant for
+> + * @mapping_value: in case the field has some mapping this value
+> + *                 specified the mapping value
+> + * @value_size: value size
+> + * @value: the value
+> + * @mask: bit mask
+> + */
+> +struct devlink_dpipe_hfield_val {
+> +	struct devlink_dpipe_hfield *hfield;
+> +	unsigned int mapping_value;
+> +	unsigned int value_size;
+> +	void *value;
+> +	void *mask;
+> +};
+> +
+> +/**
+> + * struct devlink_dpipe_entry - table entry object
+> + * @index: index of the entry in the table
+> + * @matches: tuple match values
+> + * @matches_count: count of matches tuples
+> + * @actions: tuple actions values
+> + * @actions_count: count of actions values
+> + * @counter: value of counter
+> + * @counter_valid: Specify if value is valid from hardware
+> + */
+> +struct devlink_dpipe_entry {
+> +	unsigned int index;
+> +	struct devlink_dpipe_hfield_val *matches;
+> +	unsigned int matches_count;
+> +	struct devlink_dpipe_hfield_val *actions;
+> +	unsigned int actions_count;
+> +	u64 counter;
+> +	bool counter_valid;
+> +};
+> +
+> +/**
+> + * struct devlink_dpipe_dump_ctx - context provided to driver in order
+> + *				   to dump
+> + * @info: info
+> + * @cmd: devlink command
+> + * @skb: skb
+> + * @nest: top attribute
+> + * @hdr: hdr
+> + */
+> +struct devlink_dpipe_dump_ctx {
+> +	struct genl_info *info;
+> +	enum devlink_command cmd;
+> +	struct sk_buff *skb;
+> +	struct nlattr *nest;
+> +	void *hdr;
+> +};
+> +
+> +struct devlink_dpipe_table_ops;
+> +
+> +/**
+> + * struct devlink_dpipe_table - table object
+> + * @priv: private
+> + * @name: table name
+> + * @size: maximum number of entries
+> + * @matches: header:field match tuples
+> + * @matches_count: count of match tuples
+> + * @actions: header:field action tuples
+> + * @actions_count: count of action tuples
+> + * @counters_enabled: indicates if counters are active
+> + * @counter_control_extern: indicates if counter control is in dpipe or
+> + *			    external tool
+> + * @table_ops: table operations
+> + * @rcu: rcu
+> + */
+> +struct devlink_dpipe_table {
+> +	void *priv;
+> +	struct list_head list;
+> +	const char *name;
+> +	int size;
+> +	struct devlink_dpipe_hfield *matches;
+> +	unsigned int matches_count;
+> +	struct devlink_dpipe_hfield *actions;
+> +	unsigned int actions_count;
+> +	bool counters_enabled;
+> +	bool counter_control_extern;
+> +	struct devlink_dpipe_table_ops *table_ops;
+> +	struct rcu_head rcu;
+> +};
+> +
+> +/**
+> + * struct devlink_dpipe_table_ops - dpipe_table ops
+> + * @entries_dump - dumps all active entries in the table
+> + * @counter_set_update - when changing the counter status hardware sync
+> + *			 maybe needed to allocate/free counter related
+> + *			 resources
+> + */
+> +struct devlink_dpipe_table_ops {
+> +	int (*entries_dump)(void *priv, bool counters_enabled,
+> +			    struct devlink_dpipe_dump_ctx *dump_ctx);
+> +	int (*counter_set_update)(void *priv, bool enable);
+> +};
+> +
+> +/**
+> + * struct devlink_dpipe_headers - dpipe headers
+> + * @headers - header array can be shared(global bit) or local
+> + * @headers_count - count of headers
+> + */
+> +struct devlink_dpipe_headers {
+> +	struct devlink_dpipe_header **headers;
+> +	unsigned int headers_count;
+> +};
+> +
+>  struct devlink_ops {
+>  	int (*port_type_set)(struct devlink_port *devlink_port,
+>  			     enum devlink_port_type port_type);
+> @@ -132,7 +285,26 @@ int devlink_sb_register(struct devlink *devlink, unsigned int sb_index,
+>  			u16 egress_pools_count, u16 ingress_tc_count,
+>  			u16 egress_tc_count);
+>  void devlink_sb_unregister(struct devlink *devlink, unsigned int sb_index);
+> -
+> +int devlink_dpipe_table_register(struct devlink *devlink,
+> +				 const char *table_name,
+> +				 struct devlink_dpipe_table_ops *table_ops,
+> +				 void *priv,
+> +				 struct devlink_dpipe_hfield *matches,
+> +				 unsigned int matches_count,
+> +				 struct devlink_dpipe_hfield *actions,
+> +				 unsigned int actions_count,
+> +				 bool counter_control_extern);
+> +void devlink_dpipe_table_unregister(struct devlink *devlink,
+> +				    const char *table_name);
+> +int devlink_dpipe_headers_register(struct devlink *devlink,
+> +				   struct devlink_dpipe_headers *dpipe_headers);
+> +void devlink_dpipe_headers_unregister(struct devlink *devlink);
+> +bool devlink_dpipe_table_counter_enabled(struct devlink *devlink,
+> +					 const char *table_name);
+> +int devlink_dpipe_entry_prepare_ctx(struct devlink_dpipe_dump_ctx *dump_ctx);
+> +int devlink_dpipe_entry_append_ctx(struct devlink_dpipe_dump_ctx *dump_ctx,
+> +				   struct devlink_dpipe_entry *entry);
+> +int devlink_dpipe_entry_close_ctx(struct devlink_dpipe_dump_ctx *dump_ctx);
+>  #else
+>  
+>  static inline struct devlink *devlink_alloc(const struct devlink_ops *ops,
+> @@ -200,6 +372,56 @@ static inline void devlink_sb_unregister(struct devlink *devlink,
 >  {
->   return skb && (SKB_EXT_ERR(skb)->ee.ee_origin =3D=3D SO_EE_ORIGIN_ICMP =
-||
-> -       SKB_EXT_ERR(skb)->ee.ee_origin =3D=3D SO_EE_ORIGIN_ICMP6);
-> +       SKB_EXT_ERR(skb)->ee.ee_origin =3D=3D SO_EE_ORIGIN_ICMP6 ||
-> +       SKB_EXT_ERR(skb)->ee.ee_origin =3D=3D SO_EE_ORIGIN_LOCAL);
 >  }
->
->  struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
-> --
->
-> Thanks!
-> Soheil
->
-> On Thu, Feb 16, 2017 at 7:05 AM,  <lkml@pengaru.com> wrote:
->> Hello netdev,
->>
->> Please see the forwarded message below.  This was sent to linux-kernel b=
-ut
->> after digging a little I suspect it's specific to the network stack.
->>
->> Perusing the net/ changes between 4.9 and 4.10-rc8 this sounded awful re=
-lated
->> to what I'm observing:
->>
->> commit 83a1a1a70e87f676fbb6086b26b6ac7f7fdd107d
->> Author: Soheil Hassas Yeganeh <soheil@google.com>
->> Date:   Wed Nov 30 14:01:08 2016 -0500
->>
->>     sock: reset sk_err for ICMP packets read from error queue
->>
->>     Only when ICMP packets are enqueued onto the error queue,
->>     sk_err is also set. Before f5f99309fa74 (sock: do not set sk_err
->>     in sock_dequeue_err_skb), a subsequent error queue read
->>     would set sk_err to the next error on the queue, or 0 if empty.
->>     As no error types other than ICMP set this field, sk_err should
->>     not be modified upon dequeuing them.
->>
->>     Only for ICMP errors, reset the (racy) sk_err. Some applications,
->>     like traceroute, rely on it and go into a futile busy POLLERR
->>     loop otherwise.
->>
->>     In principle, sk_err has to be set while an ICMP error is queued.
->>     Testing is_icmp_err_skb(skb_next) approximates this without
->>     requiring a full queue walk. Applications that receive both ICMP
->>     and other errors cannot rely on this legacy behavior, as other
->>     errors do not set sk_err in the first place.
->>
->>     Fixes: f5f99309fa74 (sock: do not set sk_err in sock_dequeue_err_skb=
-)
->>     Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
->>     Signed-off-by: Willem de Bruijn <willemb@google.com>
->>     Acked-by: Eric Dumazet <edumazet@google.com>
->>     Acked-by: Maciej =C5=BBenczykowski <maze@google.com>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->> Cheers,
->> Vito Caputo
->>
->>
->> ----- Forwarded message from lkml@pengaru.com -----
->>
->> Date: Thu, 16 Feb 2017 03:17:49 -0800
->> From: lkml@pengaru.com
->> To: linux-kernel@vger.kernel.org
->> Subject: Re: [BUG] 4.10-rc8 - ping spinning?
->> User-Agent: Mutt/1.5.23 (2014-03-12)
->>
->> On Thu, Feb 16, 2017 at 03:03:03AM -0800, lkml@pengaru.com wrote:
->>> Hello list,
->>>
->>> Some rtl8192cu bugs of old got me in the habit of running ping in a she=
-lved     (i.e. forgotten) xterm, a harmless practice which seemed to preven=
-t the         rtl8192cu device from dying.
->>>
->>> This evening the system started getting very slow and to my surprise I =
-found
->>> this in `top`:
->>>  5115 swivel    30  10   14772   1928   1756 R  90.9  0.0   1351:41 pin=
-g
->>>  9005 swivel    30  10   14772   1892   1724 R  90.9  0.0   1354:26 pin=
-g
->>>
->>> This is a dual core machine (X61s, core2duo 1.8Ghz), those processes ar=
-e
->>> burning all the free CPU in the system context.  They're identical comm=
-ands,
->>> just plain `ping domain.com`, to the same host.  It appears I accidenta=
-lly
->>> (fortuitously?) had two running, which made this event more interesting=
-.
->>>
->>> I can assert that these did not begin spinning simultaneously - as you =
-can see
->>> by the cumulative time in `top` there's a small delta.  I also use a wi=
-ndow
->>> manager with builtin continuous process monitoring, and when I noticed =
-this was
->>> happening I was able to see that one of the processes had only recently=
- begun
->>> spinning, the other was spinning long enough to have its start fall off=
- the
->>> chart (at least ~17 minutes ago).
->>>
->>> This hasn't occurred before AFAIK, but I haven't spent much time in 4.1=
-0 yet.
->>> I'm pretty confident this didn't happen in 4.9 which I ran for quite a =
-while.
->>>
->>> `strace` of one of the aforementioned processes:
->>>
->>> 1487241315.073568 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 927) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000022>
->>> 1487241315.073665 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000020>
->>> 1487241315.073747 gettimeofday({1487241315, 73774}, NULL) =3D 0 <0.0000=
-21>
->>> 1487241315.073829 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 927) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000025>
->>> 1487241315.073927 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000020>
->>> 1487241315.074024 gettimeofday({1487241315, 74050}, NULL) =3D 0 <0.0002=
-56>
->>> 1487241315.074352 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 927) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000026>
->>> 1487241315.076241 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000022>
->>> 1487241315.076337 gettimeofday({1487241315, 76366}, NULL) =3D 0 <0.0000=
-20>
->>> 1487241315.076422 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 924) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000025>
->>> 1487241315.076523 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000025>
->>> 1487241315.079770 gettimeofday({1487241315, 79799}, NULL) =3D 0 <0.0000=
-19>
->>> 1487241315.079855 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 921) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000024>
->>> 1487241315.079956 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000021>
->>> 1487241315.080057 gettimeofday({1487241315, 80084}, NULL) =3D 0 <0.0000=
-20>
->>> 1487241315.080140 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 921) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000024>
->>> 1487241315.080238 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000021>
->>> 1487241315.080322 gettimeofday({1487241315, 80350}, NULL) =3D 0 <0.0000=
-20>
->>> 1487241315.080406 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 920) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000023>
->>> 1487241315.080502 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000019>
->>> 1487241315.080583 gettimeofday({1487241315, 80610}, NULL) =3D 0 <0.0000=
-18>
->>> 1487241315.080663 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 920) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000024>
->>> 1487241315.080761 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000020>
->>> 1487241315.080843 gettimeofday({1487241315, 80870}, NULL) =3D 0 <0.0000=
-20>
->>> 1487241315.080925 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 920) =3D=
- 1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000037>
->>> 1487241315.081037 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAI=
-N (Resource temporarily unavailable) <0.000020>
->>> 1487241315.081119 gettimeofday({1487241315, 81147}, NULL) =3D 0 <0.0000=
-20>
->>>
->>
->> It's worth noting that ping is still otherwise functioning correctly, de=
-spite
->> the POLLERR:
->>
->> 1487242826.169502 sendmsg(3, {msg_name(16)=3D{sa_family=3DAF_INET, sin_p=
-ort=3Dhtons(0), sin_addr=3Dinet_addr("xx.xxx.xxx.xxx")}, msg_iov(1)=3D[{"\1=
-0\0\245G\23\373\243uJ\206\245X\0\0\0\0\352\225\2\0\0\0\0\0\20\21\22\23\24\2=
-5\26\27"..., 64}], msg_controllen=3D0, msg_flags=3D0}, MSG_CONFIRM) =3D 64 =
-<0.000133>
->> 1487242826.169757 recvmsg(3, {msg_name(16)=3D{sa_family=3DAF_INET, sin_p=
-ort=3Dhtons(0), sin_addr=3Dinet_addr("66.240.222.126")}, msg_iov(1)=3D[{"E =
-\0T\345\364\0\0002\1w\23B\360\336~\n\0\0\23\0\0\255G\23\373\243uJ\206\245X"=
-..., 192}], msg_controllen=3D32, {cmsg_len=3D32, cmsg_level=3DSOL_SOCKET, c=
-msg_type=3D0x1d /* SCM_??? */, ...}, msg_flags=3D0}, 0) =3D 84 <0.028825>
->> 1487242826.198697 write(1, "64 bytes from xxxxxxx.com (xx.xx"..., 79) =
-=3D 79 <0.000639>
->> 1487242826.199405 gettimeofday({1487242826, 199430}, NULL) =3D 0 <0.0000=
-23>
->> 1487242826.199486 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 970) =3D =
-1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000026>
->> 1487242826.199578 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
- (Resource temporarily unavailable) <0.000024>
->>
->> Surprisingly ping doesn't seem to be reacting to the POLLERR though it
->> requested it.  Maybe this is just a ping bug?  Though I haven't seen thi=
-s
->> before rc8.
->>
->> Regards,
->> Vito Caputo
->>
->> ----- End forwarded message -----
+>  
+> +int devlink_dpipe_table_register(struct devlink *devlink,
+> +				 const char *table_name,
+> +				 struct devlink_dpipe_table_ops *table_ops,
+> +				 void *priv,
+> +				 struct devlink_dpipe_hfield *matches,
+> +				 unsigned int matches_count,
+> +				 struct devlink_dpipe_hfield *actions,
+> +				 unsigned int actions_count,
+> +				 bool counter_control_extern)
+> +{
+> +	return 0;
+> +}
+> +
+> +void devlink_dpipe_table_unregister(struct devlink *devlink,
+> +				    const char *table_name);
+> +{
+> +}
+> +
+> +int devlink_dpipe_headers_register(struct devlink *devlink,
+> +				   struct devlink_dpipe_headers *dpipe_headers);
+> +{
+> +	return 0;
+> +}
+> +
+> +void devlink_dpipe_headers_unregister(struct devlink *devlink)
+> +{
+> +}
+> +
+> +bool devlink_dpipe_table_counter_enabled(struct devlink *devlink,
+> +					 const char *table_name)
+> +{
+> +	return false;
+> +}
+> +
+> +int devlink_dpipe_entry_prepare_ctx(struct devlink_dpipe_dump_ctx *dump_ctx)
+> +{
+> +	return 0;
+> +}
+> +
+> +int devlink_dpipe_entry_append_ctx(struct devlink_dpipe_dump_ctx *dump_ctx,
+> +				   struct devlink_dpipe_entry *entry)
+> +{
+> +	return 0;
+> +}
+> +
+> +int devlink_dpipe_entry_close_ctx(struct devlink_dpipe_dump_ctx *dump_ctx)
+> +{
+> +	return 0;
+> +}
+> +
+>  #endif
+>  
+>  #endif /* _NET_DEVLINK_H_ */
+> diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+> index 0f1f3a1..bbab55d 100644
+> --- a/include/uapi/linux/devlink.h
+> +++ b/include/uapi/linux/devlink.h
+> @@ -65,8 +65,12 @@ enum devlink_command {
+>  #define DEVLINK_CMD_ESWITCH_MODE_SET /* obsolete, never use this! */ \
+>  	DEVLINK_CMD_ESWITCH_SET
+>  
+> -	/* add new commands above here */
+> +	DEVLINK_CMD_DPIPE_TABLES_GET,
+> +	DEVLINK_CMD_DPIPE_ENTRIES_GET,
+> +	DEVLINK_CMD_DPIPE_HEADERS_GET,
+> +	DEVLINK_CMD_DPIPE_TABLE_COUNTER_SET,
+>  
+> +	/* add new commands above here */
+>  	__DEVLINK_CMD_MAX,
+>  	DEVLINK_CMD_MAX = __DEVLINK_CMD_MAX - 1
+>  };
+> @@ -148,10 +152,54 @@ enum devlink_attr {
+>  	DEVLINK_ATTR_ESWITCH_MODE,		/* u16 */
+>  	DEVLINK_ATTR_ESWITCH_INLINE_MODE,	/* u8 */
+>  
+> +	DEVLINK_ATTR_DPIPE_TABLES,		/* nested */
+> +	DEVLINK_ATTR_DPIPE_TABLE,		/* nested */
+> +	DEVLINK_ATTR_DPIPE_TABLE_NAME,		/* string */
+> +	DEVLINK_ATTR_DPIPE_TABLE_SIZE,		/* u32 */
+> +	DEVLINK_ATTR_DPIPE_TABLE_MATCHES,	/* nested */
+> +	DEVLINK_ATTR_DPIPE_TABLE_ACTIONS,	/* nested */
+> +	DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED,	/* flag */
+> +
+> +	DEVLINK_ATTR_DPIPE_HFIELD,		/* nested */
+> +	DEVLINK_ATTR_DPIPE_HFIELD_VALUE,
+> +	DEVLINK_ATTR_DPIPE_HFIELD_MASK,
+> +	DEVLINK_ATTR_DPIPE_HFIELD_MAPPING,	/* u32 */
+> +
+> +	DEVLINK_ATTR_DPIPE_ENTRIES,		/* nested */
+> +	DEVLINK_ATTR_DPIPE_ENTRY,		/* nested */
+> +	DEVLINK_ATTR_DPIPE_ENTRY_INDEX,		/* u32 */
+> +	DEVLINK_ATTR_DPIPE_ENTRY_MATCHES,	/* nested */
+> +	DEVLINK_ATTR_DPIPE_ENTRY_ACTIONS,	/* nested */
+> +	DEVLINK_ATTR_DPIPE_ENTRY_COUNTER,	/* u64 */
+> +	DEVLINK_ATTR_DPIPE_ENTRY_COUNTER_VALID,	/* u32 */
+> +
+> +	DEVLINK_ATTR_DPIPE_HEADERS,		/* nested */
+> +	DEVLINK_ATTR_DPIPE_HEADER,		/* nested */
+> +	DEVLINK_ATTR_DPIPE_HEADER_NAME,		/* string */
+> +	DEVLINK_ATTR_DPIPE_HEADER_ID,		/* u32 */
+> +	DEVLINK_ATTR_DPIPE_HEADER_FIELDS,	/* string */
+> +	DEVLINK_ATTR_DPIPE_HEADER_GLOBAL,	/* flag */
+> +
+> +	DEVLINK_ATTR_DPIPE_FIELD,		/* nested */
+> +	DEVLINK_ATTR_DPIPE_FIELD_NAME,		/* string */
+> +	DEVLINK_ATTR_DPIPE_FIELD_ID,		/* u32 */
+> +	DEVLINK_ATTR_DPIPE_FIELD_BITWIDTH,	/* u32 */
+> +	DEVLINK_ATTR_DPIPE_FIELD_MAPPING_TYPE,	/* u32 */
+> +
+> +	DEVLINK_ATTR_PAD,
+> +
+>  	/* add new attributes above here, update the policy in devlink.c */
+>  
+>  	__DEVLINK_ATTR_MAX,
+>  	DEVLINK_ATTR_MAX = __DEVLINK_ATTR_MAX - 1
+>  };
+>  
+> +/* Mapping between internal resource described by the field and system
+> + * structure
+> + */
+> +enum devlink_dpipe_field_mapping_type {
+> +	DEVLINK_DPIPE_FIELD_MAPPING_TYPE_NONE,
+> +	DEVLINK_DPIPE_FIELD_MAPPING_TYPE_IFINDEX,
+> +};
+> +
+>  #endif /* _UAPI_LINUX_DEVLINK_H_ */
+> diff --git a/net/core/devlink.c b/net/core/devlink.c
+> index e9c1e6a..286d7d2 100644
+> --- a/net/core/devlink.c
+> +++ b/net/core/devlink.c
+> @@ -1493,8 +1493,588 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
+>  		if (err)
+>  			return err;
+>  	}
+> +	return 0;
+> +}
+> +
+> +static int devlink_dpipe_hfield_put(struct sk_buff *skb,
+> +				    struct devlink_dpipe_hfield *hfield)
+> +{
+> +	struct devlink_dpipe_header *header = hfield->header;
+> +	struct devlink_dpipe_field *field = &header->fields[hfield->field_id];
+> +
+> +	if (nla_put_u32(skb, DEVLINK_ATTR_DPIPE_HEADER_ID, header->id) ||
+> +	    nla_put_u32(skb, DEVLINK_ATTR_DPIPE_FIELD_ID, field->id))
+> +		return -EMSGSIZE;
+> +
+> +	if (header->global)
+> +		if (nla_put_flag(skb, DEVLINK_ATTR_DPIPE_HEADER_GLOBAL))
+> +			return -EMSGSIZE;
+> +	return 0;
+> +}
+> +
+> +static int devlink_dpipe_hfield_val_put(struct sk_buff *skb,
+> +					struct devlink_dpipe_hfield_val *val)
+> +{
+> +	struct devlink_dpipe_header *header;
+> +	struct devlink_dpipe_field *field;
+> +
+> +	if (!val->hfield)
+> +		return -EINVAL;
+> +	if (devlink_dpipe_hfield_put(skb, val->hfield))
+> +		return -EMSGSIZE;
+> +	if (nla_put(skb, DEVLINK_ATTR_DPIPE_HFIELD_VALUE,
+> +		    val->value_size, val->value))
+> +		return -EMSGSIZE;
+> +	if (val->mask)
+> +		if (nla_put(skb, DEVLINK_ATTR_DPIPE_HFIELD_MASK,
+> +			    val->value_size, val->mask))
+> +			return -EMSGSIZE;
+> +
+> +	header = val->hfield->header;
+> +	field = &header->fields[val->hfield->field_id];
+> +	if (field->mapping_type)
+> +		if (nla_put_u32(skb, DEVLINK_ATTR_DPIPE_HFIELD_MAPPING,
+> +				val->mapping_value))
+> +			return -EMSGSIZE;
+> +	return 0;
+> +}
+> +
+> +static int devlink_dpipe_hfield_vals_put(struct sk_buff *skb,
+> +					 struct devlink_dpipe_hfield_val *vals,
+> +					 unsigned int vals_count)
+> +{
+> +	struct nlattr *hfield_attr;
+> +	int i;
+> +	int err;
+> +
+> +	for (i = 0; i < vals_count; i++) {
+> +		hfield_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_HFIELD);
+> +		if (!hfield_attr)
+> +			return -EMSGSIZE;
+> +		err = devlink_dpipe_hfield_val_put(skb, &vals[i]);
+> +		if (err)
+> +			goto err_hfield_val_put;
+> +		nla_nest_end(skb, hfield_attr);
+> +	}
+> +	return 0;
+> +
+> +err_hfield_val_put:
+> +	nla_nest_cancel(skb, hfield_attr);
+> +	return err;
+> +}
+> +
+> +static int devlink_dpipe_hfields_put(struct sk_buff *skb,
+> +				     struct devlink_dpipe_hfield *hfields,
+> +				     unsigned int hfields_count)
+> +{
+> +	struct nlattr *hfield_attr;
+> +	int i;
+> +
+> +	for (i = 0; i < hfields_count; i++) {
+> +		hfield_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_HFIELD);
+> +		if (!hfield_attr)
+> +			return -EMSGSIZE;
+> +		if (devlink_dpipe_hfield_put(skb, &hfields[i]))
+> +			goto nla_put_failure;
+> +		nla_nest_end(skb, hfield_attr);
+> +	}
+> +	return 0;
+> +
+> +nla_put_failure:
+> +	nla_nest_cancel(skb, hfield_attr);
+> +	return -EMSGSIZE;
+> +}
+> +
+> +static int devlink_dpipe_table_put(struct sk_buff *skb,
+> +				   struct devlink_dpipe_table *table)
+> +{
+> +	struct nlattr *matches_attr, *actions_attr, *table_attr;
+> +
+> +	table_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_TABLE);
+> +	if (!table_attr)
+> +		return -EMSGSIZE;
+> +
+> +	if (nla_put_string(skb, DEVLINK_ATTR_DPIPE_TABLE_NAME, table->name) ||
+> +	    nla_put_u32(skb, DEVLINK_ATTR_DPIPE_TABLE_SIZE, table->size))
+> +		goto nla_put_failure;
+> +	if (table->counters_enabled)
+> +		if (nla_put_flag(skb,
+> +				 DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED))
+> +			goto nla_put_failure;
+> +
+> +	matches_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_TABLE_MATCHES);
+> +	if (!matches_attr)
+> +		goto nla_put_failure;
+> +
+> +	if (devlink_dpipe_hfields_put(skb, table->matches,
+> +				      table->matches_count)) {
+> +		nla_nest_cancel(skb, matches_attr);
+> +		goto nla_put_failure;
+> +	}
+> +
+> +	actions_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_TABLE_ACTIONS);
+> +	if (!actions_attr)
+> +		goto nla_put_failure;
+> +
+> +	if (devlink_dpipe_hfields_put(skb, table->actions,
+> +				      table->actions_count)) {
+> +		nla_nest_cancel(skb, actions_attr);
+> +		goto nla_put_failure;
+> +	}
+> +
+> +	nla_nest_end(skb, actions_attr);
+> +	nla_nest_end(skb, table_attr);
+> +	return 0;
+> +
+> +nla_put_failure:
+> +	nla_nest_cancel(skb, table_attr);
+> +	return -EMSGSIZE;
+> +}
+> +
+> +static int devlink_dpipe_send_and_alloc_skb(struct sk_buff **pskb,
+> +					    struct genl_info *info)
+> +{
+> +	int err;
+> +
+> +	if (*pskb) {
+> +		err = genlmsg_reply(*pskb, info);
+> +		if (err)
+> +			return err;
+> +	}
+> +	*pskb = genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_KERNEL);
+> +	if (!*pskb)
+> +		return -ENOMEM;
+> +	return 0;
+> +}
+> +
+> +static int devlink_dpipe_tables_fill(struct genl_info *info,
+> +				     enum devlink_command cmd, int flags,
+> +				     struct list_head *dpipe_tables)
+> +
+> +{
+> +	struct devlink *devlink = info->user_ptr[0];
+> +	struct devlink_dpipe_table *table;
+> +	struct nlattr *tables_attr;
+> +	struct sk_buff *skb = NULL;
+> +	struct nlmsghdr *nlh;
+> +	bool incomplete;
+> +	void *hdr;
+> +	int i;
+> +	int err;
+> +
+> +	table = list_first_entry(dpipe_tables,
+> +				 struct devlink_dpipe_table, list);
+> +start_again:
+> +	err = devlink_dpipe_send_and_alloc_skb(&skb, info);
+> +	if (err)
+> +		return err;
+> +
+> +	hdr = genlmsg_put(skb, info->snd_portid, info->snd_seq,
+> +			  &devlink_nl_family, NLM_F_MULTI, cmd);
+> +	if (!hdr)
+> +		return -EMSGSIZE;
+>  
+> +	if (devlink_nl_put_handle(skb, devlink))
+> +		goto nla_put_failure;
+> +	tables_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_TABLES);
+> +	if (!tables_attr)
+> +		goto nla_put_failure;
+> +
+> +	i = 0;
+> +	incomplete = false;
+> +	list_for_each_entry_from(table, dpipe_tables, list) {
+> +		err = devlink_dpipe_table_put(skb, table);
+> +		if (err) {
+> +			if (!i)
+> +				goto err_table_put;
+> +			incomplete = true;
+> +			break;
+> +		}
+> +		i++;
+> +	}
+> +
+> +	nla_nest_end(skb, tables_attr);
+> +	genlmsg_end(skb, hdr);
+> +	if (incomplete)
+> +		goto start_again;
+> +
+> +send_done:
+> +	nlh = nlmsg_put(skb, info->snd_portid, info->snd_seq,
+> +			NLMSG_DONE, 0, flags | NLM_F_MULTI);
+> +	if (!nlh) {
+> +		err = devlink_dpipe_send_and_alloc_skb(&skb, info);
+> +		if (err)
+> +			goto err_skb_send_alloc;
+> +		goto send_done;
+> +	}
+> +
+> +	return genlmsg_reply(skb, info);
+> +
+> +nla_put_failure:
+> +	err = -EMSGSIZE;
+> +err_table_put:
+> +err_skb_send_alloc:
+> +	genlmsg_cancel(skb, hdr);
+> +	nlmsg_free(skb);
+> +	return err;
+> +}
+> +
+> +static int devlink_nl_cmd_dpipe_tables_get(struct sk_buff *skb,
+> +					   struct genl_info *info)
+> +{
+> +	struct devlink *devlink = info->user_ptr[0];
+> +
+> +	return devlink_dpipe_tables_fill(info, DEVLINK_CMD_DPIPE_TABLES_GET, 0,
+> +					 &devlink->dpipe_table_list);
+> +}
+> +
+> +static int devlink_dpipe_entry_put(struct sk_buff *skb,
+> +				   struct devlink_dpipe_entry *entry)
+> +{
+> +	struct nlattr *entry_attr, *matches_attr, *actions_attr;
+> +	int err;
+> +
+> +	entry_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_ENTRY);
+> +	if (!entry_attr)
+> +		return  -EMSGSIZE;
+> +
+> +	if (nla_put_u32(skb, DEVLINK_ATTR_DPIPE_ENTRY_INDEX, entry->index))
+> +		goto nla_put_failure;
+> +	if (entry->counter_valid)
+> +		if (nla_put_u64_64bit(skb, DEVLINK_ATTR_DPIPE_ENTRY_COUNTER,
+> +				      entry->counter, DEVLINK_ATTR_PAD))
+> +			goto nla_put_failure;
+> +
+> +	matches_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_ENTRY_MATCHES);
+> +	if (!matches_attr)
+> +		goto nla_put_failure;
+> +
+> +	err = devlink_dpipe_hfield_vals_put(skb, entry->matches,
+> +					    entry->matches_count);
+> +	if (err) {
+> +		nla_nest_cancel(skb, matches_attr);
+> +		goto err_hfield_vals_put;
+> +	}
+> +	nla_nest_end(skb, matches_attr);
+> +
+> +	actions_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_ENTRY_ACTIONS);
+> +	if (!actions_attr)
+> +		goto nla_put_failure;
+> +
+> +	err = devlink_dpipe_hfield_vals_put(skb, entry->actions,
+> +					    entry->actions_count);
+> +	if (err) {
+> +		nla_nest_cancel(skb, actions_attr);
+> +		goto err_hfield_vals_put;
+> +	}
+> +	nla_nest_end(skb, actions_attr);
+> +
+> +	nla_nest_end(skb, entry_attr);
+>  	return 0;
+> +
+> +nla_put_failure:
+> +	err = -EMSGSIZE;
+> +err_hfield_vals_put:
+> +	nla_nest_cancel(skb, entry_attr);
+> +	return err;
+> +}
+> +
+> +static struct devlink_dpipe_table *
+> +devlink_dpipe_table_find(struct list_head *dpipe_tables,
+> +			 const char *table_name)
+> +{
+> +	struct devlink_dpipe_table *table;
+> +
+> +	list_for_each_entry_rcu(table, dpipe_tables, list) {
+> +		if (!strcmp(table->name, table_name))
+> +			return table;
+> +	}
+> +	return NULL;
+> +}
+> +
+> +int devlink_dpipe_entry_prepare_ctx(struct devlink_dpipe_dump_ctx *dump_ctx)
+> +{
+> +	struct devlink *devlink;
+> +	int err;
+> +
+> +	err = devlink_dpipe_send_and_alloc_skb(&dump_ctx->skb,
+> +					       dump_ctx->info);
+> +	if (err)
+> +		return err;
+> +
+> +	dump_ctx->hdr = genlmsg_put(dump_ctx->skb,
+> +				    dump_ctx->info->snd_portid,
+> +				    dump_ctx->info->snd_seq,
+> +				    &devlink_nl_family, NLM_F_MULTI,
+> +				    dump_ctx->cmd);
+> +	if (!dump_ctx->hdr)
+> +		goto nla_put_failure;
+> +
+> +	devlink = dump_ctx->info->user_ptr[0];
+> +	if (devlink_nl_put_handle(dump_ctx->skb, devlink))
+> +		goto nla_put_failure;
+> +	dump_ctx->nest = nla_nest_start(dump_ctx->skb,
+> +					DEVLINK_ATTR_DPIPE_ENTRIES);
+> +	if (!dump_ctx->nest)
+> +		goto nla_put_failure;
+> +	return 0;
+> +
+> +nla_put_failure:
+> +	genlmsg_cancel(dump_ctx->skb, dump_ctx->hdr);
+> +	nlmsg_free(dump_ctx->skb);
+> +	return -EMSGSIZE;
+> +}
+> +
+> +int devlink_dpipe_entry_append_ctx(struct devlink_dpipe_dump_ctx *dump_ctx,
+> +				   struct devlink_dpipe_entry *entry)
+> +{
+> +	return devlink_dpipe_entry_put(dump_ctx->skb, entry);
+> +}
+> +
+> +int devlink_dpipe_entry_close_ctx(struct devlink_dpipe_dump_ctx *dump_ctx)
+> +{
+> +	nla_nest_end(dump_ctx->skb, dump_ctx->nest);
+> +	genlmsg_end(dump_ctx->skb, dump_ctx->hdr);
+> +	return 0;
+> +}
+> +
+> +static int devlink_dpipe_entries_fill(struct genl_info *info,
+> +				      enum devlink_command cmd, int flags,
+> +				      struct devlink_dpipe_table *table)
+> +{
+> +	struct devlink_dpipe_dump_ctx dump_ctx;
+> +	struct nlmsghdr *nlh;
+> +	int err;
+> +
+> +	dump_ctx.skb = NULL;
+> +	dump_ctx.cmd = cmd;
+> +	dump_ctx.info = info;
+> +
+> +	err = table->table_ops->entries_dump(table->priv,
+> +					     table->counters_enabled,
+> +					     &dump_ctx);
+> +	if (err)
+> +		goto err_entries_dump;
+> +
+> +send_done:
+> +	nlh = nlmsg_put(dump_ctx.skb, info->snd_portid, info->snd_seq,
+> +			NLMSG_DONE, 0, flags | NLM_F_MULTI);
+> +	if (!nlh) {
+> +		err = devlink_dpipe_send_and_alloc_skb(&dump_ctx.skb, info);
+> +		if (err)
+> +			goto err_skb_send_alloc;
+> +		goto send_done;
+> +	}
+> +	return genlmsg_reply(dump_ctx.skb, info);
+> +
+> +err_entries_dump:
+> +err_skb_send_alloc:
+> +	genlmsg_cancel(dump_ctx.skb, dump_ctx.hdr);
+> +	nlmsg_free(dump_ctx.skb);
+> +	return err;
+> +}
+> +
+> +static int devlink_nl_cmd_dpipe_entries_get(struct sk_buff *skb,
+> +					    struct genl_info *info)
+> +{
+> +	struct devlink *devlink = info->user_ptr[0];
+> +	struct devlink_dpipe_table *table;
+> +	const char *table_name;
+> +
+> +	if (!info->attrs[DEVLINK_ATTR_DPIPE_TABLE_NAME])
+> +		return -EINVAL;
+> +
+> +	table_name = nla_data(info->attrs[DEVLINK_ATTR_DPIPE_TABLE_NAME]);
+> +	table = devlink_dpipe_table_find(&devlink->dpipe_table_list,
+> +					 table_name);
+> +	if (!table)
+> +		return -EINVAL;
+> +
+> +	if (!table->table_ops->entries_dump)
+> +		return -EINVAL;
+> +
+> +	return devlink_dpipe_entries_fill(info, DEVLINK_CMD_DPIPE_ENTRIES_GET,
+> +					  0, table);
+> +}
+> +
+> +static int devlink_dpipe_fields_put(struct sk_buff *skb,
+> +				    const struct devlink_dpipe_header *header)
+> +{
+> +	struct devlink_dpipe_field *field;
+> +	struct nlattr *field_attr;
+> +	int i;
+> +
+> +	for (i = 0; i < header->fields_count; i++) {
+> +		field = &header->fields[i];
+> +		field_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_FIELD);
+> +		if (!field_attr)
+> +			return -EMSGSIZE;
+> +		if (nla_put_string(skb, DEVLINK_ATTR_DPIPE_FIELD_NAME, field->name) ||
+> +		    nla_put_u32(skb, DEVLINK_ATTR_DPIPE_FIELD_ID, field->id) ||
+> +		    nla_put_u32(skb, DEVLINK_ATTR_DPIPE_FIELD_BITWIDTH, field->bitwidth))
+> +			goto nla_put_failure;
+> +		if (field->mapping_type)
+> +			if (nla_put_u32(skb,
+> +					DEVLINK_ATTR_DPIPE_FIELD_MAPPING_TYPE,
+> +					field->mapping_type))
+> +				goto nla_put_failure;
+> +		nla_nest_end(skb, field_attr);
+> +	}
+> +	return 0;
+> +
+> +nla_put_failure:
+> +	nla_nest_cancel(skb, field_attr);
+> +	return -EMSGSIZE;
+> +}
+> +
+> +static int devlink_dpipe_header_put(struct sk_buff *skb,
+> +				    struct devlink_dpipe_header *header)
+> +{
+> +	struct nlattr *fields_attr, *header_attr;
+> +	int err;
+> +
+> +	header_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_HEADER);
+> +	if (!header)
+> +		return -EMSGSIZE;
+> +
+> +	if (nla_put_string(skb, DEVLINK_ATTR_DPIPE_HEADER_NAME, header->name) ||
+> +	    nla_put_u32(skb, DEVLINK_ATTR_DPIPE_HEADER_ID, header->id))
+> +		goto nla_put_failure;
+> +
+> +	fields_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_HEADER_FIELDS);
+> +	if (!fields_attr)
+> +		goto nla_put_failure;
+> +
+> +	err = devlink_dpipe_fields_put(skb, header);
+> +	if (err) {
+> +		nla_nest_cancel(skb, fields_attr);
+> +		goto nla_put_failure;
+> +	}
+> +	nla_nest_end(skb, fields_attr);
+> +	nla_nest_end(skb, header_attr);
+> +	return 0;
+> +
+> +nla_put_failure:
+> +	err = -EMSGSIZE;
+> +	nla_nest_cancel(skb, header_attr);
+> +	return err;
+> +}
+> +
+> +static int devlink_dpipe_headers_fill(struct genl_info *info,
+> +				      enum devlink_command cmd, int flags,
+> +				      struct devlink_dpipe_headers *
+> +				      dpipe_headers)
+> +{
+> +	struct devlink *devlink = info->user_ptr[0];
+> +	struct nlattr *headers_attr;
+> +	struct sk_buff *skb = NULL;
+> +	struct nlmsghdr *nlh;
+> +	void *hdr;
+> +	int i, j;
+> +	int err;
+> +
+> +	i = 0;
+> +start_again:
+> +	err = devlink_dpipe_send_and_alloc_skb(&skb, info);
+> +	if (err)
+> +		return err;
+> +
+> +	hdr = genlmsg_put(skb, info->snd_portid, info->snd_seq,
+> +			  &devlink_nl_family, NLM_F_MULTI, cmd);
+> +	if (!hdr)
+> +		return -EMSGSIZE;
+> +
+> +	if (devlink_nl_put_handle(skb, devlink))
+> +		goto nla_put_failure;
+> +	headers_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_HEADERS);
+> +	if (!headers_attr)
+> +		goto nla_put_failure;
+> +
+> +	j = 0;
+> +	for (; i < dpipe_headers->headers_count; i++) {
+> +		err = devlink_dpipe_header_put(skb, dpipe_headers->headers[i]);
+> +		if (err) {
+> +			if (!j)
+> +				goto err_table_put;
+> +			break;
+> +		}
+> +		j++;
+> +	}
+> +	nla_nest_end(skb, headers_attr);
+> +	genlmsg_end(skb, hdr);
+> +	if (i != dpipe_headers->headers_count)
+> +		goto start_again;
+> +
+> +send_done:
+> +	nlh = nlmsg_put(skb, info->snd_portid, info->snd_seq,
+> +			NLMSG_DONE, 0, flags | NLM_F_MULTI);
+> +	if (!nlh) {
+> +		err = devlink_dpipe_send_and_alloc_skb(&skb, info);
+> +		if (err)
+> +			goto err_skb_send_alloc;
+> +		goto send_done;
+> +	}
+> +	return genlmsg_reply(skb, info);
+> +
+> +nla_put_failure:
+> +	err = -EMSGSIZE;
+> +err_table_put:
+> +err_skb_send_alloc:
+> +	genlmsg_cancel(skb, hdr);
+> +	nlmsg_free(skb);
+> +	return err;
+> +}
+> +
+> +static int devlink_nl_cmd_dpipe_headers_get(struct sk_buff *skb,
+> +					    struct genl_info *info)
+> +{
+> +	struct devlink *devlink = info->user_ptr[0];
+> +
+> +	return devlink_dpipe_headers_fill(info, DEVLINK_CMD_DPIPE_HEADERS_GET,
+> +					  0, devlink->dpipe_headers);
+> +}
+> +
+> +static int devlink_dpipe_table_counter_set(struct devlink *devlink,
+> +					   const char *table_name,
+> +					   bool enable)
+> +{
+> +	struct devlink_dpipe_table *table;
+> +
+> +	table = devlink_dpipe_table_find(&devlink->dpipe_table_list,
+> +					 table_name);
+> +	if (!table)
+> +		return -EINVAL;
+> +
+> +	if (table->counter_control_extern)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (!(table->counters_enabled ^ enable))
+> +		return 0;
+> +
+> +	table->counters_enabled = enable;
+> +	if (table->table_ops->counter_set_update)
+> +		table->table_ops->counter_set_update(table->priv, enable);
+> +	return 0;
+> +}
+> +
+> +static int devlink_nl_cmd_dpipe_table_counter_set(struct sk_buff *skb,
+> +						  struct genl_info *info)
+> +{
+> +	struct devlink *devlink = info->user_ptr[0];
+> +	const char *table_name;
+> +	int counter_enable;
+> +
+> +	if (!info->attrs[DEVLINK_ATTR_DPIPE_TABLE_NAME])
+> +		return -EINVAL;
+> +	table_name = nla_data(info->attrs[DEVLINK_ATTR_DPIPE_TABLE_NAME]);
+> +
+> +	if (!info->attrs[DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED])
+> +		counter_enable = false;
+> +	else
+> +		counter_enable = true;
+> +
+> +	return devlink_dpipe_table_counter_set(devlink, table_name,
+> +					       counter_enable);
+>  }
+>  
+>  static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+> @@ -1512,6 +2092,8 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+>  	[DEVLINK_ATTR_SB_TC_INDEX] = { .type = NLA_U16 },
+>  	[DEVLINK_ATTR_ESWITCH_MODE] = { .type = NLA_U16 },
+>  	[DEVLINK_ATTR_ESWITCH_INLINE_MODE] = { .type = NLA_U8 },
+> +	[DEVLINK_ATTR_DPIPE_TABLE_NAME] = { .type = NLA_NUL_STRING },
+> +	[DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED] = { .type =  NLA_U32 },
+>  };
+>  
+>  static const struct genl_ops devlink_nl_ops[] = {
+> @@ -1644,6 +2226,34 @@ static const struct genl_ops devlink_nl_ops[] = {
+>  		.flags = GENL_ADMIN_PERM,
+>  		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+>  	},
+> +	{
+> +		.cmd = DEVLINK_CMD_DPIPE_TABLES_GET,
+> +		.doit = devlink_nl_cmd_dpipe_tables_get,
+> +		.policy = devlink_nl_policy,
+> +		.flags = GENL_ADMIN_PERM,
+> +		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+> +	},
+> +	{
+> +		.cmd = DEVLINK_CMD_DPIPE_ENTRIES_GET,
+> +		.doit = devlink_nl_cmd_dpipe_entries_get,
+> +		.policy = devlink_nl_policy,
+> +		.flags = GENL_ADMIN_PERM,
+> +		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+> +	},
+> +	{
+> +		.cmd = DEVLINK_CMD_DPIPE_HEADERS_GET,
+> +		.doit = devlink_nl_cmd_dpipe_headers_get,
+> +		.policy = devlink_nl_policy,
+> +		.flags = GENL_ADMIN_PERM,
+> +		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+> +	},
+> +	{
+> +		.cmd = DEVLINK_CMD_DPIPE_TABLE_COUNTER_SET,
+> +		.doit = devlink_nl_cmd_dpipe_table_counter_set,
+> +		.policy = devlink_nl_policy,
+> +		.flags = GENL_ADMIN_PERM,
+> +		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+> +	},
+>  };
+>  
+>  static struct genl_family devlink_nl_family __ro_after_init = {
+> @@ -1680,6 +2290,7 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size)
+>  	devlink_net_set(devlink, &init_net);
+>  	INIT_LIST_HEAD(&devlink->port_list);
+>  	INIT_LIST_HEAD(&devlink->sb_list);
+> +	INIT_LIST_HEAD_RCU(&devlink->dpipe_table_list);
+>  	return devlink;
+>  }
+>  EXPORT_SYMBOL_GPL(devlink_alloc);
+> @@ -1880,6 +2491,142 @@ void devlink_sb_unregister(struct devlink *devlink, unsigned int sb_index)
+>  }
+>  EXPORT_SYMBOL_GPL(devlink_sb_unregister);
+>  
+> +/**
+> + *	devlink_dpipe_headers_register - register dpipe headers
+> + *
+> + *	@devlink: devlink
+> + *	@dpipe_headers: dpipe header array
+> + *
+> + *	Register the headers supported by hardware.
+> + */
+> +int devlink_dpipe_headers_register(struct devlink *devlink,
+> +				   struct devlink_dpipe_headers *dpipe_headers)
+> +{
+> +	mutex_lock(&devlink_mutex);
+> +	devlink->dpipe_headers = dpipe_headers;
+> +	mutex_unlock(&devlink_mutex);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(devlink_dpipe_headers_register);
+> +
+> +/**
+> + *	devlink_dpipe_headers_unregister - unregister dpipe headers
+> + *
+> + *	@devlink: devlink
+> + *
+> + *	Unregister the headers supported by hardware.
+> + */
+> +void devlink_dpipe_headers_unregister(struct devlink *devlink)
+> +{
+> +	mutex_lock(&devlink_mutex);
+> +	devlink->dpipe_headers = NULL;
+> +	mutex_unlock(&devlink_mutex);
+> +}
+> +EXPORT_SYMBOL_GPL(devlink_dpipe_headers_unregister);
+> +
+> +/**
+> + *	devlink_dpipe_table_counter_enabled - check if counter allocation
+> + *					      required
+> + *	@devlink: devlink
+> + *	@table_name: tables name
+> + *
+> + *	Used by driver to check if counter allocation is required.
+> + *	After counter allocation is turned on the table entries
+> + *	are updated to include counter statistics.
+> + *
+> + *	After that point on the driver must respect the counter
+> + *	state so that each entry added to the table is added
+> + *	with a counter.
+> + */
+> +bool devlink_dpipe_table_counter_enabled(struct devlink *devlink,
+> +					 const char *table_name)
+> +{
+> +	struct devlink_dpipe_table *table;
+> +	bool enabled;
+> +
+> +	rcu_read_lock();
+> +	table = devlink_dpipe_table_find(&devlink->dpipe_table_list,
+> +					 table_name);
+> +	enabled = false;
+> +	if (table)
+> +		enabled = table->counters_enabled;
+> +	rcu_read_unlock();
+> +	return enabled;
+> +}
+> +EXPORT_SYMBOL_GPL(devlink_dpipe_table_counter_enabled);
+> +
+> +/**
+> + *	devlink_dpipe_table_register - register dpipe table
+> + *
+> + *	@devlink: devlink
+> + *	@table_name: table name
+> + *	@table_ops: table ops
+> + *	@priv: priv
+> + *	@matches: match tuples
+> + *	@matches_count: count of matches count
+> + *	@actions: action tuples
+> + *	@actions_count: count of action tuples
+> + *	@counter_control_extern: external control for counters
+> + */
+> +int devlink_dpipe_table_register(struct devlink *devlink,
+> +				 const char *table_name,
+> +				 struct devlink_dpipe_table_ops *table_ops,
+> +				 void *priv,
+> +				 struct devlink_dpipe_hfield *matches,
+> +				 unsigned int matches_count,
+> +				 struct devlink_dpipe_hfield *actions,
+> +				 unsigned int actions_count,
+> +				 bool counter_control_extern)
+> +{
+> +	struct devlink_dpipe_table *table;
+> +
+> +	if (devlink_dpipe_table_find(&devlink->dpipe_table_list, table_name))
+> +		return -EEXIST;
+> +
+> +	table = kzalloc(sizeof(*table), GFP_KERNEL);
+> +	if (!table)
+> +		return -ENOMEM;
+> +
+> +	table->name = table_name;
+> +	table->table_ops = table_ops;
+> +	table->priv = priv;
+> +	table->matches = matches;
+> +	table->matches_count = matches_count;
+> +	table->actions = actions;
+> +	table->actions_count = actions_count;
+> +	table->counter_control_extern = counter_control_extern;
+> +	mutex_lock(&devlink_mutex);
+> +	list_add_tail_rcu(&table->list, &devlink->dpipe_table_list);
+> +	mutex_unlock(&devlink_mutex);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(devlink_dpipe_table_register);
+> +
+> +/**
+> + *	devlink_dpipe_table_unregister - unregister dpipe table
+> + *
+> + *	@devlink: devlink
+> + *	@table_name: table name
+> + */
+> +void devlink_dpipe_table_unregister(struct devlink *devlink,
+> +				    const char *table_name)
+> +{
+> +	struct devlink_dpipe_table *table;
+> +
+> +	mutex_lock(&devlink_mutex);
+> +	table = devlink_dpipe_table_find(&devlink->dpipe_table_list,
+> +					 table_name);
+> +	if (!table)
+> +		goto unlock;
+> +	list_del_rcu(&table->list);
+> +	mutex_unlock(&devlink_mutex);
+> +	kfree_rcu(table, rcu);
+> +	return;
+> +unlock:
+> +	mutex_unlock(&devlink_mutex);
+> +}
+> +EXPORT_SYMBOL_GPL(devlink_dpipe_table_unregister);
+> +
+>  static int __init devlink_module_init(void)
+>  {
+>  	return genl_register_family(&devlink_nl_family);
+> 
