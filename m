@@ -1,64 +1,60 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v7 3/3] Bluetooth: btusb: Configure Marvell to use one of
- the pins for oob wakeup
-Date: Thu, 16 Feb 2017 17:22:42 +0100
-Message-ID: <B13DDD1D-479B-4B13-BB6B-ED103A59158A@holtmann.org>
-References: <20170201222410.145612-1-rajatja@google.com>
- <20170201222410.145612-3-rajatja@google.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170201222410.145612-3-rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: [PATCH] dccp: fix freeing skb too early for IPV6_RECVPKTINFO
+Date: Thu, 16 Feb 2017 17:22:46 +0100
+Message-ID: <20170216162246.12783-1-andreyknvl@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:34903 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932316AbdBPQXC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 11:23:02 -0500
+Received: by mail-wm0-f49.google.com with SMTP id v186so70591861wmd.0
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 08:23:01 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+In the current DCCP implementation an skb for a DCCP_PKT_REQUEST packet
+is forcibly freed via __kfree_skb in dccp_rcv_state_process if
+dccp_v6_conn_request successfully returns.
 
-> The Marvell devices may have many gpio pins, and hence for wakeup
-> on these out-of-band pins, the chip needs to be told which pin is
-> to be used for wakeup, using an hci command.
-> 
-> Thus, we read the pin number etc from the device tree node and send
-> a command to the chip.
-> 
-> Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> ---
-> v7: Same as v6
-> v6: same as v5
-> v5: same as v5
-> v4: same as v3
-> v3: * remove the Marvell specific id table and check
->    * Add reference to marvell-bt-8xxx.txt in btusb.txt
->    * Add "Reviewed-by" and "Acked-by"    
-> v2: Fix the binding document to specify to use "wakeup" interrupt-name
-> 
-> Documentation/devicetree/bindings/net/btusb.txt    |  3 ++
-> .../{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} | 46 +++++++++++++++----
-> drivers/bluetooth/btusb.c                          | 51 ++++++++++++++++++++++
-> 3 files changed, 92 insertions(+), 8 deletions(-)
-> rename Documentation/devicetree/bindings/net/{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} (50%)
+However, if IPV6_RECVPKTINFO is set on a socket, the address of the skb
+is saved to ireq->pktopts and the ref count for skb is incremented in
+dccp_v6_conn_request, so skb is still in use. Nevertheless, it gets freed
+in dccp_rcv_state_process.
 
-all 3 patches have been applied to bluetooth-next tree.
+Fix by calling consume_skb instead of doing goto discard and therefore
+calling __kfree_skb.
 
-Regards
+Similar fixes for TCP:
 
-Marcel
+fb7e2399ec17f1004c0e0ccfd17439f8759ede01 [TCP]: skb is unexpectedly freed.
+0aea76d35c9651d55bbaf746e7914e5f9ae5a25d tcp: SYN packets are now
+simply consumed
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
+---
+ net/dccp/input.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/dccp/input.c b/net/dccp/input.c
+index ba347184bda9..8fedc2d49770 100644
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -606,7 +606,8 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 			if (inet_csk(sk)->icsk_af_ops->conn_request(sk,
+ 								    skb) < 0)
+ 				return 1;
+-			goto discard;
++			consume_skb(skb);
++			return 0;
+ 		}
+ 		if (dh->dccph_type == DCCP_PKT_RESET)
+ 			goto discard;
+-- 
+2.11.0.483.g087da7b7c-goog
