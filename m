@@ -1,147 +1,94 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 04/21] ARM: sun8i: dt: Add DT bindings
- documentation for Allwinner dwmac-sun8i
-Date: Thu, 16 Feb 2017 12:58:46 -0800
-Message-ID: <783a717d-f1f4-e265-bf94-0b3080cea542@gmail.com>
-References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
- <20170216124859.14346-5-clabbe.montjoie@gmail.com>
-Reply-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Thu, 16 Feb 2017 23:06:17 +0200
+Message-ID: <CALzJLG9WaWks_DrLkLZaXc1VRNnmUqg8RDMscwCgqvN0xFBm2g@mail.gmail.com>
+References: <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
+ <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com> <CALx6S36xcEJ9YssZtzQKOy-tufrWWJO533J0nTEzp_ckb5dVjA@mail.gmail.com>
+ <20170216.140355.2079700662225068523.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
- robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
- wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
- will.deacon-5wv7dgnIgG8@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBCH67JWTV4DBBCVFTDCQKGQEKJW6TSI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170216124859.14346-5-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Cc: Tom Herbert <tom@herbertland.com>, Tariq Toukan <tariqt@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>, Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, Alexander Duyck <alexander.duyck@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
+	Saeed Mahameed <saeedm@mellanox.com>, Willem de Bruijn <willemb@google.com>,
+	Brenden Blanco <bblanco@plumgrid.com>, Alexei Starovoitov <ast@kernel.org>, linux-mm <linux-mm@kvack.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170216.140355.2079700662225068523.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 02/16/2017 04:48 AM, Corentin Labbe wrote:
-> This patch adds documentation for Device-Tree bindings for the
-> Allwinner dwmac-sun8i driver.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 86 ++++++++++++++++++++++
->  1 file changed, 86 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> new file mode 100644
-> index 0000000..ac806c6
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> @@ -0,0 +1,86 @@
-> +* Allwinner sun8i GMAC ethernet controller
-> +
-> +This device is a platform glue layer for stmmac.
-> +Please see stmmac.txt for the other unchanged properties.
-> +
-> +Required properties:
-> +- compatible: should be one of the following string:
-> +		"allwinner,sun8i-a83t-emac"
-> +		"allwinner,sun8i-h3-emac"
-> +		"allwinner,sun50i-a64-emac"
-> +- reg: address and length of the register for the device.
-> +- interrupts: interrupt for the device
-> +- interrupt-names: should be "macirq"
-> +- clocks: A phandle to the reference clock for this device
-> +- clock-names: should be "stmmaceth"
-> +- resets: A phandle to the reset control for this device
-> +- reset-names: should be "stmmaceth"
-> +- phy-mode: See ethernet.txt
-> +- phy-handle: See ethernet.txt
-> +- #address-cells: shall be 1
-> +- #size-cells: shall be 0
-> +- syscon: A phandle to the syscon of the SoC with one of the following
-> + compatible string:
-> +  - allwinner,sun8i-h3-system-controller
-> +  - allwinner,sun8i-a64-system-controller
-> +  - allwinner,sun8i-a83t-system-controller
-> +
-> +Optional properties:
-> +- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
-> +- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
+On Thu, Feb 16, 2017 at 9:03 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Thu, 16 Feb 2017 09:05:26 -0800
+>
+>> On Thu, Feb 16, 2017 at 5:08 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
+>>>
+>>> On 15/02/2017 6:57 PM, Eric Dumazet wrote:
+>>>>
+>>>> On Wed, Feb 15, 2017 at 8:42 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
+>>>>>
+>>>>> Isn't it the same principle in page_frag_alloc() ?
+>>>>> It is called form __netdev_alloc_skb()/__napi_alloc_skb().
+>>>>>
+>>>>> Why is it ok to have order-3 pages (PAGE_FRAG_CACHE_MAX_ORDER) there?
+>>>>
+>>>> This is not ok.
+>>>>
+>>>> This is a very well known problem, we already mentioned that here in the
+>>>> past,
+>>>> but at least core networking stack uses  order-0 pages on PowerPC.
+>>>
+>>> You're right, we should have done this as well in mlx4 on PPC.
+>>>>
+>>>> mlx4 driver suffers from this problem 100% more than other drivers ;)
+>>>>
+>>>> One problem at a time Tariq. Right now, only mlx4 has this big problem
+>>>> compared to other NIC.
+>>>
+>>> We _do_ agree that the series improves the driver's quality, stability,
+>>> and performance in a fragmented system.
+>>>
+>>> But due to the late rc we're in, and the fact that we know what benchmarks
+>>> our customers are going to run, we cannot Ack the series and get it
+>>> as is inside kernel 4.11.
+>>>
+>> You're admitting that Eric's patches improve driver quality,
+>> stability, and performance but you're not allowing this in the kernel
+>> because "we know what benchmarks our customers are going to run".
+>> Sorry, but that is a weak explanation.
+>
+> I have to agree with Tom and Eric.
+>
+> If your customers have gotten into the habit of using metrics which
+> actually do not represent real life performance, that is a completely
+> inappropriate reason to not include Eric's changes as-is.
 
-Delays should be specified in nanosecond units, and should not be a
-value that maps directly to a HW register value, you need to convert the
-property value into the appropriate register value.
+Guys, It is not about customers, benchmark and great performance numbers.
+We agree with you that those patches are good and needed for the long term,
+but as we are already at rc8 and although this change is correct, i
+think it is a little bit too late
+to have such huge change in the core RX engine of the driver. ( the
+code is already like this for
+more kernel releases than one could count, it will hurt no one to keep
+it like this for two weeks more).
 
-> +Both delay properties does not have units, there are arbitrary value.
-> +The TX/RX clock delay chain settings are board specific and could be found
-> +in vendor FEX files.
-> +
-> +Optional properties for "allwinner,sun8i-h3-emac":
-> +- allwinner,leds-active-low: EPHY LEDs are active low
+All we ask is to have a little bit more time - one or two weeks- to
+test them and evaluate the impact.
+As Eric stated we don't care if they make it to 4.11 or 4.12, the idea
+is to have them in ASAP.
+so why not wait to 4.11 (just two more weeks) and Tariq already said
+that he will accept it as is.
+and by then we will be smarter and have a clear plan of the gaps and
+how to close them.
 
-Are you sure this is appropriate at the MAC node level and this is not
-something that follows the PHY instead?
+For PowerPC page order issue, Eric already have a simpler suggestion
+that i support, and can easily be
+sent to net and -stable.
 
-> +
-> +Required child node of emac:
-> +- mdio bus node: should be named mdio
-> +
-> +Required properties of the mdio node:
-> +- #address-cells: shall be 1
-> +- #size-cells: shall be 0
-> +
-> +The device node referenced by "phy" or "phy-handle" should be a child node
-> +of the mdio node. See phy.txt for the generic PHY bindings.
-> +
-> +Required properties of the phy node with "allwinner,sun8i-h3-emac":
-> +- clocks: an extra phandle to the reference clock for the EPHY
-
-s/an extra/a phandle/
-
-> +- resets: an extra phandle to the reset control for the EPHY
-> +
-> +Required properties for the system controller:
-> +- reg: address and length of the register for the device.
-> +- compatible: should be "syscon" and one of the following string:
-> +		"allwinner,sun8i-h3-system-controller"
-> +		"allwinner,sun8i-a64-system-controller"
-> +		"allwinner,sun8i-a83t-system-controller"
-> +
-> +Example:
-> +
-> +emac: ethernet@1c0b000 {
-> +	compatible = "allwinner,sun8i-h3-emac";
-> +	syscon = <&syscon>;
-> +	reg = <0x01c0b000 0x104>;
-> +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> +	interrupt-names = "macirq";
-> +	resets = <&ccu RST_BUS_EMAC>;
-> +	reset-names = "stmmaceth";
-> +	clocks = <&ccu CLK_BUS_EMAC>;
-> +	clock-names = "stmmaceth";
-> +	#address-cells = <1>;
-> +	#size-cells = <0>;
-> +
-> +	phy = <&int_mii_phy>;
-> +	phy-mode = "mii";
-> +	allwinner,leds-active-low;
-> +	mdio: mdio {
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		int_mii_phy: ethernet-phy@1 {
-> +			reg = <1>;
-> +			clocks = <&ccu CLK_BUS_EPHY>;
-> +			resets = <&ccu RST_BUS_EPHY>;
-> +		};
-> +	};
-> +};
-> 
-
-
--- 
-Florian
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
