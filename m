@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] ixgbe: Add support for build_skb
-Date: Thu, 16 Feb 2017 04:50:40 -0800
-Message-ID: <20170216125041.46668-14-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/14] ixgbe: Add support for padding packet
+Date: Thu, 16 Feb 2017 04:50:38 -0800
+Message-ID: <20170216125041.46668-12-jeffrey.t.kirsher@intel.com>
 References: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,111 +10,184 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:20936 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754778AbdBPMuu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 07:50:50 -0500
+        id S1754772AbdBPMut (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 07:50:49 -0500
 In-Reply-To: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds build_skb support to the Rx path.  There are several
-advantages to this change.
-
-1.  It avoids the memcpy and skb->head allocation for small packets which
-    improves performance by about 5% in my tests.
-2.  It avoids the memcpy, skb->head allocation, and eth_get_headlen
-    for larger packets improving performance by about 10% in my tests.
-3.  For VXLAN packets it allows the full header to be in skb->data which
-    improves the performance by as much as 30% in some of my tests.
+This patch adds support for providing a buffer with headroom and tailroom
+to allow for shared info, NET_SKB_PAD, and NET_IP_ALIGN.  With this
+combined with the DMA changes we can start using build_skb to build frames
+around an incoming Rx buffer instead of having to memcpy the headers.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 49 ++++++++++++++++++++++++++-
- 1 file changed, 48 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      | 17 +++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 43 ++++++++++++++++++++++++---
+ 2 files changed, 56 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7c696b38b405..2a10365eae75 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1896,7 +1896,7 @@ static bool ixgbe_cleanup_headers(struct ixgbe_ring *rx_ring,
- 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index f3515ce8894d..a2cc43d28888 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -91,6 +91,14 @@
+ #define IXGBE_RXBUFFER_4K    4096
+ #define IXGBE_MAX_RXBUFFER  16384  /* largest size for a single descriptor */
  
- 	/* place header in linear portion of buffer */
--	if (skb_is_nonlinear(skb))
-+	if (!skb_headlen(skb))
- 		ixgbe_pull_tail(rx_ring, skb);
++#define IXGBE_SKB_PAD		(NET_SKB_PAD + NET_IP_ALIGN)
++#if (PAGE_SIZE < 8192)
++#define IXGBE_MAX_FRAME_BUILD_SKB \
++	(SKB_WITH_OVERHEAD(IXGBE_RXBUFFER_2K) - IXGBE_SKB_PAD)
++#else
++#define IGB_MAX_FRAME_BUILD_SKB IXGBE_RXBUFFER_2K
++#endif
++
+ /*
+  * NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
+  * reserve 64 more, and skb_shared_info adds an additional 320 bytes more,
+@@ -227,6 +235,7 @@ struct ixgbe_rx_queue_stats {
  
- #ifdef IXGBE_FCOE
-@@ -2125,6 +2125,49 @@ static struct sk_buff *ixgbe_construct_skb(struct ixgbe_ring *rx_ring,
- 	return skb;
+ enum ixgbe_ring_state_t {
+ 	__IXGBE_RX_3K_BUFFER,
++	__IXGBE_RX_BUILD_SKB_ENABLED,
+ 	__IXGBE_RX_RSC_ENABLED,
+ 	__IXGBE_RX_CSUM_UDP_ZERO_ERR,
+ 	__IXGBE_RX_FCOE,
+@@ -236,6 +245,9 @@ enum ixgbe_ring_state_t {
+ 	__IXGBE_HANG_CHECK_ARMED,
+ };
+ 
++#define ring_uses_build_skb(ring) \
++	test_bit(__IXGBE_RX_BUILD_SKB_ENABLED, &(ring)->state)
++
+ struct ixgbe_fwd_adapter {
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	struct net_device *netdev;
+@@ -347,6 +359,10 @@ static inline unsigned int ixgbe_rx_bufsz(struct ixgbe_ring *ring)
+ {
+ 	if (test_bit(__IXGBE_RX_3K_BUFFER, &ring->state))
+ 		return IXGBE_RXBUFFER_3K;
++#if (PAGE_SIZE < 8192)
++	if (ring_uses_build_skb(ring))
++		return IXGBE_MAX_FRAME_BUILD_SKB;
++#endif
+ 	return IXGBE_RXBUFFER_2K;
  }
  
-+static struct sk_buff *ixgbe_build_skb(struct ixgbe_ring *rx_ring,
-+				       struct ixgbe_rx_buffer *rx_buffer,
-+				       union ixgbe_adv_rx_desc *rx_desc,
-+				       unsigned int size)
+@@ -545,6 +561,7 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG2_VLAN_PROMISC		BIT(13)
+ #define IXGBE_FLAG2_EEE_CAPABLE			BIT(14)
+ #define IXGBE_FLAG2_EEE_ENABLED			BIT(15)
++#define IXGBE_FLAG2_RX_LEGACY			BIT(16)
+ 
+ 	/* Tx fast path data */
+ 	int num_tx_queues;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 1e5575305f2a..7c696b38b405 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1552,6 +1552,11 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
+ 	}
+ }
+ 
++static inline unsigned int ixgbe_rx_offset(struct ixgbe_ring *rx_ring)
 +{
-+	void *va = page_address(rx_buffer->page) + rx_buffer->page_offset;
-+#if (PAGE_SIZE < 8192)
-+	unsigned int truesize = ixgbe_rx_pg_size(rx_ring) / 2;
-+#else
-+	unsigned int truesize = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
-+				SKB_DATA_ALIGN(IXGBE_SKB_PAD + size);
-+#endif
-+	struct sk_buff *skb;
-+
-+	/* prefetch first cache line of first page */
-+	prefetch(va);
-+#if L1_CACHE_BYTES < 128
-+	prefetch(va + L1_CACHE_BYTES);
-+#endif
-+
-+	/* build an skb to around the page buffer */
-+	skb = build_skb(va - IXGBE_SKB_PAD, truesize);
-+	if (unlikely(!skb))
-+		return NULL;
-+
-+	/* update pointers within the skb to store the data */
-+	skb_reserve(skb, IXGBE_SKB_PAD);
-+	__skb_put(skb, size);
-+
-+	/* record DMA address if this is the start of a chain of buffers */
-+	if (!ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_EOP))
-+		IXGBE_CB(skb)->dma = rx_buffer->dma;
-+
-+	/* update buffer offset */
-+#if (PAGE_SIZE < 8192)
-+	rx_buffer->page_offset ^= truesize;
-+#else
-+	rx_buffer->page_offset += truesize;
-+#endif
-+
-+	return skb;
++	return ring_uses_build_skb(rx_ring) ? IXGBE_SKB_PAD : 0;
 +}
 +
- /**
-  * ixgbe_clean_rx_irq - Clean completed descriptors from Rx ring - bounce buf
-  * @q_vector: structure containing interrupt and ring information
-@@ -2178,6 +2221,9 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 		/* retrieve a buffer from the ring */
- 		if (skb)
- 			ixgbe_add_rx_frag(rx_ring, rx_buffer, skb, size);
-+		else if (ring_uses_build_skb(rx_ring))
-+			skb = ixgbe_build_skb(rx_ring, rx_buffer,
-+					      rx_desc, size);
- 		else
- 			skb = ixgbe_construct_skb(rx_ring, rx_buffer,
- 						  rx_desc, size);
-@@ -3918,6 +3964,7 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
+ 				    struct ixgbe_rx_buffer *bi)
+ {
+@@ -1588,7 +1593,7 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
+ 
+ 	bi->dma = dma;
+ 	bi->page = page;
+-	bi->page_offset = 0;
++	bi->page_offset = ixgbe_rx_offset(rx_ring);
+ 	bi->pagecnt_bias = 1;
+ 
+ 	return true;
+@@ -2001,7 +2006,9 @@ static void ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = ixgbe_rx_pg_size(rx_ring) / 2;
+ #else
+-	unsigned int truesize = SKB_DATA_ALIGN(size);
++	unsigned int truesize = ring_uses_build_skb(rx_ring) ?
++				SKB_DATA_ALIGN(IXGBE_SKB_PAD + size) :
++				SKB_DATA_ALIGN(size);
+ #endif
+ 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rx_buffer->page,
+ 			rx_buffer->page_offset, size, truesize);
+@@ -2083,7 +2090,7 @@ static struct sk_buff *ixgbe_construct_skb(struct ixgbe_ring *rx_ring,
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = ixgbe_rx_pg_size(rx_ring) / 2;
+ #else
+-	unsigned int truesize = ALIGN(size, L1_CACHE_BYTES);
++	unsigned int truesize = SKB_DATA_ALIGN(size);
+ #endif
+ 	struct sk_buff *skb;
+ 
+@@ -3410,7 +3417,10 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
+ 	srrctl = IXGBE_RX_HDR_SIZE << IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT;
+ 
+ 	/* configure the packet buffer length */
+-	srrctl |= ixgbe_rx_bufsz(rx_ring) >> IXGBE_SRRCTL_BSIZEPKT_SHIFT;
++	if (test_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state))
++		srrctl |= IXGBE_RXBUFFER_3K >> IXGBE_SRRCTL_BSIZEPKT_SHIFT;
++	else
++		srrctl |= IXGBE_RXBUFFER_2K >> IXGBE_SRRCTL_BSIZEPKT_SHIFT;
+ 
+ 	/* configure descriptor type */
+ 	srrctl |= IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF;
+@@ -3744,6 +3754,17 @@ void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
+ 		 */
+ 		rxdctl &= ~0x3FFFFF;
+ 		rxdctl |=  0x080420;
++#if (PAGE_SIZE < 8192)
++	} else {
++		rxdctl &= ~(IXGBE_RXDCTL_RLPMLMASK |
++			    IXGBE_RXDCTL_RLPML_EN);
++
++		/* Limit the maximum frame size so we don't overrun the skb */
++		if (ring_uses_build_skb(ring) &&
++		    !test_bit(__IXGBE_RX_3K_BUFFER, &ring->state))
++			rxdctl |= IXGBE_MAX_FRAME_BUILD_SKB |
++				  IXGBE_RXDCTL_RLPML_EN;
++#endif
+ 	}
+ 
+ 	/* initialize Rx descriptor 0 */
+@@ -3889,12 +3910,26 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+ 
+ 		clear_ring_rsc_enabled(rx_ring);
+ 		clear_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
++		clear_bit(__IXGBE_RX_BUILD_SKB_ENABLED, &rx_ring->state);
+ 
+ 		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
+ 			set_ring_rsc_enabled(rx_ring);
+ 
  		if (test_bit(__IXGBE_RX_FCOE, &rx_ring->state))
  			set_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
- 
-+		clear_bit(__IXGBE_RX_BUILD_SKB_ENABLED, &rx_ring->state);
- 		if (adapter->flags2 & IXGBE_FLAG2_RX_LEGACY)
- 			continue;
++
++		if (adapter->flags2 & IXGBE_FLAG2_RX_LEGACY)
++			continue;
++
++		set_bit(__IXGBE_RX_BUILD_SKB_ENABLED, &rx_ring->state);
++
++#if (PAGE_SIZE < 8192)
++		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
++			set_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
++
++		if (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN))
++			set_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
++#endif
+ 	}
+ }
  
 -- 
 2.11.0
