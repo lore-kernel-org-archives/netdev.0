@@ -1,7 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 03/21] net-next: stmmac: add optional setup function
-Date: Thu, 16 Feb 2017 13:48:41 +0100
-Message-ID: <20170216124859.14346-4-clabbe.montjoie@gmail.com>
+Subject: [PATCH 06/21] ARM: dts: sun8i-h3: Add dt node for the
+ syscon control module
+Date: Thu, 16 Feb 2017 13:48:44 +0100
+Message-ID: <20170216124859.14346-7-clabbe.montjoie@gmail.com>
 References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -11,7 +12,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	mark.rutland-5wv7dgnIgG8@public.gmane.org,
@@ -21,7 +22,7 @@ To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	catalin.marinas-5wv7dgnIgG8@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBR6AS3CQKGQEBSKD26Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBTGAS3CQKGQE4MRQ73I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170216124859.14346-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -32,47 +33,35 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Instead of ading more ifthen login for adding a new mac_device_info
-setup function, it is easier to add a function pointer to the function
-needed.
+From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+This patch add the dt node for the syscon register present on the
+Allwinner H3.
+
+Only two register are present in this syscon and the only one useful is
+the one dedicated to EMAC clock.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 7 ++++++-
- include/linux/stmmac.h                            | 3 +++
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ arch/arm/boot/dts/sun8i-h3.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 942efb7..319394e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3117,7 +3117,12 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
- 	struct mac_device_info *mac;
+diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
+index 27780b9..9f91aaa 100644
+--- a/arch/arm/boot/dts/sun8i-h3.dtsi
++++ b/arch/arm/boot/dts/sun8i-h3.dtsi
+@@ -140,6 +140,12 @@
+ 		#size-cells = <1>;
+ 		ranges;
  
- 	/* Identify the MAC HW device */
--	if (priv->plat->has_gmac) {
-+	if (priv->plat->setup) {
-+		mac = priv->plat->setup(priv->ioaddr,
-+					priv->plat->multicast_filter_bins,
-+					priv->plat->unicast_filter_entries,
-+					&priv->synopsys_id);
-+	} else if (priv->plat->has_gmac) {
- 		priv->dev->priv_flags |= IFF_UNICAST_FLT;
- 		mac = dwmac1000_setup(priv->ioaddr,
- 				      priv->plat->multicast_filter_bins,
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index fc273e9..95ee4c4 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -136,6 +136,9 @@ struct plat_stmmacenet_data {
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	int (*init)(struct platform_device *pdev, void *priv);
- 	void (*exit)(struct platform_device *pdev, void *priv);
-+	struct mac_device_info *(*setup)(void __iomem *ioaddr, int mcbins,
-+					 int perfect_uc_entries,
-+					 int *synopsys_id);
- 	void *bsp_priv;
- 	struct clk *stmmac_clk;
- 	struct clk *pclk;
++		syscon: syscon@01c00000 {
++			compatible = "syscon",
++				     "allwinner,sun8i-h3-system-controller";
++			reg = <0x01c00000 0x1000>;
++		};
++
+ 		dma: dma-controller@01c02000 {
+ 			compatible = "allwinner,sun8i-h3-dma";
+ 			reg = <0x01c02000 0x1000>;
 -- 
 2.10.2
