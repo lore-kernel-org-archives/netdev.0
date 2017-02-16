@@ -1,80 +1,68 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the kselftest tree with the net-next
- tree
-Date: Thu, 16 Feb 2017 14:24:53 +1100
-Message-ID: <20170216142453.53d1f5e5@canb.auug.org.au>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH v4 net] bpf: add bpf_sk_netns_id() helper
+Date: Wed, 15 Feb 2017 19:25:23 -0800
+Message-ID: <CALCETrVv_j56fq1q=OWt6wpk3JukQiBR6bTFRLw6t-7uvZEtPg@mail.gmail.com>
+References: <1486432968-3255218-1-git-send-email-ast@fb.com>
+ <87h93xqlui.fsf@xmission.com> <cc15d1fa-dd38-c01b-7a42-9eaf206d98a2@cumulusnetworks.com>
+ <878tp6al2z.fsf@xmission.com> <e7875566-efa3-ba75-2699-3866a091615c@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "bamvor.zhangjian@huawei.com" <bamvor.zhangjian@huawei.com>,
-        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-To: Shuah Khan <shuahkh@osg.samsung.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tejun Heo <tj@kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f171.google.com ([209.85.217.171]:32891 "EHLO
+        mail-ua0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753017AbdBPDZp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 22:25:45 -0500
+Received: by mail-ua0-f171.google.com with SMTP id x12so3388097uax.0
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 19:25:45 -0800 (PST)
+In-Reply-To: <e7875566-efa3-ba75-2699-3866a091615c@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Shuah,
+On Wed, Feb 15, 2017 at 7:18 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 2/15/17 8:08 PM, Eric W. Biederman wrote:
+>> David Ahern <dsa@cumulusnetworks.com> writes:
+>>
+>>> On 2/14/17 12:21 AM, Eric W. Biederman wrote:
+>>>>> in cases where bpf programs are looking at sockets and packets
+>>>>> that belong to different netns, it could be useful to get an id
+>>>>> that uniquely identify a netns within the whole system.
+>>>> It could be useful but there is no unique namespace id.
+>>>>
+>>>
+>>> Have you given thought to a unique namespace id? Networking tracepoints
+>>> for example could really benefit from a unique id.
+>>
+>> An id from the perspective of a process in the initial instance of every
+>> namespace is certainly possible.
+>>
+>> A truly unique id is just not maintainable.  Think of the question how
+>> do you assign every device in the world a rguaranteed unique ip address
+>> without coordination, that is routable.  It is essentially the same
+>> problem.
+>>
+>> AKA it is theoretically possible and very expensive.  It is much easier
+>> and much more maintainable for identifiers to have scope and only be
+>> unique within that scope.
+>
+>
+> I don't mean unique in the entire world, I mean unique within a single
+> system.
+>
+> Tracepoints are code based and have global scope. I would like to be
+> able to correlate, for example, FIB lookups within a single network
+> namespace. Having an id that I could filter on when collecting or match
+> when dumping them goes a long way.
 
-Today's linux-next merge of the kselftest tree got a conflict in:
-
-  tools/testing/selftests/bpf/Makefile
-
-between commit:
-
-  d498f8719a09 ("bpf: Rebuild bpf.o for any dependency update")
-
-from the net-next tree and commit:
-
-  88baa78d1f31 ("selftests: remove duplicated all and clean target")
-
-from the kselftest tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
+Why wouldn't an id relative to your logging program work?  Global ids
+are problematic because they are incompatible with tools like CRIU.
 
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc tools/testing/selftests/bpf/Makefile
-index c7816fe60feb,058351b0694f..000000000000
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@@ -1,26 -1,7 +1,20 @@@
- -CFLAGS += -Wall -O2 -I../../../../usr/include
- +LIBDIR := ../../../lib
- +BPFOBJ := $(LIBDIR)/bpf/bpf.o
-  
- -TEST_GEN_PROGS = test_verifier test_maps test_lru_map
- +CFLAGS += -Wall -O2 -lcap -I../../../include/uapi -I$(LIBDIR)
- +
-- test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
-++TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map
-  
-- TEST_PROGS := $(test_objs) test_kmod.sh
-- TEST_FILES := $(test_objs)
-+ TEST_PROGS := test_kmod.sh
-  
- +.PHONY: all clean force
- +
-- all: $(test_objs)
-- 
- +# force a rebuild of BPFOBJ when its dependencies are updated
- +force:
- +
- +$(BPFOBJ): force
- +	$(MAKE) -C $(dir $(BPFOBJ))
- +
- +$(test_objs): $(BPFOBJ)
- +
-  include ../lib.mk
-- 
-- clean:
-- 	$(RM) $(test_objs)
+Andy Lutomirski
+AMA Capital Management, LLC
