@@ -1,65 +1,234 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Thu, 16 Feb 2017 07:49:47 -0800
-Message-ID: <1487260187.1311.53.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
-         <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1487167443.1311.8.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG8WHJYQFEsxU39jgpMDFHPkHuDX6VU7vOcd+wqBedonfA@mail.gmail.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [BUG] 4.10-rc8 - ping spinning?
+Date: Thu, 16 Feb 2017 10:50:06 -0500
+Message-ID: <CACSApvYq-7HGAO+UTsoCu6JVt_E4mdXKgpUbRD0YDP_M02ZdkQ@mail.gmail.com>
+References: <20170216120547.GK582@shells.gnugeneration.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>, jackm@mellanox.com
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34713 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932482AbdBPPtx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 10:49:53 -0500
-Received: by mail-pf0-f193.google.com with SMTP id o64so1894200pfb.1
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 07:49:53 -0800 (PST)
-In-Reply-To: <CALzJLG8WHJYQFEsxU39jgpMDFHPkHuDX6VU7vOcd+wqBedonfA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: lkml@pengaru.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170216120547.GK582@shells.gnugeneration.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-02-16 at 14:44 +0200, Saeed Mahameed wrote:
-> On Wed, Feb 15, 2017 at 4:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Wed, 2017-02-15 at 05:29 -0800, Eric Dumazet wrote:
-> >
-> >>
-> >> mlx4_eq_int() is a hard irq handler.
-> >>
-> >> How a tasklet could run in the middle of it ?
-> >>
-> >> A tasklet is a softirq handler.
-> >
-> > Speaking of mlx4_eq_int() , 50% of cycles are spent on mb() (mfence)
-> > in eq_set_ci()
-> >
-> 
-> I wonder why you have so many interrupts ? don't you have some kind of
-> interrupt moderation ?
-> what test are you running that got your CPU so busy.
+Thank you Vito for the report.
 
+The patch you cited actually resolves a similar backward compatibility
+problem for traceroute.
 
-Simply 8 RX queues. About 140,000 irq per second per RX queue,
-for a moderate network load on 40Gbit NIC.
+I suspect the problem here is that there's a local error queued on the
+error queue after an ICMP message. ping apparently expect the
+sk->sk_err to be set for the local errors as well, and hence the
+error. Ideally, ping should read the error queue if there an EPOLLERR,
+because local errors never sk->sk_err on their own. That is, if we
+have
 
-Interrupt moderation is a latency killer, we want our usec back.
+But as a workaround, would you mind trying the following patch to see
+if it resolves the issue reported?
 
-> 
-> > I wonder why this very expensive mb() is required, right before exiting
-> > the interrupt handler.
-> 
-> to make sure the HW knows we handled Completions up to (ci) consumer
-> index. so it will generate next irq.
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Date: Thu, 16 Feb 2017 10:48:24 -0500
+---
+ net/core/skbuff.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 734c71468b01..2b774b564024 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3717,7 +3717,8 @@ EXPORT_SYMBOL(sock_queue_err_skb);
+ static bool is_icmp_err_skb(const struct sk_buff *skb)
+ {
+  return skb && (SKB_EXT_ERR(skb)->ee.ee_origin =3D=3D SO_EE_ORIGIN_ICMP ||
+-       SKB_EXT_ERR(skb)->ee.ee_origin =3D=3D SO_EE_ORIGIN_ICMP6);
++       SKB_EXT_ERR(skb)->ee.ee_origin =3D=3D SO_EE_ORIGIN_ICMP6 ||
++       SKB_EXT_ERR(skb)->ee.ee_origin =3D=3D SO_EE_ORIGIN_LOCAL);
+ }
 
-So why a mb() is needed exactly ?
+ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
+--=20
 
-wmb() seems enough.
+Thanks!
+Soheil
+
+On Thu, Feb 16, 2017 at 7:05 AM,  <lkml@pengaru.com> wrote:
+> Hello netdev,
+>
+> Please see the forwarded message below.  This was sent to linux-kernel bu=
+t
+> after digging a little I suspect it's specific to the network stack.
+>
+> Perusing the net/ changes between 4.9 and 4.10-rc8 this sounded awful rel=
+ated
+> to what I'm observing:
+>
+> commit 83a1a1a70e87f676fbb6086b26b6ac7f7fdd107d
+> Author: Soheil Hassas Yeganeh <soheil@google.com>
+> Date:   Wed Nov 30 14:01:08 2016 -0500
+>
+>     sock: reset sk_err for ICMP packets read from error queue
+>
+>     Only when ICMP packets are enqueued onto the error queue,
+>     sk_err is also set. Before f5f99309fa74 (sock: do not set sk_err
+>     in sock_dequeue_err_skb), a subsequent error queue read
+>     would set sk_err to the next error on the queue, or 0 if empty.
+>     As no error types other than ICMP set this field, sk_err should
+>     not be modified upon dequeuing them.
+>
+>     Only for ICMP errors, reset the (racy) sk_err. Some applications,
+>     like traceroute, rely on it and go into a futile busy POLLERR
+>     loop otherwise.
+>
+>     In principle, sk_err has to be set while an ICMP error is queued.
+>     Testing is_icmp_err_skb(skb_next) approximates this without
+>     requiring a full queue walk. Applications that receive both ICMP
+>     and other errors cannot rely on this legacy behavior, as other
+>     errors do not set sk_err in the first place.
+>
+>     Fixes: f5f99309fa74 (sock: do not set sk_err in sock_dequeue_err_skb)
+>     Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+>     Signed-off-by: Willem de Bruijn <willemb@google.com>
+>     Acked-by: Eric Dumazet <edumazet@google.com>
+>     Acked-by: Maciej =C5=BBenczykowski <maze@google.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> Cheers,
+> Vito Caputo
+>
+>
+> ----- Forwarded message from lkml@pengaru.com -----
+>
+> Date: Thu, 16 Feb 2017 03:17:49 -0800
+> From: lkml@pengaru.com
+> To: linux-kernel@vger.kernel.org
+> Subject: Re: [BUG] 4.10-rc8 - ping spinning?
+> User-Agent: Mutt/1.5.23 (2014-03-12)
+>
+> On Thu, Feb 16, 2017 at 03:03:03AM -0800, lkml@pengaru.com wrote:
+>> Hello list,
+>>
+>> Some rtl8192cu bugs of old got me in the habit of running ping in a shel=
+ved     (i.e. forgotten) xterm, a harmless practice which seemed to prevent=
+ the         rtl8192cu device from dying.
+>>
+>> This evening the system started getting very slow and to my surprise I f=
+ound
+>> this in `top`:
+>>  5115 swivel    30  10   14772   1928   1756 R  90.9  0.0   1351:41 ping
+>>  9005 swivel    30  10   14772   1892   1724 R  90.9  0.0   1354:26 ping
+>>
+>> This is a dual core machine (X61s, core2duo 1.8Ghz), those processes are
+>> burning all the free CPU in the system context.  They're identical comma=
+nds,
+>> just plain `ping domain.com`, to the same host.  It appears I accidental=
+ly
+>> (fortuitously?) had two running, which made this event more interesting.
+>>
+>> I can assert that these did not begin spinning simultaneously - as you c=
+an see
+>> by the cumulative time in `top` there's a small delta.  I also use a win=
+dow
+>> manager with builtin continuous process monitoring, and when I noticed t=
+his was
+>> happening I was able to see that one of the processes had only recently =
+begun
+>> spinning, the other was spinning long enough to have its start fall off =
+the
+>> chart (at least ~17 minutes ago).
+>>
+>> This hasn't occurred before AFAIK, but I haven't spent much time in 4.10=
+ yet.
+>> I'm pretty confident this didn't happen in 4.9 which I ran for quite a w=
+hile.
+>>
+>> `strace` of one of the aforementioned processes:
+>>
+>> 1487241315.073568 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 927) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000022>
+>> 1487241315.073665 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000020>
+>> 1487241315.073747 gettimeofday({1487241315, 73774}, NULL) =3D 0 <0.00002=
+1>
+>> 1487241315.073829 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 927) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000025>
+>> 1487241315.073927 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000020>
+>> 1487241315.074024 gettimeofday({1487241315, 74050}, NULL) =3D 0 <0.00025=
+6>
+>> 1487241315.074352 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 927) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000026>
+>> 1487241315.076241 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000022>
+>> 1487241315.076337 gettimeofday({1487241315, 76366}, NULL) =3D 0 <0.00002=
+0>
+>> 1487241315.076422 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 924) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000025>
+>> 1487241315.076523 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000025>
+>> 1487241315.079770 gettimeofday({1487241315, 79799}, NULL) =3D 0 <0.00001=
+9>
+>> 1487241315.079855 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 921) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000024>
+>> 1487241315.079956 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000021>
+>> 1487241315.080057 gettimeofday({1487241315, 80084}, NULL) =3D 0 <0.00002=
+0>
+>> 1487241315.080140 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 921) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000024>
+>> 1487241315.080238 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000021>
+>> 1487241315.080322 gettimeofday({1487241315, 80350}, NULL) =3D 0 <0.00002=
+0>
+>> 1487241315.080406 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 920) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000023>
+>> 1487241315.080502 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000019>
+>> 1487241315.080583 gettimeofday({1487241315, 80610}, NULL) =3D 0 <0.00001=
+8>
+>> 1487241315.080663 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 920) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000024>
+>> 1487241315.080761 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000020>
+>> 1487241315.080843 gettimeofday({1487241315, 80870}, NULL) =3D 0 <0.00002=
+0>
+>> 1487241315.080925 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 920) =3D =
+1 ([{fd=3D3, revents=3DPOLLERR}]) <0.000037>
+>> 1487241315.081037 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN=
+ (Resource temporarily unavailable) <0.000020>
+>> 1487241315.081119 gettimeofday({1487241315, 81147}, NULL) =3D 0 <0.00002=
+0>
+>>
+>
+> It's worth noting that ping is still otherwise functioning correctly, des=
+pite
+> the POLLERR:
+>
+> 1487242826.169502 sendmsg(3, {msg_name(16)=3D{sa_family=3DAF_INET, sin_po=
+rt=3Dhtons(0), sin_addr=3Dinet_addr("xx.xxx.xxx.xxx")}, msg_iov(1)=3D[{"\10=
+\0\245G\23\373\243uJ\206\245X\0\0\0\0\352\225\2\0\0\0\0\0\20\21\22\23\24\25=
+\26\27"..., 64}], msg_controllen=3D0, msg_flags=3D0}, MSG_CONFIRM) =3D 64 <=
+0.000133>
+> 1487242826.169757 recvmsg(3, {msg_name(16)=3D{sa_family=3DAF_INET, sin_po=
+rt=3Dhtons(0), sin_addr=3Dinet_addr("66.240.222.126")}, msg_iov(1)=3D[{"E \=
+0T\345\364\0\0002\1w\23B\360\336~\n\0\0\23\0\0\255G\23\373\243uJ\206\245X".=
+.., 192}], msg_controllen=3D32, {cmsg_len=3D32, cmsg_level=3DSOL_SOCKET, cm=
+sg_type=3D0x1d /* SCM_??? */, ...}, msg_flags=3D0}, 0) =3D 84 <0.028825>
+> 1487242826.198697 write(1, "64 bytes from xxxxxxx.com (xx.xx"..., 79) =3D=
+ 79 <0.000639>
+> 1487242826.199405 gettimeofday({1487242826, 199430}, NULL) =3D 0 <0.00002=
+3>
+> 1487242826.199486 poll([{fd=3D3, events=3DPOLLIN|POLLERR}], 1, 970) =3D 1=
+ ([{fd=3D3, revents=3DPOLLERR}]) <0.000026>
+> 1487242826.199578 recvmsg(3, 0x7ffc8e05e260, MSG_DONTWAIT) =3D -1 EAGAIN =
+(Resource temporarily unavailable) <0.000024>
+>
+> Surprisingly ping doesn't seem to be reacting to the POLLERR though it
+> requested it.  Maybe this is just a ping bug?  Though I haven't seen this
+> before rc8.
+>
+> Regards,
+> Vito Caputo
+>
+> ----- End forwarded message -----
