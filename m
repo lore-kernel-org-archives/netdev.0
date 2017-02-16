@@ -1,34 +1,48 @@
-From: Sriram V <vshrirama@gmail.com>
-Subject: Autoneg off in TI cpsw driver
-Date: Fri, 17 Feb 2017 00:01:32 +0530
-Message-ID: <CAH9_wRMwiZA6GxdwMbOZjs-t-hnMaCRB1RSQ6nGoLOUJ+PxzRw@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/8] Add support for pipeline debug (dpipe)
+Date: Thu, 16 Feb 2017 19:40:16 +0100
+Message-ID: <20170216184016.GI1968@nanopsycho>
+References: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
+ <20170216170446.GF17550@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: mugunthanvnm@ti.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com, jhs@mojatatu.com,
+        ivecera@redhat.com, roopa@cumulusnetworks.com,
+        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        john.fastabend@gmail.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:33723 "EHLO
-        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932302AbdBPSbd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 13:31:33 -0500
-Received: by mail-vk0-f46.google.com with SMTP id k127so15749832vke.0
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 10:31:32 -0800 (PST)
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:35339 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933275AbdBPSkT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 13:40:19 -0500
+Received: by mail-wr0-f182.google.com with SMTP id c4so17788010wrd.2
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 10:40:18 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170216170446.GF17550@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Thu, Feb 16, 2017 at 06:04:46PM CET, andrew@lunn.ch wrote:
+>On Thu, Feb 16, 2017 at 04:22:36PM +0100, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>
+>Hi Jiri, Arkadi
+>
+>Just to make sure we are all on the same page here:
+>
+>This purely RFC. It is not intended for the merge window starting next
+>week?
 
-I am using a Linux Kernel 4.1 Kernel. on AM437X with dual emac configuration.
+No. We are aiming next net-next open.
 
-What i find is if i do the following the Link does not come up.
 
-1. run ethtool -s eth1 speed 10 duplex full autoneg off
-2. remove cable
-3. plug it in.
+>
+>This is a new binary API, something we have to live with forever. So i
+>think before it gets merged into a Linus kernel, we need time to think
+>about all the different sorts of tables we want to dump, what sort of
+>fields they have, and can we represent them using this API. That is
+>going to take some time.
 
-With the above sequence. The link does not come up. the plug in is not detected
-
-Am i missing something or is this the default behaviour.
-
-Regards,
-Sriram
+Agreed.
