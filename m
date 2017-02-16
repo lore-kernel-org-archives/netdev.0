@@ -1,65 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v7 2/2] qede: Add driver support for PTP
-Date: Thu, 16 Feb 2017 04:23:34 -0800
-Message-ID: <1487247814.1311.34.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1487147051-14350-1-git-send-email-Yuval.Mintz@cavium.com>
-         <1487147051-14350-3-git-send-email-Yuval.Mintz@cavium.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
+Date: Thu, 16 Feb 2017 14:34:46 +0200
+Message-ID: <CALzJLG8JpzM4KjYFtLdG9XwTE+eMixPp_KRB9xdYAM962bZi-A@mail.gmail.com>
+References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
+ <82f68be0-95fb-0d61-9d0a-4c74afb626b5@mellanox.com> <1487172397.1311.23.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        richardcochran@gmail.com, Sudarsana.Kalluru@cavium.com
-To: Yuval Mintz <Yuval.Mintz@cavium.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Matan Barak (External)" <matanb@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>, jackm@mellanox.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36195 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754681AbdBPMXf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 07:23:35 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 13so960867pgd.3
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 04:23:35 -0800 (PST)
-In-Reply-To: <1487147051-14350-3-git-send-email-Yuval.Mintz@cavium.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:34179 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753434AbdBPMfH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 07:35:07 -0500
+Received: by mail-qk0-f194.google.com with SMTP id e1so2147839qkh.1
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 04:35:07 -0800 (PST)
+In-Reply-To: <1487172397.1311.23.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-15 at 10:24 +0200, Yuval Mintz wrote:
-> From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-> 
-> This patch adds the driver support for,
->   - Registering the ptp clock functionality with the OS.
->   - Timestamping the Rx/Tx PTP packets.
->   - Ethtool callbacks related to PTP.
+On Wed, Feb 15, 2017 at 5:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-02-15 at 16:52 +0200, Matan Barak (External) wrote:
+>
+>> So, in case of RDMA CQs, we add some per-CQE overhead of comparing the
+>> list pointers and condition upon that. Maybe we could add an
+>> invoke_tasklet boolean field on mlx4_cq and return its value from
+>> mlx4_cq_completion.
+>> That's way we could do invoke_tasklet |= mlx4_cq_completion(....);
+>>
+>> Outside the while loop we could just
+>> if (invoke_tasklet)
+>>      tasklet_schedule
+>>
+>> Anyway, I guess that even with per-CQE overhead, the performance impact
+>> here is pretty negligible - so I guess that's fine too :)
+>
+>
+> Real question or suggestion would be to use/fire a tasklet only under
+> stress.
+>
+> Firing a tasklet adds a lot of latencies for user-space CQ completion,
+> since softirqs might have to be handled by a kernel thread (ksoftirqd)
+>
 
+At least for mlx4_en driver we don't need this tasklet and it is only
+adding this overhead. (we have napi)
 
+we must consider removing it for mlx4_en cqs and move the tasklet
+handling to mlx4_ib.
 
-> +void qede_ptp_tx_ts(struct qede_dev *edev, struct sk_buff *skb)
-> +{
-> +	struct qede_ptp *ptp;
-> +
-> +	ptp = edev->ptp;
-> +	if (!ptp)
-> +		return;
-> +
-> +	if (unlikely(!(edev->flags & QEDE_TX_TIMESTAMPING_EN))) {
-> +		DP_NOTICE(edev,
-> +			  "Tx timestamping was not enabled, this packet will not be timestamped\n");
-> +	} else if (unlikely(ptp->tx_skb)) {
-> +		DP_NOTICE(edev,
-> +			  "The device supports only a single outstanding packet to timestamp, this packet will not be timestamped\n");
-> +	} else {
-> +		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-> +		/* schedule check for Tx timestamp */
-> +		ptp->tx_skb = skb_get(skb);
-> +		schedule_work(&ptp->work);
-> +	}
-> +}
-
-
-This is a multi queue device.
-
-Therefore multiple cpus could call this function at the same time.
-
-ptp->tx_skb needs some kind of SMP protection.
-
-
-
- 
+I will ack the patch.
