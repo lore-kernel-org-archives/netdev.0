@@ -1,8 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 13/21] ARM: dts: sun8i: Enable dwmac-sun8i on
- the Orange Pi plus
-Date: Thu, 16 Feb 2017 13:48:51 +0100
-Message-ID: <20170216124859.14346-14-clabbe.montjoie@gmail.com>
+Subject: [PATCH 14/21] ARM: dts: sun8i: orangepi-pc-plus: Set
+ EMAC activity LEDs to active high
+Date: Thu, 16 Feb 2017 13:48:52 +0100
+Message-ID: <20170216124859.14346-15-clabbe.montjoie@gmail.com>
 References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -22,7 +22,7 @@ To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	catalin.marinas-5wv7dgnIgG8@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBVOAS3CQKGQEZX4SKMA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBVWAS3CQKGQE5WVWYHA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170216124859.14346-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,71 +33,27 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-The dwmac-sun8i hardware is present on the Orange PI plus.
-It uses an external PHY rtl8211e via RGMII.
+On the Orange Pi PC Plus, the polarity of the LEDs on the RJ45 Ethernet
+port were changed from active low to active high.
 
-This patch create the needed regulator, emac and phy nodes.
-
+Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts | 36 ++++++++++++++++++++++++++++
- 1 file changed, 36 insertions(+)
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-index 8c40ab7..17b2b92 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-@@ -58,6 +58,18 @@
- 		enable-active-high;
- 		gpio = <&pio 6 11 GPIO_ACTIVE_HIGH>;
- 	};
-+
-+	reg_gmac_3v3: gmac-3v3 {
-+		compatible = "regulator-fixed";
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&gmac_power_pin_orangepi>;
-+		regulator-name = "gmac-3v3";
-+		regulator-min-microvolt = <3300000>;
-+		regulator-max-microvolt = <3300000>;
-+		startup-delay-us = <100000>;
-+		enable-active-high;
-+		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>;
-+	};
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
+index 8b93f5c..0380769 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
+@@ -86,3 +86,8 @@
+ 	/* eMMC is missing pull-ups */
+ 	bias-pull-up;
  };
- 
- &ehci3 {
-@@ -86,8 +98,32 @@
- 		pins = "PG11";
- 		function = "gpio_out";
- 	};
-+
-+	gmac_power_pin_orangepi: gmac_power_pin@0 {
-+		allwinner,pins = "PD6";
-+		allwinner,function = "gpio_out";
-+		allwinner,drive = <SUN4I_PINCTRL_10_MA>;
-+		allwinner,pull = <SUN4I_PINCTRL_NO_PULL>;
-+		};
- };
- 
- &usbphy {
- 	usb3_vbus-supply = <&reg_usb3_vbus>;
- };
-+
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		reg = <0>;
-+	};
-+};
 +
 +&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+
-+	allwinner,leds-active-low;
-+	status = "okay";
++	/* LEDs changed to active high on the plus */
++	/delete-property/ allwinner,leds-active-low;
 +};
 -- 
 2.10.2
