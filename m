@@ -1,75 +1,34 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH] netfilter: ipset: Null pointer exception in ipset
- list:set
-Date: Thu, 16 Feb 2017 20:58:15 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1702162057140.8526@blackhole.kfki.hu>
-References: <1487198726-21866-1-git-send-email-vpai@akamai.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2 0/4] PTP attribute handling cleanup
+Date: Thu, 16 Feb 2017 21:19:29 +0100
+Message-ID: <20170216201928.GA8614@netboy>
+References: <20170214182334.23296-1-dmitry.torokhov@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>, johunt@akamai.com,
-        pai.vishwain@gmail.com, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org
-To: Vishwanath Pai <vpai@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1487198726-21866-1-git-send-email-vpai@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35554 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932740AbdBPUTf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 15:19:35 -0500
+Content-Disposition: inline
+In-Reply-To: <20170214182334.23296-1-dmitry.torokhov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Feb 14, 2017 at 10:23:30AM -0800, Dmitry Torokhov wrote:
+>  drivers/ptp/ptp_clock.c   |  22 +++---
+>  drivers/ptp/ptp_private.h |   7 +-
+>  drivers/ptp/ptp_sysfs.c   | 167 ++++++++++++++++++----------------------------
+>  3 files changed, 80 insertions(+), 116 deletions(-)
 
-On Wed, 15 Feb 2017, Vishwanath Pai wrote:
+Nice reduction in sysfs code!
 
-> If we use before/after to add an element to an empty list it will cause
-> a kernel panic.
-> 
-> $> cat crash.restore
-> create a hash:ip
-> create b hash:ip
-> create test list:set timeout 5 size 4
-> add test b before a
-> 
-> $> ipset -R < crash.restore
-> 
-> Executing the above will crash the kernel.
-> 
-> Signed-off-by: Vishwanath Pai <vpai@akamai.com>
-> Reviewed-by: Josh Hunt <johunt@akamai.com>
-> ---
->  net/netfilter/ipset/ip_set_list_set.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-> index 51077c5..178d4eb 100644
-> --- a/net/netfilter/ipset/ip_set_list_set.c
-> +++ b/net/netfilter/ipset/ip_set_list_set.c
-> @@ -260,11 +260,14 @@ struct list_set {
->  		else
->  			prev = e;
->  	}
-> +
-> +	/* If before/after is used on an empty set */
-> +	if ((d->before > 0 && !next) ||
-> +	    (d->before < 0 && !prev))
-> +		return -IPSET_ERR_REF_EXIST;
-> +
->  	/* Re-add already existing element */
->  	if (n) {
-> -		if ((d->before > 0 && !next) ||
-> -		    (d->before < 0 && !prev))
-> -			return -IPSET_ERR_REF_EXIST;
->  		if (!flag_exist)
->  			return -IPSET_ERR_EXIST;
->  		/* Update extensions */
-> -- 
-> 1.9.1
+I gave this some light testing on the coldfire/phyter (which has 12
+pins), and nothing exploded.
 
-Patch is applied, thank you!
+For the series:
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+Acked-by: Richard Cochran <richardcochran@gmail.com>
