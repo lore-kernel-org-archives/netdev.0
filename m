@@ -1,70 +1,96 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: hamachi: use new api ethtool_{get|set}_link_ksettings
-Date: Thu, 16 Feb 2017 22:46:14 +0100
-Message-ID: <1487281574-30613-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, mugunthanvnm@ti.com, a@unstable.cc,
-        fw@strlen.de, jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: [PATCH net-next] net/gtp: Add udp source port generation
+ according to flow hash
+Date: Thu, 16 Feb 2017 22:58:11 +0100 (CET)
+Message-ID: <576077949.135577.1487282291666.JavaMail.zimbra@tpip.net>
+References: <1487257141-11706-1-git-send-email-ogerlitz@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        pablo <pablo@netfilter.org>, laforge <laforge@gnumonks.org>,
+        netdev <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:46329 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933157AbdBPV6P (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 16:58:15 -0500
+In-Reply-To: <1487257141-11706-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Hi Or,
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+----- On Feb 16, 2017, at 3:59 PM, Or Gerlitz ogerlitz@mellanox.com wrote:
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/packetengines/hamachi.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+> Generate the source udp header according to the flow represented by
+> the packet we are encapsulating, as done for other udp tunnels. This
+> helps on the receiver side to apply RSS spreading.
 
-diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
-index baff744..8b026db 100644
---- a/drivers/net/ethernet/packetengines/hamachi.c
-+++ b/drivers/net/ethernet/packetengines/hamachi.c
-@@ -1811,21 +1811,23 @@ static void hamachi_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *
- 	strlcpy(info->bus_info, pci_name(np->pci_dev), sizeof(info->bus_info));
- }
- 
--static int hamachi_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int hamachi_get_link_ksettings(struct net_device *dev,
-+				      struct ethtool_link_ksettings *cmd)
- {
- 	struct hamachi_private *np = netdev_priv(dev);
- 	spin_lock_irq(&np->lock);
--	mii_ethtool_gset(&np->mii_if, ecmd);
-+	mii_ethtool_get_link_ksettings(&np->mii_if, cmd);
- 	spin_unlock_irq(&np->lock);
- 	return 0;
- }
- 
--static int hamachi_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int hamachi_set_link_ksettings(struct net_device *dev,
-+				      const struct ethtool_link_ksettings *cmd)
- {
- 	struct hamachi_private *np = netdev_priv(dev);
- 	int res;
- 	spin_lock_irq(&np->lock);
--	res = mii_ethtool_sset(&np->mii_if, ecmd);
-+	res = mii_ethtool_set_link_ksettings(&np->mii_if, cmd);
- 	spin_unlock_irq(&np->lock);
- 	return res;
- }
-@@ -1845,10 +1847,10 @@ static u32 hamachi_get_link(struct net_device *dev)
- static const struct ethtool_ops ethtool_ops = {
- 	.begin = check_if_running,
- 	.get_drvinfo = hamachi_get_drvinfo,
--	.get_settings = hamachi_get_settings,
--	.set_settings = hamachi_set_settings,
- 	.nway_reset = hamachi_nway_reset,
- 	.get_link = hamachi_get_link,
-+	.get_link_ksettings = hamachi_get_link_ksettings,
-+	.set_link_ksettings = hamachi_set_link_ksettings,
- };
- 
- static const struct ethtool_ops ethtool_ops_no_mii = {
--- 
-1.7.4.4
+This might work for GTPv0-U, However, for GTPv1-U this could interfere
+with error handling in the user space control process when the UDP port
+extension  header is used in error indications.
+
+3GPP TS 29.281 Rel 13, section 5.2.2.1 defines the UDP port extension and
+section 7.3.1 says that the UDP source port extension can be used to 
+mitigate DOS attacks. This would IMHO imply that the user space control
+process needs to know the TEID to UDP source port mapping.
+
+The other question is, on what is this actually hashing. When I understand
+the code correctly, this will hash on the source/destination of the orignal
+flow. I would expect that a SGSN/SGW/eNodeB would like the keep flow
+processing on a per TEID base, so the port hashing should be base on the
+TEID.
+
+All together, I think adding an additional UDP source port argument to
+the PDP context might be a better solution.
+
+Andreas
+
+> 
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+> 
+> found in code inspection.. compile tested only
+> 
+> 
+> drivers/net/gtp.c | 5 ++++-
+> 1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+> index bda0c64..ff1244b 100644
+> --- a/drivers/net/gtp.c
+> +++ b/drivers/net/gtp.c
+> @@ -564,6 +564,7 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct
+> net_device *dev)
+> {
+> 	unsigned int proto = ntohs(skb->protocol);
+> 	struct gtp_pktinfo pktinfo;
+> +	__be16 src_port;
+> 	int err;
+> 
+> 	/* Ensure there is sufficient headroom. */
+> @@ -572,6 +573,8 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct
+> net_device *dev)
+> 
+> 	skb_reset_inner_headers(skb);
+> 
+> +	src_port = udp_flow_src_port(dev_net(dev), skb, 0, 0, true);
+> +
+> 	/* PDP context lookups in gtp_build_skb_*() need rcu read-side lock. */
+> 	rcu_read_lock();
+> 	switch (proto) {
+> @@ -596,7 +599,7 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct
+> net_device *dev)
+> 				    pktinfo.iph->tos,
+> 				    ip4_dst_hoplimit(&pktinfo.rt->dst),
+> 				    0,
+> -				    pktinfo.gtph_port, pktinfo.gtph_port,
+> +				    src_port, pktinfo.gtph_port,
+> 				    true, false);
+> 		break;
+> 	}
+> --
+> 2.3.7
