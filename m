@@ -1,35 +1,34 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: mvneta: make mvneta_eth_tool_ops static
-Date: Thu, 16 Feb 2017 10:37:22 +0100
-Message-ID: <20170216103722.2c22cad5@free-electrons.com>
-References: <20170216090739.2632-1-jszhang@marvell.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] dpaa_eth: small leak on error
+Date: Thu, 16 Feb 2017 12:56:10 +0300
+Message-ID: <20170216095610.GA23242@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Jisheng Zhang <jszhang@marvell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:37609 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750718AbdBPJh1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 04:37:27 -0500
-In-Reply-To: <20170216090739.2632-1-jszhang@marvell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Madalin Bucur <madalin.bucur@nxp.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+This should be >= instead of > here.  It means that we don't increment
+the free count enough so it becomes off by one.
 
-On Thu, 16 Feb 2017 17:07:39 +0800, Jisheng Zhang wrote:
-> The mvneta_eth_tool_ops is only used internally in mvneta driver, so
-> make it static.
-> 
-> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+Fixes: 9ad1a3749333 ("dpaa_eth: add support for DPAA Ethernet")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Applies to -net tree.
 
-Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index 25a14a3fe784..bc5a3347fd4a 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -1666,7 +1666,7 @@ static struct sk_buff *sg_fd_to_skb(const struct dpaa_priv *priv,
+ 
+ free_buffers:
+ 	/* compensate sw bpool counter changes */
+-	for (i--; i > 0; i--) {
++	for (i--; i >= 0; i--) {
+ 		dpaa_bp = dpaa_bpid2pool(sgt[i].bpid);
+ 		if (dpaa_bp) {
+ 			count_ptr = this_cpu_ptr(dpaa_bp->percpu_count);
