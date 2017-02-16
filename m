@@ -1,51 +1,50 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Wed, 15 Feb 2017 19:06:02 -0800
-Message-ID: <58A5171A.8080604@fb.com>
-References: <20170214091250.57d054b2@canb.auug.org.au>
- <20170216140215.69d39914@canb.auug.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH v4 net] bpf: add bpf_sk_netns_id() helper
+Date: Thu, 16 Feb 2017 16:08:52 +1300
+Message-ID: <878tp6al2z.fsf@xmission.com>
+References: <1486432968-3255218-1-git-send-email-ast@fb.com>
+        <87h93xqlui.fsf@xmission.com>
+        <cc15d1fa-dd38-c01b-7a42-9eaf206d98a2@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        "Peter Zijlstra" <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        "Arnaldo Carvalho de Melo" <acme@kernel.org>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-        Joe Stringer <joe@ovn.org>, Jiri Olsa <jolsa@redhat.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tejun Heo <tj@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>, netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57666 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751837AbdBPDHL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 22:07:11 -0500
-In-Reply-To: <20170216140215.69d39914@canb.auug.org.au>
+Received: from out03.mta.xmission.com ([166.70.13.233]:42444 "EHLO
+        out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751958AbdBPDNc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 22:13:32 -0500
+In-Reply-To: <cc15d1fa-dd38-c01b-7a42-9eaf206d98a2@cumulusnetworks.com> (David
+        Ahern's message of "Wed, 15 Feb 2017 19:16:03 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/15/17 7:02 PM, Stephen Rothwell wrote:
-> Hi all,
->
-> On Tue, 14 Feb 2017 09:12:50 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->>
->> After merging the net tree, today's linux-next build (powerpc64le perf)
->> failed like this:
->>
->> Warning: tools/include/uapi/linux/bpf.h differs from kernel
->> bpf.c: In function 'bpf_prog_attach':
->> bpf.c:180:6: error: 'union bpf_attr' has no member named 'attach_flags'; did you mean 'map_flags'?
->>    attr.attach_flags  = flags;
->>        ^
->>
->> Caused by commit
->>
->>    7f677633379b ("bpf: introduce BPF_F_ALLOW_OVERRIDE flag")
->>
->
-> So do we have a fix for this?  I am sure that Dave would like to send
-> his "net" tree to Linus sometime soonish ...
+David Ahern <dsa@cumulusnetworks.com> writes:
 
-Do you mind resending it to netdev with my Ack ?
-please mention [PATCH net] in subj, so it's get caught by Dave's scripts.
+> On 2/14/17 12:21 AM, Eric W. Biederman wrote:
+>>> in cases where bpf programs are looking at sockets and packets
+>>> that belong to different netns, it could be useful to get an id
+>>> that uniquely identify a netns within the whole system.
+>> It could be useful but there is no unique namespace id.
+>> 
+>
+> Have you given thought to a unique namespace id? Networking tracepoints
+> for example could really benefit from a unique id.
+
+An id from the perspective of a process in the initial instance of every
+namespace is certainly possible.
+
+A truly unique id is just not maintainable.  Think of the question how
+do you assign every device in the world a rguaranteed unique ip address
+without coordination, that is routable.  It is essentially the same
+problem.
+
+AKA it is theoretically possible and very expensive.  It is much easier
+and much more maintainable for identifiers to have scope and only be
+unique within that scope.
+
+Eric
