@@ -1,2541 +1,1004 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH net-next v2 3/3] net: stmicro: multiple buffer support
-Date: Thu, 16 Feb 2017 11:19:41 +0000
-Message-ID: <fee4ed51741ec7dbde41b1895bb716366071c2e0.1487243644.git.jpinto@synopsys.com>
-References: <cover.1487243644.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Mario Kicherer <dev@kicherer.org>
+Subject: [PATCH net-next] can: initial support for network namespaces
+Date: Thu, 16 Feb 2017 12:39:40 +0100
+Message-ID: <40df4f6a-8df1-3b76-c0ed-9ba7800c2dc1@kicherer.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:57968 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754622AbdBPLUE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 06:20:04 -0500
-In-Reply-To: <cover.1487243644.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1487243644.git.jpinto@synopsys.com>
-References: <cover.1487243644.git.jpinto@synopsys.com>
+Received: from www.zeus06.de ([194.117.254.36]:36366 "EHLO mail.zeus06.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754487AbdBPLq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 06:46:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the following features:
+This patch adds initial support for network namespaces. The changes only
+enable support in the CAN raw, proc and af_can code. GW and BCM still
+have their checks that ensure that they are used only from the main
+namespace.
 
-a) Creation of tx_queue and rx_queue structures (stmmac.h), each containing
-relevant queue related parameters (skbuff_dma, skbuff, etc.).
-b) tx_queue and rx_queue allocation is dynamic and done accordingly with
-the number of RX queues and TX queues existent in the controller
-c) Since the number of RX queues and TX queues can be different, functions
-were broken into RX and TX related to enable separated treatment when
-possible
-d) stmmac_main had to be adapted to enable the multiple buffering mechanism
+The patch boils down to moving the global structures, i.e. the global
+filter list and their /proc stats, into a per-namespace structure and passing
+around the corresponding "struct net" in a lot of different places.
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+Signed-off-by: Mario Kicherer <dev@kicherer.org>
 ---
-changes v1->v2:
-- No changes, just keep up patch-set version.
+ include/linux/can/core.h    |   8 +--
+ include/net/net_namespace.h |   4 ++
+ include/net/netns/can.h     |  31 ++++++++++
+ net/can/af_can.c            | 123 +++++++++++++++++++++----------------
+ net/can/af_can.h            |   4 +-
+ net/can/bcm.c               |  13 ++--
+ net/can/gw.c                |   4 +-
+ net/can/proc.c              | 144 +++++++++++++++++++++-----------------------
+ net/can/raw.c               |  91 ++++++++++++++++------------
+ 9 files changed, 242 insertions(+), 180 deletions(-)
+ create mode 100644 include/net/netns/can.h
 
- drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |   44 +-
- drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |   47 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   47 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 1325 ++++++++++++++-------
- 4 files changed, 990 insertions(+), 473 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-index 01a8c02..31978a6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-@@ -26,9 +26,10 @@
+diff --git a/include/linux/can/core.h b/include/linux/can/core.h
+index a087500..9f961d4 100644
+--- a/include/linux/can/core.h
++++ b/include/linux/can/core.h
+@@ -45,13 +45,13 @@ struct can_proto {
+ extern int  can_proto_register(const struct can_proto *cp);
+ extern void can_proto_unregister(const struct can_proto *cp);
  
- static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- {
--	struct stmmac_priv *priv = (struct stmmac_priv *)p;
--	unsigned int entry = priv->cur_tx;
--	struct dma_desc *desc = priv->dma_tx + entry;
-+	struct stmmac_tx_queue *tx_queue = (struct stmmac_tx_queue *)p;
-+	struct stmmac_priv *priv = tx_queue->priv_data;
-+	unsigned int entry = tx_queue->cur_tx;
-+	struct dma_desc *desc = tx_queue->dma_tx + entry;
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	unsigned int bmax, des2;
- 	unsigned int i = 1, len;
-@@ -45,16 +46,16 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 	desc->des2 = cpu_to_le32(des2);
- 	if (dma_mapping_error(priv->device, des2))
- 		return -1;
--	priv->tx_skbuff_dma[entry].buf = des2;
--	priv->tx_skbuff_dma[entry].len = bmax;
-+	tx_queue->tx_skbuff_dma[entry].buf = des2;
-+	tx_queue->tx_skbuff_dma[entry].len = bmax;
- 	/* do not close the descriptor and do not set own bit */
- 	priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum, STMMAC_CHAIN_MODE,
- 					0, false);
+-extern int  can_rx_register(struct net_device *dev, canid_t can_id,
+-                           canid_t mask,
++extern int  can_rx_register(struct net *net, struct net_device *dev,
++                           canid_t can_id, canid_t mask,
+                            void (*func)(struct sk_buff *, void *),
+                            void *data, char *ident);
  
- 	while (len != 0) {
--		priv->tx_skbuff[entry] = NULL;
-+		tx_queue->tx_skbuff[entry] = NULL;
- 		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
--		desc = priv->dma_tx + entry;
-+		desc = tx_queue->dma_tx + entry;
+-extern void can_rx_unregister(struct net_device *dev, canid_t can_id,
+-                             canid_t mask,
++extern void can_rx_unregister(struct net *net, struct net_device *dev,
++                             canid_t can_id, canid_t mask,
+                              void (*func)(struct sk_buff *, void *),
+                              void *data);
  
- 		if (len > bmax) {
- 			des2 = dma_map_single(priv->device,
-@@ -63,8 +64,9 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 			desc->des2 = cpu_to_le32(des2);
- 			if (dma_mapping_error(priv->device, des2))
- 				return -1;
--			priv->tx_skbuff_dma[entry].buf = des2;
--			priv->tx_skbuff_dma[entry].len = bmax;
-+			tx_queue->tx_skbuff_dma[entry].buf = des2;
-+			tx_queue->tx_skbuff_dma[entry].len = bmax;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 0940598..f0c271e 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -27,6 +27,7 @@
+ #include <net/netns/nftables.h>
+ #include <net/netns/xfrm.h>
+ #include <net/netns/mpls.h>
++#include <net/netns/can.h>
+ #include <linux/ns_common.h>
+ #include <linux/idr.h>
+ #include <linux/skbuff.h>
+@@ -141,6 +142,9 @@ struct net {
+ #if IS_ENABLED(CONFIG_MPLS)
+        struct netns_mpls       mpls;
+ #endif
++#if IS_ENABLED(CONFIG_CAN)
++       struct netns_can        can;
++#endif
+        struct sock             *diag_nlsk;
+        atomic_t                fnhe_genid;
+ };
+diff --git a/include/net/netns/can.h b/include/net/netns/can.h
+new file mode 100644
+index 0000000..e8beba7
+--- /dev/null
++++ b/include/net/netns/can.h
+@@ -0,0 +1,31 @@
++/*
++ * can in net namespaces
++ */
 +
- 			priv->hw->desc->prepare_tx_desc(desc, 0, bmax, csum,
- 							STMMAC_CHAIN_MODE, 1,
- 							false);
-@@ -77,8 +79,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 			desc->des2 = cpu_to_le32(des2);
- 			if (dma_mapping_error(priv->device, des2))
- 				return -1;
--			priv->tx_skbuff_dma[entry].buf = des2;
--			priv->tx_skbuff_dma[entry].len = len;
-+			tx_queue->tx_skbuff_dma[entry].buf = des2;
-+			tx_queue->tx_skbuff_dma[entry].len = len;
- 			/* last descriptor can be set now */
- 			priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
- 							STMMAC_CHAIN_MODE, 1,
-@@ -87,7 +89,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 		}
- 	}
++#ifndef __NETNS_CAN_H__
++#define __NETNS_CAN_H__
++
++#include <linux/spinlock.h>
++
++struct dev_rcv_lists;
++
++struct netns_can {
++#if IS_ENABLED(CONFIG_PROC_FS)
++       struct proc_dir_entry *proc_dir;
++       struct proc_dir_entry *pde_version;
++       struct proc_dir_entry *pde_stats;
++       struct proc_dir_entry *pde_reset_stats;
++       struct proc_dir_entry *pde_rcvlist_all;
++       struct proc_dir_entry *pde_rcvlist_fil;
++       struct proc_dir_entry *pde_rcvlist_inv;
++       struct proc_dir_entry *pde_rcvlist_sff;
++       struct proc_dir_entry *pde_rcvlist_eff;
++       struct proc_dir_entry *pde_rcvlist_err;
++#endif
++
++       /* receive filters subscribed for 'all' CAN devices */
++       struct dev_rcv_lists *can_rx_alldev_list;
++       spinlock_t can_rcvlists_lock;
++};
++
++#endif /* __NETNS_CAN_H__ */
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 1108079..e34e1e6 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -75,9 +75,7 @@ static int stats_timer __read_mostly = 1;
+ module_param(stats_timer, int, S_IRUGO);
+ MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
  
--	priv->cur_tx = entry;
-+	tx_queue->cur_tx = entry;
+-/* receive filters subscribed for 'all' CAN devices */
+-struct dev_rcv_lists can_rx_alldev_list;
+-static DEFINE_SPINLOCK(can_rcvlists_lock);
++int can_net_id;
  
- 	return entry;
- }
-@@ -136,32 +138,34 @@ static void stmmac_init_dma_chain(void *des, dma_addr_t phy_addr,
+ static struct kmem_cache *rcv_cache __read_mostly;
  
- static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
+@@ -145,9 +143,6 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+        if (protocol < 0 || protocol >= CAN_NPROTO)
+                return -EINVAL;
+ 
+-       if (!net_eq(net, &init_net))
+-               return -EAFNOSUPPORT;
+-
+        cp = can_get_proto(protocol);
+ 
+ #ifdef CONFIG_MODULES
+@@ -331,10 +326,11 @@ EXPORT_SYMBOL(can_send);
+  * af_can rx path
+  */
+ 
+-static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
++static struct dev_rcv_lists *find_dev_rcv_lists(struct net *net,
++                                               struct net_device *dev)
  {
--	struct stmmac_priv *priv = (struct stmmac_priv *)priv_ptr;
-+	struct stmmac_rx_queue *rx_queue = (struct stmmac_rx_queue *)priv_ptr;
-+	struct stmmac_priv *priv = rx_queue->priv_data;
+        if (!dev)
+-               return &can_rx_alldev_list;
++               return net->can.can_rx_alldev_list;
+        else
+                return (struct dev_rcv_lists *)dev->ml_priv;
+ }
+@@ -466,9 +462,9 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
+  *  -ENOMEM on missing cache mem to create subscription entry
+  *  -ENODEV unknown device
+  */
+-int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
+-                   void (*func)(struct sk_buff *, void *), void *data,
+-                   char *ident)
++int can_rx_register(struct net *net, struct net_device *dev, canid_t can_id,
++                   canid_t mask, void (*func)(struct sk_buff *, void *),
++                   void *data, char *ident)
+ {
+        struct receiver *r;
+        struct hlist_head *rl;
+@@ -480,13 +476,16 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
+        if (dev && dev->type != ARPHRD_CAN)
+                return -ENODEV;
  
- 	if (priv->hwts_rx_en && !priv->extend_desc)
- 		/* NOTE: Device will overwrite des3 with timestamp value if
- 		 * 1588-2002 time stamping is enabled, hence reinitialize it
- 		 * to keep explicit chaining in the descriptor.
- 		 */
--		p->des3 = cpu_to_le32((unsigned int)(priv->dma_rx_phy +
--				      (((priv->dirty_rx) + 1) %
-+		p->des3 = cpu_to_le32((unsigned int)(rx_queue->dma_rx_phy +
-+				      (((rx_queue->dirty_rx) + 1) %
- 				       DMA_RX_SIZE) *
- 				      sizeof(struct dma_desc)));
++       if (dev && !net_eq(net, dev_net(dev)))
++               return -ENODEV;
++
+        r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
+        if (!r)
+                return -ENOMEM;
+ 
+-       spin_lock(&can_rcvlists_lock);
++       spin_lock(&net->can.can_rcvlists_lock);
+ 
+-       d = find_dev_rcv_lists(dev);
++       d = find_dev_rcv_lists(net, dev);
+        if (d) {
+                rl = find_rcv_list(&can_id, &mask, d);
+ 
+@@ -508,7 +507,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
+                err = -ENODEV;
+        }
+ 
+-       spin_unlock(&can_rcvlists_lock);
++       spin_unlock(&net->can.can_rcvlists_lock);
+ 
+        return err;
+ }
+@@ -535,8 +534,9 @@ static void can_rx_delete_receiver(struct rcu_head *rp)
+  * Description:
+  *  Removes subscription entry depending on given (subscription) values.
+  */
+-void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+-                      void (*func)(struct sk_buff *, void *), void *data)
++void can_rx_unregister(struct net *net, struct net_device *dev, canid_t can_id,
++                      canid_t mask, void (*func)(struct sk_buff *, void *),
++                      void *data)
+ {
+        struct receiver *r = NULL;
+        struct hlist_head *rl;
+@@ -545,9 +545,12 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+        if (dev && dev->type != ARPHRD_CAN)
+                return;
+ 
+-       spin_lock(&can_rcvlists_lock);
++       if (dev && !net_eq(net, dev_net(dev)))
++               return;
+ 
+-       d = find_dev_rcv_lists(dev);
++       spin_lock(&net->can.can_rcvlists_lock);
++
++       d = find_dev_rcv_lists(net, dev);
+        if (!d) {
+                pr_err("BUG: receive list not found for "
+                       "dev %s, id %03X, mask %03X\n",
+@@ -593,7 +596,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+        }
+ 
+  out:
+-       spin_unlock(&can_rcvlists_lock);
++       spin_unlock(&net->can.can_rcvlists_lock);
+ 
+        /* schedule the receiver item for deletion */
+        if (r)
+@@ -688,10 +691,10 @@ static void can_receive(struct sk_buff *skb, struct net_device *dev)
+        rcu_read_lock();
+ 
+        /* deliver the packet to sockets listening on all devices */
+-       matches = can_rcv_filter(&can_rx_alldev_list, skb);
++       matches = can_rcv_filter(dev_net(dev)->can.can_rx_alldev_list, skb);
+ 
+        /* find receive list for this device */
+-       d = find_dev_rcv_lists(dev);
++       d = find_dev_rcv_lists(dev_net(dev), dev);
+        if (d)
+                matches += can_rcv_filter(d, skb);
+ 
+@@ -711,9 +714,6 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
+ {
+        struct canfd_frame *cfd = (struct canfd_frame *)skb->data;
+ 
+-       if (unlikely(!net_eq(dev_net(dev), &init_net)))
+-               goto drop;
+-
+        if (WARN_ONCE(dev->type != ARPHRD_CAN ||
+                      skb->len != CAN_MTU ||
+                      cfd->len > CAN_MAX_DLEN,
+@@ -735,9 +735,6 @@ static int canfd_rcv(struct sk_buff *skb, struct net_device *dev,
+ {
+        struct canfd_frame *cfd = (struct canfd_frame *)skb->data;
+ 
+-       if (unlikely(!net_eq(dev_net(dev), &init_net)))
+-               goto drop;
+-
+        if (WARN_ONCE(dev->type != ARPHRD_CAN ||
+                      skb->len != CANFD_MTU ||
+                      cfd->len > CANFD_MAX_DLEN,
+@@ -827,9 +824,6 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+        struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+        struct dev_rcv_lists *d;
+ 
+-       if (!net_eq(dev_net(dev), &init_net))
+-               return NOTIFY_DONE;
+-
+        if (dev->type != ARPHRD_CAN)
+                return NOTIFY_DONE;
+ 
+@@ -847,7 +841,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+                break;
+ 
+        case NETDEV_UNREGISTER:
+-               spin_lock(&can_rcvlists_lock);
++               spin_lock(&dev_net(dev)->can.can_rcvlists_lock);
+ 
+                d = dev->ml_priv;
+                if (d) {
+@@ -861,7 +855,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+                        pr_err("can: notifier: receive list not found for dev "
+                               "%s\n", dev->name);
+ 
+-               spin_unlock(&can_rcvlists_lock);
++               spin_unlock(&dev_net(dev)->can.can_rcvlists_lock);
+ 
+                break;
+        }
+@@ -869,6 +863,41 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+        return NOTIFY_DONE;
  }
  
- static void stmmac_clean_desc3(void *priv_ptr, struct dma_desc *p)
- {
--	struct stmmac_priv *priv = (struct stmmac_priv *)priv_ptr;
--	unsigned int entry = priv->dirty_tx;
-+	struct stmmac_tx_queue *tx_queue = (struct stmmac_tx_queue *)priv_ptr;
-+	struct stmmac_priv *priv = tx_queue->priv_data;
-+	unsigned int entry = tx_queue->dirty_tx;
- 
--	if (priv->tx_skbuff_dma[entry].last_segment && !priv->extend_desc &&
-+	if (tx_queue->tx_skbuff_dma[entry].last_segment && !priv->extend_desc &&
- 	    priv->hwts_tx_en)
- 		/* NOTE: Device will overwrite des3 with timestamp value if
- 		 * 1588-2002 time stamping is enabled, hence reinitialize it
- 		 * to keep explicit chaining in the descriptor.
- 		 */
--		p->des3 = cpu_to_le32((unsigned int)((priv->dma_tx_phy +
--				      ((priv->dirty_tx + 1) % DMA_TX_SIZE))
-+		p->des3 = cpu_to_le32((unsigned int)((tx_queue->dma_tx_phy +
-+				      ((tx_queue->dirty_tx + 1) % DMA_TX_SIZE))
- 				      * sizeof(struct dma_desc)));
- }
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-index 452f256..457fa8f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-@@ -26,16 +26,17 @@
- 
- static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- {
--	struct stmmac_priv *priv = (struct stmmac_priv *)p;
--	unsigned int entry = priv->cur_tx;
-+	struct stmmac_tx_queue *tx_queue = (struct stmmac_tx_queue *)p;
-+	struct stmmac_priv *priv = tx_queue->priv_data;
-+	unsigned int entry = tx_queue->cur_tx;
- 	struct dma_desc *desc;
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	unsigned int bmax, len, des2;
- 
- 	if (priv->extend_desc)
--		desc = (struct dma_desc *)(priv->dma_etx + entry);
-+		desc = (struct dma_desc *)(tx_queue->dma_etx + entry);
- 	else
--		desc = priv->dma_tx + entry;
-+		desc = tx_queue->dma_tx + entry;
- 
- 	if (priv->plat->enh_desc)
- 		bmax = BUF_SIZE_8KiB;
-@@ -52,29 +53,29 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 		if (dma_mapping_error(priv->device, des2))
- 			return -1;
- 
--		priv->tx_skbuff_dma[entry].buf = des2;
--		priv->tx_skbuff_dma[entry].len = bmax;
--		priv->tx_skbuff_dma[entry].is_jumbo = true;
-+		tx_queue->tx_skbuff_dma[entry].buf = des2;
-+		tx_queue->tx_skbuff_dma[entry].len = bmax;
-+		tx_queue->tx_skbuff_dma[entry].is_jumbo = true;
- 
- 		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
- 		priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
- 						STMMAC_RING_MODE, 0, false);
--		priv->tx_skbuff[entry] = NULL;
-+		tx_queue->tx_skbuff[entry] = NULL;
- 		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
- 
- 		if (priv->extend_desc)
--			desc = (struct dma_desc *)(priv->dma_etx + entry);
-+			desc = (struct dma_desc *)(tx_queue->dma_etx + entry);
- 		else
--			desc = priv->dma_tx + entry;
-+			desc = tx_queue->dma_tx + entry;
- 
- 		des2 = dma_map_single(priv->device, skb->data + bmax, len,
- 				      DMA_TO_DEVICE);
- 		desc->des2 = cpu_to_le32(des2);
- 		if (dma_mapping_error(priv->device, des2))
- 			return -1;
--		priv->tx_skbuff_dma[entry].buf = des2;
--		priv->tx_skbuff_dma[entry].len = len;
--		priv->tx_skbuff_dma[entry].is_jumbo = true;
-+		tx_queue->tx_skbuff_dma[entry].buf = des2;
-+		tx_queue->tx_skbuff_dma[entry].len = len;
-+		tx_queue->tx_skbuff_dma[entry].is_jumbo = true;
- 
- 		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
- 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
-@@ -85,15 +86,15 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 		desc->des2 = cpu_to_le32(des2);
- 		if (dma_mapping_error(priv->device, des2))
- 			return -1;
--		priv->tx_skbuff_dma[entry].buf = des2;
--		priv->tx_skbuff_dma[entry].len = nopaged_len;
--		priv->tx_skbuff_dma[entry].is_jumbo = true;
-+		tx_queue->tx_skbuff_dma[entry].buf = des2;
-+		tx_queue->tx_skbuff_dma[entry].len = nopaged_len;
-+		tx_queue->tx_skbuff_dma[entry].is_jumbo = true;
- 		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
- 		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len, csum,
- 						STMMAC_RING_MODE, 0, true);
- 	}
- 
--	priv->cur_tx = entry;
-+	tx_queue->cur_tx = entry;
- 
- 	return entry;
- }
-@@ -110,7 +111,8 @@ static unsigned int stmmac_is_jumbo_frm(int len, int enh_desc)
- 
- static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
- {
--	struct stmmac_priv *priv = (struct stmmac_priv *)priv_ptr;
-+	struct stmmac_rx_queue *rx_queue = (struct stmmac_rx_queue *)priv_ptr;
-+	struct stmmac_priv *priv = rx_queue->priv_data;
- 
- 	/* Fill DES3 in case of RING mode */
- 	if (priv->dma_buf_sz >= BUF_SIZE_8KiB)
-@@ -125,12 +127,13 @@ static void stmmac_init_desc3(struct dma_desc *p)
- 
- static void stmmac_clean_desc3(void *priv_ptr, struct dma_desc *p)
- {
--	struct stmmac_priv *priv = (struct stmmac_priv *)priv_ptr;
--	unsigned int entry = priv->dirty_tx;
-+	struct stmmac_tx_queue *tx_queue = (struct stmmac_tx_queue *)priv_ptr;
-+	struct stmmac_priv *priv = tx_queue->priv_data;
-+	unsigned int entry = tx_queue->dirty_tx;
- 
- 	/* des3 is only used for jumbo frames tx or time stamping */
--	if (unlikely(priv->tx_skbuff_dma[entry].is_jumbo ||
--		     (priv->tx_skbuff_dma[entry].last_segment &&
-+	if (unlikely(tx_queue->tx_skbuff_dma[entry].is_jumbo ||
-+		     (tx_queue->tx_skbuff_dma[entry].last_segment &&
- 		      !priv->extend_desc && priv->hwts_tx_en)))
- 		p->des3 = 0;
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index cd8fb61..e565a41 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -46,38 +46,55 @@ struct stmmac_tx_info {
- 	bool is_jumbo;
++int can_pernet_init(struct net *net)
++{
++       net->can.can_rcvlists_lock =
++               __SPIN_LOCK_UNLOCKED(net->can.can_rcvlists_lock);
++       net->can.can_rx_alldev_list =
++               kzalloc(sizeof(struct dev_rcv_lists), GFP_KERNEL);
++       memset(net->can.can_rx_alldev_list, 0, sizeof(struct dev_rcv_lists));
++
++       if (IS_ENABLED(CONFIG_PROC_FS))
++               can_init_proc(net);
++
++       return 0;
++}
++
++void can_pernet_exit(struct net *net)
++{
++       struct net_device *dev;
++
++       if (IS_ENABLED(CONFIG_PROC_FS))
++               can_remove_proc(net);
++
++       /* remove created dev_rcv_lists from still registered CAN devices */
++       rcu_read_lock();
++       for_each_netdev_rcu(net, dev) {
++               if (dev->type == ARPHRD_CAN && dev->ml_priv) {
++                       struct dev_rcv_lists *d = dev->ml_priv;
++
++                       BUG_ON(d->entries);
++                       kfree(d);
++                       dev->ml_priv = NULL;
++               }
++       }
++       rcu_read_unlock();
++}
++
+ /*
+  * af_can module init/exit functions
+  */
+@@ -894,6 +923,13 @@ static struct notifier_block can_netdev_notifier __read_mostly = {
+        .notifier_call = can_notifier,
  };
  
--struct stmmac_priv {
--	/* Frequently used values are kept adjacent for cache effect */
-+/* Frequently used values are kept adjacent for cache effect */
-+struct stmmac_tx_queue {
-+	u32 queue_index;
-+	struct stmmac_priv *priv_data;
- 	struct dma_extended_desc *dma_etx ____cacheline_aligned_in_smp;
- 	struct dma_desc *dma_tx;
- 	struct sk_buff **tx_skbuff;
-+	struct stmmac_tx_info *tx_skbuff_dma;
- 	unsigned int cur_tx;
- 	unsigned int dirty_tx;
-+	dma_addr_t dma_tx_phy;
-+	u32 tx_tail_addr;
++static struct pernet_operations can_pernet_ops __read_mostly = {
++       .init = can_pernet_init,
++       .exit = can_pernet_exit,
++       .id = &can_net_id,
++       .size = 0,
 +};
 +
-+struct stmmac_rx_queue {
-+	u32 queue_index;
-+	struct stmmac_priv *priv_data;
-+	struct dma_extended_desc *dma_erx;
-+	struct dma_desc *dma_rx ____cacheline_aligned_in_smp;
-+	struct sk_buff **rx_skbuff;
-+	dma_addr_t *rx_skbuff_dma;
-+	struct napi_struct napi ____cacheline_aligned_in_smp;
-+	unsigned int cur_rx;
-+	unsigned int dirty_rx;
-+	u32 rx_zeroc_thresh;
-+	dma_addr_t dma_rx_phy;
-+	u32 rx_tail_addr;
-+};
-+
-+struct stmmac_priv {
- 	u32 tx_count_frames;
- 	u32 tx_coal_frames;
- 	u32 tx_coal_timer;
--	struct stmmac_tx_info *tx_skbuff_dma;
--	dma_addr_t dma_tx_phy;
- 	int tx_coalesce;
- 	int hwts_tx_en;
- 	bool tx_path_in_lpi_mode;
- 	struct timer_list txtimer;
- 	bool tso;
+ static __init int can_init(void)
+ {
+        /* check for correct padding to be able to use the structs similarly */
+@@ -904,8 +940,6 @@ static __init int can_init(void)
  
--	struct dma_desc *dma_rx	____cacheline_aligned_in_smp;
--	struct dma_extended_desc *dma_erx;
--	struct sk_buff **rx_skbuff;
--	unsigned int cur_rx;
--	unsigned int dirty_rx;
-+	/* TX Queue */
-+	struct stmmac_tx_queue *tx_queue;
-+
-+	/* RX Queue */
-+	struct stmmac_rx_queue *rx_queue;
-+
- 	unsigned int dma_buf_sz;
- 	unsigned int rx_copybreak;
--	unsigned int rx_zeroc_thresh;
- 	u32 rx_riwt;
- 	int hwts_rx_en;
--	dma_addr_t *rx_skbuff_dma;
--	dma_addr_t dma_rx_phy;
+        pr_info("can: controller area network core (" CAN_VERSION_STRING ")\n");
+ 
+-       memset(&can_rx_alldev_list, 0, sizeof(can_rx_alldev_list));
 -
--	struct napi_struct napi ____cacheline_aligned_in_smp;
+        rcv_cache = kmem_cache_create("can_receiver", sizeof(struct receiver),
+                                      0, 0, NULL);
+        if (!rcv_cache)
+@@ -917,9 +951,10 @@ static __init int can_init(void)
+                        setup_timer(&can_stattimer, can_stat_update, 0);
+                        mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
+                }
+-               can_init_proc();
+        }
  
- 	void __iomem *ioaddr;
- 	struct net_device *dev;
-@@ -119,8 +136,6 @@ struct stmmac_priv {
- 	spinlock_t ptp_lock;
- 	void __iomem *mmcaddr;
- 	void __iomem *ptpaddr;
--	u32 rx_tail_addr;
--	u32 tx_tail_addr;
- 	u32 mss;
++       register_pernet_subsys(&can_pernet_ops);
++
+        /* protocol register */
+        sock_register(&can_family_ops);
+        register_netdevice_notifier(&can_netdev_notifier);
+@@ -931,13 +966,9 @@ static __init int can_init(void)
  
- #ifdef CONFIG_DEBUG_FS
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 42e4ee8..63397c8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -185,26 +185,38 @@ static void print_pkt(unsigned char *buf, int len)
- 	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, buf, len);
- }
- 
--static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
-+/**
-+ * stmmac_tx_avail - Get tx queue availability
-+ * @priv: driver private structure
-+ * @queue: TX queue index
-+ */
-+static inline u32 stmmac_tx_avail(struct stmmac_priv *priv, u32 queue)
+ static __exit void can_exit(void)
  {
-+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
- 	u32 avail;
- 
--	if (priv->dirty_tx > priv->cur_tx)
--		avail = priv->dirty_tx - priv->cur_tx - 1;
-+	if (tx_q->dirty_tx > tx_q->cur_tx)
-+		avail = tx_q->dirty_tx - tx_q->cur_tx - 1;
- 	else
--		avail = DMA_TX_SIZE - priv->cur_tx + priv->dirty_tx - 1;
-+		avail = DMA_TX_SIZE - tx_q->cur_tx + tx_q->dirty_tx - 1;
- 
- 	return avail;
- }
- 
--static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv)
-+/**
-+ * stmmac_rx_dirty - Get RX queue dirty
-+ * @priv: driver private structure
-+ * @queue: RX queue index
-+ */
-+static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv, u32 queue)
- {
-+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
- 	u32 dirty;
- 
--	if (priv->dirty_rx <= priv->cur_rx)
--		dirty = priv->cur_rx - priv->dirty_rx;
-+	if (rx_q->dirty_rx <= rx_q->cur_rx)
-+		dirty = rx_q->cur_rx - rx_q->dirty_rx;
- 	else
--		dirty = DMA_RX_SIZE - priv->dirty_rx + priv->cur_rx;
-+		dirty = DMA_RX_SIZE - rx_q->dirty_rx + rx_q->cur_rx;
- 
- 	return dirty;
- }
-@@ -212,7 +224,7 @@ static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv)
- /**
-  * stmmac_hw_fix_mac_speed - callback for speed selection
-  * @priv: driver private structure
-- * Description: on some platforms (e.g. ST), some HW system configuration
-+ * Description: on some platforms (e.g. ST), some HW system configuraton
-  * registers have to be set according to the link speed negotiated.
-  */
- static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
-@@ -232,9 +244,19 @@ static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
-  */
- static void stmmac_enable_eee_mode(struct stmmac_priv *priv)
- {
-+	u32 tx_queues_count = priv->dma_cap.number_tx_queues;
-+	u32 queue = 0;
-+
-+	/* check if all TX queues have the work finished */
-+	for (queue = 0; queue < tx_queues_count; queue++) {
-+		struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
-+
-+		if (tx_q->dirty_tx != tx_q->cur_tx)
-+			return; /* still unfinished work */
-+	}
-+
- 	/* Check and enter in LPI mode */
--	if ((priv->dirty_tx == priv->cur_tx) &&
--	    (priv->tx_path_in_lpi_mode == false))
-+	if (priv->tx_path_in_lpi_mode == false)
- 		priv->hw->mac->set_eee_mode(priv->hw,
- 					    priv->plat->en_tx_lpi_clockgating);
- }
-@@ -891,20 +913,40 @@ static int stmmac_init_phy(struct net_device *dev)
- 
- static void stmmac_display_rings(struct stmmac_priv *priv)
- {
-+	u32 rx_queue_cnt = priv->dma_cap.number_rx_queues;
-+	u32 tx_queue_cnt = priv->dma_cap.number_tx_queues;
- 	void *head_rx, *head_tx;
-+	u32 queue = 0;
- 
--	if (priv->extend_desc) {
--		head_rx = (void *)priv->dma_erx;
--		head_tx = (void *)priv->dma_etx;
--	} else {
--		head_rx = (void *)priv->dma_rx;
--		head_tx = (void *)priv->dma_tx;
-+	/* Display RX rings */
-+	for (queue = 0; queue < rx_queue_cnt; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		pr_info("\tRX Queue %d rings\n", queue);
-+
-+		if (priv->extend_desc)
-+			head_rx = (void *)rx_q->dma_erx;
-+		else
-+			head_rx = (void *)rx_q->dma_rx;
-+
-+		/* Display Rx ring */
-+		priv->hw->desc->display_ring(head_rx, DMA_RX_SIZE, true);
- 	}
- 
--	/* Display Rx ring */
--	priv->hw->desc->display_ring(head_rx, DMA_RX_SIZE, true);
--	/* Display Tx ring */
--	priv->hw->desc->display_ring(head_tx, DMA_TX_SIZE, false);
-+	/* Display TX rings */
-+	for (queue = 0; queue < tx_queue_cnt; queue++) {
-+		struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
-+
-+		pr_info("\tTX Queue %d rings\n", queue);
-+
-+		if (priv->extend_desc)
-+			head_tx = (void *)tx_q->dma_etx;
-+		else
-+			head_tx = (void *)tx_q->dma_tx;
-+
-+		/* Display Tx ring */
-+		priv->hw->desc->display_ring(head_tx, DMA_TX_SIZE, false);
-+	}
- }
- 
- static int stmmac_set_bfsize(int mtu, int bufsize)
-@@ -924,48 +966,86 @@ static int stmmac_set_bfsize(int mtu, int bufsize)
- }
- 
- /**
-- * stmmac_clear_descriptors - clear descriptors
-+ * stmmac_clear_rx_descriptors - clear the descriptors of a RX queue
-  * @priv: driver private structure
-- * Description: this function is called to clear the tx and rx descriptors
-+ * @queue: RX queue index
-+ * Description: this function is called to clear the RX descriptors
-  * in case of both basic and extended descriptors are used.
-  */
--static void stmmac_clear_descriptors(struct stmmac_priv *priv)
-+static void stmmac_clear_rx_descriptors(struct stmmac_priv *priv, u32 queue)
- {
--	int i;
-+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+	u32 i = 0;
- 
--	/* Clear the Rx/Tx descriptors */
-+	/* Clear the RX descriptors */
- 	for (i = 0; i < DMA_RX_SIZE; i++)
- 		if (priv->extend_desc)
--			priv->hw->desc->init_rx_desc(&priv->dma_erx[i].basic,
-+			priv->hw->desc->init_rx_desc(&rx_q->dma_erx[i].basic,
- 						     priv->use_riwt, priv->mode,
- 						     (i == DMA_RX_SIZE - 1));
- 		else
--			priv->hw->desc->init_rx_desc(&priv->dma_rx[i],
-+			priv->hw->desc->init_rx_desc(&rx_q->dma_rx[i],
- 						     priv->use_riwt, priv->mode,
- 						     (i == DMA_RX_SIZE - 1));
-+}
-+
-+/**
-+ * stmmac_clear_tx_descriptors - clear the descriptors of a TX queue
-+ * @priv: driver private structure
-+ * @queue: TX queue index
-+ * Description: this function is called to clear the TX descriptors
-+ * in case of both basic and extended descriptors are used.
-+ */
-+static void stmmac_clear_tx_descriptors(struct stmmac_priv *priv, u32 queue)
-+{
-+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
-+	u32 i = 0;
-+
-+	/* Clear the TX descriptors */
- 	for (i = 0; i < DMA_TX_SIZE; i++)
- 		if (priv->extend_desc)
--			priv->hw->desc->init_tx_desc(&priv->dma_etx[i].basic,
-+			priv->hw->desc->init_tx_desc(&tx_q->dma_etx[i].basic,
- 						     priv->mode,
- 						     (i == DMA_TX_SIZE - 1));
- 		else
--			priv->hw->desc->init_tx_desc(&priv->dma_tx[i],
-+			priv->hw->desc->init_tx_desc(&tx_q->dma_tx[i],
- 						     priv->mode,
- 						     (i == DMA_TX_SIZE - 1));
- }
- 
- /**
-+ * stmmac_clear_descriptors - clear all descriptors
-+ * @priv: driver private structure
-+ * Description: this function is called to clear all tx and rx descriptors
-+ * in case of both basic and extended descriptors are used.
-+ */
-+static void stmmac_clear_descriptors(struct stmmac_priv *priv)
-+{
-+	u32 queue = 0;
-+	u32 rx_queue_cnt = priv->dma_cap.number_rx_queues;
-+	u32 tx_queue_cnt = priv->dma_cap.number_tx_queues;
-+
-+	for (queue = 0; queue < rx_queue_cnt; queue++)
-+		stmmac_clear_rx_descriptors(priv, queue);
-+
-+	for (queue = 0; queue < tx_queue_cnt; queue++)
-+		stmmac_clear_tx_descriptors(priv, queue);
-+}
-+
-+/**
-  * stmmac_init_rx_buffers - init the RX descriptor buffer.
-  * @priv: driver private structure
-  * @p: descriptor pointer
-  * @i: descriptor index
-  * @flags: gfp flag.
-+ * @queue: RX queue index
-  * Description: this function is called to allocate a receive buffer, perform
-  * the DMA mapping and init the descriptor.
-  */
- static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
--				  int i, gfp_t flags)
-+				  int i, gfp_t flags, u32 queue)
- {
-+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
- 	struct sk_buff *skb;
- 
- 	skb = __netdev_alloc_skb_ip_align(priv->dev, priv->dma_buf_sz, flags);
-@@ -974,20 +1054,21 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
- 			   "%s: Rx init fails; skb is NULL\n", __func__);
- 		return -ENOMEM;
- 	}
--	priv->rx_skbuff[i] = skb;
--	priv->rx_skbuff_dma[i] = dma_map_single(priv->device, skb->data,
-+
-+	rx_q->rx_skbuff[i] = skb;
-+	rx_q->rx_skbuff_dma[i] = dma_map_single(priv->device, skb->data,
- 						priv->dma_buf_sz,
- 						DMA_FROM_DEVICE);
--	if (dma_mapping_error(priv->device, priv->rx_skbuff_dma[i])) {
-+	if (dma_mapping_error(priv->device, rx_q->rx_skbuff_dma[i])) {
- 		netdev_err(priv->dev, "%s: DMA mapping error\n", __func__);
- 		dev_kfree_skb_any(skb);
- 		return -EINVAL;
- 	}
- 
- 	if (priv->synopsys_id >= DWMAC_CORE_4_00)
--		p->des0 = cpu_to_le32(priv->rx_skbuff_dma[i]);
-+		p->des0 = cpu_to_le32(rx_q->rx_skbuff_dma[i]);
- 	else
--		p->des2 = cpu_to_le32(priv->rx_skbuff_dma[i]);
-+		p->des2 = cpu_to_le32(rx_q->rx_skbuff_dma[i]);
- 
- 	if ((priv->hw->mode->init_desc3) &&
- 	    (priv->dma_buf_sz == BUF_SIZE_16KiB))
-@@ -996,30 +1077,136 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
- 	return 0;
- }
- 
--static void stmmac_free_rx_buffers(struct stmmac_priv *priv, int i)
-+/**
-+ * stmmac_free_rx_buffers - free RX buffers.
-+ * @priv: driver private structure
-+ * @queue: RX queue index
-+ * @i: buffer index
-+ */
-+static void stmmac_free_rx_buffers(struct stmmac_priv *priv, u32 queue, u32 i)
- {
--	if (priv->rx_skbuff[i]) {
--		dma_unmap_single(priv->device, priv->rx_skbuff_dma[i],
-+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+	if (rx_q->rx_skbuff[i]) {
-+		dma_unmap_single(priv->device, rx_q->rx_skbuff_dma[i],
- 				 priv->dma_buf_sz, DMA_FROM_DEVICE);
--		dev_kfree_skb_any(priv->rx_skbuff[i]);
-+		dev_kfree_skb_any(rx_q->rx_skbuff[i]);
- 	}
--	priv->rx_skbuff[i] = NULL;
-+	rx_q->rx_skbuff[i] = NULL;
- }
- 
- /**
-- * init_dma_desc_rings - init the RX/TX descriptor rings
-+ * stmmac_free_rx_buffers - free RX buffers.
-+ * @priv: driver private structure
-+ * @queue: RX queue index
-+ * @i: buffer index
-+ */
-+static void stmmac_free_tx_buffers(struct stmmac_priv *priv, u32 queue, u32 i)
-+{
-+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
-+
-+	if (tx_q->tx_skbuff_dma[i].buf) {
-+		if (tx_q->tx_skbuff_dma[i].map_as_page)
-+			dma_unmap_page(priv->device,
-+				       tx_q->tx_skbuff_dma[i].buf,
-+				       tx_q->tx_skbuff_dma[i].len,
-+				       DMA_TO_DEVICE);
-+		else
-+			dma_unmap_single(priv->device,
-+					 tx_q->tx_skbuff_dma[i].buf,
-+					 tx_q->tx_skbuff_dma[i].len,
-+					 DMA_TO_DEVICE);
-+	}
-+
-+	if (tx_q->tx_skbuff[i]) {
-+		dev_kfree_skb_any(tx_q->tx_skbuff[i]);
-+		tx_q->tx_skbuff[i] = NULL;
-+		tx_q->tx_skbuff_dma[i].buf = 0;
-+		tx_q->tx_skbuff_dma[i].map_as_page = false;
-+	}
-+}
-+
-+/**
-+ * init_tx_dma_desc_rings - init the TX descriptor rings
-+ * @dev: net device structure
-+ * Description: this function initializes the DMA TX descriptors
-+ * and allocates the socket buffers. It suppors the chained and ring
-+ * modes.
-+ */
-+static int init_tx_dma_desc_rings(struct net_device *dev)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 tx_queue_cnt = priv->dma_cap.number_tx_queues;
-+	u32 queue = 0;
-+	int i = 0;
-+
-+	for (queue = 0; queue < tx_queue_cnt; queue++) {
-+		struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
-+
-+		netif_dbg(priv, probe, priv->dev,
-+			  "(%s) dma_tx_phy=0x%08x\n", __func__,
-+			  (u32)tx_q->dma_tx_phy);
-+
-+		/* Setup the chained descriptor addresses */
-+		if (priv->mode == STMMAC_CHAIN_MODE) {
-+			if (priv->extend_desc)
-+				priv->hw->mode->init(tx_q->dma_etx,
-+						     tx_q->dma_tx_phy,
-+						     DMA_TX_SIZE, 1);
-+			else
-+				priv->hw->mode->init(tx_q->dma_tx,
-+						     tx_q->dma_tx_phy,
-+						     DMA_TX_SIZE, 0);
-+		}
-+
-+		for (i = 0; i < DMA_TX_SIZE; i++) {
-+			struct dma_desc *p;
-+
-+			if (priv->extend_desc)
-+				p = &((tx_q->dma_etx + i)->basic);
-+			else
-+				p = tx_q->dma_tx + i;
-+
-+			if (priv->synopsys_id >= DWMAC_CORE_4_00) {
-+				p->des0 = 0;
-+				p->des1 = 0;
-+				p->des2 = 0;
-+				p->des3 = 0;
-+			} else {
-+				p->des2 = 0;
-+			}
-+
-+			tx_q->tx_skbuff_dma[i].buf = 0;
-+			tx_q->tx_skbuff_dma[i].map_as_page = false;
-+			tx_q->tx_skbuff_dma[i].len = 0;
-+			tx_q->tx_skbuff_dma[i].last_segment = false;
-+			tx_q->tx_skbuff[i] = NULL;
-+		}
-+
-+		tx_q->dirty_tx = 0;
-+		tx_q->cur_tx = 0;
-+		netdev_tx_reset_queue(netdev_get_tx_queue(priv->dev, queue));
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * init_rx_dma_desc_rings - init the RX descriptor rings
-  * @dev: net device structure
-  * @flags: gfp flag.
-- * Description: this function initializes the DMA RX/TX descriptors
-- * and allocates the socket buffers. It supports the chained and ring
-+ * Description: this function initializes the DMA RX descriptors
-+ * and allocates the socket buffers. It suppors the chained and ring
-  * modes.
-  */
--static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
-+static int init_rx_dma_desc_rings(struct net_device *dev, gfp_t flags)
- {
--	int i;
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 rx_queue_cnt = priv->dma_cap.number_rx_queues;
- 	unsigned int bfsize = 0;
- 	int ret = -ENOMEM;
-+	u32 queue = 0;
-+	int i;
- 
- 	if (priv->hw->mode->set_16kib_bfsize)
- 		bfsize = priv->hw->mode->set_16kib_bfsize(dev->mtu);
-@@ -1029,235 +1216,355 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
- 
- 	priv->dma_buf_sz = bfsize;
- 
--	netif_dbg(priv, probe, priv->dev,
--		  "(%s) dma_rx_phy=0x%08x dma_tx_phy=0x%08x\n",
--		  __func__, (u32)priv->dma_rx_phy, (u32)priv->dma_tx_phy);
+-       struct net_device *dev;
 -
- 	/* RX INITIALIZATION */
- 	netif_dbg(priv, probe, priv->dev,
- 		  "SKB addresses:\nskb\t\tskb data\tdma data\n");
- 
--	for (i = 0; i < DMA_RX_SIZE; i++) {
--		struct dma_desc *p;
--		if (priv->extend_desc)
--			p = &((priv->dma_erx + i)->basic);
--		else
--			p = priv->dma_rx + i;
-+	for (queue = 0; queue < rx_queue_cnt; queue++) {
- 
--		ret = stmmac_init_rx_buffers(priv, p, i, flags);
--		if (ret)
--			goto err_init_rx_buffers;
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
- 
--		netif_dbg(priv, probe, priv->dev, "[%p]\t[%p]\t[%x]\n",
--			  priv->rx_skbuff[i], priv->rx_skbuff[i]->data,
--			  (unsigned int)priv->rx_skbuff_dma[i]);
--	}
--	priv->cur_rx = 0;
--	priv->dirty_rx = (unsigned int)(i - DMA_RX_SIZE);
--	buf_sz = bfsize;
-+		netif_dbg(priv, probe, priv->dev,
-+			  "(%s) dma_rx_phy=0x%08x\n", __func__,
-+			  (u32)rx_q->dma_rx_phy);
- 
--	/* Setup the chained descriptor addresses */
--	if (priv->mode == STMMAC_CHAIN_MODE) {
--		if (priv->extend_desc) {
--			priv->hw->mode->init(priv->dma_erx, priv->dma_rx_phy,
--					     DMA_RX_SIZE, 1);
--			priv->hw->mode->init(priv->dma_etx, priv->dma_tx_phy,
--					     DMA_TX_SIZE, 1);
--		} else {
--			priv->hw->mode->init(priv->dma_rx, priv->dma_rx_phy,
--					     DMA_RX_SIZE, 0);
--			priv->hw->mode->init(priv->dma_tx, priv->dma_tx_phy,
--					     DMA_TX_SIZE, 0);
-+		for (i = 0; i < DMA_RX_SIZE; i++) {
-+			struct dma_desc *p;
-+
-+			if (priv->extend_desc)
-+				p = &((rx_q->dma_erx + i)->basic);
-+			else
-+				p = rx_q->dma_rx + i;
-+
-+			ret = stmmac_init_rx_buffers(priv, p, i, flags, queue);
-+			if (ret)
-+				goto err_init_rx_buffers;
-+
-+			netif_dbg(priv, probe, priv->dev, "[%p]\t[%p]\t[%x]\n",
-+				  rx_q->rx_skbuff[i],
-+				  rx_q->rx_skbuff[i]->data,
-+				  (unsigned int)rx_q->rx_skbuff_dma[i]);
- 		}
--	}
- 
--	/* TX INITIALIZATION */
--	for (i = 0; i < DMA_TX_SIZE; i++) {
--		struct dma_desc *p;
--		if (priv->extend_desc)
--			p = &((priv->dma_etx + i)->basic);
--		else
--			p = priv->dma_tx + i;
-+		rx_q->cur_rx = 0;
-+		rx_q->dirty_rx = (unsigned int)(i - DMA_RX_SIZE);
- 
--		if (priv->synopsys_id >= DWMAC_CORE_4_00) {
--			p->des0 = 0;
--			p->des1 = 0;
--			p->des2 = 0;
--			p->des3 = 0;
--		} else {
--			p->des2 = 0;
-+		stmmac_clear_rx_descriptors(priv, queue);
-+
-+		if (priv->mode == STMMAC_CHAIN_MODE) {
-+			if (priv->extend_desc)
-+				priv->hw->mode->init(rx_q->dma_erx,
-+						     rx_q->dma_rx_phy,
-+						     DMA_RX_SIZE, 1);
-+			else
-+				priv->hw->mode->init(rx_q->dma_rx,
-+						     rx_q->dma_rx_phy,
-+						     DMA_RX_SIZE, 0);
- 		}
-+	}
-+
-+	buf_sz = bfsize;
-+
-+	return 0;
-+
-+err_init_rx_buffers:
-+	while (queue-- >= 0) {
-+		while (--i >= 0)
-+			stmmac_free_rx_buffers(priv, queue, i);
- 
--		priv->tx_skbuff_dma[i].buf = 0;
--		priv->tx_skbuff_dma[i].map_as_page = false;
--		priv->tx_skbuff_dma[i].len = 0;
--		priv->tx_skbuff_dma[i].last_segment = false;
--		priv->tx_skbuff[i] = NULL;
-+		i = DMA_RX_SIZE;
- 	}
- 
--	priv->dirty_tx = 0;
--	priv->cur_tx = 0;
--	netdev_reset_queue(priv->dev);
-+	return ret;
-+}
- 
--	stmmac_clear_descriptors(priv);
-+/**
-+ * init_dma_desc_rings - init the RX/TX descriptor rings
-+ * @dev: net device structure
-+ * @flags: gfp flag.
-+ * Description: this function initializes the DMA RX/TX descriptors
-+ * and allocates the socket buffers. It suppors the chained and ring
-+ * modes.
-+ */
-+static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+	int ret = init_rx_dma_desc_rings(dev, flags);
-+
-+	if (ret)
-+		return ret;
-+
-+	ret = init_tx_dma_desc_rings(dev);
- 
- 	if (netif_msg_hw(priv))
- 		stmmac_display_rings(priv);
- 
--	return 0;
--err_init_rx_buffers:
--	while (--i >= 0)
--		stmmac_free_rx_buffers(priv, i);
- 	return ret;
- }
- 
--static void dma_free_rx_skbufs(struct stmmac_priv *priv)
-+/**
-+ * dma_free_rx_skbufs - free RX skb buffers
-+ * @priv: driver private structure
-+ * @queue: RX queue index
-+ */
-+static void dma_free_rx_skbufs(struct stmmac_priv *priv, u32 queue)
- {
- 	int i;
- 
- 	for (i = 0; i < DMA_RX_SIZE; i++)
--		stmmac_free_rx_buffers(priv, i);
-+		stmmac_free_rx_buffers(priv, queue, i);
- }
- 
--static void dma_free_tx_skbufs(struct stmmac_priv *priv)
-+/**
-+ * dma_free_tx_skbufs - free TX skb buffers
-+ * @priv: driver private structure
-+ * @queue: TX queue index
-+ */
-+static void dma_free_tx_skbufs(struct stmmac_priv *priv, u32 queue)
- {
- 	int i;
- 
--	for (i = 0; i < DMA_TX_SIZE; i++) {
--		if (priv->tx_skbuff_dma[i].buf) {
--			if (priv->tx_skbuff_dma[i].map_as_page)
--				dma_unmap_page(priv->device,
--					       priv->tx_skbuff_dma[i].buf,
--					       priv->tx_skbuff_dma[i].len,
--					       DMA_TO_DEVICE);
--			else
--				dma_unmap_single(priv->device,
--						 priv->tx_skbuff_dma[i].buf,
--						 priv->tx_skbuff_dma[i].len,
--						 DMA_TO_DEVICE);
--		}
-+	for (i = 0; i < DMA_TX_SIZE; i++)
-+		stmmac_free_tx_buffers(priv, queue, i);
-+}
- 
--		if (priv->tx_skbuff[i]) {
--			dev_kfree_skb_any(priv->tx_skbuff[i]);
--			priv->tx_skbuff[i] = NULL;
--			priv->tx_skbuff_dma[i].buf = 0;
--			priv->tx_skbuff_dma[i].map_as_page = false;
--		}
-+/**
-+ * free_rx_dma_desc_resources - free RX DMA resources
-+ * @priv: driver private structure
-+ */
-+static void free_rx_dma_desc_resources(struct stmmac_priv *priv)
-+{
-+	u32 rx_queue_cnt = priv->dma_cap.number_rx_queues;
-+	u32 queue = 0;
-+
-+	if (!priv->rx_queue)
-+		return;
-+
-+	/* Free RX queue resources */
-+	for (queue = 0; queue < rx_queue_cnt; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		if (!rx_q)
-+			break;
-+
-+		/* Release the DMA RX socket buffers */
-+		dma_free_rx_skbufs(priv, queue);
-+
-+		kfree(rx_q->rx_skbuff);
-+
-+		kfree(rx_q->rx_skbuff_dma);
-+
-+		if (!priv->extend_desc)
-+			dma_free_coherent(priv->device, DMA_RX_SIZE *
-+					  sizeof(struct dma_extended_desc),
-+					  rx_q->dma_erx,
-+					  rx_q->dma_rx_phy);
-+		else
-+			dma_free_coherent(priv->device,
-+					  DMA_RX_SIZE * sizeof(struct dma_desc),
-+					  rx_q->dma_rx,
-+					  rx_q->dma_rx_phy);
- 	}
-+
-+	kfree(priv->rx_queue);
- }
- 
- /**
-- * alloc_dma_desc_resources - alloc TX/RX resources.
-+ * free_tx_dma_desc_resources - free TX DMA resources
-+ * @priv: driver private structure
-+ */
-+static void free_tx_dma_desc_resources(struct stmmac_priv *priv)
-+{
-+	u32 tx_queue_cnt = priv->dma_cap.number_tx_queues;
-+	u32 queue = 0;
-+
-+	if (!priv->tx_queue)
-+		return;
-+
-+	/* Free TX queue resources */
-+	for (queue = 0; queue < tx_queue_cnt; queue++) {
-+		struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
-+
-+		if (!tx_q)
-+			break;
-+
-+		/* Release the DMA TX socket buffers */
-+		dma_free_tx_skbufs(priv, queue);
-+
-+		kfree(tx_q->tx_skbuff);
-+
-+		kfree(tx_q->tx_skbuff_dma);
-+
-+		if (!priv->extend_desc)
-+			dma_free_coherent(priv->device, DMA_TX_SIZE *
-+					  sizeof(struct dma_extended_desc),
-+					  tx_q->dma_etx,
-+					  tx_q->dma_tx_phy);
-+		else
-+			dma_free_coherent(priv->device,
-+					  DMA_TX_SIZE * sizeof(struct dma_desc),
-+					  tx_q->dma_tx,
-+					  tx_q->dma_tx_phy);
-+	}
-+
-+	kfree(priv->tx_queue);
-+}
-+
-+/**
-+ * free_dma_desc_resources - free All DMA resources
-+ * @priv: driver private structure
-+ */
-+static void free_dma_desc_resources(struct stmmac_priv *priv)
-+{
-+	free_rx_dma_desc_resources(priv);
-+	free_tx_dma_desc_resources(priv);
-+}
-+
-+/**
-+ * alloc_tx_dma_desc_resources - alloc TX resources.
-  * @priv: private structure
-  * Description: according to which descriptor can be used (extend or basic)
-- * this function allocates the resources for TX and RX paths. In case of
-- * reception, for example, it pre-allocated the RX socket buffer in order to
-- * allow zero-copy mechanism.
-+ * this function allocates the resources for TX paths.
-  */
--static int alloc_dma_desc_resources(struct stmmac_priv *priv)
-+static int alloc_tx_dma_desc_resources(struct stmmac_priv *priv)
- {
- 	int ret = -ENOMEM;
-+	u32 queue = 0;
- 
--	priv->rx_skbuff_dma = kmalloc_array(DMA_RX_SIZE, sizeof(dma_addr_t),
--					    GFP_KERNEL);
--	if (!priv->rx_skbuff_dma)
-+	/* Allocate TX queues array */
-+	priv->tx_queue = kmalloc_array(priv->dma_cap.number_tx_queues,
-+				       sizeof(struct stmmac_tx_queue),
-+				       GFP_KERNEL);
-+	if (!priv->tx_queue)
- 		return -ENOMEM;
- 
--	priv->rx_skbuff = kmalloc_array(DMA_RX_SIZE, sizeof(struct sk_buff *),
--					GFP_KERNEL);
--	if (!priv->rx_skbuff)
--		goto err_rx_skbuff;
+        if (IS_ENABLED(CONFIG_PROC_FS)) {
+                if (stats_timer)
+                        del_timer_sync(&can_stattimer);
 -
--	priv->tx_skbuff_dma = kmalloc_array(DMA_TX_SIZE,
--					    sizeof(*priv->tx_skbuff_dma),
--					    GFP_KERNEL);
--	if (!priv->tx_skbuff_dma)
--		goto err_tx_skbuff_dma;
+-               can_remove_proc();
+        }
+ 
+        /* protocol unregister */
+@@ -946,19 +977,7 @@ static __exit void can_exit(void)
+        unregister_netdevice_notifier(&can_netdev_notifier);
+        sock_unregister(PF_CAN);
+ 
+-       /* remove created dev_rcv_lists from still registered CAN devices */
+-       rcu_read_lock();
+-       for_each_netdev_rcu(&init_net, dev) {
+-               if (dev->type == ARPHRD_CAN && dev->ml_priv) {
 -
--	priv->tx_skbuff = kmalloc_array(DMA_TX_SIZE, sizeof(struct sk_buff *),
--					GFP_KERNEL);
--	if (!priv->tx_skbuff)
--		goto err_tx_skbuff;
+-                       struct dev_rcv_lists *d = dev->ml_priv;
 -
--	if (priv->extend_desc) {
--		priv->dma_erx = dma_zalloc_coherent(priv->device, DMA_RX_SIZE *
--						    sizeof(struct
--							   dma_extended_desc),
--						    &priv->dma_rx_phy,
--						    GFP_KERNEL);
--		if (!priv->dma_erx)
--			goto err_dma;
-+	/* TX queues buffers and DMA */
-+	for (queue = 0; queue < priv->dma_cap.number_tx_queues; queue++) {
-+		struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
+-                       BUG_ON(d->entries);
+-                       kfree(d);
+-                       dev->ml_priv = NULL;
+-               }
+-       }
+-       rcu_read_unlock();
++       unregister_pernet_subsys(&can_pernet_ops);
  
--		priv->dma_etx = dma_zalloc_coherent(priv->device, DMA_TX_SIZE *
--						    sizeof(struct
--							   dma_extended_desc),
--						    &priv->dma_tx_phy,
-+		tx_q->queue_index = queue;
-+		tx_q->priv_data = priv;
-+
-+		tx_q->tx_skbuff_dma = kmalloc_array(DMA_TX_SIZE,
-+					  sizeof(struct stmmac_tx_info),
-+					  GFP_KERNEL);
-+
-+		if (!tx_q->tx_skbuff_dma)
-+			goto err_dma_buffers;
-+
-+		tx_q->tx_skbuff = kmalloc_array(DMA_TX_SIZE,
-+						    sizeof(struct sk_buff *),
- 						    GFP_KERNEL);
--		if (!priv->dma_etx) {
--			dma_free_coherent(priv->device, DMA_RX_SIZE *
--					  sizeof(struct dma_extended_desc),
--					  priv->dma_erx, priv->dma_rx_phy);
--			goto err_dma;
--		}
--	} else {
--		priv->dma_rx = dma_zalloc_coherent(priv->device, DMA_RX_SIZE *
--						   sizeof(struct dma_desc),
--						   &priv->dma_rx_phy,
--						   GFP_KERNEL);
--		if (!priv->dma_rx)
--			goto err_dma;
+        rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ 
+diff --git a/net/can/af_can.h b/net/can/af_can.h
+index fca0fe9..2764781 100644
+--- a/net/can/af_can.h
++++ b/net/can/af_can.h
+@@ -113,8 +113,8 @@ struct s_pstats {
+ extern struct dev_rcv_lists can_rx_alldev_list;
+ 
+ /* function prototypes for the CAN networklayer procfs (proc.c) */
+-void can_init_proc(void);
+-void can_remove_proc(void);
++void can_init_proc(struct net *net);
++void can_remove_proc(struct net *net);
+ void can_stat_update(unsigned long data);
+ 
+ /* structures and variables from af_can.c needed in proc.c for reading */
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 436a753..1fc13ad 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -755,8 +755,8 @@ static void bcm_remove_op(struct bcm_op *op)
+ static void bcm_rx_unreg(struct net_device *dev, struct bcm_op *op)
+ {
+        if (op->rx_reg_dev == dev) {
+-               can_rx_unregister(dev, op->can_id, REGMASK(op->can_id),
+-                                 bcm_rx_handler, op);
++               can_rx_unregister(&init_net, dev, op->can_id,
++                                 REGMASK(op->can_id), bcm_rx_handler, op);
+ 
+                /* mark as removed subscription */
+                op->rx_reg_dev = NULL;
+@@ -799,7 +799,7 @@ static int bcm_delete_rx_op(struct list_head *ops, struct bcm_msg_head *mh,
+                                        }
+                                }
+                        } else
+-                               can_rx_unregister(NULL, op->can_id,
++                               can_rx_unregister(&init_net, NULL, op->can_id,
+                                                  REGMASK(op->can_id),
+                                                  bcm_rx_handler, op);
+ 
+@@ -1213,7 +1213,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
+ 
+                        dev = dev_get_by_index(&init_net, ifindex);
+                        if (dev) {
+-                               err = can_rx_register(dev, op->can_id,
++                               err = can_rx_register(&init_net, dev,
++                                                     op->can_id,
+                                                      REGMASK(op->can_id),
+                                                      bcm_rx_handler, op,
+                                                      "bcm");
+@@ -1223,7 +1224,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
+                        }
+ 
+                } else
+-                       err = can_rx_register(NULL, op->can_id,
++                       err = can_rx_register(&init_net, NULL, op->can_id,
+                                              REGMASK(op->can_id),
+                                              bcm_rx_handler, op, "bcm");
+                if (err) {
+@@ -1519,7 +1520,7 @@ static int bcm_release(struct socket *sock)
+                                }
+                        }
+                } else
+-                       can_rx_unregister(NULL, op->can_id,
++                       can_rx_unregister(&init_net, NULL, op->can_id,
+                                          REGMASK(op->can_id),
+                                          bcm_rx_handler, op);
+ 
+diff --git a/net/can/gw.c b/net/can/gw.c
+index 4551687..56f01f2 100644
+--- a/net/can/gw.c
++++ b/net/can/gw.c
+@@ -440,14 +440,14 @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data)
+ 
+ static inline int cgw_register_filter(struct cgw_job *gwj)
+ {
+-       return can_rx_register(gwj->src.dev, gwj->ccgw.filter.can_id,
++       return can_rx_register(&init_net, gwj->src.dev, gwj->ccgw.filter.can_id,
+                               gwj->ccgw.filter.can_mask, can_can_gw_rcv,
+                               gwj, "gw");
+ }
+ 
+ static inline void cgw_unregister_filter(struct cgw_job *gwj)
+ {
+-       can_rx_unregister(gwj->src.dev, gwj->ccgw.filter.can_id,
++       can_rx_unregister(&init_net, gwj->src.dev, gwj->ccgw.filter.can_id,
+                          gwj->ccgw.filter.can_mask, can_can_gw_rcv, gwj);
+ }
+ 
+diff --git a/net/can/proc.c b/net/can/proc.c
+index 85ef7bb..9a8d54d 100644
+--- a/net/can/proc.c
++++ b/net/can/proc.c
+@@ -62,17 +62,6 @@
+ #define CAN_PROC_RCVLIST_EFF "rcvlist_eff"
+ #define CAN_PROC_RCVLIST_ERR "rcvlist_err"
+ 
+-static struct proc_dir_entry *can_dir;
+-static struct proc_dir_entry *pde_version;
+-static struct proc_dir_entry *pde_stats;
+-static struct proc_dir_entry *pde_reset_stats;
+-static struct proc_dir_entry *pde_rcvlist_all;
+-static struct proc_dir_entry *pde_rcvlist_fil;
+-static struct proc_dir_entry *pde_rcvlist_inv;
+-static struct proc_dir_entry *pde_rcvlist_sff;
+-static struct proc_dir_entry *pde_rcvlist_eff;
+-static struct proc_dir_entry *pde_rcvlist_err;
 -
--		priv->dma_tx = dma_zalloc_coherent(priv->device, DMA_TX_SIZE *
--						   sizeof(struct dma_desc),
--						   &priv->dma_tx_phy,
--						   GFP_KERNEL);
--		if (!priv->dma_tx) {
--			dma_free_coherent(priv->device, DMA_RX_SIZE *
--					  sizeof(struct dma_desc),
--					  priv->dma_rx, priv->dma_rx_phy);
--			goto err_dma;
-+		if (!tx_q->tx_skbuff)
-+			goto err_dma_buffers;
-+
-+		if (priv->extend_desc) {
-+			tx_q->dma_etx =
-+			dma_zalloc_coherent(priv->device,
-+			(DMA_TX_SIZE * sizeof(struct dma_extended_desc)),
-+			&tx_q->dma_tx_phy, GFP_KERNEL);
-+
-+			if (!tx_q->dma_etx)
-+				goto err_dma_buffers;
-+		} else {
-+			tx_q->dma_tx =
-+			dma_zalloc_coherent(priv->device,
-+			(DMA_TX_SIZE * sizeof(struct dma_desc)),
-+			&tx_q->dma_tx_phy, GFP_KERNEL);
-+
-+			if (!tx_q->dma_tx)
-+				goto err_dma_buffers;
- 		}
- 	}
+ static int user_reset;
  
- 	return 0;
+ static const char rx_list_name[][8] = {
+@@ -351,20 +340,21 @@ static inline void can_rcvlist_proc_show_one(struct seq_file *m, int idx,
+ static int can_rcvlist_proc_show(struct seq_file *m, void *v)
+ {
+        /* double cast to prevent GCC warning */
+-       int idx = (int)(long)m->private;
++       int idx = (int)(long)PDE_DATA(m->file->f_inode);
+        struct net_device *dev;
+        struct dev_rcv_lists *d;
++       struct net *net = m->private;
  
--err_dma:
--	kfree(priv->tx_skbuff);
--err_tx_skbuff:
--	kfree(priv->tx_skbuff_dma);
--err_tx_skbuff_dma:
--	kfree(priv->rx_skbuff);
--err_rx_skbuff:
--	kfree(priv->rx_skbuff_dma);
-+err_dma_buffers:
-+	free_tx_dma_desc_resources(priv);
-+
- 	return ret;
+        seq_printf(m, "\nreceive list '%s':\n", rx_list_name[idx]);
+ 
+        rcu_read_lock();
+ 
+        /* receive list for 'all' CAN devices (dev == NULL) */
+-       d = &can_rx_alldev_list;
++       d = net->can.can_rx_alldev_list;
+        can_rcvlist_proc_show_one(m, idx, NULL, d);
+ 
+        /* receive list for registered CAN devices */
+-       for_each_netdev_rcu(&init_net, dev) {
++       for_each_netdev_rcu(net, dev) {
+                if (dev->type == ARPHRD_CAN && dev->ml_priv)
+                        can_rcvlist_proc_show_one(m, idx, dev, dev->ml_priv);
+        }
+@@ -377,7 +367,7 @@ static int can_rcvlist_proc_show(struct seq_file *m, void *v)
+ 
+ static int can_rcvlist_proc_open(struct inode *inode, struct file *file)
+ {
+-       return single_open(file, can_rcvlist_proc_show, PDE_DATA(inode));
++       return single_open_net(inode, file, can_rcvlist_proc_show);
  }
  
--static void free_dma_desc_resources(struct stmmac_priv *priv)
-+/**
-+ * alloc_rx_dma_desc_resources - alloc RX resources.
-+ * @priv: private structure
-+ * Description: according to which descriptor can be used (extend or basic)
-+ * this function allocates the resources for RX paths. It pre-allocates the
-+ * RX socket buffer in order to allow zero-copy mechanism.
-+ */
-+static int alloc_rx_dma_desc_resources(struct stmmac_priv *priv)
+ static const struct file_operations can_rcvlist_proc_fops = {
+@@ -417,6 +407,7 @@ static int can_rcvlist_sff_proc_show(struct seq_file *m, void *v)
  {
--	/* Release the DMA TX/RX socket buffers */
--	dma_free_rx_skbufs(priv);
--	dma_free_tx_skbufs(priv);
+        struct net_device *dev;
+        struct dev_rcv_lists *d;
++       struct net *net = m->private;
+ 
+        /* RX_SFF */
+        seq_puts(m, "\nreceive list 'rx_sff':\n");
+@@ -424,11 +415,11 @@ static int can_rcvlist_sff_proc_show(struct seq_file *m, void *v)
+        rcu_read_lock();
+ 
+        /* sff receive list for 'all' CAN devices (dev == NULL) */
+-       d = &can_rx_alldev_list;
++       d = net->can.can_rx_alldev_list;
+        can_rcvlist_proc_show_array(m, NULL, d->rx_sff, ARRAY_SIZE(d->rx_sff));
+ 
+        /* sff receive list for registered CAN devices */
+-       for_each_netdev_rcu(&init_net, dev) {
++       for_each_netdev_rcu(net, dev) {
+                if (dev->type == ARPHRD_CAN && dev->ml_priv) {
+                        d = dev->ml_priv;
+                        can_rcvlist_proc_show_array(m, dev, d->rx_sff,
+@@ -444,7 +435,7 @@ static int can_rcvlist_sff_proc_show(struct seq_file *m, void *v)
+ 
+ static int can_rcvlist_sff_proc_open(struct inode *inode, struct file *file)
+ {
+-       return single_open(file, can_rcvlist_sff_proc_show, NULL);
++       return single_open_net(inode, file, can_rcvlist_sff_proc_show);
+ }
+ 
+ static const struct file_operations can_rcvlist_sff_proc_fops = {
+@@ -460,6 +451,7 @@ static int can_rcvlist_eff_proc_show(struct seq_file *m, void *v)
+ {
+        struct net_device *dev;
+        struct dev_rcv_lists *d;
++       struct net *net = m->private;
+ 
+        /* RX_EFF */
+        seq_puts(m, "\nreceive list 'rx_eff':\n");
+@@ -467,11 +459,11 @@ static int can_rcvlist_eff_proc_show(struct seq_file *m, void *v)
+        rcu_read_lock();
+ 
+        /* eff receive list for 'all' CAN devices (dev == NULL) */
+-       d = &can_rx_alldev_list;
++       d = net->can.can_rx_alldev_list;
+        can_rcvlist_proc_show_array(m, NULL, d->rx_eff, ARRAY_SIZE(d->rx_eff));
+ 
+        /* eff receive list for registered CAN devices */
+-       for_each_netdev_rcu(&init_net, dev) {
++       for_each_netdev_rcu(net, dev) {
+                if (dev->type == ARPHRD_CAN && dev->ml_priv) {
+                        d = dev->ml_priv;
+                        can_rcvlist_proc_show_array(m, dev, d->rx_eff,
+@@ -487,7 +479,7 @@ static int can_rcvlist_eff_proc_show(struct seq_file *m, void *v)
+ 
+ static int can_rcvlist_eff_proc_open(struct inode *inode, struct file *file)
+ {
+-       return single_open(file, can_rcvlist_eff_proc_show, NULL);
++       return single_open_net(inode, file, can_rcvlist_eff_proc_show);
+ }
+ 
+ static const struct file_operations can_rcvlist_eff_proc_fops = {
+@@ -499,81 +491,85 @@ static const struct file_operations can_rcvlist_eff_proc_fops = {
+ };
+ 
+ /*
+- * proc utility functions
+- */
 -
--	/* Free DMA regions of consistent memory previously allocated */
--	if (!priv->extend_desc) {
--		dma_free_coherent(priv->device,
--				  DMA_TX_SIZE * sizeof(struct dma_desc),
--				  priv->dma_tx, priv->dma_tx_phy);
--		dma_free_coherent(priv->device,
--				  DMA_RX_SIZE * sizeof(struct dma_desc),
--				  priv->dma_rx, priv->dma_rx_phy);
--	} else {
--		dma_free_coherent(priv->device, DMA_TX_SIZE *
--				  sizeof(struct dma_extended_desc),
--				  priv->dma_etx, priv->dma_tx_phy);
--		dma_free_coherent(priv->device, DMA_RX_SIZE *
--				  sizeof(struct dma_extended_desc),
--				  priv->dma_erx, priv->dma_rx_phy);
-+	int ret = -ENOMEM;
-+	u32 queue = 0;
-+
-+	/* Allocate RX queues array */
-+	priv->rx_queue = kmalloc_array(priv->dma_cap.number_rx_queues,
-+				       sizeof(struct stmmac_rx_queue),
-+				       GFP_KERNEL);
-+	if (!priv->rx_queue) {
-+		kfree(priv->rx_queue);
-+		return -ENOMEM;
-+	}
-+
-+	/* RX queues buffers and DMA */
-+	for (queue = 0; queue < priv->dma_cap.number_rx_queues; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		rx_q->queue_index = queue;
-+		rx_q->priv_data = priv;
-+
-+		rx_q->rx_skbuff_dma = kmalloc_array(DMA_RX_SIZE,
-+							sizeof(dma_addr_t),
-+							GFP_KERNEL);
-+		if (!rx_q->rx_skbuff_dma)
-+			goto err_dma_buffers;
-+
-+		rx_q->rx_skbuff = kmalloc_array(DMA_RX_SIZE,
-+						    sizeof(struct sk_buff *),
-+						    GFP_KERNEL);
-+		if (!rx_q->rx_skbuff)
-+			goto err_dma_buffers;
-+
-+		if (priv->extend_desc) {
-+			rx_q->dma_erx =	dma_zalloc_coherent(priv->device,
-+			(DMA_RX_SIZE * sizeof(struct dma_extended_desc)),
-+			&rx_q->dma_rx_phy, GFP_KERNEL);
-+
-+			if (!rx_q->dma_erx)
-+				goto err_dma_buffers;
-+		} else {
-+			rx_q->dma_rx = dma_zalloc_coherent(priv->device,
-+			(DMA_RX_SIZE * sizeof(struct dma_desc)),
-+			&rx_q->dma_rx_phy, GFP_KERNEL);
-+
-+			if (!rx_q->dma_rx)
-+				goto err_dma_buffers;
-+		}
- 	}
--	kfree(priv->rx_skbuff_dma);
--	kfree(priv->rx_skbuff);
--	kfree(priv->tx_skbuff_dma);
--	kfree(priv->tx_skbuff);
-+
-+	return 0;
-+
-+err_dma_buffers:
-+	free_rx_dma_desc_resources(priv);
-+
-+	return ret;
-+}
-+
-+/**
-+ * alloc_dma_desc_resources - alloc TX/RX resources.
-+ * @priv: private structure
-+ */
-+static int alloc_dma_desc_resources(struct stmmac_priv *priv)
-+{
-+	int ret = 0;
-+
-+	ret = alloc_tx_dma_desc_resources(priv);
-+	if (ret)
-+		return ret;
-+
-+	ret = alloc_rx_dma_desc_resources(priv);
-+
-+	return ret;
- }
- 
- /**
-@@ -1589,26 +1896,28 @@ static void stmmac_stop_all_dma(struct stmmac_priv *priv)
- /**
-  * stmmac_tx_clean - to manage the transmission completion
-  * @priv: driver private structure
-+ * @queue: TX queue index
-  * Description: it reclaims the transmit resources after transmission completes.
-  */
--static void stmmac_tx_clean(struct stmmac_priv *priv)
-+static void stmmac_tx_clean(struct stmmac_priv *priv, u32 queue)
- {
-+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
- 	unsigned int bytes_compl = 0, pkts_compl = 0;
--	unsigned int entry = priv->dirty_tx;
-+	unsigned int entry = tx_q->dirty_tx;
- 
- 	netif_tx_lock(priv->dev);
- 
- 	priv->xstats.tx_clean++;
- 
--	while (entry != priv->cur_tx) {
--		struct sk_buff *skb = priv->tx_skbuff[entry];
-+	while (entry != tx_q->cur_tx) {
-+		struct sk_buff *skb = tx_q->tx_skbuff[entry];
- 		struct dma_desc *p;
- 		int status;
- 
- 		if (priv->extend_desc)
--			p = (struct dma_desc *)(priv->dma_etx + entry);
-+			p = (struct dma_desc *)(tx_q->dma_etx + entry);
- 		else
--			p = priv->dma_tx + entry;
-+			p = tx_q->dma_tx + entry;
- 
- 		status = priv->hw->desc->tx_status(&priv->dev->stats,
- 						      &priv->xstats, p,
-@@ -1629,48 +1938,51 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 			stmmac_get_tx_hwtstamp(priv, p, skb);
- 		}
- 
--		if (likely(priv->tx_skbuff_dma[entry].buf)) {
--			if (priv->tx_skbuff_dma[entry].map_as_page)
-+		if (likely(tx_q->tx_skbuff_dma[entry].buf)) {
-+			if (tx_q->tx_skbuff_dma[entry].map_as_page)
- 				dma_unmap_page(priv->device,
--					       priv->tx_skbuff_dma[entry].buf,
--					       priv->tx_skbuff_dma[entry].len,
-+					       tx_q->tx_skbuff_dma[entry].buf,
-+					       tx_q->tx_skbuff_dma[entry].len,
- 					       DMA_TO_DEVICE);
- 			else
- 				dma_unmap_single(priv->device,
--						 priv->tx_skbuff_dma[entry].buf,
--						 priv->tx_skbuff_dma[entry].len,
-+						 tx_q->tx_skbuff_dma[entry].buf,
-+						 tx_q->tx_skbuff_dma[entry].len,
- 						 DMA_TO_DEVICE);
--			priv->tx_skbuff_dma[entry].buf = 0;
--			priv->tx_skbuff_dma[entry].len = 0;
--			priv->tx_skbuff_dma[entry].map_as_page = false;
-+			tx_q->tx_skbuff_dma[entry].buf = 0;
-+			tx_q->tx_skbuff_dma[entry].len = 0;
-+			tx_q->tx_skbuff_dma[entry].map_as_page = false;
- 		}
- 
- 		if (priv->hw->mode->clean_desc3)
--			priv->hw->mode->clean_desc3(priv, p);
-+			priv->hw->mode->clean_desc3(tx_q, p);
- 
--		priv->tx_skbuff_dma[entry].last_segment = false;
--		priv->tx_skbuff_dma[entry].is_jumbo = false;
-+		tx_q->tx_skbuff_dma[entry].last_segment = false;
-+		tx_q->tx_skbuff_dma[entry].is_jumbo = false;
- 
- 		if (likely(skb != NULL)) {
- 			pkts_compl++;
- 			bytes_compl += skb->len;
- 			dev_consume_skb_any(skb);
--			priv->tx_skbuff[entry] = NULL;
-+			tx_q->tx_skbuff[entry] = NULL;
- 		}
- 
- 		priv->hw->desc->release_tx_desc(p, priv->mode);
- 
- 		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
- 	}
--	priv->dirty_tx = entry;
-+	tx_q->dirty_tx = entry;
-+
-+	netdev_tx_completed_queue(netdev_get_tx_queue(priv->dev, queue),
-+				  pkts_compl, bytes_compl);
- 
--	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
-+	if (unlikely(netif_tx_queue_stopped(netdev_get_tx_queue(priv->dev,
-+								queue)) &&
-+	    stmmac_tx_avail(priv, queue) > STMMAC_TX_THRESH)) {
- 
--	if (unlikely(netif_queue_stopped(priv->dev) &&
--	    stmmac_tx_avail(priv) > STMMAC_TX_THRESH)) {
- 		netif_dbg(priv, tx_done, priv->dev,
- 			  "%s: restart transmit\n", __func__);
--		netif_wake_queue(priv->dev);
-+		netif_tx_wake_queue(netdev_get_tx_queue(priv->dev, queue));
- 	}
- 
- 	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
-@@ -1680,11 +1992,21 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 	netif_tx_unlock(priv->dev);
- }
- 
-+/**
-+ * stmmac_enable_dma_irq - enable DMA channel IRQ
-+ * @priv: driver private structure
-+ * @chan: DMA channel index
-+ */
- static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv, u32 chan)
- {
- 	priv->hw->dma->enable_dma_irq(priv->ioaddr, chan);
- }
- 
-+/**
-+ * stmmac_disable_dma_irq - disable DMA channel IRQ
-+ * @priv: driver private structure
-+ * @chan: DMA channel index
-+ */
- static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv, u32 chan)
- {
- 	priv->hw->dma->disable_dma_irq(priv->ioaddr, chan);
-@@ -1693,36 +2015,38 @@ static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv, u32 chan)
- /**
-  * stmmac_tx_err - to manage the tx error
-  * @priv: driver private structure
-- * @queue: queue index
-+ * @queue: TX queue index
-  * Description: it cleans the descriptors and restarts the transmission
-  * in case of transmission errors.
-  */
- static void stmmac_tx_err(struct stmmac_priv *priv, u32 queue)
- {
-+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
- 	int i;
- 	/* chan <-> queue mapping assures this */
- 	u32 chan = queue;
--	netif_stop_queue(priv->dev);
-+
-+	netif_tx_stop_queue(netdev_get_tx_queue(priv->dev, queue));
- 
- 	stmmac_stop_tx_dma(priv, chan);
- 
--	dma_free_tx_skbufs(priv);
-+	dma_free_tx_skbufs(priv, queue);
- 	for (i = 0; i < DMA_TX_SIZE; i++)
- 		if (priv->extend_desc)
--			priv->hw->desc->init_tx_desc(&priv->dma_etx[i].basic,
-+			priv->hw->desc->init_tx_desc(&tx_q->dma_etx[i].basic,
- 						     priv->mode,
- 						     (i == DMA_TX_SIZE - 1));
- 		else
--			priv->hw->desc->init_tx_desc(&priv->dma_tx[i],
-+			priv->hw->desc->init_tx_desc(&tx_q->dma_tx[i],
- 						     priv->mode,
- 						     (i == DMA_TX_SIZE - 1));
--	priv->dirty_tx = 0;
--	priv->cur_tx = 0;
--	netdev_reset_queue(priv->dev);
-+	tx_q->dirty_tx = 0;
-+	tx_q->cur_tx = 0;
-+	netdev_tx_reset_queue(netdev_get_tx_queue(priv->dev, queue));
- 	stmmac_start_tx_dma(priv, chan);
- 
- 	priv->dev->stats.tx_errors++;
--	netif_wake_queue(priv->dev);
-+	netif_tx_wake_queue(netdev_get_tx_queue(priv->dev, queue));
- }
- 
- /**
-@@ -1775,12 +2099,15 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- 	u32 chan = 0;
- 
- 	for (chan = 0; chan < tx_channels_count; chan++) {
-+		/* chan <-> queue mapping assures this */
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[chan];
-+
- 		status = priv->hw->dma->dma_interrupt(priv->ioaddr,
- 						      &priv->xstats, chan);
- 		if (likely((status & handle_rx)) || (status & handle_tx)) {
--			if (likely(napi_schedule_prep(&priv->napi))) {
-+			if (likely(napi_schedule_prep(&rx_q->napi))) {
- 				stmmac_disable_dma_irq(priv, chan);
--				__napi_schedule(&priv->napi);
-+				__napi_schedule(&rx_q->napi);
- 			}
- 		}
- 		if (unlikely(status & tx_hard_error_bump_tc)) {
-@@ -1913,6 +2240,8 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- 	u32 dummy_dma_rx_phy, dummy_dma_tx_phy = 0;
- 	u32 rx_channels_count = priv->dma_cap.number_rx_channel;
- 	u32 tx_channels_count = priv->dma_cap.number_tx_channel;
-+	struct stmmac_rx_queue *rx_q;
-+	struct stmmac_tx_queue *tx_q;
- 	u32 chan = 0;
- 	int atds = 0;
- 	int ret = 0;
-@@ -1938,37 +2267,46 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- 
- 		/* DMA RX Channel Configuration */
- 		for (chan = 0; chan < rx_channels_count; chan++) {
-+			/* chan <-> queue mapping assures this */
-+			rx_q = &priv->rx_queue[chan];
- 			priv->hw->dma->init_rx_chan(priv->ioaddr,
- 						    priv->plat->dma_cfg,
--						    priv->dma_rx_phy, chan);
-+						    rx_q->dma_rx_phy, chan);
- 
--			priv->rx_tail_addr = priv->dma_rx_phy +
-+			rx_q->rx_tail_addr = rx_q->dma_rx_phy +
- 				    (DMA_RX_SIZE * sizeof(struct dma_desc));
- 			priv->hw->dma->set_rx_tail_ptr(priv->ioaddr,
--						       priv->rx_tail_addr,
-+						       rx_q->rx_tail_addr,
- 						       chan);
- 		}
- 
- 		/* DMA TX Channel Configuration */
- 		for (chan = 0; chan < tx_channels_count; chan++) {
-+			/* chan <-> queue mapping assures this */
-+			tx_q = &priv->tx_queue[chan];
- 			priv->hw->dma->init_chan(priv->ioaddr,
- 							priv->plat->dma_cfg,
- 							chan);
- 
- 			priv->hw->dma->init_tx_chan(priv->ioaddr,
- 						    priv->plat->dma_cfg,
--						    priv->dma_tx_phy, chan);
-+						    tx_q->dma_tx_phy, chan);
- 
--			priv->tx_tail_addr = priv->dma_tx_phy +
-+			tx_q->tx_tail_addr = tx_q->dma_tx_phy +
- 				    (DMA_TX_SIZE * sizeof(struct dma_desc));
- 			priv->hw->dma->set_tx_tail_ptr(priv->ioaddr,
--						       priv->tx_tail_addr,
-+						       tx_q->tx_tail_addr,
- 						       chan);
- 		}
- 
- 	} else {
-+		/* chan <-> queue mapping assures this */
-+		rx_q = &priv->rx_queue[chan];
-+		tx_q = &priv->tx_queue[chan];
-+
- 		priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg,
--				    priv->dma_tx_phy, priv->dma_rx_phy, atds);
-+				    tx_q->dma_tx_phy, rx_q->dma_rx_phy,
-+				    atds);
- 	}
- 
- 	if (priv->plat->axi && priv->hw->dma->axi)
-@@ -1986,8 +2324,70 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- static void stmmac_tx_timer(unsigned long data)
- {
- 	struct stmmac_priv *priv = (struct stmmac_priv *)data;
-+	u32 tx_queues_count = priv->dma_cap.number_tx_queues;
-+	u32 queue = 0;
-+
-+	/* let's scan all the tx queues */
-+	for (queue = 0; queue < tx_queues_count; queue++)
-+		stmmac_tx_clean(priv, queue);
-+}
-+
-+/**
-+ * stmmac_stop_all_queues - Stop all queues
-+ * @priv: driver private structure
-+ */
-+static void stmmac_stop_all_queues(struct stmmac_priv *priv)
-+{
-+	u32 tx_queues_cnt = priv->dma_cap.number_tx_queues;
-+	u32 queue = 0;
-+
-+	for (queue = 0; queue < tx_queues_cnt; queue++)
-+		netif_tx_stop_queue(netdev_get_tx_queue(priv->dev, queue));
-+}
-+
-+/**
-+ * stmmac_disable_all_queues - Disable all queues
-+ * @priv: driver private structure
-+ */
-+static void stmmac_disable_all_queues(struct stmmac_priv *priv)
-+{
-+	u32 rx_queues_cnt = priv->dma_cap.number_rx_queues;
-+	u32 queue = 0;
-+
-+	for (queue = 0; queue < rx_queues_cnt; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
- 
--	stmmac_tx_clean(priv);
-+		napi_disable(&rx_q->napi);
-+	}
-+}
-+
-+/**
-+ * stmmac_start_all_queues - Start all queues
-+ * @priv: driver private structure
-+ */
-+static void stmmac_start_all_queues(struct stmmac_priv *priv)
-+{
-+	u32 tx_queues_cnt = priv->dma_cap.number_tx_queues;
-+	u32 queue = 0;
-+
-+	for (queue = 0; queue < tx_queues_cnt; queue++)
-+		netif_tx_start_queue(netdev_get_tx_queue(priv->dev, queue));
-+}
-+
-+/**
-+ * stmmac_enable_all_queues - Enable all queues
-+ * @priv: driver private structure
-+ */
-+static void stmmac_enable_all_queues(struct stmmac_priv *priv)
-+{
-+	u32 rx_queues_cnt = priv->dma_cap.number_rx_queues;
-+	u32 queue = 0;
-+
-+	for (queue = 0; queue < rx_queues_cnt; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		napi_enable(&rx_q->napi);
-+	}
- }
- 
- /**
-@@ -2180,23 +2580,8 @@ static int stmmac_open(struct net_device *dev)
- 	memset(&priv->xstats, 0, sizeof(struct stmmac_extra_stats));
- 	priv->xstats.threshold = tc;
- 
--	priv->dma_buf_sz = STMMAC_ALIGN(buf_sz);
- 	priv->rx_copybreak = STMMAC_RX_COPYBREAK;
- 
--	ret = alloc_dma_desc_resources(priv);
--	if (ret < 0) {
--		netdev_err(priv->dev, "%s: DMA descriptors allocation failed\n",
--			   __func__);
--		goto dma_desc_error;
--	}
+-static void can_remove_proc_readentry(const char *name)
+-{
+-       if (can_dir)
+-               remove_proc_entry(name, can_dir);
+-}
 -
--	ret = init_dma_desc_rings(dev, GFP_KERNEL);
--	if (ret < 0) {
--		netdev_err(priv->dev, "%s: DMA descriptors initialization failed\n",
--			   __func__);
--		goto init_error;
--	}
--
- 	ret = stmmac_hw_setup(dev, true);
- 	if (ret < 0) {
- 		netdev_err(priv->dev, "%s: Hw setup failed\n", __func__);
-@@ -2242,8 +2627,8 @@ static int stmmac_open(struct net_device *dev)
- 		}
- 	}
- 
--	napi_enable(&priv->napi);
--	netif_start_queue(dev);
-+	stmmac_enable_all_queues(priv);
-+	stmmac_start_all_queues(priv);
- 
- 	return 0;
- 
-@@ -2255,7 +2640,7 @@ static int stmmac_open(struct net_device *dev)
- 
- init_error:
- 	free_dma_desc_resources(priv);
--dma_desc_error:
-+
- 	if (dev->phydev)
- 		phy_disconnect(dev->phydev);
- 
-@@ -2281,9 +2666,9 @@ static int stmmac_release(struct net_device *dev)
- 		phy_disconnect(dev->phydev);
- 	}
- 
--	netif_stop_queue(dev);
-+	stmmac_stop_all_queues(priv);
- 
--	napi_disable(&priv->napi);
-+	stmmac_disable_all_queues(priv);
- 
- 	del_timer_sync(&priv->txtimer);
- 
-@@ -2320,13 +2705,15 @@ static int stmmac_release(struct net_device *dev)
-  *  @des: buffer start address
-  *  @total_len: total length to fill in descriptors
-  *  @last_segmant: condition for the last descriptor
-+ *  @queue: TX queue index
-  *  Description:
-  *  This function fills descriptor and request new descriptors according to
-  *  buffer length to fill
+-/*
+  * can_init_proc - create main CAN proc directory and procfs entries
   */
- static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
--				 int total_len, bool last_segment)
-+				 int total_len, bool last_segment, u32 queue)
+-void can_init_proc(void)
++void can_init_proc(struct net *net)
  {
-+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
- 	struct dma_desc *desc;
- 	int tmp_len;
- 	u32 buff_size;
-@@ -2334,8 +2721,8 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
- 	tmp_len = total_len;
+        /* create /proc/net/can directory */
+-       can_dir = proc_mkdir("can", init_net.proc_net);
++       net->can.proc_dir = proc_net_mkdir(net, "can", net->proc_net);
  
- 	while (tmp_len > 0) {
--		priv->cur_tx = STMMAC_GET_ENTRY(priv->cur_tx, DMA_TX_SIZE);
--		desc = priv->dma_tx + priv->cur_tx;
-+		tx_q->cur_tx = STMMAC_GET_ENTRY(tx_q->cur_tx, DMA_TX_SIZE);
-+		desc = tx_q->dma_tx + tx_q->cur_tx;
+-       if (!can_dir) {
+-               pr_info("can: failed to create /proc/net/can.\n");
++       if (!net->can.proc_dir) {
++               printk(KERN_INFO "can: failed to create /proc/net/can . "
++                          "CONFIG_PROC_FS missing?\n");
+                return;
+        }
  
- 		desc->des0 = cpu_to_le32(des + (total_len - tmp_len));
- 		buff_size = tmp_len >= TSO_MAX_BUFF_SIZE ?
-@@ -2382,6 +2769,8 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	u32 pay_len, mss;
- 	int tmp_pay_len = 0;
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 queue = skb_get_queue_mapping(skb);
-+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
- 	int nfrags = skb_shinfo(skb)->nr_frags;
- 	unsigned int first_entry, des;
- 	struct dma_desc *desc, *first, *mss_desc = NULL;
-@@ -2392,10 +2781,10 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	proto_hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 
- 	/* Desc availability based on threshold should be enough safe */
--	if (unlikely(stmmac_tx_avail(priv) <
-+	if (unlikely(stmmac_tx_avail(priv, queue) <
- 		(((skb->len - proto_hdr_len) / TSO_MAX_BUFF_SIZE + 1)))) {
--		if (!netif_queue_stopped(dev)) {
--			netif_stop_queue(dev);
-+		if (!netif_tx_queue_stopped(netdev_get_tx_queue(dev, queue))) {
-+			netif_tx_stop_queue(netdev_get_tx_queue(dev, queue));
- 			/* This is a hard error, log it. */
- 			netdev_err(priv->dev,
- 				   "%s: Tx Ring full when queue awake\n",
-@@ -2410,10 +2799,11 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* set new MSS value if needed */
- 	if (mss != priv->mss) {
--		mss_desc = priv->dma_tx + priv->cur_tx;
-+		mss_desc = tx_q->dma_tx + tx_q->cur_tx;
- 		priv->hw->desc->set_mss(mss_desc, mss);
- 		priv->mss = mss;
--		priv->cur_tx = STMMAC_GET_ENTRY(priv->cur_tx, DMA_TX_SIZE);
-+		tx_q->cur_tx = STMMAC_GET_ENTRY(tx_q->cur_tx,
-+						    DMA_TX_SIZE);
- 	}
- 
- 	if (netif_msg_tx_queued(priv)) {
-@@ -2423,9 +2813,9 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 			skb->data_len);
- 	}
- 
--	first_entry = priv->cur_tx;
-+	first_entry = tx_q->cur_tx;
- 
--	desc = priv->dma_tx + first_entry;
-+	desc = tx_q->dma_tx + first_entry;
- 	first = desc;
- 
- 	/* first descriptor: fill Headers on Buf1 */
-@@ -2434,9 +2824,9 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (dma_mapping_error(priv->device, des))
- 		goto dma_map_err;
- 
--	priv->tx_skbuff_dma[first_entry].buf = des;
--	priv->tx_skbuff_dma[first_entry].len = skb_headlen(skb);
--	priv->tx_skbuff[first_entry] = skb;
-+	tx_q->tx_skbuff_dma[first_entry].buf = des;
-+	tx_q->tx_skbuff_dma[first_entry].len = skb_headlen(skb);
-+	tx_q->tx_skbuff[first_entry] = skb;
- 
- 	first->des0 = cpu_to_le32(des);
- 
-@@ -2447,7 +2837,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* If needed take extra descriptors to fill the remaining payload */
- 	tmp_pay_len = pay_len - TSO_MAX_BUFF_SIZE;
- 
--	stmmac_tso_allocator(priv, des, tmp_pay_len, (nfrags == 0));
-+	stmmac_tso_allocator(priv, des, tmp_pay_len, (nfrags == 0), queue);
- 
- 	/* Prepare fragments */
- 	for (i = 0; i < nfrags; i++) {
-@@ -2458,22 +2848,23 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 				       DMA_TO_DEVICE);
- 
- 		stmmac_tso_allocator(priv, des, skb_frag_size(frag),
--				     (i == nfrags - 1));
-+				     (i == nfrags - 1), queue);
- 
--		priv->tx_skbuff_dma[priv->cur_tx].buf = des;
--		priv->tx_skbuff_dma[priv->cur_tx].len = skb_frag_size(frag);
--		priv->tx_skbuff[priv->cur_tx] = NULL;
--		priv->tx_skbuff_dma[priv->cur_tx].map_as_page = true;
-+		tx_q->tx_skbuff_dma[tx_q->cur_tx].buf = des;
-+		tx_q->tx_skbuff_dma[tx_q->cur_tx].len = skb_frag_size(frag);
-+		tx_q->tx_skbuff[tx_q->cur_tx] = NULL;
-+		tx_q->tx_skbuff_dma[tx_q->cur_tx].map_as_page = true;
- 	}
- 
--	priv->tx_skbuff_dma[priv->cur_tx].last_segment = true;
-+	tx_q->tx_skbuff_dma[tx_q->cur_tx].last_segment = true;
-+
-+	tx_q->cur_tx = STMMAC_GET_ENTRY(tx_q->cur_tx, DMA_TX_SIZE);
- 
--	priv->cur_tx = STMMAC_GET_ENTRY(priv->cur_tx, DMA_TX_SIZE);
-+	if (unlikely(stmmac_tx_avail(priv, queue) <= (MAX_SKB_FRAGS + 1))) {
- 
--	if (unlikely(stmmac_tx_avail(priv) <= (MAX_SKB_FRAGS + 1))) {
- 		netif_dbg(priv, hw, priv->dev, "%s: stop transmitted packets\n",
- 			  __func__);
--		netif_stop_queue(dev);
-+		netif_tx_stop_queue(netdev_get_tx_queue(dev, queue));
- 	}
- 
- 	dev->stats.tx_bytes += skb->len;
-@@ -2505,7 +2896,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	priv->hw->desc->prepare_tso_tx_desc(first, 1,
- 			proto_hdr_len,
- 			pay_len,
--			1, priv->tx_skbuff_dma[first_entry].last_segment,
-+			1, tx_q->tx_skbuff_dma[first_entry].last_segment,
- 			tcp_hdrlen(skb) / 4, (skb->len - proto_hdr_len));
- 
- 	/* If context desc is used to change MSS */
-@@ -2520,20 +2911,21 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (netif_msg_pktdata(priv)) {
- 		pr_info("%s: curr=%d dirty=%d f=%d, e=%d, f_p=%p, nfrags %d\n",
--			__func__, priv->cur_tx, priv->dirty_tx, first_entry,
--			priv->cur_tx, first, nfrags);
-+			__func__, tx_q->cur_tx, tx_q->dirty_tx,
-+			first_entry, tx_q->cur_tx, first, nfrags);
- 
--		priv->hw->desc->display_ring((void *)priv->dma_tx, DMA_TX_SIZE,
--					     0);
-+		priv->hw->desc->display_ring((void *)tx_q->dma_tx,
-+					     DMA_TX_SIZE, 0);
- 
- 		pr_info(">>> frame to be transmitted: ");
- 		print_pkt(skb->data, skb_headlen(skb));
- 	}
- 
--	netdev_sent_queue(dev, skb->len);
-+	netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
- 
--	priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, priv->tx_tail_addr,
--				       STMMAC_CHAN0);
-+	/* chan <-> queue mapping assures this */
-+	priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, tx_q->tx_tail_addr,
-+				       queue);
- 
- 	return NETDEV_TX_OK;
- 
-@@ -2555,6 +2947,8 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 queue = skb_get_queue_mapping(skb);
-+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	int i, csum_insertion = 0, is_jumbo = 0;
- 	int nfrags = skb_shinfo(skb)->nr_frags;
-@@ -2569,9 +2963,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 			return stmmac_tso_xmit(skb, dev);
- 	}
- 
--	if (unlikely(stmmac_tx_avail(priv) < nfrags + 1)) {
--		if (!netif_queue_stopped(dev)) {
--			netif_stop_queue(dev);
-+	if (unlikely(stmmac_tx_avail(priv, queue) < nfrags + 1)) {
-+		if (!netif_tx_queue_stopped(netdev_get_tx_queue(dev, queue))) {
-+			netif_tx_stop_queue(netdev_get_tx_queue(dev, queue));
- 			/* This is a hard error, log it. */
- 			netdev_err(priv->dev,
- 				   "%s: Tx Ring full when queue awake\n",
-@@ -2583,19 +2977,19 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (priv->tx_path_in_lpi_mode)
- 		stmmac_disable_eee_mode(priv);
- 
--	entry = priv->cur_tx;
-+	entry = tx_q->cur_tx;
- 	first_entry = entry;
- 
- 	csum_insertion = (skb->ip_summed == CHECKSUM_PARTIAL);
- 
- 	if (likely(priv->extend_desc))
--		desc = (struct dma_desc *)(priv->dma_etx + entry);
-+		desc = (struct dma_desc *)(tx_q->dma_etx + entry);
- 	else
--		desc = priv->dma_tx + entry;
-+		desc = tx_q->dma_tx + entry;
- 
- 	first = desc;
- 
--	priv->tx_skbuff[first_entry] = skb;
-+	tx_q->tx_skbuff[first_entry] = skb;
- 
- 	enh_desc = priv->plat->enh_desc;
- 	/* To program the descriptors according to the size of the frame */
-@@ -2604,7 +2998,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (unlikely(is_jumbo) && likely(priv->synopsys_id <
- 					 DWMAC_CORE_4_00)) {
--		entry = priv->hw->mode->jumbo_frm(priv, skb, csum_insertion);
-+		entry = priv->hw->mode->jumbo_frm(tx_q, skb, csum_insertion);
- 		if (unlikely(entry < 0))
- 			goto dma_map_err;
- 	}
-@@ -2617,26 +3011,26 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
- 
- 		if (likely(priv->extend_desc))
--			desc = (struct dma_desc *)(priv->dma_etx + entry);
-+			desc = (struct dma_desc *)(tx_q->dma_etx + entry);
- 		else
--			desc = priv->dma_tx + entry;
-+			desc = tx_q->dma_tx + entry;
- 
- 		des = skb_frag_dma_map(priv->device, frag, 0, len,
- 				       DMA_TO_DEVICE);
- 		if (dma_mapping_error(priv->device, des))
- 			goto dma_map_err; /* should reuse desc w/o issues */
- 
--		priv->tx_skbuff[entry] = NULL;
-+		tx_q->tx_skbuff[entry] = NULL;
- 
--		priv->tx_skbuff_dma[entry].buf = des;
-+		tx_q->tx_skbuff_dma[entry].buf = des;
- 		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
- 			desc->des0 = cpu_to_le32(des);
- 		else
- 			desc->des2 = cpu_to_le32(des);
- 
--		priv->tx_skbuff_dma[entry].map_as_page = true;
--		priv->tx_skbuff_dma[entry].len = len;
--		priv->tx_skbuff_dma[entry].last_segment = last_segment;
-+		tx_q->tx_skbuff_dma[entry].map_as_page = true;
-+		tx_q->tx_skbuff_dma[entry].len = len;
-+		tx_q->tx_skbuff_dma[entry].last_segment = last_segment;
- 
- 		/* Prepare the descriptor and set the own bit too */
- 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
-@@ -2645,20 +3039,20 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
- 
--	priv->cur_tx = entry;
-+	tx_q->cur_tx = entry;
- 
- 	if (netif_msg_pktdata(priv)) {
- 		void *tx_head;
- 
- 		netdev_dbg(priv->dev,
- 			   "%s: curr=%d dirty=%d f=%d, e=%d, first=%p, nfrags=%d",
--			   __func__, priv->cur_tx, priv->dirty_tx, first_entry,
--			   entry, first, nfrags);
-+			   __func__, tx_q->cur_tx, tx_q->dirty_tx,
-+			   first_entry, entry, first, nfrags);
- 
- 		if (priv->extend_desc)
--			tx_head = (void *)priv->dma_etx;
-+			tx_head = (void *)tx_q->dma_etx;
- 		else
--			tx_head = (void *)priv->dma_tx;
-+			tx_head = (void *)tx_q->dma_tx;
- 
- 		priv->hw->desc->display_ring(tx_head, DMA_TX_SIZE, false);
- 
-@@ -2666,10 +3060,10 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		print_pkt(skb->data, skb->len);
- 	}
- 
--	if (unlikely(stmmac_tx_avail(priv) <= (MAX_SKB_FRAGS + 1))) {
-+	if (unlikely(stmmac_tx_avail(priv, queue) <= (MAX_SKB_FRAGS + 1))) {
- 		netif_dbg(priv, hw, priv->dev, "%s: stop transmitted packets\n",
- 			  __func__);
--		netif_stop_queue(dev);
-+		netif_tx_stop_queue(netdev_get_tx_queue(dev, queue));
- 	}
- 
- 	dev->stats.tx_bytes += skb->len;
-@@ -2704,14 +3098,14 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		if (dma_mapping_error(priv->device, des))
- 			goto dma_map_err;
- 
--		priv->tx_skbuff_dma[first_entry].buf = des;
-+		tx_q->tx_skbuff_dma[first_entry].buf = des;
- 		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
- 			first->des0 = cpu_to_le32(des);
- 		else
- 			first->des2 = cpu_to_le32(des);
- 
--		priv->tx_skbuff_dma[first_entry].len = nopaged_len;
--		priv->tx_skbuff_dma[first_entry].last_segment = last_segment;
-+		tx_q->tx_skbuff_dma[first_entry].len = nopaged_len;
-+		tx_q->tx_skbuff_dma[first_entry].last_segment = last_segment;
- 
- 		if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
- 			     priv->hwts_tx_en)) {
-@@ -2732,13 +3126,14 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		dma_wmb();
- 	}
- 
--	netdev_sent_queue(dev, skb->len);
-+	netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
- 
-+	/* chan <-> queue mapping assures this */
- 	if (priv->synopsys_id < DWMAC_CORE_4_00)
- 		priv->hw->dma->enable_dma_transmission(priv->ioaddr);
- 	else
--		priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, priv->tx_tail_addr,
--					       STMMAC_CHAN0);
-+		priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, tx_q->tx_tail_addr,
-+					       queue);
- 
- 	return NETDEV_TX_OK;
- 
-@@ -2766,9 +3161,9 @@ static void stmmac_rx_vlan(struct net_device *dev, struct sk_buff *skb)
+        /* own procfs entries from the AF_CAN core */
+-       pde_version     = proc_create(CAN_PROC_VERSION, 0644, can_dir,
+-                                     &can_version_proc_fops);
+-       pde_stats       = proc_create(CAN_PROC_STATS, 0644, can_dir,
+-                                     &can_stats_proc_fops);
+-       pde_reset_stats = proc_create(CAN_PROC_RESET_STATS, 0644, can_dir,
+-                                     &can_reset_stats_proc_fops);
+-       pde_rcvlist_err = proc_create_data(CAN_PROC_RCVLIST_ERR, 0644, can_dir,
+-                                          &can_rcvlist_proc_fops, (void *)RX_ERR);
+-       pde_rcvlist_all = proc_create_data(CAN_PROC_RCVLIST_ALL, 0644, can_dir,
+-                                          &can_rcvlist_proc_fops, (void *)RX_ALL);
+-       pde_rcvlist_fil = proc_create_data(CAN_PROC_RCVLIST_FIL, 0644, can_dir,
+-                                          &can_rcvlist_proc_fops, (void *)RX_FIL);
+-       pde_rcvlist_inv = proc_create_data(CAN_PROC_RCVLIST_INV, 0644, can_dir,
+-                                          &can_rcvlist_proc_fops, (void *)RX_INV);
+-       pde_rcvlist_eff = proc_create(CAN_PROC_RCVLIST_EFF, 0644, can_dir,
+-                                     &can_rcvlist_eff_proc_fops);
+-       pde_rcvlist_sff = proc_create(CAN_PROC_RCVLIST_SFF, 0644, can_dir,
+-                                     &can_rcvlist_sff_proc_fops);
++       net->can.pde_version     = proc_create(CAN_PROC_VERSION, 0644,
++                                              net->can.proc_dir,
++                                              &can_version_proc_fops);
++       net->can.pde_stats       = proc_create(CAN_PROC_STATS, 0644,
++                                              net->can.proc_dir,
++                                              &can_stats_proc_fops);
++       net->can.pde_reset_stats = proc_create(CAN_PROC_RESET_STATS, 0644,
++                                              net->can.proc_dir,
++                                              &can_reset_stats_proc_fops);
++       net->can.pde_rcvlist_err = proc_create_data(CAN_PROC_RCVLIST_ERR, 0644,
++                                                   net->can.proc_dir,
++                                                   &can_rcvlist_proc_fops,
++                                                   (void *)RX_ERR);
++       net->can.pde_rcvlist_all = proc_create_data(CAN_PROC_RCVLIST_ALL, 0644,
++                                                   net->can.proc_dir,
++                                                   &can_rcvlist_proc_fops,
++                                                   (void *)RX_ALL);
++       net->can.pde_rcvlist_fil = proc_create_data(CAN_PROC_RCVLIST_FIL, 0644,
++                                                   net->can.proc_dir,
++                                                   &can_rcvlist_proc_fops,
++                                                   (void *)RX_FIL);
++       net->can.pde_rcvlist_inv = proc_create_data(CAN_PROC_RCVLIST_INV, 0644,
++                                                   net->can.proc_dir,
++                                                   &can_rcvlist_proc_fops,
++                                                   (void *)RX_INV);
++       net->can.pde_rcvlist_eff = proc_create(CAN_PROC_RCVLIST_EFF, 0644,
++                                              net->can.proc_dir,
++                                              &can_rcvlist_eff_proc_fops);
++       net->can.pde_rcvlist_sff = proc_create(CAN_PROC_RCVLIST_SFF, 0644,
++                                              net->can.proc_dir,
++                                              &can_rcvlist_sff_proc_fops);
  }
  
- 
--static inline int stmmac_rx_threshold_count(struct stmmac_priv *priv)
-+static inline int stmmac_rx_threshold_count(struct stmmac_rx_queue *rx_q)
- {
--	if (priv->rx_zeroc_thresh < STMMAC_RX_THRESH)
-+	if (rx_q->rx_zeroc_thresh < STMMAC_RX_THRESH)
- 		return 0;
- 
- 	return 1;
-@@ -2777,30 +3172,32 @@ static inline int stmmac_rx_threshold_count(struct stmmac_priv *priv)
- /**
-  * stmmac_rx_refill - refill used skb preallocated buffers
-  * @priv: driver private structure
-+ * @queue: RX queue index
-  * Description : this is to reallocate the skb for the reception process
-  * that is based on zero-copy.
+ /*
+  * can_remove_proc - remove procfs entries and main CAN proc directory
   */
--static inline void stmmac_rx_refill(struct stmmac_priv *priv)
-+static inline void stmmac_rx_refill(struct stmmac_priv *priv, u32 queue)
+-void can_remove_proc(void)
++void can_remove_proc(struct net *net)
  {
-+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+	int dirty = stmmac_rx_dirty(priv, queue);
-+	unsigned int entry = rx_q->dirty_rx;
- 	int bfsize = priv->dma_buf_sz;
--	unsigned int entry = priv->dirty_rx;
--	int dirty = stmmac_rx_dirty(priv);
+-       if (pde_version)
+-               can_remove_proc_readentry(CAN_PROC_VERSION);
++       if (net->can.pde_version)
++               remove_proc_entry(CAN_PROC_VERSION, net->can.proc_dir);
  
- 	while (dirty-- > 0) {
- 		struct dma_desc *p;
+-       if (pde_stats)
+-               can_remove_proc_readentry(CAN_PROC_STATS);
++       if (net->can.pde_stats)
++               remove_proc_entry(CAN_PROC_STATS, net->can.proc_dir);
  
- 		if (priv->extend_desc)
--			p = (struct dma_desc *)(priv->dma_erx + entry);
-+			p = (struct dma_desc *)(rx_q->dma_erx + entry);
- 		else
--			p = priv->dma_rx + entry;
-+			p = rx_q->dma_rx + entry;
+-       if (pde_reset_stats)
+-               can_remove_proc_readentry(CAN_PROC_RESET_STATS);
++       if (net->can.pde_reset_stats)
++               remove_proc_entry(CAN_PROC_RESET_STATS, net->can.proc_dir);
  
--		if (likely(priv->rx_skbuff[entry] == NULL)) {
-+		if (likely(!rx_q->rx_skbuff[entry])) {
- 			struct sk_buff *skb;
+-       if (pde_rcvlist_err)
+-               can_remove_proc_readentry(CAN_PROC_RCVLIST_ERR);
++       if (net->can.pde_rcvlist_err)
++               remove_proc_entry(CAN_PROC_RCVLIST_ERR, net->can.proc_dir);
  
- 			skb = netdev_alloc_skb_ip_align(priv->dev, bfsize);
- 			if (unlikely(!skb)) {
- 				/* so for a while no zero-copy! */
--				priv->rx_zeroc_thresh = STMMAC_RX_THRESH;
-+				rx_q->rx_zeroc_thresh = STMMAC_RX_THRESH;
- 				if (unlikely(net_ratelimit()))
- 					dev_err(priv->device,
- 						"fail to alloc skb entry %d\n",
-@@ -2808,28 +3205,30 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
- 				break;
- 			}
+-       if (pde_rcvlist_all)
+-               can_remove_proc_readentry(CAN_PROC_RCVLIST_ALL);
++       if (net->can.pde_rcvlist_all)
++               remove_proc_entry(CAN_PROC_RCVLIST_ALL, net->can.proc_dir);
  
--			priv->rx_skbuff[entry] = skb;
--			priv->rx_skbuff_dma[entry] =
-+			rx_q->rx_skbuff[entry] = skb;
-+			rx_q->rx_skbuff_dma[entry] =
- 			    dma_map_single(priv->device, skb->data, bfsize,
- 					   DMA_FROM_DEVICE);
- 			if (dma_mapping_error(priv->device,
--					      priv->rx_skbuff_dma[entry])) {
-+					      rx_q->rx_skbuff_dma[entry])) {
- 				netdev_err(priv->dev, "Rx DMA map failed\n");
- 				dev_kfree_skb(skb);
- 				break;
- 			}
+-       if (pde_rcvlist_fil)
+-               can_remove_proc_readentry(CAN_PROC_RCVLIST_FIL);
++       if (net->can.pde_rcvlist_fil)
++               remove_proc_entry(CAN_PROC_RCVLIST_FIL, net->can.proc_dir);
  
- 			if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00)) {
--				p->des0 = cpu_to_le32(priv->rx_skbuff_dma[entry]);
-+				p->des0 =
-+				cpu_to_le32(rx_q->rx_skbuff_dma[entry]);
- 				p->des1 = 0;
- 			} else {
--				p->des2 = cpu_to_le32(priv->rx_skbuff_dma[entry]);
-+				p->des2 =
-+				cpu_to_le32(rx_q->rx_skbuff_dma[entry]);
- 			}
- 			if (priv->hw->mode->refill_desc3)
--				priv->hw->mode->refill_desc3(priv, p);
-+				priv->hw->mode->refill_desc3(rx_q, p);
+-       if (pde_rcvlist_inv)
+-               can_remove_proc_readentry(CAN_PROC_RCVLIST_INV);
++       if (net->can.pde_rcvlist_inv)
++               remove_proc_entry(CAN_PROC_RCVLIST_INV, net->can.proc_dir);
  
--			if (priv->rx_zeroc_thresh > 0)
--				priv->rx_zeroc_thresh--;
-+			if (rx_q->rx_zeroc_thresh > 0)
-+				rx_q->rx_zeroc_thresh--;
+-       if (pde_rcvlist_eff)
+-               can_remove_proc_readentry(CAN_PROC_RCVLIST_EFF);
++       if (net->can.pde_rcvlist_eff)
++               remove_proc_entry(CAN_PROC_RCVLIST_EFF, net->can.proc_dir);
  
- 			netif_dbg(priv, rx_status, priv->dev,
- 				  "refill entry #%d\n", entry);
-@@ -2845,19 +3244,21 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+-       if (pde_rcvlist_sff)
+-               can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
++       if (net->can.pde_rcvlist_sff)
++               remove_proc_entry(CAN_PROC_RCVLIST_SFF, net->can.proc_dir);
  
- 		entry = STMMAC_GET_ENTRY(entry, DMA_RX_SIZE);
- 	}
--	priv->dirty_rx = entry;
-+	rx_q->dirty_rx = entry;
+-       if (can_dir)
+-               remove_proc_entry("can", init_net.proc_net);
++       if (net->can.proc_dir)
++               remove_proc_entry("can", net->proc_net);
+ }
+diff --git a/net/can/raw.c b/net/can/raw.c
+index b075f02..e534e7f 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -181,20 +181,21 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+                kfree_skb(skb);
  }
  
- /**
-  * stmmac_rx - manage the receive process
-  * @priv: driver private structure
-  * @limit: napi bugget.
-+ * @queue: RX queue index
-  * Description :  this the function called by the napi poll method.
-  * It gets all the frames inside the ring.
-  */
--static int stmmac_rx(struct stmmac_priv *priv, int limit)
-+static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
+-static int raw_enable_filters(struct net_device *dev, struct sock *sk,
+-                             struct can_filter *filter, int count)
++static int raw_enable_filters(struct net *net, struct net_device *dev,
++                             struct sock *sk, struct can_filter *filter,
++                             int count)
  {
--	unsigned int entry = priv->cur_rx;
-+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+	unsigned int entry = rx_q->cur_rx;
- 	unsigned int next_entry;
- 	unsigned int count = 0;
- 	int coe = priv->hw->rx_csum;
-@@ -2867,9 +3268,9 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+        int err = 0;
+        int i;
  
- 		netdev_dbg(priv->dev, "%s: descriptor ring:\n", __func__);
- 		if (priv->extend_desc)
--			rx_head = (void *)priv->dma_erx;
-+			rx_head = (void *)rx_q->dma_erx;
- 		else
--			rx_head = (void *)priv->dma_rx;
-+			rx_head = (void *)rx_q->dma_rx;
- 
- 		priv->hw->desc->display_ring(rx_head, DMA_RX_SIZE, true);
- 	}
-@@ -2879,9 +3280,9 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 		struct dma_desc *np;
- 
- 		if (priv->extend_desc)
--			p = (struct dma_desc *)(priv->dma_erx + entry);
-+			p = (struct dma_desc *)(rx_q->dma_erx + entry);
- 		else
--			p = priv->dma_rx + entry;
-+			p = rx_q->dma_rx + entry;
- 
- 		/* read the status of the incoming frame */
- 		status = priv->hw->desc->rx_status(&priv->dev->stats,
-@@ -2892,32 +3293,33 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 
- 		count++;
- 
--		priv->cur_rx = STMMAC_GET_ENTRY(priv->cur_rx, DMA_RX_SIZE);
--		next_entry = priv->cur_rx;
-+		rx_q->cur_rx = STMMAC_GET_ENTRY(rx_q->cur_rx,
-+						    DMA_RX_SIZE);
-+		next_entry = rx_q->cur_rx;
- 
- 		if (priv->extend_desc)
--			np = (struct dma_desc *)(priv->dma_erx + next_entry);
-+			np = (struct dma_desc *)(rx_q->dma_erx + next_entry);
- 		else
--			np = priv->dma_rx + next_entry;
-+			np = rx_q->dma_rx + next_entry;
- 
- 		prefetch(np);
- 
- 		if ((priv->extend_desc) && (priv->hw->desc->rx_extended_status))
- 			priv->hw->desc->rx_extended_status(&priv->dev->stats,
- 							   &priv->xstats,
--							   priv->dma_erx +
-+							   rx_q->dma_erx +
- 							   entry);
- 		if (unlikely(status == discard_frame)) {
- 			priv->dev->stats.rx_errors++;
- 			if (priv->hwts_rx_en && !priv->extend_desc) {
--				/* DESC2 & DESC3 will be overwritten by device
-+				/* DESC2 & DESC3 will be overwitten by device
- 				 * with timestamp value, hence reinitialize
- 				 * them in stmmac_rx_refill() function so that
- 				 * device can reuse it.
- 				 */
--				priv->rx_skbuff[entry] = NULL;
-+				rx_q->rx_skbuff[entry] = NULL;
- 				dma_unmap_single(priv->device,
--						 priv->rx_skbuff_dma[entry],
-+						 rx_q->rx_skbuff_dma[entry],
- 						 priv->dma_buf_sz,
- 						 DMA_FROM_DEVICE);
- 			}
-@@ -2933,7 +3335,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 
- 			frame_len = priv->hw->desc->get_rx_frame_len(p, coe);
- 
--			/*  If frame length is greater than skb buffer size
-+			/*  If frame length is greather than skb buffer size
- 			 *  (preallocated during init) then the packet is
- 			 *  ignored
- 			 */
-@@ -2965,7 +3367,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 			 */
- 			if (unlikely(!priv->plat->has_gmac4 &&
- 				     ((frame_len < priv->rx_copybreak) ||
--				     stmmac_rx_threshold_count(priv)))) {
-+				     stmmac_rx_threshold_count(rx_q)))) {
- 				skb = netdev_alloc_skb_ip_align(priv->dev,
- 								frame_len);
- 				if (unlikely(!skb)) {
-@@ -2977,21 +3379,21 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 				}
- 
- 				dma_sync_single_for_cpu(priv->device,
--							priv->rx_skbuff_dma
-+							rx_q->rx_skbuff_dma
- 							[entry], frame_len,
- 							DMA_FROM_DEVICE);
- 				skb_copy_to_linear_data(skb,
--							priv->
-+							rx_q->
- 							rx_skbuff[entry]->data,
- 							frame_len);
- 
- 				skb_put(skb, frame_len);
- 				dma_sync_single_for_device(priv->device,
--							   priv->rx_skbuff_dma
-+							   rx_q->rx_skbuff_dma
- 							   [entry], frame_len,
- 							   DMA_FROM_DEVICE);
- 			} else {
--				skb = priv->rx_skbuff[entry];
-+				skb = rx_q->rx_skbuff[entry];
- 				if (unlikely(!skb)) {
- 					netdev_err(priv->dev,
- 						   "%s: Inconsistent Rx chain\n",
-@@ -3000,12 +3402,12 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 					break;
- 				}
- 				prefetch(skb->data - NET_IP_ALIGN);
--				priv->rx_skbuff[entry] = NULL;
--				priv->rx_zeroc_thresh++;
-+				rx_q->rx_skbuff[entry] = NULL;
-+				rx_q->rx_zeroc_thresh++;
- 
- 				skb_put(skb, frame_len);
- 				dma_unmap_single(priv->device,
--						 priv->rx_skbuff_dma[entry],
-+						 rx_q->rx_skbuff_dma[entry],
- 						 priv->dma_buf_sz,
- 						 DMA_FROM_DEVICE);
- 			}
-@@ -3027,7 +3429,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 			else
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
--			napi_gro_receive(&priv->napi, skb);
-+			napi_gro_receive(&rx_q->napi, skb);
- 
- 			priv->dev->stats.rx_packets++;
- 			priv->dev->stats.rx_bytes += frame_len;
-@@ -3035,7 +3437,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 		entry = next_entry;
- 	}
- 
--	stmmac_rx_refill(priv);
-+	stmmac_rx_refill(priv, queue);
- 
- 	priv->xstats.rx_pkt_n += count;
- 
-@@ -3052,14 +3454,23 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
-  */
- static int stmmac_poll(struct napi_struct *napi, int budget)
- {
--	struct stmmac_priv *priv = container_of(napi, struct stmmac_priv, napi);
--	int work_done = 0;
--	u32 chan = 0; /* FIXME */
-+	struct stmmac_rx_queue *rx_q =
-+		container_of(napi, struct stmmac_rx_queue, napi);
-+	struct stmmac_priv *priv = rx_q->priv_data;
-+	u32 tx_queue_cnt = priv->dma_cap.number_tx_queues;
-+	/* chan <-> queue mapping assures this */
-+	u32 chan = rx_q->queue_index;
-+	u32 work_done = 0;
-+	u32 queue = 0;
- 
- 	priv->xstats.napi_poll++;
--	stmmac_tx_clean(priv);
- 
--	work_done = stmmac_rx(priv, budget);
-+	/* check all the queues */
-+	for (queue = 0; queue < tx_queue_cnt; queue++)
-+		stmmac_tx_clean(priv, queue);
-+
-+	/* Process RX packets from this queue */
-+	work_done = stmmac_rx(priv, budget, rx_q->queue_index);
- 	if (work_done < budget) {
- 		napi_complete_done(napi, work_done);
- 		stmmac_enable_dma_irq(priv, chan);
-@@ -3078,10 +3489,12 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
- static void stmmac_tx_timeout(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 tx_queue_cnt = priv->dma_cap.number_tx_queues;
- 	u32 queue = 0;
- 
- 	/* Clear Tx resources and restart transmitting again */
--	stmmac_tx_err(priv, queue);
-+	for (queue = 0; queue < tx_queue_cnt; queue++)
-+		stmmac_tx_err(priv, queue);
+        for (i = 0; i < count; i++) {
+-               err = can_rx_register(dev, filter[i].can_id,
++               err = can_rx_register(net, dev, filter[i].can_id,
+                                      filter[i].can_mask,
+                                      raw_rcv, sk, "raw");
+                if (err) {
+                        /* clean up successfully registered filters */
+                        while (--i >= 0)
+-                               can_rx_unregister(dev, filter[i].can_id,
++                               can_rx_unregister(net, dev, filter[i].can_id,
+                                                  filter[i].can_mask,
+                                                  raw_rcv, sk);
+                        break;
+@@ -204,57 +205,62 @@ static int raw_enable_filters(struct net_device *dev, struct sock *sk,
+        return err;
  }
  
- /**
-@@ -3141,7 +3554,7 @@ static netdev_features_t stmmac_fix_features(struct net_device *dev,
- 	/* Some GMAC devices have a bugged Jumbo frame support that
- 	 * needs to have the Tx COE disabled for oversized frames
- 	 * (due to limited buffer sizes). In this case we disable
--	 * the TX csum insertion in the TDES and not use SF.
-+	 * the TX csum insertionin the TDES and not use SF.
- 	 */
- 	if (priv->plat->bugged_jumbo && (dev->mtu > ETH_DATA_LEN))
- 		features &= ~NETIF_F_CSUM_MASK;
-@@ -3219,6 +3632,9 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
- 		}
- 
- 		for (chan = 0; chan < channels_count; chan++) {
-+			/* chan <-> queue mapping assures this */
-+			struct stmmac_rx_queue *rx_q = &priv->rx_queue[chan];
-+
- 			status = priv->hw->mac->host_mtl_irq_status(priv->hw,
- 								    chan);
- 
-@@ -3226,7 +3642,7 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
- 				if (status & CORE_IRQ_MTL_RX_OVERFLOW &&
- 				    priv->hw->dma->set_rx_tail_ptr)
- 					priv->hw->dma->set_rx_tail_ptr(priv->ioaddr,
--							priv->rx_tail_addr,
-+							rx_q->rx_tail_addr,
- 							chan);
- 			}
- 		}
-@@ -3326,17 +3742,40 @@ static int stmmac_sysfs_ring_read(struct seq_file *seq, void *v)
+-static int raw_enable_errfilter(struct net_device *dev, struct sock *sk,
+-                               can_err_mask_t err_mask)
++static int raw_enable_errfilter(struct net *net, struct net_device *dev,
++                               struct sock *sk, can_err_mask_t err_mask)
  {
- 	struct net_device *dev = seq->private;
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 rx_queue_cnt = priv->dma_cap.number_rx_queues;
-+	u32 tx_queue_cnt = priv->dma_cap.number_tx_queues;
-+	u32 queue = 0;
+        int err = 0;
  
--	if (priv->extend_desc) {
--		seq_printf(seq, "Extended RX descriptor ring:\n");
--		sysfs_display_ring((void *)priv->dma_erx, DMA_RX_SIZE, 1, seq);
--		seq_printf(seq, "Extended TX descriptor ring:\n");
--		sysfs_display_ring((void *)priv->dma_etx, DMA_TX_SIZE, 1, seq);
--	} else {
--		seq_printf(seq, "RX descriptor ring:\n");
--		sysfs_display_ring((void *)priv->dma_rx, DMA_RX_SIZE, 0, seq);
--		seq_printf(seq, "TX descriptor ring:\n");
--		sysfs_display_ring((void *)priv->dma_tx, DMA_TX_SIZE, 0, seq);
-+	for (queue = 0; queue < rx_queue_cnt; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		seq_printf(seq, "RX Queue %d:\n", queue);
-+
-+		if (priv->extend_desc) {
-+			seq_printf(seq, "Extended descriptor ring:\n");
-+			sysfs_display_ring((void *)rx_q->dma_erx,
-+					   DMA_RX_SIZE, 1, seq);
-+		} else {
-+			seq_printf(seq, "Descriptor ring:\n");
-+			sysfs_display_ring((void *)rx_q->dma_rx,
-+					   DMA_RX_SIZE, 0, seq);
-+		}
-+	}
-+
-+	for (queue = 0; queue < tx_queue_cnt; queue++) {
-+		struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
-+
-+		seq_printf(seq, "TX Queue %d:\n", queue);
-+
-+		if (priv->extend_desc) {
-+			seq_printf(seq, "Extended descriptor ring:\n");
-+			sysfs_display_ring((void *)tx_q->dma_etx,
-+					   DMA_TX_SIZE, 1, seq);
-+		} else {
-+			seq_printf(seq, "Descriptor ring:\n");
-+			sysfs_display_ring((void *)tx_q->dma_tx,
-+					   DMA_TX_SIZE, 0, seq);
-+		}
- 	}
+        if (err_mask)
+-               err = can_rx_register(dev, 0, err_mask | CAN_ERR_FLAG,
++               err = can_rx_register(net, dev, 0, err_mask | CAN_ERR_FLAG,
+                                      raw_rcv, sk, "raw");
  
- 	return 0;
-@@ -3381,7 +3820,7 @@ static int stmmac_sysfs_dma_cap_read(struct seq_file *seq, void *v)
- 		   (priv->dma_cap.hash_filter) ? "Y" : "N");
- 	seq_printf(seq, "\tMultiple MAC address registers: %s\n",
- 		   (priv->dma_cap.multi_addr) ? "Y" : "N");
--	seq_printf(seq, "\tPCS (TBI/SGMII/RTBI PHY interfaces): %s\n",
-+	seq_printf(seq, "\tPCS (TBI/SGMII/RTBI PHY interfatces): %s\n",
- 		   (priv->dma_cap.pcs) ? "Y" : "N");
- 	seq_printf(seq, "\tSMA (MDIO) Interface: %s\n",
- 		   (priv->dma_cap.sma_mdio) ? "Y" : "N");
-@@ -3622,8 +4061,11 @@ int stmmac_dvr_probe(struct device *device,
- 	int ret = 0;
- 	struct net_device *ndev = NULL;
- 	struct stmmac_priv *priv;
-+	u32 queue = 0;
+        return err;
+ }
  
--	ndev = alloc_etherdev(sizeof(struct stmmac_priv));
-+	ndev = alloc_etherdev_mqs(sizeof(struct stmmac_priv),
-+				  EQOS_MAX_NUMBER_TX_QUEUES,
-+				  EQOS_MAX_NUMBER_RX_QUEUES);
- 	if (!ndev)
- 		return -ENOMEM;
+-static void raw_disable_filters(struct net_device *dev, struct sock *sk,
+-                             struct can_filter *filter, int count)
++static void raw_disable_filters(struct net *net, struct net_device *dev,
++                               struct sock *sk, struct can_filter *filter,
++                               int count)
+ {
+        int i;
  
-@@ -3665,6 +4107,12 @@ int stmmac_dvr_probe(struct device *device,
- 	if (ret)
- 		goto error_hw_init;
+        for (i = 0; i < count; i++)
+-               can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
+-                                 raw_rcv, sk);
++               can_rx_unregister(net, dev, filter[i].can_id,
++                                 filter[i].can_mask, raw_rcv, sk);
+ }
  
-+	/* Configure real RX and TX queues */
-+	ndev->real_num_rx_queues = priv->dma_cap.number_rx_queues;
-+	ndev->real_num_tx_queues = priv->dma_cap.number_tx_queues;
-+
-+	priv->dma_buf_sz = STMMAC_ALIGN(buf_sz);
-+
- 	ndev->netdev_ops = &stmmac_netdev_ops;
+-static inline void raw_disable_errfilter(struct net_device *dev,
++static inline void raw_disable_errfilter(struct net *net,
++                                        struct net_device *dev,
+                                         struct sock *sk,
+                                         can_err_mask_t err_mask)
  
- 	ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-@@ -3714,7 +4162,26 @@ int stmmac_dvr_probe(struct device *device,
- 			 "Enable RX Mitigation via HW Watchdog Timer\n");
- 	}
+ {
+        if (err_mask)
+-               can_rx_unregister(dev, 0, err_mask | CAN_ERR_FLAG,
++               can_rx_unregister(net, dev, 0, err_mask | CAN_ERR_FLAG,
+                                  raw_rcv, sk);
+ }
  
--	netif_napi_add(ndev, &priv->napi, stmmac_poll, 64);
-+	ret = alloc_dma_desc_resources(priv);
-+	if (ret < 0) {
-+		netdev_err(priv->dev, "%s: DMA descriptors allocation failed\n",
-+			   __func__);
-+		goto init_dma_error;
-+	}
-+
-+	ret = init_dma_desc_rings(priv->dev, GFP_KERNEL);
-+	if (ret < 0) {
-+		netdev_err(priv->dev, "%s: DMA descriptors initialization failed\n",
-+			   __func__);
-+		goto init_dma_error;
-+	}
-+
-+	for (queue = 0; queue < priv->dma_cap.number_rx_queues; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		netif_napi_add(ndev, &rx_q->napi, stmmac_poll,
-+			       (64 * priv->dma_cap.number_rx_queues));
-+	}
+-static inline void raw_disable_allfilters(struct net_device *dev,
++static inline void raw_disable_allfilters(struct net *net,
++                                         struct net_device *dev,
+                                          struct sock *sk)
+ {
+        struct raw_sock *ro = raw_sk(sk);
  
- 	spin_lock_init(&priv->lock);
+-       raw_disable_filters(dev, sk, ro->filter, ro->count);
+-       raw_disable_errfilter(dev, sk, ro->err_mask);
++       raw_disable_filters(net, dev, sk, ro->filter, ro->count);
++       raw_disable_errfilter(net, dev, sk, ro->err_mask);
+ }
  
-@@ -3759,7 +4226,13 @@ int stmmac_dvr_probe(struct device *device,
- 	    priv->hw->pcs != STMMAC_PCS_RTBI)
- 		stmmac_mdio_unregister(ndev);
- error_mdio_register:
--	netif_napi_del(&priv->napi);
-+	for (queue = 0; queue < priv->dma_cap.number_rx_queues; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		netif_napi_del(&rx_q->napi);
-+	}
-+init_dma_error:
-+	free_dma_desc_resources(priv);
- error_hw_init:
- 	free_netdev(ndev);
+-static int raw_enable_allfilters(struct net_device *dev, struct sock *sk)
++static int raw_enable_allfilters(struct net *net, struct net_device *dev,
++                                struct sock *sk)
+ {
+        struct raw_sock *ro = raw_sk(sk);
+        int err;
  
-@@ -3821,9 +4294,9 @@ int stmmac_suspend(struct device *dev)
- 	spin_lock_irqsave(&priv->lock, flags);
+-       err = raw_enable_filters(dev, sk, ro->filter, ro->count);
++       err = raw_enable_filters(net, dev, sk, ro->filter, ro->count);
+        if (!err) {
+-               err = raw_enable_errfilter(dev, sk, ro->err_mask);
++               err = raw_enable_errfilter(net, dev, sk, ro->err_mask);
+                if (err)
+-                       raw_disable_filters(dev, sk, ro->filter, ro->count);
++                       raw_disable_filters(net, dev, sk, ro->filter,
++                                           ro->count);
+        }
  
- 	netif_device_detach(ndev);
--	netif_stop_queue(ndev);
-+	stmmac_stop_all_queues(priv);
+        return err;
+@@ -267,7 +273,7 @@ static int raw_notifier(struct notifier_block *nb,
+        struct raw_sock *ro = container_of(nb, struct raw_sock, notifier);
+        struct sock *sk = &ro->sk;
  
--	napi_disable(&priv->napi);
-+	stmmac_disable_all_queues(priv);
+-       if (!net_eq(dev_net(dev), &init_net))
++       if (!net_eq(dev_net(dev), sock_net(sk)))
+                return NOTIFY_DONE;
  
- 	/* Stop TX/RX DMA */
- 	stmmac_stop_all_dma(priv);
-@@ -3849,6 +4322,31 @@ int stmmac_suspend(struct device *dev)
- EXPORT_SYMBOL_GPL(stmmac_suspend);
+        if (dev->type != ARPHRD_CAN)
+@@ -282,7 +288,7 @@ static int raw_notifier(struct notifier_block *nb,
+                lock_sock(sk);
+                /* remove current filters & unregister */
+                if (ro->bound)
+-                       raw_disable_allfilters(dev, sk);
++                       raw_disable_allfilters(dev_net(dev), dev, sk);
  
- /**
-+ * stmmac_reset_queues_param - reset queue parameters
-+ * @dev: device pointer
-+ */
-+static void stmmac_reset_queues_param(struct stmmac_priv *priv)
-+{
-+	u32 rx_queues_cnt = priv->dma_cap.number_rx_queues;
-+	u32 tx_queues_cnt = priv->dma_cap.number_tx_queues;
-+	u32 queue = 0;
-+
-+	for (queue = 0; queue < rx_queues_cnt; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		rx_q->cur_rx = 0;
-+		rx_q->dirty_rx = 0;
-+	}
-+
-+	for (queue = 0; queue < tx_queues_cnt; queue++) {
-+		struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
-+
-+		tx_q->cur_tx = 0;
-+		tx_q->dirty_tx = 0;
-+	}
-+}
-+
-+/**
-  * stmmac_resume - resume callback
-  * @dev: device pointer
-  * Description: when resume this function is invoked to setup the DMA and CORE
-@@ -3876,7 +4374,7 @@ int stmmac_resume(struct device *dev)
- 		priv->irq_wake = 0;
- 	} else {
- 		pinctrl_pm_select_default_state(priv->device);
--		/* enable the clk previously disabled */
-+		/* enable the clk prevously disabled */
- 		clk_enable(priv->plat->stmmac_clk);
- 		clk_enable(priv->plat->pclk);
- 		/* reset the phy so that it's ready */
-@@ -3888,10 +4386,7 @@ int stmmac_resume(struct device *dev)
+                if (ro->count > 1)
+                        kfree(ro->filter);
+@@ -358,13 +364,13 @@ static int raw_release(struct socket *sock)
+                if (ro->ifindex) {
+                        struct net_device *dev;
  
- 	spin_lock_irqsave(&priv->lock, flags);
+-                       dev = dev_get_by_index(&init_net, ro->ifindex);
++                       dev = dev_get_by_index(sock_net(sk), ro->ifindex);
+                        if (dev) {
+-                               raw_disable_allfilters(dev, sk);
++                               raw_disable_allfilters(dev_net(dev), dev, sk);
+                                dev_put(dev);
+                        }
+                } else
+-                       raw_disable_allfilters(NULL, sk);
++                       raw_disable_allfilters(sock_net(sk), NULL, sk);
+        }
  
--	priv->cur_rx = 0;
--	priv->dirty_rx = 0;
--	priv->dirty_tx = 0;
--	priv->cur_tx = 0;
-+	stmmac_reset_queues_param(priv);
- 	/* reset private mss value to force mss context settings at
- 	 * next tso xmit (only used for gmac4).
- 	 */
-@@ -3903,9 +4398,9 @@ int stmmac_resume(struct device *dev)
- 	stmmac_init_tx_coalesce(priv);
- 	stmmac_set_rx_mode(ndev);
+        if (ro->count > 1)
+@@ -404,7 +410,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
+        if (addr->can_ifindex) {
+                struct net_device *dev;
  
--	napi_enable(&priv->napi);
-+	stmmac_enable_all_queues(priv);
+-               dev = dev_get_by_index(&init_net, addr->can_ifindex);
++               dev = dev_get_by_index(sock_net(sk), addr->can_ifindex);
+                if (!dev) {
+                        err = -ENODEV;
+                        goto out;
+@@ -420,13 +426,13 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
+                ifindex = dev->ifindex;
  
--	netif_start_queue(ndev);
-+	stmmac_start_all_queues(priv);
+                /* filters set by default/setsockopt */
+-               err = raw_enable_allfilters(dev, sk);
++               err = raw_enable_allfilters(sock_net(sk), dev, sk);
+                dev_put(dev);
+        } else {
+                ifindex = 0;
  
- 	spin_unlock_irqrestore(&priv->lock, flags);
+                /* filters set by default/setsockopt */
+-               err = raw_enable_allfilters(NULL, sk);
++               err = raw_enable_allfilters(sock_net(sk), NULL, sk);
+        }
  
--- 
-2.9.3
+        if (!err) {
+@@ -435,13 +441,14 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
+                        if (ro->ifindex) {
+                                struct net_device *dev;
+ 
+-                               dev = dev_get_by_index(&init_net, ro->ifindex);
++                               dev = dev_get_by_index(sock_net(sk),
++                                                      ro->ifindex);
+                                if (dev) {
+-                                       raw_disable_allfilters(dev, sk);
++                                       raw_disable_allfilters(dev_net(dev), dev, sk);
+                                        dev_put(dev);
+                                }
+                        } else
+-                               raw_disable_allfilters(NULL, sk);
++                               raw_disable_allfilters(sock_net(sk), NULL, sk);
+                }
+                ro->ifindex = ifindex;
+                ro->bound = 1;
+@@ -517,15 +524,16 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+                lock_sock(sk);
+ 
+                if (ro->bound && ro->ifindex)
+-                       dev = dev_get_by_index(&init_net, ro->ifindex);
++                       dev = dev_get_by_index(sock_net(sk), ro->ifindex);
+ 
+                if (ro->bound) {
+                        /* (try to) register the new filters */
+                        if (count == 1)
+-                               err = raw_enable_filters(dev, sk, &sfilter, 1);
++                               err = raw_enable_filters(sock_net(sk), dev, sk,
++                                                        &sfilter, 1);
+                        else
+-                               err = raw_enable_filters(dev, sk, filter,
+-                                                        count);
++                               err = raw_enable_filters(sock_net(sk), dev, sk,
++                                                        filter, count);
+                        if (err) {
+                                if (count > 1)
+                                        kfree(filter);
+@@ -533,7 +541,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+                        }
+ 
+                        /* remove old filter registrations */
+-                       raw_disable_filters(dev, sk, ro->filter, ro->count);
++                       raw_disable_filters(sock_net(sk), dev, sk, ro->filter,
++                                           ro->count);
+                }
+ 
+                /* remove old filter space */
+@@ -569,18 +578,20 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+                lock_sock(sk);
+ 
+                if (ro->bound && ro->ifindex)
+-                       dev = dev_get_by_index(&init_net, ro->ifindex);
++                       dev = dev_get_by_index(sock_net(sk), ro->ifindex);
+ 
+                /* remove current error mask */
+                if (ro->bound) {
+                        /* (try to) register the new err_mask */
+-                       err = raw_enable_errfilter(dev, sk, err_mask);
++                       err = raw_enable_errfilter(sock_net(sk), dev, sk,
++                                                  err_mask);
+
+                        if (err)
+                                goto out_err;
+
+                        /* remove old err_mask registration */
+-                       raw_disable_errfilter(dev, sk, ro->err_mask);
++                       raw_disable_errfilter(sock_net(sk), dev, sk,
++                                             ro->err_mask);
+                }
+
+                /* link new err_mask to the socket */
+@@ -741,7 +752,7 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
+                        return -EINVAL;
+        }
+
+-       dev = dev_get_by_index(&init_net, ifindex);
++       dev = dev_get_by_index(sock_net(sk), ifindex);
+        if (!dev)
+                return -ENXIO;
