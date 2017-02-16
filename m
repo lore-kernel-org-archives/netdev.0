@@ -1,30 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Thu, 16 Feb 2017 07:30:28 -0800
-Message-ID: <1487259028.1311.40.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG9bFC1nVC1Sp3WiAf_OkO_6O9XYqJGRn21yg32NYey6Vw@mail.gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next] sctp: change to use uint<size>_t in uapi sctp.h
+Date: Thu, 16 Feb 2017 23:40:33 +0800
+Message-ID: <CADvbK_c82TA+NETwPsMuTCx=k7tc9d6Wwi4yK5Y5NKOOVb5eTg@mail.gmail.com>
+References: <05fb9cd9aed85d33cc8d635a18b0dcd3e7c0ff29.1487060628.git.lucien.xin@gmail.com>
+ <20170214.112604.827348279100654183.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33841 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932172AbdBPPa3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 10:30:29 -0500
-Received: by mail-pf0-f193.google.com with SMTP id o64so1862417pfb.1
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 07:30:29 -0800 (PST)
-In-Reply-To: <CALzJLG9bFC1nVC1Sp3WiAf_OkO_6O9XYqJGRn21yg32NYey6Vw@mail.gmail.com>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:35211 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932120AbdBPPke (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 10:40:34 -0500
+In-Reply-To: <20170214.112604.827348279100654183.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-16 at 14:38 +0200, Saeed Mahameed wrote:
+On Wed, Feb 15, 2017 at 12:26 AM, David Miller <davem@davemloft.net> wrote:
+> From: Xin Long <lucien.xin@gmail.com>
+> Date: Tue, 14 Feb 2017 16:23:48 +0800
+>
+>> All structures in uapi sctp.h are exported for userspace, their members'
+>> types should use uint<size>_t instead of __u<size>.
+>
+> This is not true.
+>
+> __u<size> is in fact preferred for userspace exported datastructures.
+Hi, David, can you tell more details about uint<size>_t and __u<size>,
+especially for usage of kernel and userspace in linux ?
+or some documents about them.
 
-> Acked-by: Saeed Mahameed <saeedm@mellanox.com>
-
-Thanks for reviewing this Saeed !
+Thanks.
