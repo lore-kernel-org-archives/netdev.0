@@ -1,8 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 04/21] ARM: sun8i: dt: Add DT bindings
- documentation for Allwinner dwmac-sun8i
-Date: Thu, 16 Feb 2017 13:48:42 +0100
-Message-ID: <20170216124859.14346-5-clabbe.montjoie@gmail.com>
+Subject: [PATCH 13/21] ARM: dts: sun8i: Enable dwmac-sun8i on
+ the Orange Pi plus
+Date: Thu, 16 Feb 2017 13:48:51 +0100
+Message-ID: <20170216124859.14346-14-clabbe.montjoie@gmail.com>
 References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -22,7 +22,7 @@ To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	catalin.marinas-5wv7dgnIgG8@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBSGAS3CQKGQEOLYIL2Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBVOAS3CQKGQEZX4SKMA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170216124859.14346-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,106 +33,71 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-This patch adds documentation for Device-Tree bindings for the
-Allwinner dwmac-sun8i driver.
+The dwmac-sun8i hardware is present on the Orange PI plus.
+It uses an external PHY rtl8211e via RGMII.
+
+This patch create the needed regulator, emac and phy nodes.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- .../devicetree/bindings/net/dwmac-sun8i.txt        | 86 ++++++++++++++++++++++
- 1 file changed, 86 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+ arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts | 36 ++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-new file mode 100644
-index 0000000..ac806c6
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-@@ -0,0 +1,86 @@
-+* Allwinner sun8i GMAC ethernet controller
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
+index 8c40ab7..17b2b92 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
+@@ -58,6 +58,18 @@
+ 		enable-active-high;
+ 		gpio = <&pio 6 11 GPIO_ACTIVE_HIGH>;
+ 	};
 +
-+This device is a platform glue layer for stmmac.
-+Please see stmmac.txt for the other unchanged properties.
-+
-+Required properties:
-+- compatible: should be one of the following string:
-+		"allwinner,sun8i-a83t-emac"
-+		"allwinner,sun8i-h3-emac"
-+		"allwinner,sun50i-a64-emac"
-+- reg: address and length of the register for the device.
-+- interrupts: interrupt for the device
-+- interrupt-names: should be "macirq"
-+- clocks: A phandle to the reference clock for this device
-+- clock-names: should be "stmmaceth"
-+- resets: A phandle to the reset control for this device
-+- reset-names: should be "stmmaceth"
-+- phy-mode: See ethernet.txt
-+- phy-handle: See ethernet.txt
-+- #address-cells: shall be 1
-+- #size-cells: shall be 0
-+- syscon: A phandle to the syscon of the SoC with one of the following
-+ compatible string:
-+  - allwinner,sun8i-h3-system-controller
-+  - allwinner,sun8i-a64-system-controller
-+  - allwinner,sun8i-a83t-system-controller
-+
-+Optional properties:
-+- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
-+- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
-+Both delay properties does not have units, there are arbitrary value.
-+The TX/RX clock delay chain settings are board specific and could be found
-+in vendor FEX files.
-+
-+Optional properties for "allwinner,sun8i-h3-emac":
-+- allwinner,leds-active-low: EPHY LEDs are active low
-+
-+Required child node of emac:
-+- mdio bus node: should be named mdio
-+
-+Required properties of the mdio node:
-+- #address-cells: shall be 1
-+- #size-cells: shall be 0
-+
-+The device node referenced by "phy" or "phy-handle" should be a child node
-+of the mdio node. See phy.txt for the generic PHY bindings.
-+
-+Required properties of the phy node with "allwinner,sun8i-h3-emac":
-+- clocks: an extra phandle to the reference clock for the EPHY
-+- resets: an extra phandle to the reset control for the EPHY
-+
-+Required properties for the system controller:
-+- reg: address and length of the register for the device.
-+- compatible: should be "syscon" and one of the following string:
-+		"allwinner,sun8i-h3-system-controller"
-+		"allwinner,sun8i-a64-system-controller"
-+		"allwinner,sun8i-a83t-system-controller"
-+
-+Example:
-+
-+emac: ethernet@1c0b000 {
-+	compatible = "allwinner,sun8i-h3-emac";
-+	syscon = <&syscon>;
-+	reg = <0x01c0b000 0x104>;
-+	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+	interrupt-names = "macirq";
-+	resets = <&ccu RST_BUS_EMAC>;
-+	reset-names = "stmmaceth";
-+	clocks = <&ccu CLK_BUS_EMAC>;
-+	clock-names = "stmmaceth";
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+
-+	phy = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	mdio: mdio {
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+		int_mii_phy: ethernet-phy@1 {
-+			reg = <1>;
-+			clocks = <&ccu CLK_BUS_EPHY>;
-+			resets = <&ccu RST_BUS_EPHY>;
-+		};
++	reg_gmac_3v3: gmac-3v3 {
++		compatible = "regulator-fixed";
++		pinctrl-names = "default";
++		pinctrl-0 = <&gmac_power_pin_orangepi>;
++		regulator-name = "gmac-3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		startup-delay-us = <100000>;
++		enable-active-high;
++		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>;
 +	};
+ };
+ 
+ &ehci3 {
+@@ -86,8 +98,32 @@
+ 		pins = "PG11";
+ 		function = "gpio_out";
+ 	};
++
++	gmac_power_pin_orangepi: gmac_power_pin@0 {
++		allwinner,pins = "PD6";
++		allwinner,function = "gpio_out";
++		allwinner,drive = <SUN4I_PINCTRL_10_MA>;
++		allwinner,pull = <SUN4I_PINCTRL_NO_PULL>;
++		};
+ };
+ 
+ &usbphy {
+ 	usb3_vbus-supply = <&reg_usb3_vbus>;
+ };
++
++&mdio {
++	ext_rgmii_phy: ethernet-phy@1 {
++		reg = <0>;
++	};
++};
++
++&emac {
++	pinctrl-names = "default";
++	pinctrl-0 = <&emac_rgmii_pins>;
++	phy-supply = <&reg_gmac_3v3>;
++	phy-handle = <&ext_rgmii_phy>;
++	phy-mode = "rgmii";
++
++	allwinner,leds-active-low;
++	status = "okay";
 +};
 -- 
 2.10.2
