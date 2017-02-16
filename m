@@ -1,95 +1,56 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] net: bgmac: store MAC address directly in netdev->dev_addr
-Date: Thu, 16 Feb 2017 15:11:19 +0100
-Message-ID: <20170216141119.18505-1-tklauser@distanz.ch>
-Cc: rafal@milecki.pl, f.fainelli@gmail.com, jon.mason@broadcom.com,
-        arnd@arndb.de
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 net-next] net: phy: Add LED mode driver for Microsemi
+ PHYs.
+Date: Thu, 16 Feb 2017 15:19:17 +0100
+Message-ID: <20170216141917.GA17550@lunn.ch>
+References: <1486474826-29426-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20170215164540.eok7bnudfffzoyi4@rob-hp-laptop>
+ <20170216090646.GA29082@microsemi.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh@kernel.org>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, f.fainelli@gmail.com,
+        Allan.Nielsen@microsemi.com
+To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:48172 "EHLO mail.zhinst.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:41851 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754959AbdBPOLY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 09:11:24 -0500
+        id S1754504AbdBPOTU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 09:19:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20170216090646.GA29082@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit 34a5102c3235 ("net: bgmac: allocate struct bgmac just once
-& don't copy it") the mac_addr member of struct bgmac is no longer
-necessary to pass the MAC address to bgmac_enet_probe(). Instead it can
-directly be stored in netdev->dev_addr.
+On Thu, Feb 16, 2017 at 02:36:48PM +0530, Raju Lakkaraju wrote:
+> Hi Rob,
+> 
+> On Wed, Feb 15, 2017 at 10:45:40AM -0600, Rob Herring wrote:
+> > EXTERNAL EMAIL
+> > 
+> > 
+> > On Tue, Feb 07, 2017 at 07:10:26PM +0530, Raju Lakkaraju wrote:
+> > > From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> > >
+> > > +                       Default value is VSC8531_LINK_1000_ACTIVITY (1).
+> > > +- vsc8531,led-1-mode : LED mode. Specify how the LED[1] should behave.
+> > 
+> > You failed to address my comment on v2. vsc8531 is not a vendor prefix.
+> > Please fix in a new patch since David already applied it.
+> > 
+> 
+> Accpeted my fault. i missed your comment.
+> Do i need to change from  "vsc8531, led-0-mode" to "mscc, led-0-mode"
+> Is this your suggestion?
 
-Also use eth_hw_addr_random() instead of eth_random_addr() in case a
-random MAC is nedded. This will make sure netdev->addr_assign_type will
-be properly set.
+Hi Raju
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/ethernet/broadcom/bgmac-bcma.c     | 2 +-
- drivers/net/ethernet/broadcom/bgmac-platform.c | 2 +-
- drivers/net/ethernet/broadcom/bgmac.c          | 9 ++++-----
- drivers/net/ethernet/broadcom/bgmac.h          | 1 -
- 4 files changed, 6 insertions(+), 8 deletions(-)
+Are there any in kernel users of this binding? I don't think there
+are. I know Microsemi has a modified beagle bone black available as a
+development board, but i don't think mainline support for this board
+has been added yet?
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-index 5ef60d4f12b4..d59cfcc4c4d5 100644
---- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-@@ -144,7 +144,7 @@ static int bgmac_probe(struct bcma_device *core)
- 		goto err;
- 	}
- 
--	ether_addr_copy(bgmac->mac_addr, mac);
-+	ether_addr_copy(bgmac->net_dev->dev_addr, mac);
- 
- 	/* On BCM4706 we need common core to access PHY */
- 	if (core->id.id == BCMA_CORE_4706_MAC_GBIT &&
-diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
-index 805e6ed6c390..7b1af950f312 100644
---- a/drivers/net/ethernet/broadcom/bgmac-platform.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
-@@ -169,7 +169,7 @@ static int bgmac_probe(struct platform_device *pdev)
- 
- 	mac_addr = of_get_mac_address(np);
- 	if (mac_addr)
--		ether_addr_copy(bgmac->mac_addr, mac_addr);
-+		ether_addr_copy(bgmac->net_dev->dev_addr, mac_addr);
- 	else
- 		dev_warn(&pdev->dev, "MAC address not present in device tree\n");
- 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 20fe2520da42..415046750bb4 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1477,14 +1477,13 @@ int bgmac_enet_probe(struct bgmac *bgmac)
- 	net_dev->irq = bgmac->irq;
- 	SET_NETDEV_DEV(net_dev, bgmac->dev);
- 
--	if (!is_valid_ether_addr(bgmac->mac_addr)) {
-+	if (!is_valid_ether_addr(net_dev->dev_addr)) {
- 		dev_err(bgmac->dev, "Invalid MAC addr: %pM\n",
--			bgmac->mac_addr);
--		eth_random_addr(bgmac->mac_addr);
-+			net_dev->dev_addr);
-+		eth_hw_addr_random(net_dev);
- 		dev_warn(bgmac->dev, "Using random MAC: %pM\n",
--			 bgmac->mac_addr);
-+			 net_dev->dev_addr);
- 	}
--	ether_addr_copy(net_dev->dev_addr, bgmac->mac_addr);
- 
- 	/* This (reset &) enable is not preset in specs or reference driver but
- 	 * Broadcom does it in arch PCI code when enabling fake PCI device.
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index ab2db76e4fb8..248727dc62f2 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -474,7 +474,6 @@ struct bgmac {
- 
- 	struct device *dev;
- 	struct device *dma_dev;
--	unsigned char mac_addr[ETH_ALEN];
- 	u32 feature_flags;
- 
- 	struct net_device *net_dev;
--- 
-2.11.0
+Since there is nothing to remain backwards compatible with, you could
+change all the property names?
+
+       Andrew
