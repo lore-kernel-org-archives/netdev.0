@@ -1,76 +1,102 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/14] ixgbe: Support 2.5Gb and 5Gb speed
-Date: Thu, 16 Feb 2017 04:50:28 -0800
-Message-ID: <20170216125041.46668-2-jeffrey.t.kirsher@intel.com>
-References: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
-Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:18210 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754216AbdBPMup (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 07:50:45 -0500
-In-Reply-To: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Thu, 16 Feb 2017 15:08:00 +0200
+Message-ID: <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com>
+References: <20170213195858.5215-1-edumazet@google.com>
+ <20170213195858.5215-9-edumazet@google.com>
+ <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
+ <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
+ <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
+ <20170214131206.44b644f6@redhat.com>
+ <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
+ <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
+ <1487087488.8227.53.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S3530_2DYU-3VRmvRYZ3n05OqJZpJ3x02vXQd6Q7FUJQvw@mail.gmail.com>
+ <ccc4cb9e-9863-02e1-2789-4869aea3c661@mellanox.com>
+ <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>, "David S . Miller"
+	<davem@davemloft.net>, netdev <netdev@vger.kernel.org>, Martin KaFai Lau
+	<kafai@fb.com>, Saeed Mahameed <saeedm@mellanox.com>, Willem de Bruijn
+	<willemb@google.com>, Brenden Blanco <bblanco@plumgrid.com>, Alexei
+ Starovoitov <ast@kernel.org>, linux-mm <linux-mm@kvack.org>
+To: Eric Dumazet <edumazet@google.com>, Tariq Toukan <tariqt@mellanox.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
-Though not advertised through ethtool, if the link partner advertises a
-2.5Gb or 5Gb connection, and the adapter supports it, allow the speed to be
-used.
+On 15/02/2017 6:57 PM, Eric Dumazet wrote:
+> On Wed, Feb 15, 2017 at 8:42 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
+>> Isn't it the same principle in page_frag_alloc() ?
+>> It is called form __netdev_alloc_skb()/__napi_alloc_skb().
+>>
+>> Why is it ok to have order-3 pages (PAGE_FRAG_CACHE_MAX_ORDER) there?
+> This is not ok.
+>
+> This is a very well known problem, we already mentioned that here in the past,
+> but at least core networking stack uses  order-0 pages on PowerPC.
+You're right, we should have done this as well in mlx4 on PPC.
+> mlx4 driver suffers from this problem 100% more than other drivers ;)
+>
+> One problem at a time Tariq. Right now, only mlx4 has this big problem
+> compared to other NIC.
+We _do_ agree that the series improves the driver's quality, stability,
+and performance in a fragmented system.
 
-Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  3 +++
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     | 10 +++++++---
- 2 files changed, 10 insertions(+), 3 deletions(-)
+But due to the late rc we're in, and the fact that we know what benchmarks
+our customers are going to run, we cannot Ack the series and get it
+as is inside kernel 4.11.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index ee28e54a4f75..04f15092ae31 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -340,6 +340,9 @@ static int ixgbe_get_settings(struct net_device *netdev,
- 		case IXGBE_LINK_SPEED_10GB_FULL:
- 			ethtool_cmd_speed_set(ecmd, SPEED_10000);
- 			break;
-+		case IXGBE_LINK_SPEED_5GB_FULL:
-+			ethtool_cmd_speed_set(ecmd, SPEED_5000);
-+			break;
- 		case IXGBE_LINK_SPEED_2_5GB_FULL:
- 			ethtool_cmd_speed_set(ecmd, SPEED_2500);
- 			break;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 2fcde8777a29..e55b2602f371 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -768,9 +768,7 @@ s32 ixgbe_setup_phy_link_speed_generic(struct ixgbe_hw *hw,
- 				       ixgbe_link_speed speed,
- 				       bool autoneg_wait_to_complete)
- {
--
--	/*
--	 * Clear autoneg_advertised and set new values based on input link
-+	/* Clear autoneg_advertised and set new values based on input link
- 	 * speed.
- 	 */
- 	hw->phy.autoneg_advertised = 0;
-@@ -778,6 +776,12 @@ s32 ixgbe_setup_phy_link_speed_generic(struct ixgbe_hw *hw,
- 	if (speed & IXGBE_LINK_SPEED_10GB_FULL)
- 		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_10GB_FULL;
- 
-+	if (speed & IXGBE_LINK_SPEED_5GB_FULL)
-+		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_5GB_FULL;
-+
-+	if (speed & IXGBE_LINK_SPEED_2_5GB_FULL)
-+		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_2_5GB_FULL;
-+
- 	if (speed & IXGBE_LINK_SPEED_1GB_FULL)
- 		hw->phy.autoneg_advertised |= IXGBE_LINK_SPEED_1GB_FULL;
- 
--- 
-2.11.0
+We are interested to get your series merged along another perf improvement
+we are preparing for next rc1. This way we will earn the desired stability
+without breaking existing benchmarks.
+I think this is the right thing to do at this point of time.
+
+
+The idea behind the perf improvement, suggested by Jesper, is to split
+the napi_poll call mlx4_en_process_rx_cq() loop into two.
+The first loop extracts completed CQEs and starts prefetching on data
+and RX descriptors. The second loop process the real packets.
+
+>
+> Then, if we _still_ hit major issues, we might also need to force
+> napi_get_frags()
+> to allocate skb->head using kmalloc() instead of a page frag.
+>
+> That is a very simple fix.
+>
+> Remember that we have skb->truesize that is an approximation, it will
+> never be completely accurate,
+> but we need to make it better.
+>
+> mlx4 driver pretends to have a frag truesize of 1536 bytes, but this
+> is obviously wrong when host is under memory pressure
+> (2 frags per page -> truesize should be 2048)
+>
+>
+>> By using netdev/napi_alloc_skb, you'll get that the SKB's linear data is a
+>> frag of a huge page,
+>> and it is not going to be freed before the other non-linear frags.
+>> Cannot this cause the same threats (memory pinning and so...)?
+>>
+>> Currently, mlx4 doesn't use this generic API, while most other drivers do.
+>>
+>> Similar claims are true for TX:
+>> https://github.com/torvalds/linux/commit/5640f7685831e088fe6c2e1f863a6805962f8e81
+> We do not have such problem on TX. GFP_KERNEL allocations do not have
+> the same issues.
+>
+> Tasks are usually not malicious in our DC, and most serious
+> applications use memcg or such memory control.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
