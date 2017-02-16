@@ -1,53 +1,43 @@
-From: lkml@pengaru.com
-Subject: Re: [BUG] 4.10-rc8 - ping spinning?
-Date: Thu, 16 Feb 2017 08:08:06 -0800
-Message-ID: <20170216160806.GL582@shells.gnugeneration.com>
-References: <20170216120547.GK582@shells.gnugeneration.com>
- <CACSApvYq-7HGAO+UTsoCu6JVt_E4mdXKgpUbRD0YDP_M02ZdkQ@mail.gmail.com>
- <CACSApvYbP9peXPm2L4EFJokdXbGV7bTLgZNOEKEiHjLWcOOZHA@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [patch net-next RFC 0/8] Add support for pipeline debug (dpipe)
+Date: Thu, 16 Feb 2017 17:11:50 +0100
+Message-ID: <20170216161150.GC17550@lunn.ch>
+References: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Soheil Hassas Yeganeh <soheil@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com, jhs@mojatatu.com,
+        ivecera@redhat.com, roopa@cumulusnetworks.com,
+        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        john.fastabend@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:42008 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932254AbdBPQL4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 11:11:56 -0500
 Content-Disposition: inline
-In-Reply-To: <CACSApvYbP9peXPm2L4EFJokdXbGV7bTLgZNOEKEiHjLWcOOZHA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2017 at 10:52:19AM -0500, Soheil Hassas Yeganeh wrote:
-> On Thu, Feb 16, 2017 at 10:50 AM, Soheil Hassas Yeganeh
-> <soheil@google.com> wrote:
-> > Thank you Vito for the report.
-> >
-> > The patch you cited actually resolves a similar backward compatibility
-> > problem for traceroute.
-> >
-> > I suspect the problem here is that there's a local error queued on the
-> > error queue after an ICMP message. ping apparently expect the
-> > sk->sk_err to be set for the local errors as well, and hence the
-> > error. Ideally, ping should read the error queue if there an EPOLLERR,
-> > because local errors never sk->sk_err on their own. That is, if we
-> > have
+On Thu, Feb 16, 2017 at 04:22:36PM +0100, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> [oops] That is, if we have only one local error on the error queue, we
-> cannot rely on having an error on recvmsg (i.e., sk->sk_err being set)
-> even in 4.9.
-> 
-> <snip>
+> Arkadi says:
 
-Hi Soheil,
+Hi Jiri, Arkadi
 
-This doesn't appear to be trivially reproducible here by just running ping
-as it were originally discovered.  I'll see if I can reliably cause the
-malfunction somehow, but until then I can't meaningfully test patches.
+It is not mentioned here, but i assume you have a followup patchset
+which extends the devlink command to enumerate what tables are
+available and to print them?
 
-Perhaps a form of fault injection would make more sense if there's a
-reasonable idea of what this is stemming from?
+What i seem to be missing is headers in uapi which links kernel and
+userspace together. There are lots of enums defined, but few seem to
+be exported to user space for the table parser/printer to use.
 
-I've opened an issue with iputils on github in the event that this is found
-to be a ping bug.  Your input might be helpful there as well:
-https://github.com/iputils/iputils/issues/74
+Hopefully it will be more obvious when the user space patches are
+available.
 
-Thanks,
-Vito Caputo
+Thanks
+	Andrew
