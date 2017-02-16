@@ -1,46 +1,44 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next v7 2/2] qede: Add driver support for PTP
-Date: Thu, 16 Feb 2017 12:38:19 +0000
-Message-ID: <BL2PR07MB2306CD2B1CFECEE4AAB425108D5A0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1487147051-14350-1-git-send-email-Yuval.Mintz@cavium.com>
-         <1487147051-14350-3-git-send-email-Yuval.Mintz@cavium.com>
- <1487247814.1311.34.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
+Date: Thu, 16 Feb 2017 14:38:58 +0200
+Message-ID: <CALzJLG9bFC1nVC1Sp3WiAf_OkO_6O9XYqJGRn21yg32NYey6Vw@mail.gmail.com>
+References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0081.outbound.protection.outlook.com ([104.47.34.81]:39104
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753434AbdBPMiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 07:38:25 -0500
-In-Reply-To: <1487247814.1311.34.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:36817 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754297AbdBPMjT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 07:39:19 -0500
+Received: by mail-qt0-f193.google.com with SMTP id h53so1916782qth.3
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 04:39:19 -0800 (PST)
+In-Reply-To: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ICt2b2lkIHFlZGVfcHRwX3R4X3RzKHN0cnVjdCBxZWRlX2RldiAqZWRldiwgc3RydWN0IHNr
-X2J1ZmYgKnNrYikgew0KPiA+ICsJc3RydWN0IHFlZGVfcHRwICpwdHA7DQo+ID4gKw0KPiA+ICsJ
-cHRwID0gZWRldi0+cHRwOw0KPiA+ICsJaWYgKCFwdHApDQo+ID4gKwkJcmV0dXJuOw0KPiA+ICsN
-Cj4gPiArCWlmICh1bmxpa2VseSghKGVkZXYtPmZsYWdzICYgUUVERV9UWF9USU1FU1RBTVBJTkdf
-RU4pKSkgew0KPiA+ICsJCURQX05PVElDRShlZGV2LA0KPiA+ICsJCQkgICJUeCB0aW1lc3RhbXBp
-bmcgd2FzIG5vdCBlbmFibGVkLCB0aGlzIHBhY2tldCB3aWxsDQo+IG5vdCBiZSB0aW1lc3RhbXBl
-ZFxuIik7DQo+ID4gKwl9IGVsc2UgaWYgKHVubGlrZWx5KHB0cC0+dHhfc2tiKSkgew0KPiA+ICsJ
-CURQX05PVElDRShlZGV2LA0KPiA+ICsJCQkgICJUaGUgZGV2aWNlIHN1cHBvcnRzIG9ubHkgYSBz
-aW5nbGUgb3V0c3RhbmRpbmcNCj4gcGFja2V0IHRvIHRpbWVzdGFtcCwgdGhpcyBwYWNrZXQgd2ls
-bCBub3QgYmUgdGltZXN0YW1wZWRcbiIpOw0KPiA+ICsJfSBlbHNlIHsNCj4gPiArCQlza2Jfc2hp
-bmZvKHNrYiktPnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KPiA+ICsJCS8qIHNjaGVk
-dWxlIGNoZWNrIGZvciBUeCB0aW1lc3RhbXAgKi8NCj4gPiArCQlwdHAtPnR4X3NrYiA9IHNrYl9n
-ZXQoc2tiKTsNCj4gPiArCQlzY2hlZHVsZV93b3JrKCZwdHAtPndvcmspOw0KPiA+ICsJfQ0KPiA+
-ICt9DQo+IA0KPiANCj4gVGhpcyBpcyBhIG11bHRpIHF1ZXVlIGRldmljZS4NCj4gDQo+IFRoZXJl
-Zm9yZSBtdWx0aXBsZSBjcHVzIGNvdWxkIGNhbGwgdGhpcyBmdW5jdGlvbiBhdCB0aGUgc2FtZSB0
-aW1lLg0KPiANCj4gcHRwLT50eF9za2IgbmVlZHMgc29tZSBraW5kIG9mIFNNUCBwcm90ZWN0aW9u
-Lg0KDQpJSXMgaXQgYSByZWFsIGlzc3VlIG9yIG9kZCBjb3JuZXItY2FzZSBpbiBhY3R1YWwgc2Nl
-bmFyaW8/DQpSZWdhcmRsZXNzLCBJIGFzc3VtZSBpdCdzIGEgdGhlb3JldGljYWwgYnJlYWNoIHdh
-aXRpbmcgZm9yIGFuDQphZHZlcnNhcnkgdG8gZXhwbG9pdCwgc28gYmV0dGVyIGZpeCBpdCBub3cu
-DQoNCkknbGwgc2VuZCBhIGZpeCBsYXRlciB0b2RheS4gVGhhbmtzLg0K
+On Fri, Feb 10, 2017 at 2:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> All rx and rx netdev interrupts are handled by respectively
+> by mlx4_en_rx_irq() and mlx4_en_tx_irq() which simply schedule a NAPI.
+>
+> But mlx4_eq_int() also fires a tasklet to service all items that were
+> queued via mlx4_add_cq_to_tasklet(), but this handler was not called
+> unless user cqe was handled.
+>
+> This is very confusing, as "mpstat -I SCPU ..." show huge number of
+> tasklet invocations.
+>
+> This patch saves this overhead, by carefully firing the tasklet directly
+> from mlx4_add_cq_to_tasklet(), removing four atomic operations per IRQ.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Tariq Toukan <tariqt@mellanox.com>
+> Cc: Saeed Mahameed <saeedm@mellanox.com>
+
+Acked-by: Saeed Mahameed <saeedm@mellanox.com>
