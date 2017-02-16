@@ -1,145 +1,74 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: oki-semi: pch_gbe: use new api ethtool_{get|set}_link_ksettings
-Date: Thu, 16 Feb 2017 09:10:49 +0100
-Message-ID: <1487232649-27462-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH net-next V3 3/7] net/sched: Reflect HW offload status
+Date: Thu, 16 Feb 2017 10:17:44 +0200
+Message-ID: <20170216081744.GA8800@splinter.mtl.com>
+References: <1487148757-24809-1-git-send-email-ogerlitz@mellanox.com>
+ <1487148757-24809-4-git-send-email-ogerlitz@mellanox.com>
+ <CAJ3xEMg32qMp0Hh+BQbHdoMCKwX_ivvZVwo30njvXubR7ZQ8xA@mail.gmail.com>
+ <20170215102821.12f419e7@cakuba.netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Amir Vadai <amir@vadai.me>, Ido Schimmel <idosch@mellanox.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:43263 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750718AbdBPIRr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 03:17:47 -0500
+Content-Disposition: inline
+In-Reply-To: <20170215102821.12f419e7@cakuba.netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Wed, Feb 15, 2017 at 10:28:21AM -0800, Jakub Kicinski wrote:
+> What worries me is that the moment we started offloading packet
+> modification we run at the risk of modifying packets twice.  This used
+> to be a problem only for eBPF but now mlx5 can also offload things like
+> ttl decrement.  For filters which have no skip_* flags set and get
+> offloaded if packet doesn't get redirected or modified significantly it
+> will match the filter both in HW and on the host and therefore have the
+> actions applied twice.  And it will get counted twice.  (It seems nobody
+> ever raised this so perhaps I'm mistaken in thinking that this can
+> happen?)
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+FWIW, we already have that problem with bridge offload. There are some
+packets that you can easily forward in hardware, but still wants the
+software bridge to receive a copy. IGMP queries for example. These
+should be flooded to all ports in the bridge, so we do the forwarding in
+hardware, but send a copy to the bridge driver for it to mark the
+receiving port as an mrouter port.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- .../ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c    |   58 +++++++++++++-------
- 1 files changed, 38 insertions(+), 20 deletions(-)
+To prevent the packet from being flooded twice, we set
+'skb->offload_fwd_mark' inside the driver and have the bridge driver
+check it during its egress check. It's a bit more involved if you've
+several ASICs in the same bridge, but that's the gist. See commit
+6bc506b4fb06 ("bridge: switchdev: Add forward mark support for stacked
+devices") for more details.
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-index b19be7c..2109327 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-@@ -73,62 +73,80 @@ struct pch_gbe_stats {
- #define PCH_GBE_MAC_REGS_LEN    (sizeof(struct pch_gbe_regs) / 4)
- #define PCH_GBE_REGS_LEN        (PCH_GBE_MAC_REGS_LEN + PCH_GBE_PHY_REGS_LEN)
- /**
-- * pch_gbe_get_settings - Get device-specific settings
-+ * pch_gbe_get_link_ksettings - Get device-specific settings
-  * @netdev: Network interface device structure
-  * @ecmd:   Ethtool command
-  * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
--static int pch_gbe_get_settings(struct net_device *netdev,
--				 struct ethtool_cmd *ecmd)
-+static int pch_gbe_get_link_ksettings(struct net_device *netdev,
-+				      struct ethtool_link_ksettings *ecmd)
- {
- 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+	u32 supported, advertising;
- 	int ret;
- 
--	ret = mii_ethtool_gset(&adapter->mii, ecmd);
--	ecmd->supported &= ~(SUPPORTED_TP | SUPPORTED_1000baseT_Half);
--	ecmd->advertising &= ~(ADVERTISED_TP | ADVERTISED_1000baseT_Half);
-+	ret = mii_ethtool_get_link_ksettings(&adapter->mii, ecmd);
-+
-+	ethtool_convert_link_mode_to_legacy_u32(&supported,
-+						ecmd->link_modes.supported);
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						ecmd->link_modes.advertising);
-+
-+	supported &= ~(SUPPORTED_TP | SUPPORTED_1000baseT_Half);
-+	advertising &= ~(ADVERTISED_TP | ADVERTISED_1000baseT_Half);
-+
-+	ethtool_convert_legacy_u32_to_link_mode(ecmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(ecmd->link_modes.advertising,
-+						advertising);
- 
- 	if (!netif_carrier_ok(adapter->netdev))
--		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
-+		ecmd->base.speed = SPEED_UNKNOWN;
- 	return ret;
- }
- 
- /**
-- * pch_gbe_set_settings - Set device-specific settings
-+ * pch_gbe_set_link_ksettings - Set device-specific settings
-  * @netdev: Network interface device structure
-  * @ecmd:   Ethtool command
-  * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
--static int pch_gbe_set_settings(struct net_device *netdev,
--				 struct ethtool_cmd *ecmd)
-+static int pch_gbe_set_link_ksettings(struct net_device *netdev,
-+				      const struct ethtool_link_ksettings *ecmd)
- {
- 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
- 	struct pch_gbe_hw *hw = &adapter->hw;
--	u32 speed = ethtool_cmd_speed(ecmd);
-+	struct ethtool_link_ksettings copy_ecmd;
-+	u32 speed = ecmd->base.speed;
-+	u32 advertising;
- 	int ret;
- 
- 	pch_gbe_hal_write_phy_reg(hw, MII_BMCR, BMCR_RESET);
- 
-+	memcpy(&copy_ecmd, ecmd, sizeof(*ecmd));
-+
- 	/* when set_settings() is called with a ethtool_cmd previously
- 	 * filled by get_settings() on a down link, speed is -1: */
- 	if (speed == UINT_MAX) {
- 		speed = SPEED_1000;
--		ethtool_cmd_speed_set(ecmd, speed);
--		ecmd->duplex = DUPLEX_FULL;
-+		copy_ecmd.base.speed = speed;
-+		copy_ecmd.base.duplex = DUPLEX_FULL;
- 	}
--	ret = mii_ethtool_sset(&adapter->mii, ecmd);
-+	ret = mii_ethtool_set_link_ksettings(&adapter->mii, &copy_ecmd);
- 	if (ret) {
--		netdev_err(netdev, "Error: mii_ethtool_sset\n");
-+		netdev_err(netdev, "Error: mii_ethtool_set_link_ksettings\n");
- 		return ret;
- 	}
- 	hw->mac.link_speed = speed;
--	hw->mac.link_duplex = ecmd->duplex;
--	hw->phy.autoneg_advertised = ecmd->advertising;
--	hw->mac.autoneg = ecmd->autoneg;
-+	hw->mac.link_duplex = copy_ecmd.base.duplex;
-+	ethtool_convert_link_mode_to_legacy_u32(
-+		&advertising, copy_ecmd.link_modes.advertising);
-+	hw->phy.autoneg_advertised = advertising;
-+	hw->mac.autoneg = copy_ecmd.base.autoneg;
- 
- 	/* reset the link */
- 	if (netif_running(adapter->netdev)) {
-@@ -487,8 +505,6 @@ static int pch_gbe_get_sset_count(struct net_device *netdev, int sset)
- }
- 
- static const struct ethtool_ops pch_gbe_ethtool_ops = {
--	.get_settings = pch_gbe_get_settings,
--	.set_settings = pch_gbe_set_settings,
- 	.get_drvinfo = pch_gbe_get_drvinfo,
- 	.get_regs_len = pch_gbe_get_regs_len,
- 	.get_regs = pch_gbe_get_regs,
-@@ -503,6 +519,8 @@ static int pch_gbe_get_sset_count(struct net_device *netdev, int sset)
- 	.get_strings = pch_gbe_get_strings,
- 	.get_ethtool_stats = pch_gbe_get_ethtool_stats,
- 	.get_sset_count = pch_gbe_get_sset_count,
-+	.get_link_ksettings = pch_gbe_get_link_ksettings,
-+	.set_link_ksettings = pch_gbe_set_link_ksettings,
- };
- 
- void pch_gbe_set_ethtool_ops(struct net_device *netdev)
--- 
-1.7.4.4
+> Back to your patch set, I was hoping we will be able to use the new
+> IN_HW flag to skip filters in software even if they don't have skip_sw
+> set.  If we need to eject actions from HW based on external events, that
+> obviously complicates things.  Three trivial solutions to the problem
+> I could think of are:
+
+[...]
+
+>  - use one of recently freed skb TC bits to mark packets which were
+>    supposed to be processed in HW by could not as needing software
+>    fallback (I think this could work for you without parsing the packet
+>    in the driver, you could replace the tunnel action with mark action
+>    and leave the matching rule in HW classifier/TCAM; for BPF I have a
+>    descriptor flag telling me if offloaded BPF completed successfully).
+
+This is similar to what I described above. The tricky part is correctly
+marking the packet. In mlxsw, for each received packet we get the trap
+ID in the DMA descriptor, so we can easily determine whether we should
+set 'skb->offload_fwd_mark' or not.
