@@ -1,51 +1,95 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net-next] can: initial support for network namespaces
-Date: Thu, 16 Feb 2017 14:47:39 +0100
-Message-ID: <57d4cb90-b96e-27a4-3ac5-66ebb8f1e8f4@hartkopp.net>
-References: <40df4f6a-8df1-3b76-c0ed-9ba7800c2dc1@kicherer.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: Mario Kicherer <dev@kicherer.org>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: bgmac: store MAC address directly in netdev->dev_addr
+Date: Thu, 16 Feb 2017 15:11:19 +0100
+Message-ID: <20170216141119.18505-1-tklauser@distanz.ch>
+Cc: rafal@milecki.pl, f.fainelli@gmail.com, jon.mason@broadcom.com,
+        arnd@arndb.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.221]:28965 "EHLO
-        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754693AbdBPNsw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 08:48:52 -0500
-In-Reply-To: <40df4f6a-8df1-3b76-c0ed-9ba7800c2dc1@kicherer.org>
+Received: from mail.zhinst.com ([212.126.164.98]:48172 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754959AbdBPOLY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 09:11:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Mario,
+After commit 34a5102c3235 ("net: bgmac: allocate struct bgmac just once
+& don't copy it") the mac_addr member of struct bgmac is no longer
+necessary to pass the MAC address to bgmac_enet_probe(). Instead it can
+directly be stored in netdev->dev_addr.
 
-thanks for your patch.
+Also use eth_hw_addr_random() instead of eth_random_addr() in case a
+random MAC is nedded. This will make sure netdev->addr_assign_type will
+be properly set.
 
-On 02/16/2017 12:39 PM, Mario Kicherer wrote:
-> This patch adds initial support for network namespaces. The changes only
-> enable support in the CAN raw, proc and af_can code. GW and BCM still
-> have their checks that ensure that they are used only from the main
-> namespace.
->
-> The patch boils down to moving the global structures, i.e. the global
-> filter list and their /proc stats, into a per-namespace structure and passing
-> around the corresponding "struct net" in a lot of different places.
->
-> Signed-off-by: Mario Kicherer <dev@kicherer.org>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/ethernet/broadcom/bgmac-bcma.c     | 2 +-
+ drivers/net/ethernet/broadcom/bgmac-platform.c | 2 +-
+ drivers/net/ethernet/broadcom/bgmac.c          | 9 ++++-----
+ drivers/net/ethernet/broadcom/bgmac.h          | 1 -
+ 4 files changed, 6 insertions(+), 8 deletions(-)
 
-Although it does not apply on the latest kernel due to this patch:
-
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=f1712c73714088a7252d276a57126d56c7d37e64
-
-Please rebase your patch to the latest kernel tree and post it again.
-
-Additionally you should post CAN related stuff to the linux-can ML (see 
-CC) and the CAN maintainers found in the MAINTAINERS file. In this case 
-cross posting to netdev ML is fine as namespaces are very netdev related.
-
-Do you have an idea how to go with namespace aware virtual CAN 
-interfaces to link the namespaces?
-
-Regards,
-Oliver
+diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+index 5ef60d4f12b4..d59cfcc4c4d5 100644
+--- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
++++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+@@ -144,7 +144,7 @@ static int bgmac_probe(struct bcma_device *core)
+ 		goto err;
+ 	}
+ 
+-	ether_addr_copy(bgmac->mac_addr, mac);
++	ether_addr_copy(bgmac->net_dev->dev_addr, mac);
+ 
+ 	/* On BCM4706 we need common core to access PHY */
+ 	if (core->id.id == BCMA_CORE_4706_MAC_GBIT &&
+diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
+index 805e6ed6c390..7b1af950f312 100644
+--- a/drivers/net/ethernet/broadcom/bgmac-platform.c
++++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
+@@ -169,7 +169,7 @@ static int bgmac_probe(struct platform_device *pdev)
+ 
+ 	mac_addr = of_get_mac_address(np);
+ 	if (mac_addr)
+-		ether_addr_copy(bgmac->mac_addr, mac_addr);
++		ether_addr_copy(bgmac->net_dev->dev_addr, mac_addr);
+ 	else
+ 		dev_warn(&pdev->dev, "MAC address not present in device tree\n");
+ 
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 20fe2520da42..415046750bb4 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1477,14 +1477,13 @@ int bgmac_enet_probe(struct bgmac *bgmac)
+ 	net_dev->irq = bgmac->irq;
+ 	SET_NETDEV_DEV(net_dev, bgmac->dev);
+ 
+-	if (!is_valid_ether_addr(bgmac->mac_addr)) {
++	if (!is_valid_ether_addr(net_dev->dev_addr)) {
+ 		dev_err(bgmac->dev, "Invalid MAC addr: %pM\n",
+-			bgmac->mac_addr);
+-		eth_random_addr(bgmac->mac_addr);
++			net_dev->dev_addr);
++		eth_hw_addr_random(net_dev);
+ 		dev_warn(bgmac->dev, "Using random MAC: %pM\n",
+-			 bgmac->mac_addr);
++			 net_dev->dev_addr);
+ 	}
+-	ether_addr_copy(net_dev->dev_addr, bgmac->mac_addr);
+ 
+ 	/* This (reset &) enable is not preset in specs or reference driver but
+ 	 * Broadcom does it in arch PCI code when enabling fake PCI device.
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index ab2db76e4fb8..248727dc62f2 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -474,7 +474,6 @@ struct bgmac {
+ 
+ 	struct device *dev;
+ 	struct device *dma_dev;
+-	unsigned char mac_addr[ETH_ALEN];
+ 	u32 feature_flags;
+ 
+ 	struct net_device *net_dev;
+-- 
+2.11.0
