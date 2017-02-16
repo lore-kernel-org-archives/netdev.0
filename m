@@ -1,146 +1,162 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/14] ixgbe: Make use of order 1 pages and 3K buffers independent of FCoE
-Date: Thu, 16 Feb 2017 04:50:35 -0800
-Message-ID: <20170216125041.46668-9-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] ixgbe: Update driver to make use of DMA attributes in Rx path
+Date: Thu, 16 Feb 2017 04:50:33 -0800
+Message-ID: <20170216125041.46668-7-jeffrey.t.kirsher@intel.com>
 References: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:18210 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:29436 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754648AbdBPMur (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 07:50:47 -0500
+        id S1754512AbdBPMuq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 07:50:46 -0500
 In-Reply-To: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-In order to support build_skb with jumbo frames it will be necessary to use
-3K buffers for the Rx path with 8K pages backing them.  This is needed on
-architectures that implement 4K pages because we can't support 2K buffers
-plus padding in a 4K page.
-
-In the case of systems that support page sizes larger than 4K the 3K
-attribute will only be applied to FCoE as we can fall back to using just 2K
-buffers and adding the padding.
+This patch adds support for DMA_ATTR_SKIP_CPU_SYNC and
+DMA_ATTR_WEAK_ORDERING.  By enabling both of these for the Rx path we are
+able to see performance improvements on architectures that implement either
+one due to the fact that page mapping and unmapping only has to sync what
+is actually being used instead of the entire buffer.  In addition by
+enabling the weak ordering attribute enables a performance improvement for
+architectures that can associate a memory ordering with a DMA buffer such
+as Sparc.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      | 20 +++++++++-----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 19 +++++++++++++------
- 2 files changed, 22 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  3 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 56 ++++++++++++++++++---------
+ 2 files changed, 40 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index d765db6bd8b2..f3515ce8894d 100644
+index 6530eff01a0b..8167e77b924f 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -226,13 +226,14 @@ struct ixgbe_rx_queue_stats {
- #define IXGBE_TS_HDR_LEN 8
+@@ -104,6 +104,9 @@
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
+ #define IXGBE_RX_BUFFER_WRITE	16	/* Must be power of 2 */
  
- enum ixgbe_ring_state_t {
-+	__IXGBE_RX_3K_BUFFER,
-+	__IXGBE_RX_RSC_ENABLED,
-+	__IXGBE_RX_CSUM_UDP_ZERO_ERR,
-+	__IXGBE_RX_FCOE,
- 	__IXGBE_TX_FDIR_INIT_DONE,
- 	__IXGBE_TX_XPS_INIT_DONE,
- 	__IXGBE_TX_DETECT_HANG,
- 	__IXGBE_HANG_CHECK_ARMED,
--	__IXGBE_RX_RSC_ENABLED,
--	__IXGBE_RX_CSUM_UDP_ZERO_ERR,
--	__IXGBE_RX_FCOE,
- };
- 
- struct ixgbe_fwd_adapter {
-@@ -344,19 +345,16 @@ struct ixgbe_ring_feature {
-  */
- static inline unsigned int ixgbe_rx_bufsz(struct ixgbe_ring *ring)
- {
--#ifdef IXGBE_FCOE
--	if (test_bit(__IXGBE_RX_FCOE, &ring->state))
--		return (PAGE_SIZE < 8192) ? IXGBE_RXBUFFER_4K :
--					    IXGBE_RXBUFFER_3K;
--#endif
-+	if (test_bit(__IXGBE_RX_3K_BUFFER, &ring->state))
-+		return IXGBE_RXBUFFER_3K;
- 	return IXGBE_RXBUFFER_2K;
- }
- 
- static inline unsigned int ixgbe_rx_pg_order(struct ixgbe_ring *ring)
- {
--#ifdef IXGBE_FCOE
--	if (test_bit(__IXGBE_RX_FCOE, &ring->state))
--		return (PAGE_SIZE < 8192) ? 1 : 0;
-+#if (PAGE_SIZE < 8192)
-+	if (test_bit(__IXGBE_RX_3K_BUFFER, &ring->state))
-+		return 1;
- #endif
- 	return 0;
- }
++#define IXGBE_RX_DMA_ATTR \
++	(DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
++
+ enum ixgbe_tx_flags {
+ 	/* cmd_type flags */
+ 	IXGBE_TX_FLAGS_HW_VLAN	= 0x01,
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index e4487109292a..415e5ad1485a 100644
+index dde2c852e01d..ddde6759f094 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1604,6 +1604,7 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
- 	union ixgbe_adv_rx_desc *rx_desc;
- 	struct ixgbe_rx_buffer *bi;
- 	u16 i = rx_ring->next_to_use;
-+	u16 bufsz;
+@@ -1570,8 +1570,10 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
+ 	}
  
- 	/* nothing to do */
- 	if (!cleaned_count)
-@@ -1613,14 +1614,15 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
- 	bi = &rx_ring->rx_buffer_info[i];
- 	i -= rx_ring->count;
+ 	/* map page for use */
+-	dma = dma_map_page(rx_ring->dev, page, 0,
+-			   ixgbe_rx_pg_size(rx_ring), DMA_FROM_DEVICE);
++	dma = dma_map_page_attrs(rx_ring->dev, page, 0,
++				 ixgbe_rx_pg_size(rx_ring),
++				 DMA_FROM_DEVICE,
++				 IXGBE_RX_DMA_ATTR);
  
-+	bufsz = ixgbe_rx_bufsz(rx_ring);
-+
- 	do {
+ 	/*
+ 	 * if mapping failed free memory back to system since
+@@ -1614,6 +1616,12 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
  		if (!ixgbe_alloc_mapped_page(rx_ring, bi))
  			break;
  
- 		/* sync the buffer for use by the device */
- 		dma_sync_single_range_for_device(rx_ring->dev, bi->dma,
--						 bi->page_offset,
--						 ixgbe_rx_bufsz(rx_ring),
-+						 bi->page_offset, bufsz,
- 						 DMA_FROM_DEVICE);
- 
++		/* sync the buffer for use by the device */
++		dma_sync_single_range_for_device(rx_ring->dev, bi->dma,
++						 bi->page_offset,
++						 ixgbe_rx_bufsz(rx_ring),
++						 DMA_FROM_DEVICE);
++
  		/*
-@@ -2000,9 +2002,9 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
- 	struct page *page = rx_buffer->page;
- 	unsigned char *va = page_address(page) + rx_buffer->page_offset;
- #if (PAGE_SIZE < 8192)
--	unsigned int truesize = ixgbe_rx_bufsz(rx_ring);
-+	unsigned int truesize = ixgbe_rx_pg_size(rx_ring) / 2;
- #else
--	unsigned int truesize = ALIGN(size, L1_CACHE_BYTES);
-+	unsigned int truesize = SKB_DATA_ALIGN(size);
- #endif
+ 		 * Refresh the desc even if buffer_addrs didn't change
+ 		 * because each write-back erases this info.
+@@ -1832,8 +1840,10 @@ static void ixgbe_dma_sync_frag(struct ixgbe_ring *rx_ring,
+ {
+ 	/* if the page was released unmap it, else just sync our portion */
+ 	if (unlikely(IXGBE_CB(skb)->page_released)) {
+-		dma_unmap_page(rx_ring->dev, IXGBE_CB(skb)->dma,
+-			       ixgbe_rx_pg_size(rx_ring), DMA_FROM_DEVICE);
++		dma_unmap_page_attrs(rx_ring->dev, IXGBE_CB(skb)->dma,
++				     ixgbe_rx_pg_size(rx_ring),
++				     DMA_FROM_DEVICE,
++				     IXGBE_RX_DMA_ATTR);
+ 		IXGBE_CB(skb)->page_released = false;
+ 	} else {
+ 		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[0];
+@@ -1917,12 +1927,6 @@ static void ixgbe_reuse_rx_page(struct ixgbe_ring *rx_ring,
  
- 	if (unlikely(skb_is_nonlinear(skb)))
-@@ -3866,10 +3868,15 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
- 	 */
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		rx_ring = adapter->rx_ring[i];
-+
-+		clear_ring_rsc_enabled(rx_ring);
-+		clear_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
-+
- 		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
- 			set_ring_rsc_enabled(rx_ring);
--		else
--			clear_ring_rsc_enabled(rx_ring);
-+
-+		if (test_bit(__IXGBE_RX_FCOE, &rx_ring->state))
-+			set_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
- 	}
+ 	/* transfer page from old buffer to new buffer */
+ 	*new_buff = *old_buff;
+-
+-	/* sync the buffer for use by the device */
+-	dma_sync_single_range_for_device(rx_ring->dev, new_buff->dma,
+-					 new_buff->page_offset,
+-					 ixgbe_rx_bufsz(rx_ring),
+-					 DMA_FROM_DEVICE);
  }
  
+ static inline bool ixgbe_page_is_reserved(struct page *page)
+@@ -2089,9 +2093,10 @@ static struct sk_buff *ixgbe_fetch_rx_buffer(struct ixgbe_ring *rx_ring,
+ 		IXGBE_CB(skb)->page_released = true;
+ 	} else {
+ 		/* we are not reusing the buffer so unmap it */
+-		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
+-			       ixgbe_rx_pg_size(rx_ring),
+-			       DMA_FROM_DEVICE);
++		dma_unmap_page_attrs(rx_ring->dev, rx_buffer->dma,
++				     ixgbe_rx_pg_size(rx_ring),
++				     DMA_FROM_DEVICE,
++				     IXGBE_RX_DMA_ATTR);
+ 	}
+ 
+ 	/* clear contents of buffer_info */
+@@ -4883,10 +4888,11 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
+ 		if (rx_buffer->skb) {
+ 			struct sk_buff *skb = rx_buffer->skb;
+ 			if (IXGBE_CB(skb)->page_released)
+-				dma_unmap_page(dev,
+-					       IXGBE_CB(skb)->dma,
+-					       ixgbe_rx_bufsz(rx_ring),
+-					       DMA_FROM_DEVICE);
++				dma_unmap_page_attrs(dev,
++						     IXGBE_CB(skb)->dma,
++						     ixgbe_rx_pg_size(rx_ring),
++						     DMA_FROM_DEVICE,
++						     IXGBE_RX_DMA_ATTR);
+ 			dev_kfree_skb(skb);
+ 			rx_buffer->skb = NULL;
+ 		}
+@@ -4894,8 +4900,20 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
+ 		if (!rx_buffer->page)
+ 			continue;
+ 
+-		dma_unmap_page(dev, rx_buffer->dma,
+-			       ixgbe_rx_pg_size(rx_ring), DMA_FROM_DEVICE);
++		/* Invalidate cache lines that may have been written to by
++		 * device so that we avoid corrupting memory.
++		 */
++		dma_sync_single_range_for_cpu(rx_ring->dev,
++					      rx_buffer->dma,
++					      rx_buffer->page_offset,
++					      ixgbe_rx_bufsz(rx_ring),
++					      DMA_FROM_DEVICE);
++
++		/* free resources associated with mapping */
++		dma_unmap_page_attrs(dev, rx_buffer->dma,
++				     ixgbe_rx_pg_size(rx_ring),
++				     DMA_FROM_DEVICE,
++				     IXGBE_RX_DMA_ATTR);
+ 		__free_pages(rx_buffer->page, ixgbe_rx_pg_order(rx_ring));
+ 
+ 		rx_buffer->page = NULL;
 -- 
 2.11.0
