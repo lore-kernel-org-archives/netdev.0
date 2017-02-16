@@ -1,50 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: David Ahern <dsa@cumulusnetworks.com>
 Subject: Re: [PATCH v4 net] bpf: add bpf_sk_netns_id() helper
-Date: Thu, 16 Feb 2017 16:08:52 +1300
-Message-ID: <878tp6al2z.fsf@xmission.com>
+Date: Wed, 15 Feb 2017 20:18:41 -0700
+Message-ID: <e7875566-efa3-ba75-2699-3866a091615c@cumulusnetworks.com>
 References: <1486432968-3255218-1-git-send-email-ast@fb.com>
-        <87h93xqlui.fsf@xmission.com>
-        <cc15d1fa-dd38-c01b-7a42-9eaf206d98a2@cumulusnetworks.com>
+ <87h93xqlui.fsf@xmission.com>
+ <cc15d1fa-dd38-c01b-7a42-9eaf206d98a2@cumulusnetworks.com>
+ <878tp6al2z.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
 Cc: Alexei Starovoitov <ast@fb.com>,
         "David S . Miller" <davem@davemloft.net>,
         Daniel Borkmann <daniel@iogearbox.net>,
         Tejun Heo <tj@kernel.org>,
         Andy Lutomirski <luto@amacapital.net>, netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:42444 "EHLO
-        out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751958AbdBPDNc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 22:13:32 -0500
-In-Reply-To: <cc15d1fa-dd38-c01b-7a42-9eaf206d98a2@cumulusnetworks.com> (David
-        Ahern's message of "Wed, 15 Feb 2017 19:16:03 -0700")
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:34413 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751305AbdBPDSn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 22:18:43 -0500
+Received: by mail-pg0-f44.google.com with SMTP id z67so2063166pgb.1
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 19:18:43 -0800 (PST)
+In-Reply-To: <878tp6al2z.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Ahern <dsa@cumulusnetworks.com> writes:
+On 2/15/17 8:08 PM, Eric W. Biederman wrote:
+> David Ahern <dsa@cumulusnetworks.com> writes:
+> 
+>> On 2/14/17 12:21 AM, Eric W. Biederman wrote:
+>>>> in cases where bpf programs are looking at sockets and packets
+>>>> that belong to different netns, it could be useful to get an id
+>>>> that uniquely identify a netns within the whole system.
+>>> It could be useful but there is no unique namespace id.
+>>>
+>>
+>> Have you given thought to a unique namespace id? Networking tracepoints
+>> for example could really benefit from a unique id.
+> 
+> An id from the perspective of a process in the initial instance of every
+> namespace is certainly possible.
+> 
+> A truly unique id is just not maintainable.  Think of the question how
+> do you assign every device in the world a rguaranteed unique ip address
+> without coordination, that is routable.  It is essentially the same
+> problem.
+> 
+> AKA it is theoretically possible and very expensive.  It is much easier
+> and much more maintainable for identifiers to have scope and only be
+> unique within that scope.
 
-> On 2/14/17 12:21 AM, Eric W. Biederman wrote:
->>> in cases where bpf programs are looking at sockets and packets
->>> that belong to different netns, it could be useful to get an id
->>> that uniquely identify a netns within the whole system.
->> It could be useful but there is no unique namespace id.
->> 
->
-> Have you given thought to a unique namespace id? Networking tracepoints
-> for example could really benefit from a unique id.
 
-An id from the perspective of a process in the initial instance of every
-namespace is certainly possible.
+I don't mean unique in the entire world, I mean unique within a single
+system.
 
-A truly unique id is just not maintainable.  Think of the question how
-do you assign every device in the world a rguaranteed unique ip address
-without coordination, that is routable.  It is essentially the same
-problem.
-
-AKA it is theoretically possible and very expensive.  It is much easier
-and much more maintainable for identifiers to have scope and only be
-unique within that scope.
-
-Eric
+Tracepoints are code based and have global scope. I would like to be
+able to correlate, for example, FIB lookups within a single network
+namespace. Having an id that I could filter on when collecting or match
+when dumping them goes a long way.
