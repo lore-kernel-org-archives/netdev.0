@@ -1,8 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 07/21] ARM: dts: sun8i-h3: add dwmac-sun8i
- ethernet driver
-Date: Thu, 16 Feb 2017 13:48:45 +0100
-Message-ID: <20170216124859.14346-8-clabbe.montjoie@gmail.com>
+Subject: [PATCH 11/21] ARM: dts: sun8i: Enable dwmac-sun8i on
+ the Orange Pi 2
+Date: Thu, 16 Feb 2017 13:48:49 +0100
+Message-ID: <20170216124859.14346-12-clabbe.montjoie@gmail.com>
 References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -12,7 +12,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	mark.rutland-5wv7dgnIgG8@public.gmane.org,
@@ -22,7 +22,7 @@ To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	catalin.marinas-5wv7dgnIgG8@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBTOAS3CQKGQEQP3I4HI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBUWAS3CQKGQEH2PAA5Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170216124859.14346-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,54 +33,38 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+The dwmac-sun8i hardware is present on the Orange PI 2.
+It uses the internal PHY.
 
-The dwmac-sun8i is an ethernet MAC hardware that support 10/100/1000
-speed.
-
-This patch enable the dwmac-sun8i on the Allwinner H3 SoC Device-tree.
-The SoC H3 have an internal PHY, so optionals syscon and ephy are set.
+This patch create the needed emac node.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sun8i-h3.dtsi | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
-index 9f91aaa..61d56d2 100644
---- a/arch/arm/boot/dts/sun8i-h3.dtsi
-+++ b/arch/arm/boot/dts/sun8i-h3.dtsi
-@@ -594,6 +594,31 @@
- 			#size-cells = <0>;
- 		};
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
+index 047e9e1..4b5077c 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
+@@ -56,6 +56,7 @@
+ 		serial0 = &uart0;
+ 		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
+ 		ethernet1 = &rtl8189;
++		ethernet0 = &emac;
+ 	};
  
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun8i-h3-emac";
-+			syscon = <&syscon>;
-+			reg = <0x01c30000 0x104>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			interrupt-names = "macirq";
-+			resets = <&ccu RST_BUS_EMAC>;
-+			reset-names = "stmmaceth";
-+			clocks = <&ccu CLK_BUS_EMAC>;
-+			clock-names = "stmmaceth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			status = "disabled";
+ 	chosen {
+@@ -204,3 +205,10 @@
+ 	usb1_vbus-supply = <&reg_usb1_vbus>;
+ 	status = "okay";
+ };
 +
-+			mdio: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				int_mii_phy: ethernet-phy@1 {
-+					reg = <1>;
-+					clocks = <&ccu CLK_BUS_EPHY>;
-+					resets = <&ccu RST_BUS_EPHY>;
-+				};
-+			};
-+		};
-+
- 		gic: interrupt-controller@01c81000 {
- 			compatible = "arm,cortex-a7-gic", "arm,cortex-a15-gic";
- 			reg = <0x01c81000 0x1000>,
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
 -- 
 2.10.2
