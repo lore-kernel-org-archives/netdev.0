@@ -1,48 +1,38 @@
-From: Bernd Faust <berndfaust@gmail.com>
-Subject: [PATCH] e1000e: fix timing for 82579 Gigabit Ethernet controller
-Date: Thu, 16 Feb 2017 19:42:07 +0100
-Message-ID: <1487270527-4549-1-git-send-email-berndfaust@gmail.com>
-Cc: Bernd Faust <berndfaust@gmail.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Yanir Lubetkin <yanirx.lubetkin@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH net-next] liquidio: improve UDP TX performance
+Date: Thu, 16 Feb 2017 10:43:41 -0800
+Message-ID: <b07e968b-4a8c-7d11-d32f-5d53ca0c9f3f@hpe.com>
+References: <20170216183855.GA4125@felix.cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: Felix Manlunas <felix.manlunas@cavium.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32872 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933578AbdBPSmU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 13:42:20 -0500
+Received: from g9t1613g.houston.hpe.com ([15.241.32.99]:6612 "EHLO
+        g9t1613g.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933384AbdBPSno (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 13:43:44 -0500
+Received: from g2t2353.austin.hpe.com (g2t2353.austin.hpe.com [15.233.44.26])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by g9t1613g.houston.hpe.com (Postfix) with ESMTPS id 3257C628DD
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 18:43:43 +0000 (UTC)
+In-Reply-To: <20170216183855.GA4125@felix.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After an upgrade to Linux kernel v4.x the hardware timestamps of the
-82579 Gigabit Ethernet Controller are different than expected.
-The values that are being read are almost four times as big as before
-the kernel upgrade.
+On 02/16/2017 10:38 AM, Felix Manlunas wrote:
+> From: VSR Burru <veerasenareddy.burru@cavium.com>
+>
+> Improve UDP TX performance by:
+> * reducing the ring size from 2K to 512
+> * replacing the numerous streaming DMA allocations for info buffers and
+>   gather lists with one large consistent DMA allocation per ring
 
-The difference is that after the upgrade the driver sets the clock
-frequency to 25MHz, where before the upgrade it was set to 96MHz. Intel
-confirmed that the correct frequency for this network adapter is 96MHz.
+By how much was UDP TX performance improved?
 
-Signed-off-by: Bernd Faust <berndfaust@gmail.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+happy benchmarking,
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 7017281..8b7113d 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3511,6 +3511,12 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca)
-
- 	switch (hw->mac.type) {
- 	case e1000_pch2lan:
-+		/* Stable 96MHz frequency */
-+		incperiod = INCPERIOD_96MHz;
-+		incvalue = INCVALUE_96MHz;
-+		shift = INCVALUE_SHIFT_96MHz;
-+		adapter->cc.shift = shift + INCPERIOD_SHIFT_96MHz;
-+		break;
- 	case e1000_pch_lpt:
- 		if (er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_SYSCFI) {
- 			/* Stable 96MHz frequency */
+rick jones
