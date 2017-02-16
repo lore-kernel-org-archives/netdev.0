@@ -1,50 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v7 1/2] qed: Add infrastructure for PTP support
-Date: Thu, 16 Feb 2017 04:41:59 -0800
-Message-ID: <1487248919.1311.39.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1487147051-14350-1-git-send-email-Yuval.Mintz@cavium.com>
-         <1487147051-14350-2-git-send-email-Yuval.Mintz@cavium.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
+Date: Thu, 16 Feb 2017 14:44:56 +0200
+Message-ID: <CALzJLG8WHJYQFEsxU39jgpMDFHPkHuDX6VU7vOcd+wqBedonfA@mail.gmail.com>
+References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
+ <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com> <1487167443.1311.8.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        richardcochran@gmail.com, Sudarsana.Kalluru@cavium.com
-To: Yuval Mintz <Yuval.Mintz@cavium.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>, jackm@mellanox.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33914 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754277AbdBPMmB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 07:42:01 -0500
-Received: by mail-pg0-f65.google.com with SMTP id v184so1937852pgv.1
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 04:42:01 -0800 (PST)
-In-Reply-To: <1487147051-14350-2-git-send-email-Yuval.Mintz@cavium.com>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:34719 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753285AbdBPMpS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 07:45:18 -0500
+Received: by mail-qk0-f173.google.com with SMTP id s186so14081808qkb.1
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 04:45:17 -0800 (PST)
+In-Reply-To: <1487167443.1311.8.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-15 at 10:24 +0200, Yuval Mintz wrote:
-> From: Sudarsana Reddy Kalluru <sudarsana.Kalluru@cavium.com>
-> 
-> The patch adds the required qed interfaces for configuring/reading
-> the PTP clock on the adapter.
+On Wed, Feb 15, 2017 at 4:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-02-15 at 05:29 -0800, Eric Dumazet wrote:
+>
+>>
+>> mlx4_eq_int() is a hard irq handler.
+>>
+>> How a tasklet could run in the middle of it ?
+>>
+>> A tasklet is a softirq handler.
+>
+> Speaking of mlx4_eq_int() , 50% of cycles are spent on mb() (mfence)
+> in eq_set_ci()
+>
 
+I wonder why you have so many interrupts ? don't you have some kind of
+interrupt moderation ?
+what test are you running that got your CPU so busy.
 
-> +/* Read Phy Hardware Clock */
-> +static int qed_ptp_hw_read_cc(struct qed_dev *cdev, u64 *phc_cycles)
-> +{
-> +	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-> +	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-> +	u32 temp = 0;
-> +
-> +	temp = qed_rd(p_hwfn, p_ptt, NIG_REG_TSGEN_SYNC_TIME_LSB);
-> +	*phc_cycles = qed_rd(p_hwfn, p_ptt, NIG_REG_TSGEN_SYNC_TIME_MSB);
-> +	*phc_cycles <<= 32;
-> +	*phc_cycles |= temp;
-> +
-> +	return 0;
-> +}
+> I wonder why this very expensive mb() is required, right before exiting
+> the interrupt handler.
 
-LSB and MSB being read non atomically, it looks like you could have an
-error of (1<<32) cycles here.
-
-(You read LSB value close to 0xFFFFFFFF right before it changes to 0,
-while MSB got incremented.)
+to make sure the HW knows we handled Completions up to (ci) consumer
+index. so it will generate next irq.
