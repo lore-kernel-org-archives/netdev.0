@@ -1,71 +1,39 @@
-From: Claudiu Manoil <claudiu.manoil@nxp.com>
-Subject: RE: [PATCH 1/2] gianfar: Deal with link state changes during
- GFAR_RESETTING dev state
-Date: Thu, 16 Feb 2017 17:41:47 +0000
-Message-ID: <AM5PR0401MB2561F965F201D25076AE30AC965A0@AM5PR0401MB2561.eurprd04.prod.outlook.com>
-References: <1486988529-24924-1-git-send-email-thomas.graziadei@omicronenergy.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Thomas Graziadei <thomas.graziadei@omicronenergy.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0043.outbound.protection.outlook.com ([104.47.2.43]:9280
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932254AbdBPRlu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 12:41:50 -0500
-In-Reply-To: <1486988529-24924-1-git-send-email-thomas.graziadei@omicronenergy.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sagi Grimberg <sagi@grimberg.me>
+Subject: [PATCH rfc 0/4] Introduce a new helper for parsing ipv[4|6]:port to socket address
+Date: Thu, 16 Feb 2017 19:43:33 +0200
+Message-ID: <1487267017-29904-1-git-send-email-sagi@grimberg.me>
+To: linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        target-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <target-devel-owner@vger.kernel.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Thomas Graziadei [mailto:thomas.graziadei@omicronenergy.com]
->Sent: Monday, February 13, 2017 2:22 PM
->To: claudiu.manoil@freescale.com; netdev@vger.kernel.org; linux-
->kernel@vger.kernel.org
->Cc: Thomas Graziadei <thomas.graziadei@omicronenergy.com>
->Subject: [PATCH 1/2] gianfar: Deal with link state changes during GFAR_RES=
-ETTING
->dev state
->
->From: Thomas Graziadei <thomas.graziadei@omicronenergy.com>
->
+We have some places in the stack that support ipv4 and ipv6. In
+some cases the user configuration does not reveal which
+address family is given and needs to be parsed from the input string.
 
-[...]
+Given that the user-input varies between subsystems, some processing
+is required from the call-site to separate address and port strings.
 
->
->To resolve the issue adjust_link is called after every GFAR_RESETTING lock
->section. Adjust_link itself checks if anything has changed and updates the
->link accordingly.
->
+As a side-effect, this set adds ipv6 support for nvme over fabrics.
+I also converted iscsi target and plan to convert nfs/cifs next but
+wanted to get some feedback before doing that.
 
-Calling adjust_link() from the ethernet driver, even if only following devi=
-ce reset /=20
-reconfig sections, is racy - the phylib state machine may run adjust_link()=
- at the=20
-same time or the phydev state may be inconsistent - and may end up in more=
-=20
-subtle link state issues.  It also defeats the purpose of the adjust link h=
-ook, which=20
-is to be called by the phylib state machine.
+patch #1 is based off roland's patch:
+http://lists.infradead.org/pipermail/linux-nvme/2016-August/005600.html
 
-I had a look at this, and I don't think there is an easy fix in the driver =
-for your case.=20
-However, the workaround should be straight forward: wait for the link to st=
-abilize=20
-to the requested parameters before applying other device configuration chan=
-ges=20
-that require device reset (like rx timestamping).  Given that the PHYLIB st=
-ate machine=20
-changed its behavior since adjust_link() in gianfar was last modified (i.e.=
- it used to be called
-periodically before, from RUNNING<->CHANGELINK states) and given that there=
- is a good part=20
-of legacy code in the current adjust_link() implementation, I think that dr=
-iver part needs=20
-considerable rework to correctly cover this usecase as well.
+Sagi Grimberg (4):
+  net/utils: generic inet_pton_with_scope helper
+  nvmet-rdma: use generic inet_pton_with_scope
+  nvme-rdma: use inet_pton_with_scope helper
+  iscsi-target: use generic inet_pton_with_scope
 
-Thanks.
-Claudiu
+ drivers/nvme/host/rdma.c                     | 48 ++++-----------
+ drivers/nvme/target/rdma.c                   | 42 +++++++++----
+ drivers/target/iscsi/iscsi_target_configfs.c | 46 ++++----------
+ include/linux/inet.h                         |  6 ++
+ net/core/utils.c                             | 91 ++++++++++++++++++++++++++++
+ 5 files changed, 151 insertions(+), 82 deletions(-)
+
+-- 
+2.7.4
