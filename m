@@ -1,83 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Thu, 16 Feb 2017 07:47:05 -0800
-Message-ID: <1487260025.1311.50.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170213195858.5215-1-edumazet@google.com>
-	 <20170213195858.5215-9-edumazet@google.com>
-	 <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
-	 <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
-	 <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
-	 <20170214131206.44b644f6@redhat.com>
-	 <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
-	 <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
-	 <1487087488.8227.53.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CALx6S3530_2DYU-3VRmvRYZ3n05OqJZpJ3x02vXQd6Q7FUJQvw@mail.gmail.com>
-	 <ccc4cb9e-9863-02e1-2789-4869aea3c661@mellanox.com>
-	 <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
-	 <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com>
+Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
+Date: Thu, 16 Feb 2017 07:49:47 -0800
+Message-ID: <1487260187.1311.53.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
+         <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1487167443.1311.8.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG8WHJYQFEsxU39jgpMDFHPkHuDX6VU7vOcd+wqBedonfA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, Jesper Dangaard Brouer
- <brouer@redhat.com>, Tom Herbert <tom@herbertland.com>, Alexander Duyck
- <alexander.duyck@gmail.com>, "David S . Miller" <davem@davemloft.net>,
- netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>, Saeed
- Mahameed <saeedm@mellanox.com>, Willem de Bruijn <willemb@google.com>,
- Brenden Blanco <bblanco@plumgrid.com>, Alexei Starovoitov <ast@kernel.org>,
- linux-mm <linux-mm@kvack.org>
-To: Tariq Toukan <tariqt@mellanox.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>, jackm@mellanox.com
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34713 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932482AbdBPPtx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 10:49:53 -0500
+Received: by mail-pf0-f193.google.com with SMTP id o64so1894200pfb.1
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 07:49:53 -0800 (PST)
+In-Reply-To: <CALzJLG8WHJYQFEsxU39jgpMDFHPkHuDX6VU7vOcd+wqBedonfA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-16 at 15:08 +0200, Tariq Toukan wrote:
-> On 15/02/2017 6:57 PM, Eric Dumazet wrote:
-> > On Wed, Feb 15, 2017 at 8:42 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
-> >> Isn't it the same principle in page_frag_alloc() ?
-> >> It is called form __netdev_alloc_skb()/__napi_alloc_skb().
+On Thu, 2017-02-16 at 14:44 +0200, Saeed Mahameed wrote:
+> On Wed, Feb 15, 2017 at 4:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Wed, 2017-02-15 at 05:29 -0800, Eric Dumazet wrote:
+> >
 > >>
-> >> Why is it ok to have order-3 pages (PAGE_FRAG_CACHE_MAX_ORDER) there?
-> > This is not ok.
+> >> mlx4_eq_int() is a hard irq handler.
+> >>
+> >> How a tasklet could run in the middle of it ?
+> >>
+> >> A tasklet is a softirq handler.
 > >
-> > This is a very well known problem, we already mentioned that here in the past,
-> > but at least core networking stack uses  order-0 pages on PowerPC.
-> You're right, we should have done this as well in mlx4 on PPC.
-> > mlx4 driver suffers from this problem 100% more than other drivers ;)
+> > Speaking of mlx4_eq_int() , 50% of cycles are spent on mb() (mfence)
+> > in eq_set_ci()
 > >
-> > One problem at a time Tariq. Right now, only mlx4 has this big problem
-> > compared to other NIC.
-> We _do_ agree that the series improves the driver's quality, stability,
-> and performance in a fragmented system.
 > 
-> But due to the late rc we're in, and the fact that we know what benchmarks
-> our customers are going to run, we cannot Ack the series and get it
-> as is inside kernel 4.11.
+> I wonder why you have so many interrupts ? don't you have some kind of
+> interrupt moderation ?
+> what test are you running that got your CPU so busy.
+
+
+Simply 8 RX queues. About 140,000 irq per second per RX queue,
+for a moderate network load on 40Gbit NIC.
+
+Interrupt moderation is a latency killer, we want our usec back.
+
 > 
-> We are interested to get your series merged along another perf improvement
-> we are preparing for next rc1. This way we will earn the desired stability
-> without breaking existing benchmarks.
-> I think this is the right thing to do at this point of time.
+> > I wonder why this very expensive mb() is required, right before exiting
+> > the interrupt handler.
 > 
-> 
-> The idea behind the perf improvement, suggested by Jesper, is to split
-> the napi_poll call mlx4_en_process_rx_cq() loop into two.
-> The first loop extracts completed CQEs and starts prefetching on data
-> and RX descriptors. The second loop process the real packets.
-
-Make sure to resubmit my patches before anything new.
-
-We need to backport them to stable versions, without XDP, without
-anything fancy.
-
-And submit what is needed for 4.11, since current mlx4 driver in
-net-next is broken, in case you missed it.
-
-Thanks.
+> to make sure the HW knows we handled Completions up to (ci) consumer
+> index. so it will generate next irq.
 
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+So why a mb() is needed exactly ?
+
+wmb() seems enough.
