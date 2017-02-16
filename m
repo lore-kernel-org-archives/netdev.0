@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 10/13] net: Prepare gro for packet consuming gro callbacks
-Date: Thu, 16 Feb 2017 13:18:44 +0100
-Message-ID: <1487247527-17925-11-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 07/13] xfrm: policy: make policy backend const
+Date: Thu, 16 Feb 2017 13:18:41 +0100
+Message-ID: <1487247527-17925-8-git-send-email-steffen.klassert@secunet.com>
 References: <1487247527-17925-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,101 +10,134 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:49328 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:49312 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754684AbdBPMS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 07:18:59 -0500
+        id S1754386AbdBPMTA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 07:19:00 -0500
 In-Reply-To: <1487247527-17925-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The upcomming IPsec ESP gro callbacks will consume the skb,
-so prepare for that.
+From: Florian Westphal <fw@strlen.de>
 
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/linux/netdevice.h | 9 +++++++++
- net/core/dev.c            | 7 +++++++
- net/xfrm/Kconfig          | 4 ++++
- 3 files changed, 20 insertions(+)
+ net/ipv4/xfrm4_policy.c |  2 +-
+ net/ipv6/xfrm6_policy.c |  2 +-
+ net/xfrm/xfrm_policy.c  | 18 +++++++++---------
+ 3 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f9da3ac..9e5d1cd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -352,6 +352,7 @@ enum gro_result {
- 	GRO_HELD,
- 	GRO_NORMAL,
- 	GRO_DROP,
-+	GRO_CONSUMED,
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 2561353..71b4ecc1 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -269,7 +269,7 @@ static void xfrm4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 	.gc_thresh =		INT_MAX,
  };
- typedef enum gro_result gro_result_t;
  
-@@ -2661,10 +2662,18 @@ static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
- 	remcsum_unadjust((__sum16 *)ptr, grc->delta);
- }
+-static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
++static const struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
+ 	.dst_ops =		&xfrm4_dst_ops_template,
+ 	.dst_lookup =		xfrm4_dst_lookup,
+ 	.get_saddr =		xfrm4_get_saddr,
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 3217e85..79651bc 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -289,7 +289,7 @@ static void xfrm6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 	.gc_thresh =		INT_MAX,
+ };
  
-+#ifdef CONFIG_XFRM_OFFLOAD
-+static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
-+{
-+	if (PTR_ERR(pp) != -EINPROGRESS)
-+		NAPI_GRO_CB(skb)->flush |= flush;
-+}
-+#else
- static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
+-static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
++static const struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
+ 	.dst_ops =		&xfrm6_dst_ops_template,
+ 	.dst_lookup =		xfrm6_dst_lookup,
+ 	.get_saddr =		xfrm6_get_saddr,
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 80ef0dc..04ed1a1 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -45,7 +45,7 @@ struct xfrm_flo {
+ };
+ 
+ static DEFINE_SPINLOCK(xfrm_policy_afinfo_lock);
+-static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[AF_INET6 + 1]
++static struct xfrm_policy_afinfo const __rcu *xfrm_policy_afinfo[AF_INET6 + 1]
+ 						__read_mostly;
+ 
+ static struct kmem_cache *xfrm_dst_cache __read_mostly;
+@@ -122,7 +122,7 @@ static inline struct dst_entry *__xfrm_dst_lookup(struct net *net,
+ 						  const xfrm_address_t *daddr,
+ 						  int family)
  {
- 	NAPI_GRO_CB(skb)->flush |= flush;
- }
-+#endif
+-	struct xfrm_policy_afinfo *afinfo;
++	const struct xfrm_policy_afinfo *afinfo;
+ 	struct dst_entry *dst;
  
- static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
- 				  unsigned short type,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3e1a601..64efbb9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4505,6 +4505,11 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	if (&ptype->list == head)
- 		goto normal;
+ 	afinfo = xfrm_policy_get_afinfo(family);
+@@ -1426,7 +1426,7 @@ int __xfrm_sk_clone_policy(struct sock *sk, const struct sock *osk)
+ 	       xfrm_address_t *remote, unsigned short family)
+ {
+ 	int err;
+-	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
++	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
  
-+	if (IS_ERR(pp) && PTR_ERR(pp) == -EINPROGRESS) {
-+		ret = GRO_CONSUMED;
-+		goto ok;
-+	}
-+
- 	same_flow = NAPI_GRO_CB(skb)->same_flow;
- 	ret = NAPI_GRO_CB(skb)->free ? GRO_MERGED_FREE : GRO_MERGED;
+ 	if (unlikely(afinfo == NULL))
+ 		return -EINVAL;
+@@ -1535,7 +1535,7 @@ int __xfrm_sk_clone_policy(struct sock *sk, const struct sock *osk)
  
-@@ -4609,6 +4614,7 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ static int xfrm_get_tos(const struct flowi *fl, int family)
+ {
+-	struct xfrm_policy_afinfo *afinfo;
++	const struct xfrm_policy_afinfo *afinfo;
+ 	int tos = 0;
  
- 	case GRO_HELD:
- 	case GRO_MERGED:
-+	case GRO_CONSUMED:
- 		break;
- 	}
+ 	afinfo = xfrm_policy_get_afinfo(family);
+@@ -1598,7 +1598,7 @@ static void xfrm_bundle_flo_delete(struct flow_cache_object *flo)
  
-@@ -4680,6 +4686,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi,
- 		break;
+ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
+ {
+-	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
++	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
+ 	struct dst_ops *dst_ops;
+ 	struct xfrm_dst *xdst;
  
- 	case GRO_MERGED:
-+	case GRO_CONSUMED:
- 		break;
- 	}
+@@ -1635,7 +1635,7 @@ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
+ static inline int xfrm_init_path(struct xfrm_dst *path, struct dst_entry *dst,
+ 				 int nfheader_len)
+ {
+-	struct xfrm_policy_afinfo *afinfo =
++	const struct xfrm_policy_afinfo *afinfo =
+ 		xfrm_policy_get_afinfo(dst->ops->family);
+ 	int err;
  
-diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
-index bda1a13..a484451 100644
---- a/net/xfrm/Kconfig
-+++ b/net/xfrm/Kconfig
-@@ -5,6 +5,10 @@ config XFRM
-        bool
-        depends on NET
+@@ -1652,7 +1652,7 @@ static inline int xfrm_init_path(struct xfrm_dst *path, struct dst_entry *dst,
+ static inline int xfrm_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 				const struct flowi *fl)
+ {
+-	struct xfrm_policy_afinfo *afinfo =
++	const struct xfrm_policy_afinfo *afinfo =
+ 		xfrm_policy_get_afinfo(xdst->u.dst.ops->family);
+ 	int err;
  
-+config XFRM_OFFLOAD
-+       bool
-+       depends on XFRM
-+
- config XFRM_ALGO
- 	tristate
- 	select XFRM
+@@ -2201,7 +2201,7 @@ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
+ static struct dst_entry *make_blackhole(struct net *net, u16 family,
+ 					struct dst_entry *dst_orig)
+ {
+-	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
++	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
+ 	struct dst_entry *ret;
+ 
+ 	if (!afinfo) {
+@@ -2452,7 +2452,7 @@ struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
+ int __xfrm_decode_session(struct sk_buff *skb, struct flowi *fl,
+ 			  unsigned int family, int reverse)
+ {
+-	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
++	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
+ 	int err;
+ 
+ 	if (unlikely(afinfo == NULL))
 -- 
 1.9.1
