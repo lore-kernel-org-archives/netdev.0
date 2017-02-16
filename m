@@ -1,121 +1,66 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V4 0/7] net/sched: Reflect HW offload status in classifiers
-Date: Thu, 16 Feb 2017 10:31:09 +0200
-Message-ID: <1487233876-28576-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V4 7/7] net/sched: cls_bpf: Reflect HW offload status
+Date: Thu, 16 Feb 2017 10:31:16 +0200
+Message-ID: <1487233876-28576-8-git-send-email-ogerlitz@mellanox.com>
+References: <1487233876-28576-1-git-send-email-ogerlitz@mellanox.com>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Roi Dayan <roid@mellanox.com>,
         netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44962 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45008 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752859AbdBPIbe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 03:31:34 -0500
+        with ESMTP id S1753062AbdBPIbi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 03:31:38 -0500
+In-Reply-To: <1487233876-28576-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently there is no way of querying whether a filter is
-offloaded to HW or not when using "both" policy (where none
-of skip_sw or skip_hw flags are set by user-space).
+BPF classifier support for the "in hw" offloading flags.
 
-Added two new flags, "in hw" and "not in hw" such that user space 
-can determine if a filter is actually offloaded to hw. The "in hw" 
-UAPI semantics was chosen so it's similar to the "skip hw" flag logic.
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Amir Vadai <amir@vadai.me>
+Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ net/sched/cls_bpf.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-If none of these two flags are set, this signals running
-over older kernel.
-
-As an example, add one vlan push + fwd rule, one matchall rule and one u32 rule 
-without any flags, and another vlan + fwd skip_sw rule, such that the different TC 
-classifier attempt to offload all of them -- all over mlx5 SRIOV VF rep:
-
-# tc filter add dev eth2_0 protocol ip parent ffff: 
-	flower skip_sw indev eth2_0 src_mac e4:11:22:33:44:50 dst_mac e4:1d:2d:a5:f3:9d 
-	action vlan push id 52 action mirred egress redirect dev eth2
-
-# tc filter add dev eth2_0 protocol ip parent ffff: 
-	flower indev eth2_0 src_mac e4:11:22:33:44:50 dst_mac e4:11:22:33:44:51 
-	action vlan push id 53 action mirred egress redirect dev eth2
-
-# tc filter add dev eth2_0 parent ffff: matchall action mirred egress mirror dev veth1
-
-# tc filter add dev eth2_0 parent ffff: protocol ip prio 99 handle 800:0:1 
-	u32 ht 800: flowid 800:1 match ip src 192.168.1.0/24 action drop
-
-Since that VF rep doesn't offload matchall/u32 and can currently offload
-only one vlan push rule we expect three of the rules not to be offloaded:
-
-# tc filter show dev eth2_0 parent ffff:
-
-filter protocol ip pref 99 u32 
-filter protocol ip pref 99 u32 fh 800: ht divisor 1 
-filter protocol ip pref 99 u32 fh 800::1 order 1 key ht 800 bkt 0 flowid 800:1 not in_hw 
-  match c0a80100/ffffff00 at 12
-	action order 1: gact action drop
-	 random type none pass val 0
-	 index 8 ref 1 bind 1
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index d9c9701..80f6884 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -148,6 +148,7 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_bpf_offload bpf_offload = {};
+ 	struct tc_to_netdev offload;
++	int err;
  
-filter protocol all pref 49150 matchall 
-filter protocol all pref 49150 matchall handle 0x1 
-  not in_hw
-	action order 1: mirred (Egress Mirror to device veth1) pipe
- 	index 27 ref 1 bind 1
+ 	offload.type = TC_SETUP_CLSBPF;
+ 	offload.cls_bpf = &bpf_offload;
+@@ -159,8 +160,13 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 	bpf_offload.exts_integrated = prog->exts_integrated;
+ 	bpf_offload.gen_flags = prog->gen_flags;
  
-filter protocol ip pref 49151 flower 
-filter protocol ip pref 49151 flower handle 0x1 
-  indev eth2_0
-  dst_mac e4:11:22:33:44:51
-  src_mac e4:11:22:33:44:50
-  eth_type ipv4
-  not in_hw
-	action order 1:  vlan push id 53 protocol 802.1Q priority 0 pipe
-	 index 20 ref 1 bind 1
+-	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+-					     tp->protocol, &offload);
++	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
++					    tp->protocol, &offload);
++
++	if (!err && (cmd == TC_CLSBPF_ADD || cmd == TC_CLSBPF_REPLACE))
++		prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
++
++	return err;
+ }
  
-	action order 2: mirred (Egress Redirect to device eth2) stolen
- 	index 26 ref 1 bind 1
+ static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+@@ -511,6 +517,9 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 		return ret;
+ 	}
  
-filter protocol ip pref 49152 flower 
-filter protocol ip pref 49152 flower handle 0x1 
-  indev eth2_0
-  dst_mac e4:1d:2d:a5:f3:9d
-  src_mac e4:11:22:33:44:50
-  eth_type ipv4
-  skip_sw
-  in_hw
-	action order 1:  vlan push id 52 protocol 802.1Q priority 0 pipe
-	 index 19 ref 1 bind 1
- 
-	action order 2: mirred (Egress Redirect to device eth2) stolen
- 	index 25 ref 1 bind 1
-
-v3 --> v4 changes:
- - removed extra parenthesis (Dave)
-
-v2 --> v3 changes:
- - fixed the matchall dump flags patch to do proper checks (Jakub)
- - added the same proper checks to flower where they were missing 
- - that flower patch was added as #1 and hence all the other patches are offed-by-one
- 
-v1 --> v2 changes:
- - applied feedback from Jakub and Dave -- where none of the skip flags were set, 
-   the suggested approach didn't allow user space to distringuish between old kernel
-   to a case when offloading to HW worked fine.
-
-Or Gerlitz (7):
-  net/sched: cls_flower: Properly handle classifier flags dumping
-  net/sched: cls_matchall: Dump the classifier flags
-  net/sched: Reflect HW offload status
-  net/sched: cls_flower: Reflect HW offload status
-  net/sched: cls_matchall: Reflect HW offloading status
-  net/sched: cls_u32: Reflect HW offload status
-  net/sched: cls_bpf: Reflect HW offload status
-
- include/net/pkt_cls.h        |  5 +++++
- include/uapi/linux/pkt_cls.h |  6 ++++--
- net/sched/cls_bpf.c          | 13 +++++++++++--
- net/sched/cls_flower.c       |  8 +++++++-
- net/sched/cls_matchall.c     | 15 +++++++++++++--
- net/sched/cls_u32.c          | 10 ++++++++++
- 6 files changed, 50 insertions(+), 7 deletions(-)
-
++	if (!tc_in_hw(prog->gen_flags))
++		prog->gen_flags |= TCA_CLS_FLAGS_NOT_IN_HW;
++
+ 	if (oldprog) {
+ 		list_replace_rcu(&oldprog->link, &prog->link);
+ 		tcf_unbind_filter(tp, &oldprog->res);
 -- 
 2.5.5
