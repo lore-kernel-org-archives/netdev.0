@@ -1,66 +1,180 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Thu, 16 Feb 2017 09:11:01 -0800
-Message-ID: <CANn89iJayq1r2hLQJSHA1YvZGDOxNuViucf=+syL6BEmFkc2RQ@mail.gmail.com>
-References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
- <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
- <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
- <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
- <20170214131206.44b644f6@redhat.com> <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
- <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com> <1487087488.8227.53.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S3530_2DYU-3VRmvRYZ3n05OqJZpJ3x02vXQd6Q7FUJQvw@mail.gmail.com>
- <ccc4cb9e-9863-02e1-2789-4869aea3c661@mellanox.com> <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
- <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com> <CALx6S36xcEJ9YssZtzQKOy-tufrWWJO533J0nTEzp_ckb5dVjA@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] virito-net: set queues after reset during xdp_set
+Date: Thu, 16 Feb 2017 19:21:10 +0200
+Message-ID: <20170216192053-mutt-send-email-mst@kernel.org>
+References: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tariq Toukan <tariqt@mellanox.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        linux-mm <linux-mm@kvack.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f42.google.com ([209.85.214.42]:37163 "EHLO
-        mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932193AbdBPRLD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 12:11:03 -0500
-Received: by mail-it0-f42.google.com with SMTP id x75so32177129itb.0
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 09:11:02 -0800 (PST)
-In-Reply-To: <CALx6S36xcEJ9YssZtzQKOy-tufrWWJO533J0nTEzp_ckb5dVjA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> You're admitting that Eric's patches improve driver quality,
-> stability, and performance but you're not allowing this in the kernel
-> because "we know what benchmarks our customers are going to run".
+On Wed, Feb 15, 2017 at 05:08:09PM +0800, Jason Wang wrote:
+> We set queues before reset which will cause a crash[1]. This is
+> because is_xdp_raw_buffer_queue() depends on the old xdp queue pairs
+> number to do the correct detection. So fix this by:
+> 
+> - set queues after reset, to keep the old vi->curr_queue_pairs. (in
+>   fact setting queues before reset does not works since after feature
+>   set, all queue pairs were enabled by default during reset).
+> - change xdp_queue_pairs only after virtnet_reset() is succeed.
+> 
+> [1]
+> 
+> [   74.328168] general protection fault: 0000 [#1] SMP
+> [   74.328625] Modules linked in: nfsd xfs libcrc32c virtio_net virtio_pci
+> [   74.329117] CPU: 0 PID: 2849 Comm: xdp2 Not tainted 4.10.0-rc7+ #499
+> [   74.329577] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.10.1-0-g8891697-prebuilt.qemu-project.org 04/01/2014
+> [   74.330424] task: ffff88007a894000 task.stack: ffffc90004388000
+> [   74.330844] RIP: 0010:skb_release_head_state+0x28/0x80
+> [   74.331298] RSP: 0018:ffffc9000438b8d0 EFLAGS: 00010206
+> [   74.331676] RAX: 0000000000000000 RBX: ffff88007ad96300 RCX: 0000000000000000
+> [   74.332217] RDX: ffff88007fc137a8 RSI: ffff88007fc0db28 RDI: 0001bf00000001be
+> [   74.332758] RBP: ffffc9000438b8d8 R08: 000000000005008f R09: 00000000000005f9
+> [   74.333274] R10: ffff88007d001700 R11: ffffffff820a8a4d R12: ffff88007ad96300
+> [   74.333787] R13: 0000000000000002 R14: ffff880036604000 R15: 000077ff80000000
+> [   74.334308] FS:  00007fc70d8a7b40(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
+> [   74.334891] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   74.335314] CR2: 00007fff4144a710 CR3: 000000007ab56000 CR4: 00000000003406f0
+> [   74.335830] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [   74.336373] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+> [   74.336895] Call Trace:
+> [   74.337086]  skb_release_all+0xd/0x30
+> [   74.337356]  consume_skb+0x2c/0x90
+> [   74.337607]  free_unused_bufs+0x1ff/0x270 [virtio_net]
+> [   74.337988]  ? vp_synchronize_vectors+0x3b/0x60 [virtio_pci]
+> [   74.338398]  virtnet_xdp+0x21e/0x440 [virtio_net]
+> [   74.338741]  dev_change_xdp_fd+0x101/0x140
+> [   74.339048]  do_setlink+0xcf4/0xd20
+> [   74.339304]  ? symcmp+0xf/0x20
+> [   74.339529]  ? mls_level_isvalid+0x52/0x60
+> [   74.339828]  ? mls_range_isvalid+0x43/0x50
+> [   74.340135]  ? nla_parse+0xa0/0x100
+> [   74.340400]  rtnl_setlink+0xd4/0x120
+> [   74.340664]  ? cpumask_next_and+0x30/0x50
+> [   74.340966]  rtnetlink_rcv_msg+0x7f/0x1f0
+> [   74.341259]  ? sock_has_perm+0x59/0x60
+> [   74.341586]  ? napi_consume_skb+0xe2/0x100
+> [   74.342010]  ? rtnl_newlink+0x890/0x890
+> [   74.342435]  netlink_rcv_skb+0x92/0xb0
+> [   74.342846]  rtnetlink_rcv+0x23/0x30
+> [   74.343277]  netlink_unicast+0x162/0x210
+> [   74.343677]  netlink_sendmsg+0x2db/0x390
+> [   74.343968]  sock_sendmsg+0x33/0x40
+> [   74.344233]  SYSC_sendto+0xee/0x160
+> [   74.344482]  ? SYSC_bind+0xb0/0xe0
+> [   74.344806]  ? sock_alloc_file+0x92/0x110
+> [   74.345106]  ? fd_install+0x20/0x30
+> [   74.345360]  ? sock_map_fd+0x3f/0x60
+> [   74.345586]  SyS_sendto+0x9/0x10
+> [   74.345790]  entry_SYSCALL_64_fastpath+0x1a/0xa9
+> [   74.346086] RIP: 0033:0x7fc70d1b8f6d
+> [   74.346312] RSP: 002b:00007fff4144a708 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
+> [   74.346785] RAX: ffffffffffffffda RBX: 00000000ffffffff RCX: 00007fc70d1b8f6d
+> [   74.347244] RDX: 000000000000002c RSI: 00007fff4144a720 RDI: 0000000000000003
+> [   74.347683] RBP: 0000000000000003 R08: 0000000000000000 R09: 0000000000000000
+> [   74.348544] R10: 0000000000000000 R11: 0000000000000246 R12: 00007fff4144bd90
+> [   74.349082] R13: 0000000000000002 R14: 0000000000000002 R15: 00007fff4144cda0
+> [   74.349607] Code: 00 00 00 55 48 89 e5 53 48 89 fb 48 8b 7f 58 48 85 ff 74 0e 40 f6 c7 01 74 3d 48 c7 43 58 00 00 00 00 48 8b 7b 68 48 85 ff 74 05 <f0> ff 0f 74 20 48 8b 43 60 48 85 c0 74 14 65 8b 15 f3 ab 8d 7e
+> [   74.351008] RIP: skb_release_head_state+0x28/0x80 RSP: ffffc9000438b8d0
+> [   74.351625] ---[ end trace fe6e19fd11cfc80b ]---
+> 
+> Fixes: 2de2f7f40ef9 ("virtio_net: XDP support for adjust_head")
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Note that I do not particularly care if these patches go in 4.11 or 4.12 really.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-I already backported them into our 4.3 based kernel.
-
-I guess that we could at least propose the trivial patch for stable releases,
-since PowerPC arches really need it.
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index cec59bc264c9ac197048fd7c98bcd5cf25de0efd..0f6d2f3b7d54f51de359d4ccde21f4585e6b7852
-100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -102,7 +102,8 @@
- /* Use the maximum between 16384 and a single page */
- #define MLX4_EN_ALLOC_SIZE     PAGE_ALIGN(16384)
-
--#define MLX4_EN_ALLOC_PREFER_ORDER     PAGE_ALLOC_COSTLY_ORDER
-+#define MLX4_EN_ALLOC_PREFER_ORDER min_t(int, get_order(32768),
-         \
-+                                        PAGE_ALLOC_COSTLY_ORDER)
-
- /* Receive fragment sizes; we use at most 3 fragments (for 9600 byte MTU
-  * and 4K allocations) */
+> ---
+>  drivers/net/virtio_net.c | 35 ++++++++++++++++++-----------------
+>  1 file changed, 18 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 11e2853..9ff959c 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1775,7 +1775,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	struct bpf_prog *old_prog;
+> -	u16 oxdp_qp, xdp_qp = 0, curr_qp;
+> +	u16 xdp_qp = 0, curr_qp;
+>  	int i, err;
+>  
+>  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+> @@ -1813,24 +1813,24 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  			return PTR_ERR(prog);
+>  	}
+>  
+> -	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
+> -	if (err) {
+> -		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+> -		goto virtio_queue_err;
+> -	}
+> -
+> -	oxdp_qp = vi->xdp_queue_pairs;
+> -
+>  	/* Changing the headroom in buffers is a disruptive operation because
+>  	 * existing buffers must be flushed and reallocated. This will happen
+>  	 * when a xdp program is initially added or xdp is disabled by removing
+>  	 * the xdp program resulting in number of XDP queues changing.
+>  	 */
+>  	if (vi->xdp_queue_pairs != xdp_qp) {
+> -		vi->xdp_queue_pairs = xdp_qp;
+>  		err = virtnet_reset(vi);
+> -		if (err)
+> +		if (err) {
+> +			dev_warn(&dev->dev, "XDP reset failure.\n");
+>  			goto virtio_reset_err;
+> +		}
+> +		vi->xdp_queue_pairs = xdp_qp;
+> +	}
+> +
+> +	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
+> +	if (err) {
+> +		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+> +		goto virtio_queue_err;
+>  	}
+>  
+>  	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
+> @@ -1844,17 +1844,18 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  
+>  	return 0;
+>  
+> +virtio_queue_err:
+> +	/* Should not happen, after reset, all queue pairs were
+> +	 * enabled by default.
+> +	 */
+> +	vi->curr_queue_pairs = vi->max_queue_pairs;
+> +	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+> +	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+>  virtio_reset_err:
+>  	/* On reset error do our best to unwind XDP changes inflight and return
+>  	 * error up to user space for resolution. The underlying reset hung on
+>  	 * us so not much we can do here.
+>  	 */
+> -	dev_warn(&dev->dev, "XDP reset failure and queues unstable\n");
+> -	vi->xdp_queue_pairs = oxdp_qp;
+> -virtio_queue_err:
+> -	/* On queue set error we can unwind bpf ref count and user space can
+> -	 * retry this is most likely an allocation failure.
+> -	 */
+>  	if (prog)
+>  		bpf_prog_sub(prog, vi->max_queue_pairs - 1);
+>  	return err;
+> -- 
+> 2.7.4
