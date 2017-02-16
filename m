@@ -1,114 +1,61 @@
-From: Sagi Grimberg <sagi@grimberg.me>
-Subject: [PATCH rfc 4/4] iscsi-target: use generic inet_pton_with_scope
-Date: Thu, 16 Feb 2017 19:43:37 +0200
-Message-ID: <1487267017-29904-5-git-send-email-sagi@grimberg.me>
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: [PATCH rfc 0/4] Introduce a new helper for parsing ipv[4|6]:port to socket address
+Date: Thu, 16 Feb 2017 12:50:25 -0500
+Message-ID: <AD117189-9D24-4C5C-9751-9EA6B27575B1@oracle.com>
 References: <1487267017-29904-1-git-send-email-sagi@grimberg.me>
-To: linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: linux-nvme@lists.infradead.org,
+        List Linux RDMA Mailing <linux-rdma@vger.kernel.org>,
         target-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:44772 "EHLO
-        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932254AbdBPRnw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 12:43:52 -0500
+To: Sagi Grimberg <sagi@grimberg.me>
+Return-path: <target-devel-owner@vger.kernel.org>
 In-Reply-To: <1487267017-29904-1-git-send-email-sagi@grimberg.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
----
- drivers/target/iscsi/iscsi_target_configfs.c | 46 ++++++++--------------------
- 1 file changed, 12 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/target/iscsi/iscsi_target_configfs.c b/drivers/target/iscsi/iscsi_target_configfs.c
-index bf40f03755dd..f30c27b83c5e 100644
---- a/drivers/target/iscsi/iscsi_target_configfs.c
-+++ b/drivers/target/iscsi/iscsi_target_configfs.c
-@@ -167,10 +167,7 @@ static struct se_tpg_np *lio_target_call_addnptotpg(
- 	struct iscsi_portal_group *tpg;
- 	struct iscsi_tpg_np *tpg_np;
- 	char *str, *str2, *ip_str, *port_str;
--	struct sockaddr_storage sockaddr;
--	struct sockaddr_in *sock_in;
--	struct sockaddr_in6 *sock_in6;
--	unsigned long port;
-+	struct sockaddr_storage sockaddr = { };
- 	int ret;
- 	char buf[MAX_PORTAL_LEN + 1];
- 
-@@ -182,21 +179,19 @@ static struct se_tpg_np *lio_target_call_addnptotpg(
- 	memset(buf, 0, MAX_PORTAL_LEN + 1);
- 	snprintf(buf, MAX_PORTAL_LEN + 1, "%s", name);
- 
--	memset(&sockaddr, 0, sizeof(struct sockaddr_storage));
--
- 	str = strstr(buf, "[");
- 	if (str) {
--		const char *end;
--
- 		str2 = strstr(str, "]");
- 		if (!str2) {
- 			pr_err("Unable to locate trailing \"]\""
- 				" in IPv6 iSCSI network portal address\n");
- 			return ERR_PTR(-EINVAL);
- 		}
--		str++; /* Skip over leading "[" */
-+
-+		ip_str = str + 1; /* Skip over leading "[" */
- 		*str2 = '\0'; /* Terminate the unbracketed IPv6 address */
- 		str2++; /* Skip over the \0 */
-+
- 		port_str = strstr(str2, ":");
- 		if (!port_str) {
- 			pr_err("Unable to locate \":port\""
-@@ -205,23 +200,8 @@ static struct se_tpg_np *lio_target_call_addnptotpg(
- 		}
- 		*port_str = '\0'; /* Terminate string for IP */
- 		port_str++; /* Skip over ":" */
--
--		ret = kstrtoul(port_str, 0, &port);
--		if (ret < 0) {
--			pr_err("kstrtoul() failed for port_str: %d\n", ret);
--			return ERR_PTR(ret);
--		}
--		sock_in6 = (struct sockaddr_in6 *)&sockaddr;
--		sock_in6->sin6_family = AF_INET6;
--		sock_in6->sin6_port = htons((unsigned short)port);
--		ret = in6_pton(str, -1,
--				(void *)&sock_in6->sin6_addr.in6_u, -1, &end);
--		if (ret <= 0) {
--			pr_err("in6_pton returned: %d\n", ret);
--			return ERR_PTR(-EINVAL);
--		}
- 	} else {
--		str = ip_str = &buf[0];
-+		ip_str = &buf[0];
- 		port_str = strstr(ip_str, ":");
- 		if (!port_str) {
- 			pr_err("Unable to locate \":port\""
-@@ -230,17 +210,15 @@ static struct se_tpg_np *lio_target_call_addnptotpg(
- 		}
- 		*port_str = '\0'; /* Terminate string for IP */
- 		port_str++; /* Skip over ":" */
-+	}
- 
--		ret = kstrtoul(port_str, 0, &port);
--		if (ret < 0) {
--			pr_err("kstrtoul() failed for port_str: %d\n", ret);
--			return ERR_PTR(ret);
--		}
--		sock_in = (struct sockaddr_in *)&sockaddr;
--		sock_in->sin_family = AF_INET;
--		sock_in->sin_port = htons((unsigned short)port);
--		sock_in->sin_addr.s_addr = in_aton(ip_str);
-+	ret = inet_pton_with_scope(&init_net, AF_UNSPEC, ip_str,
-+			port_str, &sockaddr);
-+	if (ret) {
-+		pr_err("malformed ip/port passed: %s\n", name);
-+		return ERR_PTR(ret);
- 	}
-+
- 	tpg = container_of(se_tpg, struct iscsi_portal_group, tpg_se_tpg);
- 	ret = iscsit_get_tpg(tpg);
- 	if (ret < 0)
--- 
-2.7.4
+> On Feb 16, 2017, at 12:43 PM, Sagi Grimberg <sagi@grimberg.me> wrote:
+> 
+> We have some places in the stack that support ipv4 and ipv6. In
+> some cases the user configuration does not reveal which
+> address family is given and needs to be parsed from the input string.
+> 
+> Given that the user-input varies between subsystems, some processing
+> is required from the call-site to separate address and port strings.
+> 
+> As a side-effect, this set adds ipv6 support for nvme over fabrics.
+> I also converted iscsi target and plan to convert nfs/cifs next but
+> wanted to get some feedback before doing that.
+
+At least NFS/RDMA already supports IPv6. You might not need many
+changes there, but I'll hold off on further comments.
+
+
+> patch #1 is based off roland's patch:
+> http://lists.infradead.org/pipermail/linux-nvme/2016-August/005600.html
+> 
+> Sagi Grimberg (4):
+>  net/utils: generic inet_pton_with_scope helper
+>  nvmet-rdma: use generic inet_pton_with_scope
+>  nvme-rdma: use inet_pton_with_scope helper
+>  iscsi-target: use generic inet_pton_with_scope
+> 
+> drivers/nvme/host/rdma.c                     | 48 ++++-----------
+> drivers/nvme/target/rdma.c                   | 42 +++++++++----
+> drivers/target/iscsi/iscsi_target_configfs.c | 46 ++++----------
+> include/linux/inet.h                         |  6 ++
+> net/core/utils.c                             | 91 ++++++++++++++++++++++++++++
+> 5 files changed, 151 insertions(+), 82 deletions(-)
+> 
+> -- 
+> 2.7.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--
+Chuck Lever
