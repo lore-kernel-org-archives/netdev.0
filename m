@@ -1,57 +1,46 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Thu, 16 Feb 2017 14:34:46 +0200
-Message-ID: <CALzJLG8JpzM4KjYFtLdG9XwTE+eMixPp_KRB9xdYAM962bZi-A@mail.gmail.com>
-References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
- <82f68be0-95fb-0d61-9d0a-4c74afb626b5@mellanox.com> <1487172397.1311.23.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next v7 2/2] qede: Add driver support for PTP
+Date: Thu, 16 Feb 2017 12:38:19 +0000
+Message-ID: <BL2PR07MB2306CD2B1CFECEE4AAB425108D5A0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1487147051-14350-1-git-send-email-Yuval.Mintz@cavium.com>
+         <1487147051-14350-3-git-send-email-Yuval.Mintz@cavium.com>
+ <1487247814.1311.34.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Matan Barak (External)" <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>, jackm@mellanox.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:34179 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753434AbdBPMfH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 07:35:07 -0500
-Received: by mail-qk0-f194.google.com with SMTP id e1so2147839qkh.1
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 04:35:07 -0800 (PST)
-In-Reply-To: <1487172397.1311.23.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-by2nam01on0081.outbound.protection.outlook.com ([104.47.34.81]:39104
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753434AbdBPMiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 07:38:25 -0500
+In-Reply-To: <1487247814.1311.34.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2017 at 5:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-02-15 at 16:52 +0200, Matan Barak (External) wrote:
->
->> So, in case of RDMA CQs, we add some per-CQE overhead of comparing the
->> list pointers and condition upon that. Maybe we could add an
->> invoke_tasklet boolean field on mlx4_cq and return its value from
->> mlx4_cq_completion.
->> That's way we could do invoke_tasklet |= mlx4_cq_completion(....);
->>
->> Outside the while loop we could just
->> if (invoke_tasklet)
->>      tasklet_schedule
->>
->> Anyway, I guess that even with per-CQE overhead, the performance impact
->> here is pretty negligible - so I guess that's fine too :)
->
->
-> Real question or suggestion would be to use/fire a tasklet only under
-> stress.
->
-> Firing a tasklet adds a lot of latencies for user-space CQ completion,
-> since softirqs might have to be handled by a kernel thread (ksoftirqd)
->
-
-At least for mlx4_en driver we don't need this tasklet and it is only
-adding this overhead. (we have napi)
-
-we must consider removing it for mlx4_en cqs and move the tasklet
-handling to mlx4_ib.
-
-I will ack the patch.
+PiA+ICt2b2lkIHFlZGVfcHRwX3R4X3RzKHN0cnVjdCBxZWRlX2RldiAqZWRldiwgc3RydWN0IHNr
+X2J1ZmYgKnNrYikgew0KPiA+ICsJc3RydWN0IHFlZGVfcHRwICpwdHA7DQo+ID4gKw0KPiA+ICsJ
+cHRwID0gZWRldi0+cHRwOw0KPiA+ICsJaWYgKCFwdHApDQo+ID4gKwkJcmV0dXJuOw0KPiA+ICsN
+Cj4gPiArCWlmICh1bmxpa2VseSghKGVkZXYtPmZsYWdzICYgUUVERV9UWF9USU1FU1RBTVBJTkdf
+RU4pKSkgew0KPiA+ICsJCURQX05PVElDRShlZGV2LA0KPiA+ICsJCQkgICJUeCB0aW1lc3RhbXBp
+bmcgd2FzIG5vdCBlbmFibGVkLCB0aGlzIHBhY2tldCB3aWxsDQo+IG5vdCBiZSB0aW1lc3RhbXBl
+ZFxuIik7DQo+ID4gKwl9IGVsc2UgaWYgKHVubGlrZWx5KHB0cC0+dHhfc2tiKSkgew0KPiA+ICsJ
+CURQX05PVElDRShlZGV2LA0KPiA+ICsJCQkgICJUaGUgZGV2aWNlIHN1cHBvcnRzIG9ubHkgYSBz
+aW5nbGUgb3V0c3RhbmRpbmcNCj4gcGFja2V0IHRvIHRpbWVzdGFtcCwgdGhpcyBwYWNrZXQgd2ls
+bCBub3QgYmUgdGltZXN0YW1wZWRcbiIpOw0KPiA+ICsJfSBlbHNlIHsNCj4gPiArCQlza2Jfc2hp
+bmZvKHNrYiktPnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KPiA+ICsJCS8qIHNjaGVk
+dWxlIGNoZWNrIGZvciBUeCB0aW1lc3RhbXAgKi8NCj4gPiArCQlwdHAtPnR4X3NrYiA9IHNrYl9n
+ZXQoc2tiKTsNCj4gPiArCQlzY2hlZHVsZV93b3JrKCZwdHAtPndvcmspOw0KPiA+ICsJfQ0KPiA+
+ICt9DQo+IA0KPiANCj4gVGhpcyBpcyBhIG11bHRpIHF1ZXVlIGRldmljZS4NCj4gDQo+IFRoZXJl
+Zm9yZSBtdWx0aXBsZSBjcHVzIGNvdWxkIGNhbGwgdGhpcyBmdW5jdGlvbiBhdCB0aGUgc2FtZSB0
+aW1lLg0KPiANCj4gcHRwLT50eF9za2IgbmVlZHMgc29tZSBraW5kIG9mIFNNUCBwcm90ZWN0aW9u
+Lg0KDQpJSXMgaXQgYSByZWFsIGlzc3VlIG9yIG9kZCBjb3JuZXItY2FzZSBpbiBhY3R1YWwgc2Nl
+bmFyaW8/DQpSZWdhcmRsZXNzLCBJIGFzc3VtZSBpdCdzIGEgdGhlb3JldGljYWwgYnJlYWNoIHdh
+aXRpbmcgZm9yIGFuDQphZHZlcnNhcnkgdG8gZXhwbG9pdCwgc28gYmV0dGVyIGZpeCBpdCBub3cu
+DQoNCkknbGwgc2VuZCBhIGZpeCBsYXRlciB0b2RheS4gVGhhbmtzLg0K
