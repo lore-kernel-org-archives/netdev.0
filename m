@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 03/13] xfrm: policy: xfrm_policy_unregister_afinfo can return void
-Date: Thu, 16 Feb 2017 13:18:37 +0100
-Message-ID: <1487247527-17925-4-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 09/13] net: Add a skb_gro_flush_final helper.
+Date: Thu, 16 Feb 2017 13:18:43 +0100
+Message-ID: <1487247527-17925-10-git-send-email-steffen.klassert@secunet.com>
 References: <1487247527-17925-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,92 +10,84 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:49322 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:49314 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754672AbdBPMS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753618AbdBPMS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 16 Feb 2017 07:18:58 -0500
 In-Reply-To: <1487247527-17925-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+Add a skb_gro_flush_final helper to prepare for  consuming
+skbs in call_gro_receive. We will extend this helper to not
+touch the skb if the skb is consumed by a gro callback with
+a followup patch. We need this to handle the upcomming IPsec
+ESP callbacks as they reinject the skb to the napi_gro_receive
+asynchronous. The handler is used in all gro_receive functions
+that can call the ESP gro handlers.
 
-Nothing checks the return value. Also, the errors returned on unregister
-are impossible (we only support INET and INET6, so no way
-xfrm_policy_afinfo[afinfo->family] can be anything other than 'afinfo'
-itself).
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h     |  2 +-
- net/xfrm/xfrm_policy.c | 35 +++++++++++++----------------------
- 2 files changed, 14 insertions(+), 23 deletions(-)
+ include/linux/netdevice.h | 5 +++++
+ net/ethernet/eth.c        | 2 +-
+ net/ipv4/af_inet.c        | 2 +-
+ net/ipv6/ip6_offload.c    | 2 +-
+ 4 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index da0e4dd..39037b1 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -304,7 +304,7 @@ struct xfrm_policy_afinfo {
- };
- 
- int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo);
--int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo);
-+void xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo);
- void km_policy_notify(struct xfrm_policy *xp, int dir,
- 		      const struct km_event *c);
- void km_state_notify(struct xfrm_state *x, const struct km_event *c);
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 6fffa2f..794148f7 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2883,34 +2883,25 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 58afbd1..f9da3ac 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2661,6 +2661,11 @@ static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
+ 	remcsum_unadjust((__sum16 *)ptr, grc->delta);
  }
- EXPORT_SYMBOL(xfrm_policy_register_afinfo);
  
--int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
-+void xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
- {
--	int err = 0;
--	if (unlikely(afinfo == NULL))
--		return -EINVAL;
-+	struct dst_ops *dst_ops = afinfo->dst_ops;
++static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
++{
++	NAPI_GRO_CB(skb)->flush |= flush;
++}
 +
- 	if (unlikely(afinfo->family >= NPROTO))
--		return -EAFNOSUPPORT;
--	spin_lock(&xfrm_policy_afinfo_lock);
--	if (likely(xfrm_policy_afinfo[afinfo->family] != NULL)) {
--		if (unlikely(xfrm_policy_afinfo[afinfo->family] != afinfo))
--			err = -EINVAL;
--		else
--			RCU_INIT_POINTER(xfrm_policy_afinfo[afinfo->family],
-+		return;
-+
-+	if (likely(xfrm_policy_afinfo[afinfo->family] != afinfo)) {
-+		RCU_INIT_POINTER(xfrm_policy_afinfo[afinfo->family],
- 					 NULL);
- 	}
--	spin_unlock(&xfrm_policy_afinfo_lock);
--	if (!err) {
--		struct dst_ops *dst_ops = afinfo->dst_ops;
+ static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 				  unsigned short type,
+ 				  const void *daddr, const void *saddr,
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index efdaaab..c666ff0 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -474,7 +474,7 @@ struct sk_buff **eth_gro_receive(struct sk_buff **head,
+ out_unlock:
+ 	rcu_read_unlock();
+ out:
+-	NAPI_GRO_CB(skb)->flush |= flush;
++	skb_gro_flush_final(skb, pp, flush);
  
--		synchronize_rcu();
-+	synchronize_rcu();
- 
--		dst_ops->kmem_cachep = NULL;
--		dst_ops->check = NULL;
--		dst_ops->negative_advice = NULL;
--		dst_ops->link_failure = NULL;
--		afinfo->garbage_collect = NULL;
--	}
--	return err;
-+	dst_ops->kmem_cachep = NULL;
-+	dst_ops->check = NULL;
-+	dst_ops->negative_advice = NULL;
-+	dst_ops->link_failure = NULL;
-+	afinfo->garbage_collect = NULL;
+ 	return pp;
  }
- EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 685ba53..602d40f 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1423,7 +1423,7 @@ struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	rcu_read_unlock();
  
+ out:
+-	NAPI_GRO_CB(skb)->flush |= flush;
++	skb_gro_flush_final(skb, pp, flush);
+ 
+ 	return pp;
+ }
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index fc7b401..0838e6d 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -253,7 +253,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 	rcu_read_unlock();
+ 
+ out:
+-	NAPI_GRO_CB(skb)->flush |= flush;
++	skb_gro_flush_final(skb, pp, flush);
+ 
+ 	return pp;
+ }
 -- 
 1.9.1
