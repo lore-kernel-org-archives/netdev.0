@@ -1,131 +1,118 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/14] ixgbe: Add private flag to control buffer mode
-Date: Thu, 16 Feb 2017 04:50:39 -0800
-Message-ID: <20170216125041.46668-13-jeffrey.t.kirsher@intel.com>
-References: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:29436 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754277AbdBPMut (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 07:50:49 -0500
-In-Reply-To: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 00/21] net-next: stmmac: add dwmac-sun8i
+ ethernet driver
+Date: Thu, 16 Feb 2017 13:48:38 +0100
+Message-ID: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+	catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+	will.deacon-5wv7dgnIgG8@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBQ6AS3CQKGQEH77OFVI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Hello
 
-Since there are potential drawbacks to the new Rx allocation approach I
-thought it best to add a "chicken bit" so that we can turn the feature off
-if in the event that a problem is found.
+This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
+present on Allwinner H3/A83T/A64 SoCs.
 
-It also provides a means of validating the legacy Rx path in the event that
-we are forced to fall back.  At some point in the future when we are
-convinced we don't need it anymore we might be able to drop the legacy-rx
-flag.
+This driver is the continuation of the sun8i-emac driver.
+During the development, it appeared that in fact the hardware was a modified
+version of some dwmac.
+So the driver is now written as a glue driver for stmmac.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 47 ++++++++++++++++++++++++
- 1 file changed, 47 insertions(+)
+It supports 10/100/1000 Mbit/s speed with half/full duplex.
+It can use an internal PHY (MII 10/100) or an external PHY
+via RGMII/RMII.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 51a1695a75ee..68500881cbc0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -151,6 +151,13 @@ static const char ixgbe_gstrings_test[][ETH_GSTRING_LEN] = {
- };
- #define IXGBE_TEST_LEN sizeof(ixgbe_gstrings_test) / ETH_GSTRING_LEN
- 
-+static const char ixgbe_priv_flags_strings[][ETH_GSTRING_LEN] = {
-+#define IXGBE_PRIV_FLAGS_LEGACY_RX	BIT(0)
-+	"legacy-rx",
-+};
-+
-+#define IXGBE_PRIV_FLAGS_STR_LEN ARRAY_SIZE(ixgbe_priv_flags_strings)
-+
- /* currently supported speeds for 10G */
- #define ADVRTSD_MSK_10G (SUPPORTED_10000baseT_Full | \
- 			 SUPPORTED_10000baseKX4_Full | \
-@@ -1001,6 +1008,8 @@ static void ixgbe_get_drvinfo(struct net_device *netdev,
- 
- 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev),
- 		sizeof(drvinfo->bus_info));
-+
-+	drvinfo->n_priv_flags = IXGBE_PRIV_FLAGS_STR_LEN;
- }
- 
- static void ixgbe_get_ringparam(struct net_device *netdev,
-@@ -1140,6 +1149,8 @@ static int ixgbe_get_sset_count(struct net_device *netdev, int sset)
- 		return IXGBE_TEST_LEN;
- 	case ETH_SS_STATS:
- 		return IXGBE_STATS_LEN;
-+	case ETH_SS_PRIV_FLAGS:
-+		return IXGBE_PRIV_FLAGS_STR_LEN;
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -1264,6 +1275,9 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 		}
- 		/* BUG_ON(p - data != IXGBE_STATS_LEN * ETH_GSTRING_LEN); */
- 		break;
-+	case ETH_SS_PRIV_FLAGS:
-+		memcpy(data, ixgbe_priv_flags_strings,
-+		       IXGBE_PRIV_FLAGS_STR_LEN * ETH_GSTRING_LEN);
- 	}
- }
- 
-@@ -3345,6 +3359,37 @@ static int ixgbe_set_eee(struct net_device *netdev, struct ethtool_eee *edata)
- 	return 0;
- }
- 
-+static u32 ixgbe_get_priv_flags(struct net_device *netdev)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	u32 priv_flags = 0;
-+
-+	if (adapter->flags2 & IXGBE_FLAG2_RX_LEGACY)
-+		priv_flags |= IXGBE_PRIV_FLAGS_LEGACY_RX;
-+
-+	return priv_flags;
-+}
-+
-+static int ixgbe_set_priv_flags(struct net_device *netdev, u32 priv_flags)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	unsigned int flags2 = adapter->flags2;
-+
-+	flags2 &= ~IXGBE_FLAG2_RX_LEGACY;
-+	if (priv_flags & IXGBE_PRIV_FLAGS_LEGACY_RX)
-+		flags2 |= IXGBE_FLAG2_RX_LEGACY;
-+
-+	if (flags2 != adapter->flags2) {
-+		adapter->flags2 = flags2;
-+
-+		/* reset interface to repopulate queues */
-+		if (netif_running(netdev))
-+			ixgbe_reinit_locked(adapter);
-+	}
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -3381,6 +3426,8 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_eee		= ixgbe_set_eee,
- 	.get_channels		= ixgbe_get_channels,
- 	.set_channels		= ixgbe_set_channels,
-+	.get_priv_flags		= ixgbe_get_priv_flags,
-+	.set_priv_flags		= ixgbe_set_priv_flags,
- 	.get_ts_info		= ixgbe_get_ts_info,
- 	.get_module_info	= ixgbe_get_module_info,
- 	.get_module_eeprom	= ixgbe_get_module_eeprom,
+This patch series enable the driver only for the H3/A64 SoC since A83T
+doesn't have the necessary clocks present in mainline.
+
+The driver have been tested on the following boards:
+- H3 Orange PI PC, BananaPI-M2+
+- A64 Pine64, BananaPi-M64
+- A83T BananaPI-M3
+
+The first three patchs are some mandatory changes for letting dwmac-sun8i be used.
+The following two patchs add the driver and its documentation.
+The remaining are DT patch enabling it.
+
+Regards
+Corentin Labbe
+
+Corentin Labbe (16):
+  net-next: stmmac add optional init_phy function
+  net-next: stmmac: export stmmac_set_mac_addr/stmmac_get_mac_addr
+  net-next: stmmac: add optional setup function
+  ARM: sun8i: dt: Add DT bindings documentation for Allwinner
+    dwmac-sun8i
+  net-next: stmmac: Add dwmac-sun8i
+  ARM: dts: sun8i-h3: add dwmac-sun8i rgmii pins
+  ARM: dts: sun8i: Enable dwmac-sun8i on the Orange Pi 2
+  ARM: dts: sun8i: Enable dwmac-sun8i on the Orange PI One
+  ARM: dts: sun8i: Enable dwmac-sun8i on the Orange Pi plus
+  ARM: dts: sun8i: orangepi-pc-plus: Set EMAC activity LEDs to active
+    high
+  ARM64: dts: sun50i-a64: Add dt node for the syscon control module
+  ARM64: dts: sun50i-a64: add dwmac-sun8i Ethernet driver
+  ARM: dts: sun50i-a64: enable dwmac-sun8i on pine64
+  ARM: dts: sun50i-a64: enable dwmac-sun8i on pine64 plus
+  ARM: dts: sun50i-a64: enable dwmac-sun8i on the BananaPi M64
+  ARM: sunxi: Enable dwmac-sun8i driver on multi_v7_defconfig
+
+LABBE Corentin (5):
+  ARM: dts: sun8i-h3: Add dt node for the syscon control module
+  ARM: dts: sun8i-h3: add dwmac-sun8i ethernet driver
+  ARM: dts: sun8i: Enable dwmac-sun8i on the Banana Pi M2+
+  ARM: dts: sun8i: Enable dwmac-sun8i on the Orange PI PC
+  ARM: sunxi: Enable dwmac-sun8i driver on sunxi_defconfig
+
+ .../devicetree/bindings/net/dwmac-sun8i.txt        |  86 ++
+ arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts    |  38 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts          |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-one.dts        |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts    |   5 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts       |  36 +
+ arch/arm/boot/dts/sun8i-h3.dtsi                    |  42 +
+ arch/arm/configs/multi_v7_defconfig                |   1 +
+ arch/arm/configs/sunxi_defconfig                   |   1 +
+ .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts |  14 +
+ .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts  |  16 +-
+ .../arm64/boot/dts/allwinner/sun50i-a64-pine64.dts |  15 +
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi      |  43 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 +
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   3 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  | 892 +++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |   3 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   3 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  45 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   9 +-
+ include/linux/stmmac.h                             |   4 +
+ 23 files changed, 1286 insertions(+), 6 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+
 -- 
-2.11.0
+2.10.2
