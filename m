@@ -1,45 +1,35 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Wed, 15 Feb 2017 18:01:24 -0800
-Message-ID: <CA+55aFz7UXOWaEDwMWGX8bbDKU_u4CnjAuRou-eSx2tCUBrH8w@mail.gmail.com>
-References: <20170215.203136.1940941890600773041.davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v4 net] bpf: add bpf_sk_netns_id() helper
+Date: Wed, 15 Feb 2017 19:16:03 -0700
+Message-ID: <cc15d1fa-dd38-c01b-7a42-9eaf206d98a2@cumulusnetworks.com>
+References: <1486432968-3255218-1-git-send-email-ast@fb.com>
+ <87h93xqlui.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170215.203136.1940941890600773041.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tejun Heo <tj@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+        Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33190 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751732AbdBPCQG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2017 21:16:06 -0500
+Received: by mail-pf0-f172.google.com with SMTP id c73so1449441pfb.0
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2017 18:16:06 -0800 (PST)
+In-Reply-To: <87h93xqlui.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2017 at 5:31 PM, David Miller <davem@davemloft.net> wrote:
->
-> 3) More gracefully handle rhashtable insertion errors when vmalloc is
->    not possible, from Herbert Xu.
+On 2/14/17 12:21 AM, Eric W. Biederman wrote:
+>> in cases where bpf programs are looking at sockets and packets
+>> that belong to different netns, it could be useful to get an id
+>> that uniquely identify a netns within the whole system.
+> It could be useful but there is no unique namespace id.
+> 
 
-Ugh.
-
-So I pulled this, but when I look at his code, I'm really not sure
-that I should have, and I haven't pushed the result out. I'm pretty
-sure I will unpull.
-
-This code looks like it could *easily*  have subtle issues, and looks
-like the kind of thing that should go in a merge window.
-
-The merge commit has this re-assuring sentence in it from Herbert:
-
- "I've tested this with test_rhashtable and it appears to work."
-
-and this is during the  very last week of an rc release.
-
-None of the commits even talk about why this was needed in the first
-place, so there's no indication that this new scary code was really so
-high-priority that it absolutely *has* to go into a late rc release.
-None of it is marked for stable either, since networking never does
-that.
-
-So David, you really need to convince me that this pull is truly required.
-
-                Linus
+Have you given thought to a unique namespace id? Networking tracepoints
+for example could really benefit from a unique id.
