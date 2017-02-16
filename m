@@ -1,57 +1,62 @@
-From: jackm <jackm@dev.mellanox.co.il>
-Subject: Re: Mellanox ConnectX-3 VF driver can't work with 16 CPUs?
-Date: Thu, 16 Feb 2017 16:57:30 +0200
-Message-ID: <20170216165730.00004b1b@dev.mellanox.co.il>
-References: <MWHPR03MB2669F7138EE9DE92A372C863BF450@MWHPR03MB2669.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Yishai Hadas <yishaih@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dexuan Cui <decui@microsoft.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next] net/gtp: Add udp source port generation according to flow hash
+Date: Thu, 16 Feb 2017 16:59:01 +0200
+Message-ID: <1487257141-11706-1-git-send-email-ogerlitz@mellanox.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        laforge@gnumonks.org, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f181.google.com ([209.85.128.181]:36330 "EHLO
-        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932171AbdBPO5e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 09:57:34 -0500
-Received: by mail-wr0-f181.google.com with SMTP id 89so8872055wrr.3
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 06:57:34 -0800 (PST)
-In-Reply-To: <MWHPR03MB2669F7138EE9DE92A372C863BF450@MWHPR03MB2669.namprd03.prod.outlook.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56724 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932120AbdBPO7W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 09:59:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 9 Feb 2017 10:03:20 +0000
-Dexuan Cui <decui@microsoft.com> wrote:
+Generate the source udp header according to the flow represented by
+the packet we are encapsulating, as done for other udp tunnels. This
+helps on the receiver side to apply RSS spreading.
 
-> Hi, 
-> While trying SR-IOV with a Linux guest running on Hyper-V, I found
-> this issue: the VF driver can't work if the guest has 16 virtual CPUs
-> (less vCPUs, e.g. 8,  can work fine):
-> 
-> [    9.927820] mlx4_core: Mellanox ConnectX core driver v2.2-1 (Feb,
-> 2014) [    9.927882] mlx4_core: Initializing b961:00:02.0
-> [    9.970994] mlx4_core b961:00:02.0: Detected virtual function -
-> running in slave mode [    9.976783] mlx4_core b961:00:02.0: Sending
-> reset [    9.985858] mlx4_core b961:00:02.0: Sending vhcr0
-> [   10.004855] mlx4_core b961:00:02.0: HCA minimum page size:512
-> [   10.010465] mlx4_core b961:00:02.0: Timestamping is not supported
-> in slave mode [   10.203065] mlx4_core b961:00:02.0: Failed to
-> initialize event queue table, aborting [   10.226728] mlx4_core:
-> probe of b961:00:02.0 failed with error -12
-> 
-> I'm using the mainline kernel (4.10.0-rc4).
-> 
-> Any idea?
-> 
-Thanks for reporting this, Dexuan.  We indeed found a bug in the Linux
-driver, which requested too many EQEs per EQ created in SRIOV mode.
-This resulted in the VF exhausting its supply of MTT entries.
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
 
-We will submit an upstream fix for this soon (after thorough testing).
+found in code inspection.. compile tested only
 
--Jack
 
-> Thanks,
-> -- Dexuan
-> 
+ drivers/net/gtp.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index bda0c64..ff1244b 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -564,6 +564,7 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	unsigned int proto = ntohs(skb->protocol);
+ 	struct gtp_pktinfo pktinfo;
++	__be16 src_port;
+ 	int err;
+ 
+ 	/* Ensure there is sufficient headroom. */
+@@ -572,6 +573,8 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	skb_reset_inner_headers(skb);
+ 
++	src_port = udp_flow_src_port(dev_net(dev), skb, 0, 0, true);
++
+ 	/* PDP context lookups in gtp_build_skb_*() need rcu read-side lock. */
+ 	rcu_read_lock();
+ 	switch (proto) {
+@@ -596,7 +599,7 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				    pktinfo.iph->tos,
+ 				    ip4_dst_hoplimit(&pktinfo.rt->dst),
+ 				    0,
+-				    pktinfo.gtph_port, pktinfo.gtph_port,
++				    src_port, pktinfo.gtph_port,
+ 				    true, false);
+ 		break;
+ 	}
+-- 
+2.3.7
