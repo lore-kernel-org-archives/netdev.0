@@ -1,14 +1,14 @@
 From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 08/21] ARM: dts: sun8i-h3: add dwmac-sun8i
- rgmii pins
-Date: Thu, 16 Feb 2017 20:06:32 +0100
-Message-ID: <20170216190632.hezcacn3hw5uhxcn@lukather>
+Subject: Re: [PATCH 20/21] ARM: sunxi: Enable dwmac-sun8i driver
+ on sunxi_defconfig
+Date: Thu, 16 Feb 2017 20:08:27 +0100
+Message-ID: <20170216190827.jaky5xyzqtuzhy76@lukather>
 References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
- <20170216124859.14346-9-clabbe.montjoie@gmail.com>
+ <20170216124859.14346-21-clabbe.montjoie@gmail.com>
 Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="62ryoqpqlfab5l3f"
+	protocol="application/pgp-signature"; boundary="7thzp745hdthefaj"
 Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
 	wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
@@ -19,7 +19,7 @@ To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-sunxi+bncBDSJBYGBRIMBBLHNTLCQKGQENQQ5SEQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <20170216124859.14346-9-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <20170216124859.14346-21-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <https://groups.google.com/group/linux-sunxi
@@ -29,43 +29,34 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
 List-Id: netdev.vger.kernel.org
 
 
---62ryoqpqlfab5l3f
+--7thzp745hdthefaj
 Content-Type: text/plain; charset=UTF-8
 Content-Disposition: inline
 
-On Thu, Feb 16, 2017 at 01:48:46PM +0100, Corentin Labbe wrote:
-> This patch add pinctrl node for dwmac-sun8i on H3.
+Hi,
+
+On Thu, Feb 16, 2017 at 01:48:58PM +0100, Corentin Labbe wrote:
+> From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Enable the dwmac-sun8i driver in the sunxi default configuration
 > 
 > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
->  arch/arm/boot/dts/sun8i-h3.dtsi | 11 +++++++++++
->  1 file changed, 11 insertions(+)
+>  arch/arm/configs/sunxi_defconfig | 1 +
+>  1 file changed, 1 insertion(+)
 > 
-> diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
-> index 61d56d2..59ed40e 100644
-> --- a/arch/arm/boot/dts/sun8i-h3.dtsi
-> +++ b/arch/arm/boot/dts/sun8i-h3.dtsi
-> @@ -349,6 +349,17 @@
->  				function = "i2c2";
->  			};
->  
-> +			emac_rgmii_pins: emac0@0 {
-> +				allwinner,pins = "PD0", "PD1", "PD2", "PD3",
-> +						"PD4", "PD5", "PD7",
-> +						"PD8", "PD9", "PD10",
-> +						"PD12", "PD13", "PD15",
-> +						"PD16", "PD17";
-> +				allwinner,function = "emac";
+> diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunxi_defconfig
+> index da92c25..33bde86 100644
+> --- a/arch/arm/configs/sunxi_defconfig
+> +++ b/arch/arm/configs/sunxi_defconfig
+> @@ -40,6 +40,7 @@ CONFIG_ATA=y
+>  CONFIG_AHCI_SUNXI=y
+>  CONFIG_NETDEVICES=y
+>  CONFIG_SUN4I_EMAC=y
+> +CONFIG_DWMAC_SUN8I=m
 
-Please use the generic pin config properties (ie. pins and functions).
-
-> +				allwinner,drive = <SUN4I_PINCTRL_40_MA>;
-
-Why do you need to use 40mA?
-
-> +				allwinner,pull = <SUN4I_PINCTRL_NO_PULL>;
-
-This is the default now.
+I think I'd prefer to have it compiled statically, just like the other
+net drivers, and drivers in general.
 
 Thanks!
 Maxime
@@ -74,4 +65,4 @@ Maxime
 Maxime Ripard, Free Electrons
 Embedded Linux and Kernel engineering
 http://free-electrons.com
---62ryoqpqlfab5l3f--
+--7thzp745hdthefaj--
