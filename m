@@ -1,56 +1,102 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] net: ethoc: Use eth_hw_addr_random()
-Date: Thu, 16 Feb 2017 13:54:32 +0100
-Message-ID: <20170216125432.9594-1-tklauser@distanz.ch>
-Cc: f.fainelli@gmail.com, thierry.reding@gmail.com,
-        colin.king@canonical.com
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] ixgbe: Use length to determine if descriptor is done
+Date: Thu, 16 Feb 2017 04:50:36 -0800
+Message-ID: <20170216125041.46668-10-jeffrey.t.kirsher@intel.com>
+References: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:46908 "EHLO mail.zhinst.com"
+Received: from mga14.intel.com ([192.55.52.115]:29436 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753526AbdBPMyf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 07:54:35 -0500
+        id S1754715AbdBPMur (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 07:50:47 -0500
+In-Reply-To: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use eth_hw_addr_random() to set a random dev_addr and update
-addr_assign_type instead of open-coding it.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+This change makes it so that we use the length of the packet instead of the
+DD status bit to determine if a new descriptor is ready to be processed.
+The obvious advantage is that it cuts down on reads as we don't really even
+need the DD bit if going from a 0 to a non-zero value on size is enough to
+inform us that the packet has been completed.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/ethoc.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 14 ++++++++------
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index f18aba05f1c2..23d82748f52b 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -1031,7 +1031,6 @@ static int ethoc_probe(struct platform_device *pdev)
- 	struct ethoc *priv = NULL;
- 	int num_bd;
- 	int ret = 0;
--	bool random_mac = false;
- 	struct ethoc_platform_data *pdata = dev_get_platdata(&pdev->dev);
- 	u32 eth_clkfreq = pdata ? pdata->eth_clkfreq : 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 04f15092ae31..51a1695a75ee 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -1868,7 +1868,7 @@ static u16 ixgbe_clean_test_rings(struct ixgbe_ring *rx_ring,
+ 	tx_ntc = tx_ring->next_to_clean;
+ 	rx_desc = IXGBE_RX_DESC(rx_ring, rx_ntc);
  
-@@ -1169,16 +1168,11 @@ static int ethoc_probe(struct platform_device *pdev)
- 	/* Check the MAC again for validity, if it still isn't choose and
- 	 * program a random one.
- 	 */
--	if (!is_valid_ether_addr(netdev->dev_addr)) {
--		eth_random_addr(netdev->dev_addr);
--		random_mac = true;
--	}
-+	if (!is_valid_ether_addr(netdev->dev_addr))
-+		eth_hw_addr_random(netdev);
+-	while (ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_DD)) {
++	while (rx_desc->wb.upper.length) {
+ 		/* check Rx buffer */
+ 		rx_buffer = &rx_ring->rx_buffer_info[rx_ntc];
  
- 	ethoc_do_set_mac_address(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 415e5ad1485a..6fc26cdacba2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1640,8 +1640,8 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
+ 			i -= rx_ring->count;
+ 		}
  
--	if (random_mac)
--		netdev->addr_assign_type = NET_ADDR_RANDOM;
+-		/* clear the status bits for the next_to_use descriptor */
+-		rx_desc->wb.upper.status_error = 0;
++		/* clear the length for the next_to_use descriptor */
++		rx_desc->wb.upper.length = 0;
+ 
+ 		cleaned_count--;
+ 	} while (cleaned_count);
+@@ -2154,7 +2154,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 
+ 		rx_desc = IXGBE_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		if (!rx_desc->wb.upper.status_error)
++		if (!rx_desc->wb.upper.length)
+ 			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+@@ -3698,6 +3698,7 @@ void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
+ 			     struct ixgbe_ring *ring)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
++	union ixgbe_adv_rx_desc *rx_desc;
+ 	u64 rdba = ring->dma;
+ 	u32 rxdctl;
+ 	u8 reg_idx = ring->reg_idx;
+@@ -3732,6 +3733,10 @@ void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
+ 		rxdctl |=  0x080420;
+ 	}
+ 
++	/* initialize Rx descriptor 0 */
++	rx_desc = IXGBE_RX_DESC(ring, 0);
++	rx_desc->wb.upper.length = 0;
++
+ 	/* enable receive descriptor ring */
+ 	rxdctl |= IXGBE_RXDCTL_ENABLE;
+ 	IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(reg_idx), rxdctl);
+@@ -4940,9 +4945,6 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
+ 	size = sizeof(struct ixgbe_rx_buffer) * rx_ring->count;
+ 	memset(rx_ring->rx_buffer_info, 0, size);
+ 
+-	/* Zero out the descriptor ring */
+-	memset(rx_ring->desc, 0, rx_ring->size);
 -
- 	/* Allow the platform setup code to adjust MII management bus clock. */
- 	if (!eth_clkfreq) {
- 		struct clk *clk = devm_clk_get(&pdev->dev, NULL);
+ 	rx_ring->next_to_alloc = 0;
+ 	rx_ring->next_to_clean = 0;
+ 	rx_ring->next_to_use = 0;
 -- 
 2.11.0
