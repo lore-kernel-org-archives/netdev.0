@@ -1,49 +1,36 @@
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Subject: Re: [PATCH v3 net-next] net: phy: Add LED mode driver for Microsemi
- PHYs.
-Date: Thu, 16 Feb 2017 14:36:48 +0530
-Message-ID: <20170216090646.GA29082@microsemi.com>
-References: <1486474826-29426-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20170215164540.eok7bnudfffzoyi4@rob-hp-laptop>
-Reply-To: <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: [PATCH] net: mvneta: make mvneta_eth_tool_ops static
+Date: Thu, 16 Feb 2017 17:07:39 +0800
+Message-ID: <20170216090739.2632-1-jszhang@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>,
-        <andrew-g2DYL2Zd6BY@public.gmane.org>
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170215164540.eok7bnudfffzoyi4@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Jisheng Zhang <jszhang@marvell.com>
+To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rob,
+The mvneta_eth_tool_ops is only used internally in mvneta driver, so
+make it static.
 
-On Wed, Feb 15, 2017 at 10:45:40AM -0600, Rob Herring wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> On Tue, Feb 07, 2017 at 07:10:26PM +0530, Raju Lakkaraju wrote:
-> > From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-> >
-> > +                       Default value is VSC8531_LINK_1000_ACTIVITY (1).
-> > +- vsc8531,led-1-mode : LED mode. Specify how the LED[1] should behave.
-> 
-> You failed to address my comment on v2. vsc8531 is not a vendor prefix.
-> Please fix in a new patch since David already applied it.
-> 
-
-Accpeted my fault. i missed your comment.
-Do i need to change from  "vsc8531, led-0-mode" to "mscc, led-0-mode"
-Is this your suggestion?
-
-> Rob
-
+Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 ---
-Thanks,
-Raju.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index fdf71720e707..61dd4462411c 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3959,7 +3959,7 @@ static const struct net_device_ops mvneta_netdev_ops = {
+ 	.ndo_do_ioctl        = mvneta_ioctl,
+ };
+ 
+-const struct ethtool_ops mvneta_eth_tool_ops = {
++static const struct ethtool_ops mvneta_eth_tool_ops = {
+ 	.nway_reset	= phy_ethtool_nway_reset,
+ 	.get_link       = ethtool_op_get_link,
+ 	.set_coalesce   = mvneta_ethtool_set_coalesce,
+-- 
+2.11.0
