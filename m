@@ -1,81 +1,93 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Thu, 16 Feb 2017 23:17:15 +0200
-Message-ID: <CALzJLG_w2m9p3OQxi9c9=Y-RVKKLyce1b-WjoSvLUVGcWHNwYA@mail.gmail.com>
-References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
- <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com>
- <1487167443.1311.8.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG8WHJYQFEsxU39jgpMDFHPkHuDX6VU7vOcd+wqBedonfA@mail.gmail.com> <1487260187.1311.53.camel@edumazet-glaptop3.roam.corp.google.com>
+From: arkadis <arkadis@mellanox.com>
+Subject: Re: [patch net-next RFC 0/8] Add support for pipeline debug (dpipe)
+Date: Thu, 16 Feb 2017 23:20:20 +0200
+Message-ID: <0bcc0264-4877-9841-97e3-2b50d3e5077d@mellanox.com>
+References: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
+ <20170216161150.GC17550@lunn.ch> <20170216162000.GF1968@nanopsycho>
+ <20170216164029.GE17550@lunn.ch> <20170216164835.GH1968@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>, jackm@mellanox.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <idosch@mellanox.com>, <mlxsw@mellanox.com>, <jhs@mojatatu.com>,
+        <ivecera@redhat.com>, <roopa@cumulusnetworks.com>,
+        <f.fainelli@gmail.com>, <vivien.didelot@savoirfairelinux.com>,
+        <john.fastabend@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:36539 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933214AbdBPVRh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 16:17:37 -0500
-Received: by mail-qk0-f193.google.com with SMTP id p22so4153568qka.3
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 13:17:36 -0800 (PST)
-In-Reply-To: <1487260187.1311.53.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-he1eur01on0044.outbound.protection.outlook.com ([104.47.0.44]:15474
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932975AbdBPVUd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 16:20:33 -0500
+In-Reply-To: <20170216164835.GH1968@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2017 at 5:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-02-16 at 14:44 +0200, Saeed Mahameed wrote:
->> On Wed, Feb 15, 2017 at 4:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Wed, 2017-02-15 at 05:29 -0800, Eric Dumazet wrote:
->> >
->> >>
->> >> mlx4_eq_int() is a hard irq handler.
->> >>
->> >> How a tasklet could run in the middle of it ?
->> >>
->> >> A tasklet is a softirq handler.
->> >
->> > Speaking of mlx4_eq_int() , 50% of cycles are spent on mb() (mfence)
->> > in eq_set_ci()
->> >
+
+
+On 02/16/2017 06:48 PM, Jiri Pirko wrote:
+> Thu, Feb 16, 2017 at 05:40:29PM CET, andrew@lunn.ch wrote:
+>> On Thu, Feb 16, 2017 at 05:20:00PM +0100, Jiri Pirko wrote:
+>>> Thu, Feb 16, 2017 at 05:11:50PM CET, andrew@lunn.ch wrote:
+>>>> On Thu, Feb 16, 2017 at 04:22:36PM +0100, Jiri Pirko wrote:
+>>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>>
+>>>>> Arkadi says:
+>>>>
+>>>> Hi Jiri, Arkadi
+>>>>
+>>>> It is not mentioned here, but i assume you have a followup patchset
+>>>> which extends the devlink command to enumerate what tables are
+>>>> available and to print them?
+>>>
+>>> DEVLINK_CMD_DPIPE_TABLES_GET
+>>> command gets you all tables. But it gets it with the content. I guess
+>>> there could be some command to instruct devlink just to dump tables
+>>> without the content.
 >>
->> I wonder why you have so many interrupts ? don't you have some kind of
->> interrupt moderation ?
->> what test are you running that got your CPU so busy.
->
->
-> Simply 8 RX queues. About 140,000 irq per second per RX queue,
-> for a moderate network load on 40Gbit NIC.
->
+>> This does not sound like it will scale very well, as the number of
+>> tables increases. Also, at least in the DSA world, getting a table can
+>> be an expensive operation, lots of MDIO/SPI/I2C transactions. I'd
+>> prefer to be able to just get one specific table, rather than dump
+>> them all.
+> 
+> Understood. We'll try to figure out how to make this done.
+> 
 
-so i guess you are not busy polling .. and adaptive moderation decided
-to lower down
-rx-usecs for you, and you are looking to improve latency.
+Get tables should give general table description including name,
+behavior in terms of match/action, max entries, lookup way (TCAM, hash)
+etc. To get the actual entries you have to use dump entries on a
+per-table resolution. So you need to use DEVLINK_DPIPE_ENTRIES_GET on
+a specific table.
 
-> Interrupt moderation is a latency killer, we want our usec back.
->
+First, one can see the tables in order to understand the hardware
+structure (for debug purposes or just to gain visibility into the
+offload process), and then dump the specific table of interest.
 
-well, for RX we have adaptive moderation.
-and for TX we have xmit more.
-so interrupt moderation can be good if it is done right.
+Some tables for example TCAM memory can be divided into regions.
+So it is reasonable to aggregate tables under other tables (kind of
+a zoom in) and be able to dump all the TCAM with one dump operation and
+yet gain access of dumping each TCAM region separately.
 
-do i understand from this that you are against interrupt moderation ?
+Some things are currently missing like the above logic. Furthermore
+the interaction between tables should be exported as well so that the
+user receives graph of table interaction.
 
+As I see it, all this behavior can be added and this basic API stays
+valid.
+
+> 
 >>
->> > I wonder why this very expensive mb() is required, right before exiting
->> > the interrupt handler.
+>> I can however see cases when it does make sense to have an atomic,
+>> dump everything operation, where you can trust to be consistent across
+>> tables.
 >>
->> to make sure the HW knows we handled Completions up to (ci) consumer
->> index. so it will generate next irq.
->
->
-> So why a mb() is needed exactly ?
->
-> wmb() seems enough.
->
-
-Yes seems right, not sure why it is mb() though, i will have to check
-and get back to you on this.
+>>>> Hopefully it will be more obvious when the user space patches are
+>>>> available.
+>>>
+>>> I'll ask Arkadi to send the devlink userspace patches as RFC as well.
+>>
+>> Great, thanks.
+>>
+>>       Andrew
