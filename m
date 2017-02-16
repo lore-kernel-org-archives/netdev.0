@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 02/21] net-next: stmmac: export stmmac_set_mac_addr/stmmac_get_mac_addr
-Date: Thu, 16 Feb 2017 13:48:40 +0100
-Message-ID: <20170216124859.14346-3-clabbe.montjoie@gmail.com>
+Subject: [PATCH 03/21] net-next: stmmac: add optional setup function
+Date: Thu, 16 Feb 2017 13:48:41 +0100
+Message-ID: <20170216124859.14346-4-clabbe.montjoie@gmail.com>
 References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -21,7 +21,7 @@ To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	catalin.marinas-5wv7dgnIgG8@public.gmane.org,
 	will.deacon-5wv7dgnIgG8@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBROAS3CQKGQEKYK73GY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBR6AS3CQKGQEBSKD26Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170216124859.14346-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -32,31 +32,47 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Thoses symbol will be needed for the dwmac-sun8i ethernet driver.
-For letting it to be build as module, they need to be exported.
+Instead of ading more ifthen login for adding a new mac_device_info
+setup function, it is easier to add a function pointer to the function
+needed.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 7 ++++++-
+ include/linux/stmmac.h                            | 3 +++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index e60bfca..0ab985c8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -248,6 +248,7 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
- 	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
- 	writel(data, ioaddr + low);
- }
-+EXPORT_SYMBOL_GPL(stmmac_set_mac_addr);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 942efb7..319394e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3117,7 +3117,12 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 	struct mac_device_info *mac;
  
- /* Enable disable MAC RX/TX */
- void stmmac_set_mac(void __iomem *ioaddr, bool enable)
-@@ -279,4 +280,4 @@ void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
- 	addr[4] = hi_addr & 0xff;
- 	addr[5] = (hi_addr >> 8) & 0xff;
- }
--
-+EXPORT_SYMBOL_GPL(stmmac_get_mac_addr);
+ 	/* Identify the MAC HW device */
+-	if (priv->plat->has_gmac) {
++	if (priv->plat->setup) {
++		mac = priv->plat->setup(priv->ioaddr,
++					priv->plat->multicast_filter_bins,
++					priv->plat->unicast_filter_entries,
++					&priv->synopsys_id);
++	} else if (priv->plat->has_gmac) {
+ 		priv->dev->priv_flags |= IFF_UNICAST_FLT;
+ 		mac = dwmac1000_setup(priv->ioaddr,
+ 				      priv->plat->multicast_filter_bins,
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index fc273e9..95ee4c4 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -136,6 +136,9 @@ struct plat_stmmacenet_data {
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+ 	int (*init)(struct platform_device *pdev, void *priv);
+ 	void (*exit)(struct platform_device *pdev, void *priv);
++	struct mac_device_info *(*setup)(void __iomem *ioaddr, int mcbins,
++					 int perfect_uc_entries,
++					 int *synopsys_id);
+ 	void *bsp_priv;
+ 	struct clk *stmmac_clk;
+ 	struct clk *pclk;
 -- 
 2.10.2
