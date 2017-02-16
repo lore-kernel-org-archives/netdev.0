@@ -1,102 +1,46 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Thu, 16 Feb 2017 15:08:00 +0200
-Message-ID: <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com>
-References: <20170213195858.5215-1-edumazet@google.com>
- <20170213195858.5215-9-edumazet@google.com>
- <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
- <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
- <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
- <20170214131206.44b644f6@redhat.com>
- <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
- <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
- <1487087488.8227.53.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S3530_2DYU-3VRmvRYZ3n05OqJZpJ3x02vXQd6Q7FUJQvw@mail.gmail.com>
- <ccc4cb9e-9863-02e1-2789-4869aea3c661@mellanox.com>
- <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 11/13] net: ethernet: aquantia: Refactoring
+ buffers copying.
+Date: Thu, 16 Feb 2017 13:10:06 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE68133@AcuExch.aculab.com>
+References: <cover.1487187192.git.pavel.belous@aquantia.com>
+ <de4d3c34fac8c7bbbb614f776ca1255fd6aa03a6.1487187192.git.pavel.belous@aquantia.com>
+ <4262ef98-4ba5-3f1a-5b72-208be51bdd6f@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>, "David S . Miller"
-	<davem@davemloft.net>, netdev <netdev@vger.kernel.org>, Martin KaFai Lau
-	<kafai@fb.com>, Saeed Mahameed <saeedm@mellanox.com>, Willem de Bruijn
-	<willemb@google.com>, Brenden Blanco <bblanco@plumgrid.com>, Alexei
- Starovoitov <ast@kernel.org>, linux-mm <linux-mm@kvack.org>
-To: Eric Dumazet <edumazet@google.com>, Tariq Toukan <tariqt@mellanox.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>
+To: 'Lino Sanfilippo' <LinoSanfilippo@gmx.de>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.186]:55278 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754065AbdBPNKR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 08:10:17 -0500
+In-Reply-To: <4262ef98-4ba5-3f1a-5b72-208be51bdd6f@gmx.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Lino Sanfilippo
+> Sent: 15 February 2017 21:31
+...
+> Well, you should really try to avoid copying the tx buffers _at all_.
+> E.g. by passing self->buff_ring to aq_ring_tx_append_buffs() instead of
+> the temporary array.
 
-On 15/02/2017 6:57 PM, Eric Dumazet wrote:
-> On Wed, Feb 15, 2017 at 8:42 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
->> Isn't it the same principle in page_frag_alloc() ?
->> It is called form __netdev_alloc_skb()/__napi_alloc_skb().
->>
->> Why is it ok to have order-3 pages (PAGE_FRAG_CACHE_MAX_ORDER) there?
-> This is not ok.
->
-> This is a very well known problem, we already mentioned that here in the past,
-> but at least core networking stack uses  order-0 pages on PowerPC.
-You're right, we should have done this as well in mlx4 on PPC.
-> mlx4 driver suffers from this problem 100% more than other drivers ;)
->
-> One problem at a time Tariq. Right now, only mlx4 has this big problem
-> compared to other NIC.
-We _do_ agree that the series improves the driver's quality, stability,
-and performance in a fragmented system.
+Copying can help for horridly fragmented frames or when iommu (etc)
+setup is expensive.
+At least some ethernet hardware has minimum fragment lengths.
 
-But due to the late rc we're in, and the fact that we know what benchmarks
-our customers are going to run, we cannot Ack the series and get it
-as is inside kernel 4.11.
+However, if the frame doesn't fit at the end - just copy to the front.
 
-We are interested to get your series merged along another perf improvement
-we are preparing for next rc1. This way we will earn the desired stability
-without breaking existing benchmarks.
-I think this is the right thing to do at this point of time.
+Something should ensure the copies are aligned (you may want gaps
+between frames.)
 
+I presume there is a 'space in buffer' check elsewhere.
 
-The idea behind the perf improvement, suggested by Jesper, is to split
-the napi_poll call mlx4_en_process_rx_cq() loop into two.
-The first loop extracts completed CQEs and starts prefetching on data
-and RX descriptors. The second loop process the real packets.
-
->
-> Then, if we _still_ hit major issues, we might also need to force
-> napi_get_frags()
-> to allocate skb->head using kmalloc() instead of a page frag.
->
-> That is a very simple fix.
->
-> Remember that we have skb->truesize that is an approximation, it will
-> never be completely accurate,
-> but we need to make it better.
->
-> mlx4 driver pretends to have a frag truesize of 1536 bytes, but this
-> is obviously wrong when host is under memory pressure
-> (2 frags per page -> truesize should be 2048)
->
->
->> By using netdev/napi_alloc_skb, you'll get that the SKB's linear data is a
->> frag of a huge page,
->> and it is not going to be freed before the other non-linear frags.
->> Cannot this cause the same threats (memory pinning and so...)?
->>
->> Currently, mlx4 doesn't use this generic API, while most other drivers do.
->>
->> Similar claims are true for TX:
->> https://github.com/torvalds/linux/commit/5640f7685831e088fe6c2e1f863a6805962f8e81
-> We do not have such problem on TX. GFP_KERNEL allocations do not have
-> the same issues.
->
-> Tasks are usually not malicious in our DC, and most serious
-> applications use memcg or such memory control.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	David
