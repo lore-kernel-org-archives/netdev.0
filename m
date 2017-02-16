@@ -1,34 +1,31 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 0/4] PTP attribute handling cleanup
-Date: Thu, 16 Feb 2017 21:19:29 +0100
-Message-ID: <20170216201928.GA8614@netboy>
-References: <20170214182334.23296-1-dmitry.torokhov@gmail.com>
+From: Peter Korsgaard <peter-+2lRwdCCLRT2eFz/2MeuCQ@public.gmane.org>
+Subject: Re: [PATCH 03/21] net-next: stmmac: add optional setup function
+Date: Thu, 16 Feb 2017 21:38:33 +0100
+Message-ID: <87mvdlg9bq.fsf@dell.be.48ers.dk>
+References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
+	<20170216124859.14346-4-clabbe.montjoie@gmail.com>
+Reply-To: jacmet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35554 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932740AbdBPUTf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 15:19:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20170214182334.23296-1-dmitry.torokhov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org,  robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,  mark.rutland-5wv7dgnIgG8@public.gmane.org,  maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,  wens-jdAy2FN1RRM@public.gmane.org,  linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,  catalin.marinas-5wv7dgnIgG8@public.gmane.org,  will.deacon-5wv7dgnIgG8@public.gmane.org,  alexandre.torgue-qxv4g6HH51o@public.gmane.org,  netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,  devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,  linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,  linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,  linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDKONJFYSUEBBTE3TDCQKGQEVG63W3Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: Peter Korsgaard <jacmet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <20170216124859.14346-4-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Corentin
+	Labbe's message of "Thu, 16 Feb 2017 13:48:41 +0100")
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 14, 2017 at 10:23:30AM -0800, Dmitry Torokhov wrote:
->  drivers/ptp/ptp_clock.c   |  22 +++---
->  drivers/ptp/ptp_private.h |   7 +-
->  drivers/ptp/ptp_sysfs.c   | 167 ++++++++++++++++++----------------------------
->  3 files changed, 80 insertions(+), 116 deletions(-)
+>>>>> "Corentin" == Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-Nice reduction in sysfs code!
+ > Instead of ading more ifthen login for adding a new mac_device_info
 
-I gave this some light testing on the coldfire/phyter (which has 12
-pins), and nothing exploded.
+s/login/logic/
 
-For the series:
-
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+-- 
+Bye, Peter Korsgaard
