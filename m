@@ -1,105 +1,120 @@
-From: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
-Subject: [PATCH rfc 2/4] nvmet-rdma: use generic inet_pton_with_scope
-Date: Thu, 16 Feb 2017 19:43:35 +0200
-Message-ID: <1487267017-29904-3-git-send-email-sagi@grimberg.me>
+From: Sagi Grimberg <sagi@grimberg.me>
+Subject: [PATCH rfc 3/4] nvme-rdma: use inet_pton_with_scope helper
+Date: Thu, 16 Feb 2017 19:43:36 +0200
+Message-ID: <1487267017-29904-4-git-send-email-sagi@grimberg.me>
 References: <1487267017-29904-1-git-send-email-sagi@grimberg.me>
-To: linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1487267017-29904-1-git-send-email-sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        target-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:44760 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932424AbdBPRnu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 12:43:50 -0500
+In-Reply-To: <1487267017-29904-1-git-send-email-sagi@grimberg.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
+Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
 ---
- drivers/nvme/target/rdma.c | 42 +++++++++++++++++++++++++++++-------------
- 1 file changed, 29 insertions(+), 13 deletions(-)
+ drivers/nvme/host/rdma.c | 48 +++++++++++++-----------------------------------
+ 1 file changed, 13 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/nvme/target/rdma.c b/drivers/nvme/target/rdma.c
-index 8c3760a78ac0..298db68f2db9 100644
---- a/drivers/nvme/target/rdma.c
-+++ b/drivers/nvme/target/rdma.c
-@@ -1411,12 +1411,16 @@ static void nvmet_rdma_delete_ctrl(struct nvmet_ctrl *ctrl)
- static int nvmet_rdma_add_port(struct nvmet_port *port)
- {
- 	struct rdma_cm_id *cm_id;
--	struct sockaddr_in addr_in;
--	u16 port_in;
-+	struct sockaddr_storage addr = { };
-+	__kernel_sa_family_t af;
- 	int ret;
+diff --git a/drivers/nvme/host/rdma.c b/drivers/nvme/host/rdma.c
+index 890e7e4b1c15..bf02acbb4af8 100644
+--- a/drivers/nvme/host/rdma.c
++++ b/drivers/nvme/host/rdma.c
+@@ -151,10 +151,7 @@ struct nvme_rdma_ctrl {
+ 	u64			cap;
+ 	u32			max_fr_pages;
  
- 	switch (port->disc_addr.adrfam) {
- 	case NVMF_ADDR_FAMILY_IP4:
-+		af = AF_INET;
-+		break;
-+	case NVMF_ADDR_FAMILY_IP6:
-+		af = AF_INET6;
- 		break;
- 	default:
- 		pr_err("address family %d not supported\n",
-@@ -1424,13 +1428,13 @@ static int nvmet_rdma_add_port(struct nvmet_port *port)
- 		return -EINVAL;
+-	union {
+-		struct sockaddr addr;
+-		struct sockaddr_in addr_in;
+-	};
++	struct sockaddr_storage addr;
+ 
+ 	struct nvme_ctrl	ctrl;
+ };
+@@ -589,7 +586,8 @@ static int nvme_rdma_init_queue(struct nvme_rdma_ctrl *ctrl,
  	}
  
--	ret = kstrtou16(port->disc_addr.trsvcid, 0, &port_in);
--	if (ret)
-+	ret = inet_pton_with_scope(&init_net, af, port->disc_addr.traddr,
-+			port->disc_addr.trsvcid, &addr);
-+	if (ret) {
-+		pr_err("malformed ip/port passed: %s:%s\n",
-+			port->disc_addr.traddr, port->disc_addr.trsvcid);
- 		return ret;
+ 	queue->cm_error = -ETIMEDOUT;
+-	ret = rdma_resolve_addr(queue->cm_id, NULL, &ctrl->addr,
++	ret = rdma_resolve_addr(queue->cm_id, NULL,
++			(struct sockaddr *)&ctrl->addr,
+ 			NVME_RDMA_CONNECT_TIMEOUT_MS);
+ 	if (ret) {
+ 		dev_info(ctrl->ctrl.device,
+@@ -1874,27 +1872,13 @@ static int nvme_rdma_create_io_queues(struct nvme_rdma_ctrl *ctrl)
+ 	return ret;
+ }
+ 
+-static int nvme_rdma_parse_ipaddr(struct sockaddr_in *in_addr, char *p)
+-{
+-	u8 *addr = (u8 *)&in_addr->sin_addr.s_addr;
+-	size_t buflen = strlen(p);
 -
--	addr_in.sin_family = AF_INET;
--	addr_in.sin_addr.s_addr = in_aton(port->disc_addr.traddr);
--	addr_in.sin_port = htons(port_in);
-+	}
+-	/* XXX: handle IPv6 addresses */
+-
+-	if (buflen > INET_ADDRSTRLEN)
+-		return -EINVAL;
+-	if (in4_pton(p, buflen, addr, '\0', NULL) == 0)
+-		return -EINVAL;
+-	in_addr->sin_family = AF_INET;
+-	return 0;
+-}
+-
+ static struct nvme_ctrl *nvme_rdma_create_ctrl(struct device *dev,
+ 		struct nvmf_ctrl_options *opts)
+ {
+ 	struct nvme_rdma_ctrl *ctrl;
+ 	int ret;
+ 	bool changed;
++	char *port;
  
- 	cm_id = rdma_create_id(&init_net, nvmet_rdma_cm_handler, port,
- 			RDMA_PS_TCP, IB_QPT_RC);
-@@ -1439,20 +1443,32 @@ static int nvmet_rdma_add_port(struct nvmet_port *port)
- 		return PTR_ERR(cm_id);
- 	}
+ 	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
+ 	if (!ctrl)
+@@ -1902,24 +1886,18 @@ static struct nvme_ctrl *nvme_rdma_create_ctrl(struct device *dev,
+ 	ctrl->ctrl.opts = opts;
+ 	INIT_LIST_HEAD(&ctrl->list);
  
--	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&addr_in);
-+	/*
-+	 * Allow both IPv4 and IPv6 sockets to bind a single port
-+	 * at the same time.
-+	 */
-+	ret = rdma_set_afonly(cm_id, 1);
-+	if (ret) {
-+		pr_err("rdma_set_afonly failed (%d)\n", ret);
-+		goto out_destroy_id;
-+	}
+-	ret = nvme_rdma_parse_ipaddr(&ctrl->addr_in, opts->traddr);
++	if (opts->mask & NVMF_OPT_TRSVCID)
++		port = opts->trsvcid;
++	else
++		port = __stringify(NVME_RDMA_IP_PORT);
 +
-+	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&addr);
++	ret = inet_pton_with_scope(&init_net, AF_UNSPEC, opts->traddr,
++			port, &ctrl->addr);
  	if (ret) {
--		pr_err("binding CM ID to %pISpc failed (%d)\n", &addr_in, ret);
-+		pr_err("binding CM ID to %pISpcs failed (%d)\n",
-+			(struct sockaddr *)&addr, ret);
- 		goto out_destroy_id;
+-		pr_err("malformed IP address passed: %s\n", opts->traddr);
++		pr_err("malformed ip/port passed: %s:%s\n", opts->traddr, port);
+ 		goto out_free_ctrl;
  	}
  
- 	ret = rdma_listen(cm_id, 128);
- 	if (ret) {
--		pr_err("listening to %pISpc failed (%d)\n", &addr_in, ret);
-+		pr_err("listening to %pISpcs failed (%d)\n",
-+			(struct sockaddr *)&addr, ret);
- 		goto out_destroy_id;
- 	}
+-	if (opts->mask & NVMF_OPT_TRSVCID) {
+-		u16 port;
+-
+-		ret = kstrtou16(opts->trsvcid, 0, &port);
+-		if (ret)
+-			goto out_free_ctrl;
+-
+-		ctrl->addr_in.sin_port = cpu_to_be16(port);
+-	} else {
+-		ctrl->addr_in.sin_port = cpu_to_be16(NVME_RDMA_IP_PORT);
+-	}
+-
+ 	ret = nvme_init_ctrl(&ctrl->ctrl, dev, &nvme_rdma_ctrl_ops,
+ 				0 /* no quirks, we're perfect! */);
+ 	if (ret)
+@@ -1984,7 +1962,7 @@ static struct nvme_ctrl *nvme_rdma_create_ctrl(struct device *dev,
+ 	changed = nvme_change_ctrl_state(&ctrl->ctrl, NVME_CTRL_LIVE);
+ 	WARN_ON_ONCE(!changed);
  
--	pr_info("enabling port %d (%pISpc)\n",
--		le16_to_cpu(port->disc_addr.portid), &addr_in);
-+	pr_info("enabling port %d (%pISpcs)\n",
-+		le16_to_cpu(port->disc_addr.portid), (struct sockaddr *)&addr);
- 	port->priv = cm_id;
- 	return 0;
+-	dev_info(ctrl->ctrl.device, "new ctrl: NQN \"%s\", addr %pISp\n",
++	dev_info(ctrl->ctrl.device, "new ctrl: NQN \"%s\", addr %pISpcs\n",
+ 		ctrl->ctrl.opts->subsysnqn, &ctrl->addr);
  
+ 	kref_get(&ctrl->ctrl.kref);
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
