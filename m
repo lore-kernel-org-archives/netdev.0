@@ -1,41 +1,77 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next v7 1/2] qed: Add infrastructure for PTP support
-Date: Thu, 16 Feb 2017 12:48:44 +0000
-Message-ID: <BL2PR07MB23068A1A0E584D18BFC3913F8D5A0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1487147051-14350-1-git-send-email-Yuval.Mintz@cavium.com>
-         <1487147051-14350-2-git-send-email-Yuval.Mintz@cavium.com>
- <1487248919.1311.39.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/14][pull request] 10GbE Intel Wired LAN Driver Updates 2017-02-16
+Date: Thu, 16 Feb 2017 04:50:27 -0800
+Message-ID: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0088.outbound.protection.outlook.com ([104.47.33.88]:29616
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753285AbdBPMst (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Feb 2017 07:48:49 -0500
-In-Reply-To: <1487248919.1311.39.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from mga14.intel.com ([192.55.52.115]:18210 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753285AbdBPMuo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 07:50:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ICsvKiBSZWFkIFBoeSBIYXJkd2FyZSBDbG9jayAqLw0KPiA+ICtzdGF0aWMgaW50IHFlZF9w
-dHBfaHdfcmVhZF9jYyhzdHJ1Y3QgcWVkX2RldiAqY2RldiwgdTY0ICpwaGNfY3ljbGVzKQ0KPiA+
-ICt7DQo+ID4gKwlzdHJ1Y3QgcWVkX2h3Zm4gKnBfaHdmbiA9IFFFRF9MRUFESU5HX0hXRk4oY2Rl
-dik7DQo+ID4gKwlzdHJ1Y3QgcWVkX3B0dCAqcF9wdHQgPSBwX2h3Zm4tPnBfcHRwX3B0dDsNCj4g
-PiArCXUzMiB0ZW1wID0gMDsNCj4gPiArDQo+ID4gKwl0ZW1wID0gcWVkX3JkKHBfaHdmbiwgcF9w
-dHQsIE5JR19SRUdfVFNHRU5fU1lOQ19USU1FX0xTQik7DQo+ID4gKwkqcGhjX2N5Y2xlcyA9IHFl
-ZF9yZChwX2h3Zm4sIHBfcHR0LA0KPiBOSUdfUkVHX1RTR0VOX1NZTkNfVElNRV9NU0IpOw0KPiA+
-ICsJKnBoY19jeWNsZXMgPDw9IDMyOw0KPiA+ICsJKnBoY19jeWNsZXMgfD0gdGVtcDsNCj4gPiAr
-DQo+ID4gKwlyZXR1cm4gMDsNCj4gPiArfQ0KPiANCj4gTFNCIGFuZCBNU0IgYmVpbmcgcmVhZCBu
-b24gYXRvbWljYWxseSwgaXQgbG9va3MgbGlrZSB5b3UgY291bGQgaGF2ZSBhbiBlcnJvcg0KPiBv
-ZiAoMTw8MzIpIGN5Y2xlcyBoZXJlLg0KPiANCj4gKFlvdSByZWFkIExTQiB2YWx1ZSBjbG9zZSB0
-byAweEZGRkZGRkZGIHJpZ2h0IGJlZm9yZSBpdCBjaGFuZ2VzIHRvIDAsIHdoaWxlDQo+IE1TQiBn
-b3QgaW5jcmVtZW50ZWQuKQ0KDQpPbmNlIHdlIHJlYWQgdGhlIExTQiwgSFcgbGF0Y2hlcyB0aGUg
-TVNCIHVudGlsIGl0J3MgcmVhZC4NClNvIGl0J3Mgbm90IGFuIGlzc3VlIFthbHRob3VnaCBwcm9i
-YWJseSB3b3J0aCBhIGNvbW1lbnRdLg0K
+This series contains updates to ixgbe only.
+
+Tony updates the driver to advertise 2.5Gb and 5.0Gb if the adapter
+supports it.
+
+Stephen Hemminger renames our dcbnl_ops since it is global to
+ixgbe_dcbnl_ops to avoid namespace issues.
+
+Mark updates the driver version based on the recent changes.
+
+Alex has the remainder of the changes, starting with consolidating
+functions that represent logical steps in the receive process so we can
+later update them more easily (and align with igb).  Modify the receive
+path to only synchronize the length of the frame versus the entire buffer.
+Provided performance improvements by adding support for
+DMA_ATTR_SKIP_CPU_SYNC and DMA_ATTR_WEAK_ORDERING.  Also made additional
+performance gains by batching the page count updates instead of doing
+them one at a time.  Adjusted the receive path to use 3k buffers with
+8k backing them in order to support build_skb with jumbo frames.  Made
+additional driver improvements by using the length of the packet instead
+of the DD status to determine if a new descriptor is ready to be
+processed, which cuts down on reads.  To reduce code duplication, pulled
+apart the receive path into separate functions.  Added support for
+providing a buffer with headroom and tailroom to allow for shared info
+for NET_SKB_PAD and NET_IP_ALIGN.
+
+The following are changes since commit b973154a2278c6af0b0efefafb222e0189959659:
+  atm: idt77252, use setup_timer and mod_timer
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
+
+Alexander Duyck (11):
+  ixgbe: Add function for checking to see if we can reuse page
+  ixgbe: Only DMA sync frame length
+  ixgbe: Update driver to make use of DMA attributes in Rx path
+  ixgbe: Update code to better handle incrementing page count
+  ixgbe: Make use of order 1 pages and 3K buffers independent of FCoE
+  ixgbe: Use length to determine if descriptor is done
+  ixgbe: Break out Rx buffer page management
+  ixgbe: Add support for padding packet
+  ixgbe: Add private flag to control buffer mode
+  ixgbe: Add support for build_skb
+  ixgbe: Don't bother clearing buffer memory for descriptor rings
+
+Mark Rustad (1):
+  ixgbe: Update version to reflect added functionality
+
+Stephen Hemminger (1):
+  ixgbe: prefix Data Center Bridge ops struct
+
+Tony Nguyen (1):
+  ixgbe: Support 2.5Gb and 5Gb speed
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  47 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  63 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 589 +++++++++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  10 +-
+ 5 files changed, 481 insertions(+), 230 deletions(-)
+
+-- 
+2.11.0
