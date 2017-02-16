@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 6/8] mlxsw: reg: Add Router Interface Counter Register
-Date: Thu, 16 Feb 2017 16:22:42 +0100
-Message-ID: <1487258564-3775-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next RFC 4/8] mlxsw: spectrum: Add placeholder for dpipe
+Date: Thu, 16 Feb 2017 16:22:40 +0100
+Message-ID: <1487258564-3775-5-git-send-email-jiri@resnulli.us>
 References: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
@@ -10,168 +10,197 @@ Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36212 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932439AbdBPPWy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 10:22:54 -0500
-Received: by mail-wr0-f195.google.com with SMTP id z61so1659908wrc.3
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 07:22:53 -0800 (PST)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33120 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932421AbdBPPWv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 10:22:51 -0500
+Received: by mail-wm0-f65.google.com with SMTP id v77so3650776wmv.0
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 07:22:51 -0800 (PST)
 In-Reply-To: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-The RICNT register retrieves per port performance counter. It will be
-used to query the router interfaces statistics.
+Add placeholder for dpipe. Support for specific tables and headers will
+be introduced in following patches. The headers are shared between all
+mlxsw_sp instances.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 124 ++++++++++++++++++++++++++++++
- 1 file changed, 124 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |  2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 10 ++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 57 ++++++++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   | 41 ++++++++++++++++
+ 4 files changed, 109 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 6066689..a3b95a9 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4339,6 +4339,129 @@ static inline void mlxsw_reg_ratr_eth_entry_pack(char *payload,
- 	mlxsw_reg_ratr_eth_destination_mac_memcpy_to(payload, dest_mac);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+index 95fcacf..2fb8c65 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
++++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+@@ -16,7 +16,7 @@ mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
+ 				   spectrum_switchdev.o spectrum_router.o \
+ 				   spectrum_kvdl.o spectrum_acl_tcam.o \
+ 				   spectrum_acl.o spectrum_flower.o \
+-				   spectrum_cnt.o
++				   spectrum_cnt.o spectrum_dpipe.o
+ mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
+ obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
+ mlxsw_minimal-objs		:= minimal.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index f7b8cf4..cb66416 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -67,6 +67,7 @@
+ #include "trap.h"
+ #include "txheader.h"
+ #include "spectrum_cnt.h"
++#include "spectrum_dpipe.h"
  
-+/* RICNT - Router Interface Counter Register
-+ * -----------------------------------------
-+ * The RICNT register retrieves per port performance counters
+ static const char mlxsw_sp_driver_name[] = "mlxsw_spectrum";
+ static const char mlxsw_sp_driver_version[] = "1.0";
+@@ -3231,6 +3232,12 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 		goto err_counter_pool_init;
+ 	}
+ 
++	err = mlxsw_sp_dpipe_init(mlxsw_sp);
++	if (err) {
++		dev_err(mlxsw_sp->bus_info->dev, "Failed to init pipeline debug\n");
++		goto err_dpipe_init;
++	}
++
+ 	err = mlxsw_sp_ports_create(mlxsw_sp);
+ 	if (err) {
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to create ports\n");
+@@ -3240,6 +3247,8 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 	return 0;
+ 
+ err_ports_create:
++	mlxsw_sp_dpipe_fini(mlxsw_sp);
++err_dpipe_init:
+ 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
+ err_counter_pool_init:
+ 	mlxsw_sp_acl_fini(mlxsw_sp);
+@@ -3264,6 +3273,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+ 
+ 	mlxsw_sp_ports_remove(mlxsw_sp);
++	mlxsw_sp_dpipe_fini(mlxsw_sp);
+ 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
+ 	mlxsw_sp_acl_fini(mlxsw_sp);
+ 	mlxsw_sp_span_fini(mlxsw_sp);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+new file mode 100644
+index 0000000..7c87bc8
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
+@@ -0,0 +1,57 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Arkadi Sharshevsky <arakdis@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
 + */
-+#define MLXSW_REG_RICNT_ID 0x800B
-+#define MLXSW_REG_RICNT_LEN 0x100
 +
-+MLXSW_REG_DEFINE(ricnt, MLXSW_REG_RICNT_ID, MLXSW_REG_RICNT_LEN);
++#include <linux/kernel.h>
++#include <net/devlink.h>
 +
-+/* reg_ricnt_counter_index
-+ * Counter index
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ricnt, counter_index, 0x04, 0, 24);
++#include "spectrum.h"
++#include "spectrum_dpipe.h"
 +
-+enum mlxsw_reg_ricnt_counter_set_type {
-+	/* No Count. */
-+	MLXSW_REG_RICNT_COUNTER_SET_TYPE_NO_COUNT = 0x00,
-+	/* Basic. Used for router interfaces, counting the following:
-+	 *	- Error and Discard counters.
-+	 *	- Unicast, Multicast and Broadcast counters. Sharing the
-+	 *	  same set of counters for the different type of traffic
-+	 *	  (IPv4, IPv6 and mpls).
-+	 */
-+	MLXSW_REG_RICNT_COUNTER_SET_TYPE_BASIC = 0x09,
++static struct devlink_dpipe_header *mlxsw_dpipe_headers[] = {};
++
++static struct devlink_dpipe_headers mlxsw_sp_dpipe_headers = {
++	.headers = mlxsw_dpipe_headers,
++	.headers_count = ARRAY_SIZE(mlxsw_dpipe_headers),
 +};
 +
-+/* reg_ricnt_counter_set_type
-+ * Counter Set Type for router interface counter
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ricnt, counter_set_type, 0x04, 24, 8);
-+
-+enum mlxsw_reg_ricnt_opcode {
-+	/* Nop. Supported only for read access*/
-+	MLXSW_REG_RICNT_OPCODE_NOP = 0x00,
-+	/* Clear. Setting the clr bit will reset the counter value for
-+	 * all counters of the specified Router Interface.
-+	 */
-+	MLXSW_REG_RICNT_OPCODE_CLEAR = 0x08,
-+};
-+
-+/* reg_ricnt_opcode
-+ * Opcode
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ricnt, op, 0x00, 28, 4);
-+
-+/* reg_ricnt_good_unicast_packets
-+ * good unicast packets.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, good_unicast_packets, 0x08, 0, 64);
-+
-+/* reg_ricnt_good_multicast_packets
-+ * good multicast packets.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, good_multicast_packets, 0x10, 0, 64);
-+
-+/* reg_ricnt_good_broadcast_packets
-+ * good broadcast packets
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, good_broadcast_packets, 0x18, 0, 64);
-+
-+/* reg_ricnt_good_unicast_bytes
-+ * A count of L3 data and padding octets not including L2 headers
-+ * for good unicast frames.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, good_unicast_bytes, 0x20, 0, 64);
-+
-+/* reg_ricnt_good_multicast_bytes
-+ * A count of L3 data and padding octets not including L2 headers
-+ * for good multicast frames.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, good_multicast_bytes, 0x28, 0, 64);
-+
-+/* reg_ritr_good_broadcast_bytes
-+ * A count of L3 data and padding octets not including L2 headers
-+ * for good broadcast frames.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, good_broadcast_bytes, 0x30, 0, 64);
-+
-+/* reg_ricnt_error_packets
-+ * A count of errored frames that do not pass the router checks.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, error_packets, 0x38, 0, 64);
-+
-+/* reg_ricnt_discrad_packets
-+ * A count of non-errored frames that do not pass the router checks.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, discard_packets, 0x40, 0, 64);
-+
-+/* reg_ricnt_error_bytes
-+ * A count of L3 data and padding octets not including L2 headers
-+ * for errored frames.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, error_bytes, 0x48, 0, 64);
-+
-+/* reg_ricnt_discard_bytes
-+ * A count of L3 data and padding octets not including L2 headers
-+ * for non-errored frames that do not pass the router checks.
-+ * Access: RW
-+ */
-+MLXSW_ITEM64(reg, ricnt, discard_bytes, 0x50, 0, 64);
-+
-+static inline void mlxsw_reg_ricnt_pack(char *payload, u32 index,
-+					enum mlxsw_reg_ricnt_opcode op)
++int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp)
 +{
-+	MLXSW_REG_ZERO(ricnt, payload);
-+	mlxsw_reg_ricnt_op_set(payload, op);
-+	mlxsw_reg_ricnt_counter_index_set(payload, index);
-+	mlxsw_reg_ricnt_counter_set_type_set(payload,
-+					     MLXSW_REG_RICNT_COUNTER_SET_TYPE_BASIC);
++	return devlink_dpipe_headers_register(priv_to_devlink(mlxsw_sp->core),
++					      &mlxsw_sp_dpipe_headers);
 +}
 +
- /* RALTA - Router Algorithmic LPM Tree Allocation Register
-  * -------------------------------------------------------
-  * RALTA is used to allocate the LPM trees of the SHSPM method.
-@@ -6014,6 +6137,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(rgcr),
- 	MLXSW_REG(ritr),
- 	MLXSW_REG(ratr),
-+	MLXSW_REG(ricnt),
- 	MLXSW_REG(ralta),
- 	MLXSW_REG(ralst),
- 	MLXSW_REG(raltb),
++void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp)
++{
++	devlink_dpipe_headers_unregister(priv_to_devlink(mlxsw_sp->core));
++}
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+new file mode 100644
+index 0000000..ad16259
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+@@ -0,0 +1,41 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Arkadi Sharshevsky <arkadis@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef _MLXSW_PIPELINE_H_
++#define _MLXSW_PIPELINE_H_
++
++int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp);
++void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp);
++
++#endif /* _MLXSW_PIPELINE_H_*/
 -- 
 2.7.4
