@@ -1,7 +1,7 @@
-From: Tom Herbert <tom@herbertland.com>
+From: Eric Dumazet <edumazet@google.com>
 Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Thu, 16 Feb 2017 09:05:26 -0800
-Message-ID: <CALx6S36xcEJ9YssZtzQKOy-tufrWWJO533J0nTEzp_ckb5dVjA@mail.gmail.com>
+Date: Thu, 16 Feb 2017 09:11:01 -0800
+Message-ID: <CANn89iJayq1r2hLQJSHA1YvZGDOxNuViucf=+syL6BEmFkc2RQ@mail.gmail.com>
 References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
  <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
  <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
@@ -10,108 +10,57 @@ References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-e
  <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com> <1487087488.8227.53.camel@edumazet-glaptop3.roam.corp.google.com>
  <CALx6S3530_2DYU-3VRmvRYZ3n05OqJZpJ3x02vXQd6Q7FUJQvw@mail.gmail.com>
  <ccc4cb9e-9863-02e1-2789-4869aea3c661@mellanox.com> <CANn89iJip45peBQB9Tn1mWVg+1QYZH+01CqkAUctd3xqwPw8Zg@mail.gmail.com>
- <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com>
+ <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com> <CALx6S36xcEJ9YssZtzQKOy-tufrWWJO533J0nTEzp_ckb5dVjA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>, Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, Alexander Duyck <alexander.duyck@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
-	Martin KaFai Lau <kafai@fb.com>, Saeed Mahameed <saeedm@mellanox.com>,
-	Willem de Bruijn <willemb@google.com>, Brenden Blanco <bblanco@plumgrid.com>,
-	Alexei Starovoitov <ast@kernel.org>, linux-mm <linux-mm@kvack.org>
-To: Tariq Toukan <tariqt@mellanox.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <37bc04eb-71c9-0433-304d-87fcf8b06be3@mellanox.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: Tariq Toukan <tariqt@mellanox.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        linux-mm <linux-mm@kvack.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f42.google.com ([209.85.214.42]:37163 "EHLO
+        mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932193AbdBPRLD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 12:11:03 -0500
+Received: by mail-it0-f42.google.com with SMTP id x75so32177129itb.0
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 09:11:02 -0800 (PST)
+In-Reply-To: <CALx6S36xcEJ9YssZtzQKOy-tufrWWJO533J0nTEzp_ckb5dVjA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2017 at 5:08 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
->
-> On 15/02/2017 6:57 PM, Eric Dumazet wrote:
->>
->> On Wed, Feb 15, 2017 at 8:42 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
->>>
->>> Isn't it the same principle in page_frag_alloc() ?
->>> It is called form __netdev_alloc_skb()/__napi_alloc_skb().
->>>
->>> Why is it ok to have order-3 pages (PAGE_FRAG_CACHE_MAX_ORDER) there?
->>
->> This is not ok.
->>
->> This is a very well known problem, we already mentioned that here in the
->> past,
->> but at least core networking stack uses  order-0 pages on PowerPC.
->
-> You're right, we should have done this as well in mlx4 on PPC.
->>
->> mlx4 driver suffers from this problem 100% more than other drivers ;)
->>
->> One problem at a time Tariq. Right now, only mlx4 has this big problem
->> compared to other NIC.
->
-> We _do_ agree that the series improves the driver's quality, stability,
-> and performance in a fragmented system.
->
-> But due to the late rc we're in, and the fact that we know what benchmarks
-> our customers are going to run, we cannot Ack the series and get it
-> as is inside kernel 4.11.
->
-You're admitting that Eric's patches improve driver quality,
-stability, and performance but you're not allowing this in the kernel
-because "we know what benchmarks our customers are going to run".
-Sorry, but that is a weak explanation.
+> You're admitting that Eric's patches improve driver quality,
+> stability, and performance but you're not allowing this in the kernel
+> because "we know what benchmarks our customers are going to run".
 
-> We are interested to get your series merged along another perf improvement
-> we are preparing for next rc1. This way we will earn the desired stability
-> without breaking existing benchmarks.
-> I think this is the right thing to do at this point of time.
->
->
-> The idea behind the perf improvement, suggested by Jesper, is to split
-> the napi_poll call mlx4_en_process_rx_cq() loop into two.
-> The first loop extracts completed CQEs and starts prefetching on data
-> and RX descriptors. The second loop process the real packets.
->
->
->>
->> Then, if we _still_ hit major issues, we might also need to force
->> napi_get_frags()
->> to allocate skb->head using kmalloc() instead of a page frag.
->>
->> That is a very simple fix.
->>
->> Remember that we have skb->truesize that is an approximation, it will
->> never be completely accurate,
->> but we need to make it better.
->>
->> mlx4 driver pretends to have a frag truesize of 1536 bytes, but this
->> is obviously wrong when host is under memory pressure
->> (2 frags per page -> truesize should be 2048)
->>
->>
->>> By using netdev/napi_alloc_skb, you'll get that the SKB's linear data is
->>> a
->>> frag of a huge page,
->>> and it is not going to be freed before the other non-linear frags.
->>> Cannot this cause the same threats (memory pinning and so...)?
->>>
->>> Currently, mlx4 doesn't use this generic API, while most other drivers
->>> do.
->>>
->>> Similar claims are true for TX:
->>>
->>> https://github.com/torvalds/linux/commit/5640f7685831e088fe6c2e1f863a6805962f8e81
->>
->> We do not have such problem on TX. GFP_KERNEL allocations do not have
->> the same issues.
->>
->> Tasks are usually not malicious in our DC, and most serious
->> applications use memcg or such memory control.
->
->
+Note that I do not particularly care if these patches go in 4.11 or 4.12 really.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I already backported them into our 4.3 based kernel.
+
+I guess that we could at least propose the trivial patch for stable releases,
+since PowerPC arches really need it.
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index cec59bc264c9ac197048fd7c98bcd5cf25de0efd..0f6d2f3b7d54f51de359d4ccde21f4585e6b7852
+100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -102,7 +102,8 @@
+ /* Use the maximum between 16384 and a single page */
+ #define MLX4_EN_ALLOC_SIZE     PAGE_ALIGN(16384)
+
+-#define MLX4_EN_ALLOC_PREFER_ORDER     PAGE_ALLOC_COSTLY_ORDER
++#define MLX4_EN_ALLOC_PREFER_ORDER min_t(int, get_order(32768),
+         \
++                                        PAGE_ALLOC_COSTLY_ORDER)
+
+ /* Receive fragment sizes; we use at most 3 fragments (for 9600 byte MTU
+  * and 4K allocations) */
