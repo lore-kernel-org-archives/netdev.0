@@ -1,43 +1,40 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 4/4] ip vrf: Detect invalid vrf name in pids command
-Date: Thu, 16 Feb 2017 08:58:58 -0800
-Message-ID: <1487264338-17588-5-git-send-email-dsa@cumulusnetworks.com>
-References: <1487264338-17588-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org,
-        luto@amacapital.net
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [patch net-next RFC 0/8] Add support for pipeline debug (dpipe)
+Date: Thu, 16 Feb 2017 18:04:46 +0100
+Message-ID: <20170216170446.GF17550@lunn.ch>
+References: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com, jhs@mojatatu.com,
+        ivecera@redhat.com, roopa@cumulusnetworks.com,
+        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        john.fastabend@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:35010 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932513AbdBPQ7H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 11:59:07 -0500
-Received: by mail-pg0-f42.google.com with SMTP id t188so7672664pgt.2
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 08:59:07 -0800 (PST)
-In-Reply-To: <1487264338-17588-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:42125 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754770AbdBPREv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Feb 2017 12:04:51 -0500
+Content-Disposition: inline
+In-Reply-To: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Verify VRF name is valid before attempting to read cgroups files.
+On Thu, Feb 16, 2017 at 04:22:36PM +0100, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- ip/ipvrf.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Hi Jiri, Arkadi
 
-diff --git a/ip/ipvrf.c b/ip/ipvrf.c
-index cb7f9fa6d1db..5e204a9ebbb1 100644
---- a/ip/ipvrf.c
-+++ b/ip/ipvrf.c
-@@ -212,6 +212,10 @@ static int ipvrf_pids(int argc, char **argv)
- 	}
- 
- 	vrf = argv[0];
-+	if (!name_is_vrf(vrf)) {
-+		fprintf(stderr, "Invalid VRF name\n");
-+		return -1;
-+	}
- 
- 	mnt = find_cgroup2_mount();
- 	if (!mnt)
--- 
-2.1.4
+Just to make sure we are all on the same page here:
+
+This purely RFC. It is not intended for the merge window starting next
+week?
+
+This is a new binary API, something we have to live with forever. So i
+think before it gets merged into a Linus kernel, we need time to think
+about all the different sorts of tables we want to dump, what sort of
+fields they have, and can we represent them using this API. That is
+going to take some time.
+
+      Andrew
