@@ -1,52 +1,40 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH trivial 2/4] rtlwifi: rtl8821ae: Spelling s/wrtie_addr/write_addr/
-Date: Fri, 17 Feb 2017 16:36:37 +0100
-Message-ID: <1487345799-1638-2-git-send-email-geert+renesas@glider.be>
-References: <1487345799-1638-1-git-send-email-geert+renesas@glider.be>
-Cc: linux-kernel@vger.kernel.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        netdev@vger.kernel.org
-To: Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487345799-1638-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] TCP_NOTSENT_LOWAT behavior
+Date: Fri, 17 Feb 2017 07:38:16 -0800
+Message-ID: <1487345896.1311.80.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1487312405-18480-1-git-send-email-johunt@akamai.com>
+         <1487315225.1311.76.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org, jbaron@akamai.com
+To: Josh Hunt <johunt@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34801 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934065AbdBQPiS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 10:38:18 -0500
+Received: by mail-pf0-f194.google.com with SMTP id o64so4332460pfb.1
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 07:38:18 -0800 (PST)
+In-Reply-To: <1487315225.1311.76.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As per symmetry with _rtl8821ae_dbi_read(), "wrtie" is not a funky
-register acronym, but a simple misspelling of "write".
+On Thu, 2017-02-16 at 23:07 -0800, Eric Dumazet wrote:
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-Cc: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>
-Cc: netdev@vger.kernel.org
----
- drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+> This adds a cost to fast path. tcp_sendmsg() is insane.
+> 
+> We have one skb granularity (64KB) already for SO_SNDBUF, regardless of
+> TCP_NOTSENT_LOWAT being used or not.
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-index 4f83eee1ff75bc81..546f085afb8f42fa 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-@@ -1135,13 +1135,13 @@ static u8 _rtl8821ae_dbi_read(struct rtl_priv *rtlpriv, u16 addr)
- static void _rtl8821ae_dbi_write(struct rtl_priv *rtlpriv, u16 addr, u8 data)
- {
- 	u8 tmp = 0, count = 0;
--	u16 wrtie_addr, remainder = addr % 4;
-+	u16 write_addr, remainder = addr % 4;
- 
--	wrtie_addr = REG_DBI_WDATA + remainder;
--	rtl_write_byte(rtlpriv, wrtie_addr, data);
-+	write_addr = REG_DBI_WDATA + remainder;
-+	rtl_write_byte(rtlpriv, write_addr, data);
- 
--	wrtie_addr = (addr & 0xfffc) | (BIT(0) << (remainder + 12));
--	rtl_write_word(rtlpriv, REG_DBI_ADDR, wrtie_addr);
-+	write_addr = (addr & 0xfffc) | (BIT(0) << (remainder + 12));
-+	rtl_write_word(rtlpriv, REG_DBI_ADDR, write_addr);
- 
- 	rtl_write_byte(rtlpriv, REG_DBI_FLAG, 0x1);
- 
--- 
-1.9.1
+Note that this granularity is wanted for performance, otherwise our per
+task 32KB page (current->task_frag) might be split in very small chunks
+over multiple sockets on applications dealing with many TCP sockets.
+
+Having nice initial 64KB TSO packets with 2 or 3 frags allows for better
+sack coalescing
+
+Ref :
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=3613b3dbd1ade9a6a626dae1f608c57638eb5e8a
+
+Thanks.
