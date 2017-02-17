@@ -1,108 +1,185 @@
-From: Chris Wilson <chris@chris-wilson.co.uk>
-Subject: [PATCH] e1000e: Undo e1000e_pm_freeze if __e1000_shutdown fails
-Date: Fri, 17 Feb 2017 12:41:48 +0000
-Message-ID: <20170217124148.17130-1-chris@chris-wilson.co.uk>
-Cc: Chris Wilson <chris@chris-wilson.co.uk>,
-        Tvrtko Ursulin <tvrtko.ursulin@intel.com>,
-        Dave Ertman <davidx.m.ertman@intel.com>,
-        Bruce Allan <bruce.w.allan@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36695 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933462AbdBQMlx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 07:41:53 -0500
-Received: by mail-wm0-f68.google.com with SMTP id r18so2373314wmd.3
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 04:41:52 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH] net: ethernet: stmmac: dwmac-rk: Add RK3328 gmac support
+Date: Fri, 17 Feb 2017 20:55:11 +0800
+Message-ID: <1487336111-24987-1-git-send-email-david.wu@rock-chips.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ "david.wu" <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+ alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-An error during suspend (e100e_pm_suspend),
+From: "david.wu" <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 
-[  429.994338] ACPI : EC: event blocked
-[  429.994633] e1000e: EEE TX LPI TIMER: 00000011
-[  430.955451] pci_pm_suspend(): e1000e_pm_suspend+0x0/0x30 [e1000e] returns -2
-[  430.955454] dpm_run_callback(): pci_pm_suspend+0x0/0x140 returns -2
-[  430.955458] PM: Device 0000:00:19.0 failed to suspend async: error -2
-[  430.955581] PM: Some devices failed to suspend, or early wake event detected
-[  430.957709] ACPI : EC: event unblocked
+Add constants and callback functions for the dwmac on rk3328 socs.
+As can be seen, the base structure is the same, only registers and the
+bits in them moved slightly.
 
-lead to complete failure:
-
-[  432.585002] ------------[ cut here ]------------
-[  432.585013] WARNING: CPU: 3 PID: 8372 at kernel/irq/manage.c:1478 __free_irq+0x9f/0x280
-[  432.585015] Trying to free already-free IRQ 20
-[  432.585016] Modules linked in: cdc_ncm usbnet x86_pkg_temp_thermal intel_powerclamp coretemp mii crct10dif_pclmul crc32_pclmul ghash_clmulni_intel snd_hda_codec_hdmi snd_hda_codec_realtek snd_hda_codec_generic snd_hda_intel snd_hda_codec snd_hwdep lpc_ich snd_hda_core snd_pcm mei_me mei sdhci_pci sdhci i915 mmc_core e1000e ptp pps_core prime_numbers
-[  432.585042] CPU: 3 PID: 8372 Comm: kworker/u16:40 Tainted: G     U          4.10.0-rc8-CI-Patchwork_3870+ #1
-[  432.585044] Hardware name: LENOVO 2356GCG/2356GCG, BIOS G7ET31WW (1.13 ) 07/02/2012
-[  432.585050] Workqueue: events_unbound async_run_entry_fn
-[  432.585051] Call Trace:
-[  432.585058]  dump_stack+0x67/0x92
-[  432.585062]  __warn+0xc6/0xe0
-[  432.585065]  warn_slowpath_fmt+0x4a/0x50
-[  432.585070]  ? _raw_spin_lock_irqsave+0x49/0x60
-[  432.585072]  __free_irq+0x9f/0x280
-[  432.585075]  free_irq+0x34/0x80
-[  432.585089]  e1000_free_irq+0x65/0x70 [e1000e]
-[  432.585098]  e1000e_pm_freeze+0x7a/0xb0 [e1000e]
-[  432.585106]  e1000e_pm_suspend+0x21/0x30 [e1000e]
-[  432.585113]  pci_pm_suspend+0x71/0x140
-[  432.585118]  dpm_run_callback+0x6f/0x330
-[  432.585122]  ? pci_pm_freeze+0xe0/0xe0
-[  432.585125]  __device_suspend+0xea/0x330
-[  432.585128]  async_suspend+0x1a/0x90
-[  432.585132]  async_run_entry_fn+0x34/0x160
-[  432.585137]  process_one_work+0x1f4/0x6d0
-[  432.585140]  ? process_one_work+0x16e/0x6d0
-[  432.585143]  worker_thread+0x49/0x4a0
-[  432.585145]  kthread+0x107/0x140
-[  432.585148]  ? process_one_work+0x6d0/0x6d0
-[  432.585150]  ? kthread_create_on_node+0x40/0x40
-[  432.585154]  ret_from_fork+0x2e/0x40
-[  432.585156] ---[ end trace 6712df7f8c4b9124 ]---
-
-The unwind failures stems from commit 2800209994f8 ("e1000e: Refactor PM
-flows"), but it may be a later patch that introduced the non-recoverable
-behaviour.
-
-Fixes: 2800209994f8 ("e1000e: Refactor PM flows")
-Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=99847
-Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
-Cc: Tvrtko Ursulin <tvrtko.ursulin@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Dave Ertman <davidx.m.ertman@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>
-Cc: intel-wired-lan@lists.osuosl.org
-Cc: netdev@vger.kernel.org
+Signed-off-by: david.wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ .../devicetree/bindings/net/rockchip-dwmac.txt     |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 117 +++++++++++++++++++++
+ 2 files changed, 118 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index eccf1da9356b..429a5210230d 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6615,12 +6615,19 @@ static int e1000e_pm_thaw(struct device *dev)
- static int e1000e_pm_suspend(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
-+	int rc;
+diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+index 95383c5..8f42755 100644
+--- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
++++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+@@ -6,6 +6,7 @@ Required properties:
+  - compatible: should be "rockchip,<name>-gamc"
+    "rockchip,rk3228-gmac": found on RK322x SoCs
+    "rockchip,rk3288-gmac": found on RK3288 SoCs
++   "rockchip,rk3328-gmac": found on RK3328 SoCs
+    "rockchip,rk3366-gmac": found on RK3366 SoCs
+    "rockchip,rk3368-gmac": found on RK3368 SoCs
+    "rockchip,rk3399-gmac": found on RK3399 SoCs
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index fa6e970..e5db6ac 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -302,6 +302,122 @@ static void rk3288_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
+ 	.set_rmii_speed = rk3288_set_rmii_speed,
+ };
  
- 	e1000e_flush_lpic(pdev);
- 
- 	e1000e_pm_freeze(dev);
- 
--	return __e1000_shutdown(pdev, false);
-+	rc = __e1000_shutdown(pdev, false);
-+	if (rc) {
-+		e1000e_pm_thaw(dev);
-+		return rc;
++#define RK3328_GRF_MAC_CON0	0x0900
++#define RK3328_GRF_MAC_CON1	0x0904
++
++/* RK3328_GRF_MAC_CON0 */
++#define RK3328_GMAC_CLK_RX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 7)
++#define RK3328_GMAC_CLK_TX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 0)
++
++/* RK3328_GRF_MAC_CON1 */
++#define RK3328_GMAC_PHY_INTF_SEL_RGMII	\
++		(GRF_BIT(4) | GRF_CLR_BIT(5) | GRF_CLR_BIT(6))
++#define RK3328_GMAC_PHY_INTF_SEL_RMII	\
++		(GRF_CLR_BIT(4) | GRF_CLR_BIT(5) | GRF_BIT(6))
++#define RK3328_GMAC_FLOW_CTRL		GRF_BIT(3)
++#define RK3328_GMAC_FLOW_CTRL_CLR	GRF_CLR_BIT(3)
++#define RK3328_GMAC_SPEED_10M		GRF_CLR_BIT(2)
++#define RK3328_GMAC_SPEED_100M		GRF_BIT(2)
++#define RK3328_GMAC_RMII_CLK_25M	GRF_BIT(7)
++#define RK3328_GMAC_RMII_CLK_2_5M	GRF_CLR_BIT(7)
++#define RK3328_GMAC_CLK_125M		(GRF_CLR_BIT(11) | GRF_CLR_BIT(12))
++#define RK3328_GMAC_CLK_25M		(GRF_BIT(11) | GRF_BIT(12))
++#define RK3328_GMAC_CLK_2_5M		(GRF_CLR_BIT(11) | GRF_BIT(12))
++#define RK3328_GMAC_RMII_MODE		GRF_BIT(9)
++#define RK3328_GMAC_RMII_MODE_CLR	GRF_CLR_BIT(9)
++#define RK3328_GMAC_TXCLK_DLY_ENABLE	GRF_BIT(0)
++#define RK3328_GMAC_TXCLK_DLY_DISABLE	GRF_CLR_BIT(0)
++#define RK3328_GMAC_RXCLK_DLY_ENABLE	GRF_BIT(1)
++#define RK3328_GMAC_RXCLK_DLY_DISABLE	GRF_CLR_BIT(0)
++
++static void rk3328_set_to_rgmii(struct rk_priv_data *bsp_priv,
++				int tx_delay, int rx_delay)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
 +	}
 +
-+	return 0;
- }
++	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
++		     RK3328_GMAC_PHY_INTF_SEL_RGMII |
++		     RK3328_GMAC_RMII_MODE_CLR |
++		     RK3328_GMAC_RXCLK_DLY_ENABLE |
++		     RK3328_GMAC_TXCLK_DLY_ENABLE);
++
++	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON0,
++		     RK3328_GMAC_CLK_RX_DL_CFG(rx_delay) |
++		     RK3328_GMAC_CLK_TX_DL_CFG(tx_delay));
++}
++
++static void rk3328_set_to_rmii(struct rk_priv_data *bsp_priv)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
++		     RK3328_GMAC_PHY_INTF_SEL_RMII |
++		     RK3328_GMAC_RMII_MODE);
++
++	/* set MAC to RMII mode */
++	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1, GRF_BIT(11));
++}
++
++static void rk3328_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	if (speed == 10)
++		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
++			     RK3328_GMAC_CLK_2_5M);
++	else if (speed == 100)
++		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
++			     RK3328_GMAC_CLK_25M);
++	else if (speed == 1000)
++		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
++			     RK3328_GMAC_CLK_125M);
++	else
++		dev_err(dev, "unknown speed value for RGMII! speed=%d", speed);
++}
++
++static void rk3328_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	if (speed == 10)
++		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
++			     RK3328_GMAC_RMII_CLK_2_5M |
++			     RK3328_GMAC_SPEED_10M);
++	else if (speed == 100)
++		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
++			     RK3328_GMAC_RMII_CLK_25M |
++			     RK3328_GMAC_SPEED_100M);
++	else
++		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
++}
++
++static const struct rk_gmac_ops rk3328_ops = {
++	.set_to_rgmii = rk3328_set_to_rgmii,
++	.set_to_rmii = rk3328_set_to_rmii,
++	.set_rgmii_speed = rk3328_set_rgmii_speed,
++	.set_rmii_speed = rk3328_set_rmii_speed,
++};
++
+ #define RK3366_GRF_SOC_CON6	0x0418
+ #define RK3366_GRF_SOC_CON7	0x041c
  
- static int e1000e_pm_resume(struct device *dev)
+@@ -1006,6 +1122,7 @@ static int rk_gmac_resume(struct device *dev)
+ static const struct of_device_id rk_gmac_dwmac_match[] = {
+ 	{ .compatible = "rockchip,rk3228-gmac", .data = &rk3228_ops },
+ 	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_ops },
++	{ .compatible = "rockchip,rk3328-gmac", .data = &rk3328_ops },
+ 	{ .compatible = "rockchip,rk3366-gmac", .data = &rk3366_ops },
+ 	{ .compatible = "rockchip,rk3368-gmac", .data = &rk3368_ops },
+ 	{ .compatible = "rockchip,rk3399-gmac", .data = &rk3399_ops },
 -- 
-2.11.0
+1.9.1
