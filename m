@@ -1,105 +1,163 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net-next 7/7] sctp: add reconf chunk event
-Date: Fri, 17 Feb 2017 12:45:43 +0800
-Message-ID: <5ba2cf6d699a77d6eadd75496d955402bd3c2d2d.1487306585.git.lucien.xin@gmail.com>
-References: <cover.1487306585.git.lucien.xin@gmail.com>
- <f01759c2f5ab1be572d95480d6d4e7e94431d2b8.1487306585.git.lucien.xin@gmail.com>
- <3ee883ca4dd0ef75baa9ca5bfd9642d28160c10b.1487306585.git.lucien.xin@gmail.com>
- <07abdfdccbb39c94418b7a7887e82c5c12adf0c7.1487306585.git.lucien.xin@gmail.com>
- <3b70615422bf6d43013332d4b37c70160a0c1d32.1487306585.git.lucien.xin@gmail.com>
- <c90e5eac92a42c0d9ab69f7362fc6debf5512bad.1487306585.git.lucien.xin@gmail.com>
- <c226e65af5c013263d702ee4ee3fb1a7c6cac32f.1487306585.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35135 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932390AbdBQEqt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 23:46:49 -0500
-In-Reply-To: <c226e65af5c013263d702ee4ee3fb1a7c6cac32f.1487306585.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1487306585.git.lucien.xin@gmail.com>
-References: <cover.1487306585.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next] virito-net: set queues after reset during xdp_set
+Date: Thu, 16 Feb 2017 20:53:59 -0800
+Message-ID: <58A681E7.80907@gmail.com>
+References: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch is to add reconf chunk event based on the sctp event
-frame in rx path, it will call sctp_sf_do_reconf to process the
-reconf chunk.
+On 17-02-15 01:08 AM, Jason Wang wrote:
+> We set queues before reset which will cause a crash[1]. This is
+> because is_xdp_raw_buffer_queue() depends on the old xdp queue pairs
+> number to do the correct detection. So fix this by:
+> 
+> - set queues after reset, to keep the old vi->curr_queue_pairs. (in
+>   fact setting queues before reset does not works since after feature
+>   set, all queue pairs were enabled by default during reset).
+> - change xdp_queue_pairs only after virtnet_reset() is succeed.
+> 
+> [1]
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/sctp/constants.h |  3 +++
- net/sctp/sm_statetable.c     | 30 ++++++++++++++++++++++++++++++
- 2 files changed, 33 insertions(+)
+I'm guessing this occurs when enabling XDP while receiving lots of traffic?
 
-diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index 3567c97..b07a745 100644
---- a/include/net/sctp/constants.h
-+++ b/include/net/sctp/constants.h
-@@ -60,11 +60,14 @@ enum { SCTP_DEFAULT_INSTREAMS = SCTP_MAX_STREAM };
- 
- #define SCTP_NUM_PRSCTP_CHUNK_TYPES	1
- 
-+#define SCTP_NUM_RECONF_CHUNK_TYPES	1
-+
- #define SCTP_NUM_AUTH_CHUNK_TYPES	1
- 
- #define SCTP_NUM_CHUNK_TYPES		(SCTP_NUM_BASE_CHUNK_TYPES + \
- 					 SCTP_NUM_ADDIP_CHUNK_TYPES +\
- 					 SCTP_NUM_PRSCTP_CHUNK_TYPES +\
-+					 SCTP_NUM_RECONF_CHUNK_TYPES +\
- 					 SCTP_NUM_AUTH_CHUNK_TYPES)
- 
- /* These are the different flavours of event.  */
-diff --git a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
-index b5438b4..419b18e 100644
---- a/net/sctp/sm_statetable.c
-+++ b/net/sctp/sm_statetable.c
-@@ -482,6 +482,32 @@ static const sctp_sm_table_entry_t prsctp_chunk_event_table[SCTP_NUM_PRSCTP_CHUN
- 	TYPE_SCTP_FWD_TSN,
- }; /*state_fn_t prsctp_chunk_event_table[][] */
- 
-+#define TYPE_SCTP_RECONF { \
-+	/* SCTP_STATE_CLOSED */ \
-+	TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
-+	/* SCTP_STATE_COOKIE_WAIT */ \
-+	TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
-+	/* SCTP_STATE_COOKIE_ECHOED */ \
-+	TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
-+	/* SCTP_STATE_ESTABLISHED */ \
-+	TYPE_SCTP_FUNC(sctp_sf_do_reconf), \
-+	/* SCTP_STATE_SHUTDOWN_PENDING */ \
-+	TYPE_SCTP_FUNC(sctp_sf_do_reconf), \
-+	/* SCTP_STATE_SHUTDOWN_SENT */ \
-+	TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
-+	/* SCTP_STATE_SHUTDOWN_RECEIVED */ \
-+	TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
-+	/* SCTP_STATE_SHUTDOWN_ACK_SENT */ \
-+	TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
-+} /* TYPE_SCTP_RECONF */
-+
-+/* The primary index for this table is the chunk type.
-+ * The secondary index for this table is the state.
-+ */
-+static const sctp_sm_table_entry_t reconf_chunk_event_table[SCTP_NUM_RECONF_CHUNK_TYPES][SCTP_STATE_NUM_STATES] = {
-+	TYPE_SCTP_RECONF,
-+}; /*state_fn_t reconf_chunk_event_table[][] */
-+
- #define TYPE_SCTP_AUTH { \
- 	/* SCTP_STATE_CLOSED */ \
- 	TYPE_SCTP_FUNC(sctp_sf_ootb), \
-@@ -964,6 +990,10 @@ static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(struct net *net,
- 			return &addip_chunk_event_table[1][state];
- 	}
- 
-+	if (net->sctp.reconf_enable)
-+		if (cid == SCTP_CID_RECONF)
-+			return &reconf_chunk_event_table[0][state];
-+
- 	if (net->sctp.auth_enable) {
- 		if (cid == SCTP_CID_AUTH)
- 			return &auth_chunk_event_table[0][state];
--- 
-2.1.0
+> 
+> [   74.328168] general protection fault: 0000 [#1] SMP
+> [   74.328625] Modules linked in: nfsd xfs libcrc32c virtio_net virtio_pci
+> [   74.329117] CPU: 0 PID: 2849 Comm: xdp2 Not tainted 4.10.0-rc7+ #499
+> [   74.329577] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.10.1-0-g8891697-prebuilt.qemu-project.org 04/01/2014
+> [   74.330424] task: ffff88007a894000 task.stack: ffffc90004388000
+> [   74.330844] RIP: 0010:skb_release_head_state+0x28/0x80
+> [   74.331298] RSP: 0018:ffffc9000438b8d0 EFLAGS: 00010206
+> [   74.331676] RAX: 0000000000000000 RBX: ffff88007ad96300 RCX: 0000000000000000
+> [   74.332217] RDX: ffff88007fc137a8 RSI: ffff88007fc0db28 RDI: 0001bf00000001be
+> [   74.332758] RBP: ffffc9000438b8d8 R08: 000000000005008f R09: 00000000000005f9
+> [   74.333274] R10: ffff88007d001700 R11: ffffffff820a8a4d R12: ffff88007ad96300
+> [   74.333787] R13: 0000000000000002 R14: ffff880036604000 R15: 000077ff80000000
+> [   74.334308] FS:  00007fc70d8a7b40(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
+> [   74.334891] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   74.335314] CR2: 00007fff4144a710 CR3: 000000007ab56000 CR4: 00000000003406f0
+> [   74.335830] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [   74.336373] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+> [   74.336895] Call Trace:
+> [   74.337086]  skb_release_all+0xd/0x30
+> [   74.337356]  consume_skb+0x2c/0x90
+> [   74.337607]  free_unused_bufs+0x1ff/0x270 [virtio_net]
+> [   74.337988]  ? vp_synchronize_vectors+0x3b/0x60 [virtio_pci]
+> [   74.338398]  virtnet_xdp+0x21e/0x440 [virtio_net]
+> [   74.338741]  dev_change_xdp_fd+0x101/0x140
+> [   74.339048]  do_setlink+0xcf4/0xd20
+> [   74.339304]  ? symcmp+0xf/0x20
+> [   74.339529]  ? mls_level_isvalid+0x52/0x60
+> [   74.339828]  ? mls_range_isvalid+0x43/0x50
+> [   74.340135]  ? nla_parse+0xa0/0x100
+> [   74.340400]  rtnl_setlink+0xd4/0x120
+> [   74.340664]  ? cpumask_next_and+0x30/0x50
+> [   74.340966]  rtnetlink_rcv_msg+0x7f/0x1f0
+> [   74.341259]  ? sock_has_perm+0x59/0x60
+> [   74.341586]  ? napi_consume_skb+0xe2/0x100
+> [   74.342010]  ? rtnl_newlink+0x890/0x890
+> [   74.342435]  netlink_rcv_skb+0x92/0xb0
+> [   74.342846]  rtnetlink_rcv+0x23/0x30
+> [   74.343277]  netlink_unicast+0x162/0x210
+> [   74.343677]  netlink_sendmsg+0x2db/0x390
+> [   74.343968]  sock_sendmsg+0x33/0x40
+> [   74.344233]  SYSC_sendto+0xee/0x160
+> [   74.344482]  ? SYSC_bind+0xb0/0xe0
+> [   74.344806]  ? sock_alloc_file+0x92/0x110
+> [   74.345106]  ? fd_install+0x20/0x30
+> [   74.345360]  ? sock_map_fd+0x3f/0x60
+> [   74.345586]  SyS_sendto+0x9/0x10
+> [   74.345790]  entry_SYSCALL_64_fastpath+0x1a/0xa9
+> [   74.346086] RIP: 0033:0x7fc70d1b8f6d
+> [   74.346312] RSP: 002b:00007fff4144a708 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
+> [   74.346785] RAX: ffffffffffffffda RBX: 00000000ffffffff RCX: 00007fc70d1b8f6d
+> [   74.347244] RDX: 000000000000002c RSI: 00007fff4144a720 RDI: 0000000000000003
+> [   74.347683] RBP: 0000000000000003 R08: 0000000000000000 R09: 0000000000000000
+> [   74.348544] R10: 0000000000000000 R11: 0000000000000246 R12: 00007fff4144bd90
+> [   74.349082] R13: 0000000000000002 R14: 0000000000000002 R15: 00007fff4144cda0
+> [   74.349607] Code: 00 00 00 55 48 89 e5 53 48 89 fb 48 8b 7f 58 48 85 ff 74 0e 40 f6 c7 01 74 3d 48 c7 43 58 00 00 00 00 48 8b 7b 68 48 85 ff 74 05 <f0> ff 0f 74 20 48 8b 43 60 48 85 c0 74 14 65 8b 15 f3 ab 8d 7e
+> [   74.351008] RIP: skb_release_head_state+0x28/0x80 RSP: ffffc9000438b8d0
+> [   74.351625] ---[ end trace fe6e19fd11cfc80b ]---
+> 
+> Fixes: 2de2f7f40ef9 ("virtio_net: XDP support for adjust_head")
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 35 ++++++++++++++++++-----------------
+>  1 file changed, 18 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 11e2853..9ff959c 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1775,7 +1775,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	struct bpf_prog *old_prog;
+> -	u16 oxdp_qp, xdp_qp = 0, curr_qp;
+> +	u16 xdp_qp = 0, curr_qp;
+>  	int i, err;
+>  
+>  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+> @@ -1813,24 +1813,24 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  			return PTR_ERR(prog);
+>  	}
+>  
+> -	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
+> -	if (err) {
+> -		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+> -		goto virtio_queue_err;
+> -	}
+> -
+> -	oxdp_qp = vi->xdp_queue_pairs;
+> -
+>  	/* Changing the headroom in buffers is a disruptive operation because
+>  	 * existing buffers must be flushed and reallocated. This will happen
+>  	 * when a xdp program is initially added or xdp is disabled by removing
+>  	 * the xdp program resulting in number of XDP queues changing.
+>  	 */
+>  	if (vi->xdp_queue_pairs != xdp_qp) {
+> -		vi->xdp_queue_pairs = xdp_qp;
+>  		err = virtnet_reset(vi);
+> -		if (err)
+> +		if (err) {
+> +			dev_warn(&dev->dev, "XDP reset failure.\n");
+>  			goto virtio_reset_err;
+> +		}
+> +		vi->xdp_queue_pairs = xdp_qp;
+
+But xdp_queue_pairs is being used to detect if we should allocate the XDP
+headroom. If we move it here do we have a set of buffers in the ring without
+the proper headroom when we assign the xdp program below?
+
+> +	}
+> +
+> +	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
+> +	if (err) {
+> +		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+> +		goto virtio_queue_err;
+>  	}
+>  
+>  	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
+> @@ -1844,17 +1844,18 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  
+>  	return 0;
+
+Thanks,
+John
