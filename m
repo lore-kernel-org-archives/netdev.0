@@ -1,45 +1,126 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 2/6] net: dsa: mv88e6xxx: move ATU code in its own file
-Date: Fri, 17 Feb 2017 16:54:50 -0500
-Message-ID: <87fujcmqj9.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170217150531.2181-1-vivien.didelot@savoirfairelinux.com> <20170217150531.2181-3-vivien.didelot@savoirfairelinux.com> <20170217213518.GH6096@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170217213518.GH6096@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 1/7] nfp: refactor NSP initialization and add error message
+Date: Fri, 17 Feb 2017 14:00:21 -0800
+Message-ID: <20170217220027.189992-2-jakub.kicinski@netronome.com>
+References: <20170217220027.189992-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com, dinan.gunawardena@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:34052 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934994AbdBQWBG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 17:01:06 -0500
+Received: by mail-pg0-f45.google.com with SMTP id z67so18621660pgb.1
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 14:01:06 -0800 (PST)
+In-Reply-To: <20170217220027.189992-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+When acquiring NSP communication resource fails user is left with
+"probe failed with error -2" PCI code message but no info on what
+caused the problem.  Some development boards may not have NSP FW
+in the flash image.  Help users with a more verbouse message.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+While at it move the whole NSP init to a separate function to keep
+.probe() callback nice and simple.
 
-> This seems to be more than renaming a few functions. There looks to be
-> real changes here. I think these changes should be split out into a
-> separate patch with an explanation what is being changed. Keep this
-> patch for plain renames.
->
-> It would also be easier to review if the patch just moved the code, no
-> changes. Then have patches which clean up the API. It is hard to see
-> what is move and what is cleanup. Plain move needs little review,
-> cleanup needs more review. With the current patch, it is hard to see
-> which is which.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_main.c | 59 ++++++++++++++++-----------
+ 1 file changed, 36 insertions(+), 23 deletions(-)
 
-I understand your concerns about that. I've started that way (just
-moving code) but this ended up messier because of the naming convention
-which would required renaming and more diffstats. I found it actually
-easier to review the new code at once by reading all the addition block.
-
-Note that we are very close from 4.10, so unless there is a major issue
-in the patchset, I'd prefer not to respin new versions. I'd gladly send
-cosmetics fixup later though. I'm waiting for this patchset to land in
-net-next to send the second one ready for cross-chip bridging in DSA.
-
-Thanks,
-
-        Vivien
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index db52b6a53c6f..ca2c464c15df 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -228,6 +228,40 @@ nfp_fw_load(struct pci_dev *pdev, struct nfp_pf *pf, struct nfp_nsp *nsp)
+ 	return err < 0 ? err : 1;
+ }
+ 
++static int nfp_nsp_init(struct pci_dev *pdev, struct nfp_pf *pf)
++{
++	struct nfp_nsp *nsp;
++	int err;
++
++	nsp = nfp_nsp_open(pf->cpp);
++	if (IS_ERR(nsp)) {
++		err = PTR_ERR(nsp);
++		dev_err(&pdev->dev, "Failed to access the NSP: %d\n", err);
++		return err;
++	}
++
++	err = nfp_nsp_wait(nsp);
++	if (err < 0)
++		goto exit_close_nsp;
++
++	pf->eth_tbl = __nfp_eth_read_ports(pf->cpp, nsp);
++
++	err = nfp_fw_load(pdev, pf, nsp);
++	if (err < 0) {
++		kfree(pf->eth_tbl);
++		dev_err(&pdev->dev, "Failed to load FW\n");
++		goto exit_close_nsp;
++	}
++
++	pf->fw_loaded = !!err;
++	err = 0;
++
++exit_close_nsp:
++	nfp_nsp_close(nsp);
++
++	return err;
++}
++
+ static void nfp_fw_unload(struct nfp_pf *pf)
+ {
+ 	struct nfp_nsp *nsp;
+@@ -251,7 +285,6 @@ static void nfp_fw_unload(struct nfp_pf *pf)
+ static int nfp_pci_probe(struct pci_dev *pdev,
+ 			 const struct pci_device_id *pci_id)
+ {
+-	struct nfp_nsp *nsp;
+ 	struct nfp_pf *pf;
+ 	int err;
+ 
+@@ -289,28 +322,9 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ 		goto err_disable_msix;
+ 	}
+ 
+-	nsp = nfp_nsp_open(pf->cpp);
+-	if (IS_ERR(nsp)) {
+-		err = PTR_ERR(nsp);
+-		goto err_cpp_free;
+-	}
+-
+-	err = nfp_nsp_wait(nsp);
+-	if (err < 0) {
+-		nfp_nsp_close(nsp);
++	err = nfp_nsp_init(pdev, pf);
++	if (err)
+ 		goto err_cpp_free;
+-	}
+-
+-	pf->eth_tbl = __nfp_eth_read_ports(pf->cpp, nsp);
+-
+-	err = nfp_fw_load(pdev, pf, nsp);
+-	nfp_nsp_close(nsp);
+-	if (err < 0) {
+-		dev_err(&pdev->dev, "Failed to load FW\n");
+-		goto err_eth_tbl_free;
+-	}
+-
+-	pf->fw_loaded = !!err;
+ 
+ 	err = nfp_net_pci_probe(pf);
+ 	if (err)
+@@ -321,7 +335,6 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ err_fw_unload:
+ 	if (pf->fw_loaded)
+ 		nfp_fw_unload(pf);
+-err_eth_tbl_free:
+ 	kfree(pf->eth_tbl);
+ err_cpp_free:
+ 	nfp_cpp_free(pf->cpp);
+-- 
+2.11.0
