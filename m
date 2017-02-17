@@ -1,58 +1,42 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH iproute2 1/1] man page: add page for skbmod action
-Date: Fri, 17 Feb 2017 09:00:51 +0100
-Message-ID: <20170217080049.GA16596@penelope.horms.nl>
-References: <1486769334-5534-1-git-send-email-lucasb@mojatatu.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 03/21] net-next: stmmac: add optional setup function
+Date: Fri, 17 Feb 2017 09:18:21 +0100
+Message-ID: <20170217081821.GA22723@Red>
+References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
+ <20170216124859.14346-4-clabbe.montjoie@gmail.com>
+ <87mvdlg9bq.fsf@dell.be.48ers.dk>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, jhs@mojatatu.com, mrv@mojatatu.com,
-        netdev@vger.kernel.org
-To: Lucas Bates <lucasb@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f178.google.com ([209.85.128.178]:35698 "EHLO
-        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754838AbdBQIAz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 03:00:55 -0500
-Received: by mail-wr0-f178.google.com with SMTP id c4so25246860wrd.2
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 00:00:55 -0800 (PST)
+Content-Type: text/plain; charset=UTF-8
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Peter Korsgaard <peter-+2lRwdCCLRT2eFz/2MeuCQ@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBU7DTLCQKGQEO6RXLWQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <1486769334-5534-1-git-send-email-lucasb@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <87mvdlg9bq.fsf-D6SC8u56vOOJDPpyT6T3/w@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 10, 2017 at 06:28:54PM -0500, Lucas Bates wrote:
-> Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-> ---
->  man/man8/Makefile    |   2 +-
->  man/man8/tc-skbmod.8 | 137 +++++++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 138 insertions(+), 1 deletion(-)
->  create mode 100644 man/man8/tc-skbmod.8
+On Thu, Feb 16, 2017 at 09:38:33PM +0100, Peter Korsgaard wrote:
+> >>>>> "Corentin" == Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 > 
-> diff --git a/man/man8/Makefile b/man/man8/Makefile
-> index bc2fc81..1bd2f02 100644
-> --- a/man/man8/Makefile
-> +++ b/man/man8/Makefile
-> @@ -16,7 +16,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
->  	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
->  	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
->  	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
-> -	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8  tc-ife.8 \
-> +	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 tc-skbmod.8 tc-ife.8 \
->  	tc-tunnel_key.8 \
->  	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8 \
->  	ifstat.8
+>  > Instead of ading more ifthen login for adding a new mac_device_info
+> 
+> s/login/logic/
+> 
+> -- 
+> Bye, Peter Korsgaard
 
-FWIW the above does not seem to apply cleanly against the net-next branch.
-
-The above not withstanding I am very pleased to see this documentation
-and in particular the presence of examples in it.
-
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
-
-
-Do you know if there are any plans to extend the number of fields supported
-by skmod? I think it would be useful to use it to allow matches to be
-robust in the presence of variable length options: e.g. to modify L4 ports
-fields in the presence (or absence) of IP options.
+Thanks, will fix it.
+Regards
+Corentin Labbe
