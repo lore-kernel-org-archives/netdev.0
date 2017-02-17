@@ -1,44 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dccp: fix freeing skb too early for IPV6_RECVPKTINFO
-Date: Fri, 17 Feb 2017 13:37:08 -0500 (EST)
-Message-ID: <20170217.133708.1915562990938384609.davem@davemloft.net>
-References: <20170216162246.12783-1-andreyknvl@google.com>
+Subject: Re: [PATCH net-next 0/3] Misc BPF improvements
+Date: Fri, 17 Feb 2017 13:40:25 -0500 (EST)
+Message-ID: <20170217.134025.1757715037449350818.davem@davemloft.net>
+References: <cover.1487279499.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, gerrit@erg.abdn.ac.uk,
-        dvyukov@google.com, kcc@google.com, glider@google.com
-To: andreyknvl@google.com
+Cc: netdev@vger.kernel.org, ast@kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46966 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47022 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934654AbdBQShK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 13:37:10 -0500
-In-Reply-To: <20170216162246.12783-1-andreyknvl@google.com>
+        with ESMTP id S934365AbdBQSk1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 13:40:27 -0500
+In-Reply-To: <cover.1487279499.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Konovalov <andreyknvl@google.com>
-Date: Thu, 16 Feb 2017 17:22:46 +0100
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 16 Feb 2017 22:24:47 +0100
 
-> In the current DCCP implementation an skb for a DCCP_PKT_REQUEST packet
-> is forcibly freed via __kfree_skb in dccp_rcv_state_process if
-> dccp_v6_conn_request successfully returns.
+> This last series for this window adds various misc
+> improvements to BPF, one is to mark registered map and
+> prog types as __ro_after_init, another one for removing
+> cBPF stubs in eBPF JITs and moving the stub to the core
+> and last also improving JITs is to make generated images
+> visible to the kernel and kallsyms, so they can be
+> seen in traces. For details, please have a look at the
+> individual patches.
 > 
-> However, if IPV6_RECVPKTINFO is set on a socket, the address of the skb
-> is saved to ireq->pktopts and the ref count for skb is incremented in
-> dccp_v6_conn_request, so skb is still in use. Nevertheless, it gets freed
-> in dccp_rcv_state_process.
-> 
-> Fix by calling consume_skb instead of doing goto discard and therefore
-> calling __kfree_skb.
-> 
-> Similar fixes for TCP:
-> 
-> fb7e2399ec17f1004c0e0ccfd17439f8759ede01 [TCP]: skb is unexpectedly freed.
-> 0aea76d35c9651d55bbaf746e7914e5f9ae5a25d tcp: SYN packets are now
-> simply consumed
-> 
-> Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
+> Thanks a lot!
 
-Applied and queued up for -stable, thanks.
+Series applied, thanks Daniel.
