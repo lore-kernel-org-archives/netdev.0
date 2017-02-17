@@ -1,40 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Fri, 17 Feb 2017 10:55:54 -0500 (EST)
-Message-ID: <20170217.105554.1471478837157578274.davem@davemloft.net>
-References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH v3 net-next 00/14] mlx4: order-0 allocations and page
+ recycling
+Date: Fri, 17 Feb 2017 11:00:59 -0500 (EST)
+Message-ID: <20170217.110059.790777908746477501.davem@davemloft.net>
+References: <20170213195858.5215-1-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, kafai@fb.com,
+        saeedm@mellanox.com, willemb@google.com, brouer@redhat.com,
+        bblanco@plumgrid.com, ast@kernel.org, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44428 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44506 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934200AbdBQP4A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 10:56:00 -0500
-In-Reply-To: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S934037AbdBQQBL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 11:01:11 -0500
+In-Reply-To: <20170213195858.5215-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Feb 2017 04:27:58 -0800
+From: Eric Dumazet <edumazet@google.com>
+Date: Mon, 13 Feb 2017 11:58:44 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> As mentioned half a year ago, we better switch mlx4 driver to order-0
+> allocations and page recycling.
 > 
-> All rx and rx netdev interrupts are handled by respectively
-> by mlx4_en_rx_irq() and mlx4_en_tx_irq() which simply schedule a NAPI.
+> This reduces vulnerability surface thanks to better skb->truesize
+> tracking and provides better performance in most cases.
 > 
-> But mlx4_eq_int() also fires a tasklet to service all items that were
-> queued via mlx4_add_cq_to_tasklet(), but this handler was not called
-> unless user cqe was handled.
+> v2 provides an ethtool -S new counter (rx_alloc_pages) and
+> code factorization, plus Tariq fix.
 > 
-> This is very confusing, as "mpstat -I SCPU ..." show huge number of
-> tasklet invocations.
+> v3 includes various fixes based on Tariq tests and feedback
+> from Saeed and Tariq.
 > 
-> This patch saves this overhead, by carefully firing the tasklet directly
-> from mlx4_add_cq_to_tasklet(), removing four atomic operations per IRQ.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Worth noting this patch series deletes ~250 lines of code ;)
 
-Applied, thanks.
+I think this should get queued up for net-next soon, but I marked the
+series as "deferred" in patchwork while the discussion continues.
