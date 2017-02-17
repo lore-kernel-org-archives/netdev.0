@@ -1,34 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv2 1/1] rds:Remove unnecessary ib_ring unalloc
-Date: Fri, 17 Feb 2017 15:20:11 -0500 (EST)
-Message-ID: <20170217.152011.932401507668040649.davem@davemloft.net>
-References: <1487322982-29215-1-git-send-email-yanjun.zhu@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/wan: add MODULE_LICENSE for fsl_ucc_hdlc
+Date: Fri, 17 Feb 2017 15:20:54 -0500 (EST)
+Message-ID: <20170217.152054.2256770780759033972.davem@davemloft.net>
+References: <1487327482-26482-1-git-send-email-valentin.longchamp@keymile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-To: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1487322982-29215-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: qiang.zhao@nxp.com, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org
+To: valentin.longchamp@keymile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48388 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934090AbdBQUU4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:20:56 -0500
+In-Reply-To: <1487327482-26482-1-git-send-email-valentin.longchamp@keymile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Fri, 17 Feb 2017 04:16:22 -0500
+From: Valentin Longchamp <valentin.longchamp@keymile.com>
+Date: Fri, 17 Feb 2017 11:31:22 +0100
 
-> In the function rds_ib_xmit_atomic, ib_ring is not allocated
-> successfully. As such, it is not necessary to unalloc it.
+> It is required to build it as a module.
 > 
-> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-> Change from v1 to v2:
->   fix the word errors in the short log.
+> Signed-off-by: Valentin Longchamp <valentin.longchamp@keymile.com>
 
 Applied to net-next.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
