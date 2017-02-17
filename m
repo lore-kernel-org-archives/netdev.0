@@ -1,85 +1,111 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next v2 1/2] net: mvneta: avoid getting status from rx_desc as much as possible
-Date: Fri, 17 Feb 2017 14:35:21 +0100
-Message-ID: <87k28paqjq.fsf@free-electrons.com>
-References: <20170217100233.2325-1-jszhang@marvell.com>
-        <20170217100233.2325-2-jszhang@marvell.com>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: Re: [PATCH] net: bgmac: store MAC address directly in netdev->dev_addr
+Date: Fri, 17 Feb 2017 08:45:11 -0500
+Message-ID: <CAC3K-4rb_LTcgPyDxGtFqrJE3weKG_4=Hf3qWugn4dWwz5n89g@mail.gmail.com>
+References: <20170216141119.18505-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>,
-        <arnd@arndb.de>, <linux-arm-kernel@lists.infradead.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Jisheng Zhang <jszhang@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170217100233.2325-2-jszhang@marvell.com> (Jisheng Zhang's
-        message of "Fri, 17 Feb 2017 18:02:32 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Arnd Bergmann <arnd@arndb.de>
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f41.google.com ([209.85.214.41]:36343 "EHLO
+        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933900AbdBQNpN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 08:45:13 -0500
+Received: by mail-it0-f41.google.com with SMTP id h10so19562545ith.1
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 05:45:13 -0800 (PST)
+In-Reply-To: <20170216141119.18505-1-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jisheng,
- 
- On ven., févr. 17 2017, Jisheng Zhang <jszhang@marvell.com> wrote:
-
-> In hot code path mvneta_rx_hwbm(), the rx_desc->status is read twice.
-> The rx_desc is allocated by dma_alloc_coherent, it's uncacheable if
-> the device isn't cache-coherent, reading from uncached memory is
-> fairly slow. So reuse the read out rx_status to avoid the second
-> reading from uncached memory.
+On Thu, Feb 16, 2017 at 9:11 AM, Tobias Klauser <tklauser@distanz.ch> wrote:
+> After commit 34a5102c3235 ("net: bgmac: allocate struct bgmac just once
+> & don't copy it") the mac_addr member of struct bgmac is no longer
+> necessary to pass the MAC address to bgmac_enet_probe(). Instead it can
+> directly be stored in netdev->dev_addr.
 >
-> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
-> Suggested-by: Arnd Bergmann <arnd@arndb.de>
+> Also use eth_hw_addr_random() instead of eth_random_addr() in case a
+> random MAC is nedded. This will make sure netdev->addr_assign_type will
+> be properly set.
+>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-This one is OK and I didn't see a regression:
+Looks sane to me
 
-Tested-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-
-Gregory
-
+Acked-by: Jon Mason <jon.mason@broadcom.com>
 
 > ---
->  drivers/net/ethernet/marvell/mvneta.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+>  drivers/net/ethernet/broadcom/bgmac-bcma.c     | 2 +-
+>  drivers/net/ethernet/broadcom/bgmac-platform.c | 2 +-
+>  drivers/net/ethernet/broadcom/bgmac.c          | 9 ++++-----
+>  drivers/net/ethernet/broadcom/bgmac.h          | 1 -
+>  4 files changed, 6 insertions(+), 8 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 61dd4462411c..06df72b8da85 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -313,8 +313,8 @@
->  	((addr >= txq->tso_hdrs_phys) && \
->  	 (addr < txq->tso_hdrs_phys + txq->size * TSO_HEADER_SIZE))
->  
-> -#define MVNETA_RX_GET_BM_POOL_ID(rxd) \
-> -	(((rxd)->status & MVNETA_RXD_BM_POOL_MASK) >> MVNETA_RXD_BM_POOL_SHIFT)
-> +#define MVNETA_RX_GET_BM_POOL_ID(status) \
-> +	(((status) & MVNETA_RXD_BM_POOL_MASK) >> MVNETA_RXD_BM_POOL_SHIFT)
->  
->  struct mvneta_statistic {
->  	unsigned short offset;
-> @@ -1900,7 +1900,7 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
->  		for (i = 0; i < rx_done; i++) {
->  			struct mvneta_rx_desc *rx_desc =
->  						  mvneta_rxq_next_desc_get(rxq);
-> -			u8 pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
-> +			u8 pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc->status);
->  			struct mvneta_bm_pool *bm_pool;
->  
->  			bm_pool = &pp->bm_priv->bm_pools[pool_id];
-> @@ -2075,7 +2075,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
->  		rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
->  		data = (u8 *)(uintptr_t)rx_desc->buf_cookie;
->  		phys_addr = rx_desc->buf_phys_addr;
-> -		pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
-> +		pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_status);
->  		bm_pool = &pp->bm_priv->bm_pools[pool_id];
->  
->  		if (!mvneta_rxq_desc_is_first_last(rx_status) ||
-> -- 
+> diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+> index 5ef60d4f12b4..d59cfcc4c4d5 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+> @@ -144,7 +144,7 @@ static int bgmac_probe(struct bcma_device *core)
+>                 goto err;
+>         }
+>
+> -       ether_addr_copy(bgmac->mac_addr, mac);
+> +       ether_addr_copy(bgmac->net_dev->dev_addr, mac);
+>
+>         /* On BCM4706 we need common core to access PHY */
+>         if (core->id.id == BCMA_CORE_4706_MAC_GBIT &&
+> diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
+> index 805e6ed6c390..7b1af950f312 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac-platform.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
+> @@ -169,7 +169,7 @@ static int bgmac_probe(struct platform_device *pdev)
+>
+>         mac_addr = of_get_mac_address(np);
+>         if (mac_addr)
+> -               ether_addr_copy(bgmac->mac_addr, mac_addr);
+> +               ether_addr_copy(bgmac->net_dev->dev_addr, mac_addr);
+>         else
+>                 dev_warn(&pdev->dev, "MAC address not present in device tree\n");
+>
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index 20fe2520da42..415046750bb4 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -1477,14 +1477,13 @@ int bgmac_enet_probe(struct bgmac *bgmac)
+>         net_dev->irq = bgmac->irq;
+>         SET_NETDEV_DEV(net_dev, bgmac->dev);
+>
+> -       if (!is_valid_ether_addr(bgmac->mac_addr)) {
+> +       if (!is_valid_ether_addr(net_dev->dev_addr)) {
+>                 dev_err(bgmac->dev, "Invalid MAC addr: %pM\n",
+> -                       bgmac->mac_addr);
+> -               eth_random_addr(bgmac->mac_addr);
+> +                       net_dev->dev_addr);
+> +               eth_hw_addr_random(net_dev);
+>                 dev_warn(bgmac->dev, "Using random MAC: %pM\n",
+> -                        bgmac->mac_addr);
+> +                        net_dev->dev_addr);
+>         }
+> -       ether_addr_copy(net_dev->dev_addr, bgmac->mac_addr);
+>
+>         /* This (reset &) enable is not preset in specs or reference driver but
+>          * Broadcom does it in arch PCI code when enabling fake PCI device.
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+> index ab2db76e4fb8..248727dc62f2 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.h
+> +++ b/drivers/net/ethernet/broadcom/bgmac.h
+> @@ -474,7 +474,6 @@ struct bgmac {
+>
+>         struct device *dev;
+>         struct device *dma_dev;
+> -       unsigned char mac_addr[ETH_ALEN];
+>         u32 feature_flags;
+>
+>         struct net_device *net_dev;
+> --
 > 2.11.0
 >
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+>
