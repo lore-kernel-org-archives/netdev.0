@@ -1,69 +1,103 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH net-next v2 0/2] net: mvneta: improve rx performance
-Date: Fri, 17 Feb 2017 18:44:51 +0800
-Message-ID: <20170217184451.55217e0e@xhacker>
-References: <20170217100233.2325-1-jszhang@marvell.com>
- <87shndayse.fsf@free-electrons.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] sctp: check duplicate node before inserting a new
+ transport
+Date: Fri, 17 Feb 2017 06:19:02 -0500
+Message-ID: <20170217111902.GA4256@hmswarspite.think-freely.org>
+References: <ba2afff1b2cf9e0026a23dde02d207583efa3d83.1487320524.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: thomas.petazzoni@free-electrons.com, arnd@arndb.de, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <87shndayse.fsf@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36181 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755308AbdBQLUI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 06:20:08 -0500
+Content-Disposition: inline
+In-Reply-To: <ba2afff1b2cf9e0026a23dde02d207583efa3d83.1487320524.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAxNyBGZWIgMjAxNyAxMTozNzoyMSArMDEwMCBHcmVnb3J5IENMRU1FTlQgd3JvdGU6
-Cgo+IEhpIEppc2hlbmcsCj4gIAo+ICBPbiB2ZW4uLCBmw6l2ci4gMTcgMjAxNywgSmlzaGVuZyBa
-aGFuZyA8anN6aGFuZ0BtYXJ2ZWxsLmNvbT4gd3JvdGU6Cj4gCj4gPiBJbiBob3QgY29kZSBwYXRo
-IHN1Y2ggYXMgbXZuZXRhX3J4X2h3Ym0oKSBhbmQgbXZuZXRhX3J4X3N3Ym0oKSwgd2UgbWF5Cj4g
-PiBhY2Nlc3MgZmllbGRzIG9mIHJ4X2Rlc2MuIFRoZSByeF9kZXNjIGlzIGFsbG9jYXRlZCBieQo+
-ID4gZG1hX2FsbG9jX2NvaGVyZW50LCBpdCdzIHVuY2FjaGVhYmxlIGlmIHRoZSBkZXZpY2UgaXNu
-J3QgY2FjaGUKPiA+IGNvaGVyZW50LCByZWFkaW5nIGZyb20gdW5jYWNoZWQgbWVtb3J5IGlzIGZh
-aXJseSBzbG93LiAgCj4gCj4gRGlkIHlvdSB0ZXN0IGl0IHdpdGggSFdCTSBzdXBwb3J0PwoKTm8g
-SSBkaWRuJ3QgdGVzdCBpdCBmb3IgbGFja2luZyBvZiBzdWNoIEhXLCBzbyBpdCdzIGFwcHJlY2lh
-dGVkIGlmIHNvbWVvbmUKY2FuIHRlc3Qgd2l0aCBIV0JNIGNhcGFibGUgSFcuCgo+IAo+IEkgYW0g
-bm90IHN1cmUgdGkgd2lsbCB3b3JrIGluIHRoaXMgY2FzZS4KCklNSE8sIGlmIG12bmV0YSBIVyBk
-b2Vzbid0IHVwZGF0ZSByeF9kZXNjLT5idWZfcGh5c19hZGRyLCBpdCBjYW4gc3RpbGwgd29yay4K
-SSBkb24ndCBoYXZlIEhXQk0gYmFja2dyb3VuZCwgc28gYWJvdmUgbWF5IGJlIHdyb25nLiBJZiB0
-aGlzIGNhc2UgZG9lc24ndAp3b3JrIGZvciBIV0JNLCBJJ2xsIHN1Ym1pdCB2MyB0byBtb2RpZnkg
-bXZuZXRhX3J4X3N3Ym0oKSBvbmx5LgoKVGhhbmtzLApKaXNoZW5nCgo+IAo+IEdyZWdvcnkKPiAK
-PiA+Cj4gPiBwYXRjaDEgcmV1c2VzIHRoZSByZWFkIG91dCBzdGF0dXMgdG8gZ2V0dGluZyBzdGF0
-dXMgZmllbGQgb2YgcnhfZGVzYwo+ID4gYWdhaW4uCj4gPgo+ID4gcGF0Y2gyIHVzZXMgY2FjaGVh
-YmxlIG1lbW9yeSB0byBzdG9yZSB0aGUgcnggYnVmZmVyIERNQSBhZGRyZXNzLgo+ID4KPiA+IFdl
-IGdldCB0aGUgZm9sbG93aW5nIHBlcmZvcm1hbmNlIGRhdGEgb24gTWFydmVsbCBCRzRDVCBQbGF0
-Zm9ybXMKPiA+ICh0ZXN0ZWQgd2l0aCBpcGVyZik6Cj4gPgo+ID4gYmVmb3JlIHRoZSBwYXRjaDoK
-PiA+IHJlY3ZpbmcgMUdCIGluIG12bmV0YV9yeF9zd2JtKCkgY29zdHMgMTQ5MjY1OTYwIG5zCj4g
-Pgo+ID4gYWZ0ZXIgdGhlIHBhdGNoOgo+ID4gcmVjdmluZyAxR0IgaW4gbXZuZXRhX3J4X3N3Ym0o
-KSBjb3N0cyAxNDIxNTY1NjQwIG5zCj4gPgo+ID4gV2Ugc2F2ZWQgNC43NiUgdGltZS4KPiA+Cj4g
-PiBSRkM6IGNhbiB3ZSBkbyBzaW1pbGFyIG1vZGlmaWNhdGlvbiBmb3IgdHg/IElmIHllcywgSSBj
-YW4gcHJlcGFyZSBhIHYyLgo+ID4KPiA+Cj4gPiBCYXNpY2FsbHksIHRoZXNlIHR3byBwYXRjaGVz
-IGRvIHdoYXQgQXJuZCBtZW50aW9uZWQgaW4gWzFdLgo+ID4KPiA+IEhpIEFybmQsCj4gPgo+ID4g
-SSBhZGRlZCAiU3VnZ2VzdGVkLWJ5IHlvdSIgdGFnLCBJIGhvcGUgeW91IGRvbid0IG1pbmQgOykK
-PiA+Cj4gPiBUaGFua3MKPiA+Cj4gPiBbMV0gaHR0cHM6Ly93d3cuc3Bpbmljcy5uZXQvbGlzdHMv
-bmV0ZGV2L21zZzQwNTg4OS5odG1sCj4gPgo+ID4gU2luY2UgdjE6Cj4gPiAgIC0gY29ycmVjdCB0
-aGUgcGVyZm9ybWFuY2UgZGF0YSB0eXBvCj4gPgo+ID4gSmlzaGVuZyBaaGFuZyAoMik6Cj4gPiAg
-IG5ldDogbXZuZXRhOiBhdm9pZCBnZXR0aW5nIHN0YXR1cyBmcm9tIHJ4X2Rlc2MgYXMgbXVjaCBh
-cyBwb3NzaWJsZQo+ID4gICBuZXQ6IG12bmV0YTogVXNlIGNhY2hlYWJsZSBtZW1vcnkgdG8gc3Rv
-cmUgdGhlIHJ4IGJ1ZmZlciBETUEgYWRkcmVzcwo+ID4KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9tYXJ2ZWxsL212bmV0YS5jIHwgMzYgKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0t
-LS0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKSwgMTUgZGVsZXRpb25zKC0p
-Cj4gPgo+ID4gLS0gCj4gPiAyLjExLjAKPiA+Cj4gPgo+ID4gX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KPiA+IGxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBs
-aXN0Cj4gPiBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKPiA+IGh0dHA6Ly9s
-aXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbCAgCj4g
-CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgt
-YXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQu
-b3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJt
-LWtlcm5lbAo=
+On Fri, Feb 17, 2017 at 04:35:24PM +0800, Xin Long wrote:
+> sctp has changed to use rhlist for transport rhashtable since commit
+> 7fda702f9315 ("sctp: use new rhlist interface on sctp transport
+> rhashtable").
+> 
+> But rhltable_insert_key doesn't check the duplicate node when inserting
+> a node, unlike rhashtable_lookup_insert_key. It may cause duplicate
+> assoc/transport in rhashtable. like:
+> 
+>  client (addr A, B)                 server (addr X, Y)
+>     connect to X           INIT (1)
+>                         ------------>
+>     connect to Y           INIT (2)
+>                         ------------>
+>                          INIT_ACK (1)
+>                         <------------
+>                          INIT_ACK (2)
+>                         <------------
+> 
+> After sending INIT (2), one transport will be created and hashed into
+> rhashtable. But when receiving INIT_ACK (1) and processing the address
+> params, another transport will be created and hashed into rhashtable
+> with the same addr Y and EP as the last transport. This will confuse
+> the assoc/transport's lookup.
+> 
+> This patch is to fix it by returning err if any duplicate node exists
+> before inserting it.
+> 
+> Fixes: 7fda702f9315 ("sctp: use new rhlist interface on sctp transport rhashtable")
+> Reported-by: Fabio M. Di Nitto <fdinitto@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/input.c | 13 +++++++++++++
+>  1 file changed, 13 insertions(+)
+> 
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index 458e506..f65245b 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -872,6 +872,8 @@ void sctp_transport_hashtable_destroy(void)
+>  
+>  int sctp_hash_transport(struct sctp_transport *t)
+>  {
+> +	struct sctp_transport *transport;
+> +	struct rhlist_head *tmp, *list;
+>  	struct sctp_hash_cmp_arg arg;
+>  	int err;
+>  
+> @@ -882,8 +884,19 @@ int sctp_hash_transport(struct sctp_transport *t)
+>  	arg.paddr = &t->ipaddr;
+>  	arg.lport = htons(t->asoc->base.bind_addr.port);
+>  
+> +	list = rhltable_lookup(&sctp_transport_hashtable, &arg,
+> +			       sctp_hash_params);
+> +
+> +	rhl_for_each_entry_rcu(transport, tmp, list, node)
+> +		if (transport->asoc->ep == t->asoc->ep) {
+> +			err = -EEXIST;
+> +			goto out;
+> +		}
+> +
+Maybe its just a little early, but I'm rather lost as to how this works.  When
+you insert a key to the rhltable, its a sctp_hash_cmp_arg that gets inserted,
+which is a struct that consists of a sctp_addr union, a struct net, and a u16,
+but when you traverse the list for lookup, you treat the returned list as a list
+of sctp_transport structs that you compare.  That seems very wrong.
+
+Neil
+
+>  	err = rhltable_insert_key(&sctp_transport_hashtable, &arg,
+>  				  &t->node, sctp_hash_params);
+> +
+> +out:
+>  	if (err)
+>  		pr_err_once("insert transport fail, errno %d\n", err);
+>  
+> -- 
+> 2.1.0
+> 
+> 
