@@ -1,11 +1,11 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 20/21] ARM: sunxi: Enable dwmac-sun8i driver
- on sunxi_defconfig
-Date: Fri, 17 Feb 2017 09:55:19 +0100
-Message-ID: <20170217085519.GD22723@Red>
+Subject: Re: [PATCH 08/21] ARM: dts: sun8i-h3: add dwmac-sun8i
+ rgmii pins
+Date: Fri, 17 Feb 2017 10:14:39 +0100
+Message-ID: <20170217091439.GE22723@Red>
 References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
- <20170216124859.14346-21-clabbe.montjoie@gmail.com>
- <20170216190827.jaky5xyzqtuzhy76@lukather>
+ <20170216124859.14346-9-clabbe.montjoie@gmail.com>
+ <20170216190632.hezcacn3hw5uhxcn@lukather>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -16,10 +16,10 @@ Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A
 	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-sunxi+bncBD7YLCN32UNBB7HUTLCQKGQESWCXSAY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBBH6TLCQKGQEEK7Q7DY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <20170216190827.jaky5xyzqtuzhy76@lukather>
+In-Reply-To: <20170216190632.hezcacn3hw5uhxcn@lukather>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <https://groups.google.com/group/linux-sunxi
@@ -28,38 +28,43 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 16, 2017 at 08:08:27PM +0100, Maxime Ripard wrote:
-> Hi,
-> 
-> On Thu, Feb 16, 2017 at 01:48:58PM +0100, Corentin Labbe wrote:
-> > From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > 
-> > Enable the dwmac-sun8i driver in the sunxi default configuration
+On Thu, Feb 16, 2017 at 08:06:32PM +0100, Maxime Ripard wrote:
+> On Thu, Feb 16, 2017 at 01:48:46PM +0100, Corentin Labbe wrote:
+> > This patch add pinctrl node for dwmac-sun8i on H3.
 > > 
 > > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > > ---
-> >  arch/arm/configs/sunxi_defconfig | 1 +
-> >  1 file changed, 1 insertion(+)
+> >  arch/arm/boot/dts/sun8i-h3.dtsi | 11 +++++++++++
+> >  1 file changed, 11 insertions(+)
 > > 
-> > diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunxi_defconfig
-> > index da92c25..33bde86 100644
-> > --- a/arch/arm/configs/sunxi_defconfig
-> > +++ b/arch/arm/configs/sunxi_defconfig
-> > @@ -40,6 +40,7 @@ CONFIG_ATA=y
-> >  CONFIG_AHCI_SUNXI=y
-> >  CONFIG_NETDEVICES=y
-> >  CONFIG_SUN4I_EMAC=y
-> > +CONFIG_DWMAC_SUN8I=m
+> > diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
+> > index 61d56d2..59ed40e 100644
+> > --- a/arch/arm/boot/dts/sun8i-h3.dtsi
+> > +++ b/arch/arm/boot/dts/sun8i-h3.dtsi
+> > @@ -349,6 +349,17 @@
+> >  				function = "i2c2";
+> >  			};
+> >  
+> > +			emac_rgmii_pins: emac0@0 {
+> > +				allwinner,pins = "PD0", "PD1", "PD2", "PD3",
+> > +						"PD4", "PD5", "PD7",
+> > +						"PD8", "PD9", "PD10",
+> > +						"PD12", "PD13", "PD15",
+> > +						"PD16", "PD17";
+> > +				allwinner,function = "emac";
 > 
-> I think I'd prefer to have it compiled statically, just like the other
-> net drivers, and drivers in general.
+> Please use the generic pin config properties (ie. pins and functions).
 > 
-> Thanks!
-> Maxime
+> > +				allwinner,drive = <SUN4I_PINCTRL_40_MA>;
+> 
+> Why do you need to use 40mA?
+> 
+> > +				allwinner,pull = <SUN4I_PINCTRL_NO_PULL>;
+> 
+> This is the default now.
 > 
 
-In previous sun8i-emac, someone request that CONFIG must be set as module because kernel went too big.
-But I do not care to set it statically.
+Will fix that in all DT
 
-Regards
+Thanks
 Corentin Labbe
