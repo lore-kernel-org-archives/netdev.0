@@ -1,68 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] rtnl: don't account unused struct ifla_port_vsi in rtnl_port_size
-Date: Fri, 17 Feb 2017 01:56:11 +0100
-Message-ID: <8edb70077925c6924eac17dfc3c23cbc31c0529a.1487292448.git.daniel@iogearbox.net>
-Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: Re: net: hix5hd2_gmac uninitialized net_device
+Date: Fri, 17 Feb 2017 09:32:46 +0800
+Message-ID: <58A652BE.50408@hisilicon.com>
+References: <20170210074118.vchxsn7fag6tlsmg@tha-monstah.mydomain>
+ <20170210074544.eoabpjf522pmwoui@tha-monstah.mydomain>
+ <589D942F.7070700@hisilicon.com>
+ <20170211005132.xdk2d7etb732scqo@tha-monstah.mydomain>
+ <58A10B12.8050400@hisilicon.com>
+ <20170214235954.xhuikgj4bbfjq7fv@tha-monstah.mydomain>
+ <58A3F2A6.3060609@hisilicon.com>
+ <20170216184503.7ujdlkpfryu6ivwt@tha-monstah.mydomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>
+To: Marty Plummer <netz.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53573 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754986AbdBQA4Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 19:56:24 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:13002 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755206AbdBQBc5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 20:32:57 -0500
+In-Reply-To: <20170216184503.7ujdlkpfryu6ivwt@tha-monstah.mydomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When allocating rtnl dump messages, struct ifla_port_vsi is never dumped,
-so we can save header plus payload in rtnl_port_size(). Infact, attribute
-IFLA_PORT_VSI_TYPE and struct ifla_port_vsi are not used anywhere in
-the kernel. We only need to keep the nla policy should applications in
-user space be filling this out. Same NLA_BINARY issue exists as was fixed
-in 364d5716a7ad ("rtnetlink: ifla_vf_policy: fix misuses of NLA_BINARY")
-and others, but then again IFLA_PORT_VSI_TYPE is not used anywhere, so
-just add a comment that it's unused.
+Hi Marty,
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- ( Found while reviewing NLA_BINARY longer time ago. )
+On 2017/2/17 2:45, Marty Plummer wrote:
+> On Wed, Feb 15, 2017 at 02:18:14PM +0800, Dongpo Li wrote:
+>> Hi Marty,
+>>
+>> On 2017/2/15 7:59, Marty Plummer wrote:
+>>> On Mon, Feb 13, 2017 at 09:25:38AM +0800, Dongpo Li wrote:
+>> Currently this driver can't support Hi3521a soc because of some new changes.
+>> I don't know what's your purpose to run hix5hd2 driver on Hi3521a, please ask
+>> the man who sells chips to you to raise your requirements.
+>>
+> Its not so much a matter of wanting to run the hix5hd2 driver on
+> hi3521a, but running the hix5hd2 ip core driver on the same/similar ip
+> core on hi3521a. This is fairly common in the arm world, and a number of
+> drivers support multiple arm socs/ip cores, some from hisilicon in fact.
+> For instance "hisilicon,fmc-spi-nor" supports both the hi3519 and the
+> hi3521a.
+> 
+> Also, I'm not buying chips or boards from Hisilicon. I'm just working on
+> some consumer electronics that happens to include a hisilicon soc and
+> unreleased gpl code, working to improve it.
+> 
+I see. Thanks for your explanation.
+I will add this thing to my schedule. But there are many development things
+that disturb me, I can't give a detailed time, maybe one or two months later.
 
- net/core/rtnetlink.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index adfb54b..ed1ab03 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -876,8 +876,6 @@ static size_t rtnl_port_size(const struct net_device *dev,
- {
- 	size_t port_size = nla_total_size(4)		/* PORT_VF */
- 		+ nla_total_size(PORT_PROFILE_MAX)	/* PORT_PROFILE */
--		+ nla_total_size(sizeof(struct ifla_port_vsi))
--							/* PORT_VSI_TYPE */
- 		+ nla_total_size(PORT_UUID_MAX)		/* PORT_INSTANCE_UUID */
- 		+ nla_total_size(PORT_UUID_MAX)		/* PORT_HOST_UUID */
- 		+ nla_total_size(1)			/* PROT_VDP_REQUEST */
-@@ -1491,14 +1489,19 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	[IFLA_PORT_VF]		= { .type = NLA_U32 },
- 	[IFLA_PORT_PROFILE]	= { .type = NLA_STRING,
- 				    .len = PORT_PROFILE_MAX },
--	[IFLA_PORT_VSI_TYPE]	= { .type = NLA_BINARY,
--				    .len = sizeof(struct ifla_port_vsi)},
- 	[IFLA_PORT_INSTANCE_UUID] = { .type = NLA_BINARY,
- 				      .len = PORT_UUID_MAX },
- 	[IFLA_PORT_HOST_UUID]	= { .type = NLA_STRING,
- 				    .len = PORT_UUID_MAX },
- 	[IFLA_PORT_REQUEST]	= { .type = NLA_U8, },
- 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
-+
-+	/* Unused, but we need to keep it here since user space could
-+	 * fill it. It's also broken with regard to NLA_BINARY use in
-+	 * combination with structs.
-+	 */
-+	[IFLA_PORT_VSI_TYPE]	= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_port_vsi) },
- };
- 
- static const struct nla_policy ifla_xdp_policy[IFLA_XDP_MAX + 1] = {
--- 
-1.9.3
+    Regards,
+    Dongpo
+
+.
