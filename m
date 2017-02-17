@@ -1,35 +1,58 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 3/6] net: dsa: mv88e6xxx: add support for
- 6390 ATU Move
-Date: Fri, 17 Feb 2017 22:38:02 +0100
-Message-ID: <20170217213802.GI6096@lunn.ch>
-References: <20170217150531.2181-1-vivien.didelot@savoirfairelinux.com>
- <20170217150531.2181-4-vivien.didelot@savoirfairelinux.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH] of_mdio: Add "broadcom,bcm5241" to the whitelist.
+Date: Fri, 17 Feb 2017 13:41:21 -0800
+Message-ID: <3537f379-4d93-d8fe-6892-cae09ce0b43a@caviumnetworks.com>
+References: <20170217200412.11680-1-david.daney@cavium.com>
+ <799d4300-64f0-1fb2-2ef7-870a4d5fac20@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        David Daney <david.daney@cavium.com>, netdev@vger.kernel.org,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170217150531.2181-4-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <799d4300-64f0-1fb2-2ef7-870a4d5fac20@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 17, 2017 at 10:05:28AM -0500, Vivien Didelot wrote:
-> The 6390 family of Marvell chips uses 5 bits to describe the ToPort and
-> FromPort values of PortVec in the ATU Move operation, while older
-> switches use 0xf.
+On 02/17/2017 12:09 PM, Florian Fainelli wrote:
+> On 02/17/2017 12:04 PM, David Daney wrote:
+>> Some Cavium dev boards have firmware which doesn't supply a proper
+>> ethernet-phy-ieee802.3-c22" compatible property.  Restore these boards
+>> to working order by whitelisting this compatible value.
+>>
+>> Signed-off-by: David Daney <david.daney@cavium.com>
+>
+> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+>
+>> ---
+>>  drivers/of/of_mdio.c | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+>> index 262281b..0b29798 100644
+>> --- a/drivers/of/of_mdio.c
+>> +++ b/drivers/of/of_mdio.c
+>> @@ -147,6 +147,7 @@ EXPORT_SYMBOL(of_mdio_parse_addr);
+>>   */
+>>  static const struct of_device_id whitelist_phys[] = {
+>>  	{ .compatible = "brcm,40nm-ephy" },
+>> +	{ .compatible = "broadcom,bcm5241" },
+>
+> And that's not the vendor prefix from vendor-prefixes.txt.
 
-Hi Vivien
+No, that dts containing this value predates vendor-prefixes.txt.
 
-Since you say 5 bits for 6390, it would be better to say 4 bits for
-older switches.
-
-Otherwise:
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+Previous to
+commit 801a8ef54e8b ("of: phy: Only register a phy device for phys"), 
+the form of the compatible string didn't matter for phys
+>
+>
+>>  	{ .compatible = "marvell,88E1111", },
+>>  	{ .compatible = "marvell,88e1116", },
+>>  	{ .compatible = "marvell,88e1118", },
+>>
+>
+>
