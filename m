@@ -1,112 +1,164 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 7/7] nfp: allow application firmware to limit number of SR-IOV VFs
-Date: Fri, 17 Feb 2017 14:00:27 -0800
-Message-ID: <20170217220027.189992-8-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 5/7] nfp: add very basic access to NSP logs
+Date: Fri, 17 Feb 2017 14:00:25 -0800
+Message-ID: <20170217220027.189992-6-jakub.kicinski@netronome.com>
 References: <20170217220027.189992-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, dinan.gunawardena@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:36350 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934994AbdBQWBM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 17:01:12 -0500
-Received: by mail-pg0-f52.google.com with SMTP id v184so18590238pgv.3
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 14:01:11 -0800 (PST)
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:36347 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935091AbdBQWBK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 17:01:10 -0500
+Received: by mail-pg0-f50.google.com with SMTP id v184so18590062pgv.3
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 14:01:09 -0800 (PST)
 In-Reply-To: <20170217220027.189992-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some application firmware projects may choose to limit the number
-of VFs available below what is specified in PCI capability to be
-able to reuse the PCIe interface resources.  There may also be
-projects which use cases don't require SR-IOV support at all and
-therefore don't want to spend time implementing/testing it.
-
-Check nfd_vf_cfg_max_vfs firmware symbol to see if application
-firmware is reporting how many VFs it supports.  This mechanism
-is an opt-in, if symbol is not present we will only look at the
-PCI capability values.
+Allow dumping "arm.diag" resource with ethtool -w.  This resource
+should contain a text log of the NSP (control processor) application.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_main.c | 23 +++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_main.h |  2 ++
- 2 files changed, 25 insertions(+)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  2 +
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 76 ++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |  1 +
+ 3 files changed, 79 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index 8cda6b0e7e32..f73f3da1b1bc 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -47,6 +47,7 @@
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 5a0fc09dd6ea..e614a376b595 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -492,6 +492,7 @@ struct nfp_stat_pair {
+  * @tx_bar:             Pointer to mapped TX queues
+  * @rx_bar:             Pointer to mapped FL/RX queues
+  * @debugfs_dir:	Device directory in debugfs
++ * @ethtool_dump_flag:	Ethtool dump flag
+  * @port_list:		Entry on device port list
+  * @cpp:		CPP device handle if available
+  */
+@@ -579,6 +580,7 @@ struct nfp_net {
+ 	u8 __iomem *rx_bar;
  
- #include "nfpcore/nfp.h"
- #include "nfpcore/nfp_cpp.h"
-+#include "nfpcore/nfp_nffw.h"
- #include "nfpcore/nfp_nsp_eth.h"
+ 	struct dentry *debugfs_dir;
++	u32 ethtool_dump_flag;
  
- #include "nfpcore/nfp6000_pcie.h"
-@@ -70,12 +71,32 @@ static const struct pci_device_id nfp_pci_device_ids[] = {
- };
- MODULE_DEVICE_TABLE(pci, nfp_pci_device_ids);
+ 	struct list_head port_list;
  
-+static void nfp_pcie_sriov_read_nfd_limit(struct nfp_pf *pf)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+index 48f623f68598..2649f7523c81 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+@@ -51,6 +51,10 @@
+ #include "nfp_net_ctrl.h"
+ #include "nfp_net.h"
+ 
++enum nfp_dump_diag {
++	NFP_DUMP_NSP_DIAG = 0,
++};
++
+ /* Support for stats. Returns netdev, driver, and device stats */
+ enum { NETDEV_ET_STATS, NFP_NET_DRV_ET_STATS, NFP_NET_DEV_ET_STATS };
+ struct _nfp_net_et_stats {
+@@ -579,6 +583,75 @@ static int nfp_net_get_coalesce(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++/* Other debug dumps
++ */
++static int
++nfp_dump_nsp_diag(struct nfp_net *nn, struct ethtool_dump *dump, void *buffer)
 +{
-+	int err;
++	struct nfp_resource *res;
++	int ret;
 +
-+	pf->limit_vfs = nfp_rtsym_read_le(pf->cpp, "nfd_vf_cfg_max_vfs", &err);
-+	if (!err)
-+		return;
++	if (!nn->cpp)
++		return -EOPNOTSUPP;
 +
-+	pf->limit_vfs = ~0;
-+	/* Allow any setting for backwards compatibility if symbol not found */
-+	if (err != -ENOENT)
-+		nfp_warn(pf->cpp, "Warning: VF limit read failed: %d\n", err);
++	dump->version = 1;
++	dump->flag = NFP_DUMP_NSP_DIAG;
++
++	res = nfp_resource_acquire(nn->cpp, NFP_RESOURCE_NSP_DIAG);
++	if (IS_ERR(res))
++		return PTR_ERR(res);
++
++	if (buffer) {
++		if (dump->len != nfp_resource_size(res)) {
++			ret = -EINVAL;
++			goto exit_release;
++		}
++
++		ret = nfp_cpp_read(nn->cpp, nfp_resource_cpp_id(res),
++				   nfp_resource_address(res),
++				   buffer, dump->len);
++		if (ret != dump->len)
++			ret = ret < 0 ? ret : -EIO;
++		else
++			ret = 0;
++	} else {
++		dump->len = nfp_resource_size(res);
++		ret = 0;
++	}
++exit_release:
++	nfp_resource_release(res);
++
++	return ret;
 +}
 +
- static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
- {
- #ifdef CONFIG_PCI_IOV
- 	struct nfp_pf *pf = pci_get_drvdata(pdev);
- 	int err;
- 
-+	if (num_vfs > pf->limit_vfs) {
-+		nfp_info(pf->cpp, "Firmware limits number of VFs to %u\n",
-+			 pf->limit_vfs);
++static int nfp_net_set_dump(struct net_device *netdev, struct ethtool_dump *val)
++{
++	struct nfp_net *nn = netdev_priv(netdev);
++
++	if (!nn->cpp)
++		return -EOPNOTSUPP;
++
++	if (val->flag != NFP_DUMP_NSP_DIAG)
 +		return -EINVAL;
-+	}
 +
- 	err = pci_enable_sriov(pdev, num_vfs);
- 	if (err) {
- 		dev_warn(&pdev->dev, "Failed to enable PCI sriov: %d\n", err);
-@@ -333,6 +354,8 @@ static int nfp_pci_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_cpp_free;
- 
-+	nfp_pcie_sriov_read_nfd_limit(pf);
++	nn->ethtool_dump_flag = val->flag;
 +
- 	err = nfp_net_pci_probe(pf);
- 	if (err)
- 		goto err_fw_unload;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index 6c40fa322da3..39105d0435e9 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -59,6 +59,7 @@ struct nfp_eth_table;
-  * @tx_area:		Pointer to the CPP area for the TX queues
-  * @rx_area:		Pointer to the CPP area for the FL/RX queues
-  * @irq_entries:	Array of MSI-X entries for all ports
-+ * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI limit)
-  * @num_vfs:		Number of SR-IOV VFs enabled
-  * @fw_loaded:		Is the firmware loaded?
-  * @eth_tbl:		NSP ETH table
-@@ -77,6 +78,7 @@ struct nfp_pf {
++	return 0;
++}
++
++static int
++nfp_net_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
++{
++	return nfp_dump_nsp_diag(netdev_priv(netdev), dump, NULL);
++}
++
++static int
++nfp_net_get_dump_data(struct net_device *netdev, struct ethtool_dump *dump,
++		      void *buffer)
++{
++	return nfp_dump_nsp_diag(netdev_priv(netdev), dump, buffer);
++}
++
+ static int nfp_net_set_coalesce(struct net_device *netdev,
+ 				struct ethtool_coalesce *ec)
+ {
+@@ -743,6 +816,9 @@ static const struct ethtool_ops nfp_net_ethtool_ops = {
+ 	.set_rxfh		= nfp_net_set_rxfh,
+ 	.get_regs_len		= nfp_net_get_regs_len,
+ 	.get_regs		= nfp_net_get_regs,
++	.set_dump		= nfp_net_set_dump,
++	.get_dump_flag		= nfp_net_get_dump_flag,
++	.get_dump_data		= nfp_net_get_dump_data,
+ 	.get_coalesce           = nfp_net_get_coalesce,
+ 	.set_coalesce           = nfp_net_set_coalesce,
+ 	.get_channels		= nfp_net_get_channels,
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
+index 540027973a74..42cb720b696d 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
+@@ -86,6 +86,7 @@ int nfp_nsp_write_eth_table(struct nfp_nsp *state,
  
- 	struct msix_entry *irq_entries;
+ /* Service Processor */
+ #define NFP_RESOURCE_NSP		"nfp.sp"
++#define NFP_RESOURCE_NSP_DIAG		"arm.diag"
  
-+	unsigned int limit_vfs;
- 	unsigned int num_vfs;
- 
- 	bool fw_loaded;
+ /* Netronone Flow Firmware Table */
+ #define NFP_RESOURCE_NFP_NFFW		"nfp.nffw"
 -- 
 2.11.0
