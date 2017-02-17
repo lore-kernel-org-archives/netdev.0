@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next v2 01/12] net: ethernet: aquantia: Removed extra assignment for skb->dev.
-Date: Sat, 18 Feb 2017 00:07:23 +0300
-Message-ID: <3f55a8c5735b65986b30875d417876e8e2904e92.1487365317.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next v2 05/12] net: ethernet: aquantia: Superfluous initialization of "err".
+Date: Sat, 18 Feb 2017 00:07:27 +0300
+Message-ID: <4b8272488fff999b32fe5d56591994717478842a.1487365317.git.pavel.belous@aquantia.com>
 References: <cover.1487365317.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,35 +12,43 @@ Cc: netdev@vger.kernel.org,
         Pavel Belous <pavel.belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0064.outbound.protection.outlook.com ([104.47.32.64]:30944
+Received: from mail-sn1nam01on0077.outbound.protection.outlook.com ([104.47.32.77]:52345
         "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S935044AbdBQVJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Feb 2017 16:09:01 -0500
+        id S935044AbdBQVJN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 16:09:13 -0500
 In-Reply-To: <cover.1487365317.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-This assignment is not needed.
+Fixed superfluous initialization of err.
 
 Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-index dea9e9b..4c40644 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-@@ -214,7 +214,6 @@ int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
- 				goto err_exit;
- 			}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+index f7513cb..68c19d3 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+@@ -87,14 +87,8 @@ static int aq_ndev_close(struct net_device *ndev)
+ static int aq_ndev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	struct aq_nic_s *aq_nic = netdev_priv(ndev);
+-	int err = 0;
+-
+-	err = aq_nic_xmit(aq_nic, skb);
+-	if (err < 0)
+-		goto err_exit;
  
--			skb->dev = ndev;
- 			skb_put(skb, buff->len);
- 		} else {
- 			skb = netdev_alloc_skb(ndev, ETH_HLEN);
+-err_exit:
+-	return err;
++	return aq_nic_xmit(aq_nic, skb);
+ }
+ 
+ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
 -- 
 2.7.4
