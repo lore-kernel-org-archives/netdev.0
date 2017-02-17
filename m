@@ -1,56 +1,75 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: CHECKSUM_UNNECESSARY semantics with driver modified.created packets
-Date: Fri, 17 Feb 2017 13:29:39 -0800
-Message-ID: <CALx6S37+Ce792ps+OByobMPf54qCFj8jAi2dcG5jwr7sdwufKw@mail.gmail.com>
-References: <CALx6S37uukN4gALxFxYJ3Syq=+53RUNpLNbNHwBrSc=jf5PcFw@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 2/6] net: dsa: mv88e6xxx: move ATU code in
+ its own file
+Date: Fri, 17 Feb 2017 22:35:18 +0100
+Message-ID: <20170217213518.GH6096@lunn.ch>
+References: <20170217150531.2181-1-vivien.didelot@savoirfairelinux.com>
+ <20170217150531.2181-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f179.google.com ([209.85.216.179]:36142 "EHLO
-        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934963AbdBQV3l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 16:29:41 -0500
-Received: by mail-qt0-f179.google.com with SMTP id k15so51115548qtg.3
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 13:29:41 -0800 (PST)
-In-Reply-To: <CALx6S37uukN4gALxFxYJ3Syq=+53RUNpLNbNHwBrSc=jf5PcFw@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:44076 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934415AbdBQVfV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 16:35:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20170217150531.2181-3-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 17, 2017 at 1:04 PM, Tom Herbert <tom@herbertland.com> wrote:
-> Alexei and I were looking at the mlx5 LRO code this morning. One
-> discrepancy I noticed with GRO is that CHECKSUM_UNNECESSARY is set for
-> the assembled packet whereas in GRO we use CHECKSUM_PARTIAL. The
-> effect of using checksum-unnecessary is that the actual TCP checksum
-> in the packet is not correct for the packet. Since gso_type set this
-> probably is okay when packet is forwarding (checksums recomputed), but
-> this seems to make some assumptions about the meaning of
-> checksum-unnecessary. Looking if the rules of checksum in skbuff.h
-> we're no explicit in saying whether the checksum actually in the
-> packet must be correct.
->
-> I think there's some possible ways to address this:
->
-> 1) Allow actual checksum to be incorrect in packet when the packet is
-> gso. On TX checksum must always be computed then.
-> 2) Change the instances where driving is modifying a packet or
-> creating a new one as in LRO case to use CHECKSUM_PARTIAL.
-> 3) Modify the checksum in the packet so that it is correct. We do this
-> in nearly all other cases where we modify the packet (e.g. NAT). Would
-> be hard to do in LRO though.
->
-On second thought, I don't think #1 is correct. For instance, if we
-ever applied this to UDP that would break checksum-unnecessary
-conversion. Also, the stack should always have the prerogative to not
-trust checksum-unnecessary mark and do the calculation itself.
-checksum-unnecessary should mean the checksum has been verified to be
-correct and it is correct in the packet.
+On Fri, Feb 17, 2017 at 10:05:27AM -0500, Vivien Didelot wrote:
+> Move the Global (1) ATU related code in its own file, and export the
+> necessary primitives.
+> 
+> Use that opportunity to provide a cleaner API for the ATU, by renaming a
+> few underscore prefixed functions, and members of the
+> mv88e6xxx_atu_entry structures.
 
-For LRO, drivers should use checksum-partial I think.
+>  static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
+>  					const unsigned char *addr, u16 vid,
+>  					u8 state)
+>  {
+> +	struct mv88e6xxx_atu_entry entry = { 0 };
+>  	struct mv88e6xxx_vtu_entry vlan;
+> -	struct mv88e6xxx_atu_entry entry;
+>  	int err;
+>  
+>  	/* Null VLAN ID corresponds to the port private database */
+> @@ -2107,21 +1918,32 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
+>  	if (err)
+>  		return err;
+>  
+> -	err = mv88e6xxx_atu_get(chip, vlan.fid, addr, &entry);
+> +	entry.fid = vlan.fid;
+> +	ether_addr_copy(entry.mac, addr);
+> +	eth_addr_dec(entry.mac);
+> +	err = mv88e6xxx_atu_getnext(chip, &entry);
+>  	if (err)
+>  		return err;
+>  
+> +	/* Initialize a fresh ATU entry if it isn't found */
+> +	if (entry.state == GLOBAL_ATU_DATA_STATE_UNUSED ||
+> +	    !ether_addr_equal(entry.mac, addr)) {
+> +		memset(&entry, 0, sizeof(entry));
+> +		ether_addr_copy(entry.mac, addr);
+> +		entry.fid = vlan.fid;
+> +	}
+> +
 
-Tom
+This seems to be more than renaming a few functions. There looks to be
+real changes here. I think these changes should be split out into a
+separate patch with an explanation what is being changed. Keep this
+patch for plain renames.
 
-> In any case, I think we need to update sk_buff.h to clarify what the
-> semantics are.
->
-> Tom
+It would also be easier to review if the patch just moved the code, no
+changes. Then have patches which clean up the API. It is hard to see
+what is move and what is cleanup. Plain move needs little review,
+cleanup needs more review. With the current patch, it is hard to see
+which is which.
+
+      Andrew
