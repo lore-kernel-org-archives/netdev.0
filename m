@@ -1,91 +1,69 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+From: Jisheng Zhang <jszhang@marvell.com>
 Subject: Re: [PATCH net-next v2 0/2] net: mvneta: improve rx performance
-Date: Fri, 17 Feb 2017 11:37:21 +0100
-Message-ID: <87shndayse.fsf@free-electrons.com>
+Date: Fri, 17 Feb 2017 18:44:51 +0800
+Message-ID: <20170217184451.55217e0e@xhacker>
 References: <20170217100233.2325-1-jszhang@marvell.com>
+ <87shndayse.fsf@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>,
-        <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Jisheng Zhang <jszhang@marvell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36278 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932326AbdBQKh1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 05:37:27 -0500
-In-Reply-To: <20170217100233.2325-1-jszhang@marvell.com> (Jisheng Zhang's
-        message of "Fri, 17 Feb 2017 18:02:31 +0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: thomas.petazzoni@free-electrons.com, arnd@arndb.de, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <87shndayse.fsf@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jisheng,
- 
- On ven., févr. 17 2017, Jisheng Zhang <jszhang@marvell.com> wrote:
-
-> In hot code path such as mvneta_rx_hwbm() and mvneta_rx_swbm(), we may
-> access fields of rx_desc. The rx_desc is allocated by
-> dma_alloc_coherent, it's uncacheable if the device isn't cache
-> coherent, reading from uncached memory is fairly slow.
-
-Did you test it with HWBM support?
-
-I am  not sure ti will work in this case.
-
-Gregory
-
->
-> patch1 reuses the read out status to getting status field of rx_desc
-> again.
->
-> patch2 uses cacheable memory to store the rx buffer DMA address.
->
-> We get the following performance data on Marvell BG4CT Platforms
-> (tested with iperf):
->
-> before the patch:
-> recving 1GB in mvneta_rx_swbm() costs 149265960 ns
->
-> after the patch:
-> recving 1GB in mvneta_rx_swbm() costs 1421565640 ns
->
-> We saved 4.76% time.
->
-> RFC: can we do similar modification for tx? If yes, I can prepare a v2.
->
->
-> Basically, these two patches do what Arnd mentioned in [1].
->
-> Hi Arnd,
->
-> I added "Suggested-by you" tag, I hope you don't mind ;)
->
-> Thanks
->
-> [1] https://www.spinics.net/lists/netdev/msg405889.html
->
-> Since v1:
->   - correct the performance data typo
->
-> Jisheng Zhang (2):
->   net: mvneta: avoid getting status from rx_desc as much as possible
->   net: mvneta: Use cacheable memory to store the rx buffer DMA address
->
->  drivers/net/ethernet/marvell/mvneta.c | 36 ++++++++++++++++++++---------------
->  1 file changed, 21 insertions(+), 15 deletions(-)
->
-> -- 
-> 2.11.0
->
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+T24gRnJpLCAxNyBGZWIgMjAxNyAxMTozNzoyMSArMDEwMCBHcmVnb3J5IENMRU1FTlQgd3JvdGU6
+Cgo+IEhpIEppc2hlbmcsCj4gIAo+ICBPbiB2ZW4uLCBmw6l2ci4gMTcgMjAxNywgSmlzaGVuZyBa
+aGFuZyA8anN6aGFuZ0BtYXJ2ZWxsLmNvbT4gd3JvdGU6Cj4gCj4gPiBJbiBob3QgY29kZSBwYXRo
+IHN1Y2ggYXMgbXZuZXRhX3J4X2h3Ym0oKSBhbmQgbXZuZXRhX3J4X3N3Ym0oKSwgd2UgbWF5Cj4g
+PiBhY2Nlc3MgZmllbGRzIG9mIHJ4X2Rlc2MuIFRoZSByeF9kZXNjIGlzIGFsbG9jYXRlZCBieQo+
+ID4gZG1hX2FsbG9jX2NvaGVyZW50LCBpdCdzIHVuY2FjaGVhYmxlIGlmIHRoZSBkZXZpY2UgaXNu
+J3QgY2FjaGUKPiA+IGNvaGVyZW50LCByZWFkaW5nIGZyb20gdW5jYWNoZWQgbWVtb3J5IGlzIGZh
+aXJseSBzbG93LiAgCj4gCj4gRGlkIHlvdSB0ZXN0IGl0IHdpdGggSFdCTSBzdXBwb3J0PwoKTm8g
+SSBkaWRuJ3QgdGVzdCBpdCBmb3IgbGFja2luZyBvZiBzdWNoIEhXLCBzbyBpdCdzIGFwcHJlY2lh
+dGVkIGlmIHNvbWVvbmUKY2FuIHRlc3Qgd2l0aCBIV0JNIGNhcGFibGUgSFcuCgo+IAo+IEkgYW0g
+bm90IHN1cmUgdGkgd2lsbCB3b3JrIGluIHRoaXMgY2FzZS4KCklNSE8sIGlmIG12bmV0YSBIVyBk
+b2Vzbid0IHVwZGF0ZSByeF9kZXNjLT5idWZfcGh5c19hZGRyLCBpdCBjYW4gc3RpbGwgd29yay4K
+SSBkb24ndCBoYXZlIEhXQk0gYmFja2dyb3VuZCwgc28gYWJvdmUgbWF5IGJlIHdyb25nLiBJZiB0
+aGlzIGNhc2UgZG9lc24ndAp3b3JrIGZvciBIV0JNLCBJJ2xsIHN1Ym1pdCB2MyB0byBtb2RpZnkg
+bXZuZXRhX3J4X3N3Ym0oKSBvbmx5LgoKVGhhbmtzLApKaXNoZW5nCgo+IAo+IEdyZWdvcnkKPiAK
+PiA+Cj4gPiBwYXRjaDEgcmV1c2VzIHRoZSByZWFkIG91dCBzdGF0dXMgdG8gZ2V0dGluZyBzdGF0
+dXMgZmllbGQgb2YgcnhfZGVzYwo+ID4gYWdhaW4uCj4gPgo+ID4gcGF0Y2gyIHVzZXMgY2FjaGVh
+YmxlIG1lbW9yeSB0byBzdG9yZSB0aGUgcnggYnVmZmVyIERNQSBhZGRyZXNzLgo+ID4KPiA+IFdl
+IGdldCB0aGUgZm9sbG93aW5nIHBlcmZvcm1hbmNlIGRhdGEgb24gTWFydmVsbCBCRzRDVCBQbGF0
+Zm9ybXMKPiA+ICh0ZXN0ZWQgd2l0aCBpcGVyZik6Cj4gPgo+ID4gYmVmb3JlIHRoZSBwYXRjaDoK
+PiA+IHJlY3ZpbmcgMUdCIGluIG12bmV0YV9yeF9zd2JtKCkgY29zdHMgMTQ5MjY1OTYwIG5zCj4g
+Pgo+ID4gYWZ0ZXIgdGhlIHBhdGNoOgo+ID4gcmVjdmluZyAxR0IgaW4gbXZuZXRhX3J4X3N3Ym0o
+KSBjb3N0cyAxNDIxNTY1NjQwIG5zCj4gPgo+ID4gV2Ugc2F2ZWQgNC43NiUgdGltZS4KPiA+Cj4g
+PiBSRkM6IGNhbiB3ZSBkbyBzaW1pbGFyIG1vZGlmaWNhdGlvbiBmb3IgdHg/IElmIHllcywgSSBj
+YW4gcHJlcGFyZSBhIHYyLgo+ID4KPiA+Cj4gPiBCYXNpY2FsbHksIHRoZXNlIHR3byBwYXRjaGVz
+IGRvIHdoYXQgQXJuZCBtZW50aW9uZWQgaW4gWzFdLgo+ID4KPiA+IEhpIEFybmQsCj4gPgo+ID4g
+SSBhZGRlZCAiU3VnZ2VzdGVkLWJ5IHlvdSIgdGFnLCBJIGhvcGUgeW91IGRvbid0IG1pbmQgOykK
+PiA+Cj4gPiBUaGFua3MKPiA+Cj4gPiBbMV0gaHR0cHM6Ly93d3cuc3Bpbmljcy5uZXQvbGlzdHMv
+bmV0ZGV2L21zZzQwNTg4OS5odG1sCj4gPgo+ID4gU2luY2UgdjE6Cj4gPiAgIC0gY29ycmVjdCB0
+aGUgcGVyZm9ybWFuY2UgZGF0YSB0eXBvCj4gPgo+ID4gSmlzaGVuZyBaaGFuZyAoMik6Cj4gPiAg
+IG5ldDogbXZuZXRhOiBhdm9pZCBnZXR0aW5nIHN0YXR1cyBmcm9tIHJ4X2Rlc2MgYXMgbXVjaCBh
+cyBwb3NzaWJsZQo+ID4gICBuZXQ6IG12bmV0YTogVXNlIGNhY2hlYWJsZSBtZW1vcnkgdG8gc3Rv
+cmUgdGhlIHJ4IGJ1ZmZlciBETUEgYWRkcmVzcwo+ID4KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5l
+dC9tYXJ2ZWxsL212bmV0YS5jIHwgMzYgKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0t
+LS0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKSwgMTUgZGVsZXRpb25zKC0p
+Cj4gPgo+ID4gLS0gCj4gPiAyLjExLjAKPiA+Cj4gPgo+ID4gX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KPiA+IGxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBs
+aXN0Cj4gPiBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKPiA+IGh0dHA6Ly9s
+aXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbCAgCj4g
+CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgt
+YXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQu
+b3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJt
+LWtlcm5lbAo=
