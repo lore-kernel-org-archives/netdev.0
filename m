@@ -1,103 +1,123 @@
-From: zhou zhengwu <zhouzhengwu@huawei.com>
-Subject: Re: [BUG] LACP state machine will find nothing and do nothing when
- link is single passing
-Date: Fri, 17 Feb 2017 16:46:10 +0800
-Message-ID: <acaef657-0119-986b-d9d6-74db686a7ca8@huawei.com>
-References: <fcacaf54-5f4e-fd6e-d00c-9de7e74d26f4@huawei.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [patch net-next RFC 1/8] devlink: Support for pipeline debug
+ (dpipe)
+Date: Fri, 17 Feb 2017 09:49:07 +0100
+Message-ID: <20170217084906.GA26091@penelope.horms.nl>
+References: <1487258564-3775-1-git-send-email-jiri@resnulli.us>
+ <1487258564-3775-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <qianguoxin@huawei.com>,
-        <chenhuan.chenhuan@huawei.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com, jhs@mojatatu.com,
+        ivecera@redhat.com, roopa@cumulusnetworks.com,
+        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        john.fastabend@gmail.com, andrew@lunn.ch
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:10765 "EHLO
-        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754199AbdBQIq1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 03:46:27 -0500
-In-Reply-To: <fcacaf54-5f4e-fd6e-d00c-9de7e74d26f4@huawei.com>
+Received: from mail-wr0-f177.google.com ([209.85.128.177]:33757 "EHLO
+        mail-wr0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755263AbdBQItM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 03:49:12 -0500
+Received: by mail-wr0-f177.google.com with SMTP id i10so25873973wrb.0
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 00:49:11 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1487258564-3775-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Obviously, in the case of single link, one end of port can receives 
-lacpdu and the lacp configure parameters will not change, eg. port 
-number, port priority and system priority and so on.  So lacp state 
-machine will not check the link change and the failed link will not be 
-unselected from the active aggregator.
+Hi Jiri,
 
-I add an additional check for the port state when lacpdu is processed in 
-rx state machine. The function is ad_rx_machine()->__update_selected(). 
-Then everything work well.
+On Thu, Feb 16, 2017 at 04:22:37PM +0100, Jiri Pirko wrote:
+> From: Arkadi Sharshevsky <arkadis@mellanox.com>
+> 
+> The pipeline debug is used to export the pipeline abstractions
+> for the main objects - tables, headers and entries. The only support for
+> set is for changing the counter parameter on specific table.
+> 
+> The basic structures:
+> 
+> Header - can represent a real protocol header information or internal
+>          metadata. Generic protocol headers like IPv4 can be shared
+>          between drivers. Each driver can add local headers.
+> 
+> Field - part of a header. Can represent protocol field or specific
+>         ASIC metadata field. Hardware special metadata fields can
+>         be mapped to different resources, for example switch ASIC
+>        	ports can have internal number which from the systems
+>         point of view is mapped to netdeivce ifindex.
+> 
+> Hfield - Specific combination of header:field. This object is used
+>          to represent the table behavior in terms of match/action.
+> 
+> Hfield_val - Represents value of specific Hfield.
+> 
+> Table - represents a hardware block which can be described with
+>         match/action behavior. The match/action can be done on the
+>         packets data or on the internal metadata that it gathered
+>         along the packets traversal throw the pipeline which is vendor
+>         specific and should be exported in order to provide
+>         understanding of ASICs behavior.
+> 
+> Entry - represents single record in a specific table. The entry is
+>         identified by specific combination of Hfield_vals for match
+>         /action.
+> 
+> Prior to accessing the tables/entries the drivers provide the header/
+> field data base which is used by driver to user-space. The data base
+> is split between the shared headers and unique headers.
 
-Following is the detail modification:
+Thanks for posting this. In general I think it looks quite promising.
 
-diff -c5 bond_3ad.c bond_3ad.c
+After a first pass over the code I have the following
+specific comments:
 
-static void __update_selected(struct lacpdu *lacpdu, struct port *port)
-{
-		    ........
-   		    ntohs(lacpdu->actor_port_priority) != partner->port_priority ||
-   		    MAC_ADDRESS_COMPARE(&lacpdu->actor_system, &partner->system) ||
-   		    ntohs(lacpdu->actor_system_priority) != partner->system_priority ||
-   		    ntohs(lacpdu->actor_key) != partner->key ||
-   		    (lacpdu->actor_state & AD_STATE_AGGREGATION) != 
-(partner->port_state & AD_STATE_AGGREGATION)
-+ || (lacpdu->actor_state & AD_STATE_SYNCHRONIZATION) != 
-(partner->port_state & AD_STATE_SYNCHRONIZATION)) {
-   			// update the state machine Selected variable
-   			port->sm_vars &= ~AD_PORT_SELECTED;
-   		}
-   	}
-   }
+> 
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/net/devlink.h        | 224 ++++++++++++-
+>  include/uapi/linux/devlink.h |  50 ++-
+>  net/core/devlink.c           | 747 +++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 1019 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/devlink.h b/include/net/devlink.h
 
-***************
-static void ad_port_selection_logic(struct port *port)
-{
-             ..........
-   		     (aggregator->partner_system_priority == 
-port->partner_oper.system_priority) &&
-   		     (aggregator->partner_oper_aggregator_key == 
-port->partner_oper.key)
-   		    ) &&
-   		    ((MAC_ADDRESS_COMPARE(&(port->partner_oper.system), 
-&(null_mac_addr)) && // partner answers
-   		      !aggregator->is_individual)  // but is not individual OR
-+ 		    ) && (port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION)
-   		   ) {
-   			// attach to the founded aggregator
-   			port->aggregator = aggregator;
-   			port->actor_port_aggregator_identifier =
-   				port->aggregator->aggregator_identifier;
-		
+...
 
-On 2017/2/16 17:20, zhou zhengwu wrote:
-> Hi
->
-> [1]Problem description:
->    ServerA [bond] ----------- [bond] ServerB
->    I have two servers which connected with bonding interfaces LACP
-> enabled. Two bonding interfaces are configured like following:
->    insmod ./bonding.ko mode=4 lacp_rate=1 all_slaves_active=1
->    echo +trunk1 > /sys/class/net/bonding_masters
->    echo +eth0 > /sys/class/net/trunk1/bonding/slaves
->    echo +eth1 > /sys/class/net/trunk1/bonding/slaves
->
->    Firstly, it works well.
->    Then, one port (for example, eth0) in serverB failed, it can just
-> send but not receive packets, however it still is UP.
->    Result:
->    In serverB, lcap is work well.
->    While In serverA, eth0 connecting with eth0 in serverB is in the same
-> lacp aggregator with eth1 and traffic is still sent through it.
->
-> [2]From the lacp implementation, we can see:
->    In above condition, eth0 in server A will receive lacpdu which show
-> that AD_STATE_SYNCHRONIZATION is unset in actor_state to indicate there
-> is something wrong in eth0 of server B. However, our implementation of
-> lacp will just check the port parameters and not check the port state.
-> If the peer port state changes, local lacp state machine will not find
-> which will cause the lacp state machine works wrong.
->
->
+> +/**
+> + * struct devlink_dpipe_entry - table entry object
+> + * @index: index of the entry in the table
+> + * @matches: tuple match values
+> + * @matches_count: count of matches tuples
+> + * @actions: tuple actions values
+> + * @actions_count: count of actions values
+> + * @counter: value of counter
+> + * @counter_valid: Specify if value is valid from hardware
+> + */
+> +struct devlink_dpipe_entry {
+> +	unsigned int index;
+
+I'm not sure what I understand what index is but I assume that it is a
+unique identifier for the flow within the table. From the point of view
+of having enough indexes for all entries in the table an unsigned int seems
+adequate. But I see use-cases that have significantly wider identifiers.
+
+I'm wondering what your thoughts are on supporting wider identifiers.
+Perhaps they belong in the match?
+
+> +	struct devlink_dpipe_hfield_val *matches;
+> +	unsigned int matches_count;
+> +	struct devlink_dpipe_hfield_val *actions;
+> +	unsigned int actions_count;
+> +	u64 counter;
+
+I'm unclear on what counter is. Is it the number of times the action entry
+has been used (hit)? If so I think some provision for richer per-hit
+counters for entries would be useful. At least number of hits and number of
+bytes.  But perhaps it would be useful to allow hardware to describe its
+per-entry counters?
+
+> +	bool counter_valid;
+> +};
+
+...
