@@ -1,50 +1,68 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] vmxnet3: prevent building with 64K pages
-Date: Fri, 17 Feb 2017 16:08:30 +0100
-Message-ID: <20170217150847.2505538-1-arnd@arndb.de>
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-        "VMware Inc ." <pv-drivers@vmware.com>,
-        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next v2 2/2] net: mvneta: Use cacheable memory to store the rx buffer DMA address
+Date: Fri, 17 Feb 2017 16:20:34 +0100
+Message-ID: <87fujcc08t.fsf@free-electrons.com>
+References: <20170217100233.2325-1-jszhang@marvell.com>
+        <20170217100233.2325-3-jszhang@marvell.com>
+        <87o9y1aqsk.fsf@free-electrons.com>
+        <20170217145501.5b90a977@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Jisheng Zhang <jszhang@marvell.com>, <davem@davemloft.net>,
+        <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170217145501.5b90a977@free-electrons.com> (Thomas Petazzoni's
+        message of "Fri, 17 Feb 2017 14:55:01 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I got a warning about broken code on ARM64 with 64K pages:
+Hi Thomas,
+ 
+ On ven., févr. 17 2017, Thomas Petazzoni <thomas.petazzoni@free-electrons.com> wrote:
 
-drivers/net/vmxnet3/vmxnet3_drv.c: In function 'vmxnet3_rq_init':
-drivers/net/vmxnet3/vmxnet3_drv.c:1679:29: error: large integer implicitly truncated to unsigned type [-Werror=overflow]
-    rq->buf_info[0][i].len = PAGE_SIZE;
+> Does not make sense, because it's not the SW that refills the RX
+> descriptors with the address of the RX buffers. It's done by the HW.
+>
+> With HWBM, I believe you have no choice but to read the physical
+> address from the RX descriptor. But you can probably optimize things a
+> little bit by reading it only once, and then storing it into a
+> cacheable variable.
+>
+> So maybe:
+>
+>  - For SWBM, use the strategy proposed by Jisheng
+>  - For HWBM, at the beginning of the RX completion path, read once the
+>    rx_desc->buf_phys_addr, and store it in rxq->buf_dma_addr[index]
 
-'len' here is a 16-bit integer, so this clearly won't work. I don't think
-this driver is used much on anything other than x86, so there is no need
-to fix this properly and we can work around it with a Kconfig dependency
-to forbid known-broken configurations. qemu in theory supports it on
-other architectures too, but presumably only for compatibility with x86
-guests that also run on vmware.
 
-CONFIG_PAGE_SIZE_64KB is used on hexagon, mips, sh and tile, the other
-symbols are architecture-specific names for the same thing.
+For the HWBM path storing rx_desc->buf_phys_addr in
+rxq->buf_dma_addr[index] is not useful as we only use it in a single
+function.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/Kconfig | 3 +++
- 1 file changed, 3 insertions(+)
+But a quick improvement could be to use the phys_addr variable. Indeed
+we store the value of rx_desc->buf_phys_addr in it and we never used it,
+instead we always use rx_desc->buf_phys_addr.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 4c07a067df1d..8a49fedb80ef 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -458,6 +458,9 @@ config XEN_NETDEV_BACKEND
- config VMXNET3
- 	tristate "VMware VMXNET3 ethernet driver"
- 	depends on PCI && INET
-+	depends on !(PAGE_SIZE_64KB || ARM64_64K_PAGES || \
-+		     IA64_PAGE_SIZE_64KB || MICROBLAZE_64K_PAGES || \
-+		     PARISC_PAGE_SIZE_64KB || PPC_64K_PAGES)
- 	help
- 	  This driver supports VMware's vmxnet3 virtual ethernet NIC.
- 	  To compile this driver as a module, choose M here: the
+Gregory
+
+>
+> Of course that's just a very rough proposal. I've been looking mainly
+> at mvpp2 lately, and I'm not sure I still remember how mvneta works in
+> the details.
+>
+> Best regards,
+>
+> Thomas
+> -- 
+> Thomas Petazzoni, CTO, Free Electrons
+> Embedded Linux and Kernel engineering
+> http://free-electrons.com
+
 -- 
-2.9.0
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
