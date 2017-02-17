@@ -1,36 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V4 0/7] net/sched: Reflect HW offload status
- in classifiers
-Date: Fri, 17 Feb 2017 12:08:33 -0500 (EST)
-Message-ID: <20170217.120833.2228965207602375369.davem@davemloft.net>
-References: <1487233876-28576-1-git-send-email-ogerlitz@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: use page_ref_inc() in tcp_sendmsg()
+Date: Fri, 17 Feb 2017 09:11:42 -0800
+Message-ID: <1487351502.1311.84.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, roid@mellanox.com, netdev@vger.kernel.org
-To: ogerlitz@mellanox.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45638 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934122AbdBQRIk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 12:08:40 -0500
-In-Reply-To: <1487233876-28576-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:32820 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934122AbdBQRLo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 12:11:44 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 5so5385913pgj.0
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 09:11:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 16 Feb 2017 10:31:09 +0200
+From: Eric Dumazet <edumazet@google.com>
 
-> Currently there is no way of querying whether a filter is
-> offloaded to HW or not when using "both" policy (where none
-> of skip_sw or skip_hw flags are set by user-space).
-> 
-> Added two new flags, "in hw" and "not in hw" such that user space 
-> can determine if a filter is actually offloaded to hw. The "in hw" 
-> UAPI semantics was chosen so it's similar to the "skip hw" flag logic.
-> 
-> If none of these two flags are set, this signals running
-> over older kernel.
- ...
+sk_page_frag_refill() allocates either a compound page or an order-0
+page. We can use page_ref_inc() which is slightly faster than get_page()
 
-Series applied, thanks Or.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index d44a6989e76d69aa44e2a26d37b4204376c94966..da385ae997a3d61f0217a2e585088a82e6d50cd3 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1288,7 +1288,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 			} else {
+ 				skb_fill_page_desc(skb, i, pfrag->page,
+ 						   pfrag->offset, copy);
+-				get_page(pfrag->page);
++				page_ref_inc(pfrag->page);
+ 			}
+ 			pfrag->offset += copy;
+ 		}
