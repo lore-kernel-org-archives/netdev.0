@@ -1,263 +1,43 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 6/6] net: dsa: mv88e6xxx: add support for 6390 VTU
-Date: Fri, 17 Feb 2017 10:05:31 -0500
-Message-ID: <20170217150531.2181-7-vivien.didelot@savoirfairelinux.com>
-References: <20170217150531.2181-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 0/6] net: dsa: mv88e6xxx: 88E6390 ATU/VTU
+Date: Fri, 17 Feb 2017 10:05:25 -0500
+Message-ID: <20170217150531.2181-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:47552 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934528AbdBQPG0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 10:06:26 -0500
-In-Reply-To: <20170217150531.2181-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The 6390 family of chips use only 2 of the 3 VTU Data registers to pack
-the MemberTag and PortState VLAN data. This means that they must be
-written or read before or after each VTU/STU operations.
+This series adds support to 88E6390 for the ATU (MAC address databases)
+and VTU (VLAN databases), as well as providing a cleaner API for both.
 
-Implement this variant to add support for VTU with such chips.
+The 6390 family of Marvell switch chip handles the ATU Move operation
+differently and has a different usage of the VTU Data registers.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c        |  14 ++++
- drivers/net/dsa/mv88e6xxx/global1.h     |   4 ++
- drivers/net/dsa/mv88e6xxx/global1_vtu.c | 121 ++++++++++++++++++++++++++++++++
- 3 files changed, 139 insertions(+)
+v2: remove unsused variable err in 5/6, spotted by kbuild bot.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 256a209eef9b..80c2172e1733 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2928,6 +2928,8 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-+	.vtu_getnext = mv88e6390_g1_vtu_getnext,
-+	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
- };
- 
- static const struct mv88e6xxx_ops mv88e6190x_ops = {
-@@ -2956,6 +2958,8 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-+	.vtu_getnext = mv88e6390_g1_vtu_getnext,
-+	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
- };
- 
- static const struct mv88e6xxx_ops mv88e6191_ops = {
-@@ -2984,6 +2988,8 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-+	.vtu_getnext = mv88e6390_g1_vtu_getnext,
-+	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
- };
- 
- static const struct mv88e6xxx_ops mv88e6240_ops = {
-@@ -3044,6 +3050,8 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-+	.vtu_getnext = mv88e6390_g1_vtu_getnext,
-+	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
- };
- 
- static const struct mv88e6xxx_ops mv88e6320_ops = {
-@@ -3283,6 +3291,8 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-+	.vtu_getnext = mv88e6390_g1_vtu_getnext,
-+	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
- };
- 
- static const struct mv88e6xxx_ops mv88e6390x_ops = {
-@@ -3313,6 +3323,8 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-+	.vtu_getnext = mv88e6390_g1_vtu_getnext,
-+	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
- };
- 
- static const struct mv88e6xxx_ops mv88e6391_ops = {
-@@ -3341,6 +3353,8 @@ static const struct mv88e6xxx_ops mv88e6391_ops = {
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-+	.vtu_getnext = mv88e6390_g1_vtu_getnext,
-+	.vtu_loadpurge = mv88e6390_g1_vtu_loadpurge,
- };
- 
- static int mv88e6xxx_verify_madatory_ops(struct mv88e6xxx_chip *chip,
-diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 11213f50df07..d0305aebb36b 100644
---- a/drivers/net/dsa/mv88e6xxx/global1.h
-+++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -55,6 +55,10 @@ int mv88e6352_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
- 			     struct mv88e6xxx_vtu_entry *entry);
- int mv88e6352_g1_vtu_loadpurge(struct mv88e6xxx_chip *chip,
- 			       struct mv88e6xxx_vtu_entry *entry);
-+int mv88e6390_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
-+			     struct mv88e6xxx_vtu_entry *entry);
-+int mv88e6390_g1_vtu_loadpurge(struct mv88e6xxx_chip *chip,
-+			       struct mv88e6xxx_vtu_entry *entry);
- int mv88e6xxx_g1_vtu_flush(struct mv88e6xxx_chip *chip);
- 
- #endif /* _MV88E6XXX_GLOBAL1_H */
-diff --git a/drivers/net/dsa/mv88e6xxx/global1_vtu.c b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-index e1046a1b3c6d..bc791f373b5d 100644
---- a/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-+++ b/drivers/net/dsa/mv88e6xxx/global1_vtu.c
-@@ -172,6 +172,56 @@ static int mv88e6185_g1_vtu_data_write(struct mv88e6xxx_chip *chip,
- 	return 0;
- }
- 
-+static int mv88e6390_g1_vtu_data_read(struct mv88e6xxx_chip *chip, u8 *data)
-+{
-+	u16 regs[2];
-+	int i;
-+
-+	/* Read the 2 VTU/STU Data registers */
-+	for (i = 0; i < 2; ++i) {
-+		u16 *reg = &regs[i];
-+		int err;
-+
-+		err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_DATA_0_3 + i, reg);
-+		if (err)
-+			return err;
-+	}
-+
-+	/* Extract data */
-+	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
-+		unsigned int offset = (i % 8) * 2;
-+
-+		data[i] = (regs[i / 8] >> offset) & 0x3;
-+	}
-+
-+	return 0;
-+}
-+
-+static int mv88e6390_g1_vtu_data_write(struct mv88e6xxx_chip *chip, u8 *data)
-+{
-+	u16 regs[2] = { 0 };
-+	int i;
-+
-+	/* Insert data */
-+	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
-+		unsigned int offset = (i % 8) * 2;
-+
-+		regs[i / 8] |= (data[i] & 0x3) << offset;
-+	}
-+
-+	/* Write the 2 VTU/STU Data registers */
-+	for (i = 0; i < 2; ++i) {
-+		u16 reg = regs[i];
-+		int err;
-+
-+		err = mv88e6xxx_g1_write(chip, GLOBAL_VTU_DATA_0_3 + i, reg);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
- /* VLAN Translation Unit Operations */
- 
- static int mv88e6xxx_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
-@@ -294,6 +344,35 @@ int mv88e6352_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
- 	return mv88e6xxx_g1_vtu_fid_read(chip, entry);
- }
- 
-+int mv88e6390_g1_vtu_getnext(struct mv88e6xxx_chip *chip,
-+			     struct mv88e6xxx_vtu_entry *entry)
-+{
-+	int err;
-+
-+	/* Fetch VLAN MemberTag data from the VTU */
-+	err = mv88e6xxx_g1_vtu_getnext(chip, entry);
-+	if (err)
-+		return err;
-+
-+	if (!entry->valid)
-+		return 0;
-+
-+	err = mv88e6390_g1_vtu_data_read(chip, entry->member);
-+	if (err)
-+		return err;
-+
-+	/* Fetch VLAN PortState data from the STU */
-+	err = mv88e6xxx_g1_vtu_fetch_stu(chip, entry);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6390_g1_vtu_data_read(chip, entry->state);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g1_vtu_fid_read(chip, entry);
-+}
-+
- int mv88e6185_g1_vtu_loadpurge(struct mv88e6xxx_chip *chip,
- 			       struct mv88e6xxx_vtu_entry *entry)
- {
-@@ -360,6 +439,48 @@ int mv88e6352_g1_vtu_loadpurge(struct mv88e6xxx_chip *chip,
- 	return mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_VTU_LOAD_PURGE);
- }
- 
-+int mv88e6390_g1_vtu_loadpurge(struct mv88e6xxx_chip *chip,
-+			       struct mv88e6xxx_vtu_entry *entry)
-+{
-+	int err;
-+
-+	err = mv88e6xxx_g1_vtu_op_wait(chip);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g1_vtu_vid_write(chip, entry);
-+	if (err)
-+		return err;
-+
-+	if (entry->valid) {
-+		/* Write PortState data */
-+		err = mv88e6390_g1_vtu_data_write(chip, entry->state);
-+		if (err)
-+			return err;
-+
-+		err = mv88e6xxx_g1_vtu_sid_write(chip, entry);
-+		if (err)
-+			return err;
-+
-+		/* Load STU entry */
-+		err = mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_STU_LOAD_PURGE);
-+		if (err)
-+			return err;
-+
-+		/* Write MemberTag data */
-+		err = mv88e6390_g1_vtu_data_write(chip, entry->state);
-+		if (err)
-+			return err;
-+
-+		err = mv88e6xxx_g1_vtu_fid_write(chip, entry);
-+		if (err)
-+			return err;
-+	}
-+
-+	/* Load/Purge VTU entry */
-+	return mv88e6xxx_g1_vtu_op(chip, GLOBAL_VTU_OP_VTU_LOAD_PURGE);
-+}
-+
- int mv88e6xxx_g1_vtu_flush(struct mv88e6xxx_chip *chip)
- {
- 	int err;
+Vivien Didelot (6):
+  net: dsa: mv88e6xxx: add port mask helper
+  net: dsa: mv88e6xxx: move ATU code in its own file
+  net: dsa: mv88e6xxx: add support for 6390 ATU Move
+  net: dsa: mv88e6xxx: move VTU code to its own file
+  net: dsa: mv88e6xxx: add VTU ops
+  net: dsa: mv88e6xxx: add support for 6390 VTU
+
+ drivers/net/dsa/mv88e6xxx/Makefile      |   2 +
+ drivers/net/dsa/mv88e6xxx/chip.c        | 859 ++++++++------------------------
+ drivers/net/dsa/mv88e6xxx/global1.h     |  23 +
+ drivers/net/dsa/mv88e6xxx/global1_atu.c | 251 ++++++++++
+ drivers/net/dsa/mv88e6xxx/global1_vtu.c | 493 ++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  26 +-
+ drivers/net/dsa/mv88e6xxx/port.c        |   2 +-
+ 7 files changed, 1004 insertions(+), 652 deletions(-)
+ create mode 100644 drivers/net/dsa/mv88e6xxx/global1_atu.c
+ create mode 100644 drivers/net/dsa/mv88e6xxx/global1_vtu.c
+
 -- 
 2.11.1
