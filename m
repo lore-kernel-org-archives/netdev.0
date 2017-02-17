@@ -1,128 +1,93 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: check duplicate node before inserting a new transport
-Date: Fri, 17 Feb 2017 22:32:10 +0800
-Message-ID: <CADvbK_fgah9ERRvwU+-MEj3qfiYxBBPAR6phZDE7Fc-zn4EGLg@mail.gmail.com>
-References: <ba2afff1b2cf9e0026a23dde02d207583efa3d83.1487320524.git.lucien.xin@gmail.com>
- <20170217111902.GA4256@hmswarspite.think-freely.org>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: RFC: unit tests for kernel GTP module
+Date: Fri, 17 Feb 2017 16:02:59 +0100 (CET)
+Message-ID: <1507789126.143172.1487343779235.JavaMail.zimbra@tpip.net>
+References: <20170216220801.o3fajacj4sx3iere@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: osmocom-net-gprs <osmocom-net-gprs@lists.osmocom.org>,
+        netdev <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@gnumonks.org>
+To: laforge <laforge@gnumonks.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:34884 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934137AbdBQOcR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 09:32:17 -0500
-In-Reply-To: <20170217111902.GA4256@hmswarspite.think-freely.org>
+Received: from mail.tpip.net ([92.43.49.48]:47290 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933885AbdBQPDE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 10:03:04 -0500
+In-Reply-To: <20170216220801.o3fajacj4sx3iere@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 17, 2017 at 7:19 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-> On Fri, Feb 17, 2017 at 04:35:24PM +0800, Xin Long wrote:
->> sctp has changed to use rhlist for transport rhashtable since commit
->> 7fda702f9315 ("sctp: use new rhlist interface on sctp transport
->> rhashtable").
->>
->> But rhltable_insert_key doesn't check the duplicate node when inserting
->> a node, unlike rhashtable_lookup_insert_key. It may cause duplicate
->> assoc/transport in rhashtable. like:
->>
->>  client (addr A, B)                 server (addr X, Y)
->>     connect to X           INIT (1)
->>                         ------------>
->>     connect to Y           INIT (2)
->>                         ------------>
->>                          INIT_ACK (1)
->>                         <------------
->>                          INIT_ACK (2)
->>                         <------------
->>
->> After sending INIT (2), one transport will be created and hashed into
->> rhashtable. But when receiving INIT_ACK (1) and processing the address
->> params, another transport will be created and hashed into rhashtable
->> with the same addr Y and EP as the last transport. This will confuse
->> the assoc/transport's lookup.
->>
->> This patch is to fix it by returning err if any duplicate node exists
->> before inserting it.
->>
->> Fixes: 7fda702f9315 ("sctp: use new rhlist interface on sctp transport rhashtable")
->> Reported-by: Fabio M. Di Nitto <fdinitto@redhat.com>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  net/sctp/input.c | 13 +++++++++++++
->>  1 file changed, 13 insertions(+)
->>
->> diff --git a/net/sctp/input.c b/net/sctp/input.c
->> index 458e506..f65245b 100644
->> --- a/net/sctp/input.c
->> +++ b/net/sctp/input.c
->> @@ -872,6 +872,8 @@ void sctp_transport_hashtable_destroy(void)
->>
->>  int sctp_hash_transport(struct sctp_transport *t)
->>  {
->> +     struct sctp_transport *transport;
->> +     struct rhlist_head *tmp, *list;
->>       struct sctp_hash_cmp_arg arg;
->>       int err;
->>
->> @@ -882,8 +884,19 @@ int sctp_hash_transport(struct sctp_transport *t)
->>       arg.paddr = &t->ipaddr;
->>       arg.lport = htons(t->asoc->base.bind_addr.port);
->>
->> +     list = rhltable_lookup(&sctp_transport_hashtable, &arg,
->> +                            sctp_hash_params);
->> +
->> +     rhl_for_each_entry_rcu(transport, tmp, list, node)
->> +             if (transport->asoc->ep == t->asoc->ep) {
->> +                     err = -EEXIST;
->> +                     goto out;
->> +             }
->> +
-> Maybe its just a little early, but I'm rather lost as to how this works.  When
-> you insert a key to the rhltable, its a sctp_hash_cmp_arg that gets inserted,
-> which is a struct that consists of a sctp_addr union, a struct net, and a u16,
-> but when you traverse the list for lookup, you treat the returned list as a list
-> of sctp_transport structs that you compare.  That seems very wrong.
+Hi,
 
-The return list is "struct rhlist_head" list, "struct rhlist node" is
-a member and
-nested in struct sctp_transport, in fact this list consist of  sctp_transport.
+----- On Feb 16, 2017, at 11:08 PM, laforge laforge@gnumonks.org wrote:
 
-you can double check the inserting function "rhltable_insert_key()" below.
-the param &t->node would be a node linked into this list.
+> Dear GTP-interested folks,
+> 
+> I would love to somehow get towards some degree of unit testing (or even
+> "continuous integration") for teh kernel GTP code.
+> 
+> We currently have the original code in the kernel, we had some recent
+> small fixes and now are getting more patches into place.  With
+> relatively few active users out there (and probably none of them in
+> production yet), it's particularly easy to introduce regressions while
+> working on the code.  Also, having tested new code even against a
+> test set with limited covrage could help to get more confidence in new
+> patches and thus get them merged sooner.
 
-rhltable_insert_key(struct rhlist_head *list[&t->node])
-   __rhashtable_insert_fast(struct rhash_head *obj [list->rhead])
+We do run the current kernel code in production. The version I have
+been push patches for will be deployed into prod soonish.
 
-...
-                list = container_of(obj, struct rhlist_head, rhead);
-                           ^---get back to rhash_list, then insert.
-                plist = container_of(head, struct rhlist_head, rhead);
+Automated testing is something we are also looking at. Currently, we
+have cooperation going on with a vendor of a an RAN and EPC protocol
+testing solution. The goal is to have a automated testing setup for
+our GGSN/PDN-GW OpenSource project. That setup will also exercise the
+kernel parts.
+The test suite is proprietary, so we can only share the results but
+not the test setup itself.
 
-                RCU_INIT_POINTER(list->next, plist);
-                head = rht_dereference_bucket(head->next, tbl, hash);
-                RCU_INIT_POINTER(list->rhead.next, head);
-...
+> Using tools like sgsnemu of OpenGGSN and the command line tools included
+> in libgtpnl, it should be possibel to cook up some scripts for testing.
+> Even the most basic set of tests would be an improvement over what we
+> have now.  One could also think about pcap replay to test with
+> hand-crafted or real-world packets from other GTP implementations.
 
+We more or less removed static GTP tunnels. The tools in libgtpnl
+only work when an application is keeping the GTP socket alive.
 
-the param *arg is NOT really the node used for inserting, but the param
-*obj is.
+Andreas
 
->
-> Neil
->
->>       err = rhltable_insert_key(&sctp_transport_hashtable, &arg,
->>                                 &t->node, sctp_hash_params);
->> +
->> +out:
->>       if (err)
->>               pr_err_once("insert transport fail, errno %d\n", err);
->>
->> --
->> 2.1.0
->>
->>
+> As much as I'd like to put something like this into place myself, I
+> don't think I will be able to work much on this in the near future. The
+> GTP module at this point is a pure hobby and contrary to some years ago
+> while I started it, I don't have any contract work in the GTP area at
+> this point, so other projects currently unfortunately get more
+> attention.
+> 
+> So in case somebody among the GTP-interested parties (Travelping, OAI,
+> ...) would want to do something in terms of testing, I'd be more than
+> happy if somebody would step ahead.  Otherwise it's all just vapourware
+> going to end up on my ever-growing TODO list :/
+> 
+> Also, if netdev folks have some ideas/pointers about possible
+> frameworks/tools for this kind of testing [it must exist for at least
+> some other kernel networking code?]: Please let me know.  I'd be
+> interested to have a look if there's something that can be used as a
+> basis (starting network namespaces, sending/transmitting packets, test
+> case startup/teardown, ...)
+> 
+> My "old school" approach would have been to start one or multiple
+> user-mode-linux kernels (those that are to be tested), and then have
+> scripts that set up a gtp socket and gtp tunnels via the libgtp command
+> line tools, and throw packets at that.   But I'm sure there must be
+> quite powerful frameworks for that kind of testing in the 21st century?
+> How do other tunneling implementations handle this?
+> 
+> Regards,
+>	Harald
+> --
+> - Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+> ============================================================================
+> "Privacy in residential applications is a desirable marketing option."
+>                                                   (ETSI EN 300 175-7 Ch. A6)
