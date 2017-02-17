@@ -1,251 +1,184 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 05/21] net-next: stmmac: Add dwmac-sun8i
-Date: Fri, 17 Feb 2017 14:18:02 +0100
-Message-ID: <20170217131802.GB24993@Red>
-References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
- <20170216124859.14346-6-clabbe.montjoie@gmail.com>
- <20170216190524.l2ddzhwabzdpdphx@lukather>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next v2 2/2] net: mvneta: Use cacheable memory to store the rx buffer DMA address
+Date: Fri, 17 Feb 2017 14:30:03 +0100
+Message-ID: <87o9y1aqsk.fsf@free-electrons.com>
+References: <20170217100233.2325-1-jszhang@marvell.com>
+        <20170217100233.2325-3-jszhang@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170216190524.l2ddzhwabzdpdphx@lukather>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>,
+        <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Jisheng Zhang <jszhang@marvell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:40208 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933545AbdBQNaG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 08:30:06 -0500
+In-Reply-To: <20170217100233.2325-3-jszhang@marvell.com> (Jisheng Zhang's
+        message of "Fri, 17 Feb 2017 18:02:33 +0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2017 at 08:05:24PM +0100, Maxime Ripard wrote:
-> Hi,
-> 
+Hi Jisheng,
+ 
+ On ven., févr. 17 2017, Jisheng Zhang <jszhang@marvell.com> wrote:
 
-[...]
-> > +
-> > +struct emac_variant {
-> > +	u32 default_syscon_value;
-> 
-> Why do you need a default value? Can't you read it from the syscon
-> directly?
-> 
+> In hot code path such as mvneta_rx_hwbm() and mvneta_rx_swbm, the
+> buf_phys_addr field of rx_dec is accessed. The rx_desc is allocated by
+> dma_alloc_coherent, it's uncacheable if the device isn't cache
+> coherent, reading from uncached memory is fairly slow. This patch uses
+> cacheable memory to store the rx buffer DMA address. We get the
+> following performance data on Marvell BG4CT Platforms (tested with
+> iperf):
+>
+> before the patch:
+> recving 1GB in mvneta_rx_swbm() costs 1492659600 ns
+>
+> after the patch:
+> recving 1GB in mvneta_rx_swbm() costs 1421565640 ns
+>
+> We saved 4.76% time.
 
-Why not, but you can see the default value as "value for disabled state".
-My fear is that something (uboot) modify it (keep it activated) before driver load.
+I have just tested it and as I feared, with HWBM enabled, a simple iperf
+just doesn't work.
 
-[...]
-> > +static void sun8i_dwmac_dump_regs(void __iomem *ioaddr)
-> > +{
-> > +	int i;
-> > +
-> > +	pr_info(" DMA registers\n");
-> 
-> Logging this as pr_info is bad already...
-> 
-> > +	for (i = 0; i < 0xC8; i += 4) {
-> > +		if (i == 0x32 || i == 0x3C)
-> > +			continue;
-> > +		pr_err("Reg 0x%x: 0x%08x\n", i, readl(ioaddr + i));
-> 
-> ... But this is worse.
-> 
-> Why do you need to do that? Can't you create a file in debugfs
-> instead?
-> 
+Gregory
 
-I just do as other glue does. But yes this is uglyi, no excuse.
-Reworking all stmmac register dump (ethtool, stmmac_ops->dump_regs and stmmac_dma_ops->dump_regs) was on my todo list,
-but I postponed it.
+>
+> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+> Suggested-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 28 +++++++++++++++++-----------
+>  1 file changed, 17 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index 06df72b8da85..e24c3028fe1d 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -580,6 +580,9 @@ struct mvneta_rx_queue {
+>  	/* Virtual address of the RX buffer */
+>  	void  **buf_virt_addr;
+>  
+> +	/* DMA address of the RX buffer */
+> +	dma_addr_t *buf_dma_addr;
+> +
+>  	/* Virtual address of the RX DMA descriptors array */
+>  	struct mvneta_rx_desc *descs;
+>  
+> @@ -1617,6 +1620,7 @@ static void mvneta_rx_desc_fill(struct mvneta_rx_desc *rx_desc,
+>  
+>  	rx_desc->buf_phys_addr = phys_addr;
+>  	i = rx_desc - rxq->descs;
+> +	rxq->buf_dma_addr[i] = phys_addr;
+>  	rxq->buf_virt_addr[i] = virt_addr;
+>  }
+>  
+> @@ -1900,22 +1904,22 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+>  		for (i = 0; i < rx_done; i++) {
+>  			struct mvneta_rx_desc *rx_desc =
+>  						  mvneta_rxq_next_desc_get(rxq);
+> +			int index = rx_desc - rxq->descs;
+>  			u8 pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc->status);
+>  			struct mvneta_bm_pool *bm_pool;
+>  
+>  			bm_pool = &pp->bm_priv->bm_pools[pool_id];
+>  			/* Return dropped buffer to the pool */
+>  			mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
+> -					      rx_desc->buf_phys_addr);
+> +					      rxq->buf_dma_addr[index]);
+>  		}
+>  		return;
+>  	}
+>  
+>  	for (i = 0; i < rxq->size; i++) {
+> -		struct mvneta_rx_desc *rx_desc = rxq->descs + i;
+>  		void *data = rxq->buf_virt_addr[i];
+>  
+> -		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+> +		dma_unmap_single(pp->dev->dev.parent, rxq->buf_dma_addr[i],
+>  				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+>  		mvneta_frag_free(pp->frag_size, data);
+>  	}
+> @@ -1953,7 +1957,7 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
+>  		rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+>  		index = rx_desc - rxq->descs;
+>  		data = rxq->buf_virt_addr[index];
+> -		phys_addr = rx_desc->buf_phys_addr;
+> +		phys_addr = rxq->buf_dma_addr[index];
+>  
+>  		if (!mvneta_rxq_desc_is_first_last(rx_status) ||
+>  		    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
+> @@ -2062,6 +2066,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
+>  	/* Fairness NAPI loop */
+>  	while (rx_done < rx_todo) {
+>  		struct mvneta_rx_desc *rx_desc = mvneta_rxq_next_desc_get(rxq);
+> +		int index = rx_desc - rxq->descs;
+>  		struct mvneta_bm_pool *bm_pool = NULL;
+>  		struct sk_buff *skb;
+>  		unsigned char *data;
+> @@ -2074,7 +2079,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
+>  		rx_status = rx_desc->status;
+>  		rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+>  		data = (u8 *)(uintptr_t)rx_desc->buf_cookie;
+> -		phys_addr = rx_desc->buf_phys_addr;
+> +		phys_addr = rxq->buf_dma_addr[index];
+>  		pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_status);
+>  		bm_pool = &pp->bm_priv->bm_pools[pool_id];
+>  
+> @@ -2082,8 +2087,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
+>  		    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
+>  err_drop_frame_ret_pool:
+>  			/* Return the buffer to the pool */
+> -			mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
+> -					      rx_desc->buf_phys_addr);
+> +			mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool, phys_addr);
+>  err_drop_frame:
+>  			dev->stats.rx_errors++;
+>  			mvneta_rx_error(pp, rx_desc);
+> @@ -2098,7 +2102,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
+>  				goto err_drop_frame_ret_pool;
+>  
+>  			dma_sync_single_range_for_cpu(dev->dev.parent,
+> -			                              rx_desc->buf_phys_addr,
+> +			                              phys_addr,
+>  			                              MVNETA_MH_SIZE + NET_SKB_PAD,
+>  			                              rx_bytes,
+>  			                              DMA_FROM_DEVICE);
+> @@ -2114,8 +2118,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
+>  			rcvd_bytes += rx_bytes;
+>  
+>  			/* Return the buffer to the pool */
+> -			mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
+> -					      rx_desc->buf_phys_addr);
+> +			mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool, phys_addr);
+>  
+>  			/* leave the descriptor and buffer untouched */
+>  			continue;
+> @@ -4019,7 +4022,10 @@ static int mvneta_init(struct device *dev, struct mvneta_port *pp)
+>  		rxq->buf_virt_addr = devm_kmalloc(pp->dev->dev.parent,
+>  						  rxq->size * sizeof(void *),
+>  						  GFP_KERNEL);
+> -		if (!rxq->buf_virt_addr)
+> +		rxq->buf_dma_addr = devm_kmalloc(pp->dev->dev.parent,
+> +						 rxq->size * sizeof(dma_addr_t),
+> +						 GFP_KERNEL);
+> +		if (!rxq->buf_virt_addr || !rxq->buf_dma_addr)
+>  			return -ENOMEM;
+>  	}
+>  
+> -- 
+> 2.11.0
+>
+>
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
 
-I will propose something better based on debugfs.
-
-[...]
-> > +static void sun8i_dwmac_dma_start_tx(void __iomem *ioaddr)
-> > +{
-> > +	u32 v;
-> > +
-> > +	v = readl(ioaddr + EMAC_TX_CTL0);
-> > +	v |= EMAC_TX_TRANSMITTER_EN;
-> > +	writel(v, ioaddr + EMAC_TX_CTL0);
-> > +
-> > +	v = readl(ioaddr + EMAC_TX_CTL1);
-> > +	v |= EMAC_TX_DMA_START;
-> > +	v |= EMAC_TX_DMA_EN;
-> > +	writel(v, ioaddr + EMAC_TX_CTL1);
-> 
-> This is a bit worrying. There's not a single lock in your driver,
-> while you have a significant number of read / modify / write.
-> 
-> Where is the locking handled?
-> 
-
-All thoses function are handled by the "stmmac_ops framework", all other glue drivers does not lock anything.
-The few functions that need locking already got it on the calling stmmac side.
-
-[...]
-> > +static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
-> > +{
-> > +	struct sunxi_priv_data *gmac = priv;
-> > +	int ret;
-> > +
-> > +	if (gmac->regulator) {
-> > +		ret = regulator_enable(gmac->regulator);
-> > +		if (ret) {
-> > +			dev_err(&pdev->dev, "Fail to enable regulator\n");
-> > +			return ret;
-> > +		}
-> > +	}
-> > +
-> > +	ret = clk_prepare_enable(gmac->tx_clk);
-> > +	if (ret) {
-> > +		dev_err(&pdev->dev, "Could not enable AHB clock\n");
-> 
-> If that call fails, you leave the regulator (if there was any) enabled.
-> 
-
-I will fix it
-
-> > +		return ret;
-> > +	}
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +static void sun8i_dwmac_core_init(struct mac_device_info *hw, int mtu)
-> > +{
-> > +	void __iomem *ioaddr = hw->pcsr;
-> > +	u32 v;
-> > +
-> > +	v = (8 << 24);/* burst len */
-> > +	writel(v, ioaddr + EMAC_BASIC_CTL1);
-> 
-> do you need an intermediate value? you should make a define for that
-> too.
-> 
-
-I will fix it
-
-[...]
-> > +static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
-> > +{
-> > +	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-> > +	struct device_node *node = priv->device->of_node;
-> > +	int ret;
-> > +	u32 reg, val;
-> > +
-> > +	reg = gmac->variant->default_syscon_value;
-> > +
-> > +	if (gmac->variant->internal_phy) {
-> > +		if (!gmac->use_internal_phy) {
-> > +			/* switch to external PHY interface */
-> > +			reg &= ~H3_EPHY_SELECT;
-> > +		} else {
-> > +			reg |= H3_EPHY_SELECT;
-> > +			reg &= ~H3_EPHY_SHUTDOWN;
-> > +			dev_info(priv->device, "Select internal_phy %x\n", reg);
-> 
-> The logging level is too high
-> 
-
-I will reduce it
-
-> > +
-> > +			if (of_property_read_bool(priv->plat->phy_node,
-> > +						  "allwinner,leds-active-low"))
-> > +				reg |= H3_EPHY_LED_POL;
-> > +			else
-> > +				reg &= ~H3_EPHY_LED_POL;
-> > +
-> > +			ret = of_mdio_parse_addr(priv->device,
-> > +						 priv->plat->phy_node);
-> > +			if (ret < 0) {
-> > +				dev_err(priv->device, "Could not parse MDIO addr\n");
-> > +				return ret;
-> > +			}
-> > +			/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
-> > +			 * address. No need to mask it again.
-> > +			 */
-> > +			reg |= ret << H3_EPHY_ADDR_SHIFT;
-> > +		}
-> > +	}
-> > +
-> > +	if (!of_property_read_u32(node, "allwinner,tx-delay", &val)) {
-> 
-> How do you compute it? Can't this be done through auto-training?
-> 
-
-The value is the same as used in vendor BSP kernel.
-I do not understand what you mean by auto-training.
-
-> > +		dev_info(priv->device, "set tx-delay to %x\n", val);
-> 
-> change the logging level here too.
-> 
-
-I agree
-
-> > +		if (val <= SYSCON_ETXDC_MASK) {
-> > +			reg &= ~(SYSCON_ETXDC_MASK << SYSCON_ETXDC_SHIFT);
-> > +			reg |= (val << SYSCON_ETXDC_SHIFT);
-> > +		} else {
-> > +			dev_warn(priv->device, "Invalid TX clock delay: %d\n",
-> > +				 val);
-> 
-> If it's invalid, why don't you treat it as an error and return?
-> 
-
-Ok
-
-[...]
-> > +static struct mac_device_info *sun8i_dwmac_setup(void __iomem *ioaddr,
-> > +						 int mcbins,
-> > +						 int perfect_uc_entries,
-> > +						 int *synopsys_id)
-> > +{
-> > +	struct mac_device_info *mac;
-> > +
-> > +	mac = kzalloc(sizeof(const struct mac_device_info), GFP_KERNEL);
-> > +	if (!mac)
-> > +		return NULL;
-> 
-> Do you ever free that memory?
-> 
-
-Good catch, I believed that the "stmmac framework" would free it.
-I will send a fix for this memory leak.
-
-[...]
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-> > index 5ff6bc4..11db658 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-> > @@ -450,6 +450,9 @@ static void stmmac_ethtool_gregs(struct net_device *dev,
-> >  		for (i = 0; i < 22; i++)
-> >  			reg_space[i + 55] =
-> >  			    readl(priv->ioaddr + (DMA_BUS_MODE + (i * 4)));
-> > +	} else if (priv->plat->has_sun8i) {
-> 
-> Surely we don't want to add a new flag to the common structure for
-> every new platform supported.
-> 
-> Can't you base that on the compatible instead?
-
-This part will be fixed with the debugfs speaked early in the mail.
-
-But yes I have tried to avoid use of has_sun8i at maximum.
-
-> 
-> Thanks a lot for your work,
-> Maxime
-> 
-
-Thanks for the review
-
-Corentin Labbe
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
