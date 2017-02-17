@@ -1,59 +1,65 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH][CFT] Saner error handling in skb_copy_datagram_iter()
- et.al.
-Date: Fri, 17 Feb 2017 17:03:15 +0000
-Message-ID: <20170217170315.GE29622@ZenIV.linux.org.uk>
-References: <20170212054209.GQ13195@ZenIV.linux.org.uk>
- <2337836.67BmyCWMtR@debian64>
- <20170214013306.GS13195@ZenIV.linux.org.uk>
- <20170217.105420.2167024053308682803.davem@davemloft.net>
+From: "Cui, Cheng" <Cheng.Cui@netapp.com>
+Subject: [PATCHv2, 1/1] tcp: accommodate sequence number to a peer's shrunk
+ receive window caused by precision loss in window scaling
+Date: Fri, 17 Feb 2017 17:04:55 +0000
+Message-ID: <BA334603-D37E-4C94-BB8B-19A830E0355C@netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, rlwinm@sdf.org,
-        alexmcwhirter@triadic.us, chunkeey@googlemail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:53330 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933900AbdBQRDW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 12:03:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20170217.105420.2167024053308682803.davem@davemloft.net>
+Received: from mx144.netapp.com ([216.240.21.25]:10329 "EHLO mx144.netapp.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934122AbdBQRE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 12:04:59 -0500
+Content-Language: en-US
+Content-ID: <2D1640E6C625D94989EF08C9A06F2066@namprd06.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 17, 2017 at 10:54:20AM -0500, David Miller wrote:
-> From: Al Viro <viro@ZenIV.linux.org.uk>
-> Date: Tue, 14 Feb 2017 01:33:06 +0000
-> 
-> > OK...  Remaining interesting question is whether it adds a noticable
-> > overhead.  Could somebody try it on assorted benchmarks and see if
-> > it slows the things down?  The patch in question follows:
-> 
-> That's about a 40 byte copy onto the stack for each invocation of this
-> thing.  You can benchmark all you want, but it's clear that this is
-> non-trivial amount of work and will take some operations from fitting
-> in the cache to not doing so for sure.
+Prevent sending out a left-shifted sequence number from a Linux sender in=20
+response to a peer's shrunk receive-window caused by losing least significa=
+nt
+bits in window-scaling.
 
-In principle, that could be reduced a bit (32 bytes - ->type is never
-changed, so we don't need to restore it), but that's not much of improvement...
-
-Hell knows; at the very least, we need to restore the original position in
-case of csum failure.  EFAULT is a separate story (and I'm still not sure
-if tcp_input is handling it right), but csum mismatch will be retried and
-we want the payload of retransmitted packet to go into the same place, not
-past what we'd managed to copy.  AFAICS, original logics used to be
-	* skb_copy_and_csum_...() never copied more than one iovec worth of
-data.
-	* iovec had been drained only on success; during the copy we kept
-pointer + remaining length in local variables
-	* if copying would have to go into skb fragments, we would just
-calculate the checksum separately and then go for plain copy.
-
-Not crossing from iovec to iovec reduced the amount of state to carry/revert
-and AFAICS recursive call into skb fragments on the checksum-as-we-copy
-path had been dead code all along - we went for separate checksum path in
-cases when it would be reached.
-
-Is my reading of pre-e5a4b0bb803b logics correct?  Was the recursive call
-of skb_copy_and_csum_datagram() ever reached?
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Cheng Cui <Cheng.Cui@netapp.com>
+---
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1d5331a..634146c 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -85,7 +85,8 @@ static void tcp_event_new_data_sent(struct sock *sk, cons=
+t struct sk_buff *skb)
+ 		      tcp_skb_pcount(skb));
+ }
+=20
+-/* SND.NXT, if window was not shrunk.
++/* SND.NXT, if window was not shrunk or the amount of shrunk was less than=
+ one
++ * window scaling factor due to loss of precision.
+  * If window has been shrunk, what should we make? It is not clear at all.
+  * Using SND.UNA we will fail to open window, SND.NXT is out of window. :-=
+(
+  * Anything in between SND.UNA...SND.UNA+SND.WND also can be already
+@@ -95,7 +96,9 @@ static inline __u32 tcp_acceptable_seq(const struct sock =
+*sk)
+ {
+ 	const struct tcp_sock *tp =3D tcp_sk(sk);
+=20
+-	if (!before(tcp_wnd_end(tp), tp->snd_nxt))
++	if (!before(tcp_wnd_end(tp), tp->snd_nxt) ||
++	    (tp->rx_opt.wscale_ok &&
++	     ((tp->snd_nxt - tcp_wnd_end(tp)) < (1 << tp->rx_opt.rcv_wscale))))
+ 		return tp->snd_nxt;
+ 	else
+ 		return tcp_wnd_end(tp);
