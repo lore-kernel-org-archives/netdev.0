@@ -1,185 +1,251 @@
-From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH] net: ethernet: stmmac: dwmac-rk: Add RK3328 gmac support
-Date: Fri, 17 Feb 2017 20:55:11 +0800
-Message-ID: <1487336111-24987-1-git-send-email-david.wu@rock-chips.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 05/21] net-next: stmmac: Add dwmac-sun8i
+Date: Fri, 17 Feb 2017 14:18:02 +0100
+Message-ID: <20170217131802.GB24993@Red>
+References: <20170216124859.14346-1-clabbe.montjoie@gmail.com>
+ <20170216124859.14346-6-clabbe.montjoie@gmail.com>
+ <20170216190524.l2ddzhwabzdpdphx@lukather>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- "david.wu" <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
- alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170216190524.l2ddzhwabzdpdphx@lukather>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "david.wu" <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+On Thu, Feb 16, 2017 at 08:05:24PM +0100, Maxime Ripard wrote:
+> Hi,
+> 
 
-Add constants and callback functions for the dwmac on rk3328 socs.
-As can be seen, the base structure is the same, only registers and the
-bits in them moved slightly.
+[...]
+> > +
+> > +struct emac_variant {
+> > +	u32 default_syscon_value;
+> 
+> Why do you need a default value? Can't you read it from the syscon
+> directly?
+> 
 
-Signed-off-by: david.wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
----
- .../devicetree/bindings/net/rockchip-dwmac.txt     |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 117 +++++++++++++++++++++
- 2 files changed, 118 insertions(+)
+Why not, but you can see the default value as "value for disabled state".
+My fear is that something (uboot) modify it (keep it activated) before driver load.
 
-diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-index 95383c5..8f42755 100644
---- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-@@ -6,6 +6,7 @@ Required properties:
-  - compatible: should be "rockchip,<name>-gamc"
-    "rockchip,rk3228-gmac": found on RK322x SoCs
-    "rockchip,rk3288-gmac": found on RK3288 SoCs
-+   "rockchip,rk3328-gmac": found on RK3328 SoCs
-    "rockchip,rk3366-gmac": found on RK3366 SoCs
-    "rockchip,rk3368-gmac": found on RK3368 SoCs
-    "rockchip,rk3399-gmac": found on RK3399 SoCs
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index fa6e970..e5db6ac 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -302,6 +302,122 @@ static void rk3288_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
- 	.set_rmii_speed = rk3288_set_rmii_speed,
- };
- 
-+#define RK3328_GRF_MAC_CON0	0x0900
-+#define RK3328_GRF_MAC_CON1	0x0904
-+
-+/* RK3328_GRF_MAC_CON0 */
-+#define RK3328_GMAC_CLK_RX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 7)
-+#define RK3328_GMAC_CLK_TX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 0)
-+
-+/* RK3328_GRF_MAC_CON1 */
-+#define RK3328_GMAC_PHY_INTF_SEL_RGMII	\
-+		(GRF_BIT(4) | GRF_CLR_BIT(5) | GRF_CLR_BIT(6))
-+#define RK3328_GMAC_PHY_INTF_SEL_RMII	\
-+		(GRF_CLR_BIT(4) | GRF_CLR_BIT(5) | GRF_BIT(6))
-+#define RK3328_GMAC_FLOW_CTRL		GRF_BIT(3)
-+#define RK3328_GMAC_FLOW_CTRL_CLR	GRF_CLR_BIT(3)
-+#define RK3328_GMAC_SPEED_10M		GRF_CLR_BIT(2)
-+#define RK3328_GMAC_SPEED_100M		GRF_BIT(2)
-+#define RK3328_GMAC_RMII_CLK_25M	GRF_BIT(7)
-+#define RK3328_GMAC_RMII_CLK_2_5M	GRF_CLR_BIT(7)
-+#define RK3328_GMAC_CLK_125M		(GRF_CLR_BIT(11) | GRF_CLR_BIT(12))
-+#define RK3328_GMAC_CLK_25M		(GRF_BIT(11) | GRF_BIT(12))
-+#define RK3328_GMAC_CLK_2_5M		(GRF_CLR_BIT(11) | GRF_BIT(12))
-+#define RK3328_GMAC_RMII_MODE		GRF_BIT(9)
-+#define RK3328_GMAC_RMII_MODE_CLR	GRF_CLR_BIT(9)
-+#define RK3328_GMAC_TXCLK_DLY_ENABLE	GRF_BIT(0)
-+#define RK3328_GMAC_TXCLK_DLY_DISABLE	GRF_CLR_BIT(0)
-+#define RK3328_GMAC_RXCLK_DLY_ENABLE	GRF_BIT(1)
-+#define RK3328_GMAC_RXCLK_DLY_DISABLE	GRF_CLR_BIT(0)
-+
-+static void rk3328_set_to_rgmii(struct rk_priv_data *bsp_priv,
-+				int tx_delay, int rx_delay)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+		     RK3328_GMAC_PHY_INTF_SEL_RGMII |
-+		     RK3328_GMAC_RMII_MODE_CLR |
-+		     RK3328_GMAC_RXCLK_DLY_ENABLE |
-+		     RK3328_GMAC_TXCLK_DLY_ENABLE);
-+
-+	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON0,
-+		     RK3328_GMAC_CLK_RX_DL_CFG(rx_delay) |
-+		     RK3328_GMAC_CLK_TX_DL_CFG(tx_delay));
-+}
-+
-+static void rk3328_set_to_rmii(struct rk_priv_data *bsp_priv)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+		     RK3328_GMAC_PHY_INTF_SEL_RMII |
-+		     RK3328_GMAC_RMII_MODE);
-+
-+	/* set MAC to RMII mode */
-+	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1, GRF_BIT(11));
-+}
-+
-+static void rk3328_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	if (speed == 10)
-+		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+			     RK3328_GMAC_CLK_2_5M);
-+	else if (speed == 100)
-+		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+			     RK3328_GMAC_CLK_25M);
-+	else if (speed == 1000)
-+		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+			     RK3328_GMAC_CLK_125M);
-+	else
-+		dev_err(dev, "unknown speed value for RGMII! speed=%d", speed);
-+}
-+
-+static void rk3328_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	if (speed == 10)
-+		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+			     RK3328_GMAC_RMII_CLK_2_5M |
-+			     RK3328_GMAC_SPEED_10M);
-+	else if (speed == 100)
-+		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+			     RK3328_GMAC_RMII_CLK_25M |
-+			     RK3328_GMAC_SPEED_100M);
-+	else
-+		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
-+}
-+
-+static const struct rk_gmac_ops rk3328_ops = {
-+	.set_to_rgmii = rk3328_set_to_rgmii,
-+	.set_to_rmii = rk3328_set_to_rmii,
-+	.set_rgmii_speed = rk3328_set_rgmii_speed,
-+	.set_rmii_speed = rk3328_set_rmii_speed,
-+};
-+
- #define RK3366_GRF_SOC_CON6	0x0418
- #define RK3366_GRF_SOC_CON7	0x041c
- 
-@@ -1006,6 +1122,7 @@ static int rk_gmac_resume(struct device *dev)
- static const struct of_device_id rk_gmac_dwmac_match[] = {
- 	{ .compatible = "rockchip,rk3228-gmac", .data = &rk3228_ops },
- 	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_ops },
-+	{ .compatible = "rockchip,rk3328-gmac", .data = &rk3328_ops },
- 	{ .compatible = "rockchip,rk3366-gmac", .data = &rk3366_ops },
- 	{ .compatible = "rockchip,rk3368-gmac", .data = &rk3368_ops },
- 	{ .compatible = "rockchip,rk3399-gmac", .data = &rk3399_ops },
--- 
-1.9.1
+[...]
+> > +static void sun8i_dwmac_dump_regs(void __iomem *ioaddr)
+> > +{
+> > +	int i;
+> > +
+> > +	pr_info(" DMA registers\n");
+> 
+> Logging this as pr_info is bad already...
+> 
+> > +	for (i = 0; i < 0xC8; i += 4) {
+> > +		if (i == 0x32 || i == 0x3C)
+> > +			continue;
+> > +		pr_err("Reg 0x%x: 0x%08x\n", i, readl(ioaddr + i));
+> 
+> ... But this is worse.
+> 
+> Why do you need to do that? Can't you create a file in debugfs
+> instead?
+> 
+
+I just do as other glue does. But yes this is uglyi, no excuse.
+Reworking all stmmac register dump (ethtool, stmmac_ops->dump_regs and stmmac_dma_ops->dump_regs) was on my todo list,
+but I postponed it.
+
+I will propose something better based on debugfs.
+
+[...]
+> > +static void sun8i_dwmac_dma_start_tx(void __iomem *ioaddr)
+> > +{
+> > +	u32 v;
+> > +
+> > +	v = readl(ioaddr + EMAC_TX_CTL0);
+> > +	v |= EMAC_TX_TRANSMITTER_EN;
+> > +	writel(v, ioaddr + EMAC_TX_CTL0);
+> > +
+> > +	v = readl(ioaddr + EMAC_TX_CTL1);
+> > +	v |= EMAC_TX_DMA_START;
+> > +	v |= EMAC_TX_DMA_EN;
+> > +	writel(v, ioaddr + EMAC_TX_CTL1);
+> 
+> This is a bit worrying. There's not a single lock in your driver,
+> while you have a significant number of read / modify / write.
+> 
+> Where is the locking handled?
+> 
+
+All thoses function are handled by the "stmmac_ops framework", all other glue drivers does not lock anything.
+The few functions that need locking already got it on the calling stmmac side.
+
+[...]
+> > +static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
+> > +{
+> > +	struct sunxi_priv_data *gmac = priv;
+> > +	int ret;
+> > +
+> > +	if (gmac->regulator) {
+> > +		ret = regulator_enable(gmac->regulator);
+> > +		if (ret) {
+> > +			dev_err(&pdev->dev, "Fail to enable regulator\n");
+> > +			return ret;
+> > +		}
+> > +	}
+> > +
+> > +	ret = clk_prepare_enable(gmac->tx_clk);
+> > +	if (ret) {
+> > +		dev_err(&pdev->dev, "Could not enable AHB clock\n");
+> 
+> If that call fails, you leave the regulator (if there was any) enabled.
+> 
+
+I will fix it
+
+> > +		return ret;
+> > +	}
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static void sun8i_dwmac_core_init(struct mac_device_info *hw, int mtu)
+> > +{
+> > +	void __iomem *ioaddr = hw->pcsr;
+> > +	u32 v;
+> > +
+> > +	v = (8 << 24);/* burst len */
+> > +	writel(v, ioaddr + EMAC_BASIC_CTL1);
+> 
+> do you need an intermediate value? you should make a define for that
+> too.
+> 
+
+I will fix it
+
+[...]
+> > +static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+> > +{
+> > +	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
+> > +	struct device_node *node = priv->device->of_node;
+> > +	int ret;
+> > +	u32 reg, val;
+> > +
+> > +	reg = gmac->variant->default_syscon_value;
+> > +
+> > +	if (gmac->variant->internal_phy) {
+> > +		if (!gmac->use_internal_phy) {
+> > +			/* switch to external PHY interface */
+> > +			reg &= ~H3_EPHY_SELECT;
+> > +		} else {
+> > +			reg |= H3_EPHY_SELECT;
+> > +			reg &= ~H3_EPHY_SHUTDOWN;
+> > +			dev_info(priv->device, "Select internal_phy %x\n", reg);
+> 
+> The logging level is too high
+> 
+
+I will reduce it
+
+> > +
+> > +			if (of_property_read_bool(priv->plat->phy_node,
+> > +						  "allwinner,leds-active-low"))
+> > +				reg |= H3_EPHY_LED_POL;
+> > +			else
+> > +				reg &= ~H3_EPHY_LED_POL;
+> > +
+> > +			ret = of_mdio_parse_addr(priv->device,
+> > +						 priv->plat->phy_node);
+> > +			if (ret < 0) {
+> > +				dev_err(priv->device, "Could not parse MDIO addr\n");
+> > +				return ret;
+> > +			}
+> > +			/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
+> > +			 * address. No need to mask it again.
+> > +			 */
+> > +			reg |= ret << H3_EPHY_ADDR_SHIFT;
+> > +		}
+> > +	}
+> > +
+> > +	if (!of_property_read_u32(node, "allwinner,tx-delay", &val)) {
+> 
+> How do you compute it? Can't this be done through auto-training?
+> 
+
+The value is the same as used in vendor BSP kernel.
+I do not understand what you mean by auto-training.
+
+> > +		dev_info(priv->device, "set tx-delay to %x\n", val);
+> 
+> change the logging level here too.
+> 
+
+I agree
+
+> > +		if (val <= SYSCON_ETXDC_MASK) {
+> > +			reg &= ~(SYSCON_ETXDC_MASK << SYSCON_ETXDC_SHIFT);
+> > +			reg |= (val << SYSCON_ETXDC_SHIFT);
+> > +		} else {
+> > +			dev_warn(priv->device, "Invalid TX clock delay: %d\n",
+> > +				 val);
+> 
+> If it's invalid, why don't you treat it as an error and return?
+> 
+
+Ok
+
+[...]
+> > +static struct mac_device_info *sun8i_dwmac_setup(void __iomem *ioaddr,
+> > +						 int mcbins,
+> > +						 int perfect_uc_entries,
+> > +						 int *synopsys_id)
+> > +{
+> > +	struct mac_device_info *mac;
+> > +
+> > +	mac = kzalloc(sizeof(const struct mac_device_info), GFP_KERNEL);
+> > +	if (!mac)
+> > +		return NULL;
+> 
+> Do you ever free that memory?
+> 
+
+Good catch, I believed that the "stmmac framework" would free it.
+I will send a fix for this memory leak.
+
+[...]
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> > index 5ff6bc4..11db658 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> > @@ -450,6 +450,9 @@ static void stmmac_ethtool_gregs(struct net_device *dev,
+> >  		for (i = 0; i < 22; i++)
+> >  			reg_space[i + 55] =
+> >  			    readl(priv->ioaddr + (DMA_BUS_MODE + (i * 4)));
+> > +	} else if (priv->plat->has_sun8i) {
+> 
+> Surely we don't want to add a new flag to the common structure for
+> every new platform supported.
+> 
+> Can't you base that on the compatible instead?
+
+This part will be fixed with the debugfs speaked early in the mail.
+
+But yes I have tried to avoid use of has_sun8i at maximum.
+
+> 
+> Thanks a lot for your work,
+> Maxime
+> 
+
+Thanks for the review
+
+Corentin Labbe
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
