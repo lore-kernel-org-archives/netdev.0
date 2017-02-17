@@ -1,25 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] sfc: misc. fixes
-Date: Fri, 17 Feb 2017 15:29:58 -0500 (EST)
-Message-ID: <20170217.152958.1189664741143995910.davem@davemloft.net>
-References: <f49743cd-3227-4d30-9d6d-bd2f8400df62@solarflare.com>
+Subject: Re: [PATCH net] vxlan: fix oops in dev_fill_metadata_dst
+Date: Fri, 17 Feb 2017 15:33:06 -0500 (EST)
+Message-ID: <20170217.153306.104645159880425805.davem@davemloft.net>
+References: <8682ee54bd3198c8ce7be1249c829741987c7b11.1487354433.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org, jbenc@redhat.com
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48500 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48536 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934090AbdBQUbg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:31:36 -0500
-In-Reply-To: <f49743cd-3227-4d30-9d6d-bd2f8400df62@solarflare.com>
+        with ESMTP id S934794AbdBQUdM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:33:12 -0500
+In-Reply-To: <8682ee54bd3198c8ce7be1249c829741987c7b11.1487354433.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Fri, 17 Feb 2017 15:47:32 +0000
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Fri, 17 Feb 2017 19:14:27 +0100
 
-> Three largely unrelated fixes to increase robustness in rare edge cases.
+> Since the commit 0c1d70af924b ("net: use dst_cache for vxlan device")
+> vxlan_fill_metadata_dst() calls vxlan_get_route() passing a NULL
+> dst_cache pointer, so the latter should explicitly check for
+> valid dst_cache ptr. Unfortunately the commit d71785ffc7e7 ("net: add
+> dst_cache to ovs vxlan lwtunnel") removed said check.
+> 
+> As a result is possible to trigger a null pointer access calling
+> vxlan_fill_metadata_dst(), e.g. with:
+> 
+> ovs-vsctl add-br ovs-br0
+> ovs-vsctl add-port ovs-br0 vxlan0 -- set interface vxlan0 \
+> 	type=vxlan options:remote_ip=192.168.1.1 \
+> 	options:key=1234 options:dst_port=4789 ofport_request=10
+> ip address add dev ovs-br0 172.16.1.2/24
+> ovs-vsctl set Bridge ovs-br0 ipfix=@i -- --id=@i create IPFIX \
+> 	targets=\"172.16.1.1:1234\" sampling=1
+> iperf -c 172.16.1.1 -u -l 1000 -b 10M -t 1 -p 1234
+> 
+> This commit addresses the issue passing to vxlan_get_route() the
+> dst_cache already available into the lwt info processed by
+> vxlan_fill_metadata_dst().
+> 
+> Fixes: d71785ffc7e7 ("net: add dst_cache to ovs vxlan lwtunnel")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
