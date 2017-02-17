@@ -1,36 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2, 1/1] tcp: accommodate sequence number to a peer's
- shrunk receive window caused by precision loss in window scaling
-Date: Fri, 17 Feb 2017 09:44:15 -0800
-Message-ID: <1487353455.1311.86.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <BA334603-D37E-4C94-BB8B-19A830E0355C@netapp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ethoc: Use eth_hw_addr_random()
+Date: Fri, 17 Feb 2017 12:42:37 -0500 (EST)
+Message-ID: <20170217.124237.2092631932159238593.davem@davemloft.net>
+References: <20170216125432.9594-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: "Cui, Cheng" <Cheng.Cui@netapp.com>
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+        thierry.reding@gmail.com, colin.king@canonical.com
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34086 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934074AbdBQRpF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 12:45:05 -0500
-Received: by mail-pf0-f195.google.com with SMTP id o64so4522156pfb.1
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 09:44:16 -0800 (PST)
-In-Reply-To: <BA334603-D37E-4C94-BB8B-19A830E0355C@netapp.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46258 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934144AbdBQRwk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 12:52:40 -0500
+In-Reply-To: <20170216125432.9594-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-02-17 at 17:04 +0000, Cui, Cheng wrote:
-> Prevent sending out a left-shifted sequence number from a Linux sender in 
-> response to a peer's shrunk receive-window caused by losing least significant
-> bits in window-scaling.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Cheng Cui <Cheng.Cui@netapp.com>
-> ---
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Thu, 16 Feb 2017 13:54:32 +0100
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> Use eth_hw_addr_random() to set a random dev_addr and update
+> addr_assign_type instead of open-coding it.
+> 
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+
+Applied to net-next, thanks.
