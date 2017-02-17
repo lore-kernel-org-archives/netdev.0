@@ -1,59 +1,67 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH trivial 2/4] rtlwifi: rtl8821ae: Spelling
- s/wrtie_addr/write_addr/
-Date: Fri, 17 Feb 2017 10:42:15 -0600
-Message-ID: <42689efd-f0f8-5a61-c787-cda22bf6ef68@lwfinger.net>
-References: <1487345799-1638-1-git-send-email-geert+renesas@glider.be>
- <1487345799-1638-2-git-send-email-geert+renesas@glider.be>
- <2c7a3011-3418-35a5-ca2e-88c0188baccf@lwfinger.net>
- <CAMuHMdV0QRG4py3f4LTF-D43hh14=771QqR9hN+tvAbppNS5TQ@mail.gmail.com>
+From: "Cui, Cheng" <Cheng.Cui@netapp.com>
+Subject: Re: [PATCH 1/1] tcp: accommodate sequence number to a peer's shrunk
+ receive window caused by precision loss in window scaling
+Date: Fri, 17 Feb 2017 16:44:23 +0000
+Message-ID: <1554418B-B544-4F08-84D2-0FFF5AEAAF84@netapp.com>
+References: <41B57547-A148-49D5-8F03-18F976263CED@netapp.com>
+ <20170217.110858.1023681409351044871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        Jiri Kosina <trivial@kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdV0QRG4py3f4LTF-D43hh14=771QqR9hN+tvAbppNS5TQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "jmorris@namei.org" <jmorris@namei.org>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+        "kaber@trash.net" <kaber@trash.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx144.netapp.com ([216.240.21.25]:15338 "EHLO mx144.netapp.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934140AbdBQQo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 11:44:27 -0500
+In-Reply-To: <20170217.110858.1023681409351044871.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <B66BB303D042AD46BD1675A0369656C0@namprd06.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/17/2017 10:19 AM, Geert Uytterhoeven wrote:
-> Hi Larry,
->
-> On Fri, Feb 17, 2017 at 5:14 PM, Larry Finger <Larry.Finger@lwfinger.net> wrote:
->> On 02/17/2017 09:36 AM, Geert Uytterhoeven wrote:
->>> As per symmetry with _rtl8821ae_dbi_read(), "wrtie" is not a funky
->>> register acronym, but a simple misspelling of "write".
->>>
->>> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
->>> Cc: Larry Finger <Larry.Finger@lwfinger.net>
->>> Cc: Chaoming Li <chaoming_li@realsil.com.cn>
->>> Cc: netdev@vger.kernel.org
->>
->> I'm not sure that it is possible to have a typo in a variable name. That
->> seems to be within an author's prerogative. Nonetheless, the patch is OK
->
-> ;-)
->
->> other than it was sent to the wrong destination. Patches for this driver
->
-> MAINTAINERS has your name for drivers/net/wireless/realtek/rtlwifi/.
-> Perhaps that line should be dropped?
+Thanks for the comment. This is the patch update.
 
-The usual hierarchy is through me to Kalle, then to DaveM, and finally to mainline.
-
->> should go through linux-wireless@vger.kernel.org. Kalle Valo is the wireless
->> maintainer, but it is not necessary to send to him directly as he usually
->> picks up the patches from Patchwork.
->
-> I guess Jiri (trivial) will pick it up...
-
-The only potential problem would be conflicts arising from changes merging from 
-two different directions. It applies to Kalle's wireless-drivers-next branch, 
-and I will try to keep it in mind as additional patches are supplied to rtl8821ae.
-
-Larry
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Cheng Cui <Cheng.Cui@netapp.com>
+---
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1d5331a..634146c 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -85,7 +85,8 @@ static void tcp_event_new_data_sent(struct sock *sk, cons=
+t struct sk_buff *skb)
+ 		      tcp_skb_pcount(skb));
+ }
+=20
+-/* SND.NXT, if window was not shrunk.
++/* SND.NXT, if window was not shrunk or the amount of shrunk was less than=
+ one
++ * window scaling factor due to loss of precision.
+  * If window has been shrunk, what should we make? It is not clear at all.
+  * Using SND.UNA we will fail to open window, SND.NXT is out of window. :-=
+(
+  * Anything in between SND.UNA...SND.UNA+SND.WND also can be already
+@@ -95,7 +96,9 @@ static inline __u32 tcp_acceptable_seq(const struct sock =
+*sk)
+ {
+ 	const struct tcp_sock *tp =3D tcp_sk(sk);
+=20
+-	if (!before(tcp_wnd_end(tp), tp->snd_nxt))
++	if (!before(tcp_wnd_end(tp), tp->snd_nxt) ||
++	    (tp->rx_opt.wscale_ok &&
++	     ((tp->snd_nxt - tcp_wnd_end(tp)) < (1 << tp->rx_opt.rcv_wscale))))
+ 		return tp->snd_nxt;
+ 	else
+ 		return tcp_wnd_end(tp);
+ --
+2.9.3 (Apple Git-75)
