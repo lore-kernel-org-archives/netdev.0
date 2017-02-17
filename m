@@ -1,51 +1,35 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] of_mdio: Add "broadcom,bcm5241" to the whitelist.
-Date: Fri, 17 Feb 2017 12:09:29 -0800
-Message-ID: <799d4300-64f0-1fb2-2ef7-870a4d5fac20@gmail.com>
-References: <20170217200412.11680-1-david.daney@cavium.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] rxrpc: Change module filename to rxrpc.ko
+Date: Fri, 17 Feb 2017 15:09:42 -0500 (EST)
+Message-ID: <20170217.150942.1854100630890347821.davem@davemloft.net>
+References: <148735538165.2347.15424333408396462662.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: David Daney <david.daney@cavium.com>, netdev@vger.kernel.org,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170217200412.11680-1-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48250 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932303AbdBQUJo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:09:44 -0500
+In-Reply-To: <148735538165.2347.15424333408396462662.stgit@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/17/2017 12:04 PM, David Daney wrote:
-> Some Cavium dev boards have firmware which doesn't supply a proper
-> ethernet-phy-ieee802.3-c22" compatible property.  Restore these boards
-> to working order by whitelisting this compatible value.
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 17 Feb 2017 18:16:21 +0000
+
+> Change module filename from af-rxrpc.ko to rxrpc.ko so as to be consistent
+> with the other protocol drivers.
 > 
-> Signed-off-by: David Daney <david.daney@cavium.com>
-
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  drivers/of/of_mdio.c | 1 +
->  1 file changed, 1 insertion(+)
+> Also adjust the documentation to reflect this.
 > 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 262281b..0b29798 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -147,6 +147,7 @@ EXPORT_SYMBOL(of_mdio_parse_addr);
->   */
->  static const struct of_device_id whitelist_phys[] = {
->  	{ .compatible = "brcm,40nm-ephy" },
-> +	{ .compatible = "broadcom,bcm5241" },
-
-And that's not the vendor prefix from vendor-prefixes.txt.
-
-
->  	{ .compatible = "marvell,88E1111", },
->  	{ .compatible = "marvell,88e1116", },
->  	{ .compatible = "marvell,88e1118", },
+> Further, there is no longer a standalone rxkad module, as it has been
+> merged into the rxrpc core, so get rid of references to that.
 > 
+> Reported-by: Marc Dionne <marc.dionne@auristor.com>
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-
--- 
-Florian
+Applied.
