@@ -1,171 +1,112 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 4/7] nfp: report NSP ABI version in ethtool FW version
-Date: Fri, 17 Feb 2017 14:00:24 -0800
-Message-ID: <20170217220027.189992-5-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 7/7] nfp: allow application firmware to limit number of SR-IOV VFs
+Date: Fri, 17 Feb 2017 14:00:27 -0800
+Message-ID: <20170217220027.189992-8-jakub.kicinski@netronome.com>
 References: <20170217220027.189992-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, dinan.gunawardena@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36577 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934994AbdBQWBJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 17:01:09 -0500
-Received: by mail-pf0-f178.google.com with SMTP id 189so16146053pfu.3
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 14:01:08 -0800 (PST)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:36350 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934994AbdBQWBM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 17:01:12 -0500
+Received: by mail-pg0-f52.google.com with SMTP id v184so18590238pgv.3
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 14:01:11 -0800 (PST)
 In-Reply-To: <20170217220027.189992-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethtool_drvinfo->fw_version can cantain multiple FW strings.
-We already report NFD ABI version there, add NSP ABI version
-if available (i.e. on PF) with 'sp:' prefix.
+Some application firmware projects may choose to limit the number
+of VFs available below what is specified in PCI capability to be
+able to reuse the PCIe interface resources.  There may also be
+projects which use cases don't require SR-IOV support at all and
+therefore don't want to spend time implementing/testing it.
+
+Check nfd_vf_cfg_max_vfs firmware symbol to see if application
+firmware is reporting how many VFs it supports.  This mechanism
+is an opt-in, if symbol is not present we will only look at the
+PCI capability values.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  4 ++++
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 25 ++++++++++++++++++++--
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  1 +
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |  3 +++
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   | 10 +++++++++
- 5 files changed, 41 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_main.c | 23 +++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.h |  2 ++
+ 2 files changed, 25 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index d37d2391b4fe..5a0fc09dd6ea 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -111,6 +111,7 @@
- 				 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
- 
- /* Forward declarations */
-+struct nfp_cpp;
- struct nfp_net;
- struct nfp_net_r_vector;
- 
-@@ -492,6 +493,7 @@ struct nfp_stat_pair {
-  * @rx_bar:             Pointer to mapped FL/RX queues
-  * @debugfs_dir:	Device directory in debugfs
-  * @port_list:		Entry on device port list
-+ * @cpp:		CPP device handle if available
-  */
- struct nfp_net {
- 	struct pci_dev *pdev;
-@@ -579,6 +581,8 @@ struct nfp_net {
- 	struct dentry *debugfs_dir;
- 
- 	struct list_head port_list;
-+
-+	struct nfp_cpp *cpp;
- };
- 
- struct nfp_net_ring_set {
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 255f30252550..48f623f68598 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index 8cda6b0e7e32..f73f3da1b1bc 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
 @@ -47,6 +47,7 @@
- #include <linux/pci.h>
- #include <linux/ethtool.h>
  
-+#include "nfpcore/nfp.h"
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
+ #include "nfpcore/nfp.h"
+ #include "nfpcore/nfp_cpp.h"
++#include "nfpcore/nfp_nffw.h"
+ #include "nfpcore/nfp_nsp_eth.h"
  
-@@ -127,19 +128,39 @@ static const struct _nfp_net_et_stats nfp_net_et_stats[] = {
- #define NN_ET_STATS_LEN (NN_ET_GLOBAL_STATS_LEN + NN_ET_RVEC_GATHER_STATS + \
- 			 NN_ET_RVEC_STATS_LEN + NN_ET_QUEUE_STATS_LEN)
+ #include "nfpcore/nfp6000_pcie.h"
+@@ -70,12 +71,32 @@ static const struct pci_device_id nfp_pci_device_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(pci, nfp_pci_device_ids);
  
-+static void nfp_net_get_nspinfo(struct nfp_net *nn, char *version)
++static void nfp_pcie_sriov_read_nfd_limit(struct nfp_pf *pf)
 +{
-+	struct nfp_nsp *nsp;
++	int err;
 +
-+	if (!nn->cpp)
++	pf->limit_vfs = nfp_rtsym_read_le(pf->cpp, "nfd_vf_cfg_max_vfs", &err);
++	if (!err)
 +		return;
 +
-+	nsp = nfp_nsp_open(nn->cpp);
-+	if (IS_ERR(nsp))
-+		return;
-+
-+	snprintf(version, ETHTOOL_FWVERS_LEN, "sp:%hu.%hu",
-+		 nfp_nsp_get_abi_ver_major(nsp),
-+		 nfp_nsp_get_abi_ver_minor(nsp));
-+
-+	nfp_nsp_close(nsp);
++	pf->limit_vfs = ~0;
++	/* Allow any setting for backwards compatibility if symbol not found */
++	if (err != -ENOENT)
++		nfp_warn(pf->cpp, "Warning: VF limit read failed: %d\n", err);
 +}
 +
- static void nfp_net_get_drvinfo(struct net_device *netdev,
- 				struct ethtool_drvinfo *drvinfo)
+ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
  {
-+	char nsp_version[ETHTOOL_FWVERS_LEN] = {};
- 	struct nfp_net *nn = netdev_priv(netdev);
+ #ifdef CONFIG_PCI_IOV
+ 	struct nfp_pf *pf = pci_get_drvdata(pdev);
+ 	int err;
  
- 	strlcpy(drvinfo->driver, nn->pdev->driver->name,
- 		sizeof(drvinfo->driver));
- 	strlcpy(drvinfo->version, nfp_driver_version, sizeof(drvinfo->version));
- 
-+	nfp_net_get_nspinfo(nn, nsp_version);
- 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
--		 "%d.%d.%d.%d",
-+		 "%d.%d.%d.%d %s",
- 		 nn->fw_ver.resv, nn->fw_ver.class,
--		 nn->fw_ver.major, nn->fw_ver.minor);
-+		 nn->fw_ver.major, nn->fw_ver.minor, nsp_version);
- 	strlcpy(drvinfo->bus_info, pci_name(nn->pdev),
- 		sizeof(drvinfo->bus_info));
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index eccd31003b0d..3afcdc11480c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -303,6 +303,7 @@ nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 	if (IS_ERR(nn))
- 		return nn;
- 
-+	nn->cpp = pf->cpp;
- 	nn->fw_ver = *fw_ver;
- 	nn->ctrl_bar = ctrl_bar;
- 	nn->tx_bar = tx_bar;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-index 3d70a8578a98..540027973a74 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-@@ -40,6 +40,7 @@
- #define __NFP_H__
- 
- #include <linux/device.h>
-+#include <linux/types.h>
- 
- #include "nfp_cpp.h"
- 
-@@ -54,6 +55,8 @@ struct firmware;
- 
- struct nfp_nsp *nfp_nsp_open(struct nfp_cpp *cpp);
- void nfp_nsp_close(struct nfp_nsp *state);
-+u16 nfp_nsp_get_abi_ver_major(struct nfp_nsp *state);
-+u16 nfp_nsp_get_abi_ver_minor(struct nfp_nsp *state);
- int nfp_nsp_wait(struct nfp_nsp *state);
- int nfp_nsp_device_soft_reset(struct nfp_nsp *state);
- int nfp_nsp_load_fw(struct nfp_nsp *state, const struct firmware *fw);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-index f2d737c3d1df..34c50987c377 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-@@ -182,6 +182,16 @@ void nfp_nsp_close(struct nfp_nsp *state)
- 	kfree(state);
- }
- 
-+u16 nfp_nsp_get_abi_ver_major(struct nfp_nsp *state)
-+{
-+	return state->ver.major;
-+}
++	if (num_vfs > pf->limit_vfs) {
++		nfp_info(pf->cpp, "Firmware limits number of VFs to %u\n",
++			 pf->limit_vfs);
++		return -EINVAL;
++	}
 +
-+u16 nfp_nsp_get_abi_ver_minor(struct nfp_nsp *state)
-+{
-+	return state->ver.minor;
-+}
+ 	err = pci_enable_sriov(pdev, num_vfs);
+ 	if (err) {
+ 		dev_warn(&pdev->dev, "Failed to enable PCI sriov: %d\n", err);
+@@ -333,6 +354,8 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_cpp_free;
+ 
++	nfp_pcie_sriov_read_nfd_limit(pf);
 +
- static int
- nfp_nsp_wait_reg(struct nfp_cpp *cpp, u64 *reg,
- 		 u32 nsp_cpp, u64 addr, u64 mask, u64 val)
+ 	err = nfp_net_pci_probe(pf);
+ 	if (err)
+ 		goto err_fw_unload;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+index 6c40fa322da3..39105d0435e9 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+@@ -59,6 +59,7 @@ struct nfp_eth_table;
+  * @tx_area:		Pointer to the CPP area for the TX queues
+  * @rx_area:		Pointer to the CPP area for the FL/RX queues
+  * @irq_entries:	Array of MSI-X entries for all ports
++ * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI limit)
+  * @num_vfs:		Number of SR-IOV VFs enabled
+  * @fw_loaded:		Is the firmware loaded?
+  * @eth_tbl:		NSP ETH table
+@@ -77,6 +78,7 @@ struct nfp_pf {
+ 
+ 	struct msix_entry *irq_entries;
+ 
++	unsigned int limit_vfs;
+ 	unsigned int num_vfs;
+ 
+ 	bool fw_loaded;
 -- 
 2.11.0
