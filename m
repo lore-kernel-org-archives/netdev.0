@@ -1,60 +1,74 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH net-next v2 2/2] net: mvneta: Use cacheable memory to
- store the rx buffer DMA address
-Date: Fri, 17 Feb 2017 14:55:01 +0100
-Message-ID: <20170217145501.5b90a977@free-electrons.com>
-References: <20170217100233.2325-1-jszhang@marvell.com>
-        <20170217100233.2325-3-jszhang@marvell.com>
-        <87o9y1aqsk.fsf@free-electrons.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net v5] bpf: add helper to compare network namespaces
+Date: Fri, 17 Feb 2017 15:15:11 +0100
+Message-ID: <58A7056F.7040206@iogearbox.net>
+References: <1487208564-4666-1-git-send-email-dsa@cumulusnetworks.com> <58A57A13.9070906@iogearbox.net> <16fcf613-fc8d-e2a1-5f49-40ddbade65b5@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jisheng Zhang <jszhang@marvell.com>, <davem@davemloft.net>,
-        <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87o9y1aqsk.fsf@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@kernel.org, tj@kernel.org, luto@amacapital.net,
+        ebiederm@xmission.com
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:52605 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934058AbdBQOPW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 09:15:22 -0500
+In-Reply-To: <16fcf613-fc8d-e2a1-5f49-40ddbade65b5@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 02/17/2017 05:01 AM, David Ahern wrote:
+> On 2/16/17 3:08 AM, Daniel Borkmann wrote:
+>> Is there anything that speaks against doing the comparison itself
+>> outside of the helper? Meaning, the helper would get a buffer
+>> passed from stack f.e. struct foo { u64 ns_dev; u64 ns_ino; }
+>> and fills both out with the netns info belonging to the sk/skb.
+>
+> How do you handle CONFIG_NET_NS not set?
+>
+> You call something like bpf_get_netns_id(sk, &foo), it has to exist
+> regardless of the config. What should it return if netns is disabled?
 
-On Fri, 17 Feb 2017 14:30:03 +0100, Gregory CLEMENT wrote:
+In rough semi pseudo code, it could look like the below. In case we have
+!CONFIG_NET_NS then that would be hidden behind the netns_get_kstat() (or
+whatever function name it has) as a static inline that just returns an
+error such as -ENOTSUPP.
 
-> I have just tested it and as I feared, with HWBM enabled, a simple iperf
-> just doesn't work.
+If the entity installing the program is aware that CONFIG_NET_NS is set
+and that the input is exactly of size struct bpf_netns, then it can also
+skip the error test in the BPF program itself. Anyway, just a thought
+so that the helper could be more flexible and used as a key for lookups
+on maps, too ...
 
-And that's expected: the whole point of HWBM is that the buffer into
-which a RX packet is placed is allocated by the HW, and its address
-stored in the RX descriptor. So the following code:
+BPF_CALL_3(bpf_sk_netns_get, struct sock *, sk,  struct bpf_netns *, ns,
+            u32, size)
+{
+         struct ns_kstat tmp;
+         int ret;
 
-> >  	rx_desc->buf_phys_addr = phys_addr;
-> >  	i = rx_desc - rxq->descs;
-> > +	rxq->buf_dma_addr[i] = phys_addr;
+         if (unlikely(size != sizeof(struct bpf_netns)))
+                 return -EINVAL;
 
-Does not make sense, because it's not the SW that refills the RX
-descriptors with the address of the RX buffers. It's done by the HW.
+         ret = netns_get_kstat(sock_net(sk), &tmp);
+         if (unlikely(ret))
+                 return ret;
 
-With HWBM, I believe you have no choice but to read the physical
-address from the RX descriptor. But you can probably optimize things a
-little bit by reading it only once, and then storing it into a
-cacheable variable.
+         ns->dev = tmp.dev;
+         ns->ino = tmp.ino;
 
-So maybe:
+         return 0;
+}
 
- - For SWBM, use the strategy proposed by Jisheng
- - For HWBM, at the beginning of the RX completion path, read once the
-   rx_desc->buf_phys_addr, and store it in rxq->buf_dma_addr[index]
+static const struct bpf_func_proto bpf_sk_netns_get_proto = {
+         .func           = bpf_sk_netns_get,
+         .gpl_only       = false,
+         .ret_type       = RET_INTEGER,
+         .arg1_type      = ARG_PTR_TO_CTX,
+         .arg2_type      = ARG_PTR_TO_UNINIT_MEM,
+         .arg3_type      = ARG_CONST_SIZE,
+};
 
-Of course that's just a very rough proposal. I've been looking mainly
-at mvpp2 lately, and I'm not sure I still remember how mvneta works in
-the details.
-
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Thanks,
+Daniel
