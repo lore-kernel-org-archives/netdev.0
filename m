@@ -1,40 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] TCP_NOTSENT_LOWAT behavior
-Date: Fri, 17 Feb 2017 07:38:16 -0800
-Message-ID: <1487345896.1311.80.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1487312405-18480-1-git-send-email-johunt@akamai.com>
-         <1487315225.1311.76.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 0/3] sfc: misc. fixes
+Date: Fri, 17 Feb 2017 15:47:32 +0000
+Message-ID: <f49743cd-3227-4d30-9d6d-bd2f8400df62@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, jbaron@akamai.com
-To: Josh Hunt <johunt@akamai.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34801 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934065AbdBQPiS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 10:38:18 -0500
-Received: by mail-pf0-f194.google.com with SMTP id o64so4332460pfb.1
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 07:38:18 -0800 (PST)
-In-Reply-To: <1487315225.1311.76.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:65377 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S934564AbdBQPrq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 10:47:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-16 at 23:07 -0800, Eric Dumazet wrote:
+Three largely unrelated fixes to increase robustness in rare edge cases.
 
-> This adds a cost to fast path. tcp_sendmsg() is insane.
-> 
-> We have one skb granularity (64KB) already for SO_SNDBUF, regardless of
-> TCP_NOTSENT_LOWAT being used or not.
+Bert Kenward (1):
+  sfc: forget filters from sw table if hw replies ENOENT on removing
+    them
 
-Note that this granularity is wanted for performance, otherwise our per
-task 32KB page (current->task_frag) might be split in very small chunks
-over multiple sockets on applications dealing with many TCP sockets.
+Jon Cooper (1):
+  sfc: fix filter_id misinterpretation in edge case
 
-Having nice initial 64KB TSO packets with 2 or 3 frags allows for better
-sack coalescing
+Peter Dunning (1):
+  sfc: do not device_attach if a reset is pending
 
-Ref :
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=3613b3dbd1ade9a6a626dae1f608c57638eb5e8a
-
-Thanks.
+ drivers/net/ethernet/sfc/ef10.c       | 67 ++++++++++++++++++++++-------------
+ drivers/net/ethernet/sfc/ef10_sriov.c |  4 +--
+ drivers/net/ethernet/sfc/efx.c        | 10 +++---
+ drivers/net/ethernet/sfc/efx.h        |  6 ++++
+ drivers/net/ethernet/sfc/selftest.c   |  2 +-
+ 5 files changed, 57 insertions(+), 32 deletions(-)
