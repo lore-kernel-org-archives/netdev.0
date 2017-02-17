@@ -1,113 +1,89 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net: use-after-free in tw_timer_handler
-Date: Fri, 17 Feb 2017 14:30:10 -0800
-Message-ID: <CAM_iQpWgUQiarfH9wkxEkCoFkwvKJt75uX4CP1-MUU6u_hkLYQ@mail.gmail.com>
-References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
- <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
- <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
- <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
- <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
- <CAM_iQpXDtOY+A2pEqGeggBONnGawt=Xv6PdcWJpUB-4dqv4hpA@mail.gmail.com> <CACT4Y+ZR8aQsrfVBxtg45YYyNZsYqHvUDkRrqAgE=+v+8O1pDg@mail.gmail.com>
+From: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+Subject: Re: Re: [PATCH 20/21] ARM: sunxi: Enable dwmac-sun8i
+ driver on sunxi_defconfig
+Date: Sat, 18 Feb 2017 06:34:53 +0800
+Message-ID: <20170218013506.YwCWCcZO@smtp2o.mail.yandex.net>
+Reply-To: icenowy-ymACFijhrKM@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+ZR8aQsrfVBxtg45YYyNZsYqHvUDkRrqAgE=+v+8O1pDg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: alexandre.torgue-qxv4g6HH51o@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org, Maxime Ripard
+ <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+ devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+ linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBCZLPFN5Q4OBBJHVTXCQKGQENQ7BK3I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 17, 2017 at 12:36 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Fri, Feb 17, 2017 at 7:51 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>>>>>
->>>>>> This code was changed a long time ago :
->>>>>>
->>>>>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
->>>>>>
->>>>>> So I suspect a recent patch broke the logic.
->>>>>>
->>>>>> You might start a bisection :
->>>>>>
->>>>>> I would check if 4.7 and 4.8 trigger the issue you noticed.
->>>>>
->>>>>
->>>>> It happens with too low rate for bisecting (few times per day). I
->>>>> could add some additional checks into code, but I don't know what
->>>>> checks could be useful.
->>>>
->>>> If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
->>>> we are able to help.
->>>
->>>
->>> There are also chances that the problem is older.
->>>
->>> Looking at the code, this part of inet_twsk_purge looks fishy:
->>>
->>> 285                         if (unlikely((tw->tw_family != family) ||
->>> 286                                      atomic_read(&twsk_net(tw)->count))) {
->>>
->>> It uses net->count == 0 check to find the right sockets. But what if
->>> there are several nets with count == 0 in flight, can't there be
->>> several inet_twsk_purge calls running concurrently freeing each other
->>> sockets? If so it looks like inet_twsk_purge can call
->>> inet_twsk_deschedule_put twice for a socket. Namely, two calls for
->>> different nets discover the socket, check that net->count==0 and both
->>> call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
->>> net that it needs to purge?
->>
->> I don't think this could happen, because cleanup_net() is called in a
->> work struct, and this work can't be scheduled twice, so there should
->> not be any parallel cleanup_net().
->>
->> Also, inet_twsk_deschedule_put() already waits for the flying timer,
->> net->count==0 at this point and all sockets in this netns are already
->> gone, so I don't know how a timer could be still fired after this.
->
->
-> One thing that I noticed is that use-after-free always happens in
-> tw_timer_handler, but never in timer code. This suggests that:
-> 1. Whoever frees the struct waits for the timer mutex unlock.
-> 2. Free happens almost at the same time as timer fires (otherwise the
-> timer would probably be cancelled).
->
-> That could happen if there is a race in timer code during cancellation
-> or rearming. I understand that it's heavily stressed code, but who
-> knows...
 
-Good point! I think this could happen since timer is deactivated before
-unlinking the tw sock, so another CPU could find it and rearm the timer
-during such window?
+2017=E5=B9=B42=E6=9C=8817=E6=97=A5 16:55=E4=BA=8E Corentin Labbe <clabbe.mo=
+ntjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>=E5=86=99=E9=81=93=EF=BC=9A
+>
+> On Thu, Feb 16, 2017 at 08:08:27PM +0100, Maxime Ripard wrote:=20
+> > Hi,=20
+> >=20
+> > On Thu, Feb 16, 2017 at 01:48:58PM +0100, Corentin Labbe wrote:=20
+> > > From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>=20
+> > >=20
+> > > Enable the dwmac-sun8i driver in the sunxi default configuration=20
+> > >=20
+> > > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>=20
+> > > ---=20
+> > >=C2=A0 arch/arm/configs/sunxi_defconfig | 1 +=20
+> > >=C2=A0 1 file changed, 1 insertion(+)=20
+> > >=20
+> > > diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunx=
+i_defconfig=20
+> > > index da92c25..33bde86 100644=20
+> > > --- a/arch/arm/configs/sunxi_defconfig=20
+> > > +++ b/arch/arm/configs/sunxi_defconfig=20
+> > > @@ -40,6 +40,7 @@ CONFIG_ATA=3Dy=20
+> > >=C2=A0 CONFIG_AHCI_SUNXI=3Dy=20
+> > >=C2=A0 CONFIG_NETDEVICES=3Dy=20
+> > >=C2=A0 CONFIG_SUN4I_EMAC=3Dy=20
+> > > +CONFIG_DWMAC_SUN8I=3Dm=20
+> >=20
+> > I think I'd prefer to have it compiled statically, just like the other=
+=20
+> > net drivers, and drivers in general.=20
+> >=20
+> > Thanks!=20
+> > Maxime=20
+> >=20
+>
+> In previous sun8i-emac, someone request that CONFIG must be set as module=
+ because kernel went too big.=20
+> But I do not care to set it statically.=20
+
+This is sunxi_defconfig, not multi_v7_config.
+
+I remember the complain is for multi_v7_config.
+
+For multi_v7_config it's proper to make it =3Dm.
 
 >
-> I still wonder if twsk_net(tw)->count==0 is the right condition. This
-> net may not yet have been scheduled for destruction, but another task
-> could pick it up and start destroying...
-
-Good question. net_exit_list is just a snapshot of the cleanup_list, so
-it is true that inet_twsk_purge() could purge more netns'es than in
-net_exit_list, but I don't see any problem with this, the work later can't
-find the same twsck again since it is unlinked from hashtable.
-Do you see otherwise?
-
+> Regards=20
+> Corentin Labbe=20
 >
-> Cong, do you have any ideas as to what debugging checks I could add to
-> help track this down?
+> --=20
+> You received this message because you are subscribed to the Google Groups=
+ "linux-sunxi" group.=20
+> To unsubscribe from this group and stop receiving emails from it, send an=
+ email to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org=20
+> For more options, visit https://groups.google.com/d/optout.=20
 
-I don't have any theory for the cause of this bug. Your point above actually
-makes sense for me. Maybe you can add some code in between the following
-code:
-
-        if (del_timer_sync(&tw->tw_timer))
-                inet_twsk_kill(tw);
-
-to verify is the timer is rearmed or not.
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
