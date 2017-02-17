@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 00/14] mlx4: order-0 allocations and page
- recycling
-Date: Fri, 17 Feb 2017 11:00:59 -0500 (EST)
-Message-ID: <20170217.110059.790777908746477501.davem@davemloft.net>
-References: <20170213195858.5215-1-edumazet@google.com>
+Subject: Re: [PATCH v2 0/4] PTP attribute handling cleanup
+Date: Fri, 17 Feb 2017 11:03:31 -0500 (EST)
+Message-ID: <20170217.110331.1583774566670151929.davem@davemloft.net>
+References: <20170214182334.23296-1-dmitry.torokhov@gmail.com>
+        <20170216201928.GA8614@netboy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, kafai@fb.com,
-        saeedm@mellanox.com, willemb@google.com, brouer@redhat.com,
-        bblanco@plumgrid.com, ast@kernel.org, eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44506 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934037AbdBQQBL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 11:01:11 -0500
-In-Reply-To: <20170213195858.5215-1-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dmitry.torokhov@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: richardcochran@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170216201928.GA8614@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Mon, 13 Feb 2017 11:58:44 -0800
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Thu, 16 Feb 2017 21:19:29 +0100
 
-> As mentioned half a year ago, we better switch mlx4 driver to order-0
-> allocations and page recycling.
+> On Tue, Feb 14, 2017 at 10:23:30AM -0800, Dmitry Torokhov wrote:
+>>  drivers/ptp/ptp_clock.c   |  22 +++---
+>>  drivers/ptp/ptp_private.h |   7 +-
+>>  drivers/ptp/ptp_sysfs.c   | 167 ++++++++++++++++++----------------------------
+>>  3 files changed, 80 insertions(+), 116 deletions(-)
 > 
-> This reduces vulnerability surface thanks to better skb->truesize
-> tracking and provides better performance in most cases.
+> Nice reduction in sysfs code!
 > 
-> v2 provides an ethtool -S new counter (rx_alloc_pages) and
-> code factorization, plus Tariq fix.
+> I gave this some light testing on the coldfire/phyter (which has 12
+> pins), and nothing exploded.
 > 
-> v3 includes various fixes based on Tariq tests and feedback
-> from Saeed and Tariq.
+> For the series:
 > 
-> Worth noting this patch series deletes ~250 lines of code ;)
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-I think this should get queued up for net-next soon, but I marked the
-series as "deferred" in patchwork while the discussion continues.
+Series applied to net-next, thanks.
