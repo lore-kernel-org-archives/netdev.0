@@ -1,34 +1,62 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net v5] bpf: add helper to compare network namespaces
-Date: Thu, 16 Feb 2017 21:01:54 -0700
-Message-ID: <16fcf613-fc8d-e2a1-5f49-40ddbade65b5@cumulusnetworks.com>
-References: <1487208564-4666-1-git-send-email-dsa@cumulusnetworks.com>
- <58A57A13.9070906@iogearbox.net>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [BUG] 4.10-rc8 - ping spinning?
+Date: Thu, 16 Feb 2017 23:21:06 -0500
+Message-ID: <CACSApvasp5Z-YUnALSDmXqS5o2gWDo6QPXg9m35HEx8-+m1rug@mail.gmail.com>
+References: <20170216120547.GK582@shells.gnugeneration.com>
+ <CACSApvYq-7HGAO+UTsoCu6JVt_E4mdXKgpUbRD0YDP_M02ZdkQ@mail.gmail.com>
+ <CACSApvYbP9peXPm2L4EFJokdXbGV7bTLgZNOEKEiHjLWcOOZHA@mail.gmail.com> <20170216160806.GL582@shells.gnugeneration.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, tj@kernel.org, luto@amacapital.net,
-        ebiederm@xmission.com
-To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:34195 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754684AbdBQEB4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 23:01:56 -0500
-Received: by mail-pg0-f52.google.com with SMTP id z67so11801997pgb.1
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 20:01:56 -0800 (PST)
-In-Reply-To: <58A57A13.9070906@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: lkml@pengaru.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170216160806.GL582@shells.gnugeneration.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2/16/17 3:08 AM, Daniel Borkmann wrote:
-> Is there anything that speaks against doing the comparison itself
-> outside of the helper? Meaning, the helper would get a buffer
-> passed from stack f.e. struct foo { u64 ns_dev; u64 ns_ino; }
-> and fills both out with the netns info belonging to the sk/skb.
+On Thu, Feb 16, 2017 at 11:08 AM,  <lkml@pengaru.com> wrote:
+> On Thu, Feb 16, 2017 at 10:52:19AM -0500, Soheil Hassas Yeganeh wrote:
+>> On Thu, Feb 16, 2017 at 10:50 AM, Soheil Hassas Yeganeh
+>> <soheil@google.com> wrote:
+>> > Thank you Vito for the report.
+>> >
+>> > The patch you cited actually resolves a similar backward compatibility
+>> > problem for traceroute.
+>> >
+>> > I suspect the problem here is that there's a local error queued on the
+>> > error queue after an ICMP message. ping apparently expect the
+>> > sk->sk_err to be set for the local errors as well, and hence the
+>> > error. Ideally, ping should read the error queue if there an EPOLLERR,
+>> > because local errors never sk->sk_err on their own. That is, if we
+>> > have
+>>
+>> [oops] That is, if we have only one local error on the error queue, we
+>> cannot rely on having an error on recvmsg (i.e., sk->sk_err being set)
+>> even in 4.9.
+>>
+>> <snip>
+>
+> Hi Soheil,
+>
+> This doesn't appear to be trivially reproducible here by just running ping
+> as it were originally discovered.  I'll see if I can reliably cause the
+> malfunction somehow, but until then I can't meaningfully test patches.
+>
+> Perhaps a form of fault injection would make more sense if there's a
+> reasonable idea of what this is stemming from?
 
-How do you handle CONFIG_NET_NS not set?
+I tried to generate different ICMP errors as well as local errors, but
+unfortunately haven't been able to reproduce the problem.
 
-You call something like bpf_get_netns_id(sk, &foo), it has to exist
-regardless of the config. What should it return if netns is disabled?
+> I've opened an issue with iputils on github in the event that this is found
+> to be a ping bug.  Your input might be helpful there as well:
+> https://github.com/iputils/iputils/issues/74
+
+Sent a pull request. Although, we might want to at least confirm the
+userspace patch fixes the issue in ping.
+
+Thanks!
+Soheil
+
+> Thanks,
+> Vito Caputo
