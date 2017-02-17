@@ -1,48 +1,89 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH net 4/4] ipvs: Document sysctl pmtu_disc
-Date: Fri, 17 Feb 2017 14:34:01 +0800
-Message-ID: <1487313241-11361-5-git-send-email-liuhangbin@gmail.com>
-References: <1487313241-11361-1-git-send-email-liuhangbin@gmail.com>
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Hangbin Liu <liuhangbin@gmail.com>
-To: lvs-devel@vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH net-next 1/1] pkt_sched: Remove useless qdisc_stab_lock
+Date: Fri, 17 Feb 2017 14:34:19 +0800
+Message-ID: <1487313259-103328-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, jhs@mojatatu.com, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36709 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755649AbdBQGev (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 01:34:51 -0500
-In-Reply-To: <1487313241-11361-1-git-send-email-liuhangbin@gmail.com>
+Received: from SMTPBG252.QQ.COM ([183.60.52.105]:57654 "EHLO smtpbg252.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750866AbdBQGnP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 01:43:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Document sysctl pmtu_disc based on commit 3654e61137db ("ipvs: add pmtu_disc
-option to disable IP DF for TUN packets").
+From: Gao Feng <fgao@ikuai8.com>
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+The qdisc_stab_lock is used in qdisc_get_stab and qdisc_put_stab.
+These two functions are invoked in qdisc_create, qdisc_change, and
+qdisc_destroy which run fully under RTNL.
+
+So it already makes sure only one could access the qdisc_stab_list at
+the same time. Then it is unnecessary to use qdisc_stab_lock now.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 ---
- Documentation/networking/ipvs-sysctl.txt | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ net/sched/sch_api.c | 12 ------------
+ 1 file changed, 12 deletions(-)
 
-diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
-index e4d9235..fb65d4a 100644
---- a/Documentation/networking/ipvs-sysctl.txt
-+++ b/Documentation/networking/ipvs-sysctl.txt
-@@ -175,6 +175,15 @@ nat_icmp_send - BOOLEAN
-         for VS/NAT when the load balancer receives packets from real
-         servers but the connection entries don't exist.
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index a13c15e..bcf49cd 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -440,7 +440,6 @@ void qdisc_put_rtab(struct qdisc_rate_table *tab)
+ EXPORT_SYMBOL(qdisc_put_rtab);
  
-+pmtu_disc - BOOLEAN
-+	0 - disabled
-+	not 0 - enabled (default)
-+
-+	When enabled PMTU discovery(default) and received packets larger than
-+	the next MTU, we will send back FRAG_NEEDED message and drop the
-+	incoming packet. But if users prefer to fragment regardless of DF bit
-+	other than drop the packet, they can disable it.
-+
- secure_tcp - INTEGER
-         0  - disabled (default)
+ static LIST_HEAD(qdisc_stab_list);
+-static DEFINE_SPINLOCK(qdisc_stab_lock);
+ 
+ static const struct nla_policy stab_policy[TCA_STAB_MAX + 1] = {
+ 	[TCA_STAB_BASE]	= { .len = sizeof(struct tc_sizespec) },
+@@ -474,20 +473,15 @@ static struct qdisc_size_table *qdisc_get_stab(struct nlattr *opt)
+ 	if (tsize != s->tsize || (!tab && tsize > 0))
+ 		return ERR_PTR(-EINVAL);
+ 
+-	spin_lock(&qdisc_stab_lock);
+-
+ 	list_for_each_entry(stab, &qdisc_stab_list, list) {
+ 		if (memcmp(&stab->szopts, s, sizeof(*s)))
+ 			continue;
+ 		if (tsize > 0 && memcmp(stab->data, tab, tsize * sizeof(u16)))
+ 			continue;
+ 		stab->refcnt++;
+-		spin_unlock(&qdisc_stab_lock);
+ 		return stab;
+ 	}
+ 
+-	spin_unlock(&qdisc_stab_lock);
+-
+ 	stab = kmalloc(sizeof(*stab) + tsize * sizeof(u16), GFP_KERNEL);
+ 	if (!stab)
+ 		return ERR_PTR(-ENOMEM);
+@@ -497,9 +491,7 @@ static struct qdisc_size_table *qdisc_get_stab(struct nlattr *opt)
+ 	if (tsize > 0)
+ 		memcpy(stab->data, tab, tsize * sizeof(u16));
+ 
+-	spin_lock(&qdisc_stab_lock);
+ 	list_add_tail(&stab->list, &qdisc_stab_list);
+-	spin_unlock(&qdisc_stab_lock);
+ 
+ 	return stab;
+ }
+@@ -514,14 +506,10 @@ void qdisc_put_stab(struct qdisc_size_table *tab)
+ 	if (!tab)
+ 		return;
+ 
+-	spin_lock(&qdisc_stab_lock);
+-
+ 	if (--tab->refcnt == 0) {
+ 		list_del(&tab->list);
+ 		call_rcu_bh(&tab->rcu, stab_kfree_rcu);
+ 	}
+-
+-	spin_unlock(&qdisc_stab_lock);
+ }
+ EXPORT_SYMBOL(qdisc_put_stab);
  
 -- 
-2.5.5
+1.9.1
