@@ -1,82 +1,85 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [4.9.10] ip_route_me_harder() reading off-slab
-Date: Fri, 17 Feb 2017 08:39:28 +0100
-Message-ID: <20170217073928.GA25854@breakpoint.cc>
-References: <CAMVG2ssKxnEsu4=orZyB3UsHwT2CZhpWKFn2UmtoPOEu1KMHPw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Jan Beulich <JBeulich@suse.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        netfilter-devel@vger.kernel.org, pablo@netfilter.org
-To: Daniel J Blueman <daniel@quora.org>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next (repost)] nfp: Use PCI_DEVICE_ID_NETRONOME_NFP* defines
+Date: Fri, 17 Feb 2017 08:57:54 +0100
+Message-ID: <1487318274-17216-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        oss-drivers@netronome.com,
+        Simon Horman <simon.horman@netronome.com>
+To: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45236 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755643AbdBQHkr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 02:40:47 -0500
-Content-Disposition: inline
-In-Reply-To: <CAMVG2ssKxnEsu4=orZyB3UsHwT2CZhpWKFn2UmtoPOEu1KMHPw@mail.gmail.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35185 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753622AbdBQH6G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 02:58:06 -0500
+Received: by mail-wm0-f44.google.com with SMTP id v186so7111286wmd.0
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2017 23:58:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel J Blueman <daniel@quora.org> wrote:
+Use PCI_DEVICE_ID_NETRONOME_NFP*, defined in linux/pci_ids.h,
+rather than replicating the same values in the NFP driver.
 
-[ CC nf-devel, pablo ]
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-> When booting a VM in libvirt/KVM attached to a local bridge and KASAN
-> enabled on 4.9.10, we see a stream of KASAN warnings about off-slab
-> access [1].
-> 
-> Let me know if you'd like more debug.
-
-Does this patch help?
-
-Subject: [PATCH nf] netfilter: use skb_to_full_sk in ip_route_me_harder
-
-inet_sk(skb->sk) is illegal in case skb is attached to request socket.
-
-Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
-Reported by: Daniel J Blueman <daniel@quora.org>
-Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/ipv4/netfilter.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+* Reposted with subject and changelog adjusted to be less likely to be
+  flagged as spam
+---
+ drivers/net/ethernet/netronome/nfp/nfp_main.c             | 4 ++--
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c | 4 ++--
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h      | 5 -----
+ 3 files changed, 4 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index b3cc1335adbc..c0cc6aa8cfaa 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -23,7 +23,8 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
- 	struct rtable *rt;
- 	struct flowi4 fl4 = {};
- 	__be32 saddr = iph->saddr;
--	__u8 flags = skb->sk ? inet_sk_flowi_flags(skb->sk) : 0;
-+	const struct sock *sk = skb_to_full_sk(skb);
-+	__u8 flags = sk ? inet_sk_flowi_flags(sk) : 0;
- 	struct net_device *dev = skb_dst(skb)->dev;
- 	unsigned int hh_len;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index 6e1bb3a4a611..db52b6a53c6f 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -58,11 +58,11 @@ static const char nfp_driver_name[] = "nfp";
+ const char nfp_driver_version[] = VERMAGIC_STRING;
  
-@@ -40,7 +41,7 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
- 	fl4.daddr = iph->daddr;
- 	fl4.saddr = saddr;
- 	fl4.flowi4_tos = RT_TOS(iph->tos);
--	fl4.flowi4_oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
-+	fl4.flowi4_oif = sk ? sk->sk_bound_dev_if : 0;
- 	if (!fl4.flowi4_oif)
- 		fl4.flowi4_oif = l3mdev_master_ifindex(dev);
- 	fl4.flowi4_mark = skb->mark;
-@@ -61,7 +62,7 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
- 	    xfrm_decode_session(skb, flowi4_to_flowi(&fl4), AF_INET) == 0) {
- 		struct dst_entry *dst = skb_dst(skb);
- 		skb_dst_set(skb, NULL);
--		dst = xfrm_lookup(net, dst, flowi4_to_flowi(&fl4), skb->sk, 0);
-+		dst = xfrm_lookup(net, dst, flowi4_to_flowi(&fl4), sk, 0);
- 		if (IS_ERR(dst))
- 			return PTR_ERR(dst);
- 		skb_dst_set(skb, dst);
+ static const struct pci_device_id nfp_pci_device_ids[] = {
+-	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP6000,
++	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_ID_NETRONOME_NFP6000,
+ 	  PCI_VENDOR_ID_NETRONOME, PCI_ANY_ID,
+ 	  PCI_ANY_ID, 0,
+ 	},
+-	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP4000,
++	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_ID_NETRONOME_NFP4000,
+ 	  PCI_VENDOR_ID_NETRONOME, PCI_ANY_ID,
+ 	  PCI_ANY_ID, 0,
+ 	},
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+index 165e085c2a24..15cc3e77cf6a 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+@@ -640,8 +640,8 @@ static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
+ 		nfp->expl.data = bar->iomem + NFP_PCIE_SRAM + 0x1000;
+ 	}
+ 
+-	if (nfp->pdev->device == PCI_DEVICE_NFP4000 ||
+-	    nfp->pdev->device == PCI_DEVICE_NFP6000) {
++	if (nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP4000 ||
++	    nfp->pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000) {
+ 		nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(0);
+ 		expl_groups = 4;
+ 	} else {
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+index 74e6f9f59bdc..edecc0a27485 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+@@ -58,11 +58,6 @@
+ 
+ #define PCI_64BIT_BAR_COUNT             3
+ 
+-/* NFP hardware vendor/device ids.
+- */
+-#define PCI_DEVICE_NFP4000              0x4000
+-#define PCI_DEVICE_NFP6000              0x6000
+-
+ #define NFP_CPP_NUM_TARGETS             16
+ 
+ struct device;
 -- 
-2.10.2
+2.7.0.rc3.207.g0ac5344
