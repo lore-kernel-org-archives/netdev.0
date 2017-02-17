@@ -1,16 +1,17 @@
-From: John Fastabend <john.fastabend@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
 Subject: Re: [PATCH net-next] virito-net: set queues after reset during xdp_set
-Date: Thu, 16 Feb 2017 20:53:59 -0800
-Message-ID: <58A681E7.80907@gmail.com>
+Date: Fri, 17 Feb 2017 13:10:08 +0800
+Message-ID: <cff818ec-d5cc-1d71-fa3e-95fd690d10ff@redhat.com>
 References: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
+	<58A681E7.80907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <58A681E7.80907@gmail.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -22,142 +23,130 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 17-02-15 01:08 AM, Jason Wang wrote:
-> We set queues before reset which will cause a crash[1]. This is
-> because is_xdp_raw_buffer_queue() depends on the old xdp queue pairs
-> number to do the correct detection. So fix this by:
-> 
-> - set queues after reset, to keep the old vi->curr_queue_pairs. (in
->   fact setting queues before reset does not works since after feature
->   set, all queue pairs were enabled by default during reset).
-> - change xdp_queue_pairs only after virtnet_reset() is succeed.
-> 
-> [1]
-
-I'm guessing this occurs when enabling XDP while receiving lots of traffic?
-
-> 
-> [   74.328168] general protection fault: 0000 [#1] SMP
-> [   74.328625] Modules linked in: nfsd xfs libcrc32c virtio_net virtio_pci
-> [   74.329117] CPU: 0 PID: 2849 Comm: xdp2 Not tainted 4.10.0-rc7+ #499
-> [   74.329577] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.10.1-0-g8891697-prebuilt.qemu-project.org 04/01/2014
-> [   74.330424] task: ffff88007a894000 task.stack: ffffc90004388000
-> [   74.330844] RIP: 0010:skb_release_head_state+0x28/0x80
-> [   74.331298] RSP: 0018:ffffc9000438b8d0 EFLAGS: 00010206
-> [   74.331676] RAX: 0000000000000000 RBX: ffff88007ad96300 RCX: 0000000000000000
-> [   74.332217] RDX: ffff88007fc137a8 RSI: ffff88007fc0db28 RDI: 0001bf00000001be
-> [   74.332758] RBP: ffffc9000438b8d8 R08: 000000000005008f R09: 00000000000005f9
-> [   74.333274] R10: ffff88007d001700 R11: ffffffff820a8a4d R12: ffff88007ad96300
-> [   74.333787] R13: 0000000000000002 R14: ffff880036604000 R15: 000077ff80000000
-> [   74.334308] FS:  00007fc70d8a7b40(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
-> [   74.334891] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   74.335314] CR2: 00007fff4144a710 CR3: 000000007ab56000 CR4: 00000000003406f0
-> [   74.335830] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [   74.336373] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-> [   74.336895] Call Trace:
-> [   74.337086]  skb_release_all+0xd/0x30
-> [   74.337356]  consume_skb+0x2c/0x90
-> [   74.337607]  free_unused_bufs+0x1ff/0x270 [virtio_net]
-> [   74.337988]  ? vp_synchronize_vectors+0x3b/0x60 [virtio_pci]
-> [   74.338398]  virtnet_xdp+0x21e/0x440 [virtio_net]
-> [   74.338741]  dev_change_xdp_fd+0x101/0x140
-> [   74.339048]  do_setlink+0xcf4/0xd20
-> [   74.339304]  ? symcmp+0xf/0x20
-> [   74.339529]  ? mls_level_isvalid+0x52/0x60
-> [   74.339828]  ? mls_range_isvalid+0x43/0x50
-> [   74.340135]  ? nla_parse+0xa0/0x100
-> [   74.340400]  rtnl_setlink+0xd4/0x120
-> [   74.340664]  ? cpumask_next_and+0x30/0x50
-> [   74.340966]  rtnetlink_rcv_msg+0x7f/0x1f0
-> [   74.341259]  ? sock_has_perm+0x59/0x60
-> [   74.341586]  ? napi_consume_skb+0xe2/0x100
-> [   74.342010]  ? rtnl_newlink+0x890/0x890
-> [   74.342435]  netlink_rcv_skb+0x92/0xb0
-> [   74.342846]  rtnetlink_rcv+0x23/0x30
-> [   74.343277]  netlink_unicast+0x162/0x210
-> [   74.343677]  netlink_sendmsg+0x2db/0x390
-> [   74.343968]  sock_sendmsg+0x33/0x40
-> [   74.344233]  SYSC_sendto+0xee/0x160
-> [   74.344482]  ? SYSC_bind+0xb0/0xe0
-> [   74.344806]  ? sock_alloc_file+0x92/0x110
-> [   74.345106]  ? fd_install+0x20/0x30
-> [   74.345360]  ? sock_map_fd+0x3f/0x60
-> [   74.345586]  SyS_sendto+0x9/0x10
-> [   74.345790]  entry_SYSCALL_64_fastpath+0x1a/0xa9
-> [   74.346086] RIP: 0033:0x7fc70d1b8f6d
-> [   74.346312] RSP: 002b:00007fff4144a708 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
-> [   74.346785] RAX: ffffffffffffffda RBX: 00000000ffffffff RCX: 00007fc70d1b8f6d
-> [   74.347244] RDX: 000000000000002c RSI: 00007fff4144a720 RDI: 0000000000000003
-> [   74.347683] RBP: 0000000000000003 R08: 0000000000000000 R09: 0000000000000000
-> [   74.348544] R10: 0000000000000000 R11: 0000000000000246 R12: 00007fff4144bd90
-> [   74.349082] R13: 0000000000000002 R14: 0000000000000002 R15: 00007fff4144cda0
-> [   74.349607] Code: 00 00 00 55 48 89 e5 53 48 89 fb 48 8b 7f 58 48 85 ff 74 0e 40 f6 c7 01 74 3d 48 c7 43 58 00 00 00 00 48 8b 7b 68 48 85 ff 74 05 <f0> ff 0f 74 20 48 8b 43 60 48 85 c0 74 14 65 8b 15 f3 ab 8d 7e
-> [   74.351008] RIP: skb_release_head_state+0x28/0x80 RSP: ffffc9000438b8d0
-> [   74.351625] ---[ end trace fe6e19fd11cfc80b ]---
-> 
-> Fixes: 2de2f7f40ef9 ("virtio_net: XDP support for adjust_head")
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/virtio_net.c | 35 ++++++++++++++++++-----------------
->  1 file changed, 18 insertions(+), 17 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 11e2853..9ff959c 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1775,7 +1775,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->  	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
->  	struct virtnet_info *vi = netdev_priv(dev);
->  	struct bpf_prog *old_prog;
-> -	u16 oxdp_qp, xdp_qp = 0, curr_qp;
-> +	u16 xdp_qp = 0, curr_qp;
->  	int i, err;
->  
->  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-> @@ -1813,24 +1813,24 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->  			return PTR_ERR(prog);
->  	}
->  
-> -	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
-> -	if (err) {
-> -		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
-> -		goto virtio_queue_err;
-> -	}
-> -
-> -	oxdp_qp = vi->xdp_queue_pairs;
-> -
->  	/* Changing the headroom in buffers is a disruptive operation because
->  	 * existing buffers must be flushed and reallocated. This will happen
->  	 * when a xdp program is initially added or xdp is disabled by removing
->  	 * the xdp program resulting in number of XDP queues changing.
->  	 */
->  	if (vi->xdp_queue_pairs != xdp_qp) {
-> -		vi->xdp_queue_pairs = xdp_qp;
->  		err = virtnet_reset(vi);
-> -		if (err)
-> +		if (err) {
-> +			dev_warn(&dev->dev, "XDP reset failure.\n");
->  			goto virtio_reset_err;
-> +		}
-> +		vi->xdp_queue_pairs = xdp_qp;
-
-But xdp_queue_pairs is being used to detect if we should allocate the XDP
-headroom. If we move it here do we have a set of buffers in the ring without
-the proper headroom when we assign the xdp program below?
-
-> +	}
-> +
-> +	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
-> +	if (err) {
-> +		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
-> +		goto virtio_queue_err;
->  	}
->  
->  	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
-> @@ -1844,17 +1844,18 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->  
->  	return 0;
-
-Thanks,
-John
+CgpPbiAyMDE35bm0MDLmnIgxN+aXpSAxMjo1MywgSm9obiBGYXN0YWJlbmQgd3JvdGU6Cj4gT24g
+MTctMDItMTUgMDE6MDggQU0sIEphc29uIFdhbmcgd3JvdGU6Cj4+IFdlIHNldCBxdWV1ZXMgYmVm
+b3JlIHJlc2V0IHdoaWNoIHdpbGwgY2F1c2UgYSBjcmFzaFsxXS4gVGhpcyBpcwo+PiBiZWNhdXNl
+IGlzX3hkcF9yYXdfYnVmZmVyX3F1ZXVlKCkgZGVwZW5kcyBvbiB0aGUgb2xkIHhkcCBxdWV1ZSBw
+YWlycwo+PiBudW1iZXIgdG8gZG8gdGhlIGNvcnJlY3QgZGV0ZWN0aW9uLiBTbyBmaXggdGhpcyBi
+eToKPj4KPj4gLSBzZXQgcXVldWVzIGFmdGVyIHJlc2V0LCB0byBrZWVwIHRoZSBvbGQgdmktPmN1
+cnJfcXVldWVfcGFpcnMuIChpbgo+PiAgICBmYWN0IHNldHRpbmcgcXVldWVzIGJlZm9yZSByZXNl
+dCBkb2VzIG5vdCB3b3JrcyBzaW5jZSBhZnRlciBmZWF0dXJlCj4+ICAgIHNldCwgYWxsIHF1ZXVl
+IHBhaXJzIHdlcmUgZW5hYmxlZCBieSBkZWZhdWx0IGR1cmluZyByZXNldCkuCj4+IC0gY2hhbmdl
+IHhkcF9xdWV1ZV9wYWlycyBvbmx5IGFmdGVyIHZpcnRuZXRfcmVzZXQoKSBpcyBzdWNjZWVkLgo+
+Pgo+PiBbMV0KPiBJJ20gZ3Vlc3NpbmcgdGhpcyBvY2N1cnMgd2hlbiBlbmFibGluZyBYRFAgd2hp
+bGUgcmVjZWl2aW5nIGxvdHMgb2YgdHJhZmZpYz8KCkkgaGl0IHRoaXMgdGhlbiBkaXNhYmxpbmcg
+WERQIHdoaWxlIHJlY2VpdmluZyBsb3RzIG9mIHRyYWZmaWMuCgo+Cj4+IFsgICA3NC4zMjgxNjhd
+IGdlbmVyYWwgcHJvdGVjdGlvbiBmYXVsdDogMDAwMCBbIzFdIFNNUAo+PiBbICAgNzQuMzI4NjI1
+XSBNb2R1bGVzIGxpbmtlZCBpbjogbmZzZCB4ZnMgbGliY3JjMzJjIHZpcnRpb19uZXQgdmlydGlv
+X3BjaQo+PiBbICAgNzQuMzI5MTE3XSBDUFU6IDAgUElEOiAyODQ5IENvbW06IHhkcDIgTm90IHRh
+aW50ZWQgNC4xMC4wLXJjNysgIzQ5OQo+PiBbICAgNzQuMzI5NTc3XSBIYXJkd2FyZSBuYW1lOiBR
+RU1VIFN0YW5kYXJkIFBDIChpNDQwRlggKyBQSUlYLCAxOTk2KSwgQklPUyByZWwtMS4xMC4xLTAt
+Zzg4OTE2OTctcHJlYnVpbHQucWVtdS1wcm9qZWN0Lm9yZyAwNC8wMS8yMDE0Cj4+IFsgICA3NC4z
+MzA0MjRdIHRhc2s6IGZmZmY4ODAwN2E4OTQwMDAgdGFzay5zdGFjazogZmZmZmM5MDAwNDM4ODAw
+MAo+PiBbICAgNzQuMzMwODQ0XSBSSVA6IDAwMTA6c2tiX3JlbGVhc2VfaGVhZF9zdGF0ZSsweDI4
+LzB4ODAKPj4gWyAgIDc0LjMzMTI5OF0gUlNQOiAwMDE4OmZmZmZjOTAwMDQzOGI4ZDAgRUZMQUdT
+OiAwMDAxMDIwNgo+PiBbICAgNzQuMzMxNjc2XSBSQVg6IDAwMDAwMDAwMDAwMDAwMDAgUkJYOiBm
+ZmZmODgwMDdhZDk2MzAwIFJDWDogMDAwMDAwMDAwMDAwMDAwMAo+PiBbICAgNzQuMzMyMjE3XSBS
+RFg6IGZmZmY4ODAwN2ZjMTM3YTggUlNJOiBmZmZmODgwMDdmYzBkYjI4IFJESTogMDAwMWJmMDAw
+MDAwMDFiZQo+PiBbICAgNzQuMzMyNzU4XSBSQlA6IGZmZmZjOTAwMDQzOGI4ZDggUjA4OiAwMDAw
+MDAwMDAwMDUwMDhmIFIwOTogMDAwMDAwMDAwMDAwMDVmOQo+PiBbICAgNzQuMzMzMjc0XSBSMTA6
+IGZmZmY4ODAwN2QwMDE3MDAgUjExOiBmZmZmZmZmZjgyMGE4YTRkIFIxMjogZmZmZjg4MDA3YWQ5
+NjMwMAo+PiBbICAgNzQuMzMzNzg3XSBSMTM6IDAwMDAwMDAwMDAwMDAwMDIgUjE0OiBmZmZmODgw
+MDM2NjA0MDAwIFIxNTogMDAwMDc3ZmY4MDAwMDAwMAo+PiBbICAgNzQuMzM0MzA4XSBGUzogIDAw
+MDA3ZmM3MGQ4YTdiNDAoMDAwMCkgR1M6ZmZmZjg4MDA3ZmMwMDAwMCgwMDAwKSBrbmxHUzowMDAw
+MDAwMDAwMDAwMDAwCj4+IFsgICA3NC4zMzQ4OTFdIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAw
+MCBDUjA6IDAwMDAwMDAwODAwNTAwMzMKPj4gWyAgIDc0LjMzNTMxNF0gQ1IyOiAwMDAwN2ZmZjQx
+NDRhNzEwIENSMzogMDAwMDAwMDA3YWI1NjAwMCBDUjQ6IDAwMDAwMDAwMDAzNDA2ZjAKPj4gWyAg
+IDc0LjMzNTgzMF0gRFIwOiAwMDAwMDAwMDAwMDAwMDAwIERSMTogMDAwMDAwMDAwMDAwMDAwMCBE
+UjI6IDAwMDAwMDAwMDAwMDAwMDAKPj4gWyAgIDc0LjMzNjM3M10gRFIzOiAwMDAwMDAwMDAwMDAw
+MDAwIERSNjogMDAwMDAwMDBmZmZlMGZmMCBEUjc6IDAwMDAwMDAwMDAwMDA0MDAKPj4gWyAgIDc0
+LjMzNjg5NV0gQ2FsbCBUcmFjZToKPj4gWyAgIDc0LjMzNzA4Nl0gIHNrYl9yZWxlYXNlX2FsbCsw
+eGQvMHgzMAo+PiBbICAgNzQuMzM3MzU2XSAgY29uc3VtZV9za2IrMHgyYy8weDkwCj4+IFsgICA3
+NC4zMzc2MDddICBmcmVlX3VudXNlZF9idWZzKzB4MWZmLzB4MjcwIFt2aXJ0aW9fbmV0XQo+PiBb
+ICAgNzQuMzM3OTg4XSAgPyB2cF9zeW5jaHJvbml6ZV92ZWN0b3JzKzB4M2IvMHg2MCBbdmlydGlv
+X3BjaV0KPj4gWyAgIDc0LjMzODM5OF0gIHZpcnRuZXRfeGRwKzB4MjFlLzB4NDQwIFt2aXJ0aW9f
+bmV0XQo+PiBbICAgNzQuMzM4NzQxXSAgZGV2X2NoYW5nZV94ZHBfZmQrMHgxMDEvMHgxNDAKPj4g
+WyAgIDc0LjMzOTA0OF0gIGRvX3NldGxpbmsrMHhjZjQvMHhkMjAKPj4gWyAgIDc0LjMzOTMwNF0g
+ID8gc3ltY21wKzB4Zi8weDIwCj4+IFsgICA3NC4zMzk1MjldICA/IG1sc19sZXZlbF9pc3ZhbGlk
+KzB4NTIvMHg2MAo+PiBbICAgNzQuMzM5ODI4XSAgPyBtbHNfcmFuZ2VfaXN2YWxpZCsweDQzLzB4
+NTAKPj4gWyAgIDc0LjM0MDEzNV0gID8gbmxhX3BhcnNlKzB4YTAvMHgxMDAKPj4gWyAgIDc0LjM0
+MDQwMF0gIHJ0bmxfc2V0bGluaysweGQ0LzB4MTIwCj4+IFsgICA3NC4zNDA2NjRdICA/IGNwdW1h
+c2tfbmV4dF9hbmQrMHgzMC8weDUwCj4+IFsgICA3NC4zNDA5NjZdICBydG5ldGxpbmtfcmN2X21z
+ZysweDdmLzB4MWYwCj4+IFsgICA3NC4zNDEyNTldICA/IHNvY2tfaGFzX3Blcm0rMHg1OS8weDYw
+Cj4+IFsgICA3NC4zNDE1ODZdICA/IG5hcGlfY29uc3VtZV9za2IrMHhlMi8weDEwMAo+PiBbICAg
+NzQuMzQyMDEwXSAgPyBydG5sX25ld2xpbmsrMHg4OTAvMHg4OTAKPj4gWyAgIDc0LjM0MjQzNV0g
+IG5ldGxpbmtfcmN2X3NrYisweDkyLzB4YjAKPj4gWyAgIDc0LjM0Mjg0Nl0gIHJ0bmV0bGlua19y
+Y3YrMHgyMy8weDMwCj4+IFsgICA3NC4zNDMyNzddICBuZXRsaW5rX3VuaWNhc3QrMHgxNjIvMHgy
+MTAKPj4gWyAgIDc0LjM0MzY3N10gIG5ldGxpbmtfc2VuZG1zZysweDJkYi8weDM5MAo+PiBbICAg
+NzQuMzQzOTY4XSAgc29ja19zZW5kbXNnKzB4MzMvMHg0MAo+PiBbICAgNzQuMzQ0MjMzXSAgU1lT
+Q19zZW5kdG8rMHhlZS8weDE2MAo+PiBbICAgNzQuMzQ0NDgyXSAgPyBTWVNDX2JpbmQrMHhiMC8w
+eGUwCj4+IFsgICA3NC4zNDQ4MDZdICA/IHNvY2tfYWxsb2NfZmlsZSsweDkyLzB4MTEwCj4+IFsg
+ICA3NC4zNDUxMDZdICA/IGZkX2luc3RhbGwrMHgyMC8weDMwCj4+IFsgICA3NC4zNDUzNjBdICA/
+IHNvY2tfbWFwX2ZkKzB4M2YvMHg2MAo+PiBbICAgNzQuMzQ1NTg2XSAgU3lTX3NlbmR0bysweDkv
+MHgxMAo+PiBbICAgNzQuMzQ1NzkwXSAgZW50cnlfU1lTQ0FMTF82NF9mYXN0cGF0aCsweDFhLzB4
+YTkKPj4gWyAgIDc0LjM0NjA4Nl0gUklQOiAwMDMzOjB4N2ZjNzBkMWI4ZjZkCj4+IFsgICA3NC4z
+NDYzMTJdIFJTUDogMDAyYjowMDAwN2ZmZjQxNDRhNzA4IEVGTEFHUzogMDAwMDAyNDYgT1JJR19S
+QVg6IDAwMDAwMDAwMDAwMDAwMmMKPj4gWyAgIDc0LjM0Njc4NV0gUkFYOiBmZmZmZmZmZmZmZmZm
+ZmRhIFJCWDogMDAwMDAwMDBmZmZmZmZmZiBSQ1g6IDAwMDA3ZmM3MGQxYjhmNmQKPj4gWyAgIDc0
+LjM0NzI0NF0gUkRYOiAwMDAwMDAwMDAwMDAwMDJjIFJTSTogMDAwMDdmZmY0MTQ0YTcyMCBSREk6
+IDAwMDAwMDAwMDAwMDAwMDMKPj4gWyAgIDc0LjM0NzY4M10gUkJQOiAwMDAwMDAwMDAwMDAwMDAz
+IFIwODogMDAwMDAwMDAwMDAwMDAwMCBSMDk6IDAwMDAwMDAwMDAwMDAwMDAKPj4gWyAgIDc0LjM0
+ODU0NF0gUjEwOiAwMDAwMDAwMDAwMDAwMDAwIFIxMTogMDAwMDAwMDAwMDAwMDI0NiBSMTI6IDAw
+MDA3ZmZmNDE0NGJkOTAKPj4gWyAgIDc0LjM0OTA4Ml0gUjEzOiAwMDAwMDAwMDAwMDAwMDAyIFIx
+NDogMDAwMDAwMDAwMDAwMDAwMiBSMTU6IDAwMDA3ZmZmNDE0NGNkYTAKPj4gWyAgIDc0LjM0OTYw
+N10gQ29kZTogMDAgMDAgMDAgNTUgNDggODkgZTUgNTMgNDggODkgZmIgNDggOGIgN2YgNTggNDgg
+ODUgZmYgNzQgMGUgNDAgZjYgYzcgMDEgNzQgM2QgNDggYzcgNDMgNTggMDAgMDAgMDAgMDAgNDgg
+OGIgN2IgNjggNDggODUgZmYgNzQgMDUgPGYwPiBmZiAwZiA3NCAyMCA0OCA4YiA0MyA2MCA0OCA4
+NSBjMCA3NCAxNCA2NSA4YiAxNSBmMyBhYiA4ZCA3ZQo+PiBbICAgNzQuMzUxMDA4XSBSSVA6IHNr
+Yl9yZWxlYXNlX2hlYWRfc3RhdGUrMHgyOC8weDgwIFJTUDogZmZmZmM5MDAwNDM4YjhkMAo+PiBb
+ICAgNzQuMzUxNjI1XSAtLS1bIGVuZCB0cmFjZSBmZTZlMTlmZDExY2ZjODBiIF0tLS0KPj4KPj4g
+Rml4ZXM6IDJkZTJmN2Y0MGVmOSAoInZpcnRpb19uZXQ6IFhEUCBzdXBwb3J0IGZvciBhZGp1c3Rf
+aGVhZCIpCj4+IENjOiBKb2huIEZhc3RhYmVuZCA8am9obi5mYXN0YWJlbmRAZ21haWwuY29tPgo+
+PiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+PiAtLS0K
+Pj4gICBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgfCAzNSArKysrKysrKysrKysrKysrKystLS0t
+LS0tLS0tLS0tLS0tLQo+PiAgIDEgZmlsZSBjaGFuZ2VkLCAxOCBpbnNlcnRpb25zKCspLCAxNyBk
+ZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyBi
+L2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+PiBpbmRleCAxMWUyODUzLi45ZmY5NTljIDEwMDY0
+NAo+PiAtLS0gYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPj4gKysrIGIvZHJpdmVycy9uZXQv
+dmlydGlvX25ldC5jCj4+IEBAIC0xNzc1LDcgKzE3NzUsNyBAQCBzdGF0aWMgaW50IHZpcnRuZXRf
+eGRwX3NldChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgYnBmX3Byb2cgKnByb2cpCj4+
+ICAgCXVuc2lnbmVkIGxvbmcgaW50IG1heF9zeiA9IFBBR0VfU0laRSAtIHNpemVvZihzdHJ1Y3Qg
+cGFkZGVkX3ZuZXRfaGRyKTsKPj4gICAJc3RydWN0IHZpcnRuZXRfaW5mbyAqdmkgPSBuZXRkZXZf
+cHJpdihkZXYpOwo+PiAgIAlzdHJ1Y3QgYnBmX3Byb2cgKm9sZF9wcm9nOwo+PiAtCXUxNiBveGRw
+X3FwLCB4ZHBfcXAgPSAwLCBjdXJyX3FwOwo+PiArCXUxNiB4ZHBfcXAgPSAwLCBjdXJyX3FwOwo+
+PiAgIAlpbnQgaSwgZXJyOwo+PiAgIAo+PiAgIAlpZiAodmlydGlvX2hhc19mZWF0dXJlKHZpLT52
+ZGV2LCBWSVJUSU9fTkVUX0ZfR1VFU1RfVFNPNCkgfHwKPj4gQEAgLTE4MTMsMjQgKzE4MTMsMjQg
+QEAgc3RhdGljIGludCB2aXJ0bmV0X3hkcF9zZXQoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3Ry
+dWN0IGJwZl9wcm9nICpwcm9nKQo+PiAgIAkJCXJldHVybiBQVFJfRVJSKHByb2cpOwo+PiAgIAl9
+Cj4+ICAgCj4+IC0JZXJyID0gX3ZpcnRuZXRfc2V0X3F1ZXVlcyh2aSwgY3Vycl9xcCArIHhkcF9x
+cCk7Cj4+IC0JaWYgKGVycikgewo+PiAtCQlkZXZfd2FybigmZGV2LT5kZXYsICJYRFAgRGV2aWNl
+IHF1ZXVlIGFsbG9jYXRpb24gZmFpbHVyZS5cbiIpOwo+PiAtCQlnb3RvIHZpcnRpb19xdWV1ZV9l
+cnI7Cj4+IC0JfQo+PiAtCj4+IC0Jb3hkcF9xcCA9IHZpLT54ZHBfcXVldWVfcGFpcnM7Cj4+IC0K
+Pj4gICAJLyogQ2hhbmdpbmcgdGhlIGhlYWRyb29tIGluIGJ1ZmZlcnMgaXMgYSBkaXNydXB0aXZl
+IG9wZXJhdGlvbiBiZWNhdXNlCj4+ICAgCSAqIGV4aXN0aW5nIGJ1ZmZlcnMgbXVzdCBiZSBmbHVz
+aGVkIGFuZCByZWFsbG9jYXRlZC4gVGhpcyB3aWxsIGhhcHBlbgo+PiAgIAkgKiB3aGVuIGEgeGRw
+IHByb2dyYW0gaXMgaW5pdGlhbGx5IGFkZGVkIG9yIHhkcCBpcyBkaXNhYmxlZCBieSByZW1vdmlu
+Zwo+PiAgIAkgKiB0aGUgeGRwIHByb2dyYW0gcmVzdWx0aW5nIGluIG51bWJlciBvZiBYRFAgcXVl
+dWVzIGNoYW5naW5nLgo+PiAgIAkgKi8KPj4gICAJaWYgKHZpLT54ZHBfcXVldWVfcGFpcnMgIT0g
+eGRwX3FwKSB7Cj4+IC0JCXZpLT54ZHBfcXVldWVfcGFpcnMgPSB4ZHBfcXA7Cj4+ICAgCQllcnIg
+PSB2aXJ0bmV0X3Jlc2V0KHZpKTsKPj4gLQkJaWYgKGVycikKPj4gKwkJaWYgKGVycikgewo+PiAr
+CQkJZGV2X3dhcm4oJmRldi0+ZGV2LCAiWERQIHJlc2V0IGZhaWx1cmUuXG4iKTsKPj4gICAJCQln
+b3RvIHZpcnRpb19yZXNldF9lcnI7Cj4+ICsJCX0KPj4gKwkJdmktPnhkcF9xdWV1ZV9wYWlycyA9
+IHhkcF9xcDsKPiBCdXQgeGRwX3F1ZXVlX3BhaXJzIGlzIGJlaW5nIHVzZWQgdG8gZGV0ZWN0IGlm
+IHdlIHNob3VsZCBhbGxvY2F0ZSB0aGUgWERQCj4gaGVhZHJvb20uIElmIHdlIG1vdmUgaXQgaGVy
+ZSBkbyB3ZSBoYXZlIGEgc2V0IG9mIGJ1ZmZlcnMgaW4gdGhlIHJpbmcgd2l0aG91dAo+IHRoZSBw
+cm9wZXIgaGVhZHJvb20gd2hlbiB3ZSBhc3NpZ24gdGhlIHhkcCBwcm9ncmFtIGJlbG93PwoKUmln
+aHQsIHNvIGhvdyBhYm91dCBwYXNzaW5nIHhkcF9xdWV1ZV9wYWlycyBhcyBhIHBhcmFtZXRlciB0
+byAKdmlydG5ldF9yZXNldCgpLiBUaGVuIHZpcnRuZXRfcmVzZXQoKSBjYW4gc2V0IGl0IGFmdGVy
+IApfcmVtb3ZlX3ZxX2NvbW1vbigpIGJ1dCBiZWZvcmUgdmlydG5ldF9yZXN0b3JlX3VwKCk/CgpU
+aGFua3MKCj4KPj4gKwl9Cj4+ICsKPj4gKwllcnIgPSBfdmlydG5ldF9zZXRfcXVldWVzKHZpLCBj
+dXJyX3FwICsgeGRwX3FwKTsKPj4gKwlpZiAoZXJyKSB7Cj4+ICsJCWRldl93YXJuKCZkZXYtPmRl
+diwgIlhEUCBEZXZpY2UgcXVldWUgYWxsb2NhdGlvbiBmYWlsdXJlLlxuIik7Cj4+ICsJCWdvdG8g
+dmlydGlvX3F1ZXVlX2VycjsKPj4gICAJfQo+PiAgIAo+PiAgIAluZXRpZl9zZXRfcmVhbF9udW1f
+cnhfcXVldWVzKGRldiwgY3Vycl9xcCArIHhkcF9xcCk7Cj4+IEBAIC0xODQ0LDE3ICsxODQ0LDE4
+IEBAIHN0YXRpYyBpbnQgdmlydG5ldF94ZHBfc2V0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0
+cnVjdCBicGZfcHJvZyAqcHJvZykKPj4gICAKPj4gICAJcmV0dXJuIDA7Cj4gVGhhbmtzLAo+IEpv
+aG4KPgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmly
+dHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5k
+YXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3Rp
+bmZvL3ZpcnR1YWxpemF0aW9u
