@@ -1,37 +1,32 @@
-From: David Daney <david.daney@cavium.com>
-Subject: [PATCH] of_mdio: Add "broadcom,bcm5241" to the whitelist.
-Date: Fri, 17 Feb 2017 12:04:12 -0800
-Message-ID: <20170217200412.11680-1-david.daney@cavium.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netvsc: fix typo on statistics
+Date: Fri, 17 Feb 2017 15:08:52 -0500 (EST)
+Message-ID: <20170217.150852.1713216306408468161.davem@davemloft.net>
+References: <20170217193620.12175-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sixaio@microsoft.com, sixiao@microsoft.com,
+        sthemmin@microsoft.com
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48236 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932303AbdBQUIy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:08:54 -0500
+In-Reply-To: <20170217193620.12175-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some Cavium dev boards have firmware which doesn't supply a proper
-ethernet-phy-ieee802.3-c22" compatible property.  Restore these boards
-to working order by whitelisting this compatible value.
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 17 Feb 2017 11:36:20 -0800
 
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/of/of_mdio.c | 1 +
- 1 file changed, 1 insertion(+)
+> From: Simon Xiao <sixaio@microsoft.com>
+> 
+> Return the correct tx_errors stats in netvsc.
+> 
+> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 262281b..0b29798 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -147,6 +147,7 @@ EXPORT_SYMBOL(of_mdio_parse_addr);
-  */
- static const struct of_device_id whitelist_phys[] = {
- 	{ .compatible = "brcm,40nm-ephy" },
-+	{ .compatible = "broadcom,bcm5241" },
- 	{ .compatible = "marvell,88E1111", },
- 	{ .compatible = "marvell,88e1116", },
- 	{ .compatible = "marvell,88e1118", },
--- 
-2.9.3
+Applied, thanks Stephen.
