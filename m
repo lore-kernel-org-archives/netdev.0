@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rxrpc: Change module filename to rxrpc.ko
-Date: Fri, 17 Feb 2017 15:09:42 -0500 (EST)
-Message-ID: <20170217.150942.1854100630890347821.davem@davemloft.net>
-References: <148735538165.2347.15424333408396462662.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net-next 1/1] pkt_sched: Remove useless qdisc_stab_lock
+Date: Fri, 17 Feb 2017 15:10:36 -0500 (EST)
+Message-ID: <20170217.151036.1084044129536261272.davem@davemloft.net>
+References: <1487313259-103328-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48250 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48274 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932303AbdBQUJo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:09:44 -0500
-In-Reply-To: <148735538165.2347.15424333408396462662.stgit@warthog.procyon.org.uk>
+        with ESMTP id S932303AbdBQUKi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:10:38 -0500
+In-Reply-To: <1487313259-103328-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 17 Feb 2017 18:16:21 +0000
+From: fgao@ikuai8.com
+Date: Fri, 17 Feb 2017 14:34:19 +0800
 
-> Change module filename from af-rxrpc.ko to rxrpc.ko so as to be consistent
-> with the other protocol drivers.
+> From: Gao Feng <fgao@ikuai8.com>
 > 
-> Also adjust the documentation to reflect this.
+> The qdisc_stab_lock is used in qdisc_get_stab and qdisc_put_stab.
+> These two functions are invoked in qdisc_create, qdisc_change, and
+> qdisc_destroy which run fully under RTNL.
 > 
-> Further, there is no longer a standalone rxkad module, as it has been
-> merged into the rxrpc core, so get rid of references to that.
+> So it already makes sure only one could access the qdisc_stab_list at
+> the same time. Then it is unnecessary to use qdisc_stab_lock now.
 > 
-> Reported-by: Marc Dionne <marc.dionne@auristor.com>
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
-Applied.
+Applied, thank you.
