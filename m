@@ -1,195 +1,82 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [net-next 06/14] ixgbe: Update driver to make use of DMA
- attributes in Rx path
-Date: Fri, 17 Feb 2017 07:27:57 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F201EEFEC2@szxemi502-mbx.china.huawei.com>
-References: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
- <20170216125041.46668-7-jeffrey.t.kirsher@intel.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [4.9.10] ip_route_me_harder() reading off-slab
+Date: Fri, 17 Feb 2017 08:39:28 +0100
+Message-ID: <20170217073928.GA25854@breakpoint.cc>
+References: <CAMVG2ssKxnEsu4=orZyB3UsHwT2CZhpWKFn2UmtoPOEu1KMHPw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Jan Beulich <JBeulich@suse.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        netfilter-devel@vger.kernel.org, pablo@netfilter.org
+To: Daniel J Blueman <daniel@quora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:36352 "EHLO
-        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755711AbdBQH2h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 02:28:37 -0500
-In-Reply-To: <20170216125041.46668-7-jeffrey.t.kirsher@intel.com>
-Content-Language: zh-CN
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45236 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755643AbdBQHkr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 02:40:47 -0500
+Content-Disposition: inline
+In-Reply-To: <CAMVG2ssKxnEsu4=orZyB3UsHwT2CZhpWKFn2UmtoPOEu1KMHPw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Daniel J Blueman <daniel@quora.org> wrote:
 
+[ CC nf-devel, pablo ]
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Jeff Kirsher
-> Sent: Thursday, February 16, 2017 8:51 PM
-> To: davem@davemloft.net
-> Cc: Alexander Duyck; netdev@vger.kernel.org; nhorman@redhat.com;
-> sassmann@redhat.com; jogreene@redhat.com; Jeff Kirsher
-> Subject: [net-next 06/14] ixgbe: Update driver to make use of DMA attributes in
-> Rx path
+> When booting a VM in libvirt/KVM attached to a local bridge and KASAN
+> enabled on 4.9.10, we see a stream of KASAN warnings about off-slab
+> access [1].
 > 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch adds support for DMA_ATTR_SKIP_CPU_SYNC and
-> DMA_ATTR_WEAK_ORDERING.  By enabling both of these for the Rx path we
-> are able to see performance improvements on architectures that implement
-> either one due to the fact that page mapping and unmapping only has to sync
-> what is actually being used instead of the entire buffer.  In addition by
-> enabling the weak ordering attribute enables a performance improvement for
-> architectures that can associate a memory ordering with a DMA buffer such as
-> Sparc.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  3 ++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 56
-> ++++++++++++++++++---------
->  2 files changed, 40 insertions(+), 19 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> index 6530eff01a0b..8167e77b924f 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> @@ -104,6 +104,9 @@
->  /* How many Rx Buffers do we bundle into one write to the hardware ? */
->  #define IXGBE_RX_BUFFER_WRITE	16	/* Must be power of 2 */
-> 
-> +#define IXGBE_RX_DMA_ATTR \
-> +	(DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
-> +
->  enum ixgbe_tx_flags {
->  	/* cmd_type flags */
->  	IXGBE_TX_FLAGS_HW_VLAN	= 0x01,
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index dde2c852e01d..ddde6759f094 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -1570,8 +1570,10 @@ static bool ixgbe_alloc_mapped_page(struct
-> ixgbe_ring *rx_ring,
->  	}
-> 
->  	/* map page for use */
-> -	dma = dma_map_page(rx_ring->dev, page, 0,
-> -			   ixgbe_rx_pg_size(rx_ring), DMA_FROM_DEVICE);
-> +	dma = dma_map_page_attrs(rx_ring->dev, page, 0,
-> +				 ixgbe_rx_pg_size(rx_ring),
-> +				 DMA_FROM_DEVICE,
-> +				 IXGBE_RX_DMA_ATTR);
-> 
->  	/*
->  	 * if mapping failed free memory back to system since @@ -1614,6
-> +1616,12 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16
-> cleaned_count)
->  		if (!ixgbe_alloc_mapped_page(rx_ring, bi))
->  			break;
-> 
-> +		/* sync the buffer for use by the device */
-> +		dma_sync_single_range_for_device(rx_ring->dev, bi->dma,
-> +						 bi->page_offset,
-> +						 ixgbe_rx_bufsz(rx_ring),
-> +						 DMA_FROM_DEVICE);
-> +
->  		/*
->  		 * Refresh the desc even if buffer_addrs didn't change
->  		 * because each write-back erases this info.
-> @@ -1832,8 +1840,10 @@ static void ixgbe_dma_sync_frag(struct ixgbe_ring
-> *rx_ring,  {
->  	/* if the page was released unmap it, else just sync our portion */
->  	if (unlikely(IXGBE_CB(skb)->page_released)) {
-> -		dma_unmap_page(rx_ring->dev, IXGBE_CB(skb)->dma,
-> -			       ixgbe_rx_pg_size(rx_ring), DMA_FROM_DEVICE);
-> +		dma_unmap_page_attrs(rx_ring->dev, IXGBE_CB(skb)->dma,
-> +				     ixgbe_rx_pg_size(rx_ring),
-> +				     DMA_FROM_DEVICE,
-> +				     IXGBE_RX_DMA_ATTR);
->  		IXGBE_CB(skb)->page_released = false;
->  	} else {
->  		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[0]; @@
-> -1917,12 +1927,6 @@ static void ixgbe_reuse_rx_page(struct ixgbe_ring
-> *rx_ring,
-> 
->  	/* transfer page from old buffer to new buffer */
->  	*new_buff = *old_buff;
-> -
-> -	/* sync the buffer for use by the device */
-> -	dma_sync_single_range_for_device(rx_ring->dev, new_buff->dma,
-> -					 new_buff->page_offset,
-> -					 ixgbe_rx_bufsz(rx_ring),
-> -					 DMA_FROM_DEVICE);
->  }
-> 
->  static inline bool ixgbe_page_is_reserved(struct page *page) @@ -2089,9
-> +2093,10 @@ static struct sk_buff *ixgbe_fetch_rx_buffer(struct ixgbe_ring
-> *rx_ring,
->  		IXGBE_CB(skb)->page_released = true;
->  	} else {
->  		/* we are not reusing the buffer so unmap it */
-> -		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
-> -			       ixgbe_rx_pg_size(rx_ring),
-> -			       DMA_FROM_DEVICE);
-> +		dma_unmap_page_attrs(rx_ring->dev, rx_buffer->dma,
-> +				     ixgbe_rx_pg_size(rx_ring),
-> +				     DMA_FROM_DEVICE,
-> +				     IXGBE_RX_DMA_ATTR);
->  	}
-> 
->  	/* clear contents of buffer_info */
-> @@ -4883,10 +4888,11 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring
-> *rx_ring)
->  		if (rx_buffer->skb) {
->  			struct sk_buff *skb = rx_buffer->skb;
->  			if (IXGBE_CB(skb)->page_released)
-> -				dma_unmap_page(dev,
-> -					       IXGBE_CB(skb)->dma,
-> -					       ixgbe_rx_bufsz(rx_ring),
-> -					       DMA_FROM_DEVICE);
-> +				dma_unmap_page_attrs(dev,
-> +						     IXGBE_CB(skb)->dma,
-> +						     ixgbe_rx_pg_size(rx_ring),
-> +						     DMA_FROM_DEVICE,
-> +						     IXGBE_RX_DMA_ATTR);
->  			dev_kfree_skb(skb);
->  			rx_buffer->skb = NULL;
->  		}
-> @@ -4894,8 +4900,20 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring
-> *rx_ring)
->  		if (!rx_buffer->page)
->  			continue;
-> 
-> -		dma_unmap_page(dev, rx_buffer->dma,
-> -			       ixgbe_rx_pg_size(rx_ring), DMA_FROM_DEVICE);
-> +		/* Invalidate cache lines that may have been written to by
-> +		 * device so that we avoid corrupting memory.
-> +		 */
-> +		dma_sync_single_range_for_cpu(rx_ring->dev,
-> +					      rx_buffer->dma,
-> +					      rx_buffer->page_offset,
-> +					      ixgbe_rx_bufsz(rx_ring),
-> +					      DMA_FROM_DEVICE);
-> +
-> +		/* free resources associated with mapping */
-> +		dma_unmap_page_attrs(dev, rx_buffer->dma,
-> +				     ixgbe_rx_pg_size(rx_ring),
-> +				     DMA_FROM_DEVICE,
-> +				     IXGBE_RX_DMA_ATTR);
->  		__free_pages(rx_buffer->page, ixgbe_rx_pg_order(rx_ring));
-> 
->  		rx_buffer->page = NULL;
-> --
-> 2.11.0
+> Let me know if you'd like more debug.
 
-Hi Alex,
-Is this patch available for arm64? I remember that it needs IOMMU support, right? 
+Does this patch help?
+
+Subject: [PATCH nf] netfilter: use skb_to_full_sk in ip_route_me_harder
+
+inet_sk(skb->sk) is illegal in case skb is attached to request socket.
+
+Fixes: ca6fb0651883 ("tcp: attach SYNACK messages to request sockets instead of listener")
+Reported by: Daniel J Blueman <daniel@quora.org>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv4/netfilter.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index b3cc1335adbc..c0cc6aa8cfaa 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -23,7 +23,8 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
+ 	struct rtable *rt;
+ 	struct flowi4 fl4 = {};
+ 	__be32 saddr = iph->saddr;
+-	__u8 flags = skb->sk ? inet_sk_flowi_flags(skb->sk) : 0;
++	const struct sock *sk = skb_to_full_sk(skb);
++	__u8 flags = sk ? inet_sk_flowi_flags(sk) : 0;
+ 	struct net_device *dev = skb_dst(skb)->dev;
+ 	unsigned int hh_len;
+ 
+@@ -40,7 +41,7 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
+ 	fl4.daddr = iph->daddr;
+ 	fl4.saddr = saddr;
+ 	fl4.flowi4_tos = RT_TOS(iph->tos);
+-	fl4.flowi4_oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
++	fl4.flowi4_oif = sk ? sk->sk_bound_dev_if : 0;
+ 	if (!fl4.flowi4_oif)
+ 		fl4.flowi4_oif = l3mdev_master_ifindex(dev);
+ 	fl4.flowi4_mark = skb->mark;
+@@ -61,7 +62,7 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
+ 	    xfrm_decode_session(skb, flowi4_to_flowi(&fl4), AF_INET) == 0) {
+ 		struct dst_entry *dst = skb_dst(skb);
+ 		skb_dst_set(skb, NULL);
+-		dst = xfrm_lookup(net, dst, flowi4_to_flowi(&fl4), skb->sk, 0);
++		dst = xfrm_lookup(net, dst, flowi4_to_flowi(&fl4), sk, 0);
+ 		if (IS_ERR(dst))
+ 			return PTR_ERR(dst);
+ 		skb_dst_set(skb, dst);
+-- 
+2.10.2
