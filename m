@@ -1,36 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2, 1/1] tcp: accommodate sequence number to a peer's
- shrunk receive window caused by precision loss in window scaling
-Date: Fri, 17 Feb 2017 15:30:48 -0500 (EST)
-Message-ID: <20170217.153048.1532740505360956399.davem@davemloft.net>
-References: <BA334603-D37E-4C94-BB8B-19A830E0355C@netapp.com>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Subject: [PATCH net-next v2 00/12]  net: ethernet: aquantia: improvements and fixes
+Date: Sat, 18 Feb 2017 00:07:22 +0300
+Message-ID: <cover.1487365317.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Cheng.Cui@netapp.com
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        Pavel Belous <pavel.belous@aquantia.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48660 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934090AbdBQUm0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:42:26 -0500
-In-Reply-To: <BA334603-D37E-4C94-BB8B-19A830E0355C@netapp.com>
+Received: from mail-sn1nam01on0064.outbound.protection.outlook.com ([104.47.32.64]:30944
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S934271AbdBQVI7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 16:08:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Cui, Cheng" <Cheng.Cui@netapp.com>
-Date: Fri, 17 Feb 2017 17:04:55 +0000
+From: Pavel Belous <pavel.belous@aquantia.com>
 
-> Prevent sending out a left-shifted sequence number from a Linux sender in 
-> response to a peer's shrunk receive-window caused by losing least significant
-> bits in window-scaling.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Cheng Cui <Cheng.Cui@netapp.com>
+The following patchset contains improvements and fixes for aQuantia
+AQtion ethernet driver from net-next tree.
 
-Applied to net-next.
+Most fixes are based on the comments from Lino Sanfilippo.
+
+Sanity testing was performed on real HW. No regression found.
+
+v1->v2 :Removed buffers copying.
+	Fixed dma error handling.
+
+
+Please review.
+Thanks.
+Pavel Belous (12):
+  net: ethernet: aquantia: Removed extra assignment for skb->dev.
+  net: ethernet: aquantia: Removed busy_count field.
+  net: ethernet: aquantia: Removed unnecessary comparsion "old_mtu ==
+    new_mtu".
+  net: ethernet: aquantia: Using module_pci_driver.
+  net: ethernet: aquantia: Superfluous initialization of "err".
+  net: ethernet: aquantia: Fixed missing rtnl_unlock.
+  net: ethernet: aquantia: Using NETDEV_TX_OK instead 0.
+  net: ethernet: aquantia: Null pointer check for aq_nic_ndev_alloc.
+  net: ethernet: aquantia: Call netdev_register after all initialized.
+  net: ethernet: aquantia: Fixed incorrect buff->len calculation.
+  net: ethernet: aquantia: Fixed memory allocation if
+    AQ_CFG_RX_FRAME_MAX > 1 page.
+  net: ethernet: aquantia: Copying tx buffers is not needed.
+
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c   |  34 +---
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 205 +++++++++++----------
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  24 +--
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.h   |   3 -
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |   1 -
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |   4 +-
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |   4 +-
+ 7 files changed, 122 insertions(+), 153 deletions(-)
+
+-- 
+2.7.4
