@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next v2 09/12] net: ethernet: aquantia: Call netdev_register after all initialized.
-Date: Sat, 18 Feb 2017 00:07:31 +0300
-Message-ID: <4c1f4507fcb3df92e2ea81843870c4a620e59181.1487365317.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next v2 03/12] net: ethernet: aquantia: Removed unnecessary comparsion "old_mtu == new_mtu".
+Date: Sat, 18 Feb 2017 00:07:25 +0300
+Message-ID: <6b965301a08041d2a8d8537a25e8a0642fa6d669.1487365317.git.pavel.belous@aquantia.com>
 References: <cover.1487365317.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,50 +12,48 @@ Cc: netdev@vger.kernel.org,
         Pavel Belous <pavel.belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0072.outbound.protection.outlook.com ([104.47.32.72]:2114
+Received: from mail-sn1nam01on0077.outbound.protection.outlook.com ([104.47.32.77]:52345
         "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S935044AbdBQVJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Feb 2017 16:09:25 -0500
+        id S935065AbdBQVJK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 16:09:10 -0500
 In-Reply-To: <cover.1487365317.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-netdev_register should be called when everything is initialized.
+This check is not needed. Function aq_ndev_change_mtu wont be called
+if mtu has not changed.
 
 Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index e50fba2..daed4c1 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -260,16 +260,18 @@ int aq_nic_ndev_register(struct aq_nic_s *self)
- 		ether_addr_copy(self->ndev->dev_addr, mac_addr_permanent);
- 	}
- #endif
--	err = register_netdev(self->ndev);
--	if (err < 0)
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+index c17c70a..e5539c8 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+@@ -102,17 +102,15 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
+ 	struct aq_nic_s *aq_nic = netdev_priv(ndev);
+ 	int err = 0;
+ 
+-	if (new_mtu == ndev->mtu) {
+-		err = 0;
 -		goto err_exit;
- 
--	self->is_ndev_registered = true;
- 	netif_carrier_off(self->ndev);
- 
- 	for (i = AQ_CFG_VECS_MAX; i--;)
- 		aq_nic_ndev_queue_stop(self, i);
- 
-+	err = register_netdev(self->ndev);
-+	if (err < 0)
-+		goto err_exit;
+-	}
+ 	if (new_mtu < 68) {
+ 		err = -EINVAL;
+ 		goto err_exit;
+ 	}
 +
-+	self->is_ndev_registered = true;
+ 	err = aq_nic_set_mtu(aq_nic, new_mtu + ETH_HLEN);
+ 	if (err < 0)
+ 		goto err_exit;
 +
- err_exit:
- 	return err;
- }
+ 	ndev->mtu = new_mtu;
+ 
+ 	if (netif_running(ndev)) {
 -- 
 2.7.4
