@@ -1,59 +1,56 @@
-From: Dongpo Li <lidongpo@hisilicon.com>
-Subject: Re: net: hix5hd2_gmac uninitialized net_device
-Date: Fri, 17 Feb 2017 09:32:46 +0800
-Message-ID: <58A652BE.50408@hisilicon.com>
-References: <20170210074118.vchxsn7fag6tlsmg@tha-monstah.mydomain>
- <20170210074544.eoabpjf522pmwoui@tha-monstah.mydomain>
- <589D942F.7070700@hisilicon.com>
- <20170211005132.xdk2d7etb732scqo@tha-monstah.mydomain>
- <58A10B12.8050400@hisilicon.com>
- <20170214235954.xhuikgj4bbfjq7fv@tha-monstah.mydomain>
- <58A3F2A6.3060609@hisilicon.com>
- <20170216184503.7ujdlkpfryu6ivwt@tha-monstah.mydomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/14][pull request] 10GbE Intel Wired LAN Driver
+ Updates 2017-02-16
+Date: Thu, 16 Feb 2017 21:22:46 -0500 (EST)
+Message-ID: <20170216.212246.514236148228835224.davem@davemloft.net>
+References: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yisen.zhuang@huawei.com>,
-        <salil.mehta@huawei.com>
-To: Marty Plummer <netz.kernel@gmail.com>
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:13002 "EHLO
-        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755206AbdBQBc5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 20:32:57 -0500
-In-Reply-To: <20170216184503.7ujdlkpfryu6ivwt@tha-monstah.mydomain>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34458 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753181AbdBQCWx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 21:22:53 -0500
+In-Reply-To: <20170216125041.46668-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marty,
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 16 Feb 2017 04:50:27 -0800
 
-On 2017/2/17 2:45, Marty Plummer wrote:
-> On Wed, Feb 15, 2017 at 02:18:14PM +0800, Dongpo Li wrote:
->> Hi Marty,
->>
->> On 2017/2/15 7:59, Marty Plummer wrote:
->>> On Mon, Feb 13, 2017 at 09:25:38AM +0800, Dongpo Li wrote:
->> Currently this driver can't support Hi3521a soc because of some new changes.
->> I don't know what's your purpose to run hix5hd2 driver on Hi3521a, please ask
->> the man who sells chips to you to raise your requirements.
->>
-> Its not so much a matter of wanting to run the hix5hd2 driver on
-> hi3521a, but running the hix5hd2 ip core driver on the same/similar ip
-> core on hi3521a. This is fairly common in the arm world, and a number of
-> drivers support multiple arm socs/ip cores, some from hisilicon in fact.
-> For instance "hisilicon,fmc-spi-nor" supports both the hi3519 and the
-> hi3521a.
+> This series contains updates to ixgbe only.
 > 
-> Also, I'm not buying chips or boards from Hisilicon. I'm just working on
-> some consumer electronics that happens to include a hisilicon soc and
-> unreleased gpl code, working to improve it.
+> Tony updates the driver to advertise 2.5Gb and 5.0Gb if the adapter
+> supports it.
 > 
-I see. Thanks for your explanation.
-I will add this thing to my schedule. But there are many development things
-that disturb me, I can't give a detailed time, maybe one or two months later.
+> Stephen Hemminger renames our dcbnl_ops since it is global to
+> ixgbe_dcbnl_ops to avoid namespace issues.
+> 
+> Mark updates the driver version based on the recent changes.
+> 
+> Alex has the remainder of the changes, starting with consolidating
+> functions that represent logical steps in the receive process so we can
+> later update them more easily (and align with igb).  Modify the receive
+> path to only synchronize the length of the frame versus the entire buffer.
+> Provided performance improvements by adding support for
+> DMA_ATTR_SKIP_CPU_SYNC and DMA_ATTR_WEAK_ORDERING.  Also made additional
+> performance gains by batching the page count updates instead of doing
+> them one at a time.  Adjusted the receive path to use 3k buffers with
+> 8k backing them in order to support build_skb with jumbo frames.  Made
+> additional driver improvements by using the length of the packet instead
+> of the DD status to determine if a new descriptor is ready to be
+> processed, which cuts down on reads.  To reduce code duplication, pulled
+> apart the receive path into separate functions.  Added support for
+> providing a buffer with headroom and tailroom to allow for shared info
+> for NET_SKB_PAD and NET_IP_ALIGN.
+> 
+> The following are changes since commit b973154a2278c6af0b0efefafb222e0189959659:
+>   atm: idt77252, use setup_timer and mod_timer
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
 
-
-    Regards,
-    Dongpo
-
-.
+Pulled, thanks Jeff.
