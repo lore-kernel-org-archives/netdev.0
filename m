@@ -1,117 +1,116 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net-next 5/7] sctp: add a function to verify the sctp reconf chunk
-Date: Fri, 17 Feb 2017 12:45:41 +0800
-Message-ID: <c90e5eac92a42c0d9ab69f7362fc6debf5512bad.1487306585.git.lucien.xin@gmail.com>
+Subject: [PATCHv2 net-next 6/7] sctp: add reconf chunk process
+Date: Fri, 17 Feb 2017 12:45:42 +0800
+Message-ID: <c226e65af5c013263d702ee4ee3fb1a7c6cac32f.1487306585.git.lucien.xin@gmail.com>
 References: <cover.1487306585.git.lucien.xin@gmail.com>
  <f01759c2f5ab1be572d95480d6d4e7e94431d2b8.1487306585.git.lucien.xin@gmail.com>
  <3ee883ca4dd0ef75baa9ca5bfd9642d28160c10b.1487306585.git.lucien.xin@gmail.com>
  <07abdfdccbb39c94418b7a7887e82c5c12adf0c7.1487306585.git.lucien.xin@gmail.com>
  <3b70615422bf6d43013332d4b37c70160a0c1d32.1487306585.git.lucien.xin@gmail.com>
+ <c90e5eac92a42c0d9ab69f7362fc6debf5512bad.1487306585.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34440 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932390AbdBQEqd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 23:46:33 -0500
-In-Reply-To: <3b70615422bf6d43013332d4b37c70160a0c1d32.1487306585.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34502 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932390AbdBQEqq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2017 23:46:46 -0500
+In-Reply-To: <c90e5eac92a42c0d9ab69f7362fc6debf5512bad.1487306585.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1487306585.git.lucien.xin@gmail.com>
 References: <cover.1487306585.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to add a function sctp_verify_reconf to do some length
-check and multi-params check for sctp stream reconf according to rfc6525
-section 3.1.
+This patch is to add a function to process the incoming reconf chunk,
+in which it verifies the chunk, and traverses the param and process
+it with the right function one by one.
+
+sctp_sf_do_reconf would be the process function of reconf chunk event.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/sm.h    |  3 +++
- net/sctp/sm_make_chunk.c | 59 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 62 insertions(+)
+ include/net/sctp/sm.h   |  1 +
+ net/sctp/sm_statefuns.c | 54 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+)
 
 diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-index f6a828d..ca9fbfb 100644
+index ca9fbfb..b6f682e 100644
 --- a/include/net/sctp/sm.h
 +++ b/include/net/sctp/sm.h
-@@ -277,6 +277,9 @@ struct sctp_chunk *sctp_make_strreset_tsnresp(
- 				struct sctp_association *asoc,
- 				__u32 result, __u32 sn,
- 				__u32 sender_tsn, __u32 receiver_tsn);
-+bool sctp_verify_reconf(const struct sctp_association *asoc,
-+			struct sctp_chunk *chunk,
-+			struct sctp_paramhdr **errp);
- void sctp_chunk_assign_tsn(struct sctp_chunk *);
- void sctp_chunk_assign_ssn(struct sctp_chunk *);
- 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 60d9fdc..969a30c 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3801,3 +3801,62 @@ struct sctp_chunk *sctp_make_strreset_tsnresp(
- 
- 	return retval;
+@@ -135,6 +135,7 @@ sctp_state_fn_t sctp_sf_do_8_5_1_E_sa;
+ sctp_state_fn_t sctp_sf_cookie_echoed_err;
+ sctp_state_fn_t sctp_sf_do_asconf;
+ sctp_state_fn_t sctp_sf_do_asconf_ack;
++sctp_state_fn_t sctp_sf_do_reconf;
+ sctp_state_fn_t sctp_sf_do_9_2_reshutack;
+ sctp_state_fn_t sctp_sf_eat_fwd_tsn;
+ sctp_state_fn_t sctp_sf_eat_fwd_tsn_fast;
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index d8798dd..e03bb1a 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -3834,6 +3834,60 @@ sctp_disposition_t sctp_sf_do_asconf_ack(struct net *net,
+ 	return SCTP_DISPOSITION_DISCARD;
  }
-+
-+bool sctp_verify_reconf(const struct sctp_association *asoc,
-+			struct sctp_chunk *chunk,
-+			struct sctp_paramhdr **errp)
+ 
++/* RE-CONFIG Section 5.2 Upon reception of an RECONF Chunk. */
++sctp_disposition_t sctp_sf_do_reconf(struct net *net,
++				     const struct sctp_endpoint *ep,
++				     const struct sctp_association *asoc,
++				     const sctp_subtype_t type, void *arg,
++				     sctp_cmd_seq_t *commands)
 +{
++	struct sctp_paramhdr *err_param = NULL;
++	struct sctp_chunk *chunk = arg;
 +	struct sctp_reconf_chunk *hdr;
 +	union sctp_params param;
-+	__u16 last = 0, cnt = 0;
++
++	if (!sctp_vtag_verify(chunk, asoc)) {
++		sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_BAD_TAG,
++				SCTP_NULL());
++		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
++	}
++
++	/* Make sure that the RECONF chunk has a valid length.  */
++	if (!sctp_chunk_length_valid(chunk, sizeof(*hdr)))
++		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
++						  commands);
++
++	if (!sctp_verify_reconf(asoc, chunk, &err_param))
++		return sctp_sf_violation_paramlen(net, ep, asoc, type, arg,
++						  (void *)err_param, commands);
 +
 +	hdr = (struct sctp_reconf_chunk *)chunk->chunk_hdr;
 +	sctp_walk_params(param, hdr, params) {
-+		__u16 length = ntohs(param.p->length);
++		struct sctp_chunk *reply = NULL;
++		struct sctp_ulpevent *ev = NULL;
 +
-+		*errp = param.p;
-+		if (cnt++ > 2)
-+			return false;
-+		switch (param.p->type) {
-+		case SCTP_PARAM_RESET_OUT_REQUEST:
-+			if (length < sizeof(struct sctp_strreset_outreq) ||
-+			    (last && last != SCTP_PARAM_RESET_RESPONSE &&
-+			     last != SCTP_PARAM_RESET_IN_REQUEST))
-+				return false;
-+			break;
-+		case SCTP_PARAM_RESET_IN_REQUEST:
-+			if (length < sizeof(struct sctp_strreset_inreq) ||
-+			    (last && last != SCTP_PARAM_RESET_OUT_REQUEST))
-+				return false;
-+			break;
-+		case SCTP_PARAM_RESET_RESPONSE:
-+			if ((length != sizeof(struct sctp_strreset_resp) &&
-+			     length != sizeof(struct sctp_strreset_resptsn)) ||
-+			    (last && last != SCTP_PARAM_RESET_RESPONSE &&
-+			     last != SCTP_PARAM_RESET_OUT_REQUEST))
-+				return false;
-+			break;
-+		case SCTP_PARAM_RESET_TSN_REQUEST:
-+			if (length !=
-+			    sizeof(struct sctp_strreset_tsnreq) || last)
-+				return false;
-+			break;
-+		case SCTP_PARAM_RESET_ADD_IN_STREAMS:
-+			if (length != sizeof(struct sctp_strreset_addstrm) ||
-+			    (last && last != SCTP_PARAM_RESET_ADD_OUT_STREAMS))
-+				return false;
-+			break;
-+		case SCTP_PARAM_RESET_ADD_OUT_STREAMS:
-+			if (length != sizeof(struct sctp_strreset_addstrm) ||
-+			    (last && last != SCTP_PARAM_RESET_ADD_IN_STREAMS))
-+				return false;
-+			break;
-+		default:
-+			return false;
-+		}
++		if (param.p->type == SCTP_PARAM_RESET_OUT_REQUEST)
++			reply = sctp_process_strreset_outreq(
++				(struct sctp_association *)asoc, param, &ev);
++		else if (param.p->type == SCTP_PARAM_RESET_IN_REQUEST)
++			reply = sctp_process_strreset_inreq(
++				(struct sctp_association *)asoc, param, &ev);
++		/* More handles for other types will be added here, by now it
++		 * just ignores other types.
++		 */
 +
-+		last = param.p->type;
++		if (ev)
++			sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
++					SCTP_ULPEVENT(ev));
++
++		if (reply)
++			sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
++					SCTP_CHUNK(reply));
 +	}
 +
-+	return true;
++	return SCTP_DISPOSITION_CONSUME;
 +}
++
+ /*
+  * PR-SCTP Section 3.6 Receiver Side Implementation of PR-SCTP
+  *
 -- 
 2.1.0
