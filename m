@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][CFT] Saner error handling in skb_copy_datagram_iter()
- et.al.
-Date: Fri, 17 Feb 2017 10:54:20 -0500 (EST)
-Message-ID: <20170217.105420.2167024053308682803.davem@davemloft.net>
-References: <20170212054209.GQ13195@ZenIV.linux.org.uk>
-        <2337836.67BmyCWMtR@debian64>
-        <20170214013306.GS13195@ZenIV.linux.org.uk>
+Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
+Date: Fri, 17 Feb 2017 10:55:54 -0500 (EST)
+Message-ID: <20170217.105554.1471478837157578274.davem@davemloft.net>
+References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, rlwinm@sdf.org,
-        alexmcwhirter@triadic.us, chunkeey@googlemail.com
-To: viro@ZenIV.linux.org.uk
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44412 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44428 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934065AbdBQPyY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 10:54:24 -0500
-In-Reply-To: <20170214013306.GS13195@ZenIV.linux.org.uk>
+        with ESMTP id S934200AbdBQP4A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 10:56:00 -0500
+In-Reply-To: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Tue, 14 Feb 2017 01:33:06 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 10 Feb 2017 04:27:58 -0800
 
-> OK...  Remaining interesting question is whether it adds a noticable
-> overhead.  Could somebody try it on assorted benchmarks and see if
-> it slows the things down?  The patch in question follows:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> All rx and rx netdev interrupts are handled by respectively
+> by mlx4_en_rx_irq() and mlx4_en_tx_irq() which simply schedule a NAPI.
+> 
+> But mlx4_eq_int() also fires a tasklet to service all items that were
+> queued via mlx4_add_cq_to_tasklet(), but this handler was not called
+> unless user cqe was handled.
+> 
+> This is very confusing, as "mpstat -I SCPU ..." show huge number of
+> tasklet invocations.
+> 
+> This patch saves this overhead, by carefully firing the tasklet directly
+> from mlx4_add_cq_to_tasklet(), removing four atomic operations per IRQ.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-That's about a 40 byte copy onto the stack for each invocation of this
-thing.  You can benchmark all you want, but it's clear that this is
-non-trivial amount of work and will take some operations from fitting
-in the cache to not doing so for sure.
+Applied, thanks.
