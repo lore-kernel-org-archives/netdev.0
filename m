@@ -1,37 +1,36 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 1/1] pkt_sched: Remove useless qdisc_stab_lock
-Date: Fri, 17 Feb 2017 10:02:30 -0800
-Message-ID: <CAM_iQpVXMYg_ep8EvEXvRu6HbEdEydy8wZ-6_OQ=JMzWEVR-kA@mail.gmail.com>
-References: <1487313259-103328-1-git-send-email-fgao@ikuai8.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: bgmac: store MAC address directly in
+ netdev->dev_addr
+Date: Fri, 17 Feb 2017 13:03:51 -0500 (EST)
+Message-ID: <20170217.130351.2166612074816910690.davem@davemloft.net>
+References: <20170216141119.18505-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Feng Gao <gfree.wind@gmail.com>
-To: fgao@ikuai8.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rafal@milecki.pl, f.fainelli@gmail.com,
+        jon.mason@broadcom.com, arnd@arndb.de
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:37206 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934140AbdBQSDT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 13:03:19 -0500
-Received: by mail-wm0-f50.google.com with SMTP id v77so15789511wmv.0
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 10:02:51 -0800 (PST)
-In-Reply-To: <1487313259-103328-1-git-send-email-fgao@ikuai8.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46408 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934053AbdBQSDx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 13:03:53 -0500
+In-Reply-To: <20170216141119.18505-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2017 at 10:34 PM,  <fgao@ikuai8.com> wrote:
-> From: Gao Feng <fgao@ikuai8.com>
->
-> The qdisc_stab_lock is used in qdisc_get_stab and qdisc_put_stab.
-> These two functions are invoked in qdisc_create, qdisc_change, and
-> qdisc_destroy which run fully under RTNL.
->
-> So it already makes sure only one could access the qdisc_stab_list at
-> the same time. Then it is unnecessary to use qdisc_stab_lock now.
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Thu, 16 Feb 2017 15:11:19 +0100
 
-I posted a (almost) same patch two years ago:
-http://marc.info/?l=linux-netdev&m=141512383516640&w=2
+> After commit 34a5102c3235 ("net: bgmac: allocate struct bgmac just once
+> & don't copy it") the mac_addr member of struct bgmac is no longer
+> necessary to pass the MAC address to bgmac_enet_probe(). Instead it can
+> directly be stored in netdev->dev_addr.
+> 
+> Also use eth_hw_addr_random() instead of eth_random_addr() in case a
+> random MAC is nedded. This will make sure netdev->addr_assign_type will
+> be properly set.
+> 
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Forget why it was not accepted at that time.
+Applied to net-next, thank you.
