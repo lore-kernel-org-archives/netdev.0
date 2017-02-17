@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] pkt_sched: Remove useless qdisc_stab_lock
-Date: Fri, 17 Feb 2017 15:10:36 -0500 (EST)
-Message-ID: <20170217.151036.1084044129536261272.davem@davemloft.net>
-References: <1487313259-103328-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH net] sctp: check duplicate node before inserting a new
+ transport
+Date: Fri, 17 Feb 2017 15:19:07 -0500 (EST)
+Message-ID: <20170217.151907.1987368624831286456.davem@davemloft.net>
+References: <ba2afff1b2cf9e0026a23dde02d207583efa3d83.1487320524.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
+        vyasevich@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48274 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48356 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932303AbdBQUKi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:10:38 -0500
-In-Reply-To: <1487313259-103328-1-git-send-email-fgao@ikuai8.com>
+        with ESMTP id S934365AbdBQUTJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 15:19:09 -0500
+In-Reply-To: <ba2afff1b2cf9e0026a23dde02d207583efa3d83.1487320524.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fgao@ikuai8.com
-Date: Fri, 17 Feb 2017 14:34:19 +0800
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 17 Feb 2017 16:35:24 +0800
 
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> The qdisc_stab_lock is used in qdisc_get_stab and qdisc_put_stab.
-> These two functions are invoked in qdisc_create, qdisc_change, and
-> qdisc_destroy which run fully under RTNL.
-> 
-> So it already makes sure only one could access the qdisc_stab_list at
-> the same time. Then it is unnecessary to use qdisc_stab_lock now.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
-Applied, thank you.
+> +	list = rhltable_lookup(&sctp_transport_hashtable, &arg,
+> +			       sctp_hash_params);
+> +
+> +	rhl_for_each_entry_rcu(transport, tmp, list, node)
+> +		if (transport->asoc->ep == t->asoc->ep) {
+> +			err = -EEXIST;
+> +			goto out;
+> +		}
+> +
+>  	err = rhltable_insert_key(&sctp_transport_hashtable, &arg,
+>  				  &t->node, sctp_hash_params);
+> +
+> +out:
+
+Well, what if another thread of control inserts a matching transport
+after you've checked the list but before rhltable_insert_key() does
+it's work?
+
+What write side lock is being held to protect the table from
+modifications here?
