@@ -1,76 +1,108 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 00/35] treewide trivial patches converting pr_warning to
-	pr_warn
-Date: Fri, 17 Feb 2017 13:37:33 +0100
-Message-ID: <CAMuHMdWsG0DboaLqXag53Vejwvc5PPY2k2gy9PSdHWbNEx6nRQ@mail.gmail.com>
-References: <cover.1487314666.git.joe@perches.com>
-	<CAJZ5v0gNcGtnXpE1n6LSq7ey+UDKx+oQfmTg0_PgFwzB0Dd_5A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "open list:FRAMEBUFFER LAYER" <linux-fbdev@vger.kernel.org>,
-	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	nouveau@lists.freedesktop.org,
-	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..."
-	<alsa-devel@alsa-project.org>, dri-devel <dri-devel@lists.freedesktop.org>,
-	virtualization@lists.linux-foundation.org,
-	"linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
-	MTD Maling List <linux-mtd@lists.infradead.org>,
-	sparclinux <sparclinux@vger.kernel.org>,
-	Lars Ellenberg <drbd-dev@lists.linbit.com>,
-	"open list:TARGET SUBSYSTEM" <linux-scsi@vger.kernel.org>,
-	Richard Weinberger <richard@nod.at>,
-	sfi-devel@simplefirmware.org, amd-gfx@lists.freedesktop.org,
-	ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
-	tboot-devel@lists.sourceforge.net, oprofil
-To: "Rafael J. Wysocki" <rafael@kernel.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAJZ5v0gNcGtnXpE1n6LSq7ey+UDKx+oQfmTg0_PgFwzB0Dd_5A@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Subject: [PATCH] e1000e: Undo e1000e_pm_freeze if __e1000_shutdown fails
+Date: Fri, 17 Feb 2017 12:41:48 +0000
+Message-ID: <20170217124148.17130-1-chris@chris-wilson.co.uk>
+Cc: Chris Wilson <chris@chris-wilson.co.uk>,
+        Tvrtko Ursulin <tvrtko.ursulin@intel.com>,
+        Dave Ertman <davidx.m.ertman@intel.com>,
+        Bruce Allan <bruce.w.allan@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36695 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933462AbdBQMlx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 07:41:53 -0500
+Received: by mail-wm0-f68.google.com with SMTP id r18so2373314wmd.3
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 04:41:52 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rafael,
+An error during suspend (e100e_pm_suspend),
 
-On Fri, Feb 17, 2017 at 1:27 PM, Rafael J. Wysocki <rafael@kernel.org> wrote:
-> On Fri, Feb 17, 2017 at 8:11 AM, Joe Perches <joe@perches.com> wrote:
->> There are ~4300 uses of pr_warn and ~250 uses of the older
->> pr_warning in the kernel source tree.
->>
->> Make the use of pr_warn consistent across all kernel files.
->>
->> This excludes all files in tools/ as there is a separate
->> define pr_warning for that directory tree and pr_warn is
->> not used in tools/.
->>
->> Done with 'sed s/\bpr_warning\b/pr_warn/' and some emacsing.
->
-> Sorry about asking if that has been asked already.
->
-> Wouldn't it be slightly less intrusive to simply redefined
-> pr_warning() as a synonym for pr_warn()?
+[  429.994338] ACPI : EC: event blocked
+[  429.994633] e1000e: EEE TX LPI TIMER: 00000011
+[  430.955451] pci_pm_suspend(): e1000e_pm_suspend+0x0/0x30 [e1000e] returns -2
+[  430.955454] dpm_run_callback(): pci_pm_suspend+0x0/0x140 returns -2
+[  430.955458] PM: Device 0000:00:19.0 failed to suspend async: error -2
+[  430.955581] PM: Some devices failed to suspend, or early wake event detected
+[  430.957709] ACPI : EC: event unblocked
 
-That's already the case.
+lead to complete failure:
 
-This series cleans up the cruft, so we can catch all users with
-"git grep -w pr_warn".
+[  432.585002] ------------[ cut here ]------------
+[  432.585013] WARNING: CPU: 3 PID: 8372 at kernel/irq/manage.c:1478 __free_irq+0x9f/0x280
+[  432.585015] Trying to free already-free IRQ 20
+[  432.585016] Modules linked in: cdc_ncm usbnet x86_pkg_temp_thermal intel_powerclamp coretemp mii crct10dif_pclmul crc32_pclmul ghash_clmulni_intel snd_hda_codec_hdmi snd_hda_codec_realtek snd_hda_codec_generic snd_hda_intel snd_hda_codec snd_hwdep lpc_ich snd_hda_core snd_pcm mei_me mei sdhci_pci sdhci i915 mmc_core e1000e ptp pps_core prime_numbers
+[  432.585042] CPU: 3 PID: 8372 Comm: kworker/u16:40 Tainted: G     U          4.10.0-rc8-CI-Patchwork_3870+ #1
+[  432.585044] Hardware name: LENOVO 2356GCG/2356GCG, BIOS G7ET31WW (1.13 ) 07/02/2012
+[  432.585050] Workqueue: events_unbound async_run_entry_fn
+[  432.585051] Call Trace:
+[  432.585058]  dump_stack+0x67/0x92
+[  432.585062]  __warn+0xc6/0xe0
+[  432.585065]  warn_slowpath_fmt+0x4a/0x50
+[  432.585070]  ? _raw_spin_lock_irqsave+0x49/0x60
+[  432.585072]  __free_irq+0x9f/0x280
+[  432.585075]  free_irq+0x34/0x80
+[  432.585089]  e1000_free_irq+0x65/0x70 [e1000e]
+[  432.585098]  e1000e_pm_freeze+0x7a/0xb0 [e1000e]
+[  432.585106]  e1000e_pm_suspend+0x21/0x30 [e1000e]
+[  432.585113]  pci_pm_suspend+0x71/0x140
+[  432.585118]  dpm_run_callback+0x6f/0x330
+[  432.585122]  ? pci_pm_freeze+0xe0/0xe0
+[  432.585125]  __device_suspend+0xea/0x330
+[  432.585128]  async_suspend+0x1a/0x90
+[  432.585132]  async_run_entry_fn+0x34/0x160
+[  432.585137]  process_one_work+0x1f4/0x6d0
+[  432.585140]  ? process_one_work+0x16e/0x6d0
+[  432.585143]  worker_thread+0x49/0x4a0
+[  432.585145]  kthread+0x107/0x140
+[  432.585148]  ? process_one_work+0x6d0/0x6d0
+[  432.585150]  ? kthread_create_on_node+0x40/0x40
+[  432.585154]  ret_from_fork+0x2e/0x40
+[  432.585156] ---[ end trace 6712df7f8c4b9124 ]---
 
-Gr{oetje,eeting}s,
+The unwind failures stems from commit 2800209994f8 ("e1000e: Refactor PM
+flows"), but it may be a later patch that introduced the non-recoverable
+behaviour.
 
-                        Geert
+Fixes: 2800209994f8 ("e1000e: Refactor PM flows")
+Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=99847
+Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
+Cc: Tvrtko Ursulin <tvrtko.ursulin@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Dave Ertman <davidx.m.ertman@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>
+Cc: intel-wired-lan@lists.osuosl.org
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index eccf1da9356b..429a5210230d 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6615,12 +6615,19 @@ static int e1000e_pm_thaw(struct device *dev)
+ static int e1000e_pm_suspend(struct device *dev)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
++	int rc;
+ 
+ 	e1000e_flush_lpic(pdev);
+ 
+ 	e1000e_pm_freeze(dev);
+ 
+-	return __e1000_shutdown(pdev, false);
++	rc = __e1000_shutdown(pdev, false);
++	if (rc) {
++		e1000e_pm_thaw(dev);
++		return rc;
++	}
++
++	return 0;
+ }
+ 
+ static int e1000e_pm_resume(struct device *dev)
+-- 
+2.11.0
