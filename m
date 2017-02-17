@@ -1,82 +1,47 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/7] nfp: store NSP ABI version in state structure
-Date: Fri, 17 Feb 2017 14:00:23 -0800
-Message-ID: <20170217220027.189992-4-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 2/7] nfp: report manufacturing info on load
+Date: Fri, 17 Feb 2017 14:00:22 -0800
+Message-ID: <20170217220027.189992-3-jakub.kicinski@netronome.com>
 References: <20170217220027.189992-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, dinan.gunawardena@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:36344 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935068AbdBQWBI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 17:01:08 -0500
-Received: by mail-pg0-f50.google.com with SMTP id v184so18589909pgv.3
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 14:01:07 -0800 (PST)
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:34053 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934415AbdBQWBH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 17:01:07 -0500
+Received: by mail-pg0-f54.google.com with SMTP id z67so18621735pgb.1
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 14:01:06 -0800 (PST)
 In-Reply-To: <20170217220027.189992-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We read the status register on each NSP open, we can store the NSP
-ABI version in the state structure so that we don't have to read
-it again.
+Report card manufacturing information when driver loads.  These
+identify the version of the board and its subcomponents.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   | 27 +++++++++++-----------
- 1 file changed, 13 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_main.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-index f07f2fc3fba0..f2d737c3d1df 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-@@ -99,6 +99,10 @@ enum nfp_nsp_cmd {
- struct nfp_nsp {
- 	struct nfp_cpp *cpp;
- 	struct nfp_resource *res;
-+	struct {
-+		u16 major;
-+		u16 minor;
-+	} ver;
- };
- 
- static int nfp_nsp_check(struct nfp_nsp *state)
-@@ -120,11 +124,12 @@ static int nfp_nsp_check(struct nfp_nsp *state)
- 		return -ENODEV;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index ca2c464c15df..8cda6b0e7e32 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -322,6 +322,13 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ 		goto err_disable_msix;
  	}
  
--	if (FIELD_GET(NSP_STATUS_MAJOR, reg) != NSP_MAJOR ||
--	    FIELD_GET(NSP_STATUS_MINOR, reg) < NSP_MINOR) {
--		nfp_err(cpp, "Unsupported ABI %lld.%lld\n",
--			FIELD_GET(NSP_STATUS_MAJOR, reg),
--			FIELD_GET(NSP_STATUS_MINOR, reg));
-+	state->ver.major = FIELD_GET(NSP_STATUS_MAJOR, reg);
-+	state->ver.minor = FIELD_GET(NSP_STATUS_MINOR, reg);
++	dev_info(&pdev->dev, "Assembly: %s%s%s-%s CPLD: %s\n",
++		 nfp_hwinfo_lookup(pf->cpp, "assembly.vendor"),
++		 nfp_hwinfo_lookup(pf->cpp, "assembly.partno"),
++		 nfp_hwinfo_lookup(pf->cpp, "assembly.serial"),
++		 nfp_hwinfo_lookup(pf->cpp, "assembly.revision"),
++		 nfp_hwinfo_lookup(pf->cpp, "cpld.version"));
 +
-+	if (state->ver.major != NSP_MAJOR || state->ver.minor < NSP_MINOR) {
-+		nfp_err(cpp, "Unsupported ABI %hu.%hu\n",
-+			state->ver.major, state->ver.minor);
- 		return -EINVAL;
- 	}
- 
-@@ -301,15 +306,9 @@ static int nfp_nsp_command_buf(struct nfp_nsp *nsp, u16 code, u32 option,
- 	int ret, err;
- 	u32 cpp_id;
- 
--	err = nfp_cpp_readq(cpp, nfp_resource_cpp_id(nsp->res),
--			    nfp_resource_address(nsp->res) + NSP_STATUS, &reg);
--	if (err < 0)
--		return err;
--
--	if (FIELD_GET(NSP_STATUS_MINOR, reg) < 13) {
--		nfp_err(cpp, "NSP: Code 0x%04x with buffer not supported (ABI %lld.%lld)\n",
--			code, FIELD_GET(NSP_STATUS_MAJOR, reg),
--			FIELD_GET(NSP_STATUS_MINOR, reg));
-+	if (nsp->ver.minor < 13) {
-+		nfp_err(cpp, "NSP: Code 0x%04x with buffer not supported (ABI %hu.%hu)\n",
-+			code, nsp->ver.major, nsp->ver.minor);
- 		return -EOPNOTSUPP;
- 	}
- 
+ 	err = nfp_nsp_init(pdev, pf);
+ 	if (err)
+ 		goto err_cpp_free;
 -- 
 2.11.0
