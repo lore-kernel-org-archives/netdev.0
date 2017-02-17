@@ -1,36 +1,45 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 6/6] net: dsa: mv88e6xxx: add support for
- 6390 VTU
-Date: Fri, 17 Feb 2017 22:53:36 +0100
-Message-ID: <20170217215336.GL6096@lunn.ch>
-References: <20170217150531.2181-1-vivien.didelot@savoirfairelinux.com>
- <20170217150531.2181-7-vivien.didelot@savoirfairelinux.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 2/6] net: dsa: mv88e6xxx: move ATU code in its own file
+Date: Fri, 17 Feb 2017 16:54:50 -0500
+Message-ID: <87fujcmqj9.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170217150531.2181-1-vivien.didelot@savoirfairelinux.com> <20170217150531.2181-3-vivien.didelot@savoirfairelinux.com> <20170217213518.GH6096@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44103 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934998AbdBQVzS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Feb 2017 16:55:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20170217150531.2181-7-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170217213518.GH6096@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 17, 2017 at 10:05:31AM -0500, Vivien Didelot wrote:
-> The 6390 family of chips use only 2 of the 3 VTU Data registers to pack
-> the MemberTag and PortState VLAN data. This means that they must be
-> written or read before or after each VTU/STU operations.
-> 
-> Implement this variant to add support for VTU with such chips.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Hi Andrew,
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Andrew Lunn <andrew@lunn.ch> writes:
 
-    Andrew
+> This seems to be more than renaming a few functions. There looks to be
+> real changes here. I think these changes should be split out into a
+> separate patch with an explanation what is being changed. Keep this
+> patch for plain renames.
+>
+> It would also be easier to review if the patch just moved the code, no
+> changes. Then have patches which clean up the API. It is hard to see
+> what is move and what is cleanup. Plain move needs little review,
+> cleanup needs more review. With the current patch, it is hard to see
+> which is which.
+
+I understand your concerns about that. I've started that way (just
+moving code) but this ended up messier because of the naming convention
+which would required renaming and more diffstats. I found it actually
+easier to review the new code at once by reading all the addition block.
+
+Note that we are very close from 4.10, so unless there is a major issue
+in the patchset, I'd prefer not to respin new versions. I'd gladly send
+cosmetics fixup later though. I'm waiting for this patchset to land in
+net-next to send the second one ready for cross-chip bridging in DSA.
+
+Thanks,
+
+        Vivien
