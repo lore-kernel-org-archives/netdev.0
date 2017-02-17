@@ -1,63 +1,50 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH net-next v2 1/3] net: stmicro: prepare dwmac4 core for mtl
-Date: Fri, 17 Feb 2017 18:09:06 +0000
-Message-ID: <2afc0b77-ea7d-6d6b-1607-4cb1ef48cb48@synopsys.com>
-References: <cover.1487243644.git.jpinto@synopsys.com>
- <cover.1487243644.git.jpinto@synopsys.com>
- <9aa3ec8ee45cb921bbc478415bc62336285e156a.1487243644.git.jpinto@synopsys.com>
- <20170217.130206.307364283233407941.davem@davemloft.net>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: RFC: unit tests for kernel GTP module
+Date: Fri, 17 Feb 2017 19:03:16 +0100
+Message-ID: <20170217180316.ujzsbnb2s2ee44iw@nataraja>
+References: <20170216220801.o3fajacj4sx3iere@nataraja>
+ <1507789126.143172.1487343779235.JavaMail.zimbra@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@gnumonks.org>,
+        netdev <netdev@vger.kernel.org>,
+        osmocom-net-gprs <osmocom-net-gprs@lists.osmocom.org>
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:49160 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934053AbdBQSJK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 13:09:10 -0500
-In-Reply-To: <20170217.130206.307364283233407941.davem@davemloft.net>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:56208 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934053AbdBQSQR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 13:16:17 -0500
+Content-Disposition: inline
+In-Reply-To: <1507789126.143172.1487343779235.JavaMail.zimbra@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Andreas,
 
-Hi David,
+On Fri, Feb 17, 2017 at 04:02:59PM +0100, Andreas Schultz wrote:
+> The test suite is proprietary, so we can only share the results but
+> not the test setup itself.
 
-Às 6:02 PM de 2/17/2017, David Miller escreveu:
-> From: Joao Pinto <Joao.Pinto@synopsys.com>
-> Date: Thu, 16 Feb 2017 11:19:39 +0000
-> 
->> This patch adds the following features:
->>
->> a) RX and TX scheduling algorithm configuration (can be configured in the
->> Device Tree)
->> b) TX VLAN tag priority configuration (can be configured in the Device Tree)
->> c) RX VLAN tag priority routing configuration (can be configured in the
->> Device Tree)
->> d) TX weight configuration (can be configured in the Device Tree)
->> e) RX queue to RX DMA channel mapping
->> f) RX queue enabling
->> g) MAC and individual queue related interrupt analysis
->> h) Flow Control configuration by queue
->>
->> The number of RX and TX queues to use comes from the FEATURES register.
->>
->> With this patch we get the core related operations ready for multiple
->> queue/channel.
->>
->> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
-> 
-> This would be so much easier to review if you used one patch for each
-> of those new configuration features.
-> 
-> In fact, it would make an appropriate complete patch series on it's own.
+it would be great to have some CI setup where both current stable as
+well as a development branch of the code is tested, and reports
+published regularly.  Not sure how realistic that is.
 
-Should I put the multiple queues / channels changes in a single patch or should
-I break it into a feature change / patch? What would be easier for you to review?
+> We more or less removed static GTP tunnels. The tools in libgtpnl
+> only work when an application is keeping the GTP socket alive.
 
-> 
-> Thanks.
-> 
+Well, then those tools need to be adapted accordingly.  That's what I
+also indicated in other mails:  Changes in the kernel GTP code should
+always be followed-up with correspondign changes in libgtpnl and
+associated tools.  I mean, the tool could just open the socket and then
+continue to run until terminated explicitly...
 
-Thanks.
+I think there's a lot of value in some very low-level tools for testing
+and experimentation, without the complexity of configuring + running an
+Erlang GGSN/P-GW with all its dependencies.
+
+-- 
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
