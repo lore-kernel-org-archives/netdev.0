@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] dpaa_eth: small leak on error
-Date: Fri, 17 Feb 2017 12:19:05 -0500 (EST)
-Message-ID: <20170217.121905.367129884701818238.davem@davemloft.net>
-References: <20170216095610.GA23242@mwanda>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2, 1/1] tcp: accommodate sequence number to a peer's
+ shrunk receive window caused by precision loss in window scaling
+Date: Fri, 17 Feb 2017 09:44:15 -0800
+Message-ID: <1487353455.1311.86.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <BA334603-D37E-4C94-BB8B-19A830E0355C@netapp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: madalin.bucur@nxp.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: "Cui, Cheng" <Cheng.Cui@netapp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45740 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934122AbdBQRTH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 12:19:07 -0500
-In-Reply-To: <20170216095610.GA23242@mwanda>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34086 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934074AbdBQRpF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 12:45:05 -0500
+Received: by mail-pf0-f195.google.com with SMTP id o64so4522156pfb.1
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 09:44:16 -0800 (PST)
+In-Reply-To: <BA334603-D37E-4C94-BB8B-19A830E0355C@netapp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 16 Feb 2017 12:56:10 +0300
-
-> This should be >= instead of > here.  It means that we don't increment
-> the free count enough so it becomes off by one.
+On Fri, 2017-02-17 at 17:04 +0000, Cui, Cheng wrote:
+> Prevent sending out a left-shifted sequence number from a Linux sender in 
+> response to a peer's shrunk receive-window caused by losing least significant
+> bits in window-scaling.
 > 
-> Fixes: 9ad1a3749333 ("dpaa_eth: add support for DPAA Ethernet")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Cheng Cui <Cheng.Cui@netapp.com>
 > ---
-> Applies to -net tree.
 
-Applied, thanks Dan.
+Acked-by: Eric Dumazet <edumazet@google.com>
