@@ -1,47 +1,43 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: vlan_tunnel: explicitly reset metadata
- attrs to NULL on failure
-Date: Fri, 17 Feb 2017 10:49:20 +0100
-Message-ID: <79d26bd3-ce7d-9f01-fe45-dc09017021a7@cumulusnetworks.com>
-References: <1487273361-51517-1-git-send-email-roopa@cumulusnetworks.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: pull request (net-next): ipsec-next 2017-02-16
+Date: Fri, 17 Feb 2017 10:52:00 +0100
+Message-ID: <20170217095200.GB30338@gauss.secunet.com>
+References: <1487247527-17925-1-git-send-email-steffen.klassert@secunet.com>
+ <20170216.220557.990082216928137722.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Cc: <herbert@gondor.apana.org.au>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:38701 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932088AbdBQJtX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 04:49:23 -0500
-Received: by mail-wm0-f46.google.com with SMTP id r141so6178324wmg.1
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2017 01:49:22 -0800 (PST)
-In-Reply-To: <1487273361-51517-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from a.mx.secunet.com ([62.96.220.36]:44582 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933304AbdBQJwR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Feb 2017 04:52:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20170216.220557.990082216928137722.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16/02/17 20:29, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Thu, Feb 16, 2017 at 10:05:57PM -0500, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Thu, 16 Feb 2017 13:18:34 +0100
+> > 
+> > Please note that this has a merge coflict between commit
+> > 
+> > 63fca65d0863 ("net: add confirm_neigh method to dst_ops")
+> > 
+> > from net-next and
+> > 
+> > 3d7d25a68ea5 ("xfrm: policy: remove garbage_collect callback")
+> > a2817d8b279b ("xfrm: policy: remove family field")
+> > 
+> > from ipsec-next.
+> > 
+> > The conflict can be solved as it is done in linux-next.
+> > 
+> > Please pull or let me know if there are problems.
 > 
-> Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
->  net/bridge/br_vlan_tunnel.c |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/bridge/br_vlan_tunnel.c b/net/bridge/br_vlan_tunnel.c
-> index b2b79a0..6d2c4ee 100644
-> --- a/net/bridge/br_vlan_tunnel.c
-> +++ b/net/bridge/br_vlan_tunnel.c
-> @@ -85,6 +85,8 @@ static int __vlan_tunnel_info_add(struct net_bridge_vlan_group *vg,
->  	return 0;
->  out:
->  	dst_release(&vlan->tinfo.tunnel_dst->dst);
-> +	vlan->tinfo.tunnel_dst = NULL;
-> +	vlan->tinfo.tunnel_id = 0;
->  
->  	return err;
->  }
-> 
+> Pulled, thanks.  Please double check that I did the merge conflict
+> resolution properly.
 
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+The resolution is correct, thanks!
