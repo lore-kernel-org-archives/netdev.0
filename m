@@ -1,99 +1,96 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 2/2] sctp: add support for MSG_MORE
-Date: Sun, 19 Feb 2017 01:52:46 +0800
-Message-ID: <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
-References: <cover.1487440272.git.lucien.xin@gmail.com>
- <1830885841c7bdd55510396300092f669896f2b0.1487440272.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net,
-        David Laight <david.laight@aculab.com>
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: Questions on XDP
+Date: Sat, 18 Feb 2017 10:18:10 -0800
+Message-ID: <CAKgT0UfE+RN-bK_Hu05kJv62s-edJtkrmkBefHU6UCYQSDdkvw@mail.gmail.com>
+References: <CAKgT0Uc0RQyK0SCALEUVGBj8JMHCfp+CqiBsTJXN9mat9jUNjQ@mail.gmail.com>
+ <58A62979.1050600@gmail.com> <20170218173402.1af86005@redhat.com> <1487439675.1311.96.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33540 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753277AbdBRR7T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 12:59:19 -0500
-In-Reply-To: <1830885841c7bdd55510396300092f669896f2b0.1487440272.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1487440272.git.lucien.xin@gmail.com>
-References: <cover.1487440272.git.lucien.xin@gmail.com>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:37342 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753346AbdBRSSM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 13:18:12 -0500
+Received: by mail-it0-f51.google.com with SMTP id x75so34896511itb.0
+        for <netdev@vger.kernel.org>; Sat, 18 Feb 2017 10:18:11 -0800 (PST)
+In-Reply-To: <1487439675.1311.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to add support for MSG_MORE on sctp.
+On Sat, Feb 18, 2017 at 9:41 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2017-02-18 at 17:34 +0100, Jesper Dangaard Brouer wrote:
+>> On Thu, 16 Feb 2017 14:36:41 -0800
+>> John Fastabend <john.fastabend@gmail.com> wrote:
+>>
+>> > On 17-02-16 12:41 PM, Alexander Duyck wrote:
+>> > > So I'm in the process of working on enabling XDP for the Intel NICs
+>> > > and I had a few questions so I just thought I would put them out here
+>> > > to try and get everything sorted before I paint myself into a corner.
+>> > >
+>> > > So my first question is why does the documentation mention 1 frame per
+>> > > page for XDP?
+>>
+>> Yes, XDP defines upfront a memory model where there is only one packet
+>> per page[1], please respect that!
+>>
+>> This is currently used/needed for fast-direct recycling of pages inside
+>> the driver for XDP_DROP and XDP_TX, _without_ performing any atomic
+>> refcnt operations on the page. E.g. see mlx4_en_rx_recycle().
+>
+>
+> XDP_DROP does not require having one page per frame.
 
-It adds force_delay in sctp_datamsg to save MSG_MORE, and sets it after
-creating datamsg according to the send flag. sctp_packet_can_append_data
-then uses it to decide if the chunks of this msg will be sent at once or
-delay it.
+Agreed.
 
-Note that unlike [1], this patch saves MSG_MORE in datamsg, instead of
-in assoc. As sctp enqueues the chunks first, then dequeue them one by
-one. If it's saved in assoc,the current msg's send flag (MSG_MORE) may
-affect other chunks' bundling.
+> (Look after my recent mlx4 patch series if you need to be convinced)
+>
+> Only XDP_TX is.
+>
+> This requirement makes XDP useless (very OOM likely) on arches with 64K
+> pages.
 
-Since last patch, sctp flush out queue once assoc state falls into
-SHUTDOWN_PENDING, the close block problem mentioned in [1] has been
-solved as well.
+Actually I have been having a side discussion with John about XDP_TX.
+Looking at the Mellanox way of doing it I am not entirely sure it is
+useful.  It looks good for benchmarks but that is about it.  Also I
+don't see it extending out to the point that we would be able to
+exchange packets between interfaces which really seems like it should
+be the ultimate goal for XDP_TX.
 
-[1] https://patchwork.ozlabs.org/patch/372404/
+It seems like eventually we want to be able to peel off the buffer and
+send it to something other than ourselves.  For example it seems like
+it might be useful at some point to use XDP to do traffic
+classification and have it route packets between multiple interfaces
+on a host and it wouldn't make sense to have all of them map every
+page as bidirectional because it starts becoming ridiculous if you
+have dozens of interfaces in a system.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/sctp/structs.h | 1 +
- net/sctp/output.c          | 9 +++------
- net/sctp/socket.c          | 1 +
- 3 files changed, 5 insertions(+), 6 deletions(-)
+As per our original discussion at netconf if we want to be able to do
+XDP Tx with a fully lockless Tx ring we needed to have a Tx ring per
+CPU that is performing XDP.  The Tx path will end up needing to do the
+map/unmap itself in the case of physical devices but the expense of
+that can be somewhat mitigated on x86 at least by either disabling the
+IOMMU or using identity mapping.  I think this might be the route
+worth exploring as we could then start looking at doing things like
+implementing bridges and routers in XDP and see what performance gains
+can be had there.
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 387c802..a244db5 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -497,6 +497,7 @@ struct sctp_datamsg {
- 	/* Did the messenge fail to send? */
- 	int send_error;
- 	u8 send_failed:1,
-+	   force_delay:1,
- 	   can_delay;	    /* should this message be Nagle delayed */
- };
- 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 814eac0..85406d5 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -704,18 +704,15 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
- 	 * unacknowledged.
- 	 */
- 
--	if (sctp_sk(asoc->base.sk)->nodelay)
--		/* Nagle disabled */
-+	if ((sctp_sk(asoc->base.sk)->nodelay || inflight == 0) &&
-+	    !chunk->msg->force_delay)
-+		/* Nothing unacked */
- 		return SCTP_XMIT_OK;
- 
- 	if (!sctp_packet_empty(packet))
- 		/* Append to packet */
- 		return SCTP_XMIT_OK;
- 
--	if (inflight == 0)
--		/* Nothing unacked */
--		return SCTP_XMIT_OK;
--
- 	if (!sctp_state(asoc, ESTABLISHED))
- 		return SCTP_XMIT_OK;
- 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 75f35ce..b532148 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1964,6 +1964,7 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
- 		err = PTR_ERR(datamsg);
- 		goto out_free;
- 	}
-+	datamsg->force_delay = !!(msg->msg_flags & MSG_MORE);
- 
- 	/* Now send the (possibly) fragmented message. */
- 	list_for_each_entry(chunk, &datamsg->chunks, frag_list) {
--- 
-2.1.0
+Also as far as the one page per frame it occurs to me that you will
+have to eventually deal with things like frame replication.  Once that
+comes into play everything becomes much more difficult because the
+recycling doesn't work without some sort of reference counting, and
+since the device interrupt can migrate you could end up with clean-up
+occurring on a different CPUs so you need to have some sort of
+synchronization mechanism.
+
+Thanks.
+
+- Alex
