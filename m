@@ -1,57 +1,48 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v1] RDS: keep data type consistent in the user visible header
-Date: Fri, 17 Feb 2017 19:21:21 -0800
-Message-ID: <1487388081-6559-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org,
-        Santosh Shilimkar <santosh.shilimkar@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:48047 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750763AbdBRDVc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 22:21:32 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Francois Saint-Jacques <fsaintjacques-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [patch] socket.7: Document SO_INCOMING_CPU
+Date: Fri, 17 Feb 2017 23:06:50 -0500
+Message-ID: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-rds.h is exported to /usr/include/rds.h,  so u8, u64 leads to
-errors like below.
+This socket option is undocumented. Applies on the latest version
+(man-pages-4.09-511).
 
-/usr/include/linux/rds.h:197: error: expected specifier-qualifier-list before 'u8'
-/usr/include/linux/rds.h:202: error: expected specifier-qualifier-list before 'u8'
-
-Fix it by following same types as rest of the user header.
-
-Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
----
-V1: Fixed the email id typo
-
- include/uapi/linux/rds.h | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/include/uapi/linux/rds.h b/include/uapi/linux/rds.h
-index 3833113..a9e4c02 100644
---- a/include/uapi/linux/rds.h
-+++ b/include/uapi/linux/rds.h
-@@ -194,14 +194,14 @@ enum rds_message_rxpath_latency {
- };
- 
- struct rds_rx_trace_so {
--	u8 rx_traces;
--	u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
-+	uint8_t rx_traces;
-+	uint8_t rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
- };
- 
- struct rds_cmsg_rx_trace {
--	u8 rx_traces;
--	u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
--	u64 rx_trace[RDS_MSG_RX_DGRAM_TRACE_MAX];
-+	uint8_t rx_traces;
-+	uint8_t rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
-+	uint64_t rx_trace[RDS_MSG_RX_DGRAM_TRACE_MAX];
- };
- 
- /*
--- 
-1.9.1
+diff --git a/man7/socket.7 b/man7/socket.7
+index 3efd7a5d8..1a3ffa253 100644
+--- a/man7/socket.7
++++ b/man7/socket.7
+@@ -490,6 +490,26 @@ flag on a socket
+ operation.
+ Expects an integer boolean flag.
+ .TP
++.BR SO_INCOMING_CPU " (getsockopt since Linux 3.19, setsockopt since
+Linux 4.4)"
++.\" getsocktop 2c8c56e15df3d4c2af3d656e44feb18789f75837
++.\" setsocktop 70da268b569d32a9fddeea85dc18043de9d89f89
++Sets or gets the cpu affinity of a socket. Expects an integer flag.
++.sp
++.in +4n
++.nf
++int cpu = 1;
++socklen_t len = sizeof(cpu);
++setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
++.fi
++.in
++.sp
++The typical use case is one listener per RX queue, as the associated listener
++should only accept flows handled in softirq by the same cpu.  This provides
++optimal NUMA behavior and keep cpu caches hot.
++.TP
+ .B SO_KEEPALIVE
+ Enable sending of keep-alive messages on connection-oriented sockets.
+ Expects an integer boolean flag.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
