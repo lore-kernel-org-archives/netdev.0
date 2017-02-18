@@ -1,47 +1,40 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net] ipv6: release dst on error in ip6_dst_lookup_tail
-Date: Sat, 18 Feb 2017 18:51:43 -0500
-Message-ID: <20170218235144.29670-1-willemdebruijn.kernel@gmail.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, jtleight@udel.edu,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: release dst on error in ip6_dst_lookup_tail
+Date: Sat, 18 Feb 2017 15:56:47 -0800
+Message-ID: <1487462207.1311.107.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170218235144.29670-1-willemdebruijn.kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jtleight@udel.edu,
         Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:36613 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750806AbdBRXw6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 18:52:58 -0500
-Received: by mail-qt0-f195.google.com with SMTP id h53so10200590qth.3
-        for <netdev@vger.kernel.org>; Sat, 18 Feb 2017 15:52:10 -0800 (PST)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34576 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750760AbdBRX4v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 18:56:51 -0500
+Received: by mail-pf0-f196.google.com with SMTP id o64so6882076pfb.1
+        for <netdev@vger.kernel.org>; Sat, 18 Feb 2017 15:56:50 -0800 (PST)
+In-Reply-To: <20170218235144.29670-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+On Sat, 2017-02-18 at 18:51 -0500, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> If ip6_dst_lookup_tail has acquired a dst and fails the IPv4-mapped
+> check, release the dst before returning an error.
+> 
+> Fixes: b2e6f0c8dde5 ("ipv6: Inhibit IPv4-mapped src address on the wire.")
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> ---
 
-If ip6_dst_lookup_tail has acquired a dst and fails the IPv4-mapped
-check, release the dst before returning an error.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-Fixes: b2e6f0c8dde5 ("ipv6: Inhibit IPv4-mapped src address on the wire.")
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/ipv6/ip6_output.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+But looks like the commit sha1 was
+ec5e3b0a1d41fbda0cc33a45bc9e54e91d9d12c7
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e164684456df..7cebee58e55b 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1022,8 +1022,10 @@ static int ip6_dst_lookup_tail(struct net *net, const struct sock *sk,
- 	}
- #endif
- 	if (ipv6_addr_v4mapped(&fl6->saddr) &&
--	    !(ipv6_addr_v4mapped(&fl6->daddr) || ipv6_addr_any(&fl6->daddr)))
--		return -EAFNOSUPPORT;
-+	    !(ipv6_addr_v4mapped(&fl6->daddr) || ipv6_addr_any(&fl6->daddr))) {
-+		err = -EAFNOSUPPORT;
-+		goto out_err_release;
-+	}
- 
- 	return 0;
- 
--- 
-2.11.0.483.g087da7b7c-goog
+So the correct tag would be
+
+Fixes: ec5e3b0a1d41 ("ipv6: Inhibit IPv4-mapped src address on the wire.")
