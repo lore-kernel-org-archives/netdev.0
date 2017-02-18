@@ -1,9 +1,9 @@
 From: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: Re: [RFC v2 11/20] scsi: megaraid: Replace PCI pool old API
-Date: Sat, 18 Feb 2017 19:37:42 +0100
-Message-ID: <20170218183742.GB13698@collabora.com>
+Subject: Re: [RFC v2 12/20] scsi: mpt3sas: Replace PCI pool old API
+Date: Sat, 18 Feb 2017 19:40:35 +0100
+Message-ID: <20170218184035.GC13698@collabora.com>
 References: <20170218083556.20215-1-romain.perier@collabora.com>
- <20170218083556.20215-12-romain.perier@collabora.com>
+ <20170218083556.20215-13-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
@@ -23,495 +23,225 @@ Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 To: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170218083556.20215-12-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+In-Reply-To: <20170218083556.20215-13-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 18, 2017 at 09:35:47AM +0100, Romain Perier wrote:
-
-Hi Romain,
-
-Checkpatch gives some warnings you can fix related to NULL tests before
-dma_pool_destroy(), and you changed indentation style in some of your
-changes. Some times it is important to keep consistency within a file
-even if the style is not the default. Please fix and resend.
-
-
+On Sat, Feb 18, 2017 at 09:35:48AM +0100, Romain Perier wrote:
 > The PCI pool API is deprecated. This commits replaces the PCI pool old
 > API by the appropriated function with the DMA pool API.
+
+Please run checkpatch, fix the style issue and resend.
+
 > 
 > Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
 > ---
->  drivers/scsi/megaraid/megaraid_mbox.c       | 30 ++++++++---------
->  drivers/scsi/megaraid/megaraid_mm.c         | 29 ++++++++--------
->  drivers/scsi/megaraid/megaraid_sas_base.c   | 25 +++++++-------
->  drivers/scsi/megaraid/megaraid_sas_fusion.c | 51 +++++++++++++++--------------
->  4 files changed, 70 insertions(+), 65 deletions(-)
+>  drivers/scsi/mpt3sas/mpt3sas_base.c | 73 +++++++++++++++++--------------------
+>  1 file changed, 34 insertions(+), 39 deletions(-)
 > 
-> diff --git a/drivers/scsi/megaraid/megaraid_mbox.c b/drivers/scsi/megaraid/megaraid_mbox.c
-> index f0987f2..6d0bd3a 100644
-> --- a/drivers/scsi/megaraid/megaraid_mbox.c
-> +++ b/drivers/scsi/megaraid/megaraid_mbox.c
-> @@ -1153,8 +1153,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
->  
->  
->  	// Allocate memory for 16-bytes aligned mailboxes
-> -	raid_dev->mbox_pool_handle = pci_pool_create("megaraid mbox pool",
-> -						adapter->pdev,
-> +	raid_dev->mbox_pool_handle = dma_pool_create("megaraid mbox pool",
-> +						&adapter->pdev->dev,
->  						sizeof(mbox64_t) + 16,
->  						16, 0);
->  
-> @@ -1164,7 +1164,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
->  
->  	mbox_pci_blk = raid_dev->mbox_pool;
->  	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
-> -		mbox_pci_blk[i].vaddr = pci_pool_alloc(
-> +		mbox_pci_blk[i].vaddr = dma_pool_alloc(
->  						raid_dev->mbox_pool_handle,
->  						GFP_KERNEL,
->  						&mbox_pci_blk[i].dma_addr);
-> @@ -1181,8 +1181,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
->  	 * share common memory pool. Passthru structures piggyback on memory
->  	 * allocted to extended passthru since passthru is smaller of the two
->  	 */
-> -	raid_dev->epthru_pool_handle = pci_pool_create("megaraid mbox pthru",
-> -			adapter->pdev, sizeof(mraid_epassthru_t), 128, 0);
-> +	raid_dev->epthru_pool_handle = dma_pool_create("megaraid mbox pthru",
-> +			&adapter->pdev->dev, sizeof(mraid_epassthru_t), 128, 0);
->  
->  	if (raid_dev->epthru_pool_handle == NULL) {
->  		goto fail_setup_dma_pool;
-> @@ -1190,7 +1190,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
->  
->  	epthru_pci_blk = raid_dev->epthru_pool;
->  	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
-> -		epthru_pci_blk[i].vaddr = pci_pool_alloc(
-> +		epthru_pci_blk[i].vaddr = dma_pool_alloc(
->  						raid_dev->epthru_pool_handle,
->  						GFP_KERNEL,
->  						&epthru_pci_blk[i].dma_addr);
-> @@ -1202,8 +1202,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
->  
->  	// Allocate memory for each scatter-gather list. Request for 512 bytes
->  	// alignment for each sg list
-> -	raid_dev->sg_pool_handle = pci_pool_create("megaraid mbox sg",
-> -					adapter->pdev,
-> +	raid_dev->sg_pool_handle = dma_pool_create("megaraid mbox sg",
-> +					&adapter->pdev->dev,
->  					sizeof(mbox_sgl64) * MBOX_MAX_SG_SIZE,
->  					512, 0);
->  
-> @@ -1213,7 +1213,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
->  
->  	sg_pci_blk = raid_dev->sg_pool;
->  	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
-> -		sg_pci_blk[i].vaddr = pci_pool_alloc(
-> +		sg_pci_blk[i].vaddr = dma_pool_alloc(
->  						raid_dev->sg_pool_handle,
->  						GFP_KERNEL,
->  						&sg_pci_blk[i].dma_addr);
-> @@ -1249,29 +1249,29 @@ megaraid_mbox_teardown_dma_pools(adapter_t *adapter)
->  
->  	sg_pci_blk = raid_dev->sg_pool;
->  	for (i = 0; i < MBOX_MAX_SCSI_CMDS && sg_pci_blk[i].vaddr; i++) {
-> -		pci_pool_free(raid_dev->sg_pool_handle, sg_pci_blk[i].vaddr,
-> +		dma_pool_free(raid_dev->sg_pool_handle, sg_pci_blk[i].vaddr,
->  			sg_pci_blk[i].dma_addr);
+> diff --git a/drivers/scsi/mpt3sas/mpt3sas_base.c b/drivers/scsi/mpt3sas/mpt3sas_base.c
+> index a3fe1fb..3c2206d 100644
+> --- a/drivers/scsi/mpt3sas/mpt3sas_base.c
+> +++ b/drivers/scsi/mpt3sas/mpt3sas_base.c
+> @@ -3210,9 +3210,8 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
 >  	}
->  	if (raid_dev->sg_pool_handle)
-> -		pci_pool_destroy(raid_dev->sg_pool_handle);
-> +		dma_pool_destroy(raid_dev->sg_pool_handle);
 >  
->  
->  	epthru_pci_blk = raid_dev->epthru_pool;
->  	for (i = 0; i < MBOX_MAX_SCSI_CMDS && epthru_pci_blk[i].vaddr; i++) {
-> -		pci_pool_free(raid_dev->epthru_pool_handle,
-> +		dma_pool_free(raid_dev->epthru_pool_handle,
->  			epthru_pci_blk[i].vaddr, epthru_pci_blk[i].dma_addr);
+>  	if (ioc->sense) {
+> -		pci_pool_free(ioc->sense_dma_pool, ioc->sense, ioc->sense_dma);
+> -		if (ioc->sense_dma_pool)
+> -			pci_pool_destroy(ioc->sense_dma_pool);
+> +		dma_pool_free(ioc->sense_dma_pool, ioc->sense, ioc->sense_dma);
+> +		dma_pool_destroy(ioc->sense_dma_pool);
+>  		dexitprintk(ioc, pr_info(MPT3SAS_FMT
+>  			"sense_pool(0x%p): free\n",
+>  			ioc->name, ioc->sense));
+> @@ -3220,9 +3219,8 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
 >  	}
->  	if (raid_dev->epthru_pool_handle)
-> -		pci_pool_destroy(raid_dev->epthru_pool_handle);
-> +		dma_pool_destroy(raid_dev->epthru_pool_handle);
 >  
->  
->  	mbox_pci_blk = raid_dev->mbox_pool;
->  	for (i = 0; i < MBOX_MAX_SCSI_CMDS && mbox_pci_blk[i].vaddr; i++) {
-> -		pci_pool_free(raid_dev->mbox_pool_handle,
-> +		dma_pool_free(raid_dev->mbox_pool_handle,
->  			mbox_pci_blk[i].vaddr, mbox_pci_blk[i].dma_addr);
+>  	if (ioc->reply) {
+> -		pci_pool_free(ioc->reply_dma_pool, ioc->reply, ioc->reply_dma);
+> -		if (ioc->reply_dma_pool)
+> -			pci_pool_destroy(ioc->reply_dma_pool);
+> +		dma_pool_free(ioc->reply_dma_pool, ioc->reply, ioc->reply_dma);
+> +		dma_pool_destroy(ioc->reply_dma_pool);
+>  		dexitprintk(ioc, pr_info(MPT3SAS_FMT
+>  			"reply_pool(0x%p): free\n",
+>  			ioc->name, ioc->reply));
+> @@ -3230,10 +3228,9 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
 >  	}
->  	if (raid_dev->mbox_pool_handle)
-> -		pci_pool_destroy(raid_dev->mbox_pool_handle);
-> +		dma_pool_destroy(raid_dev->mbox_pool_handle);
 >  
->  	return;
->  }
-> diff --git a/drivers/scsi/megaraid/megaraid_mm.c b/drivers/scsi/megaraid/megaraid_mm.c
-> index 4cf9ed9..11f518f 100644
-> --- a/drivers/scsi/megaraid/megaraid_mm.c
-> +++ b/drivers/scsi/megaraid/megaraid_mm.c
-> @@ -574,7 +574,7 @@ mraid_mm_attach_buf(mraid_mmadp_t *adp, uioc_t *kioc, int xferlen)
+>  	if (ioc->reply_free) {
+> -		pci_pool_free(ioc->reply_free_dma_pool, ioc->reply_free,
+> +		dma_pool_free(ioc->reply_free_dma_pool, ioc->reply_free,
+>  		    ioc->reply_free_dma);
+> -		if (ioc->reply_free_dma_pool)
+> -			pci_pool_destroy(ioc->reply_free_dma_pool);
+> +		dma_pool_destroy(ioc->reply_free_dma_pool);
+>  		dexitprintk(ioc, pr_info(MPT3SAS_FMT
+>  			"reply_free_pool(0x%p): free\n",
+>  			ioc->name, ioc->reply_free));
+> @@ -3244,7 +3241,7 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+>  		do {
+>  			rps = &ioc->reply_post[i];
+>  			if (rps->reply_post_free) {
+> -				pci_pool_free(
+> +				dma_pool_free(
+>  				    ioc->reply_post_free_dma_pool,
+>  				    rps->reply_post_free,
+>  				    rps->reply_post_free_dma);
+> @@ -3256,8 +3253,7 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+>  		} while (ioc->rdpq_array_enable &&
+>  			   (++i < ioc->reply_queue_count));
 >  
->  	kioc->pool_index	= right_pool;
->  	kioc->free_buf		= 1;
-> -	kioc->buf_vaddr 	= pci_pool_alloc(pool->handle, GFP_KERNEL,
-> +	kioc->buf_vaddr 	= dma_pool_alloc(pool->handle, GFP_KERNEL,
->  							&kioc->buf_paddr);
->  	spin_unlock_irqrestore(&pool->lock, flags);
+> -		if (ioc->reply_post_free_dma_pool)
+> -			pci_pool_destroy(ioc->reply_post_free_dma_pool);
+> +		dma_pool_destroy(ioc->reply_post_free_dma_pool);
+>  		kfree(ioc->reply_post);
+>  	}
 >  
-> @@ -658,7 +658,7 @@ mraid_mm_dealloc_kioc(mraid_mmadp_t *adp, uioc_t *kioc)
->  		 * not in use
->  		 */
->  		if (kioc->free_buf == 1)
-> -			pci_pool_free(pool->handle, kioc->buf_vaddr, 
-> +			dma_pool_free(pool->handle, kioc->buf_vaddr,
->  							kioc->buf_paddr);
->  		else
->  			pool->in_use = 0;
-> @@ -940,8 +940,8 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
->  						GFP_KERNEL);
->  	adapter->mbox_list	= kmalloc(sizeof(mbox64_t) * lld_adp->max_kioc,
->  						GFP_KERNEL);
-> -	adapter->pthru_dma_pool = pci_pool_create("megaraid mm pthru pool",
-> -						adapter->pdev,
-> +	adapter->pthru_dma_pool = dma_pool_create("megaraid mm pthru pool",
-> +						&adapter->pdev->dev,
->  						sizeof(mraid_passthru_t),
->  						16, 0);
->  
-> @@ -970,7 +970,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
->  
->  		kioc		= adapter->kioc_list + i;
->  		kioc->cmdbuf	= (uint64_t)(unsigned long)(mbox_list + i);
-> -		kioc->pthru32	= pci_pool_alloc(adapter->pthru_dma_pool,
-> +		kioc->pthru32	= dma_pool_alloc(adapter->pthru_dma_pool,
->  						GFP_KERNEL, &kioc->pthru32_h);
->  
->  		if (!kioc->pthru32) {
-> @@ -1006,7 +1006,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
->  	for (i = 0; i < lld_adp->max_kioc; i++) {
->  		kioc = adapter->kioc_list + i;
->  		if (kioc->pthru32) {
-> -			pci_pool_free(adapter->pthru_dma_pool, kioc->pthru32,
-> +			dma_pool_free(adapter->pthru_dma_pool, kioc->pthru32,
->  				kioc->pthru32_h);
+> @@ -3278,12 +3274,11 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+>  	if (ioc->chain_lookup) {
+>  		for (i = 0; i < ioc->chain_depth; i++) {
+>  			if (ioc->chain_lookup[i].chain_buffer)
+> -				pci_pool_free(ioc->chain_dma_pool,
+> +				dma_pool_free(ioc->chain_dma_pool,
+>  				    ioc->chain_lookup[i].chain_buffer,
+>  				    ioc->chain_lookup[i].chain_buffer_dma);
 >  		}
+> -		if (ioc->chain_dma_pool)
+> -			pci_pool_destroy(ioc->chain_dma_pool);
+> +		dma_pool_destroy(ioc->chain_dma_pool);
+>  		free_pages((ulong)ioc->chain_lookup, ioc->chain_pages);
+>  		ioc->chain_lookup = NULL;
 >  	}
-> @@ -1017,7 +1017,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
->  	kfree(adapter->mbox_list);
+> @@ -3458,23 +3453,23 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+>  			ioc->name);
+>  		goto out;
+>  	}
+> -	ioc->reply_post_free_dma_pool = pci_pool_create("reply_post_free pool",
+> -	    ioc->pdev, sz, 16, 0);
+> +	ioc->reply_post_free_dma_pool = dma_pool_create("reply_post_free pool",
+> +	    &ioc->pdev->dev, sz, 16, 0);
+>  	if (!ioc->reply_post_free_dma_pool) {
+>  		pr_err(MPT3SAS_FMT
+> -		 "reply_post_free pool: pci_pool_create failed\n",
+> +		 "reply_post_free pool: dma_pool_create failed\n",
+>  		 ioc->name);
+>  		goto out;
+>  	}
+>  	i = 0;
+>  	do {
+>  		ioc->reply_post[i].reply_post_free =
+> -		    pci_pool_alloc(ioc->reply_post_free_dma_pool,
+> +		    dma_pool_alloc(ioc->reply_post_free_dma_pool,
+>  		    GFP_KERNEL,
+>  		    &ioc->reply_post[i].reply_post_free_dma);
+>  		if (!ioc->reply_post[i].reply_post_free) {
+>  			pr_err(MPT3SAS_FMT
+> -			"reply_post_free pool: pci_pool_alloc failed\n",
+> +			"reply_post_free pool: dma_pool_alloc failed\n",
+>  			ioc->name);
+>  			goto out;
+>  		}
+> @@ -3589,15 +3584,15 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+>  			ioc->name);
+>  		goto out;
+>  	}
+> -	ioc->chain_dma_pool = pci_pool_create("chain pool", ioc->pdev,
+> +	ioc->chain_dma_pool = dma_pool_create("chain pool", &ioc->pdev->dev,
+>  	    ioc->chain_segment_sz, 16, 0);
+>  	if (!ioc->chain_dma_pool) {
+> -		pr_err(MPT3SAS_FMT "chain_dma_pool: pci_pool_create failed\n",
+> +		pr_err(MPT3SAS_FMT "chain_dma_pool: dma_pool_create failed\n",
+>  			ioc->name);
+>  		goto out;
+>  	}
+>  	for (i = 0; i < ioc->chain_depth; i++) {
+> -		ioc->chain_lookup[i].chain_buffer = pci_pool_alloc(
+> +		ioc->chain_lookup[i].chain_buffer = dma_pool_alloc(
+>  		    ioc->chain_dma_pool , GFP_KERNEL,
+>  		    &ioc->chain_lookup[i].chain_buffer_dma);
+>  		if (!ioc->chain_lookup[i].chain_buffer) {
+> @@ -3642,17 +3637,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
 >  
->  	if (adapter->pthru_dma_pool)
-> -		pci_pool_destroy(adapter->pthru_dma_pool);
-> +		dma_pool_destroy(adapter->pthru_dma_pool);
+>  	/* sense buffers, 4 byte align */
+>  	sz = ioc->scsiio_depth * SCSI_SENSE_BUFFERSIZE;
+> -	ioc->sense_dma_pool = pci_pool_create("sense pool", ioc->pdev, sz, 4,
+> -	    0);
+> +	ioc->sense_dma_pool = dma_pool_create("sense pool", &ioc->pdev->dev, sz,
+> +					      4, 0);
+>  	if (!ioc->sense_dma_pool) {
+> -		pr_err(MPT3SAS_FMT "sense pool: pci_pool_create failed\n",
+> +		pr_err(MPT3SAS_FMT "sense pool: dma_pool_create failed\n",
+>  		    ioc->name);
+>  		goto out;
+>  	}
+> -	ioc->sense = pci_pool_alloc(ioc->sense_dma_pool , GFP_KERNEL,
+> +	ioc->sense = dma_pool_alloc(ioc->sense_dma_pool, GFP_KERNEL,
+>  	    &ioc->sense_dma);
+>  	if (!ioc->sense) {
+> -		pr_err(MPT3SAS_FMT "sense pool: pci_pool_alloc failed\n",
+> +		pr_err(MPT3SAS_FMT "sense pool: dma_pool_alloc failed\n",
+>  		    ioc->name);
+>  		goto out;
+>  	}
+> @@ -3666,17 +3661,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
 >  
->  	kfree(adapter);
+>  	/* reply pool, 4 byte align */
+>  	sz = ioc->reply_free_queue_depth * ioc->reply_sz;
+> -	ioc->reply_dma_pool = pci_pool_create("reply pool", ioc->pdev, sz, 4,
+> -	    0);
+> +	ioc->reply_dma_pool = dma_pool_create("reply pool", &ioc->pdev->dev, sz,
+> +					      4, 0);
+>  	if (!ioc->reply_dma_pool) {
+> -		pr_err(MPT3SAS_FMT "reply pool: pci_pool_create failed\n",
+> +		pr_err(MPT3SAS_FMT "reply pool: dma_pool_create failed\n",
+>  		    ioc->name);
+>  		goto out;
+>  	}
+> -	ioc->reply = pci_pool_alloc(ioc->reply_dma_pool , GFP_KERNEL,
+> +	ioc->reply = dma_pool_alloc(ioc->reply_dma_pool, GFP_KERNEL,
+>  	    &ioc->reply_dma);
+>  	if (!ioc->reply) {
+> -		pr_err(MPT3SAS_FMT "reply pool: pci_pool_alloc failed\n",
+> +		pr_err(MPT3SAS_FMT "reply pool: dma_pool_alloc failed\n",
+>  		    ioc->name);
+>  		goto out;
+>  	}
+> @@ -3692,17 +3687,17 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
 >  
-> @@ -1086,14 +1086,15 @@ mraid_mm_setup_dma_pools(mraid_mmadp_t *adp)
->  		pool->buf_size = bufsize;
->  		spin_lock_init(&pool->lock);
->  
-> -		pool->handle = pci_pool_create("megaraid mm data buffer",
-> -						adp->pdev, bufsize, 16, 0);
-> +		pool->handle = dma_pool_create("megaraid mm data buffer",
-> +					       &adp->pdev->dev, bufsize, 16,
-> +					       0);
-Indentation style change here
+>  	/* reply free queue, 16 byte align */
+>  	sz = ioc->reply_free_queue_depth * 4;
+> -	ioc->reply_free_dma_pool = pci_pool_create("reply_free pool",
+> -	    ioc->pdev, sz, 16, 0);
+> +	ioc->reply_free_dma_pool = dma_pool_create("reply_free pool",
+> +	    &ioc->pdev->dev, sz, 16, 0);
+>  	if (!ioc->reply_free_dma_pool) {
+> -		pr_err(MPT3SAS_FMT "reply_free pool: pci_pool_create failed\n",
+> +		pr_err(MPT3SAS_FMT "reply_free pool: dma_pool_create failed\n",
+>  			ioc->name);
+>  		goto out;
+>  	}
+> -	ioc->reply_free = pci_pool_alloc(ioc->reply_free_dma_pool , GFP_KERNEL,
+> +	ioc->reply_free = dma_pool_alloc(ioc->reply_free_dma_pool , GFP_KERNEL,
+here:                                                             ^
 
->  
->  		if (!pool->handle) {
->  			goto dma_pool_setup_error;
->  		}
->  
-> -		pool->vaddr = pci_pool_alloc(pool->handle, GFP_KERNEL,
-> +		pool->vaddr = dma_pool_alloc(pool->handle, GFP_KERNEL,
->  							&pool->paddr);
->  
->  		if (!pool->vaddr)
-> @@ -1163,14 +1164,14 @@ mraid_mm_free_adp_resources(mraid_mmadp_t *adp)
->  
->  		kioc = adp->kioc_list + i;
->  
-> -		pci_pool_free(adp->pthru_dma_pool, kioc->pthru32,
-> +		dma_pool_free(adp->pthru_dma_pool, kioc->pthru32,
->  				kioc->pthru32_h);
+>  	    &ioc->reply_free_dma);
+>  	if (!ioc->reply_free) {
+> -		pr_err(MPT3SAS_FMT "reply_free pool: pci_pool_alloc failed\n",
+> +		pr_err(MPT3SAS_FMT "reply_free pool: dma_pool_alloc failed\n",
+>  			ioc->name);
+>  		goto out;
 >  	}
->  
->  	kfree(adp->kioc_list);
->  	kfree(adp->mbox_list);
->  
-> -	pci_pool_destroy(adp->pthru_dma_pool);
-> +	dma_pool_destroy(adp->pthru_dma_pool);
->  
->  
->  	return;
-> @@ -1194,10 +1195,10 @@ mraid_mm_teardown_dma_pools(mraid_mmadp_t *adp)
->  		if (pool->handle) {
->  
->  			if (pool->vaddr)
-> -				pci_pool_free(pool->handle, pool->vaddr,
-> +				dma_pool_free(pool->handle, pool->vaddr,
->  							pool->paddr);
->  
-> -			pci_pool_destroy(pool->handle);
-> +			dma_pool_destroy(pool->handle);
->  			pool->handle = NULL;
->  		}
+> @@ -3720,7 +3715,7 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc)
+>  	    ioc->config_page_sz, &ioc->config_page_dma);
+>  	if (!ioc->config_page) {
+>  		pr_err(MPT3SAS_FMT
+> -			"config page: pci_pool_alloc failed\n",
+> +			"config page: dma_pool_alloc failed\n",
+>  			ioc->name);
+>  		goto out;
 >  	}
-> diff --git a/drivers/scsi/megaraid/megaraid_sas_base.c b/drivers/scsi/megaraid/megaraid_sas_base.c
-> index 70891a7..fb0c3b6 100644
-> --- a/drivers/scsi/megaraid/megaraid_sas_base.c
-> +++ b/drivers/scsi/megaraid/megaraid_sas_base.c
-> @@ -3760,19 +3760,19 @@ static void megasas_teardown_frame_pool(struct megasas_instance *instance)
->  		cmd = instance->cmd_list[i];
->  
->  		if (cmd->frame)
-> -			pci_pool_free(instance->frame_dma_pool, cmd->frame,
-> +			dma_pool_free(instance->frame_dma_pool, cmd->frame,
->  				      cmd->frame_phys_addr);
->  
->  		if (cmd->sense)
-> -			pci_pool_free(instance->sense_dma_pool, cmd->sense,
-> +			dma_pool_free(instance->sense_dma_pool, cmd->sense,
->  				      cmd->sense_phys_addr);
->  	}
->  
->  	/*
->  	 * Now destroy the pool itself
->  	 */
-> -	pci_pool_destroy(instance->frame_dma_pool);
-> -	pci_pool_destroy(instance->sense_dma_pool);
-> +	dma_pool_destroy(instance->frame_dma_pool);
-> +	dma_pool_destroy(instance->sense_dma_pool);
->  
->  	instance->frame_dma_pool = NULL;
->  	instance->sense_dma_pool = NULL;
-> @@ -3824,21 +3824,22 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
->  	/*
->  	 * Use DMA pool facility provided by PCI layer
->  	 */
-> -	instance->frame_dma_pool = pci_pool_create("megasas frame pool",
-> -					instance->pdev, total_sz, 256, 0);
-> +	instance->frame_dma_pool = dma_pool_create("megasas frame pool",
-> +					&instance->pdev->dev, total_sz, 256, 0);
->  
->  	if (!instance->frame_dma_pool) {
->  		dev_printk(KERN_DEBUG, &instance->pdev->dev, "failed to setup frame pool\n");
->  		return -ENOMEM;
->  	}
->  
-> -	instance->sense_dma_pool = pci_pool_create("megasas sense pool",
-> -						   instance->pdev, 128, 4, 0);
-> +	instance->sense_dma_pool = dma_pool_create("megasas sense pool",
-> +						   &instance->pdev->dev, 128, 4,
-> +						   0);
->  
->  	if (!instance->sense_dma_pool) {
->  		dev_printk(KERN_DEBUG, &instance->pdev->dev, "failed to setup sense pool\n");
->  
-> -		pci_pool_destroy(instance->frame_dma_pool);
-> +		dma_pool_destroy(instance->frame_dma_pool);
->  		instance->frame_dma_pool = NULL;
->  
->  		return -ENOMEM;
-> @@ -3853,10 +3854,10 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
->  
->  		cmd = instance->cmd_list[i];
->  
-> -		cmd->frame = pci_pool_alloc(instance->frame_dma_pool,
-> +		cmd->frame = dma_pool_alloc(instance->frame_dma_pool,
->  					    GFP_KERNEL, &cmd->frame_phys_addr);
->  
-> -		cmd->sense = pci_pool_alloc(instance->sense_dma_pool,
-> +		cmd->sense = dma_pool_alloc(instance->sense_dma_pool,
->  					    GFP_KERNEL, &cmd->sense_phys_addr);
->  
->  		/*
-> @@ -3864,7 +3865,7 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
->  		 * whatever has been allocated
->  		 */
->  		if (!cmd->frame || !cmd->sense) {
-> -			dev_printk(KERN_DEBUG, &instance->pdev->dev, "pci_pool_alloc failed\n");
-> +			dev_printk(KERN_DEBUG, &instance->pdev->dev, "dma_pool_alloc failed\n");
->  			megasas_teardown_frame_pool(instance);
->  			return -ENOMEM;
->  		}
-> diff --git a/drivers/scsi/megaraid/megaraid_sas_fusion.c b/drivers/scsi/megaraid/megaraid_sas_fusion.c
-> index 9a9c84f..33c6038 100644
-> --- a/drivers/scsi/megaraid/megaraid_sas_fusion.c
-> +++ b/drivers/scsi/megaraid/megaraid_sas_fusion.c
-> @@ -316,20 +316,21 @@ megasas_free_cmds_fusion(struct megasas_instance *instance)
->  		cmd = fusion->cmd_list[i];
->  		if (cmd) {
->  			if (cmd->sg_frame)
-> -				pci_pool_free(fusion->sg_dma_pool, cmd->sg_frame,
-> -				      cmd->sg_frame_phys_addr);
-> +				dma_pool_free(fusion->sg_dma_pool,
-> +					      cmd->sg_frame,
-> +					      cmd->sg_frame_phys_addr);
-Indentation style change here
-
->  			if (cmd->sense)
-> -				pci_pool_free(fusion->sense_dma_pool, cmd->sense,
-> -				      cmd->sense_phys_addr);
-> +				dma_pool_free(fusion->sense_dma_pool,
-> +					      cmd->sense, cmd->sense_phys_addr);
-And here too.
-
->  		}
->  	}
->  
->  	if (fusion->sg_dma_pool) {
-> -		pci_pool_destroy(fusion->sg_dma_pool);
-> +		dma_pool_destroy(fusion->sg_dma_pool);
->  		fusion->sg_dma_pool = NULL;
->  	}
->  	if (fusion->sense_dma_pool) {
-> -		pci_pool_destroy(fusion->sense_dma_pool);
-> +		dma_pool_destroy(fusion->sense_dma_pool);
->  		fusion->sense_dma_pool = NULL;
->  	}
->  
-> @@ -346,11 +347,11 @@ megasas_free_cmds_fusion(struct megasas_instance *instance)
->  			fusion->request_alloc_sz, fusion->req_frames_desc,
->  			fusion->req_frames_desc_phys);
->  	if (fusion->io_request_frames)
-> -		pci_pool_free(fusion->io_request_frames_pool,
-> +		dma_pool_free(fusion->io_request_frames_pool,
->  			fusion->io_request_frames,
->  			fusion->io_request_frames_phys);
->  	if (fusion->io_request_frames_pool) {
-> -		pci_pool_destroy(fusion->io_request_frames_pool);
-> +		dma_pool_destroy(fusion->io_request_frames_pool);
->  		fusion->io_request_frames_pool = NULL;
->  	}
->  
-> @@ -379,11 +380,11 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
->  
->  
->  	fusion->sg_dma_pool =
-> -			pci_pool_create("mr_sg", instance->pdev,
-> +			dma_pool_create("mr_sg", &instance->pdev->dev,
->  				instance->max_chain_frame_sz, 4, 0);
->  	/* SCSI_SENSE_BUFFERSIZE  = 96 bytes */
->  	fusion->sense_dma_pool =
-> -			pci_pool_create("mr_sense", instance->pdev,
-> +			dma_pool_create("mr_sense", &instance->pdev->dev,
->  				SCSI_SENSE_BUFFERSIZE, 64, 0);
->  
->  	if (!fusion->sense_dma_pool || !fusion->sg_dma_pool) {
-> @@ -397,10 +398,10 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
->  	 */
->  	for (i = 0; i < max_cmd; i++) {
->  		cmd = fusion->cmd_list[i];
-> -		cmd->sg_frame = pci_pool_alloc(fusion->sg_dma_pool,
-> +		cmd->sg_frame = dma_pool_alloc(fusion->sg_dma_pool,
->  					GFP_KERNEL, &cmd->sg_frame_phys_addr);
->  
-> -		cmd->sense = pci_pool_alloc(fusion->sense_dma_pool,
-> +		cmd->sense = dma_pool_alloc(fusion->sense_dma_pool,
->  					GFP_KERNEL, &cmd->sense_phys_addr);
->  		if (!cmd->sg_frame || !cmd->sense) {
->  			dev_err(&instance->pdev->dev,
-> @@ -412,7 +413,7 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
->  	/* create sense buffer for the raid 1/10 fp */
->  	for (i = max_cmd; i < instance->max_mpt_cmds; i++) {
->  		cmd = fusion->cmd_list[i];
-> -		cmd->sense = pci_pool_alloc(fusion->sense_dma_pool,
-> +		cmd->sense = dma_pool_alloc(fusion->sense_dma_pool,
->  			GFP_KERNEL, &cmd->sense_phys_addr);
->  		if (!cmd->sense) {
->  			dev_err(&instance->pdev->dev,
-> @@ -479,7 +480,7 @@ megasas_alloc_request_fusion(struct megasas_instance *instance)
->  	}
->  
->  	fusion->io_request_frames_pool =
-> -			pci_pool_create("mr_ioreq", instance->pdev,
-> +			dma_pool_create("mr_ioreq", &instance->pdev->dev,
->  				fusion->io_frames_alloc_sz, 16, 0);
->  
->  	if (!fusion->io_request_frames_pool) {
-> @@ -489,7 +490,7 @@ megasas_alloc_request_fusion(struct megasas_instance *instance)
->  	}
->  
->  	fusion->io_request_frames =
-> -			pci_pool_alloc(fusion->io_request_frames_pool,
-> +			dma_pool_alloc(fusion->io_request_frames_pool,
->  				GFP_KERNEL, &fusion->io_request_frames_phys);
->  	if (!fusion->io_request_frames) {
->  		dev_err(&instance->pdev->dev,
-> @@ -509,7 +510,7 @@ megasas_alloc_reply_fusion(struct megasas_instance *instance)
->  
->  	count = instance->msix_vectors > 0 ? instance->msix_vectors : 1;
->  	fusion->reply_frames_desc_pool =
-> -			pci_pool_create("mr_reply", instance->pdev,
-> +			dma_pool_create("mr_reply", &instance->pdev->dev,
->  				fusion->reply_alloc_sz * count, 16, 0);
->  
->  	if (!fusion->reply_frames_desc_pool) {
-> @@ -519,7 +520,7 @@ megasas_alloc_reply_fusion(struct megasas_instance *instance)
->  	}
->  
->  	fusion->reply_frames_desc[0] =
-> -		pci_pool_alloc(fusion->reply_frames_desc_pool,
-> +		dma_pool_alloc(fusion->reply_frames_desc_pool,
->  			GFP_KERNEL, &fusion->reply_frames_desc_phys[0]);
->  	if (!fusion->reply_frames_desc[0]) {
->  		dev_err(&instance->pdev->dev,
-> @@ -562,8 +563,10 @@ megasas_alloc_rdpq_fusion(struct megasas_instance *instance)
->  	memset(fusion->rdpq_virt, 0,
->  			sizeof(struct MPI2_IOC_INIT_RDPQ_ARRAY_ENTRY) * MAX_MSIX_QUEUES_FUSION);
->  	count = instance->msix_vectors > 0 ? instance->msix_vectors : 1;
-> -	fusion->reply_frames_desc_pool = pci_pool_create("mr_rdpq",
-> -							 instance->pdev, fusion->reply_alloc_sz, 16, 0);
-> +	fusion->reply_frames_desc_pool = dma_pool_create("mr_rdpq",
-> +							 &instance->pdev->dev,
-> +							 fusion->reply_alloc_sz,
-> +							 16, 0);
->  
->  	if (!fusion->reply_frames_desc_pool) {
->  		dev_err(&instance->pdev->dev,
-> @@ -573,7 +576,7 @@ megasas_alloc_rdpq_fusion(struct megasas_instance *instance)
->  
->  	for (i = 0; i < count; i++) {
->  		fusion->reply_frames_desc[i] =
-> -				pci_pool_alloc(fusion->reply_frames_desc_pool,
-> +				dma_pool_alloc(fusion->reply_frames_desc_pool,
->  					GFP_KERNEL, &fusion->reply_frames_desc_phys[i]);
->  		if (!fusion->reply_frames_desc[i]) {
->  			dev_err(&instance->pdev->dev,
-> @@ -601,13 +604,13 @@ megasas_free_rdpq_fusion(struct megasas_instance *instance) {
->  
->  	for (i = 0; i < MAX_MSIX_QUEUES_FUSION; i++) {
->  		if (fusion->reply_frames_desc[i])
-> -			pci_pool_free(fusion->reply_frames_desc_pool,
-> +			dma_pool_free(fusion->reply_frames_desc_pool,
->  				fusion->reply_frames_desc[i],
->  				fusion->reply_frames_desc_phys[i]);
->  	}
->  
->  	if (fusion->reply_frames_desc_pool)
-> -		pci_pool_destroy(fusion->reply_frames_desc_pool);
-> +		dma_pool_destroy(fusion->reply_frames_desc_pool);
->  
->  	if (fusion->rdpq_virt)
->  		pci_free_consistent(instance->pdev,
-> @@ -623,12 +626,12 @@ megasas_free_reply_fusion(struct megasas_instance *instance) {
->  	fusion = instance->ctrl_context;
->  
->  	if (fusion->reply_frames_desc[0])
-> -		pci_pool_free(fusion->reply_frames_desc_pool,
-> +		dma_pool_free(fusion->reply_frames_desc_pool,
->  			fusion->reply_frames_desc[0],
->  			fusion->reply_frames_desc_phys[0]);
->  
->  	if (fusion->reply_frames_desc_pool)
-> -		pci_pool_destroy(fusion->reply_frames_desc_pool);
-> +		dma_pool_destroy(fusion->reply_frames_desc_pool);
->  
->  }
->  
 > -- 
 > 2.9.3
 > 
