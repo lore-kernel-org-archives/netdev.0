@@ -1,83 +1,117 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: qlogic: qla3xxx: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 19 Feb 2017 00:19:04 +0100
-Message-ID: <1487459944-32311-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, Dept-GELinuxNICDev@cavium.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: Questions on XDP
+Date: Sat, 18 Feb 2017 15:31:16 -0800
+Message-ID: <CAADnVQKmfu8FR3LvKfLbhKaQhXX9g4N=O-MC+K+frM3MF8XaFQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f178.google.com ([209.85.128.178]:33249 "EHLO
+        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751483AbdBRXbx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 18:31:53 -0500
+Received: by mail-wr0-f178.google.com with SMTP id 35so6561246wrw.0
+        for <netdev@vger.kernel.org>; Sat, 18 Feb 2017 15:31:37 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Sat, Feb 18, 2017 at 10:18 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+>
+>> XDP_DROP does not require having one page per frame.
+>
+> Agreed.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+why do you think so?
+xdp_drop is targeting ddos where in good case
+all traffic is passed up and in bad case
+most of the traffic is dropped, but good traffic still needs
+to be serviced by the layers after. Like other xdp
+programs and the stack.
+Say ixgbe+xdp goes with 2k per packet,
+very soon we will have a bunch of half pages
+sitting in the stack and other halfs requiring
+complex refcnting and making the actual
+ddos mitigation ineffective and forcing nic to drop packets
+because it runs out of buffers. Why complicate things?
+packet per page approach is simple and effective.
+virtio is different. there we don't have hw that needs
+to have buffers ready for dma.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/qlogic/qla3xxx.c |   29 ++++++++++++++++++-----------
- 1 files changed, 18 insertions(+), 11 deletions(-)
+> Looking at the Mellanox way of doing it I am not entirely sure it is
+> useful.  It looks good for benchmarks but that is about it.  Also I
 
-diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
-index ea38236..2991179 100644
---- a/drivers/net/ethernet/qlogic/qla3xxx.c
-+++ b/drivers/net/ethernet/qlogic/qla3xxx.c
-@@ -1707,23 +1707,30 @@ static int ql_get_full_dup(struct ql3_adapter *qdev)
- 	return status;
- }
- 
--static int ql_get_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
-+static int ql_get_link_ksettings(struct net_device *ndev,
-+				 struct ethtool_link_ksettings *cmd)
- {
- 	struct ql3_adapter *qdev = netdev_priv(ndev);
-+	u32 supported, advertising;
- 
--	ecmd->transceiver = XCVR_INTERNAL;
--	ecmd->supported = ql_supported_modes(qdev);
-+	supported = ql_supported_modes(qdev);
- 
- 	if (test_bit(QL_LINK_OPTICAL, &qdev->flags)) {
--		ecmd->port = PORT_FIBRE;
-+		cmd->base.port = PORT_FIBRE;
- 	} else {
--		ecmd->port = PORT_TP;
--		ecmd->phy_address = qdev->PHYAddr;
-+		cmd->base.port = PORT_TP;
-+		cmd->base.phy_address = qdev->PHYAddr;
- 	}
--	ecmd->advertising = ql_supported_modes(qdev);
--	ecmd->autoneg = ql_get_auto_cfg_status(qdev);
--	ethtool_cmd_speed_set(ecmd, ql_get_speed(qdev));
--	ecmd->duplex = ql_get_full_dup(qdev);
-+	advertising = ql_supported_modes(qdev);
-+	cmd->base.autoneg = ql_get_auto_cfg_status(qdev);
-+	cmd->base.speed = ql_get_speed(qdev);
-+	cmd->base.duplex = ql_get_full_dup(qdev);
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
-+
- 	return 0;
- }
- 
-@@ -1769,12 +1776,12 @@ static void ql_get_pauseparam(struct net_device *ndev,
- }
- 
- static const struct ethtool_ops ql3xxx_ethtool_ops = {
--	.get_settings = ql_get_settings,
- 	.get_drvinfo = ql_get_drvinfo,
- 	.get_link = ethtool_op_get_link,
- 	.get_msglevel = ql_get_msglevel,
- 	.set_msglevel = ql_set_msglevel,
- 	.get_pauseparam = ql_get_pauseparam,
-+	.get_link_ksettings = ql_get_link_ksettings,
- };
- 
- static int ql_populate_free_queue(struct ql3_adapter *qdev)
--- 
-1.7.4.4
+it's the opposite. It already runs very nicely in production.
+In real life it's always a combination of xdp_drop, xdp_tx and
+xdp_pass actions.
+Sounds like ixgbe wants to do things differently because
+of not-invented-here. That new approach may turn
+out to be good or bad, but why risk it?
+mlx4 approach works.
+mlx5 has few issues though, because page recycling
+was done too simplistic. Generic page pool/recycling
+that all drivers will use should solve that. I hope.
+Is the proposal to have generic split-page recycler ?
+How that is going to work?
+
+> don't see it extending out to the point that we would be able to
+> exchange packets between interfaces which really seems like it should
+> be the ultimate goal for XDP_TX.
+
+we don't have a use case for multi-port xdp_tx,
+but I'm not objecting to doing it in general.
+Just right now I don't see a need to complicate
+drivers to do so.
+
+> It seems like eventually we want to be able to peel off the buffer and
+> send it to something other than ourselves.  For example it seems like
+> it might be useful at some point to use XDP to do traffic
+> classification and have it route packets between multiple interfaces
+> on a host and it wouldn't make sense to have all of them map every
+> page as bidirectional because it starts becoming ridiculous if you
+> have dozens of interfaces in a system.
+
+dozen interfaces? Like a single nic with dozen ports?
+or many nics with many ports on the same system?
+are you trying to build a switch out of x86?
+I don't think it's realistic to have multi-terrabit x86 box.
+Is it all because of dpdk/6wind demos?
+I saw how dpdk was bragging that they can saturate
+pcie bus. So? Why is this useful?
+Why anyone would care to put a bunch of nics
+into x86 and demonstrate that bandwidth of pcie is now
+a limiting factor ?
+
+> Also as far as the one page per frame it occurs to me that you will
+> have to eventually deal with things like frame replication.
+
+... only in cases where one needs to demo a multi-port
+bridge with lots of nics in one x86 box.
+I don't see practicality of such setup and I think
+that copying full page every time xdp needs to
+broadcast is preferred vs doing atomic refcnting
+that will slow down the main case. broadcast is slow path.
+
+My strong believe that xdp should not care about
+niche architectures. It never meant to be a solution
+for everyone and for all use cases.
+If xdp sucks on powerpc, so be it.
+cpus with 64k pages are doomed. We should
+not sacrifice performance on x86 because of ppc.
+I think it was a mistake that ixgbe choose to do that
+in the past. When mb()s were added because
+of powerpc and it took years to introduce dma_mb()
+and return performance to good levels.
+btw, dma_mb work was awesome.
+In xdp I don't want to make such trade-offs.
+Really only x86 and arm64 archs matter today.
+Everything else is best effort.
