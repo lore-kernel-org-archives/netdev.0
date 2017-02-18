@@ -1,14 +1,17 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH] RDS: keep data type consistent in the user visible header
-Date: Fri, 17 Feb 2017 19:15:47 -0800
-Message-ID: <1487387747-5324-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org
+Subject: [net-next][PATCH v1] RDS: keep data type consistent in the user visible header
+Date: Fri, 17 Feb 2017 19:21:21 -0800
+Message-ID: <1487388081-6559-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org,
+        Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-From: Santosh Shilimkar <ssantosh@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:48047 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750763AbdBRDVc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2017 22:21:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 rds.h is exported to /usr/include/rds.h,  so u8, u64 leads to
 errors like below.
@@ -19,8 +22,10 @@ errors like below.
 Fix it by following same types as rest of the user header.
 
 Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Signed-off-by: Santosh Shilimkar <ssantosh.shilimkar@oracle.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
+V1: Fixed the email id typo
+
  include/uapi/linux/rds.h | 10 +++++-----
  1 file changed, 5 insertions(+), 5 deletions(-)
 
