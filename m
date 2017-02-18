@@ -1,178 +1,42 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: [PATCH net-next] GTP: Add some basic documentation about
- drivers/net/gtp.c
-Date: Sat, 18 Feb 2017 13:58:00 +0100
-Message-ID: <20170218125800.2vxo7gyfxbp6dw64@nataraja>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [RFC v2 00/20] Replace PCI pool by DMA pool API
+Date: Sat, 18 Feb 2017 14:06:00 +0100
+Message-ID: <20170218130600.GA24938@kroah.com>
+References: <20170218083556.20215-1-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:34598 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751166AbdBRM6H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 07:58:07 -0500
-Received: from uucp by ganesha.gnumonks.org with local-bsmtp (Exim 4.84_2)
-        (envelope-from <laforge@gnumonks.org>)
-        id 1cf4aS-0003tI-VD
-        for netdev@vger.kernel.org; Sat, 18 Feb 2017 13:58:05 +0100
-Received: from laforge by localhost.localdomain with local (Exim 4.89_RC5)
-        (envelope-from <laforge@gnumonks.org>)
-        id 1cf4aO-0001eC-6X
-        for netdev@vger.kernel.org; Sat, 18 Feb 2017 13:58:00 +0100
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Romain Perier <romain.perier@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170218083556.20215-1-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In order to clarify what the module actually does, and how to use it,
-let's add some basic documentation to the kernel tree, together with
-pointers to related specs and projects.
+On Sat, Feb 18, 2017 at 09:35:36AM +0100, Romain Perier wrote:
+> The current PCI pool API are simple macro functions direct expanded to
+> the appropriated dma pool functions. The prototypes are almost the same
+> and semantically, they are very similar. I propose to use the DMA pool
+> API directly and get rid of the old API.
+> 
+> This set of patches, replaces the old API by the dma pool API, adds
+> support to warn about this old API in checkpath.pl and remove the
+> defines.
 
-Signed-off-by: Harald Welte <laforge@gnumonks.org>
----
- Documentation/networking/gtp.txt | 135 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 135 insertions(+)
- create mode 100644 Documentation/networking/gtp.txt
+Why is this a "RFC" series?  Personally, I never apply those as it
+implies that the author doesn't think they are ready to be merged :)
 
-diff --git a/Documentation/networking/gtp.txt b/Documentation/networking/gtp.txt
-new file mode 100644
-index 000000000000..93e96750f103
---- /dev/null
-+++ b/Documentation/networking/gtp.txt
-@@ -0,0 +1,135 @@
-+The Linux kernel GTP tunneling module
-+======================================================================
-+Documentation by Harald Welte <laforge@gnumonks.org>
-+
-+In 'drivers/net/gtp.c' you are finding a kernel-level implementation
-+of a GTP tunnel endpoint.
-+
-+== What is GTP ==
-+
-+GTP is the Generic Tunnel Protocol, which is a 3GPP protocol used for
-+tunneling User-IP payload between a mobile station (phone, modem)
-+and the interconnection between an external packet data network (such
-+as the internet).
-+
-+So when you start a 'data connection' from your mobile phone, the
-+phone will use the control plane to signal for the establishment of
-+such a tunnel between that external data network and the phone.  The
-+tunnel endpoints thus reside on the phone and in the gateway.  All
-+intermediate nodes just transport the encapsulated packet.
-+
-+The phone itself does not implement GTP but uses some other
-+technology-dependent protocol stack for transmitting the user IP
-+payload, such as LLC/SNDCP/RLC/MAC.
-+
-+At some network element inside the cellular operator infrastructure
-+(SGSN in case of GPRS/EGPRS or classic UMTS, hNodeB in case of a 3G
-+femtocell, eNodeB in case of 4G/LTE), the cellular protocol stacking
-+is translated into GTP *without breaking the end-to-end tunnel*.  So
-+intermediate nodes just perform some specific relay function.
-+
-+At some point the GTP packet ends up on the so-called GGSN (GSM/UMTS)
-+or P-GW (LTE), which terminates the tunnel, decapsulates the packet
-+and forwards it onto an external packet data network.  This can be
-+public internet, but can also be any private IP network (or even
-+theoretically some non-IP network like X.25).
-+
-+You can find the protocol specification in 3GPP TS 29.060, available
-+publicly via the 3GPP website at http://www.3gpp.org/DynaReport/29060.htm
-+
-+A direct PDF link to v13.6.0 is provided for convenience below:
-+http://www.etsi.org/deliver/etsi_ts/129000_129099/129060/13.06.00_60/ts_129060v130600p.pdf
-+
-+== The Linux GTP tunnelling module ==
-+
-+The module implements the function of a tunnel endpoint, i.e. it is
-+able to decapsulate tunneled IP packets in the uplink originated by
-+the phone, and encapsulate raw IP packets received from the external
-+packet network in downlink towards the phone.
-+
-+It *only* implements the so-called 'user plane', carrying the User-IP
-+payload, called GTP-U.  It does not implement the 'control plane',
-+which is a signaling protocol used for establishment and teardown of
-+GTP tunnels (GTP-C).
-+
-+So in order to have a working GGSN/P-GW setup, you will need a
-+userspace program that implements the GTP-C protocol and which then
-+uses the netlink interface provided by the GTP-U module in the kernel
-+to configure the kernel module.
-+
-+This split architecture follows the tunneling modules of other
-+protocols, e.g. PPPoE or L2TP, where you also run a userspace daemon
-+to handle the tunnel establishment, authentication etc. and only the
-+data plane is accelerated inside the kernel.
-+
-+Don't be confused by terminology:  The GTP User Plane goes through
-+kernel accelerated path, while the GTP Control Plane goes to
-+Userspace :)
-+
-+The official homepge of the module is at
-+https://osmocom.org/projects/linux-kernel-gtp-u/wiki
-+
-+== Userspace Programs with Linux Kernel GTP-U support ==
-+
-+At the time of this writing, there are at least two Free Software
-+implementations that implement GTP-C and can use the netlink interface
-+to make use of the Linux kernel GTP-U support:
-+
-+* OpenGGSN (classic 2G/3G GGSN in C):
-+  https://osmocom.org/projects/openggsn/wiki/OpenGGSN
-+
-+* ergw (GGSN + P-GW in Erlang):
-+  https://github.com/travelping/ergw
-+
-+== Userspace Library / Command Line Utilities ==
-+
-+There is a userspace library called 'libgtpnl' which is based on
-+libmnl and which implements a C-language API towards the netlink
-+interface provided by the Kernel GTP module:
-+
-+http://git.osmocom.org/libgtpnl/
-+
-+== Protocol Versions ==
-+
-+There are two different versions of GTP-U: v0 and v1.  Both are
-+implemented in the Kernel GTP module.  Version 0 is a legacy version,
-+and deprecated from recent 3GPP specifications.
-+
-+There are three versions of GTP-C: v0, v1, and v2.  As the kernel
-+doesn't implement GTP-C, we don't have to worry about this.  It's the
-+responsibility of the control plane implementation in userspace to
-+implement that.
-+
-+== IPv6 ==
-+
-+The 3GPP specifications indicate either IPv4 or IPv6 can be used both
-+on the inner (user) IP layer, or on the outer (transport) layer.
-+
-+Unfortunately, the Kernel module currently supports IPv6 neither for
-+the User IP payload, nor for the outer IP layer.  Patches or other
-+Contributions to fix this are most welcome!
-+
-+== Mailing List ==
-+
-+If yo have questions regarding how to use the Kernel GTP module from
-+your own software, or want to contribute to the code, please use the
-+osmocom-net-grps mailing list for related discussion. The list can be
-+reached at osmocom-net-gprs@lists.osmocom.org and the mailman
-+interface for managign your subscription is at
-+https://lists.osmocom.org/mailman/listinfo/osmocom-net-gprs
-+
-+== Issue Tracker ==
-+
-+The Osmocom project maintains an issue tracker for the Kernel GTP-U
-+module at
-+https://osmocom.org/projects/linux-kernel-gtp-u/issues
-+
-+== History / Acknowledgements ==
-+
-+The Module was originally created in 2012 by Harald Welte, but never
-+completed.  Pablo came in to finish the mess Harald left behind.  But
-+doe to a lack of user interest, it never got merged.
-+
-+In 2015, Andreas Schultz came to the rescue and fixed lots more bugs,
-+extended it with new features and finally pushed all of us to get it
-+mainline, where it was merged in 4.7.0.
--- 
-2.11.0
+thanks,
+
+greg k-h
