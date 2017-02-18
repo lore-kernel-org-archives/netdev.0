@@ -1,57 +1,60 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Questions on XDP
-Date: Sat, 18 Feb 2017 17:34:02 +0100
-Message-ID: <20170218173402.1af86005@redhat.com>
-References: <CAKgT0Uc0RQyK0SCALEUVGBj8JMHCfp+CqiBsTJXN9mat9jUNjQ@mail.gmail.com>
-        <58A62979.1050600@gmail.com>
+From: Pavel Belous <pavel.belous@aquantia.com>
+Subject: Re: [PATCH net-next v2 00/12] net: ethernet: aquantia: improvements
+ and fixes
+Date: Sat, 18 Feb 2017 19:42:36 +0300
+Message-ID: <77321dc8-89b8-3fc1-80db-bf585fbaf4c7@aquantia.com>
+References: <cover.1487365317.git.pavel.belous@aquantia.com>
+ <6a2027ff-6725-4e8e-99fb-34c58542c393@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com,
-        David Miller <davem@davemloft.net>
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56232 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753079AbdBRQeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 18 Feb 2017 11:34:09 -0500
-In-Reply-To: <58A62979.1050600@gmail.com>
+Received: from mail-by2nam03on0060.outbound.protection.outlook.com ([104.47.42.60]:55104
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752358AbdBRQmx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 18 Feb 2017 11:42:53 -0500
+In-Reply-To: <6a2027ff-6725-4e8e-99fb-34c58542c393@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Feb 2017 14:36:41 -0800
-John Fastabend <john.fastabend@gmail.com> wrote:
 
-> On 17-02-16 12:41 PM, Alexander Duyck wrote:
-> > So I'm in the process of working on enabling XDP for the Intel NICs
-> > and I had a few questions so I just thought I would put them out here
-> > to try and get everything sorted before I paint myself into a corner.
-> >   
-> > So my first question is why does the documentation mention 1 frame per
-> > page for XDP?  
+On 02/18/2017 02:56 PM, Lino Sanfilippo wrote:
+> Hi,
+>
+> On 17.02.2017 22:07, Pavel Belous wrote:
+>> From: Pavel Belous <pavel.belous@aquantia.com>
+>>
+>> The following patchset contains improvements and fixes for aQuantia
+>> AQtion ethernet driver from net-next tree.
+>>
+>> Most fixes are based on the comments from Lino Sanfilippo.
+>>
+>> Sanity testing was performed on real HW. No regression found.
+>>
+>> v1->v2 :Removed buffers copying.
+>> 	Fixed dma error handling.
+>>
+>>
+>> Please review.
+>
+> You could have added all "reviewed-by" tags that you have received so
+> far for patches in the former version of this series. I think otherwise this
+> information will get lost.
+>
+> Regards,
+> Lino
+>
 
-Yes, XDP defines upfront a memory model where there is only one packet
-per page[1], please respect that!
+I was thinking to add this tag, but i was unsure.
 
-This is currently used/needed for fast-direct recycling of pages inside
-the driver for XDP_DROP and XDP_TX, _without_ performing any atomic
-refcnt operations on the page. E.g. see mlx4_en_rx_recycle().
+Thank you, I will add "Reviewed-by" tags for reviewed patches from v1 
+(not changed) in patches v3.
 
-This is also about controlling the cache-coherency state of the
-struct-page cache-line.  (With two (or-more) packets per page,
-the struct-page cache-line will be jumping around.) Controlling this is
-essential when packets are transferred between CPUs. We need an
-architecture were we can control this, please.
-
-[1] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/design/requirements.html#page-per-packet
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Regards,
+Pavel
