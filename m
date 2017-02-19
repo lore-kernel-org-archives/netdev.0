@@ -1,70 +1,90 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2/net-next] devlink: use DEVLINK_CMD_ESWITCH_*
- instead of DEVLINK_CMD_ESWITCH_MODE_*
-Date: Sun, 19 Feb 2017 21:59:06 +0100
-Message-ID: <20170219205906.GA1801@nanopsycho>
-References: <1487515026-5826-1-git-send-email-jiri@resnulli.us>
- <20170219120115.391906ba@xeon-e3>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch] socket.7: Document SO_INCOMING_CPU
+Date: Sun, 19 Feb 2017 21:55:20 +0100
+Message-ID: <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
+References: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, mlxsw@mellanox.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34821 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750848AbdBSVAY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 16:00:24 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u63so11200168wmu.2
-        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 12:59:09 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170219120115.391906ba@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Francois Saint-Jacques <fsaintjacques-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Feb 19, 2017 at 09:01:15PM CET, stephen@networkplumber.org wrote:
->On Sun, 19 Feb 2017 15:37:06 +0100
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Sync with kernel and don't use the obsolete enum values.
->> 
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  devlink/devlink.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->> 
->> diff --git a/devlink/devlink.c b/devlink/devlink.c
->> index 34a409f..c357580 100644
->> --- a/devlink/devlink.c
->> +++ b/devlink/devlink.c
->> @@ -1303,7 +1303,7 @@ static int cmd_dev_eswitch_show(struct dl *dl)
->>  	struct nlmsghdr *nlh;
->>  	int err;
->>  
->> -	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_MODE_GET,
->> +	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_GET,
->>  			       NLM_F_REQUEST | NLM_F_ACK);
->>  
->>  	err = dl_argv_parse_put(nlh, dl, DL_OPT_HANDLE, 0);
->> @@ -1321,7 +1321,7 @@ static int cmd_dev_eswitch_set(struct dl *dl)
->>  	struct nlmsghdr *nlh;
->>  	int err;
->>  
->> -	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_MODE_SET,
->> +	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_SET,
->>  			       NLM_F_REQUEST | NLM_F_ACK);
->>  
->>  	err = dl_argv_parse_put(nlh, dl, DL_OPT_HANDLE,
->
->I went back and looked at the original commit.
->    devlink: fix the name of eswitch commands
->OK, so you only changed the name, not the value so it would be binary
->compatible.
+[CC += Eric, so that he might review]
 
-Yep.
+Hello Francois,
 
->
->Applied.
+On 02/18/2017 05:06 AM, Francois Saint-Jacques wrote:
+> This socket option is undocumented. Applies on the latest version
+> (man-pages-4.09-511).
+> 
+> diff --git a/man7/socket.7 b/man7/socket.7
+> index 3efd7a5d8..1a3ffa253 100644
+> --- a/man7/socket.7
+> +++ b/man7/socket.7
+> @@ -490,6 +490,26 @@ flag on a socket
+>  operation.
+>  Expects an integer boolean flag.
+>  .TP
+> +.BR SO_INCOMING_CPU " (getsockopt since Linux 3.19, setsockopt since
+> Linux 4.4)"
+> +.\" getsocktop 2c8c56e15df3d4c2af3d656e44feb18789f75837
+> +.\" setsocktop 70da268b569d32a9fddeea85dc18043de9d89f89
+> +Sets or gets the cpu affinity of a socket. Expects an integer flag.
+> +.sp
+> +.in +4n
+> +.nf
+> +int cpu = 1;
+> +socklen_t len = sizeof(cpu);
+> +setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
+> +.fi
+> +.in
+> +.sp
+> +The typical use case is one listener per RX queue, as the associated listener
+> +should only accept flows handled in softirq by the same cpu.  This provides
+> +optimal NUMA behavior and keep cpu caches hot.
+> +.TP
+>  .B SO_KEEPALIVE
+>  Enable sending of keep-alive messages on connection-oriented sockets.
+>  Expects an integer boolean flag.
 
-Thanks.
+Thank you! Patch applied.
+
+I have tried to enhance the description somewhat. I'm not sure whether
+what I've written is quite correct (or whether it should be further
+extended). Eric, could you please take a look at the following, and let 
+me know if anything needs fixing:
+
+       SO_INCOMING_CPU  (gettable  since Linux 3.19, settable since Linux
+       4.4)
+              Sets or gets the CPU affinity  of  a  socket.   Expects  an
+              integer flag.
+
+                  int cpu = 1;
+                  socklen_t len = sizeof(cpu);
+                  setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len);
+
+              Because  all  of the packets for a single stream (i.e., all
+              packets for the same 4-tuple) arrive on the single RX queue
+              that  is  associated with a particular CPU, the typical use
+              case is to employ one listening process per RX queue,  with
+              the  incoming  flow being handled by a listener on the same
+              CPU that is handling the RX queue.  This  provides  optimal
+              NUMA behavior and keeps CPU caches hot.
+
+Cheers,
+
+Michael
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
