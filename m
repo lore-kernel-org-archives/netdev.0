@@ -1,44 +1,54 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/4] ip vrf: updates to handle cgroup hiearchy
- and namespace nesting
-Date: Sat, 18 Feb 2017 16:11:53 -0800
-Message-ID: <20170218161153.7aed0a23@xeon-e3>
-References: <1487264338-17588-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2/net-next repost 0/3] tc: flower: support masked
+ ICMP code and type match
+Date: Sat, 18 Feb 2017 16:14:24 -0800
+Message-ID: <20170218161424.4f0f9a83@xeon-e3>
+References: <1486648141-22955-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, luto@amacapital.net
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:34807 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750905AbdBSAL4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 19:11:56 -0500
-Received: by mail-pg0-f48.google.com with SMTP id z67so25445108pgb.1
-        for <netdev@vger.kernel.org>; Sat, 18 Feb 2017 16:11:56 -0800 (PST)
-In-Reply-To: <1487264338-17588-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:32846 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750859AbdBSAOc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 19:14:32 -0500
+Received: by mail-pf0-f175.google.com with SMTP id g80so4935089pfb.0
+        for <netdev@vger.kernel.org>; Sat, 18 Feb 2017 16:14:32 -0800 (PST)
+In-Reply-To: <1486648141-22955-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Feb 2017 08:58:54 -0800
-David Ahern <dsa@cumulusnetworks.com> wrote:
+On Thu,  9 Feb 2017 14:48:58 +0100
+Simon Horman <simon.horman@netronome.com> wrote:
 
-> More updates to ip vrf for 4.10. Major changes: handle vrf in an existing
-> cgroup hierarchy and handle vrf nesting in network namespaces.
+> Hi,
 > 
-> Comparison of the netns in bpf code will be added once the kernel patch
-> is accepted.
+> this short series allows the tc tool to configure masked matches on the
+> ICMP code and type. Unmasked matches are already supported by the tool.
 > 
-> David Ahern (4):
->   ip vrf: Handle vrf in a cgroup hierarchy
->   ip netns: refactor netns_identify
->   ip vrf: Handle VRF nesting in namespace
->   ip vrf: Detect invalid vrf name in pids command
+> This does not depend on any kernel changes as support for both masked and
+> unmasked matches were added to the kernel at the same time.
 > 
->  ip/ip_common.h |   1 +
->  ip/ipnetns.c   |  47 +++++++-----
->  ip/ipvrf.c     | 222 ++++++++++++++++++++++++++++++++++++++++++++++++++-------
->  3 files changed, 227 insertions(+), 43 deletions(-)
+> Sample usage:
+> 
+> tc qdisc add dev eth0 ingress
+> tc filter add dev eth0 protocol ipv6 parent ffff: flower \
+>         indev eth0 ip_proto icmpv6 type 128/240 code 0 action drop
+> 
+> Reposting after breaking out of a larger patchset.
+> 
+> Simon Horman (3):
+>   tc: flower: provide generic masked u8 parser helper
+>   tc: flower: provide generic masked u8 print helper
+>   tc: flower: support masked ICMP code and type match
+> 
+>  man/man8/tc-flower.8 |  16 ++++--
+>  tc/f_flower.c        | 158 ++++++++++++++++++++++++++++++++++-----------------
+>  2 files changed, 119 insertions(+), 55 deletions(-)
 > 
 
-Applied all four thanks
+Applied to net-next
