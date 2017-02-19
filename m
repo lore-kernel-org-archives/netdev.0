@@ -1,50 +1,176 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/13] i40evf: free rings in remove function
-Date: Sat, 18 Feb 2017 22:33:32 -0800
-Message-ID: <20170219063341.8039-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/13] i40e: enable mc magic pkt wakeup during power down
+Date: Sat, 18 Feb 2017 22:33:30 -0800
+Message-ID: <20170219063341.8039-3-jeffrey.t.kirsher@intel.com>
 References: <20170219063341.8039-1-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Joshua Hay <joshua.a.hay@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:39180 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:19155 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750978AbdBSGeL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 19 Feb 2017 01:34:11 -0500
+        id S1750897AbdBSGeK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 19 Feb 2017 01:34:10 -0500
 In-Reply-To: <20170219063341.8039-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Joshua Hay <joshua.a.hay@intel.com>
 
-When the i40evf_remove() calls netdev close, the device doesn't actually
-close - it schedules the work for the watchdog to perform. Since we're
-stopping the watchdog, this work doesn't get done. However, we're
-resetting the part, so we can free resources after the reset request has
-gone through. This plugs a memory leak.
+This patch adds a call to the mac_address_write admin q function during
+power down to update the PRTPM_SAH/SAL registers with the MC_MAG_EN bit
+thus enabling multicast magic packet wakeup.
 
-Change-ID: Id5335dcaf76ce00d2a4c3d26e9faf711d7f051cf
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+A FW workaround is needed to write the multicast magic wake up enable
+bit in the PRTPM_SAH register. The FW expects the mac address write
+admin q cmd to be called first with one of the WRITE_TYPE_LAA flags
+and then with the multicast relevant flags.
+
+*Note: This solution only works for X722 devices currently. A PFR will
+clear the previously mentioned bit by default, but X722 has support for a
+WOL_PRESERVE_ON_PFR flag which prevents the bit from being cleared. Once
+other devices support this flag, this solution should work as well.
+
+Change-ID: I51bd5b8535bd9051c2676e27c999c1657f786827
+Signed-off-by: Joshua Hay <joshua.a.hay@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e.h            |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h |  2 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c       | 74 ++++++++++++++++++++---
+ 3 files changed, 67 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 920c1cb06a92..5673dbd2cf7d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2871,7 +2871,8 @@ static void i40evf_remove(struct pci_dev *pdev)
- 		i40evf_request_reset(adapter);
- 		msleep(50);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 7a23d3e47c6f..f4c4ee3edde1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -348,6 +348,7 @@ struct i40e_pf {
+ #define I40E_FLAG_TRUE_PROMISC_SUPPORT		BIT_ULL(51)
+ #define I40E_FLAG_HAVE_CRT_RETIMER		BIT_ULL(52)
+ #define I40E_FLAG_PTP_L4_CAPABLE		BIT_ULL(53)
++#define I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE		BIT_ULL(54)
+ 
+ 	/* tracks features that get auto disabled by errors */
+ 	u64 auto_disable_flags;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index b2101a51534c..451f48b7540a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -538,6 +538,8 @@ I40E_CHECK_STRUCT_LEN(24, i40e_aqc_mac_address_read_data);
+ /* Manage MAC Address Write Command (0x0108) */
+ struct i40e_aqc_mac_address_write {
+ 	__le16	command_flags;
++#define I40E_AQC_MC_MAG_EN		0x0100
++#define I40E_AQC_WOL_PRESERVE_ON_PFR	0x0200
+ #define I40E_AQC_WRITE_TYPE_LAA_ONLY	0x0000
+ #define I40E_AQC_WRITE_TYPE_LAA_WOL	0x4000
+ #define I40E_AQC_WRITE_TYPE_PORT	0x8000
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index fb8a52dd94cd..e9335af4cc28 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8815,16 +8815,17 @@ static int i40e_sw_init(struct i40e_pf *pf)
  	}
--
-+	i40evf_free_all_tx_resources(adapter);
-+	i40evf_free_all_rx_resources(adapter);
- 	i40evf_misc_irq_disable(adapter);
- 	i40evf_free_misc_irq(adapter);
- 	i40evf_reset_interrupt_capability(adapter);
+ #endif /* CONFIG_PCI_IOV */
+ 	if (pf->hw.mac.type == I40E_MAC_X722) {
+-		pf->flags |= I40E_FLAG_RSS_AQ_CAPABLE |
+-			     I40E_FLAG_128_QP_RSS_CAPABLE |
+-			     I40E_FLAG_HW_ATR_EVICT_CAPABLE |
+-			     I40E_FLAG_OUTER_UDP_CSUM_CAPABLE |
+-			     I40E_FLAG_WB_ON_ITR_CAPABLE |
+-			     I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE |
+-			     I40E_FLAG_NO_PCI_LINK_CHECK |
+-			     I40E_FLAG_USE_SET_LLDP_MIB |
+-			     I40E_FLAG_GENEVE_OFFLOAD_CAPABLE |
+-			     I40E_FLAG_PTP_L4_CAPABLE;
++		pf->flags |= I40E_FLAG_RSS_AQ_CAPABLE
++			     | I40E_FLAG_128_QP_RSS_CAPABLE
++			     | I40E_FLAG_HW_ATR_EVICT_CAPABLE
++			     | I40E_FLAG_OUTER_UDP_CSUM_CAPABLE
++			     | I40E_FLAG_WB_ON_ITR_CAPABLE
++			     | I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE
++			     | I40E_FLAG_NO_PCI_LINK_CHECK
++			     | I40E_FLAG_USE_SET_LLDP_MIB
++			     | I40E_FLAG_GENEVE_OFFLOAD_CAPABLE
++			     | I40E_FLAG_PTP_L4_CAPABLE
++			     | I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE;
+ 	} else if ((pf->hw.aq.api_maj_ver > 1) ||
+ 		   ((pf->hw.aq.api_maj_ver == 1) &&
+ 		    (pf->hw.aq.api_min_ver > 4))) {
+@@ -11741,6 +11742,53 @@ static void i40e_pci_error_resume(struct pci_dev *pdev)
+ }
+ 
+ /**
++ * i40e_enable_mc_magic_wake - enable multicast magic packet wake up
++ * using the mac_address_write admin q function
++ * @pf: pointer to i40e_pf struct
++ **/
++static void i40e_enable_mc_magic_wake(struct i40e_pf *pf)
++{
++	struct i40e_hw *hw = &pf->hw;
++	i40e_status ret;
++	u8 mac_addr[6];
++	u16 flags = 0;
++
++	/* Get current MAC address in case it's an LAA */
++	if (pf->vsi[pf->lan_vsi] && pf->vsi[pf->lan_vsi]->netdev) {
++		ether_addr_copy(mac_addr,
++				pf->vsi[pf->lan_vsi]->netdev->dev_addr);
++	} else {
++		dev_err(&pf->pdev->dev,
++			"Failed to retrieve MAC address; using default\n");
++		ether_addr_copy(mac_addr, hw->mac.addr);
++	}
++
++	/* The FW expects the mac address write cmd to first be called with
++	 * one of these flags before calling it again with the multicast
++	 * enable flags.
++	 */
++	flags = I40E_AQC_WRITE_TYPE_LAA_WOL;
++
++	if (hw->func_caps.flex10_enable && hw->partition_id != 1)
++		flags = I40E_AQC_WRITE_TYPE_LAA_ONLY;
++
++	ret = i40e_aq_mac_address_write(hw, flags, mac_addr, NULL);
++	if (ret) {
++		dev_err(&pf->pdev->dev,
++			"Failed to update MAC address registers; cannot enable Multicast Magic packet wake up");
++		return;
++	}
++
++	flags = I40E_AQC_MC_MAG_EN
++			| I40E_AQC_WOL_PRESERVE_ON_PFR
++			| I40E_AQC_WRITE_TYPE_UPDATE_MC_MAG;
++	ret = i40e_aq_mac_address_write(hw, flags, mac_addr, NULL);
++	if (ret)
++		dev_err(&pf->pdev->dev,
++			"Failed to enable Multicast Magic Packet wake up\n");
++}
++
++/**
+  * i40e_shutdown - PCI callback for shutting down
+  * @pdev: PCI device information struct
+  **/
+@@ -11762,6 +11810,9 @@ static void i40e_shutdown(struct pci_dev *pdev)
+ 	cancel_work_sync(&pf->service_task);
+ 	i40e_fdir_teardown(pf);
+ 
++	if (pf->wol_en && (pf->flags & I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE))
++		i40e_enable_mc_magic_wake(pf);
++
+ 	rtnl_lock();
+ 	i40e_prep_for_reset(pf);
+ 	rtnl_unlock();
+@@ -11793,6 +11844,9 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	set_bit(__I40E_SUSPENDED, &pf->state);
+ 	set_bit(__I40E_DOWN, &pf->state);
+ 
++	if (pf->wol_en && (pf->flags & I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE))
++		i40e_enable_mc_magic_wake(pf);
++
+ 	rtnl_lock();
+ 	i40e_prep_for_reset(pf);
+ 	rtnl_unlock();
 -- 
 2.11.0
