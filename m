@@ -1,93 +1,89 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: qlogic: qlge: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 19 Feb 2017 23:21:41 +0100
-Message-ID: <1487542901-26785-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: harish.patil@cavium.com, manish.chopra@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
+Date: Mon, 20 Feb 2017 00:33:28 +0200
+Message-ID: <CALzJLG_NyUBPtyCxxjAqkAthJ9c3qAh1N=e=fhfFeL-51XfEcw@mail.gmail.com>
+References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG9HWiNfGaWF_uB6F0BttPbzc_eSpow_zv7FwiK3GWoYQA@mail.gmail.com>
+ <1487165355.1311.2.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1487167443.1311.8.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG8WHJYQFEsxU39jgpMDFHPkHuDX6VU7vOcd+wqBedonfA@mail.gmail.com>
+ <1487260187.1311.53.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG_w2m9p3OQxi9c9=Y-RVKKLyce1b-WjoSvLUVGcWHNwYA@mail.gmail.com> <1487286833.1311.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>, jackm@mellanox.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35586 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751717AbdBSWdt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 17:33:49 -0500
+Received: by mail-qk0-f195.google.com with SMTP id n127so1281742qkf.2
+        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 14:33:49 -0800 (PST)
+In-Reply-To: <1487286833.1311.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Fri, Feb 17, 2017 at 1:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2017-02-16 at 23:17 +0200, Saeed Mahameed wrote:
+>
+>> so i guess you are not busy polling .. and adaptive moderation decided
+>> to lower down
+>> rx-usecs for you, and you are looking to improve latency.
+>>
+>> > Interrupt moderation is a latency killer, we want our usec back.
+>> >
+>>
+>> well, for RX we have adaptive moderation.
+>> and for TX we have xmit more.
+>> so interrupt moderation can be good if it is done right.
+>>
+>> do i understand from this that you are against interrupt moderation ?
+>
+> Absolutely against it. We prefer gro_flush_timeout.
+>
+> The defaults values in mlx4 never were tuned for 40Gbit.
+>
+> If you want to be able to reach 40Gbit on a single TCP flow, you want :
+>
+> ethtool -C ethX rx-frames 16 rx-usecs-high 32
+>
+> Or disable interrupt mitigation of course.
+>
+>
+> Interrupt moderation comes for free with NAPI really :
+>
+> If under stress, number of interrupts will naturally decrease,
+> so what's the point with hardware _delaying_ an incoming packet
+> exactly ???
+>
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+Theoretically NAPI provides some kind of interrupt delaying mechanism
+(only under stress), but is it as good as explicit HW interrupt
+moderation ?
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c |   36 +++++++++++++---------
- 1 files changed, 21 insertions(+), 15 deletions(-)
+for example in mlx5 the adaptive mechanism is more intelligent than
+the one we have in mlx4.
+it always tries to improve BW/packet rate, and reduce # of interrupts
+per second.
+and it will park at the optimal values.
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-index 5dade1f..31f4014 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-@@ -375,28 +375,34 @@ static int ql_get_sset_count(struct net_device *dev, int sset)
- 	}
- }
- 
--static int ql_get_settings(struct net_device *ndev,
--			      struct ethtool_cmd *ecmd)
-+static int ql_get_link_ksettings(struct net_device *ndev,
-+				 struct ethtool_link_ksettings *ecmd)
- {
- 	struct ql_adapter *qdev = netdev_priv(ndev);
-+	u32 supported, advertising;
-+
-+	supported = SUPPORTED_10000baseT_Full;
-+	advertising = ADVERTISED_10000baseT_Full;
- 
--	ecmd->supported = SUPPORTED_10000baseT_Full;
--	ecmd->advertising = ADVERTISED_10000baseT_Full;
--	ecmd->transceiver = XCVR_EXTERNAL;
- 	if ((qdev->link_status & STS_LINK_TYPE_MASK) ==
- 				STS_LINK_TYPE_10GBASET) {
--		ecmd->supported |= (SUPPORTED_TP | SUPPORTED_Autoneg);
--		ecmd->advertising |= (ADVERTISED_TP | ADVERTISED_Autoneg);
--		ecmd->port = PORT_TP;
--		ecmd->autoneg = AUTONEG_ENABLE;
-+		supported |= (SUPPORTED_TP | SUPPORTED_Autoneg);
-+		advertising |= (ADVERTISED_TP | ADVERTISED_Autoneg);
-+		ecmd->base.port = PORT_TP;
-+		ecmd->base.autoneg = AUTONEG_ENABLE;
- 	} else {
--		ecmd->supported |= SUPPORTED_FIBRE;
--		ecmd->advertising |= ADVERTISED_FIBRE;
--		ecmd->port = PORT_FIBRE;
-+		supported |= SUPPORTED_FIBRE;
-+		advertising |= ADVERTISED_FIBRE;
-+		ecmd->base.port = PORT_FIBRE;
- 	}
- 
--	ethtool_cmd_speed_set(ecmd, SPEED_10000);
--	ecmd->duplex = DUPLEX_FULL;
-+	ecmd->base.speed = SPEED_10000;
-+	ecmd->base.duplex = DUPLEX_FULL;
-+
-+	ethtool_convert_legacy_u32_to_link_mode(ecmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(ecmd->link_modes.advertising,
-+						advertising);
- 
- 	return 0;
- }
-@@ -706,7 +712,6 @@ static void ql_set_msglevel(struct net_device *ndev, u32 value)
- }
- 
- const struct ethtool_ops qlge_ethtool_ops = {
--	.get_settings = ql_get_settings,
- 	.get_drvinfo = ql_get_drvinfo,
- 	.get_wol = ql_get_wol,
- 	.set_wol = ql_set_wol,
-@@ -724,5 +729,6 @@ static void ql_set_msglevel(struct net_device *ndev, u32 value)
- 	.get_sset_count = ql_get_sset_count,
- 	.get_strings = ql_get_strings,
- 	.get_ethtool_stats = ql_get_ethtool_stats,
-+	.get_link_ksettings = ql_get_link_ksettings,
- };
- 
--- 
-1.7.4.4
+As you know the less the interrupts overhead the better the latency.
+
+I assume there are many cases where napi will not be good enough and
+will keep running at max interrupt rate.
+while the above mechanism will deliberately look for and find a better
+interrupt rate for at least the same packet rate or even better one.
+(Napi will not do that for you).
+
+But we will have to measure before we decide napi as is is good enough.
+
+> BTW interrupt moderation in mlx4 has at least two bugs.
+>
+> I will send a patch.
+
+Saw it, nice catch !!
