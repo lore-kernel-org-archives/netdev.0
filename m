@@ -1,70 +1,61 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH] e1000e: fix timing for 82579 Gigabit
- Ethernet controller
-Date: Sun, 19 Feb 2017 14:55:06 +0200
-Message-ID: <923e61cf-5f95-1662-2f4c-fc146359ab48@intel.com>
-References: <1487270527-4549-1-git-send-email-berndfaust@gmail.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net 00/10] qed*: Bug fixes
+Date: Sun, 19 Feb 2017 15:26:13 +0200
+Message-ID: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Bernd Faust <berndfaust@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Yanir Lubetkin <yanirx.lubetkin@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487270527-4549-1-git-send-email-berndfaust@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54322 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751564AbdBSN0h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 08:26:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/16/2017 20:42, Bernd Faust wrote:
-> After an upgrade to Linux kernel v4.x the hardware timestamps of the
-> 82579 Gigabit Ethernet Controller are different than expected.
-> The values that are being read are almost four times as big as before
-> the kernel upgrade.
->
-> The difference is that after the upgrade the driver sets the clock
-> frequency to 25MHz, where before the upgrade it was set to 96MHz. Intel
-> confirmed that the correct frequency for this network adapter is 96MHz.
->
-> Signed-off-by: Bernd Faust <berndfaust@gmail.com>
-> ---
->   drivers/net/ethernet/intel/e1000e/netdev.c | 6 ++++++
->   1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index 7017281..8b7113d 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -3511,6 +3511,12 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca)
->
->   	switch (hw->mac.type) {
->   	case e1000_pch2lan:
-> +		/* Stable 96MHz frequency */
-> +		incperiod = INCPERIOD_96MHz;
-> +		incvalue = INCVALUE_96MHz;
-> +		shift = INCVALUE_SHIFT_96MHz;
-> +		adapter->cc.shift = shift + INCPERIOD_SHIFT_96MHz;
-> +		break;
->   	case e1000_pch_lpt:
->   		if (er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_SYSCFI) {
->   			/* Stable 96MHz frequency */
-> --
-> 2.7.4
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@lists.osuosl.org
-> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+Hi Dave,
 
-Hello,
+The 3 first patches here are a repost of
+("qed: RoCE infrastructure fixes"). The fourth is an additional
+RoCE-related infrastructure fix, and the latter contain various fixes
+to qed/qede.
 
-e1000_pch2lan mac type corresponds to 82579LM and 82579V network 
-adapters. System clock frequency indication (SYSCFI) for these devices 
-supports both 25MHz and 96MHz frequency. By default TSYNCRXCTL.SYSCFI is 
-set to 1 and that means 96MHz frequency is picked.
+Notice patch #10 will create a conflict when net and net-next would
+be merged [although its fix is quite trivial].
 
-It is better to keep the current implementation as it covers all options.
+Please consider applying these to `net'.
 
 Thanks,
+Yuval
 
-Sasha
+Ram Amrani (4):
+  qed: Release CQ resource under lock on failure
+  qed: Read queue state before releasing buffer
+  qed: Don't free a QP more than once
+  qed: Reserve doorbell BAR space for all present CPUs
+
+Sudarsana Reddy Kalluru (1):
+  qede: Prevent index problems in loopback test
+
+Yuval Mintz (5):
+  qede: Initialize lock and slowpath workqueue early
+  qede: Free netdevice only after stoping slowpath
+  qed: Reflect PF link when initializing VF
+  qed: Don't allocate SBs using main PTT
+  qed*: Fix link indication race
+
+ drivers/net/ethernet/qlogic/qed/qed_dev.c       |  2 +-
+ drivers/net/ethernet/qlogic/qed/qed_main.c      | 27 ++++++--
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c       | 18 +++--
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h       |  6 ++
+ drivers/net/ethernet/qlogic/qed/qed_roce.c      | 63 +++++++++--------
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c     | 90 ++++++++++++++-----------
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h     |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_vf.c        |  3 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  6 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c    | 24 ++++---
+ 10 files changed, 151 insertions(+), 89 deletions(-)
+
+-- 
+1.9.3
