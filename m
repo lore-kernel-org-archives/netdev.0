@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ibmvnic: Handle processing of CRQ messages in a
- tasklet
-Date: Sun, 19 Feb 2017 18:12:59 -0500 (EST)
-Message-ID: <20170219.181259.2160741684232396660.davem@davemloft.net>
-References: <1487182680-29421-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2] uapi: fix linux/ipv6_route.h userspace compilation
+ errors
+Date: Sun, 19 Feb 2017 18:15:39 -0500 (EST)
+Message-ID: <20170219.181539.544561989233958078.davem@davemloft.net>
+References: <20170215200546.GE1028@altlinux.org>
+        <20170216150414.GA13804@altlinux.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nfont@linux.vnet.ibm.com,
-        jallen@linux.vnet.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54632 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751126AbdBSXNB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 18:13:01 -0500
-In-Reply-To: <1487182680-29421-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ldv@altlinux.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170216150414.GA13804@altlinux.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Wed, 15 Feb 2017 12:17:58 -0600
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Date: Thu, 16 Feb 2017 18:04:14 +0300
 
-> Create a tasklet to process queued commands or messages received from
-> firmware instead of processing them in the interrupt handler. Note that
-> this handler does not process network traffic, but communications related
-> to resource allocation and device settings.
+> Include <linux/in6.h> to fix the following linux/ipv6_route.h userspace
+> compilation errors:
 > 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> /usr/include/linux/ipv6_route.h:42:19: error: field 'rtmsg_dst' has incomplete type
+>   struct in6_addr  rtmsg_dst;
+> /usr/include/linux/ipv6_route.h:43:19: error: field 'rtmsg_src' has incomplete type
+>   struct in6_addr  rtmsg_src;
+> /ust/include/linux/ipv6_route.h:44:19: error: field 'rtmsg_gateway' has incomplete type
+>   struct in6_addr  rtmsg_gateway;
+> 
+> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
 
 Applied.
-
-Can you _please_ in the future submit a series of changes as a proper
-numbered patch series with a proper "[PATCH 0/N] " header posting instead
-listing explicitly X, Y and Z dependencies?
-
-Thanks.
