@@ -1,61 +1,46 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net 00/10] qed*: Bug fixes
-Date: Sun, 19 Feb 2017 15:26:13 +0200
-Message-ID: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net 01/10] qed: Release CQ resource under lock on failure
+Date: Sun, 19 Feb 2017 15:26:14 +0200
+Message-ID: <1487510783-19919-2-git-send-email-Yuval.Mintz@cavium.com>
+References: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+Cc: Ram Amrani <Ram.Amrani@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54322 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54326 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751564AbdBSN0h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 08:26:37 -0500
+        by vger.kernel.org with ESMTP id S1751564AbdBSN0j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 08:26:39 -0500
+In-Reply-To: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Ram Amrani <Ram.Amrani@cavium.com>
 
-The 3 first patches here are a repost of
-("qed: RoCE infrastructure fixes"). The fourth is an additional
-RoCE-related infrastructure fix, and the latter contain various fixes
-to qed/qede.
+The CQ resource pool is protected by a spin lock. When a CQ creation
+fails it now deallocates under that lock as well.
 
-Notice patch #10 will create a conflict when net and net-next would
-be merged [although its fix is quite trivial].
+Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Please consider applying these to `net'.
-
-Thanks,
-Yuval
-
-Ram Amrani (4):
-  qed: Release CQ resource under lock on failure
-  qed: Read queue state before releasing buffer
-  qed: Don't free a QP more than once
-  qed: Reserve doorbell BAR space for all present CPUs
-
-Sudarsana Reddy Kalluru (1):
-  qede: Prevent index problems in loopback test
-
-Yuval Mintz (5):
-  qede: Initialize lock and slowpath workqueue early
-  qede: Free netdevice only after stoping slowpath
-  qed: Reflect PF link when initializing VF
-  qed: Don't allocate SBs using main PTT
-  qed*: Fix link indication race
-
- drivers/net/ethernet/qlogic/qed/qed_dev.c       |  2 +-
- drivers/net/ethernet/qlogic/qed/qed_main.c      | 27 ++++++--
- drivers/net/ethernet/qlogic/qed/qed_mcp.c       | 18 +++--
- drivers/net/ethernet/qlogic/qed/qed_mcp.h       |  6 ++
- drivers/net/ethernet/qlogic/qed/qed_roce.c      | 63 +++++++++--------
- drivers/net/ethernet/qlogic/qed/qed_sriov.c     | 90 ++++++++++++++-----------
- drivers/net/ethernet/qlogic/qed/qed_sriov.h     |  1 +
- drivers/net/ethernet/qlogic/qed/qed_vf.c        |  3 +
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  6 +-
- drivers/net/ethernet/qlogic/qede/qede_main.c    | 24 ++++---
- 10 files changed, 151 insertions(+), 89 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+index 2dbdb32..d1ad48d 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+@@ -948,7 +948,9 @@ static int qed_rdma_create_cq(void *rdma_cxt,
+ 
+ err:
+ 	/* release allocated icid */
++	spin_lock_bh(&p_info->lock);
+ 	qed_bmap_release_id(p_hwfn, &p_info->cq_map, returned_id);
++	spin_unlock_bh(&p_info->lock);
+ 	DP_NOTICE(p_hwfn, "Create CQ failed, rc = %d\n", rc);
+ 
+ 	return rc;
 -- 
 1.9.3
