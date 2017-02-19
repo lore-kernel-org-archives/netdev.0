@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net 03/10] qed: Don't free a QP more than once
-Date: Sun, 19 Feb 2017 15:26:16 +0200
-Message-ID: <1487510783-19919-4-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net 02/10] qed: Read queue state before releasing buffer
+Date: Sun, 19 Feb 2017 15:26:15 +0200
+Message-ID: <1487510783-19919-3-git-send-email-Yuval.Mintz@cavium.com>
 References: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,98 +9,64 @@ Cc: Ram Amrani <Ram.Amrani@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54333 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54330 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752015AbdBSN0p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 08:26:45 -0500
+        by vger.kernel.org with ESMTP id S1751564AbdBSN0m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 08:26:42 -0500
 In-Reply-To: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ram Amrani <Ram.Amrani@cavium.com>
 
-If QP is in reset state then there are no resources to free so avoid
-freeing any.
+Currently the state is read only after the buffers are relesed.
 
 Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_roce.c | 49 ++++++++++++++++--------------
- 1 file changed, 27 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index 685d74c..5aeb4fa 100644
+index d1ad48d..685d74c 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -1849,6 +1849,7 @@ static int qed_roce_query_qp(struct qed_hwfn *p_hwfn,
+@@ -1768,13 +1768,13 @@ static int qed_roce_query_qp(struct qed_hwfn *p_hwfn,
+ 	if (rc)
+ 		goto err_resp;
  
- static int qed_roce_destroy_qp(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp)
- {
-+	struct qed_rdma_info *p_rdma_info = p_hwfn->p_rdma_info;
- 	u32 num_invalidated_mw = 0;
- 	u32 num_bound_mw = 0;
- 	u32 start_cid;
-@@ -1863,35 +1864,39 @@ static int qed_roce_destroy_qp(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp)
- 		return -EINVAL;
- 	}
+-	dma_free_coherent(&p_hwfn->cdev->pdev->dev, sizeof(*p_resp_ramrod_res),
+-			  p_resp_ramrod_res, resp_ramrod_res_phys);
+-
+ 	out_params->rq_psn = le32_to_cpu(p_resp_ramrod_res->psn);
+ 	rq_err_state = GET_FIELD(le32_to_cpu(p_resp_ramrod_res->err_flag),
+ 				 ROCE_QUERY_QP_RESP_OUTPUT_PARAMS_ERROR_FLG);
  
--	rc = qed_roce_sp_destroy_qp_responder(p_hwfn, qp, &num_invalidated_mw);
--	if (rc)
--		return rc;
-+	if (qp->cur_state != QED_ROCE_QP_STATE_RESET) {
-+		rc = qed_roce_sp_destroy_qp_responder(p_hwfn, qp,
-+						      &num_invalidated_mw);
-+		if (rc)
-+			return rc;
++	dma_free_coherent(&p_hwfn->cdev->pdev->dev, sizeof(*p_resp_ramrod_res),
++			  p_resp_ramrod_res, resp_ramrod_res_phys);
++
+ 	if (!(qp->req_offloaded)) {
+ 		/* Don't send query qp for the requester */
+ 		out_params->sq_psn = qp->sq_psn;
+@@ -1815,9 +1815,6 @@ static int qed_roce_query_qp(struct qed_hwfn *p_hwfn,
+ 	if (rc)
+ 		goto err_req;
  
--	/* Send destroy requester ramrod */
--	rc = qed_roce_sp_destroy_qp_requester(p_hwfn, qp, &num_bound_mw);
--	if (rc)
--		return rc;
-+		/* Send destroy requester ramrod */
-+		rc = qed_roce_sp_destroy_qp_requester(p_hwfn, qp,
-+						      &num_bound_mw);
-+		if (rc)
-+			return rc;
+-	dma_free_coherent(&p_hwfn->cdev->pdev->dev, sizeof(*p_req_ramrod_res),
+-			  p_req_ramrod_res, req_ramrod_res_phys);
+-
+ 	out_params->sq_psn = le32_to_cpu(p_req_ramrod_res->psn);
+ 	sq_err_state = GET_FIELD(le32_to_cpu(p_req_ramrod_res->flags),
+ 				 ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_ERR_FLG);
+@@ -1825,6 +1822,9 @@ static int qed_roce_query_qp(struct qed_hwfn *p_hwfn,
+ 		GET_FIELD(le32_to_cpu(p_req_ramrod_res->flags),
+ 			  ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_SQ_DRAINING_FLG);
  
--	if (num_invalidated_mw != num_bound_mw) {
--		DP_NOTICE(p_hwfn,
--			  "number of invalidate memory windows is different from bounded ones\n");
--		return -EINVAL;
--	}
-+		if (num_invalidated_mw != num_bound_mw) {
-+			DP_NOTICE(p_hwfn,
-+				  "number of invalidate memory windows is different from bounded ones\n");
-+			return -EINVAL;
-+		}
++	dma_free_coherent(&p_hwfn->cdev->pdev->dev, sizeof(*p_req_ramrod_res),
++			  p_req_ramrod_res, req_ramrod_res_phys);
++
+ 	out_params->draining = false;
  
--	spin_lock_bh(&p_hwfn->p_rdma_info->lock);
-+		spin_lock_bh(&p_rdma_info->lock);
- 
--	start_cid = qed_cxt_get_proto_cid_start(p_hwfn,
--						p_hwfn->p_rdma_info->proto);
-+		start_cid = qed_cxt_get_proto_cid_start(p_hwfn,
-+							p_rdma_info->proto);
- 
--	/* Release responder's icid */
--	qed_bmap_release_id(p_hwfn, &p_hwfn->p_rdma_info->cid_map,
--			    qp->icid - start_cid);
-+		/* Release responder's icid */
-+		qed_bmap_release_id(p_hwfn, &p_rdma_info->cid_map,
-+				    qp->icid - start_cid);
- 
--	/* Release requester's icid */
--	qed_bmap_release_id(p_hwfn, &p_hwfn->p_rdma_info->cid_map,
--			    qp->icid + 1 - start_cid);
-+		/* Release requester's icid */
-+		qed_bmap_release_id(p_hwfn, &p_rdma_info->cid_map,
-+				    qp->icid + 1 - start_cid);
- 
--	spin_unlock_bh(&p_hwfn->p_rdma_info->lock);
-+		spin_unlock_bh(&p_rdma_info->lock);
-+	}
- 
- 	return 0;
- }
+ 	if (rq_err_state)
 -- 
 1.9.3
