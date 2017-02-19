@@ -1,43 +1,47 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: Questions on XDP
-Date: Sat, 18 Feb 2017 15:59:49 -0800
-Message-ID: <CAADnVQKHiwpeF95abCoR2pOy+hnLLv2u4-qwe2dsnsBuTyiCRg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>
-To: John Fastabend <john.fastabend@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net v2] ipv6: release dst on error in ip6_dst_lookup_tail
+Date: Sat, 18 Feb 2017 19:00:45 -0500
+Message-ID: <20170219000045.34672-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jtleight@udel.edu,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:36371 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750812AbdBSAAL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 19:00:11 -0500
-Received: by mail-wm0-f48.google.com with SMTP id c85so46867794wmi.1
-        for <netdev@vger.kernel.org>; Sat, 18 Feb 2017 16:00:10 -0800 (PST)
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:35985 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751012AbdBSAAu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2017 19:00:50 -0500
+Received: by mail-qt0-f196.google.com with SMTP id h53so10211900qth.3
+        for <netdev@vger.kernel.org>; Sat, 18 Feb 2017 16:00:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 18, 2017 at 3:48 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
->
-> We are running our vswitch in userspace now for many workloads
-> it would be nice to have these in kernel if possible.
-...
-> Maybe Alex had something else in mind but we have many virtual interfaces
-> plus physical interfaces in vswitch use case. Possibly thousands.
+From: Willem de Bruijn <willemb@google.com>
 
-virtual interfaces towards many VMs is certainly good use case
-that we need to address.
-we'd still need to copy the packet from memory of one vm into another,
-right? so per packet allocation strategy for virtual interface can
-be anything.
+If ip6_dst_lookup_tail has acquired a dst and fails the IPv4-mapped
+check, release the dst before returning an error.
 
-Sounds like you already have patches that do that?
-Excellent. Please share.
+Fixes: ec5e3b0a1d41 ("ipv6: Inhibit IPv4-mapped src address on the wire.")
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/ipv6/ip6_output.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index e164684456df..7cebee58e55b 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1022,8 +1022,10 @@ static int ip6_dst_lookup_tail(struct net *net, const struct sock *sk,
+ 	}
+ #endif
+ 	if (ipv6_addr_v4mapped(&fl6->saddr) &&
+-	    !(ipv6_addr_v4mapped(&fl6->daddr) || ipv6_addr_any(&fl6->daddr)))
+-		return -EAFNOSUPPORT;
++	    !(ipv6_addr_v4mapped(&fl6->daddr) || ipv6_addr_any(&fl6->daddr))) {
++		err = -EAFNOSUPPORT;
++		goto out_err_release;
++	}
+ 
+ 	return 0;
+ 
+-- 
+2.11.0.483.g087da7b7c-goog
