@@ -1,156 +1,58 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net 07/10] qed: Reflect PF link when initializing VF
-Date: Sun, 19 Feb 2017 15:26:20 +0200
-Message-ID: <1487510783-19919-8-git-send-email-Yuval.Mintz@cavium.com>
-References: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net 0/4] update ipvs sysctl document
+Date: Sun, 19 Feb 2017 16:04:54 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1702191552560.1590@ja.home.ssi.bg>
+References: <1487313241-11361-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+        netdev@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54352 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752083AbdBSN1R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 08:27:17 -0500
-In-Reply-To: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
+Received: from ja.ssi.bg ([178.16.129.10]:59994 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750847AbdBSOFL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 19 Feb 2017 09:05:11 -0500
+In-Reply-To: <1487313241-11361-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VF learns of the current link state via its bulletin board,
-which might reflect either the physical link state or some
-user-configured logical state.
-Whenever the physical link changes or whnever such a configuration
-is explicitly made by user the PF driver would update the bulletin
-that the VF reads. But if neither has happened - i.e., PF still
-hasn't got a physical link up and no additional configuration was
-done the VF wouldn't have a valid link information available.
 
-Simply reflect the physical link state whenever the VF is
-initialized. The user could then affect it however he wants.
+	Hello,
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 90 ++++++++++++++++-------------
- 1 file changed, 51 insertions(+), 39 deletions(-)
+On Fri, 17 Feb 2017, Hangbin Liu wrote:
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 85b09dd..7d9941a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -806,10 +806,52 @@ static void qed_iov_free_vf_igu_sbs(struct qed_hwfn *p_hwfn,
- 	vf->num_sbs = 0;
- }
- 
-+static void qed_iov_set_link(struct qed_hwfn *p_hwfn,
-+			     u16 vfid,
-+			     struct qed_mcp_link_params *params,
-+			     struct qed_mcp_link_state *link,
-+			     struct qed_mcp_link_capabilities *p_caps)
-+{
-+	struct qed_vf_info *p_vf = qed_iov_get_vf_info(p_hwfn,
-+						       vfid,
-+						       false);
-+	struct qed_bulletin_content *p_bulletin;
-+
-+	if (!p_vf)
-+		return;
-+
-+	p_bulletin = p_vf->bulletin.p_virt;
-+	p_bulletin->req_autoneg = params->speed.autoneg;
-+	p_bulletin->req_adv_speed = params->speed.advertised_speeds;
-+	p_bulletin->req_forced_speed = params->speed.forced_speed;
-+	p_bulletin->req_autoneg_pause = params->pause.autoneg;
-+	p_bulletin->req_forced_rx = params->pause.forced_rx;
-+	p_bulletin->req_forced_tx = params->pause.forced_tx;
-+	p_bulletin->req_loopback = params->loopback_mode;
-+
-+	p_bulletin->link_up = link->link_up;
-+	p_bulletin->speed = link->speed;
-+	p_bulletin->full_duplex = link->full_duplex;
-+	p_bulletin->autoneg = link->an;
-+	p_bulletin->autoneg_complete = link->an_complete;
-+	p_bulletin->parallel_detection = link->parallel_detection;
-+	p_bulletin->pfc_enabled = link->pfc_enabled;
-+	p_bulletin->partner_adv_speed = link->partner_adv_speed;
-+	p_bulletin->partner_tx_flow_ctrl_en = link->partner_tx_flow_ctrl_en;
-+	p_bulletin->partner_rx_flow_ctrl_en = link->partner_rx_flow_ctrl_en;
-+	p_bulletin->partner_adv_pause = link->partner_adv_pause;
-+	p_bulletin->sfp_tx_fault = link->sfp_tx_fault;
-+
-+	p_bulletin->capability_speed = p_caps->speed_capabilities;
-+}
-+
- static int qed_iov_init_hw_for_vf(struct qed_hwfn *p_hwfn,
- 				  struct qed_ptt *p_ptt,
- 				  struct qed_iov_vf_init_params *p_params)
- {
-+	struct qed_mcp_link_capabilities link_caps;
-+	struct qed_mcp_link_params link_params;
-+	struct qed_mcp_link_state link_state;
- 	u8 num_of_vf_avaiable_chains = 0;
- 	struct qed_vf_info *vf = NULL;
- 	u16 qid, num_irqs;
-@@ -898,6 +940,15 @@ static int qed_iov_init_hw_for_vf(struct qed_hwfn *p_hwfn,
- 			   p_queue->fw_tx_qid, p_queue->fw_cid);
- 	}
- 
-+	/* Update the link configuration in bulletin */
-+	memcpy(&link_params, qed_mcp_get_link_params(p_hwfn),
-+	       sizeof(link_params));
-+	memcpy(&link_state, qed_mcp_get_link_state(p_hwfn), sizeof(link_state));
-+	memcpy(&link_caps, qed_mcp_get_link_capabilities(p_hwfn),
-+	       sizeof(link_caps));
-+	qed_iov_set_link(p_hwfn, p_params->rel_vf_id,
-+			 &link_params, &link_state, &link_caps);
-+
- 	rc = qed_iov_enable_vf_access(p_hwfn, p_ptt, vf);
- 	if (!rc) {
- 		vf->b_init = true;
-@@ -909,45 +960,6 @@ static int qed_iov_init_hw_for_vf(struct qed_hwfn *p_hwfn,
- 	return rc;
- }
- 
--static void qed_iov_set_link(struct qed_hwfn *p_hwfn,
--			     u16 vfid,
--			     struct qed_mcp_link_params *params,
--			     struct qed_mcp_link_state *link,
--			     struct qed_mcp_link_capabilities *p_caps)
--{
--	struct qed_vf_info *p_vf = qed_iov_get_vf_info(p_hwfn,
--						       vfid,
--						       false);
--	struct qed_bulletin_content *p_bulletin;
--
--	if (!p_vf)
--		return;
--
--	p_bulletin = p_vf->bulletin.p_virt;
--	p_bulletin->req_autoneg = params->speed.autoneg;
--	p_bulletin->req_adv_speed = params->speed.advertised_speeds;
--	p_bulletin->req_forced_speed = params->speed.forced_speed;
--	p_bulletin->req_autoneg_pause = params->pause.autoneg;
--	p_bulletin->req_forced_rx = params->pause.forced_rx;
--	p_bulletin->req_forced_tx = params->pause.forced_tx;
--	p_bulletin->req_loopback = params->loopback_mode;
--
--	p_bulletin->link_up = link->link_up;
--	p_bulletin->speed = link->speed;
--	p_bulletin->full_duplex = link->full_duplex;
--	p_bulletin->autoneg = link->an;
--	p_bulletin->autoneg_complete = link->an_complete;
--	p_bulletin->parallel_detection = link->parallel_detection;
--	p_bulletin->pfc_enabled = link->pfc_enabled;
--	p_bulletin->partner_adv_speed = link->partner_adv_speed;
--	p_bulletin->partner_tx_flow_ctrl_en = link->partner_tx_flow_ctrl_en;
--	p_bulletin->partner_rx_flow_ctrl_en = link->partner_rx_flow_ctrl_en;
--	p_bulletin->partner_adv_pause = link->partner_adv_pause;
--	p_bulletin->sfp_tx_fault = link->sfp_tx_fault;
--
--	p_bulletin->capability_speed = p_caps->speed_capabilities;
--}
--
- static int qed_iov_release_hw_for_vf(struct qed_hwfn *p_hwfn,
- 				     struct qed_ptt *p_ptt, u16 rel_vf_id)
- {
--- 
-1.9.3
+> Fix and add some new ipvs sysctl options. Also use tab instead of whitespaces
+> to indent the descriptions.
+
+	You change only docs, so the patchset should be for
+the net-next tree.
+
+> Hangbin Liu (4):
+>   ipvs: fix sync_threshold description and add sync_refresh_period,
+>     sync_retries
+>   ipvs: Document sysctl sync_qlen_max and sync_sock_size
+
+- we can add "are " here but then also check if lines become too long:
+
+"Hard limit for queued sync messages that [are ]not sent yet."
+
+	You can also move the "commit" word to next line
+to make checkpatch happy:
+
+scripts/checkpatch.pl --strict /tmp/file2.patch
+
+>   ipvs: Document sysctl sync_ports
+>   ipvs: Document sysctl pmtu_disc
+
+- we can make it like this:
+
+"By default, reject with FRAG_NEEDED all DF packets that exceed
+the PMTU, irrespective of the forwarding method. For TUN method
+the flag can be disabled to fragment such packets."
+
+>  Documentation/networking/ipvs-sysctl.txt | 68 ++++++++++++++++++++++++++++----
+>  1 file changed, 60 insertions(+), 8 deletions(-)
+
+Regards
