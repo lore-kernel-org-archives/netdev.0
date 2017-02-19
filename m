@@ -1,37 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net: ethernet: stmmac: dwmac-rk: Add RK3328 gmac support
-Date: Sun, 19 Feb 2017 18:20:04 -0500 (EST)
-Message-ID: <20170219.182004.2280114319984536630.davem@davemloft.net>
-References: <1487336111-24987-1-git-send-email-david.wu@rock-chips.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] of_mdio: Add "broadcom,bcm5241" to the whitelist.
+Date: Sun, 19 Feb 2017 18:20:14 -0500 (EST)
+Message-ID: <20170219.182014.1876208661231418976.davem@davemloft.net>
+References: <20170217200412.11680-1-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org
-To: david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1487336111-24987-1-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, robh+dt@kernel.org,
+        frowand.list@gmail.com, linux-kernel@vger.kernel.org
+To: david.daney@cavium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170217200412.11680-1-david.daney@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Date: Fri, 17 Feb 2017 20:55:11 +0800
+From: David Daney <david.daney@cavium.com>
+Date: Fri, 17 Feb 2017 12:04:12 -0800
 
-> From: "david.wu" <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+> Some Cavium dev boards have firmware which doesn't supply a proper
+> ethernet-phy-ieee802.3-c22" compatible property.  Restore these boards
+> to working order by whitelisting this compatible value.
 > 
-> Add constants and callback functions for the dwmac on rk3328 socs.
-> As can be seen, the base structure is the same, only registers and the
-> bits in them moved slightly.
-> 
-> Signed-off-by: david.wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+> Signed-off-by: David Daney <david.daney@cavium.com>
 
 Applied.
