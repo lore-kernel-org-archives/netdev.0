@@ -1,72 +1,156 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net 09/10] qed: Don't allocate SBs using main PTT
-Date: Sun, 19 Feb 2017 15:26:22 +0200
-Message-ID: <1487510783-19919-10-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net 07/10] qed: Reflect PF link when initializing VF
+Date: Sun, 19 Feb 2017 15:26:20 +0200
+Message-ID: <1487510783-19919-8-git-send-email-Yuval.Mintz@cavium.com>
 References: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54372 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54352 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751983AbdBSN1X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 08:27:23 -0500
+        by vger.kernel.org with ESMTP id S1752083AbdBSN1R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 08:27:17 -0500
 In-Reply-To: <1487510783-19919-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flows accessing registers require the flow to hold a PTT entry.
-To protect 'major' load/unload flows a main_ptt is pre-allocated
-to guarantee such flows wouldn't be blocked by PTT being
-unavailable.
+VF learns of the current link state via its bulletin board,
+which might reflect either the physical link state or some
+user-configured logical state.
+Whenever the physical link changes or whnever such a configuration
+is explicitly made by user the PF driver would update the bulletin
+that the VF reads. But if neither has happened - i.e., PF still
+hasn't got a physical link up and no additional configuration was
+done the VF wouldn't have a valid link information available.
 
-Status block initialization currently uses the main_ptt which
-is incorrect, as this flow might run concurrently to others
-[E.g., loading qedr while toggling qede]. That would have dire
-effects as it means registers' access to device breaks and further
-read/writes might access incorrect addresses.
-
-Instead, when initializing status blocks acquire/release a PTT
-as part of the flow.
+Simply reflect the physical link state whenever the VF is
+initialized. The user could then affect it however he wants.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_main.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 90 ++++++++++++++++-------------
+ 1 file changed, 51 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index aeb98d8..b43b0e3 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -1020,6 +1020,7 @@ static u32 qed_sb_init(struct qed_dev *cdev,
- 		       enum qed_sb_type type)
- {
- 	struct qed_hwfn *p_hwfn;
-+	struct qed_ptt *p_ptt;
- 	int hwfn_index;
- 	u16 rel_sb_id;
- 	u8 n_hwfns;
-@@ -1041,8 +1042,18 @@ static u32 qed_sb_init(struct qed_dev *cdev,
- 		   "hwfn [%d] <--[init]-- SB %04x [0x%04x upper]\n",
- 		   hwfn_index, rel_sb_id, sb_id);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+index 85b09dd..7d9941a 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+@@ -806,10 +806,52 @@ static void qed_iov_free_vf_igu_sbs(struct qed_hwfn *p_hwfn,
+ 	vf->num_sbs = 0;
+ }
  
--	rc = qed_int_sb_init(p_hwfn, p_hwfn->p_main_ptt, sb_info,
--			     sb_virt_addr, sb_phy_addr, rel_sb_id);
-+	if (IS_PF(p_hwfn->cdev)) {
-+		p_ptt = qed_ptt_acquire(p_hwfn);
-+		if (!p_ptt)
-+			return -EBUSY;
++static void qed_iov_set_link(struct qed_hwfn *p_hwfn,
++			     u16 vfid,
++			     struct qed_mcp_link_params *params,
++			     struct qed_mcp_link_state *link,
++			     struct qed_mcp_link_capabilities *p_caps)
++{
++	struct qed_vf_info *p_vf = qed_iov_get_vf_info(p_hwfn,
++						       vfid,
++						       false);
++	struct qed_bulletin_content *p_bulletin;
 +
-+		rc = qed_int_sb_init(p_hwfn, p_ptt, sb_info, sb_virt_addr,
-+				     sb_phy_addr, rel_sb_id);
-+		qed_ptt_release(p_hwfn, p_ptt);
-+	} else {
-+		rc = qed_int_sb_init(p_hwfn, NULL, sb_info, sb_virt_addr,
-+				     sb_phy_addr, rel_sb_id);
-+	}
++	if (!p_vf)
++		return;
++
++	p_bulletin = p_vf->bulletin.p_virt;
++	p_bulletin->req_autoneg = params->speed.autoneg;
++	p_bulletin->req_adv_speed = params->speed.advertised_speeds;
++	p_bulletin->req_forced_speed = params->speed.forced_speed;
++	p_bulletin->req_autoneg_pause = params->pause.autoneg;
++	p_bulletin->req_forced_rx = params->pause.forced_rx;
++	p_bulletin->req_forced_tx = params->pause.forced_tx;
++	p_bulletin->req_loopback = params->loopback_mode;
++
++	p_bulletin->link_up = link->link_up;
++	p_bulletin->speed = link->speed;
++	p_bulletin->full_duplex = link->full_duplex;
++	p_bulletin->autoneg = link->an;
++	p_bulletin->autoneg_complete = link->an_complete;
++	p_bulletin->parallel_detection = link->parallel_detection;
++	p_bulletin->pfc_enabled = link->pfc_enabled;
++	p_bulletin->partner_adv_speed = link->partner_adv_speed;
++	p_bulletin->partner_tx_flow_ctrl_en = link->partner_tx_flow_ctrl_en;
++	p_bulletin->partner_rx_flow_ctrl_en = link->partner_rx_flow_ctrl_en;
++	p_bulletin->partner_adv_pause = link->partner_adv_pause;
++	p_bulletin->sfp_tx_fault = link->sfp_tx_fault;
++
++	p_bulletin->capability_speed = p_caps->speed_capabilities;
++}
++
+ static int qed_iov_init_hw_for_vf(struct qed_hwfn *p_hwfn,
+ 				  struct qed_ptt *p_ptt,
+ 				  struct qed_iov_vf_init_params *p_params)
+ {
++	struct qed_mcp_link_capabilities link_caps;
++	struct qed_mcp_link_params link_params;
++	struct qed_mcp_link_state link_state;
+ 	u8 num_of_vf_avaiable_chains = 0;
+ 	struct qed_vf_info *vf = NULL;
+ 	u16 qid, num_irqs;
+@@ -898,6 +940,15 @@ static int qed_iov_init_hw_for_vf(struct qed_hwfn *p_hwfn,
+ 			   p_queue->fw_tx_qid, p_queue->fw_cid);
+ 	}
  
++	/* Update the link configuration in bulletin */
++	memcpy(&link_params, qed_mcp_get_link_params(p_hwfn),
++	       sizeof(link_params));
++	memcpy(&link_state, qed_mcp_get_link_state(p_hwfn), sizeof(link_state));
++	memcpy(&link_caps, qed_mcp_get_link_capabilities(p_hwfn),
++	       sizeof(link_caps));
++	qed_iov_set_link(p_hwfn, p_params->rel_vf_id,
++			 &link_params, &link_state, &link_caps);
++
+ 	rc = qed_iov_enable_vf_access(p_hwfn, p_ptt, vf);
+ 	if (!rc) {
+ 		vf->b_init = true;
+@@ -909,45 +960,6 @@ static int qed_iov_init_hw_for_vf(struct qed_hwfn *p_hwfn,
  	return rc;
  }
+ 
+-static void qed_iov_set_link(struct qed_hwfn *p_hwfn,
+-			     u16 vfid,
+-			     struct qed_mcp_link_params *params,
+-			     struct qed_mcp_link_state *link,
+-			     struct qed_mcp_link_capabilities *p_caps)
+-{
+-	struct qed_vf_info *p_vf = qed_iov_get_vf_info(p_hwfn,
+-						       vfid,
+-						       false);
+-	struct qed_bulletin_content *p_bulletin;
+-
+-	if (!p_vf)
+-		return;
+-
+-	p_bulletin = p_vf->bulletin.p_virt;
+-	p_bulletin->req_autoneg = params->speed.autoneg;
+-	p_bulletin->req_adv_speed = params->speed.advertised_speeds;
+-	p_bulletin->req_forced_speed = params->speed.forced_speed;
+-	p_bulletin->req_autoneg_pause = params->pause.autoneg;
+-	p_bulletin->req_forced_rx = params->pause.forced_rx;
+-	p_bulletin->req_forced_tx = params->pause.forced_tx;
+-	p_bulletin->req_loopback = params->loopback_mode;
+-
+-	p_bulletin->link_up = link->link_up;
+-	p_bulletin->speed = link->speed;
+-	p_bulletin->full_duplex = link->full_duplex;
+-	p_bulletin->autoneg = link->an;
+-	p_bulletin->autoneg_complete = link->an_complete;
+-	p_bulletin->parallel_detection = link->parallel_detection;
+-	p_bulletin->pfc_enabled = link->pfc_enabled;
+-	p_bulletin->partner_adv_speed = link->partner_adv_speed;
+-	p_bulletin->partner_tx_flow_ctrl_en = link->partner_tx_flow_ctrl_en;
+-	p_bulletin->partner_rx_flow_ctrl_en = link->partner_rx_flow_ctrl_en;
+-	p_bulletin->partner_adv_pause = link->partner_adv_pause;
+-	p_bulletin->sfp_tx_fault = link->sfp_tx_fault;
+-
+-	p_bulletin->capability_speed = p_caps->speed_capabilities;
+-}
+-
+ static int qed_iov_release_hw_for_vf(struct qed_hwfn *p_hwfn,
+ 				     struct qed_ptt *p_ptt, u16 rel_vf_id)
+ {
 -- 
 1.9.3
