@@ -1,64 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2/net-next] devlink: use DEVLINK_CMD_ESWITCH_*
- instead of DEVLINK_CMD_ESWITCH_MODE_*
-Date: Sun, 19 Feb 2017 11:57:14 -0800
-Message-ID: <20170219115714.7dbdde5a@xeon-e3>
-References: <1487515026-5826-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 0/7] nfp: expose more firmware and hw debug info
+Date: Sun, 19 Feb 2017 11:58:07 -0800
+Message-ID: <20170219195814.40471-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com, dinan.gunawardena@netronome.com,
+        kubakici@wp.pl, Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:33769 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751167AbdBST5S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 14:57:18 -0500
-Received: by mail-pg0-f48.google.com with SMTP id a123so8119386pgc.0
-        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 11:57:17 -0800 (PST)
-In-Reply-To: <1487515026-5826-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35540 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751167AbdBST6U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 14:58:20 -0500
+Received: by mail-pf0-f177.google.com with SMTP id 68so12978208pfx.2
+        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 11:58:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 19 Feb 2017 15:37:06 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
+Hi!
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Sync with kernel and don't use the obsolete enum values.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  devlink/devlink.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/devlink/devlink.c b/devlink/devlink.c
-> index 34a409f..c357580 100644
-> --- a/devlink/devlink.c
-> +++ b/devlink/devlink.c
-> @@ -1303,7 +1303,7 @@ static int cmd_dev_eswitch_show(struct dl *dl)
->  	struct nlmsghdr *nlh;
->  	int err;
->  
-> -	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_MODE_GET,
-> +	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_GET,
->  			       NLM_F_REQUEST | NLM_F_ACK);
->  
->  	err = dl_argv_parse_put(nlh, dl, DL_OPT_HANDLE, 0);
-> @@ -1321,7 +1321,7 @@ static int cmd_dev_eswitch_set(struct dl *dl)
->  	struct nlmsghdr *nlh;
->  	int err;
->  
-> -	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_MODE_SET,
-> +	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_SET,
->  			       NLM_F_REQUEST | NLM_F_ACK);
->  
->  	err = dl_argv_parse_put(nlh, dl, DL_OPT_HANDLE,
+This series is mostly a result of flash firmware team requesting 
+access to some of the information and data necessary for debugging 
+firmware problems.  Patch 1 adds a missing error message.  Patch 2 
+prints manufacturing info to logs in case PCI VPD capability is 
+not programmed correctly.  Patches 3 and 4 allow reporting NSP ABI
+version in ethtool -i.  Patch 5 allows dumping flash application 
+logs.  
 
-I think you need go go back and reconsider the ABI change.
-This patch would cause the net-next version of iproute2 devlink to not
-work with older kernels.
+Patches 6 and 7 provides a way of application firmwares to declare 
+limited SR-IOV support.
 
-The iproute2 toolset relies on the kernel ABI guarantees so that later
-versions of iproute2 still interoperate with older kernels. It is possible
-that new features get added but the old functionality will always work.
+v2: put some of the code in patch 7 in #ifdef CONFIG_PCI_SRIOV (Yuval).
+
+Jakub Kicinski (7):
+  nfp: refactor NSP initialization and add error message
+  nfp: report manufacturing info on load
+  nfp: store NSP ABI version in state structure
+  nfp: report NSP ABI version in ethtool FW version
+  nfp: add very basic access to NSP logs
+  nfp: return nfp_rtsym_read_le() errors correctly
+  nfp: allow application firmware to limit number of SR-IOV VFs
+
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |  87 +++++++++++++-----
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |   2 +
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   6 ++
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 101 ++++++++++++++++++++-
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |   1 +
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   4 +
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |  37 +++++---
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_rtsym.c |   8 +-
+ 8 files changed, 206 insertions(+), 40 deletions(-)
+
+-- 
+2.11.0
