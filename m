@@ -1,149 +1,83 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH repost] ptr_ring: fix race conditions when resizing
-Date: Sun, 19 Feb 2017 07:17:17 +0200
-Message-ID: <1487171217-6641-1-git-send-email-mst__1457.21474332294$1487481481$gmane$org@redhat.com>
+Subject: Re: net: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected in
+ skb_array_produce
+Date: Sun, 19 Feb 2017 07:18:27 +0200
+Message-ID: <20170219071640-mutt-send-email-mst@kernel.org>
+References: <CACT4Y+bs15VR7xjeYhece+0_X5Ss+5FM0w6jpJH0Dbbdu-+qCQ@mail.gmail.com>
+ <50038580.20299907.1486634551103.JavaMail.zimbra@redhat.com>
+ <20170209200936-mutt-send-email-mst@kernel.org>
+ <ce1d4f53-d664-0ee1-cf79-aca66d2d0d00@redhat.com>
+ <CACT4Y+Z6hAo6rK59MmE31K-rm4=NveunQGNwA7XcqFTaB08zCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>, stable@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38702 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751105AbdBSFRT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 19 Feb 2017 00:17:19 -0500
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jason Wang <jasowang@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CACT4Y+Z6hAo6rK59MmE31K-rm4=NveunQGNwA7XcqFTaB08zCQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Resizing currently drops consumer lock.  This can cause entries to be
-reordered, which isn't good in itself.  More importantly, consumer can
-detect a false ring empty condition and block forever.
+On Sat, Feb 18, 2017 at 06:28:39PM +0100, Dmitry Vyukov wrote:
+> On Fri, Feb 10, 2017 at 6:17 AM, Jason Wang <jasowang@redhat.com> wrote:
+> >
+> >
+> > On 2017年02月10日 02:10, Michael S. Tsirkin wrote:
+> >>
+> >> On Thu, Feb 09, 2017 at 05:02:31AM -0500, Jason Wang wrote:
+> >>>
+> >>> ----- Original Message -----
+> >>>>
+> >>>> Hello,
+> >>>>
+> >>>> I've got the following report while running syzkaller fuzzer on mmotm
+> >>>> (git://git.kernel.org/pub/scm/linux/kernel/git/mhocko/mm.git)
+> >>>> remotes/mmotm/auto-latest ee4ba7533626ba7bf2f8b992266467ac9fdc045e:
+> >>>>
+> >>> [...]
+> >>>
+> >>>> other info that might help us debug this:
+> >>>>
+> >>>>   Possible interrupt unsafe locking scenario:
+> >>>>
+> >>>>         CPU0                    CPU1
+> >>>>         ----                    ----
+> >>>>    lock(&(&r->consumer_lock)->rlock);
+> >>>>                                 local_irq_disable();
+> >>>>                                 lock(&(&r->producer_lock)->rlock);
+> >>>>                                 lock(&(&r->consumer_lock)->rlock);
+> >>>>    <Interrupt>
+> >>>>      lock(&(&r->producer_lock)->rlock);
+> >>>>
+> >>> Thanks a lot for the testing.
+> >>>
+> >>> Looks like we could address this by using skb_array_consume_bh() instead.
+> >>>
+> >>> Could you pls verify if the following patch works?
+> >>
+> >> I think we should use _bh for the produce call as well,
+> >> since resizing takes the producer lock.
+> >
+> > Looks not since irq was disabled during resizing?
+> 
+> 
+> Hello,
+> 
+> Is there a fix for this that we can pick up?
+> This killed 10'000 VMs on our testing infra over the last day. Still
+> happening on linux-next.
+> 
+> Thanks
 
-Further, nesting of consumer within producer lock is problematic for
-tun, since it produces entries in a BH, which causes a lock order
-reversal:
+I posted a fix.  ptr_ring: fix race conditions when resizing
+Just reposted.  I'll push into linux-next ASAP.
 
-       CPU0                    CPU1
-       ----                    ----
-  consume:
-  lock(&(&r->consumer_lock)->rlock);
-                               resize:
-                               local_irq_disable();
-                               lock(&(&r->producer_lock)->rlock);
-                               lock(&(&r->consumer_lock)->rlock);
-  <Interrupt>
-  produce:
-  lock(&(&r->producer_lock)->rlock);
-
-To fix, nest producer lock within consumer lock during resize,
-and keep consumer lock during the whole swap operation.
-
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: stable@vger.kernel.org
-Cc: "David S. Miller" <davem@davemloft.net>
-Acked-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
-
-Dave, could you merge this before 4.10? If not - I can try.
-
- include/linux/ptr_ring.h | 36 +++++++++++++++++++++++++++++++-----
- 1 file changed, 31 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index 2052011..6c70444 100644
---- a/include/linux/ptr_ring.h
-+++ b/include/linux/ptr_ring.h
-@@ -111,6 +111,11 @@ static inline int __ptr_ring_produce(struct ptr_ring *r, void *ptr)
- 	return 0;
- }
- 
-+/*
-+ * Note: resize (below) nests producer lock within consumer lock, so if you
-+ * consume in interrupt or BH context, you must disable interrupts/BH when
-+ * calling this.
-+ */
- static inline int ptr_ring_produce(struct ptr_ring *r, void *ptr)
- {
- 	int ret;
-@@ -242,6 +247,11 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
- 	return ptr;
- }
- 
-+/*
-+ * Note: resize (below) nests producer lock within consumer lock, so if you
-+ * call this in interrupt or BH context, you must disable interrupts/BH when
-+ * producing.
-+ */
- static inline void *ptr_ring_consume(struct ptr_ring *r)
- {
- 	void *ptr;
-@@ -357,7 +367,7 @@ static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
- 	void **old;
- 	void *ptr;
- 
--	while ((ptr = ptr_ring_consume(r)))
-+	while ((ptr = __ptr_ring_consume(r)))
- 		if (producer < size)
- 			queue[producer++] = ptr;
- 		else if (destroy)
-@@ -372,6 +382,12 @@ static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
- 	return old;
- }
- 
-+/*
-+ * Note: producer lock is nested within consumer lock, so if you
-+ * resize you must make sure all uses nest correctly.
-+ * In particular if you consume ring in interrupt or BH context, you must
-+ * disable interrupts/BH when doing so.
-+ */
- static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
- 				  void (*destroy)(void *))
- {
-@@ -382,17 +398,25 @@ static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
- 	if (!queue)
- 		return -ENOMEM;
- 
--	spin_lock_irqsave(&(r)->producer_lock, flags);
-+	spin_lock_irqsave(&(r)->consumer_lock, flags);
-+	spin_lock(&(r)->producer_lock);
- 
- 	old = __ptr_ring_swap_queue(r, queue, size, gfp, destroy);
- 
--	spin_unlock_irqrestore(&(r)->producer_lock, flags);
-+	spin_unlock(&(r)->producer_lock);
-+	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
- 
- 	kfree(old);
- 
- 	return 0;
- }
- 
-+/*
-+ * Note: producer lock is nested within consumer lock, so if you
-+ * resize you must make sure all uses nest correctly.
-+ * In particular if you consume ring in interrupt or BH context, you must
-+ * disable interrupts/BH when doing so.
-+ */
- static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
- 					   int size,
- 					   gfp_t gfp, void (*destroy)(void *))
-@@ -412,10 +436,12 @@ static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
- 	}
- 
- 	for (i = 0; i < nrings; ++i) {
--		spin_lock_irqsave(&(rings[i])->producer_lock, flags);
-+		spin_lock_irqsave(&(rings[i])->consumer_lock, flags);
-+		spin_lock(&(rings[i])->producer_lock);
- 		queues[i] = __ptr_ring_swap_queue(rings[i], queues[i],
- 						  size, gfp, destroy);
--		spin_unlock_irqrestore(&(rings[i])->producer_lock, flags);
-+		spin_unlock(&(rings[i])->producer_lock);
-+		spin_unlock_irqrestore(&(rings[i])->consumer_lock, flags);
- 	}
- 
- 	for (i = 0; i < nrings; ++i)
 -- 
 MST
