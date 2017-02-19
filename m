@@ -1,58 +1,50 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net 0/4] update ipvs sysctl document
-Date: Sun, 19 Feb 2017 16:04:54 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1702191552560.1590@ja.home.ssi.bg>
-References: <1487313241-11361-1-git-send-email-liuhangbin@gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-        netdev@vger.kernel.org,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Hangbin Liu <liuhangbin@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2/net-next] devlink: use DEVLINK_CMD_ESWITCH_* instead of DEVLINK_CMD_ESWITCH_MODE_*
+Date: Sun, 19 Feb 2017 15:37:06 +0100
+Message-ID: <1487515026-5826-1-git-send-email-jiri@resnulli.us>
+Cc: stephen@networkplumber.org, ogerlitz@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:59994 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750847AbdBSOFL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 19 Feb 2017 09:05:11 -0500
-In-Reply-To: <1487313241-11361-1-git-send-email-liuhangbin@gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33239 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750832AbdBSOhJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 09:37:09 -0500
+Received: by mail-wm0-f67.google.com with SMTP id v77so10134829wmv.0
+        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 06:37:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@mellanox.com>
 
-	Hello,
+Sync with kernel and don't use the obsolete enum values.
 
-On Fri, 17 Feb 2017, Hangbin Liu wrote:
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ devlink/devlink.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> Fix and add some new ipvs sysctl options. Also use tab instead of whitespaces
-> to indent the descriptions.
-
-	You change only docs, so the patchset should be for
-the net-next tree.
-
-> Hangbin Liu (4):
->   ipvs: fix sync_threshold description and add sync_refresh_period,
->     sync_retries
->   ipvs: Document sysctl sync_qlen_max and sync_sock_size
-
-- we can add "are " here but then also check if lines become too long:
-
-"Hard limit for queued sync messages that [are ]not sent yet."
-
-	You can also move the "commit" word to next line
-to make checkpatch happy:
-
-scripts/checkpatch.pl --strict /tmp/file2.patch
-
->   ipvs: Document sysctl sync_ports
->   ipvs: Document sysctl pmtu_disc
-
-- we can make it like this:
-
-"By default, reject with FRAG_NEEDED all DF packets that exceed
-the PMTU, irrespective of the forwarding method. For TUN method
-the flag can be disabled to fragment such packets."
-
->  Documentation/networking/ipvs-sysctl.txt | 68 ++++++++++++++++++++++++++++----
->  1 file changed, 60 insertions(+), 8 deletions(-)
-
-Regards
+diff --git a/devlink/devlink.c b/devlink/devlink.c
+index 34a409f..c357580 100644
+--- a/devlink/devlink.c
++++ b/devlink/devlink.c
+@@ -1303,7 +1303,7 @@ static int cmd_dev_eswitch_show(struct dl *dl)
+ 	struct nlmsghdr *nlh;
+ 	int err;
+ 
+-	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_MODE_GET,
++	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_GET,
+ 			       NLM_F_REQUEST | NLM_F_ACK);
+ 
+ 	err = dl_argv_parse_put(nlh, dl, DL_OPT_HANDLE, 0);
+@@ -1321,7 +1321,7 @@ static int cmd_dev_eswitch_set(struct dl *dl)
+ 	struct nlmsghdr *nlh;
+ 	int err;
+ 
+-	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_MODE_SET,
++	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_ESWITCH_SET,
+ 			       NLM_F_REQUEST | NLM_F_ACK);
+ 
+ 	err = dl_argv_parse_put(nlh, dl, DL_OPT_HANDLE,
+-- 
+2.7.4
