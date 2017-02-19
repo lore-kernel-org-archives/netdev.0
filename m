@@ -1,118 +1,57 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [PATCH rfc 4/4] iscsi-target: use generic inet_pton_with_scope
-Date: Sat, 18 Feb 2017 21:54:02 -0800
-Message-ID: <1487483642.2958.43.camel@haakon3.risingtidesystems.com>
-References: <1487267017-29904-1-git-send-email-sagi@grimberg.me>
-         <1487267017-29904-5-git-send-email-sagi@grimberg.me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        target-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Sagi Grimberg <sagi@grimberg.me>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <1487267017-29904-5-git-send-email-sagi@grimberg.me>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/13] i40e: convert to cpu from le16 to generate switch_id correctly
+Date: Sat, 18 Feb 2017 22:33:36 -0800
+Message-ID: <20170219063341.8039-9-jeffrey.t.kirsher@intel.com>
+References: <20170219063341.8039-1-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:19155 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751126AbdBSGeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 19 Feb 2017 01:34:13 -0500
+In-Reply-To: <20170219063341.8039-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-16 at 19:43 +0200, Sagi Grimberg wrote:
-> Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
-> ---
->  drivers/target/iscsi/iscsi_target_configfs.c | 46 ++++++++--------------------
->  1 file changed, 12 insertions(+), 34 deletions(-)
-> 
-> diff --git a/drivers/target/iscsi/iscsi_target_configfs.c b/drivers/target/iscsi/iscsi_target_configfs.c
-> index bf40f03755dd..f30c27b83c5e 100644
-> --- a/drivers/target/iscsi/iscsi_target_configfs.c
-> +++ b/drivers/target/iscsi/iscsi_target_configfs.c
-> @@ -167,10 +167,7 @@ static struct se_tpg_np *lio_target_call_addnptotpg(
->  	struct iscsi_portal_group *tpg;
->  	struct iscsi_tpg_np *tpg_np;
->  	char *str, *str2, *ip_str, *port_str;
-> -	struct sockaddr_storage sockaddr;
-> -	struct sockaddr_in *sock_in;
-> -	struct sockaddr_in6 *sock_in6;
-> -	unsigned long port;
-> +	struct sockaddr_storage sockaddr = { };
->  	int ret;
->  	char buf[MAX_PORTAL_LEN + 1];
->  
-> @@ -182,21 +179,19 @@ static struct se_tpg_np *lio_target_call_addnptotpg(
->  	memset(buf, 0, MAX_PORTAL_LEN + 1);
->  	snprintf(buf, MAX_PORTAL_LEN + 1, "%s", name);
->  
-> -	memset(&sockaddr, 0, sizeof(struct sockaddr_storage));
-> -
->  	str = strstr(buf, "[");
->  	if (str) {
-> -		const char *end;
-> -
->  		str2 = strstr(str, "]");
->  		if (!str2) {
->  			pr_err("Unable to locate trailing \"]\""
->  				" in IPv6 iSCSI network portal address\n");
->  			return ERR_PTR(-EINVAL);
->  		}
-> -		str++; /* Skip over leading "[" */
-> +
-> +		ip_str = str + 1; /* Skip over leading "[" */
->  		*str2 = '\0'; /* Terminate the unbracketed IPv6 address */
->  		str2++; /* Skip over the \0 */
-> +
->  		port_str = strstr(str2, ":");
->  		if (!port_str) {
->  			pr_err("Unable to locate \":port\""
-> @@ -205,23 +200,8 @@ static struct se_tpg_np *lio_target_call_addnptotpg(
->  		}
->  		*port_str = '\0'; /* Terminate string for IP */
->  		port_str++; /* Skip over ":" */
-> -
-> -		ret = kstrtoul(port_str, 0, &port);
-> -		if (ret < 0) {
-> -			pr_err("kstrtoul() failed for port_str: %d\n", ret);
-> -			return ERR_PTR(ret);
-> -		}
-> -		sock_in6 = (struct sockaddr_in6 *)&sockaddr;
-> -		sock_in6->sin6_family = AF_INET6;
-> -		sock_in6->sin6_port = htons((unsigned short)port);
-> -		ret = in6_pton(str, -1,
-> -				(void *)&sock_in6->sin6_addr.in6_u, -1, &end);
-> -		if (ret <= 0) {
-> -			pr_err("in6_pton returned: %d\n", ret);
-> -			return ERR_PTR(-EINVAL);
-> -		}
->  	} else {
-> -		str = ip_str = &buf[0];
-> +		ip_str = &buf[0];
->  		port_str = strstr(ip_str, ":");
->  		if (!port_str) {
->  			pr_err("Unable to locate \":port\""
-> @@ -230,17 +210,15 @@ static struct se_tpg_np *lio_target_call_addnptotpg(
->  		}
->  		*port_str = '\0'; /* Terminate string for IP */
->  		port_str++; /* Skip over ":" */
-> +	}
->  
-> -		ret = kstrtoul(port_str, 0, &port);
-> -		if (ret < 0) {
-> -			pr_err("kstrtoul() failed for port_str: %d\n", ret);
-> -			return ERR_PTR(ret);
-> -		}
-> -		sock_in = (struct sockaddr_in *)&sockaddr;
-> -		sock_in->sin_family = AF_INET;
-> -		sock_in->sin_port = htons((unsigned short)port);
-> -		sock_in->sin_addr.s_addr = in_aton(ip_str);
-> +	ret = inet_pton_with_scope(&init_net, AF_UNSPEC, ip_str,
-> +			port_str, &sockaddr);
-> +	if (ret) {
-> +		pr_err("malformed ip/port passed: %s\n", name);
-> +		return ERR_PTR(ret);
->  	}
-> +
->  	tpg = container_of(se_tpg, struct iscsi_portal_group, tpg_se_tpg);
->  	ret = iscsit_get_tpg(tpg);
->  	if (ret < 0)
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-A nice cleanup.
+On Big Endian platforms we would incorrectly calculate the wrong switch
+id since we did not properly convert the le16 value into CPU format.
+Caught by sparse.
 
-Acked-by: Nicholas Bellinger <nab@linux-iscsi.org>
+Change-ID: I69a2f9fa064a0a91691f7d0e6fcc206adceb8e36
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index f1f41f12902f..267ad2588255 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -974,7 +974,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 			struct i40e_dcbx_config *r_cfg =
+ 						&pf->hw.remote_dcbx_config;
+ 			int i, ret;
+-			u32 switch_id;
++			u16 switch_id;
+ 
+ 			bw_data = kzalloc(sizeof(
+ 				    struct i40e_aqc_query_port_ets_config_resp),
+@@ -986,7 +986,8 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 
+ 			vsi = pf->vsi[pf->lan_vsi];
+ 			switch_id =
+-				vsi->info.switch_id & I40E_AQ_VSI_SW_ID_MASK;
++				le16_to_cpu(vsi->info.switch_id) &
++					    I40E_AQ_VSI_SW_ID_MASK;
+ 
+ 			ret = i40e_aq_query_port_ets_config(&pf->hw,
+ 							    switch_id,
+-- 
+2.11.0
