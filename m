@@ -1,164 +1,149 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virito-net: set queues after reset during xdp_set
-Date: Sun, 19 Feb 2017 07:08:51 +0200
-Message-ID: <20170219064402-mutt-send-email-mst@kernel.org>
-References: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
-	<58A681E7.80907@gmail.com>
-	<cff818ec-d5cc-1d71-fa3e-95fd690d10ff@redhat.com>
+Subject: [PATCH repost] ptr_ring: fix race conditions when resizing
+Date: Sun, 19 Feb 2017 07:17:17 +0200
+Message-ID: <1487171217-6641-1-git-send-email-mst__1457.21474332294$1487481481$gmane$org@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Vyukov <dvyukov@google.com>, stable@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38702 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751105AbdBSFRT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 19 Feb 2017 00:17:19 -0500
 Content-Disposition: inline
-In-Reply-To: <cff818ec-d5cc-1d71-fa3e-95fd690d10ff@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBGZWIgMTcsIDIwMTcgYXQgMDE6MTA6MDhQTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE35bm0MDLmnIgxN+aXpSAxMjo1MywgSm9obiBGYXN0YWJlbmQgd3Jv
-dGU6Cj4gPiBPbiAxNy0wMi0xNSAwMTowOCBBTSwgSmFzb24gV2FuZyB3cm90ZToKPiA+ID4gV2Ug
-c2V0IHF1ZXVlcyBiZWZvcmUgcmVzZXQgd2hpY2ggd2lsbCBjYXVzZSBhIGNyYXNoWzFdLiBUaGlz
-IGlzCj4gPiA+IGJlY2F1c2UgaXNfeGRwX3Jhd19idWZmZXJfcXVldWUoKSBkZXBlbmRzIG9uIHRo
-ZSBvbGQgeGRwIHF1ZXVlIHBhaXJzCj4gPiA+IG51bWJlciB0byBkbyB0aGUgY29ycmVjdCBkZXRl
-Y3Rpb24uIFNvIGZpeCB0aGlzIGJ5Ogo+ID4gPiAKPiA+ID4gLSBzZXQgcXVldWVzIGFmdGVyIHJl
-c2V0LCB0byBrZWVwIHRoZSBvbGQgdmktPmN1cnJfcXVldWVfcGFpcnMuIChpbgo+ID4gPiAgICBm
-YWN0IHNldHRpbmcgcXVldWVzIGJlZm9yZSByZXNldCBkb2VzIG5vdCB3b3JrcyBzaW5jZSBhZnRl
-ciBmZWF0dXJlCj4gPiA+ICAgIHNldCwgYWxsIHF1ZXVlIHBhaXJzIHdlcmUgZW5hYmxlZCBieSBk
-ZWZhdWx0IGR1cmluZyByZXNldCkuCj4gPiA+IC0gY2hhbmdlIHhkcF9xdWV1ZV9wYWlycyBvbmx5
-IGFmdGVyIHZpcnRuZXRfcmVzZXQoKSBpcyBzdWNjZWVkLgo+ID4gPiAKPiA+ID4gWzFdCj4gPiBJ
-J20gZ3Vlc3NpbmcgdGhpcyBvY2N1cnMgd2hlbiBlbmFibGluZyBYRFAgd2hpbGUgcmVjZWl2aW5n
-IGxvdHMgb2YgdHJhZmZpYz8KPiAKPiBJIGhpdCB0aGlzIHRoZW4gZGlzYWJsaW5nIFhEUCB3aGls
-ZSByZWNlaXZpbmcgbG90cyBvZiB0cmFmZmljLgo+IAo+ID4gCj4gPiA+IFsgICA3NC4zMjgxNjhd
-IGdlbmVyYWwgcHJvdGVjdGlvbiBmYXVsdDogMDAwMCBbIzFdIFNNUAo+ID4gPiBbICAgNzQuMzI4
-NjI1XSBNb2R1bGVzIGxpbmtlZCBpbjogbmZzZCB4ZnMgbGliY3JjMzJjIHZpcnRpb19uZXQgdmly
-dGlvX3BjaQo+ID4gPiBbICAgNzQuMzI5MTE3XSBDUFU6IDAgUElEOiAyODQ5IENvbW06IHhkcDIg
-Tm90IHRhaW50ZWQgNC4xMC4wLXJjNysgIzQ5OQo+ID4gPiBbICAgNzQuMzI5NTc3XSBIYXJkd2Fy
-ZSBuYW1lOiBRRU1VIFN0YW5kYXJkIFBDIChpNDQwRlggKyBQSUlYLCAxOTk2KSwgQklPUyByZWwt
-MS4xMC4xLTAtZzg4OTE2OTctcHJlYnVpbHQucWVtdS1wcm9qZWN0Lm9yZyAwNC8wMS8yMDE0Cj4g
-PiA+IFsgICA3NC4zMzA0MjRdIHRhc2s6IGZmZmY4ODAwN2E4OTQwMDAgdGFzay5zdGFjazogZmZm
-ZmM5MDAwNDM4ODAwMAo+ID4gPiBbICAgNzQuMzMwODQ0XSBSSVA6IDAwMTA6c2tiX3JlbGVhc2Vf
-aGVhZF9zdGF0ZSsweDI4LzB4ODAKPiA+ID4gWyAgIDc0LjMzMTI5OF0gUlNQOiAwMDE4OmZmZmZj
-OTAwMDQzOGI4ZDAgRUZMQUdTOiAwMDAxMDIwNgo+ID4gPiBbICAgNzQuMzMxNjc2XSBSQVg6IDAw
-MDAwMDAwMDAwMDAwMDAgUkJYOiBmZmZmODgwMDdhZDk2MzAwIFJDWDogMDAwMDAwMDAwMDAwMDAw
-MAo+ID4gPiBbICAgNzQuMzMyMjE3XSBSRFg6IGZmZmY4ODAwN2ZjMTM3YTggUlNJOiBmZmZmODgw
-MDdmYzBkYjI4IFJESTogMDAwMWJmMDAwMDAwMDFiZQo+ID4gPiBbICAgNzQuMzMyNzU4XSBSQlA6
-IGZmZmZjOTAwMDQzOGI4ZDggUjA4OiAwMDAwMDAwMDAwMDUwMDhmIFIwOTogMDAwMDAwMDAwMDAw
-MDVmOQo+ID4gPiBbICAgNzQuMzMzMjc0XSBSMTA6IGZmZmY4ODAwN2QwMDE3MDAgUjExOiBmZmZm
-ZmZmZjgyMGE4YTRkIFIxMjogZmZmZjg4MDA3YWQ5NjMwMAo+ID4gPiBbICAgNzQuMzMzNzg3XSBS
-MTM6IDAwMDAwMDAwMDAwMDAwMDIgUjE0OiBmZmZmODgwMDM2NjA0MDAwIFIxNTogMDAwMDc3ZmY4
-MDAwMDAwMAo+ID4gPiBbICAgNzQuMzM0MzA4XSBGUzogIDAwMDA3ZmM3MGQ4YTdiNDAoMDAwMCkg
-R1M6ZmZmZjg4MDA3ZmMwMDAwMCgwMDAwKSBrbmxHUzowMDAwMDAwMDAwMDAwMDAwCj4gPiA+IFsg
-ICA3NC4zMzQ4OTFdIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAw
-NTAwMzMKPiA+ID4gWyAgIDc0LjMzNTMxNF0gQ1IyOiAwMDAwN2ZmZjQxNDRhNzEwIENSMzogMDAw
-MDAwMDA3YWI1NjAwMCBDUjQ6IDAwMDAwMDAwMDAzNDA2ZjAKPiA+ID4gWyAgIDc0LjMzNTgzMF0g
-RFIwOiAwMDAwMDAwMDAwMDAwMDAwIERSMTogMDAwMDAwMDAwMDAwMDAwMCBEUjI6IDAwMDAwMDAw
-MDAwMDAwMDAKPiA+ID4gWyAgIDc0LjMzNjM3M10gRFIzOiAwMDAwMDAwMDAwMDAwMDAwIERSNjog
-MDAwMDAwMDBmZmZlMGZmMCBEUjc6IDAwMDAwMDAwMDAwMDA0MDAKPiA+ID4gWyAgIDc0LjMzNjg5
-NV0gQ2FsbCBUcmFjZToKPiA+ID4gWyAgIDc0LjMzNzA4Nl0gIHNrYl9yZWxlYXNlX2FsbCsweGQv
-MHgzMAo+ID4gPiBbICAgNzQuMzM3MzU2XSAgY29uc3VtZV9za2IrMHgyYy8weDkwCj4gPiA+IFsg
-ICA3NC4zMzc2MDddICBmcmVlX3VudXNlZF9idWZzKzB4MWZmLzB4MjcwIFt2aXJ0aW9fbmV0XQo+
-ID4gPiBbICAgNzQuMzM3OTg4XSAgPyB2cF9zeW5jaHJvbml6ZV92ZWN0b3JzKzB4M2IvMHg2MCBb
-dmlydGlvX3BjaV0KPiA+ID4gWyAgIDc0LjMzODM5OF0gIHZpcnRuZXRfeGRwKzB4MjFlLzB4NDQw
-IFt2aXJ0aW9fbmV0XQo+ID4gPiBbICAgNzQuMzM4NzQxXSAgZGV2X2NoYW5nZV94ZHBfZmQrMHgx
-MDEvMHgxNDAKPiA+ID4gWyAgIDc0LjMzOTA0OF0gIGRvX3NldGxpbmsrMHhjZjQvMHhkMjAKPiA+
-ID4gWyAgIDc0LjMzOTMwNF0gID8gc3ltY21wKzB4Zi8weDIwCj4gPiA+IFsgICA3NC4zMzk1Mjld
-ICA/IG1sc19sZXZlbF9pc3ZhbGlkKzB4NTIvMHg2MAo+ID4gPiBbICAgNzQuMzM5ODI4XSAgPyBt
-bHNfcmFuZ2VfaXN2YWxpZCsweDQzLzB4NTAKPiA+ID4gWyAgIDc0LjM0MDEzNV0gID8gbmxhX3Bh
-cnNlKzB4YTAvMHgxMDAKPiA+ID4gWyAgIDc0LjM0MDQwMF0gIHJ0bmxfc2V0bGluaysweGQ0LzB4
-MTIwCj4gPiA+IFsgICA3NC4zNDA2NjRdICA/IGNwdW1hc2tfbmV4dF9hbmQrMHgzMC8weDUwCj4g
-PiA+IFsgICA3NC4zNDA5NjZdICBydG5ldGxpbmtfcmN2X21zZysweDdmLzB4MWYwCj4gPiA+IFsg
-ICA3NC4zNDEyNTldICA/IHNvY2tfaGFzX3Blcm0rMHg1OS8weDYwCj4gPiA+IFsgICA3NC4zNDE1
-ODZdICA/IG5hcGlfY29uc3VtZV9za2IrMHhlMi8weDEwMAo+ID4gPiBbICAgNzQuMzQyMDEwXSAg
-PyBydG5sX25ld2xpbmsrMHg4OTAvMHg4OTAKPiA+ID4gWyAgIDc0LjM0MjQzNV0gIG5ldGxpbmtf
-cmN2X3NrYisweDkyLzB4YjAKPiA+ID4gWyAgIDc0LjM0Mjg0Nl0gIHJ0bmV0bGlua19yY3YrMHgy
-My8weDMwCj4gPiA+IFsgICA3NC4zNDMyNzddICBuZXRsaW5rX3VuaWNhc3QrMHgxNjIvMHgyMTAK
-PiA+ID4gWyAgIDc0LjM0MzY3N10gIG5ldGxpbmtfc2VuZG1zZysweDJkYi8weDM5MAo+ID4gPiBb
-ICAgNzQuMzQzOTY4XSAgc29ja19zZW5kbXNnKzB4MzMvMHg0MAo+ID4gPiBbICAgNzQuMzQ0MjMz
-XSAgU1lTQ19zZW5kdG8rMHhlZS8weDE2MAo+ID4gPiBbICAgNzQuMzQ0NDgyXSAgPyBTWVNDX2Jp
-bmQrMHhiMC8weGUwCj4gPiA+IFsgICA3NC4zNDQ4MDZdICA/IHNvY2tfYWxsb2NfZmlsZSsweDky
-LzB4MTEwCj4gPiA+IFsgICA3NC4zNDUxMDZdICA/IGZkX2luc3RhbGwrMHgyMC8weDMwCj4gPiA+
-IFsgICA3NC4zNDUzNjBdICA/IHNvY2tfbWFwX2ZkKzB4M2YvMHg2MAo+ID4gPiBbICAgNzQuMzQ1
-NTg2XSAgU3lTX3NlbmR0bysweDkvMHgxMAo+ID4gPiBbICAgNzQuMzQ1NzkwXSAgZW50cnlfU1lT
-Q0FMTF82NF9mYXN0cGF0aCsweDFhLzB4YTkKPiA+ID4gWyAgIDc0LjM0NjA4Nl0gUklQOiAwMDMz
-OjB4N2ZjNzBkMWI4ZjZkCj4gPiA+IFsgICA3NC4zNDYzMTJdIFJTUDogMDAyYjowMDAwN2ZmZjQx
-NDRhNzA4IEVGTEFHUzogMDAwMDAyNDYgT1JJR19SQVg6IDAwMDAwMDAwMDAwMDAwMmMKPiA+ID4g
-WyAgIDc0LjM0Njc4NV0gUkFYOiBmZmZmZmZmZmZmZmZmZmRhIFJCWDogMDAwMDAwMDBmZmZmZmZm
-ZiBSQ1g6IDAwMDA3ZmM3MGQxYjhmNmQKPiA+ID4gWyAgIDc0LjM0NzI0NF0gUkRYOiAwMDAwMDAw
-MDAwMDAwMDJjIFJTSTogMDAwMDdmZmY0MTQ0YTcyMCBSREk6IDAwMDAwMDAwMDAwMDAwMDMKPiA+
-ID4gWyAgIDc0LjM0NzY4M10gUkJQOiAwMDAwMDAwMDAwMDAwMDAzIFIwODogMDAwMDAwMDAwMDAw
-MDAwMCBSMDk6IDAwMDAwMDAwMDAwMDAwMDAKPiA+ID4gWyAgIDc0LjM0ODU0NF0gUjEwOiAwMDAw
-MDAwMDAwMDAwMDAwIFIxMTogMDAwMDAwMDAwMDAwMDI0NiBSMTI6IDAwMDA3ZmZmNDE0NGJkOTAK
-PiA+ID4gWyAgIDc0LjM0OTA4Ml0gUjEzOiAwMDAwMDAwMDAwMDAwMDAyIFIxNDogMDAwMDAwMDAw
-MDAwMDAwMiBSMTU6IDAwMDA3ZmZmNDE0NGNkYTAKPiA+ID4gWyAgIDc0LjM0OTYwN10gQ29kZTog
-MDAgMDAgMDAgNTUgNDggODkgZTUgNTMgNDggODkgZmIgNDggOGIgN2YgNTggNDggODUgZmYgNzQg
-MGUgNDAgZjYgYzcgMDEgNzQgM2QgNDggYzcgNDMgNTggMDAgMDAgMDAgMDAgNDggOGIgN2IgNjgg
-NDggODUgZmYgNzQgMDUgPGYwPiBmZiAwZiA3NCAyMCA0OCA4YiA0MyA2MCA0OCA4NSBjMCA3NCAx
-NCA2NSA4YiAxNSBmMyBhYiA4ZCA3ZQo+ID4gPiBbICAgNzQuMzUxMDA4XSBSSVA6IHNrYl9yZWxl
-YXNlX2hlYWRfc3RhdGUrMHgyOC8weDgwIFJTUDogZmZmZmM5MDAwNDM4YjhkMAo+ID4gPiBbICAg
-NzQuMzUxNjI1XSAtLS1bIGVuZCB0cmFjZSBmZTZlMTlmZDExY2ZjODBiIF0tLS0KPiA+ID4gCj4g
-PiA+IEZpeGVzOiAyZGUyZjdmNDBlZjkgKCJ2aXJ0aW9fbmV0OiBYRFAgc3VwcG9ydCBmb3IgYWRq
-dXN0X2hlYWQiKQo+ID4gPiBDYzogSm9obiBGYXN0YWJlbmQgPGpvaG4uZmFzdGFiZW5kQGdtYWls
-LmNvbT4KPiA+ID4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNv
-bT4KPiA+ID4gLS0tCj4gPiA+ICAgZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIHwgMzUgKysrKysr
-KysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0KPiA+ID4gICAxIGZpbGUgY2hhbmdlZCwgMTgg
-aW5zZXJ0aW9ucygrKSwgMTcgZGVsZXRpb25zKC0pCj4gPiA+IAo+ID4gPiBkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gPiA+
-IGluZGV4IDExZTI4NTMuLjlmZjk1OWMgMTAwNjQ0Cj4gPiA+IC0tLSBhL2RyaXZlcnMvbmV0L3Zp
-cnRpb19uZXQuYwo+ID4gPiArKysgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiA+ID4gQEAg
-LTE3NzUsNyArMTc3NSw3IEBAIHN0YXRpYyBpbnQgdmlydG5ldF94ZHBfc2V0KHN0cnVjdCBuZXRf
-ZGV2aWNlICpkZXYsIHN0cnVjdCBicGZfcHJvZyAqcHJvZykKPiA+ID4gICAJdW5zaWduZWQgbG9u
-ZyBpbnQgbWF4X3N6ID0gUEFHRV9TSVpFIC0gc2l6ZW9mKHN0cnVjdCBwYWRkZWRfdm5ldF9oZHIp
-Owo+ID4gPiAgIAlzdHJ1Y3QgdmlydG5ldF9pbmZvICp2aSA9IG5ldGRldl9wcml2KGRldik7Cj4g
-PiA+ICAgCXN0cnVjdCBicGZfcHJvZyAqb2xkX3Byb2c7Cj4gPiA+IC0JdTE2IG94ZHBfcXAsIHhk
-cF9xcCA9IDAsIGN1cnJfcXA7Cj4gPiA+ICsJdTE2IHhkcF9xcCA9IDAsIGN1cnJfcXA7Cj4gPiA+
-ICAgCWludCBpLCBlcnI7Cj4gPiA+ICAgCWlmICh2aXJ0aW9faGFzX2ZlYXR1cmUodmktPnZkZXYs
-IFZJUlRJT19ORVRfRl9HVUVTVF9UU080KSB8fAo+ID4gPiBAQCAtMTgxMywyNCArMTgxMywyNCBA
-QCBzdGF0aWMgaW50IHZpcnRuZXRfeGRwX3NldChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1
-Y3QgYnBmX3Byb2cgKnByb2cpCj4gPiA+ICAgCQkJcmV0dXJuIFBUUl9FUlIocHJvZyk7Cj4gPiA+
-ICAgCX0KPiA+ID4gLQllcnIgPSBfdmlydG5ldF9zZXRfcXVldWVzKHZpLCBjdXJyX3FwICsgeGRw
-X3FwKTsKPiA+ID4gLQlpZiAoZXJyKSB7Cj4gPiA+IC0JCWRldl93YXJuKCZkZXYtPmRldiwgIlhE
-UCBEZXZpY2UgcXVldWUgYWxsb2NhdGlvbiBmYWlsdXJlLlxuIik7Cj4gPiA+IC0JCWdvdG8gdmly
-dGlvX3F1ZXVlX2VycjsKPiA+ID4gLQl9Cj4gPiA+IC0KPiA+ID4gLQlveGRwX3FwID0gdmktPnhk
-cF9xdWV1ZV9wYWlyczsKPiA+ID4gLQo+ID4gPiAgIAkvKiBDaGFuZ2luZyB0aGUgaGVhZHJvb20g
-aW4gYnVmZmVycyBpcyBhIGRpc3J1cHRpdmUgb3BlcmF0aW9uIGJlY2F1c2UKPiA+ID4gICAJICog
-ZXhpc3RpbmcgYnVmZmVycyBtdXN0IGJlIGZsdXNoZWQgYW5kIHJlYWxsb2NhdGVkLiBUaGlzIHdp
-bGwgaGFwcGVuCj4gPiA+ICAgCSAqIHdoZW4gYSB4ZHAgcHJvZ3JhbSBpcyBpbml0aWFsbHkgYWRk
-ZWQgb3IgeGRwIGlzIGRpc2FibGVkIGJ5IHJlbW92aW5nCj4gPiA+ICAgCSAqIHRoZSB4ZHAgcHJv
-Z3JhbSByZXN1bHRpbmcgaW4gbnVtYmVyIG9mIFhEUCBxdWV1ZXMgY2hhbmdpbmcuCj4gPiA+ICAg
-CSAqLwo+ID4gPiAgIAlpZiAodmktPnhkcF9xdWV1ZV9wYWlycyAhPSB4ZHBfcXApIHsKPiA+ID4g
-LQkJdmktPnhkcF9xdWV1ZV9wYWlycyA9IHhkcF9xcDsKPiA+ID4gICAJCWVyciA9IHZpcnRuZXRf
-cmVzZXQodmkpOwo+ID4gPiAtCQlpZiAoZXJyKQo+ID4gPiArCQlpZiAoZXJyKSB7Cj4gPiA+ICsJ
-CQlkZXZfd2FybigmZGV2LT5kZXYsICJYRFAgcmVzZXQgZmFpbHVyZS5cbiIpOwo+ID4gPiAgIAkJ
-CWdvdG8gdmlydGlvX3Jlc2V0X2VycjsKPiA+ID4gKwkJfQo+ID4gPiArCQl2aS0+eGRwX3F1ZXVl
-X3BhaXJzID0geGRwX3FwOwo+ID4gQnV0IHhkcF9xdWV1ZV9wYWlycyBpcyBiZWluZyB1c2VkIHRv
-IGRldGVjdCBpZiB3ZSBzaG91bGQgYWxsb2NhdGUgdGhlIFhEUAo+ID4gaGVhZHJvb20uIElmIHdl
-IG1vdmUgaXQgaGVyZSBkbyB3ZSBoYXZlIGEgc2V0IG9mIGJ1ZmZlcnMgaW4gdGhlIHJpbmcgd2l0
-aG91dAo+ID4gdGhlIHByb3BlciBoZWFkcm9vbSB3aGVuIHdlIGFzc2lnbiB0aGUgeGRwIHByb2dy
-YW0gYmVsb3c/Cj4gCj4gUmlnaHQsIHNvIGhvdyBhYm91dCBwYXNzaW5nIHhkcF9xdWV1ZV9wYWly
-cyBhcyBhIHBhcmFtZXRlciB0bwo+IHZpcnRuZXRfcmVzZXQoKS4gVGhlbiB2aXJ0bmV0X3Jlc2V0
-KCkgY2FuIHNldCBpdCBhZnRlciBfcmVtb3ZlX3ZxX2NvbW1vbigpCj4gYnV0IGJlZm9yZSB2aXJ0
-bmV0X3Jlc3RvcmVfdXAoKT8KPiAKPiBUaGFua3MKCkphc29uLCB3b3VsZG4ndCB5b3Ugc2F5IGl0
-J3MgY2xlYW5lciB0byBhdm9pZCByZXNldHM/CldvdWxkIHlvdSBiZSBpbnRlcmVzdGVkIGluIGNv
-bXBsZXRpbmcgdGhpcyB3b3JrOgoKMjAxNzAyMDcwNTM0NTUtbXV0dC1zZW5kLWVtYWlsLW1zdEBr
-ZXJuZWwub3JnCgoKPiA+IAo+ID4gPiArCX0KPiA+ID4gKwo+ID4gPiArCWVyciA9IF92aXJ0bmV0
-X3NldF9xdWV1ZXModmksIGN1cnJfcXAgKyB4ZHBfcXApOwo+ID4gPiArCWlmIChlcnIpIHsKPiA+
-ID4gKwkJZGV2X3dhcm4oJmRldi0+ZGV2LCAiWERQIERldmljZSBxdWV1ZSBhbGxvY2F0aW9uIGZh
-aWx1cmUuXG4iKTsKPiA+ID4gKwkJZ290byB2aXJ0aW9fcXVldWVfZXJyOwo+ID4gPiAgIAl9Cj4g
-PiA+ICAgCW5ldGlmX3NldF9yZWFsX251bV9yeF9xdWV1ZXMoZGV2LCBjdXJyX3FwICsgeGRwX3Fw
-KTsKPiA+ID4gQEAgLTE4NDQsMTcgKzE4NDQsMTggQEAgc3RhdGljIGludCB2aXJ0bmV0X3hkcF9z
-ZXQoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IGJwZl9wcm9nICpwcm9nKQo+ID4gPiAg
-IAlyZXR1cm4gMDsKPiA+IFRoYW5rcywKPiA+IEpvaG4KPiA+IApfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QK
-VmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5s
-aW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+Resizing currently drops consumer lock.  This can cause entries to be
+reordered, which isn't good in itself.  More importantly, consumer can
+detect a false ring empty condition and block forever.
+
+Further, nesting of consumer within producer lock is problematic for
+tun, since it produces entries in a BH, which causes a lock order
+reversal:
+
+       CPU0                    CPU1
+       ----                    ----
+  consume:
+  lock(&(&r->consumer_lock)->rlock);
+                               resize:
+                               local_irq_disable();
+                               lock(&(&r->producer_lock)->rlock);
+                               lock(&(&r->consumer_lock)->rlock);
+  <Interrupt>
+  produce:
+  lock(&(&r->producer_lock)->rlock);
+
+To fix, nest producer lock within consumer lock during resize,
+and keep consumer lock during the whole swap operation.
+
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: stable@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
+Acked-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+
+Dave, could you merge this before 4.10? If not - I can try.
+
+ include/linux/ptr_ring.h | 36 +++++++++++++++++++++++++++++++-----
+ 1 file changed, 31 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+index 2052011..6c70444 100644
+--- a/include/linux/ptr_ring.h
++++ b/include/linux/ptr_ring.h
+@@ -111,6 +111,11 @@ static inline int __ptr_ring_produce(struct ptr_ring *r, void *ptr)
+ 	return 0;
+ }
+ 
++/*
++ * Note: resize (below) nests producer lock within consumer lock, so if you
++ * consume in interrupt or BH context, you must disable interrupts/BH when
++ * calling this.
++ */
+ static inline int ptr_ring_produce(struct ptr_ring *r, void *ptr)
+ {
+ 	int ret;
+@@ -242,6 +247,11 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
+ 	return ptr;
+ }
+ 
++/*
++ * Note: resize (below) nests producer lock within consumer lock, so if you
++ * call this in interrupt or BH context, you must disable interrupts/BH when
++ * producing.
++ */
+ static inline void *ptr_ring_consume(struct ptr_ring *r)
+ {
+ 	void *ptr;
+@@ -357,7 +367,7 @@ static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
+ 	void **old;
+ 	void *ptr;
+ 
+-	while ((ptr = ptr_ring_consume(r)))
++	while ((ptr = __ptr_ring_consume(r)))
+ 		if (producer < size)
+ 			queue[producer++] = ptr;
+ 		else if (destroy)
+@@ -372,6 +382,12 @@ static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
+ 	return old;
+ }
+ 
++/*
++ * Note: producer lock is nested within consumer lock, so if you
++ * resize you must make sure all uses nest correctly.
++ * In particular if you consume ring in interrupt or BH context, you must
++ * disable interrupts/BH when doing so.
++ */
+ static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
+ 				  void (*destroy)(void *))
+ {
+@@ -382,17 +398,25 @@ static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
+ 	if (!queue)
+ 		return -ENOMEM;
+ 
+-	spin_lock_irqsave(&(r)->producer_lock, flags);
++	spin_lock_irqsave(&(r)->consumer_lock, flags);
++	spin_lock(&(r)->producer_lock);
+ 
+ 	old = __ptr_ring_swap_queue(r, queue, size, gfp, destroy);
+ 
+-	spin_unlock_irqrestore(&(r)->producer_lock, flags);
++	spin_unlock(&(r)->producer_lock);
++	spin_unlock_irqrestore(&(r)->consumer_lock, flags);
+ 
+ 	kfree(old);
+ 
+ 	return 0;
+ }
+ 
++/*
++ * Note: producer lock is nested within consumer lock, so if you
++ * resize you must make sure all uses nest correctly.
++ * In particular if you consume ring in interrupt or BH context, you must
++ * disable interrupts/BH when doing so.
++ */
+ static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
+ 					   int size,
+ 					   gfp_t gfp, void (*destroy)(void *))
+@@ -412,10 +436,12 @@ static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
+ 	}
+ 
+ 	for (i = 0; i < nrings; ++i) {
+-		spin_lock_irqsave(&(rings[i])->producer_lock, flags);
++		spin_lock_irqsave(&(rings[i])->consumer_lock, flags);
++		spin_lock(&(rings[i])->producer_lock);
+ 		queues[i] = __ptr_ring_swap_queue(rings[i], queues[i],
+ 						  size, gfp, destroy);
+-		spin_unlock_irqrestore(&(rings[i])->producer_lock, flags);
++		spin_unlock(&(rings[i])->producer_lock);
++		spin_unlock_irqrestore(&(rings[i])->consumer_lock, flags);
+ 	}
+ 
+ 	for (i = 0; i < nrings; ++i)
+-- 
+MST
