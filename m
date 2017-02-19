@@ -1,94 +1,122 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next 7/7] nfp: allow application firmware to limit
- number of SR-IOV VFs
-Date: Sun, 19 Feb 2017 16:00:59 +0000
-Message-ID: <BL2PR07MB2306B36343A7E0493018AB158D5F0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20170217220027.189992-1-jakub.kicinski@netronome.com>
- <20170217220027.189992-8-jakub.kicinski@netronome.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH rfc 1/4] net/utils: generic inet_pton_with_scope helper
+Date: Sun, 19 Feb 2017 09:15:23 -0800
+Message-ID: <20170219171523.GC10310@infradead.org>
+References: <1487267017-29904-1-git-send-email-sagi@grimberg.me>
+ <1487267017-29904-2-git-send-email-sagi@grimberg.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "oss-drivers@netronome.com" <oss-drivers@netronome.com>,
-        "dinan.gunawardena@netronome.com" <dinan.gunawardena@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0045.outbound.protection.outlook.com ([104.47.38.45]:41282
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751888AbdBSQBC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 19 Feb 2017 11:01:02 -0500
-In-Reply-To: <20170217220027.189992-8-jakub.kicinski@netronome.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        target-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Sagi Grimberg <sagi@grimberg.me>
+Return-path: <target-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1487267017-29904-2-git-send-email-sagi@grimberg.me>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +static void nfp_pcie_sriov_read_nfd_limit(struct nfp_pf *pf)
+On Thu, Feb 16, 2017 at 07:43:34PM +0200, Sagi Grimberg wrote:
+> Several locations in the stack need to handle ipv4/ipv6
+> (with scope) and port strings conversion to sockaddr.
+> Add a helper that takes either AF_INET, AF_INET6 or
+> AF_UNSPEC (for wildcard) to centralize this handling.
+> 
+> Suggested-by: Christoph Hellwig <hch@lst.de>
+> Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
+> ---
+>  include/linux/inet.h |  6 ++++
+>  net/core/utils.c     | 91 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 97 insertions(+)
+> 
+> diff --git a/include/linux/inet.h b/include/linux/inet.h
+> index 4cca05c9678e..636ebe87e6f8 100644
+> --- a/include/linux/inet.h
+> +++ b/include/linux/inet.h
+> @@ -43,6 +43,8 @@
+>  #define _LINUX_INET_H
+>  
+>  #include <linux/types.h>
+> +#include <net/net_namespace.h>
+> +#include <linux/socket.h>
+>  
+>  /*
+>   * These mimic similar macros defined in user-space for inet_ntop(3).
+> @@ -54,4 +56,8 @@
+>  extern __be32 in_aton(const char *str);
+>  extern int in4_pton(const char *src, int srclen, u8 *dst, int delim, const char **end);
+>  extern int in6_pton(const char *src, int srclen, u8 *dst, int delim, const char **end);
+> +
+> +extern int inet_pton_with_scope(struct net *net, unsigned short af,
+> +		const char *src, const char *port, struct sockaddr_storage *addr);
+> +
+>  #endif	/* _LINUX_INET_H */
+> diff --git a/net/core/utils.c b/net/core/utils.c
+> index 6592d7bbed39..8f15d016c64a 100644
+> --- a/net/core/utils.c
+> +++ b/net/core/utils.c
+> @@ -26,9 +26,11 @@
+>  #include <linux/percpu.h>
+>  #include <linux/init.h>
+>  #include <linux/ratelimit.h>
+> +#include <linux/socket.h>
+>  
+>  #include <net/sock.h>
+>  #include <net/net_ratelimit.h>
+> +#include <net/ipv6.h>
+>  
+>  #include <asm/byteorder.h>
+>  #include <linux/uaccess.h>
+> @@ -300,6 +302,95 @@ int in6_pton(const char *src, int srclen,
+>  }
+>  EXPORT_SYMBOL(in6_pton);
+>  
+> +/**
+> + * inet_pton_with_scope - convert an IPv4/IPv6 and port to socket address
+> + * @net: net namespace (used for scope handling)
+> + * @af: address family, AF_INET, AF_INET6 or AF_UNSPEC for either
+> + * @src: the start of the address string
+> + * @port: the start of the port string (or NULL for none)
+> + * @addr: output socket address
+> + *
+> + * Return zero on success, return errno when any error occurs.
+> + */
+> +int inet_pton_with_scope(struct net *net, __kernel_sa_family_t af,
+> +		const char *src, const char *port, struct sockaddr_storage *addr)
 > +{
-> +	int err;
+> +	struct sockaddr_in *addr4;
+> +	struct sockaddr_in6 *addr6;
+> +	const char *scope_delim;
+> +	bool unspec = false;
+> +	int srclen = strlen(src);
+> +	u16 port_num;
 > +
-> +	pf->limit_vfs =3D nfp_rtsym_read_le(pf->cpp, "nfd_vf_cfg_max_vfs",
-> &err);
-> +	if (!err)
-> +		return;
-> +
-> +	pf->limit_vfs =3D ~0;
-> +	/* Allow any setting for backwards compatibility if symbol not found
-> */
-> +	if (err !=3D -ENOENT)
-> +		nfp_warn(pf->cpp, "Warning: VF limit read failed: %d\n", err);
-> +}
-> +
-
-If you're only going to use this under CONFIG_PCI_IOV,
-perhaps put this underneath the ifdef as well?
-
->  static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
->  {
->  #ifdef CONFIG_PCI_IOV
->  	struct nfp_pf *pf =3D pci_get_drvdata(pdev);
->  	int err;
->=20
-> +	if (num_vfs > pf->limit_vfs) {
-> +		nfp_info(pf->cpp, "Firmware limits number of VFs to %u\n",
-> +			 pf->limit_vfs);
-> +		return -EINVAL;
+> +	if (port) {
+> +		if (kstrtou16(port, 0, &port_num)) {
+> +			pr_err("failed port_num %s\n", port);
+> +			return -EINVAL;
+> +		}
+> +	} else {
+> +		port_num = 0;
 > +	}
 > +
->  	err =3D pci_enable_sriov(pdev, num_vfs);
->  	if (err) {
->  		dev_warn(&pdev->dev, "Failed to enable PCI sriov: %d\n",
-> err);
-> @@ -333,6 +354,8 @@ static int nfp_pci_probe(struct pci_dev *pdev,
->  	if (err)
->  		goto err_cpp_free;
->=20
-> +	nfp_pcie_sriov_read_nfd_limit(pf);
-> +
->  	err =3D nfp_net_pci_probe(pf);
->  	if (err)
->  		goto err_fw_unload;
-> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-> b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-> index 6c40fa322da3..39105d0435e9 100644
-> --- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-> +++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-> @@ -59,6 +59,7 @@ struct nfp_eth_table;
->   * @tx_area:		Pointer to the CPP area for the TX queues
->   * @rx_area:		Pointer to the CPP area for the FL/RX queues
->   * @irq_entries:	Array of MSI-X entries for all ports
-> + * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI
-> limit)
->   * @num_vfs:		Number of SR-IOV VFs enabled
->   * @fw_loaded:		Is the firmware loaded?
->   * @eth_tbl:		NSP ETH table
-> @@ -77,6 +78,7 @@ struct nfp_pf {
->=20
->  	struct msix_entry *irq_entries;
->=20
-> +	unsigned int limit_vfs;
->  	unsigned int num_vfs;
->=20
->  	bool fw_loaded;
-> --
-> 2.11.0
+> +	switch (af) {
+> +	case AF_UNSPEC:
+> +		unspec = true;
+> +		/* FALLTHRU */
+> +	case AF_INET:
+> +		if (srclen <= INET_ADDRSTRLEN) {
+> +			addr4 = (struct sockaddr_in *)addr;
+> +			if (in4_pton(src, srclen, (u8 *) &addr4->sin_addr.s_addr,
+> +				     '\n', NULL) > 0) {
+> +				addr4->sin_family = AF_INET;
+> +				addr4->sin_port = htons(port_num);
+> +				return 0;
+> +			}
+> +			pr_err("failed in4_pton %s\n", src);
+> +		}
+
+I would probably factor this and the IPv6 equivalent below into helpers
+to keep the code a little more self-contained so that we could avoid the
+fallthrough magic.
+
+Except for that and the semicolon warnings this looks fine to me.
