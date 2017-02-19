@@ -1,164 +1,82 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 5/7] nfp: add very basic access to NSP logs
-Date: Sun, 19 Feb 2017 11:58:12 -0800
-Message-ID: <20170219195814.40471-6-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 3/7] nfp: store NSP ABI version in state structure
+Date: Sun, 19 Feb 2017 11:58:10 -0800
+Message-ID: <20170219195814.40471-4-jakub.kicinski@netronome.com>
 References: <20170219195814.40471-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, dinan.gunawardena@netronome.com,
         kubakici@wp.pl, Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33175 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751726AbdBST6Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 14:58:24 -0500
-Received: by mail-pf0-f178.google.com with SMTP id g80so7199830pfb.0
-        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 11:58:24 -0800 (PST)
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:36244 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751663AbdBST6X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 14:58:23 -0500
+Received: by mail-pg0-f44.google.com with SMTP id v184so31033131pgv.3
+        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 11:58:22 -0800 (PST)
 In-Reply-To: <20170219195814.40471-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow dumping "arm.diag" resource with ethtool -w.  This resource
-should contain a text log of the NSP (control processor) application.
+We read the status register on each NSP open, we can store the NSP
+ABI version in the state structure so that we don't have to read
+it again.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  2 +
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 76 ++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |  1 +
- 3 files changed, 79 insertions(+)
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   | 27 +++++++++++-----------
+ 1 file changed, 13 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 5a0fc09dd6ea..e614a376b595 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -492,6 +492,7 @@ struct nfp_stat_pair {
-  * @tx_bar:             Pointer to mapped TX queues
-  * @rx_bar:             Pointer to mapped FL/RX queues
-  * @debugfs_dir:	Device directory in debugfs
-+ * @ethtool_dump_flag:	Ethtool dump flag
-  * @port_list:		Entry on device port list
-  * @cpp:		CPP device handle if available
-  */
-@@ -579,6 +580,7 @@ struct nfp_net {
- 	u8 __iomem *rx_bar;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
+index f07f2fc3fba0..f2d737c3d1df 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
+@@ -99,6 +99,10 @@ enum nfp_nsp_cmd {
+ struct nfp_nsp {
+ 	struct nfp_cpp *cpp;
+ 	struct nfp_resource *res;
++	struct {
++		u16 major;
++		u16 minor;
++	} ver;
+ };
  
- 	struct dentry *debugfs_dir;
-+	u32 ethtool_dump_flag;
+ static int nfp_nsp_check(struct nfp_nsp *state)
+@@ -120,11 +124,12 @@ static int nfp_nsp_check(struct nfp_nsp *state)
+ 		return -ENODEV;
+ 	}
  
- 	struct list_head port_list;
+-	if (FIELD_GET(NSP_STATUS_MAJOR, reg) != NSP_MAJOR ||
+-	    FIELD_GET(NSP_STATUS_MINOR, reg) < NSP_MINOR) {
+-		nfp_err(cpp, "Unsupported ABI %lld.%lld\n",
+-			FIELD_GET(NSP_STATUS_MAJOR, reg),
+-			FIELD_GET(NSP_STATUS_MINOR, reg));
++	state->ver.major = FIELD_GET(NSP_STATUS_MAJOR, reg);
++	state->ver.minor = FIELD_GET(NSP_STATUS_MINOR, reg);
++
++	if (state->ver.major != NSP_MAJOR || state->ver.minor < NSP_MINOR) {
++		nfp_err(cpp, "Unsupported ABI %hu.%hu\n",
++			state->ver.major, state->ver.minor);
+ 		return -EINVAL;
+ 	}
  
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 48f623f68598..2649f7523c81 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -51,6 +51,10 @@
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
+@@ -301,15 +306,9 @@ static int nfp_nsp_command_buf(struct nfp_nsp *nsp, u16 code, u32 option,
+ 	int ret, err;
+ 	u32 cpp_id;
  
-+enum nfp_dump_diag {
-+	NFP_DUMP_NSP_DIAG = 0,
-+};
-+
- /* Support for stats. Returns netdev, driver, and device stats */
- enum { NETDEV_ET_STATS, NFP_NET_DRV_ET_STATS, NFP_NET_DEV_ET_STATS };
- struct _nfp_net_et_stats {
-@@ -579,6 +583,75 @@ static int nfp_net_get_coalesce(struct net_device *netdev,
- 	return 0;
- }
+-	err = nfp_cpp_readq(cpp, nfp_resource_cpp_id(nsp->res),
+-			    nfp_resource_address(nsp->res) + NSP_STATUS, &reg);
+-	if (err < 0)
+-		return err;
+-
+-	if (FIELD_GET(NSP_STATUS_MINOR, reg) < 13) {
+-		nfp_err(cpp, "NSP: Code 0x%04x with buffer not supported (ABI %lld.%lld)\n",
+-			code, FIELD_GET(NSP_STATUS_MAJOR, reg),
+-			FIELD_GET(NSP_STATUS_MINOR, reg));
++	if (nsp->ver.minor < 13) {
++		nfp_err(cpp, "NSP: Code 0x%04x with buffer not supported (ABI %hu.%hu)\n",
++			code, nsp->ver.major, nsp->ver.minor);
+ 		return -EOPNOTSUPP;
+ 	}
  
-+/* Other debug dumps
-+ */
-+static int
-+nfp_dump_nsp_diag(struct nfp_net *nn, struct ethtool_dump *dump, void *buffer)
-+{
-+	struct nfp_resource *res;
-+	int ret;
-+
-+	if (!nn->cpp)
-+		return -EOPNOTSUPP;
-+
-+	dump->version = 1;
-+	dump->flag = NFP_DUMP_NSP_DIAG;
-+
-+	res = nfp_resource_acquire(nn->cpp, NFP_RESOURCE_NSP_DIAG);
-+	if (IS_ERR(res))
-+		return PTR_ERR(res);
-+
-+	if (buffer) {
-+		if (dump->len != nfp_resource_size(res)) {
-+			ret = -EINVAL;
-+			goto exit_release;
-+		}
-+
-+		ret = nfp_cpp_read(nn->cpp, nfp_resource_cpp_id(res),
-+				   nfp_resource_address(res),
-+				   buffer, dump->len);
-+		if (ret != dump->len)
-+			ret = ret < 0 ? ret : -EIO;
-+		else
-+			ret = 0;
-+	} else {
-+		dump->len = nfp_resource_size(res);
-+		ret = 0;
-+	}
-+exit_release:
-+	nfp_resource_release(res);
-+
-+	return ret;
-+}
-+
-+static int nfp_net_set_dump(struct net_device *netdev, struct ethtool_dump *val)
-+{
-+	struct nfp_net *nn = netdev_priv(netdev);
-+
-+	if (!nn->cpp)
-+		return -EOPNOTSUPP;
-+
-+	if (val->flag != NFP_DUMP_NSP_DIAG)
-+		return -EINVAL;
-+
-+	nn->ethtool_dump_flag = val->flag;
-+
-+	return 0;
-+}
-+
-+static int
-+nfp_net_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
-+{
-+	return nfp_dump_nsp_diag(netdev_priv(netdev), dump, NULL);
-+}
-+
-+static int
-+nfp_net_get_dump_data(struct net_device *netdev, struct ethtool_dump *dump,
-+		      void *buffer)
-+{
-+	return nfp_dump_nsp_diag(netdev_priv(netdev), dump, buffer);
-+}
-+
- static int nfp_net_set_coalesce(struct net_device *netdev,
- 				struct ethtool_coalesce *ec)
- {
-@@ -743,6 +816,9 @@ static const struct ethtool_ops nfp_net_ethtool_ops = {
- 	.set_rxfh		= nfp_net_set_rxfh,
- 	.get_regs_len		= nfp_net_get_regs_len,
- 	.get_regs		= nfp_net_get_regs,
-+	.set_dump		= nfp_net_set_dump,
-+	.get_dump_flag		= nfp_net_get_dump_flag,
-+	.get_dump_data		= nfp_net_get_dump_data,
- 	.get_coalesce           = nfp_net_get_coalesce,
- 	.set_coalesce           = nfp_net_set_coalesce,
- 	.get_channels		= nfp_net_get_channels,
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-index 540027973a74..42cb720b696d 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-@@ -86,6 +86,7 @@ int nfp_nsp_write_eth_table(struct nfp_nsp *state,
- 
- /* Service Processor */
- #define NFP_RESOURCE_NSP		"nfp.sp"
-+#define NFP_RESOURCE_NSP_DIAG		"arm.diag"
- 
- /* Netronone Flow Firmware Table */
- #define NFP_RESOURCE_NFP_NFFW		"nfp.nffw"
 -- 
 2.11.0
