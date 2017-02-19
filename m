@@ -1,171 +1,126 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 4/7] nfp: report NSP ABI version in ethtool FW version
-Date: Sun, 19 Feb 2017 11:58:11 -0800
-Message-ID: <20170219195814.40471-5-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 1/7] nfp: refactor NSP initialization and add error message
+Date: Sun, 19 Feb 2017 11:58:08 -0800
+Message-ID: <20170219195814.40471-2-jakub.kicinski@netronome.com>
 References: <20170219195814.40471-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, dinan.gunawardena@netronome.com,
         kubakici@wp.pl, Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:34828 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751710AbdBST6X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 14:58:23 -0500
-Received: by mail-pg0-f47.google.com with SMTP id b129so9787228pgc.2
-        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 11:58:23 -0800 (PST)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35540 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751792AbdBST60 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 14:58:26 -0500
+Received: by mail-pf0-f179.google.com with SMTP id 68so12978222pfx.2
+        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 11:58:26 -0800 (PST)
 In-Reply-To: <20170219195814.40471-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethtool_drvinfo->fw_version can cantain multiple FW strings.
-We already report NFD ABI version there, add NSP ABI version
-if available (i.e. on PF) with 'sp:' prefix.
+When acquiring NSP communication resource fails user is left with
+"probe failed with error -2" PCI code message but no info on what
+caused the problem.  Some development boards may not have NSP FW
+in the flash image.  Help users with a more verbouse message.
+
+While at it move the whole NSP init to a separate function to keep
+.probe() callback nice and simple.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  4 ++++
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 25 ++++++++++++++++++++--
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  1 +
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |  3 +++
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   | 10 +++++++++
- 5 files changed, 41 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_main.c | 59 ++++++++++++++++-----------
+ 1 file changed, 36 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index d37d2391b4fe..5a0fc09dd6ea 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -111,6 +111,7 @@
- 				 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
- 
- /* Forward declarations */
-+struct nfp_cpp;
- struct nfp_net;
- struct nfp_net_r_vector;
- 
-@@ -492,6 +493,7 @@ struct nfp_stat_pair {
-  * @rx_bar:             Pointer to mapped FL/RX queues
-  * @debugfs_dir:	Device directory in debugfs
-  * @port_list:		Entry on device port list
-+ * @cpp:		CPP device handle if available
-  */
- struct nfp_net {
- 	struct pci_dev *pdev;
-@@ -579,6 +581,8 @@ struct nfp_net {
- 	struct dentry *debugfs_dir;
- 
- 	struct list_head port_list;
-+
-+	struct nfp_cpp *cpp;
- };
- 
- struct nfp_net_ring_set {
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 255f30252550..48f623f68598 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -47,6 +47,7 @@
- #include <linux/pci.h>
- #include <linux/ethtool.h>
- 
-+#include "nfpcore/nfp.h"
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
- 
-@@ -127,19 +128,39 @@ static const struct _nfp_net_et_stats nfp_net_et_stats[] = {
- #define NN_ET_STATS_LEN (NN_ET_GLOBAL_STATS_LEN + NN_ET_RVEC_GATHER_STATS + \
- 			 NN_ET_RVEC_STATS_LEN + NN_ET_QUEUE_STATS_LEN)
- 
-+static void nfp_net_get_nspinfo(struct nfp_net *nn, char *version)
-+{
-+	struct nfp_nsp *nsp;
-+
-+	if (!nn->cpp)
-+		return;
-+
-+	nsp = nfp_nsp_open(nn->cpp);
-+	if (IS_ERR(nsp))
-+		return;
-+
-+	snprintf(version, ETHTOOL_FWVERS_LEN, "sp:%hu.%hu",
-+		 nfp_nsp_get_abi_ver_major(nsp),
-+		 nfp_nsp_get_abi_ver_minor(nsp));
-+
-+	nfp_nsp_close(nsp);
-+}
-+
- static void nfp_net_get_drvinfo(struct net_device *netdev,
- 				struct ethtool_drvinfo *drvinfo)
- {
-+	char nsp_version[ETHTOOL_FWVERS_LEN] = {};
- 	struct nfp_net *nn = netdev_priv(netdev);
- 
- 	strlcpy(drvinfo->driver, nn->pdev->driver->name,
- 		sizeof(drvinfo->driver));
- 	strlcpy(drvinfo->version, nfp_driver_version, sizeof(drvinfo->version));
- 
-+	nfp_net_get_nspinfo(nn, nsp_version);
- 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
--		 "%d.%d.%d.%d",
-+		 "%d.%d.%d.%d %s",
- 		 nn->fw_ver.resv, nn->fw_ver.class,
--		 nn->fw_ver.major, nn->fw_ver.minor);
-+		 nn->fw_ver.major, nn->fw_ver.minor, nsp_version);
- 	strlcpy(drvinfo->bus_info, pci_name(nn->pdev),
- 		sizeof(drvinfo->bus_info));
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index eccd31003b0d..3afcdc11480c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -303,6 +303,7 @@ nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
- 	if (IS_ERR(nn))
- 		return nn;
- 
-+	nn->cpp = pf->cpp;
- 	nn->fw_ver = *fw_ver;
- 	nn->ctrl_bar = ctrl_bar;
- 	nn->tx_bar = tx_bar;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-index 3d70a8578a98..540027973a74 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-@@ -40,6 +40,7 @@
- #define __NFP_H__
- 
- #include <linux/device.h>
-+#include <linux/types.h>
- 
- #include "nfp_cpp.h"
- 
-@@ -54,6 +55,8 @@ struct firmware;
- 
- struct nfp_nsp *nfp_nsp_open(struct nfp_cpp *cpp);
- void nfp_nsp_close(struct nfp_nsp *state);
-+u16 nfp_nsp_get_abi_ver_major(struct nfp_nsp *state);
-+u16 nfp_nsp_get_abi_ver_minor(struct nfp_nsp *state);
- int nfp_nsp_wait(struct nfp_nsp *state);
- int nfp_nsp_device_soft_reset(struct nfp_nsp *state);
- int nfp_nsp_load_fw(struct nfp_nsp *state, const struct firmware *fw);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-index f2d737c3d1df..34c50987c377 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c
-@@ -182,6 +182,16 @@ void nfp_nsp_close(struct nfp_nsp *state)
- 	kfree(state);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index db52b6a53c6f..ca2c464c15df 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -228,6 +228,40 @@ nfp_fw_load(struct pci_dev *pdev, struct nfp_pf *pf, struct nfp_nsp *nsp)
+ 	return err < 0 ? err : 1;
  }
  
-+u16 nfp_nsp_get_abi_ver_major(struct nfp_nsp *state)
++static int nfp_nsp_init(struct pci_dev *pdev, struct nfp_pf *pf)
 +{
-+	return state->ver.major;
++	struct nfp_nsp *nsp;
++	int err;
++
++	nsp = nfp_nsp_open(pf->cpp);
++	if (IS_ERR(nsp)) {
++		err = PTR_ERR(nsp);
++		dev_err(&pdev->dev, "Failed to access the NSP: %d\n", err);
++		return err;
++	}
++
++	err = nfp_nsp_wait(nsp);
++	if (err < 0)
++		goto exit_close_nsp;
++
++	pf->eth_tbl = __nfp_eth_read_ports(pf->cpp, nsp);
++
++	err = nfp_fw_load(pdev, pf, nsp);
++	if (err < 0) {
++		kfree(pf->eth_tbl);
++		dev_err(&pdev->dev, "Failed to load FW\n");
++		goto exit_close_nsp;
++	}
++
++	pf->fw_loaded = !!err;
++	err = 0;
++
++exit_close_nsp:
++	nfp_nsp_close(nsp);
++
++	return err;
 +}
 +
-+u16 nfp_nsp_get_abi_ver_minor(struct nfp_nsp *state)
-+{
-+	return state->ver.minor;
-+}
-+
- static int
- nfp_nsp_wait_reg(struct nfp_cpp *cpp, u64 *reg,
- 		 u32 nsp_cpp, u64 addr, u64 mask, u64 val)
+ static void nfp_fw_unload(struct nfp_pf *pf)
+ {
+ 	struct nfp_nsp *nsp;
+@@ -251,7 +285,6 @@ static void nfp_fw_unload(struct nfp_pf *pf)
+ static int nfp_pci_probe(struct pci_dev *pdev,
+ 			 const struct pci_device_id *pci_id)
+ {
+-	struct nfp_nsp *nsp;
+ 	struct nfp_pf *pf;
+ 	int err;
+ 
+@@ -289,28 +322,9 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ 		goto err_disable_msix;
+ 	}
+ 
+-	nsp = nfp_nsp_open(pf->cpp);
+-	if (IS_ERR(nsp)) {
+-		err = PTR_ERR(nsp);
+-		goto err_cpp_free;
+-	}
+-
+-	err = nfp_nsp_wait(nsp);
+-	if (err < 0) {
+-		nfp_nsp_close(nsp);
++	err = nfp_nsp_init(pdev, pf);
++	if (err)
+ 		goto err_cpp_free;
+-	}
+-
+-	pf->eth_tbl = __nfp_eth_read_ports(pf->cpp, nsp);
+-
+-	err = nfp_fw_load(pdev, pf, nsp);
+-	nfp_nsp_close(nsp);
+-	if (err < 0) {
+-		dev_err(&pdev->dev, "Failed to load FW\n");
+-		goto err_eth_tbl_free;
+-	}
+-
+-	pf->fw_loaded = !!err;
+ 
+ 	err = nfp_net_pci_probe(pf);
+ 	if (err)
+@@ -321,7 +335,6 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ err_fw_unload:
+ 	if (pf->fw_loaded)
+ 		nfp_fw_unload(pf);
+-err_eth_tbl_free:
+ 	kfree(pf->eth_tbl);
+ err_cpp_free:
+ 	nfp_cpp_free(pf->cpp);
 -- 
 2.11.0
