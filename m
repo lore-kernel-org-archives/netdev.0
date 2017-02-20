@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qlogic: qlge: use new api
- ethtool_{get|set}_link_ksettings
-Date: Mon, 20 Feb 2017 11:22:37 -0500 (EST)
-Message-ID: <20170220.112237.552017973171262086.davem@davemloft.net>
-References: <1487542901-26785-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net-next v2] net: mpls: Add support for netconf
+Date: Mon, 20 Feb 2017 11:13:51 -0500 (EST)
+Message-ID: <20170220.111351.1937917935290967038.davem@davemloft.net>
+References: <1487606610-31984-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: harish.patil@cavium.com, manish.chopra@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487542901-26785-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        rshearma@brocade.com, ebiederm@xmission.com,
+        nicolas.dichtel@6wind.com
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39378 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753213AbdBTQWk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 11:22:40 -0500
+In-Reply-To: <1487606610-31984-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun, 19 Feb 2017 23:21:41 +0100
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 20 Feb 2017 08:03:30 -0800
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+> Add netconf support to MPLS. Allows userpsace to learn and be notified
+> of changes to 'input' enable setting per interface.
 > 
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
 Applied.
