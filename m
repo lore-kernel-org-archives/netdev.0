@@ -1,61 +1,63 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 00/10] qed*: Bug fixes
-Date: Mon, 20 Feb 2017 22:43:29 +0200
-Message-ID: <1487623419-6442-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 08/10] qede: Prevent index problems in loopback test
+Date: Mon, 20 Feb 2017 22:43:37 +0200
+Message-ID: <1487623419-6442-9-git-send-email-Yuval.Mintz@cavium.com>
+References: <1487623419-6442-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+Cc: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:46406 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:46568 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750826AbdBTVBd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 16:01:33 -0500
+        by vger.kernel.org with ESMTP id S1750827AbdBTVCJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 16:02:09 -0500
+In-Reply-To: <1487623419-6442-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 
-This is a respin of the series with same name for net-next
-instead of net [only patch #10 is changed].
+Driver currently utilizes the same loop variable in two
+nested loops.
 
-The 3 first patches here are a repost of
-("qed: RoCE infrastructure fixes"). The fourth is an additional
-RoCE-related infrastructure fix, and the latter contain various fixes
-to qed/qede.
+Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Please consider applying these to `net-next'.
-
-Thanks,
-Yuval
-
-Ram Amrani (4):
-  qed: Release CQ resource under lock on failure
-  qed: Read queue state before releasing buffer
-  qed: Don't free a QP more than once
-  qed: Reserve doorbell BAR space for present CPUs
-
-Sudarsana Reddy Kalluru (1):
-  qede: Prevent index problems in loopback test
-
-Yuval Mintz (5):
-  qede: Initialize lock and slowpath workqueue early
-  qede: Free netdevice only after stoping slowpath
-  qed: Reflect PF link when initializing VF
-  qed: Don't allocate SBs using main PTT
-  qed*: Fix link indication race
-
- drivers/net/ethernet/qlogic/qed/qed_dev.c       |  2 +-
- drivers/net/ethernet/qlogic/qed/qed_main.c      | 27 ++++++--
- drivers/net/ethernet/qlogic/qed/qed_mcp.c       | 18 +++--
- drivers/net/ethernet/qlogic/qed/qed_mcp.h       |  6 ++
- drivers/net/ethernet/qlogic/qed/qed_roce.c      | 63 +++++++++--------
- drivers/net/ethernet/qlogic/qed/qed_sriov.c     | 90 ++++++++++++++-----------
- drivers/net/ethernet/qlogic/qed/qed_sriov.h     |  1 +
- drivers/net/ethernet/qlogic/qed/qed_vf.c        |  3 +
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  6 +-
- drivers/net/ethernet/qlogic/qede/qede_main.c    | 24 ++++---
- 10 files changed, 151 insertions(+), 89 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index c02754d..8979531 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -1333,7 +1333,7 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
+ 	struct qede_rx_queue *rxq = NULL;
+ 	struct sw_rx_data *sw_rx_data;
+ 	union eth_rx_cqe *cqe;
+-	int i, rc = 0;
++	int i, iter, rc = 0;
+ 	u8 *data_ptr;
+ 
+ 	for_each_queue(i) {
+@@ -1352,7 +1352,7 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
+ 	 * enabled. This is because the queue 0 is configured as the default
+ 	 * queue and that the loopback traffic is not IP.
+ 	 */
+-	for (i = 0; i < QEDE_SELFTEST_POLL_COUNT; i++) {
++	for (iter = 0; iter < QEDE_SELFTEST_POLL_COUNT; iter++) {
+ 		if (!qede_has_rx_work(rxq)) {
+ 			usleep_range(100, 200);
+ 			continue;
+@@ -1399,7 +1399,7 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
+ 		qed_chain_recycle_consumed(&rxq->rx_comp_ring);
+ 	}
+ 
+-	if (i == QEDE_SELFTEST_POLL_COUNT) {
++	if (iter == QEDE_SELFTEST_POLL_COUNT) {
+ 		DP_NOTICE(edev, "Failed to receive the traffic\n");
+ 		return -1;
+ 	}
 -- 
 1.9.3
