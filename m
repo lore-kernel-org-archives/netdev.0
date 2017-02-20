@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next v3 10/12] net: ethernet: aquantia: Fixed incorrect buff->len calculation.
-Date: Mon, 20 Feb 2017 14:41:52 +0300
-Message-ID: <b703af4f41548212e31a65897eee243e59f4083d.1487590641.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next v3 06/12] net: ethernet: aquantia: Fixed missing rtnl_unlock.
+Date: Mon, 20 Feb 2017 14:41:48 +0300
+Message-ID: <f09451675dfa0212989606f711052923fd187690.1487590641.git.pavel.belous@aquantia.com>
 References: <cover.1487590641.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,53 +15,45 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-by2nam03on0086.outbound.protection.outlook.com ([104.47.42.86]:47808
         "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753011AbdBTLnN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Feb 2017 06:43:13 -0500
+        id S1752853AbdBTLnC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 06:43:02 -0500
 In-Reply-To: <cover.1487590641.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-rxd_wb->pkt_len is the total length of the packet.
-If we received a large packet (with length > AQ_CFG_RX_FRAME_MAX) then we
-will get multiple buffers. We need to fix the length of the last buffer.
+rtnl_unlock should be called if error occurred.
 
 Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+Reviewed-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 ---
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 4 ++--
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-index 1f38805..a2b746a 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-@@ -659,8 +659,8 @@ static int hw_atl_a0_hw_ring_rx_receive(struct aq_hw_s *self,
- 			}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+index 4b8d074..646314c 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+@@ -932,7 +932,7 @@ int aq_nic_change_pm_state(struct aq_nic_s *self, pm_message_t *pm_msg)
  
- 			if (HW_ATL_A0_RXD_WB_STAT2_EOP & rxd_wb->status) {
--				buff->len = (rxd_wb->pkt_len &
--						(AQ_CFG_RX_FRAME_MAX - 1U));
-+				buff->len = rxd_wb->pkt_len %
-+					AQ_CFG_RX_FRAME_MAX;
- 				buff->len = buff->len ?
- 					buff->len : AQ_CFG_RX_FRAME_MAX;
- 				buff->next = 0U;
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-index e7e694f..cab2931 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-@@ -673,8 +673,8 @@ static int hw_atl_b0_hw_ring_rx_receive(struct aq_hw_s *self,
- 			}
+ 	if (!netif_running(self->ndev)) {
+ 		err = 0;
+-		goto err_exit;
++		goto out;
+ 	}
+ 	rtnl_lock();
+ 	if (pm_msg->event & PM_EVENT_SLEEP || pm_msg->event & PM_EVENT_FREEZE) {
+@@ -957,8 +957,9 @@ int aq_nic_change_pm_state(struct aq_nic_s *self, pm_message_t *pm_msg)
+ 		netif_device_attach(self->ndev);
+ 		netif_tx_start_all_queues(self->ndev);
+ 	}
+-	rtnl_unlock();
  
- 			if (HW_ATL_B0_RXD_WB_STAT2_EOP & rxd_wb->status) {
--				buff->len = (rxd_wb->pkt_len &
--						(AQ_CFG_RX_FRAME_MAX - 1U));
-+				buff->len = rxd_wb->pkt_len %
-+					AQ_CFG_RX_FRAME_MAX;
- 				buff->len = buff->len ?
- 					buff->len : AQ_CFG_RX_FRAME_MAX;
- 				buff->next = 0U;
+ err_exit:
++	rtnl_unlock();
++out:
+ 	return err;
+ }
 -- 
 2.7.4
