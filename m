@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mlx4: reduce OOM risk on arches with large pages
-Date: Mon, 20 Feb 2017 10:32:02 -0500 (EST)
-Message-ID: <20170220.103202.2232789170855833380.davem@davemloft.net>
-References: <1487442858.1311.104.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [net-next 00/13][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-02-18
+Date: Mon, 20 Feb 2017 10:31:27 -0500 (EST)
+Message-ID: <20170220.103127.1378944749736449696.davem@davemloft.net>
+References: <20170219063341.8039-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38520 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38514 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753759AbdBTPcK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:32:10 -0500
-In-Reply-To: <1487442858.1311.104.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1753258AbdBTPb6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:31:58 -0500
+In-Reply-To: <20170219063341.8039-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 18 Feb 2017 10:34:18 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat, 18 Feb 2017 22:33:28 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Since mlx4 NIC are used on PowerPC with 64K pages, we need to adapt
-> MLX4_EN_ALLOC_PREFER_ORDER definition.
-> 
-> Otherwise, a fragment sitting in an out of order TCP queue can hold
-> 0.5 Mbytes and it is a serious OOM risk.
-> 
-> Fixes: 51151a16a60f ("mlx4: allow order-0 memory allocations in RX path")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> This series contains updates to i40e and i40evf only.
 
-Applied.
+Pulled, thanks Jeff.
