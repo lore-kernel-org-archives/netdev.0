@@ -1,149 +1,81 @@
-From: Pavel Belous <pavel.belous@aquantia.com>
-Subject: Re: [PATCH] net: aquantia: remove function aq_ring_tx_deinit
-Date: Mon, 20 Feb 2017 15:21:23 +0300
-Message-ID: <d7a68cfc-a4c1-68d0-0611-45445315c20d@aquantia.com>
-References: <1487417232-4103-1-git-send-email-LinoSanfilippo@gmx.de>
+From: "Ruinskiy, Dima" <dima.ruinskiy@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] e1000e: Undo e1000e_pm_freeze if
+        __e1000_shutdown fails
+Date: Mon, 20 Feb 2017 12:43:11 +0000
+Message-ID: <36CDDD56DDB4D44E911123902EFC26B06CE901A6@HASMSX110.ger.corp.intel.com>
+References: <20170217124148.17130-1-chris@chris-wilson.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        Simon.Edelhaus@aquantia.com, Alexey.Andriyanov@aquantia.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Ursulin, Tvrtko" <tvrtko.ursulin@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "Ertman, David M" <david.m.ertman@intel.com>
+To: Chris Wilson <chris@chris-wilson.co.uk>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0056.outbound.protection.outlook.com ([104.47.34.56]:25130
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752327AbdBTMW1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Feb 2017 07:22:27 -0500
-In-Reply-To: <1487417232-4103-1-git-send-email-LinoSanfilippo@gmx.de>
+Received: from mga04.intel.com ([192.55.52.120]:27981 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751669AbdBTMno (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 07:43:44 -0500
+In-Reply-To: <20170217124148.17130-1-chris@chris-wilson.co.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18.02.2017 14:27, Lino Sanfilippo wrote:
-> Both functions aq_ring_rx_deinit() and aq_ring_tx_clean() are almost
-> identical aside from an additional check in the latter.
-> Move that check from the function into its caller and replace
-> aq_ring_rx_deinit() with aq_ring_rx_deinit().
->
-> By doing this also adjust the functions return value from int to void
-> since it can never fail.
->
-> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-> ---
->  drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 33 +-----------------------
->  drivers/net/ethernet/aquantia/atlantic/aq_ring.h |  3 +--
->  drivers/net/ethernet/aquantia/atlantic/aq_vec.c  | 14 ++++++----
->  3 files changed, 11 insertions(+), 39 deletions(-)
->
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-> index dea9e9b..fed6ac5 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-> @@ -123,7 +123,7 @@ void aq_ring_tx_append_buffs(struct aq_ring_s *self,
->  	}
->  }
->
-> -int aq_ring_tx_clean(struct aq_ring_s *self)
-> +void aq_ring_tx_clean(struct aq_ring_s *self)
->  {
->  	struct device *dev = aq_nic_get_dev(self->aq_nic);
->
-> @@ -143,11 +143,6 @@ int aq_ring_tx_clean(struct aq_ring_s *self)
->  		if (unlikely(buff->is_eop))
->  			dev_kfree_skb_any(buff->skb);
->  	}
-> -
-> -	if (aq_ring_avail_dx(self) > AQ_CFG_SKB_FRAGS_MAX)
-> -		aq_nic_ndev_queue_start(self->aq_nic, self->idx);
-> -
-> -	return 0;
->  }
->
->  static inline unsigned int aq_ring_dx_in_range(unsigned int h, unsigned int i,
-> @@ -333,32 +328,6 @@ void aq_ring_rx_deinit(struct aq_ring_s *self)
->  err_exit:;
->  }
->
-> -void aq_ring_tx_deinit(struct aq_ring_s *self)
-> -{
-> -	if (!self)
-> -		goto err_exit;
-> -
-> -	for (; self->sw_head != self->sw_tail;
-> -		self->sw_head = aq_ring_next_dx(self, self->sw_head)) {
-> -		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
-> -		struct device *ndev = aq_nic_get_dev(self->aq_nic);
-> -
-> -		if (likely(buff->is_mapped)) {
-> -			if (unlikely(buff->is_sop)) {
-> -				dma_unmap_single(ndev, buff->pa, buff->len,
-> -						 DMA_TO_DEVICE);
-> -			} else {
-> -				dma_unmap_page(ndev, buff->pa, buff->len,
-> -					       DMA_TO_DEVICE);
-> -			}
-> -		}
-> -
-> -		if (unlikely(buff->is_eop))
-> -			dev_kfree_skb_any(buff->skb);
-> -	}
-> -err_exit:;
-> -}
-> -
->  void aq_ring_free(struct aq_ring_s *self)
->  {
->  	if (!self)
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-> index 0ac3f9e..fb296b3 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-> @@ -144,13 +144,12 @@ struct aq_ring_s *aq_ring_rx_alloc(struct aq_ring_s *self,
->  				   unsigned int idx,
->  				   struct aq_nic_cfg_s *aq_nic_cfg);
->  int aq_ring_init(struct aq_ring_s *self);
-> -void aq_ring_tx_deinit(struct aq_ring_s *self);
->  void aq_ring_rx_deinit(struct aq_ring_s *self);
->  void aq_ring_free(struct aq_ring_s *self);
->  void aq_ring_tx_append_buffs(struct aq_ring_s *ring,
->  			     struct aq_ring_buff_s *buffer,
->  			     unsigned int buffers);
-> -int aq_ring_tx_clean(struct aq_ring_s *self);
-> +void aq_ring_tx_clean(struct aq_ring_s *self);
->  int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget);
->  int aq_ring_rx_fill(struct aq_ring_s *self);
->
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-> index cb30a63..ad5b4d4d 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-> @@ -59,10 +59,14 @@ static int aq_vec_poll(struct napi_struct *napi, int budget)
->  			}
->
->  			if (ring[AQ_VEC_TX_ID].sw_head !=
-> -				ring[AQ_VEC_TX_ID].hw_head) {
-> -				err = aq_ring_tx_clean(&ring[AQ_VEC_TX_ID]);
-> -				if (err < 0)
-> -					goto err_exit;
-> +			    ring[AQ_VEC_TX_ID].hw_head) {
-> +				aq_ring_tx_clean(&ring[AQ_VEC_TX_ID]);
-> +
-> +				if (aq_ring_avail_dx(&ring[AQ_VEC_TX_ID]) >
-> +				    AQ_CFG_SKB_FRAGS_MAX) {
-> +					aq_nic_ndev_queue_start(self->aq_nic,
-> +						ring[AQ_VEC_TX_ID].idx);
-> +				}
->  				was_tx_cleaned = true;
->  			}
->
-> @@ -271,7 +275,7 @@ void aq_vec_deinit(struct aq_vec_s *self)
->
->  	for (i = 0U, ring = self->ring[0];
->  		self->tx_rings > i; ++i, ring = self->ring[i]) {
-> -		aq_ring_tx_deinit(&ring[AQ_VEC_TX_ID]);
-> +		aq_ring_tx_clean(&ring[AQ_VEC_TX_ID]);
->  		aq_ring_rx_deinit(&ring[AQ_VEC_RX_ID]);
->  	}
->  err_exit:;
->
+>-----Original Message-----
 
-Tested-by: Pavel Belous <pavel.belous@aquantia.com>
+>Fixes: 2800209994f8 ("e1000e: Refactor PM flows")
+>Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=99847
+>Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
+>Cc: Tvrtko Ursulin <tvrtko.ursulin@intel.com>
+>Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>Cc: Dave Ertman <davidx.m.ertman@intel.com>
+>Cc: Bruce Allan <bruce.w.allan@intel.com>
+>Cc: intel-wired-lan@lists.osuosl.org
+>Cc: netdev@vger.kernel.org
+>---
+> drivers/net/ethernet/intel/e1000e/netdev.c | 9 ++++++++-
+> 1 file changed, 8 insertions(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
+>b/drivers/net/ethernet/intel/e1000e/netdev.c
+>index eccf1da9356b..429a5210230d 100644
+>--- a/drivers/net/ethernet/intel/e1000e/netdev.c
+>+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+>@@ -6615,12 +6615,19 @@ static int e1000e_pm_thaw(struct device *dev)
+>static int e1000e_pm_suspend(struct device *dev)  {
+> 	struct pci_dev *pdev = to_pci_dev(dev);
+>+	int rc;
+>
+> 	e1000e_flush_lpic(pdev);
+>
+> 	e1000e_pm_freeze(dev);
+>
+>-	return __e1000_shutdown(pdev, false);
+>+	rc = __e1000_shutdown(pdev, false);
+>+	if (rc) {
+>+		e1000e_pm_thaw(dev);
+>+		return rc;
+>+	}
+>+
+>+	return 0;
+> }
+>
+> static int e1000e_pm_resume(struct device *dev)
+>--
+
+Looks reasonable. However, can't you get the same result with fewer code lines?
+-	return __e1000_shutdown(pdev, false);
++	rc = __e1000_shutdown(pdev, false);
++	if (rc)
++		e1000e_pm_thaw(dev);
++
++	return rc;
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
