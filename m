@@ -1,36 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH repost] ptr_ring: fix race conditions when resizing
-Date: Mon, 20 Feb 2017 11:24:42 -0500 (EST)
-Message-ID: <20170220.112442.886413596934117545.davem@davemloft.net>
-References: <1487171217-6641-1-git-send-email-mst@redhat.com>
-        <20170219.005248.548256056859453600.davem@davemloft.net>
-        <20170220070458-mutt-send-email-mst@kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] bpf: return errno -ENOMEM when exceeding
+ RLIMIT_MEMLOCK
+Date: Mon, 20 Feb 2017 17:25:58 +0100
+Message-ID: <20170220172558.3de0742d@redhat.com>
+References: <148760491056.17885.7344022207445355578.stgit@firesoul>
+        <58AB11EE.4050905@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, dvyukov@google.com,
-        stable@vger.kernel.org, jasowang@redhat.com, netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170220070458-mutt-send-email-mst@kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35236 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750884AbdBTQ0C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 11:26:02 -0500
+In-Reply-To: <58AB11EE.4050905@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 20 Feb 2017 07:05:35 +0200
+On Mon, 20 Feb 2017 16:57:34 +0100
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> On Sun, Feb 19, 2017 at 12:52:48AM -0500, David Miller wrote:
->> From: "Michael S. Tsirkin" <mst@redhat.com>
->> Date: Sun, 19 Feb 2017 07:17:17 +0200
->> 
->> > Dave, could you merge this before 4.10? If not - I can try.
->> 
->> I just sent my last pull request to Linus, please merge it to
->> him directly.
->> 
->> Thanks.
+> On 02/20/2017 04:35 PM, Jesper Dangaard Brouer wrote:
+> > It is confusing users of samples/bpf that exceeding the resource
+> > limits for RLIMIT_MEMLOCK result in an "Operation not permitted"
+> > message.  This is due to bpf limits check return -EPERM.
+> >
+> > Instead return -ENOMEM, like most other users of this API.
+> >
+> > Fixes: aaac3ba95e4c ("bpf: charge user for creation of BPF maps and programs")
+> > Fixes: 6c9059817432 ("bpf: pre-allocate hash map elements")
+> > Fixes: 5ccb071e97fb ("bpf: fix overflow in prog accounting")  
 > 
-> I missed the opportunity. Could you pls queue the fix
-> for next release and copy stable?
+> Btw, last one just moves the helper so fixes doesn't really apply
+> there, but apart from that this is already uapi exposed behavior
+> like this for ~1.5yrs, so unfortunately too late to change now. I
+> think the original intention (arguably confusing in this context)
+> was that user doesn't have (rlimit) permission to allocate this
+> resource.
 
-Ok, done.
+This is obviously confusing end-users, thus it should be fixed IMHO.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
