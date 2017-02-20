@@ -1,42 +1,68 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] Don't allow overwrite of config src addr
-Date: Mon, 20 Feb 2017 22:35:20 +0300
-Message-ID: <58ee16db-7ab5-408d-46f6-371f04dce8d2@cogentembedded.com>
-References: <1487610234-8239-1-git-send-email-brussell@brocade.com>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Subject: [PATCH net-next v4 00/12] net: ethernet: aquantia: improvements and fixes
+Date: Mon, 20 Feb 2017 22:36:38 +0300
+Message-ID: <cover.1487618263.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Brian Russell <brussell@brocade.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        Pavel Belous <pavel.belous@aquantia.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:36000 "EHLO
-        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751100AbdBTTfZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 14:35:25 -0500
-Received: by mail-lf0-f44.google.com with SMTP id b80so17733040lfe.3
-        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 11:35:24 -0800 (PST)
-In-Reply-To: <1487610234-8239-1-git-send-email-brussell@brocade.com>
+Received: from mail-bl2nam02on0049.outbound.protection.outlook.com ([104.47.38.49]:6446
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750936AbdBTThc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 14:37:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+From: Pavel Belous <pavel.belous@aquantia.com>
 
-On 02/20/2017 08:03 PM, Brian Russell wrote:
+The following patchset contains improvements and fixes for aQuantia
+AQtion ethernet driver from net-next tree.
 
-> When using IPv6 transport and a default dst, a pointer to the configured
-> source address is passed into the route lookup. If no source address is
-> configured, then the value is overwritten.
->
-> IPv6 route lookup ignores egress ifindex match if the source adress is set,
+Most fixes are based on the comments from Lino Sanfilippo.
 
-    Address. Perhaps can be fixed while applying?
+Sanity testing was performed on real HW. No regression found.
 
-> so if egress ifindex match is desired, the source address must be passed
-> as any. The overwrite breaks this for subsequent lookups.
->
-> Avoid this by copying the configured address to an existing stack variable
-> and pass a pointer to that instead.
->
-> Signed-off-by: Brian Russell <brussell@brocade.com>
-[...]
+v1->v2: 1)Removed buffers copying.
+	2)Fixed dma error handling.
 
-MBR, Sergei
+v2->v3: 1)Fixes for aq_ndev_change_mtu:
+	-Use core MTU checking for min_mtu.
+	-Removed extra new_mtu assigment.
+	2)Reverse XMAS tree in aq_ring_rx_fill.
+v3->v4: 1)Use ndev->reg_state instead "is_ndev_registered" flag.
+
+Please review.
+Thanks.
+Pavel Belous (12):
+  net: ethernet: aquantia: Removed extra assignment for skb->dev.
+  net: ethernet: aquantia: Removed busy_count field.
+  net: ethernet: aquantia: Fixes for aq_ndev_change_mtu
+  net: ethernet: aquantia: Using module_pci_driver.
+  net: ethernet: aquantia: Superfluous initialization of "err".
+  net: ethernet: aquantia: Fixed missing rtnl_unlock.
+  net: ethernet: aquantia: Using NETDEV_TX_OK instead 0.
+  net: ethernet: aquantia: Null pointer check for aq_nic_ndev_alloc.
+  net: ethernet: aquantia: Call netdev_register after all initialized.
+  net: ethernet: aquantia: Fixed incorrect buff->len calculation.
+  net: ethernet: aquantia: Fixed memory allocation if
+    AQ_CFG_RX_FRAME_MAX > 1 page.
+  net: ethernet: aquantia: Copying tx buffers is not needed.
+
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c   |  40 +---
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 206 +++++++++++----------
+ .../ethernet/aquantia/atlantic/aq_nic_internal.h   |   1 -
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  24 +--
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.h   |   3 -
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |   1 -
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |   4 +-
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |   4 +-
+ 8 files changed, 121 insertions(+), 162 deletions(-)
+
+-- 
+2.7.4
