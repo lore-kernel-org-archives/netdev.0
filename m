@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next v4 03/12] net: ethernet: aquantia: Fixes for aq_ndev_change_mtu
-Date: Mon, 20 Feb 2017 22:36:41 +0300
-Message-ID: <61981e96fb708b1b1b6c4eb1c5ff529f868d98bb.1487618263.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next v4 04/12] net: ethernet: aquantia: Using module_pci_driver.
+Date: Mon, 20 Feb 2017 22:36:42 +0300
+Message-ID: <0b2ddd520998525abe8884debae0ae2eab12e3e9.1487618263.git.pavel.belous@aquantia.com>
 References: <cover.1487618263.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,66 +15,49 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bl2nam02on0068.outbound.protection.outlook.com ([104.47.38.68]:52795
         "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751805AbdBTThn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Feb 2017 14:37:43 -0500
+        id S1751791AbdBTThp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 14:37:45 -0500
 In-Reply-To: <cover.1487618263.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-1)Removed unnecessary comparsion "old_mtu == new_mtu".
-This check is not needed. Function aq_ndev_change_mtu wont be called
-if mtu has not changed.
-
-2)Removed extra assignment ndev->mtu = new_mtu;
-This assignment already done inside __dev_set_mtu().
-
-3)Use core MTU checking for min_mtu.
+Remove boilerplate code by using macro module_pci_driver.
 
 Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+Reviewed-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_main.c | 12 +-----------
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c  |  1 +
- 2 files changed, 2 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c | 20 +-------------------
+ 1 file changed, 1 insertion(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
-index c17c70a..45c769e 100644
+index 45c769e..91c66f5 100644
 --- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
 +++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
-@@ -100,20 +100,10 @@ static int aq_ndev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
- {
- 	struct aq_nic_s *aq_nic = netdev_priv(ndev);
+@@ -242,22 +242,4 @@ static struct pci_driver aq_pci_ops = {
+ 	.resume = aq_pci_resume,
+ };
+ 
+-static int __init aq_module_init(void)
+-{
 -	int err = 0;
-+	int err = aq_nic_set_mtu(aq_nic, new_mtu + ETH_HLEN);
- 
--	if (new_mtu == ndev->mtu) {
--		err = 0;
+-
+-	err = pci_register_driver(&aq_pci_ops);
+-	if (err < 0)
 -		goto err_exit;
--	}
--	if (new_mtu < 68) {
--		err = -EINVAL;
--		goto err_exit;
--	}
--	err = aq_nic_set_mtu(aq_nic, new_mtu + ETH_HLEN);
- 	if (err < 0)
- 		goto err_exit;
--	ndev->mtu = new_mtu;
- 
- 	if (netif_running(ndev)) {
- 		aq_ndev_close(ndev);
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index a153750..4b8d074 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -214,6 +214,7 @@ struct aq_nic_s *aq_nic_alloc_cold(const struct net_device_ops *ndev_ops,
- 	SET_NETDEV_DEV(ndev, dev);
- 
- 	ndev->if_port = port;
-+	ndev->min_mtu = ETH_MIN_MTU;
- 	self->ndev = ndev;
- 
- 	self->aq_pci_func = aq_pci_func;
+-
+-err_exit:
+-	return err;
+-}
+-
+-static void __exit aq_module_exit(void)
+-{
+-	pci_unregister_driver(&aq_pci_ops);
+-}
+-
+-module_init(aq_module_init);
+-module_exit(aq_module_exit);
++module_pci_driver(aq_pci_ops);
 -- 
 2.7.4
