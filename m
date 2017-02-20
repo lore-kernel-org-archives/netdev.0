@@ -1,74 +1,80 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next v3 11/12] net: ethernet: aquantia: Fixed memory allocation if AQ_CFG_RX_FRAME_MAX > 1 page.
-Date: Mon, 20 Feb 2017 14:41:53 +0300
-Message-ID: <8c6d7500a366bcdb606e0fc2d91938c68f78c4b3.1487590641.git.pavel.belous@aquantia.com>
-References: <cover.1487590641.git.pavel.belous@aquantia.com>
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Subject: [PATCH] uapi: fix linux/if.h userspace compilation errors
+Date: Mon, 20 Feb 2017 14:58:41 +0300
+Message-ID: <20170220115841.GA6846@altlinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>,
-        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        Pavel Belous <pavel.belous@aquantia.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0086.outbound.protection.outlook.com ([104.47.42.86]:47808
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753021AbdBTLnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Feb 2017 06:43:16 -0500
-In-Reply-To: <cover.1487590641.git.pavel.belous@aquantia.com>
+Received: from vmicros1.altlinux.org ([194.107.17.57]:59466 "EHLO
+        vmicros1.altlinux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751402AbdBTL6o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 06:58:44 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <pavel.belous@aquantia.com>
+Include <sys/socket.h> (guarded by ifndef __KERNEL__) to fix
+the following linux/if.h userspace compilation errors:
 
-We should allocate the number of pages based on the config parameter
-AQ_CFG_RX_FRAME_MAX.
+/usr/include/linux/if.h:234:19: error: field 'ifru_addr' has incomplete type
+   struct sockaddr ifru_addr;
+/usr/include/linux/if.h:235:19: error: field 'ifru_dstaddr' has incomplete type
+   struct sockaddr ifru_dstaddr;
+/usr/include/linux/if.h:236:19: error: field 'ifru_broadaddr' has incomplete type
+   struct sockaddr ifru_broadaddr;
+/usr/include/linux/if.h:237:19: error: field 'ifru_netmask' has incomplete type
+   struct sockaddr ifru_netmask;
+/usr/include/linux/if.h:238:20: error: field 'ifru_hwaddr' has incomplete type
+   struct  sockaddr ifru_hwaddr;
 
-Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+This also fixes userspace compilation of the following uapi headers:
+  linux/atmbr2684.h
+  linux/gsmmux.h
+  linux/if_arp.h
+  linux/if_bonding.h
+  linux/if_frad.h
+  linux/if_pppox.h
+  linux/if_tunnel.h
+  linux/netdevice.h
+  linux/route.h
+  linux/wireless.h
+
+As no uapi header provides a definition of struct sockaddr, inclusion
+of <sys/socket.h> seems to be the most conservative and the only safe
+fix available.
+
+All current users of <linux/if.h> are very likely to be including
+<sys/socket.h> already because the latter is the sole provider
+of struct sockaddr definition in libc, so adding a uapi header
+with a definition of struct sockaddr would create a potential
+conflict with <sys/socket.h>.
+
+Replacing struct sockaddr in the definition of struct ifreq with
+a different type would create a potential incompatibility with current
+users of struct ifreq who might rely on ifru_addr et al members being
+of type struct sockaddr.
+
+Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c  | 4 ++--
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 4 +++-
- 2 files changed, 5 insertions(+), 3 deletions(-)
+ include/uapi/linux/if.h | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index fdd7d72..0b208c4 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -597,9 +597,9 @@ __acquires(&ring->lock)
+diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
+index 1158a04..259617a 100644
+--- a/include/uapi/linux/if.h
++++ b/include/uapi/linux/if.h
+@@ -24,6 +24,10 @@
+ #include <linux/socket.h>		/* for "struct sockaddr" et al	*/
+ #include <linux/compiler.h>		/* for "__user" et al           */
  
- 	do {
- 		if (spin_trylock(&ring->header.lock)) {
--			frags = aq_nic_map_skb(self, skb, &buffers[0]);
-+			frags = aq_nic_map_skb(self, skb, buffers);
- 
--			aq_ring_tx_append_buffs(ring, &buffers[0], frags);
-+			aq_ring_tx_append_buffs(ring, buffers, frags);
- 
- 			err = self->aq_hw_ops.hw_ring_tx_xmit(self->aq_hw,
- 							      ring, frags);
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-index 4c40644..042976d 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-@@ -275,6 +275,8 @@ int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
- 
- int aq_ring_rx_fill(struct aq_ring_s *self)
- {
-+	unsigned int pages_order = fls(AQ_CFG_RX_FRAME_MAX / PAGE_SIZE +
-+		(AQ_CFG_RX_FRAME_MAX % PAGE_SIZE ? 1 : 0)) - 1;
- 	struct aq_ring_buff_s *buff = NULL;
- 	int err = 0;
- 	int i = 0;
-@@ -287,7 +289,7 @@ int aq_ring_rx_fill(struct aq_ring_s *self)
- 		buff->len = AQ_CFG_RX_FRAME_MAX;
- 
- 		buff->page = alloc_pages(GFP_ATOMIC | __GFP_COLD |
--					 __GFP_COMP, 0);
-+					 __GFP_COMP, pages_order);
- 		if (!buff->page) {
- 			err = -ENOMEM;
- 			goto err_exit;
++#ifndef __KERNEL__
++#include <sys/socket.h>			/* for struct sockaddr.		*/
++#endif
++
+ #if __UAPI_DEF_IF_IFNAMSIZ
+ #define	IFNAMSIZ	16
+ #endif /* __UAPI_DEF_IF_IFNAMSIZ */
 -- 
-2.7.4
+ldv
