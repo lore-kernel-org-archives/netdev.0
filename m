@@ -1,51 +1,43 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] bpf: return errno -ENOMEM when exceeding
- RLIMIT_MEMLOCK
-Date: Mon, 20 Feb 2017 17:25:58 +0100
-Message-ID: <20170220172558.3de0742d@redhat.com>
-References: <148760491056.17885.7344022207445355578.stgit@firesoul>
-        <58AB11EE.4050905@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 00/12] net: ethernet: aquantia:
+ improvements and fixes
+Date: Mon, 20 Feb 2017 11:26:03 -0500 (EST)
+Message-ID: <20170220.112603.650860683616872954.davem@davemloft.net>
+References: <cover.1487590641.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, Simon.Edelhaus@aquantia.com,
+        Alexey.Andriyanov@aquantia.com, LinoSanfilippo@gmx.de
+To: Pavel.Belous@aquantia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35236 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750884AbdBTQ0C (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Feb 2017 11:26:02 -0500
-In-Reply-To: <58AB11EE.4050905@iogearbox.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39474 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750884AbdBTQ0E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 11:26:04 -0500
+In-Reply-To: <cover.1487590641.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Feb 2017 16:57:34 +0100
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Date: Mon, 20 Feb 2017 14:41:42 +0300
 
-> On 02/20/2017 04:35 PM, Jesper Dangaard Brouer wrote:
-> > It is confusing users of samples/bpf that exceeding the resource
-> > limits for RLIMIT_MEMLOCK result in an "Operation not permitted"
-> > message.  This is due to bpf limits check return -EPERM.
-> >
-> > Instead return -ENOMEM, like most other users of this API.
-> >
-> > Fixes: aaac3ba95e4c ("bpf: charge user for creation of BPF maps and programs")
-> > Fixes: 6c9059817432 ("bpf: pre-allocate hash map elements")
-> > Fixes: 5ccb071e97fb ("bpf: fix overflow in prog accounting")  
+> From: Pavel Belous <pavel.belous@aquantia.com>
 > 
-> Btw, last one just moves the helper so fixes doesn't really apply
-> there, but apart from that this is already uapi exposed behavior
-> like this for ~1.5yrs, so unfortunately too late to change now. I
-> think the original intention (arguably confusing in this context)
-> was that user doesn't have (rlimit) permission to allocate this
-> resource.
+> The following patchset contains improvements and fixes for aQuantia
+> AQtion ethernet driver from net-next tree.
+> 
+> Most fixes are based on the comments from Lino Sanfilippo.
+> 
+> Sanity testing was performed on real HW. No regression found.
+> 
+> v1->v2 :1)Removed buffers copying.
+> 	2)Fixed dma error handling.
+> 
+> v2->v3 :1)Fixes for aq_ndev_change_mtu:
+> 	-Use core MTU checking for min_mtu.
+> 	-Removed extra new_mtu assigment.
+> 	2)Reverse XMAS tree in aq_ring_rx_fill.
 
-This is obviously confusing end-users, thus it should be fixed IMHO.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+This series doesn't apply cleanly to net-next, you'll have to
+respin.
