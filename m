@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: aquantia: remove function aq_ring_tx_deinit
-Date: Mon, 20 Feb 2017 10:23:53 -0500 (EST)
-Message-ID: <20170220.102353.2285049503711848984.davem@davemloft.net>
-References: <1487417232-4103-1-git-send-email-LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH net-next] GTP: Add some basic documentation about
+ drivers/net/gtp.c
+Date: Mon, 20 Feb 2017 10:24:36 -0500 (EST)
+Message-ID: <20170220.102436.2159722751453672196.davem@davemloft.net>
+References: <20170218125800.2vxo7gyfxbp6dw64@nataraja>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Simon.Edelhaus@aquantia.com, Pavel.Belous@aquantia.com,
-        Alexey.Andriyanov@aquantia.com, netdev@vger.kernel.org
-To: LinoSanfilippo@gmx.de
+Cc: netdev@vger.kernel.org
+To: laforge@gnumonks.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38350 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38368 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753473AbdBTPYl (ORCPT
+        with ESMTP id S1753292AbdBTPYl (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:24:41 -0500
-In-Reply-To: <1487417232-4103-1-git-send-email-LinoSanfilippo@gmx.de>
+In-Reply-To: <20170218125800.2vxo7gyfxbp6dw64@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Sat, 18 Feb 2017 12:27:12 +0100
+From: Harald Welte <laforge@gnumonks.org>
+Date: Sat, 18 Feb 2017 13:58:00 +0100
 
-> Both functions aq_ring_rx_deinit() and aq_ring_tx_clean() are almost
-> identical aside from an additional check in the latter.
-> Move that check from the function into its caller and replace
-> aq_ring_rx_deinit() with aq_ring_rx_deinit().
+> In order to clarify what the module actually does, and how to use it,
+> let's add some basic documentation to the kernel tree, together with
+> pointers to related specs and projects.
 > 
-> By doing this also adjust the functions return value from int to void
-> since it can never fail.
-> 
-> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+> Signed-off-by: Harald Welte <laforge@gnumonks.org>
 
-Applied.
+Applied, thanks Harald.
