@@ -1,31 +1,30 @@
-From: Francois Saint-Jacques <fsaintjacques@gmail.com>
-Subject: Re: [patch] socket.7: Document SO_INCOMING_CPU
-Date: Mon, 20 Feb 2017 10:26:06 -0500
-Message-ID: <CABNn7+o6Y0WLk-mo=__uA0UsdQAYp=oBTGBQsQHvWn23-cDJ3g@mail.gmail.com>
-References: <CABNn7+rHfUTjMtm3Biqfx83G6Rr7pY-LuHXY=JqA6N3H_SstZg@mail.gmail.com>
- <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] sctp: support MSG_MORE flag when sending
+ msg
+Date: Mon, 20 Feb 2017 10:26:23 -0500 (EST)
+Message-ID: <20170220.102623.1083491050369297552.davem@davemloft.net>
+References: <cover.1487440272.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-man@vger.kernel.org, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>
-To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
+        vyasevich@gmail.com, david.laight@aculab.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f172.google.com ([209.85.216.172]:36621 "EHLO
-        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753010AbdBTP0I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:26:08 -0500
-Received: by mail-qt0-f172.google.com with SMTP id k15so89375986qtg.3
-        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 07:26:07 -0800 (PST)
-In-Reply-To: <63815aac-9c8f-c599-9422-5c312cefc9e8@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38404 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753802AbdBTP0a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:26:30 -0500
+In-Reply-To: <cover.1487440272.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->               Because  all  of the packets for a single stream (i.e., all
->               packets for the same 4-tuple) arrive on the single RX queue
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sun, 19 Feb 2017 01:52:44 +0800
 
-This is a configuration dependent behaviour and not always the
-default. Maybe put a reference to `ethtool(8)` for more information
-instead of possibly misleading the user?
+> This patch is to add support for MSG_MORE on sctp. Patch 1/2 is an
+> improvement ahead of patch 2/2 to solve the close block problem
+> mentioned in https://patchwork.ozlabs.org/patch/372404/.
 
-Fran=C3=A7ois
+Series applied, thanks Xin.
