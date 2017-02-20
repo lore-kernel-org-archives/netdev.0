@@ -1,70 +1,69 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] ip: fix IP_CHECKSUM handling
-Date: Mon, 20 Feb 2017 09:23:25 -0800
-Message-ID: <20170220092325.3cedb62c@xeon-e3>
-References: <ba355a67bf3e5b3155ee1ead02fa73046be7391f.1487609562.git.pabeni@redhat.com>
+From: Brian Russell <brussell@brocade.com>
+Subject: [PATCH net] vxlan: don't allow overwrite of config src addr
+Date: Mon, 20 Feb 2017 17:25:28 +0000
+Message-ID: <1487611528-11468-1-git-send-email-brussell@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:34359 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754503AbdBTRX2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 12:23:28 -0500
-Received: by mail-pg0-f42.google.com with SMTP id 1so3332950pgi.1
-        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 09:23:28 -0800 (PST)
-In-Reply-To: <ba355a67bf3e5b3155ee1ead02fa73046be7391f.1487609562.git.pabeni@redhat.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:60455 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753355AbdBTR0W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 12:26:22 -0500
+Received: from pps.filterd (m0000700.ppops.net [127.0.0.1])
+        by mx0b-000f0801.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1KGwrSl007045
+        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 09:25:45 -0800
+Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
+        by mx0b-000f0801.pphosted.com with ESMTP id 28q7eud072-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 09:25:45 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Feb 2017 17:55:39 +0100
-Paolo Abeni <pabeni@redhat.com> wrote:
+When using IPv6 transport and a default dst, a pointer to the configured
+source address is passed into the route lookup. If no source address is
+configured, then the value is overwritten.
 
-> The skbs processed by ip_cmsg_recv() are not guaranteed to
-> be linear e.g. when sending UDP packets over loopback with
-> MSGMORE.
-> Using csum_partial() on [potentially] the whole skb len
-> is dangerous; instead be on the safe side and use skb_checksum().
-> 
-> Thanks to syzkaller team to detect the issue and provide the
-> reproducer.
-> 
-> Fixes: ad6f939ab193 ("ip: Add offset parameter to ip_cmsg_recv")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  net/ipv4/ip_sockglue.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index 9000117..d88bbe2 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -112,14 +112,15 @@ static void ip_cmsg_recv_checksum(struct msghdr *msg, struct sk_buff *skb,
->  				  int tlen, int offset)
->  {
->  	__wsum csum = skb->csum;
-> +	int tend_off;
->  
->  	if (skb->ip_summed != CHECKSUM_COMPLETE)
->  		return;
->  
-> -	if (offset != 0)
-> -		csum = csum_sub(csum,
-> -				csum_partial(skb_transport_header(skb) + tlen,
-> -					     offset, 0));
-> +	if (offset != 0) {
-> +		tend_off = skb_transport_offset(skb) + tlen;
-> +		csum = csum_sub(csum, skb_checksum(skb, tend_off, offset, 0));
-> +	}
+IPv6 route lookup ignores egress ifindex match if the source adress is set,
+so if egress ifindex match is desired, the source address must be passed
+as any. The overwrite breaks this for subsequent lookups.
 
-If you need to add a local variable (tend_off) then please make its scope
-as tight as possible. i.e.
-	
-	if (offset != 0) {
-		int tend_off = skb_transport_offset(skb) + tlen;
+Avoid this by copying the configured address to an existing stack variable
+and pass a pointer to that instead.
+
+Signed-off-by: Brian Russell <brussell@brocade.com>
+---
+ drivers/net/vxlan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 30b04cf..3cca908 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2019,7 +2019,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 
+ 		dst_port = rdst->remote_port ? rdst->remote_port : vxlan->cfg.dst_port;
+ 		vni = rdst->remote_vni;
+-		src = &vxlan->cfg.saddr;
++		local_ip = vxlan->cfg.saddr;
+ 		dst_cache = &rdst->dst_cache;
+ 		md->gbp = skb->mark;
+ 		ttl = vxlan->cfg.ttl;
+@@ -2052,7 +2052,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		dst = &remote_ip;
+ 		dst_port = info->key.tp_dst ? : vxlan->cfg.dst_port;
+ 		vni = tunnel_id_to_key32(info->key.tun_id);
+-		src = &local_ip;
+ 		dst_cache = &info->dst_cache;
+ 		if (info->options_len)
+ 			md = ip_tunnel_info_opts(info);
+@@ -2061,6 +2060,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		label = info->key.label;
+ 		udp_sum = !!(info->key.tun_flags & TUNNEL_CSUM);
+ 	}
++	src = &local_ip;
+ 	src_port = udp_flow_src_port(dev_net(dev), skb, vxlan->cfg.port_min,
+ 				     vxlan->cfg.port_max, true);
+ 
+-- 
+2.1.4
