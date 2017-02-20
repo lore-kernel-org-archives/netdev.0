@@ -1,65 +1,25 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virito-net: set queues after reset during xdp_set
-Date: Mon, 20 Feb 2017 02:12:18 +0200
-Message-ID: <20170220013627-mutt-send-email-mst@kernel.org>
-References: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
-	<58A681E7.80907@gmail.com>
-	<cff818ec-d5cc-1d71-fa3e-95fd690d10ff@redhat.com>
-	<58A787AB.6000201@gmail.com>
+From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Subject: create drivers/net/mdio and move mdio drivers into it
+Date: Mon, 20 Feb 2017 00:20:31 +0000
+Message-ID: <8729016553E3654398EA69218DA29EEF15A7E753@cnshjmbx02>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <58A787AB.6000201@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "cugyly@163.com" <cugyly@163.com>
+To: "David S . Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:43732 "EHLO
+        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751307AbdBTBKW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 20:10:22 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBGZWIgMTcsIDIwMTcgYXQgMDM6MzA6NTFQTSAtMDgwMCwgSm9obiBGYXN0YWJlbmQg
-d3JvdGU6Cj4gT24gMTctMDItMTYgMDk6MTAgUE0sIEphc29uIFdhbmcgd3JvdGU6Cj4gPiAKPiA+
-IAo+ID4gT24gMjAxN+W5tDAy5pyIMTfml6UgMTI6NTMsIEpvaG4gRmFzdGFiZW5kIHdyb3RlOgo+
-ID4+IE9uIDE3LTAyLTE1IDAxOjA4IEFNLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4+PiBXZSBzZXQg
-cXVldWVzIGJlZm9yZSByZXNldCB3aGljaCB3aWxsIGNhdXNlIGEgY3Jhc2hbMV0uIFRoaXMgaXMK
-PiA+Pj4gYmVjYXVzZSBpc194ZHBfcmF3X2J1ZmZlcl9xdWV1ZSgpIGRlcGVuZHMgb24gdGhlIG9s
-ZCB4ZHAgcXVldWUgcGFpcnMKPiA+Pj4gbnVtYmVyIHRvIGRvIHRoZSBjb3JyZWN0IGRldGVjdGlv
-bi4gU28gZml4IHRoaXMgYnk6Cj4gPj4+Cj4gPj4+IC0gc2V0IHF1ZXVlcyBhZnRlciByZXNldCwg
-dG8ga2VlcCB0aGUgb2xkIHZpLT5jdXJyX3F1ZXVlX3BhaXJzLiAoaW4KPiA+Pj4gICAgZmFjdCBz
-ZXR0aW5nIHF1ZXVlcyBiZWZvcmUgcmVzZXQgZG9lcyBub3Qgd29ya3Mgc2luY2UgYWZ0ZXIgZmVh
-dHVyZQo+ID4+PiAgICBzZXQsIGFsbCBxdWV1ZSBwYWlycyB3ZXJlIGVuYWJsZWQgYnkgZGVmYXVs
-dCBkdXJpbmcgcmVzZXQpLgo+ID4+PiAtIGNoYW5nZSB4ZHBfcXVldWVfcGFpcnMgb25seSBhZnRl
-ciB2aXJ0bmV0X3Jlc2V0KCkgaXMgc3VjY2VlZC4KPiA+Pj4KPiA+Pj4gWzFdCj4gPj4gSSdtIGd1
-ZXNzaW5nIHRoaXMgb2NjdXJzIHdoZW4gZW5hYmxpbmcgWERQIHdoaWxlIHJlY2VpdmluZyBsb3Rz
-IG9mIHRyYWZmaWM/Cj4gPiAKPiA+IEkgaGl0IHRoaXMgdGhlbiBkaXNhYmxpbmcgWERQIHdoaWxl
-IHJlY2VpdmluZyBsb3RzIG9mIHRyYWZmaWMuCj4gPiAKPiAKPiBbLi4uXQo+IAo+ID4+PiArICAg
-ICAgICB2aS0+eGRwX3F1ZXVlX3BhaXJzID0geGRwX3FwOwo+ID4+IEJ1dCB4ZHBfcXVldWVfcGFp
-cnMgaXMgYmVpbmcgdXNlZCB0byBkZXRlY3QgaWYgd2Ugc2hvdWxkIGFsbG9jYXRlIHRoZSBYRFAK
-PiA+PiBoZWFkcm9vbS4gSWYgd2UgbW92ZSBpdCBoZXJlIGRvIHdlIGhhdmUgYSBzZXQgb2YgYnVm
-ZmVycyBpbiB0aGUgcmluZyB3aXRob3V0Cj4gPj4gdGhlIHByb3BlciBoZWFkcm9vbSB3aGVuIHdl
-IGFzc2lnbiB0aGUgeGRwIHByb2dyYW0gYmVsb3c/Cj4gPiAKPiA+IFJpZ2h0LCBzbyBob3cgYWJv
-dXQgcGFzc2luZyB4ZHBfcXVldWVfcGFpcnMgYXMgYSBwYXJhbWV0ZXIgdG8gdmlydG5ldF9yZXNl
-dCgpLgo+ID4gVGhlbiB2aXJ0bmV0X3Jlc2V0KCkgY2FuIHNldCBpdCBhZnRlciBfcmVtb3ZlX3Zx
-X2NvbW1vbigpIGJ1dCBiZWZvcmUKPiA+IHZpcnRuZXRfcmVzdG9yZV91cCgpPwo+ID4gCj4gPiBU
-aGFua3MKPiA+IAo+IAo+IFNvdW5kcyBsaWtlIGEgcmVhc29uYWJsZSBmaXggdG8gbWUuCgpJJ20g
-ZmluZSB3aXRoIHRoYXQuCgo+ID4+Cj4gPj4+ICsgICAgfQo+ID4+PiArCj4gPj4+ICsgICAgZXJy
-ID0gX3ZpcnRuZXRfc2V0X3F1ZXVlcyh2aSwgY3Vycl9xcCArIHhkcF9xcCk7Cj4gPj4+ICsgICAg
-aWYgKGVycikgewo+ID4+PiArICAgICAgICBkZXZfd2FybigmZGV2LT5kZXYsICJYRFAgRGV2aWNl
-IHF1ZXVlIGFsbG9jYXRpb24gZmFpbHVyZS5cbiIpOwo+ID4+PiArICAgICAgICBnb3RvIHZpcnRp
-b19xdWV1ZV9lcnI7Cj4gPj4+ICAgICAgIH0KPiA+Pj4gICAgICAgICBuZXRpZl9zZXRfcmVhbF9u
-dW1fcnhfcXVldWVzKGRldiwgY3Vycl9xcCArIHhkcF9xcCk7Cj4gPj4+IEBAIC0xODQ0LDE3ICsx
-ODQ0LDE4IEBAIHN0YXRpYyBpbnQgdmlydG5ldF94ZHBfc2V0KHN0cnVjdCBuZXRfZGV2aWNlICpk
-ZXYsCj4gPj4+IHN0cnVjdCBicGZfcHJvZyAqcHJvZykKPiA+Pj4gICAgICAgICByZXR1cm4gMDsK
-PiA+PiBUaGFua3MsCj4gPj4gSm9obgo+ID4+Cj4gPiAKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1
-YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhm
-b3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+SGksDQoNCkkgaGF2ZSBhbiBpZGVhIHRvIGNyZWF0ZSBkcml2ZXJzL25ldC9tZGlvIGFuZCBtb3Zl
+IG1kaW8gZHJpdmVycyhkcml2ZXJzL25ldC9waHkvbWRpby0qIHwgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQveHh4L21kaW8teXl5IHwgKSBpbnRvIGl0Lg0KDQpEbyB5b3UgdGhpbmsgaXQgaXMgYWNjZXB0
+YWJsZSA/DQoNClRoYW5rcw0K
