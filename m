@@ -1,44 +1,51 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next] openvswitch: Set event bit after initializing labels.
-Date: Sun, 19 Feb 2017 21:50:10 -0800
-Message-ID: <CAOrHB_CndmnwGzOJG7Tztp2w=tH=mZ-0TqT3LYOGEQ1AzZCWEA@mail.gmail.com>
-References: <1487383918-17894-1-git-send-email-jarno@ovn.org>
+From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Subject: RE: create drivers/net/mdio and move mdio drivers into it
+Date: Mon, 20 Feb 2017 06:10:53 +0000
+Message-ID: <8729016553E3654398EA69218DA29EEF15A807EA@cnshjmbx02>
+References: <8729016553E3654398EA69218DA29EEF15A7E753@cnshjmbx02>
+ <afdb9ff7-afa9-47b0-0e84-396080fe0867@gmail.com>
+ <8729016553E3654398EA69218DA29EEF15A807CA@cnshjmbx02>
+ <dfde5fbd-e4de-7b6d-37a6-dba1720cc3d9@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jarno Rajahalme <jarno@ovn.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "cugyly@163.com" <cugyly@163.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:51466 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750737AbdBTFuP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 00:50:15 -0500
-Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 7CE55FB87D
-        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 06:50:13 +0100 (CET)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id pXgvvL5cCFVm for <netdev@vger.kernel.org>;
-        Mon, 20 Feb 2017 06:50:12 +0100 (CET)
-Received: from mail-wr0-f169.google.com (mail-wr0-f169.google.com [209.85.128.169])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 25A29FB8A3
-        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 06:50:11 +0100 (CET)
-Received: by mail-wr0-f169.google.com with SMTP id s27so10687008wrb.2
-        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 21:50:11 -0800 (PST)
-In-Reply-To: <1487383918-17894-1-git-send-email-jarno@ovn.org>
+Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:64424 "EHLO
+        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750737AbdBTGLs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 01:11:48 -0500
+In-Reply-To: <dfde5fbd-e4de-7b6d-37a6-dba1720cc3d9@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 17, 2017 at 6:11 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
-> Connlabels are included in conntrack netlink event messages only if
-> the IPCT_LABEL bit is set in the event cache (see
-> ctnetlink_conntrack_event()).  Set it after initializing labels for a
-> new connection.
->
-> Found upon further system testing, where it was noticed that labels
-> were missing from the conntrack events.
->
-> Fixes: 193e30967897 ("openvswitch: Do not trigger events for unconfirmed connections.")
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+
+> -----Original Message-----
+> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+> Sent: Monday, February 20, 2017 1:42 PM
+> To: YUAN Linyu; David S . Miller; Andrew Lunn
+> Cc: netdev@vger.kernel.org; cugyly@163.com
+> Subject: Re: create drivers/net/mdio and move mdio drivers into it
+> > 3. another idea is bind mdio device to network device
+> 
+> You would have to be more specific about what you want to do here. If
+> the MDIO device is e.g: a switch, what we recommend doing is provide a
+> fixed-link node that describes how the Ethernet MAC and the switch's
+> CPU/management ports are connected (that way the MAC always "sees" the
+> link as UP, running with a specific speed and duplex).
+> 
+Yes, some system will configured the phy to fixed speed/duplex at boot time,
+no phy driver used in kernel at all.
+If network device know mdio device it used, we can do phy dump through this 
+mdio device driver.
+
+> If this is a different kind of MDIO device, e.g: an USB/PCIe/SATA PHY,
+> there is no network device associated with those.
+> 
+mdio under drivers/net/, it will not cover these devices.
