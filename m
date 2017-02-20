@@ -1,59 +1,35 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: mpls: Add support for netconf
-Date: Mon, 20 Feb 2017 07:53:32 -0700
-Message-ID: <5c606636-64bb-a40b-c4bc-6292c5dc7678@cumulusnetworks.com>
-References: <1487381793-12234-1-git-send-email-dsa@cumulusnetworks.com>
- <9326b299-3969-7e0e-dba4-fae5682f0b24@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v1] macsec: fix validation failed in
+ asynchronous operation.
+Date: Mon, 20 Feb 2017 09:55:54 -0500 (EST)
+Message-ID: <20170220.095554.369235627490818017.davem@davemloft.net>
+References: <1487586750-38377-1-git-send-email-ryder.lee@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, ebiederm@xmission.com,
-        nicolas.dichtel@6wind.com
-To: Robert Shearman <rshearma@brocade.com>, netdev@vger.kernel.org
+Cc: sd@queasysnail.net, netdev@vger.kernel.org,
+        linux-mediatek@lists.infradead.org
+To: ryder.lee@mediatek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:33599 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752520AbdBTOyT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 09:54:19 -0500
-Received: by mail-pg0-f48.google.com with SMTP id a123so18741322pgc.0
-        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 06:53:33 -0800 (PST)
-In-Reply-To: <9326b299-3969-7e0e-dba4-fae5682f0b24@brocade.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37894 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750872AbdBTOz4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 09:55:56 -0500
+In-Reply-To: <1487586750-38377-1-git-send-email-ryder.lee@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/20/17 3:01 AM, Robert Shearman wrote:
-> On 18/02/17 01:36, David Ahern wrote:
->> Add netconf support to MPLS. Allows userpsace to learn and be notified
->> of changes to 'input' enable setting per interface.
->>
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->> ---
->>  include/uapi/linux/netconf.h   |   1 +
->>  include/uapi/linux/rtnetlink.h |   2 +
->>  net/mpls/af_mpls.c             | 212
->> ++++++++++++++++++++++++++++++++++++++++-
->>  net/mpls/internal.h            |   2 +-
->>  4 files changed, 214 insertions(+), 3 deletions(-)
->>
->> diff --git a/include/uapi/linux/netconf.h b/include/uapi/linux/netconf.h
->> index 45dfad509c4d..159d91c9c2a3 100644
->> --- a/include/uapi/linux/netconf.h
->> +++ b/include/uapi/linux/netconf.h
->> @@ -16,6 +16,7 @@ enum {
->>      NETCONFA_MC_FORWARDING,
->>      NETCONFA_PROXY_NEIGH,
->>      NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
->> +    NETCONFA_MPLS_INPUT_ENABLED,
-> 
-> How about removing "MPLS_" the name? That way it would be usable by
-> other AFs too, e.g. for the disable_ipv6 sysctl. Perhaps "ENABLED" is
-> redundant as well.
+From: Ryder Lee <ryder.lee@mediatek.com>
+Date: Mon, 20 Feb 2017 18:32:30 +0800
 
+> @@ -879,6 +879,9 @@ static void macsec_decrypt_done(struct crypto_async_request *base, int err)
+>  
+>  	aead_request_free(macsec_skb_cb(skb)->req);
+>  
+> +	if (err == 0)
+> +	 macsec_skb_cb(skb)->valid = true;
+> +
 
-I could drop the MPLS to NETCONFA_INPUT_ENABLED; just NETCONFA_INPUT is
-not very descriptive.
-
-disable_ipv6 has a completely different meaning, so re-use there does
-not seem appropriate.
-
-Thanks for the review.
+This is not indented properly, please use TABs like the rest of
+the code does.  And the canonical way to test against zero is
+"if (!err)"
