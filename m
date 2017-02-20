@@ -1,192 +1,105 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V2] virito-net: set queues after reset during
-	xdp_set
-Date: Mon, 20 Feb 2017 18:41:56 +0200
-Message-ID: <20170220184137-mutt-send-email-mst@kernel.org>
-References: <1487562620-10146-1-git-send-email-jasowang@redhat.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [RESEND PATCH 1/1] can: m_can: fix bitrate setup on latest
+ silicon
+Date: Mon, 20 Feb 2017 17:44:39 +0100
+Message-ID: <eb9c2ef8-abea-9a93-bfa3-9c3bc849a022@pengutronix.de>
+References: <20170215140819.879-1-quentin.schulz@free-electrons.com>
+ <b1140be9-1811-1512-b32e-436e8bb25824@hartkopp.net>
+ <20170220163714.uj5el22c5tq47cul@piout.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1487562620-10146-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="KVT9wNp506mEuBQ1DsUSxojTLw21paHFB"
+Cc: Quentin Schulz <quentin.schulz@free-electrons.com>,
+        fvallee@eukrea.fr, wg@grandegger.com, linux-can@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        boris.brezillon@free-electrons.com, nicolas.ferre@atmel.com
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20170220163714.uj5el22c5tq47cul@piout.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 20, 2017 at 11:50:20AM +0800, Jason Wang wrote:
-> We set queues before reset which will cause a crash[1]. This is
-> because is_xdp_raw_buffer_queue() depends on the old xdp queue pairs
-> number to do the correct detection. So fix this by
-> 
-> - passing xdp queue pairs and current queue pairs to virtnet_reset()
-> - change vi->xdp_qp after reset but before refill, to make sure both
->   free_unused_bufs() and refill can make correct detection of XDP.
-> - remove the duplicated queue pairs setting before virtnet_reset()
->   since we will do it inside virtnet_reset()
-> 
-> [1]
-> 
-> [   74.328168] general protection fault: 0000 [#1] SMP
-> [   74.328625] Modules linked in: nfsd xfs libcrc32c virtio_net virtio_pci
-> [   74.329117] CPU: 0 PID: 2849 Comm: xdp2 Not tainted 4.10.0-rc7+ #499
-> [   74.329577] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.10.1-0-g8891697-prebuilt.qemu-project.org 04/01/2014
-> [   74.330424] task: ffff88007a894000 task.stack: ffffc90004388000
-> [   74.330844] RIP: 0010:skb_release_head_state+0x28/0x80
-> [   74.331298] RSP: 0018:ffffc9000438b8d0 EFLAGS: 00010206
-> [   74.331676] RAX: 0000000000000000 RBX: ffff88007ad96300 RCX: 0000000000000000
-> [   74.332217] RDX: ffff88007fc137a8 RSI: ffff88007fc0db28 RDI: 0001bf00000001be
-> [   74.332758] RBP: ffffc9000438b8d8 R08: 000000000005008f R09: 00000000000005f9
-> [   74.333274] R10: ffff88007d001700 R11: ffffffff820a8a4d R12: ffff88007ad96300
-> [   74.333787] R13: 0000000000000002 R14: ffff880036604000 R15: 000077ff80000000
-> [   74.334308] FS:  00007fc70d8a7b40(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
-> [   74.334891] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   74.335314] CR2: 00007fff4144a710 CR3: 000000007ab56000 CR4: 00000000003406f0
-> [   74.335830] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [   74.336373] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-> [   74.336895] Call Trace:
-> [   74.337086]  skb_release_all+0xd/0x30
-> [   74.337356]  consume_skb+0x2c/0x90
-> [   74.337607]  free_unused_bufs+0x1ff/0x270 [virtio_net]
-> [   74.337988]  ? vp_synchronize_vectors+0x3b/0x60 [virtio_pci]
-> [   74.338398]  virtnet_xdp+0x21e/0x440 [virtio_net]
-> [   74.338741]  dev_change_xdp_fd+0x101/0x140
-> [   74.339048]  do_setlink+0xcf4/0xd20
-> [   74.339304]  ? symcmp+0xf/0x20
-> [   74.339529]  ? mls_level_isvalid+0x52/0x60
-> [   74.339828]  ? mls_range_isvalid+0x43/0x50
-> [   74.340135]  ? nla_parse+0xa0/0x100
-> [   74.340400]  rtnl_setlink+0xd4/0x120
-> [   74.340664]  ? cpumask_next_and+0x30/0x50
-> [   74.340966]  rtnetlink_rcv_msg+0x7f/0x1f0
-> [   74.341259]  ? sock_has_perm+0x59/0x60
-> [   74.341586]  ? napi_consume_skb+0xe2/0x100
-> [   74.342010]  ? rtnl_newlink+0x890/0x890
-> [   74.342435]  netlink_rcv_skb+0x92/0xb0
-> [   74.342846]  rtnetlink_rcv+0x23/0x30
-> [   74.343277]  netlink_unicast+0x162/0x210
-> [   74.343677]  netlink_sendmsg+0x2db/0x390
-> [   74.343968]  sock_sendmsg+0x33/0x40
-> [   74.344233]  SYSC_sendto+0xee/0x160
-> [   74.344482]  ? SYSC_bind+0xb0/0xe0
-> [   74.344806]  ? sock_alloc_file+0x92/0x110
-> [   74.345106]  ? fd_install+0x20/0x30
-> [   74.345360]  ? sock_map_fd+0x3f/0x60
-> [   74.345586]  SyS_sendto+0x9/0x10
-> [   74.345790]  entry_SYSCALL_64_fastpath+0x1a/0xa9
-> [   74.346086] RIP: 0033:0x7fc70d1b8f6d
-> [   74.346312] RSP: 002b:00007fff4144a708 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
-> [   74.346785] RAX: ffffffffffffffda RBX: 00000000ffffffff RCX: 00007fc70d1b8f6d
-> [   74.347244] RDX: 000000000000002c RSI: 00007fff4144a720 RDI: 0000000000000003
-> [   74.347683] RBP: 0000000000000003 R08: 0000000000000000 R09: 0000000000000000
-> [   74.348544] R10: 0000000000000000 R11: 0000000000000246 R12: 00007fff4144bd90
-> [   74.349082] R13: 0000000000000002 R14: 0000000000000002 R15: 00007fff4144cda0
-> [   74.349607] Code: 00 00 00 55 48 89 e5 53 48 89 fb 48 8b 7f 58 48 85 ff 74 0e 40 f6 c7 01 74 3d 48 c7 43 58 00 00 00 00 48 8b 7b 68 48 85 ff 74 05 <f0> ff 0f 74 20 48 8b 43 60 48 85 c0 74 14 65 8b 15 f3 ab 8d 7e
-> [   74.351008] RIP: skb_release_head_state+0x28/0x80 RSP: ffffc9000438b8d0
-> [   74.351625] ---[ end trace fe6e19fd11cfc80b ]---
-> 
-> Fixes: 2de2f7f40ef9 ("virtio_net: XDP support for adjust_head")
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--KVT9wNp506mEuBQ1DsUSxojTLw21paHFB
+Content-Type: multipart/mixed; boundary="cM9lxPlI3PxlCWJ4VPS2H3rIxDwHJ0vJd";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+ Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: Quentin Schulz <quentin.schulz@free-electrons.com>, fvallee@eukrea.fr,
+ wg@grandegger.com, linux-can@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, boris.brezillon@free-electrons.com,
+ nicolas.ferre@atmel.com
+Message-ID: <eb9c2ef8-abea-9a93-bfa3-9c3bc849a022@pengutronix.de>
+Subject: Re: [RESEND PATCH 1/1] can: m_can: fix bitrate setup on latest
+ silicon
+References: <20170215140819.879-1-quentin.schulz@free-electrons.com>
+ <b1140be9-1811-1512-b32e-436e8bb25824@hartkopp.net>
+ <20170220163714.uj5el22c5tq47cul@piout.net>
+In-Reply-To: <20170220163714.uj5el22c5tq47cul@piout.net>
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+--cM9lxPlI3PxlCWJ4VPS2H3rIxDwHJ0vJd
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-I think this makes sense in stable as well.
+On 02/20/2017 05:37 PM, Alexandre Belloni wrote:
+> On 19/02/2017 at 16:37:50 +0100, Oliver Hartkopp wrote:
+>> Fortunately I was contacted by Bosch this Friday as they want to contr=
+ibute
+>> a driver upgrade to support IP cores up to 3.2.x.
+>> Additionally their plan is to use Device Tree information to determine=
+ the
+>> IP core revision - or at least to cross check its information with the=
 
-> ---
-> Changes from V1:
-> - passing xdp_qp and curr_qp to virtnet_reset() to refill correctly
-> - remove the duplicated queue pair setting after virtnet_reset()
-> ---
->  drivers/net/virtio_net.c | 28 ++++++++--------------------
->  1 file changed, 8 insertions(+), 20 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 11e2853..d12e5d6 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1737,7 +1737,7 @@ static int virtnet_restore_up(struct virtio_device *vdev)
->  	return err;
->  }
->  
-> -static int virtnet_reset(struct virtnet_info *vi)
-> +static int virtnet_reset(struct virtnet_info *vi, int curr_qp, int xdp_qp)
->  {
->  	struct virtio_device *dev = vi->vdev;
->  	int ret;
-> @@ -1755,10 +1755,11 @@ static int virtnet_reset(struct virtnet_info *vi)
->  	if (ret)
->  		goto err;
->  
-> +	vi->xdp_queue_pairs = xdp_qp;
->  	ret = virtnet_restore_up(dev);
->  	if (ret)
->  		goto err;
-> -	ret = _virtnet_set_queues(vi, vi->curr_queue_pairs);
-> +	ret = _virtnet_set_queues(vi, curr_qp);
->  	if (ret)
->  		goto err;
->  
-> @@ -1775,7 +1776,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->  	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
->  	struct virtnet_info *vi = netdev_priv(dev);
->  	struct bpf_prog *old_prog;
-> -	u16 oxdp_qp, xdp_qp = 0, curr_qp;
-> +	u16 xdp_qp = 0, curr_qp;
->  	int i, err;
->  
->  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-> @@ -1813,24 +1814,17 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->  			return PTR_ERR(prog);
->  	}
->  
-> -	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
-> -	if (err) {
-> -		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
-> -		goto virtio_queue_err;
-> -	}
-> -
-> -	oxdp_qp = vi->xdp_queue_pairs;
-> -
->  	/* Changing the headroom in buffers is a disruptive operation because
->  	 * existing buffers must be flushed and reallocated. This will happen
->  	 * when a xdp program is initially added or xdp is disabled by removing
->  	 * the xdp program resulting in number of XDP queues changing.
->  	 */
->  	if (vi->xdp_queue_pairs != xdp_qp) {
-> -		vi->xdp_queue_pairs = xdp_qp;
-> -		err = virtnet_reset(vi);
-> -		if (err)
-> +		err = virtnet_reset(vi, curr_qp + xdp_qp, xdp_qp);
-> +		if (err) {
-> +			dev_warn(&dev->dev, "XDP reset failure.\n");
->  			goto virtio_reset_err;
-> +		}
->  	}
->  
->  	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
-> @@ -1849,12 +1843,6 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->  	 * error up to user space for resolution. The underlying reset hung on
->  	 * us so not much we can do here.
->  	 */
-> -	dev_warn(&dev->dev, "XDP reset failure and queues unstable\n");
-> -	vi->xdp_queue_pairs = oxdp_qp;
-> -virtio_queue_err:
-> -	/* On queue set error we can unwind bpf ref count and user space can
-> -	 * retry this is most likely an allocation failure.
-> -	 */
->  	if (prog)
->  		bpf_prog_sub(prog, vi->max_queue_pairs - 1);
->  	return err;
-> -- 
-> 2.7.4
+>> register information used in your suggestion.
+>=20
+> My opinion is that is is not really useful. Either we use the version
+> info from the register or DT. But that is probably a matter of taste an=
+d
+> you are the maintainer :)
+
+I see no benefit of holding the version number in the DT, as long as the
+version of the HW can be auto discovered properly.
+
+>> For that reason I would suggest to wait for the driver updates from Bo=
+sch
+>> instead of adding an incomplete fix for only one change of eleven.
+
+> Well, having something working right now is still better that nothing. =
+I
+> think it is worth having that patch now so CAN is working on our
+> platforms.
+>=20
+> Everything else can probably be built on top of it anyway.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--cM9lxPlI3PxlCWJ4VPS2H3rIxDwHJ0vJd--
+
+--KVT9wNp506mEuBQ1DsUSxojTLw21paHFB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlirHPgACgkQHv7KIOw4
+HPai/AgAhzGHniTO15xBEdQ1NC7mO/BIAjw9sbOosSRKrtgRN/dwESpvSckYuGhm
+XKFg1qssEil45Td8eSnPVpVbOp4gGJ3TYPl31GVGSeHkkUP+sdKVoDIjc0CRNrhQ
+Ta3r3SHgTP4+3Ygy+gg91nY353vdHurYY6e0T1rVuvbcKXHD/b3908B9LbRZfCxy
+1Q3qOfKXk9LYnHlQrR0TVdYImXCs50hjPLITuTFltPm4Jj17sqtqcpHYD00x5VUx
+uRufk+jX1ldJ+KVQrfpPMB4l0TpsJoUTnC4sQ59qWcEmmmvMcy+i8q990hLZXm2W
+XflGRf9verwyP8bXzwePnle1EcCHrw==
+=hRXK
+-----END PGP SIGNATURE-----
+
+--KVT9wNp506mEuBQ1DsUSxojTLw21paHFB--
