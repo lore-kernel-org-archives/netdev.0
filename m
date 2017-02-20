@@ -1,33 +1,259 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] qed*: Bug fixes
-Date: Mon, 20 Feb 2017 17:12:33 -0500 (EST)
-Message-ID: <20170220.171233.672661040431113698.davem@davemloft.net>
-References: <1487623419-6442-1-git-send-email-Yuval.Mintz@cavium.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43614 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750826AbdBTWMe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 17:12:34 -0500
-In-Reply-To: <1487623419-6442-1-git-send-email-Yuval.Mintz@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v2] RDS: Make user visible data types consistent with rest of the kernel
+Date: Mon, 20 Feb 2017 14:16:53 -0800
+Message-ID: <1487629013-4972-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org,
+        Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Date: Mon, 20 Feb 2017 22:43:29 +0200
+Use "__uX/__sX" kernel types rather than current uint*/int* for
+entire file.
 
-> This is a respin of the series with same name for net-next
-> instead of net [only patch #10 is changed].
-> 
-> The 3 first patches here are a repost of
-> ("qed: RoCE infrastructure fixes"). The fourth is an additional
-> RoCE-related infrastructure fix, and the latter contain various fixes
-> to qed/qede.
-> 
-> Please consider applying these to `net-next'.
+Reviewed-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+v1->v2:
+As suggested by David Miller, cleaned up entire header to use kernel types.
 
-Series applied.
+ include/uapi/linux/rds.h | 146 +++++++++++++++++++++++------------------------
+ 1 file changed, 73 insertions(+), 73 deletions(-)
+
+diff --git a/include/uapi/linux/rds.h b/include/uapi/linux/rds.h
+index 3833113..1eafad4 100644
+--- a/include/uapi/linux/rds.h
++++ b/include/uapi/linux/rds.h
+@@ -117,8 +117,8 @@
+ #define RDS_INFO_LAST			10010
+ 
+ struct rds_info_counter {
+-	uint8_t	name[32];
+-	uint64_t	value;
++	__u8	name[32];
++	__u64	value;
+ } __attribute__((packed));
+ 
+ #define RDS_INFO_CONNECTION_FLAG_SENDING	0x01
+@@ -128,61 +128,61 @@ struct rds_info_counter {
+ #define TRANSNAMSIZ	16
+ 
+ struct rds_info_connection {
+-	uint64_t	next_tx_seq;
+-	uint64_t	next_rx_seq;
+-	__be32		laddr;
+-	__be32		faddr;
+-	uint8_t	transport[TRANSNAMSIZ];		/* null term ascii */
+-	uint8_t	flags;
++	__u64	next_tx_seq;
++	__u64	next_rx_seq;
++	__be32	laddr;
++	__be32	faddr;
++	__u8	transport[TRANSNAMSIZ];		/* null term ascii */
++	__u8	flags;
+ } __attribute__((packed));
+ 
+ #define RDS_INFO_MESSAGE_FLAG_ACK               0x01
+ #define RDS_INFO_MESSAGE_FLAG_FAST_ACK          0x02
+ 
+ struct rds_info_message {
+-	uint64_t	seq;
+-	uint32_t	len;
+-	__be32		laddr;
+-	__be32		faddr;
+-	__be16		lport;
+-	__be16		fport;
+-	uint8_t	flags;
++	__u64	seq;
++	__u32	len;
++	__be32	laddr;
++	__be32	faddr;
++	__be16	lport;
++	__be16	fport;
++	__u8	flags;
+ } __attribute__((packed));
+ 
+ struct rds_info_socket {
+-	uint32_t	sndbuf;
+-	__be32		bound_addr;
+-	__be32		connected_addr;
+-	__be16		bound_port;
+-	__be16		connected_port;
+-	uint32_t	rcvbuf;
+-	uint64_t	inum;
++	__u32	sndbuf;
++	__be32	bound_addr;
++	__be32	connected_addr;
++	__be16	bound_port;
++	__be16	connected_port;
++	__u32	rcvbuf;
++	__u64	inum;
+ } __attribute__((packed));
+ 
+ struct rds_info_tcp_socket {
+-	__be32          local_addr;
+-	__be16          local_port;
+-	__be32          peer_addr;
+-	__be16          peer_port;
+-	uint64_t       hdr_rem;
+-	uint64_t       data_rem;
+-	uint32_t       last_sent_nxt;
+-	uint32_t       last_expected_una;
+-	uint32_t       last_seen_una;
++	__be32	local_addr;
++	__be16	local_port;
++	__be32	peer_addr;
++	__be16	peer_port;
++	__u64	hdr_rem;
++	__u64	data_rem;
++	__u32	last_sent_nxt;
++	__u32	last_expected_una;
++	__u32	last_seen_una;
+ } __attribute__((packed));
+ 
+ #define RDS_IB_GID_LEN	16
+ struct rds_info_rdma_connection {
+-	__be32		src_addr;
+-	__be32		dst_addr;
+-	uint8_t		src_gid[RDS_IB_GID_LEN];
+-	uint8_t		dst_gid[RDS_IB_GID_LEN];
+-
+-	uint32_t	max_send_wr;
+-	uint32_t	max_recv_wr;
+-	uint32_t	max_send_sge;
+-	uint32_t	rdma_mr_max;
+-	uint32_t	rdma_mr_size;
++	__be32	src_addr;
++	__be32	dst_addr;
++	__u8	src_gid[RDS_IB_GID_LEN];
++	__u8	dst_gid[RDS_IB_GID_LEN];
++
++	__u32	max_send_wr;
++	__u32	max_recv_wr;
++	__u32	max_send_sge;
++	__u32	rdma_mr_max;
++	__u32	rdma_mr_size;
+ };
+ 
+ /* RDS message Receive Path Latency points */
+@@ -194,14 +194,14 @@ enum rds_message_rxpath_latency {
+ };
+ 
+ struct rds_rx_trace_so {
+-	u8 rx_traces;
+-	u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
++	__u8 rx_traces;
++	__u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
+ };
+ 
+ struct rds_cmsg_rx_trace {
+-	u8 rx_traces;
+-	u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
+-	u64 rx_trace[RDS_MSG_RX_DGRAM_TRACE_MAX];
++	__u8 rx_traces;
++	__u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
++	__u64 rx_trace[RDS_MSG_RX_DGRAM_TRACE_MAX];
+ };
+ 
+ /*
+@@ -242,70 +242,70 @@ struct rds_cmsg_rx_trace {
+  * (so that the application does not have to worry about
+  * alignment).
+  */
+-typedef uint64_t	rds_rdma_cookie_t;
++typedef __u64	rds_rdma_cookie_t;
+ 
+ struct rds_iovec {
+-	uint64_t	addr;
+-	uint64_t	bytes;
++	__u64	addr;
++	__u64	bytes;
+ };
+ 
+ struct rds_get_mr_args {
+ 	struct rds_iovec vec;
+-	uint64_t	cookie_addr;
+-	uint64_t	flags;
++	__u64	cookie_addr;
++	__u64	flags;
+ };
+ 
+ struct rds_get_mr_for_dest_args {
+ 	struct sockaddr_storage	dest_addr;
+ 	struct rds_iovec 	vec;
+-	uint64_t		cookie_addr;
+-	uint64_t		flags;
++	__u64		cookie_addr;
++	__u64		flags;
+ };
+ 
+ struct rds_free_mr_args {
+ 	rds_rdma_cookie_t cookie;
+-	uint64_t	flags;
++	__u64	flags;
+ };
+ 
+ struct rds_rdma_args {
+ 	rds_rdma_cookie_t cookie;
+ 	struct rds_iovec remote_vec;
+-	uint64_t	local_vec_addr;
+-	uint64_t	nr_local;
+-	uint64_t	flags;
+-	uint64_t	user_token;
++	__u64	local_vec_addr;
++	__u64	nr_local;
++	__u64	flags;
++	__u64	user_token;
+ };
+ 
+ struct rds_atomic_args {
+ 	rds_rdma_cookie_t cookie;
+-	uint64_t 	local_addr;
+-	uint64_t 	remote_addr;
++	__u64	local_addr;
++	__u64	remote_addr;
+ 	union {
+ 		struct {
+-			uint64_t	compare;
+-			uint64_t	swap;
++			__u64	compare;
++			__u64	swap;
+ 		} cswp;
+ 		struct {
+-			uint64_t	add;
++			__u64	add;
+ 		} fadd;
+ 		struct {
+-			uint64_t	compare;
+-			uint64_t	swap;
+-			uint64_t	compare_mask;
+-			uint64_t	swap_mask;
++			__u64	compare;
++			__u64	swap;
++			__u64	compare_mask;
++			__u64	swap_mask;
+ 		} m_cswp;
+ 		struct {
+-			uint64_t	add;
+-			uint64_t	nocarry_mask;
++			__u64	add;
++			__u64	nocarry_mask;
+ 		} m_fadd;
+ 	};
+-	uint64_t	flags;
+-	uint64_t	user_token;
++	__u64	flags;
++	__u64	user_token;
+ };
+ 
+ struct rds_rdma_notify {
+-	uint64_t	user_token;
+-	int32_t		status;
++	__u64	user_token;
++	__s32	status;
+ };
+ 
+ #define RDS_RDMA_SUCCESS	0
+-- 
+1.9.1
