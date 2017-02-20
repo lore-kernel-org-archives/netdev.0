@@ -1,48 +1,102 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next] net: mpls: Add support for netconf
-Date: Mon, 20 Feb 2017 10:01:38 +0000
-Message-ID: <9326b299-3969-7e0e-dba4-fae5682f0b24@brocade.com>
-References: <1487381793-12234-1-git-send-email-dsa@cumulusnetworks.com>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Subject: [PATCH net-next v3 02/12] net: ethernet: aquantia: Removed busy_count field.
+Date: Mon, 20 Feb 2017 14:41:44 +0300
+Message-ID: <28fae7fd1e16bba23a7a93df9fe82b8b12c1df02.1487590641.git.pavel.belous@aquantia.com>
+References: <cover.1487590641.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <roopa@cumulusnetworks.com>, <ebiederm@xmission.com>,
-        <nicolas.dichtel@6wind.com>
-To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexey Andriyanov <Alexey.Andriyanov@aquantia.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        Pavel Belous <pavel.belous@aquantia.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:34725 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751402AbdBTKlX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 05:41:23 -0500
-In-Reply-To: <1487381793-12234-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-by2nam03on0069.outbound.protection.outlook.com ([104.47.42.69]:29120
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751341AbdBTLmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 06:42:45 -0500
+In-Reply-To: <cover.1487590641.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/02/17 01:36, David Ahern wrote:
-> Add netconf support to MPLS. Allows userpsace to learn and be notified
-> of changes to 'input' enable setting per interface.
->
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  include/uapi/linux/netconf.h   |   1 +
->  include/uapi/linux/rtnetlink.h |   2 +
->  net/mpls/af_mpls.c             | 212 ++++++++++++++++++++++++++++++++++++++++-
->  net/mpls/internal.h            |   2 +-
->  4 files changed, 214 insertions(+), 3 deletions(-)
->
-> diff --git a/include/uapi/linux/netconf.h b/include/uapi/linux/netconf.h
-> index 45dfad509c4d..159d91c9c2a3 100644
-> --- a/include/uapi/linux/netconf.h
-> +++ b/include/uapi/linux/netconf.h
-> @@ -16,6 +16,7 @@ enum {
->  	NETCONFA_MC_FORWARDING,
->  	NETCONFA_PROXY_NEIGH,
->  	NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
-> +	NETCONFA_MPLS_INPUT_ENABLED,
+From: Pavel Belous <pavel.belous@aquantia.com>
 
-How about removing "MPLS_" the name? That way it would be usable by 
-other AFs too, e.g. for the disable_ipv6 sysctl. Perhaps "ENABLED" is 
-redundant as well.
+ busy_count field and is_busy flag is not needed at all.
 
-Thanks,
-Rob
+Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+Reviewed-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c   | 11 -----------
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h |  1 -
+ 2 files changed, 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+index aa22a7c..a153750 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+@@ -122,14 +122,11 @@ static void aq_nic_service_timer_cb(unsigned long param)
+ 	struct aq_nic_s *self = (struct aq_nic_s *)param;
+ 	struct net_device *ndev = aq_nic_get_ndev(self);
+ 	int err = 0;
+-	bool is_busy = false;
+ 	unsigned int i = 0U;
+ 	struct aq_hw_link_status_s link_status;
+ 	struct aq_ring_stats_rx_s stats_rx;
+ 	struct aq_ring_stats_tx_s stats_tx;
+ 
+-	atomic_inc(&self->header.busy_count);
+-	is_busy = true;
+ 	if (aq_utils_obj_test(&self->header.flags, AQ_NIC_FLAGS_IS_NOT_READY))
+ 		goto err_exit;
+ 
+@@ -170,8 +167,6 @@ static void aq_nic_service_timer_cb(unsigned long param)
+ 	ndev->stats.tx_errors = stats_tx.errors;
+ 
+ err_exit:
+-	if (is_busy)
+-		atomic_dec(&self->header.busy_count);
+ 	mod_timer(&self->service_timer,
+ 		  jiffies + AQ_CFG_SERVICE_TIMER_INTERVAL);
+ }
+@@ -574,16 +569,12 @@ __acquires(&ring->lock)
+ 	unsigned int trys = AQ_CFG_LOCK_TRYS;
+ 	int err = 0;
+ 	bool is_nic_in_bad_state;
+-	bool is_busy = false;
+ 	struct aq_ring_buff_s buffers[AQ_CFG_SKB_FRAGS_MAX];
+ 
+ 	frags = skb_shinfo(skb)->nr_frags + 1;
+ 
+ 	ring = self->aq_ring_tx[AQ_NIC_TCVEC2RING(self, tc, vec)];
+ 
+-	atomic_inc(&self->header.busy_count);
+-	is_busy = true;
+-
+ 	if (frags > AQ_CFG_SKB_FRAGS_MAX) {
+ 		dev_kfree_skb_any(skb);
+ 		goto err_exit;
+@@ -629,8 +620,6 @@ __acquires(&ring->lock)
+ 	}
+ 
+ err_exit:
+-	if (is_busy)
+-		atomic_dec(&self->header.busy_count);
+ 	return err;
+ }
+ 
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+index 4446bd9..f6012b3 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+@@ -19,7 +19,6 @@
+ struct aq_obj_s {
+ 	spinlock_t lock; /* spinlock for nic/rings processing */
+ 	atomic_t flags;
+-	atomic_t busy_count;
+ };
+ 
+ static inline void aq_utils_obj_set(atomic_t *flags, u32 mask)
+-- 
+2.7.4
