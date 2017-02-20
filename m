@@ -1,44 +1,49 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: linux-next: manual merge of the kspp tree with the net-next tree
-Date: Mon, 20 Feb 2017 10:01:03 +0100
-Message-ID: <58AAB04F.6010400@iogearbox.net>
-References: <20170220105642.616b119b@canb.auug.org.au>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCHv3 net-next 00/12] net: mvpp2: misc improvements and
+ preparation patches
+Date: Mon, 20 Feb 2017 10:07:42 +0100
+Message-ID: <20170220100742.0b1fce4a@free-electrons.com>
+References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <20170209095534.GB27312@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Laura Abbott <labbott@redhat.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        Kees Cook <keescook@google.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170220105642.616b119b@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        linux-arm-kernel@lists.infradead.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Hanna Hawa <hannah@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Marcin Wojtas <mw@semihalf.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:50218 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750885AbdBTJHq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 04:07:46 -0500
+In-Reply-To: <20170209095534.GB27312@n2100.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/20/2017 12:56 AM, Stephen Rothwell wrote:
-> Hi Kees,
->
-> Today's linux-next merge of the kspp tree got a conflict in:
->
->    include/linux/filter.h
->
-> between commit:
->
->    74451e66d516 ("bpf: make jited programs visible in traces")
->
-> from the net-next tree and commit:
->
->    0f5bf6d0afe4 ("arch: Rename CONFIG_DEBUG_RODATA and CONFIG_DEBUG_MODULE_RONX")
->
-> from the kspp tree.
->
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
+David,
 
-Looks good thanks!
+On Thu, 9 Feb 2017 09:55:34 +0000, Russell King - ARM Linux wrote:
+
+> For the whole series:
+> 
+> Acked-by: Russell King <rmk+kernel@armlinux.org.uk>
+
+This series has been on the list for a while, and has received review
+and a Acked-by. Would it be possible to merge it?
+
+Thanks,
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
