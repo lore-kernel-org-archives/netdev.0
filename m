@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] GTP: Add some basic documentation about
- drivers/net/gtp.c
-Date: Mon, 20 Feb 2017 10:24:36 -0500 (EST)
-Message-ID: <20170220.102436.2159722751453672196.davem@davemloft.net>
-References: <20170218125800.2vxo7gyfxbp6dw64@nataraja>
+Subject: Re: [PATCH] net: ena: remove superfluous check in ena_remove()
+Date: Mon, 20 Feb 2017 10:23:25 -0500 (EST)
+Message-ID: <20170220.102325.989115726322379292.davem@davemloft.net>
+References: <1487416781-3431-1-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: laforge@gnumonks.org
+Cc: saeed@annapurnalabs.com, zorik@annapurnalabs.com,
+        netdev@vger.kernel.org
+To: LinoSanfilippo@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38368 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38338 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753292AbdBTPYl (ORCPT
+        with ESMTP id S1752148AbdBTPYl (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:24:41 -0500
-In-Reply-To: <20170218125800.2vxo7gyfxbp6dw64@nataraja>
+In-Reply-To: <1487416781-3431-1-git-send-email-LinoSanfilippo@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harald Welte <laforge@gnumonks.org>
-Date: Sat, 18 Feb 2017 13:58:00 +0100
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Date: Sat, 18 Feb 2017 12:19:41 +0100
 
-> In order to clarify what the module actually does, and how to use it,
-> let's add some basic documentation to the kernel tree, together with
-> pointers to related specs and projects.
+> The check in ena_remove() for the pci driver data not being NULL is not
+> needed, since it is always set in the probe() function. Remove the
+> superfluous check.
 > 
-> Signed-off-by: Harald Welte <laforge@gnumonks.org>
+> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 
-Applied, thanks Harald.
+Applied.
