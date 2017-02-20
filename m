@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] sctp: support MSG_MORE flag when sending
- msg
-Date: Mon, 20 Feb 2017 10:26:23 -0500 (EST)
-Message-ID: <20170220.102623.1083491050369297552.davem@davemloft.net>
-References: <cover.1487440272.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH] net: qlogic: qla3xxx: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Mon, 20 Feb 2017 10:28:48 -0500 (EST)
+Message-ID: <20170220.102848.1654431640603977173.davem@davemloft.net>
+References: <1487459944-32311-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        vyasevich@gmail.com, david.laight@aculab.com
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38404 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753802AbdBTP0a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:26:30 -0500
-In-Reply-To: <cover.1487440272.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1487459944-32311-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sun, 19 Feb 2017 01:52:44 +0800
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Sun, 19 Feb 2017 00:19:04 +0100
 
-> This patch is to add support for MSG_MORE on sctp. Patch 1/2 is an
-> improvement ahead of patch 2/2 to solve the close block problem
-> mentioned in https://patchwork.ozlabs.org/patch/372404/.
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> As I don't have the hardware, I'd be very pleased if
+> someone may test this patch.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-Series applied, thanks Xin.
+Applied.
