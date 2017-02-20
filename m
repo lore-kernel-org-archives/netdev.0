@@ -1,171 +1,143 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2] virito-net: set queues after reset during xdp_set
-Date: Mon, 20 Feb 2017 11:50:20 +0800
-Message-ID: <1487562620-10146-1-git-send-email-jasowang@redhat.com>
-Cc: john.fastabend@gmail.com, Jason Wang <jasowang@redhat.com>
-To: mst@redhat.com, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net v5] bpf: add helper to compare network namespaces
+Date: Mon, 20 Feb 2017 17:17:03 +1300
+Message-ID: <878tp1h4xs.fsf@xmission.com>
+References: <1487208564-4666-1-git-send-email-dsa@cumulusnetworks.com>
+        <58A57A13.9070906@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        davem@davemloft.net, ast@kernel.org, tj@kernel.org,
+        luto@amacapital.net
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:50630 "EHLO
+        out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751875AbdBTEVq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2017 23:21:46 -0500
+In-Reply-To: <58A57A13.9070906@iogearbox.net> (Daniel Borkmann's message of
+        "Thu, 16 Feb 2017 11:08:19 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We set queues before reset which will cause a crash[1]. This is
-because is_xdp_raw_buffer_queue() depends on the old xdp queue pairs
-number to do the correct detection. So fix this by
+Daniel Borkmann <daniel@iogearbox.net> writes:
 
-- passing xdp queue pairs and current queue pairs to virtnet_reset()
-- change vi->xdp_qp after reset but before refill, to make sure both
-  free_unused_bufs() and refill can make correct detection of XDP.
-- remove the duplicated queue pairs setting before virtnet_reset()
-  since we will do it inside virtnet_reset()
+> On 02/16/2017 02:29 AM, David Ahern wrote:
+>> In cases where bpf programs are looking at sockets and packets
+>> that belong to different netns, it could be useful to compare the
+>> network namespace of the socket or packet
+>>
+>> Introduce bpf_sk_netns_cmp and bpf_skb_netns_cmp helpers to compare
+>> network namespace of the socket or skb to the namespace parameters
+>> in a prorgam.
+>>
+>> For example to disallow raw sockets in all non-init netns
+>> the bpf_type_cgroup_sock program can do:
+>> if (sk->type == SOCK_RAW && !bpf_sk_netns_cmp(sk, 0x3, 0xf0000075))
+>>    return 0;
+>>
+>> where 0x3 and 0xf0000075 are the st_dev and st_ino of /proc/pid/ns/net.
+>>
+>> Note that all bpf programs types are global. The same socket filter
+>> program can be attached to sockets in different netns,
+>> just like cls_bpf can see ingress/egress packets of multiple
+>> net_devices in different netns. The cgroup_bpf programs are
+>> the most exposed to sockets and devices across netns,
+>> but the need to identify netns applies to all.
+>> For example, if bpf_type_cgroup_skb didn't exist the system wide
+>> monitoring daemon could have used ld_preload mechanism and
+>> attached the same program to see traffic from applications
+>> across netns. Therefore make bpf_sk_netns_cmp() helper available
+>> to all network related bpf program types.
+>>
+>> For socket, cls_bpf and cgroup_skb programs this helper
+>> can be considered a new feature, whereas for cgroup_sock
+>> programs that modify sk->bound_dev_if (like 'ip vrf' does)
+>> it's a bug fix, since 'ip vrf' needs to be netns aware.
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>> ---
+>> v2->v3: build bot complained. s/static/static inline/. no other changes.
+>> v3->v4: fixed fallthrough case. Thanks Daniel.
+>> v4->v5: dsa converted netns_id as a u64 to netns_cmp with individual dev
+>>          and inode number. Updated samples test for sock bind.
+> [...]
+>> diff --git a/fs/nsfs.c b/fs/nsfs.c
+>> index 8c9fb29c6673..c335f513d467 100644
+>> --- a/fs/nsfs.c
+>> +++ b/fs/nsfs.c
+>> @@ -49,6 +49,13 @@ static void nsfs_evict(struct inode *inode)
+>>   	ns->ops->put(ns);
+>>   }
+>>
+>> +int ns_cmp(struct ns_common *ns, u64 dev, u64 ino)
+>> +{
+>> +	u64 ns_dev = new_encode_dev(nsfs_mnt->mnt_sb->s_dev);
+>> +
+>> +	return dev == ns_dev && ino == ns->inum;
+>> +}
+>> +
+> [...]
+>>   void net_drop_ns(void *);
+>>
+>> +static inline int netns_cmp(struct net *net, u64 dev, u64 ino)
+>> +{
+>> +	return ns_cmp(&net->ns, dev, ino);
+>> +}
+>> +
+>>   #else
+> [...]
+>>
+>>   /**
+>>    *	sk_filter_trim_cap - run a packet through a socket filter
+>> @@ -2597,6 +2598,39 @@ static const struct bpf_func_proto bpf_xdp_event_output_proto = {
+>>   	.arg5_type	= ARG_CONST_STACK_SIZE,
+>>   };
+>>
+>> +BPF_CALL_3(bpf_sk_netns_cmp, struct sock *, sk,  u64, ns_dev, u64, ns_ino)
+>> +{
+>> +	return netns_cmp(sock_net(sk), ns_dev, ns_ino);
+>> +}
+>
+> Is there anything that speaks against doing the comparison itself
+> outside of the helper? Meaning, the helper would get a buffer
+> passed from stack f.e. struct foo { u64 ns_dev; u64 ns_ino; }
+> and fills both out with the netns info belonging to the sk/skb.
 
-[1]
+Yes.  The dev/ino pair is not necessarily unique so it is not at all
+clear that the returned value would be what the program is expecting.
 
-[   74.328168] general protection fault: 0000 [#1] SMP
-[   74.328625] Modules linked in: nfsd xfs libcrc32c virtio_net virtio_pci
-[   74.329117] CPU: 0 PID: 2849 Comm: xdp2 Not tainted 4.10.0-rc7+ #499
-[   74.329577] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.10.1-0-g8891697-prebuilt.qemu-project.org 04/01/2014
-[   74.330424] task: ffff88007a894000 task.stack: ffffc90004388000
-[   74.330844] RIP: 0010:skb_release_head_state+0x28/0x80
-[   74.331298] RSP: 0018:ffffc9000438b8d0 EFLAGS: 00010206
-[   74.331676] RAX: 0000000000000000 RBX: ffff88007ad96300 RCX: 0000000000000000
-[   74.332217] RDX: ffff88007fc137a8 RSI: ffff88007fc0db28 RDI: 0001bf00000001be
-[   74.332758] RBP: ffffc9000438b8d8 R08: 000000000005008f R09: 00000000000005f9
-[   74.333274] R10: ffff88007d001700 R11: ffffffff820a8a4d R12: ffff88007ad96300
-[   74.333787] R13: 0000000000000002 R14: ffff880036604000 R15: 000077ff80000000
-[   74.334308] FS:  00007fc70d8a7b40(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
-[   74.334891] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   74.335314] CR2: 00007fff4144a710 CR3: 000000007ab56000 CR4: 00000000003406f0
-[   74.335830] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[   74.336373] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-[   74.336895] Call Trace:
-[   74.337086]  skb_release_all+0xd/0x30
-[   74.337356]  consume_skb+0x2c/0x90
-[   74.337607]  free_unused_bufs+0x1ff/0x270 [virtio_net]
-[   74.337988]  ? vp_synchronize_vectors+0x3b/0x60 [virtio_pci]
-[   74.338398]  virtnet_xdp+0x21e/0x440 [virtio_net]
-[   74.338741]  dev_change_xdp_fd+0x101/0x140
-[   74.339048]  do_setlink+0xcf4/0xd20
-[   74.339304]  ? symcmp+0xf/0x20
-[   74.339529]  ? mls_level_isvalid+0x52/0x60
-[   74.339828]  ? mls_range_isvalid+0x43/0x50
-[   74.340135]  ? nla_parse+0xa0/0x100
-[   74.340400]  rtnl_setlink+0xd4/0x120
-[   74.340664]  ? cpumask_next_and+0x30/0x50
-[   74.340966]  rtnetlink_rcv_msg+0x7f/0x1f0
-[   74.341259]  ? sock_has_perm+0x59/0x60
-[   74.341586]  ? napi_consume_skb+0xe2/0x100
-[   74.342010]  ? rtnl_newlink+0x890/0x890
-[   74.342435]  netlink_rcv_skb+0x92/0xb0
-[   74.342846]  rtnetlink_rcv+0x23/0x30
-[   74.343277]  netlink_unicast+0x162/0x210
-[   74.343677]  netlink_sendmsg+0x2db/0x390
-[   74.343968]  sock_sendmsg+0x33/0x40
-[   74.344233]  SYSC_sendto+0xee/0x160
-[   74.344482]  ? SYSC_bind+0xb0/0xe0
-[   74.344806]  ? sock_alloc_file+0x92/0x110
-[   74.345106]  ? fd_install+0x20/0x30
-[   74.345360]  ? sock_map_fd+0x3f/0x60
-[   74.345586]  SyS_sendto+0x9/0x10
-[   74.345790]  entry_SYSCALL_64_fastpath+0x1a/0xa9
-[   74.346086] RIP: 0033:0x7fc70d1b8f6d
-[   74.346312] RSP: 002b:00007fff4144a708 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
-[   74.346785] RAX: ffffffffffffffda RBX: 00000000ffffffff RCX: 00007fc70d1b8f6d
-[   74.347244] RDX: 000000000000002c RSI: 00007fff4144a720 RDI: 0000000000000003
-[   74.347683] RBP: 0000000000000003 R08: 0000000000000000 R09: 0000000000000000
-[   74.348544] R10: 0000000000000000 R11: 0000000000000246 R12: 00007fff4144bd90
-[   74.349082] R13: 0000000000000002 R14: 0000000000000002 R15: 00007fff4144cda0
-[   74.349607] Code: 00 00 00 55 48 89 e5 53 48 89 fb 48 8b 7f 58 48 85 ff 74 0e 40 f6 c7 01 74 3d 48 c7 43 58 00 00 00 00 48 8b 7b 68 48 85 ff 74 05 <f0> ff 0f 74 20 48 8b 43 60 48 85 c0 74 14 65 8b 15 f3 ab 8d 7e
-[   74.351008] RIP: skb_release_head_state+0x28/0x80 RSP: ffffc9000438b8d0
-[   74.351625] ---[ end trace fe6e19fd11cfc80b ]---
+I can see some fancy optimizations that perhaps compile a dev/ino pair
+into a network namespace pointer, and fail the compilation otherwise.
+But short of that I believe we need to have the comparision in the
+helper.
 
-Fixes: 2de2f7f40ef9 ("virtio_net: XDP support for adjust_head")
-Cc: John Fastabend <john.fastabend@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from V1:
-- passing xdp_qp and curr_qp to virtnet_reset() to refill correctly
-- remove the duplicated queue pair setting after virtnet_reset()
----
- drivers/net/virtio_net.c | 28 ++++++++--------------------
- 1 file changed, 8 insertions(+), 20 deletions(-)
+> And the program can use that to make a match, or to use the
+> struct itself as a map lookup key (which in the previous patch
+> was also possible). Right now, such flexibility would be lost
+> for map usage with the above bpf_sk{,b}_netns_cmp() membership
+> test that checks only against one instance of ns_dev/ns_ino.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 11e2853..d12e5d6 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1737,7 +1737,7 @@ static int virtnet_restore_up(struct virtio_device *vdev)
- 	return err;
- }
- 
--static int virtnet_reset(struct virtnet_info *vi)
-+static int virtnet_reset(struct virtnet_info *vi, int curr_qp, int xdp_qp)
- {
- 	struct virtio_device *dev = vi->vdev;
- 	int ret;
-@@ -1755,10 +1755,11 @@ static int virtnet_reset(struct virtnet_info *vi)
- 	if (ret)
- 		goto err;
- 
-+	vi->xdp_queue_pairs = xdp_qp;
- 	ret = virtnet_restore_up(dev);
- 	if (ret)
- 		goto err;
--	ret = _virtnet_set_queues(vi, vi->curr_queue_pairs);
-+	ret = _virtnet_set_queues(vi, curr_qp);
- 	if (ret)
- 		goto err;
- 
-@@ -1775,7 +1776,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	struct bpf_prog *old_prog;
--	u16 oxdp_qp, xdp_qp = 0, curr_qp;
-+	u16 xdp_qp = 0, curr_qp;
- 	int i, err;
- 
- 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-@@ -1813,24 +1814,17 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 			return PTR_ERR(prog);
- 	}
- 
--	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
--	if (err) {
--		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
--		goto virtio_queue_err;
--	}
--
--	oxdp_qp = vi->xdp_queue_pairs;
--
- 	/* Changing the headroom in buffers is a disruptive operation because
- 	 * existing buffers must be flushed and reallocated. This will happen
- 	 * when a xdp program is initially added or xdp is disabled by removing
- 	 * the xdp program resulting in number of XDP queues changing.
- 	 */
- 	if (vi->xdp_queue_pairs != xdp_qp) {
--		vi->xdp_queue_pairs = xdp_qp;
--		err = virtnet_reset(vi);
--		if (err)
-+		err = virtnet_reset(vi, curr_qp + xdp_qp, xdp_qp);
-+		if (err) {
-+			dev_warn(&dev->dev, "XDP reset failure.\n");
- 			goto virtio_reset_err;
-+		}
- 	}
- 
- 	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
-@@ -1849,12 +1843,6 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	 * error up to user space for resolution. The underlying reset hung on
- 	 * us so not much we can do here.
- 	 */
--	dev_warn(&dev->dev, "XDP reset failure and queues unstable\n");
--	vi->xdp_queue_pairs = oxdp_qp;
--virtio_queue_err:
--	/* On queue set error we can unwind bpf ref count and user space can
--	 * retry this is most likely an allocation failure.
--	 */
- 	if (prog)
- 		bpf_prog_sub(prog, vi->max_queue_pairs - 1);
- 	return err;
--- 
-2.7.4
+I don't have a clue how you could use maps in this context, although I
+can see where it could be desirable.  A bpf filter program that collects
+counts per network namespace, or per a set of known network namespaces
+feels reasonable.
+
+> A helper used as bpf_get_netns_sk(sk, &buff, sizeof(buff)) resp.
+> bpf_get_netns_skb(skb, &buff, sizeof(buff)) can also still be
+> extended in future should something really change, f.e. we know
+> that the passed size must be 16 byte today, and anything else
+> would be rejected for now.
+
+I am not particularly concerned about the size, but the fact that
+dev/ino is not unique globally for a network namespace seems very
+challenging for your design.
+
+Now if someone is willing to limit installation of these bpf programs
+to the initial instances of all namespaces we can make some assumptions
+but I haven't seen any willingness to limit things in such a way that
+we can make assumptions about the user space context we are talking
+about.
+
+Eric
