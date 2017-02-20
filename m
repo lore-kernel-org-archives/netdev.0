@@ -1,39 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: create drivers/net/mdio and move mdio drivers into it
-Date: Sun, 19 Feb 2017 21:03:22 -0800
-Message-ID: <afdb9ff7-afa9-47b0-0e84-396080fe0867@gmail.com>
-References: <8729016553E3654398EA69218DA29EEF15A7E753@cnshjmbx02>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH repost] ptr_ring: fix race conditions when resizing
+Date: Mon, 20 Feb 2017 07:05:35 +0200
+Message-ID: <20170220070458-mutt-send-email-mst@kernel.org>
+References: <1487171217-6641-1-git-send-email-mst@redhat.com>
+ <20170219.005248.548256056859453600.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "cugyly@163.com" <cugyly@163.com>
-To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
-        "David S . Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36270 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750777AbdBTFDw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 00:03:52 -0500
-Received: by mail-pg0-f68.google.com with SMTP id a123so8577313pgc.3
-        for <netdev@vger.kernel.org>; Sun, 19 Feb 2017 21:03:25 -0800 (PST)
-In-Reply-To: <8729016553E3654398EA69218DA29EEF15A7E753@cnshjmbx02>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, dvyukov@google.com,
+        stable@vger.kernel.org, jasowang@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170219.005248.548256056859453600.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 02/19/2017 04:20 PM, YUAN Linyu wrote:
-> Hi,
+On Sun, Feb 19, 2017 at 12:52:48AM -0500, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Sun, 19 Feb 2017 07:17:17 +0200
 > 
-> I have an idea to create drivers/net/mdio and move mdio drivers(drivers/net/phy/mdio-* | drivers/net/ethernet/xxx/mdio-yyy | ) into it.
+> > Dave, could you merge this before 4.10? If not - I can try.
 > 
-> Do you think it is acceptable ?
+> I just sent my last pull request to Linus, please merge it to
+> him directly.
+> 
+> Thanks.
 
-What problem are you trying to fix by doing such a move? Moving files
-around mean that making stable backports are going to be much more painful.
+I missed the opportunity. Could you pls queue the fix
+for next release and copy stable?
 
-So without further explanation, does not sound like such a great idea.
 -- 
-Florian
+MST
