@@ -1,60 +1,43 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next 1/1] net: sock: Use USEC_PER_SEC macro instead of literal 1000000
-Date: Mon, 20 Feb 2017 22:33:44 +0800
-Message-ID: <1487601224-22241-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, edumazet@google.com, soheil@google.com,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 net-next 00/12] net: mvpp2: misc improvements and
+ preparation patches
+Date: Mon, 20 Feb 2017 09:53:57 -0500 (EST)
+Message-ID: <20170220.095357.2175678121216081406.davem@davemloft.net>
+References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <20170209095534.GB27312@n2100.armlinux.org.uk>
+        <20170220100742.0b1fce4a@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux@armlinux.org.uk,
+        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
+        hannah@marvell.com, yehuday@marvell.com, stefanc@marvell.com,
+        jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com, mw@semihalf.com
+To: thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg342.qq.com ([14.17.44.37]:36111 "EHLO smtpbg342.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752562AbdBTOmM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Feb 2017 09:42:12 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:37870 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753099AbdBTOyT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 09:54:19 -0500
+In-Reply-To: <20170220100742.0b1fce4a@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Mon, 20 Feb 2017 10:07:42 +0100
 
-The USEC_PER_SEC is used once in sock_set_timeout as the max value of
-tv_usec. But there are other similar codes which use the literal
-1000000 in this file.
-It is minor cleanup to keep consitent.
+> David,
+> 
+> On Thu, 9 Feb 2017 09:55:34 +0000, Russell King - ARM Linux wrote:
+> 
+>> For the whole series:
+>> 
+>> Acked-by: Russell King <rmk+kernel@armlinux.org.uk>
+> 
+> This series has been on the list for a while, and has received review
+> and a Acked-by. Would it be possible to merge it?
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/core/sock.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8b35debf..fa47dd7 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -367,7 +367,7 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
- 	if (tv.tv_sec == 0 && tv.tv_usec == 0)
- 		return 0;
- 	if (tv.tv_sec < (MAX_SCHEDULE_TIMEOUT/HZ - 1))
--		*timeo_p = tv.tv_sec*HZ + (tv.tv_usec+(1000000/HZ-1))/(1000000/HZ);
-+		*timeo_p = tv.tv_sec * HZ + (tv.tv_usec + (USEC_PER_SEC / HZ - 1)) / (USEC_PER_SEC / HZ);
- 	return 0;
- }
- 
-@@ -1145,7 +1145,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 			v.tm.tv_usec = 0;
- 		} else {
- 			v.tm.tv_sec = sk->sk_rcvtimeo / HZ;
--			v.tm.tv_usec = ((sk->sk_rcvtimeo % HZ) * 1000000) / HZ;
-+			v.tm.tv_usec = ((sk->sk_rcvtimeo % HZ) * USEC_PER_SEC) / HZ;
- 		}
- 		break;
- 
-@@ -1156,7 +1156,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 			v.tm.tv_usec = 0;
- 		} else {
- 			v.tm.tv_sec = sk->sk_sndtimeo / HZ;
--			v.tm.tv_usec = ((sk->sk_sndtimeo % HZ) * 1000000) / HZ;
-+			v.tm.tv_usec = ((sk->sk_sndtimeo % HZ) * USEC_PER_SEC) / HZ;
- 		}
- 		break;
- 
--- 
-1.9.1
+You need to repost the series if it isn't in patchwork in state
+"Under Review".
