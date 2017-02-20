@@ -1,71 +1,65 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the kspp tree with the net-next tree
-Date: Mon, 20 Feb 2017 10:56:42 +1100
-Message-ID: <20170220105642.616b119b@canb.auug.org.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] virito-net: set queues after reset during xdp_set
+Date: Mon, 20 Feb 2017 02:12:18 +0200
+Message-ID: <20170220013627-mutt-send-email-mst@kernel.org>
+References: <1487149689-28957-1-git-send-email-jasowang@redhat.com>
+	<58A681E7.80907@gmail.com>
+	<cff818ec-d5cc-1d71-fa3e-95fd690d10ff@redhat.com>
+	<58A787AB.6000201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Laura Abbott <labbott@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Kees Cook <keescook@google.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <58A787AB.6000201@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Kees,
-
-Today's linux-next merge of the kspp tree got a conflict in:
-
-  include/linux/filter.h
-
-between commit:
-
-  74451e66d516 ("bpf: make jited programs visible in traces")
-
-from the net-next tree and commit:
-
-  0f5bf6d0afe4 ("arch: Rename CONFIG_DEBUG_RODATA and CONFIG_DEBUG_MODULE_RONX")
-
-from the kspp tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc include/linux/filter.h
-index 0c1cc9143cb2,c6dd53e88711..000000000000
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@@ -574,21 -561,8 +574,21 @@@ static inline void bpf_prog_lock_ro(str
-  static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
-  {
-  }
- +
- +static inline void bpf_jit_binary_unlock_ro(struct bpf_binary_header *hdr)
- +{
- +}
-- #endif /* CONFIG_DEBUG_SET_MODULE_RONX */
-+ #endif /* CONFIG_STRICT_MODULE_RWX */
-  
- +static inline struct bpf_binary_header *
- +bpf_jit_binary_hdr(const struct bpf_prog *fp)
- +{
- +	unsigned long real_start = (unsigned long)fp->bpf_func;
- +	unsigned long addr = real_start & PAGE_MASK;
- +
- +	return (void *)addr;
- +}
- +
-  int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap);
-  static inline int sk_filter(struct sock *sk, struct sk_buff *skb)
-  {
+T24gRnJpLCBGZWIgMTcsIDIwMTcgYXQgMDM6MzA6NTFQTSAtMDgwMCwgSm9obiBGYXN0YWJlbmQg
+d3JvdGU6Cj4gT24gMTctMDItMTYgMDk6MTAgUE0sIEphc29uIFdhbmcgd3JvdGU6Cj4gPiAKPiA+
+IAo+ID4gT24gMjAxN+W5tDAy5pyIMTfml6UgMTI6NTMsIEpvaG4gRmFzdGFiZW5kIHdyb3RlOgo+
+ID4+IE9uIDE3LTAyLTE1IDAxOjA4IEFNLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4+PiBXZSBzZXQg
+cXVldWVzIGJlZm9yZSByZXNldCB3aGljaCB3aWxsIGNhdXNlIGEgY3Jhc2hbMV0uIFRoaXMgaXMK
+PiA+Pj4gYmVjYXVzZSBpc194ZHBfcmF3X2J1ZmZlcl9xdWV1ZSgpIGRlcGVuZHMgb24gdGhlIG9s
+ZCB4ZHAgcXVldWUgcGFpcnMKPiA+Pj4gbnVtYmVyIHRvIGRvIHRoZSBjb3JyZWN0IGRldGVjdGlv
+bi4gU28gZml4IHRoaXMgYnk6Cj4gPj4+Cj4gPj4+IC0gc2V0IHF1ZXVlcyBhZnRlciByZXNldCwg
+dG8ga2VlcCB0aGUgb2xkIHZpLT5jdXJyX3F1ZXVlX3BhaXJzLiAoaW4KPiA+Pj4gICAgZmFjdCBz
+ZXR0aW5nIHF1ZXVlcyBiZWZvcmUgcmVzZXQgZG9lcyBub3Qgd29ya3Mgc2luY2UgYWZ0ZXIgZmVh
+dHVyZQo+ID4+PiAgICBzZXQsIGFsbCBxdWV1ZSBwYWlycyB3ZXJlIGVuYWJsZWQgYnkgZGVmYXVs
+dCBkdXJpbmcgcmVzZXQpLgo+ID4+PiAtIGNoYW5nZSB4ZHBfcXVldWVfcGFpcnMgb25seSBhZnRl
+ciB2aXJ0bmV0X3Jlc2V0KCkgaXMgc3VjY2VlZC4KPiA+Pj4KPiA+Pj4gWzFdCj4gPj4gSSdtIGd1
+ZXNzaW5nIHRoaXMgb2NjdXJzIHdoZW4gZW5hYmxpbmcgWERQIHdoaWxlIHJlY2VpdmluZyBsb3Rz
+IG9mIHRyYWZmaWM/Cj4gPiAKPiA+IEkgaGl0IHRoaXMgdGhlbiBkaXNhYmxpbmcgWERQIHdoaWxl
+IHJlY2VpdmluZyBsb3RzIG9mIHRyYWZmaWMuCj4gPiAKPiAKPiBbLi4uXQo+IAo+ID4+PiArICAg
+ICAgICB2aS0+eGRwX3F1ZXVlX3BhaXJzID0geGRwX3FwOwo+ID4+IEJ1dCB4ZHBfcXVldWVfcGFp
+cnMgaXMgYmVpbmcgdXNlZCB0byBkZXRlY3QgaWYgd2Ugc2hvdWxkIGFsbG9jYXRlIHRoZSBYRFAK
+PiA+PiBoZWFkcm9vbS4gSWYgd2UgbW92ZSBpdCBoZXJlIGRvIHdlIGhhdmUgYSBzZXQgb2YgYnVm
+ZmVycyBpbiB0aGUgcmluZyB3aXRob3V0Cj4gPj4gdGhlIHByb3BlciBoZWFkcm9vbSB3aGVuIHdl
+IGFzc2lnbiB0aGUgeGRwIHByb2dyYW0gYmVsb3c/Cj4gPiAKPiA+IFJpZ2h0LCBzbyBob3cgYWJv
+dXQgcGFzc2luZyB4ZHBfcXVldWVfcGFpcnMgYXMgYSBwYXJhbWV0ZXIgdG8gdmlydG5ldF9yZXNl
+dCgpLgo+ID4gVGhlbiB2aXJ0bmV0X3Jlc2V0KCkgY2FuIHNldCBpdCBhZnRlciBfcmVtb3ZlX3Zx
+X2NvbW1vbigpIGJ1dCBiZWZvcmUKPiA+IHZpcnRuZXRfcmVzdG9yZV91cCgpPwo+ID4gCj4gPiBU
+aGFua3MKPiA+IAo+IAo+IFNvdW5kcyBsaWtlIGEgcmVhc29uYWJsZSBmaXggdG8gbWUuCgpJJ20g
+ZmluZSB3aXRoIHRoYXQuCgo+ID4+Cj4gPj4+ICsgICAgfQo+ID4+PiArCj4gPj4+ICsgICAgZXJy
+ID0gX3ZpcnRuZXRfc2V0X3F1ZXVlcyh2aSwgY3Vycl9xcCArIHhkcF9xcCk7Cj4gPj4+ICsgICAg
+aWYgKGVycikgewo+ID4+PiArICAgICAgICBkZXZfd2FybigmZGV2LT5kZXYsICJYRFAgRGV2aWNl
+IHF1ZXVlIGFsbG9jYXRpb24gZmFpbHVyZS5cbiIpOwo+ID4+PiArICAgICAgICBnb3RvIHZpcnRp
+b19xdWV1ZV9lcnI7Cj4gPj4+ICAgICAgIH0KPiA+Pj4gICAgICAgICBuZXRpZl9zZXRfcmVhbF9u
+dW1fcnhfcXVldWVzKGRldiwgY3Vycl9xcCArIHhkcF9xcCk7Cj4gPj4+IEBAIC0xODQ0LDE3ICsx
+ODQ0LDE4IEBAIHN0YXRpYyBpbnQgdmlydG5ldF94ZHBfc2V0KHN0cnVjdCBuZXRfZGV2aWNlICpk
+ZXYsCj4gPj4+IHN0cnVjdCBicGZfcHJvZyAqcHJvZykKPiA+Pj4gICAgICAgICByZXR1cm4gMDsK
+PiA+PiBUaGFua3MsCj4gPj4gSm9obgo+ID4+Cj4gPiAKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1
+YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhm
+b3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
