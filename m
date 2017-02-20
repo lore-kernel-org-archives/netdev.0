@@ -1,63 +1,68 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 08/10] qede: Prevent index problems in loopback test
-Date: Mon, 20 Feb 2017 22:43:37 +0200
-Message-ID: <1487623419-6442-9-git-send-email-Yuval.Mintz@cavium.com>
-References: <1487623419-6442-1-git-send-email-Yuval.Mintz@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>,
-        Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:46568 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750827AbdBTVCJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 16:02:09 -0500
-In-Reply-To: <1487623419-6442-1-git-send-email-Yuval.Mintz@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: qualcomm: qca: use new api ethtool_{get|set}_link_ksettings
+Date: Mon, 20 Feb 2017 22:59:13 +0100
+Message-ID: <1487627953-18469-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Driver currently utilizes the same loop variable in two
-nested loops.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/qualcomm/qca_debug.c |   18 ++++++++++--------
+ 1 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index c02754d..8979531 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -1333,7 +1333,7 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
- 	struct qede_rx_queue *rxq = NULL;
- 	struct sw_rx_data *sw_rx_data;
- 	union eth_rx_cqe *cqe;
--	int i, rc = 0;
-+	int i, iter, rc = 0;
- 	u8 *data_ptr;
+diff --git a/drivers/net/ethernet/qualcomm/qca_debug.c b/drivers/net/ethernet/qualcomm/qca_debug.c
+index 8e28234..d145df9 100644
+--- a/drivers/net/ethernet/qualcomm/qca_debug.c
++++ b/drivers/net/ethernet/qualcomm/qca_debug.c
+@@ -188,14 +188,16 @@
+ }
  
- 	for_each_queue(i) {
-@@ -1352,7 +1352,7 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
- 	 * enabled. This is because the queue 0 is configured as the default
- 	 * queue and that the loopback traffic is not IP.
- 	 */
--	for (i = 0; i < QEDE_SELFTEST_POLL_COUNT; i++) {
-+	for (iter = 0; iter < QEDE_SELFTEST_POLL_COUNT; iter++) {
- 		if (!qede_has_rx_work(rxq)) {
- 			usleep_range(100, 200);
- 			continue;
-@@ -1399,7 +1399,7 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
- 		qed_chain_recycle_consumed(&rxq->rx_comp_ring);
- 	}
+ static int
+-qcaspi_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++qcaspi_get_link_ksettings(struct net_device *dev,
++			  struct ethtool_link_ksettings *cmd)
+ {
+-	cmd->transceiver = XCVR_INTERNAL;
+-	cmd->supported = SUPPORTED_10baseT_Half;
+-	ethtool_cmd_speed_set(cmd,  SPEED_10);
+-	cmd->duplex = DUPLEX_HALF;
+-	cmd->port = PORT_OTHER;
+-	cmd->autoneg = AUTONEG_DISABLE;
++	ethtool_link_ksettings_zero_link_mode(cmd, supported);
++	ethtool_link_ksettings_add_link_mode(cmd, supported, 10baseT_Half);
++
++	cmd->base.speed = SPEED_10;
++	cmd->base.duplex = DUPLEX_HALF;
++	cmd->base.port = PORT_OTHER;
++	cmd->base.autoneg = AUTONEG_DISABLE;
  
--	if (i == QEDE_SELFTEST_POLL_COUNT) {
-+	if (iter == QEDE_SELFTEST_POLL_COUNT) {
- 		DP_NOTICE(edev, "Failed to receive the traffic\n");
- 		return -1;
- 	}
+ 	return 0;
+ }
+@@ -295,7 +297,6 @@
+ static const struct ethtool_ops qcaspi_ethtool_ops = {
+ 	.get_drvinfo = qcaspi_get_drvinfo,
+ 	.get_link = ethtool_op_get_link,
+-	.get_settings = qcaspi_get_settings,
+ 	.get_ethtool_stats = qcaspi_get_ethtool_stats,
+ 	.get_strings = qcaspi_get_strings,
+ 	.get_sset_count = qcaspi_get_sset_count,
+@@ -303,6 +304,7 @@
+ 	.get_regs = qcaspi_get_regs,
+ 	.get_ringparam = qcaspi_get_ringparam,
+ 	.set_ringparam = qcaspi_set_ringparam,
++	.get_link_ksettings = qcaspi_get_link_ksettings,
+ };
+ 
+ void qcaspi_set_ethtool_ops(struct net_device *dev)
 -- 
-1.9.3
+1.7.4.4
