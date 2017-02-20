@@ -1,47 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] tcp: setup random timestamp offset when write_seq
- already set
-Date: Mon, 20 Feb 2017 10:18:07 -0500 (EST)
-Message-ID: <20170220.101807.883027207624802826.davem@davemloft.net>
-References: <1487379372-28199-1-git-send-email-alexey.kodanev@oracle.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] net: mpls: Add support for netconf
+Date: Mon, 20 Feb 2017 16:18:27 +0100
+Message-ID: <b25c8fd2-9b4b-5c27-b2bb-ffc44f08d5eb@6wind.com>
+References: <1487381793-12234-1-git-send-email-dsa@cumulusnetworks.com>
+ <9326b299-3969-7e0e-dba4-fae5682f0b24@brocade.com>
+ <5c606636-64bb-a40b-c4bc-6292c5dc7678@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, edumazet@google.com
-To: alexey.kodanev@oracle.com
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: roopa@cumulusnetworks.com, ebiederm@xmission.com
+To: David Ahern <dsa@cumulusnetworks.com>,
+        Robert Shearman <rshearma@brocade.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38164 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753106AbdBTPSI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:18:08 -0500
-In-Reply-To: <1487379372-28199-1-git-send-email-alexey.kodanev@oracle.com>
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:35367 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752767AbdBTPSa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:18:30 -0500
+Received: by mail-wr0-f180.google.com with SMTP id s27so19167276wrb.2
+        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 07:18:29 -0800 (PST)
+In-Reply-To: <5c606636-64bb-a40b-c4bc-6292c5dc7678@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Date: Sat, 18 Feb 2017 03:56:11 +0300
+Le 20/02/2017 à 15:53, David Ahern a écrit :
+> On 2/20/17 3:01 AM, Robert Shearman wrote:
+>> On 18/02/17 01:36, David Ahern wrote:
+>>> Add netconf support to MPLS. Allows userpsace to learn and be notified
+>>> of changes to 'input' enable setting per interface.
+>>>
+>>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>>> ---
+>>>  include/uapi/linux/netconf.h   |   1 +
+>>>  include/uapi/linux/rtnetlink.h |   2 +
+>>>  net/mpls/af_mpls.c             | 212
+>>> ++++++++++++++++++++++++++++++++++++++++-
+>>>  net/mpls/internal.h            |   2 +-
+>>>  4 files changed, 214 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/include/uapi/linux/netconf.h b/include/uapi/linux/netconf.h
+>>> index 45dfad509c4d..159d91c9c2a3 100644
+>>> --- a/include/uapi/linux/netconf.h
+>>> +++ b/include/uapi/linux/netconf.h
+>>> @@ -16,6 +16,7 @@ enum {
+>>>      NETCONFA_MC_FORWARDING,
+>>>      NETCONFA_PROXY_NEIGH,
+>>>      NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
+>>> +    NETCONFA_MPLS_INPUT_ENABLED,
+>>
+>> How about removing "MPLS_" the name? That way it would be usable by
+>> other AFs too, e.g. for the disable_ipv6 sysctl. Perhaps "ENABLED" is
+>> redundant as well.
+> 
+> 
+> I could drop the MPLS to NETCONFA_INPUT_ENABLED; just NETCONFA_INPUT is
+> not very descriptive.
+> 
+> disable_ipv6 has a completely different meaning, so re-use there does
+> not seem appropriate.
+To avoid confusion, the exact same name than the /proc entry is used.
+NETCONFA_INPUT should be enough, because the family is already set to AF_MPLS.
 
-> @@ -232,12 +232,17 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
->  	sk->sk_gso_type = SKB_GSO_TCPV4;
->  	sk_setup_caps(sk, &rt->dst);
->  
-> -	if (!tp->write_seq && likely(!tp->repair))
-> +	if (!tp->write_seq && likely(!tp->repair)) {
->  		tp->write_seq = secure_tcp_sequence_number(inet->inet_saddr,
->  							   inet->inet_daddr,
->  							   inet->inet_sport,
->  							   usin->sin_port,
->  							   &tp->tsoffset);
-> +	} else if (likely(!tp->repair)) {
-> +		secure_tcp_sequence_number(inet->inet_saddr, inet->inet_daddr,
-> +					   inet->inet_sport, usin->sin_port,
-> +					   &tp->tsoffset);
-> +	}
 
-This would be so much easier to understand if it were coded as:
-
-	if (!tp->repair) {
-		seq = secure_tcp_sequence_number(...);
-		if (!tp->write_seq)
-			tp->write_seq = seq;
-	}
+Regards,
+Nicolas
