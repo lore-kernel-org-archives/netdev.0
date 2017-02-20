@@ -1,40 +1,46 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: Re: [PATCH 1/2] tcp: setup random timestamp offset when write_seq
- already set
-Date: Mon, 20 Feb 2017 19:29:26 +0300
-Message-ID: <65bedad0-0e42-3cb1-091c-8cef2b323f75@oracle.com>
-References: <1487379372-28199-1-git-send-email-alexey.kodanev@oracle.com>
- <20170220.101807.883027207624802826.davem@davemloft.net>
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: Re: [RESEND PATCH 1/1] can: m_can: fix bitrate setup on latest
+ silicon
+Date: Mon, 20 Feb 2017 17:37:14 +0100
+Message-ID: <20170220163714.uj5el22c5tq47cul@piout.net>
+References: <20170215140819.879-1-quentin.schulz@free-electrons.com>
+ <b1140be9-1811-1512-b32e-436e8bb25824@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, edumazet@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39406 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750884AbdBTQ3v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 11:29:51 -0500
-In-Reply-To: <20170220.101807.883027207624802826.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Quentin Schulz <quentin.schulz@free-electrons.com>,
+        fvallee@eukrea.fr, wg@grandegger.com, mkl@pengutronix.de,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, boris.brezillon@free-electrons.com,
+        nicolas.ferre@atmel.com
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b1140be9-1811-1512-b32e-436e8bb25824@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 20.02.2017 18:18, David Miller wrote:
-> This would be so much easier to understand if it were coded as:
-> 	if (!tp->repair) {
-> 		seq = secure_tcp_sequence_number(...);
-> 		if (!tp->write_seq)
-> 			tp->write_seq = seq;
-> 	}
+On 19/02/2017 at 16:37:50 +0100, Oliver Hartkopp wrote:
+> Fortunately I was contacted by Bosch this Friday as they want to contribute
+> a driver upgrade to support IP cores up to 3.2.x.
+> Additionally their plan is to use Device Tree information to determine the
+> IP core revision - or at least to cross check its information with the
+> register information used in your suggestion.
 
-Hi David,
+My opinion is that is is not really useful. Either we use the version
+info from the register or DT. But that is probably a matter of taste and
+you are the maintainer :)
 
-Thought about not adding extra variable here...
-Agree,it looks much better and easier to follow.
+> For that reason I would suggest to wait for the driver updates from Bosch
+> instead of adding an incomplete fix for only one change of eleven.
+> 
 
-Should I send a patch with this version modified as you
-suggested or we can inherit ts offsetfrom tcptw->tw_ts_offset
-in tcp_twsk_unique()?
+Well, having something working right now is still better that nothing. I
+think it is worth having that patch now so CAN is working on our
+platforms.
 
-Thanks,
-Alexey
+Everything else can probably be built on top of it anyway.
+
+-- 
+Alexandre Belloni, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
