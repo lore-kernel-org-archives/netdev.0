@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next][PATCH] RDS: keep data type consistent in the user
- visible header
-Date: Mon, 20 Feb 2017 10:39:12 -0500 (EST)
-Message-ID: <20170220.103912.194197218422769191.davem@davemloft.net>
-References: <1487387747-5324-1-git-send-email-santosh.shilimkar@oracle.com>
-        <20170220.101951.663166903772216217.davem@davemloft.net>
-        <20170220153722.GB16561@oracle.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCHv3 net-next 00/12] net: mvpp2: misc improvements and
+ preparation patches
+Date: Mon, 20 Feb 2017 16:47:41 +0100
+Message-ID: <20170220164741.11b40d07@free-electrons.com>
+References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20170209095534.GB27312@n2100.armlinux.org.uk>
+ <20170220100742.0b1fce4a@free-electrons.com>
+ <20170220.095357.2175678121216081406.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170220153722.GB16561@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: andrew@lunn.ch, yehuday@marvell.com, jason@lakedaemon.net,
+ netdev@vger.kernel.org, hannah@marvell.com, linux@armlinux.org.uk,
+ nadavh@marvell.com, gregory.clement@free-electrons.com, stefanc@marvell.com,
+ mw@semihalf.com, linux-arm-kernel@lists.infradead.org,
+ sebastian.hesselbarth@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170220.095357.2175678121216081406.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Mon, 20 Feb 2017 10:37:22 -0500
+Hello,
 
-> On (02/20/17 10:19), David Miller wrote:
->> 
->> The correct fix it to use "__u8", "__u64", etc.
+On Mon, 20 Feb 2017 09:53:57 -0500 (EST), David Miller wrote:
+
+> > This series has been on the list for a while, and has received review
+> > and a Acked-by. Would it be possible to merge it?  
 > 
-> So the rest of rds.h uses uint8_t, uint32_t etc 
-> Perhaps (I'm not sure of the origins) this was because
-> of the shared OpenIB.org BSD license etc using __u8 in
-> one place and uint8_t in another would seem inconsistent,
-> at the very least.
+> You need to repost the series if it isn't in patchwork in state
+> "Under Review".
 
-The entire file should use the proper "__uX" kernel types
-rather than the uint* ones.
+Is net-next still open? I.e can I resend today/tomorrow?
+
+Thanks,
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
