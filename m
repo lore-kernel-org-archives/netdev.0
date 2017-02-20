@@ -1,46 +1,54 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: Re: [RESEND PATCH 1/1] can: m_can: fix bitrate setup on latest
- silicon
-Date: Mon, 20 Feb 2017 17:37:14 +0100
-Message-ID: <20170220163714.uj5el22c5tq47cul@piout.net>
-References: <20170215140819.879-1-quentin.schulz@free-electrons.com>
- <b1140be9-1811-1512-b32e-436e8bb25824@hartkopp.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next] vxlan: remove unused variable saddr in neigh_reduce
+Date: Mon, 20 Feb 2017 08:41:16 -0800
+Message-ID: <1487608876-4873-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Quentin Schulz <quentin.schulz@free-electrons.com>,
-        fvallee@eukrea.fr, wg@grandegger.com, mkl@pengutronix.de,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, boris.brezillon@free-electrons.com,
-        nicolas.ferre@atmel.com
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <b1140be9-1811-1512-b32e-436e8bb25824@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:34355 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750884AbdBTQlX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 11:41:23 -0500
+Received: by mail-pg0-f53.google.com with SMTP id 1so2943514pgi.1
+        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 08:41:22 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19/02/2017 at 16:37:50 +0100, Oliver Hartkopp wrote:
-> Fortunately I was contacted by Bosch this Friday as they want to contribute
-> a driver upgrade to support IP cores up to 3.2.x.
-> Additionally their plan is to use Device Tree information to determine the
-> IP core revision - or at least to cross check its information with the
-> register information used in your suggestion.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-My opinion is that is is not really useful. Either we use the version
-info from the register or DT. But that is probably a matter of taste and
-you are the maintainer :)
+silences the below warning:
+    drivers/net/vxlan.c: In function ‘neigh_reduce’:
+    drivers/net/vxlan.c:1599:25: warning: variable ‘saddr’ set but not used
+    [-Wunused-but-set-variable]
 
-> For that reason I would suggest to wait for the driver updates from Bosch
-> instead of adding an incomplete fix for only one change of eleven.
-> 
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ drivers/net/vxlan.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Well, having something working right now is still better that nothing. I
-think it is worth having that patch now so CAN is working on our
-platforms.
-
-Everything else can probably be built on top of it anyway.
-
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 87f63f6..556953f 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1596,7 +1596,7 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb, __be32 vni)
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct nd_msg *msg;
+ 	const struct ipv6hdr *iphdr;
+-	const struct in6_addr *saddr, *daddr;
++	const struct in6_addr *daddr;
+ 	struct neighbour *n;
+ 	struct inet6_dev *in6_dev;
+ 
+@@ -1605,7 +1605,6 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb, __be32 vni)
+ 		goto out;
+ 
+ 	iphdr = ipv6_hdr(skb);
+-	saddr = &iphdr->saddr;
+ 	daddr = &iphdr->daddr;
+ 
+ 	msg = (struct nd_msg *)skb_transport_header(skb);
 -- 
-Alexandre Belloni, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+1.7.10.4
