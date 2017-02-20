@@ -1,46 +1,62 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
-Date: Mon, 20 Feb 2017 10:02:36 +0100
-Message-ID: <58AAB0AC.9080601@iogearbox.net>
-References: <20170220122227.54f04c2a@canb.auug.org.au>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Focusing the XDP project
+Date: Mon, 20 Feb 2017 11:13:43 +0100
+Message-ID: <20170220111343.76f77748@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Masami Hiramatsu <mhiramat@kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170220122227.54f04c2a@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, Saeed Mahameed <saeedm@mellanox.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Brenden Blanco <bblanco@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60574 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752371AbdBTKNt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 05:13:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/20/2017 02:22 AM, Stephen Rothwell wrote:
-> Hi all,
->
-> Today's linux-next merge of the tip tree got a conflict in:
->
->    kernel/extable.c
->
-> between commit:
->
->    74451e66d516 ("bpf: make jited programs visible in traces")
->
-> from the net-next tree and commit:
->
->    5b485629ba0d ("kprobes, extable: Identify kprobes trampolines as kernel text area")
->
-> from the tip tree.
->
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
 
-Looks good to me, thanks!
+First thing to bring in order for the XDP project:
+
+  RX batching is missing.
+
+I don't want to discuss packet page-sizes or multi-port forwarding,
+before we have established the most fundamental principal that all
+other solution use; RX batching.
+
+Without building in RX batching, from the beginning/now, the XDP
+architecture have lost.  As adding features and capabilities, will
+just lead us back to the exact same performance problems as before!
+
+
+Today we already have the 64 packets NAPI budget, but we are not
+taking advantage of this. For XDP as long as eBPF always return
+XDP_DROP or XDP_TX, then we (falsely) experience the effect of bulking
+(as code fits within the icache) and see huge perf boosts.
+
+The initial principal of bulking/batching packets to amortize per
+packet costs.  The next step is just as important: Lookup table sizes
+(FIB) kills performance again. The solution is implementing a smart
+table lookup scheme that prefetch hash table key-cells and afterwards
+prefetch data-cells, based on the RX batch of packets.  Notice VPP
+revolves around similar tricks, and why it beats DPDK, and why it
+scales with 1Millon routes.
+
+I hope I've made it very clear where the focus for XDP should be.
+This involves implementing what I call RX-stages in the drivers. While
+doing that we can figure out the most optimal data structure for
+packet batching.
+ I know Saeed is already working on RX-stages for mlx5, and I've tested
+the initial version of his patch, and the results are excellent.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
