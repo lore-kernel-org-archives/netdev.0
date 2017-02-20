@@ -1,7 +1,8 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next v4 00/12] net: ethernet: aquantia: improvements and fixes
-Date: Mon, 20 Feb 2017 22:36:38 +0300
-Message-ID: <cover.1487618263.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next v4 01/12] net: ethernet: aquantia: Removed extra assignment for skb->dev.
+Date: Mon, 20 Feb 2017 22:36:39 +0300
+Message-ID: <180874ad8845c295c6744bd7f77864fa6bec26b8.1487618263.git.pavel.belous@aquantia.com>
+References: <cover.1487618263.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org,
@@ -14,55 +15,33 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bl2nam02on0049.outbound.protection.outlook.com ([104.47.38.49]:6446
         "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750936AbdBTThc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Feb 2017 14:37:32 -0500
+        id S1751362AbdBTThe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 14:37:34 -0500
+In-Reply-To: <cover.1487618263.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-The following patchset contains improvements and fixes for aQuantia
-AQtion ethernet driver from net-next tree.
+This assignment is not needed.
 
-Most fixes are based on the comments from Lino Sanfilippo.
+Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+Reviewed-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Sanity testing was performed on real HW. No regression found.
-
-v1->v2: 1)Removed buffers copying.
-	2)Fixed dma error handling.
-
-v2->v3: 1)Fixes for aq_ndev_change_mtu:
-	-Use core MTU checking for min_mtu.
-	-Removed extra new_mtu assigment.
-	2)Reverse XMAS tree in aq_ring_rx_fill.
-v3->v4: 1)Use ndev->reg_state instead "is_ndev_registered" flag.
-
-Please review.
-Thanks.
-Pavel Belous (12):
-  net: ethernet: aquantia: Removed extra assignment for skb->dev.
-  net: ethernet: aquantia: Removed busy_count field.
-  net: ethernet: aquantia: Fixes for aq_ndev_change_mtu
-  net: ethernet: aquantia: Using module_pci_driver.
-  net: ethernet: aquantia: Superfluous initialization of "err".
-  net: ethernet: aquantia: Fixed missing rtnl_unlock.
-  net: ethernet: aquantia: Using NETDEV_TX_OK instead 0.
-  net: ethernet: aquantia: Null pointer check for aq_nic_ndev_alloc.
-  net: ethernet: aquantia: Call netdev_register after all initialized.
-  net: ethernet: aquantia: Fixed incorrect buff->len calculation.
-  net: ethernet: aquantia: Fixed memory allocation if
-    AQ_CFG_RX_FRAME_MAX > 1 page.
-  net: ethernet: aquantia: Copying tx buffers is not needed.
-
- drivers/net/ethernet/aquantia/atlantic/aq_main.c   |  40 +---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 206 +++++++++++----------
- .../ethernet/aquantia/atlantic/aq_nic_internal.h   |   1 -
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  24 +--
- drivers/net/ethernet/aquantia/atlantic/aq_ring.h   |   3 -
- drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |   1 -
- .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |   4 +-
- .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |   4 +-
- 8 files changed, 121 insertions(+), 162 deletions(-)
-
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+index fed6ac5..22bb75e 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+@@ -209,7 +209,6 @@ int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
+ 				goto err_exit;
+ 			}
+ 
+-			skb->dev = ndev;
+ 			skb_put(skb, buff->len);
+ 		} else {
+ 			skb = netdev_alloc_skb(ndev, ETH_HLEN);
 -- 
 2.7.4
