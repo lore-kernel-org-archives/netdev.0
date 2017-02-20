@@ -1,29 +1,42 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] net: mpls: Add support for netconf
-Date: Mon, 20 Feb 2017 14:08:11 +0100
-Message-ID: <f45b4787-3eb3-013a-5f86-14b4b388122e@6wind.com>
-References: <1487381793-12234-1-git-send-email-dsa@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
-        ebiederm@xmission.com
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+From: Ivan Vecera <cera@cera.cz>
+Subject: [PATCH ethtool] ethtool: sync help output for -x/-X with man page
+Date: Mon, 20 Feb 2017 15:13:52 +0100
+Message-ID: <20170220141352.9329-1-cera@cera.cz>
+Cc: linville@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f179.google.com ([209.85.128.179]:34261 "EHLO
-        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752888AbdBTOKT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 09:10:19 -0500
-Received: by mail-wr0-f179.google.com with SMTP id z61so64698082wrc.1
-        for <netdev@vger.kernel.org>; Mon, 20 Feb 2017 06:10:19 -0800 (PST)
-In-Reply-To: <1487381793-12234-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35928 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753273AbdBTONz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 09:13:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 18/02/2017 à 02:36, David Ahern a écrit :
-> Add netconf support to MPLS. Allows userpsace to learn and be notified
-> of changes to 'input' enable setting per interface.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Add missing words to the help output for -x and -X commands as well
+as an ability to set the indirection table to default value.
+
+Signed-off-by: Ivan Vecera <cera@cera.cz>
+---
+ ethtool.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/ethtool.c b/ethtool.c
+index 7af039e..61043ee 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -4786,10 +4786,10 @@ static const struct option {
+ 	{ "-T|--show-time-stamping", 1, do_tsinfo,
+ 	  "Show time stamping capabilities" },
+ 	{ "-x|--show-rxfh-indir|--show-rxfh", 1, do_grxfh,
+-	  "Show Rx flow hash indirection and/or hash key" },
++	  "Show Rx flow hash indirection table and/or RSS hash key" },
+ 	{ "-X|--set-rxfh-indir|--rxfh", 1, do_srxfh,
+-	  "Set Rx flow hash indirection and/or hash key",
+-	  "		[ equal N | weight W0 W1 ... ]\n"
++	  "Set Rx flow hash indirection table and/or RSS hash key",
++	  "		[ equal N | weight W0 W1 ... | default ]\n"
+ 	  "		[ hkey %x:%x:%x:%x:%x:.... ]\n" },
+ 	{ "-f|--flash", 1, do_flash,
+ 	  "Flash firmware image from the specified file to a region on the device",
+-- 
+2.10.2
