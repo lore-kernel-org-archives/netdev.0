@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qlogic: qla3xxx: use new api
- ethtool_{get|set}_link_ksettings
-Date: Mon, 20 Feb 2017 10:28:48 -0500 (EST)
-Message-ID: <20170220.102848.1654431640603977173.davem@davemloft.net>
-References: <1487459944-32311-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH] fsl/fman: fix spelling mistake in variable name
+ en_tsu_err_exeption
+Date: Mon, 20 Feb 2017 10:28:54 -0500 (EST)
+Message-ID: <20170220.102854.363621552857347906.davem@davemloft.net>
+References: <20170218234146.20041-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487459944-32311-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: madalin.bucur@nxp.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38492 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753866AbdBTP3G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 10:29:06 -0500
+In-Reply-To: <20170218234146.20041-1-colin.king@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun, 19 Feb 2017 00:19:04 +0100
+From: Colin King <colin.king@canonical.com>
+Date: Sat, 18 Feb 2017 23:41:46 +0000
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
+> trivial fix to spelling mistake, en_tsu_err_exeption should
+> be en_tsu_err_exception
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
