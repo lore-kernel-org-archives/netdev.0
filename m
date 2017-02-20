@@ -1,8 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next v3 02/12] net: ethernet: aquantia: Removed busy_count field.
-Date: Mon, 20 Feb 2017 14:41:44 +0300
-Message-ID: <28fae7fd1e16bba23a7a93df9fe82b8b12c1df02.1487590641.git.pavel.belous@aquantia.com>
-References: <cover.1487590641.git.pavel.belous@aquantia.com>
+Subject: [PATCH net-next v3 00/12]  net: ethernet: aquantia: improvements and fixes
+Date: Mon, 20 Feb 2017 14:41:42 +0300
+Message-ID: <cover.1487590641.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org,
@@ -12,91 +11,56 @@ Cc: netdev@vger.kernel.org,
         Pavel Belous <pavel.belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0069.outbound.protection.outlook.com ([104.47.42.69]:29120
+Received: from mail-by2nam03on0065.outbound.protection.outlook.com ([104.47.42.65]:11800
         "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751341AbdBTLmp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Feb 2017 06:42:45 -0500
-In-Reply-To: <cover.1487590641.git.pavel.belous@aquantia.com>
+        id S1751341AbdBTLml (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Feb 2017 06:42:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
- busy_count field and is_busy flag is not needed at all.
+The following patchset contains improvements and fixes for aQuantia
+AQtion ethernet driver from net-next tree.
 
-Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
-Reviewed-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
----
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c   | 11 -----------
- drivers/net/ethernet/aquantia/atlantic/aq_utils.h |  1 -
- 2 files changed, 12 deletions(-)
+Most fixes are based on the comments from Lino Sanfilippo.
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index aa22a7c..a153750 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -122,14 +122,11 @@ static void aq_nic_service_timer_cb(unsigned long param)
- 	struct aq_nic_s *self = (struct aq_nic_s *)param;
- 	struct net_device *ndev = aq_nic_get_ndev(self);
- 	int err = 0;
--	bool is_busy = false;
- 	unsigned int i = 0U;
- 	struct aq_hw_link_status_s link_status;
- 	struct aq_ring_stats_rx_s stats_rx;
- 	struct aq_ring_stats_tx_s stats_tx;
- 
--	atomic_inc(&self->header.busy_count);
--	is_busy = true;
- 	if (aq_utils_obj_test(&self->header.flags, AQ_NIC_FLAGS_IS_NOT_READY))
- 		goto err_exit;
- 
-@@ -170,8 +167,6 @@ static void aq_nic_service_timer_cb(unsigned long param)
- 	ndev->stats.tx_errors = stats_tx.errors;
- 
- err_exit:
--	if (is_busy)
--		atomic_dec(&self->header.busy_count);
- 	mod_timer(&self->service_timer,
- 		  jiffies + AQ_CFG_SERVICE_TIMER_INTERVAL);
- }
-@@ -574,16 +569,12 @@ __acquires(&ring->lock)
- 	unsigned int trys = AQ_CFG_LOCK_TRYS;
- 	int err = 0;
- 	bool is_nic_in_bad_state;
--	bool is_busy = false;
- 	struct aq_ring_buff_s buffers[AQ_CFG_SKB_FRAGS_MAX];
- 
- 	frags = skb_shinfo(skb)->nr_frags + 1;
- 
- 	ring = self->aq_ring_tx[AQ_NIC_TCVEC2RING(self, tc, vec)];
- 
--	atomic_inc(&self->header.busy_count);
--	is_busy = true;
--
- 	if (frags > AQ_CFG_SKB_FRAGS_MAX) {
- 		dev_kfree_skb_any(skb);
- 		goto err_exit;
-@@ -629,8 +620,6 @@ __acquires(&ring->lock)
- 	}
- 
- err_exit:
--	if (is_busy)
--		atomic_dec(&self->header.busy_count);
- 	return err;
- }
- 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-index 4446bd9..f6012b3 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-@@ -19,7 +19,6 @@
- struct aq_obj_s {
- 	spinlock_t lock; /* spinlock for nic/rings processing */
- 	atomic_t flags;
--	atomic_t busy_count;
- };
- 
- static inline void aq_utils_obj_set(atomic_t *flags, u32 mask)
+Sanity testing was performed on real HW. No regression found.
+
+v1->v2 :1)Removed buffers copying.
+	2)Fixed dma error handling.
+
+v2->v3 :1)Fixes for aq_ndev_change_mtu:
+	-Use core MTU checking for min_mtu.
+	-Removed extra new_mtu assigment.
+	2)Reverse XMAS tree in aq_ring_rx_fill.
+
+Please review.
+Thanks.
+Pavel Belous (12):
+  net: ethernet: aquantia: Removed extra assignment for skb->dev.
+  net: ethernet: aquantia: Removed busy_count field.
+  net: ethernet: aquantia: Fixes for aq_ndev_change_mtu
+  net: ethernet: aquantia: Using module_pci_driver.
+  net: ethernet: aquantia: Superfluous initialization of "err".
+  net: ethernet: aquantia: Fixed missing rtnl_unlock.
+  net: ethernet: aquantia: Using NETDEV_TX_OK instead 0.
+  net: ethernet: aquantia: Null pointer check for aq_nic_ndev_alloc.
+  net: ethernet: aquantia: Call netdev_register after all initialized.
+  net: ethernet: aquantia: Fixed incorrect buff->len calculation.
+  net: ethernet: aquantia: Fixed memory allocation if
+    AQ_CFG_RX_FRAME_MAX > 1 page.
+  net: ethernet: aquantia: Copying tx buffers is not needed.
+
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c   |  40 +---
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 206 +++++++++++----------
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  24 +--
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.h   |   3 -
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |   1 -
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |   4 +-
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |   4 +-
+ 7 files changed, 122 insertions(+), 160 deletions(-)
+
 -- 
 2.7.4
