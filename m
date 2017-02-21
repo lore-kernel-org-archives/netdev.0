@@ -1,41 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for
-	small buffer
-Date: Tue, 21 Feb 2017 12:26:33 -0500 (EST)
-Message-ID: <20170221.122633.2147557584633743335.davem@davemloft.net>
-References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net v2] ip: fix IP_CHECKSUM handling
+Date: Tue, 21 Feb 2017 12:26:26 -0500 (EST)
+Message-ID: <20170221.122626.706529426465404504.davem@davemloft.net>
+References: <3274d7c98d7d5ea07058d8b73f987fc60b6e8b6c.1487612303.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andreyknvl@google.com, edumazet@google.com,
+        tom@herbertland.com, stephen@networkplumber.org
+To: pabeni@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55378 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753782AbdBUR0e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 12:26:34 -0500
+In-Reply-To: <3274d7c98d7d5ea07058d8b73f987fc60b6e8b6c.1487612303.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Tue, 21 Feb 2017 16:46:28 +0800
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Tue, 21 Feb 2017 09:33:18 +0100
 
-> This patch switch to use build_skb() for small buffer which can have
-> better performance for both TCP and XDP (since we can work at page
-> before skb creation). It also remove lots of XDP codes since both
-> mergeable and small buffer use page frag during refill now.
+> The skbs processed by ip_cmsg_recv() are not guaranteed to
+> be linear e.g. when sending UDP packets over loopback with
+> MSGMORE.
+> Using csum_partial() on [potentially] the whole skb len
+> is dangerous; instead be on the safe side and use skb_checksum().
 > 
->                        Before   | After
-> XDP_DROP(xdp1) 64B  :  11.1Mpps | 14.4Mpps
+> Thanks to syzkaller team to detect the issue and provide the
+> reproducer.
 > 
-> Tested with xdp1/xdp2/xdp_ip_tx_tunnel and netperf.
+> v1 -> v2:
+>  - move the variable declaration in a tighter scope
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Fixes: ad6f939ab193 ("ip: Add offset parameter to ip_cmsg_recv")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
