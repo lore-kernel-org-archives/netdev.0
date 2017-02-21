@@ -1,61 +1,37 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/2] sctp: add support for MSG_MORE
-Date: Tue, 21 Feb 2017 14:27:25 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
-References: <cover.1487440272.git.lucien.xin@gmail.com>
- <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: 'Xin Long' <lucien.xin@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] bnxt_en: use eth_hw_addr_random()
+Date: Tue, 21 Feb 2017 15:27:28 +0100
+Message-ID: <20170221142728.604-1-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.183]:63684 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752842AbdBUO1f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 09:27:35 -0500
-In-Reply-To: <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
-Content-Language: en-US
+Received: from mail.zhinst.com ([212.126.164.98]:49460 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753143AbdBUO1j (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Feb 2017 09:27:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long 
-> Sent: 18 February 2017 17:53
-> This patch is to add support for MSG_MORE on sctp.
-> 
-> It adds force_delay in sctp_datamsg to save MSG_MORE, and sets it after
-> creating datamsg according to the send flag. sctp_packet_can_append_data
-> then uses it to decide if the chunks of this msg will be sent at once or
-> delay it.
-> 
-> Note that unlike [1], this patch saves MSG_MORE in datamsg, instead of
-> in assoc. As sctp enqueues the chunks first, then dequeue them one by
-> one. If it's saved in assoc,the current msg's send flag (MSG_MORE) may
-> affect other chunks' bundling.
+Use eth_hw_addr_random() to set a random MAC address in order to make
+sure bp->dev->addr_assign_type will be properly set to NET_ADDR_RANDOM.
 
-I thought about that and decided that the MSG_MORE flag on the last data
-chunk was the only one that mattered.
-Indeed looking at any others is broken.
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Consider what happens if you have two small chunks queued, the first
-with MSG_MORE set, the second with it clear.
-
-I think that sctp_outq_flush() will look at the first chunk and decide it
-doesn't need to do anything because sctp_packet_transmit_chunk()
-returns SCTP_XMIT_DELAY.
-The data chunk with MSG_MORE clear won't even be looked at.
-So the data will never be sent.
-
-I wouldn't worry about having messages queued that have MSG_MORE clean
-when the final message has it set.
-While it might be 'nice' to send the data (would have to be tx credit)
-waiting for the next data chunk shouldn't be a problem.
-
-I'm not sure I even want to test the current patch!
-
-	David
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 6dacdf1e4d26..235733e91c79 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4552,7 +4552,7 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
+ 			/* overwrite netdev dev_adr with admin VF MAC */
+ 			memcpy(bp->dev->dev_addr, vf->mac_addr, ETH_ALEN);
+ 		} else {
+-			random_ether_addr(bp->dev->dev_addr);
++			eth_hw_addr_random(bp->dev);
+ 			rc = bnxt_approve_mac(bp, bp->dev->dev_addr);
+ 		}
+ 		return rc;
+-- 
+2.11.0
