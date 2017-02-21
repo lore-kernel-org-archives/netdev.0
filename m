@@ -1,123 +1,80 @@
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Subject: Re: [PATCH] uapi: fix linux/if.h userspace compilation errors
-Date: Tue, 21 Feb 2017 23:19:14 +0300
-Message-ID: <20170221201914.GA28360@altlinux.org>
-References: <20170220115841.GA6846@altlinux.org> <20170221.121022.676021611021776681.davem@davemloft.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: Fw: [Bug 193911] New: net_prio.ifpriomap is not aware of the
+ network namespace, and discloses all network interface
+Date: Tue, 21 Feb 2017 15:41:52 -0500
+Message-ID: <20170221204152.GA8260@htj.duckdns.org>
+References: <20170203155330.06edece4@xeon-e3>
+ <CAM_iQpVB_OvJy4Yz97MeOh9hNwm-mTG9aM1FWBpaaOmjroWvVw@mail.gmail.com>
+ <20170206204728.GA23737@htj.duckdns.org>
+ <87mvdrkz6u.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=x-unknown;
-        protocol="application/pgp-signature"; boundary="h31gzZEtNLTqOjlF"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170221.121022.676021611021776681.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---h31gzZEtNLTqOjlF
 Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        xgao01@email.wm.edu
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:34502 "EHLO
+        mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752932AbdBUUlz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 15:41:55 -0500
+Received: by mail-yw0-f179.google.com with SMTP id p77so3015579ywg.1
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 12:41:54 -0800 (PST)
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <87mvdrkz6u.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 21, 2017 at 12:10:22PM -0500, David Miller wrote:
-> From: "Dmitry V. Levin" <ldv@altlinux.org>
-> Date: Mon, 20 Feb 2017 14:58:41 +0300
->=20
-> > Include <sys/socket.h> (guarded by ifndef __KERNEL__) to fix
-> > the following linux/if.h userspace compilation errors:
->=20
-> Wouldn't it be so much better to do this in include/uapi/linux/socket.h?
+Hello,
 
-Yes, it would be nicer if we could afford it.  However, changing
-uapi/linux/socket.h to include <sys/socket.h> is less conservative than
-changing every uapi header that fails to compile because of its use
-of struct sockaddr.  It's risky because <sys/socket.h> pulls in other
-types that might conflict with definitions provided by uapi headers.
+On Mon, Feb 13, 2017 at 08:04:57AM +1300, Eric W. Biederman wrote:
+> > Yeah, the whole thing never considered netns or delegation.  Maybe the
+> > read function itself should probably filter on the namespace of the
+> > reader?  I'm not completely sure whether trying to fix it won't cause
+> > some of existing use cases to break.  Eric, what do you think?
+> 
+> Apologies for the delay I just made it back from vacation.
 
-I've checked all uapi headers that have no compilation errors whether
-inclusion of <sys/socket.h> before them causes any issues, and found
-that linux/time.h and linux/uio.h (and their users) stop compiling
-because of type conflicts:
+Hope you enjoyed the vacation.
 
-$ gcc -S -o/dev/null -xc /dev/null -include /usr/include/sys/socket.h -incl=
-ude /usr/include/linux/time.h
-In file included from <command-line>:32:0:
-/usr/include/linux/time.h:9:8: error: redefinition of 'struct timespec'
- struct timespec {
-        ^~~~~~~~
-In file included from /usr/include/sys/select.h:45:0,
-                 from /usr/include/sys/types.h:219,
-                 from /usr/include/sys/uio.h:23,
-                 from /usr/include/sys/socket.h:26,
-                 from <command-line>:32:
-/usr/include/time.h:120:8: note: originally defined here
- struct timespec
-        ^~~~~~~~
-In file included from <command-line>:32:0:
-/usr/include/linux/time.h:15:8: error: redefinition of 'struct timeval'
- struct timeval {
-        ^~~~~~~
-In file included from /usr/include/sys/select.h:47:0,
-                 from /usr/include/sys/types.h:219,
-                 from /usr/include/sys/uio.h:23,
-                 from /usr/include/sys/socket.h:26,
-                 from <command-line>:32:
-/usr/include/bits/time.h:30:8: note: originally defined here
- struct timeval
-        ^~~~~~~
-$ gcc -S -o/dev/null -xc /dev/null -include /usr/include/sys/socket.h -incl=
-ude /usr/include/linux/uio.h
-In file included from <command-line>:32:0:
-/usr/include/linux/uio.h:16:8: error: redefinition of 'struct iovec'
- struct iovec
-        ^~~~~
-In file included from /usr/include/sys/uio.h:28:0,
-                 from /usr/include/sys/socket.h:26,
-                 from <command-line>:32:
-/usr/include/bits/uio.h:43:8: note: originally defined here
- struct iovec
-        ^~~~~
+> There are cases where we do look at the reader/opener of the  file, and
+> it is a pain, almost always the best policy is to have the context fixed
+> at mount time.
+> 
+> I don't see an obvious answer of what better semantics for this file
+> should be.  Perhaps Docker can mount over this file on older kernels?
+> 
+> The namespace primitives that people build containers out of were never
+> guaranteed not to leak the fact that you are in a container.  So a small
+> essentially harmless information leak is not something I panic about.
+> It is the setting up of the container itself that must know what the
+> primitives do to ensure that leaks don't happen, if you want to avoid leaks.
+> 
+> That said if this controller/file does not consider netns and delegation
+> I suspect the right thing to do is put it under CONFIG_BROKEN or
+> possibly
+> CONFIG_I_REALLY_NEED_THIS_SILLY_CODE_FOR_BACKWARDS_COMPATIBILITY
+> aka CONFIG_STAGING and let the code age out of the kernel there.
 
-We can try to workaround these ancient <time.h> against <linux/time.h>
-and <sys/uio.h> against <linux/uio.h> conflicts on uapi side by
-introducing __UAPI_DEF_TIMESPEC, __UAPI_DEF_TIMEVAL, and __UAPI_DEF_IOVEC
-guards, but these workarounds will work only one way (when libc headers
-are included before uapi ones) until glibc catches up, and the latter
-may take a lot of time.
+I see.  Yeah, it is broken in terms of ns support.  Marking it BROKEN
+from the config seems a bit drastic tho.
 
-> I mean, look at the comment right by the change you are making:
->=20
-> > @@ -24,6 +24,10 @@
-> >  #include <linux/socket.h>		/* for "struct sockaddr" et al	*/
->=20
-> Anyone including linux/socket.h is trying to obtain that type.
+> If someone actually cares about this code and wants to fix it to do the
+> something reasonable and is willing to dig through all of the subtleties
+> I can help with that.  I may be wrong but the code feels like something
+> that just isn't interesting enough to make it worth fixing.
 
-I think this comment is true for #ifdef __KERNEL__ code only.
+The network part of cgroup v2 can do the same thing, doesn't have
+these issues and can be used in conjunction with cgroup v1, so we
+already have a way out of this.
 
+I don't think we need to take an active action on it at this point.
+People who need namespace support can adopt cgroup v2 without breaking
+other things and I'm not sure there's enough benefit in marking the v1
+features BROKEN at this point.
 
---=20
-ldv
+Thanks.
 
---h31gzZEtNLTqOjlF
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJYrKDCAAoJEAVFT+BVnCUIFJYQAKPX0TJmcqYGjslugJf4+jmC
-FWJ06U4bnkhcEVVJV4XNlLr0U+j/0iYnpuSNu9XCOD3Gs0sAUToyxeBgv+0/xITG
-WxGiHmJQo80YTrUJmkTRnNw54LhCTUrzvKdsYaU+tPKfd8Z4gFobbPDBc2WEaRD8
-kXdeSieykEceRwcv9x+4aE/LDcDALvfqiQK73VtXo/tijCmtyt9IMwShoFrgESto
-Bt/Gs58rv34LfpBDYQeYXoNHdUAelBj5YSKrzi+qH3nfC2JAjhsfZJRSe2n91MHy
-272YaDm9dzObESjhAFJl7scgCqVewimLAPPIzGDkXLW8AnMfEtPZiMXn1BhMfj3w
-MJhZZS5/T/BPX+5VoB4diXz1DQX0sdginS0dNTA67vLFCR+ywLu5B7+D1tOBNEmQ
-uGtTZLJrjl3080pBviZJdbnpzEUAA5F+jdgSYhsBg5uGEIP0E/7MIER/OIDGyT2u
-WeqXL013OhTr5REz1gMjPluG75A1D3UExXnXGxQ/H0JOoXI0++6zbeSyOof9B8Mx
-lpLMsfWEGf/HRc3ZdERpy43+U/QECK7TecXJMq15CVnRf+8DS4TPV26dlM6uHHXj
-HzVHehzeobI7OJrx/zihGXIs7uO5AwevXABg+0D9TekLpbgT+67fvdTZlQ9zKAFm
-2wgT3rr30ZtDjP7MC69z
-=YvcB
------END PGP SIGNATURE-----
-
---h31gzZEtNLTqOjlF--
+-- 
+tejun
