@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH 7/9] dpaa_eth: do not ignore port api return value
-Date: Tue, 21 Feb 2017 13:52:52 +0200
-Message-ID: <1487677974-13678-8-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH 9/9] dpaa_eth: enable multiple Tx traffic classes
+Date: Tue, 21 Feb 2017 13:52:54 +0200
+Message-ID: <1487677974-13678-10-git-send-email-madalin.bucur@nxp.com>
 References: <1487677974-13678-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -14,148 +14,77 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-by2nam01on0062.outbound.protection.outlook.com ([104.47.34.62]:37936
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752258AbdBULxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Feb 2017 06:53:53 -0500
+        id S1752308AbdBULyF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Feb 2017 06:54:05 -0500
 In-Reply-To: <1487677974-13678-1-git-send-email-madalin.bucur@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+From: Camelia Groza <camelia.groza@nxp.com>
 
+Implement the setup_tc ndo to configure prioritised Tx traffic classes.
+Priorities range from 0 (lowest) to 3 (highest). The driver assigns
+NR_CPUS queues to each traffic class.
+
+Signed-off-by: Camelia Groza <camelia.groza@nxp.com>
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 65 +++++++++++++++++---------
- 1 file changed, 43 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 36 ++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index a7a595c..ae64cdb 100644
+index ac75d09..1b3ea38 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -1063,9 +1063,9 @@ static int dpaa_fq_free(struct device *dev, struct list_head *list)
- 	return err;
- }
- 
--static void dpaa_eth_init_tx_port(struct fman_port *port, struct dpaa_fq *errq,
--				  struct dpaa_fq *defq,
--				  struct dpaa_buffer_layout *buf_layout)
-+static int dpaa_eth_init_tx_port(struct fman_port *port, struct dpaa_fq *errq,
-+				 struct dpaa_fq *defq,
-+				 struct dpaa_buffer_layout *buf_layout)
- {
- 	struct fman_buffer_prefix_content buf_prefix_content;
- 	struct fman_port_params params;
-@@ -1084,23 +1084,29 @@ static void dpaa_eth_init_tx_port(struct fman_port *port, struct dpaa_fq *errq,
- 	params.specific_params.non_rx_params.dflt_fqid = defq->fqid;
- 
- 	err = fman_port_config(port, &params);
--	if (err)
-+	if (err) {
- 		pr_err("%s: fman_port_config failed\n", __func__);
-+		return err;
-+	}
- 
- 	err = fman_port_cfg_buf_prefix_content(port, &buf_prefix_content);
--	if (err)
-+	if (err) {
- 		pr_err("%s: fman_port_cfg_buf_prefix_content failed\n",
- 		       __func__);
-+		return err;
-+	}
- 
- 	err = fman_port_init(port);
- 	if (err)
- 		pr_err("%s: fm_port_init failed\n", __func__);
-+
-+	return err;
- }
- 
--static void dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
--				  size_t count, struct dpaa_fq *errq,
--				  struct dpaa_fq *defq,
--				  struct dpaa_buffer_layout *buf_layout)
-+static int dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
-+				 size_t count, struct dpaa_fq *errq,
-+				 struct dpaa_fq *defq,
-+				 struct dpaa_buffer_layout *buf_layout)
- {
- 	struct fman_buffer_prefix_content buf_prefix_content;
- 	struct fman_port_rx_params *rx_p;
-@@ -1128,32 +1134,44 @@ static void dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
+@@ -342,6 +342,41 @@ static void dpaa_get_stats64(struct net_device *net_dev,
  	}
- 
- 	err = fman_port_config(port, &params);
--	if (err)
-+	if (err) {
- 		pr_err("%s: fman_port_config failed\n", __func__);
-+		return err;
-+	}
- 
- 	err = fman_port_cfg_buf_prefix_content(port, &buf_prefix_content);
--	if (err)
-+	if (err) {
- 		pr_err("%s: fman_port_cfg_buf_prefix_content failed\n",
- 		       __func__);
-+		return err;
-+	}
- 
- 	err = fman_port_init(port);
- 	if (err)
- 		pr_err("%s: fm_port_init failed\n", __func__);
-+
-+	return err;
  }
  
--static void dpaa_eth_init_ports(struct mac_device *mac_dev,
--				struct dpaa_bp **bps, size_t count,
--				struct fm_port_fqs *port_fqs,
--				struct dpaa_buffer_layout *buf_layout,
--				struct device *dev)
-+static int dpaa_eth_init_ports(struct mac_device *mac_dev,
-+			       struct dpaa_bp **bps, size_t count,
-+			       struct fm_port_fqs *port_fqs,
-+			       struct dpaa_buffer_layout *buf_layout,
-+			       struct device *dev)
++static int dpaa_setup_tc(struct net_device *net_dev, u32 handle, __be16 proto,
++			 struct tc_to_netdev *tc)
++{
++	struct dpaa_priv *priv = netdev_priv(net_dev);
++	int i;
++
++	if (tc->type != TC_SETUP_MQPRIO)
++		return -EINVAL;
++
++	if (tc->tc == priv->num_tc)
++		return 0;
++
++	if (!tc->tc) {
++		netdev_reset_tc(net_dev);
++		goto out;
++	}
++
++	if (tc->tc > DPAA_TC_NUM) {
++		netdev_err(net_dev, "Too many traffic classes: max %d supported.\n",
++			   DPAA_TC_NUM);
++		return -EINVAL;
++	}
++
++	netdev_set_num_tc(net_dev, tc->tc);
++
++	for (i = 0; i < tc->tc; i++)
++		netdev_set_tc_queue(net_dev, i, DPAA_TC_TXQ_NUM,
++				    i * DPAA_TC_TXQ_NUM);
++
++out:
++	priv->num_tc = tc->tc ? tc->tc : 1;
++	netif_set_real_num_tx_queues(net_dev, priv->num_tc * DPAA_TC_TXQ_NUM);
++	return 0;
++}
++
+ static struct mac_device *dpaa_mac_dev_get(struct platform_device *pdev)
  {
- 	struct fman_port *rxport = mac_dev->port[RX];
- 	struct fman_port *txport = mac_dev->port[TX];
-+	int err;
+ 	struct platform_device *of_dev;
+@@ -2417,6 +2452,7 @@ static const struct net_device_ops dpaa_ops = {
+ 	.ndo_validate_addr = eth_validate_addr,
+ 	.ndo_set_rx_mode = dpaa_set_rx_mode,
+ 	.ndo_do_ioctl = dpaa_ioctl,
++	.ndo_setup_tc = dpaa_setup_tc,
+ };
  
--	dpaa_eth_init_tx_port(txport, port_fqs->tx_errq,
--			      port_fqs->tx_defq, &buf_layout[TX]);
--	dpaa_eth_init_rx_port(rxport, bps, count, port_fqs->rx_errq,
--			      port_fqs->rx_defq, &buf_layout[RX]);
-+	err = dpaa_eth_init_tx_port(txport, port_fqs->tx_errq,
-+				    port_fqs->tx_defq, &buf_layout[TX]);
-+	if (err)
-+		return err;
-+
-+	err = dpaa_eth_init_rx_port(rxport, bps, count, port_fqs->rx_errq,
-+				    port_fqs->rx_defq, &buf_layout[RX]);
-+
-+	return err;
- }
- 
- static int dpaa_bman_release(const struct dpaa_bp *dpaa_bp,
-@@ -2649,8 +2667,10 @@ static int dpaa_eth_probe(struct platform_device *pdev)
- 	priv->rx_headroom = dpaa_get_headroom(&priv->buf_layout[RX]);
- 
- 	/* All real interfaces need their ports initialized */
--	dpaa_eth_init_ports(mac_dev, dpaa_bps, DPAA_BPS_NUM, &port_fqs,
--			    &priv->buf_layout[0], dev);
-+	err = dpaa_eth_init_ports(mac_dev, dpaa_bps, DPAA_BPS_NUM, &port_fqs,
-+				  &priv->buf_layout[0], dev);
-+	if (err)
-+		goto init_ports_failed;
- 
- 	priv->percpu_priv = devm_alloc_percpu(dev, *priv->percpu_priv);
- 	if (!priv->percpu_priv) {
-@@ -2683,6 +2703,7 @@ static int dpaa_eth_probe(struct platform_device *pdev)
- napi_add_failed:
- 	dpaa_napi_del(net_dev);
- alloc_percpu_failed:
-+init_ports_failed:
- 	dpaa_fq_free(dev, &priv->dpaa_fq_list);
- fq_alloc_failed:
- 	qman_delete_cgr_safe(&priv->ingress_cgr);
+ static int dpaa_napi_add(struct net_device *net_dev)
 -- 
 2.1.0
