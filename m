@@ -1,103 +1,40 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH net-next v3 0/4] net: mvneta: improve rx/tx performance
-Date: Tue, 21 Feb 2017 12:37:40 +0800
-Message-ID: <20170221123726.2db7db19@xhacker>
-References: <20170220125344.3555-1-jszhang@marvell.com>
- <877f4laqog.fsf@free-electrons.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 1/1] net: sock: Use USEC_PER_SEC macro instead
+ of literal 1000000
+Date: Mon, 20 Feb 2017 23:13:34 -0800
+Message-ID: <1487661214.2853.14.camel@perches.com>
+References: <1487601224-22241-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: thomas.petazzoni@free-electrons.com, arnd@arndb.de, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, mw@semihalf.com, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <877f4laqog.fsf@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: fgao@ikuai8.com, davem@davemloft.net, edumazet@google.com,
+        soheil@google.com, netdev@vger.kernel.org, gfree.wind@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0111.hostedemail.com ([216.40.44.111]:52841 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751041AbdBUHNi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 02:13:38 -0500
+In-Reply-To: <1487601224-22241-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgR3JlZ29yeSwKCk9uIE1vbiwgMjAgRmViIDIwMTcgMTU6MjE6MzUgKzAxMDAgR3JlZ29yeSBD
-TEVNRU5UIHdyb3RlOgoKPiBIaSBKaXNoZW5nLAo+ICAKPiAgT24gbHVuLiwgZsOpdnIuIDIwIDIw
-MTcsIEppc2hlbmcgWmhhbmcgPGpzemhhbmdAbWFydmVsbC5jb20+IHdyb3RlOgo+IAo+ID4gSW4g
-aG90IGNvZGUgcGF0aCBzdWNoIGFzIG12bmV0YV9yeF9zd2JtKCksIHdlIGFjY2VzcyBmaWVsZHMg
-b2YgcnhfZGVzYwo+ID4gYW5kIHR4X2Rlc2MuIFRoZXNlIERNQSBkZXNjcyBhcmUgYWxsb2NhdGVk
-IGJ5IGRtYV9hbGxvY19jb2hlcmVudCwgdGhleQo+ID4gYXJlIHVuY2FjaGVhYmxlIGlmIHRoZSBk
-ZXZpY2UgaXNuJ3QgY2FjaGUgY29oZXJlbnQsIHJlYWRpbmcgZnJvbQo+ID4gdW5jYWNoZWQgbWVt
-b3J5IGlzIGZhaXJseSBzbG93Lgo+ID4KPiA+IHBhdGNoMSByZXVzZXMgdGhlIHJlYWQgb3V0IHN0
-YXR1cyB0byBnZXR0aW5nIHN0YXR1cyBmaWVsZCBvZiByeF9kZXNjCj4gPiBhZ2Fpbi4KPiA+Cj4g
-PiBwYXRjaDIgYXZvaWRzIGdldHRpbmcgYnVmX3BoeXNfYWRkciBmcm9tIHJ4X2Rlc2MgYWdhaW4g
-aW4KPiA+IG12bmV0YV9yeF9od2JtIGJ5IHJldXNpbmcgdGhlIHBoeXNfYWRkciB2YXJpYWJsZS4K
-PiA+Cj4gPiBwYXRjaDMgYXZvaWRzIHJlYWRpbmcgZnJvbSB0eF9kZXNjIGFzIG11Y2ggYXMgcG9z
-c2libGUgYnkgc3RvcmUgd2hhdAo+ID4gd2UgbmVlZCBpbiBsb2NhbCB2YXJpYWJsZS4KPiA+Cj4g
-PiBXZSBnZXQgdGhlIGZvbGxvd2luZyBwZXJmb3JtYW5jZSBkYXRhIG9uIE1hcnZlbGwgQkc0Q1Qg
-UGxhdGZvcm1zCj4gPiAodGVzdGVkIHdpdGggaXBlcmYpOgo+ID4KPiA+IGJlZm9yZSB0aGUgcGF0
-Y2g6Cj4gPiBzZW5kaW5nIDFHQiBpbiBtdm5ldGFfdHgoKShkaXNhYmxlZCBUU08pIGNvc3RzIDc5
-MzU1Mzc2MG5zCj4gPgo+ID4gYWZ0ZXIgdGhlIHBhdGNoOgo+ID4gc2VuZGluZyAxR0IgaW4gbXZu
-ZXRhX3R4KCkoZGlzYWJsZWQgVFNPKSBjb3N0cyA3MTk5NTM4MDBucwo+ID4KPiA+IHdlIHNhdmVk
-IDkuMiUgdGltZS4KPiA+Cj4gPiBwYXRjaDQgdXNlcyBjYWNoZWFibGUgbWVtb3J5IHRvIHN0b3Jl
-IHRoZSByeCBidWZmZXIgRE1BIGFkZHJlc3MuCj4gPgo+ID4gV2UgZ2V0IHRoZSBmb2xsb3dpbmcg
-cGVyZm9ybWFuY2UgZGF0YSBvbiBNYXJ2ZWxsIEJHNENUIFBsYXRmb3Jtcwo+ID4gKHRlc3RlZCB3
-aXRoIGlwZXJmKToKPiA+Cj4gPiBiZWZvcmUgdGhlIHBhdGNoOgo+ID4gcmVjdmluZyAxR0IgaW4g
-bXZuZXRhX3J4X3N3Ym0oKSBjb3N0cyAxNDkyNjU5NjAwIG5zCj4gPgo+ID4gYWZ0ZXIgdGhlIHBh
-dGNoOgo+ID4gcmVjdmluZyAxR0IgaW4gbXZuZXRhX3J4X3N3Ym0oKSBjb3N0cyAxNDIxNTY1NjQw
-IG5zICAKPiAKPiBDb3VsZCB5b3UgZXhwbGFpbiB3aG8geW91IGdldCB0aGlzIG51bWJlcj8KClRo
-YW5rcyBmb3IgeW91ciByZXZpZXcuCgpUaGUgbWVhc3VyZW1lbnQgaXMgc2ltcGxlOiByZWNvcmQg
-aG93IG11Y2ggdGltZSB3ZSBzcGVudCBpbiBtdm5ldGFfcnhfc3dibSgpCmZvciByZWNlaXZpbmcg
-MUdCIGRhdGEsIHNvbWV0aGluZyBhcyBiZWxvdzoKCm12bmV0YV9yeF9zd2JtKCkKewoJc3RhdGlj
-IHU2NCB0b3RhbF90aW1lOwoJdTY0IHQxLCB0MjsKCXN0YXRpYyB1NjQgY291bnQ7CgoJdDEgPSBz
-Y2hlZF9jbG9jaygpOwoJLi4uCgoJaWYgKHJjdmRfcGt0cykgewoJCS4uLgoJCXQyID0gc2NoZWRf
-Y2xvY2soKSAtIHQxOwoJCXRvdGFsX3RpbWUgKz0gdDI7CgkJY291bnQgKz0gcmN2ZF9ieXRlczs7
-CgkJaWYgKGNvdW50ID49IDB4NDAwMDAwMDApIHsKCQkJcHJpbnRrKCIhISEhICVsbGQgJWxsZFxu
-IiwgdG90YWxfdGltZSwgY291bnQpOwoJCQl0b3RhbF90aW1lID0gMDsKCQkJY291bnQgPSAwOwoJ
-CX0KCS4uLgp9Cgo+IAo+IHJlY2VpdmluZyAxR0IgaW4gMS40MiBzZWNvbmQgbWVhbnMgaGF2aW5n
-IGEgYmFuZHdpZHRoIG9mCj4gOC8xLjQyPTUuNjMgR2IvcywgdGhhdCBtZWFucyB0aGF0IHlvdSBh
-cmUgdXNpbmcgYXQgbGVhc3QgYSAxMEdiCj4gaW50ZXJmYWNlLgoKaG1tbSwgd2UganVzdCBtZWFz
-dXJlZCB0aGUgdGltZSBzcGVudCBpbiBtdm5ldGFfcnhfc3dibSgpLCBzbyB3ZSBjYW4ndCBzb2x2
-ZQp0aGUgYmFuZHdpZHRoIGFzIDgvMS40Miwgd2hhdCBkbyB5b3UgdGhpbms/Cgo+IAo+IFdoZW4g
-SSB1c2VkIGlwZXJmIEkgZGlkbid0IGhhdmUgdGhpcyBraW5kIG9mIGdyYW51bGFyaXR5Ogo+IGlw
-ZXJmIC1jIDE5Mi4xNjguMTAuMSAtbiAxMDI0TQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+IENsaWVudCBjb25uZWN0aW5nIHRv
-IDE5Mi4xNjguMTAuMTksIFRDUCBwb3J0IDUwMDEKPiBUQ1Agd2luZG93IHNpemU6IDQzLjggS0J5
-dGUgKGRlZmF1bHQpCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tCj4gWyAgM10gbG9jYWwgMTkyLjE2OC4xMC4yOCBwb3J0IDUzMDg2
-IGNvbm5lY3RlZCB3aXRoIDE5Mi4xNjguMTAuMSBwb3J0IDUwMDEKPiBbIElEXSBJbnRlcnZhbCAg
-ICAgICBUcmFuc2ZlciAgICAgQmFuZHdpZHRoCj4gWyAgM10gIDAuMC0gOS4xIHNlYyAgMS4wMCBH
-Qnl0ZXMgICA5NDIgTWJpdHMvc2VjCj4gCj4gQWxzbyB3aXRob3V0IEhXQk0gZW5hYmxlZCAoc28g
-d2l0aCB0aGUgc2FtZSBjb25maWd1cmF0aW9uIG9mIHlvdXIgdGVzdCksCj4gSSBkaWRuJ3Qgbm90
-aWNlZCBhbnkgaW1wcm92ZW1lbnQgd2l0aCB0aGUgcGF0Y2ggc2V0IGFwcGxpZWQuIEJ1dCBhdAoK
-RnJvbSBiYW5kd2lkdGggcG9pbnQgb2YgdmlldywgeWVzLCB0aGVyZSdzIG5vIGltcHJvdmVtZW50
-LiBCdXQgZnJvbSBjcHUKdGltZS9sb2FkIHBvaW50IG9mIHZpZXcsIEkgZG8gc2VlIGEgdHJpdmlh
-bCBpbXByb3ZlbWVudC4gQ291bGQgeW91IGFsc28KZGlkIGEgc2ltcGxlIHRlc3QgZnJvbSB5b3Vy
-IHNpZGUgdG8gc2VlIHdoZXRoZXIgd2UgaGF2ZSBzaW1pbGFyIGltcHJvdmVtZW50CmRhdGE/CgpU
-aGFua3MsCkppc2hlbmcKCgoKPiBsZWFzdCBJIGRpZG4ndCBzZWUgYW55IHJlZ3Jlc3Npb24gd2l0
-aCBvciB3aXRob3V0IEhXQk0uCj4gCj4gR3JlZ29yeQo+IAo+ID4KPiA+IFdlIHNhdmVkIDQuNzYl
-IHRpbWUuCj4gPgo+ID4gQmFzaWNhbGx5LCBwYXRjaDEgYW5kIHBhdGNoNCBkbyB3aGF0IEFybmQg
-bWVudGlvbmVkIGluIFsxXS4KPiA+Cj4gPiBIaSBBcm5kLAo+ID4KPiA+IEkgYWRkZWQgIlN1Z2dl
-c3RlZC1ieSB5b3UiIHRhZywgSSBob3BlIHlvdSBkb24ndCBtaW5kIDspCj4gPgo+ID4gVGhhbmtz
-Cj4gPgo+ID4gWzFdIGh0dHBzOi8vd3d3LnNwaW5pY3MubmV0L2xpc3RzL25ldGRldi9tc2c0MDU4
-ODkuaHRtbAo+ID4KPiA+IFNpbmNlIHYyOgo+ID4gICAtIGFkZCBHcmVnb3J5J3MgYWNrIHRvIHBh
-dGNoMQo+ID4gICAtIG9ubHkgZ2V0IHJ4IGJ1ZmZlciBETUEgYWRkcmVzcyBmcm9tIGNhY2hlYWJs
-ZSBtZW1vcnkgZm9yIG12bmV0YV9yeF9zd2JtKCkKPiA+ICAgLSBhZGQgcGF0Y2ggMiB0byByZWFk
-IHJ4X2Rlc2MtPmJ1Zl9waHlzX2FkZHIgb25jZSBpbiBtdm5ldGFfcnhfaHdibSgpCj4gPiAgIC0g
-YWRkIHBhdGNoIDMgdG8gYXZvaWQgcmVhZGluZyBmcm9tIHR4X2Rlc2MgYXMgbXVjaCBhcyBwb3Nz
-aWJsZQo+ID4KPiA+IFNpbmNlIHYxOgo+ID4gICAtIGNvcnJlY3QgdGhlIHBlcmZvcm1hbmNlIGRh
-dGEgdHlwbwo+ID4KPiA+Cj4gPiBKaXNoZW5nIFpoYW5nICg0KToKPiA+ICAgbmV0OiBtdm5ldGE6
-IGF2b2lkIGdldHRpbmcgc3RhdHVzIGZyb20gcnhfZGVzYyBhcyBtdWNoIGFzIHBvc3NpYmxlCj4g
-PiAgIG5ldDogbXZuZXRhOiBhdm9pZCBnZXR0aW5nIGJ1Zl9waHlzX2FkZHIgZnJvbSByeF9kZXNj
-IGFnYWluCj4gPiAgIG5ldDogbXZuZXRhOiBhdm9pZCByZWFkaW5nIGZyb20gdHhfZGVzYyBhcyBt
-dWNoIGFzIHBvc3NpYmxlCj4gPiAgIG5ldDogbXZuZXRhOiBVc2UgY2FjaGVhYmxlIG1lbW9yeSB0
-byBzdG9yZSB0aGUgcnggYnVmZmVyIERNQSBhZGRyZXNzCj4gPgo+ID4gIGRyaXZlcnMvbmV0L2V0
-aGVybmV0L21hcnZlbGwvbXZuZXRhLmMgfCA4MCArKysrKysrKysrKysrKysrKysrLS0tLS0tLS0t
-LS0tLS0tLQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCA0MyBpbnNlcnRpb25zKCspLCAzNyBkZWxldGlv
-bnMoLSkKPiA+Cj4gPiAtLSAKPiA+IDIuMTEuMAo+ID4gIAo+IAoKCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBs
-aXN0CmxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5m
-cmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
+On Mon, 2017-02-20 at 22:33 +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> The USEC_PER_SEC is used once in sock_set_timeout as the max value of
+> tv_usec. But there are other similar codes which use the literal
+> 1000000 in this file.
+> It is minor cleanup to keep consitent.
+[]
+> diff --git a/net/core/sock.c b/net/core/sock.c
+[]
+> @@ -367,7 +367,7 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+>  	if (tv.tv_sec == 0 && tv.tv_usec == 0)
+>  		return 0;
+>  	if (tv.tv_sec < (MAX_SCHEDULE_TIMEOUT/HZ - 1))
+> -		*timeo_p = tv.tv_sec*HZ + (tv.tv_usec+(1000000/HZ-1))/(1000000/HZ);
+> +		*timeo_p = tv.tv_sec * HZ + (tv.tv_usec + (USEC_PER_SEC / HZ - 1)) / (USEC_PER_SEC / HZ);
+
+Maybe convert this to DIV_ROUND_UP one day too?
+
+	*timeo_p = tv.tv_sec * HZ + DIV_ROUND_UP(tv.tv_usec, USEC_PER_SEC / HZ);
