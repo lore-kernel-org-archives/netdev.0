@@ -1,113 +1,171 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
-Date: Tue, 21 Feb 2017 15:31:41 +0100
-Message-ID: <20170221143141.GD2694@nanopsycho.mtl.com>
-References: <1486031855-10551-1-git-send-email-simon.horman@netronome.com>
- <1486031855-10551-2-git-send-email-simon.horman@netronome.com>
- <1486038693.13103.20.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170202155849.GA28482@penelope.horms.nl>
- <CALx6S37b00GfUBQ5imVfOhg2Rbp_GtDntkwqyj3cN8kzt6gG0w@mail.gmail.com>
- <20170202174803.GF1845@nanopsycho.orion>
- <CALx6S37QtKgc14DFway-Ajme7JhbAN71M+83w28+4FELdv7Xew@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <simon.horman@netronome.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Tom Herbert <tom@herbertland.com>
+Subject: [patch net-next RFC 1/2] flow_dissecror: Move ARP dissection into a separate function
+Date: Tue, 21 Feb 2017 15:33:18 +0100
+Message-ID: <1487687599-5464-1-git-send-email-jiri@resnulli.us>
+References: <20170221143141.GD2694@nanopsycho.mtl.com>
+Cc: davem@davemloft.net, tom@herbertland.com,
+        simon.horman@netronome.com, eric.dumazet@gmail.com,
+        dinan.gunawardena@netronome.com, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34064 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752429AbdBUObp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 09:31:45 -0500
-Received: by mail-wm0-f67.google.com with SMTP id c85so20072666wmi.1
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 06:31:44 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALx6S37QtKgc14DFway-Ajme7JhbAN71M+83w28+4FELdv7Xew@mail.gmail.com>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:34742 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752842AbdBUOdX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 09:33:23 -0500
+Received: by mail-wr0-f196.google.com with SMTP id 89so8782327wrr.1
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 06:33:22 -0800 (PST)
+In-Reply-To: <20170221143141.GD2694@nanopsycho.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 02, 2017 at 07:36:31PM CET, tom@herbertland.com wrote:
->On Thu, Feb 2, 2017 at 9:48 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Thu, Feb 02, 2017 at 06:24:40PM CET, tom@herbertland.com wrote:
->>>On Thu, Feb 2, 2017 at 7:58 AM, Simon Horman <simon.horman@netronome.com> wrote:
->>>> [Repost due to gmail account problem]
->>>>
->>>> On Thu, Feb 02, 2017 at 04:31:33AM -0800, Eric Dumazet wrote:
->>>>> On Thu, 2017-02-02 at 11:37 +0100, Simon Horman wrote:
->>>>> > Allow dissection of Neighbour Discovery target IP, and source and
->>>>> > destination link-layer addresses for neighbour solicitation and
->>>>> > advertisement messages.
->>>>> >
->>>>> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
->>>>> > ---
->>>>>
->>>>> Hi Simon
->>>>>
->>>>> Why is this needed ?
->>>>>
->>>>> Any code added in flow dissector needs to be extra careful,
->>>>> we had various packet of deaths errors recently in this area.
->>>>
->>>> Hi Eric,
->>>>
->>>> there some activity to allow programming of OvS flows in hardware via TC
->>>> with the flower classifier. As the ND fields in this patch are part of the
->>>> OvS flow key I would like them considered for additions to flower and thus
->>>> the dissector to allow compatibility with OvS.
->>>>
->>>Given that ARP is already there it seems only "fair" to have ND also.
->>>But Eric is correct, this is quite a sensitive area of code.
->>>
->>>> I apologise if any 'deaths' have resulted from my recent work on the
->>>> dissector. I am of course very open to ideas on how to avoid any future
->>>> incidents.
->>>
->>>That's a tough problem. flow_dissector started off as simple mechanism
->>>to just identify actual flows (really just TCP and UDP packets) for
->>>the purposes of packet steering. But given the benefits of its
->>>location low in the stack and the open ended capabilities for parsing
->>>it seems to have mushroomed into a general catchall to parse a whole
->>>bunch of different protocols. A lot of these go beyond simply
->>>identifying flows (ICMP parsing, ARP, or ND as in your patches). These
->>>new use cases may be valid, but the result is a convoluted function (>
->>>500 LOC by my count) and it seems to be quite easy to have subtle bugs
->>>mostly in edge cases, several of which could have been exploited in
->>>DDOS attacks.
->>
->> Agreed that we probably came to a point when we need to split
->> __skb_flow_dissect into modular and pluggable pieces. Will not be
->> trivial though.
->>
->> Also note that it depends on the __skb_flow_dissect user which code is
->> actually used or not. For the critical path, that keys are defined by:
->> flow_keys_dissector_keys
->>
->True, but the code doesn't separate out the critical path from all
->these extended features which is resulted in a jumbled mess with no
->modularity to speak of :-(
+From: Jiri Pirko <jiri@mellanox.com>
 
-I'm looking at this right now. It is really not possible to split this
-in some nice and efficient way. So what I did (patchset in reply to this
-email) is I pushed the bits that are not needed for the default hash
-dissection out to sub-functions. Also, the code is executed only when
-the flow dissector user needs it - that is not the case of the default
-hash dissection, so that should satisfy your concerns.
+Make the main flow_dissect function a bit smaller and move the ARP
+dissection into a separate function. Along with that, do the ARP header
+processing only in case the flow dissection user requires it.
 
-Every future dissection feature addition will be done like this. So
-Simon can do it like that for ND and should be safe.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/core/flow_dissector.c | 111 ++++++++++++++++++++++++----------------------
+ 1 file changed, 59 insertions(+), 52 deletions(-)
 
-
->
->> Most of the code Simon is adding is noop for non-flower usecase if:
->> dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ND) == false
->>
->Sure, but that just makes this code corner cases which means it's hard
->to maintain and harder to find bugs in the long run.
-
-Sure, but you will never see the bugs in the default hash dissection.
-And that is what you need. For cls_flower user, we'll experience it and
-fix it. I see no problem.
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index c35aae1..10dc5bb 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -113,6 +113,61 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
+ }
+ EXPORT_SYMBOL(__skb_flow_get_ports);
+ 
++static bool __skb_flow_dissect_arp(const struct sk_buff *skb,
++				   struct flow_dissector *flow_dissector,
++				   void *target_container, void *data,
++				   int nhoff, int hlen)
++{
++	struct flow_dissector_key_arp *key_arp;
++	struct {
++		unsigned char ar_sha[ETH_ALEN];
++		unsigned char ar_sip[4];
++		unsigned char ar_tha[ETH_ALEN];
++		unsigned char ar_tip[4];
++	} *arp_eth, _arp_eth;
++	const struct arphdr *arp;
++	struct arphdr *_arp;
++
++	if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ARP))
++		return true;
++
++	arp = __skb_header_pointer(skb, nhoff, sizeof(_arp), data,
++				   hlen, &_arp);
++	if (!arp)
++		return false;
++
++	if (arp->ar_hrd != htons(ARPHRD_ETHER) ||
++	    arp->ar_pro != htons(ETH_P_IP) ||
++	    arp->ar_hln != ETH_ALEN ||
++	    arp->ar_pln != 4 ||
++	    (arp->ar_op != htons(ARPOP_REPLY) &&
++	     arp->ar_op != htons(ARPOP_REQUEST)))
++		return false;
++
++	arp_eth = __skb_header_pointer(skb, nhoff + sizeof(_arp),
++				       sizeof(_arp_eth), data,
++				       hlen, &_arp_eth);
++	if (!arp_eth)
++		return false;
++
++	key_arp = skb_flow_dissector_target(flow_dissector,
++					    FLOW_DISSECTOR_KEY_ARP,
++					    target_container);
++
++	memcpy(&key_arp->sip, arp_eth->ar_sip, sizeof(key_arp->sip));
++	memcpy(&key_arp->tip, arp_eth->ar_tip, sizeof(key_arp->tip));
++
++	/* Only store the lower byte of the opcode;
++	 * this covers ARPOP_REPLY and ARPOP_REQUEST.
++	 */
++	key_arp->op = ntohs(arp->ar_op) & 0xff;
++
++	ether_addr_copy(key_arp->sha, arp_eth->ar_sha);
++	ether_addr_copy(key_arp->tha, arp_eth->ar_tha);
++
++	return true;
++}
++
+ /**
+  * __skb_flow_dissect - extract the flow_keys struct and return it
+  * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
+@@ -138,7 +193,6 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 	struct flow_dissector_key_control *key_control;
+ 	struct flow_dissector_key_basic *key_basic;
+ 	struct flow_dissector_key_addrs *key_addrs;
+-	struct flow_dissector_key_arp *key_arp;
+ 	struct flow_dissector_key_ports *key_ports;
+ 	struct flow_dissector_key_icmp *key_icmp;
+ 	struct flow_dissector_key_tags *key_tags;
+@@ -382,59 +436,12 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 		goto out_good;
+ 
+ 	case htons(ETH_P_ARP):
+-	case htons(ETH_P_RARP): {
+-		struct {
+-			unsigned char ar_sha[ETH_ALEN];
+-			unsigned char ar_sip[4];
+-			unsigned char ar_tha[ETH_ALEN];
+-			unsigned char ar_tip[4];
+-		} *arp_eth, _arp_eth;
+-		const struct arphdr *arp;
+-		struct arphdr *_arp;
+-
+-		arp = __skb_header_pointer(skb, nhoff, sizeof(_arp), data,
+-					   hlen, &_arp);
+-		if (!arp)
+-			goto out_bad;
+-
+-		if (arp->ar_hrd != htons(ARPHRD_ETHER) ||
+-		    arp->ar_pro != htons(ETH_P_IP) ||
+-		    arp->ar_hln != ETH_ALEN ||
+-		    arp->ar_pln != 4 ||
+-		    (arp->ar_op != htons(ARPOP_REPLY) &&
+-		     arp->ar_op != htons(ARPOP_REQUEST)))
++	case htons(ETH_P_RARP):
++		if (!__skb_flow_dissect_arp(skb, flow_dissector,
++					    target_container, data,
++					    nhoff, hlen))
+ 			goto out_bad;
+-
+-		arp_eth = __skb_header_pointer(skb, nhoff + sizeof(_arp),
+-					       sizeof(_arp_eth), data,
+-					       hlen,
+-					       &_arp_eth);
+-		if (!arp_eth)
+-			goto out_bad;
+-
+-		if (dissector_uses_key(flow_dissector,
+-				       FLOW_DISSECTOR_KEY_ARP)) {
+-
+-			key_arp = skb_flow_dissector_target(flow_dissector,
+-							    FLOW_DISSECTOR_KEY_ARP,
+-							    target_container);
+-
+-			memcpy(&key_arp->sip, arp_eth->ar_sip,
+-			       sizeof(key_arp->sip));
+-			memcpy(&key_arp->tip, arp_eth->ar_tip,
+-			       sizeof(key_arp->tip));
+-
+-			/* Only store the lower byte of the opcode;
+-			 * this covers ARPOP_REPLY and ARPOP_REQUEST.
+-			 */
+-			key_arp->op = ntohs(arp->ar_op) & 0xff;
+-
+-			ether_addr_copy(key_arp->sha, arp_eth->ar_sha);
+-			ether_addr_copy(key_arp->tha, arp_eth->ar_tha);
+-		}
+-
+ 		goto out_good;
+-	}
+ 
+ 	default:
+ 		goto out_bad;
+-- 
+2.7.4
