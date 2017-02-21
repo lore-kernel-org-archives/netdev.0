@@ -1,123 +1,110 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/2] bpf: fix unlocking of jited image when module ronx not set
-Date: Tue, 21 Feb 2017 16:09:34 +0100
-Message-ID: <578a70ffeddfb08608dff0d223bfa51ab3b5ac93.1487688093.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 1/2] arch: add ARCH_HAS_SET_MEMORY config
+Date: Tue, 21 Feb 2017 16:09:33 +0100
+Message-ID: <54542285e1e8accb513db0fee0f5f830aea45d80.1487688093.git.daniel@iogearbox.net>
 References: <cover.1487688093.git.daniel@iogearbox.net>
 Cc: ast@kernel.org, labbott@redhat.com, eric.dumazet@gmail.com,
         willemb@google.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56272 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:56268 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751420AbdBUPKE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 10:10:04 -0500
+        with ESMTP id S1751673AbdBUPKS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 10:10:18 -0500
 In-Reply-To: <cover.1487688093.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1487688093.git.daniel@iogearbox.net>
 References: <cover.1487688093.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric and Willem reported that they recently saw random crashes when
-JIT was in use and bisected this to 74451e66d516 ("bpf: make jited
-programs visible in traces"). Issue was that the consolidation part
-added bpf_jit_binary_unlock_ro() that would unlock previously made
-read-only memory back to read-write. However, DEBUG_SET_MODULE_RONX
-cannot be used for this to test for presence of set_memory_*()
-functions. We need to use ARCH_HAS_SET_MEMORY instead to fix this;
-also add the corresponding bpf_jit_binary_lock_ro() to filter.h.
+Currently, there's no good way to test for the presence of
+set_memory_ro/rw/x/nx() helpers implemented by archs such as
+x86, arm, arm64 and s390.
 
-Fixes: 74451e66d516 ("bpf: make jited programs visible in traces")
-Reported-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Willem de Bruijn <willemb@google.com>
-Bisected-by: Eric Dumazet <edumazet@google.com>
+There's DEBUG_SET_MODULE_RONX and DEBUG_RODATA, however both
+don't really reflect that: set_memory_*() are also available
+even when DEBUG_SET_MODULE_RONX is turned off, and DEBUG_RODATA
+is set by parisc, but doesn't implement above functions. Thus,
+add ARCH_HAS_SET_MEMORY that is selected by mentioned archs,
+where generic code can test against this.
+
+This also allows later on to move DEBUG_SET_MODULE_RONX out of
+the arch specific Kconfig to define it only once depending on
+ARCH_HAS_SET_MEMORY.
+
+Suggested-by: Laura Abbott <labbott@redhat.com>
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- arch/arm64/net/bpf_jit_comp.c |  2 +-
- arch/s390/net/bpf_jit_comp.c  |  2 +-
- arch/x86/net/bpf_jit_comp.c   |  2 +-
- include/linux/filter.h        | 13 +++++++++++--
- 4 files changed, 14 insertions(+), 5 deletions(-)
+ arch/Kconfig       | 4 ++++
+ arch/arm/Kconfig   | 1 +
+ arch/arm64/Kconfig | 1 +
+ arch/s390/Kconfig  | 1 +
+ arch/x86/Kconfig   | 1 +
+ 5 files changed, 8 insertions(+)
 
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index 05d1210..a785554 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -898,7 +898,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
+diff --git a/arch/Kconfig b/arch/Kconfig
+index bd04eac..e8ada79 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -222,6 +222,10 @@ config GENERIC_SMP_IDLE_THREAD
+ config GENERIC_IDLE_POLL_SETUP
+        bool
  
- 	bpf_flush_icache(header, ctx.image + ctx.idx);
- 
--	set_memory_ro((unsigned long)header, header->pages);
-+	bpf_jit_binary_lock_ro(header);
- 	prog->bpf_func = (void *)ctx.image;
- 	prog->jited = 1;
- 
-diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-index f1d0e62..b49c52a 100644
---- a/arch/s390/net/bpf_jit_comp.c
-+++ b/arch/s390/net/bpf_jit_comp.c
-@@ -1327,7 +1327,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
- 			print_fn_code(jit.prg_buf, jit.size_prg);
- 	}
- 	if (jit.prg_buf) {
--		set_memory_ro((unsigned long)header, header->pages);
-+		bpf_jit_binary_lock_ro(header);
- 		fp->bpf_func = (void *) jit.prg_buf;
- 		fp->jited = 1;
- 	}
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 18a62e2..32322ce 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -1165,7 +1165,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
- 
- 	if (image) {
- 		bpf_flush_icache(header, image + proglen);
--		set_memory_ro((unsigned long)header, header->pages);
-+		bpf_jit_binary_lock_ro(header);
- 		prog->bpf_func = (void *)image;
- 		prog->jited = 1;
- 	} else {
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 0c1cc91..0c167fd 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -551,7 +551,7 @@ static inline bool bpf_prog_was_classic(const struct bpf_prog *prog)
- 
- #define bpf_classic_proglen(fprog) (fprog->len * sizeof(fprog->filter[0]))
- 
--#ifdef CONFIG_DEBUG_SET_MODULE_RONX
-+#ifdef CONFIG_ARCH_HAS_SET_MEMORY
- static inline void bpf_prog_lock_ro(struct bpf_prog *fp)
- {
- 	set_memory_ro((unsigned long)fp, fp->pages);
-@@ -562,6 +562,11 @@ static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
- 	set_memory_rw((unsigned long)fp, fp->pages);
- }
- 
-+static inline void bpf_jit_binary_lock_ro(struct bpf_binary_header *hdr)
-+{
-+	set_memory_ro((unsigned long)hdr, hdr->pages);
-+}
++# Select if arch has all set_memory_ro/rw/x/nx() functions in asm/cacheflush.h
++config ARCH_HAS_SET_MEMORY
++	bool
 +
- static inline void bpf_jit_binary_unlock_ro(struct bpf_binary_header *hdr)
- {
- 	set_memory_rw((unsigned long)hdr, hdr->pages);
-@@ -575,10 +580,14 @@ static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
- {
- }
- 
-+static inline void bpf_jit_binary_lock_ro(struct bpf_binary_header *hdr)
-+{
-+}
-+
- static inline void bpf_jit_binary_unlock_ro(struct bpf_binary_header *hdr)
- {
- }
--#endif /* CONFIG_DEBUG_SET_MODULE_RONX */
-+#endif /* CONFIG_ARCH_HAS_SET_MEMORY */
- 
- static inline struct bpf_binary_header *
- bpf_jit_binary_hdr(const struct bpf_prog *fp)
+ # Select if arch init_task initializer is different to init/init_task.c
+ config ARCH_INIT_TASK
+        bool
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 186c4c2..edae056 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -4,6 +4,7 @@ config ARM
+ 	select ARCH_CLOCKSOURCE_DATA
+ 	select ARCH_HAS_DEVMEM_IS_ALLOWED
+ 	select ARCH_HAS_ELF_RANDOMIZE
++	select ARCH_HAS_SET_MEMORY
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HAVE_CUSTOM_GPIO_H
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 1117421..1853405 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -12,6 +12,7 @@ config ARM64
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_HAS_GIGANTIC_PAGE
+ 	select ARCH_HAS_KCOV
++	select ARCH_HAS_SET_MEMORY
+ 	select ARCH_HAS_SG_CHAIN
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_USE_CMPXCHG_LOCKREF
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index c6722112..094deb1 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -72,6 +72,7 @@ config S390
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_HAS_GIGANTIC_PAGE
+ 	select ARCH_HAS_KCOV
++	select ARCH_HAS_SET_MEMORY
+ 	select ARCH_HAS_SG_CHAIN
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index e487493..434dd2a 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -53,6 +53,7 @@ config X86
+ 	select ARCH_HAS_KCOV			if X86_64
+ 	select ARCH_HAS_MMIO_FLUSH
+ 	select ARCH_HAS_PMEM_API		if X86_64
++	select ARCH_HAS_SET_MEMORY
+ 	select ARCH_HAS_SG_CHAIN
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
 -- 
 1.9.3
