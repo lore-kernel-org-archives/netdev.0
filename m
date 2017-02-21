@@ -1,58 +1,83 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net v2] ip: fix IP_CHECKSUM handling
-Date: Tue, 21 Feb 2017 09:33:18 +0100
-Message-ID: <3274d7c98d7d5ea07058d8b73f987fc60b6e8b6c.1487612303.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
+From: Maxim Uvarov <muvarov@gmail.com>
+Subject: Adding vlan to DSA port causes lockdep splat
+Date: Tue, 21 Feb 2017 11:38:24 +0300
+Message-ID: <CAJGZr0JNsL3HG_CUs_jhavYJ5Z6Z6S-bhmE4sONkk++uEZL7nw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36090 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750992AbdBUIdd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Feb 2017 03:33:33 -0500
+Received: from mail-ua0-f169.google.com ([209.85.217.169]:33804 "EHLO
+        mail-ua0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750954AbdBUIiZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 03:38:25 -0500
+Received: by mail-ua0-f169.google.com with SMTP id 35so79287829uak.1
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 00:38:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The skbs processed by ip_cmsg_recv() are not guaranteed to
-be linear e.g. when sending UDP packets over loopback with
-MSGMORE.
-Using csum_partial() on [potentially] the whole skb len
-is dangerous; instead be on the safe side and use skb_checksum().
+Is there any progress on subj issue?
 
-Thanks to syzkaller team to detect the issue and provide the
-reproducer.
+I see it was investigated here:
+https://www.spinics.net/lists/netdev/msg361434.html
 
-v1 -> v2:
- - move the variable declaration in a tighter scope
+But it still exist on later kernels:
 
-Fixes: ad6f939ab193 ("ip: Add offset parameter to ip_cmsg_recv")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/ip_sockglue.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+[   37.320301] ip/1047 is trying to acquire lock:
+[   37.324764]  (_xmit_ETHER/1){+.....}, at: [<c06ad228>] dev_mc_sync+0x4c/0x88
+[   37.331882]
+[   37.331882] but task is already holding lock:
+[   37.337738]  (_xmit_ETHER/1){+.....}, at: [<c06ad228>] dev_mc_sync+0x4c/0x88
+[   37.344828]
+[   37.344828] other info that might help us debug this:
+[   37.351384]  Possible unsafe locking scenario:
+[   37.351384]
+[   37.357326]        CPU0
+[   37.359778]        ----
+[   37.362230]   lock(_xmit_ETHER/1);
+[   37.365650]   lock(_xmit_ETHER/1);
+[   37.369069]
+[   37.369069]  *** DEADLOCK ***
+[   37.369069]
+[   37.375013]  May be due to missing lock nesting notation
+[   37.375013]
+[   37.381830] 3 locks held by ip/1047:
+[   37.385416]  #0:  (rtnl_mutex){+.+.+.}, at: [<c06b8248>]
+rtnetlink_rcv+0x1c/0x38
+[   37.392860]  #1:  (&vlan_netdev_addr_lock_key/1){+.....}, at:
+[<c06a4f94>] dev_set_rx_mode+0x1c/0x30
+[   37.402046]  #2:  (_xmit_ETHER/1){+.....}, at: [<c06ad228>]
+dev_mc_sync+0x4c/0x88
+[   37.409574]
+[   37.409574] stack backtrace:
+[   37.413952] CPU: 0 PID: 1047 Comm: ip Not tainted
+4.10.0maxdebug-00008-g9d55486 #22
+[   37.421639] Hardware name: Generic AM33XX (Flattened Device Tree)
+[   37.427756] Backtrace:
+[   37.430237] [<c010bf78>] (dump_backtrace) from [<c010c220>]
+(show_stack+0x18/0x1c)
+[   37.437842]  r7:c140f7ec r6:c13e29e0 r5:dc316780 r4:c0db8408
+[   37.443537] [<c010c208>] (show_stack) from [<c0402ab0>]
+(dump_stack+0x20/0x28)
+[   37.450800] [<c0402a90>] (dump_stack) from [<c016b294>]
+(__lock_acquire+0x15d4/0x18ec)
+[   37.458753] [<c0169cc0>] (__lock_acquire) from [<c016b958>]
+(lock_acquire+0x74/0x94)
+[   37.466532]  r10:dc2260c0 r9:dd747910 r8:00000000 r7:00000001
+r6:00000001 r5:600d0013
+[   37.474393]  r4:00000000
+[   37.476946] [<c016b8e4>] (lock_acquire) from [<c07f802c>]
+(_raw_spin_lock_nested+0x44/0x54)
+[   37.485334]  r7:00001002 r6:dd4fd988 r5:dc1f3000 r4:dd4fd988
+[   37.491022] [<c07f7fe8>] (_raw_spin_lock_nested) from [<c06ad228>]
+(dev_mc_sync+0x4c/0x88)
+[   37.499320]  r4:dd4fd800
+[   37.501870] [<c06ad1dc>] (dev_mc_sync) from [<c0796b60>]
+(dsa_slave_set_rx_mode+0x28/0x38)
+[   37.510171]  r7:00001002 r6:00000000 r5:dd4fd800 r4:dc1f3000
+[   37.515856] [<c0796b38>] (dsa_slave_set_rx_mode) from [<c06a4f40>]
+(__dev_set_rx_mode+0x64/0x9c)
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 9000117..fc4bf4d 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -116,10 +116,10 @@ static void ip_cmsg_recv_checksum(struct msghdr *msg, struct sk_buff *skb,
- 	if (skb->ip_summed != CHECKSUM_COMPLETE)
- 		return;
- 
--	if (offset != 0)
--		csum = csum_sub(csum,
--				csum_partial(skb_transport_header(skb) + tlen,
--					     offset, 0));
-+	if (offset != 0) {
-+		int tend_off = skb_transport_offset(skb) + tlen;
-+		csum = csum_sub(csum, skb_checksum(skb, tend_off, offset, 0));
-+	}
- 
- 	put_cmsg(msg, SOL_IP, IP_CHECKSUM, sizeof(__wsum), &csum);
- }
 -- 
-2.9.3
+Best regards,
+Maxim Uvarov
