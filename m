@@ -1,37 +1,33 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] bnxt_en: use eth_hw_addr_random()
-Date: Tue, 21 Feb 2017 15:27:28 +0100
-Message-ID: <20170221142728.604-1-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
-To: Michael Chan <michael.chan@broadcom.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next][PATCH] RDS: keep data type consistent in the user
+ visible header
+Date: Tue, 21 Feb 2017 14:29:33 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE6CA26@AcuExch.aculab.com>
+References: <1487387747-5324-1-git-send-email-santosh.shilimkar@oracle.com>
+        <20170220.101951.663166903772216217.davem@davemloft.net>
+        <20170220153722.GB16561@oracle.com>
+ <20170220.103912.194197218422769191.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+        "sowmini.varadhan@oracle.com" <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:49460 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753143AbdBUO1j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Feb 2017 09:27:39 -0500
+Received: from smtp-out4.electric.net ([192.162.216.187]:55731 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752569AbdBUO37 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 09:29:59 -0500
+In-Reply-To: <20170220.103912.194197218422769191.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use eth_hw_addr_random() to set a random MAC address in order to make
-sure bp->dev->addr_assign_type will be properly set to NET_ADDR_RANDOM.
+> The entire file should use the proper "__uX" kernel types
+> rather than the uint* ones.
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The uint* ones are part of the C standard :-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 6dacdf1e4d26..235733e91c79 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4552,7 +4552,7 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
- 			/* overwrite netdev dev_adr with admin VF MAC */
- 			memcpy(bp->dev->dev_addr, vf->mac_addr, ETH_ALEN);
- 		} else {
--			random_ether_addr(bp->dev->dev_addr);
-+			eth_hw_addr_random(bp->dev);
- 			rc = bnxt_approve_mac(bp, bp->dev->dev_addr);
- 		}
- 		return rc;
--- 
-2.11.0
+	David
