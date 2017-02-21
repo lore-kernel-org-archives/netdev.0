@@ -1,68 +1,42 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the s390 tree
-Date: Wed, 22 Feb 2017 10:15:16 +1100
-Message-ID: <20170222101516.2f516e2d@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net-next 1/2] netfilter: nf_ct_expect: nf_ct_expect_related_report(): Return zero on success,
+Date: Tue, 21 Feb 2017 15:25:21 -0800
+Message-ID: <1487719522-42844-1-git-send-email-jarno@ovn.org>
+Cc: jarno@ovn.org, fgao@ikuai8.com, pablo@netfilter.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:54231 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751452AbdBUXZq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 18:25:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Commit 4dee62b1 ("netfilter: nf_ct_expect: nf_ct_expect_insert()
+returns void") inadvertently changed the successful return value of
+nf_ct_expect_related_report() from 0 to 1, which caused openvswitch
+conntrack integration fail in FTP test cases.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Fix this by always returning zero on the success code path.
 
-  arch/s390/net/bpf_jit_comp.c
+Fixes: 4dee62b1 ("netfilter: nf_ct_expect: nf_ct_expect_insert() returns void")
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ net/netfilter/nf_conntrack_expect.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-between commit:
-
-  9437964885f8 ("s390/bpf: remove redundant check for non-null image")
-
-from the s390 tree and commit:
-
-  9d876e79df6a ("bpf: fix unlocking of jited image when module ronx not set")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index e19a697..d6ace69 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -467,7 +467,7 @@ int nf_ct_expect_related_report(struct nf_conntrack_expect *expect,
+ 
+ 	spin_unlock_bh(&nf_conntrack_expect_lock);
+ 	nf_ct_expect_event_report(IPEXP_NEW, expect, portid, report);
+-	return ret;
++	return 0;
+ out:
+ 	spin_unlock_bh(&nf_conntrack_expect_lock);
+ 	return ret;
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc arch/s390/net/bpf_jit_comp.c
-index b3b0af86b84e,b49c52a02087..000000000000
---- a/arch/s390/net/bpf_jit_comp.c
-+++ b/arch/s390/net/bpf_jit_comp.c
-@@@ -1331,11 -1323,14 +1323,11 @@@ struct bpf_prog *bpf_int_jit_compile(st
-  	}
-  	if (bpf_jit_enable > 1) {
-  		bpf_jit_dump(fp->len, jit.size, pass, jit.prg_buf);
- -		if (jit.prg_buf)
- -			print_fn_code(jit.prg_buf, jit.size_prg);
- -	}
- -	if (jit.prg_buf) {
- -		bpf_jit_binary_lock_ro(header);
- -		fp->bpf_func = (void *) jit.prg_buf;
- -		fp->jited = 1;
- +		print_fn_code(jit.prg_buf, jit.size_prg);
-  	}
-- 	set_memory_ro((unsigned long)header, header->pages);
-++	bpf_jit_binary_lock_ro(header);
- +	fp->bpf_func = (void *) jit.prg_buf;
- +	fp->jited = 1;
-  free_addrs:
-  	kfree(jit.addrs);
-  out:
+2.1.4
