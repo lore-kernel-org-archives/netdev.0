@@ -1,182 +1,66 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: use-after-free in tw_timer_handler
-Date: Tue, 21 Feb 2017 12:46:40 +0300
-Message-ID: <CACT4Y+YqdkALRjYcPkHdF30DJQNviRwHgi0QnzyFWfbKzFA7fQ@mail.gmail.com>
-References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
- <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
- <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
- <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
- <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
- <CAM_iQpXDtOY+A2pEqGeggBONnGawt=Xv6PdcWJpUB-4dqv4hpA@mail.gmail.com>
- <CACT4Y+ZR8aQsrfVBxtg45YYyNZsYqHvUDkRrqAgE=+v+8O1pDg@mail.gmail.com> <CAM_iQpWgUQiarfH9wkxEkCoFkwvKJt75uX4CP1-MUU6u_hkLYQ@mail.gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCHv2 net-next 01/16] dt-bindings: net: update Marvell PPv2
+ binding for PPv2.2 support
+Date: Tue, 21 Feb 2017 11:12:46 +0100
+Message-ID: <20170221111246.2718c21a@free-electrons.com>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <1482943592-12556-2-git-send-email-thomas.petazzoni@free-electrons.com>
+        <20170103201842.hdg2uzzesog2jund@rob-hp-laptop>
+        <20170202175650.1fc06c2d@free-electrons.com>
+        <20170203164808.GD27312@n2100.armlinux.org.uk>
+        <20170214152503.602878cb@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f41.google.com ([209.85.213.41]:36074 "EHLO
-        mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751068AbdBUJrC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 04:47:02 -0500
-Received: by mail-vk0-f41.google.com with SMTP id t8so76090752vke.3
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 01:47:01 -0800 (PST)
-In-Reply-To: <CAM_iQpWgUQiarfH9wkxEkCoFkwvKJt75uX4CP1-MUU6u_hkLYQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170214152503.602878cb-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 18, 2017 at 1:30 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>>>>>>
->>>>>>> This code was changed a long time ago :
->>>>>>>
->>>>>>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
->>>>>>>
->>>>>>> So I suspect a recent patch broke the logic.
->>>>>>>
->>>>>>> You might start a bisection :
->>>>>>>
->>>>>>> I would check if 4.7 and 4.8 trigger the issue you noticed.
->>>>>>
->>>>>>
->>>>>> It happens with too low rate for bisecting (few times per day). I
->>>>>> could add some additional checks into code, but I don't know what
->>>>>> checks could be useful.
->>>>>
->>>>> If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
->>>>> we are able to help.
->>>>
->>>>
->>>> There are also chances that the problem is older.
->>>>
->>>> Looking at the code, this part of inet_twsk_purge looks fishy:
->>>>
->>>> 285                         if (unlikely((tw->tw_family != family) ||
->>>> 286                                      atomic_read(&twsk_net(tw)->count))) {
->>>>
->>>> It uses net->count == 0 check to find the right sockets. But what if
->>>> there are several nets with count == 0 in flight, can't there be
->>>> several inet_twsk_purge calls running concurrently freeing each other
->>>> sockets? If so it looks like inet_twsk_purge can call
->>>> inet_twsk_deschedule_put twice for a socket. Namely, two calls for
->>>> different nets discover the socket, check that net->count==0 and both
->>>> call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
->>>> net that it needs to purge?
->>>
->>> I don't think this could happen, because cleanup_net() is called in a
->>> work struct, and this work can't be scheduled twice, so there should
->>> not be any parallel cleanup_net().
->>>
->>> Also, inet_twsk_deschedule_put() already waits for the flying timer,
->>> net->count==0 at this point and all sockets in this netns are already
->>> gone, so I don't know how a timer could be still fired after this.
->>
->>
->> One thing that I noticed is that use-after-free always happens in
->> tw_timer_handler, but never in timer code. This suggests that:
->> 1. Whoever frees the struct waits for the timer mutex unlock.
->> 2. Free happens almost at the same time as timer fires (otherwise the
->> timer would probably be cancelled).
->>
->> That could happen if there is a race in timer code during cancellation
->> or rearming. I understand that it's heavily stressed code, but who
->> knows...
->
-> Good point! I think this could happen since timer is deactivated before
-> unlinking the tw sock, so another CPU could find it and rearm the timer
-> during such window?
->
->>
->> I still wonder if twsk_net(tw)->count==0 is the right condition. This
->> net may not yet have been scheduled for destruction, but another task
->> could pick it up and start destroying...
->
-> Good question. net_exit_list is just a snapshot of the cleanup_list, so
-> it is true that inet_twsk_purge() could purge more netns'es than in
-> net_exit_list, but I don't see any problem with this, the work later can't
-> find the same twsck again since it is unlinked from hashtable.
-> Do you see otherwise?
+Hello,
 
-No, I don't see otherwise. But it's just something suspicious in the
-context of an elusive race that happens under load.
+On Tue, 14 Feb 2017 15:25:03 +0100, Thomas Petazzoni wrote:
 
->> Cong, do you have any ideas as to what debugging checks I could add to
->> help track this down?
->
-> I don't have any theory for the cause of this bug. Your point above actually
-> makes sense for me. Maybe you can add some code in between the following
-> code:
->
->         if (del_timer_sync(&tw->tw_timer))
->                 inet_twsk_kill(tw);
->
-> to verify is the timer is rearmed or not.
+> I'll try to get some more information about this, but I suspect this is
+> one case where we don't yet fully understand how all the HW works and
+> what all registers are doing, so it's hard to do a perfect DT binding
+> from day 1.
 
-Now looking at the reports more closely, I think that debug info is
-off-by-one, and the use-after-free happens on the net object on this
-line: __NET_INC_STATS(twsk_net(tw), LINUX_MIB_TIMEWAITKILLED).
+So I've looked into this more closely, and after drawing a diagram of
+all the register areas, I came up with a much more reduced area, with
+only networking related registers: starting at 0x129000 for a size of
+0xb000. So now the DT node looks like this:
 
-And this report is actually all correct:
++                       cpm_ethernet: ethernet@0 {
++                               compatible = "marvell,armada-7k-pp22";
++                               reg = <0x0 0x100000>, <0x129000 0xb000>;
 
-BUG: KASAN: use-after-free in tw_timer_handler+0xc3/0xd0
-net/ipv4/inet_timewait_sock.c:149 at addr ffff88018063a460
-Read of size 8 by task swapper/1/0
-CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.10.0-rc8+ #65
-Hardware name: Google Google Compute Engine/Google Compute Engine,
-BIOS Google 01/01/2011
-Call Trace:
- <IRQ>
- __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
- tw_timer_handler+0xc3/0xd0 net/ipv4/inet_timewait_sock.c:149
- call_timer_fn+0x241/0x820 kernel/time/timer.c:1308
- expire_timers kernel/time/timer.c:1348 [inline]
- __run_timers+0x9e7/0xe90 kernel/time/timer.c:1642
- run_timer_softirq+0x21/0x80 kernel/time/timer.c:1655
- __do_softirq+0x31f/0xbe7 kernel/softirq.c:284
- invoke_softirq kernel/softirq.c:364 [inline]
- irq_exit+0x1cc/0x200 kernel/softirq.c:405
- exiting_irq arch/x86/include/asm/apic.h:658 [inline]
- smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:961
- apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:707
+This will be part of my next iteration.
 
-Object at ffff88018063a240, in cache net_namespace size: 6784
+Thanks!
 
-Allocated:
-PID = 3270
- kmem_cache_zalloc include/linux/slab.h:626 [inline]
- net_alloc net/core/net_namespace.c:339 [inline]
- copy_net_ns+0x196/0x530 net/core/net_namespace.c:379
- create_new_namespaces+0x409/0x860 kernel/nsproxy.c:106
- copy_namespaces+0x34d/0x420 kernel/nsproxy.c:164
- copy_process.part.42+0x20c6/0x5fd0 kernel/fork.c:1664
- copy_process kernel/fork.c:1486 [inline]
- _do_fork+0x200/0xff0 kernel/fork.c:1942
- SYSC_clone kernel/fork.c:2052 [inline]
- SyS_clone+0x37/0x50 kernel/fork.c:2046
- do_syscall_64+0x2e8/0x930 arch/x86/entry/common.c:280
- return_from_SYSCALL_64+0x0/0x7a
-
-Freed:
-PID = 8056
- kmem_cache_free+0x71/0x240 mm/slab.c:3762
- net_free+0xd7/0x110 net/core/net_namespace.c:355
- net_drop_ns+0x31/0x40 net/core/net_namespace.c:362
- cleanup_net+0x7f2/0xa90 net/core/net_namespace.c:479
- process_one_work+0xbd0/0x1c10 kernel/workqueue.c:2098
- worker_thread+0x223/0x1990 kernel/workqueue.c:2232
- kthread+0x326/0x3f0 kernel/kthread.c:227
- ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
-
-The read is of size 8, but read of tw->tw_kill should be 4.
-We could also double check offset within the object and check if it
-matches what __NET_INC_STATS(twsk_net(tw)) reads.
-
-So the net is somehow freed while the timer is active.
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
