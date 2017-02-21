@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ip: fix IP_CHECKSUM handling
-Date: Tue, 21 Feb 2017 12:26:26 -0500 (EST)
-Message-ID: <20170221.122626.706529426465404504.davem@davemloft.net>
-References: <3274d7c98d7d5ea07058d8b73f987fc60b6e8b6c.1487612303.git.pabeni@redhat.com>
+Subject: Re: [PATCH net-next v2 1/1] net: sock: Use USEC_PER_SEC macro
+ instead of literal 1000000
+Date: Tue, 21 Feb 2017 12:26:40 -0500 (EST)
+Message-ID: <20170221.122640.1790844289388833683.davem@davemloft.net>
+References: <1487668159-4720-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com, edumazet@google.com,
-        tom@herbertland.com, stephen@networkplumber.org
-To: pabeni@redhat.com
+Cc: edumazet@google.com, soheil@google.com, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55378 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55396 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753782AbdBUR0e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 12:26:34 -0500
-In-Reply-To: <3274d7c98d7d5ea07058d8b73f987fc60b6e8b6c.1487612303.git.pabeni@redhat.com>
+        with ESMTP id S1753016AbdBUR0m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 12:26:42 -0500
+In-Reply-To: <1487668159-4720-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Tue, 21 Feb 2017 09:33:18 +0100
+From: fgao@ikuai8.com
+Date: Tue, 21 Feb 2017 17:09:19 +0800
 
-> The skbs processed by ip_cmsg_recv() are not guaranteed to
-> be linear e.g. when sending UDP packets over loopback with
-> MSGMORE.
-> Using csum_partial() on [potentially] the whole skb len
-> is dangerous; instead be on the safe side and use skb_checksum().
+> From: Gao Feng <fgao@ikuai8.com>
 > 
-> Thanks to syzkaller team to detect the issue and provide the
-> reproducer.
+> The USEC_PER_SEC is used once in sock_set_timeout as the max value of
+> tv_usec. But there are other similar codes which use the literal
+> 1000000 in this file.
+> It is minor cleanup to keep consitent.
 > 
-> v1 -> v2:
->  - move the variable declaration in a tighter scope
-> 
-> Fixes: ad6f939ab193 ("ip: Add offset parameter to ip_cmsg_recv")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thank you.
