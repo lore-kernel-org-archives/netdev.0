@@ -1,57 +1,34 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
-Date: Tue, 21 Feb 2017 16:28:10 +0100
-Message-ID: <20170221152810.GE2694@nanopsycho.mtl.com>
-References: <1486031855-10551-1-git-send-email-simon.horman@netronome.com>
- <1486031855-10551-2-git-send-email-simon.horman@netronome.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/4] net: mvneta: improve rx/tx performance
+Date: Tue, 21 Feb 2017 11:16:02 -0500 (EST)
+Message-ID: <20170221.111602.860315087619854954.davem@davemloft.net>
+References: <20170220125344.3555-1-jszhang@marvell.com>
+        <877f4laqog.fsf@free-electrons.com>
+        <20170221123726.2db7db19@xhacker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, arnd@arndb.de,
+        mw@semihalf.com, linux-arm-kernel@lists.infradead.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jszhang@marvell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:35564 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751140AbdBUP2N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 10:28:13 -0500
-Received: by mail-wm0-f46.google.com with SMTP id v186so114168950wmd.0
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 07:28:13 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1486031855-10551-2-git-send-email-simon.horman@netronome.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54332 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753578AbdBUQQF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 11:16:05 -0500
+In-Reply-To: <20170221123726.2db7db19@xhacker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 02, 2017 at 11:37:34AM CET, simon.horman@netronome.com wrote:
->Allow dissection of Neighbour Discovery target IP, and source and
->destination link-layer addresses for neighbour solicitation and
->advertisement messages.
->
->Signed-off-by: Simon Horman <simon.horman@netronome.com>
->---
+From: Jisheng Zhang <jszhang@marvell.com>
+Date: Tue, 21 Feb 2017 12:37:40 +0800
 
-[...]
+> Thanks for your review.
+> 
+> The measurement is simple: record how much time we spent in mvneta_rx_swbm()
+> for receiving 1GB data, something as below:
 
->@@ -633,6 +702,18 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
-> 						     FLOW_DISSECTOR_KEY_ICMP,
-> 						     target_container);
-> 		key_icmp->icmp = skb_flow_get_be16(skb, nhoff, data, hlen);
->+
->+		if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ND) &&
->+		    ip_proto == IPPROTO_IPV6 && key_icmp->code == 0 &&
-
-IPPROTO_IPV6 say "IPv6-in-IPv4 tunnelling". Please use "NEXTHDR_IPV6"
-instead.
-
-
->+		    (key_icmp->type == NDISC_NEIGHBOUR_SOLICITATION ||
->+		     key_icmp->type == NDISC_NEIGHBOUR_ADVERTISEMENT)) {
->+			key_nd = skb_flow_dissector_target(flow_dissector,
->+							   FLOW_DISSECTOR_KEY_ND,
->+							   target_container);
->+			if (!(skb_flow_dissect_nd(skb, key_nd, data, nhoff,
->+						  hlen, ipv6_payload_len)))
->+				goto out_bad;
->+		}
-
-You should put this under "switch (ip_proto) {"
+Please use a standard tool for measuring performance, rather than profiling
+the driver and trying to derive numbers that way.
