@@ -1,40 +1,40 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: ANNOUNCE: Netdev 2.1 CFP extended
-Date: Tue, 21 Feb 2017 12:57:25 -0500
-Message-ID: <7b6788ee-c069-200b-69ae-32b2a344483d@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Focusing the XDP project
+Date: Tue, 21 Feb 2017 13:11:00 -0500 (EST)
+Message-ID: <20170221.131100.165451416977377136.davem@davemloft.net>
+References: <CALx6S375878KeM0O7BO9sB7B_3p+yO4yxfEhxYdn_=AZvWF-Aw@mail.gmail.com>
+        <20170221.114617.1686255511436946338.davem@davemloft.net>
+        <CALx6S36qPxUgvmp4taQFd0OzWyQ9Z4Rv8t+cnph_MAQHiGkvCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-        info@netdevconf.org, linux-wireless@vger.kernel.org,
-        tech-committee@netdevconf.org, David Miller <davem@davemloft.net>,
-        Stephen Jaworski <jaws@mojatatu.com>, lwn@lwn.net,
-        people@netdevconf.org, Brenda Butler <bjb@mojatatu.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: saeedm@mellanox.com, alexander.duyck@gmail.com, brouer@redhat.com,
+        alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+        netdev@vger.kernel.org, bblanco@gmail.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:36157 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751754AbdBUR5e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 12:57:34 -0500
-Received: by mail-it0-f68.google.com with SMTP id w185so11399965ita.3
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 09:57:33 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:55858 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752751AbdBUSLH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 13:11:07 -0500
+In-Reply-To: <CALx6S36qPxUgvmp4taQFd0OzWyQ9Z4Rv8t+cnph_MAQHiGkvCw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Tom Herbert <tom@herbertland.com>
+Date: Tue, 21 Feb 2017 09:40:17 -0800
 
+> I'd be more supportive of this line of thinking if we (e.g. FB) didn't
+> have to spend the majority time over the past few months trying to
+> deal with all the complexity being thrown into drivers for all these
+> new features such as XDP. Case in point, Mellanox drivers are
+> completely non-modular and have a horrible directory structure. They
+> tried to fix, this but the patch set was rejected because it would
+> break people trying to do backports. That's a fair argument, but the
+> lesson I gather from that is that we should put more time in up front
+> thinking about how to structure code the right way instead of just
+> throwing it in and trying to deal with the consequences later.
 
-The tech committee has graciously extended the CFP to February 27th.
-Hurry o thee procastinators and submit early to avoid the hazards of
-last minute traffic. Refer to:
-https://netdevconf.org/2.1/submit-proposal.html
-
-Some reminders, again:
--Registration is open. Register early so we can plan better.
-https://onlineregistrations.ca/netdev21/
-
-- hotel (If you can get the hotel cheaper online than conference
-rates please send us email, dont book ):
-https://www.netdevconf.org/2.1/hotel.html
-
-cheers,
-jamal
+Hey aren't you guys suffering from this because you're stuck on an
+older kernel for one reason or another?  Don't we constantly give
+the Android guys a hard time about this? ;-)
