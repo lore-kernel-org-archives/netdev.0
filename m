@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv4 net-next 05/13] net: mvpp2: release reference to txq_cpu[] entry after unmapping
-Date: Tue, 21 Feb 2017 11:28:05 +0100
-Message-ID: <1487672893-5746-6-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv4 net-next 08/13] net: mvpp2: simplify mvpp2_bm_bufs_add()
+Date: Tue, 21 Feb 2017 11:28:08 +0100
+Message-ID: <1487672893-5746-9-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -14,53 +14,54 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:49553 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:49563 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751951AbdBUK3F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:29:05 -0500
+        with ESMTP id S1751927AbdBUK27 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:28:59 -0500
 In-Reply-To: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvpp2_txq_bufs_free() function is called upon TX completion to DMA
-unmap TX buffers, and free the corresponding SKBs. It gets the
-references to the SKB to free and the DMA buffer to unmap from a per-CPU
-txq_pcpu data structure.
+The mvpp2_bm_bufs_add() currently creates a fake cookie by calling
+mvpp2_bm_cookie_pool_set(), just to be able to call
+mvpp2_pool_refill(). But all what mvpp2_pool_refill() does is extract
+the pool ID from the cookie, and call mvpp2_bm_pool_put() with this ID.
 
-However, the code currently increments the pointer to the next entry
-before doing the DMA unmap and freeing the SKB. It does not cause any
-visible problem because for a given SKB the TX completion is guaranteed
-to take place on the CPU where the TX was started. However, it is much
-more logical to increment the pointer to the next entry once the current
-entry has been completely unmapped/released.
+Instead of doing this convoluted thing, just call mvpp2_bm_pool_put()
+directly, since we have the BM pool ID.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 6fe1520..b98c668d 100644
+index 3afd0a6..a224049 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -4437,13 +4437,12 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
- 		struct mvpp2_txq_pcpu_buf *tx_buf =
- 			txq_pcpu->buffs + txq_pcpu->txq_get_index;
+@@ -3626,7 +3626,6 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ {
+ 	struct sk_buff *skb;
+ 	int i, buf_size, total_size;
+-	u32 bm;
+ 	dma_addr_t phys_addr;
  
--		mvpp2_txq_inc_get(txq_pcpu);
--
- 		dma_unmap_single(port->dev->dev.parent, tx_buf->phys,
- 				 tx_buf->size, DMA_TO_DEVICE);
--		if (!tx_buf->skb)
--			continue;
--		dev_kfree_skb_any(tx_buf->skb);
-+		if (tx_buf->skb)
-+			dev_kfree_skb_any(tx_buf->skb);
-+
-+		mvpp2_txq_inc_get(txq_pcpu);
+ 	buf_size = MVPP2_RX_BUF_SIZE(bm_pool->pkt_size);
+@@ -3640,13 +3639,12 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ 		return 0;
  	}
- }
  
+-	bm = mvpp2_bm_cookie_pool_set(0, bm_pool->id);
+ 	for (i = 0; i < buf_num; i++) {
+ 		skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
+ 		if (!skb)
+ 			break;
+ 
+-		mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
++		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)skb);
+ 	}
+ 
+ 	/* Update BM driver with number of buffers added to pool */
 -- 
 2.7.4
