@@ -1,48 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCHv2 net-next 0/4] update ipvs sysctl document
-Date: Tue, 21 Feb 2017 22:01:44 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1702212154590.1840@ja.home.ssi.bg>
-References: <1487313241-11361-1-git-send-email-liuhangbin@gmail.com> <1487579498-18967-1-git-send-email-liuhangbin@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCHv4 net-next 00/13] net: mvpp2: misc improvements and
+ preparation patches
+Date: Tue, 21 Feb 2017 21:03:22 +0100
+Message-ID: <20170221210322.05816422@free-electrons.com>
+References: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <20170221.131757.191949443842926494.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Simon Horman <horms@verge.net.au>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1487579498-18967-1-git-send-email-liuhangbin@gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nadavh@marvell.com, hannah@marvell.com,
+        yehuday@marvell.com, jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com, linux@arm.linux.org.uk,
+        stefanc@marvell.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:35205 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754143AbdBUUDZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 15:03:25 -0500
+In-Reply-To: <20170221.131757.191949443842926494.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
-	Hello,
-
-On Mon, 20 Feb 2017, Hangbin Liu wrote:
-
-> Fix and add some new ipvs sysctl options. Also use tab instead of
-> whitespaces to indent the descriptions.
+On Tue, 21 Feb 2017 13:17:57 -0500 (EST), David Miller wrote:
+> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Date: Tue, 21 Feb 2017 11:28:00 +0100
 > 
-> V2: Fix some descriptions based on Julian's advice.
+> > This series contains a number of fixes, misc improvements and
+> > preparation patches for an upcoming series that adds support for the
+> > new PPv2.2 network controller to the mvpp2 driver.  
 > 
-> Hangbin Liu (4):
->   ipvs: fix sync_threshold description and add sync_refresh_period, sync_retries
->   ipvs: Document sysctl sync_qlen_max and sync_sock_size
->   ipvs: Document sysctl sync_ports
->   ipvs: Document sysctl pmtu_disc
+> Series applied, thanks.
 
-	All patches look ok to me, thanks!
+Thanks a lot!
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-	Simon, can we keep this patchset while in merge window?
-
->  Documentation/networking/ipvs-sysctl.txt | 68 ++++++++++++++++++++++++++++----
->  1 file changed, 60 insertions(+), 8 deletions(-)
-> 
-> -- 
-> 2.5.5
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
