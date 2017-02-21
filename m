@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] bnxt_en: Fix probe and open bugs.
-Date: Mon, 20 Feb 2017 21:59:43 -0500 (EST)
-Message-ID: <20170220.215943.2125740965941756299.davem@davemloft.net>
-References: <1487636718-21293-1-git-send-email-michael.chan@broadcom.com>
+Subject: Re: [net-next][PATCH v2] RDS: Make user visible data types
+ consistent with rest of the kernel
+Date: Mon, 20 Feb 2017 22:18:12 -0500 (EST)
+Message-ID: <20170220.221812.707399155770011177.davem@davemloft.net>
+References: <1487629013-4972-1-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46158 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751078AbdBUC7s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2017 21:59:48 -0500
-In-Reply-To: <1487636718-21293-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: santosh.shilimkar@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1487629013-4972-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Mon, 20 Feb 2017 19:25:15 -0500
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Date: Mon, 20 Feb 2017 14:16:53 -0800
 
-> Fix 3 issues related to bnxt_init_one() and bnxt_open().  Don't probe
-> bridge devices and fixup some error code paths.
+> Use "__uX/__sX" kernel types rather than current uint*/int* for
+> entire file.
+> 
+> Reviewed-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> ---
+> v1->v2:
+> As suggested by David Miller, cleaned up entire header to use kernel types.
 
-Series applied, thanks Michael.
+Dmitry Levin already submitted a patch the other day which does this,
+and it is already in net-next.
