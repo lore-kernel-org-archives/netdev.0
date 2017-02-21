@@ -1,66 +1,129 @@
-From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCHv2 net-next 01/16] dt-bindings: net: update Marvell PPv2
- binding for PPv2.2 support
-Date: Tue, 21 Feb 2017 11:12:46 +0100
-Message-ID: <20170221111246.2718c21a@free-electrons.com>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
-        <1482943592-12556-2-git-send-email-thomas.petazzoni@free-electrons.com>
-        <20170103201842.hdg2uzzesog2jund@rob-hp-laptop>
-        <20170202175650.1fc06c2d@free-electrons.com>
-        <20170203164808.GD27312@n2100.armlinux.org.uk>
-        <20170214152503.602878cb@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170214152503.602878cb-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH net-next v4 1/7] gtp: switch from struct socket to struct sock for the GTP sockets
+Date: Tue, 21 Feb 2017 11:18:49 +0100
+Message-ID: <20170221101855.23940-2-aschultz@tpip.net>
+References: <20170221101855.23940-1-aschultz@tpip.net>
+Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
+        osmocom-net-gprs@lists.osmocom.org
+To: Pablo Neira <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:58377 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751171AbdBUKTC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Feb 2017 05:19:02 -0500
+In-Reply-To: <20170221101855.23940-1-aschultz@tpip.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+After enabling the UDP encapsulation, only the sk member is used.
 
-On Tue, 14 Feb 2017 15:25:03 +0100, Thomas Petazzoni wrote:
+Holding the socket would prevent user space from closing the socket,
+but holding a reference to the sk member does not have the same
+effect.
 
-> I'll try to get some more information about this, but I suspect this is
-> one case where we don't yet fully understand how all the HW works and
-> what all registers are doing, so it's hard to do a perfect DT binding
-> from day 1.
+This change will make it simpler to later detach the sockets from
+the netdevice.
 
-So I've looked into this more closely, and after drawing a diagram of
-all the register areas, I came up with a much more reduced area, with
-only networking related registers: starting at 0x129000 for a size of
-0xb000. So now the DT node looks like this:
+Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+---
+ drivers/net/gtp.c | 42 +++++++++++++++++++++++-------------------
+ 1 file changed, 23 insertions(+), 19 deletions(-)
 
-+                       cpm_ethernet: ethernet@0 {
-+                               compatible = "marvell,armada-7k-pp22";
-+                               reg = <0x0 0x100000>, <0x129000 0xb000>;
-
-This will be part of my next iteration.
-
-Thanks!
-
-Thomas
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index bda0c64..a8ce8c7 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -66,8 +66,8 @@ struct pdp_ctx {
+ struct gtp_dev {
+ 	struct list_head	list;
+ 
+-	struct socket		*sock0;
+-	struct socket		*sock1u;
++	struct sock		*sk0;
++	struct sock		*sk1u;
+ 
+ 	struct net_device	*dev;
+ 
+@@ -261,17 +261,19 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 
+ static void gtp_encap_disable(struct gtp_dev *gtp)
+ {
+-	if (gtp->sock0 && gtp->sock0->sk) {
+-		udp_sk(gtp->sock0->sk)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sock0->sk, NULL);
++	if (gtp->sk0) {
++		udp_sk(gtp->sk0)->encap_type = 0;
++		rcu_assign_sk_user_data(gtp->sk0, NULL);
++		sock_put(gtp->sk0);
+ 	}
+-	if (gtp->sock1u && gtp->sock1u->sk) {
+-		udp_sk(gtp->sock1u->sk)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sock1u->sk, NULL);
++	if (gtp->sk1u) {
++		udp_sk(gtp->sk1u)->encap_type = 0;
++		rcu_assign_sk_user_data(gtp->sk1u, NULL);
++		sock_put(gtp->sk1u);
+ 	}
+ 
+-	gtp->sock0 = NULL;
+-	gtp->sock1u = NULL;
++	gtp->sk0 = NULL;
++	gtp->sk1u = NULL;
+ }
+ 
+ static void gtp_encap_destroy(struct sock *sk)
+@@ -484,14 +486,14 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	switch (pctx->gtp_version) {
+ 	case GTP_V0:
+-		if (gtp->sock0)
+-			sk = gtp->sock0->sk;
++		if (gtp->sk0)
++			sk = gtp->sk0;
+ 		else
+ 			sk = NULL;
+ 		break;
+ 	case GTP_V1:
+-		if (gtp->sock1u)
+-			sk = gtp->sock1u->sk;
++		if (gtp->sk1u)
++			sk = gtp->sk1u;
+ 		else
+ 			sk = NULL;
+ 		break;
+@@ -504,7 +506,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 		return -ENOENT;
+ 	}
+ 
+-	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sock0->sk,
++	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sk0,
+ 				  pctx->sgsn_addr_ip4.s_addr);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to SSGN %pI4\n",
+@@ -839,18 +841,20 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+ 
+ 	netdev_dbg(dev, "enable gtp on %p, %p\n", sock0, sock1u);
+ 
+-	gtp->sock0 = sock0;
+-	gtp->sock1u = sock1u;
++	sock_hold(sock0->sk);
++	gtp->sk0 = sock0->sk;
++	sock_hold(sock1u->sk);
++	gtp->sk1u = sock1u->sk;
+ 
+ 	tuncfg.sk_user_data = gtp;
+ 	tuncfg.encap_rcv = gtp_encap_recv;
+ 	tuncfg.encap_destroy = gtp_encap_destroy;
+ 
+ 	tuncfg.encap_type = UDP_ENCAP_GTP0;
+-	setup_udp_tunnel_sock(sock_net(gtp->sock0->sk), gtp->sock0, &tuncfg);
++	setup_udp_tunnel_sock(sock_net(gtp->sk0), sock0, &tuncfg);
+ 
+ 	tuncfg.encap_type = UDP_ENCAP_GTP1U;
+-	setup_udp_tunnel_sock(sock_net(gtp->sock1u->sk), gtp->sock1u, &tuncfg);
++	setup_udp_tunnel_sock(sock_net(gtp->sk1u), sock1u, &tuncfg);
+ 
+ 	err = 0;
+ err2:
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.10.2
