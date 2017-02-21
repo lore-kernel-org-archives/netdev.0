@@ -1,52 +1,60 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] net/dccp: fix use after free in tw_timer_handler()
-Date: Tue, 21 Feb 2017 13:24:49 -0500 (EST)
-Message-ID: <20170221.132449.1868705782244690263.davem@davemloft.net>
-References: <CACT4Y+aZrpZ3JevLrg5i=nTzBAcVhKX9qmajyW5b-+xExwrCHg@mail.gmail.com>
-        <20170221112740.661-1-aryabinin@virtuozzo.com>
-        <20170221.132351.1602433391866901233.davem@davemloft.net>
+Date: Tue, 21 Feb 2017 13:23:03 -0500 (EST)
+Message-ID: <20170221.132303.1154431393145795762.davem@davemloft.net>
+References: <20170221112740.661-1-aryabinin@virtuozzo.com>
+        <20170221134332.GA5052@kernel.org>
+        <CANn89iJwGgyskr99Zp6HD7LPg7YfBtRWe4Br4GzV4g9UfN=sgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org, dvyukov@google.com,
-        edumazet@google.com, xiyou.wangcong@gmail.com,
-        kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, kaber@trash.net,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: acme@kernel.org, aryabinin@virtuozzo.com, ebiederm@xmission.com,
+        gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org, dvyukov@google.com,
+        xiyou.wangcong@gmail.com, kuznet@ms2.inr.ac.ru,
+        yoshfuji@linux-ipv6.org, kaber@trash.net,
         syzkaller@googlegroups.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: aryabinin@virtuozzo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56422 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754736AbdBUSYw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 13:24:52 -0500
-In-Reply-To: <20170221.132351.1602433391866901233.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: edumazet@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89iJwGgyskr99Zp6HD7LPg7YfBtRWe4Br4GzV4g9UfN=sgQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAyMSBG
-ZWIgMjAxNyAxMzoyMzo1MSAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IEFuZHJleSBSeWFiaW5pbiA8
-YXJ5YWJpbmluQHZpcnR1b3p6by5jb20+DQo+IERhdGU6IFR1ZSwgMjEgRmViIDIwMTcgMTQ6Mjc6
-NDAgKzAzMDANCj4gDQo+PiBEQ0NQIGRvZXNuJ3QgcHVyZ2UgdGltZXdhaXQgc29ja2V0cyBvbiBu
-ZXR3b3JrIG5hbWVzcGFjZSBzaHV0ZG93bi4NCj4+IFNvLCBhZnRlciBuZXQgbmFtZXNwYWNlIGRl
-c3Ryb3llZCB3ZSBjb3VsZCBzdGlsbCBoYXZlIGFuIGFjdGl2ZSB0aW1lcg0KPj4gd2hpY2ggd2ls
-bCB0cmlnZ2VyIHVzZSBhZnRlciBmcmVlIGluIHR3X3RpbWVyX2hhbmRsZXIoKToNCj4gIC4uLg0K
-Pj4gQWRkIC5leGl0X2JhdGNoIGhvb2sgdG8gZGNjcF92NF9vcHMoKS9kY2NwX3Y2X29wcygpIHdo
-aWNoIHdpbGwgcHVyZ2UNCj4+IHRpbWV3YWl0IHNvY2tldHMgb24gbmV0IG5hbWVzcGFjZSBkZXN0
-cnVjdGlvbiBhbmQgcHJldmVudCBhYm92ZSBpc3N1ZS4NCj4+IA0KPj4gUmVwb3J0ZWQtYnk6IERt
-aXRyeSBWeXVrb3YgPGR2eXVrb3ZAZ29vZ2xlLmNvbT4NCj4+IFNpZ25lZC1vZmYtYnk6IEFuZHJl
-eSBSeWFiaW5pbiA8YXJ5YWJpbmluQHZpcnR1b3p6by5jb20+DQo+IA0KPiBBcHBsaWVkIGFuZCBx
-dWV1ZWQgdXAgZm9yIC1zdGFibGUsIHRoYW5rcy4NCg0KQWN0dWFsbHksIHRoaXMgZG9lc24ndCBl
-dmVuIGNvbXBpbGUuICBQbGVhc2UgZml4IHRoaXMgdXAgYW5kIHJlc3VibWl0Og0KDQpuZXQvZGNj
-cC9pcHY0LmM6IEluIGZ1bmN0aW9uIKFkY2NwX3Y0X2V4aXRfYmF0Y2iiOg0KbmV0L2RjY3AvaXB2
-NC5jOjEwMjI6MzQ6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMiBvZiChaW5ldF90d3NrX3B1
-cmdloiBtYWtlcyBpbnRlZ2VyIGZyb20gcG9pbnRlciB3aXRob3V0IGEgY2FzdCBbLVdpbnQtY29u
-dmVyc2lvbl0NCiAgaW5ldF90d3NrX3B1cmdlKCZkY2NwX2hhc2hpbmZvLCAmZGNjcF9kZWF0aF9y
-b3csIEFGX0lORVQpOw0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCkluIGZp
-bGUgaW5jbHVkZWQgZnJvbSAuL2luY2x1ZGUvbGludXgvZGNjcC5oOjE0OjAsDQogICAgICAgICAg
-ICAgICAgIGZyb20gbmV0L2RjY3AvaXB2NC5jOjEzOg0KLi9pbmNsdWRlL25ldC9pbmV0X3RpbWV3
-YWl0X3NvY2suaDoxMTg6Njogbm90ZTogZXhwZWN0ZWQgoWludKIgYnV0IGFyZ3VtZW50IGlzIG9m
-IHR5cGUgoXN0cnVjdCBpbmV0X3RpbWV3YWl0X2RlYXRoX3JvdyAqog0KIHZvaWQgaW5ldF90d3Nr
-X3B1cmdlKHN0cnVjdCBpbmV0X2hhc2hpbmZvICpoYXNoaW5mbywgaW50IGZhbWlseSk7DQogICAg
-ICBeDQpuZXQvZGNjcC9pcHY0LmM6MTAyMjoyOiBlcnJvcjogdG9vIG1hbnkgYXJndW1lbnRzIHRv
-IGZ1bmN0aW9uIKFpbmV0X3R3c2tfcHVyZ2WiDQogIGluZXRfdHdza19wdXJnZSgmZGNjcF9oYXNo
-aW5mbywgJmRjY3BfZGVhdGhfcm93LCBBRl9JTkVUKTsNCiAgXg0K
+From: Eric Dumazet <edumazet@google.com>
+Date: Tue, 21 Feb 2017 05:53:13 -0800
+
+> On Tue, Feb 21, 2017 at 5:43 AM, Arnaldo Carvalho de Melo
+> <acme@kernel.org> wrote:
+>>
+>> Em Tue, Feb 21, 2017 at 02:27:40PM +0300, Andrey Ryabinin escreveu:
+>> > DCCP doesn't purge timewait sockets on network namespace shutdown.
+>> > So, after net namespace destroyed we could still have an active timer
+>> > which will trigger use after free in tw_timer_handler():
+>> >
+>> >
+>> > Add .exit_batch hook to dccp_v4_ops()/dccp_v6_ops() which will purge
+>> > timewait sockets on net namespace destruction and prevent above issue.
+>>
+>> Please add this, to help stable kernels to pick this up
+>>
+>> Fixes: b099ce2602d8 ("net: Batch inet_twsk_purge")
+>> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> 
+> 
+> This patch has nothing to do with this bug really.
+> 
+> Look at commit d315492b1a6ba29da0fa2860759505ae1b2db857
+> ("netns : fix kernel panic in timewait socket destruction")
+> 
+> Back in 2008, nobody spotted that DCCP was using the same infra.
+
+So, let me get this straight, dccp is buggy because it tried as hard as
+possible to share and use common pieces of infrastructure instead of
+duplicating all of said logic?
+
+Now I've heard everything.
+
+I know it has been a pain in the rear fixing all of these dccp bugs,
+but removing it from the tree or even pushing it into staging is
+simply not an option.  So we better come up with a better plan based
+upon reality rather than fantasy. :-)
