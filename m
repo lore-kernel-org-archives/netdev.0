@@ -1,308 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
- buffer
-Date: Tue, 21 Feb 2017 16:37:10 +0200
-Message-ID: <20170221162849-mutt-send-email-mst@kernel.org>
-References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
+From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Subject: Re: [net-next][PATCH v2] RDS: Make user visible data types consistent
+ with rest of the kernel
+Date: Tue, 21 Feb 2017 06:50:48 -0800
+Message-ID: <94261fe4-4f9f-e86a-3649-db9fb8e187bd@oracle.com>
+References: <1487629013-4972-1-git-send-email-santosh.shilimkar@oracle.com>
+ <20170220.221812.707399155770011177.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39284 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752632AbdBUOhR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Feb 2017 09:37:17 -0500
-Content-Disposition: inline
-In-Reply-To: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:24753 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752859AbdBUOu6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 09:50:58 -0500
+In-Reply-To: <20170220.221812.707399155770011177.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 21, 2017 at 04:46:28PM +0800, Jason Wang wrote:
-> This patch switch to use build_skb() for small buffer which can have
-> better performance for both TCP and XDP (since we can work at page
-> before skb creation). It also remove lots of XDP codes since both
-> mergeable and small buffer use page frag during refill now.
-> 
->                        Before   | After
-> XDP_DROP(xdp1) 64B  :  11.1Mpps | 14.4Mpps
-> 
-> Tested with xdp1/xdp2/xdp_ip_tx_tunnel and netperf.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On 2/20/17 7:18 PM, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> Date: Mon, 20 Feb 2017 14:16:53 -0800
+>
+>> Use "__uX/__sX" kernel types rather than current uint*/int* for
+>> entire file.
+>>
+>> Reviewed-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+>> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+>> ---
+>> v1->v2:
+>> As suggested by David Miller, cleaned up entire header to use kernel types.
+>
+> Dmitry Levin already submitted a patch the other day which does this,
+> and it is already in net-next.
+>
+I see that now. Thanks Dave !!
 
-Thanks!
-I had a similar patch for mergeable too, though it's trickier there
-as host has a lot of flexibility in sizing buffers.
-Looks like a good intermediate step to me.
-
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-> ---
->  drivers/net/virtio_net.c | 138 ++++++++++++++++++++++-------------------------
->  1 file changed, 63 insertions(+), 75 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index ca489e0..bf95016 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -41,6 +41,8 @@ module_param(gso, bool, 0444);
->  #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
->  #define GOOD_COPY_LEN	128
->  
-> +#define VIRTNET_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD)
-> +
->  /* Amount of XDP headroom to prepend to packets for use by xdp_adjust_head */
->  #define VIRTIO_XDP_HEADROOM 256
->  
-> @@ -343,11 +345,10 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
->  
->  static bool virtnet_xdp_xmit(struct virtnet_info *vi,
->  			     struct receive_queue *rq,
-> -			     struct xdp_buff *xdp,
-> -			     void *data)
-> +			     struct xdp_buff *xdp)
->  {
->  	struct virtio_net_hdr_mrg_rxbuf *hdr;
-> -	unsigned int num_sg, len;
-> +	unsigned int len;
->  	struct send_queue *sq;
->  	unsigned int qp;
->  	void *xdp_sent;
-> @@ -358,49 +359,23 @@ static bool virtnet_xdp_xmit(struct virtnet_info *vi,
->  
->  	/* Free up any pending old buffers before queueing new ones. */
->  	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-> -		if (vi->mergeable_rx_bufs) {
-> -			struct page *sent_page = virt_to_head_page(xdp_sent);
-> +		struct page *sent_page = virt_to_head_page(xdp_sent);
->  
-> -			put_page(sent_page);
-> -		} else { /* small buffer */
-> -			struct sk_buff *skb = xdp_sent;
-> -
-> -			kfree_skb(skb);
-> -		}
-> +		put_page(sent_page);
->  	}
->  
-> -	if (vi->mergeable_rx_bufs) {
-> -		xdp->data -= sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> -		/* Zero header and leave csum up to XDP layers */
-> -		hdr = xdp->data;
-> -		memset(hdr, 0, vi->hdr_len);
-> -
-> -		num_sg = 1;
-> -		sg_init_one(sq->sg, xdp->data, xdp->data_end - xdp->data);
-> -	} else { /* small buffer */
-> -		struct sk_buff *skb = data;
-> +	xdp->data -= vi->hdr_len;
-> +	/* Zero header and leave csum up to XDP layers */
-> +	hdr = xdp->data;
-> +	memset(hdr, 0, vi->hdr_len);
->  
-> -		/* Zero header and leave csum up to XDP layers */
-> -		hdr = skb_vnet_hdr(skb);
-> -		memset(hdr, 0, vi->hdr_len);
-> +	sg_init_one(sq->sg, xdp->data, xdp->data_end - xdp->data);
->  
-> -		num_sg = 2;
-> -		sg_init_table(sq->sg, 2);
-> -		sg_set_buf(sq->sg, hdr, vi->hdr_len);
-> -		skb_to_sgvec(skb, sq->sg + 1,
-> -			     xdp->data - xdp->data_hard_start,
-> -			     xdp->data_end - xdp->data);
-> -	}
-> -	err = virtqueue_add_outbuf(sq->vq, sq->sg, num_sg,
-> -				   data, GFP_ATOMIC);
-> +	err = virtqueue_add_outbuf(sq->vq, sq->sg, 1, xdp->data, GFP_ATOMIC);
->  	if (unlikely(err)) {
-> -		if (vi->mergeable_rx_bufs) {
-> -			struct page *page = virt_to_head_page(xdp->data);
-> +		struct page *page = virt_to_head_page(xdp->data);
->  
-> -			put_page(page);
-> -		} else /* small buffer */
-> -			kfree_skb(data);
-> -		/* On error abort to avoid unnecessary kick */
-> +		put_page(page);
->  		return false;
->  	}
->  
-> @@ -408,39 +383,50 @@ static bool virtnet_xdp_xmit(struct virtnet_info *vi,
->  	return true;
->  }
->  
-> +static unsigned int virtnet_get_headroom(struct virtnet_info *vi)
-> +{
-> +	return vi->xdp_queue_pairs ? VIRTIO_XDP_HEADROOM : 0;
-> +}
-> +
->  static struct sk_buff *receive_small(struct net_device *dev,
->  				     struct virtnet_info *vi,
->  				     struct receive_queue *rq,
->  				     void *buf, unsigned int len)
->  {
-> -	struct sk_buff * skb = buf;
-> +	struct sk_buff *skb;
->  	struct bpf_prog *xdp_prog;
-> -
-> +	unsigned int xdp_headroom = virtnet_get_headroom(vi);
-> +	unsigned int header_offset = VIRTNET_RX_PAD + xdp_headroom;
-> +	unsigned int headroom = vi->hdr_len + header_offset;
-> +	unsigned int buflen = SKB_DATA_ALIGN(GOOD_PACKET_LEN + headroom) +
-> +			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> +	unsigned int delta = 0;
->  	len -= vi->hdr_len;
->  
->  	rcu_read_lock();
->  	xdp_prog = rcu_dereference(rq->xdp_prog);
->  	if (xdp_prog) {
-> -		struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
-> +		struct virtio_net_hdr_mrg_rxbuf *hdr = buf + header_offset;
->  		struct xdp_buff xdp;
-> +		void *orig_data;
->  		u32 act;
->  
->  		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
->  			goto err_xdp;
->  
-> -		xdp.data_hard_start = skb->data;
-> -		xdp.data = skb->data + VIRTIO_XDP_HEADROOM;
-> +		xdp.data_hard_start = buf + VIRTNET_RX_PAD + vi->hdr_len;
-> +		xdp.data = xdp.data_hard_start + xdp_headroom;
->  		xdp.data_end = xdp.data + len;
-> +		orig_data = xdp.data;
->  		act = bpf_prog_run_xdp(xdp_prog, &xdp);
->  
->  		switch (act) {
->  		case XDP_PASS:
->  			/* Recalculate length in case bpf program changed it */
-> -			__skb_pull(skb, xdp.data - xdp.data_hard_start);
-> -			len = xdp.data_end - xdp.data;
-> +			delta = orig_data - xdp.data;
->  			break;
->  		case XDP_TX:
-> -			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, skb)))
-> +			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp)))
->  				trace_xdp_exception(vi->dev, xdp_prog, act);
->  			rcu_read_unlock();
->  			goto xdp_xmit;
-> @@ -454,13 +440,25 @@ static struct sk_buff *receive_small(struct net_device *dev,
->  	}
->  	rcu_read_unlock();
->  
-> -	skb_trim(skb, len);
-> +	skb = build_skb(buf, buflen);
-> +	if (!skb) {
-> +		put_page(virt_to_head_page(buf));
-> +		goto err;
-> +	}
-> +	skb_reserve(skb, headroom - delta);
-> +	skb_put(skb, len + delta);
-> +	if (!delta) {
-> +		buf += header_offset;
-> +		memcpy(skb_vnet_hdr(skb), buf, vi->hdr_len);
-> +	} /* keep zeroed vnet hdr since packet was changed by bpf */
-> +
-> +err:
->  	return skb;
->  
->  err_xdp:
->  	rcu_read_unlock();
->  	dev->stats.rx_dropped++;
-> -	kfree_skb(skb);
-> +	put_page(virt_to_head_page(buf));
->  xdp_xmit:
->  	return NULL;
->  }
-> @@ -621,7 +619,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
->  			}
->  			break;
->  		case XDP_TX:
-> -			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, data)))
-> +			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp)))
->  				trace_xdp_exception(vi->dev, xdp_prog, act);
->  			ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
->  			if (unlikely(xdp_page != page))
-> @@ -737,7 +735,7 @@ static int receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
->  		} else if (vi->big_packets) {
->  			give_pages(rq, buf);
->  		} else {
-> -			dev_kfree_skb(buf);
-> +			put_page(virt_to_head_page(buf));
->  		}
->  		return 0;
->  	}
-> @@ -780,34 +778,28 @@ static int receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
->  	return 0;
->  }
->  
-> -static unsigned int virtnet_get_headroom(struct virtnet_info *vi)
-> -{
-> -	return vi->xdp_queue_pairs ? VIRTIO_XDP_HEADROOM : 0;
-> -}
-> -
->  static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
->  			     gfp_t gfp)
->  {
-> -	int headroom = GOOD_PACKET_LEN + virtnet_get_headroom(vi);
-> +	struct page_frag *alloc_frag = &rq->alloc_frag;
-> +	char *buf;
->  	unsigned int xdp_headroom = virtnet_get_headroom(vi);
-> -	struct sk_buff *skb;
-> -	struct virtio_net_hdr_mrg_rxbuf *hdr;
-> +	int len = vi->hdr_len + VIRTNET_RX_PAD + GOOD_PACKET_LEN + xdp_headroom;
->  	int err;
->  
-> -	skb = __netdev_alloc_skb_ip_align(vi->dev, headroom, gfp);
-> -	if (unlikely(!skb))
-> +	len = SKB_DATA_ALIGN(len) +
-> +	      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> +	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
->  		return -ENOMEM;
->  
-> -	skb_put(skb, headroom);
-> -
-> -	hdr = skb_vnet_hdr(skb);
-> -	sg_init_table(rq->sg, 2);
-> -	sg_set_buf(rq->sg, hdr, vi->hdr_len);
-> -	skb_to_sgvec(skb, rq->sg + 1, xdp_headroom, skb->len - xdp_headroom);
-> -
-> -	err = virtqueue_add_inbuf(rq->vq, rq->sg, 2, skb, gfp);
-> +	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
-> +	get_page(alloc_frag->page);
-> +	alloc_frag->offset += len;
-> +	sg_init_one(rq->sg, buf + VIRTNET_RX_PAD + xdp_headroom,
-> +		    vi->hdr_len + GOOD_PACKET_LEN);
-> +	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
->  	if (err < 0)
-> -		dev_kfree_skb(skb);
-> +		put_page(virt_to_head_page(buf));
->  
->  	return err;
->  }
-> @@ -1994,10 +1986,6 @@ static void free_receive_page_frags(struct virtnet_info *vi)
->  
->  static bool is_xdp_raw_buffer_queue(struct virtnet_info *vi, int q)
->  {
-> -	/* For small receive mode always use kfree_skb variants */
-> -	if (!vi->mergeable_rx_bufs)
-> -		return false;
-> -
->  	if (q < (vi->curr_queue_pairs - vi->xdp_queue_pairs))
->  		return false;
->  	else if (q < vi->curr_queue_pairs)
-> @@ -2032,7 +2020,7 @@ static void free_unused_bufs(struct virtnet_info *vi)
->  			} else if (vi->big_packets) {
->  				give_pages(&vi->rq[i], buf);
->  			} else {
-> -				dev_kfree_skb(buf);
-> +				put_page(virt_to_head_page(buf));
->  			}
->  		}
->  	}
-> -- 
-> 2.7.4
+Regards,
+Santosh
