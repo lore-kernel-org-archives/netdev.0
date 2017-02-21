@@ -1,28 +1,28 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC v3 4/8] qede: Changes to use generic XDP infrastructure
-Date: Tue, 21 Feb 2017 11:34:13 -0800
-Message-ID: <20170221193417.3641224-5-tom@herbertland.com>
+Subject: [PATCH RFC v3 2/8] mlx4: Changes to use generic XDP infrastructure
+Date: Tue, 21 Feb 2017 11:34:11 -0800
+Message-ID: <20170221193417.3641224-3-tom@herbertland.com>
 References: <20170221193417.3641224-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55717 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55715 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751938AbdBUTe3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 14:34:29 -0500
+        by vger.kernel.org with ESMTP id S1753670AbdBUTe2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 14:34:28 -0500
 Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1LJWinT029734
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 11:34:29 -0800
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1LJWmvN029779
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 11:34:27 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 28rut5r07a-1
+        by mx0a-00082601.pphosted.com with ESMTP id 28rut5r074-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 11:34:28 -0800
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 11:34:27 -0800
 Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
- mx-out.facebook.com (10.102.107.97) with ESMTP id
- c1f05b5ef86c11e692b70002c99331b0-305976c0 for <netdev@vger.kernel.org>;        Tue,
- 21 Feb 2017 11:34:27 -0800
+ mx-out.facebook.com (10.103.99.99) with ESMTP  id
+ c137b702f86c11e695100002c9dfb610-85f9a00 for <netdev@vger.kernel.org>; Tue,
+ 21 Feb 2017 11:34:26 -0800
 In-Reply-To: <20170221193417.3641224-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -32,301 +32,312 @@ XDP API.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede.h         |  3 +-
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  2 +-
- drivers/net/ethernet/qlogic/qede/qede_filter.c  | 39 ++++++++++---------------
- drivers/net/ethernet/qlogic/qede/qede_fp.c      | 36 +++++++++++++----------
- drivers/net/ethernet/qlogic/qede/qede_main.c    | 23 ++++-----------
- 5 files changed, 45 insertions(+), 58 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 92 +++++---------------------
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 27 ++++----
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     |  1 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 -
+ 4 files changed, 29 insertions(+), 92 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index f2aaef2..fdd2874 100644
---- a/drivers/net/ethernet/qlogic/qede/qede.h
-+++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -217,10 +217,9 @@ struct qede_dev {
- 	u16				geneve_dst_port;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index afe4444..e1dbfe7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -42,6 +42,7 @@
+ #include <net/busy_poll.h>
+ #include <net/vxlan.h>
+ #include <net/devlink.h>
++#include <net/xdp.h>
  
- 	bool wol_enabled;
-+	bool xdp_enabled;
- 
- 	struct qede_rdma_dev		rdma_info;
--
--	struct bpf_prog *xdp_prog;
- };
- 
- enum QEDE_STATE {
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 8979531..5d22764 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -342,7 +342,7 @@ static int qede_get_sset_count(struct net_device *dev, int stringset)
- 		num_stats += QEDE_RSS_COUNT(edev) * QEDE_NUM_RQSTATS;
- 
- 		/* Account for XDP statistics [if needed] */
--		if (edev->xdp_prog)
-+		if (edev->xdp_enabled)
- 			num_stats += QEDE_RSS_COUNT(edev) * QEDE_NUM_TQSTATS;
- 		return num_stats;
- 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_filter.c b/drivers/net/ethernet/qlogic/qede/qede_filter.c
-index 107c3fd..9c9db44 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_filter.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_filter.c
-@@ -426,7 +426,7 @@ int qede_set_features(struct net_device *dev, netdev_features_t features)
- 		 * aggregations, so no need to actually reload.
- 		 */
- 		__qede_lock(edev);
--		if (edev->xdp_prog)
-+		if (edev->xdp_enabled)
- 			args.func(edev, &args);
- 		else
- 			qede_reload(edev, &args, true);
-@@ -506,29 +506,21 @@ void qede_udp_tunnel_del(struct net_device *dev, struct udp_tunnel_info *ti)
- 	schedule_delayed_work(&edev->sp_task, 0);
- }
- 
--static void qede_xdp_reload_func(struct qede_dev *edev,
--				 struct qede_reload_args *args)
-+static int qede_xdp_check_bpf(struct qede_dev *edev, struct bpf_prog *prog)
+ #include <linux/mlx4/driver.h>
+ #include <linux/mlx4/device.h>
+@@ -2199,8 +2200,7 @@ int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
+ 				struct mlx4_en_port_profile *prof,
+ 				bool carry_xdp_prog)
  {
--	struct bpf_prog *old;
--
--	old = xchg(&edev->xdp_prog, args->u.new_prog);
--	if (old)
--		bpf_prog_put(old);
--}
--
--static int qede_xdp_set(struct qede_dev *edev, struct bpf_prog *prog)
--{
--	struct qede_reload_args args;
--
- 	if (prog && prog->xdp_adjust_head) {
- 		DP_ERR(edev, "Does not support bpf_xdp_adjust_head()\n");
- 		return -EOPNOTSUPP;
+-	struct bpf_prog *xdp_prog;
+-	int i, t;
++	int t;
+ 
+ 	mlx4_en_copy_priv(tmp, priv, prof);
+ 
+@@ -2215,22 +2215,6 @@ int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
+ 		return -ENOMEM;
  	}
  
--	/* If we're called, there was already a bpf reference increment */
--	args.func = &qede_xdp_reload_func;
--	args.u.new_prog = prog;
--	qede_reload(edev, &args, false);
-+	return 0;
-+}
-+
-+static int qede_xdp_init(struct qede_dev *edev, bool enable)
-+{
-+	edev->xdp_enabled = enable;
-+
-+	qede_reload(edev, NULL, false);
- 
+-	/* All rx_rings has the same xdp_prog.  Pick the first one. */
+-	xdp_prog = rcu_dereference_protected(
+-		priv->rx_ring[0]->xdp_prog,
+-		lockdep_is_held(&priv->mdev->state_lock));
+-
+-	if (xdp_prog && carry_xdp_prog) {
+-		xdp_prog = bpf_prog_add(xdp_prog, tmp->rx_ring_num);
+-		if (IS_ERR(xdp_prog)) {
+-			mlx4_en_free_resources(tmp);
+-			return PTR_ERR(xdp_prog);
+-		}
+-		for (i = 0; i < tmp->rx_ring_num; i++)
+-			rcu_assign_pointer(tmp->rx_ring[i]->xdp_prog,
+-					   xdp_prog);
+-	}
+-
  	return 0;
  }
-@@ -538,11 +530,12 @@ int qede_xdp(struct net_device *dev, struct netdev_xdp *xdp)
- 	struct qede_dev *edev = netdev_priv(dev);
  
+@@ -2717,42 +2701,20 @@ static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 m
+ 	return err;
+ }
+ 
+-static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
++static int mlx4_xdp_init(struct net_device *dev, bool enable)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_port_profile new_prof;
+-	struct bpf_prog *old_prog;
+ 	struct mlx4_en_priv *tmp;
+ 	int tx_changed = 0;
+-	int xdp_ring_num;
+ 	int port_up = 0;
+-	int err;
+-	int i;
++	int xdp_ring_num, err;
+ 
+-	xdp_ring_num = prog ? priv->rx_ring_num : 0;
++	xdp_ring_num = enable ? ALIGN(priv->rx_ring_num, MLX4_EN_NUM_UP) : 0;
+ 
+-	/* No need to reconfigure buffers when simply swapping the
+-	 * program for a new one.
+-	 */
+-	if (priv->tx_ring_num[TX_XDP] == xdp_ring_num) {
+-		if (prog) {
+-			prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
+-			if (IS_ERR(prog))
+-				return PTR_ERR(prog);
+-		}
+-		mutex_lock(&mdev->state_lock);
+-		for (i = 0; i < priv->rx_ring_num; i++) {
+-			old_prog = rcu_dereference_protected(
+-					priv->rx_ring[i]->xdp_prog,
+-					lockdep_is_held(&mdev->state_lock));
+-			rcu_assign_pointer(priv->rx_ring[i]->xdp_prog, prog);
+-			if (old_prog)
+-				bpf_prog_put(old_prog);
+-		}
+-		mutex_unlock(&mdev->state_lock);
++	if (priv->tx_ring_num[TX_XDP] == xdp_ring_num)
+ 		return 0;
+-	}
+ 
+ 	if (!mlx4_en_check_xdp_mtu(dev, dev->mtu))
+ 		return -EOPNOTSUPP;
+@@ -2761,14 +2723,6 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 	if (!tmp)
+ 		return -ENOMEM;
+ 
+-	if (prog) {
+-		prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
+-		if (IS_ERR(prog)) {
+-			err = PTR_ERR(prog);
+-			goto out;
+-		}
+-	}
+-
+ 	mutex_lock(&mdev->state_lock);
+ 	memcpy(&new_prof, priv->prof, sizeof(struct mlx4_en_port_profile));
+ 	new_prof.tx_ring_num[TX_XDP] = xdp_ring_num;
+@@ -2781,11 +2735,8 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 	}
+ 
+ 	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, false);
+-	if (err) {
+-		if (prog)
+-			bpf_prog_sub(prog, priv->rx_ring_num - 1);
++	if (err)
+ 		goto unlock_out;
+-	}
+ 
+ 	if (priv->port_up) {
+ 		port_up = 1;
+@@ -2796,15 +2747,6 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 	if (tx_changed)
+ 		netif_set_real_num_tx_queues(dev, priv->tx_ring_num[TX]);
+ 
+-	for (i = 0; i < priv->rx_ring_num; i++) {
+-		old_prog = rcu_dereference_protected(
+-					priv->rx_ring[i]->xdp_prog,
+-					lockdep_is_held(&mdev->state_lock));
+-		rcu_assign_pointer(priv->rx_ring[i]->xdp_prog, prog);
+-		if (old_prog)
+-			bpf_prog_put(old_prog);
+-	}
+-
+ 	if (port_up) {
+ 		err = mlx4_en_start_port(dev);
+ 		if (err) {
+@@ -2816,26 +2758,24 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 
+ unlock_out:
+ 	mutex_unlock(&mdev->state_lock);
+-out:
+ 	kfree(tmp);
+ 	return err;
+ }
+ 
+-static bool mlx4_xdp_attached(struct net_device *dev)
++static int mlx4_xdp_check_bpf(struct net_device *dev, struct bpf_prog *prog)
+ {
+-	struct mlx4_en_priv *priv = netdev_priv(dev);
+-
+-	return !!priv->tx_ring_num[TX_XDP];
++	return 0;
+ }
+ 
+ static int mlx4_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+ {
  	switch (xdp->command) {
 -	case XDP_SETUP_PROG:
--		return qede_xdp_set(edev, xdp->prog);
+-		return mlx4_xdp_set(dev, xdp->prog);
 -	case XDP_QUERY_PROG:
--		xdp->prog_attached = !!edev->xdp_prog;
+-		xdp->prog_attached = mlx4_xdp_attached(dev);
 -		return 0;
-+	case XDP_MODE_OFF:
-+		return qede_xdp_init(edev, true);
 +	case XDP_MODE_ON:
-+		return qede_xdp_init(edev, false);
++		return mlx4_xdp_init(dev, true);
++	case XDP_MODE_OFF:
++		return mlx4_xdp_init(dev, false);
 +	case XDP_CHECK_BPF_PROG:
-+		return qede_xdp_check_bpf(edev, xdp->prog);
++		return mlx4_xdp_check_bpf(dev, xdp->prog);
  	default:
  		return -EINVAL;
  	}
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_fp.c b/drivers/net/ethernet/qlogic/qede/qede_fp.c
-index 1e65038..7423317 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_fp.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_fp.c
-@@ -41,6 +41,7 @@
+@@ -3335,7 +3275,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 
+ 	dev->vlan_features = dev->hw_features;
+ 
+-	dev->hw_features |= NETIF_F_RXCSUM | NETIF_F_RXHASH;
++	dev->hw_features |= NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_XDP;
+ 	dev->features = dev->hw_features | NETIF_F_HIGHDMA |
+ 			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
+ 			NETIF_F_HW_VLAN_CTAG_FILTER;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index d85e644..a8fddc0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -43,6 +43,7 @@
  #include <linux/if_vlan.h>
- #include <net/ip6_checksum.h>
- #include "qede_ptp.h"
+ #include <linux/vmalloc.h>
+ #include <linux/irq.h>
 +#include <net/xdp.h>
  
- #include <linux/qed/qed_if.h>
- #include "qede.h"
-@@ -988,13 +989,14 @@ static bool qede_pkt_is_ip_fragmented(struct eth_fast_path_rx_reg_cqe *cqe,
- static bool qede_rx_xdp(struct qede_dev *edev,
- 			struct qede_fastpath *fp,
- 			struct qede_rx_queue *rxq,
--			struct bpf_prog *prog,
- 			struct sw_rx_data *bd,
- 			struct eth_fast_path_rx_reg_cqe *cqe)
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ip6_checksum.h>
+@@ -547,13 +548,7 @@ void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
  {
- 	u16 len = le16_to_cpu(cqe->len_on_first_bd);
- 	struct xdp_buff xdp;
- 	enum xdp_action act;
-+	struct xdp_hook *last_hook;
-+	bool retval = false;
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_rx_ring *ring = *pring;
+-	struct bpf_prog *old_prog;
  
- 	xdp.data = page_address(bd->data) + cqe->placement_offset;
- 	xdp.data_end = xdp.data + len;
-@@ -1004,11 +1006,13 @@ static bool qede_rx_xdp(struct qede_dev *edev,
- 	 * side for map helpers.
- 	 */
+-	old_prog = rcu_dereference_protected(
+-					ring->xdp_prog,
+-					lockdep_is_held(&mdev->state_lock));
+-	if (old_prog)
+-		bpf_prog_put(old_prog);
+ 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, size * stride + TXBB_SIZE);
+ 	vfree(ring->rx_info);
+ 	ring->rx_info = NULL;
+@@ -802,7 +797,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 	struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
+ 	struct mlx4_en_rx_alloc *frags;
+ 	struct mlx4_en_rx_desc *rx_desc;
+-	struct bpf_prog *xdp_prog;
+ 	int doorbell_pending;
+ 	struct sk_buff *skb;
+ 	int index;
+@@ -813,6 +807,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 	int factor = priv->cqe_factor;
+ 	u64 timestamp;
+ 	bool l2_tunnel;
++	bool run_xdp;
+ 
+ 	if (unlikely(!priv->port_up))
+ 		return 0;
+@@ -820,9 +815,9 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 	if (unlikely(budget <= 0))
+ 		return polled;
+ 
+-	/* Protect accesses to: ring->xdp_prog, priv->mac_hash list */
++	/* Protect accesses to: XDP hooks, priv->mac_hash list */
  	rcu_read_lock();
--	act = bpf_prog_run_xdp(prog, &xdp);
--	rcu_read_unlock();
+-	xdp_prog = rcu_dereference(ring->xdp_prog);
++	run_xdp = xdp_hook_run_needed_check(dev, &cq->napi);
+ 	doorbell_pending = 0;
  
--	if (act == XDP_PASS)
--		return true;
-+	act = xdp_hook_run_ret_last(&fp->napi, &xdp, &last_hook);
-+
-+	if (act == XDP_PASS) {
-+		retval = true;
-+		goto out;
-+	}
+ 	/* We assume a 1:1 mapping between CQEs and Rx descriptors, so Rx
+@@ -895,13 +890,14 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+ 			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
  
- 	/* Count number of packets not to be passed to stack */
- 	rxq->xdp_no_pass++;
-@@ -1018,8 +1022,8 @@ static bool qede_rx_xdp(struct qede_dev *edev,
- 		/* We need the replacement buffer before transmit. */
- 		if (qede_alloc_rx_buffer(rxq, true)) {
- 			qede_recycle_rx_bd_ring(rxq, 1);
--			trace_xdp_exception(edev->ndev, prog, act);
--			return false;
-+			trace_xdp_hook_exception(edev->ndev, last_hook, act);
-+			goto out;
- 		}
+-		/* A bpf program gets first chance to drop the packet. It may
++		/* An xdp program gets first chance to drop the packet. It may
+ 		 * read bytes but not past the end of the frag.
+ 		 */
+-		if (xdp_prog) {
++		if (run_xdp) {
+ 			struct xdp_buff xdp;
+ 			dma_addr_t dma;
+ 			void *orig_data;
++			struct xdp_hook *last_hook;
+ 			u32 act;
  
- 		/* Now if there's a transmission problem, we'd still have to
-@@ -1029,22 +1033,25 @@ static bool qede_rx_xdp(struct qede_dev *edev,
- 			dma_unmap_page(rxq->dev, bd->mapping,
- 				       PAGE_SIZE, DMA_BIDIRECTIONAL);
- 			__free_page(bd->data);
--			trace_xdp_exception(edev->ndev, prog, act);
-+			trace_xdp_hook_exception(edev->ndev, last_hook, act);
- 		}
+ 			dma = be64_to_cpu(rx_desc->data[0].addr);
+@@ -914,7 +910,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 			xdp.data_end = xdp.data + length;
+ 			orig_data = xdp.data;
  
- 		/* Regardless, we've consumed an Rx BD */
- 		qede_rx_bd_ring_consume(rxq);
--		return false;
-+		goto out;
+-			act = bpf_prog_run_xdp(xdp_prog, &xdp);
++			act = xdp_hook_run_ret_last(&cq->napi, &xdp,
++						    &last_hook);
  
- 	default:
--		bpf_warn_invalid_xdp_action(act);
-+		xdp_warn_invalid_action(act);
- 	case XDP_ABORTED:
--		trace_xdp_exception(edev->ndev, prog, act);
-+		trace_xdp_hook_exception(edev->ndev, last_hook, act);
- 	case XDP_DROP:
- 		qede_recycle_rx_bd_ring(rxq, cqe->bd_num);
- 	}
+ 			if (xdp.data != orig_data) {
+ 				length = xdp.data_end - xdp.data;
+@@ -930,12 +927,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 							length, cq->ring,
+ 							&doorbell_pending)))
+ 					goto consumed;
+-				trace_xdp_exception(dev, xdp_prog, act);
++				trace_xdp_hook_exception(dev, last_hook, act);
+ 				goto xdp_drop_no_cnt; /* Drop on xmit failure */
+ 			default:
+-				bpf_warn_invalid_xdp_action(act);
++				xdp_warn_invalid_action(act);
+ 			case XDP_ABORTED:
+-				trace_xdp_exception(dev, xdp_prog, act);
++				trace_xdp_hook_exception(dev, last_hook, act);
+ 			case XDP_DROP:
+ 				ring->xdp_drop++;
+ xdp_drop_no_cnt:
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 3ed4219..870acb7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -43,6 +43,7 @@
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/moduleparam.h>
++#include <net/xdp.h>
  
--	return false;
-+out:
-+	rcu_read_unlock();
-+
-+	return retval;
- }
+ #include "mlx4_en.h"
  
- static struct sk_buff *qede_rx_allocate_skb(struct qede_dev *edev,
-@@ -1189,7 +1196,6 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
- 			       struct qede_fastpath *fp,
- 			       struct qede_rx_queue *rxq)
- {
--	struct bpf_prog *xdp_prog = READ_ONCE(rxq->xdp_prog);
- 	struct eth_fast_path_rx_reg_cqe *fp_cqe;
- 	u16 len, pad, bd_cons_idx, parse_flag;
- 	enum eth_rx_cqe_type cqe_type;
-@@ -1227,8 +1233,8 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
- 	pad = fp_cqe->placement_offset;
- 
- 	/* Run eBPF program if one is attached */
--	if (xdp_prog)
--		if (!qede_rx_xdp(edev, fp, rxq, xdp_prog, bd, fp_cqe))
-+	if (xdp_hook_run_needed_check(edev->ndev, &fp->napi))
-+		if (!qede_rx_xdp(edev, fp, rxq, bd, fp_cqe))
- 			return 1;
- 
- 	/* If this is an error packet then drop it */
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 3a78c3f..312da1c 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -581,7 +581,7 @@ static void qede_init_ndev(struct qede_dev *edev)
- {
- 	struct net_device *ndev = edev->ndev;
- 	struct pci_dev *pdev = edev->pdev;
--	u32 hw_features;
-+	netdev_features_t hw_features;
- 
- 	pci_set_drvdata(pdev, ndev);
- 
-@@ -601,7 +601,7 @@ static void qede_init_ndev(struct qede_dev *edev)
- 	/* user-changeble features */
- 	hw_features = NETIF_F_GRO | NETIF_F_SG |
- 		      NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
--		      NETIF_F_TSO | NETIF_F_TSO6;
-+		      NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_XDP;
- 
- 	/* Encap features*/
- 	hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
-@@ -730,7 +730,7 @@ static int qede_alloc_fp_array(struct qede_dev *edev)
- 			if (!fp->rxq)
- 				goto err;
- 
--			if (edev->xdp_prog) {
-+			if (edev->xdp_enabled) {
- 				fp->xdp_tx = kzalloc(sizeof(*fp->xdp_tx),
- 						     GFP_KERNEL);
- 				if (!fp->xdp_tx)
-@@ -952,9 +952,7 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
- 
- 	pci_set_drvdata(pdev, NULL);
- 
--	/* Release edev's reference to XDP's bpf if such exist */
--	if (edev->xdp_prog)
--		bpf_prog_put(edev->xdp_prog);
-+	free_netdev(ndev);
- 
- 	/* Use global ops since we've freed edev */
- 	qed_ops->common->slowpath_stop(cdev);
-@@ -1114,7 +1112,7 @@ static int qede_alloc_sge_mem(struct qede_dev *edev, struct qede_rx_queue *rxq)
- 	int i;
- 
- 	/* Don't perform FW aggregations in case of XDP */
--	if (edev->xdp_prog)
-+	if (edev->xdp_enabled)
- 		edev->gro_disable = 1;
- 
- 	if (edev->gro_disable)
-@@ -1172,7 +1170,7 @@ static int qede_alloc_mem_rxq(struct qede_dev *edev, struct qede_rx_queue *rxq)
- 	/* Segment size to spilt a page in multiple equal parts,
- 	 * unless XDP is used in which case we'd use the entire page.
- 	 */
--	if (!edev->xdp_prog)
-+	if (!edev->xdp_enabled)
- 		rxq->rx_buf_seg_size = roundup_pow_of_two(rxq->rx_buf_size);
- 	else
- 		rxq->rx_buf_seg_size = PAGE_SIZE;
-@@ -1625,8 +1623,6 @@ static int qede_stop_queues(struct qede_dev *edev)
- 			rc = qede_stop_txq(edev, fp->xdp_tx, i);
- 			if (rc)
- 				return rc;
--
--			bpf_prog_put(fp->rxq->xdp_prog);
- 		}
- 	}
- 
-@@ -1770,13 +1766,6 @@ static int qede_start_queues(struct qede_dev *edev, bool clear_stats)
- 			rc = qede_start_txq(edev, fp, fp->xdp_tx, i, XDP_PI);
- 			if (rc)
- 				goto out;
--
--			fp->rxq->xdp_prog = bpf_prog_add(edev->xdp_prog, 1);
--			if (IS_ERR(fp->rxq->xdp_prog)) {
--				rc = PTR_ERR(fp->rxq->xdp_prog);
--				fp->rxq->xdp_prog = NULL;
--				goto out;
--			}
- 		}
- 
- 		if (fp->type & QEDE_FASTPATH_TX) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 4941b69..4e7667e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -348,7 +348,6 @@ struct mlx4_en_rx_ring {
+ 	u8  fcs_del;
+ 	void *buf;
+ 	void *rx_info;
+-	struct bpf_prog __rcu *xdp_prog;
+ 	struct mlx4_en_page_cache page_cache;
+ 	unsigned long bytes;
+ 	unsigned long packets;
 -- 
 2.9.3
