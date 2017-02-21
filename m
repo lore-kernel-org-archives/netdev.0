@@ -1,63 +1,48 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCHv3 net-next 00/12] net: mvpp2: misc improvements and
- preparation patches
-Date: Tue, 21 Feb 2017 11:32:43 +0100
-Message-ID: <20170221113243.20d2e569@free-electrons.com>
-References: <20170220100742.0b1fce4a@free-electrons.com>
-        <20170220.095357.2175678121216081406.davem@davemloft.net>
-        <20170220164741.11b40d07@free-electrons.com>
-        <20170220.111226.239035932737797178.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@armlinux.org.uk,
-        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
-        hannah@marvell.com, yehuday@marvell.com, stefanc@marvell.com,
-        jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com, mw@semihalf.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:49734 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751890AbdBUKcz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:32:55 -0500
-In-Reply-To: <20170220.111226.239035932737797178.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v3 2/5] 6lowpan: Set MAC address lenght according to LOWPAN_LLTYPE
+Date: Tue, 21 Feb 2017 12:38:07 +0200
+Message-ID: <20170221103811.1506-3-luiz.dentz@gmail.com>
+References: <20170221103811.1506-1-luiz.dentz@gmail.com>
+Cc: patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+        linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170221103811.1506-1-luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+From: Patrik Flykt <patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 
-On Mon, 20 Feb 2017 11:12:26 -0500 (EST), David Miller wrote:
+Set MAC address length according to the 6LoWPAN link layer in use.
+Bluetooth Low Energy uses 48 bit addressing while IEEE802.15.4 uses
+64 bits.
 
-> For your particular case I'll accept a resubmit.
+Signed-off-by: Patrik Flykt <patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+---
+ net/6lowpan/core.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-Resubmit done, patches are now in patchwork. Changes since v3 (also in
-the cover letter of v4) :
-
- - Addition of a patch "net: mvpp2: fix DMA address calculation in
-   mvpp2_txq_inc_put()", which fixes a bug in the driver in the
-   calculation of DMA addresses. This bug was found using
-   DMA_API_DEBUG.
-
- - Modify the "net: mvpp2: switch to build_skb() in the RX path" patch
-   to recalculate the fragment size when the MTU is changed in
-   mvpp2_bm_update_mtu().
-
- - Added Acked-by from Russell King on all patches, except:
-
-    * "net: mvpp2: fix DMA address calculation in
-      mvpp2_txq_inc_put()", because it's a new patch
-
-    * "net: mvpp2: switch to build_skb() in the RX path" because I
-      modified it since the v3.
-
- - Rebased on top of 4.10.
-
-Thanks!
-
-Thomas
+diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
+index 5945f7e..5f9909a 100644
+--- a/net/6lowpan/core.c
++++ b/net/6lowpan/core.c
+@@ -23,7 +23,16 @@ int lowpan_register_netdevice(struct net_device *dev,
+ {
+ 	int i, ret;
+ 
+-	dev->addr_len = EUI64_ADDR_LEN;
++	switch (lltype) {
++	case LOWPAN_LLTYPE_IEEE802154:
++		dev->addr_len = EUI64_ADDR_LEN;
++		break;
++
++	case LOWPAN_LLTYPE_BTLE:
++		dev->addr_len = ETH_ALEN;
++		break;
++	}
++
+ 	dev->type = ARPHRD_6LOWPAN;
+ 	dev->mtu = IPV6_MIN_MTU;
+ 	dev->priv_flags |= IFF_NO_QUEUE;
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+2.9.3
