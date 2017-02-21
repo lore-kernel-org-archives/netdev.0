@@ -1,37 +1,131 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH 4/9] fsl/fman: enlarge FIFO to allow for the 5th port
-Date: Tue, 21 Feb 2017 13:52:49 +0200
-Message-ID: <1487677974-13678-5-git-send-email-madalin.bucur@nxp.com>
-References: <1487677974-13678-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: <madalin.bucur@nxp.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH] net/dccp: fix use after free in tw_timer_handler()
+Date: Tue, 21 Feb 2017 14:56:59 +0300
+Message-ID: <CACT4Y+a0uLVFHgDPi05kXsMEsraxbTOkPnK3xdZZ1_8E_vH_CQ@mail.gmail.com>
+References: <CACT4Y+aZrpZ3JevLrg5i=nTzBAcVhKX9qmajyW5b-+xExwrCHg@mail.gmail.com>
+ <20170221112740.661-1-aryabinin@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
-        <camelia.groza@nxp.com>, <linuxppc-dev@lists.ozlabs.org>,
-        Madalin Bucur <madalin.bucur@nxp.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487677974-13678-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        syzkaller <syzkaller@googlegroups.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f45.google.com ([209.85.213.45]:35815 "EHLO
+        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752193AbdBUL5V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 06:57:21 -0500
+Received: by mail-vk0-f45.google.com with SMTP id x75so77545615vke.2
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 03:57:20 -0800 (PST)
+In-Reply-To: <20170221112740.661-1-aryabinin@virtuozzo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- drivers/net/ethernet/freescale/fman/fman.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Tue, Feb 21, 2017 at 2:27 PM, Andrey Ryabinin
+<aryabinin@virtuozzo.com> wrote:
+> DCCP doesn't purge timewait sockets on network namespace shutdown.
+> So, after net namespace destroyed we could still have an active timer
+> which will trigger use after free in tw_timer_handler():
+>
+>     BUG: KASAN: use-after-free in tw_timer_handler+0x4a/0xa0 at addr ffff88010e0d1e10
+>     Read of size 8 by task swapper/1/0
+>     Call Trace:
+>      __asan_load8+0x54/0x90
+>      tw_timer_handler+0x4a/0xa0
+>      call_timer_fn+0x127/0x480
+>      expire_timers+0x1db/0x2e0
+>      run_timer_softirq+0x12f/0x2a0
+>      __do_softirq+0x105/0x5b4
+>      irq_exit+0xdd/0xf0
+>      smp_apic_timer_interrupt+0x57/0x70
+>      apic_timer_interrupt+0x90/0xa0
+>
+>     Object at ffff88010e0d1bc0, in cache net_namespace size: 6848
+>     Allocated:
+>      save_stack_trace+0x1b/0x20
+>      kasan_kmalloc+0xee/0x180
+>      kasan_slab_alloc+0x12/0x20
+>      kmem_cache_alloc+0x134/0x310
+>      copy_net_ns+0x8d/0x280
+>      create_new_namespaces+0x23f/0x340
+>      unshare_nsproxy_namespaces+0x75/0xf0
+>      SyS_unshare+0x299/0x4f0
+>      entry_SYSCALL_64_fastpath+0x18/0xad
+>     Freed:
+>      save_stack_trace+0x1b/0x20
+>      kasan_slab_free+0xae/0x180
+>      kmem_cache_free+0xb4/0x350
+>      net_drop_ns+0x3f/0x50
+>      cleanup_net+0x3df/0x450
+>      process_one_work+0x419/0xbb0
+>      worker_thread+0x92/0x850
+>      kthread+0x192/0x1e0
+>      ret_from_fork+0x2e/0x40
+>
+> Add .exit_batch hook to dccp_v4_ops()/dccp_v6_ops() which will purge
+> timewait sockets on net namespace destruction and prevent above issue.
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index d755930..4aefe24 100644
---- a/drivers/net/ethernet/freescale/fman/fman.c
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -1212,7 +1212,7 @@ static int fill_soc_specific_params(struct fman_state_struct *state)
- 		state->max_num_of_open_dmas	= 32;
- 		state->fm_port_num_of_cg	= 256;
- 		state->num_of_rx_ports	= 6;
--		state->total_fifo_size	= 122 * 1024;
-+		state->total_fifo_size	= 136 * 1024;
- 		break;
- 
- 	case 2:
--- 
-2.1.0
+
+Aha! Thanks for tracking this down!
+
+Queued the patch on syzkaller bots, should have the verdict in several hours.
+
+
+
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+> ---
+>  net/dccp/ipv4.c | 6 ++++++
+>  net/dccp/ipv6.c | 6 ++++++
+>  2 files changed, 12 insertions(+)
+>
+> diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+> index d859a5c..da7cb16 100644
+> --- a/net/dccp/ipv4.c
+> +++ b/net/dccp/ipv4.c
+> @@ -1018,9 +1018,15 @@ static void __net_exit dccp_v4_exit_net(struct net *net)
+>         inet_ctl_sock_destroy(net->dccp.v4_ctl_sk);
+>  }
+>
+> +static void __net_exit dccp_v4_exit_batch(struct list_head *net_exit_list)
+> +{
+> +       inet_twsk_purge(&dccp_hashinfo, &dccp_death_row, AF_INET);
+> +}
+> +
+>  static struct pernet_operations dccp_v4_ops = {
+>         .init   = dccp_v4_init_net,
+>         .exit   = dccp_v4_exit_net,
+> +       .exit_batch = dccp_v4_exit_batch,
+>  };
+>
+>  static int __init dccp_v4_init(void)
+> diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+> index c4e879c..f3d8f92 100644
+> --- a/net/dccp/ipv6.c
+> +++ b/net/dccp/ipv6.c
+> @@ -1077,9 +1077,15 @@ static void __net_exit dccp_v6_exit_net(struct net *net)
+>         inet_ctl_sock_destroy(net->dccp.v6_ctl_sk);
+>  }
+>
+> +static void __net_exit dccp_v6_exit_batch(struct list_head *net_exit_list)
+> +{
+> +       inet_twsk_purge(&dccp_hashinfo, &dccp_death_row, AF_INET6);
+> +}
+> +
+>  static struct pernet_operations dccp_v6_ops = {
+>         .init   = dccp_v6_init_net,
+>         .exit   = dccp_v6_exit_net,
+> +       .exit_batch = dccp_v6_exit_batch,
+>  };
+>
+>  static int __init dccp_v6_init(void)
+> --
+> 2.10.2
+>
