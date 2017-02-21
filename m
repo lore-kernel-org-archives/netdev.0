@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH 9/9] dpaa_eth: enable multiple Tx traffic classes
-Date: Tue, 21 Feb 2017 13:52:54 +0200
-Message-ID: <1487677974-13678-10-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH 5/9] dpaa_eth: remove redundant initialization
+Date: Tue, 21 Feb 2017 13:52:50 +0200
+Message-ID: <1487677974-13678-6-git-send-email-madalin.bucur@nxp.com>
 References: <1487677974-13678-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -11,80 +11,32 @@ Cc: <linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
         Madalin Bucur <madalin.bucur@nxp.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0062.outbound.protection.outlook.com ([104.47.34.62]:37936
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-cys01nam02on0066.outbound.protection.outlook.com ([104.47.37.66]:38662
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752308AbdBULyF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Feb 2017 06:54:05 -0500
+        id S1752282AbdBULx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Feb 2017 06:53:59 -0500
 In-Reply-To: <1487677974-13678-1-git-send-email-madalin.bucur@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Camelia Groza <camelia.groza@nxp.com>
-
-Implement the setup_tc ndo to configure prioritised Tx traffic classes.
-Priorities range from 0 (lowest) to 3 (highest). The driver assigns
-NR_CPUS queues to each traffic class.
-
-Signed-off-by: Camelia Groza <camelia.groza@nxp.com>
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 36 ++++++++++++++++++++++++++
- 1 file changed, 36 insertions(+)
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index ac75d09..1b3ea38 100644
+index e2ca107..e19181f 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -342,6 +342,41 @@ static void dpaa_get_stats64(struct net_device *net_dev,
- 	}
- }
- 
-+static int dpaa_setup_tc(struct net_device *net_dev, u32 handle, __be16 proto,
-+			 struct tc_to_netdev *tc)
-+{
-+	struct dpaa_priv *priv = netdev_priv(net_dev);
-+	int i;
-+
-+	if (tc->type != TC_SETUP_MQPRIO)
-+		return -EINVAL;
-+
-+	if (tc->tc == priv->num_tc)
-+		return 0;
-+
-+	if (!tc->tc) {
-+		netdev_reset_tc(net_dev);
-+		goto out;
-+	}
-+
-+	if (tc->tc > DPAA_TC_NUM) {
-+		netdev_err(net_dev, "Too many traffic classes: max %d supported.\n",
-+			   DPAA_TC_NUM);
-+		return -EINVAL;
-+	}
-+
-+	netdev_set_num_tc(net_dev, tc->tc);
-+
-+	for (i = 0; i < tc->tc; i++)
-+		netdev_set_tc_queue(net_dev, i, DPAA_TC_TXQ_NUM,
-+				    i * DPAA_TC_TXQ_NUM);
-+
-+out:
-+	priv->num_tc = tc->tc ? tc->tc : 1;
-+	netif_set_real_num_tx_queues(net_dev, priv->num_tc * DPAA_TC_TXQ_NUM);
-+	return 0;
-+}
-+
- static struct mac_device *dpaa_mac_dev_get(struct platform_device *pdev)
- {
- 	struct platform_device *of_dev;
-@@ -2417,6 +2452,7 @@ static const struct net_device_ops dpaa_ops = {
- 	.ndo_validate_addr = eth_validate_addr,
- 	.ndo_set_rx_mode = dpaa_set_rx_mode,
- 	.ndo_do_ioctl = dpaa_ioctl,
-+	.ndo_setup_tc = dpaa_setup_tc,
- };
- 
- static int dpaa_napi_add(struct net_device *net_dev)
+@@ -2093,7 +2093,7 @@ static enum qman_cb_dqrr_result rx_default_dqrr(struct qman_portal *portal,
+ 	dma_addr_t addr = qm_fd_addr(fd);
+ 	enum qm_fd_format fd_format;
+ 	struct net_device *net_dev;
+-	u32 fd_status = fd->status;
++	u32 fd_status;
+ 	struct dpaa_bp *dpaa_bp;
+ 	struct dpaa_priv *priv;
+ 	unsigned int skb_len;
 -- 
 2.1.0
