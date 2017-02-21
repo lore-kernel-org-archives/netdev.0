@@ -1,44 +1,41 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [net-next][PATCH] RDS: keep data type consistent in the user
- visible header
-Date: Tue, 21 Feb 2017 14:58:49 +0000
-Message-ID: <0437debe-fd44-20ab-c2d2-02c14255da9a@solarflare.com>
-References: <1487387747-5324-1-git-send-email-santosh.shilimkar@oracle.com>
- <20170220.101951.663166903772216217.davem@davemloft.net>
- <20170220153722.GB16561@oracle.com>
- <20170220.103912.194197218422769191.davem@davemloft.net>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6CA26@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-        'David Miller' <davem@davemloft.net>,
-        "sowmini.varadhan@oracle.com" <sowmini.varadhan@oracle.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 0/2] BPF fix with regards to unlocking
+Date: Tue, 21 Feb 2017 16:09:32 +0100
+Message-ID: <cover.1487688093.git.daniel@iogearbox.net>
+Cc: ast@kernel.org, labbott@redhat.com, eric.dumazet@gmail.com,
+        willemb@google.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:44662 "EHLO
-        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752571AbdBUO7U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 09:59:20 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFE6CA26@AcuExch.aculab.com>
+Received: from www62.your-server.de ([213.133.104.62]:56258 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751561AbdBUPJv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 10:09:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/02/17 14:29, David Laight wrote:
->> The entire file should use the proper "__uX" kernel types
->> rather than the uint* ones.
-> The uint* ones are part of the C standard :-)
->
-> 	David
->
-... which is exactly why we can't use them.
+This set fixes the issue Eric was reporting recently [1].
+First patch is a prerequisite discussed with Laura that is
+needed for the later fix in the second one. I've tested this
+extensively and it does not reproduce anymore on my side
+after the fix. Thanks & sorry about that!
 
-http://yarchive.net/comp/linux/kernel_headers.html#17
+  [1] https://www.spinics.net/lists/netdev/msg421877.html
 
-Visibility of <stdint.h> types is defined by a twisty maze of standards, all different (POSIX, SuS, BSD_SOURCE, XOPEN_SOURCE...).
+Daniel Borkmann (2):
+  arch: add ARCH_HAS_SET_MEMORY config
+  bpf: fix unlocking of jited image when module ronx not set
 
-__u8 and friends are in the reserved system namespace, so we can safely use them in user headers.
+ arch/Kconfig                  |  4 ++++
+ arch/arm/Kconfig              |  1 +
+ arch/arm64/Kconfig            |  1 +
+ arch/arm64/net/bpf_jit_comp.c |  2 +-
+ arch/s390/Kconfig             |  1 +
+ arch/s390/net/bpf_jit_comp.c  |  2 +-
+ arch/x86/Kconfig              |  1 +
+ arch/x86/net/bpf_jit_comp.c   |  2 +-
+ include/linux/filter.h        | 13 +++++++++++--
+ 9 files changed, 22 insertions(+), 5 deletions(-)
 
--Ed
+-- 
+1.9.3
