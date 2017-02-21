@@ -1,27 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] QorIQ DPAA 1 updates
-Date: Tue, 21 Feb 2017 13:19:33 -0500 (EST)
-Message-ID: <20170221.131933.400031791242843075.davem@davemloft.net>
-References: <1487677974-13678-1-git-send-email-madalin.bucur@nxp.com>
+Subject: Re: [PATCH] net/dccp: fix use after free in tw_timer_handler()
+Date: Tue, 21 Feb 2017 13:24:49 -0500 (EST)
+Message-ID: <20170221.132449.1868705782244690263.davem@davemloft.net>
+References: <CACT4Y+aZrpZ3JevLrg5i=nTzBAcVhKX9qmajyW5b-+xExwrCHg@mail.gmail.com>
+        <20170221112740.661-1-aryabinin@virtuozzo.com>
+        <20170221.132351.1602433391866901233.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        camelia.groza@nxp.com, linuxppc-dev@lists.ozlabs.org
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487677974-13678-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org, dvyukov@google.com,
+        edumazet@google.com, xiyou.wangcong@gmail.com,
+        kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        syzkaller@googlegroups.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: aryabinin@virtuozzo.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56422 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754736AbdBUSYw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 13:24:52 -0500
+In-Reply-To: <20170221.132351.1602433391866901233.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Date: Tue, 21 Feb 2017 13:52:45 +0200
-
-> This patch set introduces a series of fixes and features to the DPAA 1
-> drivers. Besides activating hardware Rx checksum offloading, four traffic
-> classes are added for Tx traffic prioritisation.
-
-The net-next tree is closed, please resubmit this after the merge window when
-the net-next tree opens back up.
-
-Thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAyMSBG
+ZWIgMjAxNyAxMzoyMzo1MSAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IEFuZHJleSBSeWFiaW5pbiA8
+YXJ5YWJpbmluQHZpcnR1b3p6by5jb20+DQo+IERhdGU6IFR1ZSwgMjEgRmViIDIwMTcgMTQ6Mjc6
+NDAgKzAzMDANCj4gDQo+PiBEQ0NQIGRvZXNuJ3QgcHVyZ2UgdGltZXdhaXQgc29ja2V0cyBvbiBu
+ZXR3b3JrIG5hbWVzcGFjZSBzaHV0ZG93bi4NCj4+IFNvLCBhZnRlciBuZXQgbmFtZXNwYWNlIGRl
+c3Ryb3llZCB3ZSBjb3VsZCBzdGlsbCBoYXZlIGFuIGFjdGl2ZSB0aW1lcg0KPj4gd2hpY2ggd2ls
+bCB0cmlnZ2VyIHVzZSBhZnRlciBmcmVlIGluIHR3X3RpbWVyX2hhbmRsZXIoKToNCj4gIC4uLg0K
+Pj4gQWRkIC5leGl0X2JhdGNoIGhvb2sgdG8gZGNjcF92NF9vcHMoKS9kY2NwX3Y2X29wcygpIHdo
+aWNoIHdpbGwgcHVyZ2UNCj4+IHRpbWV3YWl0IHNvY2tldHMgb24gbmV0IG5hbWVzcGFjZSBkZXN0
+cnVjdGlvbiBhbmQgcHJldmVudCBhYm92ZSBpc3N1ZS4NCj4+IA0KPj4gUmVwb3J0ZWQtYnk6IERt
+aXRyeSBWeXVrb3YgPGR2eXVrb3ZAZ29vZ2xlLmNvbT4NCj4+IFNpZ25lZC1vZmYtYnk6IEFuZHJl
+eSBSeWFiaW5pbiA8YXJ5YWJpbmluQHZpcnR1b3p6by5jb20+DQo+IA0KPiBBcHBsaWVkIGFuZCBx
+dWV1ZWQgdXAgZm9yIC1zdGFibGUsIHRoYW5rcy4NCg0KQWN0dWFsbHksIHRoaXMgZG9lc24ndCBl
+dmVuIGNvbXBpbGUuICBQbGVhc2UgZml4IHRoaXMgdXAgYW5kIHJlc3VibWl0Og0KDQpuZXQvZGNj
+cC9pcHY0LmM6IEluIGZ1bmN0aW9uIKFkY2NwX3Y0X2V4aXRfYmF0Y2iiOg0KbmV0L2RjY3AvaXB2
+NC5jOjEwMjI6MzQ6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMiBvZiChaW5ldF90d3NrX3B1
+cmdloiBtYWtlcyBpbnRlZ2VyIGZyb20gcG9pbnRlciB3aXRob3V0IGEgY2FzdCBbLVdpbnQtY29u
+dmVyc2lvbl0NCiAgaW5ldF90d3NrX3B1cmdlKCZkY2NwX2hhc2hpbmZvLCAmZGNjcF9kZWF0aF9y
+b3csIEFGX0lORVQpOw0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCkluIGZp
+bGUgaW5jbHVkZWQgZnJvbSAuL2luY2x1ZGUvbGludXgvZGNjcC5oOjE0OjAsDQogICAgICAgICAg
+ICAgICAgIGZyb20gbmV0L2RjY3AvaXB2NC5jOjEzOg0KLi9pbmNsdWRlL25ldC9pbmV0X3RpbWV3
+YWl0X3NvY2suaDoxMTg6Njogbm90ZTogZXhwZWN0ZWQgoWludKIgYnV0IGFyZ3VtZW50IGlzIG9m
+IHR5cGUgoXN0cnVjdCBpbmV0X3RpbWV3YWl0X2RlYXRoX3JvdyAqog0KIHZvaWQgaW5ldF90d3Nr
+X3B1cmdlKHN0cnVjdCBpbmV0X2hhc2hpbmZvICpoYXNoaW5mbywgaW50IGZhbWlseSk7DQogICAg
+ICBeDQpuZXQvZGNjcC9pcHY0LmM6MTAyMjoyOiBlcnJvcjogdG9vIG1hbnkgYXJndW1lbnRzIHRv
+IGZ1bmN0aW9uIKFpbmV0X3R3c2tfcHVyZ2WiDQogIGluZXRfdHdza19wdXJnZSgmZGNjcF9oYXNo
+aW5mbywgJmRjY3BfZGVhdGhfcm93LCBBRl9JTkVUKTsNCiAgXg0K
