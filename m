@@ -1,67 +1,63 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv4 net-next 08/13] net: mvpp2: simplify mvpp2_bm_bufs_add()
-Date: Tue, 21 Feb 2017 11:28:08 +0100
-Message-ID: <1487672893-5746-9-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@arm.linux.org.uk>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Subject: Re: [PATCHv3 net-next 00/12] net: mvpp2: misc improvements and
+ preparation patches
+Date: Tue, 21 Feb 2017 11:32:43 +0100
+Message-ID: <20170221113243.20d2e569@free-electrons.com>
+References: <20170220100742.0b1fce4a@free-electrons.com>
+        <20170220.095357.2175678121216081406.davem@davemloft.net>
+        <20170220164741.11b40d07@free-electrons.com>
+        <20170220.111226.239035932737797178.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux@armlinux.org.uk,
+        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
+        hannah@marvell.com, yehuday@marvell.com, stefanc@marvell.com,
+        jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com, mw@semihalf.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:49563 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:49734 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751927AbdBUK27 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:28:59 -0500
-In-Reply-To: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        with ESMTP id S1751890AbdBUKcz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:32:55 -0500
+In-Reply-To: <20170220.111226.239035932737797178.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvpp2_bm_bufs_add() currently creates a fake cookie by calling
-mvpp2_bm_cookie_pool_set(), just to be able to call
-mvpp2_pool_refill(). But all what mvpp2_pool_refill() does is extract
-the pool ID from the cookie, and call mvpp2_bm_pool_put() with this ID.
+Hello,
 
-Instead of doing this convoluted thing, just call mvpp2_bm_pool_put()
-directly, since we have the BM pool ID.
+On Mon, 20 Feb 2017 11:12:26 -0500 (EST), David Miller wrote:
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Acked-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/ethernet/marvell/mvpp2.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+> For your particular case I'll accept a resubmit.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 3afd0a6..a224049 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -3626,7 +3626,6 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- {
- 	struct sk_buff *skb;
- 	int i, buf_size, total_size;
--	u32 bm;
- 	dma_addr_t phys_addr;
- 
- 	buf_size = MVPP2_RX_BUF_SIZE(bm_pool->pkt_size);
-@@ -3640,13 +3639,12 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 		return 0;
- 	}
- 
--	bm = mvpp2_bm_cookie_pool_set(0, bm_pool->id);
- 	for (i = 0; i < buf_num; i++) {
- 		skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
- 		if (!skb)
- 			break;
- 
--		mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
-+		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)skb);
- 	}
- 
- 	/* Update BM driver with number of buffers added to pool */
+Resubmit done, patches are now in patchwork. Changes since v3 (also in
+the cover letter of v4) :
+
+ - Addition of a patch "net: mvpp2: fix DMA address calculation in
+   mvpp2_txq_inc_put()", which fixes a bug in the driver in the
+   calculation of DMA addresses. This bug was found using
+   DMA_API_DEBUG.
+
+ - Modify the "net: mvpp2: switch to build_skb() in the RX path" patch
+   to recalculate the fragment size when the MTU is changed in
+   mvpp2_bm_update_mtu().
+
+ - Added Acked-by from Russell King on all patches, except:
+
+    * "net: mvpp2: fix DMA address calculation in
+      mvpp2_txq_inc_put()", because it's a new patch
+
+    * "net: mvpp2: switch to build_skb() in the RX path" because I
+      modified it since the v3.
+
+ - Rebased on top of 4.10.
+
+Thanks!
+
+Thomas
 -- 
-2.7.4
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
