@@ -1,25 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/7] gtp: misc improvements
-Date: Tue, 21 Feb 2017 13:15:27 -0500 (EST)
-Message-ID: <20170221.131527.1278036562998923405.davem@davemloft.net>
-References: <20170221101855.23940-1-aschultz@tpip.net>
+Subject: Re: [PATCHv4 net-next 00/13] net: mvpp2: misc improvements and
+ preparation patches
+Date: Tue, 21 Feb 2017 13:17:57 -0500 (EST)
+Message-ID: <20170221.131757.191949443842926494.davem@davemloft.net>
+References: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org, laforge@gnumonks.org,
-        osmocom-net-gprs@lists.osmocom.org
-To: aschultz@tpip.net
+Cc: netdev@vger.kernel.org, nadavh@marvell.com, hannah@marvell.com,
+        yehuday@marvell.com, jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com, linux@arm.linux.org.uk,
+        stefanc@marvell.com
+To: thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55912 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56014 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754628AbdBUSP3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 13:15:29 -0500
-In-Reply-To: <20170221101855.23940-1-aschultz@tpip.net>
+        with ESMTP id S932152AbdBUSSB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 13:18:01 -0500
+In-Reply-To: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Tue, 21 Feb 2017 11:28:00 +0100
 
-The net-next tree is closed at this time, you'll need to resubmit this series
-when the net-next tree opens back up after the merge window.
+> This series contains a number of fixes, misc improvements and
+> preparation patches for an upcoming series that adds support for the
+> new PPv2.2 network controller to the mvpp2 driver.
 
-Thanks.
+Series applied, thanks.
