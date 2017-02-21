@@ -1,10 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv4 net-next 00/13] net: mvpp2: misc improvements and preparation patches
-Date: Tue, 21 Feb 2017 11:28:00 +0100
-Message-ID: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCHv4 net-next 10/13] net: mvpp2: fix indentation of MVPP2_EXT_GLOBAL_CTRL_DEFAULT
+Date: Tue, 21 Feb 2017 11:28:10 +0100
+Message-ID: <1487672893-5746-11-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -16,94 +14,32 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:49510 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:49610 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751788AbdBUK2j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:28:39 -0500
+        with ESMTP id S1751908AbdBUK2y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:28:54 -0500
+In-Reply-To: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Acked-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-This series contains a number of fixes, misc improvements and
-preparation patches for an upcoming series that adds support for the
-new PPv2.2 network controller to the mvpp2 driver.
-
-The most significant improvements are:
-
- - Switching to using build_skb(), which is necessary for the upcoming
-   PPv2.2 support, but anyway a good improvement to the current mvpp2
-   driver (supporting PPv2.1).
-
- - Making the driver build on 64-bit platforms.
-
-Changes since v3:
-
- - Addition of a patch "net: mvpp2: fix DMA address calculation in
-   mvpp2_txq_inc_put()", which fixes a bug in the driver in the
-   calculation of DMA addresses. This bug was found using
-   DMA_API_DEBUG.
-
- - Modify the "net: mvpp2: switch to build_skb() in the RX path" patch
-   to recalculate the fragment size when the MTU is changed in
-   mvpp2_bm_update_mtu().
-
- - Added Acked-by from Russell King on all patches, except:
-
-    * "net: mvpp2: fix DMA address calculation in
-      mvpp2_txq_inc_put()", because it's a new patch
-
-    * "net: mvpp2: switch to build_skb() in the RX path" because I
-      modified it since the v3.
-
- - Rebased on top of 4.10.
-
-Changes since v2:
-
- - Fix remaining 64-bit build warning, reported by David Miller.
-
- - Adjust how bit mask related definitions are done in "net: mvpp2:
-   simplify MVPP2_PRS_RI_* definitions" according to Russell King
-   suggestions.
-
- - Add a patch "net: mvpp2: remove useless arguments in
-   mvpp2_rx_{pkts,time}_coal_set", suggested by Russell King.
-
- - Rework mvpp2_rx_time_coal_set() implementation to avoid overflows
-   and rounding errors. I've used the implementation suggested by
-   Russell King.
-
-Changes since v1:
-
- - This series is split as a separate series from the larger patch set
-   adding support for PPv2.2 in the mvpp2 driver, as requested by
-   David Miller.
-
- - Rebased on top of v4.10-rc1.
-
-Thanks!
-
-Thomas
-
-Thomas Petazzoni (13):
-  net: mvpp2: fix DMA address calculation in mvpp2_txq_inc_put()
-  net: mvpp2: remove useless arguments in mvpp2_rx_{pkts,time}_coal_set
-  net: mvpp2: handle too large value handling in
-    mvpp2_rx_pkts_coal_set()
-  net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
-  net: mvpp2: release reference to txq_cpu[] entry after unmapping
-  net: mvpp2: remove unused 'tx_skb' field of 'struct mvpp2_tx_queue'
-  net: mvpp2: drop useless fields in mvpp2_bm_pool and related code
-  net: mvpp2: simplify mvpp2_bm_bufs_add()
-  net: mvpp2: remove unused register definitions
-  net: mvpp2: fix indentation of MVPP2_EXT_GLOBAL_CTRL_DEFAULT
-  net: mvpp2: simplify MVPP2_PRS_RI_* definitions
-  net: mvpp2: switch to build_skb() in the RX path
-  net: mvpp2: enable building on 64-bit platforms
-
- drivers/net/ethernet/marvell/Kconfig |   3 +-
- drivers/net/ethernet/marvell/mvpp2.c | 212 +++++++++++++++++++++--------------
- 2 files changed, 128 insertions(+), 87 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 2cb4359..0b27df3 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -254,7 +254,7 @@
+ #define MVPP2_PHY_AN_CFG0_REG			0x34
+ #define     MVPP2_PHY_AN_STOP_SMI0_MASK		BIT(7)
+ #define MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG	0x305c
+-#define MVPP2_EXT_GLOBAL_CTRL_DEFAULT		0x27
++#define     MVPP2_EXT_GLOBAL_CTRL_DEFAULT	0x27
+ 
+ /* Per-port registers */
+ #define MVPP2_GMAC_CTRL_0_REG			0x0
 -- 
 2.7.4
