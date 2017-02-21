@@ -1,34 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] net: mvneta: improve rx/tx performance
-Date: Tue, 21 Feb 2017 11:16:02 -0500 (EST)
-Message-ID: <20170221.111602.860315087619854954.davem@davemloft.net>
-References: <20170220125344.3555-1-jszhang@marvell.com>
-        <877f4laqog.fsf@free-electrons.com>
-        <20170221123726.2db7db19@xhacker>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: napi_watchdog() can use napi_schedule_irqoff()
+Date: Tue, 21 Feb 2017 08:20:56 -0800
+Message-ID: <1487694056.9415.27.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, arnd@arndb.de,
-        mw@semihalf.com, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jszhang@marvell.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54332 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753578AbdBUQQF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 11:16:05 -0500
-In-Reply-To: <20170221123726.2db7db19@xhacker>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36157 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751418AbdBUQU7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 11:20:59 -0500
+Received: by mail-pg0-f67.google.com with SMTP id z128so212943pgb.3
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 08:20:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jisheng Zhang <jszhang@marvell.com>
-Date: Tue, 21 Feb 2017 12:37:40 +0800
+From: Eric Dumazet <edumazet@google.com>
 
-> Thanks for your review.
-> 
-> The measurement is simple: record how much time we spent in mvneta_rx_swbm()
-> for receiving 1GB data, something as below:
+hrtimer handlers run with masked hard IRQ, we can therefore
+use napi_schedule_irqoff()
 
-Please use a standard tool for measuring performance, rather than profiling
-the driver and trying to derive numbers that way.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 05d19c6acf9460e072195e185b64e19088de13da..304f2deae5f9897e60a79ed8b69d6ef208295ded 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5089,7 +5089,7 @@ static enum hrtimer_restart napi_watchdog(struct hrtimer *timer)
+ 
+ 	napi = container_of(timer, struct napi_struct, timer);
+ 	if (napi->gro_list)
+-		napi_schedule(napi);
++		napi_schedule_irqoff(napi);
+ 
+ 	return HRTIMER_NORESTART;
+ }
