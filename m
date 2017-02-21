@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv4 net-next 13/13] net: mvpp2: enable building on 64-bit platforms
-Date: Tue, 21 Feb 2017 11:28:13 +0100
-Message-ID: <1487672893-5746-14-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv4 net-next 06/13] net: mvpp2: remove unused 'tx_skb' field of 'struct mvpp2_tx_queue'
+Date: Tue, 21 Feb 2017 11:28:06 +0100
+Message-ID: <1487672893-5746-7-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -14,153 +14,36 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:49610 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:49558 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751916AbdBUK2z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:28:55 -0500
+        with ESMTP id S1751928AbdBUK27 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:28:59 -0500
 In-Reply-To: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvpp2 is going to be extended to support the Marvell Armada 7K/8K
-platform, which is ARM64. As a preparation to this work, this commit
-enables building the mvpp2 driver on ARM64, by:
-
- - Adjusting the Kconfig dependency
-
- - Fixing the types used in the driver so that they are 32/64-bits
-   compliant. We use dma_addr_t for DMA addresses, and unsigned long
-   for virtual addresses.
-
-It is worth mentioning that after this commit, the driver is for now
-still only used on 32-bits platforms, and will only work on 32-bits
-platforms.
+This commit remove a field of 'struct mvpp2_tx_queue' that is not used
+anywhere.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/ethernet/marvell/Kconfig |  3 +--
- drivers/net/ethernet/marvell/mvpp2.c | 31 ++++++++++++++++++-------------
- 2 files changed, 19 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index f4b7cf1..d2555e8b 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -83,9 +83,8 @@ config MVNETA_BM
- 
- config MVPP2
- 	tristate "Marvell Armada 375 network interface support"
--	depends on MACH_ARMADA_375 || COMPILE_TEST
-+	depends on ARCH_MVEBU || COMPILE_TEST
- 	depends on HAS_DMA
--	depends on !64BIT
- 	select MVMDIO
- 	---help---
- 	  This driver supports the network interface units in the
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 28bdae9..7b39515 100644
+index b98c668d..465d4a0 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -3388,7 +3388,8 @@ static int mvpp2_bm_pool_create(struct platform_device *pdev,
- 	if (!bm_pool->virt_addr)
- 		return -ENOMEM;
+@@ -823,9 +823,6 @@ struct mvpp2_tx_queue {
+ 	/* Per-CPU control of physical Tx queues */
+ 	struct mvpp2_txq_pcpu __percpu *pcpu;
  
--	if (!IS_ALIGNED((u32)bm_pool->virt_addr, MVPP2_BM_POOL_PTR_ALIGN)) {
-+	if (!IS_ALIGNED((unsigned long)bm_pool->virt_addr,
-+			MVPP2_BM_POOL_PTR_ALIGN)) {
- 		dma_free_coherent(&pdev->dev, size_bytes, bm_pool->virt_addr,
- 				  bm_pool->phys_addr);
- 		dev_err(&pdev->dev, "BM pool %d is not %d bytes aligned\n",
-@@ -3433,7 +3434,7 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
+-	/* Array of transmitted skb */
+-	struct sk_buff **tx_skb;
+-
+ 	u32 done_pkts_coal;
  
- 	for (i = 0; i < bm_pool->buf_num; i++) {
- 		dma_addr_t buf_phys_addr;
--		u32 vaddr;
-+		unsigned long vaddr;
- 
- 		/* Get buffer virtual address (indirect access) */
- 		buf_phys_addr = mvpp2_read(priv,
-@@ -3596,14 +3597,15 @@ static inline u32 mvpp2_bm_cookie_pool_set(u32 cookie, int pool)
- }
- 
- /* Get pool number from a BM cookie */
--static inline int mvpp2_bm_cookie_pool_get(u32 cookie)
-+static inline int mvpp2_bm_cookie_pool_get(unsigned long cookie)
- {
- 	return (cookie >> MVPP2_BM_COOKIE_POOL_OFFS) & 0xFF;
- }
- 
- /* Release buffer to BM */
- static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
--				     u32 buf_phys_addr, u32 buf_virt_addr)
-+				     dma_addr_t buf_phys_addr,
-+				     unsigned long buf_virt_addr)
- {
- 	mvpp2_write(port->priv, MVPP2_BM_VIRT_RLS_REG, buf_virt_addr);
- 	mvpp2_write(port->priv, MVPP2_BM_PHY_RLS_REG(pool), buf_phys_addr);
-@@ -3611,7 +3613,8 @@ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
- 
- /* Release multicast buffer */
- static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
--				 u32 buf_phys_addr, u32 buf_virt_addr,
-+				 dma_addr_t buf_phys_addr,
-+				 unsigned long buf_virt_addr,
- 				 int mc_id)
- {
- 	u32 val = 0;
-@@ -3626,7 +3629,8 @@ static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
- 
- /* Refill BM pool */
- static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
--			      u32 phys_addr, u32 cookie)
-+			      dma_addr_t phys_addr,
-+			      unsigned long cookie)
- {
- 	int pool = mvpp2_bm_cookie_pool_get(bm);
- 
-@@ -3657,7 +3661,8 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 		if (!buf)
- 			break;
- 
--		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)buf);
-+		mvpp2_bm_pool_put(port, bm_pool->id, phys_addr,
-+				  (unsigned long)buf);
- 	}
- 
- 	/* Update BM driver with number of buffers added to pool */
-@@ -5034,7 +5039,7 @@ static int mvpp2_rx_refill(struct mvpp2_port *port,
- 	if (!buf)
- 		return -ENOMEM;
- 
--	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)buf);
-+	mvpp2_pool_refill(port, bm, phys_addr, (unsigned long)buf);
- 
- 	return 0;
- }
-@@ -5076,10 +5081,10 @@ static void mvpp2_buff_hdr_rx(struct mvpp2_port *port,
- 	struct mvpp2_buff_hdr *buff_hdr;
- 	struct sk_buff *skb;
- 	u32 rx_status = rx_desc->status;
--	u32 buff_phys_addr;
--	u32 buff_virt_addr;
--	u32 buff_phys_addr_next;
--	u32 buff_virt_addr_next;
-+	dma_addr_t buff_phys_addr;
-+	unsigned long buff_virt_addr;
-+	dma_addr_t buff_phys_addr_next;
-+	unsigned long buff_virt_addr_next;
- 	int mc_id;
- 	int pool_id;
- 
-@@ -5136,7 +5141,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 		rx_status = rx_desc->status;
- 		rx_bytes = rx_desc->data_size - MVPP2_MH_SIZE;
- 		phys_addr = rx_desc->buf_phys_addr;
--		data = (void *)rx_desc->buf_cookie;
-+		data = (void *)(uintptr_t)rx_desc->buf_cookie;
- 
- 		bm = mvpp2_bm_cookie_build(rx_desc);
- 		pool = mvpp2_bm_cookie_pool_get(bm);
+ 	/* Virtual address of thex Tx DMA descriptors array */
 -- 
 2.7.4
