@@ -1,58 +1,61 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next] tcp: Revert "tcp: tcp_probe: use spin_lock_bh()"
-Date: Tue, 21 Feb 2017 06:21:47 -0800
-Message-ID: <20170221142147.19154-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Ricardo Nabinger Sanchez <rnsanchez@gmail.com>,
-        Eric Dumazet <edumazet@google.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/2] sctp: add support for MSG_MORE
+Date: Tue, 21 Feb 2017 14:27:25 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
+References: <cover.1487440272.git.lucien.xin@gmail.com>
+ <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: 'Xin Long' <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:36337 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752842AbdBUOWC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 09:22:02 -0500
-Received: by mail-pg0-f41.google.com with SMTP id s67so25494471pgb.3
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 06:22:02 -0800 (PST)
+Received: from smtp-out6.electric.net ([192.162.217.183]:63684 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752842AbdBUO1f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 09:27:35 -0500
+In-Reply-To: <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit e70ac171658679ecf6bea4bbd9e9325cd6079d2b.
+From: Xin Long 
+> Sent: 18 February 2017 17:53
+> This patch is to add support for MSG_MORE on sctp.
+> 
+> It adds force_delay in sctp_datamsg to save MSG_MORE, and sets it after
+> creating datamsg according to the send flag. sctp_packet_can_append_data
+> then uses it to decide if the chunks of this msg will be sent at once or
+> delay it.
+> 
+> Note that unlike [1], this patch saves MSG_MORE in datamsg, instead of
+> in assoc. As sctp enqueues the chunks first, then dequeue them one by
+> one. If it's saved in assoc,the current msg's send flag (MSG_MORE) may
+> affect other chunks' bundling.
 
-jtcp_rcv_established() is in fact called with hard irq being disabled.
+I thought about that and decided that the MSG_MORE flag on the last data
+chunk was the only one that mattered.
+Indeed looking at any others is broken.
 
-Initial bug report from Ricardo Nabinger Sanchez [1] still needs
-to be investigated, but does not look like a TCP bug.
+Consider what happens if you have two small chunks queued, the first
+with MSG_MORE set, the second with it clear.
 
-[1] https://www.spinics.net/lists/netdev/msg420960.html
+I think that sctp_outq_flush() will look at the first chunk and decide it
+doesn't need to do anything because sctp_packet_transmit_chunk()
+returns SCTP_XMIT_DELAY.
+The data chunk with MSG_MORE clear won't even be looked at.
+So the data will never be sent.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: kernel test robot <xiaolong.ye@intel.com>
-Cc: Ricardo Nabinger Sanchez <rnsanchez@gmail.com>
----
- net/ipv4/tcp_probe.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I wouldn't worry about having messages queued that have MSG_MORE clean
+when the final message has it set.
+While it might be 'nice' to send the data (would have to be tx credit)
+waiting for the next data chunk shouldn't be a problem.
 
-diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-index 3d063eb3784828b142874c92fd2db026bea0f3b3..f6c50af24a64737672f7ede2ff41158bfed5f1b4 100644
---- a/net/ipv4/tcp_probe.c
-+++ b/net/ipv4/tcp_probe.c
-@@ -117,7 +117,7 @@ static void jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 	     (fwmark > 0 && skb->mark == fwmark)) &&
- 	    (full || tp->snd_cwnd != tcp_probe.lastcwnd)) {
- 
--		spin_lock_bh(&tcp_probe.lock);
-+		spin_lock(&tcp_probe.lock);
- 		/* If log fills, just silently drop */
- 		if (tcp_probe_avail() > 1) {
- 			struct tcp_log *p = tcp_probe.log + tcp_probe.head;
-@@ -157,7 +157,7 @@ static void jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 			tcp_probe.head = (tcp_probe.head + 1) & (bufsize - 1);
- 		}
- 		tcp_probe.lastcwnd = tp->snd_cwnd;
--		spin_unlock_bh(&tcp_probe.lock);
-+		spin_unlock(&tcp_probe.lock);
- 
- 		wake_up(&tcp_probe.wait);
- 	}
--- 
-2.11.0.483.g087da7b7c-goog
+I'm not sure I even want to test the current patch!
+
+	David
