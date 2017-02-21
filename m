@@ -1,99 +1,86 @@
 From: Tom Herbert <tom@herbertland.com>
 Subject: Re: Focusing the XDP project
-Date: Tue, 21 Feb 2017 14:54:35 -0800
-Message-ID: <CALx6S37s=Kcy+wEbojVHjiAoLZC_4V5qzMLe=-QXtJYVtwTAew@mail.gmail.com>
-References: <20170220111343.76f77748@redhat.com> <CAKgT0Ucqp6+jWkiGxDoEE-UdbnxsdVLxjZZ6uYtNWHSo4fPUVg@mail.gmail.com>
+Date: Tue, 21 Feb 2017 15:04:04 -0800
+Message-ID: <CALx6S37Yq9AA+HpVE_C8ea96Tkhwx1rGN+4i9i506w=7Zwqp5w@mail.gmail.com>
+References: <CAKgT0Ucqp6+jWkiGxDoEE-UdbnxsdVLxjZZ6uYtNWHSo4fPUVg@mail.gmail.com>
  <cc26e1ce-05ae-6c3d-a323-b6f18e2ad897@mellanox.com> <CALx6S375878KeM0O7BO9sB7B_3p+yO4yxfEhxYdn_=AZvWF-Aw@mail.gmail.com>
- <CALzJLG-323ZOyruHok3=jz526bnw=SoYtYSym8RrA3Z5=g0u9Q@mail.gmail.com>
+ <20170221.114617.1686255511436946338.davem@davemloft.net> <CALx6S36qPxUgvmp4taQFd0OzWyQ9Z4Rv8t+cnph_MAQHiGkvCw@mail.gmail.com>
+ <CALzJLG_B+StgYBqUrUF3ZiQXHsLVWzh0uUALfGpgpYDOXwWE-Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
+Cc: David Miller <davem@davemloft.net>,
+        Saeed Mahameed <saeedm@mellanox.com>,
         Alexander Duyck <alexander.duyck@gmail.com>,
         Jesper Dangaard Brouer <brouer@redhat.com>,
         Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        john fastabend <john.fastabend@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
         Brenden Blanco <bblanco@gmail.com>
 To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:32956 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753443AbdBUWyh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 17:54:37 -0500
-Received: by mail-qt0-f195.google.com with SMTP id n13so19561528qtc.0
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 14:54:36 -0800 (PST)
-In-Reply-To: <CALzJLG-323ZOyruHok3=jz526bnw=SoYtYSym8RrA3Z5=g0u9Q@mail.gmail.com>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:34064 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752519AbdBUXEG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 18:04:06 -0500
+Received: by mail-qk0-f180.google.com with SMTP id s186so137059749qkb.1
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 15:04:05 -0800 (PST)
+In-Reply-To: <CALzJLG_B+StgYBqUrUF3ZiQXHsLVWzh0uUALfGpgpYDOXwWE-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 21, 2017 at 2:29 PM, Saeed Mahameed
+On Tue, Feb 21, 2017 at 2:40 PM, Saeed Mahameed
 <saeedm@dev.mellanox.co.il> wrote:
-> On Tue, Feb 21, 2017 at 6:35 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Mon, Feb 20, 2017 at 2:57 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> On Tue, Feb 21, 2017 at 7:40 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> On Tue, Feb 21, 2017 at 8:46 AM, David Miller <davem@davemloft.net> wrote:
+>>> From: Tom Herbert <tom@herbertland.com>
+>>> Date: Tue, 21 Feb 2017 08:35:41 -0800
 >>>
->>> Well, although I think Jesper is a little bit exaggerating ;) I guess he has a point
->>> and i am on his side on this discussion. you see, if we define the APIs and ABIs now
->>> and they turn out to be a bottleneck for the whole XDP arch performance, at that
->>> point it will be too late to compare XDP to DPDK and other kernel bypass solutions.
+>>>> We already have good APIs for similar datapath functionality (GRO,
+>>>> GSO, xmit_more, etc.), and I don't see why XDP is so special that we
+>>>> can't come up with a reasonable API for batching and implement it.
 >>>
->>> What we need to do is to bring XDP to a state where it performs at least the same as other
->>> kernel bypass solutions. I know that the DPDK team here at mellanox spent years working
->>> on DPDK performance, squeezing every bit out of the code/dcache/icache/cpu you name it..
->>> We simply need to do the same for XDP to prove it worthy and can deliver the required
->>> rates. Only then, when we have the performance baseline numbers, we can start expanding XDP features
->>> and defining new use cases and a uniform API, while making sure the performance is kept at it max.
+>>> What you are missing is that it wasn't always this way.
 >>>
->>> Yes, there is a down side to this, that currently most of the optimizations and implementations we can do
->>> are inside the device driver and they are driver dependent, but once we have a clear image
->>> on how things should work, we can pause and think on how to generalize the approaches
->>> to all device drivers.
+>>> The initial TSO support was a hodge-podge of weird driver APIs and
+>>> simple heuristics thrown all over the place.  It was ugly but worked
+>>> and allowed us to experiment.  We had to adjust driver internals
+>>> a lot until on the way towards getting things how they are today.
 >>>
->> I don't agree with this approach. We only have a handful of drivers
->> that support XDP and already it is obvious that XDP is invasive in the
->> critical path and has created maintainence issues. XDP is lacking a
->> general API which means that drivers have to do more redundant
->> operations, and when it comes time to set such an API (as my patch set
->> is trying to deal) we need to retrofit it and deal with this
->
-> For control path and XDP program hooks management i completely support
-> your work,
-> but as Dave puts it, we need to have some freedom at least in the
-> first stages in the interaction between driver RX path and XDP
-> programs packet flow, as the flow might change a couple of times until
-> we settle down on an optimal approach.
->
->> complexity in each driver. I agree that super great XDP performance is
->> a goal, but it's not the only goal-- we still need to provide stable,
->> maintainable, good performance drivers for everyone.
+>>> This is the natural course of things, so please don't suggest that XDP
+>>> shouldn't evolve in the same way.
+>>>
+>>> I think we really need to be fast and loose right now and only try to
+>>> constrict and perfect the API after some of this initial activity has
+>>> died down.
+>>>
+>>> Yes it's more work for the brave drivers that add XDP support, but
+>>> unfortunately that's how we figure out what's really needed and works
+>>> in the long term.
+>>
+>> I'd be more supportive of this line of thinking if we (e.g. FB) didn't
+>> have to spend the majority time over the past few months trying to
+>> deal with all the complexity being thrown into drivers for all these
+>> new features such as XDP. Case in point, Mellanox drivers are
+>> completely non-modular and have a horrible directory structure. They
+>> tried to fix, this but the patch set was rejected because it would
+>> break people trying to do backports. That's a fair argument, but the
+>> lesson I gather from that is that we should put more time in up front
+>> thinking about how to structure code the right way instead of just
+>> throwing it in and trying to deal with the consequences later.
 >>
 >
-> The only complexity XDP is adding to the drivers is the constrains on
-> RX memory management and memory model, calling the XDP program itself
-> and handling the  action is really a simple thing once you have the
-> correct memory model.
+> I also gathered the same lesson :) I will do my best to separate
+> between regular RX path and XDP-enabled RX path as much as possible in
+> my next RX staging/bulking patches as the current mlx5 design allows
+> me to do so with a little code duplication.
 >
-> Who knows! maybe someday XDP will define one unified RX API for all
-> drivers and it even will handle normal stack delivery it self :).
->
-That's exactly the point and what we need for TXDP. I'm missing why
-doing this is such rocket science other than the fact that all these
-drivers are vastly different and changing the existing API is
-unpleasant. The only functional complexity I see in creating a generic
-batching interface is handling return codes asynchronously. This is
-entirely feasible though...
-
-> for the long long term I dream of a driver passing page fragments +
-> "on the side offloads (if any)" to the stack instead of fat SKBs, and
-> in return it will get the same page back to be recycled into RX buffer
-> or a replacement new one.
-> good performance should really come from the stack/XDP/upper layers,
-> not form the device drivers.
->
-> but for the short term we will need to continue experimenting with
-> what we have and optimize it as much as possible with no constrains.
-
-I'm all for experimentation, opposed to make a mess of drivers any
-more than they already are.
+Separating the data paths is a major part of the problem. That means
+we now have parallel paths in the system which kind of do the same
+thing but in vastly different ways each of which has its own bugs and
+idiosyncrasies. This makes things harder to debug and maintain (e.g.
+dealing with the the striding vs. non-striding split in mlx5 was
+particularly painful). Please work to unify the data path and minimize
+changes in it by pushing complexity into the stack to get the required
+functionality.
 
 Tom
