@@ -1,229 +1,194 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC v3 7/8] bnxt: Changes to use generic XDP infrastructure
-Date: Tue, 21 Feb 2017 11:34:16 -0800
-Message-ID: <20170221193417.3641224-8-tom@herbertland.com>
-References: <20170221193417.3641224-1-tom@herbertland.com>
+From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: [PATCH] Revert "ath10k: Search SMBIOS for OEM board file extension"
+Date: Tue, 21 Feb 2017 21:47:06 +0200
+Message-ID: <1487706426-31172-1-git-send-email-kvalo@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:40151 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754141AbdBUTec (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 14:34:32 -0500
-Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1LJT4Ab016664
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 11:34:31 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 28rk81hkmr-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 11:34:31 -0800
-Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- c306adccf86c11e6850a0002c9931860-23fdca00 for <netdev@vger.kernel.org>;        Tue,
- 21 Feb 2017 11:34:29 -0800
-In-Reply-To: <20170221193417.3641224-1-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Change XDP program management functional interface to correspond to new
-XDP API.
+This reverts commit f2593cb1b29185d38db706cbcbe22ed538720ae1.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Paul reported that this patch with older board-2.bin ath10k initialisation
+fails on Dell XPS 13:
+
+ath10k_pci 0000:3a:00.0: failed to fetch board data for bus=pci,vendor=168c,
+device=003e,subsystem-vendor=1a56,subsystem-device=1535,variant=RV_0520 from
+ath10k/QCA6174/hw3.0/board-2.bin
+
+The reason is that the older board-2.bin does not have the variant version of
+the image name and ath10k does not fallback to the older naming scheme.
+
+Reported-by: Paul Menzel <pmenzel-KUpvgZVWgV9o1qOY/usvUg@public.gmane.org>
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=185621#c9
+Fixes: f2593cb1b291 ("ath10k: Search SMBIOS for OEM board file extension")
+Signed-off-by: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 14 --------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h     |  2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 46 +++++++++++++++------------
- 3 files changed, 27 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 6dacdf1..d8b9733 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -2098,9 +2098,6 @@ static void bnxt_free_rx_rings(struct bnxt *bp)
- 		struct bnxt_rx_ring_info *rxr = &bp->rx_ring[i];
- 		struct bnxt_ring_struct *ring;
+Dave, please take this directly if you can.
+
+ drivers/net/wireless/ath/ath10k/core.c | 84 ++--------------------------------
+ drivers/net/wireless/ath/ath10k/core.h | 19 --------
+ 2 files changed, 3 insertions(+), 100 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wireless/ath/ath10k/core.c
+index 59729aa8cd82..dd902b43f8f7 100644
+--- a/drivers/net/wireless/ath/ath10k/core.c
++++ b/drivers/net/wireless/ath/ath10k/core.c
+@@ -18,8 +18,6 @@
+ #include <linux/module.h>
+ #include <linux/firmware.h>
+ #include <linux/of.h>
+-#include <linux/dmi.h>
+-#include <linux/ctype.h>
+ #include <asm/byteorder.h>
  
--		if (rxr->xdp_prog)
--			bpf_prog_put(rxr->xdp_prog);
--
- 		kfree(rxr->rx_tpa);
- 		rxr->rx_tpa = NULL;
- 
-@@ -2388,15 +2385,6 @@ static int bnxt_init_one_rx_ring(struct bnxt *bp, int ring_nr)
- 	ring = &rxr->rx_ring_struct;
- 	bnxt_init_rxbd_pages(ring, type);
- 
--	if (BNXT_RX_PAGE_MODE(bp) && bp->xdp_prog) {
--		rxr->xdp_prog = bpf_prog_add(bp->xdp_prog, 1);
--		if (IS_ERR(rxr->xdp_prog)) {
--			int rc = PTR_ERR(rxr->xdp_prog);
--
--			rxr->xdp_prog = NULL;
--			return rc;
--		}
--	}
- 	prod = rxr->rx_prod;
- 	for (i = 0; i < bp->rx_ring_size; i++) {
- 		if (bnxt_alloc_rx_data(bp, rxr, prod, GFP_KERNEL) != 0) {
-@@ -7198,8 +7186,6 @@ static void bnxt_remove_one(struct pci_dev *pdev)
- 	bnxt_dcb_free(bp);
- 	kfree(bp->edev);
- 	bp->edev = NULL;
--	if (bp->xdp_prog)
--		bpf_prog_put(bp->xdp_prog);
- 	bnxt_cleanup_pci(bp);
- 	free_netdev(dev);
- }
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index faf26a2..61bb375 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1180,7 +1180,7 @@ struct bnxt {
- 	u8			num_leds;
- 	struct bnxt_led_info	leds[BNXT_MAX_LED];
- 
--	struct bpf_prog		*xdp_prog;
-+	bool			xdp_enabled;
- };
- 
- #define BNXT_RX_STATS_OFFSET(counter)			\
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-index 899c30f..3cfdc94 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-@@ -85,18 +85,18 @@ void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
- bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- 		 struct page *page, u8 **data_ptr, unsigned int *len, u8 *event)
- {
--	struct bpf_prog *xdp_prog = READ_ONCE(rxr->xdp_prog);
- 	struct bnxt_tx_ring_info *txr;
- 	struct bnxt_sw_rx_bd *rx_buf;
- 	struct pci_dev *pdev;
- 	struct xdp_buff xdp;
-+	struct xdp_hook *last_hook;
- 	dma_addr_t mapping;
- 	void *orig_data;
- 	u32 tx_avail;
- 	u32 offset;
- 	u32 act;
- 
--	if (!xdp_prog)
-+	if (!xdp_hook_run_needed_check(bp->dev, &rxr->bnapi->napi))
- 		return false;
- 
- 	pdev = bp->pdev;
-@@ -113,7 +113,7 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- 	dma_sync_single_for_cpu(&pdev->dev, mapping + offset, *len, bp->rx_dir);
- 
- 	rcu_read_lock();
--	act = bpf_prog_run_xdp(xdp_prog, &xdp);
-+	act = xdp_hook_run_ret_last(&rxr->bnapi->napi, &xdp, &last_hook);
- 	rcu_read_unlock();
- 
- 	tx_avail = bnxt_tx_avail(bp, txr);
-@@ -134,7 +134,7 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- 
- 	case XDP_TX:
- 		if (tx_avail < 2) {
--			trace_xdp_exception(bp->dev, xdp_prog, act);
-+			trace_xdp_hook_exception(bp->dev, last_hook, act);
- 			bnxt_reuse_rx_data(rxr, cons, page);
- 			return true;
- 		}
-@@ -147,10 +147,10 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- 		bnxt_reuse_rx_data(rxr, cons, page);
- 		return true;
- 	default:
--		bpf_warn_invalid_xdp_action(act);
-+		xdp_warn_invalid_action(act);
- 		/* Fall thru */
- 	case XDP_ABORTED:
--		trace_xdp_exception(bp->dev, xdp_prog, act);
-+		trace_xdp_hook_exception(bp->dev, last_hook, act);
- 		/* Fall thru */
- 	case XDP_DROP:
- 		bnxt_reuse_rx_data(rxr, cons, page);
-@@ -160,13 +160,15 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- }
- 
- /* Under rtnl_lock */
--static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
-+static int bnxt_xdp_init(struct bnxt *bp, bool enable)
- {
- 	struct net_device *dev = bp->dev;
- 	int tx_xdp = 0, rc, tc;
--	struct bpf_prog *old;
- 
--	if (prog && bp->dev->mtu > BNXT_MAX_PAGE_MODE_MTU) {
-+	if (bp->xdp_enabled == enable)
-+		return 0;
-+
-+	if (enable && bp->dev->mtu > BNXT_MAX_PAGE_MODE_MTU) {
- 		netdev_warn(dev, "MTU %d larger than largest XDP supported MTU %d.\n",
- 			    bp->dev->mtu, BNXT_MAX_PAGE_MODE_MTU);
- 		return -EOPNOTSUPP;
-@@ -175,7 +177,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
- 		netdev_warn(dev, "ethtool rx/tx channels must be combined to support XDP.\n");
- 		return -EOPNOTSUPP;
- 	}
--	if (prog)
-+	if (enable)
- 		tx_xdp = bp->rx_nr_rings;
- 
- 	tc = netdev_get_num_tc(dev);
-@@ -190,11 +192,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
- 	if (netif_running(dev))
- 		bnxt_close_nic(bp, true, false);
- 
--	old = xchg(&bp->xdp_prog, prog);
--	if (old)
--		bpf_prog_put(old);
--
--	if (prog) {
-+	if (enable) {
- 		bnxt_set_rx_skb_mode(bp, true);
- 	} else {
- 		int rx, tx;
-@@ -210,6 +208,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
- 	bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tc + tx_xdp;
- 	bp->cp_nr_rings = max_t(int, bp->tx_nr_rings, bp->rx_nr_rings);
- 	bp->num_stat_ctxs = bp->cp_nr_rings;
-+	bp->xdp_enabled = enable;
- 	bnxt_set_tpa_flags(bp);
- 	bnxt_set_ring_params(bp);
- 
-@@ -219,18 +218,25 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
+ #include "core.h"
+@@ -713,72 +711,6 @@ static int ath10k_core_get_board_id_from_otp(struct ath10k *ar)
  	return 0;
  }
  
-+static int bnxt_xdp_check_bpf(struct net_device *dev, struct bpf_prog *prog)
-+{
-+	return 0;
-+}
-+
- int bnxt_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+-static void ath10k_core_check_bdfext(const struct dmi_header *hdr, void *data)
+-{
+-	struct ath10k *ar = data;
+-	const char *bdf_ext;
+-	const char *magic = ATH10K_SMBIOS_BDF_EXT_MAGIC;
+-	u8 bdf_enabled;
+-	int i;
+-
+-	if (hdr->type != ATH10K_SMBIOS_BDF_EXT_TYPE)
+-		return;
+-
+-	if (hdr->length != ATH10K_SMBIOS_BDF_EXT_LENGTH) {
+-		ath10k_dbg(ar, ATH10K_DBG_BOOT,
+-			   "wrong smbios bdf ext type length (%d).\n",
+-			   hdr->length);
+-		return;
+-	}
+-
+-	bdf_enabled = *((u8 *)hdr + ATH10K_SMBIOS_BDF_EXT_OFFSET);
+-	if (!bdf_enabled) {
+-		ath10k_dbg(ar, ATH10K_DBG_BOOT, "bdf variant name not found.\n");
+-		return;
+-	}
+-
+-	/* Only one string exists (per spec) */
+-	bdf_ext = (char *)hdr + hdr->length;
+-
+-	if (memcmp(bdf_ext, magic, strlen(magic)) != 0) {
+-		ath10k_dbg(ar, ATH10K_DBG_BOOT,
+-			   "bdf variant magic does not match.\n");
+-		return;
+-	}
+-
+-	for (i = 0; i < strlen(bdf_ext); i++) {
+-		if (!isascii(bdf_ext[i]) || !isprint(bdf_ext[i])) {
+-			ath10k_dbg(ar, ATH10K_DBG_BOOT,
+-				   "bdf variant name contains non ascii chars.\n");
+-			return;
+-		}
+-	}
+-
+-	/* Copy extension name without magic suffix */
+-	if (strscpy(ar->id.bdf_ext, bdf_ext + strlen(magic),
+-		    sizeof(ar->id.bdf_ext)) < 0) {
+-		ath10k_dbg(ar, ATH10K_DBG_BOOT,
+-			   "bdf variant string is longer than the buffer can accommodate (variant: %s)\n",
+-			    bdf_ext);
+-		return;
+-	}
+-
+-	ath10k_dbg(ar, ATH10K_DBG_BOOT,
+-		   "found and validated bdf variant smbios_type 0x%x bdf %s\n",
+-		   ATH10K_SMBIOS_BDF_EXT_TYPE, bdf_ext);
+-}
+-
+-static int ath10k_core_check_smbios(struct ath10k *ar)
+-{
+-	ar->id.bdf_ext[0] = '\0';
+-	dmi_walk(ath10k_core_check_bdfext, ar);
+-
+-	if (ar->id.bdf_ext[0] == '\0')
+-		return -ENODATA;
+-
+-	return 0;
+-}
+-
+ static int ath10k_download_and_run_otp(struct ath10k *ar)
  {
- 	struct bnxt *bp = netdev_priv(dev);
- 	int rc;
+ 	u32 result, address = ar->hw_params.patch_load_addr;
+@@ -1125,9 +1057,6 @@ static int ath10k_core_fetch_board_data_api_n(struct ath10k *ar,
+ static int ath10k_core_create_board_name(struct ath10k *ar, char *name,
+ 					 size_t name_len)
+ {
+-	/* strlen(',variant=') + strlen(ar->id.bdf_ext) */
+-	char variant[9 + ATH10K_SMBIOS_BDF_EXT_STR_LENGTH] = { 0 };
+-
+ 	if (ar->id.bmi_ids_valid) {
+ 		scnprintf(name, name_len,
+ 			  "bus=%s,bmi-chip-id=%d,bmi-board-id=%d",
+@@ -1137,15 +1066,12 @@ static int ath10k_core_create_board_name(struct ath10k *ar, char *name,
+ 		goto out;
+ 	}
  
- 	switch (xdp->command) {
--	case XDP_SETUP_PROG:
--		rc = bnxt_xdp_set(bp, xdp->prog);
-+	case XDP_MODE_ON:
-+		rc = bnxt_xdp_init(bp, true);
-+		break;
-+	case XDP_MODE_OFF:
-+		rc = bnxt_xdp_init(bp, false);
- 		break;
--	case XDP_QUERY_PROG:
--		xdp->prog_attached = !!bp->xdp_prog;
--		rc = 0;
-+	case XDP_CHECK_BPF_PROG:
-+		rc = bnxt_xdp_check_bpf(dev, xdp->prog);
- 		break;
- 	default:
- 		rc = -EINVAL;
--- 
-2.9.3
+-	if (ar->id.bdf_ext[0] != '\0')
+-		scnprintf(variant, sizeof(variant), ",variant=%s",
+-			  ar->id.bdf_ext);
+-
+ 	scnprintf(name, name_len,
+-		  "bus=%s,vendor=%04x,device=%04x,subsystem-vendor=%04x,subsystem-device=%04x%s",
++		  "bus=%s,vendor=%04x,device=%04x,subsystem-vendor=%04x,subsystem-device=%04x",
+ 		  ath10k_bus_str(ar->hif.bus),
+ 		  ar->id.vendor, ar->id.device,
+-		  ar->id.subsystem_vendor, ar->id.subsystem_device, variant);
++		  ar->id.subsystem_vendor, ar->id.subsystem_device);
++
+ out:
+ 	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot using board name '%s'\n", name);
+ 
+@@ -2202,10 +2128,6 @@ static int ath10k_core_probe_fw(struct ath10k *ar)
+ 		goto err_free_firmware_files;
+ 	}
+ 
+-	ret = ath10k_core_check_smbios(ar);
+-	if (ret)
+-		ath10k_dbg(ar, ATH10K_DBG_BOOT, "bdf variant name not set.\n");
+-
+ 	ret = ath10k_core_fetch_board_file(ar);
+ 	if (ret) {
+ 		ath10k_err(ar, "failed to fetch board file: %d\n", ret);
+diff --git a/drivers/net/wireless/ath/ath10k/core.h b/drivers/net/wireless/ath/ath10k/core.h
+index 88d14be7fcce..757242ef52ac 100644
+--- a/drivers/net/wireless/ath/ath10k/core.h
++++ b/drivers/net/wireless/ath/ath10k/core.h
+@@ -69,23 +69,6 @@
+ #define ATH10K_NAPI_BUDGET      64
+ #define ATH10K_NAPI_QUOTA_LIMIT 60
+ 
+-/* SMBIOS type containing Board Data File Name Extension */
+-#define ATH10K_SMBIOS_BDF_EXT_TYPE 0xF8
+-
+-/* SMBIOS type structure length (excluding strings-set) */
+-#define ATH10K_SMBIOS_BDF_EXT_LENGTH 0x9
+-
+-/* Offset pointing to Board Data File Name Extension */
+-#define ATH10K_SMBIOS_BDF_EXT_OFFSET 0x8
+-
+-/* Board Data File Name Extension string length.
+- * String format: BDF_<Customer ID>_<Extension>\0
+- */
+-#define ATH10K_SMBIOS_BDF_EXT_STR_LENGTH 0x20
+-
+-/* The magic used by QCA spec */
+-#define ATH10K_SMBIOS_BDF_EXT_MAGIC "BDF_"
+-
+ struct ath10k;
+ 
+ enum ath10k_bus {
+@@ -815,8 +798,6 @@ struct ath10k {
+ 		bool bmi_ids_valid;
+ 		u8 bmi_board_id;
+ 		u8 bmi_chip_id;
