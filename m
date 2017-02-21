@@ -1,38 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Don't allow overwrite of config src addr
-Date: Tue, 21 Feb 2017 12:23:12 -0500 (EST)
-Message-ID: <20170221.122312.68917979585063893.davem@davemloft.net>
-References: <1487610234-8239-1-git-send-email-brussell@brocade.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: brussell@brocade.com
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2] ip: Add support for MPLS netconf
+Date: Tue, 21 Feb 2017 09:23:31 -0800
+Message-ID: <1487697811-28638-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: nicolas.dichtel@6wind.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55358 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753782AbdBURXO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 12:23:14 -0500
-In-Reply-To: <1487610234-8239-1-git-send-email-brussell@brocade.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:36204 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753782AbdBURXj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 12:23:39 -0500
+Received: by mail-pg0-f49.google.com with SMTP id s67so27422466pgb.3
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 09:23:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brian Russell <brussell@brocade.com>
-Date: Mon, 20 Feb 2017 17:03:54 +0000
+Add support for MPLS netconf to ip monitor and ip netconf commands.
+Changes to header files not included as those are typically pulled
+in my a header sync with the kernel.
 
-> When using IPv6 transport and a default dst, a pointer to the configured
-> source address is passed into the route lookup. If no source address is
-> configured, then the value is overwritten.
-> 
-> IPv6 route lookup ignores egress ifindex match if the source adress is set,
-> so if egress ifindex match is desired, the source address must be passed
-> as any. The overwrite breaks this for subsequent lookups.
-> 
-> Avoid this by copying the configured address to an existing stack variable
-> and pass a pointer to that instead.
-> 
-> Signed-off-by: Brian Russell <brussell@brocade.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ ip/ipmonitor.c | 3 +++
+ ip/ipnetconf.c | 6 ++++++
+ 2 files changed, 9 insertions(+)
 
-I really would like you to try and find a way to avoid this address copy.
-It means even with a cached route, we are going to copy a 128-bit address
-onto the stack _every single_ packet vxlan transmits.
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index c892b8f1c224..3171d4712887 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -176,6 +176,7 @@ int do_ipmonitor(int argc, char **argv)
+ 	groups |= nl_mgrp(RTNLGRP_IPV4_RULE);
+ 	groups |= nl_mgrp(RTNLGRP_IPV6_RULE);
+ 	groups |= nl_mgrp(RTNLGRP_NSID);
++	groups |= nl_mgrp(RTNLGRP_MPLS_NETCONF);
+ 
+ 	rtnl_close(&rth);
+ 
+@@ -271,6 +272,8 @@ int do_ipmonitor(int argc, char **argv)
+ 			groups |= nl_mgrp(RTNLGRP_IPV4_NETCONF);
+ 		if (!preferred_family || preferred_family == AF_INET6)
+ 			groups |= nl_mgrp(RTNLGRP_IPV6_NETCONF);
++		if (!preferred_family || preferred_family == AF_MPLS)
++			groups |= nl_mgrp(RTNLGRP_MPLS_NETCONF);
+ 	}
+ 	if (lrule) {
+ 		if (!preferred_family || preferred_family == AF_INET)
+diff --git a/ip/ipnetconf.c b/ip/ipnetconf.c
+index 50c4e33cfe93..af539f5e945c 100644
+--- a/ip/ipnetconf.c
++++ b/ip/ipnetconf.c
+@@ -83,6 +83,9 @@ int print_netconf(const struct sockaddr_nl *who, struct rtnl_ctrl_data *ctrl,
+ 	case AF_INET6:
+ 		fprintf(fp, "ipv6 ");
+ 		break;
++	case AF_MPLS:
++		fprintf(fp, "mpls ");
++		break;
+ 	default:
+ 		fprintf(fp, "unknown ");
+ 		break;
+@@ -131,6 +134,9 @@ int print_netconf(const struct sockaddr_nl *who, struct rtnl_ctrl_data *ctrl,
+ 		print_onoff(fp, "ignore_routes_with_linkdown",
+ 		     rta_getattr_u32(tb[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN]));
+ 
++	if (tb[NETCONFA_INPUT])
++		print_onoff(fp, "input", rta_getattr_u32(tb[NETCONFA_INPUT]));
++
+ 	fprintf(fp, "\n");
+ 	fflush(fp);
+ 	return 0;
+-- 
+2.1.4
