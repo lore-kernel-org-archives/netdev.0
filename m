@@ -1,110 +1,63 @@
-From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Subject: Re: [PATCH v3 4/5] ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
-Date: Tue, 21 Feb 2017 10:49:05 +0200
-Message-ID: <CABBYNZK7TCMRVcVHWvDcsn3waDX-aks76gqemvv9EmmAdHjvOA@mail.gmail.com>
-References: <20170217155003.4594-1-luiz.dentz@gmail.com> <20170217155003.4594-5-luiz.dentz@gmail.com>
- <2ea89126-3c3b-5754-7bfc-7e8dc0f356d9@osg.samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-        Patrik Flykt <patrik.flykt@linux.intel.com>,
-        Alexander Aring <aar@pengutronix.de>,
-        linux-wpan@vger.kernel.org,
-        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Stefan Schmidt <stefan@osg.samsung.com>
+From: fgao@ikuai8.com
+Subject: [PATCH net-next v2 1/1] net: sock: Use USEC_PER_SEC macro instead of literal 1000000
+Date: Tue, 21 Feb 2017 17:09:19 +0800
+Message-ID: <1487668159-4720-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, edumazet@google.com, soheil@google.com,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:34634 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750998AbdBUItG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 03:49:06 -0500
-In-Reply-To: <2ea89126-3c3b-5754-7bfc-7e8dc0f356d9@osg.samsung.com>
+Received: from smtpbg320.qq.com ([14.17.32.29]:50946 "EHLO smtpbg320.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750954AbdBUJR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Feb 2017 04:17:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stefan,
+From: Gao Feng <fgao@ikuai8.com>
 
-On Tue, Feb 21, 2017 at 12:10 AM, Stefan Schmidt <stefan@osg.samsung.com> wrote:
-> Hello.
->
-> [Added netdev in cc as it touches ipv6/addrconf]
->
-> 6LoWPAN handling changes only so an ACK should be ok and we could carry it
-> through the bluetooth tree after the respin (see below).
->
-> David, is that ok with you?
->
->
-> On 02/17/2017 04:50 PM, Luiz Augusto von Dentz wrote:
->>
->> From: Alexander Aring <aar@pengutronix.de>
->>
->> This patch adds support for 48 bit 6LoWPAN address length
->> autoconfiguration which is the case for BTLE 6LoWPAN.
->>
->> Signed-off-by: Alexander Aring <aar@pengutronix.de>
->> Signed-off-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
->> ---
->>  net/ipv6/addrconf.c | 17 ++++++++++++-----
->>  1 file changed, 12 insertions(+), 5 deletions(-)
->>
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index ac9bd56..dede33f 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -2050,12 +2050,19 @@ static void addrconf_leave_anycast(struct
->> inet6_ifaddr *ifp)
->>         __ipv6_dev_ac_dec(ifp->idev, &addr);
->>  }
->>
->> -static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
->> +static int addrconf_ifid_6lowpan(u8 *eui, struct net_device *dev)
->>  {
->> -       if (dev->addr_len != EUI64_ADDR_LEN)
->> +       switch (dev->addr_len) {
->> +       case ETH_ALEN:
->> +               return addrconf_ifid_eui48(eui, dev);
->> +       case EUI64_ADDR_LEN:
->> +               memcpy(eui, dev->dev_addr, EUI64_ADDR_LEN);
->> +               eui[0] ^= 2;
->> +               break;
->> +       default:
->>                 return -1;
->> -       memcpy(eui, dev->dev_addr, EUI64_ADDR_LEN);
->> -       eui[0] ^= 2;
->> +       }
->> +
->>         return 0;
->>  }
->>
->> @@ -2146,7 +2153,7 @@ static int ipv6_generate_eui64(u8 *eui, struct
->> net_device *dev)
->>         case ARPHRD_IPGRE:
->>                 return addrconf_ifid_gre(eui, dev);
->>         case ARPHRD_6LOWPAN:
->> -               return addrconf_ifid_eui64(eui, dev);
->> +               return addrconf_ifid_6lowpan(eui, dev);
->>         case ARPHRD_IEEE1394:
->>                 return addrconf_ifid_ieee1394(eui, dev);
->>         case ARPHRD_TUNNEL6:
->>
->
-> Against which tree did you make this patch? Seems it needs a rebase.
->
-> Applying it against bluetooth-next master branch:
->
-> Applying: ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
-> error: patch failed: net/ipv6/addrconf.c:2146
-> error: net/ipv6/addrconf.c: patch does not apply
-> Patch failed at 0001 ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
+The USEC_PER_SEC is used once in sock_set_timeout as the max value of
+tv_usec. But there are other similar codes which use the literal
+1000000 in this file.
+It is minor cleanup to keep consitent.
 
-It should be fine in v4:
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v2: Use DIV_ROUND_UP, per Joe Perches
+ v1: Initial version
 
-Applying: ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
-Using index info to reconstruct a base tree...
-M net/ipv6/addrconf.c
-Falling back to patching base and 3-way merge...
-Auto-merging net/ipv6/addrconf.c
+ net/core/sock.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 8b35debf..e2f7abd 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -367,7 +367,7 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+ 	if (tv.tv_sec == 0 && tv.tv_usec == 0)
+ 		return 0;
+ 	if (tv.tv_sec < (MAX_SCHEDULE_TIMEOUT/HZ - 1))
+-		*timeo_p = tv.tv_sec*HZ + (tv.tv_usec+(1000000/HZ-1))/(1000000/HZ);
++		*timeo_p = tv.tv_sec * HZ + DIV_ROUND_UP(tv.tv_usec, USEC_PER_SEC / HZ);
+ 	return 0;
+ }
+ 
+@@ -1145,7 +1145,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 			v.tm.tv_usec = 0;
+ 		} else {
+ 			v.tm.tv_sec = sk->sk_rcvtimeo / HZ;
+-			v.tm.tv_usec = ((sk->sk_rcvtimeo % HZ) * 1000000) / HZ;
++			v.tm.tv_usec = ((sk->sk_rcvtimeo % HZ) * USEC_PER_SEC) / HZ;
+ 		}
+ 		break;
+ 
+@@ -1156,7 +1156,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 			v.tm.tv_usec = 0;
+ 		} else {
+ 			v.tm.tv_sec = sk->sk_sndtimeo / HZ;
+-			v.tm.tv_usec = ((sk->sk_sndtimeo % HZ) * 1000000) / HZ;
++			v.tm.tv_usec = ((sk->sk_sndtimeo % HZ) * USEC_PER_SEC) / HZ;
+ 		}
+ 		break;
+ 
 -- 
-Luiz Augusto von Dentz
+1.9.1
