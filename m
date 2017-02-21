@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv4 net-next 04/13] net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
-Date: Tue, 21 Feb 2017 11:28:04 +0100
-Message-ID: <1487672893-5746-5-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv4 net-next 03/13] net: mvpp2: handle too large value handling in mvpp2_rx_pkts_coal_set()
+Date: Tue, 21 Feb 2017 11:28:03 +0100
+Message-ID: <1487672893-5746-4-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -14,85 +14,49 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:49535 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:49541 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751868AbdBUK2n (ORCPT
+        with ESMTP id S1751837AbdBUK2n (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 05:28:43 -0500
 In-Reply-To: <1487672893-5746-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When configuring the MVPP2_ISR_RX_THRESHOLD_REG with the RX coalescing
-time threshold, we do not check for the maximum allowed value supported
-by the driver, which means we might overflow and use a bogus value. This
-commit adds a check for this situation, and if a value higher than what
-is supported by the hardware is provided, then we use the maximum value
-supported by the hardware.
+Currently, mvpp2_rx_pkts_coal_set() does the following to avoid setting
+a too large value for the RX coalescing by packet number:
 
-In order to achieve this in a way that avoids overflow and rounding
-errors, we introduce two utility functions mvpp2_usec_to_cycles() and
-cycles_to_usec(). Many thanks to Russell King for suggesting this
-implementation.
+  val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
+
+This means that if you set a value that is slightly higher the the
+maximum number of packets, you in fact get a very low value. It makes a
+lot more sense to simply check if the value is too high, and if it's too
+high, limit it to the maximum possible value.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 31 +++++++++++++++++++++++++++++--
- 1 file changed, 29 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 559d7d0..6fe1520 100644
+index 92ab9a0..559d7d0 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -154,6 +154,7 @@
- 
- /* Interrupt Cause and Mask registers */
- #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
-+#define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
- #define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
- #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
- #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
-@@ -4389,13 +4390,39 @@ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
- 		    rxq->pkts_coal);
- }
- 
-+static u32 mvpp2_usec_to_cycles(u32 usec, unsigned long clk_hz)
-+{
-+	u64 tmp = (u64)clk_hz * usec;
-+
-+	do_div(tmp, USEC_PER_SEC);
-+
-+	return tmp > U32_MAX ? U32_MAX : tmp;
-+}
-+
-+static u32 mvpp2_cycles_to_usec(u32 cycles, unsigned long clk_hz)
-+{
-+	u64 tmp = (u64)cycles * USEC_PER_SEC;
-+
-+	do_div(tmp, clk_hz);
-+
-+	return tmp > U32_MAX ? U32_MAX : tmp;
-+}
-+
- /* Set the time delay in usec before Rx interrupt */
- static void mvpp2_rx_time_coal_set(struct mvpp2_port *port,
+@@ -4381,11 +4381,12 @@ static void mvpp2_txp_max_tx_size_set(struct mvpp2_port *port)
+ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
  				   struct mvpp2_rx_queue *rxq)
  {
 -	u32 val;
-+	unsigned long freq = port->priv->tclk;
-+	u32 val = mvpp2_usec_to_cycles(rxq->time_coal, freq);
-+
-+	if (val > MVPP2_MAX_ISR_RX_THRESHOLD) {
-+		rxq->time_coal =
-+			mvpp2_cycles_to_usec(MVPP2_MAX_ISR_RX_THRESHOLD, freq);
-+
-+		/* re-evaluate to get actual register value */
-+		val = mvpp2_usec_to_cycles(rxq->time_coal, freq);
-+	}
++	if (rxq->pkts_coal > MVPP2_OCCUPIED_THRESH_MASK)
++		rxq->pkts_coal = MVPP2_OCCUPIED_THRESH_MASK;
  
--	val = (port->priv->tclk / USEC_PER_SEC) * rxq->time_coal;
- 	mvpp2_write(port->priv, MVPP2_ISR_RX_THRESHOLD_REG(rxq->id), val);
+-	val = (rxq->pkts_coal & MVPP2_OCCUPIED_THRESH_MASK);
+ 	mvpp2_write(port->priv, MVPP2_RXQ_NUM_REG, rxq->id);
+-	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, val);
++	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG,
++		    rxq->pkts_coal);
  }
  
+ /* Set the time delay in usec before Rx interrupt */
 -- 
 2.7.4
