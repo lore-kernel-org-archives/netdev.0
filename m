@@ -1,86 +1,209 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH RFC v2 01/12] sock: allocate skbs from optmem
-Date: Wed, 22 Feb 2017 11:38:50 -0500
-Message-ID: <20170222163901.90834-2-willemdebruijn.kernel@gmail.com>
-References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
+Date: Wed, 22 Feb 2017 11:38:49 -0500
+Message-ID: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
 Cc: Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:33831 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754854AbdBVQjJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 11:39:09 -0500
-Received: by mail-qk0-f193.google.com with SMTP id s186so1181185qkb.1
-        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 08:39:09 -0800 (PST)
-In-Reply-To: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:33487 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754865AbdBVQjN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 11:39:13 -0500
+Received: by mail-qk0-f194.google.com with SMTP id x71so1186078qkb.0
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 08:39:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Add sock_omalloc and sock_ofree to be able to allocate control skbs,
-for instance for looping errors onto sk_error_queue.
+RFCv2:
 
-The transmit budget (sk_wmem_alloc) is involved in transmit skb
-shaping, most notably in TCP Small Queues. Using this budget for
-control packets would impact transmission.
+I have received a few requests for status and rebased code of this
+feature. We have been running this code internally, discovering and
+fixing various bugs. With net-next closed, now seems like a good time
+to share an updated patchset with fixes. The rebase from RFCv1/v4.2
+was mostly straightforward: mainly iov_iter changes. Full changelog:
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- include/net/sock.h |  2 ++
- net/core/sock.c    | 27 +++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+)
+  RFC -> RFCv2:
+    - review comment: do not loop skb with zerocopy frags onto rx:
+          add skb_orphan_frags_rx to orphan even refcounted frags
+	  call this in __netif_receive_skb_core, deliver_skb and tun:
+	  the same as 1080e512d44d ("net: orphan frags on receive")
+    - fix: hold an explicit sk reference on each notification skb.
+          previously relied on the reference (or wmem) held by the
+	  data skb that would trigger notification, but this breaks
+	  on skb_orphan.
+    - fix: when aborting a send, do not inc the zerocopy counter
+          this caused gaps in the notification chain
+    - fix: in packet with SOCK_DGRAM, pull ll headers before calling
+          zerocopy_sg_from_iter
+    - fix: if sock_zerocopy_realloc does not allow coalescing,
+          do not fail, just allocate a new ubuf
+    - fix: in tcp, check return value of second allocation attempt
+    - chg: allocate notification skbs from optmem
+          to avoid affecting tcp write queue accounting (TSQ)
+    - chg: limit #locked pages (ulimit) per user instead of per process
+    - chg: grow notification ids from 16 to 32 bit
+      - pass range [lo, hi] through 32 bit fields ee_info and ee_data
+    - chg: rebased to davem-net-next on top of v4.10-rc7
+    - add: limit notification coalescing
+          sharing ubufs limits overhead, but delays notification until
+	  the last packet is released, possibly unbounded. Add a cap. 
+    - tests: add snd_zerocopy_lo pf_packet test
+    - tests: two bugfixes (add do_flush_tcp, ++sent not only in debug)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 9ccefa5c5487..c1a8b2cbc75e 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1531,6 +1531,8 @@ struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force,
- 			     gfp_t priority);
- void __sock_wfree(struct sk_buff *skb);
- void sock_wfree(struct sk_buff *skb);
-+struct sk_buff *sock_omalloc(struct sock *sk, unsigned long size,
-+			     gfp_t priority);
- void skb_orphan_partial(struct sk_buff *skb);
- void sock_rfree(struct sk_buff *skb);
- void sock_efree(struct sk_buff *skb);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index e7d74940e863..57a7da46ac52 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1772,6 +1772,33 @@ struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force,
- }
- EXPORT_SYMBOL(sock_wmalloc);
- 
-+static void sock_ofree(struct sk_buff *skb)
-+{
-+	struct sock *sk = skb->sk;
-+
-+	atomic_sub(skb->truesize, &sk->sk_omem_alloc);
-+}
-+
-+struct sk_buff *sock_omalloc(struct sock *sk, unsigned long size,
-+			     gfp_t priority)
-+{
-+	struct sk_buff *skb;
-+
-+	/* small safe race: SKB_TRUESIZE may differ from final skb->truesize */
-+	if (atomic_read(&sk->sk_omem_alloc) + SKB_TRUESIZE(size) >
-+	    sysctl_optmem_max)
-+		return NULL;
-+
-+	skb = alloc_skb(size, priority);
-+	if (!skb)
-+		return NULL;
-+
-+	atomic_add(skb->truesize, &sk->sk_omem_alloc);
-+	skb->sk = sk;
-+	skb->destructor = sock_ofree;
-+	return skb;
-+}
-+
- /*
-  * Allocate a memory block from the socket's option memory buffer.
-  */
+The change to allocate notification skbuffs from optmem requires
+ensuring that net.core.optmem is at least a few 100KB. To
+experiment, run
+
+  sysctl -w net.core.optmem_max=1048576
+
+The snd_zerocopy_lo benchmarks reported in the individual patches were
+rerun for RFCv2. To make them work, calls to skb_orphan_frags_rx were
+replaced with skb_orphan_frags to allow looping to local sockets. The
+netperf results below are also rerun with v2.
+
+In application load, copy avoidance shows a roughly 5% systemwide
+reduction in cycles when streaming large flows and a 4-8% reduction in
+wall clock time on early tensorflow test workloads.
+
+
+Overview (from original RFC):
+
+Add zerocopy socket sendmsg() support with flag MSG_ZEROCOPY.
+Implement the feature for TCP, UDP, RAW and packet sockets. This is
+a generalization of a previous packet socket RFC patch
+
+  http://patchwork.ozlabs.org/patch/413184/
+
+On a send call with MSG_ZEROCOPY, the kernel pins the user pages and
+creates skbuff fragments directly from these pages. On tx completion,
+it notifies the socket owner that it is safe to modify memory by
+queuing a completion notification onto the socket error queue.
+
+The kernel already implements such copy avoidance with vmsplice plus
+splice and with ubuf_info for tun and virtio. Extend the second
+with features required by TCP and others: reference counting to
+support cloning (retransmit queue) and shared fragments (GSO) and
+notification coalescing to handle corking.
+
+Notifications are queued onto the socket error queue as a range
+range [N, N+m], where N is a per-socket counter incremented on each
+successful zerocopy send call.
+
+* Performance
+
+The below table shows cycles reported by perf for a netperf process
+sending a single 10 Gbps TCP_STREAM. The first three columns show
+Mcycles spent in the netperf process context. The second three columns
+show time spent systemwide (-a -C A,B) on the two cpus that run the
+process and interrupt handler. Reported is the median of at least 3
+runs. std is a standard netperf, zc uses zerocopy and % is the ratio.
+Netperf is pinned to cpu 2, network interrupts to cpu3, rps and rfs
+are disabled and the kernel is booted with idle=halt.
+
+NETPERF=./netperf -t TCP_STREAM -H $host -T 2 -l 30 -- -m $size
+
+perf stat -e cycles $NETPERF
+perf stat -C 2,3 -a -e cycles $NETPERF
+
+        --process cycles--      ----cpu cycles----
+           std      zc   %      std         zc   %
+4K      27,609  11,217  41      49,217  39,175  79
+16K     21,370   3,823  18      43,540  29,213  67
+64K     20,557   2,312  11      42,189  26,910  64
+256K    21,110   2,134  10      43,006  27,104  63
+1M      20,987   1,610   8      42,759  25,931  61
+
+Perf record indicates the main source of these differences. Process
+cycles only at 1M writes (perf record; perf report -n):
+
+std:
+Samples: 42K of event 'cycles', Event count (approx.): 21258597313                                                   
+ 79.41%         33884  netperf  [kernel.kallsyms]  [k] copy_user_generic_string
+  3.27%          1396  netperf  [kernel.kallsyms]  [k] tcp_sendmsg
+  1.66%           694  netperf  [kernel.kallsyms]  [k] get_page_from_freelist
+  0.79%           325  netperf  [kernel.kallsyms]  [k] tcp_ack
+  0.43%           188  netperf  [kernel.kallsyms]  [k] __alloc_skb
+
+zc:
+Samples: 1K of event 'cycles', Event count (approx.): 1439509124                                                     
+ 30.36%           584  netperf.zerocop  [kernel.kallsyms]  [k] gup_pte_range
+ 14.63%           284  netperf.zerocop  [kernel.kallsyms]  [k] __zerocopy_sg_from_iter
+  8.03%           159  netperf.zerocop  [kernel.kallsyms]  [k] skb_zerocopy_add_frags_iter
+  4.84%            96  netperf.zerocop  [kernel.kallsyms]  [k] __alloc_skb
+  3.10%            60  netperf.zerocop  [kernel.kallsyms]  [k] kmem_cache_alloc_node
+
+
+* Safety
+
+The number of pages that can be pinned on behalf of a user with
+MSG_ZEROCOPY is bound by the locked memory ulimit.
+
+While the kernel holds process memory pinned, a process cannot safely
+reuse those pages for other purposes. Packets looped onto the receive
+stack and queued to a socket can be held indefinitely. Avoid unbounded
+notification latency by restricting user pages to egress paths only.
+skb_orphan_frags_rx() will create a private copy of pages even for
+refcounted packets when these are looped, as did skb_orphan_frags for
+the original tun zerocopy implementation.
+
+Pages are not remapped read-only. Processes can modify packet contents
+while packets are in flight in the kernel path. Bytes on which kernel
+control flow depends (headers) are copied to avoid TOCTTOU attacks.
+Datapath integrity does not otherwise depend on payload, with three
+exceptions: checksums, optional sk_filter/tc u32/.. and device +
+driver logic. The effect of wrong checksums is limited to the
+misbehaving process. TC filters that access contents may have to be
+excluded by adding an skb_orphan_frags_rx. 
+
+Processes can also safely avoid OOM conditions by bounding the number
+of bytes passed with MSG_ZEROCOPY and by removing shared pages after
+transmission from their own memory map.
+
+
+* Limitations / Known Issues
+
+- PF_INET6 is not yet supported.
+- TCP does not build max GSO packets, especially for
+     small send buffers (< 4 KB)
+
+Willem de Bruijn (12):
+  sock: allocate skbs from optmem
+  sock: skb_copy_ubufs support for compound pages
+  sock: add generic socket zerocopy
+  sock: enable sendmsg zerocopy
+  sock: sendmsg zerocopy notification coalescing
+  sock: sendmsg zerocopy ulimit
+  sock: sendmsg zerocopy limit bytes per notification
+  tcp: enable sendmsg zerocopy
+  udp: enable sendmsg zerocopy
+  raw: enable sendmsg zerocopy with IP_HDRINCL
+  packet: enable sendmsg zerocopy
+  test: add sendmsg zerocopy tests
+
+ drivers/net/tun.c                             |   2 +-
+ drivers/vhost/net.c                           |   1 +
+ include/linux/sched.h                         |   2 +-
+ include/linux/skbuff.h                        |  94 +++-
+ include/linux/socket.h                        |   1 +
+ include/net/sock.h                            |   4 +
+ include/uapi/linux/errqueue.h                 |   1 +
+ net/core/datagram.c                           |  35 +-
+ net/core/dev.c                                |   4 +-
+ net/core/skbuff.c                             | 327 ++++++++++++--
+ net/core/sock.c                               |  29 ++
+ net/ipv4/ip_output.c                          |  34 +-
+ net/ipv4/raw.c                                |  27 +-
+ net/ipv4/tcp.c                                |  37 +-
+ net/packet/af_packet.c                        |  52 ++-
+ tools/testing/selftests/net/.gitignore        |   2 +
+ tools/testing/selftests/net/Makefile          |   1 +
+ tools/testing/selftests/net/snd_zerocopy.c    | 354 +++++++++++++++
+ tools/testing/selftests/net/snd_zerocopy_lo.c | 596 ++++++++++++++++++++++++++
+ 19 files changed, 1536 insertions(+), 67 deletions(-)
+ create mode 100644 tools/testing/selftests/net/snd_zerocopy.c
+ create mode 100644 tools/testing/selftests/net/snd_zerocopy_lo.c
+
 -- 
 2.11.0.483.g087da7b7c-goog
