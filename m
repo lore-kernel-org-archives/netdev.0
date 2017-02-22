@@ -1,30 +1,55 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH net-next] l2tp: Avoid schedule while atomic in exit_net
-Date: Wed, 22 Feb 2017 13:09:26 +0100
-Message-ID: <20170222120926.ssdoxnnrudfzusay@alphalink.fr>
-References: <20170222015949.18641-1-ridge.kennedy@alliedtelesis.co.nz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ridge Kennedy <ridge.kennedy@alliedtelesis.co.nz>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 3/4] net/mlx4_core: Fix VF overwrite of module param which disables DMFS on new probed PFs
+Date: Wed, 22 Feb 2017 14:33:26 +0200
+Message-ID: <1487766807-13929-4-git-send-email-tariqt@mellanox.com>
+References: <1487766807-13929-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>,
+        Dexuan Cui <decui@microsoft.com>,
+        Majd Dibbiny <majd@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:48188 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754170AbdBVMJh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 07:09:37 -0500
-Content-Disposition: inline
-In-Reply-To: <20170222015949.18641-1-ridge.kennedy@alliedtelesis.co.nz>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54824 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752397AbdBVMeJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 07:34:09 -0500
+In-Reply-To: <1487766807-13929-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 22, 2017 at 02:59:49PM +1300, Ridge Kennedy wrote:
-> While destroying a network namespace that contains a L2TP tunnel a
-> "BUG: scheduling while atomic" can be observed.
+From: Majd Dibbiny <majd@mellanox.com>
 
-> To fix this, move the call to l2tp_tunnel_closeall() out of the RCU
-> critical section, and instead call it from l2tp_tunnel_del_work(), which
-> is running from the l2tp_wq workqueue.
-> 
-Looks good, though this should be for net, not net-next.
+In the VF driver, module parameter mlx4_log_num_mgm_entry_size was
+mistakenly overwritten -- and in a manner which overrode the
+device-managed flow steering option encoded in the parameter.
 
-Acked-by: Guillaume Nault <g.nault@alphalink.fr>
+log_num_mgm_entry_size is a global module parameter which
+affects all ConnectX-3 PFs installed on that host.
+If a VF changes log_num_mgm_entry_size, this will affect all PFs
+which are probed subsequent to the change (by disabling DMFS for
+those PFs).
+
+Fixes: 3c439b5586e9 ("mlx4_core: Allow choosing flow steering mode")
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 55e4be51ee5a..7a030d10ff3e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -841,8 +841,6 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 		return -ENOSYS;
+ 	}
+ 
+-	mlx4_log_num_mgm_entry_size = hca_param.log_mc_entry_sz;
+-
+ 	dev->caps.hca_core_clock = hca_param.hca_core_clock;
+ 
+ 	memset(&dev_cap, 0, sizeof(dev_cap));
+-- 
+1.8.3.1
