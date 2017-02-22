@@ -1,47 +1,79 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: Re: [PATCH v2 net-next] liquidio: improve UDP TX performance
-Date: Tue, 21 Feb 2017 22:57:37 -0800
-Message-ID: <20170222065737.GA1201@felix.cavium.com>
-References: <20170221210907.GA8045@felix.cavium.com>
- <CALx6S35HE=8bwXMy7U=+kOSaP1fBmRjPUKn1neW6O=h38P0K2A@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] bpf: return errno -ENOMEM when exceeding
+ RLIMIT_MEMLOCK
+Date: Tue, 21 Feb 2017 23:14:15 -0800
+Message-ID: <20170222071413.GA85829@ast-mbp.thefacebook.com>
+References: <148760491056.17885.7344022207445355578.stgit@firesoul>
+ <58AB11EE.4050905@iogearbox.net>
+ <20170220172558.3de0742d@redhat.com>
+ <20170221080609.GA42330@ast-mbp.thefacebook.com>
+ <20170221140013.76afb3c2@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com,
-        VSR Burru <veerasenareddy.burru@cavium.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Daniel Borkmann <borkmann@iogearbox.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0076.outbound.protection.outlook.com ([104.47.36.76]:11172
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751192AbdBVG7B (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Feb 2017 01:59:01 -0500
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34346 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751613AbdBVHOT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 02:14:19 -0500
+Received: by mail-pg0-f68.google.com with SMTP id s67so843783pgb.1
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 23:14:19 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CALx6S35HE=8bwXMy7U=+kOSaP1fBmRjPUKn1neW6O=h38P0K2A@mail.gmail.com>
+In-Reply-To: <20170221140013.76afb3c2@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <tom@herbertland.com> wrote on Tue [2017-Feb-21 15:27:54 -0800]:
-> On Tue, Feb 21, 2017 at 1:09 PM, Felix Manlunas
-> <felix.manlunas@cavium.com> wrote:
-> > From: VSR Burru <veerasenareddy.burru@cavium.com>
-> >
-> > Improve UDP TX performance by:
-> > * reducing the ring size from 2K to 512
+On Tue, Feb 21, 2017 at 02:00:13PM +0100, Jesper Dangaard Brouer wrote:
+> On Tue, 21 Feb 2017 00:06:11 -0800
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 > 
-> It looks like liquidio supports BQL. Is that not effective here?
+> > On Mon, Feb 20, 2017 at 05:25:58PM +0100, Jesper Dangaard Brouer wrote:
+> > > On Mon, 20 Feb 2017 16:57:34 +0100
+> > > Daniel Borkmann <daniel@iogearbox.net> wrote:
+> > >   
+> > > > On 02/20/2017 04:35 PM, Jesper Dangaard Brouer wrote:  
+> > > > > It is confusing users of samples/bpf that exceeding the resource
+> > > > > limits for RLIMIT_MEMLOCK result in an "Operation not permitted"
+> > > > > message.  This is due to bpf limits check return -EPERM.
+> > > > >
+> > > > > Instead return -ENOMEM, like most other users of this API.
+> > > > >
+> > > > > Fixes: aaac3ba95e4c ("bpf: charge user for creation of BPF maps and programs")
+> > > > > Fixes: 6c9059817432 ("bpf: pre-allocate hash map elements")
+> > > > > Fixes: 5ccb071e97fb ("bpf: fix overflow in prog accounting")    
+> > > > 
+> > > > Btw, last one just moves the helper so fixes doesn't really apply
+> > > > there, but apart from that this is already uapi exposed behavior
+> > > > like this for ~1.5yrs, so unfortunately too late to change now. I
+> > > > think the original intention (arguably confusing in this context)
+> > > > was that user doesn't have (rlimit) permission to allocate this
+> > > > resource.  
+> > > 
+> > > This is obviously confusing end-users, thus it should be fixed IMHO.  
+> > 
+> > I don't think it's confusing and I think EPERM makes
+> > the most sense as return code in such situation.
+> 
+> Most other kernel users return ENOMEM.
 
-Response from our colleague, VSR:
-That's right, BQL is not effective here.  We reduced the ring size because
-there is heavy overhead with dma_map_single every so often.  With iommu=on,
-dma_map_single in PF Tx data path was taking longer time (~700usec) for
-every ~250 packets.  Debugged intel_iommu code, and found that PF driver is
-utilizing too many static IO virtual address mapping entries (for gather
-list entries and info buffers): about 100K entries for two PF's each using
-8 rings.  Also, finding an empty entry (in rbtree of device domain's iova
-mapping in kernel) during Tx path becomes a bottleneck every so often; the
-loop to find the empty entry goes through over 40K iterations; this is too
-costly and was the major overhead.  Overhead is low when this loop quits
-quickly.
+the places in the kernel that check for memlock are not fully consistent.
+
+perf does this:
+  lock_limit = rlimit(RLIMIT_MEMLOCK);
+  lock_limit >>= PAGE_SHIFT;
+  locked = vma->vm_mm->pinned_vm + extra;
+
+  if ((locked > lock_limit) && perf_paranoid_tracepoint_raw() &&
+          !capable(CAP_IPC_LOCK)) {
+          ret = -EPERM;
+          goto unlock;
+  }
+
+and in bpf land we got an idea of using memlock limit from perf.
+
+> Documented it here:
+>  https://prototype-kernel.readthedocs.io/en/latest/bpf/troubleshooting.html
+
+Thanks! Looks good.
