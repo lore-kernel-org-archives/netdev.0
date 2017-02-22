@@ -1,79 +1,62 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] bpf: return errno -ENOMEM when exceeding
- RLIMIT_MEMLOCK
-Date: Tue, 21 Feb 2017 23:14:15 -0800
-Message-ID: <20170222071413.GA85829@ast-mbp.thefacebook.com>
-References: <148760491056.17885.7344022207445355578.stgit@firesoul>
- <58AB11EE.4050905@iogearbox.net>
- <20170220172558.3de0742d@redhat.com>
- <20170221080609.GA42330@ast-mbp.thefacebook.com>
- <20170221140013.76afb3c2@redhat.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH rfc 1/4] net/utils: generic inet_pton_with_scope helper
+Date: Tue, 21 Feb 2017 23:43:54 -0800
+Message-ID: <20170222074354.GA19012@infradead.org>
+References: <1487267017-29904-1-git-send-email-sagi@grimberg.me>
+ <1487267017-29904-2-git-send-email-sagi@grimberg.me>
+ <20170219171523.GC10310@infradead.org>
+ <6c2a4f67-ede6-0ee1-5a90-14023994d029@grimberg.me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        Daniel Borkmann <borkmann@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34346 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751613AbdBVHOT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 02:14:19 -0500
-Received: by mail-pg0-f68.google.com with SMTP id s67so843783pgb.1
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 23:14:19 -0800 (PST)
+Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170221140013.76afb3c2@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <6c2a4f67-ede6-0ee1-5a90-14023994d029-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 21, 2017 at 02:00:13PM +0100, Jesper Dangaard Brouer wrote:
-> On Tue, 21 Feb 2017 00:06:11 -0800
-> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+On Tue, Feb 21, 2017 at 11:18:04PM +0200, Sagi Grimberg wrote:
+> I can maybe do something like:
 > 
-> > On Mon, Feb 20, 2017 at 05:25:58PM +0100, Jesper Dangaard Brouer wrote:
-> > > On Mon, 20 Feb 2017 16:57:34 +0100
-> > > Daniel Borkmann <daniel@iogearbox.net> wrote:
-> > >   
-> > > > On 02/20/2017 04:35 PM, Jesper Dangaard Brouer wrote:  
-> > > > > It is confusing users of samples/bpf that exceeding the resource
-> > > > > limits for RLIMIT_MEMLOCK result in an "Operation not permitted"
-> > > > > message.  This is due to bpf limits check return -EPERM.
-> > > > >
-> > > > > Instead return -ENOMEM, like most other users of this API.
-> > > > >
-> > > > > Fixes: aaac3ba95e4c ("bpf: charge user for creation of BPF maps and programs")
-> > > > > Fixes: 6c9059817432 ("bpf: pre-allocate hash map elements")
-> > > > > Fixes: 5ccb071e97fb ("bpf: fix overflow in prog accounting")    
-> > > > 
-> > > > Btw, last one just moves the helper so fixes doesn't really apply
-> > > > there, but apart from that this is already uapi exposed behavior
-> > > > like this for ~1.5yrs, so unfortunately too late to change now. I
-> > > > think the original intention (arguably confusing in this context)
-> > > > was that user doesn't have (rlimit) permission to allocate this
-> > > > resource.  
-> > > 
-> > > This is obviously confusing end-users, thus it should be fixed IMHO.  
-> > 
-> > I don't think it's confusing and I think EPERM makes
-> > the most sense as return code in such situation.
+> if (af == AF_INET || af == AF_UNSPEC) {
+> 	ret = inet4_pton();
+> 	if (!ret)
+> 		return 0;
+> 	else if (af != AF_UNSPEC)
+> 		return ret;
+> }
 > 
-> Most other kernel users return ENOMEM.
+> if (af == AF_INET6 || af == AF_UNSPEC) {
+> 	ret = inet6_pton();
+> 	if (!ret)
+> 		return 0;
+> 	else if (af != AF_UNSPEC)
+> 		return ret;
+> }
+> 
+> return -EINVAL;
+> 
+> better?
 
-the places in the kernel that check for memlock are not fully consistent.
+My idead was the following:
 
-perf does this:
-  lock_limit = rlimit(RLIMIT_MEMLOCK);
-  lock_limit >>= PAGE_SHIFT;
-  locked = vma->vm_mm->pinned_vm + extra;
-
-  if ((locked > lock_limit) && perf_paranoid_tracepoint_raw() &&
-          !capable(CAP_IPC_LOCK)) {
-          ret = -EPERM;
-          goto unlock;
-  }
-
-and in bpf land we got an idea of using memlock limit from perf.
-
-> Documented it here:
->  https://prototype-kernel.readthedocs.io/en/latest/bpf/troubleshooting.html
-
-Thanks! Looks good.
+	switch (af) {
+	case AF_INET:
+		ret = inet_pton();
+		break;
+	case AF_INET6:
+		ret = inet6_pton();
+		break;
+	case AF_UNSPEC:
+		ret = inet6_pton();
+		if (ret)
+			ret = inet_pton();
+		break;
+	}
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
