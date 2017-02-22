@@ -1,51 +1,128 @@
 From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: Re: [PATCH] net/dccp: fix use after free in tw_timer_handler()
-Date: Wed, 22 Feb 2017 12:35:20 +0300
-Message-ID: <ce0ad8f1-f0df-0853-92ce-7dbb22c94698@virtuozzo.com>
-References: <CACT4Y+aZrpZ3JevLrg5i=nTzBAcVhKX9qmajyW5b-+xExwrCHg@mail.gmail.com>
- <20170221112740.661-1-aryabinin@virtuozzo.com>
- <20170221.132351.1602433391866901233.davem@davemloft.net>
- <20170221.132449.1868705782244690263.davem@davemloft.net>
+Subject: [PATCH v2] net/dccp: fix use after free in tw_timer_handler()
+Date: Wed, 22 Feb 2017 12:35:27 +0300
+Message-ID: <20170222093527.19698-1-aryabinin@virtuozzo.com>
+References: <20170221112740.661-1-aryabinin@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-7"
-Content-Transfer-Encoding: 7bit
-Cc: <gerrit@erg.abdn.ac.uk>, <dccp@vger.kernel.org>,
-        <dvyukov@google.com>, <edumazet@google.com>,
-        <xiyou.wangcong@gmail.com>, <kuznet@ms2.inr.ac.ru>,
-        <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-        <syzkaller@googlegroups.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        <dccp@vger.kernel.org>, Dmitry Vyukov <dvyukov@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        syzkaller <syzkaller@googlegroups.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0133.outbound.protection.outlook.com ([104.47.0.133]:4160
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+Received: from mail-eopbgr00117.outbound.protection.outlook.com ([40.107.0.117]:62102
+        "EHLO EUR02-AM5-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932129AbdBVJeY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Feb 2017 04:34:24 -0500
-In-Reply-To: <20170221.132449.1868705782244690263.davem@davemloft.net>
+        id S932138AbdBVJee (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Feb 2017 04:34:34 -0500
+In-Reply-To: <20170221112740.661-1-aryabinin@virtuozzo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/21/2017 09:24 PM, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 21 Feb 2017 13:23:51 -0500 (EST)
-> 
->> From: Andrey Ryabinin <aryabinin@virtuozzo.com>
->> Date: Tue, 21 Feb 2017 14:27:40 +0300
->>
->>> DCCP doesn't purge timewait sockets on network namespace shutdown.
->>> So, after net namespace destroyed we could still have an active timer
->>> which will trigger use after free in tw_timer_handler():
->>  ...
->>> Add .exit_batch hook to dccp_v4_ops()/dccp_v6_ops() which will purge
->>> timewait sockets on net namespace destruction and prevent above issue.
->>>
->>> Reported-by: Dmitry Vyukov <dvyukov@google.com>
->>> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
->>
->> Applied and queued up for -stable, thanks.
-> 
-> Actually, this doesn't even compile.  Please fix this up and resubmit:
-> 
+DCCP doesn't purge timewait sockets on network namespace shutdown.
+So, after net namespace destroyed we could still have an active timer
+which will trigger use after free in tw_timer_handler():
 
-Right, I tested this on top of the Linus' tree. Rebased on -next now.
+    BUG: KASAN: use-after-free in tw_timer_handler+0x4a/0xa0 at addr ffff88010e0d1e10
+    Read of size 8 by task swapper/1/0
+    Call Trace:
+     __asan_load8+0x54/0x90
+     tw_timer_handler+0x4a/0xa0
+     call_timer_fn+0x127/0x480
+     expire_timers+0x1db/0x2e0
+     run_timer_softirq+0x12f/0x2a0
+     __do_softirq+0x105/0x5b4
+     irq_exit+0xdd/0xf0
+     smp_apic_timer_interrupt+0x57/0x70
+     apic_timer_interrupt+0x90/0xa0
+
+    Object at ffff88010e0d1bc0, in cache net_namespace size: 6848
+    Allocated:
+     save_stack_trace+0x1b/0x20
+     kasan_kmalloc+0xee/0x180
+     kasan_slab_alloc+0x12/0x20
+     kmem_cache_alloc+0x134/0x310
+     copy_net_ns+0x8d/0x280
+     create_new_namespaces+0x23f/0x340
+     unshare_nsproxy_namespaces+0x75/0xf0
+     SyS_unshare+0x299/0x4f0
+     entry_SYSCALL_64_fastpath+0x18/0xad
+    Freed:
+     save_stack_trace+0x1b/0x20
+     kasan_slab_free+0xae/0x180
+     kmem_cache_free+0xb4/0x350
+     net_drop_ns+0x3f/0x50
+     cleanup_net+0x3df/0x450
+     process_one_work+0x419/0xbb0
+     worker_thread+0x92/0x850
+     kthread+0x192/0x1e0
+     ret_from_fork+0x2e/0x40
+
+Add .exit_batch hook to dccp_v4_ops()/dccp_v6_ops() which will purge
+timewait sockets on net namespace destruction and prevent above issue.
+
+Fixes: f2bf415cfed7 ("mib: add net to NET_ADD_STATS_BH")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+
+Changes since v1:
+ - Rebased on top the -next
+ - Added Fixes/Acked tags.
+
+ net/dccp/ipv4.c | 6 ++++++
+ net/dccp/ipv6.c | 6 ++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index b043ec8..409d0cf 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -1017,9 +1017,15 @@ static void __net_exit dccp_v4_exit_net(struct net *net)
+ 	inet_ctl_sock_destroy(net->dccp.v4_ctl_sk);
+ }
+ 
++static void __net_exit dccp_v4_exit_batch(struct list_head *net_exit_list)
++{
++	inet_twsk_purge(&dccp_hashinfo, AF_INET);
++}
++
+ static struct pernet_operations dccp_v4_ops = {
+ 	.init	= dccp_v4_init_net,
+ 	.exit	= dccp_v4_exit_net,
++	.exit_batch = dccp_v4_exit_batch,
+ };
+ 
+ static int __init dccp_v4_init(void)
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index cef60a4..233b573 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -1075,9 +1075,15 @@ static void __net_exit dccp_v6_exit_net(struct net *net)
+ 	inet_ctl_sock_destroy(net->dccp.v6_ctl_sk);
+ }
+ 
++static void __net_exit dccp_v6_exit_batch(struct list_head *net_exit_list)
++{
++	inet_twsk_purge(&dccp_hashinfo, AF_INET6);
++}
++
+ static struct pernet_operations dccp_v6_ops = {
+ 	.init   = dccp_v6_init_net,
+ 	.exit   = dccp_v6_exit_net,
++	.exit_batch = dccp_v6_exit_batch,
+ };
+ 
+ static int __init dccp_v6_init(void)
+-- 
+2.10.2
