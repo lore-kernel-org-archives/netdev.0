@@ -1,38 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2 0/5] mlx4 misc fixes
-Date: Wed, 22 Feb 2017 16:47:21 -0500 (EST)
-Message-ID: <20170222.164721.147147884837876595.davem@davemloft.net>
-References: <1487780729-8798-1-git-send-email-tariqt@mellanox.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Questions on XDP
+Date: Wed, 22 Feb 2017 22:59:24 +0100
+Message-ID: <20170222225924.59cdd82c@redhat.com>
+References: <CAADnVQKmfu8FR3LvKfLbhKaQhXX9g4N=O-MC+K+frM3MF8XaFQ@mail.gmail.com>
+        <58A8DD34.5040205@gmail.com>
+        <CAKgT0UcpW_MMCgURnB=r5Tezdm9jJSNfOYcNJg8TR1sMKREzPg@mail.gmail.com>
+        <20170221031829.GA3960@ast-mbp.thefacebook.com>
+        <58ABB66D.60902@gmail.com>
+        <CAKgT0UciU7sJrSqYKaCNK1iLD72WLcw=pRW5BMukCc99K5a0PQ@mail.gmail.com>
+        <20170221075523.GA29348@ast-mbp.thefacebook.com>
+        <CAKgT0UdFo1kKdPV=bL8m_y+o37t+m9NNesA8XAUE8pCtcexUaw@mail.gmail.com>
+        <58ADC5A5.7020408@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, yotamg@mellanox.com,
-        decui@microsoft.com
-To: tariqt@mellanox.com
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>, brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43956 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933452AbdBVVrX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 16:47:23 -0500
-In-Reply-To: <1487780729-8798-1-git-send-email-tariqt@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59100 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754455AbdBVWAw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Feb 2017 17:00:52 -0500
+In-Reply-To: <58ADC5A5.7020408@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Wed, 22 Feb 2017 18:25:24 +0200
+On Wed, 22 Feb 2017 09:08:53 -0800
+John Fastabend <john.fastabend@gmail.com> wrote:
 
-> This patchset contains misc bug fixes from Eric Dumazet and our team
-> to the mlx4 Core and Eth drivers.
+> > GSO/TSO is getting into advanced stuff I would rather not have to get
+> > into right now.  I figure we need to take this portion one step at a
+> > time.  To support GSO we need more information like the mss.
+> >   
 > 
-> Series generated against net commit:
-> 00ea1ceebe0d ipv6: release dst on error in ip6_dst_lookup_tail
-> 
-> Thanks,
-> Tariq.
-> 
-> v2:
-> * Added Eric's fix (patch 5/5).
+> Agreed lets get the driver support for basic things first. But this
+> is on my list. I'm just repeating myself but VM to VM performance uses
+> TSO/LRO heavily.
 
-This doesn't apply cleanly to the net tree, please respin.
+Sorry, but I get annoyed every time I hear we need to support
+TSO/LRO/GRO for performance reasons.  If you take one step back, you
+are actually saying we need bulking for better performance.  And the
+bulking you are proposing is a TCP protocol specific bulking mechanism.
 
-Thanks.
+I'm saying is let's make bulking protocol agnostic, by doing it at the
+packet level.  And once the bulk enters the VM, by-all-means it should
+construct a GRO packet it can send into it's own network stack.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
