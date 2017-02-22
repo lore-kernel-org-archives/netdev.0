@@ -1,47 +1,86 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the kspp tree with the net-next tree
-Date: Wed, 22 Feb 2017 11:06:29 +1100
-Message-ID: <20170222110629.53d01cf5@canb.auug.org.au>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC v3 0/8] xdp: Infrastructure to generalize XDP
+Date: Tue, 21 Feb 2017 16:25:15 -0800
+Message-ID: <CALx6S34aOhKt7JS=3tbweMm1pf3gnr4WU1ZnjOUc5-wP+xCuyA@mail.gmail.com>
+References: <20170221193417.3641224-1-tom@herbertland.com> <20170221150907.5ae68ffa@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Laura Abbott <labbott@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Kees Cook <keescook@google.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Jakub Kicinski <kubakici@wp.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f177.google.com ([209.85.216.177]:34522 "EHLO
+        mail-qt0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752397AbdBVAZR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 19:25:17 -0500
+Received: by mail-qt0-f177.google.com with SMTP id n21so58439713qta.1
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 16:25:16 -0800 (PST)
+In-Reply-To: <20170221150907.5ae68ffa@cakuba.netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Tue, Feb 21, 2017 at 3:09 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
+> Hi,
+>
+> I still have a few worries about this patch set...
+>
+> On Tue, 21 Feb 2017 11:34:09 -0800, Tom Herbert wrote:
+>> This patch set generalizes XDP by making the hooks in drivers to be
+>> generic. This has a number of advantages:
+>>
+>>   - Allows a means to pipeline XDP programs together
+>
+> Does it add anything beyond what we already can achieve with tail
+> calls?  Is there expectations that users will install independent
+> black box/pre-compiled programs on the same interface?
+>
+>>   - Reduces the amount of code and complexity needed in drivers to
+>>     manage XDP
+>
+> Other than for Mellanox drivers the savings are in *teen lines of code?
+>
+>>   - Provides a more structured environment that is extensible to new
+>>     features while being mostly transparent to the drivers
+>
+> So far all features we added required explicit driver support.
+> Checksumming support as an example will require driver changes, too.
+> Generalized way to call programs is probably not going to buy us much?
+>
+Hi Jakub,
 
-Today's linux-next merge of the kspp tree got a conflict in:
+What is the the concern with checksumming? Isn't that just an issue of
+defining fields in xdp_data and driver populating with the appropriate
+information?
 
-  include/linux/filter.h
+Tom
 
-between commit:
-
-  9d876e79df6a ("bpf: fix unlocking of jited image when module ronx not set")
-
-from the net-next tree and commit:
-
-  0f5bf6d0afe4 ("arch: Rename CONFIG_DEBUG_RODATA and CONFIG_DEBUG_MODULE_RONX")
-
-from the kspp tree.
-
-Hmmm, both these change the ifdef guards I have used the one from the
-net-next tree (CONFIG_ARCH_HAS_SET_MEMORY) for today, please let me know
-if that is not correct.
-
-I fixed it up (see above) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
+>>   - Allow XDP programs to be set per device or per queue
+>
+> Some drivers already provide that even though we don't have a user API
+> to set it.
+>
+>>   - Moves management of BPF programs out of driver into a common
+>>     infrastructure
+>
+> I appreciate this one, but IMHO this generalized infrastructure is way
+> too complicated for the purpose.  Why not simply place an XDP program
+> pointer into netdev and napi and provide driver with a helper to install
+> the program there?  Or am I simply not understanding the benefits of
+> the generalized hooks?
+>
+> I probably have a slightly unique perspective caring about offloads but
+> IMHO the cost of this patchset outweighs the benefits right now.  You
+> haven't actually implement the OFFLOAD command at all (grep for
+> XDP_OFFLOAD_BPF) but having to deal with the intermediary layer will
+> certainly complicate things here.
+>
+> There are also miscellaneous optimizations which are possible when
+> drivers can inspect the program, like only reserving headroom if
+> program may use header adjust...  it does seem to me that this set
+> introduces a lot of complexity and only superficial driver
+> simplifications.  I would personally rather wait with infrastructure
+> like this until John's TX-to-other netdev is well formulated.
+>
+> Obviously this set will also be a major pain when backporting things,
+> too.
