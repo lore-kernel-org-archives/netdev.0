@@ -1,57 +1,47 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
-	buffer
-Date: Wed, 22 Feb 2017 11:17:50 +0800
-Message-ID: <49577dad-3f6f-e6b3-4f93-2b919b066068@redhat.com>
-References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
-	<20170221162849-mutt-send-email-mst@kernel.org>
-	<35244d06-2d0d-3f2e-0cd1-43137988c869@redhat.com>
-	<20170222050601-mutt-send-email-mst@kernel.org>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH] net: intel: e1000e: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Wed, 22 Feb 2017 03:27:16 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C5AA50D@ORSMSX101.amr.corp.intel.com>
+References: <1485465593-12561-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170222050601-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Philippe Reynes <tremyfr@gmail.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:16729 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752806AbdBVD11 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Feb 2017 22:27:27 -0500
+In-Reply-To: <1485465593-12561-1-git-send-email-tremyfr@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDLmnIgyMuaXpSAxMTowNiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFdlZCwgRmViIDIyLCAyMDE3IGF0IDEwOjU4OjA4QU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+Cj4+IE9uIDIwMTflubQwMuaciDIx5pelIDIyOjM3LCBNaWNoYWVsIFMuIFRzaXJraW4g
-d3JvdGU6Cj4+PiBPbiBUdWUsIEZlYiAyMSwgMjAxNyBhdCAwNDo0NjoyOFBNICswODAwLCBKYXNv
-biBXYW5nIHdyb3RlOgo+Pj4+IFRoaXMgcGF0Y2ggc3dpdGNoIHRvIHVzZSBidWlsZF9za2IoKSBm
-b3Igc21hbGwgYnVmZmVyIHdoaWNoIGNhbiBoYXZlCj4+Pj4gYmV0dGVyIHBlcmZvcm1hbmNlIGZv
-ciBib3RoIFRDUCBhbmQgWERQIChzaW5jZSB3ZSBjYW4gd29yayBhdCBwYWdlCj4+Pj4gYmVmb3Jl
-IHNrYiBjcmVhdGlvbikuIEl0IGFsc28gcmVtb3ZlIGxvdHMgb2YgWERQIGNvZGVzIHNpbmNlIGJv
-dGgKPj4+PiBtZXJnZWFibGUgYW5kIHNtYWxsIGJ1ZmZlciB1c2UgcGFnZSBmcmFnIGR1cmluZyBy
-ZWZpbGwgbm93Lgo+Pj4+Cj4+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgIEJlZm9yZSAgIHwg
-QWZ0ZXIKPj4+PiBYRFBfRFJPUCh4ZHAxKSA2NEIgIDogIDExLjFNcHBzIHwgMTQuNE1wcHMKPj4+
-Pgo+Pj4+IFRlc3RlZCB3aXRoIHhkcDEveGRwMi94ZHBfaXBfdHhfdHVubmVsIGFuZCBuZXRwZXJm
-Lgo+Pj4+Cj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29t
-Pgo+Pj4gVGhhbmtzIQo+Pj4gSSBoYWQgYSBzaW1pbGFyIHBhdGNoIGZvciBtZXJnZWFibGUgdG9v
-LCB0aG91Z2ggaXQncyB0cmlja2llciB0aGVyZQo+Pj4gYXMgaG9zdCBoYXMgYSBsb3Qgb2YgZmxl
-eGliaWxpdHkgaW4gc2l6aW5nIGJ1ZmZlcnMuCj4+PiBMb29rcyBsaWtlIGEgZ29vZCBpbnRlcm1l
-ZGlhdGUgc3RlcCB0byBtZS4KPj4gWWVzLCBJIHRoaW5rIGl0J3MgbW9yZSB0cmlja3kgZm9yIHRo
-ZSBjYXNlIG9mIG1lcmdlYWJsZSBidWZmZXI6Cj4+Cj4+IDEpIHdlIG5lZWQgcmVzZXJ2ZSBORVRf
-U0tCX1BBRCArIE5FVF9JUF9BTElHTiBmb3IgZWFjaCBidWZmZXIsIHRoaXMgd2lsbAo+PiBicmVh
-ayByeCBmcmFnIGNvYWxlc2NpbmcKPj4gMikgbmVlZCB0YWlscm9vbSBmb3Igc2tiX3NoaW5mbywg
-c28gaXQgd29uJ3Qgd29yayBmb3IgYWxsIHNpemUgb2YgcGFja2V0Cj4+Cj4+IFRoYW5rcwo+IEhh
-dmUgeW91IHNlZW4gbXkgcHJvdG90eXBlPwoKTm90IHlldCwgcGxlYXNlIGdpdmUgbWUgYSBwb2lu
-dGVyLgoKPiAgIEl0IHdvcmtzIHdpdGggcWVtdSBpbiBwcmFjdGljZSwKPiBqdXN0IG5lZWRzIHRv
-IGNvdmVyIGEgYnVuY2ggb2YgY29ybmVyIGNhc2VzLgoKU291bmRzIGdvb2QsIGlmIHlvdSB3aXNo
-IEkgY2FuIGhlbHAgdG8gZmluYWxpemUgaXQuCgpUaGFua3MKCj4KPj4+Cj4+PiBBY2tlZC1ieTog
-TWljaGFlbCBTLiBUc2lya2luPG1zdEByZWRoYXQuY29tPgo+Pj4KCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlz
-dApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3Rz
-LmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Philippe Reynes
+> Sent: Thursday, January 26, 2017 1:20 PM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; davem@davemloft.net
+> Cc: intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Philippe Reynes <tremyfr@gmail.com>
+> Subject: [PATCH] net: intel: e1000e: use new api
+> ethtool_{get|set}_link_ksettings
+> 
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> As I don't have the hardware, I'd be very pleased if
+> someone may test this patch.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/ethtool.c |   91 ++++++++++++++---------
+> ---
+>  1 files changed, 49 insertions(+), 42 deletions(-)
+
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
