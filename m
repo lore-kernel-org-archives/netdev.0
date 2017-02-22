@@ -1,75 +1,47 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH] net/dccp: fix use after free in tw_timer_handler()
-Date: Wed, 22 Feb 2017 09:48:56 +0300
-Message-ID: <CACT4Y+YZaH2pCUfeUf7j3g8sL+-6A41teSdfj6o00vMrN+J94w@mail.gmail.com>
-References: <CACT4Y+aZrpZ3JevLrg5i=nTzBAcVhKX9qmajyW5b-+xExwrCHg@mail.gmail.com>
- <20170221112740.661-1-aryabinin@virtuozzo.com> <CACT4Y+a0uLVFHgDPi05kXsMEsraxbTOkPnK3xdZZ1_8E_vH_CQ@mail.gmail.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: Re: [PATCH v2 net-next] liquidio: improve UDP TX performance
+Date: Tue, 21 Feb 2017 22:57:37 -0800
+Message-ID: <20170222065737.GA1201@felix.cavium.com>
+References: <20170221210907.GA8045@felix.cavium.com>
+ <CALx6S35HE=8bwXMy7U=+kOSaP1fBmRjPUKn1neW6O=h38P0K2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        syzkaller <syzkaller@googlegroups.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+a0uLVFHgDPi05kXsMEsraxbTOkPnK3xdZZ1_8E_vH_CQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com,
+        VSR Burru <veerasenareddy.burru@cavium.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0076.outbound.protection.outlook.com ([104.47.36.76]:11172
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751192AbdBVG7B (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Feb 2017 01:59:01 -0500
+Content-Disposition: inline
+In-Reply-To: <CALx6S35HE=8bwXMy7U=+kOSaP1fBmRjPUKn1neW6O=h38P0K2A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 21, 2017 at 2:56 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Tue, Feb 21, 2017 at 2:27 PM, Andrey Ryabinin
-> <aryabinin@virtuozzo.com> wrote:
->> DCCP doesn't purge timewait sockets on network namespace shutdown.
->> So, after net namespace destroyed we could still have an active timer
->> which will trigger use after free in tw_timer_handler():
->>
->>     BUG: KASAN: use-after-free in tw_timer_handler+0x4a/0xa0 at addr ffff88010e0d1e10
->>     Read of size 8 by task swapper/1/0
->>     Call Trace:
->>      __asan_load8+0x54/0x90
->>      tw_timer_handler+0x4a/0xa0
->>      call_timer_fn+0x127/0x480
->>      expire_timers+0x1db/0x2e0
->>      run_timer_softirq+0x12f/0x2a0
->>      __do_softirq+0x105/0x5b4
->>      irq_exit+0xdd/0xf0
->>      smp_apic_timer_interrupt+0x57/0x70
->>      apic_timer_interrupt+0x90/0xa0
->>
->>     Object at ffff88010e0d1bc0, in cache net_namespace size: 6848
->>     Allocated:
->>      save_stack_trace+0x1b/0x20
->>      kasan_kmalloc+0xee/0x180
->>      kasan_slab_alloc+0x12/0x20
->>      kmem_cache_alloc+0x134/0x310
->>      copy_net_ns+0x8d/0x280
->>      create_new_namespaces+0x23f/0x340
->>      unshare_nsproxy_namespaces+0x75/0xf0
->>      SyS_unshare+0x299/0x4f0
->>      entry_SYSCALL_64_fastpath+0x18/0xad
->>     Freed:
->>      save_stack_trace+0x1b/0x20
->>      kasan_slab_free+0xae/0x180
->>      kmem_cache_free+0xb4/0x350
->>      net_drop_ns+0x3f/0x50
->>      cleanup_net+0x3df/0x450
->>      process_one_work+0x419/0xbb0
->>      worker_thread+0x92/0x850
->>      kthread+0x192/0x1e0
->>      ret_from_fork+0x2e/0x40
->>
->> Add .exit_batch hook to dccp_v4_ops()/dccp_v6_ops() which will purge
->> timewait sockets on net namespace destruction and prevent above issue.
->
->
-> Aha! Thanks for tracking this down!
->
-> Queued the patch on syzkaller bots, should have the verdict in several hours.
+Tom Herbert <tom@herbertland.com> wrote on Tue [2017-Feb-21 15:27:54 -0800]:
+> On Tue, Feb 21, 2017 at 1:09 PM, Felix Manlunas
+> <felix.manlunas@cavium.com> wrote:
+> > From: VSR Burru <veerasenareddy.burru@cavium.com>
+> >
+> > Improve UDP TX performance by:
+> > * reducing the ring size from 2K to 512
+> 
+> It looks like liquidio supports BQL. Is that not effective here?
 
-I do not see the crash happening after applying the patch.
+Response from our colleague, VSR:
+That's right, BQL is not effective here.  We reduced the ring size because
+there is heavy overhead with dma_map_single every so often.  With iommu=on,
+dma_map_single in PF Tx data path was taking longer time (~700usec) for
+every ~250 packets.  Debugged intel_iommu code, and found that PF driver is
+utilizing too many static IO virtual address mapping entries (for gather
+list entries and info buffers): about 100K entries for two PF's each using
+8 rings.  Also, finding an empty entry (in rbtree of device domain's iova
+mapping in kernel) during Tx path becomes a bottleneck every so often; the
+loop to find the empty entry goes through over 40K iterations; this is too
+costly and was the major overhead.  Overhead is low when this loop quits
+quickly.
