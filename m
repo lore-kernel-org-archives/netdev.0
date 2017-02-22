@@ -1,41 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/2] netfilter: nf_ct_expect:
- nf_ct_expect_related_report(): Return zero on success,
-Date: Wed, 22 Feb 2017 13:00:50 +0300
-Message-ID: <d5e71d84-1d3e-b2c9-30fe-2dcabdfbea88@cogentembedded.com>
-References: <1487719522-42844-1-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: fgao@ikuai8.com, pablo@netfilter.org
-To: Jarno Rajahalme <jarno@ovn.org>, netdev@vger.kernel.org
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: [PATCH v2 2/2] tcp: account for ts offset only if tsecr not zero
+Date: Wed, 22 Feb 2017 13:23:56 +0300
+Message-ID: <1487759036-2800-2-git-send-email-alexey.kodanev@oracle.com>
+References: <1487759036-2800-1-git-send-email-alexey.kodanev@oracle.com>
+Cc: netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Alexey Kodanev <alexey.kodanev@oracle.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:34454 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753770AbdBVKAx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 05:00:53 -0500
-Received: by mail-lf0-f47.google.com with SMTP id g134so3347619lfe.1
-        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 02:00:52 -0800 (PST)
-In-Reply-To: <1487719522-42844-1-git-send-email-jarno@ovn.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:23746 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932177AbdBVKSD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 05:18:03 -0500
+In-Reply-To: <1487759036-2800-1-git-send-email-alexey.kodanev@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+We can get SYN with zero tsecr, don't apply offset in this case.
 
-On 2/22/2017 2:25 AM, Jarno Rajahalme wrote:
+Fixes: ee684b6f2830 ("tcp: send packets with a socket timestamp")
+Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+---
+v2: no changes from the previous version
 
-> Commit 4dee62b1 ("netfilter: nf_ct_expect: nf_ct_expect_insert()
+ net/ipv4/tcp_minisocks.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-    Need at least 12 hex digits.
-
-> returns void") inadvertently changed the successful return value of
-> nf_ct_expect_related_report() from 0 to 1, which caused openvswitch
-> conntrack integration fail in FTP test cases.
->
-> Fix this by always returning zero on the success code path.
->
-> Fixes: 4dee62b1 ("netfilter: nf_ct_expect: nf_ct_expect_insert() returns void")
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-[...]
-
-MBR, Sergei
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 28ce5ee..baff824 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -106,7 +106,8 @@ enum tcp_tw_status
+ 		tcp_parse_options(skb, &tmp_opt, 0, NULL);
+ 
+ 		if (tmp_opt.saw_tstamp) {
+-			tmp_opt.rcv_tsecr	-= tcptw->tw_ts_offset;
++			if (tmp_opt.rcv_tsecr)
++				tmp_opt.rcv_tsecr -= tcptw->tw_ts_offset;
+ 			tmp_opt.ts_recent	= tcptw->tw_ts_recent;
+ 			tmp_opt.ts_recent_stamp	= tcptw->tw_ts_recent_stamp;
+ 			paws_reject = tcp_paws_reject(&tmp_opt, th->rst);
+-- 
+1.7.1
