@@ -1,81 +1,70 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: realtek: 8139cp: use new api ethtool_{get|set}_link_ksettings
-Date: Wed, 22 Feb 2017 08:50:27 +0100
-Message-ID: <1487749827-20191-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, fgao@ikuai8.com, jarod@redhat.com,
-        edumazet@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH next 0/4] bonding: winter cleanup
+Date: Wed, 22 Feb 2017 08:58:15 +0100
+Message-ID: <20170222075815.GA1665@nanopsycho>
+References: <20170222010816.9676-1-mahesh@bandewar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Nikolay Aleksandrov <nikolay@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Mahesh Bandewar <mahesh@bandewar.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35154 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753309AbdBVH6T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 02:58:19 -0500
+Received: by mail-wm0-f67.google.com with SMTP id u63so860829wmu.2
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 23:58:18 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170222010816.9676-1-mahesh@bandewar.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Wed, Feb 22, 2017 at 02:08:16AM CET, mahesh@bandewar.net wrote:
+>From: Mahesh Bandewar <maheshb@google.com>
+>
+>Few cleanup patches that I have accumulated over some time now.
+>
+>(a) First two patches are basically to move the work-queue initialization
+>    from every ndo_open / bond_open operation to once at the beginning while
+>    port creation. Work-queue initialization is an unnecessary operation
+>    for every 'ifup' operation. However we have some mode-specific work-queues
+>    and mode can change anytime after port creation. So the second patch is
+>    to ensure the correct work-handler is called based on the mode.
+>
+>(b) Third patch is simple and straightforward that removes hard-coded value
+>    that was added into the initial commit and replaces it with the default
+>    value configured.
+>
+>(c) The final patch in the series removes the unimplemented "port-moved" state
+>    from the LACP state machine. This state is defined but never set so
+>    removing from the state machine logic makes code little cleaner.
+>
+>Note: None of these patches are making any functional changes.
+>
+>Mahesh Bandewar (4):
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+Mahesh. I understand that you are still using bonding. What's stopping
+you from using team instead?
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/realtek/8139cp.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+Isn't about the time to start deprecate process of bonding? :O
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 672f6b6..72233ab 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -1406,27 +1406,29 @@ static int cp_get_sset_count (struct net_device *dev, int sset)
- 	}
- }
- 
--static int cp_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int cp_get_link_ksettings(struct net_device *dev,
-+				 struct ethtool_link_ksettings *cmd)
- {
- 	struct cp_private *cp = netdev_priv(dev);
- 	int rc;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&cp->lock, flags);
--	rc = mii_ethtool_gset(&cp->mii_if, cmd);
-+	rc = mii_ethtool_get_link_ksettings(&cp->mii_if, cmd);
- 	spin_unlock_irqrestore(&cp->lock, flags);
- 
- 	return rc;
- }
- 
--static int cp_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int cp_set_link_ksettings(struct net_device *dev,
-+				 const struct ethtool_link_ksettings *cmd)
- {
- 	struct cp_private *cp = netdev_priv(dev);
- 	int rc;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&cp->lock, flags);
--	rc = mii_ethtool_sset(&cp->mii_if, cmd);
-+	rc = mii_ethtool_set_link_ksettings(&cp->mii_if, cmd);
- 	spin_unlock_irqrestore(&cp->lock, flags);
- 
- 	return rc;
-@@ -1578,8 +1580,6 @@ static void cp_get_ethtool_stats (struct net_device *dev,
- 	.get_drvinfo		= cp_get_drvinfo,
- 	.get_regs_len		= cp_get_regs_len,
- 	.get_sset_count		= cp_get_sset_count,
--	.get_settings		= cp_get_settings,
--	.set_settings		= cp_set_settings,
- 	.nway_reset		= cp_nway_reset,
- 	.get_link		= ethtool_op_get_link,
- 	.get_msglevel		= cp_get_msglevel,
-@@ -1593,6 +1593,8 @@ static void cp_get_ethtool_stats (struct net_device *dev,
- 	.get_eeprom		= cp_get_eeprom,
- 	.set_eeprom		= cp_set_eeprom,
- 	.get_ringparam		= cp_get_ringparam,
-+	.get_link_ksettings	= cp_get_link_ksettings,
-+	.set_link_ksettings	= cp_set_link_ksettings,
- };
- 
- static int cp_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
--- 
-1.7.4.4
+
+>  bonding: restructure arp-monitor
+>  bonding: initialize work-queues during creation of bond
+>  bonding: remove hardcoded value
+>  bonding: remove "port-moved" state that was never implemented
+>
+> drivers/net/bonding/bond_3ad.c  | 11 +++--------
+> drivers/net/bonding/bond_main.c | 42 ++++++++++++++++++++++++++++-------------
+> 2 files changed, 32 insertions(+), 21 deletions(-)
+>
+>-- 
+>2.11.0.483.g087da7b7c-goog
+>
