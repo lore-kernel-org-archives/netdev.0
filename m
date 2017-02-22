@@ -1,112 +1,115 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Focusing the XDP project
-Date: Wed, 22 Feb 2017 09:22:53 -0800
-Message-ID: <CALx6S35qC5+-5ke=d01nkgTnEH1b4GuMcaicKST2BwsC3y5Ghw@mail.gmail.com>
-References: <20170220111343.76f77748@redhat.com> <CAKgT0Ucqp6+jWkiGxDoEE-UdbnxsdVLxjZZ6uYtNWHSo4fPUVg@mail.gmail.com>
- <cc26e1ce-05ae-6c3d-a323-b6f18e2ad897@mellanox.com> <CALx6S375878KeM0O7BO9sB7B_3p+yO4yxfEhxYdn_=AZvWF-Aw@mail.gmail.com>
- <CALzJLG-323ZOyruHok3=jz526bnw=SoYtYSym8RrA3Z5=g0u9Q@mail.gmail.com>
- <CALx6S37s=Kcy+wEbojVHjiAoLZC_4V5qzMLe=-QXtJYVtwTAew@mail.gmail.com> <20170222104328.4b9c6c5d@redhat.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Wed, 22 Feb 2017 09:23:51 -0800
+Message-ID: <CAKgT0UcXhy3V_iSYFCWqPzdu77v=3-4FEXSyZEiUcB=Y_wGnVw@mail.gmail.com>
+References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
+ <1487780558.9415.81.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+Cc: Eric Dumazet <edumazet@google.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Brenden Blanco <bblanco@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f177.google.com ([209.85.216.177]:36623 "EHLO
-        mail-qt0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932498AbdBVRW4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 12:22:56 -0500
-Received: by mail-qt0-f177.google.com with SMTP id k15so8283799qtg.3
-        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 09:22:55 -0800 (PST)
-In-Reply-To: <20170222104328.4b9c6c5d@redhat.com>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:35895 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932899AbdBVRXx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 12:23:53 -0500
+Received: by mail-it0-f68.google.com with SMTP id w185so997951ita.3
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 09:23:53 -0800 (PST)
+In-Reply-To: <1487780558.9415.81.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 22, 2017 at 1:43 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
+On Wed, Feb 22, 2017 at 8:22 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2017-02-13 at 11:58 -0800, Eric Dumazet wrote:
+>> Use of order-3 pages is problematic in some cases.
+>>
+>> This patch might add three kinds of regression :
+>>
+>> 1) a CPU performance regression, but we will add later page
+>> recycling and performance should be back.
+>>
+>> 2) TCP receiver could grow its receive window slightly slower,
+>>    because skb->len/skb->truesize ratio will decrease.
+>>    This is mostly ok, we prefer being conservative to not risk OOM,
+>>    and eventually tune TCP better in the future.
+>>    This is consistent with other drivers using 2048 per ethernet frame.
+>>
+>> 3) Because we allocate one page per RX slot, we consume more
+>>    memory for the ring buffers. XDP already had this constraint anyway.
+>>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> ---
 >
-> On Tue, 21 Feb 2017 14:54:35 -0800 Tom Herbert <tom@herbertland.com> wrote:
->> On Tue, Feb 21, 2017 at 2:29 PM, Saeed Mahameed <saeedm@dev.mellanox.co.il> wrote:
-> [...]
->> > The only complexity XDP is adding to the drivers is the constrains on
->> > RX memory management and memory model, calling the XDP program itself
->> > and handling the  action is really a simple thing once you have the
->> > correct memory model.
+> Note that we also could use a different strategy.
 >
-> Exactly, that is why I've been looking at introducing a generic
-> facility for a memory model for drivers.  This should help simply
-> drivers.  Due to performance needs this need to be a very thin API layer
-> on top of the page allocator. (That's why I'm working with Mel Gorman
-> to get more close integration with the page allocator e.g. a bulking
-> facility).
+> Assume RX rings of 4096 entries/slots.
 >
->> > Who knows! maybe someday XDP will define one unified RX API for all
->> > drivers and it even will handle normal stack delivery it self :).
->> >
->> That's exactly the point and what we need for TXDP. I'm missing why
->> doing this is such rocket science other than the fact that all these
->> drivers are vastly different and changing the existing API is
->> unpleasant. The only functional complexity I see in creating a generic
->> batching interface is handling return codes asynchronously. This is
->> entirely feasible though...
+> With this patch, mlx4 gets the strategy used by Alexander in Intel
+> drivers :
 >
-> I'll be happy as long as we get a batching interface, then we can
-> incrementally do the optimizations later.
+> Each RX slot has an allocated page, and uses half of it, flipping to the
+> other half every time the slot is used.
 >
-> In the future, I do hope (like Saeed) this RX API will evolve into
-> delivering (a bulk of) raw-packet-pages into the netstack, this should
-> simplify drivers, and we can keep the complexity and SKB allocations
-> out of the drivers.
-> To start with, we can play with doing this delivering (a bulk of)
-> raw-packet-pages into Tom's TXDP engine/system?
+> So a ring buffer of 4096 slots allocates 4096 pages.
 >
-Hi Jesper,
+> When we receive a packet train for the same flow, GRO builds an skb with
+> ~45 page frags, all from different pages.
+>
+> The put_page() done from skb_release_data() touches ~45 different struct
+> page cache lines, and show a high cost. (compared to the order-3 used
+> today by mlx4, this adds extra cache line misses and stalls for the
+> consumer)
+>
+> If we instead try to use the two halves of one page on consecutive RX
+> slots, we might instead cook skb with the same number of MSS (45), but
+> half the number of cache lines for put_page(), so we should speed up the
+> consumer.
 
-Maybe we can to start to narrow in on what a batching API might look like.
+So there is a problem that is being overlooked here.  That is the cost
+of the DMA map/unmap calls.  The problem is many PowerPC systems have
+an IOMMU that you have to work around, and that IOMMU comes at a heavy
+cost for every map/unmap call.  So unless you are saying you wan to
+setup a hybrid between the mlx5 and this approach where we have a page
+cache that these all fall back into you will take a heavy cost for
+having to map and unmap pages.
 
-Looking at mlx5 (as a model of how XDP is implemented) the main RX
-loop in ml5e_poll_rx_cq calls the backend handler in one indirect
-function call. The XDP path goes through mlx5e_handle_rx_cqe,
-skb_from_cqe, and mlx5e_xdp_handle. The first two deal a lot with
-building the skbuf. As a prerequisite to RX batching it would be
-helpful if this could be flatten so that most of the logic is obvious
-in the main RX loop.
+The whole reason why I implemented the Intel page reuse approach the
+way I did is to try and mitigate the IOMMU issue, it wasn't so much to
+resolve allocator/freeing expense.  Basically the allocator scales,
+the IOMMU does not.  So any solution would require making certain that
+we can leave the pages pinned in the DMA to avoid having to take the
+global locks involved in accessing the IOMMU.
 
-The model of RX batching seems straightforward enough-- pull packets
-from the ring, save xdp_data information in a vector, periodically
-call into the stack to handle a batch where argument is the vector of
-packets and another argument is an output vector that gives return
-codes (XDP actions), process the each return code for each packet in
-the driver accordingly. Presumably, there is a maximum allowed batch
-that may or may not be the same as the NAPI budget so the so the
-batching call needs to be done when the limit is reach and also before
-exiting NAPI. For each packet the stack can return an XDP code,
-XDP_PASS in this case could be interpreted as being consumed by the
-stack; this would be used in the case the stack creates an skbuff for
-the packet. The stack on it's part can process the batch how it sees
-fit, it can process each packet individual in the canonical model, or
-we can continue processing a batch in a VPP-like fashion.
+> This means the number of active pages would be minimal, especially on
+> PowerPC. Pages that have been used by X=2 received frags would be put in
+> a quarantine (size to be determined).
+> On PowerPC, X would be PAGE_SIZE/frag_size
+>
+>
+> This strategy would consume less memory on PowerPC :
+> 65535/1536 = 42, so a 4096 RX ring would need 98 active pages instead of
+> 4096.
+>
+> The quarantine would be sized to increase chances of reusing an old
+> page, without consuming too much memory.
+>
+> Probably roundup_pow_of_two(rx_ring_size / (PAGE_SIZE/frag_size))
+>
+> x86 would still use 4096 pages, but PowerPC would use 98+128 pages
+> instead of 4096) (14 MBytes instead of 256 MBytes)
 
-The batching API could be transparent to the stack or not. In the
-transparent case, the driver calls what looks like a receive function
-but the stack may defer processing for batching. A callback function
-(that can be inlined) is used to process return codes as I mentioned
-previously. In the non-transparent model, the driver knowingly creates
-the packet vector and then explicitly calls another function to
-process the vector. Personally, I lean towards the transparent API,
-this may be less complexity in drivers and gives the stack more
-control over the parameters of batching (for instance it may choose
-some batch size to optimize its processing instead of driver guessing
-the best size).
+So any solution will need to work with an IOMMU enabled on the
+platform.  I assume you have some x86 test systems you could run with
+an IOMMU enabled.  My advice would be to try running in that
+environment and see where the overhead lies.
 
-Btw the logic for RX batching is very similar to how we batch packets
-for RPS (I think you already mention an skb-less RPS and that should
-hopefully be something would falls out from this design).
-
-Tom
+- Alex
