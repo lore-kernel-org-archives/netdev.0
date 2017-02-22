@@ -1,38 +1,79 @@
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Subject: [PATCH] uapi: fix linux/llc.h userspace compilation error
-Date: Thu, 23 Feb 2017 01:38:26 +0300
-Message-ID: <20170222223826.GB14311@altlinux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: realtek: 8139too: use new api ethtool_{get|set}_link_ksettings
+Date: Thu, 23 Feb 2017 00:14:08 +0100
+Message-ID: <1487805248-18450-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, hau@realtek.com, jarod@redhat.com,
+        stephen@networkplumber.org, edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:34836 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932924AbdBVXPH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 18:15:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Include <linux/if.h> to fix the following linux/llc.h userspace
-compilation error:
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-/usr/include/linux/llc.h:26:27: error: 'IFHWADDRLEN' undeclared here (not in a function)
-  unsigned char   sllc_mac[IFHWADDRLEN];
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- include/uapi/linux/llc.h | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/realtek/8139too.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/include/uapi/linux/llc.h b/include/uapi/linux/llc.h
-index 9c987a4..a6c17f6 100644
---- a/include/uapi/linux/llc.h
-+++ b/include/uapi/linux/llc.h
-@@ -14,6 +14,7 @@
- #define _UAPI__LINUX_LLC_H
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index 8963175..ca22f28 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -2384,21 +2384,23 @@ static void rtl8139_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *
+ 	strlcpy(info->bus_info, pci_name(tp->pci_dev), sizeof(info->bus_info));
+ }
  
- #include <linux/socket.h>
-+#include <linux/if.h> 		/* For IFHWADDRLEN. */
+-static int rtl8139_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int rtl8139_get_link_ksettings(struct net_device *dev,
++				      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct rtl8139_private *tp = netdev_priv(dev);
+ 	spin_lock_irq(&tp->lock);
+-	mii_ethtool_gset(&tp->mii, cmd);
++	mii_ethtool_get_link_ksettings(&tp->mii, cmd);
+ 	spin_unlock_irq(&tp->lock);
+ 	return 0;
+ }
  
- #define __LLC_SOCK_SIZE__ 16	/* sizeof(sockaddr_llc), word align. */
- struct sockaddr_llc {
+-static int rtl8139_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int rtl8139_set_link_ksettings(struct net_device *dev,
++				      const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct rtl8139_private *tp = netdev_priv(dev);
+ 	int rc;
+ 	spin_lock_irq(&tp->lock);
+-	rc = mii_ethtool_sset(&tp->mii, cmd);
++	rc = mii_ethtool_set_link_ksettings(&tp->mii, cmd);
+ 	spin_unlock_irq(&tp->lock);
+ 	return rc;
+ }
+@@ -2480,8 +2482,6 @@ static void rtl8139_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ 
+ static const struct ethtool_ops rtl8139_ethtool_ops = {
+ 	.get_drvinfo		= rtl8139_get_drvinfo,
+-	.get_settings		= rtl8139_get_settings,
+-	.set_settings		= rtl8139_set_settings,
+ 	.get_regs_len		= rtl8139_get_regs_len,
+ 	.get_regs		= rtl8139_get_regs,
+ 	.nway_reset		= rtl8139_nway_reset,
+@@ -2493,6 +2493,8 @@ static void rtl8139_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ 	.get_strings		= rtl8139_get_strings,
+ 	.get_sset_count		= rtl8139_get_sset_count,
+ 	.get_ethtool_stats	= rtl8139_get_ethtool_stats,
++	.get_link_ksettings	= rtl8139_get_link_ksettings,
++	.set_link_ksettings	= rtl8139_set_link_ksettings,
+ };
+ 
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 -- 
-ldv
+1.7.4.4
