@@ -1,128 +1,72 @@
-From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: [PATCH v2] net/dccp: fix use after free in tw_timer_handler()
-Date: Wed, 22 Feb 2017 12:35:27 +0300
-Message-ID: <20170222093527.19698-1-aryabinin@virtuozzo.com>
-References: <20170221112740.661-1-aryabinin@virtuozzo.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Focusing the XDP project
+Date: Wed, 22 Feb 2017 10:43:28 +0100
+Message-ID: <20170222104328.4b9c6c5d@redhat.com>
+References: <20170220111343.76f77748@redhat.com>
+        <CAKgT0Ucqp6+jWkiGxDoEE-UdbnxsdVLxjZZ6uYtNWHSo4fPUVg@mail.gmail.com>
+        <cc26e1ce-05ae-6c3d-a323-b6f18e2ad897@mellanox.com>
+        <CALx6S375878KeM0O7BO9sB7B_3p+yO4yxfEhxYdn_=AZvWF-Aw@mail.gmail.com>
+        <CALzJLG-323ZOyruHok3=jz526bnw=SoYtYSym8RrA3Z5=g0u9Q@mail.gmail.com>
+        <CALx6S37s=Kcy+wEbojVHjiAoLZC_4V5qzMLe=-QXtJYVtwTAew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        <dccp@vger.kernel.org>, Dmitry Vyukov <dvyukov@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        syzkaller <syzkaller@googlegroups.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Brenden Blanco <bblanco@gmail.com>, brouer@redhat.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr00117.outbound.protection.outlook.com ([40.107.0.117]:62102
-        "EHLO EUR02-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932138AbdBVJee (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Feb 2017 04:34:34 -0500
-In-Reply-To: <20170221112740.661-1-aryabinin@virtuozzo.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43194 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751347AbdBVJnd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Feb 2017 04:43:33 -0500
+In-Reply-To: <CALx6S37s=Kcy+wEbojVHjiAoLZC_4V5qzMLe=-QXtJYVtwTAew@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DCCP doesn't purge timewait sockets on network namespace shutdown.
-So, after net namespace destroyed we could still have an active timer
-which will trigger use after free in tw_timer_handler():
 
-    BUG: KASAN: use-after-free in tw_timer_handler+0x4a/0xa0 at addr ffff88010e0d1e10
-    Read of size 8 by task swapper/1/0
-    Call Trace:
-     __asan_load8+0x54/0x90
-     tw_timer_handler+0x4a/0xa0
-     call_timer_fn+0x127/0x480
-     expire_timers+0x1db/0x2e0
-     run_timer_softirq+0x12f/0x2a0
-     __do_softirq+0x105/0x5b4
-     irq_exit+0xdd/0xf0
-     smp_apic_timer_interrupt+0x57/0x70
-     apic_timer_interrupt+0x90/0xa0
+On Tue, 21 Feb 2017 14:54:35 -0800 Tom Herbert <tom@herbertland.com> wrote:
+> On Tue, Feb 21, 2017 at 2:29 PM, Saeed Mahameed <saeedm@dev.mellanox.co.il> wrote:
+[...]
+> > The only complexity XDP is adding to the drivers is the constrains on
+> > RX memory management and memory model, calling the XDP program itself
+> > and handling the  action is really a simple thing once you have the
+> > correct memory model.
 
-    Object at ffff88010e0d1bc0, in cache net_namespace size: 6848
-    Allocated:
-     save_stack_trace+0x1b/0x20
-     kasan_kmalloc+0xee/0x180
-     kasan_slab_alloc+0x12/0x20
-     kmem_cache_alloc+0x134/0x310
-     copy_net_ns+0x8d/0x280
-     create_new_namespaces+0x23f/0x340
-     unshare_nsproxy_namespaces+0x75/0xf0
-     SyS_unshare+0x299/0x4f0
-     entry_SYSCALL_64_fastpath+0x18/0xad
-    Freed:
-     save_stack_trace+0x1b/0x20
-     kasan_slab_free+0xae/0x180
-     kmem_cache_free+0xb4/0x350
-     net_drop_ns+0x3f/0x50
-     cleanup_net+0x3df/0x450
-     process_one_work+0x419/0xbb0
-     worker_thread+0x92/0x850
-     kthread+0x192/0x1e0
-     ret_from_fork+0x2e/0x40
+Exactly, that is why I've been looking at introducing a generic
+facility for a memory model for drivers.  This should help simply
+drivers.  Due to performance needs this need to be a very thin API layer
+on top of the page allocator. (That's why I'm working with Mel Gorman
+to get more close integration with the page allocator e.g. a bulking
+facility).
 
-Add .exit_batch hook to dccp_v4_ops()/dccp_v6_ops() which will purge
-timewait sockets on net namespace destruction and prevent above issue.
+> > Who knows! maybe someday XDP will define one unified RX API for all
+> > drivers and it even will handle normal stack delivery it self :).
+> >  
+> That's exactly the point and what we need for TXDP. I'm missing why
+> doing this is such rocket science other than the fact that all these
+> drivers are vastly different and changing the existing API is
+> unpleasant. The only functional complexity I see in creating a generic
+> batching interface is handling return codes asynchronously. This is
+> entirely feasible though...
 
-Fixes: f2bf415cfed7 ("mib: add net to NET_ADD_STATS_BH")
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
+I'll be happy as long as we get a batching interface, then we can
+incrementally do the optimizations later.
 
-Changes since v1:
- - Rebased on top the -next
- - Added Fixes/Acked tags.
+In the future, I do hope (like Saeed) this RX API will evolve into
+delivering (a bulk of) raw-packet-pages into the netstack, this should
+simplify drivers, and we can keep the complexity and SKB allocations
+out of the drivers.
+To start with, we can play with doing this delivering (a bulk of)
+raw-packet-pages into Tom's TXDP engine/system?
 
- net/dccp/ipv4.c | 6 ++++++
- net/dccp/ipv6.c | 6 ++++++
- 2 files changed, 12 insertions(+)
-
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index b043ec8..409d0cf 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -1017,9 +1017,15 @@ static void __net_exit dccp_v4_exit_net(struct net *net)
- 	inet_ctl_sock_destroy(net->dccp.v4_ctl_sk);
- }
- 
-+static void __net_exit dccp_v4_exit_batch(struct list_head *net_exit_list)
-+{
-+	inet_twsk_purge(&dccp_hashinfo, AF_INET);
-+}
-+
- static struct pernet_operations dccp_v4_ops = {
- 	.init	= dccp_v4_init_net,
- 	.exit	= dccp_v4_exit_net,
-+	.exit_batch = dccp_v4_exit_batch,
- };
- 
- static int __init dccp_v4_init(void)
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index cef60a4..233b573 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -1075,9 +1075,15 @@ static void __net_exit dccp_v6_exit_net(struct net *net)
- 	inet_ctl_sock_destroy(net->dccp.v6_ctl_sk);
- }
- 
-+static void __net_exit dccp_v6_exit_batch(struct list_head *net_exit_list)
-+{
-+	inet_twsk_purge(&dccp_hashinfo, AF_INET6);
-+}
-+
- static struct pernet_operations dccp_v6_ops = {
- 	.init   = dccp_v6_init_net,
- 	.exit   = dccp_v6_exit_net,
-+	.exit_batch = dccp_v6_exit_batch,
- };
- 
- static int __init dccp_v6_init(void)
 -- 
-2.10.2
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
