@@ -1,184 +1,100 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH v5 10/10] landlock: Add user and kernel documentation for Landlock
-Date: Tue, 21 Feb 2017 21:21:21 -0800
-Message-ID: <CALCETrXzL0VH_=QYHGXk1Y5P_yLyXdyTD-JVHVKTFf8F-AhYnw@mail.gmail.com>
-References: <20170222012632.4196-1-mic@digikod.net> <20170222012632.4196-11-mic@digikod.net>
+From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Subject: RE: create drivers/net/mdio and move mdio drivers into it
+Date: Wed, 22 Feb 2017 05:38:49 +0000
+Message-ID: <8729016553E3654398EA69218DA29EEF15A81861@cnshjmbx02>
+References: <8729016553E3654398EA69218DA29EEF15A7E753@cnshjmbx02>
+ <afdb9ff7-afa9-47b0-0e84-396080fe0867@gmail.com>
+ <8729016553E3654398EA69218DA29EEF15A807CA@cnshjmbx02>
+ <dfde5fbd-e4de-7b6d-37a6-dba1720cc3d9@gmail.com>
+ <8729016553E3654398EA69218DA29EEF15A80800@cnshjmbx02>
+ <119144e3-d42e-e4dd-d95d-624e4816cbe3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>, Casey Schaufler <casey@schaufler-ca.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, David Drysdale <drysdale@google.com>,
-	"David S . Miller" <davem@davemloft.net>, "Eric W . Biederman" <ebiederm@xmission.com>,
-	James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-	Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
-	Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
-	"Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
-	Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <kernel-hardening-return-6817-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170222012632.4196-11-mic@digikod.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "cugyly@163.com" <cugyly@163.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:43425 "EHLO
+        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750890AbdBVFjB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 00:39:01 -0500
+In-Reply-To: <119144e3-d42e-e4dd-d95d-624e4816cbe3@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 21, 2017 at 5:26 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
- wrote:
-> This documentation can be built with the Sphinx framework.
->
-> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Andy Lutomirski <luto@amacapital.net>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: James Morris <james.l.morris@oracle.com>
-> Cc: Jonathan Corbet <corbet@lwn.net>
-> Cc: Kees Cook <keescook@chromium.org>
-> Cc: Serge E. Hallyn <serge@hallyn.com>
+Hi Florian,
+
+1. 
+Let's go back to original topic,
+Can we move all mdio dirvers into drivers/net/mdio ?
+Last time you said half convinced.
+If you insist not do it, l will follow your decision.
+
+2.
+Per may understanding, 
+I don't know why create a struct mii_bus instance to represent a mdio device in current mdio driver.
+Why not create a struct mdio_device instance, it's easy to understand.
+(We can move part of member of mii_bus to mdio_device).
+
+Then in mdio layer, there will mdio_device and mdio_driver.
+
+Other module(dsa) base on mdio should not register mdio_driver directly.
 
 
-> +
-> +Writing a rule
-> +--------------
-> +
-> +To enforce a security policy, a thread first needs to create a Landlock =
-rule.
-> +The easiest way to write an eBPF program depicting a security rule is to=
- write
-> +it in the C language.  As described in *samples/bpf/README.rst*, LLVM ca=
-n
-> +compile such programs.  Files *samples/bpf/landlock1_kern.c* and those i=
-n
-> +*tools/testing/selftests/landlock/rules/* can be used as examples.  The
-> +following example is a simple rule to forbid file creation, whatever sys=
-call
-> +may be used (e.g. open, mkdir, link...).
-> +
-> +.. code-block:: c
-> +
-> +    static int deny_file_creation(struct landlock_context *ctx)
-> +    {
-> +        if (ctx->arg2 & LANDLOCK_ACTION_FS_NEW)
-> +            return 1;
-> +        return 0;
-> +    }
-> +
+thanks
 
-Would it make sense to define landlock_context (or at least a prefix
-thereof) in here?  Also, can't "arg2" have a better name?
-
-Can you specify what the return value means?  Are 0 and 1 the only
-choices?  Would "KILL" be useful?  How about "COREDUMP"?
-
-> +File system action types
-> +------------------------
-> +
-> +Flags are used to express actions.  This makes it possible to compose ac=
-tions
-> +and leaves room for future improvements to add more fine-grained action =
-types.
-> +
-> +.. kernel-doc:: include/uapi/linux/bpf.h
-> +    :doc: landlock_action_fs
-> +
-> +.. flat-table:: FS action types availability
-> +
-> +    * - flags
-> +      - since
-> +
-> +    * - LANDLOCK_ACTION_FS_EXEC
-> +      - v1
-> +
-> +    * - LANDLOCK_ACTION_FS_WRITE
-> +      - v1
-> +
-> +    * - LANDLOCK_ACTION_FS_READ
-> +      - v1
-> +
-> +    * - LANDLOCK_ACTION_FS_NEW
-> +      - v1
-> +
-> +    * - LANDLOCK_ACTION_FS_GET
-> +      - v1
-> +
-> +    * - LANDLOCK_ACTION_FS_REMOVE
-> +      - v1
-> +
-> +    * - LANDLOCK_ACTION_FS_IOCTL
-> +      - v1
-> +
-> +    * - LANDLOCK_ACTION_FS_LOCK
-> +      - v1
-> +
-> +    * - LANDLOCK_ACTION_FS_FCNTL
-> +      - v1
-
-What happens if you run an old program on a new kernel?  Can you get
-unexpected action types?
-
-> +
-> +
-> +Ability types
-> +-------------
-> +
-> +The ability of a Landlock rule describes the available features (i.e. co=
-ntext
-> +fields and helpers).  This is useful to abstract user-space privileges f=
-or
-> +Landlock rules, which may not need all abilities (e.g. debug).  Only the
-> +minimal set of abilities should be used (e.g. disable debug once in
-> +production).
-> +
-> +
-> +.. kernel-doc:: include/uapi/linux/bpf.h
-> +    :doc: landlock_subtype_ability
-> +
-> +.. flat-table:: Ability types availability
-> +
-> +    * - flags
-> +      - since
-> +      - capability
-> +
-> +    * - LANDLOCK_SUBTYPE_ABILITY_WRITE
-> +      - v1
-> +      - CAP_SYS_ADMIN
-> +
-> +    * - LANDLOCK_SUBTYPE_ABILITY_DEBUG
-> +      - v1
-> +      - CAP_SYS_ADMIN
-> +
-
-What do "WRITE" and "DEBUG" mean in this context?  I'm totally lost.
-
-Hmm.  Reading below, "WRITE" seems to mean "modify state".  Would that
-be accurate?
-
-> +
-> +Helper functions
-> +----------------
-> +
-> +See *include/uapi/linux/bpf.h* for functions documentation.
-> +
-> +.. flat-table:: Generic functions availability
-> +
-
-> +
-> +    * - bpf_get_current_comm
-> +      - v1
-> +      - LANDLOCK_SUBTYPE_ABILITY_DEBUG
-
-What would this be used for?
-
-> +    * - bpf_get_trace_printk
-> +      - v1
-> +      - LANDLOCK_SUBTYPE_ABILITY_DEBUG
-> +
-
-This is different from the other DEBUG stuff in that it has side
-effects.  I wonder if it should have a different flag.
-
---Andy
+> -----Original Message-----
+> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+> Sent: Tuesday, February 21, 2017 6:31 AM
+> To: YUAN Linyu; David S . Miller; Andrew Lunn
+> Cc: netdev@vger.kernel.org; cugyly@163.com
+> Subject: Re: create drivers/net/mdio and move mdio drivers into it
+> 
+> 
+> 
+> On 02/19/2017 10:29 PM, YUAN Linyu wrote:
+> >
+> >
+> >> -----Original Message-----
+> >> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+> >> Sent: Monday, February 20, 2017 1:42 PM
+> >> To: YUAN Linyu; David S . Miller; Andrew Lunn
+> >> Cc: netdev@vger.kernel.org; cugyly@163.com
+> >> Subject: Re: create drivers/net/mdio and move mdio drivers into it
+> >>> 4. support mdio auto probe phy device.
+> >>
+> >> That's already the case, even in a Device Tree enabled system if you
+> >> omit to provide a "reg" property for child nodes, the bus is
+> >> automatically scanned.
+> >>
+> > I check of_mdiobus_registe() which not do auto scan.
+> > Which function should I refer?
+> 
+> of_mdiobus_register() does this:
+> 
+>         /* Loop over the child nodes and register a phy_device for each
+> phy */
+>         for_each_available_child_of_node(np, child) {
+>                 addr = of_mdio_parse_addr(&mdio->dev, child);
+>                 if (addr < 0) {
+>                         scanphys = true;
+>                         continue;
+>                 }
+> 
+>                 if (of_mdiobus_child_is_phy(child))
+>                         of_mdiobus_register_phy(mdio, child, addr);
+>                 else
+>                         of_mdiobus_register_device(mdio, child, addr);
+>         }
+> 
+>         if (!scanphys)
+>                 return 0;
+> 
+> It does continue with scanning the PHY child nodes which don't have a
+> correct "reg" property set here.
+> --
+> Florian
