@@ -1,99 +1,92 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 2/6] net/mlx5e: Register/unregister vport representors on interface attach/detach
-Date: Wed, 22 Feb 2017 17:20:12 +0200
-Message-ID: <20170222152016.31263-3-saeedm@mellanox.com>
-References: <20170222152016.31263-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Wed, 22 Feb 2017 08:22:38 -0800
+Message-ID: <1487780558.9415.81.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170213195858.5215-1-edumazet@google.com>
+         <20170213195858.5215-9-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Eric Dumazet <edumazet@google.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57749 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933008AbdBVPVr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 10:21:47 -0500
-In-Reply-To: <20170222152016.31263-1-saeedm@mellanox.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33796 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932334AbdBVQWk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 11:22:40 -0500
+Received: by mail-pg0-f65.google.com with SMTP id s67so1078492pgb.1
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 08:22:40 -0800 (PST)
+In-Reply-To: <20170213195858.5215-9-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently vport representors are added only on driver load and removed on
-driver unload.  Apparently we forgot to handle them when we added the
-seamless reset flow feature.  This caused to leave the representors
-netdevs alive and active with open HW resources on pci shutdown and on
-error reset flows.
+On Mon, 2017-02-13 at 11:58 -0800, Eric Dumazet wrote:
+> Use of order-3 pages is problematic in some cases.
+> 
+> This patch might add three kinds of regression :
+> 
+> 1) a CPU performance regression, but we will add later page
+> recycling and performance should be back.
+> 
+> 2) TCP receiver could grow its receive window slightly slower,
+>    because skb->len/skb->truesize ratio will decrease.
+>    This is mostly ok, we prefer being conservative to not risk OOM,
+>    and eventually tune TCP better in the future.
+>    This is consistent with other drivers using 2048 per ethernet frame.
+> 
+> 3) Because we allocate one page per RX slot, we consume more
+>    memory for the ring buffers. XDP already had this constraint anyway.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-To overcome this we move their handling to interface attach/detach, so
-they would be cleaned up on shutdown and recreated on reset flows.
+Note that we also could use a different strategy.
 
-Fixes: 26e59d8077a3 ("net/mlx5e: Implement mlx5e interface attach/detach callbacks")
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Roi Dayan <roid@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
+Assume RX rings of 4096 entries/slots.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 3cce6281e075..c24366868b39 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3970,6 +3970,19 @@ static void mlx5e_register_vport_rep(struct mlx5_core_dev *mdev)
- 	}
- }
- 
-+static void mlx5e_unregister_vport_rep(struct mlx5_core_dev *mdev)
-+{
-+	struct mlx5_eswitch *esw = mdev->priv.eswitch;
-+	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
-+	int vport;
-+
-+	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
-+		return;
-+
-+	for (vport = 1; vport < total_vfs; vport++)
-+		mlx5_eswitch_unregister_vport_rep(esw, vport);
-+}
-+
- void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
-@@ -4016,6 +4029,7 @@ static int mlx5e_attach(struct mlx5_core_dev *mdev, void *vpriv)
- 		return err;
- 	}
- 
-+	mlx5e_register_vport_rep(mdev);
- 	return 0;
- }
- 
-@@ -4027,6 +4041,7 @@ static void mlx5e_detach(struct mlx5_core_dev *mdev, void *vpriv)
- 	if (!netif_device_present(netdev))
- 		return;
- 
-+	mlx5e_unregister_vport_rep(mdev);
- 	mlx5e_detach_netdev(mdev, netdev);
- 	mlx5e_destroy_mdev_resources(mdev);
- }
-@@ -4045,8 +4060,6 @@ static void *mlx5e_add(struct mlx5_core_dev *mdev)
- 	if (err)
- 		return NULL;
- 
--	mlx5e_register_vport_rep(mdev);
--
- 	if (MLX5_CAP_GEN(mdev, vport_group_manager))
- 		ppriv = &esw->offloads.vport_reps[0];
- 
-@@ -4098,13 +4111,7 @@ void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv)
- 
- static void mlx5e_remove(struct mlx5_core_dev *mdev, void *vpriv)
- {
--	struct mlx5_eswitch *esw = mdev->priv.eswitch;
--	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
- 	struct mlx5e_priv *priv = vpriv;
--	int vport;
--
--	for (vport = 1; vport < total_vfs; vport++)
--		mlx5_eswitch_unregister_vport_rep(esw, vport);
- 
- 	unregister_netdev(priv->netdev);
- 	mlx5e_detach(mdev, vpriv);
--- 
-2.11.0
+With this patch, mlx4 gets the strategy used by Alexander in Intel
+drivers : 
+
+Each RX slot has an allocated page, and uses half of it, flipping to the
+other half every time the slot is used.
+
+So a ring buffer of 4096 slots allocates 4096 pages.
+
+When we receive a packet train for the same flow, GRO builds an skb with
+~45 page frags, all from different pages.
+
+The put_page() done from skb_release_data() touches ~45 different struct
+page cache lines, and show a high cost. (compared to the order-3 used
+today by mlx4, this adds extra cache line misses and stalls for the
+consumer)
+
+If we instead try to use the two halves of one page on consecutive RX
+slots, we might instead cook skb with the same number of MSS (45), but
+half the number of cache lines for put_page(), so we should speed up the
+consumer.
+
+This means the number of active pages would be minimal, especially on
+PowerPC. Pages that have been used by X=2 received frags would be put in
+a quarantine (size to be determined).
+On PowerPC, X would be PAGE_SIZE/frag_size
+
+
+This strategy would consume less memory on PowerPC : 
+65535/1536 = 42, so a 4096 RX ring would need 98 active pages instead of
+4096.
+
+The quarantine would be sized to increase chances of reusing an old
+page, without consuming too much memory.
+
+Probably roundup_pow_of_two(rx_ring_size / (PAGE_SIZE/frag_size))
+
+x86 would still use 4096 pages, but PowerPC would use 98+128 pages
+instead of 4096) (14 MBytes instead of 256 MBytes)
