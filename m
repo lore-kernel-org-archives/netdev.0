@@ -1,52 +1,57 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: linux-next: manual merge of the kselftest tree with the net-next
- tree
-Date: Wed, 22 Feb 2017 07:54:21 -0700
-Message-ID: <a7dfa6bf-1bcb-aa44-4099-a86caf5f1f5a@osg.samsung.com>
-References: <20170216142453.53d1f5e5@canb.auug.org.au>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH iproute2] tc: flower: Fix parsing ip address
+Date: Wed, 22 Feb 2017 16:16:32 +0100
+Message-ID: <20170222151631.GA8047@penelope.horms.nl>
+References: <1487772301-22303-1-git-send-email-roid@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "bamvor.zhangjian@huawei.com" <bamvor.zhangjian@huawei.com>,
-        =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
-        Shuah Khan <shuahkh@osg.samsung.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170216142453.53d1f5e5@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, Paul Blakey <paulb@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Shahar Klein <shahark@mellanox.com>,
+        Mark Bloch <markb@mellanox.com>, Jiri Pirko <jiri@mellanox.com>
+To: Roi Dayan <roid@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36351 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933061AbdBVPQm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 10:16:42 -0500
+Received: by mail-wm0-f51.google.com with SMTP id v77so1291745wmv.1
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 07:16:41 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1487772301-22303-1-git-send-email-roid@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/15/2017 08:24 PM, Stephen Rothwell wrote:
-> Hi Shuah,
+On Wed, Feb 22, 2017 at 04:05:01PM +0200, Roi Dayan wrote:
+> Fix order of arguments when passed to __flower_parse_ip_addr.
 > 
-> Today's linux-next merge of the kselftest tree got a conflict in:
-> 
->   tools/testing/selftests/bpf/Makefile
-> 
-> between commit:
-> 
->   d498f8719a09 ("bpf: Rebuild bpf.o for any dependency update")
-> 
-> from the net-next tree and commit:
-> 
->   88baa78d1f31 ("selftests: remove duplicated all and clean target")
-> 
-> from the kselftest tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
-> 
+> Fixes: ("f888f4e20534 tc: flower: Support matching ARP")
+> Signed-off-by: Roi Dayan <roid@mellanox.com>
+> Reviewed-by: Paul Blakey <paulb@mellanox.com>
 
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
 
-Sorry to get back to you late. I was away on vacation last week.
-Yes. Please let's plan upon carrying the fix.
-
-thanks,
--- Shuah
+> ---
+>  tc/f_flower.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/tc/f_flower.c b/tc/f_flower.c
+> index 6bd03f2..5aac4a0 100644
+> --- a/tc/f_flower.c
+> +++ b/tc/f_flower.c
+> @@ -289,8 +289,8 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
+>  		return -1;
+>  	}
+>  
+> -	return __flower_parse_ip_addr(str, family, addr4_type, addr6_type,
+> -				      mask4_type, mask6_type, n);
+> +	return __flower_parse_ip_addr(str, family, addr4_type, mask4_type,
+> +				      addr6_type, mask6_type, n);
+>  }
+>  
+>  static bool flower_eth_type_arp(__be16 eth_type)
+> -- 
+> 2.7.4
+> 
