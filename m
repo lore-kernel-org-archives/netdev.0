@@ -1,154 +1,86 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 2/4] net/mlx4: Spoofcheck and zero MAC can't coexist
-Date: Wed, 22 Feb 2017 14:33:25 +0200
-Message-ID: <1487766807-13929-3-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net 4/4] net/mlx4_core: Use cq quota in SRIOV when creating completion EQs
+Date: Wed, 22 Feb 2017 14:33:27 +0200
+Message-ID: <1487766807-13929-5-git-send-email-tariqt@mellanox.com>
 References: <1487766807-13929-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Yotam Gigi <yotamg@mellanox.com>,
         Dexuan Cui <decui@microsoft.com>,
-        Eugenia Emantayev <eugenia@mellanox.com>,
+        Jack Morgenstein <jackm@dev.mellanox.co.il>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54828 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54827 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754277AbdBVMeJ (ORCPT
+        with ESMTP id S1753192AbdBVMeJ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 07:34:09 -0500
 In-Reply-To: <1487766807-13929-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Spoofcheck can't be enabled if VF MAC is zero.
-Vice versa, can't zero MAC if spoofcheck is on.
+When creating EQs to handle CQ completion events for the PF
+or for VFs, we create enough EQE entries to handle completions
+for the max number of CQs that can use that EQ.
 
-Fixes: 8f7ba3ca12f6 ('net/mlx4: Add set VF mac address support')
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+When SRIOV is activated, the max number of CQs a VF (or the PF) can
+obtain is its CQ quota (determined by the Hypervisor resource tracker).
+Therefore, when creating an EQ, the number of EQE entries that the VF
+should request for that EQ is the CQ quota value (and not the total
+number of CQs available in the FW).
+
+Under SRIOV, the PF, also must use its CQ quota, because
+the resource tracker also controls how many CQs the PF can obtain.
+
+Using the FW total CQs instead of the CQ quota when creating EQs resulted
+wasting MTT entries, due to allocating more EQEs than were needed.
+
+Fixes: 5a0d0a6161ae ("mlx4: Structures and init/teardown for VF resource quotas")
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Reported-by: Dexuan Cui <decui@microsoft.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c       | 22 ++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  6 +-----
- include/linux/mlx4/cmd.h                       |  2 +-
- include/linux/mlx4/driver.h                    | 10 ++++++++++
- 4 files changed, 32 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/eq.c   | 5 ++---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 3 ++-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index a49072b4fa52..e8c105164931 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -43,6 +43,7 @@
- #include <linux/semaphore.h>
- #include <rdma/ib_smi.h>
- #include <linux/delay.h>
-+#include <linux/etherdevice.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 0509996957d9..232f46db0dce 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -1256,9 +1256,8 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
+ 					mlx4_warn(dev, "Failed adding irq rmap\n");
+ 			}
+ #endif
+-			err = mlx4_create_eq(dev, dev->caps.num_cqs -
+-						  dev->caps.reserved_cqs +
+-						  MLX4_NUM_SPARE_EQE,
++			err = mlx4_create_eq(dev, dev->quotas.cq +
++					     MLX4_NUM_SPARE_EQE,
+ 					     (dev->flags & MLX4_FLAG_MSI_X) ?
+ 					     i + 1 - !!(i > MLX4_EQ_ASYNC) : 0,
+ 					     eq);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 7a030d10ff3e..094cfd8a1a18 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -3501,6 +3501,8 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
+ 			goto err_disable_msix;
+ 	}
  
- #include <asm/io.h>
- 
-@@ -2955,7 +2956,7 @@ static bool mlx4_valid_vf_state_change(struct mlx4_dev *dev, int port,
- 	return false;
- }
- 
--int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac)
-+int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u8 *mac)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_vport_state *s_info;
-@@ -2964,13 +2965,22 @@ int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac)
- 	if (!mlx4_is_master(dev))
- 		return -EPROTONOSUPPORT;
- 
-+	if (is_multicast_ether_addr(mac))
-+		return -EINVAL;
++	mlx4_init_quotas(dev);
 +
- 	slave = mlx4_get_slave_indx(dev, vf);
- 	if (slave < 0)
- 		return -EINVAL;
+ 	err = mlx4_setup_hca(dev);
+ 	if (err == -EBUSY && (dev->flags & MLX4_FLAG_MSI_X) &&
+ 	    !mlx4_is_mfunc(dev)) {
+@@ -3513,7 +3515,6 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
+ 	if (err)
+ 		goto err_steer;
  
- 	port = mlx4_slaves_closest_port(dev, slave, port);
- 	s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
--	s_info->mac = mac;
-+
-+	if (s_info->spoofchk && is_zero_ether_addr(mac)) {
-+		mlx4_info(dev, "MAC invalidation is not allowed when spoofchk is on\n");
-+		return -EPERM;
-+	}
-+
-+	s_info->mac = mlx4_mac_to_u64(mac);
- 	mlx4_info(dev, "default mac on vf %d port %d to %llX will take effect only after vf restart\n",
- 		  vf, port, s_info->mac);
- 	return 0;
-@@ -3143,6 +3153,7 @@ int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_vport_state *s_info;
- 	int slave;
-+	u8 mac[ETH_ALEN];
- 
- 	if ((!mlx4_is_master(dev)) ||
- 	    !(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_FSM))
-@@ -3154,6 +3165,13 @@ int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting)
- 
- 	port = mlx4_slaves_closest_port(dev, slave, port);
- 	s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
-+
-+	mlx4_u64_to_mac(mac, s_info->mac);
-+	if (setting && !is_valid_ether_addr(mac)) {
-+		mlx4_info(dev, "Illegal MAC with spoofchk\n");
-+		return -EPERM;
-+	}
-+
- 	s_info->spoofchk = setting;
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 3b4961a8e8e4..9a86dd397315 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2475,12 +2475,8 @@ static int mlx4_en_set_vf_mac(struct net_device *dev, int queue, u8 *mac)
- {
- 	struct mlx4_en_priv *en_priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = en_priv->mdev;
--	u64 mac_u64 = mlx4_mac_to_u64(mac);
- 
--	if (is_multicast_ether_addr(mac))
--		return -EINVAL;
--
--	return mlx4_set_vf_mac(mdev->dev, en_priv->port, queue, mac_u64);
-+	return mlx4_set_vf_mac(mdev->dev, en_priv->port, queue, mac);
- }
- 
- static int mlx4_en_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos,
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index 1f3568694a57..7b74afcbbab2 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -308,7 +308,7 @@ int mlx4_get_counter_stats(struct mlx4_dev *dev, int counter_index,
- int mlx4_get_vf_stats(struct mlx4_dev *dev, int port, int vf_idx,
- 		      struct ifla_vf_stats *vf_stats);
- u32 mlx4_comm_get_version(void);
--int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
-+int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u8 *mac);
- int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan,
- 		     u8 qos, __be16 proto);
- int mlx4_set_vf_rate(struct mlx4_dev *dev, int port, int vf, int min_tx_rate,
-diff --git a/include/linux/mlx4/driver.h b/include/linux/mlx4/driver.h
-index bd0e7075ea6d..e965e5090d96 100644
---- a/include/linux/mlx4/driver.h
-+++ b/include/linux/mlx4/driver.h
-@@ -104,4 +104,14 @@ static inline u64 mlx4_mac_to_u64(u8 *addr)
- 	return mac;
- }
- 
-+static inline void mlx4_u64_to_mac(u8 *addr, u64 mac)
-+{
-+	int i;
-+
-+	for (i = ETH_ALEN; i > 0; i--) {
-+		addr[i - 1] = mac && 0xFF;
-+		mac >>= 8;
-+	}
-+}
-+
- #endif /* MLX4_DRIVER_H */
+-	mlx4_init_quotas(dev);
+ 	/* When PF resources are ready arm its comm channel to enable
+ 	 * getting commands
+ 	 */
 -- 
 1.8.3.1
