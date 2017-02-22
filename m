@@ -1,75 +1,49 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC v3 0/8] xdp: Infrastructure to generalize XDP
-Date: Tue, 21 Feb 2017 18:54:53 -0800
-Message-ID: <CALx6S36bujuFmDkvG8V5cuigbeNpJX-nprL1_1Ub+m4AiV3Lqw@mail.gmail.com>
-References: <20170221193417.3641224-1-tom@herbertland.com> <20170221150907.5ae68ffa@cakuba.netronome.com>
- <CALx6S34aOhKt7JS=3tbweMm1pf3gnr4WU1ZnjOUc5-wP+xCuyA@mail.gmail.com>
- <20170221172939.432b9c9b@cakuba.netronome.com> <CALx6S358XOdPXjHUNUdnrsK-qmDVkmZXWacy1OPBJudVz31OCw@mail.gmail.com>
- <20170221182341.4b2dd0c8@cakuba.netronome.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
+	buffer
+Date: Wed, 22 Feb 2017 10:58:08 +0800
+Message-ID: <35244d06-2d0d-3f2e-0cd1-43137988c869@redhat.com>
+References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
+	<20170221162849-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f172.google.com ([209.85.216.172]:34839 "EHLO
-        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753186AbdBVCyy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 21:54:54 -0500
-Received: by mail-qt0-f172.google.com with SMTP id x35so54268582qtc.2
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2017 18:54:54 -0800 (PST)
-In-Reply-To: <20170221182341.4b2dd0c8@cakuba.netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170221162849-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 21, 2017 at 6:23 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> On Tue, 21 Feb 2017 18:04:49 -0800, Tom Herbert wrote:
->> On Tue, Feb 21, 2017 at 5:29 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
->> > On Tue, 21 Feb 2017 16:25:15 -0800, Tom Herbert wrote:
->> >> >>   - Provides a more structured environment that is extensible to new
->> >> >>     features while being mostly transparent to the drivers
->> >> >
->> >> > So far all features we added required explicit driver support.
->> >> > Checksumming support as an example will require driver changes, too.
->> >> > Generalized way to call programs is probably not going to buy us much?
->> >> >
->> >> Hi Jakub,
->> >>
->> >> What is the the concern with checksumming? Isn't that just an issue of
->> >> defining fields in xdp_data and driver populating with the appropriate
->> >> information?
->> >
->> > Thanks for replying!  I was just using checksumming as an example.  I
->> > was trying to counter the argument that the hook infrastructure will
->> > allow for features to be implemented mostly transparently to theom
->> > drivers.  I may be wrong but it seems that it doesn't buy us anything
->> > as far as the features which were so far discussed go.
->>
->> But I still don't understand the example. In the case of checksumming
->> the driver just needs to populate the values in xdp_data regarding
->> csum. We could basically reuse the same interface as that in skbuff.
->> The stack then can handle the logic of verifying checksums (verifying
->> a csum-complete value for instance). The driver only passes
->> information to the stack concerning a packet, it doesn't need to act
->> on the information. For instance, it's not the driver's prerogative to
->> verify the checksum itself. In general the less drivers have to do and
->> the more we push complexity of common functionality into the stack,
->> the better.
->
-> Sorry, I thought your patchset abstracts away populating struct xdp.
-> So my initial statement should have read "Checksumming will require
-> driver changes, only".  Yes, drivers will just have to populate the
-> appropriate XDP buffer field.  What are the XDP features you foresee
-> this hook infrastructure to help drivers with?
-
-It is part of the direction to take XDP beyond the first use case of
-BPF and leverage the high performance processing model in a much
-broader context. For instance, as Saeed alluded to we should be a able
-to create an skb-less interface into the stack-- this is essentially
-what we need for TXDP (expedited processing for the transport layer).
-Also, I think that we should also be able to extrapolate a good RX
-batch interface from an API like this (please see discussion on that).
-
-Thanks,
-Tom
+CgpPbiAyMDE35bm0MDLmnIgyMeaXpSAyMjozNywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFR1ZSwgRmViIDIxLCAyMDE3IGF0IDA0OjQ2OjI4UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+IFRoaXMgcGF0Y2ggc3dpdGNoIHRvIHVzZSBidWlsZF9za2IoKSBmb3Igc21hbGwgYnVm
+ZmVyIHdoaWNoIGNhbiBoYXZlCj4+IGJldHRlciBwZXJmb3JtYW5jZSBmb3IgYm90aCBUQ1AgYW5k
+IFhEUCAoc2luY2Ugd2UgY2FuIHdvcmsgYXQgcGFnZQo+PiBiZWZvcmUgc2tiIGNyZWF0aW9uKS4g
+SXQgYWxzbyByZW1vdmUgbG90cyBvZiBYRFAgY29kZXMgc2luY2UgYm90aAo+PiBtZXJnZWFibGUg
+YW5kIHNtYWxsIGJ1ZmZlciB1c2UgcGFnZSBmcmFnIGR1cmluZyByZWZpbGwgbm93Lgo+Pgo+PiAg
+ICAgICAgICAgICAgICAgICAgICAgICBCZWZvcmUgICB8IEFmdGVyCj4+IFhEUF9EUk9QKHhkcDEp
+IDY0QiAgOiAgMTEuMU1wcHMgfCAxNC40TXBwcwo+Pgo+PiBUZXN0ZWQgd2l0aCB4ZHAxL3hkcDIv
+eGRwX2lwX3R4X3R1bm5lbCBhbmQgbmV0cGVyZi4KPj4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24g
+V2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+IFRoYW5rcyEKPiBJIGhhZCBhIHNpbWlsYXIgcGF0
+Y2ggZm9yIG1lcmdlYWJsZSB0b28sIHRob3VnaCBpdCdzIHRyaWNraWVyIHRoZXJlCj4gYXMgaG9z
+dCBoYXMgYSBsb3Qgb2YgZmxleGliaWxpdHkgaW4gc2l6aW5nIGJ1ZmZlcnMuCj4gTG9va3MgbGlr
+ZSBhIGdvb2QgaW50ZXJtZWRpYXRlIHN0ZXAgdG8gbWUuCgpZZXMsIEkgdGhpbmsgaXQncyBtb3Jl
+IHRyaWNreSBmb3IgdGhlIGNhc2Ugb2YgbWVyZ2VhYmxlIGJ1ZmZlcjoKCjEpIHdlIG5lZWQgcmVz
+ZXJ2ZSBORVRfU0tCX1BBRCArIE5FVF9JUF9BTElHTiBmb3IgZWFjaCBidWZmZXIsIHRoaXMgd2ls
+bCAKYnJlYWsgcnggZnJhZyBjb2FsZXNjaW5nCjIpIG5lZWQgdGFpbHJvb20gZm9yIHNrYl9zaGlu
+Zm8sIHNvIGl0IHdvbid0IHdvcmsgZm9yIGFsbCBzaXplIG9mIHBhY2tldAoKVGhhbmtzCgo+Cj4K
+PiBBY2tlZC1ieTogTWljaGFlbCBTLiBUc2lya2luPG1zdEByZWRoYXQuY29tPgo+CgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
+YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
+cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
+YXRpb24=
