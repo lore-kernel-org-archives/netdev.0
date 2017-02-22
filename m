@@ -1,183 +1,122 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Focusing the XDP project
-Date: Wed, 22 Feb 2017 14:08:30 -0800
-Message-ID: <CALx6S365FdNU-iM_ufoytZOoi7JTSjj6TY10O8AJ217JHGyaNA@mail.gmail.com>
-References: <20170220111343.76f77748@redhat.com> <CAKgT0Ucqp6+jWkiGxDoEE-UdbnxsdVLxjZZ6uYtNWHSo4fPUVg@mail.gmail.com>
- <cc26e1ce-05ae-6c3d-a323-b6f18e2ad897@mellanox.com> <CALx6S375878KeM0O7BO9sB7B_3p+yO4yxfEhxYdn_=AZvWF-Aw@mail.gmail.com>
- <CALzJLG-323ZOyruHok3=jz526bnw=SoYtYSym8RrA3Z5=g0u9Q@mail.gmail.com>
- <CALx6S37s=Kcy+wEbojVHjiAoLZC_4V5qzMLe=-QXtJYVtwTAew@mail.gmail.com>
- <20170222104328.4b9c6c5d@redhat.com> <CALx6S35qC5+-5ke=d01nkgTnEH1b4GuMcaicKST2BwsC3y5Ghw@mail.gmail.com>
- <20170222224313.2dce0057@redhat.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: VXLAN RCU error
+Date: Wed, 22 Feb 2017 14:27:45 -0800
+Message-ID: <20170222142745.31c5f75e@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Brenden Blanco <bblanco@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:34966 "EHLO
-        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932639AbdBVWIc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 17:08:32 -0500
-Received: by mail-qk0-f174.google.com with SMTP id u188so16378427qkc.2
-        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 14:08:32 -0800 (PST)
-In-Reply-To: <20170222224313.2dce0057@redhat.com>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:35683 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933492AbdBVWf4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 17:35:56 -0500
+Received: by mail-pg0-f41.google.com with SMTP id b129so6252737pgc.2
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 14:35:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 22, 2017 at 1:43 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Wed, 22 Feb 2017 09:22:53 -0800
-> Tom Herbert <tom@herbertland.com> wrote:
->
->> On Wed, Feb 22, 2017 at 1:43 AM, Jesper Dangaard Brouer
->> <brouer@redhat.com> wrote:
->> >
->> > On Tue, 21 Feb 2017 14:54:35 -0800 Tom Herbert <tom@herbertland.com> wrote:
->> >> On Tue, Feb 21, 2017 at 2:29 PM, Saeed Mahameed <saeedm@dev.mellanox.co.il> wrote:
->> > [...]
->> >> > The only complexity XDP is adding to the drivers is the constrains on
->> >> > RX memory management and memory model, calling the XDP program itself
->> >> > and handling the  action is really a simple thing once you have the
->> >> > correct memory model.
->> >
->> > Exactly, that is why I've been looking at introducing a generic
->> > facility for a memory model for drivers.  This should help simply
->> > drivers.  Due to performance needs this need to be a very thin API layer
->> > on top of the page allocator. (That's why I'm working with Mel Gorman
->> > to get more close integration with the page allocator e.g. a bulking
->> > facility).
->> >
->> >> > Who knows! maybe someday XDP will define one unified RX API for all
->> >> > drivers and it even will handle normal stack delivery it self :).
->> >> >
->> >> That's exactly the point and what we need for TXDP. I'm missing why
->> >> doing this is such rocket science other than the fact that all these
->> >> drivers are vastly different and changing the existing API is
->> >> unpleasant. The only functional complexity I see in creating a generic
->> >> batching interface is handling return codes asynchronously. This is
->> >> entirely feasible though...
->> >
->> > I'll be happy as long as we get a batching interface, then we can
->> > incrementally do the optimizations later.
->> >
->> > In the future, I do hope (like Saeed) this RX API will evolve into
->> > delivering (a bulk of) raw-packet-pages into the netstack, this should
->> > simplify drivers, and we can keep the complexity and SKB allocations
->> > out of the drivers.
->> > To start with, we can play with doing this delivering (a bulk of)
->> > raw-packet-pages into Tom's TXDP engine/system?
->> >
->> Hi Jesper,
->>
->> Maybe we can to start to narrow in on what a batching API might look like.
->>
->> Looking at mlx5 (as a model of how XDP is implemented) the main RX
->> loop in ml5e_poll_rx_cq calls the backend handler in one indirect
->> function call. The XDP path goes through mlx5e_handle_rx_cqe,
->> skb_from_cqe, and mlx5e_xdp_handle. The first two deal a lot with
->> building the skbuf. As a prerequisite to RX batching it would be
->> helpful if this could be flatten so that most of the logic is obvious
->> in the main RX loop.
->
-> I fully agree here, it would be helpful to flatten out.  The mlx5
-> driver is a bit hard to follow in that respect.  Saeed have already
-> send me some offlist patches, where some of this code gets
-> restructured. In one of the patches the RX-stages does get flatten out
-> some more.  We are currently benchmarking this patchset, and depending
-> on CPU it is either a small win or a small (7ns) regressing (on the newest
-> CPUs).
->
-Cool!
+Hi Roopa!
 
->
->> The model of RX batching seems straightforward enough-- pull packets
->> from the ring, save xdp_data information in a vector, periodically
->> call into the stack to handle a batch where argument is the vector of
->> packets and another argument is an output vector that gives return
->> codes (XDP actions), process the each return code for each packet in
->> the driver accordingly.
->
-> Yes, exactly.  I did imagine that (maybe), the input vector of packets
-> could have a room for the return codes (XDP actions) next to the packet
-> pointer?
->
-Which ever way is more efficient I suppose. The important point is
-that the return code should be only the only thing returned to the
-driver.
+I get this RCU error on net 12d656af4e3d2781b9b9f52538593e1717e7c979:
 
->
->> Presumably, there is a maximum allowed batch
->> that may or may not be the same as the NAPI budget so the so the
->> batching call needs to be done when the limit is reach and also before
->> exiting NAPI.
->
-> In my PoC code that Saeed is working on, we have a smaller batch
-> size(10), and prefetch to L2 cache (like DPDK does), based on the
-> theory that we don't want to stress the L2 cache usage, and that these
-> CPUs usually have a Line Feed Buffer (LFB) that is limited to 10
-> outstanding cache-lines.
->
-> I don't know if this artifically smaller batch size is the right thing,
-> as DPDK always prefetch to L2 cache all 32 packets on RX.  And snabb
-> uses batches of 100 packets per "breath".
->
-Maybe make it configurable :-)
+[ 1571.067134] ===============================
+[ 1571.071842] [ ERR: suspicious RCU usage.  ]
+[ 1571.076546] 4.10.0-debug-03232-g12d656af4e3d #1 Tainted: G        W  O   
+[ 1571.084166] -------------------------------
+[ 1571.088867] ../drivers/net/vxlan.c:2111 suspicious rcu_dereference_check() usage!
+[ 1571.097286] 
+[ 1571.097286] other info that might help us debug this:
+[ 1571.097286] 
+[ 1571.106305] 
+[ 1571.106305] rcu_scheduler_active = 2, debug_locks = 1
+[ 1571.113654] 3 locks held by ping/13826:
+[ 1571.117968]  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffffa1cd4972>] raw_sendmsg+0x14e2/0x2e40
+[ 1571.127758]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffffa1be9594>] ip_finish_output2+0x274/0x1390
+[ 1571.138135]  #2:  (rcu_read_lock_bh){......}, at: [<ffffffffa1a9b63c>] __dev_queue_xmit+0x1ec/0x2750
+[ 1571.148408] 
+[ 1571.148408] stack backtrace:
+[ 1571.153326] CPU: 10 PID: 13826 Comm: ping Tainted: G        W  O    4.10.0-debug-03232-g12d656af4e3d #1
+[ 1571.163877] Hardware name: Dell Inc. PowerEdge R730/072T6D, BIOS 2.3.4 11/08/2016
+[ 1571.172290] Call Trace:
+[ 1571.175053]  dump_stack+0xcd/0x134
+[ 1571.178881]  ? _atomic_dec_and_lock+0xcc/0xcc
+[ 1571.183782]  ? print_lock+0xb2/0xb5
+[ 1571.187711]  lockdep_rcu_suspicious+0x123/0x170
+[ 1571.192807]  vxlan_xmit_one+0x1931/0x4270 [vxlan]
+[ 1571.198126]  ? encap_bypass_if_local+0x380/0x380 [vxlan]
+[ 1571.204109]  ? sched_clock+0x9/0x10
+[ 1571.208034]  ? sched_clock_cpu+0x20/0x2c0
+[ 1571.212541]  ? unwind_get_return_address+0x1b8/0x2b0
+[ 1571.218132]  ? __lock_acquire+0x6d6/0x3160
+[ 1571.222740]  vxlan_xmit+0x756/0x4f90 [vxlan]
+[ 1571.227541]  ? vxlan_xmit_one+0x4270/0x4270 [vxlan]
+[ 1571.233014]  ? netif_skb_features+0x2be/0xba0
+[ 1571.237919]  dev_hard_start_xmit+0x1ab/0xa70
+[ 1571.242724]  __dev_queue_xmit+0x137b/0x2750
+[ 1571.247425]  ? __dev_queue_xmit+0x1ec/0x2750
+[ 1571.252228]  ? netdev_pick_tx+0x330/0x330
+[ 1571.256735]  ? debug_smp_processor_id+0x17/0x20
+[ 1571.261826]  ? get_lock_stats+0x1d/0x160
+[ 1571.266241]  ? mark_held_locks+0x105/0x280
+[ 1571.270850]  ? memcpy+0x45/0x50
+[ 1571.274391]  dev_queue_xmit+0x10/0x20
+[ 1571.278511]  neigh_resolve_output+0x43e/0x7f0
+[ 1571.283405]  ? ip_finish_output2+0x69d/0x1390
+[ 1571.288308]  ip_finish_output2+0x69d/0x1390
+[ 1571.293008]  ? ip_finish_output2+0x274/0x1390
+[ 1571.297909]  ? ip_copy_metadata+0x7e0/0x7e0
+[ 1571.302610]  ? get_lock_stats+0x1d/0x160
+[ 1571.307027]  ip_finish_output+0x598/0xc50
+[ 1571.311537]  ip_output+0x371/0x630
+[ 1571.315362]  ? ip_output+0x1dc/0x630
+[ 1571.319383]  ? ip_mc_output+0xe70/0xe70
+[ 1571.323694]  ? kfree+0x372/0x5a0
+[ 1571.327325]  ? mark_held_locks+0x105/0x280
+[ 1571.331933]  ? __ip_make_skb+0xdd1/0x2200
+[ 1571.336457]  ip_local_out+0x8f/0x180
+[ 1571.340480]  ip_send_skb+0x44/0xf0
+[ 1571.344306]  ip_push_pending_frames+0x5a/0x80
+[ 1571.349203]  raw_sendmsg+0x164d/0x2e40
+[ 1571.353422]  ? debug_check_no_locks_freed+0x350/0x350
+[ 1571.359099]  ? dst_output+0x1b0/0x1b0
+[ 1571.363217]  ? get_lock_stats+0x1d/0x160
+[ 1571.367640]  ? __might_fault+0x199/0x230
+[ 1571.372052]  ? kasan_check_write+0x14/0x20
+[ 1571.382002]  ? _copy_from_user+0xb9/0x130
+[ 1571.386513]  ? rw_copy_check_uvector+0x8d/0x490
+[ 1571.391609]  ? import_iovec+0xae/0x5d0
+[ 1571.395826]  ? push_pipe+0xd00/0xd00
+[ 1571.399847]  ? kasan_check_write+0x14/0x20
+[ 1571.404450]  ? _copy_from_user+0xb9/0x130
+[ 1571.408960]  inet_sendmsg+0x19f/0x5f0
+[ 1571.413071]  ? inet_recvmsg+0x980/0x980
+[ 1571.417386]  sock_sendmsg+0xe2/0x170
+[ 1571.421408]  ___sys_sendmsg+0x66e/0x960
+[ 1571.425726]  ? mem_cgroup_commit_charge+0x144/0x2720
+[ 1571.431303]  ? copy_msghdr_from_user+0x610/0x610
+[ 1571.436495]  ? debug_smp_processor_id+0x17/0x20
+[ 1571.441584]  ? get_lock_stats+0x1d/0x160
+[ 1571.445995]  ? mem_cgroup_uncharge_swap+0x250/0x250
+[ 1571.451474]  ? page_add_new_anon_rmap+0x173/0x3a0
+[ 1571.456762]  ? handle_mm_fault+0x1589/0x3820
+[ 1571.461566]  ? handle_mm_fault+0x1589/0x3820
+[ 1571.466362]  ? handle_mm_fault+0x191/0x3820
+[ 1571.471070]  ? __fdget+0x13/0x20
+[ 1571.474702]  ? get_lock_stats+0x1d/0x160
+[ 1571.479116]  __sys_sendmsg+0xc6/0x150
+[ 1571.483234]  ? SyS_shutdown+0x1b0/0x1b0
+[ 1571.487551]  ? __do_page_fault+0x556/0xe50
+[ 1571.492158]  ? trace_hardirqs_on_thunk+0x1a/0x1c
+[ 1571.497340]  SyS_sendmsg+0x12/0x20
+[ 1571.501166]  entry_SYSCALL_64_fastpath+0x23/0xc6
+[ 1571.506354] RIP: 0033:0x7fca2d0384a0
+[ 1571.510374] RSP: 002b:00007ffd18d7fe88 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
+[ 1571.518886] RAX: ffffffffffffffda RBX: 0000000000000040 RCX: 00007fca2d0384a0
+[ 1571.526889] RDX: 0000000000000000 RSI: 000000000060a300 RDI: 0000000000000003
+[ 1571.534892] RBP: 0000000000000046 R08: 0000000000000020 R09: 000000000000003e
+[ 1571.542897] R10: 00007ffd18d7fc50 R11: 0000000000000246 R12: 00000000000000c0
+[ 1571.550900] R13: 0000000000000004 R14: 00007ffd18d81608 R15: 00007ffd18d810b0
 
->
->> For each packet the stack can return an XDP code,
->> XDP_PASS in this case could be interpreted as being consumed by the
->> stack; this would be used in the case the stack creates an skbuff for
->> the packet. The stack on it's part can process the batch how it sees
->> fit, it can process each packet individual in the canonical model, or
->> we can continue processing a batch in a VPP-like fashion.
->
-> Agree.
->
->> The batching API could be transparent to the stack or not. In the
->> transparent case, the driver calls what looks like a receive function
->> but the stack may defer processing for batching. A callback function
->> (that can be inlined) is used to process return codes as I mentioned
->> previously. In the non-transparent model, the driver knowingly creates
->> the packet vector and then explicitly calls another function to
->> process the vector. Personally, I lean towards the transparent API,
->> this may be less complexity in drivers and gives the stack more
->> control over the parameters of batching (for instance it may choose
->> some batch size to optimize its processing instead of driver guessing
->> the best size).
->
-> I cannot make up my mind on which model... I have to think some more
-> about this.  Thanks for bringing this up! :-)  This is something we
-> need to think about.
->
->
->> Btw the logic for RX batching is very similar to how we batch packets
->> for RPS (I think you already mention an skb-less RPS and that should
->> hopefully be something would falls out from this design).
->
-> Yes, I've mentioned skb-less RPS before, because it seem wasteful for
-> RPS to allocate the fat skb on one CPU (and memset zero) force all
-> cache-lines hot, just to transfer it to another CPU.
->  The tricky part is how do we transfer, the info from the NIC specific
-> descriptor on HW-offload fields? (that we usually update the SKB with,
-> before the netstack gets the SKB).
->
-> The question is also if XDP should be part of skb-less RPS steering, or
-> it should be something more generic in the stack? (after we get a bulk
-> of raw-packets delivered to the stack).
->
-I'd probably keep them separate for now since the mechanisms have
-pretty different goals.
-
-Tom
-
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   LinkedIn: http://www.linkedin.com/in/brouer
+Some of Netronome's VXLAN tests are also failing but I need to dig a
+bit to see what's wrong there...
