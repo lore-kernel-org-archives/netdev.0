@@ -1,57 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
 Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
- buffer
-Date: Wed, 22 Feb 2017 05:06:34 +0200
-Message-ID: <20170222050601-mutt-send-email-mst@kernel.org>
+	buffer
+Date: Wed, 22 Feb 2017 11:17:50 +0800
+Message-ID: <49577dad-3f6f-e6b3-4f93-2b919b066068@redhat.com>
 References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
- <20170221162849-mutt-send-email-mst@kernel.org>
- <35244d06-2d0d-3f2e-0cd1-43137988c869@redhat.com>
+	<20170221162849-mutt-send-email-mst@kernel.org>
+	<35244d06-2d0d-3f2e-0cd1-43137988c869@redhat.com>
+	<20170222050601-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <35244d06-2d0d-3f2e-0cd1-43137988c869@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170222050601-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 22, 2017 at 10:58:08AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年02月21日 22:37, Michael S. Tsirkin wrote:
-> > On Tue, Feb 21, 2017 at 04:46:28PM +0800, Jason Wang wrote:
-> > > This patch switch to use build_skb() for small buffer which can have
-> > > better performance for both TCP and XDP (since we can work at page
-> > > before skb creation). It also remove lots of XDP codes since both
-> > > mergeable and small buffer use page frag during refill now.
-> > > 
-> > >                         Before   | After
-> > > XDP_DROP(xdp1) 64B  :  11.1Mpps | 14.4Mpps
-> > > 
-> > > Tested with xdp1/xdp2/xdp_ip_tx_tunnel and netperf.
-> > > 
-> > > Signed-off-by: Jason Wang<jasowang@redhat.com>
-> > Thanks!
-> > I had a similar patch for mergeable too, though it's trickier there
-> > as host has a lot of flexibility in sizing buffers.
-> > Looks like a good intermediate step to me.
-> 
-> Yes, I think it's more tricky for the case of mergeable buffer:
-> 
-> 1) we need reserve NET_SKB_PAD + NET_IP_ALIGN for each buffer, this will
-> break rx frag coalescing
-> 2) need tailroom for skb_shinfo, so it won't work for all size of packet
-> 
-> Thanks
-
-Have you seen my prototype? It works with qemu in practice,
-just needs to cover a bunch of corner cases.
-
-
-> > 
-> > 
-> > Acked-by: Michael S. Tsirkin<mst@redhat.com>
-> > 
+CgpPbiAyMDE35bm0MDLmnIgyMuaXpSAxMTowNiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFdlZCwgRmViIDIyLCAyMDE3IGF0IDEwOjU4OjA4QU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+Cj4+IE9uIDIwMTflubQwMuaciDIx5pelIDIyOjM3LCBNaWNoYWVsIFMuIFRzaXJraW4g
+d3JvdGU6Cj4+PiBPbiBUdWUsIEZlYiAyMSwgMjAxNyBhdCAwNDo0NjoyOFBNICswODAwLCBKYXNv
+biBXYW5nIHdyb3RlOgo+Pj4+IFRoaXMgcGF0Y2ggc3dpdGNoIHRvIHVzZSBidWlsZF9za2IoKSBm
+b3Igc21hbGwgYnVmZmVyIHdoaWNoIGNhbiBoYXZlCj4+Pj4gYmV0dGVyIHBlcmZvcm1hbmNlIGZv
+ciBib3RoIFRDUCBhbmQgWERQIChzaW5jZSB3ZSBjYW4gd29yayBhdCBwYWdlCj4+Pj4gYmVmb3Jl
+IHNrYiBjcmVhdGlvbikuIEl0IGFsc28gcmVtb3ZlIGxvdHMgb2YgWERQIGNvZGVzIHNpbmNlIGJv
+dGgKPj4+PiBtZXJnZWFibGUgYW5kIHNtYWxsIGJ1ZmZlciB1c2UgcGFnZSBmcmFnIGR1cmluZyBy
+ZWZpbGwgbm93Lgo+Pj4+Cj4+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgIEJlZm9yZSAgIHwg
+QWZ0ZXIKPj4+PiBYRFBfRFJPUCh4ZHAxKSA2NEIgIDogIDExLjFNcHBzIHwgMTQuNE1wcHMKPj4+
+Pgo+Pj4+IFRlc3RlZCB3aXRoIHhkcDEveGRwMi94ZHBfaXBfdHhfdHVubmVsIGFuZCBuZXRwZXJm
+Lgo+Pj4+Cj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29t
+Pgo+Pj4gVGhhbmtzIQo+Pj4gSSBoYWQgYSBzaW1pbGFyIHBhdGNoIGZvciBtZXJnZWFibGUgdG9v
+LCB0aG91Z2ggaXQncyB0cmlja2llciB0aGVyZQo+Pj4gYXMgaG9zdCBoYXMgYSBsb3Qgb2YgZmxl
+eGliaWxpdHkgaW4gc2l6aW5nIGJ1ZmZlcnMuCj4+PiBMb29rcyBsaWtlIGEgZ29vZCBpbnRlcm1l
+ZGlhdGUgc3RlcCB0byBtZS4KPj4gWWVzLCBJIHRoaW5rIGl0J3MgbW9yZSB0cmlja3kgZm9yIHRo
+ZSBjYXNlIG9mIG1lcmdlYWJsZSBidWZmZXI6Cj4+Cj4+IDEpIHdlIG5lZWQgcmVzZXJ2ZSBORVRf
+U0tCX1BBRCArIE5FVF9JUF9BTElHTiBmb3IgZWFjaCBidWZmZXIsIHRoaXMgd2lsbAo+PiBicmVh
+ayByeCBmcmFnIGNvYWxlc2NpbmcKPj4gMikgbmVlZCB0YWlscm9vbSBmb3Igc2tiX3NoaW5mbywg
+c28gaXQgd29uJ3Qgd29yayBmb3IgYWxsIHNpemUgb2YgcGFja2V0Cj4+Cj4+IFRoYW5rcwo+IEhh
+dmUgeW91IHNlZW4gbXkgcHJvdG90eXBlPwoKTm90IHlldCwgcGxlYXNlIGdpdmUgbWUgYSBwb2lu
+dGVyLgoKPiAgIEl0IHdvcmtzIHdpdGggcWVtdSBpbiBwcmFjdGljZSwKPiBqdXN0IG5lZWRzIHRv
+IGNvdmVyIGEgYnVuY2ggb2YgY29ybmVyIGNhc2VzLgoKU291bmRzIGdvb2QsIGlmIHlvdSB3aXNo
+IEkgY2FuIGhlbHAgdG8gZmluYWxpemUgaXQuCgpUaGFua3MKCj4KPj4+Cj4+PiBBY2tlZC1ieTog
+TWljaGFlbCBTLiBUc2lya2luPG1zdEByZWRoYXQuY29tPgo+Pj4KCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlz
+dApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3Rz
+LmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
