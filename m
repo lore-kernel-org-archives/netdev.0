@@ -1,48 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC v3 0/8] xdp: Infrastructure to generalize XDP
-Date: Tue, 21 Feb 2017 22:34:57 -0500 (EST)
-Message-ID: <20170221.223457.625029624566323414.davem@davemloft.net>
-References: <CALx6S358XOdPXjHUNUdnrsK-qmDVkmZXWacy1OPBJudVz31OCw@mail.gmail.com>
-        <20170221182341.4b2dd0c8@cakuba.netronome.com>
-        <CALx6S36bujuFmDkvG8V5cuigbeNpJX-nprL1_1Ub+m4AiV3Lqw@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
+	buffer
+Date: Wed, 22 Feb 2017 11:38:01 +0800
+Message-ID: <90ed2166-0e67-01ff-2c5e-ce7fbad56be2@redhat.com>
+References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
+	<20170221162849-mutt-send-email-mst@kernel.org>
+	<35244d06-2d0d-3f2e-0cd1-43137988c869@redhat.com>
+	<20170222050601-mutt-send-email-mst@kernel.org>
+	<49577dad-3f6f-e6b3-4f93-2b919b066068@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kubakici@wp.pl, netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39474 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752806AbdBVDe7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2017 22:34:59 -0500
-In-Reply-To: <CALx6S36bujuFmDkvG8V5cuigbeNpJX-nprL1_1Ub+m4AiV3Lqw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <49577dad-3f6f-e6b3-4f93-2b919b066068@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Tue, 21 Feb 2017 18:54:53 -0800
-
-> It is part of the direction to take XDP beyond the first use case of
-> BPF and leverage the high performance processing model in a much
-> broader context.
-
-And I've stated repeatedly that it's too early to be looking
-that far into the future.
-
-Look Tom, if all you want to do is create infrastructure so that
-you can very easily slither XDP for modules in somewhere, please
-just stop now.  Right now I am completely not interested in even
-entertaining patches which facilitate that.
-
-If instead, you are genuinely interested in making the process of
-writing XDP support for drivers easier, that extremely useful right
-now so please just stick to that specific focus.
-
-I really see no other use case for the XDP hook abstraction other
-than to support XDP module support, which I've said is in no way
-proven to be necessary.
-
-We don't even know what eBPF XDP itself is fully capable of yet,
-so please stop reaching like this.
-
-Thank you.
+CgpPbiAyMDE35bm0MDLmnIgyMuaXpSAxMToxNywgSmFzb24gV2FuZyB3cm90ZToKPgo+Cj4gT24g
+MjAxN+W5tDAy5pyIMjLml6UgMTE6MDYsIE1pY2hhZWwgUy4gVHNpcmtpbiB3cm90ZToKPj4gT24g
+V2VkLCBGZWIgMjIsIDIwMTcgYXQgMTA6NTg6MDhBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90ZToK
+Pj4+Cj4+PiBPbiAyMDE35bm0MDLmnIgyMeaXpSAyMjozNywgTWljaGFlbCBTLiBUc2lya2luIHdy
+b3RlOgo+Pj4+IE9uIFR1ZSwgRmViIDIxLCAyMDE3IGF0IDA0OjQ2OjI4UE0gKzA4MDAsIEphc29u
+IFdhbmcgd3JvdGU6Cj4+Pj4+IFRoaXMgcGF0Y2ggc3dpdGNoIHRvIHVzZSBidWlsZF9za2IoKSBm
+b3Igc21hbGwgYnVmZmVyIHdoaWNoIGNhbiBoYXZlCj4+Pj4+IGJldHRlciBwZXJmb3JtYW5jZSBm
+b3IgYm90aCBUQ1AgYW5kIFhEUCAoc2luY2Ugd2UgY2FuIHdvcmsgYXQgcGFnZQo+Pj4+PiBiZWZv
+cmUgc2tiIGNyZWF0aW9uKS4gSXQgYWxzbyByZW1vdmUgbG90cyBvZiBYRFAgY29kZXMgc2luY2Ug
+Ym90aAo+Pj4+PiBtZXJnZWFibGUgYW5kIHNtYWxsIGJ1ZmZlciB1c2UgcGFnZSBmcmFnIGR1cmlu
+ZyByZWZpbGwgbm93Lgo+Pj4+Pgo+Pj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgQmVmb3Jl
+ICAgfCBBZnRlcgo+Pj4+PiBYRFBfRFJPUCh4ZHAxKSA2NEIgIDogIDExLjFNcHBzIHwgMTQuNE1w
+cHMKPj4+Pj4KPj4+Pj4gVGVzdGVkIHdpdGggeGRwMS94ZHAyL3hkcF9pcF90eF90dW5uZWwgYW5k
+IG5ldHBlcmYuCj4+Pj4+Cj4+Pj4+IFNpZ25lZC1vZmYtYnk6IEphc29uIFdhbmc8amFzb3dhbmdA
+cmVkaGF0LmNvbT4KPj4+PiBUaGFua3MhCj4+Pj4gSSBoYWQgYSBzaW1pbGFyIHBhdGNoIGZvciBt
+ZXJnZWFibGUgdG9vLCB0aG91Z2ggaXQncyB0cmlja2llciB0aGVyZQo+Pj4+IGFzIGhvc3QgaGFz
+IGEgbG90IG9mIGZsZXhpYmlsaXR5IGluIHNpemluZyBidWZmZXJzLgo+Pj4+IExvb2tzIGxpa2Ug
+YSBnb29kIGludGVybWVkaWF0ZSBzdGVwIHRvIG1lLgo+Pj4gWWVzLCBJIHRoaW5rIGl0J3MgbW9y
+ZSB0cmlja3kgZm9yIHRoZSBjYXNlIG9mIG1lcmdlYWJsZSBidWZmZXI6Cj4+Pgo+Pj4gMSkgd2Ug
+bmVlZCByZXNlcnZlIE5FVF9TS0JfUEFEICsgTkVUX0lQX0FMSUdOIGZvciBlYWNoIGJ1ZmZlciwg
+dGhpcyAKPj4+IHdpbGwKPj4+IGJyZWFrIHJ4IGZyYWcgY29hbGVzY2luZwo+Pj4gMikgbmVlZCB0
+YWlscm9vbSBmb3Igc2tiX3NoaW5mbywgc28gaXQgd29uJ3Qgd29yayBmb3IgYWxsIHNpemUgb2Yg
+Cj4+PiBwYWNrZXQKPj4+Cj4+PiBUaGFua3MKPj4gSGF2ZSB5b3Ugc2VlbiBteSBwcm90b3R5cGU/
+Cj4KPiBOb3QgeWV0LCBwbGVhc2UgZ2l2ZSBtZSBhIHBvaW50ZXIuCgpGWUksIEkgcG9zdGVkIGEg
+cHJvdG90eXBlIGR1cmluZyBFV01BIGRpc2N1c3Npb24gaW4gMjAxMzoKCmh0dHBzOi8vbGlzdHMu
+bGludXhmb3VuZGF0aW9uLm9yZy9waXBlcm1haWwvdmlydHVhbGl6YXRpb24vMjAxMy1PY3RvYmVy
+LzAyNTU1Ni5odG1sCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51
+eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1h
+bi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
