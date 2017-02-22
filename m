@@ -1,189 +1,55 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next v4 4/7] gtp: consolidate gtp socket rx path
-Date: Wed, 22 Feb 2017 09:41:17 -0800
-Message-ID: <CALx6S34-H9rzbJjJRGkRqswnOFK7pKg0gMU+JkgK=Nh77dWoiQ@mail.gmail.com>
-References: <20170221101855.23940-1-aschultz@tpip.net> <20170221101855.23940-5-aschultz@tpip.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Wed, 22 Feb 2017 17:58:23 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE6DBFD@AcuExch.aculab.com>
+References: <20170213195858.5215-1-edumazet@google.com>
+ <20170213195858.5215-9-edumazet@google.com>
+ <1487780558.9415.81.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0UcXhy3V_iSYFCWqPzdu77v=3-4FEXSyZEiUcB=Y_wGnVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira <pablo@netfilter.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Harald Welte <laforge@gnumonks.org>,
-        osmocom-net-gprs@lists.osmocom.org
-To: Andreas Schultz <aschultz@tpip.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Eric Dumazet <edumazet@google.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "Saeed Mahameed" <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:35500 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932223AbdBVRlT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 12:41:19 -0500
-Received: by mail-qt0-f196.google.com with SMTP id b16so1286686qte.2
-        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 09:41:18 -0800 (PST)
-In-Reply-To: <20170221101855.23940-5-aschultz@tpip.net>
+Received: from smtp-out6.electric.net ([192.162.217.184]:53029 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932705AbdBVR6d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 12:58:33 -0500
+In-Reply-To: <CAKgT0UcXhy3V_iSYFCWqPzdu77v=3-4FEXSyZEiUcB=Y_wGnVw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 21, 2017 at 2:18 AM, Andreas Schultz <aschultz@tpip.net> wrote:
-> Add network device to gtp context in preparation for splitting
-> the TEID from the network device.
->
-> Use this to rework the socker rx path. Move the common RX part
-> of v0 and v1 into a helper. Also move the final rx part into
-> that helper as well.
->
-Andeas,
-
-How are these GTP kernel patches being tested? Is it possible to
-create some sort of GTP network device that separates out just the
-datapath for development in the same way that VXLAN did this?
-
-Tom
-
-> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
-> ---
->  drivers/net/gtp.c | 80 ++++++++++++++++++++++++++++++-------------------------
->  1 file changed, 44 insertions(+), 36 deletions(-)
->
-> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-> index 961fb3c..fc0fff5 100644
-> --- a/drivers/net/gtp.c
-> +++ b/drivers/net/gtp.c
-> @@ -58,6 +58,8 @@ struct pdp_ctx {
->         struct in_addr          ms_addr_ip4;
->         struct in_addr          sgsn_addr_ip4;
->
-> +       struct net_device       *dev;
-> +
->         atomic_t                tx_seq;
->         struct rcu_head         rcu_head;
->  };
-> @@ -175,6 +177,40 @@ static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
->         return false;
->  }
->
-> +static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb, unsigned int hdrlen,
-> +                 bool xnet)
-> +{
-> +       struct pcpu_sw_netstats *stats;
-> +
-> +       if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-> +               netdev_dbg(pctx->dev, "No PDP ctx for this MS\n");
-> +               return 1;
-> +       }
-> +
-> +       /* Get rid of the GTP + UDP headers. */
-> +       if (iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet))
-> +               return -1;
-> +
-> +       netdev_dbg(pctx->dev, "forwarding packet from GGSN to uplink\n");
-> +
-> +       /* Now that the UDP and the GTP header have been removed, set up the
-> +        * new network header. This is required by the upper layer to
-> +        * calculate the transport header.
-> +        */
-> +       skb_reset_network_header(skb);
-> +
-> +       skb->dev = pctx->dev;
-> +
-> +       stats = this_cpu_ptr(pctx->dev->tstats);
-> +       u64_stats_update_begin(&stats->syncp);
-> +       stats->rx_packets++;
-> +       stats->rx_bytes += skb->len;
-> +       u64_stats_update_end(&stats->syncp);
-> +
-> +       netif_rx(skb);
-> +       return 0;
-> +}
-> +
->  /* 1 means pass up to the stack, -1 means drop and 0 means decapsulated. */
->  static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
->                                bool xnet)
-> @@ -201,13 +237,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
->                 return 1;
->         }
->
-> -       if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-> -               netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
-> -               return 1;
-> -       }
-> -
-> -       /* Get rid of the GTP + UDP headers. */
-> -       return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
-> +       return gtp_rx(pctx, skb, hdrlen, xnet);
->  }
->
->  static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
-> @@ -250,13 +280,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
->                 return 1;
->         }
->
-> -       if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-> -               netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
-> -               return 1;
-> -       }
-> -
-> -       /* Get rid of the GTP + UDP headers. */
-> -       return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
-> +       return gtp_rx(pctx, skb, hdrlen, xnet);
->  }
->
->  static void gtp_encap_destroy(struct sock *sk)
-> @@ -290,10 +314,9 @@ static void gtp_encap_disable(struct gtp_dev *gtp)
->   */
->  static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
->  {
-> -       struct pcpu_sw_netstats *stats;
->         struct gtp_dev *gtp;
-> +       int ret = 0;
->         bool xnet;
-> -       int ret;
->
->         gtp = rcu_dereference_sk_user_data(sk);
->         if (!gtp)
-> @@ -319,33 +342,17 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
->         switch (ret) {
->         case 1:
->                 netdev_dbg(gtp->dev, "pass up to the process\n");
-> -               return 1;
-> +               break;
->         case 0:
-> -               netdev_dbg(gtp->dev, "forwarding packet from GGSN to uplink\n");
->                 break;
->         case -1:
->                 netdev_dbg(gtp->dev, "GTP packet has been dropped\n");
->                 kfree_skb(skb);
-> -               return 0;
-> +               ret = 0;
-> +               break;
->         }
->
-> -       /* Now that the UDP and the GTP header have been removed, set up the
-> -        * new network header. This is required by the upper layer to
-> -        * calculate the transport header.
-> -        */
-> -       skb_reset_network_header(skb);
-> -
-> -       skb->dev = gtp->dev;
-> -
-> -       stats = this_cpu_ptr(gtp->dev->tstats);
-> -       u64_stats_update_begin(&stats->syncp);
-> -       stats->rx_packets++;
-> -       stats->rx_bytes += skb->len;
-> -       u64_stats_update_end(&stats->syncp);
-> -
-> -       netif_rx(skb);
-> -
-> -       return 0;
-> +       return ret;
->  }
->
->  static int gtp_dev_init(struct net_device *dev)
-> @@ -951,6 +958,7 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
->         if (pctx == NULL)
->                 return -ENOMEM;
->
-> +       pctx->dev = gtp->dev;
->         ipv4_pdp_fill(pctx, info);
->         atomic_set(&pctx->tx_seq, 0);
->
-> --
-> 2.10.2
->
+RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDIyIEZlYnJ1YXJ5IDIwMTcgMTc6MjQNCi4u
+Lg0KPiBTbyB0aGVyZSBpcyBhIHByb2JsZW0gdGhhdCBpcyBiZWluZyBvdmVybG9va2VkIGhlcmUu
+ICBUaGF0IGlzIHRoZSBjb3N0DQo+IG9mIHRoZSBETUEgbWFwL3VubWFwIGNhbGxzLiAgVGhlIHBy
+b2JsZW0gaXMgbWFueSBQb3dlclBDIHN5c3RlbXMgaGF2ZQ0KPiBhbiBJT01NVSB0aGF0IHlvdSBo
+YXZlIHRvIHdvcmsgYXJvdW5kLCBhbmQgdGhhdCBJT01NVSBjb21lcyBhdCBhIGhlYXZ5DQo+IGNv
+c3QgZm9yIGV2ZXJ5IG1hcC91bm1hcCBjYWxsLiAgU28gdW5sZXNzIHlvdSBhcmUgc2F5aW5nIHlv
+dSB3YW4gdG8NCj4gc2V0dXAgYSBoeWJyaWQgYmV0d2VlbiB0aGUgbWx4NSBhbmQgdGhpcyBhcHBy
+b2FjaCB3aGVyZSB3ZSBoYXZlIGEgcGFnZQ0KPiBjYWNoZSB0aGF0IHRoZXNlIGFsbCBmYWxsIGJh
+Y2sgaW50byB5b3Ugd2lsbCB0YWtlIGEgaGVhdnkgY29zdCBmb3INCj4gaGF2aW5nIHRvIG1hcCBh
+bmQgdW5tYXAgcGFnZXMuDQouLg0KDQpJIGNhbid0IGhlbHAgZmVlbGluZyB0aGF0IHlvdSBuZWVk
+IHRvIGxvb2sgYXQgaG93IHRvIGdldCB0aGUgaW9tbXUNCmNvZGUgdG8gcmV1c2UgcGFnZXMsIHJh
+dGhlciB0aGUgZXRoZXJuZXQgZHJpdmVyLg0KTWF5YmUgc29tZXRoaW5nIGxpa2U6DQoNCjEpIFRo
+ZSBkcml2ZXIgcmVxdWVzdHMgYSBtYXBwZWQgcmVjZWl2ZSBidWZmZXIgZnJvbSB0aGUgaW9tbXUu
+DQpUaGlzIG1pZ2h0IGdpdmUgaXQgbWVtb3J5IHRoYXQgaXMgYWxyZWFkeSBtYXBwZWQgYnV0IG5v
+dCBpbiB1c2UuDQoNCjIpIFdoZW4gdGhlIHJlY2VpdmUgY29tcGxldGVzIHRoZSBkcml2ZXIgdGVs
+bHMgdGhlIGlvbW11IHRoZSBtYXBwaW5nDQppcyBubyBsb25nZXIgbmVlZGVkLiBUaGUgaW9tbXUg
+aXMgbm90ICh5ZXQpIGNoYW5nZWQuDQoNCjMpIFdoZW4gdGhlIHNrYiBpcyBmcmVlZCB0aGUgaW9t
+bXUgaXMgdG9sZCB0aGF0IHRoZSBidWZmZXIgY2FuIGJlIGZyZWVkLg0KDQo0KSBBdCAoMSksIGlm
+IHRoZSBkcml2ZXIgaXMgdXNpbmcgdG9vIG11Y2ggaW9tbXUgcmVzb3VyY2UgdGhlbiB0aGUgbWFw
+cGluZw0KZm9yIGNvbXBsZXRlZCByZWNlaXZlcyBjYW4gYmUgcmVtb3ZlZCB0byBmcmVlIHVwIGlv
+bW11IHNwYWNlLg0KDQpQcm9iYWJseSBub3QgYXMgc2ltcGxlIGFzIGl0IGxvb2tzIDotKQ0KDQoJ
+RGF2aWQNCg0K
