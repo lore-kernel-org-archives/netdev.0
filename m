@@ -1,150 +1,92 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 1/4] net/mlx4: Change ENOTSUPP to EOPNOTSUPP
-Date: Wed, 22 Feb 2017 14:33:24 +0200
-Message-ID: <1487766807-13929-2-git-send-email-tariqt@mellanox.com>
-References: <1487766807-13929-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Dexuan Cui <decui@microsoft.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 1/2] tcp: setup timestamp offset when write_seq
+ already set
+Date: Wed, 22 Feb 2017 05:17:54 -0800
+Message-ID: <1487769474.9415.44.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1487759036-2800-1-git-send-email-alexey.kodanev@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>
+To: Alexey Kodanev <alexey.kodanev@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54826 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753108AbdBVMeJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 07:34:09 -0500
-In-Reply-To: <1487766807-13929-1-git-send-email-tariqt@mellanox.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36838 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932415AbdBVNR5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 08:17:57 -0500
+Received: by mail-pg0-f65.google.com with SMTP id z128so354962pgb.3
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 05:17:56 -0800 (PST)
+In-Reply-To: <1487759036-2800-1-git-send-email-alexey.kodanev@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+On Wed, 2017-02-22 at 13:23 +0300, Alexey Kodanev wrote:
+> Found that when randomized tcp offsets are enabled (by default)
+> TCP client can still start new connections without them. Later,
+> if server does active close and re-uses sockets in TIME-WAIT
+> state, new SYN from client can be rejected on PAWS check inside
+> tcp_timewait_state_process(), because either tw_ts_recent or
+> rcv_tsval doesn't really have an offset set.
+> 
+> Here is how to reproduce it with LTP netstress tool:
+>     netstress -R 1 &
+>     netstress -H 127.0.0.1 -lr 1000000 -a1
+> 
+>     [...]
+>     < S  seq 1956977072 win 43690 TS val 295618 ecr 459956970
+>     > .  ack 1956911535 win 342 TS val 459967184 ecr 1547117608
+>     < R  seq 1956911535 win 0 length 0
+> +1. < S  seq 1956977072 win 43690 TS val 296640 ecr 459956970
+>     > S. seq 657450664 ack 1956977073 win 43690 TS val 459968205 ecr 296640
+> 
+> Fixes: 95a22caee396 ("tcp: randomize tcp timestamp offsets for each connection")
+> Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+> ---
+> v2: * remove 'else if' clause and add new variable 'seq' to store tmp result,
+>     * change slightly the subject and commit message.
+> 
+>  net/ipv4/tcp_ipv4.c |   16 ++++++++++------
+>  net/ipv6/tcp_ipv6.c |   16 ++++++++++------
+>  2 files changed, 20 insertions(+), 12 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index fe9da4f..c5169b8 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -145,6 +145,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+>  	struct flowi4 *fl4;
+>  	struct rtable *rt;
+>  	int err;
+> +	u32 seq;
+>  	struct ip_options_rcu *inet_opt;
+>  
+>  	if (addr_len < sizeof(struct sockaddr_in))
+> @@ -232,12 +233,15 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+>  	sk->sk_gso_type = SKB_GSO_TCPV4;
+>  	sk_setup_caps(sk, &rt->dst);
+>  
+> -	if (!tp->write_seq && likely(!tp->repair))
+> -		tp->write_seq = secure_tcp_sequence_number(inet->inet_saddr,
+> -							   inet->inet_daddr,
+> -							   inet->inet_sport,
+> -							   usin->sin_port,
+> -							   &tp->tsoffset);
+> +	if (likely(!tp->repair)) {
+> +		seq = secure_tcp_sequence_number(inet->inet_saddr,
+> +						 inet->inet_daddr,
+> +						 inet->inet_sport,
+> +						 usin->sin_port,
+> +						 &tp->tsoffset);
+> +		if (!tp->write_seq)
+> +			tp->write_seq = seq;
+> +	}
+>  
 
-As ENOTSUPP is specific to NFS, change the return error value to
-EOPNOTSUPP in various places in the mlx4 driver.
+Nice catch !
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Suggested-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c        | 2 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c               | 2 +-
- drivers/net/ethernet/mellanox/mlx4/intf.c             | 2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c             | 6 +++---
- drivers/net/ethernet/mellanox/mlx4/mr.c               | 2 +-
- drivers/net/ethernet/mellanox/mlx4/qp.c               | 2 +-
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
- 7 files changed, 9 insertions(+), 9 deletions(-)
+secure_tcp_sequence_number() could be renamed, because it has two
+purposes really.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-index b04760a5034b..1dae8e40fb25 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -319,7 +319,7 @@ static int mlx4_en_ets_validate(struct mlx4_en_priv *priv, struct ieee_ets *ets)
- 		default:
- 			en_err(priv, "TC[%d]: Not supported TSA: %d\n",
- 					i, ets->tc_tsa[i]);
--			return -ENOTSUPP;
-+			return -EOPNOTSUPP;
- 		}
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 84bab9f0732e..34a0c24e6844 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -2436,7 +2436,7 @@ int mlx4_config_dev_retrieval(struct mlx4_dev *dev,
- #define CONFIG_DEV_RX_CSUM_MODE_PORT2_BIT_OFFSET	4
- 
- 	if (!(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_CONFIG_DEV))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	err = mlx4_CONFIG_DEV_get(dev, &config_dev);
- 	if (err)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/intf.c b/drivers/net/ethernet/mellanox/mlx4/intf.c
-index 8258d08acd8c..e00f627331cb 100644
---- a/drivers/net/ethernet/mellanox/mlx4/intf.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/intf.c
-@@ -136,7 +136,7 @@ int mlx4_do_bond(struct mlx4_dev *dev, bool enable)
- 	LIST_HEAD(bond_list);
- 
- 	if (!(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_PORT_REMAP))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	ret = mlx4_disable_rx_port_check(dev, enable);
- 	if (ret) {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index bffa6f345f2f..55e4be51ee5a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1447,7 +1447,7 @@ int mlx4_port_map_set(struct mlx4_dev *dev, struct mlx4_port_map *v2p)
- 	int err;
- 
- 	if (!(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_PORT_REMAP))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	mutex_lock(&priv->bond_mutex);
- 
-@@ -1884,7 +1884,7 @@ int mlx4_get_internal_clock_params(struct mlx4_dev *dev,
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 
- 	if (mlx4_is_slave(dev))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	if (!params)
- 		return -EINVAL;
-@@ -2384,7 +2384,7 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 
- 	/* Query CONFIG_DEV parameters */
- 	err = mlx4_config_dev_retrieval(dev, &params);
--	if (err && err != -ENOTSUPP) {
-+	if (err && err != -EOPNOTSUPP) {
- 		mlx4_err(dev, "Failed to query CONFIG_DEV parameters\n");
- 	} else if (!err) {
- 		dev->caps.rx_checksum_flags_port[1] = params.rx_csum_flags_port_1;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-index 395b5463cfd9..db65f72879e9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-@@ -823,7 +823,7 @@ int mlx4_mw_alloc(struct mlx4_dev *dev, u32 pd, enum mlx4_mw_type type,
- 	     !(dev->caps.flags & MLX4_DEV_CAP_FLAG_MEM_WINDOW)) ||
- 	     (type == MLX4_MW_TYPE_2 &&
- 	     !(dev->caps.bmme_flags & MLX4_BMME_FLAG_TYPE_2_WIN)))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	index = mlx4_mpt_reserve(dev);
- 	if (index == -1)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index d1cd9c32a9ae..2d6abd4662b1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -447,7 +447,7 @@ int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
- 		      & MLX4_DEV_CAP_FLAG2_UPDATE_QP_SRC_CHECK_LB)) {
- 			mlx4_warn(dev,
- 				  "Trying to set src check LB, but it isn't supported\n");
--			err = -ENOTSUPP;
-+			err = -EOPNOTSUPP;
- 			goto out;
- 		}
- 		pri_addr_path_mask |=
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 1822382212ee..11dc6ef82e8c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -4256,7 +4256,7 @@ int mlx4_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
- 		  MLX4_DEV_CAP_FLAG2_UPDATE_QP_SRC_CHECK_LB)) {
- 		mlx4_warn(dev, "Src check LB for slave %d isn't supported\n",
- 			  slave);
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 	}
- 
- 	/* Just change the smac for the QP */
--- 
-1.8.3.1
+Acked-by: Eric Dumazet <edumazet@google.com>
