@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-Subject: [PATCH v5 01/10] bpf: Add eBPF program subtype and is_valid_subtype() verifier
-Date: Wed, 22 Feb 2017 02:26:23 +0100
-Message-ID: <20170222012632.4196-2-mic@digikod.net>
+Subject: [PATCH v5 07/10] bpf: Add a Landlock sandbox example
+Date: Wed, 22 Feb 2017 02:26:29 +0100
+Message-ID: <20170222012632.4196-8-mic@digikod.net>
 References: <20170222012632.4196-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -30,623 +30,373 @@ In-Reply-To: <20170222012632.4196-1-mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The goal of the program subtype is to be able to have different static
-fine-grained verifications for a unique program type.
+Add a basic sandbox tool to create a process isolated from some part of
+the system. This sandbox create a read-only environment. It is only
+allowed to write to a character device such as a TTY:
 
-The struct bpf_verifier_ops gets a new optional function:
-is_valid_subtype(). This new verifier is called at the beginning of the
-eBPF program verification to check if the (optional) program subtype is
-valid.
-
-For now, only Landlock eBPF programs are using a program subtype (see
-next commit) but this could be used by other program types in the future.
+  # :> X
+  # echo $?
+  0
+  # ./samples/bpf/landlock1 /bin/sh -i
+  Launching a new sandboxed process.
+  # :> Y
+  cannot create Y: Operation not permitted
 
 Changes since v4:
-* replace the "status" field with "version" (more generic)
-* replace the "access" field with "ability" (less confusing)
+* write Landlock rule in C and compiled it with LLVM
+* remove cgroup handling
+* remove path handling: only handle a read-only environment
+* remove errno return codes
 
 Changes since v3:
-* remove the "origin" field
-* add an "option" field
-* cleanup comments
+* remove seccomp and origin field: completely free from seccomp programs
+* handle more FS-related hooks
+* handle inode hooks and directory traversal
+* add faked but consistent view thanks to ENOENT
+* add /lib64 in the example
+* fix spelling
+* rename some types and definitions (e.g. SECCOMP_ADD_LANDLOCK_RULE)
+
+Changes since v2:
+* use BPF_PROG_ATTACH for cgroup handling
 
 Signed-off-by: Mickaël Salaün <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 Cc: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Link: https://lkml.kernel.org/r/20160827205559.GA43880-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org
+Cc: James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Cc: Serge E. Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
 ---
- include/linux/bpf.h                         |  7 +++--
- include/linux/filter.h                      |  1 +
- include/uapi/linux/bpf.h                    | 10 ++++++
- kernel/bpf/syscall.c                        |  5 +--
- kernel/bpf/verifier.c                       | 10 ++++--
- kernel/trace/bpf_trace.c                    | 15 ++++++---
- net/core/filter.c                           | 48 ++++++++++++++++++-----------
- samples/bpf/bpf_load.c                      |  3 +-
- samples/bpf/fds_example.c                   |  2 +-
- samples/bpf/sock_example.c                  |  2 +-
- samples/bpf/test_cgrp2_attach.c             |  2 +-
- samples/bpf/test_cgrp2_attach2.c            |  2 +-
- samples/bpf/test_cgrp2_sock.c               |  2 +-
- tools/include/uapi/linux/bpf.h              | 10 ++++++
- tools/lib/bpf/bpf.c                         |  5 ++-
- tools/lib/bpf/bpf.h                         |  2 +-
- tools/lib/bpf/libbpf.c                      |  4 +--
- tools/perf/tests/bpf.c                      |  2 +-
- tools/testing/selftests/bpf/test_tag.c      |  2 +-
- tools/testing/selftests/bpf/test_verifier.c |  3 +-
- 20 files changed, 95 insertions(+), 42 deletions(-)
+ samples/bpf/.gitignore       |  32 ++++++++++++++
+ samples/bpf/Makefile         |   4 ++
+ samples/bpf/bpf_load.c       |  26 +++++++++--
+ samples/bpf/landlock1_kern.c |  46 +++++++++++++++++++
+ samples/bpf/landlock1_user.c | 102 +++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 206 insertions(+), 4 deletions(-)
+ create mode 100644 samples/bpf/.gitignore
+ create mode 100644 samples/bpf/landlock1_kern.c
+ create mode 100644 samples/bpf/landlock1_user.c
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 909fc033173a..dd954048aa19 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -154,19 +154,22 @@ struct bpf_prog;
+diff --git a/samples/bpf/.gitignore b/samples/bpf/.gitignore
+new file mode 100644
+index 000000000000..a7562a5ef4c2
+--- /dev/null
++++ b/samples/bpf/.gitignore
+@@ -0,0 +1,32 @@
++fds_example
++lathist
++lwt_len_hist
++map_perf_test
++offwaketime
++sampleip
++sockex1
++sockex2
++sockex3
++sock_example
++spintest
++tc_l2_redirect
++test_cgrp2_array_pin
++test_cgrp2_attach
++test_cgrp2_attach2
++test_cgrp2_sock
++test_cgrp2_sock2
++test_current_task_under_cgroup
++test_lru_dist
++test_overhead
++test_probe_write_user
++trace_event
++trace_output
++tracex1
++tracex2
++tracex3
++tracex4
++tracex5
++tracex6
++xdp1
++xdp2
++xdp_tx_iptunnel
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 09e9d535bd74..3d3afd709635 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -34,6 +34,7 @@ hostprogs-y += sampleip
+ hostprogs-y += tc_l2_redirect
+ hostprogs-y += lwt_len_hist
+ hostprogs-y += xdp_tx_iptunnel
++hostprogs-y += landlock1
  
- struct bpf_verifier_ops {
- 	/* return eBPF function prototype for verification */
--	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id);
-+	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id,
-+				      union bpf_prog_subtype *prog_subtype);
+ # Libbpf dependencies
+ LIBBPF := ../../tools/lib/bpf/bpf.o
+@@ -72,6 +73,7 @@ sampleip-objs := bpf_load.o $(LIBBPF) sampleip_user.o
+ tc_l2_redirect-objs := bpf_load.o $(LIBBPF) tc_l2_redirect_user.o
+ lwt_len_hist-objs := bpf_load.o $(LIBBPF) lwt_len_hist_user.o
+ xdp_tx_iptunnel-objs := bpf_load.o $(LIBBPF) xdp_tx_iptunnel_user.o
++landlock1-objs := bpf_load.o $(LIBBPF) landlock1_user.o
  
- 	/* return true if 'size' wide access at offset 'off' within bpf_context
- 	 * with 'type' (read or write) is allowed
- 	 */
- 	bool (*is_valid_access)(int off, int size, enum bpf_access_type type,
--				enum bpf_reg_type *reg_type);
-+				enum bpf_reg_type *reg_type,
-+				union bpf_prog_subtype *prog_subtype);
- 	int (*gen_prologue)(struct bpf_insn *insn, bool direct_write,
- 			    const struct bpf_prog *prog);
- 	u32 (*convert_ctx_access)(enum bpf_access_type type,
- 				  const struct bpf_insn *src,
- 				  struct bpf_insn *dst,
- 				  struct bpf_prog *prog);
-+	bool (*is_valid_subtype)(union bpf_prog_subtype *prog_subtype);
- };
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -105,6 +107,7 @@ always += trace_event_kern.o
+ always += sampleip_kern.o
+ always += lwt_len_hist_kern.o
+ always += xdp_tx_iptunnel_kern.o
++always += landlock1_kern.o
  
- struct bpf_prog_type_list {
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 0c167fdee5f7..1f49b19a87c1 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -417,6 +417,7 @@ struct bpf_prog {
- 	enum bpf_prog_type	type;		/* Type of BPF program */
- 	u32			len;		/* Number of filter blocks */
- 	u8			tag[BPF_TAG_SIZE];
-+	union bpf_prog_subtype	subtype;	/* For fine-grained verifications */
- 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
- 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
- 	unsigned int		(*bpf_func)(const void *ctx,
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 0539a0ceef38..240c76f09d0d 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -145,6 +145,15 @@ enum bpf_attach_type {
-  */
- #define BPF_F_NO_COMMON_LRU	(1U << 1)
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ HOSTCFLAGS += -I$(srctree)/tools/lib/
+@@ -139,6 +142,7 @@ HOSTLOADLIBES_sampleip += -lelf
+ HOSTLOADLIBES_tc_l2_redirect += -l elf
+ HOSTLOADLIBES_lwt_len_hist += -l elf
+ HOSTLOADLIBES_xdp_tx_iptunnel += -lelf
++HOSTLOADLIBES_landlock1 += -lelf
  
-+union bpf_prog_subtype {
-+	struct {
-+		__u32		version; /* cf. documentation */
-+		__u32		event; /* enum landlock_subtype_event */
-+		__aligned_u64	ability; /* LANDLOCK_SUBTYPE_ABILITY_* */
-+		__aligned_u64	option; /* LANDLOCK_SUBTYPE_OPTION_* */
-+	} landlock_rule;
-+} __attribute__((aligned(8)));
-+
- union bpf_attr {
- 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
- 		__u32	map_type;	/* one of enum bpf_map_type */
-@@ -173,6 +182,7 @@ union bpf_attr {
- 		__u32		log_size;	/* size of user buffer */
- 		__aligned_u64	log_buf;	/* user supplied buffer */
- 		__u32		kern_version;	/* checked when prog_type=kprobe */
-+		union bpf_prog_subtype prog_subtype;
- 	};
- 
- 	struct { /* anonymous struct used by BPF_OBJ_* commands */
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 461eb1e66a0f..23f7ca14e898 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -628,7 +628,7 @@ static void fixup_bpf_calls(struct bpf_prog *prog)
- 				continue;
- 			}
- 
--			fn = prog->aux->ops->get_func_proto(insn->imm);
-+			fn = prog->aux->ops->get_func_proto(insn->imm, &prog->subtype);
- 			/* all functions that have prototype and verifier allowed
- 			 * programs to call them, must be real in-kernel functions
- 			 */
-@@ -827,7 +827,7 @@ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
- EXPORT_SYMBOL_GPL(bpf_prog_get_type);
- 
- /* last field in 'union bpf_attr' used by this command */
--#define	BPF_PROG_LOAD_LAST_FIELD kern_version
-+#define	BPF_PROG_LOAD_LAST_FIELD prog_subtype
- 
- static int bpf_prog_load(union bpf_attr *attr)
- {
-@@ -885,6 +885,7 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	err = find_prog_type(type, prog);
- 	if (err < 0)
- 		goto free_prog;
-+	prog->subtype = attr->prog_subtype;
- 
- 	/* run eBPF verifier */
- 	err = bpf_check(&prog, attr);
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index d2bded2b250c..fe26ec007a9a 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -740,7 +740,8 @@ static int check_ctx_access(struct bpf_verifier_env *env, int off, int size,
- 		return 0;
- 
- 	if (env->prog->aux->ops->is_valid_access &&
--	    env->prog->aux->ops->is_valid_access(off, size, t, reg_type)) {
-+	    env->prog->aux->ops->is_valid_access(off, size, t, reg_type,
-+					         &env->prog->subtype)) {
- 		/* remember the offset of last byte accessed in ctx */
- 		if (env->prog->aux->max_ctx_offset < off + size)
- 			env->prog->aux->max_ctx_offset = off + size;
-@@ -1290,7 +1291,8 @@ static int check_call(struct bpf_verifier_env *env, int func_id)
- 	}
- 
- 	if (env->prog->aux->ops->get_func_proto)
--		fn = env->prog->aux->ops->get_func_proto(func_id);
-+		fn = env->prog->aux->ops->get_func_proto(func_id,
-+							 &env->prog->subtype);
- 
- 	if (!fn) {
- 		verbose("unknown func %s#%d\n", func_id_name(func_id), func_id);
-@@ -3261,6 +3263,10 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
- 	struct bpf_verifier_env *env;
- 	int ret = -EINVAL;
- 
-+	if ((*prog)->aux->ops->is_valid_subtype &&
-+	    !(*prog)->aux->ops->is_valid_subtype(&(*prog)->subtype))
-+		return -EINVAL;
-+
- 	/* 'struct bpf_verifier_env' can be global, but since it's not small,
- 	 * allocate/free it every time bpf_check() is called
- 	 */
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index cee9802cf3e0..e71ee1bb7abf 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -469,7 +469,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
- 	}
- }
- 
--static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
-+static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id,
-+		union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_perf_event_output:
-@@ -483,7 +484,8 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
- 
- /* bpf+kprobe programs can access fields of 'struct pt_regs' */
- static bool kprobe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
--					enum bpf_reg_type *reg_type)
-+					enum bpf_reg_type *reg_type,
-+					union bpf_prog_subtype *prog_subtype)
- {
- 	if (off < 0 || off >= sizeof(struct pt_regs))
- 		return false;
-@@ -558,7 +560,8 @@ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
- 	.arg3_type	= ARG_ANYTHING,
- };
- 
--static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
-+static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id,
-+		union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_perf_event_output:
-@@ -571,7 +574,8 @@ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
- }
- 
- static bool tp_prog_is_valid_access(int off, int size, enum bpf_access_type type,
--				    enum bpf_reg_type *reg_type)
-+				    enum bpf_reg_type *reg_type,
-+				    union bpf_prog_subtype *prog_subtype)
- {
- 	if (off < sizeof(void *) || off >= PERF_MAX_TRACE_SIZE)
- 		return false;
-@@ -595,7 +599,8 @@ static struct bpf_prog_type_list tracepoint_tl __ro_after_init = {
- };
- 
- static bool pe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
--				    enum bpf_reg_type *reg_type)
-+				    enum bpf_reg_type *reg_type,
-+				    union bpf_prog_subtype *prog_subtype)
- {
- 	if (off < 0 || off >= sizeof(struct bpf_perf_event_data))
- 		return false;
-diff --git a/net/core/filter.c b/net/core/filter.c
-index e466e0040137..ac25920b5eae 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2600,7 +2600,8 @@ static const struct bpf_func_proto bpf_xdp_event_output_proto = {
- };
- 
- static const struct bpf_func_proto *
--bpf_base_func_proto(enum bpf_func_id func_id)
-+bpf_base_func_proto(enum bpf_func_id func_id,
-+		    union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_map_lookup_elem:
-@@ -2628,18 +2629,20 @@ bpf_base_func_proto(enum bpf_func_id func_id)
- }
- 
- static const struct bpf_func_proto *
--sk_filter_func_proto(enum bpf_func_id func_id)
-+sk_filter_func_proto(enum bpf_func_id func_id,
-+		     union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_skb_load_bytes:
- 		return &bpf_skb_load_bytes_proto;
- 	default:
--		return bpf_base_func_proto(func_id);
-+		return bpf_base_func_proto(func_id, prog_subtype);
- 	}
- }
- 
- static const struct bpf_func_proto *
--tc_cls_act_func_proto(enum bpf_func_id func_id)
-+tc_cls_act_func_proto(enum bpf_func_id func_id,
-+		      union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_skb_store_bytes:
-@@ -2693,12 +2696,13 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 	case BPF_FUNC_skb_under_cgroup:
- 		return &bpf_skb_under_cgroup_proto;
- 	default:
--		return bpf_base_func_proto(func_id);
-+		return bpf_base_func_proto(func_id, prog_subtype);
- 	}
- }
- 
- static const struct bpf_func_proto *
--xdp_func_proto(enum bpf_func_id func_id)
-+xdp_func_proto(enum bpf_func_id func_id,
-+	       union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_perf_event_output:
-@@ -2708,23 +2712,25 @@ xdp_func_proto(enum bpf_func_id func_id)
- 	case BPF_FUNC_xdp_adjust_head:
- 		return &bpf_xdp_adjust_head_proto;
- 	default:
--		return bpf_base_func_proto(func_id);
-+		return bpf_base_func_proto(func_id, prog_subtype);
- 	}
- }
- 
- static const struct bpf_func_proto *
--cg_skb_func_proto(enum bpf_func_id func_id)
-+cg_skb_func_proto(enum bpf_func_id func_id,
-+		  union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_skb_load_bytes:
- 		return &bpf_skb_load_bytes_proto;
- 	default:
--		return bpf_base_func_proto(func_id);
-+		return bpf_base_func_proto(func_id, prog_subtype);
- 	}
- }
- 
- static const struct bpf_func_proto *
--lwt_inout_func_proto(enum bpf_func_id func_id)
-+lwt_inout_func_proto(enum bpf_func_id func_id,
-+		     union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_skb_load_bytes:
-@@ -2746,12 +2752,13 @@ lwt_inout_func_proto(enum bpf_func_id func_id)
- 	case BPF_FUNC_skb_under_cgroup:
- 		return &bpf_skb_under_cgroup_proto;
- 	default:
--		return bpf_base_func_proto(func_id);
-+		return bpf_base_func_proto(func_id, prog_subtype);
- 	}
- }
- 
- static const struct bpf_func_proto *
--lwt_xmit_func_proto(enum bpf_func_id func_id)
-+lwt_xmit_func_proto(enum bpf_func_id func_id,
-+		    union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_skb_get_tunnel_key:
-@@ -2781,7 +2788,7 @@ lwt_xmit_func_proto(enum bpf_func_id func_id)
- 	case BPF_FUNC_set_hash_invalid:
- 		return &bpf_set_hash_invalid_proto;
- 	default:
--		return lwt_inout_func_proto(func_id);
-+		return lwt_inout_func_proto(func_id, prog_subtype);
- 	}
- }
- 
-@@ -2811,7 +2818,8 @@ static bool __is_valid_access(int off, int size)
- 
- static bool sk_filter_is_valid_access(int off, int size,
- 				      enum bpf_access_type type,
--				      enum bpf_reg_type *reg_type)
-+				      enum bpf_reg_type *reg_type,
-+				      union bpf_prog_subtype *prog_subtype)
- {
- 	switch (off) {
- 	case offsetof(struct __sk_buff, tc_classid):
-@@ -2835,7 +2843,8 @@ static bool sk_filter_is_valid_access(int off, int size,
- 
- static bool lwt_is_valid_access(int off, int size,
- 				enum bpf_access_type type,
--				enum bpf_reg_type *reg_type)
-+				enum bpf_reg_type *reg_type,
-+				union bpf_prog_subtype *prog_subtype)
- {
- 	switch (off) {
- 	case offsetof(struct __sk_buff, tc_classid):
-@@ -2868,7 +2877,8 @@ static bool lwt_is_valid_access(int off, int size,
- 
- static bool sock_filter_is_valid_access(int off, int size,
- 					enum bpf_access_type type,
--					enum bpf_reg_type *reg_type)
-+					enum bpf_reg_type *reg_type,
-+					union bpf_prog_subtype *prog_subtype)
- {
- 	if (type == BPF_WRITE) {
- 		switch (off) {
-@@ -2931,7 +2941,8 @@ static int tc_cls_act_prologue(struct bpf_insn *insn_buf, bool direct_write,
- 
- static bool tc_cls_act_is_valid_access(int off, int size,
- 				       enum bpf_access_type type,
--				       enum bpf_reg_type *reg_type)
-+				       enum bpf_reg_type *reg_type,
-+				       union bpf_prog_subtype *prog_subtype)
- {
- 	if (type == BPF_WRITE) {
- 		switch (off) {
-@@ -2973,7 +2984,8 @@ static bool __is_valid_xdp_access(int off, int size)
- 
- static bool xdp_is_valid_access(int off, int size,
- 				enum bpf_access_type type,
--				enum bpf_reg_type *reg_type)
-+				enum bpf_reg_type *reg_type,
-+				union bpf_prog_subtype *prog_subtype)
- {
- 	if (type == BPF_WRITE)
- 		return false;
+ # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+ #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
 diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 396e204888b3..d23dc13ab0f2 100644
+index d23dc13ab0f2..78df39cf8b2f 100644
 --- a/samples/bpf/bpf_load.c
 +++ b/samples/bpf/bpf_load.c
-@@ -29,6 +29,7 @@
- 
- static char license[128];
- static int kern_version;
-+static union bpf_prog_subtype subtype = {};
- static bool processed_sec[128];
- char bpf_log_buf[BPF_LOG_BUF_SIZE];
- int map_fd[MAX_MAPS];
-@@ -98,7 +99,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	}
- 
- 	fd = bpf_load_program(prog_type, prog, insns_cnt, license, kern_version,
--			      bpf_log_buf, BPF_LOG_BUF_SIZE);
-+			      bpf_log_buf, BPF_LOG_BUF_SIZE, &subtype);
- 	if (fd < 0) {
- 		printf("bpf_load_program() err=%d\n%s", errno, bpf_log_buf);
- 		return -1;
-diff --git a/samples/bpf/fds_example.c b/samples/bpf/fds_example.c
-index e29bd52ff9e8..0f4f5f6a9f9f 100644
---- a/samples/bpf/fds_example.c
-+++ b/samples/bpf/fds_example.c
-@@ -62,7 +62,7 @@ static int bpf_prog_create(const char *object)
- 	} else {
- 		return bpf_load_program(BPF_PROG_TYPE_SOCKET_FILTER,
- 					insns, insns_cnt, "GPL", 0,
--					bpf_log_buf, BPF_LOG_BUF_SIZE);
-+					bpf_log_buf, BPF_LOG_BUF_SIZE, NULL);
- 	}
- }
- 
-diff --git a/samples/bpf/sock_example.c b/samples/bpf/sock_example.c
-index 6fc6e193ef1b..615f4d8c29dc 100644
---- a/samples/bpf/sock_example.c
-+++ b/samples/bpf/sock_example.c
-@@ -60,7 +60,7 @@ static int test_sock(void)
- 	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
- 
- 	prog_fd = bpf_load_program(BPF_PROG_TYPE_SOCKET_FILTER, prog, insns_cnt,
--				   "GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE);
-+				   "GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE, NULL);
- 	if (prog_fd < 0) {
- 		printf("failed to load prog '%s'\n", strerror(errno));
- 		goto cleanup;
-diff --git a/samples/bpf/test_cgrp2_attach.c b/samples/bpf/test_cgrp2_attach.c
-index 4bfcaf93fcf3..f8a91d2b7896 100644
---- a/samples/bpf/test_cgrp2_attach.c
-+++ b/samples/bpf/test_cgrp2_attach.c
-@@ -72,7 +72,7 @@ static int prog_load(int map_fd, int verdict)
- 
- 	return bpf_load_program(BPF_PROG_TYPE_CGROUP_SKB,
- 				prog, insns_cnt, "GPL", 0,
--				bpf_log_buf, BPF_LOG_BUF_SIZE);
-+				bpf_log_buf, BPF_LOG_BUF_SIZE, NULL);
- }
- 
- static int usage(const char *argv0)
-diff --git a/samples/bpf/test_cgrp2_attach2.c b/samples/bpf/test_cgrp2_attach2.c
-index 3049b1f26267..31a0f4bd665f 100644
---- a/samples/bpf/test_cgrp2_attach2.c
-+++ b/samples/bpf/test_cgrp2_attach2.c
-@@ -45,7 +45,7 @@ static int prog_load(int verdict)
- 
- 	ret = bpf_load_program(BPF_PROG_TYPE_CGROUP_SKB,
- 			       prog, insns_cnt, "GPL", 0,
--			       bpf_log_buf, BPF_LOG_BUF_SIZE);
-+			       bpf_log_buf, BPF_LOG_BUF_SIZE, NULL);
- 
- 	if (ret < 0) {
- 		log_err("Loading program");
-diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
-index c3cfb23e23b5..697f2db30e6a 100644
---- a/samples/bpf/test_cgrp2_sock.c
-+++ b/samples/bpf/test_cgrp2_sock.c
-@@ -38,7 +38,7 @@ static int prog_load(int idx)
- 	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
- 
- 	return bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, insns_cnt,
--				"GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE);
-+				"GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE, NULL);
- }
- 
- static int usage(const char *argv0)
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 0539a0ceef38..240c76f09d0d 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -145,6 +145,15 @@ enum bpf_attach_type {
-  */
- #define BPF_F_NO_COMMON_LRU	(1U << 1)
- 
-+union bpf_prog_subtype {
-+	struct {
-+		__u32		version; /* cf. documentation */
-+		__u32		event; /* enum landlock_subtype_event */
-+		__aligned_u64	ability; /* LANDLOCK_SUBTYPE_ABILITY_* */
-+		__aligned_u64	option; /* LANDLOCK_SUBTYPE_OPTION_* */
-+	} landlock_rule;
-+} __attribute__((aligned(8)));
-+
- union bpf_attr {
- 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
- 		__u32	map_type;	/* one of enum bpf_map_type */
-@@ -173,6 +182,7 @@ union bpf_attr {
- 		__u32		log_size;	/* size of user buffer */
- 		__aligned_u64	log_buf;	/* user supplied buffer */
- 		__u32		kern_version;	/* checked when prog_type=kprobe */
-+		union bpf_prog_subtype prog_subtype;
- 	};
- 
- 	struct { /* anonymous struct used by BPF_OBJ_* commands */
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index d48b70ceb25a..eb423a28e974 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -71,10 +71,12 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size,
- 
- int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
- 		     size_t insns_cnt, const char *license,
--		     __u32 kern_version, char *log_buf, size_t log_buf_sz)
-+		     __u32 kern_version, char *log_buf, size_t log_buf_sz,
-+		     union bpf_prog_subtype *subtype)
- {
- 	int fd;
- 	union bpf_attr attr;
-+	union bpf_prog_subtype st_none = {};
- 
- 	bzero(&attr, sizeof(attr));
- 	attr.prog_type = type;
-@@ -85,6 +87,7 @@ int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
- 	attr.log_size = 0;
- 	attr.log_level = 0;
- 	attr.kern_version = kern_version;
-+	attr.prog_subtype = subtype ? *subtype : st_none;
- 
- 	fd = sys_bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
- 	if (fd >= 0 || !log_buf || !log_buf_sz)
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index 09c3dcac0496..c2ddecfbbbba 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -32,7 +32,7 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
- int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
- 		     size_t insns_cnt, const char *license,
- 		     __u32 kern_version, char *log_buf,
--		     size_t log_buf_sz);
-+		     size_t log_buf_sz, union bpf_prog_subtype *subtype);
- 
- int bpf_map_update_elem(int fd, const void *key, const void *value,
- 			__u64 flags);
-diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-index 84e6b35da4bd..c9a680faead2 100644
---- a/tools/lib/bpf/libbpf.c
-+++ b/tools/lib/bpf/libbpf.c
-@@ -975,7 +975,7 @@ load_program(enum bpf_prog_type type, struct bpf_insn *insns,
- 		pr_warning("Alloc log buffer for bpf loader error, continue without log\n");
- 
- 	ret = bpf_load_program(type, insns, insns_cnt, license,
--			       kern_version, log_buf, BPF_LOG_BUF_SIZE);
-+			       kern_version, log_buf, BPF_LOG_BUF_SIZE, NULL);
- 
- 	if (ret >= 0) {
- 		*pfd = ret;
-@@ -1002,7 +1002,7 @@ load_program(enum bpf_prog_type type, struct bpf_insn *insns,
- 
- 			fd = bpf_load_program(BPF_PROG_TYPE_KPROBE, insns,
- 					      insns_cnt, license, kern_version,
--					      NULL, 0);
-+					      NULL, 0, NULL);
- 			if (fd >= 0) {
- 				close(fd);
- 				ret = -LIBBPF_ERRNO__PROGTYPE;
-diff --git a/tools/perf/tests/bpf.c b/tools/perf/tests/bpf.c
-index 92343f43e44a..1b67c7c39127 100644
---- a/tools/perf/tests/bpf.c
-+++ b/tools/perf/tests/bpf.c
-@@ -266,7 +266,7 @@ static int check_env(void)
- 
- 	err = bpf_load_program(BPF_PROG_TYPE_KPROBE, insns,
- 			       sizeof(insns) / sizeof(insns[0]),
--			       license, kver_int, NULL, 0);
-+			       license, kver_int, NULL, 0, NULL);
- 	if (err < 0) {
- 		pr_err("Missing basic BPF support, skip this test: %s\n",
- 		       strerror(errno));
-diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
-index de409fc50c35..cf7892c87b5a 100644
---- a/tools/testing/selftests/bpf/test_tag.c
-+++ b/tools/testing/selftests/bpf/test_tag.c
-@@ -57,7 +57,7 @@ static int bpf_try_load_prog(int insns, int fd_map,
- 
- 	bpf_filler(insns, fd_map);
- 	fd_prog = bpf_load_program(BPF_PROG_TYPE_SCHED_CLS, prog, insns, "", 0,
--				   NULL, 0);
-+				   NULL, 0, NULL);
- 	assert(fd_prog > 0);
- 	if (fd_map > 0)
- 		bpf_filler(insns, 0);
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index e1f5b9eea1e8..15eeb79104fe 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -51,6 +51,7 @@ struct bpf_test {
- 		REJECT
- 	} result, result_unpriv;
+@@ -68,6 +68,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 	bool is_perf_event = strncmp(event, "perf_event", 10) == 0;
+ 	bool is_cgroup_skb = strncmp(event, "cgroup/skb", 10) == 0;
+ 	bool is_cgroup_sk = strncmp(event, "cgroup/sock", 11) == 0;
++	bool is_landlock = strncmp(event, "landlock", 8) == 0;
+ 	size_t insns_cnt = size / sizeof(struct bpf_insn);
  	enum bpf_prog_type prog_type;
-+	union bpf_prog_subtype prog_subtype;
- };
+ 	char buf[256];
+@@ -93,6 +94,12 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 		prog_type = BPF_PROG_TYPE_CGROUP_SKB;
+ 	} else if (is_cgroup_sk) {
+ 		prog_type = BPF_PROG_TYPE_CGROUP_SOCK;
++	} else if (is_landlock) {
++		prog_type = BPF_PROG_TYPE_LANDLOCK;
++		if (!subtype.landlock_rule.event) {
++			printf("No subtype\n");
++			return -1;
++		}
+ 	} else {
+ 		printf("Unknown event '%s'\n", event);
+ 		return -1;
+@@ -107,7 +114,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
  
- /* Note we want this to be 64 bit aligned so that the end of our array is
-@@ -4539,7 +4540,7 @@ static void do_test_single(struct bpf_test *test, bool unpriv,
+ 	prog_fd[prog_cnt++] = fd;
  
- 	fd_prog = bpf_load_program(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
- 				   prog, prog_len, "GPL", 0, bpf_vlog,
--				   sizeof(bpf_vlog));
-+				   sizeof(bpf_vlog), &test->prog_subtype);
+-	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk)
++	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk || is_landlock)
+ 		return 0;
  
- 	expected_ret = unpriv && test->result_unpriv != UNDEF ?
- 		       test->result_unpriv : test->result;
+ 	if (is_socket) {
+@@ -278,6 +285,8 @@ int load_bpf_file(char *path)
+ 	Elf_Data *data, *data_prog, *symbols = NULL;
+ 	char *shname, *shname_prog;
+ 
++	subtype.landlock_rule.event = 0;
++
+ 	if (elf_version(EV_CURRENT) == EV_NONE)
+ 		return 1;
+ 
+@@ -322,6 +331,14 @@ int load_bpf_file(char *path)
+ 			processed_sec[i] = true;
+ 			if (load_maps(data->d_buf, data->d_size))
+ 				return 1;
++		} else if (strcmp(shname, "subtype") == 0) {
++			processed_sec[i] = true;
++			if (data->d_size != sizeof(union bpf_prog_subtype)) {
++				printf("invalid size of subtype section %zd\n",
++				       data->d_size);
++				return 1;
++			}
++			memcpy(&subtype, data->d_buf, sizeof(union bpf_prog_subtype));
+ 		} else if (shdr.sh_type == SHT_SYMTAB) {
+ 			symbols = data;
+ 		}
+@@ -357,14 +374,14 @@ int load_bpf_file(char *path)
+ 			    memcmp(shname_prog, "xdp", 3) == 0 ||
+ 			    memcmp(shname_prog, "perf_event", 10) == 0 ||
+ 			    memcmp(shname_prog, "socket", 6) == 0 ||
+-			    memcmp(shname_prog, "cgroup/", 7) == 0)
++			    memcmp(shname_prog, "cgroup/", 7) == 0 ||
++			    memcmp(shname_prog, "landlock", 8) == 0)
+ 				load_and_attach(shname_prog, insns, data_prog->d_size);
+ 		}
+ 	}
+ 
+ 	/* load programs that don't use maps */
+ 	for (i = 1; i < ehdr.e_shnum; i++) {
+-
+ 		if (processed_sec[i])
+ 			continue;
+ 
+@@ -377,7 +394,8 @@ int load_bpf_file(char *path)
+ 		    memcmp(shname, "xdp", 3) == 0 ||
+ 		    memcmp(shname, "perf_event", 10) == 0 ||
+ 		    memcmp(shname, "socket", 6) == 0 ||
+-		    memcmp(shname, "cgroup/", 7) == 0)
++		    memcmp(shname, "cgroup/", 7) == 0 ||
++		    memcmp(shname, "landlock", 8) == 0)
+ 			load_and_attach(shname, data->d_buf, data->d_size);
+ 	}
+ 
+diff --git a/samples/bpf/landlock1_kern.c b/samples/bpf/landlock1_kern.c
+new file mode 100644
+index 000000000000..ff23061e6324
+--- /dev/null
++++ b/samples/bpf/landlock1_kern.c
+@@ -0,0 +1,46 @@
++/*
++ * Landlock LSM - Sample 1 (BPF program)
++ *
++ * Copyright © 2017 Mickaël Salaün <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2, as
++ * published by the Free Software Foundation.
++ */
++
++#define KBUILD_MODNAME "foo"
++#include <uapi/linux/bpf.h>
++#include <uapi/linux/stat.h> /* S_ISCHR() */
++#include "bpf_helpers.h"
++
++SEC("landlock1")
++static int landlock_fs_prog1(struct landlock_context *ctx)
++{
++	char fmt_error[] = "landlock1: error: get_mode:%lld\n";
++	char fmt_name[] = "landlock1: syscall:%d\n";
++	long long ret;
++
++	if (!(ctx->arg2 & LANDLOCK_ACTION_FS_WRITE))
++		return 0;
++	ret = bpf_handle_fs_get_mode((void *)ctx->arg1);
++	if (ret < 0) {
++		bpf_trace_printk(fmt_error, sizeof(fmt_error), ret);
++		return 1;
++	}
++	if (S_ISCHR(ret))
++		return 0;
++	bpf_trace_printk(fmt_name, sizeof(fmt_name), ctx->syscall_nr);
++	return 1;
++}
++
++SEC("subtype")
++static union bpf_prog_subtype _subtype = {
++	.landlock_rule = {
++		.version = 1,
++		.event = LANDLOCK_SUBTYPE_EVENT_FS,
++		.ability = LANDLOCK_SUBTYPE_ABILITY_DEBUG,
++	}
++};
++
++SEC("license")
++static char _license[] = "GPL";
+diff --git a/samples/bpf/landlock1_user.c b/samples/bpf/landlock1_user.c
+new file mode 100644
+index 000000000000..5feb660caed4
+--- /dev/null
++++ b/samples/bpf/landlock1_user.c
+@@ -0,0 +1,102 @@
++/*
++ * Landlock LSM - Sample 1 (userland)
++ *
++ * Copyright © 2017 Mickaël Salaün <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2, as
++ * published by the Free Software Foundation.
++ */
++
++#include "bpf_load.h"
++#include "libbpf.h"
++
++#define _GNU_SOURCE
++#include <errno.h>
++#include <fcntl.h> /* open() */
++#include <linux/bpf.h>
++#include <linux/filter.h>
++#include <linux/prctl.h>
++#include <linux/seccomp.h>
++#include <stddef.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/prctl.h>
++#include <sys/syscall.h>
++#include <unistd.h>
++
++#ifndef seccomp
++static int seccomp(unsigned int op, unsigned int flags, void *args)
++{
++	errno = 0;
++	return syscall(__NR_seccomp, op, flags, args);
++}
++#endif
++
++#define ARRAY_SIZE(a)	(sizeof(a) / sizeof(a[0]))
++#define MAX_ERRNO	4095
++
++
++struct landlock_rule {
++	enum landlock_subtype_event event;
++	struct bpf_insn *bpf;
++	size_t size;
++};
++
++static int apply_sandbox(int prog_fd)
++{
++	int ret = 0;
++
++	/* set up the test sandbox */
++	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
++		perror("prctl(no_new_priv)");
++		return 1;
++	}
++	if (seccomp(SECCOMP_ADD_LANDLOCK_RULE, 0, &prog_fd)) {
++		perror("seccomp(set_hook)");
++		ret = 1;
++	}
++	close(prog_fd);
++
++	return ret;
++}
++
++int main(int argc, char * const argv[], char * const *envp)
++{
++	char filename[256];
++	char *cmd_path;
++	char * const *cmd_argv;
++
++	if (argc < 2) {
++		fprintf(stderr, "usage: %s <cmd> [args]...\n\n", argv[0]);
++		fprintf(stderr, "Launch a command in a read-only environment "
++				"(except for character devices).\n");
++		fprintf(stderr, "Display debug with: "
++				"cat /sys/kernel/debug/tracing/trace_pipe &\n");
++		return 1;
++	}
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++	if (!prog_fd[0]) {
++		if (errno) {
++			printf("load_bpf_file: %s\n", strerror(errno));
++		} else {
++			printf("load_bpf_file: Error\n");
++		}
++		return 1;
++	}
++
++	if (apply_sandbox(prog_fd[0]))
++		return 1;
++	cmd_path = argv[1];
++	cmd_argv = argv + 1;
++	fprintf(stderr, "Launching a new sandboxed process.\n");
++	execve(cmd_path, cmd_argv, envp);
++	perror("execve");
++	return 1;
++}
 -- 
 2.11.0
