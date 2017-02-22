@@ -1,135 +1,230 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
-	buffer
-Date: Wed, 22 Feb 2017 18:36:05 +0800
-Message-ID: <d30578ba-5796-fe61-6db3-189a652b390c@redhat.com>
-References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
-	<20170221162849-mutt-send-email-mst@kernel.org>
-	<35244d06-2d0d-3f2e-0cd1-43137988c869@redhat.com>
-	<20170222050601-mutt-send-email-mst@kernel.org>
-	<49577dad-3f6f-e6b3-4f93-2b919b066068@redhat.com>
-	<20170222053753-mutt-send-email-mst@kernel.org>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: [PATCH net-next v3 1/8] gtp: add documentation
+Date: Wed, 22 Feb 2017 12:30:07 +0100 (CET)
+Message-ID: <404391156.187750.1487763007868.JavaMail.zimbra@tpip.net>
+References: <20170213153624.14170-1-aschultz@tpip.net> <20170213153624.14170-2-aschultz@tpip.net> <20170220161552.tnewzagg4z4azikd@nataraja> <1839823227.173727.1487611687205.JavaMail.zimbra@tpip.net> <20170222083631.722ycqfcyc2ma34u@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170222053753-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: pablo <pablo@netfilter.org>, netdev <netdev@vger.kernel.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        osmocom-net-gprs <osmocom-net-gprs@lists.osmocom.org>,
+        Jonas Bonn <jonas@southpole.se>
+To: laforge <laforge@gnumonks.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:41934 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932234AbdBVLaN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Feb 2017 06:30:13 -0500
+In-Reply-To: <20170222083631.722ycqfcyc2ma34u@nataraja>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDLmnIgyMuaXpSAxMTo0MiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFdlZCwgRmViIDIyLCAyMDE3IGF0IDExOjE3OjUwQU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+Cj4+IE9uIDIwMTflubQwMuaciDIy5pelIDExOjA2LCBNaWNoYWVsIFMuIFRzaXJraW4g
-d3JvdGU6Cj4+PiBPbiBXZWQsIEZlYiAyMiwgMjAxNyBhdCAxMDo1ODowOEFNICswODAwLCBKYXNv
-biBXYW5nIHdyb3RlOgo+Pj4+IE9uIDIwMTflubQwMuaciDIx5pelIDIyOjM3LCBNaWNoYWVsIFMu
-IFRzaXJraW4gd3JvdGU6Cj4+Pj4+IE9uIFR1ZSwgRmViIDIxLCAyMDE3IGF0IDA0OjQ2OjI4UE0g
-KzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4+PiBUaGlzIHBhdGNoIHN3aXRjaCB0byB1c2Ug
-YnVpbGRfc2tiKCkgZm9yIHNtYWxsIGJ1ZmZlciB3aGljaCBjYW4gaGF2ZQo+Pj4+Pj4gYmV0dGVy
-IHBlcmZvcm1hbmNlIGZvciBib3RoIFRDUCBhbmQgWERQIChzaW5jZSB3ZSBjYW4gd29yayBhdCBw
-YWdlCj4+Pj4+PiBiZWZvcmUgc2tiIGNyZWF0aW9uKS4gSXQgYWxzbyByZW1vdmUgbG90cyBvZiBY
-RFAgY29kZXMgc2luY2UgYm90aAo+Pj4+Pj4gbWVyZ2VhYmxlIGFuZCBzbWFsbCBidWZmZXIgdXNl
-IHBhZ2UgZnJhZyBkdXJpbmcgcmVmaWxsIG5vdy4KPj4+Pj4+Cj4+Pj4+PiAgICAgICAgICAgICAg
-ICAgICAgICAgICAgIEJlZm9yZSAgIHwgQWZ0ZXIKPj4+Pj4+IFhEUF9EUk9QKHhkcDEpIDY0QiAg
-OiAgMTEuMU1wcHMgfCAxNC40TXBwcwo+Pj4+Pj4KPj4+Pj4+IFRlc3RlZCB3aXRoIHhkcDEveGRw
-Mi94ZHBfaXBfdHhfdHVubmVsIGFuZCBuZXRwZXJmLgo+Pj4+Pj4KPj4+Pj4+IFNpZ25lZC1vZmYt
-Ynk6IEphc29uIFdhbmc8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4+Pj4gVGhhbmtzIQo+Pj4+PiBJ
-IGhhZCBhIHNpbWlsYXIgcGF0Y2ggZm9yIG1lcmdlYWJsZSB0b28sIHRob3VnaCBpdCdzIHRyaWNr
-aWVyIHRoZXJlCj4+Pj4+IGFzIGhvc3QgaGFzIGEgbG90IG9mIGZsZXhpYmlsaXR5IGluIHNpemlu
-ZyBidWZmZXJzLgo+Pj4+PiBMb29rcyBsaWtlIGEgZ29vZCBpbnRlcm1lZGlhdGUgc3RlcCB0byBt
-ZS4KPj4+PiBZZXMsIEkgdGhpbmsgaXQncyBtb3JlIHRyaWNreSBmb3IgdGhlIGNhc2Ugb2YgbWVy
-Z2VhYmxlIGJ1ZmZlcjoKPj4+Pgo+Pj4+IDEpIHdlIG5lZWQgcmVzZXJ2ZSBORVRfU0tCX1BBRCAr
-IE5FVF9JUF9BTElHTiBmb3IgZWFjaCBidWZmZXIsIHRoaXMgd2lsbAo+Pj4+IGJyZWFrIHJ4IGZy
-YWcgY29hbGVzY2luZwo+Pj4+IDIpIG5lZWQgdGFpbHJvb20gZm9yIHNrYl9zaGluZm8sIHNvIGl0
-IHdvbid0IHdvcmsgZm9yIGFsbCBzaXplIG9mIHBhY2tldAo+Pj4+Cj4+Pj4gVGhhbmtzCj4+PiBI
-YXZlIHlvdSBzZWVuIG15IHByb3RvdHlwZT8KPj4gTm90IHlldCwgcGxlYXNlIGdpdmUgbWUgYSBw
-b2ludGVyLgo+Pgo+Pj4gICAgSXQgd29ya3Mgd2l0aCBxZW11IGluIHByYWN0aWNlLAo+Pj4ganVz
-dCBuZWVkcyB0byBjb3ZlciBhIGJ1bmNoIG9mIGNvcm5lciBjYXNlcy4KPj4gU291bmRzIGdvb2Qs
-IGlmIHlvdSB3aXNoIEkgY2FuIGhlbHAgdG8gZmluYWxpemUgaXQuCj4+Cj4+IFRoYW5rcwo+Pgo+
-Pj4+PiBBY2tlZC1ieTogTWljaGFlbCBTLiBUc2lya2luPG1zdEByZWRoYXQuY29tPgo+Pj4+Pgo+
-Cj4gR3JlYXQhIEhlcmUgaXQgaXMgSSB0aGluayBpdCdzIG9uIHRvcCBvZiA0Ljkgb3Igc28uIElz
-c3VlcyB0byBhZGRyZXNzOgo+IC0gd2hlbiByaW5nIGlzIHZlcnkgc21hbGwgdGhpcyBtaWdodCBj
-YXVzZSB1cyBub3QgdG8KPiAgICBiZSBhYmxlIHRvIGZpdCBldmVuIGEgc2luZ2xlIHBhY2tldCBp
-biB0aGUgd2hvbGUgcXVldWUuCj4gICAgTGltaXQgbG9naWMgdG8gd2hlbiByaW5nIGlzIGJpZyBl
-bm91Z2g/Cj4gLSBJZiBlLmcuIGhlYWRlciBpcyBzcGxpdCBhY3Jvc3MgbWFueSBidWZmZXJzLCB0
-aGlzIHdvbid0IHdvcmsKPiAgICBjb3JyZWN0bHkuIERldGVjdCBhbmQgY29weT8KPgo+IENvdWxk
-IGJlIG1vcmUgaXNzdWVzIHRoYXQgSSBmb3Jnb3QuIEl0IG1pZ2h0IGJlIGEgZ29vZCBpZGVhIHRv
-Cj4gZmlyc3QgZmluaXNoIG15IGJ1ZmZlciBjdHggaGFjay4gV2lsbCBzaW1wbGlmeSB0aGUgbG9n
-aWMuCj4KPgo+IGNvbW1pdCA3N2MxNzcwOTFhN2M4NDczZTNmMGVkMTQ4YWZhMmI0NzY1YjhiMGY3
-Cj4gQXV0aG9yOiBNaWNoYWVsIFMuIFRzaXJraW4gPG1zdEByZWRoYXQuY29tPgo+IERhdGU6ICAg
-U3VuIEZlYiAyMSAyMDoyMjozMSAyMDE2ICswMjAwCj4KPiAgICAgIHZpcnRpb19uZXQ6IHN3aXRj
-aCB0byBidWlsZF9za2IgZm9yIG1yZ19yeGJ1Zgo+ICAgICAgCj4gICAgICBGb3Igc21hbGwgcGFj
-a2V0cyBkYXRhIGNvcHkgd2FzIG9ic2VydmVkIHRvCj4gICAgICB0YWtlIHVwIGFib3V0IDE1JSBD
-UFUgdGltZS4gU3dpdGNoIHRvIGJ1aWxkX3NrYgo+ICAgICAgYW5kIGF2b2lkIHRoZSBjb3B5IHdo
-ZW4gdXNpbmcgbWVyZ2VhYmxlIHJ4IGJ1ZmZlcnMuCj4gICAgICAKPiAgICAgIEFzIGEgYm9udXMs
-IG1lZGl1bS1zaXplIHNrYnMgdGhhdCBmaXQgaW4gYSBwYWdlIHdpbGwgYmUKPiAgICAgIGNvbXBs
-ZXRlbHkgbGluZWFyLgo+ICAgICAgCj4gICAgICBPZiBjb3Vyc2UsIHdlIG5vdyBuZWVkIHRvIGxv
-d2VyIHRoZSBsb3dlciBib3VuZCBvbiBwYWNrZXQgc2l6ZSwKPiAgICAgIHRvIG1ha2Ugc3VyZSBh
-IHNhbmUgbnVtYmVyIG9mIHNrYnMgZml0cyBpbiByeCBzb2NrZXQgYnVmZmVyLgo+ICAgICAgQnkg
-aG93IG11Y2g/IEkgZG9uJ3Qga25vdyB5ZXQuCj4gICAgICAKPiAgICAgIEl0IG1pZ2h0IGFsc28g
-YmUgdXNlZnVsIHRvIHByZWZldGNoIHRoZSBwYWNrZXQgYnVmZmVyIHNpbmNlCj4gICAgICBuZXQg
-c3RhY2sgd2lsbCBsaWtlbHkgdXNlIGl0IHNvb24uCj4KPiAgICAgIFRPRE86IGl0IGFwcGVhcnMg
-dGhhdCBMaW51eCB3b24ndCBoYW5kbGUgY29ycmVjdGx5IHRoZSBjYXNlIG9mIGZpcnN0Cj4gICAg
-ICBidWZmZXIgYmVpbmcgdmVyeSBzbWFsbCAob3IgY29uc2lzdGluZyBleGNsdXNpdmVseSBvZiB2
-aXJ0aW8gaGVhZGVyKS4KPiAgICAgIFRoaXMgaXMgYWxyZWFkeSB0aGUgY2FzZSBmb3IgY3VycmVu
-dCBjb2RlLCBzbyBkb24ndCBib3RoZXIKPiAgICAgIHRlc3RpbmcgeWV0Lgo+ICAgICAgVE9ETzog
-bWlnaHQgYmUgdW5mYWlyIHRvIHRoZSBsYXN0IHBhY2tldCBpbiBhIGZyYWdtZW50IGFzIHdlIGlu
-Y2x1ZGUKPiAgICAgIHJlbWFpbmluZyBzcGFjZSBpZiBhbnkgaW4gaXRzIHRydWVzaXplLgo+ICAg
-ICAgCj4gICAgICBTaWduZWQtb2ZmLWJ5OiBNaWNoYWVsIFMuIFRzaXJraW4gPG1zdEByZWRoYXQu
-Y29tPgo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMv
-bmV0L3ZpcnRpb19uZXQuYwo+IGluZGV4IGI0MjVmYTEuLmE2Yjk5NmYgMTAwNjQ0Cj4gLS0tIGEv
-ZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5j
-Cj4gQEAgLTM4LDYgKzM4LDggQEAgbW9kdWxlX3BhcmFtKGdzbywgYm9vbCwgMDQ0NCk7Cj4gICAK
-ClsuLi5dCgo+IC0JaWYgKHVubGlrZWx5KCFza2IpKQo+IC0JCXJldHVybjsKPiAtCj4gLQloZHIg
-PSBza2Jfdm5ldF9oZHIoc2tiKTsKPiAgIAo+ICAgCXU2NF9zdGF0c191cGRhdGVfYmVnaW4oJnN0
-YXRzLT5yeF9zeW5jcCk7Cj4gICAJc3RhdHMtPnJ4X2J5dGVzICs9IHNrYi0+bGVuOwo+IEBAIC01
-ODEsMTEgKzYyNCwxNCBAQCBzdGF0aWMgaW50IGFkZF9yZWN2YnVmX2JpZyhzdHJ1Y3QgdmlydG5l
-dF9pbmZvICp2aSwgc3RydWN0IHJlY2VpdmVfcXVldWUgKnJxLAo+ICAgCj4gICBzdGF0aWMgdW5z
-aWduZWQgaW50IGdldF9tZXJnZWFibGVfYnVmX2xlbihzdHJ1Y3QgZXdtYV9wa3RfbGVuICphdmdf
-cGt0X2xlbikKPiAgIHsKPiAtCWNvbnN0IHNpemVfdCBoZHJfbGVuID0gc2l6ZW9mKHN0cnVjdCB2
-aXJ0aW9fbmV0X2hkcl9tcmdfcnhidWYpOwo+ICsJdW5zaWduZWQgaW50IGhkcjsKPiAgIAl1bnNp
-Z25lZCBpbnQgbGVuOwo+ICAgCj4gLQlsZW4gPSBoZHJfbGVuICsgY2xhbXBfdCh1bnNpZ25lZCBp
-bnQsIGV3bWFfcGt0X2xlbl9yZWFkKGF2Z19wa3RfbGVuKSwKPiAtCQkJR09PRF9QQUNLRVRfTEVO
-LCBQQUdFX1NJWkUgLSBoZHJfbGVuKTsKPiArCWhkciA9IEFMSUdOKFZORVRfU0tCX1BBRCArIFNL
-Ql9EQVRBX0FMSUdOKHNpemVvZihzdHJ1Y3Qgc2tiX3NoYXJlZF9pbmZvKSksCj4gKwkJICAgIE1F
-UkdFQUJMRV9CVUZGRVJfQUxJR04pOwoKU28gd2UgbmVlZCB0byByZXNlcnZlIHNpemVvZihzdHJ1
-Y3Qgc2tiX3NoYXJlZF9pbmZvKSBmb3IgZWFjaCBidWZmZXIuIElmIAp3ZSBoYXZlIHNldmVyYWwg
-NEsgYnVmZmVycyBmb3IgYSBzaW5nbGUgbGFyZ2UgcGFja2V0LCBhYm91dCA4JSB0cnVlc2l6ZSAK
-d2VyZSB3YXN0ZWQ/Cgo+ICsKPiArCWxlbiA9IGhkciArIGNsYW1wX3QodW5zaWduZWQgaW50LCBl
-d21hX3BrdF9sZW5fcmVhZChhdmdfcGt0X2xlbiksCj4gKwkJCSAgICBNSU5fUEFDS0VUX0FMTE9D
-LCBQQUdFX1NJWkUgLSBoZHIpOwo+ICAgCXJldHVybiBBTElHTihsZW4sIE1FUkdFQUJMRV9CVUZG
-RVJfQUxJR04pOwo+ICAgfQo+ICAgCj4gQEAgLTYwMSw4ICs2NDcsMTEgQEAgc3RhdGljIGludCBh
-ZGRfcmVjdmJ1Zl9tZXJnZWFibGUoc3RydWN0IHJlY2VpdmVfcXVldWUgKnJxLCBnZnBfdCBnZnAp
-Cj4gICAJaWYgKHVubGlrZWx5KCFza2JfcGFnZV9mcmFnX3JlZmlsbChsZW4sIGFsbG9jX2ZyYWcs
-IGdmcCkpKQo+ICAgCQlyZXR1cm4gLUVOT01FTTsKPiAgIAo+IC0JYnVmID0gKGNoYXIgKilwYWdl
-X2FkZHJlc3MoYWxsb2NfZnJhZy0+cGFnZSkgKyBhbGxvY19mcmFnLT5vZmZzZXQ7Cj4gLQljdHgg
-PSBtZXJnZWFibGVfYnVmX3RvX2N0eChidWYsIGxlbik7Cj4gKwlCVUlMRF9CVUdfT04oVk5FVF9T
-S0JfQlVHKTsKPiArCj4gKwlidWYgPSAoY2hhciAqKXBhZ2VfYWRkcmVzcyhhbGxvY19mcmFnLT5w
-YWdlKSArIGFsbG9jX2ZyYWctPm9mZnNldCArCj4gKwkJVk5FVF9TS0JfT0ZGOwoKUnggZnJhZyBj
-b2FsZXNjaW5nIHdvbid0IHdvcmsgYW55IG1vcmUgYW5kIHdlIHdpbGwgZW5kIHVwIHdpdGggbW9y
-ZSAKZnJhZ2xpc3QgZm9yIGxhcmdlIHBhY2tldHMuCgpUaGFua3MKCj4gKwkvL2N0eCA9IG1lcmdl
-YWJsZV9idWZfdG9fY3R4KGJ1ZiAtIFZORVRfU0tCX09GRiwgbGVuKTsKPiAgIAlnZXRfcGFnZShh
-bGxvY19mcmFnLT5wYWdlKTsKPiAgIAlhbGxvY19mcmFnLT5vZmZzZXQgKz0gbGVuOwo+ICAgCWhv
-bGUgPSBhbGxvY19mcmFnLT5zaXplIC0gYWxsb2NfZnJhZy0+b2Zmc2V0Owo+IEBAIC02MTUsOCAr
-NjY0LDEwIEBAIHN0YXRpYyBpbnQgYWRkX3JlY3ZidWZfbWVyZ2VhYmxlKHN0cnVjdCByZWNlaXZl
-X3F1ZXVlICpycSwgZ2ZwX3QgZ2ZwKQo+ICAgCQlsZW4gKz0gaG9sZTsKPiAgIAkJYWxsb2NfZnJh
-Zy0+b2Zmc2V0ICs9IGhvbGU7Cj4gICAJfQo+ICsJY3R4ID0gbWVyZ2VhYmxlX2J1Zl90b19jdHgo
-YnVmIC0gVk5FVF9TS0JfT0ZGLCBsZW4pOwo+ICAgCj4gLQlzZ19pbml0X29uZShycS0+c2csIGJ1
-ZiwgbGVuKTsKPiArCXNnX2luaXRfb25lKHJxLT5zZywgYnVmLAo+ICsJCSAgICBsZW4gLSBWTkVU
-X1NLQl9PRkYgLSBTS0JfREFUQV9BTElHTihzaXplb2Yoc3RydWN0IHNrYl9zaGFyZWRfaW5mbykp
-KTsKPiAgIAllcnIgPSB2aXJ0cXVldWVfYWRkX2luYnVmKHJxLT52cSwgcnEtPnNnLCAxLCAodm9p
-ZCAqKWN0eCwgZ2ZwKTsKPiAgIAlpZiAoZXJyIDwgMCkKPiAgIAkJcHV0X3BhZ2UodmlydF90b19o
-ZWFkX3BhZ2UoYnVmKSk7CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMu
-bGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21h
-aWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+Hi Harald,
+
+----- On Feb 22, 2017, at 9:36 AM, laforge laforge@gnumonks.org wrote:
+
+> Hi Andreas,
+> 
+> thanks for your feedback.
+> 
+> On Mon, Feb 20, 2017 at 06:28:07PM +0100, Andreas Schultz wrote:
+>> > Are you absolutely sure about this?
+>> 
+>> Yes. It took me a while to realize this. The crux is this statement in TS
+>> 29.060,
+>> Section 7.3.1:
+>> 
+>> > The SGSN shall include an SGSN Address for control plane and an SGSN address for
+>> > user traffic, which may differ from that provided by the underlying network
+>> > service
+>> > (e.g. IP). The GGSN shall store these SGSN Addresses and use them when sending
+>> > control plane on this GTP tunnel or G-PDUs to the SGSN for the MS.
+>> 
+>> IMHO, this implies that the source IP of GTP-U and GTP-C frames does not have to
+>> match the GSN address specified by a Create PDP Context Request.
+> 
+> Yes, I follow that reasoning for GTP-C (i.e. the transport-layer S-GW
+> source IP of the CREATE PDP CTX REQ may differ from the one signalled
+> inside GTP-C.
+> 
+> For GTP-U however, this just means that GTP-U in general can use
+> different IP addresses from GTP-C.  This is well-known and I also have
+> no doubts about this.
+> 
+> But what I still doubt is whether within an ongoing GTP-U tunnel, the
+> source IP address can change at any time without any signaling
+> announcing that change.
+> 
+>> TS 29.274, Section 4.2.2.1, Initial Messages:
+>> 
+>> > During the establishment of the GTP tunnel, the GTPv2 entity selects and
+>> > communicates to the peer GTPv2 entity the IP Destination Address at which
+>> > it expects to receive subsequent control plane Initial messages related
+>> > to that GTP tunnel via .....
+>> 
+>> TS 23.401, Annex D, Sect. D.3.3. makes is clear beyond doubt that we have to
+>> accept packet for a valid TEID from virtually any IP. If you look at figure
+>> D.3.3-1, step 16, you will see that only the new SGSN is contacting the P-GW.
+>> There is no prior advertisement of the change from the old SGSN.
+> 
+> Yes, but that is again GTP-C, and not GTP-U.
+> 
+>> Step 16 would therefor not work if we limited the tunnel to a specific source
+>> IP.
+> 
+> correct. But it is a GTP-C transaction.
+> 
+>> > I so far always assumed that you use GTP-C "MODIFY PDP CONTEXT" in case
+>> > of such mobility situations, i.e. the control plane explicitly notifies
+>> > the GTP-U entity of a change in the SGSN/S-GW address.
+>> 
+>> Yes, it does. But that notification only applies to the tunnel endpoint at
+>> the SGSN/S-GW in the GGSN/P-GW to SGSN/S-GW direction.
+>> 
+>> > At least for 3G this seems to be the case, and my assumption appears to
+>> > be confirmed with sources such as e.g. page 15 of
+>> > http://www.nwadmin.de/presentation_mobility_manag ement_in_UMTS.pdf
+>> > 
+>> > Also, for LTE, it seems that there's a GTPv2-C "Modify Bearer
+>> > Request/Response" involved in relocation from one S-GW to another S-GW:
+>> > http://www.lteandbeyond.com/2012/03/x2-based-handover-with-sgw-relocation.html
+>> 
+>> I think this affirms my argument, Step 3a is sending GTP packets from a
+>> source IP that is know to the P-GW before. The fact that this is only
+>> used for GTP-C does IMHO not mean that the same should not apply to
+>> GTP-U.
+>> 
+>> >> Step 3. The target Serving GW assigns addresses and TEIDs (one per
+>> >> bearer) for downlink traffic from the PDN GW. The Serving GW allocates
+>> >> DL TEIDs on S5/S8 even for non-accepted bearers. It sends a Modify
+>> >> Bearer Request (Serving GW addresses for user plane and TEID(s))
+>> >> message per PDN connection to the PDN GW(s). The SGW also includes
+>> >> User Location Information IE and/or UE Time Zone IE if it is present
+>> >> in step 2. The PDN GW updates its context field and returns a Modify
+>> >> Bearer Response (Charging Id, MSISDN, etc.) message to the Serving GW.
+>> >> The MSISDN is included if the PDN GW has it stored in its UE context.
+>> >> The PDN GW starts sending downlink packets to the target GW using the
+>> >> newly received address and TEIDs. These downlink packets will use the
+>> >> new downlink path via the target Serving GW to the target eNodeB. The
+>> >> Serving GW shall allocate TEIDs for the failed bearers and inform to
+>> >> the MME.
+>> > 
+>> > Section 5.5.1.1.3 of TS 23.401 agrees with the GTPv2C signalling during
+>> > relocation, AFAICT.
+>> 
+>> Again, there is nothing in there that defines a IP *source*, a F-TEID is
+>> a tunnel ENDPOINT id not a tunnel SOURCE id.
+>> 
+>> >> +Therefor the receiving side only identifies tunnels based on TEID's, not based
+>> >> +on the source IP.
+>> > 
+>> > I'm wondering if this really is neccesary. Do you have actual protocol
+>> > traces, specs or any other literature confirming this?
+>> 
+>> So far I have only seen symmetric GTP-U tunnels. However I believe there
+>> is nothing that would stop a SGSN/S-GW from switching GPT-U tunnel source
+>> transparently across IP's (for example a system with multiple shelves might
+>> use different shelve in DL/UL direction and have therefore multiple IP's.
+> 
+> yes, it might.  But then, on the other hand - at least for what I know
+> about 2G/3G - it is typically very cumbersome to announce IP addresses
+> to roaming partners.  It involves manual updating of related GSMA
+> [paper?] forms, exchanging them with all roaming partners, and
+> coordinating a change with them.  AFAIK, it is not possible to announce
+> 'this is my range of S-GW IP addreses', but you have to individually
+> manually announce each of them in the related documents.   There are
+> projects out there where people are building additional layers of
+> address translation just to work around those long and error-prone
+> manual procedures, making sure that the externally visible IP addresses
+> of a given SGSN/GGSN are always the same ones.
+> 
+> So yes, all of the above are practical/procedural concerns, but they
+> would be explanations why this scenario - even if it might be supported
+> by the specs - is unlikely in practise, at least within current/past
+> procedures and practises.
+> 
+> Finally, from the point of view of packet filtering (which operators
+> typically implement, otherwise the manual announcement of SGSN IP
+> addresses by the above procedures wouldn't be required), it would be
+> impossible to do state based filtering if there were use cases where an
+> random IP address colud send valid traffic for a given tunnel.
+
+All of above applies to roaming, however provider internal traffic is
+usually not filtered and bound to GSMA IR.21 process. The use cases
+and procedures supported in roaming might therefore be different from
+the ones when connected to the home PLMN.
+
+If a firewall is deployed, then it's a decision made at that point to
+block or allow certain scenarios, but that should not have an impact
+on what we would like to support at the GTP-U instance.
+
+I believe we should attempt to support all defined and legal use-cases
+and leave the filtering to other layers (iptables, nftables or external
+firewalls).
+
+The GSMA has also something to say about firewall and GTP IP source
+addresses (although I think this mostly applies to GTP-C),
+GSMA IR.33 v8.01, Section A.2:
+
+> Unlike GTP version 0, in GTP version 1 the GGSN is allowed to send
+> GTP response messages back to an SGSN with the source IP address set
+> to an IP address different to that which was in the destination address 
+> of the associated GTP request message. The change was made in 3GPP to
+> optimize internal processing of GGSNs.
+
+I then goes on to describe how state-aware firewalls will have problems
+with that.
+
+Anyhow, this clearly indicates that using different source IP's is a valid
+use case (whether or not that might break in roaming scenarios).
+
+>> > I find it somewhat surprising, given how much this opens the door for
+>> > arbitrary spoofing from anyone (with access to the respective private
+>> > network such as GRX).
+>> 
+>> Yes it is, but it is mandated without a doubt by the specification for
+>> GTP-C. For the reasons outline before, I think that this applies to
+>> GTP-U as well.
+> 
+> For GTP-U it may be the case.  I'm not entirely convinced, though.
+> Also, even if the specifications wanted to support such scenarios, I
+> think it is doubtful that this is actually implemented in practise.
+
+I've done a test with a GTP implementation in a router from a big vendor
+(an ePDG, not a GGSN/PGW). That implementation did not like asymmetric
+GTP-U endpoint IP's. However, this seems to be a limitation of some kind
+of receive path optimization and not a deliberate filter (at least when
+I interpret the error messages correctly).
+
+> If it was my choice, and I had to support the "loose matching", I would
+> make it a configuration option (sysctl? netlink attribute?) and default
+> to the more strict matching, including the source address.  It just
+> seems to make much more sense and be more safe/sane.  For those people
+> who really need the loose matching (and who are willing to pay the price
+> for it in terms of opening up to spoofing and making packet filtering
+> harder), they can set the option.
+
+That might be an idea, not in the sense of matching but as an additional
+filter. After the all the TEID is supposed the unique identifier for the
+tunnel in the GTP-U entity.
+
+We currently do not match or filter on the peer GSN source IP. That should
+IMHO remain the default. Adding a per PDP context flag to filter on the
+peer GSN address should be relatively simple.
+
+> But then, I'm not the one doing that implementation, so it is up to you.
+> My opinion is just an opinion.
+> 
+> Regards,
+>	Harald
+
+Regards,
+Andreas
+
+> 
+> --
+> - Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+> ============================================================================
+> "Privacy in residential applications is a desirable marketing option."
+>                                                   (ETSI EN 300 175-7 Ch. A6)
