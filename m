@@ -1,84 +1,112 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
- buffer
-Date: Wed, 22 Feb 2017 09:17:04 -0800
-Message-ID: <58ADC790.8000805@gmail.com>
-References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Focusing the XDP project
+Date: Wed, 22 Feb 2017 09:22:53 -0800
+Message-ID: <CALx6S35qC5+-5ke=d01nkgTnEH1b4GuMcaicKST2BwsC3y5Ghw@mail.gmail.com>
+References: <20170220111343.76f77748@redhat.com> <CAKgT0Ucqp6+jWkiGxDoEE-UdbnxsdVLxjZZ6uYtNWHSo4fPUVg@mail.gmail.com>
+ <cc26e1ce-05ae-6c3d-a323-b6f18e2ad897@mellanox.com> <CALx6S375878KeM0O7BO9sB7B_3p+yO4yxfEhxYdn_=AZvWF-Aw@mail.gmail.com>
+ <CALzJLG-323ZOyruHok3=jz526bnw=SoYtYSym8RrA3Z5=g0u9Q@mail.gmail.com>
+ <CALx6S37s=Kcy+wEbojVHjiAoLZC_4V5qzMLe=-QXtJYVtwTAew@mail.gmail.com> <20170222104328.4b9c6c5d@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Brenden Blanco <bblanco@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36751 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932225AbdBVRRS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 12:17:18 -0500
-In-Reply-To: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
+Received: from mail-qt0-f177.google.com ([209.85.216.177]:36623 "EHLO
+        mail-qt0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932498AbdBVRW4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 12:22:56 -0500
+Received: by mail-qt0-f177.google.com with SMTP id k15so8283799qtg.3
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 09:22:55 -0800 (PST)
+In-Reply-To: <20170222104328.4b9c6c5d@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-02-21 12:46 AM, Jason Wang wrote:
-> This patch switch to use build_skb() for small buffer which can have
-> better performance for both TCP and XDP (since we can work at page
-> before skb creation). It also remove lots of XDP codes since both
-> mergeable and small buffer use page frag during refill now.
-> 
->                        Before   | After
-> XDP_DROP(xdp1) 64B  :  11.1Mpps | 14.4Mpps
-> 
-> Tested with xdp1/xdp2/xdp_ip_tx_tunnel and netperf.
+On Wed, Feb 22, 2017 at 1:43 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+>
+> On Tue, 21 Feb 2017 14:54:35 -0800 Tom Herbert <tom@herbertland.com> wrote:
+>> On Tue, Feb 21, 2017 at 2:29 PM, Saeed Mahameed <saeedm@dev.mellanox.co.il> wrote:
+> [...]
+>> > The only complexity XDP is adding to the drivers is the constrains on
+>> > RX memory management and memory model, calling the XDP program itself
+>> > and handling the  action is really a simple thing once you have the
+>> > correct memory model.
+>
+> Exactly, that is why I've been looking at introducing a generic
+> facility for a memory model for drivers.  This should help simply
+> drivers.  Due to performance needs this need to be a very thin API layer
+> on top of the page allocator. (That's why I'm working with Mel Gorman
+> to get more close integration with the page allocator e.g. a bulking
+> facility).
+>
+>> > Who knows! maybe someday XDP will define one unified RX API for all
+>> > drivers and it even will handle normal stack delivery it self :).
+>> >
+>> That's exactly the point and what we need for TXDP. I'm missing why
+>> doing this is such rocket science other than the fact that all these
+>> drivers are vastly different and changing the existing API is
+>> unpleasant. The only functional complexity I see in creating a generic
+>> batching interface is handling return codes asynchronously. This is
+>> entirely feasible though...
+>
+> I'll be happy as long as we get a batching interface, then we can
+> incrementally do the optimizations later.
+>
+> In the future, I do hope (like Saeed) this RX API will evolve into
+> delivering (a bulk of) raw-packet-pages into the netstack, this should
+> simplify drivers, and we can keep the complexity and SKB allocations
+> out of the drivers.
+> To start with, we can play with doing this delivering (a bulk of)
+> raw-packet-pages into Tom's TXDP engine/system?
+>
+Hi Jesper,
 
-When you do the xdp tests are you generating packets with pktgen on the
-corresponding tap devices?
+Maybe we can to start to narrow in on what a batching API might look like.
 
-Also another thought, have you looked at using some of the buffer recycling
-techniques used in the hardware drivers such as ixgbe and with Eric's latest
-patches mlx? I have seen significant performance increases for some
-workloads doing this. I wanted to try something like this out on virtio
-but haven't had time yet.
+Looking at mlx5 (as a model of how XDP is implemented) the main RX
+loop in ml5e_poll_rx_cq calls the backend handler in one indirect
+function call. The XDP path goes through mlx5e_handle_rx_cqe,
+skb_from_cqe, and mlx5e_xdp_handle. The first two deal a lot with
+building the skbuf. As a prerequisite to RX batching it would be
+helpful if this could be flatten so that most of the logic is obvious
+in the main RX loop.
 
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
+The model of RX batching seems straightforward enough-- pull packets
+from the ring, save xdp_data information in a vector, periodically
+call into the stack to handle a batch where argument is the vector of
+packets and another argument is an output vector that gives return
+codes (XDP actions), process the each return code for each packet in
+the driver accordingly. Presumably, there is a maximum allowed batch
+that may or may not be the same as the NAPI budget so the so the
+batching call needs to be done when the limit is reach and also before
+exiting NAPI. For each packet the stack can return an XDP code,
+XDP_PASS in this case could be interpreted as being consumed by the
+stack; this would be used in the case the stack creates an skbuff for
+the packet. The stack on it's part can process the batch how it sees
+fit, it can process each packet individual in the canonical model, or
+we can continue processing a batch in a VPP-like fashion.
 
-[...]
+The batching API could be transparent to the stack or not. In the
+transparent case, the driver calls what looks like a receive function
+but the stack may defer processing for batching. A callback function
+(that can be inlined) is used to process return codes as I mentioned
+previously. In the non-transparent model, the driver knowingly creates
+the packet vector and then explicitly calls another function to
+process the vector. Personally, I lean towards the transparent API,
+this may be less complexity in drivers and gives the stack more
+control over the parameters of batching (for instance it may choose
+some batch size to optimize its processing instead of driver guessing
+the best size).
 
->  static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
->  			     gfp_t gfp)
->  {
-> -	int headroom = GOOD_PACKET_LEN + virtnet_get_headroom(vi);
-> +	struct page_frag *alloc_frag = &rq->alloc_frag;
-> +	char *buf;
->  	unsigned int xdp_headroom = virtnet_get_headroom(vi);
-> -	struct sk_buff *skb;
-> -	struct virtio_net_hdr_mrg_rxbuf *hdr;
-> +	int len = vi->hdr_len + VIRTNET_RX_PAD + GOOD_PACKET_LEN + xdp_headroom;
->  	int err;
->  
-> -	skb = __netdev_alloc_skb_ip_align(vi->dev, headroom, gfp);
-> -	if (unlikely(!skb))
-> +	len = SKB_DATA_ALIGN(len) +
-> +	      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> +	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
->  		return -ENOMEM;
->  
-> -	skb_put(skb, headroom);
-> -
-> -	hdr = skb_vnet_hdr(skb);
-> -	sg_init_table(rq->sg, 2);
-> -	sg_set_buf(rq->sg, hdr, vi->hdr_len);
-> -	skb_to_sgvec(skb, rq->sg + 1, xdp_headroom, skb->len - xdp_headroom);
-> -
-> -	err = virtqueue_add_inbuf(rq->vq, rq->sg, 2, skb, gfp);
-> +	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
-> +	get_page(alloc_frag->page);
-> +	alloc_frag->offset += len;
-> +	sg_init_one(rq->sg, buf + VIRTNET_RX_PAD + xdp_headroom,
-> +		    vi->hdr_len + GOOD_PACKET_LEN);
-> +	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
+Btw the logic for RX batching is very similar to how we batch packets
+for RPS (I think you already mention an skb-less RPS and that should
+hopefully be something would falls out from this design).
 
-Nice this cleans up a lot of the branching code. Thanks.
-
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+Tom
