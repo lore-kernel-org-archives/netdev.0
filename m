@@ -1,99 +1,69 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 5/6] net/mlx5e: Update MPWQE stride size when modifying CQE compress state
-Date: Wed, 22 Feb 2017 17:20:15 +0200
-Message-ID: <20170222152016.31263-6-saeedm@mellanox.com>
+Subject: [PATCH net 4/6] net/mlx5e: Fix broken CQE compression initialization
+Date: Wed, 22 Feb 2017 17:20:14 +0200
+Message-ID: <20170222152016.31263-5-saeedm@mellanox.com>
 References: <20170222152016.31263-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>, kernel-team@fb.com
+        kernel-team@fb.com, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57767 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57753 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933018AbdBVPVr (ORCPT
+        with ESMTP id S933000AbdBVPVr (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 10:21:47 -0500
 In-Reply-To: <20170222152016.31263-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the admin enables/disables cqe compression, updating
-mpwqe stride size is required:
-    CQE compress ON  ==> stride size = 256B
-    CQE compress OFF ==> stride size = 64B
+From: Tariq Toukan <tariqt@mellanox.com>
 
-This is already done on driver load via mlx5e_set_rq_type_params, all we
-need is just to call it on arbitrary admin changes of cqe compression
-state via priv flags or when changing timestamping state
-(as it is mutually exclusive with cqe compression).
+Some of RQ type parameters are derived from CQE compression state flag,
+CQE compression flag was initialized only after RQ type parameters
+setup. This leads to load RQ with stride size smaller than what we
+want for when CQE compression is on.
 
-This bug introduces no functional damage, it only makes cqe compression
+This bug introduces no functional damage, it only makes CQE compression
 occur less often, since in ConnectX4-LX CQE compression is performed
 only on packets smaller than stride size.
 
+Fix this by marking default status of CQE compression in PFLAG prior to
+calling mlx5e_set_rq_priv_params(), as it inits some fields based on it.
+
 Tested:
- ethtool --set-priv-flags ethxx rx_cqe_compress on
+ load driver on systems where rx CQE compress will be on (MH)
  pktgen with  64 < pkt size < 256 and netperf TCP_STREAM (IPv4/IPv6)
  verify `ethtool -S ethxx | grep compress` are advancing more often
  (rapidly)
 
-Fixes: 7219ab34f184 ("net/mlx5e: CQE compression")
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+Fixes: 2fc4bfb7250d ("net/mlx5e: Dynamic RQ type infrastructure")
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Cc: kernel-team@fb.com
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h         | 1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c    | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c      | 1 +
- 4 files changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 95ca03c0d9f5..f6a6ded204f6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -816,6 +816,7 @@ int mlx5e_get_max_linkspeed(struct mlx5_core_dev *mdev, u32 *speed);
- 
- void mlx5e_set_rx_cq_mode_params(struct mlx5e_params *params,
- 				 u8 cq_period_mode);
-+void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type);
- 
- static inline void mlx5e_tx_notify_hw(struct mlx5e_sq *sq,
- 				      struct mlx5_wqe_ctrl_seg *ctrl, int bf_sz)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index cc80522b5854..a004a5a1a4c2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -1487,6 +1487,7 @@ static int set_pflag_rx_cqe_compress(struct net_device *netdev,
- 
- 	mlx5e_modify_rx_cqe_compression_locked(priv, enable);
- 	priv->params.rx_cqe_compress_def = enable;
-+	mlx5e_set_rq_type_params(priv, priv->params.rq_wq_type);
- 
- 	return 0;
- }
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index dc621bc4e173..8ef64c4db2c2 100644
+index 0d58729b42ae..dc621bc4e173 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -79,7 +79,7 @@ static bool mlx5e_check_fragmented_striding_rq_cap(struct mlx5_core_dev *mdev)
- 		MLX5_CAP_ETH(mdev, reg_umr_sq);
- }
+@@ -3526,6 +3526,9 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 			cqe_compress_heuristic(link_speed, pci_bw);
+ 	}
  
--static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
-+void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
- {
- 	priv->params.rq_wq_type = rq_type;
- 	priv->params.lro_wqe_sz = MLX5E_PARAMS_DEFAULT_LRO_WQE_SZ;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 9fad22768aab..d5ce20db3f0b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -172,6 +172,7 @@ void mlx5e_modify_rx_cqe_compression_locked(struct mlx5e_priv *priv, bool val)
- 		mlx5e_close_locked(priv->netdev);
++	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS,
++			priv->params.rx_cqe_compress_def);
++
+ 	mlx5e_set_rq_priv_params(priv);
+ 	if (priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ)
+ 		priv->params.lro_en = true;
+@@ -3555,7 +3558,6 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 	/* Initialize pflags */
+ 	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_BASED_MODER,
+ 			priv->params.rx_cq_period_mode == MLX5_CQ_PERIOD_MODE_START_FROM_CQE);
+-	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS, priv->params.rx_cqe_compress_def);
  
- 	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS, val);
-+	mlx5e_set_rq_type_params(priv, priv->params.rq_wq_type);
+ 	mutex_init(&priv->state_lock);
  
- 	if (was_opened)
- 		mlx5e_open_locked(priv->netdev);
 -- 
 2.11.0
