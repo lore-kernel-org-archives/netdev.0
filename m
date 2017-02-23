@@ -1,63 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: create drivers/net/mdio and move mdio drivers into it
-Date: Thu, 23 Feb 2017 11:29:49 +0100
-Message-ID: <20170223102949.GB14312@lunn.ch>
-References: <afdb9ff7-afa9-47b0-0e84-396080fe0867@gmail.com>
- <8729016553E3654398EA69218DA29EEF15A807CA@cnshjmbx02>
- <dfde5fbd-e4de-7b6d-37a6-dba1720cc3d9@gmail.com>
- <8729016553E3654398EA69218DA29EEF15A80800@cnshjmbx02>
- <119144e3-d42e-e4dd-d95d-624e4816cbe3@gmail.com>
- <8729016553E3654398EA69218DA29EEF15A81861@cnshjmbx02>
- <20170222102109.GB18705@lunn.ch>
- <8729016553E3654398EA69218DA29EEF15A81CEB@cnshjmbx02>
- <20170223093019.GB13517@lunn.ch>
- <8729016553E3654398EA69218DA29EEF15A81F13@cnshjmbx02>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: netfilter: nft_ct: add zone id set support
+Date: Thu, 23 Feb 2017 12:42:16 +0100
+Message-ID: <20170223114216.GA3093@salvia>
+References: <20170222190219.EC87B661B65@gitolite.kernel.org>
+ <CAMuHMdUJ=2+9ko0KEU7rX3rb7vghNj3Xc-HSLSK=-kqQ+CZM6w@mail.gmail.com>
+ <20170223113435.GF11144@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "cugyly@163.com" <cugyly@163.com>
-To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49900 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751023AbdBWLkS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Feb 2017 06:40:18 -0500
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <8729016553E3654398EA69218DA29EEF15A81F13@cnshjmbx02>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170223113435.GF11144@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 23, 2017 at 09:51:17AM +0000, YUAN Linyu wrote:
+On Thu, Feb 23, 2017 at 12:34:35PM +0100, Florian Westphal wrote:
+> Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+> > On Wed, Feb 22, 2017 at 8:02 PM, Linux Kernel Mailing List
+> > <linux-kernel@vger.kernel.org> wrote:
+> > > Web:        https://git.kernel.org/torvalds/c/edee4f1e92458299505ff007733f676b00c516a1
+> > > Commit:     edee4f1e92458299505ff007733f676b00c516a1
+> > > Parent:     5c178d81b69f08ca3195427a6ea9a46d9af23127
+> > > Refname:    refs/heads/master
+> > > Author:     Florian Westphal <fw@strlen.de>
+> > > AuthorDate: Fri Feb 3 13:35:50 2017 +0100
+> > > Committer:  Pablo Neira Ayuso <pablo@netfilter.org>
+> > > CommitDate: Wed Feb 8 14:16:23 2017 +0100
+> > >
+> > Unlike for the other cases of the switch statement, "len" is not initialized
+> > here...
+> > 
+> > > +               break;
+> > >         priv->sreg = nft_parse_register(tb[NFTA_CT_SREG]);
+> > >         err = nft_validate_register_load(priv->sreg, len);
+> > 
+> > ... and used here, which may lead to spurious failures of
+> > nft_validate_register_load().
 > 
+> Yes, Dan reported this and a patch is queued at
+> http://patchwork.ozlabs.org/patch/727573/
 > 
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> > On Behalf Of Andrew Lunn
-> > Sent: Thursday, February 23, 2017 5:30 PM
-> > To: YUAN Linyu
-> > Cc: Florian Fainelli; David S . Miller; netdev@vger.kernel.org; cugyly@163.com
-> > Subject: Re: create drivers/net/mdio and move mdio drivers into it
-> > 
-> > > Big picture is we can remove struct mii_bus,
-> > 
-> > So if you remove this, how do you represent MII as a bus? It is a bus,
-> > clause 22 allows up to 32 devices on it, and i have boards with more
-> > than 8 devices on the bus. Clause 44 allows many more devices on the
-> > bus.
-> > 
-> add a phy device list to mdio_device.
+> Pablo, any reason why this is still waiting?
 
-Hi Yuan
+I just flushing out my nf.git tree via pull request.
 
-And where do you put the bus name? The bus operations? The mutex for
-accessing devices on the bus? The bus is a device, so you need a
-device structure somewhere, to make it part of the device
-hierarchy. Where do you put that?
+Once these changes are pulled, I'll fetch recent net-next changes that
+were just merged via net. Then, I'll pick this so we can calm down
+these compilation warnings.
 
-I think it is time to stop this discussion, and you need to submit
-patches we can review, how you think this would work. That will make
-you look at the details.
-
-	Andrew
+Are you OK with this procedure? Thanks!
