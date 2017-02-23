@@ -1,36 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V3 0/5] mlx4 misc fixes
-Date: Thu, 23 Feb 2017 10:58:23 -0500 (EST)
-Message-ID: <20170223.105823.206533399303723207.davem@davemloft.net>
-References: <1487844165-9934-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH 0/8] Netfilter fixes for net
+Date: Thu, 23 Feb 2017 11:00:37 -0500 (EST)
+Message-ID: <20170223.110037.1950701283848032077.davem@davemloft.net>
+References: <1487848449-2731-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, yotamg@mellanox.com,
-        decui@microsoft.com
-To: tariqt@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42566 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751070AbdBWP60 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 10:58:26 -0500
-In-Reply-To: <1487844165-9934-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1487848449-2731-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Thu, 23 Feb 2017 12:02:40 +0200
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 23 Feb 2017 12:14:01 +0100
 
-> This patchset contains misc bug fixes from Eric Dumazet and our team
-> to the mlx4 Core and Eth drivers.
-> 
-> Series generated against net commit:
-> eee2faabc63d tcp: account for ts offset only if tsecr not zero
+> The following patchset contains Netfilter fixes for your net tree,
+> they are:
  ...
-> v3:
-> * Rebased, conflict solved.
+> You can pull these changes from:
 > 
-> v2:
-> * Added Eric's fix (patch 5/5).
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-Series applied, thanks.
+Pulled, thanks a lot!
