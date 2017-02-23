@@ -1,19 +1,16 @@
 From: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Subject: [PATCH net-next v3 0/3] net: core: Two Helper function about socket information
-Date: Wed, 22 Feb 2017 20:42:09 -0800
-Message-ID: <1487824932-5105-1-git-send-email-chenbofeng.kernel@gmail.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 22 Feb 2017 20:44:50 -0800
+Message-ID: <1487825093-5221-1-git-send-email-chenbofeng.kernel@gmail.com>
+Cc: Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36691 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751190AbdBWEn5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 23:43:57 -0500
-Received: by mail-pg0-f65.google.com with SMTP id z128so3148244pgb.3
-        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 20:42:35 -0800 (PST)
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:32850 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751049AbdBWEpd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 23:45:33 -0500
+Received: by mail-pg0-f45.google.com with SMTP id z128so10267077pgb.0
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 20:45:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
