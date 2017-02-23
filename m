@@ -1,85 +1,129 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] net/gtp: Add udp source port generation
- according to flow hash
-Date: Thu, 23 Feb 2017 15:00:12 +0100
-Message-ID: <20170223140012.GA4462@salvia>
-References: <1487257141-11706-1-git-send-email-ogerlitz@mellanox.com>
- <576077949.135577.1487282291666.JavaMail.zimbra@tpip.net>
- <CAJ3xEMijwHpWfxUFcaCiAkP_0P8R2u6Cv4L=Vc3b_dPf+beOBg@mail.gmail.com>
- <CALx6S34ibBFpmZvxAtUn6oqgX9M8C1a3gg1iZrWWzwbswatUSQ@mail.gmail.com>
- <7810166.196078.1487842556962.JavaMail.zimbra@tpip.net>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Thu, 23 Feb 2017 16:02:28 +0200
+Message-ID: <7dd7ef81-1557-a510-a6f1-89047e510b5b@gmail.com>
+References: <20170213195858.5215-1-edumazet@google.com>
+ <20170213195858.5215-9-edumazet@google.com>
+ <1487780558.9415.81.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0UcXhy3V_iSYFCWqPzdu77v=3-4FEXSyZEiUcB=Y_wGnVw@mail.gmail.com>
+ <1487787706.9415.86.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0Uda3Q6MTCdFf2eR_5Sw9KMTzGrnTosxh2iFT6Sn6QCwrw@mail.gmail.com>
+ <1487815618.9415.101.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0UeDmNYyP1CB+es4YsBX=Bwz964rfZMSNjLoDkfbQyYs8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        laforge <laforge@gnumonks.org>, netdev <netdev@vger.kernel.org>,
-        timo lindhorst <timo.lindhorst@travelping.com>
-To: Andreas Schultz <aschultz@tpip.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57628 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750944AbdBWOB7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Feb 2017 09:01:59 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 78C99ED91B
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 15:00:20 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 629CEDA7E0
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 15:00:20 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 7EAE6DA80C
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 15:00:13 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <7810166.196078.1487842556962.JavaMail.zimbra@tpip.net>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33137 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751041AbdBWOC4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 09:02:56 -0500
+Received: by mail-wm0-f66.google.com with SMTP id v77so5626wmv.0
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 06:02:34 -0800 (PST)
+In-Reply-To: <CAKgT0UeDmNYyP1CB+es4YsBX=Bwz964rfZMSNjLoDkfbQyYs8w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 23, 2017 at 10:35:56AM +0100, Andreas Schultz wrote:
-> ----- On Feb 22, 2017, at 10:47 PM, Tom Herbert tom@herbertland.com wrote:
-[...]
-> > This shouldn't be taken as a HW requirement and it's unlikely we'd add
-> > explicit GTP support in flow_dissector. If we can't get entropy in the
-> > UDP source port then IPv6 flow label is a potential alternative (so
-> > that should be supported in NICs for RSS).
-> > 
-> > I'll also reiterate my previous point about the need for GTP testing--
-> > in order for us to be able to evaluate the GTP datapath for things
-> > like performance or how they withstand against DDOS we really need an
-> > easy way to isolate the datapath.
-> 
-> GTP as specified is very unsecure by definition. It is meant to be run
-> only on *private* mobile carrier and intra mobile carrier EPC networks.
-> Running it openly on the public internet would be extremly foolish.
-> 
-> There are some mechanisms in GTPv1-C on how to handle overload and
-> more extensive mechanisms in GTPv2-C for overload handling. The basic
-> guiding principle is to simply drop any traffic that it can't handle.
-> 
-> Anyhow, I havn't seen anything in 3GPP or GSMA documents that deals
-> with DDOS.
-> 
-> There are guidelines like the GSMA's IR.88 that describe how the intra
-> carrier roaming should work and what security measures should be
-> implemented.
-> 
-> Traffic coming in at Gi/SGi or form the UE could create a DDOS on tunnel.
-> However, on the UE side you still have the RAN (eNODE, SGSN, S-GW) or
-> an ePDG that has to apply QoS and thereby limit traffic. On the Gi/SGi
-> side side you have the PCEF that does the same.
-> 
-> So in a complete 3GPP node (GGSN, P-GW) that uses the GTP tunnel
-> implementation, malicious traffic should be blocked before it can reach
-> the tunnel.
-> 
-> And as I stated before, the GTP tunnel module is not supposed to be
-> use without any of those components. So the DDOS concern should not
-> be handled at the tunnel level.
 
-I think that Tom's point is that this tunnel driver will have to deal
-with DDOS scenarios anyway, because reality is that you can't always
-block it before it can reach the tunnel.
 
-Or's patch helps us deal with this scenario.
+On 23/02/2017 4:18 AM, Alexander Duyck wrote:
+> On Wed, Feb 22, 2017 at 6:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Wed, 2017-02-22 at 17:08 -0800, Alexander Duyck wrote:
+>>
+>>>
+>>> Right but you were talking about using both halves one after the
+>>> other.  If that occurs you have nothing left that you can reuse.  That
+>>> was what I was getting at.  If you use up both halves you end up
+>>> having to unmap the page.
+>>>
+>>
+>> You must have misunderstood me.
+>>
+>> Once we use both halves of a page, we _keep_ the page, we do not unmap
+>> it.
+>>
+>> We save the page pointer in a ring buffer of pages.
+>> Call it the 'quarantine'
+>>
+>> When we _need_ to replenish the RX desc, we take a look at the oldest
+>> entry in the quarantine ring.
+>>
+>> If page count is 1 (or pagecnt_bias if needed) -> we immediately reuse
+>> this saved page.
+>>
+>> If not, _then_ we unmap and release the page.
+>
+> Okay, that was what I was referring to when I mentioned a "hybrid
+> between the mlx5 and the Intel approach".  Makes sense.
+>
+
+Indeed, in mlx5 Striding RQ (mpwqe) we do something similar.
+Our NIC (ConnectX-4 LX and newer) knows to write multiple _consecutive_ 
+packets into the same RX buffer (page).
+AFAIU, this is what Eric suggests to do in SW in mlx4.
+
+Here are the main characteristics of our page-cache in mlx5:
+1) FIFO (for higher chances of an available page).
+2) If the page-cache head is busy, it is not freed. This has its pros 
+and cons. We might reconsider.
+3) Pages in cache have no page-to-WQE assignment (WQE is for Work Queue 
+Element, == RX descriptor). They are shared for all WQEs of an RQ and 
+might be used by different WQEs in different rounds.
+4) Cache size is smaller than suggested, we would happily increase it to 
+reflect a whole ring.
+
+Still, performance tests over mlx5 show that on high load we quickly end 
+up allocating pages as the stack does not release its ref count on time.
+Increasing the cache size helps of course.
+As there's no _fixed_ fair size that guarantees the availability of 
+pages every ring cycle, reflecting a ring size can help, and would give 
+the opportunity for users to tune their performance by setting their 
+ring size according to how powerful their CPUs are, and what traffic 
+type/load they're running.
+
+>> Note that we would have received 4096 frames before looking at the page
+>> count, so there is high chance both halves were consumed.
+>>
+>> To recap on x86 :
+>>
+>> 2048 active pages would be visible by the device, because 4096 RX desc
+>> would contain dma addresses pointing to the 4096 halves.
+>>
+>> And 2048 pages would be in the reserve.
+>
+> The buffer info layout for something like that would probably be
+> pretty interesting.  Basically you would be doubling up the ring so
+> that you handle 2 Rx descriptors per a single buffer info since you
+> would automatically know that it would be an even/odd setup in terms
+> of the buffer offsets.
+>
+> If you get a chance to do something like that I would love to know the
+> result.  Otherwise if I get a chance I can try messing with i40e or
+> ixgbe some time and see what kind of impact it has.
+>
+>>> The whole idea behind using only half the page per descriptor is to
+>>> allow us to loop through the ring before we end up reusing it again.
+>>> That buys us enough time that usually the stack has consumed the frame
+>>> before we need it again.
+>>
+>>
+>> The same will happen really.
+>>
+>> Best maybe is for me to send the patch ;)
+>
+> I think I have the idea now.  However patches are always welcome..  :-)
+>
+
+Same here :-)
