@@ -1,39 +1,46 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH] uapi: fix linux/rds.h userspace compilation errors
-Date: Wed, 22 Feb 2017 17:40:04 -0800
-Message-ID: <d10362cd-8102-d9a4-d3b2-0bccd9df9026@oracle.com>
-References: <20170223011320.GA16142@altlinux.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH RFC v2 02/12] sock: skb_copy_ubufs support for compound pages
+Date: Wed, 22 Feb 2017 20:51:57 -0500
+Message-ID: <CAF=yD-KDH+pMjrbhP+nkD=JGwFNXL8EOHrxAGJYH=iQeLibOyw@mail.gmail.com>
+References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+ <20170222163901.90834-3-willemdebruijn.kernel@gmail.com> <1487795636.9415.91.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Dmitry V. Levin" <ldv@altlinux.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170223011320.GA16142@altlinux.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35515 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932306AbdBWBwj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 20:52:39 -0500
+Received: by mail-wm0-f50.google.com with SMTP id v186so157653593wmd.0
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 17:52:38 -0800 (PST)
+In-Reply-To: <1487795636.9415.91.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/22/2017 5:13 PM, Dmitry V. Levin wrote:
-> Consistently use types from linux/types.h to fix the following
-> linux/rds.h userspace compilation errors:
+>>
+>> -             page = alloc_page(gfp_mask);
+>> +             page = skb_frag_page(f);
+>> +             if (page_count(page) == 1) {
+>> +                     skb_frag_ref(skb, i);
 >
-> /usr/include/linux/rds.h:198:2: error: unknown type name 'u8'
->   u8 rx_traces;
-> /usr/include/linux/rds.h:199:2: error: unknown type name 'u8'
->   u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
-> /usr/include/linux/rds.h:203:2: error: unknown type name 'u8'
->   u8 rx_traces;
-> /usr/include/linux/rds.h:204:2: error: unknown type name 'u8'
->   u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
-> /usr/include/linux/rds.h:205:2: error: unknown type name 'u64'
->   u64 rx_trace[RDS_MSG_RX_DGRAM_TRACE_MAX];
->
-> Fixes: 3289025a("RDS: add receive message trace used by application")
-> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-> ---
-This was part of the patch I submitted other-day with
-rest of the clean-up. Thanks Dmitry.
+> This could be : get_page(page);
 
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Ah, indeed. Thanks.
+
+>
+>> +                     goto copy_done;
+>> +             }
+>> +
+>> +             if (f->size > PAGE_SIZE) {
+>> +                     order = get_order(f->size);
+>> +                     mask |= __GFP_COMP;
+>
+> Note that this would probably fail under memory pressure.
+>
+> We could instead try to explode the few segments into order-0 only
+> pages.
+
+Good point. I'll revise to use only order-0 here.
