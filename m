@@ -1,56 +1,45 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: SIPHASH (was: Re: [GIT] Networking)
-Date: Thu, 23 Feb 2017 11:21:42 +0100
-Message-ID: <CAMuHMdWK8MZOErwOgpzEmNNysiY06_KTB_DKQtX0oPjizmNzqw@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Software loopback with phy 88E1116R and marvell MV78100 gbe
+Date: Thu, 23 Feb 2017 11:59:58 +0100
+Message-ID: <20170223105958.GC14312@lunn.ch>
+References: <CABmfJQYEqWzPtfieaym-4KhG5f0PBHNDQzuT0Uk_bz-2WC3zag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Paolo Minazzi <paolo.minazzi@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:49866 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750944AbdBWLAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 23 Feb 2017 06:00:00 -0500
+Content-Disposition: inline
+In-Reply-To: <CABmfJQYEqWzPtfieaym-4KhG5f0PBHNDQzuT0Uk_bz-2WC3zag@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jason,
+> I tried to do the same things on 88E1116R, setting the but 14 of reg 0.
+> But If I do it I lose the link, and the test program does not work.
+> I tried to force the link in software, but seems the controller send
+> packets but it is not able to receive them.
+> Is possibile to do such a software loopback on 88E1116R ?
 
-On Wed, Feb 22, 2017 at 5:31 AM, David Miller <davem@davemloft.net> wrote:
-> 3) Introduce SIPHASH and it's usage for secure sequence numbers and
->    syncookies.  From Jason A. Donenfeld.
+Hi Paolo
 
-> Jason A. Donenfeld (4):
->       siphash: add cryptographically secure PRF
->       siphash: implement HalfSipHash1-3 for hash tables
->       secure_seq: use SipHash in place of MD5
->       syncookies: use SipHash in place of SHA1
+What you are talking about here is MAC loopback. Packets are looped
+back at the MAC level. The copper side will be left idle, and so the
+link will be lost. This explains why you are seeing link down..
 
-bloat-o-meter v4.10.. says:
+What you might need to do is extend marvell_update_link() to check if
+MAC loopback is happening, and if so, say the link is up.
 
-    add/remove: 338/127 grow/shrink: 604/310 up/down: 86156/-24117 (62039)
-    ...
-    siphash_4u64                                   -    5006   +5006
-    siphash_3u64                                   -    4298   +4298
-    siphash_2u64                                   -    3582   +3582
-    __siphash_unaligned                            -    3052   +3052
-    __siphash_aligned                              -    3052   +3052
-    siphash_3u32                                   -    2976   +2976
-    siphash_1u64                                   -    2870   +2870
-    siphash_1u32                                   -    2172   +2172
-    ...
+But this is all a bit questionable. How are you setting the PHY into
+loopback? I guess the rest of the stack has no idea this is happening,
+in particular the phy state machine. What happens when it comes out of
+loopback? How is autoneg kicked off.
 
-Do we need all of this builtin, unconditionally?
+You might want to think about the big picture, and how this can be
+incorporated into ethtool, and phylib. MAC loopback is pretty much
+standard, so you should be able to solve this for all PHYs, not just
+Marvell.
 
-Thanks for your answer!
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+	     Andrew
