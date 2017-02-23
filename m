@@ -1,86 +1,52 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net V3 4/5] net/mlx4_core: Use cq quota in SRIOV when creating completion EQs
-Date: Thu, 23 Feb 2017 12:02:44 +0200
-Message-ID: <1487844165-9934-5-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net V3 5/5] net/mlx4_en: Use __skb_fill_page_desc()
+Date: Thu, 23 Feb 2017 12:02:45 +0200
+Message-ID: <1487844165-9934-6-git-send-email-tariqt@mellanox.com>
 References: <1487844165-9934-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Yotam Gigi <yotamg@mellanox.com>,
         Dexuan Cui <decui@microsoft.com>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
+        Eric Dumazet <edumazet@google.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55587 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55586 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751049AbdBWKKS (ORCPT
+        with ESMTP id S1750837AbdBWKKS (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 05:10:18 -0500
 In-Reply-To: <1487844165-9934-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+From: Eric Dumazet <edumazet@google.com>
 
-When creating EQs to handle CQ completion events for the PF
-or for VFs, we create enough EQE entries to handle completions
-for the max number of CQs that can use that EQ.
+Or we might miss the fact that a page was allocated from memory reserves.
 
-When SRIOV is activated, the max number of CQs a VF (or the PF) can
-obtain is its CQ quota (determined by the Hypervisor resource tracker).
-Therefore, when creating an EQ, the number of EQE entries that the VF
-should request for that EQ is the CQ quota value (and not the total
-number of CQs available in the FW).
-
-Under SRIOV, the PF, also must use its CQ quota, because
-the resource tracker also controls how many CQs the PF can obtain.
-
-Using the FW total CQs instead of the CQ quota when creating EQs resulted
-wasting MTT entries, due to allocating more EQEs than were needed.
-
-Fixes: 5a0d0a6161ae ("mlx4: Structures and init/teardown for VF resource quotas")
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Reported-by: Dexuan Cui <decui@microsoft.com>
+Fixes: dceeab0e5258 ("mlx4: support __GFP_MEMALLOC for rx")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/eq.c   | 5 ++---
- drivers/net/ethernet/mellanox/mlx4/main.c | 3 ++-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index 39232b6a974f..07406cf2eacd 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -1249,9 +1249,8 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
- 					mlx4_warn(dev, "Failed adding irq rmap\n");
- 			}
- #endif
--			err = mlx4_create_eq(dev, dev->caps.num_cqs -
--						  dev->caps.reserved_cqs +
--						  MLX4_NUM_SPARE_EQE,
-+			err = mlx4_create_eq(dev, dev->quotas.cq +
-+					     MLX4_NUM_SPARE_EQE,
- 					     (dev->flags & MLX4_FLAG_MSI_X) ?
- 					     i + 1 - !!(i > MLX4_EQ_ASYNC) : 0,
- 					     eq);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 005e1049c977..21377c315083 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -3501,6 +3501,8 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
- 			goto err_disable_msix;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index d85e6446f9d9..867292880c07 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -604,10 +604,10 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 		dma_sync_single_for_cpu(priv->ddev, dma, frag_info->frag_size,
+ 					DMA_FROM_DEVICE);
  
-+	mlx4_init_quotas(dev);
+-		/* Save page reference in skb */
+-		__skb_frag_set_page(&skb_frags_rx[nr], frags[nr].page);
+-		skb_frag_size_set(&skb_frags_rx[nr], frag_info->frag_size);
+-		skb_frags_rx[nr].page_offset = frags[nr].page_offset;
++		__skb_fill_page_desc(skb, nr, frags[nr].page,
++				     frags[nr].page_offset,
++				     frag_info->frag_size);
 +
- 	err = mlx4_setup_hca(dev);
- 	if (err == -EBUSY && (dev->flags & MLX4_FLAG_MSI_X) &&
- 	    !mlx4_is_mfunc(dev)) {
-@@ -3513,7 +3515,6 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
- 	if (err)
- 		goto err_steer;
- 
--	mlx4_init_quotas(dev);
- 	/* When PF resources are ready arm its comm channel to enable
- 	 * getting commands
- 	 */
+ 		skb->truesize += frag_info->frag_stride;
+ 		frags[nr].page = NULL;
+ 	}
 -- 
 1.8.3.1
