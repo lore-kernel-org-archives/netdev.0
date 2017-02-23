@@ -1,93 +1,75 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Wed, 22 Feb 2017 18:18:46 -0800
-Message-ID: <CAKgT0UeDmNYyP1CB+es4YsBX=Bwz964rfZMSNjLoDkfbQyYs8w@mail.gmail.com>
-References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
- <1487780558.9415.81.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0UcXhy3V_iSYFCWqPzdu77v=3-4FEXSyZEiUcB=Y_wGnVw@mail.gmail.com>
- <1487787706.9415.86.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0Uda3Q6MTCdFf2eR_5Sw9KMTzGrnTosxh2iFT6Sn6QCwrw@mail.gmail.com> <1487815618.9415.101.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
+	buffer
+Date: Thu, 23 Feb 2017 10:44:27 +0800
+Message-ID: <f282bbae-7399-6d46-21e1-429310f7b0e4@redhat.com>
+References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
+	<58ADC790.8000805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:33374 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934460AbdBWC1H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 21:27:07 -0500
-Received: by mail-it0-f67.google.com with SMTP id e137so388710itc.0
-        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 18:27:06 -0800 (PST)
-In-Reply-To: <1487815618.9415.101.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <58ADC790.8000805@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 22, 2017 at 6:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-02-22 at 17:08 -0800, Alexander Duyck wrote:
->
->>
->> Right but you were talking about using both halves one after the
->> other.  If that occurs you have nothing left that you can reuse.  That
->> was what I was getting at.  If you use up both halves you end up
->> having to unmap the page.
->>
->
-> You must have misunderstood me.
->
-> Once we use both halves of a page, we _keep_ the page, we do not unmap
-> it.
->
-> We save the page pointer in a ring buffer of pages.
-> Call it the 'quarantine'
->
-> When we _need_ to replenish the RX desc, we take a look at the oldest
-> entry in the quarantine ring.
->
-> If page count is 1 (or pagecnt_bias if needed) -> we immediately reuse
-> this saved page.
->
-> If not, _then_ we unmap and release the page.
-
-Okay, that was what I was referring to when I mentioned a "hybrid
-between the mlx5 and the Intel approach".  Makes sense.
-
-> Note that we would have received 4096 frames before looking at the page
-> count, so there is high chance both halves were consumed.
->
-> To recap on x86 :
->
-> 2048 active pages would be visible by the device, because 4096 RX desc
-> would contain dma addresses pointing to the 4096 halves.
->
-> And 2048 pages would be in the reserve.
-
-The buffer info layout for something like that would probably be
-pretty interesting.  Basically you would be doubling up the ring so
-that you handle 2 Rx descriptors per a single buffer info since you
-would automatically know that it would be an even/odd setup in terms
-of the buffer offsets.
-
-If you get a chance to do something like that I would love to know the
-result.  Otherwise if I get a chance I can try messing with i40e or
-ixgbe some time and see what kind of impact it has.
-
->> The whole idea behind using only half the page per descriptor is to
->> allow us to loop through the ring before we end up reusing it again.
->> That buys us enough time that usually the stack has consumed the frame
->> before we need it again.
->
->
-> The same will happen really.
->
-> Best maybe is for me to send the patch ;)
-
-I think I have the idea now.  However patches are always welcome..  :-)
+CgpPbiAyMDE35bm0MDLmnIgyM+aXpSAwMToxNywgSm9obiBGYXN0YWJlbmQgd3JvdGU6Cj4gT24g
+MTctMDItMjEgMTI6NDYgQU0sIEphc29uIFdhbmcgd3JvdGU6Cj4+IFRoaXMgcGF0Y2ggc3dpdGNo
+IHRvIHVzZSBidWlsZF9za2IoKSBmb3Igc21hbGwgYnVmZmVyIHdoaWNoIGNhbiBoYXZlCj4+IGJl
+dHRlciBwZXJmb3JtYW5jZSBmb3IgYm90aCBUQ1AgYW5kIFhEUCAoc2luY2Ugd2UgY2FuIHdvcmsg
+YXQgcGFnZQo+PiBiZWZvcmUgc2tiIGNyZWF0aW9uKS4gSXQgYWxzbyByZW1vdmUgbG90cyBvZiBY
+RFAgY29kZXMgc2luY2UgYm90aAo+PiBtZXJnZWFibGUgYW5kIHNtYWxsIGJ1ZmZlciB1c2UgcGFn
+ZSBmcmFnIGR1cmluZyByZWZpbGwgbm93Lgo+Pgo+PiAgICAgICAgICAgICAgICAgICAgICAgICBC
+ZWZvcmUgICB8IEFmdGVyCj4+IFhEUF9EUk9QKHhkcDEpIDY0QiAgOiAgMTEuMU1wcHMgfCAxNC40
+TXBwcwo+Pgo+PiBUZXN0ZWQgd2l0aCB4ZHAxL3hkcDIveGRwX2lwX3R4X3R1bm5lbCBhbmQgbmV0
+cGVyZi4KPiBXaGVuIHlvdSBkbyB0aGUgeGRwIHRlc3RzIGFyZSB5b3UgZ2VuZXJhdGluZyBwYWNr
+ZXRzIHdpdGggcGt0Z2VuIG9uIHRoZQo+IGNvcnJlc3BvbmRpbmcgdGFwIGRldmljZXM/CgpZZXMs
+IHBrdGdlbiBvbiB0aGUgdGFwIGRpcmVjdGx5LgoKPgo+IEFsc28gYW5vdGhlciB0aG91Z2h0LCBo
+YXZlIHlvdSBsb29rZWQgYXQgdXNpbmcgc29tZSBvZiB0aGUgYnVmZmVyIHJlY3ljbGluZwo+IHRl
+Y2huaXF1ZXMgdXNlZCBpbiB0aGUgaGFyZHdhcmUgZHJpdmVycyBzdWNoIGFzIGl4Z2JlIGFuZCB3
+aXRoIEVyaWMncyBsYXRlc3QKPiBwYXRjaGVzIG1seD8gSSBoYXZlIHNlZW4gc2lnbmlmaWNhbnQg
+cGVyZm9ybWFuY2UgaW5jcmVhc2VzIGZvciBzb21lCj4gd29ya2xvYWRzIGRvaW5nIHRoaXMuIEkg
+d2FudGVkIHRvIHRyeSBzb21ldGhpbmcgbGlrZSB0aGlzIG91dCBvbiB2aXJ0aW8KPiBidXQgaGF2
+ZW4ndCBoYWQgdGltZSB5ZXQuCgpZZXMsIHRoaXMgaXMgaW4gVE9ETyBsaXN0LiBXaWxsIHBpY2sg
+c29tZSB0aW1lIHRvIGRvIHRoaXMuCgpUaGFua3MKCj4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24g
+V2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4gLS0tCj4gWy4uLl0KPgo+PiAgIHN0YXRpYyBp
+bnQgYWRkX3JlY3ZidWZfc21hbGwoc3RydWN0IHZpcnRuZXRfaW5mbyAqdmksIHN0cnVjdCByZWNl
+aXZlX3F1ZXVlICpycSwKPj4gICAJCQkgICAgIGdmcF90IGdmcCkKPj4gICB7Cj4+IC0JaW50IGhl
+YWRyb29tID0gR09PRF9QQUNLRVRfTEVOICsgdmlydG5ldF9nZXRfaGVhZHJvb20odmkpOwo+PiAr
+CXN0cnVjdCBwYWdlX2ZyYWcgKmFsbG9jX2ZyYWcgPSAmcnEtPmFsbG9jX2ZyYWc7Cj4+ICsJY2hh
+ciAqYnVmOwo+PiAgIAl1bnNpZ25lZCBpbnQgeGRwX2hlYWRyb29tID0gdmlydG5ldF9nZXRfaGVh
+ZHJvb20odmkpOwo+PiAtCXN0cnVjdCBza19idWZmICpza2I7Cj4+IC0Jc3RydWN0IHZpcnRpb19u
+ZXRfaGRyX21yZ19yeGJ1ZiAqaGRyOwo+PiArCWludCBsZW4gPSB2aS0+aGRyX2xlbiArIFZJUlRO
+RVRfUlhfUEFEICsgR09PRF9QQUNLRVRfTEVOICsgeGRwX2hlYWRyb29tOwo+PiAgIAlpbnQgZXJy
+Owo+PiAgIAo+PiAtCXNrYiA9IF9fbmV0ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbih2aS0+ZGV2LCBo
+ZWFkcm9vbSwgZ2ZwKTsKPj4gLQlpZiAodW5saWtlbHkoIXNrYikpCj4+ICsJbGVuID0gU0tCX0RB
+VEFfQUxJR04obGVuKSArCj4+ICsJICAgICAgU0tCX0RBVEFfQUxJR04oc2l6ZW9mKHN0cnVjdCBz
+a2Jfc2hhcmVkX2luZm8pKTsKPj4gKwlpZiAodW5saWtlbHkoIXNrYl9wYWdlX2ZyYWdfcmVmaWxs
+KGxlbiwgYWxsb2NfZnJhZywgZ2ZwKSkpCj4+ICAgCQlyZXR1cm4gLUVOT01FTTsKPj4gICAKPj4g
+LQlza2JfcHV0KHNrYiwgaGVhZHJvb20pOwo+PiAtCj4+IC0JaGRyID0gc2tiX3ZuZXRfaGRyKHNr
+Yik7Cj4+IC0Jc2dfaW5pdF90YWJsZShycS0+c2csIDIpOwo+PiAtCXNnX3NldF9idWYocnEtPnNn
+LCBoZHIsIHZpLT5oZHJfbGVuKTsKPj4gLQlza2JfdG9fc2d2ZWMoc2tiLCBycS0+c2cgKyAxLCB4
+ZHBfaGVhZHJvb20sIHNrYi0+bGVuIC0geGRwX2hlYWRyb29tKTsKPj4gLQo+PiAtCWVyciA9IHZp
+cnRxdWV1ZV9hZGRfaW5idWYocnEtPnZxLCBycS0+c2csIDIsIHNrYiwgZ2ZwKTsKPj4gKwlidWYg
+PSAoY2hhciAqKXBhZ2VfYWRkcmVzcyhhbGxvY19mcmFnLT5wYWdlKSArIGFsbG9jX2ZyYWctPm9m
+ZnNldDsKPj4gKwlnZXRfcGFnZShhbGxvY19mcmFnLT5wYWdlKTsKPj4gKwlhbGxvY19mcmFnLT5v
+ZmZzZXQgKz0gbGVuOwo+PiArCXNnX2luaXRfb25lKHJxLT5zZywgYnVmICsgVklSVE5FVF9SWF9Q
+QUQgKyB4ZHBfaGVhZHJvb20sCj4+ICsJCSAgICB2aS0+aGRyX2xlbiArIEdPT0RfUEFDS0VUX0xF
+Tik7Cj4+ICsJZXJyID0gdmlydHF1ZXVlX2FkZF9pbmJ1ZihycS0+dnEsIHJxLT5zZywgMSwgYnVm
+LCBnZnApOwo+IE5pY2UgdGhpcyBjbGVhbnMgdXAgYSBsb3Qgb2YgdGhlIGJyYW5jaGluZyBjb2Rl
+LiBUaGFua3MuCj4KPiBBY2tlZC1ieTogSm9obiBGYXN0YWJlbmQgPGpvaG4uci5mYXN0YWJlbmRA
+aW50ZWwuY29tPgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4
+LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
