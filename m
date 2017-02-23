@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Thu, 23 Feb 2017 10:45:08 -0500 (EST)
-Message-ID: <20170223.104508.1483994534223572192.davem@davemloft.net>
-References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH] uapi: fix linux/ip6_tunnel.h userspace compilation
+ errors
+Date: Thu, 23 Feb 2017 10:47:08 -0500 (EST)
+Message-ID: <20170223.104708.389386681922163973.davem@davemloft.net>
+References: <20170222223803.GA14311@altlinux.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com
-To: willemdebruijn.kernel@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42080 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751673AbdBWPpK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 10:45:10 -0500
-In-Reply-To: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ldv@altlinux.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170222223803.GA14311@altlinux.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Wed, 22 Feb 2017 11:38:49 -0500
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Date: Thu, 23 Feb 2017 01:38:03 +0300
 
-> From: Willem de Bruijn <willemb@google.com>
+> Include <linux/if.h> and <linux/in6.h> to fix the following
+> linux/ip6_tunnel.h userspace compilation errors:
 > 
-> RFCv2:
+> /usr/include/linux/ip6_tunnel.h:23:12: error: 'IFNAMSIZ' undeclared here (not in a function)
+>   char name[IFNAMSIZ]; /* name of tunnel device */
+> /usr/include/linux/ip6_tunnel.h:30:18: error: field 'laddr' has incomplete type
+>   struct in6_addr laddr; /* local tunnel end-point address */
 > 
-> I have received a few requests for status and rebased code of this
-> feature. We have been running this code internally, discovering and
-> fixing various bugs. With net-next closed, now seems like a good time
-> to share an updated patchset with fixes. The rebase from RFCv1/v4.2
-> was mostly straightforward: mainly iov_iter changes. Full changelog:
+> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
 
-I've been over this series once or twice and generally speaking it looks
-fine to me.
+Applied.
