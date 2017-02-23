@@ -1,52 +1,154 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net V3 5/5] net/mlx4_en: Use __skb_fill_page_desc()
-Date: Thu, 23 Feb 2017 12:02:45 +0200
-Message-ID: <1487844165-9934-6-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net V3 2/5] net/mlx4: Spoofcheck and zero MAC can't coexist
+Date: Thu, 23 Feb 2017 12:02:42 +0200
+Message-ID: <1487844165-9934-3-git-send-email-tariqt@mellanox.com>
 References: <1487844165-9934-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Yotam Gigi <yotamg@mellanox.com>,
         Dexuan Cui <decui@microsoft.com>,
-        Eric Dumazet <edumazet@google.com>,
+        Eugenia Emantayev <eugenia@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55586 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55591 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750837AbdBWKKS (ORCPT
+        with ESMTP id S1750916AbdBWKKS (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 05:10:18 -0500
 In-Reply-To: <1487844165-9934-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-Or we might miss the fact that a page was allocated from memory reserves.
+Spoofcheck can't be enabled if VF MAC is zero.
+Vice versa, can't zero MAC if spoofcheck is on.
 
-Fixes: dceeab0e5258 ("mlx4: support __GFP_MEMALLOC for rx")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 8f7ba3ca12f6 ('net/mlx4: Add set VF mac address support')
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c       | 22 ++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  6 +-----
+ include/linux/mlx4/cmd.h                       |  2 +-
+ include/linux/mlx4/driver.h                    | 10 ++++++++++
+ 4 files changed, 32 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index d85e6446f9d9..867292880c07 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -604,10 +604,10 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 		dma_sync_single_for_cpu(priv->ddev, dma, frag_info->frag_size,
- 					DMA_FROM_DEVICE);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index a49072b4fa52..e8c105164931 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -43,6 +43,7 @@
+ #include <linux/semaphore.h>
+ #include <rdma/ib_smi.h>
+ #include <linux/delay.h>
++#include <linux/etherdevice.h>
  
--		/* Save page reference in skb */
--		__skb_frag_set_page(&skb_frags_rx[nr], frags[nr].page);
--		skb_frag_size_set(&skb_frags_rx[nr], frag_info->frag_size);
--		skb_frags_rx[nr].page_offset = frags[nr].page_offset;
-+		__skb_fill_page_desc(skb, nr, frags[nr].page,
-+				     frags[nr].page_offset,
-+				     frag_info->frag_size);
+ #include <asm/io.h>
+ 
+@@ -2955,7 +2956,7 @@ static bool mlx4_valid_vf_state_change(struct mlx4_dev *dev, int port,
+ 	return false;
+ }
+ 
+-int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac)
++int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u8 *mac)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_vport_state *s_info;
+@@ -2964,13 +2965,22 @@ int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac)
+ 	if (!mlx4_is_master(dev))
+ 		return -EPROTONOSUPPORT;
+ 
++	if (is_multicast_ether_addr(mac))
++		return -EINVAL;
 +
- 		skb->truesize += frag_info->frag_stride;
- 		frags[nr].page = NULL;
- 	}
+ 	slave = mlx4_get_slave_indx(dev, vf);
+ 	if (slave < 0)
+ 		return -EINVAL;
+ 
+ 	port = mlx4_slaves_closest_port(dev, slave, port);
+ 	s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
+-	s_info->mac = mac;
++
++	if (s_info->spoofchk && is_zero_ether_addr(mac)) {
++		mlx4_info(dev, "MAC invalidation is not allowed when spoofchk is on\n");
++		return -EPERM;
++	}
++
++	s_info->mac = mlx4_mac_to_u64(mac);
+ 	mlx4_info(dev, "default mac on vf %d port %d to %llX will take effect only after vf restart\n",
+ 		  vf, port, s_info->mac);
+ 	return 0;
+@@ -3143,6 +3153,7 @@ int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_vport_state *s_info;
+ 	int slave;
++	u8 mac[ETH_ALEN];
+ 
+ 	if ((!mlx4_is_master(dev)) ||
+ 	    !(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_FSM))
+@@ -3154,6 +3165,13 @@ int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting)
+ 
+ 	port = mlx4_slaves_closest_port(dev, slave, port);
+ 	s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
++
++	mlx4_u64_to_mac(mac, s_info->mac);
++	if (setting && !is_valid_ether_addr(mac)) {
++		mlx4_info(dev, "Illegal MAC with spoofchk\n");
++		return -EPERM;
++	}
++
+ 	s_info->spoofchk = setting;
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index afe4444e5434..61420473fe5f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2485,12 +2485,8 @@ static int mlx4_en_set_vf_mac(struct net_device *dev, int queue, u8 *mac)
+ {
+ 	struct mlx4_en_priv *en_priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = en_priv->mdev;
+-	u64 mac_u64 = mlx4_mac_to_u64(mac);
+ 
+-	if (is_multicast_ether_addr(mac))
+-		return -EINVAL;
+-
+-	return mlx4_set_vf_mac(mdev->dev, en_priv->port, queue, mac_u64);
++	return mlx4_set_vf_mac(mdev->dev, en_priv->port, queue, mac);
+ }
+ 
+ static int mlx4_en_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos,
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 1f3568694a57..7b74afcbbab2 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -308,7 +308,7 @@ int mlx4_get_counter_stats(struct mlx4_dev *dev, int counter_index,
+ int mlx4_get_vf_stats(struct mlx4_dev *dev, int port, int vf_idx,
+ 		      struct ifla_vf_stats *vf_stats);
+ u32 mlx4_comm_get_version(void);
+-int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
++int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u8 *mac);
+ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan,
+ 		     u8 qos, __be16 proto);
+ int mlx4_set_vf_rate(struct mlx4_dev *dev, int port, int vf, int min_tx_rate,
+diff --git a/include/linux/mlx4/driver.h b/include/linux/mlx4/driver.h
+index bd0e7075ea6d..e965e5090d96 100644
+--- a/include/linux/mlx4/driver.h
++++ b/include/linux/mlx4/driver.h
+@@ -104,4 +104,14 @@ static inline u64 mlx4_mac_to_u64(u8 *addr)
+ 	return mac;
+ }
+ 
++static inline void mlx4_u64_to_mac(u8 *addr, u64 mac)
++{
++	int i;
++
++	for (i = ETH_ALEN; i > 0; i--) {
++		addr[i - 1] = mac && 0xFF;
++		mac >>= 8;
++	}
++}
++
+ #endif /* MLX4_DRIVER_H */
 -- 
 1.8.3.1
