@@ -1,187 +1,133 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH] iproute2: hide devices starting with period by default
-Date: Thu, 23 Feb 2017 11:50:28 -0800
-Message-ID: <20170223195028.16388-1-stephen@networkplumber.org>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34994 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750828AbdBWTud (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 14:50:33 -0500
-Received: by mail-pf0-f177.google.com with SMTP id 68so83189pfx.2
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 11:50:33 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: realtek: r8169: use new api ethtool_{get|set}_link_ksettings
+Date: Thu, 23 Feb 2017 22:34:43 +0100
+Message-ID: <1487885683-4191-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, nic_swsd@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some use cases create Linux networking devices which are not intended for use
-by normal networking. This is an enhancement to ip command to hide network
-devices starting with period (like files in normal directory).  Interfaces whose
-name start with "." are not shown by default, and the -a (or -all) flag must
-be used to show these devices.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Example:
-$ ip -brief link show
-lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
-eth0             UP             00:25:90:86:b3:6b <BROADCAST,MULTICAST,UP,LOWER_UP>
-eth1             DOWN           00:25:90:86:b3:6a <NO-CARRIER,BROADCAST,MULTICAST,UP>
-$ ip -all -brief link show
-lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
-eth0             UP             00:25:90:86:b3:6b <BROADCAST,MULTICAST,UP,LOWER_UP>
-eth1             DOWN           00:25:90:86:b3:6a <NO-CARRIER,BROADCAST,MULTICAST,UP>
-.eth2            DOWN           00:1b:21:a0:e7:06 <BROADCAST,MULTICAST>
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- include/utils.h |  1 +
- ip/ip.c         |  5 ++++-
- ip/ipaddress.c  | 31 ++++++++++++++++++++++++-------
- man/man8/ip.8   |  5 +++++
- 4 files changed, 34 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c |   41 ++++++++++++++++++++-------------
+ 1 files changed, 25 insertions(+), 16 deletions(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index 22369e0b4e03..50712d27f112 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -16,6 +16,7 @@ extern int human_readable;
- extern int use_iec;
- extern int show_stats;
- extern int show_details;
-+extern int show_all;
- extern int show_raw;
- extern int resolve_hosts;
- extern int oneline;
-diff --git a/ip/ip.c b/ip/ip.c
-index 07050b07592a..ed637b065b58 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -30,6 +30,7 @@ int human_readable;
- int use_iec;
- int show_stats;
- int show_details;
-+int show_all;
- int resolve_hosts;
- int oneline;
- int brief;
-@@ -54,7 +55,7 @@ static void usage(void)
- "                   netns | l2tp | fou | macsec | tcp_metrics | token | netconf | ila |\n"
- "                   vrf }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
--"                    -h[uman-readable] | -iec |\n"
-+"                    -h[uman-readable] | -iec | -all |\n"
- "                    -f[amily] { inet | inet6 | ipx | dnet | mpls | bridge | link } |\n"
- "                    -4 | -6 | -I | -D | -B | -0 |\n"
- "                    -l[oops] { maximum-addr-flush-attempts } | -br[ief] |\n"
-@@ -231,6 +232,8 @@ int main(int argc, char **argv)
- 			++show_stats;
- 		} else if (matches(opt, "-details") == 0) {
- 			++show_details;
-+		} else if (matches(opt, "-all") == 0) {
-+			++show_all;
- 		} else if (matches(opt, "-resolve") == 0) {
- 			++resolve_hosts;
- 		} else if (matches(opt, "-oneline") == 0) {
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 400ebb4de563..029aae100549 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -660,6 +660,7 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 	struct ifinfomsg *ifi = NLMSG_DATA(n);
- 	struct rtattr *tb[IFLA_MAX+1];
- 	int len = n->nlmsg_len;
-+	const char *ifname;
- 	char *name;
- 	char buf[32] = { 0, };
- 	unsigned int m_flag = 0;
-@@ -677,14 +678,22 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- 		return -1;
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 81f18a8..24b045b 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -817,7 +817,8 @@ struct rtl8169_private {
+ 	} csi_ops;
  
- 	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
--	if (tb[IFLA_IFNAME] == NULL)
--		fprintf(stderr, "BUG: device with ifindex %d has nil ifname\n", ifi->ifi_index);
-+	if (tb[IFLA_IFNAME])
-+		ifname = rta_getattr_str(tb[IFLA_IFNAME]);
-+	else {
-+		fprintf(stderr, "BUG: device with ifindex %d has nil ifname\n",
-+			ifi->ifi_index);
-+		ifname = "<nil>";
-+	}
+ 	int (*set_speed)(struct net_device *, u8 aneg, u16 sp, u8 dpx, u32 adv);
+-	int (*get_settings)(struct net_device *, struct ethtool_cmd *);
++	int (*get_link_ksettings)(struct net_device *,
++				  struct ethtool_link_ksettings *);
+ 	void (*phy_reset_enable)(struct rtl8169_private *tp);
+ 	void (*hw_start)(struct net_device *);
+ 	unsigned int (*phy_reset_pending)(struct rtl8169_private *tp);
+@@ -2115,41 +2116,49 @@ static void rtl8169_rx_vlan_tag(struct RxDesc *desc, struct sk_buff *skb)
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), swab16(opts2 & 0xffff));
+ }
  
- 	if (filter.label &&
- 	    (!filter.family || filter.family == AF_PACKET) &&
- 	    fnmatch(filter.label, RTA_DATA(tb[IFLA_IFNAME]), 0))
- 		return -1;
+-static int rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
++static int rtl8169_get_link_ksettings_tbi(struct net_device *dev,
++					  struct ethtool_link_ksettings *cmd)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	u32 status;
++	u32 supported, advertising;
  
-+	if (!filter.ifindex && *ifname == '.' && !show_all)
-+		return 0;
+-	cmd->supported =
++	supported =
+ 		SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg | SUPPORTED_FIBRE;
+-	cmd->port = PORT_FIBRE;
+-	cmd->transceiver = XCVR_INTERNAL;
++	cmd->base.port = PORT_FIBRE;
+ 
+ 	status = RTL_R32(TBICSR);
+-	cmd->advertising = (status & TBINwEnable) ?  ADVERTISED_Autoneg : 0;
+-	cmd->autoneg = !!(status & TBINwEnable);
++	advertising = (status & TBINwEnable) ?  ADVERTISED_Autoneg : 0;
++	cmd->base.autoneg = !!(status & TBINwEnable);
+ 
+-	ethtool_cmd_speed_set(cmd, SPEED_1000);
+-	cmd->duplex = DUPLEX_FULL; /* Always set */
++	cmd->base.speed = SPEED_1000;
++	cmd->base.duplex = DUPLEX_FULL; /* Always set */
 +
- 	if (tb[IFLA_GROUP]) {
- 		int group = *(int *)RTA_DATA(tb[IFLA_GROUP]);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						advertising);
  
-@@ -758,6 +767,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 	struct ifinfomsg *ifi = NLMSG_DATA(n);
- 	struct rtattr *tb[IFLA_MAX+1];
- 	int len = n->nlmsg_len;
-+	const char *ifname;
- 	unsigned int m_flag = 0;
+ 	return 0;
+ }
  
- 	if (n->nlmsg_type != RTM_NEWLINK && n->nlmsg_type != RTM_DELLINK)
-@@ -773,12 +783,20 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 		return 0;
+-static int rtl8169_gset_xmii(struct net_device *dev, struct ethtool_cmd *cmd)
++static int rtl8169_get_link_ksettings_xmii(struct net_device *dev,
++					   struct ethtool_link_ksettings *cmd)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
  
- 	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
--	if (tb[IFLA_IFNAME] == NULL)
--		fprintf(stderr, "BUG: device with ifindex %d has nil ifname\n", ifi->ifi_index);
-+	if (tb[IFLA_IFNAME])
-+		ifname = rta_getattr_str(tb[IFLA_IFNAME]);
-+	else {
-+		fprintf(stderr, "BUG: device with ifindex %d has nil ifname\n",
-+			ifi->ifi_index);
-+		ifname = "<nil>";
-+	}
+-	return mii_ethtool_gset(&tp->mii, cmd);
++	return mii_ethtool_get_link_ksettings(&tp->mii, cmd);
+ }
  
- 	if (filter.label &&
- 	    (!filter.family || filter.family == AF_PACKET) &&
--	    fnmatch(filter.label, RTA_DATA(tb[IFLA_IFNAME]), 0))
-+	    fnmatch(filter.label, ifname, 0))
-+		return 0;
-+
-+	if (!filter.ifindex && *ifname == '.' && !show_all)
- 		return 0;
+-static int rtl8169_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int rtl8169_get_link_ksettings(struct net_device *dev,
++				      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	int rc;
  
- 	if (tb[IFLA_GROUP]) {
-@@ -806,8 +824,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 		fprintf(fp, "Deleted ");
+ 	rtl_lock_work(tp);
+-	rc = tp->get_settings(dev, cmd);
++	rc = tp->get_link_ksettings(dev, cmd);
+ 	rtl_unlock_work(tp);
  
- 	fprintf(fp, "%d: ", ifi->ifi_index);
--	color_fprintf(fp, COLOR_IFNAME, "%s",
--		      tb[IFLA_IFNAME] ? rta_getattr_str(tb[IFLA_IFNAME]) : "<nil>");
-+	color_fprintf(fp, COLOR_IFNAME, "%s", ifname);
+ 	return rc;
+@@ -2356,7 +2365,6 @@ static int rtl8169_nway_reset(struct net_device *dev)
+ 	.get_drvinfo		= rtl8169_get_drvinfo,
+ 	.get_regs_len		= rtl8169_get_regs_len,
+ 	.get_link		= ethtool_op_get_link,
+-	.get_settings		= rtl8169_get_settings,
+ 	.set_settings		= rtl8169_set_settings,
+ 	.get_msglevel		= rtl8169_get_msglevel,
+ 	.set_msglevel		= rtl8169_set_msglevel,
+@@ -2368,6 +2376,7 @@ static int rtl8169_nway_reset(struct net_device *dev)
+ 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
+ 	.get_ts_info		= ethtool_op_get_ts_info,
+ 	.nway_reset		= rtl8169_nway_reset,
++	.get_link_ksettings	= rtl8169_get_link_ksettings,
+ };
  
- 	if (tb[IFLA_LINK]) {
- 		SPRINT_BUF(b1);
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 8ecb1996da92..813dbec2a6f2 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -31,6 +31,7 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- \fB\-h\fR[\fIuman-readable\fR] |
- \fB\-s\fR[\fItatistics\fR] |
- \fB\-d\fR[\fIetails\fR] |
-+\fB\-a\fR[\fll\fR] |
- \fB\-r\fR[\fIesolve\fR] |
- \fB\-iec\fR |
- \fB\-f\fR[\fIamily\fR] {
-@@ -84,6 +85,10 @@ As a rule, the information is statistics or some time values.
- Output more detailed information.
+ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+@@ -8351,14 +8360,14 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- .TP
-+.BR "\-a" , " \-all"
-+Show all devices, do not ignore entries starting with period.
-+
-+.TP
- .BR "\-l" , " \-loops " <COUNT>
- Specify maximum number of loops the 'ip address flush' logic
- will attempt before giving up. The default is 10.
+ 	if (rtl_tbi_enabled(tp)) {
+ 		tp->set_speed = rtl8169_set_speed_tbi;
+-		tp->get_settings = rtl8169_gset_tbi;
++		tp->get_link_ksettings = rtl8169_get_link_ksettings_tbi;
+ 		tp->phy_reset_enable = rtl8169_tbi_reset_enable;
+ 		tp->phy_reset_pending = rtl8169_tbi_reset_pending;
+ 		tp->link_ok = rtl8169_tbi_link_ok;
+ 		tp->do_ioctl = rtl_tbi_ioctl;
+ 	} else {
+ 		tp->set_speed = rtl8169_set_speed_xmii;
+-		tp->get_settings = rtl8169_gset_xmii;
++		tp->get_link_ksettings = rtl8169_get_link_ksettings_xmii;
+ 		tp->phy_reset_enable = rtl8169_xmii_reset_enable;
+ 		tp->phy_reset_pending = rtl8169_xmii_reset_pending;
+ 		tp->link_ok = rtl8169_xmii_link_ok;
 -- 
-2.11.0
+1.7.4.4
