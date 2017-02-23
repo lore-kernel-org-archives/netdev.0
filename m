@@ -1,133 +1,185 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: realtek: r8169: use new api ethtool_{get|set}_link_ksettings
-Date: Thu, 23 Feb 2017 22:34:43 +0100
-Message-ID: <1487885683-4191-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, nic_swsd@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [PATCH v5 07/10] bpf: Add a Landlock sandbox example
+Date: Thu, 23 Feb 2017 23:13:23 +0100
+Message-ID: <372bb698-2078-93f4-72c4-9e430aa09ff9@digikod.net>
+References: <20170222012632.4196-1-mic@digikod.net>
+ <20170222012632.4196-8-mic@digikod.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="a8cP3ev6Escei5qUtuk8bej2tTXHrfwIg"
+Cc: Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski
+ <luto@amacapital.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Drysdale
+ <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Matthew Garrett <mjg59@srcf.ucam.org>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+        Will Drewry <wad@chromi
+To: linux-kernel@vger.kernel.org
+Return-path: <kernel-hardening-return-6821-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170222012632.4196-8-mic@digikod.net>
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--a8cP3ev6Escei5qUtuk8bej2tTXHrfwIg
+Content-Type: multipart/mixed; boundary="WIcPwgB6lxkVvchfBjaucN2wuWqA4GX8F";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: linux-kernel@vger.kernel.org
+Cc: Alexei Starovoitov <ast@kernel.org>, Andy Lutomirski
+ <luto@amacapital.net>, Arnaldo Carvalho de Melo <acme@kernel.org>,
+ Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
+ <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
+ "Eric W . Biederman" <ebiederm@xmission.com>,
+ James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+ Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
+ Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+ Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+ Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+ linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
+ netdev@vger.kernel.org
+Message-ID: <372bb698-2078-93f4-72c4-9e430aa09ff9@digikod.net>
+Subject: Re: [PATCH v5 07/10] bpf: Add a Landlock sandbox example
+References: <20170222012632.4196-1-mic@digikod.net>
+ <20170222012632.4196-8-mic@digikod.net>
+In-Reply-To: <20170222012632.4196-8-mic@digikod.net>
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+--WIcPwgB6lxkVvchfBjaucN2wuWqA4GX8F
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c |   41 ++++++++++++++++++++-------------
- 1 files changed, 25 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 81f18a8..24b045b 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -817,7 +817,8 @@ struct rtl8169_private {
- 	} csi_ops;
- 
- 	int (*set_speed)(struct net_device *, u8 aneg, u16 sp, u8 dpx, u32 adv);
--	int (*get_settings)(struct net_device *, struct ethtool_cmd *);
-+	int (*get_link_ksettings)(struct net_device *,
-+				  struct ethtool_link_ksettings *);
- 	void (*phy_reset_enable)(struct rtl8169_private *tp);
- 	void (*hw_start)(struct net_device *);
- 	unsigned int (*phy_reset_pending)(struct rtl8169_private *tp);
-@@ -2115,41 +2116,49 @@ static void rtl8169_rx_vlan_tag(struct RxDesc *desc, struct sk_buff *skb)
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), swab16(opts2 & 0xffff));
- }
- 
--static int rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int rtl8169_get_link_ksettings_tbi(struct net_device *dev,
-+					  struct ethtool_link_ksettings *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	u32 status;
-+	u32 supported, advertising;
- 
--	cmd->supported =
-+	supported =
- 		SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg | SUPPORTED_FIBRE;
--	cmd->port = PORT_FIBRE;
--	cmd->transceiver = XCVR_INTERNAL;
-+	cmd->base.port = PORT_FIBRE;
- 
- 	status = RTL_R32(TBICSR);
--	cmd->advertising = (status & TBINwEnable) ?  ADVERTISED_Autoneg : 0;
--	cmd->autoneg = !!(status & TBINwEnable);
-+	advertising = (status & TBINwEnable) ?  ADVERTISED_Autoneg : 0;
-+	cmd->base.autoneg = !!(status & TBINwEnable);
- 
--	ethtool_cmd_speed_set(cmd, SPEED_1000);
--	cmd->duplex = DUPLEX_FULL; /* Always set */
-+	cmd->base.speed = SPEED_1000;
-+	cmd->base.duplex = DUPLEX_FULL; /* Always set */
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
- 
- 	return 0;
- }
- 
--static int rtl8169_gset_xmii(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int rtl8169_get_link_ksettings_xmii(struct net_device *dev,
-+					   struct ethtool_link_ksettings *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 
--	return mii_ethtool_gset(&tp->mii, cmd);
-+	return mii_ethtool_get_link_ksettings(&tp->mii, cmd);
- }
- 
--static int rtl8169_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int rtl8169_get_link_ksettings(struct net_device *dev,
-+				      struct ethtool_link_ksettings *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	int rc;
- 
- 	rtl_lock_work(tp);
--	rc = tp->get_settings(dev, cmd);
-+	rc = tp->get_link_ksettings(dev, cmd);
- 	rtl_unlock_work(tp);
- 
- 	return rc;
-@@ -2356,7 +2365,6 @@ static int rtl8169_nway_reset(struct net_device *dev)
- 	.get_drvinfo		= rtl8169_get_drvinfo,
- 	.get_regs_len		= rtl8169_get_regs_len,
- 	.get_link		= ethtool_op_get_link,
--	.get_settings		= rtl8169_get_settings,
- 	.set_settings		= rtl8169_set_settings,
- 	.get_msglevel		= rtl8169_get_msglevel,
- 	.set_msglevel		= rtl8169_set_msglevel,
-@@ -2368,6 +2376,7 @@ static int rtl8169_nway_reset(struct net_device *dev)
- 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
- 	.get_ts_info		= ethtool_op_get_ts_info,
- 	.nway_reset		= rtl8169_nway_reset,
-+	.get_link_ksettings	= rtl8169_get_link_ksettings,
- };
- 
- static void rtl8169_get_mac_version(struct rtl8169_private *tp,
-@@ -8351,14 +8360,14 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	if (rtl_tbi_enabled(tp)) {
- 		tp->set_speed = rtl8169_set_speed_tbi;
--		tp->get_settings = rtl8169_gset_tbi;
-+		tp->get_link_ksettings = rtl8169_get_link_ksettings_tbi;
- 		tp->phy_reset_enable = rtl8169_tbi_reset_enable;
- 		tp->phy_reset_pending = rtl8169_tbi_reset_pending;
- 		tp->link_ok = rtl8169_tbi_link_ok;
- 		tp->do_ioctl = rtl_tbi_ioctl;
- 	} else {
- 		tp->set_speed = rtl8169_set_speed_xmii;
--		tp->get_settings = rtl8169_gset_xmii;
-+		tp->get_link_ksettings = rtl8169_get_link_ksettings_xmii;
- 		tp->phy_reset_enable = rtl8169_xmii_reset_enable;
- 		tp->phy_reset_pending = rtl8169_xmii_reset_pending;
- 		tp->link_ok = rtl8169_xmii_link_ok;
--- 
-1.7.4.4
+On 22/02/2017 02:26, Micka=C3=ABl Sala=C3=BCn wrote:
+> Add a basic sandbox tool to create a process isolated from some part of=
+
+> the system. This sandbox create a read-only environment. It is only
+> allowed to write to a character device such as a TTY:
+>=20
+>   # :> X
+>   # echo $?
+>   0
+>   # ./samples/bpf/landlock1 /bin/sh -i
+>   Launching a new sandboxed process.
+>   # :> Y
+>   cannot create Y: Operation not permitted
+>=20
+> Changes since v4:
+> * write Landlock rule in C and compiled it with LLVM
+> * remove cgroup handling
+> * remove path handling: only handle a read-only environment
+> * remove errno return codes
+>=20
+> Changes since v3:
+> * remove seccomp and origin field: completely free from seccomp program=
+s
+> * handle more FS-related hooks
+> * handle inode hooks and directory traversal
+> * add faked but consistent view thanks to ENOENT
+> * add /lib64 in the example
+> * fix spelling
+> * rename some types and definitions (e.g. SECCOMP_ADD_LANDLOCK_RULE)
+>=20
+> Changes since v2:
+> * use BPF_PROG_ATTACH for cgroup handling
+>=20
+> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: Andy Lutomirski <luto@amacapital.net>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: James Morris <james.l.morris@oracle.com>
+> Cc: Kees Cook <keescook@chromium.org>
+> Cc: Serge E. Hallyn <serge@hallyn.com>
+> ---
+>  samples/bpf/.gitignore       |  32 ++++++++++++++
+>  samples/bpf/Makefile         |   4 ++
+>  samples/bpf/bpf_load.c       |  26 +++++++++--
+>  samples/bpf/landlock1_kern.c |  46 +++++++++++++++++++
+>  samples/bpf/landlock1_user.c | 102 +++++++++++++++++++++++++++++++++++=
+++++++++
+>  5 files changed, 206 insertions(+), 4 deletions(-)
+>  create mode 100644 samples/bpf/.gitignore
+>  create mode 100644 samples/bpf/landlock1_kern.c
+>  create mode 100644 samples/bpf/landlock1_user.c
+>=20
+> diff --git a/samples/bpf/.gitignore b/samples/bpf/.gitignore
+> new file mode 100644
+> index 000000000000..a7562a5ef4c2
+> --- /dev/null
+> +++ b/samples/bpf/.gitignore
+> @@ -0,0 +1,32 @@
+> +fds_example
+> +lathist
+> +lwt_len_hist
+> +map_perf_test
+> +offwaketime
+> +sampleip
+> +sockex1
+> +sockex2
+> +sockex3
+> +sock_example
+> +spintest
+> +tc_l2_redirect
+> +test_cgrp2_array_pin
+> +test_cgrp2_attach
+> +test_cgrp2_attach2
+> +test_cgrp2_sock
+> +test_cgrp2_sock2
+> +test_current_task_under_cgroup
+> +test_lru_dist
+> +test_overhead
+> +test_probe_write_user
+> +trace_event
+> +trace_output
+> +tracex1
+> +tracex2
+> +tracex3
+> +tracex4
+> +tracex5
+> +tracex6
+> +xdp1
+> +xdp2
+> +xdp_tx_iptunnel
+
+Please ignore this hunk, it was part of another patch series=E2=80=A6
+
+
+--WIcPwgB6lxkVvchfBjaucN2wuWqA4GX8F--
+
+--a8cP3ev6Escei5qUtuk8bej2tTXHrfwIg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlivXoMACgkQIt7+33O9
+apVBxAf+PnNT5E80/vKvyWZABMk2vxQTROgNa2zY7xLmJtngzGOO3qZfIPvCf71C
+huALJWKkqCeiWhz8a9LQtHvHccZM0sksva6iH6kCU+dYArASMLfwQc2drbtV6g9I
+41CINz5C8xv1+q548gNwKkwpMSqAHWTfvEQrfZeazZj8gclVjPLAGye6PpoXs4uh
+wN20Jigicmywx4NEVOjBqYtWmj2XduT2PWQ3HMqeJeQBtjmZ69uH2lqoDfXpHhHI
+ChorM4o+KIwsurt48URENDGS7Yf/XjQLO3EI+9+mdQ9AALsHysbFsurSIByI0yU5
+LwfFHMmBXJLntBPLfiMqqCNGqg6olw==
+=B1UO
+-----END PGP SIGNATURE-----
+
+--a8cP3ev6Escei5qUtuk8bej2tTXHrfwIg--
