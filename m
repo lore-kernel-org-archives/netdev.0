@@ -1,81 +1,74 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/2] sctp: add support for MSG_MORE
-Date: Thu, 23 Feb 2017 16:04:10 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
-References: <cover.1487440272.git.lucien.xin@gmail.com>
- <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
- <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: move premature
+	initilalization of stack variables
+Date: Thu, 23 Feb 2017 11:10:31 -0500
+Message-ID: <1487866231-23666-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "Vlad Yasevich" <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: 'Xin Long' <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.193]:51823 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751049AbdBWQEW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 11:04:22 -0500
-In-Reply-To: <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogWGluIExvbmcNCj4gU2VudDogMjMgRmVicnVhcnkgMjAxNyAwMzo0Ng0KPiBPbiBUdWUs
-IEZlYiAyMSwgMjAxNyBhdCAxMDoyNyBQTSwgRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1
-bGFiLmNvbT4gd3JvdGU6DQo+ID4gRnJvbTogWGluIExvbmcNCj4gPj4gU2VudDogMTggRmVicnVh
-cnkgMjAxNyAxNzo1Mw0KPiA+PiBUaGlzIHBhdGNoIGlzIHRvIGFkZCBzdXBwb3J0IGZvciBNU0df
-TU9SRSBvbiBzY3RwLg0KPiA+Pg0KPiA+PiBJdCBhZGRzIGZvcmNlX2RlbGF5IGluIHNjdHBfZGF0
-YW1zZyB0byBzYXZlIE1TR19NT1JFLCBhbmQgc2V0cyBpdCBhZnRlcg0KPiA+PiBjcmVhdGluZyBk
-YXRhbXNnIGFjY29yZGluZyB0byB0aGUgc2VuZCBmbGFnLiBzY3RwX3BhY2tldF9jYW5fYXBwZW5k
-X2RhdGENCj4gPj4gdGhlbiB1c2VzIGl0IHRvIGRlY2lkZSBpZiB0aGUgY2h1bmtzIG9mIHRoaXMg
-bXNnIHdpbGwgYmUgc2VudCBhdCBvbmNlIG9yDQo+ID4+IGRlbGF5IGl0Lg0KPiA+Pg0KPiA+PiBO
-b3RlIHRoYXQgdW5saWtlIFsxXSwgdGhpcyBwYXRjaCBzYXZlcyBNU0dfTU9SRSBpbiBkYXRhbXNn
-LCBpbnN0ZWFkIG9mDQo+ID4+IGluIGFzc29jLiBBcyBzY3RwIGVucXVldWVzIHRoZSBjaHVua3Mg
-Zmlyc3QsIHRoZW4gZGVxdWV1ZSB0aGVtIG9uZSBieQ0KPiA+PiBvbmUuIElmIGl0J3Mgc2F2ZWQg
-aW4gYXNzb2MsdGhlIGN1cnJlbnQgbXNnJ3Mgc2VuZCBmbGFnIChNU0dfTU9SRSkgbWF5DQo+ID4+
-IGFmZmVjdCBvdGhlciBjaHVua3MnIGJ1bmRsaW5nLg0KPiA+DQo+ID4gSSB0aG91Z2h0IGFib3V0
-IHRoYXQgYW5kIGRlY2lkZWQgdGhhdCB0aGUgTVNHX01PUkUgZmxhZyBvbiB0aGUgbGFzdCBkYXRh
-DQo+ID4gY2h1bmsgd2FzIHRoZSBvbmx5IG9uZSB0aGF0IG1hdHRlcmVkLg0KPiA+IEluZGVlZCBs
-b29raW5nIGF0IGFueSBvdGhlcnMgaXMgYnJva2VuLg0KPiA+DQo+ID4gQ29uc2lkZXIgd2hhdCBo
-YXBwZW5zIGlmIHlvdSBoYXZlIHR3byBzbWFsbCBjaHVua3MgcXVldWVkLCB0aGUgZmlyc3QNCj4g
-PiB3aXRoIE1TR19NT1JFIHNldCwgdGhlIHNlY29uZCB3aXRoIGl0IGNsZWFyLg0KPiA+DQo+ID4g
-SSB0aGluayB0aGF0IHNjdHBfb3V0cV9mbHVzaCgpIHdpbGwgbG9vayBhdCB0aGUgZmlyc3QgY2h1
-bmsgYW5kIGRlY2lkZSBpdA0KPiA+IGRvZXNuJ3QgbmVlZCB0byBkbyBhbnl0aGluZyBiZWNhdXNl
-IHNjdHBfcGFja2V0X3RyYW5zbWl0X2NodW5rKCkNCj4gPiByZXR1cm5zIFNDVFBfWE1JVF9ERUxB
-WS4NCj4gPiBUaGUgZGF0YSBjaHVuayB3aXRoIE1TR19NT1JFIGNsZWFyIHdvbid0IGV2ZW4gYmUg
-bG9va2VkIGF0Lg0KPiA+IFNvIHRoZSBkYXRhIHdpbGwgbmV2ZXIgYmUgc2VudC4NCg0KPiBJdCdz
-IG5vdCB0aGF0IGJhZCBhcyB5b3UgdGhvdWdodCwgaW4gc2N0cF9wYWNrZXRfY2FuX2FwcGVuZF9k
-YXRhKCk6DQo+IHdoZW4gaW5mbGlnaHQgPT0gMCB8fCBzY3RwX3NrKGFzb2MtPmJhc2Uuc2spLT5u
-b2RlbGF5LCB0aGUgY2h1bmtzDQo+IHdvdWxkIGJlIHN0aWxsIHNlbnQgb3V0Lg0KDQpPbmUgb2Yg
-dXMgaXNuJ3QgdW5kZXJzdGFuZGluZyB0aGUgb3RoZXIgOi0pDQoNCklJUkMgc2N0cF9wYWNrZXRf
-Y2FuX2FwcGVuZF9kYXRhKCkgaXMgY2FsbGVkIGZvciB0aGUgZmlyc3QgcXVldWVkDQpkYXRhIGNo
-dW5rIGluIG9yZGVyIHRvIGRlY2lkZSB3aGV0aGVyIHRvIGdlbmVyYXRlIGEgbWVzc2FnZSB0aGF0
-DQpjb25zaXN0cyBvbmx5IG9mIGRhdGEgY2h1bmtzLg0KSWYgaXQgcmV0dXJucyBTQ1RQX1hNSVRf
-T0sgdGhlbiBhIG1lc3NhZ2UgaXMgYnVpbHQgY29sbGVjdGluZyB0aGUNCnJlc3Qgb2YgdGhlIHF1
-ZXVlZCBkYXRhIGNodW5rcyAodW50aWwgdGhlIHdpbmRvdyBmaWxscykuDQoNClNvIGlmIEkgc2Vu
-ZCBhIG1lc3NhZ2Ugd2l0aCBNU0dfTU9SRSBzZXQgKG9uIGFuIGlkbGUgY29ubmVjdGlvbikNClND
-VFBfWE1JVF9ERUxBWSBpcyByZXR1cm5lZCBhbmQgYSBtZXNzYWdlIGlzbid0IHNlbnQuDQoNCkkg
-bm93IHNlbmQgYSBzZWNvbmQgc21hbGwgbWVzc2FnZSwgdGhpcyB0aW1lIHdpdGggTVNHX01PUkUg
-Y2xlYXIuDQpUaGUgbWVzc2FnZSBpcyBxdWV1ZWQsIHRoZW4gdGhlIGNvZGUgbG9va3MgdG8gc2Vl
-IGlmIGl0IGNhbiBzZW5kIGFueXRoaW5nLg0KDQpzY3RwX3BhY2tldF9jYW5fYXBwZW5kX2RhdGEo
-KSBpcyBjYWxsZWQgZm9yIHRoZSBmaXJzdCBxdWV1ZWQgY2h1bmsuDQpTaW5jZSBpdCBoYXMgZm9y
-Y2VfZGVsYXkgc2V0IFNDVFBfWE1JVF9ERUxBWSBpcyByZXR1cm5lZCBhbmQgbm8NCm1lc3NhZ2Ug
-aXMgYnVpbHQuDQpUaGUgc2Vjb25kIG1lc3NhZ2UgaXNuJ3QgZXZlbiBsb29rZWQgYXQuDQoNCj4g
-V2hhdCBNU0dfTU9SRSBmbGFnIGFjdHVhbGx5IGRvZXMgaXMgaWdub3JlIGluZmxpZ2h0ID09IDAg
-YW5kDQo+IHNjdHBfc2soYXNvYy0+YmFzZS5zayktPm5vZGVsYXkgdG8gZGVsYXkgdGhlIGNodW5r
-cywgYnV0IHN0aWxsDQo+IGl0IGhhcyB0byByZXNwZWN0IHRoZSBvcmlnaW5hbCBsb2dpYyAobGlr
-ZSAhY2h1bmstPm1zZy0+Y2FuX2RlbGF5DQo+IHx8ICFzY3RwX3BhY2tldF9lbXB0eShwYWNrZXQp
-IHx8IC4uLikNCj4gDQo+IFRvIGRlbGF5IHRoZSBjaHVua3Mgd2l0aCBNU0dfTU9SRSBzZXQgZXZl
-biB3aGVuIGluZmxpZ2h0IGlzIDANCj4gaXQgZXNwZWNpYWxseSBpbXBvcnRhbnQgaGVyZSBmb3Ig
-dXNlcnMuDQoNCkknbSBub3QgdG9vIHdvcnJpZWQgYWJvdXQgdGhhdC4NClNlbmRpbmcgdGhlIGZp
-cnN0IG1lc3NhZ2Ugd2FzIGEgY2hlYXAgd2F5IHRvIGVuc3VyZSBzb21ldGhpbmcgZ290DQpzZW50
-IGlmIHRoZSBhcHBsaWNhdGlvbiBsaWVkIGFuZCBkaWRuJ3Qgc2VuZCBhIHN1YnNlcXVlbnQgbWVz
-c2FnZS4NCg0KVGhlIGNoYW5nZSBoYXMgaGl0IExpbnVzJ3MgdHJlZSwgSSdsbCBzaG91bGQgYmUg
-YWJsZSB0byB0ZXN0IHRoYXQNCmFuZCBjb25maXJtIHdoYXQgSSB0aGluayBpcyBnb2luZyBvbi4N
-Cg0KCURhdmlkDQoNCg==
+In the function tipc_rcv() we initialize a couple of stack variables
+from the message header before that same header has been validated.
+In rare cases when the arriving header is non-linar, the validation
+function itself may linearize the buffer by calling skb_may_pull(),
+while the wrongly initialized stack fields are not updated accordingly.
+
+We fix this in this commit.
+
+Reported-by: Matthew Wong <mwong@sonusnet.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/node.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index e9295fa..4512e83 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1505,19 +1505,21 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
+ {
+ 	struct sk_buff_head xmitq;
+ 	struct tipc_node *n;
+-	struct tipc_msg *hdr = buf_msg(skb);
+-	int usr = msg_user(hdr);
++	struct tipc_msg *hdr;
+ 	int bearer_id = b->identity;
+ 	struct tipc_link_entry *le;
+-	u16 bc_ack = msg_bcast_ack(hdr);
+ 	u32 self = tipc_own_addr(net);
+-	int rc = 0;
++	int usr, rc = 0;
++	u16 bc_ack;
+ 
+ 	__skb_queue_head_init(&xmitq);
+ 
+-	/* Ensure message is well-formed */
++	/* Ensure message is well-formed before touching the header */
+ 	if (unlikely(!tipc_msg_validate(skb)))
+ 		goto discard;
++	hdr = buf_msg(skb);
++	usr = msg_user(hdr);
++	bc_ack = msg_bcast_ack(hdr);
+ 
+ 	/* Handle arrival of discovery or broadcast packet */
+ 	if (unlikely(msg_non_seq(hdr))) {
+-- 
+2.7.4
+
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most
+engaging tech sites, SlashDot.org! http://sdm.link/slashdot
