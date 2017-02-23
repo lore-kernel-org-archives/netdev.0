@@ -1,124 +1,226 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next 2/2] sctp: add support for MSG_MORE
-Date: Thu, 23 Feb 2017 14:40:21 -0300
-Message-ID: <20170223174021.GO3414@localhost.localdomain>
-References: <cover.1487440272.git.lucien.xin@gmail.com>
- <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
- <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
+From: David Forster <dforster@brocade.com>
+Subject: [PATCH net]ipv6: Provide ipv6 version of "disable_policy" sysctl
+Date: Thu, 23 Feb 2017 16:27:18 +0000
+Message-ID: <1487867238-27179-1-git-send-email-dforster@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Xin Long'" <lucien.xin@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51914 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751275AbdBWRmp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Feb 2017 12:42:45 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:53206 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751041AbdBWRut (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 12:50:49 -0500
+Received: from pps.filterd (m0048192.ppops.net [127.0.0.1])
+        by mx0b-000f0801.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1NGP8AM020119
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 08:27:43 -0800
+Received: from brmwp-exmb12.corp.brocade.com ([208.47.132.227])
+        by mx0b-000f0801.pphosted.com with ESMTP id 28scup4qv0-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 08:27:43 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 23, 2017 at 04:04:10PM +0000, David Laight wrote:
-> From: Xin Long
-> > Sent: 23 February 2017 03:46
-> > On Tue, Feb 21, 2017 at 10:27 PM, David Laight <David.Laight@aculab.com> wrote:
-> > > From: Xin Long
-> > >> Sent: 18 February 2017 17:53
-> > >> This patch is to add support for MSG_MORE on sctp.
-> > >>
-> > >> It adds force_delay in sctp_datamsg to save MSG_MORE, and sets it after
-> > >> creating datamsg according to the send flag. sctp_packet_can_append_data
-> > >> then uses it to decide if the chunks of this msg will be sent at once or
-> > >> delay it.
-> > >>
-> > >> Note that unlike [1], this patch saves MSG_MORE in datamsg, instead of
-> > >> in assoc. As sctp enqueues the chunks first, then dequeue them one by
-> > >> one. If it's saved in assoc,the current msg's send flag (MSG_MORE) may
-> > >> affect other chunks' bundling.
-> > >
-> > > I thought about that and decided that the MSG_MORE flag on the last data
-> > > chunk was the only one that mattered.
-> > > Indeed looking at any others is broken.
-> > >
-> > > Consider what happens if you have two small chunks queued, the first
-> > > with MSG_MORE set, the second with it clear.
-> > >
-> > > I think that sctp_outq_flush() will look at the first chunk and decide it
-> > > doesn't need to do anything because sctp_packet_transmit_chunk()
-> > > returns SCTP_XMIT_DELAY.
-> > > The data chunk with MSG_MORE clear won't even be looked at.
-> > > So the data will never be sent.
-> 
-> > It's not that bad as you thought, in sctp_packet_can_append_data():
-> > when inflight == 0 || sctp_sk(asoc->base.sk)->nodelay, the chunks
-> > would be still sent out.
-> 
-> One of us isn't understanding the other :-)
-> 
-> IIRC sctp_packet_can_append_data() is called for the first queued
-> data chunk in order to decide whether to generate a message that
+This provides equivalent functionality to the existing ipv4
+"disable_policy" systcl. ie. Allows IPsec processing to be skipped
+on terminating packets on a per-interface basis.
 
-Perhaps here lies the source of the confusion?
-sctp_packet_can_append_data() is called for all queued data chunks, and
-not just the first one.
+Signed-off-by: David Forster <dforster@brocade.com>
+---
+ include/linux/ipv6.h      |   1 +
+ include/uapi/linux/ipv6.h |   1 +
+ net/ipv6/addrconf.c       | 114 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 116 insertions(+)
 
-sctp_outq_flush
-  (retransmissions here, omitted for simplicity)
-  /* Finally, transmit new packets.  */
-  while ((chunk = sctp_outq_dequeue_data(q)) != NULL) {
-    sctp_packet_transmit_chunk
-      sctp_packet_append_chunk
-        sctp_packet_can_append_data
-        __sctp_packet_append_chunk
-
-So chunks are checked one by one.
-
-> consists only of data chunks.
-
-That's not really its purpose. It's to check if it can append a data
-chunk to the packet being prepared, while respecting asoc state, cwnd,
-etc.
-
-HTH!
-
-  Marcelo
-
-> If it returns SCTP_XMIT_OK then a message is built collecting the
-> rest of the queued data chunks (until the window fills).
-> 
-> So if I send a message with MSG_MORE set (on an idle connection)
-> SCTP_XMIT_DELAY is returned and a message isn't sent.
-> 
-> I now send a second small message, this time with MSG_MORE clear.
-> The message is queued, then the code looks to see if it can send anything.
-> 
-> sctp_packet_can_append_data() is called for the first queued chunk.
-> Since it has force_delay set SCTP_XMIT_DELAY is returned and no
-> message is built.
-> The second message isn't even looked at.
-> 
-> > What MSG_MORE flag actually does is ignore inflight == 0 and
-> > sctp_sk(asoc->base.sk)->nodelay to delay the chunks, but still
-> > it has to respect the original logic (like !chunk->msg->can_delay
-> > || !sctp_packet_empty(packet) || ...)
-> > 
-> > To delay the chunks with MSG_MORE set even when inflight is 0
-> > it especially important here for users.
-> 
-> I'm not too worried about that.
-> Sending the first message was a cheap way to ensure something got
-> sent if the application lied and didn't send a subsequent message.
-> 
-> The change has hit Linus's tree, I'll should be able to test that
-> and confirm what I think is going on.
-> 
-> 	David
-> 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 71be5b3..f0d79bd 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -70,6 +70,7 @@ struct ipv6_devconf {
+ #endif
+ 	__u32		enhanced_dad;
+ 	__u32		addr_gen_mode;
++	__s32		disable_policy;
+ 
+ 	struct ctl_table_header *sysctl_header;
+ };
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 8ef9e75..d8f6a1a 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -183,6 +183,7 @@ enum {
+ 	DEVCONF_SEG6_REQUIRE_HMAC,
+ 	DEVCONF_ENHANCED_DAD,
+ 	DEVCONF_ADDR_GEN_MODE,
++	DEVCONF_DISABLE_POLICY,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3a2025f..615646b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -244,6 +244,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ #endif
+ 	.enhanced_dad           = 1,
+ 	.addr_gen_mode		= IN6_ADDR_GEN_MODE_EUI64,
++	.disable_policy		= 0,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -296,6 +297,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ #endif
+ 	.enhanced_dad           = 1,
+ 	.addr_gen_mode		= IN6_ADDR_GEN_MODE_EUI64,
++	.disable_policy		= 0,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -943,6 +945,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	      const struct in6_addr *peer_addr, int pfxlen,
+ 	      int scope, u32 flags, u32 valid_lft, u32 prefered_lft)
+ {
++	struct net *net = dev_net(idev->dev);
+ 	struct inet6_ifaddr *ifa = NULL;
+ 	struct rt6_info *rt;
+ 	unsigned int hash;
+@@ -989,6 +992,10 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 		goto out;
+ 	}
+ 
++	if (net->ipv6.devconf_all->disable_policy ||
++	    idev->cnf.disable_policy)
++		rt->dst.flags |= DST_NOPOLICY;
++
+ 	neigh_parms_data_state_setall(idev->nd_parms);
+ 
+ 	ifa->addr = *addr;
+@@ -5002,6 +5009,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ #endif
+ 	array[DEVCONF_ENHANCED_DAD] = cnf->enhanced_dad;
+ 	array[DEVCONF_ADDR_GEN_MODE] = cnf->addr_gen_mode;
++	array[DEVCONF_DISABLE_POLICY] = cnf->disable_policy;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -5818,6 +5826,105 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
+ 	return ret;
+ }
+ 
++static
++void addrconf_set_nopolicy(struct rt6_info *rt, int action)
++{
++	if (rt) {
++		if (action)
++			rt->dst.flags |= DST_NOPOLICY;
++		else
++			rt->dst.flags &= ~DST_NOPOLICY;
++	}
++}
++
++static
++void addrconf_disable_policy_idev(struct inet6_dev *idev, int val)
++{
++	struct inet6_ifaddr *ifa;
++
++	read_lock_bh(&idev->lock);
++	list_for_each_entry(ifa, &idev->addr_list, if_list) {
++		spin_lock(&ifa->lock);
++		if (ifa->rt) {
++			struct rt6_info *rt = ifa->rt;
++			struct fib6_table *table = rt->rt6i_table;
++			int cpu;
++
++			read_lock(&table->tb6_lock);
++			addrconf_set_nopolicy(ifa->rt, val);
++			if (rt->rt6i_pcpu) {
++				for_each_possible_cpu(cpu) {
++					struct rt6_info **rtp;
++
++					rtp = per_cpu_ptr(rt->rt6i_pcpu, cpu);
++					addrconf_set_nopolicy(*rtp, val);
++				}
++			}
++			read_unlock(&table->tb6_lock);
++		}
++		spin_unlock(&ifa->lock);
++	}
++	read_unlock_bh(&idev->lock);
++}
++
++static
++int addrconf_disable_policy(struct ctl_table *ctl, int *valp, int val)
++{
++	struct inet6_dev *idev;
++	struct net *net;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	*valp = val;
++
++	net = (struct net *)ctl->extra2;
++	if (valp == &net->ipv6.devconf_dflt->disable_policy) {
++		rtnl_unlock();
++		return 0;
++	}
++
++	if (valp == &net->ipv6.devconf_all->disable_policy)  {
++		struct net_device *dev;
++
++		for_each_netdev(net, dev) {
++			idev = __in6_dev_get(dev);
++			if (idev)
++				addrconf_disable_policy_idev(idev, val);
++		}
++	} else {
++		idev = (struct inet6_dev *)ctl->extra1;
++		addrconf_disable_policy_idev(idev, val);
++	}
++
++	rtnl_unlock();
++	return 0;
++}
++
++static
++int addrconf_sysctl_disable_policy(struct ctl_table *ctl, int write,
++				   void __user *buffer, size_t *lenp,
++				   loff_t *ppos)
++{
++	int *valp = ctl->data;
++	int val = *valp;
++	loff_t pos = *ppos;
++	struct ctl_table lctl;
++	int ret;
++
++	lctl = *ctl;
++	lctl.data = &val;
++	ret = proc_dointvec(&lctl, write, buffer, lenp, ppos);
++
++	if (write && (*valp != val))
++		ret = addrconf_disable_policy(ctl, valp, val);
++
++	if (ret)
++		*ppos = pos;
++
++	return ret;
++}
++
+ static int minus_one = -1;
+ static const int one = 1;
+ static const int two_five_five = 255;
+@@ -6176,6 +6283,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.proc_handler	= addrconf_sysctl_addr_gen_mode,
+ 	},
+ 	{
++		.procname       = "disable_policy",
++		.data           = &ipv6_devconf.disable_policy,
++		.maxlen         = sizeof(int),
++		.mode           = 0644,
++		.proc_handler   = addrconf_sysctl_disable_policy,
++	},
++	{
+ 		/* sentinel */
+ 	}
+ };
+-- 
+2.1.4
