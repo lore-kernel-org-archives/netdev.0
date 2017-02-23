@@ -1,135 +1,159 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: Re: [PATCH net-next] net/gtp: Add udp source port generation
- according to flow hash
-Date: Thu, 23 Feb 2017 18:19:16 +0100 (CET)
-Message-ID: <109485900.208950.1487870356640.JavaMail.zimbra@tpip.net>
-References: <1487257141-11706-1-git-send-email-ogerlitz@mellanox.com> <576077949.135577.1487282291666.JavaMail.zimbra@tpip.net> <CAJ3xEMijwHpWfxUFcaCiAkP_0P8R2u6Cv4L=Vc3b_dPf+beOBg@mail.gmail.com> <CALx6S34ibBFpmZvxAtUn6oqgX9M8C1a3gg1iZrWWzwbswatUSQ@mail.gmail.com> <20170223134947.GA4373@salvia> <635223204.206529.1487859673545.JavaMail.zimbra@tpip.net> <20170223164229.GA4996@salvia>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next v3 3/3] A Sample of using socket cookie and uid
+ for traffic monitoring
+Date: Thu, 23 Feb 2017 12:20:23 -0500
+Message-ID: <CAF=yD-LzUjhG7f=fXqomB_wpzThZ1J7W7V1FzTHQrYw-a7fT9g@mail.gmail.com>
+References: <1487825093-5221-1-git-send-email-chenbofeng.kernel@gmail.com> <1487825093-5221-4-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        laforge <laforge@gnumonks.org>, netdev <netdev@vger.kernel.org>
-To: pablo <pablo@netfilter.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:48959 "EHLO mail.tpip.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751107AbdBWRUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Feb 2017 12:20:05 -0500
-In-Reply-To: <20170223164229.GA4996@salvia>
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:33387 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751643AbdBWRVi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 12:21:38 -0500
+Received: by mail-wr0-f173.google.com with SMTP id 97so25987997wrb.0
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 09:21:04 -0800 (PST)
+In-Reply-To: <1487825093-5221-4-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> +/* This test is a demo of using get_socket_uid and get_socket_cookie
+> + * helper function to do per socket based network traffic monitoring.
+> + * It requires iptable version higher then 1.6.1. to load pined eBPF
+> + * program into the xt_bpf match.
 
+iptable -> iptables (everywhre
+pined -> pinned
 
------ On Feb 23, 2017, at 5:42 PM, pablo pablo@netfilter.org wrote:
+> + * Clean up: if using shell script, the script file will delete the iptables
+> + * rule and unmount the bpf program when exit. Else the iptables rule need
+> + * to be deleted using:
+> + *   iptables -D INPUT -m bpf --object-pinned ${mnt_dir}/bpf_prog -j ACCEPT
 
-> On Thu, Feb 23, 2017 at 03:21:13PM +0100, Andreas Schultz wrote:
->> ----- On Feb 23, 2017, at 2:49 PM, pablo pablo@netfilter.org wrote:
-> [...]
->> > According to specs, section 4.4.2.3 Encapsulated T-PDU, TS 29.281.
->> > 
->> > "The UDP Source Port is a locally allocated port number at the sending
->> > GTP-U entity."
->> > 
->> > Older specs that refer to GTP-U such as TS 09.60 and TS 29.060 also
->> > state the same.
->> 
->> It is absolutely valid the choose any sending port you want. I only
->> think you should know which port you did send on.
->> 
->> TS 29.281, Sect. 5.2.2.1 defines the UDP port extension to be used
->> in error indications. It provides the UDP source port of a G-PDU
->> that triggered an error.
->> 
->> If the send side does not know which port it uses to send, how
->> can it use this indication to correlate an error? That's the reason
->> I thought it would be better to add the UDP source port to the
->> PDP context and allow the control path to assign the source port
->> on context creation.
->> 
->> Of course, this header is optional and the receiving side is not
->> required to use it.
->> 
->> About the RSS spreading in the receive side, I would think that
->> a receiver would prefer to process all packets that belong to a
->> give TEID with the same receive instance. So keeping the UDP
->> source port for a given TEID stable would be beneficial. As far
->> as I understand it, the hash used in the patch uses the source
->> and destination values from the original flow. This would mean
->> that GTP packets that belong to the same TEID would end up with
->> different UDP source ports.
-> 
-> The receiver needs to scale up, and that happens if packets are
-> distributed between CPUs in a way that make sense. I don't think it
-> makes sense to pass packets that belong to the same tunnel to the same
-> CPU, this is exactly the scenario that makes DDOS easier to trigger.
+this is already in the wrapper script
 
-When we are talking about the xmit path, then currently none of the
-receivers we are talking to is going to be Linux and we have no
-idea how they will behave nor do we have any influence on them. Do
-we really need to make assumptions about other vendors implementations?
+> +       struct bpf_insn prog[] = {
+> +               /*
+> +                * it for future usage. value stored in R6 to R10 will not be
+> +                * reset after a bpf helper function call.
 
-Traces on live GRX networks show that about 90% of the SGSN/S-GW
-that would talk to us always use the default GTP-U port as source
-port. Some multi chassis GSN's seem to assign source port ranges to
-chassis, but that has nothing todo with DDOS protection.
+garbled comment
 
-So, even when do the randomization on TX, it won't help our receiver
-scale up. We have to deal what the other (100% non Linux side is
-going to throw at us).
+> +                */
+> +               BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
+> +               /*
+> +                * pc1: BPF_FUNC_get_socket_cookie takes one parameter,
+> +                * R1: sk_buff
+> +                */
+> +               BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
+> +                               BPF_FUNC_get_socket_cookie),
+> +               /* pc2-4: save &socketCookie to r7 for future usage*/
+> +               BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -8),
+> +               BPF_MOV64_REG(BPF_REG_7, BPF_REG_10),
+> +               BPF_ALU64_IMM(BPF_ADD, BPF_REG_7, -8),
+> +               /*
+> +                * pc5-8: set up the registers for BPF_FUNC_map_lookup_elem,
+> +                * it takes two parameters (R1: map_fd,  R2: &socket_cookie)
+> +                */
+> +               BPF_LD_MAP_FD(BPF_REG_1, map_fd),
+> +               BPF_MOV64_REG(BPF_REG_2, BPF_REG_7),
+> +               BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
+> +                               BPF_FUNC_map_lookup_elem),
+> +               /*
+> +                * pc9. if r0 != 0x0, go to pc+14, since we have the cookie
+> +                * stored already
+> +                * Otherwise do pc10-22 to setup a new data entry.
+> +                */
+> +               BPF_JMP_IMM(BPF_JNE, BPF_REG_0, 0, 14),
+> +               BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
+> +               BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
+> +                               BPF_FUNC_get_socket_uid),
+> +               /*
+> +                * Place a struct stats in the R10 stack and sequentially
+> +                * place the member value into the memory. Packets value
+> +                * is set by directly place a IMM value 1 into the stack.
+> +                */
+> +               BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0,
+> +                               -32 + offsetof(struct stats, uid)),
+> +               BPF_ST_MEM(BPF_DW, BPF_REG_10,
+> +                               -32 + offsetof(struct stats, packets), 1),
+> +               /*
+> +                * __sk_buff is a special struct used for eBPF program to
+> +                * directly access some sk_buff field.
+> +                */
+> +               BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6,
+> +                               offsetof(struct __sk_buff, len)),
+> +               BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1,
+> +                               -32 + offsetof(struct stats, bytes)),
+> +               /*
+> +                * add new map entry using BPF_FUNC_map_update_elem, it takes
+> +                * 4 parameters (R1: map_fd, R2: &socket_cookie, R3: &stats)
 
->> So what about this as a compromise, we dd a UDP source port field
->> to the PDP context, it defaults to 0 (zero), the control instance
->> can optionally initialize this field, when we hit the xmit code
->> and the port is non zero, use that value, if it is zero use the hash?
-> 
-> You want to use this for your VRF concept? I would like that you take
-> the time to explain us your usecases.
+R4: flags
 
-I only want the normal multi APN per GGSN/P-GW setup that every mobile
-carrier on this world is running on the big commercial vendor boxes, nothing
-more and nothing less.
+> +                */
+> +               BPF_LD_MAP_FD(BPF_REG_1, map_fd),
+> +               BPF_MOV64_REG(BPF_REG_2, BPF_REG_7),
+> +               BPF_MOV64_REG(BPF_REG_3, BPF_REG_10),
+> +               BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, -32),
+> +               BPF_MOV64_IMM(BPF_REG_4, 0),
+> +               BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
+> +                               BPF_FUNC_map_update_elem),
+> +               BPF_JMP_IMM(BPF_JA, 0, 0, 5),
+> +               /*
+> +                * pc24-30 update the packet info to a exist data entry, it can
+> +                * be done by directly write to pointers instead of using
+> +                * BPF_FUNC_map_update_elem helper function
+> +                */
+> +               BPF_MOV64_REG(BPF_REG_9, BPF_REG_0),
+> +               BPF_MOV64_IMM(BPF_REG_1, 1),
+> +               BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_9, BPF_REG_1,
+> +                               offsetof(struct stats, packets), 0),
 
-I have tried to explain this multiple times already, but it seems I
-failed every time to put it in intelligible form. The last attempt
-was here: http://marc.info/?l=linux-netdev&m=148700022003294&w=2
+BPF_STX_XADD here and below
 
-> How are you going to use this mapping between tunnels and UDP source ports?
+> +               BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6,
+> +                               offsetof(struct __sk_buff, len)),
+> +               BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_9, BPF_REG_1,
+> +                                         offsetof(struct stats, bytes), 0),
+> +               BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_6,
+> +                               offsetof(struct __sk_buff, len)),
 
-There is no mapping between tunnels and UDP source ports. UDP source
-ports do not matter to the receiving side at all in GTP tunnels. There
-is one error handling case that can benefit from knowing the source port
-and I think that case shouldn't be discarded lightly.
+No requirement to return len. It goes unused, can just return non-zero
+immediate.
 
-A GTP-U tunnel is only defined by its destination IP, destination UDP port
-(which is constant 2152) and it's TEID. This also means that a GTP tunnel
-is a one-way construct. Only the GTP-C instance knows that a PDP context
-is actually two GTP-U tunnels, one in each direction.
+> +static void prog_attach_iptables(char *file)
+> +{
+> +       int ret;
+> +       char rules[100];
+> +
+> +       if (bpf_obj_pin(prog_fd, file))
+> +               error(1, errno, "bpf_obj_pin");
+> +       sprintf(rules, "iptables -A INPUT -m bpf --object-pinned %s -j ACCEPT",
+> +               file);
 
-We had the discussion if the source IP does play a role in this. The
-3GPP specifications do not make a 100% clear statement for GTP-U on that.
-So the case can be made that the GTP-U tunnel pair should be symmetric
-(the destination IP of one tunnel is the source of the other). There
-are various other statements in the documents that imply that this is
-not always the case.
+this is a test, but still: unsafe to pass user input unchecked to sprintf
 
-I thought we had come to the conclusion (with Harald) to make the reverse
-GSN peer filter an option. Then every control path implementation has
-the choice to use it or not. The same should IMHO apply to the source port
-randomization.
+> +                       printf("cookie: %u, uid: 0x%x, Pakcet Count: %lu,"
 
-For GTP-C the situation is clear, the control instance has to accept
-traffic of a given TEID from any source, otherwise certain handover
-procedures would not work.
+Packet
 
-> An explaination would be better than searching at some optional
-> (corner case) extension in the specs whose usage is questionable.
-> 
-> In any case, I think we want a good default behaviour, and I think
-> Or's patch provides it.
+> diff --git a/samples/bpf/run_cookie_uid_helper_example.sh b/samples/bpf/run_cookie_uid_helper_example.sh
+> new file mode 100755
+> index 0000000..a7a6208
+> --- /dev/null
+> +++ b/samples/bpf/run_cookie_uid_helper_example.sh
+> @@ -0,0 +1,14 @@
+> +#!/bin/bash
+> +local_dir="$(pwd)"
+> +root_dir=$local_dir/../..
+> +mnt_dir=/sys/fs/bpf
 
-Andreas
+Don't modify state outside the test environment. Perhaps use a temporary dir:
+
+mnt_dir=$(mktemp -d --tmp)
+
+and remove it in on_exit
