@@ -1,31 +1,37 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip: Add support for MPLS netconf
-Date: Thu, 23 Feb 2017 09:00:23 -0800
-Message-ID: <20170223090023.63f991b2@xeon-e3>
-References: <1487697811-28638-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] tc: flower: Fix parsing ip address
+Date: Thu, 23 Feb 2017 09:01:29 -0800
+Message-ID: <20170223090129.2da39424@xeon-e3>
+References: <1487772301-22303-1-git-send-email-roid@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, Paul Blakey <paulb@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Shahar Klein <shahark@mellanox.com>,
+        Mark Bloch <markb@mellanox.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Roi Dayan <roid@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:36291 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751648AbdBWRId (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 12:08:33 -0500
-Received: by mail-pg0-f46.google.com with SMTP id s67so17226562pgb.3
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 09:08:17 -0800 (PST)
-In-Reply-To: <1487697811-28638-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:36583 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751722AbdBWRJv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 12:09:51 -0500
+Received: by mail-pg0-f50.google.com with SMTP id s67so17240475pgb.3
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 09:09:51 -0800 (PST)
+In-Reply-To: <1487772301-22303-1-git-send-email-roid@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Feb 2017 09:23:31 -0800
-David Ahern <dsa@cumulusnetworks.com> wrote:
+On Wed, 22 Feb 2017 16:05:01 +0200
+Roi Dayan <roid@mellanox.com> wrote:
 
-> Add support for MPLS netconf to ip monitor and ip netconf commands.
-> Changes to header files not included as those are typically pulled
-> in my a header sync with the kernel.
+> Fix order of arguments when passed to __flower_parse_ip_addr.
 > 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Fixes: ("f888f4e20534 tc: flower: Support matching ARP")
+> Signed-off-by: Roi Dayan <roid@mellanox.com>
+> Reviewed-by: Paul Blakey <paulb@mellanox.com>
 
 Applied
