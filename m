@@ -1,49 +1,50 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] vxlan: correctly validate VXLAN ID against
- VXLAN_VID_MASK
-Date: Thu, 23 Feb 2017 16:34:37 +0100
-Message-ID: <20170223163437.6f2a29cb@griffin>
-References: <3ea499d5a3564fc7074665962b1a10cccd900e59.1487854674.git.mschiffer@universe-factory.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/6] Mellanox mlx5e fixes for 4.11-rc1
+Date: Thu, 23 Feb 2017 10:44:15 -0500 (EST)
+Message-ID: <20170223.104415.922556148345528493.davem@davemloft.net>
+References: <20170222152016.31263-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Matthias Schiffer <mschiffer@universe-factory.net>
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55810 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751049AbdBWPel (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Feb 2017 10:34:41 -0500
-In-Reply-To: <3ea499d5a3564fc7074665962b1a10cccd900e59.1487854674.git.mschiffer@universe-factory.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42052 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751609AbdBWPoU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 10:44:20 -0500
+In-Reply-To: <20170222152016.31263-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Feb 2017 13:59:02 +0100, Matthias Schiffer wrote:
-> The incorrect check caused an off-by-one error: the maximum VID 0xffffff
-> was unusable.
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Wed, 22 Feb 2017 17:20:10 +0200
+
+> This series includes some important bug fixes for mlx5e driver.
 > 
-> Fixes: d342894c5d2f ("vxlan: virtual extensible lan")
-> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
-> ---
->  drivers/net/vxlan.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> Three misc fixes:
+> From Mohamad, compilation fix on s390 system
+> From Me, A fix for driver unload when switchdev mode is on. 
+> From Tariq, HW LRO frag size optimization for when build_skb is not used
+> (striding RQ mode).
 > 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 556953f53437..f89428fb7389 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -2675,7 +2675,7 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
->  
->  	if (data[IFLA_VXLAN_ID]) {
->  		__u32 id = nla_get_u32(data[IFLA_VXLAN_ID]);
-> -		if (id >= VXLAN_VID_MASK)
-> +		if (id & ~VXLAN_VID_MASK)
->  			return -ERANGE;
->  	}
->  
+> Three CQE compression related fixes:
+> Two fixes from Tariq and I, to correctly setup CQE compression
+> parameters on driver load and on arbitrary user modifications.
+> Last patch, fixes a very critical issue that was originally reported
+> by Tom, where the driver reported csum errors or even page ref issues
+> for when cqe compression is enabled and rapidly active.
+> 
+> For your convenience this series was generated on top of net-next branch:
+> 005c3490e9db ('Revert "ath10k: Search SMBIOS for OEM board file extension"')
 
-"if (id >= VXLAN_N_VID)" would be cleaner and the meaning more obvious.
+Series applied.
 
-Thanks,
+> for -stable:
+> net/mlx5e: Register/unregister vport representors on interface (for kernel >= 4.9)
+> net/mlx5e: Do not reduce LRO WQE size when not using build_skb (for kernel >= 4.9)
+> net/mlx5e: Fix broken CQE compression initialization (for kernel >= 4.9)
+> net/mlx5e: Update MPWQE stride size when modifying CQE compress state (for kernel >= 4.7)
+> net/mlx5e: Fix wrong CQE decompression (for kernel >= 4.7)
 
- Jiri
+Queued up, thanks.
