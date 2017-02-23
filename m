@@ -1,98 +1,107 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/8] Netfilter fixes for net
-Date: Thu, 23 Feb 2017 12:14:01 +0100
-Message-ID: <1487848449-2731-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/8] netfilter: ctnetlink: Fix regression in CTA_STATUS processing
+Date: Thu, 23 Feb 2017 12:14:03 +0100
+Message-ID: <1487848449-2731-3-git-send-email-pablo@netfilter.org>
+References: <1487848449-2731-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:54916 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751049AbdBWLOX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 23 Feb 2017 06:14:23 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 5B25CA4176
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 12:14:21 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 482BFDA85F
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 12:14:21 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 06FD5DA86E
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 12:14:17 +0100 (CET)
+In-Reply-To: <1487848449-2731-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Kevin Cernekee <cernekee@chromium.org>
 
-The following patchset contains Netfilter fixes for your net tree,
-they are:
+The libnetfilter_conntrack userland library always sets IPS_CONFIRMED
+when building a CTA_STATUS attribute.  If this toggles the bit from
+0->1, the parser will return an error.  On Linux 4.4+ this will cause any
+NFQA_EXP attribute in the packet to be ignored.  This breaks conntrackd's
+userland helpers because they operate on unconfirmed connections.
 
-1) Revisit warning logic when not applying default helper assignment.
-   Jiri Kosina considers we are breaking existing setups and not warning
-   our users accordinly now that automatic helper assignment has been
-   turned off by default. So let's make him happy by spotting the warning
-   by when we find a helper but we cannot attach, instead of warning on the
-   former deprecated behaviour. Patch from Jiri Kosina.
+Instead of returning -EBUSY if the user program asks to modify an
+unchangeable bit, simply ignore the change.
 
-2) Two patches to fix regression in ctnetlink interfaces with
-   nfnetlink_queue. Specifically, perform more relaxed in CTA_STATUS
-   and do not bail out if CTA_HELP indicates the same helper that we
-   already have. Patches from Kevin Cernekee.
+Also, fix the logic so that user programs are allowed to clear
+the bits that they are allowed to change.
 
-3) A couple of bugfixes for ipset via Jozsef Kadlecsik. Due to wrong
-   index logic in hash set types and null pointer exception in the
-   list:set type.
+Signed-off-by: Kevin Cernekee <cernekee@chromium.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/uapi/linux/netfilter/nf_conntrack_common.h |  4 ++++
+ net/netfilter/nf_conntrack_netlink.c               | 26 +++++++++++++++++++++-
+ 2 files changed, 29 insertions(+), 1 deletion(-)
 
-4) hashlimit bails out with correct userspace parameters due to wrong
-   arithmetics in the code that avoids "divide by zero" when
-   transforming the userspace timing in milliseconds to token credits.
-   Patch from Alban Browaeys.
-
-5) Fix incorrect NFQA_VLAN_MAX definition, patch from
-   Ken-ichirou MATSUZAWA.
-
-6) Don't not declare nfnetlink batch error list as static, since this
-   may be used by several subsystems at the same time. Patch from
-   Liping Zhang.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit cafe8df8b9bc9aa3dffa827c1a6757c6cd36f657:
-
-  net: phy: Fix lack of reference count on PHY driver (2017-02-02 22:59:43 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
-
-for you to fetch changes up to 3ef767e5cbd405abfd01339c7e5daaf98e037be2:
-
-  Merge branch 'master' of git://blackhole.kfki.hu/nf (2017-02-21 14:01:05 +0100)
-
-----------------------------------------------------------------
-Alban Browaeys (1):
-      netfilter: xt_hashlimit: Fix integer divide round to zero.
-
-Jiri Kosina (1):
-      netfilter: nf_ct_helper: warn when not applying default helper assignment
-
-Jozsef Kadlecsik (1):
-      Fix bug: sometimes valid entries in hash:* types of sets were evicted
-
-Ken-ichirou MATSUZAWA (1):
-      netfilter: nfnetlink_queue: fix NFQA_VLAN_MAX definition
-
-Kevin Cernekee (2):
-      netfilter: ctnetlink: Fix regression in CTA_STATUS processing
-      netfilter: ctnetlink: Fix regression in CTA_HELP processing
-
-Liping Zhang (1):
-      netfilter: nfnetlink: remove static declaration from err_list
-
-Pablo Neira Ayuso (1):
-      Merge branch 'master' of git://blackhole.kfki.hu/nf
-
-Vishwanath Pai (1):
-      netfilter: ipset: Null pointer exception in ipset list:set
-
- include/uapi/linux/netfilter/nf_conntrack_common.h |  4 ++
- include/uapi/linux/netfilter/nfnetlink_queue.h     |  2 +-
- net/netfilter/ipset/ip_set_hash_gen.h              |  2 +-
- net/netfilter/ipset/ip_set_list_set.c              |  9 +++--
- net/netfilter/nf_conntrack_helper.c                | 39 +++++++++++++-------
- net/netfilter/nf_conntrack_netlink.c               | 43 +++++++++++++++++++---
- net/netfilter/nfnetlink.c                          |  2 +-
- net/netfilter/xt_hashlimit.c                       | 25 +++++--------
- 8 files changed, 86 insertions(+), 40 deletions(-)
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index 6d074d14ee27..6a8e33dd4ecb 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -82,6 +82,10 @@ enum ip_conntrack_status {
+ 	IPS_DYING_BIT = 9,
+ 	IPS_DYING = (1 << IPS_DYING_BIT),
+ 
++	/* Bits that cannot be altered from userland. */
++	IPS_UNCHANGEABLE_MASK = (IPS_NAT_DONE_MASK | IPS_NAT_MASK |
++				 IPS_EXPECTED | IPS_CONFIRMED | IPS_DYING),
++
+ 	/* Connection has fixed timeout. */
+ 	IPS_FIXED_TIMEOUT_BIT = 10,
+ 	IPS_FIXED_TIMEOUT = (1 << IPS_FIXED_TIMEOUT_BIT),
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 27540455dc62..bf04b7e9d6f7 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -2270,6 +2270,30 @@ ctnetlink_glue_build(struct sk_buff *skb, struct nf_conn *ct,
+ }
+ 
+ static int
++ctnetlink_update_status(struct nf_conn *ct, const struct nlattr * const cda[])
++{
++	unsigned int status = ntohl(nla_get_be32(cda[CTA_STATUS]));
++	unsigned long d = ct->status ^ status;
++
++	if (d & IPS_SEEN_REPLY && !(status & IPS_SEEN_REPLY))
++		/* SEEN_REPLY bit can only be set */
++		return -EBUSY;
++
++	if (d & IPS_ASSURED && !(status & IPS_ASSURED))
++		/* ASSURED bit can only be set */
++		return -EBUSY;
++
++	/* This check is less strict than ctnetlink_change_status()
++	 * because callers often flip IPS_EXPECTED bits when sending
++	 * an NFQA_CT attribute to the kernel.  So ignore the
++	 * unchangeable bits but do not error out.
++	 */
++	ct->status = (status & ~IPS_UNCHANGEABLE_MASK) |
++		     (ct->status & IPS_UNCHANGEABLE_MASK);
++	return 0;
++}
++
++static int
+ ctnetlink_glue_parse_ct(const struct nlattr *cda[], struct nf_conn *ct)
+ {
+ 	int err;
+@@ -2280,7 +2304,7 @@ ctnetlink_glue_parse_ct(const struct nlattr *cda[], struct nf_conn *ct)
+ 			return err;
+ 	}
+ 	if (cda[CTA_STATUS]) {
+-		err = ctnetlink_change_status(ct, cda);
++		err = ctnetlink_update_status(ct, cda);
+ 		if (err < 0)
+ 			return err;
+ 	}
+-- 
+2.1.4
