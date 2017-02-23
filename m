@@ -1,80 +1,35 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: lib: Introduce priority array area manager
-Date: Thu, 23 Feb 2017 09:32:31 +0100
-Message-ID: <20170223083231.GA2699@nanopsycho>
-References: <20170222190204.878696619DE@gitolite.kernel.org>
- <CAMuHMdXR5QZrN1NMkZq_jSo0cRMqMJ6m5q-8C3pr1_NWKUZcqg@mail.gmail.com>
+From: Paolo Minazzi <paolo.minazzi@gmail.com>
+Subject: Software loopback with phy 88E1116R and marvell MV78100 gbe
+Date: Thu, 23 Feb 2017 09:42:25 +0100
+Message-ID: <CABmfJQYEqWzPtfieaym-4KhG5f0PBHNDQzuT0Uk_bz-2WC3zag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33476 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751170AbdBWIcy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 03:32:54 -0500
-Received: by mail-wm0-f67.google.com with SMTP id v77so1387703wmv.0
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 00:32:35 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdXR5QZrN1NMkZq_jSo0cRMqMJ6m5q-8C3pr1_NWKUZcqg@mail.gmail.com>
+Received: from mail-ot0-f182.google.com ([74.125.82.182]:35414 "EHLO
+        mail-ot0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751170AbdBWInH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 03:43:07 -0500
+Received: by mail-ot0-f182.google.com with SMTP id w44so19436925otw.2
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 00:42:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 23, 2017 at 08:56:26AM CET, geert@linux-m68k.org wrote:
->Hi Jiri,
->
->On Wed, Feb 22, 2017 at 8:02 PM, Linux Kernel Mailing List
-><linux-kernel@vger.kernel.org> wrote:
->> Web:        https://git.kernel.org/torvalds/c/44091d29f2075972aede47ef17e1e70db3d51190
->> Commit:     44091d29f2075972aede47ef17e1e70db3d51190
->> Parent:     b862815c3ee7b49ec20a9ab25da55a5f0bcbb95e
->> Refname:    refs/heads/master
->> Author:     Jiri Pirko <jiri@mellanox.com>
->> AuthorDate: Fri Feb 3 10:29:06 2017 +0100
->> Committer:  David S. Miller <davem@davemloft.net>
->> CommitDate: Fri Feb 3 16:35:42 2017 -0500
->>
->>     lib: Introduce priority array area manager
->>
->>     This introduces a infrastructure for management of linear priority
->>     areas. Priority order in an array matters, however order of items inside
->>     a priority group does not matter.
->>
->>     As an initial implementation, L-sort algorithm is used. It is quite
->>     trivial. More advanced algorithm called P-sort will be introduced as a
->>     follow-up. The infrastructure is prepared for other algos.
->>
->>     Alongside this, a testing module is introduced as well.
->>
->>     Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
->
->> --- a/lib/Kconfig
->> +++ b/lib/Kconfig
->> @@ -550,4 +550,7 @@ config STACKDEPOT
->>  config SBITMAP
->>         bool
->>
->> +config PARMAN
->> +       tristate "parman"
->
->| parman (PARMAN) [N/m/y] (NEW) ?
->|
->| There is no help available for this option.
->
->Can you please add a description for this option?
->Or drop the "parman" string if this is always selected by its kernel users, and
->never intended to be enabled by the end user.
+Hi to all,
+I have written a low level driver for MV78100 arm board.
+All works well.
+I have built a physical loopback cable to cross rx and tx to test my
+driver and all is good.
 
-I did it in the same way other similar lib dependencies do that. Does
-not make sense to have separate description for this, cause this is
-always only a dependency of a kernel user.
+I have an other board (with imx6).
+On this board I was able to put the PHY (micrel) in loopback mode, so
+I do not need a physycal loop. All works well.
 
-You suggeste to 'drop the "parman" string'. What do you mean by that
-exactly?
+I tried to do the same things on 88E1116R, setting the but 14 of reg 0.
+But If I do it I lose the link, and the test program does not work.
+I tried to force the link in software, but seems the controller send
+packets but it is not able to receive them.
+Is possibile to do such a software loopback on 88E1116R ?
 
-Thanks.
-
-Jiri
+Thanks in advance,
+Paolo Minazzi
