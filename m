@@ -1,44 +1,37 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: [PATCH 3/7] net: stmmac: Check for DMA mapping errors
-Date: Thu, 23 Feb 2017 18:24:34 +0100
-Message-ID: <20170223172438.14770-4-thierry.reding@gmail.com>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Alexandre Courbot <gnurou@gmail.com>,
-        Jon Hunter <jonathanh@nvidia.com>, netdev@vger.kernel.org,
-        linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170223172438.14770-1-thierry.reding@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net/gtp: Add udp source port generation
+ according to flow hash
+Date: Thu, 23 Feb 2017 12:01:24 -0500 (EST)
+Message-ID: <20170223.120124.846549814513489060.davem@davemloft.net>
+References: <20170223140012.GA4462@salvia>
+        <CALx6S37QT-3W5psz0f2bf+RTzt09AysCtwTQmzZsHS_g6uo5ZA@mail.gmail.com>
+        <20170223165051.c3jlvht4mhsuoxmq@nataraja>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tom@herbertland.com, pablo@netfilter.org, aschultz@tpip.net,
+        gerlitz.or@gmail.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
+        netdev@vger.kernel.org, timo.lindhorst@travelping.com
+To: laforge@gnumonks.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46258 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751049AbdBWRhd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 12:37:33 -0500
+In-Reply-To: <20170223165051.c3jlvht4mhsuoxmq@nataraja>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thierry Reding <treding@nvidia.com>
+From: Harald Welte <laforge@gnumonks.org>
+Date: Thu, 23 Feb 2017 17:50:51 +0100
 
-When DMA mapping an SKB fragment, the mapping must be checked for
-errors, otherwise the DMA debug code will complain upon unmap.
+> I understand and support the motivation to design robust systsems even
+> in the presence of broken/ignorant specs, but I think this is one of the
+> situations where it is useless (and IMHO impossible) to do anything
+> about it.
 
-Signed-off-by: Thierry Reding <treding@nvidia.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+I think avoiding trying to do something reasonable about this and just
+saying "this is how cellular networks are" is not acceptable.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 6b7a5ce19589..d7387919bdb6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2072,6 +2072,8 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 		des = skb_frag_dma_map(priv->device, frag, 0,
- 				       skb_frag_size(frag),
- 				       DMA_TO_DEVICE);
-+		if (dma_mapping_error(priv->device, des))
-+			goto dma_map_err;
- 
- 		stmmac_tso_allocator(priv, des, skb_frag_size(frag),
- 				     (i == nfrags - 1));
--- 
-2.11.1
+We know how to properly strengthen tunnelling implementations in the
+kernel against DDoS attachs, GTP can be treated similarly.
