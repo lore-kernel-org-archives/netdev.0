@@ -1,190 +1,75 @@
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Subject: [PATCH v1 net] net: phy: Fix LED mode in DT single property.
-Date: Fri, 24 Feb 2017 12:02:19 +0530
-Message-ID: <1487917939-28060-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH net-next v4 4/7] gtp: consolidate gtp socket rx path
+Date: Thu, 23 Feb 2017 22:17:35 +0100
+Message-ID: <20170223211735.c47ms7yobt2omhgr@nataraja>
+References: <20170221101855.23940-1-aschultz@tpip.net>
+ <20170221101855.23940-5-aschultz@tpip.net>
+ <CALx6S34-H9rzbJjJRGkRqswnOFK7pKg0gMU+JkgK=Nh77dWoiQ@mail.gmail.com>
+ <754038178.195270.1487841591136.JavaMail.zimbra@tpip.net>
+ <CALx6S34mFZh31Yorq7WMabTO9SPyxOn5=1iSEQV41HguYJ1bDQ@mail.gmail.com>
+ <20170223164657.tmj7djdpgcdlm2ri@nataraja>
+ <CALx6S36XJfzYS7q2EjgUykAVWb-1aaT4kP2QxYmPdZBSpZaGCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>,
-        <andrew-g2DYL2Zd6BY@public.gmane.org>, <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+        osmocom-net-gprs <osmocom-net-gprs@lists.osmocom.org>,
+        timo lindhorst <timo.lindhorst@travelping.com>,
+        Andreas Schultz <aschultz@tpip.net>,
+        pablo <pablo@netfilter.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:59825 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751005AbdBXHPH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 02:15:07 -0500
+Content-Disposition: inline
+In-Reply-To: <CALx6S36XJfzYS7q2EjgUykAVWb-1aaT4kP2QxYmPdZBSpZaGCg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Hi Tom,
 
-Fix the LED mode DT parameters combine to a single property
-and change the vendor prefix i.e. mscc.
+On Thu, Feb 23, 2017 at 10:07:03AM -0800, Tom Herbert wrote:
+> I'm looking at the GTP encapsulation, it's not particularly complex.
+> Is there any real reason why we can't just implement a netdev
+> interface with static tunnels and configuration to do performance
+> testing and development? For instance, if we want to add GSO/GRO
+> support to GTP that's all we really need, the control plane should be
+> inconsequential in that case.
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
----
-Change set:
-v0: Fix the LED mode DT parameters combine to a single property
-v1: Fix the build test ERROR
+As outlined several times in this thread, GTP tunneling is not
+symmetric.  The current mainline code can only act as one of the two
+roles (GGSN/G-GW), not as the other one.  The rationale is that in 3GPP
+networks, that is the only point in the network that takes native IP
+data (e.g.from the internet) and puts it into GTP.  At all other places
+in the network, you don't have this combination.  By the time the inner
+IP data arrives at the mobile phone, it is no longer encapsulated in
+GTP, as the lower layers have been adapted one or multiple times to
+other protocols by other network elements.
 
- .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 20 +++-----
- drivers/net/phy/mscc.c                             | 57 ++++++++++++----------
- 2 files changed, 40 insertions(+), 37 deletions(-)
+There's a patch that has recently been submitted which adds the
+capability for the SGSN/S-GW side of a GTP-U tunnel, but that patch has
+so far not been merged (due to concersn about its netlink interface),
+and the patch *only* exists for testing, it has no real-world
+application in 3GPP networks.
 
-diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-index 0eedabe..2253de5 100644
---- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-+++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-@@ -6,12 +6,12 @@ Required properties:
- 		  Documentation/devicetree/bindings/net/phy.txt
- 
- Optional properties:
--- vsc8531,vddmac	: The vddmac in mV. Allowed values is listed
-+- mscc,vddmac		: The vddmac in mV. Allowed values is listed
- 			  in the first row of Table 1 (below).
- 			  This property is only used in combination
- 			  with the 'edge-slowdown' property.
- 			  Default value is 3300.
--- vsc8531,edge-slowdown	: % the edge should be slowed down relative to
-+- mscc,edge-slowdown	: % the edge should be slowed down relative to
- 			  the fastest possible edge time.
- 			  Edge rate sets the drive strength of the MAC
- 			  interface output signals.  Changing the
-@@ -27,14 +27,11 @@ Optional properties:
- 			  'vddmac'.
- 			  Default value is 0%.
- 			  Ref: Table:1 - Edge rate change (below).
--- vsc8531,led-0-mode	: LED mode. Specify how the LED[0] should behave.
-+- mscc,led-mode		: LED mode. Specify how the LED[0] and LED[1] should behave.
- 			  Allowed values are define in
- 			  "include/dt-bindings/net/mscc-phy-vsc8531.h".
--			  Default value is VSC8531_LINK_1000_ACTIVITY (1).
--- vsc8531,led-1-mode	: LED mode. Specify how the LED[1] should behave.
--			  Allowed values are define in
--			  "include/dt-bindings/net/mscc-phy-vsc8531.h".
--			  Default value is VSC8531_LINK_100_ACTIVITY (2).
-+			  Default LED[0] value is VSC8531_LINK_1000_ACTIVITY (1).
-+			  Default LED[1] value is VSC8531_LINK_100_ACTIVITY (2).
- 
- Table: 1 - Edge rate change
- ----------------------------------------------------------------|
-@@ -66,8 +63,7 @@ Example:
- 
-         vsc8531_0: ethernet-phy@0 {
-                 compatible = "ethernet-phy-id0007.0570";
--                vsc8531,vddmac		= <3300>;
--                vsc8531,edge-slowdown	= <7>;
--                vsc8531,led-0-mode	= <LINK_1000_ACTIVITY>;
--                vsc8531,led-1-mode	= <LINK_100_ACTIVITY>;
-+                mscc,vddmac		= /bits/ 16 <3300>;
-+                mscc,edge-slowdown	= /bits/ 8  <7>;
-+                mscc,led-mode	= <LINK_1000_ACTIVITY LINK_100_ACTIVITY>;
-         };
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index 650c266..dc35a90 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -385,11 +385,11 @@ static int vsc85xx_edge_rate_magic_get(struct phy_device *phydev)
- 	if (!of_node)
- 		return -ENODEV;
- 
--	rc = of_property_read_u16(of_node, "vsc8531,vddmac", &vdd);
-+	rc = of_property_read_u16(of_node, "mscc,vddmac", &vdd);
- 	if (rc != 0)
- 		vdd = MSCC_VDDMAC_3300;
- 
--	rc = of_property_read_u8(of_node, "vsc8531,edge-slowdown", &sd);
-+	rc = of_property_read_u8(of_node, "mscc,edge-slowdown", &sd);
- 	if (rc != 0)
- 		sd = 0;
- 
-@@ -402,26 +402,43 @@ static int vsc85xx_edge_rate_magic_get(struct phy_device *phydev)
- 	return -EINVAL;
- }
- 
--static int vsc85xx_dt_led_mode_get(struct phy_device *phydev,
--				   char *led,
--				   u8 default_mode)
-+static int vsc85xx_dt_led_mode_get(struct phy_device *phydev, char *led)
- {
- 	struct device *dev = &phydev->mdio.dev;
- 	struct device_node *of_node = dev->of_node;
--	u8 led_mode;
--	int err;
-+	struct vsc8531_private *vsc8531 = phydev->priv;
-+	u8 led_0_mode = VSC8531_LINK_1000_ACTIVITY;
-+	u8 led_1_mode = VSC8531_LINK_100_ACTIVITY;
-+	const __be32 *paddr_end;
-+	const __be32 *paddr;
-+	int len;
- 
- 	if (!of_node)
- 		return -ENODEV;
- 
--	led_mode = default_mode;
--	err = of_property_read_u8(of_node, led, &led_mode);
--	if (!err && (led_mode > 15 || led_mode == 7 || led_mode == 11)) {
--		phydev_err(phydev, "DT %s invalid\n", led);
-+	paddr = of_get_property(of_node, "mscc,led-mode", &len);
-+	if (!paddr)
- 		return -EINVAL;
-+
-+	paddr_end = paddr + (len /= sizeof(*paddr));
-+	while (paddr + 1 < paddr_end) {
-+		led_0_mode = be32_to_cpup(paddr++);
-+		led_1_mode = be32_to_cpup(paddr++);
- 	}
- 
--	return led_mode;
-+	if (!len && (led_0_mode > 15 || led_0_mode == 7 || led_0_mode == 11)) {
-+		phydev_err(phydev, "DT %s-0 invalid\n", led);
-+		return -EINVAL;
-+	}
-+	vsc8531->led_0_mode = led_0_mode;
-+
-+	if (!len && (led_1_mode > 15 || led_1_mode == 7 || led_1_mode == 11)) {
-+		phydev_err(phydev, "DT %s-1 invalid\n", led);
-+		return -EINVAL;
-+	}
-+	vsc8531->led_1_mode = led_1_mode;
-+
-+	return 0;
- }
- 
- #else
-@@ -430,11 +447,9 @@ static int vsc85xx_edge_rate_magic_get(struct phy_device *phydev)
- 	return 0;
- }
- 
--static int vsc85xx_dt_led_mode_get(struct phy_device *phydev,
--				   char *led,
--				   u8 default_mode)
-+static int vsc85xx_dt_led_mode_get(struct phy_device *phydev, char *led)
- {
--	return default_mode;
-+	return 0;
- }
- #endif /* CONFIG_OF_MDIO */
- 
-@@ -641,17 +656,9 @@ static int vsc85xx_probe(struct phy_device *phydev)
- 	vsc8531->rate_magic = rate_magic;
- 
- 	/* LED[0] and LED[1] mode */
--	led_mode = vsc85xx_dt_led_mode_get(phydev, "vsc8531,led-0-mode",
--					   VSC8531_LINK_1000_ACTIVITY);
--	if (led_mode < 0)
--		return led_mode;
--	vsc8531->led_0_mode = led_mode;
--
--	led_mode = vsc85xx_dt_led_mode_get(phydev, "vsc8531,led-1-mode",
--					   VSC8531_LINK_100_ACTIVITY);
-+	led_mode = vsc85xx_dt_led_mode_get(phydev, "mscc,led-mode");
- 	if (led_mode < 0)
- 		return led_mode;
--	vsc8531->led_1_mode = led_mode;
- 
- 	return 0;
- }
+So as of now, it is not possible to run both endpoints of a tunnel in
+Linux.
+
+> > For performance testing, you would need a SGSN-side implementation of
+> > I'll try to cook up some instructions extending
+> > https://osmocom.org/projects/openggsn/wiki/OpenGGSN to cover also
+> > sgsnemu for a basic use case of establishing one single tunnel.  That's
+> > of course like a manual "HOWTO" and not yet anything that can be tested
+> > automatically.
+> >
+> That would be good. Thanks!
+
+I've spent some hours earlier today on this, I expect the document to be
+ready at some point over the weekend.
+
 -- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
