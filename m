@@ -1,75 +1,50 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: switch to use build_skb() for small
-	buffer
-Date: Thu, 23 Feb 2017 10:44:27 +0800
-Message-ID: <f282bbae-7399-6d46-21e1-429310f7b0e4@redhat.com>
-References: <1487666788-9658-1-git-send-email-jasowang@redhat.com>
-	<58ADC790.8000805@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net v5] bpf: add helper to compare network namespaces
+Date: Wed, 22 Feb 2017 20:28:47 -0700
+Message-ID: <1a4f1938-6f2a-2c75-d45a-41c46baac039@cumulusnetworks.com>
+References: <1487208564-4666-1-git-send-email-dsa@cumulusnetworks.com>
+ <58A57A13.9070906@iogearbox.net> <878tp1h4xs.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <58ADC790.8000805@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ast@kernel.org,
+        tj@kernel.org, luto@amacapital.net
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33695 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750828AbdBWD2u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2017 22:28:50 -0500
+Received: by mail-pg0-f52.google.com with SMTP id z128so9341587pgb.0
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2017 19:28:50 -0800 (PST)
+In-Reply-To: <878tp1h4xs.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDLmnIgyM+aXpSAwMToxNywgSm9obiBGYXN0YWJlbmQgd3JvdGU6Cj4gT24g
-MTctMDItMjEgMTI6NDYgQU0sIEphc29uIFdhbmcgd3JvdGU6Cj4+IFRoaXMgcGF0Y2ggc3dpdGNo
-IHRvIHVzZSBidWlsZF9za2IoKSBmb3Igc21hbGwgYnVmZmVyIHdoaWNoIGNhbiBoYXZlCj4+IGJl
-dHRlciBwZXJmb3JtYW5jZSBmb3IgYm90aCBUQ1AgYW5kIFhEUCAoc2luY2Ugd2UgY2FuIHdvcmsg
-YXQgcGFnZQo+PiBiZWZvcmUgc2tiIGNyZWF0aW9uKS4gSXQgYWxzbyByZW1vdmUgbG90cyBvZiBY
-RFAgY29kZXMgc2luY2UgYm90aAo+PiBtZXJnZWFibGUgYW5kIHNtYWxsIGJ1ZmZlciB1c2UgcGFn
-ZSBmcmFnIGR1cmluZyByZWZpbGwgbm93Lgo+Pgo+PiAgICAgICAgICAgICAgICAgICAgICAgICBC
-ZWZvcmUgICB8IEFmdGVyCj4+IFhEUF9EUk9QKHhkcDEpIDY0QiAgOiAgMTEuMU1wcHMgfCAxNC40
-TXBwcwo+Pgo+PiBUZXN0ZWQgd2l0aCB4ZHAxL3hkcDIveGRwX2lwX3R4X3R1bm5lbCBhbmQgbmV0
-cGVyZi4KPiBXaGVuIHlvdSBkbyB0aGUgeGRwIHRlc3RzIGFyZSB5b3UgZ2VuZXJhdGluZyBwYWNr
-ZXRzIHdpdGggcGt0Z2VuIG9uIHRoZQo+IGNvcnJlc3BvbmRpbmcgdGFwIGRldmljZXM/CgpZZXMs
-IHBrdGdlbiBvbiB0aGUgdGFwIGRpcmVjdGx5LgoKPgo+IEFsc28gYW5vdGhlciB0aG91Z2h0LCBo
-YXZlIHlvdSBsb29rZWQgYXQgdXNpbmcgc29tZSBvZiB0aGUgYnVmZmVyIHJlY3ljbGluZwo+IHRl
-Y2huaXF1ZXMgdXNlZCBpbiB0aGUgaGFyZHdhcmUgZHJpdmVycyBzdWNoIGFzIGl4Z2JlIGFuZCB3
-aXRoIEVyaWMncyBsYXRlc3QKPiBwYXRjaGVzIG1seD8gSSBoYXZlIHNlZW4gc2lnbmlmaWNhbnQg
-cGVyZm9ybWFuY2UgaW5jcmVhc2VzIGZvciBzb21lCj4gd29ya2xvYWRzIGRvaW5nIHRoaXMuIEkg
-d2FudGVkIHRvIHRyeSBzb21ldGhpbmcgbGlrZSB0aGlzIG91dCBvbiB2aXJ0aW8KPiBidXQgaGF2
-ZW4ndCBoYWQgdGltZSB5ZXQuCgpZZXMsIHRoaXMgaXMgaW4gVE9ETyBsaXN0LiBXaWxsIHBpY2sg
-c29tZSB0aW1lIHRvIGRvIHRoaXMuCgpUaGFua3MKCj4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24g
-V2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4gLS0tCj4gWy4uLl0KPgo+PiAgIHN0YXRpYyBp
-bnQgYWRkX3JlY3ZidWZfc21hbGwoc3RydWN0IHZpcnRuZXRfaW5mbyAqdmksIHN0cnVjdCByZWNl
-aXZlX3F1ZXVlICpycSwKPj4gICAJCQkgICAgIGdmcF90IGdmcCkKPj4gICB7Cj4+IC0JaW50IGhl
-YWRyb29tID0gR09PRF9QQUNLRVRfTEVOICsgdmlydG5ldF9nZXRfaGVhZHJvb20odmkpOwo+PiAr
-CXN0cnVjdCBwYWdlX2ZyYWcgKmFsbG9jX2ZyYWcgPSAmcnEtPmFsbG9jX2ZyYWc7Cj4+ICsJY2hh
-ciAqYnVmOwo+PiAgIAl1bnNpZ25lZCBpbnQgeGRwX2hlYWRyb29tID0gdmlydG5ldF9nZXRfaGVh
-ZHJvb20odmkpOwo+PiAtCXN0cnVjdCBza19idWZmICpza2I7Cj4+IC0Jc3RydWN0IHZpcnRpb19u
-ZXRfaGRyX21yZ19yeGJ1ZiAqaGRyOwo+PiArCWludCBsZW4gPSB2aS0+aGRyX2xlbiArIFZJUlRO
-RVRfUlhfUEFEICsgR09PRF9QQUNLRVRfTEVOICsgeGRwX2hlYWRyb29tOwo+PiAgIAlpbnQgZXJy
-Owo+PiAgIAo+PiAtCXNrYiA9IF9fbmV0ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbih2aS0+ZGV2LCBo
-ZWFkcm9vbSwgZ2ZwKTsKPj4gLQlpZiAodW5saWtlbHkoIXNrYikpCj4+ICsJbGVuID0gU0tCX0RB
-VEFfQUxJR04obGVuKSArCj4+ICsJICAgICAgU0tCX0RBVEFfQUxJR04oc2l6ZW9mKHN0cnVjdCBz
-a2Jfc2hhcmVkX2luZm8pKTsKPj4gKwlpZiAodW5saWtlbHkoIXNrYl9wYWdlX2ZyYWdfcmVmaWxs
-KGxlbiwgYWxsb2NfZnJhZywgZ2ZwKSkpCj4+ICAgCQlyZXR1cm4gLUVOT01FTTsKPj4gICAKPj4g
-LQlza2JfcHV0KHNrYiwgaGVhZHJvb20pOwo+PiAtCj4+IC0JaGRyID0gc2tiX3ZuZXRfaGRyKHNr
-Yik7Cj4+IC0Jc2dfaW5pdF90YWJsZShycS0+c2csIDIpOwo+PiAtCXNnX3NldF9idWYocnEtPnNn
-LCBoZHIsIHZpLT5oZHJfbGVuKTsKPj4gLQlza2JfdG9fc2d2ZWMoc2tiLCBycS0+c2cgKyAxLCB4
-ZHBfaGVhZHJvb20sIHNrYi0+bGVuIC0geGRwX2hlYWRyb29tKTsKPj4gLQo+PiAtCWVyciA9IHZp
-cnRxdWV1ZV9hZGRfaW5idWYocnEtPnZxLCBycS0+c2csIDIsIHNrYiwgZ2ZwKTsKPj4gKwlidWYg
-PSAoY2hhciAqKXBhZ2VfYWRkcmVzcyhhbGxvY19mcmFnLT5wYWdlKSArIGFsbG9jX2ZyYWctPm9m
-ZnNldDsKPj4gKwlnZXRfcGFnZShhbGxvY19mcmFnLT5wYWdlKTsKPj4gKwlhbGxvY19mcmFnLT5v
-ZmZzZXQgKz0gbGVuOwo+PiArCXNnX2luaXRfb25lKHJxLT5zZywgYnVmICsgVklSVE5FVF9SWF9Q
-QUQgKyB4ZHBfaGVhZHJvb20sCj4+ICsJCSAgICB2aS0+aGRyX2xlbiArIEdPT0RfUEFDS0VUX0xF
-Tik7Cj4+ICsJZXJyID0gdmlydHF1ZXVlX2FkZF9pbmJ1ZihycS0+dnEsIHJxLT5zZywgMSwgYnVm
-LCBnZnApOwo+IE5pY2UgdGhpcyBjbGVhbnMgdXAgYSBsb3Qgb2YgdGhlIGJyYW5jaGluZyBjb2Rl
-LiBUaGFua3MuCj4KPiBBY2tlZC1ieTogSm9obiBGYXN0YWJlbmQgPGpvaG4uci5mYXN0YWJlbmRA
-aW50ZWwuY29tPgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4
-LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+On 2/19/17 9:17 PM, Eric W. Biederman wrote:
+>>> @@ -2597,6 +2598,39 @@ static const struct bpf_func_proto bpf_xdp_event_output_proto = {
+>>>   	.arg5_type	= ARG_CONST_STACK_SIZE,
+>>>   };
+>>>
+>>> +BPF_CALL_3(bpf_sk_netns_cmp, struct sock *, sk,  u64, ns_dev, u64, ns_ino)
+>>> +{
+>>> +	return netns_cmp(sock_net(sk), ns_dev, ns_ino);
+>>> +}
+>>
+>> Is there anything that speaks against doing the comparison itself
+>> outside of the helper? Meaning, the helper would get a buffer
+>> passed from stack f.e. struct foo { u64 ns_dev; u64 ns_ino; }
+>> and fills both out with the netns info belonging to the sk/skb.
+> 
+> Yes.  The dev/ino pair is not necessarily unique so it is not at all
+> clear that the returned value would be what the program is expecting.
+
+How does the comparison inside a helper change the fact that a dev and
+inode number are compared? ie., inside or outside of a helper, the end
+result is that a bpf program has a dev/inode pair that is compared to
+that of a socket or skb.
+
+Ideally, it would be nice to have a bpf equivalent to net_eq(), but it
+is not possible from a practical perspective to have bpf programs load a
+namespace reference (address really) from a given pid or fd.
