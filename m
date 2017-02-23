@@ -1,72 +1,124 @@
-From: Emil Velikov <emil.l.velikov@gmail.com>
-Subject: Re: [PATCH 00/35] treewide trivial patches converting pr_warning to
-	pr_warn
-Date: Thu, 23 Feb 2017 17:41:20 +0000
-Message-ID: <CACvgo50LUm5VSn_F=Dh8kL5zCPpCQDoCyUEL=Z+=1+6hJpfTaw@mail.gmail.com>
-References: <cover.1487314666.git.joe@perches.com>
-	<CAL_JsqLTaq-QLTqfyDO8EVJYpgeUx1e4J0Fo2NvfFWqVoiVedQ@mail.gmail.com>
-	<1487870304.14159.29.camel@perches.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 2/2] sctp: add support for MSG_MORE
+Date: Thu, 23 Feb 2017 14:40:21 -0300
+Message-ID: <20170223174021.GO3414@localhost.localdomain>
+References: <cover.1487440272.git.lucien.xin@gmail.com>
+ <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
+ <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-fbdev@vger.kernel.org" <linux-fbdev@vger.kernel.org>,
-	linux-ia64@vger.kernel.org, SH-Linux <linux-sh@vger.kernel.org>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	ML nouveau <nouveau@lists.freedesktop.org>,
-	Linux-ALSA <alsa-devel@alsa-project.org>,
-	dri-devel <dri-devel@lists.freedesktop.org>, "open list:VIRTIO GPU DRIVER"
-	<virtualization@lists.linux-foundation.org>,
-	"linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
-	"linux-mtd@lists.infradead.org" <linux-mtd@lists.infradead.org>,
-	sparclinux@vger.kernel.org, drbd-dev@lists.linbit.com,
-	Rob Herring <robh@kernel.org>, linux-omap <linux-omap@vger.kernel.org>,
-	linux-scsi@vger.kernel.org, Richard Weinberger <richard@nod.at>,
-	tboot-devel@lists.sourceforge.net,
-	amd-gfx mailing list <amd-gfx@lists.freedesktop.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	sfi-devel@simplefirmware.org,
-To: Joe Perches <joe@perches.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1487870304.14159.29.camel@perches.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Xin Long'" <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51914 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751275AbdBWRmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 23 Feb 2017 12:42:45 -0500
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23 February 2017 at 17:18, Joe Perches <joe@perches.com> wrote:
-> On Thu, 2017-02-23 at 09:28 -0600, Rob Herring wrote:
->> On Fri, Feb 17, 2017 at 1:11 AM, Joe Perches <joe@perches.com> wrote:
->> > There are ~4300 uses of pr_warn and ~250 uses of the older
->> > pr_warning in the kernel source tree.
->> >
->> > Make the use of pr_warn consistent across all kernel files.
->> >
->> > This excludes all files in tools/ as there is a separate
->> > define pr_warning for that directory tree and pr_warn is
->> > not used in tools/.
->> >
->> > Done with 'sed s/\bpr_warning\b/pr_warn/' and some emacsing.
-> []
->> Where's the removal of pr_warning so we don't have more sneak in?
->
-> After all of these actually get applied,
-> and maybe a cycle or two later, one would
-> get sent.
->
-By which point you'll get a few reincarnation of it. So you'll have to
-do the same exercise again :-(
+On Thu, Feb 23, 2017 at 04:04:10PM +0000, David Laight wrote:
+> From: Xin Long
+> > Sent: 23 February 2017 03:46
+> > On Tue, Feb 21, 2017 at 10:27 PM, David Laight <David.Laight@aculab.com> wrote:
+> > > From: Xin Long
+> > >> Sent: 18 February 2017 17:53
+> > >> This patch is to add support for MSG_MORE on sctp.
+> > >>
+> > >> It adds force_delay in sctp_datamsg to save MSG_MORE, and sets it after
+> > >> creating datamsg according to the send flag. sctp_packet_can_append_data
+> > >> then uses it to decide if the chunks of this msg will be sent at once or
+> > >> delay it.
+> > >>
+> > >> Note that unlike [1], this patch saves MSG_MORE in datamsg, instead of
+> > >> in assoc. As sctp enqueues the chunks first, then dequeue them one by
+> > >> one. If it's saved in assoc,the current msg's send flag (MSG_MORE) may
+> > >> affect other chunks' bundling.
+> > >
+> > > I thought about that and decided that the MSG_MORE flag on the last data
+> > > chunk was the only one that mattered.
+> > > Indeed looking at any others is broken.
+> > >
+> > > Consider what happens if you have two small chunks queued, the first
+> > > with MSG_MORE set, the second with it clear.
+> > >
+> > > I think that sctp_outq_flush() will look at the first chunk and decide it
+> > > doesn't need to do anything because sctp_packet_transmit_chunk()
+> > > returns SCTP_XMIT_DELAY.
+> > > The data chunk with MSG_MORE clear won't even be looked at.
+> > > So the data will never be sent.
+> 
+> > It's not that bad as you thought, in sctp_packet_can_append_data():
+> > when inflight == 0 || sctp_sk(asoc->base.sk)->nodelay, the chunks
+> > would be still sent out.
+> 
+> One of us isn't understanding the other :-)
+> 
+> IIRC sctp_packet_can_append_data() is called for the first queued
+> data chunk in order to decide whether to generate a message that
 
-I guess the question is - are you expecting to get the series merged
-all together/via one tree ? If not, your plan is perfectly reasonable.
-Fwiw in the DRM subsystem, similar cleanups does purge the respective
-macros/other with the final commit. But there one can pull the lot in
-one go.
+Perhaps here lies the source of the confusion?
+sctp_packet_can_append_data() is called for all queued data chunks, and
+not just the first one.
 
-Regards,
-Emil
+sctp_outq_flush
+  (retransmissions here, omitted for simplicity)
+  /* Finally, transmit new packets.  */
+  while ((chunk = sctp_outq_dequeue_data(q)) != NULL) {
+    sctp_packet_transmit_chunk
+      sctp_packet_append_chunk
+        sctp_packet_can_append_data
+        __sctp_packet_append_chunk
+
+So chunks are checked one by one.
+
+> consists only of data chunks.
+
+That's not really its purpose. It's to check if it can append a data
+chunk to the packet being prepared, while respecting asoc state, cwnd,
+etc.
+
+HTH!
+
+  Marcelo
+
+> If it returns SCTP_XMIT_OK then a message is built collecting the
+> rest of the queued data chunks (until the window fills).
+> 
+> So if I send a message with MSG_MORE set (on an idle connection)
+> SCTP_XMIT_DELAY is returned and a message isn't sent.
+> 
+> I now send a second small message, this time with MSG_MORE clear.
+> The message is queued, then the code looks to see if it can send anything.
+> 
+> sctp_packet_can_append_data() is called for the first queued chunk.
+> Since it has force_delay set SCTP_XMIT_DELAY is returned and no
+> message is built.
+> The second message isn't even looked at.
+> 
+> > What MSG_MORE flag actually does is ignore inflight == 0 and
+> > sctp_sk(asoc->base.sk)->nodelay to delay the chunks, but still
+> > it has to respect the original logic (like !chunk->msg->can_delay
+> > || !sctp_packet_empty(packet) || ...)
+> > 
+> > To delay the chunks with MSG_MORE set even when inflight is 0
+> > it especially important here for users.
+> 
+> I'm not too worried about that.
+> Sending the first message was a cheap way to ensure something got
+> sent if the application lied and didn't send a subsequent message.
+> 
+> The change has hit Linus's tree, I'll should be able to test that
+> and confirm what I think is going on.
+> 
+> 	David
+> 
