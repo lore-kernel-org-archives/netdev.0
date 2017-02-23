@@ -1,40 +1,40 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: netfilter: nft_ct: add zone id set support
-Date: Thu, 23 Feb 2017 12:49:30 +0100
-Message-ID: <20170223114930.GG11144@breakpoint.cc>
-References: <20170222190219.EC87B661B65@gitolite.kernel.org>
- <CAMuHMdUJ=2+9ko0KEU7rX3rb7vghNj3Xc-HSLSK=-kqQ+CZM6w@mail.gmail.com>
- <20170223113435.GF11144@breakpoint.cc>
- <20170223114216.GA3093@salvia>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] uapi: fix linux/seg6.h and linux/seg6_iptunnel.h
+ userspace compilation errors
+Date: Thu, 23 Feb 2017 14:57:40 +0300
+Message-ID: <12c26b3a-ba1d-ba4f-8c1d-f9b157fe75ba@cogentembedded.com>
+References: <20170223011355.GB16142@altlinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Dmitry V. Levin" <ldv@altlinux.org>,
         "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+        David Lebrun <david.lebrun@uclouvain.be>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170223114216.GA3093@salvia>
+In-Reply-To: <20170223011355.GB16142@altlinux.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Thu, Feb 23, 2017 at 12:34:35PM +0100, Florian Westphal wrote:
-> > Yes, Dan reported this and a patch is queued at
-> > http://patchwork.ozlabs.org/patch/727573/
-> > 
-> > Pablo, any reason why this is still waiting?
-> 
-> I just flushing out my nf.git tree via pull request.
-> 
-> Once these changes are pulled, I'll fetch recent net-next changes that
-> were just merged via net. Then, I'll pick this so we can calm down
-> these compilation warnings.
-> 
-> Are you OK with this procedure? Thanks!
+On 2/23/2017 4:13 AM, Dmitry V. Levin wrote:
 
-Sure.
+> Include <linux/in6.h> in uapi/linux/seg6.h to fix the following
+> linux/seg6.h userspace compilation error:
+>
+> /usr/include/linux/seg6.h:31:18: error: array type has incomplete element type 'struct in6_addr'
+>   struct in6_addr segments[0];
+>
+> Include <linux/seg6.h> in uapi/linux/seg6_iptunnel.h to fix
+> the following linux/seg6_iptunnel.h userspace compilation error:
+>
+> /usr/include/linux/seg6_iptunnel.h:26:21: error: array type has incomplete element type 'struct ipv6_sr_hdr'
+>   struct ipv6_sr_hdr srh[0];
+>
+> Fixes: a50a05f4("ipv6: sr: add missing Kbuild export for header files")
+
+    12 digits and space before ( as well.
+
+> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+[...]
+
+MBR, Sergei
