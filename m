@@ -1,78 +1,122 @@
 From: Tom Herbert <tom@herbertland.com>
 Subject: Re: [PATCH net-next] net/gtp: Add udp source port generation
  according to flow hash
-Date: Thu, 23 Feb 2017 08:35:13 -0800
-Message-ID: <CALx6S37QT-3W5psz0f2bf+RTzt09AysCtwTQmzZsHS_g6uo5ZA@mail.gmail.com>
+Date: Thu, 23 Feb 2017 08:42:38 -0800
+Message-ID: <CALx6S37si3_dEEtYRd7229PXO8gmoUh5BmdrTHBj5A-L=BfFbg@mail.gmail.com>
 References: <1487257141-11706-1-git-send-email-ogerlitz@mellanox.com>
  <576077949.135577.1487282291666.JavaMail.zimbra@tpip.net> <CAJ3xEMijwHpWfxUFcaCiAkP_0P8R2u6Cv4L=Vc3b_dPf+beOBg@mail.gmail.com>
  <CALx6S34ibBFpmZvxAtUn6oqgX9M8C1a3gg1iZrWWzwbswatUSQ@mail.gmail.com>
- <7810166.196078.1487842556962.JavaMail.zimbra@tpip.net> <20170223140012.GA4462@salvia>
+ <20170223134947.GA4373@salvia> <635223204.206529.1487859673545.JavaMail.zimbra@tpip.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andreas Schultz <aschultz@tpip.net>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
+Cc: pablo <pablo@netfilter.org>, Or Gerlitz <gerlitz.or@gmail.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
         "David S. Miller" <davem@davemloft.net>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
-        laforge <laforge@gnumonks.org>, netdev <netdev@vger.kernel.org>,
-        timo lindhorst <timo.lindhorst@travelping.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+        laforge <laforge@gnumonks.org>, netdev <netdev@vger.kernel.org>
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f171.google.com ([209.85.216.171]:33352 "EHLO
-        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751119AbdBWQfP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 11:35:15 -0500
-Received: by mail-qt0-f171.google.com with SMTP id b16so33011507qte.0
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 08:35:14 -0800 (PST)
-In-Reply-To: <20170223140012.GA4462@salvia>
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:35399 "EHLO
+        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751188AbdBWQmk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 11:42:40 -0500
+Received: by mail-qk0-f175.google.com with SMTP id u188so36744892qkc.2
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 08:42:40 -0800 (PST)
+In-Reply-To: <635223204.206529.1487859673545.JavaMail.zimbra@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 23, 2017 at 6:00 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Thu, Feb 23, 2017 at 10:35:56AM +0100, Andreas Schultz wrote:
->> ----- On Feb 22, 2017, at 10:47 PM, Tom Herbert tom@herbertland.com wrote:
-> [...]
->> > This shouldn't be taken as a HW requirement and it's unlikely we'd add
->> > explicit GTP support in flow_dissector. If we can't get entropy in the
->> > UDP source port then IPv6 flow label is a potential alternative (so
->> > that should be supported in NICs for RSS).
->> >
->> > I'll also reiterate my previous point about the need for GTP testing--
->> > in order for us to be able to evaluate the GTP datapath for things
->> > like performance or how they withstand against DDOS we really need an
->> > easy way to isolate the datapath.
->>
->> GTP as specified is very unsecure by definition. It is meant to be run
->> only on *private* mobile carrier and intra mobile carrier EPC networks.
->> Running it openly on the public internet would be extremly foolish.
->>
->> There are some mechanisms in GTPv1-C on how to handle overload and
->> more extensive mechanisms in GTPv2-C for overload handling. The basic
->> guiding principle is to simply drop any traffic that it can't handle.
->>
->> Anyhow, I havn't seen anything in 3GPP or GSMA documents that deals
->> with DDOS.
->>
->> There are guidelines like the GSMA's IR.88 that describe how the intra
->> carrier roaming should work and what security measures should be
->> implemented.
->>
->> Traffic coming in at Gi/SGi or form the UE could create a DDOS on tunnel.
->> However, on the UE side you still have the RAN (eNODE, SGSN, S-GW) or
->> an ePDG that has to apply QoS and thereby limit traffic. On the Gi/SGi
->> side side you have the PCEF that does the same.
->>
->> So in a complete 3GPP node (GGSN, P-GW) that uses the GTP tunnel
->> implementation, malicious traffic should be blocked before it can reach
->> the tunnel.
->>
->> And as I stated before, the GTP tunnel module is not supposed to be
->> use without any of those components. So the DDOS concern should not
->> be handled at the tunnel level.
+On Thu, Feb 23, 2017 at 6:21 AM, Andreas Schultz <aschultz@tpip.net> wrote:
+> ----- On Feb 23, 2017, at 2:49 PM, pablo pablo@netfilter.org wrote:
 >
-> I think that Tom's point is that this tunnel driver will have to deal
-> with DDOS scenarios anyway, because reality is that you can't always
-> block it before it can reach the tunnel.
+>> On Wed, Feb 22, 2017 at 01:47:17PM -0800, Tom Herbert wrote:
+>>> On Wed, Feb 22, 2017 at 1:29 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> > On Thu, Feb 16, 2017 at 11:58 PM, Andreas Schultz <aschultz@tpip.net> wrote:
+>>> >> Hi Or,
+>>> >> ----- On Feb 16, 2017, at 3:59 PM, Or Gerlitz ogerlitz@mellanox.com wrote:
+>>> >>
+>>> >>> Generate the source udp header according to the flow represented by
+>>> >>> the packet we are encapsulating, as done for other udp tunnels. This
+>>> >>> helps on the receiver side to apply RSS spreading.
+>>> >>
+>>> >> This might work for GTPv0-U, However, for GTPv1-U this could interfere
+>>> >> with error handling in the user space control process when the UDP port
+>>> >> extension  header is used in error indications.
+>>> >
+>>> >
+>>> > in the document you posted there's this quote "The source IP and port
+>>> > have no meaning and can change at any time" -- I assume it refers to
+>>> > v0? can we identify in the kernel code that we're on v0 and have the
+>>> > patch come into play?
+>>> >
+>>> >> 3GPP TS 29.281 Rel 13, section 5.2.2.1 defines the UDP port extension and
+>>> >> section 7.3.1 says that the UDP source port extension can be used to
+>>> >> mitigate DOS attacks. This would IMHO imply that the user space control
+>>> >> process needs to know the TEID to UDP source port mapping.
+>>> >
+>>> >> The other question is, on what is this actually hashing. When I understand
+>>> >> the code correctly, this will hash on the source/destination of the orignal
+>>> >> flow. I would expect that a SGSN/SGW/eNodeB would like the keep flow
+>>> >> processing on a per TEID base, so the port hashing should be base on the TEID.
+>>> >
+>>> > is it possible for packets belonging to the same TCP session or UDP
+>>> > "pseudo session" (given pair of src/dst ip/port) to be encapsulated
+>>> > using different TEID?
+>>> >
+>>> > hashing on the TEID imposes a harder requirement on the NIC HW vs.
+>>> > just UDP based RSS.
+>>>
+>>> This shouldn't be taken as a HW requirement and it's unlikely we'd add
+>>> explicit GTP support in flow_dissector. If we can't get entropy in the
+>>> UDP source port then IPv6 flow label is a potential alternative (so
+>>> that should be supported in NICs for RSS).
+>>
+>> According to specs, section 4.4.2.3 Encapsulated T-PDU, TS 29.281.
+>>
+>> "The UDP Source Port is a locally allocated port number at the sending
+>> GTP-U entity."
+>>
+>> Older specs that refer to GTP-U such as TS 09.60 and TS 29.060 also
+>> state the same.
 >
-Right, if only we had a dime for every time someone thought their
-perimeter security was sufficient only to be proven wrong!
+> It is absolutely valid the choose any sending port you want. I only
+> think you should know which port you did send on.
+>
+> TS 29.281, Sect. 5.2.2.1 defines the UDP port extension to be used
+> in error indications. It provides the UDP source port of a G-PDU
+> that triggered an error.
+>
+> If the send side does not know which port it uses to send, how
+> can it use this indication to correlate an error? That's the reason
+> I thought it would be better to add the UDP source port to the
+> PDP context and allow the control path to assign the source port
+> on context creation.
+>
+> Of course, this header is optional and the receiving side is not
+> required to use it.
+>
+> About the RSS spreading in the receive side, I would think that
+> a receiver would prefer to process all packets that belong to a
+> give TEID with the same receive instance. So keeping the UDP
+> source port for a given TEID stable would be beneficial. As far
+> as I understand it, the hash used in the patch uses the source
+> and destination values from the original flow. This would mean
+> that GTP packets that belong to the same TEID would end up with
+> different UDP source ports.
+>
+> So what about this as a compromise, we dd a UDP source port field
+> to the PDP context, it defaults to 0 (zero), the control instance
+> can optionally initialize this field, when we hit the xmit code
+> and the port is non zero, use that value, if it is zero use the hash?
+>
+Sounds reasonable. It is typical in other UDP encapsulations to allow
+the UDP sort port to be configured like this for static tunnels at
+least. If you need to set the port based on a hash over atypical
+values (like TEID) I suggest you still do jhash with randomized keys
+to minimize information leakage.
+
+> Regards
+> Andreas
+>
+>>
+>> So Or patch looks fine to me.
