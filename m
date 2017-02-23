@@ -1,7 +1,7 @@
 From: Thierry Reding <thierry.reding@gmail.com>
-Subject: [PATCH 1/7] net: stmmac: Rename clk_ptp_ref clock to ptp_ref
-Date: Thu, 23 Feb 2017 18:24:32 +0100
-Message-ID: <20170223172438.14770-2-thierry.reding@gmail.com>
+Subject: [PATCH 2/7] net: stmmac: Balance PTP reference clock enable/disable
+Date: Thu, 23 Feb 2017 18:24:33 +0100
+Message-ID: <20170223172438.14770-3-thierry.reding@gmail.com>
 References: <20170223172438.14770-1-thierry.reding@gmail.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
         Alexandre Torgue <alexandre.torgue@st.com>,
@@ -19,45 +19,42 @@ List-Id: netdev.vger.kernel.org
 
 From: Thierry Reding <treding@nvidia.com>
 
-There aren't currently any users of the "clk_ptp_ref", but there are
-other references to "ptp_ref", so I'm leaning towards considering that a
-typo. Fix it.
+clk_prepare_enable() and clk_disable_unprepare() for this clock aren't
+properly balanced, which can trigger a WARN_ON() in the common clock
+framework.
 
 Signed-off-by: Thierry Reding <treding@nvidia.com>
 ---
- Documentation/devicetree/bindings/net/stmmac.txt      | 6 +++---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 ++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index d3bfc2b30fb5..11b27dfd1627 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -28,9 +28,9 @@ Optional properties:
-   clocks may be specified in derived bindings.
- - clock-names: One name for each entry in the clocks property, the
-   first one should be "stmmaceth" and the second one should be "pclk".
--- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
--  available this clock is used for programming the Timestamp Addend Register.
--  If not passed then the system clock will be used and this is fine on some
-+- ptp_ref: this is the PTP reference clock; in case of the PTP is available
-+  this clock is used for programming the Timestamp Addend Register. If not
-+  passed then the system clock will be used and this is fine on some
-   platforms.
- - tx-fifo-depth: See ethernet.txt file in the same directory
- - rx-fifo-depth: See ethernet.txt file in the same directory
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 3cbe09682afe..6b7a5ce19589 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1711,6 +1711,10 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	stmmac_mmc_setup(priv);
+ 
+ 	if (init_ptp) {
++		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
++		if (ret < 0)
++			netdev_warn(priv->dev, "failed to enable PTP reference clock: %d\n", ret);
++
+ 		ret = stmmac_init_ptp(priv);
+ 		if (ret == -EOPNOTSUPP)
+ 			netdev_warn(priv->dev, "PTP not supported by HW\n");
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 433a84239a68..5b18355c0d2b 100644
+index 5b18355c0d2b..d285d6cfbd0d 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -359,7 +359,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 	clk_prepare_enable(plat->pclk);
- 
- 	/* Fall-back to main clock in case of no PTP ref is passed */
--	plat->clk_ptp_ref = devm_clk_get(&pdev->dev, "clk_ptp_ref");
-+	plat->clk_ptp_ref = devm_clk_get(&pdev->dev, "ptp_ref");
- 	if (IS_ERR(plat->clk_ptp_ref)) {
- 		plat->clk_ptp_rate = clk_get_rate(plat->stmmac_clk);
+@@ -365,7 +365,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
  		plat->clk_ptp_ref = NULL;
+ 		dev_warn(&pdev->dev, "PTP uses main clock\n");
+ 	} else {
+-		clk_prepare_enable(plat->clk_ptp_ref);
+ 		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
+ 		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
+ 	}
 -- 
 2.11.1
