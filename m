@@ -1,55 +1,56 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net V3 3/5] net/mlx4_core: Fix VF overwrite of module param which disables DMFS on new probed PFs
-Date: Thu, 23 Feb 2017 12:02:43 +0200
-Message-ID: <1487844165-9934-4-git-send-email-tariqt@mellanox.com>
-References: <1487844165-9934-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Dexuan Cui <decui@microsoft.com>,
-        Majd Dibbiny <majd@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55588 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751070AbdBWKKS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 05:10:18 -0500
-In-Reply-To: <1487844165-9934-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: SIPHASH (was: Re: [GIT] Networking)
+Date: Thu, 23 Feb 2017 11:21:42 +0100
+Message-ID: <CAMuHMdWK8MZOErwOgpzEmNNysiY06_KTB_DKQtX0oPjizmNzqw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Majd Dibbiny <majd@mellanox.com>
+Hi Jason,
 
-In the VF driver, module parameter mlx4_log_num_mgm_entry_size was
-mistakenly overwritten -- and in a manner which overrode the
-device-managed flow steering option encoded in the parameter.
+On Wed, Feb 22, 2017 at 5:31 AM, David Miller <davem@davemloft.net> wrote:
+> 3) Introduce SIPHASH and it's usage for secure sequence numbers and
+>    syncookies.  From Jason A. Donenfeld.
 
-log_num_mgm_entry_size is a global module parameter which
-affects all ConnectX-3 PFs installed on that host.
-If a VF changes log_num_mgm_entry_size, this will affect all PFs
-which are probed subsequent to the change (by disabling DMFS for
-those PFs).
+> Jason A. Donenfeld (4):
+>       siphash: add cryptographically secure PRF
+>       siphash: implement HalfSipHash1-3 for hash tables
+>       secure_seq: use SipHash in place of MD5
+>       syncookies: use SipHash in place of SHA1
 
-Fixes: 3c439b5586e9 ("mlx4_core: Allow choosing flow steering mode")
-Signed-off-by: Majd Dibbiny <majd@mellanox.com>
-Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/main.c | 2 --
- 1 file changed, 2 deletions(-)
+bloat-o-meter v4.10.. says:
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 683234221741..005e1049c977 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -841,8 +841,6 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 		return -EINVAL;
- 	}
- 
--	mlx4_log_num_mgm_entry_size = hca_param.log_mc_entry_sz;
--
- 	dev->caps.hca_core_clock = hca_param.hca_core_clock;
- 
- 	memset(&dev_cap, 0, sizeof(dev_cap));
--- 
-1.8.3.1
+    add/remove: 338/127 grow/shrink: 604/310 up/down: 86156/-24117 (62039)
+    ...
+    siphash_4u64                                   -    5006   +5006
+    siphash_3u64                                   -    4298   +4298
+    siphash_2u64                                   -    3582   +3582
+    __siphash_unaligned                            -    3052   +3052
+    __siphash_aligned                              -    3052   +3052
+    siphash_3u32                                   -    2976   +2976
+    siphash_1u64                                   -    2870   +2870
+    siphash_1u32                                   -    2172   +2172
+    ...
+
+Do we need all of this builtin, unconditionally?
+
+Thanks for your answer!
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
