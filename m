@@ -1,67 +1,44 @@
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Subject: [PATCH v2] uapi: fix linux/rds.h userspace compilation errors
-Date: Thu, 23 Feb 2017 14:35:23 +0300
-Message-ID: <20170223113523.GB22568@altlinux.org>
-References: <20170223011320.GA16142@altlinux.org>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net 3/6] net/mlx5e: Do not reduce LRO WQE size when not
+ using build_skb
+Date: Thu, 23 Feb 2017 13:37:46 +0200
+Message-ID: <CALzJLG9iEgw3ziiGnUWvhazPjge02AfKPXaRt1cq+yh28VacMQ@mail.gmail.com>
+References: <20170222152016.31263-1-saeedm@mellanox.com> <20170222152016.31263-4-saeedm@mellanox.com>
+ <CAADnVQKVj3MbjkstfcCsUy7DmqLGUtrq5=g=Bzd1u=bymcuVuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Santosh Shilimkar <santosh.shilimkar@oracle.com>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <46a28c0c-36fe-db81-d263-f737f1d3ea05@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:35534 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751070AbdBWLjF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 06:39:05 -0500
+Received: by mail-qk0-f182.google.com with SMTP id u188so28737889qkc.2
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 03:38:07 -0800 (PST)
+In-Reply-To: <CAADnVQKVj3MbjkstfcCsUy7DmqLGUtrq5=g=Bzd1u=bymcuVuQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Consistently use types from linux/types.h to fix the following
-linux/rds.h userspace compilation errors:
+On Wed, Feb 22, 2017 at 9:45 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Wed, Feb 22, 2017 at 7:20 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+>> From: Tariq Toukan <tariqt@mellanox.com>
+>>
+>> When rq_type is Striding RQ, no room of SKB_RESERVE is needed
+>> as SKB allocation is not done via build_skb.
+>>
+>> Fixes: e4b85508072b ("net/mlx5e: Slightly reduce hardware LRO size")
+>> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+>> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+>
+> why this one is a bug fix?
+> Sound like an optimization from commit log.
 
-/usr/include/linux/rds.h:198:2: error: unknown type name 'u8'
-  u8 rx_traces;
-/usr/include/linux/rds.h:199:2: error: unknown type name 'u8'
-  u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
-/usr/include/linux/rds.h:203:2: error: unknown type name 'u8'
-  u8 rx_traces;
-/usr/include/linux/rds.h:204:2: error: unknown type name 'u8'
-  u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
-/usr/include/linux/rds.h:205:2: error: unknown type name 'u64'
-  u64 rx_trace[RDS_MSG_RX_DGRAM_TRACE_MAX];
-
-Fixes: 3289025aedc0 ("RDS: add receive message trace used by application")
-Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
----
-v2: fixed "Fixes:" line
-
- include/uapi/linux/rds.h | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/include/uapi/linux/rds.h b/include/uapi/linux/rds.h
-index 47c03ca..198892b 100644
---- a/include/uapi/linux/rds.h
-+++ b/include/uapi/linux/rds.h
-@@ -195,14 +195,14 @@ enum rds_message_rxpath_latency {
- };
- 
- struct rds_rx_trace_so {
--	u8 rx_traces;
--	u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
-+	__u8 rx_traces;
-+	__u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
- };
- 
- struct rds_cmsg_rx_trace {
--	u8 rx_traces;
--	u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
--	u64 rx_trace[RDS_MSG_RX_DGRAM_TRACE_MAX];
-+	__u8 rx_traces;
-+	__u8 rx_trace_pos[RDS_MSG_RX_DGRAM_TRACE_MAX];
-+	__u64 rx_trace[RDS_MSG_RX_DGRAM_TRACE_MAX];
- };
- 
- /*
--- 
-ldv
+It is a regression since  ("net/mlx5e: Slightly reduce hardware LRO size").
+And we see due to this a small drop in HW LRO performance.
+We just fixed the LRO size to be the same as it was before the
+offending patch for striding RQ case.
