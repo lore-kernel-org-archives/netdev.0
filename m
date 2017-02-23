@@ -1,40 +1,67 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] uapi: fix linux/seg6.h and linux/seg6_iptunnel.h
- userspace compilation errors
-Date: Thu, 23 Feb 2017 14:57:40 +0300
-Message-ID: <12c26b3a-ba1d-ba4f-8c1d-f9b157fe75ba@cogentembedded.com>
-References: <20170223011355.GB16142@altlinux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Dmitry V. Levin" <ldv@altlinux.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        David Lebrun <david.lebrun@uclouvain.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170223011355.GB16142@altlinux.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH iproute2 master] {f,m}_bpf: dump tag over insns
+Date: Thu, 23 Feb 2017 13:07:14 +0100
+Message-ID: <ca13968c577a5b3b9cbdb0aeaf637b7b7c168e69.1487850643.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:40687 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751049AbdBWMHW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 07:07:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/23/2017 4:13 AM, Dmitry V. Levin wrote:
+We already export TCA_BPF_TAG resp. TCA_ACT_BPF_TAG from kernel commit
+f1f7714ea51c ("bpf: rework prog_digest into prog_tag"), thus also dump
+it when filter/actions are shown.
 
-> Include <linux/in6.h> in uapi/linux/seg6.h to fix the following
-> linux/seg6.h userspace compilation error:
->
-> /usr/include/linux/seg6.h:31:18: error: array type has incomplete element type 'struct in6_addr'
->   struct in6_addr segments[0];
->
-> Include <linux/seg6.h> in uapi/linux/seg6_iptunnel.h to fix
-> the following linux/seg6_iptunnel.h userspace compilation error:
->
-> /usr/include/linux/seg6_iptunnel.h:26:21: error: array type has incomplete element type 'struct ipv6_sr_hdr'
->   struct ipv6_sr_hdr srh[0];
->
-> Fixes: a50a05f4("ipv6: sr: add missing Kbuild export for header files")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ tc/f_bpf.c | 9 +++++++++
+ tc/m_bpf.c | 9 +++++++++
+ 2 files changed, 18 insertions(+)
 
-    12 digits and space before ( as well.
-
-> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-[...]
-
-MBR, Sergei
+diff --git a/tc/f_bpf.c b/tc/f_bpf.c
+index c4764d8..df8a259 100644
+--- a/tc/f_bpf.c
++++ b/tc/f_bpf.c
+@@ -216,6 +216,15 @@ static int bpf_print_opt(struct filter_util *qu, FILE *f,
+ 		bpf_print_ops(f, tb[TCA_BPF_OPS],
+ 			      rta_getattr_u16(tb[TCA_BPF_OPS_LEN]));
+ 
++	if (tb[TCA_BPF_TAG]) {
++		SPRINT_BUF(b);
++
++		fprintf(f, "tag %s ",
++			hexstring_n2a(RTA_DATA(tb[TCA_BPF_TAG]),
++				      RTA_PAYLOAD(tb[TCA_BPF_TAG]),
++				      b, sizeof(b)));
++	}
++
+ 	if (tb[TCA_BPF_POLICE]) {
+ 		fprintf(f, "\n");
+ 		tc_print_police(f, tb[TCA_BPF_POLICE]);
+diff --git a/tc/m_bpf.c b/tc/m_bpf.c
+index f043ae4..1ddc334 100644
+--- a/tc/m_bpf.c
++++ b/tc/m_bpf.c
+@@ -177,6 +177,15 @@ static int bpf_print_opt(struct action_util *au, FILE *f, struct rtattr *arg)
+ 		fprintf(f, " ");
+ 	}
+ 
++	if (tb[TCA_ACT_BPF_TAG]) {
++		SPRINT_BUF(b);
++
++		fprintf(f, "tag %s ",
++			hexstring_n2a(RTA_DATA(tb[TCA_ACT_BPF_TAG]),
++				      RTA_PAYLOAD(tb[TCA_ACT_BPF_TAG]),
++				      b, sizeof(b)));
++	}
++
+ 	fprintf(f, "default-action %s\n", action_n2a(parm->action));
+ 	fprintf(f, "\tindex %u ref %d bind %d", parm->index, parm->refcnt,
+ 		parm->bindcnt);
+-- 
+1.9.3
