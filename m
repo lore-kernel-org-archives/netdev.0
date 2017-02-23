@@ -1,72 +1,39 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: lib: Introduce priority array area manager
-Date: Thu, 23 Feb 2017 08:56:26 +0100
-Message-ID: <CAMuHMdXR5QZrN1NMkZq_jSo0cRMqMJ6m5q-8C3pr1_NWKUZcqg@mail.gmail.com>
-References: <20170222190204.878696619DE@gitolite.kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Jiri Pirko <jiri@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170222190204.878696619DE@gitolite.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhu Yanjun <yanjun.zhu@oracle.com>
+Subject: [PATCH 1/1] forcedeth: Remove return from a void function
+Date: Thu, 23 Feb 2017 03:22:49 -0500
+Message-ID: <1487838169-26207-1-git-send-email-yanjun.zhu@oracle.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1050.oracle.com ([156.151.31.82]:22105 "EHLO
+        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751107AbdBWIYq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 03:24:46 -0500
+Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
+        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v1N8ONTx009924
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 08:24:24 GMT
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri,
+In a void function, it is not necessary to append a return statement in it.
 
-On Wed, Feb 22, 2017 at 8:02 PM, Linux Kernel Mailing List
-<linux-kernel@vger.kernel.org> wrote:
-> Web:        https://git.kernel.org/torvalds/c/44091d29f2075972aede47ef17e1e70db3d51190
-> Commit:     44091d29f2075972aede47ef17e1e70db3d51190
-> Parent:     b862815c3ee7b49ec20a9ab25da55a5f0bcbb95e
-> Refname:    refs/heads/master
-> Author:     Jiri Pirko <jiri@mellanox.com>
-> AuthorDate: Fri Feb 3 10:29:06 2017 +0100
-> Committer:  David S. Miller <davem@davemloft.net>
-> CommitDate: Fri Feb 3 16:35:42 2017 -0500
->
->     lib: Introduce priority array area manager
->
->     This introduces a infrastructure for management of linear priority
->     areas. Priority order in an array matters, however order of items inside
->     a priority group does not matter.
->
->     As an initial implementation, L-sort algorithm is used. It is quite
->     trivial. More advanced algorithm called P-sort will be introduced as a
->     follow-up. The infrastructure is prepared for other algos.
->
->     Alongside this, a testing module is introduced as well.
->
->     Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-> --- a/lib/Kconfig
-> +++ b/lib/Kconfig
-> @@ -550,4 +550,7 @@ config STACKDEPOT
->  config SBITMAP
->         bool
->
-> +config PARMAN
-> +       tristate "parman"
-
-| parman (PARMAN) [N/m/y] (NEW) ?
-|
-| There is no help available for this option.
-
-Can you please add a description for this option?
-Or drop the "parman" string if this is always selected by its kernel users, and
-never intended to be enabled by the end user.
-
-Thanks!
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 3913f07..a992595 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3274,8 +3274,6 @@ static void nv_force_linkspeed(struct net_device *dev, int speed, int duplex)
+ 	pci_push(base);
+ 	writel(np->linkspeed, base + NvRegLinkSpeed);
+ 	pci_push(base);
+-
+-	return;
+ }
+ 
+ /**
+-- 
+2.7.4
