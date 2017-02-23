@@ -1,31 +1,36 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 master] {f,m}_bpf: dump tag over insns
-Date: Thu, 23 Feb 2017 09:02:44 -0800
-Message-ID: <20170223090244.73702374@xeon-e3>
-References: <ca13968c577a5b3b9cbdb0aeaf637b7b7c168e69.1487850643.git.daniel@iogearbox.net>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next v3 0/3] net: core: Two Helper function about
+ socket information
+Date: Thu, 23 Feb 2017 12:00:46 -0500
+Message-ID: <CAF=yD-+LV_4_7BpYmMyv=XZtbvikZ1nyp3eOExrrtjcP_PUnVg@mail.gmail.com>
+References: <1487824932-5105-1-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34980 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751397AbdBWRDI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 12:03:08 -0500
-Received: by mail-pf0-f178.google.com with SMTP id 68so4754678pfx.2
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 09:02:47 -0800 (PST)
-In-Reply-To: <ca13968c577a5b3b9cbdb0aeaf637b7b7c168e69.1487850643.git.daniel@iogearbox.net>
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:35340 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751107AbdBWRIe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 12:08:34 -0500
+Received: by mail-wr0-f182.google.com with SMTP id s27so25806645wrb.2
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 09:07:35 -0800 (PST)
+In-Reply-To: <1487824932-5105-1-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Feb 2017 13:07:14 +0100
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+On Wed, Feb 22, 2017 at 11:42 PM, Chenbo Feng
+<chenbofeng.kernel@gmail.com> wrote:
+> From: Chenbo Feng <fengc@google.com>
+>
+> Introduce two eBpf helper function to get the socket cookie and
+> socket uid for each packet. The helper function is useful when
+> the *sk field inside sk_buff is not empty. These helper functions
+> can be used on socket and uid based traffic monitoring programs.
 
-> We already export TCA_BPF_TAG resp. TCA_ACT_BPF_TAG from kernel commit
-> f1f7714ea51c ("bpf: rework prog_digest into prog_tag"), thus also dump
-> it when filter/actions are shown.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-
-Applied
+Net-next is closed. But we can review as RFC.
