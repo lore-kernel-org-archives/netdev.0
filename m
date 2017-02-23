@@ -1,160 +1,368 @@
 From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
-Subject: [PATCH 08/11] IB/opa-vnic: VNIC Ethernet Management Agent (VEMA) function
-Date: Wed, 22 Feb 2017 23:06:43 -0800
-Message-ID: <1487833606-57917-9-git-send-email-niranjana.vishwanathapura@intel.com>
+Subject: [PATCH 07/11] IB/opa-vnic: VNIC Ethernet Management Agent (VEMA) interface
+Date: Wed, 22 Feb 2017 23:06:42 -0800
+Message-ID: <1487833606-57917-8-git-send-email-niranjana.vishwanathapura@intel.com>
 References: <1487833606-57917-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         dennis.dalessandro@intel.com, ira.weiny@intel.com,
-        Sadanand Warrier <sadanand.warrier@intel.com>,
         Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>,
-        Tanya K Jajodia <tanya.k.jajodia@intel.com>,
-        Sudeep Dutt <sudeep.dutt@intel.com>
+        Sadanand Warrier <sadanand.warrier@intel.com>,
+        Tanya K Jajodia <tanya.k.jajodia@intel.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:58222 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:49645 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751099AbdBWHIU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Feb 2017 02:08:20 -0500
+        id S1751023AbdBWHIT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 23 Feb 2017 02:08:19 -0500
 In-Reply-To: <1487833606-57917-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OPA VEMA function interfaces with the Infiniband MAD stack to exchange the
-management information packets with the Ethernet Manager (EM).
-It interfaces with the OPA VNIC netdev function to SET/GET the management
-information. The information exchanged with the EM includes class port
-details, encapsulation configuration, various counters, unicast and
-multicast MAC list and the MAC table. It also supports sending traps
-to the EM.
+OPA VNIC EMA interface functions are the management interfaces to the OPA
+VNIC netdev. Add support to add and remove VNIC ports. Implement the
+required GET/SET management interface functions and processing of new
+management information. Add support to send trap notifications upon various
+events like interface status change, unicast/multicast mac list update and
+mac address change.
 
 Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
 Reviewed-by: Ira Weiny <ira.weiny@intel.com>
-Signed-off-by: Sadanand Warrier <sadanand.warrier@intel.com>
 Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+Signed-off-by: Sadanand Warrier <sadanand.warrier@intel.com>
 Signed-off-by: Tanya K Jajodia <tanya.k.jajodia@intel.com>
-Signed-off-by: Sudeep Dutt <sudeep.dutt@intel.com>
 ---
- drivers/infiniband/ulp/opa_vnic/Makefile           |    2 +-
- drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c |   12 +
- .../infiniband/ulp/opa_vnic/opa_vnic_internal.h    |   17 +-
- drivers/infiniband/ulp/opa_vnic/opa_vnic_vema.c    | 1071 ++++++++++++++++++++
- .../infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c  |    2 +-
- 5 files changed, 1099 insertions(+), 5 deletions(-)
- create mode 100644 drivers/infiniband/ulp/opa_vnic/opa_vnic_vema.c
+ drivers/infiniband/ulp/opa_vnic/Makefile           |   3 +-
+ drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h   |   4 +
+ .../infiniband/ulp/opa_vnic/opa_vnic_internal.h    |  44 +++
+ drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c  | 142 +++++++-
+ .../infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c  | 390 +++++++++++++++++++++
+ 5 files changed, 581 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
 
 diff --git a/drivers/infiniband/ulp/opa_vnic/Makefile b/drivers/infiniband/ulp/opa_vnic/Makefile
-index e8d1ea1..8061b28 100644
+index 975c313..e8d1ea1 100644
 --- a/drivers/infiniband/ulp/opa_vnic/Makefile
 +++ b/drivers/infiniband/ulp/opa_vnic/Makefile
-@@ -4,4 +4,4 @@
+@@ -3,4 +3,5 @@
+ #
  obj-$(CONFIG_INFINIBAND_OPA_VNIC) += opa_vnic.o
  
- opa_vnic-y := opa_vnic_netdev.o opa_vnic_encap.o opa_vnic_ethtool.o \
--              opa_vnic_vema_iface.o
-+              opa_vnic_vema.o opa_vnic_vema_iface.o
-diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c
-index a98948c..d66540e 100644
---- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c
-+++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c
-@@ -120,6 +120,17 @@ struct vnic_stats {
+-opa_vnic-y := opa_vnic_netdev.o opa_vnic_encap.o opa_vnic_ethtool.o
++opa_vnic-y := opa_vnic_netdev.o opa_vnic_encap.o opa_vnic_ethtool.o \
++              opa_vnic_vema_iface.o
+diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h b/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h
+index c025cde..4c434b9 100644
+--- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h
++++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_encap.h
+@@ -99,6 +99,10 @@
+ #define OPA_VNIC_DLID_SD_IS_SRC_MAC(dlid_sd)  (!!((dlid_sd) & 0x20))
+ #define OPA_VNIC_DLID_SD_GET_DLID(dlid_sd)    ((dlid_sd) >> 8)
  
- #define VNIC_STATS_LEN  ARRAY_SIZE(vnic_gstrings_stats)
- 
-+/* vnic_get_drvinfo - get driver info */
-+static void vnic_get_drvinfo(struct net_device *netdev,
-+			     struct ethtool_drvinfo *drvinfo)
-+{
-+	strlcpy(drvinfo->driver, opa_vnic_driver_name, sizeof(drvinfo->driver));
-+	strlcpy(drvinfo->version, opa_vnic_driver_version,
-+		sizeof(drvinfo->version));
-+	strlcpy(drvinfo->bus_info, dev_name(netdev->dev.parent),
-+		sizeof(drvinfo->bus_info));
-+}
++/* VNIC Ethernet link status */
++#define OPA_VNIC_ETH_LINK_UP     1
++#define OPA_VNIC_ETH_LINK_DOWN   2
 +
- /* vnic_get_sset_count - get string set count */
- static int vnic_get_sset_count(struct net_device *netdev, int sset)
- {
-@@ -162,6 +173,7 @@ static void vnic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 
- /* ethtool ops */
- static const struct ethtool_ops opa_vnic_ethtool_ops = {
-+	.get_drvinfo = vnic_get_drvinfo,
- 	.get_link = ethtool_op_get_link,
- 	.get_strings = vnic_get_strings,
- 	.get_sset_count = vnic_get_sset_count,
+ /**
+  * struct opa_vesw_info - OPA vnic switch information
+  * @fabric_id: 10-bit fabric id
 diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h b/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
-index b49f5d7..6bba886 100644
+index bec4866..b49f5d7 100644
 --- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
 +++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h
-@@ -164,10 +164,12 @@ struct __opa_veswport_trap {
-  * struct opa_vnic_ctrl_port - OPA virtual NIC control port
-  * @ibdev: pointer to ib device
-  * @ops: opa vnic control operations
-+ * @num_ports: number of opa ports
-  */
- struct opa_vnic_ctrl_port {
- 	struct ib_device           *ibdev;
- 	struct opa_vnic_ctrl_ops   *ops;
-+	u8                          num_ports;
- };
+@@ -161,14 +161,28 @@ struct __opa_veswport_trap {
+ } __packed;
  
  /**
-@@ -187,6 +189,8 @@ struct opa_vnic_ctrl_port {
++ * struct opa_vnic_ctrl_port - OPA virtual NIC control port
++ * @ibdev: pointer to ib device
++ * @ops: opa vnic control operations
++ */
++struct opa_vnic_ctrl_port {
++	struct ib_device           *ibdev;
++	struct opa_vnic_ctrl_ops   *ops;
++};
++
++/**
+  * struct opa_vnic_adapter - OPA VNIC netdev private data structure
+  * @netdev: pointer to associated netdev
+  * @ibdev: ib device
++ * @cport: pointer to opa vnic control port
+  * @rn_ops: rdma netdev's net_device_ops
+  * @port_num: OPA port number
+  * @vport_num: vesw port number
+  * @lock: adapter lock
+  * @info: virtual ethernet switch port information
++ * @vema_mac_addr: mac address configured by vema
++ * @umac_hash: unicast maclist hash
++ * @mmac_hash: multicast maclist hash
+  * @mactbl: hash table of MAC entries
   * @mactbl_lock: mac table lock
   * @stats_lock: statistics lock
-  * @flow_tbl: flow to default port redirection table
-+ * @trap_timeout: trap timeout
-+ * @trap_count: no. of traps allowed within timeout period
-  */
+@@ -177,6 +191,7 @@ struct __opa_veswport_trap {
  struct opa_vnic_adapter {
  	struct net_device             *netdev;
-@@ -213,6 +217,9 @@ struct opa_vnic_adapter {
- 	struct mutex stats_lock;
+ 	struct ib_device              *ibdev;
++	struct opa_vnic_ctrl_port     *cport;
+ 	const struct net_device_ops   *rn_ops;
  
- 	u8 flow_tbl[OPA_VNIC_FLOW_TBL_SIZE];
+ 	u8 port_num;
+@@ -186,6 +201,9 @@ struct opa_vnic_adapter {
+ 	struct mutex lock;
+ 
+ 	struct __opa_veswport_info  info;
++	u8                          vema_mac_addr[ETH_ALEN];
++	u32                         umac_hash;
++	u32                         mmac_hash;
+ 	struct hlist_head  __rcu   *mactbl;
+ 
+ 	/* Lock used to protect updates to mac table */
+@@ -225,6 +243,11 @@ struct opa_vnic_mac_tbl_node {
+ #define v_warn(format, arg...) \
+ 	netdev_warn(adapter->netdev, format, ## arg)
+ 
++#define c_err(format, arg...) \
++	dev_err(&cport->ibdev->dev, format, ## arg)
++#define c_info(format, arg...) \
++	dev_info(&cport->ibdev->dev, format, ## arg)
 +
-+	unsigned long trap_timeout;
-+	u8            trap_count;
- };
- 
- /* Same as opa_veswport_mactable_entry, but without bitwise attribute */
-@@ -247,6 +254,8 @@ struct opa_vnic_mac_tbl_node {
- 	dev_err(&cport->ibdev->dev, format, ## arg)
- #define c_info(format, arg...) \
- 	dev_info(&cport->ibdev->dev, format, ## arg)
-+#define c_dbg(format, arg...) \
-+	dev_dbg(&cport->ibdev->dev, format, ## arg)
- 
  /* The maximum allowed entries in the mac table */
  #define OPA_VNIC_MAC_TBL_MAX_ENTRIES  2048
-@@ -281,6 +290,9 @@ struct opa_vnic_mac_tbl_node {
- 		    !obj && (bkt) < OPA_VNIC_MAC_TBL_SIZE; (bkt)++)           \
- 		hlist_for_each_entry(obj, &name[bkt], member)
- 
-+extern char opa_vnic_driver_name[];
-+extern const char opa_vnic_driver_version[];
-+
- struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
- 					     u8 port_num, u8 vport_num);
- void opa_vnic_rem_netdev(struct opa_vnic_adapter *adapter);
-@@ -310,9 +322,8 @@ void opa_vnic_get_per_veswport_info(struct opa_vnic_adapter *adapter,
- void opa_vnic_set_per_veswport_info(struct opa_vnic_adapter *adapter,
- 				    struct opa_per_veswport_info *info);
- void opa_vnic_vema_report_event(struct opa_vnic_adapter *adapter, u8 event);
--struct opa_vnic_adapter *opa_vnic_add_vport(struct opa_vnic_ctrl_port *cport,
--					    u8 port_num, u8 vport_num);
--void opa_vnic_rem_vport(struct opa_vnic_adapter *adapter);
+ /* Limit of smac entries in mac table */
+@@ -264,11 +287,32 @@ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
+ void opa_vnic_encap_skb(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
+ u8 opa_vnic_get_vl(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
+ u8 opa_vnic_calc_entropy(struct opa_vnic_adapter *adapter, struct sk_buff *skb);
++void opa_vnic_process_vema_config(struct opa_vnic_adapter *adapter);
+ void opa_vnic_release_mac_tbl(struct opa_vnic_adapter *adapter);
+ void opa_vnic_query_mac_tbl(struct opa_vnic_adapter *adapter,
+ 			    struct opa_veswport_mactable *tbl);
+ int opa_vnic_update_mac_tbl(struct opa_vnic_adapter *adapter,
+ 			    struct opa_veswport_mactable *tbl);
++void opa_vnic_query_ucast_macs(struct opa_vnic_adapter *adapter,
++			       struct opa_veswport_iface_macs *macs);
++void opa_vnic_query_mcast_macs(struct opa_vnic_adapter *adapter,
++			       struct opa_veswport_iface_macs *macs);
++void opa_vnic_get_summary_counters(struct opa_vnic_adapter *adapter,
++				   struct opa_veswport_summary_counters *cntrs);
++void opa_vnic_get_error_counters(struct opa_vnic_adapter *adapter,
++				 struct opa_veswport_error_counters *cntrs);
++void opa_vnic_get_vesw_info(struct opa_vnic_adapter *adapter,
++			    struct opa_vesw_info *info);
++void opa_vnic_set_vesw_info(struct opa_vnic_adapter *adapter,
++			    struct opa_vesw_info *info);
++void opa_vnic_get_per_veswport_info(struct opa_vnic_adapter *adapter,
++				    struct opa_per_veswport_info *info);
++void opa_vnic_set_per_veswport_info(struct opa_vnic_adapter *adapter,
++				    struct opa_per_veswport_info *info);
++void opa_vnic_vema_report_event(struct opa_vnic_adapter *adapter, u8 event);
++struct opa_vnic_adapter *opa_vnic_add_vport(struct opa_vnic_ctrl_port *cport,
++					    u8 port_num, u8 vport_num);
++void opa_vnic_rem_vport(struct opa_vnic_adapter *adapter);
  void opa_vnic_set_ethtool_ops(struct net_device *netdev);
-+void opa_vnic_vema_send_trap(struct opa_vnic_adapter *adapter,
-+			     struct __opa_veswport_trap *data, u32 lid);
  
  #endif /* _OPA_VNIC_INTERNAL_H */
-diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema.c
+diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
+index ab54c29..178bfae 100644
+--- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
++++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c
+@@ -52,6 +52,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/if_vlan.h>
++#include <linux/crc32.h>
+ 
+ #include "opa_vnic_internal.h"
+ 
+@@ -113,6 +114,79 @@ static u16 opa_vnic_select_queue(struct net_device *netdev, struct sk_buff *skb,
+ 	return rc;
+ }
+ 
++/* opa_vnic_process_vema_config - process vema configuration updates */
++void opa_vnic_process_vema_config(struct opa_vnic_adapter *adapter)
++{
++	struct __opa_veswport_info *info = &adapter->info;
++	struct rdma_netdev *rn = netdev_priv(adapter->netdev);
++	u8 port_num[OPA_VESW_MAX_NUM_DEF_PORT] = { 0 };
++	struct net_device *netdev = adapter->netdev;
++	u8 i, port_count = 0;
++	u16 port_mask;
++
++	/* If the base_mac_addr is changed, update the interface mac address */
++	if (memcmp(info->vport.base_mac_addr, adapter->vema_mac_addr,
++		   ARRAY_SIZE(info->vport.base_mac_addr))) {
++		struct sockaddr saddr;
++
++		memcpy(saddr.sa_data, info->vport.base_mac_addr,
++		       ARRAY_SIZE(info->vport.base_mac_addr));
++		mutex_lock(&adapter->lock);
++		eth_mac_addr(netdev, &saddr);
++		memcpy(adapter->vema_mac_addr,
++		       info->vport.base_mac_addr, ETH_ALEN);
++		mutex_unlock(&adapter->lock);
++	}
++
++	rn->set_id(netdev, info->vesw.vesw_id);
++
++	/* Handle MTU limit change */
++	rtnl_lock();
++	netdev->max_mtu = max_t(unsigned int, info->vesw.eth_mtu_non_vlan,
++				netdev->min_mtu);
++	if (netdev->mtu > netdev->max_mtu)
++		dev_set_mtu(netdev, netdev->max_mtu);
++	rtnl_unlock();
++
++	/* Update flow to default port redirection table */
++	port_mask = info->vesw.def_port_mask;
++	for (i = 0; i < OPA_VESW_MAX_NUM_DEF_PORT; i++) {
++		if (port_mask & 1)
++			port_num[port_count++] = i;
++		port_mask >>= 1;
++	}
++
++	/*
++	 * Build the flow table. Flow table is required when destination LID
++	 * is not available. Up to OPA_VNIC_FLOW_TBL_SIZE flows supported.
++	 * Each flow need a default port number to get its dlid from the
++	 * u_ucast_dlid array.
++	 */
++	for (i = 0; i < OPA_VNIC_FLOW_TBL_SIZE; i++)
++		adapter->flow_tbl[i] = port_count ? port_num[i % port_count] :
++						    OPA_VNIC_INVALID_PORT;
++
++	/* Operational state can only be DROP_ALL or FORWARDING */
++	if (info->vport.config_state == OPA_VNIC_STATE_FORWARDING) {
++		info->vport.oper_state = OPA_VNIC_STATE_FORWARDING;
++		netif_dormant_off(netdev);
++	} else {
++		info->vport.oper_state = OPA_VNIC_STATE_DROP_ALL;
++		netif_dormant_on(netdev);
++	}
++}
++
++/*
++ * Set the power on default values in adapter's vema interface structure.
++ */
++static inline void opa_vnic_set_pod_values(struct opa_vnic_adapter *adapter)
++{
++	adapter->info.vport.max_mac_tbl_ent = OPA_VNIC_MAC_TBL_MAX_ENTRIES;
++	adapter->info.vport.max_smac_ent = OPA_VNIC_MAX_SMAC_LIMIT;
++	adapter->info.vport.config_state = OPA_VNIC_STATE_DROP_ALL;
++	adapter->info.vport.eth_link_status = OPA_VNIC_ETH_LINK_DOWN;
++}
++
+ /* opa_vnic_set_mac_addr - change mac address */
+ static int opa_vnic_set_mac_addr(struct net_device *netdev, void *addr)
+ {
+@@ -126,8 +200,62 @@ static int opa_vnic_set_mac_addr(struct net_device *netdev, void *addr)
+ 	mutex_lock(&adapter->lock);
+ 	rc = eth_mac_addr(netdev, addr);
+ 	mutex_unlock(&adapter->lock);
++	if (rc)
++		return rc;
+ 
+-	return rc;
++	adapter->info.vport.uc_macs_gen_count++;
++	opa_vnic_vema_report_event(adapter,
++				   OPA_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE);
++	return 0;
++}
++
++/*
++ * opa_vnic_mac_send_event - post event on possible mac list exchange
++ *  Send trap when digest from uc/mc mac list differs from previous run.
++ *  Digest is evaluated similar to how cksum does.
++ */
++static void opa_vnic_mac_send_event(struct net_device *netdev, u8 event)
++{
++	struct opa_vnic_adapter *adapter = opa_vnic_priv(netdev);
++	struct netdev_hw_addr *ha;
++	struct netdev_hw_addr_list *hw_list;
++	u32 *ref_crc;
++	u32 l, crc = 0;
++
++	switch (event) {
++	case OPA_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE:
++		hw_list = &netdev->uc;
++		adapter->info.vport.uc_macs_gen_count++;
++		ref_crc = &adapter->umac_hash;
++		break;
++	case OPA_VESWPORT_TRAP_IFACE_MCAST_MAC_CHANGE:
++		hw_list = &netdev->mc;
++		adapter->info.vport.mc_macs_gen_count++;
++		ref_crc = &adapter->mmac_hash;
++		break;
++	default:
++		return;
++	}
++	netdev_hw_addr_list_for_each(ha, hw_list) {
++		crc = crc32_le(crc, ha->addr, ETH_ALEN);
++	}
++	l = netdev_hw_addr_list_count(hw_list) * ETH_ALEN;
++	crc = ~crc32_le(crc, (void *)&l, sizeof(l));
++
++	if (crc != *ref_crc) {
++		*ref_crc = crc;
++		opa_vnic_vema_report_event(adapter, event);
++	}
++}
++
++/* opa_vnic_set_rx_mode - handle uc/mc mac list change */
++static void opa_vnic_set_rx_mode(struct net_device *netdev)
++{
++	opa_vnic_mac_send_event(netdev,
++				OPA_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE);
++
++	opa_vnic_mac_send_event(netdev,
++				OPA_VESWPORT_TRAP_IFACE_MCAST_MAC_CHANGE);
+ }
+ 
+ /* opa_netdev_open - activate network interface */
+@@ -142,6 +270,10 @@ static int opa_netdev_open(struct net_device *netdev)
+ 		return rc;
+ 	}
+ 
++	/* Update eth link status and send trap */
++	adapter->info.vport.eth_link_status = OPA_VNIC_ETH_LINK_UP;
++	opa_vnic_vema_report_event(adapter,
++				   OPA_VESWPORT_TRAP_ETH_LINK_STATUS_CHANGE);
+ 	v_info("opened\n");
+ 	return 0;
+ }
+@@ -158,6 +290,10 @@ static int opa_netdev_close(struct net_device *netdev)
+ 		return rc;
+ 	}
+ 
++	/* Update eth link status and send trap */
++	adapter->info.vport.eth_link_status = OPA_VNIC_ETH_LINK_DOWN;
++	opa_vnic_vema_report_event(adapter,
++				   OPA_VESWPORT_TRAP_ETH_LINK_STATUS_CHANGE);
+ 	v_info("closed\n");
+ 	return 0;
+ }
+@@ -168,6 +304,7 @@ static int opa_netdev_close(struct net_device *netdev)
+ 	.ndo_stop = opa_netdev_close,
+ 	.ndo_start_xmit = opa_netdev_start_xmit,
+ 	.ndo_get_stats64 = opa_vnic_get_stats64,
++	.ndo_set_rx_mode = opa_vnic_set_rx_mode,
+ 	.ndo_select_queue = opa_vnic_select_queue,
+ 	.ndo_set_mac_address = opa_vnic_set_mac_addr,
+ };
+@@ -212,6 +349,9 @@ struct opa_vnic_adapter *opa_vnic_add_netdev(struct ib_device *ibdev,
+ 	SET_NETDEV_DEV(netdev, ibdev->dma_device);
+ 
+ 	opa_vnic_set_ethtool_ops(netdev);
++
++	opa_vnic_set_pod_values(adapter);
++
+ 	rc = register_netdev(netdev);
+ 	if (rc)
+ 		goto netdev_err;
+diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
 new file mode 100644
-index 0000000..f1709ca
+index 0000000..2e01149
 --- /dev/null
-+++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema.c
-@@ -0,0 +1,1071 @@
++++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
+@@ -0,0 +1,390 @@
 +/*
 + * Copyright(c) 2017 Intel Corporation.
 + *
@@ -203,1041 +411,347 @@ index 0000000..f1709ca
 + */
 +
 +/*
-+ * This file contains OPA Virtual Network Interface Controller (VNIC)
-+ * Ethernet Management Agent (EMA) driver
++ * This file contains OPA VNIC EMA Interface functions.
 + */
-+
-+#include <linux/module.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
 +
 +#include "opa_vnic_internal.h"
 +
-+#define DRV_VERSION "1.0"
-+char opa_vnic_driver_name[] = "opa_vnic";
-+const char opa_vnic_driver_version[] = DRV_VERSION;
-+
-+/*
-+ * The trap service level is kept in bits 3 to 7 in the trap_sl_rsvd
-+ * field in the class port info MAD.
-+ */
-+#define GET_TRAP_SL_FROM_CLASS_PORT_INFO(x)  (((x) >> 3) & 0x1f)
-+
-+/* Cap trap bursts to a reasonable limit good for normal cases */
-+#define OPA_VNIC_TRAP_BURST_LIMIT 4
-+
-+/*
-+ * VNIC trap limit timeout.
-+ * Inverse of cap2_mask response time out (1.0737 secs) = 0.9
-+ * secs approx IB spec 13.4.6.2.1 PortInfoSubnetTimeout and
-+ * 13.4.9 Traps.
-+ */
-+#define OPA_VNIC_TRAP_TIMEOUT  ((4096 * (1UL << 18)) / 1000)
-+
-+#define OPA_VNIC_UNSUP_ATTR  \
-+		cpu_to_be16(IB_MGMT_MAD_STATUS_UNSUPPORTED_METHOD_ATTRIB)
-+
-+#define OPA_VNIC_INVAL_ATTR  \
-+		cpu_to_be16(IB_MGMT_MAD_STATUS_INVALID_ATTRIB_VALUE)
-+
-+#define OPA_VNIC_CLASS_CAP_TRAP  cpu_to_be16(1 << 8)
-+
-+struct opa_class_port_info {
-+	u8 base_version;
-+	u8 class_version;
-+	__be16 cap_mask;
-+	__be32 cap_mask2_resp_time;
-+
-+	u8 redirect_gid[16];
-+	__be32 redirect_tc_fl;
-+	__be32 redirect_lid;
-+	__be32 redirect_sl_qp;
-+	__be32 redirect_qkey;
-+
-+	u8 trap_gid[16];
-+	__be32 trap_tc_fl;
-+	__be32 trap_lid;
-+	__be32 trap_hl_qp;
-+	__be32 trap_qkey;
-+
-+	__be16 trap_pkey;
-+	__be16 redirect_pkey;
-+
-+	u8 trap_sl_rsvd;
-+	u8 reserved[3];
-+} __packed;
-+
 +/**
-+ * struct opa_vnic_vema_port -- VNIC VEMA port details
-+ * @cport: pointer to port
-+ * @mad_agent: pointer to mad agent for port
-+ * @class_port_info: Class port info information.
-+ * @tid: Transaction id
-+ * @port_num: OPA port number
-+ * @vport_idr: vnic ports idr
-+ * @event_handler: ib event handler
-+ * @lock: adapter interface lock
-+ */
-+struct opa_vnic_vema_port {
-+	struct opa_vnic_ctrl_port      *cport;
-+	struct ib_mad_agent            *mad_agent;
-+	struct opa_class_port_info      class_port_info;
-+	u64                             tid;
-+	u8                              port_num;
-+	struct idr                      vport_idr;
-+	struct ib_event_handler         event_handler;
-+
-+	/* Lock to query/update network adapter */
-+	struct mutex                    lock;
-+};
-+
-+static void opa_vnic_vema_add_one(struct ib_device *device);
-+static void opa_vnic_vema_rem_one(struct ib_device *device,
-+				  void *client_data);
-+
-+static struct ib_client opa_vnic_client = {
-+	.name   = opa_vnic_driver_name,
-+	.add    = opa_vnic_vema_add_one,
-+	.remove = opa_vnic_vema_rem_one,
-+};
-+
-+/**
-+ * vema_get_vport_num -- Get the vnic from the mad
-+ * @recvd_mad:  Received mad
++ * opa_vnic_vema_report_event - sent trap to report the specified event
++ * @adapter: vnic port adapter
++ * @event: event to be reported
 + *
-+ * Return: returns value of the vnic port number
++ * This function calls vema api to sent a trap for the given event.
 + */
-+static inline u8 vema_get_vport_num(struct opa_vnic_vema_mad *recvd_mad)
++void opa_vnic_vema_report_event(struct opa_vnic_adapter *adapter, u8 event)
 +{
-+	return be32_to_cpu(recvd_mad->mad_hdr.attr_mod) >> 16 & 0xff;
++	struct __opa_veswport_info *info = &adapter->info;
++	struct __opa_veswport_trap trap_data;
++
++	trap_data.fabric_id = info->vesw.fabric_id;
++	trap_data.veswid = info->vesw.vesw_id;
++	trap_data.veswportnum = info->vport.port_num;
++	trap_data.opaportnum = adapter->port_num;
++	trap_data.veswportindex = adapter->vport_num;
++	trap_data.opcode = event;
++
++	/* Need to send trap here */
 +}
 +
 +/**
-+ * vema_get_vport_adapter -- Get vnic port adapter from recvd mad
-+ * @recvd_mad: received mad
-+ * @port: ptr to port struct on which MAD was recvd
++ * opa_vnic_get_error_counters - get summary counters
++ * @adapter: vnic port adapter
++ * @cntrs: pointer to destination summary counters structure
 + *
-+ * Return: vnic adapter
++ * This function populates the summary counters that is maintained by the
++ * given adapter to destination address provided.
 + */
-+static inline struct opa_vnic_adapter *
-+vema_get_vport_adapter(struct opa_vnic_vema_mad *recvd_mad,
-+		       struct opa_vnic_vema_port *port)
++void opa_vnic_get_summary_counters(struct opa_vnic_adapter *adapter,
++				   struct opa_veswport_summary_counters *cntrs)
 +{
-+	u8 vport_num = vema_get_vport_num(recvd_mad);
++	struct opa_vnic_stats vstats;
++	__be64 *dst;
++	u64 *src;
 +
-+	return idr_find(&port->vport_idr, vport_num);
-+}
++	memset(&vstats, 0, sizeof(vstats));
++	mutex_lock(&adapter->stats_lock);
++	adapter->rn_ops->ndo_get_stats64(adapter->netdev, &vstats.netstats);
++	mutex_unlock(&adapter->stats_lock);
 +
-+/**
-+ * vema_mac_tbl_req_ok -- Check if mac request has correct values
-+ * @mac_tbl: mac table
-+ *
-+ * This function checks for the validity of the offset and number of
-+ * entries required.
-+ *
-+ * Return: true if offset and num_entries are valid
-+ */
-+static inline bool vema_mac_tbl_req_ok(struct opa_veswport_mactable *mac_tbl)
-+{
-+	u16 offset, num_entries;
-+	u16 req_entries = ((OPA_VNIC_EMA_DATA - sizeof(*mac_tbl)) /
-+			   sizeof(mac_tbl->tbl_entries[0]));
++	cntrs->vp_instance = cpu_to_be16(adapter->vport_num);
++	cntrs->vesw_id = cpu_to_be16(adapter->info.vesw.vesw_id);
++	cntrs->veswport_num = cpu_to_be32(adapter->port_num);
 +
-+	offset = be16_to_cpu(mac_tbl->offset);
-+	num_entries = be16_to_cpu(mac_tbl->num_entries);
-+
-+	return ((num_entries <= req_entries) &&
-+		(offset + num_entries <= OPA_VNIC_MAC_TBL_MAX_ENTRIES));
-+}
-+
-+/*
-+ * Return the power on default values in the port info structure
-+ * in big endian format as required by MAD.
-+ */
-+static inline void vema_get_pod_values(struct opa_veswport_info *port_info)
-+{
-+	memset(port_info, 0, sizeof(*port_info));
-+	port_info->vport.max_mac_tbl_ent =
-+		cpu_to_be16(OPA_VNIC_MAC_TBL_MAX_ENTRIES);
-+	port_info->vport.max_smac_ent =
-+		cpu_to_be16(OPA_VNIC_MAX_SMAC_LIMIT);
-+	port_info->vport.oper_state = OPA_VNIC_STATE_DROP_ALL;
-+	port_info->vport.config_state = OPA_VNIC_STATE_DROP_ALL;
-+}
-+
-+/**
-+ * vema_add_vport -- Add a new vnic port
-+ * @port: ptr to opa_vnic_vema_port struct
-+ * @vport_num: vnic port number (to be added)
-+ *
-+ * Return a pointer to the vnic adapter structure
-+ */
-+static struct opa_vnic_adapter *vema_add_vport(struct opa_vnic_vema_port *port,
-+					       u8 vport_num)
-+{
-+	struct opa_vnic_ctrl_port *cport = port->cport;
-+	struct opa_vnic_adapter *adapter;
-+
-+	adapter = opa_vnic_add_netdev(cport->ibdev, port->port_num, vport_num);
-+	if (!IS_ERR(adapter)) {
-+		int rc;
-+
-+		adapter->cport = cport;
-+		rc = idr_alloc(&port->vport_idr, adapter, vport_num,
-+			       vport_num + 1, GFP_NOWAIT);
-+		if (rc < 0) {
-+			opa_vnic_rem_netdev(adapter);
-+			adapter = ERR_PTR(rc);
-+		}
-+	}
-+
-+	return adapter;
-+}
-+
-+/**
-+ * vema_get_class_port_info -- Get class info for port
-+ * @port:  Port on whic MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function copies the latest class port info value set for the
-+ * port and stores it for generating traps
-+ */
-+static void vema_get_class_port_info(struct opa_vnic_vema_port *port,
-+				     struct opa_vnic_vema_mad *recvd_mad,
-+				     struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	struct opa_class_port_info *port_info;
-+
-+	port_info = (struct opa_class_port_info *)rsp_mad->data;
-+	memcpy(port_info, &port->class_port_info, sizeof(*port_info));
-+	port_info->base_version = OPA_MGMT_BASE_VERSION,
-+	port_info->class_version = OPA_EMA_CLASS_VERSION;
-+
-+	/* Agent generates traps */
-+	port_info->cap_mask = OPA_VNIC_CLASS_CAP_TRAP;
++	cntrs->tx_errors = cpu_to_be64(vstats.netstats.tx_errors);
++	cntrs->rx_errors = cpu_to_be64(vstats.netstats.rx_errors);
++	cntrs->tx_packets = cpu_to_be64(vstats.netstats.tx_packets);
++	cntrs->rx_packets = cpu_to_be64(vstats.netstats.rx_packets);
++	cntrs->tx_bytes = cpu_to_be64(vstats.netstats.tx_bytes);
++	cntrs->rx_bytes = cpu_to_be64(vstats.netstats.rx_bytes);
 +
 +	/*
-+	 * Since a get routine is always sent by the EM first we
-+	 * set the expected response time to
-+	 * 4.096 usec * 2^18 == 1.0737 sec here.
++	 * This loop depends on layout of
++	 * opa_veswport_summary_counters opa_vnic_stats structures.
 +	 */
-+	port_info->cap_mask2_resp_time = cpu_to_be32(18);
++	for (dst = &cntrs->tx_unicast, src = &vstats.tx_grp.unicast;
++	     dst < &cntrs->reserved[0]; dst++, src++) {
++		*dst = cpu_to_be64(*src);
++	}
 +}
 +
 +/**
-+ * vema_set_class_port_info -- Get class info for port
-+ * @port:  Port on whic MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
++ * opa_vnic_get_error_counters - get error counters
++ * @adapter: vnic port adapter
++ * @cntrs: pointer to destination error counters structure
 + *
-+ * This function updates the port class info for the specific vnic
-+ * and sets up the response mad data
++ * This function populates the error counters that is maintained by the
++ * given adapter to destination address provided.
 + */
-+static void vema_set_class_port_info(struct opa_vnic_vema_port *port,
-+				     struct opa_vnic_vema_mad *recvd_mad,
-+				     struct opa_vnic_vema_mad *rsp_mad)
++void opa_vnic_get_error_counters(struct opa_vnic_adapter *adapter,
++				 struct opa_veswport_error_counters *cntrs)
 +{
-+	memcpy(&port->class_port_info, recvd_mad->data,
-+	       sizeof(port->class_port_info));
++	struct opa_vnic_stats vstats;
 +
-+	vema_get_class_port_info(port, recvd_mad, rsp_mad);
++	memset(&vstats, 0, sizeof(vstats));
++	mutex_lock(&adapter->stats_lock);
++	adapter->rn_ops->ndo_get_stats64(adapter->netdev, &vstats.netstats);
++	mutex_unlock(&adapter->stats_lock);
++
++	cntrs->vp_instance = cpu_to_be16(adapter->vport_num);
++	cntrs->vesw_id = cpu_to_be16(adapter->info.vesw.vesw_id);
++	cntrs->veswport_num = cpu_to_be32(adapter->port_num);
++
++	cntrs->tx_errors = cpu_to_be64(vstats.netstats.tx_errors);
++	cntrs->rx_errors = cpu_to_be64(vstats.netstats.rx_errors);
++	cntrs->tx_dlid_zero = cpu_to_be64(vstats.tx_dlid_zero);
++	cntrs->tx_drop_state = cpu_to_be64(vstats.tx_drop_state);
++	cntrs->tx_logic = cpu_to_be64(vstats.netstats.tx_fifo_errors +
++				      vstats.netstats.tx_carrier_errors);
++
++	cntrs->rx_bad_veswid = cpu_to_be64(vstats.netstats.rx_nohandler);
++	cntrs->rx_runt = cpu_to_be64(vstats.rx_runt);
++	cntrs->rx_oversize = cpu_to_be64(vstats.rx_oversize);
++	cntrs->rx_drop_state = cpu_to_be64(vstats.rx_drop_state);
++	cntrs->rx_logic = cpu_to_be64(vstats.netstats.rx_fifo_errors);
 +}
 +
 +/**
-+ * vema_get_veswport_info -- Get veswport info
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ */
-+static void vema_get_veswport_info(struct opa_vnic_vema_port *port,
-+				   struct opa_vnic_vema_mad *recvd_mad,
-+				   struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	struct opa_veswport_info *port_info =
-+				  (struct opa_veswport_info *)rsp_mad->data;
-+	struct opa_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (adapter) {
-+		memset(port_info, 0, sizeof(*port_info));
-+		opa_vnic_get_vesw_info(adapter, &port_info->vesw);
-+		opa_vnic_get_per_veswport_info(adapter,
-+					       &port_info->vport);
-+	} else {
-+		vema_get_pod_values(port_info);
-+	}
-+}
-+
-+/**
-+ * vema_set_veswport_info -- Set veswport info
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
++ * opa_vnic_get_vesw_info -- Get the vesw information
++ * @adapter: vnic port adapter
++ * @info: pointer to destination vesw info structure
 + *
-+ * This function gets the port class infor for vnic
++ * This function copies the vesw info that is maintained by the
++ * given adapter to destination address provided.
 + */
-+static void vema_set_veswport_info(struct opa_vnic_vema_port *port,
-+				   struct opa_vnic_vema_mad *recvd_mad,
-+				   struct opa_vnic_vema_mad *rsp_mad)
++void opa_vnic_get_vesw_info(struct opa_vnic_adapter *adapter,
++			    struct opa_vesw_info *info)
 +{
-+	struct opa_vnic_ctrl_port *cport = port->cport;
-+	struct opa_veswport_info *port_info;
-+	struct opa_vnic_adapter *adapter;
-+	u8 vport_num;
-+
-+	vport_num = vema_get_vport_num(recvd_mad);
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		adapter = vema_add_vport(port, vport_num);
-+		if (IS_ERR(adapter)) {
-+			c_err("failed to add vport %d: %ld\n",
-+			      vport_num, PTR_ERR(adapter));
-+			goto err_exit;
-+		}
-+	}
-+
-+	port_info = (struct opa_veswport_info *)recvd_mad->data;
-+	opa_vnic_set_vesw_info(adapter, &port_info->vesw);
-+	opa_vnic_set_per_veswport_info(adapter, &port_info->vport);
-+
-+	/* Process the new config settings */
-+	opa_vnic_process_vema_config(adapter);
-+
-+	vema_get_veswport_info(port, recvd_mad, rsp_mad);
-+	return;
-+
-+err_exit:
-+	rsp_mad->mad_hdr.status = OPA_VNIC_INVAL_ATTR;
-+}
-+
-+/**
-+ * vema_get_mac_entries -- Get MAC entries in VNIC MAC table
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function gets the MAC entries that are programmed into
-+ * the VNIC MAC forwarding table. It checks for the validity of
-+ * the index into the MAC table and the number of entries that
-+ * are to be retrieved.
-+ */
-+static void vema_get_mac_entries(struct opa_vnic_vema_port *port,
-+				 struct opa_vnic_vema_mad *recvd_mad,
-+				 struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	struct opa_veswport_mactable *mac_tbl_in, *mac_tbl_out;
-+	struct opa_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		rsp_mad->mad_hdr.status = OPA_VNIC_INVAL_ATTR;
-+		return;
-+	}
-+
-+	mac_tbl_in = (struct opa_veswport_mactable *)recvd_mad->data;
-+	mac_tbl_out = (struct opa_veswport_mactable *)rsp_mad->data;
-+
-+	if (vema_mac_tbl_req_ok(mac_tbl_in)) {
-+		mac_tbl_out->offset = mac_tbl_in->offset;
-+		mac_tbl_out->num_entries = mac_tbl_in->num_entries;
-+		opa_vnic_query_mac_tbl(adapter, mac_tbl_out);
-+	} else {
-+		rsp_mad->mad_hdr.status = OPA_VNIC_INVAL_ATTR;
-+	}
-+}
-+
-+/**
-+ * vema_set_mac_entries -- Set MAC entries in VNIC MAC table
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function sets the MAC entries in the VNIC forwarding table
-+ * It checks for the validity of the index and the number of forwarding
-+ * table entries to be programmed.
-+ */
-+static void vema_set_mac_entries(struct opa_vnic_vema_port *port,
-+				 struct opa_vnic_vema_mad *recvd_mad,
-+				 struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	struct opa_veswport_mactable *mac_tbl;
-+	struct opa_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		rsp_mad->mad_hdr.status = OPA_VNIC_INVAL_ATTR;
-+		return;
-+	}
-+
-+	mac_tbl = (struct opa_veswport_mactable *)recvd_mad->data;
-+	if (vema_mac_tbl_req_ok(mac_tbl)) {
-+		if (opa_vnic_update_mac_tbl(adapter, mac_tbl))
-+			rsp_mad->mad_hdr.status = OPA_VNIC_UNSUP_ATTR;
-+	} else {
-+		rsp_mad->mad_hdr.status = OPA_VNIC_UNSUP_ATTR;
-+	}
-+	vema_get_mac_entries(port, recvd_mad, rsp_mad);
-+}
-+
-+/**
-+ * vema_set_delete_vesw -- Reset VESW info to POD values
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function clears all the fields of veswport info for the requested vesw
-+ * and sets them back to the power-on default values. It does not delete the
-+ * vesw.
-+ */
-+static void vema_set_delete_vesw(struct opa_vnic_vema_port *port,
-+				 struct opa_vnic_vema_mad *recvd_mad,
-+				 struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	struct opa_veswport_info *port_info =
-+				  (struct opa_veswport_info *)rsp_mad->data;
-+	struct opa_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		rsp_mad->mad_hdr.status = OPA_VNIC_INVAL_ATTR;
-+		return;
-+	}
-+
-+	vema_get_pod_values(port_info);
-+	opa_vnic_set_vesw_info(adapter, &port_info->vesw);
-+	opa_vnic_set_per_veswport_info(adapter, &port_info->vport);
-+
-+	/* Process the new config settings */
-+	opa_vnic_process_vema_config(adapter);
-+
-+	opa_vnic_release_mac_tbl(adapter);
-+
-+	vema_get_veswport_info(port, recvd_mad, rsp_mad);
-+}
-+
-+/**
-+ * vema_get_mac_list -- Get the unicast/multicast macs.
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad contains fields to set vnic parameters
-+ * @rsp_mad:   Response mad to be built
-+ * @attr_id:   Attribute ID indicating multicast or unicast mac list
-+ */
-+static void vema_get_mac_list(struct opa_vnic_vema_port *port,
-+			      struct opa_vnic_vema_mad *recvd_mad,
-+			      struct opa_vnic_vema_mad *rsp_mad,
-+			      u16 attr_id)
-+{
-+	struct opa_veswport_iface_macs *macs_in, *macs_out;
-+	int max_entries = (OPA_VNIC_EMA_DATA - sizeof(*macs_out)) / ETH_ALEN;
-+	struct opa_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		rsp_mad->mad_hdr.status = OPA_VNIC_INVAL_ATTR;
-+		return;
-+	}
-+
-+	macs_in = (struct opa_veswport_iface_macs *)recvd_mad->data;
-+	macs_out = (struct opa_veswport_iface_macs *)rsp_mad->data;
-+
-+	macs_out->start_idx = macs_in->start_idx;
-+	if (macs_in->num_macs_in_msg)
-+		macs_out->num_macs_in_msg = macs_in->num_macs_in_msg;
-+	else
-+		macs_out->num_macs_in_msg = cpu_to_be16(max_entries);
-+
-+	if (attr_id == OPA_EM_ATTR_IFACE_MCAST_MACS)
-+		opa_vnic_query_mcast_macs(adapter, macs_out);
-+	else
-+		opa_vnic_query_ucast_macs(adapter, macs_out);
-+}
-+
-+/**
-+ * vema_get_summary_counters -- Gets summary counters.
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad contains fields to set vnic parameters
-+ * @rsp_mad:   Response mad to be built
-+ */
-+static void vema_get_summary_counters(struct opa_vnic_vema_port *port,
-+				      struct opa_vnic_vema_mad *recvd_mad,
-+				      struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	struct opa_veswport_summary_counters *cntrs;
-+	struct opa_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (adapter) {
-+		cntrs = (struct opa_veswport_summary_counters *)rsp_mad->data;
-+		opa_vnic_get_summary_counters(adapter, cntrs);
-+	} else {
-+		rsp_mad->mad_hdr.status = OPA_VNIC_INVAL_ATTR;
-+	}
-+}
-+
-+/**
-+ * vema_get_error_counters -- Gets summary counters.
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad contains fields to set vnic parameters
-+ * @rsp_mad:   Response mad to be built
-+ */
-+static void vema_get_error_counters(struct opa_vnic_vema_port *port,
-+				    struct opa_vnic_vema_mad *recvd_mad,
-+				    struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	struct opa_veswport_error_counters *cntrs;
-+	struct opa_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (adapter) {
-+		cntrs = (struct opa_veswport_error_counters *)rsp_mad->data;
-+		opa_vnic_get_error_counters(adapter, cntrs);
-+	} else {
-+		rsp_mad->mad_hdr.status = OPA_VNIC_INVAL_ATTR;
-+	}
-+}
-+
-+/**
-+ * vema_get -- Process received get MAD
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad
-+ * @rsp_mad:   Response mad to be built
-+ */
-+static void vema_get(struct opa_vnic_vema_port *port,
-+		     struct opa_vnic_vema_mad *recvd_mad,
-+		     struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	u16 attr_id = be16_to_cpu(recvd_mad->mad_hdr.attr_id);
-+
-+	switch (attr_id) {
-+	case OPA_EM_ATTR_CLASS_PORT_INFO:
-+		vema_get_class_port_info(port, recvd_mad, rsp_mad);
-+		break;
-+	case OPA_EM_ATTR_VESWPORT_INFO:
-+		vema_get_veswport_info(port, recvd_mad, rsp_mad);
-+		break;
-+	case OPA_EM_ATTR_VESWPORT_MAC_ENTRIES:
-+		vema_get_mac_entries(port, recvd_mad, rsp_mad);
-+		break;
-+	case OPA_EM_ATTR_IFACE_UCAST_MACS:
-+		/* fall through */
-+	case OPA_EM_ATTR_IFACE_MCAST_MACS:
-+		vema_get_mac_list(port, recvd_mad, rsp_mad, attr_id);
-+		break;
-+	case OPA_EM_ATTR_VESWPORT_SUMMARY_COUNTERS:
-+		vema_get_summary_counters(port, recvd_mad, rsp_mad);
-+		break;
-+	case OPA_EM_ATTR_VESWPORT_ERROR_COUNTERS:
-+		vema_get_error_counters(port, recvd_mad, rsp_mad);
-+		break;
-+	default:
-+		rsp_mad->mad_hdr.status = OPA_VNIC_UNSUP_ATTR;
-+		break;
-+	}
-+}
-+
-+/**
-+ * vema_set -- Process received set MAD
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad contains fields to set vnic parameters
-+ * @rsp_mad:   Response mad to be built
-+ */
-+static void vema_set(struct opa_vnic_vema_port *port,
-+		     struct opa_vnic_vema_mad *recvd_mad,
-+		     struct opa_vnic_vema_mad *rsp_mad)
-+{
-+	u16 attr_id = be16_to_cpu(recvd_mad->mad_hdr.attr_id);
-+
-+	switch (attr_id) {
-+	case OPA_EM_ATTR_CLASS_PORT_INFO:
-+		vema_set_class_port_info(port, recvd_mad, rsp_mad);
-+		break;
-+	case OPA_EM_ATTR_VESWPORT_INFO:
-+		vema_set_veswport_info(port, recvd_mad, rsp_mad);
-+		break;
-+	case OPA_EM_ATTR_VESWPORT_MAC_ENTRIES:
-+		vema_set_mac_entries(port, recvd_mad, rsp_mad);
-+		break;
-+	case OPA_EM_ATTR_DELETE_VESW:
-+		vema_set_delete_vesw(port, recvd_mad, rsp_mad);
-+		break;
-+	default:
-+		rsp_mad->mad_hdr.status = OPA_VNIC_UNSUP_ATTR;
-+		break;
-+	}
-+}
-+
-+/**
-+ * vema_send -- Send handler for VEMA MAD agent
-+ * @mad_agent: pointer to the mad agent
-+ * @mad_wc:    pointer to mad send work completion information
-+ *
-+ * Free all the data structures associated with the sent MAD
-+ */
-+static void vema_send(struct ib_mad_agent *mad_agent,
-+		      struct ib_mad_send_wc *mad_wc)
-+{
-+	ib_destroy_ah(mad_wc->send_buf->ah);
-+	ib_free_send_mad(mad_wc->send_buf);
-+}
-+
-+/**
-+ * vema_recv -- Recv handler for VEMA MAD agent
-+ * @mad_agent: pointer to the mad agent
-+ * @send_buf: Send buffer if found, else NULL
-+ * @mad_wc:    pointer to mad send work completion information
-+ *
-+ * Handle only set and get methods and respond to other methods
-+ * as unsupported. Allocate response buffer and address handle
-+ * for the response MAD.
-+ */
-+static void vema_recv(struct ib_mad_agent *mad_agent,
-+		      struct ib_mad_send_buf *send_buf,
-+		      struct ib_mad_recv_wc *mad_wc)
-+{
-+	struct opa_vnic_vema_port *port;
-+	struct ib_ah              *ah;
-+	struct ib_mad_send_buf    *rsp;
-+	struct opa_vnic_vema_mad  *vema_mad;
-+
-+	if (!mad_wc || !mad_wc->recv_buf.mad)
-+		return;
-+
-+	port = mad_agent->context;
-+	ah = ib_create_ah_from_wc(mad_agent->qp->pd, mad_wc->wc,
-+				  mad_wc->recv_buf.grh, mad_agent->port_num);
-+	if (IS_ERR(ah))
-+		goto free_recv_mad;
-+
-+	rsp = ib_create_send_mad(mad_agent, mad_wc->wc->src_qp,
-+				 mad_wc->wc->pkey_index, 0,
-+				 IB_MGMT_VENDOR_HDR, OPA_VNIC_EMA_DATA,
-+				 GFP_KERNEL, OPA_MGMT_BASE_VERSION);
-+	if (IS_ERR(rsp))
-+		goto err_rsp;
-+
-+	rsp->ah = ah;
-+	vema_mad = rsp->mad;
-+	memcpy(vema_mad, mad_wc->recv_buf.mad, IB_MGMT_VENDOR_HDR);
-+	vema_mad->mad_hdr.method = IB_MGMT_METHOD_GET_RESP;
-+	vema_mad->mad_hdr.status = 0;
-+
-+	/* Lock ensures network adapter is not removed */
-+	mutex_lock(&port->lock);
-+
-+	switch (mad_wc->recv_buf.mad->mad_hdr.method) {
-+	case IB_MGMT_METHOD_GET:
-+		vema_get(port, (struct opa_vnic_vema_mad *)mad_wc->recv_buf.mad,
-+			 vema_mad);
-+		break;
-+	case IB_MGMT_METHOD_SET:
-+		vema_set(port, (struct opa_vnic_vema_mad *)mad_wc->recv_buf.mad,
-+			 vema_mad);
-+		break;
-+	default:
-+		vema_mad->mad_hdr.status = OPA_VNIC_UNSUP_ATTR;
-+		break;
-+	}
-+	mutex_unlock(&port->lock);
-+
-+	if (!ib_post_send_mad(rsp, NULL)) {
-+		/*
-+		 * with post send successful ah and send mad
-+		 * will be destroyed in send handler
-+		 */
-+		goto free_recv_mad;
-+	}
-+
-+	ib_free_send_mad(rsp);
-+
-+err_rsp:
-+	ib_destroy_ah(ah);
-+free_recv_mad:
-+	ib_free_recv_mad(mad_wc);
-+}
-+
-+/**
-+ * vema_get_port -- Gets the opa_vnic_vema_port
-+ * @cport: pointer to control dev
-+ * @port_num: Port number
-+ *
-+ * This function loops through the ports and returns
-+ * the opa_vnic_vema port structure that is associated
-+ * with the OPA port number
-+ *
-+ * Return: ptr to requested opa_vnic_vema_port strucure
-+ *         if success, NULL if not
-+ */
-+static struct opa_vnic_vema_port *
-+vema_get_port(struct opa_vnic_ctrl_port *cport, u8 port_num)
-+{
-+	struct opa_vnic_vema_port *port = (void *)cport + sizeof(*cport);
-+
-+	if (port_num > cport->num_ports)
-+		return NULL;
-+
-+	return port + (port_num - 1);
-+}
-+
-+/**
-+ * opa_vnic_vema_send_trap -- This function sends a trap to the EM
-+ * @cport: pointer to vnic control port
-+ * @data: pointer to trap data filled by calling function
-+ * @lid:  issuers lid (encap_slid from vesw_port_info)
-+ *
-+ * This function is called from the VNIC driver to send a trap if there
-+ * is somethng the EM should be notified about. These events currently
-+ * are
-+ * 1) UNICAST INTERFACE MACADDRESS changes
-+ * 2) MULTICAST INTERFACE MACADDRESS changes
-+ * 3) ETHERNET LINK STATUS changes
-+ * While allocating the send mad the remote site qpn used is 1
-+ * as this is the well known QP.
-+ *
-+ */
-+void opa_vnic_vema_send_trap(struct opa_vnic_adapter *adapter,
-+			     struct __opa_veswport_trap *data, u32 lid)
-+{
-+	struct opa_vnic_ctrl_port *cport = adapter->cport;
-+	struct ib_mad_send_buf *send_buf;
-+	struct opa_vnic_vema_port *port;
-+	struct ib_device *ibp;
-+	struct opa_vnic_vema_mad_trap *trap_mad;
-+	struct opa_class_port_info *class;
-+	struct ib_ah_attr ah_attr;
-+	struct ib_ah *ah;
-+	struct opa_veswport_trap *trap;
-+	u32 trap_lid;
-+	u16 pkey_idx;
-+
-+	if (!cport)
-+		goto err_exit;
-+	ibp = cport->ibdev;
-+	port = vema_get_port(cport, data->opaportnum);
-+	if (!port || !port->mad_agent)
-+		goto err_exit;
-+
-+	if (time_before(jiffies, adapter->trap_timeout)) {
-+		if (adapter->trap_count == OPA_VNIC_TRAP_BURST_LIMIT) {
-+			v_warn("Trap rate exceeded\n");
-+			goto err_exit;
-+		} else {
-+			adapter->trap_count++;
-+		}
-+	} else {
-+		adapter->trap_count = 0;
-+	}
-+
-+	class = &port->class_port_info;
-+	/* Set up address handle */
-+	memset(&ah_attr, 0, sizeof(ah_attr));
-+	ah_attr.sl = GET_TRAP_SL_FROM_CLASS_PORT_INFO(class->trap_sl_rsvd);
-+	ah_attr.port_num = port->port_num;
-+	trap_lid = be32_to_cpu(class->trap_lid);
-+	/*
-+	 * check for trap lid validity, must not be zero
-+	 * The trap sink could change after we fashion the MAD but since traps
-+	 * are not guaranteed we won't use a lock as anyway the change will take
-+	 * place even with locking.
-+	 */
-+	if (!trap_lid) {
-+		c_err("%s: Invalid dlid\n", __func__);
-+		goto err_exit;
-+	}
-+
-+	ah_attr.dlid = trap_lid;
-+	ah = ib_create_ah(port->mad_agent->qp->pd, &ah_attr);
-+	if (IS_ERR(ah)) {
-+		c_err("%s:Couldn't create new AH = %p\n", __func__, ah);
-+		c_err("%s:dlid = %d, sl = %d, port = %d\n", __func__,
-+		      ah_attr.dlid, ah_attr.sl, ah_attr.port_num);
-+		goto err_exit;
-+	}
-+
-+	if (ib_find_pkey(ibp, data->opaportnum, IB_DEFAULT_PKEY_FULL,
-+			 &pkey_idx) < 0) {
-+		c_err("%s:full key not found, defaulting to partial\n",
-+		      __func__);
-+		if (ib_find_pkey(ibp, data->opaportnum, IB_DEFAULT_PKEY_PARTIAL,
-+				 &pkey_idx) < 0)
-+			pkey_idx = 1;
-+	}
-+
-+	send_buf = ib_create_send_mad(port->mad_agent, 1, pkey_idx, 0,
-+				      IB_MGMT_VENDOR_HDR, IB_MGMT_MAD_DATA,
-+				      GFP_KERNEL, OPA_MGMT_BASE_VERSION);
-+	if (IS_ERR(send_buf)) {
-+		c_err("%s:Couldn't allocate send buf\n", __func__);
-+		goto err_sndbuf;
-+	}
-+
-+	send_buf->ah = ah;
-+
-+	/* Set up common MAD hdr */
-+	trap_mad = send_buf->mad;
-+	trap_mad->mad_hdr.base_version = OPA_MGMT_BASE_VERSION;
-+	trap_mad->mad_hdr.mgmt_class = OPA_MGMT_CLASS_INTEL_EMA;
-+	trap_mad->mad_hdr.class_version = OPA_EMA_CLASS_VERSION;
-+	trap_mad->mad_hdr.method = IB_MGMT_METHOD_TRAP;
-+	port->tid++;
-+	trap_mad->mad_hdr.tid = cpu_to_be64(port->tid);
-+	trap_mad->mad_hdr.attr_id = IB_SMP_ATTR_NOTICE;
-+
-+	/* Set up vendor OUI */
-+	trap_mad->oui[0] = INTEL_OUI_1;
-+	trap_mad->oui[1] = INTEL_OUI_2;
-+	trap_mad->oui[2] = INTEL_OUI_3;
-+
-+	/* Setup notice attribute portion */
-+	trap_mad->notice.gen_type = OPA_INTEL_EMA_NOTICE_TYPE_INFO << 1;
-+	trap_mad->notice.oui_1 = INTEL_OUI_1;
-+	trap_mad->notice.oui_2 = INTEL_OUI_2;
-+	trap_mad->notice.oui_3 = INTEL_OUI_3;
-+	trap_mad->notice.issuer_lid = cpu_to_be32(lid);
-+
-+	/* copy the actual trap data */
-+	trap = (struct opa_veswport_trap *)trap_mad->notice.raw_data;
-+	trap->fabric_id = cpu_to_be16(data->fabric_id);
-+	trap->veswid = cpu_to_be16(data->veswid);
-+	trap->veswportnum = cpu_to_be32(data->veswportnum);
-+	trap->opaportnum = cpu_to_be16(data->opaportnum);
-+	trap->veswportindex = data->veswportindex;
-+	trap->opcode = data->opcode;
-+
-+	/* If successful send set up rate limit timeout else bail */
-+	if (ib_post_send_mad(send_buf, NULL)) {
-+		ib_free_send_mad(send_buf);
-+	} else {
-+		if (adapter->trap_count)
-+			return;
-+		adapter->trap_timeout = jiffies +
-+					usecs_to_jiffies(OPA_VNIC_TRAP_TIMEOUT);
-+		return;
-+	}
-+
-+err_sndbuf:
-+	ib_destroy_ah(ah);
-+err_exit:
-+	v_err("Aborting trap\n");
-+}
-+
-+static int vema_rem_vport(int id, void *p, void *data)
-+{
-+	struct opa_vnic_adapter *adapter = p;
-+
-+	opa_vnic_rem_netdev(adapter);
-+	return 0;
-+}
-+
-+static int vema_enable_vport(int id, void *p, void *data)
-+{
-+	struct opa_vnic_adapter *adapter = p;
-+
-+	netif_carrier_on(adapter->netdev);
-+	return 0;
-+}
-+
-+static int vema_disable_vport(int id, void *p, void *data)
-+{
-+	struct opa_vnic_adapter *adapter = p;
-+
-+	netif_carrier_off(adapter->netdev);
-+	return 0;
-+}
-+
-+static void opa_vnic_event(struct ib_event_handler *handler,
-+			   struct ib_event *record)
-+{
-+	struct opa_vnic_vema_port *port =
-+		container_of(handler, struct opa_vnic_vema_port, event_handler);
-+	struct opa_vnic_ctrl_port *cport = port->cport;
-+
-+	if (record->element.port_num != port->port_num)
-+		return;
-+
-+	c_dbg("OPA_VNIC received event %d on device %s port %d\n",
-+	      record->event, record->device->name, record->element.port_num);
-+
-+	if (record->event == IB_EVENT_PORT_ERR)
-+		idr_for_each(&port->vport_idr, vema_disable_vport, NULL);
-+	if (record->event == IB_EVENT_PORT_ACTIVE)
-+		idr_for_each(&port->vport_idr, vema_enable_vport, NULL);
-+}
-+
-+/**
-+ * vema_unregister -- Unregisters agent
-+ * @cport: pointer to control port
-+ *
-+ * This deletes the registration by VEMA for MADs
-+ */
-+static void vema_unregister(struct opa_vnic_ctrl_port *cport)
-+{
++	struct __opa_vesw_info *src = &adapter->info.vesw;
 +	int i;
 +
-+	for (i = 1; i <= cport->num_ports; i++) {
-+		struct opa_vnic_vema_port *port = vema_get_port(cport, i);
++	info->fabric_id = cpu_to_be16(src->fabric_id);
++	info->vesw_id = cpu_to_be16(src->vesw_id);
++	memcpy(info->rsvd0, src->rsvd0, ARRAY_SIZE(src->rsvd0));
++	info->def_port_mask = cpu_to_be16(src->def_port_mask);
++	memcpy(info->rsvd1, src->rsvd1, ARRAY_SIZE(src->rsvd1));
++	info->pkey = cpu_to_be16(src->pkey);
 +
-+		if (!port->mad_agent)
++	memcpy(info->rsvd2, src->rsvd2, ARRAY_SIZE(src->rsvd2));
++	info->u_mcast_dlid = cpu_to_be32(src->u_mcast_dlid);
++	for (i = 0; i < OPA_VESW_MAX_NUM_DEF_PORT; i++)
++		info->u_ucast_dlid[i] = cpu_to_be32(src->u_ucast_dlid[i]);
++
++	memcpy(info->rsvd3, src->rsvd3, ARRAY_SIZE(src->rsvd3));
++	for (i = 0; i < OPA_VNIC_MAX_NUM_PCP; i++)
++		info->eth_mtu[i] = cpu_to_be16(src->eth_mtu[i]);
++
++	info->eth_mtu_non_vlan = cpu_to_be16(src->eth_mtu_non_vlan);
++	memcpy(info->rsvd4, src->rsvd4, ARRAY_SIZE(src->rsvd4));
++}
++
++/**
++ * opa_vnic_set_vesw_info -- Set the vesw information
++ * @adapter: vnic port adapter
++ * @info: pointer to vesw info structure
++ *
++ * This function updates the vesw info that is maintained by the
++ * given adapter with vesw info provided. Reserved fields are stored
++ * and returned back to EM as is.
++ */
++void opa_vnic_set_vesw_info(struct opa_vnic_adapter *adapter,
++			    struct opa_vesw_info *info)
++{
++	struct __opa_vesw_info *dst = &adapter->info.vesw;
++	int i;
++
++	dst->fabric_id = be16_to_cpu(info->fabric_id);
++	dst->vesw_id = be16_to_cpu(info->vesw_id);
++	memcpy(dst->rsvd0, info->rsvd0, ARRAY_SIZE(info->rsvd0));
++	dst->def_port_mask = be16_to_cpu(info->def_port_mask);
++	memcpy(dst->rsvd1, info->rsvd1, ARRAY_SIZE(info->rsvd1));
++	dst->pkey = be16_to_cpu(info->pkey);
++
++	memcpy(dst->rsvd2, info->rsvd2, ARRAY_SIZE(info->rsvd2));
++	dst->u_mcast_dlid = be32_to_cpu(info->u_mcast_dlid);
++	for (i = 0; i < OPA_VESW_MAX_NUM_DEF_PORT; i++)
++		dst->u_ucast_dlid[i] = be32_to_cpu(info->u_ucast_dlid[i]);
++
++	memcpy(dst->rsvd3, info->rsvd3, ARRAY_SIZE(info->rsvd3));
++	for (i = 0; i < OPA_VNIC_MAX_NUM_PCP; i++)
++		dst->eth_mtu[i] = be16_to_cpu(info->eth_mtu[i]);
++
++	dst->eth_mtu_non_vlan = be16_to_cpu(info->eth_mtu_non_vlan);
++	memcpy(dst->rsvd4, info->rsvd4, ARRAY_SIZE(info->rsvd4));
++}
++
++/**
++ * opa_vnic_get_per_veswport_info -- Get the vesw per port information
++ * @adapter: vnic port adapter
++ * @info: pointer to destination vport info structure
++ *
++ * This function copies the vesw per port info that is maintained by the
++ * given adapter to destination address provided.
++ * Note that the read only fields are not copied.
++ */
++void opa_vnic_get_per_veswport_info(struct opa_vnic_adapter *adapter,
++				    struct opa_per_veswport_info *info)
++{
++	struct __opa_per_veswport_info *src = &adapter->info.vport;
++
++	info->port_num = cpu_to_be32(src->port_num);
++	info->eth_link_status = src->eth_link_status;
++	memcpy(info->rsvd0, src->rsvd0, ARRAY_SIZE(src->rsvd0));
++
++	memcpy(info->base_mac_addr, src->base_mac_addr,
++	       ARRAY_SIZE(info->base_mac_addr));
++	info->config_state = src->config_state;
++	info->oper_state = src->oper_state;
++	info->max_mac_tbl_ent = cpu_to_be16(src->max_mac_tbl_ent);
++	info->max_smac_ent = cpu_to_be16(src->max_smac_ent);
++	info->mac_tbl_digest = cpu_to_be32(src->mac_tbl_digest);
++	memcpy(info->rsvd1, src->rsvd1, ARRAY_SIZE(src->rsvd1));
++
++	info->encap_slid = cpu_to_be32(src->encap_slid);
++	memcpy(info->pcp_to_sc_uc, src->pcp_to_sc_uc,
++	       ARRAY_SIZE(info->pcp_to_sc_uc));
++	memcpy(info->pcp_to_vl_uc, src->pcp_to_vl_uc,
++	       ARRAY_SIZE(info->pcp_to_vl_uc));
++	memcpy(info->pcp_to_sc_mc, src->pcp_to_sc_mc,
++	       ARRAY_SIZE(info->pcp_to_sc_mc));
++	memcpy(info->pcp_to_vl_mc, src->pcp_to_vl_mc,
++	       ARRAY_SIZE(info->pcp_to_vl_mc));
++	info->non_vlan_sc_uc = src->non_vlan_sc_uc;
++	info->non_vlan_vl_uc = src->non_vlan_vl_uc;
++	info->non_vlan_sc_mc = src->non_vlan_sc_mc;
++	info->non_vlan_vl_mc = src->non_vlan_vl_mc;
++	memcpy(info->rsvd2, src->rsvd2, ARRAY_SIZE(src->rsvd2));
++
++	info->uc_macs_gen_count = cpu_to_be16(src->uc_macs_gen_count);
++	info->mc_macs_gen_count = cpu_to_be16(src->mc_macs_gen_count);
++	memcpy(info->rsvd3, src->rsvd3, ARRAY_SIZE(src->rsvd3));
++}
++
++/**
++ * opa_vnic_set_per_veswport_info -- Set vesw per port information
++ * @adapter: vnic port adapter
++ * @info: pointer to vport info structure
++ *
++ * This function updates the vesw per port info that is maintained by the
++ * given adapter with vesw per port info provided. Reserved fields are
++ * stored and returned back to EM as is.
++ */
++void opa_vnic_set_per_veswport_info(struct opa_vnic_adapter *adapter,
++				    struct opa_per_veswport_info *info)
++{
++	struct __opa_per_veswport_info *dst = &adapter->info.vport;
++
++	dst->port_num = be32_to_cpu(info->port_num);
++	memcpy(dst->rsvd0, info->rsvd0, ARRAY_SIZE(info->rsvd0));
++
++	memcpy(dst->base_mac_addr, info->base_mac_addr,
++	       ARRAY_SIZE(dst->base_mac_addr));
++	dst->config_state = info->config_state;
++	memcpy(dst->rsvd1, info->rsvd1, ARRAY_SIZE(info->rsvd1));
++
++	dst->encap_slid = be32_to_cpu(info->encap_slid);
++	memcpy(dst->pcp_to_sc_uc, info->pcp_to_sc_uc,
++	       ARRAY_SIZE(dst->pcp_to_sc_uc));
++	memcpy(dst->pcp_to_vl_uc, info->pcp_to_vl_uc,
++	       ARRAY_SIZE(dst->pcp_to_vl_uc));
++	memcpy(dst->pcp_to_sc_mc, info->pcp_to_sc_mc,
++	       ARRAY_SIZE(dst->pcp_to_sc_mc));
++	memcpy(dst->pcp_to_vl_mc, info->pcp_to_vl_mc,
++	       ARRAY_SIZE(dst->pcp_to_vl_mc));
++	dst->non_vlan_sc_uc = info->non_vlan_sc_uc;
++	dst->non_vlan_vl_uc = info->non_vlan_vl_uc;
++	dst->non_vlan_sc_mc = info->non_vlan_sc_mc;
++	dst->non_vlan_vl_mc = info->non_vlan_vl_mc;
++	memcpy(dst->rsvd2, info->rsvd2, ARRAY_SIZE(info->rsvd2));
++	memcpy(dst->rsvd3, info->rsvd3, ARRAY_SIZE(info->rsvd3));
++}
++
++/**
++ * opa_vnic_query_mcast_macs - query multicast mac list
++ * @adapter: vnic port adapter
++ * @macs: pointer mac list
++ *
++ * This function populates the provided mac list with the configured
++ * multicast addresses in the adapter.
++ */
++void opa_vnic_query_mcast_macs(struct opa_vnic_adapter *adapter,
++			       struct opa_veswport_iface_macs *macs)
++{
++	u16 start_idx, num_macs, idx = 0, count = 0;
++	struct netdev_hw_addr *ha;
++
++	start_idx = be16_to_cpu(macs->start_idx);
++	num_macs = be16_to_cpu(macs->num_macs_in_msg);
++	netdev_for_each_mc_addr(ha, adapter->netdev) {
++		struct opa_vnic_iface_mac_entry *entry = &macs->entry[count];
++
++		if (start_idx > idx++)
++			continue;
++		else if (num_macs == count)
++			break;
++		memcpy(entry, ha->addr, sizeof(*entry));
++		count++;
++	}
++
++	macs->tot_macs_in_lst = cpu_to_be16(netdev_mc_count(adapter->netdev));
++	macs->num_macs_in_msg = cpu_to_be16(count);
++	macs->gen_count = cpu_to_be16(adapter->info.vport.mc_macs_gen_count);
++}
++
++/**
++ * opa_vnic_query_ucast_macs - query unicast mac list
++ * @adapter: vnic port adapter
++ * @macs: pointer mac list
++ *
++ * This function populates the provided mac list with the configured
++ * unicast addresses in the adapter.
++ */
++void opa_vnic_query_ucast_macs(struct opa_vnic_adapter *adapter,
++			       struct opa_veswport_iface_macs *macs)
++{
++	u16 start_idx, tot_macs, num_macs, idx = 0, count = 0;
++	struct netdev_hw_addr *ha;
++
++	start_idx = be16_to_cpu(macs->start_idx);
++	num_macs = be16_to_cpu(macs->num_macs_in_msg);
++	/* loop through dev_addrs list first */
++	for_each_dev_addr(adapter->netdev, ha) {
++		struct opa_vnic_iface_mac_entry *entry = &macs->entry[count];
++
++		/* Do not include EM specified MAC address */
++		if (!memcmp(adapter->info.vport.base_mac_addr, ha->addr,
++			    ARRAY_SIZE(adapter->info.vport.base_mac_addr)))
 +			continue;
 +
-+		/* Lock ensures no MAD is being processed */
-+		mutex_lock(&port->lock);
-+		idr_for_each(&port->vport_idr, vema_rem_vport, NULL);
-+		mutex_unlock(&port->lock);
-+
-+		ib_unregister_mad_agent(port->mad_agent);
-+		port->mad_agent = NULL;
-+		mutex_destroy(&port->lock);
-+		idr_destroy(&port->vport_idr);
-+		ib_unregister_event_handler(&port->event_handler);
-+	}
-+}
-+
-+/**
-+ * vema_register -- Registers agent
-+ * @cport: pointer to control port
-+ *
-+ * This function registers the handlers for the VEMA MADs
-+ *
-+ * Return: returns 0 on success. non zero otherwise
-+ */
-+static int vema_register(struct opa_vnic_ctrl_port *cport)
-+{
-+	struct ib_mad_reg_req reg_req = {
-+		.mgmt_class = OPA_MGMT_CLASS_INTEL_EMA,
-+		.mgmt_class_version = OPA_MGMT_BASE_VERSION,
-+		.oui = { INTEL_OUI_1, INTEL_OUI_2, INTEL_OUI_3 }
-+	};
-+	int i;
-+
-+	set_bit(IB_MGMT_METHOD_GET, reg_req.method_mask);
-+	set_bit(IB_MGMT_METHOD_SET, reg_req.method_mask);
-+
-+	/* register ib event handler and mad agent for each port on dev */
-+	for (i = 1; i <= cport->num_ports; i++) {
-+		struct opa_vnic_vema_port *port = vema_get_port(cport, i);
-+		int ret;
-+
-+		port->cport = cport;
-+		port->port_num = i;
-+
-+		INIT_IB_EVENT_HANDLER(&port->event_handler,
-+				      cport->ibdev, opa_vnic_event);
-+		ret = ib_register_event_handler(&port->event_handler);
-+		if (ret) {
-+			c_err("port %d: event handler register failed\n", i);
-+			vema_unregister(cport);
-+			return ret;
-+		}
-+
-+		idr_init(&port->vport_idr);
-+		mutex_init(&port->lock);
-+		port->mad_agent = ib_register_mad_agent(cport->ibdev, i,
-+							IB_QPT_GSI, &reg_req,
-+							IB_MGMT_RMPP_VERSION,
-+							vema_send, vema_recv,
-+							port, 0);
-+		if (IS_ERR(port->mad_agent)) {
-+			ret = PTR_ERR(port->mad_agent);
-+			port->mad_agent = NULL;
-+			mutex_destroy(&port->lock);
-+			idr_destroy(&port->vport_idr);
-+			vema_unregister(cport);
-+			return ret;
-+		}
++		if (start_idx > idx++)
++			continue;
++		else if (num_macs == count)
++			break;
++		memcpy(entry, ha->addr, sizeof(*entry));
++		count++;
 +	}
 +
-+	return 0;
++	/* loop through uc list */
++	netdev_for_each_uc_addr(ha, adapter->netdev) {
++		struct opa_vnic_iface_mac_entry *entry = &macs->entry[count];
++
++		if (start_idx > idx++)
++			continue;
++		else if (num_macs == count)
++			break;
++		memcpy(entry, ha->addr, sizeof(*entry));
++		count++;
++	}
++
++	tot_macs = netdev_hw_addr_list_count(&adapter->netdev->dev_addrs) +
++		   netdev_uc_count(adapter->netdev);
++	macs->tot_macs_in_lst = cpu_to_be16(tot_macs);
++	macs->num_macs_in_msg = cpu_to_be16(count);
++	macs->gen_count = cpu_to_be16(adapter->info.vport.uc_macs_gen_count);
 +}
-+
-+/**
-+ * opa_vnic_vema_add_one -- Handle new ib device
-+ * @device: ib device pointer
-+ *
-+ * Allocate the vnic control port and initialize it.
-+ */
-+static void opa_vnic_vema_add_one(struct ib_device *device)
-+{
-+	struct opa_vnic_ctrl_port *cport;
-+	int rc, size = sizeof(*cport);
-+
-+	if (!rdma_cap_opa_vnic(device))
-+		return;
-+
-+	size += device->phys_port_cnt * sizeof(struct opa_vnic_vema_port);
-+	cport = kzalloc(size, GFP_KERNEL);
-+	if (!cport)
-+		return;
-+
-+	cport->num_ports = device->phys_port_cnt;
-+	cport->ibdev = device;
-+
-+	/* Initialize opa vnic management agent (vema) */
-+	rc = vema_register(cport);
-+	if (!rc)
-+		c_info("VNIC client initialized\n");
-+
-+	ib_set_client_data(device, &opa_vnic_client, cport);
-+}
-+
-+/**
-+ * opa_vnic_vema_rem_one -- Handle ib device removal
-+ * @device: ib device pointer
-+ * @client_data: ib client data
-+ *
-+ * Uninitialize and free the vnic control port.
-+ */
-+static void opa_vnic_vema_rem_one(struct ib_device *device,
-+				  void *client_data)
-+{
-+	struct opa_vnic_ctrl_port *cport = client_data;
-+
-+	if (!cport)
-+		return;
-+
-+	c_info("removing VNIC client\n");
-+	vema_unregister(cport);
-+	kfree(cport);
-+}
-+
-+static int __init opa_vnic_init(void)
-+{
-+	int rc;
-+
-+	pr_info("OPA Virtual Network Driver - v%s\n",
-+		opa_vnic_driver_version);
-+
-+	rc = ib_register_client(&opa_vnic_client);
-+	if (rc)
-+		pr_err("VNIC driver register failed %d\n", rc);
-+
-+	return rc;
-+}
-+module_init(opa_vnic_init);
-+
-+static void opa_vnic_deinit(void)
-+{
-+	ib_unregister_client(&opa_vnic_client);
-+}
-+module_exit(opa_vnic_deinit);
-+
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_AUTHOR("Intel Corporation");
-+MODULE_DESCRIPTION("Intel OPA Virtual Network driver");
-+MODULE_VERSION(DRV_VERSION);
-diff --git a/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c b/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
-index 2e01149..a51bf97 100644
---- a/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
-+++ b/drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c
-@@ -70,7 +70,7 @@ void opa_vnic_vema_report_event(struct opa_vnic_adapter *adapter, u8 event)
- 	trap_data.veswportindex = adapter->vport_num;
- 	trap_data.opcode = event;
- 
--	/* Need to send trap here */
-+	opa_vnic_vema_send_trap(adapter, &trap_data, info->vport.encap_slid);
- }
- 
- /**
 -- 
 1.8.3.1
