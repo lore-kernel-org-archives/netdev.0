@@ -1,44 +1,49 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net 3/6] net/mlx5e: Do not reduce LRO WQE size when not
- using build_skb
-Date: Thu, 23 Feb 2017 13:37:46 +0200
-Message-ID: <CALzJLG9iEgw3ziiGnUWvhazPjge02AfKPXaRt1cq+yh28VacMQ@mail.gmail.com>
-References: <20170222152016.31263-1-saeedm@mellanox.com> <20170222152016.31263-4-saeedm@mellanox.com>
- <CAADnVQKVj3MbjkstfcCsUy7DmqLGUtrq5=g=Bzd1u=bymcuVuQ@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: netfilter: nft_ct: add zone id set support
+Date: Thu, 23 Feb 2017 12:34:35 +0100
+Message-ID: <20170223113435.GF11144@breakpoint.cc>
+References: <20170222190219.EC87B661B65@gitolite.kernel.org>
+ <CAMuHMdUJ=2+9ko0KEU7rX3rb7vghNj3Xc-HSLSK=-kqQ+CZM6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
         "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:35534 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751070AbdBWLjF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 06:39:05 -0500
-Received: by mail-qk0-f182.google.com with SMTP id u188so28737889qkc.2
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2017 03:38:07 -0800 (PST)
-In-Reply-To: <CAADnVQKVj3MbjkstfcCsUy7DmqLGUtrq5=g=Bzd1u=bymcuVuQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdUJ=2+9ko0KEU7rX3rb7vghNj3Xc-HSLSK=-kqQ+CZM6w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 22, 2017 at 9:45 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Wed, Feb 22, 2017 at 7:20 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
->> From: Tariq Toukan <tariqt@mellanox.com>
->>
->> When rq_type is Striding RQ, no room of SKB_RESERVE is needed
->> as SKB allocation is not done via build_skb.
->>
->> Fixes: e4b85508072b ("net/mlx5e: Slightly reduce hardware LRO size")
->> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
->> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
->
-> why this one is a bug fix?
-> Sound like an optimization from commit log.
+Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+> On Wed, Feb 22, 2017 at 8:02 PM, Linux Kernel Mailing List
+> <linux-kernel@vger.kernel.org> wrote:
+> > Web:        https://git.kernel.org/torvalds/c/edee4f1e92458299505ff007733f676b00c516a1
+> > Commit:     edee4f1e92458299505ff007733f676b00c516a1
+> > Parent:     5c178d81b69f08ca3195427a6ea9a46d9af23127
+> > Refname:    refs/heads/master
+> > Author:     Florian Westphal <fw@strlen.de>
+> > AuthorDate: Fri Feb 3 13:35:50 2017 +0100
+> > Committer:  Pablo Neira Ayuso <pablo@netfilter.org>
+> > CommitDate: Wed Feb 8 14:16:23 2017 +0100
+> >
+> Unlike for the other cases of the switch statement, "len" is not initialized
+> here...
+> 
+> > +               break;
+> >         priv->sreg = nft_parse_register(tb[NFTA_CT_SREG]);
+> >         err = nft_validate_register_load(priv->sreg, len);
+> 
+> ... and used here, which may lead to spurious failures of
+> nft_validate_register_load().
 
-It is a regression since  ("net/mlx5e: Slightly reduce hardware LRO size").
-And we see due to this a small drop in HW LRO performance.
-We just fixed the LRO size to be the same as it was before the
-offending patch for striding RQ case.
+Yes, Dan reported this and a patch is queued at
+http://patchwork.ozlabs.org/patch/727573/
+
+Pablo, any reason why this is still waiting?
+Do you want me to run more tests?
