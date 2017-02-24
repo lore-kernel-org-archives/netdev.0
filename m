@@ -1,34 +1,46 @@
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/1] rds: fix memory leak error
-Date: Fri, 24 Feb 2017 08:49:19 -0800
-Message-ID: <79081f83-c9ed-5e45-ecbb-754fe1c9a96a@oracle.com>
-References: <1487928481-1022-1-git-send-email-yanjun.zhu@oracle.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/1] color: use "light" colors for dark background
+Date: Fri, 24 Feb 2017 08:50:20 -0800
+Message-ID: <20170224085020.482109b0@xeon-e3>
+References: <20170224101312.31538-1-pvorel@suse.cz>
+        <20170224.102817.1987967741498252394.davem@davemloft.net>
+        <1487952702.30601.0.camel@sipsolutions.net>
+        <20170224.112213.886902897151369899.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1487928481-1022-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: johannes@sipsolutions.net, pvorel@suse.cz, netdev@vger.kernel.org,
+        m.nyman@iki.fi, yegorslists@googlemail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33473 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751253AbdBXQu3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 11:50:29 -0500
+Received: by mail-pf0-f181.google.com with SMTP id o64so187829pfb.0
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 08:50:28 -0800 (PST)
+In-Reply-To: <20170224.112213.886902897151369899.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/24/2017 1:28 AM, Zhu Yanjun wrote:
-> When the function register_netdevice_notifier fails, the memory
-> allocated by kmem_cache_create should be freed by the function
-> kmem_cache_destroy.
->
-> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-Minor nit with subject.
-s/rds/RDS: TCP:
+On Fri, 24 Feb 2017 11:22:13 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-patch looks fine to me.
-Acked:by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Fri, 24 Feb 2017 17:11:42 +0100
+> 
+> >   
+> >> > Chosen colors are questionable. Best solution would be also allow  
+> >> user to  
+> >> > redefine colors, like ls does with LS_COLORS or grep with  
+> >> GREP_COLORS. But that  
+> >> > is maybe overkill.  
+> >> 
+> >> I think you may have posted this to the wrong mailing list.  
+> > 
+> > Actually, it seems to just be missing the "iproute" (or so) prefix?  
+> 
+> Ok that makes more sense :)
+
+Yes. Iproute2 has  had color support for a while.
+The CC list has the original developer
