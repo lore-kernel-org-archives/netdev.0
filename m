@@ -1,35 +1,79 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] lib: Allow compile-testing of parman
-Date: Fri, 24 Feb 2017 11:25:55 +0100
-Message-ID: <1487931955-31381-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Subject: [PATCH] drivers: net: xgene: Simplify xgene_enet_setup_mss() to kill warning
+Date: Fri, 24 Feb 2017 11:30:03 +0100
+Message-ID: <1487932203-31799-1-git-send-email-geert@linux-m68k.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
         Geert Uytterhoeven <geert@linux-m68k.org>
-To: Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>
+To: "David S . Miller" <davem@davemloft.net>,
+        Iyappan Subramanian <isubramanian@apm.com>,
+        Keyur Chudgar <kchudgar@apm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This allows to enable and run the accompanying test (test_parman)
-without dependencies on other users of parman.
+With gcc-4.1.2 and -Os:
+
+    drivers/net/ethernet/apm/xgene/xgene_enet_main.c: In function ‘xgene_enet_start_xmit’:
+    drivers/net/ethernet/apm/xgene/xgene_enet_main.c:297: warning: ‘mss_index’ may be used uninitialized in this function
+
+Using a separate variable to track success may confuse the compiler.
+Preinitialize mss_index with -EBUSY and check for negative error values
+instead to kill the warning.
 
 Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- lib/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Compile-tested only.
 
-diff --git a/lib/Kconfig b/lib/Kconfig
-index fe7e8e175db8f7b4..e494065156a28d20 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -549,7 +549,7 @@ config SBITMAP
- 	bool
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index d0d0d12b531fc683..e536301acfdec9fd 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -293,36 +293,29 @@ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
+ static int xgene_enet_setup_mss(struct net_device *ndev, u32 mss)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+-	bool mss_index_found = false;
+-	int mss_index;
++	int mss_index = -EBUSY;
+ 	int i;
  
- config PARMAN
--	tristate
-+	tristate "parman" if COMPILE_TEST
+ 	spin_lock(&pdata->mss_lock);
  
- config PRIME_NUMBERS
- 	tristate
+ 	/* Reuse the slot if MSS matches */
+-	for (i = 0; !mss_index_found && i < NUM_MSS_REG; i++) {
++	for (i = 0; mss_index < 0 && i < NUM_MSS_REG; i++) {
+ 		if (pdata->mss[i] == mss) {
+ 			pdata->mss_refcnt[i]++;
+ 			mss_index = i;
+-			mss_index_found = true;
+ 		}
+ 	}
+ 
+ 	/* Overwrite the slot with ref_count = 0 */
+-	for (i = 0; !mss_index_found && i < NUM_MSS_REG; i++) {
++	for (i = 0; mss_index < 0 && i < NUM_MSS_REG; i++) {
+ 		if (!pdata->mss_refcnt[i]) {
+ 			pdata->mss_refcnt[i]++;
+ 			pdata->mac_ops->set_mss(pdata, mss, i);
+ 			pdata->mss[i] = mss;
+ 			mss_index = i;
+-			mss_index_found = true;
+ 		}
+ 	}
+ 
+-	/* No slots with ref_count = 0 available, return busy */
+-	if (!mss_index_found)
+-		mss_index = -EBUSY;
+-
+ 	spin_unlock(&pdata->mss_lock);
+ 
+ 	return mss_index;
 -- 
 2.7.4
