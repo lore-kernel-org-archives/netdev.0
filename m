@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] tipc: move premature
- initilalization of stack variables
-Date: Fri, 24 Feb 2017 11:13:48 -0500 (EST)
-Message-ID: <20170224.111348.761299008707145759.davem@davemloft.net>
-References: <1487866231-23666-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH net] net: phy: Add missing driver check in
+ phy_aneg_done()
+Date: Fri, 24 Feb 2017 11:20:52 -0500 (EST)
+Message-ID: <20170224.112052.36990168643432351.davem@davemloft.net>
+References: <20170223222219.6915-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1487866231-23666-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, dan.carpenter@oracle.com,
+        rmk+kernel@armlinux.org.uk
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37024 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751121AbdBXQWm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 11:22:42 -0500
+In-Reply-To: <20170223222219.6915-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 23 Feb 2017 11:10:31 -0500
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 23 Feb 2017 14:22:19 -0800
 
-> In the function tipc_rcv() we initialize a couple of stack variables
-> from the message header before that same header has been validated.
-> In rare cases when the arriving header is non-linar, the validation
-> function itself may linearize the buffer by calling skb_may_pull(),
-> while the wrongly initialized stack fields are not updated accordingly.
+> Dan's static checker caught a potential code path in phy_state_machine() where
+> we were not checking phydev->drv which is in phy_aneg_done().
 > 
-> We fix this in this commit.
-> 
-> Reported-by: Matthew Wong <mwong@sonusnet.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Fixes: 25149ef9d25c ("net: phy: Check phydev->drv")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
 Applied.
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, SlashDot.org! http://sdm.link/slashdot
