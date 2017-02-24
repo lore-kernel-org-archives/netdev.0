@@ -1,79 +1,42 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net] rxrpc: Kernel calls get stuck in recvmsg
-Date: Fri, 24 Feb 2017 21:57:13 +0000
-Message-ID: <148797343389.26520.13921866303222644134.stgit@warthog.procyon.org.uk>
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: Re: [PATCH net 1/1] net sched actions: decrement module reference count after table flush.
+Date: Fri, 24 Feb 2017 17:10:33 -0500
+Message-ID: <85a89bdyue.fsf@mojatatu.com>
+References: <1487952032-508-1-git-send-email-mrv@mojatatu.com>
+        <CAM_iQpW9E8UWDCVbqDqZ7pkjh5kTEO7W_=2Qk_aRUP4HMXypRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:33407 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751273AbdBXWKi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 17:10:38 -0500
+Received: by mail-io0-f196.google.com with SMTP id d198so410569ioe.0
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 14:10:37 -0800 (PST)
+In-Reply-To: <CAM_iQpW9E8UWDCVbqDqZ7pkjh5kTEO7W_=2Qk_aRUP4HMXypRQ@mail.gmail.com>
+        (Cong Wang's message of "Fri, 24 Feb 2017 09:58:21 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Calls made through the in-kernel interface can end up getting stuck because
-of a missed variable update in a loop in rxrpc_recvmsg_data().  The problem
-is like this:
+Cong Wang <xiyou.wangcong@gmail.com> writes:
 
- (1) A new packet comes in and doesn't cause a notification to be given to
-     the client as there's still another packet in the ring - the
-     assumption being that if the client will keep drawing off data until
-     the ring is empty.
+> On Fri, Feb 24, 2017 at 8:00 AM, Roman Mashak <mrv@mojatatu.com> wrote:
+>> When tc actions are loaded as a module and no actions have been installed,
+>> flushing them would result in actions removed from the memory, but modules
+>> reference count not being decremented, so that the modules would not be
+>> unloaded.
 
- (2) The client is in rxrpc_recvmsg_data(), inside the big while loop that
-     iterates through the packets.  This copies the window pointers into
-     variables rather than using the information in the call struct
-     because:
+[...]
 
-     (a) MSG_PEEK might be in effect;
+> Fixes commit f97017cdefefdb6a0e19266024b0c6f9fd411eeb ?
 
-     (b) we need a barrier after reading call->rx_top to pair with the
-     	 barrier in the softirq routine that loads the buffer.
+Yes, exactly.
 
- (3) The reading of call->rx_top is done outside of the loop, and top is
-     never updated whilst we're in the loop.  This means that even through
-     there's a new packet available, we don't see it and may return -EFAULT
-     to the caller - who will happily return to the scheduler and await the
-     next notification.
+> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
 
- (4) No further notifications are forthcoming until there's an abort as the
-     ring isn't empty.
-
-The fix is to move the read of call->rx_top inside the loop - but it needs
-to be done before the condition is checked.
-
-Reported-by: Marc Dionne <marc.dionne@auristor.com>
-Signed-off-by: David Howells <dhowells@redhat.com>
-Tested-by: Marc Dionne <marc.dionne@auristor.com>
----
-
- net/rxrpc/recvmsg.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
-index c29362d50a92..f3a688e10843 100644
---- a/net/rxrpc/recvmsg.c
-+++ b/net/rxrpc/recvmsg.c
-@@ -320,8 +320,10 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
- 
- 	/* Barriers against rxrpc_input_data(). */
- 	hard_ack = call->rx_hard_ack;
--	top = smp_load_acquire(&call->rx_top);
--	for (seq = hard_ack + 1; before_eq(seq, top); seq++) {
-+	seq = hard_ack + 1;
-+	while (top = smp_load_acquire(&call->rx_top),
-+	       before_eq(seq, top)
-+	       ) {
- 		ix = seq & RXRPC_RXTX_BUFF_MASK;
- 		skb = call->rxtx_buffer[ix];
- 		if (!skb) {
-@@ -394,6 +396,8 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
- 			ret = 1;
- 			goto out;
- 		}
-+
-+		seq++;
- 	}
- 
- out:
+-- 
+Roman Mashak
