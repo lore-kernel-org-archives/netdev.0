@@ -1,39 +1,40 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net 0/2] VXLAN/geneve RCU fixes
-Date: Fri, 24 Feb 2017 11:43:35 -0800
-Message-ID: <20170224194337.67538-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com, kubakici@wp.pl,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Pravin Shelar <pshelar@ovn.org>, Jiri Benc <jbenc@redhat.com>,
-        "John W . Linville" <linville@tuxdriver.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] bridge: Add support for IEEE 802.11 Proxy ARP for IPv6
+Date: Fri, 24 Feb 2017 11:55:37 -0800
+Message-ID: <20170224115537.160609db@xeon-e3>
+References: <1487961581-20683-1-git-send-email-jouni@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jouni Malinen <jouni@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33252 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751121AbdBXTw4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 14:52:56 -0500
-Received: by mail-pf0-f180.google.com with SMTP id o64so475589pfb.0
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 11:52:56 -0800 (PST)
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:33848 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751121AbdBXTzp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 14:55:45 -0500
+Received: by mail-pg0-f46.google.com with SMTP id 1so15189515pgi.1
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 11:55:45 -0800 (PST)
+In-Reply-To: <1487961581-20683-1-git-send-email-jouni@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+The concept is fine.
 
-VXLAN and GENEVE need to take RCU lock explicitly because TX path
-only has the _bh() flavour of RCU locked.  Making the reconfiguration
-path wait for both normal and _bh() RCU would be bigger hassle so
-just acquire the lock, as suggested by Pravin:
+Please add some comments to the code about what is happening and why.
+The proposed patch is too sparse and has no comments.
 
-https://www.mail-archive.com/netdev@vger.kernel.org/msg155583.html
 
-Jakub Kicinski (2):
-  vxlan: lock RCU on TX path
-  geneve: lock RCU on TX path
+> +	skb = alloc_skb(hlen + sizeof(struct ipv6hdr) + sizeof(*msg) +
+> +			ndisc_opt_addr_space(dev,
+> +					     NDISC_NEIGHBOUR_ADVERTISEMENT) +
+> +			tlen, GFP_ATOMIC);
+> +	if (!skb)
+> +		return;
 
- drivers/net/geneve.c | 2 ++
- drivers/net/vxlan.c  | 8 ++++++--
- 2 files changed, 8 insertions(+), 2 deletions(-)
+Why not netdev_alloc_skb which takes care of padding and setting skb->dev? 
 
--- 
-2.11.0
+Rather than doing copy/paste of the code to generate a ND message, it would
+be better to have one function in IPv6 code that handles that. That would keep
+from having to fix code in two places in the future. Is there some way
+to extend ndisc_send_na?
