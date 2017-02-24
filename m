@@ -1,158 +1,118 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: [4.10+] sctp lockdep trace
-Date: Fri, 24 Feb 2017 17:21:10 -0500
-Message-ID: <20170224222110.csrufaq73lq3twy2@codemonkey.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH net 1/1] net sched actions: do not overwrite status of action creation.
+Date: Fri, 24 Feb 2017 17:36:58 -0500
+Message-ID: <1487975818-27254-1-git-send-email-mrv@mojatatu.com>
+Cc: netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from scorn.kernelslacker.org ([45.56.101.199]:58134 "EHLO
-        scorn.kernelslacker.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751322AbdBXWVM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 17:21:12 -0500
-Received: from [2601:196:4600:77b0:ae9e:17ff:feb7:72ca] (helo=wopr.kernelslacker.org)
-        by scorn.kernelslacker.org with esmtp (Exim 4.84_2)
-        (envelope-from <davej@codemonkey.org.uk>)
-        id 1chOEh-0006Di-3V
-        for netdev@vger.kernel.org; Fri, 24 Feb 2017 17:21:11 -0500
-Content-Disposition: inline
+Received: from mail-it0-f67.google.com ([209.85.214.67]:34119 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751301AbdBXWhN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 17:37:13 -0500
+Received: by mail-it0-f67.google.com with SMTP id r141so5750885ita.1
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 14:37:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[  244.251557] ===============================
-[  244.263321] [ ERR: suspicious RCU usage.  ]
-[  244.274982] 4.10.0-think+ #7 Not tainted
-[  244.286511] -------------------------------
-[  244.298008] ./include/linux/rhashtable.h:602 suspicious rcu_dereference_check() usage!
-[  244.309665] 
-               other info that might help us debug this:
+nla_memdup_cookie was overwriting err value, declared at function
+scope and earlier initialized with result of ->init(). At success
+nla_memdup_cookie() returns 0, and thus module refcnt decremented,
+although the action was installed.
 
-[  244.344629] 
-               rcu_scheduler_active = 2, debug_locks = 1
-[  244.367839] 1 lock held by trinity-c30/1781:
-[  244.379481]  #0: 
-[  244.390848]  (
-[  244.402372] sk_lock-AF_INET
-[  244.413825] ){+.+.+.}
-[  244.425231] , at: [<ffffffffa0302fd0>] sctp_sendmsg+0x330/0xfe0 [sctp]
-[  244.436774] 
-               stack backtrace:
-[  244.459620] CPU: 3 PID: 1781 Comm: trinity-c30 Not tainted 4.10.0-think+ #7 
-[  244.482790] Call Trace:
-[  244.494201]  dump_stack+0x68/0x93
-[  244.505598]  lockdep_rcu_suspicious+0xce/0xf0
-[  244.516924]  sctp_hash_transport+0x406/0x7e0 [sctp]
-[  244.528137]  ? sctp_endpoint_bh_rcv+0x171/0x290 [sctp]
-[  244.539243]  sctp_assoc_add_peer+0x290/0x3c0 [sctp]
-[  244.550291]  sctp_sendmsg+0x8f7/0xfe0 [sctp]
-[  244.561258]  ? rw_copy_check_uvector+0x8e/0x190
-[  244.572308]  ? import_iovec+0x3a/0xe0
-[  244.583232]  inet_sendmsg+0x49/0x1e0
-[  244.594150]  ___sys_sendmsg+0x2d4/0x300
-[  244.605002]  ? debug_smp_processor_id+0x17/0x20
-[  244.615844]  ? debug_smp_processor_id+0x17/0x20
-[  244.626533]  ? get_lock_stats+0x19/0x50
-[  244.637141]  __sys_sendmsg+0x54/0x90
-[  244.647817]  SyS_sendmsg+0x12/0x20
-[  244.658400]  do_syscall_64+0x66/0x1d0
-[  244.668990]  entry_SYSCALL64_slow_path+0x25/0x25
-[  244.679582] RIP: 0033:0x7fe095fcb0f9
-[  244.690079] RSP: 002b:00007ffc5601b1d8 EFLAGS: 00000246
-[  244.700704]  ORIG_RAX: 000000000000002e
-[  244.711248] RAX: ffffffffffffffda RBX: 000000000000002e RCX: 00007fe095fcb0f9
-[  244.721818] RDX: 0000000000000080 RSI: 00005592de12ddc0 RDI: 000000000000012d
-[  244.732282] RBP: 00007fe0965c8000 R08: 000000000000c000 R09: 00000000000000dc
-[  244.742576] R10: 0003021200000088 R11: 0000000000000246 R12: 0000000000000002
-[  244.752804] R13: 00007fe0965c8048 R14: 00007fe0966a1ad8 R15: 00007fe0965c8000
+$ sudo tc actions add action pass index 1 cookie 1234
+$ sudo tc actions ls action gact
 
-[  244.775549] ===============================
-[  244.785875] [ ERR: suspicious RCU usage.  ]
-[  244.796951] 4.10.0-think+ #7 Not tainted
-[  244.807185] -------------------------------
-[  244.819213] ./include/linux/rhashtable.h:605 suspicious rcu_dereference_check() usage!
-[  244.829420] 
-               other info that might help us debug this:
+        action order 0: gact action pass
+         random type none pass val 0
+         index 1 ref 1 bind 0
+$
+$ lsmod
+Module                  Size  Used by
+act_gact               16384  0
+...
+$
+$ sudo rmmod act_gact
+[   52.310283] ------------[ cut here ]------------
+[   52.312551] WARNING: CPU: 1 PID: 455 at kernel/module.c:1113
+module_put+0x99/0xa0
+[   52.316278] Modules linked in: act_gact(-) crct10dif_pclmul crc32_pclmul
+ghash_clmulni_intel psmouse pcbc evbug aesni_intel aes_x86_64 crypto_simd
+serio_raw glue_helper pcspkr cryptd
+[   52.322285] CPU: 1 PID: 455 Comm: rmmod Not tainted 4.10.0+ #11
+[   52.324261] Call Trace:
+[   52.325132]  dump_stack+0x63/0x87
+[   52.326236]  __warn+0xd1/0xf0
+[   52.326260]  warn_slowpath_null+0x1d/0x20
+[   52.326260]  module_put+0x99/0xa0
+[   52.326260]  tcf_hashinfo_destroy+0x7f/0x90
+[   52.326260]  gact_exit_net+0x27/0x40 [act_gact]
+[   52.326260]  ops_exit_list.isra.6+0x38/0x60
+[   52.326260]  unregister_pernet_operations+0x90/0xe0
+[   52.326260]  unregister_pernet_subsys+0x21/0x30
+[   52.326260]  tcf_unregister_action+0x68/0xa0
+[   52.326260]  gact_cleanup_module+0x17/0xa0f [act_gact]
+[   52.326260]  SyS_delete_module+0x1ba/0x220
+[   52.326260]  entry_SYSCALL_64_fastpath+0x1e/0xad
+[   52.326260] RIP: 0033:0x7f527ffae367
+[   52.326260] RSP: 002b:00007ffeb402a598 EFLAGS: 00000202 ORIG_RAX:
+00000000000000b0
+[   52.326260] RAX: ffffffffffffffda RBX: 0000559b069912a0 RCX: 00007f527ffae367
+[   52.326260] RDX: 000000000000000a RSI: 0000000000000800 RDI: 0000559b06991308
+[   52.326260] RBP: 0000000000000003 R08: 00007f5280264420 R09: 00007ffeb4029511
+[   52.326260] R10: 000000000000087b R11: 0000000000000202 R12: 00007ffeb4029580
+[   52.326260] R13: 0000000000000000 R14: 0000000000000000 R15: 0000559b069912a0
+[   52.354856] ---[ end trace 90d89401542b0db6 ]---
+$
 
-[  244.859963] 
-               rcu_scheduler_active = 2, debug_locks = 1
-[  244.879766] 1 lock held by trinity-c30/1781:
-[  244.889953]  #0: 
-[  244.900000]  (
-[  244.909854] sk_lock-AF_INET
-[  244.919645] ){+.+.+.}
-[  244.929238] , at: [<ffffffffa0302fd0>] sctp_sendmsg+0x330/0xfe0 [sctp]
-[  244.939167] 
-               stack backtrace:
-[  244.958506] CPU: 3 PID: 1781 Comm: trinity-c30 Not tainted 4.10.0-think+ #7 
-[  244.978102] Call Trace:
-[  244.987735]  dump_stack+0x68/0x93
-[  244.997112]  lockdep_rcu_suspicious+0xce/0xf0
-[  245.006588]  sctp_hash_transport+0x4ca/0x7e0 [sctp]
-[  245.016264]  ? sctp_endpoint_bh_rcv+0x171/0x290 [sctp]
-[  245.025797]  sctp_assoc_add_peer+0x290/0x3c0 [sctp]
-[  245.035380]  sctp_sendmsg+0x8f7/0xfe0 [sctp]
-[  245.044883]  ? rw_copy_check_uvector+0x8e/0x190
-[  245.054464]  ? import_iovec+0x3a/0xe0
-[  245.064016]  inet_sendmsg+0x49/0x1e0
-[  245.073516]  ___sys_sendmsg+0x2d4/0x300
-[  245.082967]  ? debug_smp_processor_id+0x17/0x20
-[  245.092448]  ? debug_smp_processor_id+0x17/0x20
-[  245.101850]  ? get_lock_stats+0x19/0x50
-[  245.111170]  __sys_sendmsg+0x54/0x90
-[  245.120451]  SyS_sendmsg+0x12/0x20
-[  245.129649]  do_syscall_64+0x66/0x1d0
-[  245.138783]  entry_SYSCALL64_slow_path+0x25/0x25
-[  245.147678] RIP: 0033:0x7fe095fcb0f9
-[  245.156588] RSP: 002b:00007ffc5601b1d8 EFLAGS: 00000246
-[  245.165503]  ORIG_RAX: 000000000000002e
-[  245.174601] RAX: ffffffffffffffda RBX: 000000000000002e RCX: 00007fe095fcb0f9
-[  245.183861] RDX: 0000000000000080 RSI: 00005592de12ddc0 RDI: 000000000000012d
-[  245.193038] RBP: 00007fe0965c8000 R08: 000000000000c000 R09: 00000000000000dc
-[  245.202214] R10: 0003021200000088 R11: 0000000000000246 R12: 0000000000000002
-[  245.211261] R13: 00007fe0965c8048 R14: 00007fe0966a1ad8 R15: 00007fe0965c8000
+With the fix:
 
-[  245.308216] ===============================
-[  245.317295] [ ERR: suspicious RCU usage.  ]
-[  245.327876] 4.10.0-think+ #7 Not tainted
-[  245.337065] -------------------------------
-[  245.345840] ./include/linux/rhashtable.h:616 suspicious rcu_dereference_check() usage!
-[  245.356501] 
-               other info that might help us debug this:
+$ sudo modprobe act_gact
+$ lsmod
+Module                  Size  Used by
+act_gact               16384  0
+...
+$ sudo tc actions add action pass index 1 cookie 1234
+$ sudo tc actions ls action gact
 
-[  245.382185] 
-               rcu_scheduler_active = 2, debug_locks = 1
-[  245.399415] 1 lock held by trinity-c30/1781:
-[  245.408138]  #0: 
-[  245.416594]  (
-[  245.424928] sk_lock-AF_INET
-[  245.433279] ){+.+.+.}
-[  245.441889] , at: [<ffffffffa0302fd0>] sctp_sendmsg+0x330/0xfe0 [sctp]
-[  245.450167] 
-               stack backtrace:
-[  245.466352] CPU: 3 PID: 1781 Comm: trinity-c30 Not tainted 4.10.0-think+ #7 
-[  245.482894] Call Trace:
-[  245.491096]  dump_stack+0x68/0x93
-[  245.499314]  lockdep_rcu_suspicious+0xce/0xf0
-[  245.507610]  sctp_hash_transport+0x6c0/0x7e0 [sctp]
-[  245.515972]  ? sctp_endpoint_bh_rcv+0x171/0x290 [sctp]
-[  245.524366]  sctp_assoc_add_peer+0x290/0x3c0 [sctp]
-[  245.532736]  sctp_sendmsg+0x8f7/0xfe0 [sctp]
-[  245.541040]  ? rw_copy_check_uvector+0x8e/0x190
-[  245.549402]  ? import_iovec+0x3a/0xe0
-[  245.557679]  inet_sendmsg+0x49/0x1e0
-[  245.565887]  ___sys_sendmsg+0x2d4/0x300
-[  245.574092]  ? debug_smp_processor_id+0x17/0x20
-[  245.582342]  ? debug_smp_processor_id+0x17/0x20
-[  245.590508]  ? get_lock_stats+0x19/0x50
-[  245.598641]  __sys_sendmsg+0x54/0x90
-[  245.606745]  SyS_sendmsg+0x12/0x20
-[  245.614784]  do_syscall_64+0x66/0x1d0
-[  245.622828]  entry_SYSCALL64_slow_path+0x25/0x25
-[  245.630894] RIP: 0033:0x7fe095fcb0f9
-[  245.638962] RSP: 002b:00007ffc5601b1d8 EFLAGS: 00000246
-[  245.647071]  ORIG_RAX: 000000000000002e
-[  245.655186] RAX: ffffffffffffffda RBX: 000000000000002e RCX: 00007fe095fcb0f9
-[  245.663435] RDX: 0000000000000080 RSI: 00005592de12ddc0 RDI: 000000000000012d
-[  245.671776] RBP: 00007fe0965c8000 R08: 000000000000c000 R09: 00000000000000dc
-[  245.680111] R10: 0003021200000088 R11: 0000000000000246 R12: 0000000000000002
-[  245.688460] R13: 00007fe0965c8048 R14: 00007fe0966a1ad8 R15: 00007fe0965c8000
+        action order 0: gact action pass
+         random type none pass val 0
+         index 1 ref 1 bind 0
+$
+$ lsmod
+Module                  Size  Used by
+act_gact               16384  1
+...
+$ sudo rmmod act_gact
+rmmod: ERROR: Module act_gact is in use
+$
+$ sudo /home/mrv/bin/tc actions del action gact index 1
+$ sudo rmmod act_gact
+$ lsmod
+Module                  Size  Used by
+$
+
+Fixes: 1045ba77a ("net sched actions: Add support for user cookies")
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/act_api.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index f219ff3..e59cb09 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -613,8 +613,8 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ 			goto err_mod;
+ 		}
+ 
+-		err = nla_memdup_cookie(a, tb);
+-		if (err < 0) {
++		if (nla_memdup_cookie(a, tb) < 0) {
++			err = -ENOMEM;
+ 			tcf_hash_release(a, bind);
+ 			goto err_mod;
+ 		}
+-- 
+1.9.1
