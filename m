@@ -1,47 +1,44 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH RFC] net/socket: use per af lockdep classes for sk queues
-Date: Fri, 24 Feb 2017 10:14:47 -0800
-Message-ID: <CAM_iQpV3cmUa3YwQ=9Mg78oXJsh8pnWgnejf3ddt+aZx2rCEUg@mail.gmail.com>
-References: <a6eb8644399fef96b27dae1a917274c394caab2f.1487942713.git.pabeni@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/1] color: use "light" colors for dark background
+Date: Fri, 24 Feb 2017 10:29:26 -0800
+Message-ID: <20170224102926.102b858f@xeon-e3>
+References: <20170224101312.31538-1-pvorel@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Florian Westphal <fw@strlen.de>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Mathias Nyman <m.nyman@iki.fi>,
+        Yegor Yefremov <yegorslists@googlemail.com>
+To: Petr Vorel <pvorel@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:38748 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750995AbdBXSPJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 13:15:09 -0500
-Received: by mail-wm0-f48.google.com with SMTP id r141so20775529wmg.1
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 10:15:08 -0800 (PST)
-In-Reply-To: <a6eb8644399fef96b27dae1a917274c394caab2f.1487942713.git.pabeni@redhat.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:35672 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751232AbdBXS3e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 13:29:34 -0500
+Received: by mail-pg0-f44.google.com with SMTP id b129so14392152pgc.2
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 10:29:34 -0800 (PST)
+In-Reply-To: <20170224101312.31538-1-pvorel@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 24, 2017 at 5:29 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> Currently the sock queue's spin locks get their lockdep
-> classes by the default init_spin_lock() initializer:
-> all socket families get - usually, see below - a single
-> class for rx, another specific class for tx, etc.
-> This can lead to false positive lockdep splat, as
-> reported by Andrey.
-> Moreover there are two separate initialization points
-> for the sock queues, one in sk_clone_lock() and one
-> in sock_init_data(), so that e.g. the rx queue lock
-> can get one of two possible, different classes, depending
-> on the socket being cloned or not.
-> This change tries to address the above, setting explicitly
-> a per address family lockdep class for each queue's
-> spinlock. Also, move the duplicated initialization code to a
-> single location.
->
-> Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+On Fri, 24 Feb 2017 11:13:12 +0100
+Petr Vorel <pvorel@suse.cz> wrote:
 
-Looks good.
+> COLORFGBG environment variable is used to detect dark background.
+> 
+> Idea and a bit of code is borrowed from Vim, thanks.
+> 
+> Signed-off-by: Petr Vorel <pvorel@suse.cz>
+> ---
+> Colors are nice, but the ones chosen aren't suitable for dark background.
+> COLORFGBG environment variable is used in some libraries and software (e.g.
+> ncurses, Vim). COLORFGBG is set by various terminal emulators (e.g. konsole,
+> rxvt and rxvt-unicode).
+> 
+> Chosen colors are questionable. Best solution would be also allow user to
+> redefine colors, like ls does with LS_COLORS or grep with GREP_COLORS. But that
+> is maybe overkill.
 
-Thanks for working on it!
+This really needs to be standardized with some convention. So that ls, grep, git
+all behave the same and done by some standard library.
+
+The current method is hack that keeps on growing.
