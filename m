@@ -1,93 +1,54 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: net: possible deadlock in skb_queue_tail
-Date: Fri, 24 Feb 2017 03:56:50 +0100
-Message-ID: <20170224025650.GA16439@breakpoint.cc>
-References: <CAAeHK+yCwsZE9iv+OLHJaU+7FEka8UHy_t5vMqFUBpQ8srBbsQ@mail.gmail.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH] iproute2: hide devices starting with period by default
+Date: Thu, 23 Feb 2017 22:12:57 -0500 (EST)
+Message-ID: <20170223.221257.795227595252531962.davem@redhat.com>
+References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
+        <20170223163035.0a49f04d@xeon-e3>
+        <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, pabeni@redhat.com,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAAeHK+yCwsZE9iv+OLHJaU+7FEka8UHy_t5vMqFUBpQ8srBbsQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43086 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751303AbdBXDNR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 23 Feb 2017 22:13:17 -0500
+In-Reply-To: <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrey Konovalov <andreyknvl@google.com> wrote:
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu, 23 Feb 2017 18:07:07 -0700
 
-[ CC Paolo ]
-
-> I've got the following error report while fuzzing the kernel with syzkaller.
+> On 2/23/17 5:30 PM, Stephen Hemminger wrote:
+>> On Thu, 23 Feb 2017 16:39:52 -0700
+>> David Ahern <dsa@cumulusnetworks.com> wrote:
+>> 
+>>> On 2/23/17 12:50 PM, Stephen Hemminger wrote:
+>>>> Some use cases create Linux networking devices which are not intended for use
+>>>> by normal networking. This is an enhancement to ip command to hide network
+>>>> devices starting with period (like files in normal directory).  Interfaces whose
+>>>> name start with "." are not shown by default, and the -a (or -all) flag must
+>>>> be used to show these devices.  
+>>>
+>>> Agree that some devices need to be hidden by default -- not just from
+>>> users but also other processes.
+>>>
+>>> This solution is very narrow, only affecting iproute2 users. Any other
+>>> programs that use netlink or /proc files will continue to see those devices.
+>> 
+>> I want solution that works broadly. And this works for sysfs already.
 > 
-> On commit c470abd4fde40ea6a0846a2beab642a578c0b8cd (4.10).
-> 
-> Unfortunately I can't reproduce it.
+> for 'ls' maybe, but not general walking of /sys. It does not hide
+> devices from snmpd, from ifconfig, etc., etc.
 
-This needs NETLINK_BROADCAST_ERROR enabled on a netlink socket
-that then subscribes to netfilter conntrack (ctnetlink) events.
-probably syzkaller did this by accident -- impressive.
+I agree, that this is a pretty poor assumption.
 
-(one task is the ctnetlink event redelivery worker
- which won't be scheduled otherwise).
+And relying upon tool specific behavior to provide this facility
+is even more special purpose.
 
-> ======================================================
-> [ INFO: possible circular locking dependency detected ]
-> 4.10.0-rc8+ #201 Not tainted
-> -------------------------------------------------------
-> kworker/0:2/1404 is trying to acquire lock:
->  (&(&list->lock)->rlock#3){+.-...}, at: [<ffffffff8335b23f>]
-> skb_queue_tail+0xcf/0x2f0 net/core/skbuff.c:2478
-> 
-> but task is already holding lock:
->  (&(&pcpu->lock)->rlock){+.-...}, at: [<ffffffff8366b55f>] spin_lock
-> include/linux/spinlock.h:302 [inline]
->  (&(&pcpu->lock)->rlock){+.-...}, at: [<ffffffff8366b55f>]
-> ecache_work_evict_list+0xaf/0x590
-> net/netfilter/nf_conntrack_ecache.c:48
-> 
-> which lock already depends on the new lock.
-
-Cong is correct, this is a false positive.
-
-However we should fix this splat.
-
-Paolo, this happens since 7c13f97ffde63cc792c49ec1513f3974f2f05229
-('udp: do fwd memory scheduling on dequeue'), before this
-commit kfree_skb() was invoked outside of the locked section in
-first_packet_length().
-
-cpu 0 call chain:
-- first_packet_length (hold udp sk_receive_queue lock)
-   - kfree_skb
-      - nf_conntrack_destroy
-         - spin_lock(net->ct.pcpu->lock)
-
-cpu 1 call chain:
-- ecache_work_evict_list
-  - spin_lock( net->ct.pcpu->lock)
-  - nf_conntrack_event
-     - aquire netlink socket sk_receive_queue
-
-So this could only ever deadlock if a netlink socket
-calls kfree_skb while holding its sk_receive_queue lock, but afaics
-this is never the case.
-
-There are two ways to avoid this splat (other than lockdep annotation):
-
-1. re-add the list to first_packet_length() and free the
-skbs outside of locked section.
-
-2. change ecache_work_evict_list to not call nf_conntrack_event()
-while holding the pcpu lock.
-
-doing #2 might be a good idea anyway to avoid potential deadlock
-when kfree_skb gets invoked while other cpu holds its sk_receive_queue
-lock, I'll have a look if this is feasible.
+This really need to be a fundamental facility, so that it transparently
+works for NetworkManager, router daemons, everything.  Not just iproute2
+and "ls".
