@@ -1,54 +1,76 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] iproute2: hide devices starting with period by default
-Date: Thu, 23 Feb 2017 22:12:57 -0500 (EST)
-Message-ID: <20170223.221257.795227595252531962.davem@redhat.com>
-References: <027775d1-ef98-deda-1f8d-bb058d1e4c2f@cumulusnetworks.com>
-        <20170223163035.0a49f04d@xeon-e3>
-        <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next 0/1] net: Add support for rmnet_data driver
+Date: Thu, 23 Feb 2017 20:30:53 -0700
+Message-ID: <1487907054-15129-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: netdev@vger.kernel.org, davem@davemloft.net, fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43086 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751303AbdBXDNR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Feb 2017 22:13:17 -0500
-In-Reply-To: <13cec1c2-88f4-e61d-02ee-dc01ccee7281@cumulusnetworks.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:49476 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751971AbdBXDbW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2017 22:31:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Thu, 23 Feb 2017 18:07:07 -0700
+This patch adds support for the rmnet_data driver which is required to
+support recent chipsets using Qualcomm Technologies, Inc. modems. The data
+from hardware follows the multiplexing and aggregation protocol (MAP).
 
-> On 2/23/17 5:30 PM, Stephen Hemminger wrote:
->> On Thu, 23 Feb 2017 16:39:52 -0700
->> David Ahern <dsa@cumulusnetworks.com> wrote:
->> 
->>> On 2/23/17 12:50 PM, Stephen Hemminger wrote:
->>>> Some use cases create Linux networking devices which are not intended for use
->>>> by normal networking. This is an enhancement to ip command to hide network
->>>> devices starting with period (like files in normal directory).  Interfaces whose
->>>> name start with "." are not shown by default, and the -a (or -all) flag must
->>>> be used to show these devices.  
->>>
->>> Agree that some devices need to be hidden by default -- not just from
->>> users but also other processes.
->>>
->>> This solution is very narrow, only affecting iproute2 users. Any other
->>> programs that use netlink or /proc files will continue to see those devices.
->> 
->> I want solution that works broadly. And this works for sysfs already.
-> 
-> for 'ls' maybe, but not general walking of /sys. It does not hide
-> devices from snmpd, from ifconfig, etc., etc.
+This driver can be used to register onto any physical network device in
+IP mode. Physical transports include USB, HSIC, PCIe and IP accelerator.
 
-I agree, that this is a pretty poor assumption.
+rmnet_data driver helps to decode these packets and queue them to network
+stack (and encode and transmit it to the physical device).
 
-And relying upon tool specific behavior to provide this facility
-is even more special purpose.
+--
+This is the same as the RFC patch with some minor fixes for issues
+reported by kbuild test robot.
 
-This really need to be a fundamental facility, so that it transparently
-works for NetworkManager, router daemons, everything.  Not just iproute2
-and "ls".
+Subash Abhinov Kasiviswanathan (1):
+  net: rmnet_data: Initial implementation
+
+ Documentation/networking/rmnet_data.txt |   82 +++
+ include/uapi/linux/Kbuild               |    1 +
+ include/uapi/linux/if_arp.h             |    1 +
+ include/uapi/linux/if_ether.h           |    3 +-
+ include/uapi/linux/rmnet_data.h         |  416 +++++++++++
+ net/Kconfig                             |    1 +
+ net/Makefile                            |    1 +
+ net/rmnet_data/Kconfig                  |   21 +
+ net/rmnet_data/Makefile                 |   14 +
+ net/rmnet_data/rmnet_data_config.c      | 1145 +++++++++++++++++++++++++++++++
+ net/rmnet_data/rmnet_data_config.h      |  123 ++++
+ net/rmnet_data/rmnet_data_handlers.c    |  559 +++++++++++++++
+ net/rmnet_data/rmnet_data_handlers.h    |   24 +
+ net/rmnet_data/rmnet_data_main.c        |   60 ++
+ net/rmnet_data/rmnet_data_private.h     |   76 ++
+ net/rmnet_data/rmnet_data_stats.c       |   86 +++
+ net/rmnet_data/rmnet_data_stats.h       |   61 ++
+ net/rmnet_data/rmnet_data_trace.h       |  183 +++++
+ net/rmnet_data/rmnet_data_vnd.c         |  596 ++++++++++++++++
+ net/rmnet_data/rmnet_data_vnd.h         |   40 ++
+ net/rmnet_data/rmnet_map.h              |  148 ++++
+ net/rmnet_data/rmnet_map_command.c      |  177 +++++
+ net/rmnet_data/rmnet_map_data.c         |  154 +++++
+ 23 files changed, 3971 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/networking/rmnet_data.txt
+ create mode 100644 include/uapi/linux/rmnet_data.h
+ create mode 100644 net/rmnet_data/Kconfig
+ create mode 100644 net/rmnet_data/Makefile
+ create mode 100644 net/rmnet_data/rmnet_data_config.c
+ create mode 100644 net/rmnet_data/rmnet_data_config.h
+ create mode 100644 net/rmnet_data/rmnet_data_handlers.c
+ create mode 100644 net/rmnet_data/rmnet_data_handlers.h
+ create mode 100644 net/rmnet_data/rmnet_data_main.c
+ create mode 100644 net/rmnet_data/rmnet_data_private.h
+ create mode 100644 net/rmnet_data/rmnet_data_stats.c
+ create mode 100644 net/rmnet_data/rmnet_data_stats.h
+ create mode 100644 net/rmnet_data/rmnet_data_trace.h
+ create mode 100644 net/rmnet_data/rmnet_data_vnd.c
+ create mode 100644 net/rmnet_data/rmnet_data_vnd.h
+ create mode 100644 net/rmnet_data/rmnet_map.h
+ create mode 100644 net/rmnet_data/rmnet_map_command.c
+ create mode 100644 net/rmnet_data/rmnet_map_data.c
+
+-- 
+1.9.1
