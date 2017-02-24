@@ -1,44 +1,39 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: [PATCH] iproute2: tc: introduce build dependency on libnetlink
-Date: Fri, 24 Feb 2017 18:28:54 +0100 (CET)
-Message-ID: <alpine.LSU.2.20.1702241826540.24579@cbobk.fhfr.pm>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] vxlan: don't allow overwrite of config src addr
+Date: Fri, 24 Feb 2017 13:37:37 -0500 (EST)
+Message-ID: <20170224.133737.1079526647474220757.davem@davemloft.net>
+References: <1487958431-8115-1-git-send-email-brussell@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: brussell@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:60332 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751232AbdBXSnq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Feb 2017 13:43:46 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:39150 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751232AbdBXSrc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 13:47:32 -0500
+In-Reply-To: <1487958431-8115-1-git-send-email-brussell@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Kosina <jkosina@suse.cz>
+From: Brian Russell <brussell@brocade.com>
+Date: Fri, 24 Feb 2017 17:47:11 +0000
 
-Rebuilding libnetlink doesn't trigger rebuild of tc, which is wrong 
-(especially so for builds where libnetlink.a gets statically linked into 
-tc). Fix that by introducing an explicit dependency.
+> When using IPv6 transport and a default dst, a pointer to the configured
+> source address is passed into the route lookup. If no source address is
+> configured, then the value is overwritten.
+> 
+> IPv6 route lookup ignores egress ifindex match if the source address is set,
+> so if egress ifindex match is desired, the source address must be passed
+> as any. The overwrite breaks this for subsequent lookups.
+> 
+> Avoid this by copying the configured address to an existing stack variable
+> and pass a pointer to that instead.
+> 
+> Fixes: 272d96a5ab10 ("net: vxlan: lwt: Use source ip address during route lookup.")
+> 
+> Signed-off-by: Brian Russell <brussell@brocade.com>
+> Acked-by: Jiri Benc <jbenc@redhat.com>
 
-Signed-off-by: Jiri Kosina <jkosina@suse.cz>
----
- tc/Makefile | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/tc/Makefile b/tc/Makefile
-index 6dd984f0..3f7fc939 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -127,7 +127,7 @@ MODDESTDIR := $(DESTDIR)$(LIBDIR)/tc
- 
- all: tc $(TCSO)
- 
--tc: $(TCOBJ) libtc.a
-+tc: $(TCOBJ) $(LIBNETLINK) libtc.a
- 	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
- 
- libtc.a: $(TCLIB)
-
--- 
-Jiri Kosina
-SUSE Labs
+Applied and queued up for -stable, thanks.
