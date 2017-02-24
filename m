@@ -1,73 +1,35 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/2] sctp: add support for MSG_MORE
-Date: Fri, 24 Feb 2017 10:14:09 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
-References: <cover.1487440272.git.lucien.xin@gmail.com>
- <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
- <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
- <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "Vlad Yasevich" <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: 'Xin Long' <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.192]:59309 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751192AbdBXKOZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 05:14:25 -0500
-In-Reply-To: <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] lib: Allow compile-testing of parman
+Date: Fri, 24 Feb 2017 11:25:55 +0100
+Message-ID: <1487931955-31381-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Geert Uytterhoeven <geert@linux-m68k.org>
+To: Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogWGluIExvbmcNCj4gU2VudDogMjQgRmVicnVhcnkgMjAxNyAwNjo0NA0KLi4uDQo+ID4g
-SUlSQyBzY3RwX3BhY2tldF9jYW5fYXBwZW5kX2RhdGEoKSBpcyBjYWxsZWQgZm9yIHRoZSBmaXJz
-dCBxdWV1ZWQNCj4gPiBkYXRhIGNodW5rIGluIG9yZGVyIHRvIGRlY2lkZSB3aGV0aGVyIHRvIGdl
-bmVyYXRlIGEgbWVzc2FnZSB0aGF0DQo+ID4gY29uc2lzdHMgb25seSBvZiBkYXRhIGNodW5rcy4N
-Cj4gPiBJZiBpdCByZXR1cm5zIFNDVFBfWE1JVF9PSyB0aGVuIGEgbWVzc2FnZSBpcyBidWlsdCBj
-b2xsZWN0aW5nIHRoZQ0KPiA+IHJlc3Qgb2YgdGhlIHF1ZXVlZCBkYXRhIGNodW5rcyAodW50aWwg
-dGhlIHdpbmRvdyBmaWxscykuDQo+ID4NCj4gPiBTbyBpZiBJIHNlbmQgYSBtZXNzYWdlIHdpdGgg
-TVNHX01PUkUgc2V0IChvbiBhbiBpZGxlIGNvbm5lY3Rpb24pDQo+ID4gU0NUUF9YTUlUX0RFTEFZ
-IGlzIHJldHVybmVkIGFuZCBhIG1lc3NhZ2UgaXNuJ3Qgc2VudC4NCj4gPg0KPiA+IEkgbm93IHNl
-bmQgYSBzZWNvbmQgc21hbGwgbWVzc2FnZSwgdGhpcyB0aW1lIHdpdGggTVNHX01PUkUgY2xlYXIu
-DQo+ID4gVGhlIG1lc3NhZ2UgaXMgcXVldWVkLCB0aGVuIHRoZSBjb2RlIGxvb2tzIHRvIHNlZSBp
-ZiBpdCBjYW4gc2VuZCBhbnl0aGluZy4NCj4gPg0KPiA+IHNjdHBfcGFja2V0X2Nhbl9hcHBlbmRf
-ZGF0YSgpIGlzIGNhbGxlZCBmb3IgdGhlIGZpcnN0IHF1ZXVlZCBjaHVuay4NCj4gPiBTaW5jZSBp
-dCBoYXMgZm9yY2VfZGVsYXkgc2V0IFNDVFBfWE1JVF9ERUxBWSBpcyByZXR1cm5lZCBhbmQgbm8N
-Cj4gPiBtZXNzYWdlIGlzIGJ1aWx0Lg0KPiA+IFRoZSBzZWNvbmQgbWVzc2FnZSBpc24ndCBldmVu
-IGxvb2tlZCBhdC4NCj4gWW91J3JlIHJpZ2h0LiBJIGNhbiBzZWUgdGhlIHByb2JsZW0gbm93Lg0K
-PiANCj4gV2hhdCBJIGV4cGVjdGVkIGlzIGl0IHNob3VsZCB3b3JrIGxpa2U6DQo+IA0KPiAxLCBz
-ZW5kIDMgc21hbGwgY2h1bmtzIHdpdGggTVNHX01PUkUgc2V0LCB0aGUgcXVldWUgaXM6DQo+ICAg
-Y2hrMyBbc2V0XSAtPiBjaGsyIFtzZXRdIC0+IGNoazEgW3NldF0NCg0KU3RyYW5nZSB3YXkgdG8g
-d3JpdGUgYSBxdWV1ZSEgY2hrMSBwb2ludHMgdG8gY2hrMiA6LSkNCg0KPiAyLiBzZW5kIDEgbW9y
-ZSBjaHVuayB3aXRoIE1TR19NT1JFIGNsZWFyLCB0aGUgcXVldWUgaXM6DQo+ICAgY2hrNFtjbGVh
-cl0gLT4gY2hrMyBbY2xlYXJdIC0+IGNoazIgW2NsZWFyXSAtPiBjaGsxIFtjbGVhcl0NCg0KSSBk
-b24ndCB0aGluayBwcm9jZXNzaW5nIHRoZSBlbnRpcmUgcXVldWUgaXMgYSBnb29kIGlkZWEuDQpC
-b3RoIGZyb20gZXhlY3V0aW9uIHRpbWUgYW5kIHRoZSBlZmZlY3RzIG9uIHRoZSBkYXRhIGNhY2hl
-Lg0KVGhlIFNDVFAgY29kZSBpcyBob3JyaWQgZW5vdWdoIGFzIGl0IGlzLg0KDQo+IDMuIHRoZW4g
-aWYgdXNlciBzZW5kIG1vcmUgc21hbGwgY2h1bmtzIHdpdGggTVNHX01PUkUgc2V0LA0KPiB0aGUg
-cXVldWUgaXMgbGlrZToNCj4gICBjaGtCW3NldF0gLT4gY2hrQVtzZXRdIC0+IGNoazRbY2xlYXJd
-IC0+IGNoazMgW2NsZWFyXSAtPiBjaGsyIFtjbGVhcl0gLT4gY2hrMSBbY2xlYXJdDQo+IHNvIHRo
-YXQgdGhlIG5ldyBzbWFsbCBjaHVua3MnIGZsYWcgd2lsbCBub3QgYWZmZWN0IHRoZSBvdGhlciBj
-aHVua3MgYnVuZGxpbmcuDQoNClRoYXQgaXNuJ3QgcmVhbGx5IG5lY2Vzc2FyeS4NClRoZSB1c2Vy
-IGNhbid0IGV4cGVjdCB0byBoYXZlIGFic29sdXRlIGNvbnRyb2wgb3ZlciB3aGljaCBjaHVua3Mg
-Z2V0IGJ1bmRsZWQNCnRvZ2V0aGVyLg0KSWYgdGhlIGFib3ZlIGNodW5rcyBzdGlsbCBhcmVuJ3Qg
-YmlnIGVub3VnaCB0byBmaWxsIGEgZnJhbWUgdGhlIGNvZGUgbWlnaHQNCmFzIHdlbGwgd2FpdCBm
-b3IgdGhlIG5leHQgY2h1bmsgaW5zdGVhZCBvZiBidWlsZGluZyBhIHBhY2tldCB0aGF0IGNvbnRh
-aW5zDQpjaGsxIHRocm91Z2ggdG8gY2hrQi4NCg0KUmVtZW1iZXIgeW91J2xsIG9ubHkgZ2V0IGEg
-cXVldWVkIGNodW5rIHdpdGggTVNHX01PUkUgY2xlYXIgaWYgZGF0YSBjYW4ndCBiZSBzZW50Lg0K
-QXMgc29vbiBhcyBkYXRhIGNhbiBiZSBzZW50LCBpZiB0aGUgZmlyc3QgY2h1bmsgaGFzIE1TR19N
-T1JFIGNsZWFyIGFsbCBvZiB0aGUNCnF1ZXVlZCBjaHVua3Mgd2lsbCBiZSBzZW50Lg0KDQpTbyBp
-bW1lZGlhdGVseSBhZnRlciB5b3VyICgzKSB0aGUgYXBwbGljYXRpb24gaXMgZXhwZWN0ZWQgdG8g
-c2VuZCBhIGNodW5rDQp3aXRoIE1TR19NT1JFIGNsZWFyIC0gYXQgdGhhdCBwb2ludCBhbGwgdGhl
-IHF1ZXVlZCBjaHVua3MgY2FuIGJlIHNlbnQgaW4NCmEgc2luZ2xlIHBhY2tldC4NCg0KU28ganVz
-dCBzYXZlIHRoZSBsYXN0IE1TR19NT1JFIG9uIHRoZSBhc3NvY2lhdGlvbiBhcyBJIGRpZC4NCg0K
-CURhdmlkDQo=
+This allows to enable and run the accompanying test (test_parman)
+without dependencies on other users of parman.
+
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ lib/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/Kconfig b/lib/Kconfig
+index fe7e8e175db8f7b4..e494065156a28d20 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -549,7 +549,7 @@ config SBITMAP
+ 	bool
+ 
+ config PARMAN
+-	tristate
++	tristate "parman" if COMPILE_TEST
+ 
+ config PRIME_NUMBERS
+ 	tristate
+-- 
+2.7.4
