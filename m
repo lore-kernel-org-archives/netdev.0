@@ -1,47 +1,38 @@
-From: David Forster <dforster@brocade.com>
-Subject: [PATCH] vti6: return GRE_KEY for vti6
-Date: Fri, 24 Feb 2017 14:20:32 +0000
-Message-ID: <1487946032-5866-1-git-send-email-dforster@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] color: use "light" colors for dark background
+Date: Fri, 24 Feb 2017 10:28:17 -0500 (EST)
+Message-ID: <20170224.102817.1987967741498252394.davem@davemloft.net>
+References: <20170224101312.31538-1-pvorel@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, m.nyman@iki.fi, yegorslists@googlemail.com
+To: pvorel@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58732 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751314AbdBXPHq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 10:07:46 -0500
-Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
-        by mx0a-000f0801.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1OELTD5008856
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 06:23:57 -0800
-Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
-        by mx0a-000f0801.pphosted.com with ESMTP id 28sctfh4uf-4
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 06:23:57 -0800
+Received: from shards.monkeyblade.net ([184.105.139.130]:36318 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751219AbdBXPhc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 10:37:32 -0500
+In-Reply-To: <20170224101312.31538-1-pvorel@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Align vti6 with vti by returning GRE_KEY flag. This enables iproute2
-to display tunnel keys on "ip -6 tunnel show"
+From: Petr Vorel <pvorel@suse.cz>
+Date: Fri, 24 Feb 2017 11:13:12 +0100
 
-Signed-off-by: David Forster <dforster@brocade.com>
----
- net/ipv6/ip6_vti.c | 4 ++++
- 1 file changed, 4 insertions(+)
+> COLORFGBG environment variable is used to detect dark background.
+> 
+> Idea and a bit of code is borrowed from Vim, thanks.
+> 
+> Signed-off-by: Petr Vorel <pvorel@suse.cz>
+> ---
+> Colors are nice, but the ones chosen aren't suitable for dark background.
+> COLORFGBG environment variable is used in some libraries and software (e.g.
+> ncurses, Vim). COLORFGBG is set by various terminal emulators (e.g. konsole,
+> rxvt and rxvt-unicode).
+> 
+> Chosen colors are questionable. Best solution would be also allow user to
+> redefine colors, like ls does with LS_COLORS or grep with GREP_COLORS. But that
+> is maybe overkill.
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index c795fee..644ba59 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -693,6 +693,10 @@ vti6_parm_to_user(struct ip6_tnl_parm2 *u, const struct __ip6_tnl_parm *p)
- 	u->link = p->link;
- 	u->i_key = p->i_key;
- 	u->o_key = p->o_key;
-+	if (u->i_key)
-+		u->i_flags |= GRE_KEY;
-+	if (u->o_key)
-+		u->o_flags |= GRE_KEY;
- 	u->proto = p->proto;
- 
- 	memcpy(u->name, p->name, sizeof(u->name));
--- 
-2.1.4
+I think you may have posted this to the wrong mailing list.
