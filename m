@@ -1,32 +1,33 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Fri, 24 Feb 2017 15:03:35 -0800
-Message-ID: <20170224230333.GA58409@ast-mbp.thefacebook.com>
-References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] iproute2: tc: introduce build dependency on libnetlink
+Date: Fri, 24 Feb 2017 15:13:03 -0800
+Message-ID: <20170224151303.249584ec@xeon-e3>
+References: <alpine.LSU.2.20.1702241826540.24579@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36202 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751386AbdBXXLs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 18:11:48 -0500
-Received: by mail-pg0-f65.google.com with SMTP id z128so4631173pgb.3
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 15:11:48 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34158 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751291AbdBXXNM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 18:13:12 -0500
+Received: by mail-pf0-f169.google.com with SMTP id p185so3065675pfb.1
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 15:13:12 -0800 (PST)
+In-Reply-To: <alpine.LSU.2.20.1702241826540.24579@cbobk.fhfr.pm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 22, 2017 at 11:38:49AM -0500, Willem de Bruijn wrote:
-> 
-> * Limitations / Known Issues
-> 
-> - PF_INET6 is not yet supported.
+On Fri, 24 Feb 2017 18:28:54 +0100 (CET)
+Jiri Kosina <jikos@kernel.org> wrote:
 
-we struggled so far to make it work in our setups which are ipv6 only.
-Looking at patches it seems the code should just work.
-What particularly is missing ?
+> From: Jiri Kosina <jkosina@suse.cz>
+> 
+> Rebuilding libnetlink doesn't trigger rebuild of tc, which is wrong 
+> (especially so for builds where libnetlink.a gets statically linked into 
+> tc). Fix that by introducing an explicit dependency.
+> 
+> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 
-Great stuff. Looking forward to net-next reopening :)
+Makes sense, Applied
