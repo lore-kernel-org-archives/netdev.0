@@ -1,92 +1,79 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH] drivers: net: xgene: Simplify xgene_enet_setup_mss() to
- kill warning
-Date: Fri, 24 Feb 2017 12:13:37 -0800
-Message-ID: <CAKh23Fnzux4DA3Sac3zixqtWw6pY9V24kkHN2+f==DW59fNabA@mail.gmail.com>
-References: <1487932203-31799-1-git-send-email-geert@linux-m68k.org>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net] rxrpc: Kernel calls get stuck in recvmsg
+Date: Fri, 24 Feb 2017 21:57:13 +0000
+Message-ID: <148797343389.26520.13921866303222644134.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Keyur Chudgar <kchudgar@apm.com>,
-        Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487932203-31799-1-git-send-email-geert@linux-m68k.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 24, 2017 at 2:30 AM, Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> With gcc-4.1.2 and -Os:
->
->     drivers/net/ethernet/apm/xgene/xgene_enet_main.c: In function =E2=80=
-=98xgene_enet_start_xmit=E2=80=99:
->     drivers/net/ethernet/apm/xgene/xgene_enet_main.c:297: warning: =E2=80=
-=98mss_index=E2=80=99 may be used uninitialized in this function
->
-> Using a separate variable to track success may confuse the compiler.
-> Preinitialize mss_index with -EBUSY and check for negative error values
-> instead to kill the warning.
->
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> ---
-> Compile-tested only.
->
->  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 13 +++----------
->  1 file changed, 3 insertions(+), 10 deletions(-)
->
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/n=
-et/ethernet/apm/xgene/xgene_enet_main.c
-> index d0d0d12b531fc683..e536301acfdec9fd 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> @@ -293,36 +293,29 @@ static int xgene_enet_tx_completion(struct xgene_en=
-et_desc_ring *cp_ring,
->  static int xgene_enet_setup_mss(struct net_device *ndev, u32 mss)
->  {
->         struct xgene_enet_pdata *pdata =3D netdev_priv(ndev);
-> -       bool mss_index_found =3D false;
-> -       int mss_index;
-> +       int mss_index =3D -EBUSY;
->         int i;
->
->         spin_lock(&pdata->mss_lock);
->
->         /* Reuse the slot if MSS matches */
-> -       for (i =3D 0; !mss_index_found && i < NUM_MSS_REG; i++) {
-> +       for (i =3D 0; mss_index < 0 && i < NUM_MSS_REG; i++) {
->                 if (pdata->mss[i] =3D=3D mss) {
->                         pdata->mss_refcnt[i]++;
->                         mss_index =3D i;
-> -                       mss_index_found =3D true;
->                 }
->         }
->
->         /* Overwrite the slot with ref_count =3D 0 */
-> -       for (i =3D 0; !mss_index_found && i < NUM_MSS_REG; i++) {
-> +       for (i =3D 0; mss_index < 0 && i < NUM_MSS_REG; i++) {
->                 if (!pdata->mss_refcnt[i]) {
->                         pdata->mss_refcnt[i]++;
->                         pdata->mac_ops->set_mss(pdata, mss, i);
->                         pdata->mss[i] =3D mss;
->                         mss_index =3D i;
-> -                       mss_index_found =3D true;
->                 }
->         }
->
-> -       /* No slots with ref_count =3D 0 available, return busy */
-> -       if (!mss_index_found)
-> -               mss_index =3D -EBUSY;
-> -
->         spin_unlock(&pdata->mss_lock);
->
->         return mss_index;
-> --
-> 2.7.4
->
+Calls made through the in-kernel interface can end up getting stuck because
+of a missed variable update in a loop in rxrpc_recvmsg_data().  The problem
+is like this:
 
-Thanks.
+ (1) A new packet comes in and doesn't cause a notification to be given to
+     the client as there's still another packet in the ring - the
+     assumption being that if the client will keep drawing off data until
+     the ring is empty.
 
-Acked-by: Iyappan Subramanian <isubramanian@apm.com>
+ (2) The client is in rxrpc_recvmsg_data(), inside the big while loop that
+     iterates through the packets.  This copies the window pointers into
+     variables rather than using the information in the call struct
+     because:
+
+     (a) MSG_PEEK might be in effect;
+
+     (b) we need a barrier after reading call->rx_top to pair with the
+     	 barrier in the softirq routine that loads the buffer.
+
+ (3) The reading of call->rx_top is done outside of the loop, and top is
+     never updated whilst we're in the loop.  This means that even through
+     there's a new packet available, we don't see it and may return -EFAULT
+     to the caller - who will happily return to the scheduler and await the
+     next notification.
+
+ (4) No further notifications are forthcoming until there's an abort as the
+     ring isn't empty.
+
+The fix is to move the read of call->rx_top inside the loop - but it needs
+to be done before the condition is checked.
+
+Reported-by: Marc Dionne <marc.dionne@auristor.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+Tested-by: Marc Dionne <marc.dionne@auristor.com>
+---
+
+ net/rxrpc/recvmsg.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index c29362d50a92..f3a688e10843 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -320,8 +320,10 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
+ 
+ 	/* Barriers against rxrpc_input_data(). */
+ 	hard_ack = call->rx_hard_ack;
+-	top = smp_load_acquire(&call->rx_top);
+-	for (seq = hard_ack + 1; before_eq(seq, top); seq++) {
++	seq = hard_ack + 1;
++	while (top = smp_load_acquire(&call->rx_top),
++	       before_eq(seq, top)
++	       ) {
+ 		ix = seq & RXRPC_RXTX_BUFF_MASK;
+ 		skb = call->rxtx_buffer[ix];
+ 		if (!skb) {
+@@ -394,6 +396,8 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
+ 			ret = 1;
+ 			goto out;
+ 		}
++
++		seq++;
+ 	}
+ 
+ out:
