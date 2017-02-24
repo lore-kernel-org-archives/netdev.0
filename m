@@ -1,52 +1,68 @@
-From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Subject: [PATCH v5 0/6] Bluetooth: 6LoWPAN: Fix lladdr length
-Date: Fri, 24 Feb 2017 14:14:34 +0200
-Message-ID: <20170224121440.32269-1-luiz.dentz@gmail.com>
-Cc: patrik.flykt@linux.intel.com, jukka.rissanen@linux.intel.com,
-        stefan@osg.samsung.com, aar@pengutronix.de,
-        linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-To: linux-bluetooth@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:33842 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751214AbdBXMPB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 07:15:01 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v5 3/6] 6lowpan: iphc: override l2 packet information
+Date: Fri, 24 Feb 2017 14:14:37 +0200
+Message-ID: <20170224121440.32269-4-luiz.dentz@gmail.com>
+References: <20170224121440.32269-1-luiz.dentz@gmail.com>
+Cc: patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+        stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+        linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170224121440.32269-1-luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
-These patches fixes lladdr length to be 6 bytes long and not 8 which cause
-neighbor advertisement to be sent with wrong lladdr including FF:FE filler
-bytes for eui64.
+The skb->pkt_type need to be set by L2, but on 6LoWPAN there exists L2
+e.g. BTLE which doesn't has multicast addressing. If it's a multicast or
+not is detected by IPHC headers multicast bit. The IPv6 layer will
+evaluate this pkt_type, so we force set this type while uncompressing.
+Should be okay for 802.15.4 as well.
 
-Note: This does not fix some of the existing crashes which I hope to address
-in a different set.
+Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+---
+ net/6lowpan/iphc.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-v2: Make all code paths that generate a link-local from lladdr use the same
-code.
-v3: Use lowpan_iphc_uncompress_eui48_lladdr to generate the remote ip address.
-v4: Handle comments from Stefan Schmidt.
-v5: Add patch to fix IID format for Bluetooth
-
-Alexander Aring (2):
-  6lowpan: iphc: override l2 packet information
-  ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
-
-Luiz Augusto von Dentz (2):
-  6lowpan: Use netdev addr_len to determine lladdr len
-  6lowpan: Fix IID format for Bluetooth
-
-Patrik Flykt (2):
-  bluetooth: Set 6 byte device addresses
-  6lowpan: Set MAC address length according to LOWPAN_LLTYPE
-
- include/net/6lowpan.h   |  15 ++++++
- net/6lowpan/core.c      |  11 +++-
- net/6lowpan/iphc.c      |  57 +++++++++++++++++----
- net/bluetooth/6lowpan.c | 130 ++++++++----------------------------------------
- net/ipv6/addrconf.c     |  17 +++++--
- 5 files changed, 104 insertions(+), 126 deletions(-)
-
+diff --git a/net/6lowpan/iphc.c b/net/6lowpan/iphc.c
+index 79f1fa2..fb5f6fa 100644
+--- a/net/6lowpan/iphc.c
++++ b/net/6lowpan/iphc.c
+@@ -666,6 +666,8 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
+ 
+ 	switch (iphc1 & (LOWPAN_IPHC_M | LOWPAN_IPHC_DAC)) {
+ 	case LOWPAN_IPHC_M | LOWPAN_IPHC_DAC:
++		skb->pkt_type = PACKET_BROADCAST;
++
+ 		spin_lock_bh(&lowpan_dev(dev)->ctx.lock);
+ 		ci = lowpan_iphc_ctx_get_by_id(dev, LOWPAN_IPHC_CID_DCI(cid));
+ 		if (!ci) {
+@@ -681,11 +683,15 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
+ 		spin_unlock_bh(&lowpan_dev(dev)->ctx.lock);
+ 		break;
+ 	case LOWPAN_IPHC_M:
++		skb->pkt_type = PACKET_BROADCAST;
++
+ 		/* multicast */
+ 		err = lowpan_uncompress_multicast_daddr(skb, &hdr.daddr,
+ 							iphc1 & LOWPAN_IPHC_DAM_MASK);
+ 		break;
+ 	case LOWPAN_IPHC_DAC:
++		skb->pkt_type = PACKET_HOST;
++
+ 		spin_lock_bh(&lowpan_dev(dev)->ctx.lock);
+ 		ci = lowpan_iphc_ctx_get_by_id(dev, LOWPAN_IPHC_CID_DCI(cid));
+ 		if (!ci) {
+@@ -701,6 +707,8 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
+ 		spin_unlock_bh(&lowpan_dev(dev)->ctx.lock);
+ 		break;
+ 	default:
++		skb->pkt_type = PACKET_HOST;
++
+ 		err = lowpan_iphc_uncompress_addr(skb, dev, &hdr.daddr,
+ 						  iphc1 & LOWPAN_IPHC_DAM_MASK,
+ 						  daddr);
 -- 
 2.9.3
