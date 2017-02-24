@@ -1,47 +1,44 @@
-From: Rita Micheal <ritamicheal444@gmail.com>
-Subject: Hopefully
-Date: Fri, 24 Feb 2017 11:56:40 +0000
-Message-ID: <CAObJ6pUbq096ii5tVSEOnSno2CE8g1OSMG-t6D7Rw2DsdQQ0VQ@mail.gmail.com>
-Reply-To: michealrita15@yahoo.com
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: [PATCH net-next v3 0/4] net: mvneta: improve rx/tx performance
+Date: Fri, 24 Feb 2017 19:56:48 +0800
+Message-ID: <20170224195648.219d6b50@xhacker>
+References: <20170220125344.3555-1-jszhang@marvell.com>
+        <877f4laqog.fsf@free-electrons.com>     <20170221123726.2db7db19@xhacker>
+        <20170221.111602.860315087619854954.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <gregory.clement@free-electrons.com>,
+        <thomas.petazzoni@free-electrons.com>, <arnd@arndb.de>,
+        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <mw@semihalf.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34051 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751080AbdBXL4m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 06:56:42 -0500
-Received: by mail-wr0-f195.google.com with SMTP id 89so2061180wrr.1
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 03:56:41 -0800 (PST)
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:60350 "EHLO
+        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751080AbdBXMB6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 07:01:58 -0500
+In-Reply-To: <20170221.111602.860315087619854954.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear friend,
+Hi David, Marcin,
 
-My name is Mr Micheal Rita, I am the Bill and Exchange (assistant)
-Manager of Bank of Africa Ouagadougou, Burkina Faso. In my department
-I discovered an abandoned sum of teen million five hundred thousand United
-State of American dollars (10.5MILLION USA DOLLARS) in an account that
-belongs to one of our foreign customer who died in airline that crashed on 4th
-October 2001.
+On Tue, 21 Feb 2017 11:16:02 -0500 David Miller wrote:
 
-Since I got information about his death I have been expecting his next
-of kin to come over and claim his money because we can not release
-it unless somebody applies for it as the next of kin or relation to the
-deceased as indicated in our banking guidelines, but unfortunately
-we learnt that all his supposed next of kin or relation died alongside
-with him in the plane crash leaving nobody behind for the claim. It is
-therefore upon this discovery that I decided to make this business
-proposal to you and release the money to you as next of kin or relation
-to the deceased for safety and subsequent disbursement since nobody
-is coming for it and I don't want the money to go into the bank treasury
-as unclaimed bill.
+> From: Jisheng Zhang <jszhang@marvell.com>
+> Date: Tue, 21 Feb 2017 12:37:40 +0800
+> 
+> > Thanks for your review.
+> > 
+> > The measurement is simple: record how much time we spent in mvneta_rx_swbm()
+> > for receiving 1GB data, something as below:  
+> 
+> Please use a standard tool for measuring performance, rather than profiling
+> the driver and trying to derive numbers that way.
 
-You will be entitled with 40% of the total sum while 60% will be for
-me after which I will visit your Country to invest my own share when
-the fund is successfully transferred into your account, Please I would
-like you to keep this transaction confidential and as a top secret as
-you may wish to know that I am a bank official.
+Got your point. I will try to get performance with standard tool and cook a
+v4 once rc1 is released.
 
-Yours sincerely,
-Mr Micheal Rita.
+Thanks,
+Jisheng
