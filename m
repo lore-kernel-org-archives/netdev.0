@@ -1,32 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: phy: Add missing driver check in
- phy_aneg_done()
-Date: Fri, 24 Feb 2017 11:20:52 -0500 (EST)
-Message-ID: <20170224.112052.36990168643432351.davem@davemloft.net>
-References: <20170223222219.6915-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net/mlx4_en: fix overflow in
+ mlx4_en_init_timestamp()
+Date: Fri, 24 Feb 2017 11:21:04 -0500 (EST)
+Message-ID: <20170224.112104.1212046772081988137.davem@davemloft.net>
+References: <1487892163.9415.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, dan.carpenter@oracle.com,
-        rmk+kernel@armlinux.org.uk
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, eugenia@mellanox.com, tariqt@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37024 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37032 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751121AbdBXQWm (ORCPT
+        with ESMTP id S1751221AbdBXQWm (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 11:22:42 -0500
-In-Reply-To: <20170223222219.6915-1-f.fainelli@gmail.com>
+In-Reply-To: <1487892163.9415.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 23 Feb 2017 14:22:19 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 Feb 2017 15:22:43 -0800
 
-> Dan's static checker caught a potential code path in phy_state_machine() where
-> we were not checking phydev->drv which is in phy_aneg_done().
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Fixes: 25149ef9d25c ("net: phy: Check phydev->drv")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> The cited commit makes a great job of finding optimal shift/multiplier
+> values assuming a 10 seconds wrap around, but forgot to change the
+> overflow_period computation.
+> 
+> It overflows in cyclecounter_cyc2ns(), and the final result is 804 ms,
+> which is silly.
+> 
+> Lets simply use 5 seconds, no need to recompute this, given how it is
+> supposed to work.
+> 
+> Later, we will use a timer instead of a work queue, since the new RX
+> allocation schem will no longer need mlx4_en_recover_from_oom() and the
+> service_task firing every 250 ms.
+> 
+> Fixes: 31c128b66e5b ("net/mlx4_en: Choose time-stamping shift value according to HW frequency")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Tariq please review.
