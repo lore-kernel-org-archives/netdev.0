@@ -1,68 +1,50 @@
-From: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v5 3/6] 6lowpan: iphc: override l2 packet information
-Date: Fri, 24 Feb 2017 14:14:37 +0200
-Message-ID: <20170224121440.32269-4-luiz.dentz@gmail.com>
-References: <20170224121440.32269-1-luiz.dentz@gmail.com>
-Cc: patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-        stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-        linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170224121440.32269-1-luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: jeffy <jeffy.chen@rock-chips.com>
+Subject: Re: [PATCH 3/3] mwifiex: wake system up when receives a wake irq
+Date: Fri, 24 Feb 2017 20:20:55 +0800
+Message-ID: <58B02527.6090400@rock-chips.com>
+References: <1487917471-5501-1-git-send-email-jeffy.chen@rock-chips.com> <1487917471-5501-3-git-send-email-jeffy.chen@rock-chips.com> <87d1e726p5.fsf@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+        Brian Norris <briannorris@chromium.org>,
+        Rajat Jain <rajatja@google.com>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Nishant Sarmukadam <nishants@marvell.com>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87d1e726p5.fsf@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Hi Kalle,
 
-The skb->pkt_type need to be set by L2, but on 6LoWPAN there exists L2
-e.g. BTLE which doesn't has multicast addressing. If it's a multicast or
-not is detected by IPHC headers multicast bit. The IPv6 layer will
-evaluate this pkt_type, so we force set this type while uncompressing.
-Should be okay for 802.15.4 as well.
+On 02/24/2017 07:01 PM, Kalle Valo wrote:
+> Jeffy Chen <jeffy.chen@rock-chips.com> writes:
+>
+>> Currrently we are disabling this wake irq after receiving it. If this
+>> happens before we finish suspend and the pm event check is disabled,
+>> the system will continue suspending, and this irq would not work again.
+>>
+>> We may need to abort system suspend to avoid that.
+>>
+>> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+> I only see patch 3 in patchwork. Where are patches 1 and 2?
+>
 
-Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
----
- net/6lowpan/iphc.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
 
-diff --git a/net/6lowpan/iphc.c b/net/6lowpan/iphc.c
-index 79f1fa2..fb5f6fa 100644
---- a/net/6lowpan/iphc.c
-+++ b/net/6lowpan/iphc.c
-@@ -666,6 +666,8 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
- 
- 	switch (iphc1 & (LOWPAN_IPHC_M | LOWPAN_IPHC_DAC)) {
- 	case LOWPAN_IPHC_M | LOWPAN_IPHC_DAC:
-+		skb->pkt_type = PACKET_BROADCAST;
-+
- 		spin_lock_bh(&lowpan_dev(dev)->ctx.lock);
- 		ci = lowpan_iphc_ctx_get_by_id(dev, LOWPAN_IPHC_CID_DCI(cid));
- 		if (!ci) {
-@@ -681,11 +683,15 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
- 		spin_unlock_bh(&lowpan_dev(dev)->ctx.lock);
- 		break;
- 	case LOWPAN_IPHC_M:
-+		skb->pkt_type = PACKET_BROADCAST;
-+
- 		/* multicast */
- 		err = lowpan_uncompress_multicast_daddr(skb, &hdr.daddr,
- 							iphc1 & LOWPAN_IPHC_DAM_MASK);
- 		break;
- 	case LOWPAN_IPHC_DAC:
-+		skb->pkt_type = PACKET_HOST;
-+
- 		spin_lock_bh(&lowpan_dev(dev)->ctx.lock);
- 		ci = lowpan_iphc_ctx_get_by_id(dev, LOWPAN_IPHC_CID_DCI(cid));
- 		if (!ci) {
-@@ -701,6 +707,8 @@ int lowpan_header_decompress(struct sk_buff *skb, const struct net_device *dev,
- 		spin_unlock_bh(&lowpan_dev(dev)->ctx.lock);
- 		break;
- 	default:
-+		skb->pkt_type = PACKET_HOST;
-+
- 		err = lowpan_iphc_uncompress_addr(skb, dev, &hdr.daddr,
- 						  iphc1 & LOWPAN_IPHC_DAM_MASK,
- 						  daddr);
--- 
-2.9.3
+the other two are much like this one, but for bluetooth :)
+
+please check:
+
+https://patchwork.kernel.org/patch/9589455 New          [1/3] btusb: 
+wake system up when receives a wake irq
+https://patchwork.kernel.org/patch/9589453 New          [2/3] btmrvl: 
+wake system up when receives a wake irq
+https://patchwork.kernel.org/patch/9589457 New          [3/3] mwifiex: 
+wake system up when receives a wake irq
+
+
+
+(sorry, this is a resent mail, because the last one was rejected due to 
+wrong format)
