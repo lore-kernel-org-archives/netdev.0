@@ -1,48 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC] net/socket: use per af lockdep classes for sk queues
-Date: Fri, 24 Feb 2017 09:50:43 -0800
-Message-ID: <1487958643.9415.112.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <a6eb8644399fef96b27dae1a917274c394caab2f.1487942713.git.pabeni@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net 1/1] net sched actions: decrement module reference
+ count after table flush.
+Date: Fri, 24 Feb 2017 09:58:21 -0800
+Message-ID: <CAM_iQpW9E8UWDCVbqDqZ7pkjh5kTEO7W_=2Qk_aRUP4HMXypRQ@mail.gmail.com>
+References: <1487952032-508-1-git-send-email-mrv@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Florian Westphal <fw@strlen.de>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Roman Mashak <mrv@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35490 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751232AbdBXRuq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 12:50:46 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 1so3791980pgz.2
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 09:50:45 -0800 (PST)
-In-Reply-To: <a6eb8644399fef96b27dae1a917274c394caab2f.1487942713.git.pabeni@redhat.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34200 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751163AbdBXR6n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 12:58:43 -0500
+Received: by mail-wm0-f68.google.com with SMTP id m70so4127756wma.1
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 09:58:42 -0800 (PST)
+In-Reply-To: <1487952032-508-1-git-send-email-mrv@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-02-24 at 14:29 +0100, Paolo Abeni wrote:
-> Currently the sock queue's spin locks get their lockdep
-> classes by the default init_spin_lock() initializer:
-> all socket families get - usually, see below - a single
-> class for rx, another specific class for tx, etc.
-> This can lead to false positive lockdep splat, as
-> reported by Andrey.
-> Moreover there are two separate initialization points
-> for the sock queues, one in sk_clone_lock() and one
-> in sock_init_data(), so that e.g. the rx queue lock
-> can get one of two possible, different classes, depending
-> on the socket being cloned or not.
-> This change tries to address the above, setting explicitly
-> a per address family lockdep class for each queue's
-> spinlock. Also, move the duplicated initialization code to a
-> single location.
-> 
-> Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
+On Fri, Feb 24, 2017 at 8:00 AM, Roman Mashak <mrv@mojatatu.com> wrote:
+> When tc actions are loaded as a module and no actions have been installed,
+> flushing them would result in actions removed from the memory, but modules
+> reference count not being decremented, so that the modules would not be
+> unloaded.
+>
+> Following is example with GACT action:
+>
+> % sudo modprobe act_gact
+> % lsmod
+> Module                  Size  Used by
+> act_gact               16384  0
+> %
+> % sudo tc actions ls action gact
+> %
+> % sudo tc actions flush action gact
+> % lsmod
+> Module                  Size  Used by
+> act_gact               16384  1
+> % sudo tc actions flush action gact
+> % lsmod
+> Module                  Size  Used by
+> act_gact               16384  2
+> % sudo rmmod act_gact
+> rmmod: ERROR: Module act_gact is in use
+> ....
+>
+> After the fix:
+> % lsmod
+> Module                  Size  Used by
+> act_gact               16384  0
+> %
+> % sudo tc actions add action pass index 1
+> % sudo tc actions add action pass index 2
+> % sudo tc actions add action pass index 3
+> % lsmod
+> Module                  Size  Used by
+> act_gact               16384  3
+> %
+> % sudo tc actions flush action gact
+> % lsmod
+> Module                  Size  Used by
+> act_gact               16384  0
+> %
+> % sudo tc actions flush action gact
+> % lsmod
+> Module                  Size  Used by
+> act_gact               16384  0
+> % sudo rmmod act_gact
+> % lsmod
+> Module                  Size  Used by
+> %
+>
+> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-I have not tested the patch, but it looks pretty reasonable to me,
-thanks !
+Fixes commit f97017cdefefdb6a0e19266024b0c6f9fd411eeb ?
+
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
