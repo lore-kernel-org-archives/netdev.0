@@ -1,38 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/1] rds: fix memory leak error
-Date: Fri, 24 Feb 2017 14:12:25 -0500 (EST)
-Message-ID: <20170224.141225.195962886132763698.davem@davemloft.net>
-References: <1487928481-1022-1-git-send-email-yanjun.zhu@oracle.com>
-        <79081f83-c9ed-5e45-ecbb-754fe1c9a96a@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers: net: xgene: Simplify xgene_enet_setup_mss()
+ to kill warning
+Date: Fri, 24 Feb 2017 14:29:32 -0500 (EST)
+Message-ID: <20170224.142932.902090866869403269.davem@davemloft.net>
+References: <1487932203-31799-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <79081f83-c9ed-5e45-ecbb-754fe1c9a96a-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: isubramanian@apm.com, kchudgar@apm.com, arnd@arndb.de,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39728 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751390AbdBXT35 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 14:29:57 -0500
+In-Reply-To: <1487932203-31799-1-git-send-email-geert@linux-m68k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Fri, 24 Feb 2017 08:49:19 -0800
-
-> On 2/24/2017 1:28 AM, Zhu Yanjun wrote:
->> When the function register_netdevice_notifier fails, the memory
->> allocated by kmem_cache_create should be freed by the function
->> kmem_cache_destroy.
->>
->> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->> ---
-> Minor nit with subject.
-> s/rds/RDS: TCP:
-
-Please, I definitely prefer people use all lowercase letters for
-the susbsystem prefix in the subject line.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IEZy
+aSwgMjQgRmViIDIwMTcgMTE6MzA6MDMgKzAxMDANCg0KPiBXaXRoIGdjYy00LjEuMiBhbmQgLU9z
+Og0KPiANCj4gICAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9lbmV0X21h
+aW4uYzogSW4gZnVuY3Rpb24goXhnZW5lX2VuZXRfc3RhcnRfeG1pdKI6DQo+ICAgICBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9hcG0veGdlbmUveGdlbmVfZW5ldF9tYWluLmM6Mjk3OiB3YXJuaW5nOiCh
+bXNzX2luZGV4oiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24NCj4g
+DQo+IFVzaW5nIGEgc2VwYXJhdGUgdmFyaWFibGUgdG8gdHJhY2sgc3VjY2VzcyBtYXkgY29uZnVz
+ZSB0aGUgY29tcGlsZXIuDQo+IFByZWluaXRpYWxpemUgbXNzX2luZGV4IHdpdGggLUVCVVNZIGFu
+ZCBjaGVjayBmb3IgbmVnYXRpdmUgZXJyb3IgdmFsdWVzDQo+IGluc3RlYWQgdG8ga2lsbCB0aGUg
+d2FybmluZy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEdlZXJ0IFV5dHRlcmhvZXZlbiA8Z2VlcnRA
+bGludXgtbTY4ay5vcmc+DQoNCkFwcGxpZWQsIHRoYW5rIHlvdS4NCg==
