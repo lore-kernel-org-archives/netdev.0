@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rxrpc: Fix an assertion in rxrpc_read()
-Date: Fri, 24 Feb 2017 11:21:40 -0500 (EST)
-Message-ID: <20170224.112140.1652689255202011736.davem@davemloft.net>
-References: <148793958900.27516.14977364495699700677.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net v2] vxlan: correctly validate VXLAN ID against
+ VXLAN_N_VID
+Date: Fri, 24 Feb 2017 11:20:34 -0500 (EST)
+Message-ID: <20170224.112034.268653979298256762.davem@davemloft.net>
+References: <4650647d72b8f219cb725b40de9b4627f3306919.1487866739.git.mschiffer@universe-factory.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+Cc: jbenc@redhat.com, netdev@vger.kernel.org
+To: mschiffer@universe-factory.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37044 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37196 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751192AbdBXQYS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 11:24:18 -0500
-In-Reply-To: <148793958900.27516.14977364495699700677.stgit@warthog.procyon.org.uk>
+        with ESMTP id S1751298AbdBXQ1c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 11:27:32 -0500
+In-Reply-To: <4650647d72b8f219cb725b40de9b4627f3306919.1487866739.git.mschiffer@universe-factory.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 24 Feb 2017 12:33:09 +0000
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Date: Thu, 23 Feb 2017 17:19:41 +0100
 
-> From: Marc Dionne <marc.dionne@auristor.com>
+> The incorrect check caused an off-by-one error: the maximum VID 0xffffff
+> was unusable.
 > 
-> In the rxrpc_read() function, which allows a user to read the contents of a
-> key, we miscalculate the expected length of an encoded rxkad token by not
-> taking into account the key length.  However, the data is stored later
-> anyway with an ENCODE_DATA() call - and an assertion failure then ensues
-> when the lengths are checked at the end.
-> 
-> Fix this by including the key length in the token size estimation.
-> 
-> The following assertion is produced:
- ...
-> Signed-off-by: Marc Dionne <marc.dionne@auristor.com>
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> Fixes: d342894c5d2f ("vxlan: virtual extensible lan")
+> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
 
-Applied.
+Applied and queued up for -stable, thanks.
