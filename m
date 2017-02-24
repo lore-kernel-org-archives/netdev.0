@@ -1,50 +1,74 @@
-From: jeffy <jeffy.chen@rock-chips.com>
-Subject: Re: [PATCH 3/3] mwifiex: wake system up when receives a wake irq
-Date: Fri, 24 Feb 2017 20:20:55 +0800
-Message-ID: <58B02527.6090400@rock-chips.com>
-References: <1487917471-5501-1-git-send-email-jeffy.chen@rock-chips.com> <1487917471-5501-3-git-send-email-jeffy.chen@rock-chips.com> <87d1e726p5.fsf@codeaurora.org>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net] rxrpc: Fix an assertion in rxrpc_read()
+Date: Fri, 24 Feb 2017 12:33:09 +0000
+Message-ID: <148793958900.27516.14977364495699700677.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Brian Norris <briannorris@chromium.org>,
-        Rajat Jain <rajatja@google.com>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Nishant Sarmukadam <nishants@marvell.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87d1e726p5.fsf@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53076 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751192AbdBXMdL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Feb 2017 07:33:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Kalle,
+From: Marc Dionne <marc.dionne@auristor.com>
 
-On 02/24/2017 07:01 PM, Kalle Valo wrote:
-> Jeffy Chen <jeffy.chen@rock-chips.com> writes:
->
->> Currrently we are disabling this wake irq after receiving it. If this
->> happens before we finish suspend and the pm event check is disabled,
->> the system will continue suspending, and this irq would not work again.
->>
->> We may need to abort system suspend to avoid that.
->>
->> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
-> I only see patch 3 in patchwork. Where are patches 1 and 2?
->
+In the rxrpc_read() function, which allows a user to read the contents of a
+key, we miscalculate the expected length of an encoded rxkad token by not
+taking into account the key length.  However, the data is stored later
+anyway with an ENCODE_DATA() call - and an assertion failure then ensues
+when the lengths are checked at the end.
 
+Fix this by including the key length in the token size estimation.
 
-the other two are much like this one, but for bluetooth :)
+The following assertion is produced:
 
-please check:
+Assertion failed - 384(0x180) == 380(0x17c) is false
+------------[ cut here ]------------
+kernel BUG at ../net/rxrpc/key.c:1221!
+invalid opcode: 0000 [#1] SMP
+Modules linked in:
+CPU: 2 PID: 2957 Comm: keyctl Not tainted 4.10.0-fscache+ #483
+Hardware name: ASUS All Series/H97-PLUS, BIOS 2306 10/09/2014
+task: ffff8804013a8500 task.stack: ffff8804013ac000
+RIP: 0010:rxrpc_read+0x10de/0x11b6
+RSP: 0018:ffff8804013afe48 EFLAGS: 00010296
+RAX: 000000000000003b RBX: 0000000000000003 RCX: 0000000000000000
+RDX: 0000000000040001 RSI: 00000000000000f6 RDI: 0000000000000300
+RBP: ffff8804013afed8 R08: 0000000000000001 R09: 0000000000000001
+R10: ffff8804013afd90 R11: 0000000000000002 R12: 00005575f7c911b4
+R13: 00005575f7c911b3 R14: 0000000000000157 R15: ffff880408a5d640
+FS:  00007f8dfbc73700(0000) GS:ffff88041fb00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 00005575f7c91008 CR3: 000000040120a000 CR4: 00000000001406e0
+Call Trace:
+ keyctl_read_key+0xb6/0xd7
+ SyS_keyctl+0x83/0xe7
+ do_syscall_64+0x80/0x191
+ entry_SYSCALL64_slow_path+0x25/0x25
 
-https://patchwork.kernel.org/patch/9589455 New          [1/3] btusb: 
-wake system up when receives a wake irq
-https://patchwork.kernel.org/patch/9589453 New          [2/3] btmrvl: 
-wake system up when receives a wake irq
-https://patchwork.kernel.org/patch/9589457 New          [3/3] mwifiex: 
-wake system up when receives a wake irq
+Signed-off-by: Marc Dionne <marc.dionne@auristor.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
+ net/rxrpc/key.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-(sorry, this is a resent mail, because the last one was rejected due to 
-wrong format)
+diff --git a/net/rxrpc/key.c b/net/rxrpc/key.c
+index 18c737a61d80..0a4e28477ad9 100644
+--- a/net/rxrpc/key.c
++++ b/net/rxrpc/key.c
+@@ -1065,7 +1065,7 @@ static long rxrpc_read(const struct key *key,
+ 
+ 		switch (token->security_index) {
+ 		case RXRPC_SECURITY_RXKAD:
+-			toksize += 8 * 4;	/* viceid, kvno, key*2, begin,
++			toksize += 9 * 4;	/* viceid, kvno, key*2 + len, begin,
+ 						 * end, primary, tktlen */
+ 			toksize += RND(token->kad->ticket_len);
+ 			break;
