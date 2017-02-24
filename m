@@ -1,65 +1,52 @@
-From: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v5 4/6] ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
-Date: Fri, 24 Feb 2017 14:14:38 +0200
-Message-ID: <20170224121440.32269-5-luiz.dentz@gmail.com>
-References: <20170224121440.32269-1-luiz.dentz@gmail.com>
-Cc: patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-        stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-        linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170224121440.32269-1-luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+Subject: [PATCH v5 0/6] Bluetooth: 6LoWPAN: Fix lladdr length
+Date: Fri, 24 Feb 2017 14:14:34 +0200
+Message-ID: <20170224121440.32269-1-luiz.dentz@gmail.com>
+Cc: patrik.flykt@linux.intel.com, jukka.rissanen@linux.intel.com,
+        stefan@osg.samsung.com, aar@pengutronix.de,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org
+To: linux-bluetooth@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:33842 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751214AbdBXMPB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 07:15:01 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+From: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
 
-This patch adds support for 48 bit 6LoWPAN address length
-autoconfiguration which is the case for BTLE 6LoWPAN.
+These patches fixes lladdr length to be 6 bytes long and not 8 which cause
+neighbor advertisement to be sent with wrong lladdr including FF:FE filler
+bytes for eui64.
 
-Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Signed-off-by: Luiz Augusto von Dentz <luiz.von.dentz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
----
- net/ipv6/addrconf.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+Note: This does not fix some of the existing crashes which I hope to address
+in a different set.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 3a2025f..7756640 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2052,12 +2052,19 @@ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
- 	__ipv6_dev_ac_dec(ifp->idev, &addr);
- }
- 
--static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
-+static int addrconf_ifid_6lowpan(u8 *eui, struct net_device *dev)
- {
--	if (dev->addr_len != EUI64_ADDR_LEN)
-+	switch (dev->addr_len) {
-+	case ETH_ALEN:
-+		return addrconf_ifid_eui48(eui, dev);
-+	case EUI64_ADDR_LEN:
-+		memcpy(eui, dev->dev_addr, EUI64_ADDR_LEN);
-+		eui[0] ^= 2;
-+		break;
-+	default:
- 		return -1;
--	memcpy(eui, dev->dev_addr, EUI64_ADDR_LEN);
--	eui[0] ^= 2;
-+	}
-+
- 	return 0;
- }
- 
-@@ -2149,7 +2156,7 @@ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
- 	case ARPHRD_TUNNEL:
- 		return addrconf_ifid_gre(eui, dev);
- 	case ARPHRD_6LOWPAN:
--		return addrconf_ifid_eui64(eui, dev);
-+		return addrconf_ifid_6lowpan(eui, dev);
- 	case ARPHRD_IEEE1394:
- 		return addrconf_ifid_ieee1394(eui, dev);
- 	case ARPHRD_TUNNEL6:
+v2: Make all code paths that generate a link-local from lladdr use the same
+code.
+v3: Use lowpan_iphc_uncompress_eui48_lladdr to generate the remote ip address.
+v4: Handle comments from Stefan Schmidt.
+v5: Add patch to fix IID format for Bluetooth
+
+Alexander Aring (2):
+  6lowpan: iphc: override l2 packet information
+  ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
+
+Luiz Augusto von Dentz (2):
+  6lowpan: Use netdev addr_len to determine lladdr len
+  6lowpan: Fix IID format for Bluetooth
+
+Patrik Flykt (2):
+  bluetooth: Set 6 byte device addresses
+  6lowpan: Set MAC address length according to LOWPAN_LLTYPE
+
+ include/net/6lowpan.h   |  15 ++++++
+ net/6lowpan/core.c      |  11 +++-
+ net/6lowpan/iphc.c      |  57 +++++++++++++++++----
+ net/bluetooth/6lowpan.c | 130 ++++++++----------------------------------------
+ net/ipv6/addrconf.c     |  17 +++++--
+ 5 files changed, 104 insertions(+), 126 deletions(-)
+
 -- 
 2.9.3
