@@ -1,73 +1,65 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ipv6: check sk sk_type and protocol early in ip_mroute_set/getsockopt
-Date: Fri, 24 Feb 2017 16:29:06 +0800
-Message-ID: <3d5396c3b5950c5a7476cf8a69198f916b4f01a4.1487924946.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
-        hannes@stressinduktion.org
-To: network dev <netdev@vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [patch net] lib: Remove string from parman config selection
+Date: Fri, 24 Feb 2017 09:30:56 +0100
+Message-ID: <CAMuHMdWFimihnDQ7a4oWX_vz-bo+sgvU7GfX-Q8zHUXV1sr-=g@mail.gmail.com>
+References: <1487843865-2253-1-git-send-email-jiri@resnulli.us>
+ <CAMuHMdWTm8Z8kuC6oBQFvpq2R289n5zG1wKOxQmMrUdC-OQ-6Q@mail.gmail.com> <20170224082543.GA2357@nanopsycho>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33001 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751386AbdBXI3Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 03:29:25 -0500
-Received: by mail-pf0-f193.google.com with SMTP id p185so751371pfb.0
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 00:29:19 -0800 (PST)
+Received: from mail-it0-f65.google.com ([209.85.214.65]:32947 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751154AbdBXIbj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 03:31:39 -0500
+Received: by mail-it0-f65.google.com with SMTP id e137so2292807itc.0
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 00:30:58 -0800 (PST)
+In-Reply-To: <20170224082543.GA2357@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 5e1859fbcc3c ("ipv4: ipmr: various fixes and cleanups") fixed
-the issue for ipv4 ipmr:
+Hi Jiri,
 
-  ip_mroute_setsockopt() & ip_mroute_getsockopt() should not
-  access/set raw_sk(sk)->ipmr_table before making sure the socket
-  is a raw socket, and protocol is IGMP
+On Fri, Feb 24, 2017 at 9:25 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Fri, Feb 24, 2017 at 08:54:04AM CET, geert@linux-m68k.org wrote:
+>>On Thu, Feb 23, 2017 at 10:57 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> As reported by Geert, remove the string so the user does not see this
+>>> config option. The option is explicitly selected only as a dependency of
+>>> in-kernel users.
+>>>
+>>> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+>>> Fixes: 44091d29f207 ("lib: Introduce priority array area manager")
+>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>> ---
+>>>  lib/Kconfig | 2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/lib/Kconfig b/lib/Kconfig
+>>> index 5d644f1..f355260 100644
+>>> --- a/lib/Kconfig
+>>> +++ b/lib/Kconfig
+>>> @@ -551,6 +551,6 @@ config SBITMAP
+>>>         bool
+>>>
+>>>  config PARMAN
+>>> -       tristate "parman"
+>>> +       tristate
+>>
+>>Upon second thought
+>>
+>>        tristate "parman" if COMPILE_TEST
+>>
+>>might be better, as it allows to enable and run the accompanying test without
+>>dependencies.
+>
+> Geert, could you please send this as a follow-up? Thanks.
 
-The same fix should be done for ipv6 ipmr as well.
+Sure, will do.
 
-This patch can fix the panic caused by overwriting the same offset
-as ipmr_table as in raw_sk(sk) when accessing other type's socket
-by ip_mroute_setsockopt().
+Gr{oetje,eeting}s,
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv6/ip6mr.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index babaf3e..6ba6c90 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1666,6 +1666,10 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
- 	struct net *net = sock_net(sk);
- 	struct mr6_table *mrt;
- 
-+	if (sk->sk_type != SOCK_RAW ||
-+	    inet_sk(sk)->inet_num != IPPROTO_ICMPV6)
-+		return -EOPNOTSUPP;
-+
- 	mrt = ip6mr_get_table(net, raw6_sk(sk)->ip6mr_table ? : RT6_TABLE_DFLT);
- 	if (!mrt)
- 		return -ENOENT;
-@@ -1677,9 +1681,6 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
- 
- 	switch (optname) {
- 	case MRT6_INIT:
--		if (sk->sk_type != SOCK_RAW ||
--		    inet_sk(sk)->inet_num != IPPROTO_ICMPV6)
--			return -EOPNOTSUPP;
- 		if (optlen < sizeof(int))
- 			return -EINVAL;
- 
-@@ -1815,6 +1816,10 @@ int ip6_mroute_getsockopt(struct sock *sk, int optname, char __user *optval,
- 	struct net *net = sock_net(sk);
- 	struct mr6_table *mrt;
- 
-+	if (sk->sk_type != SOCK_RAW ||
-+	    inet_sk(sk)->inet_num != IPPROTO_ICMPV6)
-+		return -EOPNOTSUPP;
-+
- 	mrt = ip6mr_get_table(net, raw6_sk(sk)->ip6mr_table ? : RT6_TABLE_DFLT);
- 	if (!mrt)
- 		return -ENOENT;
--- 
-2.1.0
+                        Geert
