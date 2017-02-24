@@ -1,64 +1,47 @@
-From: David Marchand <david.marchand@6wind.com>
-Subject: [PATCH] IB/rxe: increment msn only when completing a request
-Date: Fri, 24 Feb 2017 15:38:26 +0100
-Message-ID: <1487947106-21382-1-git-send-email-david.marchand@6wind.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-To: monis@mellanox.com
+From: David Forster <dforster@brocade.com>
+Subject: [PATCH] vti6: return GRE_KEY for vti6
+Date: Fri, 24 Feb 2017 14:20:32 +0000
+Message-ID: <1487946032-5866-1-git-send-email-dforster@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f177.google.com ([209.85.128.177]:33223 "EHLO
-        mail-wr0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751125AbdBXOsM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 09:48:12 -0500
-Received: by mail-wr0-f177.google.com with SMTP id u47so14554138wrb.0
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 06:48:11 -0800 (PST)
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58732 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751314AbdBXPHq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 10:07:46 -0500
+Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
+        by mx0a-000f0801.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1OELTD5008856
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 06:23:57 -0800
+Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
+        by mx0a-000f0801.pphosted.com with ESMTP id 28sctfh4uf-4
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 06:23:57 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to C9-147, MSN should only be incremented when the last packet of
-a multi packet request has been received.
+Align vti6 with vti by returning GRE_KEY flag. This enables iproute2
+to display tunnel keys on "ip -6 tunnel show"
 
-"Logically, the requester associates a sequential Send Sequence Number
-(SSN) with each WQE posted to the send queue. The SSN bears a one-
-to-one relationship to the MSN returned by the responder in each re-
-sponse packet. Therefore, when the requester receives a response, it in-
-terprets the MSN as representing the SSN of the most recent request
-completed by the responder to determine which send WQE(s) can be
-completed."
-
-Fixes: 8700e3e7c485 ("Soft RoCE driver")
-
-Signed-off-by: David Marchand <david.marchand@6wind.com>
+Signed-off-by: David Forster <dforster@brocade.com>
 ---
- drivers/infiniband/sw/rxe/rxe_resp.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ net/ipv6/ip6_vti.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/infiniband/sw/rxe/rxe_resp.c b/drivers/infiniband/sw/rxe/rxe_resp.c
-index 5bcf073..193d95c 100644
---- a/drivers/infiniband/sw/rxe/rxe_resp.c
-+++ b/drivers/infiniband/sw/rxe/rxe_resp.c
-@@ -812,18 +812,18 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
- 		/* Unreachable */
- 		WARN_ON(1);
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index c795fee..644ba59 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -693,6 +693,10 @@ vti6_parm_to_user(struct ip6_tnl_parm2 *u, const struct __ip6_tnl_parm *p)
+ 	u->link = p->link;
+ 	u->i_key = p->i_key;
+ 	u->o_key = p->o_key;
++	if (u->i_key)
++		u->i_flags |= GRE_KEY;
++	if (u->o_key)
++		u->o_flags |= GRE_KEY;
+ 	u->proto = p->proto;
  
--	/* We successfully processed this new request. */
--	qp->resp.msn++;
--
- 	/* next expected psn, read handles this separately */
- 	qp->resp.psn = (pkt->psn + 1) & BTH_PSN_MASK;
- 
- 	qp->resp.opcode = pkt->opcode;
- 	qp->resp.status = IB_WC_SUCCESS;
- 
--	if (pkt->mask & RXE_COMP_MASK)
-+	if (pkt->mask & RXE_COMP_MASK) {
-+		/* We successfully processed this new request. See C9-147. */
-+		qp->resp.msn++;
-+
- 		return RESPST_COMPLETE;
--	else if (qp_type(qp) == IB_QPT_RC)
-+	} else if (qp_type(qp) == IB_QPT_RC)
- 		return RESPST_ACKNOWLEDGE;
- 	else
- 		return RESPST_CLEANUP;
+ 	memcpy(u->name, p->name, sizeof(u->name));
 -- 
-2.7.4
+2.1.4
