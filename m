@@ -1,141 +1,73 @@
-From: Petr Vorel <pvorel@suse.cz>
-Subject: [PATCH 1/1] color: use "light" colors for dark background
-Date: Fri, 24 Feb 2017 11:13:12 +0100
-Message-ID: <20170224101312.31538-1-pvorel@suse.cz>
-Cc: Petr Vorel <pvorel@suse.cz>, Mathias Nyman <m.nyman@iki.fi>,
-        Yegor Yefremov <yegorslists@googlemail.com>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/2] sctp: add support for MSG_MORE
+Date: Fri, 24 Feb 2017 10:14:09 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
+References: <cover.1487440272.git.lucien.xin@gmail.com>
+ <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
+ <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
+ <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "Vlad Yasevich" <vyasevich@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: 'Xin Long' <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:45038 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751257AbdBXKNd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Feb 2017 05:13:33 -0500
+Received: from smtp-out4.electric.net ([192.162.216.192]:59309 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751192AbdBXKOZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 05:14:25 -0500
+In-Reply-To: <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-COLORFGBG environment variable is used to detect dark background.
-
-Idea and a bit of code is borrowed from Vim, thanks.
-
-Signed-off-by: Petr Vorel <pvorel@suse.cz>
----
-Colors are nice, but the ones chosen aren't suitable for dark background.
-COLORFGBG environment variable is used in some libraries and software (e.g.
-ncurses, Vim). COLORFGBG is set by various terminal emulators (e.g. konsole,
-rxvt and rxvt-unicode).
-
-Chosen colors are questionable. Best solution would be also allow user to
-redefine colors, like ls does with LS_COLORS or grep with GREP_COLORS. But that
-is maybe overkill.
----
- include/color.h |  1 +
- lib/color.c     | 43 ++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 43 insertions(+), 1 deletion(-)
-
-diff --git a/include/color.h b/include/color.h
-index c1c29831..43190db4 100644
---- a/include/color.h
-+++ b/include/color.h
-@@ -12,6 +12,7 @@ enum color_attr {
- };
- 
- void enable_color(void);
-+void set_background(void);
- int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...);
- enum color_attr ifa_family_color(__u8 ifa_family);
- enum color_attr oper_state_color(__u8 state);
-diff --git a/lib/color.c b/lib/color.c
-index 95596be2..69375b26 100644
---- a/lib/color.c
-+++ b/lib/color.c
-@@ -1,5 +1,7 @@
- #include <stdio.h>
- #include <stdarg.h>
-+#include <stdlib.h>
-+#include <string.h>
- #include <sys/socket.h>
- #include <sys/types.h>
- #include <linux/if.h>
-@@ -14,6 +16,12 @@ enum color {
- 	C_MAGENTA,
- 	C_CYAN,
- 	C_WHITE,
-+	C_LIGHT_RED,
-+	C_LIGHT_GREEN,
-+	C_LIGHT_YELLOW,
-+	C_LIGHT_BLUE,
-+	C_LIGHT_MAGENTA,
-+	C_LIGHT_CYAN,
- 	C_CLEAR
- };
- 
-@@ -25,25 +33,58 @@ static const char * const color_codes[] = {
- 	"\e[35m",
- 	"\e[36m",
- 	"\e[37m",
-+	"\e[1;31m",
-+	"\e[1;32m",
-+	"\e[1;33m",
-+	"\e[1;34m",
-+	"\e[1;35m",
-+	"\e[1;36m",
- 	"\e[0m",
- 	NULL,
- };
- 
- static enum color attr_colors[] = {
-+	/* light background */
- 	C_CYAN,
- 	C_YELLOW,
- 	C_MAGENTA,
- 	C_BLUE,
- 	C_GREEN,
- 	C_RED,
-+	C_CLEAR,
-+
-+	/* dark background */
-+	C_LIGHT_CYAN,
-+	C_LIGHT_YELLOW,
-+	C_LIGHT_MAGENTA,
-+	C_LIGHT_BLUE,
-+	C_LIGHT_GREEN,
-+	C_LIGHT_RED,
- 	C_CLEAR
- };
- 
-+static int is_dark_bg;
- static int color_is_enabled;
- 
- void enable_color(void)
- {
- 	color_is_enabled = 1;
-+	set_background();
-+}
-+
-+void set_background(void)
-+{
-+	char *p = getenv("COLORFGBG");
-+
-+	/*
-+	 * COLORFGBG environment variable usually contains either two or three
-+	 * values separated by semicolons; we want the last value in either case.
-+	 * If this value is 0-6 or 8, background is dark.
-+	 */
-+	if (p && (p = (char *)strrchr(p, ';')) != NULL
-+		&& ((p[1] >= '0' && p[1] <= '6') || p[1] == '8')
-+		&& p[2] == '\0')
-+		is_dark_bg = 1;
- }
- 
- int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
-@@ -58,7 +99,7 @@ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
- 		goto end;
- 	}
- 
--	ret += fprintf(fp, "%s", color_codes[attr_colors[attr]]);
-+	ret += fprintf(fp, "%s", color_codes[attr_colors[is_dark_bg ? attr + 7 : attr]]);
- 	ret += vfprintf(fp, fmt, args);
- 	ret += fprintf(fp, "%s", color_codes[C_CLEAR]);
- 
--- 
-2.11.0
+RnJvbTogWGluIExvbmcNCj4gU2VudDogMjQgRmVicnVhcnkgMjAxNyAwNjo0NA0KLi4uDQo+ID4g
+SUlSQyBzY3RwX3BhY2tldF9jYW5fYXBwZW5kX2RhdGEoKSBpcyBjYWxsZWQgZm9yIHRoZSBmaXJz
+dCBxdWV1ZWQNCj4gPiBkYXRhIGNodW5rIGluIG9yZGVyIHRvIGRlY2lkZSB3aGV0aGVyIHRvIGdl
+bmVyYXRlIGEgbWVzc2FnZSB0aGF0DQo+ID4gY29uc2lzdHMgb25seSBvZiBkYXRhIGNodW5rcy4N
+Cj4gPiBJZiBpdCByZXR1cm5zIFNDVFBfWE1JVF9PSyB0aGVuIGEgbWVzc2FnZSBpcyBidWlsdCBj
+b2xsZWN0aW5nIHRoZQ0KPiA+IHJlc3Qgb2YgdGhlIHF1ZXVlZCBkYXRhIGNodW5rcyAodW50aWwg
+dGhlIHdpbmRvdyBmaWxscykuDQo+ID4NCj4gPiBTbyBpZiBJIHNlbmQgYSBtZXNzYWdlIHdpdGgg
+TVNHX01PUkUgc2V0IChvbiBhbiBpZGxlIGNvbm5lY3Rpb24pDQo+ID4gU0NUUF9YTUlUX0RFTEFZ
+IGlzIHJldHVybmVkIGFuZCBhIG1lc3NhZ2UgaXNuJ3Qgc2VudC4NCj4gPg0KPiA+IEkgbm93IHNl
+bmQgYSBzZWNvbmQgc21hbGwgbWVzc2FnZSwgdGhpcyB0aW1lIHdpdGggTVNHX01PUkUgY2xlYXIu
+DQo+ID4gVGhlIG1lc3NhZ2UgaXMgcXVldWVkLCB0aGVuIHRoZSBjb2RlIGxvb2tzIHRvIHNlZSBp
+ZiBpdCBjYW4gc2VuZCBhbnl0aGluZy4NCj4gPg0KPiA+IHNjdHBfcGFja2V0X2Nhbl9hcHBlbmRf
+ZGF0YSgpIGlzIGNhbGxlZCBmb3IgdGhlIGZpcnN0IHF1ZXVlZCBjaHVuay4NCj4gPiBTaW5jZSBp
+dCBoYXMgZm9yY2VfZGVsYXkgc2V0IFNDVFBfWE1JVF9ERUxBWSBpcyByZXR1cm5lZCBhbmQgbm8N
+Cj4gPiBtZXNzYWdlIGlzIGJ1aWx0Lg0KPiA+IFRoZSBzZWNvbmQgbWVzc2FnZSBpc24ndCBldmVu
+IGxvb2tlZCBhdC4NCj4gWW91J3JlIHJpZ2h0LiBJIGNhbiBzZWUgdGhlIHByb2JsZW0gbm93Lg0K
+PiANCj4gV2hhdCBJIGV4cGVjdGVkIGlzIGl0IHNob3VsZCB3b3JrIGxpa2U6DQo+IA0KPiAxLCBz
+ZW5kIDMgc21hbGwgY2h1bmtzIHdpdGggTVNHX01PUkUgc2V0LCB0aGUgcXVldWUgaXM6DQo+ICAg
+Y2hrMyBbc2V0XSAtPiBjaGsyIFtzZXRdIC0+IGNoazEgW3NldF0NCg0KU3RyYW5nZSB3YXkgdG8g
+d3JpdGUgYSBxdWV1ZSEgY2hrMSBwb2ludHMgdG8gY2hrMiA6LSkNCg0KPiAyLiBzZW5kIDEgbW9y
+ZSBjaHVuayB3aXRoIE1TR19NT1JFIGNsZWFyLCB0aGUgcXVldWUgaXM6DQo+ICAgY2hrNFtjbGVh
+cl0gLT4gY2hrMyBbY2xlYXJdIC0+IGNoazIgW2NsZWFyXSAtPiBjaGsxIFtjbGVhcl0NCg0KSSBk
+b24ndCB0aGluayBwcm9jZXNzaW5nIHRoZSBlbnRpcmUgcXVldWUgaXMgYSBnb29kIGlkZWEuDQpC
+b3RoIGZyb20gZXhlY3V0aW9uIHRpbWUgYW5kIHRoZSBlZmZlY3RzIG9uIHRoZSBkYXRhIGNhY2hl
+Lg0KVGhlIFNDVFAgY29kZSBpcyBob3JyaWQgZW5vdWdoIGFzIGl0IGlzLg0KDQo+IDMuIHRoZW4g
+aWYgdXNlciBzZW5kIG1vcmUgc21hbGwgY2h1bmtzIHdpdGggTVNHX01PUkUgc2V0LA0KPiB0aGUg
+cXVldWUgaXMgbGlrZToNCj4gICBjaGtCW3NldF0gLT4gY2hrQVtzZXRdIC0+IGNoazRbY2xlYXJd
+IC0+IGNoazMgW2NsZWFyXSAtPiBjaGsyIFtjbGVhcl0gLT4gY2hrMSBbY2xlYXJdDQo+IHNvIHRo
+YXQgdGhlIG5ldyBzbWFsbCBjaHVua3MnIGZsYWcgd2lsbCBub3QgYWZmZWN0IHRoZSBvdGhlciBj
+aHVua3MgYnVuZGxpbmcuDQoNClRoYXQgaXNuJ3QgcmVhbGx5IG5lY2Vzc2FyeS4NClRoZSB1c2Vy
+IGNhbid0IGV4cGVjdCB0byBoYXZlIGFic29sdXRlIGNvbnRyb2wgb3ZlciB3aGljaCBjaHVua3Mg
+Z2V0IGJ1bmRsZWQNCnRvZ2V0aGVyLg0KSWYgdGhlIGFib3ZlIGNodW5rcyBzdGlsbCBhcmVuJ3Qg
+YmlnIGVub3VnaCB0byBmaWxsIGEgZnJhbWUgdGhlIGNvZGUgbWlnaHQNCmFzIHdlbGwgd2FpdCBm
+b3IgdGhlIG5leHQgY2h1bmsgaW5zdGVhZCBvZiBidWlsZGluZyBhIHBhY2tldCB0aGF0IGNvbnRh
+aW5zDQpjaGsxIHRocm91Z2ggdG8gY2hrQi4NCg0KUmVtZW1iZXIgeW91J2xsIG9ubHkgZ2V0IGEg
+cXVldWVkIGNodW5rIHdpdGggTVNHX01PUkUgY2xlYXIgaWYgZGF0YSBjYW4ndCBiZSBzZW50Lg0K
+QXMgc29vbiBhcyBkYXRhIGNhbiBiZSBzZW50LCBpZiB0aGUgZmlyc3QgY2h1bmsgaGFzIE1TR19N
+T1JFIGNsZWFyIGFsbCBvZiB0aGUNCnF1ZXVlZCBjaHVua3Mgd2lsbCBiZSBzZW50Lg0KDQpTbyBp
+bW1lZGlhdGVseSBhZnRlciB5b3VyICgzKSB0aGUgYXBwbGljYXRpb24gaXMgZXhwZWN0ZWQgdG8g
+c2VuZCBhIGNodW5rDQp3aXRoIE1TR19NT1JFIGNsZWFyIC0gYXQgdGhhdCBwb2ludCBhbGwgdGhl
+IHF1ZXVlZCBjaHVua3MgY2FuIGJlIHNlbnQgaW4NCmEgc2luZ2xlIHBhY2tldC4NCg0KU28ganVz
+dCBzYXZlIHRoZSBsYXN0IE1TR19NT1JFIG9uIHRoZSBhc3NvY2lhdGlvbiBhcyBJIGRpZC4NCg0K
+CURhdmlkDQo=
