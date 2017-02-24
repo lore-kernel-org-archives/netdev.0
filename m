@@ -1,208 +1,193 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: iproute2: hide devices starting with period by default
-Date: Fri, 24 Feb 2017 12:06:19 -0500
-Message-ID: <20170224170619.GA80972@C02RW35GFVH8.dhcp.broadcom.net>
-References: <20170223195028.16388-1-stephen@networkplumber.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH net] net: phy: Fix LED mode in DT single property.
+Date: Fri, 24 Feb 2017 11:18:00 -0600
+Message-ID: <CAL_JsqK7NO0u1Pf7odD5COLvauXNiNmYj2aa4dCHJEZDzWe1xQ@mail.gmail.com>
+References: <1487915942-26039-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: stephen hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Allan.Nielsen@microsemi.com, Andrew Lunn <andrew@lunn.ch>
+To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35584 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751281AbdBXRGe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2017 12:06:34 -0500
-Received: by mail-qk0-f194.google.com with SMTP id n127so3592394qkf.2
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 09:06:28 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170223195028.16388-1-stephen@networkplumber.org>
+Received: from mail.kernel.org ([198.145.29.136]:60102 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751268AbdBXRTG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Feb 2017 12:19:06 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+        by mail.kernel.org (Postfix) with ESMTP id 4C6D1201FE
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 17:18:23 +0000 (UTC)
+Received: from mail-yw0-f169.google.com (mail-yw0-f169.google.com [209.85.161.169])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+        (No client certificate requested)
+        by mail.kernel.org (Postfix) with ESMTPSA id 0701E2021A
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 17:18:22 +0000 (UTC)
+Received: by mail-yw0-f169.google.com with SMTP id q127so12731939ywg.0
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2017 09:18:21 -0800 (PST)
+In-Reply-To: <1487915942-26039-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 23, 2017 at 11:50:28AM -0800, stephen hemminger wrote:
-> Some use cases create Linux networking devices which are not intended for use
-> by normal networking. This is an enhancement to ip command to hide network
-> devices starting with period (like files in normal directory).  Interfaces whose
-> name start with "." are not shown by default, and the -a (or -all) flag must
-> be used to show these devices.
-> 
-> Example:
-> $ ip -brief link show
-> lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
-> eth0             UP             00:25:90:86:b3:6b <BROADCAST,MULTICAST,UP,LOWER_UP>
-> eth1             DOWN           00:25:90:86:b3:6a <NO-CARRIER,BROADCAST,MULTICAST,UP>
-> $ ip -all -brief link show
-> lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
-> eth0             UP             00:25:90:86:b3:6b <BROADCAST,MULTICAST,UP,LOWER_UP>
-> eth1             DOWN           00:25:90:86:b3:6a <NO-CARRIER,BROADCAST,MULTICAST,UP>
-> .eth2            DOWN           00:1b:21:a0:e7:06 <BROADCAST,MULTICAST>
-
-I've run across a time when there was a perceived need for this with an
-out of tree driver that created a netdev that was never used.  I was
-never a big fan of the attempt to hide it.  It seemed like the better
-answer would be to try and fix the driver that is creating and
-registering this unnecessary netdev so it no longer appears and that was
-what we did.  
-
-As an admin I'd be pretty frustrated if I somehow had a network issue
-that I could not properly debug due to a hidden network interface.  If
-there was an extra flag that was needed to a tool like iproute2 to show
-the hidden device, soon admin's hands would just type 'ip -all link
-show' each time to get the full picture.  
-
-If the concensus is that we DO want to hide devices I've seen David
-Ahern's set and it is much more complete than this.  It is probably the
-better approach to not leave too many loose ends.
-
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+On Thu, Feb 23, 2017 at 11:59 PM, Raju Lakkaraju
+<Raju.Lakkaraju@microsemi.com> wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+>
+> Fix the LED mode DT parameters combine to a single property
+> and change the vendor prefix i.e. mscc.
+>
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 > ---
->  include/utils.h |  1 +
->  ip/ip.c         |  5 ++++-
->  ip/ipaddress.c  | 31 ++++++++++++++++++++++++-------
->  man/man8/ip.8   |  5 +++++
->  4 files changed, 34 insertions(+), 8 deletions(-)
-> 
-> diff --git a/include/utils.h b/include/utils.h
-> index 22369e0b4e03..50712d27f112 100644
-> --- a/include/utils.h
-> +++ b/include/utils.h
-> @@ -16,6 +16,7 @@ extern int human_readable;
->  extern int use_iec;
->  extern int show_stats;
->  extern int show_details;
-> +extern int show_all;
->  extern int show_raw;
->  extern int resolve_hosts;
->  extern int oneline;
-> diff --git a/ip/ip.c b/ip/ip.c
-> index 07050b07592a..ed637b065b58 100644
-> --- a/ip/ip.c
-> +++ b/ip/ip.c
-> @@ -30,6 +30,7 @@ int human_readable;
->  int use_iec;
->  int show_stats;
->  int show_details;
-> +int show_all;
->  int resolve_hosts;
->  int oneline;
->  int brief;
-> @@ -54,7 +55,7 @@ static void usage(void)
->  "                   netns | l2tp | fou | macsec | tcp_metrics | token | netconf | ila |\n"
->  "                   vrf }\n"
->  "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
-> -"                    -h[uman-readable] | -iec |\n"
-> +"                    -h[uman-readable] | -iec | -all |\n"
->  "                    -f[amily] { inet | inet6 | ipx | dnet | mpls | bridge | link } |\n"
->  "                    -4 | -6 | -I | -D | -B | -0 |\n"
->  "                    -l[oops] { maximum-addr-flush-attempts } | -br[ief] |\n"
-> @@ -231,6 +232,8 @@ int main(int argc, char **argv)
->  			++show_stats;
->  		} else if (matches(opt, "-details") == 0) {
->  			++show_details;
-> +		} else if (matches(opt, "-all") == 0) {
-> +			++show_all;
->  		} else if (matches(opt, "-resolve") == 0) {
->  			++resolve_hosts;
->  		} else if (matches(opt, "-oneline") == 0) {
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index 400ebb4de563..029aae100549 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -660,6 +660,7 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
->  	struct ifinfomsg *ifi = NLMSG_DATA(n);
->  	struct rtattr *tb[IFLA_MAX+1];
->  	int len = n->nlmsg_len;
-> +	const char *ifname;
->  	char *name;
->  	char buf[32] = { 0, };
->  	unsigned int m_flag = 0;
-> @@ -677,14 +678,22 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
->  		return -1;
->  
->  	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-> -	if (tb[IFLA_IFNAME] == NULL)
-> -		fprintf(stderr, "BUG: device with ifindex %d has nil ifname\n", ifi->ifi_index);
-> +	if (tb[IFLA_IFNAME])
-> +		ifname = rta_getattr_str(tb[IFLA_IFNAME]);
-> +	else {
-> +		fprintf(stderr, "BUG: device with ifindex %d has nil ifname\n",
-> +			ifi->ifi_index);
-> +		ifname = "<nil>";
-> +	}
->  
->  	if (filter.label &&
->  	    (!filter.family || filter.family == AF_PACKET) &&
->  	    fnmatch(filter.label, RTA_DATA(tb[IFLA_IFNAME]), 0))
->  		return -1;
->  
-> +	if (!filter.ifindex && *ifname == '.' && !show_all)
-> +		return 0;
+>  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 20 ++++-----
+>  drivers/net/phy/mscc.c                             | 50 +++++++++++++---------
+>  2 files changed, 38 insertions(+), 32 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> index 0eedabe..2253de5 100644
+> --- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> +++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> @@ -6,12 +6,12 @@ Required properties:
+>                   Documentation/devicetree/bindings/net/phy.txt
+>
+>  Optional properties:
+> -- vsc8531,vddmac       : The vddmac in mV. Allowed values is listed
+> +- mscc,vddmac          : The vddmac in mV. Allowed values is listed
+
+It would be nice if these were fixed too for consistency, but you
+can't just change them unless you know there's no users already and
+supporting both doesn't seem worth it here.
+
+>                           in the first row of Table 1 (below).
+>                           This property is only used in combination
+>                           with the 'edge-slowdown' property.
+>                           Default value is 3300.
+> -- vsc8531,edge-slowdown        : % the edge should be slowed down relative to
+> +- mscc,edge-slowdown   : % the edge should be slowed down relative to
+>                           the fastest possible edge time.
+>                           Edge rate sets the drive strength of the MAC
+>                           interface output signals.  Changing the
+> @@ -27,14 +27,11 @@ Optional properties:
+>                           'vddmac'.
+>                           Default value is 0%.
+>                           Ref: Table:1 - Edge rate change (below).
+> -- vsc8531,led-0-mode   : LED mode. Specify how the LED[0] should behave.
+> +- mscc,led-mode                : LED mode. Specify how the LED[0] and LED[1] should behave.
+
+Need to be explicit that the length is 2 cells.
+
+>                           Allowed values are define in
+>                           "include/dt-bindings/net/mscc-phy-vsc8531.h".
+> -                         Default value is VSC8531_LINK_1000_ACTIVITY (1).
+> -- vsc8531,led-1-mode   : LED mode. Specify how the LED[1] should behave.
+> -                         Allowed values are define in
+> -                         "include/dt-bindings/net/mscc-phy-vsc8531.h".
+> -                         Default value is VSC8531_LINK_100_ACTIVITY (2).
+> +                         Default LED[0] value is VSC8531_LINK_1000_ACTIVITY (1).
+> +                         Default LED[1] value is VSC8531_LINK_100_ACTIVITY (2).
+>
+>  Table: 1 - Edge rate change
+>  ----------------------------------------------------------------|
+> @@ -66,8 +63,7 @@ Example:
+>
+>          vsc8531_0: ethernet-phy@0 {
+>                  compatible = "ethernet-phy-id0007.0570";
+> -                vsc8531,vddmac         = <3300>;
+> -                vsc8531,edge-slowdown  = <7>;
+> -                vsc8531,led-0-mode     = <LINK_1000_ACTIVITY>;
+> -                vsc8531,led-1-mode     = <LINK_100_ACTIVITY>;
+> +                mscc,vddmac            = /bits/ 16 <3300>;
+> +                mscc,edge-slowdown     = /bits/ 8  <7>;
+> +                mscc,led-mode  = <LINK_1000_ACTIVITY LINK_100_ACTIVITY>;
+>          };
+> diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+> index 650c266..3e7e9d9 100644
+> --- a/drivers/net/phy/mscc.c
+> +++ b/drivers/net/phy/mscc.c
+> @@ -385,11 +385,11 @@ static int vsc85xx_edge_rate_magic_get(struct phy_device *phydev)
+>         if (!of_node)
+>                 return -ENODEV;
+>
+> -       rc = of_property_read_u16(of_node, "vsc8531,vddmac", &vdd);
+> +       rc = of_property_read_u16(of_node, "mscc,vddmac", &vdd);
+>         if (rc != 0)
+>                 vdd = MSCC_VDDMAC_3300;
+>
+> -       rc = of_property_read_u8(of_node, "vsc8531,edge-slowdown", &sd);
+> +       rc = of_property_read_u8(of_node, "mscc,edge-slowdown", &sd);
+>         if (rc != 0)
+>                 sd = 0;
+>
+> @@ -403,25 +403,43 @@ static int vsc85xx_edge_rate_magic_get(struct phy_device *phydev)
+>  }
+>
+>  static int vsc85xx_dt_led_mode_get(struct phy_device *phydev,
+> -                                  char *led,
+> -                                  u8 default_mode)
+> +                                  char *led)
+>  {
+>         struct device *dev = &phydev->mdio.dev;
+>         struct device_node *of_node = dev->of_node;
+> -       u8 led_mode;
+> -       int err;
+> +       struct vsc8531_private *vsc8531 = phydev->priv;
+> +       u8 led_0_mode = VSC8531_LINK_1000_ACTIVITY;
+> +       u8 led_1_mode = VSC8531_LINK_100_ACTIVITY;
+> +       const __be32 *paddr_end;
+> +       const __be32 *paddr;
+> +       int len;
+>
+>         if (!of_node)
+>                 return -ENODEV;
+>
+> -       led_mode = default_mode;
+> -       err = of_property_read_u8(of_node, led, &led_mode);
+> -       if (!err && (led_mode > 15 || led_mode == 7 || led_mode == 11)) {
+> -               phydev_err(phydev, "DT %s invalid\n", led);
+> +       paddr = of_get_property(of_node, "mscc,led-mode", &len);
+> +       if (!paddr)
+> +               return -EINVAL;
 > +
->  	if (tb[IFLA_GROUP]) {
->  		int group = *(int *)RTA_DATA(tb[IFLA_GROUP]);
->  
-> @@ -758,6 +767,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
->  	struct ifinfomsg *ifi = NLMSG_DATA(n);
->  	struct rtattr *tb[IFLA_MAX+1];
->  	int len = n->nlmsg_len;
-> +	const char *ifname;
->  	unsigned int m_flag = 0;
->  
->  	if (n->nlmsg_type != RTM_NEWLINK && n->nlmsg_type != RTM_DELLINK)
-> @@ -773,12 +783,20 @@ int print_linkinfo(const struct sockaddr_nl *who,
->  		return 0;
->  
->  	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-> -	if (tb[IFLA_IFNAME] == NULL)
-> -		fprintf(stderr, "BUG: device with ifindex %d has nil ifname\n", ifi->ifi_index);
-> +	if (tb[IFLA_IFNAME])
-> +		ifname = rta_getattr_str(tb[IFLA_IFNAME]);
-> +	else {
-> +		fprintf(stderr, "BUG: device with ifindex %d has nil ifname\n",
-> +			ifi->ifi_index);
-> +		ifname = "<nil>";
-> +	}
->  
->  	if (filter.label &&
->  	    (!filter.family || filter.family == AF_PACKET) &&
-> -	    fnmatch(filter.label, RTA_DATA(tb[IFLA_IFNAME]), 0))
-> +	    fnmatch(filter.label, ifname, 0))
-> +		return 0;
+> +       paddr_end = paddr + (len /= sizeof(*paddr));
+> +       while (paddr + 1 < paddr_end) {
+> +               led_0_mode = be32_to_cpup(paddr++);
+> +               led_1_mode = be32_to_cpup(paddr++);
+> +       }
 > +
-> +	if (!filter.ifindex && *ifname == '.' && !show_all)
->  		return 0;
->  
->  	if (tb[IFLA_GROUP]) {
-> @@ -806,8 +824,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
->  		fprintf(fp, "Deleted ");
->  
->  	fprintf(fp, "%d: ", ifi->ifi_index);
-> -	color_fprintf(fp, COLOR_IFNAME, "%s",
-> -		      tb[IFLA_IFNAME] ? rta_getattr_str(tb[IFLA_IFNAME]) : "<nil>");
-> +	color_fprintf(fp, COLOR_IFNAME, "%s", ifname);
->  
->  	if (tb[IFLA_LINK]) {
->  		SPRINT_BUF(b1);
-> diff --git a/man/man8/ip.8 b/man/man8/ip.8
-> index 8ecb1996da92..813dbec2a6f2 100644
-> --- a/man/man8/ip.8
-> +++ b/man/man8/ip.8
-> @@ -31,6 +31,7 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
->  \fB\-h\fR[\fIuman-readable\fR] |
->  \fB\-s\fR[\fItatistics\fR] |
->  \fB\-d\fR[\fIetails\fR] |
-> +\fB\-a\fR[\fll\fR] |
->  \fB\-r\fR[\fIesolve\fR] |
->  \fB\-iec\fR |
->  \fB\-f\fR[\fIamily\fR] {
-> @@ -84,6 +85,10 @@ As a rule, the information is statistics or some time values.
->  Output more detailed information.
->  
->  .TP
-> +.BR "\-a" , " \-all"
-> +Show all devices, do not ignore entries starting with period.
+> +       if (!len && (led_0_mode > 15 || led_0_mode == 7 || led_0_mode == 11)) {
+> +               phydev_err(phydev, "DT %s-0 invalid\n", led);
+>                 return -EINVAL;
+>         }
+> +       vsc8531->led_0_mode = led_0_mode;
+>
+> -       return led_mode;
+> +       if (!len && (led_1_mode > 15 || led_1_mode == 7 || led_1_mode == 11)) {
+> +               phydev_err(phydev, "DT %s-1 invalid\n", led);
+> +               return -EINVAL;
+> +       }
+> +       vsc8531->led_1_mode = led_1_mode;
 > +
-> +.TP
->  .BR "\-l" , " \-loops " <COUNT>
->  Specify maximum number of loops the 'ip address flush' logic
->  will attempt before giving up. The default is 10.
+> +       return 0;
+>  }
+>
+>  #else
+> @@ -641,17 +659,9 @@ static int vsc85xx_probe(struct phy_device *phydev)
+>         vsc8531->rate_magic = rate_magic;
+>
+>         /* LED[0] and LED[1] mode */
+> -       led_mode = vsc85xx_dt_led_mode_get(phydev, "vsc8531,led-0-mode",
+> -                                          VSC8531_LINK_1000_ACTIVITY);
+> -       if (led_mode < 0)
+> -               return led_mode;
+> -       vsc8531->led_0_mode = led_mode;
+> -
+> -       led_mode = vsc85xx_dt_led_mode_get(phydev, "vsc8531,led-1-mode",
+> -                                          VSC8531_LINK_100_ACTIVITY);
+> +       led_mode = vsc85xx_dt_led_mode_get(phydev, "mscc,led-mode");
+>         if (led_mode < 0)
+>                 return led_mode;
+> -       vsc8531->led_1_mode = led_mode;
+>
+>         return 0;
+>  }
+> --
+> 2.7.4
+>
