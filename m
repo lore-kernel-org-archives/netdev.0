@@ -1,83 +1,77 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [bug report] rhashtable: Add nested tables
-Date: Sat, 25 Feb 2017 22:38:11 +0800
-Message-ID: <20170225143811.GA28272@gondor.apana.org.au>
-References: <20170216121703.GA26276@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-        Thomas Graf <tgraf@suug.ch>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net] xfrm: provide correct dst in xfrm_neigh_lookup
+Date: Sat, 25 Feb 2017 17:57:43 +0200
+Message-ID: <1488038263-12447-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org,
+        Steffen Klassert <steffen.klassert@secunet.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:38269 "EHLO
-        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751169AbdBYO6j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2017 09:58:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20170216121703.GA26276@mwanda>
+Received: from ja.ssi.bg ([178.16.129.10]:54151 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751231AbdBYQD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 25 Feb 2017 11:03:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2017 at 03:17:03PM +0300, Dan Carpenter wrote:
-> Hello Herbert Xu,
-> 
-> This is a semi-automatic email about new static checker warnings.
-> 
-> The patch 40137906c5f5: "rhashtable: Add nested tables" from Feb 11, 
-> 2017, leads to the following Smatch complaint:
-> 
-> lib/rhashtable.c:149 bucket_table_free()
-> 	 warn: variable dereferenced before check 'tbl' (see line 146)
-> 
-> lib/rhashtable.c
->    145	{
->    146		if (tbl->nest)
->                     ^^^^^^^^^
-> New unchecked dereference.
-> 
->    147			nested_bucket_table_free(tbl);
->    148	
->    149		if (tbl)
->                     ^^^
-> Old code checked for NULL.
-> 
->    150			kvfree(tbl->locks);
->    151	
+Fix xfrm_neigh_lookup to provide dst->path to the
+neigh_lookup dst_ops method.
 
-Thanks for catching this.  I checked all the callers and none
-of them can provide a NULL pointer so let's just kill the check.
+When skb is provided, the IP address in packet should already
+match the dst->path address family. But for the non-skb case,
+we should consider the last tunnel address as nexthop address.
 
----8<---
-Subject: rhashtable: Fix use before NULL check in bucket_table_free
-
-Dan Carpenter reported a use before NULL check bug in the function
-bucket_table_free.  In fact we don't need the NULL check at all as
-no caller can provide a NULL argument.  So this patch fixes this by
-simply removing it.
-
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Fixes: f894cbf847c9 ("net: Add optional SKB arg to dst_ops->neigh_lookup().")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
+ net/xfrm/xfrm_policy.c | 29 +++++++++++++++++++++--------
+ 1 file changed, 21 insertions(+), 8 deletions(-)
 
- lib/rhashtable.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 172454e..fac1a78 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -146,9 +146,7 @@ static void bucket_table_free(const struct bucket_table *tbl)
- 	if (tbl->nest)
- 		nested_bucket_table_free(tbl);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 5f3e878..0806dcc 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2836,14 +2836,8 @@ static unsigned int xfrm_mtu(const struct dst_entry *dst)
+ 	return mtu ? : dst_mtu(dst->path);
+ }
  
--	if (tbl)
--		kvfree(tbl->locks);
+-static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
+-					   struct sk_buff *skb,
+-					   const void *daddr)
+-{
+-	return dst->path->ops->neigh_lookup(dst, skb, daddr);
+-}
 -
-+	kvfree(tbl->locks);
- 	kvfree(tbl);
+-static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
++static const void *xfrm_get_dst_nexthop(const struct dst_entry *dst,
++					const void *daddr)
+ {
+ 	const struct dst_entry *path = dst->path;
+ 
+@@ -2857,6 +2851,25 @@ static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
+ 		else if (!(xfrm->type->flags & XFRM_TYPE_LOCAL_COADDR))
+ 			daddr = &xfrm->id.daddr;
+ 	}
++	return daddr;
++}
++
++static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
++					   struct sk_buff *skb,
++					   const void *daddr)
++{
++	const struct dst_entry *path = dst->path;
++
++	if (!skb)
++		daddr = xfrm_get_dst_nexthop(dst, daddr);
++	return path->ops->neigh_lookup(path, skb, daddr);
++}
++
++static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
++{
++	const struct dst_entry *path = dst->path;
++
++	daddr = xfrm_get_dst_nexthop(dst, daddr);
+ 	path->ops->confirm_neigh(path, daddr);
  }
  
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.9.3
