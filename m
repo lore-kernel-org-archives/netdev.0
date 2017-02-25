@@ -1,177 +1,212 @@
-From: Mathias Nyman <m.nyman@iki.fi>
-Subject: Re: [PATCH 1/1] color: use "light" colors for dark background
-Date: Sat, 25 Feb 2017 19:29:58 +0200
-Message-ID: <20170225172958.GA26279@iki.fi>
-References: <20170224101312.31538-1-pvorel@suse.cz>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] iproute2: show network device dependency tree
+Date: Sat, 25 Feb 2017 18:39:27 +0100
+Message-ID: <20170225173927.GA2479@nanopsycho>
+References: <20170225165900.10129-1-zaboj.campula@post.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org,
-        Yegor Yefremov <yegorslists@googlemail.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Petr Vorel <pvorel@suse.cz>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Zaboj Campula <zaboj.campula@post.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kapsi.fi ([217.30.184.167]:58304 "EHLO mail.kapsi.fi"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751356AbdBYRaC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 25 Feb 2017 12:30:02 -0500
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34549 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751231AbdBYRkI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2017 12:40:08 -0500
+Received: by mail-wm0-f67.google.com with SMTP id m70so7441183wma.1
+        for <netdev@vger.kernel.org>; Sat, 25 Feb 2017 09:39:30 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20170224101312.31538-1-pvorel@suse.cz>
+In-Reply-To: <20170225165900.10129-1-zaboj.campula@post.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-02-24 11:13+0100, Petr Vorel wrote:
->COLORFGBG environment variable is used to detect dark background.
+Sat, Feb 25, 2017 at 05:59:00PM CET, zaboj.campula@post.cz wrote:
+>Add the argument '-tree' to ip-link to show network devices dependency tree.
 >
->Idea and a bit of code is borrowed from Vim, thanks.
+>Example:
 >
->Signed-off-by: Petr Vorel <pvorel@suse.cz>
+>$ ip -tree link
+>eth0
+>    bond0
+>eth1
+>    bond0
+>eth2
+>    bond1
+>eth3
+>    bond1
+
+
+Hmm, what is this good for? I'm probably missing something...
+
+
+
+>
+>Signed-off-by: Zaboj Campula <zaboj.campula@post.cz>
 >---
->Colors are nice, but the ones chosen aren't suitable for dark background.
-
-Yea, I admit, the original color palette is kind of horrendous. I
-wouldn't say the current colors are suitable for a light background
-either.
-
-I propose you just replace the current colors with their bold
-variants, and leave the background hue guessing out all together. That
-would be an all-round improvement for everyone.
-
-I'll include some comments on this patch-set anyway, as I had a look
-at it.
-
->COLORFGBG environment variable is used in some libraries and software (e.g.
->ncurses, Vim). COLORFGBG is set by various terminal emulators (e.g. konsole,
->rxvt and rxvt-unicode).
+> include/utils.h |  1 +
+> ip/ip.c         |  5 ++-
+> ip/ipaddress.c  | 97 ++++++++++++++++++++++++++++++++++++++++++++++++---------
+> 3 files changed, 87 insertions(+), 16 deletions(-)
 >
->Chosen colors are questionable. Best solution would be also allow user to
->redefine colors, like ls does with LS_COLORS or grep with GREP_COLORS. But that
->is maybe overkill.
->---
-> include/color.h |  1 +
-> lib/color.c     | 43 ++++++++++++++++++++++++++++++++++++++++++-
-> 2 files changed, 43 insertions(+), 1 deletion(-)
->
->diff --git a/include/color.h b/include/color.h
->index c1c29831..43190db4 100644
->--- a/include/color.h
->+++ b/include/color.h
->@@ -12,6 +12,7 @@ enum color_attr {
-> };
->
-> void enable_color(void);
->+void set_background(void);
-> int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...);
-> enum color_attr ifa_family_color(__u8 ifa_family);
-> enum color_attr oper_state_color(__u8 state);
->diff --git a/lib/color.c b/lib/color.c
->index 95596be2..69375b26 100644
->--- a/lib/color.c
->+++ b/lib/color.c
->@@ -1,5 +1,7 @@
-> #include <stdio.h>
-> #include <stdarg.h>
->+#include <stdlib.h>
->+#include <string.h>
-> #include <sys/socket.h>
-> #include <sys/types.h>
-> #include <linux/if.h>
->@@ -14,6 +16,12 @@ enum color {
-> 	C_MAGENTA,
-> 	C_CYAN,
-> 	C_WHITE,
->+	C_LIGHT_RED,
->+	C_LIGHT_GREEN,
->+	C_LIGHT_YELLOW,
->+	C_LIGHT_BLUE,
->+	C_LIGHT_MAGENTA,
->+	C_LIGHT_CYAN,
-
-You have missed to add C_LIGHT_WHITE here.
-
-The naming is also confusing, because while you say "light", the
-colors defined below are actually _bold_. They may have an lightening
-effect, but this naming is just confusing in the code.
-
-> 	C_CLEAR
-> };
->
->@@ -25,25 +33,58 @@ static const char * const color_codes[] = {
-> 	"\e[35m",
-> 	"\e[36m",
-> 	"\e[37m",
->+	"\e[1;31m",
->+	"\e[1;32m",
->+	"\e[1;33m",
->+	"\e[1;34m",
->+	"\e[1;35m",
->+	"\e[1;36m",
-
-You have also missed to add the white color ("\e[1;37m",) here as
-well.
-
-> 	"\e[0m",
-> 	NULL,
-> };
->
-> static enum color attr_colors[] = {
->+	/* light background */
-> 	C_CYAN,
-> 	C_YELLOW,
-> 	C_MAGENTA,
-> 	C_BLUE,
-> 	C_GREEN,
-> 	C_RED,
->+	C_CLEAR,
->+
->+	/* dark background */
->+	C_LIGHT_CYAN,
->+	C_LIGHT_YELLOW,
->+	C_LIGHT_MAGENTA,
->+	C_LIGHT_BLUE,
->+	C_LIGHT_GREEN,
->+	C_LIGHT_RED,
-> 	C_CLEAR
-> };
->
->+static int is_dark_bg;
-> static int color_is_enabled;
->
-> void enable_color(void)
-> {
-> 	color_is_enabled = 1;
->+	set_background();
+>diff --git a/include/utils.h b/include/utils.h
+>index 22369e0..f1acf4d 100644
+>--- a/include/utils.h
+>+++ b/include/utils.h
+>@@ -20,6 +20,7 @@ extern int show_raw;
+> extern int resolve_hosts;
+> extern int oneline;
+> extern int brief;
+>+extern int tree;;
+> extern int timestamp;
+> extern int timestamp_short;
+> extern const char * _SL_;
+>diff --git a/ip/ip.c b/ip/ip.c
+>index 07050b0..29747a5 100644
+>--- a/ip/ip.c
+>+++ b/ip/ip.c
+>@@ -33,6 +33,7 @@ int show_details;
+> int resolve_hosts;
+> int oneline;
+> int brief;
+>+int tree;
+> int timestamp;
+> const char *_SL_;
+> int force;
+>@@ -57,7 +58,7 @@ static void usage(void)
+> "                    -h[uman-readable] | -iec |\n"
+> "                    -f[amily] { inet | inet6 | ipx | dnet | mpls | bridge | link } |\n"
+> "                    -4 | -6 | -I | -D | -B | -0 |\n"
+>-"                    -l[oops] { maximum-addr-flush-attempts } | -br[ief] |\n"
+>+"                    -l[oops] { maximum-addr-flush-attempts } | -br[ief] | -tr[ee] |\n"
+> "                    -o[neline] | -t[imestamp] | -ts[hort] | -b[atch] [filename] |\n"
+> "                    -rc[vbuf] [size] | -n[etns] name | -a[ll] | -c[olor]}\n");
+> 	exit(-1);
+>@@ -257,6 +258,8 @@ int main(int argc, char **argv)
+> 			batch_file = argv[1];
+> 		} else if (matches(opt, "-brief") == 0) {
+> 			++brief;
+>+		} else if (matches(opt, "-tree") == 0) {
+>+			++tree;
+> 		} else if (matches(opt, "-rcvbuf") == 0) {
+> 			unsigned int size;
+> 
+>diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+>index 242c6ea..5ebcb1a 100644
+>--- a/ip/ipaddress.c
+>+++ b/ip/ipaddress.c
+>@@ -1534,6 +1534,69 @@ static int iplink_filter_req(struct nlmsghdr *nlh, int reqlen)
+> 	return 0;
+> }
+> 
+>+static int has_master(struct nlmsg_chain *linfo, int index)
+>+{
+>+	struct nlmsg_list *l;
+>+	struct rtattr *tb[IFLA_MAX+1];
+>+	int len;
+>+	for (l = linfo->head; l; l = l->next) {
+>+		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+>+		len = l->h.nlmsg_len;
+>+		len -= NLMSG_LENGTH(sizeof(*ifi));
+>+		parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+>+		if (tb[IFLA_MASTER] && *(int *)RTA_DATA(tb[IFLA_MASTER]) == index)
+>+			return 1;
+>+	}
+>+	return 0;
 >+}
 >+
->+void set_background(void)
-
-The function name is a bit misleading. Only after reading the whole
-function did I understand that what you do here is choose the color
-palette - not set the background.
-
+>+static struct nlmsg_list *get_master(struct nlmsg_chain *linfo, struct rtattr **tb)
 >+{
->+	char *p = getenv("COLORFGBG");
+>+	struct nlmsg_list *l;
+>+	if (tb[IFLA_MASTER]) {
+>+		int master = *(int *)RTA_DATA(tb[IFLA_MASTER]);
+>+		for (l = linfo->head; l; l = l->next) {
+>+			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+>+			if (ifi->ifi_index == master)
+>+				return l;
+>+		}
+>+	}
+>+	return NULL;
+>+}
 >+
->+	/*
->+	 * COLORFGBG environment variable usually contains either two or three
->+	 * values separated by semicolons; we want the last value in either case.
->+	 * If this value is 0-6 or 8, background is dark.
->+	 */
->+	if (p && (p = (char *)strrchr(p, ';')) != NULL
->+		&& ((p[1] >= '0' && p[1] <= '6') || p[1] == '8')
->+		&& p[2] == '\0')
->+		is_dark_bg = 1;
-> }
->
-> int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
->@@ -58,7 +99,7 @@ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
-> 		goto end;
+>+static void print_dev_tree_item(struct nlmsg_chain *linfo, struct nlmsg_list *l, int indent) {
+>+	char *name;
+>+	int len;
+>+	struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+>+	struct rtattr *tb[IFLA_MAX+1];
+>+	len = l->h.nlmsg_len;
+>+	len -= NLMSG_LENGTH(sizeof(*ifi));
+>+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+>+	name = (char *)(tb[IFLA_IFNAME] ? rta_getattr_str(tb[IFLA_IFNAME]) : "<nil>");
+>+
+>+	printf("%*s%s\n", indent * 4, "", name);
+>+
+>+	struct nlmsg_list *master = get_master(linfo, tb);
+>+	if (master) {
+>+		if (indent > 8) {
+>+			printf("%*s...\n", (indent + 1) * 4, "");
+>+		} else {
+>+			print_dev_tree_item(linfo, master, indent + 1);
+>+		}
+>+	}
+>+}
+>+
+>+static void print_devtree(struct nlmsg_chain *linfo)
+>+{
+>+	struct nlmsg_list *l;
+>+	for (l = linfo->head; l; l = l->next) {
+>+		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+>+		if (!has_master(linfo, ifi->ifi_index)) {
+>+			print_dev_tree_item(linfo, l, 0);
+>+		}
+>+	}
+>+}
+>+
+> static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+> {
+> 	struct nlmsg_chain linfo = { NULL, NULL};
+>@@ -1742,23 +1805,27 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+> 		ipaddr_filter(&linfo, &ainfo);
 > 	}
->
->-	ret += fprintf(fp, "%s", color_codes[attr_colors[attr]]);
->+	ret += fprintf(fp, "%s", color_codes[attr_colors[is_dark_bg ? attr + 7 : attr]]);
-> 	ret += vfprintf(fp, fmt, args);
-> 	ret += fprintf(fp, "%s", color_codes[C_CLEAR]);
->
+> 
+>-	for (l = linfo.head; l; l = l->next) {
+>-		int res = 0;
+>-		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+>-
+>-		if (brief) {
+>-			if (print_linkinfo_brief(NULL, &l->h, stdout) == 0)
+>+	if (tree) {
+>+		print_devtree(&linfo);
+>+	} else {
+>+		for (l = linfo.head; l; l = l->next) {
+>+			int res = 0;
+>+			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+>+
+>+			 if (brief) {
+>+				if (print_linkinfo_brief(NULL, &l->h, stdout) == 0)
+>+					if (filter.family != AF_PACKET)
+>+						print_selected_addrinfo(ifi,
+>+									ainfo.head,
+>+									stdout);
+>+			} else if (no_link ||
+>+				 (res = print_linkinfo(NULL, &l->h, stdout)) >= 0) {
+> 				if (filter.family != AF_PACKET)
+> 					print_selected_addrinfo(ifi,
+>-								ainfo.head,
+>-								stdout);
+>-		} else if (no_link ||
+>-			 (res = print_linkinfo(NULL, &l->h, stdout)) >= 0) {
+>-			if (filter.family != AF_PACKET)
+>-				print_selected_addrinfo(ifi,
+>-							ainfo.head, stdout);
+>-			if (res > 0 && !do_link && show_stats)
+>-				print_link_stats(stdout, &l->h);
+>+								ainfo.head, stdout);
+>+				if (res > 0 && !do_link && show_stats)
+>+					print_link_stats(stdout, &l->h);
+>+			}
+> 		}
+> 	}
+> 	fflush(stdout);
 >-- 
->2.11.0
+>2.9.3
 >
