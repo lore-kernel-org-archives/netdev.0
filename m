@@ -1,116 +1,124 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net-next 2/2] sctp: add support for MSG_MORE
-Date: Sat, 25 Feb 2017 16:41:34 +0800
-Message-ID: <CADvbK_eauYUyUWMAn8Zkpk5hNnK-GDNO+3NCeuA-y=Y7SFnv5A@mail.gmail.com>
-References: <cover.1487440272.git.lucien.xin@gmail.com> <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
- <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
- <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [rhashtable] 5d60de5ff1 [ INFO: suspicious RCU usage. ]
+Date: Sat, 25 Feb 2017 22:39:50 +0800
+Message-ID: <20170225143950.GB28272@gondor.apana.org.au>
+References: <20170218052331.dlr4si7gbhnukewb@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKP <lkp@01.org>, netdev@vger.kernel.org,
+        Thomas Graf <tgraf@suug.ch>
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:35644 "EHLO
-        mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751624AbdBYIuT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2017 03:50:19 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:48347 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751282AbdBYOkM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2017 09:40:12 -0500
+Content-Disposition: inline
+In-Reply-To: <20170218052331.dlr4si7gbhnukewb@wfg-t540p.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 24, 2017 at 6:14 PM, David Laight <David.Laight@aculab.com> wrote:
->
-> From: Xin Long
-> > Sent: 24 February 2017 06:44
-> ...
-> > > IIRC sctp_packet_can_append_data() is called for the first queued
-> > > data chunk in order to decide whether to generate a message that
-> > > consists only of data chunks.
-> > > If it returns SCTP_XMIT_OK then a message is built collecting the
-> > > rest of the queued data chunks (until the window fills).
-> > >
-> > > So if I send a message with MSG_MORE set (on an idle connection)
-> > > SCTP_XMIT_DELAY is returned and a message isn't sent.
-> > >
-> > > I now send a second small message, this time with MSG_MORE clear.
-> > > The message is queued, then the code looks to see if it can send anything.
-> > >
-> > > sctp_packet_can_append_data() is called for the first queued chunk.
-> > > Since it has force_delay set SCTP_XMIT_DELAY is returned and no
-> > > message is built.
-> > > The second message isn't even looked at.
-> > You're right. I can see the problem now.
-> >
-> > What I expected is it should work like:
-> >
-> > 1, send 3 small chunks with MSG_MORE set, the queue is:
-> >   chk3 [set] -> chk2 [set] -> chk1 [set]
->
-> Strange way to write a queue! chk1 points to chk2 :-)
-haha, just  a model.
+On Sat, Feb 18, 2017 at 01:23:31PM +0800, Fengguang Wu wrote:
+> Greetings,
+> 
+> 0day kernel testing robot got the below dmesg and the first bad commit is
+> 
+> https://github.com/0day-ci/linux Herbert-Xu/rhashtable-Handle-table-allocation-failure-during-insertion/20170212-030221
+> 
+> commit 5d60de5ff12fb1e966c863bcb41c1e2bdde66c50
+> Author:     Herbert Xu <herbert@gondor.apana.org.au>
+> AuthorDate: Sat Feb 11 19:26:47 2017 +0800
+> Commit:     0day robot <fengguang.wu@intel.com>
+> CommitDate: Sun Feb 12 03:02:26 2017 +0800
+> 
+>      rhashtable: Add nested tables
+>      
+>      This patch adds code that handles GFP_ATOMIC kmalloc failure on
+>      insertion.  As we cannot use vmalloc, we solve it by making our
+>      hash table nested.  That is, we allocate single pages at each level
+>      and reach our desired table size by nesting them.
+>      
+>      When a nested table is created, only a single page is allocated
+>      at the top-level.  Lower levels are allocated on demand during
+>      insertion.  Therefore for each insertion to succeed, only two
+>      (non-consecutive) pages are needed.
+>      
+>      After a nested table is created, a rehash will be scheduled in
+>      order to switch to a vmalloced table as soon as possible.  Also,
+>      the rehash code will never rehash into a nested table.  If we
+>      detect a nested table during a rehash, the rehash will be aborted
+>      and a new rehash will be scheduled.
+>      
+>      Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> +------------------------------------------------------------------+------------+------------+------------------+
+> |                                                                  | eadcee1e3a | 5d60de5ff1 | v4.10-rc8_021716 |
+> +------------------------------------------------------------------+------------+------------+------------------+
+> | boot_successes                                                   | 0          | 0          | 9                |
+> | boot_failures                                                    | 177        | 48         | 82               |
+> | Kernel_panic-not_syncing:softlockup:hung_tasks                   | 177        | 48         | 14               |
+> | INFO:suspicious_RCU_usage                                        | 0          | 39         | 64               |
+> | BUG:KASAN:user-memory-access_on_address                          | 0          | 0          | 16               |
+> | BUG:unable_to_handle_kernel                                      | 0          | 0          | 18               |
+> | Oops                                                             | 0          | 0          | 18               |
+> | Kernel_panic-not_syncing:Fatal_exception                         | 0          | 0          | 18               |
+> | BUG:kernel_hang_in_test_stage                                    | 0          | 0          | 19               |
+> | WARNING:at_kernel/sched/sched.h:#set_next_entity                 | 0          | 0          | 15               |
+> | INFO:possible_circular_locking_dependency_detected               | 0          | 0          | 4                |
+> | WARNING:at_include/linux/cpumask.h:#find_get_context             | 0          | 0          | 2                |
+> | invoked_oom-killer:gfp_mask=0x                                   | 0          | 0          | 4                |
+> | Mem-Info                                                         | 0          | 0          | 4                |
+> | Kernel_panic-not_syncing:Out_of_memory_and_no_killable_processes | 0          | 0          | 4                |
+> | Kernel_panic-not_syncing:Attempted_to_kill_init!exitcode=        | 0          | 0          | 7                |
+> +------------------------------------------------------------------+------------+------------+------------------+
+> 
+> [    9.022401] Testing concurrent rhashtable access from 10 threads
+> [   15.800003] 
+> [   15.801145] ===============================
+> [   15.801802] [ INFO: suspicious RCU usage. ]
+> [   15.802476] 4.10.0-rc7-00090-g5d60de5 #1 Not tainted
+> [   15.803235] -------------------------------
+> [   15.803866] lib/rhashtable.c:1126 suspicious rcu_dereference_protected() usage!
 
->
-> > 2. send 1 more chunk with MSG_MORE clear, the queue is:
-> >   chk4[clear] -> chk3 [clear] -> chk2 [clear] -> chk1 [clear]
->
-> I don't think processing the entire queue is a good idea.
-> Both from execution time and the effects on the data cache.
-> The SCTP code is horrid enough as it is.
-you check the codes in last email, it's not processing the entire queue.
+Sorry, I chose the wrong annotation to fix the previous report.
+This patch should fix it completely.
 
-1). only when queue has delay chunk inside by checking queue->has_delay
-    and current chunk has msg_more flag.
+---8<---
+Subject: rhashtable: Fix RCU dereference annotation in rht_bucket_nested
 
-2). will break on the first chunk with clear in the queue.
+The current annotation is wrong as it says that we're only called
+under spinlock.  In fact it should be marked as under either
+spinlock or RCU read lock.
 
-but yes, in 2), extra work has to be done than before, but not much.
+Fixes: da20420f83ea ("rhashtable: Add nested tables")
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
->
-> > 3. then if user send more small chunks with MSG_MORE set,
-> > the queue is like:
-> >   chkB[set] -> chkA[set] -> chk4[clear] -> chk3 [clear] -> chk2 [clear] -> chk1 [clear]
-> > so that the new small chunks' flag will not affect the other chunks bundling.
->
-> That isn't really necessary.
-> The user can't expect to have absolute control over which chunks get bundled
-> together.
-> If the above chunks still aren't big enough to fill a frame the code might
-> as well wait for the next chunk instead of building a packet that contains
-> chk1 through to chkB.
->
-> Remember you'll only get a queued chunk with MSG_MORE clear if data can't be sent.
-> As soon as data can be sent, if the first chunk has MSG_MORE clear all of the
-> queued chunks will be sent.
->
-> So immediately after your (3) the application is expected to send a chunk
-> with MSG_MORE clear - at that point all the queued chunks can be sent in
-> a single packet.
-understand this.
+ lib/rhashtable.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-what I'm worried about is if the msg_more is saved in assoc:
-     chk4[clear] -> chk3 [clear] -> chk2 [clear] -> chk1 [clear]
-then when you send a small chkA with MSG_MORE,
-the queue will be like:
-     chkA [set] -> chk4[set] -> chk3 [set] -> chk2 [set] -> chk1 [set]
-because msg_more is saved in assoc, every chunk can look at it.
-chk1 - chk4 are big enough to be packed into a packet, they were
-not sent last time because a lot of chunks are in the retransmit
-queue.
-
-But now even if retransmit queue is null, chk1-chk4 are still blocked.
-
-can you accept that chkA may block the old chunks ?
-
->
-> So just save the last MSG_MORE on the association as I did.
-I will think about it, thanks.
-
->
->         David
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index fac1a78..c5b9b93 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -1121,12 +1121,13 @@ struct rhash_head __rcu **rht_bucket_nested(const struct bucket_table *tbl,
+ 	union nested_table *ntbl;
+ 
+ 	ntbl = (union nested_table *)rcu_dereference_raw(tbl->buckets[0]);
+-	ntbl = rht_dereference_bucket(ntbl[index].table, tbl, hash);
++	ntbl = rht_dereference_bucket_rcu(ntbl[index].table, tbl, hash);
+ 	subhash >>= tbl->nest;
+ 
+ 	while (ntbl && size > (1 << shift)) {
+ 		index = subhash & ((1 << shift) - 1);
+-		ntbl = rht_dereference_bucket(ntbl[index].table, tbl, hash);
++		ntbl = rht_dereference_bucket_rcu(ntbl[index].table,
++						  tbl, hash);
+ 		size >>= shift;
+ 		subhash >>= shift;
+ 	}
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
