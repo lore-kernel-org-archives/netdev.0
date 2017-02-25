@@ -1,212 +1,37 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] iproute2: show network device dependency tree
-Date: Sat, 25 Feb 2017 18:39:27 +0100
-Message-ID: <20170225173927.GA2479@nanopsycho>
-References: <20170225165900.10129-1-zaboj.campula@post.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Zaboj Campula <zaboj.campula@post.cz>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH] net: s2io: fix typo argumnet argument
+Date: Sat, 25 Feb 2017 21:12:41 +0100
+Message-ID: <20170225201241.30251-1-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: jdmason@kudzu.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34549 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35291 "EHLO
         mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751231AbdBYRkI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2017 12:40:08 -0500
-Received: by mail-wm0-f67.google.com with SMTP id m70so7441183wma.1
-        for <netdev@vger.kernel.org>; Sat, 25 Feb 2017 09:39:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170225165900.10129-1-zaboj.campula@post.cz>
+        with ESMTP id S1751929AbdBYUOs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2017 15:14:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Feb 25, 2017 at 05:59:00PM CET, zaboj.campula@post.cz wrote:
->Add the argument '-tree' to ip-link to show network devices dependency tree.
->
->Example:
->
->$ ip -tree link
->eth0
->    bond0
->eth1
->    bond0
->eth2
->    bond1
->eth3
->    bond1
+This commit fix the typo argumnet/argument
 
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/neterion/s2io.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hmm, what is this good for? I'm probably missing something...
-
-
-
->
->Signed-off-by: Zaboj Campula <zaboj.campula@post.cz>
->---
-> include/utils.h |  1 +
-> ip/ip.c         |  5 ++-
-> ip/ipaddress.c  | 97 ++++++++++++++++++++++++++++++++++++++++++++++++---------
-> 3 files changed, 87 insertions(+), 16 deletions(-)
->
->diff --git a/include/utils.h b/include/utils.h
->index 22369e0..f1acf4d 100644
->--- a/include/utils.h
->+++ b/include/utils.h
->@@ -20,6 +20,7 @@ extern int show_raw;
-> extern int resolve_hosts;
-> extern int oneline;
-> extern int brief;
->+extern int tree;;
-> extern int timestamp;
-> extern int timestamp_short;
-> extern const char * _SL_;
->diff --git a/ip/ip.c b/ip/ip.c
->index 07050b0..29747a5 100644
->--- a/ip/ip.c
->+++ b/ip/ip.c
->@@ -33,6 +33,7 @@ int show_details;
-> int resolve_hosts;
-> int oneline;
-> int brief;
->+int tree;
-> int timestamp;
-> const char *_SL_;
-> int force;
->@@ -57,7 +58,7 @@ static void usage(void)
-> "                    -h[uman-readable] | -iec |\n"
-> "                    -f[amily] { inet | inet6 | ipx | dnet | mpls | bridge | link } |\n"
-> "                    -4 | -6 | -I | -D | -B | -0 |\n"
->-"                    -l[oops] { maximum-addr-flush-attempts } | -br[ief] |\n"
->+"                    -l[oops] { maximum-addr-flush-attempts } | -br[ief] | -tr[ee] |\n"
-> "                    -o[neline] | -t[imestamp] | -ts[hort] | -b[atch] [filename] |\n"
-> "                    -rc[vbuf] [size] | -n[etns] name | -a[ll] | -c[olor]}\n");
-> 	exit(-1);
->@@ -257,6 +258,8 @@ int main(int argc, char **argv)
-> 			batch_file = argv[1];
-> 		} else if (matches(opt, "-brief") == 0) {
-> 			++brief;
->+		} else if (matches(opt, "-tree") == 0) {
->+			++tree;
-> 		} else if (matches(opt, "-rcvbuf") == 0) {
-> 			unsigned int size;
-> 
->diff --git a/ip/ipaddress.c b/ip/ipaddress.c
->index 242c6ea..5ebcb1a 100644
->--- a/ip/ipaddress.c
->+++ b/ip/ipaddress.c
->@@ -1534,6 +1534,69 @@ static int iplink_filter_req(struct nlmsghdr *nlh, int reqlen)
-> 	return 0;
-> }
-> 
->+static int has_master(struct nlmsg_chain *linfo, int index)
->+{
->+	struct nlmsg_list *l;
->+	struct rtattr *tb[IFLA_MAX+1];
->+	int len;
->+	for (l = linfo->head; l; l = l->next) {
->+		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
->+		len = l->h.nlmsg_len;
->+		len -= NLMSG_LENGTH(sizeof(*ifi));
->+		parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
->+		if (tb[IFLA_MASTER] && *(int *)RTA_DATA(tb[IFLA_MASTER]) == index)
->+			return 1;
->+	}
->+	return 0;
->+}
->+
->+static struct nlmsg_list *get_master(struct nlmsg_chain *linfo, struct rtattr **tb)
->+{
->+	struct nlmsg_list *l;
->+	if (tb[IFLA_MASTER]) {
->+		int master = *(int *)RTA_DATA(tb[IFLA_MASTER]);
->+		for (l = linfo->head; l; l = l->next) {
->+			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
->+			if (ifi->ifi_index == master)
->+				return l;
->+		}
->+	}
->+	return NULL;
->+}
->+
->+static void print_dev_tree_item(struct nlmsg_chain *linfo, struct nlmsg_list *l, int indent) {
->+	char *name;
->+	int len;
->+	struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
->+	struct rtattr *tb[IFLA_MAX+1];
->+	len = l->h.nlmsg_len;
->+	len -= NLMSG_LENGTH(sizeof(*ifi));
->+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
->+	name = (char *)(tb[IFLA_IFNAME] ? rta_getattr_str(tb[IFLA_IFNAME]) : "<nil>");
->+
->+	printf("%*s%s\n", indent * 4, "", name);
->+
->+	struct nlmsg_list *master = get_master(linfo, tb);
->+	if (master) {
->+		if (indent > 8) {
->+			printf("%*s...\n", (indent + 1) * 4, "");
->+		} else {
->+			print_dev_tree_item(linfo, master, indent + 1);
->+		}
->+	}
->+}
->+
->+static void print_devtree(struct nlmsg_chain *linfo)
->+{
->+	struct nlmsg_list *l;
->+	for (l = linfo->head; l; l = l->next) {
->+		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
->+		if (!has_master(linfo, ifi->ifi_index)) {
->+			print_dev_tree_item(linfo, l, 0);
->+		}
->+	}
->+}
->+
-> static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
-> {
-> 	struct nlmsg_chain linfo = { NULL, NULL};
->@@ -1742,23 +1805,27 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
-> 		ipaddr_filter(&linfo, &ainfo);
-> 	}
-> 
->-	for (l = linfo.head; l; l = l->next) {
->-		int res = 0;
->-		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
->-
->-		if (brief) {
->-			if (print_linkinfo_brief(NULL, &l->h, stdout) == 0)
->+	if (tree) {
->+		print_devtree(&linfo);
->+	} else {
->+		for (l = linfo.head; l; l = l->next) {
->+			int res = 0;
->+			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
->+
->+			 if (brief) {
->+				if (print_linkinfo_brief(NULL, &l->h, stdout) == 0)
->+					if (filter.family != AF_PACKET)
->+						print_selected_addrinfo(ifi,
->+									ainfo.head,
->+									stdout);
->+			} else if (no_link ||
->+				 (res = print_linkinfo(NULL, &l->h, stdout)) >= 0) {
-> 				if (filter.family != AF_PACKET)
-> 					print_selected_addrinfo(ifi,
->-								ainfo.head,
->-								stdout);
->-		} else if (no_link ||
->-			 (res = print_linkinfo(NULL, &l->h, stdout)) >= 0) {
->-			if (filter.family != AF_PACKET)
->-				print_selected_addrinfo(ifi,
->-							ainfo.head, stdout);
->-			if (res > 0 && !do_link && show_stats)
->-				print_link_stats(stdout, &l->h);
->+								ainfo.head, stdout);
->+				if (res > 0 && !do_link && show_stats)
->+					print_link_stats(stdout, &l->h);
->+			}
-> 		}
-> 	}
-> 	fflush(stdout);
->-- 
->2.9.3
->
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index c5c1d0e..118723e 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -5397,7 +5397,7 @@ static void s2io_ethtool_gdrvinfo(struct net_device *dev,
+  *  s2io_nic structure.
+  *  @regs : pointer to the structure with parameters given by ethtool for
+  *  dumping the registers.
+- *  @reg_space: The input argumnet into which all the registers are dumped.
++ *  @reg_space: The input argument into which all the registers are dumped.
+  *  Description:
+  *  Dumps the entire register space of xFrame NIC into the user given
+  *  buffer area.
+-- 
+2.10.2
