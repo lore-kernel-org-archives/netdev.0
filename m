@@ -1,75 +1,88 @@
-From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH v5 6/6] 6lowpan: Fix IID format for Bluetooth
-Date: Sun, 26 Feb 2017 07:25:03 +0100
-Message-ID: <145a7942-b86e-30e9-9542-187705c80fbf@pengutronix.de>
+From: Alexander Aring <aar@pengutronix.de>
+Subject: Re: [PATCH v5 4/6] ipv6: addrconf: fix 48 bit 6lowpan
+ autoconfiguration
+Date: Sun, 26 Feb 2017 07:38:38 +0100
+Message-ID: <973f0299-54ee-3625-6c96-98fa0daeba1b@pengutronix.de>
 References: <20170224121440.32269-1-luiz.dentz@gmail.com>
- <20170224121440.32269-7-luiz.dentz@gmail.com>
- <afc9cb44-edb6-287b-ce1d-da1c0974b5fa@pengutronix.de>
+ <20170224121440.32269-5-luiz.dentz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-86XOEIaZJ1VAfugRpC6u6w@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- 6lo-EgrivxUAwEY@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <6lo-bounces-EgrivxUAwEY@public.gmane.org>
-In-Reply-To: <afc9cb44-edb6-287b-ce1d-da1c0974b5fa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://www.ietf.org/mailman/options/6lo>,
- <mailto:6lo-request-EgrivxUAwEY@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://mailarchive.ietf.org/arch/browse/6lo/>
-List-Post: <mailto:6lo-EgrivxUAwEY@public.gmane.org>
-List-Help: <mailto:6lo-request-EgrivxUAwEY@public.gmane.org?subject=help>
-List-Subscribe: <https://www.ietf.org/mailman/listinfo/6lo>,
- <mailto:6lo-request-EgrivxUAwEY@public.gmane.org?subject=subscribe>
-Errors-To: 6lo-bounces-EgrivxUAwEY@public.gmane.org
-Sender: "6lo" <6lo-bounces-EgrivxUAwEY@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: linux-bluetooth@vger.kernel.org, patrik.flykt@linux.intel.com,
+        jukka.rissanen@linux.intel.com, stefan@osg.samsung.com,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org
+To: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:58493 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751567AbdBZGjA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 01:39:00 -0500
+In-Reply-To: <20170224121440.32269-5-luiz.dentz@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 Hi,
 
-On 02/26/2017 07:05 AM, Alexander Aring wrote:
-> 
-> Hi,
-> 
-> On 02/24/2017 01:14 PM, Luiz Augusto von Dentz wrote:
->> From: Luiz Augusto von Dentz <luiz.von.dentz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
->>
->> Accourding to RFC 7668 U/L bit shall not be used:
->>
->> https://wiki.tools.ietf.org/html/rfc7668#section-3.2.2 [Page 10]:
->>
->>    In the figure, letter 'b' represents a bit from the
->>    Bluetooth device address, copied as is without any changes on any
->>    bit.  This means that no bit in the IID indicates whether the
->>    underlying Bluetooth device address is public or random.
->>
->>    |0              1|1              3|3              4|4              6|
->>    |0              5|6              1|2              7|8              3|
->>    +----------------+----------------+----------------+----------------+
->>    |bbbbbbbbbbbbbbbb|bbbbbbbb11111111|11111110bbbbbbbb|bbbbbbbbbbbbbbbb|
->>    +----------------+----------------+----------------+----------------+
->>
->> Because of this the code cannot figure out the address type from the IP
->> address anymore thus it makes no sense to use peer_lookup_ba as it needs
->> the peer address type.
->>
-> 
-> I am still not quite 100% of this and want to leave my opinion about this
-> handling which can be interpreted in a different way.
-> 
-> The RFC says here:
-> 
-> Following the guidance of [RFC7136], a 64-bit
-> Interface Identifier (IID) is formed from the 48-bit Bluetooth device
-> address by inserting two octets, with hexadecimal values of 0xFF and
-> 0xFE in the middle of the 48-bit Bluetooth device address as shown in
-> Figure 6. 
+okay now I am finally confused.
 
-Okay, they said from IID from the 48-bit address. 
+On 02/24/2017 01:14 PM, Luiz Augusto von Dentz wrote:
+> From: Alexander Aring <aar@pengutronix.de>
+> 
+> This patch adds support for 48 bit 6LoWPAN address length
+> autoconfiguration which is the case for BTLE 6LoWPAN.
+> 
+> Signed-off-by: Alexander Aring <aar@pengutronix.de>
+> Signed-off-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
+> Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
+> ---
+>  net/ipv6/addrconf.c | 17 ++++++++++++-----
+>  1 file changed, 12 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 3a2025f..7756640 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2052,12 +2052,19 @@ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
+>  	__ipv6_dev_ac_dec(ifp->idev, &addr);
+>  }
+>  
+> -static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
+> +static int addrconf_ifid_6lowpan(u8 *eui, struct net_device *dev)
+>  {
+> -	if (dev->addr_len != EUI64_ADDR_LEN)
+> +	switch (dev->addr_len) {
+> +	case ETH_ALEN:
+> +		return addrconf_ifid_eui48(eui, dev);
 
-And IID is what you need here and what [RFC7136] describes as result,
-so I think you are right.
+You need to make the same thing here like what we discusss in antoher
+mail.
 
-There is no need for special u/l bitflip or link-layer multicast handling.
+   In the figure, letter 'b' represents a bit from the
+   Bluetooth device address, copied as is without any changes on any
+   bit.  This means that no bit in the IID indicates whether the
+   underlying Bluetooth device address is public or random.
+
+   |0              1|1              3|3              4|4              6|
+   |0              5|6              1|2              7|8              3|
+   +----------------+----------------+----------------+----------------+
+   |bbbbbbbbbbbbbbbb|bbbbbbbb11111111|11111110bbbbbbbb|bbbbbbbbbbbbbbbb|
+   +----------------+----------------+----------------+----------------+
+
+The function addrconf_ifid_eui48 will do a u/l bitflip. You need to change
+that otherwise transparent 6lowpan adaptiation will not match on your
+local address.
+
+Making u/l bit here, but not in IPHC code -> will not work together.
+
+---
+
+btw: That's why I think we should provide some function _once_ to
+generate the IID for iphc code and ipv6. Then such mistakes will not
+happen.
+
+So we don't want to have some module dependency of 6lowpan in ipv6.
+My first idea is to make a callback in 6lowpan private data of
+netdevice. :-/
 
 - Alex
