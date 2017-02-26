@@ -1,41 +1,43 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net] ipv4: mask tos for input route
-Date: Sun, 26 Feb 2017 17:14:35 +0200
-Message-ID: <1488122075-23952-1-git-send-email-ja@ssi.bg>
-Cc: netdev@vger.kernel.org, Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:51739 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752258AbdBZPRv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 26 Feb 2017 10:17:51 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] rtlwifi: rtl8192de: ix spelling mistake: "althougth" -> "although"
+Date: Sun, 26 Feb 2017 15:19:23 +0000
+Message-ID: <20170226151923.24669-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Oleg Drokin <green@linuxhacker.ru>,
+        Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Restore the lost masking of TOS in input route code to
-allow ip rules to match it properly.
+From: Colin Ian King <colin.king@canonical.com>
 
-Problem [1] noticed by Shmulik Ladkani <shmulik.ladkani@gmail.com>
+trivial fix to spelling mistake in RT_TRACE message
 
-[1] http://marc.info/?t=137331755300040&r=1&w=2
-
-Fixes: 89aef8921bfb ("ipv4: Delete routing cache.")
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- net/ipv4/route.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 584ed66..8471dd1 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2009,6 +2009,7 @@ int ip_route_input_noref(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- {
- 	int res;
- 
-+	tos &= IPTOS_RT_MASK;
- 	rcu_read_lock();
- 
- 	/* Multicast recognition logic is moved from route cache to here.
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
+index de98d88..dcb5d83 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
+@@ -812,7 +812,7 @@ bool rtl92d_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
+ 	 * pathA or mac1 has to set phy0&phy1 pathA */
+ 	if ((content == radiob_txt) && (rfpath == RF90_PATH_A)) {
+ 		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
+-			 " ===> althougth Path A, we load radiob.txt\n");
++			 " ===> although Path A, we load radiob.txt\n");
+ 		radioa_arraylen = radiob_arraylen;
+ 		radioa_array_table = radiob_array_table;
+ 	}
 -- 
-1.9.3
+2.10.2
