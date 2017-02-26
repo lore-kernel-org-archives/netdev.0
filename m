@@ -1,39 +1,95 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [PATCH 0/2] net: sched: make it possible to unhide default
- qdiscs
-Date: Sat, 25 Feb 2017 22:33:42 +0100 (CET)
-Message-ID: <alpine.LSU.2.20.1702252231510.24579@cbobk.fhfr.pm>
-References: <alpine.LSU.2.20.1702252220000.24579@cbobk.fhfr.pm>
+From: <scotte@kincaidlaw.com>
+Subject: 5294 netdev
+Date: Sun, 26 Feb 2017 01:09:47 -0000
+Message-ID: <148807138714.30107.4737507487128853979@saturn-internet.ru>
+Reply-To: <scotte@kincaidlaw.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Phil Sutter <phil@nwl.cc>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: application/zip; name="8079757975.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:38630 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752013AbdBYVek (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 25 Feb 2017 16:34:40 -0500
-In-Reply-To: <alpine.LSU.2.20.1702252220000.24579@cbobk.fhfr.pm>
+Received: from 178.161.230.133.dyn.v4.saturn-internet.ru ([178.161.230.133]:59700
+        "HELO saturn-internet.ru" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with SMTP id S1751784AbdBZBJu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2017 20:09:50 -0500
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 25 Feb 2017, Jiri Kosina wrote:
-
-> This is a followup to a patchset submitted back in October 2016
-
-No idea what happened that my usual patchset sending process broke and 
-there is no 'References/In-reply-to' in the actual patches :/ I will 
-investigate that. Please let me know in case you'd like a resend just 
-because of this.
-
-Sorry for the hassle,
-
--- 
-Jiri Kosina
-SUSE Labs
+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
+AABQSwUGAAAAAAEAAQBSAAAAnBAAAAAA
