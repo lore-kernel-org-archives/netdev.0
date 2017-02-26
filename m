@@ -1,39 +1,42 @@
-From: Colin Ian King <colin.king@canonical.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 Subject: Re: [PATCH][V2] rtlwifi: rtl8192de: ix spelling mistake: "althougth"
  -> "though"
-Date: Sun, 26 Feb 2017 18:53:27 +0000
-Message-ID: <f5c547b6-0470-8edf-d979-6a870dd03b78@canonical.com>
+Date: Sun, 26 Feb 2017 13:01:31 -0600
+Message-ID: <9ddfcfdc-42c6-e302-e12b-1f9660f20ad4@lwfinger.net>
 References: <20170226185246.28808-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Oleg Drokin <green@linuxhacker.ru>,
-        Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:45490 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751253AbdBZSzg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 13:55:36 -0500
-In-Reply-To: <20170226185246.28808-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+        Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Oleg Drokin <green-SOTZviwpzew/JUsKyNonYw@public.gmane.org>,
+        Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170226185246.28808-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 26/02/17 18:52, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
+On 02/26/2017 12:52 PM, Colin King wrote:
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+>
 > trivial fix to spelling mistake in RT_TRACE message
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > ---
 >  drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c | 2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
+
+Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+
+Thanks,
+
+Larry
+
+>
 > diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
 > index de98d88..dcb5d83 100644
 > --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
@@ -47,5 +50,4 @@ On 26/02/17 18:52, Colin King wrote:
 >  		radioa_arraylen = radiob_arraylen;
 >  		radioa_array_table = radiob_array_table;
 >  	}
-> 
-OOPS, ignore that.
+>
