@@ -1,43 +1,53 @@
-From: =?UTF-8?q?Paul=20H=C3=BCber?= <phueber@kernsp.in>
-Subject: [PATCH net] l2tp: avoid use-after-free caused by l2tp_ip_backlog_recv
-Date: Sun, 26 Feb 2017 17:58:19 +0100
-Message-ID: <20170226165819.27660-1-phueber@kernsp.in>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] rtlwifi: rtl8192de: ix spelling mistake: "althougth" ->
+ "although"
+Date: Sun, 26 Feb 2017 10:57:56 -0600
+Message-ID: <8f5d0d3b-b4ef-d9f4-50fa-e461760912fa@lwfinger.net>
+References: <20170226151923.24669-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from harbin.kernsp.in ([193.183.99.167]:40234 "EHLO harbin.kernsp.in"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750934AbdBZRGE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 26 Feb 2017 12:06:04 -0500
-Received: from fengshui.fritz.box (p578E7ED7.dip0.t-ipconnect.de [87.142.126.215])
-        by harbin.kernsp.in (Postfix) with ESMTPSA id 23F2F28023
-        for <netdev@vger.kernel.org>; Sun, 26 Feb 2017 16:57:16 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+        Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Oleg Drokin <green-SOTZviwpzew/JUsKyNonYw@public.gmane.org>,
+        Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170226151923.24669-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-l2tp_ip_backlog_recv may not return -1 if the packet gets dropped.
-The return value is passed up to ip_local_deliver_finish, which treats
-negative values as an IP protocol number for resubmission.
+On 02/26/2017 09:19 AM, Colin King wrote:
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+>
+> trivial fix to spelling mistake in RT_TRACE message
+>
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Signed-off-by: Paul Hüber <phueber@kernsp.in>
----
- net/l2tp/l2tp_ip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Bad fix. It should be althougth => through. Please read the context.
 
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index 28c21546d5b6..3ed30153a6f5 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -381,7 +381,7 @@ static int l2tp_ip_backlog_recv(struct sock *sk, struct sk_buff *skb)
- drop:
- 	IP_INC_STATS(sock_net(sk), IPSTATS_MIB_INDISCARDS);
- 	kfree_skb(skb);
--	return -1;
-+	return 0;
- }
- 
- /* Userspace will call sendmsg() on the tunnel socket to send L2TP
--- 
-2.11.1
+NACK.
+
+Larry
+
+> ---
+>  drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
+> index de98d88..dcb5d83 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
+> @@ -812,7 +812,7 @@ bool rtl92d_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
+>  	 * pathA or mac1 has to set phy0&phy1 pathA */
+>  	if ((content == radiob_txt) && (rfpath == RF90_PATH_A)) {
+>  		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
+> -			 " ===> althougth Path A, we load radiob.txt\n");
+> +			 " ===> although Path A, we load radiob.txt\n");
+>  		radioa_arraylen = radiob_arraylen;
+>  		radioa_array_table = radiob_array_table;
+>  	}
+>
