@@ -1,205 +1,46 @@
-From: Eddie Concepcion <econcepcion@yapinc.org>
-Subject: RE: FOR YOUR INFORMATION
-Date: Sun, 26 Feb 2017 14:37:10 +0000
-Message-ID: <AE0414252E7EFC4D84027DBBABF918500ED71570@exch2010BE1.yapinc.org>
-References: <AE0414252E7EFC4D84027DBBABF918500ED70188@exch2010BE1.yapinc.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] lib: fix spelling mistake: "actualy" -> "actually"
+Date: Sun, 26 Feb 2017 15:44:36 +0100
+Message-ID: <20170226144436.GA2071@nanopsycho.orion>
+References: <20170226121012.11766-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Eddie Concepcion <econcepcion@yapinc.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 50-203-159-65-static.hfc.comcastbusiness.net ([50.203.159.65]:61236
-        "HELO ES1100.YAPINC.ORG" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with SMTP id S1752355AbdBZOoA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 09:44:00 -0500
-In-Reply-To: <AE0414252E7EFC4D84027DBBABF918500ED70188@exch2010BE1.yapinc.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
-
-________________________________
-From: Eddie Concepcion
-Sent: Sunday, February 26, 2017 9:11 AM
-To: Eddie Concepcion
-Subject: FOR YOUR INFORMATION
-
-
-
-Hi,
-
-You have received a donation of 1,000,000USD; reply to merlebutler878@gmail.com, for details.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-CONFIDENTIALITY NOTICE: This email message, including any attachments, is for the sole use of the intended recipient(s) and may contain confidential and privileged information.  Any unauthorized use, disclosure or distribution is prohibited.  If you are not the intended recipient, please discard the message immediately and inform the sender that the message was sent in error.
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170226121012.11766-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Sun, Feb 26, 2017 at 01:10:12PM CET, colin.king@canonical.com wrote:
+>From: Colin Ian King <colin.king@canonical.com>
+>
+>trivial fix to spelling mistake in pr_err message
+>
+>Signed-off-by: Colin Ian King <colin.king@canonical.com>
+
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+
+
+>---
+> lib/test_parman.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/lib/test_parman.c b/lib/test_parman.c
+>index fe9f3a7..35e3224 100644
+>--- a/lib/test_parman.c
+>+++ b/lib/test_parman.c
+>@@ -334,7 +334,7 @@ static int test_parman_check_array(struct test_parman *test_parman,
+> 		last_priority = item->prio->priority;
+> 
+> 		if (item->parman_item.index != i) {
+>-			pr_err("Item has different index in compare to where it actualy is (%lu != %d)\n",
+>+			pr_err("Item has different index in compare to where it actually is (%lu != %d)\n",
+> 			       item->parman_item.index, i);
+> 			return -EINVAL;
+> 		}
+>-- 
+>2.10.2
+>
