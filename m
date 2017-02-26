@@ -1,63 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] iproute2: show network device dependency tree
-Date: Sun, 26 Feb 2017 15:46:10 +0100
-Message-ID: <20170226144610.GB2071@nanopsycho.orion>
-References: <20170225165900.10129-1-zaboj.campula@post.cz>
- <20170225173927.GA2479@nanopsycho>
- <1488054142.3856.15.camel@post.cz>
- <20170226075633.GA1788@nanopsycho>
- <1488117614.1903.2.camel@post.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, jbenc@redhat.com
-To: Zaboj Campula <zaboj.campula@post.cz>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net] ipv4: mask tos for input route
+Date: Sun, 26 Feb 2017 17:14:35 +0200
+Message-ID: <1488122075-23952-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org, Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33394 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752125AbdBZOqN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 09:46:13 -0500
-Received: by mail-wm0-f68.google.com with SMTP id v77so9763668wmv.0
-        for <netdev@vger.kernel.org>; Sun, 26 Feb 2017 06:46:12 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1488117614.1903.2.camel@post.cz>
+Received: from ja.ssi.bg ([178.16.129.10]:51739 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752258AbdBZPRv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 26 Feb 2017 10:17:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Feb 26, 2017 at 03:00:14PM CET, zaboj.campula@post.cz wrote:
->On Sun, 2017-02-26 at 08:56 +0100, Jiri Pirko wrote:
->> Sat, Feb 25, 2017 at 09:22:22PM CET, zaboj.campula@post.cz wrote:
->> > On Sat, 2017-02-25 at 18:39 +0100, Jiri Pirko wrote:
->> > > > Sat, Feb 25, 2017 at 05:59:00PM CET, zaboj.campula@post.cz
->> > > > wrote:
->> > > > Add the argument '-tree' to ip-link to show network devices
->> > > > dependency tree.
->> > > > 
->> > > > Example:
->> > > > 
->> > > > $ ip -tree link
->> > > > eth0
->> > > >    bond0
->> > > > eth1
->> > > >    bond0
->> > > > eth2
->> > > >    bond1
->> > > > eth3
->> > > >    bond1
->> > > 
->> > > 
->> > > Hmm, what is this good for? I'm probably missing something...
->> > 
->> > I consider this kind of output useful when troubleshooting a complex
->> > configuration with many interfaces. It may show relations among
->> > interfaces.
->> 
->> Did you see https://github.com/jbenc/plotnetcfg ?
->> 
->
->Thanks for the link. I haven't seen plotnetcfg and I like it.
->It is handy when the analyzed system has GUI.
+Restore the lost masking of TOS in input route code to
+allow ip rules to match it properly.
 
-You can also run it remotelly. Also I believe that you can catch the
-state into some dump file and process it later on. Not 100% sure though.
-Ccing Jiri Benc who is the original author of plotnetcfg.
+Problem [1] noticed by Shmulik Ladkani <shmulik.ladkani@gmail.com>
+
+[1] http://marc.info/?t=137331755300040&r=1&w=2
+
+Fixes: 89aef8921bfb ("ipv4: Delete routing cache.")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/ipv4/route.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 584ed66..8471dd1 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2009,6 +2009,7 @@ int ip_route_input_noref(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ {
+ 	int res;
+ 
++	tos &= IPTOS_RT_MASK;
+ 	rcu_read_lock();
+ 
+ 	/* Multicast recognition logic is moved from route cache to here.
+-- 
+1.9.3
