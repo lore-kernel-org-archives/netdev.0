@@ -1,95 +1,82 @@
-From: <scotte@kincaidlaw.com>
-Subject: 5294 netdev
-Date: Sun, 26 Feb 2017 01:09:47 -0000
-Message-ID: <148807138714.30107.4737507487128853979@saturn-internet.ru>
-Reply-To: <scotte@kincaidlaw.com>
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH v5 6/6] 6lowpan: Fix IID format for Bluetooth
+Date: Sun, 26 Feb 2017 07:05:39 +0100
+Message-ID: <afc9cb44-edb6-287b-ce1d-da1c0974b5fa@pengutronix.de>
+References: <20170224121440.32269-1-luiz.dentz@gmail.com>
+ <20170224121440.32269-7-luiz.dentz@gmail.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="8079757975.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 178.161.230.133.dyn.v4.saturn-internet.ru ([178.161.230.133]:59700
-        "HELO saturn-internet.ru" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with SMTP id S1751784AbdBZBJu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2017 20:09:50 -0500
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+        6lo-EgrivxUAwEY@public.gmane.org, devel-86XOEIaZJ1VAfugRpC6u6w@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170224121440.32269-7-luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-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
-AABQSwUGAAAAAAEAAQBSAAAAnBAAAAAA
+
+Hi,
+
+On 02/24/2017 01:14 PM, Luiz Augusto von Dentz wrote:
+> From: Luiz Augusto von Dentz <luiz.von.dentz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> 
+> Accourding to RFC 7668 U/L bit shall not be used:
+> 
+> https://wiki.tools.ietf.org/html/rfc7668#section-3.2.2 [Page 10]:
+> 
+>    In the figure, letter 'b' represents a bit from the
+>    Bluetooth device address, copied as is without any changes on any
+>    bit.  This means that no bit in the IID indicates whether the
+>    underlying Bluetooth device address is public or random.
+> 
+>    |0              1|1              3|3              4|4              6|
+>    |0              5|6              1|2              7|8              3|
+>    +----------------+----------------+----------------+----------------+
+>    |bbbbbbbbbbbbbbbb|bbbbbbbb11111111|11111110bbbbbbbb|bbbbbbbbbbbbbbbb|
+>    +----------------+----------------+----------------+----------------+
+> 
+> Because of this the code cannot figure out the address type from the IP
+> address anymore thus it makes no sense to use peer_lookup_ba as it needs
+> the peer address type.
+> 
+
+I am still not quite 100% of this and want to leave my opinion about this
+handling which can be interpreted in a different way.
+
+The RFC says here:
+
+Following the guidance of [RFC7136], a 64-bit
+Interface Identifier (IID) is formed from the 48-bit Bluetooth device
+address by inserting two octets, with hexadecimal values of 0xFF and
+0xFE in the middle of the 48-bit Bluetooth device address as shown in
+Figure 6.  In the figure, letter 'b' represents a bit from the
+Bluetooth device address, copied as is without any changes on any
+bit.
+
+You cut the important part "Following the guidance of [RFC7136]".
+
+---
+
+What you describe is "How to see the link layer address from L3 layer"
+and then it clearly said "there is no bit which indicate something
+special that the address is public/random, whatever".
+
+---
+
+At my point of you the RFC tells here: grab the L2 layer in the way how
+you quote above, but then apply [RFC7136] which is L3 handling.
+
+I simple cc now some 6lo ietf stuff and others 6lowpan hackers, maybe we
+have luck and somebody can answer this question.
+
+---
+
+And when we already about to start a discussion about that, what is do
+to with the multicast bit of L2 address? I know you told it's not an
+EUI-48 address. Are you sure?
+
+If it's really EUI-48 then I think [RFC7136] should be applied.
+
+- Alex
