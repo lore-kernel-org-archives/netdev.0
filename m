@@ -1,43 +1,36 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] rtlwifi: rtl8192de: ix spelling mistake: "althougth" -> "although"
-Date: Sun, 26 Feb 2017 15:19:23 +0000
-Message-ID: <20170226151923.24669-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv4: mask tos for input route
+Date: Sun, 26 Feb 2017 11:05:11 -0500 (EST)
+Message-ID: <20170226.110511.987468399452857466.davem@davemloft.net>
+References: <1488122075-23952-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Oleg Drokin <green@linuxhacker.ru>,
-        Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shmulik.ladkani@gmail.com
+To: ja@ssi.bg
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54478 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752271AbdBZQF4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 11:05:56 -0500
+In-Reply-To: <1488122075-23952-1-git-send-email-ja@ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sun, 26 Feb 2017 17:14:35 +0200
 
-trivial fix to spelling mistake in RT_TRACE message
+> Restore the lost masking of TOS in input route code to
+> allow ip rules to match it properly.
+> 
+> Problem [1] noticed by Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> 
+> [1] http://marc.info/?t=137331755300040&r=1&w=2
+> 
+> Fixes: 89aef8921bfb ("ipv4: Delete routing cache.")
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Our TOS handling in the routing code is certainly more subtle than it
+needs to be.
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
-index de98d88..dcb5d83 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
-@@ -812,7 +812,7 @@ bool rtl92d_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
- 	 * pathA or mac1 has to set phy0&phy1 pathA */
- 	if ((content == radiob_txt) && (rfpath == RF90_PATH_A)) {
- 		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
--			 " ===> althougth Path A, we load radiob.txt\n");
-+			 " ===> although Path A, we load radiob.txt\n");
- 		radioa_arraylen = radiob_arraylen;
- 		radioa_array_table = radiob_array_table;
- 	}
--- 
-2.10.2
+Applied and queued up for -stable.
