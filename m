@@ -1,47 +1,43 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] rtlwifi: rtl8192de: ix spelling mistake: "althougth" -> "though"
-Date: Sun, 26 Feb 2017 18:52:46 +0000
-Message-ID: <20170226185246.28808-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/mlx4_en: fix overflow in
+ mlx4_en_init_timestamp()
+Date: Sun, 26 Feb 2017 15:45:44 -0500 (EST)
+Message-ID: <20170226.154544.2016858795928257220.davem@davemloft.net>
+References: <1487892163.9415.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Oleg Drokin <green@linuxhacker.ru>,
-        Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eugenia@mellanox.com, tariqt@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:45902 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751251AbdBZTao (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 14:30:44 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:57950 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751221AbdBZUpx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 15:45:53 -0500
+In-Reply-To: <1487892163.9415.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 Feb 2017 15:22:43 -0800
 
-trivial fix to spelling mistake in RT_TRACE message
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> The cited commit makes a great job of finding optimal shift/multiplier
+> values assuming a 10 seconds wrap around, but forgot to change the
+> overflow_period computation.
+> 
+> It overflows in cyclecounter_cyc2ns(), and the final result is 804 ms,
+> which is silly.
+> 
+> Lets simply use 5 seconds, no need to recompute this, given how it is
+> supposed to work.
+> 
+> Later, we will use a timer instead of a work queue, since the new RX
+> allocation schem will no longer need mlx4_en_recover_from_oom() and the
+> service_task firing every 250 ms.
+> 
+> Fixes: 31c128b66e5b ("net/mlx4_en: Choose time-stamping shift value according to HW frequency")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
-index de98d88..dcb5d83 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
-@@ -812,7 +812,7 @@ bool rtl92d_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
- 	 * pathA or mac1 has to set phy0&phy1 pathA */
- 	if ((content == radiob_txt) && (rfpath == RF90_PATH_A)) {
- 		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
--			 " ===> althougth Path A, we load radiob.txt\n");
-+			 " ===> though Path A, we load radiob.txt\n");
- 		radioa_arraylen = radiob_arraylen;
- 		radioa_array_table = radiob_array_table;
- 	}
--- 
-2.10.2
+Applied, thanks.
