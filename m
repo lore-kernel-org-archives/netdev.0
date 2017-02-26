@@ -1,56 +1,51 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH net] net/mlx4_en: fix overflow in mlx4_en_init_timestamp()
-Date: Sun, 26 Feb 2017 19:28:03 +0200
-Message-ID: <1102e4a7-fb39-4adc-8655-7fb873c43181@gmail.com>
-References: <1487892163.9415.111.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Colin Ian King <colin.king@canonical.com>
+Subject: Re: [PATCH][V2] rtlwifi: rtl8192de: ix spelling mistake: "althougth"
+ -> "though"
+Date: Sun, 26 Feb 2017 18:53:27 +0000
+Message-ID: <f5c547b6-0470-8edf-d979-6a870dd03b78@canonical.com>
+References: <20170226185246.28808-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Eugenia Emantayev <eugenia@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Oleg Drokin <green@linuxhacker.ru>,
+        Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34769 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751214AbdBZSiv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 13:38:51 -0500
-Received: by mail-wm0-f65.google.com with SMTP id m70so10320979wma.1
-        for <netdev@vger.kernel.org>; Sun, 26 Feb 2017 10:37:48 -0800 (PST)
-In-Reply-To: <1487892163.9415.111.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:45490 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751253AbdBZSzg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 13:55:36 -0500
+In-Reply-To: <20170226185246.28808-1-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 24/02/2017 1:22 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> The cited commit makes a great job of finding optimal shift/multiplier
-> values assuming a 10 seconds wrap around, but forgot to change the
-> overflow_period computation.
->
-> It overflows in cyclecounter_cyc2ns(), and the final result is 804 ms,
-> which is silly.
->
-> Lets simply use 5 seconds, no need to recompute this, given how it is
-> supposed to work.
->
-> Later, we will use a timer instead of a work queue, since the new RX
-> allocation schem will no longer need mlx4_en_recover_from_oom() and the
-> service_task firing every 250 ms.
->
-> Fixes: 31c128b66e5b ("net/mlx4_en: Choose time-stamping shift value according to HW frequency")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Tariq Toukan <tariqt@mellanox.com>
-> Cc: Eugenia Emantayev <eugenia@mellanox.com>
+On 26/02/17 18:52, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> trivial fix to spelling mistake in RT_TRACE message
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 > ---
->  drivers/net/ethernet/mellanox/mlx4/en_clock.c |   18 +++++++---------
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h  |    1
->  2 files changed, 8 insertions(+), 11 deletions(-)
->
-
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
-
-Thanks for your patch.
+>  drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
+> index de98d88..dcb5d83 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192de/phy.c
+> @@ -812,7 +812,7 @@ bool rtl92d_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
+>  	 * pathA or mac1 has to set phy0&phy1 pathA */
+>  	if ((content == radiob_txt) && (rfpath == RF90_PATH_A)) {
+>  		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
+> -			 " ===> althougth Path A, we load radiob.txt\n");
+> +			 " ===> though Path A, we load radiob.txt\n");
+>  		radioa_arraylen = radiob_arraylen;
+>  		radioa_array_table = radiob_array_table;
+>  	}
+> 
+OOPS, ignore that.
