@@ -1,145 +1,105 @@
-From: Mikko Perttunen <cyndis@kapsi.fi>
-Subject: Re: [PATCH 5/7] net: stmmac: Program RX queue size and flow control
-Date: Mon, 27 Feb 2017 12:09:02 +0200
-Message-ID: <74ee5bff-8893-ebd4-bcf8-bb92c476f581@kapsi.fi>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-6-thierry.reding@gmail.com>
+From: Peter Senna Tschudin <peter.senna@collabora.com>
+Subject: Re: [PATCH v3 06/20] mlx5: Replace PCI pool old API
+Date: Mon, 27 Feb 2017 12:08:36 +0100
+Message-ID: <20170227110836.GA26544@collabora.com>
+References: <20170226192425.13098-1-romain.perier@collabora.com>
+ <20170226192425.13098-7-romain.perier@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Alexandre Courbot <gnurou@gmail.com>,
-        Jon Hunter <jonathanh@nvidia.com>, netdev@vger.kernel.org,
-        linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thierry Reding <thierry.reding@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kapsi.fi ([217.30.184.167]:36487 "EHLO mail.kapsi.fi"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751646AbdB0K7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Feb 2017 05:59:03 -0500
-In-Reply-To: <20170223172438.14770-6-thierry.reding@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Romain Perier <romain.perier@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170226192425.13098-7-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 23.02.2017 19:24, Thierry Reding wrote:
-> From: Thierry Reding <treding@nvidia.com>
->
-> Program the receive queue size based on the RX FIFO size and enable
-> hardware flow control for large FIFOs.
->
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
+On Sun, Feb 26, 2017 at 08:24:11PM +0100, Romain Perier wrote:
+> The PCI pool API is deprecated. This commits replaces the PCI pool old
+> API by the appropriated function with the DMA pool API.
+> 
+Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
 > ---
->  drivers/net/ethernet/stmicro/stmmac/dwmac4.h     | 12 +++++++
->  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 43 ++++++++++++++++++++++--
->  2 files changed, 53 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-> index db45134fddf0..9acc1f1252b3 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-> @@ -180,6 +180,7 @@ enum power_event {
->  #define MTL_OP_MODE_TSF			BIT(1)
->
->  #define MTL_OP_MODE_TQS_MASK		GENMASK(24, 16)
-> +#define MTL_OP_MODE_TQS_SHIFT		16
->
->  #define MTL_OP_MODE_TTC_MASK		0x70
->  #define MTL_OP_MODE_TTC_SHIFT		4
-> @@ -193,6 +194,17 @@ enum power_event {
->  #define MTL_OP_MODE_TTC_384		(6 << MTL_OP_MODE_TTC_SHIFT)
->  #define MTL_OP_MODE_TTC_512		(7 << MTL_OP_MODE_TTC_SHIFT)
->
-> +#define MTL_OP_MODE_RQS_MASK		GENMASK(29, 20)
-> +#define MTL_OP_MODE_RQS_SHIFT		20
-> +
-> +#define MTL_OP_MODE_RFD_MASK		GENMASK(19, 14)
-> +#define MTL_OP_MODE_RFD_SHIFT		14
-> +
-> +#define MTL_OP_MODE_RFA_MASK		GENMASK(13, 8)
-> +#define MTL_OP_MODE_RFA_SHIFT		8
-> +
-> +#define MTL_OP_MODE_EHFC		BIT(7)
-> +
->  #define MTL_OP_MODE_RTC_MASK		0x18
->  #define MTL_OP_MODE_RTC_SHIFT		3
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> index 8d249f3b34c8..03d230201960 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> @@ -185,8 +185,9 @@ static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt)
->  }
->
->  static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
-> -				    int rxmode, u32 channel)
-> +				    int rxmode, u32 channel, int rxfifosz)
+>  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
+>  include/linux/mlx5/driver.h                   |  2 +-
+>  2 files changed, 7 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+> index caa837e..6eef344 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+> @@ -1061,7 +1061,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
+>  	if (!mailbox)
+>  		return ERR_PTR(-ENOMEM);
+>  
+> -	mailbox->buf = pci_pool_zalloc(dev->cmd.pool, flags,
+> +	mailbox->buf = dma_pool_zalloc(dev->cmd.pool, flags,
+>  				       &mailbox->dma);
+>  	if (!mailbox->buf) {
+>  		mlx5_core_dbg(dev, "failed allocation\n");
+> @@ -1076,7 +1076,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
+>  static void free_cmd_box(struct mlx5_core_dev *dev,
+>  			 struct mlx5_cmd_mailbox *mailbox)
 >  {
-> +	unsigned int rqs = rxfifosz / 256 - 1;
->  	u32 mtl_tx_op, mtl_rx_op, mtl_rx_int;
->
->  	/* Following code only done for channel 0, other channels not yet
-> @@ -252,6 +253,44 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
->  			mtl_rx_op |= MTL_OP_MODE_RTC_128;
+> -	pci_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
+> +	dma_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
+>  	kfree(mailbox);
+>  }
+>  
+> @@ -1696,7 +1696,8 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
+>  		return -EINVAL;
 >  	}
->
-> +	mtl_rx_op &= ~MTL_OP_MODE_RQS_MASK;
-> +	mtl_rx_op |= rqs << MTL_OP_MODE_RQS_SHIFT;
-> +
-> +	/* enable flow control only if each channel gets 4 KiB or more FIFO */
-> +	if (rxfifosz >= 4096) {
-> +		unsigned int rfd, rfa;
-> +
-> +		mtl_rx_op |= MTL_OP_MODE_EHFC;
-> +
-> +		switch (rxfifosz) {
-> +		case 4096:
-> +			rfd = 0x03;
-> +			rfa = 0x01;
-> +			break;
-> +
-> +		case 8192:
-> +			rfd = 0x06;
-> +			rfa = 0x0a;
-> +			break;
-> +
-> +		case 16384:
-> +			rfd = 0x06;
-> +			rfa = 0x12;
-> +			break;
-> +
-> +		default:
-> +			rfd = 0x06;
-> +			rfa = 0x1e;
-> +			break;
-> +		}
-
-Are these values correct? In the 4096 case, rfd > rfa, in all other 
-cases the other way around. In any case it would be useful to have a 
-comment clarifying the thresholds in bytes.
-
-> +
-> +		mtl_rx_op &= ~MTL_OP_MODE_RFD_MASK;
-> +		mtl_rx_op |= rfd << MTL_OP_MODE_RFD_SHIFT;
-> +
-> +		mtl_rx_op &= ~MTL_OP_MODE_RFA_MASK;
-> +		mtl_rx_op |= rfa << MTL_OP_MODE_RFA_SHIFT;
-> +	}
-> +
->  	writel(mtl_rx_op, ioaddr + MTL_CHAN_RX_OP_MODE(channel));
->
->  	/* Enable MTL RX overflow */
-> @@ -264,7 +303,7 @@ static void dwmac4_dma_operation_mode(void __iomem *ioaddr, int txmode,
->  				      int rxmode, int rxfifosz)
->  {
->  	/* Only Channel 0 is actually configured and used */
-> -	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0);
-> +	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0, rxfifosz);
+>  
+> -	cmd->pool = pci_pool_create("mlx5_cmd", dev->pdev, size, align, 0);
+> +	cmd->pool = dma_pool_create("mlx5_cmd", &dev->pdev->dev, size, align,
+> +				    0);
+>  	if (!cmd->pool)
+>  		return -ENOMEM;
+>  
+> @@ -1786,7 +1787,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
+>  	free_cmd_page(dev, cmd);
+>  
+>  err_free_pool:
+> -	pci_pool_destroy(cmd->pool);
+> +	dma_pool_destroy(cmd->pool);
+>  
+>  	return err;
 >  }
->
->  static void dwmac4_get_hw_feature(void __iomem *ioaddr,
->
+> @@ -1800,6 +1801,6 @@ void mlx5_cmd_cleanup(struct mlx5_core_dev *dev)
+>  	destroy_workqueue(cmd->wq);
+>  	destroy_msg_cache(dev);
+>  	free_cmd_page(dev, cmd);
+> -	pci_pool_destroy(cmd->pool);
+> +	dma_pool_destroy(cmd->pool);
+>  }
+>  EXPORT_SYMBOL(mlx5_cmd_cleanup);
+> diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+> index 2fcff6b..13a267c 100644
+> --- a/include/linux/mlx5/driver.h
+> +++ b/include/linux/mlx5/driver.h
+> @@ -284,7 +284,7 @@ struct mlx5_cmd {
+>  	struct semaphore pages_sem;
+>  	int	mode;
+>  	struct mlx5_cmd_work_ent *ent_arr[MLX5_MAX_COMMANDS];
+> -	struct pci_pool *pool;
+> +	struct dma_pool *pool;
+>  	struct mlx5_cmd_debug dbg;
+>  	struct cmd_msg_cache cache[MLX5_NUM_COMMAND_CACHES];
+>  	int checksum_disabled;
+> -- 
+> 2.9.3
+> 
