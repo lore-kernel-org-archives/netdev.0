@@ -1,43 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] Netfilter fixes for net
-Date: Mon, 27 Feb 2017 09:19:05 -0500 (EST)
-Message-ID: <20170227.091905.1512965295695328615.davem@davemloft.net>
-References: <1488195342-2678-1-git-send-email-pablo@netfilter.org>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: phy deadlock -stable backport request
+Date: Mon, 27 Feb 2017 14:56:31 +0100
+Message-ID: <b985983c-f649-a880-8d8f-734a64e1a673@axis.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1488195342-2678-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bastet.se.axis.com ([195.60.68.11]:49140 "EHLO
+        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751356AbdB0OTZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 09:19:25 -0500
+Received: from localhost (localhost [127.0.0.1])
+        by bastet.se.axis.com (Postfix) with ESMTP id 841C5182B2
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:56:33 +0100 (CET)
+Received: from bastet.se.axis.com ([IPv6:::ffff:127.0.0.1])
+        by localhost (bastet.se.axis.com [::ffff:127.0.0.1]) (amavisd-new, port 10024)
+        with LMTP id 3Br2RAPr9Xfo for <netdev@vger.kernel.org>;
+        Mon, 27 Feb 2017 14:56:32 +0100 (CET)
+Received: from boulder02.se.axis.com (boulder02.se.axis.com [10.0.8.16])
+        by bastet.se.axis.com (Postfix) with ESMTPS id AE206180CE
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:56:32 +0100 (CET)
+Received: from boulder02.se.axis.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id 9EB6E1A08C
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:56:32 +0100 (CET)
+Received: from boulder02.se.axis.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id 940011A088
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:56:32 +0100 (CET)
+Received: from thoth.se.axis.com (unknown [10.0.2.173])
+        by boulder02.se.axis.com (Postfix) with ESMTP
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:56:32 +0100 (CET)
+Received: from XBOX02.axis.com (xbox02.axis.com [10.0.5.16])
+        by thoth.se.axis.com (Postfix) with ESMTP id 88A602CB
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:56:32 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 27 Feb 2017 12:35:36 +0100
+Hello
 
-> The following patchset contains netfilter fixes for you net tree,
-> they are:
-> 
-> 1) Missing ct zone size in the nft_ct initialization path, patch
->    from Florian Westphal.
-> 
-> 2) Two patches for netfilter uapi headers, one to remove unnecessary
->    sysctl.h inclusion and another to fix compilation of xt_hashlimit.h
->    in userspace, from Dmitry V. Levin.
-> 
-> 3) Patch to fix a sloppy change in nf_ct_expect that incorrectly
->    simplified nf_ct_expect_related_report() in the previous nf-next
->    batch. This also includes another patch for __nf_ct_expect_check()
->    to report success by returning 0 to keep it consistent with other
->    existing functions. From Jarno Rajahalme.
-> 
-> 4) The ->walk() iterator of the new bitmap set type goes over the real
->    bitmap size, this results in incorrect dumps when NFTA_SET_USERDATA
->    is used.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+I would like to request that
 
-Pulled, thanks Pablo.
+commit eab127717a6af54401ba534790c793ec143cd1fc
+Author: Florian Fainelli <f.fainelli@gmail.com>
+Date:   Fri Jan 20 15:31:52 2017 -0800
+
+    net: phy: Avoid deadlock during phy_error()
+   
+    phy_error() is called in the PHY state machine workqueue context, and
+    calls phy_trigger_machine() which does a cancel_delayed_work_sync() of
+    the workqueue we execute from, causing a deadlock situation.
+   
+    Augment phy_trigger_machine() machine with a sync boolean indicating
+    whether we should use cancel_*_sync() or just cancel_*_work().
+   
+    Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
+    Reported-by: Russell King <rmk+kernel@armlinux.org.uk>
+    Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+ drivers/net/phy/phy.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+
+would be backported to stable branch v4.9.
+
+I've seen this deadlock happen on v4.9.x
+
+
+Regards,
+Niklas
