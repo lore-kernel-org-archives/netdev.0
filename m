@@ -1,84 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v3 20/20] checkpatch: warn for use of old PCI pool API
-Date: Mon, 27 Feb 2017 03:53:24 -0800
-Message-ID: <1488196404.25838.1.camel@perches.com>
-References: <20170226192425.13098-1-romain.perier@collabora.com>
-         <20170226192425.13098-21-romain.perier@collabora.com>
-         <20170227112233.GK26544@collabora.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 2/2] iproute2: add support for invisible qdisc dumping
+Date: Mon, 27 Feb 2017 12:52:18 +0100
+Message-ID: <20170227115218.GO6099@orbyte.nwl.cc>
+References: <alpine.LSU.2.20.1702252228010.24579@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Peter Senna Tschudin <peter.senna@collabora.com>,
-        Romain Perier <romain.perier@collabora.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0136.hostedemail.com ([216.40.44.136]:44453 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751792AbdB0Lyg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 06:54:36 -0500
-In-Reply-To: <20170227112233.GK26544@collabora.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:35627 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751550AbdB0MBW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Feb 2017 07:01:22 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LSU.2.20.1702252228010.24579@cbobk.fhfr.pm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-02-27 at 12:22 +0100, Peter Senna Tschudin wrote:
-> On Sun, Feb 26, 2017 at 08:24:25PM +0100, Romain Perier wrote:
-> > pci_pool_*() functions should be replaced by the corresponding functions
-> > in the DMA pool API. This adds support to check for use of these pci
-> > functions and display a warning when it is the case.
-> > 
+On Sat, Feb 25, 2017 at 10:29:17PM +0100, Jiri Kosina wrote:
+> From: Jiri Kosina <jkosina@suse.cz>
 > 
-> I guess Joe Perches did sent some comments for this one, did you address
-> them?
+> Support the new TCA_DUMP_INVISIBLE netlink attribute that allows asking 
+> kernel to perform 'full qdisc dump', as for historical reasons some of the 
+> default qdiscs are being hidden by the kernel.
+> 
+> The command syntax is being extended by voluntary 'invisible' argument to
+> 'tc qdisc show'.
+> 
+> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+> ---
+>  tc/tc_qdisc.c | 25 +++++++++++++++++++++++--
+>  1 file changed, 23 insertions(+), 2 deletions(-)
 
+Would you mind adding a description of the new keyword to tc man page as
+well?
 
-> Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
-> > Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> > ---
-> >  scripts/checkpatch.pl | 9 ++++++++-
-> >  1 file changed, 8 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-> > index baa3c7b..f2c775c 100755
-> > --- a/scripts/checkpatch.pl
-> > +++ b/scripts/checkpatch.pl
-> > @@ -6064,7 +6064,14 @@ sub process {
-> >  			WARN("USE_DEVICE_INITCALL",
-> >  			     "please use device_initcall() or more appropriate function instead of __initcall() (see include/linux/init.h)\n" . $herecurr);
-> >  		}
-> > -
-> > +# check for old PCI api pci_pool_*(), use dma_pool_*() instead
-> > +		if ($line =~ /\bpci_pool(?:_(?:create|destroy|alloc|zalloc|free)|)\b/) {
-> > +			if (WARN("USE_DMA_POOL",
-> > +				 "please use the dma pool api or more appropriate function instead of the old pci pool api\n" . $herecurr) &&
-> > +			    $fix) {
-> > +				while ($fixed[$fixlinenr] =~ s/\bpci_pool(_(?:create|destroy|alloc|zalloc|free)|)\b/dma_pool$1/) {}
-> > +			}
-> > +		}
-> >  # check for various structs that are normally const (ops, kgdb, device_tree)
-> >  		if ($line !~ /\bconst\b/ &&
-> >  		    $line =~ /\bstruct\s+($const_structs)\b/) {
-> > 
+> diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
+> index 3a3701c2..29da9269 100644
+> --- a/tc/tc_qdisc.c
+> +++ b/tc/tc_qdisc.c
+> @@ -34,7 +34,7 @@ static int usage(void)
+>  	fprintf(stderr, "       [ stab [ help | STAB_OPTIONS] ]\n");
+>  	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
+>  	fprintf(stderr, "\n");
+> -	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ]\n");
+> +	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact | invisible ]\n");
 
-This is nearly identical to the suggestion that I
-sent but this is slightly misformatted as it does
-not have a leading nor a trailing blank line to
-separate the test blocks.
+Doesn't look like these are mutually exclusive. Therefore I would
+suggest fixing the syntax to:
 
-Also, I think none of the patches have reached lkml.
+| +	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ] [ invisible ]\n");
 
-Romain, are you using git-send-email to send these
-patches?  Perhaps the patches you send also contain
-html which are rejected by the mailing list.
+Cheers, Phil
