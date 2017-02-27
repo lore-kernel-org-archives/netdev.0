@@ -1,46 +1,72 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 1/5] netvsc: don't overload variable in same function
-Date: Mon, 27 Feb 2017 10:26:47 -0800
-Message-ID: <20170227182651.3956-2-sthemmin@microsoft.com>
-References: <20170227182651.3956-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ipv6: check for ip6_null_entry in __ip6_del_rt_siblings()
+Date: Mon, 27 Feb 2017 11:07:05 -0800
+Message-ID: <1488222425-1256-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33188 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751956AbdB0S7F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 13:59:05 -0500
-Received: by mail-pf0-f177.google.com with SMTP id o64so8286168pfb.0
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 10:59:05 -0800 (PST)
-In-Reply-To: <20170227182651.3956-1-sthemmin@microsoft.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:32908 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751634AbdB0TQV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 14:16:21 -0500
+Received: by mail-pg0-f65.google.com with SMTP id x17so1915163pgi.0
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 11:15:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two variables named packet in the same function. One is the
-metadata descriptor from host (vmpacket_descriptor) and the other is
-the control block in the skb used to hold metadata from send.
-Change name to avoid possible confusion and bugs.
+Andrey reported a NULL pointer deref bug in ipv6_route_ioctl()
+-> ip6_route_del() -> __ip6_del_rt_siblings() code path. This is
+because ip6_null_entry is returned in this path since ip6_null_entry
+is kinda default for a ipv6 route table root node. Quote from
+David Ahern:
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+ ip6_null_entry is the root of all ipv6 fib tables making it integrated
+ into the table ...
+
+We should ignore any attempt of trying to delete it, like we do in
+__ip6_del_rt() path and several others.
+
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/hyperv/netvsc.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/route.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index d35ebd993b38..5dedbc36c326 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -600,9 +600,9 @@ static inline void netvsc_free_send_slot(struct netvsc_device *net_device,
- static void netvsc_send_tx_complete(struct netvsc_device *net_device,
- 				    struct vmbus_channel *incoming_channel,
- 				    struct hv_device *device,
--				    struct vmpacket_descriptor *packet)
-+				    const struct vmpacket_descriptor *desc)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f54f426..9da77e9 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2169,10 +2169,13 @@ int ip6_del_rt(struct rt6_info *rt)
+ static int __ip6_del_rt_siblings(struct rt6_info *rt, struct fib6_config *cfg)
  {
--	struct sk_buff *skb = (struct sk_buff *)(unsigned long)packet->trans_id;
-+	struct sk_buff *skb = (struct sk_buff *)(unsigned long)desc->trans_id;
- 	struct net_device *ndev = hv_get_drvdata(device);
- 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
- 	struct vmbus_channel *channel = device->channel;
+ 	struct nl_info *info = &cfg->fc_nlinfo;
++	struct net *net = info->nl_net;
+ 	struct sk_buff *skb = NULL;
+ 	struct fib6_table *table;
+ 	int err;
+ 
++	if (rt == net->ipv6.ip6_null_entry)
++		return -ENOENT;
+ 	table = rt->rt6i_table;
+ 	write_lock_bh(&table->tb6_lock);
+ 
+@@ -2184,7 +2187,7 @@ static int __ip6_del_rt_siblings(struct rt6_info *rt, struct fib6_config *cfg)
+ 		if (skb) {
+ 			u32 seq = info->nlh ? info->nlh->nlmsg_seq : 0;
+ 
+-			if (rt6_fill_node(info->nl_net, skb, rt,
++			if (rt6_fill_node(net, skb, rt,
+ 					  NULL, NULL, 0, RTM_DELROUTE,
+ 					  info->portid, seq, 0) < 0) {
+ 				kfree_skb(skb);
+@@ -2208,7 +2211,7 @@ static int __ip6_del_rt_siblings(struct rt6_info *rt, struct fib6_config *cfg)
+ 	ip6_rt_put(rt);
+ 
+ 	if (skb) {
+-		rtnl_notify(skb, info->nl_net, info->portid, RTNLGRP_IPV6_ROUTE,
++		rtnl_notify(skb, net, info->portid, RTNLGRP_IPV6_ROUTE,
+ 			    info->nlh, gfp_any());
+ 	}
+ 	return err;
 -- 
-2.11.0
+2.5.5
