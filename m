@@ -1,32 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] net: solve a NAPI race
-Date: Mon, 27 Feb 2017 09:10:34 -0800
-Message-ID: <1488215434.9415.200.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170227.111944.1725806340309799464.davem@davemloft.net>
-         <1488213854.9415.198.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com
-To: David Miller <davem@davemloft.net>
+From: Sagi Grimberg <sagi@grimberg.me>
+Subject: [PATCH v1 0/4] Introduce a new helper for parsing ipv[4|6]:port to socket address
+Date: Mon, 27 Feb 2017 19:39:20 +0200
+Message-ID: <1488217164-9221-1-git-send-email-sagi@grimberg.me>
+To: linux-nvme@lists.infradead.org, target-devel@vger.kernel.org,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:32860 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751760AbdB0Rej (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 12:34:39 -0500
-Received: by mail-pg0-f65.google.com with SMTP id x17so1695959pgi.0
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 09:34:38 -0800 (PST)
-In-Reply-To: <1488213854.9415.198.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from bombadil.infradead.org ([65.50.211.133]:40042 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751039AbdB0Rlu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 12:41:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-02-27 at 08:44 -0800, Eric Dumazet wrote:
+Changes from v0:
+- rebased on 4.10
+- splitted inet_pton_with_scope to be a bit saner (from Chrsitoph)
+- converted nvme-rdma host_traddr to use a generic helper
 
-> // busy polling or napi_watchdog()
+We have some places in the stack that support ipv4 and ipv6. In
+some cases the user configuration does not reveal which
+address family is given and needs to be parsed from the input string.
 
-BTW, we also can add to the beginning of busy_poll_stop() :
+Given that the user-input varies between subsystems, some processing
+is required from the call-site to separate address and port strings.
 
-clear_bit(NAPI_STATE_MISSED, &napi->state);
+As a side-effect, this set adds ipv6 support for nvme over fabrics.
+
+Sagi Grimberg (4):
+  net/utils: generic inet_pton_with_scope helper
+  nvmet-rdma: use generic inet_pton_with_scope
+  nvme-rdma: use inet_pton_with_scope helper
+  iscsi-target: use generic inet_pton_with_scope
+
+ drivers/nvme/host/rdma.c                     |  63 +++++-----------
+ drivers/nvme/target/rdma.c                   |  42 +++++++----
+ drivers/target/iscsi/iscsi_target_configfs.c |  46 ++++--------
+ include/linux/inet.h                         |   6 ++
+ net/core/utils.c                             | 103 +++++++++++++++++++++++++++
+ 5 files changed, 169 insertions(+), 91 deletions(-)
+
+-- 
+2.7.4
