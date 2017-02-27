@@ -1,379 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 2/5] vmbus: introduce in-place packet iterator
-Date: Mon, 27 Feb 2017 10:26:48 -0800
-Message-ID: <20170227182651.3956-3-sthemmin@microsoft.com>
-References: <20170227182651.3956-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:34801 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751506AbdB0Se3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 13:34:29 -0500
-Received: by mail-pg0-f47.google.com with SMTP id p5so23712073pga.1
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 10:33:38 -0800 (PST)
-In-Reply-To: <20170227182651.3956-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V2] vhost: introduce O(1) vq metadata cache
+Date: Mon, 27 Feb 2017 20:35:47 +0200
+Message-ID: <20170227203529-mutt-send-email-mst@kernel.org>
+References: <1481709237-19827-1-git-send-email-jasowang@redhat.com>
+	<ab222583-17ac-a4fb-0547-487caa8b866d@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	maxime.coquelin@redhat.com, wexu@redhat.com, vkaplans@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <ab222583-17ac-a4fb-0547-487caa8b866d@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This is mostly just a refactoring of previous functions
-(get_pkt_next_raw, put_pkt_raw and commit_rd_index) to make it easier
-to use for other drivers and NAPI.
-
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/hv/ring_buffer.c    | 94 +++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/hyperv/netvsc.c | 34 +++++-----------
- include/linux/hyperv.h      | 96 ++++++++++++++-------------------------------
- 3 files changed, 133 insertions(+), 91 deletions(-)
-
-diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
-index 87799e81af97..c3f1a9e33cef 100644
---- a/drivers/hv/ring_buffer.c
-+++ b/drivers/hv/ring_buffer.c
-@@ -32,6 +32,8 @@
- 
- #include "hyperv_vmbus.h"
- 
-+#define VMBUS_PKT_TRAILER	8
-+
- /*
-  * When we write to the ring buffer, check if the host needs to
-  * be signaled. Here is the details of this protocol:
-@@ -336,6 +338,12 @@ int hv_ringbuffer_write(struct vmbus_channel *channel,
- 	return 0;
- }
- 
-+static inline void
-+init_cached_read_index(struct hv_ring_buffer_info *rbi)
-+{
-+	rbi->cached_read_index = rbi->ring_buffer->read_index;
-+}
-+
- int hv_ringbuffer_read(struct vmbus_channel *channel,
- 		       void *buffer, u32 buflen, u32 *buffer_actual_len,
- 		       u64 *requestid, bool raw)
-@@ -366,7 +374,8 @@ int hv_ringbuffer_read(struct vmbus_channel *channel,
- 		return ret;
- 	}
- 
--	init_cached_read_index(channel);
-+	init_cached_read_index(inring_info);
-+
- 	next_read_location = hv_get_next_read_location(inring_info);
- 	next_read_location = hv_copyfrom_ringbuffer(inring_info, &desc,
- 						    sizeof(desc),
-@@ -410,3 +419,86 @@ int hv_ringbuffer_read(struct vmbus_channel *channel,
- 
- 	return ret;
- }
-+
-+/*
-+ * Determine number of bytes available in ring buffer after
-+ * the current iterator (priv_read_index) location.
-+ *
-+ * This is similar to hv_get_bytes_to_read but with private
-+ * read index instead.
-+ */
-+static u32 hv_pkt_iter_avail(const struct hv_ring_buffer_info *rbi)
-+{
-+	u32 priv_read_loc = rbi->priv_read_index;
-+	u32 write_loc = READ_ONCE(rbi->ring_buffer->write_index);
-+
-+	if (write_loc >= priv_read_loc)
-+		return write_loc - priv_read_loc;
-+	else
-+		return (rbi->ring_datasize - priv_read_loc) + write_loc;
-+}
-+
-+/*
-+ * Get first vmbus packet from ring buffer after read_index
-+ *
-+ * If ring buffer is empty, returns NULL and no other action needed.
-+ */
-+struct vmpacket_descriptor *hv_pkt_iter_first(struct vmbus_channel *channel)
-+{
-+	struct hv_ring_buffer_info *rbi = &channel->inbound;
-+
-+	/* set state for later hv_signal_on_read() */
-+	init_cached_read_index(rbi);
-+
-+	if (hv_pkt_iter_avail(rbi) < sizeof(struct vmpacket_descriptor))
-+		return NULL;
-+
-+	return hv_get_ring_buffer(rbi) + rbi->priv_read_index;
-+}
-+EXPORT_SYMBOL_GPL(hv_pkt_iter_first);
-+
-+/*
-+ * Get next vmbus packet from ring buffer.
-+ *
-+ * Advances the current location (priv_read_index) and checks for more
-+ * data. If the end of the ring buffer is reached, then return NULL.
-+ */
-+struct vmpacket_descriptor *
-+__hv_pkt_iter_next(struct vmbus_channel *channel,
-+		   const struct vmpacket_descriptor *desc)
-+{
-+	struct hv_ring_buffer_info *rbi = &channel->inbound;
-+	u32 packetlen = desc->len8 << 3;
-+	u32 dsize = rbi->ring_datasize;
-+
-+	/* bump offset to next potential packet */
-+	rbi->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
-+	if (rbi->priv_read_index >= dsize)
-+		rbi->priv_read_index -= dsize;
-+
-+	/* more data? */
-+	if (hv_pkt_iter_avail(rbi) < sizeof(struct vmpacket_descriptor))
-+		return NULL;
-+	else
-+		return hv_get_ring_buffer(rbi) + rbi->priv_read_index;
-+}
-+EXPORT_SYMBOL_GPL(__hv_pkt_iter_next);
-+
-+/*
-+ * Update host ring buffer after iterating over packets.
-+ */
-+void hv_pkt_iter_close(struct vmbus_channel *channel)
-+{
-+	struct hv_ring_buffer_info *rbi = &channel->inbound;
-+
-+	/*
-+	 * Make sure all reads are done before we update the read index since
-+	 * the writer may start writing to the read area once the read index
-+	 * is updated.
-+	 */
-+	virt_rmb();
-+	rbi->ring_buffer->read_index = rbi->priv_read_index;
-+
-+	hv_signal_on_read(channel);
-+}
-+EXPORT_SYMBOL_GPL(hv_pkt_iter_close);
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 5dedbc36c326..3681fb59bdbe 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -647,14 +647,11 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
- static void netvsc_send_completion(struct netvsc_device *net_device,
- 				   struct vmbus_channel *incoming_channel,
- 				   struct hv_device *device,
--				   struct vmpacket_descriptor *packet)
-+				   const struct vmpacket_descriptor *desc)
- {
--	struct nvsp_message *nvsp_packet;
-+	struct nvsp_message *nvsp_packet = hv_pkt_data(desc);
- 	struct net_device *ndev = hv_get_drvdata(device);
- 
--	nvsp_packet = (struct nvsp_message *)((unsigned long)packet +
--					      (packet->offset8 << 3));
--
- 	switch (nvsp_packet->hdr.msg_type) {
- 	case NVSP_MSG_TYPE_INIT_COMPLETE:
- 	case NVSP_MSG1_TYPE_SEND_RECV_BUF_COMPLETE:
-@@ -668,7 +665,7 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
- 
- 	case NVSP_MSG1_TYPE_SEND_RNDIS_PKT_COMPLETE:
- 		netvsc_send_tx_complete(net_device, incoming_channel,
--					device, packet);
-+					device, desc);
- 		break;
- 
- 	default:
-@@ -1071,9 +1068,11 @@ static void netvsc_receive(struct net_device *ndev,
- 		   struct net_device_context *net_device_ctx,
- 		   struct hv_device *device,
- 		   struct vmbus_channel *channel,
--		   struct vmtransfer_page_packet_header *vmxferpage_packet,
-+		   const struct vmpacket_descriptor *desc,
- 		   struct nvsp_message *nvsp)
- {
-+	const struct vmtransfer_page_packet_header *vmxferpage_packet
-+		= container_of(desc, const struct vmtransfer_page_packet_header, d);
- 	char *recv_buf = net_device->recv_buf;
- 	u32 status = NVSP_STAT_SUCCESS;
- 	int i;
-@@ -1185,12 +1184,10 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
- 				   struct netvsc_device *net_device,
- 				   struct net_device *ndev,
- 				   u64 request_id,
--				   struct vmpacket_descriptor *desc)
-+				   const struct vmpacket_descriptor *desc)
- {
- 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
--	struct nvsp_message *nvmsg
--		= (struct nvsp_message *)((unsigned long)desc
--					  + (desc->offset8 << 3));
-+	struct nvsp_message *nvmsg = hv_pkt_data(desc);
- 
- 	switch (desc->type) {
- 	case VM_PKT_COMP:
-@@ -1199,9 +1196,7 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
- 
- 	case VM_PKT_DATA_USING_XFER_PAGES:
- 		netvsc_receive(ndev, net_device, net_device_ctx,
--			       device, channel,
--			       (struct vmtransfer_page_packet_header *)desc,
--			       nvmsg);
-+			       device, channel, desc, nvmsg);
- 		break;
- 
- 	case VM_PKT_DATA_INBAND:
-@@ -1223,7 +1218,6 @@ void netvsc_channel_cb(void *context)
- 	struct netvsc_device *net_device;
- 	struct vmpacket_descriptor *desc;
- 	struct net_device *ndev;
--	bool need_to_commit = false;
- 
- 	if (channel->primary_channel != NULL)
- 		device = channel->primary_channel->device_obj;
-@@ -1239,20 +1233,12 @@ void netvsc_channel_cb(void *context)
- 	    netvsc_channel_idle(net_device, q_idx))
- 		return;
- 
--	/* commit_rd_index() -> hv_signal_on_read() needs this. */
--	init_cached_read_index(channel);
--
--	while ((desc = get_next_pkt_raw(channel)) != NULL) {
-+	foreach_vmbus_pkt(desc, channel) {
- 		netvsc_process_raw_pkt(device, channel, net_device,
- 				       ndev, desc->trans_id, desc);
- 
--		put_pkt_raw(channel, desc);
--		need_to_commit = true;
- 	}
- 
--	if (need_to_commit)
--		commit_rd_index(channel);
--
- 	netvsc_chk_recv_comp(net_device, channel, q_idx);
- }
- 
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 62bbf3c1aa4a..36162485d663 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -1504,14 +1504,6 @@ static inline  void hv_signal_on_read(struct vmbus_channel *channel)
- 	return;
- }
- 
--static inline void
--init_cached_read_index(struct vmbus_channel *channel)
--{
--	struct hv_ring_buffer_info *rbi = &channel->inbound;
--
--	rbi->cached_read_index = rbi->ring_buffer->read_index;
--}
--
- /*
-  * Mask off host interrupt callback notifications
-  */
-@@ -1545,76 +1537,48 @@ static inline u32 hv_end_read(struct hv_ring_buffer_info *rbi)
- /*
-  * An API to support in-place processing of incoming VMBUS packets.
-  */
--#define VMBUS_PKT_TRAILER	8
- 
--static inline struct vmpacket_descriptor *
--get_next_pkt_raw(struct vmbus_channel *channel)
-+/* Get data payload associated with descriptor */
-+static inline void *hv_pkt_data(const struct vmpacket_descriptor *desc)
- {
--	struct hv_ring_buffer_info *ring_info = &channel->inbound;
--	u32 priv_read_loc = ring_info->priv_read_index;
--	void *ring_buffer = hv_get_ring_buffer(ring_info);
--	u32 dsize = ring_info->ring_datasize;
--	/*
--	 * delta is the difference between what is available to read and
--	 * what was already consumed in place. We commit read index after
--	 * the whole batch is processed.
--	 */
--	u32 delta = priv_read_loc >= ring_info->ring_buffer->read_index ?
--		priv_read_loc - ring_info->ring_buffer->read_index :
--		(dsize - ring_info->ring_buffer->read_index) + priv_read_loc;
--	u32 bytes_avail_toread = (hv_get_bytes_to_read(ring_info) - delta);
--
--	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
--		return NULL;
--
--	return ring_buffer + priv_read_loc;
-+	return (void *)((unsigned long)desc + (desc->offset8 << 3));
- }
- 
--/*
-- * A helper function to step through packets "in-place"
-- * This API is to be called after each successful call
-- * get_next_pkt_raw().
-- */
--static inline void put_pkt_raw(struct vmbus_channel *channel,
--				struct vmpacket_descriptor *desc)
-+/* Get data size associated with descriptor */
-+static inline u32 hv_pkt_datalen(const struct vmpacket_descriptor *desc)
- {
--	struct hv_ring_buffer_info *ring_info = &channel->inbound;
--	u32 packetlen = desc->len8 << 3;
--	u32 dsize = ring_info->ring_datasize;
--
--	/*
--	 * Include the packet trailer.
--	 */
--	ring_info->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
--	ring_info->priv_read_index %= dsize;
-+	return (desc->len8 << 3) - (desc->offset8 << 3);
- }
- 
-+
-+struct vmpacket_descriptor *
-+hv_pkt_iter_first(struct vmbus_channel *channel);
-+
-+struct vmpacket_descriptor *
-+__hv_pkt_iter_next(struct vmbus_channel *channel,
-+		   const struct vmpacket_descriptor *pkt);
-+
-+void hv_pkt_iter_close(struct vmbus_channel *channel);
-+
- /*
-- * This call commits the read index and potentially signals the host.
-- * Here is the pattern for using the "in-place" consumption APIs:
-- *
-- * init_cached_read_index();
-- *
-- * while (get_next_pkt_raw() {
-- *	process the packet "in-place";
-- *	put_pkt_raw();
-- * }
-- * if (packets processed in place)
-- *	commit_rd_index();
-+ * Get next packet descriptor from iterator
-+ * If at end of list, return NULL and update host.
-  */
--static inline void commit_rd_index(struct vmbus_channel *channel)
-+static inline struct vmpacket_descriptor *
-+hv_pkt_iter_next(struct vmbus_channel *channel,
-+		 const struct vmpacket_descriptor *pkt)
- {
--	struct hv_ring_buffer_info *ring_info = &channel->inbound;
--	/*
--	 * Make sure all reads are done before we update the read index since
--	 * the writer may start writing to the read area once the read index
--	 * is updated.
--	 */
--	virt_rmb();
--	ring_info->ring_buffer->read_index = ring_info->priv_read_index;
-+	struct vmpacket_descriptor *nxt;
-+
-+	nxt = __hv_pkt_iter_next(channel, pkt);
-+	if (!nxt)
-+		hv_pkt_iter_close(channel);
- 
--	hv_signal_on_read(channel);
-+	return nxt;
- }
- 
-+#define foreach_vmbus_pkt(pkt, channel) \
-+	for (pkt = hv_pkt_iter_first(channel); pkt; \
-+	    pkt = hv_pkt_iter_next(channel, pkt))
- 
- #endif /* _HYPERV_H */
--- 
-2.11.0
+T24gV2VkLCBGZWIgMTUsIDIwMTcgYXQgMDE6Mzc6MTdQTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
+ZToKPiAKPiAKPiBPbiAyMDE25bm0MTLmnIgxNOaXpSAxNzo1MywgSmFzb24gV2FuZyB3cm90ZToK
+PiA+IFdoZW4gZGV2aWNlIElPVExCIGlzIGVuYWJsZWQsIGFsbCBhZGRyZXNzIHRyYW5zbGF0aW9u
+cyB3ZXJlIHN0b3JlZCBpbgo+ID4gaW50ZXJ2YWwgdHJlZS4gTyhsZ04pIHNlYXJjaGluZyB0aW1l
+IGNvdWxkIGJlIHNsb3cgZm9yIHZpcnRxdWV1ZQo+ID4gbWV0YWRhdGEgKGF2YWlsLCB1c2VkIGFu
+ZCBkZXNjcmlwdG9ycykgc2luY2UgdGhleSB3ZXJlIGFjY2Vzc2VkIG11Y2gKPiA+IG9mdGVuIHRo
+YW4gb3RoZXIgYWRkcmVzc2VzLiBTbyB0aGlzIHBhdGNoIGludHJvZHVjZXMgYW4gTygxKSBhcnJh
+eQo+ID4gd2hpY2ggcG9pbnRzIHRvIHRoZSBpbnRlcnZhbCB0cmVlIG5vZGVzIHRoYXQgc3RvcmUg
+dGhlIHRyYW5zbGF0aW9ucyBvZgo+ID4gdnEgbWV0YWRhdGEuIFRob3NlIGFycmF5IHdlcmUgdXBk
+YXRlIGR1cmluZyB2cSBJT1RMQiBwcmVmZXRjaGluZyBhbmQKPiA+IHdlcmUgcmVzZXQgZHVyaW5n
+IGVhY2ggaW52YWxpZGF0aW9uIGFuZCB0bGIgdXBkYXRlLiBFYWNoIHRpbWUgd2Ugd2FudAo+ID4g
+dG8gYWNjZXNzIHZxIG1ldGFkYXRhLCB0aGlzIHNtYWxsIGFycmF5IHdlcmUgcXVlcmllZCBiZWZv
+cmUgaW50ZXJ2YWwKPiA+IHRyZWUuIFRoaXMgd291bGQgYmUgc3VmZmljaWVudCBmb3Igc3RhdGlj
+IG1hcHBpbmdzIGJ1dCBub3QgZHluYW1pYwo+ID4gbWFwcGluZ3MsIHdlIGNvdWxkIGRvIG9wdGlt
+aXphdGlvbnMgb24gdG9wLgo+ID4gCj4gPiBUZXN0IHdlcmUgZG9uZSB3aXRoIGwyZndkIGluIGd1
+ZXN0ICgyTSBodWdlcGFnZSk6Cj4gPiAKPiA+ICAgICBub2lvbW11ICB8IGJlZm9yZSAgICAgICAg
+fCBhZnRlcgo+ID4gdHggMS4zMk1wcHMgfCAxLjA2TXBwcyg4MiUpIHwgMS4zME1wcHMoOTglKQo+
+ID4gcnggMi4zM01wcHMgfCAxLjQ2TXBwcyg2MyUpIHwgMi4yOU1wcHMoOTglKQo+ID4gCj4gPiBX
+ZSBjYW4gYWxtb3N0IHJlYWNoIHRoZSBzYW1lIHBlcmZvcm1hbmNlIGFzIG5vaW9tbXUgbW9kZS4K
+PiA+IAo+ID4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+
+ID4gLS0tCj4gPiBDaGFuZ2VzIGZyb20gVjE6Cj4gPiAtIHNpbGVudCAzMmJpdCBidWlsZCB3YXJu
+aW5nCj4gCj4gcGluZwoKQ291bGQgeW91IHJlYmFzZSBwbHM/CkkgcHVzaGVkIG15IHRyZWUgaW50
+byBsaW51eCBuZXh0LgoKLS0gCk1TVApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25A
+bGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24u
+b3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
