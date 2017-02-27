@@ -1,29 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lib: Allow compile-testing of parman
-Date: Sun, 26 Feb 2017 21:27:03 -0500 (EST)
-Message-ID: <20170226.212703.718515306622435229.davem@davemloft.net>
-References: <1487931955-31381-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH net] sctp: set sin_port for addr param when checking
+ duplicate address
+Date: Sun, 26 Feb 2017 21:25:05 -0500 (EST)
+Message-ID: <20170226.212505.1113255842286618172.davem@davemloft.net>
+References: <a46d62002d14e8ff4a25d647600bb3d038c2c772.1487920726.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
+        vyasevich@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33176 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33232 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751118AbdB0C1u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 21:27:50 -0500
-In-Reply-To: <1487931955-31381-1-git-send-email-geert@linux-m68k.org>
+        with ESMTP id S1751319AbdB0Cco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 21:32:44 -0500
+In-Reply-To: <a46d62002d14e8ff4a25d647600bb3d038c2c772.1487920726.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Fri, 24 Feb 2017 11:25:55 +0100
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 24 Feb 2017 15:18:46 +0800
 
-> This allows to enable and run the accompanying test (test_parman)
-> without dependencies on other users of parman.
+> Commit b8607805dd15 ("sctp: not copying duplicate addrs to the assoc's
+> bind address list") tried to check for duplicate address before copying
+> to asoc's bind_addr list from global addr list.
 > 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> But all the addrs' sin_ports in global addr list are 0 while the addrs'
+> sin_ports are bp->port in asoc's bind_addr list. It means even if it's
+> a duplicate address, af->cmp_addr will still return 0 as the their
+> sin_ports are different.
+> 
+> This patch is to fix it by setting the sin_port for addr param with
+> bp->port before comparing the addrs.
+> 
+> Fixes: b8607805dd15 ("sctp: not copying duplicate addrs to the assoc's bind address list")
+> Reported-by: Wei Chen <weichen@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
