@@ -1,8 +1,8 @@
 From: "Neftin, Sasha" <sasha.neftin@intel.com>
 Subject: Re: [Intel-wired-lan] [PATCH] e1000e: fix timing for 82579 Gigabit
  Ethernet controller
-Date: Mon, 27 Feb 2017 10:20:54 +0200
-Message-ID: <d72a8d85-33cd-8bf5-1ed8-0cb8bb3f32a4@intel.com>
+Date: Mon, 27 Feb 2017 10:39:31 +0200
+Message-ID: <3a432931-8b94-4808-78e0-bc459f510ab9@intel.com>
 References: <1487270527-4549-1-git-send-email-berndfaust@gmail.com>
  <923e61cf-5f95-1662-2f4c-fc146359ab48@intel.com>
  <0a95307e-6683-b9fe-1957-be2b0a3c441e@intel.com>
@@ -83,11 +83,6 @@ On 2/26/2017 11:08, Neftin, Sasha wrote:
 >
 > Sasha
 >
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@lists.osuosl.org
-> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
-
 I've double checked - 82579 support 96MHz frequency only. So, let's 
 accept this suggestion to upstream.
 
