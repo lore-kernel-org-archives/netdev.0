@@ -1,87 +1,149 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH 2/2] qed: Don't use attention PTT for configuring BW
-Date: Mon, 27 Feb 2017 11:06:33 +0200
-Message-ID: <1488186393-3938-3-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH 1/2] qed: Fix race with multiple VFs
+Date: Mon, 27 Feb 2017 11:06:32 +0200
+Message-ID: <1488186393-3938-2-git-send-email-Yuval.Mintz@cavium.com>
 References: <1488186393-3938-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:57051 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:57049 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751700AbdB0JGy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 04:06:54 -0500
+        by vger.kernel.org with ESMTP id S1751646AbdB0JGw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 04:06:52 -0500
 In-Reply-To: <1488186393-3938-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 653d2ffd6405 ("qed*: Fix link indication race") introduced another
-race - one of the inner functions called from the link-change flow is
-explicitly using the slowpath context dedicated PTT instead of gaining
-that PTT from the caller. Since this flow can now be called from
-a different context as well, we're in risk of the PTT breaking.
+A PF syncronizes all IOV activity relating to its VFs
+by using a single workqueue handling the work.
+The workqueue would reach a bitmask of pending VF events
+and act upon each in turn.
 
-Fixes: 653d2ffd6405 ("qed*: Fix link indication race")
+Problem is that the indication of a VF message [which sets
+the 'vf event' bit for that VF] arrives and is set in
+the slowpath attention context, which isn't syncronized with
+the processing of the events.
+When multiple VFs are present, it's possible that PF would
+lose the indication of one of the VF's pending evens, leading
+that VF to later timeout.
+
+Instead of adding locks/barriers, simply move from a bitmask
+into a per-VF indication inside that VF entry in the PF database.
+
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h     | 4 +++-
- drivers/net/ethernet/qlogic/qed/qed_dev.c | 6 +++---
- drivers/net/ethernet/qlogic/qed/qed_mcp.c | 3 ++-
- 3 files changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 39 +++++++++++++++++------------
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h |  4 ++-
+ 2 files changed, 26 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 61a9cd5..00c17fa 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -688,7 +688,9 @@ static inline u8 qed_concrete_to_sw_fid(struct qed_dev *cdev,
- #define OOO_LB_TC 9
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+index 29ed785..253c2bb 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+@@ -3014,8 +3014,7 @@ static int qed_iov_vf_flr_poll(struct qed_hwfn *p_hwfn,
+ 		ack_vfs[vfid / 32] |= BIT((vfid % 32));
+ 		p_hwfn->pf_iov_info->pending_flr[rel_vf_id / 64] &=
+ 		    ~(1ULL << (rel_vf_id % 64));
+-		p_hwfn->pf_iov_info->pending_events[rel_vf_id / 64] &=
+-		    ~(1ULL << (rel_vf_id % 64));
++		p_vf->vf_mbx.b_pending_msg = false;
+ 	}
  
- int qed_configure_vport_wfq(struct qed_dev *cdev, u16 vp_id, u32 rate);
--void qed_configure_vp_wfq_on_link_change(struct qed_dev *cdev, u32 min_pf_rate);
-+void qed_configure_vp_wfq_on_link_change(struct qed_dev *cdev,
-+					 struct qed_ptt *p_ptt,
-+					 u32 min_pf_rate);
+ 	return rc;
+@@ -3128,11 +3127,20 @@ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
+ 	mbx = &p_vf->vf_mbx;
  
- void qed_clean_wfq_db(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
- #define QED_LEADING_HWFN(dev)   (&dev->hwfns[0])
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index d6c5a81..e2a081c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -3198,7 +3198,8 @@ int qed_configure_vport_wfq(struct qed_dev *cdev, u16 vp_id, u32 rate)
- }
+ 	/* qed_iov_process_mbx_request */
+-	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
+-		   "VF[%02x]: Processing mailbox message\n", p_vf->abs_vf_id);
++	if (!mbx->b_pending_msg) {
++		DP_NOTICE(p_hwfn,
++			  "VF[%02x]: Trying to process mailbox message when none is pending\n",
++			  p_vf->abs_vf_id);
++		return;
++	}
++	mbx->b_pending_msg = false;
  
- /* API to configure WFQ from mcp link change */
--void qed_configure_vp_wfq_on_link_change(struct qed_dev *cdev, u32 min_pf_rate)
-+void qed_configure_vp_wfq_on_link_change(struct qed_dev *cdev,
-+					 struct qed_ptt *p_ptt, u32 min_pf_rate)
- {
- 	int i;
+ 	mbx->first_tlv = mbx->req_virt->first_tlv;
  
-@@ -3212,8 +3213,7 @@ void qed_configure_vp_wfq_on_link_change(struct qed_dev *cdev, u32 min_pf_rate)
- 	for_each_hwfn(cdev, i) {
- 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
- 
--		__qed_configure_vp_wfq_on_link_change(p_hwfn,
--						      p_hwfn->p_dpc_ptt,
-+		__qed_configure_vp_wfq_on_link_change(p_hwfn, p_ptt,
- 						      min_pf_rate);
++	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++		   "VF[%02x]: Processing mailbox message [type %04x]\n",
++		   p_vf->abs_vf_id, mbx->first_tlv.tl.type);
++
+ 	/* check if tlv type is known */
+ 	if (qed_iov_tlv_supported(mbx->first_tlv.tl.type) &&
+ 	    !p_vf->b_malicious) {
+@@ -3219,20 +3227,19 @@ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
  	}
  }
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index 314022d..87fde20 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -679,7 +679,8 @@ static void qed_mcp_handle_link_change(struct qed_hwfn *p_hwfn,
  
- 	/* Min bandwidth configuration */
- 	__qed_configure_pf_min_bandwidth(p_hwfn, p_ptt, p_link, min_bw);
--	qed_configure_vp_wfq_on_link_change(p_hwfn->cdev, p_link->min_pf_rate);
-+	qed_configure_vp_wfq_on_link_change(p_hwfn->cdev, p_ptt,
-+					    p_link->min_pf_rate);
+-static void qed_iov_pf_add_pending_events(struct qed_hwfn *p_hwfn, u8 vfid)
++void qed_iov_pf_get_pending_events(struct qed_hwfn *p_hwfn, u64 *events)
+ {
+-	u64 add_bit = 1ULL << (vfid % 64);
++	int i;
  
- 	p_link->an = !!(status & LINK_STATUS_AUTO_NEGOTIATE_ENABLED);
- 	p_link->an_complete = !!(status &
+-	p_hwfn->pf_iov_info->pending_events[vfid / 64] |= add_bit;
+-}
++	memset(events, 0, sizeof(u64) * QED_VF_ARRAY_LENGTH);
+ 
+-static void qed_iov_pf_get_and_clear_pending_events(struct qed_hwfn *p_hwfn,
+-						    u64 *events)
+-{
+-	u64 *p_pending_events = p_hwfn->pf_iov_info->pending_events;
++	qed_for_each_vf(p_hwfn, i) {
++		struct qed_vf_info *p_vf;
+ 
+-	memcpy(events, p_pending_events, sizeof(u64) * QED_VF_ARRAY_LENGTH);
+-	memset(p_pending_events, 0, sizeof(u64) * QED_VF_ARRAY_LENGTH);
++		p_vf = &p_hwfn->pf_iov_info->vfs_array[i];
++		if (p_vf->vf_mbx.b_pending_msg)
++			events[i / 64] |= 1ULL << (i % 64);
++	}
+ }
+ 
+ static struct qed_vf_info *qed_sriov_get_vf_from_absid(struct qed_hwfn *p_hwfn,
+@@ -3266,7 +3273,7 @@ static int qed_sriov_vfpf_msg(struct qed_hwfn *p_hwfn,
+ 	p_vf->vf_mbx.pending_req = (((u64)vf_msg->hi) << 32) | vf_msg->lo;
+ 
+ 	/* Mark the event and schedule the workqueue */
+-	qed_iov_pf_add_pending_events(p_hwfn, p_vf->relative_vf_id);
++	p_vf->vf_mbx.b_pending_msg = true;
+ 	qed_schedule_iov(p_hwfn, QED_IOV_WQ_MSG_FLAG);
+ 
+ 	return 0;
+@@ -4030,7 +4037,7 @@ static void qed_handle_vf_msg(struct qed_hwfn *hwfn)
+ 		return;
+ 	}
+ 
+-	qed_iov_pf_get_and_clear_pending_events(hwfn, events);
++	qed_iov_pf_get_pending_events(hwfn, events);
+ 
+ 	DP_VERBOSE(hwfn, QED_MSG_IOV,
+ 		   "Event mask of VF events: 0x%llx 0x%llx 0x%llx\n",
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
+index fc08cc2..a896058 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
+@@ -140,6 +140,9 @@ struct qed_iov_vf_mbx {
+ 	/* Address in VF where a pending message is located */
+ 	dma_addr_t pending_req;
+ 
++	/* Message from VF awaits handling */
++	bool b_pending_msg;
++
+ 	u8 *offset;
+ 
+ 	/* saved VF request header */
+@@ -232,7 +235,6 @@ struct qed_vf_info {
+  */
+ struct qed_pf_iov {
+ 	struct qed_vf_info vfs_array[MAX_NUM_VFS];
+-	u64 pending_events[QED_VF_ARRAY_LENGTH];
+ 	u64 pending_flr[QED_VF_ARRAY_LENGTH];
+ 
+ 	/* Allocate message address continuosuly and split to each VF */
 -- 
 1.9.3
