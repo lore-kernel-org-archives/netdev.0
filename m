@@ -1,60 +1,39 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 2/2] iproute2: add support for invisible qdisc dumping
-Date: Mon, 27 Feb 2017 12:52:18 +0100
-Message-ID: <20170227115218.GO6099@orbyte.nwl.cc>
-References: <alpine.LSU.2.20.1702252228010.24579@cbobk.fhfr.pm>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] xfrm: provide correct dst in xfrm_neigh_lookup
+Date: Mon, 27 Feb 2017 13:08:02 +0100
+Message-ID: <20170227120802.GF694@gauss.secunet.com>
+References: <1488038263-12447-1-git-send-email-ja@ssi.bg>
+ <20170226.213548.1175046698197997781.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jiri Kosina <jikos@kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <ja@ssi.bg>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35627 "EHLO mail.nwl.cc"
+Received: from a.mx.secunet.com ([62.96.220.36]:51310 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751550AbdB0MBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Feb 2017 07:01:22 -0500
+        id S1751673AbdB0MR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Feb 2017 07:17:29 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.20.1702252228010.24579@cbobk.fhfr.pm>
+In-Reply-To: <20170226.213548.1175046698197997781.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 25, 2017 at 10:29:17PM +0100, Jiri Kosina wrote:
-> From: Jiri Kosina <jkosina@suse.cz>
+On Sun, Feb 26, 2017 at 09:35:48PM -0500, David Miller wrote:
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Sat, 25 Feb 2017 17:57:43 +0200
 > 
-> Support the new TCA_DUMP_INVISIBLE netlink attribute that allows asking 
-> kernel to perform 'full qdisc dump', as for historical reasons some of the 
-> default qdiscs are being hidden by the kernel.
+> > Fix xfrm_neigh_lookup to provide dst->path to the
+> > neigh_lookup dst_ops method.
+> > 
+> > When skb is provided, the IP address in packet should already
+> > match the dst->path address family. But for the non-skb case,
+> > we should consider the last tunnel address as nexthop address.
+> > 
+> > Fixes: f894cbf847c9 ("net: Add optional SKB arg to dst_ops->neigh_lookup().")
+> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
 > 
-> The command syntax is being extended by voluntary 'invisible' argument to
-> 'tc qdisc show'.
+> This looks good to me.
 > 
-> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
-> ---
->  tc/tc_qdisc.c | 25 +++++++++++++++++++++++--
->  1 file changed, 23 insertions(+), 2 deletions(-)
+> Steffen, I applied this directly to my tree, I hope you don't mind.
 
-Would you mind adding a description of the new keyword to tc man page as
-well?
-
-> diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-> index 3a3701c2..29da9269 100644
-> --- a/tc/tc_qdisc.c
-> +++ b/tc/tc_qdisc.c
-> @@ -34,7 +34,7 @@ static int usage(void)
->  	fprintf(stderr, "       [ stab [ help | STAB_OPTIONS] ]\n");
->  	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
->  	fprintf(stderr, "\n");
-> -	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ]\n");
-> +	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact | invisible ]\n");
-
-Doesn't look like these are mutually exclusive. Therefore I would
-suggest fixing the syntax to:
-
-| +	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ] [ invisible ]\n");
-
-Cheers, Phil
+That's ok, no problem.
