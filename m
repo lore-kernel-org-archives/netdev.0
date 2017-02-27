@@ -1,48 +1,73 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v3 net] net: solve a NAPI race
-Date: Mon, 27 Feb 2017 14:14:03 -0800
-Message-ID: <20170227141403.714490f7@xeon-e3>
-References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1488226711.9415.204.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:34486 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751419AbdB0WOo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 17:14:44 -0500
-Received: by mail-pg0-f43.google.com with SMTP id p5so25409205pga.1
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:14:11 -0800 (PST)
-In-Reply-To: <1488226711.9415.204.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: sis: sis900: use new api ethtool_{get|set}_link_ksettings
+Date: Mon, 27 Feb 2017 23:17:37 +0100
+Message-ID: <1488233857-24171-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: venza@brownhat.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Feb 2017 12:18:31 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-> thread 1                                 thread 2 (could be on same cpu)
-> 
-> // busy polling or napi_watchdog()
-> napi_schedule();
-> ...
-> napi->poll()
-> 
-> device polling:
-> read 2 packets from ring buffer
->                                           Additional 3rd packet is available.
->                                           device hard irq
-> 
->                                           // does nothing because NAPI_STATE_SCHED bit is owned by thread 1
->                                           napi_schedule();
->                                           
-> napi_complete_done(napi, 2);
-> rearm_irq();
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-The original design (as Davem mentioned) was that IRQ's must be disabled
-during device polling. If that was true, then the race above
-would be impossible. Also NAPI assumes interrupts are level triggered.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/sis/sis900.c |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+index 19a4587..f317034 100644
+--- a/drivers/net/ethernet/sis/sis900.c
++++ b/drivers/net/ethernet/sis/sis900.c
+@@ -2035,23 +2035,23 @@ static u32 sis900_get_link(struct net_device *net_dev)
+ 	return mii_link_ok(&sis_priv->mii_info);
+ }
+ 
+-static int sis900_get_settings(struct net_device *net_dev,
+-				struct ethtool_cmd *cmd)
++static int sis900_get_link_ksettings(struct net_device *net_dev,
++				     struct ethtool_link_ksettings *cmd)
+ {
+ 	struct sis900_private *sis_priv = netdev_priv(net_dev);
+ 	spin_lock_irq(&sis_priv->lock);
+-	mii_ethtool_gset(&sis_priv->mii_info, cmd);
++	mii_ethtool_get_link_ksettings(&sis_priv->mii_info, cmd);
+ 	spin_unlock_irq(&sis_priv->lock);
+ 	return 0;
+ }
+ 
+-static int sis900_set_settings(struct net_device *net_dev,
+-				struct ethtool_cmd *cmd)
++static int sis900_set_link_ksettings(struct net_device *net_dev,
++				     const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct sis900_private *sis_priv = netdev_priv(net_dev);
+ 	int rt;
+ 	spin_lock_irq(&sis_priv->lock);
+-	rt = mii_ethtool_sset(&sis_priv->mii_info, cmd);
++	rt = mii_ethtool_set_link_ksettings(&sis_priv->mii_info, cmd);
+ 	spin_unlock_irq(&sis_priv->lock);
+ 	return rt;
+ }
+@@ -2129,11 +2129,11 @@ static void sis900_get_wol(struct net_device *net_dev, struct ethtool_wolinfo *w
+ 	.get_msglevel	= sis900_get_msglevel,
+ 	.set_msglevel	= sis900_set_msglevel,
+ 	.get_link	= sis900_get_link,
+-	.get_settings	= sis900_get_settings,
+-	.set_settings	= sis900_set_settings,
+ 	.nway_reset	= sis900_nway_reset,
+ 	.get_wol	= sis900_get_wol,
+-	.set_wol	= sis900_set_wol
++	.set_wol	= sis900_set_wol,
++	.get_link_ksettings = sis900_get_link_ksettings,
++	.set_link_ksettings = sis900_set_link_ksettings,
+ };
+ 
+ /**
+-- 
+1.7.4.4
