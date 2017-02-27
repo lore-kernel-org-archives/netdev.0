@@ -1,76 +1,135 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] ipv6: check for ip6_null_entry in __ip6_del_rt_siblings()
-Date: Mon, 27 Feb 2017 12:55:44 -0800
-Message-ID: <CAM_iQpUufKs9-fwvUo16c_RYDbCOC3cJeSPma3TqF2VBLxNr5g@mail.gmail.com>
-References: <1488222425-1256-1-git-send-email-xiyou.wangcong@gmail.com> <1488227660.9415.207.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v1.1] dt: emac: document device-tree based phy discovery
+ and setup
+Date: Mon, 27 Feb 2017 12:25:53 -0800
+Message-ID: <eaf5b812-deae-c5f7-3930-dadf0b0132bf@gmail.com>
+References: <20170227.145447.1005420963599745103.davem@davemloft.net>
+ <8f94c394faf5665ae693f41832f2446dfc7c989e.1488226061.git.chunkeey@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36501 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752045AbdB0U5A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 15:57:00 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r18so15284933wmd.3
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 12:56:05 -0800 (PST)
-In-Reply-To: <1488227660.9415.207.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Ivan Mikhaylov <ivan-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8f94c394faf5665ae693f41832f2446dfc7c989e.1488226061.git.chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 27, 2017 at 12:34 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2017-02-27 at 11:07 -0800, Cong Wang wrote:
->> Andrey reported a NULL pointer deref bug in ipv6_route_ioctl()
->> -> ip6_route_del() -> __ip6_del_rt_siblings() code path. This is
->> because ip6_null_entry is returned in this path since ip6_null_entry
->> is kinda default for a ipv6 route table root node. Quote from
->> David Ahern:
->>
->>  ip6_null_entry is the root of all ipv6 fib tables making it integrated
->>  into the table ...
->>
->> We should ignore any attempt of trying to delete it, like we do in
->> __ip6_del_rt() path and several others.
->>
->> Reported-by: Andrey Konovalov <andreyknvl@google.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
->>  net/ipv6/route.c | 7 +++++--
->>  1 file changed, 5 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index f54f426..9da77e9 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -2169,10 +2169,13 @@ int ip6_del_rt(struct rt6_info *rt)
->>  static int __ip6_del_rt_siblings(struct rt6_info *rt, struct fib6_config *cfg)
->>  {
->>       struct nl_info *info = &cfg->fc_nlinfo;
->> +     struct net *net = info->nl_net;
->>       struct sk_buff *skb = NULL;
->>       struct fib6_table *table;
->>       int err;
->>
->> +     if (rt == net->ipv6.ip6_null_entry)
->> +             return -ENOENT;
->
-> It looks the caller did a dst_hold(&rt->dst);
->
-> So this new error path would leave a refcount leak.
+On 02/27/2017 12:11 PM, Christian Lamparter wrote:
+> This patch adds documentation for a new "phy-handle" property,
+> "fixed-link" and "mdio" sub-node. These allows the enumeration
+> of PHYs which are supported by the phy library under drivers/net/phy.
+> 
+> The EMAC ethernet controller in IBM and AMCC 4xx chips is
+> currently stuck with a few privately defined phy
+> implementations. It has no support for PHYs which
+> are supported by the generic phylib.
+> 
+> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+> ---
+> Resent - no changes.
+> ---
+>  .../devicetree/bindings/powerpc/4xx/emac.txt       | 64 +++++++++++++++++++++-
+>  1 file changed, 62 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+> index 712baf6c3e24..1893b4c4d93b 100644
+> --- a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+> +++ b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+> @@ -71,6 +71,9 @@
+>  			  For Axon it can be absent, though my current driver
+>  			  doesn't handle phy-address yet so for now, keep
+>  			  0x00ffffff in it.
+> +    - phy-handle	: Used to describe configurations where a external PHY
+> +			  is used. Please refer to:
+> +			  Documentation/devicetree/bindings/net/ethernet.txt
+>      - rx-fifo-size-gige : 1 cell, Rx fifo size in bytes for 1000 Mb/sec
+>  			  operations (if absent the value is the same as
+>  			  rx-fifo-size).  For Axon, either absent or 2048.
+> @@ -81,8 +84,22 @@
+>  			  offload, phandle of the TAH device node.
+>      - tah-channel       : 1 cell, optional. If appropriate, channel used on the
+>  			  TAH engine.
+> +    - fixed-link	: Fixed-link subnode describing a link to a non-MDIO
+> +			  managed entity. See
+> +			  Documentation/devicetree/bindings/net/fixed-link.txt
+> +			  for details.
+> +    - mdio subnode	: When the EMAC has a phy connected to its local
+> +			  mdio, which us supported by the kernel's network
+> +			  PHY library in drivers/net/phy, there must be device
+> +			  tree subnode with the following required properties:
+> +				- #address-cells: Must be <1>.
+> +				- #size-cells: Must be <0>.
+>  
+> -    Example:
+> +			  For PHY definitions: Please refer to
+> +			  Documentation/devicetree/bindings/net/phy.txt and
+> +			  Documentation/devicetree/bindings/net/ethernet.txt
+> +
+> +    Examples:
+>  
+>  	EMAC0: ethernet@40000800 {
+>  		device_type = "network";
+> @@ -104,6 +121,50 @@
+>  		zmii-channel = <0>;
+>  	};
+>  
+> +	EMAC1: ethernet@ef600c00 {
+> +		device_type = "network";
+> +		compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
+> +		interrupt-parent = <&EMAC1>;
+> +		interrupts = <0 1>;
+> +		#interrupt-cells = <1>;
+> +		#address-cells = <0>;
+> +		#size-cells = <0>;
+> +		interrupt-map = <0 &UIC2 0x10 IRQ_TYPE_LEVEL_HIGH /* Status */
+> +				 1 &UIC2 0x14 IRQ_TYPE_LEVEL_HIGH /* Wake */>;
+> +		reg = <0xef600c00 0x000000c4>;
+> +		local-mac-address = [000000000000]; /* Filled in by U-Boot */
+> +		mal-device = <&MAL0>;
+> +		mal-tx-channel = <0>;
+> +		mal-rx-channel = <0>;
+> +		cell-index = <0>;
+> +		max-frame-size = <9000>;
+> +		rx-fifo-size = <16384>;
+> +		tx-fifo-size = <2048>;
+> +		fifo-entry-size = <10>;
+> +		phy-mode = "rgmii";
+> +		phy-handle = <&phy0>;
+> +		phy-map = <0x00000000>;
+> +		rgmii-device = <&RGMII0>;
+> +		rgmii-channel = <0>;
+> +		tah-device = <&TAH0>;
+> +		tah-channel = <0>;
+> +		has-inverted-stacr-oc;
+> +		has-new-stacr-staopc;
+> +
+> +	        mdio {
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			phy0: ethernet-phy@0 {
+> +				device_type = "ethernet-phy";
 
-Interesting, this error path is not new for __ip6_del_rt_siblings()
-so the leak was already there before mine, but you are probably
-right we have a leak here.
 
-I will send a separate patch to address this leak.
+Christian, sorry for noticing this that late, but his does not quite
+conform to the phy.txt binding document here.
 
->
-> Note that I was not able to trigger the crash on old kernels, so it
-> would be nice to get a precise idea of bug origin.
+Please put something standard e.g:
 
-Right, I miss:
-Fixes: 0ae8133586ad ("net: ipv6: Allow shorthand delete of all
-nexthops in multipath route")
+			phy0: ethernet-phy@0 {
+				compatible = "ethernet-phy-ieee802.3-c22";
+				reg = <0>;
+			};
 
-Thanks!
+examples tend to be copy/pasted more often than they should...
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
