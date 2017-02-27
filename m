@@ -1,39 +1,67 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: net/ipv6: null-ptr-deref in ip6_route_del/lock_acquire
-Date: Mon, 27 Feb 2017 11:59:33 -0800
-Message-ID: <e260c2c5-26b6-6ef4-563e-b601adc664f9@cumulusnetworks.com>
-References: <CAAeHK+wqCyT6BzgiKLVNbVyoDwOUyDur9Nw-C0HFYjmyAMym9A@mail.gmail.com>
- <CAM_iQpWFnNyk=KfFyDnYOe9iXqgTJWCysx2YMLg19ufbYGdG4g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1.1] net: emac: add support for device-tree based PHY
+ discovery and setup
+Date: Mon, 27 Feb 2017 14:54:47 -0500 (EST)
+Message-ID: <20170227.145447.1005420963599745103.davem@davemloft.net>
+References: <d32546b59c67456c77d003af1df51862d2f8c5de.1487617501.git.chunkeey@googlemail.com>
+        <20170222.153735.1289514443979947868.davem@davemloft.net>
+        <2567253.1QjLrx0r05@debian64>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        ivan@de.ibm.com, f.fainelli@gmail.com, andrew@lunn.ch,
+        robh+dt@kernel.org
+To: chunkeey@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35374 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751291AbdB0UHi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 15:07:38 -0500
-Received: by mail-pf0-f180.google.com with SMTP id j5so7989185pfb.2
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 12:07:12 -0800 (PST)
-In-Reply-To: <CAM_iQpWFnNyk=KfFyDnYOe9iXqgTJWCysx2YMLg19ufbYGdG4g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48084 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751710AbdB0UPF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 15:15:05 -0500
+In-Reply-To: <2567253.1QjLrx0r05@debian64>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/27/17 10:11 AM, Cong Wang wrote:
-> The attached patch fixes this crash, but I am not sure if it is the
-> best way to fix this bug yet...
+From: Christian Lamparter <chunkeey@googlemail.com>
+Date: Mon, 27 Feb 2017 20:42:15 +0100
 
-I'll take a look. I can not reproduce this using route or ip, so the
-fuzzer is doing something interesting.
+> On Wednesday, February 22, 2017 3:37:35 PM CET David Miller wrote:
+>> From: Christian Lamparter <chunkeey@googlemail.com>
+>> Date: Mon, 20 Feb 2017 20:10:58 +0100
+>> 
+>> > This patch adds glue-code that allows the EMAC driver to interface
+>> > with the existing dt-supported PHYs in drivers/net/phy.
+>> > 
+>> > Because currently, the emac driver maintains a small library of
+>> > supported phys for in a private phy.c file located in the drivers
+>> > directory.
+>> > 
+>> > The support is limited to mostly single ethernet transceiver like the:
+>> > CIS8201, BCM5248, ET1011C, Marvell 88E1111 and 88E1112, AR8035.
+>> > 
+>> > However, routers like the Netgear WNDR4700 and Cisco Meraki MX60(W)
+>> > have a 5-port switch (AR8327N) attached to the EMAC. The switch chip
+>> > is supported by the qca8k mdio driver, which uses the generic phy
+>> > library. Another reason is that PHYLIB also supports the BCM54610,
+>> > which was used for the Western Digital My Book Live.
+>> > 
+>> > This will now also make EMAC select PHYLIB.
+>> > 
+>> > Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
+>> 
+>> Applied, thanks.
+>> 
+> Thanks David.
+> 
+> I noticed that the DT Documentation patch:
+> "[v1,1/2] dt: emac: document device-tree based phy discovery and setup"
+> is still pending with "Changes Requested":
+> <https://patchwork.ozlabs.org/patch/729658/>
+> 
+> I think this is because of Florian's comment on patch:
+> "[v1,2/2] net: emac: add support for device-tree based PHY discovery and setup"
+> If so, can you please queue this documentation update patch for -next?
+> (I haven't received any comments or complains. If necessary, I can also
+> resent it.)
+
+Please resend.
