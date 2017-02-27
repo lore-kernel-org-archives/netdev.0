@@ -1,8 +1,8 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 net-next 0/6] drivers: net: xgene-v2: Add RGMII based 1G
- driver
-Date: Sun, 26 Feb 2017 21:18:20 -0800
-Message-ID: <1488172706-29577-1-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v2 net-next 4/6] drivers: net: xgene-v2: Add base driver
+Date: Sun, 26 Feb 2017 21:18:24 -0800
+Message-ID: <1488172706-29577-5-git-send-email-isubramanian@apm.com>
+References: <1488172706-29577-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +11,7 @@ Cc: kchudgar@apm.com, patches@apm.com, linux-arm-kernel@lists.infradead.org,
 To: davem@davemloft.net, netdev@vger.kernel.org, andrew@lunn.ch,
  f.fainelli@gmail.com, David.Laight@aculab.com
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1488172706-29577-1-git-send-email-isubramanian@apm.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -22,56 +23,535 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This patch set adds support for RGMII based 1GbE hardware which uses a linked
-list of DMA descriptor architecture (v2) for APM X-Gene SoCs.
+This patch adds,
+
+     - probe, remove, shutdown
+     - open, close and stats
+     - create and delete ring
+     - request and delete irq
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
-v2: Address review comments from v1
-	- moved create_desc_ring and delete_desc_ring to open() and close()
-	  respectively
-	- changed to use dma_zalloc APIs
-	- fixed tx_timeout()
-	- removed tx completion polling upper bound
-	- added error checking on rx packets
-	- added netif_stop_queue() and netif_wake_queue()
-
-v1:
-	- Initial version
----
-
-Iyappan Subramanian (6):
-  drivers: net: xgene-v2: Add DMA descriptor
-  drivers: net: xgene-v2: Add mac configuration
-  drivers: net: xgene-v2: Add ethernet hardware configuration
-  drivers: net: xgene-v2: Add base driver
-  drivers: net: xgene-v2: Add transmit and receive
-  MAINTAINERS: Add entry for APM X-Gene SoC Ethernet (v2) driver
-
- MAINTAINERS                                |   6 +
- drivers/net/ethernet/apm/Kconfig           |   1 +
- drivers/net/ethernet/apm/Makefile          |   1 +
- drivers/net/ethernet/apm/xgene-v2/Kconfig  |  11 +
- drivers/net/ethernet/apm/xgene-v2/Makefile |   6 +
- drivers/net/ethernet/apm/xgene-v2/enet.c   |  71 +++
- drivers/net/ethernet/apm/xgene-v2/enet.h   |  43 ++
- drivers/net/ethernet/apm/xgene-v2/mac.c    | 116 +++++
- drivers/net/ethernet/apm/xgene-v2/mac.h    | 110 +++++
- drivers/net/ethernet/apm/xgene-v2/main.c   | 756 +++++++++++++++++++++++++++++
- drivers/net/ethernet/apm/xgene-v2/main.h   |  75 +++
- drivers/net/ethernet/apm/xgene-v2/ring.c   |  81 ++++
- drivers/net/ethernet/apm/xgene-v2/ring.h   | 119 +++++
- 13 files changed, 1396 insertions(+)
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/Kconfig
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/Makefile
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/enet.c
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/enet.h
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/mac.c
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/mac.h
+ drivers/net/ethernet/apm/xgene-v2/main.c | 510 +++++++++++++++++++++++++++++++
+ 1 file changed, 510 insertions(+)
  create mode 100644 drivers/net/ethernet/apm/xgene-v2/main.c
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/main.h
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/ring.c
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/ring.h
 
+diff --git a/drivers/net/ethernet/apm/xgene-v2/main.c b/drivers/net/ethernet/apm/xgene-v2/main.c
+new file mode 100644
+index 0000000..c96b4cc
+--- /dev/null
++++ b/drivers/net/ethernet/apm/xgene-v2/main.c
+@@ -0,0 +1,510 @@
++/*
++ * Applied Micro X-Gene SoC Ethernet v2 Driver
++ *
++ * Copyright (c) 2017, Applied Micro Circuits Corporation
++ * Author(s): Iyappan Subramanian <isubramanian@apm.com>
++ *	      Keyur Chudgar <kchudgar@apm.com>
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include "main.h"
++
++static const struct acpi_device_id xge_acpi_match[];
++
++static int xge_get_resources(struct xge_pdata *pdata)
++{
++	struct platform_device *pdev;
++	struct net_device *ndev;
++	struct device *dev;
++	struct resource *res;
++	int phy_mode, ret = 0;
++
++	pdev = pdata->pdev;
++	dev = &pdev->dev;
++	ndev = pdata->ndev;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res) {
++		dev_err(dev, "Resource enet_csr not defined\n");
++		return -ENODEV;
++	}
++
++	pdata->resources.base_addr = devm_ioremap(dev, res->start,
++						  resource_size(res));
++	if (!pdata->resources.base_addr) {
++		dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
++		return -ENOMEM;
++	}
++
++	if (!device_get_mac_address(dev, ndev->dev_addr, ETH_ALEN))
++		eth_hw_addr_random(ndev);
++
++	memcpy(ndev->perm_addr, ndev->dev_addr, ndev->addr_len);
++
++	phy_mode = device_get_phy_mode(dev);
++	if (phy_mode < 0) {
++		dev_err(dev, "Unable to get phy-connection-type\n");
++		return phy_mode;
++	}
++	pdata->resources.phy_mode = phy_mode;
++
++	if (pdata->resources.phy_mode != PHY_INTERFACE_MODE_RGMII) {
++		dev_err(dev, "Incorrect phy-connection-type specified\n");
++		return -ENODEV;
++	}
++
++	ret = platform_get_irq(pdev, 0);
++	if (ret <= 0) {
++		dev_err(dev, "Unable to get ENET IRQ\n");
++		ret = ret ? : -ENXIO;
++		return ret;
++	}
++	pdata->resources.irq = ret;
++
++	return 0;
++}
++
++static int xge_refill_buffers(struct net_device *ndev, u32 nbuf)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	struct xge_desc_ring *ring = pdata->rx_ring;
++	const u8 slots = XGENE_ENET_NUM_DESC - 1;
++	struct device *dev = &pdata->pdev->dev;
++	struct xge_raw_desc *raw_desc;
++	u64 addr_lo, addr_hi;
++	u8 tail = ring->tail;
++	struct sk_buff *skb;
++	dma_addr_t dma_addr;
++	u16 len;
++	int i;
++
++	for (i = 0; i < nbuf; i++) {
++		raw_desc = &ring->raw_desc[tail];
++
++		len = XGENE_ENET_STD_MTU;
++		skb = netdev_alloc_skb(ndev, len);
++		if (unlikely(!skb))
++			return -ENOMEM;
++
++		dma_addr = dma_map_single(dev, skb->data, len, DMA_FROM_DEVICE);
++		if (dma_mapping_error(dev, dma_addr)) {
++			netdev_err(ndev, "DMA mapping error\n");
++			dev_kfree_skb_any(skb);
++			return -EINVAL;
++		}
++
++		ring->pkt_info[tail].skb = skb;
++		ring->pkt_info[tail].dma_addr = dma_addr;
++
++		addr_hi = GET_BITS(NEXT_DESC_ADDRH, le64_to_cpu(raw_desc->m1));
++		addr_lo = GET_BITS(NEXT_DESC_ADDRL, le64_to_cpu(raw_desc->m1));
++		raw_desc->m1 = cpu_to_le64(SET_BITS(NEXT_DESC_ADDRL, addr_lo) |
++					   SET_BITS(NEXT_DESC_ADDRH, addr_hi) |
++					   SET_BITS(PKT_ADDRH,
++						    dma_addr >> PKT_ADDRL_LEN));
++
++		dma_wmb();
++		raw_desc->m0 = cpu_to_le64(SET_BITS(PKT_ADDRL, dma_addr) |
++					   SET_BITS(E, 1));
++		tail = (tail + 1) & slots;
++	}
++
++	ring->tail = tail;
++
++	return 0;
++}
++
++static int xge_init_hw(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	int ret;
++
++	ret = xge_port_reset(ndev);
++	if (ret)
++		return ret;
++
++	xge_port_init(ndev);
++	pdata->nbufs = NUM_BUFS;
++
++	return 0;
++}
++
++static irqreturn_t xge_irq(const int irq, void *data)
++{
++	struct xge_pdata *pdata = data;
++
++	if (napi_schedule_prep(&pdata->napi)) {
++		xge_intr_disable(pdata);
++		__napi_schedule(&pdata->napi);
++	}
++
++	return IRQ_HANDLED;
++}
++
++static int xge_request_irq(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	struct device *dev = &pdata->pdev->dev;
++	int ret;
++
++	snprintf(pdata->irq_name, IRQ_ID_SIZE, "%s", ndev->name);
++
++	ret = devm_request_irq(dev, pdata->resources.irq, xge_irq,
++			       0, pdata->irq_name, pdata);
++	if (ret)
++		netdev_err(ndev, "Failed to request irq %s\n", pdata->irq_name);
++
++	return ret;
++}
++
++static void xge_free_irq(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	struct device *dev = &pdata->pdev->dev;
++
++	devm_free_irq(dev, pdata->resources.irq, pdata);
++}
++
++static void xge_delete_desc_ring(struct net_device *ndev,
++				 struct xge_desc_ring *ring)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	struct device *dev = &pdata->pdev->dev;
++	u16 size;
++
++	if (!ring)
++		return;
++
++	size = XGENE_ENET_DESC_SIZE * XGENE_ENET_NUM_DESC;
++	if (ring->desc_addr)
++		dma_free_coherent(dev, size, ring->desc_addr, ring->dma_addr);
++
++	kfree(ring->pkt_info);
++	kfree(ring);
++}
++
++static void xge_free_buffers(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	struct xge_desc_ring *ring = pdata->rx_ring;
++	struct device *dev = &pdata->pdev->dev;
++	struct sk_buff *skb;
++	dma_addr_t dma_addr;
++	int i;
++
++	for (i = 0; i < XGENE_ENET_NUM_DESC; i++) {
++		skb = ring->pkt_info[i].skb;
++		dma_addr = ring->pkt_info[i].dma_addr;
++
++		if (!skb)
++			continue;
++
++		dma_unmap_single(dev, dma_addr, XGENE_ENET_STD_MTU,
++				 DMA_FROM_DEVICE);
++		dev_kfree_skb_any(skb);
++	}
++}
++
++static void xge_delete_desc_rings(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++
++	xge_delete_desc_ring(ndev, pdata->tx_ring);
++
++	xge_free_buffers(ndev);
++	xge_delete_desc_ring(ndev, pdata->rx_ring);
++}
++
++static struct xge_desc_ring *xge_create_desc_ring(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	struct device *dev = &pdata->pdev->dev;
++	struct xge_desc_ring *ring;
++	u16 size;
++
++	ring = kzalloc(sizeof(struct xge_desc_ring), GFP_KERNEL);
++	if (!ring)
++		return NULL;
++
++	ring->ndev = ndev;
++
++	size = XGENE_ENET_DESC_SIZE * XGENE_ENET_NUM_DESC;
++	ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma_addr,
++					      GFP_KERNEL);
++	if (!ring->desc_addr)
++		goto err;
++
++	ring->pkt_info = kcalloc(XGENE_ENET_NUM_DESC, sizeof(struct pkt_info),
++				 GFP_KERNEL);
++	if (!ring->pkt_info)
++		goto err;
++
++	xge_setup_desc(ring);
++
++	return ring;
++
++err:
++	xge_delete_desc_ring(ndev, ring);
++
++	return NULL;
++}
++
++static int xge_create_desc_rings(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	struct xge_desc_ring *ring;
++	int ret;
++
++	/* create tx ring */
++	ring = xge_create_desc_ring(ndev);
++	if (!ring)
++		goto err;
++
++	pdata->tx_ring = ring;
++	xge_update_tx_desc_addr(pdata);
++
++	/* create rx ring */
++	ring = xge_create_desc_ring(ndev);
++	if (!ring)
++		goto err;
++
++	pdata->rx_ring = ring;
++	xge_update_rx_desc_addr(pdata);
++
++	ret = xge_refill_buffers(ndev, XGENE_ENET_NUM_DESC);
++	if (ret)
++		goto err;
++
++	return 0;
++err:
++	xge_delete_desc_rings(ndev);
++
++	return -ENOMEM;
++}
++
++static int xge_open(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	int ret;
++
++	ret = xge_create_desc_rings(ndev);
++	if (ret)
++		return ret;
++
++	napi_enable(&pdata->napi);
++	ret = xge_request_irq(ndev);
++	if (ret)
++		return ret;
++
++	xge_intr_enable(pdata);
++	xge_wr_csr(pdata, DMARXCTRL, 1);
++	xge_mac_enable(pdata);
++	netif_start_queue(ndev);
++	netif_carrier_on(ndev);
++
++	return 0;
++}
++
++static int xge_close(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++
++	netif_carrier_off(ndev);
++	netif_stop_queue(ndev);
++	xge_mac_disable(pdata);
++
++	xge_intr_disable(pdata);
++	xge_free_irq(ndev);
++	napi_disable(&pdata->napi);
++	xge_delete_desc_rings(ndev);
++
++	return 0;
++}
++
++static int xge_set_mac_addr(struct net_device *ndev, void *addr)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	int ret;
++
++	ret = eth_mac_addr(ndev, addr);
++	if (ret)
++		return ret;
++
++	xge_mac_set_station_addr(pdata);
++
++	return 0;
++}
++
++static void xge_timeout(struct net_device *ndev)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++
++	rtnl_lock();
++
++	if (netif_running(ndev)) {
++		netif_carrier_off(ndev);
++		netif_stop_queue(ndev);
++		xge_intr_disable(pdata);
++		napi_disable(&pdata->napi);
++
++		xge_wr_csr(pdata, DMATXCTRL, 0);
++		xge_txc_poll(ndev);
++		xge_free_pending_skb(ndev);
++		xge_wr_csr(pdata, DMATXSTATUS, ~0U);
++
++		xge_setup_desc(pdata->tx_ring);
++		xge_update_tx_desc_addr(pdata);
++		xge_mac_init(pdata);
++
++		napi_enable(&pdata->napi);
++		xge_intr_enable(pdata);
++		xge_mac_enable(pdata);
++		netif_start_queue(ndev);
++		netif_carrier_on(ndev);
++	}
++
++	rtnl_unlock();
++}
++
++static void xge_get_stats64(struct net_device *ndev,
++			    struct rtnl_link_stats64 *storage)
++{
++	struct xge_pdata *pdata = netdev_priv(ndev);
++	struct xge_stats *stats = &pdata->stats;
++
++	storage->tx_packets += stats->tx_packets;
++	storage->tx_bytes += stats->tx_bytes;
++
++	storage->rx_packets += stats->rx_packets;
++	storage->rx_bytes += stats->rx_bytes;
++}
++
++static const struct net_device_ops xgene_ndev_ops = {
++	.ndo_open = xge_open,
++	.ndo_stop = xge_close,
++	.ndo_set_mac_address = xge_set_mac_addr,
++	.ndo_tx_timeout = xge_timeout,
++	.ndo_get_stats64 = xge_get_stats64,
++};
++
++static int xge_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct net_device *ndev;
++	struct xge_pdata *pdata;
++	int ret;
++
++	ndev = alloc_etherdev(sizeof(struct xge_pdata));
++	if (!ndev)
++		return -ENOMEM;
++
++	pdata = netdev_priv(ndev);
++
++	pdata->pdev = pdev;
++	pdata->ndev = ndev;
++	SET_NETDEV_DEV(ndev, dev);
++	platform_set_drvdata(pdev, pdata);
++	ndev->netdev_ops = &xgene_ndev_ops;
++
++	ndev->features |= NETIF_F_GSO |
++			  NETIF_F_GRO;
++
++	ret = xge_get_resources(pdata);
++	if (ret)
++		goto err;
++
++	ndev->hw_features = ndev->features;
++
++	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(64));
++	if (ret) {
++		netdev_err(ndev, "No usable DMA configuration\n");
++		goto err;
++	}
++
++	ret = xge_init_hw(ndev);
++	if (ret)
++		goto err;
++
++	netif_napi_add(ndev, &pdata->napi, xge_napi, NAPI_POLL_WEIGHT);
++
++	netif_carrier_off(ndev);
++	ret = register_netdev(ndev);
++	if (ret) {
++		netdev_err(ndev, "Failed to register netdev\n");
++		goto err;
++	}
++
++	return 0;
++
++err:
++	free_netdev(ndev);
++
++	return ret;
++}
++
++static int xge_remove(struct platform_device *pdev)
++{
++	struct xge_pdata *pdata;
++	struct net_device *ndev;
++
++	pdata = platform_get_drvdata(pdev);
++	ndev = pdata->ndev;
++
++	rtnl_lock();
++	if (netif_running(ndev))
++		dev_close(ndev);
++	rtnl_unlock();
++
++	unregister_netdev(ndev);
++	free_netdev(ndev);
++
++	return 0;
++}
++
++static void xge_shutdown(struct platform_device *pdev)
++{
++	struct xge_pdata *pdata;
++
++	pdata = platform_get_drvdata(pdev);
++	if (!pdata)
++		return;
++
++	if (!pdata->ndev)
++		return;
++
++	xge_remove(pdev);
++}
++
++static const struct acpi_device_id xge_acpi_match[] = {
++	{ "APMC0D80" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, xge_acpi_match);
++
++static struct platform_driver xge_driver = {
++	.driver = {
++		   .name = "xgene-enet-v2",
++		   .acpi_match_table = ACPI_PTR(xge_acpi_match),
++	},
++	.probe = xge_probe,
++	.remove = xge_remove,
++	.shutdown = xge_shutdown,
++};
++module_platform_driver(xge_driver);
++
++MODULE_DESCRIPTION("APM X-Gene SoC Ethernet v2 driver");
++MODULE_AUTHOR("Iyappan Subramanian <isubramanian@apm.com>");
++MODULE_VERSION(XGENE_ENET_V2_VERSION);
++MODULE_LICENSE("GPL");
 -- 
 1.9.1
