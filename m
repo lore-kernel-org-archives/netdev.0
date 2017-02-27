@@ -1,57 +1,75 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/2] sctp: add support for MSG_MORE
-Date: Mon, 27 Feb 2017 10:48:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE70E65@AcuExch.aculab.com>
-References: <cover.1487440272.git.lucien.xin@gmail.com>
- <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
- <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
- <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
- <CADvbK_eauYUyUWMAn8Zkpk5hNnK-GDNO+3NCeuA-y=Y7SFnv5A@mail.gmail.com>
- <CADvbK_fS9bOzoRsY-TBKMUkJJZJ5NuouBcSt1=79kJVTAHc=UQ@mail.gmail.com>
+From: Mikko Perttunen <cyndis-/1wQRMveznE@public.gmane.org>
+Subject: Re: [PATCH 2/7] net: stmmac: Balance PTP reference clock
+ enable/disable
+Date: Mon, 27 Feb 2017 11:31:39 +0200
+Message-ID: <53f18077-6a4d-339f-192e-287a1f889fb7@kapsi.fi>
+References: <20170223172438.14770-1-thierry.reding@gmail.com>
+ <20170223172438.14770-3-thierry.reding@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "Vlad Yasevich" <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: 'Xin Long' <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.186]:57955 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751620AbdB0Ktw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 05:49:52 -0500
-In-Reply-To: <CADvbK_fS9bOzoRsY-TBKMUkJJZJ5NuouBcSt1=79kJVTAHc=UQ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
+        Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170223172438.14770-3-thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogWGluIExvbmcNCj4gU2VudDogMjcgRmVicnVhcnkgMjAxNyAwNDo0OQ0KLi4uDQo+ID4g
-d2hhdCBJJ20gd29ycmllZCBhYm91dCBpcyBpZiB0aGUgbXNnX21vcmUgaXMgc2F2ZWQgaW4gYXNz
-b2M6DQo+ID4gICAgICBjaGs0W2NsZWFyXSAtPiBjaGszIFtjbGVhcl0gLT4gY2hrMiBbY2xlYXJd
-IC0+IGNoazEgW2NsZWFyXQ0KPiA+IHRoZW4gd2hlbiB5b3Ugc2VuZCBhIHNtYWxsIGNoa0Egd2l0
-aCBNU0dfTU9SRSwNCj4gPiB0aGUgcXVldWUgd2lsbCBiZSBsaWtlOg0KPiA+ICAgICAgY2hrQSBb
-c2V0XSAtPiBjaGs0W3NldF0gLT4gY2hrMyBbc2V0XSAtPiBjaGsyIFtzZXRdIC0+IGNoazEgW3Nl
-dF0NCj4gPiBiZWNhdXNlIG1zZ19tb3JlIGlzIHNhdmVkIGluIGFzc29jLCBldmVyeSBjaHVuayBj
-YW4gbG9vayBhdCBpdC4NCj4gPiBjaGsxIC0gY2hrNCBhcmUgYmlnIGVub3VnaCB0byBiZSBwYWNr
-ZWQgaW50byBhIHBhY2tldCwgdGhleSB3ZXJlDQo+ID4gbm90IHNlbnQgbGFzdCB0aW1lIGJlY2F1
-c2UgYSBsb3Qgb2YgY2h1bmtzIGFyZSBpbiB0aGUgcmV0cmFuc21pdA0KPiA+IHF1ZXVlLg0KDQpP
-ciBqdXN0IHdhaXRpbmcgZm9yIHRyYW5zbWl0IHdpbmRvdyBzcGFjZS4NCg0KPiA+IEJ1dCBub3cg
-ZXZlbiBpZiByZXRyYW5zbWl0IHF1ZXVlIGlzIG51bGwsIGNoazEtY2hrNCBhcmUgc3RpbGwgYmxv
-Y2tlZC4NCj4gPg0KPiA+IGNhbiB5b3UgYWNjZXB0IHRoYXQgY2hrQSBtYXkgYmxvY2sgdGhlIG9s
-ZCBjaHVua3MgPw0KPiBldmVuIGFsc28gYmxvY2sgdGhlIHJldHJhbnNtaXQgY2h1bmtzLg0KDQpJ
-IGRvbid0IHNlZSBhIHByb2JsZW0sIHRoZSBhcHBsaWNhdGlvbiBpcyBhYm91dCB0byBzZW5kIGFu
-b3RoZXIgY2h1bmsuDQpJdCBpcyBsaWtlbHkgdGhhdCB0aGUgd2hvbGUgbG90IHdpbGwgZ28gaW4g
-b25lIHBhY2tldC4NCg0KSWYgdGhlIGNvbm5lY3Rpb24gaXMgZmxvdyBjb250cm9sbGVkIG9mZiAo
-ZXZlbiBpZiBkdWUgdG8gcGFja2V0IGxvc3MpDQp0aGUgbWlub3IgZGVsYXkgd2FpdGluZyBmb3Ig
-dGhlIGFwcGxpY2F0aW9uIHdvbid0IG1ha2UgYW55IHJlYWwgZGlmZmVyZW5jZS4NCkluZGVlZCBy
-ZWR1Y2luZyB0aGUgbnVtYmVyIG9mIGV0aGVybmV0IGZyYW1lcyBtYXkgaGVscCBpbmNyZWFzZQ0K
-b3ZlcmFsbCB0aHJvdWdocHV0Lg0KDQpEb2VzIGEgcmVxdWVzdCBmb3IgY2h1bmtzIHRvIGJlIHJl
-dHJhbnNtaXR0ZWQgZm9yY2UgYSByZXNwb25zZSBwYWNrZXQgYmUgYnVpbHQ/DQpJZiBzbyBpdCB3
-aWxsIHBpY2sgdXAgYWxsIHRoZSBxdWV1ZWQgZGF0YSBjaHVua3MgcmVnYXJkbGVzcyBvZiBhbnkg
-c2F2ZWQNCk1TR19NT1JFIGJpdHMuDQoNCglEYXZpZA0KDQoNCg==
+On 23.02.2017 19:24, Thierry Reding wrote:
+> From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+>
+> clk_prepare_enable() and clk_disable_unprepare() for this clock aren't
+> properly balanced, which can trigger a WARN_ON() in the common clock
+> framework.
+>
+> Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 ++++
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+>  2 files changed, 4 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 3cbe09682afe..6b7a5ce19589 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1711,6 +1711,10 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+>  	stmmac_mmc_setup(priv);
+>
+>  	if (init_ptp) {
+> +		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
+> +		if (ret < 0)
+> +			netdev_warn(priv->dev, "failed to enable PTP reference clock: %d\n", ret);
+> +
+
+Should we return an error code if the clock enable fails?
+
+>  		ret = stmmac_init_ptp(priv);
+>  		if (ret == -EOPNOTSUPP)
+>  			netdev_warn(priv->dev, "PTP not supported by HW\n");
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 5b18355c0d2b..d285d6cfbd0d 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -365,7 +365,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>  		plat->clk_ptp_ref = NULL;
+>  		dev_warn(&pdev->dev, "PTP uses main clock\n");
+>  	} else {
+> -		clk_prepare_enable(plat->clk_ptp_ref);
+>  		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
+>  		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
+>  	}
+>
+
+It seems like there will still be a refcount mismatch for the clock if 
+any of the request_irqs that are after stmmac_hw_setup in stmmac_open fail.
+
+Cheers,
+Mikko.
