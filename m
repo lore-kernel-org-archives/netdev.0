@@ -1,53 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2] vhost: introduce O(1) vq metadata cache
-Date: Mon, 27 Feb 2017 20:35:47 +0200
-Message-ID: <20170227203529-mutt-send-email-mst@kernel.org>
-References: <1481709237-19827-1-git-send-email-jasowang@redhat.com>
-	<ab222583-17ac-a4fb-0547-487caa8b866d@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	maxime.coquelin@redhat.com, wexu@redhat.com, vkaplans@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <ab222583-17ac-a4fb-0547-487caa8b866d@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH 5/5] netvsc: replace netdev_alloc_skb_ip_align with napi_alloc_skb
+Date: Mon, 27 Feb 2017 10:26:51 -0800
+Message-ID: <20170227182651.3956-6-sthemmin@microsoft.com>
+References: <20170227182651.3956-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:33884 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751039AbdB0SgD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 13:36:03 -0500
+Received: by mail-pg0-f47.google.com with SMTP id p5so23717406pga.1
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 10:34:25 -0800 (PST)
+In-Reply-To: <20170227182651.3956-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBGZWIgMTUsIDIwMTcgYXQgMDE6Mzc6MTdQTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE25bm0MTLmnIgxNOaXpSAxNzo1MywgSmFzb24gV2FuZyB3cm90ZToK
-PiA+IFdoZW4gZGV2aWNlIElPVExCIGlzIGVuYWJsZWQsIGFsbCBhZGRyZXNzIHRyYW5zbGF0aW9u
-cyB3ZXJlIHN0b3JlZCBpbgo+ID4gaW50ZXJ2YWwgdHJlZS4gTyhsZ04pIHNlYXJjaGluZyB0aW1l
-IGNvdWxkIGJlIHNsb3cgZm9yIHZpcnRxdWV1ZQo+ID4gbWV0YWRhdGEgKGF2YWlsLCB1c2VkIGFu
-ZCBkZXNjcmlwdG9ycykgc2luY2UgdGhleSB3ZXJlIGFjY2Vzc2VkIG11Y2gKPiA+IG9mdGVuIHRo
-YW4gb3RoZXIgYWRkcmVzc2VzLiBTbyB0aGlzIHBhdGNoIGludHJvZHVjZXMgYW4gTygxKSBhcnJh
-eQo+ID4gd2hpY2ggcG9pbnRzIHRvIHRoZSBpbnRlcnZhbCB0cmVlIG5vZGVzIHRoYXQgc3RvcmUg
-dGhlIHRyYW5zbGF0aW9ucyBvZgo+ID4gdnEgbWV0YWRhdGEuIFRob3NlIGFycmF5IHdlcmUgdXBk
-YXRlIGR1cmluZyB2cSBJT1RMQiBwcmVmZXRjaGluZyBhbmQKPiA+IHdlcmUgcmVzZXQgZHVyaW5n
-IGVhY2ggaW52YWxpZGF0aW9uIGFuZCB0bGIgdXBkYXRlLiBFYWNoIHRpbWUgd2Ugd2FudAo+ID4g
-dG8gYWNjZXNzIHZxIG1ldGFkYXRhLCB0aGlzIHNtYWxsIGFycmF5IHdlcmUgcXVlcmllZCBiZWZv
-cmUgaW50ZXJ2YWwKPiA+IHRyZWUuIFRoaXMgd291bGQgYmUgc3VmZmljaWVudCBmb3Igc3RhdGlj
-IG1hcHBpbmdzIGJ1dCBub3QgZHluYW1pYwo+ID4gbWFwcGluZ3MsIHdlIGNvdWxkIGRvIG9wdGlt
-aXphdGlvbnMgb24gdG9wLgo+ID4gCj4gPiBUZXN0IHdlcmUgZG9uZSB3aXRoIGwyZndkIGluIGd1
-ZXN0ICgyTSBodWdlcGFnZSk6Cj4gPiAKPiA+ICAgICBub2lvbW11ICB8IGJlZm9yZSAgICAgICAg
-fCBhZnRlcgo+ID4gdHggMS4zMk1wcHMgfCAxLjA2TXBwcyg4MiUpIHwgMS4zME1wcHMoOTglKQo+
-ID4gcnggMi4zM01wcHMgfCAxLjQ2TXBwcyg2MyUpIHwgMi4yOU1wcHMoOTglKQo+ID4gCj4gPiBX
-ZSBjYW4gYWxtb3N0IHJlYWNoIHRoZSBzYW1lIHBlcmZvcm1hbmNlIGFzIG5vaW9tbXUgbW9kZS4K
-PiA+IAo+ID4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+
-ID4gLS0tCj4gPiBDaGFuZ2VzIGZyb20gVjE6Cj4gPiAtIHNpbGVudCAzMmJpdCBidWlsZCB3YXJu
-aW5nCj4gCj4gcGluZwoKQ291bGQgeW91IHJlYmFzZSBwbHM/CkkgcHVzaGVkIG15IHRyZWUgaW50
-byBsaW51eCBuZXh0LgoKLS0gCk1TVApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25A
-bGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24u
-b3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+Gives potential performance gain.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 6dcd1f08b834..f95d686b7957 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -589,13 +589,14 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ }
+ 
+ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
++					     struct napi_struct *napi,
+ 					     const struct ndis_tcp_ip_checksum_info *csum_info,
+ 					     const struct ndis_pkt_8021q_info *vlan,
+ 					     void *data, u32 buflen)
+ {
+ 	struct sk_buff *skb;
+ 
+-	skb = netdev_alloc_skb_ip_align(net, buflen);
++	skb = napi_alloc_skb(napi, buflen);
+ 	if (!skb)
+ 		return skb;
+ 
+@@ -664,7 +665,8 @@ int netvsc_recv_callback(struct net_device *net,
+ 		net = vf_netdev;
+ 
+ 	/* Allocate a skb - TODO direct I/O to pages? */
+-	skb = netvsc_alloc_recv_skb(net, csum_info, vlan, data, len);
++	skb = netvsc_alloc_recv_skb(net, &nvchan->napi,
++				    csum_info, vlan, data, len);
+ 	if (unlikely(!skb)) {
+ 		++net->stats.rx_dropped;
+ 		rcu_read_unlock();
+-- 
+2.11.0
