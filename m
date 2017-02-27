@@ -1,32 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net] net: solve a NAPI race
-Date: Mon, 27 Feb 2017 14:35:17 -0800
-Message-ID: <1488234917.9415.217.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488226711.9415.204.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170227141403.714490f7@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35187 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751586AbdB0Wfk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 17:35:40 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 1so2349395pgz.2
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:35:24 -0800 (PST)
-In-Reply-To: <20170227141403.714490f7@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: smsc: epic100: use new api ethtool_{get|set}_link_ksettings
+Date: Mon, 27 Feb 2017 23:43:14 +0100
+Message-ID: <1488235394-11423-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, mugunthanvnm@ti.com, a@unstable.cc,
+        fw@strlen.de, jarod@redhat.com, edumazet@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-02-27 at 14:14 -0800, Stephen Hemminger wrote:
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-> The original design (as Davem mentioned) was that IRQ's must be disabled
-> during device polling. If that was true, then the race above
-> would be impossible.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-I would love to see an alternative patch.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/smsc/epic100.c |   16 +++++++++-------
+ 1 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/epic100.c b/drivers/net/ethernet/smsc/epic100.c
+index 5f27371..db6dcb0 100644
+--- a/drivers/net/ethernet/smsc/epic100.c
++++ b/drivers/net/ethernet/smsc/epic100.c
+@@ -1387,25 +1387,27 @@ static void netdev_get_drvinfo (struct net_device *dev, struct ethtool_drvinfo *
+ 	strlcpy(info->bus_info, pci_name(np->pci_dev), sizeof(info->bus_info));
+ }
+ 
+-static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int netdev_get_link_ksettings(struct net_device *dev,
++				     struct ethtool_link_ksettings *cmd)
+ {
+ 	struct epic_private *np = netdev_priv(dev);
+ 	int rc;
+ 
+ 	spin_lock_irq(&np->lock);
+-	rc = mii_ethtool_gset(&np->mii, cmd);
++	rc = mii_ethtool_get_link_ksettings(&np->mii, cmd);
+ 	spin_unlock_irq(&np->lock);
+ 
+ 	return rc;
+ }
+ 
+-static int netdev_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int netdev_set_link_ksettings(struct net_device *dev,
++				     const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct epic_private *np = netdev_priv(dev);
+ 	int rc;
+ 
+ 	spin_lock_irq(&np->lock);
+-	rc = mii_ethtool_sset(&np->mii, cmd);
++	rc = mii_ethtool_set_link_ksettings(&np->mii, cmd);
+ 	spin_unlock_irq(&np->lock);
+ 
+ 	return rc;
+@@ -1460,14 +1462,14 @@ static void ethtool_complete(struct net_device *dev)
+ 
+ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_drvinfo		= netdev_get_drvinfo,
+-	.get_settings		= netdev_get_settings,
+-	.set_settings		= netdev_set_settings,
+ 	.nway_reset		= netdev_nway_reset,
+ 	.get_link		= netdev_get_link,
+ 	.get_msglevel		= netdev_get_msglevel,
+ 	.set_msglevel		= netdev_set_msglevel,
+ 	.begin			= ethtool_begin,
+-	.complete		= ethtool_complete
++	.complete		= ethtool_complete,
++	.get_link_ksettings	= netdev_get_link_ksettings,
++	.set_link_ksettings	= netdev_set_link_ksettings,
+ };
+ 
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+-- 
+1.7.4.4
