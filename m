@@ -1,135 +1,75 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v1.1] dt: emac: document device-tree based phy discovery
- and setup
-Date: Mon, 27 Feb 2017 12:25:53 -0800
-Message-ID: <eaf5b812-deae-c5f7-3930-dadf0b0132bf@gmail.com>
-References: <20170227.145447.1005420963599745103.davem@davemloft.net>
- <8f94c394faf5665ae693f41832f2446dfc7c989e.1488226061.git.chunkeey@googlemail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 net] net: solve a NAPI race
+Date: Mon, 27 Feb 2017 13:00:09 -0800
+Message-ID: <CAKgT0UduWGLXdBFoRtVV-96kFFeB_Lp-7Q7A2tVps+8-MQMd5A@mail.gmail.com>
+References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com> <20170227.111944.1725806340309799464.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Ivan Mikhaylov <ivan-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8f94c394faf5665ae693f41832f2446dfc7c989e.1488226061.git.chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:34588 "EHLO
+        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751419AbdB0VBH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 16:01:07 -0500
+Received: by mail-io0-f170.google.com with SMTP id 90so36831118ios.1
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 13:00:10 -0800 (PST)
+In-Reply-To: <20170227.111944.1725806340309799464.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2017 12:11 PM, Christian Lamparter wrote:
-> This patch adds documentation for a new "phy-handle" property,
-> "fixed-link" and "mdio" sub-node. These allows the enumeration
-> of PHYs which are supported by the phy library under drivers/net/phy.
-> 
-> The EMAC ethernet controller in IBM and AMCC 4xx chips is
-> currently stuck with a few privately defined phy
-> implementations. It has no support for PHYs which
-> are supported by the generic phylib.
-> 
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Signed-off-by: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-> ---
-> Resent - no changes.
-> ---
->  .../devicetree/bindings/powerpc/4xx/emac.txt       | 64 +++++++++++++++++++++-
->  1 file changed, 62 insertions(+), 2 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-> index 712baf6c3e24..1893b4c4d93b 100644
-> --- a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-> +++ b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-> @@ -71,6 +71,9 @@
->  			  For Axon it can be absent, though my current driver
->  			  doesn't handle phy-address yet so for now, keep
->  			  0x00ffffff in it.
-> +    - phy-handle	: Used to describe configurations where a external PHY
-> +			  is used. Please refer to:
-> +			  Documentation/devicetree/bindings/net/ethernet.txt
->      - rx-fifo-size-gige : 1 cell, Rx fifo size in bytes for 1000 Mb/sec
->  			  operations (if absent the value is the same as
->  			  rx-fifo-size).  For Axon, either absent or 2048.
-> @@ -81,8 +84,22 @@
->  			  offload, phandle of the TAH device node.
->      - tah-channel       : 1 cell, optional. If appropriate, channel used on the
->  			  TAH engine.
-> +    - fixed-link	: Fixed-link subnode describing a link to a non-MDIO
-> +			  managed entity. See
-> +			  Documentation/devicetree/bindings/net/fixed-link.txt
-> +			  for details.
-> +    - mdio subnode	: When the EMAC has a phy connected to its local
-> +			  mdio, which us supported by the kernel's network
-> +			  PHY library in drivers/net/phy, there must be device
-> +			  tree subnode with the following required properties:
-> +				- #address-cells: Must be <1>.
-> +				- #size-cells: Must be <0>.
->  
-> -    Example:
-> +			  For PHY definitions: Please refer to
-> +			  Documentation/devicetree/bindings/net/phy.txt and
-> +			  Documentation/devicetree/bindings/net/ethernet.txt
-> +
-> +    Examples:
->  
->  	EMAC0: ethernet@40000800 {
->  		device_type = "network";
-> @@ -104,6 +121,50 @@
->  		zmii-channel = <0>;
->  	};
->  
-> +	EMAC1: ethernet@ef600c00 {
-> +		device_type = "network";
-> +		compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
-> +		interrupt-parent = <&EMAC1>;
-> +		interrupts = <0 1>;
-> +		#interrupt-cells = <1>;
-> +		#address-cells = <0>;
-> +		#size-cells = <0>;
-> +		interrupt-map = <0 &UIC2 0x10 IRQ_TYPE_LEVEL_HIGH /* Status */
-> +				 1 &UIC2 0x14 IRQ_TYPE_LEVEL_HIGH /* Wake */>;
-> +		reg = <0xef600c00 0x000000c4>;
-> +		local-mac-address = [000000000000]; /* Filled in by U-Boot */
-> +		mal-device = <&MAL0>;
-> +		mal-tx-channel = <0>;
-> +		mal-rx-channel = <0>;
-> +		cell-index = <0>;
-> +		max-frame-size = <9000>;
-> +		rx-fifo-size = <16384>;
-> +		tx-fifo-size = <2048>;
-> +		fifo-entry-size = <10>;
-> +		phy-mode = "rgmii";
-> +		phy-handle = <&phy0>;
-> +		phy-map = <0x00000000>;
-> +		rgmii-device = <&RGMII0>;
-> +		rgmii-channel = <0>;
-> +		tah-device = <&TAH0>;
-> +		tah-channel = <0>;
-> +		has-inverted-stacr-oc;
-> +		has-new-stacr-staopc;
-> +
-> +	        mdio {
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +
-> +			phy0: ethernet-phy@0 {
-> +				device_type = "ethernet-phy";
+On Mon, Feb 27, 2017 at 8:19 AM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 27 Feb 2017 06:21:38 -0800
+>
+>> A NAPI driver normally arms the IRQ after the napi_complete_done(),
+>> after NAPI_STATE_SCHED is cleared, so that the hard irq handler can grab
+>> it.
+>>
+>> Problem is that if another point in the stack grabs NAPI_STATE_SCHED bit
+>> while IRQ are not disabled, we might have later an IRQ firing and
+>> finding this bit set, right before napi_complete_done() clears it.
+>>
+>> This can happen with busy polling users, or if gro_flush_timeout is
+>> used. But some other uses of napi_schedule() in drivers can cause this
+>> as well.
+>>
+>> This patch adds a new NAPI_STATE_MISSED bit, that napi_schedule_prep()
+>> can set if it could not grab NAPI_STATE_SCHED
+>
+> Various rules were meant to protect these sequences, and make sure
+> nothing like this race could happen.
+>
+> Can you show the specific sequence that fails?
+>
+> One of the basic protections is that the device IRQ is not re-enabled
+> until napi_complete_done() is finished, most drivers do something like
+> this:
+>
+>         napi_complete_done();
+>                 - sets NAPI_STATE_SCHED
+>         enable device IRQ
+>
+> So I don't understand how it is possible that "later an IRQ firing and
+> finding this bit set, right before napi_complete_done() clears it".
+>
+> While napi_complete_done() is running, the device's IRQ is still
+> disabled, so there cannot be an IRQ firing before napi_complete_done()
+> is finished.
 
+So there are some drivers that will need to have the interrupts
+enabled when busy polling and I assume that can cause this kind of
+issue. Specifically in the case of i40e the part will not flush
+completed descriptors until either 4 completed descriptors are ready
+to be written back, or an interrupt fires.
 
-Christian, sorry for noticing this that late, but his does not quite
-conform to the phy.txt binding document here.
+Our other drivers have code in them that will force the interrupt to
+unmask and fire once every 2 seconds in the unlikely event that an
+interrupt was lost which can occur on some platforms.
 
-Please put something standard e.g:
-
-			phy0: ethernet-phy@0 {
-				compatible = "ethernet-phy-ieee802.3-c22";
-				reg = <0>;
-			};
-
-examples tend to be copy/pasted more often than they should...
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Alex
