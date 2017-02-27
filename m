@@ -1,71 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: solve a NAPI race
-Date: Mon, 27 Feb 2017 06:06:39 -0800
-Message-ID: <1488204399.9415.177.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] Netfilter fixes for net
+Date: Mon, 27 Feb 2017 09:19:05 -0500 (EST)
+Message-ID: <20170227.091905.1512965295695328615.davem@davemloft.net>
+References: <1488195342-2678-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35540 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751583AbdB0OPJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 09:15:09 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 1so1178697pgz.2
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 06:14:57 -0800 (PST)
-In-Reply-To: <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1488195342-2678-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2017-02-26 at 19:31 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> While playing with mlx4 hardware timestamping of RX packets, I found
-> that some packets were received by TCP stack with a ~200 ms delay...
-> 
-> Since the timestamp was provided by the NIC, and my probe was added
-> in tcp_v4_rcv() while in BH handler, I was confident it was not
-> a sender issue, or a drop in the network.
-> 
-> This would happen with a very low probability, but hurting RPC
-> workloads.
-> 
-> A NAPI driver normally arms the IRQ after the napi_complete_done(),
-> after NAPI_STATE_SCHED is cleared, so that the hard irq handler can grab
-> it.
-> 
-> Problem is that if another point in the stack grabs NAPI_STATE_SCHED bit
-> while IRQ are not disabled, we might have later an IRQ firing and
-> finding this bit set, right before napi_complete_done() clears it.
-> 
-> This can happen with busy polling users, or if gro_flush_timeout is
-> used. But some other uses of napi_schedule() in drivers can cause this
-> as well.
-> 
-> This patch adds a new NAPI_STATE_MISSED bit, that napi_schedule_prep()
-> can set if it could not grab NAPI_STATE_SCHED
-> 
-> Then napi_complete_done() properly reschedules the napi to make sure
-> we do not miss something.
-> 
-> Since we manipulate multiple bits at once, use cmpxchg() like in
-> sk_busy_loop() to provide proper transactions.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  include/linux/netdevice.h |   29 +++++++----------------
->  net/core/dev.c            |   44 ++++++++++++++++++++++++++++++++++--
->  2 files changed, 51 insertions(+), 22 deletions(-)
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 27 Feb 2017 12:35:36 +0100
 
-I will send a v2 of this patch.
+> The following patchset contains netfilter fixes for you net tree,
+> they are:
+> 
+> 1) Missing ct zone size in the nft_ct initialization path, patch
+>    from Florian Westphal.
+> 
+> 2) Two patches for netfilter uapi headers, one to remove unnecessary
+>    sysctl.h inclusion and another to fix compilation of xt_hashlimit.h
+>    in userspace, from Dmitry V. Levin.
+> 
+> 3) Patch to fix a sloppy change in nf_ct_expect that incorrectly
+>    simplified nf_ct_expect_related_report() in the previous nf-next
+>    batch. This also includes another patch for __nf_ct_expect_check()
+>    to report success by returning 0 to keep it consistent with other
+>    existing functions. From Jarno Rajahalme.
+> 
+> 4) The ->walk() iterator of the new bitmap set type goes over the real
+>    bitmap size, this results in incorrect dumps when NFTA_SET_USERDATA
+>    is used.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-Points trying to grab NAPI_STATE_SCHED not from the device driver IRQ
-handler should not set NAPI_STATE_MISSED if they fail, otherwise this
-adds extra work for no purpose.
-
-One of this point is napi_watchdog() which can fire pretty often.
+Pulled, thanks Pablo.
