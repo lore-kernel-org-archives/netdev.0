@@ -1,75 +1,145 @@
-From: Mikko Perttunen <cyndis-/1wQRMveznE@public.gmane.org>
-Subject: Re: [PATCH 2/7] net: stmmac: Balance PTP reference clock
- enable/disable
-Date: Mon, 27 Feb 2017 11:31:39 +0200
-Message-ID: <53f18077-6a4d-339f-192e-287a1f889fb7@kapsi.fi>
+From: Mikko Perttunen <cyndis@kapsi.fi>
+Subject: Re: [PATCH 5/7] net: stmmac: Program RX queue size and flow control
+Date: Mon, 27 Feb 2017 12:09:02 +0200
+Message-ID: <74ee5bff-8893-ebd4-bcf8-bb92c476f581@kapsi.fi>
 References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-3-thierry.reding@gmail.com>
+ <20170223172438.14770-6-thierry.reding@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170223172438.14770-3-thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Alexandre Courbot <gnurou@gmail.com>,
+        Jon Hunter <jonathanh@nvidia.com>, netdev@vger.kernel.org,
+        linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thierry Reding <thierry.reding@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kapsi.fi ([217.30.184.167]:36487 "EHLO mail.kapsi.fi"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751646AbdB0K7D (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Feb 2017 05:59:03 -0500
+In-Reply-To: <20170223172438.14770-6-thierry.reding@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 23.02.2017 19:24, Thierry Reding wrote:
-> From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> From: Thierry Reding <treding@nvidia.com>
 >
-> clk_prepare_enable() and clk_disable_unprepare() for this clock aren't
-> properly balanced, which can trigger a WARN_ON() in the common clock
-> framework.
+> Program the receive queue size based on the RX FIFO size and enable
+> hardware flow control for large FIFOs.
 >
-> Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
 > ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 ++++
->  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
->  2 files changed, 4 insertions(+), 1 deletion(-)
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h     | 12 +++++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 43 ++++++++++++++++++++++--
+>  2 files changed, 53 insertions(+), 2 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 3cbe09682afe..6b7a5ce19589 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1711,6 +1711,10 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
->  	stmmac_mmc_setup(priv);
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> index db45134fddf0..9acc1f1252b3 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> @@ -180,6 +180,7 @@ enum power_event {
+>  #define MTL_OP_MODE_TSF			BIT(1)
 >
->  	if (init_ptp) {
-> +		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
-> +		if (ret < 0)
-> +			netdev_warn(priv->dev, "failed to enable PTP reference clock: %d\n", ret);
+>  #define MTL_OP_MODE_TQS_MASK		GENMASK(24, 16)
+> +#define MTL_OP_MODE_TQS_SHIFT		16
+>
+>  #define MTL_OP_MODE_TTC_MASK		0x70
+>  #define MTL_OP_MODE_TTC_SHIFT		4
+> @@ -193,6 +194,17 @@ enum power_event {
+>  #define MTL_OP_MODE_TTC_384		(6 << MTL_OP_MODE_TTC_SHIFT)
+>  #define MTL_OP_MODE_TTC_512		(7 << MTL_OP_MODE_TTC_SHIFT)
+>
+> +#define MTL_OP_MODE_RQS_MASK		GENMASK(29, 20)
+> +#define MTL_OP_MODE_RQS_SHIFT		20
 > +
-
-Should we return an error code if the clock enable fails?
-
->  		ret = stmmac_init_ptp(priv);
->  		if (ret == -EOPNOTSUPP)
->  			netdev_warn(priv->dev, "PTP not supported by HW\n");
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 5b18355c0d2b..d285d6cfbd0d 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -365,7 +365,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
->  		plat->clk_ptp_ref = NULL;
->  		dev_warn(&pdev->dev, "PTP uses main clock\n");
->  	} else {
-> -		clk_prepare_enable(plat->clk_ptp_ref);
->  		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
->  		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
+> +#define MTL_OP_MODE_RFD_MASK		GENMASK(19, 14)
+> +#define MTL_OP_MODE_RFD_SHIFT		14
+> +
+> +#define MTL_OP_MODE_RFA_MASK		GENMASK(13, 8)
+> +#define MTL_OP_MODE_RFA_SHIFT		8
+> +
+> +#define MTL_OP_MODE_EHFC		BIT(7)
+> +
+>  #define MTL_OP_MODE_RTC_MASK		0x18
+>  #define MTL_OP_MODE_RTC_SHIFT		3
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> index 8d249f3b34c8..03d230201960 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> @@ -185,8 +185,9 @@ static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt)
+>  }
+>
+>  static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
+> -				    int rxmode, u32 channel)
+> +				    int rxmode, u32 channel, int rxfifosz)
+>  {
+> +	unsigned int rqs = rxfifosz / 256 - 1;
+>  	u32 mtl_tx_op, mtl_rx_op, mtl_rx_int;
+>
+>  	/* Following code only done for channel 0, other channels not yet
+> @@ -252,6 +253,44 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
+>  			mtl_rx_op |= MTL_OP_MODE_RTC_128;
 >  	}
 >
+> +	mtl_rx_op &= ~MTL_OP_MODE_RQS_MASK;
+> +	mtl_rx_op |= rqs << MTL_OP_MODE_RQS_SHIFT;
+> +
+> +	/* enable flow control only if each channel gets 4 KiB or more FIFO */
+> +	if (rxfifosz >= 4096) {
+> +		unsigned int rfd, rfa;
+> +
+> +		mtl_rx_op |= MTL_OP_MODE_EHFC;
+> +
+> +		switch (rxfifosz) {
+> +		case 4096:
+> +			rfd = 0x03;
+> +			rfa = 0x01;
+> +			break;
+> +
+> +		case 8192:
+> +			rfd = 0x06;
+> +			rfa = 0x0a;
+> +			break;
+> +
+> +		case 16384:
+> +			rfd = 0x06;
+> +			rfa = 0x12;
+> +			break;
+> +
+> +		default:
+> +			rfd = 0x06;
+> +			rfa = 0x1e;
+> +			break;
+> +		}
 
-It seems like there will still be a refcount mismatch for the clock if 
-any of the request_irqs that are after stmmac_hw_setup in stmmac_open fail.
+Are these values correct? In the 4096 case, rfd > rfa, in all other 
+cases the other way around. In any case it would be useful to have a 
+comment clarifying the thresholds in bytes.
 
-Cheers,
-Mikko.
+> +
+> +		mtl_rx_op &= ~MTL_OP_MODE_RFD_MASK;
+> +		mtl_rx_op |= rfd << MTL_OP_MODE_RFD_SHIFT;
+> +
+> +		mtl_rx_op &= ~MTL_OP_MODE_RFA_MASK;
+> +		mtl_rx_op |= rfa << MTL_OP_MODE_RFA_SHIFT;
+> +	}
+> +
+>  	writel(mtl_rx_op, ioaddr + MTL_CHAN_RX_OP_MODE(channel));
+>
+>  	/* Enable MTL RX overflow */
+> @@ -264,7 +303,7 @@ static void dwmac4_dma_operation_mode(void __iomem *ioaddr, int txmode,
+>  				      int rxmode, int rxfifosz)
+>  {
+>  	/* Only Channel 0 is actually configured and used */
+> -	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0);
+> +	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0, rxfifosz);
+>  }
+>
+>  static void dwmac4_get_hw_feature(void __iomem *ioaddr,
+>
