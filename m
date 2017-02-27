@@ -1,43 +1,35 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH] iproute2: show network device dependency tree
-Date: Mon, 27 Feb 2017 17:38:25 +0100
-Message-ID: <20170227173825.39e00c61@griffin>
-References: <20170225165900.10129-1-zaboj.campula@post.cz>
-        <20170225173927.GA2479@nanopsycho>
-        <1488054142.3856.15.camel@post.cz>
-        <20170226075633.GA1788@nanopsycho>
-        <1488117614.1903.2.camel@post.cz>
-        <20170226144610.GB2071@nanopsycho.orion>
+From: David Miller <davem@davemloft.net>
+Subject: Re: phy deadlock -stable backport request
+Date: Mon, 27 Feb 2017 11:38:20 -0500 (EST)
+Message-ID: <20170227.113820.751638514088877129.davem@davemloft.net>
+References: <b985983c-f649-a880-8d8f-734a64e1a673@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Zaboj Campula <zaboj.campula@post.cz>, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org
+To: niklas.cassel@axis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26573 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751285AbdB0Qrz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Feb 2017 11:47:55 -0500
-In-Reply-To: <20170226144610.GB2071@nanopsycho.orion>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44322 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751414AbdB0Qrz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 11:47:55 -0500
+In-Reply-To: <b985983c-f649-a880-8d8f-734a64e1a673@axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 26 Feb 2017 15:46:10 +0100, Jiri Pirko wrote:
-> You can also run it remotelly. Also I believe that you can catch the
-> state into some dump file and process it later on. Not 100% sure though.
-> Ccing Jiri Benc who is the original author of plotnetcfg.
+From: Niklas Cassel <niklas.cassel@axis.com>
+Date: Mon, 27 Feb 2017 14:56:31 +0100
 
-It produces dot (graphviz) output or json and has no dependencies on
-anything GUI related. Just run it on the remote machine and display the
-output locally.
+> I would like to request that
+> 
+> commit eab127717a6af54401ba534790c793ec143cd1fc
+> Author: Florian Fainelli <f.fainelli@gmail.com>
+> Date:   Fri Jan 20 15:31:52 2017 -0800
+> 
+>     net: phy: Avoid deadlock during phy_error()
+ ...
+> would be backported to stable branch v4.9.
+> 
+> I've seen this deadlock happen on v4.9.x
 
-ssh root@remote plotnetcfg | dot -Tpdf | whatever_pdf_viewer
-
-Note that some pdf viewers can't read stdin or require dash as the
-parameter to use stdin.
-
-I don't think it's possible to enhance iproute2 to display the network
-interface dependencies in an useful way. It's just too complex. It's
-not even a (undirected) tree.
-
- Jiri
+Ok, queued up.
