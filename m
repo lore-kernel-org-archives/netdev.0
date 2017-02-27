@@ -1,138 +1,53 @@
-From: Petr Vorel <pvorel@suse.cz>
-Subject: [iproute PATCH v2 1/1] color: use "light" colors for dark background
-Date: Mon, 27 Feb 2017 10:55:27 +0100
-Message-ID: <20170227095527.31134-1-pvorel@suse.cz>
-Cc: Petr Vorel <pvorel@suse.cz>, Mathias Nyman <m.nyman@iki.fi>,
-        Yegor Yefremov <yegorslists@googlemail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:46419 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751863AbdB0KNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Feb 2017 05:13:51 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mikko Perttunen <cyndis@kapsi.fi>
+Subject: Re: [PATCH 3/7] net: stmmac: Check for DMA mapping errors
+Date: Mon, 27 Feb 2017 11:37:24 +0200
+Message-ID: <35dec9cd-65db-c62b-f35f-c90cf35b27f2@kapsi.fi>
+References: <20170223172438.14770-1-thierry.reding@gmail.com>
+ <20170223172438.14770-4-thierry.reding@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Alexandre Courbot <gnurou@gmail.com>,
+        Jon Hunter <jonathanh@nvidia.com>, netdev@vger.kernel.org,
+        linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thierry Reding <thierry.reding@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170223172438.14770-4-thierry.reding@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-COLORFGBG environment variable is used to detect dark background.
+On 23.02.2017 19:24, Thierry Reding wrote:
+> From: Thierry Reding <treding@nvidia.com>
+>
+> When DMA mapping an SKB fragment, the mapping must be checked for
+> errors, otherwise the DMA debug code will complain upon unmap.
+>
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 6b7a5ce19589..d7387919bdb6 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -2072,6 +2072,8 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		des = skb_frag_dma_map(priv->device, frag, 0,
+>  				       skb_frag_size(frag),
+>  				       DMA_TO_DEVICE);
+> +		if (dma_mapping_error(priv->device, des))
+> +			goto dma_map_err;
 
-Idea and a bit of code is borrowed from Vim, thanks.
+If this map fails, we should also unmap the previously mapped fragments 
+and the separate mapping made using dma_map_single.
 
-Signed-off-by: Petr Vorel <pvorel@suse.cz>
----
-Changes v1->V2:
-* Rename function and enum values
-* Add missing bold white enum + it's code.
----
- include/color.h |  1 +
- lib/color.c     | 45 ++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 45 insertions(+), 1 deletion(-)
-
-diff --git a/include/color.h b/include/color.h
-index c1c29831..ba0b237e 100644
---- a/include/color.h
-+++ b/include/color.h
-@@ -12,6 +12,7 @@ enum color_attr {
- };
- 
- void enable_color(void);
-+void set_color_palette(void);
- int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...);
- enum color_attr ifa_family_color(__u8 ifa_family);
- enum color_attr oper_state_color(__u8 state);
-diff --git a/lib/color.c b/lib/color.c
-index 95596be2..c048c76e 100644
---- a/lib/color.c
-+++ b/lib/color.c
-@@ -1,5 +1,7 @@
- #include <stdio.h>
- #include <stdarg.h>
-+#include <stdlib.h>
-+#include <string.h>
- #include <sys/socket.h>
- #include <sys/types.h>
- #include <linux/if.h>
-@@ -14,6 +16,13 @@ enum color {
- 	C_MAGENTA,
- 	C_CYAN,
- 	C_WHITE,
-+	C_BOLD_RED,
-+	C_BOLD_GREEN,
-+	C_BOLD_YELLOW,
-+	C_BOLD_BLUE,
-+	C_BOLD_MAGENTA,
-+	C_BOLD_CYAN,
-+	C_BOLD_WHITE,
- 	C_CLEAR
- };
- 
-@@ -25,25 +34,59 @@ static const char * const color_codes[] = {
- 	"\e[35m",
- 	"\e[36m",
- 	"\e[37m",
-+	"\e[1;31m",
-+	"\e[1;32m",
-+	"\e[1;33m",
-+	"\e[1;34m",
-+	"\e[1;35m",
-+	"\e[1;36m",
-+	"\e[1;37m",
- 	"\e[0m",
- 	NULL,
- };
- 
- static enum color attr_colors[] = {
-+	/* light background */
- 	C_CYAN,
- 	C_YELLOW,
- 	C_MAGENTA,
- 	C_BLUE,
- 	C_GREEN,
- 	C_RED,
-+	C_CLEAR,
-+
-+	/* dark background */
-+	C_BOLD_CYAN,
-+	C_BOLD_YELLOW,
-+	C_BOLD_MAGENTA,
-+	C_BOLD_BLUE,
-+	C_BOLD_GREEN,
-+	C_BOLD_RED,
- 	C_CLEAR
- };
- 
-+static int is_dark_bg;
- static int color_is_enabled;
- 
- void enable_color(void)
- {
- 	color_is_enabled = 1;
-+	set_color_palette();
-+}
-+
-+void set_color_palette(void)
-+{
-+	char *p = getenv("COLORFGBG");
-+
-+	/*
-+	 * COLORFGBG environment variable usually contains either two or three
-+	 * values separated by semicolons; we want the last value in either case.
-+	 * If this value is 0-6 or 8, background is dark.
-+	 */
-+	if (p && (p = (char *)strrchr(p, ';')) != NULL
-+		&& ((p[1] >= '0' && p[1] <= '6') || p[1] == '8')
-+		&& p[2] == '\0')
-+		is_dark_bg = 1;
- }
- 
- int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
-@@ -58,7 +101,7 @@ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
- 		goto end;
- 	}
- 
--	ret += fprintf(fp, "%s", color_codes[attr_colors[attr]]);
-+	ret += fprintf(fp, "%s", color_codes[attr_colors[is_dark_bg ? attr + 7 : attr]]);
- 	ret += vfprintf(fp, fmt, args);
- 	ret += fprintf(fp, "%s", color_codes[C_CLEAR]);
- 
--- 
-2.11.0
+>
+>  		stmmac_tso_allocator(priv, des, skb_frag_size(frag),
+>  				     (i == nfrags - 1));
+>
