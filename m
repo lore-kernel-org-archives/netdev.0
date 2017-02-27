@@ -1,53 +1,57 @@
-From: Mikko Perttunen <cyndis@kapsi.fi>
-Subject: Re: [PATCH 3/7] net: stmmac: Check for DMA mapping errors
-Date: Mon, 27 Feb 2017 11:37:24 +0200
-Message-ID: <35dec9cd-65db-c62b-f35f-c90cf35b27f2@kapsi.fi>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-4-thierry.reding@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/2] sctp: add support for MSG_MORE
+Date: Mon, 27 Feb 2017 10:48:30 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE70E65@AcuExch.aculab.com>
+References: <cover.1487440272.git.lucien.xin@gmail.com>
+ <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
+ <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
+ <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
+ <CADvbK_eauYUyUWMAn8Zkpk5hNnK-GDNO+3NCeuA-y=Y7SFnv5A@mail.gmail.com>
+ <CADvbK_fS9bOzoRsY-TBKMUkJJZJ5NuouBcSt1=79kJVTAHc=UQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Alexandre Courbot <gnurou@gmail.com>,
-        Jon Hunter <jonathanh@nvidia.com>, netdev@vger.kernel.org,
-        linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thierry Reding <thierry.reding@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170223172438.14770-4-thierry.reding@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "Vlad Yasevich" <vyasevich@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: 'Xin Long' <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.186]:57955 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751620AbdB0Ktw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 05:49:52 -0500
+In-Reply-To: <CADvbK_fS9bOzoRsY-TBKMUkJJZJ5NuouBcSt1=79kJVTAHc=UQ@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23.02.2017 19:24, Thierry Reding wrote:
-> From: Thierry Reding <treding@nvidia.com>
->
-> When DMA mapping an SKB fragment, the mapping must be checked for
-> errors, otherwise the DMA debug code will complain upon unmap.
->
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 6b7a5ce19589..d7387919bdb6 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2072,6 +2072,8 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
->  		des = skb_frag_dma_map(priv->device, frag, 0,
->  				       skb_frag_size(frag),
->  				       DMA_TO_DEVICE);
-> +		if (dma_mapping_error(priv->device, des))
-> +			goto dma_map_err;
-
-If this map fails, we should also unmap the previously mapped fragments 
-and the separate mapping made using dma_map_single.
-
->
->  		stmmac_tso_allocator(priv, des, skb_frag_size(frag),
->  				     (i == nfrags - 1));
->
+RnJvbTogWGluIExvbmcNCj4gU2VudDogMjcgRmVicnVhcnkgMjAxNyAwNDo0OQ0KLi4uDQo+ID4g
+d2hhdCBJJ20gd29ycmllZCBhYm91dCBpcyBpZiB0aGUgbXNnX21vcmUgaXMgc2F2ZWQgaW4gYXNz
+b2M6DQo+ID4gICAgICBjaGs0W2NsZWFyXSAtPiBjaGszIFtjbGVhcl0gLT4gY2hrMiBbY2xlYXJd
+IC0+IGNoazEgW2NsZWFyXQ0KPiA+IHRoZW4gd2hlbiB5b3Ugc2VuZCBhIHNtYWxsIGNoa0Egd2l0
+aCBNU0dfTU9SRSwNCj4gPiB0aGUgcXVldWUgd2lsbCBiZSBsaWtlOg0KPiA+ICAgICAgY2hrQSBb
+c2V0XSAtPiBjaGs0W3NldF0gLT4gY2hrMyBbc2V0XSAtPiBjaGsyIFtzZXRdIC0+IGNoazEgW3Nl
+dF0NCj4gPiBiZWNhdXNlIG1zZ19tb3JlIGlzIHNhdmVkIGluIGFzc29jLCBldmVyeSBjaHVuayBj
+YW4gbG9vayBhdCBpdC4NCj4gPiBjaGsxIC0gY2hrNCBhcmUgYmlnIGVub3VnaCB0byBiZSBwYWNr
+ZWQgaW50byBhIHBhY2tldCwgdGhleSB3ZXJlDQo+ID4gbm90IHNlbnQgbGFzdCB0aW1lIGJlY2F1
+c2UgYSBsb3Qgb2YgY2h1bmtzIGFyZSBpbiB0aGUgcmV0cmFuc21pdA0KPiA+IHF1ZXVlLg0KDQpP
+ciBqdXN0IHdhaXRpbmcgZm9yIHRyYW5zbWl0IHdpbmRvdyBzcGFjZS4NCg0KPiA+IEJ1dCBub3cg
+ZXZlbiBpZiByZXRyYW5zbWl0IHF1ZXVlIGlzIG51bGwsIGNoazEtY2hrNCBhcmUgc3RpbGwgYmxv
+Y2tlZC4NCj4gPg0KPiA+IGNhbiB5b3UgYWNjZXB0IHRoYXQgY2hrQSBtYXkgYmxvY2sgdGhlIG9s
+ZCBjaHVua3MgPw0KPiBldmVuIGFsc28gYmxvY2sgdGhlIHJldHJhbnNtaXQgY2h1bmtzLg0KDQpJ
+IGRvbid0IHNlZSBhIHByb2JsZW0sIHRoZSBhcHBsaWNhdGlvbiBpcyBhYm91dCB0byBzZW5kIGFu
+b3RoZXIgY2h1bmsuDQpJdCBpcyBsaWtlbHkgdGhhdCB0aGUgd2hvbGUgbG90IHdpbGwgZ28gaW4g
+b25lIHBhY2tldC4NCg0KSWYgdGhlIGNvbm5lY3Rpb24gaXMgZmxvdyBjb250cm9sbGVkIG9mZiAo
+ZXZlbiBpZiBkdWUgdG8gcGFja2V0IGxvc3MpDQp0aGUgbWlub3IgZGVsYXkgd2FpdGluZyBmb3Ig
+dGhlIGFwcGxpY2F0aW9uIHdvbid0IG1ha2UgYW55IHJlYWwgZGlmZmVyZW5jZS4NCkluZGVlZCBy
+ZWR1Y2luZyB0aGUgbnVtYmVyIG9mIGV0aGVybmV0IGZyYW1lcyBtYXkgaGVscCBpbmNyZWFzZQ0K
+b3ZlcmFsbCB0aHJvdWdocHV0Lg0KDQpEb2VzIGEgcmVxdWVzdCBmb3IgY2h1bmtzIHRvIGJlIHJl
+dHJhbnNtaXR0ZWQgZm9yY2UgYSByZXNwb25zZSBwYWNrZXQgYmUgYnVpbHQ/DQpJZiBzbyBpdCB3
+aWxsIHBpY2sgdXAgYWxsIHRoZSBxdWV1ZWQgZGF0YSBjaHVua3MgcmVnYXJkbGVzcyBvZiBhbnkg
+c2F2ZWQNCk1TR19NT1JFIGJpdHMuDQoNCglEYXZpZA0KDQoNCg==
