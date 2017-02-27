@@ -1,19 +1,20 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH net-next 4/6] drivers: net: xgene-v2: Add base driver
-Date: Sun, 26 Feb 2017 21:05:36 -0800
-Message-ID: <CAKh23F=nKNOgY79ANeLMmFSOOhwP=dHKsdz=VFBUrVe_7dCtCQ@mail.gmail.com>
+Subject: Re: [PATCH net-next 5/6] drivers: net: xgene-v2: Add transmit and
+ receive
+Date: Sun, 26 Feb 2017 21:08:51 -0800
+Message-ID: <CAKh23FkiqEBWdErHg5paJP0jV5JzZ=m9TrKySKJ+QsyRpZiV5Q@mail.gmail.com>
 References: <1485889401-13909-1-git-send-email-isubramanian@apm.com>
- <1485889401-13909-5-git-send-email-isubramanian@apm.com>
- <c6ae0303-4ac9-987b-5477-fa28ddc00f83@gmail.com>
+ <1485889401-13909-6-git-send-email-isubramanian@apm.com>
+ <fb8fcd33-4b5b-5999-7662-4165aeb179e1@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, patches <patches@apm.com>,
- Keyur Chudgar <kchudgar@apm.com>, David Miller <davem@davemloft.net>,
+Cc: netdev <netdev@vger.kernel.org>, Keyur Chudgar <kchudgar@apm.com>,
+ patches <patches@apm.com>, David Miller <davem@davemloft.net>,
  "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <c6ae0303-4ac9-987b-5477-fa28ddc00f83@gmail.com>
+In-Reply-To: <fb8fcd33-4b5b-5999-7662-4165aeb179e1@gmail.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -27,185 +28,215 @@ List-Id: netdev.vger.kernel.org
 
 Hi Florian,
 
-On Tue, Jan 31, 2017 at 12:31 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+On Tue, Jan 31, 2017 at 12:33 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
 > On 01/31/2017 11:03 AM, Iyappan Subramanian wrote:
 >> This patch adds,
+>>     - Transmit
+>>     - Transmit completion poll
+>>     - Receive poll
+>>     - NAPI handler
 >>
->>      - probe, remove, shutdown
->>      - open, close and stats
->>      - create and delete ring
->>      - request and delete irq
+>> and enables the driver.
 >>
 >> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 >> Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 >> ---
 >
->> +static void xge_delete_desc_rings(struct net_device *ndev)
->> +{
->> +     struct xge_pdata *pdata = netdev_priv(ndev);
->> +     struct device *dev = &pdata->pdev->dev;
->> +     struct xge_desc_ring *ring;
 >> +
->> +     ring = pdata->tx_ring;
->> +     if (ring) {
->> +             if (ring->skbs)
->> +                     devm_kfree(dev, ring->skbs);
->> +             if (ring->pkt_bufs)
->> +                     devm_kfree(dev, ring->pkt_bufs);
->> +             devm_kfree(dev, ring);
->> +     }
+>> +     tx_ring = pdata->tx_ring;
+>> +     tail = tx_ring->tail;
+>> +     len = skb_headlen(skb);
+>> +     raw_desc = &tx_ring->raw_desc[tail];
+>> +
+>> +     /* Tx descriptor not available */
+>> +     if (!GET_BITS(E, le64_to_cpu(raw_desc->m0)) ||
+>> +         GET_BITS(PKT_SIZE, le64_to_cpu(raw_desc->m0)))
+>> +             return NETDEV_TX_BUSY;
+>> +
+>> +     /* Packet buffers should be 64B aligned */
+>> +     pkt_buf = dma_alloc_coherent(dev, XGENE_ENET_STD_MTU, &dma_addr,
+>> +                                  GFP_ATOMIC);
+>> +     if (unlikely(!pkt_buf))
+>> +             goto out;
 >
-> The very fact that you have to do the devm_kfree suggests that the way
-> you manage the lifetime of the ring is not appropriate, and in fact, if
-> we look at how xge_create_desc_ring() is called, in the driver's probe
-> function indicates that if the network interface is never openeded, we
-> are just wasting memory sitting there and doing nothing. You should
-> consider moving this to the ndo_open(), resp. ndo_close() functions to
-> optimize memory consumption wrt. the network interface state.
+> Can't you obtain a DMA-API mapping for skb->data and pass it down to the
+> hardware? This copy here is inefficient.
 
-I will move these to open and close functions and will use dma_zalloc() APIs.
+This hardware requires 64-byte alignment.
 
 >
 >> +
->> +     ring = pdata->rx_ring;
->> +     if (ring) {
->> +             if (ring->skbs)
->> +                     devm_kfree(dev, ring->skbs);
->> +             devm_kfree(dev, ring);
->> +     }
+>> +     memcpy(pkt_buf, skb->data, len);
+>> +
+>> +     addr_hi = GET_BITS(NEXT_DESC_ADDRH, le64_to_cpu(raw_desc->m1));
+>> +     addr_lo = GET_BITS(NEXT_DESC_ADDRL, le64_to_cpu(raw_desc->m1));
+>> +     raw_desc->m1 = cpu_to_le64(SET_BITS(NEXT_DESC_ADDRL, addr_lo) |
+>> +                                SET_BITS(NEXT_DESC_ADDRH, addr_hi) |
+>> +                                SET_BITS(PKT_ADDRH,
+>> +                                         dma_addr >> PKT_ADDRL_LEN));
+>> +
+>> +     dma_wmb();
+>> +
+>> +     raw_desc->m0 = cpu_to_le64(SET_BITS(PKT_ADDRL, dma_addr) |
+>> +                                SET_BITS(PKT_SIZE, len) |
+>> +                                SET_BITS(E, 0));
+>> +
+>> +     skb_tx_timestamp(skb);
+>> +     xge_wr_csr(pdata, DMATXCTRL, 1);
+>> +
+>> +     pdata->stats.tx_packets++;
+>> +     pdata->stats.tx_bytes += skb->len;
+>
+> This is both racy and incorrect. Racy because after you wrote DMATXCTRL,
+> your TX completion can run, and it can do that while interrupting your
+> CPU presumably, and free the SKB, therefore making you access a freed
+> SKB (or it should, if it does not), it's also incorrect, because before
+> you get signaled a TX completion, there is no guarantee that the packets
+> did actually make it through, you must update your stats in the TX
+> completion handler.
+
+Thanks.  I'll move the tx stats part to Tx completion.
+
+>
+>> +
+>> +     tx_ring->skbs[tail] = skb;
+>> +     tx_ring->pkt_bufs[tail] = pkt_buf;
+>> +     tx_ring->tail = (tail + 1) & (XGENE_ENET_NUM_DESC - 1);
+>> +
+>> +out:
+>> +     dev_kfree_skb_any(skb);
+>
+> Don't do this, remember a pointer to the SKB, free the SKB in TX
+> completion handler, preferably in NAPI context.
+
+I'll implement this.
+
+>
+>> +
+>> +     return NETDEV_TX_OK;
 >> +}
 >> +
->> +static struct xge_desc_ring *xge_create_desc_ring(struct net_device *ndev)
+>> +static void xge_txc_poll(struct net_device *ndev, unsigned int budget)
 >> +{
 >> +     struct xge_pdata *pdata = netdev_priv(ndev);
 >> +     struct device *dev = &pdata->pdev->dev;
->> +     struct xge_desc_ring *ring;
->> +     u16 size;
->> +
->> +     ring = devm_kzalloc(dev, sizeof(struct xge_desc_ring), GFP_KERNEL);
->> +     if (!ring)
->> +             return NULL;
->> +
->> +     ring->ndev = ndev;
->> +
->> +     size = XGENE_ENET_DESC_SIZE * XGENE_ENET_NUM_DESC;
->> +     ring->desc_addr = dmam_alloc_coherent(dev, size, &ring->dma_addr,
->> +                                           GFP_KERNEL | __GFP_ZERO);
->
-> There is no dmam_zalloc_coherent()? Then again, that seems to be a
-> candidate for dma_zalloc_coherent() and moving this to the ndo_open()
-> function.
->
->> +     if (!ring->desc_addr) {
->> +             devm_kfree(dev, ring);
->> +             return NULL;
->> +     }
->> +
->> +     xge_setup_desc(ring);
->> +
->> +     return ring;
->> +}
->> +
->> +static int xge_refill_buffers(struct net_device *ndev, u32 nbuf)
->> +{
->> +     struct xge_pdata *pdata = netdev_priv(ndev);
->> +     struct xge_desc_ring *ring = pdata->rx_ring;
->> +     const u8 slots = XGENE_ENET_NUM_DESC - 1;
->> +     struct device *dev = &pdata->pdev->dev;
+>> +     struct xge_desc_ring *tx_ring;
 >> +     struct xge_raw_desc *raw_desc;
 >> +     u64 addr_lo, addr_hi;
->> +     u8 tail = ring->tail;
->> +     struct sk_buff *skb;
 >> +     dma_addr_t dma_addr;
->> +     u16 len;
+>> +     void *pkt_buf;
+>> +     bool pktsent;
+>> +     u32 data;
+>> +     u8 head;
 >> +     int i;
 >> +
->> +     for (i = 0; i < nbuf; i++) {
->> +             raw_desc = &ring->raw_desc[tail];
+>> +     tx_ring = pdata->tx_ring;
+>> +     head = tx_ring->head;
 >> +
->> +             len = XGENE_ENET_STD_MTU;
->> +             skb = netdev_alloc_skb(ndev, len);
->> +             if (unlikely(!skb))
->> +                     return -ENOMEM;
+>> +     data = xge_rd_csr(pdata, DMATXSTATUS);
+>> +     pktsent = data & TX_PKT_SENT;
+>> +     if (unlikely(!pktsent))
+>> +             return;
+>> +
+>> +     for (i = 0; i < budget; i++) {
 >
-> Are not you leaving holes in your RX ring if you do that?
+> TX completion handlers should run unbound and free the entire TX ring,
+> don't make it obey to an upper bound.
 
-No.  The probe will fail and clean up the unused buffers.
-
->
->> +
->> +             dma_addr = dma_map_single(dev, skb->data, len, DMA_FROM_DEVICE);
->> +             if (dma_mapping_error(dev, dma_addr)) {
->> +                     netdev_err(ndev, "DMA mapping error\n");
->> +                     dev_kfree_skb_any(skb);
->> +                     return -EINVAL;
->> +             }
->
->
->> +static void xge_timeout(struct net_device *ndev)
->> +{
->> +     struct xge_pdata *pdata = netdev_priv(ndev);
->> +     struct netdev_queue *txq;
->> +
->> +     xge_mac_reset(pdata);
->> +
->> +     txq = netdev_get_tx_queue(ndev, 0);
->> +     txq->trans_start = jiffies;
->> +     netif_tx_start_queue(txq);
->
-> It most likely is not that simple, don't you want to walk the list of
-> pending transmissed SKBs and free them all?
-
-I'll add more exhaustive clean up and restart of Tx hardware.
+I'll do as suggested.
 
 >
+>> +             raw_desc = &tx_ring->raw_desc[head];
+>> +
+>> +             if (!GET_BITS(E, le64_to_cpu(raw_desc->m0)))
+>> +                     break;
+>> +
+>> +             dma_rmb();
+>> +
+>> +             addr_hi = GET_BITS(PKT_ADDRH, le64_to_cpu(raw_desc->m1));
+>> +             addr_lo = GET_BITS(PKT_ADDRL, le64_to_cpu(raw_desc->m0));
+>> +             dma_addr = (addr_hi << PKT_ADDRL_LEN) | addr_lo;
+>> +
+>> +             pkt_buf = tx_ring->pkt_bufs[head];
+>> +
+>> +             /* clear pktstart address and pktsize */
+>> +             raw_desc->m0 = cpu_to_le64(SET_BITS(E, 1) |
+>> +                                        SET_BITS(PKT_SIZE, 0));
+>> +             xge_wr_csr(pdata, DMATXSTATUS, 1);
+>> +
+>> +             dma_free_coherent(dev, XGENE_ENET_STD_MTU, pkt_buf, dma_addr);
+>> +
+>> +             head = (head + 1) & (XGENE_ENET_NUM_DESC - 1);
+>> +     }
+>> +
+>> +     tx_ring->head = head;
 >> +}
 >> +
->> +static void xge_get_stats64(struct net_device *ndev,
->> +                         struct rtnl_link_stats64 *storage)
+>> +static int xge_rx_poll(struct net_device *ndev, unsigned int budget)
 >> +{
 >> +     struct xge_pdata *pdata = netdev_priv(ndev);
->> +     struct xge_stats *stats = &pdata->stats;
+>> +     struct device *dev = &pdata->pdev->dev;
+>> +     dma_addr_t addr_hi, addr_lo, dma_addr;
+>> +     struct xge_desc_ring *rx_ring;
+>> +     struct xge_raw_desc *raw_desc;
+>> +     struct sk_buff *skb;
+>> +     int i, npkts, ret = 0;
+>> +     bool pktrcvd;
+>> +     u32 data;
+>> +     u8 head;
+>> +     u16 len;
 >> +
->> +     storage->tx_packets += stats->tx_packets;
->> +     storage->tx_bytes += stats->tx_bytes;
+>> +     rx_ring = pdata->rx_ring;
+>> +     head = rx_ring->head;
 >> +
->> +     storage->rx_packets += stats->rx_packets;
->> +     storage->rx_bytes += stats->rx_bytes;
+>> +     data = xge_rd_csr(pdata, DMARXSTATUS);
+>> +     pktrcvd = data & RXSTATUS_RXPKTRCVD;
+>> +
+>> +     if (unlikely(!pktrcvd))
+>> +             return 0;
+>> +
+>> +     npkts = 0;
+>> +     for (i = 0; i < budget; i++) {
 >
-> Pretty sure you need some synchronization primitives here for non 64-bit
-> architectures (maybe this driver is not used outside of 64-bit, but still).
+> So pktrcvd is not an indication of the produced number of packets, just
+> that there are packets, that's not very convenient, and it's redundant
+> with the very fact of being interrupted.
 
-Synchronization primitives are not required for this driver, yet!
-
->
->
->> +
->> +     ndev->hw_features = ndev->features;
->> +
->> +     ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(64));
->> +     if (ret) {
->> +             netdev_err(ndev, "No usable DMA configuration\n");
->> +             goto err;
->> +     }
->> +
->> +     ret = xge_init_hw(ndev);
->> +     if (ret)
->> +             goto err;
->
-> Missing netif_carrier_off() right before the register_netdev().
-
-I'll add them.
+Agree, but the interrupt is common for Tx completion and Rx, this
+check is still required.
 
 >
+>> +             raw_desc = &rx_ring->raw_desc[head];
 >> +
->> +     ret = register_netdev(ndev);
->> +     if (ret) {
->> +             netdev_err(ndev, "Failed to register netdev\n");
->> +             goto err;
->> +     }
+>> +             if (GET_BITS(E, le64_to_cpu(raw_desc->m0)))
+>> +                     break;
+>> +
+>> +             dma_rmb();
+>> +
+>> +             addr_hi = GET_BITS(PKT_ADDRH, le64_to_cpu(raw_desc->m1));
+>> +             addr_lo = GET_BITS(PKT_ADDRL, le64_to_cpu(raw_desc->m0));
+>> +             dma_addr = (addr_hi << PKT_ADDRL_LEN) | addr_lo;
+>> +             len = GET_BITS(PKT_SIZE, le64_to_cpu(raw_desc->m0));
 >
+> Is not there some kind of additional status that would indicate if the
+> packet is possibly invalid (oversize, undersize, etc.)?
+
+I'll add error checking.
+
 >
+>> +
+>> +             dma_unmap_single(dev, dma_addr, XGENE_ENET_STD_MTU,
+>> +                              DMA_FROM_DEVICE);
+>> +
+>> +             skb = rx_ring->skbs[head];
+>> +             skb_put(skb, len);
+>> +
+>> +             skb->protocol = eth_type_trans(skb, ndev);
+>> +
+>> +             pdata->stats.rx_packets++;
+>> +             pdata->stats.rx_bytes += len;
+>> +             napi_gro_receive(&pdata->napi, skb);
+>> +             npkts++;
 >
 > --
 > Florian
