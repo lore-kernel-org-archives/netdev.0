@@ -1,67 +1,133 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1.1] net: emac: add support for device-tree based PHY
- discovery and setup
-Date: Mon, 27 Feb 2017 14:54:47 -0500 (EST)
-Message-ID: <20170227.145447.1005420963599745103.davem@davemloft.net>
-References: <d32546b59c67456c77d003af1df51862d2f8c5de.1487617501.git.chunkeey@googlemail.com>
-        <20170222.153735.1289514443979947868.davem@davemloft.net>
-        <2567253.1QjLrx0r05@debian64>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        ivan@de.ibm.com, f.fainelli@gmail.com, andrew@lunn.ch,
-        robh+dt@kernel.org
-To: chunkeey@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48084 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751710AbdB0UPF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 15:15:05 -0500
-In-Reply-To: <2567253.1QjLrx0r05@debian64>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH v1.1] dt: emac: document device-tree based phy discovery and setup
+Date: Mon, 27 Feb 2017 21:11:46 +0100
+Message-ID: <8f94c394faf5665ae693f41832f2446dfc7c989e.1488226061.git.chunkeey@googlemail.com>
+References: <20170227.145447.1005420963599745103.davem@davemloft.net>
+Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Ivan Mikhaylov <ivan-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170227.145447.1005420963599745103.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Christian Lamparter <chunkeey@googlemail.com>
-Date: Mon, 27 Feb 2017 20:42:15 +0100
+This patch adds documentation for a new "phy-handle" property,
+"fixed-link" and "mdio" sub-node. These allows the enumeration
+of PHYs which are supported by the phy library under drivers/net/phy.
 
-> On Wednesday, February 22, 2017 3:37:35 PM CET David Miller wrote:
->> From: Christian Lamparter <chunkeey@googlemail.com>
->> Date: Mon, 20 Feb 2017 20:10:58 +0100
->> 
->> > This patch adds glue-code that allows the EMAC driver to interface
->> > with the existing dt-supported PHYs in drivers/net/phy.
->> > 
->> > Because currently, the emac driver maintains a small library of
->> > supported phys for in a private phy.c file located in the drivers
->> > directory.
->> > 
->> > The support is limited to mostly single ethernet transceiver like the:
->> > CIS8201, BCM5248, ET1011C, Marvell 88E1111 and 88E1112, AR8035.
->> > 
->> > However, routers like the Netgear WNDR4700 and Cisco Meraki MX60(W)
->> > have a 5-port switch (AR8327N) attached to the EMAC. The switch chip
->> > is supported by the qca8k mdio driver, which uses the generic phy
->> > library. Another reason is that PHYLIB also supports the BCM54610,
->> > which was used for the Western Digital My Book Live.
->> > 
->> > This will now also make EMAC select PHYLIB.
->> > 
->> > Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
->> 
->> Applied, thanks.
->> 
-> Thanks David.
-> 
-> I noticed that the DT Documentation patch:
-> "[v1,1/2] dt: emac: document device-tree based phy discovery and setup"
-> is still pending with "Changes Requested":
-> <https://patchwork.ozlabs.org/patch/729658/>
-> 
-> I think this is because of Florian's comment on patch:
-> "[v1,2/2] net: emac: add support for device-tree based PHY discovery and setup"
-> If so, can you please queue this documentation update patch for -next?
-> (I haven't received any comments or complains. If necessary, I can also
-> resent it.)
+The EMAC ethernet controller in IBM and AMCC 4xx chips is
+currently stuck with a few privately defined phy
+implementations. It has no support for PHYs which
+are supported by the generic phylib.
 
-Please resend.
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+---
+Resent - no changes.
+---
+ .../devicetree/bindings/powerpc/4xx/emac.txt       | 64 +++++++++++++++++++++-
+ 1 file changed, 62 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+index 712baf6c3e24..1893b4c4d93b 100644
+--- a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
++++ b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+@@ -71,6 +71,9 @@
+ 			  For Axon it can be absent, though my current driver
+ 			  doesn't handle phy-address yet so for now, keep
+ 			  0x00ffffff in it.
++    - phy-handle	: Used to describe configurations where a external PHY
++			  is used. Please refer to:
++			  Documentation/devicetree/bindings/net/ethernet.txt
+     - rx-fifo-size-gige : 1 cell, Rx fifo size in bytes for 1000 Mb/sec
+ 			  operations (if absent the value is the same as
+ 			  rx-fifo-size).  For Axon, either absent or 2048.
+@@ -81,8 +84,22 @@
+ 			  offload, phandle of the TAH device node.
+     - tah-channel       : 1 cell, optional. If appropriate, channel used on the
+ 			  TAH engine.
++    - fixed-link	: Fixed-link subnode describing a link to a non-MDIO
++			  managed entity. See
++			  Documentation/devicetree/bindings/net/fixed-link.txt
++			  for details.
++    - mdio subnode	: When the EMAC has a phy connected to its local
++			  mdio, which us supported by the kernel's network
++			  PHY library in drivers/net/phy, there must be device
++			  tree subnode with the following required properties:
++				- #address-cells: Must be <1>.
++				- #size-cells: Must be <0>.
+ 
+-    Example:
++			  For PHY definitions: Please refer to
++			  Documentation/devicetree/bindings/net/phy.txt and
++			  Documentation/devicetree/bindings/net/ethernet.txt
++
++    Examples:
+ 
+ 	EMAC0: ethernet@40000800 {
+ 		device_type = "network";
+@@ -104,6 +121,50 @@
+ 		zmii-channel = <0>;
+ 	};
+ 
++	EMAC1: ethernet@ef600c00 {
++		device_type = "network";
++		compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
++		interrupt-parent = <&EMAC1>;
++		interrupts = <0 1>;
++		#interrupt-cells = <1>;
++		#address-cells = <0>;
++		#size-cells = <0>;
++		interrupt-map = <0 &UIC2 0x10 IRQ_TYPE_LEVEL_HIGH /* Status */
++				 1 &UIC2 0x14 IRQ_TYPE_LEVEL_HIGH /* Wake */>;
++		reg = <0xef600c00 0x000000c4>;
++		local-mac-address = [000000000000]; /* Filled in by U-Boot */
++		mal-device = <&MAL0>;
++		mal-tx-channel = <0>;
++		mal-rx-channel = <0>;
++		cell-index = <0>;
++		max-frame-size = <9000>;
++		rx-fifo-size = <16384>;
++		tx-fifo-size = <2048>;
++		fifo-entry-size = <10>;
++		phy-mode = "rgmii";
++		phy-handle = <&phy0>;
++		phy-map = <0x00000000>;
++		rgmii-device = <&RGMII0>;
++		rgmii-channel = <0>;
++		tah-device = <&TAH0>;
++		tah-channel = <0>;
++		has-inverted-stacr-oc;
++		has-new-stacr-staopc;
++
++	        mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			phy0: ethernet-phy@0 {
++				device_type = "ethernet-phy";
++				reg = <0>;
++
++				qca,ar8327-initvals = <
++					0x0010 0x40000000>;
++		};
++	};
++
++
+       ii) McMAL node
+ 
+     Required properties:
+@@ -145,4 +206,3 @@
+     - revision           : as provided by the RGMII new version register if
+ 			   available.
+ 			   For Axon: 0x0000012a
+-
+-- 
+2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
