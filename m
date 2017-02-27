@@ -1,75 +1,78 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v2 net] net: solve a NAPI race
-Date: Mon, 27 Feb 2017 13:00:09 -0800
-Message-ID: <CAKgT0UduWGLXdBFoRtVV-96kFFeB_Lp-7Q7A2tVps+8-MQMd5A@mail.gmail.com>
-References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
- <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
- <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com> <20170227.111944.1725806340309799464.davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [Patch net] ipv6: check for ip6_null_entry in
+ __ip6_del_rt_siblings()
+Date: Mon, 27 Feb 2017 13:00:37 -0800
+Message-ID: <0ec7c6bd-0705-ea30-650e-b8d269dc587b@cumulusnetworks.com>
+References: <1488222425-1256-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1488227660.9415.207.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andreyknvl@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:34588 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751419AbdB0VBH (ORCPT
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33555 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751470AbdB0VBH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 16:01:07 -0500
-Received: by mail-io0-f170.google.com with SMTP id 90so36831118ios.1
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 13:00:10 -0800 (PST)
-In-Reply-To: <20170227.111944.1725806340309799464.davem@davemloft.net>
+Received: by mail-pf0-f178.google.com with SMTP id o64so9050980pfb.0
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 13:00:39 -0800 (PST)
+In-Reply-To: <1488227660.9415.207.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 27, 2017 at 8:19 AM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 27 Feb 2017 06:21:38 -0800
->
->> A NAPI driver normally arms the IRQ after the napi_complete_done(),
->> after NAPI_STATE_SCHED is cleared, so that the hard irq handler can grab
->> it.
+On 2/27/17 12:34 PM, Eric Dumazet wrote:
+> On Mon, 2017-02-27 at 11:07 -0800, Cong Wang wrote:
+>> Andrey reported a NULL pointer deref bug in ipv6_route_ioctl()
+>> -> ip6_route_del() -> __ip6_del_rt_siblings() code path. This is
+>> because ip6_null_entry is returned in this path since ip6_null_entry
+>> is kinda default for a ipv6 route table root node. Quote from
+>> David Ahern:
 >>
->> Problem is that if another point in the stack grabs NAPI_STATE_SCHED bit
->> while IRQ are not disabled, we might have later an IRQ firing and
->> finding this bit set, right before napi_complete_done() clears it.
+>>  ip6_null_entry is the root of all ipv6 fib tables making it integrated
+>>  into the table ...
 >>
->> This can happen with busy polling users, or if gro_flush_timeout is
->> used. But some other uses of napi_schedule() in drivers can cause this
->> as well.
+>> We should ignore any attempt of trying to delete it, like we do in
+>> __ip6_del_rt() path and several others.
 >>
->> This patch adds a new NAPI_STATE_MISSED bit, that napi_schedule_prep()
->> can set if it could not grab NAPI_STATE_SCHED
->
-> Various rules were meant to protect these sequences, and make sure
-> nothing like this race could happen.
->
-> Can you show the specific sequence that fails?
->
-> One of the basic protections is that the device IRQ is not re-enabled
-> until napi_complete_done() is finished, most drivers do something like
-> this:
->
->         napi_complete_done();
->                 - sets NAPI_STATE_SCHED
->         enable device IRQ
->
-> So I don't understand how it is possible that "later an IRQ firing and
-> finding this bit set, right before napi_complete_done() clears it".
->
-> While napi_complete_done() is running, the device's IRQ is still
-> disabled, so there cannot be an IRQ firing before napi_complete_done()
-> is finished.
+>> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
+>>  net/ipv6/route.c | 7 +++++--
+>>  1 file changed, 5 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index f54f426..9da77e9 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -2169,10 +2169,13 @@ int ip6_del_rt(struct rt6_info *rt)
+>>  static int __ip6_del_rt_siblings(struct rt6_info *rt, struct fib6_config *cfg)
+>>  {
+>>  	struct nl_info *info = &cfg->fc_nlinfo;
+>> +	struct net *net = info->nl_net;
+>>  	struct sk_buff *skb = NULL;
+>>  	struct fib6_table *table;
+>>  	int err;
+>>  
+>> +	if (rt == net->ipv6.ip6_null_entry)
+>> +		return -ENOENT;
+> 
+> It looks the caller did a dst_hold(&rt->dst);
+> 
+> So this new error path would leave a refcount leak.
+> 
+> Note that I was not able to trigger the crash on old kernels, so it
+> would be nice to get a precise idea of bug origin.
+> 
 
-So there are some drivers that will need to have the interrupts
-enabled when busy polling and I assume that can cause this kind of
-issue. Specifically in the case of i40e the part will not flush
-completed descriptors until either 4 completed descriptors are ready
-to be written back, or an interrupt fires.
+Cong: do you want to send a v2 catching the null entry in ip6_route_del
+before the refcnt?
 
-Our other drivers have code in them that will force the interrupt to
-unmask and fire once every 2 seconds in the unlikely event that an
-interrupt was lost which can occur on some platforms.
+                for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
++                       /* do not allow deletion of the null route */
++                       if (rt == net->ipv6.ip6_null_entry)
++                               continue;
 
-- Alex
+Fixes: 0ae8133586ad net: ipv6: Allow shorthand delete of all nexthops in
+multipath route
