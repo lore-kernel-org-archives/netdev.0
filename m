@@ -1,42 +1,130 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/ipv6: null-ptr-deref in ip6_route_del/lock_acquire
-Date: Mon, 27 Feb 2017 12:34:10 -0800
-Message-ID: <CAM_iQpXjyAAsVSjJfu_c7-eCni7FMNG_MLU_+O6S0yc63JbVVA@mail.gmail.com>
-References: <CAAeHK+wqCyT6BzgiKLVNbVyoDwOUyDur9Nw-C0HFYjmyAMym9A@mail.gmail.com>
- <CAM_iQpWFnNyk=KfFyDnYOe9iXqgTJWCysx2YMLg19ufbYGdG4g@mail.gmail.com>
- <e260c2c5-26b6-6ef4-563e-b601adc664f9@cumulusnetworks.com> <CAAeHK+xTDRBG31crpOZovhisCJx2eMdJacv=dqBsJ0_dd3_tag@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+xTDRBG31crpOZovhisCJx2eMdJacv=dqBsJ0_dd3_tag@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: [PATCH v2] dt: emac: document device-tree based phy discovery and setup
+Date: Mon, 27 Feb 2017 21:54:50 +0100
+Message-ID: <0149985a262cfc2feacd604a581cd5ae9134a525.1488228734.git.chunkeey@googlemail.com>
+References: <cecba35f-0a94-67e8-543a-a1d340d62947@gmail.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Ivan Mikhaylov <ivan@de.ibm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, Rob Herring <robh+dt@kernel.org>
+To: netdev@vger.kernel.org, devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35259 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751552AbdB0UzK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 15:55:10 -0500
+In-Reply-To: <cecba35f-0a94-67e8-543a-a1d340d62947@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 27, 2017 at 12:05 PM, Andrey Konovalov
-<andreyknvl@google.com> wrote:
-> On Mon, Feb 27, 2017 at 8:59 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
->> On 2/27/17 10:11 AM, Cong Wang wrote:
->>> The attached patch fixes this crash, but I am not sure if it is the
->>> best way to fix this bug yet...
->>
->> I'll take a look. I can not reproduce this using route or ip, so the
->> fuzzer is doing something interesting.
->
-> Hi David,
->
-> I've attached a simple reproducer to the report, it doesn't work for you?
+This patch adds documentation for a new "phy-handle" property,
+"fixed-link" and "mdio" sub-node. These allows the enumeration
+of PHYs which are supported by the phy library under drivers/net/phy.
 
-It works for me and I have verified the formal patch I sent.
+The EMAC ethernet controller in IBM and AMCC 4xx chips is
+currently stuck with a few privately defined phy
+implementations. It has no support for PHYs which
+are supported by the generic phylib.
+
+Acked-by: Rob Herring <robh@kernel.org>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
+---
+---
+ .../devicetree/bindings/powerpc/4xx/emac.txt       | 62 +++++++++++++++++++++-
+ 1 file changed, 60 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+index 712baf6c3e24..44b842b6ca15 100644
+--- a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
++++ b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+@@ -71,6 +71,9 @@
+ 			  For Axon it can be absent, though my current driver
+ 			  doesn't handle phy-address yet so for now, keep
+ 			  0x00ffffff in it.
++    - phy-handle	: Used to describe configurations where a external PHY
++			  is used. Please refer to:
++			  Documentation/devicetree/bindings/net/ethernet.txt
+     - rx-fifo-size-gige : 1 cell, Rx fifo size in bytes for 1000 Mb/sec
+ 			  operations (if absent the value is the same as
+ 			  rx-fifo-size).  For Axon, either absent or 2048.
+@@ -81,8 +84,22 @@
+ 			  offload, phandle of the TAH device node.
+     - tah-channel       : 1 cell, optional. If appropriate, channel used on the
+ 			  TAH engine.
++    - fixed-link	: Fixed-link subnode describing a link to a non-MDIO
++			  managed entity. See
++			  Documentation/devicetree/bindings/net/fixed-link.txt
++			  for details.
++    - mdio subnode	: When the EMAC has a phy connected to its local
++			  mdio, which us supported by the kernel's network
++			  PHY library in drivers/net/phy, there must be device
++			  tree subnode with the following required properties:
++				- #address-cells: Must be <1>.
++				- #size-cells: Must be <0>.
+ 
+-    Example:
++			  For PHY definitions: Please refer to
++			  Documentation/devicetree/bindings/net/phy.txt and
++			  Documentation/devicetree/bindings/net/ethernet.txt
++
++    Examples:
+ 
+ 	EMAC0: ethernet@40000800 {
+ 		device_type = "network";
+@@ -104,6 +121,48 @@
+ 		zmii-channel = <0>;
+ 	};
+ 
++	EMAC1: ethernet@ef600c00 {
++		device_type = "network";
++		compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
++		interrupt-parent = <&EMAC1>;
++		interrupts = <0 1>;
++		#interrupt-cells = <1>;
++		#address-cells = <0>;
++		#size-cells = <0>;
++		interrupt-map = <0 &UIC2 0x10 IRQ_TYPE_LEVEL_HIGH /* Status */
++				 1 &UIC2 0x14 IRQ_TYPE_LEVEL_HIGH /* Wake */>;
++		reg = <0xef600c00 0x000000c4>;
++		local-mac-address = [000000000000]; /* Filled in by U-Boot */
++		mal-device = <&MAL0>;
++		mal-tx-channel = <0>;
++		mal-rx-channel = <0>;
++		cell-index = <0>;
++		max-frame-size = <9000>;
++		rx-fifo-size = <16384>;
++		tx-fifo-size = <2048>;
++		fifo-entry-size = <10>;
++		phy-mode = "rgmii";
++		phy-handle = <&phy0>;
++		phy-map = <0x00000000>;
++		rgmii-device = <&RGMII0>;
++		rgmii-channel = <0>;
++		tah-device = <&TAH0>;
++		tah-channel = <0>;
++		has-inverted-stacr-oc;
++		has-new-stacr-staopc;
++
++	        mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			phy0: ethernet-phy@0 {
++				compatible = "ethernet-phy-ieee802.3-c22";
++				reg = <0>;
++			};
++		};
++	};
++
++
+       ii) McMAL node
+ 
+     Required properties:
+@@ -145,4 +204,3 @@
+     - revision           : as provided by the RGMII new version register if
+ 			   available.
+ 			   For Axon: 0x0000012a
+-
+-- 
+2.11.0
