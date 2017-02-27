@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] net sched actions: do not overwrite status of
- action creation.
-Date: Sun, 26 Feb 2017 21:32:15 -0500 (EST)
-Message-ID: <20170226.213215.1159999427558211898.davem@davemloft.net>
-References: <1487975818-27254-1-git-send-email-mrv@mojatatu.com>
+Subject: Re: [bug report] rhashtable: Add nested tables
+Date: Sun, 26 Feb 2017 21:34:43 -0500 (EST)
+Message-ID: <20170226.213443.335375063360642764.davem@davemloft.net>
+References: <20170216121703.GA26276@mwanda>
+        <20170225143811.GA28272@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: mrv@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33222 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751314AbdB0Cco (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2017 21:32:44 -0500
-In-Reply-To: <1487975818-27254-1-git-send-email-mrv@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dan.carpenter@oracle.com, kernel-janitors@vger.kernel.org,
+        netdev@vger.kernel.org, tgraf@suug.ch
+To: herbert@gondor.apana.org.au
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170225143811.GA28272@gondor.apana.org.au>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roman Mashak <mrv@mojatatu.com>
-Date: Fri, 24 Feb 2017 17:36:58 -0500
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 25 Feb 2017 22:38:11 +0800
 
-> nla_memdup_cookie was overwriting err value, declared at function
-> scope and earlier initialized with result of ->init(). At success
-> nla_memdup_cookie() returns 0, and thus module refcnt decremented,
-> although the action was installed.
- ...
-> Fixes: 1045ba77a ("net sched actions: Add support for user cookies")
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Subject: rhashtable: Fix use before NULL check in bucket_table_free
+> 
+> Dan Carpenter reported a use before NULL check bug in the function
+> bucket_table_free.  In fact we don't need the NULL check at all as
+> no caller can provide a NULL argument.  So this patch fixes this by
+> simply removing it.
+> 
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks.
+Also applied, thanks Herbert.
