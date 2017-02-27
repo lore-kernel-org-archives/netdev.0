@@ -1,72 +1,165 @@
-From: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: Re: [PATCH v3 20/20] checkpatch: warn for use of old PCI pool API
-Date: Mon, 27 Feb 2017 12:22:33 +0100
-Message-ID: <20170227112233.GK26544@collabora.com>
+From: Peter Senna Tschudin <peter.senna@collabora.com>
+Subject: Re: [PATCH v3 17/20] usb: gadget: pch_udc: Replace PCI pool old API
+Date: Mon, 27 Feb 2017 12:19:16 +0100
+Message-ID: <20170227111916.GH26544@collabora.com>
 References: <20170226192425.13098-1-romain.perier@collabora.com>
- <20170226192425.13098-21-romain.perier@collabora.com>
+ <20170226192425.13098-18-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>,
-        Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-To: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Romain Perier <romain.perier@collabora.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170226192425.13098-21-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20170226192425.13098-18-romain.perier@collabora.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 26, 2017 at 08:24:25PM +0100, Romain Perier wrote:
-> pci_pool_*() functions should be replaced by the corresponding functions
-> in the DMA pool API. This adds support to check for use of these pci
-> functions and display a warning when it is the case.
->
-
-I guess Joe Perches did sent some comments for this one, did you address
-them?
-
-Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> ---
->  scripts/checkpatch.pl | 9 ++++++++-
->  1 file changed, 8 insertions(+), 1 deletion(-)
+On Sun, Feb 26, 2017 at 08:24:22PM +0100, Romain Perier wrote:
+> The PCI pool API is deprecated. This commits replaces the PCI pool old
+> API by the appropriated function with the DMA pool API.
 > 
-> diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-> index baa3c7b..f2c775c 100755
-> --- a/scripts/checkpatch.pl
-> +++ b/scripts/checkpatch.pl
-> @@ -6064,7 +6064,14 @@ sub process {
->  			WARN("USE_DEVICE_INITCALL",
->  			     "please use device_initcall() or more appropriate function instead of __initcall() (see include/linux/init.h)\n" . $herecurr);
+Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> ---
+>  drivers/usb/gadget/udc/pch_udc.c | 31 +++++++++++++++----------------
+>  1 file changed, 15 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/usb/gadget/udc/pch_udc.c b/drivers/usb/gadget/udc/pch_udc.c
+> index a97da64..84dcbcd 100644
+> --- a/drivers/usb/gadget/udc/pch_udc.c
+> +++ b/drivers/usb/gadget/udc/pch_udc.c
+> @@ -355,8 +355,8 @@ struct pch_udc_dev {
+>  			vbus_session:1,
+>  			set_cfg_not_acked:1,
+>  			waiting_zlp_ack:1;
+> -	struct pci_pool		*data_requests;
+> -	struct pci_pool		*stp_requests;
+> +	struct dma_pool		*data_requests;
+> +	struct dma_pool		*stp_requests;
+>  	dma_addr_t			dma_addr;
+>  	struct usb_ctrlrequest		setup_data;
+>  	void __iomem			*base_addr;
+> @@ -1522,7 +1522,7 @@ static void pch_udc_free_dma_chain(struct pch_udc_dev *dev,
+>  		/* do not free first desc., will be done by free for request */
+>  		td = phys_to_virt(addr);
+>  		addr2 = (dma_addr_t)td->next;
+> -		pci_pool_free(dev->data_requests, td, addr);
+> +		dma_pool_free(dev->data_requests, td, addr);
+>  		td->next = 0x00;
+>  		addr = addr2;
+>  	}
+> @@ -1539,7 +1539,7 @@ static void pch_udc_free_dma_chain(struct pch_udc_dev *dev,
+>   *
+>   * Return codes:
+>   *	0:		success,
+> - *	-ENOMEM:	pci_pool_alloc invocation fails
+> + *	-ENOMEM:	dma_pool_alloc invocation fails
+>   */
+>  static int pch_udc_create_dma_chain(struct pch_udc_ep *ep,
+>  				    struct pch_udc_request *req,
+> @@ -1565,7 +1565,7 @@ static int pch_udc_create_dma_chain(struct pch_udc_ep *ep,
+>  		if (bytes <= buf_len)
+>  			break;
+>  		last = td;
+> -		td = pci_pool_alloc(ep->dev->data_requests, gfp_flags,
+> +		td = dma_pool_alloc(ep->dev->data_requests, gfp_flags,
+>  				    &dma_addr);
+>  		if (!td)
+>  			goto nomem;
+> @@ -1770,7 +1770,7 @@ static struct usb_request *pch_udc_alloc_request(struct usb_ep *usbep,
+>  	if (!ep->dev->dma_addr)
+>  		return &req->req;
+>  	/* ep0 in requests are allocated from data pool here */
+> -	dma_desc = pci_pool_alloc(ep->dev->data_requests, gfp,
+> +	dma_desc = dma_pool_alloc(ep->dev->data_requests, gfp,
+>  				  &req->td_data_phys);
+>  	if (NULL == dma_desc) {
+>  		kfree(req);
+> @@ -1809,7 +1809,7 @@ static void pch_udc_free_request(struct usb_ep *usbep,
+>  	if (req->td_data != NULL) {
+>  		if (req->chain_len > 1)
+>  			pch_udc_free_dma_chain(ep->dev, req);
+> -		pci_pool_free(ep->dev->data_requests, req->td_data,
+> +		dma_pool_free(ep->dev->data_requests, req->td_data,
+>  			      req->td_data_phys);
+>  	}
+>  	kfree(req);
+> @@ -2914,7 +2914,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+>  	void				*ep0out_buf;
+>  
+>  	/* DMA setup */
+> -	dev->data_requests = pci_pool_create("data_requests", dev->pdev,
+> +	dev->data_requests = dma_pool_create("data_requests", &dev->pdev->dev,
+>  		sizeof(struct pch_udc_data_dma_desc), 0, 0);
+>  	if (!dev->data_requests) {
+>  		dev_err(&dev->pdev->dev, "%s: can't get request data pool\n",
+> @@ -2923,7 +2923,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+>  	}
+>  
+>  	/* dma desc for setup data */
+> -	dev->stp_requests = pci_pool_create("setup requests", dev->pdev,
+> +	dev->stp_requests = dma_pool_create("setup requests", &dev->pdev->dev,
+>  		sizeof(struct pch_udc_stp_dma_desc), 0, 0);
+>  	if (!dev->stp_requests) {
+>  		dev_err(&dev->pdev->dev, "%s: can't get setup request pool\n",
+> @@ -2931,7 +2931,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+>  		return -ENOMEM;
+>  	}
+>  	/* setup */
+> -	td_stp = pci_pool_alloc(dev->stp_requests, GFP_KERNEL,
+> +	td_stp = dma_pool_alloc(dev->stp_requests, GFP_KERNEL,
+>  				&dev->ep[UDC_EP0OUT_IDX].td_stp_phys);
+>  	if (!td_stp) {
+>  		dev_err(&dev->pdev->dev,
+> @@ -2941,7 +2941,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+>  	dev->ep[UDC_EP0OUT_IDX].td_stp = td_stp;
+>  
+>  	/* data: 0 packets !? */
+> -	td_data = pci_pool_alloc(dev->data_requests, GFP_KERNEL,
+> +	td_data = dma_pool_alloc(dev->data_requests, GFP_KERNEL,
+>  				&dev->ep[UDC_EP0OUT_IDX].td_data_phys);
+>  	if (!td_data) {
+>  		dev_err(&dev->pdev->dev,
+> @@ -3021,22 +3021,21 @@ static void pch_udc_remove(struct pci_dev *pdev)
+>  		dev_err(&pdev->dev,
+>  			"%s: gadget driver still bound!!!\n", __func__);
+>  	/* dma pool cleanup */
+> -	if (dev->data_requests)
+> -		pci_pool_destroy(dev->data_requests);
+> +	dma_pool_destroy(dev->data_requests);
+>  
+>  	if (dev->stp_requests) {
+>  		/* cleanup DMA desc's for ep0in */
+>  		if (dev->ep[UDC_EP0OUT_IDX].td_stp) {
+> -			pci_pool_free(dev->stp_requests,
+> +			dma_pool_free(dev->stp_requests,
+>  				dev->ep[UDC_EP0OUT_IDX].td_stp,
+>  				dev->ep[UDC_EP0OUT_IDX].td_stp_phys);
 >  		}
-> -
-> +# check for old PCI api pci_pool_*(), use dma_pool_*() instead
-> +		if ($line =~ /\bpci_pool(?:_(?:create|destroy|alloc|zalloc|free)|)\b/) {
-> +			if (WARN("USE_DMA_POOL",
-> +				 "please use the dma pool api or more appropriate function instead of the old pci pool api\n" . $herecurr) &&
-> +			    $fix) {
-> +				while ($fixed[$fixlinenr] =~ s/\bpci_pool(_(?:create|destroy|alloc|zalloc|free)|)\b/dma_pool$1/) {}
-> +			}
-> +		}
->  # check for various structs that are normally const (ops, kgdb, device_tree)
->  		if ($line !~ /\bconst\b/ &&
->  		    $line =~ /\bstruct\s+($const_structs)\b/) {
+>  		if (dev->ep[UDC_EP0OUT_IDX].td_data) {
+> -			pci_pool_free(dev->stp_requests,
+> +			dma_pool_free(dev->stp_requests,
+>  				dev->ep[UDC_EP0OUT_IDX].td_data,
+>  				dev->ep[UDC_EP0OUT_IDX].td_data_phys);
+>  		}
+> -		pci_pool_destroy(dev->stp_requests);
+> +		dma_pool_destroy(dev->stp_requests);
+>  	}
+>  
+>  	if (dev->dma_addr)
 > -- 
 > 2.9.3
 > 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
