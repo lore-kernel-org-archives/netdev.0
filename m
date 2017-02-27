@@ -1,9 +1,9 @@
 From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [PATCH v3 17/20] usb: gadget: pch_udc: Replace PCI pool old API
-Date: Mon, 27 Feb 2017 12:19:16 +0100
-Message-ID: <20170227111916.GH26544@collabora.com>
+Subject: Re: [PATCH v3 11/20] scsi: megaraid: Replace PCI pool old API
+Date: Mon, 27 Feb 2017 12:16:18 +0100
+Message-ID: <20170227111618.GE26544@collabora.com>
 References: <20170226192425.13098-1-romain.perier@collabora.com>
- <20170226192425.13098-18-romain.perier@collabora.com>
+ <20170226192425.13098-12-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams@intel.com>,
@@ -21,145 +21,503 @@ Cc: Dan Williams <dan.j.williams@intel.com>,
         linux-kernel@vger.kernel.org,
         Peter Senna Tschudin <peter.senna@collabora.co.uk>
 To: Romain Perier <romain.perier@collabora.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:36444 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751813AbdB0L1Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 06:27:24 -0500
 Content-Disposition: inline
-In-Reply-To: <20170226192425.13098-18-romain.perier@collabora.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170226192425.13098-12-romain.perier@collabora.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 26, 2017 at 08:24:22PM +0100, Romain Perier wrote:
+On Sun, Feb 26, 2017 at 08:24:16PM +0100, Romain Perier wrote:
 > The PCI pool API is deprecated. This commits replaces the PCI pool old
 > API by the appropriated function with the DMA pool API.
 > 
 Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
 > Signed-off-by: Romain Perier <romain.perier@collabora.com>
 > ---
->  drivers/usb/gadget/udc/pch_udc.c | 31 +++++++++++++++----------------
->  1 file changed, 15 insertions(+), 16 deletions(-)
+>  drivers/scsi/megaraid/megaraid_mbox.c       | 33 +++++++--------
+>  drivers/scsi/megaraid/megaraid_mm.c         | 32 +++++++-------
+>  drivers/scsi/megaraid/megaraid_sas_base.c   | 29 +++++++------
+>  drivers/scsi/megaraid/megaraid_sas_fusion.c | 66 +++++++++++++----------------
+>  4 files changed, 77 insertions(+), 83 deletions(-)
 > 
-> diff --git a/drivers/usb/gadget/udc/pch_udc.c b/drivers/usb/gadget/udc/pch_udc.c
-> index a97da64..84dcbcd 100644
-> --- a/drivers/usb/gadget/udc/pch_udc.c
-> +++ b/drivers/usb/gadget/udc/pch_udc.c
-> @@ -355,8 +355,8 @@ struct pch_udc_dev {
->  			vbus_session:1,
->  			set_cfg_not_acked:1,
->  			waiting_zlp_ack:1;
-> -	struct pci_pool		*data_requests;
-> -	struct pci_pool		*stp_requests;
-> +	struct dma_pool		*data_requests;
-> +	struct dma_pool		*stp_requests;
->  	dma_addr_t			dma_addr;
->  	struct usb_ctrlrequest		setup_data;
->  	void __iomem			*base_addr;
-> @@ -1522,7 +1522,7 @@ static void pch_udc_free_dma_chain(struct pch_udc_dev *dev,
->  		/* do not free first desc., will be done by free for request */
->  		td = phys_to_virt(addr);
->  		addr2 = (dma_addr_t)td->next;
-> -		pci_pool_free(dev->data_requests, td, addr);
-> +		dma_pool_free(dev->data_requests, td, addr);
->  		td->next = 0x00;
->  		addr = addr2;
->  	}
-> @@ -1539,7 +1539,7 @@ static void pch_udc_free_dma_chain(struct pch_udc_dev *dev,
->   *
->   * Return codes:
->   *	0:		success,
-> - *	-ENOMEM:	pci_pool_alloc invocation fails
-> + *	-ENOMEM:	dma_pool_alloc invocation fails
->   */
->  static int pch_udc_create_dma_chain(struct pch_udc_ep *ep,
->  				    struct pch_udc_request *req,
-> @@ -1565,7 +1565,7 @@ static int pch_udc_create_dma_chain(struct pch_udc_ep *ep,
->  		if (bytes <= buf_len)
->  			break;
->  		last = td;
-> -		td = pci_pool_alloc(ep->dev->data_requests, gfp_flags,
-> +		td = dma_pool_alloc(ep->dev->data_requests, gfp_flags,
->  				    &dma_addr);
->  		if (!td)
->  			goto nomem;
-> @@ -1770,7 +1770,7 @@ static struct usb_request *pch_udc_alloc_request(struct usb_ep *usbep,
->  	if (!ep->dev->dma_addr)
->  		return &req->req;
->  	/* ep0 in requests are allocated from data pool here */
-> -	dma_desc = pci_pool_alloc(ep->dev->data_requests, gfp,
-> +	dma_desc = dma_pool_alloc(ep->dev->data_requests, gfp,
->  				  &req->td_data_phys);
->  	if (NULL == dma_desc) {
->  		kfree(req);
-> @@ -1809,7 +1809,7 @@ static void pch_udc_free_request(struct usb_ep *usbep,
->  	if (req->td_data != NULL) {
->  		if (req->chain_len > 1)
->  			pch_udc_free_dma_chain(ep->dev, req);
-> -		pci_pool_free(ep->dev->data_requests, req->td_data,
-> +		dma_pool_free(ep->dev->data_requests, req->td_data,
->  			      req->td_data_phys);
->  	}
->  	kfree(req);
-> @@ -2914,7 +2914,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
->  	void				*ep0out_buf;
+> diff --git a/drivers/scsi/megaraid/megaraid_mbox.c b/drivers/scsi/megaraid/megaraid_mbox.c
+> index f0987f2..7dfc2e2 100644
+> --- a/drivers/scsi/megaraid/megaraid_mbox.c
+> +++ b/drivers/scsi/megaraid/megaraid_mbox.c
+> @@ -1153,8 +1153,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
 >  
->  	/* DMA setup */
-> -	dev->data_requests = pci_pool_create("data_requests", dev->pdev,
-> +	dev->data_requests = dma_pool_create("data_requests", &dev->pdev->dev,
->  		sizeof(struct pch_udc_data_dma_desc), 0, 0);
->  	if (!dev->data_requests) {
->  		dev_err(&dev->pdev->dev, "%s: can't get request data pool\n",
-> @@ -2923,7 +2923,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+>  
+>  	// Allocate memory for 16-bytes aligned mailboxes
+> -	raid_dev->mbox_pool_handle = pci_pool_create("megaraid mbox pool",
+> -						adapter->pdev,
+> +	raid_dev->mbox_pool_handle = dma_pool_create("megaraid mbox pool",
+> +						&adapter->pdev->dev,
+>  						sizeof(mbox64_t) + 16,
+>  						16, 0);
+>  
+> @@ -1164,7 +1164,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+>  
+>  	mbox_pci_blk = raid_dev->mbox_pool;
+>  	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
+> -		mbox_pci_blk[i].vaddr = pci_pool_alloc(
+> +		mbox_pci_blk[i].vaddr = dma_pool_alloc(
+>  						raid_dev->mbox_pool_handle,
+>  						GFP_KERNEL,
+>  						&mbox_pci_blk[i].dma_addr);
+> @@ -1181,8 +1181,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+>  	 * share common memory pool. Passthru structures piggyback on memory
+>  	 * allocted to extended passthru since passthru is smaller of the two
+>  	 */
+> -	raid_dev->epthru_pool_handle = pci_pool_create("megaraid mbox pthru",
+> -			adapter->pdev, sizeof(mraid_epassthru_t), 128, 0);
+> +	raid_dev->epthru_pool_handle = dma_pool_create("megaraid mbox pthru",
+> +			&adapter->pdev->dev, sizeof(mraid_epassthru_t), 128, 0);
+>  
+>  	if (raid_dev->epthru_pool_handle == NULL) {
+>  		goto fail_setup_dma_pool;
+> @@ -1190,7 +1190,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+>  
+>  	epthru_pci_blk = raid_dev->epthru_pool;
+>  	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
+> -		epthru_pci_blk[i].vaddr = pci_pool_alloc(
+> +		epthru_pci_blk[i].vaddr = dma_pool_alloc(
+>  						raid_dev->epthru_pool_handle,
+>  						GFP_KERNEL,
+>  						&epthru_pci_blk[i].dma_addr);
+> @@ -1202,8 +1202,8 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+>  
+>  	// Allocate memory for each scatter-gather list. Request for 512 bytes
+>  	// alignment for each sg list
+> -	raid_dev->sg_pool_handle = pci_pool_create("megaraid mbox sg",
+> -					adapter->pdev,
+> +	raid_dev->sg_pool_handle = dma_pool_create("megaraid mbox sg",
+> +					&adapter->pdev->dev,
+>  					sizeof(mbox_sgl64) * MBOX_MAX_SG_SIZE,
+>  					512, 0);
+>  
+> @@ -1213,7 +1213,7 @@ megaraid_mbox_setup_dma_pools(adapter_t *adapter)
+>  
+>  	sg_pci_blk = raid_dev->sg_pool;
+>  	for (i = 0; i < MBOX_MAX_SCSI_CMDS; i++) {
+> -		sg_pci_blk[i].vaddr = pci_pool_alloc(
+> +		sg_pci_blk[i].vaddr = dma_pool_alloc(
+>  						raid_dev->sg_pool_handle,
+>  						GFP_KERNEL,
+>  						&sg_pci_blk[i].dma_addr);
+> @@ -1249,29 +1249,26 @@ megaraid_mbox_teardown_dma_pools(adapter_t *adapter)
+>  
+>  	sg_pci_blk = raid_dev->sg_pool;
+>  	for (i = 0; i < MBOX_MAX_SCSI_CMDS && sg_pci_blk[i].vaddr; i++) {
+> -		pci_pool_free(raid_dev->sg_pool_handle, sg_pci_blk[i].vaddr,
+> +		dma_pool_free(raid_dev->sg_pool_handle, sg_pci_blk[i].vaddr,
+>  			sg_pci_blk[i].dma_addr);
+>  	}
+> -	if (raid_dev->sg_pool_handle)
+> -		pci_pool_destroy(raid_dev->sg_pool_handle);
+> +	dma_pool_destroy(raid_dev->sg_pool_handle);
+>  
+>  
+>  	epthru_pci_blk = raid_dev->epthru_pool;
+>  	for (i = 0; i < MBOX_MAX_SCSI_CMDS && epthru_pci_blk[i].vaddr; i++) {
+> -		pci_pool_free(raid_dev->epthru_pool_handle,
+> +		dma_pool_free(raid_dev->epthru_pool_handle,
+>  			epthru_pci_blk[i].vaddr, epthru_pci_blk[i].dma_addr);
+>  	}
+> -	if (raid_dev->epthru_pool_handle)
+> -		pci_pool_destroy(raid_dev->epthru_pool_handle);
+> +	dma_pool_destroy(raid_dev->epthru_pool_handle);
+>  
+>  
+>  	mbox_pci_blk = raid_dev->mbox_pool;
+>  	for (i = 0; i < MBOX_MAX_SCSI_CMDS && mbox_pci_blk[i].vaddr; i++) {
+> -		pci_pool_free(raid_dev->mbox_pool_handle,
+> +		dma_pool_free(raid_dev->mbox_pool_handle,
+>  			mbox_pci_blk[i].vaddr, mbox_pci_blk[i].dma_addr);
+>  	}
+> -	if (raid_dev->mbox_pool_handle)
+> -		pci_pool_destroy(raid_dev->mbox_pool_handle);
+> +	dma_pool_destroy(raid_dev->mbox_pool_handle);
+>  
+>  	return;
+>  }
+> diff --git a/drivers/scsi/megaraid/megaraid_mm.c b/drivers/scsi/megaraid/megaraid_mm.c
+> index 4cf9ed9..2324dd8 100644
+> --- a/drivers/scsi/megaraid/megaraid_mm.c
+> +++ b/drivers/scsi/megaraid/megaraid_mm.c
+> @@ -574,7 +574,7 @@ mraid_mm_attach_buf(mraid_mmadp_t *adp, uioc_t *kioc, int xferlen)
+>  
+>  	kioc->pool_index	= right_pool;
+>  	kioc->free_buf		= 1;
+> -	kioc->buf_vaddr 	= pci_pool_alloc(pool->handle, GFP_KERNEL,
+> +	kioc->buf_vaddr		= dma_pool_alloc(pool->handle, GFP_KERNEL,
+>  							&kioc->buf_paddr);
+>  	spin_unlock_irqrestore(&pool->lock, flags);
+>  
+> @@ -658,7 +658,7 @@ mraid_mm_dealloc_kioc(mraid_mmadp_t *adp, uioc_t *kioc)
+>  		 * not in use
+>  		 */
+>  		if (kioc->free_buf == 1)
+> -			pci_pool_free(pool->handle, kioc->buf_vaddr, 
+> +			dma_pool_free(pool->handle, kioc->buf_vaddr,
+>  							kioc->buf_paddr);
+>  		else
+>  			pool->in_use = 0;
+> @@ -940,8 +940,8 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
+>  						GFP_KERNEL);
+>  	adapter->mbox_list	= kmalloc(sizeof(mbox64_t) * lld_adp->max_kioc,
+>  						GFP_KERNEL);
+> -	adapter->pthru_dma_pool = pci_pool_create("megaraid mm pthru pool",
+> -						adapter->pdev,
+> +	adapter->pthru_dma_pool = dma_pool_create("megaraid mm pthru pool",
+> +						&adapter->pdev->dev,
+>  						sizeof(mraid_passthru_t),
+>  						16, 0);
+>  
+> @@ -970,7 +970,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
+>  
+>  		kioc		= adapter->kioc_list + i;
+>  		kioc->cmdbuf	= (uint64_t)(unsigned long)(mbox_list + i);
+> -		kioc->pthru32	= pci_pool_alloc(adapter->pthru_dma_pool,
+> +		kioc->pthru32	= dma_pool_alloc(adapter->pthru_dma_pool,
+>  						GFP_KERNEL, &kioc->pthru32_h);
+>  
+>  		if (!kioc->pthru32) {
+> @@ -1006,7 +1006,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
+>  	for (i = 0; i < lld_adp->max_kioc; i++) {
+>  		kioc = adapter->kioc_list + i;
+>  		if (kioc->pthru32) {
+> -			pci_pool_free(adapter->pthru_dma_pool, kioc->pthru32,
+> +			dma_pool_free(adapter->pthru_dma_pool, kioc->pthru32,
+>  				kioc->pthru32_h);
+>  		}
+>  	}
+> @@ -1016,8 +1016,7 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
+>  	kfree(adapter->kioc_list);
+>  	kfree(adapter->mbox_list);
+>  
+> -	if (adapter->pthru_dma_pool)
+> -		pci_pool_destroy(adapter->pthru_dma_pool);
+> +	dma_pool_destroy(adapter->pthru_dma_pool);
+>  
+>  	kfree(adapter);
+>  
+> @@ -1086,15 +1085,16 @@ mraid_mm_setup_dma_pools(mraid_mmadp_t *adp)
+>  		pool->buf_size = bufsize;
+>  		spin_lock_init(&pool->lock);
+>  
+> -		pool->handle = pci_pool_create("megaraid mm data buffer",
+> -						adp->pdev, bufsize, 16, 0);
+> +		pool->handle = dma_pool_create("megaraid mm data buffer",
+> +					       &adp->pdev->dev, bufsize, 16,
+> +					       0);
+>  
+>  		if (!pool->handle) {
+>  			goto dma_pool_setup_error;
+>  		}
+>  
+> -		pool->vaddr = pci_pool_alloc(pool->handle, GFP_KERNEL,
+> -							&pool->paddr);
+> +		pool->vaddr = dma_pool_alloc(pool->handle, GFP_KERNEL,
+> +					     &pool->paddr);
+>  
+>  		if (!pool->vaddr)
+>  			goto dma_pool_setup_error;
+> @@ -1163,14 +1163,14 @@ mraid_mm_free_adp_resources(mraid_mmadp_t *adp)
+>  
+>  		kioc = adp->kioc_list + i;
+>  
+> -		pci_pool_free(adp->pthru_dma_pool, kioc->pthru32,
+> +		dma_pool_free(adp->pthru_dma_pool, kioc->pthru32,
+>  				kioc->pthru32_h);
 >  	}
 >  
->  	/* dma desc for setup data */
-> -	dev->stp_requests = pci_pool_create("setup requests", dev->pdev,
-> +	dev->stp_requests = dma_pool_create("setup requests", &dev->pdev->dev,
->  		sizeof(struct pch_udc_stp_dma_desc), 0, 0);
->  	if (!dev->stp_requests) {
->  		dev_err(&dev->pdev->dev, "%s: can't get setup request pool\n",
-> @@ -2931,7 +2931,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+>  	kfree(adp->kioc_list);
+>  	kfree(adp->mbox_list);
+>  
+> -	pci_pool_destroy(adp->pthru_dma_pool);
+> +	dma_pool_destroy(adp->pthru_dma_pool);
+>  
+>  
+>  	return;
+> @@ -1194,10 +1194,10 @@ mraid_mm_teardown_dma_pools(mraid_mmadp_t *adp)
+>  		if (pool->handle) {
+>  
+>  			if (pool->vaddr)
+> -				pci_pool_free(pool->handle, pool->vaddr,
+> +				dma_pool_free(pool->handle, pool->vaddr,
+>  							pool->paddr);
+>  
+> -			pci_pool_destroy(pool->handle);
+> +			dma_pool_destroy(pool->handle);
+>  			pool->handle = NULL;
+>  		}
+>  	}
+> diff --git a/drivers/scsi/megaraid/megaraid_sas_base.c b/drivers/scsi/megaraid/megaraid_sas_base.c
+> index 7ac9a9e..bd32bfc 100644
+> --- a/drivers/scsi/megaraid/megaraid_sas_base.c
+> +++ b/drivers/scsi/megaraid/megaraid_sas_base.c
+> @@ -3859,19 +3859,19 @@ static void megasas_teardown_frame_pool(struct megasas_instance *instance)
+>  		cmd = instance->cmd_list[i];
+>  
+>  		if (cmd->frame)
+> -			pci_pool_free(instance->frame_dma_pool, cmd->frame,
+> +			dma_pool_free(instance->frame_dma_pool, cmd->frame,
+>  				      cmd->frame_phys_addr);
+>  
+>  		if (cmd->sense)
+> -			pci_pool_free(instance->sense_dma_pool, cmd->sense,
+> +			dma_pool_free(instance->sense_dma_pool, cmd->sense,
+>  				      cmd->sense_phys_addr);
+>  	}
+>  
+>  	/*
+>  	 * Now destroy the pool itself
+>  	 */
+> -	pci_pool_destroy(instance->frame_dma_pool);
+> -	pci_pool_destroy(instance->sense_dma_pool);
+> +	dma_pool_destroy(instance->frame_dma_pool);
+> +	dma_pool_destroy(instance->sense_dma_pool);
+>  
+>  	instance->frame_dma_pool = NULL;
+>  	instance->sense_dma_pool = NULL;
+> @@ -3922,22 +3922,24 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
+>  	/*
+>  	 * Use DMA pool facility provided by PCI layer
+>  	 */
+> -	instance->frame_dma_pool = pci_pool_create("megasas frame pool",
+> -					instance->pdev, instance->mfi_frame_size,
+> -					256, 0);
+> +	instance->frame_dma_pool = dma_pool_create("megasas frame pool",
+> +						   &instance->pdev->dev,
+> +						   instance->mfi_frame_size,
+> +						   256, 0);
+>  
+>  	if (!instance->frame_dma_pool) {
+>  		dev_printk(KERN_DEBUG, &instance->pdev->dev, "failed to setup frame pool\n");
 >  		return -ENOMEM;
 >  	}
->  	/* setup */
-> -	td_stp = pci_pool_alloc(dev->stp_requests, GFP_KERNEL,
-> +	td_stp = dma_pool_alloc(dev->stp_requests, GFP_KERNEL,
->  				&dev->ep[UDC_EP0OUT_IDX].td_stp_phys);
->  	if (!td_stp) {
->  		dev_err(&dev->pdev->dev,
-> @@ -2941,7 +2941,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
->  	dev->ep[UDC_EP0OUT_IDX].td_stp = td_stp;
 >  
->  	/* data: 0 packets !? */
-> -	td_data = pci_pool_alloc(dev->data_requests, GFP_KERNEL,
-> +	td_data = dma_pool_alloc(dev->data_requests, GFP_KERNEL,
->  				&dev->ep[UDC_EP0OUT_IDX].td_data_phys);
->  	if (!td_data) {
->  		dev_err(&dev->pdev->dev,
-> @@ -3021,22 +3021,21 @@ static void pch_udc_remove(struct pci_dev *pdev)
->  		dev_err(&pdev->dev,
->  			"%s: gadget driver still bound!!!\n", __func__);
->  	/* dma pool cleanup */
-> -	if (dev->data_requests)
-> -		pci_pool_destroy(dev->data_requests);
-> +	dma_pool_destroy(dev->data_requests);
+> -	instance->sense_dma_pool = pci_pool_create("megasas sense pool",
+> -						   instance->pdev, 128, 4, 0);
+> +	instance->sense_dma_pool = dma_pool_create("megasas sense pool",
+> +						   &instance->pdev->dev, 128,
+> +						   4, 0);
 >  
->  	if (dev->stp_requests) {
->  		/* cleanup DMA desc's for ep0in */
->  		if (dev->ep[UDC_EP0OUT_IDX].td_stp) {
-> -			pci_pool_free(dev->stp_requests,
-> +			dma_pool_free(dev->stp_requests,
->  				dev->ep[UDC_EP0OUT_IDX].td_stp,
->  				dev->ep[UDC_EP0OUT_IDX].td_stp_phys);
+>  	if (!instance->sense_dma_pool) {
+>  		dev_printk(KERN_DEBUG, &instance->pdev->dev, "failed to setup sense pool\n");
+>  
+> -		pci_pool_destroy(instance->frame_dma_pool);
+> +		dma_pool_destroy(instance->frame_dma_pool);
+>  		instance->frame_dma_pool = NULL;
+>  
+>  		return -ENOMEM;
+> @@ -3952,10 +3954,10 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
+>  
+>  		cmd = instance->cmd_list[i];
+>  
+> -		cmd->frame = pci_pool_alloc(instance->frame_dma_pool,
+> +		cmd->frame = dma_pool_alloc(instance->frame_dma_pool,
+>  					    GFP_KERNEL, &cmd->frame_phys_addr);
+>  
+> -		cmd->sense = pci_pool_alloc(instance->sense_dma_pool,
+> +		cmd->sense = dma_pool_alloc(instance->sense_dma_pool,
+>  					    GFP_KERNEL, &cmd->sense_phys_addr);
+>  
+>  		/*
+> @@ -3963,7 +3965,8 @@ static int megasas_create_frame_pool(struct megasas_instance *instance)
+>  		 * whatever has been allocated
+>  		 */
+>  		if (!cmd->frame || !cmd->sense) {
+> -			dev_printk(KERN_DEBUG, &instance->pdev->dev, "pci_pool_alloc failed\n");
+> +			dev_printk(KERN_DEBUG, &instance->pdev->dev,
+> +				   "dma_pool_alloc failed\n");
+>  			megasas_teardown_frame_pool(instance);
+>  			return -ENOMEM;
 >  		}
->  		if (dev->ep[UDC_EP0OUT_IDX].td_data) {
-> -			pci_pool_free(dev->stp_requests,
-> +			dma_pool_free(dev->stp_requests,
->  				dev->ep[UDC_EP0OUT_IDX].td_data,
->  				dev->ep[UDC_EP0OUT_IDX].td_data_phys);
+> diff --git a/drivers/scsi/megaraid/megaraid_sas_fusion.c b/drivers/scsi/megaraid/megaraid_sas_fusion.c
+> index 29650ba..a5529f7 100644
+> --- a/drivers/scsi/megaraid/megaraid_sas_fusion.c
+> +++ b/drivers/scsi/megaraid/megaraid_sas_fusion.c
+> @@ -313,22 +313,19 @@ megasas_free_cmds_fusion(struct megasas_instance *instance)
+>  		cmd = fusion->cmd_list[i];
+>  		if (cmd) {
+>  			if (cmd->sg_frame)
+> -				pci_pool_free(fusion->sg_dma_pool, cmd->sg_frame,
+> -				      cmd->sg_frame_phys_addr);
+> +				dma_pool_free(fusion->sg_dma_pool,
+> +					      cmd->sg_frame,
+> +					      cmd->sg_frame_phys_addr);
+>  			if (cmd->sense)
+> -				pci_pool_free(fusion->sense_dma_pool, cmd->sense,
+> -				      cmd->sense_phys_addr);
+> +				dma_pool_free(fusion->sense_dma_pool,
+> +					      cmd->sense, cmd->sense_phys_addr);
 >  		}
-> -		pci_pool_destroy(dev->stp_requests);
-> +		dma_pool_destroy(dev->stp_requests);
 >  	}
 >  
->  	if (dev->dma_addr)
+> -	if (fusion->sg_dma_pool) {
+> -		pci_pool_destroy(fusion->sg_dma_pool);
+> -		fusion->sg_dma_pool = NULL;
+> -	}
+> -	if (fusion->sense_dma_pool) {
+> -		pci_pool_destroy(fusion->sense_dma_pool);
+> -		fusion->sense_dma_pool = NULL;
+> -	}
+> +	dma_pool_destroy(fusion->sg_dma_pool);
+> +	fusion->sg_dma_pool = NULL;
+> +	dma_pool_destroy(fusion->sense_dma_pool);
+> +	fusion->sense_dma_pool = NULL;
+>  
+>  
+>  	/* Reply Frame, Desc*/
+> @@ -343,14 +340,11 @@ megasas_free_cmds_fusion(struct megasas_instance *instance)
+>  			fusion->request_alloc_sz, fusion->req_frames_desc,
+>  			fusion->req_frames_desc_phys);
+>  	if (fusion->io_request_frames)
+> -		pci_pool_free(fusion->io_request_frames_pool,
+> +		dma_pool_free(fusion->io_request_frames_pool,
+>  			fusion->io_request_frames,
+>  			fusion->io_request_frames_phys);
+> -	if (fusion->io_request_frames_pool) {
+> -		pci_pool_destroy(fusion->io_request_frames_pool);
+> -		fusion->io_request_frames_pool = NULL;
+> -	}
+> -
+> +	dma_pool_destroy(fusion->io_request_frames_pool);
+> +	fusion->io_request_frames_pool = NULL;
+>  
+>  	/* cmd_list */
+>  	for (i = 0; i < instance->max_mpt_cmds; i++)
+> @@ -376,12 +370,12 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
+>  
+>  
+>  	fusion->sg_dma_pool =
+> -			pci_pool_create("mr_sg", instance->pdev,
+> +			dma_pool_create("mr_sg", &instance->pdev->dev,
+>  				instance->max_chain_frame_sz,
+>  				MR_DEFAULT_NVME_PAGE_SIZE, 0);
+>  	/* SCSI_SENSE_BUFFERSIZE  = 96 bytes */
+>  	fusion->sense_dma_pool =
+> -			pci_pool_create("mr_sense", instance->pdev,
+> +			dma_pool_create("mr_sense", &instance->pdev->dev,
+>  				SCSI_SENSE_BUFFERSIZE, 64, 0);
+>  
+>  	if (!fusion->sense_dma_pool || !fusion->sg_dma_pool) {
+> @@ -395,10 +389,10 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
+>  	 */
+>  	for (i = 0; i < max_cmd; i++) {
+>  		cmd = fusion->cmd_list[i];
+> -		cmd->sg_frame = pci_pool_alloc(fusion->sg_dma_pool,
+> +		cmd->sg_frame = dma_pool_alloc(fusion->sg_dma_pool,
+>  					GFP_KERNEL, &cmd->sg_frame_phys_addr);
+>  
+> -		cmd->sense = pci_pool_alloc(fusion->sense_dma_pool,
+> +		cmd->sense = dma_pool_alloc(fusion->sense_dma_pool,
+>  					GFP_KERNEL, &cmd->sense_phys_addr);
+>  		if (!cmd->sg_frame || !cmd->sense) {
+>  			dev_err(&instance->pdev->dev,
+> @@ -410,7 +404,7 @@ static int megasas_create_sg_sense_fusion(struct megasas_instance *instance)
+>  	/* create sense buffer for the raid 1/10 fp */
+>  	for (i = max_cmd; i < instance->max_mpt_cmds; i++) {
+>  		cmd = fusion->cmd_list[i];
+> -		cmd->sense = pci_pool_alloc(fusion->sense_dma_pool,
+> +		cmd->sense = dma_pool_alloc(fusion->sense_dma_pool,
+>  			GFP_KERNEL, &cmd->sense_phys_addr);
+>  		if (!cmd->sense) {
+>  			dev_err(&instance->pdev->dev,
+> @@ -475,7 +469,7 @@ megasas_alloc_request_fusion(struct megasas_instance *instance)
+>  	}
+>  
+>  	fusion->io_request_frames_pool =
+> -			pci_pool_create("mr_ioreq", instance->pdev,
+> +			dma_pool_create("mr_ioreq", &instance->pdev->dev,
+>  				fusion->io_frames_alloc_sz, 16, 0);
+>  
+>  	if (!fusion->io_request_frames_pool) {
+> @@ -485,7 +479,7 @@ megasas_alloc_request_fusion(struct megasas_instance *instance)
+>  	}
+>  
+>  	fusion->io_request_frames =
+> -			pci_pool_alloc(fusion->io_request_frames_pool,
+> +			dma_pool_alloc(fusion->io_request_frames_pool,
+>  				GFP_KERNEL, &fusion->io_request_frames_phys);
+>  	if (!fusion->io_request_frames) {
+>  		dev_err(&instance->pdev->dev,
+> @@ -505,7 +499,7 @@ megasas_alloc_reply_fusion(struct megasas_instance *instance)
+>  
+>  	count = instance->msix_vectors > 0 ? instance->msix_vectors : 1;
+>  	fusion->reply_frames_desc_pool =
+> -			pci_pool_create("mr_reply", instance->pdev,
+> +			dma_pool_create("mr_reply", &instance->pdev->dev,
+>  				fusion->reply_alloc_sz * count, 16, 0);
+>  
+>  	if (!fusion->reply_frames_desc_pool) {
+> @@ -515,7 +509,7 @@ megasas_alloc_reply_fusion(struct megasas_instance *instance)
+>  	}
+>  
+>  	fusion->reply_frames_desc[0] =
+> -		pci_pool_alloc(fusion->reply_frames_desc_pool,
+> +		dma_pool_alloc(fusion->reply_frames_desc_pool,
+>  			GFP_KERNEL, &fusion->reply_frames_desc_phys[0]);
+>  	if (!fusion->reply_frames_desc[0]) {
+>  		dev_err(&instance->pdev->dev,
+> @@ -558,8 +552,10 @@ megasas_alloc_rdpq_fusion(struct megasas_instance *instance)
+>  	memset(fusion->rdpq_virt, 0,
+>  			sizeof(struct MPI2_IOC_INIT_RDPQ_ARRAY_ENTRY) * MAX_MSIX_QUEUES_FUSION);
+>  	count = instance->msix_vectors > 0 ? instance->msix_vectors : 1;
+> -	fusion->reply_frames_desc_pool = pci_pool_create("mr_rdpq",
+> -							 instance->pdev, fusion->reply_alloc_sz, 16, 0);
+> +	fusion->reply_frames_desc_pool = dma_pool_create("mr_rdpq",
+> +							 &instance->pdev->dev,
+> +							 fusion->reply_alloc_sz,
+> +							 16, 0);
+>  
+>  	if (!fusion->reply_frames_desc_pool) {
+>  		dev_err(&instance->pdev->dev,
+> @@ -569,7 +565,7 @@ megasas_alloc_rdpq_fusion(struct megasas_instance *instance)
+>  
+>  	for (i = 0; i < count; i++) {
+>  		fusion->reply_frames_desc[i] =
+> -				pci_pool_alloc(fusion->reply_frames_desc_pool,
+> +				dma_pool_alloc(fusion->reply_frames_desc_pool,
+>  					GFP_KERNEL, &fusion->reply_frames_desc_phys[i]);
+>  		if (!fusion->reply_frames_desc[i]) {
+>  			dev_err(&instance->pdev->dev,
+> @@ -597,13 +593,12 @@ megasas_free_rdpq_fusion(struct megasas_instance *instance) {
+>  
+>  	for (i = 0; i < MAX_MSIX_QUEUES_FUSION; i++) {
+>  		if (fusion->reply_frames_desc[i])
+> -			pci_pool_free(fusion->reply_frames_desc_pool,
+> +			dma_pool_free(fusion->reply_frames_desc_pool,
+>  				fusion->reply_frames_desc[i],
+>  				fusion->reply_frames_desc_phys[i]);
+>  	}
+>  
+> -	if (fusion->reply_frames_desc_pool)
+> -		pci_pool_destroy(fusion->reply_frames_desc_pool);
+> +	dma_pool_destroy(fusion->reply_frames_desc_pool);
+>  
+>  	if (fusion->rdpq_virt)
+>  		pci_free_consistent(instance->pdev,
+> @@ -619,12 +614,11 @@ megasas_free_reply_fusion(struct megasas_instance *instance) {
+>  	fusion = instance->ctrl_context;
+>  
+>  	if (fusion->reply_frames_desc[0])
+> -		pci_pool_free(fusion->reply_frames_desc_pool,
+> +		dma_pool_free(fusion->reply_frames_desc_pool,
+>  			fusion->reply_frames_desc[0],
+>  			fusion->reply_frames_desc_phys[0]);
+>  
+> -	if (fusion->reply_frames_desc_pool)
+> -		pci_pool_destroy(fusion->reply_frames_desc_pool);
+> +	dma_pool_destroy(fusion->reply_frames_desc_pool);
+>  
+>  }
+>  
 > -- 
 > 2.9.3
 > 
