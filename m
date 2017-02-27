@@ -1,39 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute2: show network device dependency tree
-Date: Mon, 27 Feb 2017 10:52:14 -0800
-Message-ID: <20170227105214.771e19cc@xeon-e3>
-References: <20170225165900.10129-1-zaboj.campula@post.cz>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH v1.1] net: emac: add support for device-tree based PHY discovery and setup
+Date: Mon, 27 Feb 2017 20:42:15 +0100
+Message-ID: <2567253.1QjLrx0r05@debian64>
+References: <2109609d-c6a7-5c6f-d6aa-657107765778@gmail.com> <d32546b59c67456c77d003af1df51862d2f8c5de.1487617501.git.chunkeey@googlemail.com> <20170222.153735.1289514443979947868.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Zaboj Campula <zaboj.campula@post.cz>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        ivan@de.ibm.com, f.fainelli@gmail.com, andrew@lunn.ch,
+        robh+dt@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:33647 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751392AbdB0TWr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 14:22:47 -0500
-Received: by mail-pg0-f48.google.com with SMTP id 25so18141271pgy.0
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 11:21:34 -0800 (PST)
-In-Reply-To: <20170225165900.10129-1-zaboj.campula@post.cz>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37760 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751454AbdB0TpE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 14:45:04 -0500
+In-Reply-To: <20170222.153735.1289514443979947868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 25 Feb 2017 16:59:00 +0000
-Zaboj Campula <zaboj.campula@post.cz> wrote:
-
-> dd the argument '-tree' to ip-link to show network devices dependency tree.
+On Wednesday, February 22, 2017 3:37:35 PM CET David Miller wrote:
+> From: Christian Lamparter <chunkeey@googlemail.com>
+> Date: Mon, 20 Feb 2017 20:10:58 +0100
 > 
-> Example:
+> > This patch adds glue-code that allows the EMAC driver to interface
+> > with the existing dt-supported PHYs in drivers/net/phy.
+> > 
+> > Because currently, the emac driver maintains a small library of
+> > supported phys for in a private phy.c file located in the drivers
+> > directory.
+> > 
+> > The support is limited to mostly single ethernet transceiver like the:
+> > CIS8201, BCM5248, ET1011C, Marvell 88E1111 and 88E1112, AR8035.
+> > 
+> > However, routers like the Netgear WNDR4700 and Cisco Meraki MX60(W)
+> > have a 5-port switch (AR8327N) attached to the EMAC. The switch chip
+> > is supported by the qca8k mdio driver, which uses the generic phy
+> > library. Another reason is that PHYLIB also supports the BCM54610,
+> > which was used for the Western Digital My Book Live.
+> > 
+> > This will now also make EMAC select PHYLIB.
+> > 
+> > Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
 > 
-> $ ip -tree link
-> eth0
->     bond0
-> eth1
->     bond0
-> eth2
->     bond1
-> eth3
->     bond1
+> Applied, thanks.
+> 
+Thanks David.
 
-Maybe use format similar to other utilities (lspci, lsusb, etc)?
+I noticed that the DT Documentation patch:
+"[v1,1/2] dt: emac: document device-tree based phy discovery and setup"
+is still pending with "Changes Requested":
+<https://patchwork.ozlabs.org/patch/729658/>
+
+I think this is because of Florian's comment on patch:
+"[v1,2/2] net: emac: add support for device-tree based PHY discovery and setup"
+If so, can you please queue this documentation update patch for -next?
+(I haven't received any comments or complains. If necessary, I can also
+resent it.)
+
+Thanks,
+Christian
