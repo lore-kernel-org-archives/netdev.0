@@ -1,65 +1,128 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] ipv6: check for ip6_null_entry in
- __ip6_del_rt_siblings()
-Date: Mon, 27 Feb 2017 12:34:20 -0800
-Message-ID: <1488227660.9415.207.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1488222425-1256-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v1.2] dt: emac: document device-tree based phy discovery
+ and setup
+Date: Mon, 27 Feb 2017 12:44:09 -0800
+Message-ID: <cecba35f-0a94-67e8-543a-a1d340d62947@gmail.com>
+References: <eaf5b812-deae-c5f7-3930-dadf0b0132bf@gmail.com>
+ <0f6d91964359390ea08ff9d29f7d7c5ad49961c3.1488227767.git.chunkeey@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Ivan Mikhaylov <ivan@de.ibm.com>, Andrew Lunn <andrew@lunn.ch>,
+        Rob Herring <robh+dt@kernel.org>
+To: Christian Lamparter <chunkeey@googlemail.com>,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34110 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751473AbdB0UmD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 15:42:03 -0500
-Received: by mail-pg0-f65.google.com with SMTP id s67so2074588pgb.1
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 12:41:01 -0800 (PST)
-In-Reply-To: <1488222425-1256-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:33328 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751387AbdB0UpL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 15:45:11 -0500
+In-Reply-To: <0f6d91964359390ea08ff9d29f7d7c5ad49961c3.1488227767.git.chunkeey@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-02-27 at 11:07 -0800, Cong Wang wrote:
-> Andrey reported a NULL pointer deref bug in ipv6_route_ioctl()
-> -> ip6_route_del() -> __ip6_del_rt_siblings() code path. This is
-> because ip6_null_entry is returned in this path since ip6_null_entry
-> is kinda default for a ipv6 route table root node. Quote from
-> David Ahern:
+On 02/27/2017 12:41 PM, Christian Lamparter wrote:
+> This patch adds documentation for a new "phy-handle" property,
+> "fixed-link" and "mdio" sub-node. These allows the enumeration
+> of PHYs which are supported by the phy library under drivers/net/phy.
 > 
->  ip6_null_entry is the root of all ipv6 fib tables making it integrated
->  into the table ...
+> The EMAC ethernet controller in IBM and AMCC 4xx chips is
+> currently stuck with a few privately defined phy
+> implementations. It has no support for PHYs which
+> are supported by the generic phylib.
 > 
-> We should ignore any attempt of trying to delete it, like we do in
-> __ip6_del_rt() path and several others.
-> 
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Acked-by: Rob Herring <robh@kernel.org>
+> Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
 > ---
->  net/ipv6/route.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
+> Fixed: phy node - so it conforms to phy.txt.
+> ---
+> ---
+>  .../devicetree/bindings/powerpc/4xx/emac.txt       | 61 +++++++++++++++++++++-
+>  1 file changed, 59 insertions(+), 2 deletions(-)
 > 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index f54f426..9da77e9 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -2169,10 +2169,13 @@ int ip6_del_rt(struct rt6_info *rt)
->  static int __ip6_del_rt_siblings(struct rt6_info *rt, struct fib6_config *cfg)
->  {
->  	struct nl_info *info = &cfg->fc_nlinfo;
-> +	struct net *net = info->nl_net;
->  	struct sk_buff *skb = NULL;
->  	struct fib6_table *table;
->  	int err;
+> diff --git a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+> index 712baf6c3e24..2fa861378294 100644
+> --- a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+> +++ b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+> @@ -71,6 +71,9 @@
+>  			  For Axon it can be absent, though my current driver
+>  			  doesn't handle phy-address yet so for now, keep
+>  			  0x00ffffff in it.
+> +    - phy-handle	: Used to describe configurations where a external PHY
+> +			  is used. Please refer to:
+> +			  Documentation/devicetree/bindings/net/ethernet.txt
+>      - rx-fifo-size-gige : 1 cell, Rx fifo size in bytes for 1000 Mb/sec
+>  			  operations (if absent the value is the same as
+>  			  rx-fifo-size).  For Axon, either absent or 2048.
+> @@ -81,8 +84,22 @@
+>  			  offload, phandle of the TAH device node.
+>      - tah-channel       : 1 cell, optional. If appropriate, channel used on the
+>  			  TAH engine.
+> +    - fixed-link	: Fixed-link subnode describing a link to a non-MDIO
+> +			  managed entity. See
+> +			  Documentation/devicetree/bindings/net/fixed-link.txt
+> +			  for details.
+> +    - mdio subnode	: When the EMAC has a phy connected to its local
+> +			  mdio, which us supported by the kernel's network
+> +			  PHY library in drivers/net/phy, there must be device
+> +			  tree subnode with the following required properties:
+> +				- #address-cells: Must be <1>.
+> +				- #size-cells: Must be <0>.
 >  
-> +	if (rt == net->ipv6.ip6_null_entry)
-> +		return -ENOENT;
+> -    Example:
+> +			  For PHY definitions: Please refer to
+> +			  Documentation/devicetree/bindings/net/phy.txt and
+> +			  Documentation/devicetree/bindings/net/ethernet.txt
+> +
+> +    Examples:
+>  
+>  	EMAC0: ethernet@40000800 {
+>  		device_type = "network";
+> @@ -104,6 +121,47 @@
+>  		zmii-channel = <0>;
+>  	};
+>  
+> +	EMAC1: ethernet@ef600c00 {
+> +		device_type = "network";
+> +		compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
+> +		interrupt-parent = <&EMAC1>;
+> +		interrupts = <0 1>;
+> +		#interrupt-cells = <1>;
+> +		#address-cells = <0>;
+> +		#size-cells = <0>;
+> +		interrupt-map = <0 &UIC2 0x10 IRQ_TYPE_LEVEL_HIGH /* Status */
+> +				 1 &UIC2 0x14 IRQ_TYPE_LEVEL_HIGH /* Wake */>;
+> +		reg = <0xef600c00 0x000000c4>;
+> +		local-mac-address = [000000000000]; /* Filled in by U-Boot */
+> +		mal-device = <&MAL0>;
+> +		mal-tx-channel = <0>;
+> +		mal-rx-channel = <0>;
+> +		cell-index = <0>;
+> +		max-frame-size = <9000>;
+> +		rx-fifo-size = <16384>;
+> +		tx-fifo-size = <2048>;
+> +		fifo-entry-size = <10>;
+> +		phy-mode = "rgmii";
+> +		phy-handle = <&phy0>;
+> +		phy-map = <0x00000000>;
+> +		rgmii-device = <&RGMII0>;
+> +		rgmii-channel = <0>;
+> +		tah-device = <&TAH0>;
+> +		tah-channel = <0>;
+> +		has-inverted-stacr-oc;
+> +		has-new-stacr-staopc;
+> +
+> +	        mdio {
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			phy0: ethernet-phy@0 {
+> +				compatible = "ethernet-phy-ieee802.3-c22";
+> +				reg = <0>;
 
-It looks the caller did a dst_hold(&rt->dst);
+Missing closing curly brace here :) with that fixed:
 
-So this new error path would leave a refcount leak.
-
-Note that I was not able to trigger the crash on old kernels, so it
-would be nice to get a precise idea of bug origin.
-
-Thanks.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
