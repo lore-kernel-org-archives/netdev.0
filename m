@@ -1,8 +1,9 @@
 From: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: Re: [PATCH v3 00/20] Replace PCI pool by DMA pool API
-Date: Mon, 27 Feb 2017 12:23:21 +0100
-Message-ID: <20170227112321.GL26544@collabora.com>
+Subject: Re: [PATCH v3 20/20] checkpatch: warn for use of old PCI pool API
+Date: Mon, 27 Feb 2017 12:22:33 +0100
+Message-ID: <20170227112233.GK26544@collabora.com>
 References: <20170226192425.13098-1-romain.perier@collabora.com>
+ <20170226192425.13098-21-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
@@ -18,109 +19,54 @@ Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
         linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
+        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>,
+        Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 To: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170226192425.13098-1-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20170226192425.13098-21-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 26, 2017 at 08:24:05PM +0100, Romain Perier wrote:
-> The current PCI pool API are simple macro functions direct expanded to
-> the appropriated dma pool functions. The prototypes are almost the same
-> and semantically, they are very similar. I propose to use the DMA pool
-> API directly and get rid of the old API.
-> 
-> This set of patches, replaces the old API by the dma pool API, adds
-> support to warn about this old API in checkpath.pl and remove the
-> defines.
-> 
-> Changes in v3:
-> - Rebased series onto next-20170224
-> - Fix checkpath.pl reports for patch 11/20 and patch 12/20
-> - Remove prefix RFC
-> Changes in v2:
-> - Introduced patch 18/20
-> - Fixed cosmetic changes: spaces before brace, live over 80 characters
-> - Removed some of the check for NULL pointers before calling dma_pool_destroy
-> - Improved the regexp in checkpatch for pci_pool, thanks to Joe Perches
-> - Added Tested-by and Acked-by tags
+On Sun, Feb 26, 2017 at 08:24:25PM +0100, Romain Perier wrote:
+> pci_pool_*() functions should be replaced by the corresponding functions
+> in the DMA pool API. This adds support to check for use of these pci
+> functions and display a warning when it is the case.
+>
 
-Tested the series with checkpatch and compiling with allyesconfig.
+I guess Joe Perches did sent some comments for this one, did you address
+them?
 
+Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+> Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+> ---
+>  scripts/checkpatch.pl | 9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
 > 
-> Romain Perier (20):
->   block: DAC960: Replace PCI pool old API
->   dmaengine: pch_dma: Replace PCI pool old API
->   IB/mthca: Replace PCI pool old API
->   net: e100: Replace PCI pool old API
->   mlx4: Replace PCI pool old API
->   mlx5: Replace PCI pool old API
->   wireless: ipw2200: Replace PCI pool old API
->   scsi: be2iscsi: Replace PCI pool old API
->   scsi: csiostor: Replace PCI pool old API
->   scsi: lpfc: Replace PCI pool old API
->   scsi: megaraid: Replace PCI pool old API
->   scsi: mpt3sas: Replace PCI pool old API
->   scsi: mvsas: Replace PCI pool old API
->   scsi: pmcraid: Replace PCI pool old API
->   usb: gadget: amd5536udc: Replace PCI pool old API
->   usb: gadget: net2280: Replace PCI pool old API
->   usb: gadget: pch_udc: Replace PCI pool old API
->   usb: host: Remove remaining pci_pool in comments
->   PCI: Remove PCI pool macro functions
->   checkpatch: warn for use of old PCI pool API
-> 
->  drivers/block/DAC960.c                        |  36 ++++-----
->  drivers/block/DAC960.h                        |   4 +-
->  drivers/dma/pch_dma.c                         |  12 +--
->  drivers/infiniband/hw/mthca/mthca_av.c        |  10 +--
->  drivers/infiniband/hw/mthca/mthca_cmd.c       |   8 +-
->  drivers/infiniband/hw/mthca/mthca_dev.h       |   4 +-
->  drivers/net/ethernet/intel/e100.c             |  12 +--
->  drivers/net/ethernet/mellanox/mlx4/cmd.c      |  10 +--
->  drivers/net/ethernet/mellanox/mlx4/mlx4.h     |   2 +-
->  drivers/net/ethernet/mellanox/mlx5/core/cmd.c |  11 +--
->  drivers/net/wireless/intel/ipw2x00/ipw2200.c  |  13 ++--
->  drivers/scsi/be2iscsi/be_iscsi.c              |   6 +-
->  drivers/scsi/be2iscsi/be_main.c               |   6 +-
->  drivers/scsi/be2iscsi/be_main.h               |   2 +-
->  drivers/scsi/csiostor/csio_hw.h               |   2 +-
->  drivers/scsi/csiostor/csio_init.c             |  11 +--
->  drivers/scsi/csiostor/csio_scsi.c             |   6 +-
->  drivers/scsi/lpfc/lpfc.h                      |  12 +--
->  drivers/scsi/lpfc/lpfc_init.c                 |  16 ++--
->  drivers/scsi/lpfc/lpfc_mem.c                  | 105 +++++++++++++-------------
->  drivers/scsi/lpfc/lpfc_nvme.c                 |   6 +-
->  drivers/scsi/lpfc/lpfc_nvmet.c                |   4 +-
->  drivers/scsi/lpfc/lpfc_scsi.c                 |  12 +--
->  drivers/scsi/megaraid/megaraid_mbox.c         |  33 ++++----
->  drivers/scsi/megaraid/megaraid_mm.c           |  32 ++++----
->  drivers/scsi/megaraid/megaraid_sas_base.c     |  29 +++----
->  drivers/scsi/megaraid/megaraid_sas_fusion.c   |  66 ++++++++--------
->  drivers/scsi/mpt3sas/mpt3sas_base.c           |  73 +++++++++---------
->  drivers/scsi/mvsas/mv_init.c                  |   6 +-
->  drivers/scsi/mvsas/mv_sas.c                   |   6 +-
->  drivers/scsi/pmcraid.c                        |  10 +--
->  drivers/scsi/pmcraid.h                        |   2 +-
->  drivers/usb/gadget/udc/amd5536udc.c           |   8 +-
->  drivers/usb/gadget/udc/amd5536udc.h           |   4 +-
->  drivers/usb/gadget/udc/net2280.c              |  12 +--
->  drivers/usb/gadget/udc/net2280.h              |   2 +-
->  drivers/usb/gadget/udc/pch_udc.c              |  31 ++++----
->  drivers/usb/host/ehci-hcd.c                   |   2 +-
->  drivers/usb/host/fotg210-hcd.c                |   2 +-
->  drivers/usb/host/oxu210hp-hcd.c               |   2 +-
->  include/linux/mlx5/driver.h                   |   2 +-
->  include/linux/pci.h                           |   9 ---
->  scripts/checkpatch.pl                         |   9 ++-
->  43 files changed, 318 insertions(+), 332 deletions(-)
-> 
+> diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> index baa3c7b..f2c775c 100755
+> --- a/scripts/checkpatch.pl
+> +++ b/scripts/checkpatch.pl
+> @@ -6064,7 +6064,14 @@ sub process {
+>  			WARN("USE_DEVICE_INITCALL",
+>  			     "please use device_initcall() or more appropriate function instead of __initcall() (see include/linux/init.h)\n" . $herecurr);
+>  		}
+> -
+> +# check for old PCI api pci_pool_*(), use dma_pool_*() instead
+> +		if ($line =~ /\bpci_pool(?:_(?:create|destroy|alloc|zalloc|free)|)\b/) {
+> +			if (WARN("USE_DMA_POOL",
+> +				 "please use the dma pool api or more appropriate function instead of the old pci pool api\n" . $herecurr) &&
+> +			    $fix) {
+> +				while ($fixed[$fixlinenr] =~ s/\bpci_pool(_(?:create|destroy|alloc|zalloc|free)|)\b/dma_pool$1/) {}
+> +			}
+> +		}
+>  # check for various structs that are normally const (ops, kgdb, device_tree)
+>  		if ($line !~ /\bconst\b/ &&
+>  		    $line =~ /\bstruct\s+($const_structs)\b/) {
 > -- 
 > 2.9.3
 > 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
