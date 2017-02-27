@@ -1,176 +1,64 @@
-From: Sagi Grimberg <sagi@grimberg.me>
-Subject: [PATCH v1 1/4] net/utils: generic inet_pton_with_scope helper
-Date: Mon, 27 Feb 2017 19:39:21 +0200
-Message-ID: <1488217164-9221-2-git-send-email-sagi@grimberg.me>
-References: <1488217164-9221-1-git-send-email-sagi@grimberg.me>
-To: linux-nvme@lists.infradead.org, target-devel@vger.kernel.org,
-        netdev@vger.kernel.org
+From: Mike Manning <mmanning@brocade.com>
+Subject: [PATCH] net: bridge: allow IPv6 when multicast flood is disabled
+Date: Mon, 27 Feb 2017 17:11:29 +0000
+Message-ID: <1488215489-26372-1-git-send-email-mmanning@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:52860 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751291AbdB0Rlu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 12:41:50 -0500
-In-Reply-To: <1488217164-9221-1-git-send-email-sagi@grimberg.me>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:44804 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751471AbdB0SLQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 13:11:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several locations in the stack need to handle ipv4/ipv6
-(with scope) and port strings conversion to sockaddr.
-Add a helper that takes either AF_INET, AF_INET6 or
-AF_UNSPEC (for wildcard) to centralize this handling.
+Even with multicast flooding turned off, IPv6 ND should still work so
+that IPv6 connectivity is provided. Allow this by continuing to flood
+multicast traffic originated by us. And similar to the unicast case,
+set auto-mask if the multicast flood flag is set.
 
-Suggested-by: Christoph Hellwig <hch@lst.de>
-Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
+Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Signed-off-by: Mike Manning <mmanning@brocade.com>
 ---
- include/linux/inet.h |   6 +++
- net/core/utils.c     | 103 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 109 insertions(+)
+ include/linux/if_bridge.h | 2 +-
+ net/bridge/br_forward.c   | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/inet.h b/include/linux/inet.h
-index 4cca05c9678e..636ebe87e6f8 100644
---- a/include/linux/inet.h
-+++ b/include/linux/inet.h
-@@ -43,6 +43,8 @@
- #define _LINUX_INET_H
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index c5847dc..7731808 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -40,12 +40,12 @@ struct br_ip_list {
+ #define BR_ADMIN_COST		BIT(4)
+ #define BR_LEARNING		BIT(5)
+ #define BR_FLOOD		BIT(6)
+-#define BR_AUTO_MASK		(BR_FLOOD | BR_LEARNING)
+ #define BR_PROMISC		BIT(7)
+ #define BR_PROXYARP		BIT(8)
+ #define BR_LEARNING_SYNC	BIT(9)
+ #define BR_PROXYARP_WIFI	BIT(10)
+ #define BR_MCAST_FLOOD		BIT(11)
++#define BR_AUTO_MASK		(BR_FLOOD | BR_LEARNING | BR_MCAST_FLOOD)
+ #define BR_MULTICAST_TO_UNICAST	BIT(12)
+ #define BR_VLAN_TUNNEL		BIT(13)
  
- #include <linux/types.h>
-+#include <net/net_namespace.h>
-+#include <linux/socket.h>
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 6bfac29..7fe7d58 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -186,8 +186,9 @@ void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 		/* Do not flood unicast traffic to ports that turn it off */
+ 		if (pkt_type == BR_PKT_UNICAST && !(p->flags & BR_FLOOD))
+ 			continue;
++		/* Do not flood if mc off, except for traffic we originate */
+ 		if (pkt_type == BR_PKT_MULTICAST &&
+-		    !(p->flags & BR_MCAST_FLOOD))
++		    !(p->flags & BR_MCAST_FLOOD) && (skb->dev != br->dev))
+ 			continue;
  
- /*
-  * These mimic similar macros defined in user-space for inet_ntop(3).
-@@ -54,4 +56,8 @@
- extern __be32 in_aton(const char *str);
- extern int in4_pton(const char *src, int srclen, u8 *dst, int delim, const char **end);
- extern int in6_pton(const char *src, int srclen, u8 *dst, int delim, const char **end);
-+
-+extern int inet_pton_with_scope(struct net *net, unsigned short af,
-+		const char *src, const char *port, struct sockaddr_storage *addr);
-+
- #endif	/* _LINUX_INET_H */
-diff --git a/net/core/utils.c b/net/core/utils.c
-index 6592d7bbed39..f96cf527bb8f 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -26,9 +26,11 @@
- #include <linux/percpu.h>
- #include <linux/init.h>
- #include <linux/ratelimit.h>
-+#include <linux/socket.h>
- 
- #include <net/sock.h>
- #include <net/net_ratelimit.h>
-+#include <net/ipv6.h>
- 
- #include <asm/byteorder.h>
- #include <linux/uaccess.h>
-@@ -300,6 +302,107 @@ int in6_pton(const char *src, int srclen,
- }
- EXPORT_SYMBOL(in6_pton);
- 
-+static int inet4_pton(const char *src, u16 port_num,
-+		struct sockaddr_storage *addr)
-+{
-+	struct sockaddr_in *addr4 = (struct sockaddr_in *)addr;
-+	int srclen = strlen(src);
-+
-+	if (srclen > INET_ADDRSTRLEN)
-+		return -EINVAL;
-+
-+	if (in4_pton(src, srclen, (u8 *)&addr4->sin_addr.s_addr,
-+		     '\n', NULL) == 0)
-+		return -EINVAL;
-+
-+	addr4->sin_family = AF_INET;
-+	addr4->sin_port = htons(port_num);
-+
-+	return 0;
-+}
-+
-+static int inet6_pton(struct net *net, const char *src, u16 port_num,
-+		struct sockaddr_storage *addr)
-+{
-+	struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
-+	const char *scope_delim;
-+	int srclen = strlen(src);
-+
-+	if (srclen > INET6_ADDRSTRLEN)
-+		return -EINVAL;
-+
-+	if (in6_pton(src, srclen, (u8 *)&addr6->sin6_addr.s6_addr,
-+		     '%', &scope_delim) == 0)
-+		return -EINVAL;
-+
-+	if (ipv6_addr_type(&addr6->sin6_addr) & IPV6_ADDR_LINKLOCAL &&
-+	    src + srclen != scope_delim && *scope_delim == '%') {
-+		struct net_device *dev;
-+		char scope_id[16];
-+		size_t scope_len = min_t(size_t, sizeof(scope_id),
-+					 src + srclen - scope_delim - 1);
-+
-+		memcpy(scope_id, scope_delim + 1, scope_len);
-+		scope_id[scope_len] = '\0';
-+
-+		dev = dev_get_by_name(net, scope_id);
-+		if (dev) {
-+			addr6->sin6_scope_id = dev->ifindex;
-+			dev_put(dev);
-+		} else if (kstrtouint(scope_id, 0, &addr6->sin6_scope_id)) {
-+			return -EINVAL;
-+		}
-+	}
-+
-+	addr6->sin6_family = AF_INET6;
-+	addr6->sin6_port = htons(port_num);
-+
-+	return 0;
-+}
-+
-+/**
-+ * inet_pton_with_scope - convert an IPv4/IPv6 and port to socket address
-+ * @net: net namespace (used for scope handling)
-+ * @af: address family, AF_INET, AF_INET6 or AF_UNSPEC for either
-+ * @src: the start of the address string
-+ * @port: the start of the port string (or NULL for none)
-+ * @addr: output socket address
-+ *
-+ * Return zero on success, return errno when any error occurs.
-+ */
-+int inet_pton_with_scope(struct net *net, __kernel_sa_family_t af,
-+		const char *src, const char *port, struct sockaddr_storage *addr)
-+{
-+	u16 port_num;
-+	int ret = -EINVAL;
-+
-+	if (port) {
-+		if (kstrtou16(port, 0, &port_num))
-+			return -EINVAL;
-+	} else {
-+		port_num = 0;
-+	}
-+
-+	switch (af) {
-+	case AF_INET:
-+		ret = inet4_pton(src, port_num, addr);
-+		break;
-+	case AF_INET6:
-+		ret = inet6_pton(net, src, port_num, addr);
-+		break;
-+	case AF_UNSPEC:
-+		ret = inet4_pton(src, port_num, addr);
-+		if (ret)
-+			ret = inet6_pton(net, src, port_num, addr);
-+		break;
-+	default:
-+		pr_err("unexpected address family %d\n", af);
-+	};
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(inet_pton_with_scope);
-+
- void inet_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
- 			      __be32 from, __be32 to, bool pseudohdr)
- {
+ 		/* Do not flood to ports that enable proxy ARP */
 -- 
-2.7.4
+2.1.4
