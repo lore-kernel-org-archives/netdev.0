@@ -1,82 +1,138 @@
-From: Mikko Perttunen <cyndis@kapsi.fi>
-Subject: Re: [PATCH 4/7] net: stmmac: Parse FIFO sizes from feature registers
-Date: Mon, 27 Feb 2017 11:51:25 +0200
-Message-ID: <0b40b953-8fde-6351-a571-556943d78ecb@kapsi.fi>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-5-thierry.reding@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Alexandre Courbot <gnurou@gmail.com>,
-        Jon Hunter <jonathanh@nvidia.com>, netdev@vger.kernel.org,
-        linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thierry Reding <thierry.reding@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170223172438.14770-5-thierry.reding@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Petr Vorel <pvorel@suse.cz>
+Subject: [iproute PATCH v2 1/1] color: use "light" colors for dark background
+Date: Mon, 27 Feb 2017 10:55:27 +0100
+Message-ID: <20170227095527.31134-1-pvorel@suse.cz>
+Cc: Petr Vorel <pvorel@suse.cz>, Mathias Nyman <m.nyman@iki.fi>,
+        Yegor Yefremov <yegorslists@googlemail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:46419 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751863AbdB0KNv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Feb 2017 05:13:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23.02.2017 19:24, Thierry Reding wrote:
-> From: Thierry Reding <treding@nvidia.com>
->
-> New version of this core encode the FIFO sizes in one of the feature
-> registers. Use these sizes as default, but still allow device tree to
-> override them for backwards compatibility.
->
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/common.h      | 3 +++
->  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  | 2 ++
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 3 +++
->  3 files changed, 8 insertions(+)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-> index 144fe84e8a53..6ac653845d82 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
-> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-> @@ -324,6 +324,9 @@ struct dma_features {
->  	unsigned int number_tx_queues;
->  	/* Alternate (enhanced) DESC mode */
->  	unsigned int enh_desc;
-> +	/* TX and RX FIFO sizes */
-> +	unsigned int tx_fifo_size;
-> +	unsigned int rx_fifo_size;
->  };
->
->  /* GMAC TX FIFO is 8K, Rx FIFO is 16K */
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> index 377d1b44d4f2..8d249f3b34c8 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> @@ -296,6 +296,8 @@ static void dwmac4_get_hw_feature(void __iomem *ioaddr,
->  	hw_cap = readl(ioaddr + GMAC_HW_FEATURE1);
->  	dma_cap->av = (hw_cap & GMAC_HW_FEAT_AVSEL) >> 20;
->  	dma_cap->tsoen = (hw_cap & GMAC_HW_TSOEN) >> 18;
-> +	dma_cap->tx_fifo_size = 128 << ((hw_cap >> 6) & 0x1f);
-> +	dma_cap->rx_fifo_size = 128 << ((hw_cap >> 0) & 0x1f);
->  	/* MAC HW feature2 */
->  	hw_cap = readl(ioaddr + GMAC_HW_FEATURE2);
->  	/* TX and RX number of channels */
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index d7387919bdb6..291e34f0ca94 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1281,6 +1281,9 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
->  {
->  	int rxfifosz = priv->plat->rx_fifo_size;
->
-> +	if (rxfifosz == 0)
-> +		rxfifosz = priv->dma_cap.rx_fifo_size;
-> +
->  	if (priv->plat->force_thresh_dma_mode)
->  		priv->hw->dma->dma_mode(priv->ioaddr, tc, tc, rxfifosz);
->  	else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
->
+COLORFGBG environment variable is used to detect dark background.
 
-Reviewed-by: Mikko Perttunen <mperttunen@nvidia.com>
+Idea and a bit of code is borrowed from Vim, thanks.
+
+Signed-off-by: Petr Vorel <pvorel@suse.cz>
+---
+Changes v1->V2:
+* Rename function and enum values
+* Add missing bold white enum + it's code.
+---
+ include/color.h |  1 +
+ lib/color.c     | 45 ++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 45 insertions(+), 1 deletion(-)
+
+diff --git a/include/color.h b/include/color.h
+index c1c29831..ba0b237e 100644
+--- a/include/color.h
++++ b/include/color.h
+@@ -12,6 +12,7 @@ enum color_attr {
+ };
+ 
+ void enable_color(void);
++void set_color_palette(void);
+ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...);
+ enum color_attr ifa_family_color(__u8 ifa_family);
+ enum color_attr oper_state_color(__u8 state);
+diff --git a/lib/color.c b/lib/color.c
+index 95596be2..c048c76e 100644
+--- a/lib/color.c
++++ b/lib/color.c
+@@ -1,5 +1,7 @@
+ #include <stdio.h>
+ #include <stdarg.h>
++#include <stdlib.h>
++#include <string.h>
+ #include <sys/socket.h>
+ #include <sys/types.h>
+ #include <linux/if.h>
+@@ -14,6 +16,13 @@ enum color {
+ 	C_MAGENTA,
+ 	C_CYAN,
+ 	C_WHITE,
++	C_BOLD_RED,
++	C_BOLD_GREEN,
++	C_BOLD_YELLOW,
++	C_BOLD_BLUE,
++	C_BOLD_MAGENTA,
++	C_BOLD_CYAN,
++	C_BOLD_WHITE,
+ 	C_CLEAR
+ };
+ 
+@@ -25,25 +34,59 @@ static const char * const color_codes[] = {
+ 	"\e[35m",
+ 	"\e[36m",
+ 	"\e[37m",
++	"\e[1;31m",
++	"\e[1;32m",
++	"\e[1;33m",
++	"\e[1;34m",
++	"\e[1;35m",
++	"\e[1;36m",
++	"\e[1;37m",
+ 	"\e[0m",
+ 	NULL,
+ };
+ 
+ static enum color attr_colors[] = {
++	/* light background */
+ 	C_CYAN,
+ 	C_YELLOW,
+ 	C_MAGENTA,
+ 	C_BLUE,
+ 	C_GREEN,
+ 	C_RED,
++	C_CLEAR,
++
++	/* dark background */
++	C_BOLD_CYAN,
++	C_BOLD_YELLOW,
++	C_BOLD_MAGENTA,
++	C_BOLD_BLUE,
++	C_BOLD_GREEN,
++	C_BOLD_RED,
+ 	C_CLEAR
+ };
+ 
++static int is_dark_bg;
+ static int color_is_enabled;
+ 
+ void enable_color(void)
+ {
+ 	color_is_enabled = 1;
++	set_color_palette();
++}
++
++void set_color_palette(void)
++{
++	char *p = getenv("COLORFGBG");
++
++	/*
++	 * COLORFGBG environment variable usually contains either two or three
++	 * values separated by semicolons; we want the last value in either case.
++	 * If this value is 0-6 or 8, background is dark.
++	 */
++	if (p && (p = (char *)strrchr(p, ';')) != NULL
++		&& ((p[1] >= '0' && p[1] <= '6') || p[1] == '8')
++		&& p[2] == '\0')
++		is_dark_bg = 1;
+ }
+ 
+ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
+@@ -58,7 +101,7 @@ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
+ 		goto end;
+ 	}
+ 
+-	ret += fprintf(fp, "%s", color_codes[attr_colors[attr]]);
++	ret += fprintf(fp, "%s", color_codes[attr_colors[is_dark_bg ? attr + 7 : attr]]);
+ 	ret += vfprintf(fp, fmt, args);
+ 	ret += fprintf(fp, "%s", color_codes[C_CLEAR]);
+ 
+-- 
+2.11.0
