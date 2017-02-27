@@ -1,207 +1,84 @@
-From: Mikko Perttunen <cyndis-/1wQRMveznE@public.gmane.org>
-Subject: Re: [PATCH 6/7] net: stmmac: dwc-qos: Split out ->probe() and
- ->remove()
-Date: Mon, 27 Feb 2017 13:17:49 +0200
-Message-ID: <4204b7e8-462c-98e3-505c-1cc42ca45418@kapsi.fi>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-7-thierry.reding@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3 20/20] checkpatch: warn for use of old PCI pool API
+Date: Mon, 27 Feb 2017 03:53:24 -0800
+Message-ID: <1488196404.25838.1.camel@perches.com>
+References: <20170226192425.13098-1-romain.perier@collabora.com>
+         <20170226192425.13098-21-romain.perier@collabora.com>
+         <20170227112233.GK26544@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170223172438.14770-7-thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Peter Senna Tschudin <peter.senna@collabora.com>,
+        Romain Perier <romain.perier@collabora.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0136.hostedemail.com ([216.40.44.136]:44453 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751792AbdB0Lyg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 06:54:36 -0500
+In-Reply-To: <20170227112233.GK26544@collabora.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23.02.2017 19:24, Thierry Reding wrote:
-> From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
->
-> Split out the binding specific parts of ->probe() and ->remove() to
-> enable the driver to support variants of the binding. This is useful in
-> order to keep backwards-compatibility while making it easy for a sub-
-> driver to deal only with the updated bindings rather than having to add
-> compatibility quirks all over the place.
->
-> Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-> ---
->  .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 114 ++++++++++++++++-----
->  1 file changed, 88 insertions(+), 26 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
-> index 1a3fa3d9f855..5071d3c15adc 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
-> @@ -18,6 +18,7 @@
->  #include <linux/io.h>
->  #include <linux/ioport.h>
->  #include <linux/module.h>
-> +#include <linux/of_device.h>
->  #include <linux/of_net.h>
->  #include <linux/mfd/syscon.h>
->  #include <linux/platform_device.h>
-> @@ -106,13 +107,70 @@ static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
->  	return 0;
->  }
->
-> +static void *dwc_qos_probe(struct platform_device *pdev,
-> +			   struct plat_stmmacenet_data *plat_dat,
-> +			   struct stmmac_resources *stmmac_res)
-> +{
-> +	int err;
-> +
-> +	plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "apb_pclk");
-> +	if (IS_ERR(plat_dat->stmmac_clk)) {
-> +		dev_err(&pdev->dev, "apb_pclk clock not found.\n");
-> +		return ERR_CAST(plat_dat->stmmac_clk);
-> +	}
-> +
-> +	clk_prepare_enable(plat_dat->stmmac_clk);
-> +
-> +	plat_dat->pclk = devm_clk_get(&pdev->dev, "phy_ref_clk");
-> +	if (IS_ERR(plat_dat->pclk)) {
-> +		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
-> +		err = PTR_ERR(plat_dat->pclk);
-> +		goto disable;
-> +	}
-> +
-> +	clk_prepare_enable(plat_dat->pclk);
-> +
-> +	return NULL;
-> +
-> +disable:
-> +	clk_disable_unprepare(plat_dat->stmmac_clk);
-> +	return ERR_PTR(err);
-> +}
-> +
-> +static int dwc_qos_remove(struct platform_device *pdev)
-> +{
-> +	struct net_device *ndev = platform_get_drvdata(pdev);
-> +	struct stmmac_priv *priv = netdev_priv(ndev);
-> +
-> +	clk_disable_unprepare(priv->plat->pclk);
-> +	clk_disable_unprepare(priv->plat->stmmac_clk);
-> +
-> +	return 0;
-> +}
-> +
-> +struct dwc_eth_dwmac_data {
-> +	void *(*probe)(struct platform_device *pdev,
-> +		       struct plat_stmmacenet_data *data,
-> +		       struct stmmac_resources *res);
-> +	int (*remove)(struct platform_device *pdev);
-> +};
-> +
-> +static const struct dwc_eth_dwmac_data dwc_qos_data = {
-> +	.probe = dwc_qos_probe,
-> +	.remove = dwc_qos_remove,
-> +};
-> +
->  static int dwc_eth_dwmac_probe(struct platform_device *pdev)
->  {
-> +	const struct dwc_eth_dwmac_data *data;
->  	struct plat_stmmacenet_data *plat_dat;
->  	struct stmmac_resources stmmac_res;
->  	struct resource *res;
-> +	void *priv;
->  	int ret;
->
-> +	data = of_device_get_match_data(&pdev->dev);
-> +
->  	memset(&stmmac_res, 0, sizeof(struct stmmac_resources));
->
->  	/**
-> @@ -138,39 +196,26 @@ static int dwc_eth_dwmac_probe(struct platform_device *pdev)
->  	if (IS_ERR(plat_dat))
->  		return PTR_ERR(plat_dat);
->
-> -	plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "apb_pclk");
-> -	if (IS_ERR(plat_dat->stmmac_clk)) {
-> -		dev_err(&pdev->dev, "apb_pclk clock not found.\n");
-> -		ret = PTR_ERR(plat_dat->stmmac_clk);
-> -		plat_dat->stmmac_clk = NULL;
-> -		goto err_remove_config_dt;
-> -	}
-> -	clk_prepare_enable(plat_dat->stmmac_clk);
-> -
-> -	plat_dat->pclk = devm_clk_get(&pdev->dev, "phy_ref_clk");
-> -	if (IS_ERR(plat_dat->pclk)) {
-> -		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
-> -		ret = PTR_ERR(plat_dat->pclk);
-> -		plat_dat->pclk = NULL;
-> -		goto err_out_clk_dis_phy;
-> +	priv = data->probe(pdev, plat_dat, &stmmac_res);
-> +	if (IS_ERR(priv)) {
-> +		ret = PTR_ERR(priv);
-> +		dev_err(&pdev->dev, "failed to probe subdriver: %d\n", ret);
-> +		goto remove_config;
->  	}
-> -	clk_prepare_enable(plat_dat->pclk);
->
->  	ret = dwc_eth_dwmac_config_dt(pdev, plat_dat);
->  	if (ret)
-> -		goto err_out_clk_dis_aper;
-> +		goto remove;
->
->  	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
->  	if (ret)
-> -		goto err_out_clk_dis_aper;
-> +		goto remove;
->
-> -	return 0;
-> +	return ret;
->
-> -err_out_clk_dis_aper:
-> -	clk_disable_unprepare(plat_dat->pclk);
-> -err_out_clk_dis_phy:
-> -	clk_disable_unprepare(plat_dat->stmmac_clk);
-> -err_remove_config_dt:
-> +remove:
-> +	data->remove(pdev);
-> +remove_config:
->  	stmmac_remove_config_dt(pdev, plat_dat);
->
->  	return ret;
-> @@ -178,11 +223,28 @@ static int dwc_eth_dwmac_probe(struct platform_device *pdev)
->
->  static int dwc_eth_dwmac_remove(struct platform_device *pdev)
->  {
-> -	return stmmac_pltfr_remove(pdev);
-> +	struct net_device *ndev = platform_get_drvdata(pdev);
-> +	struct stmmac_priv *priv = netdev_priv(ndev);
-> +	const struct dwc_eth_dwmac_data *data;
-> +	int err;
-> +
-> +	data = of_device_get_match_data(&pdev->dev);
-> +
-> +	err = stmmac_dvr_remove(&pdev->dev);
-> +	if (err < 0)
-> +		dev_err(&pdev->dev, "failed to remove platform: %d\n", err);
-> +
-> +	err = data->remove(pdev);
-> +	if (err < 0)
-> +		dev_err(&pdev->dev, "failed to remove subdriver: %d\n", err);
-> +
-> +	stmmac_remove_config_dt(pdev, priv->plat);
-> +
-> +	return err;
->  }
->
->  static const struct of_device_id dwc_eth_dwmac_match[] = {
-> -	{ .compatible = "snps,dwc-qos-ethernet-4.10", },
-> +	{ .compatible = "snps,dwc-qos-ethernet-4.10", .data = &dwc_qos_data },
->  	{ }
->  };
->  MODULE_DEVICE_TABLE(of, dwc_eth_dwmac_match);
->
+On Mon, 2017-02-27 at 12:22 +0100, Peter Senna Tschudin wrote:
+> On Sun, Feb 26, 2017 at 08:24:25PM +0100, Romain Perier wrote:
+> > pci_pool_*() functions should be replaced by the corresponding functions
+> > in the DMA pool API. This adds support to check for use of these pci
+> > functions and display a warning when it is the case.
+> > 
+> 
+> I guess Joe Perches did sent some comments for this one, did you address
+> them?
 
-Reviewed-by: Mikko Perttunen <mperttunen-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+
+> Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> > Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> > ---
+> >  scripts/checkpatch.pl | 9 ++++++++-
+> >  1 file changed, 8 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> > index baa3c7b..f2c775c 100755
+> > --- a/scripts/checkpatch.pl
+> > +++ b/scripts/checkpatch.pl
+> > @@ -6064,7 +6064,14 @@ sub process {
+> >  			WARN("USE_DEVICE_INITCALL",
+> >  			     "please use device_initcall() or more appropriate function instead of __initcall() (see include/linux/init.h)\n" . $herecurr);
+> >  		}
+> > -
+> > +# check for old PCI api pci_pool_*(), use dma_pool_*() instead
+> > +		if ($line =~ /\bpci_pool(?:_(?:create|destroy|alloc|zalloc|free)|)\b/) {
+> > +			if (WARN("USE_DMA_POOL",
+> > +				 "please use the dma pool api or more appropriate function instead of the old pci pool api\n" . $herecurr) &&
+> > +			    $fix) {
+> > +				while ($fixed[$fixlinenr] =~ s/\bpci_pool(_(?:create|destroy|alloc|zalloc|free)|)\b/dma_pool$1/) {}
+> > +			}
+> > +		}
+> >  # check for various structs that are normally const (ops, kgdb, device_tree)
+> >  		if ($line !~ /\bconst\b/ &&
+> >  		    $line =~ /\bstruct\s+($const_structs)\b/) {
+> > 
+
+This is nearly identical to the suggestion that I
+sent but this is slightly misformatted as it does
+not have a leading nor a trailing blank line to
+separate the test blocks.
+
+Also, I think none of the patches have reached lkml.
+
+Romain, are you using git-send-email to send these
+patches?  Perhaps the patches you send also contain
+html which are rejected by the mailing list.
