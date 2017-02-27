@@ -1,149 +1,44 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH 1/2] qed: Fix race with multiple VFs
-Date: Mon, 27 Feb 2017 11:06:32 +0200
-Message-ID: <1488186393-3938-2-git-send-email-Yuval.Mintz@cavium.com>
-References: <1488186393-3938-1-git-send-email-Yuval.Mintz@cavium.com>
+From: Petr Vorel <pvorel@suse.cz>
+Subject: Re: [PATCH 1/1] color: use "light" colors for dark background
+Date: Mon, 27 Feb 2017 09:57:45 +0100
+Message-ID: <20170227085745.oee6pvidb7j52cmm@dell5510>
+References: <20170224101312.31538-1-pvorel@suse.cz>
+ <20170225172958.GA26279@iki.fi>
+Reply-To: Petr Vorel <pvorel@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Yegor Yefremov <yegorslists@googlemail.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Mathias Nyman <m.nyman@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:57049 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751646AbdB0JGw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 04:06:52 -0500
-In-Reply-To: <1488186393-3938-1-git-send-email-Yuval.Mintz@cavium.com>
+Received: from mx2.suse.de ([195.135.220.15]:43122 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751625AbdB0JQi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Feb 2017 04:16:38 -0500
+Content-Disposition: inline
+In-Reply-To: <20170225172958.GA26279@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A PF syncronizes all IOV activity relating to its VFs
-by using a single workqueue handling the work.
-The workqueue would reach a bitmask of pending VF events
-and act upon each in turn.
+Hi,
 
-Problem is that the indication of a VF message [which sets
-the 'vf event' bit for that VF] arrives and is set in
-the slowpath attention context, which isn't syncronized with
-the processing of the events.
-When multiple VFs are present, it's possible that PF would
-lose the indication of one of the VF's pending evens, leading
-that VF to later timeout.
+> Yea, I admit, the original color palette is kind of horrendous. I
+> wouldn't say the current colors are suitable for a light background
+> either.
 
-Instead of adding locks/barriers, simply move from a bitmask
-into a per-VF indication inside that VF entry in the PF database.
+> I propose you just replace the current colors with their bold
+> variants, and leave the background hue guessing out all together. That
+> would be an all-round improvement for everyone.
+Well, I agree that original colors aren't the best ones for a light background either, but
+not all bold variants are suitable for light background - yellow, white and cyan are
+problematic at least on some terminals with light background (e.g. konsole; white isn't
+used). So I'd really keep separate sets of colors.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 39 +++++++++++++++++------------
- drivers/net/ethernet/qlogic/qed/qed_sriov.h |  4 ++-
- 2 files changed, 26 insertions(+), 17 deletions(-)
+> I'll include some comments on this patch-set anyway, as I had a look
+> at it.
+Thanks for your review, I'll post fixed version with two sets of colors.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 29ed785..253c2bb 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -3014,8 +3014,7 @@ static int qed_iov_vf_flr_poll(struct qed_hwfn *p_hwfn,
- 		ack_vfs[vfid / 32] |= BIT((vfid % 32));
- 		p_hwfn->pf_iov_info->pending_flr[rel_vf_id / 64] &=
- 		    ~(1ULL << (rel_vf_id % 64));
--		p_hwfn->pf_iov_info->pending_events[rel_vf_id / 64] &=
--		    ~(1ULL << (rel_vf_id % 64));
-+		p_vf->vf_mbx.b_pending_msg = false;
- 	}
- 
- 	return rc;
-@@ -3128,11 +3127,20 @@ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
- 	mbx = &p_vf->vf_mbx;
- 
- 	/* qed_iov_process_mbx_request */
--	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
--		   "VF[%02x]: Processing mailbox message\n", p_vf->abs_vf_id);
-+	if (!mbx->b_pending_msg) {
-+		DP_NOTICE(p_hwfn,
-+			  "VF[%02x]: Trying to process mailbox message when none is pending\n",
-+			  p_vf->abs_vf_id);
-+		return;
-+	}
-+	mbx->b_pending_msg = false;
- 
- 	mbx->first_tlv = mbx->req_virt->first_tlv;
- 
-+	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+		   "VF[%02x]: Processing mailbox message [type %04x]\n",
-+		   p_vf->abs_vf_id, mbx->first_tlv.tl.type);
-+
- 	/* check if tlv type is known */
- 	if (qed_iov_tlv_supported(mbx->first_tlv.tl.type) &&
- 	    !p_vf->b_malicious) {
-@@ -3219,20 +3227,19 @@ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
- 	}
- }
- 
--static void qed_iov_pf_add_pending_events(struct qed_hwfn *p_hwfn, u8 vfid)
-+void qed_iov_pf_get_pending_events(struct qed_hwfn *p_hwfn, u64 *events)
- {
--	u64 add_bit = 1ULL << (vfid % 64);
-+	int i;
- 
--	p_hwfn->pf_iov_info->pending_events[vfid / 64] |= add_bit;
--}
-+	memset(events, 0, sizeof(u64) * QED_VF_ARRAY_LENGTH);
- 
--static void qed_iov_pf_get_and_clear_pending_events(struct qed_hwfn *p_hwfn,
--						    u64 *events)
--{
--	u64 *p_pending_events = p_hwfn->pf_iov_info->pending_events;
-+	qed_for_each_vf(p_hwfn, i) {
-+		struct qed_vf_info *p_vf;
- 
--	memcpy(events, p_pending_events, sizeof(u64) * QED_VF_ARRAY_LENGTH);
--	memset(p_pending_events, 0, sizeof(u64) * QED_VF_ARRAY_LENGTH);
-+		p_vf = &p_hwfn->pf_iov_info->vfs_array[i];
-+		if (p_vf->vf_mbx.b_pending_msg)
-+			events[i / 64] |= 1ULL << (i % 64);
-+	}
- }
- 
- static struct qed_vf_info *qed_sriov_get_vf_from_absid(struct qed_hwfn *p_hwfn,
-@@ -3266,7 +3273,7 @@ static int qed_sriov_vfpf_msg(struct qed_hwfn *p_hwfn,
- 	p_vf->vf_mbx.pending_req = (((u64)vf_msg->hi) << 32) | vf_msg->lo;
- 
- 	/* Mark the event and schedule the workqueue */
--	qed_iov_pf_add_pending_events(p_hwfn, p_vf->relative_vf_id);
-+	p_vf->vf_mbx.b_pending_msg = true;
- 	qed_schedule_iov(p_hwfn, QED_IOV_WQ_MSG_FLAG);
- 
- 	return 0;
-@@ -4030,7 +4037,7 @@ static void qed_handle_vf_msg(struct qed_hwfn *hwfn)
- 		return;
- 	}
- 
--	qed_iov_pf_get_and_clear_pending_events(hwfn, events);
-+	qed_iov_pf_get_pending_events(hwfn, events);
- 
- 	DP_VERBOSE(hwfn, QED_MSG_IOV,
- 		   "Event mask of VF events: 0x%llx 0x%llx 0x%llx\n",
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-index fc08cc2..a896058 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-@@ -140,6 +140,9 @@ struct qed_iov_vf_mbx {
- 	/* Address in VF where a pending message is located */
- 	dma_addr_t pending_req;
- 
-+	/* Message from VF awaits handling */
-+	bool b_pending_msg;
-+
- 	u8 *offset;
- 
- 	/* saved VF request header */
-@@ -232,7 +235,6 @@ struct qed_vf_info {
-  */
- struct qed_pf_iov {
- 	struct qed_vf_info vfs_array[MAX_NUM_VFS];
--	u64 pending_events[QED_VF_ARRAY_LENGTH];
- 	u64 pending_flr[QED_VF_ARRAY_LENGTH];
- 
- 	/* Allocate message address continuosuly and split to each VF */
--- 
-1.9.3
+
+Kind regards,
+Petr
