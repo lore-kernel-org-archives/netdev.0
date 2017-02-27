@@ -1,71 +1,44 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: sis: sis190: use new api ethtool_{get|set}_link_ksettings
-Date: Mon, 27 Feb 2017 23:06:41 +0100
-Message-ID: <1488233201-9815-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: romieu@fr.zoreil.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [Patch net] ipv6: check for ip6_null_entry in
+ __ip6_del_rt_siblings()
+Date: Mon, 27 Feb 2017 13:06:49 -0800
+Message-ID: <05afcb95-6dd5-753a-ccb3-fe12d5746ffa@cumulusnetworks.com>
+References: <1488222425-1256-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1488227660.9415.207.camel@edumazet-glaptop3.roam.corp.google.com>
+ <0ec7c6bd-0705-ea30-650e-b8d269dc587b@cumulusnetworks.com>
+ <CAM_iQpVimUuJZqTkgZOoVtS9O8gL+2rr-SUNgd67Y3L-3bZVZw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:36251 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751398AbdB0WKS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 17:10:18 -0500
+Received: by mail-pg0-f54.google.com with SMTP id s67so48930846pgb.3
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 14:09:05 -0800 (PST)
+In-Reply-To: <CAM_iQpVimUuJZqTkgZOoVtS9O8gL+2rr-SUNgd67Y3L-3bZVZw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On 2/27/17 1:04 PM, Cong Wang wrote:
+>>
+>>                 for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
+>> +                       /* do not allow deletion of the null route */
+>> +                       if (rt == net->ipv6.ip6_null_entry)
+>> +                               continue;
+>>
+>> Fixes: 0ae8133586ad net: ipv6: Allow shorthand delete of all nexthops in
+>> multipath route
+> 
+> Note, I moved the check into __ip6_del_rt_siblings() because __ip6_del_rt()
+> has a same check.
+> 
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
-
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/sis/sis190.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/sis/sis190.c b/drivers/net/ethernet/sis/sis190.c
-index 210e35d..02da106 100644
---- a/drivers/net/ethernet/sis/sis190.c
-+++ b/drivers/net/ethernet/sis/sis190.c
-@@ -1734,18 +1734,20 @@ static void sis190_set_speed_auto(struct net_device *dev)
- 		   BMCR_ANENABLE | BMCR_ANRESTART | BMCR_RESET);
- }
- 
--static int sis190_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int sis190_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd)
- {
- 	struct sis190_private *tp = netdev_priv(dev);
- 
--	return mii_ethtool_gset(&tp->mii_if, cmd);
-+	return mii_ethtool_get_link_ksettings(&tp->mii_if, cmd);
- }
- 
--static int sis190_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int sis190_set_link_ksettings(struct net_device *dev,
-+				     const struct ethtool_link_ksettings *cmd)
- {
- 	struct sis190_private *tp = netdev_priv(dev);
- 
--	return mii_ethtool_sset(&tp->mii_if, cmd);
-+	return mii_ethtool_set_link_ksettings(&tp->mii_if, cmd);
- }
- 
- static void sis190_get_drvinfo(struct net_device *dev,
-@@ -1797,8 +1799,6 @@ static void sis190_set_msglevel(struct net_device *dev, u32 value)
- }
- 
- static const struct ethtool_ops sis190_ethtool_ops = {
--	.get_settings	= sis190_get_settings,
--	.set_settings	= sis190_set_settings,
- 	.get_drvinfo	= sis190_get_drvinfo,
- 	.get_regs_len	= sis190_get_regs_len,
- 	.get_regs	= sis190_get_regs,
-@@ -1806,6 +1806,8 @@ static void sis190_set_msglevel(struct net_device *dev, u32 value)
- 	.get_msglevel	= sis190_get_msglevel,
- 	.set_msglevel	= sis190_set_msglevel,
- 	.nway_reset	= sis190_nway_reset,
-+	.get_link_ksettings = sis190_get_link_ksettings,
-+	.set_link_ksettings = sis190_set_link_ksettings,
- };
- 
- static int sis190_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
--- 
-1.7.4.4
+that's b/c __ip6_del_rt has a second call path. __ip6_del_rt_siblings is
+new and is not expecting to see the null entry. Catching it before the
+dst_hold would be better.
