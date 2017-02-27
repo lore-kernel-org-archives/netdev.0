@@ -1,130 +1,56 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: [PATCH v1.2] dt: emac: document device-tree based phy discovery and setup
-Date: Mon, 27 Feb 2017 21:41:40 +0100
-Message-ID: <0f6d91964359390ea08ff9d29f7d7c5ad49961c3.1488227767.git.chunkeey@googlemail.com>
-References: <eaf5b812-deae-c5f7-3930-dadf0b0132bf@gmail.com>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Ivan Mikhaylov <ivan@de.ibm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Rob Herring <robh+dt@kernel.org>
-To: netdev@vger.kernel.org, devicetree@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v3 net] net: solve a NAPI race
+Date: Mon, 27 Feb 2017 15:23:15 -0800
+Message-ID: <20170227152315.7e3b284f@xeon-e3>
+References: <20170227141403.714490f7@xeon-e3>
+        <1488234917.9415.217.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20170227144455.174ab1e5@xeon-e3>
+        <20170227.174854.1727197935165904806.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34919 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751364AbdB1BDe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 20:03:34 -0500
-In-Reply-To: <eaf5b812-deae-c5f7-3930-dadf0b0132bf@gmail.com>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:36742 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751392AbdB1BSG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 20:18:06 -0500
+Received: by mail-pg0-f50.google.com with SMTP id s67so50990999pgb.3
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 17:17:52 -0800 (PST)
+In-Reply-To: <20170227.174854.1727197935165904806.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds documentation for a new "phy-handle" property,
-"fixed-link" and "mdio" sub-node. These allows the enumeration
-of PHYs which are supported by the phy library under drivers/net/phy.
+On Mon, 27 Feb 2017 17:48:54 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-The EMAC ethernet controller in IBM and AMCC 4xx chips is
-currently stuck with a few privately defined phy
-implementations. It has no support for PHYs which
-are supported by the generic phylib.
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Mon, 27 Feb 2017 14:44:55 -0800
+> 
+> > On Mon, 27 Feb 2017 14:35:17 -0800
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >   
+> >> On Mon, 2017-02-27 at 14:14 -0800, Stephen Hemminger wrote:
+> >>   
+> >> > The original design (as Davem mentioned) was that IRQ's must be disabled
+> >> > during device polling. If that was true, then the race above
+> >> > would be impossible.    
+> >> 
+> >> I would love to see an alternative patch.  
+> > 
+> > Turn off busy poll? 
+> > The poll stuff runs risk of breaking more things.  
+> 
+> Eric is exactly trying to make busy poll even more prominent in
+> the stack, not less prominent.
+> 
+> It's an important component of some performance improvements he is
+> working on.
 
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
----
-Fixed: phy node - so it conforms to phy.txt.
----
----
- .../devicetree/bindings/powerpc/4xx/emac.txt       | 61 +++++++++++++++++++++-
- 1 file changed, 59 insertions(+), 2 deletions(-)
+Maybe making IRQ controlled as part of the network device model
+(instead of a side effect left to device driver to handle) would
+be less problematic.
 
-diff --git a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-index 712baf6c3e24..2fa861378294 100644
---- a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-+++ b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-@@ -71,6 +71,9 @@
- 			  For Axon it can be absent, though my current driver
- 			  doesn't handle phy-address yet so for now, keep
- 			  0x00ffffff in it.
-+    - phy-handle	: Used to describe configurations where a external PHY
-+			  is used. Please refer to:
-+			  Documentation/devicetree/bindings/net/ethernet.txt
-     - rx-fifo-size-gige : 1 cell, Rx fifo size in bytes for 1000 Mb/sec
- 			  operations (if absent the value is the same as
- 			  rx-fifo-size).  For Axon, either absent or 2048.
-@@ -81,8 +84,22 @@
- 			  offload, phandle of the TAH device node.
-     - tah-channel       : 1 cell, optional. If appropriate, channel used on the
- 			  TAH engine.
-+    - fixed-link	: Fixed-link subnode describing a link to a non-MDIO
-+			  managed entity. See
-+			  Documentation/devicetree/bindings/net/fixed-link.txt
-+			  for details.
-+    - mdio subnode	: When the EMAC has a phy connected to its local
-+			  mdio, which us supported by the kernel's network
-+			  PHY library in drivers/net/phy, there must be device
-+			  tree subnode with the following required properties:
-+				- #address-cells: Must be <1>.
-+				- #size-cells: Must be <0>.
- 
--    Example:
-+			  For PHY definitions: Please refer to
-+			  Documentation/devicetree/bindings/net/phy.txt and
-+			  Documentation/devicetree/bindings/net/ethernet.txt
-+
-+    Examples:
- 
- 	EMAC0: ethernet@40000800 {
- 		device_type = "network";
-@@ -104,6 +121,47 @@
- 		zmii-channel = <0>;
- 	};
- 
-+	EMAC1: ethernet@ef600c00 {
-+		device_type = "network";
-+		compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
-+		interrupt-parent = <&EMAC1>;
-+		interrupts = <0 1>;
-+		#interrupt-cells = <1>;
-+		#address-cells = <0>;
-+		#size-cells = <0>;
-+		interrupt-map = <0 &UIC2 0x10 IRQ_TYPE_LEVEL_HIGH /* Status */
-+				 1 &UIC2 0x14 IRQ_TYPE_LEVEL_HIGH /* Wake */>;
-+		reg = <0xef600c00 0x000000c4>;
-+		local-mac-address = [000000000000]; /* Filled in by U-Boot */
-+		mal-device = <&MAL0>;
-+		mal-tx-channel = <0>;
-+		mal-rx-channel = <0>;
-+		cell-index = <0>;
-+		max-frame-size = <9000>;
-+		rx-fifo-size = <16384>;
-+		tx-fifo-size = <2048>;
-+		fifo-entry-size = <10>;
-+		phy-mode = "rgmii";
-+		phy-handle = <&phy0>;
-+		phy-map = <0x00000000>;
-+		rgmii-device = <&RGMII0>;
-+		rgmii-channel = <0>;
-+		tah-device = <&TAH0>;
-+		tah-channel = <0>;
-+		has-inverted-stacr-oc;
-+		has-new-stacr-staopc;
-+
-+	        mdio {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			phy0: ethernet-phy@0 {
-+				compatible = "ethernet-phy-ieee802.3-c22";
-+				reg = <0>;
-+		};
-+	};
-+
-+
-       ii) McMAL node
- 
-     Required properties:
-@@ -145,4 +203,3 @@
-     - revision           : as provided by the RGMII new version register if
- 			   available.
- 			   For Axon: 0x0000012a
--
--- 
-2.11.0
+Really just shooting in the dark because I don't have any of the problematic
+hardware to play with.
