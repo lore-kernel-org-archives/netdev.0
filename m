@@ -1,36 +1,77 @@
-From: =?GBK?B?0dXQobKo?= <yanxb123@163.com>
-Subject: [drivers/net/vxlan]Why rcu_read_lock is not obtained before rculist
- travelling
-Date: Tue, 28 Feb 2017 22:03:48 +0800 (CST)
-Message-ID: <199cc09e.de3a.15a8508c1f7.Coremail.yanxb123@163.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] sctp: call rcu_read_lock before checking for
+ duplicate transport nodes
+Date: Tue, 28 Feb 2017 09:23:23 -0500
+Message-ID: <20170228142323.GA17171@hmswarspite.think-freely.org>
+References: <d239fb1c1f86e3421de4a891f8a704d37b236cbf.1488256889.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: "Stephen Hemminger" <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m13-98.163.com ([220.181.13.98]:36611 "EHLO m13-98.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751060AbdB1OTD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Feb 2017 09:19:03 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51280 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751452AbdB1OY2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 09:24:28 -0500
+Content-Disposition: inline
+In-Reply-To: <d239fb1c1f86e3421de4a891f8a704d37b236cbf.1488256889.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgU3RlcGhlbiwKCgpJIGFtIHN0dWR5aW5nIHZ4bGFuIGRldmljZSBkcml2ZXIgaW4gNC4xMCBr
-ZXJuZWwuIEkgc2VlIHRoYXQgdnhsYW5fZmRiIGluIGZkYl9oZWFkIGxpc3QgaXMgcmN1IHByb3Rl
-Y3RlZC4gY2FsbF9yY3UgaXMgaW52b2tlZCB0byBmcmVlIHZ4bGFuIGZkYiwgd2hpY2ggd2lsbCBk
-ZWZlciB0aGUgdnhsYW5fZmRiX2ZyZWUgdW50aWwgYWxsIHJjdSByZWFkcyBleGlzdCB0aGUgcmFj
-ZSBjb25kaXRpb24uIAoKQnV0IEkgZG9uoa90IGZpbmQgYW55IHJjdV9yZWFkX2xvY2sgaW52b2tl
-ZCBiZWZvcmUgdHJhdmVsbGluZyBmZGJfaGVhZCBsaXN0LiAgSW4gdnhsYW5feG1pdCBhbmQgdnhs
-YW5fc25vb3AgZnVuY3Rpb24sIHZ4bGFuX2ZpbmRfbWFjIGZ1bmN0aW9uIGlzIGNhbGxlZCB0byBz
-ZWFyY2ggdGhlIHZ4bGFuX2ZkYiBvZiB0aGUgZHN0X21hYyBvciBzcmNfbWFjLiBUaGVuIGluZm9y
-bWF0aW9uIGluIHZ4bGFuX2ZkYiAgaXMgdXNlZCBmb3IgZnVydGhlciBwcm9jZXNzLiAgQnV0IGFz
-IG5vIHJjdV9yZWFkX2xvY2sgaXMgb2J0YWluZWQgYmVmb3JlIHRoZSBsaXN0IHRyYXZlbGxpbmcs
-IEkgYW0gd29uZGVyaW5nIGlmIGl0IGlzIHBvc3NpYmxlIHRoYXQgdnhsYW5fZmRiIGlzIGZyZWVk
-IHdoZW4gaXQgaXMgYmVpbmcgdXNlZC4gCgpzdGF0aWMgdm9pZCB2eGxhbl9mZGJfZGVzdHJveShz
-dHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbiwgc3RydWN0IHZ4bGFuX2ZkYiAqZikKewogICAgICAgbmV0
-ZGV2X2RiZyh2eGxhbi0+ZGV2LAogICAgICAgICAgICAgICAgICAiZGVsZXRlICVwTVxuIiwgZi0+
-ZXRoX2FkZHIpOwoKICAgICAgIC0tdnhsYW4tPmFkZHJjbnQ7CiAgICAgICB2eGxhbl9mZGJfbm90
-aWZ5KHZ4bGFuLCBmLCBmaXJzdF9yZW1vdGVfcnRubChmKSwgUlRNX0RFTE5FSUdIKTsKCiAgICAg
-ICBobGlzdF9kZWxfcmN1KCZmLT5obGlzdCk7CiAgICAgICBjYWxsX3JjdSgmZi0+cmN1LCB2eGxh
-bl9mZGJfZnJlZSk7Cn0KCgpUaGFua3MKClhpYW9ibwo=
+On Tue, Feb 28, 2017 at 12:41:29PM +0800, Xin Long wrote:
+> Commit cd2b70875058 ("sctp: check duplicate node before inserting a
+> new transport") called rhltable_lookup() to check for the duplicate
+> transport node in transport rhashtable.
+> 
+> But rhltable_lookup() doesn't call rcu_read_lock inside, it could cause
+> a use-after-free issue if it tries to dereference the node that another
+> cpu has freed it. Note that sock lock can not avoid this as it is per
+> sock.
+> 
+> This patch is to fix it by calling rcu_read_lock before checking for
+> duplicate transport nodes.
+> 
+> Fixes: cd2b70875058 ("sctp: check duplicate node before inserting a new transport")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/input.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index fc45896..2a28ab2 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -884,14 +884,17 @@ int sctp_hash_transport(struct sctp_transport *t)
+>  	arg.paddr = &t->ipaddr;
+>  	arg.lport = htons(t->asoc->base.bind_addr.port);
+>  
+> +	rcu_read_lock();
+>  	list = rhltable_lookup(&sctp_transport_hashtable, &arg,
+>  			       sctp_hash_params);
+>  
+>  	rhl_for_each_entry_rcu(transport, tmp, list, node)
+>  		if (transport->asoc->ep == t->asoc->ep) {
+> +			rcu_read_unlock();
+>  			err = -EEXIST;
+>  			goto out;
+>  		}
+> +	rcu_read_unlock();
+>  
+>  	err = rhltable_insert_key(&sctp_transport_hashtable, &arg,
+>  				  &t->node, sctp_hash_params);
+> -- 
+> 2.1.0
+> 
+> 
+
+Hmm, rhltable_insert_key I think returns a pointer to the existing object in the
+hash table if there is a collision (according to the _rhashtable_insert_fast
+description).  Wouldn't it be better to eliminate the rhl_for_each_entry_rcu
+entirely, and just check the returned pointer from rhltable_insert_key?
+
+Neil
