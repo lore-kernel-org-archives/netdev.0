@@ -1,78 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] net: solve a NAPI race
-Date: Tue, 28 Feb 2017 09:47:17 -0800
-Message-ID: <1488304037.9415.263.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAKgT0UeSpxzgePoidJumQFvM5a2mOC5+rL8gCHqvX-HBvrn74A@mail.gmail.com>
+From: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: net/rds: use-after-free in inet_create
+Date: Tue, 28 Feb 2017 18:45:42 +0100
+Message-ID: <CACT4Y+YFMORo6YJBG_wOCFPK4dHHzQ_fBp650-E3REH8SdwpAQ@mail.gmail.com>
+References: <CACT4Y+bi=rZr9yrajA0o0iUeR4N0q-sXYudBVsOeOiHbuApBeA@mail.gmail.com>
+ <20170228153737.GG31155@oracle.com> <CACT4Y+aobp+g_AYoX6j1eftyyirK4pBxhOXz9hDu+XU+-jxSYw@mail.gmail.com>
+ <20170228161544.GH31155@oracle.com> <CACT4Y+bWWAiMYQN_Fvxs7CKR9hRAA+r0t_YZhja3B5xGcZ4vcQ@mail.gmail.com>
+ <20170228163833.GI31155@oracle.com> <CACT4Y+Y5eM8hKQ7BgA4hEN7ozkhRGgvGJRU6Smrths6noC-PMw@mail.gmail.com>
+ <20170228173328.GL31155@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:35522 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751344AbdB1RrU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 12:47:20 -0500
-Received: by mail-pg0-f54.google.com with SMTP id b129so8075819pgc.2
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 09:47:19 -0800 (PST)
-In-Reply-To: <CAKgT0UeSpxzgePoidJumQFvM5a2mOC5+rL8gCHqvX-HBvrn74A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        syzkaller <syzkaller-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+To: Sowmini Varadhan <sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170228173328.GL31155-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-02-28 at 09:20 -0800, Alexander Duyck wrote:
-> On Mon, Feb 27, 2017 at 6:21 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> > +bool napi_schedule_prep(struct napi_struct *n)
-> > +{
-> > +       unsigned long val, new;
-> > +
-> > +       do {
-> > +               val = READ_ONCE(n->state);
-> > +               if (unlikely(val & NAPIF_STATE_DISABLE))
-> > +                       return false;
-> > +               new = val | NAPIF_STATE_SCHED;
-> > +               if (unlikely(val & NAPIF_STATE_SCHED))
-> > +                       new |= NAPIF_STATE_MISSED;
-> 
-> You might want to consider just using a combination AND, divide,
-> multiply, and OR to avoid having to have any conditional branches
-> being added due to this code path.  Basically the logic would look
-> like:
+On Tue, Feb 28, 2017 at 6:33 PM, Sowmini Varadhan
+<sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
+> On (02/28/17 17:51), Dmitry Vyukov wrote:
+>> Searching other crashes for "net/rds" I found 2 more crashes that may
+>> be related. They suggest that the delayed works are not properly
+>> stopped when the socket is destroyed. That would explain how
+>> rds_connect_worker accesses freed net, right?
+>
+> yes, I think we may want to explicitly cancel this workq.. this
+> in rds_conn_destroy().
+>
+> I'm trying to build/sanity-test (if lucky, reproduce the bug)
+> as I send this out.. let me get back to you..
+>
+> If I have a patch against net-next, would you be willing/able to
+> try it out? given that this does not show up on demand, I'm not
+> sure how we can check that "the fix worked"..
 
 
->     new = val | NAPIF_STATE_SCHED;
->     new |= (val & NAPIF_STATE_SCHED) / NAPIF_STATE_SCHED * NAPIF_STATE_MISSED;
-> 
-> In assembler that all ends up getting translated out to AND, SHL, OR.
-> You avoid the branching, or MOV/OR/TEST/CMOV type code you would end
-> up with otherwise.
-
-Sure, I can try to optimize this a bit ;)
-
-
-> > +       } while (cmpxchg(&n->state, val, new) != val);
-> > +
-> > +       if (unlikely(val & NAPIF_STATE_MISSED))
-> > +               __napi_schedule(n);
-> > +
-> >         return true;
-> >  }
-> 
-> If you rescheduled napi should you really be returning true?  Seems
-> like you should be returning "!(val & NAPIF_STATE_MISSED)" to try to
-> avoid letting this occur again.
-
-Good idea.
-
-Hmm... you mean that many drivers test napi_complete_done() return
-value ?
-
-;)
-
-Thanks !
+Yes, I can now apply custom patches to the bots. However, it fired
+only 3 times, so it will give weak signal. But at least it will test
+that the patch does not cause other bad things.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
