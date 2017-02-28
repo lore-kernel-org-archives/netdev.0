@@ -1,88 +1,72 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] mlxsw: spectrum_router: Avoid potential packets loss
-Date: Tue, 28 Feb 2017 08:55:40 +0100
-Message-ID: <1488268540-1767-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: Re: [PATCH 1/1] rds: ib: add the static type to the variables
+Date: Tue, 28 Feb 2017 09:20:18 +0200
+Message-ID: <20170228072017.GA3678@yuval-lap.uk.oracle.com>
+References: <1488264340-20044-1-git-send-email-yanjun.zhu@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        davem@davemloft.net
+To: Zhu Yanjun <yanjun.zhu@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35852 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751045AbdB1H5N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 02:57:13 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r18so962758wmd.3
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 23:55:42 -0800 (PST)
+Received: from aserp1050.oracle.com ([141.146.126.70]:36054 "EHLO
+        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751835AbdB1IBA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 03:01:00 -0500
+Content-Disposition: inline
+In-Reply-To: <1488264340-20044-1-git-send-email-yanjun.zhu@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+On Tue, Feb 28, 2017 at 01:45:40AM -0500, Zhu Yanjun wrote:
+> The variables rds_ib_mr_1m_pool_size and rds_ib_mr_8k_pool_size
+> are used only in the ib.c file. As such, the static type is
+> added to limit them in this file.
+> 
+> Cc: Joe Jin <joe.jin@oracle.com>
+> Cc: Junxiao Bi <junxiao.bi@oracle.com>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+> ---
+>  net/rds/ib.c    | 4 ++--
+>  net/rds/ib_mr.h | 2 --
+>  2 files changed, 2 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/rds/ib.c b/net/rds/ib.c
+> index 8d70884..ecff01b 100644
+> --- a/net/rds/ib.c
+> +++ b/net/rds/ib.c
+> @@ -45,8 +45,8 @@
+>  #include "ib.h"
+>  #include "ib_mr.h"
+>  
+> -unsigned int rds_ib_mr_1m_pool_size = RDS_MR_1M_POOL_SIZE;
+> -unsigned int rds_ib_mr_8k_pool_size = RDS_MR_8K_POOL_SIZE;
+> +static unsigned int rds_ib_mr_1m_pool_size = RDS_MR_1M_POOL_SIZE;
+> +static unsigned int rds_ib_mr_8k_pool_size = RDS_MR_8K_POOL_SIZE;
+>  unsigned int rds_ib_retry_count = RDS_IB_DEFAULT_RETRY_COUNT;
+>  
+>  module_param(rds_ib_mr_1m_pool_size, int, 0444);
+> diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
+> index 24c086d..5d6e98a 100644
+> --- a/net/rds/ib_mr.h
+> +++ b/net/rds/ib_mr.h
+> @@ -107,8 +107,6 @@ struct rds_ib_mr_pool {
+>  };
+>  
+>  extern struct workqueue_struct *rds_ib_mr_wq;
+> -extern unsigned int rds_ib_mr_1m_pool_size;
+> -extern unsigned int rds_ib_mr_8k_pool_size;
+>  extern bool prefer_frmr;
 
-When the structure of the LPM tree changes (f.e., due to the addition of
-a new prefix), we unbind the old tree and then bind the new one. This
-may result in temporary packet loss.
+Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
 
-Instead, overwrite the old binding with the new one.
-
-Fixes: 6b75c4807db3 ("mlxsw: spectrum_router: Add virtual router management")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 30 ++++++++++++++--------
- 1 file changed, 20 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index d7ac22d..bd8de6b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -441,30 +441,40 @@ static int
- mlxsw_sp_vr_lpm_tree_check(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_vr *vr,
- 			   struct mlxsw_sp_prefix_usage *req_prefix_usage)
- {
--	struct mlxsw_sp_lpm_tree *lpm_tree;
-+	struct mlxsw_sp_lpm_tree *lpm_tree = vr->lpm_tree;
-+	struct mlxsw_sp_lpm_tree *new_tree;
-+	int err;
- 
--	if (mlxsw_sp_prefix_usage_eq(req_prefix_usage,
--				     &vr->lpm_tree->prefix_usage))
-+	if (mlxsw_sp_prefix_usage_eq(req_prefix_usage, &lpm_tree->prefix_usage))
- 		return 0;
- 
--	lpm_tree = mlxsw_sp_lpm_tree_get(mlxsw_sp, req_prefix_usage,
-+	new_tree = mlxsw_sp_lpm_tree_get(mlxsw_sp, req_prefix_usage,
- 					 vr->proto, false);
--	if (IS_ERR(lpm_tree)) {
-+	if (IS_ERR(new_tree)) {
- 		/* We failed to get a tree according to the required
- 		 * prefix usage. However, the current tree might be still good
- 		 * for us if our requirement is subset of the prefixes used
- 		 * in the tree.
- 		 */
- 		if (mlxsw_sp_prefix_usage_subset(req_prefix_usage,
--						 &vr->lpm_tree->prefix_usage))
-+						 &lpm_tree->prefix_usage))
- 			return 0;
--		return PTR_ERR(lpm_tree);
-+		return PTR_ERR(new_tree);
- 	}
- 
--	mlxsw_sp_vr_lpm_tree_unbind(mlxsw_sp, vr);
--	mlxsw_sp_lpm_tree_put(mlxsw_sp, vr->lpm_tree);
-+	/* Prevent packet loss by overwriting existing binding */
-+	vr->lpm_tree = new_tree;
-+	err = mlxsw_sp_vr_lpm_tree_bind(mlxsw_sp, vr);
-+	if (err)
-+		goto err_tree_bind;
-+	mlxsw_sp_lpm_tree_put(mlxsw_sp, lpm_tree);
-+
-+	return 0;
-+
-+err_tree_bind:
- 	vr->lpm_tree = lpm_tree;
--	return mlxsw_sp_vr_lpm_tree_bind(mlxsw_sp, vr);
-+	mlxsw_sp_lpm_tree_put(mlxsw_sp, new_tree);
-+	return err;
- }
- 
- static struct mlxsw_sp_vr *mlxsw_sp_vr_get(struct mlxsw_sp *mlxsw_sp,
--- 
-2.7.4
+>  
+>  struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_dev,
+> -- 
+> 2.7.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
