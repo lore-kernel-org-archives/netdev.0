@@ -1,35 +1,45 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [drivers/net/vxlan]Why rcu_read_lock is not obtained before
- rculist travelling
-Date: Tue, 28 Feb 2017 13:29:17 -0800
-Message-ID: <CAM_iQpUp+nmLW2i3Gm2YQnq+_EA5ozvgO33fG6k=x+kQx9kt_Q@mail.gmail.com>
-References: <199cc09e.de3a.15a8508c1f7.Coremail.yanxb123@163.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
+Date: Tue, 28 Feb 2017 16:28:35 -0500
+Message-ID: <CAF=yD-+7syCYSdFT7eNfWsoUK34ybxwQntiX=RQBF89rDzTiZQ@mail.gmail.com>
+References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+ <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
+ <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
+ <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com> <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: =?UTF-8?B?6aKc5bCP5rOi?= <yanxb123@163.com>
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        Linux API <linux-api@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:33716 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751829AbdB1ViD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 16:38:03 -0500
-Received: by mail-wm0-f41.google.com with SMTP id i17so5139629wmf.0
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 13:36:42 -0800 (PST)
-In-Reply-To: <199cc09e.de3a.15a8508c1f7.Coremail.yanxb123@163.com>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35668 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751882AbdB1Vjx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 16:39:53 -0500
+In-Reply-To: <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2017 at 6:03 AM, =E9=A2=9C=E5=B0=8F=E6=B3=A2 <yanxb123@163.=
-com> wrote:
-> But I don=E2=80=99t find any rcu_read_lock invoked before travelling fdb_=
-head list.  In vxlan_xmit and vxlan_snoop function, vxlan_find_mac function=
- is called to search the vxlan_fdb of the dst_mac or src_mac. Then informat=
-ion in vxlan_fdb  is used for further process.  But as no rcu_read_lock is =
-obtained before the list travelling, I am wondering if it is possible that =
-vxlan_fdb is freed when it is being used.
+>>> I can see this working if you have a special type of skb that
+>>> indicates that the data might be concurrently written and have all the
+>>> normal skb APIs (including, especially, anything that clones it) make
+>>> a copy first.
+>>
+>> Support for cloned skbs is required for TCP, both at tcp_transmit_skb
+>> and segmentation offload. Patch 4 especially adds reference counting
+>> of shared pages across clones and other sk_buff operations like
+>> pskb_expand_head. This still allows for deep copy (skb_copy_ubufs)
+>> on clones in specific datapaths like the above.
 >
+> Does this mean that a user program that does a zerocopy send can cause
+> a retransmitted segment to contain different data than the original
+> segment? If so, is that okay?
 
-In both RX and TX paths, rcu read lock is acquired by upper layer.
-Check __dev_queue_xmit() and process_backlog().
+That is possible, indeed. The bytestream at the receiver is then
+likely undefined. Though integrity of the tcp receive stack should
+not be affected. A valid question is whether the stack should protect
+against such users. The pattern is reminiscent of evasion attacks. In
+the limited case, privileged users already can generate this data
+pattern, of course.
