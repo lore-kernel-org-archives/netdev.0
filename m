@@ -1,88 +1,153 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] ipv6: ignore null_entry in inet6_rtm_getroute() too
-Date: Tue, 28 Feb 2017 11:48:56 -0800
-Message-ID: <CAM_iQpXEYQbGzJNO6E5kb6pUGTcDuZdupFj8xtiRG5Vx836j8g@mail.gmail.com>
-References: <1488307478-10081-1-git-send-email-xiyou.wangcong@gmail.com> <ee659bf6-789f-edc0-a668-db1c4b0abb20@cumulusnetworks.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC net-next v2 3/4] net: more accurate checksumming in validate_xmit_skb
+Date: Tue, 28 Feb 2017 11:50:09 -0800
+Message-ID: <CALx6S36A3Ai=6HJqpdQAm4W0parSG2_KmHZOAmHwomZY78ePvQ@mail.gmail.com>
+References: <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
+ <1488202783.2713.67.camel@redhat.com> <03f4d4bb40e78f228923dd61bc3d30f737a7621e.1488199633.git.dcaratti@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: David Laight <David.Laight@aculab.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Davide Caratti <dcaratti@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34475 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751378AbdB1Tum (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 14:50:42 -0500
-Received: by mail-wr0-f193.google.com with SMTP id u48so2866868wrc.1
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 11:49:17 -0800 (PST)
-In-Reply-To: <ee659bf6-789f-edc0-a668-db1c4b0abb20@cumulusnetworks.com>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:34289 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751487AbdB1Tvl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 14:51:41 -0500
+Received: by mail-qk0-f193.google.com with SMTP id s186so5386103qkb.1
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 11:50:10 -0800 (PST)
+In-Reply-To: <03f4d4bb40e78f228923dd61bc3d30f737a7621e.1488199633.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2017 at 11:01 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 2/28/17 10:44 AM, Cong Wang wrote:
->> Like commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route dumps"),
->> we need to ignore null entry in inet6_rtm_getroute() too.
->>
->> Return -ENOENT here because we return the same errno when deleting
->> the null entry.
->>
->> Fixes: a1a22c1206 ("net: ipv6: Keep nexthop of multipath route on admin down")
->> Reported-by: Dmitry Vyukov <dvyukov@google.com>
->> Cc: David Ahern <dsa@cumulusnetworks.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
->>  net/ipv6/route.c | 6 ++++++
->>  1 file changed, 6 insertions(+)
->>
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index f54f426..25590d1 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -3627,6 +3627,12 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
->>               rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
->>       }
->>
->> +     if (rt == net->ipv6.ip6_null_entry) {
->> +             ip6_rt_put(rt);
->> +             err = -ENOENT;
->> +             goto errout;
->> +     }
->> +
->>       skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
->>       if (!skb) {
->>               ip6_rt_put(rt);
->>
+On Tue, Feb 28, 2017 at 2:32 AM, Davide Caratti <dcaratti@redhat.com> wrote:
+> Introduce skb->csum_not_inet to identify not-yet-checksummed SCTP packets.
+> Use this bit in combination with netdev feature bit in validate_xmit_skb,
+> to discriminate whether skb needs crc32c or 2-complement Internet Checksum
+> (or none of the two, when the underlying device can do checksum offload).
 >
-> hold on. That test exposed something else, not just a getroute problem.
-> I accidentally ran 'unsahre -n; ip -6 ro ls' on my host machine instead
-> of a VM, so took some time to recover. dumproute already covers the null
-> route.
+> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+> ---
+>  include/linux/skbuff.h                |  1 +
+>  net/core/dev.c                        | 14 ++++++++++++--
+>  net/netfilter/ipvs/ip_vs_proto_sctp.c |  1 +
+>  net/netfilter/nf_nat_proto_sctp.c     |  1 +
+>  net/sched/act_csum.c                  |  1 +
+>  net/sctp/output.c                     |  1 +
+>  6 files changed, 17 insertions(+), 2 deletions(-)
 >
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 0671131..236b7d9 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -759,6 +759,7 @@ struct sk_buff {
+>         __u8                    tc_redirected:1;
+>         __u8                    tc_from_ingress:1;
+>  #endif
+> +       __u8                    csum_not_inet:1;
+>
+Unfortunately this potentially pushes the skbuf flags over 32 bits if
+I count correctly. I suggest that you rename csum_bad to
+csum_not_inet. Looks like csum_bad is only set by a grand total of one
+driver and I don't believe that is enough to justify its existence.
+It's probably a good time to remove it.
 
-Of course, you already stated it in your commit:
+>  #ifdef CONFIG_NET_SCHED
+>         __u16                   tc_index;       /* traffic control index */
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index b9fb843..fae3217 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2614,6 +2614,7 @@ int skb_sctp_csum_help(struct sk_buff *skb)
+>         }
+>         *(__le32 *)(skb->data + offset) = crc32c_csum;
+>         skb->ip_summed = CHECKSUM_NONE;
+> +       skb->csum_not_inet = 0;
+>  out:
+>         return ret;
+>  }
+> @@ -2960,6 +2961,16 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
+>         return skb;
+>  }
+>
+> +static int skb_csum_hwoffload_help(struct sk_buff *skb,
+> +                                  netdev_features_t features)
+> +{
+> +       if (unlikely(skb->csum_not_inet))
+> +               return !(features & NETIF_F_SCTP_CRC) ?
+> +                               skb_sctp_csum_help(skb) : 0;
+> +
+Return value looks complex. Maybe we should just change
+skb_csum_*_help to return bool, true of checksum was handled false if
+not.
 
-    ip6_null_entry is the root of all ipv6 fib tables making it integrated
-    into the table and hence passed to the ipv6 route dump code. The
-    null_entry route uses the loopback device for dst.dev but may not have
-    rt6i_idev set because of the order in which initializations are done --
-    ip6_route_net_init is run before addrconf_init has initialized the
-    loopback device. Fixing the initialization order is a much bigger problem
-    with no obvious solution thus far.
-
-    The BUG is triggered when the loopback is set down and the netif_running
-    check added by a1a22c1206 fails. The fill_node descends to checking
-    rt->rt6i_idev for ignore_routes_with_linkdown and since rt6i_idev is
-    NULL it faults.
-
-    The null_entry route should not be processed in a dump request. Catch
-    and ignore. This check is done in rt6_dump_route as it is the highest
-    place in the callchain with knowledge of both the route and the network
-    namespace.
-
-which is why I omit it.
-
-The rt->rt6i_idev = in6_dev_get(loopback_dev) is apparently not correct,
-at that time loopback_dev is just registered and not up or running, its
-in6_dev pointer should be NULL, we need to listen to inet6addr event to
-make it non-NULL. I thought you apparently knew this...
+> +       return !(features & NETIF_F_CSUM_MASK) ? skb_checksum_help(skb) : 0;
+> +}
+> +
+>  static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+>  {
+>         netdev_features_t features;
+> @@ -2995,8 +3006,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+>                         else
+>                                 skb_set_transport_header(skb,
+>                                                          skb_checksum_start_offset(skb));
+> -                       if (!(features & NETIF_F_CSUM_MASK) &&
+> -                           skb_checksum_help(skb))
+> +                       if (skb_csum_hwoffload_help(skb, features))
+>                                 goto out_kfree_skb;
+>                 }
+>         }
+> diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+> index d952d67..4972a60 100644
+> --- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
+> +++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+> @@ -81,6 +81,7 @@ static void sctp_nat_csum(struct sk_buff *skb, sctp_sctphdr_t *sctph,
+>                           unsigned int sctphoff)
+>  {
+>         sctph->checksum = sctp_compute_cksum(skb, sctphoff);
+> +       skb->csum_not_inet = 0;
+>         skb->ip_summed = CHECKSUM_UNNECESSARY;
+>  }
+>
+> diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
+> index 31d3586..9459b88 100644
+> --- a/net/netfilter/nf_nat_proto_sctp.c
+> +++ b/net/netfilter/nf_nat_proto_sctp.c
+> @@ -49,6 +49,7 @@ sctp_manip_pkt(struct sk_buff *skb,
+>
+>         if (skb->ip_summed != CHECKSUM_PARTIAL) {
+>                 hdr->checksum = sctp_compute_cksum(skb, hdroff);
+> +               skb->csum_not_inet = 0;
+>                 skb->ip_summed = CHECKSUM_NONE;
+>         }
+>
+> diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
+> index e978ccd4..85cb150 100644
+> --- a/net/sched/act_csum.c
+> +++ b/net/sched/act_csum.c
+> @@ -337,6 +337,7 @@ static int tcf_csum_sctp(struct sk_buff *skb, unsigned int ihl,
+>
+>         sctph->checksum = sctp_compute_cksum(skb,
+>                                              skb_network_offset(skb) + ihl);
+> +       skb->csum_not_inet = 0;
+>         skb->ip_summed = CHECKSUM_NONE;
+>
+>         return 1;
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 814eac0..0dc227b 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -528,6 +528,7 @@ static int sctp_packet_pack(struct sctp_packet *packet,
+>         } else {
+>  chksum:
+>                 head->ip_summed = CHECKSUM_PARTIAL;
+> +               head->csum_not_inet = 1;
+>                 head->csum_start = skb_transport_header(head) - head->head;
+>                 head->csum_offset = offsetof(struct sctphdr, checksum);
+>         }
+> --
+> 2.7.4
+>
