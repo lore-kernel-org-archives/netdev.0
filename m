@@ -1,7 +1,7 @@
 From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH] net: don't call strlen() on the user buffer in packet_bind_spkt()
-Date: Tue, 28 Feb 2017 14:29:02 +0100
-Message-ID: <20170228132902.123061-1-glider@google.com>
+Subject: [PATCH v2] net: don't call strlen() on the user buffer in packet_bind_spkt()
+Date: Tue, 28 Feb 2017 14:29:31 +0100
+Message-ID: <20170228132931.123155-1-glider@google.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: dvyukov@google.com, kcc@google.com, edumazet@google.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -76,11 +76,14 @@ buffer.
 
 Signed-off-by: Alexander Potapenko <glider@google.com>
 ---
+Changes since v1:
+ - copy no more than 14 bytes
+---
  net/packet/af_packet.c | 6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2bd0d1949312..1e7992f3e0a8 100644
+index 2bd0d1949312..ac6b3c77a52e 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
 @@ -3111,7 +3111,11 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
@@ -92,7 +95,7 @@ index 2bd0d1949312..1e7992f3e0a8 100644
 +	 * zero-terminated.
 +	 */
 +	name[14] = '\0';
-+	strncpy(name, uaddr->sa_data, sizeof(name));
++	strncpy(name, uaddr->sa_data, sizeof(name) - 1);
  
  	return packet_do_bind(sk, name, 0, pkt_sk(sk)->num);
  }
