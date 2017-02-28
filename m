@@ -1,7 +1,7 @@
 From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH RFC net-next v2 3/4] net: more accurate checksumming in validate_xmit_skb
-Date: Tue, 28 Feb 2017 11:32:47 +0100
-Message-ID: <03f4d4bb40e78f228923dd61bc3d30f737a7621e.1488199633.git.dcaratti@redhat.com>
+Subject: [PATCH RFC net-next v2 4/4] Documentation: update notes on checksum offloading
+Date: Tue, 28 Feb 2017 11:32:48 +0100
+Message-ID: <6be6b03bc09e4c15a9fd3c05847b22d4d3debff9.1488199633.git.dcaratti@redhat.com>
 References: <1488202783.2713.67.camel@redhat.com>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
@@ -10,129 +10,103 @@ Cc: "David S . Miller" <davem@davemloft.net>,
 To: David Laight <David.Laight@ACULAB.COM>,
         Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55778 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58946 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751737AbdB1Kf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Feb 2017 05:35:29 -0500
+        id S1751989AbdB1Kkd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Feb 2017 05:40:33 -0500
 In-Reply-To: <1488202783.2713.67.camel@redhat.com>
 In-Reply-To: <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
 References: <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce skb->csum_not_inet to identify not-yet-checksummed SCTP packets.
-Use this bit in combination with netdev feature bit in validate_xmit_skb,
-to discriminate whether skb needs crc32c or 2-complement Internet Checksum
-(or none of the two, when the underlying device can do checksum offload).
+Add description of skb_sctp_csum_help in networking/checksum-offload.txt,
+and document its usage in combination with skb->csum_not_inet. While at
+it, remove reference to skb_csum_off_chk* functions, since they have been
+removed from Linux source tree since commit cf53b1da73bd ("Revert "net:
+Add driver helper functions to determine checksum""), and add missing
+explaination of CHECKSUM_UNNECESSARY for FCOE protocol.
 
 Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 ---
- include/linux/skbuff.h                |  1 +
- net/core/dev.c                        | 14 ++++++++++++--
- net/netfilter/ipvs/ip_vs_proto_sctp.c |  1 +
- net/netfilter/nf_nat_proto_sctp.c     |  1 +
- net/sched/act_csum.c                  |  1 +
- net/sctp/output.c                     |  1 +
- 6 files changed, 17 insertions(+), 2 deletions(-)
+ Documentation/networking/checksum-offloads.txt |  7 ++++---
+ include/linux/skbuff.h                         | 25 ++++++++++++-------------
+ 2 files changed, 16 insertions(+), 16 deletions(-)
 
+diff --git a/Documentation/networking/checksum-offloads.txt b/Documentation/networking/checksum-offloads.txt
+index 56e3686..81534e9 100644
+--- a/Documentation/networking/checksum-offloads.txt
++++ b/Documentation/networking/checksum-offloads.txt
+@@ -49,8 +49,8 @@ A driver declares its offload capabilities in netdev->hw_features; see
+  and csum_offset given in the SKB; if it tries to deduce these itself in
+  hardware (as some NICs do) the driver should check that the values in the
+  SKB match those which the hardware will deduce, and if not, fall back to
+- checksumming in software instead (with skb_checksum_help or one of the
+- skb_csum_off_chk* functions as mentioned in include/linux/skbuff.h).  This
++ checksumming in software instead (with skb_checksum_help or
++ skb_sctp_csum_help functions as mentioned in include/linux/skbuff.h). This
+  is a pain, but that's what you get when hardware tries to be clever.
+ 
+ The stack should, for the most part, assume that checksum offload is
+@@ -60,7 +60,8 @@ The stack should, for the most part, assume that checksum offload is
+  may include other offloads besides TX Checksum Offload) and, if they are
+  not supported or enabled on the device (determined by netdev->features),
+  performs the corresponding offload in software.  In the case of TX
+- Checksum Offload, that means calling skb_checksum_help(skb).
++ Checksum Offload, that means calling skb_sctp_csum_help(skb) for SCTP
++ packets, and skb_checksum_help(skb) for other packets.
+ 
+ 
+ LCO: Local Checksum Offload
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0671131..236b7d9 100644
+index 236b7d9..12d3625 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -759,6 +759,7 @@ struct sk_buff {
- 	__u8			tc_redirected:1;
- 	__u8			tc_from_ingress:1;
- #endif
-+	__u8			csum_not_inet:1;
- 
- #ifdef CONFIG_NET_SCHED
- 	__u16			tc_index;	/* traffic control index */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b9fb843..fae3217 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2614,6 +2614,7 @@ int skb_sctp_csum_help(struct sk_buff *skb)
- 	}
- 	*(__le32 *)(skb->data + offset) = crc32c_csum;
- 	skb->ip_summed = CHECKSUM_NONE;
-+	skb->csum_not_inet = 0;
- out:
- 	return ret;
- }
-@@ -2960,6 +2961,16 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
- 	return skb;
- }
- 
-+static int skb_csum_hwoffload_help(struct sk_buff *skb,
-+				   netdev_features_t features)
-+{
-+	if (unlikely(skb->csum_not_inet))
-+		return !(features & NETIF_F_SCTP_CRC) ?
-+				skb_sctp_csum_help(skb) : 0;
-+
-+	return !(features & NETIF_F_CSUM_MASK) ? skb_checksum_help(skb) : 0;
-+}
-+
- static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
- {
- 	netdev_features_t features;
-@@ -2995,8 +3006,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
- 			else
- 				skb_set_transport_header(skb,
- 							 skb_checksum_start_offset(skb));
--			if (!(features & NETIF_F_CSUM_MASK) &&
--			    skb_checksum_help(skb))
-+			if (skb_csum_hwoffload_help(skb, features))
- 				goto out_kfree_skb;
- 		}
- 	}
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index d952d67..4972a60 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -81,6 +81,7 @@ static void sctp_nat_csum(struct sk_buff *skb, sctp_sctphdr_t *sctph,
- 			  unsigned int sctphoff)
- {
- 	sctph->checksum = sctp_compute_cksum(skb, sctphoff);
-+	skb->csum_not_inet = 0;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- }
- 
-diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
-index 31d3586..9459b88 100644
---- a/net/netfilter/nf_nat_proto_sctp.c
-+++ b/net/netfilter/nf_nat_proto_sctp.c
-@@ -49,6 +49,7 @@ sctp_manip_pkt(struct sk_buff *skb,
- 
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
- 		hdr->checksum = sctp_compute_cksum(skb, hdroff);
-+		skb->csum_not_inet = 0;
- 		skb->ip_summed = CHECKSUM_NONE;
- 	}
- 
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index e978ccd4..85cb150 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -337,6 +337,7 @@ static int tcf_csum_sctp(struct sk_buff *skb, unsigned int ihl,
- 
- 	sctph->checksum = sctp_compute_cksum(skb,
- 					     skb_network_offset(skb) + ihl);
-+	skb->csum_not_inet = 0;
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	return 1;
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 814eac0..0dc227b 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -528,6 +528,7 @@ static int sctp_packet_pack(struct sctp_packet *packet,
- 	} else {
- chksum:
- 		head->ip_summed = CHECKSUM_PARTIAL;
-+		head->csum_not_inet = 1;
- 		head->csum_start = skb_transport_header(head) - head->head;
- 		head->csum_offset = offsetof(struct sctphdr, checksum);
- 	}
+@@ -108,6 +108,7 @@
+  *       may perform further validation in this case.
+  *     GRE: only if the checksum is present in the header.
+  *     SCTP: indicates the CRC in SCTP header has been validated.
++ *     FCOE: indicates the CRC in FC frame has been validated.
+  *
+  *   skb->csum_level indicates the number of consecutive checksums found in
+  *   the packet minus one that have been verified as CHECKSUM_UNNECESSARY.
+@@ -161,14 +162,13 @@
+  *
+  *   NETIF_F_IP_CSUM and NETIF_F_IPV6_CSUM are being deprecated in favor of
+  *   NETIF_F_HW_CSUM. New devices should use NETIF_F_HW_CSUM to indicate
+- *   checksum offload capability. If a	device has limited checksum capabilities
+- *   (for instance can only perform NETIF_F_IP_CSUM or NETIF_F_IPV6_CSUM as
+- *   described above) a helper function can be called to resolve
+- *   CHECKSUM_PARTIAL. The helper functions are skb_csum_off_chk*. The helper
+- *   function takes a spec argument that describes the protocol layer that is
+- *   supported for checksum offload and can be called for each packet. If a
+- *   packet does not match the specification for offload, skb_checksum_help
+- *   is called to resolve the checksum.
++ *   checksum offload capability. If a device has limited checksum capabilities
++ *   (for instance it can't perform NETIF_F_IP_CSUM or NETIF_F_IPV6_CSUM as
++ *   described above) a helper function (namely skb_csum_hwoffload_help) can
++ *   be called to resolve CHECKSUM_PARTIAL. This function uses netdev_features_t
++ *   to have the Internet Checksum computed by HW, in case any feature belonging
++ *   to NETIF_F_CSUM_MASK is set, or by software using skb_checksum_help().
++ *   See also Section D.
+  *
+  * CHECKSUM_NONE:
+  *
+@@ -189,11 +189,10 @@
+  *   NETIF_F_SCTP_CRC - This feature indicates that a device is capable of
+  *     offloading the SCTP CRC in a packet. To perform this offload the stack
+  *     will set ip_summed to CHECKSUM_PARTIAL and set csum_start and csum_offset
+- *     accordingly. Note the there is no indication in the skbuff that the
+- *     CHECKSUM_PARTIAL refers to an SCTP checksum, a driver that supports
+- *     both IP checksum offload and SCTP CRC offload must verify which offload
+- *     is configured for a packet presumably by inspecting packet headers; in
+- *     case, skb_sctp_csum_help is provided to compute CRC on SCTP packets.
++ *     accordingly. skb->csum_not_inet is an indication in the skbuff that the
++ *     CHECKSUM_PARTIAL refers to an SCTP checksum: a driver can use it to
++ *     decide whether skb_checksum_help() or skb_sctp_csum_help() have to be
++ *     called on a sk_buff having ip_summed set to CHECKSUM_PARTIAL.
+  *
+  *   NETIF_F_FCOE_CRC - This feature indicates that a device is capable of
+  *     offloading the FCOE CRC in a packet. To perform this offload the stack
 -- 
 2.7.4
