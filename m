@@ -1,40 +1,79 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Tue, 28 Feb 2017 14:25:31 -0800
-Message-ID: <CALCETrVQj1AEsLEGGkWW1zApGz6_x2rDmE0wz4ft+O5h07f_Ug@mail.gmail.com>
-References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
- <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
- <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
- <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
- <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com> <1488318476.9415.270.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [Patch net] ipv6: ignore null_entry in inet6_rtm_getroute() too
+Date: Tue, 28 Feb 2017 14:35:22 -0800
+Message-ID: <e4c27c86-b97a-e37b-c2a3-8329f1a7301c@cumulusnetworks.com>
+References: <1488307478-10081-1-git-send-email-xiyou.wangcong@gmail.com>
+ <ee659bf6-789f-edc0-a668-db1c4b0abb20@cumulusnetworks.com>
+ <CAM_iQpXEYQbGzJNO6E5kb6pUGTcDuZdupFj8xtiRG5Vx836j8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1488318476.9415.270.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:34495 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751556AbdB1Wff (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 17:35:35 -0500
+Received: by mail-pg0-f41.google.com with SMTP id p5so11405951pga.1
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 14:35:23 -0800 (PST)
+In-Reply-To: <CAM_iQpXEYQbGzJNO6E5kb6pUGTcDuZdupFj8xtiRG5Vx836j8g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2017 at 1:47 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Tue, 2017-02-28 at 13:09 -0800, Andy Lutomirski wrote:
->
->> Does this mean that a user program that does a zerocopy send can cause
->> a retransmitted segment to contain different data than the original
->> segment?  If so, is that okay?
->
-> Same remark applies to sendfile() already
+On 2/28/17 11:48 AM, Cong Wang wrote:
+> On Tue, Feb 28, 2017 at 11:01 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>> On 2/28/17 10:44 AM, Cong Wang wrote:
+>>> Like commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route dumps"),
+>>> we need to ignore null entry in inet6_rtm_getroute() too.
+>>>
+>>> Return -ENOENT here because we return the same errno when deleting
+>>> the null entry.
+>>>
+>>> Fixes: a1a22c1206 ("net: ipv6: Keep nexthop of multipath route on admin down")
+>>> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>>> Cc: David Ahern <dsa@cumulusnetworks.com>
+>>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>> ---
+>>>  net/ipv6/route.c | 6 ++++++
+>>>  1 file changed, 6 insertions(+)
+>>>
+>>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>>> index f54f426..25590d1 100644
+>>> --- a/net/ipv6/route.c
+>>> +++ b/net/ipv6/route.c
+>>> @@ -3627,6 +3627,12 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+>>>               rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
+>>>       }
+>>>
+>>> +     if (rt == net->ipv6.ip6_null_entry) {
+>>> +             ip6_rt_put(rt);
+>>> +             err = -ENOENT;
+>>> +             goto errout;
+>>> +     }
+>>> +
+>>>       skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+>>>       if (!skb) {
+>>>               ip6_rt_put(rt);
+>>>
+>>
+>> hold on. That test exposed something else, not just a getroute problem.
+>> I accidentally ran 'unsahre -n; ip -6 ro ls' on my host machine instead
+>> of a VM, so took some time to recover. dumproute already covers the null
+>> route.
 
-True.
+My host was running a slightly older kernel (did not have the null_entry
+check in the dump route path for one).
 
->, or other zero copy modes
-> (vmsplice() + splice() )
+As for trapping null_entry on getroute, this changes user experience.
+Right now you always get a route response for IPv6 with the error set as
+rta_error. This patch changes that. I am fine with it since it makes
+IPv6 more like IPv4:
 
-I hate vmsplice().  I thought I remembered it being essentially
-disabled at some point due to security problems.
+# ip -6 ro get 2001:db8:12::1
+RTNETLINK answers: Network is unreachable
 
->
+But, if we are going to do this then err should be set based on
+rt->dst.error (ENOENT is not the right error) and the commit message
+should state the change.
