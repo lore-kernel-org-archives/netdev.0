@@ -1,36 +1,62 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: net: GPF in rt6_nexthop_info
-Date: Tue, 28 Feb 2017 15:14:40 -0800
-Message-ID: <CANn89iK3qKO6-rr+pNwuk7p--SB9a1sjar00TRN=T_uuh+QZuw@mail.gmail.com>
-References: <CACT4Y+b44zwroCAg8QhNZQ5PX-ObhoKQW6VCFC9rt46JijYPYQ@mail.gmail.com>
- <1488287417.9415.237.camel@edumazet-glaptop3.roam.corp.google.com> <1a390cbd-1d99-a739-ed94-e0c9d1eecb4a@cumulusnetworks.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
+Date: Tue, 28 Feb 2017 14:52:28 -0800
+Message-ID: <CALCETrXqO=ptrcHs0kLLfqA2nskGck4ntAnsaJdcjmqNuoVfNQ@mail.gmail.com>
+References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+ <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
+ <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
+ <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
+ <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
+ <1488318476.9415.270.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALCETrVQj1AEsLEGGkWW1zApGz6_x2rDmE0wz4ft+O5h07f_Ug@mail.gmail.com> <1488321643.9415.272.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
         netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Yuchung Cheng <ycheng@google.com>,
         Willem de Bruijn <willemb@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1a390cbd-1d99-a739-ed94-e0c9d1eecb4a@cumulusnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Linux API <linux-api@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f171.google.com ([209.85.217.171]:35094 "EHLO
+        mail-ua0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751726AbdB1XST (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 18:18:19 -0500
+Received: by mail-ua0-f171.google.com with SMTP id q7so174094uaf.2
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 15:18:18 -0800 (PST)
+In-Reply-To: <1488321643.9415.272.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2017 at 3:09 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 2/28/17 5:10 AM, Eric Dumazet wrote:
->> David, rt->rt6i_idev can be NULL.
+On Tue, Feb 28, 2017 at 2:40 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-02-28 at 14:25 -0800, Andy Lutomirski wrote:
+>> On Tue, Feb 28, 2017 at 1:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Tue, 2017-02-28 at 13:09 -0800, Andy Lutomirski wrote:
+>> >
+>> >> Does this mean that a user program that does a zerocopy send can cause
+>> >> a retransmitted segment to contain different data than the original
+>> >> segment?  If so, is that okay?
+>> >
+>> > Same remark applies to sendfile() already
+>>
+>> True.
+>>
+>> >, or other zero copy modes
+>> > (vmsplice() + splice() )
+>>
+>> I hate vmsplice().  I thought I remembered it being essentially
+>> disabled at some point due to security problems.
 >
-> Do you know of an example where rt6i_idev can be NULL - besides the
-> null_entry rt which is null only because of init order?
+> Right, zero copy is hard ;)
+>
+> vmsplice() is not disabled in current kernels, unless I missed
+> something.
+>
 
+I think you're right.  That being said, from the man page:
 
-I might have been mistaken, but many points in net/ipv6/route.c test
-rt->rt6i_idev being NULL or not before dereferencing it.
+The user pages are a gift to the kernel.  The application  may  not
+modify this memory ever, otherwise the page cache and on-disk data may
+differ.
 
-Maybe other rts (other than null_entry) share this property.
+This is just not okay IMO.
