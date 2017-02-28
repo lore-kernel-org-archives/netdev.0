@@ -1,108 +1,50 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH net v4 1/2] net: ethernet: bgmac: init sequence bug
-Date: Tue, 28 Feb 2017 13:41:50 -0500
-Message-ID: <1488307311-11933-2-git-send-email-jon.mason@broadcom.com>
-References: <1488307311-11933-1-git-send-email-jon.mason@broadcom.com>
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Zac Schroff <zschroff@broadcom.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1488307311-11933-1-git-send-email-jon.mason@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ipv6: ignore null_entry in inet6_rtm_getroute() too
+Date: Tue, 28 Feb 2017 10:44:38 -0800
+Message-ID: <1488307478-10081-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:32775 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751527AbdB1Sy2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 13:54:28 -0500
+Received: by mail-pg0-f66.google.com with SMTP id x17so2556205pgi.0
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 10:53:13 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix a bug in the 'bgmac' driver init sequence that blind writes for init
-sequence where it should preserve most bits other than the ones it is
-deliberately manipulating.
+Like commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route dumps"),
+we need to ignore null entry in inet6_rtm_getroute() too.
 
-The code now checks to see if the adapter needs to be brought out of
-reset (where as before it was doing an IDM write to bring it out of
-reset regardless of whether it was in reset or not).  Also, removed
-unnecessary usleeps (as there is already a read present to flush the
-IDM writes).
+Return -ENOENT here because we return the same errno when deleting
+the null entry.
 
-Signed-off-by: Zac Schroff <zschroff@broadcom.com>
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-Fixes: f6a95a24957 ("net: ethernet: bgmac: Add platform device support")
+Fixes: a1a22c1206 ("net: ipv6: Keep nexthop of multipath route on admin down")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bgmac-platform.c | 27 +++++++++++++++++---------
- drivers/net/ethernet/broadcom/bgmac.h          | 16 +++++++++++++++
- 2 files changed, 34 insertions(+), 9 deletions(-)
+ net/ipv6/route.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
-index 7b1af95..da1b8b2 100644
---- a/drivers/net/ethernet/broadcom/bgmac-platform.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
-@@ -51,8 +51,7 @@ static void platform_bgmac_idm_write(struct bgmac *bgmac, u16 offset, u32 value)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f54f426..25590d1 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3627,6 +3627,12 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 		rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
+ 	}
  
- static bool platform_bgmac_clk_enabled(struct bgmac *bgmac)
- {
--	if ((bgmac_idm_read(bgmac, BCMA_IOCTL) &
--	     (BCMA_IOCTL_CLK | BCMA_IOCTL_FGC)) != BCMA_IOCTL_CLK)
-+	if ((bgmac_idm_read(bgmac, BCMA_IOCTL) & BGMAC_CLK_EN) != BGMAC_CLK_EN)
- 		return false;
- 	if (bgmac_idm_read(bgmac, BCMA_RESET_CTL) & BCMA_RESET_CTL_RESET)
- 		return false;
-@@ -61,15 +60,25 @@ static bool platform_bgmac_clk_enabled(struct bgmac *bgmac)
- 
- static void platform_bgmac_clk_enable(struct bgmac *bgmac, u32 flags)
- {
--	bgmac_idm_write(bgmac, BCMA_IOCTL,
--			(BCMA_IOCTL_CLK | BCMA_IOCTL_FGC | flags));
--	bgmac_idm_read(bgmac, BCMA_IOCTL);
-+	u32 val;
- 
--	bgmac_idm_write(bgmac, BCMA_RESET_CTL, 0);
--	bgmac_idm_read(bgmac, BCMA_RESET_CTL);
--	udelay(1);
-+	/* The Reset Control register only contains a single bit to show if the
-+	 * controller is currently in reset.  Do a sanity check here, just in
-+	 * case the bootloader happened to leave the device in reset.
-+	 */
-+	val = bgmac_idm_read(bgmac, BCMA_RESET_CTL);
-+	if (val) {
-+		bgmac_idm_write(bgmac, BCMA_RESET_CTL, 0);
-+		bgmac_idm_read(bgmac, BCMA_RESET_CTL);
-+		udelay(1);
++	if (rt == net->ipv6.ip6_null_entry) {
++		ip6_rt_put(rt);
++		err = -ENOENT;
++		goto errout;
 +	}
- 
--	bgmac_idm_write(bgmac, BCMA_IOCTL, (BCMA_IOCTL_CLK | flags));
-+	val = bgmac_idm_read(bgmac, BCMA_IOCTL);
-+	/* Some bits of BCMA_IOCTL set by HW/ATF and should not change */
-+	val |= flags & ~(BGMAC_AWCACHE | BGMAC_ARCACHE | BGMAC_AWUSER |
-+			 BGMAC_ARUSER);
-+	val |= BGMAC_CLK_EN;
-+	bgmac_idm_write(bgmac, BCMA_IOCTL, val);
- 	bgmac_idm_read(bgmac, BCMA_IOCTL);
- 	udelay(1);
- }
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index 248727d..6d1c6ff 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -213,6 +213,22 @@
- /* BCMA GMAC core specific IO Control (BCMA_IOCTL) flags */
- #define BGMAC_BCMA_IOCTL_SW_CLKEN		0x00000004	/* PHY Clock Enable */
- #define BGMAC_BCMA_IOCTL_SW_RESET		0x00000008	/* PHY Reset */
-+/* The IOCTL values appear to be different in NS, NSP, and NS2, and do not match
-+ * the values directly above
-+ */
-+#define BGMAC_CLK_EN				BIT(0)
-+#define BGMAC_RESERVED_0			BIT(1)
-+#define BGMAC_SOURCE_SYNC_MODE_EN		BIT(2)
-+#define BGMAC_DEST_SYNC_MODE_EN			BIT(3)
-+#define BGMAC_TX_CLK_OUT_INVERT_EN		BIT(4)
-+#define BGMAC_DIRECT_GMII_MODE			BIT(5)
-+#define BGMAC_CLK_250_SEL			BIT(6)
-+#define BGMAC_AWCACHE				(0xf << 7)
-+#define BGMAC_RESERVED_1			(0x1f << 11)
-+#define BGMAC_ARCACHE				(0xf << 16)
-+#define BGMAC_AWUSER				(0x3f << 20)
-+#define BGMAC_ARUSER				(0x3f << 26)
-+#define BGMAC_RESERVED				BIT(31)
- 
- /* BCMA GMAC core specific IO status (BCMA_IOST) flags */
- #define BGMAC_BCMA_IOST_ATTACHED		0x00000800
++
+ 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+ 	if (!skb) {
+ 		ip6_rt_put(rt);
 -- 
-2.7.4
+2.5.5
