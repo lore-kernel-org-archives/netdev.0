@@ -1,63 +1,43 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH] net: qcom/emac: optimize QDF2400 SGMII RX/TX impedence values
-Date: Tue, 28 Feb 2017 17:16:02 -0600
-Message-ID: <1488323762-15195-1-git-send-email-timur@codeaurora.org>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net v1 3/3] amd-xgbe: Don't overwrite SFP PHY mod_absent
+ settings
+Date: Tue, 28 Feb 2017 15:03:10 -0600
+Message-ID: <20170228210310.32166.14230.stgit@tlendack-t1.amdoffice.net>
+References: <20170228210242.32166.30038.stgit@tlendack-t1.amdoffice.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:53312 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751451AbdB1XlS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 18:41:18 -0500
+Received: from mail-sn1nam02on0086.outbound.protection.outlook.com ([104.47.36.86]:1680
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751534AbdB1Xob (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Feb 2017 18:44:31 -0500
+In-Reply-To: <20170228210242.32166.30038.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adjust the impedance values of the RX and TX lanes in the SGMII block
-so that they are closer to optimal values.
+If an SFP module is not present, xgbe_phy_sfp_phy_settings() should
+return after applying the default settings. Currently there is no return
+statement and the default settings are overwritten.
 
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c
-index f62c215..7116be4 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c
-@@ -26,6 +26,7 @@
- 
- /* SGMII digital lane registers */
- #define EMAC_SGMII_LN_DRVR_CTRL0		0x000C
-+#define EMAC_SGMII_LN_DRVR_CTRL1		0x0010
- #define EMAC_SGMII_LN_DRVR_TAP_EN		0x0018
- #define EMAC_SGMII_LN_TX_MARGINING		0x001C
- #define EMAC_SGMII_LN_TX_PRE			0x0020
-@@ -48,6 +49,7 @@
- #define EMAC_SGMII_LN_RX_EN_SIGNAL		0x02AC
- #define EMAC_SGMII_LN_RX_MISC_CNTRL0		0x02B8
- #define EMAC_SGMII_LN_DRVR_LOGIC_CLKDIV		0x02C8
-+#define EMAC_SGMII_LN_RX_RESECODE_OFFSET	0x02CC
- 
- /* SGMII digital lane register values */
- #define UCDR_STEP_BY_TWO_MODE0			BIT(7)
-@@ -73,6 +75,8 @@
- #define CML_GEAR_MODE(x)			(((x) & 7) << 3)
- #define CML2CMOS_IBOOST_MODE(x)			((x) & 7)
- 
-+#define RESCODE_OFFSET(x)			((x) & 0x1f)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+index 04804cb..e707c49 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+@@ -716,6 +716,8 @@ static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
+ 		pdata->phy.duplex = DUPLEX_UNKNOWN;
+ 		pdata->phy.autoneg = AUTONEG_ENABLE;
+ 		pdata->phy.advertising = pdata->phy.supported;
 +
- #define MIXER_LOADB_MODE(x)			(((x) & 0xf) << 2)
- #define MIXER_DATARATE_MODE(x)			((x) & 3)
++		return;
+ 	}
  
-@@ -159,6 +163,8 @@ static void emac_reg_write_all(void __iomem *base,
- 	{EMAC_SGMII_LN_PARALLEL_RATE, PARALLEL_RATE_MODE0(1)},
- 	{EMAC_SGMII_LN_TX_BAND_MODE, BAND_MODE0(1)},
- 	{EMAC_SGMII_LN_RX_BAND, BAND_MODE0(2)},
-+	{EMAC_SGMII_LN_DRVR_CTRL1, RESCODE_OFFSET(7)},
-+	{EMAC_SGMII_LN_RX_RESECODE_OFFSET, RESCODE_OFFSET(9)},
- 	{EMAC_SGMII_LN_LANE_MODE, LANE_MODE(26)},
- 	{EMAC_SGMII_LN_RX_RCVR_PATH1_MODE0, CDR_PD_SEL_MODE0(2) |
- 		EN_DLL_MODE0 | EN_IQ_DCC_MODE0 | EN_IQCAL_MODE0},
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+ 	pdata->phy.advertising &= ~ADVERTISED_Autoneg;
