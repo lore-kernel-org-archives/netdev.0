@@ -1,63 +1,143 @@
-From: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [patch] net/mlx4: && vs & typo
-Date: Tue, 28 Feb 2017 22:45:48 +0000
-Message-ID: <1D08B61A9CF0974AA09887BE32D889DA0C193A@ULS-OP-MBXIP03.sdcorp.global.sandisk.com>
-References: <20170228120215.GA27947@mwanda>
- <1488296129.3056.1.camel@sandisk.com> <1488320630.25838.39.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-        "eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org" <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        "yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: smsc: smc911x: use new api ethtool_{get|set}_link_ksettings
+Date: Tue, 28 Feb 2017 23:49:38 +0100
+Message-ID: <1488322178-26972-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, mugunthanvnm@ti.com, jarod@redhat.com,
+        felipe.balbi@linux.intel.com, a@unstable.cc, fw@strlen.de,
+        robert.jarzmik@free.fr, arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33541 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750957AbdB1Wtx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 17:49:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/28/2017 02:23 PM, Joe Perches wrote:=0A=
-> On Tue, 2017-02-28 at 15:35 +0000, Bart Van Assche wrote:=0A=
->> On Tue, 2017-02-28 at 15:02 +0300, Dan Carpenter wrote:=0A=
->>> Bitwise & was obviously intended here.=0A=
-> []=0A=
->>> diff --git a/include/linux/mlx4/driver.h b/include/linux/mlx4/driver.h=
-=0A=
-> []=0A=
->>> @@ -109,7 +109,7 @@ static inline void 	(u8 *addr, u64 mac)=0A=
->>>  	int i;=0A=
->>>  =0A=
->>>  	for (i =3D ETH_ALEN; i > 0; i--) {=0A=
->>> -		addr[i - 1] =3D mac && 0xFF;=0A=
->>> +		addr[i - 1] =3D mac & 0xFF;=0A=
->>>  		mac >>=3D 8;=0A=
->>>  	}=0A=
->>>  }=0A=
->>=0A=
->> Is this the only place where such a loop occurs?=0A=
-> =0A=
-> Seems to be.=0A=
-> =0A=
->> Should a put_unaligned_be48()=0A=
->> function be introduced?=0A=
-> =0A=
-> Why?  This is used exactly once.=0A=
-=0A=
-Really? Here is an example of another open-coded version of=0A=
-put_unaligned_be48() from arch/mips/cavium-octeon/octeon-platform.c:=0A=
-=0A=
-	new_mac[0] =3D (mac >> 40) & 0xff;=0A=
-	new_mac[1] =3D (mac >> 32) & 0xff;=0A=
-	new_mac[2] =3D (mac >> 24) & 0xff;=0A=
-	new_mac[3] =3D (mac >> 16) & 0xff;=0A=
-	new_mac[4] =3D (mac >> 8) & 0xff;=0A=
-	new_mac[5] =3D mac & 0xff;=0A=
-=0A=
-Bart.=0A=
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
+
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
+
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/smsc/smc911x.c |   51 ++++++++++++++++++----------------
+ 1 files changed, 27 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
+index 4f19c61..36307d3 100644
+--- a/drivers/net/ethernet/smsc/smc911x.c
++++ b/drivers/net/ethernet/smsc/smc911x.c
+@@ -1446,40 +1446,40 @@ static int smc911x_close(struct net_device *dev)
+  * Ethtool support
+  */
+ static int
+-smc911x_ethtool_getsettings(struct net_device *dev, struct ethtool_cmd *cmd)
++smc911x_ethtool_get_link_ksettings(struct net_device *dev,
++				   struct ethtool_link_ksettings *cmd)
+ {
+ 	struct smc911x_local *lp = netdev_priv(dev);
+ 	int ret, status;
+ 	unsigned long flags;
++	u32 supported;
+ 
+ 	DBG(SMC_DEBUG_FUNC, dev, "--> %s\n", __func__);
+-	cmd->maxtxpkt = 1;
+-	cmd->maxrxpkt = 1;
+ 
+ 	if (lp->phy_type != 0) {
+ 		spin_lock_irqsave(&lp->lock, flags);
+-		ret = mii_ethtool_gset(&lp->mii, cmd);
++		ret = mii_ethtool_get_link_ksettings(&lp->mii, cmd);
+ 		spin_unlock_irqrestore(&lp->lock, flags);
+ 	} else {
+-		cmd->supported = SUPPORTED_10baseT_Half |
++		supported = SUPPORTED_10baseT_Half |
+ 				SUPPORTED_10baseT_Full |
+ 				SUPPORTED_TP | SUPPORTED_AUI;
+ 
+ 		if (lp->ctl_rspeed == 10)
+-			ethtool_cmd_speed_set(cmd, SPEED_10);
++			cmd->base.speed = SPEED_10;
+ 		else if (lp->ctl_rspeed == 100)
+-			ethtool_cmd_speed_set(cmd, SPEED_100);
+-
+-		cmd->autoneg = AUTONEG_DISABLE;
+-		if (lp->mii.phy_id==1)
+-			cmd->transceiver = XCVR_INTERNAL;
+-		else
+-			cmd->transceiver = XCVR_EXTERNAL;
+-		cmd->port = 0;
++			cmd->base.speed = SPEED_100;
++
++		cmd->base.autoneg = AUTONEG_DISABLE;
++		cmd->base.port = 0;
+ 		SMC_GET_PHY_SPECIAL(lp, lp->mii.phy_id, status);
+-		cmd->duplex =
++		cmd->base.duplex =
+ 			(status & (PHY_SPECIAL_SPD_10FULL_ | PHY_SPECIAL_SPD_100FULL_)) ?
+ 				DUPLEX_FULL : DUPLEX_HALF;
++
++		ethtool_convert_legacy_u32_to_link_mode(
++			cmd->link_modes.supported, supported);
++
+ 		ret = 0;
+ 	}
+ 
+@@ -1487,7 +1487,8 @@ static int smc911x_close(struct net_device *dev)
+ }
+ 
+ static int
+-smc911x_ethtool_setsettings(struct net_device *dev, struct ethtool_cmd *cmd)
++smc911x_ethtool_set_link_ksettings(struct net_device *dev,
++				   const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct smc911x_local *lp = netdev_priv(dev);
+ 	int ret;
+@@ -1495,16 +1496,18 @@ static int smc911x_close(struct net_device *dev)
+ 
+ 	if (lp->phy_type != 0) {
+ 		spin_lock_irqsave(&lp->lock, flags);
+-		ret = mii_ethtool_sset(&lp->mii, cmd);
++		ret = mii_ethtool_set_link_ksettings(&lp->mii, cmd);
+ 		spin_unlock_irqrestore(&lp->lock, flags);
+ 	} else {
+-		if (cmd->autoneg != AUTONEG_DISABLE ||
+-			cmd->speed != SPEED_10 ||
+-			(cmd->duplex != DUPLEX_HALF && cmd->duplex != DUPLEX_FULL) ||
+-			(cmd->port != PORT_TP && cmd->port != PORT_AUI))
++		if (cmd->base.autoneg != AUTONEG_DISABLE ||
++		    cmd->base.speed != SPEED_10 ||
++		    (cmd->base.duplex != DUPLEX_HALF &&
++		     cmd->base.duplex != DUPLEX_FULL) ||
++		    (cmd->base.port != PORT_TP &&
++		     cmd->base.port != PORT_AUI))
+ 			return -EINVAL;
+ 
+-		lp->ctl_rfduplx = cmd->duplex == DUPLEX_FULL;
++		lp->ctl_rfduplx = cmd->base.duplex == DUPLEX_FULL;
+ 
+ 		ret = 0;
+ 	}
+@@ -1686,8 +1689,6 @@ static int smc911x_ethtool_geteeprom_len(struct net_device *dev)
+ }
+ 
+ static const struct ethtool_ops smc911x_ethtool_ops = {
+-	.get_settings	 = smc911x_ethtool_getsettings,
+-	.set_settings	 = smc911x_ethtool_setsettings,
+ 	.get_drvinfo	 = smc911x_ethtool_getdrvinfo,
+ 	.get_msglevel	 = smc911x_ethtool_getmsglevel,
+ 	.set_msglevel	 = smc911x_ethtool_setmsglevel,
+@@ -1698,6 +1699,8 @@ static int smc911x_ethtool_geteeprom_len(struct net_device *dev)
+ 	.get_eeprom_len = smc911x_ethtool_geteeprom_len,
+ 	.get_eeprom = smc911x_ethtool_geteeprom,
+ 	.set_eeprom = smc911x_ethtool_seteeprom,
++	.get_link_ksettings	 = smc911x_ethtool_get_link_ksettings,
++	.set_link_ksettings	 = smc911x_ethtool_set_link_ksettings,
+ };
+ 
+ /*
+-- 
+1.7.4.4
