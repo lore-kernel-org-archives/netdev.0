@@ -1,153 +1,21 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC net-next v2 3/4] net: more accurate checksumming in validate_xmit_skb
-Date: Tue, 28 Feb 2017 11:50:09 -0800
-Message-ID: <CALx6S36A3Ai=6HJqpdQAm4W0parSG2_KmHZOAmHwomZY78ePvQ@mail.gmail.com>
-References: <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
- <1488202783.2713.67.camel@redhat.com> <03f4d4bb40e78f228923dd61bc3d30f737a7621e.1488199633.git.dcaratti@redhat.com>
+From: Sagi Grimberg <sagi@grimberg.me>
+Subject: Re: [PATCH v1 2/4] nvmet-rdma: use generic inet_pton_with_scope
+Date: Tue, 28 Feb 2017 19:41:51 +0200
+Message-ID: <c4b59bb5-eae0-b976-0980-b61b4bff601d@grimberg.me>
+References: <1488217164-9221-1-git-send-email-sagi@grimberg.me>
+ <1488217164-9221-3-git-send-email-sagi@grimberg.me>
+ <20170228163510.GB26480@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Davide Caratti <dcaratti@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:34289 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751487AbdB1Tvl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 14:51:41 -0500
-Received: by mail-qk0-f193.google.com with SMTP id s186so5386103qkb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 11:50:10 -0800 (PST)
-In-Reply-To: <03f4d4bb40e78f228923dd61bc3d30f737a7621e.1488199633.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, target-devel@vger.kernel.org,
+        linux-nvme@lists.infradead.org
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <20170228163510.GB26480@infradead.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 28, 2017 at 2:32 AM, Davide Caratti <dcaratti@redhat.com> wrote:
-> Introduce skb->csum_not_inet to identify not-yet-checksummed SCTP packets.
-> Use this bit in combination with netdev feature bit in validate_xmit_skb,
-> to discriminate whether skb needs crc32c or 2-complement Internet Checksum
-> (or none of the two, when the underlying device can do checksum offload).
->
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
-> ---
->  include/linux/skbuff.h                |  1 +
->  net/core/dev.c                        | 14 ++++++++++++--
->  net/netfilter/ipvs/ip_vs_proto_sctp.c |  1 +
->  net/netfilter/nf_nat_proto_sctp.c     |  1 +
->  net/sched/act_csum.c                  |  1 +
->  net/sctp/output.c                     |  1 +
->  6 files changed, 17 insertions(+), 2 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 0671131..236b7d9 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -759,6 +759,7 @@ struct sk_buff {
->         __u8                    tc_redirected:1;
->         __u8                    tc_from_ingress:1;
->  #endif
-> +       __u8                    csum_not_inet:1;
->
-Unfortunately this potentially pushes the skbuf flags over 32 bits if
-I count correctly. I suggest that you rename csum_bad to
-csum_not_inet. Looks like csum_bad is only set by a grand total of one
-driver and I don't believe that is enough to justify its existence.
-It's probably a good time to remove it.
+> Please add a changelog and mention that this adds IPv6 support.
 
->  #ifdef CONFIG_NET_SCHED
->         __u16                   tc_index;       /* traffic control index */
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index b9fb843..fae3217 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2614,6 +2614,7 @@ int skb_sctp_csum_help(struct sk_buff *skb)
->         }
->         *(__le32 *)(skb->data + offset) = crc32c_csum;
->         skb->ip_summed = CHECKSUM_NONE;
-> +       skb->csum_not_inet = 0;
->  out:
->         return ret;
->  }
-> @@ -2960,6 +2961,16 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
->         return skb;
->  }
->
-> +static int skb_csum_hwoffload_help(struct sk_buff *skb,
-> +                                  netdev_features_t features)
-> +{
-> +       if (unlikely(skb->csum_not_inet))
-> +               return !(features & NETIF_F_SCTP_CRC) ?
-> +                               skb_sctp_csum_help(skb) : 0;
-> +
-Return value looks complex. Maybe we should just change
-skb_csum_*_help to return bool, true of checksum was handled false if
-not.
-
-> +       return !(features & NETIF_F_CSUM_MASK) ? skb_checksum_help(skb) : 0;
-> +}
-> +
->  static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
->  {
->         netdev_features_t features;
-> @@ -2995,8 +3006,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
->                         else
->                                 skb_set_transport_header(skb,
->                                                          skb_checksum_start_offset(skb));
-> -                       if (!(features & NETIF_F_CSUM_MASK) &&
-> -                           skb_checksum_help(skb))
-> +                       if (skb_csum_hwoffload_help(skb, features))
->                                 goto out_kfree_skb;
->                 }
->         }
-> diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-> index d952d67..4972a60 100644
-> --- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-> +++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-> @@ -81,6 +81,7 @@ static void sctp_nat_csum(struct sk_buff *skb, sctp_sctphdr_t *sctph,
->                           unsigned int sctphoff)
->  {
->         sctph->checksum = sctp_compute_cksum(skb, sctphoff);
-> +       skb->csum_not_inet = 0;
->         skb->ip_summed = CHECKSUM_UNNECESSARY;
->  }
->
-> diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
-> index 31d3586..9459b88 100644
-> --- a/net/netfilter/nf_nat_proto_sctp.c
-> +++ b/net/netfilter/nf_nat_proto_sctp.c
-> @@ -49,6 +49,7 @@ sctp_manip_pkt(struct sk_buff *skb,
->
->         if (skb->ip_summed != CHECKSUM_PARTIAL) {
->                 hdr->checksum = sctp_compute_cksum(skb, hdroff);
-> +               skb->csum_not_inet = 0;
->                 skb->ip_summed = CHECKSUM_NONE;
->         }
->
-> diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-> index e978ccd4..85cb150 100644
-> --- a/net/sched/act_csum.c
-> +++ b/net/sched/act_csum.c
-> @@ -337,6 +337,7 @@ static int tcf_csum_sctp(struct sk_buff *skb, unsigned int ihl,
->
->         sctph->checksum = sctp_compute_cksum(skb,
->                                              skb_network_offset(skb) + ihl);
-> +       skb->csum_not_inet = 0;
->         skb->ip_summed = CHECKSUM_NONE;
->
->         return 1;
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 814eac0..0dc227b 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -528,6 +528,7 @@ static int sctp_packet_pack(struct sctp_packet *packet,
->         } else {
->  chksum:
->                 head->ip_summed = CHECKSUM_PARTIAL;
-> +               head->csum_not_inet = 1;
->                 head->csum_start = skb_transport_header(head) - head->head;
->                 head->csum_offset = offsetof(struct sctphdr, checksum);
->         }
-> --
-> 2.7.4
->
+Will do, thanks!
