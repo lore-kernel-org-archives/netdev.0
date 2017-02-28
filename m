@@ -1,7 +1,7 @@
 From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH RFC net-next v2 1/4] skbuff: add stub to help computing crc32c on SCTP packets
-Date: Tue, 28 Feb 2017 11:32:45 +0100
-Message-ID: <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
+Subject: [PATCH RFC net-next v2 3/4] net: more accurate checksumming in validate_xmit_skb
+Date: Tue, 28 Feb 2017 11:32:47 +0100
+Message-ID: <03f4d4bb40e78f228923dd61bc3d30f737a7621e.1488199633.git.dcaratti@redhat.com>
 References: <1488202783.2713.67.camel@redhat.com>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
@@ -10,96 +10,129 @@ Cc: "David S . Miller" <davem@davemloft.net>,
 To: David Laight <David.Laight@ACULAB.COM>,
         Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40340 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55778 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751625AbdB1Kf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751737AbdB1Kf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 28 Feb 2017 05:35:29 -0500
 In-Reply-To: <1488202783.2713.67.camel@redhat.com>
+In-Reply-To: <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
+References: <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sctp_compute_checksum requires crc32c symbol (provided by libcrc32c), so
-it can't be used in net core. Like it has been done previously with other
-symbols (e.g. ipv6_dst_lookup), introduce a stub struct skb_checksum_ops
-to allow computation of SCTP checksum in net core after sctp.ko (and thus
-libcrc32c) has been loaded.
+Introduce skb->csum_not_inet to identify not-yet-checksummed SCTP packets.
+Use this bit in combination with netdev feature bit in validate_xmit_skb,
+to discriminate whether skb needs crc32c or 2-complement Internet Checksum
+(or none of the two, when the underlying device can do checksum offload).
 
-Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 ---
- include/linux/skbuff.h |  2 ++
- net/core/skbuff.c      | 20 ++++++++++++++++++++
- net/sctp/offload.c     |  7 +++++++
- 3 files changed, 29 insertions(+)
+ include/linux/skbuff.h                |  1 +
+ net/core/dev.c                        | 14 ++++++++++++--
+ net/netfilter/ipvs/ip_vs_proto_sctp.c |  1 +
+ net/netfilter/nf_nat_proto_sctp.c     |  1 +
+ net/sched/act_csum.c                  |  1 +
+ net/sctp/output.c                     |  1 +
+ 6 files changed, 17 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 69ccd26..cab9a32 100644
+index 0671131..236b7d9 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -3125,6 +3125,8 @@ struct skb_checksum_ops {
- 	__wsum (*combine)(__wsum csum, __wsum csum2, int offset, int len);
- };
+@@ -759,6 +759,7 @@ struct sk_buff {
+ 	__u8			tc_redirected:1;
+ 	__u8			tc_from_ingress:1;
+ #endif
++	__u8			csum_not_inet:1;
  
-+extern const struct skb_checksum_ops *sctp_csum_stub __read_mostly;
-+
- __wsum __skb_checksum(const struct sk_buff *skb, int offset, int len,
- 		      __wsum csum, const struct skb_checksum_ops *ops);
- __wsum skb_checksum(const struct sk_buff *skb, int offset, int len,
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f355795..64fd8fd 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2242,6 +2242,26 @@ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
- }
- EXPORT_SYMBOL(skb_copy_and_csum_bits);
- 
-+static __wsum warn_sctp_csum_update(const void *buff, int len, __wsum sum)
-+{
-+	net_warn_ratelimited("attempt to compute crc32c without sctp.ko\n");
-+	return 0;
-+}
-+
-+static __wsum warn_sctp_csum_combine(__wsum csum, __wsum csum2,
-+				     int offset, int len)
-+{
-+	net_warn_ratelimited("attempt to compute crc32c without sctp.ko\n");
-+	return 0;
-+}
-+
-+const struct skb_checksum_ops *sctp_csum_stub __read_mostly =
-+	&(struct skb_checksum_ops) {
-+	.update  = warn_sctp_csum_update,
-+	.combine = warn_sctp_csum_combine,
-+};
-+EXPORT_SYMBOL(sctp_csum_stub);
-+
-  /**
-  *	skb_zerocopy_headlen - Calculate headroom needed for skb_zerocopy()
-  *	@from: source buffer
-diff --git a/net/sctp/offload.c b/net/sctp/offload.c
-index 4f5a2b5..e9c3db0 100644
---- a/net/sctp/offload.c
-+++ b/net/sctp/offload.c
-@@ -98,6 +98,12 @@ static const struct net_offload sctp6_offload = {
- 	},
- };
- 
-+static const struct skb_checksum_ops *sctp_csum_ops __read_mostly =
-+	&(struct skb_checksum_ops) {
-+	.update  = sctp_csum_update,
-+	.combine = sctp_csum_combine,
-+};
-+
- int __init sctp_offload_init(void)
- {
- 	int ret;
-@@ -110,6 +116,7 @@ int __init sctp_offload_init(void)
- 	if (ret)
- 		goto ipv4;
- 
-+	sctp_csum_stub = sctp_csum_ops;
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b9fb843..fae3217 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2614,6 +2614,7 @@ int skb_sctp_csum_help(struct sk_buff *skb)
+ 	}
+ 	*(__le32 *)(skb->data + offset) = crc32c_csum;
+ 	skb->ip_summed = CHECKSUM_NONE;
++	skb->csum_not_inet = 0;
+ out:
  	return ret;
+ }
+@@ -2960,6 +2961,16 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
+ 	return skb;
+ }
  
- ipv4:
++static int skb_csum_hwoffload_help(struct sk_buff *skb,
++				   netdev_features_t features)
++{
++	if (unlikely(skb->csum_not_inet))
++		return !(features & NETIF_F_SCTP_CRC) ?
++				skb_sctp_csum_help(skb) : 0;
++
++	return !(features & NETIF_F_CSUM_MASK) ? skb_checksum_help(skb) : 0;
++}
++
+ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	netdev_features_t features;
+@@ -2995,8 +3006,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+ 			else
+ 				skb_set_transport_header(skb,
+ 							 skb_checksum_start_offset(skb));
+-			if (!(features & NETIF_F_CSUM_MASK) &&
+-			    skb_checksum_help(skb))
++			if (skb_csum_hwoffload_help(skb, features))
+ 				goto out_kfree_skb;
+ 		}
+ 	}
+diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+index d952d67..4972a60 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+@@ -81,6 +81,7 @@ static void sctp_nat_csum(struct sk_buff *skb, sctp_sctphdr_t *sctph,
+ 			  unsigned int sctphoff)
+ {
+ 	sctph->checksum = sctp_compute_cksum(skb, sctphoff);
++	skb->csum_not_inet = 0;
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ }
+ 
+diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
+index 31d3586..9459b88 100644
+--- a/net/netfilter/nf_nat_proto_sctp.c
++++ b/net/netfilter/nf_nat_proto_sctp.c
+@@ -49,6 +49,7 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		hdr->checksum = sctp_compute_cksum(skb, hdroff);
++		skb->csum_not_inet = 0;
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 	}
+ 
+diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
+index e978ccd4..85cb150 100644
+--- a/net/sched/act_csum.c
++++ b/net/sched/act_csum.c
+@@ -337,6 +337,7 @@ static int tcf_csum_sctp(struct sk_buff *skb, unsigned int ihl,
+ 
+ 	sctph->checksum = sctp_compute_cksum(skb,
+ 					     skb_network_offset(skb) + ihl);
++	skb->csum_not_inet = 0;
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	return 1;
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 814eac0..0dc227b 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -528,6 +528,7 @@ static int sctp_packet_pack(struct sctp_packet *packet,
+ 	} else {
+ chksum:
+ 		head->ip_summed = CHECKSUM_PARTIAL;
++		head->csum_not_inet = 1;
+ 		head->csum_start = skb_transport_header(head) - head->head;
+ 		head->csum_offset = offsetof(struct sctphdr, checksum);
+ 	}
 -- 
 2.7.4
