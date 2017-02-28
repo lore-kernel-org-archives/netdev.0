@@ -1,49 +1,82 @@
-From: Ani Sinha <ani@arista.com>
-Subject: ipv6 sysctl
-Date: Tue, 28 Feb 2017 11:22:45 -0800
-Message-ID: <CAOxq_8OwxVzV=s2zY4DUNDq8myA4kga7dZaqWbTyy+4j=1mMwg@mail.gmail.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] e1000e: fix timing for 82579 Gigabit
+ Ethernet controller
+Date: Tue, 28 Feb 2017 21:09:35 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5857D7F361@ORSMSX115.amr.corp.intel.com>
+References: <1487270527-4549-1-git-send-email-berndfaust@gmail.com>
+ <923e61cf-5f95-1662-2f4c-fc146359ab48@intel.com>
+ <0a95307e-6683-b9fe-1957-be2b0a3c441e@intel.com>
+ <3a432931-8b94-4808-78e0-bc459f510ab9@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: fruggeri <fruggeri@arista.com>, Jeff Chan <jchan@arista.com>,
-        gilligan <gilligan@arista.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:36831 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751901AbdB1VJV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 16:09:21 -0500
-Received: by mail-it0-f45.google.com with SMTP id h10so85167555ith.1
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 13:09:13 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "Neftin, Sasha" <sasha.neftin@intel.com>,
+        Bernd Faust <berndfaust@gmail.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3a432931-8b94-4808-78e0-bc459f510ab9@intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi guys,
-
-Commit a79ca223e029 ('ipv6: fix bad free of addrconf_init_net')
-introduced in linux 3.9 tries to fix an issue involving free-ing
-statically allocated memory. Additionally, it subtly changes behavior
-of how certain ipv6 sysctl values are inherited from the default net
-namespace to the child namespaces.   Before a79ca223e029, the default
-namespace would directly modify the values in statically allocated
-struct ipv6_devconf for example and all child namespaces would inherit
-these values upon creation (their own private copy was initialized
-using the statically allocated ipv6_devconf). After this change, any
-sysctl value changes in default net namespace is not seen by any new
-child namespaces that are created afterwards. This is because all
-network namespaces, including the default namespace has it's own
-private copy of  struct ipv6_devconf which is initialized by certain
-fixed values. This is in contrast to what we have in ipv4 where child
-namespaces continues to inherit values from the default namespace upon
-creation.
-
-I see that there was a previous discussion here :
-https://patchwork.kernel.org/patch/4639391/
-
-Was the above inconsistency between ipv4 and ipv6 sysctl
-initialization intentional or was it an unintended effect of the above
-change ? It would be nice to have a symmetric behavior between ipv4
-and ipv6. Please share your thoughts on this.
-
-thanks,
-ani
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJbnRlbC13aXJlZC1sYW4gW21h
+aWx0bzppbnRlbC13aXJlZC1sYW4tYm91bmNlc0BsaXN0cy5vc3Vvc2wub3JnXSBPbg0KPiBCZWhh
+bGYgT2YgTmVmdGluLCBTYXNoYQ0KPiBTZW50OiBNb25kYXksIEZlYnJ1YXJ5IDI3LCAyMDE3IDEy
+OjQwIEFNDQo+IFRvOiBCZXJuZCBGYXVzdCA8YmVybmRmYXVzdEBnbWFpbC5jb20+OyBLaXJzaGVy
+LCBKZWZmcmV5IFQNCj4gPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT47IGludGVsLXdpcmVk
+LWxhbkBsaXN0cy5vc3Vvc2wub3JnOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1r
+ZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbSW50ZWwtd2lyZWQtbGFuXSBb
+UEFUQ0hdIGUxMDAwZTogZml4IHRpbWluZyBmb3IgODI1NzkgR2lnYWJpdA0KPiBFdGhlcm5ldCBj
+b250cm9sbGVyDQo+IA0KPiBPbiAyLzI2LzIwMTcgMTE6MDgsIE5lZnRpbiwgU2FzaGEgd3JvdGU6
+DQo+ID4gT24gMi8xOS8yMDE3IDE0OjU1LCBOZWZ0aW4sIFNhc2hhIHdyb3RlOg0KPiA+PiBPbiAy
+LzE2LzIwMTcgMjA6NDIsIEJlcm5kIEZhdXN0IHdyb3RlOg0KPiA+Pj4gQWZ0ZXIgYW4gdXBncmFk
+ZSB0byBMaW51eCBrZXJuZWwgdjQueCB0aGUgaGFyZHdhcmUgdGltZXN0YW1wcyBvZiB0aGUNCj4g
+Pj4+IDgyNTc5IEdpZ2FiaXQgRXRoZXJuZXQgQ29udHJvbGxlciBhcmUgZGlmZmVyZW50IHRoYW4g
+ZXhwZWN0ZWQuDQo+ID4+PiBUaGUgdmFsdWVzIHRoYXQgYXJlIGJlaW5nIHJlYWQgYXJlIGFsbW9z
+dCBmb3VyIHRpbWVzIGFzIGJpZyBhcyBiZWZvcmUNCj4gPj4+IHRoZSBrZXJuZWwgdXBncmFkZS4N
+Cj4gPj4+DQo+ID4+PiBUaGUgZGlmZmVyZW5jZSBpcyB0aGF0IGFmdGVyIHRoZSB1cGdyYWRlIHRo
+ZSBkcml2ZXIgc2V0cyB0aGUgY2xvY2sNCj4gPj4+IGZyZXF1ZW5jeSB0byAyNU1Ieiwgd2hlcmUg
+YmVmb3JlIHRoZSB1cGdyYWRlIGl0IHdhcyBzZXQgdG8gOTZNSHouIEludGVsDQo+ID4+PiBjb25m
+aXJtZWQgdGhhdCB0aGUgY29ycmVjdCBmcmVxdWVuY3kgZm9yIHRoaXMgbmV0d29yayBhZGFwdGVy
+IGlzIDk2TUh6Lg0KPiA+Pj4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IEJlcm5kIEZhdXN0IDxiZXJu
+ZGZhdXN0QGdtYWlsLmNvbT4NCj4gPj4+IC0tLQ0KPiA+Pj4gICBkcml2ZXJzL25ldC9ldGhlcm5l
+dC9pbnRlbC9lMTAwMGUvbmV0ZGV2LmMgfCA2ICsrKysrKw0KPiA+Pj4gICAxIGZpbGUgY2hhbmdl
+ZCwgNiBpbnNlcnRpb25zKCspDQo+ID4+Pg0KPiA+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYw0KPiA+Pj4gYi9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9lMTAwMGUvbmV0ZGV2LmMNCj4gPj4+IGluZGV4IDcwMTcyODEuLjhiNzExM2Qg
+MTAwNjQ0DQo+ID4+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvbmV0
+ZGV2LmMNCj4gPj4+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRk
+ZXYuYw0KPiA+Pj4gQEAgLTM1MTEsNiArMzUxMSwxMiBAQCBzMzIgZTEwMDBlX2dldF9iYXNlX3Rp
+bWluY2Eoc3RydWN0DQo+ID4+PiBlMTAwMF9hZGFwdGVyICphZGFwdGVyLCB1MzIgKnRpbWluY2Ep
+DQo+ID4+Pg0KPiA+Pj4gICAgICAgc3dpdGNoIChody0+bWFjLnR5cGUpIHsNCj4gPj4+ICAgICAg
+IGNhc2UgZTEwMDBfcGNoMmxhbjoNCj4gPj4+ICsgICAgICAgIC8qIFN0YWJsZSA5Nk1IeiBmcmVx
+dWVuY3kgKi8NCj4gPj4+ICsgICAgICAgIGluY3BlcmlvZCA9IElOQ1BFUklPRF85Nk1IejsNCj4g
+Pj4+ICsgICAgICAgIGluY3ZhbHVlID0gSU5DVkFMVUVfOTZNSHo7DQo+ID4+PiArICAgICAgICBz
+aGlmdCA9IElOQ1ZBTFVFX1NISUZUXzk2TUh6Ow0KPiA+Pj4gKyAgICAgICAgYWRhcHRlci0+Y2Mu
+c2hpZnQgPSBzaGlmdCArIElOQ1BFUklPRF9TSElGVF85Nk1IejsNCj4gPj4+ICsgICAgICAgIGJy
+ZWFrOw0KPiA+Pj4gICAgICAgY2FzZSBlMTAwMF9wY2hfbHB0Og0KPiA+Pj4gICAgICAgICAgIGlm
+IChlcjMyKFRTWU5DUlhDVEwpICYgRTEwMDBfVFNZTkNSWENUTF9TWVNDRkkpIHsNCj4gPj4+ICAg
+ICAgICAgICAgICAgLyogU3RhYmxlIDk2TUh6IGZyZXF1ZW5jeSAqLw0KPiA+Pj4gLS0NCj4gPj4+
+IDIuNy40DQo+ID4+PiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXw0KPiA+Pj4gSW50ZWwtd2lyZWQtbGFuIG1haWxpbmcgbGlzdA0KPiA+Pj4gSW50ZWwtd2ly
+ZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gPj4+IGh0dHA6Ly9saXN0cy5vc3Vvc2wub3JnL21h
+aWxtYW4vbGlzdGluZm8vaW50ZWwtd2lyZWQtbGFuDQo+ID4+DQo+ID4+IEhlbGxvLA0KPiA+Pg0K
+PiA+PiBlMTAwMF9wY2gybGFuIG1hYyB0eXBlIGNvcnJlc3BvbmRzIHRvIDgyNTc5TE0gYW5kIDgy
+NTc5ViBuZXR3b3JrDQo+ID4+IGFkYXB0ZXJzLiBTeXN0ZW0gY2xvY2sgZnJlcXVlbmN5IGluZGlj
+YXRpb24gKFNZU0NGSSkgZm9yIHRoZXNlDQo+ID4+IGRldmljZXMgc3VwcG9ydHMgYm90aCAyNU1I
+eiBhbmQgOTZNSHogZnJlcXVlbmN5LiBCeSBkZWZhdWx0DQo+ID4+IFRTWU5DUlhDVEwuU1lTQ0ZJ
+IGlzIHNldCB0byAxIGFuZCB0aGF0IG1lYW5zIDk2TUh6IGZyZXF1ZW5jeSBpcyBwaWNrZWQuDQo+
+ID4+DQo+ID4+IEl0IGlzIGJldHRlciB0byBrZWVwIHRoZSBjdXJyZW50IGltcGxlbWVudGF0aW9u
+IGFzIGl0IGNvdmVycyBhbGwNCj4gPj4gb3B0aW9ucy4NCj4gPj4NCj4gPj4gVGhhbmtzLA0KPiA+
+Pg0KPiA+PiBTYXNoYQ0KPiA+Pg0KPiA+IEhlbGxvLA0KPiA+DQo+ID4gRHVyaW5nIGxhc3QgY291
+cGxlIG9mIHdlZWtzIEkgc2F3IGZldyAgY29tcGxhaW50cyBmcm9tIGNvbW11bml0eSBvbg0KPiA+
+IHNhbWUgdGltaW5nIHByb2JsZW0gd2l0aCA4MjU3OS4gSSB3aWxsIGRvdWJsZSBjaGVjayBjbG9j
+ayBkZWZpbml0aW9uDQo+ID4gd2l0aCBIVyBhcmNoaXRlY3R1cmUuDQo+ID4NCj4gPiBTYXNoYQ0K
+PiA+DQo+IEkndmUgZG91YmxlIGNoZWNrZWQgLSA4MjU3OSBzdXBwb3J0IDk2TUh6IGZyZXF1ZW5j
+eSBvbmx5LiBTbywgbGV0J3MNCj4gYWNjZXB0IHRoaXMgc3VnZ2VzdGlvbiB0byB1cHN0cmVhbS4N
+Cj4gDQo+IEFjay4NCj4gDQoNClRoaXMgcmVzb2x2ZXMgYWxzbyBhIGNvbXBsYWludCBmcm9tIHNv
+bWVvbmUgb24gdGhlIExpbnV4UFRQIGRldmVsb3BtZW50IG1haWxpbmcgbGlzdC4NCg0KQUNLLg0K
+DQpUaGFua3MsDQpKYWtlDQoNCg==
