@@ -1,33 +1,54 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [Patch net v3] ipv6: check for ip6_null_entry in
- __ip6_del_rt_siblings()
-Date: Mon, 27 Feb 2017 16:14:04 -0800
-Message-ID: <6d332a15-d86c-0b02-61e5-38d208f2caf7@cumulusnetworks.com>
-References: <1488240463-12000-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] net: solve a NAPI race
+Date: Mon, 27 Feb 2017 21:08:10 -0500 (EST)
+Message-ID: <20170227.210810.197044715013755200.davem@davemloft.net>
+References: <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20170227.111944.1725806340309799464.davem@davemloft.net>
+        <1488213854.9415.198.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andreyknvl@google.com, Eric Dumazet <eric.dumazet@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34188 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751665AbdB1CD3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 21:03:29 -0500
-Received: by mail-pf0-f180.google.com with SMTP id p185so12126909pfb.1
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 18:03:00 -0800 (PST)
-In-Reply-To: <1488240463-12000-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52432 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751291AbdB1CIN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 21:08:13 -0500
+In-Reply-To: <1488213854.9415.198.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/27/17 4:07 PM, Cong Wang wrote:
-> Andrey reported a NULL pointer deref bug in ipv6_route_ioctl()
-> -> ip6_route_del() -> __ip6_del_rt_siblings() code path. This is
-> because ip6_null_entry is returned in this path since ip6_null_entry
-> is kinda default for a ipv6 route table root node. Quote from
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 27 Feb 2017 08:44:14 -0800
 
+> Any point doing a napi_schedule() not from device hard irq handler
+> is subject to the race for NIC using some kind of edge trigger
+> interrupts.
+> 
+> Since we do not provide a ndo to disable device interrupts, the
+> following can happen.
 
-Missed this earlier. The issue here is an attempt to delete the NULL
-route, not that the null_entry is being returned as happens during a
-route lookup. This will also hit the bug:
-    ip -6 ro del ::/0
+Ok, now I understand.
+
+I think even without considering the race you are trying to solve,
+this situation is really dangerous.
+
+I am sure that every ->poll() handler out there was written by an
+author who completely assumed that if they are executing then the
+device's interrupts for that NAPI instance are disabled.  And this is
+with very few, if any, exceptions.
+
+So if we saw a driver doing something like:
+
+	reg->irq_enable ^= value;
+
+after napi_complete_done(), it would be quite understandable.
+
+We really made a mistake taking the napi_schedule() call out of
+the domain of the driver so that it could manage the interrupt
+state properly.
+
+I'm not against your missed bit fix as a short-term cure for now, it's
+just that somewhere down the road we need to manage the interrupt
+properly.
