@@ -1,41 +1,40 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: GPF in rt6_nexthop_info
-Date: Tue, 28 Feb 2017 05:49:14 -0800
-Message-ID: <1488289754.9415.255.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CACT4Y+b44zwroCAg8QhNZQ5PX-ObhoKQW6VCFC9rt46JijYPYQ@mail.gmail.com>
-         <1488287417.9415.237.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+ZTtDiG2q8ZS-fcR4-V1V06O-Si0EOWSaMBostShOR4jQ@mail.gmail.com>
+Subject: Re: [PATCH] net: don't call strlen() on the user buffer in
+ packet_bind_spkt()
+Date: Tue, 28 Feb 2017 05:54:25 -0800
+Message-ID: <1488290065.9415.257.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170228131759.110380-1-glider@google.com>
+         <1488288789.9415.249.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1488289373.9415.251.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAG_fn=V2J_dp+bASVdkLTnx1jQDHSda4pzQyVGBRHH-NBQHEgg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        David Miller <davem@davemloft.net>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
+Cc: Dmitriy Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
         Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, ycheng@google.com,
-        Willem de Bruijn <willemb@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+ZTtDiG2q8ZS-fcR4-V1V06O-Si0EOWSaMBostShOR4jQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Alexander Potapenko <glider@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35887 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751768AbdB1ODf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 09:03:35 -0500
+In-Reply-To: <CAG_fn=V2J_dp+bASVdkLTnx1jQDHSda4pzQyVGBRHH-NBQHEgg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-02-28 at 14:30 +0100, Dmitry Vyukov wrote:
+On Tue, 2017-02-28 at 14:47 +0100, Alexander Potapenko wrote:
 
-> I always run get_maintainer.pl on the top file. David is not listed
-> for net/ipv6/route.c.
-> I've added Yuchung as you said you want to partition load.
+> SGTM. Shall I send the updated patch? (Sorry for asking, the patch
+> culture is hard)
 
-Yuchung is working on TCP stack exclusively, as far as linux kernel is
-concerned.
+It is always nice to wait for feedback(s), before sending a v2, and a
+v3, and a v4.
 
-He never submitted a single patch targeting IPv6, if this was not for a
-TCP change.
+Sending 4 patches in one hour is considered not friendly ;)
 
-netdev@vger.kernel.org is the appropriate point of contact for bugs in
-linux network stacks.
+So if I were you, I would wait a bit for additional comments before
+sending a new version.
 
 Thanks.
