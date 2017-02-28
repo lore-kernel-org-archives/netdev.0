@@ -1,32 +1,57 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: net/rds: use-after-free in inet_create
-Date: Tue, 28 Feb 2017 16:06:23 -0500
-Message-ID: <20170228210623.GA28302@oracle.com>
-References: <CACT4Y+bi=rZr9yrajA0o0iUeR4N0q-sXYudBVsOeOiHbuApBeA@mail.gmail.com>
- <20170228153737.GG31155@oracle.com>
- <CACT4Y+aobp+g_AYoX6j1eftyyirK4pBxhOXz9hDu+XU+-jxSYw@mail.gmail.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
+Date: Tue, 28 Feb 2017 13:06:49 -0800
+Message-ID: <CALCETrXogADnqymxaoqt=F3rDMpOYQ0xy7audng=t-Rx1bxqbw@mail.gmail.com>
+References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+ <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
+ <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com> <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: syzkaller <syzkaller@googlegroups.com>, netdev@vger.kernel.org
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:24440 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751508AbdB1VIV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 16:08:21 -0500
-Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
-        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v1SL7Zjo013096
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 21:07:35 GMT
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+aobp+g_AYoX6j1eftyyirK4pBxhOXz9hDu+XU+-jxSYw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Just posted an RFC patch, that I'm also testing here..
-hopefully we'll se the pr_info light up, and know that the problematic
-situation actually happened (I'll remove the pr_info if/when this
-gets submitted as a non-RFC patch).. thanks for helping with testing
-this..
+On Tue, Feb 28, 2017 at 12:43 PM, Willem de Bruijn
+<willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Tue, Feb 28, 2017 at 2:46 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>> On Mon, Feb 27, 2017 at 10:57 AM, Michael Kerrisk
+>> <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> [CC += linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org]
+>>>
+>>> Hi Willem
+>>>
+>>
+>>>> On a send call with MSG_ZEROCOPY, the kernel pins the user pages and
+>>>> creates skbuff fragments directly from these pages. On tx completion,
+>>>> it notifies the socket owner that it is safe to modify memory by
+>>>> queuing a completion notification onto the socket error queue.
+>>
+>> What happens if the user writes to the pages while it's not safe?
+>>
+>> How about if you're writing to an interface or a route that has crypto
+>> involved and a malicious user can make the data change in the middle
+>> of a crypto operation, thus perhaps leaking the entire key?  (I
+>> wouldn't be at all surprised if a lot of provably secure AEAD
+>> constructions are entirely compromised if an attacker can get the
+>> ciphertext and tag computed from a message that changed during the
+>> computation.
+>
+> Operations that read or write payload, such as this crypto example,
+> but also ebpf in tc or iptables, for instance, demand a deep copy using
+> skb_copy_ubufs before the operation.
+>
+> This blacklist approach requires caution, but these paths should be
+> few and countable. It is not possible to predict at the socket layer
+> whether a packet will encounter any such operation, so white-listing
+> a subset of end-to-end paths is not practical.
 
---Sowmini
+How about hardware that malfunctions if the packet changes out from
+under it?  A whitelist seems quite a bit safer.
+
+--Andy
