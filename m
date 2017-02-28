@@ -1,87 +1,78 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: call rcu_read_lock before checking for
- duplicate transport nodes
-Date: Tue, 28 Feb 2017 22:37:35 +0800
-Message-ID: <CADvbK_fzwfPnictj1yqyW5VBMtOKf5X_fWLYxjeyh4DJo2NweQ@mail.gmail.com>
-References: <d239fb1c1f86e3421de4a891f8a704d37b236cbf.1488256889.git.lucien.xin@gmail.com>
- <20170228142323.GA17171@hmswarspite.think-freely.org>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net/rds: use-after-free in inet_create
+Date: Tue, 28 Feb 2017 15:22:36 +0100
+Message-ID: <CACT4Y+bi=rZr9yrajA0o0iUeR4N0q-sXYudBVsOeOiHbuApBeA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35361 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751810AbdB1Ohh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 09:37:37 -0500
-In-Reply-To: <20170228142323.GA17171@hmswarspite.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: syzkaller <syzkaller@googlegroups.com>
+To: santosh.shilimkar@oracle.com, David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, linux-rdma@vger.kernel.org,
+        rds-devel@oss.oracle.com, LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 28, 2017 at 10:23 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-> On Tue, Feb 28, 2017 at 12:41:29PM +0800, Xin Long wrote:
->> Commit cd2b70875058 ("sctp: check duplicate node before inserting a
->> new transport") called rhltable_lookup() to check for the duplicate
->> transport node in transport rhashtable.
->>
->> But rhltable_lookup() doesn't call rcu_read_lock inside, it could cause
->> a use-after-free issue if it tries to dereference the node that another
->> cpu has freed it. Note that sock lock can not avoid this as it is per
->> sock.
->>
->> This patch is to fix it by calling rcu_read_lock before checking for
->> duplicate transport nodes.
->>
->> Fixes: cd2b70875058 ("sctp: check duplicate node before inserting a new transport")
->> Reported-by: Andrey Konovalov <andreyknvl@google.com>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  net/sctp/input.c | 3 +++
->>  1 file changed, 3 insertions(+)
->>
->> diff --git a/net/sctp/input.c b/net/sctp/input.c
->> index fc45896..2a28ab2 100644
->> --- a/net/sctp/input.c
->> +++ b/net/sctp/input.c
->> @@ -884,14 +884,17 @@ int sctp_hash_transport(struct sctp_transport *t)
->>       arg.paddr = &t->ipaddr;
->>       arg.lport = htons(t->asoc->base.bind_addr.port);
->>
->> +     rcu_read_lock();
->>       list = rhltable_lookup(&sctp_transport_hashtable, &arg,
->>                              sctp_hash_params);
->>
->>       rhl_for_each_entry_rcu(transport, tmp, list, node)
->>               if (transport->asoc->ep == t->asoc->ep) {
->> +                     rcu_read_unlock();
->>                       err = -EEXIST;
->>                       goto out;
->>               }
->> +     rcu_read_unlock();
->>
->>       err = rhltable_insert_key(&sctp_transport_hashtable, &arg,
->>                                 &t->node, sctp_hash_params);
->> --
->> 2.1.0
->>
->>
->
-> Hmm, rhltable_insert_key I think returns a pointer to the existing object in the
-> hash table if there is a collision (according to the _rhashtable_insert_fast
-> description).  Wouldn't it be better to eliminate the rhl_for_each_entry_rcu
-> entirely, and just check the returned pointer from rhltable_insert_key?
-I wish it could do it, but rhlist(rhltable_insert_key) allows duplicate
-node to be inserted, it will never return the existing node. :(
+Hello,
 
-I guess the codes you saw are only for the old rhashtable api (they are
-together with rhlist codes in __rhashtable_insert_fast).
+I've got the following report while running syzkaller fuzzer on
+linux-next/8d01c069486aca75b8f6018a759215b0ed0c91f0. So far it
+happened only once. net was somehow deleted from underneath
+inet_create. I've noticed that rds uses sock_create_kern which does
+not take net reference. What is that that must keep net alive then?
 
-Thanks
-
->
-> Neil
->
+==================================================================
+BUG: KASAN: use-after-free in inet_create+0xdf5/0xf60
+net/ipv4/af_inet.c:337 at addr ffff880150898704
+Read of size 4 by task kworker/u4:6/3522
+CPU: 0 PID: 3522 Comm: kworker/u4:6 Not tainted 4.10.0-next-20170228+ #2
+Hardware name: Google Google Compute Engine/Google Compute Engine,
+BIOS Google 01/01/2011
+Workqueue: krdsd rds_connect_worker
+Call Trace:
+ __asan_report_load4_noabort+0x29/0x30 mm/kasan/report.c:331
+ inet_create+0xdf5/0xf60 net/ipv4/af_inet.c:337
+ __sock_create+0x4e4/0x870 net/socket.c:1197
+ sock_create_kern+0x3f/0x50 net/socket.c:1243
+ rds_tcp_conn_path_connect+0x29b/0x9d0 net/rds/tcp_connect.c:108
+ rds_connect_worker+0x158/0x1e0 net/rds/threads.c:164
+ process_one_work+0xbd0/0x1c10 kernel/workqueue.c:2096
+ worker_thread+0x223/0x1990 kernel/workqueue.c:2230
+ kthread+0x326/0x3f0 kernel/kthread.c:227
+ ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
+Object at ffff880150898200, in cache net_namespace size: 6784
+Allocated:
+PID = 3243
+ kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:546
+ kmem_cache_alloc+0x102/0x680 mm/slab.c:3568
+ kmem_cache_zalloc include/linux/slab.h:653 [inline]
+ net_alloc net/core/net_namespace.c:339 [inline]
+ copy_net_ns+0x196/0x530 net/core/net_namespace.c:379
+ create_new_namespaces+0x409/0x860 kernel/nsproxy.c:106
+ copy_namespaces+0x34d/0x420 kernel/nsproxy.c:164
+ copy_process.part.42+0x223b/0x4d50 kernel/fork.c:1675
+ copy_process kernel/fork.c:1497 [inline]
+ _do_fork+0x200/0xff0 kernel/fork.c:1960
+ SYSC_clone kernel/fork.c:2070 [inline]
+ SyS_clone+0x37/0x50 kernel/fork.c:2064
+ do_syscall_64+0x2e8/0x930 arch/x86/entry/common.c:280
+ return_from_SYSCALL_64+0x0/0x7a
+Freed:
+PID = 3544
+ __cache_free mm/slab.c:3510 [inline]
+ kmem_cache_free+0x71/0x240 mm/slab.c:3770
+ net_free+0xd7/0x110 net/core/net_namespace.c:355
+ net_drop_ns+0x31/0x40 net/core/net_namespace.c:362
+ cleanup_net+0x7f4/0xa90 net/core/net_namespace.c:479
+ process_one_work+0xbd0/0x1c10 kernel/workqueue.c:2096
+ worker_thread+0x223/0x1990 kernel/workqueue.c:2230
+ kthread+0x326/0x3f0 kernel/kthread.c:227
+ ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
+Memory state around the buggy address:
+ ffff880150898600: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff880150898680: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff880150898700: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+                   ^
+ ffff880150898780: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff880150898800: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+==================================================================
