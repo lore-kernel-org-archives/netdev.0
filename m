@@ -1,54 +1,61 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2] vhost: introduce O(1) vq metadata cache
-Date: Tue, 28 Feb 2017 11:23:34 +0800
-Message-ID: <3cb12bbd-922d-e7be-18bb-a48e559346c7@redhat.com>
-References: <1481709237-19827-1-git-send-email-jasowang@redhat.com>
-	<ab222583-17ac-a4fb-0547-487caa8b866d@redhat.com>
-	<20170227203529-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	maxime.coquelin@redhat.com, wexu@redhat.com, vkaplans@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170227203529-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: call rcu_read_lock before checking for duplicate transport nodes
+Date: Tue, 28 Feb 2017 12:41:29 +0800
+Message-ID: <d239fb1c1f86e3421de4a891f8a704d37b236cbf.1488256889.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36747 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751356AbdB1Eyk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 23:54:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDLmnIgyOOaXpSAwMjozNSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFdlZCwgRmViIDE1LCAyMDE3IGF0IDAxOjM3OjE3UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+Cj4+IE9uIDIwMTblubQxMuaciDE05pelIDE3OjUzLCBKYXNvbiBXYW5nIHdyb3RlOgo+
-Pj4gV2hlbiBkZXZpY2UgSU9UTEIgaXMgZW5hYmxlZCwgYWxsIGFkZHJlc3MgdHJhbnNsYXRpb25z
-IHdlcmUgc3RvcmVkIGluCj4+PiBpbnRlcnZhbCB0cmVlLiBPKGxnTikgc2VhcmNoaW5nIHRpbWUg
-Y291bGQgYmUgc2xvdyBmb3IgdmlydHF1ZXVlCj4+PiBtZXRhZGF0YSAoYXZhaWwsIHVzZWQgYW5k
-IGRlc2NyaXB0b3JzKSBzaW5jZSB0aGV5IHdlcmUgYWNjZXNzZWQgbXVjaAo+Pj4gb2Z0ZW4gdGhh
-biBvdGhlciBhZGRyZXNzZXMuIFNvIHRoaXMgcGF0Y2ggaW50cm9kdWNlcyBhbiBPKDEpIGFycmF5
-Cj4+PiB3aGljaCBwb2ludHMgdG8gdGhlIGludGVydmFsIHRyZWUgbm9kZXMgdGhhdCBzdG9yZSB0
-aGUgdHJhbnNsYXRpb25zIG9mCj4+PiB2cSBtZXRhZGF0YS4gVGhvc2UgYXJyYXkgd2VyZSB1cGRh
-dGUgZHVyaW5nIHZxIElPVExCIHByZWZldGNoaW5nIGFuZAo+Pj4gd2VyZSByZXNldCBkdXJpbmcg
-ZWFjaCBpbnZhbGlkYXRpb24gYW5kIHRsYiB1cGRhdGUuIEVhY2ggdGltZSB3ZSB3YW50Cj4+PiB0
-byBhY2Nlc3MgdnEgbWV0YWRhdGEsIHRoaXMgc21hbGwgYXJyYXkgd2VyZSBxdWVyaWVkIGJlZm9y
-ZSBpbnRlcnZhbAo+Pj4gdHJlZS4gVGhpcyB3b3VsZCBiZSBzdWZmaWNpZW50IGZvciBzdGF0aWMg
-bWFwcGluZ3MgYnV0IG5vdCBkeW5hbWljCj4+PiBtYXBwaW5ncywgd2UgY291bGQgZG8gb3B0aW1p
-emF0aW9ucyBvbiB0b3AuCj4+Pgo+Pj4gVGVzdCB3ZXJlIGRvbmUgd2l0aCBsMmZ3ZCBpbiBndWVz
-dCAoMk0gaHVnZXBhZ2UpOgo+Pj4KPj4+ICAgICAgbm9pb21tdSAgfCBiZWZvcmUgICAgICAgIHwg
-YWZ0ZXIKPj4+IHR4IDEuMzJNcHBzIHwgMS4wNk1wcHMoODIlKSB8IDEuMzBNcHBzKDk4JSkKPj4+
-IHJ4IDIuMzNNcHBzIHwgMS40Nk1wcHMoNjMlKSB8IDIuMjlNcHBzKDk4JSkKPj4+Cj4+PiBXZSBj
-YW4gYWxtb3N0IHJlYWNoIHRoZSBzYW1lIHBlcmZvcm1hbmNlIGFzIG5vaW9tbXUgbW9kZS4KPj4+
-Cj4+PiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nPGphc293YW5nQHJlZGhhdC5jb20+Cj4+PiAt
-LS0KPj4+IENoYW5nZXMgZnJvbSBWMToKPj4+IC0gc2lsZW50IDMyYml0IGJ1aWxkIHdhcm5pbmcK
-Pj4gcGluZwo+IENvdWxkIHlvdSByZWJhc2UgcGxzPwo+IEkgcHVzaGVkIG15IHRyZWUgaW50byBs
-aW51eCBuZXh0Lgo+CgpPaywgd2lsbCBkby4KClRoYW5rcwpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmly
-dHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51
-eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+Commit cd2b70875058 ("sctp: check duplicate node before inserting a
+new transport") called rhltable_lookup() to check for the duplicate
+transport node in transport rhashtable.
+
+But rhltable_lookup() doesn't call rcu_read_lock inside, it could cause
+a use-after-free issue if it tries to dereference the node that another
+cpu has freed it. Note that sock lock can not avoid this as it is per
+sock.
+
+This patch is to fix it by calling rcu_read_lock before checking for
+duplicate transport nodes.
+
+Fixes: cd2b70875058 ("sctp: check duplicate node before inserting a new transport")
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/input.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index fc45896..2a28ab2 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -884,14 +884,17 @@ int sctp_hash_transport(struct sctp_transport *t)
+ 	arg.paddr = &t->ipaddr;
+ 	arg.lport = htons(t->asoc->base.bind_addr.port);
+ 
++	rcu_read_lock();
+ 	list = rhltable_lookup(&sctp_transport_hashtable, &arg,
+ 			       sctp_hash_params);
+ 
+ 	rhl_for_each_entry_rcu(transport, tmp, list, node)
+ 		if (transport->asoc->ep == t->asoc->ep) {
++			rcu_read_unlock();
+ 			err = -EEXIST;
+ 			goto out;
+ 		}
++	rcu_read_unlock();
+ 
+ 	err = rhltable_insert_key(&sctp_transport_hashtable, &arg,
+ 				  &t->node, sctp_hash_params);
+-- 
+2.1.0
