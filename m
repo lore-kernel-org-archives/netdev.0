@@ -1,85 +1,388 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2017-02-28
-Date: Tue, 28 Feb 2017 10:50:18 +0100
-Message-ID: <20170228095019.10637-1-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH V3] vhost: introduce O(1) vq metadata cache
+Date: Tue, 28 Feb 2017 17:56:02 +0800
+Message-ID: <1488275762-4726-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	maxime.coquelin@redhat.com, wexu@redhat.com, vkaplans@redhat.com
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+When device IOTLB is enabled, all address translations were stored in
+interval tree. O(lgN) searching time could be slow for virtqueue
+metadata (avail, used and descriptors) since they were accessed much
+often than other addresses. So this patch introduces an O(1) array
+which points to the interval tree nodes that store the translations of
+vq metadata. Those array were update during vq IOTLB prefetching and
+were reset during each invalidation and tlb update. Each time we want
+to access vq metadata, this small array were queried before interval
+tree. This would be sufficient for static mappings but not dynamic
+mappings, we could do optimizations on top.
 
-First round of fixes - we actually have quite a few.
+Test were done with l2fwd in guest (2M hugepage):
 
-Please pull and let me know if there's any problem.
+   noiommu  | before        | after
+tx 1.32Mpps | 1.06Mpps(82%) | 1.30Mpps(98%)
+rx 2.33Mpps | 1.46Mpps(63%) | 2.29Mpps(98%)
 
-I had another question - I have this average.h API change pending
-(you saw it before). It seems it might be a good time to get it in
-now, since no new users should be showing up. If I put it in only
-with the next merge window, new users might show up and break.
+We can almost reach the same performance as noiommu mode.
 
-Thoughts?
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/vhost.c | 136 ++++++++++++++++++++++++++++++++++++++++----------
+ drivers/vhost/vhost.h |   8 +++
+ 2 files changed, 118 insertions(+), 26 deletions(-)
 
-Thanks,
-johannes
-
-
-
-The following changes since commit 51fb60eb162ab84c5edf2ae9c63cf0b878e5547e:
-
-  l2tp: avoid use-after-free caused by l2tp_ip_backlog_recv (2017-02-26 22:57:17 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-02-28
-
-for you to fetch changes up to 19d19e960598161be92a7e4828eb7706c6410ce6:
-
-  mac80211: use driver-indicated transmitter STA only for data frames (2017-02-28 07:42:05 +0100)
-
-----------------------------------------------------------------
-First round of fixes - details in the commits:
- * use a valid hrtimer clock ID in mac80211_hwsim
- * don't reorder frames prior to BA session
- * flush a delayed work at suspend so the state is all valid before
-   suspend/resume
- * fix packet statistics in fast-RX, the RX packets
-   counter increment was simply missing
- * don't try to re-transmit filtered frames in an aggregation session
- * shorten (for tracing) a debug message
- * typo fix in another debug message
- * fix nul-termination with HWSIM_ATTR_RADIO_NAME in hwsim
- * fix mgmt RX processing when station is looked up by driver/device
-
-----------------------------------------------------------------
-Emmanuel Grumbach (1):
-      mac80211: fix power saving clients handling in iwlwifi
-
-Felix Fietkau (1):
-      mac80211: don't handle filtered frames within a BA session
-
-Johannes Berg (3):
-      mac80211: fix packet statistics for fast-RX
-      mac80211_hwsim: check HWSIM_ATTR_RADIO_NAME length
-      mac80211: use driver-indicated transmitter STA only for data frames
-
-Matt Chen (1):
-      mac80211: flush delayed work when entering suspend
-
-Sara Sharon (3):
-      mac80211: don't reorder frames with SN smaller than SSN
-      mac80211: shorten debug message
-      mac80211: fix typo in debug print
-
-Thomas Gleixner (1):
-      mac80211_hwsim: Replace bogus hrtimer clockid
-
- drivers/net/wireless/mac80211_hwsim.c | 30 ++++++++++++++++++++++--------
- net/mac80211/agg-rx.c                 |  3 ++-
- net/mac80211/pm.c                     |  1 +
- net/mac80211/rx.c                     | 31 +++++++++++++++++++++++--------
- net/mac80211/sta_info.c               |  4 ++--
- net/mac80211/sta_info.h               |  6 ++++--
- net/mac80211/status.c                 |  3 ++-
- 7 files changed, 56 insertions(+), 22 deletions(-)
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 1f7e4e4..998bed5 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -282,6 +282,22 @@ void vhost_poll_queue(struct vhost_poll *poll)
+ }
+ EXPORT_SYMBOL_GPL(vhost_poll_queue);
+ 
++static void __vhost_vq_meta_reset(struct vhost_virtqueue *vq)
++{
++	int j;
++
++	for (j = 0; j < VHOST_NUM_ADDRS; j++)
++		vq->meta_iotlb[j] = NULL;
++}
++
++static void vhost_vq_meta_reset(struct vhost_dev *d)
++{
++	int i;
++
++	for (i = 0; i < d->nvqs; ++i)
++		__vhost_vq_meta_reset(d->vqs[i]);
++}
++
+ static void vhost_vq_reset(struct vhost_dev *dev,
+ 			   struct vhost_virtqueue *vq)
+ {
+@@ -312,6 +328,7 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->busyloop_timeout = 0;
+ 	vq->umem = NULL;
+ 	vq->iotlb = NULL;
++	__vhost_vq_meta_reset(vq);
+ }
+ 
+ static int vhost_worker(void *data)
+@@ -691,6 +708,18 @@ static int vq_memory_access_ok(void __user *log_base, struct vhost_umem *umem,
+ 	return 1;
+ }
+ 
++static inline void __user *vhost_vq_meta_fetch(struct vhost_virtqueue *vq,
++					       u64 addr, unsigned int size,
++					       int type)
++{
++	const struct vhost_umem_node *node = vq->meta_iotlb[type];
++
++	if (!node)
++		return NULL;
++
++	return (void *)(uintptr_t)(node->userspace_addr + addr - node->start);
++}
++
+ /* Can we switch to this memory table? */
+ /* Caller should have device mutex but not vq mutex */
+ static int memory_access_ok(struct vhost_dev *d, struct vhost_umem *umem,
+@@ -733,8 +762,14 @@ static int vhost_copy_to_user(struct vhost_virtqueue *vq, void __user *to,
+ 		 * could be access through iotlb. So -EAGAIN should
+ 		 * not happen in this case.
+ 		 */
+-		/* TODO: more fast path */
+ 		struct iov_iter t;
++		void __user *uaddr = vhost_vq_meta_fetch(vq,
++				     (u64)(uintptr_t)to, size,
++				     VHOST_ADDR_DESC);
++
++		if (uaddr)
++			return __copy_to_user(uaddr, from, size);
++
+ 		ret = translate_desc(vq, (u64)(uintptr_t)to, size, vq->iotlb_iov,
+ 				     ARRAY_SIZE(vq->iotlb_iov),
+ 				     VHOST_ACCESS_WO);
+@@ -762,8 +797,14 @@ static int vhost_copy_from_user(struct vhost_virtqueue *vq, void *to,
+ 		 * could be access through iotlb. So -EAGAIN should
+ 		 * not happen in this case.
+ 		 */
+-		/* TODO: more fast path */
++		void __user *uaddr = vhost_vq_meta_fetch(vq,
++				     (u64)(uintptr_t)from, size,
++				     VHOST_ADDR_DESC);
+ 		struct iov_iter f;
++
++		if (uaddr)
++			return __copy_from_user(to, uaddr, size);
++
+ 		ret = translate_desc(vq, (u64)(uintptr_t)from, size, vq->iotlb_iov,
+ 				     ARRAY_SIZE(vq->iotlb_iov),
+ 				     VHOST_ACCESS_RO);
+@@ -783,17 +824,12 @@ static int vhost_copy_from_user(struct vhost_virtqueue *vq, void *to,
+ 	return ret;
+ }
+ 
+-static void __user *__vhost_get_user(struct vhost_virtqueue *vq,
+-				     void __user *addr, unsigned size)
++static void __user *__vhost_get_user_slow(struct vhost_virtqueue *vq,
++					  void __user *addr, unsigned int size,
++					  int type)
+ {
+ 	int ret;
+ 
+-	/* This function should be called after iotlb
+-	 * prefetch, which means we're sure that vq
+-	 * could be access through iotlb. So -EAGAIN should
+-	 * not happen in this case.
+-	 */
+-	/* TODO: more fast path */
+ 	ret = translate_desc(vq, (u64)(uintptr_t)addr, size, vq->iotlb_iov,
+ 			     ARRAY_SIZE(vq->iotlb_iov),
+ 			     VHOST_ACCESS_RO);
+@@ -814,14 +850,32 @@ static void __user *__vhost_get_user(struct vhost_virtqueue *vq,
+ 	return vq->iotlb_iov[0].iov_base;
+ }
+ 
+-#define vhost_put_user(vq, x, ptr) \
++/* This function should be called after iotlb
++ * prefetch, which means we're sure that vq
++ * could be access through iotlb. So -EAGAIN should
++ * not happen in this case.
++ */
++static inline void __user *__vhost_get_user(struct vhost_virtqueue *vq,
++					    void *addr, unsigned int size,
++					    int type)
++{
++	void __user *uaddr = vhost_vq_meta_fetch(vq,
++			     (u64)(uintptr_t)addr, size, type);
++	if (uaddr)
++		return uaddr;
++
++	return __vhost_get_user_slow(vq, addr, size, type);
++}
++
++#define vhost_put_user(vq, x, ptr)		\
+ ({ \
+ 	int ret = -EFAULT; \
+ 	if (!vq->iotlb) { \
+ 		ret = __put_user(x, ptr); \
+ 	} else { \
+ 		__typeof__(ptr) to = \
+-			(__typeof__(ptr)) __vhost_get_user(vq, ptr, sizeof(*ptr)); \
++			(__typeof__(ptr)) __vhost_get_user(vq, ptr,	\
++					  sizeof(*ptr), VHOST_ADDR_USED); \
+ 		if (to != NULL) \
+ 			ret = __put_user(x, to); \
+ 		else \
+@@ -830,14 +884,16 @@ static void __user *__vhost_get_user(struct vhost_virtqueue *vq,
+ 	ret; \
+ })
+ 
+-#define vhost_get_user(vq, x, ptr) \
++#define vhost_get_user(vq, x, ptr, type)		\
+ ({ \
+ 	int ret; \
+ 	if (!vq->iotlb) { \
+ 		ret = __get_user(x, ptr); \
+ 	} else { \
+ 		__typeof__(ptr) from = \
+-			(__typeof__(ptr)) __vhost_get_user(vq, ptr, sizeof(*ptr)); \
++			(__typeof__(ptr)) __vhost_get_user(vq, ptr, \
++							   sizeof(*ptr), \
++							   type); \
+ 		if (from != NULL) \
+ 			ret = __get_user(x, from); \
+ 		else \
+@@ -846,6 +902,12 @@ static void __user *__vhost_get_user(struct vhost_virtqueue *vq,
+ 	ret; \
+ })
+ 
++#define vhost_get_avail(vq, x, ptr) \
++	vhost_get_user(vq, x, ptr, VHOST_ADDR_AVAIL)
++
++#define vhost_get_used(vq, x, ptr) \
++	vhost_get_user(vq, x, ptr, VHOST_ADDR_USED)
++
+ static void vhost_dev_lock_vqs(struct vhost_dev *d)
+ {
+ 	int i = 0;
+@@ -951,6 +1013,7 @@ static int vhost_process_iotlb_msg(struct vhost_dev *dev,
+ 			ret = -EFAULT;
+ 			break;
+ 		}
++		vhost_vq_meta_reset(dev);
+ 		if (vhost_new_umem_range(dev->iotlb, msg->iova, msg->size,
+ 					 msg->iova + msg->size - 1,
+ 					 msg->uaddr, msg->perm)) {
+@@ -960,6 +1023,7 @@ static int vhost_process_iotlb_msg(struct vhost_dev *dev,
+ 		vhost_iotlb_notify_vq(dev, msg);
+ 		break;
+ 	case VHOST_IOTLB_INVALIDATE:
++		vhost_vq_meta_reset(dev);
+ 		vhost_del_umem_range(dev->iotlb, msg->iova,
+ 				     msg->iova + msg->size - 1);
+ 		break;
+@@ -1103,12 +1167,26 @@ static int vq_access_ok(struct vhost_virtqueue *vq, unsigned int num,
+ 			sizeof *used + num * sizeof *used->ring + s);
+ }
+ 
++static void vhost_vq_meta_update(struct vhost_virtqueue *vq,
++				 const struct vhost_umem_node *node,
++				 int type)
++{
++	int access = (type == VHOST_ADDR_USED) ?
++		     VHOST_ACCESS_WO : VHOST_ACCESS_RO;
++
++	if (likely(node->perm & access))
++		vq->meta_iotlb[type] = node;
++}
++
+ static int iotlb_access_ok(struct vhost_virtqueue *vq,
+-			   int access, u64 addr, u64 len)
++			   int access, u64 addr, u64 len, int type)
+ {
+ 	const struct vhost_umem_node *node;
+ 	struct vhost_umem *umem = vq->iotlb;
+-	u64 s = 0, size;
++	u64 s = 0, size, orig_addr = addr;
++
++	if (vhost_vq_meta_fetch(vq, addr, len, type))
++		return true;
+ 
+ 	while (len > s) {
+ 		node = vhost_umem_interval_tree_iter_first(&umem->umem_tree,
+@@ -1125,6 +1203,10 @@ static int iotlb_access_ok(struct vhost_virtqueue *vq,
+ 		}
+ 
+ 		size = node->size - addr + node->start;
++
++		if (orig_addr == addr && size >= len)
++			vhost_vq_meta_update(vq, node, type);
++
+ 		s += size;
+ 		addr += size;
+ 	}
+@@ -1141,13 +1223,15 @@ int vq_iotlb_prefetch(struct vhost_virtqueue *vq)
+ 		return 1;
+ 
+ 	return iotlb_access_ok(vq, VHOST_ACCESS_RO, (u64)(uintptr_t)vq->desc,
+-			       num * sizeof *vq->desc) &&
++			       num * sizeof(*vq->desc), VHOST_ADDR_DESC) &&
+ 	       iotlb_access_ok(vq, VHOST_ACCESS_RO, (u64)(uintptr_t)vq->avail,
+ 			       sizeof *vq->avail +
+-			       num * sizeof *vq->avail->ring + s) &&
++			       num * sizeof(*vq->avail->ring) + s,
++			       VHOST_ADDR_AVAIL) &&
+ 	       iotlb_access_ok(vq, VHOST_ACCESS_WO, (u64)(uintptr_t)vq->used,
+ 			       sizeof *vq->used +
+-			       num * sizeof *vq->used->ring + s);
++			       num * sizeof(*vq->used->ring) + s,
++			       VHOST_ADDR_USED);
+ }
+ EXPORT_SYMBOL_GPL(vq_iotlb_prefetch);
+ 
+@@ -1728,7 +1812,7 @@ int vhost_vq_init_access(struct vhost_virtqueue *vq)
+ 		r = -EFAULT;
+ 		goto err;
+ 	}
+-	r = vhost_get_user(vq, last_used_idx, &vq->used->idx);
++	r = vhost_get_used(vq, last_used_idx, &vq->used->idx);
+ 	if (r) {
+ 		vq_err(vq, "Can't access used idx at %p\n",
+ 		       &vq->used->idx);
+@@ -1932,7 +2016,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 	last_avail_idx = vq->last_avail_idx;
+ 
+ 	if (vq->avail_idx == vq->last_avail_idx) {
+-		if (unlikely(vhost_get_user(vq, avail_idx, &vq->avail->idx))) {
++		if (unlikely(vhost_get_avail(vq, avail_idx, &vq->avail->idx))) {
+ 			vq_err(vq, "Failed to access avail idx at %p\n",
+ 				&vq->avail->idx);
+ 			return -EFAULT;
+@@ -1959,7 +2043,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 
+ 	/* Grab the next descriptor number they're advertising, and increment
+ 	 * the index we've seen. */
+-	if (unlikely(vhost_get_user(vq, ring_head,
++	if (unlikely(vhost_get_avail(vq, ring_head,
+ 		     &vq->avail->ring[last_avail_idx & (vq->num - 1)]))) {
+ 		vq_err(vq, "Failed to read head: idx %d address %p\n",
+ 		       last_avail_idx,
+@@ -2175,7 +2259,7 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 		 * with the barrier that the Guest executes when enabling
+ 		 * interrupts. */
+ 		smp_mb();
+-		if (vhost_get_user(vq, flags, &vq->avail->flags)) {
++		if (vhost_get_avail(vq, flags, &vq->avail->flags)) {
+ 			vq_err(vq, "Failed to get flags");
+ 			return true;
+ 		}
+@@ -2202,7 +2286,7 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 	 * interrupts. */
+ 	smp_mb();
+ 
+-	if (vhost_get_user(vq, event, vhost_used_event(vq))) {
++	if (vhost_get_avail(vq, event, vhost_used_event(vq))) {
+ 		vq_err(vq, "Failed to get used event idx");
+ 		return true;
+ 	}
+@@ -2246,7 +2330,7 @@ bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 	__virtio16 avail_idx;
+ 	int r;
+ 
+-	r = vhost_get_user(vq, avail_idx, &vq->avail->idx);
++	r = vhost_get_avail(vq, avail_idx, &vq->avail->idx);
+ 	if (r)
+ 		return false;
+ 
+@@ -2281,7 +2365,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 	/* They could have slipped one in as we were doing that: make
+ 	 * sure it's written, then check again. */
+ 	smp_mb();
+-	r = vhost_get_user(vq, avail_idx, &vq->avail->idx);
++	r = vhost_get_avail(vq, avail_idx, &vq->avail->idx);
+ 	if (r) {
+ 		vq_err(vq, "Failed to check avail idx at %p: %d\n",
+ 		       &vq->avail->idx, r);
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index a9cbbb1..f55671d 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -76,6 +76,13 @@ struct vhost_umem {
+ 	int numem;
+ };
+ 
++enum vhost_uaddr_type {
++	VHOST_ADDR_DESC = 0,
++	VHOST_ADDR_AVAIL = 1,
++	VHOST_ADDR_USED = 2,
++	VHOST_NUM_ADDRS = 3,
++};
++
+ /* The virtqueue structure describes a queue attached to a device. */
+ struct vhost_virtqueue {
+ 	struct vhost_dev *dev;
+@@ -86,6 +93,7 @@ struct vhost_virtqueue {
+ 	struct vring_desc __user *desc;
+ 	struct vring_avail __user *avail;
+ 	struct vring_used __user *used;
++	const struct vhost_umem_node *meta_iotlb[VHOST_NUM_ADDRS];
+ 	struct file *kick;
+ 	struct file *call;
+ 	struct file *error;
+-- 
+2.7.4
