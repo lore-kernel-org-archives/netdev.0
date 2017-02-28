@@ -1,54 +1,38 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] ath10k: remove redundant error check
-Date: Tue, 28 Feb 2017 11:14:39 +0000
-Message-ID: <20170228111439.19546-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>, ath10k@lists.infradead.org,
- linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
-List-Post: <mailto:ath10k@lists.infradead.org>
-List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
-Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
-Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: axienet: use eth_hw_addr_random()
+Date: Tue, 28 Feb 2017 12:21:12 +0100
+Message-ID: <20170228112112.29450-1-tklauser@distanz.ch>
+Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
+        netdev@vger.kernel.org
+To: anirudh@xilinx.com, John.Linn@xilinx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.zhinst.com ([212.126.164.98]:34818 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751625AbdB1LVc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Feb 2017 06:21:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Use eth_hw_addr_random() to set a random MAC address in order to make
+sure ndev->addr_assign_type will be properly set to NET_ADDR_RANDOM.
 
-The check on ret for an error is redundant because it is already been
-checked for non-zero earlier on and ret is never non-zero at this point.
-Fix this by removing the redundant check and error message.
-
-Detected by CoverityScan, CID#1357170 ("Logically Dead Code")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 ---
- drivers/net/wireless/ath/ath10k/pci.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
-index 6094372..52896c2 100644
---- a/drivers/net/wireless/ath/ath10k/pci.c
-+++ b/drivers/net/wireless/ath/ath10k/pci.c
-@@ -970,12 +970,6 @@ static int ath10k_pci_diag_read_mem(struct ath10k *ar, u32 address, void *data,
- 		}
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index b96e96919e31..33c595f4691d 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -301,7 +301,7 @@ static void axienet_set_mac_address(struct net_device *ndev,
+ 	if (address)
+ 		memcpy(ndev->dev_addr, address, ETH_ALEN);
+ 	if (!is_valid_ether_addr(ndev->dev_addr))
+-		eth_random_addr(ndev->dev_addr);
++		eth_hw_addr_random(ndev);
  
- 		remaining_bytes -= nbytes;
--
--		if (ret) {
--			ath10k_warn(ar, "failed to read diag value at 0x%x: %d\n",
--				    address, ret);
--			break;
--		}
- 		memcpy(data, data_buf, nbytes);
- 
- 		address += nbytes;
+ 	/* Set up unicast MAC address filter set its mac address */
+ 	axienet_iow(lp, XAE_UAW0_OFFSET,
 -- 
-2.10.2
+2.11.0
