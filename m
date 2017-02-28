@@ -1,50 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ipv6: ignore null_entry in inet6_rtm_getroute() too
-Date: Tue, 28 Feb 2017 10:44:38 -0800
-Message-ID: <1488307478-10081-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:32775 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751527AbdB1Sy2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 13:54:28 -0500
-Received: by mail-pg0-f66.google.com with SMTP id x17so2556205pgi.0
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 10:53:13 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: [PATCH net v4 2/2] net: ethernet: bgmac: mac address change bug
+Date: Tue, 28 Feb 2017 13:41:51 -0500
+Message-ID: <1488307311-11933-3-git-send-email-jon.mason@broadcom.com>
+References: <1488307311-11933-1-git-send-email-jon.mason@broadcom.com>
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Hari Vyas <hariv@broadcom.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1488307311-11933-1-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Like commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route dumps"),
-we need to ignore null entry in inet6_rtm_getroute() too.
+From: Hari Vyas <hariv@broadcom.com>
 
-Return -ENOENT here because we return the same errno when deleting
-the null entry.
+ndo_set_mac_address() passes struct sockaddr * as 2nd parameter to
+bgmac_set_mac_address() but code assumed u8 *.  This caused two bytes
+chopping and the wrong mac address was configured.
 
-Fixes: a1a22c1206 ("net: ipv6: Keep nexthop of multipath route on admin down")
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Hari Vyas <hariv@broadcom.com>
+Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+Fixes: 4e209001b86 ("bgmac: write mac address to hardware in ndo_set_mac_address")
 ---
- net/ipv6/route.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/broadcom/bgmac.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f54f426..25590d1 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -3627,6 +3627,12 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 		rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 4150467..6b7782f 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1223,12 +1223,16 @@ static netdev_tx_t bgmac_start_xmit(struct sk_buff *skb,
+ static int bgmac_set_mac_address(struct net_device *net_dev, void *addr)
+ {
+ 	struct bgmac *bgmac = netdev_priv(net_dev);
++	struct sockaddr *sa = addr;
+ 	int ret;
  
-+	if (rt == net->ipv6.ip6_null_entry) {
-+		ip6_rt_put(rt);
-+		err = -ENOENT;
-+		goto errout;
-+	}
+ 	ret = eth_prepare_mac_addr_change(net_dev, addr);
+ 	if (ret < 0)
+ 		return ret;
+-	bgmac_write_mac_address(bgmac, (u8 *)addr);
 +
- 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
- 	if (!skb) {
- 		ip6_rt_put(rt);
++	ether_addr_copy(bgmac->mac_addr, sa->sa_data);
++	bgmac_write_mac_address(bgmac, bgmac->mac_addr);
++
+ 	eth_commit_mac_addr_change(net_dev, addr);
+ 	return 0;
+ }
 -- 
-2.5.5
+2.7.4
