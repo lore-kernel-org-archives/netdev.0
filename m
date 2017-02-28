@@ -1,39 +1,50 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: net/rds: use-after-free in inet_create
-Date: Tue, 28 Feb 2017 12:48:33 -0500
-Message-ID: <20170228174833.GN31155@oracle.com>
-References: <CACT4Y+bi=rZr9yrajA0o0iUeR4N0q-sXYudBVsOeOiHbuApBeA@mail.gmail.com>
- <20170228153737.GG31155@oracle.com>
- <CACT4Y+aobp+g_AYoX6j1eftyyirK4pBxhOXz9hDu+XU+-jxSYw@mail.gmail.com>
- <20170228161544.GH31155@oracle.com>
- <CACT4Y+bWWAiMYQN_Fvxs7CKR9hRAA+r0t_YZhja3B5xGcZ4vcQ@mail.gmail.com>
- <20170228163833.GI31155@oracle.com>
- <CACT4Y+Y5eM8hKQ7BgA4hEN7ozkhRGgvGJRU6Smrths6noC-PMw@mail.gmail.com>
- <20170228173328.GL31155@oracle.com>
- <CACT4Y+YFMORo6YJBG_wOCFPK4dHHzQ_fBp650-E3REH8SdwpAQ@mail.gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] MAINTAINERS: Orphan usb/net/hso driver
+Date: Tue, 28 Feb 2017 18:51:24 +0100
+Message-ID: <20170228175124.GA14016@kroah.com>
+References: <30ad43134a6a7d155a257abaa31d120cf2c4d74c.1488271188.git.baruch@tkos.co.il>
+ <20170228.103844.1220680109576438605.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: santosh.shilimkar@oracle.com, David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, linux-rdma@vger.kernel.org,
-        rds-devel@oss.oracle.com, LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Cc: baruch@tkos.co.il, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:46972 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751334AbdB1Rwe (ORCPT
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:33374 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751055AbdB1Rwe (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 12:52:34 -0500
 Content-Disposition: inline
-In-Reply-To: <CACT4Y+YFMORo6YJBG_wOCFPK4dHHzQ_fBp650-E3REH8SdwpAQ@mail.gmail.com>
+In-Reply-To: <20170228.103844.1220680109576438605.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (02/28/17 18:45), Dmitry Vyukov wrote:
+On Tue, Feb 28, 2017 at 10:38:44AM -0500, David Miller wrote:
+> From: Baruch Siach <baruch@tkos.co.il>
+> Date: Tue, 28 Feb 2017 10:39:48 +0200
 > 
-> Yes, I can now apply custom patches to the bots. However, it fired
-> only 3 times, so it will give weak signal. But at least it will test
-> that the patch does not cause other bad things.
+> > The email address of Jan Dumon bounces, and there is not relevant information
+> > in the linked website.
+> > 
+> > Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> 
+> This patch is fine and I will apply it later, however I will make a
+> general statement that we list USB networking drivers very
+> inconsistently.
+> 
+> Specifically, some list linux-usb as the mailing list, others list
+> netdev.  We should figure out which one (or both) is the best to
+> specify, and apply that rule consitently to the MAINTAINERS file.
 
-Ok, let me do my bit of homework on this one and get back to you
-(probably by tomorrow)..
+I don't want them :)
+
+Seriously, I don't have a problem with the patches being cc:ed to
+linux-usb as long as you will take them, as often times the issues
+involved are USB specific things, not network driver-specific things, so
+the developers here can weigh in on them.
+
+Want me to make up a patch to do that?
+
+thanks,
+
+greg k-h
