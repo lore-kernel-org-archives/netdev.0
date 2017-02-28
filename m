@@ -1,45 +1,87 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
-Date: Tue, 28 Feb 2017 14:39:17 +0100
-Message-ID: <CACT4Y+Y7xvGvAGVM_V2e+6+Tmmc-ZKdyUz3x-n6KvevW98iJnQ@mail.gmail.com>
-References: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
- <20170214070854.GH30338@gauss.secunet.com> <CACT4Y+aPd8drh7MQf8cXLs_9f-oymf6YiWfN+owUsSYYz0yMzA@mail.gmail.com>
- <20170214090816.GJ30338@gauss.secunet.com> <CACT4Y+a7-TXY2f14Cn0wUapiJ5BYv=2wkJ4vcMGMnbDjqTPnVw@mail.gmail.com>
- <20170215062622.GO30338@gauss.secunet.com>
+From: Alexander Potapenko <glider@google.com>
+Subject: Re: [PATCH] net: don't call strlen() on the user buffer in packet_bind_spkt()
+Date: Tue, 28 Feb 2017 14:47:37 +0100
+Message-ID: <CAG_fn=V2J_dp+bASVdkLTnx1jQDHSda4pzQyVGBRHH-NBQHEgg@mail.gmail.com>
+References: <20170228131759.110380-1-glider@google.com> <1488288789.9415.249.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1488289373.9415.251.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        David Miller <davem@davemloft.net>,
+Content-Transfer-Encoding: quoted-printable
+Cc: Dmitriy Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
         Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f179.google.com ([209.85.217.179]:36116 "EHLO
-        mail-ua0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751507AbdB1Nr5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 08:47:57 -0500
-Received: by mail-ua0-f179.google.com with SMTP id 72so13434730uaf.3
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 05:47:11 -0800 (PST)
-In-Reply-To: <20170215062622.GO30338@gauss.secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1488289373.9415.251.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 15, 2017 at 7:26 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> On Tue, Feb 14, 2017 at 10:16:44AM +0100, Dmitry Vyukov wrote:
->>
->> I've run the repro with you patch and don't see the bug any more:
->>
->> Tested-by: Dmitry Vyukov <dvyukov@google.com>
+On Tue, Feb 28, 2017 at 2:42 PM, Eric Dumazet <eric.dumazet@gmail.com> wrot=
+e:
+> On Tue, 2017-02-28 at 05:33 -0800, Eric Dumazet wrote:
 >
-> I've applied this to the ipsec tree now.
+>> It looks a bug in this implementation of strlcpy() then.
+>>
 >
-> Thanks for testing!
+> Apparently strlcpy(dest, src, size)  returns strlen(src), so we can not
+> use it in this context.
+Good point.
+>> sizeof(name) is 15.
+>>
+>> If you use strncpy(X, uaddr->sa_data, 15) , then you might access
+>> uaddr->sa_data[14] and this would still be wrong, since sa_data has 14
+>> bytes only :
+>>
+>>
+>> struct sockaddr {
+>>   sa_family_t sa_family;
+>>   char        sa_data[14];
+>> };
+>
+>
+> Maybe then :
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 2bd0d1949312c3d71c4b33529316dcfe76fa28f1..d2e7caa79d2604363316c7316=
+864bed1f4971d29 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -3103,7 +3103,7 @@ static int packet_bind_spkt(struct socket *sock, st=
+ruct sockaddr *uaddr,
+>                             int addr_len)
+>  {
+>         struct sock *sk =3D sock->sk;
+> -       char name[15];
+> +       char name[sizeof(uaddr->sa_data) + 1];
+>
+>         /*
+>          *      Check legality
+> @@ -3111,7 +3111,8 @@ static int packet_bind_spkt(struct socket *sock, st=
+ruct sockaddr *uaddr,
+>
+>         if (addr_len !=3D sizeof(struct sockaddr))
+>                 return -EINVAL;
+> -       strlcpy(name, uaddr->sa_data, sizeof(name));
+> +       memcpy(name, uaddr->sa_data, sizeof(uaddr->sa_data));
+> +       name[sizeof(uaddr->sa_data)] =3D 0;
+>
+>         return packet_do_bind(sk, name, 0, pkt_sk(sk)->num);
+>  }
+>
+SGTM. Shall I send the updated patch? (Sorry for asking, the patch
+culture is hard)
+>
 
 
-Hi Steffen,
 
-Are you going to push this to Linus in this release? Still happens on
-upstream branch.
+--=20
+Alexander Potapenko
+Software Engineer
+
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
+
+Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
