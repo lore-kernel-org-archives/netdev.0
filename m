@@ -1,66 +1,38 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Tue, 28 Feb 2017 15:43:23 -0500
-Message-ID: <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
-References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
- <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com> <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
+From: Zaboj Campula <zaboj.campula@post.cz>
+Subject: Re: [PATCH] iproute2: show network device dependency tree
+Date: Tue, 28 Feb 2017 20:19:23 +0000
+Message-ID: <1488313163.2131.3.camel@post.cz>
+References: <20170225165900.10129-1-zaboj.campula@post.cz>
+         <20170227105524.64731e21@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Linux API <linux-api@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:36556 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751998AbdB1Uwo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 15:52:44 -0500
-Received: by mail-wr0-f193.google.com with SMTP id l37so3042600wrc.3
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 12:52:43 -0800 (PST)
-In-Reply-To: <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
+Received: from mxf2.seznam.cz ([77.75.76.123]:36374 "EHLO mxf2.seznam.cz"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751648AbdB1U5d (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Feb 2017 15:57:33 -0500
+In-Reply-To: <20170227105524.64731e21@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2017 at 2:46 PM, Andy Lutomirski <luto@amacapital.net> wrote:
-> On Mon, Feb 27, 2017 at 10:57 AM, Michael Kerrisk
-> <mtk.manpages@gmail.com> wrote:
->> [CC += linux-api@vger.kernel.org]
->>
->> Hi Willem
->>
->
->>> On a send call with MSG_ZEROCOPY, the kernel pins the user pages and
->>> creates skbuff fragments directly from these pages. On tx completion,
->>> it notifies the socket owner that it is safe to modify memory by
->>> queuing a completion notification onto the socket error queue.
->
-> What happens if the user writes to the pages while it's not safe?
->
-> How about if you're writing to an interface or a route that has crypto
-> involved and a malicious user can make the data change in the middle
-> of a crypto operation, thus perhaps leaking the entire key?  (I
-> wouldn't be at all surprised if a lot of provably secure AEAD
-> constructions are entirely compromised if an attacker can get the
-> ciphertext and tag computed from a message that changed during the
-> computation.
+On Mon, 2017-02-27 at 10:55 -0800, Stephen Hemminger wrote:
+> 
+> Another alternative format would be to make -tree a output modifier and ident (like ps tree options).
+> 
+> $ ip -t link
+> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1
+>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> 8: bond0 <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000
+>     link/ether 52:54:00:66:24:cd brd ff:ff:ff:ff:ff:ff 
+>     2: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast master bond0 state DOWN mode DEFAULT group default qlen 1000
+>         link/ether 52:54:00:66:24:cd brd ff:ff:ff:ff:ff:ff
 
-Operations that read or write payload, such as this crypto example,
-but also ebpf in tc or iptables, for instance, demand a deep copy using
-skb_copy_ubufs before the operation.
+OK, it looks better because the information is complete.
 
-This blacklist approach requires caution, but these paths should be
-few and countable. It is not possible to predict at the socket layer
-whether a packet will encounter any such operation, so white-listing
-a subset of end-to-end paths is not practical.
-
-> I can see this working if you have a special type of skb that
-> indicates that the data might be concurrently written and have all the
-> normal skb APIs (including, especially, anything that clones it) make
-> a copy first.
-
-Support for cloned skbs is required for TCP, both at tcp_transmit_skb
-and segmentation offload. Patch 4 especially adds reference counting
-of shared pages across clones and other sk_buff operations like
-pskb_expand_head. This still allows for deep copy (skb_copy_ubufs)
-on clones in specific datapaths like the above.
+I looked at several tree printing utilities and I like
+the lsblk format. But tabular format does not fit the ip-show
+well. I will try to indent the current ip-show output may be
+with fancy lines.
