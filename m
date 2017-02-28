@@ -1,18 +1,12 @@
 From: Alexander Potapenko <glider@google.com>
 Subject: [PATCH] net: don't call strlen() on the user buffer in packet_bind_spkt()
-Date: Tue, 28 Feb 2017 14:17:59 +0100
-Message-ID: <20170228131759.110380-1-glider@google.com>
+Date: Tue, 28 Feb 2017 14:29:02 +0100
+Message-ID: <20170228132902.123061-1-glider@google.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: dvyukov@google.com, kcc@google.com, edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:38052 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752550AbdB1NSF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 08:18:05 -0500
-Received: by mail-wm0-f41.google.com with SMTP id u199so11478050wmd.1
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 05:18:04 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 KMSAN (KernelMemorySanitizer, a new error detection tool) reports use of
 uninitialized memory in packet_bind_spkt():
