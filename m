@@ -1,85 +1,52 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net v1 2/3] amd-xgbe: Be sure to set MDIO modes on device
- (re)start
-Date: Tue, 28 Feb 2017 15:03:01 -0600
-Message-ID: <20170228210301.32166.46205.stgit@tlendack-t1.amdoffice.net>
-References: <20170228210242.32166.30038.stgit@tlendack-t1.amdoffice.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net/mlx5e: add IPV6 dependency
+Date: Tue, 28 Feb 2017 22:12:04 +0100
+Message-ID: <20170228211226.3655526-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Matthew Finlay <matt@mellanox.com>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0066.outbound.protection.outlook.com ([104.47.40.66]:20106
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751648AbdB1VVE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Feb 2017 16:21:04 -0500
-In-Reply-To: <20170228210242.32166.30038.stgit@tlendack-t1.amdoffice.net>
+Received: from mout.kundenserver.de ([212.227.126.187]:52712 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751702AbdB1VXF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 16:23:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MDIO register mode is set when the device is probed. But when the
-device is brought down and then back up, the MDIO register mode has been
-reset.  Be sure to reset the mode during device startup and only change
-the mode of the address specified.
+The ethernet support now calls directly into the ipv6 core code, which
+fails if IPV6 is a loadable module but mlx5 is built-in:
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+drivers/net/ethernet/mellanox/mlx5/core/en_tc.o: In function `mlx5e_create_encap_header_ipv6':
+en_tc.c:(.text.mlx5e_create_encap_header_ipv6+0x110): undefined reference to `ip6_route_output_flags'
+
+This adds a dependency to ensure that MLX5_CORE_EN can only be built
+if we are able link the kernel successfully. The downside is that the
+ethernet option can be hidden. Alternatively we could make MLX5_CORE
+depend on "IPV6 || !IPV6", which would force MLX5_CORE to be a module
+when IPV6 is, including in configurations where we don't use the ethernet
+support at all.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |    2 +-
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |   22 ++++++++++++++++++++++
- 2 files changed, 23 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index a7d16db..937f37a 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1323,7 +1323,7 @@ static int xgbe_read_ext_mii_regs(struct xgbe_prv_data *pdata, int addr,
- static int xgbe_set_ext_mii_mode(struct xgbe_prv_data *pdata, unsigned int port,
- 				 enum xgbe_mdio_mode mode)
- {
--	unsigned int reg_val = 0;
-+	unsigned int reg_val = XGMAC_IOREAD(pdata, MAC_MDIOCL22R);
- 
- 	switch (mode) {
- 	case XGBE_MDIO_MODE_CL22:
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index 9d8c9530..04804cb 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-@@ -875,6 +875,16 @@ static int xgbe_phy_find_phy_device(struct xgbe_prv_data *pdata)
- 	    !phy_data->sfp_phy_avail)
- 		return 0;
- 
-+	/* Set the proper MDIO mode for the PHY */
-+	ret = pdata->hw_if.set_ext_mii_mode(pdata, phy_data->mdio_addr,
-+					    phy_data->phydev_mode);
-+	if (ret) {
-+		netdev_err(pdata->netdev,
-+			   "mdio port/clause not compatible (%u/%u)\n",
-+			   phy_data->mdio_addr, phy_data->phydev_mode);
-+		return ret;
-+	}
-+
- 	/* Create and connect to the PHY device */
- 	phydev = get_phy_device(phy_data->mii, phy_data->mdio_addr,
- 				(phy_data->phydev_mode == XGBE_MDIO_MODE_CL45));
-@@ -2722,6 +2732,18 @@ static int xgbe_phy_start(struct xgbe_prv_data *pdata)
- 	if (ret)
- 		return ret;
- 
-+	/* Set the proper MDIO mode for the re-driver */
-+	if (phy_data->redrv && !phy_data->redrv_if) {
-+		ret = pdata->hw_if.set_ext_mii_mode(pdata, phy_data->redrv_addr,
-+						    XGBE_MDIO_MODE_CL22);
-+		if (ret) {
-+			netdev_err(pdata->netdev,
-+				   "redriver mdio port not compatible (%u)\n",
-+				   phy_data->redrv_addr);
-+			return ret;
-+		}
-+	}
-+
- 	/* Start in highest supported mode */
- 	xgbe_phy_set_mode(pdata, phy_data->start_mode);
- 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index ddb4ca4ff930..117170014e88 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -14,6 +14,7 @@ config MLX5_CORE
+ config MLX5_CORE_EN
+ 	bool "Mellanox Technologies ConnectX-4 Ethernet support"
+ 	depends on NETDEVICES && ETHERNET && PCI && MLX5_CORE
++	depends on IPV6=y || IPV6=n || MLX5_CORE=m
+ 	imply PTP_1588_CLOCK
+ 	default n
+ 	---help---
+-- 
+2.9.0
