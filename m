@@ -1,95 +1,95 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Tue, 28 Feb 2017 09:26:32 +0100
-Message-ID: <20170228082632.GA14857@localhost>
-References: <20170207140144.GA11233@localhost>
- <02874ECE860811409154E81DA85FBB5857D6DC87@ORSMSX115.amr.corp.intel.com>
- <CAF=yD-JLiABx6TcVg_8mS5ZhomRaZ+cZ8edx00hJNG8PDrsSjg@mail.gmail.com>
- <20170227152339.GB12043@localhost>
- <CAF=yD-JJ2nMYg1soRzCv2CKH0c_i2+Ku-UK8-mMYFtbfbn__kw@mail.gmail.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: usb/net/hso: WARNING: ungligned urb->setup_dma
+Date: Tue, 28 Feb 2017 10:28:10 +0200
+Message-ID: <20170228082810.syn656o2zzms7urf@tarshish>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Jiri Benc <jbenc@redhat.com>, Denny Page <dennypage@me.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Cc: linux-usb@vger.kernel.org, John Youn <johnyoun@synopsys.com>,
+        netdev@vger.kernel.org, Olivier Sobrie <olivier@sobrie.be>
+To: Jan Dumon <j.dumon@option.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42004 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751055AbdB1I14 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 28 Feb 2017 03:27:56 -0500
+Received: from guitar.tcltek.co.il ([192.115.133.116]:59225 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751395AbdB1I2y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Feb 2017 03:28:54 -0500
 Content-Disposition: inline
-In-Reply-To: <CAF=yD-JJ2nMYg1soRzCv2CKH0c_i2+Ku-UK8-mMYFtbfbn__kw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 27, 2017 at 07:01:54PM -0500, Willem de Bruijn wrote:
-> On Mon, Feb 27, 2017 at 10:23 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> > On Tue, Feb 07, 2017 at 02:32:04PM -0800, Willem de Bruijn wrote:
-> >> >> 4) allow sockets to use both SW and HW TX timestamping at the same time
+Hi Jan, linux-usb list,
 
-> > Do we need a new option for this?
-> 
-> Similar to OPT_TSONLY or OPT_ID, but to signal the intent of
-> receiving both timestamps. Yes, agreed.
+I'm hitting this warning consistently on my Raspberry Pi 3 running kernel 
+v4.10.1 with some unrelated device tree changes, and a debug print (below). 
+The device identifies as "GlobeTrotter HSDPA Modem", VID: 0af0, PID: 6971.
+The warning triggers consistently on first write access to /dev/ttyHS0 that 
+ModemManager attempts. The first line in the log is my debug print.
 
-Ok. Thanks.
+[   65.004892] dwc2_map_urb_for_dma: setup_dma: f5635066
+[   65.010718] ------------[ cut here ]------------
+[   65.016079] WARNING: CPU: 1 PID: 794 at drivers/usb/dwc2/hcd.c:2631 dwc2_map_urb_for_dma+0x94/0x130
+[   65.025930] 
+[   65.028143] CPU: 1 PID: 794 Comm: ModemManager Not tainted 4.10.1-00008-g76809ec3947f-dirty #719
+[   65.037747] Hardware name: Raspberry Pi 3 Model B (DT)
+[   65.043656] task: ffff8000362e3e80 task.stack: ffff80003556c000
+[   65.050359] PC is at dwc2_map_urb_for_dma+0x94/0x130
+[   65.056090] LR is at dwc2_map_urb_for_dma+0x34/0x130
+[   65.061819] pc : [<ffff0000083ff0ac>] lr : [<ffff0000083ff04c>] pstate: 000001c5
+[   65.070018] sp : ffff80003556fa70
+[   65.074080] x29: ffff80003556fa70 x28: 0000000000000005 
+[   65.080167] x27: ffff80003563d000 x26: ffff8000350d4600 
+[   65.086252] x25: ffff800035686780 x24: 0000000000000002 
+[   65.092247] x23: 0000000000000001 x22: 0000000001080020 
+[   65.097635] x21: ffff800035425800 x20: 0000000001080020 
+[   65.103024] x19: ffff800035b72400 x18: 0000000000000010 
+[   65.108413] x17: 0000ffff908f5a40 x16: ffff0000081abad8 
+[   65.113801] x15: 0000000000000006 x14: ffff00008882c047 
+[   65.119191] x13: ffff00000882c055 x12: ffff00000882e458 
+[   65.124579] x11: ffff80003556f7d0 x10: ffff0000087c9a38 
+[   65.129968] x9 : ffff0000083613e0 x8 : 363566203a616d64 
+[   65.135356] x7 : 5f7075746573203a x6 : 00000000000002fc 
+[   65.140744] x5 : 0000000000000000 x4 : 0000000000000000 
+[   65.146132] x3 : 0000000000000000 x2 : ffff8000362e3e80 
+[   65.151521] x1 : 0000000000000001 x0 : ffff00000880e000 
+[   65.156907] 
+[   65.158414] ---[ end trace a78d20eaecac455a ]---
+[   65.163093] Call trace:
+[   65.165573] Exception stack(0xffff80003556f8a0 to 0xffff80003556f9d0)
+[   65.172108] f8a0: ffff800035b72400 0001000000000000 ffff80003556fa70 ffff0000083ff0ac
+[   65.180052] f8c0: ffff0000086f8f70 ffff000008795000 ffff00000882dce8 ffff0000087fb318
+[   65.187996] f8e0: ffff00000882c048 000000010882bae8 ffff80003556f990 ffff0000080dc664
+[   65.195940] f900: ffff800035b72400 0000000001080020 ffff800035425800 0000000001080020
+[   65.203883] f920: 0000000000000001 0000000000000002 ffff800035686780 ffff8000350d4600
+[   65.211827] f940: ffff00000880e000 0000000000000001 ffff8000362e3e80 0000000000000000
+[   65.219771] f960: 0000000000000000 0000000000000000 00000000000002fc 5f7075746573203a
+[   65.227715] f980: 363566203a616d64 ffff0000083613e0 ffff0000087c9a38 ffff80003556f7d0
+[   65.235659] f9a0: ffff00000882e458 ffff00000882c055 ffff00008882c047 0000000000000006
+[   65.243601] f9c0: ffff0000081abad8 0000ffff908f5a40
+[   65.248548] [<ffff0000083ff0ac>] dwc2_map_urb_for_dma+0x94/0x130
+[   65.254643] [<ffff0000083e8984>] usb_hcd_submit_urb+0x8c/0x8c0
+[   65.260560] [<ffff0000083eb0b8>] usb_submit_urb+0x248/0x480
+[   65.266215] [<ffff0000083d2d2c>] mux_device_request+0xdc/0x1f8
+[   65.272134] [<ffff0000083d2e70>] hso_mux_serial_write_data+0x28/0x38
+[   65.278581] [<ffff0000083d2fa8>] hso_kick_transmit+0x88/0xb8
+[   65.284323] [<ffff0000083d4dc8>] hso_serial_write+0x60/0xc0
+[   65.289979] [<ffff000008345e80>] n_tty_write+0x300/0x3e0
+[   65.295369] [<ffff000008340a50>] tty_write+0x170/0x2b8
+[   65.300585] [<ffff0000081ab6ac>] __vfs_write+0x1c/0x100
+[   65.305884] [<ffff0000081ab92c>] vfs_write+0x9c/0x1a8
+[   65.311010] [<ffff0000081abb1c>] SyS_write+0x44/0xa0
+[   65.316049] [<ffff000008082730>] el0_svc_naked+0x24/0x28
 
-> > With this change I'm getting two error messages per transmission, but
-> > it looks like it may need some additional changes.
-> >
-> > If the first error message is received after the HW timestamp was
-> > captured,
-> 
-> When does this happen? The first timestamp is generated from
-> skb_tx_timestamp in the device driver's ndo_start_xmit before
-> passing the packet to the NIC, the second when the device
-> driver cleans the tx descriptor on completion.
+The debug print otherwise just shows:
 
-As I understand it, it happens when the first skb (created by the
-skb_tx_timestamp() call) is received by the application after the
-driver called skb_tstamp_tx() with the HW timestamp. The SW timestamps
-are separate, but the HW timestamp is shared between clones. It
-probably doesn't happen with the TSONLY option as it allocates a new
-skb. When I print timestamps from scm_timestamping I see a mix of two
-cases:
+[   64.476785] dwc2_map_urb_for_dma: setup_dma: 00000000
 
-TX 1488268812.193945472 0.000000000 1488286813.273760139
-TX 0.000000000 0.000000000 1488286813.273760139
-RX 1488268812.354356188 0.000000000 1488286813.434096389
+So it looks like urb->setup_dma content is garbage.
 
-TX 1488268816.364407934 0.000000000 0.000000000
-TX 0.000000000 0.000000000 1488286817.444251014
-RX 1488268816.525150589 0.000000000 1488286817.604749889
+Any thoughts?
 
-In the first case I assume the HW timestamp was saved before the first
-error message was received, so both error messages have the same HW
-timestamp, but only one has the SW timestamp. In the second case, the
-HW timestamp was saved later, so there is one message with SW
-timestamp and one message with HW timestamp.
-
->From the application point of view it would make sense if in the first
-case there was only one error message containing both timestamps. I'm
-not sure how easy/safe it would be to drop the second skb. The other
-approach would be to not put HW timestamp in the first message when
-this "dual TX timestamping" option is enabled, so each error message
-has only one timestamp.
-
-> Is this for drivers that do not have skb_tx_timestamp, as you
-> mention below? Then the solution is to add that call.
-
-FWIW, I saw that with the e1000e driver after I made the
-skb_tx_timestamp() call unconditional.
-
-> > it contains both timestamps as the HW timestamp is in the
-> > shared info of the skb. Is it possible it could contain a partially
-> > updated HW timestamp? I'm not sure how locking works here. Is
-> > scm_timestamping actually allowed to contain more than one timestamp?
-> > The timestamping.txt document says "Only one field is non-zero at any
-> > time.", but that wasn't true even before if both SW and HW RX
-> > timestamping was enabled.
+Thanks,
+baruch
 
 -- 
-Miroslav Lichvar
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.52.368.4656, http://www.tkos.co.il -
