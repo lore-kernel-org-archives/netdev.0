@@ -1,36 +1,52 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Tue, 28 Feb 2017 13:09:44 -0800
-Message-ID: <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
-References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
- <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
- <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com> <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net v1 1/3] amd-xgbe: Stop the PHY before releasing
+ interrupts
+Date: Tue, 28 Feb 2017 15:02:51 -0600
+Message-ID: <20170228210251.32166.39747.stgit@tlendack-t1.amdoffice.net>
+References: <20170228210242.32166.30038.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0053.outbound.protection.outlook.com ([104.47.40.53]:62642
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751793AbdB1VVE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 28 Feb 2017 16:21:04 -0500
+In-Reply-To: <20170228210242.32166.30038.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2017 at 12:43 PM, Willem de Bruijn
-<willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->
->> I can see this working if you have a special type of skb that
->> indicates that the data might be concurrently written and have all the
->> normal skb APIs (including, especially, anything that clones it) make
->> a copy first.
->
-> Support for cloned skbs is required for TCP, both at tcp_transmit_skb
-> and segmentation offload. Patch 4 especially adds reference counting
-> of shared pages across clones and other sk_buff operations like
-> pskb_expand_head. This still allows for deep copy (skb_copy_ubufs)
-> on clones in specific datapaths like the above.
+Some configurations require the use of the hardware's MDIO support to
+communicate with external PHYs. The MDIO commands indicate completion
+through the device interrupt. When bringing down the device the interrupts
+were released before stopping the external PHY, resulting in MDIO command
+timeouts. Move the stopping of the PHY to before the releasing of the
+interrupts.
 
-Does this mean that a user program that does a zerocopy send can cause
-a retransmitted segment to contain different data than the original
-segment?  If so, is that okay?
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 3aa457c..248f60d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -1131,12 +1131,12 @@ static void xgbe_stop(struct xgbe_prv_data *pdata)
+ 	hw_if->disable_tx(pdata);
+ 	hw_if->disable_rx(pdata);
+ 
++	phy_if->phy_stop(pdata);
++
+ 	xgbe_free_irqs(pdata);
+ 
+ 	xgbe_napi_disable(pdata, 1);
+ 
+-	phy_if->phy_stop(pdata);
+-
+ 	hw_if->exit(pdata);
+ 
+ 	channel = pdata->channel;
