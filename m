@@ -1,95 +1,61 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: call rcu_read_lock before checking for
- duplicate transport nodes
-Date: Tue, 28 Feb 2017 09:58:51 -0500
-Message-ID: <20170228145850.GB17171@hmswarspite.think-freely.org>
-References: <d239fb1c1f86e3421de4a891f8a704d37b236cbf.1488256889.git.lucien.xin@gmail.com>
- <20170228142323.GA17171@hmswarspite.think-freely.org>
- <CADvbK_fzwfPnictj1yqyW5VBMtOKf5X_fWLYxjeyh4DJo2NweQ@mail.gmail.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net/atm: vcc_sendmsg calls kmem_cache_alloc in non-blocking context
+Date: Tue, 28 Feb 2017 16:26:38 +0100
+Message-ID: <CACT4Y+abEEVtX1eMTQdApx7RFHt02NPNApuM2XUw=seSx=MqVA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51807 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752156AbdB1PAi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 10:00:38 -0500
-Content-Disposition: inline
-In-Reply-To: <CADvbK_fzwfPnictj1yqyW5VBMtOKf5X_fWLYxjeyh4DJo2NweQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>
+To: David Miller <davem@davemloft.net>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 28, 2017 at 10:37:35PM +0800, Xin Long wrote:
-> On Tue, Feb 28, 2017 at 10:23 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-> > On Tue, Feb 28, 2017 at 12:41:29PM +0800, Xin Long wrote:
-> >> Commit cd2b70875058 ("sctp: check duplicate node before inserting a
-> >> new transport") called rhltable_lookup() to check for the duplicate
-> >> transport node in transport rhashtable.
-> >>
-> >> But rhltable_lookup() doesn't call rcu_read_lock inside, it could cause
-> >> a use-after-free issue if it tries to dereference the node that another
-> >> cpu has freed it. Note that sock lock can not avoid this as it is per
-> >> sock.
-> >>
-> >> This patch is to fix it by calling rcu_read_lock before checking for
-> >> duplicate transport nodes.
-> >>
-> >> Fixes: cd2b70875058 ("sctp: check duplicate node before inserting a new transport")
-> >> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> >> ---
-> >>  net/sctp/input.c | 3 +++
-> >>  1 file changed, 3 insertions(+)
-> >>
-> >> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> >> index fc45896..2a28ab2 100644
-> >> --- a/net/sctp/input.c
-> >> +++ b/net/sctp/input.c
-> >> @@ -884,14 +884,17 @@ int sctp_hash_transport(struct sctp_transport *t)
-> >>       arg.paddr = &t->ipaddr;
-> >>       arg.lport = htons(t->asoc->base.bind_addr.port);
-> >>
-> >> +     rcu_read_lock();
-> >>       list = rhltable_lookup(&sctp_transport_hashtable, &arg,
-> >>                              sctp_hash_params);
-> >>
-> >>       rhl_for_each_entry_rcu(transport, tmp, list, node)
-> >>               if (transport->asoc->ep == t->asoc->ep) {
-> >> +                     rcu_read_unlock();
-> >>                       err = -EEXIST;
-> >>                       goto out;
-> >>               }
-> >> +     rcu_read_unlock();
-> >>
-> >>       err = rhltable_insert_key(&sctp_transport_hashtable, &arg,
-> >>                                 &t->node, sctp_hash_params);
-> >> --
-> >> 2.1.0
-> >>
-> >>
-> >
-> > Hmm, rhltable_insert_key I think returns a pointer to the existing object in the
-> > hash table if there is a collision (according to the _rhashtable_insert_fast
-> > description).  Wouldn't it be better to eliminate the rhl_for_each_entry_rcu
-> > entirely, and just check the returned pointer from rhltable_insert_key?
-> I wish it could do it, but rhlist(rhltable_insert_key) allows duplicate
-> node to be inserted, it will never return the existing node. :(
-> 
-> I guess the codes you saw are only for the old rhashtable api (they are
-> together with rhlist codes in __rhashtable_insert_fast).
-> 
-> Thanks
-> 
-yeah, you're right, can't do it that way
+Hello,
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+I've got the following WARNING while running syzkaller fuzzer:
 
-> >
-> > Neil
-> >
-> 
+------------[ cut here ]------------
+WARNING: CPU: 0 PID: 9197 at kernel/sched/core.c:6149
+__might_sleep+0x149/0x1a0 kernel/sched/core.c:6144
+do not call blocking ops when !TASK_RUNNING; state=1 set at
+[<ffffffff813fa422>] prepare_to_wait+0x182/0x530
+kernel/sched/wait.c:178
+Kernel panic - not syncing: panic_on_warn set ...
+
+CPU: 0 PID: 9197 Comm: syz-executor2 Not tainted 4.10.0+ #54
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:15 [inline]
+ dump_stack+0x292/0x398 lib/dump_stack.c:51
+ panic+0x1cb/0x3a9 kernel/panic.c:179
+ __warn+0x1c4/0x1e0 kernel/panic.c:540
+ warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:563
+ __might_sleep+0x149/0x1a0 kernel/sched/core.c:6144
+ slab_pre_alloc_hook mm/slab.h:432 [inline]
+ slab_alloc_node mm/slub.c:2644 [inline]
+ kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2754
+ __alloc_skb+0x10f/0x770 net/core/skbuff.c:219
+ alloc_skb include/linux/skbuff.h:932 [inline]
+ alloc_tx net/atm/common.c:75 [inline]
+ vcc_sendmsg+0x5e8/0x1010 net/atm/common.c:609
+ sock_sendmsg_nosec net/socket.c:633 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:643
+ ___sys_sendmsg+0x9d2/0xae0 net/socket.c:1985
+ __sys_sendmsg+0x138/0x320 net/socket.c:2019
+ SYSC_sendmsg net/socket.c:2030 [inline]
+ SyS_sendmsg+0x2d/0x50 net/socket.c:2026
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
+RIP: 0033:0x4458b9
+RSP: 002b:00007f20dd37ab58 EFLAGS: 00000286 ORIG_RAX: 000000000000002e
+RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 00000000004458b9
+RDX: 0000000000000000 RSI: 0000000020000000 RDI: 0000000000000005
+RBP: 00000000006e1af0 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000286 R12: 0000000000708000
+R13: 0000000000000005 R14: 0000000020000ff8 R15: 0000000000000008
+
+On commit 86292b33d4b79ee03e2f43ea0381ef85f077c760
