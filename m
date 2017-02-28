@@ -1,103 +1,74 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH v2] net: don't call strlen() on the user buffer in packet_bind_spkt()
-Date: Tue, 28 Feb 2017 14:29:31 +0100
-Message-ID: <20170228132931.123155-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net] net: solve a NAPI race
+Date: Tue, 28 Feb 2017 05:20:52 -0800
+Message-ID: <1488288052.9415.244.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1488226711.9415.204.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170227141403.714490f7@xeon-e3>
+         <1488234917.9415.217.camel@edumazet-glaptop3.roam.corp.google.com>
+         <063D6719AE5E284EB5DD2968C1650D6DCFE71AA0@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:32841 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752635AbdB1NbL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 08:31:11 -0500
+Received: by mail-pg0-f51.google.com with SMTP id 25so5153782pgy.0
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 05:31:10 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFE71AA0@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-KMSAN (KernelMemorySanitizer, a new error detection tool) reports use of
-uninitialized memory in packet_bind_spkt():
+On Tue, 2017-02-28 at 10:14 +0000, David Laight wrote:
+> From: Eric Dumazet
+> > Sent: 27 February 2017 22:35
+> > On Mon, 2017-02-27 at 14:14 -0800, Stephen Hemminger wrote:
+> > 
+> > > The original design (as Davem mentioned) was that IRQ's must be disabled
+> > > during device polling. If that was true, then the race above
+> > > would be impossible.
+> > 
+> > I would love to see an alternative patch.
+> 
+> Can you test for 'receive data available' after telling the NAPI
+> logic that you've finished?
+> You'd then need to force a reschedule.
+> 
 
-==================================================================
-BUG: KMSAN: use of unitialized memory
-CPU: 0 PID: 1074 Comm: packet Not tainted 4.8.0-rc6+ #1891
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
-01/01/2011
- 0000000000000000 ffff88006b6dfc08 ffffffff82559ae8 ffff88006b6dfb48
- ffffffff818a7c91 ffffffff85b9c870 0000000000000092 ffffffff85b9c550
- 0000000000000000 0000000000000092 00000000ec400911 0000000000000002
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff82559ae8>] dump_stack+0x238/0x290 lib/dump_stack.c:51
- [<ffffffff818a6626>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1003
- [<ffffffff818a783b>] __msan_warning+0x5b/0xb0
-mm/kmsan/kmsan_instr.c:424
- [<     inline     >] strlen lib/string.c:484
- [<ffffffff8259b58d>] strlcpy+0x9d/0x200 lib/string.c:144
- [<ffffffff84b2eca4>] packet_bind_spkt+0x144/0x230
-net/packet/af_packet.c:3132
- [<ffffffff84242e4d>] SYSC_bind+0x40d/0x5f0 net/socket.c:1370
- [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
- [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f
-arch/x86/entry/entry_64.o:?
-chained origin: 00000000eba00911
- [<ffffffff810bb787>] save_stack_trace+0x27/0x50
-arch/x86/kernel/stacktrace.c:67
- [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
- [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:334
- [<ffffffff818a59f8>] kmsan_internal_chain_origin+0x118/0x1e0
-mm/kmsan/kmsan.c:527
- [<ffffffff818a7773>] __msan_set_alloca_origin4+0xc3/0x130
-mm/kmsan/kmsan_instr.c:380
- [<ffffffff84242b69>] SYSC_bind+0x129/0x5f0 net/socket.c:1356
- [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
- [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f
-arch/x86/entry/entry_64.o:?
-origin description: ----address@SYSC_bind (origin=00000000eb400911)
-==================================================================
-(the line numbers are relative to 4.8-rc6, but the bug persists
-upstream)
+You understand that a 'reschedule' is only firing another invocation of
+napi->poll() right away ?
 
-, when I run the following program as root:
+hot cache lines, basically 0 cost.
 
-=====================================
- #include <string.h>
- #include <sys/socket.h>
- #include <netpacket/packet.h>
- #include <net/ethernet.h>
+In my stress tests, this happens 0.01 % of the times. Bug is tiny.
 
- int main() {
-   struct sockaddr addr;
-   memset(&addr, 0xff, sizeof(addr));
-   addr.sa_family = AF_PACKET;
-   int fd = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ALL));
-   bind(fd, &addr, sizeof(addr));
-   return 0;
- }
-=====================================
+(Otherwise we would have spotted it earlier)
 
-This happens because addr.sa_data copied from the userspace is not
-zero-terminated, and copying it with strlcpy() in packet_bind_spkt()
-results in calling strlen() on the kernel copy of that non-terminated
-buffer.
+> I think your proposed patch will do a reschedule if any packet arrives
+> during the receive processing, not just when one arrives right at the end.
+> You might want to 'unset' the reschedule flag before each check of the
+> receive ring.
 
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
-Changes since v1:
- - copy no more than 14 bytes
----
- net/packet/af_packet.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+Well, no :
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2bd0d1949312..ac6b3c77a52e 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3111,7 +3111,11 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
- 
- 	if (addr_len != sizeof(struct sockaddr))
- 		return -EINVAL;
--	strlcpy(name, uaddr->sa_data, sizeof(name));
-+	/* uaddr->sa_data comes from the userspace, it's not guaranteed to be
-+	 * zero-terminated.
-+	 */
-+	name[14] = '\0';
-+	strncpy(name, uaddr->sa_data, sizeof(name) - 1);
- 
- 	return packet_do_bind(sk, name, 0, pkt_sk(sk)->num);
- }
--- 
-2.11.0.483.g087da7b7c-goog
+Interrupt has been masked before the napi poll was scheduled.
+
+As David and Stephen says, this condition must not happen, unless your
+are really unlucky while doing busy polling, which is opportunistic call
+of napi->poll() while you have idle cycles on your cpu.
+
+> 
+> I also wonder about the cost of processing the MSI-X (I guess) interrupts
+> compared to the cost of posted PCIe writes to disable and/or mask the
+> interrupt generation.
+> Clearly you don't want to do PCIe reads.
+
+Seems irrelevant to the bug we are discussing.
