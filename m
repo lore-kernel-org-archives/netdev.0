@@ -1,91 +1,88 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [bug report] dp83640: Delay scheduled work.
-Date: Tue, 28 Feb 2017 09:36:12 +0300
-Message-ID: <20170228063612.GA25830@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: stefan.sorensen@spectralink.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] mlxsw: spectrum_router: Avoid potential packets loss
+Date: Tue, 28 Feb 2017 08:55:40 +0100
+Message-ID: <1488268540-1767-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:41606 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751713AbdB1Grw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 01:47:52 -0500
-Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
-        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v1S6bT69008624
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 06:37:29 GMT
-Content-Disposition: inline
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35852 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751045AbdB1H5N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 02:57:13 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r18so962758wmd.3
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 23:55:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Stefan Sørensen,
+From: Ido Schimmel <idosch@mellanox.com>
 
-The patch 4b063258ab93: "dp83640: Delay scheduled work." from Nov 3,
-2015, leads to the following static checker warning:
+When the structure of the LPM tree changes (f.e., due to the addition of
+a new prefix), we unbind the old tree and then bind the new one. This
+may result in temporary packet loss.
 
-	drivers/net/phy/dp83640.c:1442 dp83640_rxtstamp()
-	warn: 'skb' was already freed.
+Instead, overwrite the old binding with the new one.
 
-drivers/net/phy/dp83640.c
-  1402          struct dp83640_skb_info *skb_info = (struct dp83640_skb_info *)skb->cb;
-  1403          struct list_head *this, *next;
-  1404          struct rxts *rxts;
-  1405          struct skb_shared_hwtstamps *shhwtstamps = NULL;
-                                             ^^^^^^^^^^^^^^^^^^
-  1406          unsigned long flags;
-  1407  
-  1408          if (is_status_frame(skb, type)) {
-  1409                  decode_status_frame(dp83640, skb);
-  1410                  kfree_skb(skb);
-  1411                  return true;
-  1412          }
-  1413  
-  1414          if (!dp83640->hwts_rx_en)
-  1415                  return false;
-  1416  
-  1417          if ((type & dp83640->version) == 0 || (type & dp83640->layer) == 0)
-  1418                  return false;
-  1419  
-  1420          spin_lock_irqsave(&dp83640->rx_lock, flags);
-  1421          prune_rx_ts(dp83640);
-  1422          list_for_each_safe(this, next, &dp83640->rxts) {
-  1423                  rxts = list_entry(this, struct rxts, list);
-  1424                  if (match(skb, type, rxts)) {
-  1425                          shhwtstamps = skb_hwtstamps(skb);
-  1426                          memset(shhwtstamps, 0, sizeof(*shhwtstamps));
-  1427                          shhwtstamps->hwtstamp = ns_to_ktime(rxts->ns);
-  1428                          netif_rx_ni(skb);
-                                ^^^^^^^^^^^^^^^
-If shhwtstamps is non-NULL then we call netif_rx_ni(skb);.  If this
-call returns NET_RX_DROP then that means we've done a kfree_skb(skb).
+Fixes: 6b75c4807db3 ("mlxsw: spectrum_router: Add virtual router management")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 30 ++++++++++++++--------
+ 1 file changed, 20 insertions(+), 10 deletions(-)
 
-  1429                          list_del_init(&rxts->list);
-  1430                          list_add(&rxts->list, &dp83640->rxpool);
-  1431                          break;
-  1432                  }
-  1433          }
-  1434          spin_unlock_irqrestore(&dp83640->rx_lock, flags);
-  1435  
-  1436          if (!shhwtstamps) {
-  1437                  skb_info->ptp_type = type;
-  1438                  skb_info->tmo = jiffies + SKB_TIMESTAMP_TIMEOUT;
-  1439                  skb_queue_tail(&dp83640->rx_queue, skb);
-  1440                  schedule_delayed_work(&dp83640->ts_work, SKB_TIMESTAMP_TIMEOUT);
-  1441          } else {
-  1442                  netif_rx_ni(skb);
-
-
-And then we call it a second time outside the spinlock.  When I look at
-the commit which added this, it feels like something that was added by
-mistake.  But I'm really familiar enough with this code to say if I
-haven't missed something.
-
-  1443          }
-  1444  
-  1445          return true;
-  1446  }
-
-regards,
-dan carpenter
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index d7ac22d..bd8de6b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -441,30 +441,40 @@ static int
+ mlxsw_sp_vr_lpm_tree_check(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_vr *vr,
+ 			   struct mlxsw_sp_prefix_usage *req_prefix_usage)
+ {
+-	struct mlxsw_sp_lpm_tree *lpm_tree;
++	struct mlxsw_sp_lpm_tree *lpm_tree = vr->lpm_tree;
++	struct mlxsw_sp_lpm_tree *new_tree;
++	int err;
+ 
+-	if (mlxsw_sp_prefix_usage_eq(req_prefix_usage,
+-				     &vr->lpm_tree->prefix_usage))
++	if (mlxsw_sp_prefix_usage_eq(req_prefix_usage, &lpm_tree->prefix_usage))
+ 		return 0;
+ 
+-	lpm_tree = mlxsw_sp_lpm_tree_get(mlxsw_sp, req_prefix_usage,
++	new_tree = mlxsw_sp_lpm_tree_get(mlxsw_sp, req_prefix_usage,
+ 					 vr->proto, false);
+-	if (IS_ERR(lpm_tree)) {
++	if (IS_ERR(new_tree)) {
+ 		/* We failed to get a tree according to the required
+ 		 * prefix usage. However, the current tree might be still good
+ 		 * for us if our requirement is subset of the prefixes used
+ 		 * in the tree.
+ 		 */
+ 		if (mlxsw_sp_prefix_usage_subset(req_prefix_usage,
+-						 &vr->lpm_tree->prefix_usage))
++						 &lpm_tree->prefix_usage))
+ 			return 0;
+-		return PTR_ERR(lpm_tree);
++		return PTR_ERR(new_tree);
+ 	}
+ 
+-	mlxsw_sp_vr_lpm_tree_unbind(mlxsw_sp, vr);
+-	mlxsw_sp_lpm_tree_put(mlxsw_sp, vr->lpm_tree);
++	/* Prevent packet loss by overwriting existing binding */
++	vr->lpm_tree = new_tree;
++	err = mlxsw_sp_vr_lpm_tree_bind(mlxsw_sp, vr);
++	if (err)
++		goto err_tree_bind;
++	mlxsw_sp_lpm_tree_put(mlxsw_sp, lpm_tree);
++
++	return 0;
++
++err_tree_bind:
+ 	vr->lpm_tree = lpm_tree;
+-	return mlxsw_sp_vr_lpm_tree_bind(mlxsw_sp, vr);
++	mlxsw_sp_lpm_tree_put(mlxsw_sp, new_tree);
++	return err;
+ }
+ 
+ static struct mlxsw_sp_vr *mlxsw_sp_vr_get(struct mlxsw_sp *mlxsw_sp,
+-- 
+2.7.4
