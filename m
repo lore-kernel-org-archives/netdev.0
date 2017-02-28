@@ -1,47 +1,54 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] ipv6: check for ip6_null_entry in __ip6_del_rt_siblings()
-Date: Mon, 27 Feb 2017 13:12:26 -0800
-Message-ID: <CAM_iQpWz2wLL2BsJgDjPvXb_Wgq0Js3QP_cda8wvo+Moh6c8Ww@mail.gmail.com>
-References: <1488222425-1256-1-git-send-email-xiyou.wangcong@gmail.com>
- <1488227660.9415.207.camel@edumazet-glaptop3.roam.corp.google.com>
- <0ec7c6bd-0705-ea30-650e-b8d269dc587b@cumulusnetworks.com>
- <CAM_iQpVimUuJZqTkgZOoVtS9O8gL+2rr-SUNgd67Y3L-3bZVZw@mail.gmail.com> <05afcb95-6dd5-753a-ccb3-fe12d5746ffa@cumulusnetworks.com>
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Subject: [RFC PATCH] uapi: fix linux/packet_diag.h userspace compilation error
+Date: Tue, 28 Feb 2017 04:39:30 +0300
+Message-ID: <20170228013930.GA28056@altlinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pavel Emelyanov <xemul@parallels.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35105 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751468AbdB1Bbh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 20:31:37 -0500
-Received: by mail-wm0-f44.google.com with SMTP id v186so74284490wmd.0
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2017 17:31:16 -0800 (PST)
-In-Reply-To: <05afcb95-6dd5-753a-ccb3-fe12d5746ffa@cumulusnetworks.com>
+Received: from vmicros1.altlinux.org ([194.107.17.57]:49480 "EHLO
+        vmicros1.altlinux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751556AbdB1Bl3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2017 20:41:29 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 27, 2017 at 1:06 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 2/27/17 1:04 PM, Cong Wang wrote:
->>>
->>>                 for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
->>> +                       /* do not allow deletion of the null route */
->>> +                       if (rt == net->ipv6.ip6_null_entry)
->>> +                               continue;
->>>
->>> Fixes: 0ae8133586ad net: ipv6: Allow shorthand delete of all nexthops in
->>> multipath route
->>
->> Note, I moved the check into __ip6_del_rt_siblings() because __ip6_del_rt()
->> has a same check.
->>
->
-> that's b/c __ip6_del_rt has a second call path. __ip6_del_rt_siblings is
-> new and is not expecting to see the null entry. Catching it before the
-> dst_hold would be better.
+Replace MAX_ADDR_LEN with its numeric value to fix the following
+linux/packet_diag.h userspace compilation error:
 
-Yeah, but it also depends on if we want to continue after the null entry,
-at least __ip6_del_rt () returns an error for null entry, which looks more
-correct than continuing to proceed after it.
+/usr/include/linux/packet_diag.h:67:17: error: 'MAX_ADDR_LEN' undeclared here (not in a function)
+  __u8 pdmc_addr[MAX_ADDR_LEN];
+
+This is not the first case in the UAPI where the numeric value
+of MAX_ADDR_LEN is used, uapi/linux/if_link.h already does the same,
+and there are no UAPI headers besides these two that use MAX_ADDR_LEN.
+
+The alternative fix would be to include <linux/netdevice.h> which
+pulls in other headers and a lot of definitions with them.
+
+Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+---
+I'm not quite comfortable with this approach but the alternative
+has its own drawbacks.
+
+ include/uapi/linux/packet_diag.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
+index d08c63f..0c5d5dd 100644
+--- a/include/uapi/linux/packet_diag.h
++++ b/include/uapi/linux/packet_diag.h
+@@ -64,7 +64,7 @@ struct packet_diag_mclist {
+ 	__u32	pdmc_count;
+ 	__u16	pdmc_type;
+ 	__u16	pdmc_alen;
+-	__u8	pdmc_addr[MAX_ADDR_LEN];
++	__u8	pdmc_addr[32]; /* MAX_ADDR_LEN */
+ };
+ 
+ struct packet_diag_ring {
+-- 
+ldv
