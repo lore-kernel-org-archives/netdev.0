@@ -1,58 +1,91 @@
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/1] rds: ib: add the static type to the variables
-Date: Tue, 28 Feb 2017 01:45:40 -0500
-Message-ID: <1488264340-20044-1-git-send-email-yanjun.zhu@oracle.com>
-To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [bug report] dp83640: Delay scheduled work.
+Date: Tue, 28 Feb 2017 09:36:12 +0300
+Message-ID: <20170228063612.GA25830@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: stefan.sorensen@spectralink.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1050.oracle.com ([156.151.31.82]:41606 "EHLO
+        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751713AbdB1Grw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 01:47:52 -0500
+Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
+        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v1S6bT69008624
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 06:37:29 GMT
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The variables rds_ib_mr_1m_pool_size and rds_ib_mr_8k_pool_size
-are used only in the ib.c file. As such, the static type is
-added to limit them in this file.
+Hello Stefan Sørensen,
 
-Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
- net/rds/ib.c    | 4 ++--
- net/rds/ib_mr.h | 2 --
- 2 files changed, 2 insertions(+), 4 deletions(-)
+The patch 4b063258ab93: "dp83640: Delay scheduled work." from Nov 3,
+2015, leads to the following static checker warning:
 
-diff --git a/net/rds/ib.c b/net/rds/ib.c
-index 8d70884..ecff01b 100644
---- a/net/rds/ib.c
-+++ b/net/rds/ib.c
-@@ -45,8 +45,8 @@
- #include "ib.h"
- #include "ib_mr.h"
- 
--unsigned int rds_ib_mr_1m_pool_size = RDS_MR_1M_POOL_SIZE;
--unsigned int rds_ib_mr_8k_pool_size = RDS_MR_8K_POOL_SIZE;
-+static unsigned int rds_ib_mr_1m_pool_size = RDS_MR_1M_POOL_SIZE;
-+static unsigned int rds_ib_mr_8k_pool_size = RDS_MR_8K_POOL_SIZE;
- unsigned int rds_ib_retry_count = RDS_IB_DEFAULT_RETRY_COUNT;
- 
- module_param(rds_ib_mr_1m_pool_size, int, 0444);
-diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
-index 24c086d..5d6e98a 100644
---- a/net/rds/ib_mr.h
-+++ b/net/rds/ib_mr.h
-@@ -107,8 +107,6 @@ struct rds_ib_mr_pool {
- };
- 
- extern struct workqueue_struct *rds_ib_mr_wq;
--extern unsigned int rds_ib_mr_1m_pool_size;
--extern unsigned int rds_ib_mr_8k_pool_size;
- extern bool prefer_frmr;
- 
- struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_dev,
--- 
-2.7.4
+	drivers/net/phy/dp83640.c:1442 dp83640_rxtstamp()
+	warn: 'skb' was already freed.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+drivers/net/phy/dp83640.c
+  1402          struct dp83640_skb_info *skb_info = (struct dp83640_skb_info *)skb->cb;
+  1403          struct list_head *this, *next;
+  1404          struct rxts *rxts;
+  1405          struct skb_shared_hwtstamps *shhwtstamps = NULL;
+                                             ^^^^^^^^^^^^^^^^^^
+  1406          unsigned long flags;
+  1407  
+  1408          if (is_status_frame(skb, type)) {
+  1409                  decode_status_frame(dp83640, skb);
+  1410                  kfree_skb(skb);
+  1411                  return true;
+  1412          }
+  1413  
+  1414          if (!dp83640->hwts_rx_en)
+  1415                  return false;
+  1416  
+  1417          if ((type & dp83640->version) == 0 || (type & dp83640->layer) == 0)
+  1418                  return false;
+  1419  
+  1420          spin_lock_irqsave(&dp83640->rx_lock, flags);
+  1421          prune_rx_ts(dp83640);
+  1422          list_for_each_safe(this, next, &dp83640->rxts) {
+  1423                  rxts = list_entry(this, struct rxts, list);
+  1424                  if (match(skb, type, rxts)) {
+  1425                          shhwtstamps = skb_hwtstamps(skb);
+  1426                          memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+  1427                          shhwtstamps->hwtstamp = ns_to_ktime(rxts->ns);
+  1428                          netif_rx_ni(skb);
+                                ^^^^^^^^^^^^^^^
+If shhwtstamps is non-NULL then we call netif_rx_ni(skb);.  If this
+call returns NET_RX_DROP then that means we've done a kfree_skb(skb).
+
+  1429                          list_del_init(&rxts->list);
+  1430                          list_add(&rxts->list, &dp83640->rxpool);
+  1431                          break;
+  1432                  }
+  1433          }
+  1434          spin_unlock_irqrestore(&dp83640->rx_lock, flags);
+  1435  
+  1436          if (!shhwtstamps) {
+  1437                  skb_info->ptp_type = type;
+  1438                  skb_info->tmo = jiffies + SKB_TIMESTAMP_TIMEOUT;
+  1439                  skb_queue_tail(&dp83640->rx_queue, skb);
+  1440                  schedule_delayed_work(&dp83640->ts_work, SKB_TIMESTAMP_TIMEOUT);
+  1441          } else {
+  1442                  netif_rx_ni(skb);
+
+
+And then we call it a second time outside the spinlock.  When I look at
+the commit which added this, it feels like something that was added by
+mistake.  But I'm really familiar enough with this code to say if I
+haven't missed something.
+
+  1443          }
+  1444  
+  1445          return true;
+  1446  }
+
+regards,
+dan carpenter
