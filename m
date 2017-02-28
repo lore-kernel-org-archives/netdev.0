@@ -1,82 +1,36 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] e1000e: fix timing for 82579 Gigabit
- Ethernet controller
-Date: Tue, 28 Feb 2017 21:09:35 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5857D7F361@ORSMSX115.amr.corp.intel.com>
-References: <1487270527-4549-1-git-send-email-berndfaust@gmail.com>
- <923e61cf-5f95-1662-2f4c-fc146359ab48@intel.com>
- <0a95307e-6683-b9fe-1957-be2b0a3c441e@intel.com>
- <3a432931-8b94-4808-78e0-bc459f510ab9@intel.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
+Date: Tue, 28 Feb 2017 13:09:44 -0800
+Message-ID: <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
+References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+ <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
+ <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com> <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "Neftin, Sasha" <sasha.neftin@intel.com>,
-        Bernd Faust <berndfaust@gmail.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3a432931-8b94-4808-78e0-bc459f510ab9@intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJbnRlbC13aXJlZC1sYW4gW21h
-aWx0bzppbnRlbC13aXJlZC1sYW4tYm91bmNlc0BsaXN0cy5vc3Vvc2wub3JnXSBPbg0KPiBCZWhh
-bGYgT2YgTmVmdGluLCBTYXNoYQ0KPiBTZW50OiBNb25kYXksIEZlYnJ1YXJ5IDI3LCAyMDE3IDEy
-OjQwIEFNDQo+IFRvOiBCZXJuZCBGYXVzdCA8YmVybmRmYXVzdEBnbWFpbC5jb20+OyBLaXJzaGVy
-LCBKZWZmcmV5IFQNCj4gPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT47IGludGVsLXdpcmVk
-LWxhbkBsaXN0cy5vc3Vvc2wub3JnOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1r
-ZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbSW50ZWwtd2lyZWQtbGFuXSBb
-UEFUQ0hdIGUxMDAwZTogZml4IHRpbWluZyBmb3IgODI1NzkgR2lnYWJpdA0KPiBFdGhlcm5ldCBj
-b250cm9sbGVyDQo+IA0KPiBPbiAyLzI2LzIwMTcgMTE6MDgsIE5lZnRpbiwgU2FzaGEgd3JvdGU6
-DQo+ID4gT24gMi8xOS8yMDE3IDE0OjU1LCBOZWZ0aW4sIFNhc2hhIHdyb3RlOg0KPiA+PiBPbiAy
-LzE2LzIwMTcgMjA6NDIsIEJlcm5kIEZhdXN0IHdyb3RlOg0KPiA+Pj4gQWZ0ZXIgYW4gdXBncmFk
-ZSB0byBMaW51eCBrZXJuZWwgdjQueCB0aGUgaGFyZHdhcmUgdGltZXN0YW1wcyBvZiB0aGUNCj4g
-Pj4+IDgyNTc5IEdpZ2FiaXQgRXRoZXJuZXQgQ29udHJvbGxlciBhcmUgZGlmZmVyZW50IHRoYW4g
-ZXhwZWN0ZWQuDQo+ID4+PiBUaGUgdmFsdWVzIHRoYXQgYXJlIGJlaW5nIHJlYWQgYXJlIGFsbW9z
-dCBmb3VyIHRpbWVzIGFzIGJpZyBhcyBiZWZvcmUNCj4gPj4+IHRoZSBrZXJuZWwgdXBncmFkZS4N
-Cj4gPj4+DQo+ID4+PiBUaGUgZGlmZmVyZW5jZSBpcyB0aGF0IGFmdGVyIHRoZSB1cGdyYWRlIHRo
-ZSBkcml2ZXIgc2V0cyB0aGUgY2xvY2sNCj4gPj4+IGZyZXF1ZW5jeSB0byAyNU1Ieiwgd2hlcmUg
-YmVmb3JlIHRoZSB1cGdyYWRlIGl0IHdhcyBzZXQgdG8gOTZNSHouIEludGVsDQo+ID4+PiBjb25m
-aXJtZWQgdGhhdCB0aGUgY29ycmVjdCBmcmVxdWVuY3kgZm9yIHRoaXMgbmV0d29yayBhZGFwdGVy
-IGlzIDk2TUh6Lg0KPiA+Pj4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IEJlcm5kIEZhdXN0IDxiZXJu
-ZGZhdXN0QGdtYWlsLmNvbT4NCj4gPj4+IC0tLQ0KPiA+Pj4gICBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9pbnRlbC9lMTAwMGUvbmV0ZGV2LmMgfCA2ICsrKysrKw0KPiA+Pj4gICAxIGZpbGUgY2hhbmdl
-ZCwgNiBpbnNlcnRpb25zKCspDQo+ID4+Pg0KPiA+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYw0KPiA+Pj4gYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9lMTAwMGUvbmV0ZGV2LmMNCj4gPj4+IGluZGV4IDcwMTcyODEuLjhiNzExM2Qg
-MTAwNjQ0DQo+ID4+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvbmV0
-ZGV2LmMNCj4gPj4+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRk
-ZXYuYw0KPiA+Pj4gQEAgLTM1MTEsNiArMzUxMSwxMiBAQCBzMzIgZTEwMDBlX2dldF9iYXNlX3Rp
-bWluY2Eoc3RydWN0DQo+ID4+PiBlMTAwMF9hZGFwdGVyICphZGFwdGVyLCB1MzIgKnRpbWluY2Ep
-DQo+ID4+Pg0KPiA+Pj4gICAgICAgc3dpdGNoIChody0+bWFjLnR5cGUpIHsNCj4gPj4+ICAgICAg
-IGNhc2UgZTEwMDBfcGNoMmxhbjoNCj4gPj4+ICsgICAgICAgIC8qIFN0YWJsZSA5Nk1IeiBmcmVx
-dWVuY3kgKi8NCj4gPj4+ICsgICAgICAgIGluY3BlcmlvZCA9IElOQ1BFUklPRF85Nk1IejsNCj4g
-Pj4+ICsgICAgICAgIGluY3ZhbHVlID0gSU5DVkFMVUVfOTZNSHo7DQo+ID4+PiArICAgICAgICBz
-aGlmdCA9IElOQ1ZBTFVFX1NISUZUXzk2TUh6Ow0KPiA+Pj4gKyAgICAgICAgYWRhcHRlci0+Y2Mu
-c2hpZnQgPSBzaGlmdCArIElOQ1BFUklPRF9TSElGVF85Nk1IejsNCj4gPj4+ICsgICAgICAgIGJy
-ZWFrOw0KPiA+Pj4gICAgICAgY2FzZSBlMTAwMF9wY2hfbHB0Og0KPiA+Pj4gICAgICAgICAgIGlm
-IChlcjMyKFRTWU5DUlhDVEwpICYgRTEwMDBfVFNZTkNSWENUTF9TWVNDRkkpIHsNCj4gPj4+ICAg
-ICAgICAgICAgICAgLyogU3RhYmxlIDk2TUh6IGZyZXF1ZW5jeSAqLw0KPiA+Pj4gLS0NCj4gPj4+
-IDIuNy40DQo+ID4+PiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXw0KPiA+Pj4gSW50ZWwtd2lyZWQtbGFuIG1haWxpbmcgbGlzdA0KPiA+Pj4gSW50ZWwtd2ly
-ZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gPj4+IGh0dHA6Ly9saXN0cy5vc3Vvc2wub3JnL21h
-aWxtYW4vbGlzdGluZm8vaW50ZWwtd2lyZWQtbGFuDQo+ID4+DQo+ID4+IEhlbGxvLA0KPiA+Pg0K
-PiA+PiBlMTAwMF9wY2gybGFuIG1hYyB0eXBlIGNvcnJlc3BvbmRzIHRvIDgyNTc5TE0gYW5kIDgy
-NTc5ViBuZXR3b3JrDQo+ID4+IGFkYXB0ZXJzLiBTeXN0ZW0gY2xvY2sgZnJlcXVlbmN5IGluZGlj
-YXRpb24gKFNZU0NGSSkgZm9yIHRoZXNlDQo+ID4+IGRldmljZXMgc3VwcG9ydHMgYm90aCAyNU1I
-eiBhbmQgOTZNSHogZnJlcXVlbmN5LiBCeSBkZWZhdWx0DQo+ID4+IFRTWU5DUlhDVEwuU1lTQ0ZJ
-IGlzIHNldCB0byAxIGFuZCB0aGF0IG1lYW5zIDk2TUh6IGZyZXF1ZW5jeSBpcyBwaWNrZWQuDQo+
-ID4+DQo+ID4+IEl0IGlzIGJldHRlciB0byBrZWVwIHRoZSBjdXJyZW50IGltcGxlbWVudGF0aW9u
-IGFzIGl0IGNvdmVycyBhbGwNCj4gPj4gb3B0aW9ucy4NCj4gPj4NCj4gPj4gVGhhbmtzLA0KPiA+
-Pg0KPiA+PiBTYXNoYQ0KPiA+Pg0KPiA+IEhlbGxvLA0KPiA+DQo+ID4gRHVyaW5nIGxhc3QgY291
-cGxlIG9mIHdlZWtzIEkgc2F3IGZldyAgY29tcGxhaW50cyBmcm9tIGNvbW11bml0eSBvbg0KPiA+
-IHNhbWUgdGltaW5nIHByb2JsZW0gd2l0aCA4MjU3OS4gSSB3aWxsIGRvdWJsZSBjaGVjayBjbG9j
-ayBkZWZpbml0aW9uDQo+ID4gd2l0aCBIVyBhcmNoaXRlY3R1cmUuDQo+ID4NCj4gPiBTYXNoYQ0K
-PiA+DQo+IEkndmUgZG91YmxlIGNoZWNrZWQgLSA4MjU3OSBzdXBwb3J0IDk2TUh6IGZyZXF1ZW5j
-eSBvbmx5LiBTbywgbGV0J3MNCj4gYWNjZXB0IHRoaXMgc3VnZ2VzdGlvbiB0byB1cHN0cmVhbS4N
-Cj4gDQo+IEFjay4NCj4gDQoNClRoaXMgcmVzb2x2ZXMgYWxzbyBhIGNvbXBsYWludCBmcm9tIHNv
-bWVvbmUgb24gdGhlIExpbnV4UFRQIGRldmVsb3BtZW50IG1haWxpbmcgbGlzdC4NCg0KQUNLLg0K
-DQpUaGFua3MsDQpKYWtlDQoNCg==
+On Tue, Feb 28, 2017 at 12:43 PM, Willem de Bruijn
+<willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>
+>> I can see this working if you have a special type of skb that
+>> indicates that the data might be concurrently written and have all the
+>> normal skb APIs (including, especially, anything that clones it) make
+>> a copy first.
+>
+> Support for cloned skbs is required for TCP, both at tcp_transmit_skb
+> and segmentation offload. Patch 4 especially adds reference counting
+> of shared pages across clones and other sk_buff operations like
+> pskb_expand_head. This still allows for deep copy (skb_copy_ubufs)
+> on clones in specific datapaths like the above.
+
+Does this mean that a user program that does a zerocopy send can cause
+a retransmitted segment to contain different data than the original
+segment?  If so, is that okay?
