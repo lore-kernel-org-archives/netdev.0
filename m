@@ -1,26 +1,42 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH v1 2/4] nvmet-rdma: use generic inet_pton_with_scope
-Date: Tue, 28 Feb 2017 08:35:10 -0800
-Message-ID: <20170228163510.GB26480@infradead.org>
-References: <1488217164-9221-1-git-send-email-sagi@grimberg.me>
- <1488217164-9221-3-git-send-email-sagi@grimberg.me>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: net/rds: use-after-free in inet_create
+Date: Tue, 28 Feb 2017 11:38:33 -0500
+Message-ID: <20170228163833.GI31155@oracle.com>
+References: <CACT4Y+bi=rZr9yrajA0o0iUeR4N0q-sXYudBVsOeOiHbuApBeA@mail.gmail.com>
+ <20170228153737.GG31155@oracle.com>
+ <CACT4Y+aobp+g_AYoX6j1eftyyirK4pBxhOXz9hDu+XU+-jxSYw@mail.gmail.com>
+ <20170228161544.GH31155@oracle.com>
+ <CACT4Y+bWWAiMYQN_Fvxs7CKR9hRAA+r0t_YZhja3B5xGcZ4vcQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-nvme@lists.infradead.org, target-devel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Sagi Grimberg <sagi@grimberg.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:40266 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751835AbdB1QfW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 11:35:22 -0500
+Cc: santosh.shilimkar@oracle.com, David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, linux-rdma@vger.kernel.org,
+        rds-devel@oss.oracle.com, LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1488217164-9221-3-git-send-email-sagi@grimberg.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CACT4Y+bWWAiMYQN_Fvxs7CKR9hRAA+r0t_YZhja3B5xGcZ4vcQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please add a changelog and mention that this adds IPv6 support.
+On (02/28/17 17:32), Dmitry Vyukov wrote:
+> Not reproducible so far.
+> 
+> rds is compiled into kernel (no modules):
+> CONFIG_RDS=y
+> CONFIG_RDS_TCP=y
 
-Otherwise looks fine:
+I see. So if it never gets unloaded, the rds_connections "should"
+be around forever.. let me inspect code and see if I spot some 
+race-window.. 
 
-Reviewed-by: Christoph Hellwig <hch@lst.de>
+> Also fuzzer actively creates and destroys namespaces.
+> Yes, I don't see socket(0x15) in the log. Probably it was truncated.
+
+I see. May be useful if we coudl get a crash dump to see what
+other threads were going on (might give a hint about which threads
+were racing). I'll try reproducing this at my end too.
+
+--Sowmini
