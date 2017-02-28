@@ -1,67 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: don't call strlen() on the user buffer in
- packet_bind_spkt()
-Date: Tue, 28 Feb 2017 05:42:53 -0800
-Message-ID: <1488289373.9415.251.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170228131759.110380-1-glider@google.com>
-         <1488288789.9415.249.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
+Date: Tue, 28 Feb 2017 14:43:21 +0100
+Message-ID: <20170228134321.GI694@gauss.secunet.com>
+References: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
+ <20170214070854.GH30338@gauss.secunet.com>
+ <CACT4Y+aPd8drh7MQf8cXLs_9f-oymf6YiWfN+owUsSYYz0yMzA@mail.gmail.com>
+ <20170214090816.GJ30338@gauss.secunet.com>
+ <CACT4Y+a7-TXY2f14Cn0wUapiJ5BYv=2wkJ4vcMGMnbDjqTPnVw@mail.gmail.com>
+ <20170215062622.GO30338@gauss.secunet.com>
+ <CACT4Y+Y7xvGvAGVM_V2e+6+Tmmc-ZKdyUz3x-n6KvevW98iJnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alexander Potapenko <glider@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35762 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750957AbdB1Nng (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 08:43:36 -0500
-In-Reply-To: <1488288789.9415.249.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+Y7xvGvAGVM_V2e+6+Tmmc-ZKdyUz3x-n6KvevW98iJnQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-02-28 at 05:33 -0800, Eric Dumazet wrote:
+Hi Dmitry.
 
-> It looks a bug in this implementation of strlcpy() then.
+On Tue, Feb 28, 2017 at 02:39:17PM +0100, Dmitry Vyukov wrote:
+> On Wed, Feb 15, 2017 at 7:26 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> > On Tue, Feb 14, 2017 at 10:16:44AM +0100, Dmitry Vyukov wrote:
+> >>
+> >> I've run the repro with you patch and don't see the bug any more:
+> >>
+> >> Tested-by: Dmitry Vyukov <dvyukov@google.com>
+> >
+> > I've applied this to the ipsec tree now.
+> >
+> > Thanks for testing!
 > 
-
-Apparently strlcpy(dest, src, size)  returns strlen(src), so we can not
-use it in this context.
-
-> sizeof(name) is 15.
 > 
-> If you use strncpy(X, uaddr->sa_data, 15) , then you might access
-> uaddr->sa_data[14] and this would still be wrong, since sa_data has 14
-> bytes only :
+> Hi Steffen,
 > 
-> 
-> struct sockaddr {
->   sa_family_t sa_family;
->   char        sa_data[14];
-> };
+> Are you going to push this to Linus in this release? Still happens on
+> upstream branch.
 
-
-Maybe then :
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2bd0d1949312c3d71c4b33529316dcfe76fa28f1..d2e7caa79d2604363316c7316864bed1f4971d29 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3103,7 +3103,7 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
- 			    int addr_len)
- {
- 	struct sock *sk = sock->sk;
--	char name[15];
-+	char name[sizeof(uaddr->sa_data) + 1];
- 
- 	/*
- 	 *	Check legality
-@@ -3111,7 +3111,8 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
- 
- 	if (addr_len != sizeof(struct sockaddr))
- 		return -EINVAL;
--	strlcpy(name, uaddr->sa_data, sizeof(name));
-+	memcpy(name, uaddr->sa_data, sizeof(uaddr->sa_data));
-+	name[sizeof(uaddr->sa_data)] = 0;
- 
- 	return packet_do_bind(sk, name, 0, pkt_sk(sk)->num);
- }
+I'll do a pull request for the ipsec tree this week, should
+go the way upstream then.
