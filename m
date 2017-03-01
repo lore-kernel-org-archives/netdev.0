@@ -1,109 +1,133 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH v5 06/10] seccomp,landlock: Handle Landlock events per
- process hierarchy
-Date: Wed, 1 Mar 2017 14:20:44 -0800
-Message-ID: <CALCETrWpXnFs3=tWjJSi6-E=XgbZVnq1p-Ty3BtPvXZawriHMw@mail.gmail.com>
-References: <20170222012632.4196-1-mic@digikod.net> <20170222012632.4196-7-mic@digikod.net>
- <CALCETrWExjKHccdj-cYxPtis1NtXTPEYfReNLh065J1hHKvFiA@mail.gmail.com> <e6c917cb-d4a6-4147-9d6e-9c9fc906621d@digikod.net>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [PATCH v5 03/10] bpf: Define handle_fs and add a new helper
+ bpf_handle_fs_get_mode()
+Date: Wed, 1 Mar 2017 23:20:54 +0100
+Message-ID: <3e3d2c43-9d67-2b1e-174a-1656708139f2@digikod.net>
+References: <20170222012632.4196-1-mic@digikod.net>
+ <20170222012632.4196-4-mic@digikod.net>
+ <alpine.LRH.2.20.1703012028110.9253@namei.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>, Casey Schaufler <casey@schaufler-ca.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, David Drysdale <drysdale@google.com>,
-	"David S . Miller" <davem@davemloft.net>, "Eric W . Biederman" <ebiederm@xmission.com>,
-	James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-	Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
-	Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
-	"Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
-	Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <kernel-hardening-return-6879-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="sCqXnFWdagRw80FSU1TSRGigwJKSrhoGH"
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Drysdale
+ <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Matthew Garrett <mjg59@srcf.ucam.org>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+To: James Morris <jmorris@namei.org>
+Return-path: <kernel-hardening-return-6880-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <e6c917cb-d4a6-4147-9d6e-9c9fc906621d@digikod.net>
+In-Reply-To: <alpine.LRH.2.20.1703012028110.9253@namei.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 1, 2017 at 2:14 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net> =
-wrote:
->
-> On 28/02/2017 21:01, Andy Lutomirski wrote:
->> On Tue, Feb 21, 2017 at 5:26 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.n=
-et> wrote:
->>> The seccomp(2) syscall can be use to apply a Landlock rule to the
->>> current process. As with a seccomp filter, the Landlock rule is enforce=
-d
->>> for all its future children. An inherited rule tree can be updated
->>> (append-only) by the owner of inherited Landlock nodes (e.g. a parent
->>> process that create a new rule)
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--sCqXnFWdagRw80FSU1TSRGigwJKSrhoGH
+Content-Type: multipart/mixed; boundary="JMpC7mQfwQ8p6g4KisXHXKcl6voV6BVbx";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: James Morris <jmorris@namei.org>
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+ Andy Lutomirski <luto@amacapital.net>,
+ Arnaldo Carvalho de Melo <acme@kernel.org>,
+ Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
+ <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
+ "Eric W . Biederman" <ebiederm@xmission.com>,
+ James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+ Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
+ Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+ Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+ Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+ linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
+ netdev@vger.kernel.org
+Message-ID: <3e3d2c43-9d67-2b1e-174a-1656708139f2@digikod.net>
+Subject: Re: [PATCH v5 03/10] bpf: Define handle_fs and add a new helper
+ bpf_handle_fs_get_mode()
+References: <20170222012632.4196-1-mic@digikod.net>
+ <20170222012632.4196-4-mic@digikod.net>
+ <alpine.LRH.2.20.1703012028110.9253@namei.org>
+In-Reply-To: <alpine.LRH.2.20.1703012028110.9253@namei.org>
+
+--JMpC7mQfwQ8p6g4KisXHXKcl6voV6BVbx
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+
+On 01/03/2017 10:32, James Morris wrote:
+> On Wed, 22 Feb 2017, Micka=C3=ABl Sala=C3=BCn wrote:
+>=20
+>> Add an eBPF function bpf_handle_fs_get_mode(handle_fs) to get the mode=
+
+>> of a an abstract object wrapping either a file, a dentry, a path, or a=
+n
+>> inode.
 >>
->> Can you clarify exaclty what this type of update does?  Is it
->> something that should be supported by normal seccomp rules as well?
->
-> There is two main structures involved here: struct landlock_node and
-> struct landlock_rule, both defined in include/linux/landlock.h [02/10].
->
-> Let's take an example with seccomp filter and then Landlock:
-> * seccomp filter: Process P1 creates and applies a seccomp filter F1 to
-> itself. Then it forks and creates a child P2, which inherits P1's
-> filters, hence F1. Now, if P1 add a new seccomp filter F2 to itself, P2
-> *won't get it*. The P2's filter list will still only contains F1 but not
-> F2. If P2 sets up and applies a new filter F3 to itself, its filter list
-> will contains F1 and F3.
-> * Landlock: Process P1 creates and applies a Landlock rule R1 to itself.
-> Underneath the kernel creates a new node N1 dedicated to P1, which
-> contains all its rules. Then P1 forks and creates a child P2, which
-> inherits P1's rules, hence R1. Underneath P2 inherited N1. Now, if P1
-> add a new Landlock rule R2 to itself, P2 *will get it* as well (because
-> R2 is part of N1). If P2 creates and applies a new rule R3 to itself,
-> its rules will contains R1, R2 and R3. Underneath the kernel created a
-> new node N2 for P2, which only contains R3 but inherits/links to N1.
->
-> This design makes it possible for a process to add more constraints to
-> its children on the fly. I think it is a good feature to have and a
-> safer default inheritance mechanism, but it could be guarded by an
-> option flag if we want both mechanism to be available. The same design
-> could be used by seccomp filter too.
->
+>> Changes since v4:
+>> * use a file abstraction (handle) to wrap inode, dentry, path and file=
 
-Then let's do it right.
+>>   structs
+>=20
+> Good to see these abstractions.  As discussed at LPC, we need to ensure=
+=20
+> that we don't couple the Landlock API too closely with the LSM API, as =
+the=20
+> former is an ABI exposed to userland -- we don't want to lose the abili=
+ty=20
+> to change LSM internally due to breaking Landlock policies.
 
-Currently each task has an array of seccomp filter layers.  When a
-task forks, the child inherits the layers.  All the layers are
-presently immutable.  With Landlock, a layer can logically be a
-syscall fitler layer or a Landlock layer.  This fits in to the
-existing model just fine.
+Right, it is the case now, especially with the Landlock events.
 
-If we want to have an interface to allow modification of an existing
-layer, let's make it so that, when a layer is added, you have to
-specify a flag to make the layer modifiable (by current, presumably,
-although I can imagine other policies down the road).  Then have a
-separate API that modifies a layer.
+>=20
+>> @@ -82,6 +87,8 @@ enum bpf_arg_type {
+>> =20
+>>  	ARG_PTR_TO_CTX,		/* pointer to context */
+>>  	ARG_ANYTHING,		/* any (initialized) argument is ok */
+>> +
+>> +	ARG_CONST_PTR_TO_HANDLE_FS,	/* pointer to an abstract FS struct */
+>>  };
+>=20
+> Extraneous whitespace?
 
-IOW, I think your patch is bad for three reasons, all fixable:
+It is on purpose, following the same rules as used for this enum.
 
-1. The default is wrong.  A layer should be immutable to avoid an easy
-attack in which you try to sandbox *yourself* and then you just modify
-the layer to weaken it.
+ Micka=C3=ABl
 
-2. The API that adds a layer should be different from the API that
-modifies a layer.
 
-3. The whole modification mechanism should be a separate patch to be
-reviewed on its own merits.
+--JMpC7mQfwQ8p6g4KisXHXKcl6voV6BVbx--
 
-> The current inheritance mechanism doesn't enable to only add a rule to
-> the current process. The rule will be inherited by its children
-> (starting from the children created after the first applied rule). An
-> option flag NEW_RULE_HIERARCHY (or maybe another seccomp operation)
-> could enable to create a new node for the current process, and then
-> makes it not inherited by the previous children.
+--sCqXnFWdagRw80FSU1TSRGigwJKSrhoGH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-I like my proposal above much better.  "Add a layer" and "change a
-layer" should be different operations.
+-----BEGIN PGP SIGNATURE-----
 
---Andy
+iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAli3SUYACgkQIt7+33O9
+apXajgf/RL4nqWHXKhhoSP0o88+vfZZSrLSEdzEQSYZtpJETj3S0/Hh/A92lyVzD
+uTZ2Bdo1GXwS7gszX+T0behdkpK1/zJEzL0duAHKlZkt5L6lEgxXxvS1GKoAWayR
+mPB9lf7Lmw8I/PakZ3quXZgc+Lr+YtlSXqqT/Ei5T9nltVtH27KXbQvEPmUtNQBU
+8CXfwAdOt2L8+wSnzdo0J/dwRrATvQ2eWIth+KmvLO0MG9QN8qrHC4EfwTi/FKP1
+Br2HFdtEMT/gXpdGoIwpoEZ2nIhgl6GGrAMzBqVzSBmZdAFs2JcD2J0pnuqIUuag
+RO3O8yTKISg9iPG6ZDsFoGf0FEWNiA==
+=tR1Z
+-----END PGP SIGNATURE-----
+
+--sCqXnFWdagRw80FSU1TSRGigwJKSrhoGH--
