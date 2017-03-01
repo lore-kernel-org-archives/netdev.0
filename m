@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v4 08/19] scsi: be2iscsi: Replace PCI pool old API
-Date: Wed,  1 Mar 2017 16:55:10 +0100
-Message-ID: <20170301155521.30281-9-romain.perier@collabora.com>
+Subject: [PATCH v4 09/19] scsi: csiostor: Replace PCI pool old API
+Date: Wed,  1 Mar 2017 16:55:11 +0100
+Message-ID: <20170301155521.30281-10-romain.perier@collabora.com>
 References: <20170301155521.30281-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -24,84 +24,89 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commits replaces the PCI pool old
-API by the appropriated function with the DMA pool API.
+API by the appropriated function with the DMA pool API. It also updates
+the name of some variables and the content of comments, accordingly.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/scsi/be2iscsi/be_iscsi.c | 6 +++---
- drivers/scsi/be2iscsi/be_main.c  | 6 +++---
- drivers/scsi/be2iscsi/be_main.h  | 2 +-
- 3 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/scsi/csiostor/csio_hw.h   |  2 +-
+ drivers/scsi/csiostor/csio_init.c | 11 ++++++-----
+ drivers/scsi/csiostor/csio_scsi.c |  6 +++---
+ 3 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/scsi/be2iscsi/be_iscsi.c b/drivers/scsi/be2iscsi/be_iscsi.c
-index a484457..d76ef77 100644
---- a/drivers/scsi/be2iscsi/be_iscsi.c
-+++ b/drivers/scsi/be2iscsi/be_iscsi.c
-@@ -87,8 +87,8 @@ struct iscsi_cls_session *beiscsi_session_create(struct iscsi_endpoint *ep,
- 		return NULL;
- 	sess = cls_session->dd_data;
- 	beiscsi_sess = sess->dd_data;
--	beiscsi_sess->bhs_pool =  pci_pool_create("beiscsi_bhs_pool",
--						   phba->pcidev,
-+	beiscsi_sess->bhs_pool =  dma_pool_create("beiscsi_bhs_pool",
-+						   &phba->pcidev->dev,
- 						   sizeof(struct be_cmd_bhs),
- 						   64, 0);
- 	if (!beiscsi_sess->bhs_pool)
-@@ -113,7 +113,7 @@ void beiscsi_session_destroy(struct iscsi_cls_session *cls_session)
- 	struct beiscsi_session *beiscsi_sess = sess->dd_data;
+diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
+index 029bef8..55b04fc 100644
+--- a/drivers/scsi/csiostor/csio_hw.h
++++ b/drivers/scsi/csiostor/csio_hw.h
+@@ -465,7 +465,7 @@ struct csio_hw {
+ 	struct csio_pport	pport[CSIO_MAX_PPORTS];	/* Ports (XGMACs) */
+ 	struct csio_hw_params	params;			/* Hw parameters */
  
- 	printk(KERN_INFO "In beiscsi_session_destroy\n");
--	pci_pool_destroy(beiscsi_sess->bhs_pool);
-+	dma_pool_destroy(beiscsi_sess->bhs_pool);
- 	iscsi_session_teardown(cls_session);
- }
+-	struct pci_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
++	struct dma_pool		*scsi_dma_pool;		/* DMA pool for SCSI */
+ 	mempool_t		*mb_mempool;		/* Mailbox memory pool*/
+ 	mempool_t		*rnode_mempool;		/* rnode memory pool */
  
-diff --git a/drivers/scsi/be2iscsi/be_main.c b/drivers/scsi/be2iscsi/be_main.c
-index 32b2713..dd43480 100644
---- a/drivers/scsi/be2iscsi/be_main.c
-+++ b/drivers/scsi/be2iscsi/be_main.c
-@@ -4307,7 +4307,7 @@ static void beiscsi_cleanup_task(struct iscsi_task *task)
- 	pwrb_context = &phwi_ctrlr->wrb_context[cri_index];
+diff --git a/drivers/scsi/csiostor/csio_init.c b/drivers/scsi/csiostor/csio_init.c
+index dbe416f..292964c 100644
+--- a/drivers/scsi/csiostor/csio_init.c
++++ b/drivers/scsi/csiostor/csio_init.c
+@@ -485,9 +485,10 @@ csio_resource_alloc(struct csio_hw *hw)
+ 	if (!hw->rnode_mempool)
+ 		goto err_free_mb_mempool;
  
- 	if (io_task->cmd_bhs) {
--		pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
-+		dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
- 			      io_task->bhs_pa.u.a64.address);
- 		io_task->cmd_bhs = NULL;
- 		task->hdr = NULL;
-@@ -4424,7 +4424,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
- 	struct beiscsi_session *beiscsi_sess = beiscsi_conn->beiscsi_sess;
- 	dma_addr_t paddr;
+-	hw->scsi_pci_pool = pci_pool_create("csio_scsi_pci_pool", hw->pdev,
+-					    CSIO_SCSI_RSP_LEN, 8, 0);
+-	if (!hw->scsi_pci_pool)
++	hw->scsi_dma_pool = dma_pool_create("csio_scsi_dma_pool",
++					    &hw->pdev->dev, CSIO_SCSI_RSP_LEN,
++					    8, 0);
++	if (!hw->scsi_dma_pool)
+ 		goto err_free_rn_pool;
  
--	io_task->cmd_bhs = pci_pool_alloc(beiscsi_sess->bhs_pool,
-+	io_task->cmd_bhs = dma_pool_alloc(beiscsi_sess->bhs_pool,
- 					  GFP_ATOMIC, &paddr);
- 	if (!io_task->cmd_bhs)
- 		return -ENOMEM;
-@@ -4551,7 +4551,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
- 	if (io_task->pwrb_handle)
- 		free_wrb_handle(phba, pwrb_context, io_task->pwrb_handle);
- 	io_task->pwrb_handle = NULL;
--	pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
-+	dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
- 		      io_task->bhs_pa.u.a64.address);
- 	io_task->cmd_bhs = NULL;
- 	return -ENOMEM;
-diff --git a/drivers/scsi/be2iscsi/be_main.h b/drivers/scsi/be2iscsi/be_main.h
-index 2188579..cf58d31 100644
---- a/drivers/scsi/be2iscsi/be_main.h
-+++ b/drivers/scsi/be2iscsi/be_main.h
-@@ -446,7 +446,7 @@ struct beiscsi_hba {
- 	 test_bit(BEISCSI_HBA_ONLINE, &phba->state))
+ 	return 0;
+@@ -505,8 +506,8 @@ csio_resource_alloc(struct csio_hw *hw)
+ static void
+ csio_resource_free(struct csio_hw *hw)
+ {
+-	pci_pool_destroy(hw->scsi_pci_pool);
+-	hw->scsi_pci_pool = NULL;
++	dma_pool_destroy(hw->scsi_dma_pool);
++	hw->scsi_dma_pool = NULL;
+ 	mempool_destroy(hw->rnode_mempool);
+ 	hw->rnode_mempool = NULL;
+ 	mempool_destroy(hw->mb_mempool);
+diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
+index a1ff75f..dab0d3f 100644
+--- a/drivers/scsi/csiostor/csio_scsi.c
++++ b/drivers/scsi/csiostor/csio_scsi.c
+@@ -2445,7 +2445,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
  
- struct beiscsi_session {
--	struct pci_pool *bhs_pool;
-+	struct dma_pool *bhs_pool;
- };
+ 		/* Allocate Dma buffers for Response Payload */
+ 		dma_buf = &ioreq->dma_buf;
+-		dma_buf->vaddr = pci_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
++		dma_buf->vaddr = dma_pool_alloc(hw->scsi_dma_pool, GFP_KERNEL,
+ 						&dma_buf->paddr);
+ 		if (!dma_buf->vaddr) {
+ 			csio_err(hw,
+@@ -2485,7 +2485,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
+ 		ioreq = (struct csio_ioreq *)tmp;
  
- /**
+ 		dma_buf = &ioreq->dma_buf;
+-		pci_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
++		dma_pool_free(hw->scsi_dma_pool, dma_buf->vaddr,
+ 			      dma_buf->paddr);
+ 
+ 		kfree(ioreq);
+@@ -2516,7 +2516,7 @@ csio_scsim_exit(struct csio_scsim *scm)
+ 		ioreq = (struct csio_ioreq *)tmp;
+ 
+ 		dma_buf = &ioreq->dma_buf;
+-		pci_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
++		dma_pool_free(scm->hw->scsi_dma_pool, dma_buf->vaddr,
+ 			      dma_buf->paddr);
+ 
+ 		kfree(ioreq);
 -- 
 2.9.3
