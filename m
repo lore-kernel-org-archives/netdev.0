@@ -1,30 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net/ipv6] net/ipv6: avoid possible dead locking on
- addr_gen_mode sysctl
-Date: Wed, 01 Mar 2017 13:24:42 -0500 (EST)
-Message-ID: <20170301.132442.1331801761085806178.davem@davemloft.net>
-References: <20170226234123.18713-1-felix.jia@alliedtelesis.co.nz>
+From: Roopa Prabhu via Bridge <bridge@lists.linux-foundation.org>
+Subject: Re: [PATCH net] bridge: Fix error path in nbp_vlan_init
+Date: Wed, 01 Mar 2017 10:25:36 -0800
+Message-ID: <58B71220.6080306@cumulusnetworks.com>
+References: <1488379845-38625-1-git-send-email-yotamg@mellanox.com>
+Reply-To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: felix.jia@alliedtelesis.co.nz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49980 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751291AbdCASYn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 13:24:43 -0500
-In-Reply-To: <20170226234123.18713-1-felix.jia@alliedtelesis.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: idosch@mellanox.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, jiri@mellanox.com,
+	eladr@mellanox.com, davem@davemloft.net
+To: Yotam Gigi <yotamg@mellanox.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1488379845-38625-1-git-send-email-yotamg@mellanox.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Jia <felix.jia@alliedtelesis.co.nz>
-Date: Mon, 27 Feb 2017 12:41:23 +1300
+On 3/1/17, 6:50 AM, Yotam Gigi wrote:
+> Fix error path order in nbp_vlan_init, so if switchdev_port_attr_set
+> call failes, the vlan_hash wouldn't be destroyed before inited.
+>
+> Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
+> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> ---
+>  
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> The addr_gen_mode variable can be accessed by both sysctl and netlink.
-> Repleacd rtnl_lock() with rtnl_trylock() protect the sysctl operation to
-> avoid the possbile dead lock.`
-> 
-> Signed-off-by: Felix Jia <felix.jia@alliedtelesis.co.nz>
-
-Applied and queued up for -stable, thanks.
+Thanks yotam.
