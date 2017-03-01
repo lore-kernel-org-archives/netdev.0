@@ -1,119 +1,31 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH v4] net: don't call strlen() on the user buffer in packet_bind_spkt()
-Date: Wed,  1 Mar 2017 12:57:20 +0100
-Message-ID: <20170301115720.99985-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: [RESEND] Request for VSOCK backport to 4.4 stable
+Date: Wed, 1 Mar 2017 12:54:28 +0000
+Message-ID: <36531695-7CAA-40F6-9291-01CB27E974DC@vmware.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:38698 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751135AbdCAM4G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 07:56:06 -0500
-Received: by mail-wm0-f44.google.com with SMTP id u199so35584086wmd.1
-        for <netdev@vger.kernel.org>; Wed, 01 Mar 2017 04:54:34 -0800 (PST)
+Received: from mail-co1nam03on0080.outbound.protection.outlook.com ([104.47.40.80]:13824
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750778AbdCAM4G (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Mar 2017 07:56:06 -0500
+Content-Language: en-US
+Content-ID: <DF61B77035E2A1479743B66EA40EA063@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-KMSAN (KernelMemorySanitizer, a new error detection tool) reports use of
-uninitialized memory in packet_bind_spkt():
-
-==================================================================
-BUG: KMSAN: use of unitialized memory
-CPU: 0 PID: 1074 Comm: packet Not tainted 4.8.0-rc6+ #1891
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
-01/01/2011
- 0000000000000000 ffff88006b6dfc08 ffffffff82559ae8 ffff88006b6dfb48
- ffffffff818a7c91 ffffffff85b9c870 0000000000000092 ffffffff85b9c550
- 0000000000000000 0000000000000092 00000000ec400911 0000000000000002
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff82559ae8>] dump_stack+0x238/0x290 lib/dump_stack.c:51
- [<ffffffff818a6626>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1003
- [<ffffffff818a783b>] __msan_warning+0x5b/0xb0
-mm/kmsan/kmsan_instr.c:424
- [<     inline     >] strlen lib/string.c:484
- [<ffffffff8259b58d>] strlcpy+0x9d/0x200 lib/string.c:144
- [<ffffffff84b2eca4>] packet_bind_spkt+0x144/0x230
-net/packet/af_packet.c:3132
- [<ffffffff84242e4d>] SYSC_bind+0x40d/0x5f0 net/socket.c:1370
- [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
- [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f
-arch/x86/entry/entry_64.o:?
-chained origin: 00000000eba00911
- [<ffffffff810bb787>] save_stack_trace+0x27/0x50
-arch/x86/kernel/stacktrace.c:67
- [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
- [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:334
- [<ffffffff818a59f8>] kmsan_internal_chain_origin+0x118/0x1e0
-mm/kmsan/kmsan.c:527
- [<ffffffff818a7773>] __msan_set_alloca_origin4+0xc3/0x130
-mm/kmsan/kmsan_instr.c:380
- [<ffffffff84242b69>] SYSC_bind+0x129/0x5f0 net/socket.c:1356
- [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
- [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f
-arch/x86/entry/entry_64.o:?
-origin description: ----address@SYSC_bind (origin=00000000eb400911)
-==================================================================
-(the line numbers are relative to 4.8-rc6, but the bug persists
-upstream)
-
-, when I run the following program as root:
-
-=====================================
- #include <string.h>
- #include <sys/socket.h>
- #include <netpacket/packet.h>
- #include <net/ethernet.h>
-
- int main() {
-   struct sockaddr addr;
-   memset(&addr, 0xff, sizeof(addr));
-   addr.sa_family = AF_PACKET;
-   int fd = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ALL));
-   bind(fd, &addr, sizeof(addr));
-   return 0;
- }
-=====================================
-
-This happens because addr.sa_data copied from the userspace is not
-zero-terminated, and copying it with strlcpy() in packet_bind_spkt()
-results in calling strlen() on the kernel copy of that non-terminated
-buffer.
-
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
-Changes since v3:
- - addressed comments by Eric Dumazet (avoid using constants,
-   use memcpy() instead of strncpy())
----
- net/packet/af_packet.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2bd0d1949312..a0dbe7ca8f72 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3103,7 +3103,7 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
- 			    int addr_len)
- {
- 	struct sock *sk = sock->sk;
--	char name[15];
-+	char name[sizeof(uaddr->sa_data) + 1];
- 
- 	/*
- 	 *	Check legality
-@@ -3111,7 +3111,11 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
- 
- 	if (addr_len != sizeof(struct sockaddr))
- 		return -EINVAL;
--	strlcpy(name, uaddr->sa_data, sizeof(name));
-+	/* uaddr->sa_data comes from the userspace, it's not guaranteed to be
-+	 * zero-terminated.
-+	 */
-+	memcpy(name, uaddr->sa_data, sizeof(uaddr->sa_data));
-+	name[sizeof(uaddr->sa_data)] = 0;
- 
- 	return packet_do_bind(sk, name, 0, pkt_sk(sk)->num);
- }
--- 
-2.11.0.483.g087da7b7c-goog
+SGVsbG8sDQoNCldl4oCZZCBsaWtlIHRoZSBmb2xsb3dpbmcgY29tbWl0IHRvIGJlIGJhY2twb3J0
+ZWQgdG8gNC40IHN0YWJsZS4gVGhlIGNvbW1pdCBmaXhlcyBhIGJ1ZyB0aGF0IHdhcyBpbnRyb2R1
+Y2VkIGluIDQuMyBhbmQgZml4ZWQgaW4gNC42LiBUaGUgYnVnIG1heSBjYXVzZSB3cm9uZ2Z1bCB0
+ZXJtaW5hdGlvbiBvZiB2U29ja2V0IGNvbm5lY3Rpb25zLCBpZiB0aGVyZSBpcyBtb3JlIHRoYW4g
+b25lIGFjdGl2ZSB2U29ja2V0IGNvbm5lY3Rpb24gaW4gYSBnaXZlbiBWTS4gVGhpcyBhZmZlY3Rz
+IGN1c3RvbWVycyBydW5uaW5nIHRoZSBub3JtYWwgVk13YXJlIHNlcnZpY2VzIGluc2lkZSBWTXMg
+Og0KDQpjb21taXQJOGFiMThkNzFkZThiMDdkMmM0ZDZmOTg0YjcxODQxOGMwOWVhNDVjNSANCg0K
+VlNPQ0s6IERldGFjaCBRUCBjaGVjayBzaG91bGQgZmlsdGVyIG91dCBub24gbWF0Y2hpbmcgUVBz
+Lg0KDQpUaGUgY2hlY2sgaW4gdm1jaV90cmFuc3BvcnRfcGVlcl9kZXRhY2hfY2Igc2hvdWxkIG9u
+bHkgYWxsb3cgYQ0KZGV0YWNoIHdoZW4gdGhlIHFwIGhhbmRsZSBvZiB0aGUgdHJhbnNwb3J0IG1h
+dGNoZXMgdGhlIG9uZSBpbg0KdGhlIGRldGFjaCBtZXNzYWdlLg0KDQpUaGFua3MsDQpKw7hyZ2Vu
