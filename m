@@ -1,44 +1,70 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH v2] net: bridge: allow IPv6 when multicast flood is disabled
-Date: Wed, 1 Mar 2017 09:55:28 +0000
-Message-ID: <1488362128-15217-1-git-send-email-mmanning@brocade.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: usb/net/hso: WARNING: ungligned urb->setup_dma
+Date: Wed, 1 Mar 2017 12:54:37 +0200
+Message-ID: <20170301105437.tmm6ovmnrhce3ofa@tarshish>
+References: <20170228082810.syn656o2zzms7urf@tarshish>
+ <20170228120134.4f65yihw7x22hfwd@tarshish>
+ <36230d64-4ba0-7515-1131-ecf3ab9f352c@i2se.com>
+ <20170228180700.3fxpimfysnhm6uis@tarshish>
+ <1515966850.16584.1488306729844@email.1und1.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:58742 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751378AbdCAK0j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 05:26:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: John Youn <johnyoun@synopsys.com>, netdev@vger.kernel.org,
+ linux-usb@vger.kernel.org, Olivier Sobrie <olivier@sobrie.be>,
+ linux-rpi-kernel@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: Stefan Wahren <stefan.wahren@i2se.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1515966850.16584.1488306729844@email.1und1.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Even with multicast flooding turned off, IPv6 ND should still work so
-that IPv6 connectivity is provided. Allow this by continuing to flood
-multicast traffic originated by us.
+Hi Stefan,
 
-Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Mike Manning <mmanning@brocade.com>
----
- net/bridge/br_forward.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+On Tue, Feb 28, 2017 at 07:32:09PM +0100, Stefan Wahren wrote: 
+> > Baruch Siach <baruch@tkos.co.il> hat am 28. Februar 2017 um 19:07 geschrieben:
+> > On Tue, Feb 28, 2017 at 05:21:18PM +0100, Stefan Wahren wrote:
+> > > Am 28.02.2017 um 13:01 schrieb Baruch Siach:
+> > > > On Tue, Feb 28, 2017 at 10:28:10AM +0200, Baruch Siach wrote:
+> > > > > I'm hitting this warning consistently on my Raspberry Pi 3 running 
+> > > > > kernel
+> > > > > v4.10.1 with some unrelated device tree changes, and a debug print (below).
+> > > > > The device identifies as "GlobeTrotter HSDPA Modem", VID: 0af0, PID: 6971.
+> > > > > The warning triggers consistently on first write access to /dev/ttyHS0 that
+> > > > > ModemManager attempts. The first line in the log is my debug print.
+> > > > I tested the same hardware successfully on an i.MX6 CuBox-i (ARM32) using the
+> > > > same kernel version (4.10.1), and on an x86_64 PC (4.9). So this seems to be
+> > > > platform specific. I don't have any other ARM64 machine at the moment, though.
+> > > 
+> > > those platforms usually doesn't use the dwc2 USB host controller. So it
+> > > should be tested with another dwc2 platform.
+> > 
+> > The code that initializes setup_dma is not under drivers/usb/dwc2/. Though the 
+> > problem looks like memory corruption, so its cause might be anywhere.
+> 
+> only a suspicion, but could you please try this patch [1]?
+> 
+> [1] - https://patchwork.kernel.org/patch/9166771/
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 6bfac29..902af6b 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -186,8 +186,9 @@ void br_flood(struct net_bridge *br, struct sk_buff *skb,
- 		/* Do not flood unicast traffic to ports that turn it off */
- 		if (pkt_type == BR_PKT_UNICAST && !(p->flags & BR_FLOOD))
- 			continue;
-+		/* Do not flood if mc off, except for traffic we originate */
- 		if (pkt_type == BR_PKT_MULTICAST &&
--		    !(p->flags & BR_MCAST_FLOOD))
-+		    !(p->flags & BR_MCAST_FLOOD) && skb->dev != br->dev)
- 			continue;
- 
- 		/* Do not flood to ports that enable proxy ARP */
+It doesn't change anything.
+
+My guess is that source of the issue is memory corruption that just happens to 
+corrupt also the setup_dma field of struct urb. In other words, it has nothing 
+to do with DMA, IMO.
+
+Thanks,
+baruch
+
 -- 
-2.1.4
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.52.368.4656, http://www.tkos.co.il -
