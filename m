@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v4 04/19] net: e100: Replace PCI pool old API
-Date: Wed,  1 Mar 2017 16:55:06 +0100
-Message-ID: <20170301155521.30281-5-romain.perier@collabora.com>
+Subject: [PATCH v4 07/19] wireless: ipw2200: Replace PCI pool old API
+Date: Wed,  1 Mar 2017 16:55:09 +0100
+Message-ID: <20170301155521.30281-8-romain.perier@collabora.com>
 References: <20170301155521.30281-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -27,62 +27,57 @@ The PCI pool API is deprecated. This commits replaces the PCI pool old
 API by the appropriated function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/net/ethernet/intel/e100.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 2b7323d..d1002c2 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -607,7 +607,7 @@ struct nic {
- 	struct mem *mem;
- 	dma_addr_t dma_addr;
+diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+index 5ef3c5c..93dfe47 100644
+--- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+@@ -3211,7 +3211,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	struct fw_chunk *chunk;
+ 	int total_nr = 0;
+ 	int i;
+-	struct pci_pool *pool;
++	struct dma_pool *pool;
+ 	void **virts;
+ 	dma_addr_t *phys;
  
--	struct pci_pool *cbs_pool;
-+	struct dma_pool *cbs_pool;
- 	dma_addr_t cbs_dma_addr;
- 	u8 adaptive_ifs;
- 	u8 tx_threshold;
-@@ -1892,7 +1892,7 @@ static void e100_clean_cbs(struct nic *nic)
- 			nic->cb_to_clean = nic->cb_to_clean->next;
- 			nic->cbs_avail++;
- 		}
--		pci_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
-+		dma_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
- 		nic->cbs = NULL;
- 		nic->cbs_avail = 0;
- 	}
-@@ -1910,7 +1910,7 @@ static int e100_alloc_cbs(struct nic *nic)
- 	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = NULL;
- 	nic->cbs_avail = 0;
- 
--	nic->cbs = pci_pool_alloc(nic->cbs_pool, GFP_KERNEL,
-+	nic->cbs = dma_pool_alloc(nic->cbs_pool, GFP_KERNEL,
- 				  &nic->cbs_dma_addr);
- 	if (!nic->cbs)
+@@ -3228,9 +3228,10 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 		kfree(virts);
  		return -ENOMEM;
-@@ -2958,8 +2958,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		netif_err(nic, probe, nic->netdev, "Cannot register net device, aborting\n");
- 		goto err_out_free;
  	}
--	nic->cbs_pool = pci_pool_create(netdev->name,
--			   nic->pdev,
-+	nic->cbs_pool = dma_pool_create(netdev->name,
-+			   &nic->pdev->dev,
- 			   nic->params.cbs.max * sizeof(struct cb),
- 			   sizeof(u32),
- 			   0);
-@@ -2999,7 +2999,7 @@ static void e100_remove(struct pci_dev *pdev)
- 		unregister_netdev(netdev);
- 		e100_free(nic);
- 		pci_iounmap(pdev, nic->csr);
--		pci_pool_destroy(nic->cbs_pool);
-+		dma_pool_destroy(nic->cbs_pool);
- 		free_netdev(netdev);
- 		pci_release_regions(pdev);
- 		pci_disable_device(pdev);
+-	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
++	pool = dma_pool_create("ipw2200", &priv->pci_dev->dev, CB_MAX_LENGTH, 0,
++			       0);
+ 	if (!pool) {
+-		IPW_ERROR("pci_pool_create failed\n");
++		IPW_ERROR("dma_pool_create failed\n");
+ 		kfree(phys);
+ 		kfree(virts);
+ 		return -ENOMEM;
+@@ -3255,7 +3256,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 
+ 		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
+ 		for (i = 0; i < nr; i++) {
+-			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
++			virts[total_nr] = dma_pool_alloc(pool, GFP_KERNEL,
+ 							 &phys[total_nr]);
+ 			if (!virts[total_nr]) {
+ 				ret = -ENOMEM;
+@@ -3299,9 +3300,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	}
+  out:
+ 	for (i = 0; i < total_nr; i++)
+-		pci_pool_free(pool, virts[i], phys[i]);
++		dma_pool_free(pool, virts[i], phys[i]);
+ 
+-	pci_pool_destroy(pool);
++	dma_pool_destroy(pool);
+ 	kfree(phys);
+ 	kfree(virts);
+ 
 -- 
 2.9.3
