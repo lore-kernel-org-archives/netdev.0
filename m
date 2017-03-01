@@ -1,57 +1,44 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: net/dccp: dccp_create_openreq_child freed held lock
-Date: Wed, 1 Mar 2017 12:40:11 -0300
-Message-ID: <20170301154011.GF15145@kernel.org>
-References: <CACT4Y+ZOAWRzJH3=xJ1z5bFVCM2-smuVSykziQPhSgkv1k3FBQ@mail.gmail.com>
- <20170301153510.GE15145@kernel.org>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Dell Inspiron 5558/0VNM2T and suspend/resume problem with r8169
+Date: Wed, 1 Mar 2017 12:44:29 -0300
+Message-ID: <CA+ToGPHD9qRLer2aVFkNhRmJjKwEf6=sdwyqdW_X463H-Fnh3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170301153510.GE15145@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Mar 01, 2017 at 12:35:10PM -0300, Arnaldo Carvalho de Melo escreveu:
-> Em Wed, Mar 01, 2017 at 10:38:54AM +0100, Dmitry Vyukov escreveu:
-> > Hello,
-> > 
-> > I've got the following report while running syzkaller fuzzer on
-> > 86292b33d4b79ee03e2f43ea0381ef85f077c760:
-> > 
-> > 
-> > It seems that dccp_create_openreq_child needs to unlock the sock if
-> > dccp_feat_activate_values fails.
-> 
-> Yeah, can you please use the patch below, that mimics the error paths in
-> sk_clone_new(), from where I think even the comment about it being a raw
+My machine (a Dell Inspiron 5558 laptop) fails to resume from suspend
+unless I rmmod r8169 first.
 
-Argh, s/sk_clone_new()/sk_clone_lock()/g
+Another workaround is to do this before suspend:
 
-- Arnaldo
+echo 0 > /sys/power/pm_async
 
-> copy came, but the bh_unlock_sock() didn't?
-> 
-> - Arnaldo
-> 
-> diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
-> index 53eddf99e4f6..d20d948a98ed 100644
-> --- a/net/dccp/minisocks.c
-> +++ b/net/dccp/minisocks.c
-> @@ -122,6 +122,7 @@ struct sock *dccp_create_openreq_child(const struct sock *sk,
->  			/* It is still raw copy of parent, so invalidate
->  			 * destructor and make plain sk_free() */
->  			newsk->sk_destruct = NULL;
-> +			bh_unlock_sock(newsk);
->  			sk_free(newsk);
->  			return NULL;
->  		}
+I've been reproducing the freeze like this:
+
+$ i3lock && systemctl suspend
+
+I would have to repeat this at least 5 times for the freeze to occur,
+but it seems to be easily reproducible.
+
+If I don't invoke i3lock, I cannot get the freeze to happen, but it
+seems to happen with other lockers also.
+
+I have tried Alt+SysRq+r and tried to switch to another TTY but the
+machine is always unresponsive, which indicates that it's a kernel
+panic.
+
+I have had a similar issue to this about a year ago with the jme
+driver and this was the fix:
+
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/net/ethernet/jme.c?id=ee50c130c82175eaa0820c96b6d3763928af2241
+
+I haven't tried getting a kernel trace yet, but all seems to indicate
+the problem is caused by r8169, at least til now.
+
+Any ideas, please?
+
+Thanks,
+Diego
