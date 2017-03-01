@@ -1,36 +1,52 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC net-next v2 1/4] skbuff: add stub to help computing
- crc32c on SCTP packets
-Date: Wed, 1 Mar 2017 10:53:59 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE72817@AcuExch.aculab.com>
-References: <1488202783.2713.67.camel@redhat.com>
- <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
- <CAKgT0Udbs_=vanS+oF8ePXTNjEfsq9y==bhtQ-5Cxb-g+iO4bg@mail.gmail.com>
+From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
+Subject: Re: [PATCH] net: bridge: allow IPv6 when multicast flood
+	is disabled
+Date: Wed, 1 Mar 2017 13:05:49 +0200
+Message-ID: <c1d9bb98-9eda-e24f-d3b3-b324b326cad6@cumulusnetworks.com>
+References: <1488215489-26372-1-git-send-email-mmanning@brocade.com>
+	<E4A652DE-AC03-4E8D-B50E-8BE92DCA31C5@cumulusnetworks.com>
+	<b6377d29-3dad-5671-8690-1fff04196723@brocade.com>
+Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Tom Herbert <tom@herbertland.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
-        Davide Caratti <dcaratti@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:56791 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750968AbdCAKzU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 05:55:20 -0500
-In-Reply-To: <CAKgT0Udbs_=vanS+oF8ePXTNjEfsq9y==bhtQ-5Cxb-g+iO4bg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org
+To: Mike Manning <mmanning@brocade.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <b6377d29-3dad-5671-8690-1fff04196723@brocade.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDI4IEZlYnJ1YXJ5IDIwMTcgMjI6NDYNCi4u
-Lg0KPiBJIGRvbid0IHdhbnQgdG8gc2VlIGFueXRoaW5nICJjaGVja3N1bSIgb3IgImNzdW0iIHJl
-bGF0ZWQgaW4gdGhlDQo+IG5hbWluZyB3aGVuIGl0IGNvbWVzIHRvIGRlYWxpbmcgd2l0aCBTQ1RQ
-IHVubGVzcyB3ZSBhYnNvbHV0ZWx5IGhhdmUgdG8NCj4gaGF2ZSBpdC4gIFNvIGFueSBmdW5jdGlv
-biBuYW1lcyBvciBzdHJ1Y3R1cmVzIHdpdGggc2N0cCBpbiB0aGUgbmFtZQ0KPiBzaG91bGQgY2Fs
-bCBvdXQgImNyYzMyIiBvciAiY3JjIiwgcGxlYXNlIGRvbid0IHVzZSBjaGVja3N1bS4NCg0KVGhl
-biBhbHNvIGNoYW5nZSBhbGwgdGhlIHBsYWNlcyB0aGF0IHJlZmVyIHRoZSBJUCAxJ3MgY29tcGxp
-bWVudA0KY2hlY2tzdW0gdG8gaXBjaGVja3N1bS4NCg0KCURhdmlkDQoNCg==
+On 01/03/17 11:57, Mike Manning wrote:
+> On 28/02/17 09:20, Nikolay Aleksandrov wrote:
+>> We are aware of this and have discussed it, but I’m not sure this is the best way to fix it,
+>> it will still allow local IPv4 mcast to be flooded on all ports even with that flag removed and
+>> that definitely changes user-visible behaviour (even if it is okay) and will not be appropriate
+>> for -net.
+>>
+>> Let me get back to you on this one.
+>>
+>> Thanks,
+>>  Nik
+>>
+> Thanks for your comments, I have sent a v2 patch accordingly in case you have no better suggestion.
+> We need per-port disabling of multicast flooding, but have to apply this patch to allow IPv6
+> connectivity so as to make it usable. There is no noteworthy impact on IPv4 as the fix only allows
+> packets originated by the device. As this feature is new to the 4.9 kernel, there are no backwards
+> compatibility issues with prior kernel versions if this fix is also applied to the 4.9 kernel.
+> 
+
+Okay, I agree and have also discussed it with some colleagues so this seems like the right way
+to go. I'll review the v2 in a minute.
+
+Thank you,
+ Nik
