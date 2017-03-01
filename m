@@ -1,60 +1,55 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v4 19/19] PCI: Remove PCI pool macro functions
-Date: Wed,  1 Mar 2017 16:55:21 +0100
-Message-ID: <20170301155521.30281-20-romain.perier@collabora.com>
-References: <20170301155521.30281-1-romain.perier@collabora.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Romain Perier <romain.perier@collabora.com>,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: Dell Inspiron 5558/0VNM2T and suspend/resume problem with r8169
+Date: Wed, 1 Mar 2017 12:47:35 -0300
+Message-ID: <CA+ToGPEvrHFukKkO1u9v0ndeCHepjGKs5v43MX7MmaEHgwdyag@mail.gmail.com>
+References: <CA+ToGPHD9qRLer2aVFkNhRmJjKwEf6=sdwyqdW_X463H-Fnh3g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([46.235.227.227]:44441 "EHLO
-        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751982AbdCAP47 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 10:56:59 -0500
-In-Reply-To: <20170301155521.30281-1-romain.perier@collabora.com>
+Received: from mail-vk0-f50.google.com ([209.85.213.50]:34563 "EHLO
+        mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751821AbdCAQRT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 11:17:19 -0500
+In-Reply-To: <CA+ToGPHD9qRLer2aVFkNhRmJjKwEf6=sdwyqdW_X463H-Fnh3g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that all the drivers use dma pool API, we can remove the macro
-functions for PCI pool.
+On Wed, Mar 1, 2017 at 12:44 PM, Diego Viola <diego.viola@gmail.com> wrote:
+> My machine (a Dell Inspiron 5558 laptop) fails to resume from suspend
+> unless I rmmod r8169 first.
+>
+> Another workaround is to do this before suspend:
+>
+> echo 0 > /sys/power/pm_async
+>
+> I've been reproducing the freeze like this:
+>
+> $ i3lock && systemctl suspend
+>
+> I would have to repeat this at least 5 times for the freeze to occur,
+> but it seems to be easily reproducible.
+>
+> If I don't invoke i3lock, I cannot get the freeze to happen, but it
+> seems to happen with other lockers also.
+>
+> I have tried Alt+SysRq+r and tried to switch to another TTY but the
+> machine is always unresponsive, which indicates that it's a kernel
+> panic.
+>
+> I have had a similar issue to this about a year ago with the jme
+> driver and this was the fix:
+>
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/net/ethernet/jme.c?id=ee50c130c82175eaa0820c96b6d3763928af2241
+>
+> I haven't tried getting a kernel trace yet, but all seems to indicate
+> the problem is caused by r8169, at least til now.
+>
+> Any ideas, please?
+>
+> Thanks,
+> Diego
 
-Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
----
- include/linux/pci.h | 9 ---------
- 1 file changed, 9 deletions(-)
+Sorry, I forgot to mention, I'm on Arch Linux (x86_64), kernel 4.9.11-1-ARCH.
 
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 282ed32..d206ba4 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1281,15 +1281,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
- #include <linux/pci-dma.h>
- #include <linux/dmapool.h>
- 
--#define	pci_pool dma_pool
--#define pci_pool_create(name, pdev, size, align, allocation) \
--		dma_pool_create(name, &pdev->dev, size, align, allocation)
--#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
--#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
--#define	pci_pool_zalloc(pool, flags, handle) \
--		dma_pool_zalloc(pool, flags, handle)
--#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
--
- struct msix_entry {
- 	u32	vector;	/* kernel uses to write allocated vector */
- 	u16	entry;	/* driver uses to specify entry, OS writes */
--- 
-2.9.3
+Diego
