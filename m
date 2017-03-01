@@ -1,137 +1,84 @@
-From: Petr Vorel <pvorel@suse.cz>
-Subject: [iproute PATCH v3 1/1] color: use "light" colors for dark background
-Date: Wed,  1 Mar 2017 21:52:33 +0100
-Message-ID: <20170301205233.27624-1-pvorel@suse.cz>
-Cc: Petr Vorel <pvorel@suse.cz>, Mathias Nyman <m.nyman@iki.fi>,
-        Yegor Yefremov <yegorslists@googlemail.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net: sleeping function called from invalid context in
+ net_enable_timestamp
+Date: Wed, 01 Mar 2017 12:07:59 -0800
+Message-ID: <1488398879.9415.302.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+bHh=mzTXw1J8vxbzimrQULss16B=693T4SMcndoNoPPg@mail.gmail.com>
+         <CANn89iL8XLopw+grdzMW6_vabiQjKrVL_q-u4-b1XcL_uRAPUw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:48996 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753142AbdCAVKS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Mar 2017 16:10:18 -0500
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:34323 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751810AbdCAVRZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 16:17:25 -0500
+In-Reply-To: <CANn89iL8XLopw+grdzMW6_vabiQjKrVL_q-u4-b1XcL_uRAPUw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-COLORFGBG environment variable is used to detect dark background.
+On Wed, 2017-03-01 at 11:59 -0800, Eric Dumazet wrote:
+> On Wed, Mar 1, 2017 at 11:51 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> >
+> > Hello,
+> >
+> > I've got the following report while running syzkaller fuzzer on
+> > e5d56efc97f8240d0b5d66c03949382b6d7e5570
+> 
+> 
+> 
+> Right, a listener is playing fool games.
+> 
+> We need to use a work queue for all net_enable_timestamp() invocations
 
-Idea and a bit of code is borrowed from Vim, thanks.
+Something like :
 
-Signed-off-by: Petr Vorel <pvorel@suse.cz>
----
-Changes v2->v3: remove unnecessary cast.
----
- include/color.h |  1 +
- lib/color.c     | 45 ++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 45 insertions(+), 1 deletion(-)
-
-diff --git a/include/color.h b/include/color.h
-index c1c29831..ba0b237e 100644
---- a/include/color.h
-+++ b/include/color.h
-@@ -12,6 +12,7 @@ enum color_attr {
- };
- 
- void enable_color(void);
-+void set_color_palette(void);
- int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...);
- enum color_attr ifa_family_color(__u8 ifa_family);
- enum color_attr oper_state_color(__u8 state);
-diff --git a/lib/color.c b/lib/color.c
-index 95596be2..810fb1fa 100644
---- a/lib/color.c
-+++ b/lib/color.c
-@@ -1,5 +1,7 @@
- #include <stdio.h>
- #include <stdarg.h>
-+#include <stdlib.h>
-+#include <string.h>
- #include <sys/socket.h>
- #include <sys/types.h>
- #include <linux/if.h>
-@@ -14,6 +16,13 @@ enum color {
- 	C_MAGENTA,
- 	C_CYAN,
- 	C_WHITE,
-+	C_BOLD_RED,
-+	C_BOLD_GREEN,
-+	C_BOLD_YELLOW,
-+	C_BOLD_BLUE,
-+	C_BOLD_MAGENTA,
-+	C_BOLD_CYAN,
-+	C_BOLD_WHITE,
- 	C_CLEAR
- };
- 
-@@ -25,25 +34,59 @@ static const char * const color_codes[] = {
- 	"\e[35m",
- 	"\e[36m",
- 	"\e[37m",
-+	"\e[1;31m",
-+	"\e[1;32m",
-+	"\e[1;33m",
-+	"\e[1;34m",
-+	"\e[1;35m",
-+	"\e[1;36m",
-+	"\e[1;37m",
- 	"\e[0m",
- 	NULL,
- };
- 
- static enum color attr_colors[] = {
-+	/* light background */
- 	C_CYAN,
- 	C_YELLOW,
- 	C_MAGENTA,
- 	C_BLUE,
- 	C_GREEN,
- 	C_RED,
-+	C_CLEAR,
-+
-+	/* dark background */
-+	C_BOLD_CYAN,
-+	C_BOLD_YELLOW,
-+	C_BOLD_MAGENTA,
-+	C_BOLD_BLUE,
-+	C_BOLD_GREEN,
-+	C_BOLD_RED,
- 	C_CLEAR
- };
- 
-+static int is_dark_bg;
- static int color_is_enabled;
- 
- void enable_color(void)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e63bf61b19be029e30ac40443c0e2edb24de4a73..10fac295f4d4dff983156e2cac22456db948b32b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1702,15 +1702,27 @@ static void netstamp_clear(struct work_struct *work)
  {
- 	color_is_enabled = 1;
-+	set_color_palette();
-+}
-+
-+void set_color_palette(void)
-+{
-+	char *p = getenv("COLORFGBG");
-+
-+	/*
-+	 * COLORFGBG environment variable usually contains either two or three
-+	 * values separated by semicolons; we want the last value in either case.
-+	 * If this value is 0-6 or 8, background is dark.
-+	 */
-+	if (p && (p = strrchr(p, ';')) != NULL
-+		&& ((p[1] >= '0' && p[1] <= '6') || p[1] == '8')
-+		&& p[2] == '\0')
-+		is_dark_bg = 1;
+ 	int deferred = atomic_xchg(&netstamp_needed_deferred, 0);
+ 
+-	while (deferred--)
++	while (deferred < 0) {
++		deferred++;
+ 		static_key_slow_dec(&netstamp_needed);
++	}
++	while (deferred > 0) {
++		deferred--;
++		static_key_slow_inc(&netstamp_needed);
++	}
  }
+ static DECLARE_WORK(netstamp_work, netstamp_clear);
+ #endif
  
- int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
-@@ -58,7 +101,7 @@ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
- 		goto end;
- 	}
+ void net_enable_timestamp(void)
+ {
++#ifdef HAVE_JUMP_LABEL
++	/* net_enable_timestamp() can be called from non process context */
++	atomic_inc(&netstamp_needed_deferred);
++	schedule_work(&netstamp_work);
++#else
+ 	static_key_slow_inc(&netstamp_needed);
++#endif
+ }
+ EXPORT_SYMBOL(net_enable_timestamp);
  
--	ret += fprintf(fp, "%s", color_codes[attr_colors[attr]]);
-+	ret += fprintf(fp, "%s", color_codes[attr_colors[is_dark_bg ? attr + 7 : attr]]);
- 	ret += vfprintf(fp, fmt, args);
- 	ret += fprintf(fp, "%s", color_codes[C_CLEAR]);
- 
--- 
-2.11.0
+@@ -1718,7 +1730,7 @@ void net_disable_timestamp(void)
+ {
+ #ifdef HAVE_JUMP_LABEL
+ 	/* net_disable_timestamp() can be called from non process context */
+-	atomic_inc(&netstamp_needed_deferred);
++	atomic_dec(&netstamp_needed_deferred);
+ 	schedule_work(&netstamp_work);
+ #else
+ 	static_key_slow_dec(&netstamp_needed);
