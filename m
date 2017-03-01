@@ -1,36 +1,36 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 2/2] iproute2: add support for invisible qdisc dumping
-Date: Wed, 1 Mar 2017 10:05:06 -0800
-Message-ID: <20170301100506.014447c3@xeon-e3>
-References: <alpine.LSU.2.20.1702252228010.24579@cbobk.fhfr.pm>
+From: "Xiaobo Yan" <yanxb123@163.com>
+Subject: Re:Re: [drivers/net/vxlan]Why rcu_read_lock is not obtained before
+ rculist travelling
+Date: Wed, 1 Mar 2017 20:40:16 +0800 (CST)
+Message-ID: <6fc9b9b7.d935.15a89e2a384.Coremail.yanxb123@163.com>
+References: <199cc09e.de3a.15a8508c1f7.Coremail.yanxb123@163.com>
+ <CAM_iQpUp+nmLW2i3Gm2YQnq+_EA5ozvgO33fG6k=x+kQx9kt_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Phil Sutter <phil@nwl.cc>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jiri Kosina <jikos@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.20.1702252228010.24579@cbobk.fhfr.pm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: "Stephen Hemminger" <stephen@networkplumber.org>,
+        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
+To: "Cong Wang" <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mproxygzt1.163.com ([113.108.225.5]:49247 "EHLO
+        mproxygzt1.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752219AbdCASFt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 13:05:49 -0500
+In-Reply-To: <CAM_iQpUp+nmLW2i3Gm2YQnq+_EA5ozvgO33fG6k=x+kQx9kt_Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 25 Feb 2017 22:29:17 +0100 (CET)
-Jiri Kosina <jikos@kernel.org> wrote:
-
-> From: Jiri Kosina <jkosina@suse.cz>
-> 
-> Support the new TCA_DUMP_INVISIBLE netlink attribute that allows asking 
-> kernel to perform 'full qdisc dump', as for historical reasons some of the 
-> default qdiscs are being hidden by the kernel.
-> 
-> The command syntax is being extended by voluntary 'invisible' argument to
-> 'tc qdisc show'.
-> 
-> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
-
-Still waiting for TCA_DUMP_INVISIBLE to make it into net-next
+CkhpIENvbmcsCgpUaGFua3MgdmVyeSBtdWNoIGZvciB5b3VyIHJlcGx5LiAgSXQncyBpbmRlZWRl
+ZCBhY3F1aXJlZCBieSB1cHBlciBsYXllci4KClRoYW5rcwoKQXQgMjAxNy0wMy0wMSAwNToyOTox
+NywgIkNvbmcgV2FuZyIgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4gd3JvdGU6Cj5PbiBUdWUs
+IEZlYiAyOCwgMjAxNyBhdCA2OjAzIEFNLCBYaWFvYm8gWWFuIDx5YW54YjEyM0AxNjMuY29tPiB3
+cm90ZToKPj4gQnV0IEkgZG9uoa90IGZpbmQgYW55IHJjdV9yZWFkX2xvY2sgaW52b2tlZCBiZWZv
+cmUgdHJhdmVsbGluZyBmZGJfaGVhZCBsaXN0LiAgSW4gdnhsYW5feG1pdCBhbmQgdnhsYW5fc25v
+b3AgZnVuY3Rpb24sIHZ4bGFuX2ZpbmRfbWFjIGZ1bmN0aW9uIGlzIGNhbGxlZCB0byBzZWFyY2gg
+dGhlIHZ4bGFuX2ZkYiBvZiB0aGUgZHN0X21hYyBvciBzcmNfbWFjLiBUaGVuIGluZm9ybWF0aW9u
+IGluIHZ4bGFuX2ZkYiAgaXMgdXNlZCBmb3IgZnVydGhlciBwcm9jZXNzLiAgQnV0IGFzIG5vIHJj
+dV9yZWFkX2xvY2sgaXMgb2J0YWluZWQgYmVmb3JlIHRoZSBsaXN0IHRyYXZlbGxpbmcsIEkgYW0g
+d29uZGVyaW5nIGlmIGl0IGlzIHBvc3NpYmxlIHRoYXQgdnhsYW5fZmRiIGlzIGZyZWVkIHdoZW4g
+aXQgaXMgYmVpbmcgdXNlZC4KPj4KPgo+SW4gYm90aCBSWCBhbmQgVFggcGF0aHMsIHJjdSByZWFk
+IGxvY2sgaXMgYWNxdWlyZWQgYnkgdXBwZXIgbGF5ZXIuCj5DaGVjayBfX2Rldl9xdWV1ZV94bWl0
+KCkgYW5kIHByb2Nlc3NfYmFja2xvZygpLgo=
