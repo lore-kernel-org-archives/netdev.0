@@ -1,7 +1,8 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v4 00/19] Replace PCI pool by DMA pool API
-Date: Wed,  1 Mar 2017 16:55:02 +0100
-Message-ID: <20170301155521.30281-1-romain.perier@collabora.com>
+Subject: [PATCH v4 08/19] scsi: be2iscsi: Replace PCI pool old API
+Date: Wed,  1 Mar 2017 16:55:10 +0100
+Message-ID: <20170301155521.30281-9-romain.perier@collabora.com>
+References: <20170301155521.30281-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
         linux-kernel@vger.kernel.org,
@@ -18,99 +19,89 @@ To: Dan Williams <dan.j.williams@intel.com>,
         Felipe Balbi <balbi@kernel.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170301155521.30281-1-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current PCI pool API are simple macro functions direct expanded to
-the appropriated dma pool functions. The prototypes are almost the same
-and semantically, they are very similar. I propose to use the DMA pool
-API directly and get rid of the old API.
+The PCI pool API is deprecated. This commits replaces the PCI pool old
+API by the appropriated function with the DMA pool API.
 
-This set of patches, replaces the old API by the dma pool API, adds
-support to warn about this old API in checkpath.pl and remove the
-defines.
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+---
+ drivers/scsi/be2iscsi/be_iscsi.c | 6 +++---
+ drivers/scsi/be2iscsi/be_main.c  | 6 +++---
+ drivers/scsi/be2iscsi/be_main.h  | 2 +-
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-Changes in v4:
-- Rebased series onto next-20170301
-- Removed patch 20/20: checks done by checkpath.pl, no longer required.
-  Thanks to Peter and Joe for their feedbacks.
-- Added Reviewed-by tags
-
-Changes in v3:
-- Rebased series onto next-20170224
-- Fix checkpath.pl reports for patch 11/20 and patch 12/20
-- Remove prefix RFC
-Changes in v2:
-- Introduced patch 18/20
-- Fixed cosmetic changes: spaces before brace, live over 80 characters
-- Removed some of the check for NULL pointers before calling dma_pool_destroy
-- Improved the regexp in checkpatch for pci_pool, thanks to Joe Perches
-- Added Tested-by and Acked-by tags
-
-Romain Perier (19):
-  block: DAC960: Replace PCI pool old API
-  dmaengine: pch_dma: Replace PCI pool old API
-  IB/mthca: Replace PCI pool old API
-  net: e100: Replace PCI pool old API
-  mlx4: Replace PCI pool old API
-  mlx5: Replace PCI pool old API
-  wireless: ipw2200: Replace PCI pool old API
-  scsi: be2iscsi: Replace PCI pool old API
-  scsi: csiostor: Replace PCI pool old API
-  scsi: lpfc: Replace PCI pool old API
-  scsi: megaraid: Replace PCI pool old API
-  scsi: mpt3sas: Replace PCI pool old API
-  scsi: mvsas: Replace PCI pool old API
-  scsi: pmcraid: Replace PCI pool old API
-  usb: gadget: amd5536udc: Replace PCI pool old API
-  usb: gadget: net2280: Replace PCI pool old API
-  usb: gadget: pch_udc: Replace PCI pool old API
-  usb: host: Remove remaining pci_pool in comments
-  PCI: Remove PCI pool macro functions
-
- drivers/block/DAC960.c                        |  36 ++++-----
- drivers/block/DAC960.h                        |   4 +-
- drivers/dma/pch_dma.c                         |  12 +--
- drivers/infiniband/hw/mthca/mthca_av.c        |  10 +--
- drivers/infiniband/hw/mthca/mthca_cmd.c       |   8 +-
- drivers/infiniband/hw/mthca/mthca_dev.h       |   4 +-
- drivers/net/ethernet/intel/e100.c             |  12 +--
- drivers/net/ethernet/mellanox/mlx4/cmd.c      |  10 +--
- drivers/net/ethernet/mellanox/mlx4/mlx4.h     |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c |  11 +--
- drivers/net/wireless/intel/ipw2x00/ipw2200.c  |  13 ++--
- drivers/scsi/be2iscsi/be_iscsi.c              |   6 +-
- drivers/scsi/be2iscsi/be_main.c               |   6 +-
- drivers/scsi/be2iscsi/be_main.h               |   2 +-
- drivers/scsi/csiostor/csio_hw.h               |   2 +-
- drivers/scsi/csiostor/csio_init.c             |  11 +--
- drivers/scsi/csiostor/csio_scsi.c             |   6 +-
- drivers/scsi/lpfc/lpfc.h                      |  12 +--
- drivers/scsi/lpfc/lpfc_init.c                 |  16 ++--
- drivers/scsi/lpfc/lpfc_mem.c                  | 105 +++++++++++++-------------
- drivers/scsi/lpfc/lpfc_nvme.c                 |   6 +-
- drivers/scsi/lpfc/lpfc_nvmet.c                |   4 +-
- drivers/scsi/lpfc/lpfc_scsi.c                 |  12 +--
- drivers/scsi/megaraid/megaraid_mbox.c         |  33 ++++----
- drivers/scsi/megaraid/megaraid_mm.c           |  32 ++++----
- drivers/scsi/megaraid/megaraid_sas_base.c     |  29 +++----
- drivers/scsi/megaraid/megaraid_sas_fusion.c   |  66 ++++++++--------
- drivers/scsi/mpt3sas/mpt3sas_base.c           |  73 +++++++++---------
- drivers/scsi/mvsas/mv_init.c                  |   6 +-
- drivers/scsi/mvsas/mv_sas.c                   |   6 +-
- drivers/scsi/pmcraid.c                        |  10 +--
- drivers/scsi/pmcraid.h                        |   2 +-
- drivers/usb/gadget/udc/amd5536udc.c           |   8 +-
- drivers/usb/gadget/udc/amd5536udc.h           |   4 +-
- drivers/usb/gadget/udc/net2280.c              |  12 +--
- drivers/usb/gadget/udc/net2280.h              |   2 +-
- drivers/usb/gadget/udc/pch_udc.c              |  31 ++++----
- drivers/usb/host/ehci-hcd.c                   |   2 +-
- drivers/usb/host/fotg210-hcd.c                |   2 +-
- drivers/usb/host/oxu210hp-hcd.c               |   2 +-
- include/linux/mlx5/driver.h                   |   2 +-
- include/linux/pci.h                           |   9 ---
- 42 files changed, 310 insertions(+), 331 deletions(-)
-
+diff --git a/drivers/scsi/be2iscsi/be_iscsi.c b/drivers/scsi/be2iscsi/be_iscsi.c
+index a484457..d76ef77 100644
+--- a/drivers/scsi/be2iscsi/be_iscsi.c
++++ b/drivers/scsi/be2iscsi/be_iscsi.c
+@@ -87,8 +87,8 @@ struct iscsi_cls_session *beiscsi_session_create(struct iscsi_endpoint *ep,
+ 		return NULL;
+ 	sess = cls_session->dd_data;
+ 	beiscsi_sess = sess->dd_data;
+-	beiscsi_sess->bhs_pool =  pci_pool_create("beiscsi_bhs_pool",
+-						   phba->pcidev,
++	beiscsi_sess->bhs_pool =  dma_pool_create("beiscsi_bhs_pool",
++						   &phba->pcidev->dev,
+ 						   sizeof(struct be_cmd_bhs),
+ 						   64, 0);
+ 	if (!beiscsi_sess->bhs_pool)
+@@ -113,7 +113,7 @@ void beiscsi_session_destroy(struct iscsi_cls_session *cls_session)
+ 	struct beiscsi_session *beiscsi_sess = sess->dd_data;
+ 
+ 	printk(KERN_INFO "In beiscsi_session_destroy\n");
+-	pci_pool_destroy(beiscsi_sess->bhs_pool);
++	dma_pool_destroy(beiscsi_sess->bhs_pool);
+ 	iscsi_session_teardown(cls_session);
+ }
+ 
+diff --git a/drivers/scsi/be2iscsi/be_main.c b/drivers/scsi/be2iscsi/be_main.c
+index 32b2713..dd43480 100644
+--- a/drivers/scsi/be2iscsi/be_main.c
++++ b/drivers/scsi/be2iscsi/be_main.c
+@@ -4307,7 +4307,7 @@ static void beiscsi_cleanup_task(struct iscsi_task *task)
+ 	pwrb_context = &phwi_ctrlr->wrb_context[cri_index];
+ 
+ 	if (io_task->cmd_bhs) {
+-		pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
++		dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+ 			      io_task->bhs_pa.u.a64.address);
+ 		io_task->cmd_bhs = NULL;
+ 		task->hdr = NULL;
+@@ -4424,7 +4424,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
+ 	struct beiscsi_session *beiscsi_sess = beiscsi_conn->beiscsi_sess;
+ 	dma_addr_t paddr;
+ 
+-	io_task->cmd_bhs = pci_pool_alloc(beiscsi_sess->bhs_pool,
++	io_task->cmd_bhs = dma_pool_alloc(beiscsi_sess->bhs_pool,
+ 					  GFP_ATOMIC, &paddr);
+ 	if (!io_task->cmd_bhs)
+ 		return -ENOMEM;
+@@ -4551,7 +4551,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
+ 	if (io_task->pwrb_handle)
+ 		free_wrb_handle(phba, pwrb_context, io_task->pwrb_handle);
+ 	io_task->pwrb_handle = NULL;
+-	pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
++	dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+ 		      io_task->bhs_pa.u.a64.address);
+ 	io_task->cmd_bhs = NULL;
+ 	return -ENOMEM;
+diff --git a/drivers/scsi/be2iscsi/be_main.h b/drivers/scsi/be2iscsi/be_main.h
+index 2188579..cf58d31 100644
+--- a/drivers/scsi/be2iscsi/be_main.h
++++ b/drivers/scsi/be2iscsi/be_main.h
+@@ -446,7 +446,7 @@ struct beiscsi_hba {
+ 	 test_bit(BEISCSI_HBA_ONLINE, &phba->state))
+ 
+ struct beiscsi_session {
+-	struct pci_pool *bhs_pool;
++	struct dma_pool *bhs_pool;
+ };
+ 
+ /**
 -- 
 2.9.3
