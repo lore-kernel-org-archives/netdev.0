@@ -1,32 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: Fix error path in nbp_vlan_init
-Date: Wed, 01 Mar 2017 14:56:20 -0800 (PST)
-Message-ID: <20170301.145620.1575285327636466385.davem@davemloft.net>
-References: <1488379845-38625-1-git-send-email-yotamg@mellanox.com>
+From: Gao Feng <fgao@ikuai8.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack_sip: fix wrong memory initialisation
+Date: Thu, 2 Mar 2017 06:46:42 +0800
+Message-ID: <CA+6hz4oCGP9enM7=4PS+rrChfDmomQeinsbBLOEvELP=q_H=wQ@mail.gmail.com>
+References: <20170301143327.2C90B6BD30@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-        netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        jiri@mellanox.com, roopa@cumulusnetworks.com
-To: yotamg@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53558 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753507AbdCAW4a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 17:56:30 -0500
-In-Reply-To: <1488379845-38625-1-git-send-email-yotamg@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        stable <stable@vger.kernel.org>
+To: Christophe Leroy <christophe.leroy@c-s.fr>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170301143327.2C90B6BD30@localhost.localdomain>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
-Date: Wed,  1 Mar 2017 16:50:45 +0200
+On Wed, Mar 1, 2017 at 10:33 PM, Christophe Leroy
+<christophe.leroy@c-s.fr> wrote:
+> In commit 82de0be6862cd ("netfilter: Add helper array
+> register/unregister functions"),
+> struct nf_conntrack_helper sip[MAX_PORTS][4] was changed to
+> sip[MAX_PORTS * 4], so the memory init should have been changed to
+> memset(&sip[4 * i], 0, 4 * sizeof(sip[i]));
 
-> Fix error path order in nbp_vlan_init, so if switchdev_port_attr_set
-> call failes, the vlan_hash wouldn't be destroyed before inited.
-> 
-> Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
-> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Yes, the memset initialization should be changed too.
 
-Applied, thanks.
+Thanks
+Feng
+
+>
+> But as the sip[] table is allocated in the BSS, it is already set to 0
+>
+> Fixes: 82de0be6862cd ("netfilter: Add helper array
+> register/unregister functions")
+> Cc: stable@vger.kernel.org
+>
+> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+> ---
+>  net/netfilter/nf_conntrack_sip.c | 2 --
+>  1 file changed, 2 deletions(-)
+>
+> diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+> index 24174c520239..0d17894798b5 100644
+> --- a/net/netfilter/nf_conntrack_sip.c
+> +++ b/net/netfilter/nf_conntrack_sip.c
+> @@ -1628,8 +1628,6 @@ static int __init nf_conntrack_sip_init(void)
+>                 ports[ports_c++] = SIP_PORT;
+>
+>         for (i = 0; i < ports_c; i++) {
+> -               memset(&sip[i], 0, sizeof(sip[i]));
+> -
+>                 nf_ct_helper_init(&sip[4 * i], AF_INET, IPPROTO_UDP, "sip",
+>                                   SIP_PORT, ports[i], i, sip_exp_policy,
+>                                   SIP_EXPECT_MAX,
+> --
+> 2.12.0
+>
