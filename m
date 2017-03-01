@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v4 18/19] usb: host: Remove remaining pci_pool in comments
-Date: Wed,  1 Mar 2017 16:55:20 +0100
-Message-ID: <20170301155521.30281-19-romain.perier@collabora.com>
+Subject: [PATCH v4 14/19] scsi: pmcraid: Replace PCI pool old API
+Date: Wed,  1 Mar 2017 16:55:16 +0100
+Message-ID: <20170301155521.30281-15-romain.perier@collabora.com>
 References: <20170301155521.30281-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -18,60 +18,78 @@ To: Dan Williams <dan.j.williams@intel.com>,
         "Martin K. Petersen" <martin.petersen@oracle.com>,
         Felipe Balbi <balbi@kernel.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:44316 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753064AbdCAP4x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 10:56:53 -0500
 In-Reply-To: <20170301155521.30281-1-romain.perier@collabora.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This replaces remaining occurences of pci_pool by dma_pool, as
-this is the new API that could be used for that purpose.
+The PCI pool API is deprecated. This commits replaces the PCI pool old
+API by the appropriated function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/usb/host/ehci-hcd.c     | 2 +-
- drivers/usb/host/fotg210-hcd.c  | 2 +-
- drivers/usb/host/oxu210hp-hcd.c | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/scsi/pmcraid.c | 10 +++++-----
+ drivers/scsi/pmcraid.h |  2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
-index ac2c4ea..6e834b83 100644
---- a/drivers/usb/host/ehci-hcd.c
-+++ b/drivers/usb/host/ehci-hcd.c
-@@ -597,7 +597,7 @@ static int ehci_run (struct usb_hcd *hcd)
- 	/*
- 	 * hcc_params controls whether ehci->regs->segment must (!!!)
- 	 * be used; it constrains QH/ITD/SITD and QTD locations.
--	 * pci_pool consistent memory always uses segment zero.
-+	 * dma_pool consistent memory always uses segment zero.
- 	 * streaming mappings for I/O buffers, like pci_map_single(),
- 	 * can return segments above 4GB, if the device allows.
- 	 *
-diff --git a/drivers/usb/host/fotg210-hcd.c b/drivers/usb/host/fotg210-hcd.c
-index 1c5b34b..ced08dc 100644
---- a/drivers/usb/host/fotg210-hcd.c
-+++ b/drivers/usb/host/fotg210-hcd.c
-@@ -5047,7 +5047,7 @@ static int fotg210_run(struct usb_hcd *hcd)
- 	/*
- 	 * hcc_params controls whether fotg210->regs->segment must (!!!)
- 	 * be used; it constrains QH/ITD/SITD and QTD locations.
--	 * pci_pool consistent memory always uses segment zero.
-+	 * dma_pool consistent memory always uses segment zero.
- 	 * streaming mappings for I/O buffers, like pci_map_single(),
- 	 * can return segments above 4GB, if the device allows.
- 	 *
-diff --git a/drivers/usb/host/oxu210hp-hcd.c b/drivers/usb/host/oxu210hp-hcd.c
-index bcf531c..ed20fb3 100644
---- a/drivers/usb/host/oxu210hp-hcd.c
-+++ b/drivers/usb/host/oxu210hp-hcd.c
-@@ -2708,7 +2708,7 @@ static int oxu_run(struct usb_hcd *hcd)
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index 49e70a3..0f893c4 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -4699,13 +4699,13 @@ pmcraid_release_control_blocks(
+ 		return;
  
- 	/* hcc_params controls whether oxu->regs->segment must (!!!)
- 	 * be used; it constrains QH/ITD/SITD and QTD locations.
--	 * pci_pool consistent memory always uses segment zero.
-+	 * dma_pool consistent memory always uses segment zero.
- 	 * streaming mappings for I/O buffers, like pci_map_single(),
- 	 * can return segments above 4GB, if the device allows.
- 	 *
+ 	for (i = 0; i < max_index; i++) {
+-		pci_pool_free(pinstance->control_pool,
++		dma_pool_free(pinstance->control_pool,
+ 			      pinstance->cmd_list[i]->ioa_cb,
+ 			      pinstance->cmd_list[i]->ioa_cb_bus_addr);
+ 		pinstance->cmd_list[i]->ioa_cb = NULL;
+ 		pinstance->cmd_list[i]->ioa_cb_bus_addr = 0;
+ 	}
+-	pci_pool_destroy(pinstance->control_pool);
++	dma_pool_destroy(pinstance->control_pool);
+ 	pinstance->control_pool = NULL;
+ }
+ 
+@@ -4762,8 +4762,8 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
+ 		pinstance->host->unique_id);
+ 
+ 	pinstance->control_pool =
+-		pci_pool_create(pinstance->ctl_pool_name,
+-				pinstance->pdev,
++		dma_pool_create(pinstance->ctl_pool_name,
++				&pinstance->pdev->dev,
+ 				sizeof(struct pmcraid_control_block),
+ 				PMCRAID_IOARCB_ALIGNMENT, 0);
+ 
+@@ -4772,7 +4772,7 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
+ 
+ 	for (i = 0; i < PMCRAID_MAX_CMD; i++) {
+ 		pinstance->cmd_list[i]->ioa_cb =
+-			pci_pool_alloc(
++			dma_pool_alloc(
+ 				pinstance->control_pool,
+ 				GFP_KERNEL,
+ 				&(pinstance->cmd_list[i]->ioa_cb_bus_addr));
+diff --git a/drivers/scsi/pmcraid.h b/drivers/scsi/pmcraid.h
+index 568b18a..acf5a7b 100644
+--- a/drivers/scsi/pmcraid.h
++++ b/drivers/scsi/pmcraid.h
+@@ -755,7 +755,7 @@ struct pmcraid_instance {
+ 
+ 	/* structures related to command blocks */
+ 	struct kmem_cache *cmd_cachep;		/* cache for cmd blocks */
+-	struct pci_pool *control_pool;		/* pool for control blocks */
++	struct dma_pool *control_pool;		/* pool for control blocks */
+ 	char   cmd_pool_name[64];		/* name of cmd cache */
+ 	char   ctl_pool_name[64];		/* name of control cache */
+ 
 -- 
 2.9.3
