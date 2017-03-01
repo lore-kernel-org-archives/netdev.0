@@ -1,43 +1,114 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [Patch net v3] ipv6: check for ip6_null_entry in
- __ip6_del_rt_siblings()
-Date: Wed, 1 Mar 2017 16:42:15 -0800
-Message-ID: <20170302004215.3ohf6smlrxodd3mn@kafai-mba.local>
-References: <1488240463-12000-1-git-send-email-xiyou.wangcong@gmail.com>
- <6d332a15-d86c-0b02-61e5-38d208f2caf7@cumulusnetworks.com>
- <20170301231648.2bpr7doxcipj5gi4@android-1601923ecb7aeff9.dhcp.thefacebook.com>
- <5ab5897d-bafe-d297-91da-07bc32ce6d6e@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: net_enable_timestamp() can be called from irq
+ contexts
+Date: Wed, 01 Mar 2017 14:28:39 -0800
+Message-ID: <1488407319.9415.315.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+bHh=mzTXw1J8vxbzimrQULss16B=693T4SMcndoNoPPg@mail.gmail.com>
+         <CANn89iL8XLopw+grdzMW6_vabiQjKrVL_q-u4-b1XcL_uRAPUw@mail.gmail.com>
+         <1488398879.9415.302.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1488399119.9415.304.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, <netdev@vger.kernel.org>,
-        <andreyknvl@google.com>, Eric Dumazet <eric.dumazet@gmail.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37918 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753424AbdCBDJB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 22:09:01 -0500
-Content-Disposition: inline
-In-Reply-To: <5ab5897d-bafe-d297-91da-07bc32ce6d6e@cumulusnetworks.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36185 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753041AbdCBD6L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 22:58:11 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 25so7857398pgy.3
+        for <netdev@vger.kernel.org>; Wed, 01 Mar 2017 19:58:11 -0800 (PST)
+In-Reply-To: <1488399119.9415.304.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 01, 2017 at 04:07:38PM -0800, David Ahern wrote:
-> On 3/1/17 3:16 PM, Martin KaFai Lau wrote:
-> > [ An unrelated topic.  I wonder ip -6 r del xyz::/0 would delete
-> >   the gateway route...]
->
-> a very related question ...
->
-> ip -6 r del x::/0 comes down to the kernel as delete '::/0' (plen is 0,
-> so cfg->fc_dst is 0). It ends up on the null_entry from fib6_locate b/c
-> of the 0 prefix length, so it is another variant of 'ip -6 ro del ::/0'
-Agree on the plen == 0 part.
+From: Eric Dumazet <edumazet@google.com>
 
-I actually meant if 'ip -6 r del xyz::/0' would delete any _default_
-_gateway_ also.  By looking at ip6_route_del() alone, it seems it only
-checks ipv6_addr_equal(&cfg->fc_gateway, &rt->rt6i_gateway) if
-(cfg->fc_flags & RTF_GATEWAY) is true.  Your test case makes
-me think about this possibility but it is not related
-to what this patch is trying to fix.  I should have started
-another thread for this :p
+It is now very clear that silly TCP listeners might play with
+enabling/disabling timestamping while new children are added
+to their accept queue.
+
+Meaning net_enable_timestamp() can be called from BH context
+while current state of the static key is not enabled.
+
+Lets play safe and allow all contexts.
+
+The work queue is scheduled only under the problematic cases,
+which are the static key enable/disable transition, to not slow down
+critical paths.
+
+This extends and improves what we did in commit 5fa8bbda38c6 ("net: use
+a work queue to defer net_disable_timestamp() work")
+
+Fixes: b90e5794c5bd ("net: dont call jump_label_dec from irq context")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+---
+ net/core/dev.c |   35 +++++++++++++++++++++++++++++++----
+ 1 file changed, 31 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e63bf61b19be029e30ac40443c0e2edb24de4a73..8637b2b71f3d4751366a2ca5ba46579e6a5fa953 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1698,27 +1698,54 @@ EXPORT_SYMBOL_GPL(net_dec_egress_queue);
+ static struct static_key netstamp_needed __read_mostly;
+ #ifdef HAVE_JUMP_LABEL
+ static atomic_t netstamp_needed_deferred;
++static atomic_t netstamp_wanted;
+ static void netstamp_clear(struct work_struct *work)
+ {
+ 	int deferred = atomic_xchg(&netstamp_needed_deferred, 0);
++	int wanted;
+ 
+-	while (deferred--)
+-		static_key_slow_dec(&netstamp_needed);
++	wanted = atomic_add_return(deferred, &netstamp_wanted);
++	if (wanted > 0)
++		static_key_enable(&netstamp_needed);
++	else
++		static_key_disable(&netstamp_needed);
+ }
+ static DECLARE_WORK(netstamp_work, netstamp_clear);
+ #endif
+ 
+ void net_enable_timestamp(void)
+ {
++#ifdef HAVE_JUMP_LABEL
++	int wanted;
++
++	while (1) {
++		wanted = atomic_read(&netstamp_wanted);
++		if (wanted <= 0)
++			break;
++		if (atomic_cmpxchg(&netstamp_wanted, wanted, wanted + 1) == wanted)
++			return;
++	}
++	atomic_inc(&netstamp_needed_deferred);
++	schedule_work(&netstamp_work);
++#else
+ 	static_key_slow_inc(&netstamp_needed);
++#endif
+ }
+ EXPORT_SYMBOL(net_enable_timestamp);
+ 
+ void net_disable_timestamp(void)
+ {
+ #ifdef HAVE_JUMP_LABEL
+-	/* net_disable_timestamp() can be called from non process context */
+-	atomic_inc(&netstamp_needed_deferred);
++	int wanted;
++
++	while (1) {
++		wanted = atomic_read(&netstamp_wanted);
++		if (wanted <= 1)
++			break;
++		if (atomic_cmpxchg(&netstamp_wanted, wanted, wanted - 1) == wanted)
++			return;
++	}
++	atomic_dec(&netstamp_needed_deferred);
+ 	schedule_work(&netstamp_work);
+ #else
+ 	static_key_slow_dec(&netstamp_needed);
