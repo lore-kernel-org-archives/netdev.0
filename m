@@ -1,82 +1,63 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] Bluetooth: fix assignments on error variable err
-Date: Wed,  1 Mar 2017 15:10:53 +0000
-Message-ID: <20170301151053.25779-1-colin.king@canonical.com>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 0/2] pull request for net: batman-adv
+	2017-03-01
+Date: Wed,  1 Mar 2017 16:53:31 +0100
+Message-ID: <20170301155333.19406-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Hi David,
 
-Variable err is being initialized to zero and then later being
-set to the error return from the call to hci_req_run_skb; hence
-we can remove the redundant initialization to zero.
+here are two bugfixes which we would like to see integrated into net.
 
-Also on two occassions err is not being set from the error return
-from the call to hci_req_run_skb, so add these missing assignments.
+Please pull or let me know of any problem!
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/bluetooth/amp.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Thank you,
+      Simon
 
-diff --git a/net/bluetooth/amp.c b/net/bluetooth/amp.c
-index 02a4ccc..ebcab5b 100644
---- a/net/bluetooth/amp.c
-+++ b/net/bluetooth/amp.c
-@@ -263,7 +263,7 @@ void amp_read_loc_assoc_frag(struct hci_dev *hdev, u8 phy_handle)
- 	struct hci_cp_read_local_amp_assoc cp;
- 	struct amp_assoc *loc_assoc = &hdev->loc_assoc;
- 	struct hci_request req;
--	int err = 0;
-+	int err;
- 
- 	BT_DBG("%s handle %d", hdev->name, phy_handle);
- 
-@@ -282,7 +282,7 @@ void amp_read_loc_assoc(struct hci_dev *hdev, struct amp_mgr *mgr)
- {
- 	struct hci_cp_read_local_amp_assoc cp;
- 	struct hci_request req;
--	int err = 0;
-+	int err;
- 
- 	memset(&hdev->loc_assoc, 0, sizeof(struct amp_assoc));
- 	memset(&cp, 0, sizeof(cp));
-@@ -292,7 +292,7 @@ void amp_read_loc_assoc(struct hci_dev *hdev, struct amp_mgr *mgr)
- 	set_bit(READ_LOC_AMP_ASSOC, &mgr->state);
- 	hci_req_init(&req, hdev);
- 	hci_req_add(&req, HCI_OP_READ_LOCAL_AMP_ASSOC, sizeof(cp), &cp);
--	hci_req_run_skb(&req, read_local_amp_assoc_complete);
-+	err = hci_req_run_skb(&req, read_local_amp_assoc_complete);
- 	if (err < 0)
- 		a2mp_send_getampassoc_rsp(hdev, A2MP_STATUS_INVALID_CTRL_ID);
- }
-@@ -303,7 +303,7 @@ void amp_read_loc_assoc_final_data(struct hci_dev *hdev,
- 	struct hci_cp_read_local_amp_assoc cp;
- 	struct amp_mgr *mgr = hcon->amp_mgr;
- 	struct hci_request req;
--	int err = 0;
-+	int err;
- 
- 	cp.phy_handle = hcon->handle;
- 	cp.len_so_far = cpu_to_le16(0);
-@@ -314,7 +314,7 @@ void amp_read_loc_assoc_final_data(struct hci_dev *hdev,
- 	/* Read Local AMP Assoc final link information data */
- 	hci_req_init(&req, hdev);
- 	hci_req_add(&req, HCI_OP_READ_LOCAL_AMP_ASSOC, sizeof(cp), &cp);
--	hci_req_run_skb(&req, read_local_amp_assoc_complete);
-+	err = hci_req_run_skb(&req, read_local_amp_assoc_complete);
- 	if (err < 0)
- 		a2mp_send_getampassoc_rsp(hdev, A2MP_STATUS_INVALID_CTRL_ID);
- }
--- 
-2.10.2
+The following changes since commit 4ea33ef0f9e95b69db9131d7afd98563713e81b0:
+
+  batman-adv: Decrease hardif refcnt on fragmentation send error (2017-01-04 08:22:04 +0100)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batadv-net-for-davem-20170301
+
+for you to fetch changes up to 51c6b429c0c95e67edd1cb0b548c5cf6a6604763:
+
+  batman-adv: Fix transmission of final, 16th fragment (2017-02-21 18:33:35 +0100)
+
+----------------------------------------------------------------
+Here are two batman-adv bugfixes:
+
+ - fix a potential double free when fragment merges fail,
+   by Sven Eckelmann
+
+ - fix failing tranmission of the 16th (last) fragment if that exists,
+   by Linus Lüssing
+
+----------------------------------------------------------------
+Linus Lüssing (1):
+      batman-adv: Fix transmission of final, 16th fragment
+
+Sven Eckelmann (1):
+      batman-adv: Fix double free during fragment merge error
+
+ net/batman-adv/fragmentation.c | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
