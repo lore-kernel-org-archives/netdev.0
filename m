@@ -1,58 +1,79 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net] net: solve a NAPI race
-Date: Tue, 28 Feb 2017 17:04:13 -0800
-Message-ID: <20170228170413.1c217602@xeon-e3>
-References: <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170227.111944.1725806340309799464.davem@davemloft.net>
-        <1488213854.9415.198.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170227.210810.197044715013755200.davem@davemloft.net>
-        <20170301002240.GA6899@electric-eye.fr.zoreil.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
+Date: Tue, 28 Feb 2017 17:50:07 -0800
+Message-ID: <CALx6S35UxT6UhVhJZmVmTx867p7G6GbKWS217Q_K0cHc1V8sUQ@mail.gmail.com>
+References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+ <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
+ <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
+ <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
+ <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
+ <1488318476.9415.270.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALCETrVQj1AEsLEGGkWW1zApGz6_x2rDmE0wz4ft+O5h07f_Ug@mail.gmail.com>
+ <1488321643.9415.272.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALCETrXqO=ptrcHs0kLLfqA2nskGck4ntAnsaJdcjmqNuoVfNQ@mail.gmail.com>
+ <1488324131.9415.278.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S357ssnbEu7CMrczEjiX25QYBJh3WG=w8KuAoxGQS4aKLA@mail.gmail.com> <CAF=yD-L76wJhxVgG6CDYmQFfWYkUyK7QCWt_Jue_Tdh4hHVLgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        Linux API <linux-api@vger.kernel.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33597 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751601AbdCAB3Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 20:29:24 -0500
-Received: by mail-pf0-f171.google.com with SMTP id w189so6316929pfb.0
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 17:29:16 -0800 (PST)
-In-Reply-To: <20170301002240.GA6899@electric-eye.fr.zoreil.com>
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:33431 "EHLO
+        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751542AbdCAB5C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 20:57:02 -0500
+Received: by mail-qk0-f175.google.com with SMTP id n127so48553192qkf.0
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 17:57:02 -0800 (PST)
+In-Reply-To: <CAF=yD-L76wJhxVgG6CDYmQFfWYkUyK7QCWt_Jue_Tdh4hHVLgA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Mar 2017 01:22:40 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+On Tue, Feb 28, 2017 at 4:58 PM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Tue, Feb 28, 2017 at 7:28 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> On Tue, Feb 28, 2017 at 3:22 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> On Tue, 2017-02-28 at 14:52 -0800, Andy Lutomirski wrote:
+>>>
+>>>> The user pages are a gift to the kernel.  The application  may  not
+>>>> modify this memory ever, otherwise the page cache and on-disk data may
+>>>> differ.
+>>>>
+>>>> This is just not okay IMO.
+>>>
+>>> TCP works just fine in this case.
+>>>
+>>> TX checksum will be computed by the NIC after/while data is copied.
+>>>
+>>> If really the application changes the data, that will not cause any
+>>> problems, other than user side consistency.
+>>>
+>>> This is why we require a copy (for all buffers that came from zero-copy)
+>>> if network stack hits a device that can not offload TX checksum.
+>>>
+>>> Even pwrite() does not guarantee consistency if multiple threads are
+>>> using it on overlapping regions.
+>>>
+>> The Mellanox team working on TLS offload pointed out to us that if
+>> data is changed for a retransmit then it becomes trivial for someone
+>> snooping to break the encryption. Sounds pretty scary and it would be
+>> a shame if we couldn't use zero-copy in that use case :-( Hopefully we
+>> can find a solution...
+>>
+>
+> This requires collusion by the process initiating the zerocopy send
+> to help the entity snooping the link. That could be an attack on admin
+> configured tunnels, but user-directed encryption offload like AF_TLS
+> can still use zerocopy.
 
-> David Miller <davem@davemloft.net> :
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Mon, 27 Feb 2017 08:44:14 -0800
-> >   
-> > > Any point doing a napi_schedule() not from device hard irq handler
-> > > is subject to the race for NIC using some kind of edge trigger
-> > > interrupts.
-> > > 
-> > > Since we do not provide a ndo to disable device interrupts, the
-> > > following can happen.  
-> > 
-> > Ok, now I understand.
-> > 
-> > I think even without considering the race you are trying to solve,
-> > this situation is really dangerous.
-> > 
-> > I am sure that every ->poll() handler out there was written by an
-> > author who completely assumed that if they are executing then the
-> > device's interrupts for that NAPI instance are disabled.  And this is
-> > with very few, if any, exceptions.  
-> 
-> Shareable pci irq used to remind author that such an assumption was
-> not always right. Otoh it was still manageable as long as level only
-> triggered irq were involved.
-> 
+Yes, but we can't trust the user to always understand or correctly
+implement the semantic nuances when security is involved. If we can't
+provide a  robust API then the only recourse is to not allow zero copy
+in that case. We could suggest COW to solve all problems, but I think
+we know where the conversation will go ;-)
 
-When I had to deal with that in sky2, the best way was to have a single
-NAPI poll handler shared between both ports. Works well and avoids races
-in interrupt handling and enabling.
+Tom
