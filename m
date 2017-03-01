@@ -1,36 +1,30 @@
-From: "Xiaobo Yan" <yanxb123@163.com>
-Subject: Re:Re: [drivers/net/vxlan]Why rcu_read_lock is not obtained before
- rculist travelling
-Date: Wed, 1 Mar 2017 20:40:16 +0800 (CST)
-Message-ID: <6fc9b9b7.d935.15a89e2a384.Coremail.yanxb123@163.com>
-References: <199cc09e.de3a.15a8508c1f7.Coremail.yanxb123@163.com>
- <CAM_iQpUp+nmLW2i3Gm2YQnq+_EA5ozvgO33fG6k=x+kQx9kt_Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net/ipv6] net/ipv6: avoid possible dead locking on
+ addr_gen_mode sysctl
+Date: Wed, 01 Mar 2017 13:24:42 -0500 (EST)
+Message-ID: <20170301.132442.1331801761085806178.davem@davemloft.net>
+References: <20170226234123.18713-1-felix.jia@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: "Stephen Hemminger" <stephen@networkplumber.org>,
-        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
-To: "Cong Wang" <xiyou.wangcong@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: felix.jia@alliedtelesis.co.nz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mproxygzt1.163.com ([113.108.225.5]:49247 "EHLO
-        mproxygzt1.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752219AbdCASFt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 13:05:49 -0500
-In-Reply-To: <CAM_iQpUp+nmLW2i3Gm2YQnq+_EA5ozvgO33fG6k=x+kQx9kt_Q@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49980 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751291AbdCASYn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 13:24:43 -0500
+In-Reply-To: <20170226234123.18713-1-felix.jia@alliedtelesis.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CkhpIENvbmcsCgpUaGFua3MgdmVyeSBtdWNoIGZvciB5b3VyIHJlcGx5LiAgSXQncyBpbmRlZWRl
-ZCBhY3F1aXJlZCBieSB1cHBlciBsYXllci4KClRoYW5rcwoKQXQgMjAxNy0wMy0wMSAwNToyOTox
-NywgIkNvbmcgV2FuZyIgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4gd3JvdGU6Cj5PbiBUdWUs
-IEZlYiAyOCwgMjAxNyBhdCA2OjAzIEFNLCBYaWFvYm8gWWFuIDx5YW54YjEyM0AxNjMuY29tPiB3
-cm90ZToKPj4gQnV0IEkgZG9uoa90IGZpbmQgYW55IHJjdV9yZWFkX2xvY2sgaW52b2tlZCBiZWZv
-cmUgdHJhdmVsbGluZyBmZGJfaGVhZCBsaXN0LiAgSW4gdnhsYW5feG1pdCBhbmQgdnhsYW5fc25v
-b3AgZnVuY3Rpb24sIHZ4bGFuX2ZpbmRfbWFjIGZ1bmN0aW9uIGlzIGNhbGxlZCB0byBzZWFyY2gg
-dGhlIHZ4bGFuX2ZkYiBvZiB0aGUgZHN0X21hYyBvciBzcmNfbWFjLiBUaGVuIGluZm9ybWF0aW9u
-IGluIHZ4bGFuX2ZkYiAgaXMgdXNlZCBmb3IgZnVydGhlciBwcm9jZXNzLiAgQnV0IGFzIG5vIHJj
-dV9yZWFkX2xvY2sgaXMgb2J0YWluZWQgYmVmb3JlIHRoZSBsaXN0IHRyYXZlbGxpbmcsIEkgYW0g
-d29uZGVyaW5nIGlmIGl0IGlzIHBvc3NpYmxlIHRoYXQgdnhsYW5fZmRiIGlzIGZyZWVkIHdoZW4g
-aXQgaXMgYmVpbmcgdXNlZC4KPj4KPgo+SW4gYm90aCBSWCBhbmQgVFggcGF0aHMsIHJjdSByZWFk
-IGxvY2sgaXMgYWNxdWlyZWQgYnkgdXBwZXIgbGF5ZXIuCj5DaGVjayBfX2Rldl9xdWV1ZV94bWl0
-KCkgYW5kIHByb2Nlc3NfYmFja2xvZygpLgo=
+From: Felix Jia <felix.jia@alliedtelesis.co.nz>
+Date: Mon, 27 Feb 2017 12:41:23 +1300
+
+> The addr_gen_mode variable can be accessed by both sysctl and netlink.
+> Repleacd rtnl_lock() with rtnl_trylock() protect the sysctl operation to
+> avoid the possbile dead lock.`
+> 
+> Signed-off-by: Felix Jia <felix.jia@alliedtelesis.co.nz>
+
+Applied and queued up for -stable, thanks.
