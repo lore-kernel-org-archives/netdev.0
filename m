@@ -1,28 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] MAINTAINERS: Orphan usb/net/hso driver
-Date: Wed, 01 Mar 2017 12:52:16 -0500 (EST)
-Message-ID: <20170301.125216.283104811627990574.davem@davemloft.net>
-References: <30ad43134a6a7d155a257abaa31d120cf2c4d74c.1488271188.git.baruch@tkos.co.il>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: usb: asix_devices: fix missing return code check
+ on call to asix_write_medium_mode
+Date: Wed, 01 Mar 2017 12:52:26 -0500 (EST)
+Message-ID: <20170301.125226.289007568565020464.davem@davemloft.net>
+References: <20170228115822.20485-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <30ad43134a6a7d155a257abaa31d120cf2c4d74c.1488271188.git.baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: robert.foss@collabora.com, grundler@google.com, allan@asix.com.tw,
+        vpalatin@chromium.org, jarod@redhat.com, peter.chen@nxp.com,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170228115822.20485-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Date: Tue, 28 Feb 2017 10:39:48 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 28 Feb 2017 11:58:22 +0000
 
-> The email address of Jan Dumon bounces, and there is not relevant information
-> in the linked website.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+> The call to asix_write_medium_mode is not updating the return code ret
+> and yet ret is being checked for an error. Fix this by assigning ret to
+> the return code from the call asix_write_medium_mode.
+> 
+> Detected by CoverityScan, CID#1357148 ("Logically Dead Code")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
