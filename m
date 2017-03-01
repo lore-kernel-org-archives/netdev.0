@@ -1,39 +1,50 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Tue, 28 Feb 2017 16:37:57 -0800
-Message-ID: <1488328677.9415.280.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
-         <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
-         <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
-         <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
-         <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
-         <1488318476.9415.270.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALCETrVQj1AEsLEGGkWW1zApGz6_x2rDmE0wz4ft+O5h07f_Ug@mail.gmail.com>
-         <1488321643.9415.272.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALCETrXqO=ptrcHs0kLLfqA2nskGck4ntAnsaJdcjmqNuoVfNQ@mail.gmail.com>
-         <1488324131.9415.278.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALx6S357ssnbEu7CMrczEjiX25QYBJh3WG=w8KuAoxGQS4aKLA@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2 net] net: solve a NAPI race
+Date: Wed, 1 Mar 2017 01:22:40 +0100
+Message-ID: <20170301002240.GA6899@electric-eye.fr.zoreil.com>
+References: <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170227.111944.1725806340309799464.davem@davemloft.net>
+ <1488213854.9415.198.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170227.210810.197044715013755200.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-        Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALx6S357ssnbEu7CMrczEjiX25QYBJh3WG=w8KuAoxGQS4aKLA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+        tariqt@mellanox.com, saeedm@mellanox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:42898 "EHLO
+        violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751396AbdCAAkg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 19:40:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20170227.210810.197044715013755200.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-02-28 at 16:28 -0800, Tom Herbert wrote:
+David Miller <davem@davemloft.net> :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 27 Feb 2017 08:44:14 -0800
+> 
+> > Any point doing a napi_schedule() not from device hard irq handler
+> > is subject to the race for NIC using some kind of edge trigger
+> > interrupts.
+> > 
+> > Since we do not provide a ndo to disable device interrupts, the
+> > following can happen.
+> 
+> Ok, now I understand.
+> 
+> I think even without considering the race you are trying to solve,
+> this situation is really dangerous.
+> 
+> I am sure that every ->poll() handler out there was written by an
+> author who completely assumed that if they are executing then the
+> device's interrupts for that NAPI instance are disabled.  And this is
+> with very few, if any, exceptions.
 
-> The Mellanox team working on TLS offload pointed out to us that if
-> data is changed for a retransmit then it becomes trivial for someone
-> snooping to break the encryption. Sounds pretty scary and it would be
-> a shame if we couldn't use zero-copy in that use case :-( Hopefully we
-> can find a solution...
+Shareable pci irq used to remind author that such an assumption was
+not always right. Otoh it was still manageable as long as level only
+triggered irq were involved.
 
-Right, this is why offloading encryption over TCP is also hard ;)
+-- 
+Ueimor
