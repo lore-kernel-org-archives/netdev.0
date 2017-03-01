@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH v4 02/19] dmaengine: pch_dma: Replace PCI pool old API
-Date: Wed,  1 Mar 2017 16:55:04 +0100
-Message-ID: <20170301155521.30281-3-romain.perier@collabora.com>
+Subject: [PATCH v4 17/19] usb: gadget: pch_udc: Replace PCI pool old API
+Date: Wed,  1 Mar 2017 16:55:19 +0100
+Message-ID: <20170301155521.30281-18-romain.perier@collabora.com>
 References: <20170301155521.30281-1-romain.perier@collabora.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -27,70 +27,134 @@ The PCI pool API is deprecated. This commits replaces the PCI pool old
 API by the appropriated function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Acked-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Tested-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
 ---
- drivers/dma/pch_dma.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/usb/gadget/udc/pch_udc.c | 31 +++++++++++++++----------------
+ 1 file changed, 15 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/dma/pch_dma.c b/drivers/dma/pch_dma.c
-index f9028e9..afd8f27 100644
---- a/drivers/dma/pch_dma.c
-+++ b/drivers/dma/pch_dma.c
-@@ -123,7 +123,7 @@ struct pch_dma_chan {
- struct pch_dma {
- 	struct dma_device	dma;
- 	void __iomem *membase;
--	struct pci_pool		*pool;
-+	struct dma_pool		*pool;
- 	struct pch_dma_regs	regs;
- 	struct pch_dma_desc_regs ch_regs[MAX_CHAN_NR];
- 	struct pch_dma_chan	channels[MAX_CHAN_NR];
-@@ -437,7 +437,7 @@ static struct pch_dma_desc *pdc_alloc_desc(struct dma_chan *chan, gfp_t flags)
- 	struct pch_dma *pd = to_pd(chan->device);
- 	dma_addr_t addr;
+diff --git a/drivers/usb/gadget/udc/pch_udc.c b/drivers/usb/gadget/udc/pch_udc.c
+index a97da64..84dcbcd 100644
+--- a/drivers/usb/gadget/udc/pch_udc.c
++++ b/drivers/usb/gadget/udc/pch_udc.c
+@@ -355,8 +355,8 @@ struct pch_udc_dev {
+ 			vbus_session:1,
+ 			set_cfg_not_acked:1,
+ 			waiting_zlp_ack:1;
+-	struct pci_pool		*data_requests;
+-	struct pci_pool		*stp_requests;
++	struct dma_pool		*data_requests;
++	struct dma_pool		*stp_requests;
+ 	dma_addr_t			dma_addr;
+ 	struct usb_ctrlrequest		setup_data;
+ 	void __iomem			*base_addr;
+@@ -1522,7 +1522,7 @@ static void pch_udc_free_dma_chain(struct pch_udc_dev *dev,
+ 		/* do not free first desc., will be done by free for request */
+ 		td = phys_to_virt(addr);
+ 		addr2 = (dma_addr_t)td->next;
+-		pci_pool_free(dev->data_requests, td, addr);
++		dma_pool_free(dev->data_requests, td, addr);
+ 		td->next = 0x00;
+ 		addr = addr2;
+ 	}
+@@ -1539,7 +1539,7 @@ static void pch_udc_free_dma_chain(struct pch_udc_dev *dev,
+  *
+  * Return codes:
+  *	0:		success,
+- *	-ENOMEM:	pci_pool_alloc invocation fails
++ *	-ENOMEM:	dma_pool_alloc invocation fails
+  */
+ static int pch_udc_create_dma_chain(struct pch_udc_ep *ep,
+ 				    struct pch_udc_request *req,
+@@ -1565,7 +1565,7 @@ static int pch_udc_create_dma_chain(struct pch_udc_ep *ep,
+ 		if (bytes <= buf_len)
+ 			break;
+ 		last = td;
+-		td = pci_pool_alloc(ep->dev->data_requests, gfp_flags,
++		td = dma_pool_alloc(ep->dev->data_requests, gfp_flags,
+ 				    &dma_addr);
+ 		if (!td)
+ 			goto nomem;
+@@ -1770,7 +1770,7 @@ static struct usb_request *pch_udc_alloc_request(struct usb_ep *usbep,
+ 	if (!ep->dev->dma_addr)
+ 		return &req->req;
+ 	/* ep0 in requests are allocated from data pool here */
+-	dma_desc = pci_pool_alloc(ep->dev->data_requests, gfp,
++	dma_desc = dma_pool_alloc(ep->dev->data_requests, gfp,
+ 				  &req->td_data_phys);
+ 	if (NULL == dma_desc) {
+ 		kfree(req);
+@@ -1809,7 +1809,7 @@ static void pch_udc_free_request(struct usb_ep *usbep,
+ 	if (req->td_data != NULL) {
+ 		if (req->chain_len > 1)
+ 			pch_udc_free_dma_chain(ep->dev, req);
+-		pci_pool_free(ep->dev->data_requests, req->td_data,
++		dma_pool_free(ep->dev->data_requests, req->td_data,
+ 			      req->td_data_phys);
+ 	}
+ 	kfree(req);
+@@ -2914,7 +2914,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+ 	void				*ep0out_buf;
  
--	desc = pci_pool_zalloc(pd->pool, flags, &addr);
-+	desc = dma_pool_zalloc(pd->pool, flags, &addr);
- 	if (desc) {
- 		INIT_LIST_HEAD(&desc->tx_list);
- 		dma_async_tx_descriptor_init(&desc->txd, chan);
-@@ -549,7 +549,7 @@ static void pd_free_chan_resources(struct dma_chan *chan)
- 	spin_unlock_irq(&pd_chan->lock);
- 
- 	list_for_each_entry_safe(desc, _d, &tmp_list, desc_node)
--		pci_pool_free(pd->pool, desc, desc->txd.phys);
-+		dma_pool_free(pd->pool, desc, desc->txd.phys);
- 
- 	pdc_enable_irq(chan, 0);
- }
-@@ -880,7 +880,7 @@ static int pch_dma_probe(struct pci_dev *pdev,
- 		goto err_iounmap;
+ 	/* DMA setup */
+-	dev->data_requests = pci_pool_create("data_requests", dev->pdev,
++	dev->data_requests = dma_pool_create("data_requests", &dev->pdev->dev,
+ 		sizeof(struct pch_udc_data_dma_desc), 0, 0);
+ 	if (!dev->data_requests) {
+ 		dev_err(&dev->pdev->dev, "%s: can't get request data pool\n",
+@@ -2923,7 +2923,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
  	}
  
--	pd->pool = pci_pool_create("pch_dma_desc_pool", pdev,
-+	pd->pool = dma_pool_create("pch_dma_desc_pool", &pdev->dev,
- 				   sizeof(struct pch_dma_desc), 4, 0);
- 	if (!pd->pool) {
- 		dev_err(&pdev->dev, "Failed to alloc DMA descriptors\n");
-@@ -931,7 +931,7 @@ static int pch_dma_probe(struct pci_dev *pdev,
- 	return 0;
+ 	/* dma desc for setup data */
+-	dev->stp_requests = pci_pool_create("setup requests", dev->pdev,
++	dev->stp_requests = dma_pool_create("setup requests", &dev->pdev->dev,
+ 		sizeof(struct pch_udc_stp_dma_desc), 0, 0);
+ 	if (!dev->stp_requests) {
+ 		dev_err(&dev->pdev->dev, "%s: can't get setup request pool\n",
+@@ -2931,7 +2931,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+ 		return -ENOMEM;
+ 	}
+ 	/* setup */
+-	td_stp = pci_pool_alloc(dev->stp_requests, GFP_KERNEL,
++	td_stp = dma_pool_alloc(dev->stp_requests, GFP_KERNEL,
+ 				&dev->ep[UDC_EP0OUT_IDX].td_stp_phys);
+ 	if (!td_stp) {
+ 		dev_err(&dev->pdev->dev,
+@@ -2941,7 +2941,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+ 	dev->ep[UDC_EP0OUT_IDX].td_stp = td_stp;
  
- err_free_pool:
--	pci_pool_destroy(pd->pool);
-+	dma_pool_destroy(pd->pool);
- err_free_irq:
- 	free_irq(pdev->irq, pd);
- err_iounmap:
-@@ -963,7 +963,7 @@ static void pch_dma_remove(struct pci_dev *pdev)
- 			tasklet_kill(&pd_chan->tasklet);
+ 	/* data: 0 packets !? */
+-	td_data = pci_pool_alloc(dev->data_requests, GFP_KERNEL,
++	td_data = dma_pool_alloc(dev->data_requests, GFP_KERNEL,
+ 				&dev->ep[UDC_EP0OUT_IDX].td_data_phys);
+ 	if (!td_data) {
+ 		dev_err(&dev->pdev->dev,
+@@ -3021,22 +3021,21 @@ static void pch_udc_remove(struct pci_dev *pdev)
+ 		dev_err(&pdev->dev,
+ 			"%s: gadget driver still bound!!!\n", __func__);
+ 	/* dma pool cleanup */
+-	if (dev->data_requests)
+-		pci_pool_destroy(dev->data_requests);
++	dma_pool_destroy(dev->data_requests);
+ 
+ 	if (dev->stp_requests) {
+ 		/* cleanup DMA desc's for ep0in */
+ 		if (dev->ep[UDC_EP0OUT_IDX].td_stp) {
+-			pci_pool_free(dev->stp_requests,
++			dma_pool_free(dev->stp_requests,
+ 				dev->ep[UDC_EP0OUT_IDX].td_stp,
+ 				dev->ep[UDC_EP0OUT_IDX].td_stp_phys);
  		}
+ 		if (dev->ep[UDC_EP0OUT_IDX].td_data) {
+-			pci_pool_free(dev->stp_requests,
++			dma_pool_free(dev->stp_requests,
+ 				dev->ep[UDC_EP0OUT_IDX].td_data,
+ 				dev->ep[UDC_EP0OUT_IDX].td_data_phys);
+ 		}
+-		pci_pool_destroy(dev->stp_requests);
++		dma_pool_destroy(dev->stp_requests);
+ 	}
  
--		pci_pool_destroy(pd->pool);
-+		dma_pool_destroy(pd->pool);
- 		pci_iounmap(pdev, pd->membase);
- 		pci_release_regions(pdev);
- 		pci_disable_device(pdev);
+ 	if (dev->dma_addr)
 -- 
 2.9.3
 
