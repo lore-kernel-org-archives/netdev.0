@@ -1,59 +1,57 @@
-From: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Tue, 28 Feb 2017 16:28:51 -0800
-Message-ID: <CALx6S357ssnbEu7CMrczEjiX25QYBJh3WG=w8KuAoxGQS4aKLA@mail.gmail.com>
-References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
- <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
- <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
- <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
- <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
- <1488318476.9415.270.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALCETrVQj1AEsLEGGkWW1zApGz6_x2rDmE0wz4ft+O5h07f_Ug@mail.gmail.com>
- <1488321643.9415.272.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALCETrXqO=ptrcHs0kLLfqA2nskGck4ntAnsaJdcjmqNuoVfNQ@mail.gmail.com> <1488324131.9415.278.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH] drivers: net: xgene: Fix crash on DT systems
+Date: Tue, 28 Feb 2017 16:58:06 -0800
+Message-ID: <CAKh23FkT2nbABCxt9ic1WRR37-PkYO95naC21dNeoWtSoc1RNw@mail.gmail.com>
+References: <20170228170855.8123-1-alban.bedel@avionic-design.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-        Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1488324131.9415.278.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Keyur Chudgar <kchudgar@apm.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alban Bedel <alban.bedel@avionic-design.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f176.google.com ([209.85.217.176]:36846 "EHLO
+        mail-ua0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751451AbdCABF0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 20:05:26 -0500
+Received: by mail-ua0-f176.google.com with SMTP id 72so32165156uaf.3
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2017 17:04:49 -0800 (PST)
+In-Reply-To: <20170228170855.8123-1-alban.bedel@avionic-design.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2017 at 3:22 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Tue, 2017-02-28 at 14:52 -0800, Andy Lutomirski wrote:
+On Tue, Feb 28, 2017 at 9:08 AM, Alban Bedel
+<alban.bedel@avionic-design.de> wrote:
+> On DT systems the driver require a clock, but the probe just print a
+> warning and continue, leading to a crash when resetting the device.
+> To fix this crash and properly handle probe deferals only ignore the
+> missing clock if DT isn't used or if the clock doesn't exist.
 >
->> The user pages are a gift to the kernel.  The application  may  not
->> modify this memory ever, otherwise the page cache and on-disk data may
->> differ.
->>
->> This is just not okay IMO.
+> Signed-off-by: Alban Bedel <alban.bedel@avionic-design.de>
+> ---
+>  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
 >
-> TCP works just fine in this case.
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> index d0d0d12b531f..68b48edc5921 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> @@ -1756,6 +1756,12 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
 >
-> TX checksum will be computed by the NIC after/while data is copied.
+>         pdata->clk = devm_clk_get(&pdev->dev, NULL);
+>         if (IS_ERR(pdata->clk)) {
+> +               /* Abort if the clock is defined but couldn't be retrived.
+> +                * Always abort if the clock is missing on DT system as
+> +                * the driver can't cope with this case.
+> +                */
+> +               if (PTR_ERR(pdata->clk) != -ENOENT || dev->of_node)
+> +                       return PTR_ERR(pdata->clk);
+>                 /* Firmware may have set up the clock already. */
+>                 dev_info(dev, "clocks have been setup already\n");
+>         }
+> --
+> 2.11.0
 >
-> If really the application changes the data, that will not cause any
-> problems, other than user side consistency.
->
-> This is why we require a copy (for all buffers that came from zero-copy)
-> if network stack hits a device that can not offload TX checksum.
->
-> Even pwrite() does not guarantee consistency if multiple threads are
-> using it on overlapping regions.
->
-The Mellanox team working on TLS offload pointed out to us that if
-data is changed for a retransmit then it becomes trivial for someone
-snooping to break the encryption. Sounds pretty scary and it would be
-a shame if we couldn't use zero-copy in that use case :-( Hopefully we
-can find a solution...
 
-Tom
+Thanks, Alban.
 
->
->
+Acked-by: Iyappan Subramanian <isubramanian@apm.com>
