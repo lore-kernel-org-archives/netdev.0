@@ -1,32 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] rds: ib: add the static type to the variables
-Date: Wed, 01 Mar 2017 12:51:55 -0500 (EST)
-Message-ID: <20170301.125155.287193477729242606.davem@davemloft.net>
-References: <1488264340-20044-1-git-send-email-yanjun.zhu@oracle.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] MAINTAINERS: Orphan usb/net/hso driver
+Date: Wed, 01 Mar 2017 12:52:16 -0500 (EST)
+Message-ID: <20170301.125216.283104811627990574.davem@davemloft.net>
+References: <30ad43134a6a7d155a257abaa31d120cf2c4d74c.1488271188.git.baruch@tkos.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com
-To: yanjun.zhu@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48594 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751073AbdCARwC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 12:52:02 -0500
-In-Reply-To: <1488264340-20044-1-git-send-email-yanjun.zhu@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <30ad43134a6a7d155a257abaa31d120cf2c4d74c.1488271188.git.baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Date: Tue, 28 Feb 2017 01:45:40 -0500
+From: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Date: Tue, 28 Feb 2017 10:39:48 +0200
 
-> The variables rds_ib_mr_1m_pool_size and rds_ib_mr_8k_pool_size
-> are used only in the ib.c file. As such, the static type is
-> added to limit them in this file.
+> The email address of Jan Dumon bounces, and there is not relevant information
+> in the linked website.
 > 
-> Cc: Joe Jin <joe.jin@oracle.com>
-> Cc: Junxiao Bi <junxiao.bi@oracle.com>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+> Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
