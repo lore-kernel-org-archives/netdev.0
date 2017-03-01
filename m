@@ -1,106 +1,83 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: [PATCH 2/2] net: Introduce sk_clone_lock() error path routine
-Date: Wed,  1 Mar 2017 16:35:08 -0300
-Message-ID: <20170301193508.25760-2-acme@kernel.org>
-References: <20170301193508.25760-1-acme@kernel.org>
-Cc: netdev@vger.kernel.org, Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net: use-after-free in neigh_timer_handler/sock_wfree
+Date: Wed, 1 Mar 2017 13:43:44 -0800
+Message-ID: <CAM_iQpUdpjXS-yq8McZne+hobWv+pQS-Q0Fk4w0i0mXJQQ8fhQ@mail.gmail.com>
+References: <CACT4Y+Y6T3hLkgEKR5o3spjjSdTj0HXys2qeVZ9CA7MKsZc15Q@mail.gmail.com>
+ <CAM_iQpWGAwXu7yO_XsX2Rk-whLvZPLSXd5Btok=L9VSCV5gr=Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        Thomas Gleixner <tglx@linutronix.de>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:46826 "EHLO
-        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753140AbdCAVo0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 16:44:26 -0500
-In-Reply-To: <20170301193508.25760-1-acme@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        syzkaller <syzkaller@googlegroups.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpWGAwXu7yO_XsX2Rk-whLvZPLSXd5Btok=L9VSCV5gr=Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
+On Wed, Mar 1, 2017 at 1:24 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Wed, Mar 1, 2017 at 11:27 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>> Hello,
+>>
+>> I am seeing the following use-after-free report while running
+>> syzkaller fuzzer on
+>> linux-next/3e7350242c6f3d41d28e03418bd781cc1b7bad5f:
+>>
+>> ==================================================================
+>> BUG: KASAN: use-after-free in constant_test_bit
+>> arch/x86/include/asm/bitops.h:324 [inline] at addr ffff8801c56d5460
+>> BUG: KASAN: use-after-free in sock_flag include/net/sock.h:789
+>> [inline] at addr ffff8801c56d5460
+>> BUG: KASAN: use-after-free in sock_wfree+0x118/0x120
+>> net/core/sock.c:1630 at addr ffff8801c56d5460
+>> Read of size 8 by task syz-fuzzer/3261
+>> CPU: 0 PID: 3261 Comm: syz-fuzzer Not tainted 4.10.0-next-20170224+ #1
+>> Hardware name: Google Google Compute Engine/Google Compute Engine,
+>> BIOS Google 01/01/2011
+>> Call Trace:
+>>  <IRQ>
+>>  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
+>>  constant_test_bit arch/x86/include/asm/bitops.h:324 [inline]
+>>  sock_flag include/net/sock.h:789 [inline]
+>>  sock_wfree+0x118/0x120 net/core/sock.c:1630
+>>  skb_release_head_state+0xfc/0x200 net/core/skbuff.c:654
+>>  skb_release_all+0x15/0x60 net/core/skbuff.c:667
+>>  __kfree_skb+0x15/0x20 net/core/skbuff.c:683
+>>  kfree_skb+0x16e/0x4c0 net/core/skbuff.c:704
+>>  ndisc_error_report+0xbb/0x190 net/ipv6/ndisc.c:683
+>>  neigh_invalidate+0x23e/0x570 net/core/neighbour.c:848
+>>  neigh_timer_handler+0x4e7/0x1140 net/core/neighbour.c:933
+>>  call_timer_fn+0x241/0x820 kernel/time/timer.c:1266
+>>  expire_timers kernel/time/timer.c:1305 [inline]
+>>  __run_timers+0x960/0xcf0 kernel/time/timer.c:1599
+>>  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1612
+>>  __do_softirq+0x31f/0xbe7 kernel/softirq.c:284
+>>  invoke_softirq kernel/softirq.c:364 [inline]
+>>  irq_exit+0x1cc/0x200 kernel/softirq.c:405
+>>  exiting_irq arch/x86/include/asm/apic.h:658 [inline]
+>>  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:962
+>>  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:707
+>
+> This one looks very similar to a previous one:
+> https://groups.google.com/forum/#!topic/syzkaller/BhyN5OFd7sQ
+>
+> Both happen on raw v6 sockets.
+>
+> For me, it seems the sk refcnt is not correct, skb should still hold
+> a refcnt so it should not be freed before kfree_skb() in a timer
+> handler...
 
-When handling problems in cloning a socket with the sk_clone_locked()
-function we need to perform several steps that were open coded in it and
-its callers, so introduce a routine to avoid this duplication:
-sk_free_unlock_clone().
+More precisely, after this commit:
 
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Cc: Dmitry Vyukov <dvyukov@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Link: http://lkml.kernel.org/n/net-ui6laqkotycunhtmqryl9bfx@git.kernel.org
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- include/net/sock.h   |  1 +
- net/core/sock.c      | 16 +++++++++++-----
- net/dccp/minisocks.c |  6 +-----
- 3 files changed, 13 insertions(+), 10 deletions(-)
+commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
+Author: Eric Dumazet <eric.dumazet@gmail.com>
+Date:   Thu Jun 11 02:55:43 2009 -0700
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index c4f5e6fca17c..93d1160bcd32 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1520,6 +1520,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
- void sk_free(struct sock *sk);
- void sk_destruct(struct sock *sk);
- struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority);
-+void sk_free_unlock_clone(struct sock *sk);
- 
- struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force,
- 			     gfp_t priority);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 4eca27dc5c94..a3d9bb20f65d 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1540,11 +1540,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 			is_charged = sk_filter_charge(newsk, filter);
- 
- 		if (unlikely(!is_charged || xfrm_sk_clone_policy(newsk, sk))) {
--			/* It is still raw copy of parent, so invalidate
--			 * destructor and make plain sk_free() */
--			newsk->sk_destruct = NULL;
--			bh_unlock_sock(newsk);
--			sk_free(newsk);
-+			sk_free_unlock_clone(newsk);
- 			newsk = NULL;
- 			goto out;
- 		}
-@@ -1593,6 +1589,16 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- }
- EXPORT_SYMBOL_GPL(sk_clone_lock);
- 
-+void sk_free_unlock_clone(struct sock *sk)
-+{
-+	/* It is still raw copy of parent, so invalidate
-+	 * destructor and make plain sk_free() */
-+	sk->sk_destruct = NULL;
-+	bh_unlock_sock(sk);
-+	sk_free(sk);
-+}
-+EXPORT_SYMBOL_GPL(sk_free_unlock_clone);
-+
- void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
- {
- 	u32 max_segs = 1;
-diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
-index d20d948a98ed..e267e6f4c9a5 100644
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -119,11 +119,7 @@ struct sock *dccp_create_openreq_child(const struct sock *sk,
- 		 * Activate features: initialise CCIDs, sequence windows etc.
- 		 */
- 		if (dccp_feat_activate_values(newsk, &dreq->dreq_featneg)) {
--			/* It is still raw copy of parent, so invalidate
--			 * destructor and make plain sk_free() */
--			newsk->sk_destruct = NULL;
--			bh_unlock_sock(newsk);
--			sk_free(newsk);
-+			sk_free_unlock_clone(newsk);
- 			return NULL;
- 		}
- 		dccp_init_xmit_timers(newsk);
--- 
-2.9.3
+    net: No more expensive sock_hold()/sock_put() on each tx
+
+we don't take (old) refcnt any more on TX path, sk_wmem_alloc
+is the new refcnt. ;)
