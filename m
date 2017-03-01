@@ -1,46 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Tue, 28 Feb 2017 19:43:11 -0800
-Message-ID: <1488339791.9415.285.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
-         <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
-         <CALCETrXogADnqymxaoqt=F3rDMpOYQ0xy7audng=t-Rx1bxqbw@mail.gmail.com>
-         <20170228.222845.1863678335516061180.davem@davemloft.net>
+Date: Tue, 28 Feb 2017 19:58:39 -0500
+Message-ID: <CAF=yD-L76wJhxVgG6CDYmQFfWYkUyK7QCWt_Jue_Tdh4hHVLgA@mail.gmail.com>
+References: <20170222163901.90834-1-willemdebruijn.kernel@gmail.com>
+ <CAHO5Pa1QdQTyEFVAc_E+y3GkYhXM2=z6UXSeoH79ybFiBxs7ag@mail.gmail.com>
+ <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
+ <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
+ <CALCETrUgOpcNO6L3eabAr3P8p86PGYT7BfCt9mcNTu6TNfP7Dw@mail.gmail.com>
+ <1488318476.9415.270.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALCETrVQj1AEsLEGGkWW1zApGz6_x2rDmE0wz4ft+O5h07f_Ug@mail.gmail.com>
+ <1488321643.9415.272.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALCETrXqO=ptrcHs0kLLfqA2nskGck4ntAnsaJdcjmqNuoVfNQ@mail.gmail.com>
+ <1488324131.9415.278.camel@edumazet-glaptop3.roam.corp.google.com> <CALx6S357ssnbEu7CMrczEjiX25QYBJh3WG=w8KuAoxGQS4aKLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: luto@amacapital.net, willemdebruijn.kernel@gmail.com,
-        mtk.manpages@gmail.com, netdev@vger.kernel.org, willemb@google.com,
-        linux-api@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36201 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751465AbdCADnO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2017 22:43:14 -0500
-In-Reply-To: <20170228.222845.1863678335516061180.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALx6S357ssnbEu7CMrczEjiX25QYBJh3WG=w8KuAoxGQS4aKLA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-02-28 at 22:28 -0500, David Miller wrote:
+On Tue, Feb 28, 2017 at 7:28 PM, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org> wrote:
+> On Tue, Feb 28, 2017 at 3:22 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> On Tue, 2017-02-28 at 14:52 -0800, Andy Lutomirski wrote:
+>>
+>>> The user pages are a gift to the kernel.  The application  may  not
+>>> modify this memory ever, otherwise the page cache and on-disk data may
+>>> differ.
+>>>
+>>> This is just not okay IMO.
+>>
+>> TCP works just fine in this case.
+>>
+>> TX checksum will be computed by the NIC after/while data is copied.
+>>
+>> If really the application changes the data, that will not cause any
+>> problems, other than user side consistency.
+>>
+>> This is why we require a copy (for all buffers that came from zero-copy)
+>> if network stack hits a device that can not offload TX checksum.
+>>
+>> Even pwrite() does not guarantee consistency if multiple threads are
+>> using it on overlapping regions.
+>>
+> The Mellanox team working on TLS offload pointed out to us that if
+> data is changed for a retransmit then it becomes trivial for someone
+> snooping to break the encryption. Sounds pretty scary and it would be
+> a shame if we couldn't use zero-copy in that use case :-( Hopefully we
+> can find a solution...
+>
 
-> These device are already choking, because as I stated this can already
-> be done via sendfile().
-> 
-> Networking card wise this isn't an issue, chips bring the entire packet
-> into their FIFO, compute checksums on the fly mid-stream, and then write
-> the 16-bit checksum field before starting to write the packet onto the
-> wire.
-> 
-> I think this is completely a non-issue, and we thought about this right
-> from the start when sendfile() support was added nearly two decades ago.
-> If network cards from back then didn't crap out in this situation I
-> think the ones out there now are probably ok.
-
-Well, we had to fix one issue with GSO fall back about 4 years ago.
-
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=cef401de7be8c4e155c6746bfccf721a4fa5fab9
-
-So extra scrutiny would be nice.
-
-Zero copy is incredibly hard to get right.
+This requires collusion by the process initiating the zerocopy send
+to help the entity snooping the link. That could be an attack on admin
+configured tunnels, but user-directed encryption offload like AF_TLS
+can still use zerocopy.
