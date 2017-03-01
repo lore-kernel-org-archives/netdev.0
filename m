@@ -1,33 +1,32 @@
-From: Stefan Schmidt <stefan@osg.samsung.com>
-Subject: IoT networking protocols workshop at Netdev 2.1
-Date: Wed, 1 Mar 2017 16:08:53 +0100
-Message-ID: <2eec62e4-ed80-442b-05e0-b96bb6bcf310@osg.samsung.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net/ipv4: inconsistent lock state in tcp_conn_request/inet_ehash_insert
+Date: Wed, 1 Mar 2017 07:13:57 -0800
+Message-ID: <CANn89iKK9_Gao1fZ9mJEujBFMvZuOu534PE-VnSKUBkpYzr7qw@mail.gmail.com>
+References: <CAAeHK+xe+5Kr4-jd7zhBgX=3VrsTB4p8Lz0F5bTtW21vVT=Hag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wpan@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:42965
-        "EHLO osg.samsung.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751088AbdCAPJc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 10:09:32 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+xe+5Kr4-jd7zhBgX=3VrsTB4p8Lz0F5bTtW21vVT=Hag@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, Mar 1, 2017 at 6:59 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi,
+>
+> I've got the following error report while fuzzing the kernel with syzkaller.
+>
+> On commit e5d56efc97f8240d0b5d66c03949382b6d7e5570 (Feb 26).
 
-At the next Netdev edition in April I will chair a workshop on IoT 
-related topics in Linux networking. A full abstract can be found here:
-http://www.netdevconf.org/2.1/session.html?schmidt
-
-I started to contact people I know having an interest and opinion on 
-this and will work on an initial agenda soon.
-
-Obviously I don't know all people for this so here is your chance to be 
-part of it. Contact me directly if you either want to have short 
-timeslot (~10min) in this workshop to speak about a relevant topic or if 
-you have input that should be worked in because you are unable to attend.
-
-regards
-Stefan Schmidt
+SInce I probably added this bug, I will send a fix shortly, thanks for
+the report.
