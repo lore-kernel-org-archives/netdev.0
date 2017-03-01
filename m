@@ -1,56 +1,43 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH] iproute2: show network device dependency tree
-Date: Wed, 1 Mar 2017 11:22:28 +0100
-Message-ID: <20170301112228.713bd4d5@griffin>
-References: <20170225165900.10129-1-zaboj.campula@post.cz>
-        <20170225173927.GA2479@nanopsycho>
-        <1488054142.3856.15.camel@post.cz>
-        <20170226075633.GA1788@nanopsycho>
-        <1488117614.1903.2.camel@post.cz>
-        <20170226144610.GB2071@nanopsycho.orion>
-        <20170227173825.39e00c61@griffin>
-        <1488312457.2131.2.camel@post.cz>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net] net: solve a NAPI race
+Date: Wed, 1 Mar 2017 10:41:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE727EB@AcuExch.aculab.com>
+References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0UeSpxzgePoidJumQFvM5a2mOC5+rL8gCHqvX-HBvrn74A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-To: Zaboj Campula <zaboj.campula@post.cz>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60322 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751499AbdCAKbx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Mar 2017 05:31:53 -0500
-In-Reply-To: <1488312457.2131.2.camel@post.cz>
+Received: from smtp-out6.electric.net ([192.162.217.185]:65320 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752323AbdCAKl7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 05:41:59 -0500
+In-Reply-To: <CAKgT0UeSpxzgePoidJumQFvM5a2mOC5+rL8gCHqvX-HBvrn74A@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Feb 2017 20:07:37 +0000, Zaboj Campula wrote:
-> Well it is impossible to draw a simple tree showing the configuration
-> exactly with all details. May be it is too ambitious to draw a tree
-> at all.
-
-I tried that and failed. I didn't want to have something that would
-work only "somehow" as that would create confusion instead of helping.
-See the example below.
-
-> But neither directory structure is a tree (when consider links)
-> and there are a plenty of tools showing directory tree.
-
-Directory structure *is* a tree. Symlinks are a special case, for the
-purpose of displaying the tree they're just files. Hardlinks can be
-ignored when displaying a tree (because there are no hardlinks to
-directories). We don't have any of that.
-
-Consider the very simple case of an interface with two vlan interfaces
-and both of them in a bridge.
-
-         vlan0
-      /        \
-eth0             br0
-      \        /
-         vlan1
-
-You can't represent this in a tree view. And this is just a very simple
-example, in reality it tends to be much more complex.
-
- Jiri
+RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDI4IEZlYnJ1YXJ5IDIwMTcgMTc6MjANCi4u
+Lg0KPiBZb3UgbWlnaHQgd2FudCB0byBjb25zaWRlciBqdXN0IHVzaW5nIGEgY29tYmluYXRpb24g
+QU5ELCBkaXZpZGUsDQo+IG11bHRpcGx5LCBhbmQgT1IgdG8gYXZvaWQgaGF2aW5nIHRvIGhhdmUg
+YW55IGNvbmRpdGlvbmFsIGJyYW5jaGVzDQo+IGJlaW5nIGFkZGVkIGR1ZSB0byB0aGlzIGNvZGUg
+cGF0aC4gIEJhc2ljYWxseSB0aGUgbG9naWMgd291bGQgbG9vaw0KPiBsaWtlOg0KPiAgICAgbmV3
+ID0gdmFsIHwgTkFQSUZfU1RBVEVfU0NIRUQ7DQo+ICAgICBuZXcgfD0gKHZhbCAmIE5BUElGX1NU
+QVRFX1NDSEVEKSAvIE5BUElGX1NUQVRFX1NDSEVEICogTkFQSUZfU1RBVEVfTUlTU0VEOw0KPiAN
+Cj4gSW4gYXNzZW1ibGVyIHRoYXQgYWxsIGVuZHMgdXAgZ2V0dGluZyB0cmFuc2xhdGVkIG91dCB0
+byBBTkQsIFNITCwgT1IuDQo+IFlvdSBhdm9pZCB0aGUgYnJhbmNoaW5nLCBvciBNT1YvT1IvVEVT
+VC9DTU9WIHR5cGUgY29kZSB5b3Ugd291bGQgZW5kDQo+IHVwIHdpdGggb3RoZXJ3aXNlLg0KDQpJ
+dCBpcyBhIHNoYW1lIGdjYyBkb2Vzbid0IGNvbnRhaW4gdGhhdCBvcHRpbWlzYXRpb24uDQpJdCBh
+bHNvIGRvZXNuJ3QgZXZlbiBtYWtlIGEgZ29vZCBqb2Igb2YgKGEgJiBiKS9iICogYyBzaW5jZSBp
+dA0KYWx3YXlzIGRvZXMgYSBzaHIgYW5kIGEgc2FsIChnY2MgNC43LjMgYW5kIDUuNCkuDQoNCldv
+cnRoeSBvZiBhICNkZWZpbmUgb3Igc3RhdGljIGlubGluZS4NClNvbWV0aGluZyBsaWtlOg0KI2Rl
+ZmluZSBCSVRfSUYodiwgYSwgYikgKChiICYgKGItMSkgPyAodiAmIGEpL2EgKiBiIDogYSA+IGIg
+PyAodiAmIGEpIC8gKGEvYikgOiAodiAmIGEpICogKGIvYSkpDQoNCglEYXZpZA0K
