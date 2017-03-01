@@ -1,97 +1,119 @@
-From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Subject: Re: [PATCH v5 4/6] ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
-Date: Wed, 1 Mar 2017 13:09:40 +0200
-Message-ID: <CABBYNZLtDxRmgA7=MErctZyTdxtcBD-QKjd4MxMbK81K7s8UAg@mail.gmail.com>
-References: <20170224121440.32269-1-luiz.dentz@gmail.com> <20170224121440.32269-5-luiz.dentz@gmail.com>
- <973f0299-54ee-3625-6c96-98fa0daeba1b@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-        Patrik Flykt <patrik.flykt@linux.intel.com>,
-        Jukka Rissanen <jukka.rissanen@linux.intel.com>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        linux-wpan@vger.kernel.org,
-        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Alexander Aring <aar@pengutronix.de>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH v4] net: don't call strlen() on the user buffer in packet_bind_spkt()
+Date: Wed,  1 Mar 2017 12:57:20 +0100
+Message-ID: <20170301115720.99985-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:35983 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752323AbdCALLR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 06:11:17 -0500
-In-Reply-To: <973f0299-54ee-3625-6c96-98fa0daeba1b@pengutronix.de>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:38698 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751135AbdCAM4G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 07:56:06 -0500
+Received: by mail-wm0-f44.google.com with SMTP id u199so35584086wmd.1
+        for <netdev@vger.kernel.org>; Wed, 01 Mar 2017 04:54:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alex,
+KMSAN (KernelMemorySanitizer, a new error detection tool) reports use of
+uninitialized memory in packet_bind_spkt():
 
-On Sun, Feb 26, 2017 at 8:38 AM, Alexander Aring <aar@pengutronix.de> wrote:
->
-> Hi,
->
-> okay now I am finally confused.
->
-> On 02/24/2017 01:14 PM, Luiz Augusto von Dentz wrote:
->> From: Alexander Aring <aar@pengutronix.de>
->>
->> This patch adds support for 48 bit 6LoWPAN address length
->> autoconfiguration which is the case for BTLE 6LoWPAN.
->>
->> Signed-off-by: Alexander Aring <aar@pengutronix.de>
->> Signed-off-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
->> Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
->> ---
->>  net/ipv6/addrconf.c | 17 ++++++++++++-----
->>  1 file changed, 12 insertions(+), 5 deletions(-)
->>
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index 3a2025f..7756640 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -2052,12 +2052,19 @@ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
->>       __ipv6_dev_ac_dec(ifp->idev, &addr);
->>  }
->>
->> -static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
->> +static int addrconf_ifid_6lowpan(u8 *eui, struct net_device *dev)
->>  {
->> -     if (dev->addr_len != EUI64_ADDR_LEN)
->> +     switch (dev->addr_len) {
->> +     case ETH_ALEN:
->> +             return addrconf_ifid_eui48(eui, dev);
->
-> You need to make the same thing here like what we discusss in antoher
-> mail.
->
->    In the figure, letter 'b' represents a bit from the
->    Bluetooth device address, copied as is without any changes on any
->    bit.  This means that no bit in the IID indicates whether the
->    underlying Bluetooth device address is public or random.
->
->    |0              1|1              3|3              4|4              6|
->    |0              5|6              1|2              7|8              3|
->    +----------------+----------------+----------------+----------------+
->    |bbbbbbbbbbbbbbbb|bbbbbbbb11111111|11111110bbbbbbbb|bbbbbbbbbbbbbbbb|
->    +----------------+----------------+----------------+----------------+
->
-> The function addrconf_ifid_eui48 will do a u/l bitflip. You need to change
-> that otherwise transparent 6lowpan adaptiation will not match on your
-> local address.
->
-> Making u/l bit here, but not in IPHC code -> will not work together.
->
-> ---
->
-> btw: That's why I think we should provide some function _once_ to
-> generate the IID for iphc code and ipv6. Then such mistakes will not
-> happen.
->
-> So we don't want to have some module dependency of 6lowpan in ipv6.
-> My first idea is to make a callback in 6lowpan private data of
-> netdevice. :-/
+==================================================================
+BUG: KMSAN: use of unitialized memory
+CPU: 0 PID: 1074 Comm: packet Not tainted 4.8.0-rc6+ #1891
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+01/01/2011
+ 0000000000000000 ffff88006b6dfc08 ffffffff82559ae8 ffff88006b6dfb48
+ ffffffff818a7c91 ffffffff85b9c870 0000000000000092 ffffffff85b9c550
+ 0000000000000000 0000000000000092 00000000ec400911 0000000000000002
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff82559ae8>] dump_stack+0x238/0x290 lib/dump_stack.c:51
+ [<ffffffff818a6626>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1003
+ [<ffffffff818a783b>] __msan_warning+0x5b/0xb0
+mm/kmsan/kmsan_instr.c:424
+ [<     inline     >] strlen lib/string.c:484
+ [<ffffffff8259b58d>] strlcpy+0x9d/0x200 lib/string.c:144
+ [<ffffffff84b2eca4>] packet_bind_spkt+0x144/0x230
+net/packet/af_packet.c:3132
+ [<ffffffff84242e4d>] SYSC_bind+0x40d/0x5f0 net/socket.c:1370
+ [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
+ [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f
+arch/x86/entry/entry_64.o:?
+chained origin: 00000000eba00911
+ [<ffffffff810bb787>] save_stack_trace+0x27/0x50
+arch/x86/kernel/stacktrace.c:67
+ [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
+ [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:334
+ [<ffffffff818a59f8>] kmsan_internal_chain_origin+0x118/0x1e0
+mm/kmsan/kmsan.c:527
+ [<ffffffff818a7773>] __msan_set_alloca_origin4+0xc3/0x130
+mm/kmsan/kmsan_instr.c:380
+ [<ffffffff84242b69>] SYSC_bind+0x129/0x5f0 net/socket.c:1356
+ [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
+ [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f
+arch/x86/entry/entry_64.o:?
+origin description: ----address@SYSC_bind (origin=00000000eb400911)
+==================================================================
+(the line numbers are relative to 4.8-rc6, but the bug persists
+upstream)
 
-Well if we will be introducing new fields why not introduce an iid
-field directly into net_device? That way we don't need to keep
-generating it in several places.
+, when I run the following program as root:
 
+=====================================
+ #include <string.h>
+ #include <sys/socket.h>
+ #include <netpacket/packet.h>
+ #include <net/ethernet.h>
+
+ int main() {
+   struct sockaddr addr;
+   memset(&addr, 0xff, sizeof(addr));
+   addr.sa_family = AF_PACKET;
+   int fd = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ALL));
+   bind(fd, &addr, sizeof(addr));
+   return 0;
+ }
+=====================================
+
+This happens because addr.sa_data copied from the userspace is not
+zero-terminated, and copying it with strlcpy() in packet_bind_spkt()
+results in calling strlen() on the kernel copy of that non-terminated
+buffer.
+
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+Changes since v3:
+ - addressed comments by Eric Dumazet (avoid using constants,
+   use memcpy() instead of strncpy())
+---
+ net/packet/af_packet.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 2bd0d1949312..a0dbe7ca8f72 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -3103,7 +3103,7 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
+ 			    int addr_len)
+ {
+ 	struct sock *sk = sock->sk;
+-	char name[15];
++	char name[sizeof(uaddr->sa_data) + 1];
+ 
+ 	/*
+ 	 *	Check legality
+@@ -3111,7 +3111,11 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 	if (addr_len != sizeof(struct sockaddr))
+ 		return -EINVAL;
+-	strlcpy(name, uaddr->sa_data, sizeof(name));
++	/* uaddr->sa_data comes from the userspace, it's not guaranteed to be
++	 * zero-terminated.
++	 */
++	memcpy(name, uaddr->sa_data, sizeof(uaddr->sa_data));
++	name[sizeof(uaddr->sa_data)] = 0;
+ 
+ 	return packet_do_bind(sk, name, 0, pkt_sk(sk)->num);
+ }
 -- 
-Luiz Augusto von Dentz
+2.11.0.483.g087da7b7c-goog
