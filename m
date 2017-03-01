@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rxrpc: Fix deadlock between call creation and
- sendmsg/recvmsg
-Date: Wed, 01 Mar 2017 12:51:26 -0500 (EST)
-Message-ID: <20170301.125126.437185722854151936.davem@davemloft.net>
-References: <148821018671.8207.5142446588523098523.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net] sctp: call rcu_read_lock before checking for
+ duplicate transport nodes
+Date: Wed, 01 Mar 2017 12:51:44 -0500 (EST)
+Message-ID: <20170301.125144.868804645631520813.davem@davemloft.net>
+References: <d239fb1c1f86e3421de4a891f8a704d37b236cbf.1488256889.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <148821018671.8207.5142446588523098523.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
+        vyasevich@gmail.com, andreyknvl@google.com
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48578 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751073AbdCARvv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 12:51:51 -0500
+In-Reply-To: <d239fb1c1f86e3421de4a891f8a704d37b236cbf.1488256889.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Mon, 27 Feb 2017 15:43:06 +0000
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue, 28 Feb 2017 12:41:29 +0800
 
-> All the routines by which rxrpc is accessed from the outside are serialised
-> by means of the socket lock (sendmsg, recvmsg, bind,
-> rxrpc_kernel_begin_call(), ...) and this presents a problem:
- ...
-> Fix this by:
- ...
-> This patch has the nice bonus that calls on the same socket are now to some
-> extent parallelisable.
+> Commit cd2b70875058 ("sctp: check duplicate node before inserting a
+> new transport") called rhltable_lookup() to check for the duplicate
+> transport node in transport rhashtable.
 > 
+> But rhltable_lookup() doesn't call rcu_read_lock inside, it could cause
+> a use-after-free issue if it tries to dereference the node that another
+> cpu has freed it. Note that sock lock can not avoid this as it is per
+> sock.
 > 
-> Note that we might want to move rxrpc_service_prealloc() calls out from the
-> socket lock and give it its own lock, so that we don't hang progress in
-> other calls because we're waiting for the allocator.
+> This patch is to fix it by calling rcu_read_lock before checking for
+> duplicate transport nodes.
 > 
-> We probably also want to avoid calling rxrpc_notify_socket() from within
-> the socket lock (rxrpc_accept_call()).
-> 
-> Signed-off-by: David Howells <dhowells@redhat.com>
-> Tested-by: Marc Dionne <marc.c.dionne@auristor.com>
+> Fixes: cd2b70875058 ("sctp: check duplicate node before inserting a new transport")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied, thanks David.
+Applied.
