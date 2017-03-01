@@ -1,83 +1,234 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net: use-after-free in neigh_timer_handler/sock_wfree
-Date: Wed, 1 Mar 2017 13:43:44 -0800
-Message-ID: <CAM_iQpUdpjXS-yq8McZne+hobWv+pQS-Q0Fk4w0i0mXJQQ8fhQ@mail.gmail.com>
-References: <CACT4Y+Y6T3hLkgEKR5o3spjjSdTj0HXys2qeVZ9CA7MKsZc15Q@mail.gmail.com>
- <CAM_iQpWGAwXu7yO_XsX2Rk-whLvZPLSXd5Btok=L9VSCV5gr=Q@mail.gmail.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH net] tcp/dccp: block BH for SYN processing
+Date: Wed, 1 Mar 2017 13:06:51 -0800
+Message-ID: <CACSApvYckruRkaSb-9j_J+DsNpL9csPahHgkAZ3u2_95u4RHng@mail.gmail.com>
+References: <CAAeHK+xe+5Kr4-jd7zhBgX=3VrsTB4p8Lz0F5bTtW21vVT=Hag@mail.gmail.com>
+ <CANn89iKK9_Gao1fZ9mJEujBFMvZuOu534PE-VnSKUBkpYzr7qw@mail.gmail.com> <1488386389.9415.298.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Andrey Konovalov <andreyknvl@google.com>,
         netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpWGAwXu7yO_XsX2Rk-whLvZPLSXd5Btok=L9VSCV5gr=Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f50.google.com ([209.85.214.50]:36195 "EHLO
+        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753204AbdCAV7u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 16:59:50 -0500
+Received: by mail-it0-f50.google.com with SMTP id h10so106248607ith.1
+        for <netdev@vger.kernel.org>; Wed, 01 Mar 2017 13:59:47 -0800 (PST)
+In-Reply-To: <1488386389.9415.298.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 1, 2017 at 1:24 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Mar 1, 2017 at 11:27 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> Hello,
->>
->> I am seeing the following use-after-free report while running
->> syzkaller fuzzer on
->> linux-next/3e7350242c6f3d41d28e03418bd781cc1b7bad5f:
->>
->> ==================================================================
->> BUG: KASAN: use-after-free in constant_test_bit
->> arch/x86/include/asm/bitops.h:324 [inline] at addr ffff8801c56d5460
->> BUG: KASAN: use-after-free in sock_flag include/net/sock.h:789
->> [inline] at addr ffff8801c56d5460
->> BUG: KASAN: use-after-free in sock_wfree+0x118/0x120
->> net/core/sock.c:1630 at addr ffff8801c56d5460
->> Read of size 8 by task syz-fuzzer/3261
->> CPU: 0 PID: 3261 Comm: syz-fuzzer Not tainted 4.10.0-next-20170224+ #1
->> Hardware name: Google Google Compute Engine/Google Compute Engine,
->> BIOS Google 01/01/2011
->> Call Trace:
->>  <IRQ>
->>  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
->>  constant_test_bit arch/x86/include/asm/bitops.h:324 [inline]
->>  sock_flag include/net/sock.h:789 [inline]
->>  sock_wfree+0x118/0x120 net/core/sock.c:1630
->>  skb_release_head_state+0xfc/0x200 net/core/skbuff.c:654
->>  skb_release_all+0x15/0x60 net/core/skbuff.c:667
->>  __kfree_skb+0x15/0x20 net/core/skbuff.c:683
->>  kfree_skb+0x16e/0x4c0 net/core/skbuff.c:704
->>  ndisc_error_report+0xbb/0x190 net/ipv6/ndisc.c:683
->>  neigh_invalidate+0x23e/0x570 net/core/neighbour.c:848
->>  neigh_timer_handler+0x4e7/0x1140 net/core/neighbour.c:933
->>  call_timer_fn+0x241/0x820 kernel/time/timer.c:1266
->>  expire_timers kernel/time/timer.c:1305 [inline]
->>  __run_timers+0x960/0xcf0 kernel/time/timer.c:1599
->>  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1612
->>  __do_softirq+0x31f/0xbe7 kernel/softirq.c:284
->>  invoke_softirq kernel/softirq.c:364 [inline]
->>  irq_exit+0x1cc/0x200 kernel/softirq.c:405
->>  exiting_irq arch/x86/include/asm/apic.h:658 [inline]
->>  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:962
->>  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:707
+On Wed, Mar 1, 2017 at 8:39 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> This one looks very similar to a previous one:
-> https://groups.google.com/forum/#!topic/syzkaller/BhyN5OFd7sQ
+> SYN processing really was meant to be handled from BH.
 >
-> Both happen on raw v6 sockets.
+> When I got rid of BH blocking while processing socket backlog
+> in commit 5413d1babe8f ("net: do not block BH while processing socket
+> backlog"), I forgot that a malicious user could transition to TCP_LISTEN
+> from a state that allowed (SYN) packets to be parked in the socket
+> backlog while socket is owned by the thread doing the listen() call.
 >
-> For me, it seems the sk refcnt is not correct, skb should still hold
-> a refcnt so it should not be freed before kfree_skb() in a timer
-> handler...
+> Sure enough syzkaller found this and reported the bug ;)
+>
+>
+> =================================
+> [ INFO: inconsistent lock state ]
+> 4.10.0+ #60 Not tainted
+> ---------------------------------
+> inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
+> syz-executor0/5090 [HC0[0]:SC0[0]:HE1:SE1] takes:
+>  (&(&hashinfo->ehash_locks[i])->rlock){+.?...}, at:
+> [<ffffffff83a6a370>] spin_lock include/linux/spinlock.h:299 [inline]
+>  (&(&hashinfo->ehash_locks[i])->rlock){+.?...}, at:
+> [<ffffffff83a6a370>] inet_ehash_insert+0x240/0xad0
+> net/ipv4/inet_hashtables.c:407
+> {IN-SOFTIRQ-W} state was registered at:
+>   mark_irqflags kernel/locking/lockdep.c:2923 [inline]
+>   __lock_acquire+0xbcf/0x3270 kernel/locking/lockdep.c:3295
+>   lock_acquire+0x241/0x580 kernel/locking/lockdep.c:3753
+>   __raw_spin_lock include/linux/spinlock_api_smp.h:142 [inline]
+>   _raw_spin_lock+0x33/0x50 kernel/locking/spinlock.c:151
+>   spin_lock include/linux/spinlock.h:299 [inline]
+>   inet_ehash_insert+0x240/0xad0 net/ipv4/inet_hashtables.c:407
+>   reqsk_queue_hash_req net/ipv4/inet_connection_sock.c:753 [inline]
+>   inet_csk_reqsk_queue_hash_add+0x1b7/0x2a0 net/ipv4/inet_connection_sock.c:764
+>   tcp_conn_request+0x25cc/0x3310 net/ipv4/tcp_input.c:6399
+>   tcp_v4_conn_request+0x157/0x220 net/ipv4/tcp_ipv4.c:1262
+>   tcp_rcv_state_process+0x802/0x4130 net/ipv4/tcp_input.c:5889
+>   tcp_v4_do_rcv+0x56b/0x940 net/ipv4/tcp_ipv4.c:1433
+>   tcp_v4_rcv+0x2e12/0x3210 net/ipv4/tcp_ipv4.c:1711
+>   ip_local_deliver_finish+0x4ce/0xc40 net/ipv4/ip_input.c:216
+>   NF_HOOK include/linux/netfilter.h:257 [inline]
+>   ip_local_deliver+0x1ce/0x710 net/ipv4/ip_input.c:257
+>   dst_input include/net/dst.h:492 [inline]
+>   ip_rcv_finish+0xb1d/0x2110 net/ipv4/ip_input.c:396
+>   NF_HOOK include/linux/netfilter.h:257 [inline]
+>   ip_rcv+0xd90/0x19c0 net/ipv4/ip_input.c:487
+>   __netif_receive_skb_core+0x1ad1/0x3400 net/core/dev.c:4179
+>   __netif_receive_skb+0x2a/0x170 net/core/dev.c:4217
+>   netif_receive_skb_internal+0x1d6/0x430 net/core/dev.c:4245
+>   napi_skb_finish net/core/dev.c:4602 [inline]
+>   napi_gro_receive+0x4e6/0x680 net/core/dev.c:4636
+>   e1000_receive_skb drivers/net/ethernet/intel/e1000/e1000_main.c:4033 [inline]
+>   e1000_clean_rx_irq+0x5e0/0x1490
+> drivers/net/ethernet/intel/e1000/e1000_main.c:4489
+>   e1000_clean+0xb9a/0x2910 drivers/net/ethernet/intel/e1000/e1000_main.c:3834
+>   napi_poll net/core/dev.c:5171 [inline]
+>   net_rx_action+0xe70/0x1900 net/core/dev.c:5236
+>   __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
+>   invoke_softirq kernel/softirq.c:364 [inline]
+>   irq_exit+0x19e/0x1d0 kernel/softirq.c:405
+>   exiting_irq arch/x86/include/asm/apic.h:658 [inline]
+>   do_IRQ+0x81/0x1a0 arch/x86/kernel/irq.c:250
+>   ret_from_intr+0x0/0x20
+>   native_safe_halt+0x6/0x10 arch/x86/include/asm/irqflags.h:53
+>   arch_safe_halt arch/x86/include/asm/paravirt.h:98 [inline]
+>   default_idle+0x8f/0x410 arch/x86/kernel/process.c:271
+>   arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:262
+>   default_idle_call+0x36/0x60 kernel/sched/idle.c:96
+>   cpuidle_idle_call kernel/sched/idle.c:154 [inline]
+>   do_idle+0x348/0x440 kernel/sched/idle.c:243
+>   cpu_startup_entry+0x18/0x20 kernel/sched/idle.c:345
+>   start_secondary+0x344/0x440 arch/x86/kernel/smpboot.c:272
+>   verify_cpu+0x0/0xfc
+> irq event stamp: 1741
+> hardirqs last  enabled at (1741): [<ffffffff84d49d77>]
+> __raw_spin_unlock_irqrestore include/linux/spinlock_api_smp.h:160
+> [inline]
+> hardirqs last  enabled at (1741): [<ffffffff84d49d77>]
+> _raw_spin_unlock_irqrestore+0xf7/0x1a0 kernel/locking/spinlock.c:191
+> hardirqs last disabled at (1740): [<ffffffff84d4a732>]
+> __raw_spin_lock_irqsave include/linux/spinlock_api_smp.h:108 [inline]
+> hardirqs last disabled at (1740): [<ffffffff84d4a732>]
+> _raw_spin_lock_irqsave+0xa2/0x110 kernel/locking/spinlock.c:159
+> softirqs last  enabled at (1738): [<ffffffff84d4deff>]
+> __do_softirq+0x7cf/0xb7d kernel/softirq.c:310
+> softirqs last disabled at (1571): [<ffffffff84d4b92c>]
+> do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
+>
+> other info that might help us debug this:
+>  Possible unsafe locking scenario:
+>
+>        CPU0
+>        ----
+>   lock(&(&hashinfo->ehash_locks[i])->rlock);
+>   <Interrupt>
+>     lock(&(&hashinfo->ehash_locks[i])->rlock);
+>
+>  *** DEADLOCK ***
+>
+> 1 lock held by syz-executor0/5090:
+>  #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83406b43>] lock_sock
+> include/net/sock.h:1460 [inline]
+>  #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83406b43>]
+> sock_setsockopt+0x233/0x1e40 net/core/sock.c:683
+>
+> stack backtrace:
+> CPU: 1 PID: 5090 Comm: syz-executor0 Not tainted 4.10.0+ #60
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  __dump_stack lib/dump_stack.c:15 [inline]
+>  dump_stack+0x292/0x398 lib/dump_stack.c:51
+>  print_usage_bug+0x3ef/0x450 kernel/locking/lockdep.c:2387
+>  valid_state kernel/locking/lockdep.c:2400 [inline]
+>  mark_lock_irq kernel/locking/lockdep.c:2602 [inline]
+>  mark_lock+0xf30/0x1410 kernel/locking/lockdep.c:3065
+>  mark_irqflags kernel/locking/lockdep.c:2941 [inline]
+>  __lock_acquire+0x6dc/0x3270 kernel/locking/lockdep.c:3295
+>  lock_acquire+0x241/0x580 kernel/locking/lockdep.c:3753
+>  __raw_spin_lock include/linux/spinlock_api_smp.h:142 [inline]
+>  _raw_spin_lock+0x33/0x50 kernel/locking/spinlock.c:151
+>  spin_lock include/linux/spinlock.h:299 [inline]
+>  inet_ehash_insert+0x240/0xad0 net/ipv4/inet_hashtables.c:407
+>  reqsk_queue_hash_req net/ipv4/inet_connection_sock.c:753 [inline]
+>  inet_csk_reqsk_queue_hash_add+0x1b7/0x2a0 net/ipv4/inet_connection_sock.c:764
+>  dccp_v6_conn_request+0xada/0x11b0 net/dccp/ipv6.c:380
+>  dccp_rcv_state_process+0x51e/0x1660 net/dccp/input.c:606
+>  dccp_v6_do_rcv+0x213/0x350 net/dccp/ipv6.c:632
+>  sk_backlog_rcv include/net/sock.h:896 [inline]
+>  __release_sock+0x127/0x3a0 net/core/sock.c:2052
+>  release_sock+0xa5/0x2b0 net/core/sock.c:2539
+>  sock_setsockopt+0x60f/0x1e40 net/core/sock.c:1016
+>  SYSC_setsockopt net/socket.c:1782 [inline]
+>  SyS_setsockopt+0x2fb/0x3a0 net/socket.c:1765
+>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+> RIP: 0033:0x4458b9
+> RSP: 002b:00007fe8b26c2b58 EFLAGS: 00000292 ORIG_RAX: 0000000000000036
+> RAX: ffffffffffffffda RBX: 0000000000000006 RCX: 00000000004458b9
+> RDX: 000000000000001a RSI: 0000000000000001 RDI: 0000000000000006
+> RBP: 00000000006e2110 R08: 0000000000000010 R09: 0000000000000000
+> R10: 00000000208c3000 R11: 0000000000000292 R12: 0000000000708000
+> R13: 0000000020000000 R14: 0000000000001000 R15: 0000000000000000
+>
+> Fixes: 5413d1babe8f ("net: do not block BH while processing socket backlog")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
 
-More precisely, after this commit:
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
-commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Thu Jun 11 02:55:43 2009 -0700
+> ---
+>  net/dccp/input.c     |   10 ++++++++--
+>  net/ipv4/tcp_input.c |   10 ++++++++--
+>  2 files changed, 16 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/dccp/input.c b/net/dccp/input.c
+> index 8fedc2d497709b3dea9202894f45bf5cab043361..4a05d78768502df69275b4f91cb03bb2ada9f4c3 100644
+> --- a/net/dccp/input.c
+> +++ b/net/dccp/input.c
+> @@ -577,6 +577,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+>         struct dccp_sock *dp = dccp_sk(sk);
+>         struct dccp_skb_cb *dcb = DCCP_SKB_CB(skb);
+>         const int old_state = sk->sk_state;
+> +       bool acceptable;
+>         int queued = 0;
+>
+>         /*
+> @@ -603,8 +604,13 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+>          */
+>         if (sk->sk_state == DCCP_LISTEN) {
+>                 if (dh->dccph_type == DCCP_PKT_REQUEST) {
+> -                       if (inet_csk(sk)->icsk_af_ops->conn_request(sk,
+> -                                                                   skb) < 0)
+> +                       /* It is possible that we process SYN packets from backlog,
+> +                        * so we need to make sure to disable BH right there.
+> +                        */
+> +                       local_bh_disable();
+> +                       acceptable = inet_csk(sk)->icsk_af_ops->conn_request(sk, skb) >= 0;
+> +                       local_bh_enable();
+> +                       if (!acceptable)
+>                                 return 1;
+>                         consume_skb(skb);
+>                         return 0;
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 2c0ff327b6dfe6919f22bf52687816e19c2c0444..39c393cc0fd3c17130cd5d8d8b37f31ad3aeafd9 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -5886,9 +5886,15 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
+>                 if (th->syn) {
+>                         if (th->fin)
+>                                 goto discard;
+> -                       if (icsk->icsk_af_ops->conn_request(sk, skb) < 0)
+> -                               return 1;
+> +                       /* It is possible that we process SYN packets from backlog,
+> +                        * so we need to make sure to disable BH right there.
+> +                        */
+> +                       local_bh_disable();
+> +                       acceptable = icsk->icsk_af_ops->conn_request(sk, skb) >= 0;
+> +                       local_bh_enable();
+>
+> +                       if (!acceptable)
+> +                               return 1;
+>                         consume_skb(skb);
+>                         return 0;
+>                 }
+>
+>
 
-    net: No more expensive sock_hold()/sock_put() on each tx
-
-we don't take (old) refcnt any more on TX path, sk_wmem_alloc
-is the new refcnt. ;)
+Nice fix! Thanks Eric!
