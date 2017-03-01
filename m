@@ -1,111 +1,48 @@
-From: Tariq Toukan <ttoukan.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch] net/mlx4: && vs & typo
-Date: Wed, 1 Mar 2017 10:34:54 +0200
-Message-ID: <bed89872-6741-5411-02dd-5920cd87f430@gmail.com>
-References: <20170228120215.GA27947@mwanda>
- <1488296129.3056.1.camel@sandisk.com> <1488320630.25838.39.camel@perches.com>
- <1D08B61A9CF0974AA09887BE32D889DA0C193A@ULS-OP-MBXIP03.sdcorp.global.sandisk.com>
- <alpine.DEB.2.20.1703010746230.2079@hadrien>
+From: Peter Downs <padowns-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] Net: openvswitch: actions: fixed a brace coding
+	style warning
+Date: Wed,  1 Mar 2017 01:01:17 -0800
+Message-ID: <1488358877-20762-1-git-send-email-padowns@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-        "eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org" <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        "yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
-        Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.DEB.2.20.1703010746230.2079@hadrien>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Peter Downs <padowns-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Fixed a brace coding style warning reported by checkpatch.pl
 
+Signed-off-by: Peter Downs <padowns-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/openvswitch/actions.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-On 01/03/2017 8:52 AM, Julia Lawall wrote:
-> On Tue, 28 Feb 2017, Bart Van Assche wrote:
->
->> On 02/28/2017 02:23 PM, Joe Perches wrote:
->>> On Tue, 2017-02-28 at 15:35 +0000, Bart Van Assche wrote:
->>>> On Tue, 2017-02-28 at 15:02 +0300, Dan Carpenter wrote:
->>>>> Bitwise & was obviously intended here.
->>> []
->>>>> diff --git a/include/linux/mlx4/driver.h b/include/linux/mlx4/driver.h
->>> []
->>>>> @@ -109,7 +109,7 @@ static inline void 	(u8 *addr, u64 mac)
->>>>>  	int i;
->>>>>
->>>>>  	for (i = ETH_ALEN; i > 0; i--) {
->>>>> -		addr[i - 1] = mac && 0xFF;
->>>>> +		addr[i - 1] = mac & 0xFF;
->>>>>  		mac >>= 8;
->>>>>  	}
->>>>>  }
->>>>
->>>> Is this the only place where such a loop occurs?
->>>
->>> Seems to be.
->>>
->>>> Should a put_unaligned_be48()
->>>> function be introduced?
->>>
->>> Why?  This is used exactly once.
->>
->> Really? Here is an example of another open-coded version of
->> put_unaligned_be48() from arch/mips/cavium-octeon/octeon-platform.c:
->>
->> 	new_mac[0] = (mac >> 40) & 0xff;
->> 	new_mac[1] = (mac >> 32) & 0xff;
->> 	new_mac[2] = (mac >> 24) & 0xff;
->> 	new_mac[3] = (mac >> 16) & 0xff;
->> 	new_mac[4] = (mac >> 8) & 0xff;
->> 	new_mac[5] = mac & 0xff;
->
-> drivers/media/radio/radio-shark2.c:
->         for (i = 0; i < 6; i++)
->                shark->transfer_buffer[i + 1] = (reg >> (40 - i * 8)) & 0xff;
->
-> drivers/rtc/rtc-ab3100.c
->        buf[0] = (hw_counter) & 0xFF;
->        buf[1] = (hw_counter >> 8) & 0xFF;
->        buf[2] = (hw_counter >> 16) & 0xFF;
->        buf[3] = (hw_counter >> 24) & 0xFF;
->        buf[4] = (hw_counter >> 32) & 0xFF;
->        buf[5] = (hw_counter >> 40) & 0xFF;
->
-> drivers/net/ethernet/sun/ldmvsw.c
->         for (i = 0; i < ETH_ALEN; i++)
->                port->raddr[i] = (*rmac >> (5 - i) * 8) & 0xff;
->
-> drivers/net/ethernet/sun/sunvnet.c
->         for (i = 0; i < ETH_ALEN; i++)
->                dev->dev_addr[i] = (*local_mac >> (5 - i) * 8) & 0xff;
->
->         for (i = 0; i < ETH_ALEN; i++)
->                port->raddr[i] = (*rmac >> (5 - i) * 8) & 0xff;
->
-> julia
->
-
-With these code replication examples, I agree that a function should be 
-introduced.
-
->>
->> Bart.
->> --
->> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
->> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index b1beb2b..c82301c 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -796,9 +796,8 @@ static void ovs_fragment(struct net *net, struct vport *vport,
+ 		unsigned long orig_dst;
+ 		struct rt6_info ovs_rt;
+ 
+-		if (!v6ops) {
++		if (!v6ops)
+ 			goto err;
+-		}
+ 
+ 		prepare_frag(vport, skb, orig_network_offset,
+ 			     ovs_key_mac_proto(key));
+-- 
+2.1.4
