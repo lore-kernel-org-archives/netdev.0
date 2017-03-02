@@ -1,90 +1,128 @@
-From: Igor Druzhinin <igor.druzhinin@citrix.com>
-Subject: Re: BUG due to "xen-netback: protect resource cleaning
- on XenBus disconnect"
-Date: Thu, 2 Mar 2017 14:55:57 +0000
-Message-ID: <a0c4462e-7061-d71b-973d-b4ba6bd3eecd@citrix.com>
-References: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
- <20170302120653.dce2mehbmhyxsiow@citrix.com>
- <0e503a09-fbbb-02aa-152b-e4eaf3122a56@suse.com>
- <6e79cc86f623446aa432a35aa8305807@AMSPEX02CL03.citrite.net>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH 4/7] net: stmmac: Parse FIFO sizes from feature registers
+Date: Thu, 2 Mar 2017 15:09:11 +0000
+Message-ID: <b74f9b19-4315-1349-88c0-b549a2f8ef5d@synopsys.com>
+References: <20170223172438.14770-1-thierry.reding@gmail.com>
+ <20170223172438.14770-5-thierry.reding@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: xen-devel <xen-devel@lists.xenproject.org>,
- Boris Ostrovsky <boris.ostrovsky@oracle.com>,
- David Miller <davem@davemloft.net>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Paul Durrant <Paul.Durrant@citrix.com>, 'Juergen Gross' <jgross@suse.com>,
- Wei Liu <wei.liu2@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <6e79cc86f623446aa432a35aa8305807@AMSPEX02CL03.citrite.net>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        "Alexandre Courbot" <gnurou@gmail.com>,
+        Jon Hunter <jonathanh@nvidia.com>, <netdev@vger.kernel.org>,
+        <linux-tegra@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Thierry Reding <thierry.reding@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170223172438.14770-5-thierry.reding@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDIvMDMvMTcgMTI6MTksIFBhdWwgRHVycmFudCB3cm90ZToKPj4gLS0tLS1PcmlnaW5hbCBN
-ZXNzYWdlLS0tLS0KPj4gRnJvbTogSnVlcmdlbiBHcm9zcyBbbWFpbHRvOmpncm9zc0BzdXNlLmNv
-bV0KPj4gU2VudDogMDIgTWFyY2ggMjAxNyAxMjoxMwo+PiBUbzogV2VpIExpdSA8d2VpLmxpdTJA
-Y2l0cml4LmNvbT4KPj4gQ2M6IElnb3IgRHJ1emhpbmluIDxpZ29yLmRydXpoaW5pbkBjaXRyaXgu
-Y29tPjsgeGVuLWRldmVsIDx4ZW4tCj4+IGRldmVsQGxpc3RzLnhlbnByb2plY3Qub3JnPjsgTGlu
-dXggS2VybmVsIE1haWxpbmcgTGlzdCA8bGludXgtCj4+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc+
-OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBCb3JpcyBPc3Ryb3Zza3kKPj4gPGJvcmlzLm9zdHJv
-dnNreUBvcmFjbGUuY29tPjsgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PjsgUGF1
-bAo+PiBEdXJyYW50IDxQYXVsLkR1cnJhbnRAY2l0cml4LmNvbT4KPj4gU3ViamVjdDogUmU6IEJV
-RyBkdWUgdG8gInhlbi1uZXRiYWNrOiBwcm90ZWN0IHJlc291cmNlIGNsZWFuaW5nIG9uIFhlbkJ1
-cwo+PiBkaXNjb25uZWN0Igo+Pgo+PiBPbiAwMi8wMy8xNyAxMzowNiwgV2VpIExpdSB3cm90ZToK
-Pj4+IE9uIFRodSwgTWFyIDAyLCAyMDE3IGF0IDEyOjU2OjIwUE0gKzAxMDAsIEp1ZXJnZW4gR3Jv
-c3Mgd3JvdGU6Cj4+Pj4gV2l0aCBjb21taXRzIGYxNmYxZGY2NSBhbmQgOWE2Y2RmNTJiIHdlIGdl
-dCBpbiBvdXIgWGVuIHRlc3Rpbmc6Cj4+Pj4KPj4+PiBbICAxNzQuNTEyODYxXSBzd2l0Y2g6IHBv
-cnQgMih2aWYzLjApIGVudGVyZWQgZGlzYWJsZWQgc3RhdGUKPj4+PiBbICAxNzQuNTIyNzM1XSBC
-VUc6IHNsZWVwaW5nIGZ1bmN0aW9uIGNhbGxlZCBmcm9tIGludmFsaWQgY29udGV4dCBhdAo+Pj4+
-IC9ob21lL2J1aWxkL2xpbnV4LWxpbnVzL21tL3ZtYWxsb2MuYzoxNDQxCj4+Pj4gWyAgMTc0LjUy
-MzQ1MV0gaW5fYXRvbWljKCk6IDEsIGlycXNfZGlzYWJsZWQoKTogMCwgcGlkOiAyOCwgbmFtZTog
-eGVud2F0Y2gKPj4+PiBbICAxNzQuNTI0MTMxXSBDUFU6IDEgUElEOiAyOCBDb21tOiB4ZW53YXRj
-aCBUYWludGVkOiBHICAgICAgICBXCj4+Pj4gNC4xMC4wdXBzdHJlYW0tMTEwNzMtZzQ5NzdhYjYt
-ZGlydHkgIzEKPj4+PiBbICAxNzQuNTI0ODE5XSBIYXJkd2FyZSBuYW1lOiBNU0kgTVMtNzY4MC9I
-NjFNLVAyMyAoTVMtNzY4MCksIEJJT1MKPj4gVjE3LjAKPj4+PiAwMy8xNC8yMDExCj4+Pj4gWyAg
-MTc0LjUyNTUxN10gQ2FsbCBUcmFjZToKPj4+PiBbICAxNzQuNTI2MjE3XSAgc2hvd19zdGFjaysw
-eDIzLzB4NjAKPj4+PiBbICAxNzQuNTI2ODk5XSAgZHVtcF9zdGFjaysweDViLzB4ODgKPj4+PiBb
-ICAxNzQuNTI3NTYyXSAgX19fbWlnaHRfc2xlZXArMHhkZS8weDEzMAo+Pj4+IFsgIDE3NC41Mjgy
-MDhdICBfX21pZ2h0X3NsZWVwKzB4MzUvMHhhMAo+Pj4+IFsgIDE3NC41Mjg4NDBdICA/IF9yYXdf
-c3Bpbl91bmxvY2tfaXJxcmVzdG9yZSsweDEzLzB4MjAKPj4+PiBbICAxNzQuNTI5NDYzXSAgPyBf
-X3dha2VfdXArMHg0MC8weDUwCj4+Pj4gWyAgMTc0LjUzMDA4OV0gIHJlbW92ZV92bV9hcmVhKzB4
-MjAvMHg5MAo+Pj4+IFsgIDE3NC41MzA3MjRdICBfX3Z1bm1hcCsweDFkLzB4YzAKPj4+PiBbICAx
-NzQuNTMxMzQ2XSAgPyBkZWxldGVfb2JqZWN0X2Z1bGwrMHgxMy8weDIwCj4+Pj4gWyAgMTc0LjUz
-MTk3M10gIHZmcmVlKzB4NDAvMHg4MAo+Pj4+IFsgIDE3NC41MzI1OTRdICBzZXRfYmFja2VuZF9z
-dGF0ZSsweDE4YS8weGE5MAo+Pj4+IFsgIDE3NC41MzMyMjFdICA/IGR3Y19zY2FuX2Rlc2NyaXB0
-b3JzKzB4MjRkLzB4NDMwCj4+Pj4gWyAgMTc0LjUzMzg1MF0gID8ga2ZyZWUrMHg1Yi8weGMwCj4+
-Pj4gWyAgMTc0LjUzNDQ3Nl0gID8geGVuYnVzX3JlYWQrMHgzZC8weDUwCj4+Pj4gWyAgMTc0LjUz
-NTEwMV0gID8geGVuYnVzX3JlYWQrMHgzZC8weDUwCj4+Pj4gWyAgMTc0LjUzNTcxOF0gID8geGVu
-YnVzX2dhdGhlcisweDMxLzB4OTAKPj4+PiBbICAxNzQuNTM2MzMyXSAgPyBfX19taWdodF9zbGVl
-cCsweGY2LzB4MTMwCj4+Pj4gWyAgMTc0LjUzNjk0NV0gIGZyb250ZW5kX2NoYW5nZWQrMHg2Yi8w
-eGQwCj4+Pj4gWyAgMTc0LjUzNzU2NV0gIHhlbmJ1c19vdGhlcmVuZF9jaGFuZ2VkKzB4N2QvMHg4
-MAo+Pj4+IFsgIDE3NC41MzgxODVdICBmcm9udGVuZF9jaGFuZ2VkKzB4MTIvMHgyMAo+Pj4+IFsg
-IDE3NC41Mzg4MDNdICB4ZW53YXRjaF90aHJlYWQrMHg3NC8weDExMAo+Pj4+IFsgIDE3NC41Mzk0
-MTddICA/IHdva2VuX3dha2VfZnVuY3Rpb24rMHgyMC8weDIwCj4+Pj4gWyAgMTc0LjU0MDA0OV0g
-IGt0aHJlYWQrMHhlNS8weDEyMAo+Pj4+IFsgIDE3NC41NDA2NjNdICA/IHhlbmJ1c19wcmludGYr
-MHg1MC8weDUwCj4+Pj4gWyAgMTc0LjU0MTI3OF0gID8gX19rdGhyZWFkX2luaXRfd29ya2VyKzB4
-NDAvMHg0MAo+Pj4+IFsgIDE3NC41NDE4OThdICByZXRfZnJvbV9mb3JrKzB4MjEvMHgyYwo+Pj4+
-IFsgIDE3NC41NDg2MzVdIHN3aXRjaDogcG9ydCAyKHZpZjMuMCkgZW50ZXJlZCBkaXNhYmxlZCBz
-dGF0ZQo+Pj4+Cj4+Pj4gSSBiZWxpZXZlIGNhbGxpbmcgdmZyZWUoKSB3aGVuIGhvbGRpbmcgYSBz
-cGluX2xvY2sgaXNuJ3QgYSBnb29kIGlkZWEuCj4+Pj4KPj4+Cj4+PiBVc2UgdmZyZWVfYXRvbWlj
-IGluc3RlYWQ/Cj4+Cj4+IEhtbSwgaXNuJ3QgdGhpcyBvdmVya2lsbCBoZXJlPwo+Pgo+PiBZb3Ug
-Y2FuIGp1c3Qgc2V0IGEgbG9jYWwgdmFyaWFibGUgd2l0aCB0aGUgYWRkcmVzcyBhbmQgZG8gdmZy
-ZWUoKSBhZnRlcgo+PiByZWxlYXNpbmcgdGhlIGxvY2suCj4+Cj4gCj4gWWVwLCB0aGF0J3Mgd2hh
-dCBJIHdhcyB0aGlua2luZy4gUGF0Y2ggY29taW5nIHNob3J0bHkuCj4gCj4gICBQYXVsCgpXZSBo
-YXZlIGFuIGludGVybmFsIHBhdGNoIHRoYXQgd2FzIGp1c3QgcmVjZW50bHkgdGVzdGVkIHdpdGhv
-dXQgdXNpbmcKc3BpbmxvY2tzLiBDYWxsaW5nIHZmcmVlIGluIHRoZSBzcGlubG9jayBzZWN0aW9u
-IGlzIG5vdCB0aGUgd29yc3QgdGhhdApjb3VsZCBoYXBwZW4gYXMgb3VyIHRlc3RpbmcgcmV2ZWFs
-ZWQuIEkgc3dpdGNoZWQgdG8gUkNVIGZvciBwcm90ZWN0aW5nCnRoZSBlbnZpcm9ubWVudCBmcm9t
-IG1lbW9yeSByZWxlYXNlLiBJJ2xsIHNoYXJlIGl0IHRvZGF5LgoKSWdvcgoKPiAKPj4KPj4gSnVl
-cmdlbgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVu
-LWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3Rz
-Lnhlbi5vcmcveGVuLWRldmVsCg==
+Hi Thierry,
+
+Às 5:24 PM de 2/23/2017, Thierry Reding escreveu:
+> From: Thierry Reding <treding@nvidia.com>
+> 
+> New version of this core encode the FIFO sizes in one of the feature
+> registers. Use these sizes as default, but still allow device tree to
+> override them for backwards compatibility.
+> 
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/common.h      | 3 +++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  | 2 ++
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 3 +++
+>  3 files changed, 8 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+> index 144fe84e8a53..6ac653845d82 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> @@ -324,6 +324,9 @@ struct dma_features {
+>  	unsigned int number_tx_queues;
+>  	/* Alternate (enhanced) DESC mode */
+>  	unsigned int enh_desc;
+> +	/* TX and RX FIFO sizes */
+> +	unsigned int tx_fifo_size;
+> +	unsigned int rx_fifo_size;
+>  };
+>  
+>  /* GMAC TX FIFO is 8K, Rx FIFO is 16K */
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> index 377d1b44d4f2..8d249f3b34c8 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> @@ -296,6 +296,8 @@ static void dwmac4_get_hw_feature(void __iomem *ioaddr,
+>  	hw_cap = readl(ioaddr + GMAC_HW_FEATURE1);
+>  	dma_cap->av = (hw_cap & GMAC_HW_FEAT_AVSEL) >> 20;
+>  	dma_cap->tsoen = (hw_cap & GMAC_HW_TSOEN) >> 18;
+> +	dma_cap->tx_fifo_size = 128 << ((hw_cap >> 6) & 0x1f);
+> +	dma_cap->rx_fifo_size = 128 << ((hw_cap >> 0) & 0x1f);
+
+I suggest you follow the way that has been done for other parameters:
+
+dma_cap->rx_fifo_size = (hw_cap & GMAC_HW_RXFIFOSIZE) >> 0; where
+GMAC_HW_RXFIFOSIZE is GENMASK(4, 0)
+dma_cap->tx_fifo_size = (hw_cap & GMAC_HW_TXFIFOSIZE) >> 6; where
+GMAC_HW_TXFIFOSIZE is GENMASK(10, 6)
+
+>  	/* MAC HW feature2 */
+>  	hw_cap = readl(ioaddr + GMAC_HW_FEATURE2);
+>  	/* TX and RX number of channels */
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index d7387919bdb6..291e34f0ca94 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1281,6 +1281,9 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+>  {
+>  	int rxfifosz = priv->plat->rx_fifo_size;
+>  
+> +	if (rxfifosz == 0)
+> +		rxfifosz = priv->dma_cap.rx_fifo_size;
+> +
+>  	if (priv->plat->force_thresh_dma_mode)
+>  		priv->hw->dma->dma_mode(priv->ioaddr, tc, tc, rxfifosz);
+>  	else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
+> 
+
+In my current patch for adding support for MTL in stmmac, I also had this
+approach (sizes comming from feature register and platform data) so nice to see
+it here, because I will be able to reutilize it in my future versions.
+
+There is only a slight twist that we have to pay attention to it. The RX and TX
+queue size configuration needs to be one the following values:
+
+FIFO_256 = 0x0,
+FIFO_512 = 0x1,
+FIFO_1k = 0x3,
+FIFO_2k = 0x7,
+FIFO_4k = 0xf,
+FIFO_8k = 0x1f,
+FIFO_16k = 0x3f,
+FIFO_32k = 0x7f
+
+These are the values you get from the features register, but are these the
+values that users will configure in "plat->rx_fifo_size"? From a quick grep you
+can see that users use real units:
+
+arch/arm/boot/dts/socfpga.dtsi:			rx-fifo-depth = <4096>;
+arch/arm/boot/dts/socfpga.dtsi:			rx-fifo-depth = <4096>;
+arch/arm/boot/dts/socfpga_arria10.dtsi:			rx-fifo-depth = <16384>;
+arch/arm/boot/dts/socfpga_arria10.dtsi:			rx-fifo-depth = <16384>;
+arch/arm/boot/dts/socfpga_arria10.dtsi:			rx-fifo-depth = <16384>;
+arch/arm/boot/dts/lpc18xx.dtsi:			rx-fifo-depth = <256>;
+arch/nios2/boot/dts/3c120_devboard.dts:				rx-fifo-depth = <8192>;
+arch/nios2/boot/dts/10m50_devboard.dts:			rx-fifo-depth = <8192>;
+
+So in order to have it configurable from platform and features register you need
+to convert the features values to "real" units and then in the end when you
+write to the DMA Op Mode you need to convert it back to the required values.
+
+You can check my patch here that already has this done:
+http://patchwork.ozlabs.org/patch/728566/
+
+Thanks.
