@@ -1,39 +1,64 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: re: rxrpc: Fix deadlock between call creation and sendmsg/recvmsg
-Date: Thu, 2 Mar 2017 13:33:46 +0000
-Message-ID: <383d28fd-9a64-77ac-b8c0-f23408afc0ce@canonical.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net 2/2] xen-netback: don't vfree() queues
+	under spinlock
+Date: Thu, 2 Mar 2017 13:35:16 +0000
+Message-ID: <20170302133516.jhnwy6lvgiu5kncw@citrix.com>
+References: <1488459266-29269-1-git-send-email-paul.durrant@citrix.com>
+ <1488459266-29269-3-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Juergen Gross <jgross@suse.com>, netdev@vger.kernel.org,
+ Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <1488459266-29269-3-git-send-email-paul.durrant@citrix.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-
-I think the following part of the patch is problematic:
-
-        call = rxrpc_find_call_by_user_ID(rx, user_call_ID);
-        if (!call) {
-+               ret = -EBADSLT;
-                if (cmd != RXRPC_CMD_SEND_DATA)
--                       return -EBADSLT;
-+                       goto error_release_sock;
-+               ret = -EBUSY;
-
-At this point call is null, so the following code is performing a null
-pointer dereference on call when accessing call->state.
-
-Detected by CoverityScan CID#1414316 ("Dereference after null check")
-
-+               if (call->state == RXRPC_CALL_UNINITIALISED ||
-+                   call->state == RXRPC_CALL_CLIENT_AWAIT_CONN ||
-+                   call->state == RXRPC_CALL_SERVER_PREALLOC ||
-+                   call->state == RXRPC_CALL_SERVER_SECURING ||
-+                   call->state == RXRPC_CALL_SERVER_ACCEPTING)
-+                       goto error_release_sock;
-                call = rxrpc_new_client_call_for_sendmsg(rx, msg,
-user_call_ID,
+T24gVGh1LCBNYXIgMDIsIDIwMTcgYXQgMTI6NTQ6MjZQTSArMDAwMCwgUGF1bCBEdXJyYW50IHdy
+b3RlOgo+IFRoaXMgbGVhZHMgdG8gYSBCVUcgb2YgdGhlIGZvbGxvd2luZyBmb3JtOgo+IAo+IFsg
+IDE3NC41MTI4NjFdIHN3aXRjaDogcG9ydCAyKHZpZjMuMCkgZW50ZXJlZCBkaXNhYmxlZCBzdGF0
+ZQo+IFsgIDE3NC41MjI3MzVdIEJVRzogc2xlZXBpbmcgZnVuY3Rpb24gY2FsbGVkIGZyb20gaW52
+YWxpZCBjb250ZXh0IGF0Cj4gL2hvbWUvYnVpbGQvbGludXgtbGludXMvbW0vdm1hbGxvYy5jOjE0
+NDEKPiBbICAxNzQuNTIzNDUxXSBpbl9hdG9taWMoKTogMSwgaXJxc19kaXNhYmxlZCgpOiAwLCBw
+aWQ6IDI4LCBuYW1lOiB4ZW53YXRjaAo+IFsgIDE3NC41MjQxMzFdIENQVTogMSBQSUQ6IDI4IENv
+bW06IHhlbndhdGNoIFRhaW50ZWQ6IEcgICAgICAgIFcKPiA0LjEwLjB1cHN0cmVhbS0xMTA3My1n
+NDk3N2FiNi1kaXJ0eSAjMQo+IFsgIDE3NC41MjQ4MTldIEhhcmR3YXJlIG5hbWU6IE1TSSBNUy03
+NjgwL0g2MU0tUDIzIChNUy03NjgwKSwgQklPUyBWMTcuMAo+IDAzLzE0LzIwMTEKPiBbICAxNzQu
+NTI1NTE3XSBDYWxsIFRyYWNlOgo+IFsgIDE3NC41MjYyMTddICBzaG93X3N0YWNrKzB4MjMvMHg2
+MAo+IFsgIDE3NC41MjY4OTldICBkdW1wX3N0YWNrKzB4NWIvMHg4OAo+IFsgIDE3NC41Mjc1NjJd
+ICBfX19taWdodF9zbGVlcCsweGRlLzB4MTMwCj4gWyAgMTc0LjUyODIwOF0gIF9fbWlnaHRfc2xl
+ZXArMHgzNS8weGEwCj4gWyAgMTc0LjUyODg0MF0gID8gX3Jhd19zcGluX3VubG9ja19pcnFyZXN0
+b3JlKzB4MTMvMHgyMAo+IFsgIDE3NC41Mjk0NjNdICA/IF9fd2FrZV91cCsweDQwLzB4NTAKPiBb
+ICAxNzQuNTMwMDg5XSAgcmVtb3ZlX3ZtX2FyZWErMHgyMC8weDkwCj4gWyAgMTc0LjUzMDcyNF0g
+IF9fdnVubWFwKzB4MWQvMHhjMAo+IFsgIDE3NC41MzEzNDZdICA/IGRlbGV0ZV9vYmplY3RfZnVs
+bCsweDEzLzB4MjAKPiBbICAxNzQuNTMxOTczXSAgdmZyZWUrMHg0MC8weDgwCj4gWyAgMTc0LjUz
+MjU5NF0gIHNldF9iYWNrZW5kX3N0YXRlKzB4MThhLzB4YTkwCj4gWyAgMTc0LjUzMzIyMV0gID8g
+ZHdjX3NjYW5fZGVzY3JpcHRvcnMrMHgyNGQvMHg0MzAKPiBbICAxNzQuNTMzODUwXSAgPyBrZnJl
+ZSsweDViLzB4YzAKPiBbICAxNzQuNTM0NDc2XSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAKPiBb
+ICAxNzQuNTM1MTAxXSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAKPiBbICAxNzQuNTM1NzE4XSAg
+PyB4ZW5idXNfZ2F0aGVyKzB4MzEvMHg5MAo+IFsgIDE3NC41MzYzMzJdICA/IF9fX21pZ2h0X3Ns
+ZWVwKzB4ZjYvMHgxMzAKPiBbICAxNzQuNTM2OTQ1XSAgZnJvbnRlbmRfY2hhbmdlZCsweDZiLzB4
+ZDAKPiBbICAxNzQuNTM3NTY1XSAgeGVuYnVzX290aGVyZW5kX2NoYW5nZWQrMHg3ZC8weDgwCj4g
+WyAgMTc0LjUzODE4NV0gIGZyb250ZW5kX2NoYW5nZWQrMHgxMi8weDIwCj4gWyAgMTc0LjUzODgw
+M10gIHhlbndhdGNoX3RocmVhZCsweDc0LzB4MTEwCj4gWyAgMTc0LjUzOTQxN10gID8gd29rZW5f
+d2FrZV9mdW5jdGlvbisweDIwLzB4MjAKPiBbICAxNzQuNTQwMDQ5XSAga3RocmVhZCsweGU1LzB4
+MTIwCj4gWyAgMTc0LjU0MDY2M10gID8geGVuYnVzX3ByaW50ZisweDUwLzB4NTAKPiBbICAxNzQu
+NTQxMjc4XSAgPyBfX2t0aHJlYWRfaW5pdF93b3JrZXIrMHg0MC8weDQwCj4gWyAgMTc0LjU0MTg5
+OF0gIHJldF9mcm9tX2ZvcmsrMHgyMS8weDJjCj4gWyAgMTc0LjU0ODYzNV0gc3dpdGNoOiBwb3J0
+IDIodmlmMy4wKSBlbnRlcmVkIGRpc2FibGVkIHN0YXRlCj4gCj4gVGhpcyBwYXRjaCBkZWZlcnMg
+dGhlIHZmcmVlKCkgdW50aWwgYWZ0ZXIgdGhlIHNwaW5sb2NrIGlzIHJlbGVhc2VkLgo+IAo+IFJl
+cG9ydGVkLWJ5OiBKdWVyZ2VuIEdyb3NzIDxqZ3Jvc3NAc3VzZS5jb20+Cj4gU2lnbmVkLW9mZi1i
+eTogUGF1bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4KCkFja2VkLWJ5OiBXZWkg
+TGl1IDx3ZWkubGl1MkBjaXRyaXguY29tPgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMu
+eGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
