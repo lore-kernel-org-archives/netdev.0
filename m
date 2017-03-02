@@ -1,54 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2017-03-02
-Date: Thu,  2 Mar 2017 11:34:42 +0100
-Message-ID: <20170302103443.18251-1-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Liping Zhang <zlpnobody@gmail.com>
+Subject: Re: [PATCH nf 1/1] netfilter: h323,sip: Fix possible dead loop in
+ nat_rtp_rtcp and nf_nat_sdp_media
+Date: Thu, 2 Mar 2017 19:18:17 +0800
+Message-ID: <CAML_gOdZM8-mWXMbF7cHSo4X3zdNrytv_dTOrWvtnoxLzyP=XA@mail.gmail.com>
+References: <1488441420-25537-1-git-send-email-fgao@ikuai8.com>
+ <CAML_gOfLQq7Q=E+oHrXuXz=uFFMyc0rQXxGO_RTi5hXJ3AaRuw@mail.gmail.com> <CA+6hz4qO2Le_DCyuFt9zGnq2+TcR_GaDxXvSN_=1KOXYZti+iQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        David Miller <davem@davemloft.net>,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Gao Feng <fgao@ikuai8.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:48858 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750703AbdCBLA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Mar 2017 06:00:56 -0500
+Received: from mail-ua0-f181.google.com ([209.85.217.181]:36342 "EHLO
+        mail-ua0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750709AbdCBLUw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 06:20:52 -0500
+In-Reply-To: <CA+6hz4qO2Le_DCyuFt9zGnq2+TcR_GaDxXvSN_=1KOXYZti+iQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Hi,
+2017-03-02 18:18 GMT+08:00 Gao Feng <fgao@ikuai8.com>:
+[...]
+> The expect class is NF_CT_EXPECT_CLASS_DEFAULT, and proto is
+> IPPROTO_UDP at the function "expect_rtp_rtcp",
+> And it makes sure the port is even number.
+>
+> But look at the process_gcf, the port is got from the packet data at
+> function get_h225_addr.
+> So it may be odd number.
+> It also would add one expect node whose class is
+> NF_CT_EXPECT_CLASS_DEFAULT, and proto is IPPROTO_UDP.
 
-As I mentioned in my other pull request, here's the change
-for the average.h to make the precision easier to use.
+The nat_rtp_rtcp() is only invoked by expect_rtp_rtcp, and nf_nat_sdp_media()
+is only invoked by set_expected_rtp_rtcp. So the RTP port is ensured to be
+even, as well as the rtp_exp->tuple.dst.u.udp.port.
 
-Please pull and let me know if there's any problem.
+Note: the rtp_exp is alloced by nf_ct_expect_alloc, and initialized by
+nf_ct_expect_init, then passed to nat_rtp_rtcp or nf_nat_sdp_media.
 
-Thanks,
-johannes
-
-
-
-The following changes since commit 48cac18ecf1de82f76259a54402c3adb7839ad01:
-
-  ipv6: orphan skbs in reassembly unit (2017-03-01 20:55:57 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-03-02
-
-for you to fetch changes up to eb1e011a14748a1d9df9a7d7df9a5711721a1bdb:
-
-  average: change to declare precision, not factor (2017-03-02 08:32:46 +0100)
-
-----------------------------------------------------------------
-This contains just the average.h change in order to get it
-into the tree before adding new users through -next trees.
-
-----------------------------------------------------------------
-Johannes Berg (1):
-      average: change to declare precision, not factor
-
- drivers/net/virtio_net.c                    |  2 +-
- drivers/net/wireless/ath/ath5k/ath5k.h      |  2 +-
- drivers/net/wireless/ralink/rt2x00/rt2x00.h |  2 +-
- include/linux/average.h                     | 61 +++++++++++++++++++----------
- net/batman-adv/types.h                      |  2 +-
- net/mac80211/ieee80211_i.h                  |  2 +-
- net/mac80211/sta_info.h                     |  2 +-
- 7 files changed, 47 insertions(+), 26 deletions(-)
+So I cannot figure out why process_gcf will affect this? Or I missed something?
