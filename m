@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 01/26] compiler: introduce noinline_for_kasan annotation
-Date: Thu,  2 Mar 2017 17:38:09 +0100
-Message-ID: <20170302163834.2273519-2-arnd@arndb.de>
+Subject: [PATCH 16/26] [media] i2c: adv7604: mark register access as noinline_for_kasan
+Date: Thu,  2 Mar 2017 17:38:24 +0100
+Message-ID: <20170302163834.2273519-17-arnd@arndb.de>
 References: <20170302163834.2273519-1-arnd@arndb.de>
 Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
         Alexander Potapenko <glider@google.com>,
@@ -12,52 +12,40 @@ Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
         "David S . Miller" <davem@davemloft.net>,
         Arnd Bergmann <arnd@arndb.de>
 To: kasan-dev@googlegroups.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:61372 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754117AbdCBRLS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 12:11:18 -0500
+Return-path: <linux-media-owner@vger.kernel.org>
 In-Reply-To: <20170302163834.2273519-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When CONFIG_KASAN is set, we can run into some code that uses incredible
-amounts of kernel stack:
+When building with KASAN, we get a stack frame size warning about a function
+that could potentially cause a stack overflow:
 
-drivers/staging/dgnc/dgnc_neo.c:1056:1: error: the frame size of 11112 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
-drivers/media/i2c/cx25840/cx25840-core.c:4960:1: error: the frame size of 94000 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
-drivers/media/dvb-frontends/stv090x.c:3430:1: error: the frame size of 5312 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
+drivers/media/i2c/adv7604.c: In function 'adv76xx_log_status':
+drivers/media/i2c/adv7604.c:2615:1: error: the frame size of 3248 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
 
-This happens when a sanitizer uses stack memory each time an inline function
-gets called. This introduces a new annotation for those functions to make
-them either 'inline' or 'noinline' dependning on the CONFIG_KASAN symbol.
+This is caused by adv76xx_read_check() being inlined repeatedly, and
+marking this function as noinline_for_kasan solves the problem
+completely.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- include/linux/compiler.h | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/media/i2c/adv7604.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/compiler.h b/include/linux/compiler.h
-index f8110051188f..56b90897a459 100644
---- a/include/linux/compiler.h
-+++ b/include/linux/compiler.h
-@@ -416,6 +416,17 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
-  */
- #define noinline_for_stack noinline
+diff --git a/drivers/media/i2c/adv7604.c b/drivers/media/i2c/adv7604.c
+index d8bf435db86d..176f46ac85fd 100644
+--- a/drivers/media/i2c/adv7604.c
++++ b/drivers/media/i2c/adv7604.c
+@@ -339,8 +339,8 @@ static inline unsigned vtotal(const struct v4l2_bt_timings *t)
  
-+/*
-+ * CONFIG_KASAN can lead to extreme stack usage with certain patterns when
-+ * one function gets inlined many times and each instance requires a stack
-+ * ckeck.
-+ */
-+#ifdef CONFIG_KASAN
-+#define noinline_for_kasan noinline __maybe_unused
-+#else
-+#define noinline_for_kasan inline
-+#endif
-+
- #ifndef __always_inline
- #define __always_inline inline
- #endif
+ /* ----------------------------------------------------------------------- */
+ 
+-static int adv76xx_read_check(struct adv76xx_state *state,
+-			     int client_page, u8 reg)
++static noinline_for_kasan int adv76xx_read_check(struct adv76xx_state *state,
++						 int client_page, u8 reg)
+ {
+ 	struct i2c_client *client = state->i2c_clients[client_page];
+ 	int err;
 -- 
 2.9.0
