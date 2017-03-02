@@ -1,80 +1,119 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 22/26] drm/i915/gvt: don't overflow the kernel stack with KASAN
-Date: Thu,  2 Mar 2017 17:38:30 +0100
-Message-ID: <20170302163834.2273519-23-arnd@arndb.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 24/26] ocfs2: reduce stack size with KASAN
+Date: Thu, 02 Mar 2017 09:46:10 -0800
+Message-ID: <1488476770.2179.6.camel@perches.com>
 References: <20170302163834.2273519-1-arnd@arndb.de>
+         <20170302163834.2273519-25-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
         Alexander Potapenko <glider@google.com>,
         Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
         linux-wireless@vger.kernel.org,
         kernel-build-reports@lists.linaro.org,
-        "David S . Miller" <davem@davemloft.net>,
-        Arnd Bergmann <arnd@arndb.de>
-To: kasan-dev@googlegroups.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170302163834.2273519-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "David S . Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>, kasan-dev@googlegroups.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0076.hostedemail.com ([216.40.44.76]:33778 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753011AbdCBRuR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 12:50:17 -0500
+In-Reply-To: <20170302163834.2273519-25-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Enabling CONFIG_KASAN can lead to an instant stack overflow:
+On Thu, 2017-03-02 at 17:38 +0100, Arnd Bergmann wrote:
+> The internal logging infrastructure in ocfs2 causes special warning code to be
+> used with KASAN, which produces rather large stack frames:
 
-drivers/gpu/drm/i915/gvt/handlers.c: In function 'init_generic_mmio_info':
-drivers/gpu/drm/i915/gvt/handlers.c:2200:1: error: the frame size of 30464 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
-drivers/gpu/drm/i915/gvt/handlers.c: In function 'init_broadwell_mmio_info':
-drivers/gpu/drm/i915/gvt/handlers.c:2402:1: error: the frame size of 5376 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
-drivers/gpu/drm/i915/gvt/handlers.c: In function 'init_skl_mmio_info':
-drivers/gpu/drm/i915/gvt/handlers.c:2628:1: error: the frame size of 5296 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
+> fs/ocfs2/super.c: In function 'ocfs2_fill_super':
+> fs/ocfs2/super.c:1219:1: error: the frame size of 3264 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
 
-The reason is the INTEL_GVT_MMIO_OFFSET() hack that attempts to convert any type
-(including i915_reg_t) into a u32 by reading the first four bytes, in combination
-with the stack sanitizer that adds a redzone around each instance.
+At least by default it doesn't seem to.
 
-Originally, i915_reg_t was introduced to add a little extra type safety by
-disallowing simple type casts, and INTEL_GVT_MMIO_OFFSET() goes the opposite
-way by allowing any type as input, including those that are not safe in this
-context.
+gcc 6.2 allyesconfig, CONFIG_KASAN=y
+with either CONFIG_KASAN_INLINE or CONFIG_KASAN_OUTLINE
 
-I'm replacing it with an implementation that specifically allows the three
-types that are actually used as input: 'i915_reg_t' (from _MMIO constants),
-'int' (from other constants), and 'unsigned int' (from function arguments),
-and any other type should now provoke a build error. This also solves the
-stack overflow as we no longer use a local variable for each instance.
+gcc doesn't emit a stack warning
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/gpu/drm/i915/gvt/mmio.h | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+> By simply passing the mask by value instead of reference, we can avoid the
+> problem completely.
 
-diff --git a/drivers/gpu/drm/i915/gvt/mmio.h b/drivers/gpu/drm/i915/gvt/mmio.h
-index 3bc620f56f35..bf40100fc626 100644
---- a/drivers/gpu/drm/i915/gvt/mmio.h
-+++ b/drivers/gpu/drm/i915/gvt/mmio.h
-@@ -78,13 +78,20 @@ bool intel_gvt_match_device(struct intel_gvt *gvt, unsigned long device);
- int intel_gvt_setup_mmio_info(struct intel_gvt *gvt);
- void intel_gvt_clean_mmio_info(struct intel_gvt *gvt);
+Any idea why that's so?
  
-+static inline u32 intel_gvt_mmio_offset(unsigned int offset)
-+{
-+	return offset;
-+}
-+
- struct intel_gvt_mmio_info *intel_gvt_find_mmio_info(struct intel_gvt *gvt,
- 						     unsigned int offset);
--#define INTEL_GVT_MMIO_OFFSET(reg) ({ \
--	typeof(reg) __reg = reg; \
--	u32 *offset = (u32 *)&__reg; \
--	*offset; \
--})
-+#define INTEL_GVT_MMIO_OFFSET(reg) \
-+__builtin_choose_expr(__builtin_types_compatible_p(typeof(reg), int), intel_gvt_mmio_offset, \
-+__builtin_choose_expr(__builtin_types_compatible_p(typeof(reg), unsigned int), intel_gvt_mmio_offset, \
-+__builtin_choose_expr(__builtin_types_compatible_p(typeof(reg), i915_reg_t), i915_mmio_reg_offset, \
-+	(void)(0) \
-+)))(reg)
-+
- 
- int intel_vgpu_init_mmio(struct intel_vgpu *vgpu);
- void intel_vgpu_reset_mmio(struct intel_vgpu *vgpu);
--- 
-2.9.0
+>  On 64-bit architectures, this is also more efficient,
+
+Efficient true, but the same overall stack no?
+
+> while on the less common (at least among ocfs2 users) 32-bit architectures,
+> I'm guessing that the resulting code is comparable to what it was before.
+> 
+> The current version was introduced by Joe Perches as an optimization, maybe
+> he can see if my change regresses compared to his.
+
+I don't see it.
+
+> Cc: Joe Perches <joe@perches.com>
+> Fixes: 7c2bd2f930ae ("ocfs2: reduce object size of mlog uses")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  fs/ocfs2/cluster/masklog.c | 10 +++++-----
+>  fs/o cfs2/cluster/masklog.h |  4 ++--
+>  2 files changed, 7 insertions(+), 7 deletions(-)
+> 
+> diff --git a/fs/ocfs2/cluster/masklog.c b/fs/ocfs2/cluster/masklog.c
+> index d331c2386b94..9720c5443e4d 100644
+> --- a/fs/ocfs2/cluster/masklog.c
+> +++ b/fs/ocfs2/cluster/masklog.c
+> @@ -64,7 +64,7 @@ static ssize_t mlog_mask_store(u64 mask, const char *buf, size_t count)
+>  	return count;
+>  }
+>  
+> -void __mlog_printk(const u64 *mask, const char *func, int line,
+> +void __mlog_printk(const u64 mask, const char *func, int line,
+>  		   const char *fmt, ...)
+>  {
+>  	struct va_format vaf;
+> @@ -72,14 +72,14 @@ void __mlog_printk(const u64 *mask, const char *func, int line,
+>  	const char *level;
+>  	const char *prefix = "";
+>  
+> -	if (!__mlog_test_u64(*mask, mlog_and_bits) ||
+> -	    __mlog_test_u64(*mask, mlog_not_bits))
+> +	if (!__mlog_test_u64(mask, mlog_and_bits) ||
+> +	    __mlog_test_u64(mask, mlog_not_bits))
+>  		return;
+>  
+> -	if (*mask & ML_ERROR) {
+> +	if (mask & ML_ERROR) {
+>  		level = KERN_ERR;
+>  		prefix = "ERROR: ";
+> -	} else if (*mask & ML_NOTICE) {
+> +	} else if (mask & ML_NOTICE) {
+>  		level = KERN_NOTICE;
+>  	} else {
+>  		level = KERN_INFO;
+> diff --git a/fs/ocfs2/cluster/masklog.h b/fs/ocfs2/cluster/masklog.h
+> index 308ea0eb35fd..0d0f4bf2c3d8 100644
+> --- a/fs/ocfs2/cluster/masklog.h
+> +++ b/fs/ocfs2/cluster/masklog.h
+> @@ -163,7 +163,7 @@ extern struct mlog_bits mlog_and_bits, mlog_not_bits;
+>  #endif
+>  
+>  __printf(4, 5)
+> -void __mlog_printk(const u64 *m, const char *func, int line,
+> +void __mlog_printk(const u64 m, const char *func, int line,
+>  		   const char *fmt, ...);
+>  
+>  /*
+> @@ -174,7 +174,7 @@ void __mlog_printk(const u64 *m, const char *func, int line,
+>  do {									\
+>  	u64 _m = MLOG_MASK_PREFIX | (mask);				\
+>  	if (_m & ML_ALLOWED_BITS)					\
+> -		__mlog_printk(&_m, __func__, __LINE__, fmt,		\
+> +		__mlog_printk(_m, __func__, __LINE__, fmt,		\
+>  			      ##__VA_ARGS__);				\
+>  } while (0)
+>  
