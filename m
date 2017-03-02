@@ -1,110 +1,60 @@
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/1] rds: remove unnecessary returned value check
-Date: Fri,  3 Mar 2017 00:44:26 -0500
-Message-ID: <1488519866-24148-1-git-send-email-yanjun.zhu@oracle.com>
-To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ani Sinha <ani@arista.com>
+Subject: Re: ipv6 sysctl
+Date: Thu, 2 Mar 2017 14:23:24 -0800
+Message-ID: <CAOxq_8NjjrPffN7=iKSdvyCfTDBOaXxrb10cFbJgDmZzmvSd0Q@mail.gmail.com>
+References: <CAOxq_8OwxVzV=s2zY4DUNDq8myA4kga7dZaqWbTyy+4j=1mMwg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: fruggeri <fruggeri@arista.com>, Jeff Chan <jchan@arista.com>,
+        gilligan <gilligan@arista.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:34393 "EHLO
+        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751476AbdCCHb3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 02:31:29 -0500
+Received: by mail-io0-f180.google.com with SMTP id 90so69570517ios.1
+        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 23:31:28 -0800 (PST)
+In-Reply-To: <CAOxq_8OwxVzV=s2zY4DUNDq8myA4kga7dZaqWbTyy+4j=1mMwg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function rds_trans_register always returns 0. As such, it is not
-necessary to check the returned value.
+Hey netdev guys,
 
-Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
- net/rds/ib.c        | 6 +-----
- net/rds/rds.h       | 2 +-
- net/rds/tcp.c       | 6 +-----
- net/rds/transport.c | 4 +---
- 4 files changed, 4 insertions(+), 14 deletions(-)
+Any feedback on this? :-)
 
-diff --git a/net/rds/ib.c b/net/rds/ib.c
-index 0f557b2..7a64c8d 100644
---- a/net/rds/ib.c
-+++ b/net/rds/ib.c
-@@ -438,16 +438,12 @@ int rds_ib_init(void)
- 	if (ret)
- 		goto out_sysctl;
- 
--	ret = rds_trans_register(&rds_ib_transport);
--	if (ret)
--		goto out_recv;
-+	rds_trans_register(&rds_ib_transport);
- 
- 	rds_info_register_func(RDS_INFO_IB_CONNECTIONS, rds_ib_ic_info);
- 
- 	goto out;
- 
--out_recv:
--	rds_ib_recv_exit();
- out_sysctl:
- 	rds_ib_sysctl_exit();
- out_ibreg:
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index 966d2ee..39518ef 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -903,7 +903,7 @@ void rds_connect_path_complete(struct rds_conn_path *conn, int curr);
- void rds_connect_complete(struct rds_connection *conn);
- 
- /* transport.c */
--int rds_trans_register(struct rds_transport *trans);
-+void rds_trans_register(struct rds_transport *trans);
- void rds_trans_unregister(struct rds_transport *trans);
- struct rds_transport *rds_trans_get_preferred(struct net *net, __be32 addr);
- void rds_trans_put(struct rds_transport *trans);
-diff --git a/net/rds/tcp.c b/net/rds/tcp.c
-index 5438f67..a973d3b 100644
---- a/net/rds/tcp.c
-+++ b/net/rds/tcp.c
-@@ -652,16 +652,12 @@ static int rds_tcp_init(void)
- 	if (ret)
- 		goto out_pernet;
- 
--	ret = rds_trans_register(&rds_tcp_transport);
--	if (ret)
--		goto out_recv;
-+	rds_trans_register(&rds_tcp_transport);
- 
- 	rds_info_register_func(RDS_INFO_TCP_SOCKETS, rds_tcp_tc_info);
- 
- 	goto out;
- 
--out_recv:
--	rds_tcp_recv_exit();
- out_pernet:
- 	unregister_pernet_subsys(&rds_tcp_net_ops);
- out_notifier:
-diff --git a/net/rds/transport.c b/net/rds/transport.c
-index 2ffd3e3..0b188dd 100644
---- a/net/rds/transport.c
-+++ b/net/rds/transport.c
-@@ -40,7 +40,7 @@
- static struct rds_transport *transports[RDS_TRANS_COUNT];
- static DECLARE_RWSEM(rds_trans_sem);
- 
--int rds_trans_register(struct rds_transport *trans)
-+void rds_trans_register(struct rds_transport *trans)
- {
- 	BUG_ON(strlen(trans->t_name) + 1 > TRANSNAMSIZ);
- 
-@@ -55,8 +55,6 @@ int rds_trans_register(struct rds_transport *trans)
- 	}
- 
- 	up_write(&rds_trans_sem);
--
--	return 0;
- }
- EXPORT_SYMBOL_GPL(rds_trans_register);
- 
--- 
-2.7.4
+thanks
+ani
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+On Tue, Feb 28, 2017 at 11:22 AM, Ani Sinha <ani@arista.com> wrote:
+> Hi guys,
+>
+> Commit a79ca223e029 ('ipv6: fix bad free of addrconf_init_net')
+> introduced in linux 3.9 tries to fix an issue involving free-ing
+> statically allocated memory. Additionally, it subtly changes behavior
+> of how certain ipv6 sysctl values are inherited from the default net
+> namespace to the child namespaces.   Before a79ca223e029, the default
+> namespace would directly modify the values in statically allocated
+> struct ipv6_devconf for example and all child namespaces would inherit
+> these values upon creation (their own private copy was initialized
+> using the statically allocated ipv6_devconf). After this change, any
+> sysctl value changes in default net namespace is not seen by any new
+> child namespaces that are created afterwards. This is because all
+> network namespaces, including the default namespace has it's own
+> private copy of  struct ipv6_devconf which is initialized by certain
+> fixed values. This is in contrast to what we have in ipv4 where child
+> namespaces continues to inherit values from the default namespace upon
+> creation.
+>
+> I see that there was a previous discussion here :
+> https://patchwork.kernel.org/patch/4639391/
+>
+> Was the above inconsistency between ipv4 and ipv6 sysctl
+> initialization intentional or was it an unintended effect of the above
+> change ? It would be nice to have a symmetric behavior between ipv4
+> and ipv6. Please share your thoughts on this.
+>
+> thanks,
+> ani
