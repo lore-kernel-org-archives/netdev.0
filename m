@@ -1,56 +1,190 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: commit a52ad514fdf3b8a57ca4322c92d2d8d5c6182485 net: deprecate
- eth_change_mtu, remove usage breaks bonding on my machine
-Date: Thu, 2 Mar 2017 11:17:08 -0800
-Message-ID: <CAM_iQpVUuuix+cMdpeVkxyDqGKr8T1Qc3_jHTCDJ2SFfDKnVig@mail.gmail.com>
-References: <0be1a70f-8593-ac8c-5f22-ee6676dfc672@fnarfbargle.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net/sctp: use-after-free in sctp_association_put
+Date: Thu, 2 Mar 2017 20:21:57 +0100
+Message-ID: <CACT4Y+ZecPp_J0Y9xyftHL6UHb-P12XzDTxsLgg7Uk7sL8Txng@mail.gmail.com>
+References: <CACT4Y+YQw66Czzf=_GT8feC969JAJjntSjz7icPM77zMjNBA1A@mail.gmail.com>
+ <CADvbK_cXfXcjt-4_RumKaDnErBY0bQVz0Fs25w7J1tPC2Vby3Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: jarod@redhat.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Brad Campbell <lists2009@fnarfbargle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34913 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751756AbdCBTY5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 14:24:57 -0500
-Received: by mail-wr0-f194.google.com with SMTP id u108so6809473wrb.2
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 11:24:04 -0800 (PST)
-In-Reply-To: <0be1a70f-8593-ac8c-5f22-ee6676dfc672@fnarfbargle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vladislav Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CADvbK_cXfXcjt-4_RumKaDnErBY0bQVz0Fs25w7J1tPC2Vby3Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 1, 2017 at 8:11 AM, Brad Campbell <lists2009@fnarfbargle.com> wrote:
-> G'day Jarod,
+On Thu, Mar 2, 2017 at 9:06 AM, Xin Long <lucien.xin@gmail.com> wrote:
+> On Thu, Mar 2, 2017 at 3:18 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>> Hello,
+>>
+>> I've got the following report while running syzkaller fuzzer on
+>> linux-next/8813198236a044b76e251dcae937b180dd527999:
+>>
+>> BUG: KASAN: use-after-free in sctp_association_destroy
+>> net/sctp/associola.c:416 [inline] at addr ffff8801c0fa415c
+>> BUG: KASAN: use-after-free in sctp_association_put+0x294/0x300
+>> net/sctp/associola.c:881 at addr ffff8801c0fa415c
+>> Read of size 1 by task syz-executor1/10956
+>> CPU: 1 PID: 10956 Comm: syz-executor1 Not tainted 4.10.0-rc7-next-20170213 #1
+>> Hardware name: Google Google Compute Engine/Google Compute Engine,
+>> BIOS Google 01/01/2011
+>> Call Trace:
+>>  <IRQ>
+>>  __dump_stack lib/dump_stack.c:15 [inline]
+>>  dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+>>  kasan_object_err+0x1c/0x70 mm/kasan/report.c:162
+>>  print_address_description mm/kasan/report.c:200 [inline]
+>>  kasan_report_error mm/kasan/report.c:289 [inline]
+>>  kasan_report.part.2+0x1e5/0x4b0 mm/kasan/report.c:311
+>>  kasan_report mm/kasan/report.c:329 [inline]
+>>  __asan_report_load1_noabort+0x29/0x30 mm/kasan/report.c:329
+>>  sctp_association_destroy net/sctp/associola.c:416 [inline]
+>>  sctp_association_put+0x294/0x300 net/sctp/associola.c:881
+>>  sctp_generate_timeout_event+0x115/0x360 net/sctp/sm_sideeffect.c:317
+>>  sctp_generate_t1_init_event+0x1a/0x20 net/sctp/sm_sideeffect.c:329
+>>  call_timer_fn+0x241/0x820 kernel/time/timer.c:1308
+>>  expire_timers kernel/time/timer.c:1348 [inline]
+>>  __run_timers+0x9e7/0xe90 kernel/time/timer.c:1642
+>>  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1655
+>>  __do_softirq+0x31f/0xbe7 kernel/softirq.c:284
+>>  invoke_softirq kernel/softirq.c:364 [inline]
+>>  irq_exit+0x1cc/0x200 kernel/softirq.c:405
+>>  exiting_irq arch/x86/include/asm/apic.h:658 [inline]
+>>  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:962
+>>  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:707
+>> RIP: 0010:arch_local_irq_enable arch/x86/include/asm/paravirt.h:788 [inline]
+>> RIP: 0010:__raw_spin_unlock_irq include/linux/spinlock_api_smp.h:168 [inline]
+>> RIP: 0010:_raw_spin_unlock_irq+0x56/0x70 kernel/locking/spinlock.c:199
+>> RSP: 0018:ffff8801c280f178 EFLAGS: 00000286 ORIG_RAX: ffffffffffffff10
+>> RAX: dffffc0000000000 RBX: ffff8801dbf24a00 RCX: 0000000000000006
+>> RDX: 1ffffffff0a18d03 RSI: ffff8801d71c88e0 RDI: ffffffff850c6818
+>> RBP: ffff8801c280f180 R08: 0000000000000002 R09: 0000000000000000
+>> R10: 0000000000000006 R11: 0000000000000000 R12: ffff8801c0f3a4c0
+>> R13: 1ffff10038501e38 R14: ffff8801d71c80c0 R15: ffff8801d71c80c0
+>>  </IRQ>
+>>  finish_lock_switch kernel/sched/sched.h:1248 [inline]
+>>  finish_task_switch+0x1c2/0x720 kernel/sched/core.c:2792
+>>  context_switch kernel/sched/core.c:2928 [inline]
+>>  __schedule+0x893/0x2290 kernel/sched/core.c:3468
+>>  preempt_schedule_common+0x35/0x60 kernel/sched/core.c:3579
+>>  _cond_resched+0x17/0x20 kernel/sched/core.c:4977
+>>  slab_pre_alloc_hook mm/slab.h:427 [inline]
+>>  slab_alloc mm/slab.c:3390 [inline]
+>>  __do_kmalloc mm/slab.c:3730 [inline]
+>>  __kmalloc_track_caller+0x26a/0x690 mm/slab.c:3747
+>>  kstrdup+0x39/0x70 mm/util.c:54
+>>  snd_timer_instance_new+0xfc/0x5d0 sound/core/timer.c:110
+>>  snd_timer_open+0x878/0x1740 sound/core/timer.c:290
+>>  snd_timer_user_tselect sound/core/timer.c:1621 [inline]
+>>  __snd_timer_user_ioctl sound/core/timer.c:1901 [inline]
+>>  snd_timer_user_ioctl+0x9b1/0x34a0 sound/core/timer.c:1931
+>>  vfs_ioctl fs/ioctl.c:43 [inline]
+>>  do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
+>>  SYSC_ioctl fs/ioctl.c:698 [inline]
+>>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
+>>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+>> RIP: 0033:0x44fb59
+>> RSP: 002b:00007f0dc184db58 EFLAGS: 00000212 ORIG_RAX: 0000000000000010
+>> RAX: ffffffffffffffda RBX: 0000000040345410 RCX: 000000000044fb59
+>> RDX: 0000000020001000 RSI: 0000000040345410 RDI: 0000000000000005
+>> RBP: 0000000000000005 R08: 0000000000000000 R09: 0000000000000000
+>> R10: 0000000000000000 R11: 0000000000000212 R12: 0000000000708000
+>> R13: 0000000000a5fc57 R14: 00007f0dc184e9c0 R15: 0000000000000000
+>> Object at ffff8801c0fa4140, in cache kmalloc-4096 size: 4096
+>> Allocated:
+>> PID = 10965
+>>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
+>>  save_stack+0x43/0xd0 mm/kasan/kasan.c:504
+>>  set_track mm/kasan/kasan.c:516 [inline]
+>>  kasan_kmalloc+0xaa/0xd0 mm/kasan/kasan.c:607
+>>  kmem_cache_alloc_trace+0x10b/0x670 mm/slab.c:3634
+>>  kmalloc include/linux/slab.h:490 [inline]
+>>  kzalloc include/linux/slab.h:663 [inline]
+>>  sctp_association_new+0x114/0x2120 net/sctp/associola.c:306
+>>  sctp_sendmsg+0x1585/0x38f0 net/sctp/socket.c:1835
+>>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:761
+>>  sock_sendmsg_nosec net/socket.c:633 [inline]
+>>  sock_sendmsg+0xca/0x110 net/socket.c:643
+>>  ___sys_sendmsg+0x8fa/0x9f0 net/socket.c:1985
+>>  __sys_sendmsg+0x138/0x300 net/socket.c:2019
+>>  SYSC_sendmsg net/socket.c:2030 [inline]
+>>  SyS_sendmsg+0x2d/0x50 net/socket.c:2026
+>>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+>> Freed:
+>> PID = 10965
+>>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
+>>  save_stack+0x43/0xd0 mm/kasan/kasan.c:504
+>>  set_track mm/kasan/kasan.c:516 [inline]
+>>  kasan_slab_free+0x6f/0xb0 mm/kasan/kasan.c:580
+>>  __cache_free mm/slab.c:3510 [inline]
+>>  kfree+0xd3/0x250 mm/slab.c:3827
+>>  sctp_association_destroy net/sctp/associola.c:432 [inline]
+>>  sctp_association_put+0x20e/0x300 net/sctp/associola.c:881
+>>  sctp_association_free+0x635/0x8d0 net/sctp/associola.c:410
+>>  sctp_cmd_delete_tcb net/sctp/sm_sideeffect.c:891 [inline]
+>>  sctp_cmd_interpreter net/sctp/sm_sideeffect.c:1306 [inline]
+>>  sctp_side_effects net/sctp/sm_sideeffect.c:1171 [inline]
+>>  sctp_do_sm+0x28a2/0x6900 net/sctp/sm_sideeffect.c:1143
+>>  sctp_primitive_SHUTDOWN+0xa9/0xd0 net/sctp/primitive.c:104
+>>  sctp_close+0x3c3/0x9d0 net/sctp/socket.c:1530
+>>  inet_release+0xed/0x1c0 net/ipv4/af_inet.c:425
+>>  inet6_release+0x50/0x70 net/ipv6/af_inet6.c:432
+>>  sock_release+0x8d/0x1e0 net/socket.c:597
+>>  sock_close+0x16/0x20 net/socket.c:1061
+>>  __fput+0x332/0x7f0 fs/file_table.c:208
+>>  ____fput+0x15/0x20 fs/file_table.c:244
+>>  task_work_run+0x18a/0x260 kernel/task_work.c:116
+>>  exit_task_work include/linux/task_work.h:21 [inline]
+>>  do_exit+0x1956/0x2900 kernel/exit.c:873
+>>  do_group_exit+0x149/0x420 kernel/exit.c:977
+>>  get_signal+0x7e0/0x1820 kernel/signal.c:2313
+>>  do_signal+0xd2/0x2190 arch/x86/kernel/signal.c:807
+>>  exit_to_usermode_loop+0x200/0x2a0 arch/x86/entry/common.c:156
+>>  prepare_exit_to_usermode arch/x86/entry/common.c:190 [inline]
+>>  syscall_return_slowpath+0x4d3/0x570 arch/x86/entry/common.c:259
+>>  entry_SYSCALL_64_fastpath+0xc0/0xc2
+>> Memory state around the buggy address:
+>>  ffff8801c0fa4000: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>>  ffff8801c0fa4080: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>>>ffff8801c0fa4100: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
+>>                                                     ^
+>>  ffff8801c0fa4180: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>>  ffff8801c0fa4200: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>> ==================================================================
+>>
+>>
+>>
+>> Shouldn't sctp_association_free call del_timer_sync instead of del_timer?
+> I think it's safe to use del_timer there, as the timer handler
+> sctp_generate_timeout_event checks asoc->base.dead under
+> sock lock to decide if it will call the event handler.
 >
-> I have a pair of machines that are linked by a pair of quad port e1000 cards
-> with all 4 ports bonded. The network is configured with an mtu of 9000.
+> So even if sctp_association_free free the assoc (not destroyed),
+> another timer handler in other CPU will not crash the kernel.
 >
-> Kernel 4.10 fails to bring these interfaces up as it fails when trying to
-> set the mtu on the bond interface higher than 1500. A bisect between 4.9 &
-> 4.10 winds up identifying this commit as where it all goes wrong. If I
-> modify the network config to not touch the mtu (ie leave it at 1500) then it
-> comes up ok.
->
-> I can individually configure each port with an mtu of 9000, so the e1000
-> driver is ok, but there appears to be breakage in the bonding driver related
-> to your mtu api changes.
->
-> I've just reverted to an older kernel, so it's no biggie. And as it's still
-> a problem in the latest git head I assume nobody else has encountered it. I
-> thought it worth reporting in case it triggers a quick lightbulb.
+> The issue here is more like asoc's refcnt <=1 already when T1
+> timer handler was running, somewhere put asoc incorrectly.
 
-I think we need the following patch:
+Right.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6321f12..de47006 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4179,6 +4179,7 @@ void bond_setup(struct net_device *bond_dev)
+> Hi Dmitry, do you have reproducer and .config for this ?
 
-        /* Initialize the device entry points */
-        ether_setup(bond_dev);
-+       dev->max_mtu = ETH_MAX_MTU;
-        bond_dev->netdev_ops = &bond_netdev_ops;
-        bond_dev->ethtool_ops = &bond_ethtool_ops;
+No. It happened only once and is not reproducible. Most likely this
+race with a very short windows of inconsistency.
+
+FWIW right before the crash the thread that allocated the object
+(10965) produced:
+
+[  122.448837] sctp: [Deprecated]: syz-executor3 (pid 10965) Use of
+int in maxseg socket option.
+[  122.448837] Use struct sctp_assoc_value instead
+[  122.468168] sctp: [Deprecated]: syz-executor3 (pid 10965) Use of
+int in max_burst socket option.
+[  122.468168] Use struct sctp_assoc_value instead
