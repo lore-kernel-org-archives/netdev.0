@@ -1,120 +1,207 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH v5 06/10] seccomp,landlock: Handle Landlock events per
- process hierarchy
-Date: Thu, 2 Mar 2017 08:36:27 -0800
-Message-ID: <CALCETrXpaz3Sw8Q28PKi2LGB956bZ0mfhoNg59Pe5EY+kTmqZg@mail.gmail.com>
-References: <20170222012632.4196-1-mic@digikod.net> <20170222012632.4196-7-mic@digikod.net>
- <CALCETrWExjKHccdj-cYxPtis1NtXTPEYfReNLh065J1hHKvFiA@mail.gmail.com>
- <e6c917cb-d4a6-4147-9d6e-9c9fc906621d@digikod.net> <CALCETrWpXnFs3=tWjJSi6-E=XgbZVnq1p-Ty3BtPvXZawriHMw@mail.gmail.com>
- <db8cbaea-d4e5-3123-0b14-857737b753bc@digikod.net>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH 6/7] net: stmmac: dwc-qos: Split out ->probe() and
+ ->remove()
+Date: Thu, 2 Mar 2017 16:43:15 +0000
+Message-ID: <b825771b-5be5-7f52-9623-2aaf9a175abc@synopsys.com>
+References: <20170223172438.14770-1-thierry.reding@gmail.com>
+ <20170223172438.14770-7-thierry.reding@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Jann Horn <jann@thejh.net>, Jonathan Corbet <corbet@lwn.net>,
-        Matthew Garrett <mjg59@srcf.ucam.org>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Kees Cook <keescook@chromium.org>,
-        Paul Moore <paul@paul-moore.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>,
-        Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
-        Thomas Graf <tgraf@suu
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        "Alexandre Courbot" <gnurou@gmail.com>,
+        Jon Hunter <jonathanh@nvidia.com>, <netdev@vger.kernel.org>,
+        <linux-tegra@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Thierry Reding <thierry.reding@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <db8cbaea-d4e5-3123-0b14-857737b753bc@digikod.net>
+In-Reply-To: <20170223172438.14770-7-thierry.reding@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 1, 2017 at 3:28 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net> =
-wrote:
->
->
-> On 01/03/2017 23:20, Andy Lutomirski wrote:
->> On Wed, Mar 1, 2017 at 2:14 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.ne=
-t> wrote:
->>>
->>> On 28/02/2017 21:01, Andy Lutomirski wrote:
->>>> On Tue, Feb 21, 2017 at 5:26 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod=
-.net> wrote:
->>> This design makes it possible for a process to add more constraints to
->>> its children on the fly. I think it is a good feature to have and a
->>> safer default inheritance mechanism, but it could be guarded by an
->>> option flag if we want both mechanism to be available. The same design
->>> could be used by seccomp filter too.
->>>
->>
->> Then let's do it right.
->>
->> Currently each task has an array of seccomp filter layers.  When a
->> task forks, the child inherits the layers.  All the layers are
->> presently immutable.  With Landlock, a layer can logically be a
->> syscall fitler layer or a Landlock layer.  This fits in to the
->> existing model just fine.
->>
->> If we want to have an interface to allow modification of an existing
->> layer, let's make it so that, when a layer is added, you have to
->> specify a flag to make the layer modifiable (by current, presumably,
->> although I can imagine other policies down the road).  Then have a
->> separate API that modifies a layer.
->>
->> IOW, I think your patch is bad for three reasons, all fixable:
->>
->> 1. The default is wrong.  A layer should be immutable to avoid an easy
->> attack in which you try to sandbox *yourself* and then you just modify
->> the layer to weaken it.
->
-> This is not possible, there is only an operation for now:
-> SECCOMP_ADD_LANDLOCK_RULE. You can only add more rules to the list (as
-> for seccomp filter). There is no way to weaken a sandbox. The question
-> is: how do we want to handle the rules *tree* (from the kernel point of
-> view)?
->
+Às 5:24 PM de 2/23/2017, Thierry Reding escreveu:
+> From: Thierry Reding <treding@nvidia.com>
+> 
+> Split out the binding specific parts of ->probe() and ->remove() to
+> enable the driver to support variants of the binding. This is useful in
+> order to keep backwards-compatibility while making it easy for a sub-
+> driver to deal only with the updated bindings rather than having to add
+> compatibility quirks all over the place.
+> 
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
+> ---
+>  .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 114 ++++++++++++++++-----
+>  1 file changed, 88 insertions(+), 26 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+> index 1a3fa3d9f855..5071d3c15adc 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+> @@ -18,6 +18,7 @@
+>  #include <linux/io.h>
+>  #include <linux/ioport.h>
+>  #include <linux/module.h>
+> +#include <linux/of_device.h>
+>  #include <linux/of_net.h>
+>  #include <linux/mfd/syscon.h>
+>  #include <linux/platform_device.h>
+> @@ -106,13 +107,70 @@ static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
+>  	return 0;
+>  }
+>  
+> +static void *dwc_qos_probe(struct platform_device *pdev,
+> +			   struct plat_stmmacenet_data *plat_dat,
+> +			   struct stmmac_resources *stmmac_res)
+> +{
+> +	int err;
+> +
+> +	plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "apb_pclk");
+> +	if (IS_ERR(plat_dat->stmmac_clk)) {
+> +		dev_err(&pdev->dev, "apb_pclk clock not found.\n");
+> +		return ERR_CAST(plat_dat->stmmac_clk);
+> +	}
+> +
+> +	clk_prepare_enable(plat_dat->stmmac_clk);
+> +
+> +	plat_dat->pclk = devm_clk_get(&pdev->dev, "phy_ref_clk");
+> +	if (IS_ERR(plat_dat->pclk)) {
+> +		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
+> +		err = PTR_ERR(plat_dat->pclk);
+> +		goto disable;
+> +	}
+> +
+> +	clk_prepare_enable(plat_dat->pclk);
+> +
+> +	return NULL;
+> +
+> +disable:
+> +	clk_disable_unprepare(plat_dat->stmmac_clk);
+> +	return ERR_PTR(err);
+> +}
+> +
+> +static int dwc_qos_remove(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev = platform_get_drvdata(pdev);
+> +	struct stmmac_priv *priv = netdev_priv(ndev);
+> +
+> +	clk_disable_unprepare(priv->plat->pclk);
+> +	clk_disable_unprepare(priv->plat->stmmac_clk);
+> +
+> +	return 0;
+> +}
+> +
+> +struct dwc_eth_dwmac_data {
+> +	void *(*probe)(struct platform_device *pdev,
+> +		       struct plat_stmmacenet_data *data,
+> +		       struct stmmac_resources *res);
+> +	int (*remove)(struct platform_device *pdev);
+> +};
+> +
+> +static const struct dwc_eth_dwmac_data dwc_qos_data = {
+> +	.probe = dwc_qos_probe,
+> +	.remove = dwc_qos_remove,
+> +};
+> +
+>  static int dwc_eth_dwmac_probe(struct platform_device *pdev)
+>  {
+> +	const struct dwc_eth_dwmac_data *data;
+>  	struct plat_stmmacenet_data *plat_dat;
+>  	struct stmmac_resources stmmac_res;
+>  	struct resource *res;
+> +	void *priv;
+>  	int ret;
+>  
+> +	data = of_device_get_match_data(&pdev->dev);
+> +
+>  	memset(&stmmac_res, 0, sizeof(struct stmmac_resources));
+>  
+>  	/**
+> @@ -138,39 +196,26 @@ static int dwc_eth_dwmac_probe(struct platform_device *pdev)
+>  	if (IS_ERR(plat_dat))
+>  		return PTR_ERR(plat_dat);
+>  
+> -	plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "apb_pclk");
+> -	if (IS_ERR(plat_dat->stmmac_clk)) {
+> -		dev_err(&pdev->dev, "apb_pclk clock not found.\n");
+> -		ret = PTR_ERR(plat_dat->stmmac_clk);
+> -		plat_dat->stmmac_clk = NULL;
+> -		goto err_remove_config_dt;
+> -	}
+> -	clk_prepare_enable(plat_dat->stmmac_clk);
+> -
+> -	plat_dat->pclk = devm_clk_get(&pdev->dev, "phy_ref_clk");
+> -	if (IS_ERR(plat_dat->pclk)) {
+> -		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
+> -		ret = PTR_ERR(plat_dat->pclk);
+> -		plat_dat->pclk = NULL;
+> -		goto err_out_clk_dis_phy;
+> +	priv = data->probe(pdev, plat_dat, &stmmac_res);
+> +	if (IS_ERR(priv)) {
+> +		ret = PTR_ERR(priv);
+> +		dev_err(&pdev->dev, "failed to probe subdriver: %d\n", ret);
+> +		goto remove_config;
+>  	}
+> -	clk_prepare_enable(plat_dat->pclk);
+>  
+>  	ret = dwc_eth_dwmac_config_dt(pdev, plat_dat);
+>  	if (ret)
+> -		goto err_out_clk_dis_aper;
+> +		goto remove;
+>  
+>  	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+>  	if (ret)
+> -		goto err_out_clk_dis_aper;
+> +		goto remove;
+>  
+> -	return 0;
+> +	return ret;
+>  
+> -err_out_clk_dis_aper:
+> -	clk_disable_unprepare(plat_dat->pclk);
+> -err_out_clk_dis_phy:
+> -	clk_disable_unprepare(plat_dat->stmmac_clk);
+> -err_remove_config_dt:
+> +remove:
+> +	data->remove(pdev);
+> +remove_config:
+>  	stmmac_remove_config_dt(pdev, plat_dat);
+>  
+>  	return ret;
+> @@ -178,11 +223,28 @@ static int dwc_eth_dwmac_probe(struct platform_device *pdev)
+>  
+>  static int dwc_eth_dwmac_remove(struct platform_device *pdev)
+>  {
+> -	return stmmac_pltfr_remove(pdev);
+> +	struct net_device *ndev = platform_get_drvdata(pdev);
+> +	struct stmmac_priv *priv = netdev_priv(ndev);
+> +	const struct dwc_eth_dwmac_data *data;
+> +	int err;
+> +
+> +	data = of_device_get_match_data(&pdev->dev);
+> +
+> +	err = stmmac_dvr_remove(&pdev->dev);
+> +	if (err < 0)
+> +		dev_err(&pdev->dev, "failed to remove platform: %d\n", err);
+> +
+> +	err = data->remove(pdev);
+> +	if (err < 0)
+> +		dev_err(&pdev->dev, "failed to remove subdriver: %d\n", err);
+> +
+> +	stmmac_remove_config_dt(pdev, priv->plat);
+> +
+> +	return err;
+>  }
+>  
+>  static const struct of_device_id dwc_eth_dwmac_match[] = {
+> -	{ .compatible = "snps,dwc-qos-ethernet-4.10", },
+> +	{ .compatible = "snps,dwc-qos-ethernet-4.10", .data = &dwc_qos_data },
+>  	{ }
+>  };
+>  MODULE_DEVICE_TABLE(of, dwc_eth_dwmac_match);
+> 
 
-Fair enough.  But I still think that immutability (like regular
-seccomp) should be the default.  For security, simplicity is
-important.  I guess there could be two ways to relax immutability:
-allowing making the layer stricter and allowing any change at all.
-
-As a default, though, programs should be able to expect that:
-
-seccomp(SECCOMP_ADD_WHATEVER, ...);
-fork();
-
-[parent gets compromised]
-[in parent]seccomp(anything whatsoever);
-
-will not affect the child,  If the parent wants to relax that, that's
-fine, but I think it should be explicit.
-
->>
->> 2. The API that adds a layer should be different from the API that
->> modifies a layer.
->
-> Right, but it doesn't apply now because we can only add rules.
-
-That's not what the code appears to do, though.  Sometimes it makes a
-new layer without modifying tasks that share the layer and sometimes
-it modifies the layer.
-
-Both operations are probably okay, but they're not the same operation
-and they shouldn't pretend to be.
-
-
->
->>
->> 3. The whole modification mechanism should be a separate patch to be
->> reviewed on its own merits.
->
-> For a rule *replacement*, sure!
-
-And for modification of policy for non-current tasks.  That's a big
-departure from normal seccomp and should be reviewed as such.
+Reviewed-By: Joao Pinto <jpinto@synopsys.com>
