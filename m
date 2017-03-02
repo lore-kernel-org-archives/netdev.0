@@ -1,75 +1,60 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net 2/2] xen-netback: don't vfree() queues under
-	spinlock
-Date: Thu, 2 Mar 2017 12:54:26 +0000
-Message-ID: <1488459266-29269-3-git-send-email-paul.durrant@citrix.com>
-References: <1488459266-29269-1-git-send-email-paul.durrant@citrix.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net/dccp: dccp_create_openreq_child freed held lock
+Date: Thu, 2 Mar 2017 11:11:06 +0100
+Message-ID: <CACT4Y+ZNrE4k24gHSqTVL5DdQY8Ogj0oob9pS7NM5xDs1Bd1HA@mail.gmail.com>
+References: <CACT4Y+ZOAWRzJH3=xJ1z5bFVCM2-smuVSykziQPhSgkv1k3FBQ@mail.gmail.com>
+ <20170301153510.GE15145@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Juergen Gross <jgross@suse.com>, Paul Durrant <paul.durrant@citrix.com>,
- Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1488459266-29269-1-git-send-email-paul.durrant@citrix.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f171.google.com ([209.85.217.171]:35720 "EHLO
+        mail-ua0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751302AbdCBM7u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 07:59:50 -0500
+Received: by mail-ua0-f171.google.com with SMTP id q7so43439092uaf.2
+        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 04:58:50 -0800 (PST)
+In-Reply-To: <20170301153510.GE15145@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBsZWFkcyB0byBhIEJVRyBvZiB0aGUgZm9sbG93aW5nIGZvcm06CgpbICAxNzQuNTEyODYx
-XSBzd2l0Y2g6IHBvcnQgMih2aWYzLjApIGVudGVyZWQgZGlzYWJsZWQgc3RhdGUKWyAgMTc0LjUy
-MjczNV0gQlVHOiBzbGVlcGluZyBmdW5jdGlvbiBjYWxsZWQgZnJvbSBpbnZhbGlkIGNvbnRleHQg
-YXQKL2hvbWUvYnVpbGQvbGludXgtbGludXMvbW0vdm1hbGxvYy5jOjE0NDEKWyAgMTc0LjUyMzQ1
-MV0gaW5fYXRvbWljKCk6IDEsIGlycXNfZGlzYWJsZWQoKTogMCwgcGlkOiAyOCwgbmFtZTogeGVu
-d2F0Y2gKWyAgMTc0LjUyNDEzMV0gQ1BVOiAxIFBJRDogMjggQ29tbTogeGVud2F0Y2ggVGFpbnRl
-ZDogRyAgICAgICAgVwo0LjEwLjB1cHN0cmVhbS0xMTA3My1nNDk3N2FiNi1kaXJ0eSAjMQpbICAx
-NzQuNTI0ODE5XSBIYXJkd2FyZSBuYW1lOiBNU0kgTVMtNzY4MC9INjFNLVAyMyAoTVMtNzY4MCks
-IEJJT1MgVjE3LjAKMDMvMTQvMjAxMQpbICAxNzQuNTI1NTE3XSBDYWxsIFRyYWNlOgpbICAxNzQu
-NTI2MjE3XSAgc2hvd19zdGFjaysweDIzLzB4NjAKWyAgMTc0LjUyNjg5OV0gIGR1bXBfc3RhY2sr
-MHg1Yi8weDg4ClsgIDE3NC41Mjc1NjJdICBfX19taWdodF9zbGVlcCsweGRlLzB4MTMwClsgIDE3
-NC41MjgyMDhdICBfX21pZ2h0X3NsZWVwKzB4MzUvMHhhMApbICAxNzQuNTI4ODQwXSAgPyBfcmF3
-X3NwaW5fdW5sb2NrX2lycXJlc3RvcmUrMHgxMy8weDIwClsgIDE3NC41Mjk0NjNdICA/IF9fd2Fr
-ZV91cCsweDQwLzB4NTAKWyAgMTc0LjUzMDA4OV0gIHJlbW92ZV92bV9hcmVhKzB4MjAvMHg5MApb
-ICAxNzQuNTMwNzI0XSAgX192dW5tYXArMHgxZC8weGMwClsgIDE3NC41MzEzNDZdICA/IGRlbGV0
-ZV9vYmplY3RfZnVsbCsweDEzLzB4MjAKWyAgMTc0LjUzMTk3M10gIHZmcmVlKzB4NDAvMHg4MApb
-ICAxNzQuNTMyNTk0XSAgc2V0X2JhY2tlbmRfc3RhdGUrMHgxOGEvMHhhOTAKWyAgMTc0LjUzMzIy
-MV0gID8gZHdjX3NjYW5fZGVzY3JpcHRvcnMrMHgyNGQvMHg0MzAKWyAgMTc0LjUzMzg1MF0gID8g
-a2ZyZWUrMHg1Yi8weGMwClsgIDE3NC41MzQ0NzZdICA/IHhlbmJ1c19yZWFkKzB4M2QvMHg1MApb
-ICAxNzQuNTM1MTAxXSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAKWyAgMTc0LjUzNTcxOF0gID8g
-eGVuYnVzX2dhdGhlcisweDMxLzB4OTAKWyAgMTc0LjUzNjMzMl0gID8gX19fbWlnaHRfc2xlZXAr
-MHhmNi8weDEzMApbICAxNzQuNTM2OTQ1XSAgZnJvbnRlbmRfY2hhbmdlZCsweDZiLzB4ZDAKWyAg
-MTc0LjUzNzU2NV0gIHhlbmJ1c19vdGhlcmVuZF9jaGFuZ2VkKzB4N2QvMHg4MApbICAxNzQuNTM4
-MTg1XSAgZnJvbnRlbmRfY2hhbmdlZCsweDEyLzB4MjAKWyAgMTc0LjUzODgwM10gIHhlbndhdGNo
-X3RocmVhZCsweDc0LzB4MTEwClsgIDE3NC41Mzk0MTddICA/IHdva2VuX3dha2VfZnVuY3Rpb24r
-MHgyMC8weDIwClsgIDE3NC41NDAwNDldICBrdGhyZWFkKzB4ZTUvMHgxMjAKWyAgMTc0LjU0MDY2
-M10gID8geGVuYnVzX3ByaW50ZisweDUwLzB4NTAKWyAgMTc0LjU0MTI3OF0gID8gX19rdGhyZWFk
-X2luaXRfd29ya2VyKzB4NDAvMHg0MApbICAxNzQuNTQxODk4XSAgcmV0X2Zyb21fZm9yaysweDIx
-LzB4MmMKWyAgMTc0LjU0ODYzNV0gc3dpdGNoOiBwb3J0IDIodmlmMy4wKSBlbnRlcmVkIGRpc2Fi
-bGVkIHN0YXRlCgpUaGlzIHBhdGNoIGRlZmVycyB0aGUgdmZyZWUoKSB1bnRpbCBhZnRlciB0aGUg
-c3BpbmxvY2sgaXMgcmVsZWFzZWQuCgpSZXBvcnRlZC1ieTogSnVlcmdlbiBHcm9zcyA8amdyb3Nz
-QHN1c2UuY29tPgpTaWduZWQtb2ZmLWJ5OiBQYXVsIER1cnJhbnQgPHBhdWwuZHVycmFudEBjaXRy
-aXguY29tPgotLS0KQ2M6IEp1ZXJnZW4gR3Jvc3MgPGpncm9zc0BzdXNlLmNvbT4KQ2M6IFdlaSBM
-aXUgPHdlaS5saXUyQGNpdHJpeC5jb20+Ci0tLQogZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVu
-YnVzLmMgfCA1ICsrKystCiAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRpb25zKCspLCAxIGRlbGV0
-aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMgYi9k
-cml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwppbmRleCBkODJkZGM5Li5kMmQ3Y2Q5IDEw
-MDY0NAotLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYworKysgYi9kcml2ZXJz
-L25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwpAQCAtNDk2LDYgKzQ5Niw3IEBAIHN0YXRpYyB2b2lk
-IGJhY2tlbmRfZGlzY29ubmVjdChzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkKIAogCWlmICh2aWYp
-IHsKIAkJdW5zaWduZWQgaW50IHF1ZXVlX2luZGV4OworCQlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpx
-dWV1ZXM7CiAKIAkJeGVuX3VucmVnaXN0ZXJfd2F0Y2hlcnModmlmKTsKICNpZmRlZiBDT05GSUdf
-REVCVUdfRlMKQEAgLTUwOCwxMSArNTA5LDEzIEBAIHN0YXRpYyB2b2lkIGJhY2tlbmRfZGlzY29u
-bmVjdChzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkKIAkJCXhlbnZpZl9kZWluaXRfcXVldWUoJnZp
-Zi0+cXVldWVzW3F1ZXVlX2luZGV4XSk7CiAKIAkJc3Bpbl9sb2NrKCZ2aWYtPmxvY2spOwotCQl2
-ZnJlZSh2aWYtPnF1ZXVlcyk7CisJCXF1ZXVlcyA9IHZpZi0+cXVldWVzOwogCQl2aWYtPm51bV9x
-dWV1ZXMgPSAwOwogCQl2aWYtPnF1ZXVlcyA9IE5VTEw7CiAJCXNwaW5fdW5sb2NrKCZ2aWYtPmxv
-Y2spOwogCisJCXZmcmVlKHF1ZXVlcyk7CisKIAkJeGVudmlmX2Rpc2Nvbm5lY3RfY3RybCh2aWYp
-OwogCX0KIH0KLS0gCjIuMS40CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9y
-ZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
+On Wed, Mar 1, 2017 at 4:35 PM, Arnaldo Carvalho de Melo
+<acme@kernel.org> wrote:
+> Em Wed, Mar 01, 2017 at 10:38:54AM +0100, Dmitry Vyukov escreveu:
+>> Hello,
+>>
+>> I've got the following report while running syzkaller fuzzer on
+>> 86292b33d4b79ee03e2f43ea0381ef85f077c760:
+>>
+>>
+>> It seems that dccp_create_openreq_child needs to unlock the sock if
+>> dccp_feat_activate_values fails.
+>
+> Yeah, can you please use the patch below, that mimics the error paths in
+> sk_clone_new(), from where I think even the comment about it being a raw
+> copy came, but the bh_unlock_sock() didn't?
+>
+> - Arnaldo
+>
+> diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
+> index 53eddf99e4f6..d20d948a98ed 100644
+> --- a/net/dccp/minisocks.c
+> +++ b/net/dccp/minisocks.c
+> @@ -122,6 +122,7 @@ struct sock *dccp_create_openreq_child(const struct sock *sk,
+>                         /* It is still raw copy of parent, so invalidate
+>                          * destructor and make plain sk_free() */
+>                         newsk->sk_destruct = NULL;
+> +                       bh_unlock_sock(newsk);
+>                         sk_free(newsk);
+>                         return NULL;
+>                 }
+
+
+Applied the patch on bots. Will report if it happens again.
