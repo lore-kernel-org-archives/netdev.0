@@ -1,84 +1,59 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: BUG due to "xen-netback: protect resource cleaning
- on XenBus disconnect"
-Date: Thu, 2 Mar 2017 12:19:35 +0000
-Message-ID: <6e79cc86f623446aa432a35aa8305807@AMSPEX02CL03.citrite.net>
-References: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
- <20170302120653.dce2mehbmhyxsiow@citrix.com>
- <0e503a09-fbbb-02aa-152b-e4eaf3122a56@suse.com>
+From: Gao Feng <fgao@ikuai8.com>
+Subject: Re: [PATCH nf 1/1] netfilter: h323,sip: Fix possible dead loop in
+ nat_rtp_rtcp and nf_nat_sdp_media
+Date: Thu, 2 Mar 2017 20:26:56 +0800
+Message-ID: <CA+6hz4pqAMoykd0Lo0zD3UaO22Y96Coz2ssaq_vmgsXBvyLVWg@mail.gmail.com>
+References: <1488441420-25537-1-git-send-email-fgao@ikuai8.com>
+ <CAML_gOfLQq7Q=E+oHrXuXz=uFFMyc0rQXxGO_RTi5hXJ3AaRuw@mail.gmail.com>
+ <CA+6hz4qO2Le_DCyuFt9zGnq2+TcR_GaDxXvSN_=1KOXYZti+iQ@mail.gmail.com> <CAML_gOdZM8-mWXMbF7cHSo4X3zdNrytv_dTOrWvtnoxLzyP=XA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Igor Druzhinin <igor.druzhinin@citrix.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- xen-devel <xen-devel@lists.xenproject.org>,
- Boris Ostrovsky <boris.ostrovsky@oracle.com>,
- David Miller <davem@davemloft.net>
-To: 'Juergen Gross' <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <0e503a09-fbbb-02aa-152b-e4eaf3122a56@suse.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        David Miller <davem@davemloft.net>,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Liping Zhang <zlpnobody@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbgsg2.qq.com ([54.254.200.128]:58639 "EHLO smtpbgsg2.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752109AbdCBMl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Mar 2017 07:41:29 -0500
+In-Reply-To: <CAML_gOdZM8-mWXMbF7cHSo4X3zdNrytv_dTOrWvtnoxLzyP=XA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IEp1ZXJnZW4gR3Jvc3MgW21haWx0
-bzpqZ3Jvc3NAc3VzZS5jb21dCj4gU2VudDogMDIgTWFyY2ggMjAxNyAxMjoxMwo+IFRvOiBXZWkg
-TGl1IDx3ZWkubGl1MkBjaXRyaXguY29tPgo+IENjOiBJZ29yIERydXpoaW5pbiA8aWdvci5kcnV6
-aGluaW5AY2l0cml4LmNvbT47IHhlbi1kZXZlbCA8eGVuLQo+IGRldmVsQGxpc3RzLnhlbnByb2pl
-Y3Qub3JnPjsgTGludXggS2VybmVsIE1haWxpbmcgTGlzdCA8bGludXgtCj4ga2VybmVsQHZnZXIu
-a2VybmVsLm9yZz47IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEJvcmlzIE9zdHJvdnNreQo+IDxi
-b3Jpcy5vc3Ryb3Zza3lAb3JhY2xlLmNvbT47IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0
-Lm5ldD47IFBhdWwKPiBEdXJyYW50IDxQYXVsLkR1cnJhbnRAY2l0cml4LmNvbT4KPiBTdWJqZWN0
-OiBSZTogQlVHIGR1ZSB0byAieGVuLW5ldGJhY2s6IHByb3RlY3QgcmVzb3VyY2UgY2xlYW5pbmcg
-b24gWGVuQnVzCj4gZGlzY29ubmVjdCIKPiAKPiBPbiAwMi8wMy8xNyAxMzowNiwgV2VpIExpdSB3
-cm90ZToKPiA+IE9uIFRodSwgTWFyIDAyLCAyMDE3IGF0IDEyOjU2OjIwUE0gKzAxMDAsIEp1ZXJn
-ZW4gR3Jvc3Mgd3JvdGU6Cj4gPj4gV2l0aCBjb21taXRzIGYxNmYxZGY2NSBhbmQgOWE2Y2RmNTJi
-IHdlIGdldCBpbiBvdXIgWGVuIHRlc3Rpbmc6Cj4gPj4KPiA+PiBbICAxNzQuNTEyODYxXSBzd2l0
-Y2g6IHBvcnQgMih2aWYzLjApIGVudGVyZWQgZGlzYWJsZWQgc3RhdGUKPiA+PiBbICAxNzQuNTIy
-NzM1XSBCVUc6IHNsZWVwaW5nIGZ1bmN0aW9uIGNhbGxlZCBmcm9tIGludmFsaWQgY29udGV4dCBh
-dAo+ID4+IC9ob21lL2J1aWxkL2xpbnV4LWxpbnVzL21tL3ZtYWxsb2MuYzoxNDQxCj4gPj4gWyAg
-MTc0LjUyMzQ1MV0gaW5fYXRvbWljKCk6IDEsIGlycXNfZGlzYWJsZWQoKTogMCwgcGlkOiAyOCwg
-bmFtZTogeGVud2F0Y2gKPiA+PiBbICAxNzQuNTI0MTMxXSBDUFU6IDEgUElEOiAyOCBDb21tOiB4
-ZW53YXRjaCBUYWludGVkOiBHICAgICAgICBXCj4gPj4gNC4xMC4wdXBzdHJlYW0tMTEwNzMtZzQ5
-NzdhYjYtZGlydHkgIzEKPiA+PiBbICAxNzQuNTI0ODE5XSBIYXJkd2FyZSBuYW1lOiBNU0kgTVMt
-NzY4MC9INjFNLVAyMyAoTVMtNzY4MCksIEJJT1MKPiBWMTcuMAo+ID4+IDAzLzE0LzIwMTEKPiA+
-PiBbICAxNzQuNTI1NTE3XSBDYWxsIFRyYWNlOgo+ID4+IFsgIDE3NC41MjYyMTddICBzaG93X3N0
-YWNrKzB4MjMvMHg2MAo+ID4+IFsgIDE3NC41MjY4OTldICBkdW1wX3N0YWNrKzB4NWIvMHg4OAo+
-ID4+IFsgIDE3NC41Mjc1NjJdICBfX19taWdodF9zbGVlcCsweGRlLzB4MTMwCj4gPj4gWyAgMTc0
-LjUyODIwOF0gIF9fbWlnaHRfc2xlZXArMHgzNS8weGEwCj4gPj4gWyAgMTc0LjUyODg0MF0gID8g
-X3Jhd19zcGluX3VubG9ja19pcnFyZXN0b3JlKzB4MTMvMHgyMAo+ID4+IFsgIDE3NC41Mjk0NjNd
-ICA/IF9fd2FrZV91cCsweDQwLzB4NTAKPiA+PiBbICAxNzQuNTMwMDg5XSAgcmVtb3ZlX3ZtX2Fy
-ZWErMHgyMC8weDkwCj4gPj4gWyAgMTc0LjUzMDcyNF0gIF9fdnVubWFwKzB4MWQvMHhjMAo+ID4+
-IFsgIDE3NC41MzEzNDZdICA/IGRlbGV0ZV9vYmplY3RfZnVsbCsweDEzLzB4MjAKPiA+PiBbICAx
-NzQuNTMxOTczXSAgdmZyZWUrMHg0MC8weDgwCj4gPj4gWyAgMTc0LjUzMjU5NF0gIHNldF9iYWNr
-ZW5kX3N0YXRlKzB4MThhLzB4YTkwCj4gPj4gWyAgMTc0LjUzMzIyMV0gID8gZHdjX3NjYW5fZGVz
-Y3JpcHRvcnMrMHgyNGQvMHg0MzAKPiA+PiBbICAxNzQuNTMzODUwXSAgPyBrZnJlZSsweDViLzB4
-YzAKPiA+PiBbICAxNzQuNTM0NDc2XSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAKPiA+PiBbICAx
-NzQuNTM1MTAxXSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAKPiA+PiBbICAxNzQuNTM1NzE4XSAg
-PyB4ZW5idXNfZ2F0aGVyKzB4MzEvMHg5MAo+ID4+IFsgIDE3NC41MzYzMzJdICA/IF9fX21pZ2h0
-X3NsZWVwKzB4ZjYvMHgxMzAKPiA+PiBbICAxNzQuNTM2OTQ1XSAgZnJvbnRlbmRfY2hhbmdlZCsw
-eDZiLzB4ZDAKPiA+PiBbICAxNzQuNTM3NTY1XSAgeGVuYnVzX290aGVyZW5kX2NoYW5nZWQrMHg3
-ZC8weDgwCj4gPj4gWyAgMTc0LjUzODE4NV0gIGZyb250ZW5kX2NoYW5nZWQrMHgxMi8weDIwCj4g
-Pj4gWyAgMTc0LjUzODgwM10gIHhlbndhdGNoX3RocmVhZCsweDc0LzB4MTEwCj4gPj4gWyAgMTc0
-LjUzOTQxN10gID8gd29rZW5fd2FrZV9mdW5jdGlvbisweDIwLzB4MjAKPiA+PiBbICAxNzQuNTQw
-MDQ5XSAga3RocmVhZCsweGU1LzB4MTIwCj4gPj4gWyAgMTc0LjU0MDY2M10gID8geGVuYnVzX3By
-aW50ZisweDUwLzB4NTAKPiA+PiBbICAxNzQuNTQxMjc4XSAgPyBfX2t0aHJlYWRfaW5pdF93b3Jr
-ZXIrMHg0MC8weDQwCj4gPj4gWyAgMTc0LjU0MTg5OF0gIHJldF9mcm9tX2ZvcmsrMHgyMS8weDJj
-Cj4gPj4gWyAgMTc0LjU0ODYzNV0gc3dpdGNoOiBwb3J0IDIodmlmMy4wKSBlbnRlcmVkIGRpc2Fi
-bGVkIHN0YXRlCj4gPj4KPiA+PiBJIGJlbGlldmUgY2FsbGluZyB2ZnJlZSgpIHdoZW4gaG9sZGlu
-ZyBhIHNwaW5fbG9jayBpc24ndCBhIGdvb2QgaWRlYS4KPiA+Pgo+ID4KPiA+IFVzZSB2ZnJlZV9h
-dG9taWMgaW5zdGVhZD8KPiAKPiBIbW0sIGlzbid0IHRoaXMgb3ZlcmtpbGwgaGVyZT8KPiAKPiBZ
-b3UgY2FuIGp1c3Qgc2V0IGEgbG9jYWwgdmFyaWFibGUgd2l0aCB0aGUgYWRkcmVzcyBhbmQgZG8g
-dmZyZWUoKSBhZnRlcgo+IHJlbGVhc2luZyB0aGUgbG9jay4KPiAKClllcCwgdGhhdCdzIHdoYXQg
-SSB3YXMgdGhpbmtpbmcuIFBhdGNoIGNvbWluZyBzaG9ydGx5LgoKICBQYXVsCgo+IAo+IEp1ZXJn
-ZW4KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1k
-ZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54
-ZW4ub3JnL3hlbi1kZXZlbAo=
+Hi Liping,
+
+On Thu, Mar 2, 2017 at 7:18 PM, Liping Zhang <zlpnobody@gmail.com> wrote:
+> Hi,
+> 2017-03-02 18:18 GMT+08:00 Gao Feng <fgao@ikuai8.com>:
+> [...]
+>> The expect class is NF_CT_EXPECT_CLASS_DEFAULT, and proto is
+>> IPPROTO_UDP at the function "expect_rtp_rtcp",
+>> And it makes sure the port is even number.
+>>
+>> But look at the process_gcf, the port is got from the packet data at
+>> function get_h225_addr.
+>> So it may be odd number.
+>> It also would add one expect node whose class is
+>> NF_CT_EXPECT_CLASS_DEFAULT, and proto is IPPROTO_UDP.
+>
+> The nat_rtp_rtcp() is only invoked by expect_rtp_rtcp, and nf_nat_sdp_media()
+> is only invoked by set_expected_rtp_rtcp. So the RTP port is ensured to be
+> even, as well as the rtp_exp->tuple.dst.u.udp.port.
+>
+> Note: the rtp_exp is alloced by nf_ct_expect_alloc, and initialized by
+> nf_ct_expect_init, then passed to nat_rtp_rtcp or nf_nat_sdp_media.
+>
+> So I cannot figure out why process_gcf will affect this? Or I missed something?
+>
+
+I was lost in codes and forgot to check the caller of nat_rtp_rtcp.
+Thanks your explanations.
+
+There is no any issue in current codes indeed.
+
+Best Regards
+Feng
