@@ -1,75 +1,87 @@
-From: fgao@ikuai8.com
-Subject: [PATCH nf 1/1] netfilter: h323,sip: Fix possible dead loop in nat_rtp_rtcp and nf_nat_sdp_media
-Date: Thu,  2 Mar 2017 15:57:00 +0800
-Message-ID: <1488441420-25537-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: pablo@netfilter.org, kadlec@blackhole.kfki.hu, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCHv2 net-next 10/16] net: mvpp2: handle register mapping
+ and access for PPv2.2
+Date: Thu, 2 Mar 2017 09:45:33 +0100
+Message-ID: <20170302094533.5e6dfe93@free-electrons.com>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <1482943592-12556-11-git-send-email-thomas.petazzoni@free-electrons.com>
+        <20170106144648.GE14217@n2100.armlinux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170106144648.GE14217-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+Hello,
 
-When h323 and sip try to insert expect nodes, they would increase
-the port by 2 for loop, and the loop condition is that "port != 0".
-So when the start port is odd number, port never increases to zero.
+On Fri, 6 Jan 2017 14:46:48 +0000, Russell King - ARM Linux wrote:
 
-Now make port as u32 instead of u_int16_t, and the loop condition is
-"port <= USHRT_MAX".
+> I'm not entirely sure this is the best solution - every register access
+> will be wrapped with a preempt_disable() and preempt_enable().  At
+> every site, when preempt is enabled, we will end up with code to:
+> 
+> - get the thread info
+> - increment the preempt count
+> - access the register
+> - decrement the preempt count
+> - test resulting preempt count and branch to __preempt_schedule()
+> 
+> If tracing is enabled, it gets much worse, because the increment and
+> decrement happen out of line, and are even more expensive.
+> 
+> If a function is going to make several register accesses, it's going
+> to be much more efficient to do:
+> 
+> 	void __iomem *base = priv->cpu_base[get_cpu()];
+> 
+> 	...
+> 
+> 	put_cpu();
+> 
+> which means we don't end up with multiple instances of the preempt code
+> consecutive accesses.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/ipv4/netfilter/nf_nat_h323.c | 4 ++--
- net/netfilter/nf_nat_sip.c       | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+In the next version, these accessors have been reworked. After getting
+more details about the HW, it turned out that disabling preemption is
+not at all necessary. We just have some global registers (can be
+accessed through any per-CPU window) and some per-CPU registers (must
+be accessed from a specific per-CPU window), with the trick that
+certain sequences of register read/write must occur from the same
+per-CPU window.
 
-diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
-index 574f7eb..010fc3e 100644
---- a/net/ipv4/netfilter/nf_nat_h323.c
-+++ b/net/ipv4/netfilter/nf_nat_h323.c
-@@ -183,7 +183,7 @@ static int nat_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
- 	struct nf_ct_h323_master *info = nfct_help_data(ct);
- 	int dir = CTINFO2DIR(ctinfo);
- 	int i;
--	u_int16_t nated_port;
-+	u32 nated_port;
- 
- 	/* Set expectations for NAT */
- 	rtp_exp->saved_proto.udp.port = rtp_exp->tuple.dst.u.udp.port;
-@@ -218,7 +218,7 @@ static int nat_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
- 
- 	/* Try to get a pair of ports. */
- 	for (nated_port = ntohs(rtp_exp->tuple.dst.u.udp.port);
--	     nated_port != 0; nated_port += 2) {
-+	     nated_port <= USHRT_MAX; nated_port += 2) {
- 		int ret;
- 
- 		rtp_exp->tuple.dst.u.udp.port = htons(nated_port);
-diff --git a/net/netfilter/nf_nat_sip.c b/net/netfilter/nf_nat_sip.c
-index 791fac4..0b24eb3 100644
---- a/net/netfilter/nf_nat_sip.c
-+++ b/net/netfilter/nf_nat_sip.c
-@@ -548,7 +548,7 @@ static unsigned int nf_nat_sdp_media(struct sk_buff *skb, unsigned int protoff,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
--	u_int16_t port;
-+	u32 port;
- 
- 	/* Connection will come from reply */
- 	if (nf_inet_addr_cmp(&ct->tuplehash[dir].tuple.src.u3,
-@@ -571,7 +571,7 @@ static unsigned int nf_nat_sdp_media(struct sk_buff *skb, unsigned int protoff,
- 
- 	/* Try to get same pair of ports: if not, try to change them. */
- 	for (port = ntohs(rtp_exp->tuple.dst.u.udp.port);
--	     port != 0; port += 2) {
-+	     port <= USHRT_MAX; port += 2) {
- 		int ret;
- 
- 		rtp_exp->tuple.dst.u.udp.port = htons(port);
+So we'll have mvpp2_{read,write} that read/write through the register
+window of CPU0, used for all non-per CPU register accesses. And we'll
+have mvpp2_percpu_{read,write}, taking an additional "cpu" argument,
+used for per-CPU register accesses. Thanks to "cpu" being passed as
+argument, the caller can ensure the same cpu window is used to do
+several reads/writes in a row.
+
+Best regards,
+
+Thomas
 -- 
-1.9.1
-
-
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
