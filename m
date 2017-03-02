@@ -1,200 +1,97 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 194763] New: bond0 fails to accept MTU change.
-Date: Thu, 2 Mar 2017 10:31:52 -0800
-Message-ID: <20170302103152.59d0178e@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:36344 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751256AbdCBSkS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 13:40:18 -0500
-Received: by mail-pg0-f43.google.com with SMTP id s67so34893677pgb.3
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 10:39:27 -0800 (PST)
-Received: from xeon-e3 (204-195-18-65.wavecable.com. [204.195.18.65])
-        by smtp.gmail.com with ESMTPSA id s26sm18636373pge.33.2017.03.02.10.31.59
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
-        Thu, 02 Mar 2017 10:31:59 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 24/26] ocfs2: reduce stack size with KASAN
+Date: Thu,  2 Mar 2017 17:38:32 +0100
+Message-ID: <20170302163834.2273519-25-arnd@arndb.de>
+References: <20170302163834.2273519-1-arnd@arndb.de>
+Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        kernel-build-reports@lists.linaro.org,
+        "David S . Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, Joe Perches <joe@perches.com>
+To: kasan-dev@googlegroups.com
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <20170302163834.2273519-1-arnd@arndb.de>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The internal logging infrastructure in ocfs2 causes special warning code to be
+used with KASAN, which produces rather large stack frames:
 
+fs/ocfs2/super.c: In function 'ocfs2_fill_super':
+fs/ocfs2/super.c:1219:1: error: the frame size of 3264 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
 
-Begin forwarded message:
+By simply passing the mask by value instead of reference, we can avoid the
+problem completely. On 64-bit architectures, this is also more efficient,
+while on the less common (at least among ocfs2 users) 32-bit architectures,
+I'm guessing that the resulting code is comparable to what it was before.
 
-Date: Thu, 02 Mar 2017 11:22:24 +0000
-From: bugzilla-daemon@bugzilla.kernel.org
-To: stephen@networkplumber.org
-Subject: [Bug 194763] New: bond0 fails to accept MTU change.
+The current version was introduced by Joe Perches as an optimization, maybe
+he can see if my change regresses compared to his.
 
+Cc: Joe Perches <joe@perches.com>
+Fixes: 7c2bd2f930ae ("ocfs2: reduce object size of mlog uses")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ fs/ocfs2/cluster/masklog.c | 10 +++++-----
+ fs/ocfs2/cluster/masklog.h |  4 ++--
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-https://bugzilla.kernel.org/show_bug.cgi?id=194763
-
-            Bug ID: 194763
-           Summary: bond0 fails to accept MTU change.
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.10.1
-          Hardware: Intel
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: stephen@networkplumber.org
-          Reporter: daznis@gmail.com
-        Regression: No
-
-Bond0 interface doesn't accept MTU higher than 1500.I can set MTU perfectly
-fine for the slave devices. Recreating the bond0 didn't help to up the MTU. 
-
-
-
-05:00.0 Ethernet controller: Intel Corporation 82599ES 10-Gigabit SFI/SFP+
-Network Connection (rev 01)
-05:00.1 Ethernet controller: Intel Corporation 82599ES 10-Gigabit SFI/SFP+
-Network Connection (rev 01)
-
-[ 1626.840818] bond0: Invalid MTU 9000 requested, hw max 1500
-[ 1668.913497] ixgbe 0000:05:00.0 enp5s0f0: changing MTU from 1500 to 9000
-[ 1669.176015] ixgbe 0000:05:00.0 enp5s0f0: speed changed to 0 for port
-enp5s0f0
-[ 1669.237523] ixgbe 0000:05:00.0 enp5s0f0: detected SFP+: 5
-[ 1669.487920] ixgbe 0000:05:00.0 enp5s0f0: NIC Link is Up 10 Gbps, Flow
-Control: RX/TX
-[ 1675.591234] ixgbe 0000:05:00.1 enp5s0f1: changing MTU from 1500 to 9000
-[ 1675.855232] ixgbe 0000:05:00.1 enp5s0f1: speed changed to 0 for port
-enp5s0f1
-[ 1675.911259] ixgbe 0000:05:00.1 enp5s0f1: detected SFP+: 6
-[ 1676.159087] ixgbe 0000:05:00.1 enp5s0f1: NIC Link is Up 10 Gbps, Flow
-Control: RX/TX
-[ 1684.745389] bond0: Invalid MTU 9000 requested, hw max 1500
-
-
-
-
-Bonding Mode: IEEE 802.3ad Dynamic link aggregation
-Transmit Hash Policy: layer3+4 (1)
-MII Status: up
-MII Polling Interval (ms): 0
-Up Delay (ms): 0
-Down Delay (ms): 0
-
-802.3ad info
-LACP rate: slow
-Min links: 0
-Aggregator selection policy (ad_select): stable
-System priority: 65535
-System MAC address: 90:e2:ba:15:68:20
-Active Aggregator Info:
-        Aggregator ID: 2
-        Number of ports: 2
-        Actor Key: 13
-        Partner Key: 221
-        Partner Mac Address: 02:1c:73:b2:9a:29
-
-Slave Interface: enp5s0f0
-MII Status: up
-Speed: 10000 Mbps
-Duplex: full
-Link Failure Count: 0
-Permanent HW addr: 90:e2:ba:15:68:20
-Slave queue ID: 0
-Aggregator ID: 2
-Actor Churn State: none
-Partner Churn State: none
-Actor Churned Count: 0
-Partner Churned Count: 0
-details actor lacp pdu:
-    system priority: 65535
-    system mac address: 90:e2:ba:15:68:20
-    port key: 13
-    port priority: 255
-    port number: 1
-    port state: 61
-details partner lacp pdu:
-    system priority: 32768
-    system mac address: 02:1c:73:b2:9a:29
-    oper key: 221
-    port priority: 16000
-    port number: 373
-    port state: 61
-
-Slave Interface: enp5s0f1
-MII Status: up
-Speed: 10000 Mbps
-Duplex: full
-Link Failure Count: 0
-Permanent HW addr: 90:e2:ba:15:68:21
-Slave queue ID: 0
-Aggregator ID: 2
-Actor Churn State: none
-Partner Churn State: none
-Actor Churned Count: 0
-Partner Churned Count: 0
-details actor lacp pdu:
-    system priority: 65535
-    system mac address: 90:e2:ba:15:68:20
-    port key: 13
-    port priority: 255
-    port number: 2
-    port state: 61
-details partner lacp pdu:
-    system priority: 32768
-    system mac address: 02:1c:73:b2:9a:29
-    oper key: 221
-    port priority: 17000
-    port number: 33141
-    port state: 61
-
-Settings for enp5s0f0:
-        Supported ports: [ FIBRE ]
-        Supported link modes:   1000baseT/Full 
-                                10000baseT/Full 
-        Supported pause frame use: Symmetric
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Full 
-                                10000baseT/Full 
-        Advertised pause frame use: Symmetric
-        Advertised auto-negotiation: Yes
-        Speed: 10000Mb/s
-        Duplex: Full
-        Port: FIBRE
-        PHYAD: 0
-        Transceiver: external
-        Auto-negotiation: on
-        Supports Wake-on: d
-        Wake-on: d
-        Current message level: 0x00000007 (7)
-                               drv probe link
-        Link detected: yes
-
-Settings for enp5s0f1:
-        Supported ports: [ FIBRE ]
-        Supported link modes:   1000baseT/Full 
-                                10000baseT/Full 
-        Supported pause frame use: Symmetric
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Full 
-                                10000baseT/Full 
-        Advertised pause frame use: Symmetric
-        Advertised auto-negotiation: Yes
-        Speed: 10000Mb/s
-        Duplex: Full
-        Port: FIBRE
-        PHYAD: 0
-        Transceiver: external
-        Auto-negotiation: on
-        Supports Wake-on: d
-        Wake-on: d
-        Current message level: 0x00000007 (7)
-                               drv probe link
-        Link detected: yes
-
+diff --git a/fs/ocfs2/cluster/masklog.c b/fs/ocfs2/cluster/masklog.c
+index d331c2386b94..9720c5443e4d 100644
+--- a/fs/ocfs2/cluster/masklog.c
++++ b/fs/ocfs2/cluster/masklog.c
+@@ -64,7 +64,7 @@ static ssize_t mlog_mask_store(u64 mask, const char *buf, size_t count)
+ 	return count;
+ }
+ 
+-void __mlog_printk(const u64 *mask, const char *func, int line,
++void __mlog_printk(const u64 mask, const char *func, int line,
+ 		   const char *fmt, ...)
+ {
+ 	struct va_format vaf;
+@@ -72,14 +72,14 @@ void __mlog_printk(const u64 *mask, const char *func, int line,
+ 	const char *level;
+ 	const char *prefix = "";
+ 
+-	if (!__mlog_test_u64(*mask, mlog_and_bits) ||
+-	    __mlog_test_u64(*mask, mlog_not_bits))
++	if (!__mlog_test_u64(mask, mlog_and_bits) ||
++	    __mlog_test_u64(mask, mlog_not_bits))
+ 		return;
+ 
+-	if (*mask & ML_ERROR) {
++	if (mask & ML_ERROR) {
+ 		level = KERN_ERR;
+ 		prefix = "ERROR: ";
+-	} else if (*mask & ML_NOTICE) {
++	} else if (mask & ML_NOTICE) {
+ 		level = KERN_NOTICE;
+ 	} else {
+ 		level = KERN_INFO;
+diff --git a/fs/ocfs2/cluster/masklog.h b/fs/ocfs2/cluster/masklog.h
+index 308ea0eb35fd..0d0f4bf2c3d8 100644
+--- a/fs/ocfs2/cluster/masklog.h
++++ b/fs/ocfs2/cluster/masklog.h
+@@ -163,7 +163,7 @@ extern struct mlog_bits mlog_and_bits, mlog_not_bits;
+ #endif
+ 
+ __printf(4, 5)
+-void __mlog_printk(const u64 *m, const char *func, int line,
++void __mlog_printk(const u64 m, const char *func, int line,
+ 		   const char *fmt, ...);
+ 
+ /*
+@@ -174,7 +174,7 @@ void __mlog_printk(const u64 *m, const char *func, int line,
+ do {									\
+ 	u64 _m = MLOG_MASK_PREFIX | (mask);				\
+ 	if (_m & ML_ALLOWED_BITS)					\
+-		__mlog_printk(&_m, __func__, __LINE__, fmt,		\
++		__mlog_printk(_m, __func__, __LINE__, fmt,		\
+ 			      ##__VA_ARGS__);				\
+ } while (0)
+ 
 -- 
-You are receiving this mail because:
-You are the assignee for the bug.
+2.9.0
