@@ -1,114 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: net_enable_timestamp() can be called from irq
- contexts
-Date: Wed, 01 Mar 2017 14:28:39 -0800
-Message-ID: <1488407319.9415.315.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CACT4Y+bHh=mzTXw1J8vxbzimrQULss16B=693T4SMcndoNoPPg@mail.gmail.com>
-         <CANn89iL8XLopw+grdzMW6_vabiQjKrVL_q-u4-b1XcL_uRAPUw@mail.gmail.com>
-         <1488398879.9415.302.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488399119.9415.304.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>
+From: Robert Foss <robert.foss@collabora.com>
+Subject: [PATCH v1] qed: Fix copy of uninitialized memory
+Date: Wed,  1 Mar 2017 22:55:08 -0500
+Message-ID: <20170302035508.5731-1-robert.foss@collabora.com>
+Cc: Robert Foss <robert.foss@collabora.com>
+To: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
+        everest-linux-l2@cavium.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36185 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753041AbdCBD6L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 22:58:11 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 25so7857398pgy.3
-        for <netdev@vger.kernel.org>; Wed, 01 Mar 2017 19:58:11 -0800 (PST)
-In-Reply-To: <1488399119.9415.304.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:46094 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753378AbdCBED0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 23:03:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+In qed_ll2_start_ooo() the ll2_info variable is uninitialized and then
+passed to qed_ll2_acquire_connection() where it is copied into a new
+memory space.
 
-It is now very clear that silly TCP listeners might play with
-enabling/disabling timestamping while new children are added
-to their accept queue.
+This shouldn't cause any issue as long as non of the copied memory is
+every read.
+But the potential for a bug being introduced by reading this memory
+is real.
 
-Meaning net_enable_timestamp() can be called from BH context
-while current state of the static key is not enabled.
+Detected by CoverityScan, CID#1399632 ("Uninitialized scalar variable")
 
-Lets play safe and allow all contexts.
-
-The work queue is scheduled only under the problematic cases,
-which are the static key enable/disable transition, to not slow down
-critical paths.
-
-This extends and improves what we did in commit 5fa8bbda38c6 ("net: use
-a work queue to defer net_disable_timestamp() work")
-
-Fixes: b90e5794c5bd ("net: dont call jump_label_dec from irq context")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Robert Foss <robert.foss@collabora.com>
 ---
- net/core/dev.c |   35 +++++++++++++++++++++++++++++++----
- 1 file changed, 31 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e63bf61b19be029e30ac40443c0e2edb24de4a73..8637b2b71f3d4751366a2ca5ba46579e6a5fa953 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1698,27 +1698,54 @@ EXPORT_SYMBOL_GPL(net_dec_egress_queue);
- static struct static_key netstamp_needed __read_mostly;
- #ifdef HAVE_JUMP_LABEL
- static atomic_t netstamp_needed_deferred;
-+static atomic_t netstamp_wanted;
- static void netstamp_clear(struct work_struct *work)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+index 9a0b9af10a57..5fb34db377c8 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+@@ -968,7 +968,7 @@ static int qed_ll2_start_ooo(struct qed_dev *cdev,
  {
- 	int deferred = atomic_xchg(&netstamp_needed_deferred, 0);
-+	int wanted;
+ 	struct qed_hwfn *hwfn = QED_LEADING_HWFN(cdev);
+ 	u8 *handle = &hwfn->pf_params.iscsi_pf_params.ll2_ooo_queue_id;
+-	struct qed_ll2_conn ll2_info;
++	struct qed_ll2_conn ll2_info = { 0 };
+ 	int rc;
  
--	while (deferred--)
--		static_key_slow_dec(&netstamp_needed);
-+	wanted = atomic_add_return(deferred, &netstamp_wanted);
-+	if (wanted > 0)
-+		static_key_enable(&netstamp_needed);
-+	else
-+		static_key_disable(&netstamp_needed);
- }
- static DECLARE_WORK(netstamp_work, netstamp_clear);
- #endif
- 
- void net_enable_timestamp(void)
- {
-+#ifdef HAVE_JUMP_LABEL
-+	int wanted;
-+
-+	while (1) {
-+		wanted = atomic_read(&netstamp_wanted);
-+		if (wanted <= 0)
-+			break;
-+		if (atomic_cmpxchg(&netstamp_wanted, wanted, wanted + 1) == wanted)
-+			return;
-+	}
-+	atomic_inc(&netstamp_needed_deferred);
-+	schedule_work(&netstamp_work);
-+#else
- 	static_key_slow_inc(&netstamp_needed);
-+#endif
- }
- EXPORT_SYMBOL(net_enable_timestamp);
- 
- void net_disable_timestamp(void)
- {
- #ifdef HAVE_JUMP_LABEL
--	/* net_disable_timestamp() can be called from non process context */
--	atomic_inc(&netstamp_needed_deferred);
-+	int wanted;
-+
-+	while (1) {
-+		wanted = atomic_read(&netstamp_wanted);
-+		if (wanted <= 1)
-+			break;
-+		if (atomic_cmpxchg(&netstamp_wanted, wanted, wanted - 1) == wanted)
-+			return;
-+	}
-+	atomic_dec(&netstamp_needed_deferred);
- 	schedule_work(&netstamp_work);
- #else
- 	static_key_slow_dec(&netstamp_needed);
+ 	ll2_info.conn_type = QED_LL2_TYPE_ISCSI_OOO;
+-- 
+2.11.0.453.g787f75f05
