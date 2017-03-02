@@ -1,75 +1,75 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Thu, 02 Mar 2017 21:40:51 +0100
-Message-ID: <58B88353.2010508@iogearbox.net>
-References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com> <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 02/26] rewrite READ_ONCE/WRITE_ONCE
+Date: Thu, 2 Mar 2017 22:45:23 +0100
+Message-ID: <CAK8P3a2mepCjPfM9Ychk7CHFHi0UW8RBzK4skJKMSOjw3gKoYg@mail.gmail.com>
+References: <20170302163834.2273519-1-arnd@arndb.de> <20170302163834.2273519-3-arnd@arndb.de>
+ <76790664-a7a9-193c-2e30-edaee1308cb0@de.ibm.com> <CAK8P3a082Bi6Vf5gEFLAJtJvUm=7MtddBzcCOqagQyfJPFTu_g@mail.gmail.com>
+ <2adc6ff4-5dc5-8f1d-cce1-47f3124a528f@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>, ast@fb.com
-To: Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46825 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751101AbdCBVbs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 16:31:48 -0500
-In-Reply-To: <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: kasan-dev <kasan-dev@googlegroups.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-media@vger.kernel.org,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        kernel-build-reports@lists.linaro.org,
+        "David S . Miller" <davem@davemloft.net>,
+        Paul McKenney <paulmck@linux.vnet.ibm.com>
+To: Christian Borntraeger <borntraeger@de.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2adc6ff4-5dc5-8f1d-cce1-47f3124a528f@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/02/2017 09:23 PM, Fengguang Wu wrote:
-[...]
-> I confirm that the below patch provided by Daniel fixes the above
-> issues on mainline kernel, too. Where should this patch be sent to?
+On Thu, Mar 2, 2017 at 8:00 PM, Christian Borntraeger
+<borntraeger@de.ibm.com> wrote:
+> On 03/02/2017 06:55 PM, Arnd Bergmann wrote:
+>> On Thu, Mar 2, 2017 at 5:51 PM, Christian Borntraeger
+>> <borntraeger@de.ibm.com> wrote:
+>>> On 03/02/2017 05:38 PM, Arnd Bergmann wrote:
+>>>>
+>>>> This attempts a rewrite of the two macros, using a simpler implementation
+>>>> for the most common case of having a naturally aligned 1, 2, 4, or (on
+>>>> 64-bit architectures) 8  byte object that can be accessed with a single
+>>>> instruction.  For these, we go back to a volatile pointer dereference
+>>>> that we had with the ACCESS_ONCE macro.
+>>>
+>>> We had changed that back then because gcc 4.6 and 4.7 had a bug that could
+>>> removed the volatile statement on aggregate types like the following one
+>>>
+>>> union ipte_control {
+>>>         unsigned long val;
+>>>         struct {
+>>>                 unsigned long k  : 1;
+>>>                 unsigned long kh : 31;
+>>>                 unsigned long kg : 32;
+>>>         };
+>>> };
+>>>
+>>> See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58145
+>>>
+>>> If I see that right, your __ALIGNED_WORD(x)
+>>> macro would say that for above structure  sizeof(x) == sizeof(long)) is true,
+>>> so it would fall back to the old volatile cast and might reintroduce the
+>>> old compiler bug?
+>
+> Oh dear, I should double check my sentences in emails before sending...anyway
+> the full story is referenced in
+>
+> commit 60815cf2e05057db5b78e398d9734c493560b11e
+>     Merge tag 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/borntraeger/linux
+> which has a pointer to
+> http://marc.info/?i=54611D86.4040306%40de.ibm.com
+> which contains the full story.
 
-If nobody objects, I could send it to -net tree via Dave due to being
-BPF related, but I don't mind sending it elsewhere too (f.e. Linus
-directly?) in order to stop your bot from continuing to send such mails.
+Ok, got it. So I guess the behavior of forcing aligned accesses on aligned
+data is accidental, and allowing non-power-of-two arguments is also not
+the main purpose. Maybe we could just bail out on new compilers if we get
+either of those? That might catch code that accidentally does something
+that is inherently non-atomic or that causes a trap when the intention was
+to have a simple atomic access.
 
-The issue seems only related to i386 and doesn't trigger each time with
-Fengguang's kernel config and qemu image when I try to reproduce it.
-set_memory_ro()/set_memory_rw() on i386 seems to work in general, but
-when it's used/reproduced, from time to time (perhaps some corner-case?)
-it looks like that memory area can have issues much later on after being
-fed back to the allocator which then causes a GPF from random locations.
-Gut feeling, it might be an issue in set_memory_*() that my commit
-uncovered. Still looking into it, but mean-time I could just send the
-below, sure.
-
-Thanks,
-Daniel
-
-> It'd be very noisy if all these Oops hit the upcoming RC1 kernel.
->
-> Daniel thinks there may be deeper problem in i386 set_memory_rw().
-> However that could take much longer time to debug.
->
-> Thanks,
-> Fengguang
-> ---
->
-> Re: [bpf] 9d876e79df:  BUG: unable to handle kernel paging request at 653a8346
->
->> On Tue, Feb 28, 2017 at 04:39:36PM +0100, Daniel Borkmann wrote:
->
-> I have a rough feeling what it is, but I didn't have cycles to work on
-> it yet (due to travel, sorry about that). The issue is likely shut down
-> by just doing:
->
-> ---
-> arch/x86/Kconfig |    2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
->
-> --- linux.orig/arch/x86/Kconfig    2017-03-03 03:44:35.962022996 +0800
-> +++ linux/arch/x86/Kconfig    2017-03-03 03:44:35.962022996 +0800
-> @@ -54,7 +54,7 @@ config X86
->      select ARCH_HAS_KCOV            if X86_64
->      select ARCH_HAS_MMIO_FLUSH
->      select ARCH_HAS_PMEM_API        if X86_64
-> -    select ARCH_HAS_SET_MEMORY
-> +    select ARCH_HAS_SET_MEMORY        if X86_64
->      select ARCH_HAS_SG_CHAIN
->      select ARCH_HAS_STRICT_KERNEL_RWX
->      select ARCH_HAS_STRICT_MODULE_RWX
+     Arnd
