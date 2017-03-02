@@ -1,67 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [4.9.13] use after free in ipv4_mtu
-Date: Thu, 02 Mar 2017 05:28:01 -0800
-Message-ID: <1488461281.9415.327.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAMVG2ssDe2NMOZzeTF77H1zEEh3dBuT75bS6f81Tqd+3v_4J+g@mail.gmail.com>
-         <1488460104.9415.325.camel@edumazet-glaptop3.roam.corp.google.com>
+From: <tomasz.dzieciol@nokia.com>
+Subject: [PATCH] arp: Race condition in gratuitous ARP reception handling.
+Date: Thu, 2 Mar 2017 14:59:47 +0100
+Message-ID: <1488463187-17365-1-git-send-email-tomasz.dzieciol@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Stephen Hemminger <shemminger@vyatta.com>
-To: Daniel J Blueman <daniel@quora.org>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36766 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751229AbdCBN7u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 08:59:50 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 25so9426813pgy.3
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 05:58:08 -0800 (PST)
-In-Reply-To: <1488460104.9415.325.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-eopbgr20098.outbound.protection.outlook.com ([40.107.2.98]:49664
+        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752560AbdCBOB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Mar 2017 09:01:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-03-02 at 05:08 -0800, Eric Dumazet wrote:
+From: Tomasz Dzieciol <tomasz.dzieciol@nokia.com>
 
-> Thanks for the report !
-> 
-> This patch should solve this precise issue, but we need more work.
-> 
-> We need to audit all __sk_dst_get() and make sure they are inside an
-> rcu_read_lock()/rcu_read_unlock() section.
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 22548b5f05cbe5a655e0c53df2d31c5cc2e8a702..517963e1cb6eb9d70fcd71f44262813c3378759f 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1459,7 +1459,7 @@ EXPORT_SYMBOL(tcp_sync_mss);
->  unsigned int tcp_current_mss(struct sock *sk)
->  {
->  	const struct tcp_sock *tp = tcp_sk(sk);
-> -	const struct dst_entry *dst = __sk_dst_get(sk);
-> +	const struct dst_entry *dst;
->  	u32 mss_now;
->  	unsigned int header_len;
->  	struct tcp_out_options opts;
-> @@ -1467,11 +1467,14 @@ unsigned int tcp_current_mss(struct sock *sk)
->  
->  	mss_now = tp->mss_cache;
->  
-> +	rcu_read_lock();
-> +	dst = __sk_dst_get(sk);
->  	if (dst) {
->  		u32 mtu = dst_mtu(dst);
->  		if (mtu != inet_csk(sk)->icsk_pmtu_cookie)
->  			mss_now = tcp_sync_mss(sk, mtu);
->  	}
-> +	rcu_read_unlock();
->  
->  	header_len = tcp_established_options(sk, NULL, &opts, &md5) +
->  		     sizeof(struct tcphdr);
-> 
+Fix an issue where is_garp variable is not set when arp_accept option is
+disabled for a net device. There might be a situation where gratuitous ARP
+will be ignored when an existing neighbour is updated in a time smaller
+than LOCKTIME (for example by a timer - transition between states).
 
-Normally TCP sockets sk_dst_cache can only be changed if the thread
-doing the change owns the socket.
+Signed-off-by: Tomasz Dzieciol <tomasz.dzieciol@nokia.com>
+---
+ net/ipv4/arp.c | 24 +++++++++++++++++++++---
+ 1 file changed, 21 insertions(+), 3 deletions(-)
 
-I have not yet understood which point was breaking the rule yet.
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 51b27ae..9fd23c9 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -641,6 +641,13 @@ void arp_xmit(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(arp_xmit);
+ 
++static inline bool arp_is_gratuitous(unsigned int addr_type,
++				     int op, __be32 sip, __be32 tip)
++{
++	return op == ARPOP_REQUEST && tip == sip &&
++		addr_type == RTN_UNICAST;
++}
++
+ /*
+  *	Process an arp request.
+  */
+@@ -836,19 +843,30 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
+ 
+ 	if (IN_DEV_ARP_ACCEPT(in_dev)) {
+-		unsigned int addr_type = inet_addr_type_dev_table(net, dev, sip);
++		unsigned int addr_type = inet_addr_type_dev_table(net,
++								  dev, sip);
+ 
+ 		/* Unsolicited ARP is not accepted by default.
+ 		   It is possible, that this option should be enabled for some
+ 		   devices (strip is candidate)
+ 		 */
+-		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
+-			  addr_type == RTN_UNICAST;
++		is_garp = arp_is_gratuitous(addr_type, ntohs(arp->ar_op),
++					    sip, tip);
+ 
+ 		if (!n &&
+ 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
+ 				addr_type == RTN_UNICAST) || is_garp))
+ 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
++	} else if (n) {
++		unsigned int addr_type = inet_addr_type_dev_table(net,
++								  dev, sip);
++
++		/* If the ARP table already contains the IP address of the
++		   gratuitous arp frame, the arp table will be updated
++		   regardless if this setting is on or off.
++		 */
++		is_garp = arp_is_gratuitous(addr_type, ntohs(arp->ar_op),
++					    sip, tip);
+ 	}
+ 
+ 	if (n) {
+-- 
+2.5.0
