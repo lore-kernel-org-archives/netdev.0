@@ -1,60 +1,71 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/dccp: dccp_create_openreq_child freed held lock
-Date: Thu, 2 Mar 2017 11:11:06 +0100
-Message-ID: <CACT4Y+ZNrE4k24gHSqTVL5DdQY8Ogj0oob9pS7NM5xDs1Bd1HA@mail.gmail.com>
-References: <CACT4Y+ZOAWRzJH3=xJ1z5bFVCM2-smuVSykziQPhSgkv1k3FBQ@mail.gmail.com>
- <20170301153510.GE15145@kernel.org>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH] netvsc: fix use-after-free in netvsc_change_mtu()
+Date: Thu, 2 Mar 2017 13:00:53 +0000
+Message-ID: <MWHPR03MB266949159A2BCA01B5EBB778BF280@MWHPR03MB2669.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f171.google.com ([209.85.217.171]:35720 "EHLO
-        mail-ua0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751302AbdCBM7u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 07:59:50 -0500
-Received: by mail-ua0-f171.google.com with SMTP id q7so43439092uaf.2
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 04:58:50 -0800 (PST)
-In-Reply-To: <20170301153510.GE15145@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+ Stephen Hemminger <sthemmin@microsoft.com>, KY Srinivasan
+ <kys@microsoft.com>, Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 1, 2017 at 4:35 PM, Arnaldo Carvalho de Melo
-<acme@kernel.org> wrote:
-> Em Wed, Mar 01, 2017 at 10:38:54AM +0100, Dmitry Vyukov escreveu:
->> Hello,
->>
->> I've got the following report while running syzkaller fuzzer on
->> 86292b33d4b79ee03e2f43ea0381ef85f077c760:
->>
->>
->> It seems that dccp_create_openreq_child needs to unlock the sock if
->> dccp_feat_activate_values fails.
->
-> Yeah, can you please use the patch below, that mimics the error paths in
-> sk_clone_new(), from where I think even the comment about it being a raw
-> copy came, but the bh_unlock_sock() didn't?
->
-> - Arnaldo
->
-> diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
-> index 53eddf99e4f6..d20d948a98ed 100644
-> --- a/net/dccp/minisocks.c
-> +++ b/net/dccp/minisocks.c
-> @@ -122,6 +122,7 @@ struct sock *dccp_create_openreq_child(const struct sock *sk,
->                         /* It is still raw copy of parent, so invalidate
->                          * destructor and make plain sk_free() */
->                         newsk->sk_destruct = NULL;
-> +                       bh_unlock_sock(newsk);
->                         sk_free(newsk);
->                         return NULL;
->                 }
+'nvdev' is freed in rndis_filter_device_remove -> netvsc_device_remove ->
+free_netvsc_device, so we mustn't access it, before it's re-created in
+rndis_filter_device_add -> netvsc_device_add.
 
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-Applied the patch on bots. Will report if it happens again.
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 2d3cdb0..bc05c89 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -859,15 +859,22 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	if (ret)
+ 		goto out;
+ 
++	memset(&device_info, 0, sizeof(device_info));
++	device_info.ring_size = ring_size;
++	device_info.num_chn = nvdev->num_chn;
++	device_info.max_num_vrss_chns = nvdev->num_chn;
++
+ 	ndevctx->start_remove = true;
+ 	rndis_filter_device_remove(hdev, nvdev);
+ 
++	/* 'nvdev' has been freed in rndis_filter_device_remove() ->
++	 * netvsc_device_remove () -> free_netvsc_device().
++	 * We mustn't access it before it's re-created in
++	 * rndis_filter_device_add() -> netvsc_device_add().
++	 */
++
+ 	ndev->mtu = mtu;
+ 
+-	memset(&device_info, 0, sizeof(device_info));
+-	device_info.ring_size = ring_size;
+-	device_info.num_chn = nvdev->num_chn;
+-	device_info.max_num_vrss_chns = nvdev->num_chn;
+ 	rndis_filter_device_add(hdev, &device_info);
+ 
+ out:
+-- 
+2.7.4
