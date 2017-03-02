@@ -1,74 +1,26 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: BUG due to "xen-netback: protect resource cleaning
- on XenBus disconnect"
-Date: Thu, 2 Mar 2017 09:25:35 -0500
-Message-ID: <969001fa-d76f-801a-28c9-9b65d06cb351@oracle.com>
-References: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
+From: Viet Xuan Luong <irawati@imr.gov.my>
+Subject: Spam : Re
+Date: Thu, 2 Mar 2017 19:29:24 +0800 (MYT)
+Message-ID: <174332263.1631354.1488454164365.JavaMail.root@imr.gov.my>
+Reply-To: Viet Xuan Luong <vietxuanluong11@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Paul Durrant <paul.durrant@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
- David Miller <davem@davemloft.net>
-To: Juergen Gross <jgross@suse.com>, igor.druzhinin@citrix.com,
- xen-devel <xen-devel@lists.xenproject.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.imr.gov.my ([175.28.13.117]:42257 "EHLO mx2.imr.gov.my"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752631AbdCBO3A (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Mar 2017 09:29:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDMvMDIvMjAxNyAwNjo1NiBBTSwgSnVlcmdlbiBHcm9zcyB3cm90ZToKPiBXaXRoIGNvbW1p
-dHMgZjE2ZjFkZjY1IGFuZCA5YTZjZGY1MmIgd2UgZ2V0IGluIG91ciBYZW4gdGVzdGluZzoKPgo+
-IFsgIDE3NC41MTI4NjFdIHN3aXRjaDogcG9ydCAyKHZpZjMuMCkgZW50ZXJlZCBkaXNhYmxlZCBz
-dGF0ZQo+IFsgIDE3NC41MjI3MzVdIEJVRzogc2xlZXBpbmcgZnVuY3Rpb24gY2FsbGVkIGZyb20g
-aW52YWxpZCBjb250ZXh0IGF0Cj4gL2hvbWUvYnVpbGQvbGludXgtbGludXMvbW0vdm1hbGxvYy5j
-OjE0NDEKPiBbICAxNzQuNTIzNDUxXSBpbl9hdG9taWMoKTogMSwgaXJxc19kaXNhYmxlZCgpOiAw
-LCBwaWQ6IDI4LCBuYW1lOiB4ZW53YXRjaAo+IFsgIDE3NC41MjQxMzFdIENQVTogMSBQSUQ6IDI4
-IENvbW06IHhlbndhdGNoIFRhaW50ZWQ6IEcgICAgICAgIFcKPiA0LjEwLjB1cHN0cmVhbS0xMTA3
-My1nNDk3N2FiNi1kaXJ0eSAjMQo+IFsgIDE3NC41MjQ4MTldIEhhcmR3YXJlIG5hbWU6IE1TSSBN
-Uy03NjgwL0g2MU0tUDIzIChNUy03NjgwKSwgQklPUyBWMTcuMAo+IDAzLzE0LzIwMTEKPiBbICAx
-NzQuNTI1NTE3XSBDYWxsIFRyYWNlOgo+IFsgIDE3NC41MjYyMTddICBzaG93X3N0YWNrKzB4MjMv
-MHg2MAo+IFsgIDE3NC41MjY4OTldICBkdW1wX3N0YWNrKzB4NWIvMHg4OAo+IFsgIDE3NC41Mjc1
-NjJdICBfX19taWdodF9zbGVlcCsweGRlLzB4MTMwCj4gWyAgMTc0LjUyODIwOF0gIF9fbWlnaHRf
-c2xlZXArMHgzNS8weGEwCj4gWyAgMTc0LjUyODg0MF0gID8gX3Jhd19zcGluX3VubG9ja19pcnFy
-ZXN0b3JlKzB4MTMvMHgyMAo+IFsgIDE3NC41Mjk0NjNdICA/IF9fd2FrZV91cCsweDQwLzB4NTAK
-PiBbICAxNzQuNTMwMDg5XSAgcmVtb3ZlX3ZtX2FyZWErMHgyMC8weDkwCj4gWyAgMTc0LjUzMDcy
-NF0gIF9fdnVubWFwKzB4MWQvMHhjMAo+IFsgIDE3NC41MzEzNDZdICA/IGRlbGV0ZV9vYmplY3Rf
-ZnVsbCsweDEzLzB4MjAKPiBbICAxNzQuNTMxOTczXSAgdmZyZWUrMHg0MC8weDgwCj4gWyAgMTc0
-LjUzMjU5NF0gIHNldF9iYWNrZW5kX3N0YXRlKzB4MThhLzB4YTkwCj4gWyAgMTc0LjUzMzIyMV0g
-ID8gZHdjX3NjYW5fZGVzY3JpcHRvcnMrMHgyNGQvMHg0MzAKPiBbICAxNzQuNTMzODUwXSAgPyBr
-ZnJlZSsweDViLzB4YzAKPiBbICAxNzQuNTM0NDc2XSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAK
-PiBbICAxNzQuNTM1MTAxXSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAKPiBbICAxNzQuNTM1NzE4
-XSAgPyB4ZW5idXNfZ2F0aGVyKzB4MzEvMHg5MAo+IFsgIDE3NC41MzYzMzJdICA/IF9fX21pZ2h0
-X3NsZWVwKzB4ZjYvMHgxMzAKPiBbICAxNzQuNTM2OTQ1XSAgZnJvbnRlbmRfY2hhbmdlZCsweDZi
-LzB4ZDAKPiBbICAxNzQuNTM3NTY1XSAgeGVuYnVzX290aGVyZW5kX2NoYW5nZWQrMHg3ZC8weDgw
-Cj4gWyAgMTc0LjUzODE4NV0gIGZyb250ZW5kX2NoYW5nZWQrMHgxMi8weDIwCj4gWyAgMTc0LjUz
-ODgwM10gIHhlbndhdGNoX3RocmVhZCsweDc0LzB4MTEwCj4gWyAgMTc0LjUzOTQxN10gID8gd29r
-ZW5fd2FrZV9mdW5jdGlvbisweDIwLzB4MjAKPiBbICAxNzQuNTQwMDQ5XSAga3RocmVhZCsweGU1
-LzB4MTIwCj4gWyAgMTc0LjU0MDY2M10gID8geGVuYnVzX3ByaW50ZisweDUwLzB4NTAKPiBbICAx
-NzQuNTQxMjc4XSAgPyBfX2t0aHJlYWRfaW5pdF93b3JrZXIrMHg0MC8weDQwCj4gWyAgMTc0LjU0
-MTg5OF0gIHJldF9mcm9tX2ZvcmsrMHgyMS8weDJjCj4gWyAgMTc0LjU0ODYzNV0gc3dpdGNoOiBw
-b3J0IDIodmlmMy4wKSBlbnRlcmVkIGRpc2FibGVkIHN0YXRlCj4KPiBJIGJlbGlldmUgY2FsbGlu
-ZyB2ZnJlZSgpIHdoZW4gaG9sZGluZyBhIHNwaW5fbG9jayBpc24ndCBhIGdvb2QgaWRlYS4KPgo+
-IEJvcmlzLCB0aGlzIGlzIHRoZSBkdW1wZGF0YSBmYWlsdXJlOgo+IEZBSUxVUkUgNC4xMC4wdXBz
-dHJlYW0tMTEwNzMtZzQ5NzdhYjYtZGlydHkoeDg2XzY0KQo+IDQuMTAuMHVwc3RyZWFtLTExMDcz
-LWc0OTc3YWI2LWRpcnR5KGkzODYpXDogMjAxNy0wMy0wMiAodHN0MDA3KQoKClRoYXQncyBub3Qg
-dGhlIGNhdXNlIG9mIHRoZSB0ZXN0IGZhaWx1cmUgdGhvdWdoIC0tLSBpdCdzICJqdXN0IiBhIHdh
-cm5pbmcuCgpUaGUgcHJvYmxlbSBoZXJlIHdhcyB0aGF0IDY0LSBhbmQgMzItYml0IGJ1aWxkIHRy
-ZWVzIGdvdCBvdXQgb2Ygc3luYwood2hpY2ggaXMgbXkgZmF1bHQsIEkgc3dpdGNoZWQgdGhlIGZv
-cm1lciB0byBzdGFnaW5nIGJ1dCBmb3Jnb3QgdG8gZG8KdGhlIHNhbWUgZm9yIHRoZSBsYXR0ZXIp
-LiBXZSBoYXZlIGluICB0aGUgbG9nOgoKbGlieGw6IGVycm9yOiBsaWJ4bF9jcmVhdGUuYzo1NjQ6
-bGlieGxfX2RvbWFpbl9tYWtlOiBkb21haW4gY3JlYXRpb24KZmFpbDogT3BlcmF0aW9uIG5vdCBz
-dXBwb3J0ZWQKbGlieGw6IGVycm9yOiBsaWJ4bF9jcmVhdGUuYzo5MzE6aW5pdGlhdGVfZG9tYWlu
-X2NyZWF0ZTogY2Fubm90IG1ha2UKZG9tYWluOiAtMwoKSSBub3cgaGF2ZSBib3RoIHRyZWVzIHVz
-ZSBzdGFnaW5nLgoKLWJvcmlzCgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5v
-cmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+
+
+
+
+I am Viet Xuan Luong. I am an American soldier presently on active service with 4th Squadron battalion here in Afghanistan. I served with the third Infantry Division in Iraq before thousand of my lucky colleagues were pulled out in August Last year, leaving me among the unlucky ones drafted to Afghanistan where I am serving presently. Am seeking your urgent help, please get back to me via email and I will tell you more about it thank you and God bless you.
+
+
+Respectfully submitted.
+Viet Xuan Luong
