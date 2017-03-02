@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v4 0/2] net: ethernet: bgmac: bug fixes
-Date: Thu, 02 Mar 2017 12:50:15 -0800 (PST)
-Message-ID: <20170302.125015.275943458708603387.davem@davemloft.net>
-References: <1488307311-11933-1-git-send-email-jon.mason@broadcom.com>
+Subject: Re: [PATCH net v1 0/3] amd-xgbe: AMD XGBE driver fixes 2017-02-28
+Date: Thu, 02 Mar 2017 13:02:42 -0800 (PST)
+Message-ID: <20170302.130242.1337867667174030884.davem@davemloft.net>
+References: <20170228210242.32166.30038.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jon.mason@broadcom.com
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38298 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38334 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750972AbdCBVBq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 16:01:46 -0500
-In-Reply-To: <1488307311-11933-1-git-send-email-jon.mason@broadcom.com>
+        with ESMTP id S1751102AbdCBVCn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 16:02:43 -0500
+In-Reply-To: <20170228210242.32166.30038.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Mason <jon.mason@broadcom.com>
-Date: Tue, 28 Feb 2017 13:41:49 -0500
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Tue, 28 Feb 2017 15:02:42 -0600
 
-> Changes in v4:
-> * Added the udelays from the previous code (per David Miller)
+> This patch series addresses some issues in the AMD XGBE driver.
 > 
-> Changes in v3:
-> * Reworked the init sequence patch to only remove the device reset if
->   the device is actually in reset.  Given that this code doesn't bear
->   much resemblance to the original code, I'm changing the author of the
->   patch.  This was tested on NS2 SVK.
+> The following fixes are included in this driver update series:
 > 
-> Changes in v2:
-> * Reworked the first match to make it more obvious what portions of the
->   register were being preserved (Per Rafal Mileki)
-> * Style change to reorder the function variables in patch 2 (per Sergei
->   Shtylyov)
+> - Stop the PHY before disabling and releasing device interrupts so that
+>   MDIO requests issued by the device can be properly handled
+> - Set the MDIO communication mode on device startup, not just device
+>   probe
+> - Do not overwrite SFP settings when mod_absent is detected
 > 
-> Bug fixes for bgmac driver
+> This patch series is based on net.
 
-Series applied.
+Series applied, thanks.
