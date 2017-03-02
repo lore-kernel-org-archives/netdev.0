@@ -1,148 +1,51 @@
-From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-Subject: [PATCH] fjes: Do not load fjes driver if system does not have
- extended socket device.
-Date: Thu, 2 Mar 2017 11:56:44 -0500
-Message-ID: <fb537059-35b3-3dce-23fb-9a59e8f6926a@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net v3] ipv6: check for ip6_null_entry in
+ __ip6_del_rt_siblings()
+Date: Thu, 02 Mar 2017 12:45:03 -0800 (PST)
+Message-ID: <20170302.124503.746554950603549261.davem@davemloft.net>
+References: <1488240463-12000-1-git-send-email-xiyou.wangcong@gmail.com>
+        <8a8f59e9-c2b4-d630-4cc7-faf7172773be@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, izumi.taku@jp.fujitsu.com
-To: netdev@vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+        andreyknvl@google.com, eric.dumazet@gmail.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:33426 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751076AbdCBUsS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 15:48:18 -0500
-Received: by mail-qk0-f196.google.com with SMTP id j127so4030922qke.0
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 12:47:09 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:38250 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751016AbdCBUyV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 15:54:21 -0500
+In-Reply-To: <8a8f59e9-c2b4-d630-4cc7-faf7172773be@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fjes driver is used only by FUJITSU servers and almost of all
-servers in the world never use it. But currently if ACPI PNP0C02
-is defined in the ACPI table, the following message is always shown:
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 1 Mar 2017 15:03:45 -0800
 
-  "FUJITSU Extended Socket Network Device Driver - version 1.2
-   - Copyright (c) 2015 FUJITSU LIMITED"
+> On 2/27/17 4:07 PM, Cong Wang wrote:
+>> Andrey reported a NULL pointer deref bug in ipv6_route_ioctl()
+>> -> ip6_route_del() -> __ip6_del_rt_siblings() code path. This is
+>> because ip6_null_entry is returned in this path since ip6_null_entry
+>> is kinda default for a ipv6 route table root node. Quote from
+>> David Ahern:
+>> 
+>>  ip6_null_entry is the root of all ipv6 fib tables making it integrated
+>>  into the table ...
+>> 
+>> We should ignore any attempt of trying to delete it, like we do in
+>> __ip6_del_rt() path and several others.
+>> 
+>> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+>> Fixes: 0ae8133586ad ("net: ipv6: Allow shorthand delete of all nexthops in multipath route")
+>> Cc: David Ahern <dsa@cumulusnetworks.com>
+>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
+>>  net/ipv6/route.c | 14 +++++++++-----
+>>  1 file changed, 9 insertions(+), 5 deletions(-)
+> 
+> 
+> Acked-by: David Ahern <dsa@cumulusnetworks.com>
 
-The message makes users confused because there is no reason that
-the message is shown in other vendor servers.
-
-To avoid the confusion, the patch adds a check that the server
-has a extended socket device or not.
-
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-CC: Taku Izumi <izumi.taku@jp.fujitsu.com>
----
-  drivers/net/fjes/fjes_main.c | 52 +++++++++++++++++++++++++++++++++++++++-----
-  1 file changed, 47 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index b77e4ecf..fe58c01 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -45,6 +45,8 @@
-  MODULE_LICENSE("GPL");
-  MODULE_VERSION(DRV_VERSION);
-
-+#define ACPI_MOTHERBOARD_RESOURCE_HID "PNP0C02"
-+
-  static int fjes_request_irq(struct fjes_adapter *);
-  static void fjes_free_irq(struct fjes_adapter *);
-
-@@ -79,7 +81,7 @@
-  static int fjes_poll(struct napi_struct *, int);
-
-  static const struct acpi_device_id fjes_acpi_ids[] = {
--	{"PNP0C02", 0},
-+	{ACPI_MOTHERBOARD_RESOURCE_HID, 0},
-  	{"", 0},
-  };
-  MODULE_DEVICE_TABLE(acpi, fjes_acpi_ids);
-@@ -116,18 +118,17 @@
-  	},
-  };
-
--static int fjes_acpi_add(struct acpi_device *device)
-+static bool is_extended_socket_device(struct acpi_device *device)
-  {
-  	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL};
-  	char str_buf[sizeof(FJES_ACPI_SYMBOL) + 1];
--	struct platform_device *plat_dev;
-  	union acpi_object *str;
-  	acpi_status status;
-  	int result;
-
-  	status = acpi_evaluate_object(device->handle, "_STR", NULL, &buffer);
-  	if (ACPI_FAILURE(status))
--		return -ENODEV;
-+		return false;
-
-  	str = buffer.pointer;
-  	result = utf16s_to_utf8s((wchar_t *)str->string.pointer,
-@@ -137,10 +138,21 @@ static int fjes_acpi_add(struct acpi_device *device)
-
-  	if (strncmp(FJES_ACPI_SYMBOL, str_buf, strlen(FJES_ACPI_SYMBOL)) != 0) {
-  		kfree(buffer.pointer);
--		return -ENODEV;
-+		return false;
-  	}
-  	kfree(buffer.pointer);
-
-+	return true;
-+}
-+
-+static int fjes_acpi_add(struct acpi_device *device)
-+{
-+	struct platform_device *plat_dev;
-+	acpi_status status;
-+
-+	if (!is_extended_socket_device(device))
-+		return -ENODEV;
-+
-  	status = acpi_walk_resources(device->handle, METHOD_NAME__CRS,
-  				     fjes_get_acpi_resource, fjes_resource);
-  	if (ACPI_FAILURE(status))
-@@ -1476,10 +1488,40 @@ static void fjes_watch_unshare_task(struct work_struct *work)
-  	}
-  }
-
-+static acpi_status
-+acpi_find_extended_socket_device(acpi_handle obj_handle, u32 level,
-+				 void *context, void **return_value)
-+{
-+	struct acpi_device *device;
-+	bool *found = context;
-+	int result;
-+
-+	result = acpi_bus_get_device(obj_handle, &device);
-+	if (result)
-+		return AE_OK;
-+
-+	if (strcmp(acpi_device_hid(device), ACPI_MOTHERBOARD_RESOURCE_HID))
-+		return AE_OK;
-+
-+	if (!is_extended_socket_device(device))
-+		return AE_OK;
-+
-+	*found = true;
-+	return AE_CTRL_TERMINATE;
-+}
-+
-  /* fjes_init_module - Driver Registration Routine */
-  static int __init fjes_init_module(void)
-  {
-  	int result;
-+	bool found = false;
-+
-+	acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
-+			    acpi_find_extended_socket_device, NULL, &found,
-+			    NULL);
-+
-+	if (!found)
-+		return -ENODEV;
-
-  	pr_info("%s - version %s - %s\n",
-  		fjes_driver_string, fjes_driver_version, fjes_copyright);
--- 
-1.8.3.1
+Applied, thanks.
