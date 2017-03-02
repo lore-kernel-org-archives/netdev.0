@@ -1,88 +1,91 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Fw: [Bug 194749] New: kernel bonding does not work in a network
- nameservice in versions above 3.10.0-229.20.1
-Date: Thu, 2 Mar 2017 12:11:29 -0800
-Message-ID: <CAM_iQpVm_WK9X+3Vsm0OrFCOd3Srn-s+xqe9fQtoT=30JZeVJQ@mail.gmail.com>
-References: <20170302103219.74b675c5@xeon-e3>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Fri, 3 Mar 2017 04:23:38 +0800
+Message-ID: <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com>
+References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        chenweilong@huawei.com, dan@polter.net,
-        Jiri Pirko <jiri@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f178.google.com ([209.85.128.178]:35212 "EHLO
-        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751262AbdCBUVK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 15:21:10 -0500
-Received: by mail-wr0-f178.google.com with SMTP id g10so60670841wrg.2
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 12:21:09 -0800 (PST)
-In-Reply-To: <20170302103219.74b675c5@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 2, 2017 at 10:32 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
+On Wed, Mar 01, 2017 at 08:54:26PM +0800, Fengguang Wu wrote:
+>Hi all,
 >
->
-> Begin forwarded message:
->
-> Date: Wed, 01 Mar 2017 21:08:01 +0000
-> From: bugzilla-daemon@bugzilla.kernel.org
-> To: stephen@networkplumber.org
-> Subject: [Bug 194749] New: kernel bonding does not work in a network nameservice in versions above 3.10.0-229.20.1
->
->
-> https://bugzilla.kernel.org/show_bug.cgi?id=194749
->
->             Bug ID: 194749
->            Summary: kernel bonding does not work in a network nameservice
->                     in versions above 3.10.0-229.20.1
->            Product: Networking
->            Version: 2.5
->     Kernel Version: > 3.10.0-229.20.1
->           Hardware: x86-64
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: blocking
->           Priority: P1
->          Component: Other
->           Assignee: stephen@networkplumber.org
->           Reporter: dan@polter.net
->         Regression: No
->
-> bond interface is being used in active/standby mode with two physical NICs
-> inside a network nameservice to provide switchpath redundancy.
->
-> netns is instantiated post-boot with the following:
->
-> ip netns add vntp
-> ip link set p4p1 netns vntp
-> ip link set p4p2 netns vntp
-> ip link set bond0 netns vntp
-> ip netns exec vntp ip link set lo up
-> ip netns exec vntp ip link set p4p1 up
-> ip netns exec vntp ip link set p4p2 up
-> ip netns exec vntp ip link set bond0 up
-> ip netns exec vntp ifenslave bond0 p4p1 p4p2
+>Is it BPF triggering BUGs all over the places?
 
-This is due to the following commit:
+It looks so, and here is a fix.
 
-commit f9399814927ad9bb995a6e109c2a5f9d8a848209
-Author: Weilong Chen <chenweilong@huawei.com>
-Date:   Wed Jan 22 17:16:30 2014 +0800
+>1e74a2eb1f  Merge tag 'gcc-plugins-v4.11-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/kees/linux
+>005c3490e9  Revert "ath10k: Search SMBIOS for OEM board file extension"
+>3051bf36c2  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next
+>+-------------------------------------------------------+------------+------------+------------+
+>|                                                       | 1e74a2eb1f | 005c3490e9 | 3051bf36c2 |
+>+-------------------------------------------------------+------------+------------+------------+
+>| boot_successes                                        | 1223       | 1098       | 242        |
+>| boot_failures                                         | 1          | 126        | 72         |
+>| BUG:unable_to_handle_kernel                           | 1          | 117        | 69         |
+>| Oops                                                  | 1          | 126        | 72         |
+>| EIP:perf_callchain_user                               | 1          |            |            |
+>| Kernel_panic-not_syncing:Fatal_exception              | 1          | 121        | 67         |
+>| EIP:netlink_release                                   | 0          | 20         | 3          |
+>| EIP:bpf_prog_free                                     | 0          | 22         | 3          |
+>| EIP:filp_close                                        | 0          | 64         | 23         |
+>| EIP:netlink_update_listeners                          | 0          | 10         | 9          |
+>| EIP:security_inode_getattr                            | 0          | 2          |            |
+>| EIP:__lock_acquire                                    | 0          | 1          | 11         |
+>| Kernel_panic-not_syncing:Fatal_exception_in_interrupt | 0          | 5          | 4          |
+>| EIP:__rcu_process_callbacks                           | 0          | 2          |            |
+>| EIP:__fget_light                                      | 0          | 1          |            |
+>| EIP:__unix_remove_socket                              | 0          | 0          | 13         |
+>| INFO:trying_to_register_non-static_key                | 0          | 0          | 2          |
+>| EIP:mnt_want_write_file                               | 0          | 0          | 1          |
+>| EIP:skb_dequeue                                       | 0          | 0          | 1          |
+>| EIP:strlen                                            | 0          | 0          | 1          |
+>| EIP:__netlink_lookup                                  | 0          | 0          | 2          |
+>| EIP:vfs_fsync_range                                   | 0          | 0          | 1          |
+>| EIP:__unix_find_socket_byname                         | 0          | 0          | 1          |
+>| EIP:release_sock                                      | 0          | 0          | 1          |
+>+-------------------------------------------------------+------------+------------+------------+
 
-    bonding: Don't allow bond devices to change network namespaces.
+I confirm that the below patch provided by Daniel fixes the above
+issues on mainline kernel, too. Where should this patch be sent to?
+It'd be very noisy if all these Oops hit the upcoming RC1 kernel.
 
-    Like bridge, bonding as netdevice doesn't cross netns boundaries.
+Daniel thinks there may be deeper problem in i386 set_memory_rw().
+However that could take much longer time to debug.
 
-    Bonding ports and bonding itself live in same netns.
+Thanks,
+Fengguang
+---
 
-    Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Re: [bpf] 9d876e79df:  BUG: unable to handle kernel paging request at 653a8346
 
+> On Tue, Feb 28, 2017 at 04:39:36PM +0100, Daniel Borkmann wrote:
 
-NETIF_F_NETNS_LOCAL was introduced for loopback device which
-is created for each netns, it is not clear why we need to add it to bond
-and bridge...
+I have a rough feeling what it is, but I didn't have cycles to work on
+it yet (due to travel, sorry about that). The issue is likely shut down
+by just doing:
+
+---
+ arch/x86/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux.orig/arch/x86/Kconfig	2017-03-03 03:44:35.962022996 +0800
++++ linux/arch/x86/Kconfig	2017-03-03 03:44:35.962022996 +0800
+@@ -54,7 +54,7 @@ config X86
+ 	select ARCH_HAS_KCOV			if X86_64
+ 	select ARCH_HAS_MMIO_FLUSH
+ 	select ARCH_HAS_PMEM_API		if X86_64
+-	select ARCH_HAS_SET_MEMORY
++	select ARCH_HAS_SET_MEMORY		if X86_64
+ 	select ARCH_HAS_SG_CHAIN
+ 	select ARCH_HAS_STRICT_KERNEL_RWX
+ 	select ARCH_HAS_STRICT_MODULE_RWX
