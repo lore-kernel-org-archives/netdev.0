@@ -1,89 +1,126 @@
 From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/ipv4: deadlock in ip_ra_control
-Date: Thu, 2 Mar 2017 10:40:23 +0100
-Message-ID: <CACT4Y+aWYLbu5Eq1WN_T6q_zDBUdP8wiAVJK1x1D_XspQSY-RQ@mail.gmail.com>
-References: <CACT4Y+b-c=_QC51h0Qgp4buG=6cWO1xax7MrKgFS1BKV2=mdQg@mail.gmail.com>
- <CAM_iQpX=Vb-0xMjwOrriYcG38GT+U9zknggVbCb0_pBUh1NMkQ@mail.gmail.com>
+Subject: Re: [PATCH RFC v2 net-next] rds-tcp: Take explicit refcounts on
+ struct net
+Date: Thu, 2 Mar 2017 11:07:04 +0100
+Message-ID: <CACT4Y+Zzqq38Av-brhoDYpyY_1cvxTGjxehZkzz9wwF3GjcTdQ@mail.gmail.com>
+References: <1488299601-162004-1-git-send-email-sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpX=Vb-0xMjwOrriYcG38GT+U9zknggVbCb0_pBUh1NMkQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f179.google.com ([209.85.217.179]:36357 "EHLO
+        mail-ua0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750709AbdCBKH1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 05:07:27 -0500
+Received: by mail-ua0-f179.google.com with SMTP id 72so70763049uaf.3
+        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 02:07:26 -0800 (PST)
+In-Reply-To: <1488299601-162004-1-git-send-email-sowmini.varadhan@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 1, 2017 at 6:18 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Mar 1, 2017 at 2:44 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> Hello,
->>
->> I've got the following deadlock report while running syzkaller fuzzer
->> on linux-next/51788aebe7cae79cb334ad50641347465fc188fd:
->>
->> ======================================================
->> [ INFO: possible circular locking dependency detected ]
->> 4.10.0-next-20170301+ #1 Not tainted
->> -------------------------------------------------------
->> syz-executor1/3394 is trying to acquire lock:
->>  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff838864cc>] lock_sock
->> include/net/sock.h:1460 [inline]
->>  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff838864cc>]
->> do_ip_setsockopt.isra.12+0x21c/0x3540 net/ipv4/ip_sockglue.c:652
->>
->> but task is already holding lock:
->>  (rtnl_mutex){+.+.+.}, at: [<ffffffff836fbd97>] rtnl_lock+0x17/0x20
->> net/core/rtnetlink.c:70
->>
->> which lock already depends on the new lock.
->>
->>
->> the existing dependency chain (in reverse order) is:
->>
->> -> #1 (rtnl_mutex){+.+.+.}:
->>        validate_chain kernel/locking/lockdep.c:2265 [inline]
->>        __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3338
->>        lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3753
->>        __mutex_lock_common kernel/locking/mutex.c:754 [inline]
->>        __mutex_lock+0x172/0x1730 kernel/locking/mutex.c:891
->>        mutex_lock_nested+0x16/0x20 kernel/locking/mutex.c:906
->>        rtnl_lock+0x17/0x20 net/core/rtnetlink.c:70
->>        mrtsock_destruct+0x86/0x2c0 net/ipv4/ipmr.c:1281
->>        ip_ra_control+0x459/0x600 net/ipv4/ip_sockglue.c:372
->>        do_ip_setsockopt.isra.12+0x1064/0x3540 net/ipv4/ip_sockglue.c:1161
->>        ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1264
->>        raw_setsockopt+0xb7/0xd0 net/ipv4/raw.c:839
->>        sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2725
->>        SYSC_setsockopt net/socket.c:1786 [inline]
->>        SyS_setsockopt+0x25c/0x390 net/socket.c:1765
->>        entry_SYSCALL_64_fastpath+0x1f/0xc2
->>
->> -> #0 (sk_lock-AF_INET){+.+.+.}:
->>        check_prev_add kernel/locking/lockdep.c:1828 [inline]
->>        check_prevs_add+0xa8f/0x19f0 kernel/locking/lockdep.c:1938
->>        validate_chain kernel/locking/lockdep.c:2265 [inline]
->>        __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3338
->>        lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3753
->>        lock_sock_nested+0xcb/0x120 net/core/sock.c:2530
->>        lock_sock include/net/sock.h:1460 [inline]
->>        do_ip_setsockopt.isra.12+0x21c/0x3540 net/ipv4/ip_sockglue.c:652
->>        ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1264
->>        tcp_setsockopt+0x82/0xd0 net/ipv4/tcp.c:2721
->>        sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2725
->>        SYSC_setsockopt net/socket.c:1786 [inline]
->>        SyS_setsockopt+0x25c/0x390 net/socket.c:1765
->>        entry_SYSCALL_64_fastpath+0x1f/0xc2
->>
+On Tue, Feb 28, 2017 at 5:33 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> This is a test patch being supplied for a trial run on syzkaller.
 >
-> Please try the attached patch (compile only).
+> It's incorrect for the rds_connection to piggyback on the
+> sock_net() refcount for the netns because this gives rise to
+> a chicken-and-egg problem during rds_conn_destroy. Instead explicitly
+> take a ref on the net, and hold the netns down till the connection
+> tear-down is complete.
+>
+> Dmitry: I'm not sure whether the other 2 panics around rds_sock
+> use-after-free are also around netns teardown and/or directly related
+> to this- they may be unrelated bugs, could we please give this one
+> a trial run, while watching for the others?
 
 
-Pushed the patch to the bots.
-Thanks
+The other 2 does not look like net-related, but you also mailed patch
+"Cancel any pending connection attempts before taking down
+connection", which looks like it should fix the other 2, right?
+I now applied both of your patched on bots. But only happened 1+2
+times over the last 2 weeks. So it will require at least a month to
+make a weak conclusion that it might have helped. So I would suggest
+to either (1) re-review the crash reports, the code and the fix and
+commit it if everything looks consistent, or (2) write a stress test
+that provokes the bugs as much as possible, add some sleeps into the
+kernel code, reproduce the crashes and check that the patches fix
+them.
+
+
+
+
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+>  net/rds/connection.c |    1 +
+>  net/rds/rds.h        |    6 +++---
+>  net/rds/tcp.c        |    4 ++--
+>  3 files changed, 6 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/rds/connection.c b/net/rds/connection.c
+> index 0e04dcc..1fa75ab 100644
+> --- a/net/rds/connection.c
+> +++ b/net/rds/connection.c
+> @@ -429,6 +429,7 @@ void rds_conn_destroy(struct rds_connection *conn)
+>          */
+>         rds_cong_remove_conn(conn);
+>
+> +       put_net(conn->c_net);
+>         kmem_cache_free(rds_conn_slab, conn);
+>
+>         spin_lock_irqsave(&rds_conn_lock, flags);
+> diff --git a/net/rds/rds.h b/net/rds/rds.h
+> index 07fff73..219628f 100644
+> --- a/net/rds/rds.h
+> +++ b/net/rds/rds.h
+> @@ -147,7 +147,7 @@ struct rds_connection {
+>
+>         /* Protocol version */
+>         unsigned int            c_version;
+> -       possible_net_t          c_net;
+> +       struct net              *c_net;
+>
+>         struct list_head        c_map_item;
+>         unsigned long           c_map_queued;
+> @@ -162,13 +162,13 @@ struct rds_connection {
+>  static inline
+>  struct net *rds_conn_net(struct rds_connection *conn)
+>  {
+> -       return read_pnet(&conn->c_net);
+> +       return conn->c_net;
+>  }
+>
+>  static inline
+>  void rds_conn_net_set(struct rds_connection *conn, struct net *net)
+>  {
+> -       write_pnet(&conn->c_net, net);
+> +       conn->c_net = get_net(net);
+>  }
+>
+>  #define RDS_FLAG_CONG_BITMAP   0x01
+> diff --git a/net/rds/tcp.c b/net/rds/tcp.c
+> index 57bb523..bf4c6a3 100644
+> --- a/net/rds/tcp.c
+> +++ b/net/rds/tcp.c
+> @@ -529,7 +529,7 @@ static void rds_tcp_kill_sock(struct net *net)
+>         flush_work(&rtn->rds_tcp_accept_w);
+>         spin_lock_irq(&rds_tcp_conn_lock);
+>         list_for_each_entry_safe(tc, _tc, &rds_tcp_conn_list, t_tcp_node) {
+> -               struct net *c_net = read_pnet(&tc->t_cpath->cp_conn->c_net);
+> +               struct net *c_net = tc->t_cpath->cp_conn->c_net;
+>
+>                 if (net != c_net || !tc->t_sock)
+>                         continue;
+> @@ -584,7 +584,7 @@ static void rds_tcp_sysctl_reset(struct net *net)
+>
+>         spin_lock_irq(&rds_tcp_conn_lock);
+>         list_for_each_entry_safe(tc, _tc, &rds_tcp_conn_list, t_tcp_node) {
+> -               struct net *c_net = read_pnet(&tc->t_cpath->cp_conn->c_net);
+> +               struct net *c_net = tc->t_cpath->cp_conn->c_net;
+>
+>                 if (net != c_net || !tc->t_sock)
+>                         continue;
+> --
+> 1.7.1
+>
