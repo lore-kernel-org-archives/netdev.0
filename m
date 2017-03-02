@@ -1,41 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix potential double free issue for
- fastopen_req
-Date: Thu, 02 Mar 2017 14:06:31 -0800 (PST)
-Message-ID: <20170302.140631.2180464369793479736.davem@davemloft.net>
-References: <20170301212948.96840-1-tracywwnj@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, ycheng@google.com
-To: weiwan@google.com
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net 0/2] nfp: RX and XDP buffer fixes
+Date: Thu,  2 Mar 2017 15:26:19 -0800
+Message-ID: <20170302232621.39763-1-jakub.kicinski@netronome.com>
+Cc: kubakici@wp.pl, oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42534 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750941AbdCCFOi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 00:14:38 -0500
-In-Reply-To: <20170301212948.96840-1-tracywwnj@gmail.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35809 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750753AbdCCFcN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 00:32:13 -0500
+Received: by mail-pf0-f171.google.com with SMTP id j5so29734011pfb.2
+        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 21:31:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
-Date: Wed,  1 Mar 2017 13:29:48 -0800
+Hi!
 
-> From: Wei Wang <weiwan@google.com>
-> 
-> tp->fastopen_req could potentially be double freed if a malicious
-> user does the following:
-> 1. Enable TCP_FASTOPEN_CONNECT sockopt and do a connect() on the socket.
-> 2. Call connect() with AF_UNSPEC to disconnect the socket.
-> 3. Make this socket a listening socket by calling listen().
-> 4. Accept incoming connections and generate child sockets. All child
->    sockets will get a copy of the pointer of fastopen_req.
-> 5. Call close() on all sockets. fastopen_req will get freed multiple
->    times.
-> 
-> Fixes: 19f6d3f3c842 ("net/tcp-fastopen: Add new API support")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Wei Wang <weiwan@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Two trivial fixes for code introduced with XDP support.  First
+one corrects the buffer size we populate a register with.  The
+register is designed to be used for scatter transfers which 
+the driver (and most FWs) don't support so it's not critical.
+The other one for DMA direction is mostly cosmetic, DMA API
+doesn't seem to care today about the precise direction in sync
+calls.
 
-Applied, and queued up for -stable.
+Jakub Kicinski (2):
+  nfp: don't tell FW about the reserved buffer space
+  nfp: correct DMA direction in XDP DMA sync
+
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+-- 
+2.11.0
