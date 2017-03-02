@@ -1,53 +1,49 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH RFC v2 net-next] rds-tcp: Take explicit refcounts on
- struct net
-Date: Thu, 2 Mar 2017 05:46:33 -0500
-Message-ID: <20170302104633.GD23804@oracle.com>
-References: <1488299601-162004-1-git-send-email-sowmini.varadhan@oracle.com>
- <CACT4Y+Zzqq38Av-brhoDYpyY_1cvxTGjxehZkzz9wwF3GjcTdQ@mail.gmail.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: Re: [PATCH net] xen-netback: Use GFP_ATOMIC to allocate
+	hash
+Date: Thu, 2 Mar 2017 10:51:52 +0000
+Message-ID: <92c0d11454744be4879fd3f4870480be@AMSPEX02CL03.citrite.net>
+References: <1488451820-4759-1-git-send-email-anoob.soman@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:49044 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751016AbdCBKtJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 05:49:09 -0500
-Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
-        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v22AmXpd031606
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Thu, 2 Mar 2017 10:48:33 GMT
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+Zzqq38Av-brhoDYpyY_1cvxTGjxehZkzz9wwF3GjcTdQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Wei Liu <wei.liu2@citrix.com>, Anoob Soman <anoob.soman@citrix.com>
+To: Anoob Soman <anoob.soman@citrix.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "xen-devel@lists.xenproject.org"
+ <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1488451820-4759-1-git-send-email-anoob.soman@citrix.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-On (03/02/17 11:07), Dmitry Vyukov wrote:
-> 
-> The other 2 does not look like net-related, but you also mailed patch
-> "Cancel any pending connection attempts before taking down
-> connection", which looks like it should fix the other 2, right?
-
-no, that patch was still broken.. because, as you pointed out,
-it only takes care of one workq, and not the other workqs. Also,
-there are a number of clean up operations performed on the socket
-associated with the rds_connection, all of which could potentially
-be in jeopardy if the race is happening as suspected. I think the
-v2 patch (this subject line) is the more appropriate fix- I see
-that same thing is being done for svc_xprt's xpt_net, for example.
-
-> I now applied both of your patched on bots. But only happened 1+2
-> times over the last 2 weeks. So it will require at least a month to
-> make a weak conclusion that it might have helped. So I would suggest
-> to either (1) re-review the crash reports, the code and the fix and
-> commit it if everything looks consistent, or (2) write a stress test
-> that provokes the bugs as much as possible, add some sleeps into the
-> kernel code, reproduce the crashes and check that the patches fix
-> them.
-
-I can try both, but IME reproducing such things is quite challenging.
-Even with things like dtrace-chill on other OSes, it can take a loong
-time to nail it. Let's give it a week, while I try out (1) at least.
-
---Sowmini
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IEFub29iIFNvbWFuIFttYWlsdG86
+YW5vb2Iuc29tYW5AY2l0cml4LmNvbV0KPiBTZW50OiAwMiBNYXJjaCAyMDE3IDEwOjUwCj4gVG86
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHhlbi1kZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9yZwo+
+IENjOiBQYXVsIER1cnJhbnQgPFBhdWwuRHVycmFudEBjaXRyaXguY29tPjsgV2VpIExpdSA8d2Vp
+LmxpdTJAY2l0cml4LmNvbT47Cj4gQW5vb2IgU29tYW4gPGFub29iLnNvbWFuQGNpdHJpeC5jb20+
+Cj4gU3ViamVjdDogW1BBVENIIG5ldF0geGVuLW5ldGJhY2s6IFVzZSBHRlBfQVRPTUlDIHRvIGFs
+bG9jYXRlIGhhc2gKPiAKPiBBbGxvY2F0aW9uIG9mIG5ld19oYXNoLCBpbnNpZGUgeGVudmlmX25l
+d19oYXNoKCksIGFsd2F5cyBoYXBwZW4KPiBpbiBzb2Z0aXJxIGNvbnRleHQsIHNvIHVzZSBHRlBf
+QVRPTUlDIGluc3RlYWQgb2YgR0ZQX0tFUk5FTCBmb3IgbmV3Cj4gaGFzaCBhbGxvY2F0aW9uLgo+
+IAo+IFNpZ25lZC1vZmYtYnk6IEFub29iIFNvbWFuIDxhbm9vYi5zb21hbkBjaXRyaXguY29tPgoK
+QWNrZWQtYnk6IFBhdWwgRHVycmFudCA8cGF1bC5kdXJyYW50QGNpdHJpeC5jb20+Cgo+IC0tLQo+
+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9oYXNoLmMgfCAyICstCj4gIDEgZmlsZSBjaGFuZ2Vk
+LCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC94ZW4tbmV0YmFjay9oYXNoLmMgYi9kcml2ZXJzL25ldC94ZW4tCj4gbmV0YmFjay9oYXNo
+LmMKPiBpbmRleCBlOGM1ZGRkLi4zYzRjNThiIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L3hl
+bi1uZXRiYWNrL2hhc2guYwo+ICsrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2hhc2guYwo+
+IEBAIC0zOSw3ICszOSw3IEBAIHN0YXRpYyB2b2lkIHhlbnZpZl9hZGRfaGFzaChzdHJ1Y3QgeGVu
+dmlmICp2aWYsIGNvbnN0IHU4Cj4gKnRhZywKPiAgCXVuc2lnbmVkIGxvbmcgZmxhZ3M7Cj4gIAli
+b29sIGZvdW5kOwo+IAo+IC0JbmV3ID0ga21hbGxvYyhzaXplb2YoKmVudHJ5KSwgR0ZQX0tFUk5F
+TCk7Cj4gKwluZXcgPSBrbWFsbG9jKHNpemVvZigqZW50cnkpLCBHRlBfQVRPTUlDKTsKPiAgCWlm
+ICghbmV3KQo+ICAJCXJldHVybjsKPiAKPiAtLQo+IDIuNy40CgoKX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4t
+ZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
