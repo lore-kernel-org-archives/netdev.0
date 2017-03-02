@@ -1,63 +1,50 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: Re: [PATCH net 2/2] xen-netback: don't vfree() queues
- under spinlock
-Date: Thu, 2 Mar 2017 14:23:10 +0100
-Message-ID: <9cd983ea-0191-5cc2-7319-3d67b4448781@suse.com>
-References: <1488459266-29269-1-git-send-email-paul.durrant@citrix.com>
- <1488459266-29269-3-git-send-email-paul.durrant@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>, netdev@vger.kernel.org,
- xen-devel@lists.xenproject.org
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1488459266-29269-3-git-send-email-paul.durrant@citrix.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+From: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v6 0/6] Bluetooth: 6LoWPAN: Fix lladdr length
+Date: Thu,  2 Mar 2017 15:23:29 +0200
+Message-ID: <20170302132335.21192-1-luiz.dentz@gmail.com>
+Cc: patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+        jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDIvMDMvMTcgMTM6NTQsIFBhdWwgRHVycmFudCB3cm90ZToKPiBUaGlzIGxlYWRzIHRvIGEg
-QlVHIG9mIHRoZSBmb2xsb3dpbmcgZm9ybToKPiAKPiBbICAxNzQuNTEyODYxXSBzd2l0Y2g6IHBv
-cnQgMih2aWYzLjApIGVudGVyZWQgZGlzYWJsZWQgc3RhdGUKPiBbICAxNzQuNTIyNzM1XSBCVUc6
-IHNsZWVwaW5nIGZ1bmN0aW9uIGNhbGxlZCBmcm9tIGludmFsaWQgY29udGV4dCBhdAo+IC9ob21l
-L2J1aWxkL2xpbnV4LWxpbnVzL21tL3ZtYWxsb2MuYzoxNDQxCj4gWyAgMTc0LjUyMzQ1MV0gaW5f
-YXRvbWljKCk6IDEsIGlycXNfZGlzYWJsZWQoKTogMCwgcGlkOiAyOCwgbmFtZTogeGVud2F0Y2gK
-PiBbICAxNzQuNTI0MTMxXSBDUFU6IDEgUElEOiAyOCBDb21tOiB4ZW53YXRjaCBUYWludGVkOiBH
-ICAgICAgICBXCj4gNC4xMC4wdXBzdHJlYW0tMTEwNzMtZzQ5NzdhYjYtZGlydHkgIzEKPiBbICAx
-NzQuNTI0ODE5XSBIYXJkd2FyZSBuYW1lOiBNU0kgTVMtNzY4MC9INjFNLVAyMyAoTVMtNzY4MCks
-IEJJT1MgVjE3LjAKPiAwMy8xNC8yMDExCj4gWyAgMTc0LjUyNTUxN10gQ2FsbCBUcmFjZToKPiBb
-ICAxNzQuNTI2MjE3XSAgc2hvd19zdGFjaysweDIzLzB4NjAKPiBbICAxNzQuNTI2ODk5XSAgZHVt
-cF9zdGFjaysweDViLzB4ODgKPiBbICAxNzQuNTI3NTYyXSAgX19fbWlnaHRfc2xlZXArMHhkZS8w
-eDEzMAo+IFsgIDE3NC41MjgyMDhdICBfX21pZ2h0X3NsZWVwKzB4MzUvMHhhMAo+IFsgIDE3NC41
-Mjg4NDBdICA/IF9yYXdfc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSsweDEzLzB4MjAKPiBbICAxNzQu
-NTI5NDYzXSAgPyBfX3dha2VfdXArMHg0MC8weDUwCj4gWyAgMTc0LjUzMDA4OV0gIHJlbW92ZV92
-bV9hcmVhKzB4MjAvMHg5MAo+IFsgIDE3NC41MzA3MjRdICBfX3Z1bm1hcCsweDFkLzB4YzAKPiBb
-ICAxNzQuNTMxMzQ2XSAgPyBkZWxldGVfb2JqZWN0X2Z1bGwrMHgxMy8weDIwCj4gWyAgMTc0LjUz
-MTk3M10gIHZmcmVlKzB4NDAvMHg4MAo+IFsgIDE3NC41MzI1OTRdICBzZXRfYmFja2VuZF9zdGF0
-ZSsweDE4YS8weGE5MAo+IFsgIDE3NC41MzMyMjFdICA/IGR3Y19zY2FuX2Rlc2NyaXB0b3JzKzB4
-MjRkLzB4NDMwCj4gWyAgMTc0LjUzMzg1MF0gID8ga2ZyZWUrMHg1Yi8weGMwCj4gWyAgMTc0LjUz
-NDQ3Nl0gID8geGVuYnVzX3JlYWQrMHgzZC8weDUwCj4gWyAgMTc0LjUzNTEwMV0gID8geGVuYnVz
-X3JlYWQrMHgzZC8weDUwCj4gWyAgMTc0LjUzNTcxOF0gID8geGVuYnVzX2dhdGhlcisweDMxLzB4
-OTAKPiBbICAxNzQuNTM2MzMyXSAgPyBfX19taWdodF9zbGVlcCsweGY2LzB4MTMwCj4gWyAgMTc0
-LjUzNjk0NV0gIGZyb250ZW5kX2NoYW5nZWQrMHg2Yi8weGQwCj4gWyAgMTc0LjUzNzU2NV0gIHhl
-bmJ1c19vdGhlcmVuZF9jaGFuZ2VkKzB4N2QvMHg4MAo+IFsgIDE3NC41MzgxODVdICBmcm9udGVu
-ZF9jaGFuZ2VkKzB4MTIvMHgyMAo+IFsgIDE3NC41Mzg4MDNdICB4ZW53YXRjaF90aHJlYWQrMHg3
-NC8weDExMAo+IFsgIDE3NC41Mzk0MTddICA/IHdva2VuX3dha2VfZnVuY3Rpb24rMHgyMC8weDIw
-Cj4gWyAgMTc0LjU0MDA0OV0gIGt0aHJlYWQrMHhlNS8weDEyMAo+IFsgIDE3NC41NDA2NjNdICA/
-IHhlbmJ1c19wcmludGYrMHg1MC8weDUwCj4gWyAgMTc0LjU0MTI3OF0gID8gX19rdGhyZWFkX2lu
-aXRfd29ya2VyKzB4NDAvMHg0MAo+IFsgIDE3NC41NDE4OThdICByZXRfZnJvbV9mb3JrKzB4MjEv
-MHgyYwo+IFsgIDE3NC41NDg2MzVdIHN3aXRjaDogcG9ydCAyKHZpZjMuMCkgZW50ZXJlZCBkaXNh
-YmxlZCBzdGF0ZQo+IAo+IFRoaXMgcGF0Y2ggZGVmZXJzIHRoZSB2ZnJlZSgpIHVudGlsIGFmdGVy
-IHRoZSBzcGlubG9jayBpcyByZWxlYXNlZC4KPiAKPiBSZXBvcnRlZC1ieTogSnVlcmdlbiBHcm9z
-cyA8amdyb3NzQHN1c2UuY29tPgo+IFNpZ25lZC1vZmYtYnk6IFBhdWwgRHVycmFudCA8cGF1bC5k
-dXJyYW50QGNpdHJpeC5jb20+CgpSZXZpZXdlZC1ieTogSnVlcmdlbiBHcm9zcyA8amdyb3NzQHN1
-c2UuY29tPgoKCkp1ZXJnZW4KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcK
-aHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+From: Luiz Augusto von Dentz <luiz.von.dentz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+
+These patches fixes lladdr length to be 6 bytes long and not 8 which cause
+neighbor advertisement to be sent with wrong lladdr including FF:FE filler
+bytes for eui64.
+
+Note: This does not fix some of the existing crashes which I hope to address
+in a different set.
+
+v2: Make all code paths that generate a link-local from lladdr use the same
+code.
+v3: Use lowpan_iphc_uncompress_eui48_lladdr to generate the remote ip address.
+v4: Handle comments from Stefan Schmidt.
+v5: Add patch to fix IID format for Bluetooth
+v6: Fix addrconf_ifid_eui48 to follow IID format for Bluetooth
+
+Alexander Aring (2):
+  6lowpan: iphc: override l2 packet information
+  ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
+
+Luiz Augusto von Dentz (2):
+  6lowpan: Use netdev addr_len to determine lladdr len
+  6lowpan: Fix IID format for Bluetooth
+
+Patrik Flykt (2):
+  bluetooth: Set 6 byte device addresses
+  6lowpan: Set MAC address length according to LOWPAN_LLTYPE
+
+ include/net/6lowpan.h   |  15 ++++++
+ include/net/addrconf.h  |   7 ++-
+ net/6lowpan/core.c      |  11 +++-
+ net/6lowpan/iphc.c      |  57 +++++++++++++++++----
+ net/bluetooth/6lowpan.c | 130 ++++++++----------------------------------------
+ net/ipv6/addrconf.c     |  17 +++++--
+ 6 files changed, 110 insertions(+), 127 deletions(-)
+
+-- 
+2.9.3
