@@ -1,9 +1,9 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH 4/7] net: stmmac: Parse FIFO sizes from feature registers
-Date: Thu, 2 Mar 2017 15:09:11 +0000
-Message-ID: <b74f9b19-4315-1349-88c0-b549a2f8ef5d@synopsys.com>
+Subject: Re: [PATCH 5/7] net: stmmac: Program RX queue size and flow control
+Date: Thu, 2 Mar 2017 15:15:12 +0000
+Message-ID: <ea26c03c-6ce0-ff66-dcb5-6f95cdf2caed@synopsys.com>
 References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-5-thierry.reding@gmail.com>
+ <20170223172438.14770-6-thierry.reding@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 8bit
@@ -18,111 +18,129 @@ Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 To: Thierry Reding <thierry.reding@gmail.com>,
         "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170223172438.14770-5-thierry.reding@gmail.com>
+In-Reply-To: <20170223172438.14770-6-thierry.reding@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-Hi Thierry,
 
 Às 5:24 PM de 2/23/2017, Thierry Reding escreveu:
 > From: Thierry Reding <treding@nvidia.com>
 > 
-> New version of this core encode the FIFO sizes in one of the feature
-> registers. Use these sizes as default, but still allow device tree to
-> override them for backwards compatibility.
+> Program the receive queue size based on the RX FIFO size and enable
+> hardware flow control for large FIFOs.
 > 
 > Signed-off-by: Thierry Reding <treding@nvidia.com>
 > ---
->  drivers/net/ethernet/stmicro/stmmac/common.h      | 3 +++
->  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  | 2 ++
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 3 +++
->  3 files changed, 8 insertions(+)
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h     | 12 +++++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 43 ++++++++++++++++++++++--
+>  2 files changed, 53 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-> index 144fe84e8a53..6ac653845d82 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
-> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-> @@ -324,6 +324,9 @@ struct dma_features {
->  	unsigned int number_tx_queues;
->  	/* Alternate (enhanced) DESC mode */
->  	unsigned int enh_desc;
-> +	/* TX and RX FIFO sizes */
-> +	unsigned int tx_fifo_size;
-> +	unsigned int rx_fifo_size;
->  };
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> index db45134fddf0..9acc1f1252b3 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> @@ -180,6 +180,7 @@ enum power_event {
+>  #define MTL_OP_MODE_TSF			BIT(1)
 >  
->  /* GMAC TX FIFO is 8K, Rx FIFO is 16K */
+>  #define MTL_OP_MODE_TQS_MASK		GENMASK(24, 16)
+> +#define MTL_OP_MODE_TQS_SHIFT		16
+>  
+>  #define MTL_OP_MODE_TTC_MASK		0x70
+>  #define MTL_OP_MODE_TTC_SHIFT		4
+> @@ -193,6 +194,17 @@ enum power_event {
+>  #define MTL_OP_MODE_TTC_384		(6 << MTL_OP_MODE_TTC_SHIFT)
+>  #define MTL_OP_MODE_TTC_512		(7 << MTL_OP_MODE_TTC_SHIFT)
+>  
+> +#define MTL_OP_MODE_RQS_MASK		GENMASK(29, 20)
+> +#define MTL_OP_MODE_RQS_SHIFT		20
+> +
+> +#define MTL_OP_MODE_RFD_MASK		GENMASK(19, 14)
+> +#define MTL_OP_MODE_RFD_SHIFT		14
+> +
+> +#define MTL_OP_MODE_RFA_MASK		GENMASK(13, 8)
+> +#define MTL_OP_MODE_RFA_SHIFT		8
+> +
+> +#define MTL_OP_MODE_EHFC		BIT(7)
+> +
+>  #define MTL_OP_MODE_RTC_MASK		0x18
+>  #define MTL_OP_MODE_RTC_SHIFT		3
+>  
 > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> index 377d1b44d4f2..8d249f3b34c8 100644
+> index 8d249f3b34c8..03d230201960 100644
 > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
 > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> @@ -296,6 +296,8 @@ static void dwmac4_get_hw_feature(void __iomem *ioaddr,
->  	hw_cap = readl(ioaddr + GMAC_HW_FEATURE1);
->  	dma_cap->av = (hw_cap & GMAC_HW_FEAT_AVSEL) >> 20;
->  	dma_cap->tsoen = (hw_cap & GMAC_HW_TSOEN) >> 18;
-> +	dma_cap->tx_fifo_size = 128 << ((hw_cap >> 6) & 0x1f);
-> +	dma_cap->rx_fifo_size = 128 << ((hw_cap >> 0) & 0x1f);
-
-I suggest you follow the way that has been done for other parameters:
-
-dma_cap->rx_fifo_size = (hw_cap & GMAC_HW_RXFIFOSIZE) >> 0; where
-GMAC_HW_RXFIFOSIZE is GENMASK(4, 0)
-dma_cap->tx_fifo_size = (hw_cap & GMAC_HW_TXFIFOSIZE) >> 6; where
-GMAC_HW_TXFIFOSIZE is GENMASK(10, 6)
-
->  	/* MAC HW feature2 */
->  	hw_cap = readl(ioaddr + GMAC_HW_FEATURE2);
->  	/* TX and RX number of channels */
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index d7387919bdb6..291e34f0ca94 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1281,6 +1281,9 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
->  {
->  	int rxfifosz = priv->plat->rx_fifo_size;
+> @@ -185,8 +185,9 @@ static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt)
+>  }
 >  
-> +	if (rxfifosz == 0)
-> +		rxfifosz = priv->dma_cap.rx_fifo_size;
+>  static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
+> -				    int rxmode, u32 channel)
+> +				    int rxmode, u32 channel, int rxfifosz)
+>  {
+> +	unsigned int rqs = rxfifosz / 256 - 1;
+>  	u32 mtl_tx_op, mtl_rx_op, mtl_rx_int;
+>  
+>  	/* Following code only done for channel 0, other channels not yet
+> @@ -252,6 +253,44 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
+>  			mtl_rx_op |= MTL_OP_MODE_RTC_128;
+>  	}
+>  
+> +	mtl_rx_op &= ~MTL_OP_MODE_RQS_MASK;
+> +	mtl_rx_op |= rqs << MTL_OP_MODE_RQS_SHIFT;
 > +
->  	if (priv->plat->force_thresh_dma_mode)
->  		priv->hw->dma->dma_mode(priv->ioaddr, tc, tc, rxfifosz);
->  	else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
+> +	/* enable flow control only if each channel gets 4 KiB or more FIFO */
+> +	if (rxfifosz >= 4096) {
+> +		unsigned int rfd, rfa;
+> +
+> +		mtl_rx_op |= MTL_OP_MODE_EHFC;
+> +
+> +		switch (rxfifosz) {
+> +		case 4096:
+> +			rfd = 0x03;
+> +			rfa = 0x01;
+> +			break;
+> +
+> +		case 8192:
+> +			rfd = 0x06;
+> +			rfa = 0x0a;
+> +			break;
+> +
+> +		case 16384:
+> +			rfd = 0x06;
+> +			rfa = 0x12;
+> +			break;
+> +
+> +		default:
+> +			rfd = 0x06;
+> +			rfa = 0x1e;
+> +			break;
+> +		}
+
+Are these RFA and RFD values suitable to any setup using thresholds? Please
+justify their values in oerder for other developers to understand them.
+
+> +
+> +		mtl_rx_op &= ~MTL_OP_MODE_RFD_MASK;
+> +		mtl_rx_op |= rfd << MTL_OP_MODE_RFD_SHIFT;
+> +
+> +		mtl_rx_op &= ~MTL_OP_MODE_RFA_MASK;
+> +		mtl_rx_op |= rfa << MTL_OP_MODE_RFA_SHIFT;
+> +	}
+> +
+>  	writel(mtl_rx_op, ioaddr + MTL_CHAN_RX_OP_MODE(channel));
+>  
+>  	/* Enable MTL RX overflow */
+> @@ -264,7 +303,7 @@ static void dwmac4_dma_operation_mode(void __iomem *ioaddr, int txmode,
+>  				      int rxmode, int rxfifosz)
+>  {
+>  	/* Only Channel 0 is actually configured and used */
+> -	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0);
+> +	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0, rxfifosz);
+
+Why not configure tx fifo as well, you already getting it from the features
+register.
+
+>  }
+>  
+>  static void dwmac4_get_hw_feature(void __iomem *ioaddr,
 > 
-
-In my current patch for adding support for MTL in stmmac, I also had this
-approach (sizes comming from feature register and platform data) so nice to see
-it here, because I will be able to reutilize it in my future versions.
-
-There is only a slight twist that we have to pay attention to it. The RX and TX
-queue size configuration needs to be one the following values:
-
-FIFO_256 = 0x0,
-FIFO_512 = 0x1,
-FIFO_1k = 0x3,
-FIFO_2k = 0x7,
-FIFO_4k = 0xf,
-FIFO_8k = 0x1f,
-FIFO_16k = 0x3f,
-FIFO_32k = 0x7f
-
-These are the values you get from the features register, but are these the
-values that users will configure in "plat->rx_fifo_size"? From a quick grep you
-can see that users use real units:
-
-arch/arm/boot/dts/socfpga.dtsi:			rx-fifo-depth = <4096>;
-arch/arm/boot/dts/socfpga.dtsi:			rx-fifo-depth = <4096>;
-arch/arm/boot/dts/socfpga_arria10.dtsi:			rx-fifo-depth = <16384>;
-arch/arm/boot/dts/socfpga_arria10.dtsi:			rx-fifo-depth = <16384>;
-arch/arm/boot/dts/socfpga_arria10.dtsi:			rx-fifo-depth = <16384>;
-arch/arm/boot/dts/lpc18xx.dtsi:			rx-fifo-depth = <256>;
-arch/nios2/boot/dts/3c120_devboard.dts:				rx-fifo-depth = <8192>;
-arch/nios2/boot/dts/10m50_devboard.dts:			rx-fifo-depth = <8192>;
-
-So in order to have it configurable from platform and features register you need
-to convert the features values to "real" units and then in the end when you
-write to the DMA Op Mode you need to convert it back to the required values.
-
-You can check my patch here that already has this done:
-http://patchwork.ozlabs.org/patch/728566/
 
 Thanks.
