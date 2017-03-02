@@ -1,49 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH-v4-RESEND 1/4] vsock: track pkt owner vsock
-Date: Thu, 02 Mar 2017 13:13:03 -0800 (PST)
-Message-ID: <20170302.131303.703202861280343181.davem@davemloft.net>
-References: <1488340587-32416-1-git-send-email-bergwolf@gmail.com>
-	<1488340587-32416-2-git-send-email-bergwolf@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] Net: openvswitch: actions: fixed a brace
+ coding style warning
+Date: Thu, 02 Mar 2017 13:15:32 -0800 (PST)
+Message-ID: <20170302.131532.892995449495174869.davem@davemloft.net>
+References: <1488358877-20762-1-git-send-email-padowns@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhansen@vmware.com, stefanha@redhat.com,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: bergwolf@gmail.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1488340587-32416-2-git-send-email-bergwolf@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: padowns-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1488358877-20762-1-git-send-email-padowns-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Peng Tao <bergwolf@gmail.com>
-Date: Wed,  1 Mar 2017 11:56:24 +0800
+From: Peter Downs <padowns-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed,  1 Mar 2017 01:01:17 -0800
 
-> So that we can cancel a queued pkt later if necessary.
+> Fixed a brace coding style warning reported by checkpatch.pl
 > 
-> Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
-> Signed-off-by: Peng Tao <bergwolf@gmail.com>
-> ---
->  include/linux/virtio_vsock.h            | 2 ++
->  net/vmw_vsock/virtio_transport_common.c | 7 +++++++
->  2 files changed, 9 insertions(+)
-> 
-> diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-> index 9638bfe..193ad3a 100644
-> --- a/include/linux/virtio_vsock.h
-> +++ b/include/linux/virtio_vsock.h
-> @@ -48,6 +48,7 @@ struct virtio_vsock_pkt {
->  	struct virtio_vsock_hdr	hdr;
->  	struct work_struct work;
->  	struct list_head list;
-> +	void *cancel_token; /* only used for cancellation */
+> Signed-off-by: Peter Downs <padowns-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-The type here is fixed, you only store vhost_sock object pointers
-here, so don't use "void *" please.
+Applied.
