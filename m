@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 07/26] brcmsmac: reduce stack size with KASAN
-Date: Thu,  2 Mar 2017 17:38:15 +0100
-Message-ID: <20170302163834.2273519-8-arnd@arndb.de>
+Subject: [PATCH 06/26] rocker: mark rocker_tlv_put_* functions as noinline_for_kasan
+Date: Thu,  2 Mar 2017 17:38:14 +0100
+Message-ID: <20170302163834.2273519-7-arnd@arndb.de>
 References: <20170302163834.2273519-1-arnd@arndb.de>
 Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
         Alexander Potapenko <glider@google.com>,
@@ -13,49 +13,82 @@ Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
         Arnd Bergmann <arnd@arndb.de>
 To: kasan-dev@googlegroups.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.134]:49837 "EHLO
+Received: from mout.kundenserver.de ([212.227.126.134]:64120 "EHLO
         mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752570AbdCBRLM (ORCPT
+        with ESMTP id S1753967AbdCBRLM (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 12:11:12 -0500
 In-Reply-To: <20170302163834.2273519-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The wlc_phy_table_write_nphy/wlc_phy_table_read_nphy functions always put an object
-on the stack, which will each require a redzone with KASAN and lead to possible
-stack overflow:
+Inlining these functions creates lots of stack variables when KASAN is
+enabled, leading to this warning about potential stack overflow:
 
-drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c: In function 'wlc_phy_workarounds_nphy':
-drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c:17135:1: warning: the frame size of 6312 bytes is larger than 1000 bytes [-Wframe-larger-than=]
+drivers/net/ethernet/rocker/rocker_ofdpa.c: In function 'ofdpa_cmd_flow_tbl_add':
+drivers/net/ethernet/rocker/rocker_ofdpa.c:621:1: error: the frame size of 2752 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
 
-This marks the two functions as noinline_for_kasan, avoiding the problem entirely.
+This marks all of them noinline_for_kasan, which solves the problem by
+keeping the redzone inside of the separate stack frames.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/rocker/rocker_tlv.h | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c b/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
-index b3aab2fe96eb..42dc8e1f483d 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
-@@ -14157,7 +14157,7 @@ static void wlc_phy_bphy_init_nphy(struct brcms_phy *pi)
- 	write_phy_reg(pi, NPHY_TO_BPHY_OFF + BPHY_STEP, 0x668);
+diff --git a/drivers/net/ethernet/rocker/rocker_tlv.h b/drivers/net/ethernet/rocker/rocker_tlv.h
+index a63ef82e7c72..3a9573fe0191 100644
+--- a/drivers/net/ethernet/rocker/rocker_tlv.h
++++ b/drivers/net/ethernet/rocker/rocker_tlv.h
+@@ -139,38 +139,38 @@ rocker_tlv_start(struct rocker_desc_info *desc_info)
+ int rocker_tlv_put(struct rocker_desc_info *desc_info,
+ 		   int attrtype, int attrlen, const void *data);
+ 
+-static inline int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
+-				    int attrtype, u8 value)
++static noinline_for_kasan int
++rocker_tlv_put_u8(struct rocker_desc_info *desc_info, int attrtype, u8 value)
+ {
+ 	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
  }
  
--void
-+noinline_for_kasan void
- wlc_phy_table_write_nphy(struct brcms_phy *pi, u32 id, u32 len, u32 offset,
- 			 u32 width, const void *data)
+-static inline int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
+-				     int attrtype, u16 value)
++static noinline_for_kasan int
++rocker_tlv_put_u16(struct rocker_desc_info *desc_info, int attrtype, u16 value)
  {
-@@ -14171,7 +14171,7 @@ wlc_phy_table_write_nphy(struct brcms_phy *pi, u32 id, u32 len, u32 offset,
- 	wlc_phy_write_table_nphy(pi, &tbl);
+ 	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
  }
  
--void
-+noinline_for_kasan void
- wlc_phy_table_read_nphy(struct brcms_phy *pi, u32 id, u32 len, u32 offset,
- 			u32 width, void *data)
+-static inline int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
+-				      int attrtype, __be16 value)
++static noinline_for_kasan int
++rocker_tlv_put_be16(struct rocker_desc_info *desc_info, int attrtype, __be16 value)
  {
+ 	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
+ }
+ 
+-static inline int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
+-				     int attrtype, u32 value)
++static noinline_for_kasan int
++rocker_tlv_put_u32(struct rocker_desc_info *desc_info, int attrtype, u32 value)
+ {
+ 	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
+ }
+ 
+-static inline int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
+-				      int attrtype, __be32 value)
++static noinline_for_kasan int
++rocker_tlv_put_be32(struct rocker_desc_info *desc_info, int attrtype, __be32 value)
+ {
+ 	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
+ }
+ 
+-static inline int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
+-				     int attrtype, u64 value)
++static noinline_for_kasan int
++rocker_tlv_put_u64(struct rocker_desc_info *desc_info, int attrtype, u64 value)
+ {
+ 	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
+ }
 -- 
 2.9.0
