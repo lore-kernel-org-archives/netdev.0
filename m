@@ -1,39 +1,70 @@
-From: Maarten Blomme <maartenblomme@gmail.com>
-Subject: [PATCH 2/2] spi_ks8995: regs_size incorrect for some devices
-Date: Thu,  2 Mar 2017 13:08:49 +0100
-Message-ID: <1488456529-30128-1-git-send-email-maartenblomme@gmail.com>
-Cc: netdev@vger.kernel.org, "Blomme, Maarten" <Maarten.Blomme@flir.com>
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34053 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751155AbdCBMHk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 07:07:40 -0500
-Received: by mail-wm0-f65.google.com with SMTP id m70so12085245wma.1
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 04:05:58 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: BUG due to "xen-netback: protect resource cleaning
+ on XenBus disconnect"
+Date: Thu, 2 Mar 2017 12:06:53 +0000
+Message-ID: <20170302120653.dce2mehbmhyxsiow@citrix.com>
+References: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: igor.druzhinin@citrix.com, Wei Liu <wei.liu2@citrix.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ Paul Durrant <paul.durrant@citrix.com>,
+ xen-devel <xen-devel@lists.xenproject.org>,
+ Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+ David Miller <davem@davemloft.net>
+To: Juergen Gross <jgross@suse.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-From: "Blomme, Maarten" <Maarten.Blomme@flir.com>
-
-Signed-off-by: Maarten Blomme <Maarten.Blomme@flir.com>
----
- drivers/net/phy/spi_ks8995.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index aa7209d..1e2d4f1 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -491,8 +491,8 @@ static int ks8995_probe(struct spi_device *spi)
- 	if (err)
- 		return err;
- 
--	ks->regs_attr.size = ks->chip->regs_size;
- 	memcpy(&ks->regs_attr, &ks8995_registers_attr, sizeof(ks->regs_attr));
-+	ks->regs_attr.size = ks->chip->regs_size;
- 
- 	err = ks8995_reset(ks);
- 	if (err)
--- 
-2.7.4
+T24gVGh1LCBNYXIgMDIsIDIwMTcgYXQgMTI6NTY6MjBQTSArMDEwMCwgSnVlcmdlbiBHcm9zcyB3
+cm90ZToKPiBXaXRoIGNvbW1pdHMgZjE2ZjFkZjY1IGFuZCA5YTZjZGY1MmIgd2UgZ2V0IGluIG91
+ciBYZW4gdGVzdGluZzoKPiAKPiBbICAxNzQuNTEyODYxXSBzd2l0Y2g6IHBvcnQgMih2aWYzLjAp
+IGVudGVyZWQgZGlzYWJsZWQgc3RhdGUKPiBbICAxNzQuNTIyNzM1XSBCVUc6IHNsZWVwaW5nIGZ1
+bmN0aW9uIGNhbGxlZCBmcm9tIGludmFsaWQgY29udGV4dCBhdAo+IC9ob21lL2J1aWxkL2xpbnV4
+LWxpbnVzL21tL3ZtYWxsb2MuYzoxNDQxCj4gWyAgMTc0LjUyMzQ1MV0gaW5fYXRvbWljKCk6IDEs
+IGlycXNfZGlzYWJsZWQoKTogMCwgcGlkOiAyOCwgbmFtZTogeGVud2F0Y2gKPiBbICAxNzQuNTI0
+MTMxXSBDUFU6IDEgUElEOiAyOCBDb21tOiB4ZW53YXRjaCBUYWludGVkOiBHICAgICAgICBXCj4g
+NC4xMC4wdXBzdHJlYW0tMTEwNzMtZzQ5NzdhYjYtZGlydHkgIzEKPiBbICAxNzQuNTI0ODE5XSBI
+YXJkd2FyZSBuYW1lOiBNU0kgTVMtNzY4MC9INjFNLVAyMyAoTVMtNzY4MCksIEJJT1MgVjE3LjAK
+PiAwMy8xNC8yMDExCj4gWyAgMTc0LjUyNTUxN10gQ2FsbCBUcmFjZToKPiBbICAxNzQuNTI2MjE3
+XSAgc2hvd19zdGFjaysweDIzLzB4NjAKPiBbICAxNzQuNTI2ODk5XSAgZHVtcF9zdGFjaysweDVi
+LzB4ODgKPiBbICAxNzQuNTI3NTYyXSAgX19fbWlnaHRfc2xlZXArMHhkZS8weDEzMAo+IFsgIDE3
+NC41MjgyMDhdICBfX21pZ2h0X3NsZWVwKzB4MzUvMHhhMAo+IFsgIDE3NC41Mjg4NDBdICA/IF9y
+YXdfc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSsweDEzLzB4MjAKPiBbICAxNzQuNTI5NDYzXSAgPyBf
+X3dha2VfdXArMHg0MC8weDUwCj4gWyAgMTc0LjUzMDA4OV0gIHJlbW92ZV92bV9hcmVhKzB4MjAv
+MHg5MAo+IFsgIDE3NC41MzA3MjRdICBfX3Z1bm1hcCsweDFkLzB4YzAKPiBbICAxNzQuNTMxMzQ2
+XSAgPyBkZWxldGVfb2JqZWN0X2Z1bGwrMHgxMy8weDIwCj4gWyAgMTc0LjUzMTk3M10gIHZmcmVl
+KzB4NDAvMHg4MAo+IFsgIDE3NC41MzI1OTRdICBzZXRfYmFja2VuZF9zdGF0ZSsweDE4YS8weGE5
+MAo+IFsgIDE3NC41MzMyMjFdICA/IGR3Y19zY2FuX2Rlc2NyaXB0b3JzKzB4MjRkLzB4NDMwCj4g
+WyAgMTc0LjUzMzg1MF0gID8ga2ZyZWUrMHg1Yi8weGMwCj4gWyAgMTc0LjUzNDQ3Nl0gID8geGVu
+YnVzX3JlYWQrMHgzZC8weDUwCj4gWyAgMTc0LjUzNTEwMV0gID8geGVuYnVzX3JlYWQrMHgzZC8w
+eDUwCj4gWyAgMTc0LjUzNTcxOF0gID8geGVuYnVzX2dhdGhlcisweDMxLzB4OTAKPiBbICAxNzQu
+NTM2MzMyXSAgPyBfX19taWdodF9zbGVlcCsweGY2LzB4MTMwCj4gWyAgMTc0LjUzNjk0NV0gIGZy
+b250ZW5kX2NoYW5nZWQrMHg2Yi8weGQwCj4gWyAgMTc0LjUzNzU2NV0gIHhlbmJ1c19vdGhlcmVu
+ZF9jaGFuZ2VkKzB4N2QvMHg4MAo+IFsgIDE3NC41MzgxODVdICBmcm9udGVuZF9jaGFuZ2VkKzB4
+MTIvMHgyMAo+IFsgIDE3NC41Mzg4MDNdICB4ZW53YXRjaF90aHJlYWQrMHg3NC8weDExMAo+IFsg
+IDE3NC41Mzk0MTddICA/IHdva2VuX3dha2VfZnVuY3Rpb24rMHgyMC8weDIwCj4gWyAgMTc0LjU0
+MDA0OV0gIGt0aHJlYWQrMHhlNS8weDEyMAo+IFsgIDE3NC41NDA2NjNdICA/IHhlbmJ1c19wcmlu
+dGYrMHg1MC8weDUwCj4gWyAgMTc0LjU0MTI3OF0gID8gX19rdGhyZWFkX2luaXRfd29ya2VyKzB4
+NDAvMHg0MAo+IFsgIDE3NC41NDE4OThdICByZXRfZnJvbV9mb3JrKzB4MjEvMHgyYwo+IFsgIDE3
+NC41NDg2MzVdIHN3aXRjaDogcG9ydCAyKHZpZjMuMCkgZW50ZXJlZCBkaXNhYmxlZCBzdGF0ZQo+
+IAo+IEkgYmVsaWV2ZSBjYWxsaW5nIHZmcmVlKCkgd2hlbiBob2xkaW5nIGEgc3Bpbl9sb2NrIGlz
+bid0IGEgZ29vZCBpZGVhLgo+IAoKVXNlIHZmcmVlX2F0b21pYyBpbnN0ZWFkPwoKPiBCb3Jpcywg
+dGhpcyBpcyB0aGUgZHVtcGRhdGEgZmFpbHVyZToKPiBGQUlMVVJFIDQuMTAuMHVwc3RyZWFtLTEx
+MDczLWc0OTc3YWI2LWRpcnR5KHg4Nl82NCkKPiA0LjEwLjB1cHN0cmVhbS0xMTA3My1nNDk3N2Fi
+Ni1kaXJ0eShpMzg2KVw6IDIwMTctMDMtMDIgKHRzdDAwNykKPiAKPiAKPiBKdWVyZ2VuCgpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4tZGV2ZWwgbWFp
+bGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMueGVuLm9yZy94
+ZW4tZGV2ZWwK
