@@ -1,44 +1,36 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net] net: solve a NAPI race
-Date: Thu, 2 Mar 2017 10:24:42 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE733A0@AcuExch.aculab.com>
-References: <1488032577.9415.131.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488166294.9415.172.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488205298.9415.180.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAKgT0UeSpxzgePoidJumQFvM5a2mOC5+rL8gCHqvX-HBvrn74A@mail.gmail.com>
-         <063D6719AE5E284EB5DD2968C1650D6DCFE727EB@AcuExch.aculab.com>
-         <CAKgT0Ud7dPwyj4Ze4HRJOXTpywBF8VZrELQAay-Sxsv+7+Pozw@mail.gmail.com>
- <1488389559.9415.300.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Anoob Soman <anoob.soman@citrix.com>
+Subject: [PATCH net] xen-netback: Use GFP_ATOMIC to allocate hash
+Date: Thu, 2 Mar 2017 10:50:20 +0000
+Message-ID: <1488451820-4759-1-git-send-email-anoob.soman@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "Tariq Toukan" <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:51896 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750743AbdCBKZG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 05:25:06 -0500
-In-Reply-To: <1488389559.9415.300.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paul.durrant@citrix.com, wei.liu2@citrix.com,
+ Anoob Soman <anoob.soman@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDAxIE1hcmNoIDIwMTcgMTc6MzMNCj4gT24gV2Vk
-LCAyMDE3LTAzLTAxIGF0IDA4OjE0IC0wODAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6DQo+IA0K
-PiA+IFdoYXQgYnVpbGQgZmxhZ3MgYXJlIHlvdSB1c2luZz8gIFdpdGggLU9zIG9yIC1PMiBJIGhh
-dmUgc2VlbiBpdA0KPiA+IGNvbnZlcnQgdGhlIC9iICogYyBpbnRvIGEgc2luZ2xlIHNoaWZ0Lg0K
-PiA+DQo+IA0KPiANCj4gQmVjYXVzZSBiICYgYyBhcmUgdW5zaWduZWQgaW4gb3VyIGNhc2UuDQo+
-IA0KPiBJIHByZXN1bWUgRGF2aWQgdHJpZWQgc2lnbmVkIGludGVnZXJzLCB0aGlzIGlzIHdoeSBn
-Y2MgZG9lcyB0aGF0Lg0KDQpJIHdhcyB1c2luZyBpbnRlZ2VyIGNvbnN0YW50cyBidXQgYW4gdW5z
-aWduZWQgdmFyaWFibGUuDQpDaGFuZ2luZyB0aGUgY29uc3RhbnRzIHRvIHVuc2lnbmVkIG1ha2Vz
-IG5vIGRpZmZlcmVuY2UgKHRoZXkgd291bGQgZ2V0DQpwcm9tb3RlZCBhbnl3YXkpLg0KDQpBZnRl
-ciBzb21lIGV4cGVyaW1lbnRzIEkgY2FuIGdldCBnY2MgdG8gZ2VuZXJhdGUgYSBzaW5nbGUgc2hp
-ZnQgaWYgdGhlDQp2YXJpYWJsZSBiZWluZyB0ZXN0ZWQgaXMgMzJiaXRzLCB0aGUgY29uc3RhbnRz
-IGFyZSA2NGJpdHMgYW5kIGEgNjRiaXQNCnJlc3VsdCBpcyByZXF1aXJlZC4NCkluIGV2ZXJ5IG90
-aGVyIGNhc2UgaXQgZG9lcyBlaXRoZXIgYW5kLXNoci1zaGwgb3Igc2hyLWFuZC1zaGwgKGFsbCB0
-aGUNCnNociBhcmUgbG9naWNhbCkuDQoNCglEYXZpZA0K
+QWxsb2NhdGlvbiBvZiBuZXdfaGFzaCwgaW5zaWRlIHhlbnZpZl9uZXdfaGFzaCgpLCBhbHdheXMg
+aGFwcGVuCmluIHNvZnRpcnEgY29udGV4dCwgc28gdXNlIEdGUF9BVE9NSUMgaW5zdGVhZCBvZiBH
+RlBfS0VSTkVMIGZvciBuZXcKaGFzaCBhbGxvY2F0aW9uLgoKU2lnbmVkLW9mZi1ieTogQW5vb2Ig
+U29tYW4gPGFub29iLnNvbWFuQGNpdHJpeC5jb20+Ci0tLQogZHJpdmVycy9uZXQveGVuLW5ldGJh
+Y2svaGFzaC5jIHwgMiArLQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0
+aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svaGFzaC5jIGIvZHJp
+dmVycy9uZXQveGVuLW5ldGJhY2svaGFzaC5jCmluZGV4IGU4YzVkZGQuLjNjNGM1OGIgMTAwNjQ0
+Ci0tLSBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2hhc2guYworKysgYi9kcml2ZXJzL25ldC94
+ZW4tbmV0YmFjay9oYXNoLmMKQEAgLTM5LDcgKzM5LDcgQEAgc3RhdGljIHZvaWQgeGVudmlmX2Fk
+ZF9oYXNoKHN0cnVjdCB4ZW52aWYgKnZpZiwgY29uc3QgdTggKnRhZywKIAl1bnNpZ25lZCBsb25n
+IGZsYWdzOwogCWJvb2wgZm91bmQ7CiAKLQluZXcgPSBrbWFsbG9jKHNpemVvZigqZW50cnkpLCBH
+RlBfS0VSTkVMKTsKKwluZXcgPSBrbWFsbG9jKHNpemVvZigqZW50cnkpLCBHRlBfQVRPTUlDKTsK
+IAlpZiAoIW5ldykKIAkJcmV0dXJuOwogCi0tIAoyLjcuNAoKCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRl
+dmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
