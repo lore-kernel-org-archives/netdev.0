@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 04/26] tty: kbd: reduce stack size with KASAN
-Date: Thu,  2 Mar 2017 17:38:12 +0100
-Message-ID: <20170302163834.2273519-5-arnd@arndb.de>
+Subject: [PATCH 07/26] brcmsmac: reduce stack size with KASAN
+Date: Thu,  2 Mar 2017 17:38:15 +0100
+Message-ID: <20170302163834.2273519-8-arnd@arndb.de>
 References: <20170302163834.2273519-1-arnd@arndb.de>
 Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
         Alexander Potapenko <glider@google.com>,
@@ -12,54 +12,50 @@ Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
         "David S . Miller" <davem@davemloft.net>,
         Arnd Bergmann <arnd@arndb.de>
 To: kasan-dev@googlegroups.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.134]:49837 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752570AbdCBRLM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 12:11:12 -0500
 In-Reply-To: <20170302163834.2273519-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As reported by kernelci, some functions in the VT code use significant
-amounts of kernel stack when local variables get inlined into the caller
-multiple times:
+The wlc_phy_table_write_nphy/wlc_phy_table_read_nphy functions always put an object
+on the stack, which will each require a redzone with KASAN and lead to possible
+stack overflow:
 
-drivers/tty/vt/keyboard.c: In function 'kbd_keycode':
-drivers/tty/vt/keyboard.c:1452:1: error: the frame size of 2240 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
+drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c: In function 'wlc_phy_workarounds_nphy':
+drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c:17135:1: warning: the frame size of 6312 bytes is larger than 1000 bytes [-Wframe-larger-than=]
 
-Annotating those functions as noinline_for_kasan prevents the inlining
-and reduces the overall stack usage in this driver.
+This marks the two functions as noinline_for_kasan, avoiding the problem entirely.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/tty/vt/keyboard.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/tty/vt/keyboard.c b/drivers/tty/vt/keyboard.c
-index 397e1509fe51..f8a183c1639f 100644
---- a/drivers/tty/vt/keyboard.c
-+++ b/drivers/tty/vt/keyboard.c
-@@ -300,13 +300,13 @@ int kbd_rate(struct kbd_repeat *rpt)
- /*
-  * Helper Functions.
-  */
--static void put_queue(struct vc_data *vc, int ch)
-+static noinline_for_kasan void put_queue(struct vc_data *vc, int ch)
- {
- 	tty_insert_flip_char(&vc->port, ch, 0);
- 	tty_schedule_flip(&vc->port);
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c b/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
+index b3aab2fe96eb..42dc8e1f483d 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
+@@ -14157,7 +14157,7 @@ static void wlc_phy_bphy_init_nphy(struct brcms_phy *pi)
+ 	write_phy_reg(pi, NPHY_TO_BPHY_OFF + BPHY_STEP, 0x668);
  }
  
--static void puts_queue(struct vc_data *vc, char *cp)
-+static noinline_for_kasan void puts_queue(struct vc_data *vc, char *cp)
+-void
++noinline_for_kasan void
+ wlc_phy_table_write_nphy(struct brcms_phy *pi, u32 id, u32 len, u32 offset,
+ 			 u32 width, const void *data)
  {
- 	while (*cp) {
- 		tty_insert_flip_char(&vc->port, *cp, 0);
-@@ -554,7 +554,7 @@ static void fn_inc_console(struct vc_data *vc)
- 	set_console(i);
+@@ -14171,7 +14171,7 @@ wlc_phy_table_write_nphy(struct brcms_phy *pi, u32 id, u32 len, u32 offset,
+ 	wlc_phy_write_table_nphy(pi, &tbl);
  }
  
--static void fn_send_intr(struct vc_data *vc)
-+static noinline_for_kasan void fn_send_intr(struct vc_data *vc)
+-void
++noinline_for_kasan void
+ wlc_phy_table_read_nphy(struct brcms_phy *pi, u32 id, u32 len, u32 offset,
+ 			u32 width, void *data)
  {
- 	tty_insert_flip_char(&vc->port, 0, TTY_BREAK);
- 	tty_schedule_flip(&vc->port);
 -- 
 2.9.0
