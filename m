@@ -1,59 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 18/26] [media] i2c: cx25840: avoid stack overflow with KASAN
-Date: Thu,  2 Mar 2017 17:38:26 +0100
-Message-ID: <20170302163834.2273519-19-arnd@arndb.de>
-References: <20170302163834.2273519-1-arnd@arndb.de>
-Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        kernel-build-reports@lists.linaro.org,
-        "David S . Miller" <davem@davemloft.net>,
-        Arnd Bergmann <arnd@arndb.de>
-To: kasan-dev@googlegroups.com
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <20170302163834.2273519-1-arnd@arndb.de>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 194723] connect() to localhost stalls after 4.9 -> 4.10
+ upgrade
+Date: Thu, 2 Mar 2017 10:32:49 -0800
+Message-ID: <20170302103249.671ef5a5@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:34477 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750707AbdCBSdw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 13:33:52 -0500
+Received: by mail-pg0-f47.google.com with SMTP id 16so553718pga.1
+        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 10:32:51 -0800 (PST)
+Received: from xeon-e3 (204-195-18-65.wavecable.com. [204.195.18.65])
+        by smtp.gmail.com with ESMTPSA id p77sm14392903pfj.99.2017.03.02.10.32.50
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Thu, 02 Mar 2017 10:32:50 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With CONFIG_KASAN, this driver has shown a ridiculously large stack frame
-in one configuration:
 
-drivers/media/i2c/cx25840/cx25840-core.c:4960:1: error: the frame size of 94000 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
 
-In most builds, it's only about 3300 bytes, but that's still large anough to
-risk a kernel stack overflow.
+Begin forwarded message:
 
-Marking the two register access functions as noinline_for_kasan avoids
-the problem and brings the largest stack frame size down to 232 bytes.
+Date: Wed, 01 Mar 2017 12:04:45 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 194723] connect() to localhost stalls after 4.9 -> 4.10 upgrade
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/media/i2c/cx25840/cx25840-core.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/media/i2c/cx25840/cx25840-core.c b/drivers/media/i2c/cx25840/cx25840-core.c
-index b8d3c070bfc1..fd72e5a11cb9 100644
---- a/drivers/media/i2c/cx25840/cx25840-core.c
-+++ b/drivers/media/i2c/cx25840/cx25840-core.c
-@@ -81,7 +81,7 @@ MODULE_PARM_DESC(debug, "Debugging messages [0=Off (default) 1=On]");
- /* ----------------------------------------------------------------------- */
- static void cx23888_std_setup(struct i2c_client *client);
- 
--int cx25840_write(struct i2c_client *client, u16 addr, u8 value)
-+noinline_for_kasan int cx25840_write(struct i2c_client *client, u16 addr, u8 value)
- {
- 	u8 buffer[3];
- 	buffer[0] = addr >> 8;
-@@ -90,7 +90,7 @@ int cx25840_write(struct i2c_client *client, u16 addr, u8 value)
- 	return i2c_master_send(client, buffer, 3);
- }
- 
--int cx25840_write4(struct i2c_client *client, u16 addr, u32 value)
-+noinline_for_kasan int cx25840_write4(struct i2c_client *client, u16 addr, u32 value)
- {
- 	u8 buffer[6];
- 	buffer[0] = addr >> 8;
+https://bugzilla.kernel.org/show_bug.cgi?id=194723
+
+--- Comment #2 from Lutz Vieweg (lvml@5t9.de) ---
+Using tcpdump I found that when the connect() stalls, the initial SYN packet
+appears at the "lo" interface, and is re-sent multiple times, but no ACK packet
+is ever returned.
+
+Error case with linux-4.10:
+
+> 12:57:25.685640 IP 127.0.0.1.44074 > 127.0.0.1.dnp-sec: Flags [S], seq
+> 1952288470, win 43690, options [mss 65495,sackOK,TS val 1942998659 ecr
+> 0,nop,wscale 7], length 0
+> 12:57:26.728890 IP 127.0.0.1.44074 > 127.0.0.1.dnp-sec: Flags [S], seq
+> 1952288470, win 43690, options [mss 65495,sackOK,TS val 1942999703 ecr
+> 0,nop,wscale 7], length 0
+> 12:57:28.776935 IP 127.0.0.1.44074 > 127.0.0.1.dnp-sec: Flags [S], seq
+> 1952288470, win 43690, options [mss 65495,sackOK,TS val 1943001751 ecr
+> 0,nop,wscale 7], length 0  
+...
+
+Normal case:
+
+> 13:01:43.037135 IP 127.0.0.1.44362 > 127.0.0.1.dnp-sec: Flags [S], seq
+> 3181010757, win 43690, options [mss 65495,sackOK,TS val 3314900273 ecr
+> 0,nop,wscale 7], length 0
+> 13:01:43.037171 IP 127.0.0.1.dnp-sec > 127.0.0.1.44362: Flags [S.], seq
+> 1934682061, ack 3181010758, win 43690, options [mss 65495,sackOK,TS val
+> 2947413993 ecr 3314900273,nop,wscale 7], length 0
+> 13:01:43.037196 IP 127.0.0.1.44362 > 127.0.0.1.dnp-sec: Flags [.], ack 1, win
+> 342, options [nop,nop,TS val 3314900273 ecr 2947413993], length 0  
+
+
+According to strace, the listening process does not even leave the select()
+call it uses to wait for incoming connections to accept in the error case.
+
 -- 
-2.9.0
+You are receiving this mail because:
+You are the assignee for the bug.
