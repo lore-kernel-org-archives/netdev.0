@@ -1,65 +1,34 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net] rxrpc: Fix potential NULL-pointer exception
-Date: Thu, 02 Mar 2017 23:48:52 +0000
-Message-ID: <148849853282.19232.4377425862338633345.stgit@warthog.procyon.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net v2] ipv6: ignore null_entry in inet6_rtm_getroute()
+ too
+Date: Thu, 02 Mar 2017 14:36:49 -0800 (PST)
+Message-ID: <20170302.143649.1303630232040429807.davem@davemloft.net>
+References: <1488430119-4670-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, dvyukov@google.com, dsa@cumulusnetworks.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47258 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751255AbdCBXu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Mar 2017 18:50:59 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:39986 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751035AbdCBXyi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 18:54:38 -0500
+In-Reply-To: <1488430119-4670-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a potential NULL-pointer exception in rxrpc_do_sendmsg().  The call
-state check that I added should have gone into the else-body of the
-if-statement where we actually have a call to check.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed,  1 Mar 2017 20:48:39 -0800
 
-Found by CoverityScan CID#1414316 ("Dereference after null check").
+> Like commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route dumps"),
+> we need to ignore null entry in inet6_rtm_getroute() too.
+> 
+> Return -ENETUNREACH here to sync with IPv4 behavior, as suggested by David.
+> 
+> Fixes: a1a22c1206 ("net: ipv6: Keep nexthop of multipath route on admin down")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: David Ahern <dsa@cumulusnetworks.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Fixes: 540b1c48c37a ("rxrpc: Fix deadlock between call creation and sendmsg/recvmsg")
-Reported-by: Colin Ian King <colin.king@canonical.com>
-Signed-off-by: David Howells <dhowells@redhat.com>
----
-
- net/rxrpc/sendmsg.c |   15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
-
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index 31c1538c1a8d..27685d8cba1a 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -517,13 +517,6 @@ int rxrpc_do_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg, size_t len)
- 		ret = -EBADSLT;
- 		if (cmd != RXRPC_CMD_SEND_DATA)
- 			goto error_release_sock;
--		ret = -EBUSY;
--		if (call->state == RXRPC_CALL_UNINITIALISED ||
--		    call->state == RXRPC_CALL_CLIENT_AWAIT_CONN ||
--		    call->state == RXRPC_CALL_SERVER_PREALLOC ||
--		    call->state == RXRPC_CALL_SERVER_SECURING ||
--		    call->state == RXRPC_CALL_SERVER_ACCEPTING)
--			goto error_release_sock;
- 		call = rxrpc_new_client_call_for_sendmsg(rx, msg, user_call_ID,
- 							 exclusive);
- 		/* The socket is now unlocked... */
-@@ -531,6 +524,14 @@ int rxrpc_do_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg, size_t len)
- 			return PTR_ERR(call);
- 		/* ... and we have the call lock. */
- 	} else {
-+		ret = -EBUSY;
-+		if (call->state == RXRPC_CALL_UNINITIALISED ||
-+		    call->state == RXRPC_CALL_CLIENT_AWAIT_CONN ||
-+		    call->state == RXRPC_CALL_SERVER_PREALLOC ||
-+		    call->state == RXRPC_CALL_SERVER_SECURING ||
-+		    call->state == RXRPC_CALL_SERVER_ACCEPTING)
-+			goto error_release_sock;
-+
- 		ret = mutex_lock_interruptible(&call->user_mutex);
- 		release_sock(&rx->sk);
- 		if (ret < 0) {
+Applied, thanks.
