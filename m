@@ -1,47 +1,49 @@
-From: Robert Foss <robert.foss@collabora.com>
-Subject: [PATCH v1] qed: Fix copy of uninitialized memory
-Date: Wed,  1 Mar 2017 22:55:08 -0500
-Message-ID: <20170302035508.5731-1-robert.foss@collabora.com>
-Cc: Robert Foss <robert.foss@collabora.com>
-To: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        everest-linux-l2@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net v2] ipv6: ignore null_entry in inet6_rtm_getroute() too
+Date: Wed,  1 Mar 2017 20:48:39 -0800
+Message-ID: <1488430119-4670-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: dvyukov@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([46.235.227.227]:46094 "EHLO
-        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753378AbdCBED0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 23:03:26 -0500
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35066 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752238AbdCBEtJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Mar 2017 23:49:09 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 1so7997471pgz.2
+        for <netdev@vger.kernel.org>; Wed, 01 Mar 2017 20:48:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In qed_ll2_start_ooo() the ll2_info variable is uninitialized and then
-passed to qed_ll2_acquire_connection() where it is copied into a new
-memory space.
+Like commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route dumps"),
+we need to ignore null entry in inet6_rtm_getroute() too.
 
-This shouldn't cause any issue as long as non of the copied memory is
-every read.
-But the potential for a bug being introduced by reading this memory
-is real.
+Return -ENETUNREACH here to sync with IPv4 behavior, as suggested by David.
 
-Detected by CoverityScan, CID#1399632 ("Uninitialized scalar variable")
-
-Signed-off-by: Robert Foss <robert.foss@collabora.com>
+Fixes: a1a22c1206 ("net: ipv6: Keep nexthop of multipath route on admin down")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv6/route.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index 9a0b9af10a57..5fb34db377c8 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -968,7 +968,7 @@ static int qed_ll2_start_ooo(struct qed_dev *cdev,
- {
- 	struct qed_hwfn *hwfn = QED_LEADING_HWFN(cdev);
- 	u8 *handle = &hwfn->pf_params.iscsi_pf_params.ll2_ooo_queue_id;
--	struct qed_ll2_conn ll2_info;
-+	struct qed_ll2_conn ll2_info = { 0 };
- 	int rc;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f54f426..df757b2 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3627,6 +3627,12 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 		rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
+ 	}
  
- 	ll2_info.conn_type = QED_LL2_TYPE_ISCSI_OOO;
++	if (rt == net->ipv6.ip6_null_entry) {
++		err = rt->dst.error;
++		ip6_rt_put(rt);
++		goto errout;
++	}
++
+ 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+ 	if (!skb) {
+ 		ip6_rt_put(rt);
 -- 
-2.11.0.453.g787f75f05
+2.5.5
