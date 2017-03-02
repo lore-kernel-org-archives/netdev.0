@@ -1,34 +1,43 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/2] pull request for net: batman-adv
-	2017-03-01
-Date: Thu, 02 Mar 2017 13:17:06 -0800 (PST)
-Message-ID: <20170302.131706.1138324719230168152.davem@davemloft.net>
-References: <20170301155333.19406-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v4 0/2] net: ethernet: bgmac: bug fixes
+Date: Thu, 02 Mar 2017 12:56:05 -0800 (PST)
+Message-ID: <20170302.125605.1084925031741881031.davem@davemloft.net>
+References: <1488307311-11933-1-git-send-email-jon.mason@broadcom.com>
+        <20170302.125015.275943458708603387.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170301155333.19406-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jon.mason@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170302.125015.275943458708603387.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Date: Wed,  1 Mar 2017 16:53:31 +0100
-
-> here are two bugfixes which we would like to see integrated into net.
-> 
-> Please pull or let me know of any problem!
-
-Pulled, thanks Simon.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAwMiBN
+YXIgMjAxNyAxMjo1MDoxNSAtMDgwMCAoUFNUKQ0KDQo+IEZyb206IEpvbiBNYXNvbiA8am9uLm1h
+c29uQGJyb2FkY29tLmNvbT4NCj4gRGF0ZTogVHVlLCAyOCBGZWIgMjAxNyAxMzo0MTo0OSAtMDUw
+MA0KPiANCj4+IENoYW5nZXMgaW4gdjQ6DQo+PiAqIEFkZGVkIHRoZSB1ZGVsYXlzIGZyb20gdGhl
+IHByZXZpb3VzIGNvZGUgKHBlciBEYXZpZCBNaWxsZXIpDQo+PiANCj4+IENoYW5nZXMgaW4gdjM6
+DQo+PiAqIFJld29ya2VkIHRoZSBpbml0IHNlcXVlbmNlIHBhdGNoIHRvIG9ubHkgcmVtb3ZlIHRo
+ZSBkZXZpY2UgcmVzZXQgaWYNCj4+ICAgdGhlIGRldmljZSBpcyBhY3R1YWxseSBpbiByZXNldC4g
+IEdpdmVuIHRoYXQgdGhpcyBjb2RlIGRvZXNuJ3QgYmVhcg0KPj4gICBtdWNoIHJlc2VtYmxhbmNl
+IHRvIHRoZSBvcmlnaW5hbCBjb2RlLCBJJ20gY2hhbmdpbmcgdGhlIGF1dGhvciBvZiB0aGUNCj4+
+ICAgcGF0Y2guICBUaGlzIHdhcyB0ZXN0ZWQgb24gTlMyIFNWSy4NCj4+IA0KPj4gQ2hhbmdlcyBp
+biB2MjoNCj4+ICogUmV3b3JrZWQgdGhlIGZpcnN0IG1hdGNoIHRvIG1ha2UgaXQgbW9yZSBvYnZp
+b3VzIHdoYXQgcG9ydGlvbnMgb2YgdGhlDQo+PiAgIHJlZ2lzdGVyIHdlcmUgYmVpbmcgcHJlc2Vy
+dmVkIChQZXIgUmFmYWwgTWlsZWtpKQ0KPj4gKiBTdHlsZSBjaGFuZ2UgdG8gcmVvcmRlciB0aGUg
+ZnVuY3Rpb24gdmFyaWFibGVzIGluIHBhdGNoIDIgKHBlciBTZXJnZWkNCj4+ICAgU2h0eWx5b3Yp
+DQo+PiANCj4+IEJ1ZyBmaXhlcyBmb3IgYmdtYWMgZHJpdmVyDQo+IA0KPiBTZXJpZXMgYXBwbGll
+ZC4NCg0KQWN0dWFsbHksIHRoaXMgZG9lc24ndCBldmVuIGNvbXBpbGUuICBSZXZlcnRlZC4uLg0K
+DQpbZGF2ZW1Aa2t1cmkgbmV0XSQgbWFrZSAtcyAtajQNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jy
+b2FkY29tL2JnbWFjLmM6IEluIGZ1bmN0aW9uIKFiZ21hY19zZXRfbWFjX2FkZHJlc3OiOg0KZHJp
+dmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmdtYWMuYzoxMjMzOjIzOiBlcnJvcjogoXN0cnVj
+dCBiZ21hY6IgaGFzIG5vIG1lbWJlciBuYW1lZCChbWFjX2FkZHKiOyBkaWQgeW91IG1lYW4goXBo
+eWFkZHKiPw0KICBldGhlcl9hZGRyX2NvcHkoYmdtYWMtPm1hY19hZGRyLCBzYS0+c2FfZGF0YSk7
+DQogICAgICAgICAgICAgICAgICAgICAgIF5+DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNv
+bS9iZ21hYy5jOjEyMzQ6Mzg6IGVycm9yOiChc3RydWN0IGJnbWFjoiBoYXMgbm8gbWVtYmVyIG5h
+bWVkIKFtYWNfYWRkcqI7IGRpZCB5b3UgbWVhbiChcGh5YWRkcqI/DQogIGJnbWFjX3dyaXRlX21h
+Y19hZGRyZXNzKGJnbWFjLCBiZ21hYy0+bWFjX2FkZHIpOw0KICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICBefg0K
