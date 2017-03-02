@@ -1,33 +1,41 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH net] rxrpc: Fix potential NULL-pointer exception
-Date: Thu, 02 Mar 2017 23:30:45 +0000
-Message-ID: <26697.1488497445@warthog.procyon.org.uk>
-References: <148849717388.26285.3477243497908119377.stgit@warthog.procyon.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: fix potential double free issue for
+ fastopen_req
+Date: Thu, 02 Mar 2017 14:06:31 -0800 (PST)
+Message-ID: <20170302.140631.2180464369793479736.davem@davemloft.net>
+References: <20170301212948.96840-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-        linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <148849717388.26285.3477243497908119377.stgit@warthog.procyon.org.uk>
-Content-ID: <26696.1488497445.1@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, ycheng@google.com
+To: weiwan@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42534 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750941AbdCCFOi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 00:14:38 -0500
+In-Reply-To: <20170301212948.96840-1-tracywwnj@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Howells <dhowells@redhat.com> wrote:
+From: Wei Wang <weiwan@google.com>
+Date: Wed,  1 Mar 2017 13:29:48 -0800
 
-> Fix a potential NULL-pointer exception in rxrpc_do_sendmsg().  The call
-> state check that I added should have gone into the else-body of the
-> if-statement where we actually have a call to check.
+> From: Wei Wang <weiwan@google.com>
 > 
-> Found by CoverityScan CID#1414316 ("Dereference after null check").
+> tp->fastopen_req could potentially be double freed if a malicious
+> user does the following:
+> 1. Enable TCP_FASTOPEN_CONNECT sockopt and do a connect() on the socket.
+> 2. Call connect() with AF_UNSPEC to disconnect the socket.
+> 3. Make this socket a listening socket by calling listen().
+> 4. Accept incoming connections and generate child sockets. All child
+>    sockets will get a copy of the pointer of fastopen_req.
+> 5. Call close() on all sockets. fastopen_req will get freed multiple
+>    times.
 > 
-> Fixes: 540b1c48c37a ("rxrpc: Fix deadlock between call creation and sendmsg/recvmsg")
-> Reported-by: Colin Ian King <colin.king@canonical.com>
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> Fixes: 19f6d3f3c842 ("net/tcp-fastopen: Add new API support")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Please ignore this - there's another patch interposed that I haven't sent
-upstream yet.  Will rebase on net/master.
-
-David
+Applied, and queued up for -stable.
