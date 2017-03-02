@@ -1,43 +1,148 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] bonding: use ETH_MAX_MTU as max mtu
-Date: Thu,  2 Mar 2017 12:24:36 -0800
-Message-ID: <1488486276-24552-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: daznis@gmail.com, lists2009@fnarfbargle.com,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jarod Wilson <jarod@redhat.com>
+From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
+Subject: [PATCH] fjes: Do not load fjes driver if system does not have
+ extended socket device.
+Date: Thu, 2 Mar 2017 11:56:44 -0500
+Message-ID: <fb537059-35b3-3dce-23fb-9a59e8f6926a@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, izumi.taku@jp.fujitsu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36733 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750778AbdCBUe3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 15:34:29 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 25so10363413pgy.3
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 12:33:51 -0800 (PST)
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:33426 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751076AbdCBUsS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 15:48:18 -0500
+Received: by mail-qk0-f196.google.com with SMTP id j127so4030922qke.0
+        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 12:47:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This restores the ability of setting bond device's mtu to 9000.
+The fjes driver is used only by FUJITSU servers and almost of all
+servers in the world never use it. But currently if ACPI PNP0C02
+is defined in the ACPI table, the following message is always shown:
 
-Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
-Reported-by: daznis@gmail.com
-Reported-by: Brad Campbell <lists2009@fnarfbargle.com>
-Cc: Jarod Wilson <jarod@redhat.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+  "FUJITSU Extended Socket Network Device Driver - version 1.2
+   - Copyright (c) 2015 FUJITSU LIMITED"
+
+The message makes users confused because there is no reason that
+the message is shown in other vendor servers.
+
+To avoid the confusion, the patch adds a check that the server
+has a extended socket device or not.
+
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+CC: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/bonding/bond_main.c | 1 +
- 1 file changed, 1 insertion(+)
+  drivers/net/fjes/fjes_main.c | 52 +++++++++++++++++++++++++++++++++++++++-----
+  1 file changed, 47 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6321f12..8a4ba8b 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4179,6 +4179,7 @@ void bond_setup(struct net_device *bond_dev)
- 
- 	/* Initialize the device entry points */
- 	ether_setup(bond_dev);
-+	bond_dev->max_mtu = ETH_MAX_MTU;
- 	bond_dev->netdev_ops = &bond_netdev_ops;
- 	bond_dev->ethtool_ops = &bond_ethtool_ops;
- 
+diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+index b77e4ecf..fe58c01 100644
+--- a/drivers/net/fjes/fjes_main.c
++++ b/drivers/net/fjes/fjes_main.c
+@@ -45,6 +45,8 @@
+  MODULE_LICENSE("GPL");
+  MODULE_VERSION(DRV_VERSION);
+
++#define ACPI_MOTHERBOARD_RESOURCE_HID "PNP0C02"
++
+  static int fjes_request_irq(struct fjes_adapter *);
+  static void fjes_free_irq(struct fjes_adapter *);
+
+@@ -79,7 +81,7 @@
+  static int fjes_poll(struct napi_struct *, int);
+
+  static const struct acpi_device_id fjes_acpi_ids[] = {
+-	{"PNP0C02", 0},
++	{ACPI_MOTHERBOARD_RESOURCE_HID, 0},
+  	{"", 0},
+  };
+  MODULE_DEVICE_TABLE(acpi, fjes_acpi_ids);
+@@ -116,18 +118,17 @@
+  	},
+  };
+
+-static int fjes_acpi_add(struct acpi_device *device)
++static bool is_extended_socket_device(struct acpi_device *device)
+  {
+  	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL};
+  	char str_buf[sizeof(FJES_ACPI_SYMBOL) + 1];
+-	struct platform_device *plat_dev;
+  	union acpi_object *str;
+  	acpi_status status;
+  	int result;
+
+  	status = acpi_evaluate_object(device->handle, "_STR", NULL, &buffer);
+  	if (ACPI_FAILURE(status))
+-		return -ENODEV;
++		return false;
+
+  	str = buffer.pointer;
+  	result = utf16s_to_utf8s((wchar_t *)str->string.pointer,
+@@ -137,10 +138,21 @@ static int fjes_acpi_add(struct acpi_device *device)
+
+  	if (strncmp(FJES_ACPI_SYMBOL, str_buf, strlen(FJES_ACPI_SYMBOL)) != 0) {
+  		kfree(buffer.pointer);
+-		return -ENODEV;
++		return false;
+  	}
+  	kfree(buffer.pointer);
+
++	return true;
++}
++
++static int fjes_acpi_add(struct acpi_device *device)
++{
++	struct platform_device *plat_dev;
++	acpi_status status;
++
++	if (!is_extended_socket_device(device))
++		return -ENODEV;
++
+  	status = acpi_walk_resources(device->handle, METHOD_NAME__CRS,
+  				     fjes_get_acpi_resource, fjes_resource);
+  	if (ACPI_FAILURE(status))
+@@ -1476,10 +1488,40 @@ static void fjes_watch_unshare_task(struct work_struct *work)
+  	}
+  }
+
++static acpi_status
++acpi_find_extended_socket_device(acpi_handle obj_handle, u32 level,
++				 void *context, void **return_value)
++{
++	struct acpi_device *device;
++	bool *found = context;
++	int result;
++
++	result = acpi_bus_get_device(obj_handle, &device);
++	if (result)
++		return AE_OK;
++
++	if (strcmp(acpi_device_hid(device), ACPI_MOTHERBOARD_RESOURCE_HID))
++		return AE_OK;
++
++	if (!is_extended_socket_device(device))
++		return AE_OK;
++
++	*found = true;
++	return AE_CTRL_TERMINATE;
++}
++
+  /* fjes_init_module - Driver Registration Routine */
+  static int __init fjes_init_module(void)
+  {
+  	int result;
++	bool found = false;
++
++	acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
++			    acpi_find_extended_socket_device, NULL, &found,
++			    NULL);
++
++	if (!found)
++		return -ENODEV;
+
+  	pr_info("%s - version %s - %s\n",
+  		fjes_driver_string, fjes_driver_version, fjes_copyright);
 -- 
-2.5.5
+1.8.3.1
