@@ -1,81 +1,55 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC v2 00/12] socket sendmsg MSG_ZEROCOPY
-Date: Thu, 2 Mar 2017 11:26:56 -0800
-Message-ID: <CALCETrXphOCGN+8RChvJ59t=NWK5y4kDiABoM5_SfXHVOXHUqQ@mail.gmail.com>
-References: <CALCETrU3tohXaoOTMi8J4FdTggGhvauHt12KyLFV=Q0FjiDNbg@mail.gmail.com>
- <CAF=yD-K_0zO3pMeXf-UKGTsD4sNOdyN9KJkUb5MnCO_J5pisrA@mail.gmail.com>
- <CALCETrXogADnqymxaoqt=F3rDMpOYQ0xy7audng=t-Rx1bxqbw@mail.gmail.com> <20170228.222845.1863678335516061180.davem@davemloft.net>
+From: Zaboj Campula <zaboj.campula@post.cz>
+Subject: Re: [PATCH] iproute2: show network device dependency tree
+Date: Thu, 02 Mar 2017 19:51:28 +0000
+Message-ID: <1488484288.5717.1.camel@post.cz>
+References: <20170225165900.10129-1-zaboj.campula@post.cz>
+         <20170225173927.GA2479@nanopsycho> <1488054142.3856.15.camel@post.cz>
+         <20170226075633.GA1788@nanopsycho> <1488117614.1903.2.camel@post.cz>
+         <20170226144610.GB2071@nanopsycho.orion> <20170227173825.39e00c61@griffin>
+         <1488312457.2131.2.camel@post.cz> <20170301112228.713bd4d5@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Linux API <linux-api@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f171.google.com ([209.85.217.171]:33545 "EHLO
-        mail-ua0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751756AbdCBTgt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 14:36:49 -0500
-Received: by mail-ua0-f171.google.com with SMTP id c11so39693995uaa.0
-        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 11:36:48 -0800 (PST)
-In-Reply-To: <20170228.222845.1863678335516061180.davem@davemloft.net>
+Received: from mxf2.seznam.cz ([77.75.76.123]:54817 "EHLO mxf2.seznam.cz"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750779AbdCBUUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Mar 2017 15:20:17 -0500
+In-Reply-To: <20170301112228.713bd4d5@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2017 at 7:28 PM, David Miller <davem@davemloft.net> wrote:
-> From: Andy Lutomirski <luto@amacapital.net>
-> Date: Tue, 28 Feb 2017 13:06:49 -0800
->
->> On Tue, Feb 28, 2017 at 12:43 PM, Willem de Bruijn
->> <willemdebruijn.kernel@gmail.com> wrote:
->>> On Tue, Feb 28, 2017 at 2:46 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->>>> On Mon, Feb 27, 2017 at 10:57 AM, Michael Kerrisk
->>>> <mtk.manpages@gmail.com> wrote:
->>>>> [CC += linux-api@vger.kernel.org]
->>>>>
->>>>> Hi Willem
->>>>>
->>>>
->>>>>> On a send call with MSG_ZEROCOPY, the kernel pins the user pages and
->>>>>> creates skbuff fragments directly from these pages. On tx completion,
->>>>>> it notifies the socket owner that it is safe to modify memory by
->>>>>> queuing a completion notification onto the socket error queue.
->>>>
->>>> What happens if the user writes to the pages while it's not safe?
->>>>
->>>> How about if you're writing to an interface or a route that has crypto
->>>> involved and a malicious user can make the data change in the middle
->>>> of a crypto operation, thus perhaps leaking the entire key?  (I
->>>> wouldn't be at all surprised if a lot of provably secure AEAD
->>>> constructions are entirely compromised if an attacker can get the
->>>> ciphertext and tag computed from a message that changed during the
->>>> computation.
->>>
->>> Operations that read or write payload, such as this crypto example,
->>> but also ebpf in tc or iptables, for instance, demand a deep copy using
->>> skb_copy_ubufs before the operation.
->>>
->>> This blacklist approach requires caution, but these paths should be
->>> few and countable. It is not possible to predict at the socket layer
->>> whether a packet will encounter any such operation, so white-listing
->>> a subset of end-to-end paths is not practical.
->>
->> How about hardware that malfunctions if the packet changes out from
->> under it?  A whitelist seems quite a bit safer.
->
-> These device are already choking, because as I stated this can already
-> be done via sendfile().
->
-> Networking card wise this isn't an issue, chips bring the entire packet
-> into their FIFO, compute checksums on the fly mid-stream, and then write
-> the 16-bit checksum field before starting to write the packet onto the
-> wire.
->
-> I think this is completely a non-issue, and we thought about this right
-> from the start when sendfile() support was added nearly two decades ago.
-> If network cards from back then didn't crap out in this situation I
-> think the ones out there now are probably ok.
+On Wed, 2017-03-01 at 11:22 +0100, Jiri Benc wrote:
+> On Tue, 28 Feb 2017 20:07:37 +0000, Zaboj Campula wrote:
+> > Well it is impossible to draw a simple tree showing the configuration
+> > exactly with all details. May be it is too ambitious to draw a tree
+> > at all.
+> 
+> I tried that and failed. I didn't want to have something that would
+> work only "somehow" as that would create confusion instead of helping.
 
-Fair enough.
+OK, I give up. My patch was naive and I deleted it.
+Nevertheless I still think it would be useful to show network
+interfaces dependencies in a pure text format.
+
+
+> Consider the very simple case of an interface with two vlan interfaces
+> and both of them in a bridge.
+> 
+>          vlan0
+>       /        \
+> eth0             br0
+>       \        /
+>          vlan1
+> 
+> You can't represent this in a tree view. And this is just a very simple
+> example, in reality it tends to be much more complex.
+
+Perhaps something like that:
+eth0
+    vlan0
+        br0
+    vlan1
+        br0
