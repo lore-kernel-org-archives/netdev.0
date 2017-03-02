@@ -1,43 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v4 0/2] net: ethernet: bgmac: bug fixes
-Date: Thu, 02 Mar 2017 12:56:05 -0800 (PST)
-Message-ID: <20170302.125605.1084925031741881031.davem@davemloft.net>
-References: <1488307311-11933-1-git-send-email-jon.mason@broadcom.com>
-        <20170302.125015.275943458708603387.davem@davemloft.net>
+Subject: Re: [PATCH net] cxgb4: update latest firmware version supported
+Date: Thu, 02 Mar 2017 13:14:04 -0800 (PST)
+Message-ID: <20170302.131404.2077347630073823716.davem@davemloft.net>
+References: <1488347333-25675-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jon.mason@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170302.125015.275943458708603387.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com, indranil@chelsio.com
+To: ganeshgr@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38614 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751102AbdCBVZE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 16:25:04 -0500
+In-Reply-To: <1488347333-25675-1-git-send-email-ganeshgr@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAwMiBN
-YXIgMjAxNyAxMjo1MDoxNSAtMDgwMCAoUFNUKQ0KDQo+IEZyb206IEpvbiBNYXNvbiA8am9uLm1h
-c29uQGJyb2FkY29tLmNvbT4NCj4gRGF0ZTogVHVlLCAyOCBGZWIgMjAxNyAxMzo0MTo0OSAtMDUw
-MA0KPiANCj4+IENoYW5nZXMgaW4gdjQ6DQo+PiAqIEFkZGVkIHRoZSB1ZGVsYXlzIGZyb20gdGhl
-IHByZXZpb3VzIGNvZGUgKHBlciBEYXZpZCBNaWxsZXIpDQo+PiANCj4+IENoYW5nZXMgaW4gdjM6
-DQo+PiAqIFJld29ya2VkIHRoZSBpbml0IHNlcXVlbmNlIHBhdGNoIHRvIG9ubHkgcmVtb3ZlIHRo
-ZSBkZXZpY2UgcmVzZXQgaWYNCj4+ICAgdGhlIGRldmljZSBpcyBhY3R1YWxseSBpbiByZXNldC4g
-IEdpdmVuIHRoYXQgdGhpcyBjb2RlIGRvZXNuJ3QgYmVhcg0KPj4gICBtdWNoIHJlc2VtYmxhbmNl
-IHRvIHRoZSBvcmlnaW5hbCBjb2RlLCBJJ20gY2hhbmdpbmcgdGhlIGF1dGhvciBvZiB0aGUNCj4+
-ICAgcGF0Y2guICBUaGlzIHdhcyB0ZXN0ZWQgb24gTlMyIFNWSy4NCj4+IA0KPj4gQ2hhbmdlcyBp
-biB2MjoNCj4+ICogUmV3b3JrZWQgdGhlIGZpcnN0IG1hdGNoIHRvIG1ha2UgaXQgbW9yZSBvYnZp
-b3VzIHdoYXQgcG9ydGlvbnMgb2YgdGhlDQo+PiAgIHJlZ2lzdGVyIHdlcmUgYmVpbmcgcHJlc2Vy
-dmVkIChQZXIgUmFmYWwgTWlsZWtpKQ0KPj4gKiBTdHlsZSBjaGFuZ2UgdG8gcmVvcmRlciB0aGUg
-ZnVuY3Rpb24gdmFyaWFibGVzIGluIHBhdGNoIDIgKHBlciBTZXJnZWkNCj4+ICAgU2h0eWx5b3Yp
-DQo+PiANCj4+IEJ1ZyBmaXhlcyBmb3IgYmdtYWMgZHJpdmVyDQo+IA0KPiBTZXJpZXMgYXBwbGll
-ZC4NCg0KQWN0dWFsbHksIHRoaXMgZG9lc24ndCBldmVuIGNvbXBpbGUuICBSZXZlcnRlZC4uLg0K
-DQpbZGF2ZW1Aa2t1cmkgbmV0XSQgbWFrZSAtcyAtajQNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jy
-b2FkY29tL2JnbWFjLmM6IEluIGZ1bmN0aW9uIKFiZ21hY19zZXRfbWFjX2FkZHJlc3OiOg0KZHJp
-dmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmdtYWMuYzoxMjMzOjIzOiBlcnJvcjogoXN0cnVj
-dCBiZ21hY6IgaGFzIG5vIG1lbWJlciBuYW1lZCChbWFjX2FkZHKiOyBkaWQgeW91IG1lYW4goXBo
-eWFkZHKiPw0KICBldGhlcl9hZGRyX2NvcHkoYmdtYWMtPm1hY19hZGRyLCBzYS0+c2FfZGF0YSk7
-DQogICAgICAgICAgICAgICAgICAgICAgIF5+DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNv
-bS9iZ21hYy5jOjEyMzQ6Mzg6IGVycm9yOiChc3RydWN0IGJnbWFjoiBoYXMgbm8gbWVtYmVyIG5h
-bWVkIKFtYWNfYWRkcqI7IGRpZCB5b3UgbWVhbiChcGh5YWRkcqI/DQogIGJnbWFjX3dyaXRlX21h
-Y19hZGRyZXNzKGJnbWFjLCBiZ21hYy0+bWFjX2FkZHIpOw0KICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICBefg0K
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Date: Wed,  1 Mar 2017 11:18:53 +0530
+
+> Change t4fw_version.h to update latest firmware version
+> number to 1.16.33.0.
+> 
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+
+Applied.
