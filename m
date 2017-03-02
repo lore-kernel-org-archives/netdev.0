@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] net: don't call strlen() on the user buffer in
- packet_bind_spkt()
-Date: Wed, 01 Mar 2017 20:57:52 -0800 (PST)
-Message-ID: <20170301.205752.2006881054868352173.davem@davemloft.net>
-References: <20170301115720.99985-1-glider@google.com>
+Subject: Re: [PATCH v2] net: bridge: allow IPv6 when multicast flood is
+ disabled
+Date: Wed, 01 Mar 2017 20:57:25 -0800 (PST)
+Message-ID: <20170301.205725.1502175316481585604.davem@davemloft.net>
+References: <1488362128-15217-1-git-send-email-mmanning@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: glider@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170301115720.99985-1-glider@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
+To: mmanning@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56964 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751193AbdCBGOO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 01:14:14 -0500
+In-Reply-To: <1488362128-15217-1-git-send-email-mmanning@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Potapenko <glider@google.com>
-Date: Wed,  1 Mar 2017 12:57:20 +0100
+From: Mike Manning <mmanning@brocade.com>
+Date: Wed, 1 Mar 2017 09:55:28 +0000
 
-> KMSAN (KernelMemorySanitizer, a new error detection tool) reports use of
-> uninitialized memory in packet_bind_spkt():
- ...
-> This happens because addr.sa_data copied from the userspace is not
-> zero-terminated, and copying it with strlcpy() in packet_bind_spkt()
-> results in calling strlen() on the kernel copy of that non-terminated
-> buffer.
+> Even with multicast flooding turned off, IPv6 ND should still work so
+> that IPv6 connectivity is provided. Allow this by continuing to flood
+> multicast traffic originated by us.
 > 
-> Signed-off-by: Alexander Potapenko <glider@google.com>
-> ---
-> Changes since v3:
->  - addressed comments by Eric Dumazet (avoid using constants,
->    use memcpy() instead of strncpy())
+> Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
+> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Mike Manning <mmanning@brocade.com>
 
 Applied and queued up for -stable.
