@@ -1,82 +1,74 @@
-From: <tomasz.dzieciol@nokia.com>
-Subject: [PATCH] arp: Race condition in gratuitous ARP reception handling.
-Date: Thu, 2 Mar 2017 14:59:47 +0100
-Message-ID: <1488463187-17365-1-git-send-email-tomasz.dzieciol@nokia.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: BUG due to "xen-netback: protect resource cleaning
+ on XenBus disconnect"
+Date: Thu, 2 Mar 2017 09:25:35 -0500
+Message-ID: <969001fa-d76f-801a-28c9-9b65d06cb351@oracle.com>
+References: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20098.outbound.protection.outlook.com ([40.107.2.98]:49664
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752560AbdCBOB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Mar 2017 09:01:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Paul Durrant <paul.durrant@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
+ David Miller <davem@davemloft.net>
+To: Juergen Gross <jgross@suse.com>, igor.druzhinin@citrix.com,
+ xen-devel <xen-devel@lists.xenproject.org>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-From: Tomasz Dzieciol <tomasz.dzieciol@nokia.com>
-
-Fix an issue where is_garp variable is not set when arp_accept option is
-disabled for a net device. There might be a situation where gratuitous ARP
-will be ignored when an existing neighbour is updated in a time smaller
-than LOCKTIME (for example by a timer - transition between states).
-
-Signed-off-by: Tomasz Dzieciol <tomasz.dzieciol@nokia.com>
----
- net/ipv4/arp.c | 24 +++++++++++++++++++++---
- 1 file changed, 21 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 51b27ae..9fd23c9 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -641,6 +641,13 @@ void arp_xmit(struct sk_buff *skb)
- }
- EXPORT_SYMBOL(arp_xmit);
- 
-+static inline bool arp_is_gratuitous(unsigned int addr_type,
-+				     int op, __be32 sip, __be32 tip)
-+{
-+	return op == ARPOP_REQUEST && tip == sip &&
-+		addr_type == RTN_UNICAST;
-+}
-+
- /*
-  *	Process an arp request.
-  */
-@@ -836,19 +843,30 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
- 
- 	if (IN_DEV_ARP_ACCEPT(in_dev)) {
--		unsigned int addr_type = inet_addr_type_dev_table(net, dev, sip);
-+		unsigned int addr_type = inet_addr_type_dev_table(net,
-+								  dev, sip);
- 
- 		/* Unsolicited ARP is not accepted by default.
- 		   It is possible, that this option should be enabled for some
- 		   devices (strip is candidate)
- 		 */
--		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
--			  addr_type == RTN_UNICAST;
-+		is_garp = arp_is_gratuitous(addr_type, ntohs(arp->ar_op),
-+					    sip, tip);
- 
- 		if (!n &&
- 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
- 				addr_type == RTN_UNICAST) || is_garp))
- 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
-+	} else if (n) {
-+		unsigned int addr_type = inet_addr_type_dev_table(net,
-+								  dev, sip);
-+
-+		/* If the ARP table already contains the IP address of the
-+		   gratuitous arp frame, the arp table will be updated
-+		   regardless if this setting is on or off.
-+		 */
-+		is_garp = arp_is_gratuitous(addr_type, ntohs(arp->ar_op),
-+					    sip, tip);
- 	}
- 
- 	if (n) {
--- 
-2.5.0
+T24gMDMvMDIvMjAxNyAwNjo1NiBBTSwgSnVlcmdlbiBHcm9zcyB3cm90ZToKPiBXaXRoIGNvbW1p
+dHMgZjE2ZjFkZjY1IGFuZCA5YTZjZGY1MmIgd2UgZ2V0IGluIG91ciBYZW4gdGVzdGluZzoKPgo+
+IFsgIDE3NC41MTI4NjFdIHN3aXRjaDogcG9ydCAyKHZpZjMuMCkgZW50ZXJlZCBkaXNhYmxlZCBz
+dGF0ZQo+IFsgIDE3NC41MjI3MzVdIEJVRzogc2xlZXBpbmcgZnVuY3Rpb24gY2FsbGVkIGZyb20g
+aW52YWxpZCBjb250ZXh0IGF0Cj4gL2hvbWUvYnVpbGQvbGludXgtbGludXMvbW0vdm1hbGxvYy5j
+OjE0NDEKPiBbICAxNzQuNTIzNDUxXSBpbl9hdG9taWMoKTogMSwgaXJxc19kaXNhYmxlZCgpOiAw
+LCBwaWQ6IDI4LCBuYW1lOiB4ZW53YXRjaAo+IFsgIDE3NC41MjQxMzFdIENQVTogMSBQSUQ6IDI4
+IENvbW06IHhlbndhdGNoIFRhaW50ZWQ6IEcgICAgICAgIFcKPiA0LjEwLjB1cHN0cmVhbS0xMTA3
+My1nNDk3N2FiNi1kaXJ0eSAjMQo+IFsgIDE3NC41MjQ4MTldIEhhcmR3YXJlIG5hbWU6IE1TSSBN
+Uy03NjgwL0g2MU0tUDIzIChNUy03NjgwKSwgQklPUyBWMTcuMAo+IDAzLzE0LzIwMTEKPiBbICAx
+NzQuNTI1NTE3XSBDYWxsIFRyYWNlOgo+IFsgIDE3NC41MjYyMTddICBzaG93X3N0YWNrKzB4MjMv
+MHg2MAo+IFsgIDE3NC41MjY4OTldICBkdW1wX3N0YWNrKzB4NWIvMHg4OAo+IFsgIDE3NC41Mjc1
+NjJdICBfX19taWdodF9zbGVlcCsweGRlLzB4MTMwCj4gWyAgMTc0LjUyODIwOF0gIF9fbWlnaHRf
+c2xlZXArMHgzNS8weGEwCj4gWyAgMTc0LjUyODg0MF0gID8gX3Jhd19zcGluX3VubG9ja19pcnFy
+ZXN0b3JlKzB4MTMvMHgyMAo+IFsgIDE3NC41Mjk0NjNdICA/IF9fd2FrZV91cCsweDQwLzB4NTAK
+PiBbICAxNzQuNTMwMDg5XSAgcmVtb3ZlX3ZtX2FyZWErMHgyMC8weDkwCj4gWyAgMTc0LjUzMDcy
+NF0gIF9fdnVubWFwKzB4MWQvMHhjMAo+IFsgIDE3NC41MzEzNDZdICA/IGRlbGV0ZV9vYmplY3Rf
+ZnVsbCsweDEzLzB4MjAKPiBbICAxNzQuNTMxOTczXSAgdmZyZWUrMHg0MC8weDgwCj4gWyAgMTc0
+LjUzMjU5NF0gIHNldF9iYWNrZW5kX3N0YXRlKzB4MThhLzB4YTkwCj4gWyAgMTc0LjUzMzIyMV0g
+ID8gZHdjX3NjYW5fZGVzY3JpcHRvcnMrMHgyNGQvMHg0MzAKPiBbICAxNzQuNTMzODUwXSAgPyBr
+ZnJlZSsweDViLzB4YzAKPiBbICAxNzQuNTM0NDc2XSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAK
+PiBbICAxNzQuNTM1MTAxXSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4NTAKPiBbICAxNzQuNTM1NzE4
+XSAgPyB4ZW5idXNfZ2F0aGVyKzB4MzEvMHg5MAo+IFsgIDE3NC41MzYzMzJdICA/IF9fX21pZ2h0
+X3NsZWVwKzB4ZjYvMHgxMzAKPiBbICAxNzQuNTM2OTQ1XSAgZnJvbnRlbmRfY2hhbmdlZCsweDZi
+LzB4ZDAKPiBbICAxNzQuNTM3NTY1XSAgeGVuYnVzX290aGVyZW5kX2NoYW5nZWQrMHg3ZC8weDgw
+Cj4gWyAgMTc0LjUzODE4NV0gIGZyb250ZW5kX2NoYW5nZWQrMHgxMi8weDIwCj4gWyAgMTc0LjUz
+ODgwM10gIHhlbndhdGNoX3RocmVhZCsweDc0LzB4MTEwCj4gWyAgMTc0LjUzOTQxN10gID8gd29r
+ZW5fd2FrZV9mdW5jdGlvbisweDIwLzB4MjAKPiBbICAxNzQuNTQwMDQ5XSAga3RocmVhZCsweGU1
+LzB4MTIwCj4gWyAgMTc0LjU0MDY2M10gID8geGVuYnVzX3ByaW50ZisweDUwLzB4NTAKPiBbICAx
+NzQuNTQxMjc4XSAgPyBfX2t0aHJlYWRfaW5pdF93b3JrZXIrMHg0MC8weDQwCj4gWyAgMTc0LjU0
+MTg5OF0gIHJldF9mcm9tX2ZvcmsrMHgyMS8weDJjCj4gWyAgMTc0LjU0ODYzNV0gc3dpdGNoOiBw
+b3J0IDIodmlmMy4wKSBlbnRlcmVkIGRpc2FibGVkIHN0YXRlCj4KPiBJIGJlbGlldmUgY2FsbGlu
+ZyB2ZnJlZSgpIHdoZW4gaG9sZGluZyBhIHNwaW5fbG9jayBpc24ndCBhIGdvb2QgaWRlYS4KPgo+
+IEJvcmlzLCB0aGlzIGlzIHRoZSBkdW1wZGF0YSBmYWlsdXJlOgo+IEZBSUxVUkUgNC4xMC4wdXBz
+dHJlYW0tMTEwNzMtZzQ5NzdhYjYtZGlydHkoeDg2XzY0KQo+IDQuMTAuMHVwc3RyZWFtLTExMDcz
+LWc0OTc3YWI2LWRpcnR5KGkzODYpXDogMjAxNy0wMy0wMiAodHN0MDA3KQoKClRoYXQncyBub3Qg
+dGhlIGNhdXNlIG9mIHRoZSB0ZXN0IGZhaWx1cmUgdGhvdWdoIC0tLSBpdCdzICJqdXN0IiBhIHdh
+cm5pbmcuCgpUaGUgcHJvYmxlbSBoZXJlIHdhcyB0aGF0IDY0LSBhbmQgMzItYml0IGJ1aWxkIHRy
+ZWVzIGdvdCBvdXQgb2Ygc3luYwood2hpY2ggaXMgbXkgZmF1bHQsIEkgc3dpdGNoZWQgdGhlIGZv
+cm1lciB0byBzdGFnaW5nIGJ1dCBmb3Jnb3QgdG8gZG8KdGhlIHNhbWUgZm9yIHRoZSBsYXR0ZXIp
+LiBXZSBoYXZlIGluICB0aGUgbG9nOgoKbGlieGw6IGVycm9yOiBsaWJ4bF9jcmVhdGUuYzo1NjQ6
+bGlieGxfX2RvbWFpbl9tYWtlOiBkb21haW4gY3JlYXRpb24KZmFpbDogT3BlcmF0aW9uIG5vdCBz
+dXBwb3J0ZWQKbGlieGw6IGVycm9yOiBsaWJ4bF9jcmVhdGUuYzo5MzE6aW5pdGlhdGVfZG9tYWlu
+X2NyZWF0ZTogY2Fubm90IG1ha2UKZG9tYWluOiAtMwoKSSBub3cgaGF2ZSBib3RoIHRyZWVzIHVz
+ZSBzdGFnaW5nLgoKLWJvcmlzCgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5v
+cmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
