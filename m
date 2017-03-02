@@ -1,32 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers 2017-03-02
-Date: Thu, 02 Mar 2017 14:39:06 -0800 (PST)
-Message-ID: <20170302.143906.1989433792603122506.davem@davemloft.net>
-References: <87r32g9gzl.fsf@kamboji.qca.qualcomm.com>
+From: Igor Druzhinin <igor.druzhinin@citrix.com>
+Subject: [PATCH] xen-netback: fix race condition on XenBus
+	disconnect
+Date: Thu, 2 Mar 2017 22:56:50 +0000
+Message-ID: <1488495410-137500-1-git-send-email-igor.druzhinin@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39386 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751135AbdCBWwb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 17:52:31 -0500
-In-Reply-To: <87r32g9gzl.fsf@kamboji.qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jgross@suse.com, Igor Druzhinin <igor.druzhinin@citrix.com>,
+ paul.durrant@citrix.com, wei.liu2@citrix.com
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Thu, 02 Mar 2017 11:15:42 +0200
-
-> only one patch this time, the new version of ath10k patch we reverted
-> earlier. I was supposed to send you this earlier but it got delayed
-> because I'm on vacation, so sorry about that. I'm hoping this is ok to
-> take also even the merge window is closed as the changes to the first
-> version of the patch are minimal.
-> 
-> Please let me know if there are any problems.
-
-Pulled, thanks.
+SW4gc29tZSBjYXNlcyBkdXJpbmcgWGVuQnVzIGRpc2Nvbm5lY3QgZXZlbnQgaGFuZGxpbmcgYW5k
+IHN1YnNlcXVlbnQKcXVldWUgcmVzb3VyY2UgcmVsZWFzZSB0aGVyZSBtYXkgYmUgc29tZSBUWCBo
+YW5kbGVycyBhY3RpdmUgb24Kb3RoZXIgcHJvY2Vzc29ycy4gVXNlIFJDVSBpbiBvcmRlciB0byBz
+eW5jaHJvbml6ZSB3aXRoIHRoZW0uCgpTaWduZWQtb2ZmLWJ5OiBJZ29yIERydXpoaW5pbiA8aWdv
+ci5kcnV6aGluaW5AY2l0cml4LmNvbT4KLS0tCiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRl
+cmZhY2UuYyB8IDEzICsrKysrKysrLS0tLS0KIGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1
+cy5jICAgIHwgMTcgKysrKysrKy0tLS0tLS0tLS0KIDIgZmlsZXMgY2hhbmdlZCwgMTUgaW5zZXJ0
+aW9ucygrKSwgMTUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5l
+dGJhY2svaW50ZXJmYWNlLmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYwpp
+bmRleCBhMmQzMjY3Ni4uMzJlMmNjNiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJh
+Y2svaW50ZXJmYWNlLmMKKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svaW50ZXJmYWNlLmMK
+QEAgLTE2NCw3ICsxNjQsNyBAQCBzdGF0aWMgaW50IHhlbnZpZl9zdGFydF94bWl0KHN0cnVjdCBz
+a19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiB7CiAJc3RydWN0IHhlbnZpZiAq
+dmlmID0gbmV0ZGV2X3ByaXYoZGV2KTsKIAlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpxdWV1ZSA9IE5V
+TEw7Ci0JdW5zaWduZWQgaW50IG51bV9xdWV1ZXMgPSB2aWYtPm51bV9xdWV1ZXM7CisJdW5zaWdu
+ZWQgaW50IG51bV9xdWV1ZXMgPSByY3VfZGVyZWZlcmVuY2UodmlmKS0+bnVtX3F1ZXVlczsKIAl1
+MTYgaW5kZXg7CiAJc3RydWN0IHhlbnZpZl9yeF9jYiAqY2I7CiAKQEAgLTIyMSwxOCArMjIxLDIx
+IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAqeGVudmlmX2dldF9zdGF0cyhzdHJ1
+Y3QgbmV0X2RldmljZSAqZGV2KQogewogCXN0cnVjdCB4ZW52aWYgKnZpZiA9IG5ldGRldl9wcml2
+KGRldik7CiAJc3RydWN0IHhlbnZpZl9xdWV1ZSAqcXVldWUgPSBOVUxMOworCXVuc2lnbmVkIGlu
+dCBudW1fcXVldWVzOwogCXU2NCByeF9ieXRlcyA9IDA7CiAJdTY0IHJ4X3BhY2tldHMgPSAwOwog
+CXU2NCB0eF9ieXRlcyA9IDA7CiAJdTY0IHR4X3BhY2tldHMgPSAwOwogCXVuc2lnbmVkIGludCBp
+bmRleDsKIAotCXNwaW5fbG9jaygmdmlmLT5sb2NrKTsKLQlpZiAodmlmLT5xdWV1ZXMgPT0gTlVM
+TCkKKwlyY3VfcmVhZF9sb2NrKCk7CisKKwludW1fcXVldWVzID0gcmN1X2RlcmVmZXJlbmNlKHZp
+ZiktPm51bV9xdWV1ZXM7CisJaWYgKG51bV9xdWV1ZXMgPCAxKQogCQlnb3RvIG91dDsKIAogCS8q
+IEFnZ3JlZ2F0ZSB0eCBhbmQgcnggc3RhdHMgZnJvbSBlYWNoIHF1ZXVlICovCi0JZm9yIChpbmRl
+eCA9IDA7IGluZGV4IDwgdmlmLT5udW1fcXVldWVzOyArK2luZGV4KSB7CisJZm9yIChpbmRleCA9
+IDA7IGluZGV4IDwgbnVtX3F1ZXVlczsgKytpbmRleCkgewogCQlxdWV1ZSA9ICZ2aWYtPnF1ZXVl
+c1tpbmRleF07CiAJCXJ4X2J5dGVzICs9IHF1ZXVlLT5zdGF0cy5yeF9ieXRlczsKIAkJcnhfcGFj
+a2V0cyArPSBxdWV1ZS0+c3RhdHMucnhfcGFja2V0czsKQEAgLTI0MSw3ICsyNDQsNyBAQCBzdGF0
+aWMgc3RydWN0IG5ldF9kZXZpY2Vfc3RhdHMgKnhlbnZpZl9nZXRfc3RhdHMoc3RydWN0IG5ldF9k
+ZXZpY2UgKmRldikKIAl9CiAKIG91dDoKLQlzcGluX3VubG9jaygmdmlmLT5sb2NrKTsKKwlyY3Vf
+cmVhZF91bmxvY2soKTsKIAogCXZpZi0+ZGV2LT5zdGF0cy5yeF9ieXRlcyA9IHJ4X2J5dGVzOwog
+CXZpZi0+ZGV2LT5zdGF0cy5yeF9wYWNrZXRzID0gcnhfcGFja2V0czsKZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sv
+eGVuYnVzLmMKaW5kZXggZDJkN2NkOS4uNzZlZmIwMSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQv
+eGVuLW5ldGJhY2sveGVuYnVzLmMKKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVz
+LmMKQEAgLTQ5NSwyNiArNDk1LDIzIEBAIHN0YXRpYyB2b2lkIGJhY2tlbmRfZGlzY29ubmVjdChz
+dHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkKIAlzdHJ1Y3QgeGVudmlmICp2aWYgPSBiZS0+dmlmOwog
+CiAJaWYgKHZpZikgeworCQl1bnNpZ25lZCBpbnQgbnVtX3F1ZXVlcyA9IHZpZi0+bnVtX3F1ZXVl
+czsKIAkJdW5zaWduZWQgaW50IHF1ZXVlX2luZGV4OwotCQlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpx
+dWV1ZXM7CiAKIAkJeGVuX3VucmVnaXN0ZXJfd2F0Y2hlcnModmlmKTsKICNpZmRlZiBDT05GSUdf
+REVCVUdfRlMKIAkJeGVudmlmX2RlYnVnZnNfZGVsaWYodmlmKTsKICNlbmRpZiAvKiBDT05GSUdf
+REVCVUdfRlMgKi8KIAkJeGVudmlmX2Rpc2Nvbm5lY3RfZGF0YSh2aWYpOwotCQlmb3IgKHF1ZXVl
+X2luZGV4ID0gMDsKLQkJICAgICBxdWV1ZV9pbmRleCA8IHZpZi0+bnVtX3F1ZXVlczsKLQkJICAg
+ICArK3F1ZXVlX2luZGV4KQotCQkJeGVudmlmX2RlaW5pdF9xdWV1ZSgmdmlmLT5xdWV1ZXNbcXVl
+dWVfaW5kZXhdKTsKIAotCQlzcGluX2xvY2soJnZpZi0+bG9jayk7Ci0JCXF1ZXVlcyA9IHZpZi0+
+cXVldWVzOwogCQl2aWYtPm51bV9xdWV1ZXMgPSAwOwotCQl2aWYtPnF1ZXVlcyA9IE5VTEw7Ci0J
+CXNwaW5fdW5sb2NrKCZ2aWYtPmxvY2spOworCQlzeW5jaHJvbml6ZV9uZXQoKTsKIAotCQl2ZnJl
+ZShxdWV1ZXMpOworCQlmb3IgKHF1ZXVlX2luZGV4ID0gMDsgcXVldWVfaW5kZXggPCBudW1fcXVl
+dWVzOyArK3F1ZXVlX2luZGV4KQorCQkJeGVudmlmX2RlaW5pdF9xdWV1ZSgmdmlmLT5xdWV1ZXNb
+cXVldWVfaW5kZXhdKTsKKworCQl2ZnJlZSh2aWYtPnF1ZXVlcyk7CisJCXZpZi0+cXVldWVzID0g
+TlVMTDsKIAogCQl4ZW52aWZfZGlzY29ubmVjdF9jdHJsKHZpZik7CiAJfQotLSAKMS44LjMuMQoK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZl
+bCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4u
+b3JnL3hlbi1kZXZlbAo=
