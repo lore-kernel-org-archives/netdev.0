@@ -1,61 +1,37 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: BUG due to "xen-netback: protect resource cleaning on
- XenBus disconnect"
-Date: Thu, 2 Mar 2017 12:56:20 +0100
-Message-ID: <75c81731-e4a7-bde1-c4fd-a52e97b820a0@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>,
- Paul Durrant <paul.durrant@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
- David Miller <davem@davemloft.net>
-To: igor.druzhinin@citrix.com, xen-devel <xen-devel@lists.xenproject.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+From: Maarten Blomme <maartenblomme@gmail.com>
+Subject: [PATCH 1/2] spi_ks8995: fix "BUG: key accdaa28 not in .data!"
+Date: Thu,  2 Mar 2017 13:08:36 +0100
+Message-ID: <1488456516-30075-1-git-send-email-maartenblomme@gmail.com>
+Cc: netdev@vger.kernel.org, "Blomme, Maarten" <Maarten.Blomme@flir.com>
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33971 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750986AbdCBMHk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 07:07:40 -0500
+Received: by mail-wm0-f65.google.com with SMTP id m70so12084386wma.1
+        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 04:05:47 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-V2l0aCBjb21taXRzIGYxNmYxZGY2NSBhbmQgOWE2Y2RmNTJiIHdlIGdldCBpbiBvdXIgWGVuIHRl
-c3Rpbmc6CgpbICAxNzQuNTEyODYxXSBzd2l0Y2g6IHBvcnQgMih2aWYzLjApIGVudGVyZWQgZGlz
-YWJsZWQgc3RhdGUKWyAgMTc0LjUyMjczNV0gQlVHOiBzbGVlcGluZyBmdW5jdGlvbiBjYWxsZWQg
-ZnJvbSBpbnZhbGlkIGNvbnRleHQgYXQKL2hvbWUvYnVpbGQvbGludXgtbGludXMvbW0vdm1hbGxv
-Yy5jOjE0NDEKWyAgMTc0LjUyMzQ1MV0gaW5fYXRvbWljKCk6IDEsIGlycXNfZGlzYWJsZWQoKTog
-MCwgcGlkOiAyOCwgbmFtZTogeGVud2F0Y2gKWyAgMTc0LjUyNDEzMV0gQ1BVOiAxIFBJRDogMjgg
-Q29tbTogeGVud2F0Y2ggVGFpbnRlZDogRyAgICAgICAgVwo0LjEwLjB1cHN0cmVhbS0xMTA3My1n
-NDk3N2FiNi1kaXJ0eSAjMQpbICAxNzQuNTI0ODE5XSBIYXJkd2FyZSBuYW1lOiBNU0kgTVMtNzY4
-MC9INjFNLVAyMyAoTVMtNzY4MCksIEJJT1MgVjE3LjAKMDMvMTQvMjAxMQpbICAxNzQuNTI1NTE3
-XSBDYWxsIFRyYWNlOgpbICAxNzQuNTI2MjE3XSAgc2hvd19zdGFjaysweDIzLzB4NjAKWyAgMTc0
-LjUyNjg5OV0gIGR1bXBfc3RhY2srMHg1Yi8weDg4ClsgIDE3NC41Mjc1NjJdICBfX19taWdodF9z
-bGVlcCsweGRlLzB4MTMwClsgIDE3NC41MjgyMDhdICBfX21pZ2h0X3NsZWVwKzB4MzUvMHhhMApb
-ICAxNzQuNTI4ODQwXSAgPyBfcmF3X3NwaW5fdW5sb2NrX2lycXJlc3RvcmUrMHgxMy8weDIwClsg
-IDE3NC41Mjk0NjNdICA/IF9fd2FrZV91cCsweDQwLzB4NTAKWyAgMTc0LjUzMDA4OV0gIHJlbW92
-ZV92bV9hcmVhKzB4MjAvMHg5MApbICAxNzQuNTMwNzI0XSAgX192dW5tYXArMHgxZC8weGMwClsg
-IDE3NC41MzEzNDZdICA/IGRlbGV0ZV9vYmplY3RfZnVsbCsweDEzLzB4MjAKWyAgMTc0LjUzMTk3
-M10gIHZmcmVlKzB4NDAvMHg4MApbICAxNzQuNTMyNTk0XSAgc2V0X2JhY2tlbmRfc3RhdGUrMHgx
-OGEvMHhhOTAKWyAgMTc0LjUzMzIyMV0gID8gZHdjX3NjYW5fZGVzY3JpcHRvcnMrMHgyNGQvMHg0
-MzAKWyAgMTc0LjUzMzg1MF0gID8ga2ZyZWUrMHg1Yi8weGMwClsgIDE3NC41MzQ0NzZdICA/IHhl
-bmJ1c19yZWFkKzB4M2QvMHg1MApbICAxNzQuNTM1MTAxXSAgPyB4ZW5idXNfcmVhZCsweDNkLzB4
-NTAKWyAgMTc0LjUzNTcxOF0gID8geGVuYnVzX2dhdGhlcisweDMxLzB4OTAKWyAgMTc0LjUzNjMz
-Ml0gID8gX19fbWlnaHRfc2xlZXArMHhmNi8weDEzMApbICAxNzQuNTM2OTQ1XSAgZnJvbnRlbmRf
-Y2hhbmdlZCsweDZiLzB4ZDAKWyAgMTc0LjUzNzU2NV0gIHhlbmJ1c19vdGhlcmVuZF9jaGFuZ2Vk
-KzB4N2QvMHg4MApbICAxNzQuNTM4MTg1XSAgZnJvbnRlbmRfY2hhbmdlZCsweDEyLzB4MjAKWyAg
-MTc0LjUzODgwM10gIHhlbndhdGNoX3RocmVhZCsweDc0LzB4MTEwClsgIDE3NC41Mzk0MTddICA/
-IHdva2VuX3dha2VfZnVuY3Rpb24rMHgyMC8weDIwClsgIDE3NC41NDAwNDldICBrdGhyZWFkKzB4
-ZTUvMHgxMjAKWyAgMTc0LjU0MDY2M10gID8geGVuYnVzX3ByaW50ZisweDUwLzB4NTAKWyAgMTc0
-LjU0MTI3OF0gID8gX19rdGhyZWFkX2luaXRfd29ya2VyKzB4NDAvMHg0MApbICAxNzQuNTQxODk4
-XSAgcmV0X2Zyb21fZm9yaysweDIxLzB4MmMKWyAgMTc0LjU0ODYzNV0gc3dpdGNoOiBwb3J0IDIo
-dmlmMy4wKSBlbnRlcmVkIGRpc2FibGVkIHN0YXRlCgpJIGJlbGlldmUgY2FsbGluZyB2ZnJlZSgp
-IHdoZW4gaG9sZGluZyBhIHNwaW5fbG9jayBpc24ndCBhIGdvb2QgaWRlYS4KCkJvcmlzLCB0aGlz
-IGlzIHRoZSBkdW1wZGF0YSBmYWlsdXJlOgpGQUlMVVJFIDQuMTAuMHVwc3RyZWFtLTExMDczLWc0
-OTc3YWI2LWRpcnR5KHg4Nl82NCkKNC4xMC4wdXBzdHJlYW0tMTEwNzMtZzQ5NzdhYjYtZGlydHko
-aTM4NilcOiAyMDE3LTAzLTAyICh0c3QwMDcpCgoKSnVlcmdlbgoKX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4t
-ZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
+From: "Blomme, Maarten" <Maarten.Blomme@flir.com>
+
+Signed-off-by: Maarten Blomme <Maarten.Blomme@flir.com>
+---
+ drivers/net/phy/spi_ks8995.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
+index 93ffedf..aa7209d 100644
+--- a/drivers/net/phy/spi_ks8995.c
++++ b/drivers/net/phy/spi_ks8995.c
+@@ -498,6 +498,7 @@ static int ks8995_probe(struct spi_device *spi)
+ 	if (err)
+ 		return err;
+ 
++	sysfs_attr_init(&ks->regs_attr.attr);
+ 	err = sysfs_create_bin_file(&spi->dev.kobj, &ks->regs_attr);
+ 	if (err) {
+ 		dev_err(&spi->dev, "unable to create sysfs file, err=%d\n",
+-- 
+2.7.4
