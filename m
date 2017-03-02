@@ -1,91 +1,43 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Fri, 3 Mar 2017 04:23:38 +0800
-Message-ID: <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com>
-References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] bonding: use ETH_MAX_MTU as max mtu
+Date: Thu,  2 Mar 2017 12:24:36 -0800
+Message-ID: <1488486276-24552-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: daznis@gmail.com, lists2009@fnarfbargle.com,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jarod Wilson <jarod@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36733 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750778AbdCBUe3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 15:34:29 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 25so10363413pgy.3
+        for <netdev@vger.kernel.org>; Thu, 02 Mar 2017 12:33:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 01, 2017 at 08:54:26PM +0800, Fengguang Wu wrote:
->Hi all,
->
->Is it BPF triggering BUGs all over the places?
+This restores the ability of setting bond device's mtu to 9000.
 
-It looks so, and here is a fix.
-
->1e74a2eb1f  Merge tag 'gcc-plugins-v4.11-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/kees/linux
->005c3490e9  Revert "ath10k: Search SMBIOS for OEM board file extension"
->3051bf36c2  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next
->+-------------------------------------------------------+------------+------------+------------+
->|                                                       | 1e74a2eb1f | 005c3490e9 | 3051bf36c2 |
->+-------------------------------------------------------+------------+------------+------------+
->| boot_successes                                        | 1223       | 1098       | 242        |
->| boot_failures                                         | 1          | 126        | 72         |
->| BUG:unable_to_handle_kernel                           | 1          | 117        | 69         |
->| Oops                                                  | 1          | 126        | 72         |
->| EIP:perf_callchain_user                               | 1          |            |            |
->| Kernel_panic-not_syncing:Fatal_exception              | 1          | 121        | 67         |
->| EIP:netlink_release                                   | 0          | 20         | 3          |
->| EIP:bpf_prog_free                                     | 0          | 22         | 3          |
->| EIP:filp_close                                        | 0          | 64         | 23         |
->| EIP:netlink_update_listeners                          | 0          | 10         | 9          |
->| EIP:security_inode_getattr                            | 0          | 2          |            |
->| EIP:__lock_acquire                                    | 0          | 1          | 11         |
->| Kernel_panic-not_syncing:Fatal_exception_in_interrupt | 0          | 5          | 4          |
->| EIP:__rcu_process_callbacks                           | 0          | 2          |            |
->| EIP:__fget_light                                      | 0          | 1          |            |
->| EIP:__unix_remove_socket                              | 0          | 0          | 13         |
->| INFO:trying_to_register_non-static_key                | 0          | 0          | 2          |
->| EIP:mnt_want_write_file                               | 0          | 0          | 1          |
->| EIP:skb_dequeue                                       | 0          | 0          | 1          |
->| EIP:strlen                                            | 0          | 0          | 1          |
->| EIP:__netlink_lookup                                  | 0          | 0          | 2          |
->| EIP:vfs_fsync_range                                   | 0          | 0          | 1          |
->| EIP:__unix_find_socket_byname                         | 0          | 0          | 1          |
->| EIP:release_sock                                      | 0          | 0          | 1          |
->+-------------------------------------------------------+------------+------------+------------+
-
-I confirm that the below patch provided by Daniel fixes the above
-issues on mainline kernel, too. Where should this patch be sent to?
-It'd be very noisy if all these Oops hit the upcoming RC1 kernel.
-
-Daniel thinks there may be deeper problem in i386 set_memory_rw().
-However that could take much longer time to debug.
-
-Thanks,
-Fengguang
+Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
+Reported-by: daznis@gmail.com
+Reported-by: Brad Campbell <lists2009@fnarfbargle.com>
+Cc: Jarod Wilson <jarod@redhat.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
+ drivers/net/bonding/bond_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Re: [bpf] 9d876e79df:  BUG: unable to handle kernel paging request at 653a8346
-
-> On Tue, Feb 28, 2017 at 04:39:36PM +0100, Daniel Borkmann wrote:
-
-I have a rough feeling what it is, but I didn't have cycles to work on
-it yet (due to travel, sorry about that). The issue is likely shut down
-by just doing:
-
----
- arch/x86/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- linux.orig/arch/x86/Kconfig	2017-03-03 03:44:35.962022996 +0800
-+++ linux/arch/x86/Kconfig	2017-03-03 03:44:35.962022996 +0800
-@@ -54,7 +54,7 @@ config X86
- 	select ARCH_HAS_KCOV			if X86_64
- 	select ARCH_HAS_MMIO_FLUSH
- 	select ARCH_HAS_PMEM_API		if X86_64
--	select ARCH_HAS_SET_MEMORY
-+	select ARCH_HAS_SET_MEMORY		if X86_64
- 	select ARCH_HAS_SG_CHAIN
- 	select ARCH_HAS_STRICT_KERNEL_RWX
- 	select ARCH_HAS_STRICT_MODULE_RWX
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6321f12..8a4ba8b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4179,6 +4179,7 @@ void bond_setup(struct net_device *bond_dev)
+ 
+ 	/* Initialize the device entry points */
+ 	ether_setup(bond_dev);
++	bond_dev->max_mtu = ETH_MAX_MTU;
+ 	bond_dev->netdev_ops = &bond_netdev_ops;
+ 	bond_dev->ethtool_ops = &bond_ethtool_ops;
+ 
+-- 
+2.5.5
