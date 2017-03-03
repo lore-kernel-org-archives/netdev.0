@@ -1,126 +1,111 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: [PATCH] xen-netback: fix race condition on XenBus
-	disconnect
-Date: Fri, 3 Mar 2017 13:59:12 +0000
-Message-ID: <03383771855f4b2fb2ff2e49e4f6828b@AMSPEX02CL03.citrite.net>
-References: <1488495410-137500-1-git-send-email-igor.druzhinin@citrix.com>
- <23927ef4bba04925994cb0b7acbcbbc0@AMSPEX02CL03.citrite.net>
- <6d28df77-a875-8a61-7ae6-e8f867da2a7c@citrix.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2017-03-03
+Date: Fri, 3 Mar 2017 15:04:06 +0100
+Message-ID: <e7d1906d-fec4-217d-f444-2f5996d45f8b@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "jgross@suse.com" <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>
-To: Igor Druzhinin <igor.druzhinin@citrix.com>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, "xen-devel@lists.xenproject.org"
- <xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <6d28df77-a875-8a61-7ae6-e8f867da2a7c@citrix.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="XwspQDhiCtotJeH3bDgW6SVew23uTBAxg"
+Cc: David Miller <davem@davemloft.net>,
+        "kernel@pengutronix.de" <kernel@pengutronix.de>,
+        "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:59709 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751323AbdCCOEz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 09:04:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IElnb3IgRHJ1emhpbmluCj4gU2Vu
-dDogMDMgTWFyY2ggMjAxNyAxMzo1NAo+IFRvOiBQYXVsIER1cnJhbnQgPFBhdWwuRHVycmFudEBj
-aXRyaXguY29tPjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgeGVuLQo+IGRldmVsQGxpc3RzLnhl
-bnByb2plY3Qub3JnCj4gQ2M6IGpncm9zc0BzdXNlLmNvbTsgV2VpIExpdSA8d2VpLmxpdTJAY2l0
-cml4LmNvbT4KPiBTdWJqZWN0OiBSZTogW1BBVENIXSB4ZW4tbmV0YmFjazogZml4IHJhY2UgY29u
-ZGl0aW9uIG9uIFhlbkJ1cyBkaXNjb25uZWN0Cj4gCj4gT24gMDMvMDMvMTcgMDk6MTgsIFBhdWwg
-RHVycmFudCB3cm90ZToKPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+ID4+IEZyb206
-IElnb3IgRHJ1emhpbmluIFttYWlsdG86aWdvci5kcnV6aGluaW5AY2l0cml4LmNvbV0KPiA+PiBT
-ZW50OiAwMiBNYXJjaCAyMDE3IDIyOjU3Cj4gPj4gVG86IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
-IHhlbi1kZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9yZwo+ID4+IENjOiBQYXVsIER1cnJhbnQgPFBh
-dWwuRHVycmFudEBjaXRyaXguY29tPjsgamdyb3NzQHN1c2UuY29tOyBXZWkgTGl1Cj4gPj4gPHdl
-aS5saXUyQGNpdHJpeC5jb20+OyBJZ29yIERydXpoaW5pbiA8aWdvci5kcnV6aGluaW5AY2l0cml4
-LmNvbT4KPiA+PiBTdWJqZWN0OiBbUEFUQ0hdIHhlbi1uZXRiYWNrOiBmaXggcmFjZSBjb25kaXRp
-b24gb24gWGVuQnVzIGRpc2Nvbm5lY3QKPiA+Pgo+ID4+IEluIHNvbWUgY2FzZXMgZHVyaW5nIFhl
-bkJ1cyBkaXNjb25uZWN0IGV2ZW50IGhhbmRsaW5nIGFuZCBzdWJzZXF1ZW50Cj4gPj4gcXVldWUg
-cmVzb3VyY2UgcmVsZWFzZSB0aGVyZSBtYXkgYmUgc29tZSBUWCBoYW5kbGVycyBhY3RpdmUgb24K
-PiA+PiBvdGhlciBwcm9jZXNzb3JzLiBVc2UgUkNVIGluIG9yZGVyIHRvIHN5bmNocm9uaXplIHdp
-dGggdGhlbS4KPiA+Pgo+ID4+IFNpZ25lZC1vZmYtYnk6IElnb3IgRHJ1emhpbmluIDxpZ29yLmRy
-dXpoaW5pbkBjaXRyaXguY29tPgo+ID4+IC0tLQo+ID4+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFj
-ay9pbnRlcmZhY2UuYyB8IDEzICsrKysrKysrLS0tLS0KPiA+PiAgZHJpdmVycy9uZXQveGVuLW5l
-dGJhY2sveGVuYnVzLmMgICAgfCAxNyArKysrKysrLS0tLS0tLS0tLQo+ID4+ICAyIGZpbGVzIGNo
-YW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDE1IGRlbGV0aW9ucygtKQo+ID4+Cj4gPj4gZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jIGIvZHJpdmVycy9uZXQv
-eGVuLQo+ID4+IG5ldGJhY2svaW50ZXJmYWNlLmMKPiA+PiBpbmRleCBhMmQzMjY3Ni4uMzJlMmNj
-NiAxMDA2NDQKPiA+PiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYwo+
-ID4+ICsrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jCj4gPj4gQEAgLTE2
-NCw3ICsxNjQsNyBAQCBzdGF0aWMgaW50IHhlbnZpZl9zdGFydF94bWl0KHN0cnVjdCBza19idWZm
-ICpza2IsCj4gc3RydWN0Cj4gPj4gbmV0X2RldmljZSAqZGV2KQo+ID4+ICB7Cj4gPj4gIAlzdHJ1
-Y3QgeGVudmlmICp2aWYgPSBuZXRkZXZfcHJpdihkZXYpOwo+ID4+ICAJc3RydWN0IHhlbnZpZl9x
-dWV1ZSAqcXVldWUgPSBOVUxMOwo+ID4+IC0JdW5zaWduZWQgaW50IG51bV9xdWV1ZXMgPSB2aWYt
-Pm51bV9xdWV1ZXM7Cj4gPgo+ID4gRG8geW91IG5vdCBuZWVkIGFuIHJjdV9yZWFkX2xvY2soKSBh
-cm91bmQgdGhpcyBhbmQgdXNlIG9mIHRoZQo+IG51bV9xdWV1ZXMgdmFsdWUgKGFzIHlvdSBoYXZl
-IGJlbG93KT8KPiA+Cj4gPj4gKwl1bnNpZ25lZCBpbnQgbnVtX3F1ZXVlcyA9IHJjdV9kZXJlZmVy
-ZW5jZSh2aWYpLT5udW1fcXVldWVzOwo+ID4+ICAJdTE2IGluZGV4Owo+ID4+ICAJc3RydWN0IHhl
-bnZpZl9yeF9jYiAqY2I7Cj4gPj4KPiA+PiBAQCAtMjIxLDE4ICsyMjEsMjEgQEAgc3RhdGljIHN0
-cnVjdCBuZXRfZGV2aWNlX3N0YXRzCj4gPj4gKnhlbnZpZl9nZXRfc3RhdHMoc3RydWN0IG5ldF9k
-ZXZpY2UgKmRldikKPiA+PiAgewo+ID4+ICAJc3RydWN0IHhlbnZpZiAqdmlmID0gbmV0ZGV2X3By
-aXYoZGV2KTsKPiA+PiAgCXN0cnVjdCB4ZW52aWZfcXVldWUgKnF1ZXVlID0gTlVMTDsKPiA+PiAr
-CXVuc2lnbmVkIGludCBudW1fcXVldWVzOwo+ID4+ICAJdTY0IHJ4X2J5dGVzID0gMDsKPiA+PiAg
-CXU2NCByeF9wYWNrZXRzID0gMDsKPiA+PiAgCXU2NCB0eF9ieXRlcyA9IDA7Cj4gPj4gIAl1NjQg
-dHhfcGFja2V0cyA9IDA7Cj4gPj4gIAl1bnNpZ25lZCBpbnQgaW5kZXg7Cj4gPj4KPiA+PiAtCXNw
-aW5fbG9jaygmdmlmLT5sb2NrKTsKPiA+PiAtCWlmICh2aWYtPnF1ZXVlcyA9PSBOVUxMKQo+ID4+
-ICsJcmN1X3JlYWRfbG9jaygpOwo+ID4+ICsKPiA+PiArCW51bV9xdWV1ZXMgPSByY3VfZGVyZWZl
-cmVuY2UodmlmKS0+bnVtX3F1ZXVlczsKPiA+PiArCWlmIChudW1fcXVldWVzIDwgMSkKPiA+PiAg
-CQlnb3RvIG91dDsKPiA+Pgo+ID4+ICAJLyogQWdncmVnYXRlIHR4IGFuZCByeCBzdGF0cyBmcm9t
-IGVhY2ggcXVldWUgKi8KPiA+PiAtCWZvciAoaW5kZXggPSAwOyBpbmRleCA8IHZpZi0+bnVtX3F1
-ZXVlczsgKytpbmRleCkgewo+ID4+ICsJZm9yIChpbmRleCA9IDA7IGluZGV4IDwgbnVtX3F1ZXVl
-czsgKytpbmRleCkgewo+ID4+ICAJCXF1ZXVlID0gJnZpZi0+cXVldWVzW2luZGV4XTsKPiA+PiAg
-CQlyeF9ieXRlcyArPSBxdWV1ZS0+c3RhdHMucnhfYnl0ZXM7Cj4gPj4gIAkJcnhfcGFja2V0cyAr
-PSBxdWV1ZS0+c3RhdHMucnhfcGFja2V0czsKPiA+PiBAQCAtMjQxLDcgKzI0NCw3IEBAIHN0YXRp
-YyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cwo+ID4+ICp4ZW52aWZfZ2V0X3N0YXRzKHN0cnVjdCBu
-ZXRfZGV2aWNlICpkZXYpCj4gPj4gIAl9Cj4gPj4KPiA+PiAgb3V0Ogo+ID4+IC0Jc3Bpbl91bmxv
-Y2soJnZpZi0+bG9jayk7Cj4gPj4gKwlyY3VfcmVhZF91bmxvY2soKTsKPiA+Pgo+ID4+ICAJdmlm
-LT5kZXYtPnN0YXRzLnJ4X2J5dGVzID0gcnhfYnl0ZXM7Cj4gPj4gIAl2aWYtPmRldi0+c3RhdHMu
-cnhfcGFja2V0cyA9IHJ4X3BhY2tldHM7Cj4gPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3hl
-bi1uZXRiYWNrL3hlbmJ1cy5jIGIvZHJpdmVycy9uZXQveGVuLQo+ID4+IG5ldGJhY2sveGVuYnVz
-LmMKPiA+PiBpbmRleCBkMmQ3Y2Q5Li43NmVmYjAxIDEwMDY0NAo+ID4+IC0tLSBhL2RyaXZlcnMv
-bmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jCj4gPj4gKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJh
-Y2sveGVuYnVzLmMKPiA+PiBAQCAtNDk1LDI2ICs0OTUsMjMgQEAgc3RhdGljIHZvaWQgYmFja2Vu
-ZF9kaXNjb25uZWN0KHN0cnVjdAo+ID4+IGJhY2tlbmRfaW5mbyAqYmUpCj4gPj4gIAlzdHJ1Y3Qg
-eGVudmlmICp2aWYgPSBiZS0+dmlmOwo+ID4+Cj4gPj4gIAlpZiAodmlmKSB7Cj4gPj4gKwkJdW5z
-aWduZWQgaW50IG51bV9xdWV1ZXMgPSB2aWYtPm51bV9xdWV1ZXM7Cj4gPj4gIAkJdW5zaWduZWQg
-aW50IHF1ZXVlX2luZGV4Owo+ID4+IC0JCXN0cnVjdCB4ZW52aWZfcXVldWUgKnF1ZXVlczsKPiA+
-Pgo+ID4+ICAJCXhlbl91bnJlZ2lzdGVyX3dhdGNoZXJzKHZpZik7Cj4gPj4gICNpZmRlZiBDT05G
-SUdfREVCVUdfRlMKPiA+PiAgCQl4ZW52aWZfZGVidWdmc19kZWxpZih2aWYpOwo+ID4+ICAjZW5k
-aWYgLyogQ09ORklHX0RFQlVHX0ZTICovCj4gPj4gIAkJeGVudmlmX2Rpc2Nvbm5lY3RfZGF0YSh2
-aWYpOwo+ID4+IC0JCWZvciAocXVldWVfaW5kZXggPSAwOwo+ID4+IC0JCSAgICAgcXVldWVfaW5k
-ZXggPCB2aWYtPm51bV9xdWV1ZXM7Cj4gPj4gLQkJICAgICArK3F1ZXVlX2luZGV4KQo+ID4+IC0J
-CQl4ZW52aWZfZGVpbml0X3F1ZXVlKCZ2aWYtPnF1ZXVlc1txdWV1ZV9pbmRleF0pOwo+ID4+Cj4g
-Pj4gLQkJc3Bpbl9sb2NrKCZ2aWYtPmxvY2spOwo+ID4+IC0JCXF1ZXVlcyA9IHZpZi0+cXVldWVz
-Owo+ID4+ICAJCXZpZi0+bnVtX3F1ZXVlcyA9IDA7Cj4gPj4gLQkJdmlmLT5xdWV1ZXMgPSBOVUxM
-Owo+ID4+IC0JCXNwaW5fdW5sb2NrKCZ2aWYtPmxvY2spOwo+ID4+ICsJCXN5bmNocm9uaXplX25l
-dCgpOwo+ID4KPiA+IFNvLCBudW1fcXVldWVzIGlzIHlvdXIgUkNVIHByb3RlY3RlZCB2YWx1ZSwg
-cmF0aGVyIHRoYW4gdGhlIHF1ZXVlcwo+IHBvaW50ZXIsIGluIHdoaWNoIGNhc2UgSSB0aGluayB5
-b3UgcHJvYmFibHkgbmVlZCB0byBjaGFuZ2UgY29kZSBzdWNoIGFzCj4gPgo+ID4KPiBodHRwczov
-L2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVsL2dpdC90b3J2YWxkcy9saW51eC5naXQv
-dHJlZS9kcml2ZXJzL25lCj4gdC94ZW4tbmV0YmFjay9uZXRiYWNrLmM/aWQ9cmVmcy90YWdzL3Y0
-LjEwI24yMTYKPiA+Cj4gPiB0byBiZSBnYXRlZCBvbiBudW1fcXVldWVzLgo+ID4KPiA+IEFsc28g
-c2hvdWxkbid0IHhlbnZpZl91cCgpLCB4ZW52aWZfZG93bigpIGFuZCB4ZW52aWZfZ2V0X2V0aHRv
-b2xfc3RhdHMoKQo+IG5vdCBiZSB1c2luZyByY3VfcmVhZF9sb2NrKCkgYW5kIHJjdV9kZXJlZmVy
-ZW5jZSgpIG9mIG51bV9xdWV1ZXMgYXMgd2VsbD8KPiA+Cj4gPiAgIFBhdWwKPiA+Cj4gCj4geGVu
-dmlmX3VwKCkgYW5kIHhlbnZpZl9kb3duKCkgYXJlIGNhbGxlZCB1bmRlciBydG5sX2xvY2suCj4g
-eGVudmlmX2dldF9ldGh0b29sX3N0YXRzKCkgaXMgYSBnb29kIGNhbmRpZGF0ZS4gSSdtIG5vdCBz
-dXJlIGFib3V0Cj4geGVudmlmX2ZhdGFsX3R4X2Vyci4gSXMgaXQgYWN0dWFsbHkgY2FsbGVkIGZy
-b20gYWxyZWFkeSBwcm90ZWN0ZWQgcmVnaW9ucz8KPiAKCklJUkMgaXQncyBjYWxsZWQgb3V0IG9m
-IHRoZSBOQVBJIHdvcmtlciBzbyBJJ2QgaG9wZSB0dXJuaW5nIGNhcnJpZXIgb2ZmIHdvdWxkIGJl
-IHN1ZmZpY2llbnQuIEkgc3RpbGwgdGhpbmcgdGhhdCB0ZXN0aW5nIGZvciAhbnVtX3F1ZXVlcyBl
-dmVyeXdoZXJlIHJhdGhlciB0aGFuICFxdWV1ZXMgaW4gc29tZSBwbGFjZXMgd291bGQgYmUgYmV0
-dGVyLCBldmVuIGlmIHlvdSBkb24ndCBhY3R1YWxseSBuZWVkIHRvIHJjdSBwcm90ZWN0IGFsbCB0
-aGUgdGVzdHMuCgogIFBhdWwKCj4gSWdvcgo+IAo+ID4+Cj4gPj4gLQkJdmZyZWUocXVldWVzKTsK
-PiA+PiArCQlmb3IgKHF1ZXVlX2luZGV4ID0gMDsgcXVldWVfaW5kZXggPCBudW1fcXVldWVzOwo+
-ID4+ICsrcXVldWVfaW5kZXgpCj4gPj4gKwkJCXhlbnZpZl9kZWluaXRfcXVldWUoJnZpZi0+cXVl
-dWVzW3F1ZXVlX2luZGV4XSk7Cj4gPj4gKwo+ID4+ICsJCXZmcmVlKHZpZi0+cXVldWVzKTsKPiA+
-PiArCQl2aWYtPnF1ZXVlcyA9IE5VTEw7Cj4gPj4KPiA+PiAgCQl4ZW52aWZfZGlzY29ubmVjdF9j
-dHJsKHZpZik7Cj4gPj4gIAl9Cj4gPj4gLS0KPiA+PiAxLjguMy4xCj4gPgoKX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlz
-dApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVs
-Cg==
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--XwspQDhiCtotJeH3bDgW6SVew23uTBAxg
+Content-Type: multipart/mixed; boundary="1j3R9tMtSrQhsk5tQTud4RJ816VjtQUOu";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+ "kernel@pengutronix.de" <kernel@pengutronix.de>,
+ "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Message-ID: <e7d1906d-fec4-217d-f444-2f5996d45f8b@pengutronix.de>
+Subject: pull-request: can-next 2017-03-03
+
+--1j3R9tMtSrQhsk5tQTud4RJ816VjtQUOu
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hello David,
+
+this is a pull request of 3 patches for net-next/master.
+
+The patches are by Yegor Yefremov and convert the ti_hecc driver into a
+DT only driver, as there is no in-tree user of the old platform driver
+interface anymore.
+
+regards,
+Marc
+
+---
+
+The following changes since commit 2d6be4abf514fc26c83d239c7f31da1f95e4a3=
+1d:
+
+  Merge tag 'for-linus-4.11' of git://git.code.sf.net/p/openipmi/linux-ip=
+mi (2017-02-28 21:06:30 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-4.12-20170303
+
+for you to fetch changes up to b08bb1376263026cb947923ed6c559addb908be6:
+
+  can: ti_hecc: Convert TI HECC driver to DT only driver (2017-03-03 15:0=
+1:16 +0100)
+
+----------------------------------------------------------------
+linux-can-next-for-4.12-20170303
+
+----------------------------------------------------------------
+Yegor Yefremov (3):
+      ARM: dts: AM35x: Add hecc node
+      can: ti_hecc: Add TI HECC DT binding documentation
+      can: ti_hecc: Convert TI HECC driver to DT only driver
+
+ .../devicetree/bindings/net/can/ti_hecc.txt        |  32 ++++
+ arch/arm/boot/dts/am3517.dtsi                      |  12 ++
+ drivers/net/can/ti_hecc.c                          | 170 +++++++++++----=
+------
+ include/linux/can/platform/ti_hecc.h               |  44 ------
+ 4 files changed, 132 insertions(+), 126 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/can/ti_hecc.txt=
+
+ delete mode 100644 include/linux/can/platform/ti_hecc.h
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--1j3R9tMtSrQhsk5tQTud4RJ816VjtQUOu--
+
+--XwspQDhiCtotJeH3bDgW6SVew23uTBAxg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAli5d9kACgkQHv7KIOw4
+HPZmJAgAgY1Oh+Ex3a8aTLTX3JrRkDbgI7o/Sel5jFGAQRnsp5gYsVZEYJpzyfya
+EE5EwPjkpp1qx+ZSilcg3RcaHDrJTV6qK7DKtj4EOjaRoZ/gI8JsrDTj0Y8L6kN8
+7Pg4D1Xmb++Sh7tMEQpQgz5wMmODH/1oHNY3McNBndmpE40aut8UwyMPssPZqDBa
+iQJUQVDFMFhuBmAlj1+pmFMUuS9lg0YHk5Lhb37irPcR8xogiQ4JupeQMpX3aCgH
+xUWL0qIlhDfUft4H9taNIJe0o78/PsKKvkr+0qU4aUTgqqVnLGo27PKha95ruGoX
+c/k5bW0ke+f4TzRpi24s+veAzgu0vw==
+=DAet
+-----END PGP SIGNATURE-----
+
+--XwspQDhiCtotJeH3bDgW6SVew23uTBAxg--
