@@ -1,169 +1,146 @@
 From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/ipv4: deadlock in ip_ra_control
-Date: Fri, 3 Mar 2017 19:43:52 +0100
-Message-ID: <CACT4Y+b0uuE+YarvhfvWOanaoKxTsv92C5LC8btLOwEAG9Lr1w@mail.gmail.com>
-References: <CACT4Y+b-c=_QC51h0Qgp4buG=6cWO1xax7MrKgFS1BKV2=mdQg@mail.gmail.com>
- <CAM_iQpX=Vb-0xMjwOrriYcG38GT+U9zknggVbCb0_pBUh1NMkQ@mail.gmail.com> <CACT4Y+aWYLbu5Eq1WN_T6q_zDBUdP8wiAVJK1x1D_XspQSY-RQ@mail.gmail.com>
+Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Fri, 3 Mar 2017 20:14:00 +0100
+Message-ID: <CACT4Y+Z01vCL0is-Z80YMvVm+58WnL8OXc_uYovCs=Cr1fqfMw@mail.gmail.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Cc: Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
         James Morris <jmorris@namei.org>,
         Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
         Patrick McHardy <kaber@trash.net>,
-        Eric Dumazet <edumazet@google.com>,
         netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
         syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+aWYLbu5Eq1WN_T6q_zDBUdP8wiAVJK1x1D_XspQSY-RQ@mail.gmail.com>
+In-Reply-To: <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 2, 2017 at 10:40 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Wed, Mar 1, 2017 at 6:18 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Wed, Mar 1, 2017 at 2:44 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>> Hello,
->>>
->>> I've got the following deadlock report while running syzkaller fuzzer
->>> on linux-next/51788aebe7cae79cb334ad50641347465fc188fd:
->>>
->>> ======================================================
->>> [ INFO: possible circular locking dependency detected ]
->>> 4.10.0-next-20170301+ #1 Not tainted
->>> -------------------------------------------------------
->>> syz-executor1/3394 is trying to acquire lock:
->>>  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff838864cc>] lock_sock
->>> include/net/sock.h:1460 [inline]
->>>  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff838864cc>]
->>> do_ip_setsockopt.isra.12+0x21c/0x3540 net/ipv4/ip_sockglue.c:652
->>>
->>> but task is already holding lock:
->>>  (rtnl_mutex){+.+.+.}, at: [<ffffffff836fbd97>] rtnl_lock+0x17/0x20
->>> net/core/rtnetlink.c:70
->>>
->>> which lock already depends on the new lock.
->>>
->>>
->>> the existing dependency chain (in reverse order) is:
->>>
->>> -> #1 (rtnl_mutex){+.+.+.}:
->>>        validate_chain kernel/locking/lockdep.c:2265 [inline]
->>>        __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3338
->>>        lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3753
->>>        __mutex_lock_common kernel/locking/mutex.c:754 [inline]
->>>        __mutex_lock+0x172/0x1730 kernel/locking/mutex.c:891
->>>        mutex_lock_nested+0x16/0x20 kernel/locking/mutex.c:906
->>>        rtnl_lock+0x17/0x20 net/core/rtnetlink.c:70
->>>        mrtsock_destruct+0x86/0x2c0 net/ipv4/ipmr.c:1281
->>>        ip_ra_control+0x459/0x600 net/ipv4/ip_sockglue.c:372
->>>        do_ip_setsockopt.isra.12+0x1064/0x3540 net/ipv4/ip_sockglue.c:1161
->>>        ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1264
->>>        raw_setsockopt+0xb7/0xd0 net/ipv4/raw.c:839
->>>        sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2725
->>>        SYSC_setsockopt net/socket.c:1786 [inline]
->>>        SyS_setsockopt+0x25c/0x390 net/socket.c:1765
->>>        entry_SYSCALL_64_fastpath+0x1f/0xc2
->>>
->>> -> #0 (sk_lock-AF_INET){+.+.+.}:
->>>        check_prev_add kernel/locking/lockdep.c:1828 [inline]
->>>        check_prevs_add+0xa8f/0x19f0 kernel/locking/lockdep.c:1938
->>>        validate_chain kernel/locking/lockdep.c:2265 [inline]
->>>        __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3338
->>>        lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3753
->>>        lock_sock_nested+0xcb/0x120 net/core/sock.c:2530
->>>        lock_sock include/net/sock.h:1460 [inline]
->>>        do_ip_setsockopt.isra.12+0x21c/0x3540 net/ipv4/ip_sockglue.c:652
->>>        ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1264
->>>        tcp_setsockopt+0x82/0xd0 net/ipv4/tcp.c:2721
->>>        sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2725
->>>        SYSC_setsockopt net/socket.c:1786 [inline]
->>>        SyS_setsockopt+0x25c/0x390 net/socket.c:1765
->>>        entry_SYSCALL_64_fastpath+0x1f/0xc2
->>>
->>
->> Please try the attached patch (compile only).
+On Fri, Mar 3, 2017 at 8:12 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 3/3/17 6:39 AM, Dmitry Vyukov wrote:
+>> I am getting heap out-of-bounds reports in
+>> fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone while running
+>> syzkaller fuzzer on 86292b33d4b79ee03e2f43ea0381ef85f077c760. They all
+>> follow the same pattern: an object of size 216 is allocated from
+>> ip_dst_cache slab, and then accessed at offset 272/276 withing
+>> fib6_walk. Looks like type confusion. Unfortunately this is not
+>> reproducible.
 >
->
-> Pushed the patch to the bots.
-> Thanks
+> I'll take a look this weekend or Monday at the latest.
 
 
-This patch triggers:
+This is not from fib6_walk, but looks like the same problem:
 
-[   57.748990] RTNL: assertion failed at net/ipv4/ipmr.c (1236)
-[   57.749022] CPU: 1 PID: 5301 Comm: syz-executor2 Not tainted 4.10.0+ #15
-[   57.749026] Hardware name: Google Google Compute Engine/Google
-Compute Engine, BIOS Google 01/01/2011
-[   57.749028] Call Trace:
-[   57.749042]  dump_stack+0x2ee/0x3ef
-[   57.749219]  mrtsock_destruct+0x27e/0x2f0
-[   57.749241]  ip_ra_control+0x459/0x600
-[   57.749287]  raw_close+0x19/0x30
-[   57.749295]  inet_release+0xed/0x1c0
-[   57.749303]  sock_release+0x8d/0x1e0
-[   57.749316]  sock_close+0x16/0x20
-[   57.749323]  __fput+0x332/0x7f0
-[   57.749340]  ____fput+0x15/0x20
-[   57.749347]  task_work_run+0x18a/0x260
-[   57.749372]  do_exit+0x18ef/0x28b0
-[   57.749641]  do_group_exit+0x149/0x420
-[   57.749656]  get_signal+0x7e0/0x1820
-[   57.749697]  do_signal+0xd2/0x2190
-[   57.749746]  exit_to_usermode_loop+0x200/0x2a0
-[   57.749758]  syscall_return_slowpath+0x4d3/0x570
-[   57.749835]  entry_SYSCALL_64_fastpath+0xc0/0xc2
-[   57.749840] RIP: 0033:0x44fb79
-[   57.749843] RSP: 002b:00007fbba84d9cf8 EFLAGS: 00000246 ORIG_RAX:
-00000000000000ca
-[   57.749850] RAX: fffffffffffffe00 RBX: 0000000000708218 RCX: 000000000044fb79
-[   57.749854] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000708218
-[   57.749857] RBP: 00000000007081f8 R08: 0000000000000000 R09: 0000000000000000
-[   57.749860] R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000000
-[   57.749864] R13: 0000000000a5fc57 R14: 00007fbba84da9c0 R15: 000000000000000c
-[   57.749964]
-[   57.749966] ===============================
-[   57.749967] [ INFO: suspicious RCU usage. ]
-[   57.749971] 4.10.0+ #15 Not tainted
-[   57.749972] -------------------------------
-[   57.749975] net/ipv4/ipmr.c:1238 suspicious
-rcu_dereference_protected() usage!
-[   57.749977]
-[   57.749977] other info that might help us debug this:
-[   57.749977]
-[   57.749980]
-[   57.749980] rcu_scheduler_active = 2, debug_locks = 0
-[   57.749982] no locks held by syz-executor2/5301.
-[   57.749984]
-[   57.749984] stack backtrace:
-[   57.749989] CPU: 1 PID: 5301 Comm: syz-executor2 Not tainted 4.10.0+ #15
-[   57.749993] Hardware name: Google Google Compute Engine/Google
-Compute Engine, BIOS Google 01/01/2011
-[   57.749995] Call Trace:
-[   57.750001]  dump_stack+0x2ee/0x3ef
-[   57.750117]  lockdep_rcu_suspicious+0x139/0x180
-[   57.750122]  mrtsock_destruct+0x167/0x2f0
-[   57.750144]  ip_ra_control+0x459/0x600
-[   57.750182]  raw_close+0x19/0x30
-[   57.750188]  inet_release+0xed/0x1c0
-[   57.750194]  sock_release+0x8d/0x1e0
-[   57.750208]  sock_close+0x16/0x20
-[   57.750213]  __fput+0x332/0x7f0
-[   57.750228]  ____fput+0x15/0x20
-[   57.750233]  task_work_run+0x18a/0x260
-[   57.750256]  do_exit+0x18ef/0x28b0
-[   57.750499]  do_group_exit+0x149/0x420
-[   57.750515]  get_signal+0x7e0/0x1820
-[   57.750556]  do_signal+0xd2/0x2190
-[   57.750604]  exit_to_usermode_loop+0x200/0x2a0
-[   57.750616]  syscall_return_slowpath+0x4d3/0x570
-[   57.750693]  entry_SYSCALL_64_fastpath+0xc0/0xc2
-[   57.750698] RIP: 0033:0x44fb79
-[   57.750701] RSP: 002b:00007fbba84d9cf8 EFLAGS: 00000246 ORIG_RAX:
-00000000000000ca
-[   57.750708] RAX: fffffffffffffe00 RBX: 0000000000708218 RCX: 000000000044fb79
-[   57.750712] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000708218
-[   57.750716] RBP: 00000000007081f8 R08: 0000000000000000 R09: 0000000000000000
-[   57.750720] R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000000
-[   57.750724] R13: 0000000000a5fc57 R14: 00007fbba84da9c0 R15: 000000000000000c
+==================================================================
+BUG: KASAN: slab-out-of-bounds in find_rr_leaf net/ipv6/route.c:722
+[inline] at addr ffff88004afe6f68
+BUG: KASAN: slab-out-of-bounds in rt6_select net/ipv6/route.c:758
+[inline] at addr ffff88004afe6f68
+BUG: KASAN: slab-out-of-bounds in ip6_pol_route+0x19ff/0x1f30
+net/ipv6/route.c:1091 at addr ffff88004afe6f68
+Read of size 4 by task syz-executor0/24839
+CPU: 1 PID: 24839 Comm: syz-executor0 Not tainted 4.10.0+ #248
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:15 [inline]
+ dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+ kasan_object_err+0x1c/0x70 mm/kasan/report.c:166
+ print_address_description mm/kasan/report.c:204 [inline]
+ kasan_report_error mm/kasan/report.c:288 [inline]
+ kasan_report.part.2+0x198/0x440 mm/kasan/report.c:310
+ kasan_report mm/kasan/report.c:330 [inline]
+ __asan_report_load4_noabort+0x29/0x30 mm/kasan/report.c:330
+ find_rr_leaf net/ipv6/route.c:722 [inline]
+ rt6_select net/ipv6/route.c:758 [inline]
+ ip6_pol_route+0x19ff/0x1f30 net/ipv6/route.c:1091
+ ip6_pol_route_output+0x4c/0x60 net/ipv6/route.c:1212
+ fib6_rule_lookup+0x52/0x150 net/ipv6/ip6_fib.c:291
+ ip6_route_output_flags+0x1f1/0x2b0 net/ipv6/route.c:1240
+ ip6_route_output include/net/ip6_route.h:79 [inline]
+ ip6_dst_lookup_tail+0x4fb/0x990 net/ipv6/ip6_output.c:954
+ ip6_dst_lookup+0x4b/0x60 net/ipv6/ip6_output.c:1056
+ icmpv6_route_lookup+0x107/0x750 net/ipv6/icmp.c:347
+ icmp6_send+0x145e/0x24d0 net/ipv6/icmp.c:536
+ icmpv6_send+0x12e/0x260 net/ipv6/ip6_icmp.c:42
+ ip6_fragment+0x57f/0x38a0 net/ipv6/ip6_output.c:865
+ ip6_finish_output+0x319/0x950 net/ipv6/ip6_output.c:147
+ NF_HOOK_COND include/linux/netfilter.h:246 [inline]
+ ip6_output+0x1cb/0x8c0 net/ipv6/ip6_output.c:163
+ dst_output include/net/dst.h:486 [inline]
+ ip6_local_out+0x95/0x170 net/ipv6/output_core.c:172
+ ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1734
+ ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1754
+ rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
+ rawv6_sendmsg+0x2e10/0x3fd0 net/ipv6/raw.c:930
+ inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:761
+ sock_sendmsg_nosec net/socket.c:633 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:643
+ SYSC_sendto+0x660/0x810 net/socket.c:1685
+ SyS_sendto+0x40/0x50 net/socket.c:1653
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
+RIP: 0033:0x4458d9
+RSP: 002b:00007f227bcfab58 EFLAGS: 00000282 ORIG_RAX: 000000000000002c
+RAX: ffffffffffffffda RBX: 0000000000000006 RCX: 00000000004458d9
+RDX: 0000000000001001 RSI: 0000000020725000 RDI: 0000000000000006
+RBP: 00000000006e1bb0 R08: 00000000201ccff8 R09: 0000000000000018
+R10: 0040000000004004 R11: 0000000000000282 R12: 0000000000708000
+R13: 0000000020001ff7 R14: 0000000000000003 R15: 0000000000060040
+Object at ffff88004afe6e00, in cache ip_dst_cache size: 216
+Allocated:
+PID = 1307
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:502
+ set_track mm/kasan/kasan.c:514 [inline]
+ kasan_kmalloc+0xaa/0xd0 mm/kasan/kasan.c:605
+ kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:544
+ kmem_cache_alloc+0x102/0x680 mm/slab.c:3571
+ dst_alloc+0x11b/0x1a0 net/core/dst.c:209
+ rt_dst_alloc+0xf0/0x580 net/ipv4/route.c:1482
+ ip_route_input_slow+0xdf2/0x2160 net/ipv4/route.c:1935
+ ip_route_input_noref+0x137/0x10e0 net/ipv4/route.c:2056
+ ip_rcv_finish+0x301/0x1b40 net/ipv4/ip_input.c:344
+ NF_HOOK include/linux/netfilter.h:257 [inline]
+ ip_rcv+0xd75/0x19a0 net/ipv4/ip_input.c:487
+ __netif_receive_skb_core+0x1ac8/0x33f0 net/core/dev.c:4179
+ __netif_receive_skb+0x2a/0x170 net/core/dev.c:4217
+ netif_receive_skb_internal+0xf0/0x400 net/core/dev.c:4245
+ napi_skb_finish net/core/dev.c:4602 [inline]
+ napi_gro_receive+0x4d4/0x670 net/core/dev.c:4636
+ e1000_receive_skb drivers/net/ethernet/intel/e1000/e1000_main.c:4033 [inline]
+ e1000_clean_rx_irq+0x5e0/0x1490
+drivers/net/ethernet/intel/e1000/e1000_main.c:4489
+ e1000_clean+0xb94/0x2920 drivers/net/ethernet/intel/e1000/e1000_main.c:3834
+ napi_poll net/core/dev.c:5171 [inline]
+ net_rx_action+0xeb4/0x1580 net/core/dev.c:5236
+ __do_softirq+0x31f/0xbe7 kernel/softirq.c:284
+Freed:
+PID = 22752
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:502
+ set_track mm/kasan/kasan.c:514 [inline]
+ kasan_slab_free+0x6f/0xb0 mm/kasan/kasan.c:578
+ __cache_free mm/slab.c:3513 [inline]
+ kmem_cache_free+0x71/0x240 mm/slab.c:3773
+ dst_destroy+0x1fd/0x330 net/core/dst.c:269
+ dst_destroy_rcu+0x15/0x40 net/core/dst.c:294
+ __rcu_reclaim kernel/rcu/rcu.h:118 [inline]
+ rcu_do_batch.isra.67+0xa31/0xe50 kernel/rcu/tree.c:2877
+ invoke_rcu_callbacks kernel/rcu/tree.c:3140 [inline]
+ __rcu_process_callbacks kernel/rcu/tree.c:3107 [inline]
+ rcu_process_callbacks+0x45b/0xc50 kernel/rcu/tree.c:3124
+ __do_softirq+0x31f/0xbe7 kernel/softirq.c:284
+Memory state around the buggy address:
+ ffff88004afe6e00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ ffff88004afe6e80: 00 00 00 00 00 00 00 00 00 00 00 fc fc fc fc fc
+>ffff88004afe6f00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+                                                          ^
+ ffff88004afe6f80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+ ffff88004afe7000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+==================================================================
