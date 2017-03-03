@@ -1,69 +1,108 @@
-From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: Re: [PATCH 01/26] compiler: introduce noinline_for_kasan annotation
-Date: Fri, 3 Mar 2017 16:50:20 +0300
-Message-ID: <7e7a62de-3b79-6044-72fa-4ade418953d1@virtuozzo.com>
-References: <20170302163834.2273519-1-arnd@arndb.de>
- <20170302163834.2273519-2-arnd@arndb.de>
+From: Igor Druzhinin <igor.druzhinin@citrix.com>
+Subject: Re: [PATCH] xen-netback: fix race condition on XenBus
+	disconnect
+Date: Fri, 3 Mar 2017 13:53:47 +0000
+Message-ID: <6d28df77-a875-8a61-7ae6-e8f867da2a7c@citrix.com>
+References: <1488495410-137500-1-git-send-email-igor.druzhinin@citrix.com>
+ <23927ef4bba04925994cb0b7acbcbbc0@AMSPEX02CL03.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linux-media@vger.kernel.org>,
-        <linux-wireless@vger.kernel.org>,
-        <kernel-build-reports@lists.linaro.org>,
-        "David S . Miller" <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>, <kasan-dev@googlegroups.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170302163834.2273519-2-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jgross@suse.com" <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "xen-devel@lists.xenproject.org"
+ <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <23927ef4bba04925994cb0b7acbcbbc0@AMSPEX02CL03.citrite.net>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-
-
-On 03/02/2017 07:38 PM, Arnd Bergmann wrote:
-> When CONFIG_KASAN is set, we can run into some code that uses incredible
-> amounts of kernel stack:
-> 
-> drivers/staging/dgnc/dgnc_neo.c:1056:1: error: the frame size of 11112 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
-> drivers/media/i2c/cx25840/cx25840-core.c:4960:1: error: the frame size of 94000 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
-> drivers/media/dvb-frontends/stv090x.c:3430:1: error: the frame size of 5312 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
-> 
-> This happens when a sanitizer uses stack memory each time an inline function
-> gets called. This introduces a new annotation for those functions to make
-> them either 'inline' or 'noinline' dependning on the CONFIG_KASAN symbol.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  include/linux/compiler.h | 11 +++++++++++
->  1 file changed, 11 insertions(+)
-> 
-> diff --git a/include/linux/compiler.h b/include/linux/compiler.h
-> index f8110051188f..56b90897a459 100644
-> --- a/include/linux/compiler.h
-> +++ b/include/linux/compiler.h
-> @@ -416,6 +416,17 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
->   */
->  #define noinline_for_stack noinline
->  
-> +/*
-> + * CONFIG_KASAN can lead to extreme stack usage with certain patterns when
-> + * one function gets inlined many times and each instance requires a stack
-> + * ckeck.
-> + */
-> +#ifdef CONFIG_KASAN
-> +#define noinline_for_kasan noinline __maybe_unused
-
-
-noinline_iff_kasan might be a better name.  noinline_for_kasan gives the impression
-that we always noinline function for the sake of kasan, while noinline_iff_kasan
-clearly indicates that function is noinline only if kasan is used.
-
-> +#else
-> +#define noinline_for_kasan inline
-> +#endif
-> +
->  #ifndef __always_inline
->  #define __always_inline inline
->  #endif
-> 
+T24gMDMvMDMvMTcgMDk6MTgsIFBhdWwgRHVycmFudCB3cm90ZToKPj4gLS0tLS1PcmlnaW5hbCBN
+ZXNzYWdlLS0tLS0KPj4gRnJvbTogSWdvciBEcnV6aGluaW4gW21haWx0bzppZ29yLmRydXpoaW5p
+bkBjaXRyaXguY29tXQo+PiBTZW50OiAwMiBNYXJjaCAyMDE3IDIyOjU3Cj4+IFRvOiBuZXRkZXZA
+dmdlci5rZXJuZWwub3JnOyB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmcKPj4gQ2M6IFBh
+dWwgRHVycmFudCA8UGF1bC5EdXJyYW50QGNpdHJpeC5jb20+OyBqZ3Jvc3NAc3VzZS5jb207IFdl
+aSBMaXUKPj4gPHdlaS5saXUyQGNpdHJpeC5jb20+OyBJZ29yIERydXpoaW5pbiA8aWdvci5kcnV6
+aGluaW5AY2l0cml4LmNvbT4KPj4gU3ViamVjdDogW1BBVENIXSB4ZW4tbmV0YmFjazogZml4IHJh
+Y2UgY29uZGl0aW9uIG9uIFhlbkJ1cyBkaXNjb25uZWN0Cj4+Cj4+IEluIHNvbWUgY2FzZXMgZHVy
+aW5nIFhlbkJ1cyBkaXNjb25uZWN0IGV2ZW50IGhhbmRsaW5nIGFuZCBzdWJzZXF1ZW50Cj4+IHF1
+ZXVlIHJlc291cmNlIHJlbGVhc2UgdGhlcmUgbWF5IGJlIHNvbWUgVFggaGFuZGxlcnMgYWN0aXZl
+IG9uCj4+IG90aGVyIHByb2Nlc3NvcnMuIFVzZSBSQ1UgaW4gb3JkZXIgdG8gc3luY2hyb25pemUg
+d2l0aCB0aGVtLgo+Pgo+PiBTaWduZWQtb2ZmLWJ5OiBJZ29yIERydXpoaW5pbiA8aWdvci5kcnV6
+aGluaW5AY2l0cml4LmNvbT4KPj4gLS0tCj4+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRl
+cmZhY2UuYyB8IDEzICsrKysrKysrLS0tLS0KPj4gIGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hl
+bmJ1cy5jICAgIHwgMTcgKysrKysrKy0tLS0tLS0tLS0KPj4gIDIgZmlsZXMgY2hhbmdlZCwgMTUg
+aW5zZXJ0aW9ucygrKSwgMTUgZGVsZXRpb25zKC0pCj4+Cj4+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYyBiL2RyaXZlcnMvbmV0L3hlbi0KPj4gbmV0YmFj
+ay9pbnRlcmZhY2UuYwo+PiBpbmRleCBhMmQzMjY3Ni4uMzJlMmNjNiAxMDA2NDQKPj4gLS0tIGEv
+ZHJpdmVycy9uZXQveGVuLW5ldGJhY2svaW50ZXJmYWNlLmMKPj4gKysrIGIvZHJpdmVycy9uZXQv
+eGVuLW5ldGJhY2svaW50ZXJmYWNlLmMKPj4gQEAgLTE2NCw3ICsxNjQsNyBAQCBzdGF0aWMgaW50
+IHhlbnZpZl9zdGFydF94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdAo+PiBuZXRfZGV2
+aWNlICpkZXYpCj4+ICB7Cj4+ICAJc3RydWN0IHhlbnZpZiAqdmlmID0gbmV0ZGV2X3ByaXYoZGV2
+KTsKPj4gIAlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpxdWV1ZSA9IE5VTEw7Cj4+IC0JdW5zaWduZWQg
+aW50IG51bV9xdWV1ZXMgPSB2aWYtPm51bV9xdWV1ZXM7Cj4gCj4gRG8geW91IG5vdCBuZWVkIGFu
+IHJjdV9yZWFkX2xvY2soKSBhcm91bmQgdGhpcyBhbmQgdXNlIG9mIHRoZSBudW1fcXVldWVzIHZh
+bHVlIChhcyB5b3UgaGF2ZSBiZWxvdyk/Cj4gCj4+ICsJdW5zaWduZWQgaW50IG51bV9xdWV1ZXMg
+PSByY3VfZGVyZWZlcmVuY2UodmlmKS0+bnVtX3F1ZXVlczsKPj4gIAl1MTYgaW5kZXg7Cj4+ICAJ
+c3RydWN0IHhlbnZpZl9yeF9jYiAqY2I7Cj4+Cj4+IEBAIC0yMjEsMTggKzIyMSwyMSBAQCBzdGF0
+aWMgc3RydWN0IG5ldF9kZXZpY2Vfc3RhdHMKPj4gKnhlbnZpZl9nZXRfc3RhdHMoc3RydWN0IG5l
+dF9kZXZpY2UgKmRldikKPj4gIHsKPj4gIAlzdHJ1Y3QgeGVudmlmICp2aWYgPSBuZXRkZXZfcHJp
+dihkZXYpOwo+PiAgCXN0cnVjdCB4ZW52aWZfcXVldWUgKnF1ZXVlID0gTlVMTDsKPj4gKwl1bnNp
+Z25lZCBpbnQgbnVtX3F1ZXVlczsKPj4gIAl1NjQgcnhfYnl0ZXMgPSAwOwo+PiAgCXU2NCByeF9w
+YWNrZXRzID0gMDsKPj4gIAl1NjQgdHhfYnl0ZXMgPSAwOwo+PiAgCXU2NCB0eF9wYWNrZXRzID0g
+MDsKPj4gIAl1bnNpZ25lZCBpbnQgaW5kZXg7Cj4+Cj4+IC0Jc3Bpbl9sb2NrKCZ2aWYtPmxvY2sp
+Owo+PiAtCWlmICh2aWYtPnF1ZXVlcyA9PSBOVUxMKQo+PiArCXJjdV9yZWFkX2xvY2soKTsKPj4g
+Kwo+PiArCW51bV9xdWV1ZXMgPSByY3VfZGVyZWZlcmVuY2UodmlmKS0+bnVtX3F1ZXVlczsKPj4g
+KwlpZiAobnVtX3F1ZXVlcyA8IDEpCj4+ICAJCWdvdG8gb3V0Owo+Pgo+PiAgCS8qIEFnZ3JlZ2F0
+ZSB0eCBhbmQgcnggc3RhdHMgZnJvbSBlYWNoIHF1ZXVlICovCj4+IC0JZm9yIChpbmRleCA9IDA7
+IGluZGV4IDwgdmlmLT5udW1fcXVldWVzOyArK2luZGV4KSB7Cj4+ICsJZm9yIChpbmRleCA9IDA7
+IGluZGV4IDwgbnVtX3F1ZXVlczsgKytpbmRleCkgewo+PiAgCQlxdWV1ZSA9ICZ2aWYtPnF1ZXVl
+c1tpbmRleF07Cj4+ICAJCXJ4X2J5dGVzICs9IHF1ZXVlLT5zdGF0cy5yeF9ieXRlczsKPj4gIAkJ
+cnhfcGFja2V0cyArPSBxdWV1ZS0+c3RhdHMucnhfcGFja2V0czsKPj4gQEAgLTI0MSw3ICsyNDQs
+NyBAQCBzdGF0aWMgc3RydWN0IG5ldF9kZXZpY2Vfc3RhdHMKPj4gKnhlbnZpZl9nZXRfc3RhdHMo
+c3RydWN0IG5ldF9kZXZpY2UgKmRldikKPj4gIAl9Cj4+Cj4+ICBvdXQ6Cj4+IC0Jc3Bpbl91bmxv
+Y2soJnZpZi0+bG9jayk7Cj4+ICsJcmN1X3JlYWRfdW5sb2NrKCk7Cj4+Cj4+ICAJdmlmLT5kZXYt
+PnN0YXRzLnJ4X2J5dGVzID0gcnhfYnl0ZXM7Cj4+ICAJdmlmLT5kZXYtPnN0YXRzLnJ4X3BhY2tl
+dHMgPSByeF9wYWNrZXRzOwo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sv
+eGVuYnVzLmMgYi9kcml2ZXJzL25ldC94ZW4tCj4+IG5ldGJhY2sveGVuYnVzLmMKPj4gaW5kZXgg
+ZDJkN2NkOS4uNzZlZmIwMSAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sv
+eGVuYnVzLmMKPj4gKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMKPj4gQEAg
+LTQ5NSwyNiArNDk1LDIzIEBAIHN0YXRpYyB2b2lkIGJhY2tlbmRfZGlzY29ubmVjdChzdHJ1Y3QK
+Pj4gYmFja2VuZF9pbmZvICpiZSkKPj4gIAlzdHJ1Y3QgeGVudmlmICp2aWYgPSBiZS0+dmlmOwo+
+Pgo+PiAgCWlmICh2aWYpIHsKPj4gKwkJdW5zaWduZWQgaW50IG51bV9xdWV1ZXMgPSB2aWYtPm51
+bV9xdWV1ZXM7Cj4+ICAJCXVuc2lnbmVkIGludCBxdWV1ZV9pbmRleDsKPj4gLQkJc3RydWN0IHhl
+bnZpZl9xdWV1ZSAqcXVldWVzOwo+Pgo+PiAgCQl4ZW5fdW5yZWdpc3Rlcl93YXRjaGVycyh2aWYp
+Owo+PiAgI2lmZGVmIENPTkZJR19ERUJVR19GUwo+PiAgCQl4ZW52aWZfZGVidWdmc19kZWxpZih2
+aWYpOwo+PiAgI2VuZGlmIC8qIENPTkZJR19ERUJVR19GUyAqLwo+PiAgCQl4ZW52aWZfZGlzY29u
+bmVjdF9kYXRhKHZpZik7Cj4+IC0JCWZvciAocXVldWVfaW5kZXggPSAwOwo+PiAtCQkgICAgIHF1
+ZXVlX2luZGV4IDwgdmlmLT5udW1fcXVldWVzOwo+PiAtCQkgICAgICsrcXVldWVfaW5kZXgpCj4+
+IC0JCQl4ZW52aWZfZGVpbml0X3F1ZXVlKCZ2aWYtPnF1ZXVlc1txdWV1ZV9pbmRleF0pOwo+Pgo+
+PiAtCQlzcGluX2xvY2soJnZpZi0+bG9jayk7Cj4+IC0JCXF1ZXVlcyA9IHZpZi0+cXVldWVzOwo+
+PiAgCQl2aWYtPm51bV9xdWV1ZXMgPSAwOwo+PiAtCQl2aWYtPnF1ZXVlcyA9IE5VTEw7Cj4+IC0J
+CXNwaW5fdW5sb2NrKCZ2aWYtPmxvY2spOwo+PiArCQlzeW5jaHJvbml6ZV9uZXQoKTsKPiAKPiBT
+bywgbnVtX3F1ZXVlcyBpcyB5b3VyIFJDVSBwcm90ZWN0ZWQgdmFsdWUsIHJhdGhlciB0aGFuIHRo
+ZSBxdWV1ZXMgcG9pbnRlciwgaW4gd2hpY2ggY2FzZSBJIHRoaW5rIHlvdSBwcm9iYWJseSBuZWVk
+IHRvIGNoYW5nZSBjb2RlIHN1Y2ggYXMKPiAKPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQv
+bGludXgva2VybmVsL2dpdC90b3J2YWxkcy9saW51eC5naXQvdHJlZS9kcml2ZXJzL25ldC94ZW4t
+bmV0YmFjay9uZXRiYWNrLmM/aWQ9cmVmcy90YWdzL3Y0LjEwI24yMTYKPiAKPiB0byBiZSBnYXRl
+ZCBvbiBudW1fcXVldWVzLgo+IAo+IEFsc28gc2hvdWxkbid0IHhlbnZpZl91cCgpLCB4ZW52aWZf
+ZG93bigpIGFuZCB4ZW52aWZfZ2V0X2V0aHRvb2xfc3RhdHMoKSBub3QgYmUgdXNpbmcgcmN1X3Jl
+YWRfbG9jaygpIGFuZCByY3VfZGVyZWZlcmVuY2UoKSBvZiBudW1fcXVldWVzIGFzIHdlbGw/Cj4g
+Cj4gICBQYXVsCj4gCgp4ZW52aWZfdXAoKSBhbmQgeGVudmlmX2Rvd24oKSBhcmUgY2FsbGVkIHVu
+ZGVyIHJ0bmxfbG9jay4KeGVudmlmX2dldF9ldGh0b29sX3N0YXRzKCkgaXMgYSBnb29kIGNhbmRp
+ZGF0ZS4gSSdtIG5vdCBzdXJlIGFib3V0CnhlbnZpZl9mYXRhbF90eF9lcnIuIElzIGl0IGFjdHVh
+bGx5IGNhbGxlZCBmcm9tIGFscmVhZHkgcHJvdGVjdGVkIHJlZ2lvbnM/CgpJZ29yCgo+Pgo+PiAt
+CQl2ZnJlZShxdWV1ZXMpOwo+PiArCQlmb3IgKHF1ZXVlX2luZGV4ID0gMDsgcXVldWVfaW5kZXgg
+PCBudW1fcXVldWVzOwo+PiArK3F1ZXVlX2luZGV4KQo+PiArCQkJeGVudmlmX2RlaW5pdF9xdWV1
+ZSgmdmlmLT5xdWV1ZXNbcXVldWVfaW5kZXhdKTsKPj4gKwo+PiArCQl2ZnJlZSh2aWYtPnF1ZXVl
+cyk7Cj4+ICsJCXZpZi0+cXVldWVzID0gTlVMTDsKPj4KPj4gIAkJeGVudmlmX2Rpc2Nvbm5lY3Rf
+Y3RybCh2aWYpOwo+PiAgCX0KPj4gLS0KPj4gMS44LjMuMQo+IAoKX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4t
+ZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
