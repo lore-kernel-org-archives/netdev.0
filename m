@@ -1,113 +1,60 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: Re: [PATCH 01/26] compiler: introduce noinline_for_kasan annotation
-Date: Fri, 3 Mar 2017 14:55:35 +0100
-Message-ID: <CAG_fn=WayMEnBO4pzuxQ5jgn-ii6vrALuOex5Ei1ZhzMR7_tjg@mail.gmail.com>
-References: <20170302163834.2273519-1-arnd@arndb.de> <20170302163834.2273519-2-arnd@arndb.de>
- <7e7a62de-3b79-6044-72fa-4ade418953d1@virtuozzo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>, linux-media@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        kernel-build-reports@lists.linaro.org,
-        "David S . Miller" <davem@davemloft.net>
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7e7a62de-3b79-6044-72fa-4ade418953d1@virtuozzo.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 3/4] can: usb_8dev: Fix memory leak of priv->cmd_msg_buffer
+Date: Fri,  3 Mar 2017 14:55:34 +0100
+Message-ID: <20170303135535.22937-4-mkl@pengutronix.de>
+References: <20170303135535.22937-1-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+        kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
+        linux-stable <stable@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170303135535.22937-1-mkl@pengutronix.de>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 3, 2017 at 2:50 PM, Andrey Ryabinin <aryabinin@virtuozzo.com> w=
-rote:
->
->
-> On 03/02/2017 07:38 PM, Arnd Bergmann wrote:
->> When CONFIG_KASAN is set, we can run into some code that uses incredible
->> amounts of kernel stack:
->>
->> drivers/staging/dgnc/dgnc_neo.c:1056:1: error: the frame size of 11112 b=
-ytes is larger than 2048 bytes [-Werror=3Dframe-larger-than=3D]
->> drivers/media/i2c/cx25840/cx25840-core.c:4960:1: error: the frame size o=
-f 94000 bytes is larger than 2048 bytes [-Werror=3Dframe-larger-than=3D]
->> drivers/media/dvb-frontends/stv090x.c:3430:1: error: the frame size of 5=
-312 bytes is larger than 3072 bytes [-Werror=3Dframe-larger-than=3D]
->>
->> This happens when a sanitizer uses stack memory each time an inline func=
-tion
->> gets called. This introduces a new annotation for those functions to mak=
-e
->> them either 'inline' or 'noinline' dependning on the CONFIG_KASAN symbol=
-.
->>
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> ---
->>  include/linux/compiler.h | 11 +++++++++++
->>  1 file changed, 11 insertions(+)
->>
->> diff --git a/include/linux/compiler.h b/include/linux/compiler.h
->> index f8110051188f..56b90897a459 100644
->> --- a/include/linux/compiler.h
->> +++ b/include/linux/compiler.h
->> @@ -416,6 +416,17 @@ static __always_inline void __write_once_size(volat=
-ile void *p, void *res, int s
->>   */
->>  #define noinline_for_stack noinline
->>
->> +/*
->> + * CONFIG_KASAN can lead to extreme stack usage with certain patterns w=
-hen
->> + * one function gets inlined many times and each instance requires a st=
-ack
->> + * ckeck.
->> + */
->> +#ifdef CONFIG_KASAN
->> +#define noinline_for_kasan noinline __maybe_unused
->
->
-> noinline_iff_kasan might be a better name.  noinline_for_kasan gives the =
-impression
-> that we always noinline function for the sake of kasan, while noinline_if=
-f_kasan
-> clearly indicates that function is noinline only if kasan is used.
-FWIW we may be facing the same problem with other compiler-based
-tools, e.g. KMSAN (which isn't there yet).
-So it might be better to choose a macro name that doesn't use the name "KAS=
-AN".
-E.g. noinline_iff_memtool (or noinline_iff_memory_tool if that's not too lo=
-ng).
-WDYT?
->> +#else
->> +#define noinline_for_kasan inline
->> +#endif
->> +
->>  #ifndef __always_inline
->>  #define __always_inline inline
->>  #endif
->>
->
-> --
-> You received this message because you are subscribed to the Google Groups=
- "kasan-dev" group.
-> To unsubscribe from this group and stop receiving emails from it, send an=
- email to kasan-dev+unsubscribe@googlegroups.com.
-> To post to this group, send email to kasan-dev@googlegroups.com.
-> To view this discussion on the web visit https://groups.google.com/d/msgi=
-d/kasan-dev/7e7a62de-3b79-6044-72fa-4ade418953d1%40virtuozzo.com.
-> For more options, visit https://groups.google.com/d/optout.
+The priv->cmd_msg_buffer is allocated in the probe function, but never
+kfree()ed. This patch converts the kzalloc() to resource-managed
+kzalloc.
 
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/usb/usb_8dev.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-
---=20
-Alexander Potapenko
-Software Engineer
-
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
+diff --git a/drivers/net/can/usb/usb_8dev.c b/drivers/net/can/usb/usb_8dev.c
+index 108a30e15097..d000cb62d6ae 100644
+--- a/drivers/net/can/usb/usb_8dev.c
++++ b/drivers/net/can/usb/usb_8dev.c
+@@ -951,8 +951,8 @@ static int usb_8dev_probe(struct usb_interface *intf,
+ 	for (i = 0; i < MAX_TX_URBS; i++)
+ 		priv->tx_contexts[i].echo_index = MAX_TX_URBS;
+ 
+-	priv->cmd_msg_buffer = kzalloc(sizeof(struct usb_8dev_cmd_msg),
+-				      GFP_KERNEL);
++	priv->cmd_msg_buffer = devm_kzalloc(&intf->dev, sizeof(struct usb_8dev_cmd_msg),
++					    GFP_KERNEL);
+ 	if (!priv->cmd_msg_buffer)
+ 		goto cleanup_candev;
+ 
+@@ -966,7 +966,7 @@ static int usb_8dev_probe(struct usb_interface *intf,
+ 	if (err) {
+ 		netdev_err(netdev,
+ 			"couldn't register CAN device: %d\n", err);
+-		goto cleanup_cmd_msg_buffer;
++		goto cleanup_candev;
+ 	}
+ 
+ 	err = usb_8dev_cmd_version(priv, &version);
+@@ -987,9 +987,6 @@ static int usb_8dev_probe(struct usb_interface *intf,
+ cleanup_unregister_candev:
+ 	unregister_netdev(priv->netdev);
+ 
+-cleanup_cmd_msg_buffer:
+-	kfree(priv->cmd_msg_buffer);
+-
+ cleanup_candev:
+ 	free_candev(netdev);
+ 
+-- 
+2.11.0
