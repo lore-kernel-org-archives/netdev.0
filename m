@@ -1,112 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/dccp: use-after-free in dccp_feat_activate_values
-Date: Fri, 03 Mar 2017 06:32:56 -0800
-Message-ID: <1488551576.9415.328.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
-         <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
-         <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
+From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH 02/26] rewrite READ_ONCE/WRITE_ONCE
+Date: Fri, 3 Mar 2017 15:49:38 +0100
+Message-ID: <20170303144938.GF6557@twins.programming.kicks-ass.net>
+References: <20170302163834.2273519-1-arnd@arndb.de>
+ <20170302163834.2273519-3-arnd@arndb.de>
+ <76790664-a7a9-193c-2e30-edaee1308cb0@de.ibm.com>
+ <CAK8P3a082Bi6Vf5gEFLAJtJvUm=7MtddBzcCOqagQyfJPFTu_g@mail.gmail.com>
+ <2adc6ff4-5dc5-8f1d-cce1-47f3124a528f@de.ibm.com>
+ <CAK8P3a2mepCjPfM9Ychk7CHFHi0UW8RBzK4skJKMSOjw3gKoYg@mail.gmail.com>
+ <f86cf852-3960-0dcf-5917-509080ca7bf5@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        kasan-dev <kasan-dev-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+        Andrey Ryabinin <aryabinin-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>,
+        Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        kernel-build-reports-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Paul McKenney <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+To: Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <f86cf852-3960-0dcf-5917-509080ca7bf5-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-03-03 at 15:11 +0100, Dmitry Vyukov wrote:
-> On Mon, Feb 13, 2017 at 11:29 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > On Mon, Feb 13, 2017 at 11:19 AM, Andrey Konovalov
-> > <andreyknvl@google.com> wrote:
-> >> Hi,
-> >>
-> >> I've got the following error report while fuzzing the kernel with syzkaller.
-> >>
-> >> On commit 926af6273fc683cd98cd0ce7bf0d04a02eed6742.
-> >>
-> >> A reproducer and .config are attached.
-> >> Note, that it takes quite some time to trigger the bug (up to 10 minutes).
-> >>
-> >> BUG: KASAN: use-after-free in dccp_feat_activate_values+0x967/0xab0
-> >> net/dccp/feat.c:1541 at addr ffff88003713be68
-> >> Read of size 8 by task syz-executor2/8457
-> >> CPU: 2 PID: 8457 Comm: syz-executor2 Not tainted 4.10.0-rc7+ #127
-> >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> >> Call Trace:
-> >>  <IRQ>
-> >>  __dump_stack lib/dump_stack.c:15 [inline]
-> >>  dump_stack+0x292/0x398 lib/dump_stack.c:51
-> >>  kasan_object_err+0x1c/0x70 mm/kasan/report.c:162
-> >>  print_address_description mm/kasan/report.c:200 [inline]
-> >>  kasan_report_error mm/kasan/report.c:289 [inline]
-> >>  kasan_report.part.1+0x20e/0x4e0 mm/kasan/report.c:311
-> >>  kasan_report mm/kasan/report.c:332 [inline]
-> >>  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
-> >>  dccp_feat_activate_values+0x967/0xab0 net/dccp/feat.c:1541
-> >>  dccp_create_openreq_child+0x464/0x610 net/dccp/minisocks.c:121
-> >>  dccp_v6_request_recv_sock+0x1f6/0x1960 net/dccp/ipv6.c:457
-> >>  dccp_check_req+0x335/0x5a0 net/dccp/minisocks.c:186
-> >>  dccp_v6_rcv+0x69e/0x1d00 net/dccp/ipv6.c:711
-> >>  ip6_input_finish+0x46d/0x17a0 net/ipv6/ip6_input.c:279
-> >>  NF_HOOK include/linux/netfilter.h:257 [inline]
-> >>  ip6_input+0xdb/0x590 net/ipv6/ip6_input.c:322
-> >>  dst_input include/net/dst.h:507 [inline]
-> >>  ip6_rcv_finish+0x289/0x890 net/ipv6/ip6_input.c:69
-> >>  NF_HOOK include/linux/netfilter.h:257 [inline]
-> >>  ipv6_rcv+0x12ec/0x23d0 net/ipv6/ip6_input.c:203
-> >>  __netif_receive_skb_core+0x1ae5/0x3400 net/core/dev.c:4190
-> >>  __netif_receive_skb+0x2a/0x170 net/core/dev.c:4228
-> >>  process_backlog+0xe5/0x6c0 net/core/dev.c:4839
-> >>  napi_poll net/core/dev.c:5202 [inline]
-> >>  net_rx_action+0xe70/0x1900 net/core/dev.c:5267
-> >>  __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
-> >>  do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
-> >
-> >
-> > Seems there is a race condition between iterating dccp_feat_entry
-> > and freeing it, bh_lock_sock() seems not held in this path.
-> 
-> 
-> 
-> Cong, where exactly do we need to add bh_lock_sock()?
-> 
-> I am still seeing this on 4977ab6e92e267afe9d8f78438c3db330ca8434c
+On Fri, Mar 03, 2017 at 09:26:50AM +0100, Christian Borntraeger wrote:
+> Right. The main purpose is to read/write _ONCE_. You can assume a somewhat
+> atomic access for sizes <= word size. And there are certainly places that
+> rely on that. But the *ONCE thing is mostly used for things where we used
+> barrier() 10 years ago.
 
+A lot of code relies on READ/WRITE_ONCE() to generate single
+instructions for naturally aligned machined word sized loads/stores
+(something GCC used to guarantee, but does no longer IIRC).
 
-I would try :
+So much so that I would say its a bug if READ/WRITE_ONCE() doesn't
+generate a single instruction under those conditions.
 
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 409d0cfd34474812c3bf74f26cd423a3d65ee441..5a8b5ac5edaaf35428ab04cc810d98310bd169ed 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -482,7 +482,9 @@ static int dccp_v4_send_response(const struct sock *sk, struct request_sock *req
- 	if (dst == NULL)
- 		goto out;
- 
-+	bh_lock_sock(sk);
- 	skb = dccp_make_response(sk, dst, req);
-+	bh_unlock_sock(sk);
- 	if (skb != NULL) {
- 		const struct inet_request_sock *ireq = inet_rsk(req);
- 		struct dccp_hdr *dh = dccp_hdr(skb);
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 233b57367758c64c09ed40f7359cb8fcb1918d93..e89cc88d14c22d411a91afab093e209fcbb816d8 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -214,7 +214,9 @@ static int dccp_v6_send_response(const struct sock *sk, struct request_sock *req
- 		goto done;
- 	}
- 
-+	bh_lock_sock(sk);
- 	skb = dccp_make_response(sk, dst, req);
-+	bh_unlock_sock(sk);
- 	if (skb != NULL) {
- 		struct dccp_hdr *dh = dccp_hdr(skb);
- 		struct ipv6_txoptions *opt;
+However, every time I've tried to introduce stricter
+semantics/primitives to verify things Linus hated it.
