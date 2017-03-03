@@ -1,110 +1,95 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Bug 194749] New: kernel bonding does not work in a network
- nameservice in versions above 3.10.0-229.20.1
-Date: Fri, 3 Mar 2017 17:03:48 +0100
-Message-ID: <20170303160348.GA1888@nanopsycho.orion>
-References: <20170302103219.74b675c5@xeon-e3>
- <CAM_iQpVm_WK9X+3Vsm0OrFCOd3Srn-s+xqe9fQtoT=30JZeVJQ@mail.gmail.com>
- <1601587594.2278.1488487199506.JavaMail.zimbra@polter.net>
- <4bd4e7b9-5546-2e85-bb08-42e45a13e1f3@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: fix various issues for sockets morphing to listen
+ state
+Date: Fri, 03 Mar 2017 14:08:21 -0800
+Message-ID: <1488578901.9415.353.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+Y+dL6EzkfDahjQUyyT4YMhDin7UPY5RQYbNH0n0DJ5xA@mail.gmail.com>
+         <CANn89iLNQKyywwLAdJsQDOpGDtEs6S-4BZkZYmwT39ENZyqLTg@mail.gmail.com>
+         <1488574561.9415.336.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Dan Geist <dan@polter.net>, Cong Wang <xiyou.wangcong@gmail.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        chenweilong@huawei.com, Jiri Pirko <jiri@mellanox.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34252 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752026AbdCCVeD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 16:34:03 -0500
-Received: by mail-wm0-f66.google.com with SMTP id m70so4976262wma.1
-        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 13:34:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4bd4e7b9-5546-2e85-bb08-42e45a13e1f3@6wind.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35540 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751869AbdCCWIY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 17:08:24 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 187so134085pgb.2
+        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 14:08:23 -0800 (PST)
+In-Reply-To: <1488574561.9415.336.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Mar 03, 2017 at 04:19:13PM CET, nicolas.dichtel@6wind.com wrote:
->Le 02/03/2017 à 21:39, Dan Geist a écrit :
->> ----- On Mar 2, 2017, at 3:11 PM, Cong Wang xiyou.wangcong@gmail.com wrote
->> 
->>> On Thu, Mar 2, 2017 at 10:32 AM, Stephen Hemminger
->>> <stephen@networkplumber.org> wrote:
->>>>
->>>>
->>>> Begin forwarded message:
->>>>
->>>> Date: Wed, 01 Mar 2017 21:08:01 +0000
->>>> From: bugzilla-daemon@bugzilla.kernel.org
->>>> To: stephen@networkplumber.org
->>>> Subject: [Bug 194749] New: kernel bonding does not work in a network nameservice
->>>> in versions above 3.10.0-229.20.1
->>>>
->>>>
->>>> https://bugzilla.kernel.org/show_bug.cgi?id=194749
->>>>
->>>>             Bug ID: 194749
->>>>            Summary: kernel bonding does not work in a network nameservice
->>>>                     in versions above 3.10.0-229.20.1
->>>>            Product: Networking
->>>>            Version: 2.5
->>>>     Kernel Version: > 3.10.0-229.20.1
->>>>           Hardware: x86-64
->>>>                 OS: Linux
->>>>               Tree: Mainline
->>>>             Status: NEW
->>>>           Severity: blocking
->>>>           Priority: P1
->>>>          Component: Other
->>>>           Assignee: stephen@networkplumber.org
->>>>           Reporter: dan@polter.net
->>>>         Regression: No
->>>>
->>>> bond interface is being used in active/standby mode with two physical NICs
->>>> inside a network nameservice to provide switchpath redundancy.
->>>>
->>>> netns is instantiated post-boot with the following:
->>>>
->>>> ip netns add vntp
->>>> ip link set p4p1 netns vntp
->>>> ip link set p4p2 netns vntp
->>>> ip link set bond0 netns vntp
->>>> ip netns exec vntp ip link set lo up
->>>> ip netns exec vntp ip link set p4p1 up
->>>> ip netns exec vntp ip link set p4p2 up
->>>> ip netns exec vntp ip link set bond0 up
->>>> ip netns exec vntp ifenslave bond0 p4p1 p4p2
->>>
->>> This is due to the following commit:
->>>
->>> commit f9399814927ad9bb995a6e109c2a5f9d8a848209
->>> Author: Weilong Chen <chenweilong@huawei.com>
->>> Date:   Wed Jan 22 17:16:30 2014 +0800
->>>
->>>    bonding: Don't allow bond devices to change network namespaces.
->>>
->>>    Like bridge, bonding as netdevice doesn't cross netns boundaries.
->>>
->>>    Bonding ports and bonding itself live in same netns.
->>>
->>>    Signed-off-by: Weilong Chen <chenweilong@huawei.com>
->>>    Signed-off-by: David S. Miller <davem@davemloft.net>
->>>
->>>
->>> NETIF_F_NETNS_LOCAL was introduced for loopback device which
->>> is created for each netns, it is not clear why we need to add it to bond
->>> and bridge...
->> 
->> Thank you for tracking this down. Without digging through the code to figure it out, does this imply that the existence of a bond interface is not possible AT ALL within a netns or simply that it may not be "migrated" between the global scope and a netns?
->It means that the migration is not possible. I think the only reason to have
->this flag on bonding and bridge is the lack of test and fix. There is probably
->some work to be done to have this feature. But are there real use cases of
->x-netns bonding or x-netns bridge?
+From: Eric Dumazet <edumazet@google.com>
 
-If that use case exists I believe it is an abuse. Soft devices that are
-by definition in upper-lower relationships with other devices should not
-move to other namespaces. Prevents all kinds of issues. If you need a
-soft device like bridge of bond within a namespace, just create it there.
+Dmitry Vyukov reported a divide by 0 triggered by syzkaller, exploiting
+tcp_disconnect() path that was never really considered and/or used
+before syzkaller ;)
+
+I was not able to reproduce the bug, but it seems issues here are the
+three possible actions that assumed they would never trigger on a
+listener.
+
+1) tcp_write_timer_handler
+2) tcp_delack_timer_handler
+3) MTU reduction
+
+Only IPv6 MTU reduction was properly testing TCP_CLOSE and TCP_LISTEN
+ states from tcp_v6_mtu_reduced()
+
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+---
+ net/ipv4/tcp_ipv4.c  |    7 +++++--
+ net/ipv4/tcp_timer.c |    6 ++++--
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 9a89b8deafae1e9b2e8d1d9bc211c9c30b8dd8ec..8f3ec1365497a58972d31d419f88b34457b5ae39 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -279,10 +279,13 @@ EXPORT_SYMBOL(tcp_v4_connect);
+  */
+ void tcp_v4_mtu_reduced(struct sock *sk)
+ {
+-	struct dst_entry *dst;
+ 	struct inet_sock *inet = inet_sk(sk);
+-	u32 mtu = tcp_sk(sk)->mtu_info;
++	struct dst_entry *dst;
++	u32 mtu;
+ 
++	if ((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE))
++		return;
++	mtu = tcp_sk(sk)->mtu_info;
+ 	dst = inet_csk_update_pmtu(sk, mtu);
+ 	if (!dst)
+ 		return;
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 40d893556e6701ace6a02903e53c45822d6fa56d..b2ab411c6d3728fa7dbdebde045532a7317f5166 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -249,7 +249,8 @@ void tcp_delack_timer_handler(struct sock *sk)
+ 
+ 	sk_mem_reclaim_partial(sk);
+ 
+-	if (sk->sk_state == TCP_CLOSE || !(icsk->icsk_ack.pending & ICSK_ACK_TIMER))
++	if (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)) ||
++	    !(icsk->icsk_ack.pending & ICSK_ACK_TIMER))
+ 		goto out;
+ 
+ 	if (time_after(icsk->icsk_ack.timeout, jiffies)) {
+@@ -552,7 +553,8 @@ void tcp_write_timer_handler(struct sock *sk)
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	int event;
+ 
+-	if (sk->sk_state == TCP_CLOSE || !icsk->icsk_pending)
++	if (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)) ||
++	    !icsk->icsk_pending)
+ 		goto out;
+ 
+ 	if (time_after(icsk->icsk_timeout, jiffies)) {
