@@ -1,39 +1,121 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 4/4] can: flexcan: fix typo in comment
-Date: Fri,  3 Mar 2017 14:55:35 +0100
-Message-ID: <20170303135535.22937-5-mkl@pengutronix.de>
-References: <20170303135535.22937-1-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:50281 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751590AbdCCN4K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 08:56:10 -0500
-In-Reply-To: <20170303135535.22937-1-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: Re: [PATCH] xen-netback: fix race condition on XenBus
+	disconnect
+Date: Fri, 3 Mar 2017 13:57:21 +0000
+Message-ID: <2fe6fa06d28f4b968f03ddade1c009c1@AMSPEX02CL03.citrite.net>
+References: <1488495410-137500-1-git-send-email-igor.druzhinin@citrix.com>
+ <23927ef4bba04925994cb0b7acbcbbc0@AMSPEX02CL03.citrite.net>
+ <3fccafb1-75b8-10b6-4f3e-3d7f9b11bf77@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jgross@suse.com" <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>
+To: Igor Druzhinin <igor.druzhinin@citrix.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "xen-devel@lists.xenproject.org"
+ <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <3fccafb1-75b8-10b6-4f3e-3d7f9b11bf77@citrix.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the typo "Disble" -> "Disable".
-
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/flexcan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index ea57fed375c6..13f0f219d8aa 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -196,7 +196,7 @@
- #define FLEXCAN_QUIRK_BROKEN_ERR_STATE	BIT(1) /* [TR]WRN_INT not connected */
- #define FLEXCAN_QUIRK_DISABLE_RXFG	BIT(2) /* Disable RX FIFO Global mask */
- #define FLEXCAN_QUIRK_ENABLE_EACEN_RRS	BIT(3) /* Enable EACEN and RRS bit in ctrl2 */
--#define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disble Memory error detection */
-+#define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disable Memory error detection */
- #define FLEXCAN_QUIRK_USE_OFF_TIMESTAMP	BIT(5) /* Use timestamp based offloading */
- 
- /* Structure of the message buffer */
--- 
-2.11.0
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IElnb3IgRHJ1emhpbmluCj4gU2Vu
+dDogMDMgTWFyY2ggMjAxNyAxMzo1Ngo+IFRvOiBQYXVsIER1cnJhbnQgPFBhdWwuRHVycmFudEBj
+aXRyaXguY29tPjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgeGVuLQo+IGRldmVsQGxpc3RzLnhl
+bnByb2plY3Qub3JnCj4gQ2M6IGpncm9zc0BzdXNlLmNvbTsgV2VpIExpdSA8d2VpLmxpdTJAY2l0
+cml4LmNvbT4KPiBTdWJqZWN0OiBSZTogW1BBVENIXSB4ZW4tbmV0YmFjazogZml4IHJhY2UgY29u
+ZGl0aW9uIG9uIFhlbkJ1cyBkaXNjb25uZWN0Cj4gCj4gT24gMDMvMDMvMTcgMDk6MTgsIFBhdWwg
+RHVycmFudCB3cm90ZToKPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+ID4+IEZyb206
+IElnb3IgRHJ1emhpbmluIFttYWlsdG86aWdvci5kcnV6aGluaW5AY2l0cml4LmNvbV0KPiA+PiBT
+ZW50OiAwMiBNYXJjaCAyMDE3IDIyOjU3Cj4gPj4gVG86IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
+IHhlbi1kZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9yZwo+ID4+IENjOiBQYXVsIER1cnJhbnQgPFBh
+dWwuRHVycmFudEBjaXRyaXguY29tPjsgamdyb3NzQHN1c2UuY29tOyBXZWkgTGl1Cj4gPj4gPHdl
+aS5saXUyQGNpdHJpeC5jb20+OyBJZ29yIERydXpoaW5pbiA8aWdvci5kcnV6aGluaW5AY2l0cml4
+LmNvbT4KPiA+PiBTdWJqZWN0OiBbUEFUQ0hdIHhlbi1uZXRiYWNrOiBmaXggcmFjZSBjb25kaXRp
+b24gb24gWGVuQnVzIGRpc2Nvbm5lY3QKPiA+Pgo+ID4+IEluIHNvbWUgY2FzZXMgZHVyaW5nIFhl
+bkJ1cyBkaXNjb25uZWN0IGV2ZW50IGhhbmRsaW5nIGFuZCBzdWJzZXF1ZW50Cj4gPj4gcXVldWUg
+cmVzb3VyY2UgcmVsZWFzZSB0aGVyZSBtYXkgYmUgc29tZSBUWCBoYW5kbGVycyBhY3RpdmUgb24K
+PiA+PiBvdGhlciBwcm9jZXNzb3JzLiBVc2UgUkNVIGluIG9yZGVyIHRvIHN5bmNocm9uaXplIHdp
+dGggdGhlbS4KPiA+Pgo+ID4+IFNpZ25lZC1vZmYtYnk6IElnb3IgRHJ1emhpbmluIDxpZ29yLmRy
+dXpoaW5pbkBjaXRyaXguY29tPgo+ID4+IC0tLQo+ID4+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFj
+ay9pbnRlcmZhY2UuYyB8IDEzICsrKysrKysrLS0tLS0KPiA+PiAgZHJpdmVycy9uZXQveGVuLW5l
+dGJhY2sveGVuYnVzLmMgICAgfCAxNyArKysrKysrLS0tLS0tLS0tLQo+ID4+ICAyIGZpbGVzIGNo
+YW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDE1IGRlbGV0aW9ucygtKQo+ID4+Cj4gPj4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jIGIvZHJpdmVycy9uZXQv
+eGVuLQo+ID4+IG5ldGJhY2svaW50ZXJmYWNlLmMKPiA+PiBpbmRleCBhMmQzMjY3Ni4uMzJlMmNj
+NiAxMDA2NDQKPiA+PiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYwo+
+ID4+ICsrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jCj4gPj4gQEAgLTE2
+NCw3ICsxNjQsNyBAQCBzdGF0aWMgaW50IHhlbnZpZl9zdGFydF94bWl0KHN0cnVjdCBza19idWZm
+ICpza2IsCj4gc3RydWN0Cj4gPj4gbmV0X2RldmljZSAqZGV2KQo+ID4+ICB7Cj4gPj4gIAlzdHJ1
+Y3QgeGVudmlmICp2aWYgPSBuZXRkZXZfcHJpdihkZXYpOwo+ID4+ICAJc3RydWN0IHhlbnZpZl9x
+dWV1ZSAqcXVldWUgPSBOVUxMOwo+ID4+IC0JdW5zaWduZWQgaW50IG51bV9xdWV1ZXMgPSB2aWYt
+Pm51bV9xdWV1ZXM7Cj4gPgo+ID4gRG8geW91IG5vdCBuZWVkIGFuIHJjdV9yZWFkX2xvY2soKSBh
+cm91bmQgdGhpcyBhbmQgdXNlIG9mIHRoZQo+IG51bV9xdWV1ZXMgdmFsdWUgKGFzIHlvdSBoYXZl
+IGJlbG93KT8KPiAKPiBIdWgsIG1pc3NlZCB0aGlzIG9uZS4gUG9pbnQgaXMgdGhhdCB4ZW52aWZf
+c3RhcnRfeG1pdCBpcyBhbHJlYWR5IGluIFJDVQo+IHJlYWQgc2VjdGlvbi4KPiAKCk9rLiBQcm9i
+YWJseSB3b3J0aCBhIGNvbW1lbnQgdGhlbiBzaW5jZSB0aGUgcmN1X2RlcmVmIGxvb2tzIHdyb25n
+IG91dCBvbiBpdHMgb3duIGxpa2UgdGhhdC4KCiAgUGF1bAoKPiBJZ29yCj4gCj4gPgo+ID4+ICsJ
+dW5zaWduZWQgaW50IG51bV9xdWV1ZXMgPSByY3VfZGVyZWZlcmVuY2UodmlmKS0+bnVtX3F1ZXVl
+czsKPiA+PiAgCXUxNiBpbmRleDsKPiA+PiAgCXN0cnVjdCB4ZW52aWZfcnhfY2IgKmNiOwo+ID4+
+Cj4gPj4gQEAgLTIyMSwxOCArMjIxLDIxIEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0
+cwo+ID4+ICp4ZW52aWZfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCj4gPj4gIHsK
+PiA+PiAgCXN0cnVjdCB4ZW52aWYgKnZpZiA9IG5ldGRldl9wcml2KGRldik7Cj4gPj4gIAlzdHJ1
+Y3QgeGVudmlmX3F1ZXVlICpxdWV1ZSA9IE5VTEw7Cj4gPj4gKwl1bnNpZ25lZCBpbnQgbnVtX3F1
+ZXVlczsKPiA+PiAgCXU2NCByeF9ieXRlcyA9IDA7Cj4gPj4gIAl1NjQgcnhfcGFja2V0cyA9IDA7
+Cj4gPj4gIAl1NjQgdHhfYnl0ZXMgPSAwOwo+ID4+ICAJdTY0IHR4X3BhY2tldHMgPSAwOwo+ID4+
+ICAJdW5zaWduZWQgaW50IGluZGV4Owo+ID4+Cj4gPj4gLQlzcGluX2xvY2soJnZpZi0+bG9jayk7
+Cj4gPj4gLQlpZiAodmlmLT5xdWV1ZXMgPT0gTlVMTCkKPiA+PiArCXJjdV9yZWFkX2xvY2soKTsK
+PiA+PiArCj4gPj4gKwludW1fcXVldWVzID0gcmN1X2RlcmVmZXJlbmNlKHZpZiktPm51bV9xdWV1
+ZXM7Cj4gPj4gKwlpZiAobnVtX3F1ZXVlcyA8IDEpCj4gPj4gIAkJZ290byBvdXQ7Cj4gPj4KPiA+
+PiAgCS8qIEFnZ3JlZ2F0ZSB0eCBhbmQgcnggc3RhdHMgZnJvbSBlYWNoIHF1ZXVlICovCj4gPj4g
+LQlmb3IgKGluZGV4ID0gMDsgaW5kZXggPCB2aWYtPm51bV9xdWV1ZXM7ICsraW5kZXgpIHsKPiA+
+PiArCWZvciAoaW5kZXggPSAwOyBpbmRleCA8IG51bV9xdWV1ZXM7ICsraW5kZXgpIHsKPiA+PiAg
+CQlxdWV1ZSA9ICZ2aWYtPnF1ZXVlc1tpbmRleF07Cj4gPj4gIAkJcnhfYnl0ZXMgKz0gcXVldWUt
+PnN0YXRzLnJ4X2J5dGVzOwo+ID4+ICAJCXJ4X3BhY2tldHMgKz0gcXVldWUtPnN0YXRzLnJ4X3Bh
+Y2tldHM7Cj4gPj4gQEAgLTI0MSw3ICsyNDQsNyBAQCBzdGF0aWMgc3RydWN0IG5ldF9kZXZpY2Vf
+c3RhdHMKPiA+PiAqeGVudmlmX2dldF9zdGF0cyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQo+ID4+
+ICAJfQo+ID4+Cj4gPj4gIG91dDoKPiA+PiAtCXNwaW5fdW5sb2NrKCZ2aWYtPmxvY2spOwo+ID4+
+ICsJcmN1X3JlYWRfdW5sb2NrKCk7Cj4gPj4KPiA+PiAgCXZpZi0+ZGV2LT5zdGF0cy5yeF9ieXRl
+cyA9IHJ4X2J5dGVzOwo+ID4+ICAJdmlmLT5kZXYtPnN0YXRzLnJ4X3BhY2tldHMgPSByeF9wYWNr
+ZXRzOwo+ID4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYyBi
+L2RyaXZlcnMvbmV0L3hlbi0KPiA+PiBuZXRiYWNrL3hlbmJ1cy5jCj4gPj4gaW5kZXggZDJkN2Nk
+OS4uNzZlZmIwMSAxMDA2NDQKPiA+PiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5i
+dXMuYwo+ID4+ICsrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jCj4gPj4gQEAg
+LTQ5NSwyNiArNDk1LDIzIEBAIHN0YXRpYyB2b2lkIGJhY2tlbmRfZGlzY29ubmVjdChzdHJ1Y3QK
+PiA+PiBiYWNrZW5kX2luZm8gKmJlKQo+ID4+ICAJc3RydWN0IHhlbnZpZiAqdmlmID0gYmUtPnZp
+ZjsKPiA+Pgo+ID4+ICAJaWYgKHZpZikgewo+ID4+ICsJCXVuc2lnbmVkIGludCBudW1fcXVldWVz
+ID0gdmlmLT5udW1fcXVldWVzOwo+ID4+ICAJCXVuc2lnbmVkIGludCBxdWV1ZV9pbmRleDsKPiA+
+PiAtCQlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpxdWV1ZXM7Cj4gPj4KPiA+PiAgCQl4ZW5fdW5yZWdp
+c3Rlcl93YXRjaGVycyh2aWYpOwo+ID4+ICAjaWZkZWYgQ09ORklHX0RFQlVHX0ZTCj4gPj4gIAkJ
+eGVudmlmX2RlYnVnZnNfZGVsaWYodmlmKTsKPiA+PiAgI2VuZGlmIC8qIENPTkZJR19ERUJVR19G
+UyAqLwo+ID4+ICAJCXhlbnZpZl9kaXNjb25uZWN0X2RhdGEodmlmKTsKPiA+PiAtCQlmb3IgKHF1
+ZXVlX2luZGV4ID0gMDsKPiA+PiAtCQkgICAgIHF1ZXVlX2luZGV4IDwgdmlmLT5udW1fcXVldWVz
+Owo+ID4+IC0JCSAgICAgKytxdWV1ZV9pbmRleCkKPiA+PiAtCQkJeGVudmlmX2RlaW5pdF9xdWV1
+ZSgmdmlmLT5xdWV1ZXNbcXVldWVfaW5kZXhdKTsKPiA+Pgo+ID4+IC0JCXNwaW5fbG9jaygmdmlm
+LT5sb2NrKTsKPiA+PiAtCQlxdWV1ZXMgPSB2aWYtPnF1ZXVlczsKPiA+PiAgCQl2aWYtPm51bV9x
+dWV1ZXMgPSAwOwo+ID4+IC0JCXZpZi0+cXVldWVzID0gTlVMTDsKPiA+PiAtCQlzcGluX3VubG9j
+aygmdmlmLT5sb2NrKTsKPiA+PiArCQlzeW5jaHJvbml6ZV9uZXQoKTsKPiA+Cj4gPiBTbywgbnVt
+X3F1ZXVlcyBpcyB5b3VyIFJDVSBwcm90ZWN0ZWQgdmFsdWUsIHJhdGhlciB0aGFuIHRoZSBxdWV1
+ZXMKPiBwb2ludGVyLCBpbiB3aGljaCBjYXNlIEkgdGhpbmsgeW91IHByb2JhYmx5IG5lZWQgdG8g
+Y2hhbmdlIGNvZGUgc3VjaCBhcwo+ID4KPiA+Cj4gaHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0
+L2xpbnV4L2tlcm5lbC9naXQvdG9ydmFsZHMvbGludXguZ2l0L3RyZWUvZHJpdmVycy9uZQo+IHQv
+eGVuLW5ldGJhY2svbmV0YmFjay5jP2lkPXJlZnMvdGFncy92NC4xMCNuMjE2Cj4gPgo+ID4gdG8g
+YmUgZ2F0ZWQgb24gbnVtX3F1ZXVlcy4KPiA+Cj4gPiBBbHNvIHNob3VsZG4ndCB4ZW52aWZfdXAo
+KSwgeGVudmlmX2Rvd24oKSBhbmQgeGVudmlmX2dldF9ldGh0b29sX3N0YXRzKCkKPiBub3QgYmUg
+dXNpbmcgcmN1X3JlYWRfbG9jaygpIGFuZCByY3VfZGVyZWZlcmVuY2UoKSBvZiBudW1fcXVldWVz
+IGFzIHdlbGw/Cj4gPgo+ID4gICBQYXVsCj4gPgo+ID4+Cj4gPj4gLQkJdmZyZWUocXVldWVzKTsK
+PiA+PiArCQlmb3IgKHF1ZXVlX2luZGV4ID0gMDsgcXVldWVfaW5kZXggPCBudW1fcXVldWVzOwo+
+ID4+ICsrcXVldWVfaW5kZXgpCj4gPj4gKwkJCXhlbnZpZl9kZWluaXRfcXVldWUoJnZpZi0+cXVl
+dWVzW3F1ZXVlX2luZGV4XSk7Cj4gPj4gKwo+ID4+ICsJCXZmcmVlKHZpZi0+cXVldWVzKTsKPiA+
+PiArCQl2aWYtPnF1ZXVlcyA9IE5VTEw7Cj4gPj4KPiA+PiAgCQl4ZW52aWZfZGlzY29ubmVjdF9j
+dHJsKHZpZik7Cj4gPj4gIAl9Cj4gPj4gLS0KPiA+PiAxLjguMy4xCj4gPgoKX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlz
+dApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVs
+Cg==
