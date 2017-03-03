@@ -1,110 +1,97 @@
-From: Wenyou Yang <wenyou.yang@atmel.com>
-Subject: [PATCH] can: m_can: support transmit frame in CAN FD format
-Date: Fri, 3 Mar 2017 13:33:31 +0800
-Message-ID: <20170303053331.20883-1-wenyou.yang@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Quentin Schulz <quentin.schulz@free-electrons.com>,
-        Wenyou Yang <wenyou.yang@microchip.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Wenyou Yang <wenyou.yang@atmel.com>
-To: Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: change to save MSG_MORE flag into assoc
+Date: Fri,  3 Mar 2017 14:23:55 +0800
+Message-ID: <ba64767f352e56cfe694af89445fe155cd431cd0.1488522235.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        David Laight <david.laight@aculab.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33880 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751356AbdCCGYI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 01:24:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support to transmit the frame in the CAN FD format and with
-the bit rate switching.
+David Laight noticed the support for MSG_MORE with datamsg->force_day
+didn't really work as we expected, as the first msg with MSG_MORE set
+would always block the following chunks' dequeuing.
 
-Tested on SAMA5D2 Xplained board.
+This Patch is to rewrite it by saving the MSG_MORE flag into assoc as
+Divid Laight suggested.
 
-Signed-off-by: Wenyou Yang <wenyou.yang@atmel.com>
+asoc->force_delay is used to save MSG_MORE flag before a msg is sent.
+Once this msg is queued, asoc->force_delay is set back to 0, so that
+it will not affect other places flushing out queue.
+
+asoc->force_delay works as a 'local param' here as the msg sending is
+under protection of sock lock.  It would make sctp's MSG_MORE work as
+tcp's.
+
+Fixes: 4ea0c32f5f42 ("sctp: add support for MSG_MORE")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
-The testing is based on
-[RESEND PATCH 1/1] can: m_can: fix bitrate setup on latest silicon
-http://lkml.iu.edu/hypermail/linux/kernel/1702.1/05347.html
+ include/net/sctp/structs.h | 2 +-
+ net/sctp/output.c          | 2 +-
+ net/sctp/socket.c          | 3 ++-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
 
- drivers/net/can/m_can/m_can.c | 21 +++++++++++++++++----
- 1 file changed, 17 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 195f15edb32e..9ef9b337d25b 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -266,8 +266,12 @@ enum m_can_mram_cfg {
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index a244db5..3378c02 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -497,7 +497,6 @@ struct sctp_datamsg {
+ 	/* Did the messenge fail to send? */
+ 	int send_error;
+ 	u8 send_failed:1,
+-	   force_delay:1,
+ 	   can_delay;	    /* should this message be Nagle delayed */
+ };
  
- /* Tx Buffer Element */
- /* R0 */
-+#define TX_BUF_ESI		BIT(31)
- #define TX_BUF_XTD		BIT(30)
- #define TX_BUF_RTR		BIT(29)
-+#define TX_BUF_EFC		BIT(23)
-+#define TX_BUF_EDL		BIT(21)
-+#define TX_BUF_BRS		BIT(20)
+@@ -1876,6 +1875,7 @@ struct sctp_association {
  
- /* address offset and element number for each FIFO/Buffer in the Message RAM */
- struct mram_cfg {
-@@ -884,7 +888,7 @@ static void m_can_chip_config(struct net_device *dev)
+ 	__u8 need_ecne:1,	/* Need to send an ECNE Chunk? */
+ 	     temp:1,		/* Is it a temporary association? */
++	     force_delay:1,
+ 	     prsctp_enable:1,
+ 	     reconf_enable:1;
+ 
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 85406d5..5f6acac 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -705,7 +705,7 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+ 	 */
+ 
+ 	if ((sctp_sk(asoc->base.sk)->nodelay || inflight == 0) &&
+-	    !chunk->msg->force_delay)
++	    !asoc->force_delay)
+ 		/* Nothing unacked */
+ 		return SCTP_XMIT_OK;
+ 
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 465a9c8..d62cf9e 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1964,7 +1964,7 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
+ 		err = PTR_ERR(datamsg);
+ 		goto out_free;
  	}
+-	datamsg->force_delay = !!(msg->msg_flags & MSG_MORE);
++	asoc->force_delay = !!(msg->msg_flags & MSG_MORE);
  
- 	if (priv->can.ctrlmode & CAN_CTRLMODE_FD)
--		cccr |= CCCR_CME_CANFD_BRS << CCCR_CME_SHIFT;
-+		cccr |= (CCCR_CME_CANFD_BRS | CCCR_CME_CANFD) << CCCR_CME_SHIFT;
- 
- 	m_can_write(priv, M_CAN_CCCR, cccr);
- 	m_can_write(priv, M_CAN_TEST, test);
-@@ -1047,6 +1051,7 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
- 	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
- 	u32 id, cccr;
- 	int i;
-+	u32 dlc;
- 
- 	if (can_dropped_invalid_skb(dev, skb))
- 		return NETDEV_TX_OK;
-@@ -1065,7 +1070,6 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
- 
- 	/* message ram configuration */
- 	m_can_fifo_write(priv, 0, M_CAN_FIFO_ID, id);
--	m_can_fifo_write(priv, 0, M_CAN_FIFO_DLC, can_len2dlc(cf->len) << 16);
- 
- 	for (i = 0; i < cf->len; i += 4)
- 		m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
-@@ -1073,20 +1077,29 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
- 
- 	can_put_echo_skb(skb, dev, 0);
- 
-+	dlc = can_len2dlc(cf->len) << 16;
-+
- 	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
- 		cccr = m_can_read(priv, M_CAN_CCCR);
- 		cccr &= ~(CCCR_CMR_MASK << CCCR_CMR_SHIFT);
- 		if (can_is_canfd_skb(skb)) {
--			if (cf->flags & CANFD_BRS)
-+			dlc |= TX_BUF_EDL;
-+			if (cf->flags & CANFD_ESI)
-+				dlc |= TX_BUF_ESI;
-+			if (cf->flags & CANFD_BRS) {
-+				dlc |= TX_BUF_BRS;
- 				cccr |= CCCR_CMR_CANFD_BRS << CCCR_CMR_SHIFT;
--			else
-+			} else {
- 				cccr |= CCCR_CMR_CANFD << CCCR_CMR_SHIFT;
-+			}
- 		} else {
- 			cccr |= CCCR_CMR_CAN << CCCR_CMR_SHIFT;
- 		}
- 		m_can_write(priv, M_CAN_CCCR, cccr);
- 	}
- 
-+	m_can_fifo_write(priv, 0, M_CAN_FIFO_DLC, dlc);
-+
- 	/* enable first TX buffer to start transfer  */
- 	m_can_write(priv, M_CAN_TXBTIE, 0x1);
- 	m_can_write(priv, M_CAN_TXBAR, 0x1);
+ 	/* Now send the (possibly) fragmented message. */
+ 	list_for_each_entry(chunk, &datamsg->chunks, frag_list) {
+@@ -1982,6 +1982,7 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
+ 	 * breaks.
+ 	 */
+ 	err = sctp_primitive_SEND(net, asoc, datamsg);
++	asoc->force_delay = 0;
+ 	/* Did the lower layer accept the chunk? */
+ 	if (err) {
+ 		sctp_datamsg_free(datamsg);
 -- 
-2.11.0
+2.1.0
