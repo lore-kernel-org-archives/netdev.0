@@ -1,52 +1,96 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [Bug 194749] New: kernel bonding does not work in a network
- nameservice in versions above 3.10.0-229.20.1
-Date: Fri, 3 Mar 2017 17:25:10 +0100
-Message-ID: <73b3c51a-39f6-2250-a224-e7dca97cb105@6wind.com>
-References: <20170302103219.74b675c5@xeon-e3>
- <CAM_iQpVm_WK9X+3Vsm0OrFCOd3Srn-s+xqe9fQtoT=30JZeVJQ@mail.gmail.com>
- <1601587594.2278.1488487199506.JavaMail.zimbra@polter.net>
- <4bd4e7b9-5546-2e85-bb08-42e45a13e1f3@6wind.com>
- <20170303160348.GA1888@nanopsycho.orion>
-Reply-To: nicolas.dichtel@6wind.com
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] sctp: change to save MSG_MORE flag into assoc
+Date: Fri, 3 Mar 2017 16:31:22 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE7443F@AcuExch.aculab.com>
+References: <ba64767f352e56cfe694af89445fe155cd431cd0.1488522235.git.lucien.xin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE74179@AcuExch.aculab.com>
+ <CADvbK_cBjR_LXZd1t-7jjkDkfhChJCbDCwPhMqvwJ+vp2UfJOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: Dan Geist <dan@polter.net>, Cong Wang <xiyou.wangcong@gmail.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        chenweilong@huawei.com, Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: 'Xin Long' <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:33692 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751415AbdCCQZZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 11:25:25 -0500
-Received: by mail-wr0-f182.google.com with SMTP id u48so77151418wrc.0
-        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 08:25:24 -0800 (PST)
-In-Reply-To: <20170303160348.GA1888@nanopsycho.orion>
+Received: from smtp-out4.electric.net ([192.162.216.185]:62653 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751641AbdCCQht (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 11:37:49 -0500
+In-Reply-To: <CADvbK_cBjR_LXZd1t-7jjkDkfhChJCbDCwPhMqvwJ+vp2UfJOw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/03/2017 à 17:03, Jiri Pirko a écrit :
-> Fri, Mar 03, 2017 at 04:19:13PM CET, nicolas.dichtel@6wind.com wrote:
->> Le 02/03/2017 à 21:39, Dan Geist a écrit :
-[snip]
->>>> NETIF_F_NETNS_LOCAL was introduced for loopback device which
->>>> is created for each netns, it is not clear why we need to add it to bond
->>>> and bridge...
->>>
->>> Thank you for tracking this down. Without digging through the code to figure it out, does this imply that the existence of a bond interface is not possible AT ALL within a netns or simply that it may not be "migrated" between the global scope and a netns?
->> It means that the migration is not possible. I think the only reason to have
->> this flag on bonding and bridge is the lack of test and fix. There is probably
->> some work to be done to have this feature. But are there real use cases of
->> x-netns bonding or x-netns bridge?
-> 
-> If that use case exists I believe it is an abuse. Soft devices that are
-> by definition in upper-lower relationships with other devices should not
-> move to other namespaces. Prevents all kinds of issues. If you need a
-> soft device like bridge of bond within a namespace, just create it there.
-> 
-Note that vlan supports x-netns. And I think that the corresponding use cases
-are valid ;-)
-But I agree that for bonding and bridge it seems wrong.
+RnJvbTogWGluIExvbmcNCj4gU2VudDogMDMgTWFyY2ggMjAxNyAxNTo0Mw0KLi4uDQo+ID4gSXQg
+aXMgbXVjaCBtb3JlIGltcG9ydGFudCB0byBnZXQgTVNHX01PUkUgd29ya2luZyAncHJvcGVybHkn
+IGZvciBTQ1RQDQo+ID4gdGhhbiBmb3IgVENQLiBGb3IgVENQIGFuIGFwcGxpY2F0aW9uIGNhbiBh
+bHdheXMgdXNlIGEgbG9uZyBzZW5kLg0KDQo+ICJsb25nIHNlbmQiID8sIHlvdSBtZWFuIGJpZ2dl
+ciBkYXRhLCBvciBrZWVwaW5nIHNlbmRpbmc/DQo+IEkgZGlkbid0IGdldCB0aGUgZGlmZmVyZW5j
+ZSBiZXR3ZWVuIFNDVFAgYW5kIFRDUCwgdGhleQ0KPiBhcmUgc2ltaWxhciB3aGVuIHNlbmRpbmcg
+ZGF0YS4NCg0KV2l0aCB0Y3AgYW4gYXBwbGljYXRpb24gY2FuIGFsd2F5cyByZXBsYWNlIHR3byBz
+ZW5kKCkvd3JpdGUoKQ0KY2FsbHMgd2l0aCBhIHNpbmdsZSBjYWxsIHRvIHdyaXRldigpLg0KRm9y
+IHNjdHAgdHdvIHNlbmQoKSBjYWxscyBtdXN0IGJlIG1hZGUgaW4gb3JkZXIgdG8gZ2VuZXJhdGUg
+dHdvDQpkYXRhIGNodW5rcy4NClNvIGl0IGlzIG11Y2ggZWFzaWVyIGZvciBhIHRjcCBhcHBsaWNh
+dGlvbiB0byBnZW5lcmF0ZSAnZnVsbCcNCmV0aGVybmV0IHBhY2tldHMuIA0KDQo+IA0KPiA+DQo+
+ID4gLi4uDQo+ID4+IEBAIC0xOTgyLDYgKzE5ODIsNyBAQCBzdGF0aWMgaW50IHNjdHBfc2VuZG1z
+ZyhzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBtc2doZHIgKm1zZywgc2l6ZV90IG1zZ19sZW4pDQo+
+ID4+ICAgICAgICAqIGJyZWFrcy4NCj4gPj4gICAgICAgICovDQo+ID4+ICAgICAgIGVyciA9IHNj
+dHBfcHJpbWl0aXZlX1NFTkQobmV0LCBhc29jLCBkYXRhbXNnKTsNCj4gPj4gKyAgICAgYXNvYy0+
+Zm9yY2VfZGVsYXkgPSAwOw0KPiA+PiAgICAgICAvKiBEaWQgdGhlIGxvd2VyIGxheWVyIGFjY2Vw
+dCB0aGUgY2h1bms/ICovDQo+ID4+ICAgICAgIGlmIChlcnIpIHsNCj4gPj4gICAgICAgICAgICAg
+ICBzY3RwX2RhdGFtc2dfZnJlZShkYXRhbXNnKTsNCj4gPg0KPiA+IEkgZG9uJ3QgdGhpbmsgdGhp
+cyBpcyByaWdodCAtIG9yIG5lZWRlZC4NCj4gPiBZb3Ugb25seSBnZXQgdG8gdGhlIGFib3ZlIGlm
+IHNvbWUgdGVzdCBoYXMgZGVjaWRlZCB0byBzZW5kIGRhdGEgY2h1bmtzLg0KPiA+IFNvIGl0IGp1
+c3QgbWVhbnMgdGhhdCB0aGUgTkVYVCB0aW1lIHNvbWVvbmUgdHJpZXMgdG8gc2VuZCBkYXRhIGFs
+bCB0aGUNCj4gPiBxdWV1ZWQgZGF0YSBnZXRzIHNlbnQuDQoNCj4gdGhlIE5FWFQgdGltZSBzb21l
+b25lIHRyaWVzIHRvIHNlbmQgZGF0YSB3aXRoICJNU0dfTU9SRSBjbGVhciIsDQo+IHllcywgYnV0
+IHdpdGggIk1TR19NT1JFIHNldCIsIGl0IHdpbGwgc3RpbGwgZGVsYXkuDQo+IA0KPiA+IEknbSBn
+dWVzc2luZyB0aGF0IHRoZSB3aG9sZSB0aGluZyBnZXRzIGNhbGxlZCBpbiBhIGxvb3AgKGRlZmlu
+aXRlbHkgbmVlZGVkDQo+ID4gZm9yIHZlcnkgbG9uZyBkYXRhIGNodW5rcywgb3IgYWZ0ZXIgdGhl
+IHdpbmRvdyBpcyBvcGVuZWQpLg0KDQo+IHllcywgaWYgdXNlcnMga2VlcCBzZW5kaW5nIGRhdGEg
+Y2h1bmtzIHdpdGggTVNHX01PUkUgc2V0LCBubw0KPiBkYXRhIHdpdGggIk1TR19NT1JFIGNsZWFy
+IiBnYXAuDQo+IA0KPiA+IE5vdyBpZiBhbiBhcHBsaWNhdGlvbiBzZW5kcyBhIGxvdCBvZiAoc2F5
+KSAxMDAgYnl0ZSBjaHVua3Mgd2l0aCBNU0dfTU9SRQ0KPiA+IHNldCBpdCB3b3VsZCBleHBlY3Qg
+dG8gc2VlIGEgbG90IG9mIGZ1bGwgZXRoZXJuZXQgZnJhbWVzIGJlIHNlbnQuDQoNCj4gcmlnaHQu
+DQoNCj4gPiBXaXRoIHRoZSBhYm92ZSBhIGZyYW1lIHdpbGwgYmUgc2VudCAoY29udGFpbmluZyBh
+bGwgYnV0IDEgY2h1bmspIHdoZW4gdGhlDQo+ID4gYW1vdW50IG9mIHF1ZXVlZCBkYXRhIGJlY29t
+ZXMgdG9vIGxhcmdlIGZvciBhbiBldGhlcm5ldCBmcmFtZSwgYW5kIGltbWVkaWF0ZWx5DQo+ID4g
+Zm9sbG93ZWQgYnkgYSBzZWNvbmQgZXRoZXJuZXQgZnJhbWUgd2l0aCAxIGNodW5rIGluIGl0Lg0K
+DQo+ICJmb2xsb3dlZCBieSBhIHNlY29uZCBldGhlcm5ldCBmcmFtZSB3aXRoIDEgY2h1bmsgaW4g
+aXQuIiwgSSB0aGluayB0aGlzJ3MNCj4gd2hhdCB5b3UncmUgcmVhbGx5IHdvcnJpZWQgYWJvdXQs
+IHJpZ2h0ID8NCj4gQnV0IHNjdHAgZmx1c2ggZGF0YSBxdWV1ZSBOT1QgbGlrZSB3aGF0IHlvdSB0
+aGluaywgaXQncyBub3Qga2VlcCB0cmF2ZXJzaW5nDQo+IHRoZSBxdWV1ZSB1bnRpbGwgdGhlIHF1
+ZXVlIGlzIGVtcHR5Lg0KPiBvbmNlIGEgcGFja2V0IHdpdGggY2h1bmtzIGluIG9uZSBldGhlcm5l
+dCBmcmFtZSBpcyBzZW50LCBzY3RwX291dHFfZmx1c2gNCj4gd2lsbCByZXR1cm4uIGl0IHdpbGwg
+cGFjayBjaHVua3MgYW5kIHNlbmQgdGhlIG5leHQgcGFja2V0IGFnYWluIHVudGlsbCBzb21lDQo+
+IG90aGVyICdldmVudCcgdHJpZ2dlcnMgaXQsIGxpa2UgcmV0cmFuc21pc3Npb24gb3IgZGF0YSBy
+ZWNlaXZlZCBmcm9tIHBlZXIuDQo+IEkgZG9uJ3QgdGhpbmsgdGhpcyBpcyBhIHByb2JsZW0uDQoN
+CkVybS4uLi4gdGhhdCBjYW4ndCB3b3JrLg0KSSB0aGluayB0aGVyZSBpcyBjb2RlIHRvIGNvbnZl
+cnQgYSBsYXJnZSB1c2VyIHNlbmQgaW50byBtdWx0aXBsZSBkYXRhIGNodW5rcy4NClNvIGlmIHRo
+ZSB1c2VyIGRvZXMgYSA0ayAoc2F5KSBzZW5kIHNldmVyYWwgbGFyZ2UgY2h1bmtzIGdldCBxdWV1
+ZWQuDQpUaGVzZSB3b3VsZCBuZWVkIHRvIGFsbCBiZSBzZW50IGF0IG9uY2UuDQoNClNpbWlsYXJs
+eSB3aGVuIHRoZSB0cmFuc21pdCB3aW5kb3cgaXMgcmVjZWl2ZWQuDQpTbyBzb21ld2hlcmUgdGhl
+cmUgb3VnaHQgdG8gYmUgYSBsb29wIHRoYXQgd2lsbCBzZW5kIG1vcmUgdGhhbiBvbmUgcGFja2V0
+Lg0KDQo+ID4gTm93IGl0IG1pZ2h0IGJlIHRoYXQgdGhlIGZsYWcgbmVlZHMgY2xlYXJpbmcgd2hl
+biByZXRyYW5zbWlzc2lvbnMgYXJlIHF1ZXVlZC4NCj4gPiBPVE9IIHRoZXkgbWlnaHQgZ2V0IHNl
+bnQgZm9yIG90aGVyIHJlYXNvbnMuDQoNCj4gQmVmb3JlIHdlIHJlYWxseSBvdmVydGhvdWdodCBh
+Ym91dCBNU0dfTU9SRSwgbm8gbmVlZCB0byBjYXJlIGFib3V0DQo+IHJldHJhbnNtaXNzaW9ucywg
+ZGVmaW5lIE1TR19NT1JFLCBpbiBteSBvcGluaW9uLCBpdCB3b3JrcyBtb3JlIGZvcg0KPiAqaW5m
+bGlnaHQgaXMgMCosIGlmIGl0J3Mgbm90IDAsIHdlIHNob3VsZG4ndCBzdG9wIG90aGVyIHBsYWNl
+cyBmbHVzaGluZyB0aGVtLg0KDQpFaD8gYW5kIHdoZW4gbmFnbGUgZGlzYWJsZWQuDQpJZiAnaW5m
+bGlnaHQnIGlzbid0IDAgdGhlbiBtb3N0IHBhdGhzIGRvbid0IGZsdXNoIGRhdGEuDQoNCj4gV2Ug
+Y2Fubm90IGxldCBhc29jJ3MgbW9yZV9tb3JlIGZsYWcgd29yayBhcyBnbG9iYWwsIGl0IHdpbGwg
+YmxvY2sgZWxzZXdoZXJlDQo+IHNlbmRpbmcgZGF0YSBjaHVua3MsIG5vdCBvbmx5IHNjdHBfc2Vu
+ZG1zZy4NCg0KSWYgdGhlIGNvbm5lY3Rpb24gd2FzIGZsb3cgY29udHJvbGxlZCBvZmYsIGFuZCBt
+b3JlICdjcmVkaXQnIGFycml2ZXMgYW5kIHRoZXJlDQppcyBsZXNzIHRoYXQgYW4gZXRoZXJuZXQg
+ZnJhbWUncyB3b3J0aCBvZiBkYXRhIHBlbmRpbmcsIGFuZCB0aGUgbGFzdCBzZW5kDQpzYWlkICdN
+U0dfTU9SRScgdGhlcmUgaXMgbm8gcG9pbnQgc2VuZGluZyBhbnl0aGluZyB1bnRpbCB0aGUgYXBw
+bGljYXRpb24NCmRvZXMgYSBzZW5kIHdpdGggTVNHX01PUkUgY2xlYXIuDQoNCkknbSBub3Qgc3Vy
+ZSB3aGF0IGNhdXNlcyBhIHJldHJhbnNtaXNzaW9uIHRvIHNlbmQgZGF0YSwgSSBzdXNwZWN0IHRo
+YXQgJ2luZmxpZ2h0Jw0KY2FuIGVhc2lseSBiZSBub24temVybyBhdCB0aGF0IHRpbWUuDQpMaWtl
+bHkgc29tZXRoaW5nIGNhdXNlcyBhIHBhY2tldCBiZSBnZW5lcmF0ZWQgLSB3aGljaCB0aGVuIGNv
+bGxlY3RzIHRoZSBkYXRhIGNodW5rcy4NCg0KCURhdmlkDQoNCg0K
