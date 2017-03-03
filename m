@@ -1,38 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] strparser: destroy workqueue on module exit
-Date: Fri,  3 Mar 2017 12:21:14 -0800
-Message-ID: <1488572474-11779-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Tom Herbert <tom@herbertland.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34915 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752186AbdCCUvt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 15:51:49 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 1so13685651pgz.2
-        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 12:51:48 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/ipv4: division by 0 in tcp_select_window
+Date: Fri, 03 Mar 2017 12:56:01 -0800
+Message-ID: <1488574561.9415.336.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+Y+dL6EzkfDahjQUyyT4YMhDin7UPY5RQYbNH0n0DJ5xA@mail.gmail.com>
+         <CANn89iLNQKyywwLAdJsQDOpGDtEs6S-4BZkZYmwT39ENZyqLTg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89iLNQKyywwLAdJsQDOpGDtEs6S-4BZkZYmwT39ENZyqLTg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixes: 43a0c6751a32 ("strparser: Stream parser for messages")
-Cc: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/strparser/strparser.c | 1 +
- 1 file changed, 1 insertion(+)
+On Fri, 2017-03-03 at 10:25 -0800, Eric Dumazet wrote:
+> On Fri, Mar 3, 2017 at 10:10 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> > Hello,
+> >
+> > The following program triggers division by 0 in tcp_select_window:
+> >
+> > https://gist.githubusercontent.com/dvyukov/ef28c0fd2ab57a655508ef7621b12e6c/raw/079011e2a9523a390b0621cbc1e5d9d5e637fd6d/gistfile1.txt
+> 
+> Yeah, tcp_disconnect() should never have existed in the first place.
+> 
+> We'll send a patch, unless you take care of this before us .
 
-diff --git a/net/strparser/strparser.c b/net/strparser/strparser.c
-index 41adf36..b5c279b 100644
---- a/net/strparser/strparser.c
-+++ b/net/strparser/strparser.c
-@@ -504,6 +504,7 @@ static int __init strp_mod_init(void)
+Could you try this first patch ?
+
+Probably others will also be needed.
+
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 40d893556e6701ace6a02903e53c45822d6fa56d..2187ebf1f270d19e6dd019b8f9df5eef8d018e03 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -552,7 +552,8 @@ void tcp_write_timer_handler(struct sock *sk)
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	int event;
  
- static void __exit strp_mod_exit(void)
- {
-+	destroy_workqueue(strp_wq);
- }
- module_init(strp_mod_init);
- module_exit(strp_mod_exit);
--- 
-2.5.5
+-	if (sk->sk_state == TCP_CLOSE || !icsk->icsk_pending)
++	if (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)) ||
++	    !icsk->icsk_pending)
+ 		goto out;
+ 
+ 	if (time_after(icsk->icsk_timeout, jiffies)) {
