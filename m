@@ -1,122 +1,173 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/kcm: use-after-free in kcm_wq
-Date: Fri, 3 Mar 2017 12:03:11 -0800
-Message-ID: <CAM_iQpW7CVYd1og=w=DG_m_cqVTb6VKzb6xfAoqVgtjrdp5aSA@mail.gmail.com>
-References: <CACT4Y+ZsaUAbTHdtP7BmZ+dsOTVA+f1jc8Mt=41H+8mwpkbRpA@mail.gmail.com>
- <CACT4Y+Zwk_82rKowdW3tLaZQC_q73swNoZ6mj5kvapHAGztaMQ@mail.gmail.com>
+From: Igor Druzhinin <igor.druzhinin@citrix.com>
+Subject: [PATCH net v2] xen-netback: fix race condition on XenBus disconnect
+Date: Fri, 3 Mar 2017 20:23:07 +0000
+Message-ID: <1488572587-91220-1-git-send-email-igor.druzhinin@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: text/plain
+Cc: <paul.durrant@citrix.com>, <jgross@suse.com>,
+        <wei.liu2@citrix.com>, Igor Druzhinin <igor.druzhinin@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f179.google.com ([209.85.128.179]:34154 "EHLO
-        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751963AbdCCUDp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 15:03:45 -0500
-In-Reply-To: <CACT4Y+Zwk_82rKowdW3tLaZQC_q73swNoZ6mj5kvapHAGztaMQ@mail.gmail.com>
+Received: from smtp.citrix.com ([66.165.176.89]:11507 "EHLO SMTP.CITRIX.COM"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751722AbdCCUXT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Mar 2017 15:23:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 3, 2017 at 2:11 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> Also like this one:
->
-> ==================================================================
-> BUG: KASAN: use-after-free in atomic_long_read
-> include/linux/compiler.h:254 [inline] at addr ffff8800538aba60
-> BUG: KASAN: use-after-free in get_work_pool+0x2f2/0x340
-> kernel/workqueue.c:709 at addr ffff8800538aba60
-> Read of size 8 by task syz-executor6/7965
-> CPU: 2 PID: 7965 Comm: syz-executor6 Not tainted 4.10.0+ #248
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> Call Trace:
->  __dump_stack lib/dump_stack.c:15 [inline]
->  dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
->  kasan_object_err+0x1c/0x70 mm/kasan/report.c:166
->  print_address_description mm/kasan/report.c:204 [inline]
->  kasan_report_error mm/kasan/report.c:288 [inline]
->  kasan_report.part.2+0x198/0x440 mm/kasan/report.c:310
->  kasan_report mm/kasan/report.c:331 [inline]
->  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:331
->  atomic_long_read include/linux/compiler.h:254 [inline]
->  get_work_pool+0x2f2/0x340 kernel/workqueue.c:709
->  __queue_work+0x2b3/0x1210 kernel/workqueue.c:1401
->  queue_work_on+0x2e9/0x330 kernel/workqueue.c:1486
->  queue_work include/linux/workqueue.h:487 [inline]
->  strp_check_rcv+0x25/0x30 net/strparser/strparser.c:494
+In some cases during XenBus disconnect event handling and subsequent
+queue resource release there may be some TX handlers active on
+other processors. Use RCU in order to synchronize with them.
 
+Signed-off-by: Igor Druzhinin <igor.druzhinin@citrix.com>
+---
+v2:
+ * Add protection for xenvif_get_ethtool_stats
+ * Additional comments and fixes
+---
+ drivers/net/xen-netback/interface.c | 29 ++++++++++++++++++++++-------
+ drivers/net/xen-netback/netback.c   |  2 +-
+ drivers/net/xen-netback/xenbus.c    | 20 ++++++++++----------
+ 3 files changed, 33 insertions(+), 18 deletions(-)
 
-It is not kcm_wq, it is strp_wq, and the work struct is strp->rx_work
-which lives in struct kcm_psock. The work is cancelled by strp_done(),
-it seems get queued again after strp_done()...
-
-
->  kcm_attach net/kcm/kcmsock.c:1434 [inline]
->  kcm_attach_ioctl net/kcm/kcmsock.c:1455 [inline]
->  kcm_ioctl+0x8bb/0x1800 net/kcm/kcmsock.c:1690
->  sock_do_ioctl+0x65/0xb0 net/socket.c:895
->  sock_ioctl+0x2c2/0x440 net/socket.c:993
->  vfs_ioctl fs/ioctl.c:43 [inline]
->  do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
->  SYSC_ioctl fs/ioctl.c:698 [inline]
->  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
-> RIP: 0033:0x4458d9
-> RSP: 002b:00007f1dce9d1b58 EFLAGS: 00000286 ORIG_RAX: 0000000000000010
-> RAX: ffffffffffffffda RBX: 0000000000000024 RCX: 00000000004458d9
-> RDX: 0000000020b68000 RSI: 00000000000089e0 RDI: 0000000000000024
-> RBP: 00000000006e0220 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000286 R12: 00000000007080a8
-> R13: 0000000000000000 R14: 00007f1dce9d29c0 R15: 00007f1dce9d2700
-> Object at ffff8800538ab940, in cache kcm_psock_cache size: 616
-> Allocated:
-> PID = 7965
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
->  set_track mm/kasan/kasan.c:514 [inline]
->  kasan_kmalloc+0xaa/0xd0 mm/kasan/kasan.c:605
->  kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:544
->  kmem_cache_alloc+0x102/0x680 mm/slab.c:3571
->  kmem_cache_zalloc include/linux/slab.h:653 [inline]
->  kcm_attach net/kcm/kcmsock.c:1384 [inline]
->  kcm_attach_ioctl net/kcm/kcmsock.c:1455 [inline]
->  kcm_ioctl+0x303/0x1800 net/kcm/kcmsock.c:1690
->  sock_do_ioctl+0x65/0xb0 net/socket.c:895
->  sock_ioctl+0x2c2/0x440 net/socket.c:993
->  vfs_ioctl fs/ioctl.c:43 [inline]
->  do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
->  SYSC_ioctl fs/ioctl.c:698 [inline]
->  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
-> Freed:
-> PID = 7982
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
->  set_track mm/kasan/kasan.c:514 [inline]
->  kasan_slab_free+0x6f/0xb0 mm/kasan/kasan.c:578
->  __cache_free mm/slab.c:3513 [inline]
->  kmem_cache_free+0x71/0x240 mm/slab.c:3773
->  kcm_unattach+0xee7/0x1520 net/kcm/kcmsock.c:1558
->  kcm_unattach_ioctl net/kcm/kcmsock.c:1603 [inline]
->  kcm_ioctl+0xfae/0x1800 net/kcm/kcmsock.c:1700
->  sock_do_ioctl+0x65/0xb0 net/socket.c:895
->  sock_ioctl+0x2c2/0x440 net/socket.c:993
->  vfs_ioctl fs/ioctl.c:43 [inline]
->  do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
->  SYSC_ioctl fs/ioctl.c:698 [inline]
->  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
-> Memory state around the buggy address:
->  ffff8800538ab900: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
->  ffff8800538ab980: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->>ffff8800538aba00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->                                                        ^
->  ffff8800538aba80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->  ffff8800538abb00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-> ==================================================================
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index a2d32676..266b7cd 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -164,13 +164,17 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = vif->num_queues;
++	unsigned int num_queues;
+ 	u16 index;
+ 	struct xenvif_rx_cb *cb;
+ 
+ 	BUG_ON(skb->dev != dev);
+ 
+-	/* Drop the packet if queues are not set up */
++	/* Drop the packet if queues are not set up.
++	 * This handler should be called inside an RCU read section
++	 * so we don't need to enter it here explicitly.
++	 */
++	num_queues = rcu_dereference(vif)->num_queues;
+ 	if (num_queues < 1)
+ 		goto drop;
+ 
+@@ -221,18 +225,21 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	struct xenvif_queue *queue = NULL;
++	unsigned int num_queues;
+ 	u64 rx_bytes = 0;
+ 	u64 rx_packets = 0;
+ 	u64 tx_bytes = 0;
+ 	u64 tx_packets = 0;
+ 	unsigned int index;
+ 
+-	spin_lock(&vif->lock);
+-	if (vif->queues == NULL)
++	rcu_read_lock();
++
++	num_queues = rcu_dereference(vif)->num_queues;
++	if (num_queues < 1)
+ 		goto out;
+ 
+ 	/* Aggregate tx and rx stats from each queue */
+-	for (index = 0; index < vif->num_queues; ++index) {
++	for (index = 0; index < num_queues; ++index) {
+ 		queue = &vif->queues[index];
+ 		rx_bytes += queue->stats.rx_bytes;
+ 		rx_packets += queue->stats.rx_packets;
+@@ -241,7 +248,7 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
+ 	}
+ 
+ out:
+-	spin_unlock(&vif->lock);
++	rcu_read_unlock();
+ 
+ 	vif->dev->stats.rx_bytes = rx_bytes;
+ 	vif->dev->stats.rx_packets = rx_packets;
+@@ -377,10 +384,16 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
+ 				     struct ethtool_stats *stats, u64 * data)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+-	unsigned int num_queues = vif->num_queues;
++	unsigned int num_queues;
+ 	int i;
+ 	unsigned int queue_index;
+ 
++	rcu_read_lock();
++
++	num_queues = rcu_dereference(vif)->num_queues;
++	if (num_queues < 1)
++		goto out;
++
+ 	for (i = 0; i < ARRAY_SIZE(xenvif_stats); i++) {
+ 		unsigned long accum = 0;
+ 		for (queue_index = 0; queue_index < num_queues; ++queue_index) {
+@@ -389,6 +402,8 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
+ 		}
+ 		data[i] = accum;
+ 	}
++out:
++	rcu_read_unlock();
+ }
+ 
+ static void xenvif_get_strings(struct net_device *dev, u32 stringset, u8 * data)
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f9bcf4a..62fa74d 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -214,7 +214,7 @@ static void xenvif_fatal_tx_err(struct xenvif *vif)
+ 	netdev_err(vif->dev, "fatal error; disabling device\n");
+ 	vif->disabled = true;
+ 	/* Disable the vif from queue 0's kthread */
+-	if (vif->queues)
++	if (vif->num_queues > 0)
+ 		xenvif_kick_thread(&vif->queues[0]);
+ }
+ 
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index d2d7cd9..a56d3ea 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -495,26 +495,26 @@ static void backend_disconnect(struct backend_info *be)
+ 	struct xenvif *vif = be->vif;
+ 
+ 	if (vif) {
++		unsigned int num_queues = vif->num_queues;
+ 		unsigned int queue_index;
+-		struct xenvif_queue *queues;
+ 
+ 		xen_unregister_watchers(vif);
+ #ifdef CONFIG_DEBUG_FS
+ 		xenvif_debugfs_delif(vif);
+ #endif /* CONFIG_DEBUG_FS */
+ 		xenvif_disconnect_data(vif);
+-		for (queue_index = 0;
+-		     queue_index < vif->num_queues;
+-		     ++queue_index)
+-			xenvif_deinit_queue(&vif->queues[queue_index]);
+ 
+-		spin_lock(&vif->lock);
+-		queues = vif->queues;
++		/* At this point some of the handlers may still be active
++		 * so we need to have additional synchronization here.
++		 */
+ 		vif->num_queues = 0;
+-		vif->queues = NULL;
+-		spin_unlock(&vif->lock);
++		synchronize_net();
+ 
+-		vfree(queues);
++		for (queue_index = 0; queue_index < num_queues; ++queue_index)
++			xenvif_deinit_queue(&vif->queues[queue_index]);
++
++		vfree(vif->queues);
++		vif->queues = NULL;
+ 
+ 		xenvif_disconnect_ctrl(vif);
+ 	}
+-- 
+1.8.3.1
