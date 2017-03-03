@@ -1,69 +1,116 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net 4/7] bnx2x: fix detection of VLAN filtering feature for VF
-Date: Fri,  3 Mar 2017 17:08:31 +0100
-Message-ID: <20170303160834.4125-5-mschmidt@redhat.com>
-References: <20170303160834.4125-1-mschmidt@redhat.com>
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>,
-        Ariel Elior <ariel.elior@cavium.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37548 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752027AbdCCQIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Mar 2017 11:08:43 -0500
-In-Reply-To: <20170303160834.4125-1-mschmidt@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/dccp: use-after-free in dccp_feat_activate_values
+Date: Fri, 03 Mar 2017 08:00:14 -0800
+Message-ID: <1488556814.9415.334.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
+         <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
+         <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
+         <1488551576.9415.328.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1488552503.9415.330.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CACT4Y+Z6t_jGoh3Gm3Sxuu_ugF5kQ3QJ37LVdqoEK_ab52tQMA@mail.gmail.com>
+         <CACT4Y+ZhNzcKTODGkD3R-68KgkOtYCaf4cZYPH51=HhREXVPGg@mail.gmail.com>
+         <CANn89i+E+DkUJBV-3AQ38hstj9=G7=3fLJuG8LA6upp77ecwPA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89i+E+DkUJBV-3AQ38hstj9=G7=3fLJuG8LA6upp77ecwPA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-VFs are currently missing the VLAN filtering feature, because we were
-checking the PF's acquire response before actually performing the acquire.
+On Fri, 2017-03-03 at 07:22 -0800, Eric Dumazet wrote:
+> On Fri, Mar 3, 2017 at 7:12 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> > The first bot that picked this up started spewing:
+> >
+> > BUG: spinlock recursion on CPU#1, syz-executor2/9452
+> 
+> Yes. The bug is not about locking the listener, but protecting fields
+> of struct dccp_request_sock
+> 
+> I will provide a patch, once I reach the office and after the breakfast ;)
 
-Fix it by setting the feature flag later when we have the PF response.
+OK here is what I suggest to fix the races.
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index d57290b9ea..ac76fc251d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13292,17 +13292,15 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
- 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
+diff --git a/include/linux/dccp.h b/include/linux/dccp.h
+index 61d042bbbf607253033d9948b291cab2322814ba..68449293c4b6233c1a1d4133b1819376a9310225 100644
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -163,6 +163,7 @@ struct dccp_request_sock {
+ 	__u64			 dreq_isr;
+ 	__u64			 dreq_gsr;
+ 	__be32			 dreq_service;
++	spinlock_t		 dreq_lock;
+ 	struct list_head	 dreq_featneg;
+ 	__u32			 dreq_timestamp_echo;
+ 	__u32			 dreq_timestamp_time;
+diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
+index e267e6f4c9a5566b369a03a600a408e5bd41cbad..abd07a443219853b022bef41cb072e90ff8f07f0 100644
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -142,6 +142,13 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
+ 	struct dccp_request_sock *dreq = dccp_rsk(req);
+ 	bool own_req;
  
--	/* VF with OLD Hypervisor or old PF do not support filtering */
- 	if (IS_PF(bp)) {
- 		if (chip_is_e1x)
- 			bp->accept_any_vlan = true;
- 		else
- 			dev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
--#ifdef CONFIG_BNX2X_SRIOV
--	} else if (bp->acquire_resp.pfdev_info.pf_cap & PFVF_CAP_VLAN_FILTER) {
--		dev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
--#endif
- 	}
-+	/* For VF we'll know whether to enable VLAN filtering after
-+	 * getting a response to CHANNEL_TLV_ACQUIRE from PF.
++	/* TCP/DCCP listeners became lockless.
++	 * DCCP stores complex state in its request_sock, so we need
++	 * a protection for them, now this code runs without being protected
++	 * by the parent (listener) lock.
 +	 */
- 
- 	dev->features |= dev->hw_features | NETIF_F_HW_VLAN_CTAG_RX;
- 	dev->features |= NETIF_F_HIGHDMA;
-@@ -14009,6 +14007,14 @@ static int bnx2x_init_one(struct pci_dev *pdev,
- 		rc = bnx2x_vfpf_acquire(bp, tx_count, rx_count);
- 		if (rc)
- 			goto init_one_freemem;
++	spin_lock_bh(&dreq->dreq_lock);
 +
-+#ifdef CONFIG_BNX2X_SRIOV
-+		/* VF with OLD Hypervisor or old PF do not support filtering */
-+		if (bp->acquire_resp.pfdev_info.pf_cap & PFVF_CAP_VLAN_FILTER) {
-+			dev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-+			dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-+		}
-+#endif
+ 	/* Check for retransmitted REQUEST */
+ 	if (dccp_hdr(skb)->dccph_type == DCCP_PKT_REQUEST) {
+ 
+@@ -156,7 +163,7 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
+ 			inet_rtx_syn_ack(sk, req);
+ 		}
+ 		/* Network Duplicate, discard packet */
+-		return NULL;
++		goto out;
  	}
  
- 	/* Enable SRIOV if capability found in configuration space */
--- 
-2.9.3
+ 	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_PACKET_ERROR;
+@@ -182,20 +189,20 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
+ 
+ 	child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb, req, NULL,
+ 							 req, &own_req);
+-	if (!child)
+-		goto listen_overflow;
+-
+-	return inet_csk_complete_hashdance(sk, child, req, own_req);
++	if (child) {
++		child = inet_csk_complete_hashdance(sk, child, req, own_req);
++		goto out;
++	}
+ 
+-listen_overflow:
+-	dccp_pr_debug("listen_overflow!\n");
+ 	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_TOO_BUSY;
+ drop:
+ 	if (dccp_hdr(skb)->dccph_type != DCCP_PKT_RESET)
+ 		req->rsk_ops->send_reset(sk, skb);
+ 
+ 	inet_csk_reqsk_queue_drop(sk, req);
+-	return NULL;
++out:
++	spin_unlock_bh(&dreq->dreq_lock);
++	return child;
+ }
+ 
+ EXPORT_SYMBOL_GPL(dccp_check_req);
+@@ -246,6 +253,7 @@ int dccp_reqsk_init(struct request_sock *req,
+ {
+ 	struct dccp_request_sock *dreq = dccp_rsk(req);
+ 
++	spin_lock_init(&dreq->dreq_lock);
+ 	inet_rsk(req)->ir_rmt_port = dccp_hdr(skb)->dccph_sport;
+ 	inet_rsk(req)->ir_num	   = ntohs(dccp_hdr(skb)->dccph_dport);
+ 	inet_rsk(req)->acked	   = 0;
