@@ -1,60 +1,143 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 3/4] can: usb_8dev: Fix memory leak of priv->cmd_msg_buffer
-Date: Fri,  3 Mar 2017 14:55:34 +0100
-Message-ID: <20170303135535.22937-4-mkl@pengutronix.de>
+Subject: [PATCH 1/4] can: gs_usb: Don't use stack memory for USB transfers
+Date: Fri,  3 Mar 2017 14:55:32 +0100
+Message-ID: <20170303135535.22937-2-mkl@pengutronix.de>
 References: <20170303135535.22937-1-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
-        linux-stable <stable@vger.kernel.org>
+        kernel@pengutronix.de, Ethan Zonca <e@ethanzonca.com>,
+        "linux-stable # = v4 . 8" <stable@vger.kernel.org>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <20170303135535.22937-1-mkl@pengutronix.de>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The priv->cmd_msg_buffer is allocated in the probe function, but never
-kfree()ed. This patch converts the kzalloc() to resource-managed
-kzalloc.
+From: Ethan Zonca <e@ethanzonca.com>
 
-Cc: linux-stable <stable@vger.kernel.org>
+Fixes: 05ca5270005c can: gs_usb: add ethtool set_phys_id callback to locate physical device
+
+The gs_usb driver is performing USB transfers using buffers allocated on
+the stack. This causes the driver to not function with vmapped stacks.
+Instead, allocate memory for the transfer buffers.
+
+Signed-off-by: Ethan Zonca <e@ethanzonca.com>
+Cc: linux-stable <stable@vger.kernel.org> # >= v4.8
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/usb_8dev.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/can/usb/gs_usb.c | 40 +++++++++++++++++++++++++++++-----------
+ 1 file changed, 29 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/can/usb/usb_8dev.c b/drivers/net/can/usb/usb_8dev.c
-index 108a30e15097..d000cb62d6ae 100644
---- a/drivers/net/can/usb/usb_8dev.c
-+++ b/drivers/net/can/usb/usb_8dev.c
-@@ -951,8 +951,8 @@ static int usb_8dev_probe(struct usb_interface *intf,
- 	for (i = 0; i < MAX_TX_URBS; i++)
- 		priv->tx_contexts[i].echo_index = MAX_TX_URBS;
+diff --git a/drivers/net/can/usb/gs_usb.c b/drivers/net/can/usb/gs_usb.c
+index 77e3cc06a30c..a0dabd4038ba 100644
+--- a/drivers/net/can/usb/gs_usb.c
++++ b/drivers/net/can/usb/gs_usb.c
+@@ -908,10 +908,14 @@ static int gs_usb_probe(struct usb_interface *intf,
+ 	struct gs_usb *dev;
+ 	int rc = -ENOMEM;
+ 	unsigned int icount, i;
+-	struct gs_host_config hconf = {
+-		.byte_order = 0x0000beef,
+-	};
+-	struct gs_device_config dconf;
++	struct gs_host_config *hconf;
++	struct gs_device_config *dconf;
++
++	hconf = kmalloc(sizeof(*hconf), GFP_KERNEL);
++	if (!hconf)
++		return -ENOMEM;
++
++	hconf->byte_order = 0x0000beef;
  
--	priv->cmd_msg_buffer = kzalloc(sizeof(struct usb_8dev_cmd_msg),
--				      GFP_KERNEL);
-+	priv->cmd_msg_buffer = devm_kzalloc(&intf->dev, sizeof(struct usb_8dev_cmd_msg),
-+					    GFP_KERNEL);
- 	if (!priv->cmd_msg_buffer)
- 		goto cleanup_candev;
+ 	/* send host config */
+ 	rc = usb_control_msg(interface_to_usbdev(intf),
+@@ -920,16 +924,22 @@ static int gs_usb_probe(struct usb_interface *intf,
+ 			     USB_DIR_OUT|USB_TYPE_VENDOR|USB_RECIP_INTERFACE,
+ 			     1,
+ 			     intf->altsetting[0].desc.bInterfaceNumber,
+-			     &hconf,
+-			     sizeof(hconf),
++			     hconf,
++			     sizeof(*hconf),
+ 			     1000);
  
-@@ -966,7 +966,7 @@ static int usb_8dev_probe(struct usb_interface *intf,
- 	if (err) {
- 		netdev_err(netdev,
- 			"couldn't register CAN device: %d\n", err);
--		goto cleanup_cmd_msg_buffer;
-+		goto cleanup_candev;
++	kfree(hconf);
++
+ 	if (rc < 0) {
+ 		dev_err(&intf->dev, "Couldn't send data format (err=%d)\n",
+ 			rc);
+ 		return rc;
  	}
  
- 	err = usb_8dev_cmd_version(priv, &version);
-@@ -987,9 +987,6 @@ static int usb_8dev_probe(struct usb_interface *intf,
- cleanup_unregister_candev:
- 	unregister_netdev(priv->netdev);
++	dconf = kmalloc(sizeof(*dconf), GFP_KERNEL);
++	if (!dconf)
++		return -ENOMEM;
++
+ 	/* read device config */
+ 	rc = usb_control_msg(interface_to_usbdev(intf),
+ 			     usb_rcvctrlpipe(interface_to_usbdev(intf), 0),
+@@ -937,28 +947,33 @@ static int gs_usb_probe(struct usb_interface *intf,
+ 			     USB_DIR_IN|USB_TYPE_VENDOR|USB_RECIP_INTERFACE,
+ 			     1,
+ 			     intf->altsetting[0].desc.bInterfaceNumber,
+-			     &dconf,
+-			     sizeof(dconf),
++			     dconf,
++			     sizeof(*dconf),
+ 			     1000);
+ 	if (rc < 0) {
+ 		dev_err(&intf->dev, "Couldn't get device config: (err=%d)\n",
+ 			rc);
++		kfree(dconf);
+ 		return rc;
+ 	}
  
--cleanup_cmd_msg_buffer:
--	kfree(priv->cmd_msg_buffer);
--
- cleanup_candev:
- 	free_candev(netdev);
+-	icount = dconf.icount + 1;
++	icount = dconf->icount + 1;
+ 	dev_info(&intf->dev, "Configuring for %d interfaces\n", icount);
+ 
+ 	if (icount > GS_MAX_INTF) {
+ 		dev_err(&intf->dev,
+ 			"Driver cannot handle more that %d CAN interfaces\n",
+ 			GS_MAX_INTF);
++		kfree(dconf);
+ 		return -EINVAL;
+ 	}
+ 
+ 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+-	if (!dev)
++	if (!dev) {
++		kfree(dconf);
+ 		return -ENOMEM;
++	}
++
+ 	init_usb_anchor(&dev->rx_submitted);
+ 
+ 	atomic_set(&dev->active_channels, 0);
+@@ -967,7 +982,7 @@ static int gs_usb_probe(struct usb_interface *intf,
+ 	dev->udev = interface_to_usbdev(intf);
+ 
+ 	for (i = 0; i < icount; i++) {
+-		dev->canch[i] = gs_make_candev(i, intf, &dconf);
++		dev->canch[i] = gs_make_candev(i, intf, dconf);
+ 		if (IS_ERR_OR_NULL(dev->canch[i])) {
+ 			/* save error code to return later */
+ 			rc = PTR_ERR(dev->canch[i]);
+@@ -978,12 +993,15 @@ static int gs_usb_probe(struct usb_interface *intf,
+ 				gs_destroy_candev(dev->canch[i]);
+ 
+ 			usb_kill_anchored_urbs(&dev->rx_submitted);
++			kfree(dconf);
+ 			kfree(dev);
+ 			return rc;
+ 		}
+ 		dev->canch[i]->parent = dev;
+ 	}
+ 
++	kfree(dconf);
++
+ 	return 0;
+ }
  
 -- 
 2.11.0
