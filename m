@@ -1,60 +1,69 @@
 From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net 2/7] bnx2x: lower verbosity of VF stats debug messages
-Date: Fri,  3 Mar 2017 17:08:29 +0100
-Message-ID: <20170303160834.4125-3-mschmidt@redhat.com>
+Subject: [PATCH net 4/7] bnx2x: fix detection of VLAN filtering feature for VF
+Date: Fri,  3 Mar 2017 17:08:31 +0100
+Message-ID: <20170303160834.4125-5-mschmidt@redhat.com>
 References: <20170303160834.4125-1-mschmidt@redhat.com>
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>,
         Ariel Elior <ariel.elior@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53952 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37548 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752017AbdCCQIk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Mar 2017 11:08:40 -0500
+        id S1752027AbdCCQIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Mar 2017 11:08:43 -0500
 In-Reply-To: <20170303160834.4125-1-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When BNX2X_MSG_IOV is enabled, the driver produces too many VF statistics
-messages. Lower the verbosity of the VF stats messages similarly as in
-commit 76ca70fabbdaa3 ("bnx2x: [Debug] change verbosity of some prints").
+VFs are currently missing the VLAN filtering feature, because we were
+checking the PF's acquire response before actually performing the acquire.
+
+Fix it by setting the feature flag later when we have the PF response.
 
 Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 6fad22adbb..9f0f851774 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -1899,7 +1899,8 @@ void bnx2x_iov_adjust_stats_req(struct bnx2x *bp)
- 			continue;
- 		}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index d57290b9ea..ac76fc251d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13292,17 +13292,15 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
  
--		DP(BNX2X_MSG_IOV, "add addresses for vf %d\n", vf->abs_vfid);
-+		DP_AND((BNX2X_MSG_IOV | BNX2X_MSG_STATS),
-+		       "add addresses for vf %d\n", vf->abs_vfid);
- 		for_each_vfq(vf, j) {
- 			struct bnx2x_vf_queue *rxq = vfq_get(vf, j);
+-	/* VF with OLD Hypervisor or old PF do not support filtering */
+ 	if (IS_PF(bp)) {
+ 		if (chip_is_e1x)
+ 			bp->accept_any_vlan = true;
+ 		else
+ 			dev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+-#ifdef CONFIG_BNX2X_SRIOV
+-	} else if (bp->acquire_resp.pfdev_info.pf_cap & PFVF_CAP_VLAN_FILTER) {
+-		dev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+-#endif
+ 	}
++	/* For VF we'll know whether to enable VLAN filtering after
++	 * getting a response to CHANNEL_TLV_ACQUIRE from PF.
++	 */
  
-@@ -1920,11 +1921,12 @@ void bnx2x_iov_adjust_stats_req(struct bnx2x *bp)
- 				cpu_to_le32(U64_HI(q_stats_addr));
- 			cur_query_entry->address.lo =
- 				cpu_to_le32(U64_LO(q_stats_addr));
--			DP(BNX2X_MSG_IOV,
--			   "added address %x %x for vf %d queue %d client %d\n",
--			   cur_query_entry->address.hi,
--			   cur_query_entry->address.lo, cur_query_entry->funcID,
--			   j, cur_query_entry->index);
-+			DP_AND((BNX2X_MSG_IOV | BNX2X_MSG_STATS),
-+			       "added address %x %x for vf %d queue %d client %d\n",
-+			       cur_query_entry->address.hi,
-+			       cur_query_entry->address.lo,
-+			       cur_query_entry->funcID,
-+			       j, cur_query_entry->index);
- 			cur_query_entry++;
- 			cur_data_offset += sizeof(struct per_queue_stats);
- 			stats_count++;
+ 	dev->features |= dev->hw_features | NETIF_F_HW_VLAN_CTAG_RX;
+ 	dev->features |= NETIF_F_HIGHDMA;
+@@ -14009,6 +14007,14 @@ static int bnx2x_init_one(struct pci_dev *pdev,
+ 		rc = bnx2x_vfpf_acquire(bp, tx_count, rx_count);
+ 		if (rc)
+ 			goto init_one_freemem;
++
++#ifdef CONFIG_BNX2X_SRIOV
++		/* VF with OLD Hypervisor or old PF do not support filtering */
++		if (bp->acquire_resp.pfdev_info.pf_cap & PFVF_CAP_VLAN_FILTER) {
++			dev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
++			dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
++		}
++#endif
+ 	}
+ 
+ 	/* Enable SRIOV if capability found in configuration space */
 -- 
 2.9.3
