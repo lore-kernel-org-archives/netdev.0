@@ -1,70 +1,74 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next RFC 4/4] virtio-net: clean tx descriptors from rx napi
-Date: Fri,  3 Mar 2017 09:39:09 -0500
-Message-ID: <20170303143909.80001-5-willemdebruijn.kernel@gmail.com>
-References: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
-Cc: jasowang@redhat.com, mst@redhat.com,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:33605 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752236AbdCCOrr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 09:47:47 -0500
-Received: by mail-qk0-f196.google.com with SMTP id j127so9425588qke.0
-        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 06:47:46 -0800 (PST)
-In-Reply-To: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 26/26] kasan: rework Kconfig settings
+Date: Fri, 3 Mar 2017 16:03:23 +0100
+Message-ID: <CAK8P3a1=NyWKehX8pbTG_DGha4xx3NypyAAUYJvGb9kMBEpXmw@mail.gmail.com>
+References: <20170302163834.2273519-1-arnd@arndb.de> <20170302163834.2273519-27-arnd@arndb.de>
+ <125a8ea6-35d7-9d37-3841-eebb37fce515@virtuozzo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: kasan-dev <kasan-dev@googlegroups.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-media@vger.kernel.org,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        kernel-build-reports@lists.linaro.org,
+        "David S . Miller" <davem@davemloft.net>
+To: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <125a8ea6-35d7-9d37-3841-eebb37fce515@virtuozzo.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+On Fri, Mar 3, 2017 at 3:51 PM, Andrey Ryabinin <aryabinin@virtuozzo.com> wrote:
+>
+>
+> On 03/02/2017 07:38 PM, Arnd Bergmann wrote:
+>
+>>
+>> diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+>> index 97d62c2da6c2..27c838c40a36 100644
+>> --- a/lib/Kconfig.debug
+>> +++ b/lib/Kconfig.debug
+>> @@ -216,10 +216,9 @@ config ENABLE_MUST_CHECK
+>>  config FRAME_WARN
+>>       int "Warn for stack frames larger than (needs gcc 4.4)"
+>>       range 0 8192
+>> -     default 0 if KASAN
+>> -     default 2048 if GCC_PLUGIN_LATENT_ENTROPY
+>> +     default 3072 if KASAN_EXTRA
+>>       default 1024 if !64BIT
+>> -     default 2048 if 64BIT
+>> +     default 1280 if 64BIT
+>
+> This looks unrelated. Also, it means that now we have 1280 with KASAN=y && KASAN_EXTRA=n.
+> Judging from changelog I assume that this hunk slipped here from the follow up series.
 
-Amortize the cost of virtual interrupts by doing both rx and tx work
-on reception of a receive interrupt. Together VIRTIO_F_EVENT_IDX and
-vhost interrupt moderation, this suppresses most explicit tx
-completion interrupts for bidirectional workloads.
+Right, this slipped in by accident, I've already fixed it up locally.
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- drivers/net/virtio_net.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+>>       help
+>>         Tell gcc to warn at build time for stack frames larger than this.
+>>         Setting this too low will cause a lot of warnings.
+>> @@ -499,7 +498,7 @@ config DEBUG_OBJECTS_ENABLE_DEFAULT
+>>
+>>  config DEBUG_SLAB
+>>       bool "Debug slab memory allocations"
+>> -     depends on DEBUG_KERNEL && SLAB && !KMEMCHECK
+>> +     depends on DEBUG_KERNEL && SLAB && !KMEMCHECK && !KASAN
+>>       help
+>>         Say Y here to have the kernel do limited verification on memory
+>>         allocation as well as poisoning memory on free to catch use of freed
+>> @@ -511,7 +510,7 @@ config DEBUG_SLAB_LEAK
+>>
+>>  config SLUB_DEBUG_ON
+>>       bool "SLUB debugging on by default"
+>> -     depends on SLUB && SLUB_DEBUG && !KMEMCHECK
+>> +     depends on SLUB && SLUB_DEBUG && !KMEMCHECK && !KASAN
+>
+> Why? SLUB_DEBUG_ON works with KASAN.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 9a9031640179..21c575127d50 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1031,6 +1031,23 @@ static int virtnet_receive(struct receive_queue *rq, int budget)
- 	return received;
- }
- 
-+static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget);
-+
-+static void virtnet_poll_cleantx(struct receive_queue *rq)
-+{
-+	struct virtnet_info *vi = rq->vq->vdev->priv;
-+	unsigned int index = vq2rxq(rq->vq);
-+	struct send_queue *sq = &vi->sq[index];
-+	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, index);
-+
-+	__netif_tx_lock(txq, smp_processor_id());
-+	free_old_xmit_skbs(sq, sq->napi.weight);
-+	__netif_tx_unlock(txq);
-+
-+	if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
-+		netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
-+}
-+
- static int virtnet_poll(struct napi_struct *napi, int budget)
- {
- 	struct receive_queue *rq =
-@@ -1039,6 +1056,8 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
- 
- 	received = virtnet_receive(rq, budget);
- 
-+	virtnet_poll_cleantx(rq);
-+
- 	/* Out of packets? */
- 	if (received < budget)
- 		virtqueue_napi_complete(napi, rq->vq, received);
--- 
-2.12.0.rc1.440.g5b76565f74-goog
+Ok, will fix. I wrongly guessed that kmemcheck and kasan had the
+same reason for the two dependencies here.
+
+    Arnd
