@@ -1,47 +1,47 @@
-From: trajaraman@mvista.com
-Subject: [xfrm] xfrm: Added the auth and enc update support in "state update"
-Date: Fri,  3 Mar 2017 15:53:39 +0530
-Message-ID: <1488536619-14363-1-git-send-email-trajaraman@mvista.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Thiruvadi rajaraman <trajaraman@mvista.com>
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:34397 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751394AbdCCKYo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 05:24:44 -0500
-Received: by mail-pg0-f54.google.com with SMTP id 16so8453575pga.1
-        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 02:23:51 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH 0/4] net: thunderx: Miscellaneous fixes
+Date: Fri,  3 Mar 2017 16:17:46 +0530
+Message-ID: <1488538070-12549-1-git-send-email-sunil.kovvuri@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Thiruvadi rajaraman <trajaraman@mvista.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Updated the xfrm state update process to update the
-Authendication and Encryption keys.
+This patch set fixes multiples issues such as IOMMU
+translation faults when kernel is booted with IOMMU enabled
+on host, incorrect MAC ID reading from ACPI tables and IPv6
+UDP packet drop due to failure of checksum validation.
 
-Signed-off-by: Thiruvadi rajaraman <trajaraman@mvista.com>
----
- net/xfrm/xfrm_state.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Sunil Goutham (3):
+  net: thunderx: Fix IOMMU translation faults
+  net: thunderx: Fix LMAC mode debug prints for QSGMII mode
+  net: thunderx: Fix invalid mac addresses for node1 interfaces
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 419bf5d..6b15447 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1388,6 +1388,12 @@ int xfrm_state_update(struct xfrm_state *x)
- 		memcpy(&x1->lft, &x->lft, sizeof(x1->lft));
- 		x1->km.dying = 0;
- 
-+		/* To update Authendication and Encryption keys */
-+		x1->aalg = kmemdup(x->aalg, xfrm_alg_auth_len(x->aalg),
-+								GFP_KERNEL);
-+		x1->ealg = kmemdup(x->ealg, xfrm_alg_len(x->ealg),
-+								GFP_KERNEL);
-+
- 		tasklet_hrtimer_start(&x1->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
- 		if (x1->curlft.use_time)
- 			xfrm_state_check_expire(x1);
+Thanneeru Srinivasulu (1):
+  net: thunderx: Allow IPv6 frames with zero UDP checksum
+
+ drivers/net/ethernet/cavium/thunder/nic.h          |   1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |  12 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 193 +++++++++++++++++----
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   2 +
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |  64 +++++--
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |   1 -
+ 6 files changed, 223 insertions(+), 50 deletions(-)
+
 -- 
-1.9.1
+2.7.4
