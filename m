@@ -1,55 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/ipv4: division by 0 in tcp_select_window
-Date: Fri, 03 Mar 2017 12:56:01 -0800
-Message-ID: <1488574561.9415.336.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CACT4Y+Y+dL6EzkfDahjQUyyT4YMhDin7UPY5RQYbNH0n0DJ5xA@mail.gmail.com>
-         <CANn89iLNQKyywwLAdJsQDOpGDtEs6S-4BZkZYmwT39ENZyqLTg@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [Bug 194749] New: kernel bonding does not work in a network
+ nameservice in versions above 3.10.0-229.20.1
+Date: Fri, 3 Mar 2017 17:03:48 +0100
+Message-ID: <20170303160348.GA1888@nanopsycho.orion>
+References: <20170302103219.74b675c5@xeon-e3>
+ <CAM_iQpVm_WK9X+3Vsm0OrFCOd3Srn-s+xqe9fQtoT=30JZeVJQ@mail.gmail.com>
+ <1601587594.2278.1488487199506.JavaMail.zimbra@polter.net>
+ <4bd4e7b9-5546-2e85-bb08-42e45a13e1f3@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iLNQKyywwLAdJsQDOpGDtEs6S-4BZkZYmwT39ENZyqLTg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Dan Geist <dan@polter.net>, Cong Wang <xiyou.wangcong@gmail.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        chenweilong@huawei.com, Jiri Pirko <jiri@mellanox.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34252 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752026AbdCCVeD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 16:34:03 -0500
+Received: by mail-wm0-f66.google.com with SMTP id m70so4976262wma.1
+        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 13:34:01 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4bd4e7b9-5546-2e85-bb08-42e45a13e1f3@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-03-03 at 10:25 -0800, Eric Dumazet wrote:
-> On Fri, Mar 3, 2017 at 10:10 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> > Hello,
-> >
-> > The following program triggers division by 0 in tcp_select_window:
-> >
-> > https://gist.githubusercontent.com/dvyukov/ef28c0fd2ab57a655508ef7621b12e6c/raw/079011e2a9523a390b0621cbc1e5d9d5e637fd6d/gistfile1.txt
-> 
-> Yeah, tcp_disconnect() should never have existed in the first place.
-> 
-> We'll send a patch, unless you take care of this before us .
+Fri, Mar 03, 2017 at 04:19:13PM CET, nicolas.dichtel@6wind.com wrote:
+>Le 02/03/2017 à 21:39, Dan Geist a écrit :
+>> ----- On Mar 2, 2017, at 3:11 PM, Cong Wang xiyou.wangcong@gmail.com wrote
+>> 
+>>> On Thu, Mar 2, 2017 at 10:32 AM, Stephen Hemminger
+>>> <stephen@networkplumber.org> wrote:
+>>>>
+>>>>
+>>>> Begin forwarded message:
+>>>>
+>>>> Date: Wed, 01 Mar 2017 21:08:01 +0000
+>>>> From: bugzilla-daemon@bugzilla.kernel.org
+>>>> To: stephen@networkplumber.org
+>>>> Subject: [Bug 194749] New: kernel bonding does not work in a network nameservice
+>>>> in versions above 3.10.0-229.20.1
+>>>>
+>>>>
+>>>> https://bugzilla.kernel.org/show_bug.cgi?id=194749
+>>>>
+>>>>             Bug ID: 194749
+>>>>            Summary: kernel bonding does not work in a network nameservice
+>>>>                     in versions above 3.10.0-229.20.1
+>>>>            Product: Networking
+>>>>            Version: 2.5
+>>>>     Kernel Version: > 3.10.0-229.20.1
+>>>>           Hardware: x86-64
+>>>>                 OS: Linux
+>>>>               Tree: Mainline
+>>>>             Status: NEW
+>>>>           Severity: blocking
+>>>>           Priority: P1
+>>>>          Component: Other
+>>>>           Assignee: stephen@networkplumber.org
+>>>>           Reporter: dan@polter.net
+>>>>         Regression: No
+>>>>
+>>>> bond interface is being used in active/standby mode with two physical NICs
+>>>> inside a network nameservice to provide switchpath redundancy.
+>>>>
+>>>> netns is instantiated post-boot with the following:
+>>>>
+>>>> ip netns add vntp
+>>>> ip link set p4p1 netns vntp
+>>>> ip link set p4p2 netns vntp
+>>>> ip link set bond0 netns vntp
+>>>> ip netns exec vntp ip link set lo up
+>>>> ip netns exec vntp ip link set p4p1 up
+>>>> ip netns exec vntp ip link set p4p2 up
+>>>> ip netns exec vntp ip link set bond0 up
+>>>> ip netns exec vntp ifenslave bond0 p4p1 p4p2
+>>>
+>>> This is due to the following commit:
+>>>
+>>> commit f9399814927ad9bb995a6e109c2a5f9d8a848209
+>>> Author: Weilong Chen <chenweilong@huawei.com>
+>>> Date:   Wed Jan 22 17:16:30 2014 +0800
+>>>
+>>>    bonding: Don't allow bond devices to change network namespaces.
+>>>
+>>>    Like bridge, bonding as netdevice doesn't cross netns boundaries.
+>>>
+>>>    Bonding ports and bonding itself live in same netns.
+>>>
+>>>    Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+>>>    Signed-off-by: David S. Miller <davem@davemloft.net>
+>>>
+>>>
+>>> NETIF_F_NETNS_LOCAL was introduced for loopback device which
+>>> is created for each netns, it is not clear why we need to add it to bond
+>>> and bridge...
+>> 
+>> Thank you for tracking this down. Without digging through the code to figure it out, does this imply that the existence of a bond interface is not possible AT ALL within a netns or simply that it may not be "migrated" between the global scope and a netns?
+>It means that the migration is not possible. I think the only reason to have
+>this flag on bonding and bridge is the lack of test and fix. There is probably
+>some work to be done to have this feature. But are there real use cases of
+>x-netns bonding or x-netns bridge?
 
-Could you try this first patch ?
-
-Probably others will also be needed.
-
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 40d893556e6701ace6a02903e53c45822d6fa56d..2187ebf1f270d19e6dd019b8f9df5eef8d018e03 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -552,7 +552,8 @@ void tcp_write_timer_handler(struct sock *sk)
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	int event;
- 
--	if (sk->sk_state == TCP_CLOSE || !icsk->icsk_pending)
-+	if (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)) ||
-+	    !icsk->icsk_pending)
- 		goto out;
- 
- 	if (time_after(icsk->icsk_timeout, jiffies)) {
+If that use case exists I believe it is an abuse. Soft devices that are
+by definition in upper-lower relationships with other devices should not
+move to other namespaces. Prevents all kinds of issues. If you need a
+soft device like bridge of bond within a namespace, just create it there.
