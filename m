@@ -1,76 +1,244 @@
-From: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Subject: Re: usb/net/hso: WARNING: ungligned urb->setup_dma
-Date: Fri, 3 Mar 2017 16:31:31 +0100
-Message-ID: <565616b2-e8f7-e704-1ac5-f84b57ca5ba8@i2se.com>
-References: <20170228082810.syn656o2zzms7urf@tarshish>
- <20170228120134.4f65yihw7x22hfwd@tarshish>
- <36230d64-4ba0-7515-1131-ecf3ab9f352c@i2se.com>
- <20170228180700.3fxpimfysnhm6uis@tarshish>
- <1515966850.16584.1488306729844@email.1und1.de>
- <20170301105437.tmm6ovmnrhce3ofa@tarshish>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: John Youn <johnyoun-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>,
- linux-rpi-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Return-path: <linux-rpi-kernel-bounces+glkr-linux-rpi-kernel=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170301105437.tmm6ovmnrhce3ofa@tarshish>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rpi-kernel>,
- <mailto:linux-rpi-kernel-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rpi-kernel/>
-List-Post: <mailto:linux-rpi-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rpi-kernel-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rpi-kernel>,
- <mailto:linux-rpi-kernel-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "linux-rpi-kernel" <linux-rpi-kernel-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rpi-kernel-bounces+glkr-linux-rpi-kernel=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next RFC 2/4] virtio-net: transmit napi
+Date: Fri,  3 Mar 2017 09:39:07 -0500
+Message-ID: <20170303143909.80001-3-willemdebruijn.kernel@gmail.com>
+References: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
+Cc: jasowang@redhat.com, mst@redhat.com,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:34029 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751578AbdCCPfz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 10:35:55 -0500
+Received: by mail-qk0-f194.google.com with SMTP id s186so27975314qkb.1
+        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 07:34:28 -0800 (PST)
+In-Reply-To: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Baruch,
+From: Willem de Bruijn <willemb@google.com>
 
-Am 01.03.2017 um 11:54 schrieb Baruch Siach:
-> Hi Stefan,
->
-> On Tue, Feb 28, 2017 at 07:32:09PM +0100, Stefan Wahren wrote: 
->>> Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org> hat am 28. Februar 2017 um 19:07 geschrieben:
->>> On Tue, Feb 28, 2017 at 05:21:18PM +0100, Stefan Wahren wrote:
->>>> Am 28.02.2017 um 13:01 schrieb Baruch Siach:
->>>>> On Tue, Feb 28, 2017 at 10:28:10AM +0200, Baruch Siach wrote:
->>>>>> I'm hitting this warning consistently on my Raspberry Pi 3 running 
->>>>>> kernel
->>>>>> v4.10.1 with some unrelated device tree changes, and a debug print (below).
->>>>>> The device identifies as "GlobeTrotter HSDPA Modem", VID: 0af0, PID: 6971.
->>>>>> The warning triggers consistently on first write access to /dev/ttyHS0 that
->>>>>> ModemManager attempts. The first line in the log is my debug print.
->>>>> I tested the same hardware successfully on an i.MX6 CuBox-i (ARM32) using the
->>>>> same kernel version (4.10.1), and on an x86_64 PC (4.9). So this seems to be
->>>>> platform specific. I don't have any other ARM64 machine at the moment, though.
->>>> those platforms usually doesn't use the dwc2 USB host controller. So it
->>>> should be tested with another dwc2 platform.
->>> The code that initializes setup_dma is not under drivers/usb/dwc2/. Though the 
->>> problem looks like memory corruption, so its cause might be anywhere.
->> only a suspicion, but could you please try this patch [1]?
->>
->> [1] - https://patchwork.kernel.org/patch/9166771/
-> It doesn't change anything.
->
-> My guess is that source of the issue is memory corruption that just happens to 
-> corrupt also the setup_dma field of struct urb. In other words, it has nothing 
-> to do with DMA, IMO.
+Convert virtio-net to a standard napi tx completion path. This enables
+better TCP pacing using TCP small queues and increases single stream
+throughput.
 
-may you could use
+The virtio-net driver currently cleans tx descriptors on transmission
+of new packets in ndo_start_xmit. Latency depends on new traffic, so
+is unbounded. To avoid deadlock when a socket reaches its snd limit,
+packets are orphaned on tranmission. This breaks socket backpressure,
+including TSQ.
 
-CONFIG_DMA_API_DEBUG
+Napi increases the number of interrupts generated compared to the
+current model, which keeps interrupts disabled as long as the ring
+has enough free descriptors. Keep tx napi optional for now. Follow-on
+patches will reduce the interrupt cost.
 
-or
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ drivers/net/virtio_net.c | 73 ++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 61 insertions(+), 12 deletions(-)
 
-CONFIG_SLUB_DEBUG
-
-in order to find the source?
-
->
-> Thanks,
-> baruch
->
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 8c21e9a4adc7..9a9031640179 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -33,6 +33,8 @@
+ static int napi_weight = NAPI_POLL_WEIGHT;
+ module_param(napi_weight, int, 0444);
+ 
++static int napi_tx_weight = NAPI_POLL_WEIGHT;
++
+ static bool csum = true, gso = true;
+ module_param(csum, bool, 0444);
+ module_param(gso, bool, 0444);
+@@ -86,6 +88,8 @@ struct send_queue {
+ 
+ 	/* Name of the send queue: output.$index */
+ 	char name[40];
++
++	struct napi_struct napi;
+ };
+ 
+ /* Internal representation of a receive virtqueue */
+@@ -262,12 +266,16 @@ static void virtqueue_napi_complete(struct napi_struct *napi,
+ static void skb_xmit_done(struct virtqueue *vq)
+ {
+ 	struct virtnet_info *vi = vq->vdev->priv;
++	struct napi_struct *napi = &vi->sq[vq2txq(vq)].napi;
+ 
+ 	/* Suppress further interrupts. */
+ 	virtqueue_disable_cb(vq);
+ 
+-	/* We were probably waiting for more output buffers. */
+-	netif_wake_subqueue(vi->dev, vq2txq(vq));
++	if (napi->weight)
++		virtqueue_napi_schedule(napi, vq);
++	else
++		/* We were probably waiting for more output buffers. */
++		netif_wake_subqueue(vi->dev, vq2txq(vq));
+ }
+ 
+ static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
+@@ -961,6 +969,9 @@ static void skb_recv_done(struct virtqueue *rvq)
+ 
+ static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
+ {
++	if (!napi->weight)
++		return;
++
+ 	napi_enable(napi);
+ 
+ 	/* If all buffers were filled by other side before we napi_enabled, we
+@@ -1046,12 +1057,13 @@ static int virtnet_open(struct net_device *dev)
+ 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+ 				schedule_delayed_work(&vi->refill, 0);
+ 		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
++		virtnet_napi_enable(vi->sq[i].vq, &vi->sq[i].napi);
+ 	}
+ 
+ 	return 0;
+ }
+ 
+-static void free_old_xmit_skbs(struct send_queue *sq)
++static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget)
+ {
+ 	struct sk_buff *skb;
+ 	unsigned int len;
+@@ -1060,7 +1072,8 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+ 	unsigned int packets = 0;
+ 	unsigned int bytes = 0;
+ 
+-	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
++	while (packets < budget &&
++	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+ 		pr_debug("Sent skb %p\n", skb);
+ 
+ 		bytes += skb->len;
+@@ -1073,12 +1086,35 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+ 	 * happens when called speculatively from start_xmit.
+ 	 */
+ 	if (!packets)
+-		return;
++		return 0;
+ 
+ 	u64_stats_update_begin(&stats->tx_syncp);
+ 	stats->tx_bytes += bytes;
+ 	stats->tx_packets += packets;
+ 	u64_stats_update_end(&stats->tx_syncp);
++
++	return packets;
++}
++
++static int virtnet_poll_tx(struct napi_struct *napi, int budget)
++{
++	struct send_queue *sq = container_of(napi, struct send_queue, napi);
++	struct virtnet_info *vi = sq->vq->vdev->priv;
++	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
++	bool complete = false;
++
++	__netif_tx_lock(txq, smp_processor_id());
++	if (free_old_xmit_skbs(sq, budget) < budget)
++		complete = true;
++	__netif_tx_unlock(txq);
++
++	if (complete)
++		virtqueue_napi_complete(napi, sq->vq, 0);
++
++	if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
++		netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
++
++	return complete ? 0 : budget;
+ }
+ 
+ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+@@ -1130,9 +1166,11 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int err;
+ 	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
+ 	bool kick = !skb->xmit_more;
++	bool use_napi = sq->napi.weight;
+ 
+ 	/* Free up any pending old buffers before queueing new ones. */
+-	free_old_xmit_skbs(sq);
++	if (!use_napi)
++		free_old_xmit_skbs(sq, napi_weight);
+ 
+ 	/* timestamp packet in software */
+ 	skb_tx_timestamp(skb);
+@@ -1152,8 +1190,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	/* Don't wait up for transmitted skbs to be freed. */
+-	skb_orphan(skb);
+-	nf_reset(skb);
++	if (!use_napi) {
++		skb_orphan(skb);
++		nf_reset(skb);
++	}
+ 
+ 	/* If running out of space, stop queue to avoid getting packets that we
+ 	 * are then unable to transmit.
+@@ -1167,9 +1207,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
+ 		netif_stop_subqueue(dev, qnum);
+-		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
++		if (!use_napi &&
++		    unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+ 			/* More just got used, free them then recheck. */
+-			free_old_xmit_skbs(sq);
++			free_old_xmit_skbs(sq, virtqueue_get_vring_size(sq->vq));
+ 			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
+ 				netif_start_subqueue(dev, qnum);
+ 				virtqueue_disable_cb(sq->vq);
+@@ -1371,8 +1412,10 @@ static int virtnet_close(struct net_device *dev)
+ 	/* Make sure refill_work doesn't re-enable napi! */
+ 	cancel_delayed_work_sync(&vi->refill);
+ 
+-	for (i = 0; i < vi->max_queue_pairs; i++)
++	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		napi_disable(&vi->rq[i].napi);
++		napi_disable(&vi->sq[i].napi);
++	}
+ 
+ 	return 0;
+ }
+@@ -1719,6 +1762,7 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
+ 	if (netif_running(vi->dev)) {
+ 		for (i = 0; i < vi->max_queue_pairs; i++)
+ 			napi_disable(&vi->rq[i].napi);
++			napi_disable(&vi->sq[i].napi);
+ 	}
+ }
+ 
+@@ -1741,8 +1785,10 @@ static int virtnet_restore_up(struct virtio_device *vdev)
+ 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+ 				schedule_delayed_work(&vi->refill, 0);
+ 
+-		for (i = 0; i < vi->max_queue_pairs; i++)
++		for (i = 0; i < vi->max_queue_pairs; i++) {
+ 			virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
++			virtnet_napi_enable(vi->sq[i].vq, &vi->sq[i].napi);
++		}
+ 	}
+ 
+ 	netif_device_attach(vi->dev);
+@@ -1947,6 +1993,7 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		napi_hash_del(&vi->rq[i].napi);
+ 		netif_napi_del(&vi->rq[i].napi);
++		netif_napi_del(&vi->sq[i].napi);
+ 	}
+ 
+ 	/* We called napi_hash_del() before netif_napi_del(),
+@@ -2132,6 +2179,8 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
+ 		vi->rq[i].pages = NULL;
+ 		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
+ 			       napi_weight);
++		netif_napi_add(vi->dev, &vi->sq[i].napi, virtnet_poll_tx,
++			       napi_tx_weight);
+ 
+ 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
+ 		ewma_pkt_len_init(&vi->rq[i].mrg_avg_pkt_len);
+-- 
+2.12.0.rc1.440.g5b76565f74-goog
