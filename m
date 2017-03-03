@@ -1,63 +1,34 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net 1/2] sfc: avoid max() in array size
-Date: Fri, 3 Mar 2017 15:22:09 +0000
-Message-ID: <a7968205-58b6-a8e5-e3f7-757cf9ec46f6@solarflare.com>
-References: <0750d060-35d1-c221-f866-fba825e3947e@solarflare.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net/dccp: use-after-free in dccp_feat_activate_values
+Date: Fri, 3 Mar 2017 07:22:33 -0800
+Message-ID: <CANn89i+E+DkUJBV-3AQ38hstj9=G7=3fLJuG8LA6upp77ecwPA@mail.gmail.com>
+References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
+ <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
+ <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
+ <1488551576.9415.328.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1488552503.9415.330.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+Z6t_jGoh3Gm3Sxuu_ugF5kQ3QJ37LVdqoEK_ab52tQMA@mail.gmail.com> <CACT4Y+ZhNzcKTODGkD3R-68KgkOtYCaf4cZYPH51=HhREXVPGg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:63136 "EHLO
-        nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752332AbdCCPXO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 10:23:14 -0500
-In-Reply-To: <0750d060-35d1-c221-f866-fba825e3947e@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+ZhNzcKTODGkD3R-68KgkOtYCaf4cZYPH51=HhREXVPGg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It confuses sparse, which thinks the size isn't constant.  Let's achieve
- the same thing with a BUILD_BUG_ON, since we know which one should be
- bigger and don't expect them ever to change.
+On Fri, Mar 3, 2017 at 7:12 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> The first bot that picked this up started spewing:
+>
+> BUG: spinlock recursion on CPU#1, syz-executor2/9452
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Yes. The bug is not about locking the listener, but protecting fields
+of struct dccp_request_sock
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 92e1c6d..4d88e85 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -828,9 +828,7 @@ static int efx_ef10_alloc_piobufs(struct efx_nic *efx, unsigned int n)
- static int efx_ef10_link_piobufs(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
--	_MCDI_DECLARE_BUF(inbuf,
--			  max(MC_CMD_LINK_PIOBUF_IN_LEN,
--			      MC_CMD_UNLINK_PIOBUF_IN_LEN));
-+	MCDI_DECLARE_BUF(inbuf, MC_CMD_LINK_PIOBUF_IN_LEN);
- 	struct efx_channel *channel;
- 	struct efx_tx_queue *tx_queue;
- 	unsigned int offset, index;
-@@ -839,8 +837,6 @@ static int efx_ef10_link_piobufs(struct efx_nic *efx)
- 	BUILD_BUG_ON(MC_CMD_LINK_PIOBUF_OUT_LEN != 0);
- 	BUILD_BUG_ON(MC_CMD_UNLINK_PIOBUF_OUT_LEN != 0);
- 
--	memset(inbuf, 0, sizeof(inbuf));
--
- 	/* Link a buffer to each VI in the write-combining mapping */
- 	for (index = 0; index < nic_data->n_piobufs; ++index) {
- 		MCDI_SET_DWORD(inbuf, LINK_PIOBUF_IN_PIOBUF_HANDLE,
-@@ -920,6 +916,10 @@ static int efx_ef10_link_piobufs(struct efx_nic *efx)
- 	return 0;
- 
- fail:
-+	/* inbuf was defined for MC_CMD_LINK_PIOBUF.  We can use the same
-+	 * buffer for MC_CMD_UNLINK_PIOBUF because it's shorter.
-+	 */
-+	BUILD_BUG_ON(MC_CMD_LINK_PIOBUF_IN_LEN < MC_CMD_UNLINK_PIOBUF_IN_LEN);
- 	while (index--) {
- 		MCDI_SET_DWORD(inbuf, UNLINK_PIOBUF_IN_TXQ_INSTANCE,
- 			       nic_data->pio_write_vi_base + index);
+I will provide a patch, once I reach the office and after the breakfast ;)
