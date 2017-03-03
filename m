@@ -1,58 +1,57 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 25/26] isdn: eicon: mark divascapi incompatible with kasan
-Date: Fri, 3 Mar 2017 16:37:20 +0100
-Message-ID: <CAK8P3a3aMQ+q8o2rFEJ+qLQvauJsOi4kYRp41123qa5+hjY8sA@mail.gmail.com>
-References: <20170302163834.2273519-1-arnd@arndb.de> <20170302163834.2273519-26-arnd@arndb.de>
- <6ada42bd-4cc7-4985-3e3b-705cba6e157d@virtuozzo.com> <CAK8P3a1AT+x9TiCyC56m6DoiZnxCYcMm6ZtLKXa7nfq=f8kWvw@mail.gmail.com>
- <ecea124d-869d-2d62-ef49-34617391d6a2@virtuozzo.com>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: Dell Inspiron 5558/0VNM2T and suspend/resume problem with r8169
+Date: Fri, 3 Mar 2017 12:37:41 -0300
+Message-ID: <CA+ToGPGS+QsWQaH6WBNeXw_jVkmN3o+2f7CTW3i5bhjLTfJwCQ@mail.gmail.com>
+References: <CA+ToGPHD9qRLer2aVFkNhRmJjKwEf6=sdwyqdW_X463H-Fnh3g@mail.gmail.com>
+ <CA+ToGPEvrHFukKkO1u9v0ndeCHepjGKs5v43MX7MmaEHgwdyag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: kasan-dev <kasan-dev@googlegroups.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        linux-media@vger.kernel.org,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        kernel-build-reports@lists.linaro.org,
-        "David S . Miller" <davem@davemloft.net>
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <ecea124d-869d-2d62-ef49-34617391d6a2@virtuozzo.com>
-Sender: linux-media-owner@vger.kernel.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+ToGPEvrHFukKkO1u9v0ndeCHepjGKs5v43MX7MmaEHgwdyag@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 3, 2017 at 4:22 PM, Andrey Ryabinin <aryabinin@virtuozzo.com> wrote:
-> On 03/03/2017 05:54 PM, Arnd Bergmann wrote:
->> On Fri, Mar 3, 2017 at 3:20 PM, Andrey Ryabinin <aryabinin@virtuozzo.com> wrote:
->>> On 03/02/2017 07:38 PM, Arnd Bergmann wrote:
->>>
->>> This is kinda radical solution.
->>> Wouldn't be better to just increase -Wframe-larger-than for this driver through Makefile?
+On Wed, Mar 1, 2017 at 12:47 PM, Diego Viola <diego.viola@gmail.com> wrote:
+> On Wed, Mar 1, 2017 at 12:44 PM, Diego Viola <diego.viola@gmail.com> wrote:
+>> My machine (a Dell Inspiron 5558 laptop) fails to resume from suspend
+>> unless I rmmod r8169 first.
 >>
->> I thought about it too, and decided for disabling the driver entirely
->> since I suspected that
->> not only the per-function stack frame is overly large here but also
->> depth of the call chain,
->> which would then lead us to hiding an actual stack overflow.
+>> Another workaround is to do this before suspend:
 >>
+>> echo 0 > /sys/power/pm_async
+>>
+>> I've been reproducing the freeze like this:
+>>
+>> $ i3lock && systemctl suspend
+>>
+>> I would have to repeat this at least 5 times for the freeze to occur,
+>> but it seems to be easily reproducible.
+>>
+>> If I don't invoke i3lock, I cannot get the freeze to happen, but it
+>> seems to happen with other lockers also.
+>>
+>> I have tried Alt+SysRq+r and tried to switch to another TTY but the
+>> machine is always unresponsive, which indicates that it's a kernel
+>> panic.
+>>
+>> I have had a similar issue to this about a year ago with the jme
+>> driver and this was the fix:
+>>
+>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/net/ethernet/jme.c?id=ee50c130c82175eaa0820c96b6d3763928af2241
+>>
+>> I haven't tried getting a kernel trace yet, but all seems to indicate
+>> the problem is caused by r8169, at least til now.
+>>
+>> Any ideas, please?
+>>
+>> Thanks,
+>> Diego
 >
-> No one complained so far ;)
-> Disabling the driver like you did will throw it out from allmodconfig so it will receive less compile-testing.
-
-Good point, I'll add a driver specific flag then and leave it there.
-
->> Note that this driver is almost certainly broken, it hasn't seen any
->> updates other than
->> style and compile-warning fixes in 10 years and doesn't support any of
->> the hardware
->> introduced since 2002 (the company still makes PCIe ISDN adapters, but
->> the driver
->> only supports legacy PCI versions and older buses).
+> Sorry, I forgot to mention, I'm on Arch Linux (x86_64), kernel 4.9.11-1-ARCH.
 >
-> Which means that it's unlikely that someone will run this driver with KASAN
-and trigger stack overflow (if it's really possible).
+> Diego
 
-True.
+This is still a problem with Linux 4.10.1.
 
-   Arnd
+Diego
