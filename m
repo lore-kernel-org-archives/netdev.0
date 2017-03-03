@@ -1,109 +1,82 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/2] ixgbe: update the rss key on h/w, when ethtool ask for it
-Date: Thu,  2 Mar 2017 18:24:47 -0800
-Message-ID: <20170303022448.79638-2-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/2] ixgbe: Limit use of 2K buffers on architectures with 256B or larger cache lines
+Date: Thu,  2 Mar 2017 18:24:48 -0800
+Message-ID: <20170303022448.79638-3-jeffrey.t.kirsher@intel.com>
 References: <20170303022448.79638-1-jeffrey.t.kirsher@intel.com>
-Cc: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43918 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:34339 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751473AbdCCCZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751475AbdCCCZL (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 2 Mar 2017 21:25:11 -0500
 In-Reply-To: <20170303022448.79638-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Currently ixgbe_set_rxfh() updates the rss_key copy in the driver
-memory, but does not push the new value into the h/w. This commit
-add a new helper for the latter operation and call it in
-ixgbe_set_rxfh(), so that the h/w rss key value can be really
-updated via ethtool.
+On architectures that have a cache line size larger than 64 Bytes we start
+running into issues where the amount of headroom for the frame starts
+shrinking.
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+The size of skb_shared_info on a system with a 64B L1 cache line size is
+320.  This increases to 384 with a 128B cache line, and 512 with a 256B
+cache line.
+
+In addition the NET_SKB_PAD value increases as well consistent with the
+cache line size.  As a result when we get to a 256B cache line as seen on
+the s390 we end up 768 bytes used by padding and shared info leaving us
+with only 1280 bytes to use for data storage.  On architectures such as
+this we should default to using 3K Rx buffers out of a 8K page instead of
+trying to do 1.5K buffers out of a 4K page.
+
+To take all of this into account I have added one small check so that we
+compare the max_frame to the amount of actual data we can store.  This was
+already occurring for igb, but I had overlooked it for ixgbe as it doesn't
+have strict limits for 82599 once we enable jumbo frames.  By adding this
+check we will automatically enable 3K Rx buffers as soon as the maximum
+frame size we can handle drops below the standard Ethernet MTU.
+
+I also went through and fixed one small typo that I found where I had left
+an IGB in a variable name due to a copy/paste error.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  4 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 19 ++++++++++++++++---
- 3 files changed, 20 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      | 2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index a2cc43d28888..7a951b116821 100644
+index 7a951b116821..b1ecc2627a5a 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -929,6 +929,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 				  struct ixgbe_adapter *adapter,
- 				  struct ixgbe_ring *tx_ring);
- u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter);
-+void ixgbe_store_key(struct ixgbe_adapter *adapter);
- void ixgbe_store_reta(struct ixgbe_adapter *adapter);
- s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
- 		       u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index a7574c7b12af..90fa5bf23d1b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2998,8 +2998,10 @@ static int ixgbe_set_rxfh(struct net_device *netdev, const u32 *indir,
- 	}
+@@ -96,7 +96,7 @@
+ #define IXGBE_MAX_FRAME_BUILD_SKB \
+ 	(SKB_WITH_OVERHEAD(IXGBE_RXBUFFER_2K) - IXGBE_SKB_PAD)
+ #else
+-#define IGB_MAX_FRAME_BUILD_SKB IXGBE_RXBUFFER_2K
++#define IXGBE_MAX_FRAME_BUILD_SKB IXGBE_RXBUFFER_2K
+ #endif
  
- 	/* Fill out the rss hash key */
--	if (key)
-+	if (key) {
- 		memcpy(adapter->rss_key, key, ixgbe_get_rxfh_key_size(netdev));
-+		ixgbe_store_key(adapter);
-+	}
- 
- 	ixgbe_store_reta(adapter);
- 
+ /*
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 060cdce8058f..67ab13fd163c 100644
+index 67ab13fd163c..a7a430a7be2c 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3474,6 +3474,21 @@ u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
- }
+@@ -3972,7 +3972,8 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+ 		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
+ 			set_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
  
- /**
-+ * ixgbe_store_key - Write the RSS key to HW
-+ * @adapter: device handle
-+ *
-+ * Write the RSS key stored in adapter.rss_key to HW.
-+ */
-+void ixgbe_store_key(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
-+
-+	for (i = 0; i < 10; i++)
-+		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), adapter->rss_key[i]);
-+}
-+
-+/**
-  * ixgbe_store_reta - Write the RETA table to HW
-  * @adapter: device handle
-  *
-@@ -3538,7 +3553,6 @@ static void ixgbe_store_vfreta(struct ixgbe_adapter *adapter)
- 
- static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
- {
--	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 i, j;
- 	u32 reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
- 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
-@@ -3551,8 +3565,7 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
- 		rss_i = 4;
- 
- 	/* Fill out hash function seeds */
--	for (i = 0; i < 10; i++)
--		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), adapter->rss_key[i]);
-+	ixgbe_store_key(adapter);
- 
- 	/* Fill out redirection table */
- 	memset(adapter->rss_indir_tbl, 0, sizeof(adapter->rss_indir_tbl));
+-		if (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN))
++		if ((max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)) ||
++		    (max_frame > IXGBE_MAX_FRAME_BUILD_SKB))
+ 			set_bit(__IXGBE_RX_3K_BUFFER, &rx_ring->state);
+ #endif
+ 	}
 -- 
 2.12.0
