@@ -1,97 +1,110 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: change to save MSG_MORE flag into assoc
-Date: Fri,  3 Mar 2017 14:23:55 +0800
-Message-ID: <ba64767f352e56cfe694af89445fe155cd431cd0.1488522235.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        David Laight <david.laight@aculab.com>
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33880 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751356AbdCCGYI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 01:24:08 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/1] rds: remove unnecessary returned value check
+Date: Fri,  3 Mar 2017 00:44:26 -0500
+Message-ID: <1488519866-24148-1-git-send-email-yanjun.zhu@oracle.com>
+To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+        yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Laight noticed the support for MSG_MORE with datamsg->force_day
-didn't really work as we expected, as the first msg with MSG_MORE set
-would always block the following chunks' dequeuing.
+The function rds_trans_register always returns 0. As such, it is not
+necessary to check the returned value.
 
-This Patch is to rewrite it by saving the MSG_MORE flag into assoc as
-Divid Laight suggested.
-
-asoc->force_delay is used to save MSG_MORE flag before a msg is sent.
-Once this msg is queued, asoc->force_delay is set back to 0, so that
-it will not affect other places flushing out queue.
-
-asoc->force_delay works as a 'local param' here as the msg sending is
-under protection of sock lock.  It would make sctp's MSG_MORE work as
-tcp's.
-
-Fixes: 4ea0c32f5f42 ("sctp: add support for MSG_MORE")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
- include/net/sctp/structs.h | 2 +-
- net/sctp/output.c          | 2 +-
- net/sctp/socket.c          | 3 ++-
- 3 files changed, 4 insertions(+), 3 deletions(-)
+ net/rds/ib.c        | 6 +-----
+ net/rds/rds.h       | 2 +-
+ net/rds/tcp.c       | 6 +-----
+ net/rds/transport.c | 4 +---
+ 4 files changed, 4 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index a244db5..3378c02 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -497,7 +497,6 @@ struct sctp_datamsg {
- 	/* Did the messenge fail to send? */
- 	int send_error;
- 	u8 send_failed:1,
--	   force_delay:1,
- 	   can_delay;	    /* should this message be Nagle delayed */
- };
+diff --git a/net/rds/ib.c b/net/rds/ib.c
+index 0f557b2..7a64c8d 100644
+--- a/net/rds/ib.c
++++ b/net/rds/ib.c
+@@ -438,16 +438,12 @@ int rds_ib_init(void)
+ 	if (ret)
+ 		goto out_sysctl;
  
-@@ -1876,6 +1875,7 @@ struct sctp_association {
+-	ret = rds_trans_register(&rds_ib_transport);
+-	if (ret)
+-		goto out_recv;
++	rds_trans_register(&rds_ib_transport);
  
- 	__u8 need_ecne:1,	/* Need to send an ECNE Chunk? */
- 	     temp:1,		/* Is it a temporary association? */
-+	     force_delay:1,
- 	     prsctp_enable:1,
- 	     reconf_enable:1;
+ 	rds_info_register_func(RDS_INFO_IB_CONNECTIONS, rds_ib_ic_info);
  
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 85406d5..5f6acac 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -705,7 +705,7 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
- 	 */
+ 	goto out;
  
- 	if ((sctp_sk(asoc->base.sk)->nodelay || inflight == 0) &&
--	    !chunk->msg->force_delay)
-+	    !asoc->force_delay)
- 		/* Nothing unacked */
- 		return SCTP_XMIT_OK;
+-out_recv:
+-	rds_ib_recv_exit();
+ out_sysctl:
+ 	rds_ib_sysctl_exit();
+ out_ibreg:
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 966d2ee..39518ef 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -903,7 +903,7 @@ void rds_connect_path_complete(struct rds_conn_path *conn, int curr);
+ void rds_connect_complete(struct rds_connection *conn);
  
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 465a9c8..d62cf9e 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1964,7 +1964,7 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
- 		err = PTR_ERR(datamsg);
- 		goto out_free;
+ /* transport.c */
+-int rds_trans_register(struct rds_transport *trans);
++void rds_trans_register(struct rds_transport *trans);
+ void rds_trans_unregister(struct rds_transport *trans);
+ struct rds_transport *rds_trans_get_preferred(struct net *net, __be32 addr);
+ void rds_trans_put(struct rds_transport *trans);
+diff --git a/net/rds/tcp.c b/net/rds/tcp.c
+index 5438f67..a973d3b 100644
+--- a/net/rds/tcp.c
++++ b/net/rds/tcp.c
+@@ -652,16 +652,12 @@ static int rds_tcp_init(void)
+ 	if (ret)
+ 		goto out_pernet;
+ 
+-	ret = rds_trans_register(&rds_tcp_transport);
+-	if (ret)
+-		goto out_recv;
++	rds_trans_register(&rds_tcp_transport);
+ 
+ 	rds_info_register_func(RDS_INFO_TCP_SOCKETS, rds_tcp_tc_info);
+ 
+ 	goto out;
+ 
+-out_recv:
+-	rds_tcp_recv_exit();
+ out_pernet:
+ 	unregister_pernet_subsys(&rds_tcp_net_ops);
+ out_notifier:
+diff --git a/net/rds/transport.c b/net/rds/transport.c
+index 2ffd3e3..0b188dd 100644
+--- a/net/rds/transport.c
++++ b/net/rds/transport.c
+@@ -40,7 +40,7 @@
+ static struct rds_transport *transports[RDS_TRANS_COUNT];
+ static DECLARE_RWSEM(rds_trans_sem);
+ 
+-int rds_trans_register(struct rds_transport *trans)
++void rds_trans_register(struct rds_transport *trans)
+ {
+ 	BUG_ON(strlen(trans->t_name) + 1 > TRANSNAMSIZ);
+ 
+@@ -55,8 +55,6 @@ int rds_trans_register(struct rds_transport *trans)
  	}
--	datamsg->force_delay = !!(msg->msg_flags & MSG_MORE);
-+	asoc->force_delay = !!(msg->msg_flags & MSG_MORE);
  
- 	/* Now send the (possibly) fragmented message. */
- 	list_for_each_entry(chunk, &datamsg->chunks, frag_list) {
-@@ -1982,6 +1982,7 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
- 	 * breaks.
- 	 */
- 	err = sctp_primitive_SEND(net, asoc, datamsg);
-+	asoc->force_delay = 0;
- 	/* Did the lower layer accept the chunk? */
- 	if (err) {
- 		sctp_datamsg_free(datamsg);
+ 	up_write(&rds_trans_sem);
+-
+-	return 0;
+ }
+ EXPORT_SYMBOL_GPL(rds_trans_register);
+ 
 -- 
-2.1.0
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
