@@ -1,143 +1,106 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/4] can: gs_usb: Don't use stack memory for USB transfers
-Date: Fri,  3 Mar 2017 14:55:32 +0100
-Message-ID: <20170303135535.22937-2-mkl@pengutronix.de>
-References: <20170303135535.22937-1-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Ethan Zonca <e@ethanzonca.com>,
-        "linux-stable # = v4 . 8" <stable@vger.kernel.org>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170303135535.22937-1-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
+From: Igor Druzhinin <igor.druzhinin@citrix.com>
+Subject: Re: [PATCH] xen-netback: fix race condition on XenBus
+	disconnect
+Date: Fri, 3 Mar 2017 13:55:52 +0000
+Message-ID: <3fccafb1-75b8-10b6-4f3e-3d7f9b11bf77@citrix.com>
+References: <1488495410-137500-1-git-send-email-igor.druzhinin@citrix.com>
+ <23927ef4bba04925994cb0b7acbcbbc0@AMSPEX02CL03.citrite.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jgross@suse.com" <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "xen-devel@lists.xenproject.org"
+ <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <23927ef4bba04925994cb0b7acbcbbc0@AMSPEX02CL03.citrite.net>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-From: Ethan Zonca <e@ethanzonca.com>
-
-Fixes: 05ca5270005c can: gs_usb: add ethtool set_phys_id callback to locate physical device
-
-The gs_usb driver is performing USB transfers using buffers allocated on
-the stack. This causes the driver to not function with vmapped stacks.
-Instead, allocate memory for the transfer buffers.
-
-Signed-off-by: Ethan Zonca <e@ethanzonca.com>
-Cc: linux-stable <stable@vger.kernel.org> # >= v4.8
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/usb/gs_usb.c | 40 +++++++++++++++++++++++++++++-----------
- 1 file changed, 29 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/can/usb/gs_usb.c b/drivers/net/can/usb/gs_usb.c
-index 77e3cc06a30c..a0dabd4038ba 100644
---- a/drivers/net/can/usb/gs_usb.c
-+++ b/drivers/net/can/usb/gs_usb.c
-@@ -908,10 +908,14 @@ static int gs_usb_probe(struct usb_interface *intf,
- 	struct gs_usb *dev;
- 	int rc = -ENOMEM;
- 	unsigned int icount, i;
--	struct gs_host_config hconf = {
--		.byte_order = 0x0000beef,
--	};
--	struct gs_device_config dconf;
-+	struct gs_host_config *hconf;
-+	struct gs_device_config *dconf;
-+
-+	hconf = kmalloc(sizeof(*hconf), GFP_KERNEL);
-+	if (!hconf)
-+		return -ENOMEM;
-+
-+	hconf->byte_order = 0x0000beef;
- 
- 	/* send host config */
- 	rc = usb_control_msg(interface_to_usbdev(intf),
-@@ -920,16 +924,22 @@ static int gs_usb_probe(struct usb_interface *intf,
- 			     USB_DIR_OUT|USB_TYPE_VENDOR|USB_RECIP_INTERFACE,
- 			     1,
- 			     intf->altsetting[0].desc.bInterfaceNumber,
--			     &hconf,
--			     sizeof(hconf),
-+			     hconf,
-+			     sizeof(*hconf),
- 			     1000);
- 
-+	kfree(hconf);
-+
- 	if (rc < 0) {
- 		dev_err(&intf->dev, "Couldn't send data format (err=%d)\n",
- 			rc);
- 		return rc;
- 	}
- 
-+	dconf = kmalloc(sizeof(*dconf), GFP_KERNEL);
-+	if (!dconf)
-+		return -ENOMEM;
-+
- 	/* read device config */
- 	rc = usb_control_msg(interface_to_usbdev(intf),
- 			     usb_rcvctrlpipe(interface_to_usbdev(intf), 0),
-@@ -937,28 +947,33 @@ static int gs_usb_probe(struct usb_interface *intf,
- 			     USB_DIR_IN|USB_TYPE_VENDOR|USB_RECIP_INTERFACE,
- 			     1,
- 			     intf->altsetting[0].desc.bInterfaceNumber,
--			     &dconf,
--			     sizeof(dconf),
-+			     dconf,
-+			     sizeof(*dconf),
- 			     1000);
- 	if (rc < 0) {
- 		dev_err(&intf->dev, "Couldn't get device config: (err=%d)\n",
- 			rc);
-+		kfree(dconf);
- 		return rc;
- 	}
- 
--	icount = dconf.icount + 1;
-+	icount = dconf->icount + 1;
- 	dev_info(&intf->dev, "Configuring for %d interfaces\n", icount);
- 
- 	if (icount > GS_MAX_INTF) {
- 		dev_err(&intf->dev,
- 			"Driver cannot handle more that %d CAN interfaces\n",
- 			GS_MAX_INTF);
-+		kfree(dconf);
- 		return -EINVAL;
- 	}
- 
- 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
--	if (!dev)
-+	if (!dev) {
-+		kfree(dconf);
- 		return -ENOMEM;
-+	}
-+
- 	init_usb_anchor(&dev->rx_submitted);
- 
- 	atomic_set(&dev->active_channels, 0);
-@@ -967,7 +982,7 @@ static int gs_usb_probe(struct usb_interface *intf,
- 	dev->udev = interface_to_usbdev(intf);
- 
- 	for (i = 0; i < icount; i++) {
--		dev->canch[i] = gs_make_candev(i, intf, &dconf);
-+		dev->canch[i] = gs_make_candev(i, intf, dconf);
- 		if (IS_ERR_OR_NULL(dev->canch[i])) {
- 			/* save error code to return later */
- 			rc = PTR_ERR(dev->canch[i]);
-@@ -978,12 +993,15 @@ static int gs_usb_probe(struct usb_interface *intf,
- 				gs_destroy_candev(dev->canch[i]);
- 
- 			usb_kill_anchored_urbs(&dev->rx_submitted);
-+			kfree(dconf);
- 			kfree(dev);
- 			return rc;
- 		}
- 		dev->canch[i]->parent = dev;
- 	}
- 
-+	kfree(dconf);
-+
- 	return 0;
- }
- 
--- 
-2.11.0
+T24gMDMvMDMvMTcgMDk6MTgsIFBhdWwgRHVycmFudCB3cm90ZToKPj4gLS0tLS1PcmlnaW5hbCBN
+ZXNzYWdlLS0tLS0KPj4gRnJvbTogSWdvciBEcnV6aGluaW4gW21haWx0bzppZ29yLmRydXpoaW5p
+bkBjaXRyaXguY29tXQo+PiBTZW50OiAwMiBNYXJjaCAyMDE3IDIyOjU3Cj4+IFRvOiBuZXRkZXZA
+dmdlci5rZXJuZWwub3JnOyB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmcKPj4gQ2M6IFBh
+dWwgRHVycmFudCA8UGF1bC5EdXJyYW50QGNpdHJpeC5jb20+OyBqZ3Jvc3NAc3VzZS5jb207IFdl
+aSBMaXUKPj4gPHdlaS5saXUyQGNpdHJpeC5jb20+OyBJZ29yIERydXpoaW5pbiA8aWdvci5kcnV6
+aGluaW5AY2l0cml4LmNvbT4KPj4gU3ViamVjdDogW1BBVENIXSB4ZW4tbmV0YmFjazogZml4IHJh
+Y2UgY29uZGl0aW9uIG9uIFhlbkJ1cyBkaXNjb25uZWN0Cj4+Cj4+IEluIHNvbWUgY2FzZXMgZHVy
+aW5nIFhlbkJ1cyBkaXNjb25uZWN0IGV2ZW50IGhhbmRsaW5nIGFuZCBzdWJzZXF1ZW50Cj4+IHF1
+ZXVlIHJlc291cmNlIHJlbGVhc2UgdGhlcmUgbWF5IGJlIHNvbWUgVFggaGFuZGxlcnMgYWN0aXZl
+IG9uCj4+IG90aGVyIHByb2Nlc3NvcnMuIFVzZSBSQ1UgaW4gb3JkZXIgdG8gc3luY2hyb25pemUg
+d2l0aCB0aGVtLgo+Pgo+PiBTaWduZWQtb2ZmLWJ5OiBJZ29yIERydXpoaW5pbiA8aWdvci5kcnV6
+aGluaW5AY2l0cml4LmNvbT4KPj4gLS0tCj4+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRl
+cmZhY2UuYyB8IDEzICsrKysrKysrLS0tLS0KPj4gIGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hl
+bmJ1cy5jICAgIHwgMTcgKysrKysrKy0tLS0tLS0tLS0KPj4gIDIgZmlsZXMgY2hhbmdlZCwgMTUg
+aW5zZXJ0aW9ucygrKSwgMTUgZGVsZXRpb25zKC0pCj4+Cj4+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYyBiL2RyaXZlcnMvbmV0L3hlbi0KPj4gbmV0YmFj
+ay9pbnRlcmZhY2UuYwo+PiBpbmRleCBhMmQzMjY3Ni4uMzJlMmNjNiAxMDA2NDQKPj4gLS0tIGEv
+ZHJpdmVycy9uZXQveGVuLW5ldGJhY2svaW50ZXJmYWNlLmMKPj4gKysrIGIvZHJpdmVycy9uZXQv
+eGVuLW5ldGJhY2svaW50ZXJmYWNlLmMKPj4gQEAgLTE2NCw3ICsxNjQsNyBAQCBzdGF0aWMgaW50
+IHhlbnZpZl9zdGFydF94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdAo+PiBuZXRfZGV2
+aWNlICpkZXYpCj4+ICB7Cj4+ICAJc3RydWN0IHhlbnZpZiAqdmlmID0gbmV0ZGV2X3ByaXYoZGV2
+KTsKPj4gIAlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpxdWV1ZSA9IE5VTEw7Cj4+IC0JdW5zaWduZWQg
+aW50IG51bV9xdWV1ZXMgPSB2aWYtPm51bV9xdWV1ZXM7Cj4gCj4gRG8geW91IG5vdCBuZWVkIGFu
+IHJjdV9yZWFkX2xvY2soKSBhcm91bmQgdGhpcyBhbmQgdXNlIG9mIHRoZSBudW1fcXVldWVzIHZh
+bHVlIChhcyB5b3UgaGF2ZSBiZWxvdyk/CgpIdWgsIG1pc3NlZCB0aGlzIG9uZS4gUG9pbnQgaXMg
+dGhhdCB4ZW52aWZfc3RhcnRfeG1pdCBpcyBhbHJlYWR5IGluIFJDVQpyZWFkIHNlY3Rpb24uCgpJ
+Z29yCgo+IAo+PiArCXVuc2lnbmVkIGludCBudW1fcXVldWVzID0gcmN1X2RlcmVmZXJlbmNlKHZp
+ZiktPm51bV9xdWV1ZXM7Cj4+ICAJdTE2IGluZGV4Owo+PiAgCXN0cnVjdCB4ZW52aWZfcnhfY2Ig
+KmNiOwo+Pgo+PiBAQCAtMjIxLDE4ICsyMjEsMjEgQEAgc3RhdGljIHN0cnVjdCBuZXRfZGV2aWNl
+X3N0YXRzCj4+ICp4ZW52aWZfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCj4+ICB7
+Cj4+ICAJc3RydWN0IHhlbnZpZiAqdmlmID0gbmV0ZGV2X3ByaXYoZGV2KTsKPj4gIAlzdHJ1Y3Qg
+eGVudmlmX3F1ZXVlICpxdWV1ZSA9IE5VTEw7Cj4+ICsJdW5zaWduZWQgaW50IG51bV9xdWV1ZXM7
+Cj4+ICAJdTY0IHJ4X2J5dGVzID0gMDsKPj4gIAl1NjQgcnhfcGFja2V0cyA9IDA7Cj4+ICAJdTY0
+IHR4X2J5dGVzID0gMDsKPj4gIAl1NjQgdHhfcGFja2V0cyA9IDA7Cj4+ICAJdW5zaWduZWQgaW50
+IGluZGV4Owo+Pgo+PiAtCXNwaW5fbG9jaygmdmlmLT5sb2NrKTsKPj4gLQlpZiAodmlmLT5xdWV1
+ZXMgPT0gTlVMTCkKPj4gKwlyY3VfcmVhZF9sb2NrKCk7Cj4+ICsKPj4gKwludW1fcXVldWVzID0g
+cmN1X2RlcmVmZXJlbmNlKHZpZiktPm51bV9xdWV1ZXM7Cj4+ICsJaWYgKG51bV9xdWV1ZXMgPCAx
+KQo+PiAgCQlnb3RvIG91dDsKPj4KPj4gIAkvKiBBZ2dyZWdhdGUgdHggYW5kIHJ4IHN0YXRzIGZy
+b20gZWFjaCBxdWV1ZSAqLwo+PiAtCWZvciAoaW5kZXggPSAwOyBpbmRleCA8IHZpZi0+bnVtX3F1
+ZXVlczsgKytpbmRleCkgewo+PiArCWZvciAoaW5kZXggPSAwOyBpbmRleCA8IG51bV9xdWV1ZXM7
+ICsraW5kZXgpIHsKPj4gIAkJcXVldWUgPSAmdmlmLT5xdWV1ZXNbaW5kZXhdOwo+PiAgCQlyeF9i
+eXRlcyArPSBxdWV1ZS0+c3RhdHMucnhfYnl0ZXM7Cj4+ICAJCXJ4X3BhY2tldHMgKz0gcXVldWUt
+PnN0YXRzLnJ4X3BhY2tldHM7Cj4+IEBAIC0yNDEsNyArMjQ0LDcgQEAgc3RhdGljIHN0cnVjdCBu
+ZXRfZGV2aWNlX3N0YXRzCj4+ICp4ZW52aWZfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpk
+ZXYpCj4+ICAJfQo+Pgo+PiAgb3V0Ogo+PiAtCXNwaW5fdW5sb2NrKCZ2aWYtPmxvY2spOwo+PiAr
+CXJjdV9yZWFkX3VubG9jaygpOwo+Pgo+PiAgCXZpZi0+ZGV2LT5zdGF0cy5yeF9ieXRlcyA9IHJ4
+X2J5dGVzOwo+PiAgCXZpZi0+ZGV2LT5zdGF0cy5yeF9wYWNrZXRzID0gcnhfcGFja2V0czsKPj4g
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jIGIvZHJpdmVycy9u
+ZXQveGVuLQo+PiBuZXRiYWNrL3hlbmJ1cy5jCj4+IGluZGV4IGQyZDdjZDkuLjc2ZWZiMDEgMTAw
+NjQ0Cj4+IC0tLSBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jCj4+ICsrKyBiL2Ry
+aXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jCj4+IEBAIC00OTUsMjYgKzQ5NSwyMyBAQCBz
+dGF0aWMgdm9pZCBiYWNrZW5kX2Rpc2Nvbm5lY3Qoc3RydWN0Cj4+IGJhY2tlbmRfaW5mbyAqYmUp
+Cj4+ICAJc3RydWN0IHhlbnZpZiAqdmlmID0gYmUtPnZpZjsKPj4KPj4gIAlpZiAodmlmKSB7Cj4+
+ICsJCXVuc2lnbmVkIGludCBudW1fcXVldWVzID0gdmlmLT5udW1fcXVldWVzOwo+PiAgCQl1bnNp
+Z25lZCBpbnQgcXVldWVfaW5kZXg7Cj4+IC0JCXN0cnVjdCB4ZW52aWZfcXVldWUgKnF1ZXVlczsK
+Pj4KPj4gIAkJeGVuX3VucmVnaXN0ZXJfd2F0Y2hlcnModmlmKTsKPj4gICNpZmRlZiBDT05GSUdf
+REVCVUdfRlMKPj4gIAkJeGVudmlmX2RlYnVnZnNfZGVsaWYodmlmKTsKPj4gICNlbmRpZiAvKiBD
+T05GSUdfREVCVUdfRlMgKi8KPj4gIAkJeGVudmlmX2Rpc2Nvbm5lY3RfZGF0YSh2aWYpOwo+PiAt
+CQlmb3IgKHF1ZXVlX2luZGV4ID0gMDsKPj4gLQkJICAgICBxdWV1ZV9pbmRleCA8IHZpZi0+bnVt
+X3F1ZXVlczsKPj4gLQkJICAgICArK3F1ZXVlX2luZGV4KQo+PiAtCQkJeGVudmlmX2RlaW5pdF9x
+dWV1ZSgmdmlmLT5xdWV1ZXNbcXVldWVfaW5kZXhdKTsKPj4KPj4gLQkJc3Bpbl9sb2NrKCZ2aWYt
+PmxvY2spOwo+PiAtCQlxdWV1ZXMgPSB2aWYtPnF1ZXVlczsKPj4gIAkJdmlmLT5udW1fcXVldWVz
+ID0gMDsKPj4gLQkJdmlmLT5xdWV1ZXMgPSBOVUxMOwo+PiAtCQlzcGluX3VubG9jaygmdmlmLT5s
+b2NrKTsKPj4gKwkJc3luY2hyb25pemVfbmV0KCk7Cj4gCj4gU28sIG51bV9xdWV1ZXMgaXMgeW91
+ciBSQ1UgcHJvdGVjdGVkIHZhbHVlLCByYXRoZXIgdGhhbiB0aGUgcXVldWVzIHBvaW50ZXIsIGlu
+IHdoaWNoIGNhc2UgSSB0aGluayB5b3UgcHJvYmFibHkgbmVlZCB0byBjaGFuZ2UgY29kZSBzdWNo
+IGFzCj4gCj4gaHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvdG9y
+dmFsZHMvbGludXguZ2l0L3RyZWUvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jP2lk
+PXJlZnMvdGFncy92NC4xMCNuMjE2Cj4gCj4gdG8gYmUgZ2F0ZWQgb24gbnVtX3F1ZXVlcy4KPiAK
+PiBBbHNvIHNob3VsZG4ndCB4ZW52aWZfdXAoKSwgeGVudmlmX2Rvd24oKSBhbmQgeGVudmlmX2dl
+dF9ldGh0b29sX3N0YXRzKCkgbm90IGJlIHVzaW5nIHJjdV9yZWFkX2xvY2soKSBhbmQgcmN1X2Rl
+cmVmZXJlbmNlKCkgb2YgbnVtX3F1ZXVlcyBhcyB3ZWxsPwo+IAo+ICAgUGF1bAo+IAo+Pgo+PiAt
+CQl2ZnJlZShxdWV1ZXMpOwo+PiArCQlmb3IgKHF1ZXVlX2luZGV4ID0gMDsgcXVldWVfaW5kZXgg
+PCBudW1fcXVldWVzOwo+PiArK3F1ZXVlX2luZGV4KQo+PiArCQkJeGVudmlmX2RlaW5pdF9xdWV1
+ZSgmdmlmLT5xdWV1ZXNbcXVldWVfaW5kZXhdKTsKPj4gKwo+PiArCQl2ZnJlZSh2aWYtPnF1ZXVl
+cyk7Cj4+ICsJCXZpZi0+cXVldWVzID0gTlVMTDsKPj4KPj4gIAkJeGVudmlmX2Rpc2Nvbm5lY3Rf
+Y3RybCh2aWYpOwo+PiAgCX0KPj4gLS0KPj4gMS44LjMuMQo+IAoKX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4t
+ZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
