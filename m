@@ -1,32 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] bonding: use ETH_MAX_MTU as max mtu
-Date: Thu, 02 Mar 2017 14:43:58 -0800 (PST)
-Message-ID: <20170302.144358.779284930067468307.davem@davemloft.net>
-References: <1488486276-24552-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daznis@gmail.com,
-        lists2009@fnarfbargle.com, jarod@redhat.com
-To: xiyou.wangcong@gmail.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/2][pull request] Intel Wired LAN Driver Updates 2017-03-02
+Date: Thu,  2 Mar 2017 18:24:46 -0800
+Message-ID: <20170303022448.79638-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41260 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751770AbdCCBtf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Mar 2017 20:49:35 -0500
-In-Reply-To: <1488486276-24552-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:43918 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751422AbdCCCZK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Mar 2017 21:25:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu,  2 Mar 2017 12:24:36 -0800
+This series contains fixes to ixgbe only.
 
-> This restores the ability of setting bond device's mtu to 9000.
-> 
-> Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
-> Reported-by: daznis@gmail.com
-> Reported-by: Brad Campbell <lists2009@fnarfbargle.com>
-> Cc: Jarod Wilson <jarod@redhat.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Paolo fixes the driver so that you can actually update the RSS key value
+via ethtool.
 
-Applied and queued up for -stable, thanks.
+Alex fixes an issue on architectures that have a cache line size larger
+than 64 Bytes, where the amount of headroom for the frame starts
+shrinking.  To take this into account, Alex adds one small check so that
+we compare the max_frame to the amount of actual data we can store, so
+we will automatically enable 3K receive buffers as soon as the maximum
+frame size we can handle drops below the standard Ethernet MTU.
+
+The following are changes since commit 9f674e48c13dcbc31ac903433727837795b81efe:
+  xen-netback: Use GFP_ATOMIC to allocate hash
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue 10GbE
+
+Alexander Duyck (1):
+  ixgbe: Limit use of 2K buffers on architectures with 256B or larger
+    cache lines
+
+Paolo Abeni (1):
+  ixgbe: update the rss key on h/w, when ethtool ask for it
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  3 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  4 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 22 ++++++++++++++++++----
+ 3 files changed, 23 insertions(+), 6 deletions(-)
+
+-- 
+2.12.0
