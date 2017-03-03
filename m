@@ -1,139 +1,112 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: Dell Inspiron 5558/0VNM2T and suspend/resume problem with r8169
-Date: Fri, 3 Mar 2017 12:40:06 -0300
-Message-ID: <CA+ToGPE67L3AA-gSB8GMYP6fco-j+TkjUy7xo4mWWf7_TwVfCg@mail.gmail.com>
-References: <CA+ToGPHD9qRLer2aVFkNhRmJjKwEf6=sdwyqdW_X463H-Fnh3g@mail.gmail.com>
- <CA+ToGPEvrHFukKkO1u9v0ndeCHepjGKs5v43MX7MmaEHgwdyag@mail.gmail.com> <CA+ToGPGS+QsWQaH6WBNeXw_jVkmN3o+2f7CTW3i5bhjLTfJwCQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/dccp: use-after-free in dccp_feat_activate_values
+Date: Fri, 03 Mar 2017 06:32:56 -0800
+Message-ID: <1488551576.9415.328.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
+         <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
+         <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+ToGPGS+QsWQaH6WBNeXw_jVkmN3o+2f7CTW3i5bhjLTfJwCQ@mail.gmail.com>
+In-Reply-To: <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 3, 2017 at 12:37 PM, Diego Viola <diego.viola@gmail.com> wrote:
-> On Wed, Mar 1, 2017 at 12:47 PM, Diego Viola <diego.viola@gmail.com> wrote:
->> On Wed, Mar 1, 2017 at 12:44 PM, Diego Viola <diego.viola@gmail.com> wrote:
->>> My machine (a Dell Inspiron 5558 laptop) fails to resume from suspend
->>> unless I rmmod r8169 first.
->>>
->>> Another workaround is to do this before suspend:
->>>
->>> echo 0 > /sys/power/pm_async
->>>
->>> I've been reproducing the freeze like this:
->>>
->>> $ i3lock && systemctl suspend
->>>
->>> I would have to repeat this at least 5 times for the freeze to occur,
->>> but it seems to be easily reproducible.
->>>
->>> If I don't invoke i3lock, I cannot get the freeze to happen, but it
->>> seems to happen with other lockers also.
->>>
->>> I have tried Alt+SysRq+r and tried to switch to another TTY but the
->>> machine is always unresponsive, which indicates that it's a kernel
->>> panic.
->>>
->>> I have had a similar issue to this about a year ago with the jme
->>> driver and this was the fix:
->>>
->>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/net/ethernet/jme.c?id=ee50c130c82175eaa0820c96b6d3763928af2241
->>>
->>> I haven't tried getting a kernel trace yet, but all seems to indicate
->>> the problem is caused by r8169, at least til now.
->>>
->>> Any ideas, please?
->>>
->>> Thanks,
->>> Diego
->>
->> Sorry, I forgot to mention, I'm on Arch Linux (x86_64), kernel 4.9.11-1-ARCH.
->>
->> Diego
->
-> This is still a problem with Linux 4.10.1.
->
-> Diego
+On Fri, 2017-03-03 at 15:11 +0100, Dmitry Vyukov wrote:
+> On Mon, Feb 13, 2017 at 11:29 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > On Mon, Feb 13, 2017 at 11:19 AM, Andrey Konovalov
+> > <andreyknvl@google.com> wrote:
+> >> Hi,
+> >>
+> >> I've got the following error report while fuzzing the kernel with syzkaller.
+> >>
+> >> On commit 926af6273fc683cd98cd0ce7bf0d04a02eed6742.
+> >>
+> >> A reproducer and .config are attached.
+> >> Note, that it takes quite some time to trigger the bug (up to 10 minutes).
+> >>
+> >> BUG: KASAN: use-after-free in dccp_feat_activate_values+0x967/0xab0
+> >> net/dccp/feat.c:1541 at addr ffff88003713be68
+> >> Read of size 8 by task syz-executor2/8457
+> >> CPU: 2 PID: 8457 Comm: syz-executor2 Not tainted 4.10.0-rc7+ #127
+> >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> >> Call Trace:
+> >>  <IRQ>
+> >>  __dump_stack lib/dump_stack.c:15 [inline]
+> >>  dump_stack+0x292/0x398 lib/dump_stack.c:51
+> >>  kasan_object_err+0x1c/0x70 mm/kasan/report.c:162
+> >>  print_address_description mm/kasan/report.c:200 [inline]
+> >>  kasan_report_error mm/kasan/report.c:289 [inline]
+> >>  kasan_report.part.1+0x20e/0x4e0 mm/kasan/report.c:311
+> >>  kasan_report mm/kasan/report.c:332 [inline]
+> >>  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
+> >>  dccp_feat_activate_values+0x967/0xab0 net/dccp/feat.c:1541
+> >>  dccp_create_openreq_child+0x464/0x610 net/dccp/minisocks.c:121
+> >>  dccp_v6_request_recv_sock+0x1f6/0x1960 net/dccp/ipv6.c:457
+> >>  dccp_check_req+0x335/0x5a0 net/dccp/minisocks.c:186
+> >>  dccp_v6_rcv+0x69e/0x1d00 net/dccp/ipv6.c:711
+> >>  ip6_input_finish+0x46d/0x17a0 net/ipv6/ip6_input.c:279
+> >>  NF_HOOK include/linux/netfilter.h:257 [inline]
+> >>  ip6_input+0xdb/0x590 net/ipv6/ip6_input.c:322
+> >>  dst_input include/net/dst.h:507 [inline]
+> >>  ip6_rcv_finish+0x289/0x890 net/ipv6/ip6_input.c:69
+> >>  NF_HOOK include/linux/netfilter.h:257 [inline]
+> >>  ipv6_rcv+0x12ec/0x23d0 net/ipv6/ip6_input.c:203
+> >>  __netif_receive_skb_core+0x1ae5/0x3400 net/core/dev.c:4190
+> >>  __netif_receive_skb+0x2a/0x170 net/core/dev.c:4228
+> >>  process_backlog+0xe5/0x6c0 net/core/dev.c:4839
+> >>  napi_poll net/core/dev.c:5202 [inline]
+> >>  net_rx_action+0xe70/0x1900 net/core/dev.c:5267
+> >>  __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
+> >>  do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
+> >
+> >
+> > Seems there is a race condition between iterating dccp_feat_entry
+> > and freeing it, bh_lock_sock() seems not held in this path.
+> 
+> 
+> 
+> Cong, where exactly do we need to add bh_lock_sock()?
+> 
+> I am still seeing this on 4977ab6e92e267afe9d8f78438c3db330ca8434c
 
-I got this trace in the journal while suspending, not sure if it's
-related to this problem:
 
-Mar 03 12:05:05 myhost kernel: PM: Preparing system for sleep (mem)
-Mar 03 12:05:05 myhost kernel: Freezing user space processes ...
-Mar 03 12:05:05 myhost kernel: usb 2-6: new full-speed USB device
-number 34 using xhci_hcd
-Mar 03 12:05:05 myhost kernel: sr 1:0:0:0: [sr0] tag#28
-UNKNOWN(0x2003) Result: hostbyte=0x00 driverbyte=0x08
-Mar 03 12:05:05 myhost kernel: sr 1:0:0:0: [sr0] tag#28 Sense Key :
-0x6 [current]
-Mar 03 12:05:05 myhost kernel: sr 1:0:0:0: [sr0] tag#28 ASC=0x28 ASCQ=0x0
-Mar 03 12:05:05 myhost kernel: sr 1:0:0:0: [sr0] tag#28 CDB:
-opcode=0x28 28 00 00 00 00 04 00 00 02 00
-Mar 03 12:05:05 myhost kernel: blk_update_request: I/O error, dev sr0, sector 16
-Mar 03 12:05:05 myhost kernel: (elapsed 1.452 seconds) done.
-Mar 03 12:05:05 myhost kernel: Freezing remaining freezable tasks ...
-Mar 03 12:05:05 myhost kernel: ------------[ cut here ]------------
-Mar 03 12:05:05 myhost kernel: WARNING: CPU: 3 PID: 2134 at
-drivers/base/firmware_class.c:1200 _request_firmware+0x2da/0xa70
-Mar 03 12:05:05 myhost kernel: Modules linked in: fuse nls_iso8859_1
-nls_cp437 vfat fat snd_hda_codec_hdmi rtsx_usb_ms memstick
-rtsx_usb_sdmmc dell_led snd_hda_codec_realtek snd_hda_codec_generic
-dell_laptop intel_rapl x86_pkg_temp_thermal intel_powerclamp coretemp
-kvm_int
-Mar 03 12:05:05 myhost kernel:  bluetooth cfg80211 aesni_intel
-aes_x86_64 crypto_simd glue_helper cryptd evdev intel_cstate
-input_leds intel_rapl_perf mac_hid i915 pcspkr snd snd_soc_sst_acpi
-thermal snd_soc_sst_match wmi battery ac97_bus soundcore fjes
-drm_kms_helper vide
-Mar 03 12:05:05 myhost kernel: CPU: 3 PID: 2134 Comm: kworker/3:5 Not
-tainted 4.10.1-ARCH #1
-Mar 03 12:05:05 myhost kernel: Hardware name: Dell Inc. Inspiron
-5558/0VNM2T, BIOS A14 11/22/2016
-Mar 03 12:05:05 myhost kernel: Workqueue: usb_hub_wq hub_event [usbcore]
-Mar 03 12:05:05 myhost kernel: Call Trace:
-Mar 03 12:05:05 myhost kernel:  dump_stack+0x63/0x83
-Mar 03 12:05:05 myhost kernel:  __warn+0xcb/0xf0
-Mar 03 12:05:05 myhost kernel:  warn_slowpath_null+0x1d/0x20
-Mar 03 12:05:05 myhost kernel:  _request_firmware+0x2da/0xa70
-Mar 03 12:05:05 myhost kernel:  request_firmware+0x37/0x50
-Mar 03 12:05:05 myhost kernel:  ath3k_load_patch+0xc3/0x1e0 [ath3k]
-Mar 03 12:05:05 myhost kernel:  ath3k_probe+0x76/0x4ac [ath3k]
-Mar 03 12:05:05 myhost kernel:  ? __pm_runtime_set_status+0x1c0/0x2a0
-Mar 03 12:05:05 myhost kernel:  usb_probe_interface+0x159/0x2d0 [usbcore]
-Mar 03 12:05:05 myhost kernel:  driver_probe_device+0x2bb/0x460
-Mar 03 12:05:05 myhost kernel:  __device_attach_driver+0x8c/0x100
-Mar 03 12:05:05 myhost kernel:  ? __driver_attach+0xf0/0xf0
-Mar 03 12:05:05 myhost kernel:  bus_for_each_drv+0x67/0xb0
-Mar 03 12:05:05 myhost kernel:  __device_attach+0xdd/0x160
-Mar 03 12:05:05 myhost kernel:  device_initial_probe+0x13/0x20
-Mar 03 12:05:05 myhost kernel:  bus_probe_device+0x92/0xa0
-Mar 03 12:05:05 myhost kernel:  device_add+0x393/0x670
-Mar 03 12:05:05 myhost kernel:  usb_set_configuration+0x5f9/0x910 [usbcore]
-Mar 03 12:05:05 myhost kernel:  generic_probe+0x2e/0x80 [usbcore]
-Mar 03 12:05:05 myhost kernel:  usb_probe_device+0x2e/0x70 [usbcore]
-Mar 03 12:05:05 myhost kernel:  driver_probe_device+0x2bb/0x460
-Mar 03 12:05:05 myhost kernel:  __device_attach_driver+0x8c/0x100
-Mar 03 12:05:05 myhost kernel:  ? __driver_attach+0xf0/0xf0
-Mar 03 12:05:05 myhost kernel:  bus_for_each_drv+0x67/0xb0
-Mar 03 12:05:05 myhost kernel:  __device_attach+0xdd/0x160
-Mar 03 12:05:05 myhost kernel:  device_initial_probe+0x13/0x20
-Mar 03 12:05:05 myhost kernel:  bus_probe_device+0x92/0xa0
-Mar 03 12:05:05 myhost kernel:  device_add+0x393/0x670
-Mar 03 12:05:05 myhost kernel:  usb_new_device+0x1c9/0x3f0 [usbcore]
-Mar 03 12:05:05 myhost kernel:  hub_event+0xb95/0x1520 [usbcore]
-Mar 03 12:05:05 myhost kernel:  process_one_work+0x1e5/0x470
-Mar 03 12:05:05 myhost kernel:  worker_thread+0x48/0x4e0
-Mar 03 12:05:05 myhost kernel:  kthread+0x101/0x140
-Mar 03 12:05:05 myhost kernel:  ? process_one_work+0x470/0x470
-Mar 03 12:05:05 myhost kernel:  ? kthread_create_on_node+0x60/0x60
-Mar 03 12:05:05 myhost kernel:  ret_from_fork+0x2c/0x40
-Mar 03 12:05:05 myhost kernel: ---[ end trace 40ac42fc353e2506 ]---
-Mar 03 12:05:05 myhost kernel: usb 2-6: firmware:
-ar3k/AthrBT_0x31010000.dfu will not be loaded
-Mar 03 12:05:05 myhost kernel: Bluetooth: Patch file not found
-ar3k/AthrBT_0x31010000.dfu
-Mar 03 12:05:05 myhost kernel: Bluetooth: Loading patch file failed
-Mar 03 12:05:05 myhost kernel: ath3k: probe of 2-6:1.0 failed with error -11
-Mar 03 12:05:05 myhost kernel: (elapsed 0.032 seconds) done.
+I would try :
+
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 409d0cfd34474812c3bf74f26cd423a3d65ee441..5a8b5ac5edaaf35428ab04cc810d98310bd169ed 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -482,7 +482,9 @@ static int dccp_v4_send_response(const struct sock *sk, struct request_sock *req
+ 	if (dst == NULL)
+ 		goto out;
+ 
++	bh_lock_sock(sk);
+ 	skb = dccp_make_response(sk, dst, req);
++	bh_unlock_sock(sk);
+ 	if (skb != NULL) {
+ 		const struct inet_request_sock *ireq = inet_rsk(req);
+ 		struct dccp_hdr *dh = dccp_hdr(skb);
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 233b57367758c64c09ed40f7359cb8fcb1918d93..e89cc88d14c22d411a91afab093e209fcbb816d8 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -214,7 +214,9 @@ static int dccp_v6_send_response(const struct sock *sk, struct request_sock *req
+ 		goto done;
+ 	}
+ 
++	bh_lock_sock(sk);
+ 	skb = dccp_make_response(sk, dst, req);
++	bh_unlock_sock(sk);
+ 	if (skb != NULL) {
+ 		struct dccp_hdr *dh = dccp_hdr(skb);
+ 		struct ipv6_txoptions *opt;
