@@ -1,252 +1,203 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/kcm: use-after-free in kcm_wq
-Date: Fri, 3 Mar 2017 11:11:30 +0100
-Message-ID: <CACT4Y+Zwk_82rKowdW3tLaZQC_q73swNoZ6mj5kvapHAGztaMQ@mail.gmail.com>
-References: <CACT4Y+ZsaUAbTHdtP7BmZ+dsOTVA+f1jc8Mt=41H+8mwpkbRpA@mail.gmail.com>
+From: Alexander Potapenko <glider@google.com>
+Subject: Re: [PATCH 00/26] bring back stack frame warning with KASAN
+Date: Fri, 3 Mar 2017 13:25:29 +0100
+Message-ID: <CAG_fn=UVcLhP8mH6tvzqZUn4u9T4pnQw8bMf=qccNro59VcABw@mail.gmail.com>
+References: <20170302163834.2273519-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>
-To: David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f172.google.com ([209.85.217.172]:35447 "EHLO
-        mail-ua0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751834AbdCCLY7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 06:24:59 -0500
-Received: by mail-ua0-f172.google.com with SMTP id q7so76386464uaf.2
-        for <netdev@vger.kernel.org>; Fri, 03 Mar 2017 03:24:53 -0800 (PST)
-In-Reply-To: <CACT4Y+ZsaUAbTHdtP7BmZ+dsOTVA+f1jc8Mt=41H+8mwpkbRpA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: kasan-dev <kasan-dev@googlegroups.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>, linux-media@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        kernel-build-reports@lists.linaro.org,
+        "David S . Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170302163834.2273519-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 3, 2017 at 11:09 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> Hello,
+On Thu, Mar 2, 2017 at 5:38 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> It took a long while to get this done, but I'm finally ready
+> to send the first half of the KASAN stack size patches that
+> I did in response to the kernelci.org warnings.
 >
-> I am getting the following use-after-free reports while running
-> syzkaller fuzzer on 86292b33d4b79ee03e2f43ea0381ef85f077c760. Seems
-> that work items are not properly cancelled.
+> As before, it's worth mentioning that things are generally worse
+> with gcc-7.0.1 because of the addition of -fsanitize-address-use-after-sc=
+ope
+> that are not present on kernelci, so my randconfig testing found
+> a lot more than kernelci did.
 >
-> ==================================================================
-> BUG: KASAN: use-after-free in worker_thread+0x190f/0x1990
-> kernel/workqueue.c:2228 at addr ffff880063de5a20
-> Read of size 8 by task kworker/u8:0/5
-> CPU: 1 PID: 5 Comm: kworker/u8:0 Not tainted 4.10.0+ #260
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> Call Trace:
->  __dump_stack lib/dump_stack.c:15 [inline]
->  dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
->  kasan_object_err+0x1c/0x70 mm/kasan/report.c:166
->  print_address_description mm/kasan/report.c:204 [inline]
->  kasan_report_error mm/kasan/report.c:288 [inline]
->  kasan_report.part.2+0x198/0x440 mm/kasan/report.c:310
->  kasan_report mm/kasan/report.c:331 [inline]
->  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:331
->  worker_thread+0x190f/0x1990 kernel/workqueue.c:2228
->  kthread+0x326/0x3f0 kernel/kthread.c:227
->  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
-> Object at ffff880063de5900, in cache kcm_psock_cache size: 616
-> Allocated:
-> PID = 11085
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
->  set_track mm/kasan/kasan.c:514 [inline]
->  kasan_kmalloc+0xaa/0xd0 mm/kasan/kasan.c:605
->  kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:544
->  kmem_cache_alloc+0x102/0x680 mm/slab.c:3571
->  kmem_cache_zalloc include/linux/slab.h:653 [inline]
->  kcm_attach net/kcm/kcmsock.c:1384 [inline]
->  kcm_attach_ioctl net/kcm/kcmsock.c:1455 [inline]
->  kcm_ioctl+0x303/0x1800 net/kcm/kcmsock.c:1690
->  sock_do_ioctl+0x65/0xb0 net/socket.c:895
->  sock_ioctl+0x2c2/0x440 net/socket.c:993
->  vfs_ioctl fs/ioctl.c:43 [inline]
->  do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
->  SYSC_ioctl fs/ioctl.c:698 [inline]
->  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
-> Freed:
-> PID = 11095
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
->  set_track mm/kasan/kasan.c:514 [inline]
->  kasan_slab_free+0x6f/0xb0 mm/kasan/kasan.c:578
->  __cache_free mm/slab.c:3513 [inline]
->  kmem_cache_free+0x71/0x240 mm/slab.c:3773
->  kcm_unattach+0xee7/0x1520 net/kcm/kcmsock.c:1558
->  kcm_unattach_ioctl net/kcm/kcmsock.c:1603 [inline]
->  kcm_ioctl+0xfae/0x1800 net/kcm/kcmsock.c:1700
->  sock_do_ioctl+0x65/0xb0 net/socket.c:895
->  sock_ioctl+0x2c2/0x440 net/socket.c:993
->  vfs_ioctl fs/ioctl.c:43 [inline]
->  do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
->  SYSC_ioctl fs/ioctl.c:698 [inline]
->  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
-> Memory state around the buggy address:
->  ffff880063de5900: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->  ffff880063de5980: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->>ffff880063de5a00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->                                ^
->  ffff880063de5a80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->  ffff880063de5b00: fb fb fb fb fb fb fb fb fb fb fb fb fb fc fc fc
-> ==================================================================
+> The main areas are:
 >
+> - READ_ONCE/WRITE_ONCE cause problems in lots of code
+> - typecheck() causes huge problems in a few places
+> - I'm introducing "noinline_for_kasan" and use it in a lot
+>   of places that suffer from inline functions with local variables
+>   - netlink, as used in various parts of the kernel
+>   - a number of drivers/media drivers
+>   - a handful of wireless network drivers
+> - kmemcheck conflicts with -fsanitize-address-use-after-scope
 >
-> ==================================================================
-> BUG: KASAN: use-after-free in worker_thread+0x190f/0x1990
-> kernel/workqueue.c:2228 at addr ffff88005378ed20
-> Read of size 8 by task kworker/u8:2/6942
-> CPU: 3 PID: 6942 Comm: kworker/u8:2 Not tainted 4.10.0+ #260
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> Call Trace:
->  __dump_stack lib/dump_stack.c:15 [inline]
->  dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
->  kasan_object_err+0x1c/0x70 mm/kasan/report.c:166
->  print_address_description mm/kasan/report.c:204 [inline]
->  kasan_report_error mm/kasan/report.c:288 [inline]
->  kasan_report.part.2+0x198/0x440 mm/kasan/report.c:310
->  kasan_report mm/kasan/report.c:331 [inline]
->  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:331
->  worker_thread+0x190f/0x1990 kernel/workqueue.c:2228
->  kthread+0x326/0x3f0 kernel/kthread.c:227
->  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
-> Object at ffff88005378ec00, in cache kcm_psock_cache size: 616
-> Allocated:
-> PID = 3023
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
->  set_track mm/kasan/kasan.c:514 [inline]
->  kasan_kmalloc+0xaa/0xd0 mm/kasan/kasan.c:605
->  kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:544
->  kmem_cache_alloc+0x102/0x680 mm/slab.c:3571
->  kmem_cache_zalloc include/linux/slab.h:653 [inline]
->  kcm_attach net/kcm/kcmsock.c:1384 [inline]
->  kcm_attach_ioctl net/kcm/kcmsock.c:1455 [inline]
->  kcm_ioctl+0x303/0x1800 net/kcm/kcmsock.c:1690
->  sock_do_ioctl+0x65/0xb0 net/socket.c:895
->  sock_ioctl+0x2c2/0x440 net/socket.c:993
->  vfs_ioctl fs/ioctl.c:43 [inline]
->  do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
->  SYSC_ioctl fs/ioctl.c:698 [inline]
->  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
-> Freed:
-> PID = 6942
->  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
->  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
->  set_track mm/kasan/kasan.c:514 [inline]
->  kasan_slab_free+0x6f/0xb0 mm/kasan/kasan.c:578
->  __cache_free mm/slab.c:3513 [inline]
->  kmem_cache_free+0x71/0x240 mm/slab.c:3773
->  unreserve_psock+0x585/0x760 net/kcm/kcmsock.c:545
->  kcm_write_msgs+0xbba/0x1b90 net/kcm/kcmsock.c:588
->  kcm_tx_work+0x2e/0x190 net/kcm/kcmsock.c:729
->  process_one_work+0xbd0/0x1c10 kernel/workqueue.c:2096
->  worker_thread+0x223/0x1990 kernel/workqueue.c:2230
->  kthread+0x326/0x3f0 kernel/kthread.c:227
->  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
-> Memory state around the buggy address:
->  ffff88005378ec00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->  ffff88005378ec80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->>ffff88005378ed00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->                                ^
->  ffff88005378ed80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->  ffff88005378ee00: fb fb fb fb fb fb fb fb fb fb fb fb fb fc fc fc
-> ==================================================================
+> This series lets us add back a stack frame warning for 3072 bytes
+> with -fsanitize-address-use-after-scope, or 2048 bytes without it.
+>
+> I have a follow-up series that further reduces the stack frame
+> warning limit to 1280 bytes for all 64-bit architectures, and
+> 1536 bytes with basic KASAN support (no -fsanitize-address-use-after-scop=
+e).
+> For now, I'm only posting the first half, in order to keep
+> it (barely) reviewable.
+Can you please elaborate on why do you need this? Are you trying to
+squeeze KASAN into some embedded device?
+Noinlines sprayed over the codebase are hard to maintain, and certain
+compiler changes may cause bloated stack frames in other places.
+Maybe it should be enough to just increase the stack frame limit in
+KASAN builds, as Dmitry suggested previously?
+> Both series are tested with many hundred randconfig builds on both
+> x86 and arm64, which are the only architectures supporting KASAN.
+>
+>         Arnd
+>
+>  [PATCH 01/26] compiler: introduce noinline_for_kasan annotation
+>  [PATCH 02/26] rewrite READ_ONCE/WRITE_ONCE
+>  [PATCH 03/26] typecheck.h: avoid local variables in typecheck() macro
+>  [PATCH 04/26] tty: kbd: reduce stack size with KASAN
+>  [PATCH 05/26] netlink: mark nla_put_{u8,u16,u32} noinline_for_kasan
+>  [PATCH 06/26] rocker: mark rocker_tlv_put_* functions as
+>  [PATCH 07/26] brcmsmac: reduce stack size with KASAN
+>  [PATCH 08/26] brcmsmac: make some local variables 'static const' to
+>  [PATCH 09/26] brcmsmac: split up wlc_phy_workarounds_nphy
+>  [PATCH 10/26] brcmsmac: reindent split functions
+>  [PATCH 11/26] rtlwifi: reduce stack usage for KASAN
+>  [PATCH 12/26] wl3501_cs: reduce stack size for KASAN
+>  [PATCH 13/26] rtl8180: reduce stack size for KASAN
+>  [PATCH 14/26] [media] dvb-frontends: reduce stack size in i2c access
+>  [PATCH 15/26] [media] tuners: i2c: reduce stack usage for
+>  [PATCH 16/26] [media] i2c: adv7604: mark register access as
+>  [PATCH 17/26] [media] i2c: ks0127: reduce stack frame size for KASAN
+>  [PATCH 18/26] [media] i2c: cx25840: avoid stack overflow with KASAN
+>  [PATCH 19/26] [media] r820t: mark register functions as
+>  [PATCH 20/26] [media] em28xx: split up em28xx_dvb_init to reduce
+>  [PATCH 21/26] drm/bridge: ps8622: reduce stack size for KASAN
+>  [PATCH 22/26] drm/i915/gvt: don't overflow the kernel stack with
+>  [PATCH 23/26] mtd: cfi: reduce stack size with KASAN
+>  [PATCH 24/26] ocfs2: reduce stack size with KASAN
+>  [PATCH 25/26] isdn: eicon: mark divascapi incompatible with kasan
+>  [PATCH 26/26] kasan: rework Kconfig settings
+>
+>  arch/x86/include/asm/switch_to.h                                 |    2 =
++-
+>  drivers/gpu/drm/bridge/parade-ps8622.c                           |    2 =
++-
+>  drivers/gpu/drm/i915/gvt/mmio.h                                  |   17 =
++-
+>  drivers/isdn/hardware/eicon/Kconfig                              |    1 =
++
+>  drivers/media/dvb-frontends/ascot2e.c                            |    3 =
++-
+>  drivers/media/dvb-frontends/cxd2841er.c                          |    4 =
++-
+>  drivers/media/dvb-frontends/drx39xyj/drxj.c                      |   14 =
++-
+>  drivers/media/dvb-frontends/helene.c                             |    4 =
++-
+>  drivers/media/dvb-frontends/horus3a.c                            |    2 =
++-
+>  drivers/media/dvb-frontends/itd1000.c                            |    2 =
++-
+>  drivers/media/dvb-frontends/mt312.c                              |    2 =
++-
+>  drivers/media/dvb-frontends/si2165.c                             |   14 =
++-
+>  drivers/media/dvb-frontends/stb0899_drv.c                        |    2 =
++-
+>  drivers/media/dvb-frontends/stb6100.c                            |    2 =
++-
+>  drivers/media/dvb-frontends/stv0367.c                            |    2 =
++-
+>  drivers/media/dvb-frontends/stv090x.c                            |    2 =
++-
+>  drivers/media/dvb-frontends/stv6110.c                            |    2 =
++-
+>  drivers/media/dvb-frontends/stv6110x.c                           |    2 =
++-
+>  drivers/media/dvb-frontends/tda8083.c                            |    2 =
++-
+>  drivers/media/dvb-frontends/zl10039.c                            |    2 =
++-
+>  drivers/media/i2c/adv7604.c                                      |    4 =
++-
+>  drivers/media/i2c/cx25840/cx25840-core.c                         |    4 =
++-
+>  drivers/media/i2c/ks0127.c                                       |    2 =
++-
+>  drivers/media/tuners/r820t.c                                     |    4 =
++-
+>  drivers/media/tuners/tuner-i2c.h                                 |   15 =
++-
+>  drivers/media/usb/em28xx/em28xx-dvb.c                            |  947 =
++++++++++++++++++++++------------------
+>  drivers/mtd/chips/cfi_cmdset_0020.c                              |    8 =
++-
+>  drivers/net/ethernet/rocker/rocker_tlv.h                         |   24 =
++-
+>  drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c     | 1860 =
++++++++++++++++++++++++++++++++++++++--------------------------------------=
+--
+>  drivers/net/wireless/realtek/rtl818x/rtl8180/rtl8225se.c         |    4 =
++-
+>  drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8192e2ant.c |   41 =
++-
+>  drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c |   26 =
++-
+>  drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c |   34 =
++-
+>  drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8821a1ant.c |   36 =
++-
+>  drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8821a2ant.c |   38 =
++-
+>  drivers/net/wireless/wl3501_cs.c                                 |   10 =
++-
+>  drivers/tty/vt/keyboard.c                                        |    6 =
++-
+>  fs/ocfs2/cluster/masklog.c                                       |   10 =
++-
+>  fs/ocfs2/cluster/masklog.h                                       |    4 =
++-
+>  fs/overlayfs/util.c                                              |    6 =
++-
+>  include/linux/compiler.h                                         |   58 =
+++-
+>  include/linux/mtd/map.h                                          |    8 =
++-
+>  include/linux/typecheck.h                                        |    7 =
++-
+>  include/net/netlink.h                                            |   36 =
++-
+>  lib/Kconfig.debug                                                |    9 =
++-
+>  lib/Kconfig.kasan                                                |   11 =
++-
+>  lib/Kconfig.kmemcheck                                            |    1 =
++
+>  scripts/Makefile.kasan                                           |    3 =
++
+>  48 files changed, 1670 insertions(+), 1629 deletions(-)
+>
 
 
 
-Also like this one:
+--=20
+Alexander Potapenko
+Software Engineer
 
-==================================================================
-BUG: KASAN: use-after-free in atomic_long_read
-include/linux/compiler.h:254 [inline] at addr ffff8800538aba60
-BUG: KASAN: use-after-free in get_work_pool+0x2f2/0x340
-kernel/workqueue.c:709 at addr ffff8800538aba60
-Read of size 8 by task syz-executor6/7965
-CPU: 2 PID: 7965 Comm: syz-executor6 Not tainted 4.10.0+ #248
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:15 [inline]
- dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
- kasan_object_err+0x1c/0x70 mm/kasan/report.c:166
- print_address_description mm/kasan/report.c:204 [inline]
- kasan_report_error mm/kasan/report.c:288 [inline]
- kasan_report.part.2+0x198/0x440 mm/kasan/report.c:310
- kasan_report mm/kasan/report.c:331 [inline]
- __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:331
- atomic_long_read include/linux/compiler.h:254 [inline]
- get_work_pool+0x2f2/0x340 kernel/workqueue.c:709
- __queue_work+0x2b3/0x1210 kernel/workqueue.c:1401
- queue_work_on+0x2e9/0x330 kernel/workqueue.c:1486
- queue_work include/linux/workqueue.h:487 [inline]
- strp_check_rcv+0x25/0x30 net/strparser/strparser.c:494
- kcm_attach net/kcm/kcmsock.c:1434 [inline]
- kcm_attach_ioctl net/kcm/kcmsock.c:1455 [inline]
- kcm_ioctl+0x8bb/0x1800 net/kcm/kcmsock.c:1690
- sock_do_ioctl+0x65/0xb0 net/socket.c:895
- sock_ioctl+0x2c2/0x440 net/socket.c:993
- vfs_ioctl fs/ioctl.c:43 [inline]
- do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
- SYSC_ioctl fs/ioctl.c:698 [inline]
- SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x4458d9
-RSP: 002b:00007f1dce9d1b58 EFLAGS: 00000286 ORIG_RAX: 0000000000000010
-RAX: ffffffffffffffda RBX: 0000000000000024 RCX: 00000000004458d9
-RDX: 0000000020b68000 RSI: 00000000000089e0 RDI: 0000000000000024
-RBP: 00000000006e0220 R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000286 R12: 00000000007080a8
-R13: 0000000000000000 R14: 00007f1dce9d29c0 R15: 00007f1dce9d2700
-Object at ffff8800538ab940, in cache kcm_psock_cache size: 616
-Allocated:
-PID = 7965
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
- save_stack+0x43/0xd0 mm/kasan/kasan.c:502
- set_track mm/kasan/kasan.c:514 [inline]
- kasan_kmalloc+0xaa/0xd0 mm/kasan/kasan.c:605
- kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:544
- kmem_cache_alloc+0x102/0x680 mm/slab.c:3571
- kmem_cache_zalloc include/linux/slab.h:653 [inline]
- kcm_attach net/kcm/kcmsock.c:1384 [inline]
- kcm_attach_ioctl net/kcm/kcmsock.c:1455 [inline]
- kcm_ioctl+0x303/0x1800 net/kcm/kcmsock.c:1690
- sock_do_ioctl+0x65/0xb0 net/socket.c:895
- sock_ioctl+0x2c2/0x440 net/socket.c:993
- vfs_ioctl fs/ioctl.c:43 [inline]
- do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
- SYSC_ioctl fs/ioctl.c:698 [inline]
- SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-Freed:
-PID = 7982
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
- save_stack+0x43/0xd0 mm/kasan/kasan.c:502
- set_track mm/kasan/kasan.c:514 [inline]
- kasan_slab_free+0x6f/0xb0 mm/kasan/kasan.c:578
- __cache_free mm/slab.c:3513 [inline]
- kmem_cache_free+0x71/0x240 mm/slab.c:3773
- kcm_unattach+0xee7/0x1520 net/kcm/kcmsock.c:1558
- kcm_unattach_ioctl net/kcm/kcmsock.c:1603 [inline]
- kcm_ioctl+0xfae/0x1800 net/kcm/kcmsock.c:1700
- sock_do_ioctl+0x65/0xb0 net/socket.c:895
- sock_ioctl+0x2c2/0x440 net/socket.c:993
- vfs_ioctl fs/ioctl.c:43 [inline]
- do_vfs_ioctl+0x1bf/0x1790 fs/ioctl.c:683
- SYSC_ioctl fs/ioctl.c:698 [inline]
- SyS_ioctl+0x8f/0xc0 fs/ioctl.c:689
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-Memory state around the buggy address:
- ffff8800538ab900: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
- ffff8800538ab980: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->ffff8800538aba00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-                                                       ^
- ffff8800538aba80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
- ffff8800538abb00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-==================================================================
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
+
+Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
