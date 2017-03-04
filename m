@@ -1,34 +1,20 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH] net: smsc: smc91x: use new api ethtool_{get|set}_link_ksettings
-Date: Sat, 04 Mar 2017 21:27:51 +0100
-Message-ID: <87k284wzw8.fsf@belgarion.home>
-References: <1488622292-13200-1-git-send-email-tremyfr@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: nico@fluxnic.net, davem@davemloft.net, mugunthanvnm@ti.com,
-        jarod@redhat.com, felipe.balbi@linux.intel.com,
-        rmk+kernel@armlinux.org.uk, fw@strlen.de, jeremy.linton@arm.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1488622292-13200-1-git-send-email-tremyfr@gmail.com> (Philippe
-        Reynes's message of "Sat, 4 Mar 2017 11:11:32 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: net/sched: act_skbmod: rcu_read_unlock in tcf_skbmod_dump?
+Date: Sat,  4 Mar 2017 23:49:39 +0300
+Message-ID: <1488660579-3056-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ispras.ru ([83.149.199.45]:43396 "EHLO mail.ispras.ru"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752103AbdCDUtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 4 Mar 2017 15:49:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Philippe Reynes <tremyfr@gmail.com> writes:
+Hello!
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
->
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
-I have the hardware.
-
-Do you want anything specific to be tested, like setting full/half duplex or
-autoneg through ethtool, or just a driver probe/usage ?
-
-Cheers.
-
--- 
-Robert
+rcu_read_unlock() in tcf_skbmod_dump() looks suspicious to me.
+What does it mean there?
