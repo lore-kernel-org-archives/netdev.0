@@ -1,38 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Netfilter fixes for net
-Date: Fri, 03 Mar 2017 20:41:37 -0800 (PST)
-Message-ID: <20170303.204137.1405124737879829792.davem@davemloft.net>
-References: <1488568945-4177-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [Patch net] strparser: destroy workqueue on module exit
+Date: Fri, 03 Mar 2017 20:44:22 -0800 (PST)
+Message-ID: <20170303.204422.351679337231349580.davem@davemloft.net>
+References: <1488572474-11779-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1488568945-4177-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tom@herbertland.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57160 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751560AbdCDEoX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Mar 2017 23:44:23 -0500
+In-Reply-To: <1488572474-11779-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri,  3 Mar 2017 20:22:21 +0100
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri,  3 Mar 2017 12:21:14 -0800
 
-> The following patchset contains Netfilter fixes for your net tree,
-> they are:
-> 
-> 1) Missing check for full sock in ip_route_me_harder(), from
->    Florian Westphal.
-> 
-> 2) Incorrect sip helper structure initilization that breaks it when
->    several ports are used, from Christophe Leroy.
-> 
-> 3) Fix incorrect assumption when looking up for matching with adjacent
->    intervals in the nft_set_rbtree.
-> 
-> 4) Fix broken netlink event error reporting in nf_tables that results
->    in misleading ESRCH errors propagated to userspace listeners.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> Fixes: 43a0c6751a32 ("strparser: Stream parser for messages")
+> Cc: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Pulled, thanks a lot Pablo.
+Applied and queued up for -stable, thanks.
