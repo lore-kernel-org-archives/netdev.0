@@ -1,99 +1,79 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [net] netfilter: nat: sctp: fix ICMP packet to be dropped accidently
-Date: Sat, 4 Mar 2017 18:00:02 +0800
-Message-ID: <1488621602-4152-1-git-send-email-ying.xue@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <pablo@netfilter.org>, <netfilter-devel@vger.kernel.org>
+From: fgao@ikuai8.com
+Subject: [PATCH net-next 1/1] decnet: Use TCP nagle macro instead of literal number in decnet
+Date: Sat,  4 Mar 2017 22:10:28 +0800
+Message-ID: <1488636628-14768-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, linux-decnet-user@lists.sourceforge.net,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:39128 "EHLO
-        mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751336AbdCDMAE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Mar 2017 07:00:04 -0500
+Received: from smtpbg292.qq.com ([113.108.11.231]:51989 "EHLO smtpbg292.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751814AbdCDOVY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 4 Mar 2017 09:21:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Regarding RFC 792, the first 64 bits of the original SCTP datagram's
-data could be contained in ICMP packet, such as:
+From: Gao Feng <fgao@ikuai8.com>
 
-    0                   1                   2                   3
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |     Type      |     Code      |          Checksum             |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                             unused                            |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |      Internet Header + 64 bits of Original Data Datagram      |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+Use existing TCP nagle macro TCP_NAGLE_OFF and TCP_NAGLE_CORK instead
+of the literal number 1 and 2 in the current decnet codes.
 
-However, according to RFC 4960, SCTP datagram header is as below:
-
-    0                   1                   2                   3
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |     Source Port Number        |     Destination Port Number   |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                      Verification Tag                         |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                           Checksum                            |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-It means only the first three fields of SCTP header can be carried in
-ICMP packet except for Checksum field.
-
-At present in sctp_manip_pkt(), no matter whether the packet is ICMP or
-not, it always calculates SCTP packet checksum. However, not only the
-calculation of checksum is unnecessary for ICMP, but also it causes
-another fatal issue that ICMP packet is dropped. The header size of
-SCTP is used to identify whether the writeable length of skb is bigger
-than skb->len through skb_make_writable() in sctp_manip_pkt(). But
-when it deals with ICMP packet, skb_make_writable() directly returns
-false as the writeable length of skb is bigger than skb->len.
-Subsequently ICMP is dropped.
-
-Now we correct this misbahavior. When sctp_manip_pkt() handles ICMP
-packet, 8 bytes rather than the whole SCTP header size is used to check
-if writeable length of skb is overflowed. Meanwhile, as it's meaningless
-to calculate checksum when packet is ICMP, the computation of checksum
-is ignored as well.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 ---
- net/netfilter/nf_nat_proto_sctp.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+ net/decnet/af_decnet.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
-index 31d3586..804e8a0 100644
---- a/net/netfilter/nf_nat_proto_sctp.c
-+++ b/net/netfilter/nf_nat_proto_sctp.c
-@@ -33,8 +33,16 @@ sctp_manip_pkt(struct sk_buff *skb,
- 	       enum nf_nat_manip_type maniptype)
- {
- 	sctp_sctphdr_t *hdr;
-+	int hdrsize = 8;
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index a90ed67..15f1b65 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -132,6 +132,7 @@
+ #include <net/neighbour.h>
+ #include <net/dst.h>
+ #include <net/fib_rules.h>
++#include <net/tcp.h>
+ #include <net/dn.h>
+ #include <net/dn_nsp.h>
+ #include <net/dn_dev.h>
+@@ -1468,18 +1469,18 @@ static int __dn_setsockopt(struct socket *sock, int level,int optname, char __us
+ 	case DSO_NODELAY:
+ 		if (optlen != sizeof(int))
+ 			return -EINVAL;
+-		if (scp->nonagle == 2)
++		if (scp->nonagle == TCP_NAGLE_CORK)
+ 			return -EINVAL;
+-		scp->nonagle = (u.val == 0) ? 0 : 1;
++		scp->nonagle = (u.val == 0) ? 0 : TCP_NAGLE_OFF;
+ 		/* if (scp->nonagle == 1) { Push pending frames } */
+ 		break;
  
--	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
-+	/* This could be an inner header returned in imcp packet; in such
-+	 * cases we cannot update the checksum field since it is outside
-+	 * of the 8 bytes of transport layer headers we are guaranteed.
-+	 */
-+	if (skb->len >= hdroff + sizeof(*hdr))
-+		hdrsize = sizeof(*hdr);
-+
-+	if (!skb_make_writable(skb, hdroff + hdrsize))
- 		return false;
+ 	case DSO_CORK:
+ 		if (optlen != sizeof(int))
+ 			return -EINVAL;
+-		if (scp->nonagle == 1)
++		if (scp->nonagle == TCP_NAGLE_OFF)
+ 			return -EINVAL;
+-		scp->nonagle = (u.val == 0) ? 0 : 2;
++		scp->nonagle = (u.val == 0) ? 0 : TCP_NAGLE_CORK;
+ 		/* if (scp->nonagle == 0) { Push pending frames } */
+ 		break;
  
- 	hdr = (struct sctphdr *)(skb->data + hdroff);
-@@ -47,6 +55,9 @@ sctp_manip_pkt(struct sk_buff *skb,
- 		hdr->dest = tuple->dst.u.sctp.port;
- 	}
+@@ -1607,14 +1608,14 @@ static int __dn_getsockopt(struct socket *sock, int level,int optname, char __us
+ 	case DSO_NODELAY:
+ 		if (r_len > sizeof(int))
+ 			r_len = sizeof(int);
+-		val = (scp->nonagle == 1);
++		val = (scp->nonagle == TCP_NAGLE_OFF);
+ 		r_data = &val;
+ 		break;
  
-+	if (hdrsize < sizeof(*hdr))
-+		return true;
-+
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
- 		hdr->checksum = sctp_compute_cksum(skb, hdroff);
- 		skb->ip_summed = CHECKSUM_NONE;
+ 	case DSO_CORK:
+ 		if (r_len > sizeof(int))
+ 			r_len = sizeof(int);
+-		val = (scp->nonagle == 2);
++		val = (scp->nonagle == TCP_NAGLE_CORK);
+ 		r_data = &val;
+ 		break;
+ 
 -- 
-2.7.4
+1.9.1
