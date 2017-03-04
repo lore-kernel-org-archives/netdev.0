@@ -1,138 +1,99 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH v2] net: smsc: smc91x: use new api ethtool_{get|set}_link_ksettings
-Date: Sat,  4 Mar 2017 12:42:39 +0100
-Message-ID: <1488627759-8717-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: nico@fluxnic.net, davem@davemloft.net, robert.jarzmik@free.fr,
-        mugunthanvnm@ti.com, jarod@redhat.com,
-        felipe.balbi@linux.intel.com, rmk+kernel@armlinux.org.uk,
-        fw@strlen.de, jeremy.linton@arm.com
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [net] netfilter: nat: sctp: fix ICMP packet to be dropped accidently
+Date: Sat, 4 Mar 2017 18:00:02 +0800
+Message-ID: <1488621602-4152-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <pablo@netfilter.org>, <netfilter-devel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34501 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751472AbdCDLmv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Mar 2017 06:42:51 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:39128 "EHLO
+        mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751336AbdCDMAE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Mar 2017 07:00:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Regarding RFC 792, the first 64 bits of the original SCTP datagram's
+data could be contained in ICMP packet, such as:
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |     Type      |     Code      |          Checksum             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                             unused                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |      Internet Header + 64 bits of Original Data Datagram      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+However, according to RFC 4960, SCTP datagram header is as below:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |     Source Port Number        |     Destination Port Number   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      Verification Tag                         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Checksum                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+It means only the first three fields of SCTP header can be carried in
+ICMP packet except for Checksum field.
+
+At present in sctp_manip_pkt(), no matter whether the packet is ICMP or
+not, it always calculates SCTP packet checksum. However, not only the
+calculation of checksum is unnecessary for ICMP, but also it causes
+another fatal issue that ICMP packet is dropped. The header size of
+SCTP is used to identify whether the writeable length of skb is bigger
+than skb->len through skb_make_writable() in sctp_manip_pkt(). But
+when it deals with ICMP packet, skb_make_writable() directly returns
+false as the writeable length of skb is bigger than skb->len.
+Subsequently ICMP is dropped.
+
+Now we correct this misbahavior. When sctp_manip_pkt() handles ICMP
+packet, 8 bytes rather than the whole SCTP header size is used to check
+if writeable length of skb is overflowed. Meanwhile, as it's meaningless
+to calculate checksum when packet is ICMP, the computation of checksum
+is ignored as well.
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
-Changelog:
-v2:
-- also update comment (feeback from Russel King)
+ net/netfilter/nf_nat_proto_sctp.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
- drivers/net/ethernet/smsc/smc91x.c |   47 +++++++++++++++++++----------------
- 1 files changed, 25 insertions(+), 22 deletions(-)
-
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 65077c7..91e9bd7 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -1535,32 +1535,33 @@ static int smc_close(struct net_device *dev)
-  * Ethtool support
-  */
- static int
--smc_ethtool_getsettings(struct net_device *dev, struct ethtool_cmd *cmd)
-+smc_ethtool_get_link_ksettings(struct net_device *dev,
-+			       struct ethtool_link_ksettings *cmd)
+diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
+index 31d3586..804e8a0 100644
+--- a/net/netfilter/nf_nat_proto_sctp.c
++++ b/net/netfilter/nf_nat_proto_sctp.c
+@@ -33,8 +33,16 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 	       enum nf_nat_manip_type maniptype)
  {
- 	struct smc_local *lp = netdev_priv(dev);
- 	int ret;
+ 	sctp_sctphdr_t *hdr;
++	int hdrsize = 8;
  
--	cmd->maxtxpkt = 1;
--	cmd->maxrxpkt = 1;
--
- 	if (lp->phy_type != 0) {
- 		spin_lock_irq(&lp->lock);
--		ret = mii_ethtool_gset(&lp->mii, cmd);
-+		ret = mii_ethtool_get_link_ksettings(&lp->mii, cmd);
- 		spin_unlock_irq(&lp->lock);
- 	} else {
--		cmd->supported = SUPPORTED_10baseT_Half |
-+		u32 supported = SUPPORTED_10baseT_Half |
- 				 SUPPORTED_10baseT_Full |
- 				 SUPPORTED_TP | SUPPORTED_AUI;
- 
- 		if (lp->ctl_rspeed == 10)
--			ethtool_cmd_speed_set(cmd, SPEED_10);
-+			cmd->base.speed = SPEED_10;
- 		else if (lp->ctl_rspeed == 100)
--			ethtool_cmd_speed_set(cmd, SPEED_100);
-+			cmd->base.speed = SPEED_100;
+-	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
++	/* This could be an inner header returned in imcp packet; in such
++	 * cases we cannot update the checksum field since it is outside
++	 * of the 8 bytes of transport layer headers we are guaranteed.
++	 */
++	if (skb->len >= hdroff + sizeof(*hdr))
++		hdrsize = sizeof(*hdr);
 +
-+		cmd->base.autoneg = AUTONEG_DISABLE;
-+		cmd->base.port = 0;
-+		cmd->base.duplex = lp->tcr_cur_mode & TCR_SWFDUP ?
-+			DUPLEX_FULL : DUPLEX_HALF;
++	if (!skb_make_writable(skb, hdroff + hdrsize))
+ 		return false;
  
--		cmd->autoneg = AUTONEG_DISABLE;
--		cmd->transceiver = XCVR_INTERNAL;
--		cmd->port = 0;
--		cmd->duplex = lp->tcr_cur_mode & TCR_SWFDUP ? DUPLEX_FULL : DUPLEX_HALF;
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.supported, supported);
- 
- 		ret = 0;
+ 	hdr = (struct sctphdr *)(skb->data + hdroff);
+@@ -47,6 +55,9 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 		hdr->dest = tuple->dst.u.sctp.port;
  	}
-@@ -1569,24 +1570,26 @@ static int smc_close(struct net_device *dev)
- }
  
- static int
--smc_ethtool_setsettings(struct net_device *dev, struct ethtool_cmd *cmd)
-+smc_ethtool_set_link_ksettings(struct net_device *dev,
-+			       const struct ethtool_link_ksettings *cmd)
- {
- 	struct smc_local *lp = netdev_priv(dev);
- 	int ret;
- 
- 	if (lp->phy_type != 0) {
- 		spin_lock_irq(&lp->lock);
--		ret = mii_ethtool_sset(&lp->mii, cmd);
-+		ret = mii_ethtool_set_link_ksettings(&lp->mii, cmd);
- 		spin_unlock_irq(&lp->lock);
- 	} else {
--		if (cmd->autoneg != AUTONEG_DISABLE ||
--		    cmd->speed != SPEED_10 ||
--		    (cmd->duplex != DUPLEX_HALF && cmd->duplex != DUPLEX_FULL) ||
--		    (cmd->port != PORT_TP && cmd->port != PORT_AUI))
-+		if (cmd->base.autoneg != AUTONEG_DISABLE ||
-+		    cmd->base.speed != SPEED_10 ||
-+		    (cmd->base.duplex != DUPLEX_HALF &&
-+		     cmd->base.duplex != DUPLEX_FULL) ||
-+		    (cmd->base.port != PORT_TP && cmd->base.port != PORT_AUI))
- 			return -EINVAL;
- 
--//		lp->port = cmd->port;
--		lp->ctl_rfduplx = cmd->duplex == DUPLEX_FULL;
-+//		lp->port = cmd->base.port;
-+		lp->ctl_rfduplx = cmd->base.duplex == DUPLEX_FULL;
- 
- //		if (netif_running(dev))
- //			smc_set_port(dev);
-@@ -1744,8 +1747,6 @@ static int smc_ethtool_seteeprom(struct net_device *dev,
- 
- 
- static const struct ethtool_ops smc_ethtool_ops = {
--	.get_settings	= smc_ethtool_getsettings,
--	.set_settings	= smc_ethtool_setsettings,
- 	.get_drvinfo	= smc_ethtool_getdrvinfo,
- 
- 	.get_msglevel	= smc_ethtool_getmsglevel,
-@@ -1755,6 +1756,8 @@ static int smc_ethtool_seteeprom(struct net_device *dev,
- 	.get_eeprom_len = smc_ethtool_geteeprom_len,
- 	.get_eeprom	= smc_ethtool_geteeprom,
- 	.set_eeprom	= smc_ethtool_seteeprom,
-+	.get_link_ksettings	= smc_ethtool_get_link_ksettings,
-+	.set_link_ksettings	= smc_ethtool_set_link_ksettings,
- };
- 
- static const struct net_device_ops smc_netdev_ops = {
++	if (hdrsize < sizeof(*hdr))
++		return true;
++
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		hdr->checksum = sctp_compute_cksum(skb, hdroff);
+ 		skb->ip_summed = CHECKSUM_NONE;
 -- 
-1.7.4.4
+2.7.4
