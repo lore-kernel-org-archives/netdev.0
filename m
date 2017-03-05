@@ -1,50 +1,39 @@
 From: Peter Robinson <pbrobinson@gmail.com>
-Subject: [PATCH 1/2] net: phy: Add dependencies for Cavium SoCs
-Date: Sun,  5 Mar 2017 12:14:33 +0000
-Message-ID: <20170305121434.22674-2-pbrobinson@gmail.com>
+Subject: [PATCH 2/2] net:phy:hisi: Depend on the appropraite SoC
+Date: Sun,  5 Mar 2017 12:14:34 +0000
+Message-ID: <20170305121434.22674-3-pbrobinson@gmail.com>
 References: <20170305121434.22674-1-pbrobinson@gmail.com>
 Cc: Peter Robinson <pbrobinson@gmail.com>
 To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33962 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752444AbdCEMOo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 07:14:44 -0500
-Received: by mail-wr0-f195.google.com with SMTP id u48so18475766wrc.1
-        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 04:14:43 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34250 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752444AbdCEMOv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 07:14:51 -0500
+Received: by mail-wm0-f68.google.com with SMTP id u132so1566526wmg.1
+        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 04:14:50 -0800 (PST)
 In-Reply-To: <20170305121434.22674-1-pbrobinson@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add dependencies on the Cavium architectures for the PHYs
-as well as COMPILE_TEST to ensure build coverage.
+The HiSi PHY only ships on the ARM SoC so depend on it.
 
 Signed-off-by: Peter Robinson <pbrobinson@gmail.com>
 ---
- drivers/net/phy/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/phy/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 8dbd59b..59b8313 100644
+index 59b8313..be6f853 100644
 --- a/drivers/net/phy/Kconfig
 +++ b/drivers/net/phy/Kconfig
-@@ -127,7 +127,7 @@ config MDIO_MOXART
+@@ -113,6 +113,7 @@ config MDIO_GPIO
  
- config MDIO_OCTEON
- 	tristate "Octeon and some ThunderX SOCs MDIO buses"
--	depends on 64BIT
-+	depends on CAVIUM_OCTEON_SOC || ARCH_THUNDER || COMPILE_TEST
- 	depends on HAS_IOMEM
- 	select MDIO_CAVIUM
+ config MDIO_HISI_FEMAC
+ 	tristate "Hisilicon FEMAC MDIO bus controller"
++	depends on ARCH_HISI || COMPILE_TEST
+ 	depends on HAS_IOMEM && OF_MDIO
  	help
-@@ -145,7 +145,7 @@ config MDIO_SUN4I
- 
- config MDIO_THUNDER
- 	tristate "ThunderX SOCs MDIO buses"
--	depends on 64BIT
-+	depends on ARCH_THUNDER || COMPILE_TEST
- 	depends on PCI
- 	select MDIO_CAVIUM
- 	help
+ 	  This module provides a driver for the MDIO busses found in the
 -- 
 2.9.3
