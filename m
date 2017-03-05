@@ -1,61 +1,60 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net] tcp: fix various issues for sockets morphing to
- listen state
-Date: Sun, 5 Mar 2017 08:58:42 -0800
-Message-ID: <CANn89iKaXGJnLAKubNG4h8wPECnoMttLDyWmRHgnGD+Unhew-Q@mail.gmail.com>
-References: <CACT4Y+Y+dL6EzkfDahjQUyyT4YMhDin7UPY5RQYbNH0n0DJ5xA@mail.gmail.com>
- <CANn89iLNQKyywwLAdJsQDOpGDtEs6S-4BZkZYmwT39ENZyqLTg@mail.gmail.com>
- <1488574561.9415.336.camel@edumazet-glaptop3.roam.corp.google.com>
- <1488578901.9415.353.camel@edumazet-glaptop3.roam.corp.google.com> <CACT4Y+Z464Ex3UXm-v2OHXd1TCPke_WA_FEiVPAaBOMpFf+b+w@mail.gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net] bpf: add get_next_key callback to LPM map
+Date: Sun, 5 Mar 2017 09:41:08 -0800
+Message-ID: <1488735668-2296008-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>,
+        Dmitry Vyukov <dvyukov@google.com>, <netdev@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:36908 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750770AbdCEQ6o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 11:58:44 -0500
-Received: by mail-it0-f53.google.com with SMTP id 203so37935320ith.0
-        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 08:58:43 -0800 (PST)
-In-Reply-To: <CACT4Y+Z464Ex3UXm-v2OHXd1TCPke_WA_FEiVPAaBOMpFf+b+w@mail.gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35871 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750864AbdCERlN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 12:41:13 -0500
+Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v25HXj9p002782
+        for <netdev@vger.kernel.org>; Sun, 5 Mar 2017 09:41:11 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 28yv6kkk2c-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 09:41:11 -0800
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
+ mx-out.facebook.com (10.223.100.99) with ESMTP id
+ eab29b2601ca11e7944824be05956610-a6bfba00 for <netdev@vger.kernel.org>;        Sun,
+ 05 Mar 2017 09:41:09 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 5, 2017 at 4:00 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Fri, Mar 3, 2017 at 11:08 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> Dmitry Vyukov reported a divide by 0 triggered by syzkaller, exploiting
->> tcp_disconnect() path that was never really considered and/or used
->> before syzkaller ;)
->>
->> I was not able to reproduce the bug, but it seems issues here are the
->> three possible actions that assumed they would never trigger on a
->> listener.
->>
->> 1) tcp_write_timer_handler
->> 2) tcp_delack_timer_handler
->> 3) MTU reduction
->>
->> Only IPv6 MTU reduction was properly testing TCP_CLOSE and TCP_LISTEN
->>  states from tcp_v6_mtu_reduced()
->
-> I've run the test as "while ./a.out; do true; done". I've also noticed
-> that it either reproduces very quickly or does not happen at all. So I
-> rebooted machine, run the program in loop and then repeated if it does
-> not happen within seconds.
+map_get_next_key callback is mandatory. Supply dummy handler.
 
-Yes, I was also doing this.
+Fixes: b95a5c4db09b ("bpf: add a longest prefix match trie map implementation")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+---
+ kernel/bpf/lpm_trie.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-What I noticed is that your program did not use SO_REUSEADDR, meaning
-the second (and later) bind() syscall would fail.
-
-Maybe some sysctl difference between your host and mine....
-
->
-> Retested with your patch, seems to not crash anymore.
->
-Thanks for testing !
+diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
+index 8bfe0afaee10..b37bd9ab7f57 100644
+--- a/kernel/bpf/lpm_trie.c
++++ b/kernel/bpf/lpm_trie.c
+@@ -500,9 +500,15 @@ static void trie_free(struct bpf_map *map)
+ 	raw_spin_unlock(&trie->lock);
+ }
+ 
++static int trie_get_next_key(struct bpf_map *map, void *key, void *next_key)
++{
++	return -ENOTSUPP;
++}
++
+ static const struct bpf_map_ops trie_ops = {
+ 	.map_alloc = trie_alloc,
+ 	.map_free = trie_free,
++	.map_get_next_key = trie_get_next_key,
+ 	.map_lookup_elem = trie_lookup_elem,
+ 	.map_update_elem = trie_update_elem,
+ 	.map_delete_elem = trie_delete_elem,
+-- 
+2.8.0
