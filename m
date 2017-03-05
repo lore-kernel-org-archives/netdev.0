@@ -1,264 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] dccp: fix use-after-free in dccp_feat_activate_values
-Date: Sun, 05 Mar 2017 10:52:16 -0800
-Message-ID: <1488739936.9415.368.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
-         <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
-         <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
-         <1488551576.9415.328.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1488552503.9415.330.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+Z6t_jGoh3Gm3Sxuu_ugF5kQ3QJ37LVdqoEK_ab52tQMA@mail.gmail.com>
-         <CACT4Y+ZhNzcKTODGkD3R-68KgkOtYCaf4cZYPH51=HhREXVPGg@mail.gmail.com>
-         <CANn89i+E+DkUJBV-3AQ38hstj9=G7=3fLJuG8LA6upp77ecwPA@mail.gmail.com>
-         <1488556814.9415.334.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+Zg9PptopGHPBYmf_2hfHg3kTrTkyhQuT9C7Krf4nX6AA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bpf: add get_next_key callback to LPM map
+Date: Sun, 05 Mar 2017 10:44:13 -0800 (PST)
+Message-ID: <20170305.104413.1645369685777679734.davem@davemloft.net>
+References: <1488735668-2296008-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        netdev <netdev@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: daniel@iogearbox.net, daniel@zonque.org, dvyukov@google.com,
+        netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35230 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750814AbdCESwT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 13:52:19 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 67so10833559pfg.2
-        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 10:52:18 -0800 (PST)
-In-Reply-To: <CACT4Y+Zg9PptopGHPBYmf_2hfHg3kTrTkyhQuT9C7Krf4nX6AA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58806 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752186AbdCESy2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 13:54:28 -0500
+In-Reply-To: <1488735668-2296008-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Alexei Starovoitov <ast@fb.com>
+Date: Sun, 5 Mar 2017 09:41:08 -0800
 
-Dmitry reported crashes in DCCP stack [1]
+> map_get_next_key callback is mandatory. Supply dummy handler.
+> 
+> Fixes: b95a5c4db09b ("bpf: add a longest prefix match trie map implementation")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-Problem here is that when I got rid of listener spinlock, I missed the
-fact that DCCP stores a complex state in struct dccp_request_sock,
-while TCP does not.
-
-Since multiple cpus could access it at the same time, we need to add
-protection.
-
-[1]
-BUG: KASAN: use-after-free in dccp_feat_activate_values+0x967/0xab0
-net/dccp/feat.c:1541 at addr ffff88003713be68
-Read of size 8 by task syz-executor2/8457
-CPU: 2 PID: 8457 Comm: syz-executor2 Not tainted 4.10.0-rc7+ #127
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- <IRQ>
- __dump_stack lib/dump_stack.c:15 [inline]
- dump_stack+0x292/0x398 lib/dump_stack.c:51
- kasan_object_err+0x1c/0x70 mm/kasan/report.c:162
- print_address_description mm/kasan/report.c:200 [inline]
- kasan_report_error mm/kasan/report.c:289 [inline]
- kasan_report.part.1+0x20e/0x4e0 mm/kasan/report.c:311
- kasan_report mm/kasan/report.c:332 [inline]
- __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
- dccp_feat_activate_values+0x967/0xab0 net/dccp/feat.c:1541
- dccp_create_openreq_child+0x464/0x610 net/dccp/minisocks.c:121
- dccp_v6_request_recv_sock+0x1f6/0x1960 net/dccp/ipv6.c:457
- dccp_check_req+0x335/0x5a0 net/dccp/minisocks.c:186
- dccp_v6_rcv+0x69e/0x1d00 net/dccp/ipv6.c:711
- ip6_input_finish+0x46d/0x17a0 net/ipv6/ip6_input.c:279
- NF_HOOK include/linux/netfilter.h:257 [inline]
- ip6_input+0xdb/0x590 net/ipv6/ip6_input.c:322
- dst_input include/net/dst.h:507 [inline]
- ip6_rcv_finish+0x289/0x890 net/ipv6/ip6_input.c:69
- NF_HOOK include/linux/netfilter.h:257 [inline]
- ipv6_rcv+0x12ec/0x23d0 net/ipv6/ip6_input.c:203
- __netif_receive_skb_core+0x1ae5/0x3400 net/core/dev.c:4190
- __netif_receive_skb+0x2a/0x170 net/core/dev.c:4228
- process_backlog+0xe5/0x6c0 net/core/dev.c:4839
- napi_poll net/core/dev.c:5202 [inline]
- net_rx_action+0xe70/0x1900 net/core/dev.c:5267
- __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
- do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
- </IRQ>
- do_softirq.part.17+0x1e8/0x230 kernel/softirq.c:328
- do_softirq kernel/softirq.c:176 [inline]
- __local_bh_enable_ip+0x1f2/0x200 kernel/softirq.c:181
- local_bh_enable include/linux/bottom_half.h:31 [inline]
- rcu_read_unlock_bh include/linux/rcupdate.h:971 [inline]
- ip6_finish_output2+0xbb0/0x23d0 net/ipv6/ip6_output.c:123
- ip6_finish_output+0x302/0x960 net/ipv6/ip6_output.c:148
- NF_HOOK_COND include/linux/netfilter.h:246 [inline]
- ip6_output+0x1cb/0x8d0 net/ipv6/ip6_output.c:162
- ip6_xmit+0xcdf/0x20d0 include/net/dst.h:501
- inet6_csk_xmit+0x320/0x5f0 net/ipv6/inet6_connection_sock.c:179
- dccp_transmit_skb+0xb09/0x1120 net/dccp/output.c:141
- dccp_xmit_packet+0x215/0x760 net/dccp/output.c:280
- dccp_write_xmit+0x168/0x1d0 net/dccp/output.c:362
- dccp_sendmsg+0x79c/0xb10 net/dccp/proto.c:796
- inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
- sock_sendmsg_nosec net/socket.c:635 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:645
- SYSC_sendto+0x660/0x810 net/socket.c:1687
- SyS_sendto+0x40/0x50 net/socket.c:1655
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x4458b9
-RSP: 002b:00007f8ceb77bb58 EFLAGS: 00000282 ORIG_RAX: 000000000000002c
-RAX: ffffffffffffffda RBX: 0000000000000017 RCX: 00000000004458b9
-RDX: 0000000000000023 RSI: 0000000020e60000 RDI: 0000000000000017
-RBP: 00000000006e1b90 R08: 00000000200f9fe1 R09: 0000000000000020
-R10: 0000000000008010 R11: 0000000000000282 R12: 00000000007080a8
-R13: 0000000000000000 R14: 00007f8ceb77c9c0 R15: 00007f8ceb77c700
-Object at ffff88003713be50, in cache kmalloc-64 size: 64
-Allocated:
-PID = 8446
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
- save_stack+0x43/0xd0 mm/kasan/kasan.c:502
- set_track mm/kasan/kasan.c:514 [inline]
- kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:605
- kmem_cache_alloc_trace+0x82/0x270 mm/slub.c:2738
- kmalloc include/linux/slab.h:490 [inline]
- dccp_feat_entry_new+0x214/0x410 net/dccp/feat.c:467
- dccp_feat_push_change+0x38/0x220 net/dccp/feat.c:487
- __feat_register_sp+0x223/0x2f0 net/dccp/feat.c:741
- dccp_feat_propagate_ccid+0x22b/0x2b0 net/dccp/feat.c:949
- dccp_feat_server_ccid_dependencies+0x1b3/0x250 net/dccp/feat.c:1012
- dccp_make_response+0x1f1/0xc90 net/dccp/output.c:423
- dccp_v6_send_response+0x4ec/0xc20 net/dccp/ipv6.c:217
- dccp_v6_conn_request+0xaba/0x11b0 net/dccp/ipv6.c:377
- dccp_rcv_state_process+0x51e/0x1650 net/dccp/input.c:606
- dccp_v6_do_rcv+0x213/0x350 net/dccp/ipv6.c:632
- sk_backlog_rcv include/net/sock.h:893 [inline]
- __sk_receive_skb+0x36f/0xcc0 net/core/sock.c:479
- dccp_v6_rcv+0xba5/0x1d00 net/dccp/ipv6.c:742
- ip6_input_finish+0x46d/0x17a0 net/ipv6/ip6_input.c:279
- NF_HOOK include/linux/netfilter.h:257 [inline]
- ip6_input+0xdb/0x590 net/ipv6/ip6_input.c:322
- dst_input include/net/dst.h:507 [inline]
- ip6_rcv_finish+0x289/0x890 net/ipv6/ip6_input.c:69
- NF_HOOK include/linux/netfilter.h:257 [inline]
- ipv6_rcv+0x12ec/0x23d0 net/ipv6/ip6_input.c:203
- __netif_receive_skb_core+0x1ae5/0x3400 net/core/dev.c:4190
- __netif_receive_skb+0x2a/0x170 net/core/dev.c:4228
- process_backlog+0xe5/0x6c0 net/core/dev.c:4839
- napi_poll net/core/dev.c:5202 [inline]
- net_rx_action+0xe70/0x1900 net/core/dev.c:5267
- __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
-Freed:
-PID = 15
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
- save_stack+0x43/0xd0 mm/kasan/kasan.c:502
- set_track mm/kasan/kasan.c:514 [inline]
- kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:578
- slab_free_hook mm/slub.c:1355 [inline]
- slab_free_freelist_hook mm/slub.c:1377 [inline]
- slab_free mm/slub.c:2954 [inline]
- kfree+0xe8/0x2b0 mm/slub.c:3874
- dccp_feat_entry_destructor.part.4+0x48/0x60 net/dccp/feat.c:418
- dccp_feat_entry_destructor net/dccp/feat.c:416 [inline]
- dccp_feat_list_pop net/dccp/feat.c:541 [inline]
- dccp_feat_activate_values+0x57f/0xab0 net/dccp/feat.c:1543
- dccp_create_openreq_child+0x464/0x610 net/dccp/minisocks.c:121
- dccp_v6_request_recv_sock+0x1f6/0x1960 net/dccp/ipv6.c:457
- dccp_check_req+0x335/0x5a0 net/dccp/minisocks.c:186
- dccp_v6_rcv+0x69e/0x1d00 net/dccp/ipv6.c:711
- ip6_input_finish+0x46d/0x17a0 net/ipv6/ip6_input.c:279
- NF_HOOK include/linux/netfilter.h:257 [inline]
- ip6_input+0xdb/0x590 net/ipv6/ip6_input.c:322
- dst_input include/net/dst.h:507 [inline]
- ip6_rcv_finish+0x289/0x890 net/ipv6/ip6_input.c:69
- NF_HOOK include/linux/netfilter.h:257 [inline]
- ipv6_rcv+0x12ec/0x23d0 net/ipv6/ip6_input.c:203
- __netif_receive_skb_core+0x1ae5/0x3400 net/core/dev.c:4190
- __netif_receive_skb+0x2a/0x170 net/core/dev.c:4228
- process_backlog+0xe5/0x6c0 net/core/dev.c:4839
- napi_poll net/core/dev.c:5202 [inline]
- net_rx_action+0xe70/0x1900 net/core/dev.c:5267
- __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
-Memory state around the buggy address:
- ffff88003713bd00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
- ffff88003713bd80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->ffff88003713be00: fc fc fc fc fc fc fc fc fc fc fb fb fb fb fb fb
-                                                          ^
-
-Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Tested-by: Dmitry Vyukov <dvyukov@google.com>
----
- include/linux/dccp.h |    1 +
- net/dccp/minisocks.c |   24 ++++++++++++++++--------
- 2 files changed, 17 insertions(+), 8 deletions(-)
-
-diff --git a/include/linux/dccp.h b/include/linux/dccp.h
-index 61d042bbbf607253033d9948b291cab2322814ba..68449293c4b6233c1a1d4133b1819376a9310225 100644
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -163,6 +163,7 @@ struct dccp_request_sock {
- 	__u64			 dreq_isr;
- 	__u64			 dreq_gsr;
- 	__be32			 dreq_service;
-+	spinlock_t		 dreq_lock;
- 	struct list_head	 dreq_featneg;
- 	__u32			 dreq_timestamp_echo;
- 	__u32			 dreq_timestamp_time;
-diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
-index e267e6f4c9a5566b369a03a600a408e5bd41cbad..abd07a443219853b022bef41cb072e90ff8f07f0 100644
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -142,6 +142,13 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
- 	struct dccp_request_sock *dreq = dccp_rsk(req);
- 	bool own_req;
- 
-+	/* TCP/DCCP listeners became lockless.
-+	 * DCCP stores complex state in its request_sock, so we need
-+	 * a protection for them, now this code runs without being protected
-+	 * by the parent (listener) lock.
-+	 */
-+	spin_lock_bh(&dreq->dreq_lock);
-+
- 	/* Check for retransmitted REQUEST */
- 	if (dccp_hdr(skb)->dccph_type == DCCP_PKT_REQUEST) {
- 
-@@ -156,7 +163,7 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
- 			inet_rtx_syn_ack(sk, req);
- 		}
- 		/* Network Duplicate, discard packet */
--		return NULL;
-+		goto out;
- 	}
- 
- 	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_PACKET_ERROR;
-@@ -182,20 +189,20 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
- 
- 	child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb, req, NULL,
- 							 req, &own_req);
--	if (!child)
--		goto listen_overflow;
--
--	return inet_csk_complete_hashdance(sk, child, req, own_req);
-+	if (child) {
-+		child = inet_csk_complete_hashdance(sk, child, req, own_req);
-+		goto out;
-+	}
- 
--listen_overflow:
--	dccp_pr_debug("listen_overflow!\n");
- 	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_TOO_BUSY;
- drop:
- 	if (dccp_hdr(skb)->dccph_type != DCCP_PKT_RESET)
- 		req->rsk_ops->send_reset(sk, skb);
- 
- 	inet_csk_reqsk_queue_drop(sk, req);
--	return NULL;
-+out:
-+	spin_unlock_bh(&dreq->dreq_lock);
-+	return child;
- }
- 
- EXPORT_SYMBOL_GPL(dccp_check_req);
-@@ -246,6 +253,7 @@ int dccp_reqsk_init(struct request_sock *req,
- {
- 	struct dccp_request_sock *dreq = dccp_rsk(req);
- 
-+	spin_lock_init(&dreq->dreq_lock);
- 	inet_rsk(req)->ir_rmt_port = dccp_hdr(skb)->dccph_sport;
- 	inet_rsk(req)->ir_num	   = ntohs(dccp_hdr(skb)->dccph_dport);
- 	inet_rsk(req)->acked	   = 0;
+Wouldn't it be more appropriate to provide a proper DFS ordered
+traversal rather than return an error code?
