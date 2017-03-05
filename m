@@ -1,111 +1,147 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH 2/2 net] ibmvnic: Allocate number of rx/tx buffers agreed on by firmware
-Date: Sun,  5 Mar 2017 12:10:24 -0600
-Message-ID: <1488737424-17067-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
-References: <1488737424-17067-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: jallen@linux.vnet.ibm.com, nfont@linux.vnic.ibm.com,
-        wvoigt@us.ibm.com
-To: netdev@vger.kernel.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: m_can: support transmit frame in CAN FD format
+Date: Sun, 5 Mar 2017 20:34:15 +0100
+Message-ID: <12c3ae1d-65f7-8ba2-61e7-eed5291ebd21@hartkopp.net>
+References: <20170303053331.20883-1-wenyou.yang@atmel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Quentin Schulz <quentin.schulz@free-electrons.com>,
+        Wenyou Yang <wenyou.yang@microchip.com>,
+        Nicolas Ferre <nicolas.ferre@atmel.com>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Wenyou Yang <wenyou.yang@atmel.com>,
+        Wolfgang Grandegger <wg@grandegger.com>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:60012 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751909AbdCETIU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 14:08:20 -0500
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v25I8bRY132584
-        for <netdev@vger.kernel.org>; Sun, 5 Mar 2017 13:10:33 -0500
-Received: from e32.co.us.ibm.com (e32.co.us.ibm.com [32.97.110.150])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 28yva1whvv-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 13:10:33 -0500
-Received: from localhost
-        by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Sun, 5 Mar 2017 11:10:32 -0700
-Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
-        by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 02ECE3E4003F
-        for <netdev@vger.kernel.org>; Sun,  5 Mar 2017 11:10:30 -0700 (MST)
-In-Reply-To: <1488737424-17067-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.161]:25395 "EHLO
+        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750770AbdCETgq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 14:36:46 -0500
+In-Reply-To: <20170303053331.20883-1-wenyou.yang@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The amount of TX/RX buffers that the vNIC driver currently allocates
-is different from the amount agreed upon in negotiation with firmware.
-Correct that by allocating the requested number of buffers confirmed
-by firmware.
+The patch has some issues:
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+On 03/03/2017 06:33 AM, Wenyou Yang wrote:
+> Add support to transmit the frame in the CAN FD format and with
+> the bit rate switching.
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 0e87b83..5f11b4d 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -404,7 +404,7 @@ static int ibmvnic_open(struct net_device *netdev)
- 	send_map_query(adapter);
- 	for (i = 0; i < rxadd_subcrqs; i++) {
- 		init_rx_pool(adapter, &adapter->rx_pool[i],
--			     IBMVNIC_BUFFS_PER_POOL, i,
-+			     adapter->req_rx_add_entries_per_subcrq, i,
- 			     be64_to_cpu(size_array[i]), 1);
- 		if (alloc_rx_pool(adapter, &adapter->rx_pool[i])) {
- 			dev_err(dev, "Couldn't alloc rx pool\n");
-@@ -419,23 +419,23 @@ static int ibmvnic_open(struct net_device *netdev)
- 	for (i = 0; i < tx_subcrqs; i++) {
- 		tx_pool = &adapter->tx_pool[i];
- 		tx_pool->tx_buff =
--		    kcalloc(adapter->max_tx_entries_per_subcrq,
-+		    kcalloc(adapter->req_tx_entries_per_subcrq,
- 			    sizeof(struct ibmvnic_tx_buff), GFP_KERNEL);
- 		if (!tx_pool->tx_buff)
- 			goto tx_pool_alloc_failed;
- 
- 		if (alloc_long_term_buff(adapter, &tx_pool->long_term_buff,
--					 adapter->max_tx_entries_per_subcrq *
-+					 adapter->req_tx_entries_per_subcrq *
- 					 adapter->req_mtu))
- 			goto tx_ltb_alloc_failed;
- 
- 		tx_pool->free_map =
--		    kcalloc(adapter->max_tx_entries_per_subcrq,
-+		    kcalloc(adapter->req_tx_entries_per_subcrq,
- 			    sizeof(int), GFP_KERNEL);
- 		if (!tx_pool->free_map)
- 			goto tx_fm_alloc_failed;
- 
--		for (j = 0; j < adapter->max_tx_entries_per_subcrq; j++)
-+		for (j = 0; j < adapter->req_tx_entries_per_subcrq; j++)
- 			tx_pool->free_map[j] = j;
- 
- 		tx_pool->consumer_index = 0;
-@@ -746,7 +746,7 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 
- 	tx_pool->consumer_index =
- 	    (tx_pool->consumer_index + 1) %
--		adapter->max_tx_entries_per_subcrq;
-+		adapter->req_tx_entries_per_subcrq;
- 
- 	tx_buff = &tx_pool->tx_buff[index];
- 	tx_buff->skb = skb;
-@@ -819,7 +819,7 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 
- 		if (tx_pool->consumer_index == 0)
- 			tx_pool->consumer_index =
--				adapter->max_tx_entries_per_subcrq - 1;
-+				adapter->req_tx_entries_per_subcrq - 1;
- 		else
- 			tx_pool->consumer_index--;
- 
-@@ -1387,7 +1387,7 @@ static int ibmvnic_complete_tx(struct ibmvnic_adapter *adapter,
- 						     producer_index] = index;
- 			adapter->tx_pool[pool].producer_index =
- 			    (adapter->tx_pool[pool].producer_index + 1) %
--			    adapter->max_tx_entries_per_subcrq;
-+			    adapter->req_tx_entries_per_subcrq;
- 		}
- 		/* remove tx_comp scrq*/
- 		next->tx_comp.first = 0;
--- 
-1.8.3.1
+This is a misleading comment.
+
+"can: m_can: support transmit frame in CAN FD format"
+is misleading too. You were able to send CAN FD frames before.
+
+This patch enables the transmission of CAN FD frames on M_CAN IP cores 
+ >= v3.1.x, right?
+
+So this should be mentioned properly.
+
+> Tested on SAMA5D2 Xplained board.
+
+Tested on which M_CAN IP core revision would be useful here.
+
+> Signed-off-by: Wenyou Yang <wenyou.yang@atmel.com>
+> ---
+> The testing is based on
+> [RESEND PATCH 1/1] can: m_can: fix bitrate setup on latest silicon
+> http://lkml.iu.edu/hypermail/linux/kernel/1702.1/05347.html
+>
+>  drivers/net/can/m_can/m_can.c | 21 +++++++++++++++++----
+>  1 file changed, 17 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+> index 195f15edb32e..9ef9b337d25b 100644
+> --- a/drivers/net/can/m_can/m_can.c
+> +++ b/drivers/net/can/m_can/m_can.c
+> @@ -266,8 +266,12 @@ enum m_can_mram_cfg {
+>
+>  /* Tx Buffer Element */
+>  /* R0 */
+> +#define TX_BUF_ESI		BIT(31)
+>  #define TX_BUF_XTD		BIT(30)
+>  #define TX_BUF_RTR		BIT(29)
+> +#define TX_BUF_EFC		BIT(23)
+> +#define TX_BUF_EDL		BIT(21)
+
+This bit is named FDF (FD Format bit).
+
+It has to be:
+
+#define TX_BUF_FDF		BIT(21)
+
+> +#define TX_BUF_BRS		BIT(20)
+>
+>  /* address offset and element number for each FIFO/Buffer in the Message RAM */
+>  struct mram_cfg {
+> @@ -884,7 +888,7 @@ static void m_can_chip_config(struct net_device *dev)
+>  	}
+>
+>  	if (priv->can.ctrlmode & CAN_CTRLMODE_FD)
+> -		cccr |= CCCR_CME_CANFD_BRS << CCCR_CME_SHIFT;
+> +		cccr |= (CCCR_CME_CANFD_BRS | CCCR_CME_CANFD) << CCCR_CME_SHIFT;
+>
+>  	m_can_write(priv, M_CAN_CCCR, cccr);
+>  	m_can_write(priv, M_CAN_TEST, test);
+> @@ -1047,6 +1051,7 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
+>  	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
+>  	u32 id, cccr;
+>  	int i;
+> +	u32 dlc;
+>
+>  	if (can_dropped_invalid_skb(dev, skb))
+>  		return NETDEV_TX_OK;
+> @@ -1065,7 +1070,6 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
+>
+>  	/* message ram configuration */
+>  	m_can_fifo_write(priv, 0, M_CAN_FIFO_ID, id);
+> -	m_can_fifo_write(priv, 0, M_CAN_FIFO_DLC, can_len2dlc(cf->len) << 16);
+>
+>  	for (i = 0; i < cf->len; i += 4)
+>  		m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
+> @@ -1073,20 +1077,29 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
+>
+>  	can_put_echo_skb(skb, dev, 0);
+>
+> +	dlc = can_len2dlc(cf->len) << 16;
+> +
+>  	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
+>  		cccr = m_can_read(priv, M_CAN_CCCR);
+>  		cccr &= ~(CCCR_CMR_MASK << CCCR_CMR_SHIFT);
+>  		if (can_is_canfd_skb(skb)) {
+> -			if (cf->flags & CANFD_BRS)
+> +			dlc |= TX_BUF_EDL;
+
+dito FDF
+
+> +			if (cf->flags & CANFD_ESI)
+> +				dlc |= TX_BUF_ESI;
+> +			if (cf->flags & CANFD_BRS) {
+> +				dlc |= TX_BUF_BRS;
+>  				cccr |= CCCR_CMR_CANFD_BRS << CCCR_CMR_SHIFT;
+> -			else
+> +			} else {
+>  				cccr |= CCCR_CMR_CANFD << CCCR_CMR_SHIFT;
+> +			}
+>  		} else {
+>  			cccr |= CCCR_CMR_CAN << CCCR_CMR_SHIFT;
+>  		}
+>  		m_can_write(priv, M_CAN_CCCR, cccr);
+>  	}
+>
+> +	m_can_fifo_write(priv, 0, M_CAN_FIFO_DLC, dlc);
+> +
+>  	/* enable first TX buffer to start transfer  */
+>  	m_can_write(priv, M_CAN_TXBTIE, 0x1);
+>  	m_can_write(priv, M_CAN_TXBAR, 0x1);
+>
+
+Beside the documentation and the wrong bit naming the patch looks ok.
+Please resend.
+
+Regards,
+Oliver
