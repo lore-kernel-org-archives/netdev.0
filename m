@@ -1,79 +1,50 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/ipv6: null-ptr-deref in ip6mr_sk_done
-Date: Sun, 5 Mar 2017 12:02:48 -0800
-Message-ID: <CAM_iQpUWfG3033ktYcZMaZwWs1iPK4JYf7y0WxTA81Q0Nk=vqQ@mail.gmail.com>
-References: <CAAeHK+z9YUi6Qh7tkODFaDXuDNmUx173CQe5hnT3r8-3Ycg8+w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: phy: Do not perform software reset for Generic PHY
+Date: Sun,  5 Mar 2017 12:26:10 -0800
+Message-ID: <20170305202610.9263-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, nbd@nbd.name,
+        john@phrozen.org, cphealy@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37122 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752304AbdCEUDL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 15:03:11 -0500
-In-Reply-To: <CAAeHK+z9YUi6Qh7tkODFaDXuDNmUx173CQe5hnT3r8-3Ycg8+w@mail.gmail.com>
+Received: from mail-ot0-f194.google.com ([74.125.82.194]:33935 "EHLO
+        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752329AbdCEU1R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 15:27:17 -0500
+Received: by mail-ot0-f194.google.com with SMTP id x37so9297632ota.1
+        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 12:26:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 5, 2017 at 8:54 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> Hi,
->
-> I've got the following bug report while fuzzing the kernel with syzkaller.
-> Unfortunately it's not reproducible.
->
-> On commit e5d56efc97f8240d0b5d66c03949382b6d7e5570 (Feb 26).
->
-> kasan: GPF could be caused by NULL-ptr deref or user memory access
-> general protection fault: 0000 [#1] SMP KASAN
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in:
-> CPU: 0 PID: 14446 Comm: syz-executor6 Not tainted 4.10.0+ #82
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> task: ffff88001f311700 task.stack: ffff88001f6e8000
-> RIP: 0010:ip6mr_sk_done+0x15a/0x3d0 net/ipv6/ip6mr.c:1618
-> RSP: 0018:ffff88001f6ef418 EFLAGS: 00010202
-> RAX: dffffc0000000000 RBX: 1ffff10003edde8c RCX: ffffc900043ee000
-> RDX: 0000000000000004 RSI: ffffffff83e3b3f8 RDI: 0000000000000020
-> RBP: ffff88001f6ef508 R08: fffffbfff0dcc5d8 R09: 0000000000000000
-> R10: ffffffff86e62ec0 R11: 0000000000000000 R12: 0000000000000000
-> R13: 0000000000000000 R14: ffff88001f6ef4e0 R15: ffff8800380a0040
-> FS:  00007f7a52cec700(0000) GS:ffff88003ec00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 000000000061c500 CR3: 000000001f1ae000 CR4: 00000000000006f0
-> DR0: 0000000020000000 DR1: 0000000020000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
-> Call Trace:
->  rawv6_close+0x4c/0x80 net/ipv6/raw.c:1217
->  inet_release+0xed/0x1c0 net/ipv4/af_inet.c:425
->  inet6_release+0x50/0x70 net/ipv6/af_inet6.c:432
->  sock_release+0x8d/0x1e0 net/socket.c:597
->  __sock_create+0x39d/0x880 net/socket.c:1226
->  sock_create_kern+0x3f/0x50 net/socket.c:1243
->  inet_ctl_sock_create+0xbb/0x280 net/ipv4/af_inet.c:1526
->  icmpv6_sk_init+0x163/0x500 net/ipv6/icmp.c:954
->  ops_init+0x10a/0x550 net/core/net_namespace.c:115
->  setup_net+0x261/0x660 net/core/net_namespace.c:291
->  copy_net_ns+0x27e/0x540 net/core/net_namespace.c:396
-> 9pnet_virtio: no channels available for device ./file1
->  create_new_namespaces+0x437/0x9b0 kernel/nsproxy.c:106
->  unshare_nsproxy_namespaces+0xae/0x1e0 kernel/nsproxy.c:205
->  SYSC_unshare kernel/fork.c:2281 [inline]
->  SyS_unshare+0x64e/0x1000 kernel/fork.c:2231
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
+The Generic PHY driver is a catch-all PHY driver and it should preserve
+whatever prior initialization has been done by boot loader or firmware
+agents. For specific PHY device configuration it is expected that a
+specialized PHY driver would take over that role.
 
-Hmm, I think net->ipv6.mr6_tables is not initialized at that point,
-ip6mr_rules_init() is not called yet, therefore on the error path when
-we iterator the list, we trigger this oops. We need some other way
-to check if it is initialized or not.
+Resetting the generic PHY was a bad idea that has lead to several
+complaints and downstream workarounds e.g: in OpenWrt/LEDE so restore
+the behavior prior to 87aa9f9c61ad ("net: phy: consolidate PHY
+reset in phy_init_hw()").
+
+Reported-by: Felix Fietkau <nbd@nbd.name>
+Fixes: 87aa9f9c61ad ("net: phy: consolidate PHY reset in phy_init_hw()")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/phy_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index daec6555f3b1..5198ccfa347f 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1864,7 +1864,7 @@ static struct phy_driver genphy_driver[] = {
+ 	.phy_id		= 0xffffffff,
+ 	.phy_id_mask	= 0xffffffff,
+ 	.name		= "Generic PHY",
+-	.soft_reset	= genphy_soft_reset,
++	.soft_reset	= genphy_no_soft_reset,
+ 	.config_init	= genphy_config_init,
+ 	.features	= PHY_GBIT_FEATURES | SUPPORTED_MII |
+ 			  SUPPORTED_AUI | SUPPORTED_FIBRE |
+-- 
+2.9.3
