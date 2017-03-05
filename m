@@ -1,31 +1,35 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: net/sched: act_skbmod: rcu_read_unlock in tcf_skbmod_dump?
-Date: Sat, 4 Mar 2017 18:46:32 -0500
-Message-ID: <f9a9b434-ea38-3f7f-6207-8c7bc7317bc4@mojatatu.com>
-References: <1488660579-3056-1-git-send-email-khoroshilov@ispras.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        ldv-project@linuxtesting.org
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:36747 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752242AbdCDXrb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Mar 2017 18:47:31 -0500
-Received: by mail-it0-f46.google.com with SMTP id h10so31871333ith.1
-        for <netdev@vger.kernel.org>; Sat, 04 Mar 2017 15:46:35 -0800 (PST)
-In-Reply-To: <1488660579-3056-1-git-send-email-khoroshilov@ispras.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] net/sched: act_skbmod: remove unneeded rcu_read_unlock in tcf_skbmod_dump
+Date: Sun,  5 Mar 2017 03:01:55 +0300
+Message-ID: <1488672115-11057-1-git-send-email-khoroshilov@ispras.ru>
+References: <f9a9b434-ea38-3f7f-6207-8c7bc7317bc4@mojatatu.com>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f9a9b434-ea38-3f7f-6207-8c7bc7317bc4@mojatatu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-03-04 03:49 PM, Alexey Khoroshilov wrote:
-> Hello!
->
-> rcu_read_unlock() in tcf_skbmod_dump() looks suspicious to me.
+Found by Linux Driver Verification project (linuxtesting.org).
 
-It does look suspicious. You want to send a patch or should I?
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ net/sched/act_skbmod.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-cheers,
-jamal
+diff --git a/net/sched/act_skbmod.c b/net/sched/act_skbmod.c
+index 3b7074e23024..c736627f8f4a 100644
+--- a/net/sched/act_skbmod.c
++++ b/net/sched/act_skbmod.c
+@@ -228,7 +228,6 @@ static int tcf_skbmod_dump(struct sk_buff *skb, struct tc_action *a,
+ 
+ 	return skb->len;
+ nla_put_failure:
+-	rcu_read_unlock();
+ 	nlmsg_trim(skb, b);
+ 	return -1;
+ }
+-- 
+2.7.4
