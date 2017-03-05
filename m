@@ -1,50 +1,126 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: phy: Do not perform software reset for Generic PHY
-Date: Sun,  5 Mar 2017 12:26:10 -0800
-Message-ID: <20170305202610.9263-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, nbd@nbd.name,
-        john@phrozen.org, cphealy@gmail.com,
-        Florian Fainelli <f.fainelli@gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH 1/2 net] ibmvnic: Fix overflowing firmware/hardware TX queue
+Date: Sun,  5 Mar 2017 12:10:23 -0600
+Message-ID: <1488737424-17067-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: jallen@linux.vnet.ibm.com, nfont@linux.vnic.ibm.com,
+        wvoigt@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:33935 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752329AbdCEU1R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 15:27:17 -0500
-Received: by mail-ot0-f194.google.com with SMTP id x37so9297632ota.1
-        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 12:26:13 -0800 (PST)
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:40207 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751007AbdCEUdD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 15:33:03 -0500
+Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v25I8Zgu041819
+        for <netdev@vger.kernel.org>; Sun, 5 Mar 2017 13:10:32 -0500
+Received: from e31.co.us.ibm.com (e31.co.us.ibm.com [32.97.110.149])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 28yu2hqngf-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 13:10:32 -0500
+Received: from localhost
+        by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Sun, 5 Mar 2017 11:10:32 -0700
+Received: from b03cxnp08026.gho.boulder.ibm.com (b03cxnp08026.gho.boulder.ibm.com [9.17.130.18])
+        by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 0F4ED19D803F
+        for <netdev@vger.kernel.org>; Sun,  5 Mar 2017 11:09:39 -0700 (MST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Generic PHY driver is a catch-all PHY driver and it should preserve
-whatever prior initialization has been done by boot loader or firmware
-agents. For specific PHY device configuration it is expected that a
-specialized PHY driver would take over that role.
+Use a counter to track the number of outstanding transmissions sent
+that have not received completions. If the counter reaches the maximum
+number of queue entries, stop transmissions on that queue. As we receive 
+more completions from firmware, wake the queue once the counter reaches 
+an acceptable level.
 
-Resetting the generic PHY was a bad idea that has lead to several
-complaints and downstream workarounds e.g: in OpenWrt/LEDE so restore
-the behavior prior to 87aa9f9c61ad ("net: phy: consolidate PHY
-reset in phy_init_hw()").
+This patch prevents hardware/firmware TX queue from filling up and
+and generating errors.  Since incorporating this fix, internal testing
+has reported that these firmware errors have stopped.
 
-Reported-by: Felix Fietkau <nbd@nbd.name>
-Fixes: 87aa9f9c61ad ("net: phy: consolidate PHY reset in phy_init_hw()")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 ---
- drivers/net/phy/phy_device.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/ibm/ibmvnic.c | 27 ++++++++++++++++++++++++++-
+ drivers/net/ethernet/ibm/ibmvnic.h |  1 +
+ 2 files changed, 27 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index daec6555f3b1..5198ccfa347f 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1864,7 +1864,7 @@ static struct phy_driver genphy_driver[] = {
- 	.phy_id		= 0xffffffff,
- 	.phy_id_mask	= 0xffffffff,
- 	.name		= "Generic PHY",
--	.soft_reset	= genphy_soft_reset,
-+	.soft_reset	= genphy_no_soft_reset,
- 	.config_init	= genphy_config_init,
- 	.features	= PHY_GBIT_FEATURES | SUPPORTED_MII |
- 			  SUPPORTED_AUI | SUPPORTED_FIBRE |
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 9198e6b..0e87b83 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -705,6 +705,7 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	u8 *hdrs = (u8 *)&adapter->tx_rx_desc_req;
+ 	struct device *dev = &adapter->vdev->dev;
+ 	struct ibmvnic_tx_buff *tx_buff = NULL;
++	struct ibmvnic_sub_crq_queue *tx_scrq;
+ 	struct ibmvnic_tx_pool *tx_pool;
+ 	unsigned int tx_send_failed = 0;
+ 	unsigned int tx_map_failed = 0;
+@@ -724,6 +725,7 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	int ret = 0;
+ 
+ 	tx_pool = &adapter->tx_pool[queue_num];
++	tx_scrq = adapter->tx_scrq[queue_num];
+ 	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
+ 	handle_array = (u64 *)((u8 *)(adapter->login_rsp_buf) +
+ 				   be32_to_cpu(adapter->login_rsp_buf->
+@@ -826,6 +828,14 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 		ret = NETDEV_TX_BUSY;
+ 		goto out;
+ 	}
++
++	atomic_inc(&tx_scrq->used);
++
++	if (atomic_read(&tx_scrq->used) >= adapter->req_tx_entries_per_subcrq) {
++		netdev_info(netdev, "Stopping queue %d\n", queue_num);
++		netif_stop_subqueue(netdev, queue_num);
++	}
++
+ 	tx_packets++;
+ 	tx_bytes += skb->len;
+ 	txq->trans_start = jiffies;
+@@ -1213,6 +1223,7 @@ static struct ibmvnic_sub_crq_queue *init_sub_crq_queue(struct ibmvnic_adapter
+ 	scrq->adapter = adapter;
+ 	scrq->size = 4 * PAGE_SIZE / sizeof(*scrq->msgs);
+ 	scrq->cur = 0;
++	atomic_set(&scrq->used, 0);
+ 	scrq->rx_skb_top = NULL;
+ 	spin_lock_init(&scrq->lock);
+ 
+@@ -1355,8 +1366,22 @@ static int ibmvnic_complete_tx(struct ibmvnic_adapter *adapter,
+ 						 DMA_TO_DEVICE);
+ 			}
+ 
+-			if (txbuff->last_frag)
++			if (txbuff->last_frag) {
++				atomic_dec(&scrq->used);
++
++				if (atomic_read(&scrq->used) <=
++				    (adapter->req_tx_entries_per_subcrq / 2) &&
++				    netif_subqueue_stopped(adapter->netdev,
++							   txbuff->skb)) {
++					netif_wake_subqueue(adapter->netdev,
++							    scrq->pool_index);
++					netdev_dbg(adapter->netdev,
++						   "Started queue %d\n",
++						   scrq->pool_index);
++				}
++
+ 				dev_kfree_skb_any(txbuff->skb);
++			}
+ 
+ 			adapter->tx_pool[pool].free_map[adapter->tx_pool[pool].
+ 						     producer_index] = index;
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
+index 422824f..1993b42 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.h
++++ b/drivers/net/ethernet/ibm/ibmvnic.h
+@@ -863,6 +863,7 @@ struct ibmvnic_sub_crq_queue {
+ 	spinlock_t lock;
+ 	struct sk_buff *rx_skb_top;
+ 	struct ibmvnic_adapter *adapter;
++	atomic_t used;
+ };
+ 
+ struct ibmvnic_long_term_buff {
 -- 
-2.9.3
+1.8.3.1
