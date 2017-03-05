@@ -1,57 +1,104 @@
 From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
-Date: Sun, 5 Mar 2017 11:53:54 +0100
-Message-ID: <CACT4Y+Z49kard6__12XyaD8DjnG5hjO0ZD2KcM24dQ7YmVC+8w@mail.gmail.com>
-References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
- <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
- <CACT4Y+YCPxKkaZBfAabxtAV71R0ghLT-vUKVewJpm9wb2GXaEQ@mail.gmail.com> <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net] tcp: fix various issues for sockets morphing to
+ listen state
+Date: Sun, 5 Mar 2017 13:00:47 +0100
+Message-ID: <CACT4Y+Z464Ex3UXm-v2OHXd1TCPke_WA_FEiVPAaBOMpFf+b+w@mail.gmail.com>
+References: <CACT4Y+Y+dL6EzkfDahjQUyyT4YMhDin7UPY5RQYbNH0n0DJ5xA@mail.gmail.com>
+ <CANn89iLNQKyywwLAdJsQDOpGDtEs6S-4BZkZYmwT39ENZyqLTg@mail.gmail.com>
+ <1488574561.9415.336.camel@edumazet-glaptop3.roam.corp.google.com> <1488578901.9415.353.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
+Cc: Eric Dumazet <edumazet@google.com>,
         David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        syzkaller <syzkaller@googlegroups.com>
+        netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f174.google.com ([209.85.217.174]:34196 "EHLO
+        mail-ua0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751806AbdCEMBJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Mar 2017 07:01:09 -0500
+Received: by mail-ua0-f174.google.com with SMTP id f54so143944566uaa.1
+        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 04:01:09 -0800 (PST)
+In-Reply-To: <1488578901.9415.353.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 4, 2017 at 9:15 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On 3/3/17 6:39 AM, Dmitry Vyukov wrote:
->> >> I am getting heap out-of-bounds reports in
->> >> fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone while running
->> >> syzkaller fuzzer on 86292b33d4b79ee03e2f43ea0381ef85f077c760. They all
->> >> follow the same pattern: an object of size 216 is allocated from
->> >> ip_dst_cache slab, and then accessed at offset 272/276 withing
->> >> fib6_walk. Looks like type confusion. Unfortunately this is not
->> >> reproducible.
->> >
->> > I'll take a look this weekend or Monday at the latest.
->>
->>
->> I've got some additional useful info on this. I think this is
->> use-after-free rather than out-of-bounds. I've collected stack where
->> the route was disposed with call_rcu, see the last "Disposed" stack.
->> The crash happens when cmpxchg in rt_cache_route replaces an existing
->> route. And that route seems to have some existing pointers to it
->> (rt->dst.rt6_next) which fib6_walk uses to get to it after its
->> deletion.
+On Fri, Mar 3, 2017 at 11:08 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> rt_cache_route() deals with IPv4 routes.
+> Dmitry Vyukov reported a divide by 0 triggered by syzkaller, exploiting
+> tcp_disconnect() path that was never really considered and/or used
+> before syzkaller ;)
 >
-> We somehow mix IPv4 and IPv6 dsts in IPv6 tree.
+> I was not able to reproduce the bug, but it seems issues here are the
+> three possible actions that assumed they would never trigger on a
+> listener.
 >
-> We need to add type safety at IPV6 route insertions to catch the
-> offender.
+> 1) tcp_write_timer_handler
+> 2) tcp_delack_timer_handler
+> 3) MTU reduction
+>
+> Only IPv6 MTU reduction was properly testing TCP_CLOSE and TCP_LISTEN
+>  states from tcp_v6_mtu_reduced()
+
+I've run the test as "while ./a.out; do true; done". I've also noticed
+that it either reproduces very quickly or does not happen at all. So I
+rebooted machine, run the program in loop and then repeated if it does
+not happen within seconds.
+
+Retested with your patch, seems to not crash anymore.
 
 
-If you suggest additional checks, I will collect stacks.
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> ---
+>  net/ipv4/tcp_ipv4.c  |    7 +++++--
+>  net/ipv4/tcp_timer.c |    6 ++++--
+>  2 files changed, 9 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 9a89b8deafae1e9b2e8d1d9bc211c9c30b8dd8ec..8f3ec1365497a58972d31d419f88b34457b5ae39 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -279,10 +279,13 @@ EXPORT_SYMBOL(tcp_v4_connect);
+>   */
+>  void tcp_v4_mtu_reduced(struct sock *sk)
+>  {
+> -       struct dst_entry *dst;
+>         struct inet_sock *inet = inet_sk(sk);
+> -       u32 mtu = tcp_sk(sk)->mtu_info;
+> +       struct dst_entry *dst;
+> +       u32 mtu;
+>
+> +       if ((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE))
+> +               return;
+> +       mtu = tcp_sk(sk)->mtu_info;
+>         dst = inet_csk_update_pmtu(sk, mtu);
+>         if (!dst)
+>                 return;
+> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> index 40d893556e6701ace6a02903e53c45822d6fa56d..b2ab411c6d3728fa7dbdebde045532a7317f5166 100644
+> --- a/net/ipv4/tcp_timer.c
+> +++ b/net/ipv4/tcp_timer.c
+> @@ -249,7 +249,8 @@ void tcp_delack_timer_handler(struct sock *sk)
+>
+>         sk_mem_reclaim_partial(sk);
+>
+> -       if (sk->sk_state == TCP_CLOSE || !(icsk->icsk_ack.pending & ICSK_ACK_TIMER))
+> +       if (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)) ||
+> +           !(icsk->icsk_ack.pending & ICSK_ACK_TIMER))
+>                 goto out;
+>
+>         if (time_after(icsk->icsk_ack.timeout, jiffies)) {
+> @@ -552,7 +553,8 @@ void tcp_write_timer_handler(struct sock *sk)
+>         struct inet_connection_sock *icsk = inet_csk(sk);
+>         int event;
+>
+> -       if (sk->sk_state == TCP_CLOSE || !icsk->icsk_pending)
+> +       if (((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)) ||
+> +           !icsk->icsk_pending)
+>                 goto out;
+>
+>         if (time_after(icsk->icsk_timeout, jiffies)) {
+>
+>
