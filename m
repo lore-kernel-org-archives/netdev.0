@@ -1,111 +1,36 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: [Patch net] ipv6: reorder icmpv6_init() and ip6_mr_init()
-Date: Mon, 6 Mar 2017 14:25:01 +0100
-Message-ID: <CAAeHK+yJ2vQ3_j8zSXGSdOyhPH20v-E4gDsnUoF-bBKqMaL41A@mail.gmail.com>
-References: <1488746093-3529-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Leonardo Amaral - Listas <listas@leonardoamaral.com.br>
+Subject: Re: [E1000-devel] jitter / latency reduction
+Date: Mon, 6 Mar 2017 10:28:38 -0300
+Message-ID: <CAHX0N8tDmCBDiOuY34Sz50E+EwJexZ_E5R7qPn6s0+WCJRAZ=Q@mail.gmail.com>
+References: <CACsfcop+P2jjzB7viMG-=6oZSDPU8qbCTDUYFtZ3527OVpZ90A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net,
+        netdev@vger.kernel.org
+To: Mahmood Qazen <mqazen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37220 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753608AbdCFNZJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 08:25:09 -0500
-Received: by mail-wm0-f48.google.com with SMTP id n11so64313718wma.0
-        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 05:25:08 -0800 (PST)
-In-Reply-To: <1488746093-3529-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:38346 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752726AbdCFN3A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 08:29:00 -0500
+Received: by mail-it0-f49.google.com with SMTP id m27so49698022iti.1
+        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 05:28:59 -0800 (PST)
+In-Reply-To: <CACsfcop+P2jjzB7viMG-=6oZSDPU8qbCTDUYFtZ3527OVpZ90A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 5, 2017 at 9:34 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> Andrey reported the following kernel crash:
+2017-03-03 20:52 GMT-03:00 Mahmood Qazen <mqazen@gmail.com>:
 >
-> kasan: GPF could be caused by NULL-ptr deref or user memory access
-> general protection fault: 0000 [#1] SMP KASAN
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in:
-> CPU: 0 PID: 14446 Comm: syz-executor6 Not tainted 4.10.0+ #82
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> task: ffff88001f311700 task.stack: ffff88001f6e8000
-> RIP: 0010:ip6mr_sk_done+0x15a/0x3d0 net/ipv6/ip6mr.c:1618
-> RSP: 0018:ffff88001f6ef418 EFLAGS: 00010202
-> RAX: dffffc0000000000 RBX: 1ffff10003edde8c RCX: ffffc900043ee000
-> RDX: 0000000000000004 RSI: ffffffff83e3b3f8 RDI: 0000000000000020
-> RBP: ffff88001f6ef508 R08: fffffbfff0dcc5d8 R09: 0000000000000000
-> R10: ffffffff86e62ec0 R11: 0000000000000000 R12: 0000000000000000
-> R13: 0000000000000000 R14: ffff88001f6ef4e0 R15: ffff8800380a0040
-> FS:  00007f7a52cec700(0000) GS:ffff88003ec00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 000000000061c500 CR3: 000000001f1ae000 CR4: 00000000000006f0
-> DR0: 0000000020000000 DR1: 0000000020000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
-> Call Trace:
->  rawv6_close+0x4c/0x80 net/ipv6/raw.c:1217
->  inet_release+0xed/0x1c0 net/ipv4/af_inet.c:425
->  inet6_release+0x50/0x70 net/ipv6/af_inet6.c:432
->  sock_release+0x8d/0x1e0 net/socket.c:597
->  __sock_create+0x39d/0x880 net/socket.c:1226
->  sock_create_kern+0x3f/0x50 net/socket.c:1243
->  inet_ctl_sock_create+0xbb/0x280 net/ipv4/af_inet.c:1526
->  icmpv6_sk_init+0x163/0x500 net/ipv6/icmp.c:954
->  ops_init+0x10a/0x550 net/core/net_namespace.c:115
->  setup_net+0x261/0x660 net/core/net_namespace.c:291
->  copy_net_ns+0x27e/0x540 net/core/net_namespace.c:396
-> 9pnet_virtio: no channels available for device ./file1
->  create_new_namespaces+0x437/0x9b0 kernel/nsproxy.c:106
->  unshare_nsproxy_namespaces+0xae/0x1e0 kernel/nsproxy.c:205
->  SYSC_unshare kernel/fork.c:2281 [inline]
->  SyS_unshare+0x64e/0x1000 kernel/fork.c:2231
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
->
-> This is because net->ipv6.mr6_tables is not initialized at that point,
-> ip6mr_rules_init() is not called yet, therefore on the error path when
-> we iterator the list, we trigger this oops. Fix this by reordering
-> ip6mr_rules_init() before icmpv6_sk_init().
->
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/ipv6/af_inet6.c | 10 +++++-----
->  1 file changed, 5 insertions(+), 5 deletions(-)
->
-> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> index 04db406..a9a9553 100644
-> --- a/net/ipv6/af_inet6.c
-> +++ b/net/ipv6/af_inet6.c
-> @@ -920,12 +920,12 @@ static int __init inet6_init(void)
->         err = register_pernet_subsys(&inet6_net_ops);
->         if (err)
->                 goto register_pernet_fail;
-> -       err = icmpv6_init();
-> -       if (err)
-> -               goto icmp_fail;
->         err = ip6_mr_init();
->         if (err)
->                 goto ipmr_fail;
-> +       err = icmpv6_init();
-> +       if (err)
-> +               goto icmp_fail;
->         err = ndisc_init();
->         if (err)
->                 goto ndisc_fail;
-> @@ -1061,10 +1061,10 @@ static int __init inet6_init(void)
->         ndisc_cleanup();
->  ndisc_fail:
->         ip6_mr_cleanup();
-> -ipmr_fail:
-> -       icmpv6_cleanup();
->  icmp_fail:
->         unregister_pernet_subsys(&inet6_net_ops);
-> +ipmr_fail:
-> +       icmpv6_cleanup();
->  register_pernet_fail:
->         sock_unregister(PF_INET6);
->         rtnl_unregister_all(PF_INET6);
-> --
-> 2.5.5
->
+> this week I read a presentation by Jesse and towards the end it asks if we
+> can help.
+
+
+Hello,
+
+Can you please share this presentation? I'm interested in this subject too.
 
 Thanks!
+
+
+Leonardo Amaral
+about.me/leonardo.amaral
