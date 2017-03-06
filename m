@@ -1,31 +1,40 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net] team: use ETH_MAX_MTU as max mtu
-Date: Mon, 6 Mar 2017 14:54:36 +0100
-Message-ID: <20170306135436.GD1822@nanopsycho.orion>
-References: <20170306134858.2096-1-jarod@redhat.com>
+Subject: Re: [Patch net] bonding: use ETH_MAX_MTU as max mtu
+Date: Mon, 6 Mar 2017 14:40:48 +0100
+Message-ID: <20170306134048.GC1822@nanopsycho.orion>
+References: <1488486276-24552-1-git-send-email-xiyou.wangcong@gmail.com>
+ <c215a583-0433-d087-be34-e90adc05ac43@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
-        netdev@vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        daznis@gmail.com, lists2009@fnarfbargle.com
 To: Jarod Wilson <jarod@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33775 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754026AbdCFOHx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 09:07:53 -0500
+Received: by mail-wm0-f66.google.com with SMTP id n11so13938593wma.0
+        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 06:06:54 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20170306134858.2096-1-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <c215a583-0433-d087-be34-e90adc05ac43@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 06, 2017 at 02:48:58PM CET, jarod@redhat.com wrote:
->This restores the ability to set a team device's mtu to anything higher
->than 1500. Similar to the reported issue with bonding, the team driver
->calls ether_setup(), which sets an initial max_mtu of 1500, while the
->underlying hardware can handle something much larger. Just set it to
->ETH_MAX_MTU to support all possible values, and the limitations of the
->underlying devices will prevent setting anything too large.
+Mon, Mar 06, 2017 at 02:36:47PM CET, jarod@redhat.com wrote:
+>On 2017-03-02 3:24 PM, Cong Wang wrote:
+>> This restores the ability of setting bond device's mtu to 9000.
+>> 
+>> Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
+>> Reported-by: daznis@gmail.com
+>> Reported-by: Brad Campbell <lists2009@fnarfbargle.com>
+>> Cc: Jarod Wilson <jarod@redhat.com>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 >
->Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
->CC: Cong Wang <xiyou.wangcong@gmail.com>
->CC: Jiri Pirko <jiri@resnulli.us>
->CC: netdev@vger.kernel.org
->Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>Apologies, I'm a bit late to the party, direct CC didn't land in inbox
+>because of duplicate suppression or perhaps a greedy mail filtering rule
+>(*grumble*)... Too late to ack, but yeah, that's necessary. I *think* the
+>team driver may also require the same treatment. It calls ether_setup()
+>without anything setting max_mtu as well.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+Jarod, could you please send the fix? Thanks.
