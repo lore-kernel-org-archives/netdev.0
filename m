@@ -1,8 +1,8 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 07/29] drivers,
- md: convert dm_dev_internal.count from atomic_t to refcount_t
-Date: Mon,  6 Mar 2017 16:20:54 +0200
-Message-ID: <1488810076-3754-8-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 09/29] drivers,
+ md: convert table_device.count from atomic_t to refcount_t
+Date: Mon,  6 Mar 2017 16:20:56 +0200
+Message-ID: <1488810076-3754-10-git-send-email-elena.reshetova@intel.com>
 References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -43,61 +43,61 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/md/dm-table.c | 6 +++---
- drivers/md/dm.h       | 3 ++-
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/md/dm.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/md/dm-table.c b/drivers/md/dm-table.c
-index 3ad16d9..d2e2741 100644
---- a/drivers/md/dm-table.c
-+++ b/drivers/md/dm-table.c
-@@ -416,15 +416,15 @@ int dm_get_device(struct dm_target *ti, const char *path, fmode_t mode,
- 			return r;
- 		}
- 
--		atomic_set(&dd->count, 0);
-+		refcount_set(&dd->count, 1);
- 		list_add(&dd->list, &t->devices);
- 
- 	} else if (dd->dm_dev->mode != (mode | dd->dm_dev->mode)) {
- 		r = upgrade_mode(dd, mode, t->md);
- 		if (r)
- 			return r;
-+		refcount_inc(&dd->count);
- 	}
--	atomic_inc(&dd->count);
- 
- 	*result = dd->dm_dev;
- 	return 0;
-@@ -478,7 +478,7 @@ void dm_put_device(struct dm_target *ti, struct dm_dev *d)
- 		       dm_device_name(ti->table->md), d->name);
- 		return;
- 	}
--	if (atomic_dec_and_test(&dd->count)) {
-+	if (refcount_dec_and_test(&dd->count)) {
- 		dm_put_table_device(ti->table->md, d);
- 		list_del(&dd->list);
- 		kfree(dd);
-diff --git a/drivers/md/dm.h b/drivers/md/dm.h
-index f298b01..63b8142 100644
---- a/drivers/md/dm.h
-+++ b/drivers/md/dm.h
-@@ -19,6 +19,7 @@
- #include <linux/hdreg.h>
- #include <linux/completion.h>
- #include <linux/kobject.h>
+diff --git a/drivers/md/dm.c b/drivers/md/dm.c
+index 9f37d7f..cba91c3 100644
+--- a/drivers/md/dm.c
++++ b/drivers/md/dm.c
+@@ -21,6 +21,7 @@
+ #include <linux/delay.h>
+ #include <linux/wait.h>
+ #include <linux/pr.h>
 +#include <linux/refcount.h>
  
- #include "dm-stats.h"
+ #define DM_MSG_PREFIX "core"
  
-@@ -38,7 +39,7 @@
-  */
- struct dm_dev_internal {
+@@ -96,7 +97,7 @@ struct dm_md_mempools {
+ 
+ struct table_device {
  	struct list_head list;
 -	atomic_t count;
 +	refcount_t count;
- 	struct dm_dev *dm_dev;
+ 	struct dm_dev dm_dev;
  };
  
+@@ -680,10 +681,11 @@ int dm_get_table_device(struct mapped_device *md, dev_t dev, fmode_t mode,
+ 
+ 		format_dev_t(td->dm_dev.name, dev);
+ 
+-		atomic_set(&td->count, 0);
++		refcount_set(&td->count, 1);
+ 		list_add(&td->list, &md->table_devices);
++	} else {
++		refcount_inc(&td->count);
+ 	}
+-	atomic_inc(&td->count);
+ 	mutex_unlock(&md->table_devices_lock);
+ 
+ 	*result = &td->dm_dev;
+@@ -696,7 +698,7 @@ void dm_put_table_device(struct mapped_device *md, struct dm_dev *d)
+ 	struct table_device *td = container_of(d, struct table_device, dm_dev);
+ 
+ 	mutex_lock(&md->table_devices_lock);
+-	if (atomic_dec_and_test(&td->count)) {
++	if (refcount_dec_and_test(&td->count)) {
+ 		close_table_device(td, md);
+ 		list_del(&td->list);
+ 		kfree(td);
+@@ -713,7 +715,7 @@ static void free_table_devices(struct list_head *devices)
+ 		struct table_device *td = list_entry(tmp, struct table_device, list);
+ 
+ 		DMWARN("dm_destroy: %s still exists with %d references",
+-		       td->dm_dev.name, atomic_read(&td->count));
++		       td->dm_dev.name, refcount_read(&td->count));
+ 		kfree(td);
+ 	}
+ }
 -- 
 2.7.4
