@@ -1,74 +1,173 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2] can: m_can: enable transmission of FD frame on latest
- version
-Date: Mon, 6 Mar 2017 20:33:15 +0100
-Message-ID: <b24f3252-6bd9-db48-b224-5bf3683cb75d@hartkopp.net>
-References: <20170306022143.7695-1-wenyou.yang@atmel.com>
- <e4360c52-d62d-6c35-f691-7fcd0f74f954@pengutronix.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next RFC 0/4] virtio-net tx napi
+Date: Mon, 6 Mar 2017 21:44:01 +0200
+Message-ID: <20170306213857-mutt-send-email-mst@kernel.org>
+References: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Quentin Schulz <quentin.schulz@free-electrons.com>,
-        Wenyou Yang <wenyou.yang@microchip.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Wenyou Yang <wenyou.yang@atmel.com>,
-        Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <e4360c52-d62d-6c35-f691-7fcd0f74f954@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jasowang@redhat.com,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41884 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932676AbdCFToP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Mar 2017 14:44:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marc,
+On Fri, Mar 03, 2017 at 09:39:05AM -0500, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> Add napi for virtio-net transmit completion processing. Based on
+> previous patchsets by Jason Wang:
+> 
+>   [RFC V7 PATCH 0/7] enable tx interrupts for virtio-net
+>   http://lkml.iu.edu/hypermail/linux/kernel/1505.3/00245.html
+> 
+> This patchset is not ready for submission yet, but it is time for
+> another checkpoint. Among others, it requires more testing with
+> more diverse workloads.
+> 
+> 
+> Before commit b0c39dbdc204 ("virtio_net: don't free buffers in xmit
+> ring") the virtio-net driver would free transmitted packets on
+> transmission of new packets in ndo_start_xmit and, to catch the edge
+> case when no new packet is sent, also in a timer at 10HZ.
+> 
+> A timer can cause long stalls. VIRTIO_F_NOTIFY_ON_EMPTY avoids stalls
+> due to low free descriptor count. It does not address a stalls due to
+> low socket SO_SNDBUF. Increasing timer frequency decreases that stall
+> time, but increases interrupt rate and, thus, cycle count.
+> 
+> Currently, with no timer, packets are freed only at ndo_start_xmit.
+> Latency of consume_skb is now unbounded. To avoid a deadlock if a sock
+> reaches SO_SNDBUF, packets are orphaned on tx. This breaks TCP small
+> queues.
+> 
+> Reenable TCP small queues by removing the orphan. Instead of using a
+> timer, convert the driver to regular tx napi. This does not have the
+> unresolved stall issue and does not have any frequency to tune.
+> 
+> By keeping interrupts enabled by default, napi increases tx
+> interrupt rate. VIRTIO_F_EVENT_IDX avoids sending an interrupt if
+> one is already unacknowledged, so makes this more feasible today.
+> Combine that with two optimizations that bring interrupt rate
+> back in line with the existing code:
+> 
+> Interrupt coalescing delays interrupts until a number of events
+> accrue or a timer fires.
+> 
+> Tx completion cleaning on rx interrupts elides most explicit tx
+> interrupts by relying on the fact that many rx interrupts fire.
+> 
+> Tested by running {1, 10, 100} TCP_STREAM and TCP_RR tests from a
+> guest to a server on the host, on an x86_64 Haswell. The guest
+> runs 4 vCPUs pinned to 4 cores. vhost and the test server are
+> pinned to a core each.
+> 
+> All results are the median of 5 runs, with variance well < 10%.
+> Used neper (github.com/google/neper) as test process. Tests used
+> experimental_zcopy=0. This is likely no longer needed.
+> 
+> Napi increases single stream throughput, but increases cycle cost
+> across the board. Interrupt moderation ("+vhost") reverts both, if
+> not fully. For this workload with ACKs in the return path, the
+> last optimization ("at-rx") is more effective. For UDP this is
+> likely not true.
 
-On 03/06/2017 11:53 AM, Marc Kleine-Budde wrote:
-> On 03/06/2017 03:21 AM, Wenyou Yang wrote:
->> Enables the transmission of CAN FD frames on M_CAN IP core >= v3.1.x
->> and with the bit rate switching.
->>
->> Tested on M_CAN IP 3.1.0 (CREL = 0x31040730) of SAMA5D2 SoC.
->
-> Does this patch work still with the old version of the silicon?
+I am inclined to say coalescing is more problematic because under light
+load it causes timers to fire on host, causing exits if any VM is
+running on the same core. Some people might have spare cores, etc,
+but generally I think at-rx might be less disruptive.
 
-The bits that were added in the TX FIFO element are 'reserved' in the 
-old silicon - so it should not harm.
+UDP testing would be required to determine how effective it is,
+current numbers look nice.
 
-This code enables
-
-  if (priv->can.ctrlmode & CAN_CTRLMODE_FD)
--	cccr |= CCCR_CME_CANFD_BRS << CCCR_CME_SHIFT;
-+	cccr |= (CCCR_CME_CANFD_BRS | CCCR_CME_CANFD) << CCCR_CME_SHIFT;
-
-the CAN FD support in the new silicon.
-
-This register is set for the old silicon EVERY time a CAN frame is sent.
-So this change should not harm the old silicon either.
-
-In fact I was told that the v3.0.x IP core is rather seldom in the wild.
-Although I don't have a v3.0.x to test it should work from the 
-documentation side of view.
-
-Reviewed-by: Oliver Hartkopp <socketcan@hartkopp.net>
-
-If we would like to make it really better, the code in 
-m_can_start_xmit() should only fiddle with the M_CAN_CCCR register when 
-working with the v3.0.x silicon.
-
-In fact I would suggest to use the
-
-	if (m_can_read_core_rev(priv) < M_CAN_COREREL_3_1_0)
-
-method from
-
-	http://marc.info/?l=linux-can&m=148716783119090&w=2
-
-to split the code in m_can_start_xmit() accordingly.
-
-@Wenyou Yang: Can you please send a v3 which splits the tx function?
-
-Regards,
-Oliver
+>              upstream     napi   +vhost   +at-rx +v+at-rx
+> Stream:
+>   1x:
+>   Mbps          30182    38782    30106    38002    32842
+>   Gcycles         405      499      386      403      417        
+> 
+>   10x:
+>   Mbps          40441    40575    41638    40260    41299
+>   Gcycles         438      545      430      416      416
+> 
+>   100x:
+>   Mbps          34049    34697    34763    34637    34259
+>   Gcycles         441      545      433      415      422
+> 
+> Latency (us):
+>   1x:
+>   p50              24       24       24       21       24
+>   p99              27       27       27       26       27
+>   Gcycles         299      430      432      312      297
+> 
+> 10x:
+>   p50              30       31       31       42       31
+>   p99              40       46       48       52       42
+>   Gcycles         347      423      471      322      463
+> 
+> 100x:
+>   p50             155      151      163      306      161
+>   p99             337      329      352      361      349
+>   Gcycles         340      421      463      306      441
+> 
+> 
+> Lower throughput at 100x vs 10x can be (at least in part)
+> explained by looking at bytes per packet sent (nstat). It likely
+> also explains the lower throughput of 1x for some variants.
+> 
+> upstream:
+> 
+>  N=1   bytes/pkt=16581
+>  N=10  bytes/pkt=61513
+>  N=100 bytes/pkt=51558
+> 
+> at_rx:
+> 
+>  N=1   bytes/pkt=65204
+>  N=10  bytes/pkt=65148
+>  N=100 bytes/pkt=56840
+> 
+> For this experiment, vhost has 64 frames and usecs thresholds.
+> Configuring this from the guest requires additional patches to qemu.
+> Temporary patch:
+> 
+>   @@ -846,9 +845,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+>           vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
+>           vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
+>  
+>   -       vqs[VHOST_NET_VQ_TX]->max_coalesce_ktime = ktime_set(0, 64 * NSEC_PER_USEC);
+>   -       vqs[VHOST_NET_VQ_TX]->max_coalesce_frames = 64;
+>   -
+>           f->private_data = n;
+> 
+> TODO
+>  - restart timer if trylock failed and lock not held by hande_tx
+>    - start timer only at end of handle_tx and kill at start
+>  - make napi_tx configurable
+>  - increase test coverage
+>    - 4KB TCP_RR
+>    - UDP
+>    - multithreaded sender
+>    - with experimental_zcopytx
+> 
+> 
+> Willem de Bruijn (4):
+>   virtio-net: napi helper functions
+>   virtio-net: transmit napi
+>   vhost: interrupt coalescing support
+>   virtio-net: clean tx descriptors from rx napi
+> 
+>  drivers/net/virtio_net.c   | 157 +++++++++++++++++++++++++++++++++------------
+>  drivers/vhost/vhost.c      |  74 ++++++++++++++++++++-
+>  drivers/vhost/vhost.h      |  12 ++++
+>  include/uapi/linux/vhost.h |  11 ++++
+>  4 files changed, 211 insertions(+), 43 deletions(-)
+> 
+> -- 
+> 2.12.0.rc1.440.g5b76565f74-goog
