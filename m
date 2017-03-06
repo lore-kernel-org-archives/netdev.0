@@ -1,8 +1,8 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 01/29] drivers,
- block: convert xen_blkif.refcnt from atomic_t to refcount_t
-Date: Mon,  6 Mar 2017 16:20:48 +0200
-Message-ID: <1488810076-3754-2-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 02/29] drivers,
+ firewire: convert fw_node.ref_count from atomic_t to refcount_t
+Date: Mon,  6 Mar 2017 16:20:49 +0200
+Message-ID: <1488810076-3754-3-git-send-email-elena.reshetova@intel.com>
 References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -43,56 +43,61 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/block/xen-blkback/common.h | 7 ++++---
- drivers/block/xen-blkback/xenbus.c | 2 +-
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/firewire/core-topology.c | 2 +-
+ drivers/firewire/core.h          | 8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/block/xen-blkback/common.h b/drivers/block/xen-blkback/common.h
-index dea61f6..2ccfd62 100644
---- a/drivers/block/xen-blkback/common.h
-+++ b/drivers/block/xen-blkback/common.h
-@@ -35,6 +35,7 @@
- #include <linux/wait.h>
- #include <linux/io.h>
- #include <linux/rbtree.h>
+diff --git a/drivers/firewire/core-topology.c b/drivers/firewire/core-topology.c
+index 0de8350..939d259 100644
+--- a/drivers/firewire/core-topology.c
++++ b/drivers/firewire/core-topology.c
+@@ -124,7 +124,7 @@ static struct fw_node *fw_node_create(u32 sid, int port_count, int color)
+ 	node->initiated_reset = SELF_ID_PHY_INITIATOR(sid);
+ 	node->port_count = port_count;
+ 
+-	atomic_set(&node->ref_count, 1);
++	refcount_set(&node->ref_count, 1);
+ 	INIT_LIST_HEAD(&node->link);
+ 
+ 	return node;
+diff --git a/drivers/firewire/core.h b/drivers/firewire/core.h
+index e1480ff6..c07962e 100644
+--- a/drivers/firewire/core.h
++++ b/drivers/firewire/core.h
+@@ -12,7 +12,7 @@
+ #include <linux/slab.h>
+ #include <linux/types.h>
+ 
+-#include <linux/atomic.h>
 +#include <linux/refcount.h>
- #include <asm/setup.h>
- #include <asm/pgalloc.h>
- #include <asm/hypervisor.h>
-@@ -333,7 +334,7 @@ struct xen_blkif {
- 	struct xen_vbd		vbd;
- 	/* Back pointer to the backend_info. */
- 	struct backend_info	*be;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- 	/* for barrier (drain) requests */
- 	struct completion	drain_complete;
- 	atomic_t		drain;
-@@ -386,10 +387,10 @@ struct pending_req {
- 			 (_v)->bdev->bd_part->nr_sects : \
- 			  get_capacity((_v)->bdev->bd_disk))
  
--#define xen_blkif_get(_b) (atomic_inc(&(_b)->refcnt))
-+#define xen_blkif_get(_b) (refcount_inc(&(_b)->refcnt))
- #define xen_blkif_put(_b)				\
- 	do {						\
--		if (atomic_dec_and_test(&(_b)->refcnt))	\
-+		if (refcount_dec_and_test(&(_b)->refcnt))	\
- 			schedule_work(&(_b)->free_work);\
- 	} while (0)
+ struct device;
+ struct fw_card;
+@@ -184,7 +184,7 @@ struct fw_node {
+ 			 * local node to this node. */
+ 	u8 max_depth:4;	/* Maximum depth to any leaf node */
+ 	u8 max_hops:4;	/* Max hops in this sub tree */
+-	atomic_t ref_count;
++	refcount_t ref_count;
  
-diff --git a/drivers/block/xen-blkback/xenbus.c b/drivers/block/xen-blkback/xenbus.c
-index 8fe61b5..9f89be3 100644
---- a/drivers/block/xen-blkback/xenbus.c
-+++ b/drivers/block/xen-blkback/xenbus.c
-@@ -176,7 +176,7 @@ static struct xen_blkif *xen_blkif_alloc(domid_t domid)
- 		return ERR_PTR(-ENOMEM);
+ 	/* For serializing node topology into a list. */
+ 	struct list_head link;
+@@ -197,14 +197,14 @@ struct fw_node {
  
- 	blkif->domid = domid;
--	atomic_set(&blkif->refcnt, 1);
-+	refcount_set(&blkif->refcnt, 1);
- 	init_completion(&blkif->drain_complete);
- 	INIT_WORK(&blkif->free_work, xen_blkif_deferred_free);
+ static inline struct fw_node *fw_node_get(struct fw_node *node)
+ {
+-	atomic_inc(&node->ref_count);
++	refcount_inc(&node->ref_count);
+ 
+ 	return node;
+ }
+ 
+ static inline void fw_node_put(struct fw_node *node)
+ {
+-	if (atomic_dec_and_test(&node->ref_count))
++	if (refcount_dec_and_test(&node->ref_count))
+ 		kfree(node);
+ }
  
 -- 
 2.7.4
