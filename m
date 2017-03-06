@@ -1,63 +1,74 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH net-next] packet: fix panic in __packet_set_timestamp on
- tpacket_v3 in tx mode
-Date: Mon, 6 Mar 2017 13:36:57 -0800
-Message-ID: <CAAsGZS5U_gX2-MTdnixtiNv8Wa8f+F7Wx7g=i3iffQEgruQ2bg@mail.gmail.com>
-References: <1483580068-13854-1-git-send-email-daniel@iogearbox.net>
- <1483640872.9712.1.camel@edumazet-glaptop3.roam.corp.google.com>
- <586E9A0F.1020002@iogearbox.net> <CAAsGZS59KsGHJzG-U962kK4AP+M40zAV-ERgDqYvDLz5JB6Exg@mail.gmail.com>
- <CAF=yD-Jr5J9yoaNmBBSneL4HBuWcw3uRV4Smw=AnPAB+Sq9YSw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Willem de Bruijn <willemb@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f171.google.com ([209.85.217.171]:34327 "EHLO
-        mail-ua0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754058AbdCFWdX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 17:33:23 -0500
-Received: by mail-ua0-f171.google.com with SMTP id f54so186339387uaa.1
-        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 14:31:33 -0800 (PST)
-In-Reply-To: <CAF=yD-Jr5J9yoaNmBBSneL4HBuWcw3uRV4Smw=AnPAB+Sq9YSw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: tundra: tsi108: use new api ethtool_{get|set}_link_ksettings
+Date: Mon,  6 Mar 2017 23:26:09 +0100
+Message-ID: <1488839169-3813-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, paul.gortmaker@windriver.com,
+        jarod@redhat.com, julia.lawall@lip6.fr, edumazet@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 6, 2017 at 9:45 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> On Mon, Mar 6, 2017 at 12:13 PM, chetan loke <loke.chetan@gmail.com> wrote:
->>>>
->>>> Gosh. Can we also replace this BUG() into something less aggressive ?
->>>
->>>
->>> There are currently 5 of these WARN() + BUG() constructs and 1 BUG()-only
->>> for the 'default' TPACKET version spread all over af_packet, so probably
->>> makes sense to rather make all of them less aggressive.
->>>
->>>
->>
->> Very few consumers actually go looking in the kernel logs to see the
->> error-warnings and report them back here.
->>
->> This severity will get them to report the incident which in this case
->> got fixed??
->
-> But BUG_ONs in the datapath can cause outages in real production
-> environments. This should not happen for recoverable failures. For
-> users who cannot be bothered to check their logs, there is sysctl
-> kernel.panic_on_warn.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Completely understand(and you should have failover to handle these
-outages). But then are you ok giving incorrect info to the
-application?
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/tundra/tsi108_eth.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-For this specific bug: it is so basic that you should hit this bug 1st
-time everytime when you are adding support or porting a new header.
-Correct?
-
-And so from that point of view, this BUG_ON has served its purpose.
+diff --git a/drivers/net/ethernet/tundra/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
+index c558399..5ac6eaa 100644
+--- a/drivers/net/ethernet/tundra/tsi108_eth.c
++++ b/drivers/net/ethernet/tundra/tsi108_eth.c
+@@ -1499,27 +1499,29 @@ static void tsi108_init_mac(struct net_device *dev)
+ 	TSI_WRITE(TSI108_EC_INTMASK, ~0);
+ }
+ 
+-static int tsi108_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int tsi108_get_link_ksettings(struct net_device *dev,
++				     struct ethtool_link_ksettings *cmd)
+ {
+ 	struct tsi108_prv_data *data = netdev_priv(dev);
+ 	unsigned long flags;
+ 	int rc;
+ 
+ 	spin_lock_irqsave(&data->txlock, flags);
+-	rc = mii_ethtool_gset(&data->mii_if, cmd);
++	rc = mii_ethtool_get_link_ksettings(&data->mii_if, cmd);
+ 	spin_unlock_irqrestore(&data->txlock, flags);
+ 
+ 	return rc;
+ }
+ 
+-static int tsi108_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int tsi108_set_link_ksettings(struct net_device *dev,
++				     const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct tsi108_prv_data *data = netdev_priv(dev);
+ 	unsigned long flags;
+ 	int rc;
+ 
+ 	spin_lock_irqsave(&data->txlock, flags);
+-	rc = mii_ethtool_sset(&data->mii_if, cmd);
++	rc = mii_ethtool_set_link_ksettings(&data->mii_if, cmd);
+ 	spin_unlock_irqrestore(&data->txlock, flags);
+ 
+ 	return rc;
+@@ -1535,8 +1537,8 @@ static int tsi108_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 
+ static const struct ethtool_ops tsi108_ethtool_ops = {
+ 	.get_link 	= ethtool_op_get_link,
+-	.get_settings	= tsi108_get_settings,
+-	.set_settings	= tsi108_set_settings,
++	.get_link_ksettings	= tsi108_get_link_ksettings,
++	.set_link_ksettings	= tsi108_set_link_ksettings,
+ };
+ 
+ static const struct net_device_ops tsi108_netdev_ops = {
+-- 
+1.7.4.4
