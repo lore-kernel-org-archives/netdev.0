@@ -1,70 +1,49 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next RFC 4/4] virtio-net: clean tx descriptors from rx napi
-Date: Mon, 6 Mar 2017 12:43:10 -0500
-Message-ID: <CAF=yD-Lf3EtRptsL=qFnPV5jBiBTP9CFvfF0Xaatv6-PTiVy4w@mail.gmail.com>
-References: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
- <20170303143909.80001-5-willemdebruijn.kernel@gmail.com> <b92b1e1f-d55d-c346-41a9-9abdb075cc5b@redhat.com>
+Subject: Re: [PATCH net-next] packet: fix panic in __packet_set_timestamp on
+ tpacket_v3 in tx mode
+Date: Mon, 6 Mar 2017 12:45:58 -0500
+Message-ID: <CAF=yD-Jr5J9yoaNmBBSneL4HBuWcw3uRV4Smw=AnPAB+Sq9YSw@mail.gmail.com>
+References: <1483580068-13854-1-git-send-email-daniel@iogearbox.net>
+ <1483640872.9712.1.camel@edumazet-glaptop3.roam.corp.google.com>
+ <586E9A0F.1020002@iogearbox.net> <CAAsGZS59KsGHJzG-U962kK4AP+M40zAV-ERgDqYvDLz5JB6Exg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Jason Wang <jasowang@redhat.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Willem de Bruijn <willemb@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:35676 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753261AbdCFSNK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 13:13:10 -0500
-Received: by mail-wm0-f46.google.com with SMTP id v186so70938386wmd.0
-        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 10:13:09 -0800 (PST)
-In-Reply-To: <b92b1e1f-d55d-c346-41a9-9abdb075cc5b@redhat.com>
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:34980 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753986AbdCFSOT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 13:14:19 -0500
+Received: by mail-wr0-f172.google.com with SMTP id g10so122655051wrg.2
+        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 10:14:18 -0800 (PST)
+In-Reply-To: <CAAsGZS59KsGHJzG-U962kK4AP+M40zAV-ERgDqYvDLz5JB6Exg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +static void virtnet_poll_cleantx(struct receive_queue *rq)
->> +{
->> +       struct virtnet_info *vi = rq->vq->vdev->priv;
->> +       unsigned int index = vq2rxq(rq->vq);
->> +       struct send_queue *sq = &vi->sq[index];
->> +       struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, index);
->> +
->> +       __netif_tx_lock(txq, smp_processor_id());
->> +       free_old_xmit_skbs(sq, sq->napi.weight);
->> +       __netif_tx_unlock(txq);
+On Mon, Mar 6, 2017 at 12:13 PM, chetan loke <loke.chetan@gmail.com> wrote:
+>>>
+>>> Gosh. Can we also replace this BUG() into something less aggressive ?
+>>
+>>
+>> There are currently 5 of these WARN() + BUG() constructs and 1 BUG()-only
+>> for the 'default' TPACKET version spread all over af_packet, so probably
+>> makes sense to rather make all of them less aggressive.
+>>
+>>
 >
+> Very few consumers actually go looking in the kernel logs to see the
+> error-warnings and report them back here.
 >
-> Should we check tx napi weight here? Or this was treated as an independent
-> optimization?
+> This severity will get them to report the incident which in this case
+> got fixed??
 
-Good point. This was not intended to run in no-napi mode as is.
-With interrupts disabled most of the time in that mode, I don't
-expect it to be worthwhile using in that case. I'll add the check
-for sq->napi.weight != 0.
-
->> +
->> +       if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
->> +               netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
->> +}
->> +
->>   static int virtnet_poll(struct napi_struct *napi, int budget)
->>   {
->>         struct receive_queue *rq =
->> @@ -1039,6 +1056,8 @@ static int virtnet_poll(struct napi_struct *napi,
->> int budget)
->>         received = virtnet_receive(rq, budget);
->>   +     virtnet_poll_cleantx(rq);
->> +
->
->
-> Better to do the before virtnet_receive() consider refill may allocate
-> memory for rx buffers.
-
-Will do.
-
-> Btw, if this is proved to be more efficient. In the future we may consider
-> to:
->
-> 1) use a single interrupt for both rx and tx
-> 2) use a single napi to handle both rx and tx
-
-Agreed, I think that's sensible.
+But BUG_ONs in the datapath can cause outages in real production
+environments. This should not happen for recoverable failures. For
+users who cannot be bothered to check their logs, there is sysctl
+kernel.panic_on_warn.
