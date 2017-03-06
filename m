@@ -1,12 +1,12 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 13/29] drivers,
- media: convert vb2_vmarea_handler.refcount from atomic_t to refcount_t
-Date: Mon,  6 Mar 2017 16:21:00 +0200
-Message-ID: <1488810076-3754-14-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 19/29] drivers,
+	s390: convert lcs_reply.refcnt from atomic_t to refcount_t
+Date: Mon,  6 Mar 2017 16:21:06 +0200
+Message-ID: <1488810076-3754-20-git-send-email-elena.reshetova@intel.com>
 References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: peterz@infradead.org, linux-pci@vger.kernel.org,
  target-devel@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
  Elena Reshetova <elena.reshetova@intel.com>, devel@driverdev.osuosl.org,
@@ -19,80 +19,55 @@ Cc: peterz@infradead.org, linux-pci@vger.kernel.org,
  netdev@vger.kernel.org, linux-usb@vger.kernel.org,
  linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
 To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
 In-Reply-To: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
-
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
----
- drivers/media/v4l2-core/videobuf2-memops.c | 6 +++---
- include/media/videobuf2-memops.h           | 3 ++-
- 2 files changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/media/v4l2-core/videobuf2-memops.c b/drivers/media/v4l2-core/videobuf2-memops.c
-index 1cd322e..4bb8424 100644
---- a/drivers/media/v4l2-core/videobuf2-memops.c
-+++ b/drivers/media/v4l2-core/videobuf2-memops.c
-@@ -96,10 +96,10 @@ static void vb2_common_vm_open(struct vm_area_struct *vma)
- 	struct vb2_vmarea_handler *h = vma->vm_private_data;
- 
- 	pr_debug("%s: %p, refcount: %d, vma: %08lx-%08lx\n",
--	       __func__, h, atomic_read(h->refcount), vma->vm_start,
-+	       __func__, h, refcount_read(h->refcount), vma->vm_start,
- 	       vma->vm_end);
- 
--	atomic_inc(h->refcount);
-+	refcount_inc(h->refcount);
- }
- 
- /**
-@@ -114,7 +114,7 @@ static void vb2_common_vm_close(struct vm_area_struct *vma)
- 	struct vb2_vmarea_handler *h = vma->vm_private_data;
- 
- 	pr_debug("%s: %p, refcount: %d, vma: %08lx-%08lx\n",
--	       __func__, h, atomic_read(h->refcount), vma->vm_start,
-+	       __func__, h, refcount_read(h->refcount), vma->vm_start,
- 	       vma->vm_end);
- 
- 	h->put(h->arg);
-diff --git a/include/media/videobuf2-memops.h b/include/media/videobuf2-memops.h
-index 36565c7a..a6ed091 100644
---- a/include/media/videobuf2-memops.h
-+++ b/include/media/videobuf2-memops.h
-@@ -16,6 +16,7 @@
- 
- #include <media/videobuf2-v4l2.h>
- #include <linux/mm.h>
-+#include <linux/refcount.h>
- 
- /**
-  * struct vb2_vmarea_handler - common vma refcount tracking handler
-@@ -25,7 +26,7 @@
-  * @arg:	argument for @put callback
-  */
- struct vb2_vmarea_handler {
--	atomic_t		*refcount;
-+	refcount_t		*refcount;
- 	void			(*put)(void *arg);
- 	void			*arg;
- };
--- 
-2.7.4
+cmVmY291bnRfdCB0eXBlIGFuZCBjb3JyZXNwb25kaW5nIEFQSSBzaG91bGQgYmUKdXNlZCBpbnN0
+ZWFkIG9mIGF0b21pY190IHdoZW4gdGhlIHZhcmlhYmxlIGlzIHVzZWQgYXMKYSByZWZlcmVuY2Ug
+Y291bnRlci4gVGhpcyBhbGxvd3MgdG8gYXZvaWQgYWNjaWRlbnRhbApyZWZjb3VudGVyIG92ZXJm
+bG93cyB0aGF0IG1pZ2h0IGxlYWQgdG8gdXNlLWFmdGVyLWZyZWUKc2l0dWF0aW9ucy4KClNpZ25l
+ZC1vZmYtYnk6IEVsZW5hIFJlc2hldG92YSA8ZWxlbmEucmVzaGV0b3ZhQGludGVsLmNvbT4KU2ln
+bmVkLW9mZi1ieTogSGFucyBMaWxqZXN0cmFuZCA8aXNoa2FtaWVsQGdtYWlsLmNvbT4KU2lnbmVk
+LW9mZi1ieTogS2VlcyBDb29rIDxrZWVzY29va0BjaHJvbWl1bS5vcmc+ClNpZ25lZC1vZmYtYnk6
+IERhdmlkIFdpbmRzb3IgPGR3aW5kc29yQGdtYWlsLmNvbT4KLS0tCiBkcml2ZXJzL3MzOTAvbmV0
+L2xjcy5jIHwgOCArKystLS0tLQogZHJpdmVycy9zMzkwL25ldC9sY3MuaCB8IDMgKystCiAyIGZp
+bGVzIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgNiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
+YS9kcml2ZXJzL3MzOTAvbmV0L2xjcy5jIGIvZHJpdmVycy9zMzkwL25ldC9sY3MuYwppbmRleCAy
+MTFiMzFkLi4xOGRjNzg3IDEwMDY0NAotLS0gYS9kcml2ZXJzL3MzOTAvbmV0L2xjcy5jCisrKyBi
+L2RyaXZlcnMvczM5MC9uZXQvbGNzLmMKQEAgLTc3NCwxNSArNzc0LDEzIEBAIGxjc19nZXRfbGFu
+Y21kKHN0cnVjdCBsY3NfY2FyZCAqY2FyZCwgaW50IGNvdW50KQogc3RhdGljIHZvaWQKIGxjc19n
+ZXRfcmVwbHkoc3RydWN0IGxjc19yZXBseSAqcmVwbHkpCiB7Ci0JV0FSTl9PTihhdG9taWNfcmVh
+ZCgmcmVwbHktPnJlZmNudCkgPD0gMCk7Ci0JYXRvbWljX2luYygmcmVwbHktPnJlZmNudCk7CisJ
+cmVmY291bnRfaW5jKCZyZXBseS0+cmVmY250KTsKIH0KIAogc3RhdGljIHZvaWQKIGxjc19wdXRf
+cmVwbHkoc3RydWN0IGxjc19yZXBseSAqcmVwbHkpCiB7Ci0gICAgICAgIFdBUk5fT04oYXRvbWlj
+X3JlYWQoJnJlcGx5LT5yZWZjbnQpIDw9IDApOwotICAgICAgICBpZiAoYXRvbWljX2RlY19hbmRf
+dGVzdCgmcmVwbHktPnJlZmNudCkpIHsKKyAgICAgICAgaWYgKHJlZmNvdW50X2RlY19hbmRfdGVz
+dCgmcmVwbHktPnJlZmNudCkpIHsKIAkJa2ZyZWUocmVwbHkpOwogCX0KIApAQCAtNzk4LDcgKzc5
+Niw3IEBAIGxjc19hbGxvY19yZXBseShzdHJ1Y3QgbGNzX2NtZCAqY21kKQogCXJlcGx5ID0ga3ph
+bGxvYyhzaXplb2Yoc3RydWN0IGxjc19yZXBseSksIEdGUF9BVE9NSUMpOwogCWlmICghcmVwbHkp
+CiAJCXJldHVybiBOVUxMOwotCWF0b21pY19zZXQoJnJlcGx5LT5yZWZjbnQsMSk7CisJcmVmY291
+bnRfc2V0KCZyZXBseS0+cmVmY250LDEpOwogCXJlcGx5LT5zZXF1ZW5jZV9ubyA9IGNtZC0+c2Vx
+dWVuY2Vfbm87CiAJcmVwbHktPnJlY2VpdmVkID0gMDsKIAlyZXBseS0+cmMgPSAwOwpkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9zMzkwL25ldC9sY3MuaCBiL2RyaXZlcnMvczM5MC9uZXQvbGNzLmgKaW5k
+ZXggMTUwZmNiNC4uMzgwMmY0ZiAxMDA2NDQKLS0tIGEvZHJpdmVycy9zMzkwL25ldC9sY3MuaAor
+KysgYi9kcml2ZXJzL3MzOTAvbmV0L2xjcy5oCkBAIC00LDYgKzQsNyBAQAogI2luY2x1ZGUgPGxp
+bnV4L25ldGRldmljZS5oPgogI2luY2x1ZGUgPGxpbnV4L3NrYnVmZi5oPgogI2luY2x1ZGUgPGxp
+bnV4L3dvcmtxdWV1ZS5oPgorI2luY2x1ZGUgPGxpbnV4L3JlZmNvdW50Lmg+CiAjaW5jbHVkZSA8
+YXNtL2Njd2Rldi5oPgogCiAjZGVmaW5lIExDU19EQkZfVEVYVChsZXZlbCwgbmFtZSwgdGV4dCkg
+XApAQCAtMjcwLDcgKzI3MSw3IEBAIHN0cnVjdCBsY3NfYnVmZmVyIHsKIHN0cnVjdCBsY3NfcmVw
+bHkgewogCXN0cnVjdCBsaXN0X2hlYWQgbGlzdDsKIAlfX3UxNiBzZXF1ZW5jZV9ubzsKLQlhdG9t
+aWNfdCByZWZjbnQ7CisJcmVmY291bnRfdCByZWZjbnQ7CiAJLyogQ2FsbGJhY2sgZm9yIGNvbXBs
+ZXRpb24gbm90aWZpY2F0aW9uLiAqLwogCXZvaWQgKCpjYWxsYmFjaykoc3RydWN0IGxjc19jYXJk
+ICosIHN0cnVjdCBsY3NfY21kICopOwogCXdhaXRfcXVldWVfaGVhZF90IHdhaXRfcTsKLS0gCjIu
+Ny40CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVu
+LWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3Rz
+Lnhlbi5vcmcveGVuLWRldmVsCg==
