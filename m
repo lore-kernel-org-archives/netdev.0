@@ -1,143 +1,104 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/ipv4: deadlock in ip_ra_control
-Date: Sun, 5 Mar 2017 18:04:46 -0800
-Message-ID: <CAM_iQpVf=Ky+hDFj2rt8VA3Jb1dv8oLgqovYWvHxj-k8KH3XSA@mail.gmail.com>
-References: <CACT4Y+b-c=_QC51h0Qgp4buG=6cWO1xax7MrKgFS1BKV2=mdQg@mail.gmail.com>
- <CAM_iQpX=Vb-0xMjwOrriYcG38GT+U9zknggVbCb0_pBUh1NMkQ@mail.gmail.com>
- <CACT4Y+aWYLbu5Eq1WN_T6q_zDBUdP8wiAVJK1x1D_XspQSY-RQ@mail.gmail.com> <CACT4Y+b0uuE+YarvhfvWOanaoKxTsv92C5LC8btLOwEAG9Lr1w@mail.gmail.com>
+From: <Wenyou.Yang@microchip.com>
+Subject: RE: [PATCH] can: m_can: support transmit frame in CAN FD format
+Date: Mon, 6 Mar 2017 02:27:45 +0000
+Message-ID: <F9F4555C4E01D7469D37975B62D0EFBB4F8434@CHN-SV-EXMX07.mchp-main.com>
+References: <20170303053331.20883-1-wenyou.yang@atmel.com>
+ <12c3ae1d-65f7-8ba2-61e7-eed5291ebd21@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a114b09c004eba5054a0653d9
-Cc: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+b0uuE+YarvhfvWOanaoKxTsv92C5LC8btLOwEAG9Lr1w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: <alexandre.belloni@free-electrons.com>, <f.fainelli@gmail.com>,
+        <quentin.schulz@free-electrons.com>, <nicolas.ferre@atmel.com>,
+        <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: <socketcan@hartkopp.net>, <wg@grandegger.com>, <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <12c3ae1d-65f7-8ba2-61e7-eed5291ebd21@hartkopp.net>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---001a114b09c004eba5054a0653d9
-Content-Type: text/plain; charset=UTF-8
-
-On Fri, Mar 3, 2017 at 10:43 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Thu, Mar 2, 2017 at 10:40 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> On Wed, Mar 1, 2017 at 6:18 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>> On Wed, Mar 1, 2017 at 2:44 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>>> Hello,
->>>>
->>>> I've got the following deadlock report while running syzkaller fuzzer
->>>> on linux-next/51788aebe7cae79cb334ad50641347465fc188fd:
->>>>
->>>> ======================================================
->>>> [ INFO: possible circular locking dependency detected ]
->>>> 4.10.0-next-20170301+ #1 Not tainted
->>>> -------------------------------------------------------
->>>> syz-executor1/3394 is trying to acquire lock:
->>>>  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff838864cc>] lock_sock
->>>> include/net/sock.h:1460 [inline]
->>>>  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff838864cc>]
->>>> do_ip_setsockopt.isra.12+0x21c/0x3540 net/ipv4/ip_sockglue.c:652
->>>>
->>>> but task is already holding lock:
->>>>  (rtnl_mutex){+.+.+.}, at: [<ffffffff836fbd97>] rtnl_lock+0x17/0x20
->>>> net/core/rtnetlink.c:70
->>>>
->>>> which lock already depends on the new lock.
->>>>
->>>>
->>>> the existing dependency chain (in reverse order) is:
->>>>
->>>> -> #1 (rtnl_mutex){+.+.+.}:
->>>>        validate_chain kernel/locking/lockdep.c:2265 [inline]
->>>>        __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3338
->>>>        lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3753
->>>>        __mutex_lock_common kernel/locking/mutex.c:754 [inline]
->>>>        __mutex_lock+0x172/0x1730 kernel/locking/mutex.c:891
->>>>        mutex_lock_nested+0x16/0x20 kernel/locking/mutex.c:906
->>>>        rtnl_lock+0x17/0x20 net/core/rtnetlink.c:70
->>>>        mrtsock_destruct+0x86/0x2c0 net/ipv4/ipmr.c:1281
->>>>        ip_ra_control+0x459/0x600 net/ipv4/ip_sockglue.c:372
->>>>        do_ip_setsockopt.isra.12+0x1064/0x3540 net/ipv4/ip_sockglue.c:1161
->>>>        ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1264
->>>>        raw_setsockopt+0xb7/0xd0 net/ipv4/raw.c:839
->>>>        sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2725
->>>>        SYSC_setsockopt net/socket.c:1786 [inline]
->>>>        SyS_setsockopt+0x25c/0x390 net/socket.c:1765
->>>>        entry_SYSCALL_64_fastpath+0x1f/0xc2
->>>>
->>>> -> #0 (sk_lock-AF_INET){+.+.+.}:
->>>>        check_prev_add kernel/locking/lockdep.c:1828 [inline]
->>>>        check_prevs_add+0xa8f/0x19f0 kernel/locking/lockdep.c:1938
->>>>        validate_chain kernel/locking/lockdep.c:2265 [inline]
->>>>        __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3338
->>>>        lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3753
->>>>        lock_sock_nested+0xcb/0x120 net/core/sock.c:2530
->>>>        lock_sock include/net/sock.h:1460 [inline]
->>>>        do_ip_setsockopt.isra.12+0x21c/0x3540 net/ipv4/ip_sockglue.c:652
->>>>        ip_setsockopt+0x3a/0xb0 net/ipv4/ip_sockglue.c:1264
->>>>        tcp_setsockopt+0x82/0xd0 net/ipv4/tcp.c:2721
->>>>        sock_common_setsockopt+0x95/0xd0 net/core/sock.c:2725
->>>>        SYSC_setsockopt net/socket.c:1786 [inline]
->>>>        SyS_setsockopt+0x25c/0x390 net/socket.c:1765
->>>>        entry_SYSCALL_64_fastpath+0x1f/0xc2
->>>>
->>>
->>> Please try the attached patch (compile only).
->>
->>
->> Pushed the patch to the bots.
->> Thanks
->
->
-> This patch triggers:
-
-Ah, update the patch to fix this.
-
---001a114b09c004eba5054a0653d9
-Content-Type: text/plain; charset=US-ASCII; name="ip-router-alert.diff"
-Content-Disposition: attachment; filename="ip-router-alert.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_izxgriv60
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX3NvY2tnbHVlLmMgYi9uZXQvaXB2NC9pcF9zb2NrZ2x1
-ZS5jCmluZGV4IGViZDk1M2IuLmJkYTMxOGEgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L2lwX3NvY2tn
-bHVlLmMKKysrIGIvbmV0L2lwdjQvaXBfc29ja2dsdWUuYwpAQCAtNTkxLDYgKzU5MSw3IEBAIHN0
-YXRpYyBib29sIHNldHNvY2tvcHRfbmVlZHNfcnRubChpbnQgb3B0bmFtZSkKIAljYXNlIE1DQVNU
-X0xFQVZFX0dST1VQOgogCWNhc2UgTUNBU1RfTEVBVkVfU09VUkNFX0dST1VQOgogCWNhc2UgTUNB
-U1RfVU5CTE9DS19TT1VSQ0U6CisJY2FzZSBJUF9ST1VURVJfQUxFUlQ6CiAJCXJldHVybiB0cnVl
-OwogCX0KIAlyZXR1cm4gZmFsc2U7CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9pcG1yLmMgYi9uZXQv
-aXB2NC9pcG1yLmMKaW5kZXggYzAzMTdjOS4uYjAzNmU4NSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQv
-aXBtci5jCisrKyBiL25ldC9pcHY0L2lwbXIuYwpAQCAtMTI3OCw3ICsxMjc4LDcgQEAgc3RhdGlj
-IHZvaWQgbXJ0c29ja19kZXN0cnVjdChzdHJ1Y3Qgc29jayAqc2spCiAJc3RydWN0IG5ldCAqbmV0
-ID0gc29ja19uZXQoc2spOwogCXN0cnVjdCBtcl90YWJsZSAqbXJ0OwogCi0JcnRubF9sb2NrKCk7
-CisJQVNTRVJUX1JUTkwoKTsKIAlpcG1yX2Zvcl9lYWNoX3RhYmxlKG1ydCwgbmV0KSB7CiAJCWlm
-IChzayA9PSBydG5sX2RlcmVmZXJlbmNlKG1ydC0+bXJvdXRlX3NrKSkgewogCQkJSVBWNF9ERVZD
-T05GX0FMTChuZXQsIE1DX0ZPUldBUkRJTkcpLS07CkBAIC0xMjg5LDcgKzEyODksNiBAQCBzdGF0
-aWMgdm9pZCBtcnRzb2NrX2Rlc3RydWN0KHN0cnVjdCBzb2NrICpzaykKIAkJCW1yb3V0ZV9jbGVh
-bl90YWJsZXMobXJ0LCBmYWxzZSk7CiAJCX0KIAl9Ci0JcnRubF91bmxvY2soKTsKIH0KIAogLyog
-U29ja2V0IG9wdGlvbnMgYW5kIHZpcnR1YWwgaW50ZXJmYWNlIG1hbmlwdWxhdGlvbi4gVGhlIHdo
-b2xlCkBAIC0xMzUzLDEzICsxMzUyLDggQEAgaW50IGlwX21yb3V0ZV9zZXRzb2Nrb3B0KHN0cnVj
-dCBzb2NrICpzaywgaW50IG9wdG5hbWUsIGNoYXIgX191c2VyICpvcHR2YWwsCiAJCWlmIChzayAh
-PSByY3VfYWNjZXNzX3BvaW50ZXIobXJ0LT5tcm91dGVfc2spKSB7CiAJCQlyZXQgPSAtRUFDQ0VT
-OwogCQl9IGVsc2UgewotCQkJLyogV2UgbmVlZCB0byB1bmxvY2sgaGVyZSBiZWNhdXNlIG1ydHNv
-Y2tfZGVzdHJ1Y3QgdGFrZXMKLQkJCSAqIGNhcmUgb2YgcnRubCBpdHNlbGYgYW5kIHdlIGNhbid0
-IGNoYW5nZSB0aGF0IGR1ZSB0bwotCQkJICogdGhlIElQX1JPVVRFUl9BTEVSVCBzZXRzb2Nrb3B0
-IHdoaWNoIHJ1bnMgd2l0aG91dCBpdC4KLQkJCSAqLwotCQkJcnRubF91bmxvY2soKTsKIAkJCXJl
-dCA9IGlwX3JhX2NvbnRyb2woc2ssIDAsIE5VTEwpOwotCQkJZ290byBvdXQ7CisJCQlnb3RvIG91
-dF91bmxvY2s7CiAJCX0KIAkJYnJlYWs7CiAJY2FzZSBNUlRfQUREX1ZJRjoKQEAgLTE0NzAsNyAr
-MTQ2NCw2IEBAIGludCBpcF9tcm91dGVfc2V0c29ja29wdChzdHJ1Y3Qgc29jayAqc2ssIGludCBv
-cHRuYW1lLCBjaGFyIF9fdXNlciAqb3B0dmFsLAogCX0KIG91dF91bmxvY2s6CiAJcnRubF91bmxv
-Y2soKTsKLW91dDoKIAlyZXR1cm4gcmV0OwogfQogCmRpZmYgLS1naXQgYS9uZXQvaXB2NC9yYXcu
-YyBiL25ldC9pcHY0L3Jhdy5jCmluZGV4IDgxMTllMWYuLjlkOTQzOTcgMTAwNjQ0Ci0tLSBhL25l
-dC9pcHY0L3Jhdy5jCisrKyBiL25ldC9pcHY0L3Jhdy5jCkBAIC02ODIsNyArNjgyLDkgQEAgc3Rh
-dGljIHZvaWQgcmF3X2Nsb3NlKHN0cnVjdCBzb2NrICpzaywgbG9uZyB0aW1lb3V0KQogCS8qCiAJ
-ICogUmF3IHNvY2tldHMgbWF5IGhhdmUgZGlyZWN0IGtlcm5lbCByZWZlcmVuY2VzLiBLaWxsIHRo
-ZW0uCiAJICovCisJcnRubF9sb2NrKCk7CiAJaXBfcmFfY29udHJvbChzaywgMCwgTlVMTCk7CisJ
-cnRubF91bmxvY2soKTsKIAogCXNrX2NvbW1vbl9yZWxlYXNlKHNrKTsKIH0K
---001a114b09c004eba5054a0653d9--
+SGkgT2xpdmVyLA0KDQpUaGFuayB5b3UgZm9yIHlvdXIgcmV2aWV3Lg0KDQo+IC0tLS0tT3JpZ2lu
+YWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE9saXZlciBIYXJ0a29wcCBbbWFpbHRvOnNvY2tldGNh
+bkBoYXJ0a29wcC5uZXRdDQo+IFNlbnQ6IDIwMTfE6jPUwjbI1SAzOjM0DQo+IFRvOiBXZW55b3Ug
+WWFuZyAtIEE0MTUzNSA8V2VueW91LllhbmdAbWljcm9jaGlwLmNvbT47IFdvbGZnYW5nDQo+IEdy
+YW5kZWdnZXIgPHdnQGdyYW5kZWdnZXIuY29tPjsgTWFyYyBLbGVpbmUtQnVkZGUgPG1rbEBwZW5n
+dXRyb25peC5kZT4NCj4gQ2M6IEFsZXhhbmRyZSBCZWxsb25pIDxhbGV4YW5kcmUuYmVsbG9uaUBm
+cmVlLWVsZWN0cm9ucy5jb20+OyBGbG9yaWFuIEZhaW5lbGxpDQo+IDxmLmZhaW5lbGxpQGdtYWls
+LmNvbT47IFF1ZW50aW4gU2NodWx6IDxxdWVudGluLnNjaHVsekBmcmVlLWVsZWN0cm9ucy5jb20+
+Ow0KPiBXZW55b3UgWWFuZyAtIEE0MTUzNSA8V2VueW91LllhbmdAbWljcm9jaGlwLmNvbT47IE5p
+Y29sYXMgRmVycmUNCj4gPG5pY29sYXMuZmVycmVAYXRtZWwuY29tPjsgbGludXgtY2FuQHZnZXIu
+a2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gbGludXgta2VybmVsQHZnZXIu
+a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBjYW46IG1fY2FuOiBzdXBwb3J0IHRy
+YW5zbWl0IGZyYW1lIGluIENBTiBGRCBmb3JtYXQNCj4gDQo+IFRoZSBwYXRjaCBoYXMgc29tZSBp
+c3N1ZXM6DQo+IA0KPiBPbiAwMy8wMy8yMDE3IDA2OjMzIEFNLCBXZW55b3UgWWFuZyB3cm90ZToN
+Cj4gPiBBZGQgc3VwcG9ydCB0byB0cmFuc21pdCB0aGUgZnJhbWUgaW4gdGhlIENBTiBGRCBmb3Jt
+YXQgYW5kIHdpdGggdGhlDQo+ID4gYml0IHJhdGUgc3dpdGNoaW5nLg0KPiANCj4gVGhpcyBpcyBh
+IG1pc2xlYWRpbmcgY29tbWVudC4NCj4gDQo+ICJjYW46IG1fY2FuOiBzdXBwb3J0IHRyYW5zbWl0
+IGZyYW1lIGluIENBTiBGRCBmb3JtYXQiDQo+IGlzIG1pc2xlYWRpbmcgdG9vLiBZb3Ugd2VyZSBh
+YmxlIHRvIHNlbmQgQ0FOIEZEIGZyYW1lcyBiZWZvcmUuDQo+IA0KPiBUaGlzIHBhdGNoIGVuYWJs
+ZXMgdGhlIHRyYW5zbWlzc2lvbiBvZiBDQU4gRkQgZnJhbWVzIG9uIE1fQ0FOIElQIGNvcmVzICA+
+PQ0KPiB2My4xLngsIHJpZ2h0Pw0KDQpUaGUgcmV2aXNpb24gb2YgTV9DQU4gSVAgb24gU0FNQTVE
+MiBpcyAzLjEuMCAoQ1JFTCA9IDB4MzEwNDA3MzApLg0KDQo+IA0KPiBTbyB0aGlzIHNob3VsZCBi
+ZSBtZW50aW9uZWQgcHJvcGVybHkuDQo+IA0KPiA+IFRlc3RlZCBvbiBTQU1BNUQyIFhwbGFpbmVk
+IGJvYXJkLg0KPiANCj4gVGVzdGVkIG9uIHdoaWNoIE1fQ0FOIElQIGNvcmUgcmV2aXNpb24gd291
+bGQgYmUgdXNlZnVsIGhlcmUuDQo+IA0KPiA+IFNpZ25lZC1vZmYtYnk6IFdlbnlvdSBZYW5nIDx3
+ZW55b3UueWFuZ0BhdG1lbC5jb20+DQo+ID4gLS0tDQo+ID4gVGhlIHRlc3RpbmcgaXMgYmFzZWQg
+b24NCj4gPiBbUkVTRU5EIFBBVENIIDEvMV0gY2FuOiBtX2NhbjogZml4IGJpdHJhdGUgc2V0dXAg
+b24gbGF0ZXN0IHNpbGljb24NCj4gPiBodHRwOi8vbGttbC5pdS5lZHUvaHlwZXJtYWlsL2xpbnV4
+L2tlcm5lbC8xNzAyLjEvMDUzNDcuaHRtbA0KPiA+DQo+ID4gIGRyaXZlcnMvbmV0L2Nhbi9tX2Nh
+bi9tX2Nhbi5jIHwgMjEgKysrKysrKysrKysrKysrKystLS0tDQo+ID4gIDEgZmlsZSBjaGFuZ2Vk
+LCAxNyBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L2Nhbi9tX2Nhbi9tX2Nhbi5jDQo+ID4gYi9kcml2ZXJzL25ldC9jYW4vbV9j
+YW4vbV9jYW4uYyBpbmRleCAxOTVmMTVlZGIzMmUuLjllZjliMzM3ZDI1Yg0KPiA+IDEwMDY0NA0K
+PiA+IC0tLSBhL2RyaXZlcnMvbmV0L2Nhbi9tX2Nhbi9tX2Nhbi5jDQo+ID4gKysrIGIvZHJpdmVy
+cy9uZXQvY2FuL21fY2FuL21fY2FuLmMNCj4gPiBAQCAtMjY2LDggKzI2NiwxMiBAQCBlbnVtIG1f
+Y2FuX21yYW1fY2ZnIHsNCj4gPg0KPiA+ICAvKiBUeCBCdWZmZXIgRWxlbWVudCAqLw0KPiA+ICAv
+KiBSMCAqLw0KPiA+ICsjZGVmaW5lIFRYX0JVRl9FU0kJCUJJVCgzMSkNCj4gPiAgI2RlZmluZSBU
+WF9CVUZfWFRECQlCSVQoMzApDQo+ID4gICNkZWZpbmUgVFhfQlVGX1JUUgkJQklUKDI5KQ0KPiA+
+ICsjZGVmaW5lIFRYX0JVRl9FRkMJCUJJVCgyMykNCj4gPiArI2RlZmluZSBUWF9CVUZfRURMCQlC
+SVQoMjEpDQo+IA0KPiBUaGlzIGJpdCBpcyBuYW1lZCBGREYgKEZEIEZvcm1hdCBiaXQpLg0KPiAN
+Cj4gSXQgaGFzIHRvIGJlOg0KPiANCj4gI2RlZmluZSBUWF9CVUZfRkRGCQlCSVQoMjEpDQo+IA0K
+PiA+ICsjZGVmaW5lIFRYX0JVRl9CUlMJCUJJVCgyMCkNCj4gPg0KPiA+ICAvKiBhZGRyZXNzIG9m
+ZnNldCBhbmQgZWxlbWVudCBudW1iZXIgZm9yIGVhY2ggRklGTy9CdWZmZXIgaW4gdGhlDQo+ID4g
+TWVzc2FnZSBSQU0gKi8gIHN0cnVjdCBtcmFtX2NmZyB7IEBAIC04ODQsNyArODg4LDcgQEAgc3Rh
+dGljIHZvaWQNCj4gPiBtX2Nhbl9jaGlwX2NvbmZpZyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0K
+PiA+ICAJfQ0KPiA+DQo+ID4gIAlpZiAocHJpdi0+Y2FuLmN0cmxtb2RlICYgQ0FOX0NUUkxNT0RF
+X0ZEKQ0KPiA+IC0JCWNjY3IgfD0gQ0NDUl9DTUVfQ0FORkRfQlJTIDw8IENDQ1JfQ01FX1NISUZU
+Ow0KPiA+ICsJCWNjY3IgfD0gKENDQ1JfQ01FX0NBTkZEX0JSUyB8IENDQ1JfQ01FX0NBTkZEKSA8
+PA0KPiBDQ0NSX0NNRV9TSElGVDsNCj4gPg0KPiA+ICAJbV9jYW5fd3JpdGUocHJpdiwgTV9DQU5f
+Q0NDUiwgY2Njcik7DQo+ID4gIAltX2Nhbl93cml0ZShwcml2LCBNX0NBTl9URVNULCB0ZXN0KTsg
+QEAgLTEwNDcsNiArMTA1MSw3IEBAIHN0YXRpYw0KPiA+IG5ldGRldl90eF90IG1fY2FuX3N0YXJ0
+X3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gPiAgCXN0cnVjdCBjYW5mZF9mcmFtZSAqY2Yg
+PSAoc3RydWN0IGNhbmZkX2ZyYW1lICopc2tiLT5kYXRhOw0KPiA+ICAJdTMyIGlkLCBjY2NyOw0K
+PiA+ICAJaW50IGk7DQo+ID4gKwl1MzIgZGxjOw0KPiA+DQo+ID4gIAlpZiAoY2FuX2Ryb3BwZWRf
+aW52YWxpZF9za2IoZGV2LCBza2IpKQ0KPiA+ICAJCXJldHVybiBORVRERVZfVFhfT0s7DQo+ID4g
+QEAgLTEwNjUsNyArMTA3MCw2IEBAIHN0YXRpYyBuZXRkZXZfdHhfdCBtX2Nhbl9zdGFydF94bWl0
+KHN0cnVjdA0KPiA+IHNrX2J1ZmYgKnNrYiwNCj4gPg0KPiA+ICAJLyogbWVzc2FnZSByYW0gY29u
+ZmlndXJhdGlvbiAqLw0KPiA+ICAJbV9jYW5fZmlmb193cml0ZShwcml2LCAwLCBNX0NBTl9GSUZP
+X0lELCBpZCk7DQo+ID4gLQltX2Nhbl9maWZvX3dyaXRlKHByaXYsIDAsIE1fQ0FOX0ZJRk9fRExD
+LCBjYW5fbGVuMmRsYyhjZi0+bGVuKSA8PCAxNik7DQo+ID4NCj4gPiAgCWZvciAoaSA9IDA7IGkg
+PCBjZi0+bGVuOyBpICs9IDQpDQo+ID4gIAkJbV9jYW5fZmlmb193cml0ZShwcml2LCAwLCBNX0NB
+Tl9GSUZPX0RBVEEoaSAvIDQpLCBAQCAtDQo+IDEwNzMsMjANCj4gPiArMTA3NywyOSBAQCBzdGF0
+aWMgbmV0ZGV2X3R4X3QgbV9jYW5fc3RhcnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLA0KPiA+
+DQo+ID4gIAljYW5fcHV0X2VjaG9fc2tiKHNrYiwgZGV2LCAwKTsNCj4gPg0KPiA+ICsJZGxjID0g
+Y2FuX2xlbjJkbGMoY2YtPmxlbikgPDwgMTY7DQo+ID4gKw0KPiA+ICAJaWYgKHByaXYtPmNhbi5j
+dHJsbW9kZSAmIENBTl9DVFJMTU9ERV9GRCkgew0KPiA+ICAJCWNjY3IgPSBtX2Nhbl9yZWFkKHBy
+aXYsIE1fQ0FOX0NDQ1IpOw0KPiA+ICAJCWNjY3IgJj0gfihDQ0NSX0NNUl9NQVNLIDw8IENDQ1Jf
+Q01SX1NISUZUKTsNCj4gPiAgCQlpZiAoY2FuX2lzX2NhbmZkX3NrYihza2IpKSB7DQo+ID4gLQkJ
+CWlmIChjZi0+ZmxhZ3MgJiBDQU5GRF9CUlMpDQo+ID4gKwkJCWRsYyB8PSBUWF9CVUZfRURMOw0K
+PiANCj4gZGl0byBGREYNCj4gDQo+ID4gKwkJCWlmIChjZi0+ZmxhZ3MgJiBDQU5GRF9FU0kpDQo+
+ID4gKwkJCQlkbGMgfD0gVFhfQlVGX0VTSTsNCj4gPiArCQkJaWYgKGNmLT5mbGFncyAmIENBTkZE
+X0JSUykgew0KPiA+ICsJCQkJZGxjIHw9IFRYX0JVRl9CUlM7DQo+ID4gIAkJCQljY2NyIHw9IEND
+Q1JfQ01SX0NBTkZEX0JSUyA8PA0KPiBDQ0NSX0NNUl9TSElGVDsNCj4gPiAtCQkJZWxzZQ0KPiA+
+ICsJCQl9IGVsc2Ugew0KPiA+ICAJCQkJY2NjciB8PSBDQ0NSX0NNUl9DQU5GRCA8PA0KPiBDQ0NS
+X0NNUl9TSElGVDsNCj4gPiArCQkJfQ0KPiA+ICAJCX0gZWxzZSB7DQo+ID4gIAkJCWNjY3IgfD0g
+Q0NDUl9DTVJfQ0FOIDw8IENDQ1JfQ01SX1NISUZUOw0KPiA+ICAJCX0NCj4gPiAgCQltX2Nhbl93
+cml0ZShwcml2LCBNX0NBTl9DQ0NSLCBjY2NyKTsNCj4gPiAgCX0NCj4gPg0KPiA+ICsJbV9jYW5f
+Zmlmb193cml0ZShwcml2LCAwLCBNX0NBTl9GSUZPX0RMQywgZGxjKTsNCj4gPiArDQo+ID4gIAkv
+KiBlbmFibGUgZmlyc3QgVFggYnVmZmVyIHRvIHN0YXJ0IHRyYW5zZmVyICAqLw0KPiA+ICAJbV9j
+YW5fd3JpdGUocHJpdiwgTV9DQU5fVFhCVElFLCAweDEpOw0KPiA+ICAJbV9jYW5fd3JpdGUocHJp
+diwgTV9DQU5fVFhCQVIsIDB4MSk7DQo+ID4NCj4gDQo+IEJlc2lkZSB0aGUgZG9jdW1lbnRhdGlv
+biBhbmQgdGhlIHdyb25nIGJpdCBuYW1pbmcgdGhlIHBhdGNoIGxvb2tzIG9rLg0KPiBQbGVhc2Ug
+cmVzZW5kLg0KDQpJIHdpbGwgc2VuZCBhIHZlcnNpb24gMi4gVGhhbmtzDQoNCj4gDQo+IFJlZ2Fy
+ZHMsDQo+IE9saXZlcg0KDQoNCkJlc3QgUmVnYXJkcywNCldlbnlvdSBZYW5nDQo=
