@@ -1,55 +1,78 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: ipv4: add support for ECMP hash policy
- choice
-Date: Mon, 6 Mar 2017 18:52:25 +0200
-Message-ID: <1b2db5fe-2a36-2463-6821-cba393fc3d28@cumulusnetworks.com>
-References: <1488812370-24800-1-git-send-email-nikolay@cumulusnetworks.com>
- <bbdd46d3-7981-9718-7a93-249eacbe1a3b@cumulusnetworks.com>
+From: Jouni Malinen <jouni@codeaurora.org>
+Subject: Re: [PATCH] bridge: Add support for IEEE 802.11 Proxy ARP for IPv6
+Date: Mon, 6 Mar 2017 19:05:25 +0200
+Message-ID: <20170306170525.GA14234@jouni.qca.qualcomm.com>
+References: <1487961581-20683-1-git-send-email-jouni@codeaurora.org>
+ <20170224115537.160609db@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, davem@davemloft.net, roopa@cumulusnetworks.com
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:33569 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754049AbdCFQ6c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 11:58:32 -0500
-Received: by mail-wr0-f175.google.com with SMTP id u48so121201657wrc.0
-        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 08:58:30 -0800 (PST)
-In-Reply-To: <bbdd46d3-7981-9718-7a93-249eacbe1a3b@cumulusnetworks.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:40606 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754269AbdCFRFg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 12:05:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20170224115537.160609db@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/03/17 18:24, David Ahern wrote:
-> On 3/6/17 7:59 AM, Nikolay Aleksandrov wrote:
->> diff --git a/include/net/route.h b/include/net/route.h
->> index c0874c87c173..77a5c613a290 100644
->> --- a/include/net/route.h
->> +++ b/include/net/route.h
->> @@ -113,13 +113,12 @@ struct in_device;
->>  int ip_rt_init(void);
->>  void rt_cache_flush(struct net *net);
->>  void rt_flush_dev(struct net_device *dev);
->> -struct rtable *__ip_route_output_key_hash(struct net *, struct flowi4 *flp,
->> -					  int mp_hash);
->> +struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *flp);
->>  
->>  static inline struct rtable *__ip_route_output_key(struct net *net,
->>  						   struct flowi4 *flp)
->>  {
->> -	return __ip_route_output_key_hash(net, flp, -1);
->> +	return __ip_route_output_key_hash(net, flp);
->>  }
->>  
->>  struct rtable *ip_route_output_flow(struct net *, struct flowi4 *flp,
-> 
-> The "_hash" variant was added by 79a131592dbb8. If the mp_hash arg is
-> removed, the "_hash" wrapper should be removed and go back to
-> __ip_route_output_key.
-> 
+On Fri, Feb 24, 2017 at 11:55:37AM -0800, Stephen Hemminger wrote:
+> The concept is fine.
 
-Ah yes, I've missed that. :-) Will remove the _hash variant when posting v2.
+Thanks for taking a look.
 
-Thanks,
- Nik
+> Please add some comments to the code about what is happening and why.
+> The proposed patch is too sparse and has no comments.
+
+Sure, will do that for the next version.
+
+> > +	skb = alloc_skb(hlen + sizeof(struct ipv6hdr) + sizeof(*msg) +
+> > +			ndisc_opt_addr_space(dev,
+> > +					     NDISC_NEIGHBOUR_ADVERTISEMENT) +
+> > +			tlen, GFP_ATOMIC);
+> > +	if (!skb)
+> > +		return;
+> 
+> Why not netdev_alloc_skb which takes care of padding and setting skb->dev? 
+
+This implementation in br_ndisc_send_na() was trying to follow
+ndisc_send_na() design for the operations.. If this function remains
+(see below), I can clean this up further.
+
+> Rather than doing copy/paste of the code to generate a ND message, it would
+> be better to have one function in IPv6 code that handles that. That would keep
+> from having to fix code in two places in the future. Is there some way
+> to extend ndisc_send_na?
+
+That was the original plan and adding the target_lladdr part would be
+straightforward. The part that gets complex is in figuring out how to
+use a foreign link layer source address (the MAC address on behalf of
+which the local device is replying) in the outgoing NA when using the
+IEEE 802.11/Hotspot 2.0 design.
+
+ndisc_send_na() uses the full IPv6 stack for building the frame when
+calling ndisc_send_skb(). dst_output() ends up sending this through
+ip6_output(), I'd assume, and after building the IPv6 header, the local
+MAC address of the outgoing interface gets assigned to the Ethernet
+header. I'm not sure how to override that functionality in any clean
+way. The dev_hard_header() call in the mostly copy-pasted version in
+br_ndisc_send_na() followed by use of the custom
+br_ndisc_send_na_finish() to call dev_queue_xmit(skb) was done to allow
+the link layer source address to be modified.
+
+The normal path in the net stack seemed to use dev_hard_header() with
+saddr = NULL which maps to eth_header() saddr = NULL case to use device
+source address. Either those would need to be somehow modified for this
+special skb containing the NA with different source address requirement
+or something after these calls would need to modify the frame to change
+the source address.
+
+Would you happen to know any convenient means for modifying the IPv6
+stack behavior for ndisc_send_skb() cases conditionally to allow the
+link layer source address to be modified while still being able to use
+the existing IPv6 header and the Ethernet header construction function?
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
