@@ -1,46 +1,42 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 master] bpf: test for valid type in bpf_get_work_dir
-Date: Mon,  6 Mar 2017 13:06:00 +0100
-Message-ID: <31298439f86c34288a26fd4c3d2bcac262d37565.1488801657.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, janerik@rediger.net,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41678 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932080AbdCFMGW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 07:06:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [PATCH] mac80211: Use setup_timer instead of init_timer
+Date: Mon, 6 Mar 2017 13:35:10 +0100
+Message-ID: <7545a8ad-ec74-ed01-d84d-9ef4528b21df@suse.cz>
+References: <20170303124535.30125-1-jslaby@suse.cz>
+ <1488803104.5761.6.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org,
+        =?UTF-8?Q?Ond=c5=99ej_Lyson=c4=9bk?= <ondrej.lysonek@seznam.cz>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1488803104.5761.6.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jan-Erik reported an assertion in bpf_prog_to_subdir() failed where
-type was BPF_PROG_TYPE_UNSPEC, which is only used in bpf_init_env()
-to auto-mount and cache the bpf fs mount point.
+On 03/06/2017, 01:25 PM, Johannes Berg wrote:
+> On Fri, 2017-03-03 at 13:45 +0100, Jiri Slaby wrote:
+>> From: Ondřej Lysoněk <ondrej.lysonek@seznam.cz>
+>>
+>> Use setup_timer() and setup_deferrable_timer() to set the data and
+>> function timer fields. It makes the code cleaner and will allow for
+>> easier change of the timer struct internals.
+> 
+> Btw, I suspect you generated this with coccinelle and didn't put enough
+> "..." there, because you missed one in mesh_path_new() :)
 
-Therefore, make sure when bpf_init_env() is called multiple times
-(f.e. eBPF classifier with eBPF action attached) and bpf_mnt_cached
-is set already that the type is also valid. In bpf_init_env(), we're
-only interested in the mount point and not a type-specific subdir.
+Not really. This is one of assignments for students I lead, so this is
+done by hand every end of winter semester (Note the From line.)
 
-Fixes: e42256699cac ("bpf: make tc's bpf loader generic and move into lib")
-Reported-by: Jan-Erik Rediger <janerik@rediger.net>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- lib/bpf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Care to send a patch for that one too?
 
-diff --git a/lib/bpf.c b/lib/bpf.c
-index 211c3d1..04ee1ab 100644
---- a/lib/bpf.c
-+++ b/lib/bpf.c
-@@ -596,7 +596,7 @@ static const char *bpf_get_work_dir(enum bpf_prog_type type)
- 	if (bpf_mnt_cached) {
- 		const char *out = mnt;
- 
--		if (out) {
-+		if (out && type) {
- 			snprintf(bpf_tmp, sizeof(bpf_tmp), "%s%s/",
- 				 out, bpf_prog_to_subdir(type));
- 			out = bpf_tmp;
+I am just a forwarder, he received this request too, so you can try to
+persuade him :).
+
+thanks,
 -- 
-1.9.3
+js
+suse labs
