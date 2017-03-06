@@ -1,33 +1,40 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: remove redundant check on ret being non-zero
-Date: Mon, 6 Mar 2017 18:06:36 +0100
-Message-ID: <20170306170636.GA5955@salvia>
-References: <20170228113115.19888-1-colin.king@canonical.com>
+Subject: Re: [PATCH] netfilter: Use pr_cont where appropriate
+Date: Mon, 6 Mar 2017 18:02:05 +0100
+Message-ID: <20170306170204.GA5643@salvia>
+References: <82a5ec63e547c425644d2dd0165fcc664a2b265e.1488319732.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S . Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20170228113115.19888-1-colin.king@canonical.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+In-Reply-To: <82a5ec63e547c425644d2dd0165fcc664a2b265e.1488319732.git.joe@perches.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 28, 2017 at 11:31:15AM +0000, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On Tue, Feb 28, 2017 at 02:09:24PM -0800, Joe Perches wrote:
+> Logging output was changed when simple printks without KERN_CONT
+> are now emitted on a new line and KERN_CONT is required to continue
+> lines so use pr_cont.
 > 
-> ret is initialized to zero and if it is set to non-zero in the
-> xt_entry_foreach loop then we exit via the out_free label. Hence
-> the check for ret being non-zero is redundant and can be removed.
+> Miscellanea:
 > 
-> Detected by CoverityScan, CID#1357132 ("Logically Dead Code")
+> o realign arguments
+> o use print_hex_dump instead of a local variant
 
-Applied, thanks.
+Applied, thanks Joe.
