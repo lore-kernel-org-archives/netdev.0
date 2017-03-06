@@ -1,51 +1,52 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] dccp: fix use-after-free in dccp_feat_activate_values
-Date: Mon, 6 Mar 2017 10:28:42 -0800
-Message-ID: <CAM_iQpX14SAeQz1a38__9T0wU5CEpp4q2cT8uw-k_orwbYPNOQ@mail.gmail.com>
-References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
- <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
- <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
- <1488551576.9415.328.camel@edumazet-glaptop3.roam.corp.google.com>
- <1488552503.9415.330.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+Z6t_jGoh3Gm3Sxuu_ugF5kQ3QJ37LVdqoEK_ab52tQMA@mail.gmail.com>
- <CACT4Y+ZhNzcKTODGkD3R-68KgkOtYCaf4cZYPH51=HhREXVPGg@mail.gmail.com>
- <CANn89i+E+DkUJBV-3AQ38hstj9=G7=3fLJuG8LA6upp77ecwPA@mail.gmail.com>
- <1488556814.9415.334.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+Zg9PptopGHPBYmf_2hfHg3kTrTkyhQuT9C7Krf4nX6AA@mail.gmail.com>
- <1488739936.9415.368.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUwGN_M8SVWVprUk04fduOb_Fd7kXWhoJWMi5dUQ6RPcQ@mail.gmail.com> <1488782529.9415.371.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: sched: make default fifo qdiscs appear in the
+ dump
+Date: Mon, 06 Mar 2017 10:35:55 -0800 (PST)
+Message-ID: <20170306.103555.1351381782582641603.davem@davemloft.net>
+References: <alpine.LSU.2.20.1702252226530.24579@cbobk.fhfr.pm>
+        <20170301.132144.1380602514921591101.davem@davemloft.net>
+        <alpine.LSU.2.20.1703061158500.31814@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
+        jhs@mojatatu.com, phil@nwl.cc, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: jikos@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:33516 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752726AbdCFS3q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 13:29:46 -0500
-Received: by mail-wm0-f54.google.com with SMTP id v203so5969949wmg.0
-        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 10:29:03 -0800 (PST)
-In-Reply-To: <1488782529.9415.371.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44098 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753532AbdCFSgT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 13:36:19 -0500
+In-Reply-To: <alpine.LSU.2.20.1703061158500.31814@cbobk.fhfr.pm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 5, 2017 at 10:42 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2017-03-05 at 21:38 -0800, Cong Wang wrote:
->
->> Do you really want to disable BH again here?
->>
->> dccp_check_req() should be always called on RX path where BH
->> is already disabled and BH can't be disabled twice?
->
-> What makes you think BH can't be disabled twice ?
->
-> Look, I prefer being cautious here, no need to get another DCCP bug
-> report later.
+From: Jiri Kosina <jikos@kernel.org>
+Date: Mon, 6 Mar 2017 12:03:38 +0100 (CET)
 
-Hmm, I thought BH should have a local_bh_save() to save its context
-but looking into its implementation it uses the preempt count to determine
-if BH is disabled or not, unlikely hardirq's. Sorry for the noise.
+> Ah, right you are, thanks. The complete fix is not super trivial, as it 
+> needs some more surgery to tc_dump_qdisc_root(), tc_dump_tclass_root() and 
+> qdisc_match_from_root() (see 69012ae42 for some details).
+> 
+> There are two options:
+> 
+> - this gets fixed in two phases, in first everything *but* noop qdisc gets 
+>   dumped (in the "give me everything" dump) and later we finalize it by
+>   teaching the above functions about noop_qdisc as well
+> 
+> - I extend this patchset to handle noop qdisc from the very beginning; 
+>   I am unlikely to find time for this during coming weeks though. But OTOH
+>   this whole thing is very low priority anyway
+> 
+> What do you think?
+
+I'm not too hot on this whole idea because the only way you can emit
+the noop_qdisc is to "dup" it by allocating a new qdisc so that you
+can link it in.  This has two downsides:
+
+1) Extra overhead and memory usage
+
+2) All of the simple checks against &noop_qdisc might not be
+   so simply any more.
