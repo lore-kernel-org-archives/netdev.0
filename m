@@ -1,51 +1,55 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 29/29] drivers, xen: convert grant_map.users
- from atomic_t to refcount_t
-Date: Mon, 6 Mar 2017 11:58:59 -0500
-Message-ID: <99270126-7751-eed0-5efa-fc695ff3be25@oracle.com>
-References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
- <1488810076-3754-30-git-send-email-elena.reshetova@intel.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv4: add support for ECMP hash policy
+ choice
+Date: Mon, 6 Mar 2017 18:52:25 +0200
+Message-ID: <1b2db5fe-2a36-2463-6821-cba393fc3d28@cumulusnetworks.com>
+References: <1488812370-24800-1-git-send-email-nikolay@cumulusnetworks.com>
+ <bbdd46d3-7981-9718-7a93-249eacbe1a3b@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, linux-pci@vger.kernel.org,
- target-devel@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
- devel@driverdev.osuosl.org, linux-s390@vger.kernel.org,
- linux-scsi@vger.kernel.org, linux-serial@vger.kernel.org,
- fcoe-devel@open-fcoe.org, Hans Liljestrand <ishkamiel@gmail.com>,
- open-iscsi@googlegroups.com, linux-media@vger.kernel.org,
- Kees Cook <keescook@chromium.org>, linux-raid@vger.kernel.org,
- linux-bcache@vger.kernel.org, xen-devel@lists.xenproject.org,
- David Windsor <dwindsor@gmail.com>, Juergen Gross <jgross@suse.com>,
- netdev@vger.kernel.org, linux-usb@vger.kernel.org,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: Elena Reshetova <elena.reshetova@intel.com>, gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1488810076-3754-30-git-send-email-elena.reshetova@intel.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, davem@davemloft.net, roopa@cumulusnetworks.com
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f175.google.com ([209.85.128.175]:33569 "EHLO
+        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754049AbdCFQ6c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 11:58:32 -0500
+Received: by mail-wr0-f175.google.com with SMTP id u48so121201657wrc.0
+        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 08:58:30 -0800 (PST)
+In-Reply-To: <bbdd46d3-7981-9718-7a93-249eacbe1a3b@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/06/2017 09:21 AM, Elena Reshetova wrote:
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
->
-> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
-> ---
->  drivers/xen/gntdev.c | 11 ++++++-----
->  1 file changed, 6 insertions(+), 5 deletions(-)
+On 06/03/17 18:24, David Ahern wrote:
+> On 3/6/17 7:59 AM, Nikolay Aleksandrov wrote:
+>> diff --git a/include/net/route.h b/include/net/route.h
+>> index c0874c87c173..77a5c613a290 100644
+>> --- a/include/net/route.h
+>> +++ b/include/net/route.h
+>> @@ -113,13 +113,12 @@ struct in_device;
+>>  int ip_rt_init(void);
+>>  void rt_cache_flush(struct net *net);
+>>  void rt_flush_dev(struct net_device *dev);
+>> -struct rtable *__ip_route_output_key_hash(struct net *, struct flowi4 *flp,
+>> -					  int mp_hash);
+>> +struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *flp);
+>>  
+>>  static inline struct rtable *__ip_route_output_key(struct net *net,
+>>  						   struct flowi4 *flp)
+>>  {
+>> -	return __ip_route_output_key_hash(net, flp, -1);
+>> +	return __ip_route_output_key_hash(net, flp);
+>>  }
+>>  
+>>  struct rtable *ip_route_output_flow(struct net *, struct flowi4 *flp,
+> 
+> The "_hash" variant was added by 79a131592dbb8. If the mp_hash arg is
+> removed, the "_hash" wrapper should be removed and go back to
+> __ip_route_output_key.
+> 
 
-Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Ah yes, I've missed that. :-) Will remove the _hash variant when posting v2.
+
+Thanks,
+ Nik
