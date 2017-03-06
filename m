@@ -1,71 +1,113 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: netlink: GPF in netlink_unicast
-Date: Mon, 6 Mar 2017 10:10:46 -0800
-Message-ID: <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com>
-References: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Alexei Starovoitov <ast@kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Richard Guy Briggs <rgb@redhat.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH v2] selinux: check for address length in selinux_socket_bind()
+Date: Mon,  6 Mar 2017 19:46:14 +0100
+Message-ID: <20170306184614.20056-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        selinux@tycho.nsa.gov
+To: dvyukov@google.com, kcc@google.com, keescook@chromium.org,
+        edumazet@google.com, paul@paul-moore.com, sds@tycho.nsa.gov
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 6, 2017 at 2:54 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> Hello,
->
-> I've got the following crash while running syzkaller fuzzer on
-> net-next/8d70eeb84ab277377c017af6a21d0a337025dede:
->
-> kasan: GPF could be caused by NULL-ptr deref or user memory access
-> general protection fault: 0000 [#1] SMP KASAN
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in:
-> CPU: 0 PID: 883 Comm: kauditd Not tainted 4.10.0+ #6
-> Hardware name: Google Google Compute Engine/Google Compute Engine,
-> BIOS Google 01/01/2011
-> task: ffff8801d79f0240 task.stack: ffff8801d7a20000
-> RIP: 0010:sock_sndtimeo include/net/sock.h:2162 [inline]
-> RIP: 0010:netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249
-> RSP: 0018:ffff8801d7a27c38 EFLAGS: 00010206
-> RAX: 0000000000000056 RBX: ffff8801d7a27cd0 RCX: 0000000000000000
-> RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000000002b0
-> RBP: ffff8801d7a27cf8 R08: ffffed00385cf286 R09: ffffed00385cf286
-> R10: 0000000000000006 R11: ffffed00385cf285 R12: 0000000000000000
-> R13: dffffc0000000000 R14: ffff8801c2fc3c80 R15: 00000000014000c0
-> FS:  0000000000000000(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000020cfd000 CR3: 00000001c758f000 CR4: 00000000001406f0
-> Call Trace:
->  kauditd_send_unicast_skb+0x3c/0x70 kernel/audit.c:482
->  kauditd_thread+0x174/0xb00 kernel/audit.c:599
->  kthread+0x326/0x3f0 kernel/kthread.c:229
->  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
-> Code: 44 89 fe e8 56 15 ff ff 8b 8d 70 ff ff ff 49 89 c6 31 c0 85 c9
-> 75 27 e8 b2 b2 f4 fd 49 8d bc 24 b0 02 00 00 48 89 f8 48 c1 e8 03 <42>
-> 80 3c 28 00 0f 85 37 06 00 00 49 8b 84 24 b0 02 00 00 4c 8d
-> RIP: sock_sndtimeo include/net/sock.h:2162 [inline] RSP: ffff8801d7a27c38
-> RIP: netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249 RSP:
-> ffff8801d7a27c38
-> ---[ end trace ad1bba9d457430b6 ]---
-> Kernel panic - not syncing: Fatal exception
->
->
-> This is not reproducible and seems to be caused by an elusive race.
-> However, looking at the code I don't see any proper protection of
-> audit_sock (other than the if (!audit_pid) which is obviously not
-> enough to protect against races).
+KMSAN (KernelMemorySanitizer, a new error detection tool) reports use of
+uninitialized memory in selinux_socket_bind():
 
-audit_cmd_mutex is supposed to protect it, I think.
-But kauditd_send_unicast_skb() seems not holding this mutex.
+==================================================================
+BUG: KMSAN: use of unitialized memory
+inter: 0
+CPU: 3 PID: 1074 Comm: packet2 Tainted: G    B           4.8.0-rc6+ #1916
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 0000000000000000 ffff8800882ffb08 ffffffff825759c8 ffff8800882ffa48
+ ffffffff818bf551 ffffffff85bab870 0000000000000092 ffffffff85bab550
+ 0000000000000000 0000000000000092 00000000bb0009bb 0000000000000002
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff825759c8>] dump_stack+0x238/0x290 lib/dump_stack.c:51
+ [<ffffffff818bdee6>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1008
+ [<ffffffff818bf0fb>] __msan_warning+0x5b/0xb0 mm/kmsan/kmsan_instr.c:424
+ [<ffffffff822dae71>] selinux_socket_bind+0xf41/0x1080 security/selinux/hooks.c:4288
+ [<ffffffff8229357c>] security_socket_bind+0x1ec/0x240 security/security.c:1240
+ [<ffffffff84265d98>] SYSC_bind+0x358/0x5f0 net/socket.c:1366
+ [<ffffffff84265a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
+ [<ffffffff81005678>] do_syscall_64+0x58/0x70 arch/x86/entry/common.c:292
+ [<ffffffff8518217c>] entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.o:?
+chained origin: 00000000ba6009bb
+ [<ffffffff810bb7a7>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
+ [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
+ [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:337
+ [<ffffffff818bd2b8>] kmsan_internal_chain_origin+0x118/0x1e0 mm/kmsan/kmsan.c:530
+ [<ffffffff818bf033>] __msan_set_alloca_origin4+0xc3/0x130 mm/kmsan/kmsan_instr.c:380
+ [<ffffffff84265b69>] SYSC_bind+0x129/0x5f0 net/socket.c:1356
+ [<ffffffff84265a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
+ [<ffffffff81005678>] do_syscall_64+0x58/0x70 arch/x86/entry/common.c:292
+ [<ffffffff8518217c>] return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.o:?
+origin description: ----address@SYSC_bind (origin=00000000b8c00900)
+==================================================================
 
-Richard?
+(the line numbers are relative to 4.8-rc6, but the bug persists upstream)
+
+, when I run the following program as root:
+
+=======================================================
+  #include <string.h>
+  #include <sys/socket.h>
+  #include <netinet/in.h>
+
+  int main(int argc, char *argv[]) {
+    struct sockaddr addr;
+    int size = 0;
+    if (argc > 1) {
+      size = atoi(argv[1]);
+    }
+    memset(&addr, 0, sizeof(addr));
+    int fd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    bind(fd, &addr, size);
+    return 0;
+  }
+=======================================================
+
+(for different values of |size| other error reports are printed).
+
+This happens because bind() unconditionally copies |size| bytes of
+|addr| to the kernel, leaving the rest uninitialized. Then
+security_socket_bind() reads the IP address bytes, including the
+uninitialized ones, to determine the port, or e.g. pass them further to
+sel_netnode_find(), which uses them to calculate a hash.
+
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+Changes since v1:
+ - fixed patch description
+ - fixed addrlen tests to match those in inet_bind() and inet6_bind()
+   (per comment from Eric Dumazet)
+---
+ security/selinux/hooks.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 0a4b4b040e0a..ddc4aca6c840 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -4351,10 +4351,19 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
+ 		u32 sid, node_perm;
+ 
+ 		if (family == PF_INET) {
++			if (addrlen < sizeof(struct sockaddr_in)) {
++				err = -EINVAL;
++				goto out;
++			}
+ 			addr4 = (struct sockaddr_in *)address;
+ 			snum = ntohs(addr4->sin_port);
+ 			addrp = (char *)&addr4->sin_addr.s_addr;
++
+ 		} else {
++			if (addrlen < SIN6_LEN_RFC2133) {
++				err = -EINVAL;
++				goto out;
++			}
+ 			addr6 = (struct sockaddr_in6 *)address;
+ 			snum = ntohs(addr6->sin6_port);
+ 			addrp = (char *)&addr6->sin6_addr.s6_addr;
+-- 
+2.12.0.rc1.440.g5b76565f74-goog
