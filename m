@@ -1,86 +1,68 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v2] can: m_can: enable transmission of FD frame on latest
- version
-Date: Mon, 6 Mar 2017 11:53:08 +0100
-Message-ID: <e4360c52-d62d-6c35-f691-7fcd0f74f954@pengutronix.de>
-References: <20170306022143.7695-1-wenyou.yang@atmel.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: netlink: GPF in netlink_unicast
+Date: Mon, 6 Mar 2017 11:54:51 +0100
+Message-ID: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="IX5UxED8QfIWdNwuu9eLI160fLvRJO1X0"
-Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Quentin Schulz <quentin.schulz@free-electrons.com>,
-        Wenyou Yang <wenyou.yang@microchip.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Wenyou Yang <wenyou.yang@atmel.com>,
-        Wolfgang Grandegger <wg@grandegger.com>,
-        Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170306022143.7695-1-wenyou.yang@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>
+To: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f180.google.com ([209.85.217.180]:36349 "EHLO
+        mail-ua0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753225AbdCFK4F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 05:56:05 -0500
+Received: by mail-ua0-f180.google.com with SMTP id 72so163779165uaf.3
+        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 02:55:13 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---IX5UxED8QfIWdNwuu9eLI160fLvRJO1X0
-Content-Type: multipart/mixed; boundary="xPbqXldMXSBRQ22V2rjdUnfWClhorMRHR";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Wenyou Yang <wenyou.yang@atmel.com>,
- Wolfgang Grandegger <wg@grandegger.com>,
- Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
- Florian Fainelli <f.fainelli@gmail.com>,
- Quentin Schulz <quentin.schulz@free-electrons.com>,
- Wenyou Yang <wenyou.yang@microchip.com>,
- Nicolas Ferre <nicolas.ferre@atmel.com>, linux-can@vger.kernel.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Message-ID: <e4360c52-d62d-6c35-f691-7fcd0f74f954@pengutronix.de>
-Subject: Re: [PATCH v2] can: m_can: enable transmission of FD frame on latest
- version
-References: <20170306022143.7695-1-wenyou.yang@atmel.com>
-In-Reply-To: <20170306022143.7695-1-wenyou.yang@atmel.com>
+Hello,
 
---xPbqXldMXSBRQ22V2rjdUnfWClhorMRHR
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+I've got the following crash while running syzkaller fuzzer on
+net-next/8d70eeb84ab277377c017af6a21d0a337025dede:
 
-On 03/06/2017 03:21 AM, Wenyou Yang wrote:
-> Enables the transmission of CAN FD frames on M_CAN IP core >=3D v3.1.x
-> and with the bit rate switching.
->=20
-> Tested on M_CAN IP 3.1.0 (CREL =3D 0x31040730) of SAMA5D2 SoC.
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Modules linked in:
+CPU: 0 PID: 883 Comm: kauditd Not tainted 4.10.0+ #6
+Hardware name: Google Google Compute Engine/Google Compute Engine,
+BIOS Google 01/01/2011
+task: ffff8801d79f0240 task.stack: ffff8801d7a20000
+RIP: 0010:sock_sndtimeo include/net/sock.h:2162 [inline]
+RIP: 0010:netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249
+RSP: 0018:ffff8801d7a27c38 EFLAGS: 00010206
+RAX: 0000000000000056 RBX: ffff8801d7a27cd0 RCX: 0000000000000000
+RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000000002b0
+RBP: ffff8801d7a27cf8 R08: ffffed00385cf286 R09: ffffed00385cf286
+R10: 0000000000000006 R11: ffffed00385cf285 R12: 0000000000000000
+R13: dffffc0000000000 R14: ffff8801c2fc3c80 R15: 00000000014000c0
+FS:  0000000000000000(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000020cfd000 CR3: 00000001c758f000 CR4: 00000000001406f0
+Call Trace:
+ kauditd_send_unicast_skb+0x3c/0x70 kernel/audit.c:482
+ kauditd_thread+0x174/0xb00 kernel/audit.c:599
+ kthread+0x326/0x3f0 kernel/kthread.c:229
+ ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
+Code: 44 89 fe e8 56 15 ff ff 8b 8d 70 ff ff ff 49 89 c6 31 c0 85 c9
+75 27 e8 b2 b2 f4 fd 49 8d bc 24 b0 02 00 00 48 89 f8 48 c1 e8 03 <42>
+80 3c 28 00 0f 85 37 06 00 00 49 8b 84 24 b0 02 00 00 4c 8d
+RIP: sock_sndtimeo include/net/sock.h:2162 [inline] RSP: ffff8801d7a27c38
+RIP: netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249 RSP:
+ffff8801d7a27c38
+---[ end trace ad1bba9d457430b6 ]---
+Kernel panic - not syncing: Fatal exception
 
-Does this patch work still with the old version of the silicon?
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---xPbqXldMXSBRQ22V2rjdUnfWClhorMRHR--
-
---IX5UxED8QfIWdNwuu9eLI160fLvRJO1X0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAli9P5QACgkQHv7KIOw4
-HPZsGgf/UHQh4MADIYgWyI9k0oQacC5MYoOQKsmdFAjQTa2ilq031CPDCKvOBR3D
-RwnKR9+382gYPf/pyPj0jC/SeBVrQi5HIV4qCkzdJLbXUosRapNxQzxsWApfv2bw
-lgB1xcsp0AV7lGooPDpqss8KN4PY0xfLNIBheGvijxeys9gYLh0NatzhXCtdWIpB
-q24a902TSpGeTAa2MiH4/C0fQQUcRxXaKc+2QATd7h8hQT9dXOKw9vzAzH4X5LBk
-XA/sGvnf3VEtpsAjm3rTcqUlPFDz1vnqArYEvb0thONgYBGUt7u61+TIfN/93J+9
-/CW/mYryoyGZ6nIefOt+qoQBs2HLOA==
-=Gf4x
------END PGP SIGNATURE-----
-
---IX5UxED8QfIWdNwuu9eLI160fLvRJO1X0--
+This is not reproducible and seems to be caused by an elusive race.
+However, looking at the code I don't see any proper protection of
+audit_sock (other than the if (!audit_pid) which is obviously not
+enough to protect against races).
