@@ -1,140 +1,107 @@
-From: Yuval Shaia <yuval.shaia@oracle.com>
-Subject: [PATCH v2] {net,IB}/{rxe,usnic}: Utilize generic mac to eui32 function
-Date: Mon,  6 Mar 2017 20:54:06 +0200
-Message-ID: <1488826446-4173-1-git-send-email-yuval.shaia@oracle.com>
-Cc: Yuval Shaia <yuval.shaia@oracle.com>
-To: benve@cisco.com, dgoodell@cisco.com, dledford@redhat.com,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com, monis@mellanox.com,
-        davem@davemloft.net, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, leon@kernel.org
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH net-next 1/5] ldmvsw: better use of link up and down on ldom vswitch
+Date: Mon,  6 Mar 2017 15:15:28 -0800
+Message-ID: <1488842132-512058-2-git-send-email-shannon.nelson@oracle.com>
+References: <1488842132-512058-1-git-send-email-shannon.nelson@oracle.com>
+Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Shannon Nelson <shannon.nelson@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:24534 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752561AbdCFXMZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 18:12:25 -0500
+Received: from aserp1040.oracle.com ([141.146.126.69]:49063 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751073AbdCFXYA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 18:24:00 -0500
+In-Reply-To: <1488842132-512058-1-git-send-email-shannon.nelson@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This logic seems to be duplicated in (at least) three separate files.
-Move it to one place so code can be re-use.
+When an ldom VM is bound, the network vswitch infrastructure is set up for
+it, but was being forced 'UP' by the userland switch configuration script.
+When 'UP' but not actually connected to a running VM, the ipv6 neighbor
+probes fail (not a horrible thing) and start cluttering up the kernel logs.
+Funny thing: these are debug messages that never actually show up, but
+we do see the net_ratelimited messages that say N callbacks were
+suppressed.
 
-Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
----
-v0 -> v1:
-	* Add missing #include
-	* Rename to genaddrconf_ifid_eui48
-v1 -> v2:
-	* Reset eui[0] to default if dev_id is used
----
- drivers/infiniband/hw/usnic/usnic_common_util.h | 11 +++--------
- drivers/infiniband/sw/rxe/rxe_net.c             | 11 ++---------
- include/net/addrconf.h                          | 19 +++++++++++++------
- 3 files changed, 18 insertions(+), 23 deletions(-)
+This patch defers the netif_carrier_on() until an actual link has been
+established with the VM, as indicated by receiving an LDC_EVENT_UP from
+the underlying LDC protocol.  Similarly, we take the link down when we
+see the LDC_EVENT_RESET.
 
-diff --git a/drivers/infiniband/hw/usnic/usnic_common_util.h b/drivers/infiniband/hw/usnic/usnic_common_util.h
-index b54986d..09871da 100644
---- a/drivers/infiniband/hw/usnic/usnic_common_util.h
-+++ b/drivers/infiniband/hw/usnic/usnic_common_util.h
-@@ -34,6 +34,8 @@
- #ifndef USNIC_CMN_UTIL_H
- #define USNIC_CMN_UTIL_H
+Orabug: 25525312
+
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+---
+ drivers/net/ethernet/sun/ldmvsw.c         |   10 +++++++---
+ drivers/net/ethernet/sun/sunvnet_common.c |   14 ++++++++++++++
+ 2 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
+index 89952de..c6f6d59 100644
+--- a/drivers/net/ethernet/sun/ldmvsw.c
++++ b/drivers/net/ethernet/sun/ldmvsw.c
+@@ -41,8 +41,8 @@
+ static u8 vsw_port_hwaddr[ETH_ALEN] = {0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
  
-+#include <net/addrconf.h>
+ #define DRV_MODULE_NAME		"ldmvsw"
+-#define DRV_MODULE_VERSION	"1.1"
+-#define DRV_MODULE_RELDATE	"February 3, 2017"
++#define DRV_MODULE_VERSION	"1.2"
++#define DRV_MODULE_RELDATE	"March 4, 2017"
+ 
+ static char version[] =
+ 	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")";
+@@ -133,7 +133,6 @@ static void vsw_poll_controller(struct net_device *dev)
+ #endif
+ 
+ static const struct net_device_ops vsw_ops = {
+-	.ndo_open		= sunvnet_open_common,
+ 	.ndo_stop		= sunvnet_close_common,
+ 	.ndo_set_rx_mode	= vsw_set_rx_mode,
+ 	.ndo_set_mac_address	= sunvnet_set_mac_addr_common,
+@@ -365,6 +364,11 @@ static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+ 	napi_enable(&port->napi);
+ 	vio_port_up(&port->vio);
+ 
++	/* assure no carrier until we receive an LDC_EVENT_UP,
++	 * even if the vsw config script tries to force us up
++	 */
++	netif_carrier_off(dev);
 +
- static inline void
- usnic_mac_to_gid(const char *const mac, char *raw_gid)
- {
-@@ -57,14 +59,7 @@ usnic_mac_ip_to_gid(const char *const mac, const __be32 inaddr, char *raw_gid)
- 	raw_gid[1] = 0x80;
- 	memset(&raw_gid[2], 0, 2);
- 	memcpy(&raw_gid[4], &inaddr, 4);
--	raw_gid[8] = mac[0]^2;
--	raw_gid[9] = mac[1];
--	raw_gid[10] = mac[2];
--	raw_gid[11] = 0xff;
--	raw_gid[12] = 0xfe;
--	raw_gid[13] = mac[3];
--	raw_gid[14] = mac[4];
--	raw_gid[15] = mac[5];
-+	genaddrconf_ifid_eui48(&raw_gid[8], mac);
- }
+ 	netdev_info(dev, "LDOM vsw-port %pM\n", dev->dev_addr);
  
- static inline void
-diff --git a/drivers/infiniband/sw/rxe/rxe_net.c b/drivers/infiniband/sw/rxe/rxe_net.c
-index d8610960..90285c8 100644
---- a/drivers/infiniband/sw/rxe/rxe_net.c
-+++ b/drivers/infiniband/sw/rxe/rxe_net.c
-@@ -38,6 +38,7 @@
- #include <linux/if_vlan.h>
- #include <net/udp_tunnel.h>
- #include <net/sch_generic.h>
-+#include <net/addrconf.h>
- #include <linux/netfilter.h>
- #include <rdma/ib_addr.h>
+ 	pr_info("%s: PORT ( remote-mac %pM%s )\n", dev->name,
+diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
+index fa2d11c..bba0691 100644
+--- a/drivers/net/ethernet/sun/sunvnet_common.c
++++ b/drivers/net/ethernet/sun/sunvnet_common.c
+@@ -747,6 +747,13 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
  
-@@ -86,18 +87,10 @@ struct rxe_recv_sockets recv_sockets;
- 
- static __be64 rxe_mac_to_eui64(struct net_device *ndev)
- {
--	unsigned char *mac_addr = ndev->dev_addr;
- 	__be64 eui64;
- 	unsigned char *dst = (unsigned char *)&eui64;
- 
--	dst[0] = mac_addr[0] ^ 2;
--	dst[1] = mac_addr[1];
--	dst[2] = mac_addr[2];
--	dst[3] = 0xff;
--	dst[4] = 0xfe;
--	dst[5] = mac_addr[3];
--	dst[6] = mac_addr[4];
--	dst[7] = mac_addr[5];
-+	genaddrconf_ifid_eui48(dst, ndev->dev_addr);
- 
- 	return eui64;
- }
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 17c6fd8..cdfa73f 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -103,12 +103,21 @@ int addrconf_prefix_rcv_add_addr(struct net *net, struct net_device *dev,
- 				 u32 addr_flags, bool sllao, bool tokenized,
- 				 __u32 valid_lft, u32 prefered_lft);
- 
-+static inline void genaddrconf_ifid_eui48(u8 *eui, const char *const addr)
-+{
-+	memcpy(eui, addr, 3);
-+	eui[0] ^= 2;
-+	eui[3] = 0xFF;
-+	eui[4] = 0xFE;
-+	memcpy(eui + 5, addr + 3, 3);
-+}
+ 	/* RESET takes precedent over any other event */
+ 	if (port->rx_event & LDC_EVENT_RESET) {
++		/* a link went down */
 +
- static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
- {
- 	if (dev->addr_len != ETH_ALEN)
- 		return -1;
--	memcpy(eui, dev->dev_addr, 3);
--	memcpy(eui + 5, dev->dev_addr + 3, 3);
++		if (port->vsw == 1) {
++			netif_tx_stop_all_queues(dev);
++			netif_carrier_off(dev);
++		}
 +
-+	genaddrconf_ifid_eui48(eui, dev->dev_addr);
- 
- 	/*
- 	 * The zSeries OSA network cards can be shared among various
-@@ -124,13 +133,11 @@ static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
- 	 * scope according to RFC2373.
- 	 */
- 	if (dev->dev_id) {
-+		eui[0] = dev->dev_addr[0];
- 		eui[3] = (dev->dev_id >> 8) & 0xFF;
- 		eui[4] = dev->dev_id & 0xFF;
--	} else {
--		eui[3] = 0xFF;
--		eui[4] = 0xFE;
--		eui[0] ^= 2;
+ 		vio_link_state_change(vio, LDC_EVENT_RESET);
+ 		vnet_port_reset(port);
+ 		vio_port_up(vio);
+@@ -766,6 +773,13 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
  	}
-+
- 	return 0;
- }
  
+ 	if (port->rx_event & LDC_EVENT_UP) {
++		/* a link came up */
++
++		if (port->vsw == 1) {
++			netif_carrier_on(port->dev);
++			netif_tx_start_all_queues(port->dev);
++		}
++
+ 		vio_link_state_change(vio, LDC_EVENT_UP);
+ 		port->rx_event = 0;
+ 		return 0;
 -- 
-2.7.4
+1.7.1
