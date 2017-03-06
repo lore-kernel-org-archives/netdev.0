@@ -1,9 +1,8 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 04/29] drivers,
- connector: convert cn_callback_entry.refcnt from atomic_t to
- refcount_t
-Date: Mon,  6 Mar 2017 16:20:51 +0200
-Message-ID: <1488810076-3754-5-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 05/29] drivers, md,
+ bcache: convert cached_dev.count from atomic_t to refcount_t
+Date: Mon,  6 Mar 2017 16:20:52 +0200
+Message-ID: <1488810076-3754-6-git-send-email-elena.reshetova@intel.com>
 References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -44,67 +43,91 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/connector/cn_queue.c  | 4 ++--
- drivers/connector/connector.c | 2 +-
- include/linux/connector.h     | 4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/md/bcache/bcache.h    | 7 ++++---
+ drivers/md/bcache/super.c     | 6 +++---
+ drivers/md/bcache/writeback.h | 2 +-
+ 3 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
-index 1f8bf05..9c54fdf 100644
---- a/drivers/connector/cn_queue.c
-+++ b/drivers/connector/cn_queue.c
-@@ -45,7 +45,7 @@ cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
- 		return NULL;
+diff --git a/drivers/md/bcache/bcache.h b/drivers/md/bcache/bcache.h
+index c3ea03c..de2be28 100644
+--- a/drivers/md/bcache/bcache.h
++++ b/drivers/md/bcache/bcache.h
+@@ -184,6 +184,7 @@
+ #include <linux/mutex.h>
+ #include <linux/rbtree.h>
+ #include <linux/rwsem.h>
++#include <linux/refcount.h>
+ #include <linux/types.h>
+ #include <linux/workqueue.h>
+ 
+@@ -299,7 +300,7 @@ struct cached_dev {
+ 	struct semaphore	sb_write_mutex;
+ 
+ 	/* Refcount on the cache set. Always nonzero when we're caching. */
+-	atomic_t		count;
++	refcount_t		count;
+ 	struct work_struct	detach;
+ 
+ 	/*
+@@ -805,13 +806,13 @@ do {									\
+ 
+ static inline void cached_dev_put(struct cached_dev *dc)
+ {
+-	if (atomic_dec_and_test(&dc->count))
++	if (refcount_dec_and_test(&dc->count))
+ 		schedule_work(&dc->detach);
+ }
+ 
+ static inline bool cached_dev_get(struct cached_dev *dc)
+ {
+-	if (!atomic_inc_not_zero(&dc->count))
++	if (!refcount_inc_not_zero(&dc->count))
+ 		return false;
+ 
+ 	/* Paired with the mb in cached_dev_attach */
+diff --git a/drivers/md/bcache/super.c b/drivers/md/bcache/super.c
+index 85e3f21..cc36ce4 100644
+--- a/drivers/md/bcache/super.c
++++ b/drivers/md/bcache/super.c
+@@ -891,7 +891,7 @@ static void cached_dev_detach_finish(struct work_struct *w)
+ 	closure_init_stack(&cl);
+ 
+ 	BUG_ON(!test_bit(BCACHE_DEV_DETACHING, &dc->disk.flags));
+-	BUG_ON(atomic_read(&dc->count));
++	BUG_ON(refcount_read(&dc->count));
+ 
+ 	mutex_lock(&bch_register_lock);
+ 
+@@ -1018,7 +1018,7 @@ int bch_cached_dev_attach(struct cached_dev *dc, struct cache_set *c)
+ 	 * dc->c must be set before dc->count != 0 - paired with the mb in
+ 	 * cached_dev_get()
+ 	 */
+-	atomic_set(&dc->count, 1);
++	refcount_set(&dc->count, 1);
+ 
+ 	/* Block writeback thread, but spawn it */
+ 	down_write(&dc->writeback_lock);
+@@ -1030,7 +1030,7 @@ int bch_cached_dev_attach(struct cached_dev *dc, struct cache_set *c)
+ 	if (BDEV_STATE(&dc->sb) == BDEV_STATE_DIRTY) {
+ 		bch_sectors_dirty_init(dc);
+ 		atomic_set(&dc->has_dirty, 1);
+-		atomic_inc(&dc->count);
++		refcount_inc(&dc->count);
+ 		bch_writeback_queue(dc);
  	}
  
--	atomic_set(&cbq->refcnt, 1);
-+	refcount_set(&cbq->refcnt, 1);
- 
- 	atomic_inc(&dev->refcnt);
- 	cbq->pdev = dev;
-@@ -58,7 +58,7 @@ cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
- 
- void cn_queue_release_callback(struct cn_callback_entry *cbq)
+diff --git a/drivers/md/bcache/writeback.h b/drivers/md/bcache/writeback.h
+index 629bd1a..5bac1b0 100644
+--- a/drivers/md/bcache/writeback.h
++++ b/drivers/md/bcache/writeback.h
+@@ -70,7 +70,7 @@ static inline void bch_writeback_add(struct cached_dev *dc)
  {
--	if (!atomic_dec_and_test(&cbq->refcnt))
-+	if (!refcount_dec_and_test(&cbq->refcnt))
- 		return;
+ 	if (!atomic_read(&dc->has_dirty) &&
+ 	    !atomic_xchg(&dc->has_dirty, 1)) {
+-		atomic_inc(&dc->count);
++		refcount_inc(&dc->count);
  
- 	atomic_dec(&cbq->pdev->refcnt);
-diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-index 25693b0..8615594b 100644
---- a/drivers/connector/connector.c
-+++ b/drivers/connector/connector.c
-@@ -157,7 +157,7 @@ static int cn_call_callback(struct sk_buff *skb)
- 	spin_lock_bh(&dev->cbdev->queue_lock);
- 	list_for_each_entry(i, &dev->cbdev->queue_list, callback_entry) {
- 		if (cn_cb_equal(&i->id.id, &msg->id)) {
--			atomic_inc(&i->refcnt);
-+			refcount_inc(&i->refcnt);
- 			cbq = i;
- 			break;
- 		}
-diff --git a/include/linux/connector.h b/include/linux/connector.h
-index f8fe863..032102b 100644
---- a/include/linux/connector.h
-+++ b/include/linux/connector.h
-@@ -22,7 +22,7 @@
- #define __CONNECTOR_H
- 
- 
--#include <linux/atomic.h>
-+#include <linux/refcount.h>
- 
- #include <linux/list.h>
- #include <linux/workqueue.h>
-@@ -49,7 +49,7 @@ struct cn_callback_id {
- 
- struct cn_callback_entry {
- 	struct list_head callback_entry;
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 	struct cn_queue_dev *pdev;
- 
- 	struct cn_callback_id id;
+ 		if (BDEV_STATE(&dc->sb) != BDEV_STATE_DIRTY) {
+ 			SET_BDEV_STATE(&dc->sb, BDEV_STATE_DIRTY);
 -- 
 2.7.4
