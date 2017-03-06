@@ -1,113 +1,84 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH v2] selinux: check for address length in selinux_socket_bind()
-Date: Mon,  6 Mar 2017 19:46:14 +0100
-Message-ID: <20170306184614.20056-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        selinux@tycho.nsa.gov
-To: dvyukov@google.com, kcc@google.com, keescook@chromium.org,
-        edumazet@google.com, paul@paul-moore.com, sds@tycho.nsa.gov
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Mon, 6 Mar 2017 19:51:24 +0100
+Message-ID: <CACT4Y+Z1MvKbb35-jhaY=jEoR+t2u2TiUpkCR_oG3=VNmKjqvQ@mail.gmail.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
+ <CACT4Y+YCPxKkaZBfAabxtAV71R0ghLT-vUKVewJpm9wb2GXaEQ@mail.gmail.com>
+ <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com> <4e4d7d51-82de-b21e-cb5d-d804f7b88999@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f174.google.com ([209.85.217.174]:35748 "EHLO
+        mail-ua0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932261AbdCFSvr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 13:51:47 -0500
+Received: by mail-ua0-f174.google.com with SMTP id q7so141928562uaf.2
+        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 10:51:46 -0800 (PST)
+In-Reply-To: <4e4d7d51-82de-b21e-cb5d-d804f7b88999@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-KMSAN (KernelMemorySanitizer, a new error detection tool) reports use of
-uninitialized memory in selinux_socket_bind():
+On Mon, Mar 6, 2017 at 6:31 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 3/4/17 1:15 PM, Eric Dumazet wrote:
+>> On Sat, 2017-03-04 at 19:57 +0100, Dmitry Vyukov wrote:
+>>> On Fri, Mar 3, 2017 at 8:12 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>>>> On 3/3/17 6:39 AM, Dmitry Vyukov wrote:
+>>>>> I am getting heap out-of-bounds reports in
+>>>>> fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone while running
+>>>>> syzkaller fuzzer on 86292b33d4b79ee03e2f43ea0381ef85f077c760. They all
+>>>>> follow the same pattern: an object of size 216 is allocated from
+>>>>> ip_dst_cache slab, and then accessed at offset 272/276 withing
+>>>>> fib6_walk. Looks like type confusion. Unfortunately this is not
+>>>>> reproducible.
+>>>>
+>>>> I'll take a look this weekend or Monday at the latest.
+>>>
+>>>
+>>> I've got some additional useful info on this. I think this is
+>>> use-after-free rather than out-of-bounds. I've collected stack where
+>>> the route was disposed with call_rcu, see the last "Disposed" stack.
+>>> The crash happens when cmpxchg in rt_cache_route replaces an existing
+>>> route. And that route seems to have some existing pointers to it
+>>> (rt->dst.rt6_next) which fib6_walk uses to get to it after its
+>>> deletion.
+>>
+>> rt_cache_route() deals with IPv4 routes.
+>>
+>> We somehow mix IPv4 and IPv6 dsts in IPv6 tree.
+>>
+>> We need to add type safety at IPV6 route insertions to catch the
+>> offender.
+>>
+>
+> I've seen something like this before -- a rt was on the gc list but
+> still linked in the tables because of some reference.
+>
+> Dmitry: you seem to have reproduced this a few times. Can you share how
+> to run whatever tests you are using?
 
-==================================================================
-BUG: KMSAN: use of unitialized memory
-inter: 0
-CPU: 3 PID: 1074 Comm: packet2 Tainted: G    B           4.8.0-rc6+ #1916
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- 0000000000000000 ffff8800882ffb08 ffffffff825759c8 ffff8800882ffa48
- ffffffff818bf551 ffffffff85bab870 0000000000000092 ffffffff85bab550
- 0000000000000000 0000000000000092 00000000bb0009bb 0000000000000002
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff825759c8>] dump_stack+0x238/0x290 lib/dump_stack.c:51
- [<ffffffff818bdee6>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1008
- [<ffffffff818bf0fb>] __msan_warning+0x5b/0xb0 mm/kmsan/kmsan_instr.c:424
- [<ffffffff822dae71>] selinux_socket_bind+0xf41/0x1080 security/selinux/hooks.c:4288
- [<ffffffff8229357c>] security_socket_bind+0x1ec/0x240 security/security.c:1240
- [<ffffffff84265d98>] SYSC_bind+0x358/0x5f0 net/socket.c:1366
- [<ffffffff84265a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
- [<ffffffff81005678>] do_syscall_64+0x58/0x70 arch/x86/entry/common.c:292
- [<ffffffff8518217c>] entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.o:?
-chained origin: 00000000ba6009bb
- [<ffffffff810bb7a7>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
- [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
- [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:337
- [<ffffffff818bd2b8>] kmsan_internal_chain_origin+0x118/0x1e0 mm/kmsan/kmsan.c:530
- [<ffffffff818bf033>] __msan_set_alloca_origin4+0xc3/0x130 mm/kmsan/kmsan_instr.c:380
- [<ffffffff84265b69>] SYSC_bind+0x129/0x5f0 net/socket.c:1356
- [<ffffffff84265a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
- [<ffffffff81005678>] do_syscall_64+0x58/0x70 arch/x86/entry/common.c:292
- [<ffffffff8518217c>] return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.o:?
-origin description: ----address@SYSC_bind (origin=00000000b8c00900)
-==================================================================
 
-(the line numbers are relative to 4.8-rc6, but the bug persists upstream)
+We hit it several thousand times, but we get only several dozens of
+crashes per day on ~80 VMs. So if you try to reproduce it on a single
+machine it can take days for a single crash.
+If you are ready to go that route, here are some instructions on
+setting up syzkaller:
+https://github.com/google/syzkaller
+You also need kernel built with CONFIG_KASAN.
+I am ready to help with resolving any issues.
 
-, when I run the following program as root:
-
-=======================================================
-  #include <string.h>
-  #include <sys/socket.h>
-  #include <netinet/in.h>
-
-  int main(int argc, char *argv[]) {
-    struct sockaddr addr;
-    int size = 0;
-    if (argc > 1) {
-      size = atoi(argv[1]);
-    }
-    memset(&addr, 0, sizeof(addr));
-    int fd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-    bind(fd, &addr, size);
-    return 0;
-  }
-=======================================================
-
-(for different values of |size| other error reports are printed).
-
-This happens because bind() unconditionally copies |size| bytes of
-|addr| to the kernel, leaving the rest uninitialized. Then
-security_socket_bind() reads the IP address bytes, including the
-uninitialized ones, to determine the port, or e.g. pass them further to
-sel_netnode_find(), which uses them to calculate a hash.
-
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
-Changes since v1:
- - fixed patch description
- - fixed addrlen tests to match those in inet_bind() and inet6_bind()
-   (per comment from Eric Dumazet)
----
- security/selinux/hooks.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 0a4b4b040e0a..ddc4aca6c840 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4351,10 +4351,19 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
- 		u32 sid, node_perm;
- 
- 		if (family == PF_INET) {
-+			if (addrlen < sizeof(struct sockaddr_in)) {
-+				err = -EINVAL;
-+				goto out;
-+			}
- 			addr4 = (struct sockaddr_in *)address;
- 			snum = ntohs(addr4->sin_port);
- 			addrp = (char *)&addr4->sin_addr.s_addr;
-+
- 		} else {
-+			if (addrlen < SIN6_LEN_RFC2133) {
-+				err = -EINVAL;
-+				goto out;
-+			}
- 			addr6 = (struct sockaddr_in6 *)address;
- 			snum = ntohs(addr6->sin6_port);
- 			addrp = (char *)&addr6->sin6_addr.s6_addr;
--- 
-2.12.0.rc1.440.g5b76565f74-goog
+Another possible route is if you give me a patch with some additional
+WARNINGs. Then I can deploy it to bots and collect stacks.
