@@ -1,12 +1,12 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 14/29] drivers,
- media: convert vb2_dc_buf.refcount from atomic_t to refcount_t
-Date: Mon,  6 Mar 2017 16:21:01 +0200
-Message-ID: <1488810076-3754-15-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 16/29] drivers,
+	media: convert vb2_vmalloc_buf.refcount from atomic_t to refcount_t
+Date: Mon,  6 Mar 2017 16:21:03 +0200
+Message-ID: <1488810076-3754-17-git-send-email-elena.reshetova@intel.com>
 References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: peterz@infradead.org, linux-pci@vger.kernel.org,
  target-devel@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
  Elena Reshetova <elena.reshetova@intel.com>, devel@driverdev.osuosl.org,
@@ -19,89 +19,57 @@ Cc: peterz@infradead.org, linux-pci@vger.kernel.org,
  netdev@vger.kernel.org, linux-usb@vger.kernel.org,
  linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
 To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
 In-Reply-To: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
-
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
----
- drivers/media/v4l2-core/videobuf2-dma-contig.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/media/v4l2-core/videobuf2-dma-contig.c b/drivers/media/v4l2-core/videobuf2-dma-contig.c
-index fb6a177..d29a07f 100644
---- a/drivers/media/v4l2-core/videobuf2-dma-contig.c
-+++ b/drivers/media/v4l2-core/videobuf2-dma-contig.c
-@@ -12,6 +12,7 @@
- 
- #include <linux/dma-buf.h>
- #include <linux/module.h>
-+#include <linux/refcount.h>
- #include <linux/scatterlist.h>
- #include <linux/sched.h>
- #include <linux/slab.h>
-@@ -34,7 +35,7 @@ struct vb2_dc_buf {
- 
- 	/* MMAP related */
- 	struct vb2_vmarea_handler	handler;
--	atomic_t			refcount;
-+	refcount_t			refcount;
- 	struct sg_table			*sgt_base;
- 
- 	/* DMABUF related */
-@@ -86,7 +87,7 @@ static unsigned int vb2_dc_num_users(void *buf_priv)
- {
- 	struct vb2_dc_buf *buf = buf_priv;
- 
--	return atomic_read(&buf->refcount);
-+	return refcount_read(&buf->refcount);
- }
- 
- static void vb2_dc_prepare(void *buf_priv)
-@@ -122,7 +123,7 @@ static void vb2_dc_put(void *buf_priv)
- {
- 	struct vb2_dc_buf *buf = buf_priv;
- 
--	if (!atomic_dec_and_test(&buf->refcount))
-+	if (!refcount_dec_and_test(&buf->refcount))
- 		return;
- 
- 	if (buf->sgt_base) {
-@@ -170,7 +171,7 @@ static void *vb2_dc_alloc(struct device *dev, unsigned long attrs,
- 	buf->handler.put = vb2_dc_put;
- 	buf->handler.arg = buf;
- 
--	atomic_inc(&buf->refcount);
-+	refcount_set(&buf->refcount, 1);
- 
- 	return buf;
- }
-@@ -407,7 +408,7 @@ static struct dma_buf *vb2_dc_get_dmabuf(void *buf_priv, unsigned long flags)
- 		return NULL;
- 
- 	/* dmabuf keeps reference to vb2 buffer */
--	atomic_inc(&buf->refcount);
-+	refcount_inc(&buf->refcount);
- 
- 	return dbuf;
- }
--- 
-2.7.4
+cmVmY291bnRfdCB0eXBlIGFuZCBjb3JyZXNwb25kaW5nIEFQSSBzaG91bGQgYmUKdXNlZCBpbnN0
+ZWFkIG9mIGF0b21pY190IHdoZW4gdGhlIHZhcmlhYmxlIGlzIHVzZWQgYXMKYSByZWZlcmVuY2Ug
+Y291bnRlci4gVGhpcyBhbGxvd3MgdG8gYXZvaWQgYWNjaWRlbnRhbApyZWZjb3VudGVyIG92ZXJm
+bG93cyB0aGF0IG1pZ2h0IGxlYWQgdG8gdXNlLWFmdGVyLWZyZWUKc2l0dWF0aW9ucy4KClNpZ25l
+ZC1vZmYtYnk6IEVsZW5hIFJlc2hldG92YSA8ZWxlbmEucmVzaGV0b3ZhQGludGVsLmNvbT4KU2ln
+bmVkLW9mZi1ieTogSGFucyBMaWxqZXN0cmFuZCA8aXNoa2FtaWVsQGdtYWlsLmNvbT4KU2lnbmVk
+LW9mZi1ieTogS2VlcyBDb29rIDxrZWVzY29va0BjaHJvbWl1bS5vcmc+ClNpZ25lZC1vZmYtYnk6
+IERhdmlkIFdpbmRzb3IgPGR3aW5kc29yQGdtYWlsLmNvbT4KLS0tCiBkcml2ZXJzL21lZGlhL3Y0
+bDItY29yZS92aWRlb2J1ZjItdm1hbGxvYy5jIHwgMTEgKysrKysrLS0tLS0KIDEgZmlsZSBjaGFu
+Z2VkLCA2IGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
+cy9tZWRpYS92NGwyLWNvcmUvdmlkZW9idWYyLXZtYWxsb2MuYyBiL2RyaXZlcnMvbWVkaWEvdjRs
+Mi1jb3JlL3ZpZGVvYnVmMi12bWFsbG9jLmMKaW5kZXggM2Y3NzgxNC4uZjgzMjUzYSAxMDA2NDQK
+LS0tIGEvZHJpdmVycy9tZWRpYS92NGwyLWNvcmUvdmlkZW9idWYyLXZtYWxsb2MuYworKysgYi9k
+cml2ZXJzL21lZGlhL3Y0bDItY29yZS92aWRlb2J1ZjItdm1hbGxvYy5jCkBAIC0xMyw2ICsxMyw3
+IEBACiAjaW5jbHVkZSA8bGludXgvaW8uaD4KICNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4KICNp
+bmNsdWRlIDxsaW51eC9tbS5oPgorI2luY2x1ZGUgPGxpbnV4L3JlZmNvdW50Lmg+CiAjaW5jbHVk
+ZSA8bGludXgvc2NoZWQuaD4KICNpbmNsdWRlIDxsaW51eC9zbGFiLmg+CiAjaW5jbHVkZSA8bGlu
+dXgvdm1hbGxvYy5oPgpAQCAtMjYsNyArMjcsNyBAQCBzdHJ1Y3QgdmIyX3ZtYWxsb2NfYnVmIHsK
+IAlzdHJ1Y3QgZnJhbWVfdmVjdG9yCQkqdmVjOwogCWVudW0gZG1hX2RhdGFfZGlyZWN0aW9uCQlk
+bWFfZGlyOwogCXVuc2lnbmVkIGxvbmcJCQlzaXplOwotCWF0b21pY190CQkJcmVmY291bnQ7CisJ
+cmVmY291bnRfdAkJCXJlZmNvdW50OwogCXN0cnVjdCB2YjJfdm1hcmVhX2hhbmRsZXIJaGFuZGxl
+cjsKIAlzdHJ1Y3QgZG1hX2J1ZgkJCSpkYnVmOwogfTsKQEAgLTU2LDcgKzU3LDcgQEAgc3RhdGlj
+IHZvaWQgKnZiMl92bWFsbG9jX2FsbG9jKHN0cnVjdCBkZXZpY2UgKmRldiwgdW5zaWduZWQgbG9u
+ZyBhdHRycywKIAkJcmV0dXJuIEVSUl9QVFIoLUVOT01FTSk7CiAJfQogCi0JYXRvbWljX2luYygm
+YnVmLT5yZWZjb3VudCk7CisJcmVmY291bnRfc2V0KCZidWYtPnJlZmNvdW50LCAxKTsKIAlyZXR1
+cm4gYnVmOwogfQogCkBAIC02NCw3ICs2NSw3IEBAIHN0YXRpYyB2b2lkIHZiMl92bWFsbG9jX3B1
+dCh2b2lkICpidWZfcHJpdikKIHsKIAlzdHJ1Y3QgdmIyX3ZtYWxsb2NfYnVmICpidWYgPSBidWZf
+cHJpdjsKIAotCWlmIChhdG9taWNfZGVjX2FuZF90ZXN0KCZidWYtPnJlZmNvdW50KSkgeworCWlm
+IChyZWZjb3VudF9kZWNfYW5kX3Rlc3QoJmJ1Zi0+cmVmY291bnQpKSB7CiAJCXZmcmVlKGJ1Zi0+
+dmFkZHIpOwogCQlrZnJlZShidWYpOwogCX0KQEAgLTE2MSw3ICsxNjIsNyBAQCBzdGF0aWMgdm9p
+ZCAqdmIyX3ZtYWxsb2NfdmFkZHIodm9pZCAqYnVmX3ByaXYpCiBzdGF0aWMgdW5zaWduZWQgaW50
+IHZiMl92bWFsbG9jX251bV91c2Vycyh2b2lkICpidWZfcHJpdikKIHsKIAlzdHJ1Y3QgdmIyX3Zt
+YWxsb2NfYnVmICpidWYgPSBidWZfcHJpdjsKLQlyZXR1cm4gYXRvbWljX3JlYWQoJmJ1Zi0+cmVm
+Y291bnQpOworCXJldHVybiByZWZjb3VudF9yZWFkKCZidWYtPnJlZmNvdW50KTsKIH0KIAogc3Rh
+dGljIGludCB2YjJfdm1hbGxvY19tbWFwKHZvaWQgKmJ1Zl9wcml2LCBzdHJ1Y3Qgdm1fYXJlYV9z
+dHJ1Y3QgKnZtYSkKQEAgLTM2OCw3ICszNjksNyBAQCBzdGF0aWMgc3RydWN0IGRtYV9idWYgKnZi
+Ml92bWFsbG9jX2dldF9kbWFidWYodm9pZCAqYnVmX3ByaXYsIHVuc2lnbmVkIGxvbmcgZmxhZwog
+CQlyZXR1cm4gTlVMTDsKIAogCS8qIGRtYWJ1ZiBrZWVwcyByZWZlcmVuY2UgdG8gdmIyIGJ1ZmZl
+ciAqLwotCWF0b21pY19pbmMoJmJ1Zi0+cmVmY291bnQpOworCXJlZmNvdW50X2luYygmYnVmLT5y
+ZWZjb3VudCk7CiAKIAlyZXR1cm4gZGJ1ZjsKIH0KLS0gCjIuNy40CgoKX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApY
+ZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
