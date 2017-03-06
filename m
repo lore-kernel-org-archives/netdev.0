@@ -1,73 +1,42 @@
-From: Leonardo Amaral - Listas <listas@leonardoamaral.com.br>
-Subject: Re: jitter / latency reduction
-Date: Mon, 6 Mar 2017 10:27:10 -0300
-Message-ID: <CAHX0N8thOKmwhEv=F6NqnVcc7QVmwPOV_mzV9hbUtgEtcxWXSw@mail.gmail.com>
-References: <CACsfcop+P2jjzB7viMG-=6oZSDPU8qbCTDUYFtZ3527OVpZ90A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0713191192376534896=="
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com
-To: Mahmood Qazen <mqazen@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CACsfcop+P2jjzB7viMG-=6oZSDPU8qbCTDUYFtZ3527OVpZ90A@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net] team: use ETH_MAX_MTU as max mtu
+Date: Mon,  6 Mar 2017 08:48:58 -0500
+Message-ID: <20170306134858.2096-1-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============0713191192376534896==
-Content-Type: multipart/alternative; boundary=001a1143d92079fd6f054a0fdb28
+This restores the ability to set a team device's mtu to anything higher
+than 1500. Similar to the reported issue with bonding, the team driver
+calls ether_setup(), which sets an initial max_mtu of 1500, while the
+underlying hardware can handle something much larger. Just set it to
+ETH_MAX_MTU to support all possible values, and the limitations of the
+underlying devices will prevent setting anything too large.
 
---001a1143d92079fd6f054a0fdb28
-Content-Type: text/plain; charset=UTF-8
+Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
+CC: Cong Wang <xiyou.wangcong@gmail.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/team/team.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-2017-03-03 20:52 GMT-03:00 Mahmood Qazen <mqazen@gmail.com>:
-
-> this week I read a presentation by Jesse and towards the end it asks if we
-> can help.
->
-
-Hello,
-
-Can you please share this presentation? I'm interested in this subject too.
-
-Thanks!
-
-
-
-[image: --]
-
-Leonardo Amaral
-[image: https://]about.me/leonardo.amaral
-<https://about.me/leonardo.amaral?promo=email_sig&utm_source=email_sig&utm_medium=email_sig&utm_campaign=external_links>
-
---001a1143d92079fd6f054a0fdb28--
-
-
---===============0713191192376534896==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, SlashDot.org! http://sdm.link/slashdot
---===============0713191192376534896==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============0713191192376534896==--
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 4a24b5d15f5a..1b52520715ae 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2072,6 +2072,7 @@ static int team_dev_type_check_change(struct net_device *dev,
+ static void team_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
++	dev->max_mtu = ETH_MAX_MTU;
+ 
+ 	dev->netdev_ops = &team_netdev_ops;
+ 	dev->ethtool_ops = &team_ethtool_ops;
+-- 
+2.11.0
