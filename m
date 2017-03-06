@@ -1,64 +1,39 @@
 From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH net-next 5/5] sunvnet: xoff not needed when removing port link
-Date: Mon,  6 Mar 2017 15:15:32 -0800
-Message-ID: <1488842132-512058-6-git-send-email-shannon.nelson@oracle.com>
+Subject: [PATCH net-next 4/5] sunvnet: count multicast packets
+Date: Mon,  6 Mar 2017 15:15:31 -0800
+Message-ID: <1488842132-512058-5-git-send-email-shannon.nelson@oracle.com>
 References: <1488842132-512058-1-git-send-email-shannon.nelson@oracle.com>
 Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
         Shannon Nelson <shannon.nelson@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:49116 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752615AbdCFXYA (ORCPT
+Received: from userp1040.oracle.com ([156.151.31.81]:42354 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752561AbdCFXYA (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 18:24:00 -0500
 In-Reply-To: <1488842132-512058-1-git-send-email-shannon.nelson@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sunvnet netdev is connected to the controlling ldom's vswitch
-for network bridging.  However, for higher performance between ldoms,
-there also is a channel between each client ldom.  These connections are
-represented in the sunvnet driver by a queue for each ldom.  The driver
-uses select_queue to tell the stack which queue to use by tracking the mac
-addresses on the other end of each port.  When a connected ldom shuts down,
-the driver receives an LDC_EVENT_RESET and the port is removed from the
-driver, thus a queue with no ldom on the other end will never be selected
-for Tx.
-
-The driver was trying to reinforce the "don't use this queue" notion with
-netif_tx_stop_queue() and netif_tx_wake_queue(), which really should only
-be used to signal a Tx queue is full (aka XOFF).  This misuse of queue
-state resulted in NETDEV WATCHDOG messages and lots of unnecessary calls
-into the driver's tx_timeout handler.  Simply removing these takes care
-of the problem.
-
-Orabug: 25190537
+Make sure multicast packets get counted in the device.
 
 Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet_common.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sun/sunvnet_common.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index 7eb53af..1788d6f 100644
+index 8afc659..7eb53af 100644
 --- a/drivers/net/ethernet/sun/sunvnet_common.c
 +++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -1749,16 +1749,12 @@ void sunvnet_port_add_txq_common(struct vnet_port *port)
- 	vp->nports++;
- 	vp->q_used[smallest]++;
- 	port->q_index = smallest;
--	netif_tx_wake_queue(netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
--						port->q_index));
- }
- EXPORT_SYMBOL_GPL(sunvnet_port_add_txq_common);
+@@ -410,6 +410,8 @@ static int vnet_rx_one(struct vnet_port *port, struct vio_net_desc *desc)
  
- void sunvnet_port_rm_txq_common(struct vnet_port *port)
- {
- 	port->vp->nports--;
--	netif_tx_stop_queue(netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
--						port->q_index));
- 	port->vp->q_used[port->q_index]--;
- 	port->q_index = 0;
- }
+ 	skb->ip_summed = port->switch_port ? CHECKSUM_NONE : CHECKSUM_PARTIAL;
+ 
++	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
++		dev->stats.multicast++;
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += len;
+ 	port->stats.rx_packets++;
 -- 
 1.7.1
