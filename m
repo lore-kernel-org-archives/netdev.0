@@ -1,49 +1,51 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] packet: fix panic in __packet_set_timestamp on
- tpacket_v3 in tx mode
-Date: Mon, 6 Mar 2017 12:45:58 -0500
-Message-ID: <CAF=yD-Jr5J9yoaNmBBSneL4HBuWcw3uRV4Smw=AnPAB+Sq9YSw@mail.gmail.com>
-References: <1483580068-13854-1-git-send-email-daniel@iogearbox.net>
- <1483640872.9712.1.camel@edumazet-glaptop3.roam.corp.google.com>
- <586E9A0F.1020002@iogearbox.net> <CAAsGZS59KsGHJzG-U962kK4AP+M40zAV-ERgDqYvDLz5JB6Exg@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] dccp: fix use-after-free in dccp_feat_activate_values
+Date: Mon, 6 Mar 2017 10:28:42 -0800
+Message-ID: <CAM_iQpX14SAeQz1a38__9T0wU5CEpp4q2cT8uw-k_orwbYPNOQ@mail.gmail.com>
+References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
+ <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
+ <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
+ <1488551576.9415.328.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1488552503.9415.330.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+Z6t_jGoh3Gm3Sxuu_ugF5kQ3QJ37LVdqoEK_ab52tQMA@mail.gmail.com>
+ <CACT4Y+ZhNzcKTODGkD3R-68KgkOtYCaf4cZYPH51=HhREXVPGg@mail.gmail.com>
+ <CANn89i+E+DkUJBV-3AQ38hstj9=G7=3fLJuG8LA6upp77ecwPA@mail.gmail.com>
+ <1488556814.9415.334.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+Zg9PptopGHPBYmf_2hfHg3kTrTkyhQuT9C7Krf4nX6AA@mail.gmail.com>
+ <1488739936.9415.368.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpUwGN_M8SVWVprUk04fduOb_Fd7kXWhoJWMi5dUQ6RPcQ@mail.gmail.com> <1488782529.9415.371.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Willem de Bruijn <willemb@google.com>,
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
         netdev <netdev@vger.kernel.org>
-To: chetan loke <loke.chetan@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f172.google.com ([209.85.128.172]:34980 "EHLO
-        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753986AbdCFSOT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 13:14:19 -0500
-Received: by mail-wr0-f172.google.com with SMTP id g10so122655051wrg.2
-        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 10:14:18 -0800 (PST)
-In-Reply-To: <CAAsGZS59KsGHJzG-U962kK4AP+M40zAV-ERgDqYvDLz5JB6Exg@mail.gmail.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:33516 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752726AbdCFS3q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 13:29:46 -0500
+Received: by mail-wm0-f54.google.com with SMTP id v203so5969949wmg.0
+        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 10:29:03 -0800 (PST)
+In-Reply-To: <1488782529.9415.371.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 6, 2017 at 12:13 PM, chetan loke <loke.chetan@gmail.com> wrote:
->>>
->>> Gosh. Can we also replace this BUG() into something less aggressive ?
->>
->>
->> There are currently 5 of these WARN() + BUG() constructs and 1 BUG()-only
->> for the 'default' TPACKET version spread all over af_packet, so probably
->> makes sense to rather make all of them less aggressive.
->>
->>
+On Sun, Mar 5, 2017 at 10:42 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sun, 2017-03-05 at 21:38 -0800, Cong Wang wrote:
 >
-> Very few consumers actually go looking in the kernel logs to see the
-> error-warnings and report them back here.
+>> Do you really want to disable BH again here?
+>>
+>> dccp_check_req() should be always called on RX path where BH
+>> is already disabled and BH can't be disabled twice?
 >
-> This severity will get them to report the incident which in this case
-> got fixed??
+> What makes you think BH can't be disabled twice ?
+>
+> Look, I prefer being cautious here, no need to get another DCCP bug
+> report later.
 
-But BUG_ONs in the datapath can cause outages in real production
-environments. This should not happen for recoverable failures. For
-users who cannot be bothered to check their logs, there is sysctl
-kernel.panic_on_warn.
+Hmm, I thought BH should have a local_bh_save() to save its context
+but looking into its implementation it uses the preempt count to determine
+if BH is disabled or not, unlikely hardirq's. Sorry for the noise.
