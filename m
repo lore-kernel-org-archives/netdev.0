@@ -1,57 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RFC 2/4] virtio-net: transmit napi
-Date: Mon, 06 Mar 2017 10:55:22 -0800 (PST)
-Message-ID: <20170306.105522.1168429366842291288.davem@davemloft.net>
-References: <20170303143909.80001-3-willemdebruijn.kernel@gmail.com>
-        <d60512a1-4210-b0c8-c672-bb6e3779936d@redhat.com>
-        <CAF=yD-K8vEKdRK5YC-aRLgHf_5hXZObBQCP9N0FMertYMU-T3A@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH v2] can: m_can: enable transmission of FD frame on latest
+ version
+Date: Mon, 6 Mar 2017 20:33:15 +0100
+Message-ID: <b24f3252-6bd9-db48-b224-5bf3683cb75d@hartkopp.net>
+References: <20170306022143.7695-1-wenyou.yang@atmel.com>
+ <e4360c52-d62d-6c35-f691-7fcd0f74f954@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, netdev@vger.kernel.org, mst@redhat.com,
-        willemb@google.com
-To: willemdebruijn.kernel@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44548 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932152AbdCFTEl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 14:04:41 -0500
-In-Reply-To: <CAF=yD-K8vEKdRK5YC-aRLgHf_5hXZObBQCP9N0FMertYMU-T3A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Quentin Schulz <quentin.schulz@free-electrons.com>,
+        Wenyou Yang <wenyou.yang@microchip.com>,
+        Nicolas Ferre <nicolas.ferre@atmel.com>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+        Wenyou Yang <wenyou.yang@atmel.com>,
+        Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <e4360c52-d62d-6c35-f691-7fcd0f74f954@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Mon, 6 Mar 2017 12:50:19 -0500
+Hi Marc,
 
->>>   drivers/net/virtio_net.c | 73
->>> ++++++++++++++++++++++++++++++++++++++++--------
->>>   1 file changed, 61 insertions(+), 12 deletions(-)
->>>
->>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>> index 8c21e9a4adc7..9a9031640179 100644
->>> --- a/drivers/net/virtio_net.c
->>> +++ b/drivers/net/virtio_net.c
->>> @@ -33,6 +33,8 @@
->>>   static int napi_weight = NAPI_POLL_WEIGHT;
->>>   module_param(napi_weight, int, 0444);
->>>   +static int napi_tx_weight = NAPI_POLL_WEIGHT;
->>> +
+On 03/06/2017 11:53 AM, Marc Kleine-Budde wrote:
+> On 03/06/2017 03:21 AM, Wenyou Yang wrote:
+>> Enables the transmission of CAN FD frames on M_CAN IP core >= v3.1.x
+>> and with the bit rate switching.
 >>
->>
->> Maybe we should use module_param for this? Or in the future, use
->> tx-frames-irq for a per-device configuration.
-> 
-> This option should eventually just go away, and napi tx become the
-> standard mode.
-> 
-> In the short term, while we evaluate it on varied workloads, a
-> module_param sounds good to me. In general that is frowned
-> upon, as it leads to different configuration interfaces for each
-> device driver. But that should not be a concern in this limited
-> case.
+>> Tested on M_CAN IP 3.1.0 (CREL = 0x31040730) of SAMA5D2 SoC.
+>
+> Does this patch work still with the old version of the silicon?
 
-In any event, do we really need a TX weight at all?
+The bits that were added in the TX FIFO element are 'reserved' in the 
+old silicon - so it should not harm.
 
-I guess you tried this, but why doesn't it not work to just do
-all TX work unconditionally in a NAPI poll pass?  This is how
-we encourage all NIC drivers to handle this.
+This code enables
+
+  if (priv->can.ctrlmode & CAN_CTRLMODE_FD)
+-	cccr |= CCCR_CME_CANFD_BRS << CCCR_CME_SHIFT;
++	cccr |= (CCCR_CME_CANFD_BRS | CCCR_CME_CANFD) << CCCR_CME_SHIFT;
+
+the CAN FD support in the new silicon.
+
+This register is set for the old silicon EVERY time a CAN frame is sent.
+So this change should not harm the old silicon either.
+
+In fact I was told that the v3.0.x IP core is rather seldom in the wild.
+Although I don't have a v3.0.x to test it should work from the 
+documentation side of view.
+
+Reviewed-by: Oliver Hartkopp <socketcan@hartkopp.net>
+
+If we would like to make it really better, the code in 
+m_can_start_xmit() should only fiddle with the M_CAN_CCCR register when 
+working with the v3.0.x silicon.
+
+In fact I would suggest to use the
+
+	if (m_can_read_core_rev(priv) < M_CAN_COREREL_3_1_0)
+
+method from
+
+	http://marc.info/?l=linux-can&m=148716783119090&w=2
+
+to split the code in m_can_start_xmit() accordingly.
+
+@Wenyou Yang: Can you please send a v3 which splits the tx function?
+
+Regards,
+Oliver
