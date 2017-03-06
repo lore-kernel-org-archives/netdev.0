@@ -1,47 +1,76 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 10/26] brcmsmac: reindent split functions
-Date: Mon, 06 Mar 2017 18:24:16 +0200
-Message-ID: <87tw7674r3.fsf@purkki.adurom.net>
-References: <20170302163834.2273519-1-arnd@arndb.de>
-        <20170302163834.2273519-11-arnd@arndb.de>
-        <c18494f1-1a21-c1e5-31db-bef78abe172f@broadcom.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 11/29] drivers, media: convert cx88_core.refcount from
+ atomic_t to refcount_t
+Date: Mon, 6 Mar 2017 19:26:23 +0300
+Message-ID: <c6987419-f708-9923-0f9f-87b715600045@cogentembedded.com>
+References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
+ <1488810076-3754-12-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, kasan-dev@googlegroups.com,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        kernel-build-reports@lists.linaro.org,
-        "David S . Miller" <davem@davemloft.net>
-To: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <c18494f1-1a21-c1e5-31db-bef78abe172f@broadcom.com> (Arend Van
-        Spriel's message of "Mon, 6 Mar 2017 10:33:34 +0100")
-Sender: linux-media-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, linux-s390@vger.kernel.org,
+ open-iscsi@googlegroups.com, Kees Cook <keescook@chromium.org>,
+ linux-scsi@vger.kernel.org, David Windsor <dwindsor@gmail.com>,
+ peterz@infradead.org, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-raid@vger.kernel.org, linux-bcache@vger.kernel.org,
+ target-devel@vger.kernel.org, linux-serial@vger.kernel.org,
+ devel@linuxdriverproject.org, fcoe-devel@open-fcoe.org,
+ xen-devel@lists.xenproject.org, linux1394-devel@lists.sourceforge.net,
+ Hans Liljestrand <ishkamiel@gmail.com>, linux-media@vger.kernel.org
+To: Elena Reshetova <elena.reshetova@intel.com>, gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1488810076-3754-12-git-send-email-elena.reshetova@intel.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
+Hello.
 
-> On 2-3-2017 17:38, Arnd Bergmann wrote:
->> In the previous commit I left the indentation alone to help reviewing
->> the patch, this one now runs the three new functions through 'indent -kr -8'
->> with some manual fixups to avoid silliness.
->> 
->> No changes other than whitespace are intended here.
+On 03/06/2017 05:20 PM, Elena Reshetova wrote:
+
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
 >
-> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> ---
->>  .../broadcom/brcm80211/brcmsmac/phy/phy_n.c        | 1507 +++++++++-----------
->>  1 file changed, 697 insertions(+), 810 deletions(-)
->> 
+> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Signed-off-by: David Windsor <dwindsor@gmail.com>
+[...]
+> diff --git a/drivers/media/pci/cx88/cx88.h b/drivers/media/pci/cx88/cx88.h
+> index 115414c..16c1313 100644
+> --- a/drivers/media/pci/cx88/cx88.h
+> +++ b/drivers/media/pci/cx88/cx88.h
+> @@ -24,6 +24,7 @@
+>  #include <linux/i2c-algo-bit.h>
+>  #include <linux/videodev2.h>
+>  #include <linux/kdev_t.h>
+> +#include <linux/refcount.h>
+>
+>  #include <media/v4l2-device.h>
+>  #include <media/v4l2-fh.h>
+> @@ -339,7 +340,7 @@ struct cx8802_dev;
+>
+>  struct cx88_core {
+>  	struct list_head           devlist;
+> -	atomic_t                   refcount;
+> +	refcount_t                   refcount;
 
-Arend, please edit your quotes. Leaving 1000 lines of unnecessary quotes
-in your reply makes my use of patchwork horrible:
+    Could you please keep the name aligned with above and below?
 
-https://patchwork.kernel.org/patch/9601155/
+>
+>  	/* board name */
+>  	int                        nr;
+>
 
--- 
-Kalle Valo
+MBR, Sergei
