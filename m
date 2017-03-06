@@ -1,8 +1,8 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 06/29] drivers,
- md: convert dm_cache_metadata.ref_count from atomic_t to refcount_t
-Date: Mon,  6 Mar 2017 16:20:53 +0200
-Message-ID: <1488810076-3754-7-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 08/29] drivers,
+ md: convert mddev.active from atomic_t to refcount_t
+Date: Mon,  6 Mar 2017 16:20:55 +0200
+Message-ID: <1488810076-3754-9-git-send-email-elena.reshetova@intel.com>
 References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -43,56 +43,61 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/md/dm-cache-metadata.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/md/md.c | 6 +++---
+ drivers/md/md.h | 3 ++-
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/md/dm-cache-metadata.c b/drivers/md/dm-cache-metadata.c
-index e4c2c1a..6d26e71 100644
---- a/drivers/md/dm-cache-metadata.c
-+++ b/drivers/md/dm-cache-metadata.c
-@@ -13,6 +13,7 @@
- #include "persistent-data/dm-transaction-manager.h"
+diff --git a/drivers/md/md.c b/drivers/md/md.c
+index 985374f..94c8ebf 100644
+--- a/drivers/md/md.c
++++ b/drivers/md/md.c
+@@ -449,7 +449,7 @@ EXPORT_SYMBOL(md_unplug);
  
- #include <linux/device-mapper.h>
-+#include <linux/refcount.h>
- 
- /*----------------------------------------------------------------*/
- 
-@@ -102,7 +103,7 @@ struct cache_disk_superblock {
- } __packed;
- 
- struct dm_cache_metadata {
--	atomic_t ref_count;
-+	refcount_t ref_count;
- 	struct list_head list;
- 
- 	unsigned version;
-@@ -756,7 +757,7 @@ static struct dm_cache_metadata *metadata_open(struct block_device *bdev,
- 	}
- 
- 	cmd->version = metadata_version;
--	atomic_set(&cmd->ref_count, 1);
-+	refcount_set(&cmd->ref_count, 1);
- 	init_rwsem(&cmd->root_lock);
- 	cmd->bdev = bdev;
- 	cmd->data_block_size = data_block_size;
-@@ -794,7 +795,7 @@ static struct dm_cache_metadata *lookup(struct block_device *bdev)
- 
- 	list_for_each_entry(cmd, &table, list)
- 		if (cmd->bdev == bdev) {
--			atomic_inc(&cmd->ref_count);
-+			refcount_inc(&cmd->ref_count);
- 			return cmd;
- 		}
- 
-@@ -865,7 +866,7 @@ struct dm_cache_metadata *dm_cache_metadata_open(struct block_device *bdev,
- 
- void dm_cache_metadata_close(struct dm_cache_metadata *cmd)
+ static inline struct mddev *mddev_get(struct mddev *mddev)
  {
--	if (atomic_dec_and_test(&cmd->ref_count)) {
-+	if (refcount_dec_and_test(&cmd->ref_count)) {
- 		mutex_lock(&table_lock);
- 		list_del(&cmd->list);
- 		mutex_unlock(&table_lock);
+-	atomic_inc(&mddev->active);
++	refcount_inc(&mddev->active);
+ 	return mddev;
+ }
+ 
+@@ -459,7 +459,7 @@ static void mddev_put(struct mddev *mddev)
+ {
+ 	struct bio_set *bs = NULL;
+ 
+-	if (!atomic_dec_and_lock(&mddev->active, &all_mddevs_lock))
++	if (!refcount_dec_and_lock(&mddev->active, &all_mddevs_lock))
+ 		return;
+ 	if (!mddev->raid_disks && list_empty(&mddev->disks) &&
+ 	    mddev->ctime == 0 && !mddev->hold_active) {
+@@ -495,7 +495,7 @@ void mddev_init(struct mddev *mddev)
+ 	INIT_LIST_HEAD(&mddev->all_mddevs);
+ 	setup_timer(&mddev->safemode_timer, md_safemode_timeout,
+ 		    (unsigned long) mddev);
+-	atomic_set(&mddev->active, 1);
++	refcount_set(&mddev->active, 1);
+ 	atomic_set(&mddev->openers, 0);
+ 	atomic_set(&mddev->active_io, 0);
+ 	spin_lock_init(&mddev->lock);
+diff --git a/drivers/md/md.h b/drivers/md/md.h
+index b8859cb..4811663 100644
+--- a/drivers/md/md.h
++++ b/drivers/md/md.h
+@@ -22,6 +22,7 @@
+ #include <linux/list.h>
+ #include <linux/mm.h>
+ #include <linux/mutex.h>
++#include <linux/refcount.h>
+ #include <linux/timer.h>
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
+@@ -360,7 +361,7 @@ struct mddev {
+ 	 */
+ 	struct mutex			open_mutex;
+ 	struct mutex			reconfig_mutex;
+-	atomic_t			active;		/* general refcount */
++	refcount_t			active;		/* general refcount */
+ 	atomic_t			openers;	/* number of active opens */
+ 
+ 	int				changed;	/* True if we might need to
 -- 
 2.7.4
