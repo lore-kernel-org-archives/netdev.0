@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/3] xfrm: Don't use sk_family for socket policy lookups
-Date: Mon, 6 Mar 2017 07:57:27 +0100
-Message-ID: <1488783448-12588-3-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 1/3] xfrm: policy: init locks early
+Date: Mon, 6 Mar 2017 07:57:26 +0100
+Message-ID: <1488783448-12588-2-git-send-email-steffen.klassert@secunet.com>
 References: <1488783448-12588-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,68 +10,72 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:35440 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:35448 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752762AbdCFG6G (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Mar 2017 01:58:06 -0500
+        id S1752746AbdCFG6O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Mar 2017 01:58:14 -0500
 In-Reply-To: <1488783448-12588-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On IPv4-mapped IPv6 addresses sk_family is AF_INET6,
-but the flow informations are created based on AF_INET.
-So the routing set up 'struct flowi4' but we try to
-access 'struct flowi6' what leads to an out of bounds
-access. Fix this by using the family we get with the
-dst_entry, like we do it for the standard policy lookup.
+From: Florian Westphal <fw@strlen.de>
+
+Dmitry reports following splat:
+ INFO: trying to register non-static key.
+ the code is fine but needs lockdep annotation.
+ turning off the locking correctness validator.
+ CPU: 0 PID: 13059 Comm: syz-executor1 Not tainted 4.10.0-rc7-next-20170207 #1
+[..]
+ spin_lock_bh include/linux/spinlock.h:304 [inline]
+ xfrm_policy_flush+0x32/0x470 net/xfrm/xfrm_policy.c:963
+ xfrm_policy_fini+0xbf/0x560 net/xfrm/xfrm_policy.c:3041
+ xfrm_net_init+0x79f/0x9e0 net/xfrm/xfrm_policy.c:3091
+ ops_init+0x10a/0x530 net/core/net_namespace.c:115
+ setup_net+0x2ed/0x690 net/core/net_namespace.c:291
+ copy_net_ns+0x26c/0x530 net/core/net_namespace.c:396
+ create_new_namespaces+0x409/0x860 kernel/nsproxy.c:106
+ unshare_nsproxy_namespaces+0xae/0x1e0 kernel/nsproxy.c:205
+ SYSC_unshare kernel/fork.c:2281 [inline]
+
+Problem is that when we get error during xfrm_net_init we will call
+xfrm_policy_fini which will acquire xfrm_policy_lock before it was
+initialized.  Just move it around so locks get set up first.
 
 Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Tested-by: Dmitry Vyukov <dvyukov@google.com>
+Fixes: 283bc9f35bbbcb0e9 ("xfrm: Namespacify xfrm state/policy locks")
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_policy.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ net/xfrm/xfrm_policy.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 3c8f5b7..a9af17f 100644
+index 177e208..3c8f5b7 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -1248,7 +1248,7 @@ static inline int policy_to_flow_dir(int dir)
- }
- 
- static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
--						 const struct flowi *fl)
-+						 const struct flowi *fl, u16 family)
+@@ -3062,6 +3062,11 @@ static int __net_init xfrm_net_init(struct net *net)
  {
- 	struct xfrm_policy *pol;
+ 	int rv;
  
-@@ -1256,8 +1256,7 @@ static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
-  again:
- 	pol = rcu_dereference(sk->sk_policy[dir]);
- 	if (pol != NULL) {
--		bool match = xfrm_selector_match(&pol->selector, fl,
--						 sk->sk_family);
-+		bool match = xfrm_selector_match(&pol->selector, fl, family);
- 		int err = 0;
++	/* Initialize the per-net locks here */
++	spin_lock_init(&net->xfrm.xfrm_state_lock);
++	spin_lock_init(&net->xfrm.xfrm_policy_lock);
++	mutex_init(&net->xfrm.xfrm_cfg_mutex);
++
+ 	rv = xfrm_statistics_init(net);
+ 	if (rv < 0)
+ 		goto out_statistics;
+@@ -3078,11 +3083,6 @@ static int __net_init xfrm_net_init(struct net *net)
+ 	if (rv < 0)
+ 		goto out;
  
- 		if (match) {
-@@ -2253,7 +2252,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
- 	sk = sk_const_to_full_sk(sk);
- 	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
- 		num_pols = 1;
--		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
-+		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl, family);
- 		err = xfrm_expand_policies(fl, family, pols,
- 					   &num_pols, &num_xfrms);
- 		if (err < 0)
-@@ -2532,7 +2531,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 	pol = NULL;
- 	sk = sk_to_full_sk(sk);
- 	if (sk && sk->sk_policy[dir]) {
--		pol = xfrm_sk_policy_lookup(sk, dir, &fl);
-+		pol = xfrm_sk_policy_lookup(sk, dir, &fl, family);
- 		if (IS_ERR(pol)) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINPOLERROR);
- 			return 0;
+-	/* Initialize the per-net locks here */
+-	spin_lock_init(&net->xfrm.xfrm_state_lock);
+-	spin_lock_init(&net->xfrm.xfrm_policy_lock);
+-	mutex_init(&net->xfrm.xfrm_cfg_mutex);
+-
+ 	return 0;
+ 
+ out:
 -- 
 1.9.1
