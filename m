@@ -1,8 +1,9 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 03/29] drivers,
- char: convert vma_data.refcnt from atomic_t to refcount_t
-Date: Mon,  6 Mar 2017 16:20:50 +0200
-Message-ID: <1488810076-3754-4-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 04/29] drivers,
+ connector: convert cn_callback_entry.refcnt from atomic_t to
+ refcount_t
+Date: Mon,  6 Mar 2017 16:20:51 +0200
+Message-ID: <1488810076-3754-5-git-send-email-elena.reshetova@intel.com>
 References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -43,56 +44,67 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/char/mspec.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/connector/cn_queue.c  | 4 ++--
+ drivers/connector/connector.c | 2 +-
+ include/linux/connector.h     | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/char/mspec.c b/drivers/char/mspec.c
-index a9c2fa3..7b75669 100644
---- a/drivers/char/mspec.c
-+++ b/drivers/char/mspec.c
-@@ -43,6 +43,7 @@
- #include <linux/string.h>
- #include <linux/slab.h>
- #include <linux/numa.h>
-+#include <linux/refcount.h>
- #include <asm/page.h>
- #include <asm/pgtable.h>
- #include <linux/atomic.h>
-@@ -89,7 +90,7 @@ static int is_sn2;
-  * protect in fork case where multiple tasks share the vma_data.
-  */
- struct vma_data {
--	atomic_t refcnt;	/* Number of vmas sharing the data. */
-+	refcount_t refcnt;	/* Number of vmas sharing the data. */
- 	spinlock_t lock;	/* Serialize access to this structure. */
- 	int count;		/* Number of pages allocated. */
- 	enum mspec_page_type type; /* Type of pages allocated. */
-@@ -144,7 +145,7 @@ mspec_open(struct vm_area_struct *vma)
- 	struct vma_data *vdata;
+diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
+index 1f8bf05..9c54fdf 100644
+--- a/drivers/connector/cn_queue.c
++++ b/drivers/connector/cn_queue.c
+@@ -45,7 +45,7 @@ cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
+ 		return NULL;
+ 	}
  
- 	vdata = vma->vm_private_data;
--	atomic_inc(&vdata->refcnt);
-+	refcount_inc(&vdata->refcnt);
- }
+-	atomic_set(&cbq->refcnt, 1);
++	refcount_set(&cbq->refcnt, 1);
  
- /*
-@@ -162,7 +163,7 @@ mspec_close(struct vm_area_struct *vma)
+ 	atomic_inc(&dev->refcnt);
+ 	cbq->pdev = dev;
+@@ -58,7 +58,7 @@ cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
  
- 	vdata = vma->vm_private_data;
- 
--	if (!atomic_dec_and_test(&vdata->refcnt))
-+	if (!refcount_dec_and_test(&vdata->refcnt))
+ void cn_queue_release_callback(struct cn_callback_entry *cbq)
+ {
+-	if (!atomic_dec_and_test(&cbq->refcnt))
++	if (!refcount_dec_and_test(&cbq->refcnt))
  		return;
  
- 	last_index = (vdata->vm_end - vdata->vm_start) >> PAGE_SHIFT;
-@@ -274,7 +275,7 @@ mspec_mmap(struct file *file, struct vm_area_struct *vma,
- 	vdata->vm_end = vma->vm_end;
- 	vdata->type = type;
- 	spin_lock_init(&vdata->lock);
--	atomic_set(&vdata->refcnt, 1);
-+	refcount_set(&vdata->refcnt, 1);
- 	vma->vm_private_data = vdata;
+ 	atomic_dec(&cbq->pdev->refcnt);
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index 25693b0..8615594b 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -157,7 +157,7 @@ static int cn_call_callback(struct sk_buff *skb)
+ 	spin_lock_bh(&dev->cbdev->queue_lock);
+ 	list_for_each_entry(i, &dev->cbdev->queue_list, callback_entry) {
+ 		if (cn_cb_equal(&i->id.id, &msg->id)) {
+-			atomic_inc(&i->refcnt);
++			refcount_inc(&i->refcnt);
+ 			cbq = i;
+ 			break;
+ 		}
+diff --git a/include/linux/connector.h b/include/linux/connector.h
+index f8fe863..032102b 100644
+--- a/include/linux/connector.h
++++ b/include/linux/connector.h
+@@ -22,7 +22,7 @@
+ #define __CONNECTOR_H
  
- 	vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
+ 
+-#include <linux/atomic.h>
++#include <linux/refcount.h>
+ 
+ #include <linux/list.h>
+ #include <linux/workqueue.h>
+@@ -49,7 +49,7 @@ struct cn_callback_id {
+ 
+ struct cn_callback_entry {
+ 	struct list_head callback_entry;
+-	atomic_t refcnt;
++	refcount_t refcnt;
+ 	struct cn_queue_dev *pdev;
+ 
+ 	struct cn_callback_id id;
 -- 
 2.7.4
