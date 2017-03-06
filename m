@@ -1,40 +1,66 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: Use pr_cont where appropriate
-Date: Mon, 6 Mar 2017 18:02:05 +0100
-Message-ID: <20170306170204.GA5643@salvia>
-References: <82a5ec63e547c425644d2dd0165fcc664a2b265e.1488319732.git.joe@perches.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: net: heap out-of-bounds in
+ fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Mon, 6 Mar 2017 10:31:14 -0700
+Message-ID: <4e4d7d51-82de-b21e-cb5d-d804f7b88999@cumulusnetworks.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
+ <CACT4Y+YCPxKkaZBfAabxtAV71R0ghLT-vUKVewJpm9wb2GXaEQ@mail.gmail.com>
+ <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <82a5ec63e547c425644d2dd0165fcc664a2b265e.1488319732.git.joe@perches.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 28, 2017 at 02:09:24PM -0800, Joe Perches wrote:
-> Logging output was changed when simple printks without KERN_CONT
-> are now emitted on a new line and KERN_CONT is required to continue
-> lines so use pr_cont.
+On 3/4/17 1:15 PM, Eric Dumazet wrote:
+> On Sat, 2017-03-04 at 19:57 +0100, Dmitry Vyukov wrote:
+>> On Fri, Mar 3, 2017 at 8:12 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>>> On 3/3/17 6:39 AM, Dmitry Vyukov wrote:
+>>>> I am getting heap out-of-bounds reports in
+>>>> fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone while running
+>>>> syzkaller fuzzer on 86292b33d4b79ee03e2f43ea0381ef85f077c760. They all
+>>>> follow the same pattern: an object of size 216 is allocated from
+>>>> ip_dst_cache slab, and then accessed at offset 272/276 withing
+>>>> fib6_walk. Looks like type confusion. Unfortunately this is not
+>>>> reproducible.
+>>>
+>>> I'll take a look this weekend or Monday at the latest.
+>>
+>>
+>> I've got some additional useful info on this. I think this is
+>> use-after-free rather than out-of-bounds. I've collected stack where
+>> the route was disposed with call_rcu, see the last "Disposed" stack.
+>> The crash happens when cmpxchg in rt_cache_route replaces an existing
+>> route. And that route seems to have some existing pointers to it
+>> (rt->dst.rt6_next) which fib6_walk uses to get to it after its
+>> deletion.
 > 
-> Miscellanea:
+> rt_cache_route() deals with IPv4 routes.
 > 
-> o realign arguments
-> o use print_hex_dump instead of a local variant
+> We somehow mix IPv4 and IPv6 dsts in IPv6 tree.
+> 
+> We need to add type safety at IPV6 route insertions to catch the
+> offender.
+> 
 
-Applied, thanks Joe.
+I've seen something like this before -- a rt was on the gc list but
+still linked in the tables because of some reference.
+
+Dmitry: you seem to have reproduced this a few times. Can you share how
+to run whatever tests you are using?
