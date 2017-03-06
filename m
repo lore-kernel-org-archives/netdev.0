@@ -1,64 +1,49 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] vrf: Fix use-after-free in vrf_xmit
-Date: Mon,  6 Mar 2017 08:53:04 -0800
-Message-ID: <1488819184-12641-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next RFC 2/4] virtio-net: transmit napi
+Date: Mon, 6 Mar 2017 12:50:19 -0500
+Message-ID: <CAF=yD-K8vEKdRK5YC-aRLgHf_5hXZObBQCP9N0FMertYMU-T3A@mail.gmail.com>
+References: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
+ <20170303143909.80001-3-willemdebruijn.kernel@gmail.com> <d60512a1-4210-b0c8-c672-bb6e3779936d@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33249 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932114AbdCFR6A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 12:58:00 -0500
-Received: by mail-pf0-f178.google.com with SMTP id w189so63275606pfb.0
-        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 09:57:59 -0800 (PST)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34920 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753944AbdCFR7k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 12:59:40 -0500
+Received: by mail-wr0-f193.google.com with SMTP id u108so18752467wrb.2
+        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 09:59:39 -0800 (PST)
+In-Reply-To: <d60512a1-4210-b0c8-c672-bb6e3779936d@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-KASAN detected a use-after-free:
+>>   drivers/net/virtio_net.c | 73
+>> ++++++++++++++++++++++++++++++++++++++++--------
+>>   1 file changed, 61 insertions(+), 12 deletions(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 8c21e9a4adc7..9a9031640179 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -33,6 +33,8 @@
+>>   static int napi_weight = NAPI_POLL_WEIGHT;
+>>   module_param(napi_weight, int, 0444);
+>>   +static int napi_tx_weight = NAPI_POLL_WEIGHT;
+>> +
+>
+>
+> Maybe we should use module_param for this? Or in the future, use
+> tx-frames-irq for a per-device configuration.
 
-[  269.467067] BUG: KASAN: use-after-free in vrf_xmit+0x7f1/0x827 [vrf] at addr ffff8800350a21c0
-[  269.467067] Read of size 4 by task ssh/1879
-[  269.467067] CPU: 1 PID: 1879 Comm: ssh Not tainted 4.10.0+ #249
-[  269.467067] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[  269.467067] Call Trace:
-[  269.467067]  dump_stack+0x81/0xb6
-[  269.467067]  kasan_object_err+0x21/0x78
-[  269.467067]  kasan_report+0x2f7/0x450
-[  269.467067]  ? vrf_xmit+0x7f1/0x827 [vrf]
-[  269.467067]  ? ip_output+0xa4/0xdb
-[  269.467067]  __asan_load4+0x6b/0x6d
-[  269.467067]  vrf_xmit+0x7f1/0x827 [vrf]
-...
+This option should eventually just go away, and napi tx become the
+standard mode.
 
-Which corresponds to the skb access after xmit handling. Fix by saving
-skb->len and using the saved value to update stats.
-
-Fixes: 193125dbd8eb2 ("net: Introduce VRF device driver")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/vrf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 22379da63400..fea687f35b5a 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -340,6 +340,7 @@ static netdev_tx_t is_ip_tx_frame(struct sk_buff *skb, struct net_device *dev)
- 
- static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-+	int len = skb->len;
- 	netdev_tx_t ret = is_ip_tx_frame(skb, dev);
- 
- 	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
-@@ -347,7 +348,7 @@ static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 		u64_stats_update_begin(&dstats->syncp);
- 		dstats->tx_pkts++;
--		dstats->tx_bytes += skb->len;
-+		dstats->tx_bytes += len;
- 		u64_stats_update_end(&dstats->syncp);
- 	} else {
- 		this_cpu_inc(dev->dstats->tx_drps);
--- 
-2.1.4
+In the short term, while we evaluate it on varied workloads, a
+module_param sounds good to me. In general that is frowned
+upon, as it leads to different configuration interfaces for each
+device driver. But that should not be a concern in this limited
+case.
