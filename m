@@ -1,44 +1,44 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 07/26] brcmsmac: reduce stack size with KASAN
-Date: Mon, 6 Mar 2017 12:18:33 +0100
-Message-ID: <CAK8P3a12L27jXeshDngcZD9NRF5eSgsjuAwfJMXCPm4x3TU53A@mail.gmail.com>
-References: <20170302163834.2273519-1-arnd@arndb.de> <20170302163834.2273519-8-arnd@arndb.de>
- <76733196-0948-8cbf-8b74-c1e3687a8c09@broadcom.com> <CAK8P3a30Ge5gyKco4HKCdKWiJk9ee1PU3_P6THjOQgHm3EQcJw@mail.gmail.com>
- <2dd6ce84-0285-b4c1-97d4-bb41a6ffec04@broadcom.com> <CAK8P3a3fNbuPvXt4M5HsXOga5Ay0yN7saewRJUoaAsXLq6AypQ@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: 4.11-rc1 regression: e1000e "BUG at drivers/pci/msi.c" on unplugged suspend+resume
+Date: Mon, 06 Mar 2017 13:03:16 +0100
+Message-ID: <8760jmipdn.fsf@miraculix.mork.no>
+References: <87bmten48r.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kasan-dev <kasan-dev@googlegroups.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        linux-media@vger.kernel.org,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        kernel-build-reports@lists.linaro.org,
-        "David S . Miller" <davem@davemloft.net>
-To: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a3fNbuPvXt4M5HsXOga5Ay0yN7saewRJUoaAsXLq6AypQ@mail.gmail.com>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, khalidm <khalidm@cisco.com>,
+        David Singleton <davsingl@cisco.com>,
+        Aaron Brown <aaron.f.brown@intel.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: intel-wired-lan@lists.osuosl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:43301 "EHLO canardo.mork.no"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753027AbdCFMDi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Mar 2017 07:03:38 -0500
+In-Reply-To: <87bmten48r.fsf@miraculix.mork.no> (=?utf-8?Q?=22Bj=C3=B8rn?=
+ Mork"'s message of
+        "Mon, 06 Mar 2017 10:28:36 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 6, 2017 at 12:16 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Mon, Mar 6, 2017 at 12:02 PM, Arend Van Spriel
-> <arend.vanspriel@broadcom.com> wrote:
->> On 6-3-2017 11:38, Arnd Bergmann wrote:
->>> On Mon, Mar 6, 2017 at 10:16 AM, Arend Van Spriel
->>> <arend.vanspriel@broadcom.com> wrote:
+Bj=C3=B8rn Mork <bjorn@mork.no> writes:
 
->> Given the amount of local variables maybe just tag the functions with
->> noinline instead.
->
-> But that would result in less efficient object code without KASAN,
-> as inlining these by default is a good idea when the stack variables
-> all get folded.
+> This is new with v4.11-rc1, so I strongly suspect commit 7e54d9d063fa
+> ("e1000e: driver trying to free already-free irq"), which looks more
+> than suspicious in this context.  Haven't had time to test a revert
+> yet.  Just wanted to give an advance warning in case this isn't known.
 
-Note that David Laight alread suggested renaming noinline_for_kasan
-to noinline_if_stackbloat, which makes it a little more obvious what
-is going on. Would that address your concern as well?
+Now tested.  I can confirm that reverting commit 7e54d9d063fa ("e1000e:
+driver trying to free already-free irq") fixes the issue.
 
-    Arnd
+Further testing also shows that "netif running" is irrelevant.  The BUG
+happens consistently on revery system resume, regardless of the e1000e
+link state.  Which sort of indicates that this change to the driver's
+freeze callback wasn't tested with system suspend.  Which seems.... odd?
+
+Well, whatever.  Please revert commit 7e54d9d063fa.
+
+
+
+Bj=C3=B8rn
