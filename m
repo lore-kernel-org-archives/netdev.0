@@ -1,12 +1,12 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 18/29] drivers,
-	s390: convert urdev.ref_count from atomic_t to refcount_t
-Date: Mon,  6 Mar 2017 16:21:05 +0200
-Message-ID: <1488810076-3754-19-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 14/29] drivers,
+ media: convert vb2_dc_buf.refcount from atomic_t to refcount_t
+Date: Mon,  6 Mar 2017 16:21:01 +0200
+Message-ID: <1488810076-3754-15-git-send-email-elena.reshetova@intel.com>
 References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: peterz@infradead.org, linux-pci@vger.kernel.org,
  target-devel@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
  Elena Reshetova <elena.reshetova@intel.com>, devel@driverdev.osuosl.org,
@@ -19,65 +19,89 @@ Cc: peterz@infradead.org, linux-pci@vger.kernel.org,
  netdev@vger.kernel.org, linux-usb@vger.kernel.org,
  linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
 To: gregkh@linuxfoundation.org
-Return-path: <xen-devel-bounces@lists.xen.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-cmVmY291bnRfdCB0eXBlIGFuZCBjb3JyZXNwb25kaW5nIEFQSSBzaG91bGQgYmUKdXNlZCBpbnN0
-ZWFkIG9mIGF0b21pY190IHdoZW4gdGhlIHZhcmlhYmxlIGlzIHVzZWQgYXMKYSByZWZlcmVuY2Ug
-Y291bnRlci4gVGhpcyBhbGxvd3MgdG8gYXZvaWQgYWNjaWRlbnRhbApyZWZjb3VudGVyIG92ZXJm
-bG93cyB0aGF0IG1pZ2h0IGxlYWQgdG8gdXNlLWFmdGVyLWZyZWUKc2l0dWF0aW9ucy4KClNpZ25l
-ZC1vZmYtYnk6IEVsZW5hIFJlc2hldG92YSA8ZWxlbmEucmVzaGV0b3ZhQGludGVsLmNvbT4KU2ln
-bmVkLW9mZi1ieTogSGFucyBMaWxqZXN0cmFuZCA8aXNoa2FtaWVsQGdtYWlsLmNvbT4KU2lnbmVk
-LW9mZi1ieTogS2VlcyBDb29rIDxrZWVzY29va0BjaHJvbWl1bS5vcmc+ClNpZ25lZC1vZmYtYnk6
-IERhdmlkIFdpbmRzb3IgPGR3aW5kc29yQGdtYWlsLmNvbT4KLS0tCiBkcml2ZXJzL3MzOTAvY2hh
-ci92bXVyLmMgfCA4ICsrKystLS0tCiBkcml2ZXJzL3MzOTAvY2hhci92bXVyLmggfCA0ICsrKy0K
-IDIgZmlsZXMgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvczM5MC9jaGFyL3ZtdXIuYyBiL2RyaXZlcnMvczM5MC9jaGFyL3ZtdXIu
-YwppbmRleCAwNGFjZWI2Li5jZWQ4MTUxIDEwMDY0NAotLS0gYS9kcml2ZXJzL3MzOTAvY2hhci92
-bXVyLmMKKysrIGIvZHJpdmVycy9zMzkwL2NoYXIvdm11ci5jCkBAIC0xMTAsNyArMTEwLDcgQEAg
-c3RhdGljIHN0cnVjdCB1cmRldiAqdXJkZXZfYWxsb2Moc3RydWN0IGNjd19kZXZpY2UgKmNkZXYp
-CiAJbXV0ZXhfaW5pdCgmdXJkLT5pb19tdXRleCk7CiAJaW5pdF93YWl0cXVldWVfaGVhZCgmdXJk
-LT53YWl0KTsKIAlzcGluX2xvY2tfaW5pdCgmdXJkLT5vcGVuX2xvY2spOwotCWF0b21pY19zZXQo
-JnVyZC0+cmVmX2NvdW50LCAgMSk7CisJcmVmY291bnRfc2V0KCZ1cmQtPnJlZl9jb3VudCwgIDEp
-OwogCXVyZC0+Y2RldiA9IGNkZXY7CiAJZ2V0X2RldmljZSgmY2Rldi0+ZGV2KTsKIAlyZXR1cm4g
-dXJkOwpAQCAtMTI2LDcgKzEyNiw3IEBAIHN0YXRpYyB2b2lkIHVyZGV2X2ZyZWUoc3RydWN0IHVy
-ZGV2ICp1cmQpCiAKIHN0YXRpYyB2b2lkIHVyZGV2X2dldChzdHJ1Y3QgdXJkZXYgKnVyZCkKIHsK
-LQlhdG9taWNfaW5jKCZ1cmQtPnJlZl9jb3VudCk7CisJcmVmY291bnRfaW5jKCZ1cmQtPnJlZl9j
-b3VudCk7CiB9CiAKIHN0YXRpYyBzdHJ1Y3QgdXJkZXYgKnVyZGV2X2dldF9mcm9tX2NkZXYoc3Ry
-dWN0IGNjd19kZXZpY2UgKmNkZXYpCkBAIC0xNTksNyArMTU5LDcgQEAgc3RhdGljIHN0cnVjdCB1
-cmRldiAqdXJkZXZfZ2V0X2Zyb21fZGV2bm8odTE2IGRldm5vKQogCiBzdGF0aWMgdm9pZCB1cmRl
-dl9wdXQoc3RydWN0IHVyZGV2ICp1cmQpCiB7Ci0JaWYgKGF0b21pY19kZWNfYW5kX3Rlc3QoJnVy
-ZC0+cmVmX2NvdW50KSkKKwlpZiAocmVmY291bnRfZGVjX2FuZF90ZXN0KCZ1cmQtPnJlZl9jb3Vu
-dCkpCiAJCXVyZGV2X2ZyZWUodXJkKTsKIH0KIApAQCAtOTQ2LDcgKzk0Niw3IEBAIHN0YXRpYyBp
-bnQgdXJfc2V0X29mZmxpbmVfZm9yY2Uoc3RydWN0IGNjd19kZXZpY2UgKmNkZXYsIGludCBmb3Jj
-ZSkKIAkJcmMgPSAtRUJVU1k7CiAJCWdvdG8gZmFpbF91cmRldl9wdXQ7CiAJfQotCWlmICghZm9y
-Y2UgJiYgKGF0b21pY19yZWFkKCZ1cmQtPnJlZl9jb3VudCkgPiAyKSkgeworCWlmICghZm9yY2Ug
-JiYgKHJlZmNvdW50X3JlYWQoJnVyZC0+cmVmX2NvdW50KSA+IDIpKSB7CiAJCS8qIFRoZXJlIGlz
-IHN0aWxsIGEgdXNlciBvZiB1cmQgKGUuZy4gdXJfb3BlbikgKi8KIAkJVFJBQ0UoInVyX3NldF9v
-ZmZsaW5lOiBCVVNZXG4iKTsKIAkJcmMgPSAtRUJVU1k7CmRpZmYgLS1naXQgYS9kcml2ZXJzL3Mz
-OTAvY2hhci92bXVyLmggYi9kcml2ZXJzL3MzOTAvY2hhci92bXVyLmgKaW5kZXggZmEzMjBhZC4u
-MzVlYTlkMSAxMDA2NDQKLS0tIGEvZHJpdmVycy9zMzkwL2NoYXIvdm11ci5oCisrKyBiL2RyaXZl
-cnMvczM5MC9jaGFyL3ZtdXIuaApAQCAtMTEsNiArMTEsOCBAQAogI2lmbmRlZiBfVk1VUl9IXwog
-I2RlZmluZSBfVk1VUl9IXwogCisjaW5jbHVkZSA8bGludXgvcmVmY291bnQuaD4KKwogI2RlZmlu
-ZSBERVZfQ0xBU1NfVVJfSSAweDIwIC8qIGRpYWcyMTAgdW5pdCByZWNvcmQgaW5wdXQgZGV2aWNl
-IGNsYXNzICovCiAjZGVmaW5lIERFVl9DTEFTU19VUl9PIDB4MTAgLyogZGlhZzIxMCB1bml0IHJl
-Y29yZCBvdXRwdXQgZGV2aWNlIGNsYXNzICovCiAvKgpAQCAtNjksNyArNzEsNyBAQCBzdHJ1Y3Qg
-dXJkZXYgewogCXNpemVfdCByZWNsZW47CQkJLyogUmVjb3JkIGxlbmd0aCBmb3IgKndyaXRlKiBD
-Q1dzICovCiAJaW50IGNsYXNzOwkJCS8qIFZNIGRldmljZSBjbGFzcyAqLwogCWludCBpb19yZXF1
-ZXN0X3JjOwkJLyogcmV0dXJuIGNvZGUgZnJvbSBJL08gcmVxdWVzdCAqLwotCWF0b21pY190IHJl
-Zl9jb3VudDsJCS8qIHJlZmVyZW5jZSBjb3VudGVyICovCisJcmVmY291bnRfdCByZWZfY291bnQ7
-CQkvKiByZWZlcmVuY2UgY291bnRlciAqLwogCXdhaXRfcXVldWVfaGVhZF90IHdhaXQ7CQkvKiB3
-YWl0IHF1ZXVlIHRvIHNlcmlhbGl6ZSBvcGVuICovCiAJaW50IG9wZW5fZmxhZzsJCQkvKiAidXJk
-ZXYgaXMgb3BlbiIgZmxhZyAqLwogCXNwaW5sb2NrX3Qgb3Blbl9sb2NrOwkJLyogc2VyaWFsaXpl
-IGNyaXRpY2FsIHNlY3Rpb25zICovCi0tIAoyLjcuNAoKCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVs
-QGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+refcount_t type and corresponding API should be
+used instead of atomic_t when the variable is used as
+a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free
+situations.
+
+Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
+---
+ drivers/media/v4l2-core/videobuf2-dma-contig.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/videobuf2-dma-contig.c b/drivers/media/v4l2-core/videobuf2-dma-contig.c
+index fb6a177..d29a07f 100644
+--- a/drivers/media/v4l2-core/videobuf2-dma-contig.c
++++ b/drivers/media/v4l2-core/videobuf2-dma-contig.c
+@@ -12,6 +12,7 @@
+ 
+ #include <linux/dma-buf.h>
+ #include <linux/module.h>
++#include <linux/refcount.h>
+ #include <linux/scatterlist.h>
+ #include <linux/sched.h>
+ #include <linux/slab.h>
+@@ -34,7 +35,7 @@ struct vb2_dc_buf {
+ 
+ 	/* MMAP related */
+ 	struct vb2_vmarea_handler	handler;
+-	atomic_t			refcount;
++	refcount_t			refcount;
+ 	struct sg_table			*sgt_base;
+ 
+ 	/* DMABUF related */
+@@ -86,7 +87,7 @@ static unsigned int vb2_dc_num_users(void *buf_priv)
+ {
+ 	struct vb2_dc_buf *buf = buf_priv;
+ 
+-	return atomic_read(&buf->refcount);
++	return refcount_read(&buf->refcount);
+ }
+ 
+ static void vb2_dc_prepare(void *buf_priv)
+@@ -122,7 +123,7 @@ static void vb2_dc_put(void *buf_priv)
+ {
+ 	struct vb2_dc_buf *buf = buf_priv;
+ 
+-	if (!atomic_dec_and_test(&buf->refcount))
++	if (!refcount_dec_and_test(&buf->refcount))
+ 		return;
+ 
+ 	if (buf->sgt_base) {
+@@ -170,7 +171,7 @@ static void *vb2_dc_alloc(struct device *dev, unsigned long attrs,
+ 	buf->handler.put = vb2_dc_put;
+ 	buf->handler.arg = buf;
+ 
+-	atomic_inc(&buf->refcount);
++	refcount_set(&buf->refcount, 1);
+ 
+ 	return buf;
+ }
+@@ -407,7 +408,7 @@ static struct dma_buf *vb2_dc_get_dmabuf(void *buf_priv, unsigned long flags)
+ 		return NULL;
+ 
+ 	/* dmabuf keeps reference to vb2 buffer */
+-	atomic_inc(&buf->refcount);
++	refcount_inc(&buf->refcount);
+ 
+ 	return dbuf;
+ }
+-- 
+2.7.4
