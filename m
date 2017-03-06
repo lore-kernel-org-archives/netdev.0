@@ -1,52 +1,82 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] dccp: fix use-after-free in dccp_feat_activate_values
-Date: Sun, 5 Mar 2017 21:38:07 -0800
-Message-ID: <CAM_iQpUwGN_M8SVWVprUk04fduOb_Fd7kXWhoJWMi5dUQ6RPcQ@mail.gmail.com>
-References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
- <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
- <CACT4Y+YUJGsvzFuFT3r0M-3KbPrcx62fzSHHQX=B43-syLYU0A@mail.gmail.com>
- <1488551576.9415.328.camel@edumazet-glaptop3.roam.corp.google.com>
- <1488552503.9415.330.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+Z6t_jGoh3Gm3Sxuu_ugF5kQ3QJ37LVdqoEK_ab52tQMA@mail.gmail.com>
- <CACT4Y+ZhNzcKTODGkD3R-68KgkOtYCaf4cZYPH51=HhREXVPGg@mail.gmail.com>
- <CANn89i+E+DkUJBV-3AQ38hstj9=G7=3fLJuG8LA6upp77ecwPA@mail.gmail.com>
- <1488556814.9415.334.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+Zg9PptopGHPBYmf_2hfHg3kTrTkyhQuT9C7Krf4nX6AA@mail.gmail.com> <1488739936.9415.368.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] udp: avoid ufo handling on IP payload compression packets
+Date: Mon, 6 Mar 2017 07:16:57 +0100
+Message-ID: <20170306061657.GY694@gauss.secunet.com>
+References: <1488544652-28475-1-git-send-email-alexey.kodanev@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.apana.org.au>,
+        "David Miller" <davem@davemloft.net>
+To: Alexey Kodanev <alexey.kodanev@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:33528 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750982AbdCFFrl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 00:47:41 -0500
-Received: by mail-wr0-f176.google.com with SMTP id u48so108622041wrc.0
-        for <netdev@vger.kernel.org>; Sun, 05 Mar 2017 21:46:48 -0800 (PST)
-In-Reply-To: <1488739936.9415.368.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from a.mx.secunet.com ([62.96.220.36]:34820 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750982AbdCFG1R (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Mar 2017 01:27:17 -0500
+Content-Disposition: inline
+In-Reply-To: <1488544652-28475-1-git-send-email-alexey.kodanev@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 5, 2017 at 10:52 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> --- a/net/dccp/minisocks.c
-> +++ b/net/dccp/minisocks.c
-> @@ -142,6 +142,13 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
->         struct dccp_request_sock *dreq = dccp_rsk(req);
->         bool own_req;
->
-> +       /* TCP/DCCP listeners became lockless.
-> +        * DCCP stores complex state in its request_sock, so we need
-> +        * a protection for them, now this code runs without being protected
-> +        * by the parent (listener) lock.
-> +        */
-> +       spin_lock_bh(&dreq->dreq_lock);
-> +
+On Fri, Mar 03, 2017 at 03:37:32PM +0300, Alexey Kodanev wrote:
+> commit c146066ab802 ("ipv4: Don't use ufo handling on later transformed
+> packets") and commit f89c56ce710a ("ipv6: Don't use ufo handling on
+> later transformed packets") added a check that 'rt->dst.header_len' isn't
+> zero in order to skip UFO, but it doesn't include IPcomp in transport mode
+> where it equals zero.
 
-Do you really want to disable BH again here?
+IPcomp has an additional header and should better set rt->dst.header_len
+instead of hacking around that internally.
 
-dccp_check_req() should be always called on RX path where BH
-is already disabled and BH can't be disabled twice?
+> 
+> Packets, after payload compression, may not require further fragmentation,
+> and if original length exceeds MTU, later compressed packets will be
+> transmitted incorrectly. This can be reproduced with LTP udp_ipsec.sh test
+> on veth device with enabled UFO, MTU is 1500 and UDP payload is 2000:
+> 
+> * IPv4 case, offset is wrong + unnecessary fragmentation
+>     udp_ipsec.sh -p comp -m transport -s 2000 &
+>     tcpdump -ni ltp_ns_veth2
+>     ...
+>     IP (tos 0x0, ttl 64, id 45203, offset 0, flags [+],
+>       proto Compressed IP (108), length 49)
+>       10.0.0.2 > 10.0.0.1: IPComp(cpi=0x1000)
+>     IP (tos 0x0, ttl 64, id 45203, offset 1480, flags [none],
+>       proto UDP (17), length 21) 10.0.0.2 > 10.0.0.1: ip-proto-17
+> 
+> * IPv6 case, sending small fragments
+>     udp_ipsec.sh -6 -p comp -m transport -s 2000 &
+>     tcpdump -ni ltp_ns_veth2
+>     ...
+>     IP6 (flowlabel 0x6b9ba, hlim 64, next-header Compressed IP (108)
+>       payload length: 37) fd00::2 > fd00::1: IPComp(cpi=0x1000)
+>     IP6 (flowlabel 0x6b9ba, hlim 64, next-header Compressed IP (108)
+>       payload length: 21) fd00::2 > fd00::1: IPComp(cpi=0x1000)
+> 
+> Fix it by checking 'rt->dst.xfrm' pointer to 'xfrm_state' struct, skip UFO
+> if xfrm is set. So the new check will include both cases: IPcomp and IPsec.
+> 
+> Fixes: c146066ab802 ("ipv4: Don't use ufo handling on later transformed packets")
+> Fixes: f89c56ce710a ("ipv6: Don't use ufo handling on later transformed packets")
+> Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+> ---
+>  net/ipv4/ip_output.c  |    5 ++++-
+>  net/ipv6/ip6_output.c |    5 ++++-
+>  2 files changed, 8 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index b67719f..18383ef 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -960,7 +960,10 @@ static int __ip_append_data(struct sock *sk,
+>  	cork->length += length;
+>  	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
+>  	    (sk->sk_protocol == IPPROTO_UDP) &&
+> -	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
+> +	    (rt->dst.dev->features & NETIF_F_UFO) &&
+> +#ifdef CONFIG_XFRM
+> +	    !rt->dst.xfrm &&
+> +#endif
+
+Please fix IPcomp to use rt->dst.header_len instead off adding
+this ifdef to the generic networking code.
