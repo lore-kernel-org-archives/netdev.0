@@ -1,38 +1,67 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH net 5/7] bnx2x: do not rollback VF MAC/VLAN filters we did
- not configure
-Date: Mon, 6 Mar 2017 15:05:05 +0100
-Message-ID: <24cc5b8c-c0c4-3951-5d5e-9e353746699a@redhat.com>
-References: <20170303160834.4125-1-mschmidt@redhat.com>
- <20170303160834.4125-6-mschmidt@redhat.com>
- <BL2PR07MB2306505E42203BE1F718F6F78D2D0@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Daniel J Blueman <daniel-JCXMqzvhRcvYtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH] 4.9.13 brcmfmac: fix use-after-free on resume
+Date: Mon, 6 Mar 2017 22:50:05 +0800
+Message-ID: <CAMVG2st=ZW-HhqQOMnDunjSJHj8Zw_K2+w2_8AVsHQePN3Ow9w@mail.gmail.com>
+References: <CAMVG2stHA9qSUiRFBW=-4jhSMk-o7Frext+Qf9JK3Fo822XHhw@mail.gmail.com>
+ <3626494c-8482-d003-1c83-e6171f6990a8@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Elior, Ariel" <Ariel.Elior@cavium.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39380 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753752AbdCFOrw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Mar 2017 09:47:52 -0500
-In-Reply-To: <BL2PR07MB2306505E42203BE1F718F6F78D2D0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <3626494c-8482-d003-1c83-e6171f6990a8-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dne 5.3.2017 v 11:13 Mintz, Yuval napsal(a):
->> On failure to configure a VF MAC/VLAN filter we should not attempt to
->> rollback filters that we failed to configure with -EEXIST.
+On 6 March 2017 at 21:00, Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+> + linux-wireless
 >
-> Is this theoretical or did you actually manage to hit it?
-> If so, did it involve non-linux VFs?
+> On 6-3-2017 8:14, Daniel J Blueman wrote:
+>> KASAN reported 'struct wireless_dev wdev' was read after being freed.
+>> Fix by freeing after the access.
 >
-> Asking as linux VFs don't actually send multiple vlan/umac configurations
-> Via same request, and with a single filter per-message you're not expected
-> to ever do rollback.
+> I would rather like to see the KASAN report, because something is off
+> here. This function is called with wdev as a parameter so how can it be
+> accessed after free here? brcmf_remove_interface() does not free the
+> wdev nor the brcmf_cfg80211_vif instance which contains the wdev.
+>
+> Regards,
+> Arend
+>
+>> Signed-off-by: Daniel J Blueman <daniel-JCXMqzvhRcvYtjvyW6yDsg@public.gmane.org>
+>>
+>> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>> b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>> index de19c7c..aa0f470 100644
+>> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>> @@ -2288,12 +2288,13 @@ int brcmf_p2p_del_vif(struct wiphy *wiphy,
+>> struct wireless_dev *wdev)
+>>                 else
+>>                         err = 0;
+>>         }
+>> -       brcmf_remove_interface(vif->ifp, true);
+>>
+>> -       brcmf_cfg80211_arm_vif_event(cfg, NULL);
+>>         if (vif->wdev.iftype != NL80211_IFTYPE_P2P_DEVICE)
+>>                 p2p->bss_idx[P2PAPI_BSSCFG_CONNECTION].vif = NULL;
+>>
+>> +       brcmf_remove_interface(vif->ifp, true);
+>> +       brcmf_cfg80211_arm_vif_event(cfg, NULL);
+>> +
+>>         return err;
+>>  }
 
-This one is theoretical, found by reading the code, not actually hitting 
-the rollback case.
+Sure, https://quora.org/kernel/brcmfmac/dmesg.txt
 
-Michal
+vmlinux, cfg80211.o, brcmfmac.o and config are in the same path; this
+is against v4.9.13 stock.
+
+Thanks,
+  Daniel
+-- 
+Daniel J Blueman
