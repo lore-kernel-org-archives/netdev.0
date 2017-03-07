@@ -1,29 +1,71 @@
-From: =?utf-8?B?56mN5Li55bC8?= Dan Jacobson <jidanni@jidanni.org>
-Subject: please add some examples to the ip man page
-Date: Wed, 08 Mar 2017 03:10:32 +0800
-Message-ID: <87pohsj42f.fsf@jidanni.org>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: Re: [PATCH v2] {net,IB}/{rxe,usnic}: Utilize generic mac to eui32
+ function
+Date: Tue, 7 Mar 2017 20:37:10 +0200
+Message-ID: <20170307183709.GA9094@yuval-lap>
+References: <1488826446-4173-1-git-send-email-yuval.shaia@oracle.com>
+ <20170307142711.GS14379@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: benve@cisco.com, dgoodell@cisco.com, dledford@redhat.com,
+        sean.hefty@intel.com, hal.rosenstock@gmail.com, monis@mellanox.com,
+        davem@davemloft.net, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Leon Romanovsky <leon@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:57619 "EHLO
-        hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbdCGTLN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 14:11:13 -0500
-Received: from homiemail-a4.g.dreamhost.com (homie.mail.dreamhost.com [208.97.132.208])
-        by hapkido.dreamhost.com (Postfix) with ESMTP id 27DB09E8EE
-        for <netdev@vger.kernel.org>; Tue,  7 Mar 2017 11:11:11 -0800 (PST)
-Received: from homiemail-a4.g.dreamhost.com (localhost [127.0.0.1])
-        by homiemail-a4.g.dreamhost.com (Postfix) with ESMTP id 4CBD951C08B
-        for <netdev@vger.kernel.org>; Tue,  7 Mar 2017 11:10:35 -0800 (PST)
-Received: from jidanni.org (114-41-21-240.dynamic.hinet.net [114.41.21.240])
-        (using TLSv1 with cipher AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        (Authenticated sender: jidanni@jidanni.org)
-        by homiemail-a4.g.dreamhost.com (Postfix) with ESMTPSA id 191AA51C08A
-        for <netdev@vger.kernel.org>; Tue,  7 Mar 2017 11:10:35 -0800 (PST)
+Received: from userp1050.oracle.com ([156.151.31.82]:31188 "EHLO
+        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755292AbdCGTZK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 14:25:10 -0500
+Content-Disposition: inline
+In-Reply-To: <20170307142711.GS14379@mtr-leonro.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-$ man ip
-should have some usage examples. Even one would be fine.
+On Tue, Mar 07, 2017 at 04:27:11PM +0200, Leon Romanovsky wrote:
+> On Mon, Mar 06, 2017 at 08:54:06PM +0200, Yuval Shaia wrote:
+> > This logic seems to be duplicated in (at least) three separate files.
+> > Move it to one place so code can be re-use.
+> >
+> > Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
+> > ---
+> > v0 -> v1:
+> > 	* Add missing #include
+> > 	* Rename to genaddrconf_ifid_eui48
+> > v1 -> v2:
+> > 	* Reset eui[0] to default if dev_id is used
+> > ---
+> >  drivers/infiniband/hw/usnic/usnic_common_util.h | 11 +++--------
+> >  drivers/infiniband/sw/rxe/rxe_net.c             | 11 ++---------
+> >  include/net/addrconf.h                          | 19 +++++++++++++------
+> >  3 files changed, 18 insertions(+), 23 deletions(-)
+> >
+> >  	 * scope according to RFC2373.
+> >  	 */
+> >  	if (dev->dev_id) {
+> > +		eui[0] = dev->dev_addr[0];
+> >  		eui[3] = (dev->dev_id >> 8) & 0xFF;
+> >  		eui[4] = dev->dev_id & 0xFF;
+> > -	} else {
+> > -		eui[3] = 0xFF;
+> > -		eui[4] = 0xFE;
+> > -		eui[0] ^= 2;
+> >  	}
+> > +
+> >  	return 0;
+> >  }
+> 
+> Technically, the code is correct now, but it doesn't look right
+> to set the value and restore it right after that.
+
+Agree.
+I will soon send v3 that offers an alternative by adding new helper
+function so this re-assignment can be avoid.
+
+> 
+> Thanks
+> 
+> >
+> > --
+> > 2.7.4
+> >
