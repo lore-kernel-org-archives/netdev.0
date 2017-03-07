@@ -1,69 +1,52 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH 1/4] net: thunderx: Fix IOMMU translation faults
-Date: Tue, 7 Mar 2017 18:14:31 +0530
-Message-ID: <CA+sq2CfCS1aQGtCwVxhzMU3QmKy+tE6j2Zvq=U9aTodvDTFdvA@mail.gmail.com>
-References: <1488538070-12549-1-git-send-email-sunil.kovvuri@gmail.com>
- <1488538070-12549-2-git-send-email-sunil.kovvuri@gmail.com>
- <20170303.095635.355325147613813698.davem@davemloft.net>
- <CA+sq2CcFxk=LuqYhR-sFaVVSu3rMaZUcytx-3tC9kEiRFNwREg@mail.gmail.com>
- <cad7da5d-fce7-cef2-d0db-9585c31f0575@arm.com>
- <CA+sq2CeiXZNwVsURxNNE+vxf3uhjM=vnKtb2nhtLRj6QwHKWrw@mail.gmail.com>
- <9a809c6e-3b01-4deb-e69e-65aa62d1e5e1@arm.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: Added the auth and enc update support in "state
+ update"
+Date: Tue, 7 Mar 2017 13:56:13 +0100
+Message-ID: <20170307125613.GL694@gauss.secunet.com>
+References: <1488888193-4071-1-git-send-email-trajaraman@mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
- Sunil Goutham <sgoutham@cavium.com>, David Miller <davem@davemloft.net>,
- LAKML <linux-arm-kernel@lists.infradead.org>,
- LKML <linux-kernel@vger.kernel.org>
-To: Robin Murphy <robin.murphy@arm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <9a809c6e-3b01-4deb-e69e-65aa62d1e5e1@arm.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: <trajaraman@mvista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:55230 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752842AbdCGNPL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Mar 2017 08:15:11 -0500
+Content-Disposition: inline
+In-Reply-To: <1488888193-4071-1-git-send-email-trajaraman@mvista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 6, 2017 at 10:02 PM, Robin Murphy <robin.murphy@arm.com> wrote:
-> On 06/03/17 12:57, Sunil Kovvuri wrote:
->>>>
->>>> We are seeing a 0.75Mpps drop with IP forwarding rate due to that.
->>>> Hence I have restricted calling DMA interfaces to only when IOMMU is enabled.
->>>
->>> What's 0.07Mpps as a percentage of baseline? On a correctly configured
->>> coherent arm64 system, in the absence of an IOMMU, dma_map_*() is
->>> essentially just virt_to_phys() behind a function call or two, so I'd be
->>> interested to know where any non-trivial overhead might be coming from.
->>
->> It's a 5% drop and yes device is configured as coherent.
->> And the drop is due to additional function calls.
->
-> OK, interesting - sounds like there's potential for some optimisation
-> there as well. AFAICS the callchain goes:
->
-> dma_map_single_attrs (inline)
-> - ops->map_page (__swiotlb_map_page)
->   - swiotlb_map_page
->     - phys_to_dma (inline)
->     - dma_capable (inline)
->
-> Do you happen to have a breakdown of where the time goes? If it's mostly
-> just in the indirect branch our options are limited (I'm guessing
-> ThunderX doesn't have a particularly fancy branch predictor, if it's not
-> even got a data prefetcher), but if it's in the SWIOTLB code then
-> there's certainly room for improvement (which will hopefully tie in with
-> some DMA ops work I'm planning to do soon anyway).
+On Tue, Mar 07, 2017 at 05:33:13PM +0530, trajaraman@mvista.com wrote:
+> From: Thiruvadi rajaraman <trajaraman@mvista.com>
+> 
+> The "ip xfrm state update" process doesn't update the new authendication
+> and encryption keys as well as it doesn't return an error.
+> 
+> Test logs: (Default)
+> ==========
+> ~# ip xfrm state list
+> ~# ip xfrm state add src fe80::/10 dst ff02::3 proto esp spi 1235 mode transport auth sha1 0xAABBCCDDEEFF0010 enc des 0xAABBCCDDEEFF0010
+> ~# ip xfrm state list
+> src fe80:: dst ff02::3
+>         proto esp spi 0x000004d3 reqid 0 mode transport
+>         replay-window 0
+>         auth-trunc hmac(sha1) 0xaabbccddeeff0010 96
+>         enc cbc(des) 0xaabbccddeeff0010
+>         sel src ::/0 dst ::/0
+> ~#
+> 
+> ~# ip xfrm state update src fe80::/10 dst ff02::3 proto esp spi 1235 mode transport auth sha1 0xAABBCCDDEEFF0015 enc des 0xAABBCCDDEEFF0020
+> src fe80:: dst ff02::3
+>         proto esp spi 0x000004d3 reqid 0 mode transport
+>         replay-window 0
+>         auth-trunc hmac(sha1) 0xaabbccddeeff0010 96   ----> [ Auth key doesn't changed and remains same ]
+>         enc cbc(des) 0xaabbccddeeff0010               ----> [  Enc key doesn't changed and remains same ]
 
-It's the branching which is costing the performance, as you said nothing
-much can be done in the common code for this. Anyway I have submitted
-new patch without conditional calling of DMA APIs, will look into reducing
-performance impact (if possible implement recycling) a bit later.
-
-Thanks,
-Sunil.
+This is intentional, the original state is not XFRM_STATE_ACQ,
+so you are not allowed to update keys without requesting for
+a new SPI. The original code was written 15 years ago, based
+on RFC 2367 (PF_KEY) which says we must return -EINVAL in this
+case. So if we change this, we should return an error.
