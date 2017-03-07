@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sgi: ioc3-eth: use new api
+Subject: Re: [PATCH] net: realtek: r8169: use new api
  ethtool_{get|set}_link_ksettings
-Date: Mon, 06 Mar 2017 17:07:38 -0800 (PST)
-Message-ID: <20170306.170738.1828218476269137640.davem@davemloft.net>
-References: <1488145739-30614-1-git-send-email-tremyfr@gmail.com>
+Date: Mon, 06 Mar 2017 17:07:26 -0800 (PST)
+Message-ID: <20170306.170726.2089707051390893436.davem@davemloft.net>
+References: <1487885683-4191-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1488145739-30614-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50596 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754473AbdCGBHk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 20:07:40 -0500
+In-Reply-To: <1487885683-4191-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun, 26 Feb 2017 22:48:59 +0100
+Date: Thu, 23 Feb 2017 22:34:43 +0100
 
 > The ethtool api {get|set}_settings is deprecated.
 > We move this driver to new api {get|set}_link_ksettings.
