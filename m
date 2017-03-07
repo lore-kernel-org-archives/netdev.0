@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] udp: avoid ufo handling on IP payload compression
- packets
-Date: Tue, 07 Mar 2017 13:46:18 -0800 (PST)
-Message-ID: <20170307.134618.1090919290354374776.davem@davemloft.net>
-References: <1488544652-28475-1-git-send-email-alexey.kodanev@oracle.com>
+Subject: Re: [PATCH] fjes: Do not load fjes driver if system does not have
+ extended socket device.
+Date: Tue, 07 Mar 2017 13:44:40 -0800 (PST)
+Message-ID: <20170307.134440.1909011889217005504.davem@davemloft.net>
+References: <fb537059-35b3-3dce-23fb-9a59e8f6926a@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-        herbert@gondor.apana.org.au
-To: alexey.kodanev@oracle.com
+Cc: netdev@vger.kernel.org, izumi.taku@jp.fujitsu.com
+To: yasu.isimatu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38148 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38164 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756180AbdCGWlH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 17:41:07 -0500
-In-Reply-To: <1488544652-28475-1-git-send-email-alexey.kodanev@oracle.com>
+        with ESMTP id S1751302AbdCGWmn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 17:42:43 -0500
+In-Reply-To: <fb537059-35b3-3dce-23fb-9a59e8f6926a@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Date: Fri,  3 Mar 2017 15:37:32 +0300
+From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
+Date: Thu, 2 Mar 2017 11:56:44 -0500
 
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index b67719f..18383ef 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -960,7 +960,10 @@ static int __ip_append_data(struct sock *sk,
->  	cork->length += length;
->  	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
->  	    (sk->sk_protocol == IPPROTO_UDP) &&
-> -	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
-> +	    (rt->dst.dev->features & NETIF_F_UFO) &&
-> +#ifdef CONFIG_XFRM
-> +	    !rt->dst.xfrm &&
-> +#endif
+> +
+>  /* fjes_init_module - Driver Registration Routine */
+>  static int __init fjes_init_module(void)
+>  {
+>  	int result;
+> +	bool found = false;
+> +
 
-As Steffen has suggested, please use dst_xfrm().
+Please order local variable declarations from longest to shortest
+line.
+
+Thanks.
