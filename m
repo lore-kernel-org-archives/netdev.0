@@ -1,92 +1,153 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: netlink: GPF in netlink_unicast
-Date: Tue, 7 Mar 2017 09:29:11 -0500
-Message-ID: <CAHC9VhTf5ndE961JMM2fUSUozf+BvF78jE4FFpuwwSn0=rnH7g@mail.gmail.com>
-References: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
- <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com> <20170307040317.GU18258@madcap2.tricolour.ca>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH] net: initialize msg.msg_flags in recvfrom
+Date: Tue, 7 Mar 2017 15:23:29 +0100
+Message-ID: <CACT4Y+brKSnxVAfNa9mvX0dmTTS00rq19VKbuWykn=EHc0GSrA@mail.gmail.com>
+References: <20170307135810.90371-1-glider@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
+Cc: Kostya Serebryany <kcc@google.com>,
         Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>, linux-audit@redhat.com,
         David Miller <davem@davemloft.net>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170307040317.GU18258@madcap2.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Alexander Potapenko <glider@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f173.google.com ([209.85.217.173]:36283 "EHLO
+        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755572AbdCGOcR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 09:32:17 -0500
+Received: by mail-ua0-f173.google.com with SMTP id 72so5404813uaf.3
+        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 06:32:02 -0800 (PST)
+In-Reply-To: <20170307135810.90371-1-glider@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 6, 2017 at 11:03 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> On 2017-03-06 10:10, Cong Wang wrote:
->> On Mon, Mar 6, 2017 at 2:54 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> > Hello,
->> >
->> > I've got the following crash while running syzkaller fuzzer on
->> > net-next/8d70eeb84ab277377c017af6a21d0a337025dede:
->> >
->> > kasan: GPF could be caused by NULL-ptr deref or user memory access
->> > general protection fault: 0000 [#1] SMP KASAN
->> > Dumping ftrace buffer:
->> >    (ftrace buffer empty)
->> > Modules linked in:
->> > CPU: 0 PID: 883 Comm: kauditd Not tainted 4.10.0+ #6
->> > Hardware name: Google Google Compute Engine/Google Compute Engine,
->> > BIOS Google 01/01/2011
->> > task: ffff8801d79f0240 task.stack: ffff8801d7a20000
->> > RIP: 0010:sock_sndtimeo include/net/sock.h:2162 [inline]
->> > RIP: 0010:netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249
->> > RSP: 0018:ffff8801d7a27c38 EFLAGS: 00010206
->> > RAX: 0000000000000056 RBX: ffff8801d7a27cd0 RCX: 0000000000000000
->> > RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000000002b0
->> > RBP: ffff8801d7a27cf8 R08: ffffed00385cf286 R09: ffffed00385cf286
->> > R10: 0000000000000006 R11: ffffed00385cf285 R12: 0000000000000000
->> > R13: dffffc0000000000 R14: ffff8801c2fc3c80 R15: 00000000014000c0
->> > FS:  0000000000000000(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
->> > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> > CR2: 0000000020cfd000 CR3: 00000001c758f000 CR4: 00000000001406f0
->> > Call Trace:
->> >  kauditd_send_unicast_skb+0x3c/0x70 kernel/audit.c:482
->> >  kauditd_thread+0x174/0xb00 kernel/audit.c:599
->> >  kthread+0x326/0x3f0 kernel/kthread.c:229
->> >  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
->> > Code: 44 89 fe e8 56 15 ff ff 8b 8d 70 ff ff ff 49 89 c6 31 c0 85 c9
->> > 75 27 e8 b2 b2 f4 fd 49 8d bc 24 b0 02 00 00 48 89 f8 48 c1 e8 03 <42>
->> > 80 3c 28 00 0f 85 37 06 00 00 49 8b 84 24 b0 02 00 00 4c 8d
->> > RIP: sock_sndtimeo include/net/sock.h:2162 [inline] RSP: ffff8801d7a27c38
->> > RIP: netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249 RSP:
->> > ffff8801d7a27c38
->> > ---[ end trace ad1bba9d457430b6 ]---
->> > Kernel panic - not syncing: Fatal exception
->> >
->> >
->> > This is not reproducible and seems to be caused by an elusive race.
->> > However, looking at the code I don't see any proper protection of
->> > audit_sock (other than the if (!audit_pid) which is obviously not
->> > enough to protect against races).
->>
->> audit_cmd_mutex is supposed to protect it, I think.
->> But kauditd_send_unicast_skb() seems not holding this mutex.
+On Tue, Mar 7, 2017 at 2:58 PM, Alexander Potapenko <glider@google.com> wrote:
+> KMSAN (KernelMemorySanitizer, a new error detection tool) reports use
+> of uninitialized memory in put_cmsg()):
 >
-> Hmmmm, I wonder if it makes sense to wrap most of the contents of the
-> outer while loop in kauditd_thread in the audit_cmd_mutex, or around the
-> first two innter while loops and the "if (auditd)" condition after the
-> "quick_loop:" label.  The condition on auditd is supposed to catch that
-> case.  We don't want it locked while playing with the scheduler at the
-> bottom of that function.
+> ==================================================================
+> BUG: KMSAN: use of unitialized memory
+> inter: 0
+> CPU: 3 PID: 1086 Comm: syz-executor0 Not tainted 4.8.0-rc6+ #1920
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>  0000000000000000 ffff88008374fa48 ffffffff82576c18 ffff88008374f988
+>  ffffffff818c06d1 ffffffff85bab870 0000000000000092 ffffffff85bab550
+>  0000000000000000 0000000000000092 00000000f9600a55 0000000000000002
+> Call Trace:
+>  [<     inline     >] __dump_stack lib/dump_stack.c:15
+>  [<ffffffff82576c18>] dump_stack+0x238/0x290 lib/dump_stack.c:51
+>  [<ffffffff818beef6>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1006
+>  [<ffffffff818c027b>] __msan_warning+0x6b/0xc0 mm/kmsan/kmsan_instr.c:425
+>  [<ffffffff842f01e7>] put_cmsg+0x6f7/0x850 net/core/scm.c:223
+>  [<     inline     >] netlink_cmsg_recv_pktinfo net/netlink/af_netlink.c:1700
+>  [<ffffffff844b7054>] netlink_recvmsg+0x8e4/0x1980 net/netlink/af_netlink.c:1856
+>  [<     inline     >] sock_recvmsg_nosec net/socket.c:711
+>  [<     inline     >] sock_recvmsg net/socket.c:718
+>  [<ffffffff8426c175>] SYSC_recvfrom+0x6e5/0xa00 net/socket.c:1695
+>  [<ffffffff8426ba67>] SyS_recvfrom+0xb7/0xe0 net/socket.c:1668
+>  [<ffffffff851840db>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
+> chained origin: 00000000f8c00a55
+>  [<ffffffff810bd4d7>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
+>  [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
+>  [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:337
+>  [<ffffffff818be2cb>] kmsan_internal_chain_origin+0x12b/0x1f0 mm/kmsan/kmsan.c:530
+>  [<ffffffff818bfc0f>] __kmsan_store_origin+0x9f/0x120 mm/kmsan/kmsan_instr.c:190
+>  [<ffffffff844b6bdd>] netlink_recvmsg+0x46d/0x1980 net/netlink/af_netlink.c:1839
+>  [<     inline     >] sock_recvmsg_nosec net/socket.c:711
+>  [<     inline     >] sock_recvmsg net/socket.c:718
+>  [<ffffffff8426c175>] SYSC_recvfrom+0x6e5/0xa00 net/socket.c:1695
+>  [<ffffffff8426ba67>] SyS_recvfrom+0xb7/0xe0 net/socket.c:1668
+>  [<ffffffff851840db>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
+> chained origin: 00000000b9a00a53
+>  [<ffffffff810bd4d7>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
+>  [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
+>  [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:337
+>  [<ffffffff818be2cb>] kmsan_internal_chain_origin+0x12b/0x1f0 mm/kmsan/kmsan.c:530
+>  [<ffffffff818c01a3>] __msan_set_alloca_origin4+0xc3/0x130 mm/kmsan/kmsan_instr.c:380
+>  [<ffffffff8426bc13>] SYSC_recvfrom+0x183/0xa00 net/socket.c:1671
+>  [<ffffffff8426ba67>] SyS_recvfrom+0xb7/0xe0 net/socket.c:1668
+>  [<ffffffff851840db>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
+> origin description: ----msg@SYSC_recvfrom (origin=00000000b9400a53)
+> ==================================================================
+>
+> The fields of |msg| in SYSC_recvfrom() are initialized except
+> for |msg.msg_flags|, which is later updated in netlink_recvmsg():
+>
+>   1839                 msg->msg_flags |= MSG_TRUNC;
+>
+> and then used in a condition in put_cmsg():
+>
+>   223         if (MSG_CMSG_COMPAT & msg->msg_flags)
+>
+> The following program has been used to reproduce the error under KMSAN:
+>
+> ===================================================
+>   #include <linux/netlink.h>
+>   #include <stdint.h>
+>   #include <stdio.h>
+>   #include <sys/socket.h>
+>   #include <sys/wait.h>
+>
+>   void child()
+>   {
+>     int sock = socket(PF_NETLINK, SOCK_RAW, 16);
+>     uint32_t val = 0x1f;
+>     setsockopt(sock, 0x10e, 0x3, &val, 4);
+>     char obuf[31] = "\x1f\x00\x00\x00\x10\x00\x07\xff\xff\x08\x00\x00"
+>                     "\x00\x00\x00\x00\x03\x00\x01\x0a\x56\x67\x69\x93"
+>                     "\x3e\x00\x00\x01\x92\x9a\x02";
+>     char ibuf[31];
+>     write(sock, obuf, sizeof(obuf));
+>     struct sockaddr_nl sockaddr = {AF_NETLINK, 0, 0, 0};
+>     socklen_t addrlen = sizeof(sockaddr);
+>     recvfrom(sock, ibuf, 0, 0, &sockaddr, &addrlen);
+>   }
+>
+>   int main()
+>   {
+>     int pid = fork();
+>     if (!pid) {
+>       child();
+>       return 0;
+>     }
+>     int status = 0;
+>     while (waitpid(pid, &status, __WALL) != pid) {}
+>     return 0;
+>   }
+> ===================================================
+>
+> Signed-off-by: Alexander Potapenko <glider@google.com>
+> ---
+>  net/socket.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/net/socket.c b/net/socket.c
+> index 2c1e8677ff2d..e0757e648c0c 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -1731,6 +1731,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
+>         /* We assume all kernel code knows the size of sockaddr_storage */
+>         msg.msg_namelen = 0;
+>         msg.msg_iocb = NULL;
+> +       msg.msg_flags = 0;
+>         if (sock->file->f_flags & O_NONBLOCK)
+>                 flags |= MSG_DONTWAIT;
+>         err = sock_recvmsg(sock, &msg, flags);
+> --
+> 2.12.0.rc1.440.g5b76565f74-goog
+>
 
-Let me look into this and play around with a few things.  I suspected
-there might be a problem here, so I've got thoughts on how we might
-resolve it; I just need to see code them up and see what option sucks
-the least.
 
-FWIW Richard, yes wrapping most of kauditd_thread *should* resolve
-this but it's pretty heavy handed and not my first choice.
+I am not sure this is correct. The compat syscall does:
 
--- 
-paul moore
-www.paul-moore.com
+COMPAT_SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, buf,
+compat_size_t, len,
+      unsigned int, flags, struct sockaddr __user *, addr,
+      int __user *, addrlen)
+{
+   return sys_recvfrom(fd, buf, len, flags | MSG_CMSG_COMPAT, addr, addrlen);
+}
+
+netlink_cmsg_recv_pktinfo expects that MSG_CMSG_COMPAT in msg.flags,
+but we put it into flags.
