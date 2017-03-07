@@ -1,47 +1,73 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH net 0/3] rds: tcp: fix various rds-tcp issues during netns
- create/delete sequences
-Date: Tue, 7 Mar 2017 09:28:15 +0100
-Message-ID: <CACT4Y+aKp6LPUSR4yivWKMFjC1QeC7qbqiQ7hFCwj+RhDt5Msw@mail.gmail.com>
-References: <cover.1488645926.git.sowmini.varadhan@oracle.com> <125d878b-ac8d-dcfd-d1ff-1b1a84cff5a5@oracle.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 08/26] brcmsmac: make some local variables 'static const' to reduce stack size
+Date: Tue, 07 Mar 2017 11:44:04 +0200
+Message-ID: <877f414e1n.fsf@codeaurora.org>
+References: <20170302163834.2273519-1-arnd@arndb.de>
+        <20170302163834.2273519-9-arnd@arndb.de>
+        <227c8e5a-fa20-0300-1cb0-1d3ef17deb19@broadcom.com>
+        <87y3wi74y8.fsf@purkki.adurom.net>
+        <CAK8P3a0cemG0=6jZOQEpGN+RG2Be1LM_DE7aJVX18en_i6G7=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>, rds-devel@oss.oracle.com
-To: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Content-Type: text/plain
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        kasan-dev <kasan-dev@googlegroups.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-media@vger.kernel.org,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        kernel-build-reports@lists.linaro.org,
+        "David S . Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f174.google.com ([209.85.217.174]:35400 "EHLO
-        mail-ua0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755192AbdCGIxw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 03:53:52 -0500
-Received: by mail-ua0-f174.google.com with SMTP id q7so160444436uaf.2
-        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 00:53:05 -0800 (PST)
-In-Reply-To: <125d878b-ac8d-dcfd-d1ff-1b1a84cff5a5@oracle.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:47160 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754852AbdCGJoa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 04:44:30 -0500
+In-Reply-To: <CAK8P3a0cemG0=6jZOQEpGN+RG2Be1LM_DE7aJVX18en_i6G7=Q@mail.gmail.com>
+        (Arnd Bergmann's message of "Mon, 6 Mar 2017 22:34:12 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 7, 2017 at 2:04 AM, santosh.shilimkar@oracle.com
-<santosh.shilimkar@oracle.com> wrote:
-> On 3/4/17 8:57 AM, Sowmini Varadhan wrote:
+Arnd Bergmann <arnd@arndb.de> writes:
+
+> On Mon, Mar 6, 2017 at 5:19 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
+>> Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
 >>
->> Dmitry Vyukov reported some syszkaller panics during netns deletion.
+>>> On 2-3-2017 17:38, Arnd Bergmann wrote:
+>>>> With KASAN and a couple of other patches applied, this driver is one
+>>>> of the few remaining ones that actually use more than 2048 bytes of
+>>>> kernel stack:
+>>>>
+>>>> broadcom/brcm80211/brcmsmac/phy/phy_n.c: In function
+>>>> 'wlc_phy_workarounds_nphy_gainctrl':
+>>>> broadcom/brcm80211/brcmsmac/phy/phy_n.c:16065:1: warning: the
+>>>> frame size of 3264 bytes is larger than 2048 bytes
+>>>> [-Wframe-larger-than=]
+>>>> broadcom/brcm80211/brcmsmac/phy/phy_n.c: In function 'wlc_phy_workarounds_nphy':
+>>>> broadcom/brcm80211/brcmsmac/phy/phy_n.c:17138:1: warning: the
+>>>> frame size of 2864 bytes is larger than 2048 bytes
+>>>> [-Wframe-larger-than=]
+>>>>
+>>>> Here, I'm reducing the stack size by marking as many local variables as
+>>>> 'static const' as I can without changing the actual code.
+>>>
+>>> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
 >>
->> While I have not been able to reproduce those exact panics, my attempts
->> to do so uncovered a few other problems, which are fixed patch 2 and
->> patch 3 of this patch series. In addition, as mentioned in,
->>  https://www.spinics.net/lists/netdev/msg422997.html
->> code-inspection points that the rds_connection needs to take an explicit
->> refcnt on the struct net so that it is held down until all cleanup is
->> completed for netns removal, and this is fixed by patch1.
->>
-> Hopefully Dmitry can try the series and see if it fixes the issue(s).
-> The fixes looks good to me.
+>> Arnd, via which tree are you planning to submit these? I'm not sure
+>> what I should do with the wireless drivers patches from this series.
 >
-> FWIW, Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> I'm not quite sure myself yet. I'd probably want the first few patches that
+> do most of the work get merged through Andrew's linux-mm tree once
+> we have come to agreement on them. The driver specific patches like
+> the brcmsmac ones depend on the introduction of noinline_for_kasan
+> or noinline_if_stackbloat and could either go in along with the first
+> set, or as a follow-up through the normal maintainer trees.
 
+Either way is fine for me. Just mark clearly if you want the wireless
+drivers patches to go through via my tree, otherwise I'll ignore them.
 
-I've applied the patches for testing. I've seen the reported crashes
-only few times, so it won't provide a good testing. But at least it
-can detect any regressions.
+-- 
+Kalle Valo
