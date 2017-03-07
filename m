@@ -1,89 +1,395 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 08/22] net: mvpp2: add hw_version field in "struct mvpp2"
-Date: Tue,  7 Mar 2017 16:53:06 +0100
-Message-ID: <1488902000-2658-9-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: [PATCHv3 net-next 07/22] net: mvpp2: add and use accessors for TX/RX descriptors
+Date: Tue,  7 Mar 2017 16:53:05 +0100
+Message-ID: <1488902000-2658-8-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Russell King <linux@arm.linux.org.uk>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        Ian Campbell <ijc+devicetree@hellion.org.uk>,
-        Pawel Moll <pawel.moll@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Kumar Gala <galak@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:32845 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754750AbdCGP4k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 10:56:40 -0500
-In-Reply-To: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1488902000-2658-1-git-send-email-thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In preparation to the introduction for the support of PPv2.2 in the
-mvpp2 driver, this commit adds a hw_version field to the struct
-mvpp2, and uses the .data field of the DT match table to fill it in.
+The PPv2.2 IP has a different TX and RX descriptor layout compared to
+PPv2.1. In order to prepare for the introduction of PPv2.2 support in
+mvpp2, this commit adds accessors for the different fields of the TX
+and RX descriptors, and changes the code to use them.
 
-Having the MVPP21 and MVPP22 definitions available will allow to start
-adding the necessary conditional code to support PPv2.2.
+For now, the mvpp2_port argument passed to the accessors is not used,
+but it will be used in follow-up to update the descriptor according to
+the version of the IP being used.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Apart from the mechanical changes to use the newly introduced
+accessors, a few other changes, needed to use the accessors, are made:
+
+ - The mvpp2_txq_inc_put() function now takes a mvpp2_port as first
+   argument, as it is needed to use the accessors.
+
+ - Similarly, the mvpp2_bm_cookie_build() gains a mvpp2_port first
+   argument, for the same reason.
+
+ - In mvpp2_rx_error(), instead of accessing the RX descriptor in each
+   case of the switch, we introduce a local variable to store the
+   packet size.
+
+ - In mvpp2_tx_frag_process() and mvpp2_tx() instead of accessing the
+   packet size from the TX descriptor, we use the actual value
+   available in the function, which is used to set the TX descriptor
+   packet size a few lines before.
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 194 ++++++++++++++++++++++++++---------
+ 1 file changed, 145 insertions(+), 49 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 2ee066b..27d8838 100644
+index 35dc071..2ee066b 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -25,6 +25,7 @@
- #include <linux/of_mdio.h>
- #include <linux/of_net.h>
- #include <linux/of_address.h>
-+#include <linux/of_device.h>
- #include <linux/phy.h>
- #include <linux/clk.h>
- #include <linux/hrtimer.h>
-@@ -643,6 +644,9 @@ struct mvpp2 {
- 
- 	/* Tclk value */
- 	u32 tclk;
-+
-+	/* HW version */
-+	enum { MVPP21, MVPP22 } hw_version;
- };
- 
- struct mvpp2_pcpu_stats {
-@@ -6429,6 +6433,9 @@ static int mvpp2_probe(struct platform_device *pdev)
- 	if (!priv)
- 		return -ENOMEM;
- 
-+	priv->hw_version =
-+		(unsigned long)of_device_get_match_data(&pdev->dev);
-+
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	priv->base = devm_ioremap_resource(&pdev->dev, res);
- 	if (IS_ERR(priv->base))
-@@ -6533,7 +6540,10 @@ static int mvpp2_remove(struct platform_device *pdev)
+@@ -945,6 +945,83 @@ static u32 mvpp2_read(struct mvpp2 *priv, u32 offset)
+ 	return readl(priv->base + offset);
  }
  
- static const struct of_device_id mvpp2_match[] = {
--	{ .compatible = "marvell,armada-375-pp2" },
-+	{
-+		.compatible = "marvell,armada-375-pp2",
-+		.data = (void *)MVPP21,
-+	},
- 	{ }
- };
- MODULE_DEVICE_TABLE(of, mvpp2_match);
++static dma_addr_t mvpp2_txdesc_dma_addr_get(struct mvpp2_port *port,
++					    struct mvpp2_tx_desc *tx_desc)
++{
++	return tx_desc->buf_dma_addr;
++}
++
++static void mvpp2_txdesc_dma_addr_set(struct mvpp2_port *port,
++				      struct mvpp2_tx_desc *tx_desc,
++				      dma_addr_t dma_addr)
++{
++	tx_desc->buf_dma_addr = dma_addr;
++}
++
++static size_t mvpp2_txdesc_size_get(struct mvpp2_port *port,
++				    struct mvpp2_tx_desc *tx_desc)
++{
++	return tx_desc->data_size;
++}
++
++static void mvpp2_txdesc_size_set(struct mvpp2_port *port,
++				  struct mvpp2_tx_desc *tx_desc,
++				  size_t size)
++{
++	tx_desc->data_size = size;
++}
++
++static void mvpp2_txdesc_txq_set(struct mvpp2_port *port,
++				 struct mvpp2_tx_desc *tx_desc,
++				 unsigned int txq)
++{
++	tx_desc->phys_txq = txq;
++}
++
++static void mvpp2_txdesc_cmd_set(struct mvpp2_port *port,
++				 struct mvpp2_tx_desc *tx_desc,
++				 unsigned int command)
++{
++	tx_desc->command = command;
++}
++
++static void mvpp2_txdesc_offset_set(struct mvpp2_port *port,
++				    struct mvpp2_tx_desc *tx_desc,
++				    unsigned int offset)
++{
++	tx_desc->packet_offset = offset;
++}
++
++static unsigned int mvpp2_txdesc_offset_get(struct mvpp2_port *port,
++					    struct mvpp2_tx_desc *tx_desc)
++{
++	return tx_desc->packet_offset;
++}
++
++static dma_addr_t mvpp2_rxdesc_dma_addr_get(struct mvpp2_port *port,
++					    struct mvpp2_rx_desc *rx_desc)
++{
++	return rx_desc->buf_dma_addr;
++}
++
++static unsigned long mvpp2_rxdesc_cookie_get(struct mvpp2_port *port,
++					     struct mvpp2_rx_desc *rx_desc)
++{
++	return rx_desc->buf_cookie;
++}
++
++static size_t mvpp2_rxdesc_size_get(struct mvpp2_port *port,
++				    struct mvpp2_rx_desc *rx_desc)
++{
++	return rx_desc->data_size;
++}
++
++static u32 mvpp2_rxdesc_status_get(struct mvpp2_port *port,
++				   struct mvpp2_rx_desc *rx_desc)
++{
++	return rx_desc->status;
++}
++
+ static void mvpp2_txq_inc_get(struct mvpp2_txq_pcpu *txq_pcpu)
+ {
+ 	txq_pcpu->txq_get_index++;
+@@ -952,15 +1029,17 @@ static void mvpp2_txq_inc_get(struct mvpp2_txq_pcpu *txq_pcpu)
+ 		txq_pcpu->txq_get_index = 0;
+ }
+ 
+-static void mvpp2_txq_inc_put(struct mvpp2_txq_pcpu *txq_pcpu,
++static void mvpp2_txq_inc_put(struct mvpp2_port *port,
++			      struct mvpp2_txq_pcpu *txq_pcpu,
+ 			      struct sk_buff *skb,
+ 			      struct mvpp2_tx_desc *tx_desc)
+ {
+ 	struct mvpp2_txq_pcpu_buf *tx_buf =
+ 		txq_pcpu->buffs + txq_pcpu->txq_put_index;
+ 	tx_buf->skb = skb;
+-	tx_buf->size = tx_desc->data_size;
+-	tx_buf->dma = tx_desc->buf_dma_addr + tx_desc->packet_offset;
++	tx_buf->size = mvpp2_txdesc_size_get(port, tx_desc);
++	tx_buf->dma = mvpp2_txdesc_dma_addr_get(port, tx_desc) +
++		mvpp2_txdesc_offset_get(port, tx_desc);
+ 	txq_pcpu->txq_put_index++;
+ 	if (txq_pcpu->txq_put_index == txq_pcpu->size)
+ 		txq_pcpu->txq_put_index = 0;
+@@ -4121,11 +4200,15 @@ static void mvpp2_rxq_offset_set(struct mvpp2_port *port,
+ }
+ 
+ /* Obtain BM cookie information from descriptor */
+-static u32 mvpp2_bm_cookie_build(struct mvpp2_rx_desc *rx_desc)
++static u32 mvpp2_bm_cookie_build(struct mvpp2_port *port,
++				 struct mvpp2_rx_desc *rx_desc)
+ {
+-	int pool = (rx_desc->status & MVPP2_RXD_BM_POOL_ID_MASK) >>
+-		   MVPP2_RXD_BM_POOL_ID_OFFS;
+ 	int cpu = smp_processor_id();
++	int pool;
++
++	pool = (mvpp2_rxdesc_status_get(port, rx_desc) &
++		MVPP2_RXD_BM_POOL_ID_MASK) >>
++		MVPP2_RXD_BM_POOL_ID_OFFS;
+ 
+ 	return ((pool & 0xFF) << MVPP2_BM_COOKIE_POOL_OFFS) |
+ 	       ((cpu & 0xFF) << MVPP2_BM_COOKIE_CPU_OFFS);
+@@ -4559,10 +4642,11 @@ static void mvpp2_rxq_drop_pkts(struct mvpp2_port *port,
+ 
+ 	for (i = 0; i < rx_received; i++) {
+ 		struct mvpp2_rx_desc *rx_desc = mvpp2_rxq_next_desc_get(rxq);
+-		u32 bm = mvpp2_bm_cookie_build(rx_desc);
++		u32 bm = mvpp2_bm_cookie_build(port, rx_desc);
+ 
+-		mvpp2_pool_refill(port, bm, rx_desc->buf_dma_addr,
+-				  rx_desc->buf_cookie);
++		mvpp2_pool_refill(port, bm,
++				  mvpp2_rxdesc_dma_addr_get(port, rx_desc),
++				  mvpp2_rxdesc_cookie_get(port, rx_desc));
+ 	}
+ 	mvpp2_rxq_status_update(port, rxq->id, rx_received, rx_received);
+ }
+@@ -4952,20 +5036,21 @@ static enum hrtimer_restart mvpp2_hr_timer_cb(struct hrtimer *timer)
+ static void mvpp2_rx_error(struct mvpp2_port *port,
+ 			   struct mvpp2_rx_desc *rx_desc)
+ {
+-	u32 status = rx_desc->status;
++	u32 status = mvpp2_rxdesc_status_get(port, rx_desc);
++	size_t sz = mvpp2_rxdesc_size_get(port, rx_desc);
+ 
+ 	switch (status & MVPP2_RXD_ERR_CODE_MASK) {
+ 	case MVPP2_RXD_ERR_CRC:
+-		netdev_err(port->dev, "bad rx status %08x (crc error), size=%d\n",
+-			   status, rx_desc->data_size);
++		netdev_err(port->dev, "bad rx status %08x (crc error), size=%zu\n",
++			   status, sz);
+ 		break;
+ 	case MVPP2_RXD_ERR_OVERRUN:
+-		netdev_err(port->dev, "bad rx status %08x (overrun error), size=%d\n",
+-			   status, rx_desc->data_size);
++		netdev_err(port->dev, "bad rx status %08x (overrun error), size=%zu\n",
++			   status, sz);
+ 		break;
+ 	case MVPP2_RXD_ERR_RESOURCE:
+-		netdev_err(port->dev, "bad rx status %08x (resource error), size=%d\n",
+-			   status, rx_desc->data_size);
++		netdev_err(port->dev, "bad rx status %08x (resource error), size=%zu\n",
++			   status, sz);
+ 		break;
+ 	}
+ }
+@@ -5059,17 +5144,20 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 		struct sk_buff *skb;
+ 		unsigned int frag_size;
+ 		dma_addr_t dma_addr;
++		phys_addr_t phys_addr;
+ 		u32 bm, rx_status;
+ 		int pool, rx_bytes, err;
+ 		void *data;
+ 
+ 		rx_done++;
+-		rx_status = rx_desc->status;
+-		rx_bytes = rx_desc->data_size - MVPP2_MH_SIZE;
+-		dma_addr = rx_desc->buf_dma_addr;
+-		data = (void *)phys_to_virt(rx_desc->buf_cookie);
+-
+-		bm = mvpp2_bm_cookie_build(rx_desc);
++		rx_status = mvpp2_rxdesc_status_get(port, rx_desc);
++		rx_bytes = mvpp2_rxdesc_size_get(port, rx_desc);
++		rx_bytes -= MVPP2_MH_SIZE;
++		dma_addr = mvpp2_rxdesc_dma_addr_get(port, rx_desc);
++		phys_addr = mvpp2_rxdesc_cookie_get(port, rx_desc);
++		data = (void *)phys_to_virt(phys_addr);
++
++		bm = mvpp2_bm_cookie_build(port, rx_desc);
+ 		pool = mvpp2_bm_cookie_pool_get(bm);
+ 		bm_pool = &port->priv->bm_pools[pool];
+ 
+@@ -5083,9 +5171,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 			dev->stats.rx_errors++;
+ 			mvpp2_rx_error(port, rx_desc);
+ 			/* Return the buffer to the pool */
+-
+-			mvpp2_pool_refill(port, bm, rx_desc->buf_dma_addr,
+-					  rx_desc->buf_cookie);
++			mvpp2_pool_refill(port, bm, dma_addr, phys_addr);
+ 			continue;
+ 		}
+ 
+@@ -5137,11 +5223,15 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ }
+ 
+ static inline void
+-tx_desc_unmap_put(struct device *dev, struct mvpp2_tx_queue *txq,
++tx_desc_unmap_put(struct mvpp2_port *port, struct mvpp2_tx_queue *txq,
+ 		  struct mvpp2_tx_desc *desc)
+ {
+-	dma_unmap_single(dev, desc->buf_dma_addr,
+-			 desc->data_size, DMA_TO_DEVICE);
++	dma_addr_t buf_dma_addr =
++		mvpp2_txdesc_dma_addr_get(port, desc);
++	size_t buf_sz =
++		mvpp2_txdesc_size_get(port, desc);
++	dma_unmap_single(port->dev->dev.parent, buf_dma_addr,
++			 buf_sz, DMA_TO_DEVICE);
+ 	mvpp2_txq_desc_put(txq);
+ }
+ 
+@@ -5160,28 +5250,31 @@ static int mvpp2_tx_frag_process(struct mvpp2_port *port, struct sk_buff *skb,
+ 		void *addr = page_address(frag->page.p) + frag->page_offset;
+ 
+ 		tx_desc = mvpp2_txq_next_desc_get(aggr_txq);
+-		tx_desc->phys_txq = txq->id;
+-		tx_desc->data_size = frag->size;
++		mvpp2_txdesc_txq_set(port, tx_desc, txq->id);
++		mvpp2_txdesc_size_set(port, tx_desc, frag->size);
+ 
+ 		buf_dma_addr = dma_map_single(port->dev->dev.parent, addr,
+-					      tx_desc->data_size,
+-					      DMA_TO_DEVICE);
++					       frag->size,
++					       DMA_TO_DEVICE);
+ 		if (dma_mapping_error(port->dev->dev.parent, buf_dma_addr)) {
+ 			mvpp2_txq_desc_put(txq);
+ 			goto error;
+ 		}
+ 
+-		tx_desc->packet_offset = buf_dma_addr & MVPP2_TX_DESC_ALIGN;
+-		tx_desc->buf_dma_addr = buf_dma_addr & (~MVPP2_TX_DESC_ALIGN);
++		mvpp2_txdesc_offset_set(port, tx_desc,
++					buf_dma_addr & MVPP2_TX_DESC_ALIGN);
++		mvpp2_txdesc_dma_addr_set(port, tx_desc,
++					  buf_dma_addr & ~MVPP2_TX_DESC_ALIGN);
+ 
+ 		if (i == (skb_shinfo(skb)->nr_frags - 1)) {
+ 			/* Last descriptor */
+-			tx_desc->command = MVPP2_TXD_L_DESC;
+-			mvpp2_txq_inc_put(txq_pcpu, skb, tx_desc);
++			mvpp2_txdesc_cmd_set(port, tx_desc,
++					     MVPP2_TXD_L_DESC);
++			mvpp2_txq_inc_put(port, txq_pcpu, skb, tx_desc);
+ 		} else {
+ 			/* Descriptor in the middle: Not First, Not Last */
+-			tx_desc->command = 0;
+-			mvpp2_txq_inc_put(txq_pcpu, NULL, tx_desc);
++			mvpp2_txdesc_cmd_set(port, tx_desc, 0);
++			mvpp2_txq_inc_put(port, txq_pcpu, NULL, tx_desc);
+ 		}
+ 	}
+ 
+@@ -5193,7 +5286,7 @@ static int mvpp2_tx_frag_process(struct mvpp2_port *port, struct sk_buff *skb,
+ 	 */
+ 	for (i = i - 1; i >= 0; i--) {
+ 		tx_desc = txq->descs + i;
+-		tx_desc_unmap_put(port->dev->dev.parent, txq, tx_desc);
++		tx_desc_unmap_put(port, txq, tx_desc);
+ 	}
+ 
+ 	return -ENOMEM;
+@@ -5228,35 +5321,38 @@ static int mvpp2_tx(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* Get a descriptor for the first part of the packet */
+ 	tx_desc = mvpp2_txq_next_desc_get(aggr_txq);
+-	tx_desc->phys_txq = txq->id;
+-	tx_desc->data_size = skb_headlen(skb);
++	mvpp2_txdesc_txq_set(port, tx_desc, txq->id);
++	mvpp2_txdesc_size_set(port, tx_desc, skb_headlen(skb));
+ 
+ 	buf_dma_addr = dma_map_single(dev->dev.parent, skb->data,
+-				      tx_desc->data_size, DMA_TO_DEVICE);
++				      skb_headlen(skb), DMA_TO_DEVICE);
+ 	if (unlikely(dma_mapping_error(dev->dev.parent, buf_dma_addr))) {
+ 		mvpp2_txq_desc_put(txq);
+ 		frags = 0;
+ 		goto out;
+ 	}
+-	tx_desc->packet_offset = buf_dma_addr & MVPP2_TX_DESC_ALIGN;
+-	tx_desc->buf_dma_addr = buf_dma_addr & ~MVPP2_TX_DESC_ALIGN;
++
++	mvpp2_txdesc_offset_set(port, tx_desc,
++				buf_dma_addr & MVPP2_TX_DESC_ALIGN);
++	mvpp2_txdesc_dma_addr_set(port, tx_desc,
++				  buf_dma_addr & ~MVPP2_TX_DESC_ALIGN);
+ 
+ 	tx_cmd = mvpp2_skb_tx_csum(port, skb);
+ 
+ 	if (frags == 1) {
+ 		/* First and Last descriptor */
+ 		tx_cmd |= MVPP2_TXD_F_DESC | MVPP2_TXD_L_DESC;
+-		tx_desc->command = tx_cmd;
+-		mvpp2_txq_inc_put(txq_pcpu, skb, tx_desc);
++		mvpp2_txdesc_cmd_set(port, tx_desc, tx_cmd);
++		mvpp2_txq_inc_put(port, txq_pcpu, skb, tx_desc);
+ 	} else {
+ 		/* First but not Last */
+ 		tx_cmd |= MVPP2_TXD_F_DESC | MVPP2_TXD_PADDING_DISABLE;
+-		tx_desc->command = tx_cmd;
+-		mvpp2_txq_inc_put(txq_pcpu, NULL, tx_desc);
++		mvpp2_txdesc_cmd_set(port, tx_desc, tx_cmd);
++		mvpp2_txq_inc_put(port, txq_pcpu, NULL, tx_desc);
+ 
+ 		/* Continue with other skb fragments */
+ 		if (mvpp2_tx_frag_process(port, skb, aggr_txq, txq)) {
+-			tx_desc_unmap_put(port->dev->dev.parent, txq, tx_desc);
++			tx_desc_unmap_put(port, txq, tx_desc);
+ 			frags = 0;
+ 			goto out;
+ 		}
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
