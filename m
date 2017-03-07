@@ -1,36 +1,26 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net 0/5] NAPI support for Hyper-V
-Date: Mon, 6 Mar 2017 17:18:36 -0800
-Message-ID: <20170306171836.5240a9b5@xeon-e3>
-References: <20170227182651.3956-1-sthemmin@microsoft.com>
-        <20170306.171333.1067660469641044496.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tools: hv: Add clean up function for Ubuntu
+ config
+Date: Mon, 06 Mar 2017 17:11:24 -0800 (PST)
+Message-ID: <20170306.171124.305225994220465491.davem@davemloft.net>
+References: <BLUPR03MB1412BBCAA1FCDC1641CA6674CA520@BLUPR03MB1412.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:34730 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932502AbdCGB1w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 20:27:52 -0500
-Received: by mail-pg0-f41.google.com with SMTP id 77so28207296pgc.1
-        for <netdev@vger.kernel.org>; Mon, 06 Mar 2017 17:27:51 -0800 (PST)
-In-Reply-To: <20170306.171333.1067660469641044496.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kys@microsoft.com, olaf@aepfle.de, vkuznets@redhat.com
+To: haiyangz@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BLUPR03MB1412BBCAA1FCDC1641CA6674CA520@BLUPR03MB1412.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 06 Mar 2017 17:13:33 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 24 Feb 2017 17:30:32 +0000
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Mon, 27 Feb 2017 10:26:46 -0800
+> This patch adds a function to clean up duplicate config info
+> on Ubuntu.
 > 
-> > These patches enable NAPI, GRO and napi_alloc_skb for Hyper-V netvsc
-> > driver.  
-> 
-> Series applied to net-next.
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-Great, but how do we coordinate allow use of the vmbus iterator functions
-for storage?  The way things are going that would mean waiting until 4.13 for
-that.
+Applied, thanks.
