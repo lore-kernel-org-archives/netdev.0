@@ -1,23 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: realtek: 8139too: use new api
+Subject: Re: [PATCH] net: rocker: use new api
  ethtool_{get|set}_link_ksettings
-Date: Mon, 06 Mar 2017 17:07:20 -0800 (PST)
-Message-ID: <20170306.170720.1522772631308365727.davem@davemloft.net>
-References: <1487805248-18450-1-git-send-email-tremyfr@gmail.com>
+Date: Mon, 06 Mar 2017 17:07:31 -0800 (PST)
+Message-ID: <20170306.170731.425674336175683071.davem@davemloft.net>
+References: <1488132029-2251-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hau@realtek.com, jarod@redhat.com, stephen@networkplumber.org,
-        edumazet@google.com, netdev@vger.kernel.org,
+Cc: jiri@resnulli.us, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487805248-18450-1-git-send-email-tremyfr@gmail.com>
+In-Reply-To: <1488132029-2251-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Thu, 23 Feb 2017 00:14:08 +0100
+Date: Sun, 26 Feb 2017 19:00:29 +0100
 
 > The ethtool api {get|set}_settings is deprecated.
 > We move this driver to new api {get|set}_link_ksettings.
