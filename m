@@ -1,134 +1,87 @@
-From: "Reshetova, Elena" <elena.reshetova@intel.com>
-Subject: RE: [PATCH 13/29] drivers, media: convert
- vb2_vmarea_handler.refcount from atomic_t to refcount_t
-Date: Tue, 7 Mar 2017 14:48:43 +0000
-Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C558E6@IRSMSX102.ger.corp.intel.com>
-References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
- <1488810076-3754-14-git-send-email-elena.reshetova@intel.com>
- <20170307085005.GH3220@valkosipuli.retiisi.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "peterz@infradead.org" <peterz@infradead.org>,
- "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
- "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
- "linux1394-devel@lists.sourceforge.net"
- <linux1394-devel@lists.sourceforge.net>,
- "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
- "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
- "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
- "fcoe-devel@open-fcoe.org" <fcoe-devel@open-fcoe.org>,
- "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
- "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
- "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
- Kees Cook <keescook@chromium.org>,
- "linux-raid@vger.kernel.org" <linux-raid@vger.kernel.org>,
- "linux-bcache@vger.kernel.org" <linux-bcache@vger.kerne
-To: Sakari Ailus <sakari.ailus@iki.fi>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170307085005.GH3220@valkosipuli.retiisi.org.uk>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH net-next 2/2] net: Eliminate duplicated codes by creating one new function in_dev_select_addr
+Date: Tue,  7 Mar 2017 22:51:19 +0800
+Message-ID: <1488898279-18930-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        kaber@trash.net, netdev@vger.kernel.org, gfree.wind@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from SMTPBG252.QQ.COM ([183.60.52.105]:34832 "EHLO smtpbg252.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932589AbdCGO4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Mar 2017 09:56:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Hi Elena,
-> 
-> On Mon, Mar 06, 2017 at 04:21:00PM +0200, Elena Reshetova wrote:
-> > refcount_t type and corresponding API should be
-> > used instead of atomic_t when the variable is used as
-> > a reference counter. This allows to avoid accidental
-> > refcounter overflows that might lead to use-after-free
-> > situations.
-> >
-> > Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-> > Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-> > Signed-off-by: Kees Cook <keescook@chromium.org>
-> > Signed-off-by: David Windsor <dwindsor@gmail.com>
-> > ---
-> >  drivers/media/v4l2-core/videobuf2-memops.c | 6 +++---
-> >  include/media/videobuf2-memops.h           | 3 ++-
-> >  2 files changed, 5 insertions(+), 4 deletions(-)
-> >
-> > diff --git a/drivers/media/v4l2-core/videobuf2-memops.c b/drivers/media/v4l2-
-> core/videobuf2-memops.c
-> > index 1cd322e..4bb8424 100644
-> > --- a/drivers/media/v4l2-core/videobuf2-memops.c
-> > +++ b/drivers/media/v4l2-core/videobuf2-memops.c
-> > @@ -96,10 +96,10 @@ static void vb2_common_vm_open(struct
-> vm_area_struct *vma)
-> >  	struct vb2_vmarea_handler *h = vma->vm_private_data;
-> >
-> >  	pr_debug("%s: %p, refcount: %d, vma: %08lx-%08lx\n",
-> > -	       __func__, h, atomic_read(h->refcount), vma->vm_start,
-> > +	       __func__, h, refcount_read(h->refcount), vma->vm_start,
-> >  	       vma->vm_end);
-> >
-> > -	atomic_inc(h->refcount);
-> > +	refcount_inc(h->refcount);
-> >  }
-> >
-> >  /**
-> > @@ -114,7 +114,7 @@ static void vb2_common_vm_close(struct
-> vm_area_struct *vma)
-> >  	struct vb2_vmarea_handler *h = vma->vm_private_data;
-> >
-> >  	pr_debug("%s: %p, refcount: %d, vma: %08lx-%08lx\n",
-> > -	       __func__, h, atomic_read(h->refcount), vma->vm_start,
-> > +	       __func__, h, refcount_read(h->refcount), vma->vm_start,
-> >  	       vma->vm_end);
-> >
-> >  	h->put(h->arg);
-> > diff --git a/include/media/videobuf2-memops.h b/include/media/videobuf2-
-> memops.h
-> > index 36565c7a..a6ed091 100644
-> > --- a/include/media/videobuf2-memops.h
-> > +++ b/include/media/videobuf2-memops.h
-> > @@ -16,6 +16,7 @@
-> >
-> >  #include <media/videobuf2-v4l2.h>
-> >  #include <linux/mm.h>
-> > +#include <linux/refcount.h>
-> >
-> >  /**
-> >   * struct vb2_vmarea_handler - common vma refcount tracking handler
-> > @@ -25,7 +26,7 @@
-> >   * @arg:	argument for @put callback
-> >   */
-> >  struct vb2_vmarea_handler {
-> > -	atomic_t		*refcount;
-> > +	refcount_t		*refcount;
-> 
-> This is a pointer to refcount, not refcount itself. The refcount is part of
-> a memory type specific struct, the types that you change in the following
-> three patches. I guess it would still compile and work as separate patches
-> but you'd sure get warnings at least.
+From: Gao Feng <fgao@ikuai8.com>
 
-Actually it doesn't compile without this patch if I remember it correctly back in past when I was initially splitting the patches per variable. 
+There are two duplicated loop codes which used to select right
+address in current codes. Now eliminate these codes by creating
+one new function in_dev_select_addr.
 
-> 
-> How about merging this and the three following patches that change the memop
-> refcount types?
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ net/ipv4/devinet.c | 34 +++++++++++++++++++---------------
+ 1 file changed, 19 insertions(+), 15 deletions(-)
 
-Sounds good!
-
-Best Regards,
-Elena.
-> 
-> >  	void			(*put)(void *arg);
-> >  	void			*arg;
-> >  };
-> 
-> --
-> Kind regards,
-> 
-> Sakari Ailus
-> e-mail: sakari.ailus@iki.fi	XMPP: sailus@retiisi.org.uk
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 1a9e550..d0964c5 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1191,6 +1191,19 @@ static int inet_gifconf(struct net_device *dev, char __user *buf, int len)
+ 	return done;
+ }
+ 
++static __be32 in_dev_select_addr(const struct in_device *in_dev,
++				 int scope)
++{
++	for_primary_ifa(in_dev) {
++		if (ifa->ifa_scope != RT_SCOPE_LINK &&
++		    ifa->ifa_scope <= scope) {
++			return ifa->ifa_local;
++		}
++	} endfor_ifa(in_dev);
++
++	return 0;
++}
++
+ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ {
+ 	__be32 addr = 0;
+@@ -1229,13 +1242,9 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 		if (dev) {
+ 			in_dev = __in_dev_get_rcu(dev);
+ 			if (in_dev) {
+-				for_primary_ifa(in_dev) {
+-					if (ifa->ifa_scope != RT_SCOPE_LINK &&
+-					    ifa->ifa_scope <= scope) {
+-						addr = ifa->ifa_local;
+-						goto out_unlock;
+-					}
+-				} endfor_ifa(in_dev);
++				addr = in_dev_select_addr(in_dev, scope);
++				if (addr)
++					goto out_unlock;
+ 			}
+ 		}
+ 
+@@ -1250,14 +1259,9 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 			in_dev = __in_dev_get_rcu(dev);
+ 			if (!in_dev)
+ 				continue;
+-
+-			for_primary_ifa(in_dev) {
+-				if (ifa->ifa_scope != RT_SCOPE_LINK &&
+-				    ifa->ifa_scope <= scope) {
+-					addr = ifa->ifa_local;
+-					goto out_unlock;
+-				}
+-			} endfor_ifa(in_dev);
++			addr = in_dev_select_addr(in_dev, scope);
++			if (addr)
++				goto out_unlock;
+ 		}
+ 	}
+ out_unlock:
+-- 
+1.9.1
