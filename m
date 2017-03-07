@@ -1,164 +1,113 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: net: heap out-of-bounds in
- fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
-Date: Tue, 7 Mar 2017 11:43:01 -0700
-Message-ID: <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
-References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
- <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
- <CACT4Y+YCPxKkaZBfAabxtAV71R0ghLT-vUKVewJpm9wb2GXaEQ@mail.gmail.com>
- <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com>
- <4e4d7d51-82de-b21e-cb5d-d804f7b88999@cumulusnetworks.com>
- <CACT4Y+Z1MvKbb35-jhaY=jEoR+t2u2TiUpkCR_oG3=VNmKjqvQ@mail.gmail.com>
- <14c01aea-6c2f-6ba5-6aee-52c55f410da7@cumulusnetworks.com>
- <CACT4Y+aomj0W8M9JNr1GLsT8EFFHV9YsOTYzWkvwKZANE9hiBQ@mail.gmail.com>
- <CACT4Y+aDzAYs9mbNGeFEkYSB2wTwomZTGEKn4hDH0PAb4uiLqw@mail.gmail.com>
- <2b60b1b8-4766-0e36-f6fb-79914bf1925d@cumulusnetworks.com>
- <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: netlink: GPF in netlink_unicast
+Date: Tue, 7 Mar 2017 13:44:59 -0500
+Message-ID: <CAHC9VhQ2Kp1YQ7eTOjjaX2UsucZEkr+OBNNuEQjzM32Be1nRgg@mail.gmail.com>
+References: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
+ <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com>
+ <20170307040317.GU18258@madcap2.tricolour.ca> <CAHC9VhTf5ndE961JMM2fUSUozf+BvF78jE4FFpuwwSn0=rnH7g@mail.gmail.com>
+ <20170307155531.GA10258@madcap2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------8C1EEB2AC812F41C57ABCF58"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
         netdev <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>, linux-audit@redhat.com,
+        David Miller <davem@davemloft.net>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Richard Guy Briggs <rgb@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
+In-Reply-To: <20170307155531.GA10258@madcap2.tricolour.ca>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------8C1EEB2AC812F41C57ABCF58
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-
-On 3/7/17 11:13 AM, Dmitry Vyukov wrote:
->> on this warning:
+On Tue, Mar 7, 2017 at 10:55 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> On 2017-03-07 09:29, Paul Moore wrote:
+>> On Mon, Mar 6, 2017 at 11:03 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
+>> > On 2017-03-06 10:10, Cong Wang wrote:
+>> >> On Mon, Mar 6, 2017 at 2:54 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>> >> > Hello,
+>> >> >
+>> >> > I've got the following crash while running syzkaller fuzzer on
+>> >> > net-next/8d70eeb84ab277377c017af6a21d0a337025dede:
+>> >> >
+>> >> > kasan: GPF could be caused by NULL-ptr deref or user memory access
+>> >> > general protection fault: 0000 [#1] SMP KASAN
+>> >> > Dumping ftrace buffer:
+>> >> >    (ftrace buffer empty)
+>> >> > Modules linked in:
+>> >> > CPU: 0 PID: 883 Comm: kauditd Not tainted 4.10.0+ #6
+>> >> > Hardware name: Google Google Compute Engine/Google Compute Engine,
+>> >> > BIOS Google 01/01/2011
+>> >> > task: ffff8801d79f0240 task.stack: ffff8801d7a20000
+>> >> > RIP: 0010:sock_sndtimeo include/net/sock.h:2162 [inline]
+>> >> > RIP: 0010:netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249
+>> >> > RSP: 0018:ffff8801d7a27c38 EFLAGS: 00010206
+>> >> > RAX: 0000000000000056 RBX: ffff8801d7a27cd0 RCX: 0000000000000000
+>> >> > RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000000002b0
+>> >> > RBP: ffff8801d7a27cf8 R08: ffffed00385cf286 R09: ffffed00385cf286
+>> >> > R10: 0000000000000006 R11: ffffed00385cf285 R12: 0000000000000000
+>> >> > R13: dffffc0000000000 R14: ffff8801c2fc3c80 R15: 00000000014000c0
+>> >> > FS:  0000000000000000(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
+>> >> > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> >> > CR2: 0000000020cfd000 CR3: 00000001c758f000 CR4: 00000000001406f0
+>> >> > Call Trace:
+>> >> >  kauditd_send_unicast_skb+0x3c/0x70 kernel/audit.c:482
+>> >> >  kauditd_thread+0x174/0xb00 kernel/audit.c:599
+>> >> >  kthread+0x326/0x3f0 kernel/kthread.c:229
+>> >> >  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
+>> >> > Code: 44 89 fe e8 56 15 ff ff 8b 8d 70 ff ff ff 49 89 c6 31 c0 85 c9
+>> >> > 75 27 e8 b2 b2 f4 fd 49 8d bc 24 b0 02 00 00 48 89 f8 48 c1 e8 03 <42>
+>> >> > 80 3c 28 00 0f 85 37 06 00 00 49 8b 84 24 b0 02 00 00 4c 8d
+>> >> > RIP: sock_sndtimeo include/net/sock.h:2162 [inline] RSP: ffff8801d7a27c38
+>> >> > RIP: netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249 RSP:
+>> >> > ffff8801d7a27c38
+>> >> > ---[ end trace ad1bba9d457430b6 ]---
+>> >> > Kernel panic - not syncing: Fatal exception
+>> >> >
+>> >> >
+>> >> > This is not reproducible and seems to be caused by an elusive race.
+>> >> > However, looking at the code I don't see any proper protection of
+>> >> > audit_sock (other than the if (!audit_pid) which is obviously not
+>> >> > enough to protect against races).
+>> >>
+>> >> audit_cmd_mutex is supposed to protect it, I think.
+>> >> But kauditd_send_unicast_skb() seems not holding this mutex.
+>> >
+>> > Hmmmm, I wonder if it makes sense to wrap most of the contents of the
+>> > outer while loop in kauditd_thread in the audit_cmd_mutex, or around the
+>> > first two innter while loops and the "if (auditd)" condition after the
+>> > "quick_loop:" label.  The condition on auditd is supposed to catch that
+>> > case.  We don't want it locked while playing with the scheduler at the
+>> > bottom of that function.
 >>
->> /* dst.next really should not be set at this point */
->> if (rt->dst.next && rt->dst.next->ops->family != AF_INET6) {
->>         pr_warn("fib6_add: adding rt with bad next -- family %d dst
->> flags %x\n",
->>                 rt->dst.next->ops->family, rt->dst.next->flags);
+>> Let me look into this and play around with a few things.  I suspected
+>> there might be a problem here, so I've got thoughts on how we might
+>> resolve it; I just need to see code them up and see what option sucks
+>> the least.
 >>
->>         WARN_ON(1);
->> }
->>
->> You should have seen the pr_warn in the log preceding the WARN_ON dump.
-> 
-> Right. They all have the same "IPv6: fib6_add: adding rt with bad next
-> -- family 2 dst flags 6"
+>> FWIW Richard, yes wrapping most of kauditd_thread *should* resolve
+>> this but it's pretty heavy handed and not my first choice.
+>
+> That's why the inner loops made a bit more sense since it wasn't really
+> necessary and ran afoul of the scheduler anyways.
 
-remove the previous changes and try the attached.
+One of my preferred options was to get us away from protecting
+everything with the audit_cmd_mutex by creating a new locking approach
+for the auditd connection state (using RCU/spinlocks since it rarely
+changes in practice) and leaving the audit_cmd_mutex for it's
+traditional role.  This should minimize the performance impact of the
+lock and clean things up a bit.  I'm also moving all the auditd
+connection state into a single struct (instead of several variables
+associated only by convention) which moves us oh so slightly closer to
+allowing multiple auditd connections (hey, it's something).
 
---------------8C1EEB2AC812F41C57ABCF58
-Content-Type: text/plain; charset=UTF-8; x-mac-type="0"; x-mac-creator="0";
- name="ipv6-debug.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="ipv6-debug.patch"
+It's taking a bit longer than expected as I'm dealing with a bit of a
+head cold (or something) and my mind is far less than 100% at the
+moment ...
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2RzdC5oIGIvaW5jbHVkZS9uZXQvZHN0LmgKaW5k
-ZXggMDQ5YWYzM2RhM2I2Li5kMTY0ZWI4Y2VhYjggMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0
-L2RzdC5oCisrKyBiL2luY2x1ZGUvbmV0L2RzdC5oCkBAIC01OCw2ICs1OCw3IEBAIHN0cnVj
-dCBkc3RfZW50cnkgewogI2RlZmluZSBEU1RfWEZSTV9UVU5ORUwJCTB4MDA4MAogI2RlZmlu
-ZSBEU1RfWEZSTV9RVUVVRQkJMHgwMTAwCiAjZGVmaW5lIERTVF9NRVRBREFUQQkJMHgwMjAw
-CisjZGVmaW5lIERTVF9JTl9GSUIJCTB4MDQwMAogCiAJc2hvcnQJCQllcnJvcjsKIApkaWZm
-IC0tZ2l0IGEvaW5jbHVkZS9uZXQvZHN0X29wcy5oIGIvaW5jbHVkZS9uZXQvZHN0X29wcy5o
-CmluZGV4IGM4NGIzMjg3ZTM4Yi4uY2QwZGY4Zjc2NDIwIDEwMDY0NAotLS0gYS9pbmNsdWRl
-L25ldC9kc3Rfb3BzLmgKKysrIGIvaW5jbHVkZS9uZXQvZHN0X29wcy5oCkBAIC0xNSw2ICsx
-NSw3IEBAIHN0cnVjdCBkc3Rfb3BzIHsKIAl1bnNpZ25lZCBzaG9ydAkJZmFtaWx5OwogCXVu
-c2lnbmVkIGludAkJZ2NfdGhyZXNoOwogCisJdm9pZAkJCSgqZHVtcCkoc3RydWN0IGRzdF9l
-bnRyeSAqKTsKIAlpbnQJCQkoKmdjKShzdHJ1Y3QgZHN0X29wcyAqb3BzKTsKIAlzdHJ1Y3Qg
-ZHN0X2VudHJ5ICoJKCpjaGVjaykoc3RydWN0IGRzdF9lbnRyeSAqLCBfX3UzMiBjb29raWUp
-OwogCXVuc2lnbmVkIGludAkJKCpkZWZhdWx0X2Fkdm1zcykoY29uc3Qgc3RydWN0IGRzdF9l
-bnRyeSAqKTsKZGlmZiAtLWdpdCBhL25ldC9jb3JlL2RzdC5jIGIvbmV0L2NvcmUvZHN0LmMK
-aW5kZXggOTYwZTUwM2I1YTUyLi5jOTg0NDdmZTg1MTAgMTAwNjQ0Ci0tLSBhL25ldC9jb3Jl
-L2RzdC5jCisrKyBiL25ldC9jb3JlL2RzdC5jCkBAIC0yMzIsNiArMjMyLDkgQEAgdm9pZCBf
-X2RzdF9mcmVlKHN0cnVjdCBkc3RfZW50cnkgKmRzdCkKIHsKIAlzcGluX2xvY2tfYmgoJmRz
-dF9nYXJiYWdlLmxvY2spOwogCV9fX2RzdF9mcmVlKGRzdCk7CitpZiAoZHN0LT5mbGFncyAm
-IERTVF9JTl9GSUIpCisJcHJfd2FybigiZHN0ICVwIGlzIG1hcmtlZCBhcyBpbiBmaWJcbiIs
-IGRzdCk7CisvL1dBUk5fT04oZHN0LT5mbGFncyAmIERTVF9JTl9GSUIpOwogCWRzdC0+bmV4
-dCA9IGRzdF9nYXJiYWdlLmxpc3Q7CiAJZHN0X2dhcmJhZ2UubGlzdCA9IGRzdDsKIAlpZiAo
-ZHN0X2dhcmJhZ2UudGltZXJfaW5jID4gRFNUX0dDX0lOQykgewpkaWZmIC0tZ2l0IGEvbmV0
-L2lwdjYvaXA2X2ZpYi5jIGIvbmV0L2lwdjYvaXA2X2ZpYi5jCmluZGV4IGU0MjY2NzQ2ZTRh
-Mi4uZDQ1MzlkOWE0NjNlIDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9pcDZfZmliLmMKKysrIGIv
-bmV0L2lwdjYvaXA2X2ZpYi5jCkBAIC0xNTUsNiArMTU1LDcgQEAgc3RhdGljIHZvaWQgbm9k
-ZV9mcmVlKHN0cnVjdCBmaWI2X25vZGUgKmZuKQogCiBzdGF0aWMgdm9pZCBydDZfcmN1X2Zy
-ZWUoc3RydWN0IHJ0Nl9pbmZvICpydCkKIHsKK1dBUk5fT04ocnQtPmRzdC5mbGFncyAmIERT
-VF9JTl9GSUIpOwogCWNhbGxfcmN1KCZydC0+ZHN0LnJjdV9oZWFkLCBkc3RfcmN1X2ZyZWUp
-OwogfQogCkBAIC04NzgsNiArODc5LDcgQEAgc3RhdGljIGludCBmaWI2X2FkZF9ydDJub2Rl
-KHN0cnVjdCBmaWI2X25vZGUgKmZuLCBzdHJ1Y3QgcnQ2X2luZm8gKnJ0LAogCQkJcmV0dXJu
-IGVycjsKIAogCQlydC0+ZHN0LnJ0Nl9uZXh0ID0gaXRlcjsKKwkJcnQtPmRzdC5mbGFncyB8
-PSBEU1RfSU5fRklCOwogCQkqaW5zID0gcnQ7CiAJCXJ0LT5ydDZpX25vZGUgPSBmbjsKIAkJ
-YXRvbWljX2luYygmcnQtPnJ0NmlfcmVmKTsKQEAgLTkwNyw2ICs5MDksNyBAQCBzdGF0aWMg
-aW50IGZpYjZfYWRkX3J0Mm5vZGUoc3RydWN0IGZpYjZfbm9kZSAqZm4sIHN0cnVjdCBydDZf
-aW5mbyAqcnQsCiAJCSppbnMgPSBydDsKIAkJcnQtPnJ0Nmlfbm9kZSA9IGZuOwogCQlydC0+
-ZHN0LnJ0Nl9uZXh0ID0gaXRlci0+ZHN0LnJ0Nl9uZXh0OworCQlydC0+ZHN0LmZsYWdzIHw9
-IERTVF9JTl9GSUI7CiAJCWF0b21pY19pbmMoJnJ0LT5ydDZpX3JlZik7CiAJCWlmICghaW5m
-by0+c2tpcF9ub3RpZnkpCiAJCQlpbmV0Nl9ydF9ub3RpZnkoUlRNX05FV1JPVVRFLCBydCwg
-aW5mbywgTkxNX0ZfUkVQTEFDRSk7CkBAIC05MTYsNiArOTE5LDcgQEAgc3RhdGljIGludCBm
-aWI2X2FkZF9ydDJub2RlKHN0cnVjdCBmaWI2X25vZGUgKmZuLCBzdHJ1Y3QgcnQ2X2luZm8g
-KnJ0LAogCQl9CiAJCW5zaWJsaW5ncyA9IGl0ZXItPnJ0NmlfbnNpYmxpbmdzOwogCQlmaWI2
-X3B1cmdlX3J0KGl0ZXIsIGZuLCBpbmZvLT5ubF9uZXQpOworCQlpdGVyLT5kc3QuZmxhZ3Mg
-Jj0gfkRTVF9JTl9GSUI7CiAJCXJ0Nl9yZWxlYXNlKGl0ZXIpOwogCiAJCWlmIChuc2libGlu
-Z3MpIHsKQEAgLTkyNiw2ICs5MzAsNyBAQCBzdGF0aWMgaW50IGZpYjZfYWRkX3J0Mm5vZGUo
-c3RydWN0IGZpYjZfbm9kZSAqZm4sIHN0cnVjdCBydDZfaW5mbyAqcnQsCiAJCQkJaWYgKHJ0
-Nl9xdWFsaWZ5X2Zvcl9lY21wKGl0ZXIpKSB7CiAJCQkJCSppbnMgPSBpdGVyLT5kc3QucnQ2
-X25leHQ7CiAJCQkJCWZpYjZfcHVyZ2VfcnQoaXRlciwgZm4sIGluZm8tPm5sX25ldCk7CisJ
-CQkJCWl0ZXItPmRzdC5mbGFncyAmPSB+RFNUX0lOX0ZJQjsKIAkJCQkJcnQ2X3JlbGVhc2Uo
-aXRlcik7CiAJCQkJCW5zaWJsaW5ncy0tOwogCQkJCX0gZWxzZSB7CkBAIC05NzQsNiArOTc5
-LDIxIEBAIGludCBmaWI2X2FkZChzdHJ1Y3QgZmliNl9ub2RlICpyb290LCBzdHJ1Y3QgcnQ2
-X2luZm8gKnJ0LAogCQkJICFhdG9taWNfcmVhZCgmcnQtPmRzdC5fX3JlZmNudCkpKQogCQly
-ZXR1cm4gLUVJTlZBTDsKIAoraWYgKHJ0LT5kc3Qub3BzLT5mYW1pbHkgIT0gQUZfSU5FVDYp
-IHsKKwlwcl93YXJuKCJmaWI2X2FkZDogYWRkaW5nIHJ0IHdpdGggZmFtaWx5IGlzICVkIGRz
-dCBmbGFncyAleFxuIiwKKwkJcnQtPmRzdC5vcHMtPmZhbWlseSwgcnQtPmRzdC5mbGFncyk7
-CisKKwlXQVJOX09OKDEpOworfQorLyogZHN0Lm5leHQgcmVhbGx5IHNob3VsZCBub3QgYmUg
-c2V0IGF0IHRoaXMgcG9pbnQgKi8KK2lmIChydC0+ZHN0Lm5leHQgJiYgcnQtPmRzdC5uZXh0
-LT5vcHMtPmZhbWlseSAhPSBBRl9JTkVUNikgeworCXByX3dhcm4oImZpYjZfYWRkOiBhZGRp
-bmcgcnQgd2l0aCBiYWQgbmV4dCAtLSBmYW1pbHkgJWQgZHN0IGZsYWdzICV4XG4iLAorCQly
-dC0+ZHN0Lm5leHQtPm9wcy0+ZmFtaWx5LCBydC0+ZHN0Lm5leHQtPmZsYWdzKTsKKworCWlm
-IChydC0+ZHN0Lm9wcy0+ZHVtcCkKKwkJcnQtPmRzdC5vcHMtPmR1bXAoJnJ0LT5kc3QpOwor
-fQorCiAJaWYgKGluZm8tPm5saCkgewogCQlpZiAoIShpbmZvLT5ubGgtPm5sbXNnX2ZsYWdz
-ICYgTkxNX0ZfQ1JFQVRFKSkKIAkJCWFsbG93X2NyZWF0ZSA9IDA7CkBAIC0xNDQ0LDYgKzE0
-NjQsNyBAQCBzdGF0aWMgdm9pZCBmaWI2X2RlbF9yb3V0ZShzdHJ1Y3QgZmliNl9ub2RlICpm
-biwgc3RydWN0IHJ0Nl9pbmZvICoqcnRwLAogCXJlYWRfdW5sb2NrKCZuZXQtPmlwdjYuZmli
-Nl93YWxrZXJfbG9jayk7CiAKIAlydC0+ZHN0LnJ0Nl9uZXh0ID0gTlVMTDsKKwlydC0+ZHN0
-LmZsYWdzICY9IH5EU1RfSU5fRklCOwogCiAJLyogSWYgaXQgd2FzIGxhc3Qgcm91dGUsIGV4
-cHVuZ2UgaXRzIHJhZGl4IHRyZWUgbm9kZSAqLwogCWlmICghZm4tPmxlYWYpIHsKZGlmZiAt
-LWdpdCBhL25ldC9pcHY2L3JvdXRlLmMgYi9uZXQvaXB2Ni9yb3V0ZS5jCmluZGV4IDIyOWJm
-Y2M0NTFlZi4uZTgzYjVlZjdmYmNkIDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9yb3V0ZS5jCisr
-KyBiL25ldC9pcHY2L3JvdXRlLmMKQEAgLTIzOCwxMCArMjM4LDIyIEBAIHN0YXRpYyB2b2lk
-IGlwNl9jb25maXJtX25laWdoKGNvbnN0IHN0cnVjdCBkc3RfZW50cnkgKmRzdCwgY29uc3Qg
-dm9pZCAqZGFkZHIpCiAJX19pcHY2X2NvbmZpcm1fbmVpZ2goZGV2LCBkYWRkcik7CiB9CiAK
-K3N0YXRpYyB2b2lkIGlwNl9kc3RfZHVtcChzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QpCit7CisJ
-c3RydWN0IHJ0Nl9pbmZvICpydCA9IChzdHJ1Y3QgcnQ2X2luZm8gKikgZHN0OworCisJcHJf
-d2FybigicnQgJXA6IGRldiAlcyBndyAlcEk2YyBkc3QgJXBJNmMvJWQgc3JjICVwSTZjIHBy
-ZWZzcmMgJXBJNmMgZmxhZ3MgJXggcnQ2aV9uc2libGluZ3MgJXVcbiIsCisJCXJ0LCBydC0+
-cnQ2aV9pZGV2ID8gcnQtPnJ0NmlfaWRldi0+ZGV2LT5uYW1lIDogIjx1bmtub3duPiIsCisJ
-CSZydC0+cnQ2aV9nYXRld2F5LCAmcnQtPnJ0NmlfZHN0LmFkZHIsIHJ0LT5ydDZpX2RzdC5w
-bGVuLAorCQkmcnQtPnJ0Nmlfc3JjLmFkZHIsICZydC0+cnQ2aV9wcmVmc3JjLmFkZHIsCisJ
-CXJ0LT5ydDZpX2ZsYWdzLCBydC0+cnQ2aV9uc2libGluZ3MpOworfQorCiBzdGF0aWMgc3Ry
-dWN0IGRzdF9vcHMgaXA2X2RzdF9vcHNfdGVtcGxhdGUgPSB7CiAJLmZhbWlseQkJCT0JQUZf
-SU5FVDYsCiAJLmdjCQkJPQlpcDZfZHN0X2djLAogCS5nY190aHJlc2gJCT0JMTAyNCwKKwku
-ZHVtcAkJCT0JaXA2X2RzdF9kdW1wLAogCS5jaGVjawkJCT0JaXA2X2RzdF9jaGVjaywKIAku
-ZGVmYXVsdF9hZHZtc3MJCT0JaXA2X2RlZmF1bHRfYWR2bXNzLAogCS5tdHUJCQk9CWlwNl9t
-dHUsCkBAIC0xMTM1LDYgKzExNDcsOCBAQCBzdHJ1Y3QgcnQ2X2luZm8gKmlwNl9wb2xfcm91
-dGUoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgZmliNl90YWJsZSAqdGFibGUsCiAKIAkJZHN0
-X2hvbGQoJnVuY2FjaGVkX3J0LT5kc3QpOwogCisJCXVuY2FjaGVkX3J0LT5kc3QuZmxhZ3Mg
-Jj0gfkRTVF9JTl9GSUI7CisKIAkJdHJhY2VfZmliNl90YWJsZV9sb29rdXAobmV0LCB1bmNh
-Y2hlZF9ydCwgdGFibGUtPnRiNl9pZCwgZmw2KTsKIAkJcmV0dXJuIHVuY2FjaGVkX3J0Owog
-CkBAIC0xMTYwLDYgKzExNzQsNyBAQCBzdHJ1Y3QgcnQ2X2luZm8gKmlwNl9wb2xfcm91dGUo
-c3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgZmliNl90YWJsZSAqdGFibGUsCiAJCQlkc3RfcmVs
-ZWFzZSgmcnQtPmRzdCk7CiAJCX0KIAorCQlwY3B1X3J0LT5kc3QuZmxhZ3MgJj0gfkRTVF9J
-Tl9GSUI7CiAJCXRyYWNlX2ZpYjZfdGFibGVfbG9va3VwKG5ldCwgcGNwdV9ydCwgdGFibGUt
-PnRiNl9pZCwgZmw2KTsKIAkJcmV0dXJuIHBjcHVfcnQ7CiAK
---------------8C1EEB2AC812F41C57ABCF58--
+-- 
+paul moore
+www.paul-moore.com
