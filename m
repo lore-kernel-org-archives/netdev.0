@@ -1,30 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/sched: act_skbmod: remove unneeded rcu_read_unlock
- in tcf_skbmod_dump
-Date: Tue, 07 Mar 2017 14:13:52 -0800 (PST)
-Message-ID: <20170307.141352.86084655936876518.davem@davemloft.net>
-References: <f9a9b434-ea38-3f7f-6207-8c7bc7317bc4@mojatatu.com>
-        <1488672115-11057-1-git-send-email-khoroshilov@ispras.ru>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: please add some examples to the ip man page
+Date: Tue, 7 Mar 2017 11:40:10 -0800
+Message-ID: <20170307114010.6204dd15@xeon-e3>
+References: <87pohsj42f.fsf@jidanni.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: khoroshilov@ispras.ru
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?56mN5Li55bC8?= Dan Jacobson <jidanni@jidanni.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37816 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756150AbdCGWPb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 17:15:31 -0500
-In-Reply-To: <1488672115-11057-1-git-send-email-khoroshilov@ispras.ru>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:34379 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756244AbdCGWPr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 17:15:47 -0500
+Received: by mail-pg0-f54.google.com with SMTP id 77so5280953pgc.1
+        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 14:14:51 -0800 (PST)
+In-Reply-To: <87pohsj42f.fsf@jidanni.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Date: Sun,  5 Mar 2017 03:01:55 +0300
+On Wed, 08 Mar 2017 03:10:32 +0800
+=E7=A9=8D=E4=B8=B9=E5=B0=BC Dan Jacobson <jidanni@jidanni.org> wrote:
 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> $ man ip
+> should have some usage examples. Even one would be fine.
 
-Applied and queued up for -stable, thanks.
+Sure. Submit a patch.
