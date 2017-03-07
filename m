@@ -1,8 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 17/22] net: mvpp2: add AXI bridge initialization
- for PPv2.2
-Date: Tue,  7 Mar 2017 16:53:15 +0100
-Message-ID: <1488902000-2658-18-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 21/22] net: mvpp2: set dma mask and coherent dma
+ mask on PPv2.2
+Date: Tue,  7 Mar 2017 16:53:19 +0100
+Message-ID: <1488902000-2658-22-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,123 +33,42 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The PPv2.2 unit is connected to an AXI bus on Armada 7K/8K, so this
-commit adds the necessary initialization of the AXI bridge.
+On PPv2.2, the streaming mappings can be anywhere in the first 40 bits
+of the physical address space. However, for the coherent mappings, we
+still need them to be in the first 32 bits of the address space,
+because all BM pools share a single register to store the high 32 bits
+of the BM pool address, which means all BM pools must be allocated in
+the same 4GB memory area.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 85 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 85 insertions(+)
+ drivers/net/ethernet/marvell/mvpp2.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index bd7dc4b6..0e10303 100644
+index 0a3c470..92c47f3 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -154,6 +154,34 @@
- #define MVPP2_WIN_REMAP(w)			(0x4040 + ((w) << 2))
- #define MVPP2_BASE_ADDR_ENABLE			0x4060
+@@ -6941,6 +6941,20 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	/* Get system's tclk rate */
+ 	priv->tclk = clk_get_rate(priv->pp_clk);
  
-+/* AXI Bridge Registers */
-+#define MVPP22_AXI_BM_WR_ATTR_REG		0x4100
-+#define MVPP22_AXI_BM_RD_ATTR_REG		0x4104
-+#define MVPP22_AXI_AGGRQ_DESCR_RD_ATTR_REG	0x4110
-+#define MVPP22_AXI_TXQ_DESCR_WR_ATTR_REG	0x4114
-+#define MVPP22_AXI_TXQ_DESCR_RD_ATTR_REG	0x4118
-+#define MVPP22_AXI_RXQ_DESCR_WR_ATTR_REG	0x411c
-+#define MVPP22_AXI_RX_DATA_WR_ATTR_REG		0x4120
-+#define MVPP22_AXI_TX_DATA_RD_ATTR_REG		0x4130
-+#define MVPP22_AXI_RD_NORMAL_CODE_REG		0x4150
-+#define MVPP22_AXI_RD_SNOOP_CODE_REG		0x4154
-+#define MVPP22_AXI_WR_NORMAL_CODE_REG		0x4160
-+#define MVPP22_AXI_WR_SNOOP_CODE_REG		0x4164
++	if (priv->hw_version == MVPP22) {
++		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(40));
++		if (err)
++			goto err_mg_clk;
++		/* Sadly, the BM pools all share the same register to
++		 * store the high 32 bits of their address. So they
++		 * must all have the same high 32 bits, which forces
++		 * us to restrict coherent memory to DMA_BIT_MASK(32).
++		 */
++		err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
++		if (err)
++			goto err_mg_clk;
++	}
 +
-+/* Values for AXI Bridge registers */
-+#define MVPP22_AXI_ATTR_CACHE_OFFS		0
-+#define MVPP22_AXI_ATTR_DOMAIN_OFFS		12
-+
-+#define MVPP22_AXI_CODE_CACHE_OFFS		0
-+#define MVPP22_AXI_CODE_DOMAIN_OFFS		4
-+
-+#define MVPP22_AXI_CODE_CACHE_NON_CACHE		0x3
-+#define MVPP22_AXI_CODE_CACHE_WR_CACHE		0x7
-+#define MVPP22_AXI_CODE_CACHE_RD_CACHE		0xb
-+
-+#define MVPP22_AXI_CODE_DOMAIN_OUTER_DOM	2
-+#define MVPP22_AXI_CODE_DOMAIN_SYSTEM		3
-+
- /* Interrupt Cause and Mask registers */
- #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
- #define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
-@@ -6664,6 +6692,60 @@ static void mvpp2_rx_fifo_init(struct mvpp2 *priv)
- 	mvpp2_write(priv, MVPP2_RX_FIFO_INIT_REG, 0x1);
- }
- 
-+static void mvpp2_axi_init(struct mvpp2 *priv)
-+{
-+	u32 val, rdval, wrval;
-+
-+	mvpp2_write(priv, MVPP22_BM_ADDR_HIGH_RLS_REG, 0x0);
-+
-+	/* AXI Bridge Configuration */
-+
-+	rdval = MVPP22_AXI_CODE_CACHE_RD_CACHE
-+		<< MVPP22_AXI_ATTR_CACHE_OFFS;
-+	rdval |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
-+		<< MVPP22_AXI_ATTR_DOMAIN_OFFS;
-+
-+	wrval = MVPP22_AXI_CODE_CACHE_WR_CACHE
-+		<< MVPP22_AXI_ATTR_CACHE_OFFS;
-+	wrval |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
-+		<< MVPP22_AXI_ATTR_DOMAIN_OFFS;
-+
-+	/* BM */
-+	mvpp2_write(priv, MVPP22_AXI_BM_WR_ATTR_REG, wrval);
-+	mvpp2_write(priv, MVPP22_AXI_BM_RD_ATTR_REG, rdval);
-+
-+	/* Descriptors */
-+	mvpp2_write(priv, MVPP22_AXI_AGGRQ_DESCR_RD_ATTR_REG, rdval);
-+	mvpp2_write(priv, MVPP22_AXI_TXQ_DESCR_WR_ATTR_REG, wrval);
-+	mvpp2_write(priv, MVPP22_AXI_TXQ_DESCR_RD_ATTR_REG, rdval);
-+	mvpp2_write(priv, MVPP22_AXI_RXQ_DESCR_WR_ATTR_REG, wrval);
-+
-+	/* Buffer Data */
-+	mvpp2_write(priv, MVPP22_AXI_TX_DATA_RD_ATTR_REG, rdval);
-+	mvpp2_write(priv, MVPP22_AXI_RX_DATA_WR_ATTR_REG, wrval);
-+
-+	val = MVPP22_AXI_CODE_CACHE_NON_CACHE
-+		<< MVPP22_AXI_CODE_CACHE_OFFS;
-+	val |= MVPP22_AXI_CODE_DOMAIN_SYSTEM
-+		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
-+	mvpp2_write(priv, MVPP22_AXI_RD_NORMAL_CODE_REG, val);
-+	mvpp2_write(priv, MVPP22_AXI_WR_NORMAL_CODE_REG, val);
-+
-+	val = MVPP22_AXI_CODE_CACHE_RD_CACHE
-+		<< MVPP22_AXI_CODE_CACHE_OFFS;
-+	val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
-+		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
-+
-+	mvpp2_write(priv, MVPP22_AXI_RD_SNOOP_CODE_REG, val);
-+
-+	val = MVPP22_AXI_CODE_CACHE_WR_CACHE
-+		<< MVPP22_AXI_CODE_CACHE_OFFS;
-+	val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
-+		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
-+
-+	mvpp2_write(priv, MVPP22_AXI_WR_SNOOP_CODE_REG, val);
-+}
-+
- /* Initialize network controller common part HW */
- static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- {
-@@ -6683,6 +6765,9 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 	if (dram_target_info)
- 		mvpp2_conf_mbus_windows(dram_target_info, priv);
- 
-+	if (priv->hw_version == MVPP22)
-+		mvpp2_axi_init(priv);
-+
- 	/* Disable HW PHY polling */
- 	if (priv->hw_version == MVPP21) {
- 		val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
+ 	/* Initialize network controller */
+ 	err = mvpp2_init(pdev, priv);
+ 	if (err < 0) {
 -- 
 2.7.4
