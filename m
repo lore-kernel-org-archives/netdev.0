@@ -1,13 +1,13 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 2/4] net: thunderx: Fix LMAC mode debug prints for QSGMII
- mode
-Date: Tue,  7 Mar 2017 18:09:09 +0530
-Message-ID: <1488890351-18493-3-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 4/4] net: thunderx: Allow IPv6 frames with zero UDP checksum
+Date: Tue,  7 Mar 2017 18:09:11 +0530
+Message-ID: <1488890351-18493-5-git-send-email-sunil.kovvuri@gmail.com>
 References: <1488890351-18493-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
+Cc: Sunil Goutham <sgoutham@cavium.com>,
+ Thanneeru Srinivasulu <tsrinivasulu@cavium.com>, linux-kernel@vger.kernel.org,
  linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
@@ -23,34 +23,34 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
 
-When BGX/LMACs are in QSGMII mode, for some LMACs, mode info is
-not being printed. This patch will fix that. With changes already
-done to not do any sort of serdes 2 lane mapping config calculation
-in kernel driver, we can get rid of this logic.
+Do not consider IPv6 frames with zero UDP checksum as frames
+with bad checksum and drop them.
 
+Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 4c8e8cf..9b8a53e 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -1011,12 +1011,6 @@ static void bgx_print_qlm_mode(struct bgx *bgx, u8 lmacid)
- 			dev_info(dev, "%s: 40G_KR4\n", (char *)str);
- 		break;
- 	case BGX_MODE_QSGMII:
--		if ((lmacid == 0) &&
--		    (bgx_get_lane2sds_cfg(bgx, lmac) != lmacid))
--			return;
--		if ((lmacid == 2) &&
--		    (bgx_get_lane2sds_cfg(bgx, lmac) == lmacid))
--			return;
- 		dev_info(dev, "%s: QSGMII\n", (char *)str);
- 		break;
- 	case BGX_MODE_RGMII:
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index b1962db..f13289f 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -622,9 +622,11 @@ static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
+ 	nicvf_send_msg_to_pf(nic, &mbx);
+ 
+ 	if (!nic->sqs_mode && (qidx == 0)) {
+-		/* Enable checking L3/L4 length and TCP/UDP checksums */
++		/* Enable checking L3/L4 length and TCP/UDP checksums
++		 * Also allow IPv6 pkts with zero UDP checksum.
++		 */
+ 		nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, 0,
+-				      (BIT(24) | BIT(23) | BIT(21)));
++				      (BIT(24) | BIT(23) | BIT(21) | BIT(20)));
+ 		nicvf_config_vlan_stripping(nic, nic->netdev->features);
+ 	}
+ 
 -- 
 2.7.4
