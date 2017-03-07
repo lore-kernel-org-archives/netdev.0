@@ -1,17 +1,24 @@
-From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 4/4] net: thunderx: Allow IPv6 frames with zero UDP checksum
-Date: Tue,  7 Mar 2017 18:09:11 +0530
-Message-ID: <1488890351-18493-5-git-send-email-sunil.kovvuri@gmail.com>
-References: <1488890351-18493-1-git-send-email-sunil.kovvuri@gmail.com>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH 1/4] net: thunderx: Fix IOMMU translation faults
+Date: Tue, 7 Mar 2017 18:14:31 +0530
+Message-ID: <CA+sq2CfCS1aQGtCwVxhzMU3QmKy+tE6j2Zvq=U9aTodvDTFdvA@mail.gmail.com>
+References: <1488538070-12549-1-git-send-email-sunil.kovvuri@gmail.com>
+ <1488538070-12549-2-git-send-email-sunil.kovvuri@gmail.com>
+ <20170303.095635.355325147613813698.davem@davemloft.net>
+ <CA+sq2CcFxk=LuqYhR-sFaVVSu3rMaZUcytx-3tC9kEiRFNwREg@mail.gmail.com>
+ <cad7da5d-fce7-cef2-d0db-9585c31f0575@arm.com>
+ <CA+sq2CeiXZNwVsURxNNE+vxf3uhjM=vnKtb2nhtLRj6QwHKWrw@mail.gmail.com>
+ <9a809c6e-3b01-4deb-e69e-65aa62d1e5e1@arm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>,
- Thanneeru Srinivasulu <tsrinivasulu@cavium.com>, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+ Sunil Goutham <sgoutham@cavium.com>, David Miller <davem@davemloft.net>,
+ LAKML <linux-arm-kernel@lists.infradead.org>,
+ LKML <linux-kernel@vger.kernel.org>
+To: Robin Murphy <robin.murphy@arm.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1488890351-18493-1-git-send-email-sunil.kovvuri@gmail.com>
+In-Reply-To: <9a809c6e-3b01-4deb-e69e-65aa62d1e5e1@arm.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -23,34 +30,40 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
+On Mon, Mar 6, 2017 at 10:02 PM, Robin Murphy <robin.murphy@arm.com> wrote:
+> On 06/03/17 12:57, Sunil Kovvuri wrote:
+>>>>
+>>>> We are seeing a 0.75Mpps drop with IP forwarding rate due to that.
+>>>> Hence I have restricted calling DMA interfaces to only when IOMMU is enabled.
+>>>
+>>> What's 0.07Mpps as a percentage of baseline? On a correctly configured
+>>> coherent arm64 system, in the absence of an IOMMU, dma_map_*() is
+>>> essentially just virt_to_phys() behind a function call or two, so I'd be
+>>> interested to know where any non-trivial overhead might be coming from.
+>>
+>> It's a 5% drop and yes device is configured as coherent.
+>> And the drop is due to additional function calls.
+>
+> OK, interesting - sounds like there's potential for some optimisation
+> there as well. AFAICS the callchain goes:
+>
+> dma_map_single_attrs (inline)
+> - ops->map_page (__swiotlb_map_page)
+>   - swiotlb_map_page
+>     - phys_to_dma (inline)
+>     - dma_capable (inline)
+>
+> Do you happen to have a breakdown of where the time goes? If it's mostly
+> just in the indirect branch our options are limited (I'm guessing
+> ThunderX doesn't have a particularly fancy branch predictor, if it's not
+> even got a data prefetcher), but if it's in the SWIOTLB code then
+> there's certainly room for improvement (which will hopefully tie in with
+> some DMA ops work I'm planning to do soon anyway).
 
-Do not consider IPv6 frames with zero UDP checksum as frames
-with bad checksum and drop them.
+It's the branching which is costing the performance, as you said nothing
+much can be done in the common code for this. Anyway I have submitted
+new patch without conditional calling of DMA APIs, will look into reducing
+performance impact (if possible implement recycling) a bit later.
 
-Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index b1962db..f13289f 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -622,9 +622,11 @@ static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
- 	nicvf_send_msg_to_pf(nic, &mbx);
- 
- 	if (!nic->sqs_mode && (qidx == 0)) {
--		/* Enable checking L3/L4 length and TCP/UDP checksums */
-+		/* Enable checking L3/L4 length and TCP/UDP checksums
-+		 * Also allow IPv6 pkts with zero UDP checksum.
-+		 */
- 		nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, 0,
--				      (BIT(24) | BIT(23) | BIT(21)));
-+				      (BIT(24) | BIT(23) | BIT(21) | BIT(20)));
- 		nicvf_config_vlan_stripping(nic, nic->netdev->features);
- 	}
- 
--- 
-2.7.4
+Thanks,
+Sunil.
