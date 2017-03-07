@@ -1,46 +1,37 @@
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Subject: Re: [RFC PATCH] uapi: fix linux/packet_diag.h userspace compilation error
-Date: Tue, 7 Mar 2017 23:28:02 +0300
-Message-ID: <20170307202802.GA19323@altlinux.org>
-References: <20170228013930.GA28056@altlinux.org> <20170307.121649.968411437349940435.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1 net-next] net: dwc-xlgmac: Initial driver for
+ DesignWare Enterprise Ethernet
+Date: Tue, 07 Mar 2017 12:34:06 -0800 (PST)
+Message-ID: <20170307.123406.1777577205348543307.davem@davemloft.net>
+References: <9c5935b28ca61ec4ceb20bac0cc830e2e57028b9.1488331400.git.jiedeng@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@virtuozzo.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jie.Deng1@synopsys.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170307.121649.968411437349940435.davem@davemloft.net>
+In-Reply-To: <9c5935b28ca61ec4ceb20bac0cc830e2e57028b9.1488331400.git.jiedeng@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 07, 2017 at 12:16:49PM -0800, David Miller wrote:
-> From: "Dmitry V. Levin" <ldv@altlinux.org>
-> Date: Tue, 28 Feb 2017 04:39:30 +0300
-> 
-> > Replace MAX_ADDR_LEN with its numeric value to fix the following
-> > linux/packet_diag.h userspace compilation error:
-> > 
-> > /usr/include/linux/packet_diag.h:67:17: error: 'MAX_ADDR_LEN' undeclared here (not in a function)
-> >   __u8 pdmc_addr[MAX_ADDR_LEN];
-> > 
-> > This is not the first case in the UAPI where the numeric value
-> > of MAX_ADDR_LEN is used, uapi/linux/if_link.h already does the same,
-> > and there are no UAPI headers besides these two that use MAX_ADDR_LEN.
-> > 
-> > The alternative fix would be to include <linux/netdevice.h> which
-> > pulls in other headers and a lot of definitions with them.
-> > 
-> > Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-> 
-> If if_link.h includes netdevice.h properly, let's try to do the same here as well.
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Date: Wed, 1 Mar 2017 12:00:25 +0800
 
-Sorry if my words weren't clear enough: no, if_link.h doesn't include
-netdevice.h, it uses the _numeric_ value instead:
+> +static int xlgmac_init(struct xlgmac_pdata *pdata)
+> +{
+> +	struct net_device *netdev = pdata->netdev;
+> +	struct xlgmac_hw_ops *hw_ops = &pdata->hw_ops;
 
-$ grep MAX_ADDR_LEN include/uapi/linux/if_link.h 
-	__u8 mac[32]; /* MAX_ADDR_LEN */
+Please order local variable declarations from longest to shortest line.
 
+Please fix this in your entire submission.
 
--- 
-ldv
+> +
+> +err_netdev_register:
+> +err_init:
+
+Avoid multiple error labels in the same exact location, by having only
+one which describes what the error path unwinds.  For example,  here you
+could say "err_free_netdev".
+
+Please fix this up in your entire submission.
