@@ -1,79 +1,38 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: via: via-rhine: use new api ethtool_{get|set}_link_ksettings
-Date: Tue,  7 Mar 2017 23:46:16 +0100
-Message-ID: <1488926776-11073-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, mugunthanvnm@ti.com, a@unstable.cc,
-        fw@strlen.de, jarod@redhat.com, stephen@networkplumber.org,
-        edumazet@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH net-next] net: stmicro: replace kzalloc with devm_kzalloc
+Date: Tue,  7 Mar 2017 15:27:36 +0000
+Message-ID: <4e6c083db31dc7a6991401d9d045d3cd89d069b1.1488900195.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:54702 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756581AbdCHACB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 19:02:01 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+The axi variable was not being freed upon device removal.
+With devm_kzalloc it ensures that it is properly freed.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
-
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
- drivers/net/ethernet/via/via-rhine.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index c068c58..4cf41f7 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -2303,25 +2303,27 @@ static void netdev_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *i
- 	strlcpy(info->bus_info, dev_name(hwdev), sizeof(info->bus_info));
- }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 433a842..0ba1caf 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -108,7 +108,7 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
+ 	if (!np)
+ 		return NULL;
  
--static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int netdev_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
- 	int rc;
- 
- 	mutex_lock(&rp->task_lock);
--	rc = mii_ethtool_gset(&rp->mii_if, cmd);
-+	rc = mii_ethtool_get_link_ksettings(&rp->mii_if, cmd);
- 	mutex_unlock(&rp->task_lock);
- 
- 	return rc;
- }
- 
--static int netdev_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int netdev_set_link_ksettings(struct net_device *dev,
-+				     const struct ethtool_link_ksettings *cmd)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
- 	int rc;
- 
- 	mutex_lock(&rp->task_lock);
--	rc = mii_ethtool_sset(&rp->mii_if, cmd);
-+	rc = mii_ethtool_set_link_ksettings(&rp->mii_if, cmd);
- 	rhine_set_carrier(&rp->mii_if);
- 	mutex_unlock(&rp->task_lock);
- 
-@@ -2391,14 +2393,14 @@ static int rhine_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- 
- static const struct ethtool_ops netdev_ethtool_ops = {
- 	.get_drvinfo		= netdev_get_drvinfo,
--	.get_settings		= netdev_get_settings,
--	.set_settings		= netdev_set_settings,
- 	.nway_reset		= netdev_nway_reset,
- 	.get_link		= netdev_get_link,
- 	.get_msglevel		= netdev_get_msglevel,
- 	.set_msglevel		= netdev_set_msglevel,
- 	.get_wol		= rhine_get_wol,
- 	.set_wol		= rhine_set_wol,
-+	.get_link_ksettings	= netdev_get_link_ksettings,
-+	.set_link_ksettings	= netdev_set_link_ksettings,
- };
- 
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+-	axi = kzalloc(sizeof(*axi), GFP_KERNEL);
++	axi = devm_kzalloc(&pdev->dev, sizeof(*axi), GFP_KERNEL);
+ 	if (!axi) {
+ 		of_node_put(np);
+ 		return ERR_PTR(-ENOMEM);
 -- 
-1.7.4.4
+2.9.3
