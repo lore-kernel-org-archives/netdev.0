@@ -1,38 +1,52 @@
-From: Geoff Levand <geoff@infradead.org>
-Subject: Re: [PATCH] net: toshiba: ps3_genic_net: use new api
- ethtool_{get|set}_link_ksettings
-Date: Tue, 7 Mar 2017 11:40:17 -0800
-Message-ID: <59884351-386f-f904-790b-186fc1bf58e2@infradead.org>
-References: <1488752466-27232-1-git-send-email-tremyfr@gmail.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: add support for XPS
+Date: Tue, 7 Mar 2017 11:40:41 -0800
+Message-ID: <20170307194041.GA13791@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>, benh@kernel.crashing.org,
- paulus@samba.org, mpe@ellerman.id.au, davem@davemloft.net
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1488752466-27232-1-git-send-email-tremyfr@gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam03on0071.outbound.protection.outlook.com ([104.47.42.71]:13766
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755292AbdCGTmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Mar 2017 14:42:09 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/05/2017 02:21 PM, Philippe Reynes wrote:
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
->
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
+From: Rick Farrington <ricardo.farrington@cavium.com>
 
-I tested this applied to v4.11-rc1 and it seems to work OK.
-Thanks for your contribution.
+Add support for XPS.
 
-Tested-by: Geoff Levand <geoff@infradead.org>
+Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index be9c0e3..dffed43 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2553,6 +2553,15 @@ static inline int setup_io_queues(struct octeon_device *octeon_dev,
+ 				__func__);
+ 			return 1;
+ 		}
++
++		if (octeon_dev->ioq_vector) {
++			struct octeon_ioq_vector *ioq_vector;
++
++			ioq_vector = &octeon_dev->ioq_vector[q];
++			netif_set_xps_queue(netdev,
++					    &ioq_vector->affinity_mask,
++					    ioq_vector->iq_index);
++		}
+ 	}
+ 
+ 	return 0;
