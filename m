@@ -1,8 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 21/22] net: mvpp2: set dma mask and coherent dma
- mask on PPv2.2
-Date: Tue,  7 Mar 2017 16:53:19 +0100
-Message-ID: <1488902000-2658-22-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 19/22] net: mvpp2: adapt rxq distribution to PPv2.2
+Date: Tue,  7 Mar 2017 16:53:17 +0100
+Message-ID: <1488902000-2658-20-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,42 +32,148 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On PPv2.2, the streaming mappings can be anywhere in the first 40 bits
-of the physical address space. However, for the coherent mappings, we
-still need them to be in the first 32 bits of the address space,
-because all BM pools share a single register to store the high 32 bits
-of the BM pool address, which means all BM pools must be allocated in
-the same 4GB memory area.
+In PPv2.1, we have a maximum of 8 RXQs per port, with a default of 4
+RXQs per port, and we were assigning RXQs 0->3 to the first port, 4->7
+to the second port, 8->11 to the third port, etc.
+
+In PPv2.2, we have a maximum of 32 RXQs per port, and we must allocate
+RXQs from the range of 32 RXQs available for each port. So port 0 must
+use RXQs in the range 0->31, port 1 in the range 32->63, etc.
+
+This commit adapts the mvpp2 to this difference between PPv2.1 and
+PPv2.2:
+
+ - The constant definition MVPP2_MAX_RXQ is replaced by a new field
+   'max_port_rxqs' in 'struct mvpp2', which stores the maximum number of
+   RXQs per port. This field is initialized during ->probe() depending
+   on the IP version.
+
+ - MVPP2_RXQ_TOTAL_NUM is removed, and instead we calculate the total
+   number of RXQs by multiplying the number of ports by the maximum of
+   RXQs per port. This was anyway used in only one place.
+
+ - In mvpp2_port_probe(), the calculation of port->first_rxq is adjusted
+   to cope with the different allocation strategy between PPv2.1 and
+   PPv2.2. Due to this change, the 'next_first_rxq' argument of this
+   function is no longer needed and is removed.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/marvell/mvpp2.c | 35 +++++++++++++++++++----------------
+ 1 file changed, 19 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 0a3c470..92c47f3 100644
+index 21f47d2..1bb1aa5 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -6941,6 +6941,20 @@ static int mvpp2_probe(struct platform_device *pdev)
- 	/* Get system's tclk rate */
- 	priv->tclk = clk_get_rate(priv->pp_clk);
+@@ -402,15 +402,9 @@
+ /* Maximum number of TXQs used by single port */
+ #define MVPP2_MAX_TXQ			8
  
-+	if (priv->hw_version == MVPP22) {
-+		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(40));
-+		if (err)
-+			goto err_mg_clk;
-+		/* Sadly, the BM pools all share the same register to
-+		 * store the high 32 bits of their address. So they
-+		 * must all have the same high 32 bits, which forces
-+		 * us to restrict coherent memory to DMA_BIT_MASK(32).
-+		 */
-+		err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
-+		if (err)
-+			goto err_mg_clk;
-+	}
+-/* Maximum number of RXQs used by single port */
+-#define MVPP2_MAX_RXQ			8
+-
+ /* Dfault number of RXQs in use */
+ #define MVPP2_DEFAULT_RXQ		4
+ 
+-/* Total number of RXQs available to all ports */
+-#define MVPP2_RXQ_TOTAL_NUM		(MVPP2_MAX_PORTS * MVPP2_MAX_RXQ)
+-
+ /* Max number of Rx descriptors */
+ #define MVPP2_MAX_RXD			128
+ 
+@@ -730,6 +724,9 @@ struct mvpp2 {
+ 
+ 	/* HW version */
+ 	enum { MVPP21, MVPP22 } hw_version;
 +
- 	/* Initialize network controller */
- 	err = mvpp2_init(pdev, priv);
- 	if (err < 0) {
++	/* Maximum number of RXQs per port */
++	unsigned int max_port_rxqs;
+ };
+ 
+ struct mvpp2_pcpu_stats {
+@@ -6352,7 +6349,8 @@ static int mvpp2_port_init(struct mvpp2_port *port)
+ 	struct mvpp2_txq_pcpu *txq_pcpu;
+ 	int queue, cpu, err;
+ 
+-	if (port->first_rxq + rxq_number > MVPP2_RXQ_TOTAL_NUM)
++	if (port->first_rxq + rxq_number >
++	    MVPP2_MAX_PORTS * priv->max_port_rxqs)
+ 		return -EINVAL;
+ 
+ 	/* Disable port */
+@@ -6473,8 +6471,7 @@ static int mvpp2_port_init(struct mvpp2_port *port)
+ /* Ports initialization */
+ static int mvpp2_port_probe(struct platform_device *pdev,
+ 			    struct device_node *port_node,
+-			    struct mvpp2 *priv,
+-			    int *next_first_rxq)
++			    struct mvpp2 *priv)
+ {
+ 	struct device_node *phy_node;
+ 	struct mvpp2_port *port;
+@@ -6532,7 +6529,11 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 
+ 	port->priv = priv;
+ 	port->id = id;
+-	port->first_rxq = *next_first_rxq;
++	if (priv->hw_version == MVPP21)
++		port->first_rxq = port->id * rxq_number;
++	else
++		port->first_rxq = port->id * priv->max_port_rxqs;
++
+ 	port->phy_node = phy_node;
+ 	port->phy_interface = phy_mode;
+ 
+@@ -6632,8 +6633,6 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 	}
+ 	netdev_info(dev, "Using %s mac address %pM\n", mac_from, dev->dev_addr);
+ 
+-	/* Increment the first Rx queue number to be used by the next port */
+-	*next_first_rxq += rxq_number;
+ 	priv->port_list[id] = port;
+ 	return 0;
+ 
+@@ -6779,7 +6778,7 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 	u32 val;
+ 
+ 	/* Checks for hardware constraints */
+-	if (rxq_number % 4 || (rxq_number > MVPP2_MAX_RXQ) ||
++	if (rxq_number % 4 || (rxq_number > priv->max_port_rxqs) ||
+ 	    (txq_number > MVPP2_MAX_TXQ)) {
+ 		dev_err(&pdev->dev, "invalid queue size parameter\n");
+ 		return -EINVAL;
+@@ -6870,7 +6869,7 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	struct mvpp2 *priv;
+ 	struct resource *res;
+ 	void __iomem *base;
+-	int port_count, first_rxq, cpu;
++	int port_count, cpu;
+ 	int err;
+ 
+ 	priv = devm_kzalloc(&pdev->dev, sizeof(struct mvpp2), GFP_KERNEL);
+@@ -6905,6 +6904,11 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 		priv->cpu_base[cpu] = base + cpu * addr_space_sz;
+ 	}
+ 
++	if (priv->hw_version == MVPP21)
++		priv->max_port_rxqs = 8;
++	else
++		priv->max_port_rxqs = 32;
++
+ 	priv->pp_clk = devm_clk_get(&pdev->dev, "pp_clk");
+ 	if (IS_ERR(priv->pp_clk))
+ 		return PTR_ERR(priv->pp_clk);
+@@ -6947,9 +6951,8 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	/* Initialize ports */
+-	first_rxq = 0;
+ 	for_each_available_child_of_node(dn, port_node) {
+-		err = mvpp2_port_probe(pdev, port_node, priv, &first_rxq);
++		err = mvpp2_port_probe(pdev, port_node, priv);
+ 		if (err < 0)
+ 			goto err_gop_clk;
+ 	}
 -- 
 2.7.4
