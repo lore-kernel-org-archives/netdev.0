@@ -1,55 +1,32 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net 0/3] rds: tcp: fix various rds-tcp issues during netns
- create/delete sequences
-Date: Tue, 7 Mar 2017 08:29:21 -0800
-Message-ID: <c758fee8-c854-4bbd-ce83-8b3fe12ace9c@oracle.com>
-References: <cover.1488645926.git.sowmini.varadhan@oracle.com>
- <125d878b-ac8d-dcfd-d1ff-1b1a84cff5a5@oracle.com>
- <CACT4Y+aKp6LPUSR4yivWKMFjC1QeC7qbqiQ7hFCwj+RhDt5Msw@mail.gmail.com>
+From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/1] rds: ib: add error handle
+Date: Tue, 7 Mar 2017 08:43:48 -0800
+Message-ID: <b858bdfc-fe2a-9595-577f-501bfa6ec21f@oracle.com>
+References: <1488872916-24751-1-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>, rds-devel@oss.oracle.com
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1050.oracle.com ([141.146.126.70]:24229 "EHLO
-        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755476AbdCGQaU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 11:30:20 -0500
-Received: from aserp1040.oracle.com (aserp1040.oracle.com [141.146.126.69])
-        by aserp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v27GU6AD018590
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Tue, 7 Mar 2017 16:30:06 GMT
-In-Reply-To: <CACT4Y+aKp6LPUSR4yivWKMFjC1QeC7qbqiQ7hFCwj+RhDt5Msw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+        yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1488872916-24751-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 3/7/2017 12:28 AM, Dmitry Vyukov wrote:
-> On Tue, Mar 7, 2017 at 2:04 AM, santosh.shilimkar@oracle.com
-> <santosh.shilimkar@oracle.com> wrote:
->> On 3/4/17 8:57 AM, Sowmini Varadhan wrote:
->>>
->>> Dmitry Vyukov reported some syszkaller panics during netns deletion.
->>>
->>> While I have not been able to reproduce those exact panics, my attempts
->>> to do so uncovered a few other problems, which are fixed patch 2 and
->>> patch 3 of this patch series. In addition, as mentioned in,
->>>  https://www.spinics.net/lists/netdev/msg422997.html
->>> code-inspection points that the rds_connection needs to take an explicit
->>> refcnt on the struct net so that it is held down until all cleanup is
->>> completed for netns removal, and this is fixed by patch1.
->>>
->> Hopefully Dmitry can try the series and see if it fixes the issue(s).
->> The fixes looks good to me.
->>
->> FWIW, Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+On 3/6/2017 11:48 PM, Zhu Yanjun wrote:
+> In the function rds_ib_setup_qp, the error handle is missing. When some
+> error occurs, it is possible that memory leak occurs. As such, error
+> handle is added.
 >
->
-> I've applied the patches for testing. I've seen the reported crashes
-> only few times, so it won't provide a good testing. But at least it
-> can detect any regressions.
->
-Thanks Dmitry !!
+> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Guanglei Li <guanglei.li-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> ---
+Looks good.
+Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
