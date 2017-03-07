@@ -1,112 +1,182 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next 1/2] net: Avoid unnessary loop when master_idx is invalid in inet_select_addr
-Date: Tue,  7 Mar 2017 22:50:59 +0800
-Message-ID: <1488898259-18874-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, netdev@vger.kernel.org, gfree.wind@gmail.com
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH v2] {net,IB}/{rxe,usnic}: Utilize generic mac to eui32
+ function
+Date: Tue, 7 Mar 2017 16:27:11 +0200
+Message-ID: <20170307142711.GS14379@mtr-leonro.local>
+References: <1488826446-4173-1-git-send-email-yuval.shaia@oracle.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="fjEAjMKpll6GDq3U"
+Cc: benve@cisco.com, dgoodell@cisco.com, dledford@redhat.com,
+        sean.hefty@intel.com, hal.rosenstock@gmail.com, monis@mellanox.com,
+        davem@davemloft.net, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Yuval Shaia <yuval.shaia@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg342.qq.com ([14.17.44.37]:55374 "EHLO smtpbg342.qq.com"
+Received: from mail.kernel.org ([198.145.29.136]:35474 "EHLO mail.kernel.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751270AbdCGO5A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Mar 2017 09:57:00 -0500
+        id S932531AbdCGPFd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Mar 2017 10:05:33 -0500
+Content-Disposition: inline
+In-Reply-To: <1488826446-4173-1-git-send-email-yuval.shaia@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
 
-When master_idx is invalid, it is zero. It is unnecessary to iterate
-all netdevs. Because l3mdev_master_ifindex_rcu(dev) != master_idx must
-be true.
-Now put this loop into the condition block when master_idx is valid.
+--fjEAjMKpll6GDq3U
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/ipv4/devinet.c | 68 +++++++++++++++++++++++++++++-------------------------
- 1 file changed, 36 insertions(+), 32 deletions(-)
+On Mon, Mar 06, 2017 at 08:54:06PM +0200, Yuval Shaia wrote:
+> This logic seems to be duplicated in (at least) three separate files.
+> Move it to one place so code can be re-use.
+>
+> Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
+> ---
+> v0 -> v1:
+> 	* Add missing #include
+> 	* Rename to genaddrconf_ifid_eui48
+> v1 -> v2:
+> 	* Reset eui[0] to default if dev_id is used
+> ---
+>  drivers/infiniband/hw/usnic/usnic_common_util.h | 11 +++--------
+>  drivers/infiniband/sw/rxe/rxe_net.c             | 11 ++---------
+>  include/net/addrconf.h                          | 19 +++++++++++++------
+>  3 files changed, 18 insertions(+), 23 deletions(-)
+>
+> diff --git a/drivers/infiniband/hw/usnic/usnic_common_util.h b/drivers/infiniband/hw/usnic/usnic_common_util.h
+> index b54986d..09871da 100644
+> --- a/drivers/infiniband/hw/usnic/usnic_common_util.h
+> +++ b/drivers/infiniband/hw/usnic/usnic_common_util.h
+> @@ -34,6 +34,8 @@
+>  #ifndef USNIC_CMN_UTIL_H
+>  #define USNIC_CMN_UTIL_H
+>
+> +#include <net/addrconf.h>
+> +
+>  static inline void
+>  usnic_mac_to_gid(const char *const mac, char *raw_gid)
+>  {
+> @@ -57,14 +59,7 @@ usnic_mac_ip_to_gid(const char *const mac, const __be32 inaddr, char *raw_gid)
+>  	raw_gid[1] = 0x80;
+>  	memset(&raw_gid[2], 0, 2);
+>  	memcpy(&raw_gid[4], &inaddr, 4);
+> -	raw_gid[8] = mac[0]^2;
+> -	raw_gid[9] = mac[1];
+> -	raw_gid[10] = mac[2];
+> -	raw_gid[11] = 0xff;
+> -	raw_gid[12] = 0xfe;
+> -	raw_gid[13] = mac[3];
+> -	raw_gid[14] = mac[4];
+> -	raw_gid[15] = mac[5];
+> +	genaddrconf_ifid_eui48(&raw_gid[8], mac);
+>  }
+>
+>  static inline void
+> diff --git a/drivers/infiniband/sw/rxe/rxe_net.c b/drivers/infiniband/sw/rxe/rxe_net.c
+> index d8610960..90285c8 100644
+> --- a/drivers/infiniband/sw/rxe/rxe_net.c
+> +++ b/drivers/infiniband/sw/rxe/rxe_net.c
+> @@ -38,6 +38,7 @@
+>  #include <linux/if_vlan.h>
+>  #include <net/udp_tunnel.h>
+>  #include <net/sch_generic.h>
+> +#include <net/addrconf.h>
+>  #include <linux/netfilter.h>
+>  #include <rdma/ib_addr.h>
+>
+> @@ -86,18 +87,10 @@ struct rxe_recv_sockets recv_sockets;
+>
+>  static __be64 rxe_mac_to_eui64(struct net_device *ndev)
+>  {
+> -	unsigned char *mac_addr = ndev->dev_addr;
+>  	__be64 eui64;
+>  	unsigned char *dst = (unsigned char *)&eui64;
+>
+> -	dst[0] = mac_addr[0] ^ 2;
+> -	dst[1] = mac_addr[1];
+> -	dst[2] = mac_addr[2];
+> -	dst[3] = 0xff;
+> -	dst[4] = 0xfe;
+> -	dst[5] = mac_addr[3];
+> -	dst[6] = mac_addr[4];
+> -	dst[7] = mac_addr[5];
+> +	genaddrconf_ifid_eui48(dst, ndev->dev_addr);
+>
+>  	return eui64;
+>  }
+> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+> index 17c6fd8..cdfa73f 100644
+> --- a/include/net/addrconf.h
+> +++ b/include/net/addrconf.h
+> @@ -103,12 +103,21 @@ int addrconf_prefix_rcv_add_addr(struct net *net, struct net_device *dev,
+>  				 u32 addr_flags, bool sllao, bool tokenized,
+>  				 __u32 valid_lft, u32 prefered_lft);
+>
+> +static inline void genaddrconf_ifid_eui48(u8 *eui, const char *const addr)
+> +{
+> +	memcpy(eui, addr, 3);
+> +	eui[0] ^= 2;
+> +	eui[3] = 0xFF;
+> +	eui[4] = 0xFE;
+> +	memcpy(eui + 5, addr + 3, 3);
+> +}
+> +
+>  static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
+>  {
+>  	if (dev->addr_len != ETH_ALEN)
+>  		return -1;
+> -	memcpy(eui, dev->dev_addr, 3);
+> -	memcpy(eui + 5, dev->dev_addr + 3, 3);
+> +
+> +	genaddrconf_ifid_eui48(eui, dev->dev_addr);
+>
+>  	/*
+>  	 * The zSeries OSA network cards can be shared among various
+> @@ -124,13 +133,11 @@ static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
+>  	 * scope according to RFC2373.
+>  	 */
+>  	if (dev->dev_id) {
+> +		eui[0] = dev->dev_addr[0];
+>  		eui[3] = (dev->dev_id >> 8) & 0xFF;
+>  		eui[4] = dev->dev_id & 0xFF;
+> -	} else {
+> -		eui[3] = 0xFF;
+> -		eui[4] = 0xFE;
+> -		eui[0] ^= 2;
+>  	}
+> +
+>  	return 0;
+>  }
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 5d367b7..1a9e550 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1219,42 +1219,46 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
- no_in_dev:
- 	master_idx = l3mdev_master_ifindex_rcu(dev);
- 
--	/* For VRFs, the VRF device takes the place of the loopback device,
--	 * with addresses on it being preferred.  Note in such cases the
--	 * loopback device will be among the devices that fail the master_idx
--	 * equality check in the loop below.
--	 */
--	if (master_idx &&
--	    (dev = dev_get_by_index_rcu(net, master_idx)) &&
--	    (in_dev = __in_dev_get_rcu(dev))) {
--		for_primary_ifa(in_dev) {
--			if (ifa->ifa_scope != RT_SCOPE_LINK &&
--			    ifa->ifa_scope <= scope) {
--				addr = ifa->ifa_local;
--				goto out_unlock;
-+	if (master_idx) {
-+		/* For VRFs, the VRF device takes the place of the loopback device,
-+		 * with addresses on it being preferred.  Note in such cases the
-+		 * loopback device will be among the devices that fail the master_idx
-+		 * equality check in the loop below.
-+		 */
-+		dev = dev_get_by_index_rcu(net, master_idx);
-+		if (dev) {
-+			in_dev = __in_dev_get_rcu(dev);
-+			if (in_dev) {
-+				for_primary_ifa(in_dev) {
-+					if (ifa->ifa_scope != RT_SCOPE_LINK &&
-+					    ifa->ifa_scope <= scope) {
-+						addr = ifa->ifa_local;
-+						goto out_unlock;
-+					}
-+				} endfor_ifa(in_dev);
- 			}
--		} endfor_ifa(in_dev);
--	}
-+		}
- 
--	/* Not loopback addresses on loopback should be preferred
--	   in this case. It is important that lo is the first interface
--	   in dev_base list.
--	 */
--	for_each_netdev_rcu(net, dev) {
--		if (l3mdev_master_ifindex_rcu(dev) != master_idx)
--			continue;
-+		/* Not loopback addresses on loopback should be preferred
-+		   in this case. It is important that lo is the first interface
-+		   in dev_base list.
-+		 */
-+		for_each_netdev_rcu(net, dev) {
-+			if (l3mdev_master_ifindex_rcu(dev) != master_idx)
-+				continue;
- 
--		in_dev = __in_dev_get_rcu(dev);
--		if (!in_dev)
--			continue;
-+			in_dev = __in_dev_get_rcu(dev);
-+			if (!in_dev)
-+				continue;
- 
--		for_primary_ifa(in_dev) {
--			if (ifa->ifa_scope != RT_SCOPE_LINK &&
--			    ifa->ifa_scope <= scope) {
--				addr = ifa->ifa_local;
--				goto out_unlock;
--			}
--		} endfor_ifa(in_dev);
-+			for_primary_ifa(in_dev) {
-+				if (ifa->ifa_scope != RT_SCOPE_LINK &&
-+				    ifa->ifa_scope <= scope) {
-+					addr = ifa->ifa_local;
-+					goto out_unlock;
-+				}
-+			} endfor_ifa(in_dev);
-+		}
- 	}
- out_unlock:
- 	rcu_read_unlock();
--- 
-1.9.1
+Technically, the code is correct now, but it doesn't look right
+to set the value and restore it right after that.
+
+Thanks
+
+>
+> --
+> 2.7.4
+>
+
+--fjEAjMKpll6GDq3U
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAli+wz8ACgkQ5GN7iDZy
+WKfFrg//TkGqt+3KWjlXupQzNyVLtWvU5P/xDvE7M/60LnSwsMy3rRjX9/RA9Dsb
+xtgH8uHhicYhBDl6M7ZkGxjUMeHj03WLa6BSn93RMga7tF0wvviCPr9cfWHP+nCd
+nCMAizzum2GsNMAGb6n9fOeMS2DIxcjgDXQDsaRFOsdsyE01JFXVfM9EQPJadAt6
+UG64JIQ4obIDz0StUC2KaIJ96fhwPDE04dk6eFrgfcTHVXZDX/Y9mGzbUNaoIQ8Z
+0vFhZx7/FjBYTfGMuN7TweFKtt/PFJuidJM0toaQlL4YNrlsLqKhS9bRi9IIPvwt
+ZS8NWKq5O1gGk8pkxBK/ExX1JBCo4AMky1XzIyw39xicFaG7jKEOO2dOldB5lMTg
+zVBMUUSkBmx7nJqkBXrYI0n8GwpoGg4mzAalTkVJg9tZqPBUx4TAr5Omqthw+xO3
+VvHxvTwPtn1jpnc/rr8Jgq9m9eutneqrDogTXHvDGRpR6PPiONOOu1XgbbiJ/sNx
+4ZWyK60nISF3X+9Nw55PckDqrVAYnMxbK5swxKV8EbJwgR8DqJx52qPIKyt9BPMD
+HsDwWoAptFxknn4DThLOi6gh6Uy0a6eFLwBKQJQfqwEG1htKmCWRHr9mDYNaIuLI
+Asb3GRtZ9f+p3cDTHrLOgS5JnaeexJ2jXVeS89mkkPwGD1+JBpk=
+=Z8r5
+-----END PGP SIGNATURE-----
+
+--fjEAjMKpll6GDq3U--
