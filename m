@@ -1,99 +1,84 @@
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Subject: Re: [PATCH net-next] tg3: Add the ability to conditionally build w/ HWMON
-Date: Tue, 7 Mar 2017 21:32:10 +0530
-Message-ID: <CAMet4B6Oe0nmW7fFkz=skDkLHfE9yp_u6bjhorKUB7eFB-0D0A@mail.gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 22/22] net: mvpp2: finally add the PPv2.2
+ compatible string
+Date: Tue,  7 Mar 2017 16:53:20 +0100
+Message-ID: <1488902000-2658-23-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Prashant Sreedharan <prashant@broadcom.com>,
-        Michael Chan <mchan@broadcom.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Nicolas Pitre <nicolas.pitre@linaro.org>,
-        Jon Mason <jon.mason@broadcom.com>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
+ Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
+ Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+ devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Pawel Moll <pawel.moll@arm.com>, Mark Rutland <mark.rutland@arm.com>,
+ Kumar Gala <galak@codeaurora.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 7, 2017 at 2:26 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> Introduce a Kconfig option: CONFIG_TIGON3_HWMON which allows to build
-> in/out support for thermal sensors reported by Tigon3 NICs.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-Acked-by: Siva Reddy Kallam <siva.kallam@broadcom.com>
-> ---
->  drivers/net/ethernet/broadcom/Kconfig | 8 +++++++-
->  drivers/net/ethernet/broadcom/tg3.c   | 7 +++++++
->  2 files changed, 14 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-> index 940fb24bba21..96413808c726 100644
-> --- a/drivers/net/ethernet/broadcom/Kconfig
-> +++ b/drivers/net/ethernet/broadcom/Kconfig
-> @@ -109,7 +109,6 @@ config TIGON3
->         tristate "Broadcom Tigon3 support"
->         depends on PCI
->         select PHYLIB
-> -       select HWMON
->         imply PTP_1588_CLOCK
->         ---help---
->           This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
-> @@ -117,6 +116,13 @@ config TIGON3
->           To compile this driver as a module, choose M here: the module
->           will be called tg3.  This is recommended.
->
-> +config TIGON3_HWMON
-> +       bool "Broadcom Tigon3 HWMON support"
-> +       default y
-> +       depends on TIGON3 && HWMON && !(TIGON3=y && HWMON=m)
-> +       ---help---
-> +         Say Y if you want to expose the thermal sensor on Tigon3 devices.
-> +
->  config BNX2X
->         tristate "Broadcom NetXtremeII 10Gb support"
->         depends on PCI
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> index 30d1eb9ebec9..f395b951f5e7 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -825,6 +825,7 @@ static int tg3_ape_event_lock(struct tg3 *tp, u32 timeout_us)
->         return timeout_us ? 0 : -EBUSY;
->  }
->
-> +#ifdef CONFIG_TIGON3_HWMON
->  static int tg3_ape_wait_for_event(struct tg3 *tp, u32 timeout_us)
->  {
->         u32 i, apedata;
-> @@ -904,6 +905,7 @@ static int tg3_ape_scratchpad_read(struct tg3 *tp, u32 *data, u32 base_off,
->
->         return 0;
->  }
-> +#endif
->
->  static int tg3_ape_send_event(struct tg3 *tp, u32 event)
->  {
-> @@ -10744,6 +10746,7 @@ static int tg3_init_hw(struct tg3 *tp, bool reset_phy)
->         return tg3_reset_hw(tp, reset_phy);
->  }
->
-> +#ifdef CONFIG_TIGON3_HWMON
->  static void tg3_sd_scan_scratchpad(struct tg3 *tp, struct tg3_ocir *ocir)
->  {
->         int i;
-> @@ -10826,6 +10829,10 @@ static void tg3_hwmon_open(struct tg3 *tp)
->                 dev_err(&pdev->dev, "Cannot register hwmon device, aborting\n");
->         }
->  }
-> +#else
-> +static inline void tg3_hwmon_close(struct tg3 *tp) { }
-> +static inline void tg3_hwmon_open(struct tg3 *tp) { }
-> +#endif /* CONFIG_TIGON3_HWMON */
->
->
->  #define TG3_STAT_ADD32(PSTAT, REG) \
-> --
-> 2.9.3
->
+Now that the mvpp2 driver has been modified to accommodate the support
+for PPv2.2, we can finally advertise this support by adding the
+appropriate compatible string.
+
+At the same time, we update the Kconfig description of the MVPP2 driver.
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/Kconfig | 4 ++--
+ drivers/net/ethernet/marvell/mvpp2.c | 4 ++++
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index d2555e8b..da6fb82 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -82,13 +82,13 @@ config MVNETA_BM
+ 	  that all dependencies are met.
+ 
+ config MVPP2
+-	tristate "Marvell Armada 375 network interface support"
++	tristate "Marvell Armada 375/7K/8K network interface support"
+ 	depends on ARCH_MVEBU || COMPILE_TEST
+ 	depends on HAS_DMA
+ 	select MVMDIO
+ 	---help---
+ 	  This driver supports the network interface units in the
+-	  Marvell ARMADA 375 SoC.
++	  Marvell ARMADA 375, 7K and 8K SoCs.
+ 
+ config PXA168_ETH
+ 	tristate "Marvell pxa168 ethernet support"
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 92c47f3..af5bfa1 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -7037,6 +7037,10 @@ static const struct of_device_id mvpp2_match[] = {
+ 		.compatible = "marvell,armada-375-pp2",
+ 		.data = (void *)MVPP21,
+ 	},
++	{
++		.compatible = "marvell,armada-7k-pp22",
++		.data = (void *)MVPP22,
++	},
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, mvpp2_match);
+-- 
+2.7.4
