@@ -1,37 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 net-next] net: dwc-xlgmac: Initial driver for
- DesignWare Enterprise Ethernet
-Date: Tue, 07 Mar 2017 12:34:06 -0800 (PST)
-Message-ID: <20170307.123406.1777577205348543307.davem@davemloft.net>
-References: <9c5935b28ca61ec4ceb20bac0cc830e2e57028b9.1488331400.git.jiedeng@synopsys.com>
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Subject: [PATCH] uapi: fix linux/packet_diag.h userspace compilation error
+Date: Tue, 7 Mar 2017 23:50:50 +0300
+Message-ID: <20170307205050.GB19323@altlinux.org>
+References: <20170228013930.GA28056@altlinux.org> <20170307.121649.968411437349940435.davem@davemloft.net> <20170307202802.GA19323@altlinux.org> <20170307.123535.1895338978981637855.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jie.Deng1@synopsys.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@virtuozzo.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9c5935b28ca61ec4ceb20bac0cc830e2e57028b9.1488331400.git.jiedeng@synopsys.com>
+Content-Disposition: inline
+In-Reply-To: <20170307.123535.1895338978981637855.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jie Deng <Jie.Deng1@synopsys.com>
-Date: Wed, 1 Mar 2017 12:00:25 +0800
+Replace MAX_ADDR_LEN with its numeric value to fix the following
+linux/packet_diag.h userspace compilation error:
 
-> +static int xlgmac_init(struct xlgmac_pdata *pdata)
-> +{
-> +	struct net_device *netdev = pdata->netdev;
-> +	struct xlgmac_hw_ops *hw_ops = &pdata->hw_ops;
+/usr/include/linux/packet_diag.h:67:17: error: 'MAX_ADDR_LEN' undeclared here (not in a function)
+  __u8 pdmc_addr[MAX_ADDR_LEN];
 
-Please order local variable declarations from longest to shortest line.
+This is not the first case in the UAPI where the numeric value
+of MAX_ADDR_LEN is used instead of symbolic one, uapi/linux/if_link.h
+already does the same:
 
-Please fix this in your entire submission.
+$ grep MAX_ADDR_LEN include/uapi/linux/if_link.h 
+	__u8 mac[32]; /* MAX_ADDR_LEN */
 
-> +
-> +err_netdev_register:
-> +err_init:
+There are no UAPI headers besides these two that use MAX_ADDR_LEN.
 
-Avoid multiple error labels in the same exact location, by having only
-one which describes what the error path unwinds.  For example,  here you
-could say "err_free_netdev".
+Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+Acked-by: Pavel Emelyanov <xemul@virtuozzo.com>
+---
+ include/uapi/linux/packet_diag.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Please fix this up in your entire submission.
+diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
+index d08c63f..0c5d5dd 100644
+--- a/include/uapi/linux/packet_diag.h
++++ b/include/uapi/linux/packet_diag.h
+@@ -64,7 +64,7 @@ struct packet_diag_mclist {
+ 	__u32	pdmc_count;
+ 	__u16	pdmc_type;
+ 	__u16	pdmc_alen;
+-	__u8	pdmc_addr[MAX_ADDR_LEN];
++	__u8	pdmc_addr[32]; /* MAX_ADDR_LEN */
+ };
+ 
+ struct packet_diag_ring {
+-- 
+ldv
