@@ -1,155 +1,92 @@
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/1] rds: ib: add error handle
-Date: Tue,  7 Mar 2017 02:48:36 -0500
-Message-ID: <1488872916-24751-1-git-send-email-yanjun.zhu@oracle.com>
-To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: "Reshetova, Elena" <elena.reshetova@intel.com>
+Subject: RE: [PATCH 11/29] drivers, media: convert cx88_core.refcount from
+ atomic_t to refcount_t
+Date: Tue, 7 Mar 2017 07:52:09 +0000
+Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C556E2@IRSMSX102.ger.corp.intel.com>
+References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
+ <1488810076-3754-12-git-send-email-elena.reshetova@intel.com>
+ <c6987419-f708-9923-0f9f-87b715600045@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+ "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+ "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
+ Kees Cook <keescook@chromium.org>,
+ "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+ David Windsor <dwindsor@gmail.com>,
+ "peterz@infradead.org" <peterz@infradead.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+ "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-raid@vger.kernel.org" <linux-raid@vger.kernel.org>,
+ "linux-bcache@vger.kernel.org" <linux-bcache@vger.kernel.org>,
+ "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
+ "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriver
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <c6987419-f708-9923-0f9f-87b715600045@cogentembedded.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-In the function rds_ib_setup_qp, the error handle is missing. When some
-error occurs, it is possible that memory leak occurs. As such, error
-handle is added.
+> Hello.
+> 
+> On 03/06/2017 05:20 PM, Elena Reshetova wrote:
+> 
+> > refcount_t type and corresponding API should be
+> > used instead of atomic_t when the variable is used as
+> > a reference counter. This allows to avoid accidental
+> > refcounter overflows that might lead to use-after-free
+> > situations.
+> >
+> > Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+> > Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+> > Signed-off-by: Kees Cook <keescook@chromium.org>
+> > Signed-off-by: David Windsor <dwindsor@gmail.com>
+> [...]
+> > diff --git a/drivers/media/pci/cx88/cx88.h b/drivers/media/pci/cx88/cx88.h
+> > index 115414c..16c1313 100644
+> > --- a/drivers/media/pci/cx88/cx88.h
+> > +++ b/drivers/media/pci/cx88/cx88.h
+> > @@ -24,6 +24,7 @@
+> >  #include <linux/i2c-algo-bit.h>
+> >  #include <linux/videodev2.h>
+> >  #include <linux/kdev_t.h>
+> > +#include <linux/refcount.h>
+> >
+> >  #include <media/v4l2-device.h>
+> >  #include <media/v4l2-fh.h>
+> > @@ -339,7 +340,7 @@ struct cx8802_dev;
+> >
+> >  struct cx88_core {
+> >  	struct list_head           devlist;
+> > -	atomic_t                   refcount;
+> > +	refcount_t                   refcount;
+> 
+>     Could you please keep the name aligned with above and below?
 
-Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Guanglei Li <guanglei.li-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
- net/rds/ib_cm.c | 47 ++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 36 insertions(+), 11 deletions(-)
+You mean "not aligned" to devlist, but with a shift like it was before? 
+Sure, will fix. Is the patch ok otherwise?
 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index ce3775a..d47ae0f 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -442,7 +442,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 		ic->i_send_cq = NULL;
- 		ibdev_put_vector(rds_ibdev, ic->i_scq_vector);
- 		rdsdebug("ib_create_cq send failed: %d\n", ret);
--		goto out;
-+		goto rds_ibdev_out;
- 	}
- 
- 	ic->i_rcq_vector = ibdev_get_unused_vector(rds_ibdev);
-@@ -456,19 +456,19 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 		ic->i_recv_cq = NULL;
- 		ibdev_put_vector(rds_ibdev, ic->i_rcq_vector);
- 		rdsdebug("ib_create_cq recv failed: %d\n", ret);
--		goto out;
-+		goto send_cq_out;
- 	}
- 
- 	ret = ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
- 	if (ret) {
- 		rdsdebug("ib_req_notify_cq send failed: %d\n", ret);
--		goto out;
-+		goto recv_cq_out;
- 	}
- 
- 	ret = ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
- 	if (ret) {
- 		rdsdebug("ib_req_notify_cq recv failed: %d\n", ret);
--		goto out;
-+		goto recv_cq_out;
- 	}
- 
- 	/* XXX negotiate max send/recv with remote? */
-@@ -494,7 +494,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	ret = rdma_create_qp(ic->i_cm_id, ic->i_pd, &attr);
- 	if (ret) {
- 		rdsdebug("rdma_create_qp failed: %d\n", ret);
--		goto out;
-+		goto recv_cq_out;
- 	}
- 
- 	ic->i_send_hdrs = ib_dma_alloc_coherent(dev,
-@@ -504,7 +504,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	if (!ic->i_send_hdrs) {
- 		ret = -ENOMEM;
- 		rdsdebug("ib_dma_alloc_coherent send failed\n");
--		goto out;
-+		goto qp_out;
- 	}
- 
- 	ic->i_recv_hdrs = ib_dma_alloc_coherent(dev,
-@@ -514,7 +514,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	if (!ic->i_recv_hdrs) {
- 		ret = -ENOMEM;
- 		rdsdebug("ib_dma_alloc_coherent recv failed\n");
--		goto out;
-+		goto send_hdrs_dma_out;
- 	}
- 
- 	ic->i_ack = ib_dma_alloc_coherent(dev, sizeof(struct rds_header),
-@@ -522,7 +522,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	if (!ic->i_ack) {
- 		ret = -ENOMEM;
- 		rdsdebug("ib_dma_alloc_coherent ack failed\n");
--		goto out;
-+		goto recv_hdrs_dma_out;
- 	}
- 
- 	ic->i_sends = vzalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
-@@ -530,7 +530,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	if (!ic->i_sends) {
- 		ret = -ENOMEM;
- 		rdsdebug("send allocation failed\n");
--		goto out;
-+		goto ack_dma_out;
- 	}
- 
- 	ic->i_recvs = vzalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
-@@ -538,7 +538,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	if (!ic->i_recvs) {
- 		ret = -ENOMEM;
- 		rdsdebug("recv allocation failed\n");
--		goto out;
-+		goto sends_out;
- 	}
- 
- 	rds_ib_recv_init_ack(ic);
-@@ -546,8 +546,33 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	rdsdebug("conn %p pd %p cq %p %p\n", conn, ic->i_pd,
- 		 ic->i_send_cq, ic->i_recv_cq);
- 
--out:
-+	return ret;
-+
-+sends_out:
-+	vfree(ic->i_sends);
-+ack_dma_out:
-+	ib_dma_free_coherent(dev, sizeof(struct rds_header),
-+			     ic->i_ack, ic->i_ack_dma);
-+recv_hdrs_dma_out:
-+	ib_dma_free_coherent(dev, ic->i_recv_ring.w_nr *
-+					sizeof(struct rds_header),
-+					ic->i_recv_hdrs, ic->i_recv_hdrs_dma);
-+send_hdrs_dma_out:
-+	ib_dma_free_coherent(dev, ic->i_send_ring.w_nr *
-+					sizeof(struct rds_header),
-+					ic->i_send_hdrs, ic->i_send_hdrs_dma);
-+qp_out:
-+	rdma_destroy_qp(ic->i_cm_id);
-+recv_cq_out:
-+	if (!ib_destroy_cq(ic->i_recv_cq))
-+		ic->i_recv_cq = NULL;
-+send_cq_out:
-+	if (!ib_destroy_cq(ic->i_send_cq))
-+		ic->i_send_cq = NULL;
-+rds_ibdev_out:
-+	rds_ib_remove_conn(rds_ibdev, conn);
- 	rds_ib_dev_put(rds_ibdev);
-+
- 	return ret;
- }
- 
--- 
-2.7.4
+Best Regards,
+Elena.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> >
+> >  	/* board name */
+> >  	int                        nr;
+> >
+> 
+> MBR, Sergei
