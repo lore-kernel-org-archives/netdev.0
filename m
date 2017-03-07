@@ -1,75 +1,83 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 13/22] net: mvpp2: adapt mvpp2_defaults_set() to PPv2.2
-Date: Tue,  7 Mar 2017 16:53:11 +0100
-Message-ID: <1488902000-2658-14-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 05/22] net: mvpp2: remove
+ mvpp2_txq_pend_desc_num_get() function
+Date: Tue,  7 Mar 2017 16:53:03 +0100
+Message-ID: <1488902000-2658-6-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Russell King <linux@arm.linux.org.uk>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
+ Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
+ Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        Ian Campbell <ijc+devicetree@hellion.org.uk>,
-        Pawel Moll <pawel.moll@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Kumar Gala <galak@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:32851 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755391AbdCGP4k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 10:56:40 -0500
+ devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Pawel Moll <pawel.moll@arm.com>, Mark Rutland <mark.rutland@arm.com>,
+ Kumar Gala <galak@codeaurora.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This commit modifies the mvpp2_defaults_set() function to not do the
-loopback and FIFO threshold initialization, which are not needed for
-PPv2.2.
+The mvpp2_txq_pend_desc_num_get() function only selects a TX queue, and
+reads the number of pending descriptors. It is used in only one place,
+in mvpp2_txq_clean(), where the TX queue has already been selected by a
+write to MVPP2_TXQ_NUM_REG.
+
+Therefore, this function is useless, and the caller can simply read the
+value of the MVPP2_TXQ_PENDING_REG register instead.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 15 ++-------------
+ 1 file changed, 2 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 91dca01..da48d606 100644
+index 60cc020..9ddda20 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -4157,16 +4157,18 @@ static void mvpp2_defaults_set(struct mvpp2_port *port)
- {
- 	int tx_port_num, val, queue, ptxq, lrxq;
+@@ -4123,18 +4123,6 @@ static u32 mvpp2_bm_cookie_build(struct mvpp2_rx_desc *rx_desc)
  
--	/* Configure port to loopback if needed */
--	if (port->flags & MVPP2_F_LOOPBACK)
--		mvpp2_port_loopback_set(port);
+ /* Tx descriptors helper methods */
+ 
+-/* Get number of Tx descriptors waiting to be transmitted by HW */
+-static int mvpp2_txq_pend_desc_num_get(struct mvpp2_port *port,
+-				       struct mvpp2_tx_queue *txq)
+-{
+-	u32 val;
 -
--	/* Update TX FIFO MIN Threshold */
--	val = readl(port->base + MVPP2_GMAC_PORT_FIFO_CFG_1_REG);
--	val &= ~MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK;
--	/* Min. TX threshold must be less than minimal packet length */
--	val |= MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(64 - 4 - 2);
--	writel(val, port->base + MVPP2_GMAC_PORT_FIFO_CFG_1_REG);
-+	if (port->priv->hw_version == MVPP21) {
-+		/* Configure port to loopback if needed */
-+		if (port->flags & MVPP2_F_LOOPBACK)
-+			mvpp2_port_loopback_set(port);
-+
-+		/* Update TX FIFO MIN Threshold */
-+		val = readl(port->base + MVPP2_GMAC_PORT_FIFO_CFG_1_REG);
-+		val &= ~MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK;
-+		/* Min. TX threshold must be less than minimal packet length */
-+		val |= MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(64 - 4 - 2);
-+		writel(val, port->base + MVPP2_GMAC_PORT_FIFO_CFG_1_REG);
-+	}
+-	mvpp2_write(port->priv, MVPP2_TXQ_NUM_REG, txq->id);
+-	val = mvpp2_read(port->priv, MVPP2_TXQ_PENDING_REG);
+-
+-	return val & MVPP2_TXQ_PENDING_MASK;
+-}
+-
+ /* Get pointer to next Tx descriptor to be processed (send) by HW */
+ static struct mvpp2_tx_desc *
+ mvpp2_txq_next_desc_get(struct mvpp2_tx_queue *txq)
+@@ -4740,7 +4728,8 @@ static void mvpp2_txq_clean(struct mvpp2_port *port, struct mvpp2_tx_queue *txq)
+ 		mdelay(1);
+ 		delay++;
  
- 	/* Disable Legacy WRR, Disable EJP, Release from reset */
- 	tx_port_num = mvpp2_egress_port(port);
+-		pending = mvpp2_txq_pend_desc_num_get(port, txq);
++		pending = mvpp2_read(port->priv, MVPP2_TXQ_PENDING_REG) &
++			MVPP2_TXQ_PENDING_MASK;
+ 	} while (pending);
+ 
+ 	val &= ~MVPP2_TXQ_DRAIN_EN_MASK;
 -- 
 2.7.4
