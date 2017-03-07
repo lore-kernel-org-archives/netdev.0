@@ -1,153 +1,96 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH] net: initialize msg.msg_flags in recvfrom
-Date: Tue, 7 Mar 2017 15:23:29 +0100
-Message-ID: <CACT4Y+brKSnxVAfNa9mvX0dmTTS00rq19VKbuWykn=EHc0GSrA@mail.gmail.com>
-References: <20170307135810.90371-1-glider@google.com>
+From: "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH 12/29] drivers, media: convert s2255_dev.num_channels
+ from atomic_t to refcount_t
+Date: Tue, 7 Mar 2017 14:45:45 +0000
+Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C558C5@IRSMSX102.ger.corp.intel.com>
+References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
+ <1488810076-3754-13-git-send-email-elena.reshetova@intel.com>
+ <20170307083016.GG3220@valkosipuli.retiisi.org.uk>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Alexander Potapenko <glider@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f173.google.com ([209.85.217.173]:36283 "EHLO
-        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755572AbdCGOcR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 09:32:17 -0500
-Received: by mail-ua0-f173.google.com with SMTP id 72so5404813uaf.3
-        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 06:32:02 -0800 (PST)
-In-Reply-To: <20170307135810.90371-1-glider@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org" <xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
+	<linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, "linux-bcache-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-bcache-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org"
+	<devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org>, "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org"
+	<fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>, "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org"
+	<open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, "devel-gWbeCf7V1WCQmaza687I9uG/Ez6ZCGd0@public.gmane.org
+To: Sakari Ailus <sakari.ailus-X3B1VOXEql0@public.gmane.org>
+Return-path: <open-iscsi+bncBCWONPVE7ANRBH4P7PCQKGQE5636XGI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20170307083016.GG3220-S+BSfZ9RZZmRSg0ZkenSGLdO1Tsj/99ntUK59QYPAWc@public.gmane.org>
+Content-Language: en-US
+List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/open-iscsi
+List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/open-iscsi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 7, 2017 at 2:58 PM, Alexander Potapenko <glider@google.com> wrote:
-> KMSAN (KernelMemorySanitizer, a new error detection tool) reports use
-> of uninitialized memory in put_cmsg()):
->
-> ==================================================================
-> BUG: KMSAN: use of unitialized memory
-> inter: 0
-> CPU: 3 PID: 1086 Comm: syz-executor0 Not tainted 4.8.0-rc6+ #1920
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->  0000000000000000 ffff88008374fa48 ffffffff82576c18 ffff88008374f988
->  ffffffff818c06d1 ffffffff85bab870 0000000000000092 ffffffff85bab550
->  0000000000000000 0000000000000092 00000000f9600a55 0000000000000002
-> Call Trace:
->  [<     inline     >] __dump_stack lib/dump_stack.c:15
->  [<ffffffff82576c18>] dump_stack+0x238/0x290 lib/dump_stack.c:51
->  [<ffffffff818beef6>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1006
->  [<ffffffff818c027b>] __msan_warning+0x6b/0xc0 mm/kmsan/kmsan_instr.c:425
->  [<ffffffff842f01e7>] put_cmsg+0x6f7/0x850 net/core/scm.c:223
->  [<     inline     >] netlink_cmsg_recv_pktinfo net/netlink/af_netlink.c:1700
->  [<ffffffff844b7054>] netlink_recvmsg+0x8e4/0x1980 net/netlink/af_netlink.c:1856
->  [<     inline     >] sock_recvmsg_nosec net/socket.c:711
->  [<     inline     >] sock_recvmsg net/socket.c:718
->  [<ffffffff8426c175>] SYSC_recvfrom+0x6e5/0xa00 net/socket.c:1695
->  [<ffffffff8426ba67>] SyS_recvfrom+0xb7/0xe0 net/socket.c:1668
->  [<ffffffff851840db>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
-> chained origin: 00000000f8c00a55
->  [<ffffffff810bd4d7>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
->  [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
->  [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:337
->  [<ffffffff818be2cb>] kmsan_internal_chain_origin+0x12b/0x1f0 mm/kmsan/kmsan.c:530
->  [<ffffffff818bfc0f>] __kmsan_store_origin+0x9f/0x120 mm/kmsan/kmsan_instr.c:190
->  [<ffffffff844b6bdd>] netlink_recvmsg+0x46d/0x1980 net/netlink/af_netlink.c:1839
->  [<     inline     >] sock_recvmsg_nosec net/socket.c:711
->  [<     inline     >] sock_recvmsg net/socket.c:718
->  [<ffffffff8426c175>] SYSC_recvfrom+0x6e5/0xa00 net/socket.c:1695
->  [<ffffffff8426ba67>] SyS_recvfrom+0xb7/0xe0 net/socket.c:1668
->  [<ffffffff851840db>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
-> chained origin: 00000000b9a00a53
->  [<ffffffff810bd4d7>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
->  [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
->  [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:337
->  [<ffffffff818be2cb>] kmsan_internal_chain_origin+0x12b/0x1f0 mm/kmsan/kmsan.c:530
->  [<ffffffff818c01a3>] __msan_set_alloca_origin4+0xc3/0x130 mm/kmsan/kmsan_instr.c:380
->  [<ffffffff8426bc13>] SYSC_recvfrom+0x183/0xa00 net/socket.c:1671
->  [<ffffffff8426ba67>] SyS_recvfrom+0xb7/0xe0 net/socket.c:1668
->  [<ffffffff851840db>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
-> origin description: ----msg@SYSC_recvfrom (origin=00000000b9400a53)
-> ==================================================================
->
-> The fields of |msg| in SYSC_recvfrom() are initialized except
-> for |msg.msg_flags|, which is later updated in netlink_recvmsg():
->
->   1839                 msg->msg_flags |= MSG_TRUNC;
->
-> and then used in a condition in put_cmsg():
->
->   223         if (MSG_CMSG_COMPAT & msg->msg_flags)
->
-> The following program has been used to reproduce the error under KMSAN:
->
-> ===================================================
->   #include <linux/netlink.h>
->   #include <stdint.h>
->   #include <stdio.h>
->   #include <sys/socket.h>
->   #include <sys/wait.h>
->
->   void child()
->   {
->     int sock = socket(PF_NETLINK, SOCK_RAW, 16);
->     uint32_t val = 0x1f;
->     setsockopt(sock, 0x10e, 0x3, &val, 4);
->     char obuf[31] = "\x1f\x00\x00\x00\x10\x00\x07\xff\xff\x08\x00\x00"
->                     "\x00\x00\x00\x00\x03\x00\x01\x0a\x56\x67\x69\x93"
->                     "\x3e\x00\x00\x01\x92\x9a\x02";
->     char ibuf[31];
->     write(sock, obuf, sizeof(obuf));
->     struct sockaddr_nl sockaddr = {AF_NETLINK, 0, 0, 0};
->     socklen_t addrlen = sizeof(sockaddr);
->     recvfrom(sock, ibuf, 0, 0, &sockaddr, &addrlen);
->   }
->
->   int main()
->   {
->     int pid = fork();
->     if (!pid) {
->       child();
->       return 0;
->     }
->     int status = 0;
->     while (waitpid(pid, &status, __WALL) != pid) {}
->     return 0;
->   }
-> ===================================================
->
-> Signed-off-by: Alexander Potapenko <glider@google.com>
-> ---
->  net/socket.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/net/socket.c b/net/socket.c
-> index 2c1e8677ff2d..e0757e648c0c 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1731,6 +1731,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
->         /* We assume all kernel code knows the size of sockaddr_storage */
->         msg.msg_namelen = 0;
->         msg.msg_iocb = NULL;
-> +       msg.msg_flags = 0;
->         if (sock->file->f_flags & O_NONBLOCK)
->                 flags |= MSG_DONTWAIT;
->         err = sock_recvmsg(sock, &msg, flags);
+
+> Hi Elena,
+> 
+> On Mon, Mar 06, 2017 at 04:20:59PM +0200, Elena Reshetova wrote:
+> > refcount_t type and corresponding API should be
+> > used instead of atomic_t when the variable is used as
+> > a reference counter. This allows to avoid accidental
+> > refcounter overflows that might lead to use-after-free
+> > situations.
+> >
+> > Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> > Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> > Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > ---
+> ...
+> > @@ -1688,7 +1689,7 @@ static int s2255_probe_v4l(struct s2255_dev *dev)
+> >  				"failed to register
+> video device!\n");
+> >  			break;
+> >  		}
+> > -		atomic_inc(&dev->num_channels);
+> > +		refcount_set(&dev->num_channels, 1);
+> 
+> That's not right. The loop runs four iterations and the value after the
+> loop should be indeed the number of channels.
+
+Oh, yes, I was blind here, sorry. The problem why it cannot be left as inc is because it would do increment from zero here, which is not allowed by refcount_t interface. 
+
+> atomic_t isn't really used for reference counting here, but storing out how
+> many "channels" there are per hardware device, with maximum number of four
+> (4). I'd leave this driver using atomic_t.
+Yes, sounds like the best thing to do. I will drop this patch. 
+
+Thank you for reviews!
+
+Best Regards,
+Elena.
+> 
+> >  		v4l2_info(&dev->v4l2_dev, "V4L2 device registered
+> as %s\n",
+> >  			  video_device_node_name(&vc-
+> >vdev));
+> >
+> 
 > --
-> 2.12.0.rc1.440.g5b76565f74-goog
->
+> Kind regards,
+> 
+> Sakari Ailus
+> e-mail: sakari.ailus-X3B1VOXEql0@public.gmane.org	XMPP: sailus-PCDdDYkjdNMDXYZnReoRVg@public.gmane.org
 
-
-I am not sure this is correct. The compat syscall does:
-
-COMPAT_SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, buf,
-compat_size_t, len,
-      unsigned int, flags, struct sockaddr __user *, addr,
-      int __user *, addrlen)
-{
-   return sys_recvfrom(fd, buf, len, flags | MSG_CMSG_COMPAT, addr, addrlen);
-}
-
-netlink_cmsg_recv_pktinfo expects that MSG_CMSG_COMPAT in msg.flags,
-but we put it into flags.
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+Visit this group at https://groups.google.com/group/open-iscsi.
+For more options, visit https://groups.google.com/d/optout.
