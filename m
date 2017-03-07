@@ -1,73 +1,73 @@
-From: Chris Packham <Chris.Packham@alliedtelesis.co.nz>
-Subject: Re: [PATCH v2 0/6] Updates for Marvell Switch SoCs
-Date: Tue, 7 Mar 2017 19:38:32 +0000
-Message-ID: <b2dc1865150d46a4b64c0522480bdec6@svr-chch-ex1.atlnz.lc>
-References: <20170216085041.28337-1-chris.packham@alliedtelesis.co.nz>
- <87bmtdovwr.fsf@free-electrons.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Tue, 7 Mar 2017 20:30:45 +0100
+Message-ID: <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
+ <CACT4Y+YCPxKkaZBfAabxtAV71R0ghLT-vUKVewJpm9wb2GXaEQ@mail.gmail.com>
+ <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com>
+ <4e4d7d51-82de-b21e-cb5d-d804f7b88999@cumulusnetworks.com>
+ <CACT4Y+Z1MvKbb35-jhaY=jEoR+t2u2TiUpkCR_oG3=VNmKjqvQ@mail.gmail.com>
+ <14c01aea-6c2f-6ba5-6aee-52c55f410da7@cumulusnetworks.com>
+ <CACT4Y+aomj0W8M9JNr1GLsT8EFFHV9YsOTYzWkvwKZANE9hiBQ@mail.gmail.com>
+ <CACT4Y+aDzAYs9mbNGeFEkYSB2wTwomZTGEKn4hDH0PAb4uiLqw@mail.gmail.com>
+ <2b60b1b8-4766-0e36-f6fb-79914bf1925d@cumulusnetworks.com>
+ <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
+ <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com> <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mark Rutland <mark.rutland@arm.com>, Andrew Lunn <andrew@lunn.ch>,
- Jason Cooper <jason@lakedaemon.net>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Michael Turquette <mturquette@baylibre.com>,
- Stephen Boyd <sboyd@codeaurora.org>, Russell King <linux@armlinux.org.uk>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Rob Herring <robh+dt@kernel.org>,
- "linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Gregory,
+On Tue, Mar 7, 2017 at 8:02 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> On Tue, Mar 7, 2017 at 7:43 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>> On 3/7/17 11:13 AM, Dmitry Vyukov wrote:
+>>>> on this warning:
+>>>>
+>>>> /* dst.next really should not be set at this point */
+>>>> if (rt->dst.next && rt->dst.next->ops->family != AF_INET6) {
+>>>>         pr_warn("fib6_add: adding rt with bad next -- family %d dst
+>>>> flags %x\n",
+>>>>                 rt->dst.next->ops->family, rt->dst.next->flags);
+>>>>
+>>>>         WARN_ON(1);
+>>>> }
+>>>>
+>>>> You should have seen the pr_warn in the log preceding the WARN_ON dump.
+>>>
+>>> Right. They all have the same "IPv6: fib6_add: adding rt with bad next
+>>> -- family 2 dst flags 6"
+>>
+>> remove the previous changes and try the attached.
+>
+>
+> Doing this now.
+> FWIW I've also applied your last patch with missing "iter->dst.flags
+> &= ~DST_IN_FIB;" and restored the warning in rt6_rcu_free and it did
+> not fire (in a limited run). I only saw the "WARNING in fib6_add" that
+> I already reported.
 
-On 08/03/17 06:10, Gregory CLEMENT wrote:
-> Hi Chris,
->
->  On jeu., f=E9vr. 16 2017, Chris Packham <chris.packham@alliedtelesis.co.=
-nz> wrote:
->
->> Shortly after I posted my last series I got access to a more recent
->> Marvell SDK which had some device tree support for the switch SoCs I'd
->> been wanting. It was still based on an older kernel but it was a huge
->> improvement over what came before.
->>
->> Patch 1/6 is a typo I noticed after my initial series was applied.
->>
->> Patch 2/6 is a bit of a cleanup. I did initially struggle with how to
->> access individual parts of the DFX block as well as retaining a handle on
->> the entire thing for the switch driver to use.
->>
->> Patch 3/6 is a re-jig of the dtsi files which is needed by 5/6. This is
->> required because I need to use the coreclk label on a different node. It
->> also means I don't have to disable nodes for blocks that only exist on
->> the Armada-XP.
->>
->> Patch 4/6, 5/6 are split from the previous versions.
->>
->> Patch 6/6 is the device tree portion of a change already in clk-next.
->
->
-> I applied patches 2, 3 and 6 on mvebu/dt with the acked-by from Rob when
-> he gave it.
->
-> Patch 1 is already part of 4.11-rc1.
->
-> For patch 4 and 5 I understand that either we don't need it or it should
-> be a updated version so I skipped them.
->
 
-That's correct, thanks.
+So far I've hit only:
+[ 1103.840031] BUG: KASAN: slab-out-of-bounds in fib6_age+0x3fd/0x480
+at addr ffff8800799d2254
+without any preceeding warnings.
+But note that since the kernel is heavily stressed I can reliably get
+any pr_err output if it happens right before BUG/WARNING. Anything
+that happens minutes before will be lots because there are tons of
+output.
