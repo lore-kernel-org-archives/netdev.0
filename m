@@ -1,182 +1,150 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH v2] {net,IB}/{rxe,usnic}: Utilize generic mac to eui32
- function
-Date: Tue, 7 Mar 2017 16:27:11 +0200
-Message-ID: <20170307142711.GS14379@mtr-leonro.local>
-References: <1488826446-4173-1-git-send-email-yuval.shaia@oracle.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="fjEAjMKpll6GDq3U"
-Cc: benve@cisco.com, dgoodell@cisco.com, dledford@redhat.com,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com, monis@mellanox.com,
-        davem@davemloft.net, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Yuval Shaia <yuval.shaia@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:35474 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932531AbdCGPFd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Mar 2017 10:05:33 -0500
-Content-Disposition: inline
-In-Reply-To: <1488826446-4173-1-git-send-email-yuval.shaia@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Radoslaw Biernacki <rad@semihalf.com>
+Subject: [PATCH] PCI: Add pci reset quirk for Cavium VNIC
+Date: Tue,  7 Mar 2017 16:04:48 +0100
+Message-ID: <1488899088-10194-1-git-send-email-rad@semihalf.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Radoslaw Biernacki <rad@semihalf.com>,
+        Tomasz Nowicki <tn@semihalf.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Maciej Czekaj <mjc@semihalf.com>, Linu.Cherian@cavium.com,
+        Radoslaw Biernacki <rbiernacki@caviumnetworks.com>
+To: Bjorn Helgaas <bhelgaas@google.com>, Sunil.Goutham@cavium.com,
+        Robert Richter <robert.richter@cavium.com>,
+        David Daney <ddaney@caviumnetworks.com>,
+        Robert Richter <rric@kernel.org>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Radoslaw Biernacki <rbiernacki@caviumnetworks.com>
 
---fjEAjMKpll6GDq3U
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+PCI reset quirk is needed for Cavium Function NIC since it does not
+handle a function level reset.
+This cause problems when VNIC is used from userspace by vfio.
+If application (or VM) does not stop the VNIC queues, HW may cause
+overwrite of memory locations when next application that use it will
+establish new SMMU mappings. More likely HW it will cause SMMU exception,
+when network packet will came before new SMMU mappings will be made.
 
-On Mon, Mar 06, 2017 at 08:54:06PM +0200, Yuval Shaia wrote:
-> This logic seems to be duplicated in (at least) three separate files.
-> Move it to one place so code can be re-use.
->
-> Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
-> ---
-> v0 -> v1:
-> 	* Add missing #include
-> 	* Rename to genaddrconf_ifid_eui48
-> v1 -> v2:
-> 	* Reset eui[0] to default if dev_id is used
-> ---
->  drivers/infiniband/hw/usnic/usnic_common_util.h | 11 +++--------
->  drivers/infiniband/sw/rxe/rxe_net.c             | 11 ++---------
->  include/net/addrconf.h                          | 19 +++++++++++++------
->  3 files changed, 18 insertions(+), 23 deletions(-)
->
-> diff --git a/drivers/infiniband/hw/usnic/usnic_common_util.h b/drivers/infiniband/hw/usnic/usnic_common_util.h
-> index b54986d..09871da 100644
-> --- a/drivers/infiniband/hw/usnic/usnic_common_util.h
-> +++ b/drivers/infiniband/hw/usnic/usnic_common_util.h
-> @@ -34,6 +34,8 @@
->  #ifndef USNIC_CMN_UTIL_H
->  #define USNIC_CMN_UTIL_H
->
-> +#include <net/addrconf.h>
-> +
->  static inline void
->  usnic_mac_to_gid(const char *const mac, char *raw_gid)
->  {
-> @@ -57,14 +59,7 @@ usnic_mac_ip_to_gid(const char *const mac, const __be32 inaddr, char *raw_gid)
->  	raw_gid[1] = 0x80;
->  	memset(&raw_gid[2], 0, 2);
->  	memcpy(&raw_gid[4], &inaddr, 4);
-> -	raw_gid[8] = mac[0]^2;
-> -	raw_gid[9] = mac[1];
-> -	raw_gid[10] = mac[2];
-> -	raw_gid[11] = 0xff;
-> -	raw_gid[12] = 0xfe;
-> -	raw_gid[13] = mac[3];
-> -	raw_gid[14] = mac[4];
-> -	raw_gid[15] = mac[5];
-> +	genaddrconf_ifid_eui48(&raw_gid[8], mac);
->  }
->
->  static inline void
-> diff --git a/drivers/infiniband/sw/rxe/rxe_net.c b/drivers/infiniband/sw/rxe/rxe_net.c
-> index d8610960..90285c8 100644
-> --- a/drivers/infiniband/sw/rxe/rxe_net.c
-> +++ b/drivers/infiniband/sw/rxe/rxe_net.c
-> @@ -38,6 +38,7 @@
->  #include <linux/if_vlan.h>
->  #include <net/udp_tunnel.h>
->  #include <net/sch_generic.h>
-> +#include <net/addrconf.h>
->  #include <linux/netfilter.h>
->  #include <rdma/ib_addr.h>
->
-> @@ -86,18 +87,10 @@ struct rxe_recv_sockets recv_sockets;
->
->  static __be64 rxe_mac_to_eui64(struct net_device *ndev)
->  {
-> -	unsigned char *mac_addr = ndev->dev_addr;
->  	__be64 eui64;
->  	unsigned char *dst = (unsigned char *)&eui64;
->
-> -	dst[0] = mac_addr[0] ^ 2;
-> -	dst[1] = mac_addr[1];
-> -	dst[2] = mac_addr[2];
-> -	dst[3] = 0xff;
-> -	dst[4] = 0xfe;
-> -	dst[5] = mac_addr[3];
-> -	dst[6] = mac_addr[4];
-> -	dst[7] = mac_addr[5];
-> +	genaddrconf_ifid_eui48(dst, ndev->dev_addr);
->
->  	return eui64;
->  }
-> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-> index 17c6fd8..cdfa73f 100644
-> --- a/include/net/addrconf.h
-> +++ b/include/net/addrconf.h
-> @@ -103,12 +103,21 @@ int addrconf_prefix_rcv_add_addr(struct net *net, struct net_device *dev,
->  				 u32 addr_flags, bool sllao, bool tokenized,
->  				 __u32 valid_lft, u32 prefered_lft);
->
-> +static inline void genaddrconf_ifid_eui48(u8 *eui, const char *const addr)
-> +{
-> +	memcpy(eui, addr, 3);
-> +	eui[0] ^= 2;
-> +	eui[3] = 0xFF;
-> +	eui[4] = 0xFE;
-> +	memcpy(eui + 5, addr + 3, 3);
-> +}
-> +
->  static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
->  {
->  	if (dev->addr_len != ETH_ALEN)
->  		return -1;
-> -	memcpy(eui, dev->dev_addr, 3);
-> -	memcpy(eui + 5, dev->dev_addr + 3, 3);
-> +
-> +	genaddrconf_ifid_eui48(eui, dev->dev_addr);
->
->  	/*
->  	 * The zSeries OSA network cards can be shared among various
-> @@ -124,13 +133,11 @@ static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
->  	 * scope according to RFC2373.
->  	 */
->  	if (dev->dev_id) {
-> +		eui[0] = dev->dev_addr[0];
->  		eui[3] = (dev->dev_id >> 8) & 0xFF;
->  		eui[4] = dev->dev_id & 0xFF;
-> -	} else {
-> -		eui[3] = 0xFF;
-> -		eui[4] = 0xFE;
-> -		eui[0] ^= 2;
->  	}
-> +
->  	return 0;
->  }
+Signed-off-by: Radoslaw Biernacki <rbiernacki@caviumnetworks.com>
+Reviewed-by: Sunil Goutham <Sunil.Goutham@cavium.com>
+---
+ drivers/pci/quirks.c | 90 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 90 insertions(+)
 
-Technically, the code is correct now, but it doesn't look right
-to set the value and restore it right after that.
-
-Thanks
-
->
-> --
-> 2.7.4
->
-
---fjEAjMKpll6GDq3U
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAli+wz8ACgkQ5GN7iDZy
-WKfFrg//TkGqt+3KWjlXupQzNyVLtWvU5P/xDvE7M/60LnSwsMy3rRjX9/RA9Dsb
-xtgH8uHhicYhBDl6M7ZkGxjUMeHj03WLa6BSn93RMga7tF0wvviCPr9cfWHP+nCd
-nCMAizzum2GsNMAGb6n9fOeMS2DIxcjgDXQDsaRFOsdsyE01JFXVfM9EQPJadAt6
-UG64JIQ4obIDz0StUC2KaIJ96fhwPDE04dk6eFrgfcTHVXZDX/Y9mGzbUNaoIQ8Z
-0vFhZx7/FjBYTfGMuN7TweFKtt/PFJuidJM0toaQlL4YNrlsLqKhS9bRi9IIPvwt
-ZS8NWKq5O1gGk8pkxBK/ExX1JBCo4AMky1XzIyw39xicFaG7jKEOO2dOldB5lMTg
-zVBMUUSkBmx7nJqkBXrYI0n8GwpoGg4mzAalTkVJg9tZqPBUx4TAr5Omqthw+xO3
-VvHxvTwPtn1jpnc/rr8Jgq9m9eutneqrDogTXHvDGRpR6PPiONOOu1XgbbiJ/sNx
-4ZWyK60nISF3X+9Nw55PckDqrVAYnMxbK5swxKV8EbJwgR8DqJx52qPIKyt9BPMD
-HsDwWoAptFxknn4DThLOi6gh6Uy0a6eFLwBKQJQfqwEG1htKmCWRHr9mDYNaIuLI
-Asb3GRtZ9f+p3cDTHrLOgS5JnaeexJ2jXVeS89mkkPwGD1+JBpk=
-=Z8r5
------END PGP SIGNATURE-----
-
---fjEAjMKpll6GDq3U--
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index f754453..f7cdbe5 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -3783,10 +3783,98 @@ static int reset_chelsio_generic_dev(struct pci_dev *dev, int probe)
+ 	return 0;
+ }
+ 
++#define CAVIUM_VNIC_QSET_RQ_0_7_CFG		(0x010600)
++#define CAVIUM_VNIC_QSET_CQ_0_7_CFG		(0x010400)
++#define CAVIUM_VNIC_QSET_CQ_0_7_CFG2		(0x010408)
++#define CAVIUM_VNIC_QSET_SQ_0_7_CFG		(0x010800)
++#define CAVIUM_VNIC_QSET_SQ_0_7_STATUS		(0x010840)
++#define CAVIUM_VNIC_QSET_RBDR_0_1_CFG		(0x010C00)
++#define CAVIUM_VNIC_QSET_RBDR_0_1_STATUS0	(0x010C40)
++
++#define CAVIUM_VNIC_Q_SHIFT		(18)
++#define CAVIUM_VNIC_CQ_RESET		(1ULL << 41)
++#define CAVIUM_VNIC_SQ_RESET		(1ULL << 17)
++#define CAVIUM_VNIC_RBDR_RESET		(1ULL << 43)
++#define CAVIUM_VNIC_RBDR_FIFO_STATE_SHIFT (62)
++
++/* Poll a register for a specific value */
++static int cavium_vnic_poll(struct pci_dev *pdev,
++			    void __iomem *addr, size_t bit_pos,
++			    size_t bits, u64 val)
++{
++	u64 bit_mask;
++	u64 reg_val;
++	size_t timeout = 10;
++
++	bit_mask = (1ULL << bits) - 1;
++	bit_mask = (bit_mask << bit_pos);
++
++	while (timeout) {
++		reg_val = readq(addr);
++		if (((reg_val & bit_mask) >> bit_pos) == val)
++			return 0;
++		usleep_range(1000, 2000);
++		timeout--;
++	}
++	dev_err(&pdev->dev, "Poll on addr %p failed\n", addr);
++	return -1;
++}
++
++static int cavium_vnic_reset(struct pci_dev *pdev, int probe)
++{
++	size_t qidx;
++	void __iomem *bar_base;
++	void __iomem *qset_base;
++
++	bar_base = pci_iomap(pdev, 0, 0);
++	if (!bar_base)
++		return -ENOMEM;
++
++	/* For each of 8 RQ/CQ/SQ (queues) in VF */
++	for (qidx = 0; qidx < 8; qidx++) {
++		/* Disable receive queue */
++		qset_base = bar_base + (qidx << CAVIUM_VNIC_Q_SHIFT);
++		writeq(0, qset_base + CAVIUM_VNIC_QSET_RQ_0_7_CFG);
++
++		/* Disable timer threshold (doesn't get reset upon CQ reset */
++		writeq(0, qset_base + CAVIUM_VNIC_QSET_CQ_0_7_CFG2);
++		/* Disable completion queue */
++		writeq(0, qset_base + CAVIUM_VNIC_QSET_CQ_0_7_CFG);
++		/* Reset completion queue */
++		writeq(CAVIUM_VNIC_CQ_RESET,
++			  qset_base + CAVIUM_VNIC_QSET_CQ_0_7_CFG);
++
++		/* Disable send queue */
++		writeq(0, qset_base + CAVIUM_VNIC_QSET_SQ_0_7_CFG);
++		/* Reset send queue */
++		writeq(CAVIUM_VNIC_SQ_RESET,
++		       qset_base + CAVIUM_VNIC_QSET_SQ_0_7_CFG);
++	}
++
++	/* Reset and disable both RBDR's */
++	for (qidx = 0; qidx < 2; qidx++) {
++		qset_base = bar_base +
++			(qidx << CAVIUM_VNIC_Q_SHIFT);
++		writeq(CAVIUM_VNIC_RBDR_RESET,
++		       qset_base + CAVIUM_VNIC_QSET_RBDR_0_1_CFG);
++		writeq(0, qset_base + CAVIUM_VNIC_QSET_RBDR_0_1_CFG);
++		if (cavium_vnic_poll(pdev, qset_base +
++				     CAVIUM_VNIC_QSET_RBDR_0_1_STATUS0,
++				     CAVIUM_VNIC_RBDR_FIFO_STATE_SHIFT,
++				     2, 0x00))
++			dev_err(&pdev->dev, "Timeout on RBDR reset sequence");
++	}
++
++	pci_iounmap(pdev, bar_base);
++	return 0;
++}
++
+ #define PCI_DEVICE_ID_INTEL_82599_SFP_VF   0x10ed
+ #define PCI_DEVICE_ID_INTEL_IVB_M_VGA      0x0156
+ #define PCI_DEVICE_ID_INTEL_IVB_M2_VGA     0x0166
+ 
++#define PCI_DEVICE_ID_CAVIUM_NIC_VF        0xA034
++
+ static const struct pci_dev_reset_methods pci_dev_reset_methods[] = {
+ 	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82599_SFP_VF,
+ 		 reset_intel_82599_sfp_virtfn },
+@@ -3796,6 +3884,8 @@ static int reset_chelsio_generic_dev(struct pci_dev *dev, int probe)
+ 		reset_ivb_igd },
+ 	{ PCI_VENDOR_ID_CHELSIO, PCI_ANY_ID,
+ 		reset_chelsio_generic_dev },
++	{ PCI_VENDOR_ID_CAVIUM, PCI_DEVICE_ID_CAVIUM_NIC_VF,
++		cavium_vnic_reset },
+ 	{ 0 }
+ };
+ 
+-- 
+1.9.1
