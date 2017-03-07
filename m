@@ -1,52 +1,52 @@
-From: Daniel J Blueman <daniel@quora.org>
-Subject: Re: [4.9.13] use after free in ipv4_mtu
-Date: Tue, 7 Mar 2017 20:29:40 +0800
-Message-ID: <CAMVG2st2i2EHP+Qqzj-o4Bchhy2ptNiQJUKPHXX=dmnV3JWpjQ@mail.gmail.com>
-References: <CAMVG2ssDe2NMOZzeTF77H1zEEh3dBuT75bS6f81Tqd+3v_4J+g@mail.gmail.com>
- <1488460104.9415.325.camel@edumazet-glaptop3.roam.corp.google.com>
- <1488461281.9415.327.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAMVG2styKvhUkVnhkFJ-B427sgnbxsBN8rJfE=wFd3wtXYXvrg@mail.gmail.com>
- <1488807904.9415.375.camel@edumazet-glaptop3.roam.corp.google.com> <1488817203.9415.382.camel@edumazet-glaptop3.roam.corp.google.com>
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH v2 0/4] net: thunderx: Miscellaneous fixes
+Date: Tue,  7 Mar 2017 18:09:07 +0530
+Message-ID: <1488890351-18493-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Stephen Hemminger <shemminger@linux-foundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f193.google.com ([209.85.217.193]:34484 "EHLO
-        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755076AbdCGMao (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 07:30:44 -0500
-Received: by mail-ua0-f193.google.com with SMTP id 72so55901uaf.1
-        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 04:29:46 -0800 (PST)
-In-Reply-To: <1488817203.9415.382.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 7 March 2017 at 00:20, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2017-03-06 at 05:45 -0800, Eric Dumazet wrote:
->> On Mon, 2017-03-06 at 14:33 +0800, Daniel J Blueman wrote:
->
->> > I do change the network queueing discipline and related at runtime [1]
->> > which may be triggering this, though I did think I saw the KASAN
->> > report only after resuming from suspend. rf(un)kill and other tweaking
->> > may have been involved too.
->> >
->> > Thanks,
->> >   Dan
->> >
->> > [1] /etc/sysctl.d/90-tcp.conf
->> >
->> > net.core.default_qdisc = fq_codel
->> > net.ipv4.tcp_congestion_control = bbr
->> > net.ipv4.tcp_slow_start_after_idle = 0
->> > net.ipv4.tcp_ecn = 1
->
-> BTW, fq_codel is not suitable for BBR.
->
-> Only fq contains the needed pacing for BBR.
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Good tip, thanks Eric!
+This patch set fixes multiple issues such as IOMMU
+translation faults when kernel is booted with IOMMU enabled
+on host, incorrect MAC ID reading from ACPI tables and IPv6
+UDP packet drop due to failure of checksum validation.
+
+Changes from v1:
+- As suggested by David Miller, got rid of conditional
+  calling of DMA map/unmap APIs. Also updated commit message
+  in 'IOMMU translation faults' patch.
+
+Sunil Goutham (3):
+  net: thunderx: Fix IOMMU translation faults
+  net: thunderx: Fix LMAC mode debug prints for QSGMII mode
+  net: thunderx: Fix invalid mac addresses for node1 interfaces
+
+Thanneeru Srinivasulu (1):
+  net: thunderx: Allow IPv6 frames with zero UDP checksum
+
+ drivers/net/ethernet/cavium/thunder/nic.h          |   1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |  12 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 184 ++++++++++++++++-----
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   4 +-
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |  64 ++++---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |   1 -
+ 6 files changed, 205 insertions(+), 61 deletions(-)
+
 -- 
-Daniel J Blueman
+2.7.4
