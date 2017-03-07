@@ -1,116 +1,48 @@
-From: Sakari Ailus <sakari.ailus@iki.fi>
-Subject: Re: [PATCH 13/29] drivers, media: convert
- vb2_vmarea_handler.refcount from atomic_t to refcount_t
-Date: Tue, 7 Mar 2017 10:50:05 +0200
-Message-ID: <20170307085005.GH3220@valkosipuli.retiisi.org.uk>
-References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
- <1488810076-3754-14-git-send-email-elena.reshetova@intel.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv4: add support for ECMP hash policy
+ choice
+Date: Mon, 06 Mar 2017 22:16:00 -0800
+Message-ID: <58BE5020.5010209@cumulusnetworks.com>
+References: <1488812370-24800-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, linux-pci@vger.kernel.org,
- target-devel@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
- devel@driverdev.osuosl.org, linux-s390@vger.kernel.org,
- linux-scsi@vger.kernel.org, linux-serial@vger.kernel.org,
- fcoe-devel@open-fcoe.org, xen-devel@lists.xenproject.org,
- open-iscsi@googlegroups.com, linux-media@vger.kernel.org,
- Kees Cook <keescook@chromium.org>, linux-raid@vger.kernel.org,
- linux-bcache@vger.kernel.org, Hans Liljestrand <ishkamiel@gmail.com>,
- David Windsor <dwindsor@gmail.com>, gregkh@linuxfoundation.org,
- linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, devel@linuxdriverproject.org
-To: Elena Reshetova <elena.reshetova@intel.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1488810076-3754-14-git-send-email-elena.reshetova@intel.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net,
+        dsa@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:34922 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755222AbdCGIwU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 03:52:20 -0500
+Received: by mail-pg0-f54.google.com with SMTP id b129so76659515pgc.2
+        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 00:51:02 -0800 (PST)
+In-Reply-To: <1488812370-24800-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Elena,
-
-On Mon, Mar 06, 2017 at 04:21:00PM +0200, Elena Reshetova wrote:
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
-> 
-> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
+On 3/6/17, 6:59 AM, Nikolay Aleksandrov wrote:
+> This patch adds support for ECMP hash policy choice via a new sysctl
+> called fib_multipath_hash_policy and also adds support for L4 hashes.
+> The current values for fib_multipath_hash_policy are:
+>  0 - layer 3
+>  1 - layer 4 (new default)
+> If there's an skb hash already set and it matches the chosen policy then it
+> will be used instead of being calculated. The ICMP inner IP addresses use
+> is removed, and we switch to L4 default for better distribution.
+>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > ---
->  drivers/media/v4l2-core/videobuf2-memops.c | 6 +++---
->  include/media/videobuf2-memops.h           | 3 ++-
->  2 files changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/media/v4l2-core/videobuf2-memops.c b/drivers/media/v4l2-core/videobuf2-memops.c
-> index 1cd322e..4bb8424 100644
-> --- a/drivers/media/v4l2-core/videobuf2-memops.c
-> +++ b/drivers/media/v4l2-core/videobuf2-memops.c
-> @@ -96,10 +96,10 @@ static void vb2_common_vm_open(struct vm_area_struct *vma)
->  	struct vb2_vmarea_handler *h = vma->vm_private_data;
->  
->  	pr_debug("%s: %p, refcount: %d, vma: %08lx-%08lx\n",
-> -	       __func__, h, atomic_read(h->refcount), vma->vm_start,
-> +	       __func__, h, refcount_read(h->refcount), vma->vm_start,
->  	       vma->vm_end);
->  
-> -	atomic_inc(h->refcount);
-> +	refcount_inc(h->refcount);
->  }
->  
->  /**
-> @@ -114,7 +114,7 @@ static void vb2_common_vm_close(struct vm_area_struct *vma)
->  	struct vb2_vmarea_handler *h = vma->vm_private_data;
->  
->  	pr_debug("%s: %p, refcount: %d, vma: %08lx-%08lx\n",
-> -	       __func__, h, atomic_read(h->refcount), vma->vm_start,
-> +	       __func__, h, refcount_read(h->refcount), vma->vm_start,
->  	       vma->vm_end);
->  
->  	h->put(h->arg);
-> diff --git a/include/media/videobuf2-memops.h b/include/media/videobuf2-memops.h
-> index 36565c7a..a6ed091 100644
-> --- a/include/media/videobuf2-memops.h
-> +++ b/include/media/videobuf2-memops.h
-> @@ -16,6 +16,7 @@
->  
->  #include <media/videobuf2-v4l2.h>
->  #include <linux/mm.h>
-> +#include <linux/refcount.h>
->  
->  /**
->   * struct vb2_vmarea_handler - common vma refcount tracking handler
-> @@ -25,7 +26,7 @@
->   * @arg:	argument for @put callback
->   */
->  struct vb2_vmarea_handler {
-> -	atomic_t		*refcount;
-> +	refcount_t		*refcount;
+> I'm not happy with using an integer, but it produces the smallest churn.
+> Just let me know if you'd like to switch to a string sysctl.
+>
+to confirm, this makes ipv4 same as the default ecmp hashing in ipv6.
+but ipv6 also has the flow label to help in some cases.
 
-This is a pointer to refcount, not refcount itself. The refcount is part of
-a memory type specific struct, the types that you change in the following
-three patches. I guess it would still compile and work as separate patches
-but you'd sure get warnings at least.
+If we decide to move to l4 by default, the sysctl might not be necessary.
+and, my only concern with moving to default is if it will upset any existing fragmented
+flow distributions. I tried to do some quick survey on other system defaults. Most switches I have
+heard of use 5-tuple by default in hw. Will look some more.
 
-How about merging this and the three following patches that change the memop
-refcount types?
-
->  	void			(*put)(void *arg);
->  	void			*arg;
->  };
-
--- 
-Kind regards,
-
-Sakari Ailus
-e-mail: sakari.ailus@iki.fi	XMPP: sailus@retiisi.org.uk
+We still have the option of not making l4 hash the default (your first internal version). It will make
+the ipv4 default different than ipv6 (which is today's state of things and that maybe ok if it is just a sysctl away).
