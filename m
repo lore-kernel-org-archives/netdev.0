@@ -1,8 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 16/22] net: mvpp2: handle misc PPv2.1/PPv2.2
- differences
-Date: Tue,  7 Mar 2017 16:53:14 +0100
-Message-ID: <1488902000-2658-17-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 17/22] net: mvpp2: add AXI bridge initialization
+ for PPv2.2
+Date: Tue,  7 Mar 2017 16:53:15 +0100
+Message-ID: <1488902000-2658-18-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,167 +33,123 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This commit handles a few miscellaneous differences between PPv2.1 and
-PPv2.2 in different areas, where code done for PPv2.1 doesn't apply for
-PPv2.2 or needs to be adjusted (getting the MAC address, disabling PHY
-polling, etc.).
-
-Thanks to Russell King for providing the initial implementation of
-mvpp22_port_mii_set().
+The PPv2.2 unit is connected to an AXI bus on Armada 7K/8K, so this
+commit adds the necessary initialization of the AXI bridge.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 85 ++++++++++++++++++++++++++++--------
- 1 file changed, 67 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 85 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 85 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 2b4b4f0..bd7dc4b6 100644
+index bd7dc4b6..0e10303 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -294,6 +294,22 @@
- #define      MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK	0x1fc0
- #define      MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
- 					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
-+#define MVPP22_GMAC_CTRL_4_REG			0x90
-+#define      MVPP22_CTRL4_EXT_PIN_GMII_SEL	BIT(0)
-+#define      MVPP22_CTRL4_DP_CLK_SEL		BIT(5)
-+#define      MVPP22_CTRL4_SYNC_BYPASS		BIT(6)
-+#define      MVPP22_CTRL4_QSGMII_BYPASS_ACTIVE	BIT(7)
-+
-+/* Per-port XGMAC registers. PPv2.2 only, only for GOP port 0,
-+ * relative to port->base.
-+ */
-+#define MVPP22_XLG_CTRL3_REG			0x11c
-+#define      MVPP22_XLG_CTRL3_MACMODESELECT_MASK	(7 << 13)
-+#define      MVPP22_XLG_CTRL3_MACMODESELECT_GMAC	(0 << 13)
-+
-+/* SMI registers. PPv2.2 only, relative to priv->iface_base. */
-+#define MVPP22_SMI_MISC_CFG_REG			0x1204
-+#define      MVPP22_SMI_POLLING_EN		BIT(10)
+@@ -154,6 +154,34 @@
+ #define MVPP2_WIN_REMAP(w)			(0x4040 + ((w) << 2))
+ #define MVPP2_BASE_ADDR_ENABLE			0x4060
  
- #define MVPP22_GMAC_BASE(port)		(0x7000 + (port) * 0x1000 + 0xe00)
- 
-@@ -4128,10 +4144,38 @@ static void mvpp2_interrupts_unmask(void *arg)
- 
- /* Port configuration routines */
- 
-+static void mvpp22_port_mii_set(struct mvpp2_port *port)
-+{
-+	u32 val;
++/* AXI Bridge Registers */
++#define MVPP22_AXI_BM_WR_ATTR_REG		0x4100
++#define MVPP22_AXI_BM_RD_ATTR_REG		0x4104
++#define MVPP22_AXI_AGGRQ_DESCR_RD_ATTR_REG	0x4110
++#define MVPP22_AXI_TXQ_DESCR_WR_ATTR_REG	0x4114
++#define MVPP22_AXI_TXQ_DESCR_RD_ATTR_REG	0x4118
++#define MVPP22_AXI_RXQ_DESCR_WR_ATTR_REG	0x411c
++#define MVPP22_AXI_RX_DATA_WR_ATTR_REG		0x4120
++#define MVPP22_AXI_TX_DATA_RD_ATTR_REG		0x4130
++#define MVPP22_AXI_RD_NORMAL_CODE_REG		0x4150
++#define MVPP22_AXI_RD_SNOOP_CODE_REG		0x4154
++#define MVPP22_AXI_WR_NORMAL_CODE_REG		0x4160
++#define MVPP22_AXI_WR_SNOOP_CODE_REG		0x4164
 +
-+	return;
++/* Values for AXI Bridge registers */
++#define MVPP22_AXI_ATTR_CACHE_OFFS		0
++#define MVPP22_AXI_ATTR_DOMAIN_OFFS		12
 +
-+	/* Only GOP port 0 has an XLG MAC */
-+	if (port->gop_id == 0) {
-+		val = readl(port->base + MVPP22_XLG_CTRL3_REG);
-+		val &= ~MVPP22_XLG_CTRL3_MACMODESELECT_MASK;
-+		val |= MVPP22_XLG_CTRL3_MACMODESELECT_GMAC;
-+		writel(val, port->base + MVPP22_XLG_CTRL3_REG);
-+	}
++#define MVPP22_AXI_CODE_CACHE_OFFS		0
++#define MVPP22_AXI_CODE_DOMAIN_OFFS		4
 +
-+	val = readl(port->base + MVPP22_GMAC_CTRL_4_REG);
-+	if (port->phy_interface == PHY_INTERFACE_MODE_RGMII)
-+		val |= MVPP22_CTRL4_EXT_PIN_GMII_SEL;
-+	else
-+		val &= ~MVPP22_CTRL4_EXT_PIN_GMII_SEL;
-+	val &= ~MVPP22_CTRL4_DP_CLK_SEL;
-+	val |= MVPP22_CTRL4_SYNC_BYPASS;
-+	val |= MVPP22_CTRL4_QSGMII_BYPASS_ACTIVE;
-+	writel(val, port->base + MVPP22_GMAC_CTRL_4_REG);
-+}
++#define MVPP22_AXI_CODE_CACHE_NON_CACHE		0x3
++#define MVPP22_AXI_CODE_CACHE_WR_CACHE		0x7
++#define MVPP22_AXI_CODE_CACHE_RD_CACHE		0xb
 +
- static void mvpp2_port_mii_set(struct mvpp2_port *port)
- {
- 	u32 val;
- 
-+	if (port->priv->hw_version == MVPP22)
-+		mvpp22_port_mii_set(port);
++#define MVPP22_AXI_CODE_DOMAIN_OUTER_DOM	2
++#define MVPP22_AXI_CODE_DOMAIN_SYSTEM		3
 +
- 	val = readl(port->base + MVPP2_GMAC_CTRL_2_REG);
- 
- 	switch (port->phy_interface) {
-@@ -5813,7 +5857,7 @@ static int mvpp2_check_ringparam_valid(struct net_device *dev,
- 	return 0;
+ /* Interrupt Cause and Mask registers */
+ #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
+ #define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
+@@ -6664,6 +6692,60 @@ static void mvpp2_rx_fifo_init(struct mvpp2 *priv)
+ 	mvpp2_write(priv, MVPP2_RX_FIFO_INIT_REG, 0x1);
  }
  
--static void mvpp2_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
-+static void mvpp21_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
++static void mvpp2_axi_init(struct mvpp2 *priv)
++{
++	u32 val, rdval, wrval;
++
++	mvpp2_write(priv, MVPP22_BM_ADDR_HIGH_RLS_REG, 0x0);
++
++	/* AXI Bridge Configuration */
++
++	rdval = MVPP22_AXI_CODE_CACHE_RD_CACHE
++		<< MVPP22_AXI_ATTR_CACHE_OFFS;
++	rdval |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
++		<< MVPP22_AXI_ATTR_DOMAIN_OFFS;
++
++	wrval = MVPP22_AXI_CODE_CACHE_WR_CACHE
++		<< MVPP22_AXI_ATTR_CACHE_OFFS;
++	wrval |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
++		<< MVPP22_AXI_ATTR_DOMAIN_OFFS;
++
++	/* BM */
++	mvpp2_write(priv, MVPP22_AXI_BM_WR_ATTR_REG, wrval);
++	mvpp2_write(priv, MVPP22_AXI_BM_RD_ATTR_REG, rdval);
++
++	/* Descriptors */
++	mvpp2_write(priv, MVPP22_AXI_AGGRQ_DESCR_RD_ATTR_REG, rdval);
++	mvpp2_write(priv, MVPP22_AXI_TXQ_DESCR_WR_ATTR_REG, wrval);
++	mvpp2_write(priv, MVPP22_AXI_TXQ_DESCR_RD_ATTR_REG, rdval);
++	mvpp2_write(priv, MVPP22_AXI_RXQ_DESCR_WR_ATTR_REG, wrval);
++
++	/* Buffer Data */
++	mvpp2_write(priv, MVPP22_AXI_TX_DATA_RD_ATTR_REG, rdval);
++	mvpp2_write(priv, MVPP22_AXI_RX_DATA_WR_ATTR_REG, wrval);
++
++	val = MVPP22_AXI_CODE_CACHE_NON_CACHE
++		<< MVPP22_AXI_CODE_CACHE_OFFS;
++	val |= MVPP22_AXI_CODE_DOMAIN_SYSTEM
++		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
++	mvpp2_write(priv, MVPP22_AXI_RD_NORMAL_CODE_REG, val);
++	mvpp2_write(priv, MVPP22_AXI_WR_NORMAL_CODE_REG, val);
++
++	val = MVPP22_AXI_CODE_CACHE_RD_CACHE
++		<< MVPP22_AXI_CODE_CACHE_OFFS;
++	val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
++		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
++
++	mvpp2_write(priv, MVPP22_AXI_RD_SNOOP_CODE_REG, val);
++
++	val = MVPP22_AXI_CODE_CACHE_WR_CACHE
++		<< MVPP22_AXI_CODE_CACHE_OFFS;
++	val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
++		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
++
++	mvpp2_write(priv, MVPP22_AXI_WR_SNOOP_CODE_REG, val);
++}
++
+ /* Initialize network controller common part HW */
+ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
  {
- 	u32 mac_addr_l, mac_addr_m, mac_addr_h;
- 
-@@ -6258,16 +6302,6 @@ static const struct ethtool_ops mvpp2_eth_tool_ops = {
- 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
--/* Driver initialization */
--
--static void mvpp2_port_power_up(struct mvpp2_port *port)
--{
--	mvpp2_port_mii_set(port);
--	mvpp2_port_periodic_xon_disable(port);
--	mvpp2_port_fc_adv_enable(port);
--	mvpp2_port_reset(port);
--}
--
- /* Initialize port HW */
- static int mvpp2_port_init(struct mvpp2_port *port)
- {
-@@ -6479,7 +6513,8 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		mac_from = "device tree";
- 		ether_addr_copy(dev->dev_addr, dt_mac_addr);
- 	} else {
--		mvpp2_get_mac_address(port, hw_mac_addr);
-+		if (priv->hw_version == MVPP21)
-+			mvpp21_get_mac_address(port, hw_mac_addr);
- 		if (is_valid_ether_addr(hw_mac_addr)) {
- 			mac_from = "hardware";
- 			ether_addr_copy(dev->dev_addr, hw_mac_addr);
-@@ -6499,7 +6534,14 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		dev_err(&pdev->dev, "failed to init port %d\n", id);
- 		goto err_free_stats;
- 	}
--	mvpp2_port_power_up(port);
-+
-+	mvpp2_port_mii_set(port);
-+	mvpp2_port_periodic_xon_disable(port);
-+
-+	if (priv->hw_version == MVPP21)
-+		mvpp2_port_fc_adv_enable(port);
-+
-+	mvpp2_port_reset(port);
- 
- 	port->pcpu = alloc_percpu(struct mvpp2_port_pcpu);
- 	if (!port->pcpu) {
-@@ -6642,9 +6684,15 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+@@ -6683,6 +6765,9 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 	if (dram_target_info)
  		mvpp2_conf_mbus_windows(dram_target_info, priv);
  
++	if (priv->hw_version == MVPP22)
++		mvpp2_axi_init(priv);
++
  	/* Disable HW PHY polling */
--	val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
--	val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
--	writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+	if (priv->hw_version == MVPP21) {
-+		val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+		val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
-+		writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+	} else {
-+		val = readl(priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
-+		val &= ~MVPP22_SMI_POLLING_EN;
-+		writel(val, priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
-+	}
- 
- 	/* Allocate and initialize aggregated TXQs */
- 	priv->aggr_txqs = devm_kcalloc(&pdev->dev, num_present_cpus(),
-@@ -6669,8 +6717,9 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 	for (i = 0; i < MVPP2_MAX_PORTS; i++)
- 		mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(i), rxq_number);
- 
--	writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
--	       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
-+	if (priv->hw_version == MVPP21)
-+		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
-+		       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
- 
- 	/* Allow cache snoop when transmiting packets */
- 	mvpp2_write(priv, MVPP2_TX_SNOOP_REG, 0x1);
+ 	if (priv->hw_version == MVPP21) {
+ 		val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
 -- 
 2.7.4
