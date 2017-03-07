@@ -1,29 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] net: fix possible sock_hold() misuses
-Date: Tue, 07 Mar 2017 14:06:32 -0800 (PST)
-Message-ID: <20170307.140632.293848592181817024.davem@davemloft.net>
-References: <20170304050103.12226-1-edumazet@google.com>
+From: Nikolay Borisov <n.borisov.lkml@gmail.com>
+Subject: Re: net: BUG in unix_notinflight
+Date: Wed, 8 Mar 2017 00:23:56 +0200
+Message-ID: <74aac97b-f779-1554-a34b-bca173ab0c8d@gmail.com>
+References: <CACT4Y+b5_zcRVrq5yRmtkVUgnzOmq55upA_QCoLrkSDnT0cLHA@mail.gmail.com>
+ <CACT4Y+bCvPdn3i-nuBCbPyHUuOjyh83KyLFzWR+8JDGqM0F2ww@mail.gmail.com>
+ <CAM_iQpWePCJ3oyOf8xRdJ5CtPMR6UNvNKs7t=MabtL=obGoSxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com,
-        alexander.h.duyck@intel.com, johannes@sipsolutions.net,
-        soheil@google.com, eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37824 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756208AbdCGWPr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 17:15:47 -0500
-In-Reply-To: <20170304050103.12226-1-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Willy Tarreau <w@1wt.eu>, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpWePCJ3oyOf8xRdJ5CtPMR6UNvNKs7t=MabtL=obGoSxg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Fri,  3 Mar 2017 21:01:01 -0800
 
-> skb_complete_wifi_ack() and skb_complete_tx_timestamp() currently
-> call sock_hold() on sockets that might have transitioned their sk_refcnt
-> to zero already.
+>>
+>>
+>> New report from linux-next/c0b7b2b33bd17f7155956d0338ce92615da686c9
+>>
+>> ------------[ cut here ]------------
+>> kernel BUG at net/unix/garbage.c:149!
+>> invalid opcode: 0000 [#1] SMP KASAN
+>> Dumping ftrace buffer:
+>>    (ftrace buffer empty)
+>> Modules linked in:
+>> CPU: 0 PID: 1806 Comm: syz-executor7 Not tainted 4.10.0-next-20170303+ #6
+>> Hardware name: Google Google Compute Engine/Google Compute Engine,
+>> BIOS Google 01/01/2011
+>> task: ffff880121c64740 task.stack: ffff88012c9e8000
+>> RIP: 0010:unix_notinflight+0x417/0x5d0 net/unix/garbage.c:149
+>> RSP: 0018:ffff88012c9ef0f8 EFLAGS: 00010297
+>> RAX: ffff880121c64740 RBX: 1ffff1002593de23 RCX: ffff8801c490c628
+>> RDX: 0000000000000000 RSI: 1ffff1002593de27 RDI: ffffffff8557e504
+>> RBP: ffff88012c9ef220 R08: 0000000000000001 R09: 0000000000000000
+>> R10: dffffc0000000000 R11: ffffed002593de55 R12: ffff8801c490c0c0
+>> R13: ffff88012c9ef1f8 R14: ffffffff85101620 R15: dffffc0000000000
+>> FS:  00000000013d3940(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
+>> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> CR2: 0000000001fd8cd8 CR3: 00000001cce69000 CR4: 00000000001426f0
+>> Call Trace:
+>>  unix_detach_fds.isra.23+0xfa/0x170 net/unix/af_unix.c:1490
+>>  unix_destruct_scm+0xf4/0x200 net/unix/af_unix.c:1499
+> 
+> The problem here is there is no lock protecting concurrent unix_detach_fds()
+> even though unix_notinflight() is already serialized, if we call
+> unix_notinflight()
+> twice on the same file pointer, we trigger this bug...
+> 
+> I don't know what is the right lock here to serialize it.
+> 
 
-Series applied and queued up for -stable, thanks.
+
+I reported something similar a while ago
+https://lists.gt.net/linux/kernel/2534612
+
+And Miklos Szeredi then produced the following patch :
+
+https://patchwork.kernel.org/patch/9305121/
+
+However, this was never applied. I wonder if the patch makes sense?
