@@ -1,83 +1,89 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 05/22] net: mvpp2: remove
- mvpp2_txq_pend_desc_num_get() function
-Date: Tue,  7 Mar 2017 16:53:03 +0100
-Message-ID: <1488902000-2658-6-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 08/22] net: mvpp2: add hw_version field in "struct mvpp2"
+Date: Tue,  7 Mar 2017 16:53:06 +0100
+Message-ID: <1488902000-2658-9-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
- Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
- Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Russell King <linux@arm.linux.org.uk>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
- devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
- Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Pawel Moll <pawel.moll@arm.com>, Mark Rutland <mark.rutland@arm.com>,
- Kumar Gala <galak@codeaurora.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+        devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Kumar Gala <galak@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:32845 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754750AbdCGP4k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 10:56:40 -0500
 In-Reply-To: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The mvpp2_txq_pend_desc_num_get() function only selects a TX queue, and
-reads the number of pending descriptors. It is used in only one place,
-in mvpp2_txq_clean(), where the TX queue has already been selected by a
-write to MVPP2_TXQ_NUM_REG.
+In preparation to the introduction for the support of PPv2.2 in the
+mvpp2 driver, this commit adds a hw_version field to the struct
+mvpp2, and uses the .data field of the DT match table to fill it in.
 
-Therefore, this function is useless, and the caller can simply read the
-value of the MVPP2_TXQ_PENDING_REG register instead.
+Having the MVPP21 and MVPP22 definitions available will allow to start
+adding the necessary conditional code to support PPv2.2.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 15 ++-------------
- 1 file changed, 2 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 60cc020..9ddda20 100644
+index 2ee066b..27d8838 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -4123,18 +4123,6 @@ static u32 mvpp2_bm_cookie_build(struct mvpp2_rx_desc *rx_desc)
+@@ -25,6 +25,7 @@
+ #include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+ #include <linux/of_address.h>
++#include <linux/of_device.h>
+ #include <linux/phy.h>
+ #include <linux/clk.h>
+ #include <linux/hrtimer.h>
+@@ -643,6 +644,9 @@ struct mvpp2 {
  
- /* Tx descriptors helper methods */
+ 	/* Tclk value */
+ 	u32 tclk;
++
++	/* HW version */
++	enum { MVPP21, MVPP22 } hw_version;
+ };
  
--/* Get number of Tx descriptors waiting to be transmitted by HW */
--static int mvpp2_txq_pend_desc_num_get(struct mvpp2_port *port,
--				       struct mvpp2_tx_queue *txq)
--{
--	u32 val;
--
--	mvpp2_write(port->priv, MVPP2_TXQ_NUM_REG, txq->id);
--	val = mvpp2_read(port->priv, MVPP2_TXQ_PENDING_REG);
--
--	return val & MVPP2_TXQ_PENDING_MASK;
--}
--
- /* Get pointer to next Tx descriptor to be processed (send) by HW */
- static struct mvpp2_tx_desc *
- mvpp2_txq_next_desc_get(struct mvpp2_tx_queue *txq)
-@@ -4740,7 +4728,8 @@ static void mvpp2_txq_clean(struct mvpp2_port *port, struct mvpp2_tx_queue *txq)
- 		mdelay(1);
- 		delay++;
+ struct mvpp2_pcpu_stats {
+@@ -6429,6 +6433,9 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	if (!priv)
+ 		return -ENOMEM;
  
--		pending = mvpp2_txq_pend_desc_num_get(port, txq);
-+		pending = mvpp2_read(port->priv, MVPP2_TXQ_PENDING_REG) &
-+			MVPP2_TXQ_PENDING_MASK;
- 	} while (pending);
++	priv->hw_version =
++		(unsigned long)of_device_get_match_data(&pdev->dev);
++
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	priv->base = devm_ioremap_resource(&pdev->dev, res);
+ 	if (IS_ERR(priv->base))
+@@ -6533,7 +6540,10 @@ static int mvpp2_remove(struct platform_device *pdev)
+ }
  
- 	val &= ~MVPP2_TXQ_DRAIN_EN_MASK;
+ static const struct of_device_id mvpp2_match[] = {
+-	{ .compatible = "marvell,armada-375-pp2" },
++	{
++		.compatible = "marvell,armada-375-pp2",
++		.data = (void *)MVPP21,
++	},
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, mvpp2_match);
 -- 
 2.7.4
