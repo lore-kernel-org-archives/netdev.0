@@ -1,92 +1,55 @@
-From: "Reshetova, Elena" <elena.reshetova@intel.com>
-Subject: RE: [PATCH 11/29] drivers, media: convert cx88_core.refcount from
- atomic_t to refcount_t
-Date: Tue, 7 Mar 2017 07:52:09 +0000
-Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C556E2@IRSMSX102.ger.corp.intel.com>
-References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
- <1488810076-3754-12-git-send-email-elena.reshetova@intel.com>
- <c6987419-f708-9923-0f9f-87b715600045@cogentembedded.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] udp: avoid ufo handling on IP payload compression packets
+Date: Tue, 7 Mar 2017 08:53:24 +0100
+Message-ID: <20170307075324.GF694@gauss.secunet.com>
+References: <1488544652-28475-1-git-send-email-alexey.kodanev@oracle.com>
+ <20170306061657.GY694@gauss.secunet.com>
+ <20170307070150.GA25144@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
- "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
- Kees Cook <keescook@chromium.org>,
- "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
- David Windsor <dwindsor@gmail.com>,
- "peterz@infradead.org" <peterz@infradead.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
- "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-raid@vger.kernel.org" <linux-raid@vger.kernel.org>,
- "linux-bcache@vger.kernel.org" <linux-bcache@vger.kernel.org>,
- "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
- "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriver
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <c6987419-f708-9923-0f9f-87b715600045@cogentembedded.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: Alexey Kodanev <alexey.kodanev@oracle.com>,
+        <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:42790 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754933AbdCGIRW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Mar 2017 03:17:22 -0500
+Content-Disposition: inline
+In-Reply-To: <20170307070150.GA25144@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Hello.
-> 
-> On 03/06/2017 05:20 PM, Elena Reshetova wrote:
-> 
-> > refcount_t type and corresponding API should be
-> > used instead of atomic_t when the variable is used as
-> > a reference counter. This allows to avoid accidental
-> > refcounter overflows that might lead to use-after-free
-> > situations.
+On Tue, Mar 07, 2017 at 03:01:50PM +0800, Herbert Xu wrote:
+> On Mon, Mar 06, 2017 at 07:16:57AM +0100, Steffen Klassert wrote:
 > >
-> > Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-> > Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-> > Signed-off-by: Kees Cook <keescook@chromium.org>
-> > Signed-off-by: David Windsor <dwindsor@gmail.com>
-> [...]
-> > diff --git a/drivers/media/pci/cx88/cx88.h b/drivers/media/pci/cx88/cx88.h
-> > index 115414c..16c1313 100644
-> > --- a/drivers/media/pci/cx88/cx88.h
-> > +++ b/drivers/media/pci/cx88/cx88.h
-> > @@ -24,6 +24,7 @@
-> >  #include <linux/i2c-algo-bit.h>
-> >  #include <linux/videodev2.h>
-> >  #include <linux/kdev_t.h>
-> > +#include <linux/refcount.h>
-> >
-> >  #include <media/v4l2-device.h>
-> >  #include <media/v4l2-fh.h>
-> > @@ -339,7 +340,7 @@ struct cx8802_dev;
-> >
-> >  struct cx88_core {
-> >  	struct list_head           devlist;
-> > -	atomic_t                   refcount;
-> > +	refcount_t                   refcount;
+> > > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> > > index b67719f..18383ef 100644
+> > > --- a/net/ipv4/ip_output.c
+> > > +++ b/net/ipv4/ip_output.c
+> > > @@ -960,7 +960,10 @@ static int __ip_append_data(struct sock *sk,
+> > >  	cork->length += length;
+> > >  	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
+> > >  	    (sk->sk_protocol == IPPROTO_UDP) &&
+> > > -	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
+> > > +	    (rt->dst.dev->features & NETIF_F_UFO) &&
+> > > +#ifdef CONFIG_XFRM
+> > > +	    !rt->dst.xfrm &&
+> > > +#endif
+> > 
+> > Please fix IPcomp to use rt->dst.header_len instead off adding
+> > this ifdef to the generic networking code.
 > 
->     Could you please keep the name aligned with above and below?
+> It's not that simple though.  IPComp's header_len is set to zero
+> because we opportunistically drop the IPComp header when the total
+> compressed length exceeds the original packet length.  That is,
+> we only ever do IPComp when it does not cause the packet to expand.
 
-You mean "not aligned" to devlist, but with a shift like it was before? 
-Sure, will fix. Is the patch ok otherwise?
-
-Best Regards,
-Elena.
+Yes, indeed. And it makes sense of course.
 
 > 
-> >
-> >  	/* board name */
-> >  	int                        nr;
-> >
-> 
-> MBR, Sergei
+> So it seems that we need another way of indicating the presence of
+> XFRM.
+
+Then we probably have to use the !rt->dst.xfrm check. But then
+we should use dst_xfrm() accessor, this avoids the ifdef here.
