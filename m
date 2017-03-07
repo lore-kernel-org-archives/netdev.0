@@ -1,64 +1,81 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [PATCH 1/2] net: sched: make default fifo qdiscs appear in the
- dump
-Date: Tue, 7 Mar 2017 10:59:36 +0100 (CET)
-Message-ID: <alpine.LSU.2.20.1703071057300.31814@cbobk.fhfr.pm>
-References: <alpine.LSU.2.20.1702252226530.24579@cbobk.fhfr.pm> <20170301.132144.1380602514921591101.davem@davemloft.net> <alpine.LSU.2.20.1703061158500.31814@cbobk.fhfr.pm> <20170306.103555.1351381782582641603.davem@davemloft.net>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH 08/26] brcmsmac: make some local variables 'static const'
+ to reduce stack size
+Date: Tue, 7 Mar 2017 10:55:36 +0100
+Message-ID: <2e8b7c30-41d5-b605-d502-6b914507e4e1@broadcom.com>
+References: <20170302163834.2273519-1-arnd@arndb.de>
+ <20170302163834.2273519-9-arnd@arndb.de>
+ <227c8e5a-fa20-0300-1cb0-1d3ef17deb19@broadcom.com>
+ <87y3wi74y8.fsf@purkki.adurom.net>
+ <CAK8P3a0cemG0=6jZOQEpGN+RG2Be1LM_DE7aJVX18en_i6G7=Q@mail.gmail.com>
+ <877f414e1n.fsf@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
-        jhs@mojatatu.com, phil@nwl.cc, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: kasan-dev <kasan-dev@googlegroups.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-media@vger.kernel.org,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        kernel-build-reports@lists.linaro.org,
+        "David S . Miller" <davem@davemloft.net>
+To: Kalle Valo <kvalo@codeaurora.org>, Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:52430 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752681AbdCGKBu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Mar 2017 05:01:50 -0500
-In-Reply-To: <20170306.103555.1351381782582641603.davem@davemloft.net>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35367 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752742AbdCGKD0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 05:03:26 -0500
+Received: by mail-wm0-f44.google.com with SMTP id v186so85159326wmd.0
+        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 02:03:00 -0800 (PST)
+In-Reply-To: <877f414e1n.fsf@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Mar 2017, David Miller wrote:
-
-> > Ah, right you are, thanks. The complete fix is not super trivial, as it 
-> > needs some more surgery to tc_dump_qdisc_root(), tc_dump_tclass_root() and 
-> > qdisc_match_from_root() (see 69012ae42 for some details).
-> > 
-> > There are two options:
-> > 
-> > - this gets fixed in two phases, in first everything *but* noop qdisc gets 
-> >   dumped (in the "give me everything" dump) and later we finalize it by
-> >   teaching the above functions about noop_qdisc as well
-> > 
-> > - I extend this patchset to handle noop qdisc from the very beginning; 
-> >   I am unlikely to find time for this during coming weeks though. But OTOH
-> >   this whole thing is very low priority anyway
-> > 
-> > What do you think?
+On 7-3-2017 10:44, Kalle Valo wrote:
+> Arnd Bergmann <arnd@arndb.de> writes:
 > 
-> I'm not too hot on this whole idea because the only way you can emit
-> the noop_qdisc is to "dup" it by allocating a new qdisc so that you
-> can link it in.  This has two downsides:
+>> On Mon, Mar 6, 2017 at 5:19 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
+>>> Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
+>>>
+>>>> On 2-3-2017 17:38, Arnd Bergmann wrote:
+>>>>> With KASAN and a couple of other patches applied, this driver is one
+>>>>> of the few remaining ones that actually use more than 2048 bytes of
+>>>>> kernel stack:
+>>>>>
+>>>>> broadcom/brcm80211/brcmsmac/phy/phy_n.c: In function
+>>>>> 'wlc_phy_workarounds_nphy_gainctrl':
+>>>>> broadcom/brcm80211/brcmsmac/phy/phy_n.c:16065:1: warning: the
+>>>>> frame size of 3264 bytes is larger than 2048 bytes
+>>>>> [-Wframe-larger-than=]
+>>>>> broadcom/brcm80211/brcmsmac/phy/phy_n.c: In function 'wlc_phy_workarounds_nphy':
+>>>>> broadcom/brcm80211/brcmsmac/phy/phy_n.c:17138:1: warning: the
+>>>>> frame size of 2864 bytes is larger than 2048 bytes
+>>>>> [-Wframe-larger-than=]
+>>>>>
+>>>>> Here, I'm reducing the stack size by marking as many local variables as
+>>>>> 'static const' as I can without changing the actual code.
+>>>>
+>>>> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+>>>
+>>> Arnd, via which tree are you planning to submit these? I'm not sure
+>>> what I should do with the wireless drivers patches from this series.
+>>
+>> I'm not quite sure myself yet. I'd probably want the first few patches that
+>> do most of the work get merged through Andrew's linux-mm tree once
+>> we have come to agreement on them. The driver specific patches like
+>> the brcmsmac ones depend on the introduction of noinline_for_kasan
+>> or noinline_if_stackbloat and could either go in along with the first
+>> set, or as a follow-up through the normal maintainer trees.
 > 
-> 1) Extra overhead and memory usage
-> 
-> 2) All of the simple checks against &noop_qdisc might not be
->    so simply any more.
+> Either way is fine for me. Just mark clearly if you want the wireless
+> drivers patches to go through via my tree, otherwise I'll ignore them.
 
-Fully agreed.
+That (dreaded) phy code does not get a lot of changes so I think it does
+not matter which tree is will go through in terms of risk for conflicts.
+So going through linux-mm is fine for me as well.
 
-I'd be inclined to just live with the fact that noop qdisc would never 
-ever be visible in the dump. I think that in this particular case this can 
-be easily justified, as the behavior is consistent with what is seen in 
-the dump ("nothing happens to the packets"). All other cases will be 
-covered.
-
-If there are no objections to this, I'll send out v2 shortly.
-
-Thanks,
-
--- 
-Jiri Kosina
-SUSE Labs
+Regards,
+Arend
