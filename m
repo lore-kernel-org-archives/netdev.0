@@ -1,7 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 03/22] net: mvpp2: remove support for buffer header
-Date: Tue,  7 Mar 2017 16:53:01 +0100
-Message-ID: <1488902000-2658-4-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 01/22] dt-bindings: net: update Marvell PPv2
+ binding for PPv2.2 support
+Date: Tue,  7 Mar 2017 16:52:59 +0100
+Message-ID: <1488902000-2658-2-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -32,134 +33,111 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The "buffer header" functionality is a functionality used by the
-hardware to split an incoming packets over multiple BM buffers if they
-are not large enough. However, the mvpp2 driver guarantees that a pool
-of BM buffers has buffers with a size large enough to store MTU-sized
-packets. Therefore, this functionality is completely unused, and the
-code can be removed, and we should never get a descriptor with bit
-MVPP2_RXD_BUF_HDR set.
+The Marvell PPv2 Device Tree binding was so far only used to describe
+the PPv2.1 network controller, used in the Marvell Armada 375.
+
+A new version of this IP block, PPv2.2 is used in the Marvell Armada
+7K/8K processor. This commit extends the existing binding so that it can
+also be used to describe PPv2.2 hardware.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 77 ------------------------------------
- 1 file changed, 77 deletions(-)
+ .../devicetree/bindings/net/marvell-pp2.txt        | 62 ++++++++++++++++++----
+ 1 file changed, 51 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 6a4d126..fb8b5e9 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -215,9 +215,6 @@
- #define     MVPP2_BM_PHY_RLS_PRIO_EN_MASK	BIT(1)
- #define     MVPP2_BM_PHY_RLS_GRNTD_MASK		BIT(2)
- #define MVPP2_BM_VIRT_RLS_REG			0x64c0
--#define MVPP2_BM_MC_RLS_REG			0x64c4
--#define     MVPP2_BM_MC_ID_MASK			0xfff
--#define     MVPP2_BM_FORCE_RELEASE_MASK		BIT(12)
+diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+index 4754364..6b4956b 100644
+--- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
++++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+@@ -1,17 +1,28 @@
+-* Marvell Armada 375 Ethernet Controller (PPv2)
++* Marvell Armada 375 Ethernet Controller (PPv2.1)
++  Marvell Armada 7K/8K Ethernet Controller (PPv2.2)
  
- /* TX Scheduler registers */
- #define MVPP2_TXP_SCHED_PORT_INDEX_REG		0x8000
-@@ -929,22 +926,6 @@ struct mvpp2_bm_pool {
- 	u32 port_map;
+ Required properties:
+ 
+-- compatible: should be "marvell,armada-375-pp2"
++- compatible: should be one of:
++    "marvell,armada-375-pp2"
++    "marvell,armada-7k-pp2"
+ - reg: addresses and length of the register sets for the device.
+-  Must contain the following register sets:
++  For "marvell,armada-375-pp2", must contain the following register
++  sets:
+ 	- common controller registers
+ 	- LMS registers
+-  In addition, at least one port register set is required.
+-- clocks: a pointer to the reference clocks for this device, consequently:
+-	- main controller clock
+-	- GOP clock
+-- clock-names: names of used clocks, must be "pp_clk" and "gop_clk".
++	- one register area per Ethernet port
++  For "marvell,armada-7k-pp2", must contain the following register
++  sets:
++	- packet processor registers
++	- networking interfaces registers
++
++- clocks: pointers to the reference clocks for this device, consequently:
++	- main controller clock (for both armada-375-pp2 and armada-7k-pp2)
++	- GOP clock (for both armada-375-pp2 and armada-7k-pp2)
++	- MG clock (only for armada-7k-pp2)
++- clock-names: names of used clocks, must be "pp_clk", "gop_clk" and
++  "mg_clk" (the latter only for armada-7k-pp2).
+ 
+ The ethernet ports are represented by subnodes. At least one port is
+ required.
+@@ -19,8 +30,10 @@ required.
+ Required properties (port):
+ 
+ - interrupts: interrupt for the port
+-- port-id: should be '0' or '1' for ethernet ports, and '2' for the
+-           loopback port
++- port-id: ID of the port from the MAC point of view
++- gop-port-id: only for marvell,armada-7k-pp2, ID of the port from the
++  GOP (Group Of Ports) point of view. This ID is used to index the
++  per-port registers in the second register area.
+ - phy-mode: See ethernet.txt file in the same directory
+ 
+ Optional properties (port):
+@@ -29,7 +42,7 @@ Optional properties (port):
+ - phy: a phandle to a phy node defining the PHY address (as the reg
+   property, a single integer).
+ 
+-Example:
++Example for marvell,armada-375-pp2:
+ 
+ ethernet@f0000 {
+ 	compatible = "marvell,armada-375-pp2";
+@@ -57,3 +70,30 @@ ethernet@f0000 {
+ 		phy-mode = "gmii";
+ 	};
  };
- 
--struct mvpp2_buff_hdr {
--	u32 next_buff_dma_addr;
--	u32 next_buff_virt_addr;
--	u16 byte_count;
--	u16 info;
--	u8  reserved1;		/* bm_qset (for future use, BM)		*/
--};
--
--/* Buffer header info bits */
--#define MVPP2_B_HDR_INFO_MC_ID_MASK	0xfff
--#define MVPP2_B_HDR_INFO_MC_ID(info)	((info) & MVPP2_B_HDR_INFO_MC_ID_MASK)
--#define MVPP2_B_HDR_INFO_LAST_OFFS	12
--#define MVPP2_B_HDR_INFO_LAST_MASK	BIT(12)
--#define MVPP2_B_HDR_INFO_IS_LAST(info) \
--	   ((info & MVPP2_B_HDR_INFO_LAST_MASK) >> MVPP2_B_HDR_INFO_LAST_OFFS)
--
- /* Static declaractions */
- 
- /* Number of RXQs used by single port */
-@@ -3611,22 +3592,6 @@ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
- 	mvpp2_write(port->priv, MVPP2_BM_PHY_RLS_REG(pool), buf_dma_addr);
- }
- 
--/* Release multicast buffer */
--static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
--				 dma_addr_t buf_dma_addr,
--				 unsigned long buf_virt_addr,
--				 int mc_id)
--{
--	u32 val = 0;
--
--	val |= (mc_id & MVPP2_BM_MC_ID_MASK);
--	mvpp2_write(port->priv, MVPP2_BM_MC_RLS_REG, val);
--
--	mvpp2_bm_pool_put(port, pool,
--			  buf_dma_addr | MVPP2_BM_PHY_RLS_MC_BUFF_MASK,
--			  buf_virt_addr);
--}
--
- /* Refill BM pool */
- static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
- 			      dma_addr_t dma_addr,
-@@ -5075,43 +5040,6 @@ static u32 mvpp2_skb_tx_csum(struct mvpp2_port *port, struct sk_buff *skb)
- 	return MVPP2_TXD_L4_CSUM_NOT | MVPP2_TXD_IP_CSUM_DISABLE;
- }
- 
--static void mvpp2_buff_hdr_rx(struct mvpp2_port *port,
--			      struct mvpp2_rx_desc *rx_desc)
--{
--	struct mvpp2_buff_hdr *buff_hdr;
--	struct sk_buff *skb;
--	u32 rx_status = rx_desc->status;
--	dma_addr_t buff_dma_addr;
--	unsigned long buff_virt_addr;
--	dma_addr_t buff_dma_addr_next;
--	unsigned long buff_virt_addr_next;
--	int mc_id;
--	int pool_id;
--
--	pool_id = (rx_status & MVPP2_RXD_BM_POOL_ID_MASK) >>
--		   MVPP2_RXD_BM_POOL_ID_OFFS;
--	buff_dma_addr = rx_desc->buf_dma_addr;
--	buff_virt_addr = rx_desc->buf_cookie;
--
--	do {
--		skb = (struct sk_buff *)buff_virt_addr;
--		buff_hdr = (struct mvpp2_buff_hdr *)skb->head;
--
--		mc_id = MVPP2_B_HDR_INFO_MC_ID(buff_hdr->info);
--
--		buff_dma_addr_next = buff_hdr->next_buff_dma_addr;
--		buff_virt_addr_next = buff_hdr->next_buff_virt_addr;
--
--		/* Release buffer */
--		mvpp2_bm_pool_mc_put(port, pool_id, buff_dma_addr,
--				     buff_virt_addr, mc_id);
--
--		buff_dma_addr = buff_dma_addr_next;
--		buff_virt_addr = buff_virt_addr_next;
--
--	} while (!MVPP2_B_HDR_INFO_IS_LAST(buff_hdr->info));
--}
--
- /* Main rx processing */
- static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 		    struct mvpp2_rx_queue *rxq)
-@@ -5146,11 +5074,6 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 		bm = mvpp2_bm_cookie_build(rx_desc);
- 		pool = mvpp2_bm_cookie_pool_get(bm);
- 		bm_pool = &port->priv->bm_pools[pool];
--		/* Check if buffer header is used */
--		if (rx_status & MVPP2_RXD_BUF_HDR) {
--			mvpp2_buff_hdr_rx(port, rx_desc);
--			continue;
--		}
- 
- 		/* In case of an error, release the requested buffer pointer
- 		 * to the Buffer Manager. This request process is controlled
++
++Example for marvell,armada-7k-pp2:
++
++cpm_ethernet: ethernet@0 {
++	compatible = "marvell,armada-7k-pp22";
++	reg = <0x0 0x100000>, <0x129000 0xb000>;
++	clocks = <&cpm_syscon0 1 3>, <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
++	clock-names = "pp_clk", "gop_clk", "gp_clk";
++
++	eth0: eth0 {
++		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <0>;
++		gop-port-id = <0>;
++	};
++
++	eth1: eth1 {
++		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <1>;
++		gop-port-id = <2>;
++	};
++
++	eth2: eth2 {
++		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <2>;
++		gop-port-id = <3>;
++	};
++};
 -- 
 2.7.4
