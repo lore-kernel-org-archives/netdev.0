@@ -1,90 +1,53 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: netlink: GPF in netlink_unicast
-Date: Mon, 6 Mar 2017 23:03:17 -0500
-Message-ID: <20170307040317.GU18258@madcap2.tricolour.ca>
-References: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
- <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] udp: avoid ufo handling on IP payload compression packets
+Date: Tue, 7 Mar 2017 15:01:50 +0800
+Message-ID: <20170307070150.GA25144@gondor.apana.org.au>
+References: <1488544652-28475-1-git-send-email-alexey.kodanev@oracle.com>
+ <20170306061657.GY694@gauss.secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Alexei Starovoitov <ast@kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>, pmoore@redhat.com,
-        linux-audit@redhat.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Alexey Kodanev <alexey.kodanev@oracle.com>, netdev@vger.kernel.org,
+        David Miller <davem@davemloft.net>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:34295 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751838AbdCGH2y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 02:28:54 -0500
 Content-Disposition: inline
-In-Reply-To: <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170306061657.GY694@gauss.secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017-03-06 10:10, Cong Wang wrote:
-> On Mon, Mar 6, 2017 at 2:54 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> > Hello,
-> >
-> > I've got the following crash while running syzkaller fuzzer on
-> > net-next/8d70eeb84ab277377c017af6a21d0a337025dede:
-> >
-> > kasan: GPF could be caused by NULL-ptr deref or user memory access
-> > general protection fault: 0000 [#1] SMP KASAN
-> > Dumping ftrace buffer:
-> >    (ftrace buffer empty)
-> > Modules linked in:
-> > CPU: 0 PID: 883 Comm: kauditd Not tainted 4.10.0+ #6
-> > Hardware name: Google Google Compute Engine/Google Compute Engine,
-> > BIOS Google 01/01/2011
-> > task: ffff8801d79f0240 task.stack: ffff8801d7a20000
-> > RIP: 0010:sock_sndtimeo include/net/sock.h:2162 [inline]
-> > RIP: 0010:netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249
-> > RSP: 0018:ffff8801d7a27c38 EFLAGS: 00010206
-> > RAX: 0000000000000056 RBX: ffff8801d7a27cd0 RCX: 0000000000000000
-> > RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000000002b0
-> > RBP: ffff8801d7a27cf8 R08: ffffed00385cf286 R09: ffffed00385cf286
-> > R10: 0000000000000006 R11: ffffed00385cf285 R12: 0000000000000000
-> > R13: dffffc0000000000 R14: ffff8801c2fc3c80 R15: 00000000014000c0
-> > FS:  0000000000000000(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
-> > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> > CR2: 0000000020cfd000 CR3: 00000001c758f000 CR4: 00000000001406f0
-> > Call Trace:
-> >  kauditd_send_unicast_skb+0x3c/0x70 kernel/audit.c:482
-> >  kauditd_thread+0x174/0xb00 kernel/audit.c:599
-> >  kthread+0x326/0x3f0 kernel/kthread.c:229
-> >  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
-> > Code: 44 89 fe e8 56 15 ff ff 8b 8d 70 ff ff ff 49 89 c6 31 c0 85 c9
-> > 75 27 e8 b2 b2 f4 fd 49 8d bc 24 b0 02 00 00 48 89 f8 48 c1 e8 03 <42>
-> > 80 3c 28 00 0f 85 37 06 00 00 49 8b 84 24 b0 02 00 00 4c 8d
-> > RIP: sock_sndtimeo include/net/sock.h:2162 [inline] RSP: ffff8801d7a27c38
-> > RIP: netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249 RSP:
-> > ffff8801d7a27c38
-> > ---[ end trace ad1bba9d457430b6 ]---
-> > Kernel panic - not syncing: Fatal exception
-> >
-> >
-> > This is not reproducible and seems to be caused by an elusive race.
-> > However, looking at the code I don't see any proper protection of
-> > audit_sock (other than the if (!audit_pid) which is obviously not
-> > enough to protect against races).
+On Mon, Mar 06, 2017 at 07:16:57AM +0100, Steffen Klassert wrote:
+>
+> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> > index b67719f..18383ef 100644
+> > --- a/net/ipv4/ip_output.c
+> > +++ b/net/ipv4/ip_output.c
+> > @@ -960,7 +960,10 @@ static int __ip_append_data(struct sock *sk,
+> >  	cork->length += length;
+> >  	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
+> >  	    (sk->sk_protocol == IPPROTO_UDP) &&
+> > -	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
+> > +	    (rt->dst.dev->features & NETIF_F_UFO) &&
+> > +#ifdef CONFIG_XFRM
+> > +	    !rt->dst.xfrm &&
+> > +#endif
 > 
-> audit_cmd_mutex is supposed to protect it, I think.
-> But kauditd_send_unicast_skb() seems not holding this mutex.
+> Please fix IPcomp to use rt->dst.header_len instead off adding
+> this ifdef to the generic networking code.
 
-Hmmmm, I wonder if it makes sense to wrap most of the contents of the
-outer while loop in kauditd_thread in the audit_cmd_mutex, or around the
-first two innter while loops and the "if (auditd)" condition after the
-"quick_loop:" label.  The condition on auditd is supposed to catch that
-case.  We don't want it locked while playing with the scheduler at the
-bottom of that function.
+It's not that simple though.  IPComp's header_len is set to zero
+because we opportunistically drop the IPComp header when the total
+compressed length exceeds the original packet length.  That is,
+we only ever do IPComp when it does not cause the packet to expand.
 
-> Richard?
+So it seems that we need another way of indicating the presence of
+XFRM.
 
-- RGB
-
---
-Richard Guy Briggs <rgb@redhat.com>
-Kernel Security Engineering, Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
