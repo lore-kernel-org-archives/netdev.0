@@ -1,40 +1,90 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net 0/3] rds: tcp: fix various rds-tcp issues during netns
- create/delete sequences
-Date: Mon, 6 Mar 2017 17:04:38 -0800
-Message-ID: <125d878b-ac8d-dcfd-d1ff-1b1a84cff5a5@oracle.com>
-References: <cover.1488645926.git.sowmini.varadhan@oracle.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in netlink_unicast
+Date: Mon, 6 Mar 2017 23:03:17 -0500
+Message-ID: <20170307040317.GU18258@madcap2.tricolour.ca>
+References: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
+ <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: syzkaller@googlegroups.com, rds-devel@oss.oracle.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>, dvyukov@google.com,
-        davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:43005 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754144AbdCGElb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 23:41:31 -0500
-Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
-        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v2716QuL004869
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Tue, 7 Mar 2017 01:06:27 GMT
-In-Reply-To: <cover.1488645926.git.sowmini.varadhan@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Alexei Starovoitov <ast@kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>, pmoore@redhat.com,
+        linux-audit@redhat.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/4/17 8:57 AM, Sowmini Varadhan wrote:
-> Dmitry Vyukov reported some syszkaller panics during netns deletion.
->
-> While I have not been able to reproduce those exact panics, my attempts
-> to do so uncovered a few other problems, which are fixed patch 2 and
-> patch 3 of this patch series. In addition, as mentioned in,
->  https://www.spinics.net/lists/netdev/msg422997.html
-> code-inspection points that the rds_connection needs to take an explicit
-> refcnt on the struct net so that it is held down until all cleanup is
-> completed for netns removal, and this is fixed by patch1.
->
-Hopefully Dmitry can try the series and see if it fixes the issue(s).
-The fixes looks good to me.
+On 2017-03-06 10:10, Cong Wang wrote:
+> On Mon, Mar 6, 2017 at 2:54 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> > Hello,
+> >
+> > I've got the following crash while running syzkaller fuzzer on
+> > net-next/8d70eeb84ab277377c017af6a21d0a337025dede:
+> >
+> > kasan: GPF could be caused by NULL-ptr deref or user memory access
+> > general protection fault: 0000 [#1] SMP KASAN
+> > Dumping ftrace buffer:
+> >    (ftrace buffer empty)
+> > Modules linked in:
+> > CPU: 0 PID: 883 Comm: kauditd Not tainted 4.10.0+ #6
+> > Hardware name: Google Google Compute Engine/Google Compute Engine,
+> > BIOS Google 01/01/2011
+> > task: ffff8801d79f0240 task.stack: ffff8801d7a20000
+> > RIP: 0010:sock_sndtimeo include/net/sock.h:2162 [inline]
+> > RIP: 0010:netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249
+> > RSP: 0018:ffff8801d7a27c38 EFLAGS: 00010206
+> > RAX: 0000000000000056 RBX: ffff8801d7a27cd0 RCX: 0000000000000000
+> > RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000000002b0
+> > RBP: ffff8801d7a27cf8 R08: ffffed00385cf286 R09: ffffed00385cf286
+> > R10: 0000000000000006 R11: ffffed00385cf285 R12: 0000000000000000
+> > R13: dffffc0000000000 R14: ffff8801c2fc3c80 R15: 00000000014000c0
+> > FS:  0000000000000000(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
+> > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> > CR2: 0000000020cfd000 CR3: 00000001c758f000 CR4: 00000000001406f0
+> > Call Trace:
+> >  kauditd_send_unicast_skb+0x3c/0x70 kernel/audit.c:482
+> >  kauditd_thread+0x174/0xb00 kernel/audit.c:599
+> >  kthread+0x326/0x3f0 kernel/kthread.c:229
+> >  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
+> > Code: 44 89 fe e8 56 15 ff ff 8b 8d 70 ff ff ff 49 89 c6 31 c0 85 c9
+> > 75 27 e8 b2 b2 f4 fd 49 8d bc 24 b0 02 00 00 48 89 f8 48 c1 e8 03 <42>
+> > 80 3c 28 00 0f 85 37 06 00 00 49 8b 84 24 b0 02 00 00 4c 8d
+> > RIP: sock_sndtimeo include/net/sock.h:2162 [inline] RSP: ffff8801d7a27c38
+> > RIP: netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249 RSP:
+> > ffff8801d7a27c38
+> > ---[ end trace ad1bba9d457430b6 ]---
+> > Kernel panic - not syncing: Fatal exception
+> >
+> >
+> > This is not reproducible and seems to be caused by an elusive race.
+> > However, looking at the code I don't see any proper protection of
+> > audit_sock (other than the if (!audit_pid) which is obviously not
+> > enough to protect against races).
+> 
+> audit_cmd_mutex is supposed to protect it, I think.
+> But kauditd_send_unicast_skb() seems not holding this mutex.
 
-FWIW, Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Hmmmm, I wonder if it makes sense to wrap most of the contents of the
+outer while loop in kauditd_thread in the audit_cmd_mutex, or around the
+first two innter while loops and the "if (auditd)" condition after the
+"quick_loop:" label.  The condition on auditd is supposed to catch that
+case.  We don't want it locked while playing with the scheduler at the
+bottom of that function.
+
+> Richard?
+
+- RGB
+
+--
+Richard Guy Briggs <rgb@redhat.com>
+Kernel Security Engineering, Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635
