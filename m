@@ -1,40 +1,71 @@
-From: Akshay Bhat <akshay.bhat@timesys.com>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Tue, 7 Mar 2017 10:31:15 -0500
-Message-ID: <2197294b-e6cf-6c56-1419-3a4f95c29db7@timesys.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/2] net: Eliminate duplicated codes by creating
+ one new function in_dev_select_addr
+Date: Tue, 7 Mar 2017 18:46:22 +0300
+Message-ID: <b2c1e98f-427f-8796-ddbe-bd4eebf6b94e@cogentembedded.com>
+References: <1488898279-18930-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Akshay Bhat <nodeax@gmail.com>
-To: wg@grandegger.com, mkl@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: fgao@ikuai8.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, kaber@trash.net, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:34318 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755582AbdCGPqf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 10:46:35 -0500
+Received: by mail-lf0-f44.google.com with SMTP id k202so2704226lfe.1
+        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 07:46:25 -0800 (PST)
+In-Reply-To: <1488898279-18930-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello!
 
+On 03/07/2017 05:51 PM, fgao@ikuai8.com wrote:
 
-On 01/17/2017 02:22 PM, Akshay Bhat wrote:
-> This patch adds support for the Holt HI-311x CAN controller. The HI311x
-> CAN controller is capable of transmitting and receiving standard data
-> frames, extended data frames and remote frames. The HI311x interfaces
-> with the host over SPI.
-> 
-> Datasheet: www.holtic.com/documents/371-hi-3110_v-rev-jpdf.do
-> 
-> Signed-off-by: Akshay Bhat <nodeax@gmail.com>
+> From: Gao Feng <fgao@ikuai8.com>
+>
+> There are two duplicated loop codes which used to select right
+
+    Just "loops".
+
+> address in current codes. Now eliminate these codes by creating
+> one new function in_dev_select_addr.
+>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 > ---
-> 
+>  net/ipv4/devinet.c | 34 +++++++++++++++++++---------------
+>  1 file changed, 19 insertions(+), 15 deletions(-)
+>
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 1a9e550..d0964c5 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -1191,6 +1191,19 @@ static int inet_gifconf(struct net_device *dev, char __user *buf, int len)
+>  	return done;
+>  }
+>
+> +static __be32 in_dev_select_addr(const struct in_device *in_dev,
+> +				 int scope)
+> +{
+> +	for_primary_ifa(in_dev) {
+> +		if (ifa->ifa_scope != RT_SCOPE_LINK &&
+> +		    ifa->ifa_scope <= scope) {
+> +			return ifa->ifa_local;
+> +		}
 
+    Could drop the useless {} here, while at it.
 
-Hi Marc,
+> +	} endfor_ifa(in_dev);
+> +
+> +	return 0;
+> +}
+> +
+>  __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+>  {
+>  	__be32 addr = 0;
+[...]
 
-Wanted to check if this patch can be included in the next kernel release
-(4.12).
-
-Thanks,
-Akshay
+MBR, Sergei
