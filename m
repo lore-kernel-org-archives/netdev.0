@@ -1,113 +1,214 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: netlink: GPF in netlink_unicast
-Date: Tue, 7 Mar 2017 13:44:59 -0500
-Message-ID: <CAHC9VhQ2Kp1YQ7eTOjjaX2UsucZEkr+OBNNuEQjzM32Be1nRgg@mail.gmail.com>
-References: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
- <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com>
- <20170307040317.GU18258@madcap2.tricolour.ca> <CAHC9VhTf5ndE961JMM2fUSUozf+BvF78jE4FFpuwwSn0=rnH7g@mail.gmail.com>
- <20170307155531.GA10258@madcap2.tricolour.ca>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH RFC net-next v2 1/4] skbuff: add stub to help computing
+ crc32c on SCTP packets
+Date: Tue, 7 Mar 2017 10:06:26 -0800
+Message-ID: <CAKgT0Uf6i+TmMyywgT7-X=n+P+a4_U1Z+Qrts7v1=v79MPsS+w@mail.gmail.com>
+References: <1488202783.2713.67.camel@redhat.com> <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
+ <CAKgT0Udbs_=vanS+oF8ePXTNjEfsq9y==bhtQ-5Cxb-g+iO4bg@mail.gmail.com> <1488837077.3068.13.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>, linux-audit@redhat.com,
-        David Miller <davem@davemloft.net>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170307155531.GA10258@madcap2.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Laight <David.Laight@aculab.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Davide Caratti <dcaratti@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:36062 "EHLO
+        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754933AbdCGSnn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 13:43:43 -0500
+Received: by mail-io0-f179.google.com with SMTP id l7so11687838ioe.3
+        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 10:42:32 -0800 (PST)
+In-Reply-To: <1488837077.3068.13.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 7, 2017 at 10:55 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> On 2017-03-07 09:29, Paul Moore wrote:
->> On Mon, Mar 6, 2017 at 11:03 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
->> > On 2017-03-06 10:10, Cong Wang wrote:
->> >> On Mon, Mar 6, 2017 at 2:54 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> >> > Hello,
->> >> >
->> >> > I've got the following crash while running syzkaller fuzzer on
->> >> > net-next/8d70eeb84ab277377c017af6a21d0a337025dede:
->> >> >
->> >> > kasan: GPF could be caused by NULL-ptr deref or user memory access
->> >> > general protection fault: 0000 [#1] SMP KASAN
->> >> > Dumping ftrace buffer:
->> >> >    (ftrace buffer empty)
->> >> > Modules linked in:
->> >> > CPU: 0 PID: 883 Comm: kauditd Not tainted 4.10.0+ #6
->> >> > Hardware name: Google Google Compute Engine/Google Compute Engine,
->> >> > BIOS Google 01/01/2011
->> >> > task: ffff8801d79f0240 task.stack: ffff8801d7a20000
->> >> > RIP: 0010:sock_sndtimeo include/net/sock.h:2162 [inline]
->> >> > RIP: 0010:netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249
->> >> > RSP: 0018:ffff8801d7a27c38 EFLAGS: 00010206
->> >> > RAX: 0000000000000056 RBX: ffff8801d7a27cd0 RCX: 0000000000000000
->> >> > RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000000002b0
->> >> > RBP: ffff8801d7a27cf8 R08: ffffed00385cf286 R09: ffffed00385cf286
->> >> > R10: 0000000000000006 R11: ffffed00385cf285 R12: 0000000000000000
->> >> > R13: dffffc0000000000 R14: ffff8801c2fc3c80 R15: 00000000014000c0
->> >> > FS:  0000000000000000(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
->> >> > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> >> > CR2: 0000000020cfd000 CR3: 00000001c758f000 CR4: 00000000001406f0
->> >> > Call Trace:
->> >> >  kauditd_send_unicast_skb+0x3c/0x70 kernel/audit.c:482
->> >> >  kauditd_thread+0x174/0xb00 kernel/audit.c:599
->> >> >  kthread+0x326/0x3f0 kernel/kthread.c:229
->> >> >  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
->> >> > Code: 44 89 fe e8 56 15 ff ff 8b 8d 70 ff ff ff 49 89 c6 31 c0 85 c9
->> >> > 75 27 e8 b2 b2 f4 fd 49 8d bc 24 b0 02 00 00 48 89 f8 48 c1 e8 03 <42>
->> >> > 80 3c 28 00 0f 85 37 06 00 00 49 8b 84 24 b0 02 00 00 4c 8d
->> >> > RIP: sock_sndtimeo include/net/sock.h:2162 [inline] RSP: ffff8801d7a27c38
->> >> > RIP: netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249 RSP:
->> >> > ffff8801d7a27c38
->> >> > ---[ end trace ad1bba9d457430b6 ]---
->> >> > Kernel panic - not syncing: Fatal exception
->> >> >
->> >> >
->> >> > This is not reproducible and seems to be caused by an elusive race.
->> >> > However, looking at the code I don't see any proper protection of
->> >> > audit_sock (other than the if (!audit_pid) which is obviously not
->> >> > enough to protect against races).
->> >>
->> >> audit_cmd_mutex is supposed to protect it, I think.
->> >> But kauditd_send_unicast_skb() seems not holding this mutex.
+On Mon, Mar 6, 2017 at 1:51 PM, Davide Caratti <dcaratti@redhat.com> wrote:
+> On Tue, 2017-02-28 at 14:46 -0800, Alexander Duyck wrote:
+>> On Tue, Feb 28, 2017 at 2:32 AM, Davide Caratti <dcaratti@redhat.com> wrote:
 >> >
->> > Hmmmm, I wonder if it makes sense to wrap most of the contents of the
->> > outer while loop in kauditd_thread in the audit_cmd_mutex, or around the
->> > first two innter while loops and the "if (auditd)" condition after the
->> > "quick_loop:" label.  The condition on auditd is supposed to catch that
->> > case.  We don't want it locked while playing with the scheduler at the
->> > bottom of that function.
+>> > sctp_compute_checksum requires crc32c symbol (provided by libcrc32c), so
+>> > it can't be used in net core. Like it has been done previously with other
+>> > symbols (e.g. ipv6_dst_lookup), introduce a stub struct skb_checksum_ops
+>> > to allow computation of SCTP checksum in net core after sctp.ko (and thus
+>> > libcrc32c) has been loaded.
 >>
->> Let me look into this and play around with a few things.  I suspected
->> there might be a problem here, so I've got thoughts on how we might
->> resolve it; I just need to see code them up and see what option sucks
->> the least.
->>
->> FWIW Richard, yes wrapping most of kauditd_thread *should* resolve
->> this but it's pretty heavy handed and not my first choice.
+>> At a minimum the name really needs to change.  SCTP does not do
+>> checksums.  It does a CRC, and a CRC is a very different thing.  The
+>> fact that somebody decided that offloading a CRC could use the same
+>> framework is very unfortunate, and your patch descriptions in this
+>> whole set are calling out a CRC as checksums which it is not.
 >
-> That's why the inner loops made a bit more sense since it wasn't really
-> necessary and ran afoul of the scheduler anyways.
+> hello Alexander,
+>
+> thank you for contributing to this topic. I see there has been a similar
+> discussion some months ago
+> (https://www.mail-archive.com/netdev@vger.kernel.org/msg94955.html).
+>
+>> I don't want to see anything "checksum" or "csum" related in the
+>> naming when it comes to dealing with SCTP unless we absolutely have
+>> to have it.  So any function names or structures with sctp in the name
+>> should call out "crc32" or "crc", please don't use checksum.
+>
+> On Wed, 2017-03-01 at 10:53 +0000, David Laight wrote:
+>> Then also change all the places that refer the IP 1's compliment
+>> checksum to ipchecksum.
+>
+> (but crc32 uses a different polynomial than crc32c! :-) ) I understand
+> your concerns, nevertheless we are writing to a member of struct sctphdr
+> whose name is 'checksum' since the earliest introduction of SCTP; moreover,
+> similar terminology ('crc32c checksum') is used throughout all RFC4960.
+> That's why I don't think anybody will be confused by usage of 'csum' or
+> 'checksum' words.
+>
+> On Tue, 2017-02-28 at 19:17 -0800, Tom Herbert wrote:
+>> I agree that internal functions to sctp should not refer to checksum,
+>> but I think we need to take care to be consistent with any external
+>> API (even if somebody made a mistake defining it this way :-) ). As
+>> you know the checksum interface must be very precisely defined, there
+>> is no leeway for ambiguity.
+>
+> We can make the new symbols more generic removing 'sctp' from the
+> symbol name, and writing explicitly that skb needs crc32c (rather than
+> skb does not need internet checksum).
+>
+> Proposal:
+> we use crc32c, possibly combined with 'csum' or 'checksum', just like
+> it has been done in RFC4960.  So, symbol names can be replaced as follows:
+>
+> RFC v2 name              | RFC v3 name
+> -------------------------+-----------------------------
+> warn_sctp_csum_update    | warn_crc32c_csum_update
+> warn_sctp_csum_combine   | warn_crc32c_csum_combine
+> sctp_csum_stub           | crc32c_csum_stub
+> sctp_csum_ops            | crc32c_csum_ops
+> skb_sctp_csum_help       | skb_crc32c_csum_help
+> skb->csum_not_inet       | skb->crc32c_csum
+>
+> please let me know if the proposal can be acceptable from your point of view.
 
-One of my preferred options was to get us away from protecting
-everything with the audit_cmd_mutex by creating a new locking approach
-for the auditd connection state (using RCU/spinlocks since it rarely
-changes in practice) and leaving the audit_cmd_mutex for it's
-traditional role.  This should minimize the performance impact of the
-lock and clean things up a bit.  I'm also moving all the auditd
-connection state into a single struct (instead of several variables
-associated only by convention) which moves us oh so slightly closer to
-allowing multiple auditd connections (hey, it's something).
+I do like this approach better.  You might even take this one step
+further.  You could convert crc32_csum into a 1 bit enum for now.
+Basically you would use 0 for 1's compliement csum, and 1 to represent
+a crc32c csum.  Then if we end up having to add another bit for
+something like FCoE in the future it would give us 4 possible checksum
+types instead of just giving us 1 with a bit mask.
 
-It's taking a bit longer than expected as I'm dealing with a bit of a
-head cold (or something) and my mind is far less than 100% at the
-moment ...
+> On Tue, 2017-02-28 at 11:50 -0800, Tom Herbert wrote:
+>> Unfortunately this potentially pushes the skbuf flags over 32 bits if
+>> I count correctly. I suggest that you rename csum_bad to
+>> csum_not_inet. Looks like csum_bad is only set by a grand total of one
+>> driver and I don't believe that is enough to justify its existence.
+>> It's probably a good time to remove it.
+>
+> you are right: find below the current layout obtained with 'allyesconfig':
+>
+> short unsigned int         queue_mapping;                   /*   140     2 */
+> unsigned char              __cloned_offset[0];              /*   142     0 */
+> unsigned char              cloned:1;                        /*   142: 7  1 */
+> unsigned char              nohdr:1;                         /*   142: 6  1 */
+> unsigned char              fclone:2;                        /*   142: 4  1 */
+> unsigned char              peeked:1;                        /*   142: 3  1 */
+> unsigned char              head_frag:1;                     /*   142: 2  1 */
+> unsigned char              xmit_more:1;                     /*   142: 1  1 */
+> unsigned char              __unused:1;                      /*   142: 0  1 */
+>
+> /* XXX 1 byte hole, try to pack */
+> unsigned int               headers_start[0];                /*   144     0 */
+> unsigned char              __pkt_type_offset[0];            /*   144     0 */
+> unsigned char              pkt_type:3;                      /*   144: 5  1 */
+>
+> <...>
+>
+> unsigned char              ipvs_property:1;                 /*   147: 7  1 */
+> unsigned char              inner_protocol_type:1;           /*   147: 6  1 */
+> unsigned char              remcsum_offload:1;               /*   147: 5  1 */
+> unsigned char              offload_fwd_mark:1;              /*   147: 4  1 */
+> unsigned char              tc_skip_classify:1;              /*   147: 3  1 */
+> unsigned char              tc_at_ingress:1;                 /*   147: 2  1 */
+> unsigned char              tc_redirected:1;                 /*   147: 1  1 */
+> unsigned char              tc_from_ingress:1;               /*   147: 0  1 */
+> short unsigned int         tc_index;                        /*   148     2 */
+>
+> /* XXX 2 bytes hole, try to pack */
+> union {
+>                 unsigned int       csum;                    /*           4 */
+>                 struct {
+>                         short unsigned int csum_start;      /*   152     2 */
+>                        short unsigned int csum_offset;      /*   154     2 */
+>         };                                                  /*           4 */
+> }                                                           /*   152     4 */
+>
+> skb->tc_from_ingress is the last element of the 32 bits starting at
+> skb->pkt_type. There are 16 bits free before skb->csum, and 9 free bits
+> before skb->pkt_type. I don't think I can easily make room by removing
+> 'csum_bad' as per your suggestion, because it is used by GRO and
+> netfilter code also (see users of __skb_mark_checksum_bad()). So, either
+> I place 'csum_not_inet' in one of the two above intervals (i.e replacing
+> __unused with csum_not_inet AKA crc32c_csum), or I have to give up the
+> (good) idea of using a bit in sk_buff.
+>
+> BTW: unlike what I see with other NICs, using ixgbe driver I don't see
+> corrupted L4 packets, even when SCTP CRC offload is turned off. Looking
+> at the code, I see ixgbe_tx_csum does a simple test to identify SCTP in
+> packets with CHECKSUM_PARTIAL and have their checksum resolved by the
+> hardware:
+>
+> switch (skb->csum_offset) {
+>         case offsetof(struct tcphdr, check):
+>                 /* it's TCP */
+>                 /* fall-through */
+>         case offsetof(struct udphdr, check)
+>                 /* it's UDP */
+>                 break;
+>         case offsetof(struct scphdr, checksum):
+>                 if (/* an ipv4 or ipv6 header with protocol equal to
+>                      * IPPOROTO_SCTP is found
+>                      */)
+>                     /* it's SCTP */
+>                         break;
+>                 }
+>                 /* fall through */
+>         default:
+>                 skb_checksum_help(skb);
+> }
+>
+> The above code is functionally similar to what I did in patch 4/5 of the
+> initial series (http://www.spinics.net/lists/linux-sctp/msg05608.html).
+> Should we consider it again for fixing wrong CRC32c issues in case using
+> a bit in struct sk_buff is not viable?
 
--- 
-paul moore
-www.paul-moore.com
+I would say if you can't use an extra bit to indicate the checksum
+type you probably don't have too much other choice.
+
+As far as the patch you provided I would say it is a good start, but
+was a bit to aggressive in a few spots.  For now we don't have support
+for offloading crc32c when encapsulating a frame so you don't need to
+worry about that too much for now.  Also as far as the features test
+you should only need to find that one of the feature bits is set in
+the list you were testing.  What might make sense would be to look
+into updating can_checksum_protocol to possibly factor in csum_offset
+when determining if we can offload it or not.
+
+> On Tue, 2017-02-28 at 11:50 -0800, Tom Herbert wrote:
+>> Return value looks complex. Maybe we should just change
+>> skb_csum_*_help to return bool, true of checksum was handled false if
+>> not.
+>
+> These functions can return -EINVAL if skb is a GSO packet, or -ENOMEM if
+> skb_linearize(skb) or pskb_expand_head(skb) fail, or 0. I would preserve the
+> return value of skb_checksum_help() and provide similar range of return values
+> for skb_sctp_csum_help() (also known as skb_crc32c_csum_help()): this can
+> help eventual future attempts to remove skb_warn_bad_offload(). It makes
+> sense to make boolean the return value of skb_csum_hwoffload_help(),
+> since we are using it only for non-GSO packets.
+>
+> Thank you in advance for the feedbacks,
+>
+> regards,
+> --
+> davide
+>
+>
