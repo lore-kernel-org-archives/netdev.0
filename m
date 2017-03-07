@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 06/22] net: mvpp2: store physical address of buffer in rx_desc->buf_cookie
-Date: Tue,  7 Mar 2017 16:53:04 +0100
-Message-ID: <1488902000-2658-7-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 12/22] net: mvpp2: adapt the mvpp2_rxq_*_pool_set functions to PPv2.2
+Date: Tue,  7 Mar 2017 16:53:10 +0100
+Message-ID: <1488902000-2658-13-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -21,185 +21,92 @@ To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
         Mark Rutland <mark.rutland@arm.com>,
         Kumar Gala <galak@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:32848 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:32847 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754950AbdCGP4k (ORCPT
+        with ESMTP id S1754946AbdCGP4k (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 10:56:40 -0500
 In-Reply-To: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RX descriptors of the PPv2 hardware allow to store several
-information, amongst which:
-
- - the DMA address of the buffer in which the data has been received
- - a "cookie" field, left to the use of the driver, and not used by the
-   hardware
-
-In the current implementation, the "cookie" field is used to store the
-virtual address of the buffer, so that in the receive completion path,
-we can easily get the virtual address of the buffer that corresponds to
-a completed RX descriptors.
-
-On PPv2.1, used on 32-bit platforms, those two fields are 32-bit wide,
-which is enough to store a DMA address in the first field, and a virtual
-address in the second field.
-
-On PPv2.2, used on 64-bit platforms, these two fields have been extended
-to 40 bits. While 40 bits is enough to store a DMA address (as long as
-the DMA mask is 40 bits or lower), it is not enough to store a virtual
-address. Therefore, the "cookie" field can no longer be used to store
-the virtual address of the buffer.
-
-However, as Russell King pointed out, the RX buffers are always
-allocated in the kernel linear mapping, and therefore using
-phys_to_virt() on the physical address of the RX buffer is possible and
-correct.
-
-Therefore, this commit changes the driver to use the "cookie" field to
-store the physical address instead of the virtual
-address. phys_to_virt() is used in the receive completion path to
-retrieve the virtual address from the physical address.
-
-It is obviously important to realize that the DMA address and physical
-address are two different things, which is why we store both in the RX
-descriptors. While those addresses may be identical in some situations,
-it remains two distinct concepts, and both addresses should be handled
-separately.
+The MVPP2_RXQ_CONFIG_REG register has a slightly different layout
+between PPv2.1 and PPv2.2, so this commit adapts the functions modifying
+this register to accommodate for both the PPv2.1 and PPv2.2 cases.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 40 +++++++++++++++++++++++-------------
- 1 file changed, 26 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 9ddda20..35dc071 100644
+index 36aef5c..91dca01 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -3412,20 +3412,21 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
- 
- 	for (i = 0; i < bm_pool->buf_num; i++) {
- 		dma_addr_t buf_dma_addr;
--		unsigned long vaddr;
-+		phys_addr_t buf_phys_addr;
-+		void *data;
- 
--		/* Get buffer virtual address (indirect access) */
- 		buf_dma_addr = mvpp2_read(priv,
- 					  MVPP2_BM_PHY_ALLOC_REG(bm_pool->id));
--		vaddr = mvpp2_read(priv, MVPP2_BM_VIRT_ALLOC_REG);
-+		buf_phys_addr = mvpp2_read(priv, MVPP2_BM_VIRT_ALLOC_REG);
- 
- 		dma_unmap_single(dev, buf_dma_addr,
- 				 bm_pool->buf_size, DMA_FROM_DEVICE);
- 
--		if (!vaddr)
-+		data = (void *)phys_to_virt(buf_phys_addr);
-+		if (!data)
- 			break;
- 
--		mvpp2_frag_free(bm_pool, (void *)vaddr);
-+		mvpp2_frag_free(bm_pool, data);
- 	}
- 
- 	/* Update BM driver with number of buffers removed from pool */
-@@ -3542,6 +3543,7 @@ static void mvpp2_rxq_short_pool_set(struct mvpp2_port *port,
- static void *mvpp2_buf_alloc(struct mvpp2_port *port,
- 			     struct mvpp2_bm_pool *bm_pool,
- 			     dma_addr_t *buf_dma_addr,
-+			     phys_addr_t *buf_phys_addr,
- 			     gfp_t gfp_mask)
+@@ -50,9 +50,11 @@
+ #define     MVPP2_SNOOP_PKT_SIZE_MASK		0x1ff
+ #define     MVPP2_SNOOP_BUF_HDR_MASK		BIT(9)
+ #define     MVPP2_RXQ_POOL_SHORT_OFFS		20
+-#define     MVPP2_RXQ_POOL_SHORT_MASK		0x700000
++#define     MVPP21_RXQ_POOL_SHORT_MASK		0x700000
++#define     MVPP22_RXQ_POOL_SHORT_MASK		0xf00000
+ #define     MVPP2_RXQ_POOL_LONG_OFFS		24
+-#define     MVPP2_RXQ_POOL_LONG_MASK		0x7000000
++#define     MVPP21_RXQ_POOL_LONG_MASK		0x7000000
++#define     MVPP22_RXQ_POOL_LONG_MASK		0xf000000
+ #define     MVPP2_RXQ_PACKET_OFFSET_OFFS	28
+ #define     MVPP2_RXQ_PACKET_OFFSET_MASK	0x70000000
+ #define     MVPP2_RXQ_DISABLE_MASK		BIT(31)
+@@ -3718,17 +3720,20 @@ static int mvpp2_bm_init(struct platform_device *pdev, struct mvpp2 *priv)
+ static void mvpp2_rxq_long_pool_set(struct mvpp2_port *port,
+ 				    int lrxq, int long_pool)
  {
- 	dma_addr_t dma_addr;
-@@ -3559,6 +3561,7 @@ static void *mvpp2_buf_alloc(struct mvpp2_port *port,
- 		return NULL;
- 	}
- 	*buf_dma_addr = dma_addr;
-+	*buf_phys_addr = virt_to_phys(data);
+-	u32 val;
++	u32 val, mask;
+ 	int prxq;
  
- 	return data;
- }
-@@ -3583,20 +3586,25 @@ static inline int mvpp2_bm_cookie_pool_get(unsigned long cookie)
- /* Release buffer to BM */
- static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
- 				     dma_addr_t buf_dma_addr,
--				     unsigned long buf_virt_addr)
-+				     phys_addr_t buf_phys_addr)
- {
--	mvpp2_write(port->priv, MVPP2_BM_VIRT_RLS_REG, buf_virt_addr);
-+	/* MVPP2_BM_VIRT_RLS_REG is not interpreted by HW, and simply
-+	 * returned in the "cookie" field of the RX
-+	 * descriptor. Instead of storing the virtual address, we
-+	 * store the physical address
-+	 */
-+	mvpp2_write(port->priv, MVPP2_BM_VIRT_RLS_REG, buf_phys_addr);
- 	mvpp2_write(port->priv, MVPP2_BM_PHY_RLS_REG(pool), buf_dma_addr);
+ 	/* Get queue physical ID */
+ 	prxq = port->rxqs[lrxq]->id;
+ 
+-	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
+-	val &= ~MVPP2_RXQ_POOL_LONG_MASK;
+-	val |= ((long_pool << MVPP2_RXQ_POOL_LONG_OFFS) &
+-		    MVPP2_RXQ_POOL_LONG_MASK);
++	if (port->priv->hw_version == MVPP21)
++		mask = MVPP21_RXQ_POOL_LONG_MASK;
++	else
++		mask = MVPP22_RXQ_POOL_LONG_MASK;
+ 
++	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
++	val &= ~mask;
++	val |= (long_pool << MVPP2_RXQ_POOL_LONG_OFFS) & mask;
+ 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
  }
  
- /* Refill BM pool */
- static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
- 			      dma_addr_t dma_addr,
--			      unsigned long cookie)
-+			      phys_addr_t phys_addr)
+@@ -3736,17 +3741,20 @@ static void mvpp2_rxq_long_pool_set(struct mvpp2_port *port,
+ static void mvpp2_rxq_short_pool_set(struct mvpp2_port *port,
+ 				     int lrxq, int short_pool)
  {
- 	int pool = mvpp2_bm_cookie_pool_get(bm);
+-	u32 val;
++	u32 val, mask;
+ 	int prxq;
  
--	mvpp2_bm_pool_put(port, pool, dma_addr, cookie);
-+	mvpp2_bm_pool_put(port, pool, dma_addr, phys_addr);
+ 	/* Get queue physical ID */
+ 	prxq = port->rxqs[lrxq]->id;
+ 
+-	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
+-	val &= ~MVPP2_RXQ_POOL_SHORT_MASK;
+-	val |= ((short_pool << MVPP2_RXQ_POOL_SHORT_OFFS) &
+-		    MVPP2_RXQ_POOL_SHORT_MASK);
++	if (port->priv->hw_version == MVPP21)
++		mask = MVPP21_RXQ_POOL_SHORT_MASK;
++	else
++		mask = MVPP22_RXQ_POOL_SHORT_MASK;
+ 
++	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
++	val &= ~mask;
++	val |= (short_pool << MVPP2_RXQ_POOL_SHORT_OFFS) & mask;
+ 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
  }
  
- /* Allocate buffers for the pool */
-@@ -3605,6 +3613,7 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- {
- 	int i, buf_size, total_size;
- 	dma_addr_t dma_addr;
-+	phys_addr_t phys_addr;
- 	void *buf;
- 
- 	buf_size = MVPP2_RX_BUF_SIZE(bm_pool->pkt_size);
-@@ -3619,12 +3628,13 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 	}
- 
- 	for (i = 0; i < buf_num; i++) {
--		buf = mvpp2_buf_alloc(port, bm_pool, &dma_addr, GFP_KERNEL);
-+		buf = mvpp2_buf_alloc(port, bm_pool, &dma_addr,
-+				      &phys_addr, GFP_KERNEL);
- 		if (!buf)
- 			break;
- 
- 		mvpp2_bm_pool_put(port, bm_pool->id, dma_addr,
--				  (unsigned long)buf);
-+				  phys_addr);
- 	}
- 
- 	/* Update BM driver with number of buffers added to pool */
-@@ -4983,14 +4993,16 @@ static int mvpp2_rx_refill(struct mvpp2_port *port,
- 			   struct mvpp2_bm_pool *bm_pool, u32 bm)
- {
- 	dma_addr_t dma_addr;
-+	phys_addr_t phys_addr;
- 	void *buf;
- 
- 	/* No recycle or too many buffers are in use, so allocate a new skb */
--	buf = mvpp2_buf_alloc(port, bm_pool, &dma_addr, GFP_ATOMIC);
-+	buf = mvpp2_buf_alloc(port, bm_pool, &dma_addr, &phys_addr,
-+			      GFP_ATOMIC);
- 	if (!buf)
- 		return -ENOMEM;
- 
--	mvpp2_pool_refill(port, bm, dma_addr, (unsigned long)buf);
-+	mvpp2_pool_refill(port, bm, dma_addr, phys_addr);
- 
- 	return 0;
- }
-@@ -5055,7 +5067,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 		rx_status = rx_desc->status;
- 		rx_bytes = rx_desc->data_size - MVPP2_MH_SIZE;
- 		dma_addr = rx_desc->buf_dma_addr;
--		data = (void *)(uintptr_t)rx_desc->buf_cookie;
-+		data = (void *)phys_to_virt(rx_desc->buf_cookie);
- 
- 		bm = mvpp2_bm_cookie_build(rx_desc);
- 		pool = mvpp2_bm_cookie_pool_get(bm);
 -- 
 2.7.4
