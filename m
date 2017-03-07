@@ -1,8 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 22/22] net: mvpp2: finally add the PPv2.2
- compatible string
-Date: Tue,  7 Mar 2017 16:53:20 +0100
-Message-ID: <1488902000-2658-23-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 18/22] net: mvpp2: rework RXQ interrupt group
+ initialization for PPv2.2
+Date: Tue,  7 Mar 2017 16:53:16 +0100
+Message-ID: <1488902000-2658-19-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,52 +33,84 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Now that the mvpp2 driver has been modified to accommodate the support
-for PPv2.2, we can finally advertise this support by adding the
-appropriate compatible string.
-
-At the same time, we update the Kconfig description of the MVPP2 driver.
+This commit adjusts how the MVPP2_ISR_RXQ_GROUP_REG register is
+configured, since it changed between PPv2.1 and PPv2.2.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/Kconfig | 4 ++--
- drivers/net/ethernet/marvell/mvpp2.c | 4 ++++
- 2 files changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 46 ++++++++++++++++++++++++++++++++----
+ 1 file changed, 42 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index d2555e8b..da6fb82 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -82,13 +82,13 @@ config MVNETA_BM
- 	  that all dependencies are met.
- 
- config MVPP2
--	tristate "Marvell Armada 375 network interface support"
-+	tristate "Marvell Armada 375/7K/8K network interface support"
- 	depends on ARCH_MVEBU || COMPILE_TEST
- 	depends on HAS_DMA
- 	select MVMDIO
- 	---help---
- 	  This driver supports the network interface units in the
--	  Marvell ARMADA 375 SoC.
-+	  Marvell ARMADA 375, 7K and 8K SoCs.
- 
- config PXA168_ETH
- 	tristate "Marvell pxa168 ethernet support"
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 92c47f3..af5bfa1 100644
+index 0e10303..21f47d2 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -7037,6 +7037,10 @@ static const struct of_device_id mvpp2_match[] = {
- 		.compatible = "marvell,armada-375-pp2",
- 		.data = (void *)MVPP21,
- 	},
-+	{
-+		.compatible = "marvell,armada-7k-pp22",
-+		.data = (void *)MVPP22,
-+	},
- 	{ }
- };
- MODULE_DEVICE_TABLE(of, mvpp2_match);
+@@ -185,7 +185,21 @@
+ /* Interrupt Cause and Mask registers */
+ #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
+ #define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
+-#define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
++#define MVPP21_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
++
++#define MVPP22_ISR_RXQ_GROUP_INDEX_REG          0x5400
++#define MVPP22_ISR_RXQ_GROUP_INDEX_SUBGROUP_MASK 0xf
++#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK   0x380
++#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET 7
++
++#define MVPP22_ISR_RXQ_GROUP_INDEX_SUBGROUP_MASK 0xf
++#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK   0x380
++
++#define MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG     0x5404
++#define MVPP22_ISR_RXQ_SUB_GROUP_STARTQ_MASK    0x1f
++#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_MASK      0xf00
++#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET    8
++
+ #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
+ #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
+ #define     MVPP2_ISR_DISABLE_INTERRUPT(mask)	(((mask) << 16) & 0xffff0000)
+@@ -6406,7 +6420,18 @@ static int mvpp2_port_init(struct mvpp2_port *port)
+ 	}
+ 
+ 	/* Configure Rx queue group interrupt for this port */
+-	mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(port->id), rxq_number);
++	if (priv->hw_version == MVPP21) {
++		mvpp2_write(priv, MVPP21_ISR_RXQ_GROUP_REG(port->id),
++			    rxq_number);
++	} else {
++		u32 val;
++
++		val = (port->id << MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET);
++		mvpp2_write(priv, MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
++
++		val = (rxq_number << MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET);
++		mvpp2_write(priv, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG, val);
++	}
+ 
+ 	/* Create Rx descriptor rings */
+ 	for (queue = 0; queue < rxq_number; queue++) {
+@@ -6799,8 +6824,21 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 	mvpp2_rx_fifo_init(priv);
+ 
+ 	/* Reset Rx queue group interrupt configuration */
+-	for (i = 0; i < MVPP2_MAX_PORTS; i++)
+-		mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(i), rxq_number);
++	for (i = 0; i < MVPP2_MAX_PORTS; i++) {
++		if (priv->hw_version == MVPP21) {
++			mvpp2_write(priv, MVPP21_ISR_RXQ_GROUP_REG(i),
++				    rxq_number);
++			continue;
++		} else {
++			u32 val;
++
++			val = (i << MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET);
++			mvpp2_write(priv, MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
++
++			val = (rxq_number << MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET);
++			mvpp2_write(priv, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG, val);
++		}
++	}
+ 
+ 	if (priv->hw_version == MVPP21)
+ 		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
 -- 
 2.7.4
