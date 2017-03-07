@@ -1,173 +1,103 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Subject: Re: [PATCH] PCI: Add pci reset quirk for Cavium VNIC
-Date: Tue, 7 Mar 2017 16:16:07 +0000
-Message-ID: <0bfc40dd-89a2-9b4b-4983-8ecb32734d1d@arm.com>
-References: <1488899088-10194-1-git-send-email-rad@semihalf.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in netlink_unicast
+Date: Tue, 7 Mar 2017 10:55:31 -0500
+Message-ID: <20170307155531.GA10258@madcap2.tricolour.ca>
+References: <CACT4Y+bmJpMCcbKZqdp_jvhS=K3O2rBPrPD-b1F_WqRLS9Y=0A@mail.gmail.com>
+ <CAM_iQpW90SdHKEpXeQ7u6RFKo5ABXAiKZVzxsZWRbK=Qw86BQQ@mail.gmail.com>
+ <20170307040317.GU18258@madcap2.tricolour.ca>
+ <CAHC9VhTf5ndE961JMM2fUSUozf+BvF78jE4FFpuwwSn0=rnH7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Radoslaw Biernacki <rbiernacki@caviumnetworks.com>,
- Maciej Czekaj <mjc@semihalf.com>, Tomasz Nowicki <tn@semihalf.com>,
- Linu.Cherian@cavium.com, linux-pci@vger.kernel.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- Marcin Wojtas <mw@semihalf.com>, linux-arm-kernel@lists.infradead.org
-To: Radoslaw Biernacki <rad@semihalf.com>, Bjorn Helgaas
- <bhelgaas@google.com>, Sunil.Goutham@cavium.com,
- Robert Richter <robert.richter@cavium.com>,
- David Daney <ddaney@caviumnetworks.com>, Robert Richter <rric@kernel.org>,
- David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1488899088-10194-1-git-send-email-rad@semihalf.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        netdev <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>, linux-audit@redhat.com,
+        David Miller <davem@davemloft.net>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50006 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755444AbdCGQV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Mar 2017 11:21:27 -0500
+Content-Disposition: inline
+In-Reply-To: <CAHC9VhTf5ndE961JMM2fUSUozf+BvF78jE4FFpuwwSn0=rnH7g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/03/17 15:04, Radoslaw Biernacki wrote:
-> From: Radoslaw Biernacki <rbiernacki@caviumnetworks.com>
+On 2017-03-07 09:29, Paul Moore wrote:
+> On Mon, Mar 6, 2017 at 11:03 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > On 2017-03-06 10:10, Cong Wang wrote:
+> >> On Mon, Mar 6, 2017 at 2:54 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> >> > Hello,
+> >> >
+> >> > I've got the following crash while running syzkaller fuzzer on
+> >> > net-next/8d70eeb84ab277377c017af6a21d0a337025dede:
+> >> >
+> >> > kasan: GPF could be caused by NULL-ptr deref or user memory access
+> >> > general protection fault: 0000 [#1] SMP KASAN
+> >> > Dumping ftrace buffer:
+> >> >    (ftrace buffer empty)
+> >> > Modules linked in:
+> >> > CPU: 0 PID: 883 Comm: kauditd Not tainted 4.10.0+ #6
+> >> > Hardware name: Google Google Compute Engine/Google Compute Engine,
+> >> > BIOS Google 01/01/2011
+> >> > task: ffff8801d79f0240 task.stack: ffff8801d7a20000
+> >> > RIP: 0010:sock_sndtimeo include/net/sock.h:2162 [inline]
+> >> > RIP: 0010:netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249
+> >> > RSP: 0018:ffff8801d7a27c38 EFLAGS: 00010206
+> >> > RAX: 0000000000000056 RBX: ffff8801d7a27cd0 RCX: 0000000000000000
+> >> > RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00000000000002b0
+> >> > RBP: ffff8801d7a27cf8 R08: ffffed00385cf286 R09: ffffed00385cf286
+> >> > R10: 0000000000000006 R11: ffffed00385cf285 R12: 0000000000000000
+> >> > R13: dffffc0000000000 R14: ffff8801c2fc3c80 R15: 00000000014000c0
+> >> > FS:  0000000000000000(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
+> >> > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> >> > CR2: 0000000020cfd000 CR3: 00000001c758f000 CR4: 00000000001406f0
+> >> > Call Trace:
+> >> >  kauditd_send_unicast_skb+0x3c/0x70 kernel/audit.c:482
+> >> >  kauditd_thread+0x174/0xb00 kernel/audit.c:599
+> >> >  kthread+0x326/0x3f0 kernel/kthread.c:229
+> >> >  ret_from_fork+0x31/0x40 arch/x86/entry/entry_64.S:430
+> >> > Code: 44 89 fe e8 56 15 ff ff 8b 8d 70 ff ff ff 49 89 c6 31 c0 85 c9
+> >> > 75 27 e8 b2 b2 f4 fd 49 8d bc 24 b0 02 00 00 48 89 f8 48 c1 e8 03 <42>
+> >> > 80 3c 28 00 0f 85 37 06 00 00 49 8b 84 24 b0 02 00 00 4c 8d
+> >> > RIP: sock_sndtimeo include/net/sock.h:2162 [inline] RSP: ffff8801d7a27c38
+> >> > RIP: netlink_unicast+0xdd/0x730 net/netlink/af_netlink.c:1249 RSP:
+> >> > ffff8801d7a27c38
+> >> > ---[ end trace ad1bba9d457430b6 ]---
+> >> > Kernel panic - not syncing: Fatal exception
+> >> >
+> >> >
+> >> > This is not reproducible and seems to be caused by an elusive race.
+> >> > However, looking at the code I don't see any proper protection of
+> >> > audit_sock (other than the if (!audit_pid) which is obviously not
+> >> > enough to protect against races).
+> >>
+> >> audit_cmd_mutex is supposed to protect it, I think.
+> >> But kauditd_send_unicast_skb() seems not holding this mutex.
+> >
+> > Hmmmm, I wonder if it makes sense to wrap most of the contents of the
+> > outer while loop in kauditd_thread in the audit_cmd_mutex, or around the
+> > first two innter while loops and the "if (auditd)" condition after the
+> > "quick_loop:" label.  The condition on auditd is supposed to catch that
+> > case.  We don't want it locked while playing with the scheduler at the
+> > bottom of that function.
 > 
-> PCI reset quirk is needed for Cavium Function NIC since it does not
-> handle a function level reset.
-> This cause problems when VNIC is used from userspace by vfio.
-> If application (or VM) does not stop the VNIC queues, HW may cause
-> overwrite of memory locations when next application that use it will
-> establish new SMMU mappings. More likely HW it will cause SMMU exception,
-> when network packet will came before new SMMU mappings will be made.
+> Let me look into this and play around with a few things.  I suspected
+> there might be a problem here, so I've got thoughts on how we might
+> resolve it; I just need to see code them up and see what option sucks
+> the least.
 > 
-> Signed-off-by: Radoslaw Biernacki <rbiernacki@caviumnetworks.com>
-> Reviewed-by: Sunil Goutham <Sunil.Goutham@cavium.com>
-> ---
->  drivers/pci/quirks.c | 90 ++++++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 90 insertions(+)
-> 
-> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> index f754453..f7cdbe5 100644
-> --- a/drivers/pci/quirks.c
-> +++ b/drivers/pci/quirks.c
-> @@ -3783,10 +3783,98 @@ static int reset_chelsio_generic_dev(struct pci_dev *dev, int probe)
->  	return 0;
->  }
->  
-> +#define CAVIUM_VNIC_QSET_RQ_0_7_CFG		(0x010600)
-> +#define CAVIUM_VNIC_QSET_CQ_0_7_CFG		(0x010400)
-> +#define CAVIUM_VNIC_QSET_CQ_0_7_CFG2		(0x010408)
-> +#define CAVIUM_VNIC_QSET_SQ_0_7_CFG		(0x010800)
-> +#define CAVIUM_VNIC_QSET_SQ_0_7_STATUS		(0x010840)
-> +#define CAVIUM_VNIC_QSET_RBDR_0_1_CFG		(0x010C00)
-> +#define CAVIUM_VNIC_QSET_RBDR_0_1_STATUS0	(0x010C40)
-> +
-> +#define CAVIUM_VNIC_Q_SHIFT		(18)
-> +#define CAVIUM_VNIC_CQ_RESET		(1ULL << 41)
-> +#define CAVIUM_VNIC_SQ_RESET		(1ULL << 17)
-> +#define CAVIUM_VNIC_RBDR_RESET		(1ULL << 43)
-> +#define CAVIUM_VNIC_RBDR_FIFO_STATE_SHIFT (62)
-> +
-> +/* Poll a register for a specific value */
-> +static int cavium_vnic_poll(struct pci_dev *pdev,
-> +			    void __iomem *addr, size_t bit_pos,
-> +			    size_t bits, u64 val)
-> +{
-> +	u64 bit_mask;
-> +	u64 reg_val;
-> +	size_t timeout = 10;
-> +
-> +	bit_mask = (1ULL << bits) - 1;
-> +	bit_mask = (bit_mask << bit_pos);
+> FWIW Richard, yes wrapping most of kauditd_thread *should* resolve
+> this but it's pretty heavy handed and not my first choice.
 
-GENMASK_ULL(bit_pos, bit_pos + bits - 1)? Admittedly it's not an awful
-lot tidier :/
+That's why the inner loops made a bit more sense since it wasn't really
+necessary and ran afoul of the scheduler anyways.
 
-> +
-> +	while (timeout) {
-> +		reg_val = readq(addr);
-> +		if (((reg_val & bit_mask) >> bit_pos) == val)
-> +			return 0;
-> +		usleep_range(1000, 2000);
-> +		timeout--;
-> +	}
+> paul moore
 
-This is essentially an open-coded version of readq_poll_timeout() from
-<linux/iopoll.h>, which could be used instead. Doing "val <<= bitpos"
-first might help simplify the condition, although since it's only called
-with val == 0 it seems that "(reg_val & bit_mask)" would suffice.
-
-Robin.
-
-> +	dev_err(&pdev->dev, "Poll on addr %p failed\n", addr);
-> +	return -1;
-> +}
-> +
-> +static int cavium_vnic_reset(struct pci_dev *pdev, int probe)
-> +{
-> +	size_t qidx;
-> +	void __iomem *bar_base;
-> +	void __iomem *qset_base;
-> +
-> +	bar_base = pci_iomap(pdev, 0, 0);
-> +	if (!bar_base)
-> +		return -ENOMEM;
-> +
-> +	/* For each of 8 RQ/CQ/SQ (queues) in VF */
-> +	for (qidx = 0; qidx < 8; qidx++) {
-> +		/* Disable receive queue */
-> +		qset_base = bar_base + (qidx << CAVIUM_VNIC_Q_SHIFT);
-> +		writeq(0, qset_base + CAVIUM_VNIC_QSET_RQ_0_7_CFG);
-> +
-> +		/* Disable timer threshold (doesn't get reset upon CQ reset */
-> +		writeq(0, qset_base + CAVIUM_VNIC_QSET_CQ_0_7_CFG2);
-> +		/* Disable completion queue */
-> +		writeq(0, qset_base + CAVIUM_VNIC_QSET_CQ_0_7_CFG);
-> +		/* Reset completion queue */
-> +		writeq(CAVIUM_VNIC_CQ_RESET,
-> +			  qset_base + CAVIUM_VNIC_QSET_CQ_0_7_CFG);
-> +
-> +		/* Disable send queue */
-> +		writeq(0, qset_base + CAVIUM_VNIC_QSET_SQ_0_7_CFG);
-> +		/* Reset send queue */
-> +		writeq(CAVIUM_VNIC_SQ_RESET,
-> +		       qset_base + CAVIUM_VNIC_QSET_SQ_0_7_CFG);
-> +	}
-> +
-> +	/* Reset and disable both RBDR's */
-> +	for (qidx = 0; qidx < 2; qidx++) {
-> +		qset_base = bar_base +
-> +			(qidx << CAVIUM_VNIC_Q_SHIFT);
-> +		writeq(CAVIUM_VNIC_RBDR_RESET,
-> +		       qset_base + CAVIUM_VNIC_QSET_RBDR_0_1_CFG);
-> +		writeq(0, qset_base + CAVIUM_VNIC_QSET_RBDR_0_1_CFG);
-> +		if (cavium_vnic_poll(pdev, qset_base +
-> +				     CAVIUM_VNIC_QSET_RBDR_0_1_STATUS0,
-> +				     CAVIUM_VNIC_RBDR_FIFO_STATE_SHIFT,
-> +				     2, 0x00))
-> +			dev_err(&pdev->dev, "Timeout on RBDR reset sequence");
-> +	}
-> +
-> +	pci_iounmap(pdev, bar_base);
-> +	return 0;
-> +}
-> +
->  #define PCI_DEVICE_ID_INTEL_82599_SFP_VF   0x10ed
->  #define PCI_DEVICE_ID_INTEL_IVB_M_VGA      0x0156
->  #define PCI_DEVICE_ID_INTEL_IVB_M2_VGA     0x0166
->  
-> +#define PCI_DEVICE_ID_CAVIUM_NIC_VF        0xA034
-> +
->  static const struct pci_dev_reset_methods pci_dev_reset_methods[] = {
->  	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82599_SFP_VF,
->  		 reset_intel_82599_sfp_virtfn },
-> @@ -3796,6 +3884,8 @@ static int reset_chelsio_generic_dev(struct pci_dev *dev, int probe)
->  		reset_ivb_igd },
->  	{ PCI_VENDOR_ID_CHELSIO, PCI_ANY_ID,
->  		reset_chelsio_generic_dev },
-> +	{ PCI_VENDOR_ID_CAVIUM, PCI_DEVICE_ID_CAVIUM_NIC_VF,
-> +		cavium_vnic_reset },
->  	{ 0 }
->  };
->  
-> 
+- RGB
