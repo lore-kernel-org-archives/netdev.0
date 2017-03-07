@@ -1,65 +1,44 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/5] ldmvsw: better use of link up and down on
- ldom vswitch
-Date: Mon, 6 Mar 2017 15:53:50 -0800
-Message-ID: <a4a24493-913a-dd97-44cb-60ae6ef495d7@gmail.com>
-References: <1488842132-512058-1-git-send-email-shannon.nelson@oracle.com>
- <1488842132-512058-2-git-send-email-shannon.nelson@oracle.com>
+From: <Wenyou.Yang@microchip.com>
+Subject: RE: [PATCH v2] can: m_can: enable transmission of FD frame on
+ latest version
+Date: Tue, 7 Mar 2017 01:03:28 +0000
+Message-ID: <F9F4555C4E01D7469D37975B62D0EFBB4FC29C@CHN-SV-EXMX07.mchp-main.com>
+References: <20170306022143.7695-1-wenyou.yang@atmel.com>
+ <e4360c52-d62d-6c35-f691-7fcd0f74f954@pengutronix.de>
+ <b24f3252-6bd9-db48-b224-5bf3683cb75d@hartkopp.net>
+ <fe3a4152-643c-404f-f236-5066089fba2e@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shannon Nelson <shannon.nelson@oracle.com>, netdev@vger.kernel.org,
-        davem@davemloft.net
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <1488842132-512058-2-git-send-email-shannon.nelson@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <alexandre.belloni@free-electrons.com>, <f.fainelli@gmail.com>,
+        <quentin.schulz@free-electrons.com>, <nicolas.ferre@atmel.com>,
+        <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: <socketcan@hartkopp.net>, <mkl@pengutronix.de>, <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <fe3a4152-643c-404f-f236-5066089fba2e@hartkopp.net>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/06/2017 03:15 PM, Shannon Nelson wrote:
-> When an ldom VM is bound, the network vswitch infrastructure is set up for
-> it, but was being forced 'UP' by the userland switch configuration script.
-> When 'UP' but not actually connected to a running VM, the ipv6 neighbor
-> probes fail (not a horrible thing) and start cluttering up the kernel logs.
-> Funny thing: these are debug messages that never actually show up, but
-> we do see the net_ratelimited messages that say N callbacks were
-> suppressed.
-> 
-> This patch defers the netif_carrier_on() until an actual link has been
-> established with the VM, as indicated by receiving an LDC_EVENT_UP from
-> the underlying LDC protocol.  Similarly, we take the link down when we
-> see the LDC_EVENT_RESET.
-> 
-> Orabug: 25525312
-> 
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
-> ---
->  drivers/net/ethernet/sun/ldmvsw.c         |   10 +++++++---
->  drivers/net/ethernet/sun/sunvnet_common.c |   14 ++++++++++++++
->  2 files changed, 21 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
-> index 89952de..c6f6d59 100644
-> --- a/drivers/net/ethernet/sun/ldmvsw.c
-> +++ b/drivers/net/ethernet/sun/ldmvsw.c
-> @@ -41,8 +41,8 @@
->  static u8 vsw_port_hwaddr[ETH_ALEN] = {0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
->  
->  #define DRV_MODULE_NAME		"ldmvsw"
-> -#define DRV_MODULE_VERSION	"1.1"
-> -#define DRV_MODULE_RELDATE	"February 3, 2017"
-> +#define DRV_MODULE_VERSION	"1.2"
-> +#define DRV_MODULE_RELDATE	"March 4, 2017"
->  
->  static char version[] =
->  	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")";
-> @@ -133,7 +133,6 @@ static void vsw_poll_controller(struct net_device *dev)
->  #endif
->  
->  static const struct net_device_ops vsw_ops = {
-> -	.ndo_open		= sunvnet_open_common,
-
-Is this change intentional? It was not entirely obvious where you would
-be setting ::ndo_open in other places.
--- 
-Florian
+SEkgT2xpdmVyLCANCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBPbGl2
+ZXIgSGFydGtvcHAgW21haWx0bzpzb2NrZXRjYW5AaGFydGtvcHAubmV0XQ0KPiBTZW50OiAyMDE3
+5bm0M+aciDfml6UgNToyNg0KPiBUbzogTWFyYyBLbGVpbmUtQnVkZGUgPG1rbEBwZW5ndXRyb25p
+eC5kZT47IFdlbnlvdSBZYW5nIC0gQTQxNTM1DQo+IDxXZW55b3UuWWFuZ0BtaWNyb2NoaXAuY29t
+PjsgV29sZmdhbmcgR3JhbmRlZ2dlciA8d2dAZ3JhbmRlZ2dlci5jb20+DQo+IENjOiBBbGV4YW5k
+cmUgQmVsbG9uaSA8YWxleGFuZHJlLmJlbGxvbmlAZnJlZS1lbGVjdHJvbnMuY29tPjsgRmxvcmlh
+biBGYWluZWxsaQ0KPiA8Zi5mYWluZWxsaUBnbWFpbC5jb20+OyBRdWVudGluIFNjaHVseiA8cXVl
+bnRpbi5zY2h1bHpAZnJlZS1lbGVjdHJvbnMuY29tPjsNCj4gV2VueW91IFlhbmcgLSBBNDE1MzUg
+PFdlbnlvdS5ZYW5nQG1pY3JvY2hpcC5jb20+OyBOaWNvbGFzIEZlcnJlDQo+IDxuaWNvbGFzLmZl
+cnJlQGF0bWVsLmNvbT47IGxpbnV4LWNhbkB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmc7DQo+IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6
+IFtQQVRDSCB2Ml0gY2FuOiBtX2NhbjogZW5hYmxlIHRyYW5zbWlzc2lvbiBvZiBGRCBmcmFtZSBv
+biBsYXRlc3QNCj4gdmVyc2lvbg0KPiANCj4gQFdlbnlvdSBZYW5nOiBDYW4geW91IHBsZWFzZSB0
+ZXN0IHRoZSB0d28gcGF0Y2hlcyBwb3N0ZWQgaGVyZToNCg0KVGVzdGVkIG9uIFNBTUE1RDIgU29D
+LCBJdCB3b3Jrcy4NCg0KPiANCj4gW1BBVENIIDEvMl0gY2FuOiBtX2NhbjogaGFuZGxlIGJpdHJh
+dGUgc2V0dXAgb24gSVAgY29yZSA+PSAzLjEueA0KPiBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4
+LWNhbiZtPTE0ODg4MzUyOTkyNzcyMCZ3PTINCj4gDQo+IFtQQVRDSCAyLzJdIGNhbjogbV9jYW46
+IGhhbmRsZSBmcmFtZSB0cmFuc21pc3Npb24gb24gSVAgY29yZSA+PSAzLjEueA0KPiBodHRwOi8v
+bWFyYy5pbmZvLz9sPWxpbnV4LWNhbiZtPTE0ODg4MzUyOTkyNzcxOCZ3PTINCj4gDQo+IFRueCAm
+IHJlZ2FyZHMsDQo+IE9saXZlcg0KDQpUaGFuayB5b3UuDQoNCkJlc3QgUmVnYXJkcywNCldlbnlv
+dSBZYW5nDQo=
