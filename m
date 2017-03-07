@@ -1,79 +1,155 @@
-From: "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH 21/29] drivers, s390: convert fc_fcp_pkt.ref_cnt from
- atomic_t to refcount_t
-Date: Tue, 7 Mar 2017 07:50:16 +0000
-Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C556BD@IRSMSX102.ger.corp.intel.com>
-References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
- <1488810076-3754-22-git-send-email-elena.reshetova@intel.com>
- <536a58ba-8896-5639-cab9-bd2f13bed325@suse.de>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org" <xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
-	<linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, "linux-bcache-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-bcache-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org"
-	<devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org>, "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org"
-	<fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>, "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org"
-	<open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, "devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org"
-	<devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>, "target-devel-u79uwXL29TZNg+MwTxZMZA@public.gmane.org
-To: Johannes Thumshirn <jthumshirn-l3A5Bk7waGM@public.gmane.org>, "gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org"
-	<gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <open-iscsi+bncBCWONPVE7ANRBPWM7HCQKGQELWQBKFY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <536a58ba-8896-5639-cab9-bd2f13bed325-l3A5Bk7waGM@public.gmane.org>
-Content-Language: en-US
-List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/open-iscsi
-List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/open-iscsi/subscribe>
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/1] rds: ib: add error handle
+Date: Tue,  7 Mar 2017 02:48:36 -0500
+Message-ID: <1488872916-24751-1-git-send-email-yanjun.zhu@oracle.com>
+To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+        yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> On 03/06/2017 03:21 PM, Elena Reshetova wrote:
-> > refcount_t type and corresponding API should be
-> > used instead of atomic_t when the variable is used as
-> > a reference counter. This allows to avoid accidental
-> > refcounter overflows that might lead to use-after-free
-> > situations.
->=20
-> The subject is wrong, should be something like "scsi: libfc convert
-> fc_fcp_pkt.ref_cnt from atomic_t to refcount_t" but not s390.
+In the function rds_ib_setup_qp, the error handle is missing. When some
+error occurs, it is possible that memory leak occurs. As such, error
+handle is added.
 
-Very sorry about this: the error in the subject got from the time when I wa=
-s trying to break the bigger drivers patch set into per-variable part and t=
-rying to automate the process too much :(
-I will fix it in the end version!
+Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Guanglei Li <guanglei.li-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+---
+ net/rds/ib_cm.c | 47 ++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 36 insertions(+), 11 deletions(-)
 
-Best Regards,
-Elena
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index ce3775a..d47ae0f 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -442,7 +442,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 		ic->i_send_cq = NULL;
+ 		ibdev_put_vector(rds_ibdev, ic->i_scq_vector);
+ 		rdsdebug("ib_create_cq send failed: %d\n", ret);
+-		goto out;
++		goto rds_ibdev_out;
+ 	}
+ 
+ 	ic->i_rcq_vector = ibdev_get_unused_vector(rds_ibdev);
+@@ -456,19 +456,19 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 		ic->i_recv_cq = NULL;
+ 		ibdev_put_vector(rds_ibdev, ic->i_rcq_vector);
+ 		rdsdebug("ib_create_cq recv failed: %d\n", ret);
+-		goto out;
++		goto send_cq_out;
+ 	}
+ 
+ 	ret = ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
+ 	if (ret) {
+ 		rdsdebug("ib_req_notify_cq send failed: %d\n", ret);
+-		goto out;
++		goto recv_cq_out;
+ 	}
+ 
+ 	ret = ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
+ 	if (ret) {
+ 		rdsdebug("ib_req_notify_cq recv failed: %d\n", ret);
+-		goto out;
++		goto recv_cq_out;
+ 	}
+ 
+ 	/* XXX negotiate max send/recv with remote? */
+@@ -494,7 +494,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	ret = rdma_create_qp(ic->i_cm_id, ic->i_pd, &attr);
+ 	if (ret) {
+ 		rdsdebug("rdma_create_qp failed: %d\n", ret);
+-		goto out;
++		goto recv_cq_out;
+ 	}
+ 
+ 	ic->i_send_hdrs = ib_dma_alloc_coherent(dev,
+@@ -504,7 +504,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	if (!ic->i_send_hdrs) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("ib_dma_alloc_coherent send failed\n");
+-		goto out;
++		goto qp_out;
+ 	}
+ 
+ 	ic->i_recv_hdrs = ib_dma_alloc_coherent(dev,
+@@ -514,7 +514,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	if (!ic->i_recv_hdrs) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("ib_dma_alloc_coherent recv failed\n");
+-		goto out;
++		goto send_hdrs_dma_out;
+ 	}
+ 
+ 	ic->i_ack = ib_dma_alloc_coherent(dev, sizeof(struct rds_header),
+@@ -522,7 +522,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	if (!ic->i_ack) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("ib_dma_alloc_coherent ack failed\n");
+-		goto out;
++		goto recv_hdrs_dma_out;
+ 	}
+ 
+ 	ic->i_sends = vzalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
+@@ -530,7 +530,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	if (!ic->i_sends) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("send allocation failed\n");
+-		goto out;
++		goto ack_dma_out;
+ 	}
+ 
+ 	ic->i_recvs = vzalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
+@@ -538,7 +538,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	if (!ic->i_recvs) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("recv allocation failed\n");
+-		goto out;
++		goto sends_out;
+ 	}
+ 
+ 	rds_ib_recv_init_ack(ic);
+@@ -546,8 +546,33 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	rdsdebug("conn %p pd %p cq %p %p\n", conn, ic->i_pd,
+ 		 ic->i_send_cq, ic->i_recv_cq);
+ 
+-out:
++	return ret;
++
++sends_out:
++	vfree(ic->i_sends);
++ack_dma_out:
++	ib_dma_free_coherent(dev, sizeof(struct rds_header),
++			     ic->i_ack, ic->i_ack_dma);
++recv_hdrs_dma_out:
++	ib_dma_free_coherent(dev, ic->i_recv_ring.w_nr *
++					sizeof(struct rds_header),
++					ic->i_recv_hdrs, ic->i_recv_hdrs_dma);
++send_hdrs_dma_out:
++	ib_dma_free_coherent(dev, ic->i_send_ring.w_nr *
++					sizeof(struct rds_header),
++					ic->i_send_hdrs, ic->i_send_hdrs_dma);
++qp_out:
++	rdma_destroy_qp(ic->i_cm_id);
++recv_cq_out:
++	if (!ib_destroy_cq(ic->i_recv_cq))
++		ic->i_recv_cq = NULL;
++send_cq_out:
++	if (!ib_destroy_cq(ic->i_send_cq))
++		ic->i_send_cq = NULL;
++rds_ibdev_out:
++	rds_ib_remove_conn(rds_ibdev, conn);
+ 	rds_ib_dev_put(rds_ibdev);
++
+ 	return ret;
+ }
+ 
+-- 
+2.7.4
 
->=20
-> Other than that
-> Acked-by: Johannes Thumshirn <jth-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->=20
-> --
-> Johannes Thumshirn                                          Storage
-> jthumshirn-l3A5Bk7waGM@public.gmane.org                                +49 911 74053 689
-> SUSE LINUX GmbH, Maxfeldstr. 5, 90409 N=C3=BCrnberg
-> GF: Felix Imend=C3=B6rffer, Jane Smithard, Graham Norton
-> HRB 21284 (AG N=C3=BCrnberg)
-> Key fingerprint =3D EC38 9CAB C2C4 F25D 8600 D0D0 0393 969D 2D76 0850
-
---=20
-You received this message because you are subscribed to the Google Groups "=
-open-iscsi" group.
-To unsubscribe from this group and stop receiving emails from it, send an e=
-mail to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-Visit this group at https://groups.google.com/group/open-iscsi.
-For more options, visit https://groups.google.com/d/optout.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
