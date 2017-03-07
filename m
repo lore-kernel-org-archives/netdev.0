@@ -1,116 +1,124 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 18/22] net: mvpp2: rework RXQ interrupt group
- initialization for PPv2.2
-Date: Tue,  7 Mar 2017 16:53:16 +0100
-Message-ID: <1488902000-2658-19-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 20/22] net: mvpp2: add support for an additional clock needed for PPv2.2
+Date: Tue,  7 Mar 2017 16:53:18 +0100
+Message-ID: <1488902000-2658-21-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
- Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
- Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Russell King <linux@arm.linux.org.uk>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
- devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
- Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Pawel Moll <pawel.moll@arm.com>, Mark Rutland <mark.rutland@arm.com>,
- Kumar Gala <galak@codeaurora.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+        devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Kumar Gala <galak@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:33850 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755817AbdCGQE1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 11:04:27 -0500
 In-Reply-To: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This commit adjusts how the MVPP2_ISR_RXQ_GROUP_REG register is
-configured, since it changed between PPv2.1 and PPv2.2.
+The PPv2.2 variant of the network controller needs an additional
+clock, the "MG clock" in order for the IP block to operate
+properly. This commit adds support for this additional clock to the
+driver, reworking as needed the error handling path.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 46 ++++++++++++++++++++++++++++++++----
- 1 file changed, 42 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 0e10303..21f47d2 100644
+index 1bb1aa5..0a3c470 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -185,7 +185,21 @@
- /* Interrupt Cause and Mask registers */
- #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
- #define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
--#define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
-+#define MVPP21_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
+@@ -704,6 +704,7 @@ struct mvpp2 {
+ 	/* Common clocks */
+ 	struct clk *pp_clk;
+ 	struct clk *gop_clk;
++	struct clk *mg_clk;
+ 
+ 	/* List of pointers to port structures */
+ 	struct mvpp2_port **port_list;
+@@ -6925,6 +6926,18 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	if (err < 0)
+ 		goto err_pp_clk;
+ 
++	if (priv->hw_version == MVPP22) {
++		priv->mg_clk = devm_clk_get(&pdev->dev, "mg_clk");
++		if (IS_ERR(priv->mg_clk)) {
++			err = PTR_ERR(priv->mg_clk);
++			goto err_gop_clk;
++		}
 +
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_REG          0x5400
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_SUBGROUP_MASK 0xf
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK   0x380
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET 7
++		err = clk_prepare_enable(priv->mg_clk);
++		if (err < 0)
++			goto err_gop_clk;
++	}
 +
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_SUBGROUP_MASK 0xf
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK   0x380
-+
-+#define MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG     0x5404
-+#define MVPP22_ISR_RXQ_SUB_GROUP_STARTQ_MASK    0x1f
-+#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_MASK      0xf00
-+#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET    8
-+
- #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
- #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
- #define     MVPP2_ISR_DISABLE_INTERRUPT(mask)	(((mask) << 16) & 0xffff0000)
-@@ -6406,7 +6420,18 @@ static int mvpp2_port_init(struct mvpp2_port *port)
+ 	/* Get system's tclk rate */
+ 	priv->tclk = clk_get_rate(priv->pp_clk);
+ 
+@@ -6932,14 +6945,14 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	err = mvpp2_init(pdev, priv);
+ 	if (err < 0) {
+ 		dev_err(&pdev->dev, "failed to initialize controller\n");
+-		goto err_gop_clk;
++		goto err_mg_clk;
  	}
  
- 	/* Configure Rx queue group interrupt for this port */
--	mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(port->id), rxq_number);
-+	if (priv->hw_version == MVPP21) {
-+		mvpp2_write(priv, MVPP21_ISR_RXQ_GROUP_REG(port->id),
-+			    rxq_number);
-+	} else {
-+		u32 val;
-+
-+		val = (port->id << MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET);
-+		mvpp2_write(priv, MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
-+
-+		val = (rxq_number << MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET);
-+		mvpp2_write(priv, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG, val);
-+	}
+ 	port_count = of_get_available_child_count(dn);
+ 	if (port_count == 0) {
+ 		dev_err(&pdev->dev, "no ports enabled\n");
+ 		err = -ENODEV;
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
  
- 	/* Create Rx descriptor rings */
- 	for (queue = 0; queue < rxq_number; queue++) {
-@@ -6799,8 +6824,21 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 	mvpp2_rx_fifo_init(priv);
+ 	priv->port_list = devm_kcalloc(&pdev->dev, port_count,
+@@ -6947,19 +6960,22 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 				      GFP_KERNEL);
+ 	if (!priv->port_list) {
+ 		err = -ENOMEM;
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
  
- 	/* Reset Rx queue group interrupt configuration */
--	for (i = 0; i < MVPP2_MAX_PORTS; i++)
--		mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(i), rxq_number);
-+	for (i = 0; i < MVPP2_MAX_PORTS; i++) {
-+		if (priv->hw_version == MVPP21) {
-+			mvpp2_write(priv, MVPP21_ISR_RXQ_GROUP_REG(i),
-+				    rxq_number);
-+			continue;
-+		} else {
-+			u32 val;
-+
-+			val = (i << MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET);
-+			mvpp2_write(priv, MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
-+
-+			val = (rxq_number << MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET);
-+			mvpp2_write(priv, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG, val);
-+		}
-+	}
+ 	/* Initialize ports */
+ 	for_each_available_child_of_node(dn, port_node) {
+ 		err = mvpp2_port_probe(pdev, port_node, priv);
+ 		if (err < 0)
+-			goto err_gop_clk;
++			goto err_mg_clk;
+ 	}
  
- 	if (priv->hw_version == MVPP21)
- 		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
+ 	platform_set_drvdata(pdev, priv);
+ 	return 0;
+ 
++err_mg_clk:
++	if (priv->hw_version == MVPP22)
++		clk_disable_unprepare(priv->mg_clk);
+ err_gop_clk:
+ 	clk_disable_unprepare(priv->gop_clk);
+ err_pp_clk:
+@@ -6995,6 +7011,7 @@ static int mvpp2_remove(struct platform_device *pdev)
+ 				  aggr_txq->descs_dma);
+ 	}
+ 
++	clk_disable_unprepare(priv->mg_clk);
+ 	clk_disable_unprepare(priv->pp_clk);
+ 	clk_disable_unprepare(priv->gop_clk);
+ 
 -- 
 2.7.4
