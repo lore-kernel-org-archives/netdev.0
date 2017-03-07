@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: realtek: r8169: use new api
- ethtool_{get|set}_link_ksettings
-Date: Mon, 06 Mar 2017 17:07:26 -0800 (PST)
-Message-ID: <20170306.170726.2089707051390893436.davem@davemloft.net>
-References: <1487885683-4191-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net]ipv6: Provide ipv6 version of "disable_policy"
+ sysctl
+Date: Mon, 06 Mar 2017 17:11:09 -0800 (PST)
+Message-ID: <20170306.171109.1614519262967833329.davem@davemloft.net>
+References: <1487867238-27179-1-git-send-email-dforster@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
+Cc: netdev@vger.kernel.org
+To: dforster@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50596 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50696 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754473AbdCGBHk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 20:07:40 -0500
-In-Reply-To: <1487885683-4191-1-git-send-email-tremyfr@gmail.com>
+        with ESMTP id S1753253AbdCGBLK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Mar 2017 20:11:10 -0500
+In-Reply-To: <1487867238-27179-1-git-send-email-dforster@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Thu, 23 Feb 2017 22:34:43 +0100
+From: David Forster <dforster@brocade.com>
+Date: Thu, 23 Feb 2017 16:27:18 +0000
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+> This provides equivalent functionality to the existing ipv4
+> "disable_policy" systcl. ie. Allows IPsec processing to be skipped
+> on terminating packets on a per-interface basis.
 > 
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Signed-off-by: David Forster <dforster@brocade.com>
 
-Applied.
+Applied to net-next, thanks David.
