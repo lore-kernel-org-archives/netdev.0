@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 net] ibmvnic: Fix overflowing firmware/hardware TX
- queue
-Date: Tue, 07 Mar 2017 14:14:44 -0800 (PST)
-Message-ID: <20170307.141444.1814957653636898496.davem@davemloft.net>
-References: <1488737922-17305-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH net 0/2] net: fix possible sock_hold() misuses
+Date: Tue, 07 Mar 2017 14:06:32 -0800 (PST)
+Message-ID: <20170307.140632.293848592181817024.davem@davemloft.net>
+References: <20170304050103.12226-1-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jallen@linux.vnet.ibm.com,
-        nfont@linux.vnet.ibm.com, wvoigt@us.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, willemb@google.com,
+        alexander.h.duyck@intel.com, johannes@sipsolutions.net,
+        soheil@google.com, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37846 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37824 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756217AbdCGWPr (ORCPT
+        with ESMTP id S1756208AbdCGWPr (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 17:15:47 -0500
-In-Reply-To: <1488737922-17305-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+In-Reply-To: <20170304050103.12226-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Sun,  5 Mar 2017 12:18:41 -0600
+From: Eric Dumazet <edumazet@google.com>
+Date: Fri,  3 Mar 2017 21:01:01 -0800
 
-> Use a counter to track the number of outstanding transmissions sent
-> that have not received completions. If the counter reaches the maximum
-> number of queue entries, stop transmissions on that queue. As we receive 
-> more completions from firmware, wake the queue once the counter reaches 
-> an acceptable level.
-> 
-> This patch prevents hardware/firmware TX queue from filling up and
-> and generating errors.  Since incorporating this fix, internal testing
-> has reported that these firmware errors have stopped.
-> 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> skb_complete_wifi_ack() and skb_complete_tx_timestamp() currently
+> call sock_hold() on sockets that might have transitioned their sk_refcnt
+> to zero already.
 
-Applied.
+Series applied and queued up for -stable, thanks.
