@@ -1,7 +1,9 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 00/22] net: mvpp2: add initial support for PPv2.2
-Date: Tue,  7 Mar 2017 16:52:58 +0100
-Message-ID: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 02/22] net: mvpp2: use "dma" instead of "phys"
+ where appropriate
+Date: Tue,  7 Mar 2017 16:53:00 +0100
+Message-ID: <1488902000-2658-3-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,6 +21,7 @@ To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
  Pawel Moll <pawel.moll@arm.com>, Mark Rutland <mark.rutland@arm.com>,
  Kumar Gala <galak@codeaurora.org>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -30,140 +33,531 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The goal of this patch series is to add basic support for PPv2.2 in
-the existing mvpp2 driver. mvpp2 currently supported the PPv2.1
-version of the IP, used in the 32 bits Marvell Armada 375 SoC. PPv2.2
-is an evolution of this IP block, used in the 64 bits Marvell Armada
-7K/8K SoCs.
+As indicated by Russell King, the mvpp2 driver currently uses a lot
+"phys" or "phys_addr" to store what really is a DMA address. This commit
+clarifies this by using "dma" or "dma_addr" where appropriate.
 
-In order to ease the review, the introduction of PPv2.2 support has
-been made into multiple small commits, with the final commit adding
-the compatible string that makes the PPv2.2 support actually
-usable. The series remain fully bisectable.
+This is especially important as we are going to introduce more changes
+where the distinction between physical address and DMA address will be
+key.
 
-People interested in testing the code will find the full series (plus
-a few Device Tree patches) at:
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 148 +++++++++++++++++------------------
+ 1 file changed, 74 insertions(+), 74 deletions(-)
 
-  https://github.com/MISL-EBU-System-SW/mainline-public/tree/4.11/mvpp2.2-support-v3
-
-I'd like to thank Stefan Chulski and Marcin Wojtas, who helped me a
-lot in the development of this patch series, by reviewing the patches,
-and giving lots of useful hints to debug the driver on PPv2.2. Thanks
-as well to Russell King for reviewing previous iterations of this
-series, and providing suggestions and fixes.
-
-Changes between v2 and v3:
-
- - Rebased on v4.11-rc1.
-
- - Add patch "net: mvpp2: fix DMA address calculation in
-   mvpp2_txq_inc_put()", to properly take into account the "packet
-   offset" field of the TX descriptors. Without this, we were getting
-   DMA_API_DEBUG warnings that we are unmapping DMA mappings with a
-   non-mapped DMA address.
-
- - In patch "net: mvpp2: add and use accessors for TX/RX descriptors",
-   add a function named mvpp2_txdesc_offset_get(), which is needed for
-   the DMA address calculation fix.
-
- - In patch "net: mvpp2: add and use accessors for TX/RX descriptors",
-   fix the calculation of tx_desc physical address and packet offset
-   in mvpp2_tx_frag_process(). The offset was assigned into the buffer
-   physical address, and the physical address to the packet offset,
-   which meant the fragment process was completely broken.
-
- - In patch "net: mvpp2: adjust the allocation/free of BM pools for
-   PPv2.2" fix how MVPP22_BM_ADDR_HIGH_VIRT_RLS_MASK is used. This
-   mask is already shifted. So the value should be shifted before
-   being masked and not the opposite.
-
- - Add a new patch "net: mvpp2: set dma mask and coherent dma mask on
-   PPv2.2", to set the DMA mask and DMA coherent mask. By setting the
-   DMA mask to 40 bits we avoid using bounce buffers when network
-   packets are above the 4 GB limit. The coherent mask remains set to
-   32 bits, because the BM pools must all have the same high 32 bits
-   in their addresses.
-
- - Use "dma" instead of "phys" where appropriate, as suggested by
-   Russell King.
-
- - Use the "cookie" field of the RX descriptor to store the physical
-   address instead of the virtual address, and then use phys_to_virt()
-   to get the virtual address. This allows to work around the limit
-   that the "cookie" field only has 40 bits, which is not sufficient
-   to store a virtual address on 64 bits platforms. This was suggested
-   by Russell King.
-
-   As part of this change, also got rid of all the compile time
-   conditionals on CONFIG_ARCH_DMA_ADDR_T_64BIT, to get better
-   compile-time coverage.
-
- - In patch "net: mvpp2: handle misc PPv2.1/PPv2.2 differences":
-
-    * Instead of calling mvpp21_port_power_up(port) only on PPv2.1,
-      remove this function, and call its relevant parts directly from
-      ->probe(). Only mvpp2_port_fc_adv_enable() is PPv2.1
-      specific. Reported by Russell King.
-
-    * Add a mvpp22_port_mii_set() function that properly initializes
-      SGMII support on PPv2.2. Code provided by Russell King.
-
- - In patch "net: mvpp2: handle register mapping and access for PPv2.2":
-
-    * Adjust the code to match the change of the DT binding in terms
-      of mapping the second register area on PPv2.2.
-
-    * Rework the register accessors to remove the get_cpu()/put_cpu(),
-      and instead use separate accessors for global registers
-      vs. per-CPU registers.
-
- - Add a few new patches removing dead/unused/useless code:
-
-   net: mvpp2: remove support for buffer header
-   net: mvpp2: remove unused register definition MVPP2_TXQ_THRESH_REG
-   net: mvpp2: remove mvpp2_txq_pend_desc_num_get() function
-
- - Fix a number of checkpatch warnings.
-
-Changes between v1 and v2:
-
- - Made a separate series from the set of patches doing preparation
-   changes/fixes to the mvpp2 driver.
-
- - Rebased on top of v4.10-rc1.
-
- - Update Kconfig text of the mvpp2 driver to mention the support for
-   Armada 7K and 8K (PPv2.2).
-
-
-Thomas Petazzoni (22):
-  dt-bindings: net: update Marvell PPv2 binding for PPv2.2 support
-  net: mvpp2: use "dma" instead of "phys" where appropriate
-  net: mvpp2: remove support for buffer header
-  net: mvpp2: remove unused register definition MVPP2_TXQ_THRESH_REG
-  net: mvpp2: remove mvpp2_txq_pend_desc_num_get() function
-  net: mvpp2: store physical address of buffer in rx_desc->buf_cookie
-  net: mvpp2: add and use accessors for TX/RX descriptors
-  net: mvpp2: add hw_version field in "struct mvpp2"
-  net: mvpp2: introduce an intermediate union for the TX/RX descriptors
-  net: mvpp2: introduce PPv2.2 HW descriptors and adapt accessors
-  net: mvpp2: adjust the allocation/free of BM pools for PPv2.2
-  net: mvpp2: adapt the mvpp2_rxq_*_pool_set functions to PPv2.2
-  net: mvpp2: adapt mvpp2_defaults_set() to PPv2.2
-  net: mvpp2: adjust mvpp2_{rxq,txq}_init for PPv2.2
-  net: mvpp2: handle register mapping and access for PPv2.2
-  net: mvpp2: handle misc PPv2.1/PPv2.2 differences
-  net: mvpp2: add AXI bridge initialization for PPv2.2
-  net: mvpp2: rework RXQ interrupt group initialization for PPv2.2
-  net: mvpp2: adapt rxq distribution to PPv2.2
-  net: mvpp2: add support for an additional clock needed for PPv2.2
-  net: mvpp2: set dma mask and coherent dma mask on PPv2.2
-  net: mvpp2: finally add the PPv2.2 compatible string
-
- .../devicetree/bindings/net/marvell-pp2.txt        |   62 +-
- drivers/net/ethernet/marvell/Kconfig               |    4 +-
- drivers/net/ethernet/marvell/mvpp2.c               | 1186 ++++++++++++++------
- 3 files changed, 908 insertions(+), 344 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index d00421b..6a4d126 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -746,7 +746,7 @@ struct mvpp2_tx_desc {
+ 	u8  packet_offset;	/* the offset from the buffer beginning	*/
+ 	u8  phys_txq;		/* destination queue ID			*/
+ 	u16 data_size;		/* data size of transmitted packet in bytes */
+-	u32 buf_phys_addr;	/* physical addr of transmitted buffer	*/
++	u32 buf_dma_addr;	/* physical addr of transmitted buffer	*/
+ 	u32 buf_cookie;		/* cookie for access to TX buffer in tx path */
+ 	u32 reserved1[3];	/* hw_cmd (for future use, BM, PON, PNC) */
+ 	u32 reserved2;		/* reserved (for future use)		*/
+@@ -756,7 +756,7 @@ struct mvpp2_rx_desc {
+ 	u32 status;		/* info about received packet		*/
+ 	u16 reserved1;		/* parser_info (for future use, PnC)	*/
+ 	u16 data_size;		/* size of received packet in bytes	*/
+-	u32 buf_phys_addr;	/* physical address of the buffer	*/
++	u32 buf_dma_addr;	/* physical address of the buffer	*/
+ 	u32 buf_cookie;		/* cookie for access to RX buffer in rx path */
+ 	u16 reserved2;		/* gem_port_id (for future use, PON)	*/
+ 	u16 reserved3;		/* csum_l4 (for future use, PnC)	*/
+@@ -772,7 +772,7 @@ struct mvpp2_txq_pcpu_buf {
+ 	struct sk_buff *skb;
+ 
+ 	/* Physical address of transmitted buffer */
+-	dma_addr_t phys;
++	dma_addr_t dma;
+ 
+ 	/* Size transmitted */
+ 	size_t size;
+@@ -825,7 +825,7 @@ struct mvpp2_tx_queue {
+ 	struct mvpp2_tx_desc *descs;
+ 
+ 	/* DMA address of the Tx DMA descriptors array */
+-	dma_addr_t descs_phys;
++	dma_addr_t descs_dma;
+ 
+ 	/* Index of the last Tx DMA descriptor */
+ 	int last_desc;
+@@ -848,7 +848,7 @@ struct mvpp2_rx_queue {
+ 	struct mvpp2_rx_desc *descs;
+ 
+ 	/* DMA address of the RX DMA descriptors array */
+-	dma_addr_t descs_phys;
++	dma_addr_t descs_dma;
+ 
+ 	/* Index of the last RX DMA descriptor */
+ 	int last_desc;
+@@ -922,15 +922,15 @@ struct mvpp2_bm_pool {
+ 
+ 	/* BPPE virtual base address */
+ 	u32 *virt_addr;
+-	/* BPPE physical base address */
+-	dma_addr_t phys_addr;
++	/* BPPE DMA base address */
++	dma_addr_t dma_addr;
+ 
+ 	/* Ports using BM pool */
+ 	u32 port_map;
+ };
+ 
+ struct mvpp2_buff_hdr {
+-	u32 next_buff_phys_addr;
++	u32 next_buff_dma_addr;
+ 	u32 next_buff_virt_addr;
+ 	u16 byte_count;
+ 	u16 info;
+@@ -982,7 +982,7 @@ static void mvpp2_txq_inc_put(struct mvpp2_txq_pcpu *txq_pcpu,
+ 		txq_pcpu->buffs + txq_pcpu->txq_put_index;
+ 	tx_buf->skb = skb;
+ 	tx_buf->size = tx_desc->data_size;
+-	tx_buf->phys = tx_desc->buf_phys_addr + tx_desc->packet_offset;
++	tx_buf->dma = tx_desc->buf_dma_addr + tx_desc->packet_offset;
+ 	txq_pcpu->txq_put_index++;
+ 	if (txq_pcpu->txq_put_index == txq_pcpu->size)
+ 		txq_pcpu->txq_put_index = 0;
+@@ -3383,7 +3383,7 @@ static int mvpp2_bm_pool_create(struct platform_device *pdev,
+ 
+ 	size_bytes = sizeof(u32) * size;
+ 	bm_pool->virt_addr = dma_alloc_coherent(&pdev->dev, size_bytes,
+-						&bm_pool->phys_addr,
++						&bm_pool->dma_addr,
+ 						GFP_KERNEL);
+ 	if (!bm_pool->virt_addr)
+ 		return -ENOMEM;
+@@ -3391,14 +3391,14 @@ static int mvpp2_bm_pool_create(struct platform_device *pdev,
+ 	if (!IS_ALIGNED((unsigned long)bm_pool->virt_addr,
+ 			MVPP2_BM_POOL_PTR_ALIGN)) {
+ 		dma_free_coherent(&pdev->dev, size_bytes, bm_pool->virt_addr,
+-				  bm_pool->phys_addr);
++				  bm_pool->dma_addr);
+ 		dev_err(&pdev->dev, "BM pool %d is not %d bytes aligned\n",
+ 			bm_pool->id, MVPP2_BM_POOL_PTR_ALIGN);
+ 		return -ENOMEM;
+ 	}
+ 
+ 	mvpp2_write(priv, MVPP2_BM_POOL_BASE_REG(bm_pool->id),
+-		    bm_pool->phys_addr);
++		    bm_pool->dma_addr);
+ 	mvpp2_write(priv, MVPP2_BM_POOL_SIZE_REG(bm_pool->id), size);
+ 
+ 	val = mvpp2_read(priv, MVPP2_BM_POOL_CTRL_REG(bm_pool->id));
+@@ -3433,15 +3433,15 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
+ 	int i;
+ 
+ 	for (i = 0; i < bm_pool->buf_num; i++) {
+-		dma_addr_t buf_phys_addr;
++		dma_addr_t buf_dma_addr;
+ 		unsigned long vaddr;
+ 
+ 		/* Get buffer virtual address (indirect access) */
+-		buf_phys_addr = mvpp2_read(priv,
+-					   MVPP2_BM_PHY_ALLOC_REG(bm_pool->id));
++		buf_dma_addr = mvpp2_read(priv,
++					  MVPP2_BM_PHY_ALLOC_REG(bm_pool->id));
+ 		vaddr = mvpp2_read(priv, MVPP2_BM_VIRT_ALLOC_REG);
+ 
+-		dma_unmap_single(dev, buf_phys_addr,
++		dma_unmap_single(dev, buf_dma_addr,
+ 				 bm_pool->buf_size, DMA_FROM_DEVICE);
+ 
+ 		if (!vaddr)
+@@ -3473,7 +3473,7 @@ static int mvpp2_bm_pool_destroy(struct platform_device *pdev,
+ 
+ 	dma_free_coherent(&pdev->dev, sizeof(u32) * bm_pool->size,
+ 			  bm_pool->virt_addr,
+-			  bm_pool->phys_addr);
++			  bm_pool->dma_addr);
+ 	return 0;
+ }
+ 
+@@ -3563,24 +3563,24 @@ static void mvpp2_rxq_short_pool_set(struct mvpp2_port *port,
+ 
+ static void *mvpp2_buf_alloc(struct mvpp2_port *port,
+ 			     struct mvpp2_bm_pool *bm_pool,
+-			     dma_addr_t *buf_phys_addr,
++			     dma_addr_t *buf_dma_addr,
+ 			     gfp_t gfp_mask)
+ {
+-	dma_addr_t phys_addr;
++	dma_addr_t dma_addr;
+ 	void *data;
+ 
+ 	data = mvpp2_frag_alloc(bm_pool);
+ 	if (!data)
+ 		return NULL;
+ 
+-	phys_addr = dma_map_single(port->dev->dev.parent, data,
+-				   MVPP2_RX_BUF_SIZE(bm_pool->pkt_size),
+-				    DMA_FROM_DEVICE);
+-	if (unlikely(dma_mapping_error(port->dev->dev.parent, phys_addr))) {
++	dma_addr = dma_map_single(port->dev->dev.parent, data,
++				  MVPP2_RX_BUF_SIZE(bm_pool->pkt_size),
++				  DMA_FROM_DEVICE);
++	if (unlikely(dma_mapping_error(port->dev->dev.parent, dma_addr))) {
+ 		mvpp2_frag_free(bm_pool, data);
+ 		return NULL;
+ 	}
+-	*buf_phys_addr = phys_addr;
++	*buf_dma_addr = dma_addr;
+ 
+ 	return data;
+ }
+@@ -3604,16 +3604,16 @@ static inline int mvpp2_bm_cookie_pool_get(unsigned long cookie)
+ 
+ /* Release buffer to BM */
+ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
+-				     dma_addr_t buf_phys_addr,
++				     dma_addr_t buf_dma_addr,
+ 				     unsigned long buf_virt_addr)
+ {
+ 	mvpp2_write(port->priv, MVPP2_BM_VIRT_RLS_REG, buf_virt_addr);
+-	mvpp2_write(port->priv, MVPP2_BM_PHY_RLS_REG(pool), buf_phys_addr);
++	mvpp2_write(port->priv, MVPP2_BM_PHY_RLS_REG(pool), buf_dma_addr);
+ }
+ 
+ /* Release multicast buffer */
+ static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
+-				 dma_addr_t buf_phys_addr,
++				 dma_addr_t buf_dma_addr,
+ 				 unsigned long buf_virt_addr,
+ 				 int mc_id)
+ {
+@@ -3623,18 +3623,18 @@ static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
+ 	mvpp2_write(port->priv, MVPP2_BM_MC_RLS_REG, val);
+ 
+ 	mvpp2_bm_pool_put(port, pool,
+-			  buf_phys_addr | MVPP2_BM_PHY_RLS_MC_BUFF_MASK,
++			  buf_dma_addr | MVPP2_BM_PHY_RLS_MC_BUFF_MASK,
+ 			  buf_virt_addr);
+ }
+ 
+ /* Refill BM pool */
+ static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
+-			      dma_addr_t phys_addr,
++			      dma_addr_t dma_addr,
+ 			      unsigned long cookie)
+ {
+ 	int pool = mvpp2_bm_cookie_pool_get(bm);
+ 
+-	mvpp2_bm_pool_put(port, pool, phys_addr, cookie);
++	mvpp2_bm_pool_put(port, pool, dma_addr, cookie);
+ }
+ 
+ /* Allocate buffers for the pool */
+@@ -3642,7 +3642,7 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ 			     struct mvpp2_bm_pool *bm_pool, int buf_num)
+ {
+ 	int i, buf_size, total_size;
+-	dma_addr_t phys_addr;
++	dma_addr_t dma_addr;
+ 	void *buf;
+ 
+ 	buf_size = MVPP2_RX_BUF_SIZE(bm_pool->pkt_size);
+@@ -3657,11 +3657,11 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ 	}
+ 
+ 	for (i = 0; i < buf_num; i++) {
+-		buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
++		buf = mvpp2_buf_alloc(port, bm_pool, &dma_addr, GFP_KERNEL);
+ 		if (!buf)
+ 			break;
+ 
+-		mvpp2_bm_pool_put(port, bm_pool->id, phys_addr,
++		mvpp2_bm_pool_put(port, bm_pool->id, dma_addr,
+ 				  (unsigned long)buf);
+ 	}
+ 
+@@ -4449,7 +4449,7 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
+ 		struct mvpp2_txq_pcpu_buf *tx_buf =
+ 			txq_pcpu->buffs + txq_pcpu->txq_get_index;
+ 
+-		dma_unmap_single(port->dev->dev.parent, tx_buf->phys,
++		dma_unmap_single(port->dev->dev.parent, tx_buf->dma,
+ 				 tx_buf->size, DMA_TO_DEVICE);
+ 		if (tx_buf->skb)
+ 			dev_kfree_skb_any(tx_buf->skb);
+@@ -4530,7 +4530,7 @@ static int mvpp2_aggr_txq_init(struct platform_device *pdev,
+ 	/* Allocate memory for TX descriptors */
+ 	aggr_txq->descs = dma_alloc_coherent(&pdev->dev,
+ 				desc_num * MVPP2_DESC_ALIGNED_SIZE,
+-				&aggr_txq->descs_phys, GFP_KERNEL);
++				&aggr_txq->descs_dma, GFP_KERNEL);
+ 	if (!aggr_txq->descs)
+ 		return -ENOMEM;
+ 
+@@ -4543,7 +4543,7 @@ static int mvpp2_aggr_txq_init(struct platform_device *pdev,
+ 	/* Set Tx descriptors queue starting address */
+ 	/* indirect access */
+ 	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_ADDR_REG(cpu),
+-		    aggr_txq->descs_phys);
++		    aggr_txq->descs_dma);
+ 	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_SIZE_REG(cpu), desc_num);
+ 
+ 	return 0;
+@@ -4559,7 +4559,7 @@ static int mvpp2_rxq_init(struct mvpp2_port *port,
+ 	/* Allocate memory for RX descriptors */
+ 	rxq->descs = dma_alloc_coherent(port->dev->dev.parent,
+ 					rxq->size * MVPP2_DESC_ALIGNED_SIZE,
+-					&rxq->descs_phys, GFP_KERNEL);
++					&rxq->descs_dma, GFP_KERNEL);
+ 	if (!rxq->descs)
+ 		return -ENOMEM;
+ 
+@@ -4570,7 +4570,7 @@ static int mvpp2_rxq_init(struct mvpp2_port *port,
+ 
+ 	/* Set Rx descriptors queue starting address - indirect access */
+ 	mvpp2_write(port->priv, MVPP2_RXQ_NUM_REG, rxq->id);
+-	mvpp2_write(port->priv, MVPP2_RXQ_DESC_ADDR_REG, rxq->descs_phys);
++	mvpp2_write(port->priv, MVPP2_RXQ_DESC_ADDR_REG, rxq->descs_dma);
+ 	mvpp2_write(port->priv, MVPP2_RXQ_DESC_SIZE_REG, rxq->size);
+ 	mvpp2_write(port->priv, MVPP2_RXQ_INDEX_REG, 0);
+ 
+@@ -4601,7 +4601,7 @@ static void mvpp2_rxq_drop_pkts(struct mvpp2_port *port,
+ 		struct mvpp2_rx_desc *rx_desc = mvpp2_rxq_next_desc_get(rxq);
+ 		u32 bm = mvpp2_bm_cookie_build(rx_desc);
+ 
+-		mvpp2_pool_refill(port, bm, rx_desc->buf_phys_addr,
++		mvpp2_pool_refill(port, bm, rx_desc->buf_dma_addr,
+ 				  rx_desc->buf_cookie);
+ 	}
+ 	mvpp2_rxq_status_update(port, rxq->id, rx_received, rx_received);
+@@ -4617,12 +4617,12 @@ static void mvpp2_rxq_deinit(struct mvpp2_port *port,
+ 		dma_free_coherent(port->dev->dev.parent,
+ 				  rxq->size * MVPP2_DESC_ALIGNED_SIZE,
+ 				  rxq->descs,
+-				  rxq->descs_phys);
++				  rxq->descs_dma);
+ 
+ 	rxq->descs             = NULL;
+ 	rxq->last_desc         = 0;
+ 	rxq->next_desc_to_proc = 0;
+-	rxq->descs_phys        = 0;
++	rxq->descs_dma         = 0;
+ 
+ 	/* Clear Rx descriptors queue starting address and size;
+ 	 * free descriptor number
+@@ -4646,7 +4646,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
+ 	/* Allocate memory for Tx descriptors */
+ 	txq->descs = dma_alloc_coherent(port->dev->dev.parent,
+ 				txq->size * MVPP2_DESC_ALIGNED_SIZE,
+-				&txq->descs_phys, GFP_KERNEL);
++				&txq->descs_dma, GFP_KERNEL);
+ 	if (!txq->descs)
+ 		return -ENOMEM;
+ 
+@@ -4654,7 +4654,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
+ 
+ 	/* Set Tx descriptors queue starting address - indirect access */
+ 	mvpp2_write(port->priv, MVPP2_TXQ_NUM_REG, txq->id);
+-	mvpp2_write(port->priv, MVPP2_TXQ_DESC_ADDR_REG, txq->descs_phys);
++	mvpp2_write(port->priv, MVPP2_TXQ_DESC_ADDR_REG, txq->descs_dma);
+ 	mvpp2_write(port->priv, MVPP2_TXQ_DESC_SIZE_REG, txq->size &
+ 					     MVPP2_TXQ_DESC_SIZE_MASK);
+ 	mvpp2_write(port->priv, MVPP2_TXQ_INDEX_REG, 0);
+@@ -4716,7 +4716,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
+ 
+ 	dma_free_coherent(port->dev->dev.parent,
+ 			  txq->size * MVPP2_DESC_ALIGNED_SIZE,
+-			  txq->descs, txq->descs_phys);
++			  txq->descs, txq->descs_dma);
+ 
+ 	return -ENOMEM;
+ }
+@@ -4736,12 +4736,12 @@ static void mvpp2_txq_deinit(struct mvpp2_port *port,
+ 	if (txq->descs)
+ 		dma_free_coherent(port->dev->dev.parent,
+ 				  txq->size * MVPP2_DESC_ALIGNED_SIZE,
+-				  txq->descs, txq->descs_phys);
++				  txq->descs, txq->descs_dma);
+ 
+ 	txq->descs             = NULL;
+ 	txq->last_desc         = 0;
+ 	txq->next_desc_to_proc = 0;
+-	txq->descs_phys        = 0;
++	txq->descs_dma         = 0;
+ 
+ 	/* Set minimum bandwidth for disabled TXQs */
+ 	mvpp2_write(port->priv, MVPP2_TXQ_SCHED_TOKEN_CNTR_REG(txq->id), 0);
+@@ -5031,15 +5031,15 @@ static void mvpp2_rx_csum(struct mvpp2_port *port, u32 status,
+ static int mvpp2_rx_refill(struct mvpp2_port *port,
+ 			   struct mvpp2_bm_pool *bm_pool, u32 bm)
+ {
+-	dma_addr_t phys_addr;
++	dma_addr_t dma_addr;
+ 	void *buf;
+ 
+ 	/* No recycle or too many buffers are in use, so allocate a new skb */
+-	buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
++	buf = mvpp2_buf_alloc(port, bm_pool, &dma_addr, GFP_ATOMIC);
+ 	if (!buf)
+ 		return -ENOMEM;
+ 
+-	mvpp2_pool_refill(port, bm, phys_addr, (unsigned long)buf);
++	mvpp2_pool_refill(port, bm, dma_addr, (unsigned long)buf);
+ 
+ 	return 0;
+ }
+@@ -5081,16 +5081,16 @@ static void mvpp2_buff_hdr_rx(struct mvpp2_port *port,
+ 	struct mvpp2_buff_hdr *buff_hdr;
+ 	struct sk_buff *skb;
+ 	u32 rx_status = rx_desc->status;
+-	dma_addr_t buff_phys_addr;
++	dma_addr_t buff_dma_addr;
+ 	unsigned long buff_virt_addr;
+-	dma_addr_t buff_phys_addr_next;
++	dma_addr_t buff_dma_addr_next;
+ 	unsigned long buff_virt_addr_next;
+ 	int mc_id;
+ 	int pool_id;
+ 
+ 	pool_id = (rx_status & MVPP2_RXD_BM_POOL_ID_MASK) >>
+ 		   MVPP2_RXD_BM_POOL_ID_OFFS;
+-	buff_phys_addr = rx_desc->buf_phys_addr;
++	buff_dma_addr = rx_desc->buf_dma_addr;
+ 	buff_virt_addr = rx_desc->buf_cookie;
+ 
+ 	do {
+@@ -5099,14 +5099,14 @@ static void mvpp2_buff_hdr_rx(struct mvpp2_port *port,
+ 
+ 		mc_id = MVPP2_B_HDR_INFO_MC_ID(buff_hdr->info);
+ 
+-		buff_phys_addr_next = buff_hdr->next_buff_phys_addr;
++		buff_dma_addr_next = buff_hdr->next_buff_dma_addr;
+ 		buff_virt_addr_next = buff_hdr->next_buff_virt_addr;
+ 
+ 		/* Release buffer */
+-		mvpp2_bm_pool_mc_put(port, pool_id, buff_phys_addr,
++		mvpp2_bm_pool_mc_put(port, pool_id, buff_dma_addr,
+ 				     buff_virt_addr, mc_id);
+ 
+-		buff_phys_addr = buff_phys_addr_next;
++		buff_dma_addr = buff_dma_addr_next;
+ 		buff_virt_addr = buff_virt_addr_next;
+ 
+ 	} while (!MVPP2_B_HDR_INFO_IS_LAST(buff_hdr->info));
+@@ -5132,7 +5132,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 		struct mvpp2_bm_pool *bm_pool;
+ 		struct sk_buff *skb;
+ 		unsigned int frag_size;
+-		dma_addr_t phys_addr;
++		dma_addr_t dma_addr;
+ 		u32 bm, rx_status;
+ 		int pool, rx_bytes, err;
+ 		void *data;
+@@ -5140,7 +5140,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 		rx_done++;
+ 		rx_status = rx_desc->status;
+ 		rx_bytes = rx_desc->data_size - MVPP2_MH_SIZE;
+-		phys_addr = rx_desc->buf_phys_addr;
++		dma_addr = rx_desc->buf_dma_addr;
+ 		data = (void *)(uintptr_t)rx_desc->buf_cookie;
+ 
+ 		bm = mvpp2_bm_cookie_build(rx_desc);
+@@ -5163,7 +5163,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 			mvpp2_rx_error(port, rx_desc);
+ 			/* Return the buffer to the pool */
+ 
+-			mvpp2_pool_refill(port, bm, rx_desc->buf_phys_addr,
++			mvpp2_pool_refill(port, bm, rx_desc->buf_dma_addr,
+ 					  rx_desc->buf_cookie);
+ 			continue;
+ 		}
+@@ -5185,7 +5185,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 			goto err_drop_frame;
+ 		}
+ 
+-		dma_unmap_single(dev->dev.parent, phys_addr,
++		dma_unmap_single(dev->dev.parent, dma_addr,
+ 				 bm_pool->buf_size, DMA_FROM_DEVICE);
+ 
+ 		rcvd_pkts++;
+@@ -5219,7 +5219,7 @@ static inline void
+ tx_desc_unmap_put(struct device *dev, struct mvpp2_tx_queue *txq,
+ 		  struct mvpp2_tx_desc *desc)
+ {
+-	dma_unmap_single(dev, desc->buf_phys_addr,
++	dma_unmap_single(dev, desc->buf_dma_addr,
+ 			 desc->data_size, DMA_TO_DEVICE);
+ 	mvpp2_txq_desc_put(txq);
+ }
+@@ -5232,7 +5232,7 @@ static int mvpp2_tx_frag_process(struct mvpp2_port *port, struct sk_buff *skb,
+ 	struct mvpp2_txq_pcpu *txq_pcpu = this_cpu_ptr(txq->pcpu);
+ 	struct mvpp2_tx_desc *tx_desc;
+ 	int i;
+-	dma_addr_t buf_phys_addr;
++	dma_addr_t buf_dma_addr;
+ 
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+@@ -5242,16 +5242,16 @@ static int mvpp2_tx_frag_process(struct mvpp2_port *port, struct sk_buff *skb,
+ 		tx_desc->phys_txq = txq->id;
+ 		tx_desc->data_size = frag->size;
+ 
+-		buf_phys_addr = dma_map_single(port->dev->dev.parent, addr,
+-					       tx_desc->data_size,
+-					       DMA_TO_DEVICE);
+-		if (dma_mapping_error(port->dev->dev.parent, buf_phys_addr)) {
++		buf_dma_addr = dma_map_single(port->dev->dev.parent, addr,
++					      tx_desc->data_size,
++					      DMA_TO_DEVICE);
++		if (dma_mapping_error(port->dev->dev.parent, buf_dma_addr)) {
+ 			mvpp2_txq_desc_put(txq);
+ 			goto error;
+ 		}
+ 
+-		tx_desc->packet_offset = buf_phys_addr & MVPP2_TX_DESC_ALIGN;
+-		tx_desc->buf_phys_addr = buf_phys_addr & (~MVPP2_TX_DESC_ALIGN);
++		tx_desc->packet_offset = buf_dma_addr & MVPP2_TX_DESC_ALIGN;
++		tx_desc->buf_dma_addr = buf_dma_addr & (~MVPP2_TX_DESC_ALIGN);
+ 
+ 		if (i == (skb_shinfo(skb)->nr_frags - 1)) {
+ 			/* Last descriptor */
+@@ -5285,7 +5285,7 @@ static int mvpp2_tx(struct sk_buff *skb, struct net_device *dev)
+ 	struct mvpp2_tx_queue *txq, *aggr_txq;
+ 	struct mvpp2_txq_pcpu *txq_pcpu;
+ 	struct mvpp2_tx_desc *tx_desc;
+-	dma_addr_t buf_phys_addr;
++	dma_addr_t buf_dma_addr;
+ 	int frags = 0;
+ 	u16 txq_id;
+ 	u32 tx_cmd;
+@@ -5310,15 +5310,15 @@ static int mvpp2_tx(struct sk_buff *skb, struct net_device *dev)
+ 	tx_desc->phys_txq = txq->id;
+ 	tx_desc->data_size = skb_headlen(skb);
+ 
+-	buf_phys_addr = dma_map_single(dev->dev.parent, skb->data,
+-				       tx_desc->data_size, DMA_TO_DEVICE);
+-	if (unlikely(dma_mapping_error(dev->dev.parent, buf_phys_addr))) {
++	buf_dma_addr = dma_map_single(dev->dev.parent, skb->data,
++				      tx_desc->data_size, DMA_TO_DEVICE);
++	if (unlikely(dma_mapping_error(dev->dev.parent, buf_dma_addr))) {
+ 		mvpp2_txq_desc_put(txq);
+ 		frags = 0;
+ 		goto out;
+ 	}
+-	tx_desc->packet_offset = buf_phys_addr & MVPP2_TX_DESC_ALIGN;
+-	tx_desc->buf_phys_addr = buf_phys_addr & ~MVPP2_TX_DESC_ALIGN;
++	tx_desc->packet_offset = buf_dma_addr & MVPP2_TX_DESC_ALIGN;
++	tx_desc->buf_dma_addr = buf_dma_addr & ~MVPP2_TX_DESC_ALIGN;
+ 
+ 	tx_cmd = mvpp2_skb_tx_csum(port, skb);
+ 
+@@ -6506,7 +6506,7 @@ static int mvpp2_remove(struct platform_device *pdev)
+ 		dma_free_coherent(&pdev->dev,
+ 				  MVPP2_AGGR_TXQ_SIZE * MVPP2_DESC_ALIGNED_SIZE,
+ 				  aggr_txq->descs,
+-				  aggr_txq->descs_phys);
++				  aggr_txq->descs_dma);
+ 	}
+ 
+ 	clk_disable_unprepare(priv->pp_clk);
 -- 
 2.7.4
