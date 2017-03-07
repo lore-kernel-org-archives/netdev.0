@@ -1,22 +1,29 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH v2 0/6] Updates for Marvell Switch SoCs
-Date: Tue, 07 Mar 2017 18:10:12 +0100
-Message-ID: <87bmtdovwr.fsf@free-electrons.com>
-References: <20170216085041.28337-1-chris.packham@alliedtelesis.co.nz>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCHv3 net-next 21/22] net: mvpp2: set dma mask and coherent
+ dma mask on PPv2.2
+Date: Tue, 7 Mar 2017 17:24:21 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE79D2E@AcuExch.aculab.com>
+References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1488902000-2658-22-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mark Rutland <mark.rutland@arm.com>, Andrew Lunn <andrew@lunn.ch>,
- Jason Cooper <jason@lakedaemon.net>, devicetree@vger.kernel.org,
- netdev@vger.kernel.org, Michael Turquette <mturquette@baylibre.com>,
- Stephen Boyd <sboyd@codeaurora.org>, Russell King <linux@armlinux.org.uk>,
- linux-kernel@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
- linux-clk@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
+ Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
+ Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
  Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Chris Packham <chris.packham@alliedtelesis.co.nz>
+To: 'Thomas Petazzoni' <thomas.petazzoni@free-electrons.com>, "David S.
+ Miller" <davem@davemloft.net>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "devicetree@vger.kernel.org"
+ <devicetree@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>, Ian Campbell
+ <ijc+devicetree@hellion.org.uk>, Pawel Moll <pawel.moll@arm.com>, "Mark
+ Rutland" <mark.rutland@arm.com>, Kumar Gala <galak@codeaurora.org>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170216085041.28337-1-chris.packham@alliedtelesis.co.nz> (Chris
- Packham's message of "Thu, 16 Feb 2017 21:50:34 +1300")
+In-Reply-To: <1488902000-2658-22-git-send-email-thomas.petazzoni@free-electrons.com>
+Content-Language: en-US
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -28,64 +35,17 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-SGkgQ2hyaXMsCiAKIE9uIGpldS4sIGbDqXZyLiAxNiAyMDE3LCBDaHJpcyBQYWNraGFtIDxjaHJp
-cy5wYWNraGFtQGFsbGllZHRlbGVzaXMuY28ubno+IHdyb3RlOgoKPiBTaG9ydGx5IGFmdGVyIEkg
-cG9zdGVkIG15IGxhc3Qgc2VyaWVzIEkgZ290IGFjY2VzcyB0byBhIG1vcmUgcmVjZW50Cj4gTWFy
-dmVsbCBTREsgd2hpY2ggaGFkIHNvbWUgZGV2aWNlIHRyZWUgc3VwcG9ydCBmb3IgdGhlIHN3aXRj
-aCBTb0NzIEknZAo+IGJlZW4gd2FudGluZy4gSXQgd2FzIHN0aWxsIGJhc2VkIG9uIGFuIG9sZGVy
-IGtlcm5lbCBidXQgaXQgd2FzIGEgaHVnZQo+IGltcHJvdmVtZW50IG92ZXIgd2hhdCBjYW1lIGJl
-Zm9yZS4KPgo+IFBhdGNoIDEvNiBpcyBhIHR5cG8gSSBub3RpY2VkIGFmdGVyIG15IGluaXRpYWwg
-c2VyaWVzIHdhcyBhcHBsaWVkLgo+Cj4gUGF0Y2ggMi82IGlzIGEgYml0IG9mIGEgY2xlYW51cC4g
-SSBkaWQgaW5pdGlhbGx5IHN0cnVnZ2xlIHdpdGggaG93IHRvCj4gYWNjZXNzIGluZGl2aWR1YWwg
-cGFydHMgb2YgdGhlIERGWCBibG9jayBhcyB3ZWxsIGFzIHJldGFpbmluZyBhIGhhbmRsZSBvbgo+
-IHRoZSBlbnRpcmUgdGhpbmcgZm9yIHRoZSBzd2l0Y2ggZHJpdmVyIHRvIHVzZS4KPgo+IFBhdGNo
-IDMvNiBpcyBhIHJlLWppZyBvZiB0aGUgZHRzaSBmaWxlcyB3aGljaCBpcyBuZWVkZWQgYnkgNS82
-LiBUaGlzIGlzCj4gcmVxdWlyZWQgYmVjYXVzZSBJIG5lZWQgdG8gdXNlIHRoZSBjb3JlY2xrIGxh
-YmVsIG9uIGEgZGlmZmVyZW50IG5vZGUuIEl0Cj4gYWxzbyBtZWFucyBJIGRvbid0IGhhdmUgdG8g
-ZGlzYWJsZSBub2RlcyBmb3IgYmxvY2tzIHRoYXQgb25seSBleGlzdCBvbgo+IHRoZSBBcm1hZGEt
-WFAuCj4KPiBQYXRjaCA0LzYsIDUvNiBhcmUgc3BsaXQgZnJvbSB0aGUgcHJldmlvdXMgdmVyc2lv
-bnMuCj4KPiBQYXRjaCA2LzYgaXMgdGhlIGRldmljZSB0cmVlIHBvcnRpb24gb2YgYSBjaGFuZ2Ug
-YWxyZWFkeSBpbiBjbGstbmV4dC4KCgpJIGFwcGxpZWQgcGF0Y2hlcyAyLCAzIGFuZCA2IG9uIG12
-ZWJ1L2R0IHdpdGggdGhlIGFja2VkLWJ5IGZyb20gUm9iIHdoZW4KaGUgZ2F2ZSBpdC4KClBhdGNo
-IDEgaXMgYWxyZWFkeSBwYXJ0IG9mIDQuMTEtcmMxLgoKRm9yIHBhdGNoIDQgYW5kIDUgSSB1bmRl
-cnN0YW5kIHRoYXQgZWl0aGVyIHdlIGRvbid0IG5lZWQgaXQgb3IgaXQgc2hvdWxkCmJlIGEgdXBk
-YXRlZCB2ZXJzaW9uIHNvIEkgc2tpcHBlZCB0aGVtLgoKVGhhbmtzLAoKR3JlZ29yeQoKPgo+IENo
-cmlzIFBhY2toYW0gKDYpOgo+ICAgQVJNOiBkdHM6IEZpeCB0eXBvIGluIGFybWFkYS14cC05OGR4
-NDI1MQo+ICAgICBDaGFuZ2VzIGluIHYyCj4gICAgIC0gbmV3Cj4gICAgIENoYW5nZXMgaW4gdjM6
-Cj4gICAgIC0gbm9uZQo+ICAgQVJNOiBkdHM6IGFybWFkYS14cC05OGR4MzIzNjogY29tYmluZSBk
-Znggc2VydmVyIG5vZGVzCj4gICAgIENoYW5nZXMgaW4gdjI6Cj4gICAgIC0gbm9uZQo+ICAgICBD
-aGFuZ2VzIGluIHYzOgo+ICAgICAtIG5vbmUKPiAgIEFSTTogZHRzOiBVc2UgYXJtYWRhLTM3MC14
-cCBhcyBhIGJhc2UgZm9yIGFybWFkYS14cC05OGR4MzIzNgo+ICAgICBDaGFuZ2VzIGluIHYyOgo+
-ICAgICAtIFVwZGF0ZSByb290IGNvbXBhdGlibGUgc3RyaW5ncyBpbiBhcm1hZGEteHAtOThkeDMz
-MzYuZHRzaSwKPiAgICAgICBhcm1hZGEteHAtOThkeDQyNTEuZHRzaSwgYXJtYWRhLXhwLWRiLWR4
-YmMyLmR0cyBhbmQKPiAgICAgICBhcm1hZGEteHAtZGIteGMzLTI0ZzR4Zy5kdHMKPiAgICAgQ2hh
-bmdlcyBpbiB2MzoKPiAgICAgLSBub25lCj4gICBBUk06IGR0czogbXZlYnU6IEFkZCBiaW5kaW5n
-IGZvciBtdjk4ZHgzMjM2LXNvYy1pZAo+ICAgICBDaGFuZ2VzIGluIHYzOgo+ICAgICAtIG5ldywg
-c3BsaXQgZnJvbSBkcml2ZXIKPiAgIEFSTTogbXZlYnU6IEFkZCBkcml2ZXIgZm9yIG12OThkeDMy
-MzYtc29jLWlkCj4gICAgIENoYW5nZXMgaW4gdjI6Cj4gICAgIC0gbm9uZQo+ICAgICBDaGFuZ2Vz
-IGluIHYzOgo+ICAgICAtIHNwbGl0IGZyb20gZHRzIGNoYW5nZXMKPiAgIEFSTTogZHRzOiBtdmVi
-dTogTW92ZSBtdjk4ZHgzMjM2IGNsb2NrIGJpbmRpbmdzCj4gICAgIENoYW5nZXMgaW4gdjI6Cj4g
-ICAgIC0gTmV3LiBTcGxpdCBvdXQgZnJvbSAiY2xrOiBtdmVidTogRXhwYW5kIG12OThkeDMyMzYt
-Y29yZS1jbG9jayBzdXBwb3J0Igo+ICAgICBDaGFuZ2VzIGluIHYzOgo+ICAgICAtIENsYXJpZnkg
-d2h5IHRoZSBvbGQgbG9jYXRpb24gd2FzIHdyb25nIChidXQgd29ya2VkKS4KPgo+Cj4gIC4uLi9i
-aW5kaW5ncy9hcm0vbWFydmVsbC9tdjk4ZHgzMjM2LXNvYy1pZC50eHQgICAgIHwgIDE0ICsrCj4g
-IC4uLi9kZXZpY2V0cmVlL2JpbmRpbmdzL2Nsb2NrL212ZWJ1LWNvcmUtY2xvY2sudHh0IHwgICA3
-ICsKPiAgLi4uL2JpbmRpbmdzL2Nsb2NrL212ZWJ1LWdhdGVkLWNsb2NrLnR4dCAgICAgICAgICAg
-fCAgMTEgKysKPiAgLi4uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L21hcnZlbGwscHJlc3RlcmEu
-dHh0ICAgfCAgMTMgKy0KPiAgYXJjaC9hcm0vYm9vdC9kdHMvYXJtYWRhLXhwLTk4ZHgzMjM2LmR0
-c2kgICAgICAgICAgfCAyMTMgKysrKysrKysrKysrKysrKy0tLS0tCj4gIGFyY2gvYXJtL2Jvb3Qv
-ZHRzL2FybWFkYS14cC05OGR4MzMzNi5kdHNpICAgICAgICAgIHwgICAyICstCj4gIGFyY2gvYXJt
-L2Jvb3QvZHRzL2FybWFkYS14cC05OGR4NDI1MS5kdHNpICAgICAgICAgIHwgICAyICstCj4gIGFy
-Y2gvYXJtL2Jvb3QvZHRzL2FybWFkYS14cC1kYi1keGJjMi5kdHMgICAgICAgICAgIHwgICAyICst
-Cj4gIGFyY2gvYXJtL2Jvb3QvZHRzL2FybWFkYS14cC1kYi14YzMtMjRnNHhnLmR0cyAgICAgIHwg
-ICAyICstCj4gIGFyY2gvYXJtL21hY2gtbXZlYnUvbXZlYnUtc29jLWlkLmMgICAgICAgICAgICAg
-ICAgIHwgIDQzICsrKystCj4gIDEwIGZpbGVzIGNoYW5nZWQsIDI0MiBpbnNlcnRpb25zKCspLCA2
-NyBkZWxldGlvbnMoLSkKPiAgY3JlYXRlIG1vZGUgMTAwNjQ0IERvY3VtZW50YXRpb24vZGV2aWNl
-dHJlZS9iaW5kaW5ncy9hcm0vbWFydmVsbC9tdjk4ZHgzMjM2LXNvYy1pZC50eHQKPgo+IC0tIAo+
-IDIuMTEuMC4yNC5nZTY5MjBjZgoKLS0gCkdyZWdvcnkgQ2xlbWVudCwgRnJlZSBFbGVjdHJvbnMK
-S2VybmVsLCBkcml2ZXJzLCByZWFsLXRpbWUgYW5kIGVtYmVkZGVkIExpbnV4CmRldmVsb3BtZW50
-LCBjb25zdWx0aW5nLCB0cmFpbmluZyBhbmQgc3VwcG9ydC4KaHR0cDovL2ZyZWUtZWxlY3Ryb25z
-LmNvbQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGlu
-dXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRl
-YWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgt
-YXJtLWtlcm5lbAo=
+From: Thomas Petazzoni
+> Sent: 07 March 2017 15:53
+> On PPv2.2, the streaming mappings can be anywhere in the first 40 bits
+> of the physical address space. However, for the coherent mappings, we
+> still need them to be in the first 32 bits of the address space,
+> because all BM pools share a single register to store the high 32 bits
+> of the BM pool address, which means all BM pools must be allocated in
+> the same 4GB memory area.
+
+Are the coherent mappings just used for ring structures?
+If it might be reasonable to allocate them as a single entity,
+thus guaranteeing they all reside in a single 4G region.
+
+	David
