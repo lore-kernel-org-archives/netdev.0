@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] uapi: fix linux/packet_diag.h userspace
- compilation error
-Date: Tue, 07 Mar 2017 12:16:49 -0800 (PST)
-Message-ID: <20170307.121649.968411437349940435.davem@davemloft.net>
-References: <20170228013930.GA28056@altlinux.org>
+Subject: Re: [PATCH v2] dt: emac: document device-tree based phy discovery
+ and setup
+Date: Tue, 07 Mar 2017 12:15:28 -0800 (PST)
+Message-ID: <20170307.121528.441751689674246830.davem@davemloft.net>
+References: <cecba35f-0a94-67e8-543a-a1d340d62947@gmail.com>
+        <0149985a262cfc2feacd604a581cd5ae9134a525.1488228734.git.chunkeey@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: ldv@altlinux.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170228013930.GA28056@altlinux.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        ivan@de.ibm.com, f.fainelli@gmail.com, andrew@lunn.ch,
+        robh+dt@kernel.org
+To: chunkeey@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36252 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933014AbdCGUYd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 15:24:33 -0500
+In-Reply-To: <0149985a262cfc2feacd604a581cd5ae9134a525.1488228734.git.chunkeey@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Date: Tue, 28 Feb 2017 04:39:30 +0300
+From: Christian Lamparter <chunkeey@googlemail.com>
+Date: Mon, 27 Feb 2017 21:54:50 +0100
 
-> Replace MAX_ADDR_LEN with its numeric value to fix the following
-> linux/packet_diag.h userspace compilation error:
+> This patch adds documentation for a new "phy-handle" property,
+> "fixed-link" and "mdio" sub-node. These allows the enumeration
+> of PHYs which are supported by the phy library under drivers/net/phy.
 > 
-> /usr/include/linux/packet_diag.h:67:17: error: 'MAX_ADDR_LEN' undeclared here (not in a function)
->   __u8 pdmc_addr[MAX_ADDR_LEN];
+> The EMAC ethernet controller in IBM and AMCC 4xx chips is
+> currently stuck with a few privately defined phy
+> implementations. It has no support for PHYs which
+> are supported by the generic phylib.
 > 
-> This is not the first case in the UAPI where the numeric value
-> of MAX_ADDR_LEN is used, uapi/linux/if_link.h already does the same,
-> and there are no UAPI headers besides these two that use MAX_ADDR_LEN.
-> 
-> The alternative fix would be to include <linux/netdevice.h> which
-> pulls in other headers and a lot of definitions with them.
-> 
-> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+> Acked-by: Rob Herring <robh@kernel.org>
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
 
-If if_link.h includes netdevice.h properly, let's try to do the same here as well.
-
-Thanks.
+Applied, thanks.
