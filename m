@@ -1,32 +1,43 @@
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/1] rds: ib: add error handle
-Date: Tue, 7 Mar 2017 08:43:48 -0800
-Message-ID: <b858bdfc-fe2a-9595-577f-501bfa6ec21f@oracle.com>
-References: <1488872916-24751-1-git-send-email-yanjun.zhu@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1488872916-24751-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Robert Foss <robert.foss@collabora.com>
+Subject: [PATCH RESEND v1] qed: Fix copy of uninitialized memory
+Date: Tue,  7 Mar 2017 11:46:25 -0500
+Message-ID: <20170307164625.6372-1-robert.foss@collabora.com>
+Cc: Robert Foss <robert.foss@collabora.com>
+To: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
+        everest-linux-l2@cavium.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/6/2017 11:48 PM, Zhu Yanjun wrote:
-> In the function rds_ib_setup_qp, the error handle is missing. When some
-> error occurs, it is possible that memory leak occurs. As such, error
-> handle is added.
->
-> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Guanglei Li <guanglei.li-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-Looks good.
-Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In qed_ll2_start_ooo() the ll2_info variable is uninitialized and then
+passed to qed_ll2_acquire_connection() where it is copied into a new
+memory space.
+
+This shouldn't cause any issue as long as non of the copied memory is
+every read.
+But the potential for a bug being introduced by reading this memory
+is real.
+
+Detected by CoverityScan, CID#1399632 ("Uninitialized scalar variable")
+
+Signed-off-by: Robert Foss <robert.foss@collabora.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+index 9a0b9af10a57..5fb34db377c8 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+@@ -968,7 +968,7 @@ static int qed_ll2_start_ooo(struct qed_dev *cdev,
+ {
+ 	struct qed_hwfn *hwfn = QED_LEADING_HWFN(cdev);
+ 	u8 *handle = &hwfn->pf_params.iscsi_pf_params.ll2_ooo_queue_id;
+-	struct qed_ll2_conn ll2_info;
++	struct qed_ll2_conn ll2_info = { 0 };
+ 	int rc;
+ 
+ 	ll2_info.conn_type = QED_LL2_TYPE_ISCSI_OOO;
+-- 
+2.11.0.453.g787f75f05
