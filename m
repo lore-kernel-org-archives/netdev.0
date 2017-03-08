@@ -1,60 +1,113 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: disable broken write protection on i386
-Date: Wed, 08 Mar 2017 22:21:00 +0100
-Message-ID: <58C075BC.8050004@iogearbox.net>
-References: <f722fcb96307fa6c449bbe2f19a4fe9797272678.1488596969.git.daniel@iogearbox.net> <CAGXu5jJO=Nwq-ja9+yc==R2d-TAJmMv7eT4v9GYF5v8agqxUnQ@mail.gmail.com> <CAGXu5jKkX6bhnFRbM5TmQU3SXrCYi2CJnywcNMsGBBvY+d4gQg@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] Question on ixgbe flow director
+Date: Wed, 8 Mar 2017 13:03:55 -0800
+Message-ID: <CAKgT0Uf-8fWC-xeqwdzSrW+-HKGiwFJenV4hMukrZEy_L728Hw@mail.gmail.com>
+References: <c5c170c0-a024-5cb2-cd39-81b8cfffd8e5@oracle.com>
+ <CAKgT0UfT9zdzPHQawFtGZf9k1mwHG5_jZorXNDsoiOrUfNnZJw@mail.gmail.com> <5e81301b-f660-43a5-3400-8cbf7d3a77aa@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        Laura Abbott <labbott@redhat.com>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Kees Cook <keescook@chromium.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        netdev <netdev@vger.kernel.org>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: tndave <tushar.n.dave@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:55555 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932069AbdCHVVF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 16:21:05 -0500
-In-Reply-To: <CAGXu5jKkX6bhnFRbM5TmQU3SXrCYi2CJnywcNMsGBBvY+d4gQg@mail.gmail.com>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:38349 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754285AbdCHV6b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 16:58:31 -0500
+Received: by mail-it0-f46.google.com with SMTP id m27so53313233iti.1
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 13:58:22 -0800 (PST)
+In-Reply-To: <5e81301b-f660-43a5-3400-8cbf7d3a77aa@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/08/2017 07:40 PM, Kees Cook wrote:
-> On Mon, Mar 6, 2017 at 10:11 AM, Kees Cook <keescook@chromium.org> wrote:
->> On Fri, Mar 3, 2017 at 7:23 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->>> Latter shows that memory protecting the kernel seems not working either
->>> on i386 (!). Test suite output:
->>>
->>>    [...]
->>>    [   12.692836] Write protecting the kernel text: 13416k
->>>    [   12.693309] Write protecting the kernel read-only data: 5292k
->>>    [   12.693802] rodata_test: test data was not read only
->>>    [...]
->>>
->>> Work-around to not enable ARCH_HAS_SET_MEMORY for i386 is not optimal
->>> as it doesn't fix the issue in presumably broken set_memory_*(), but
->>> it at least avoids people avoid having to deal with random corruptions
->>> that are hard to track down for the time being until a real fix can
->>> be found.
+On Wed, Mar 8, 2017 at 11:30 AM, tndave <tushar.n.dave@oracle.com> wrote:
+>
+>
+> On 03/08/2017 07:39 AM, Alexander Duyck wrote:
 >>
->> Wow. Uhm, so, something must be _really_ broken. i386 should have no
->> problem with using the set_memory_*() functions. The fact that
->> DEBUG_RODATA_TEST failed is also pretty crazy, but may be unrelated
->> (that test was just refactored too).
+>> On Tue, Mar 7, 2017 at 3:43 PM, tndave <tushar.n.dave@oracle.com>
+>> wrote:
+>>>
+>>> Hi,
+>>>
+>>> I have few questions regarding ixgbe flow director. As per my
+>>> understanding flow director in ixgbe can work in 2 exclusive ways,
+>>>  a. Using ATR filters - where flow director is setup in HW by
+>>> driver identifying transmit traffic. And based on that, receive
+>>> traffic of the same flow get assigned/directed to same queue.
+>>
+>>
+>> So ATR for ixgbe uses the Flow Director signature filters. Basically
+>> the signature filters are purely hash based filters.  The easiest way
+>> to think of it is it is essentially a beefed up version of RSS.
 >
-> I'm not able to reproduce this. I built Linus's tree and rodata_test
-> passes for me on i386. I tried the .config from Fengguang (with
-> RODATA_TEST=y added), but it still passes for me:
-> https://lkml.org/lkml/2017/3/1/344
+> Alex,
 >
-> I wonder if something change changed already in the tree? Can you
-> still reproduce this?
+> Thanks for the info.
+>>
+>>
+>>> b. Perfect filter, where user can manually program flow director
+>>> using ethtool so that receive packets gets directed to specified
+>>> rx queue (depending on on how ethtool flow-type and action etc,.);
+>>> But with perfect filters there is no intelligence involved alike
+>>> ATR has on identifying transit, right?
+>>
+>>
+>> You are right.  The perfect match filters are the ones we configure
+>> via ethtool.  You are correct in that ATR logic is not involved so
+>> there is no matching up an Rx flow to a Tx flow.
+>>
+>>> Few question regarding ixgbe ATR, 1. does ATR works in case if
+>>> protocol is UDP? (Based on the current ixgbe_atr() it only
+>>> supports TCP)
+>>
+>>
+>> It could, but the software for doing ATR flow identification,
+>> ixgbe_atr(), only works on TCP.  The reasoning behind it is that Flow
+>> Director doesn't filter fragmented frames and UDP can be fragmented.
+>
+> So we could just add code in ixgbe_atr() for non-fragmented udp packets!
+> However question is if it is going to work w.r.t ATR? TCP is connected
+> stream vs udp is stateless and single udp socket can talk to multiple
+> endpoints.
 
-I'll answer in a bit an will move the discussion over to the other
-thread on the same topic ("[net/bpf] 3051bf36c2 BUG: unable to handle
-kernel paging request at 0000a7cf" [1]) with you, Laura and Dave in
-Cc as well.
+Right so the Tx based approach for UDP also probably won't work
+because there isn't a symmetric set of endpoints used for most UDP
+flows.  For example with TCP you have a fixed set of source and
+destination ports that you can swap and get the opposite direction.
+The same isn't true for UDP.  You can end up with UDP using a random
+source port and sending to the same fixed destination port on both
+ends.
 
-   [1] https://lkml.org/lkml/2017/3/8/620
+You might look at the hardware RPS offload that some of the other
+drivers out there support that allow for hardware accelerated RFS
+offload.  Something like that might work for your needs if you are
+needing to route UDP.
+
+>>
+>>> 2. Does ATR flow director can be programmed using ethtool? (As per
+>>> my understanding only perfect filter can be programmed from
+>>> ethtool, is that so?)
+>>
+>>
+>> You can enable/disable the ATR filters via the NTUPLE feaure flag.
+>> Basically it toggles between ATR mode, and NTUPLE mode.  In NTUPLE
+>> mode the perfect filters are enabled and can be configured via
+>> ethtool.
+>
+> Got it.
+>
+> Thanks.
+>
+> -Tushar
+>
+>>
+>>> Thanks in advance, -Tushar
+>>
+>>
+>> Hope that helps.
+>>
+>> - Alex
+>>
+>
