@@ -1,89 +1,169 @@
-From: tndave <tushar.n.dave@oracle.com>
-Subject: Re: [Intel-wired-lan] Question on ixgbe flow director
-Date: Wed, 8 Mar 2017 11:30:54 -0800
-Message-ID: <5e81301b-f660-43a5-3400-8cbf7d3a77aa@oracle.com>
-References: <c5c170c0-a024-5cb2-cd39-81b8cfffd8e5@oracle.com>
- <CAKgT0UfT9zdzPHQawFtGZf9k1mwHG5_jZorXNDsoiOrUfNnZJw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        netdev <netdev@vger.kernel.org>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:27739 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754162AbdCHVRf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 16:17:35 -0500
-Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
-        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v28JXTf2016294
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Wed, 8 Mar 2017 19:33:29 GMT
-In-Reply-To: <CAKgT0UfT9zdzPHQawFtGZf9k1mwHG5_jZorXNDsoiOrUfNnZJw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: via: via-velocity: use new api ethtool_{get|set}_link_ksettings
+Date: Wed,  8 Mar 2017 22:20:20 +0100
+Message-ID: <1489008020-29021-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: romieu@fr.zoreil.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-On 03/08/2017 07:39 AM, Alexander Duyck wrote:
-> On Tue, Mar 7, 2017 at 3:43 PM, tndave <tushar.n.dave@oracle.com>
-> wrote:
->> Hi,
->>
->> I have few questions regarding ixgbe flow director. As per my
->> understanding flow director in ixgbe can work in 2 exclusive ways,
->>  a. Using ATR filters - where flow director is setup in HW by
->> driver identifying transmit traffic. And based on that, receive
->> traffic of the same flow get assigned/directed to same queue.
->
-> So ATR for ixgbe uses the Flow Director signature filters. Basically
-> the signature filters are purely hash based filters.  The easiest way
-> to think of it is it is essentially a beefed up version of RSS.
-Alex,
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/via/via-velocity.c |   62 +++++++++++++++++-------------
+ 1 files changed, 35 insertions(+), 27 deletions(-)
 
-Thanks for the info.
->
->> b. Perfect filter, where user can manually program flow director
->> using ethtool so that receive packets gets directed to specified
->> rx queue (depending on on how ethtool flow-type and action etc,.);
->> But with perfect filters there is no intelligence involved alike
->> ATR has on identifying transit, right?
->
-> You are right.  The perfect match filters are the ones we configure
-> via ethtool.  You are correct in that ATR logic is not involved so
-> there is no matching up an Rx flow to a Tx flow.
->
->> Few question regarding ixgbe ATR, 1. does ATR works in case if
->> protocol is UDP? (Based on the current ixgbe_atr() it only
->> supports TCP)
->
-> It could, but the software for doing ATR flow identification,
-> ixgbe_atr(), only works on TCP.  The reasoning behind it is that Flow
-> Director doesn't filter fragmented frames and UDP can be fragmented.
-So we could just add code in ixgbe_atr() for non-fragmented udp packets!
-However question is if it is going to work w.r.t ATR? TCP is connected
-stream vs udp is stateless and single udp socket can talk to multiple
-endpoints.
-
->
->> 2. Does ATR flow director can be programmed using ethtool? (As per
->> my understanding only perfect filter can be programmed from
->> ethtool, is that so?)
->
-> You can enable/disable the ATR filters via the NTUPLE feaure flag.
-> Basically it toggles between ATR mode, and NTUPLE mode.  In NTUPLE
-> mode the perfect filters are enabled and can be configured via
-> ethtool.
-Got it.
-
-Thanks.
-
--Tushar
->
->> Thanks in advance, -Tushar
->
-> Hope that helps.
->
-> - Alex
->
+diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
+index d088788..ef9538e 100644
+--- a/drivers/net/ethernet/via/via-velocity.c
++++ b/drivers/net/ethernet/via/via-velocity.c
+@@ -3291,15 +3291,17 @@ static void velocity_ethtool_down(struct net_device *dev)
+ 		velocity_set_power_state(vptr, PCI_D3hot);
+ }
+ 
+-static int velocity_get_settings(struct net_device *dev,
+-				 struct ethtool_cmd *cmd)
++static int velocity_get_link_ksettings(struct net_device *dev,
++				       struct ethtool_link_ksettings *cmd)
+ {
+ 	struct velocity_info *vptr = netdev_priv(dev);
+ 	struct mac_regs __iomem *regs = vptr->mac_regs;
+ 	u32 status;
++	u32 supported, advertising;
++
+ 	status = check_connection_type(vptr->mac_regs);
+ 
+-	cmd->supported = SUPPORTED_TP |
++	supported = SUPPORTED_TP |
+ 			SUPPORTED_Autoneg |
+ 			SUPPORTED_10baseT_Half |
+ 			SUPPORTED_10baseT_Full |
+@@ -3308,9 +3310,9 @@ static int velocity_get_settings(struct net_device *dev,
+ 			SUPPORTED_1000baseT_Half |
+ 			SUPPORTED_1000baseT_Full;
+ 
+-	cmd->advertising = ADVERTISED_TP | ADVERTISED_Autoneg;
++	advertising = ADVERTISED_TP | ADVERTISED_Autoneg;
+ 	if (vptr->options.spd_dpx == SPD_DPX_AUTO) {
+-		cmd->advertising |=
++		advertising |=
+ 			ADVERTISED_10baseT_Half |
+ 			ADVERTISED_10baseT_Full |
+ 			ADVERTISED_100baseT_Half |
+@@ -3320,19 +3322,19 @@ static int velocity_get_settings(struct net_device *dev,
+ 	} else {
+ 		switch (vptr->options.spd_dpx) {
+ 		case SPD_DPX_1000_FULL:
+-			cmd->advertising |= ADVERTISED_1000baseT_Full;
++			advertising |= ADVERTISED_1000baseT_Full;
+ 			break;
+ 		case SPD_DPX_100_HALF:
+-			cmd->advertising |= ADVERTISED_100baseT_Half;
++			advertising |= ADVERTISED_100baseT_Half;
+ 			break;
+ 		case SPD_DPX_100_FULL:
+-			cmd->advertising |= ADVERTISED_100baseT_Full;
++			advertising |= ADVERTISED_100baseT_Full;
+ 			break;
+ 		case SPD_DPX_10_HALF:
+-			cmd->advertising |= ADVERTISED_10baseT_Half;
++			advertising |= ADVERTISED_10baseT_Half;
+ 			break;
+ 		case SPD_DPX_10_FULL:
+-			cmd->advertising |= ADVERTISED_10baseT_Full;
++			advertising |= ADVERTISED_10baseT_Full;
+ 			break;
+ 		default:
+ 			break;
+@@ -3340,30 +3342,35 @@ static int velocity_get_settings(struct net_device *dev,
+ 	}
+ 
+ 	if (status & VELOCITY_SPEED_1000)
+-		ethtool_cmd_speed_set(cmd, SPEED_1000);
++		cmd->base.speed = SPEED_1000;
+ 	else if (status & VELOCITY_SPEED_100)
+-		ethtool_cmd_speed_set(cmd, SPEED_100);
++		cmd->base.speed = SPEED_100;
+ 	else
+-		ethtool_cmd_speed_set(cmd, SPEED_10);
++		cmd->base.speed = SPEED_10;
+ 
+-	cmd->autoneg = (status & VELOCITY_AUTONEG_ENABLE) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
+-	cmd->port = PORT_TP;
+-	cmd->transceiver = XCVR_INTERNAL;
+-	cmd->phy_address = readb(&regs->MIIADR) & 0x1F;
++	cmd->base.autoneg = (status & VELOCITY_AUTONEG_ENABLE) ?
++		AUTONEG_ENABLE : AUTONEG_DISABLE;
++	cmd->base.port = PORT_TP;
++	cmd->base.phy_address = readb(&regs->MIIADR) & 0x1F;
+ 
+ 	if (status & VELOCITY_DUPLEX_FULL)
+-		cmd->duplex = DUPLEX_FULL;
++		cmd->base.duplex = DUPLEX_FULL;
+ 	else
+-		cmd->duplex = DUPLEX_HALF;
++		cmd->base.duplex = DUPLEX_HALF;
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						advertising);
+ 
+ 	return 0;
+ }
+ 
+-static int velocity_set_settings(struct net_device *dev,
+-				 struct ethtool_cmd *cmd)
++static int velocity_set_link_ksettings(struct net_device *dev,
++				       const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct velocity_info *vptr = netdev_priv(dev);
+-	u32 speed = ethtool_cmd_speed(cmd);
++	u32 speed = cmd->base.speed;
+ 	u32 curr_status;
+ 	u32 new_status = 0;
+ 	int ret = 0;
+@@ -3371,11 +3378,12 @@ static int velocity_set_settings(struct net_device *dev,
+ 	curr_status = check_connection_type(vptr->mac_regs);
+ 	curr_status &= (~VELOCITY_LINK_FAIL);
+ 
+-	new_status |= ((cmd->autoneg) ? VELOCITY_AUTONEG_ENABLE : 0);
++	new_status |= ((cmd->base.autoneg) ? VELOCITY_AUTONEG_ENABLE : 0);
+ 	new_status |= ((speed == SPEED_1000) ? VELOCITY_SPEED_1000 : 0);
+ 	new_status |= ((speed == SPEED_100) ? VELOCITY_SPEED_100 : 0);
+ 	new_status |= ((speed == SPEED_10) ? VELOCITY_SPEED_10 : 0);
+-	new_status |= ((cmd->duplex == DUPLEX_FULL) ? VELOCITY_DUPLEX_FULL : 0);
++	new_status |= ((cmd->base.duplex == DUPLEX_FULL) ?
++		       VELOCITY_DUPLEX_FULL : 0);
+ 
+ 	if ((new_status & VELOCITY_AUTONEG_ENABLE) &&
+ 	    (new_status != (curr_status | VELOCITY_AUTONEG_ENABLE))) {
+@@ -3644,8 +3652,6 @@ static void velocity_get_ethtool_stats(struct net_device *dev,
+ }
+ 
+ static const struct ethtool_ops velocity_ethtool_ops = {
+-	.get_settings		= velocity_get_settings,
+-	.set_settings		= velocity_set_settings,
+ 	.get_drvinfo		= velocity_get_drvinfo,
+ 	.get_wol		= velocity_ethtool_get_wol,
+ 	.set_wol		= velocity_ethtool_set_wol,
+@@ -3658,7 +3664,9 @@ static void velocity_get_ethtool_stats(struct net_device *dev,
+ 	.get_coalesce		= velocity_get_coalesce,
+ 	.set_coalesce		= velocity_set_coalesce,
+ 	.begin			= velocity_ethtool_up,
+-	.complete		= velocity_ethtool_down
++	.complete		= velocity_ethtool_down,
++	.get_link_ksettings	= velocity_get_link_ksettings,
++	.set_link_ksettings	= velocity_set_link_ksettings,
+ };
+ 
+ #if defined(CONFIG_PM) && defined(CONFIG_INET)
+-- 
+1.7.4.4
