@@ -1,37 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: please add some examples to the ip man page
-Date: Tue, 7 Mar 2017 17:25:31 -0800
-Message-ID: <20170307172531.4b15ef47@xeon-e3>
-References: <87pohsj42f.fsf@jidanni.org>
-        <87bmtc8uk6.fsf@jidanni.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the rcu tree
+Date: Wed, 8 Mar 2017 12:16:05 +1100
+Message-ID: <20170308121605.555a945d@canb.auug.org.au>
+References: <20170119143445.6b65dc8b@canb.auug.org.au>
+        <CAJzB8QEdnVG8Gy-WOSu1pWTtkeVWgBzZvGCu0nobW3M-hBhpkw@mail.gmail.com>
+        <20170213132133.3795849e@canb.auug.org.au>
+        <20170213043748.GA30506@linux.vnet.ibm.com>
+        <20170213174324.47f1b4f5@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?56mN5Li55bC8?= Dan Jacobson <jidanni@jidanni.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:34500 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933444AbdCHB0G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 20:26:06 -0500
-Received: by mail-pg0-f41.google.com with SMTP id 77so6856120pgc.1
-        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 17:25:39 -0800 (PST)
-In-Reply-To: <87bmtc8uk6.fsf@jidanni.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Paul McKenney <paulmckrcu@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170213174324.47f1b4f5@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 08 Mar 2017 08:46:01 +0800
-=E7=A9=8D=E4=B8=B9=E5=B0=BC Dan Jacobson <jidanni@jidanni.org> wrote:
+Hi Paul,
 
-> >>>>> "SH" =3D=3D Stephen Hemminger <stephen@networkplumber.org> writes: =
-=20
->=20
-> SH> Sure. Submit a patch. =20
->=20
-> If only I could figure out how to use the command.
+On Mon, 13 Feb 2017 17:43:24 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> On Sun, 12 Feb 2017 20:37:48 -0800 "Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
+> >
+> > I chickened out on that commit for this merge window, so it will come
+> > back at -rc1.  But I will cover that when I rebase to -rc1.  
+> 
+> OK, thanks.
 
-$ ip link show
+[PATCH] smc: merge fix for "mm: Rename SLAB_DESTROY_BY_RCU to SLAB_TYPESAFE_BY_RCU"
+is needed again ... maybe time to rebase?
 
-$ ip addr show
-
-$ ip route
+-- 
+Cheers,
+Stephen Rothwell
