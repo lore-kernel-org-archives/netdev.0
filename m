@@ -1,140 +1,51 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH net-next 7/8] net: stmicro: prepare irq_status for mtl
-Date: Wed,  8 Mar 2017 11:03:14 +0000
-Message-ID: <f374cfa9db1de13ea20c72c48ea21a35b4535e8b.1488969672.git.jpinto@synopsys.com>
-References: <cover.1488969672.git.jpinto@synopsys.com>
+Subject: [PATCH net-next 0/8] prepare mac operations for multiple queues
+Date: Wed,  8 Mar 2017 11:03:07 +0000
+Message-ID: <cover.1488969672.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:60139 "EHLO
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:60135 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750728AbdCHL5m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 06:57:42 -0500
-In-Reply-To: <cover.1488969672.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1488969672.git.jpinto@synopsys.com>
-References: <cover.1488969672.git.jpinto@synopsys.com>
+        with ESMTP id S1752780AbdCHL5c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 06:57:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares mac irq status treatment for multiple queues.
+As agreed with David Miller, this patch-set is the first of 3 to enable
+multiple queues in stmmac.
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
- drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 38 ++++++++++++++---------
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  5 +++
- 4 files changed, 31 insertions(+), 16 deletions(-)
+This first one concentrates on mac operations adding functionalities as:
+a) Configuration through DT
+b) RX and TX scheduling algorithms programming
+b) TX queues weight programming (essential in weightes algorithms)
+c) RX enable as DCB or AVB (preparing for future AVB support)
+d) Mapping RX queue to DMA channel
+e) IRQ treatment prepared for multiple queues
+f) Debug dump prepared for multiple queues
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 5532633..6a348d3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -469,6 +469,8 @@ struct stmmac_ops {
- 	/* Handle extra events on specific interrupts hw dependent */
- 	int (*host_irq_status)(struct mac_device_info *hw,
- 			       struct stmmac_extra_stats *x);
-+	/* Handle MTL interrupts */
-+	int (*host_mtl_irq_status)(struct mac_device_info *hw, u32 chan);
- 	/* Multicast filter setting */
- 	void (*set_filter)(struct mac_device_info *hw, struct net_device *dev);
- 	/* Flow control setting */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-index 9dd8ac1..5ca4d64 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-@@ -172,7 +172,7 @@ enum power_event {
- #define MTL_OPERATION_RAA_WSP		(0x1 << 2)
- 
- #define MTL_INT_STATUS			0x00000c20
--#define MTL_INT_Q0			BIT(0)
-+#define MTL_INT_QX(x)			BIT(x)
- 
- #define MTL_RXQ_DMA_MAP0		0x00000c30 /* queue 0 to 3 */
- #define MTL_RXQ_DMA_MAP1		0x00000c34 /* queue 4 to 7 */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 65528c4..3e723e1 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -417,11 +417,32 @@ static void dwmac4_phystatus(void __iomem *ioaddr, struct stmmac_extra_stats *x)
- 	}
- }
- 
-+static int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
-+	int ret = 0;
-+
-+	/* Check MTL Interrupt */
-+	if (mtl_int_qx_status & MTL_INT_QX(chan)) {
-+		/* read Queue x Interrupt status */
-+		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(chan));
-+
-+		if (status & MTL_RX_OVERFLOW_INT) {
-+			/*  clear Interrupt */
-+			writel(status | MTL_RX_OVERFLOW_INT,
-+			       ioaddr + MTL_CHAN_INT_CTRL(chan));
-+			ret = CORE_IRQ_MTL_RX_OVERFLOW;
-+		}
-+	}
-+
-+	return ret;
-+}
-+
- static int dwmac4_irq_status(struct mac_device_info *hw,
- 			     struct stmmac_extra_stats *x)
- {
- 	void __iomem *ioaddr = hw->pcsr;
--	u32 mtl_int_qx_status;
- 	u32 intr_status;
- 	int ret = 0;
- 
-@@ -440,20 +461,6 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
- 		x->irq_receive_pmt_irq_n++;
- 	}
- 
--	mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
--	/* Check MTL Interrupt: Currently only one queue is used: Q0. */
--	if (mtl_int_qx_status & MTL_INT_Q0) {
--		/* read Queue 0 Interrupt status */
--		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
--
--		if (status & MTL_RX_OVERFLOW_INT) {
--			/*  clear Interrupt */
--			writel(status | MTL_RX_OVERFLOW_INT,
--			       ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
--			ret = CORE_IRQ_MTL_RX_OVERFLOW;
--		}
--	}
--
- 	dwmac_pcs_isr(ioaddr, GMAC_PCS_BASE, intr_status, x);
- 	if (intr_status & PCS_RGSMIIIS_IRQ)
- 		dwmac4_phystatus(ioaddr, x);
-@@ -555,6 +562,7 @@ static const struct stmmac_ops dwmac4_ops = {
- 	.map_mtl_to_dma = dwmac4_map_mtl_dma,
- 	.dump_regs = dwmac4_dump_regs,
- 	.host_irq_status = dwmac4_irq_status,
-+	.host_mtl_irq_status = dwmac4_irq_mtl_status,
- 	.flow_ctrl = dwmac4_flow_ctrl,
- 	.pmt = dwmac4_pmt,
- 	.set_umac_addr = dwmac4_set_umac_addr,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 1a072e9..7b8fa08 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2880,6 +2880,11 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
- 	if ((priv->plat->has_gmac) || (priv->plat->has_gmac4)) {
- 		int status = priv->hw->mac->host_irq_status(priv->hw,
- 							    &priv->xstats);
-+
-+		if (priv->synopsys_id >= DWMAC_CORE_4_00)
-+			status |= priv->hw->mac->host_mtl_irq_status(priv->hw,
-+								STMMAC_CHAN0);
-+
- 		if (unlikely(status)) {
- 			/* For LPI we need to save the tx status */
- 			if (status & CORE_IRQ_TX_PATH_IN_LPI_MODE)
+Joao Pinto (8):
+  net: stmicro: multiple queues dt configuration
+  net: stmicro: configure mtl rx and tx algorithms
+  net: stmicro: configure tx queue weight
+  net: stmicro: mtl rx queue enabled as dcb or avb
+  net: stmicro: mapping mtl rx to dma channel
+  net: stmicro: flow_ctrl functions adapted to mtl
+  net: stmicro: prepare irq_status for mtl
+  net: stmicro: mac debug prepared for multiple queues
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |  40 +++++
+ drivers/net/ethernet/stmicro/stmmac/common.h       |  18 ++-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   6 +-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |   3 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h       |  26 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 162 +++++++++++++++++----
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   7 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 111 +++++++++++---
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  91 ++++++++++++
+ include/linux/stmmac.h                             |  30 ++++
+ 10 files changed, 438 insertions(+), 56 deletions(-)
+
 -- 
 2.9.3
