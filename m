@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v4 net-next 03/13] mlx4: get rid of frag_prefix_size
-Date: Wed,  8 Mar 2017 08:17:08 -0800
-Message-ID: <20170308161718.2867-4-edumazet@google.com>
+Subject: [PATCH v4 net-next 01/13] mlx4: dma_dir is a mlx4_en_priv attribute
+Date: Wed,  8 Mar 2017 08:17:06 -0800
+Message-ID: <20170308161718.2867-2-edumazet@google.com>
 References: <20170308161718.2867-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Tariq Toukan <tariqt@mellanox.com>,
@@ -13,115 +13,144 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:34473 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753741AbdCHQRc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 11:17:32 -0500
-Received: by mail-pg0-f51.google.com with SMTP id 77so14839545pgc.1
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 08:17:30 -0800 (PST)
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:33024 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752508AbdCHQR0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 11:17:26 -0500
+Received: by mail-pg0-f41.google.com with SMTP id 25so14901474pgy.0
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 08:17:25 -0800 (PST)
 In-Reply-To: <20170308161718.2867-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using per frag storage for frag_prefix_size is really silly.
+No need to duplicate it for all queues and frags.
 
-mlx4_en_complete_rx_desc() has all needed info already.
+num_frags & log_rx_info become u8 to save space.
+u8 accesses are a bit faster than u16 anyway.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 27 ++++++++++++---------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  3 +--
- 2 files changed, 13 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 16 ++++++++--------
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c   |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  6 +++---
+ 3 files changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b78d6762e03fc9f0c9e8bfa710efc2e7c86ad306..118ea83cff089f614a11f99f6623358f200638a8 100644
+index 867292880c07a15124a0cf099d1fcda09926548e..6183128b2d3d0519b46d14152b15c95ebbf62db7 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -588,15 +588,14 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 				    int length)
- {
- 	struct skb_frag_struct *skb_frags_rx = skb_shinfo(skb)->frags;
--	struct mlx4_en_frag_info *frag_info;
--	int nr;
-+	struct mlx4_en_frag_info *frag_info = priv->frag_info;
-+	int nr, frag_size;
- 	dma_addr_t dma;
- 
- 	/* Collect used fragments while replacing them in the HW descriptors */
--	for (nr = 0; nr < priv->num_frags; nr++) {
--		frag_info = &priv->frag_info[nr];
--		if (length <= frag_info->frag_prefix_size)
--			break;
-+	for (nr = 0;;) {
-+		frag_size = min_t(int, length, frag_info->frag_size);
-+
- 		if (unlikely(!frags[nr].page))
- 			goto fail;
- 
-@@ -606,15 +605,16 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 
- 		__skb_fill_page_desc(skb, nr, frags[nr].page,
- 				     frags[nr].page_offset,
--				     frag_info->frag_size);
-+				     frag_size);
- 
- 		skb->truesize += frag_info->frag_stride;
- 		frags[nr].page = NULL;
-+		nr++;
-+		length -= frag_size;
-+		if (!length)
-+			break;
-+		frag_info++;
+@@ -72,7 +72,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
+ 			return -ENOMEM;
  	}
--	/* Adjust size of last fragment to match actual length */
--	if (nr > 0)
--		skb_frag_size_set(&skb_frags_rx[nr - 1],
--			length - priv->frag_info[nr - 1].frag_prefix_size);
- 	return nr;
+ 	dma = dma_map_page(priv->ddev, page, 0, PAGE_SIZE << order,
+-			   frag_info->dma_dir);
++			   priv->dma_dir);
+ 	if (unlikely(dma_mapping_error(priv->ddev, dma))) {
+ 		put_page(page);
+ 		return -ENOMEM;
+@@ -128,7 +128,7 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
+ 		if (page_alloc[i].page != ring_alloc[i].page) {
+ 			dma_unmap_page(priv->ddev, page_alloc[i].dma,
+ 				page_alloc[i].page_size,
+-				priv->frag_info[i].dma_dir);
++				priv->dma_dir);
+ 			page = page_alloc[i].page;
+ 			/* Revert changes done by mlx4_alloc_pages */
+ 			page_ref_sub(page, page_alloc[i].page_size /
+@@ -149,7 +149,7 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
  
- fail:
-@@ -1197,7 +1197,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 	if (priv->tx_ring_num[TX_XDP]) {
- 		priv->rx_page_order = 0;
- 		priv->frag_info[0].frag_size = eff_mtu;
--		priv->frag_info[0].frag_prefix_size = 0;
- 		/* This will gain efficient xdp frame recycling at the
+ 	if (next_frag_end > frags[i].page_size)
+ 		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].page_size,
+-			       frag_info->dma_dir);
++			       priv->dma_dir);
+ 
+ 	if (frags[i].page)
+ 		put_page(frags[i].page);
+@@ -181,7 +181,7 @@ static int mlx4_en_init_allocator(struct mlx4_en_priv *priv,
+ 		page_alloc = &ring->page_alloc[i];
+ 		dma_unmap_page(priv->ddev, page_alloc->dma,
+ 			       page_alloc->page_size,
+-			       priv->frag_info[i].dma_dir);
++			       priv->dma_dir);
+ 		page = page_alloc->page;
+ 		/* Revert changes done by mlx4_alloc_pages */
+ 		page_ref_sub(page, page_alloc->page_size /
+@@ -206,7 +206,7 @@ static void mlx4_en_destroy_allocator(struct mlx4_en_priv *priv,
+ 		       i, page_count(page_alloc->page));
+ 
+ 		dma_unmap_page(priv->ddev, page_alloc->dma,
+-				page_alloc->page_size, frag_info->dma_dir);
++				page_alloc->page_size, priv->dma_dir);
+ 		while (page_alloc->page_offset + frag_info->frag_stride <
+ 		       page_alloc->page_size) {
+ 			put_page(page_alloc->page);
+@@ -570,7 +570,7 @@ void mlx4_en_deactivate_rx_ring(struct mlx4_en_priv *priv,
+ 		struct mlx4_en_rx_alloc *frame = &ring->page_cache.buf[i];
+ 
+ 		dma_unmap_page(priv->ddev, frame->dma, frame->page_size,
+-			       priv->frag_info[0].dma_dir);
++			       priv->dma_dir);
+ 		put_page(frame->page);
+ 	}
+ 	ring->page_cache.index = 0;
+@@ -1202,7 +1202,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
  		 * expense of more costly truesize accounting
  		 */
-@@ -1212,7 +1211,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 			priv->frag_info[i].frag_size =
- 				(eff_mtu > buf_size + frag_sizes[i]) ?
- 					frag_sizes[i] : eff_mtu - buf_size;
--			priv->frag_info[i].frag_prefix_size = buf_size;
+ 		priv->frag_info[0].frag_stride = PAGE_SIZE;
+-		priv->frag_info[0].dma_dir = PCI_DMA_BIDIRECTIONAL;
++		priv->dma_dir = PCI_DMA_BIDIRECTIONAL;
+ 		priv->frag_info[0].rx_headroom = XDP_PACKET_HEADROOM;
+ 		i = 1;
+ 	} else {
+@@ -1217,11 +1217,11 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
  			priv->frag_info[i].frag_stride =
  				ALIGN(priv->frag_info[i].frag_size,
  				      SMP_CACHE_BYTES);
-@@ -1232,10 +1230,9 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 	       eff_mtu, priv->num_frags);
- 	for (i = 0; i < priv->num_frags; i++) {
- 		en_err(priv,
--		       "  frag:%d - size:%d prefix:%d stride:%d\n",
-+		       "  frag:%d - size:%d stride:%d\n",
- 		       i,
- 		       priv->frag_info[i].frag_size,
--		       priv->frag_info[i].frag_prefix_size,
- 		       priv->frag_info[i].frag_stride);
+-			priv->frag_info[i].dma_dir = PCI_DMA_FROMDEVICE;
+ 			priv->frag_info[i].rx_headroom = 0;
+ 			buf_size += priv->frag_info[i].frag_size;
+ 			i++;
+ 		}
++		priv->dma_dir = PCI_DMA_FROMDEVICE;
  	}
- }
+ 
+ 	priv->num_frags = i;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 3ed42199d3f1275f77560e92a430c0dde181e95a..98bc67a7249b14f8857fe1fd6baa40ae3ec5a880 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -360,7 +360,7 @@ u32 mlx4_en_recycle_tx_desc(struct mlx4_en_priv *priv,
+ 
+ 	if (!mlx4_en_rx_recycle(ring->recycle_ring, &frame)) {
+ 		dma_unmap_page(priv->ddev, tx_info->map0_dma,
+-			       PAGE_SIZE, priv->frag_info[0].dma_dir);
++			       PAGE_SIZE, priv->dma_dir);
+ 		put_page(tx_info->page);
+ 	}
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 9d2c53ddb15c6d2262272a1b429f0ebde366e3ac..849aa8af4dd771cdd44fae25516980bd36ed45a8 100644
+index 3629ce11a68b9dec5c1659539bdc6f2c11114e35..a4c7d94d52c698c23c9768a4c0387378898cdbc5 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -472,9 +472,8 @@ struct mlx4_en_mc_list {
- 
- struct mlx4_en_frag_info {
+@@ -474,7 +474,6 @@ struct mlx4_en_frag_info {
  	u16 frag_size;
--	u16 frag_prefix_size;
--	u32 frag_stride;
+ 	u16 frag_prefix_size;
+ 	u32 frag_stride;
+-	enum dma_data_direction dma_dir;
+ 	u16 order;
  	u16 rx_headroom;
-+	u32 frag_stride;
  };
+@@ -584,8 +583,9 @@ struct mlx4_en_priv {
+ 	u32 rx_ring_num;
+ 	u32 rx_skb_size;
+ 	struct mlx4_en_frag_info frag_info[MLX4_EN_MAX_RX_FRAGS];
+-	u16 num_frags;
+-	u16 log_rx_info;
++	u8 num_frags;
++	u8 log_rx_info;
++	u8 dma_dir;
  
- #ifdef CONFIG_MLX4_EN_DCB
+ 	struct mlx4_en_tx_ring **tx_ring[MLX4_EN_NUM_TX_TYPES];
+ 	struct mlx4_en_rx_ring *rx_ring[MAX_RX_RINGS];
 -- 
 2.12.0.246.ga2ecc84866-goog
