@@ -1,113 +1,95 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v2 net-next 8/8] net: stmicro: mac debug prepared for multiple queues
-Date: Wed,  8 Mar 2017 12:22:48 +0000
-Message-ID: <9efe174a43c1d6c1fa2d7fe37d626e47d98b26ae.1488975090.git.jpinto@synopsys.com>
-References: <cover.1488975090.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:36621 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752622AbdCHMY3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 07:24:29 -0500
-In-Reply-To: <cover.1488975090.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1488975090.git.jpinto@synopsys.com>
-References: <cover.1488975090.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: [PATCH v2 2/2] iproute2: add support for invisible qdisc dumping
+Date: Wed, 8 Mar 2017 13:04:42 +0100 (CET)
+Message-ID: <alpine.LSU.2.20.1703081303490.31814@cbobk.fhfr.pm>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Phil Sutter <phil@nwl.cc>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch prepares mac debug dump for multiple queues.
+From: Jiri Kosina <jkosina@suse.cz>
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+Support the new TCA_DUMP_INVISIBLE netlink attribute that allows asking 
+kernel to perform 'full qdisc dump', as for historical reasons some of the 
+default qdiscs are being hidden by the kernel.
+
+The command syntax is being extended by voluntary 'invisible' argument to
+'tc qdisc show'.
+
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 ---
-changes v1->v2:
-- Just to keep up with patch-set version
 
- drivers/net/ethernet/stmicro/stmmac/common.h         |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c    | 10 ++++------
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |  4 +++-
- 4 files changed, 11 insertions(+), 9 deletions(-)
+v1 -> v2: fix the format of help message
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 6a348d3..d7bb498 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -488,7 +488,8 @@ struct stmmac_ops {
- 	void (*reset_eee_mode)(struct mac_device_info *hw);
- 	void (*set_eee_timer)(struct mac_device_info *hw, int ls, int tw);
- 	void (*set_eee_pls)(struct mac_device_info *hw, int link);
--	void (*debug)(void __iomem *ioaddr, struct stmmac_extra_stats *x);
-+	void (*debug)(void __iomem *ioaddr, struct stmmac_extra_stats *x,
-+		      u32 queue);
- 	/* PCS calls */
- 	void (*pcs_ctrl_ane)(void __iomem *ioaddr, bool ane, bool srgmi_ral,
- 			     bool loopback);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index 3a95ad9..0ebb69f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -413,7 +413,8 @@ static void dwmac1000_get_adv_lp(void __iomem *ioaddr, struct rgmii_adv *adv)
- 	dwmac_get_adv_lp(ioaddr, GMAC_PCS_BASE, adv);
- }
- 
--static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
-+static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
-+			    u32 queue)
+ tc/tc_qdisc.c | 25 +++++++++++++++++++++++--
+ 1 file changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
+index 3a3701c2..1e9d9097 100644
+--- a/tc/tc_qdisc.c
++++ b/tc/tc_qdisc.c
+@@ -34,7 +34,7 @@ static int usage(void)
+ 	fprintf(stderr, "       [ stab [ help | STAB_OPTIONS] ]\n");
+ 	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
+ 	fprintf(stderr, "\n");
+-	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ]\n");
++	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ] [ invisible ]\n");
+ 	fprintf(stderr, "Where:\n");
+ 	fprintf(stderr, "QDISC_KIND := { [p|b]fifo | tbf | prio | cbq | red | etc. }\n");
+ 	fprintf(stderr, "OPTIONS := ... try tc qdisc add <desired QDISC_KIND> help\n");
+@@ -292,6 +292,7 @@ static int tc_qdisc_list(int argc, char **argv)
  {
- 	u32 value = readl(ioaddr + GMAC_DEBUG);
+ 	struct tcmsg t = { .tcm_family = AF_UNSPEC };
+ 	char d[16] = {};
++	bool dump_invisible = false;
  
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 3e723e1..b96acb8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -468,12 +468,10 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
- 	return ret;
- }
- 
--static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
-+static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
-+			 u32 queue)
- {
--	u32 value;
--
--	/*  Currently only channel 0 is supported */
--	value = readl(ioaddr + MTL_CHAN_TX_DEBUG(STMMAC_CHAN0));
-+	u32 value = readl(ioaddr + MTL_CHAN_TX_DEBUG(queue));
- 
- 	if (value & MTL_DEBUG_TXSTSFSTS)
- 		x->mtl_tx_status_fifo_full++;
-@@ -496,7 +494,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
- 	if (value & MTL_DEBUG_TXPAUSED)
- 		x->mac_tx_in_pause++;
- 
--	value = readl(ioaddr + MTL_CHAN_RX_DEBUG(STMMAC_CHAN0));
-+	value = readl(ioaddr + MTL_CHAN_RX_DEBUG(queue));
- 
- 	if (value & MTL_DEBUG_RXFSTS_MASK) {
- 		u32 rxfsts = (value & MTL_DEBUG_RXFSTS_MASK)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 4a5dc89..09a714b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -520,6 +520,7 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 				 struct ethtool_stats *dummy, u64 *data)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 queue = 0;
- 	int i, j = 0;
- 
- 	/* Update the DMA HW counters for dwmac10/100 */
-@@ -550,7 +551,8 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 		if ((priv->hw->mac->debug) &&
- 		    (priv->synopsys_id >= DWMAC_CORE_3_50))
- 			priv->hw->mac->debug(priv->ioaddr,
--					     (void *)&priv->xstats);
-+					     (void *)&priv->xstats,
-+					     queue);
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "dev") == 0) {
+@@ -306,6 +307,8 @@ static int tc_qdisc_list(int argc, char **argv)
+ 			t.tcm_parent = TC_H_INGRESS;
+ 		} else if (matches(*argv, "help") == 0) {
+ 			usage();
++		} else if (strcmp(*argv, "invisible") == 0) {
++			dump_invisible = true;
+ 		} else {
+ 			fprintf(stderr, "What is \"%s\"? Try \"tc qdisc help\".\n", *argv);
+ 			return -1;
+@@ -325,7 +328,25 @@ static int tc_qdisc_list(int argc, char **argv)
+ 		filter_ifindex = t.tcm_ifindex;
  	}
- 	for (i = 0; i < STMMAC_STATS_LEN; i++) {
- 		char *p = (char *)priv + stmmac_gstrings_stats[i].stat_offset;
+ 
+-	if (rtnl_dump_request(&rth, RTM_GETQDISC, &t, sizeof(t)) < 0) {
++	if (dump_invisible) {
++		struct {
++			struct nlmsghdr n;
++			struct tcmsg t;
++			char buf[256];
++		} req = {
++			.n.nlmsg_type = RTM_GETQDISC,
++			.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg)),
++		};
++
++		req.t.tcm_family = AF_UNSPEC;
++
++		addattr(&req.n, 256, TCA_DUMP_INVISIBLE);
++		if (rtnl_dump_request_n(&rth, &req.n) < 0) {
++			perror("Cannot send dump request");
++			return 1;
++		}
++
++	} else if (rtnl_dump_request(&rth, RTM_GETQDISC, &t, sizeof(t)) < 0) {
+ 		perror("Cannot send dump request");
+ 		return 1;
+ 	}
 -- 
-2.9.3
+Jiri Kosina
+SUSE Labs
