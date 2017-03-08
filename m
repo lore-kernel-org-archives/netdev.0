@@ -1,24 +1,28 @@
 From: Kalle Valo <kvalo@codeaurora.org>
 Subject: Re: wireless/atmel: remove time_t usage
 Date: Wed,  8 Mar 2017 15:13:40 +0000 (UTC)
-Message-ID: <20170308151340.7FE4E60793@smtp.codeaurora.org>
+Message-ID: <20170308151340.6E8EF607A1@smtp.codeaurora.org>
 References: <20170223161445.19200-1-alexandre.belloni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Simon Kelley <simon@thekelleys.org.uk>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        Alexandre Belloni <alexandre.belloni@free-electrons.com>
+ Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+ linux-wireless@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org
 To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46546 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751978AbdCHPNq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 10:13:46 -0500
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20170223161445.19200-1-alexandre.belloni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
 Alexandre Belloni <alexandre.belloni@free-electrons.com> wrote:
 > last_qual never really holds a time. It only holds jiffies. Make it the
