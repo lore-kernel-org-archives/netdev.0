@@ -1,44 +1,71 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] tun: remove copyright printing
-Date: Wed, 8 Mar 2017 15:20:48 -0800
-Message-ID: <20170308152048.1bf4f6de@xeon-e3>
-References: <20170308154657.8988-1-clabbe.montjoie@gmail.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH next 0/5] bonding: winter cleanup
+Date: Wed, 08 Mar 2017 15:24:06 -0800
+Message-ID: <17528.1489015446@famine>
+References: <20170308185545.22864-1-mahesh@bandewar.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170308154657.8988-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Nikolay Aleksandrov <nikolay@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Mahesh Bandewar <mahesh@bandewar.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:52962 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752052AbdCIACX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 19:02:23 -0500
+In-reply-to: <20170308185545.22864-1-mahesh@bandewar.net>
+Content-ID: <17527.1489015446.1@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed,  8 Mar 2017 16:46:57 +0100
-Corentin Labbe <clabbe.montjoie@gmail.com> wrote:
+Mahesh Bandewar <mahesh@bandewar.net> wrote:
 
-> Printing copyright does not give any useful information on the boot
-> process.
-> Furthermore, the email address printed is obsolete since
-> commit ba57b6f20429 ("MAINTAINERS: fix bouncing tun/tap entries")
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
->  drivers/net/tun.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index dc1b1dd..f58b7d8 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -2570,7 +2570,6 @@ static int __init tun_init(void)
->  	int ret = 0;
->  
->  	pr_info("%s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
-> -	pr_info("%s\n", DRV_COPYRIGHT);
->  
->  	ret = rtnl_link_register(&tun_link_ops);
->  	if (ret) {
+>From: Mahesh Bandewar <maheshb@google.com>
+>
+>Few cleanup patches that I have accumulated over some time now.
+>
+>(a) First two patches are basically to move the work-queue initialization
+>    from every ndo_open / bond_open operation to once at the beginning while
+>    port creation. Work-queue initialization is an unnecessary operation
+>    for every 'ifup' operation. However we have some mode-specific work-queues
+>    and mode can change anytime after port creation. So the second patch is
+>    to ensure the correct work-handler is called based on the mode.
+>
+>(b) Third patch is simple and straightforward that removes hard-coded value
+>    that was added into the initial commit and replaces it with the default
+>    value configured.
+>
+>(c) The final patch in the series removes the unimplemented "port-moved" state
+>    from the LACP state machine. This state is defined but never set so
+>    removing from the state machine logic makes code little cleaner.
+>
+>(d) Reduce scope of some global variables to local.
 
-Why not just kill the pr_info() all together.
-It is just a vanity message.
+	For all patches in the series:
+
+Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+
+>Note: None of these patches are making any functional changes.
+>
+>Mahesh Bandewar (5):
+>  bonding: restructure arp-monitor
+>  bonding: initialize work-queues during creation of bond
+>  bonding: remove hardcoded value
+>  bonding: remove "port-moved" state that was never implemented
+>  bonding: reduce scope of some global variables
+>
+> drivers/net/bonding/bond_3ad.c  | 11 +++------
+> drivers/net/bonding/bond_main.c | 53 ++++++++++++++++++++++++++---------------
+> 2 files changed, 37 insertions(+), 27 deletions(-)
+>
+>-- 
+>2.12.0.246.ga2ecc84866-goog
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
