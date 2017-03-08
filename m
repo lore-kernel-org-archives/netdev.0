@@ -1,45 +1,39 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: Re: [PATCH net-next 0/5] sunvnet: better connection management
-Date: Wed, 8 Mar 2017 15:04:45 -0800
-Message-ID: <80e05f39-ea92-bfdf-b7d6-2cee47c8bab6@oracle.com>
-References: <1488842132-512058-1-git-send-email-shannon.nelson@oracle.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Wed, 08 Mar 2017 23:51:42 +0100
+Message-ID: <58C08AFE.2000504@iogearbox.net>
+References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com> <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net> <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com> <58C08535.3070000@iogearbox.net> <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:20282 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751917AbdCHXHw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 18:07:52 -0500
-In-Reply-To: <1488842132-512058-1-git-send-email-shannon.nelson@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
+        Laura Abbott <labbott@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/6/2017 3:15 PM, Shannon Nelson wrote:
-> These patches remove some problems in handling of carrier state
-> with the ldmvsw vswitch, remove  an xoff misuse in sunvnet, and
-> add stats for debug and tracking of point-to-point connections
-> between the ldom VMs.
+On 03/08/2017 11:36 PM, Kees Cook wrote:
+> On Wed, Mar 8, 2017 at 2:27 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> [   28.474232] rodata_test: test data was not read only
+>> [...]
+>
+> In my tests so far, I've never been able to get rodata_test to fail
+> (Qemu 2.5.0, Ubuntu). I'll retry with your .config and see if I can
+> recheck under Qemu 2.7.1. Do you see these failures on real hardware?
 
-Further testing shows a problem in one of the patches, so there will be 
-a V2 coming.
+The x86_64 tests on real hardware, and the x86-32 only in the qemu
+environment with the reproducer script. Haven't tested x86-32 kernel
+outside of qemu so far.
 
 Thanks,
-sln
-
->
-> Shannon Nelson (5):
->   ldmvsw: better use of link up and down on ldom vswitch
->   sunvnet: add stats to track ldom to ldom packets and bytes
->   sunvnet: track port queues correctly
->   sunvnet: count multicast packets
->   sunvnet: xoff not needed when removing port link
->
->  drivers/net/ethernet/sun/ldmvsw.c         |   10 ++-
->  drivers/net/ethernet/sun/sunvnet.c        |  114 +++++++++++++++++++++++++++++
->  drivers/net/ethernet/sun/sunvnet_common.c |   50 +++++++++++--
->  drivers/net/ethernet/sun/sunvnet_common.h |   26 ++++--
->  4 files changed, 180 insertions(+), 20 deletions(-)
->
+Daniel
