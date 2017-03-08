@@ -1,70 +1,47 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 3/4] bnxt_en: Check if firmware LLDP agent is running.
-Date: Wed,  8 Mar 2017 18:44:34 -0500
-Message-ID: <1489016675-16097-4-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net 4/4] bnxt_en: Ignore 0 value in autoneg supported speed from firmware.
+Date: Wed,  8 Mar 2017 18:44:35 -0500
+Message-ID: <1489016675-16097-5-git-send-email-michael.chan@broadcom.com>
 References: <1489016675-16097-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:36311 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753913AbdCHXqD (ORCPT
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:33965 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753926AbdCHXqD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 18:46:03 -0500
-Received: by mail-wr0-f175.google.com with SMTP id u108so34040464wrb.3
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 15:44:53 -0800 (PST)
+Received: by mail-wr0-f176.google.com with SMTP id l37so34120027wrc.1
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 15:44:55 -0800 (PST)
 In-Reply-To: <1489016675-16097-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set DCB_CAP_DCBX_HOST capability flag only if the firmware LLDP agent
-is not running.
+In some situations, the firmware will return 0 for autoneg supported
+speed.  This may happen if the firmware detects no SFP module, for
+example.  The driver should ignore this so that we don't end up with
+an invalid autoneg setting with nothing advertised.  When SFP module
+is inserted, we'll get the updated settings from firmware at that time.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 4 ++++
- drivers/net/ethernet/broadcom/bnxt/bnxt.h     | 1 +
- drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c | 2 +-
- 3 files changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index bbe9371..869d4c9 100644
+index 869d4c9..32de458 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4465,6 +4465,10 @@ static int bnxt_hwrm_func_qcfg(struct bnxt *bp)
- 		vf->vlan = le16_to_cpu(resp->vlan) & VLAN_VID_MASK;
+@@ -5511,8 +5511,9 @@ static int bnxt_hwrm_phy_qcaps(struct bnxt *bp)
+ 		bp->lpi_tmr_hi = le32_to_cpu(resp->valid_tx_lpi_timer_high) &
+ 				 PORT_PHY_QCAPS_RESP_TX_LPI_TIMER_HIGH_MASK;
  	}
- #endif
-+	if (BNXT_PF(bp) && (le16_to_cpu(resp->flags) &
-+			    FUNC_QCFG_RESP_FLAGS_FW_DCBX_AGENT_ENABLED))
-+		bp->flags |= BNXT_FLAG_FW_LLDP_AGENT;
-+
- 	switch (resp->port_partition_type) {
- 	case FUNC_QCFG_RESP_PORT_PARTITION_TYPE_NPAR1_0:
- 	case FUNC_QCFG_RESP_PORT_PARTITION_TYPE_NPAR1_5:
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index faf26a2..c7a5b84 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -993,6 +993,7 @@ struct bnxt {
- 					 BNXT_FLAG_ROCEV2_CAP)
- 	#define BNXT_FLAG_NO_AGG_RINGS	0x20000
- 	#define BNXT_FLAG_RX_PAGE_MODE	0x40000
-+	#define BNXT_FLAG_FW_LLDP_AGENT	0x80000
- 	#define BNXT_FLAG_CHIP_NITRO_A0	0x1000000
+-	link_info->support_auto_speeds =
+-		le16_to_cpu(resp->supported_speeds_auto_mode);
++	if (resp->supported_speeds_auto_mode)
++		link_info->support_auto_speeds =
++			le16_to_cpu(resp->supported_speeds_auto_mode);
  
- 	#define BNXT_FLAG_ALL_CONFIG_FEATS (BNXT_FLAG_TPA |		\
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-index fdf2d8c..03532061 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-@@ -474,7 +474,7 @@ void bnxt_dcb_init(struct bnxt *bp)
- 		return;
- 
- 	bp->dcbx_cap = DCB_CAP_DCBX_VER_IEEE;
--	if (BNXT_PF(bp))
-+	if (BNXT_PF(bp) && !(bp->flags & BNXT_FLAG_FW_LLDP_AGENT))
- 		bp->dcbx_cap |= DCB_CAP_DCBX_HOST;
- 	else
- 		bp->dcbx_cap |= DCB_CAP_DCBX_LLD_MANAGED;
+ hwrm_phy_qcaps_exit:
+ 	mutex_unlock(&bp->hwrm_cmd_lock);
 -- 
 1.8.3.1
