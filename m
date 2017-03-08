@@ -1,152 +1,73 @@
-From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-Subject: [PATCH v2] fjes: Do not load fjes driver if system does not have
- extended socket device.
-Date: Wed, 8 Mar 2017 16:05:18 -0500
-Message-ID: <7a1a2dbc-99e0-06ba-2261-6e6382937486@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v5 04/19] net: e100: Replace PCI pool old API
+Date: Wed, 08 Mar 2017 14:40:25 -0800
+Message-ID: <1489012825.3477.51.camel@intel.com>
+References: <20170308161957.28941-1-romain.perier@collabora.com>
+         <20170308161957.28941-5-romain.perier@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-p87cXMN0K7D4rRhQU6Ip"
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Romain Perier <romain.perier@collabora.com>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170308161957.28941-5-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-p87cXMN0K7D4rRhQU6Ip
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2017-03-08 at 17:19 +0100, Romain Perier wrote:
+> The PCI pool API is deprecated. This commit replaces the PCI pool old
+> API by the appropriate function with the DMA pool API.
+>=20
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> ---
+> =C2=A0drivers/net/ethernet/intel/e100.c | 12 ++++++------
+> =C2=A01 file changed, 6 insertions(+), 6 deletions(-)
+
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+My only concern is:
+- what hardware did this get tested with?  Since this affects all e100
+parts, it would be hard to believe that all the affected hardware was
+used in testing.
+--=-p87cXMN0K7D4rRhQU6Ip
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, izumi.taku@jp.fujitsu.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:34881 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751286AbdCHWmK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 17:42:10 -0500
-Received: by mail-qk0-f196.google.com with SMTP id o135so15527355qke.2
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 14:41:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-The fjes driver is used only by FUJITSU servers and almost of all
-servers in the world never use it. But currently if ACPI PNP0C02
-is defined in the ACPI table, the following message is always shown:
+-----BEGIN PGP SIGNATURE-----
 
-  "FUJITSU Extended Socket Network Device Driver - version 1.2
-   - Copyright (c) 2015 FUJITSU LIMITED"
+iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAljAiFkACgkQ5W/vlVpL
+7c5KqA//dfxwhSSaEHsZcSVBClb6RNEyuAtgW6MYWhTdnRHDEDd253nmWumlU6he
+UYpJMs8FMKTYU1VFJ1fN3hzxN3t+jls9I39DMgtEcWv0LFGfQScJt2W8qh8IeheK
+dIlXtzM2JWM3XKWjASPTjY0S3o/cZrxuJo5Yv/2t6/Y/18nghdmXs9qtZo5ewBih
+A67A73qd7AvEpa4VPoCF6QI0yez+sIIi8Lmo9th34P61UyZU1HyUwijO/j3uGA0+
+cXjLs3weVzH0CJQlRO0KSOTigl7I7QjOawpM8e8QW3x0eGO5pBOZjhGMwux70+Zd
+K6lZHIZoyua9qRCEiKpQw/MXaquzoTL8l7ctNqOFloWe63rxgwsnDO8QmfXURBSs
+DiY9uJEYoXvyuQloxpiA/lZm/drH5vAGMQG2equMcqT9IAN3yTWs3/NG4MQMcPoz
+9Nym9qOPXOKc7W9YLhK5JbQjyt7HvosEF2WN+quWPR0WY5e2YGqcXiPGqwUH0YkS
+KRuxTmKcNMkqICUYXKZpk2ACdkoVCH02yqRunBYUtsFgD9BFx4JXBhJ4HLWRzZTW
+kw8dlUG+eyVo+0UCJoB9S2L63yIgTsHnnQQIy99hDslRiUygSZUkO15UgjLko2dc
++APGhTqnm5BzG52lOIYaUzfyGElUzJByzWP2O4H6RuzfAin68B4=
+=+lcU
+-----END PGP SIGNATURE-----
 
-The message makes users confused because there is no reason that
-the message is shown in other vendor servers.
-
-To avoid the confusion, the patch adds a check that the server
-has a extended socket device or not.
-
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-CC: Taku Izumi <izumi.taku@jp.fujitsu.com>
----
-v2:
-	- Order local variable declarations from longest to shortest line
-
-  drivers/net/fjes/fjes_main.c | 52 +++++++++++++++++++++++++++++++++++++++-----
-  1 file changed, 47 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index b77e4ecf..a57c2cb 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -45,6 +45,8 @@
-  MODULE_LICENSE("GPL");
-  MODULE_VERSION(DRV_VERSION);
-
-+#define ACPI_MOTHERBOARD_RESOURCE_HID "PNP0C02"
-+
-  static int fjes_request_irq(struct fjes_adapter *);
-  static void fjes_free_irq(struct fjes_adapter *);
-
-@@ -79,7 +81,7 @@
-  static int fjes_poll(struct napi_struct *, int);
-
-  static const struct acpi_device_id fjes_acpi_ids[] = {
--	{"PNP0C02", 0},
-+	{ACPI_MOTHERBOARD_RESOURCE_HID, 0},
-  	{"", 0},
-  };
-  MODULE_DEVICE_TABLE(acpi, fjes_acpi_ids);
-@@ -116,18 +118,17 @@
-  	},
-  };
-
--static int fjes_acpi_add(struct acpi_device *device)
-+static bool is_extended_socket_device(struct acpi_device *device)
-  {
-  	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL};
-  	char str_buf[sizeof(FJES_ACPI_SYMBOL) + 1];
--	struct platform_device *plat_dev;
-  	union acpi_object *str;
-  	acpi_status status;
-  	int result;
-
-  	status = acpi_evaluate_object(device->handle, "_STR", NULL, &buffer);
-  	if (ACPI_FAILURE(status))
--		return -ENODEV;
-+		return false;
-
-  	str = buffer.pointer;
-  	result = utf16s_to_utf8s((wchar_t *)str->string.pointer,
-@@ -137,10 +138,21 @@ static int fjes_acpi_add(struct acpi_device *device)
-
-  	if (strncmp(FJES_ACPI_SYMBOL, str_buf, strlen(FJES_ACPI_SYMBOL)) != 0) {
-  		kfree(buffer.pointer);
--		return -ENODEV;
-+		return false;
-  	}
-  	kfree(buffer.pointer);
-
-+	return true;
-+}
-+
-+static int fjes_acpi_add(struct acpi_device *device)
-+{
-+	struct platform_device *plat_dev;
-+	acpi_status status;
-+
-+	if (!is_extended_socket_device(device))
-+		return -ENODEV;
-+
-  	status = acpi_walk_resources(device->handle, METHOD_NAME__CRS,
-  				     fjes_get_acpi_resource, fjes_resource);
-  	if (ACPI_FAILURE(status))
-@@ -1476,11 +1488,41 @@ static void fjes_watch_unshare_task(struct work_struct *work)
-  	}
-  }
-
-+static acpi_status
-+acpi_find_extended_socket_device(acpi_handle obj_handle, u32 level,
-+				 void *context, void **return_value)
-+{
-+	struct acpi_device *device;
-+	bool *found = context;
-+	int result;
-+
-+	result = acpi_bus_get_device(obj_handle, &device);
-+	if (result)
-+		return AE_OK;
-+
-+	if (strcmp(acpi_device_hid(device), ACPI_MOTHERBOARD_RESOURCE_HID))
-+		return AE_OK;
-+
-+	if (!is_extended_socket_device(device))
-+		return AE_OK;
-+
-+	*found = true;
-+	return AE_CTRL_TERMINATE;
-+}
-+
-  /* fjes_init_module - Driver Registration Routine */
-  static int __init fjes_init_module(void)
-  {
-+	bool found = false;
-  	int result;
-
-+	acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
-+			    acpi_find_extended_socket_device, NULL, &found,
-+			    NULL);
-+
-+	if (!found)
-+		return -ENODEV;
-+
-  	pr_info("%s - version %s - %s\n",
-  		fjes_driver_string, fjes_driver_version, fjes_copyright);
-
--- 
-1.8.3.1
+--=-p87cXMN0K7D4rRhQU6Ip--
