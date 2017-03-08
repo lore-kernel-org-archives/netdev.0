@@ -1,184 +1,180 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH net-next 2/8] net: stmicro: configure mtl rx and tx algorithms
-Date: Wed,  8 Mar 2017 11:03:09 +0000
-Message-ID: <bf9eb10ea5f36cd66a61ea781725b9d190d101d6.1488969672.git.jpinto@synopsys.com>
+Subject: [PATCH net-next 6/8] net: stmicro: flow_ctrl functions adapted to mtl
+Date: Wed,  8 Mar 2017 11:03:13 +0000
+Message-ID: <1ac651072246dfbd5c6532e223363a8f8a9a10e6.1488969672.git.jpinto@synopsys.com>
 References: <cover.1488969672.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:60142 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:60138 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752266AbdCHL5d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 06:57:33 -0500
+        with ESMTP id S1750728AbdCHL5r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 06:57:47 -0500
 In-Reply-To: <cover.1488969672.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1488969672.git.jpinto@synopsys.com>
 References: <cover.1488969672.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the RX and TX scheduling algorithms programming.
-It introduces the multiple queues configuration function
-(stmmac_mtl_configuration) in stmmac_main.
+This patch adapts flow_ctrl function to prepare it for multiple queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h      |  4 ++
- drivers/net/ethernet/stmicro/stmmac/dwmac4.h      | 10 +++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 48 +++++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 31 +++++++++++++--
- 4 files changed, 90 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h         |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |  3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  |  3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c    | 20 +++++++++++++-------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |  3 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    | 17 ++++++++++++++---
+ 6 files changed, 34 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 04d9245..5a0a781 100644
+index 32f5f25..5532633 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -455,6 +455,10 @@ struct stmmac_ops {
- 	int (*rx_ipc)(struct mac_device_info *hw);
- 	/* Enable RX Queues */
- 	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
-+	/* Program RX Algorithms */
-+	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
-+	/* Program TX Algorithms */
-+	void (*prog_mtl_tx_algorithms)(struct mac_device_info *hw, u32 tx_alg);
- 	/* Dump MAC registers */
- 	void (*dump_regs)(struct mac_device_info *hw, u32 *reg_space);
- 	/* Handle extra events on specific interrupts hw dependent */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-index db45134..748ab6f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-@@ -161,6 +161,16 @@ enum power_event {
- #define GMAC_HI_REG_AE			BIT(31)
+@@ -473,7 +473,7 @@ struct stmmac_ops {
+ 	void (*set_filter)(struct mac_device_info *hw, struct net_device *dev);
+ 	/* Flow control setting */
+ 	void (*flow_ctrl)(struct mac_device_info *hw, unsigned int duplex,
+-			  unsigned int fc, unsigned int pause_time);
++			  unsigned int fc, unsigned int pause_time, u32 tx_cnt);
+ 	/* Set power management mode (e.g. magic frame) */
+ 	void (*pmt)(struct mac_device_info *hw, unsigned long mode);
+ 	/* Set/Get Unicast MAC addresses */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index 19b9b30..3a95ad9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -216,7 +216,8 @@ static void dwmac1000_set_filter(struct mac_device_info *hw,
  
- /*  MTL registers */
-+#define MTL_OPERATION_MODE		0x00000c00
-+#define MTL_OPERATION_SCHALG_MASK	GENMASK(6, 5)
-+#define MTL_OPERATION_SCHALG_WRR	(0x0 << 5)
-+#define MTL_OPERATION_SCHALG_WFQ	(0x1 << 5)
-+#define MTL_OPERATION_SCHALG_DWRR	(0x2 << 5)
-+#define MTL_OPERATION_SCHALG_SP		(0x3 << 5)
-+#define MTL_OPERATION_RAA		BIT(2)
-+#define MTL_OPERATION_RAA_SP		(0x0 << 2)
-+#define MTL_OPERATION_RAA_WSP		(0x1 << 2)
-+
- #define MTL_INT_STATUS			0x00000c20
- #define MTL_INT_Q0			BIT(0)
  
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 1e79e65..7503b8e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -70,6 +70,52 @@ static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
- 	writel(value, ioaddr + GMAC_RXQ_CTRL0);
- }
- 
-+static void dwmac4_prog_mtl_rx_algorithms(struct mac_device_info *hw,
-+					  u32 rx_alg)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 value = readl(ioaddr + MTL_OPERATION_MODE);
-+
-+	value &= ~MTL_OPERATION_RAA;
-+	switch (rx_alg) {
-+	case MTL_RX_ALGORITHM_SP:
-+	value |= MTL_OPERATION_RAA_SP;
-+	break;
-+	case MTL_RX_ALGORITHM_WSP:
-+	value |= MTL_OPERATION_RAA_WSP;
-+	break;
-+	default:
-+	break;
-+	}
-+
-+	writel(value, ioaddr + MTL_OPERATION_MODE);
-+}
-+
-+static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
-+					  u32 tx_alg)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 value = readl(ioaddr + MTL_OPERATION_MODE);
-+
-+	value &= ~MTL_OPERATION_SCHALG_MASK;
-+	switch (tx_alg) {
-+	case MTL_TX_ALGORITHM_WRR:
-+	value |= MTL_OPERATION_SCHALG_WRR;
-+	break;
-+	case MTL_TX_ALGORITHM_WFQ:
-+	value |= MTL_OPERATION_SCHALG_WFQ;
-+	break;
-+	case MTL_TX_ALGORITHM_DWRR:
-+	value |= MTL_OPERATION_SCHALG_DWRR;
-+	break;
-+	case MTL_TX_ALGORITHM_SP:
-+	value |= MTL_OPERATION_SCHALG_SP;
-+	break;
-+	default:
-+	break;
-+	}
-+}
-+
- static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
+ static void dwmac1000_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+-				unsigned int fc, unsigned int pause_time)
++				unsigned int fc, unsigned int pause_time,
++				u32 tx_cnt)
  {
  	void __iomem *ioaddr = hw->pcsr;
-@@ -457,6 +503,8 @@ static const struct stmmac_ops dwmac4_ops = {
- 	.core_init = dwmac4_core_init,
- 	.rx_ipc = dwmac4_rx_ipc_enable,
- 	.rx_queue_enable = dwmac4_rx_queue_enable,
-+	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
-+	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
- 	.dump_regs = dwmac4_dump_regs,
- 	.host_irq_status = dwmac4_irq_status,
- 	.flow_ctrl = dwmac4_flow_ctrl,
+ 	/* Set flow such that DZPQ in Mac Register 6 is 0,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+index e370cce..524135e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+@@ -131,7 +131,8 @@ static void dwmac100_set_filter(struct mac_device_info *hw,
+ }
+ 
+ static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+-			       unsigned int fc, unsigned int pause_time)
++			       unsigned int fc, unsigned int pause_time,
++			       u32 tx_cnt)
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+ 	unsigned int flow = MAC_FLOW_CTRL_ENABLE;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index a348f7d..65528c4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -337,11 +337,12 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
+ }
+ 
+ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+-			     unsigned int fc, unsigned int pause_time)
++			     unsigned int fc, unsigned int pause_time,
++			     u32 tx_cnt)
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+-	u32 channel = STMMAC_CHAN0;	/* FIXME */
+ 	unsigned int flow = 0;
++	u32 queue = 0;
+ 
+ 	pr_debug("GMAC Flow-Control:\n");
+ 	if (fc & FLOW_RX) {
+@@ -351,13 +352,18 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+ 	}
+ 	if (fc & FLOW_TX) {
+ 		pr_debug("\tTransmit Flow-Control ON\n");
+-		flow |= GMAC_TX_FLOW_CTRL_TFE;
+-		writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
+ 
+-		if (duplex) {
++		if (duplex)
+ 			pr_debug("\tduplex mode: PAUSE %d\n", pause_time);
+-			flow |= (pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
+-			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
++
++		for (queue = 0; queue < tx_cnt; queue++) {
++			flow |= GMAC_TX_FLOW_CTRL_TFE;
++
++			if (duplex)
++				flow |=
++				(pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
++
++			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(queue));
+ 		}
+ 	}
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 85d6411..4a5dc89 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -481,6 +481,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ 		      struct ethtool_pauseparam *pause)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(netdev);
++	u32 tx_cnt = priv->plat->tx_queues_to_use;
+ 	struct phy_device *phy = netdev->phydev;
+ 	int new_pause = FLOW_OFF;
+ 
+@@ -511,7 +512,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ 	}
+ 
+ 	priv->hw->mac->flow_ctrl(priv->hw, phy->duplex, priv->flow_ctrl,
+-				 priv->pause);
++				 priv->pause, tx_cnt);
+ 	return 0;
+ }
+ 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 4498a38..af57f8d 100644
+index c10f7a2..1a072e9 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1645,6 +1645,31 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
+@@ -673,6 +673,19 @@ static void stmmac_release_ptp(struct stmmac_priv *priv)
  }
  
  /**
-+ *  stmmac_mtl_configuration - Configure MTL
++ *  stmmac_mac_flow_ctrl - Configure flow control in all queues
 + *  @priv: driver private structure
-+ *  Description: It is used for configurring MTL
++ *  Description: It is used for configuring the flow control in all queues
 + */
-+static void stmmac_mtl_configuration(struct stmmac_priv *priv)
++static void stmmac_mac_flow_ctrl(struct stmmac_priv *priv, u32 duplex)
 +{
-+	u32 rx_queues_count = priv->plat->rx_queues_to_use;
-+	u32 tx_queues_count = priv->plat->tx_queues_to_use;
++	u32 tx_cnt = priv->plat->tx_queues_to_use;
 +
-+	/* Configure MTL RX algorithms */
-+	if (rx_queues_count > 1 && priv->hw->mac->prog_mtl_rx_algorithms)
-+		priv->hw->mac->prog_mtl_rx_algorithms(priv->hw,
-+						priv->plat->rx_sched_algorithm);
-+
-+	/* Configure MTL TX algorithms */
-+	if (tx_queues_count > 1 && priv->hw->mac->prog_mtl_tx_algorithms)
-+		priv->hw->mac->prog_mtl_tx_algorithms(priv->hw,
-+						priv->plat->tx_sched_algorithm);
-+
-+	/* Enable MAC RX Queues */
-+	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_enable)
-+		stmmac_mac_enable_rx_queues(priv);
++	priv->hw->mac->flow_ctrl(priv->hw, duplex, priv->flow_ctrl,
++				 priv->pause, tx_cnt);
 +}
 +
 +/**
-  * stmmac_hw_setup - setup mac in a usable state.
-  *  @dev : pointer to the device structure.
-  *  Description:
-@@ -1688,9 +1713,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
- 	/* Initialize the MAC Core */
- 	priv->hw->mac->core_init(priv->hw, dev->mtu);
+  * stmmac_adjust_link - adjusts the link parameters
+  * @dev: net device structure
+  * Description: this is the helper called by the physical abstraction layer
+@@ -687,7 +700,6 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 	struct phy_device *phydev = dev->phydev;
+ 	unsigned long flags;
+ 	int new_state = 0;
+-	unsigned int fc = priv->flow_ctrl, pause_time = priv->pause;
  
--	/* Initialize MAC RX Queues */
--	if (priv->hw->mac->rx_queue_enable)
--		stmmac_mac_enable_rx_queues(priv);
-+	/* Initialize MTL*/
-+	if (priv->synopsys_id >= DWMAC_CORE_4_00)
-+		stmmac_mtl_configuration(priv);
+ 	if (!phydev)
+ 		return;
+@@ -709,8 +721,7 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 		}
+ 		/* Flow Control operation */
+ 		if (phydev->pause)
+-			priv->hw->mac->flow_ctrl(priv->hw, phydev->duplex,
+-						 fc, pause_time);
++			stmmac_mac_flow_ctrl(priv, phydev->duplex);
  
- 	ret = priv->hw->mac->rx_ipc(priv->hw);
- 	if (!ret) {
+ 		if (phydev->speed != priv->speed) {
+ 			new_state = 1;
 -- 
 2.9.3
