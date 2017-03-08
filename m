@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v5 02/19] dmaengine: pch_dma: Replace PCI pool old API
-Date: Wed,  8 Mar 2017 17:19:40 +0100
-Message-ID: <20170308161957.28941-3-romain.perier@collabora.com>
+Subject: [PATCH v5 04/19] net: e100: Replace PCI pool old API
+Date: Wed,  8 Mar 2017 17:19:42 +0100
+Message-ID: <20170308161957.28941-5-romain.perier@collabora.com>
 References: <20170308161957.28941-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -30,65 +30,58 @@ Signed-off-by: Romain Perier <romain.perier@collabora.com>
 Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
 Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/dma/pch_dma.c | 12 ++++++------
+ drivers/net/ethernet/intel/e100.c | 12 ++++++------
  1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/dma/pch_dma.c b/drivers/dma/pch_dma.c
-index f9028e9..afd8f27 100644
---- a/drivers/dma/pch_dma.c
-+++ b/drivers/dma/pch_dma.c
-@@ -123,7 +123,7 @@ struct pch_dma_chan {
- struct pch_dma {
- 	struct dma_device	dma;
- 	void __iomem *membase;
--	struct pci_pool		*pool;
-+	struct dma_pool		*pool;
- 	struct pch_dma_regs	regs;
- 	struct pch_dma_desc_regs ch_regs[MAX_CHAN_NR];
- 	struct pch_dma_chan	channels[MAX_CHAN_NR];
-@@ -437,7 +437,7 @@ static struct pch_dma_desc *pdc_alloc_desc(struct dma_chan *chan, gfp_t flags)
- 	struct pch_dma *pd = to_pd(chan->device);
- 	dma_addr_t addr;
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 2b7323d..d1002c2 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -607,7 +607,7 @@ struct nic {
+ 	struct mem *mem;
+ 	dma_addr_t dma_addr;
  
--	desc = pci_pool_zalloc(pd->pool, flags, &addr);
-+	desc = dma_pool_zalloc(pd->pool, flags, &addr);
- 	if (desc) {
- 		INIT_LIST_HEAD(&desc->tx_list);
- 		dma_async_tx_descriptor_init(&desc->txd, chan);
-@@ -549,7 +549,7 @@ static void pd_free_chan_resources(struct dma_chan *chan)
- 	spin_unlock_irq(&pd_chan->lock);
- 
- 	list_for_each_entry_safe(desc, _d, &tmp_list, desc_node)
--		pci_pool_free(pd->pool, desc, desc->txd.phys);
-+		dma_pool_free(pd->pool, desc, desc->txd.phys);
- 
- 	pdc_enable_irq(chan, 0);
- }
-@@ -880,7 +880,7 @@ static int pch_dma_probe(struct pci_dev *pdev,
- 		goto err_iounmap;
- 	}
- 
--	pd->pool = pci_pool_create("pch_dma_desc_pool", pdev,
-+	pd->pool = dma_pool_create("pch_dma_desc_pool", &pdev->dev,
- 				   sizeof(struct pch_dma_desc), 4, 0);
- 	if (!pd->pool) {
- 		dev_err(&pdev->dev, "Failed to alloc DMA descriptors\n");
-@@ -931,7 +931,7 @@ static int pch_dma_probe(struct pci_dev *pdev,
- 	return 0;
- 
- err_free_pool:
--	pci_pool_destroy(pd->pool);
-+	dma_pool_destroy(pd->pool);
- err_free_irq:
- 	free_irq(pdev->irq, pd);
- err_iounmap:
-@@ -963,7 +963,7 @@ static void pch_dma_remove(struct pci_dev *pdev)
- 			tasklet_kill(&pd_chan->tasklet);
+-	struct pci_pool *cbs_pool;
++	struct dma_pool *cbs_pool;
+ 	dma_addr_t cbs_dma_addr;
+ 	u8 adaptive_ifs;
+ 	u8 tx_threshold;
+@@ -1892,7 +1892,7 @@ static void e100_clean_cbs(struct nic *nic)
+ 			nic->cb_to_clean = nic->cb_to_clean->next;
+ 			nic->cbs_avail++;
  		}
+-		pci_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
++		dma_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
+ 		nic->cbs = NULL;
+ 		nic->cbs_avail = 0;
+ 	}
+@@ -1910,7 +1910,7 @@ static int e100_alloc_cbs(struct nic *nic)
+ 	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = NULL;
+ 	nic->cbs_avail = 0;
  
--		pci_pool_destroy(pd->pool);
-+		dma_pool_destroy(pd->pool);
- 		pci_iounmap(pdev, pd->membase);
+-	nic->cbs = pci_pool_alloc(nic->cbs_pool, GFP_KERNEL,
++	nic->cbs = dma_pool_alloc(nic->cbs_pool, GFP_KERNEL,
+ 				  &nic->cbs_dma_addr);
+ 	if (!nic->cbs)
+ 		return -ENOMEM;
+@@ -2958,8 +2958,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		netif_err(nic, probe, nic->netdev, "Cannot register net device, aborting\n");
+ 		goto err_out_free;
+ 	}
+-	nic->cbs_pool = pci_pool_create(netdev->name,
+-			   nic->pdev,
++	nic->cbs_pool = dma_pool_create(netdev->name,
++			   &nic->pdev->dev,
+ 			   nic->params.cbs.max * sizeof(struct cb),
+ 			   sizeof(u32),
+ 			   0);
+@@ -2999,7 +2999,7 @@ static void e100_remove(struct pci_dev *pdev)
+ 		unregister_netdev(netdev);
+ 		e100_free(nic);
+ 		pci_iounmap(pdev, nic->csr);
+-		pci_pool_destroy(nic->cbs_pool);
++		dma_pool_destroy(nic->cbs_pool);
+ 		free_netdev(netdev);
  		pci_release_regions(pdev);
  		pci_disable_device(pdev);
 -- 
