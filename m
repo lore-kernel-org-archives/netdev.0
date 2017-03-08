@@ -1,221 +1,344 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/9] nfp: implement .ndo_get_phys_port_name()
-Date: Wed,  8 Mar 2017 08:57:02 -0800
-Message-ID: <20170308165708.96087-4-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 6/9] nfp: store device pointer for the fastpath
+Date: Wed,  8 Mar 2017 08:57:05 -0800
+Message-ID: <20170308165708.96087-7-jakub.kicinski@netronome.com>
 References: <20170308165708.96087-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:32914 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753134AbdCHQ7E (ORCPT
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:36041 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753658AbdCHQ7E (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 11:59:04 -0500
-Received: by mail-pf0-f182.google.com with SMTP id w189so16979747pfb.0
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 08:58:11 -0800 (PST)
+Received: by mail-pg0-f54.google.com with SMTP id 187so15171116pgb.3
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 08:58:14 -0800 (PST)
 In-Reply-To: <20170308165708.96087-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NSP reports to us port labels.  First id is the id of the physical
-port, the other one tells us which logical interface is it within a
-split port.  Instead of printing them as string keep them in integer
-format.  Compute which interfaces are part of port split.
-
-On netdev side use port labels and split information to provide a
-.ndo_get_phys_port_name() implementation.  We follow the name format
-of mlxsw which is also suggested in "Port Netdev Naming" section
-of Documentation/networking/switchdev.txt.
+We really only need the device pointer on the fast path, stash it at
+the beginning of the adapter structure and move pci_dev pointer down.
+This saves up a few lines of code.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  4 +++
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 22 +++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  2 ++
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   | 31 +++++++++++++++++++---
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h   | 15 +++++++++--
- 5 files changed, 69 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  6 ++-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 51 ++++++++++------------
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  5 +--
+ .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  7 ++-
+ 4 files changed, 31 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 9843e953bbed..50413eea9540 100644
+index 50413eea9540..4ad27570b6c4 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -112,6 +112,7 @@
+@@ -435,7 +435,7 @@ struct nfp_stat_pair {
  
- /* Forward declarations */
- struct nfp_cpp;
-+struct nfp_eth_table_port;
- struct nfp_net;
- struct nfp_net_r_vector;
- 
-@@ -496,6 +497,7 @@ struct nfp_stat_pair {
+ /**
+  * struct nfp_net - NFP network device structure
+- * @pdev:               Backpointer to PCI device
++ * @dev:		Backpointer to struct device
+  * @netdev:             Backpointer to net_device structure
+  * @is_vf:              Is the driver attached to a VF?
+  * @bpf_offload_skip_sw:  Offloaded BPF program will not be rerun by cls_bpf
+@@ -496,11 +496,12 @@ struct nfp_stat_pair {
+  * @debugfs_dir:	Device directory in debugfs
   * @ethtool_dump_flag:	Ethtool dump flag
   * @port_list:		Entry on device port list
++ * @pdev:		Backpointer to PCI device
   * @cpp:		CPP device handle if available
-+ * @eth_port:		Translated ETH Table port entry
+  * @eth_port:		Translated ETH Table port entry
   */
  struct nfp_net {
- 	struct pci_dev *pdev;
-@@ -587,6 +589,8 @@ struct nfp_net {
+-	struct pci_dev *pdev;
++	struct device *dev;
+ 	struct net_device *netdev;
+ 
+ 	unsigned is_vf:1;
+@@ -588,6 +589,7 @@ struct nfp_net {
+ 
  	struct list_head port_list;
  
++	struct pci_dev *pdev;
  	struct nfp_cpp *cpp;
-+
-+	struct nfp_eth_table_port *eth_port;
- };
  
- struct nfp_net_ring_set {
+ 	struct nfp_eth_table_port *eth_port;
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index e72468d65c28..5c34f79053f7 100644
+index 8b5fa6fe8807..397d9e82ed0e 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -67,6 +67,7 @@
- #include <net/pkt_cls.h>
- #include <net/vxlan.h>
- 
-+#include "nfpcore/nfp_nsp_eth.h"
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
- 
-@@ -2831,6 +2832,26 @@ nfp_net_features_check(struct sk_buff *skb, struct net_device *dev,
- 	return features;
+@@ -89,7 +89,7 @@ static dma_addr_t
+ nfp_net_dma_map_rx(struct nfp_net *nn, void *frag, unsigned int bufsz,
+ 		   int direction)
+ {
+-	return dma_map_single(&nn->pdev->dev, frag + NFP_NET_RX_BUF_HEADROOM,
++	return dma_map_single(nn->dev, frag + NFP_NET_RX_BUF_HEADROOM,
+ 			      bufsz - NFP_NET_RX_BUF_NON_DATA, direction);
  }
  
-+static int
-+nfp_net_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
-+{
-+	struct nfp_net *nn = netdev_priv(netdev);
-+	int err;
-+
-+	if (!nn->eth_port)
-+		return -EOPNOTSUPP;
-+
-+	if (!nn->eth_port->is_split)
-+		err = snprintf(name, len, "p%d", nn->eth_port->label_port);
-+	else
-+		err = snprintf(name, len, "p%ds%d", nn->eth_port->label_port,
-+			       nn->eth_port->label_subport);
-+	if (err >= len)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- /**
-  * nfp_net_set_vxlan_port() - set vxlan port in SW and reconfigure HW
-  * @nn:   NFP Net device to reconfigure
-@@ -3009,6 +3030,7 @@ static const struct net_device_ops nfp_net_netdev_ops = {
- 	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_set_features	= nfp_net_set_features,
- 	.ndo_features_check	= nfp_net_features_check,
-+	.ndo_get_phys_port_name	= nfp_net_get_phys_port_name,
- 	.ndo_udp_tunnel_add	= nfp_net_add_vxlan_port,
- 	.ndo_udp_tunnel_del	= nfp_net_del_vxlan_port,
- 	.ndo_xdp		= nfp_net_xdp,
+@@ -97,7 +97,7 @@ static void
+ nfp_net_dma_unmap_rx(struct nfp_net *nn, dma_addr_t dma_addr,
+ 		     unsigned int bufsz, int direction)
+ {
+-	dma_unmap_single(&nn->pdev->dev, dma_addr,
++	dma_unmap_single(nn->dev, dma_addr,
+ 			 bufsz - NFP_NET_RX_BUF_NON_DATA, direction);
+ }
+ 
+@@ -768,9 +768,9 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 	}
+ 
+ 	/* Start with the head skbuf */
+-	dma_addr = dma_map_single(&nn->pdev->dev, skb->data, skb_headlen(skb),
++	dma_addr = dma_map_single(nn->dev, skb->data, skb_headlen(skb),
+ 				  DMA_TO_DEVICE);
+-	if (dma_mapping_error(&nn->pdev->dev, dma_addr))
++	if (dma_mapping_error(nn->dev, dma_addr))
+ 		goto err_free;
+ 
+ 	wr_idx = tx_ring->wr_p & (tx_ring->cnt - 1);
+@@ -812,9 +812,9 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 			frag = &skb_shinfo(skb)->frags[f];
+ 			fsize = skb_frag_size(frag);
+ 
+-			dma_addr = skb_frag_dma_map(&nn->pdev->dev, frag, 0,
++			dma_addr = skb_frag_dma_map(nn->dev, frag, 0,
+ 						    fsize, DMA_TO_DEVICE);
+-			if (dma_mapping_error(&nn->pdev->dev, dma_addr))
++			if (dma_mapping_error(nn->dev, dma_addr))
+ 				goto err_unmap;
+ 
+ 			wr_idx = (wr_idx + 1) & (tx_ring->cnt - 1);
+@@ -853,8 +853,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 	--f;
+ 	while (f >= 0) {
+ 		frag = &skb_shinfo(skb)->frags[f];
+-		dma_unmap_page(&nn->pdev->dev,
+-			       tx_ring->txbufs[wr_idx].dma_addr,
++		dma_unmap_page(nn->dev, tx_ring->txbufs[wr_idx].dma_addr,
+ 			       skb_frag_size(frag), DMA_TO_DEVICE);
+ 		tx_ring->txbufs[wr_idx].skb = NULL;
+ 		tx_ring->txbufs[wr_idx].dma_addr = 0;
+@@ -863,7 +862,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 		if (wr_idx < 0)
+ 			wr_idx += tx_ring->cnt;
+ 	}
+-	dma_unmap_single(&nn->pdev->dev, tx_ring->txbufs[wr_idx].dma_addr,
++	dma_unmap_single(nn->dev, tx_ring->txbufs[wr_idx].dma_addr,
+ 			 skb_headlen(skb), DMA_TO_DEVICE);
+ 	tx_ring->txbufs[wr_idx].skb = NULL;
+ 	tx_ring->txbufs[wr_idx].dma_addr = 0;
+@@ -920,8 +919,7 @@ static void nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
+ 
+ 		if (fidx == -1) {
+ 			/* unmap head */
+-			dma_unmap_single(&nn->pdev->dev,
+-					 tx_ring->txbufs[idx].dma_addr,
++			dma_unmap_single(nn->dev, tx_ring->txbufs[idx].dma_addr,
+ 					 skb_headlen(skb), DMA_TO_DEVICE);
+ 
+ 			done_pkts += tx_ring->txbufs[idx].pkt_cnt;
+@@ -929,8 +927,7 @@ static void nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
+ 		} else {
+ 			/* unmap fragment */
+ 			frag = &skb_shinfo(skb)->frags[fidx];
+-			dma_unmap_page(&nn->pdev->dev,
+-				       tx_ring->txbufs[idx].dma_addr,
++			dma_unmap_page(nn->dev, tx_ring->txbufs[idx].dma_addr,
+ 				       skb_frag_size(frag), DMA_TO_DEVICE);
+ 		}
+ 
+@@ -1027,7 +1024,6 @@ nfp_net_tx_ring_reset(struct nfp_net *nn, struct nfp_net_tx_ring *tx_ring)
+ {
+ 	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
+ 	const struct skb_frag_struct *frag;
+-	struct pci_dev *pdev = nn->pdev;
+ 	struct netdev_queue *nd_q;
+ 
+ 	while (tx_ring->rd_p != tx_ring->wr_p) {
+@@ -1047,13 +1043,13 @@ nfp_net_tx_ring_reset(struct nfp_net *nn, struct nfp_net_tx_ring *tx_ring)
+ 
+ 			if (tx_buf->fidx == -1) {
+ 				/* unmap head */
+-				dma_unmap_single(&pdev->dev, tx_buf->dma_addr,
++				dma_unmap_single(nn->dev, tx_buf->dma_addr,
+ 						 skb_headlen(skb),
+ 						 DMA_TO_DEVICE);
+ 			} else {
+ 				/* unmap fragment */
+ 				frag = &skb_shinfo(skb)->frags[tx_buf->fidx];
+-				dma_unmap_page(&pdev->dev, tx_buf->dma_addr,
++				dma_unmap_page(nn->dev, tx_buf->dma_addr,
+ 					       skb_frag_size(frag),
+ 					       DMA_TO_DEVICE);
+ 			}
+@@ -1157,7 +1153,7 @@ nfp_net_rx_alloc_one(struct nfp_net_rx_ring *rx_ring, dma_addr_t *dma_addr,
+ 	direction = xdp ? DMA_BIDIRECTIONAL : DMA_FROM_DEVICE;
+ 
+ 	*dma_addr = nfp_net_dma_map_rx(nn, frag, fl_bufsz, direction);
+-	if (dma_mapping_error(&nn->pdev->dev, *dma_addr)) {
++	if (dma_mapping_error(nn->dev, *dma_addr)) {
+ 		nfp_net_free_frag(frag, xdp);
+ 		nn_warn_ratelimit(nn, "Failed to map DMA RX buffer\n");
+ 		return NULL;
+@@ -1181,7 +1177,7 @@ nfp_net_napi_alloc_one(struct nfp_net *nn, int direction, dma_addr_t *dma_addr)
+ 	}
+ 
+ 	*dma_addr = nfp_net_dma_map_rx(nn, frag, nn->fl_bufsz, direction);
+-	if (dma_mapping_error(&nn->pdev->dev, *dma_addr)) {
++	if (dma_mapping_error(nn->dev, *dma_addr)) {
+ 		nfp_net_free_frag(frag, nn->xdp_prog);
+ 		nn_warn_ratelimit(nn, "Failed to map DMA RX buffer\n");
+ 		return NULL;
+@@ -1499,7 +1495,7 @@ nfp_net_tx_xdp_buf(struct nfp_net *nn, struct nfp_net_rx_ring *rx_ring,
+ 	txbuf->pkt_cnt = 1;
+ 	txbuf->real_len = pkt_len;
+ 
+-	dma_sync_single_for_device(&nn->pdev->dev, rxbuf->dma_addr + pkt_off,
++	dma_sync_single_for_device(nn->dev, rxbuf->dma_addr + pkt_off,
+ 				   pkt_len, DMA_BIDIRECTIONAL);
+ 
+ 	/* Build TX descriptor */
+@@ -1611,7 +1607,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 				  nn->bpf_offload_xdp)) {
+ 			int act;
+ 
+-			dma_sync_single_for_cpu(&nn->pdev->dev,
++			dma_sync_single_for_cpu(nn->dev,
+ 						rxbuf->dma_addr + pkt_off,
+ 						pkt_len, DMA_BIDIRECTIONAL);
+ 			act = nfp_net_run_xdp(xdp_prog, rxbuf->frag + data_off,
+@@ -1728,12 +1724,11 @@ static void nfp_net_tx_ring_free(struct nfp_net_tx_ring *tx_ring)
+ {
+ 	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
+ 	struct nfp_net *nn = r_vec->nfp_net;
+-	struct pci_dev *pdev = nn->pdev;
+ 
+ 	kfree(tx_ring->txbufs);
+ 
+ 	if (tx_ring->txds)
+-		dma_free_coherent(&pdev->dev, tx_ring->size,
++		dma_free_coherent(nn->dev, tx_ring->size,
+ 				  tx_ring->txds, tx_ring->dma);
+ 
+ 	tx_ring->cnt = 0;
+@@ -1756,13 +1751,12 @@ nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring, u32 cnt, bool is_xdp)
+ {
+ 	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
+ 	struct nfp_net *nn = r_vec->nfp_net;
+-	struct pci_dev *pdev = nn->pdev;
+ 	int sz;
+ 
+ 	tx_ring->cnt = cnt;
+ 
+ 	tx_ring->size = sizeof(*tx_ring->txds) * tx_ring->cnt;
+-	tx_ring->txds = dma_zalloc_coherent(&pdev->dev, tx_ring->size,
++	tx_ring->txds = dma_zalloc_coherent(nn->dev, tx_ring->size,
+ 					    &tx_ring->dma, GFP_KERNEL);
+ 	if (!tx_ring->txds)
+ 		goto err_alloc;
+@@ -1849,12 +1843,11 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ {
+ 	struct nfp_net_r_vector *r_vec = rx_ring->r_vec;
+ 	struct nfp_net *nn = r_vec->nfp_net;
+-	struct pci_dev *pdev = nn->pdev;
+ 
+ 	kfree(rx_ring->rxbufs);
+ 
+ 	if (rx_ring->rxds)
+-		dma_free_coherent(&pdev->dev, rx_ring->size,
++		dma_free_coherent(nn->dev, rx_ring->size,
+ 				  rx_ring->rxds, rx_ring->dma);
+ 
+ 	rx_ring->cnt = 0;
+@@ -1878,14 +1871,13 @@ nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring, unsigned int fl_bufsz,
+ {
+ 	struct nfp_net_r_vector *r_vec = rx_ring->r_vec;
+ 	struct nfp_net *nn = r_vec->nfp_net;
+-	struct pci_dev *pdev = nn->pdev;
+ 	int sz;
+ 
+ 	rx_ring->cnt = cnt;
+ 	rx_ring->bufsz = fl_bufsz;
+ 
+ 	rx_ring->size = sizeof(*rx_ring->rxds) * rx_ring->cnt;
+-	rx_ring->rxds = dma_zalloc_coherent(&pdev->dev, rx_ring->size,
++	rx_ring->rxds = dma_zalloc_coherent(nn->dev, rx_ring->size,
+ 					    &rx_ring->dma, GFP_KERNEL);
+ 	if (!rx_ring->rxds)
+ 		goto err_alloc;
+@@ -3089,6 +3081,7 @@ struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
+ 	nn = netdev_priv(netdev);
+ 
+ 	nn->netdev = netdev;
++	nn->dev = &pdev->dev;
+ 	nn->pdev = pdev;
+ 
+ 	nn->max_tx_rings = max_tx_rings;
+@@ -3164,7 +3157,7 @@ static void nfp_net_rss_init(struct nfp_net *nn)
+ 
+ 	func_bit = find_first_bit(&rss_cap_hfunc, NFP_NET_CFG_RSS_HFUNCS);
+ 	if (func_bit == NFP_NET_CFG_RSS_HFUNCS) {
+-		dev_warn(&nn->pdev->dev,
++		dev_warn(nn->dev,
+ 			 "Bad RSS config, defaulting to Toeplitz hash\n");
+ 		func_bit = ETH_RSS_HASH_TOP_BIT;
+ 	}
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 3afcdc11480c..f04d0b8e84ad 100644
+index f04d0b8e84ad..8a9b3f3b95a8 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -178,6 +178,8 @@ nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_pf *pf, unsigned int id)
- 		if (pf->eth_tbl->ports[i].eth_index == id) {
- 			const u8 *mac_addr = pf->eth_tbl->ports[i].mac_addr;
+@@ -141,8 +141,7 @@ nfp_net_get_mac_addr_hwinfo(struct nfp_net *nn, struct nfp_cpp *cpp,
  
-+			nn->eth_port = &pf->eth_tbl->ports[i];
-+
- 			ether_addr_copy(nn->netdev->dev_addr, mac_addr);
- 			ether_addr_copy(nn->netdev->perm_addr, mac_addr);
- 			return;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-index 1ece1f8ae4b3..10a0c8392d2b 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-@@ -134,9 +134,32 @@ nfp_eth_port_translate(const struct eth_table_entry *src, unsigned int index,
+ 	mac_str = nfp_hwinfo_lookup(cpp, name);
+ 	if (!mac_str) {
+-		dev_warn(&nn->pdev->dev,
+-			 "Can't lookup MAC address. Generate\n");
++		dev_warn(nn->dev, "Can't lookup MAC address. Generate\n");
+ 		eth_hw_addr_random(nn->netdev);
+ 		return;
+ 	}
+@@ -150,7 +149,7 @@ nfp_net_get_mac_addr_hwinfo(struct nfp_net *nn, struct nfp_cpp *cpp,
+ 	if (sscanf(mac_str, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+ 		   &mac_addr[0], &mac_addr[1], &mac_addr[2],
+ 		   &mac_addr[3], &mac_addr[4], &mac_addr[5]) != 6) {
+-		dev_warn(&nn->pdev->dev,
++		dev_warn(nn->dev,
+ 			 "Can't parse MAC address (%s). Generate.\n", mac_str);
+ 		eth_hw_addr_random(nn->netdev);
+ 		return;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
+index 18a851eb3508..f6ed1aa9d94b 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
+@@ -168,8 +168,7 @@ nfp_net_bpf_offload_prepare(struct nfp_net *nn,
+ 	start_off = nn_readw(nn, NFP_NET_CFG_BPF_START);
+ 	done_off = nn_readw(nn, NFP_NET_CFG_BPF_DONE);
  
- 	nfp_eth_copy_mac_reverse(dst->mac_addr, src->mac_addr);
+-	*code = dma_zalloc_coherent(&nn->pdev->dev, code_sz, dma_addr,
+-				    GFP_KERNEL);
++	*code = dma_zalloc_coherent(nn->dev, code_sz, dma_addr, GFP_KERNEL);
+ 	if (!*code)
+ 		return -ENOMEM;
  
--	snprintf(dst->label, sizeof(dst->label) - 1, "%llu.%llu",
--		 FIELD_GET(NSP_ETH_PORT_PHYLABEL, port),
--		 FIELD_GET(NSP_ETH_PORT_LABEL, port));
-+	dst->label_port = FIELD_GET(NSP_ETH_PORT_PHYLABEL, port);
-+	dst->label_subport = FIELD_GET(NSP_ETH_PORT_LABEL, port);
-+}
-+
-+static void
-+nfp_eth_mark_split_ports(struct nfp_cpp *cpp, struct nfp_eth_table *table)
-+{
-+	unsigned int i, j;
-+
-+	for (i = 0; i < table->count; i++)
-+		for (j = 0; j < table->count; j++) {
-+			if (i == j)
-+				continue;
-+			if (table->ports[i].label_port !=
-+			    table->ports[j].label_port)
-+				continue;
-+			if (table->ports[i].label_subport ==
-+			    table->ports[j].label_subport)
-+				nfp_warn(cpp,
-+					 "Port %d subport %d is a duplicate\n",
-+					 table->ports[i].label_port,
-+					 table->ports[i].label_subport);
-+
-+			table->ports[i].is_split = true;
-+			break;
-+		}
+@@ -181,7 +180,7 @@ nfp_net_bpf_offload_prepare(struct nfp_net *nn,
+ 	return 0;
+ 
+ out:
+-	dma_free_coherent(&nn->pdev->dev, code_sz, *code, *dma_addr);
++	dma_free_coherent(nn->dev, code_sz, *code, *dma_addr);
+ 	return ret;
  }
  
- /**
-@@ -203,6 +226,8 @@ __nfp_eth_read_ports(struct nfp_cpp *cpp, struct nfp_nsp *nsp)
- 			nfp_eth_port_translate(&entries[i], i,
- 					       &table->ports[j++]);
+@@ -214,7 +213,7 @@ nfp_net_bpf_load_and_start(struct nfp_net *nn, u32 tc_flags,
+ 	if (err)
+ 		nn_err(nn, "FW command error while enabling BPF: %d\n", err);
  
-+	nfp_eth_mark_split_ports(cpp, table);
-+
- 	kfree(entries);
+-	dma_free_coherent(&nn->pdev->dev, code_sz, code, dma_addr);
++	dma_free_coherent(nn->dev, code_sz, code, dma_addr);
  
- 	return table;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h
-index edf703d319c8..325e841ca90a 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h
-@@ -49,10 +49,13 @@
-  * @lanes:	number of channels
-  * @speed:	interface speed (in Mbps)
-  * @mac_addr:	interface MAC address
-- * @label:	interface id string
-+ * @label_port:	port id
-+ * @label_subport:  id of interface within port (for split ports)
-  * @enabled:	is enabled?
-  * @tx_enabled:	is TX enabled?
-  * @rx_enabled:	is RX enabled?
-+ *
-+ * @is_split:	is interface part of a split port
-  */
- struct nfp_eth_table {
- 	unsigned int count;
-@@ -65,14 +68,22 @@ struct nfp_eth_table {
- 		unsigned int speed;
- 
- 		u8 mac_addr[ETH_ALEN];
--		char label[8];
-+
-+		u8 label_port;
-+		u8 label_subport;
- 
- 		bool enabled;
- 		bool tx_enabled;
- 		bool rx_enabled;
-+
-+		/* Computed fields */
-+		bool is_split;
- 	} ports[0];
- };
- 
-+struct nfp_cpp;
-+struct nfp_nsp;
-+
- struct nfp_eth_table *nfp_eth_read_ports(struct nfp_cpp *cpp);
- struct nfp_eth_table *
- __nfp_eth_read_ports(struct nfp_cpp *cpp, struct nfp_nsp *nsp);
+ 	nfp_net_bpf_stats_reset(nn);
+ 	mod_timer(&nn->rx_filter_stats_timer, jiffies + NFP_NET_STAT_POLL_IVL);
 -- 
 2.11.0
