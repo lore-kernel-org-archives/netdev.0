@@ -1,109 +1,462 @@
-From: <energi@aaengineering.se>
-Subject: 2035 netdev
-Date: Wed, 08 Mar 2017 15:01:37 -0000
-Message-ID: <148898529788.1097.9511747885863492236@cloudatcost.com>
-Reply-To: <energi@aaengineering.se>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: [PATCH v3 1/2] net: sched: make default fifo qdiscs appear in the
+ dump
+Date: Wed, 8 Mar 2017 16:03:32 +0100 (CET)
+Message-ID: <alpine.LSU.2.20.1703081602240.31814@cbobk.fhfr.pm>
+References: <alpine.LSU.2.20.1703081302240.31814@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: application/zip; name="670499321436.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Jiri Pirko <jiri@resnulli.us>
+To: "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Phil Sutter <phil@nwl.cc>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c999953672-cloudpro-854780355.cloudatcost.com ([64.137.200.57]:59897
-        "HELO cloudatcost.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1750946AbdCHPCk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 10:02:40 -0500
-Content-Disposition: attachment
+Received: from mx2.suse.de ([195.135.220.15]:44501 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751633AbdCHPFv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 8 Mar 2017 10:05:51 -0500
+In-Reply-To: <alpine.LSU.2.20.1703081302240.31814@cbobk.fhfr.pm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AA==
+From: Jiri Kosina <jkosina@suse.cz>
+
+The original reason [1] for having hidden qdiscs (potential scalability
+issues in qdisc_match_from_root() with single linked list in case of large
+amount of qdiscs) has been invalidated by 59cc1f61f0 ("net: sched: convert
+qdisc linked list to hashtable").
+
+This allows us for bringing more clarity and determinism into the dump by
+making default pfifo qdiscs visible.
+
+We're not turning this on by default though, at it was deemed [2] too
+intrusive / unnecessary change of default behavior towards userspace.
+Instead, TCA_DUMP_INVISIBLE netlink attribute is introduced, which allows
+applications to request complete qdisc hierarchy dump, including the
+ones that have always been implicit/invisible.
+
+Singleton noop_qdisc stays invisible, as teaching the whole infrastructure
+about singletons would require quite some surgery with very little gain
+(seeing no qdisc or seeing noop qdisc in the dump is probably setting
+the same user expectation).
+
+[1] http://lkml.kernel.org/r/1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com
+[2] http://lkml.kernel.org/r/20161021.105935.1907696543877061916.davem@davemloft.net
+
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+---
+
+v2 -> v3: get rid of uapi breakage by changing value of TCA_PAD (thanks a
+          lot to Jiri Pirko for catching my brainfart)
+
+v1 -> v2: introduce exception for singleton noop_qdisc
+
+ include/net/pkt_sched.h        |  2 +-
+ include/net/sch_generic.h      |  1 +
+ include/uapi/linux/rtnetlink.h |  1 +
+ net/sched/sch_api.c            | 42 ++++++++++++++++++++++++++++++------------
+ net/sched/sch_cbq.c            |  5 +++++
+ net/sched/sch_drr.c            |  2 ++
+ net/sched/sch_dsmark.c         |  2 ++
+ net/sched/sch_generic.c        |  2 +-
+ net/sched/sch_hfsc.c           |  4 ++++
+ net/sched/sch_htb.c            |  2 ++
+ net/sched/sch_mq.c             |  2 +-
+ net/sched/sch_mqprio.c         |  2 +-
+ net/sched/sch_multiq.c         |  2 ++
+ net/sched/sch_prio.c           |  5 ++++-
+ net/sched/sch_qfq.c            |  2 ++
+ net/sched/sch_red.c            |  2 ++
+ net/sched/sch_sfb.c            |  2 ++
+ net/sched/sch_tbf.c            |  2 ++
+ 18 files changed, 65 insertions(+), 17 deletions(-)
+
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index cd334c9584e9..0625eac2c601 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -90,7 +90,7 @@ int unregister_qdisc(struct Qdisc_ops *qops);
+ void qdisc_get_default(char *id, size_t len);
+ int qdisc_set_default(const char *id);
+ 
+-void qdisc_hash_add(struct Qdisc *q);
++void qdisc_hash_add(struct Qdisc *q, bool invisible);
+ void qdisc_hash_del(struct Qdisc *q);
+ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle);
+ struct Qdisc *qdisc_lookup_class(struct net_device *dev, u32 handle);
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index e6aa0a249672..e7dca250d115 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -66,6 +66,7 @@ struct Qdisc {
+ #define TCQ_F_NOPARENT		0x40 /* root of its hierarchy :
+ 				      * qdisc_tree_decrease_qlen() should stop.
+ 				      */
++#define TCQ_F_INVISIBLE		0x80 /* invisible by default in dump */
+ 	u32			limit;
+ 	const struct Qdisc_ops	*ops;
+ 	struct qdisc_size_table	__rcu *stab;
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 262f0379d83a..be034cc0e4e4 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -543,6 +543,7 @@ enum {
+ 	TCA_STATS2,
+ 	TCA_STAB,
+ 	TCA_PAD,
++	TCA_DUMP_INVISIBLE,
+ 	__TCA_MAX
+ };
+ 
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 206dc24add3a..8e4e6ab1847a 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -274,7 +274,7 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+ 	return NULL;
+ }
+ 
+-void qdisc_hash_add(struct Qdisc *q)
++void qdisc_hash_add(struct Qdisc *q, bool invisible)
+ {
+ 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
+ 		struct Qdisc *root = qdisc_dev(q)->qdisc;
+@@ -282,6 +282,8 @@ void qdisc_hash_add(struct Qdisc *q)
+ 		WARN_ON_ONCE(root == &noop_qdisc);
+ 		ASSERT_RTNL();
+ 		hash_add_rcu(qdisc_dev(q)->qdisc_hash, &q->hash, q->handle);
++		if (invisible)
++			q->flags |= TCQ_F_INVISIBLE;
+ 	}
+ }
+ EXPORT_SYMBOL(qdisc_hash_add);
+@@ -1004,7 +1006,7 @@ static struct Qdisc *qdisc_create(struct net_device *dev,
+ 				goto err_out4;
+ 		}
+ 
+-		qdisc_hash_add(sch);
++		qdisc_hash_add(sch, false);
+ 
+ 		return sch;
+ 	}
+@@ -1400,9 +1402,14 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+ 	return -1;
+ }
+ 
+-static bool tc_qdisc_dump_ignore(struct Qdisc *q)
++static bool tc_qdisc_dump_ignore(struct Qdisc *q, bool dump_invisible)
+ {
+-	return (q->flags & TCQ_F_BUILTIN) ? true : false;
++	if (q->flags & TCQ_F_BUILTIN)
++		return true;
++	if ((q->flags & TCQ_F_INVISIBLE) && !dump_invisible)
++		return true;
++
++	return false;
+ }
+ 
+ static int qdisc_notify(struct net *net, struct sk_buff *oskb,
+@@ -1416,12 +1423,12 @@ static int qdisc_notify(struct net *net, struct sk_buff *oskb,
+ 	if (!skb)
+ 		return -ENOBUFS;
+ 
+-	if (old && !tc_qdisc_dump_ignore(old)) {
++	if (old && !tc_qdisc_dump_ignore(old, false)) {
+ 		if (tc_fill_qdisc(skb, old, clid, portid, n->nlmsg_seq,
+ 				  0, RTM_DELQDISC) < 0)
+ 			goto err_out;
+ 	}
+-	if (new && !tc_qdisc_dump_ignore(new)) {
++	if (new && !tc_qdisc_dump_ignore(new, false)) {
+ 		if (tc_fill_qdisc(skb, new, clid, portid, n->nlmsg_seq,
+ 				  old ? NLM_F_REPLACE : 0, RTM_NEWQDISC) < 0)
+ 			goto err_out;
+@@ -1438,7 +1445,8 @@ static int qdisc_notify(struct net *net, struct sk_buff *oskb,
+ 
+ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+ 			      struct netlink_callback *cb,
+-			      int *q_idx_p, int s_q_idx, bool recur)
++			      int *q_idx_p, int s_q_idx, bool recur,
++			      bool dump_invisible)
+ {
+ 	int ret = 0, q_idx = *q_idx_p;
+ 	struct Qdisc *q;
+@@ -1451,7 +1459,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+ 	if (q_idx < s_q_idx) {
+ 		q_idx++;
+ 	} else {
+-		if (!tc_qdisc_dump_ignore(q) &&
++		if (!tc_qdisc_dump_ignore(q, dump_invisible) &&
+ 		    tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).portid,
+ 				  cb->nlh->nlmsg_seq, NLM_F_MULTI,
+ 				  RTM_NEWQDISC) <= 0)
+@@ -1473,7 +1481,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+ 			q_idx++;
+ 			continue;
+ 		}
+-		if (!tc_qdisc_dump_ignore(q) &&
++		if (!tc_qdisc_dump_ignore(q, dump_invisible) &&
+ 		    tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).portid,
+ 				  cb->nlh->nlmsg_seq, NLM_F_MULTI,
+ 				  RTM_NEWQDISC) <= 0)
+@@ -1495,12 +1503,21 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int idx, q_idx;
+ 	int s_idx, s_q_idx;
+ 	struct net_device *dev;
++	const struct nlmsghdr *nlh = cb->nlh;
++	struct tcmsg *tcm = nlmsg_data(nlh);
++	struct nlattr *tca[TCA_MAX + 1];
++	int err;
+ 
+ 	s_idx = cb->args[0];
+ 	s_q_idx = q_idx = cb->args[1];
+ 
+ 	idx = 0;
+ 	ASSERT_RTNL();
++
++	err = nlmsg_parse(nlh, sizeof(*tcm), tca, TCA_MAX, NULL);
++	if (err < 0)
++		return err;
++
+ 	for_each_netdev(net, dev) {
+ 		struct netdev_queue *dev_queue;
+ 
+@@ -1511,13 +1528,14 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ 		q_idx = 0;
+ 
+ 		if (tc_dump_qdisc_root(dev->qdisc, skb, cb, &q_idx, s_q_idx,
+-				       true) < 0)
++				       true, tca[TCA_DUMP_INVISIBLE]) < 0)
+ 			goto done;
+ 
+ 		dev_queue = dev_ingress_queue(dev);
+ 		if (dev_queue &&
+ 		    tc_dump_qdisc_root(dev_queue->qdisc_sleeping, skb, cb,
+-				       &q_idx, s_q_idx, false) < 0)
++				       &q_idx, s_q_idx, false,
++				       tca[TCA_DUMP_INVISIBLE]) < 0)
+ 			goto done;
+ 
+ cont:
+@@ -1761,7 +1779,7 @@ static int tc_dump_tclass_qdisc(struct Qdisc *q, struct sk_buff *skb,
+ {
+ 	struct qdisc_dump_args arg;
+ 
+-	if (tc_qdisc_dump_ignore(q) ||
++	if (tc_qdisc_dump_ignore(q, false) ||
+ 	    *t_p < s_t || !q->ops->cl_ops ||
+ 	    (tcm->tcm_parent &&
+ 	     TC_H_MAJ(tcm->tcm_parent) != q->handle)) {
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index beb554aa8cfb..a8d4da17a299 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1160,6 +1160,8 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
+ 				      sch->handle);
+ 	if (!q->link.q)
+ 		q->link.q = &noop_qdisc;
++	else
++		qdisc_hash_add(q->link.q, true);
+ 
+ 	q->link.priority = TC_CBQ_MAXPRIO - 1;
+ 	q->link.priority2 = TC_CBQ_MAXPRIO - 1;
+@@ -1599,6 +1601,9 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
+ 	cl->q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops, classid);
+ 	if (!cl->q)
+ 		cl->q = &noop_qdisc;
++	else
++		qdisc_hash_add(cl->q, true);
++
+ 	cl->common.classid = classid;
+ 	cl->tparent = parent;
+ 	cl->qdisc = sch;
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index 8af5c59eef84..ec749385f7e0 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -117,6 +117,8 @@ static int drr_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 					       &pfifo_qdisc_ops, classid);
+ 	if (cl->qdisc == NULL)
+ 		cl->qdisc = &noop_qdisc;
++	else
++		qdisc_hash_add(cl->qdisc, true);
+ 
+ 	if (tca[TCA_RATE]) {
+ 		err = gen_replace_estimator(&cl->bstats, NULL, &cl->rate_est,
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index 1308bbf460f7..8b0099667e27 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -367,6 +367,8 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
+ 	p->q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops, sch->handle);
+ 	if (p->q == NULL)
+ 		p->q = &noop_qdisc;
++	else
++		qdisc_hash_add(p->q, true);
+ 
+ 	pr_debug("%s: qdisc %p\n", __func__, p->q);
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 6cfb6e9038c2..e54c6ccf1ada 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -795,7 +795,7 @@ static void attach_default_qdiscs(struct net_device *dev)
+ 	}
+ #ifdef CONFIG_NET_SCHED
+ 	if (dev->qdisc)
+-		qdisc_hash_add(dev->qdisc);
++		qdisc_hash_add(dev->qdisc, false);
+ #endif
+ }
+ 
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 000f1d36128e..32081a696a3a 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1066,6 +1066,8 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 				      &pfifo_qdisc_ops, classid);
+ 	if (cl->qdisc == NULL)
+ 		cl->qdisc = &noop_qdisc;
++	else
++		qdisc_hash_add(cl->qdisc, true);
+ 	INIT_LIST_HEAD(&cl->children);
+ 	cl->vt_tree = RB_ROOT;
+ 	cl->cf_tree = RB_ROOT;
+@@ -1425,6 +1427,8 @@ hfsc_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
+ 					  sch->handle);
+ 	if (q->root.qdisc == NULL)
+ 		q->root.qdisc = &noop_qdisc;
++	else
++		qdisc_hash_add(q->root.qdisc, true);
+ 	INIT_LIST_HEAD(&q->root.children);
+ 	q->root.vt_tree = RB_ROOT;
+ 	q->root.cf_tree = RB_ROOT;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index c798d0de8a9d..a028fab05913 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1459,6 +1459,8 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		qdisc_class_hash_insert(&q->clhash, &cl->common);
+ 		if (parent)
+ 			parent->children++;
++		if (cl->un.leaf.q != &noop_qdisc)
++			qdisc_hash_add(cl->un.leaf.q, true);
+ 	} else {
+ 		if (tca[TCA_RATE]) {
+ 			err = gen_replace_estimator(&cl->bstats, NULL,
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index 2bc8d7f8df16..c735ce06f4c1 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -88,7 +88,7 @@ static void mq_attach(struct Qdisc *sch)
+ 			qdisc_destroy(old);
+ #ifdef CONFIG_NET_SCHED
+ 		if (ntx < dev->real_num_tx_queues)
+-			qdisc_hash_add(qdisc);
++			qdisc_hash_add(qdisc, false);
+ #endif
+ 
+ 	}
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index b5c502c78143..4587716b9775 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -182,7 +182,7 @@ static void mqprio_attach(struct Qdisc *sch)
+ 		if (old)
+ 			qdisc_destroy(old);
+ 		if (ntx < dev->real_num_tx_queues)
+-			qdisc_hash_add(qdisc);
++			qdisc_hash_add(qdisc, false);
+ 	}
+ 	kfree(priv->qdiscs);
+ 	priv->qdiscs = NULL;
+diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+index 9ffbb025b37e..73b68c00f82b 100644
+--- a/net/sched/sch_multiq.c
++++ b/net/sched/sch_multiq.c
+@@ -217,6 +217,8 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
+ 				sch_tree_lock(sch);
+ 				old = q->queues[i];
+ 				q->queues[i] = child;
++				if (child != &noop_qdisc)
++					qdisc_hash_add(child, true);
+ 
+ 				if (old != &noop_qdisc) {
+ 					qdisc_tree_reduce_backlog(old,
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index 8f575899adfa..f511ab70c5e7 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -192,8 +192,11 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
+ 		qdisc_destroy(child);
+ 	}
+ 
+-	for (i = oldbands; i < q->bands; i++)
++	for (i = oldbands; i < q->bands; i++) {
+ 		q->queues[i] = queues[i];
++		if (q->queues[i] != &noop_qdisc)
++			qdisc_hash_add(q->queues[i], true);
++	}
+ 
+ 	sch_tree_unlock(sch);
+ 	return 0;
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index ca0516e6f743..48d67f2c51af 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -494,6 +494,8 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 			goto destroy_class;
+ 	}
+ 
++	if (cl->qdisc != &noop_qdisc)
++		qdisc_hash_add(cl->qdisc, true);
+ 	sch_tree_lock(sch);
+ 	qdisc_class_hash_insert(&q->clhash, &cl->common);
+ 	sch_tree_unlock(sch);
+diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
+index 249b2a18acbd..799ea6dd69b2 100644
+--- a/net/sched/sch_red.c
++++ b/net/sched/sch_red.c
+@@ -191,6 +191,8 @@ static int red_change(struct Qdisc *sch, struct nlattr *opt)
+ 			return PTR_ERR(child);
+ 	}
+ 
++	if (child != &noop_qdisc)
++		qdisc_hash_add(child, true);
+ 	sch_tree_lock(sch);
+ 	q->flags = ctl->flags;
+ 	q->limit = ctl->limit;
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 20a350bd1b1d..49ab6be43b71 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -512,6 +512,8 @@ static int sfb_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (IS_ERR(child))
+ 		return PTR_ERR(child);
+ 
++	if (child != &noop_qdisc)
++		qdisc_hash_add(child, true);
+ 	sch_tree_lock(sch);
+ 
+ 	qdisc_tree_reduce_backlog(q->qdisc, q->qdisc->q.qlen,
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 303355c449ab..40c29a801391 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -396,6 +396,8 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 					  q->qdisc->qstats.backlog);
+ 		qdisc_destroy(q->qdisc);
+ 		q->qdisc = child;
++		if (child != &noop_qdisc);
++			qdisc_hash_add(child, true);
+ 	}
+ 	q->limit = qopt->limit;
+ 	if (tb[TCA_TBF_PBURST])
+-- 
+Jiri Kosina
+SUSE Labs
