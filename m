@@ -1,114 +1,47 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net-next] net: ipv6: Add early demux handler for UDP unicast
-Date: Wed,  8 Mar 2017 11:24:17 -0700
-Message-ID: <1488997457-24554-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: netdev@vger.kernel.org, eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:57226 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753921AbdCHStw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 13:49:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: wireless/atmel: remove time_t usage
+Date: Wed, 08 Mar 2017 20:53:15 +0200
+Message-ID: <871su77g84.fsf@kamboji.qca.qualcomm.com>
+References: <20170223161445.19200-1-alexandre.belloni@free-electrons.com>
+ <20170308151340.9D6E360209@smtp.codeaurora.org>
+ <20170308161025.nxz6puyeo3ezwa43@piout.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Simon Kelley <simon@thekelleys.org.uk>, linux-wireless@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170308161025.nxz6puyeo3ezwa43@piout.net> (Alexandre Belloni's
+ message of "Wed, 8 Mar 2017 17:10:25 +0100")
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-While running a single stream UDPv6 test, we observed that amount
-of CPU spent in NET_RX softirq was much greater than UDPv4 for an
-equivalent receive rate. The test here was run on an ARM64 based
-Android system. On further analysis with perf, we found that UDPv6
-was spending significant time in the statistics netfilter targets
-which did socket lookup per packet. These statistics rules perform
-a lookup when there is no socket associated with the skb. Since
-there are multiple instances of these rules based on UID, there
-will be equal number of lookups per skb.
+Alexandre Belloni <alexandre.belloni@free-electrons.com> writes:
 
-By introducing early demux for UDPv6, we avoid the redundant lookups.
-This also helped to improve the performance (800Mbps -> 870Mbps) on a
-CPU limited system in a single stream UDPv6 receive test with 1450
-byte sized datagrams using iperf.
+> Hi,
+>
+> On 08/03/2017 at 15:13:40 +0000, Kalle Valo wrote:
+>> Alexandre Belloni <alexandre.belloni@free-electrons.com> wrote:
+>> > last_qual never really holds a time. It only holds jiffies. Make it the
+>> > same type as jiffies.
+>> > 
+>> > Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+>> 
+>> The title should start with "atmel:", I can fix that during commit.
+>> 
+>
+> If you prefer, I can send a v2
 
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/ipv6/udp.c | 60 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 60 insertions(+)
+Thanks, but no need. I can easily edit the commit log when I commit it.
 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 221825a..76501ce 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -851,6 +851,65 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	return 0;
- }
- 
-+static struct sock *__udp6_lib_demux_lookup(struct net *net,
-+			__be16 loc_port, const struct in6_addr *loc_addr,
-+			__be16 rmt_port, const struct in6_addr *rmt_addr,
-+			int dif)
-+{
-+	struct sock *sk;
-+
-+	rcu_read_lock();
-+	sk = __udp6_lib_lookup(net, rmt_addr, rmt_port, loc_addr, loc_port,
-+			       dif, &udp_table, NULL);
-+	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
-+		sk = NULL;
-+	rcu_read_unlock();
-+
-+	return sk;
-+}
-+
-+static void udp_v6_early_demux(struct sk_buff *skb)
-+{
-+	struct net *net = dev_net(skb->dev);
-+	const struct udphdr *uh;
-+	struct sock *sk;
-+	struct dst_entry *dst;
-+	int dif = skb->dev->ifindex;
-+
-+	if (!pskb_may_pull(skb, skb_transport_offset(skb) +
-+	    sizeof(struct udphdr)))
-+		return;
-+
-+	uh = udp_hdr(skb);
-+
-+	if (skb->pkt_type == PACKET_HOST)
-+		sk = __udp6_lib_demux_lookup(net, uh->dest,
-+					     &ipv6_hdr(skb)->daddr,
-+					     uh->source, &ipv6_hdr(skb)->saddr,
-+					     dif);
-+	else
-+		return;
-+
-+	if (!sk)
-+		return;
-+
-+	skb->sk = sk;
-+
-+	skb->destructor = sock_efree;
-+	dst = READ_ONCE(sk->sk_rx_dst);
-+
-+	if (dst)
-+		dst = dst_check(dst, 0);
-+	if (dst) {
-+		if (dst->flags & DST_NOCACHE) {
-+			if (likely(atomic_inc_not_zero(&dst->__refcnt)))
-+				skb_dst_set(skb, dst);
-+		} else {
-+			skb_dst_set_noref(skb, dst);
-+		}
-+	}
-+}
-+
- static __inline__ int udpv6_rcv(struct sk_buff *skb)
- {
- 	return __udp6_lib_rcv(skb, &udp_table, IPPROTO_UDP);
-@@ -1365,6 +1424,7 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
- #endif
- 
- static const struct inet6_protocol udpv6_protocol = {
-+	.early_demux	=	udp_v6_early_demux,
- 	.handler	=	udpv6_rcv,
- 	.err_handler	=	udpv6_err,
- 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
 -- 
-1.9.1
+Kalle Valo
