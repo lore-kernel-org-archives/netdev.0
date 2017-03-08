@@ -1,57 +1,102 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 0/9] nfp: CRC32 RSS hash, port name reporting and misc fastpath cleanups
-Date: Wed,  8 Mar 2017 08:56:59 -0800
-Message-ID: <20170308165708.96087-1-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 9/9] nfp: prevent theoretical buffer overrun in nfp_eth_read_ports
+Date: Wed,  8 Mar 2017 08:57:08 -0800
+Message-ID: <20170308165708.96087-10-jakub.kicinski@netronome.com>
+References: <20170308165708.96087-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
+        Simon Horman <simon.horman@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:36002 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752501AbdCHQ7E (ORCPT
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:34479 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753790AbdCHQ7E (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 11:59:04 -0500
-Received: by mail-pg0-f50.google.com with SMTP id 187so15169330pgb.3
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 08:58:02 -0800 (PST)
+Received: by mail-pf0-f171.google.com with SMTP id v190so16984130pfb.1
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 08:58:16 -0800 (PST)
+In-Reply-To: <20170308165708.96087-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Simon Horman <simon.horman@netronome.com>
 
-This series adds support for CRC32 RSS hash function to kernel API
-of which NFP driver immediately makes use.  There is also a
-.ndo_get_phys_port_name() implementation conforming to switchdev 
-name format.  Small patch takes advantage of napi_complete_done()'s
-return code.  Simon provides a fix for potentially trusting values 
-returned from FW too much.
+Prevent theoretical buffer overrun by returning an error if
+the number of entries returned by the firmware does not match those
+present.
 
-A handful of unassuming fast path adjustments is also thrown in to make
-the upcoming xdp_adjust_head() series easier to review.
+Also use a common handling error path.
 
-Jakub Kicinski (8):
-  ethtool: add CRC32 as an RSS hash function
-  nfp: add support for reporting CRC32 hash function
-  nfp: implement .ndo_get_phys_port_name()
-  nfp: move more ring debug info to debugfs
-  nfp: reorder variables in nfp_net_tx()
-  nfp: store device pointer for the fastpath
-  nfp: avoid rearming the interrupts when in busy poll
-  nfp: add metadata format bit
+Found by inspection.
 
-Simon Horman (1):
-  nfp: prevent theoretical buffer overrun in nfp_eth_read_ports
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Tested-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   | 34 +++++++++++++---------
+ 1 file changed, 20 insertions(+), 14 deletions(-)
 
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  15 ++-
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 141 ++++++++++++++-------
- drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  14 +-
- .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |  13 +-
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  23 +++-
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |   7 +-
- .../net/ethernet/netronome/nfp/nfp_net_offload.c   |   7 +-
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   |  65 +++++++---
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.h   |  15 ++-
- include/linux/ethtool.h                            |   2 +
- net/core/ethtool.c                                 |   1 +
- 11 files changed, 216 insertions(+), 87 deletions(-)
-
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
+index 10a0c8392d2b..38bd80077e33 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
+@@ -191,8 +191,7 @@ __nfp_eth_read_ports(struct nfp_cpp *cpp, struct nfp_nsp *nsp)
+ {
+ 	struct eth_table_entry *entries;
+ 	struct nfp_eth_table *table;
+-	unsigned int cnt;
+-	int i, j, ret;
++	int i, j, ret, cnt = 0;
+ 
+ 	entries = kzalloc(NSP_ETH_TABLE_SIZE, GFP_KERNEL);
+ 	if (!entries)
+@@ -201,24 +200,27 @@ __nfp_eth_read_ports(struct nfp_cpp *cpp, struct nfp_nsp *nsp)
+ 	ret = nfp_nsp_read_eth_table(nsp, entries, NSP_ETH_TABLE_SIZE);
+ 	if (ret < 0) {
+ 		nfp_err(cpp, "reading port table failed %d\n", ret);
+-		kfree(entries);
+-		return NULL;
++		goto err;
+ 	}
+ 
+-	/* Some versions of flash will give us 0 instead of port count */
+-	cnt = ret;
+-	if (!cnt) {
+-		for (i = 0; i < NSP_ETH_MAX_COUNT; i++)
+-			if (entries[i].port & NSP_ETH_PORT_LANES_MASK)
+-				cnt++;
++	for (i = 0; i < NSP_ETH_MAX_COUNT; i++)
++		if (entries[i].port & NSP_ETH_PORT_LANES_MASK)
++			cnt++;
++
++	/* Some versions of flash will give us 0 instead of port count.
++	 * For those that give a port count, verify it against the value
++	 * calculated above.
++	 */
++	if (ret && ret != cnt) {
++		nfp_err(cpp, "table entry count reported (%d) does not match entries present (%d)\n",
++			ret, cnt);
++		goto err;
+ 	}
+ 
+ 	table = kzalloc(sizeof(*table) +
+ 			sizeof(struct nfp_eth_table_port) * cnt, GFP_KERNEL);
+-	if (!table) {
+-		kfree(entries);
+-		return NULL;
+-	}
++	if (!table)
++		goto err;
+ 
+ 	table->count = cnt;
+ 	for (i = 0, j = 0; i < NSP_ETH_MAX_COUNT; i++)
+@@ -231,6 +233,10 @@ __nfp_eth_read_ports(struct nfp_cpp *cpp, struct nfp_nsp *nsp)
+ 	kfree(entries);
+ 
+ 	return table;
++
++err:
++	kfree(entries);
++	return NULL;
+ }
+ 
+ /**
 -- 
 2.11.0
