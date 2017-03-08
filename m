@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v5 07/19] wireless: ipw2200: Replace PCI pool old API
-Date: Wed,  8 Mar 2017 17:19:45 +0100
-Message-ID: <20170308161957.28941-8-romain.perier@collabora.com>
+Subject: [PATCH v5 06/19] mlx5: Replace PCI pool old API
+Date: Wed,  8 Mar 2017 17:19:44 +0100
+Message-ID: <20170308161957.28941-7-romain.perier@collabora.com>
 References: <20170308161957.28941-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -18,14 +18,10 @@ To: Dan Williams <dan.j.williams@intel.com>,
         "Martin K. Petersen" <martin.petersen@oracle.com>,
         Felipe Balbi <balbi@kernel.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([46.235.227.227]:34349 "EHLO
-        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753280AbdCHQVL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 11:21:11 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170308161957.28941-1-romain.perier@collabora.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commit replaces the PCI pool old
 API by the appropriate function with the DMA pool API.
@@ -33,55 +29,71 @@ API by the appropriate function with the DMA pool API.
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
 Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
+ include/linux/mlx5/driver.h                   |  2 +-
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-index 5ef3c5c..93dfe47 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -3211,7 +3211,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 	struct fw_chunk *chunk;
- 	int total_nr = 0;
- 	int i;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index caa837e..6eef344 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -1061,7 +1061,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
+ 	if (!mailbox)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	mailbox->buf = pci_pool_zalloc(dev->cmd.pool, flags,
++	mailbox->buf = dma_pool_zalloc(dev->cmd.pool, flags,
+ 				       &mailbox->dma);
+ 	if (!mailbox->buf) {
+ 		mlx5_core_dbg(dev, "failed allocation\n");
+@@ -1076,7 +1076,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
+ static void free_cmd_box(struct mlx5_core_dev *dev,
+ 			 struct mlx5_cmd_mailbox *mailbox)
+ {
+-	pci_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
++	dma_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
+ 	kfree(mailbox);
+ }
+ 
+@@ -1696,7 +1696,8 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
+ 		return -EINVAL;
+ 	}
+ 
+-	cmd->pool = pci_pool_create("mlx5_cmd", dev->pdev, size, align, 0);
++	cmd->pool = dma_pool_create("mlx5_cmd", &dev->pdev->dev, size, align,
++				    0);
+ 	if (!cmd->pool)
+ 		return -ENOMEM;
+ 
+@@ -1786,7 +1787,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
+ 	free_cmd_page(dev, cmd);
+ 
+ err_free_pool:
+-	pci_pool_destroy(cmd->pool);
++	dma_pool_destroy(cmd->pool);
+ 
+ 	return err;
+ }
+@@ -1800,6 +1801,6 @@ void mlx5_cmd_cleanup(struct mlx5_core_dev *dev)
+ 	destroy_workqueue(cmd->wq);
+ 	destroy_msg_cache(dev);
+ 	free_cmd_page(dev, cmd);
+-	pci_pool_destroy(cmd->pool);
++	dma_pool_destroy(cmd->pool);
+ }
+ EXPORT_SYMBOL(mlx5_cmd_cleanup);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 48d8b66..0e33e65 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -284,7 +284,7 @@ struct mlx5_cmd {
+ 	struct semaphore pages_sem;
+ 	int	mode;
+ 	struct mlx5_cmd_work_ent *ent_arr[MLX5_MAX_COMMANDS];
 -	struct pci_pool *pool;
 +	struct dma_pool *pool;
- 	void **virts;
- 	dma_addr_t *phys;
- 
-@@ -3228,9 +3228,10 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 		kfree(virts);
- 		return -ENOMEM;
- 	}
--	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
-+	pool = dma_pool_create("ipw2200", &priv->pci_dev->dev, CB_MAX_LENGTH, 0,
-+			       0);
- 	if (!pool) {
--		IPW_ERROR("pci_pool_create failed\n");
-+		IPW_ERROR("dma_pool_create failed\n");
- 		kfree(phys);
- 		kfree(virts);
- 		return -ENOMEM;
-@@ -3255,7 +3256,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 
- 		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
- 		for (i = 0; i < nr; i++) {
--			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
-+			virts[total_nr] = dma_pool_alloc(pool, GFP_KERNEL,
- 							 &phys[total_nr]);
- 			if (!virts[total_nr]) {
- 				ret = -ENOMEM;
-@@ -3299,9 +3300,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 	}
-  out:
- 	for (i = 0; i < total_nr; i++)
--		pci_pool_free(pool, virts[i], phys[i]);
-+		dma_pool_free(pool, virts[i], phys[i]);
- 
--	pci_pool_destroy(pool);
-+	dma_pool_destroy(pool);
- 	kfree(phys);
- 	kfree(virts);
- 
+ 	struct mlx5_cmd_debug dbg;
+ 	struct cmd_msg_cache cache[MLX5_NUM_COMMAND_CACHES];
+ 	int checksum_disabled;
 -- 
 2.9.3
