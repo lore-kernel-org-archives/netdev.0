@@ -1,47 +1,65 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: wireless/atmel: remove time_t usage
-Date: Wed, 08 Mar 2017 20:53:15 +0200
-Message-ID: <871su77g84.fsf@kamboji.qca.qualcomm.com>
-References: <20170223161445.19200-1-alexandre.belloni@free-electrons.com>
- <20170308151340.9D6E360209@smtp.codeaurora.org>
- <20170308161025.nxz6puyeo3ezwa43@piout.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Simon Kelley <simon@thekelleys.org.uk>, linux-wireless@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170308161025.nxz6puyeo3ezwa43@piout.net> (Alexandre Belloni's
- message of "Wed, 8 Mar 2017 17:10:25 +0100")
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next 5/5] bonding: reduce scope of some global variables
+Date: Wed,  8 Mar 2017 10:56:02 -0800
+Message-ID: <20170308185602.23203-1-mahesh@bandewar.net>
+Cc: netdev <netdev@vger.kernel.org>,
+        Mahesh Bandewar <mahesh@bandewar.net>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Nikolay Aleksandrov <nikolay@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35063 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753880AbdCHTEA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 14:04:00 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 187so4221268pgb.2
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 11:03:38 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexandre Belloni <alexandre.belloni@free-electrons.com> writes:
+From: Mahesh Bandewar <maheshb@google.com>
 
-> Hi,
->
-> On 08/03/2017 at 15:13:40 +0000, Kalle Valo wrote:
->> Alexandre Belloni <alexandre.belloni@free-electrons.com> wrote:
->> > last_qual never really holds a time. It only holds jiffies. Make it the
->> > same type as jiffies.
->> > 
->> > Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
->> 
->> The title should start with "atmel:", I can fix that during commit.
->> 
->
-> If you prefer, I can send a v2
+Many of the bond param variables are declared global while it's not
+really necessary for these variables to be global. So moving them to
+the location these are used.
 
-Thanks, but no need. I can easily edit the commit log when I commit it.
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/bonding/bond_main.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 0f9f5ceae80e..ba934020dfaa 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -201,12 +201,6 @@ atomic_t netpoll_block_tx = ATOMIC_INIT(0);
+ 
+ unsigned int bond_net_id __read_mostly;
+ 
+-static __be32 arp_target[BOND_MAX_ARP_TARGETS];
+-static int arp_ip_count;
+-static int bond_mode	= BOND_MODE_ROUNDROBIN;
+-static int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
+-static int lacp_fast;
+-
+ /*-------------------------- Forward declarations ---------------------------*/
+ 
+ static int bond_init(struct net_device *bond_dev);
+@@ -4254,6 +4248,11 @@ static int bond_check_params(struct bond_params *params)
+ 	int arp_all_targets_value;
+ 	u16 ad_actor_sys_prio = 0;
+ 	u16 ad_user_port_key = 0;
++	__be32 arp_target[BOND_MAX_ARP_TARGETS];
++	int arp_ip_count;
++	int bond_mode	= BOND_MODE_ROUNDROBIN;
++	int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
++	int lacp_fast = 0;
+ 	int tlb_dynamic_lb = 0;
+ 
+ 	/* Convert string parameters. */
 -- 
-Kalle Valo
+2.12.0.246.ga2ecc84866-goog
