@@ -1,83 +1,113 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
-Date: Wed, 8 Mar 2017 12:55:35 +0100
-Message-ID: <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
-References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
- <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
- <CACT4Y+YCPxKkaZBfAabxtAV71R0ghLT-vUKVewJpm9wb2GXaEQ@mail.gmail.com>
- <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com>
- <4e4d7d51-82de-b21e-cb5d-d804f7b88999@cumulusnetworks.com>
- <CACT4Y+Z1MvKbb35-jhaY=jEoR+t2u2TiUpkCR_oG3=VNmKjqvQ@mail.gmail.com>
- <14c01aea-6c2f-6ba5-6aee-52c55f410da7@cumulusnetworks.com>
- <CACT4Y+aomj0W8M9JNr1GLsT8EFFHV9YsOTYzWkvwKZANE9hiBQ@mail.gmail.com>
- <CACT4Y+aDzAYs9mbNGeFEkYSB2wTwomZTGEKn4hDH0PAb4uiLqw@mail.gmail.com>
- <2b60b1b8-4766-0e36-f6fb-79914bf1925d@cumulusnetworks.com>
- <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
- <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
- <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
- <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com> <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v2 net-next 8/8] net: stmicro: mac debug prepared for multiple queues
+Date: Wed,  8 Mar 2017 12:22:48 +0000
+Message-ID: <9efe174a43c1d6c1fa2d7fe37d626e47d98b26ae.1488975090.git.jpinto@synopsys.com>
+References: <cover.1488975090.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:36621 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752622AbdCHMY3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 07:24:29 -0500
+In-Reply-To: <cover.1488975090.git.jpinto@synopsys.com>
+In-Reply-To: <cover.1488975090.git.jpinto@synopsys.com>
+References: <cover.1488975090.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 7, 2017 at 9:00 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Tue, Mar 7, 2017 at 8:30 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>>> On 3/7/17 11:13 AM, Dmitry Vyukov wrote:
->>>>>> on this warning:
->>>>>>
->>>>>> /* dst.next really should not be set at this point */
->>>>>> if (rt->dst.next && rt->dst.next->ops->family != AF_INET6) {
->>>>>>         pr_warn("fib6_add: adding rt with bad next -- family %d dst
->>>>>> flags %x\n",
->>>>>>                 rt->dst.next->ops->family, rt->dst.next->flags);
->>>>>>
->>>>>>         WARN_ON(1);
->>>>>> }
->>>>>>
->>>>>> You should have seen the pr_warn in the log preceding the WARN_ON dump.
->>>>>
->>>>> Right. They all have the same "IPv6: fib6_add: adding rt with bad next
->>>>> -- family 2 dst flags 6"
->>>>
->>>> remove the previous changes and try the attached.
->>>
->>>
->>> Doing this now.
->>> FWIW I've also applied your last patch with missing "iter->dst.flags
->>> &= ~DST_IN_FIB;" and restored the warning in rt6_rcu_free and it did
->>> not fire (in a limited run). I only saw the "WARNING in fib6_add" that
->>> I already reported.
->>
->>
->> So far I've hit only:
->> [ 1103.840031] BUG: KASAN: slab-out-of-bounds in fib6_age+0x3fd/0x480
->> at addr ffff8800799d2254
->> without any preceeding warnings.
->> But note that since the kernel is heavily stressed I can reliably get
->> any pr_err output if it happens right before BUG/WARNING. Anything
->> that happens minutes before will be lots because there are tons of
->> output.
->
->
->
-> So far 6 "KASAN: slab-out-of-bounds Read in fib6_age" but no other warnings.
+This patch prepares mac debug dump for multiple queues.
 
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+changes v1->v2:
+- Just to keep up with patch-set version
 
-I've got a bunch of the crashes that I was getting previously, but no
-new warnings.
+ drivers/net/ethernet/stmicro/stmmac/common.h         |  3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |  3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c    | 10 ++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |  4 +++-
+ 4 files changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 6a348d3..d7bb498 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -488,7 +488,8 @@ struct stmmac_ops {
+ 	void (*reset_eee_mode)(struct mac_device_info *hw);
+ 	void (*set_eee_timer)(struct mac_device_info *hw, int ls, int tw);
+ 	void (*set_eee_pls)(struct mac_device_info *hw, int link);
+-	void (*debug)(void __iomem *ioaddr, struct stmmac_extra_stats *x);
++	void (*debug)(void __iomem *ioaddr, struct stmmac_extra_stats *x,
++		      u32 queue);
+ 	/* PCS calls */
+ 	void (*pcs_ctrl_ane)(void __iomem *ioaddr, bool ane, bool srgmi_ral,
+ 			     bool loopback);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index 3a95ad9..0ebb69f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -413,7 +413,8 @@ static void dwmac1000_get_adv_lp(void __iomem *ioaddr, struct rgmii_adv *adv)
+ 	dwmac_get_adv_lp(ioaddr, GMAC_PCS_BASE, adv);
+ }
+ 
+-static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
++static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
++			    u32 queue)
+ {
+ 	u32 value = readl(ioaddr + GMAC_DEBUG);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index 3e723e1..b96acb8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -468,12 +468,10 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
+ 	return ret;
+ }
+ 
+-static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
++static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
++			 u32 queue)
+ {
+-	u32 value;
+-
+-	/*  Currently only channel 0 is supported */
+-	value = readl(ioaddr + MTL_CHAN_TX_DEBUG(STMMAC_CHAN0));
++	u32 value = readl(ioaddr + MTL_CHAN_TX_DEBUG(queue));
+ 
+ 	if (value & MTL_DEBUG_TXSTSFSTS)
+ 		x->mtl_tx_status_fifo_full++;
+@@ -496,7 +494,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
+ 	if (value & MTL_DEBUG_TXPAUSED)
+ 		x->mac_tx_in_pause++;
+ 
+-	value = readl(ioaddr + MTL_CHAN_RX_DEBUG(STMMAC_CHAN0));
++	value = readl(ioaddr + MTL_CHAN_RX_DEBUG(queue));
+ 
+ 	if (value & MTL_DEBUG_RXFSTS_MASK) {
+ 		u32 rxfsts = (value & MTL_DEBUG_RXFSTS_MASK)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 4a5dc89..09a714b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -520,6 +520,7 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
+ 				 struct ethtool_stats *dummy, u64 *data)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
++	u32 queue = 0;
+ 	int i, j = 0;
+ 
+ 	/* Update the DMA HW counters for dwmac10/100 */
+@@ -550,7 +551,8 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
+ 		if ((priv->hw->mac->debug) &&
+ 		    (priv->synopsys_id >= DWMAC_CORE_3_50))
+ 			priv->hw->mac->debug(priv->ioaddr,
+-					     (void *)&priv->xstats);
++					     (void *)&priv->xstats,
++					     queue);
+ 	}
+ 	for (i = 0; i < STMMAC_STATS_LEN; i++) {
+ 		char *p = (char *)priv + stmmac_gstrings_stats[i].stat_offset;
+-- 
+2.9.3
