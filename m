@@ -1,47 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix various issues for sockets morphing to
- listen state
-Date: Tue, 07 Mar 2017 13:59:20 -0800 (PST)
-Message-ID: <20170307.135920.663771797825250884.davem@davemloft.net>
-References: <CANn89iLNQKyywwLAdJsQDOpGDtEs6S-4BZkZYmwT39ENZyqLTg@mail.gmail.com>
-        <1488574561.9415.336.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1488578901.9415.353.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next RFC 3/4] vhost: interrupt coalescing support
+Date: Wed, 8 Mar 2017 11:25:21 +0800
+Message-ID: <bf53ae2d-faca-a454-4df0-48296f8106b2@redhat.com>
+References: <20170303143909.80001-1-willemdebruijn.kernel@gmail.com>
+ <20170303143909.80001-4-willemdebruijn.kernel@gmail.com>
+ <51a3fba2-a789-7bcf-946d-577220865709@redhat.com>
+ <CAF=yD-+n_qJP+VK6BqH6dDkBDFaza3X=RJffdCi3cL8aCnUMSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, dvyukov@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41260 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752908AbdCHDYg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 22:24:36 -0500
-In-Reply-To: <1488578901.9415.353.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35458 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752548AbdCHDZe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Mar 2017 22:25:34 -0500
+In-Reply-To: <CAF=yD-+n_qJP+VK6BqH6dDkBDFaza3X=RJffdCi3cL8aCnUMSw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 03 Mar 2017 14:08:21 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Dmitry Vyukov reported a divide by 0 triggered by syzkaller, exploiting
-> tcp_disconnect() path that was never really considered and/or used
-> before syzkaller ;)
-> 
-> I was not able to reproduce the bug, but it seems issues here are the
-> three possible actions that assumed they would never trigger on a
-> listener.
-> 
-> 1) tcp_write_timer_handler
-> 2) tcp_delack_timer_handler
-> 3) MTU reduction
-> 
-> Only IPv6 MTU reduction was properly testing TCP_CLOSE and TCP_LISTEN
->  states from tcp_v6_mtu_reduced()
-> 
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Applied and queued up for -stable.
+On 2017年03月07日 01:31, Willem de Bruijn wrote:
+> On Mon, Mar 6, 2017 at 4:28 AM, Jason Wang <jasowang@redhat.com> wrote:
+>>
+>> On 2017年03月03日 22:39, Willem de Bruijn wrote:
+>>> +void vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq);
+>>> +static enum hrtimer_restart vhost_coalesce_timer(struct hrtimer *timer)
+>>> +{
+>>> +       struct vhost_virtqueue *vq =
+>>> +               container_of(timer, struct vhost_virtqueue, ctimer);
+>>> +
+>>> +       if (mutex_trylock(&vq->mutex)) {
+>>> +               vq->coalesce_frames = vq->max_coalesce_frames;
+>>> +               vhost_signal(vq->dev, vq);
+>>> +               mutex_unlock(&vq->mutex);
+>>> +       }
+>>> +
+>>> +       /* TODO: restart if lock failed and not held by handle_tx */
+>>> +       return HRTIMER_NORESTART;
+>>> +}
+>>> +
+>>
+>> Then we may lose an interrupt forever if no new tx request? I believe we
+>> need e.g vhost_poll_queue() here.
+> Absolutely, I need to fix this. The common case for failing to grab
+> the lock is competition with handle_tx. With careful coding we can
+> probably avoid scheduling another run with vhost_poll_queue in
+> the common case.
+
+Yes, probably add some checking after releasing the mutex_lock in 
+handle_tx().
+
+Thans
+
+>
+> Your patch v7 cancels the pending hrtimer at the start of handle_tx.
+> I need to reintroduce that, and also only schedule a timer at the end
+> of handle_tx, not immediately when vq->coalesce_frames becomes
+> non-zero.
