@@ -1,73 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v5 04/19] net: e100: Replace PCI pool old API
-Date: Wed, 08 Mar 2017 14:40:25 -0800
-Message-ID: <1489012825.3477.51.camel@intel.com>
-References: <20170308161957.28941-1-romain.perier@collabora.com>
-         <20170308161957.28941-5-romain.perier@collabora.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Wed, 8 Mar 2017 14:43:44 -0800
+Message-ID: <CA+55aFwaNhP918b0zgpP8G6qGXHP+Qw69hEV+271tPMXu1+p8A@mail.gmail.com>
+References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com>
+ <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net>
+ <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com> <58C08535.3070000@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-p87cXMN0K7D4rRhQU6Ip"
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Romain Perier <romain.perier@collabora.com>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, "the arch/x86 maintainers" <x86@kernel.org>,
+        Kees Cook <keescook@chromium.org>,
+        Laura Abbott <labbott@redhat.com>,
+        David Miller <davem@davemloft.net>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170308161957.28941-5-romain.perier@collabora.com>
+In-Reply-To: <58C08535.3070000@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Mar 8, 2017 at 2:27 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>
+> The issue seems to be accessing buff first (can be read or write access)
+> and then doing set_memory_ro() doesn't make it read-only immediately,
+> meaning the subsequent call into probe_kernel_write() will succeed without
+> error.
+>
+> Then, if I don't touch buff first and only do the set_memory_ro() seems
+> to work and probe_kernel_write() will then fail as expected due to pages
+> being read-only now.
 
---=-p87cXMN0K7D4rRhQU6Ip
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Ok, that definitely sounds like a TLB invalidate didn't happen.
 
-On Wed, 2017-03-08 at 17:19 +0100, Romain Perier wrote:
-> The PCI pool API is deprecated. This commit replaces the PCI pool old
-> API by the appropriate function with the DMA pool API.
->=20
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-> Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/e100.c | 12 ++++++------
-> =C2=A01 file changed, 6 insertions(+), 6 deletions(-)
+> Now, if I access buff, do the set_memory_ro() and then a msleep(0), for
+> example, it "kind of" works most of the time (see last log extract below),
+> and probe_kernel_write() will fail.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Yeah, very much consistent with a missing TLB invalidate. Scheduling
+will end up invalidating it, although if it's a global page even that
+might not do it (but eventually the entry will just get flushed due to
+other activity).
 
-My only concern is:
-- what hardware did this get tested with?  Since this affects all e100
-parts, it would be hard to believe that all the affected hardware was
-used in testing.
---=-p87cXMN0K7D4rRhQU6Ip
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+> None of this seems an issue with x86_64 and the test_setmem runs fine all
+> the time, same for the actual BPF stuff.
 
------BEGIN PGP SIGNATURE-----
+The code does look somewhat confused about when to actually flush
+things - see my earlier note about NX - but it would seem to always do
+__flush_tlb_all() unless I missed something. At least as long as
+CPA_FLUSHTLB is set. Maybe some case forgets to set that..
 
-iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAljAiFkACgkQ5W/vlVpL
-7c5KqA//dfxwhSSaEHsZcSVBClb6RNEyuAtgW6MYWhTdnRHDEDd253nmWumlU6he
-UYpJMs8FMKTYU1VFJ1fN3hzxN3t+jls9I39DMgtEcWv0LFGfQScJt2W8qh8IeheK
-dIlXtzM2JWM3XKWjASPTjY0S3o/cZrxuJo5Yv/2t6/Y/18nghdmXs9qtZo5ewBih
-A67A73qd7AvEpa4VPoCF6QI0yez+sIIi8Lmo9th34P61UyZU1HyUwijO/j3uGA0+
-cXjLs3weVzH0CJQlRO0KSOTigl7I7QjOawpM8e8QW3x0eGO5pBOZjhGMwux70+Zd
-K6lZHIZoyua9qRCEiKpQw/MXaquzoTL8l7ctNqOFloWe63rxgwsnDO8QmfXURBSs
-DiY9uJEYoXvyuQloxpiA/lZm/drH5vAGMQG2equMcqT9IAN3yTWs3/NG4MQMcPoz
-9Nym9qOPXOKc7W9YLhK5JbQjyt7HvosEF2WN+quWPR0WY5e2YGqcXiPGqwUH0YkS
-KRuxTmKcNMkqICUYXKZpk2ACdkoVCH02yqRunBYUtsFgD9BFx4JXBhJ4HLWRzZTW
-kw8dlUG+eyVo+0UCJoB9S2L63yIgTsHnnQQIy99hDslRiUygSZUkO15UgjLko2dc
-+APGhTqnm5BzG52lOIYaUzfyGElUzJByzWP2O4H6RuzfAin68B4=
-=+lcU
------END PGP SIGNATURE-----
-
---=-p87cXMN0K7D4rRhQU6Ip--
+       Linus
