@@ -1,58 +1,132 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv3 net-next 21/22] net: mvpp2: set dma mask and coherent
- dma mask on PPv2.2
-Date: Wed, 8 Mar 2017 11:00:10 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE7A585@AcuExch.aculab.com>
-References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1488902000-2658-22-git-send-email-thomas.petazzoni@free-electrons.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE79D2E@AcuExch.aculab.com>
- <20170307191201.645d23b4@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- Yehuda Yitschak <yehuday@marvell.com>, Russell King <linux@arm.linux.org.uk>,
- Jason Cooper <jason@lakedaemon.net>, Pawel Moll <pawel.moll@arm.com>,
- Ian Campbell <ijc+devicetree@hellion.org.uk>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Hanna Hawa <hannah@marvell.com>, Nadav
- Haklai <nadavh@marvell.com>, Rob Herring <robh+dt@kernel.org>,
- Andrew Lunn <andrew@lunn.ch>, Kumar Gala <galak@codeaurora.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- "David S. Miller" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: 'Thomas Petazzoni' <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170307191201.645d23b4@free-electrons.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH net-next 3/8] net: stmicro: configure tx queue weight
+Date: Wed,  8 Mar 2017 11:03:10 +0000
+Message-ID: <934aafa1865c51601a95054ffa9b4ffaeb32df79.1488969672.git.jpinto@synopsys.com>
+References: <cover.1488969672.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:35788 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752621AbdCHLNK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 06:13:10 -0500
+In-Reply-To: <cover.1488969672.git.jpinto@synopsys.com>
+In-Reply-To: <cover.1488969672.git.jpinto@synopsys.com>
+References: <cover.1488969672.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Petazzoni
-> Sent: 07 March 2017 18:12
-> Hello,
-> 
-> On Tue, 7 Mar 2017 17:24:21 +0000, David Laight wrote:
-> 
-> > Are the coherent mappings just used for ring structures?
-> > If it might be reasonable to allocate them as a single entity,
-> > thus guaranteeing they all reside in a single 4G region.
-> 
-> Do we have the guarantee that a DMA coherent allocation will not span a
-> 4G boundary?
+This patch adds TX queues weight programming.
 
-I'm pretty sure they are guaranteed not to cross any boundary they don't have to.
-So a 16k buffer won't cross a 16k boundary.
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  3 +++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  7 +++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 13 +++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 20 ++++++++++++++++++++
+ 4 files changed, 43 insertions(+)
 
-	David
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 5a0a781..a25b2f8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -459,6 +459,9 @@ struct stmmac_ops {
+ 	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
+ 	/* Program TX Algorithms */
+ 	void (*prog_mtl_tx_algorithms)(struct mac_device_info *hw, u32 tx_alg);
++	/* Set MTL TX queues weight */
++	void (*set_mtl_tx_queue_weight)(struct mac_device_info *hw,
++					u32 weight, u32 queue);
+ 	/* Dump MAC registers */
+ 	void (*dump_regs)(struct mac_device_info *hw, u32 *reg_space);
+ 	/* Handle extra events on specific interrupts hw dependent */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index 748ab6f..7d77e78 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -211,6 +211,13 @@ enum power_event {
+ #define MTL_OP_MODE_RTC_96		(2 << MTL_OP_MODE_RTC_SHIFT)
+ #define MTL_OP_MODE_RTC_128		(3 << MTL_OP_MODE_RTC_SHIFT)
+ 
++/* MTL Queue Quantum Weight */
++#define MTL_TXQ_WEIGHT_BASE_ADDR	0x00000d18
++#define MTL_TXQ_WEIGHT_BASE_OFFSET	0x40
++#define MTL_TXQX_WEIGHT_BASE_ADDR(x)	(MTL_TXQ_WEIGHT_BASE_ADDR + \
++					((x) * MTL_TXQ_WEIGHT_BASE_OFFSET))
++#define MTL_TXQ_WEIGHT_ISCQW_MASK	GENMASK(20, 0)
++
+ /*  MTL debug */
+ #define MTL_DEBUG_TXSTSFSTS		BIT(5)
+ #define MTL_DEBUG_TXFSTS		BIT(4)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index 7503b8e..ccbfa31 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -116,6 +116,18 @@ static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
+ 	}
+ }
+ 
++static void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
++					   u32 weight, u32 queue)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value = 0;
++
++	value = readl(ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
++	value &= ~MTL_TXQ_WEIGHT_ISCQW_MASK;
++	value |= weight & MTL_TXQ_WEIGHT_ISCQW_MASK;
++	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
++}
++
+ static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+@@ -505,6 +517,7 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.rx_queue_enable = dwmac4_rx_queue_enable,
+ 	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
+ 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
++	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
+ 	.dump_regs = dwmac4_dump_regs,
+ 	.host_irq_status = dwmac4_irq_status,
+ 	.flow_ctrl = dwmac4_flow_ctrl,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index af57f8d..df3b1ee 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1645,6 +1645,23 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
+ }
+ 
+ /**
++ *  stmmac_set_tx_queue_weight - Set TX queue weight
++ *  @priv: driver private structure
++ *  Description: It is used for setting TX queues weight
++ */
++static void stmmac_set_tx_queue_weight(struct stmmac_priv *priv)
++{
++	u32 tx_queues_count = priv->plat->tx_queues_to_use;
++	u32 queue = 0;
++	u32 weight = 0;
++
++	for (queue = 0; queue < tx_queues_count; queue++) {
++		weight = priv->plat->tx_queues_cfg[queue].weight;
++		priv->hw->mac->set_mtl_tx_queue_weight(priv->hw, weight, queue);
++	}
++}
++
++/**
+  *  stmmac_mtl_configuration - Configure MTL
+  *  @priv: driver private structure
+  *  Description: It is used for configurring MTL
+@@ -1654,6 +1671,9 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ 	u32 rx_queues_count = priv->plat->rx_queues_to_use;
+ 	u32 tx_queues_count = priv->plat->tx_queues_to_use;
+ 
++	if (tx_queues_count > 1 && priv->hw->mac->set_mtl_tx_queue_weight)
++		stmmac_set_tx_queue_weight(priv);
++
+ 	/* Configure MTL RX algorithms */
+ 	if (rx_queues_count > 1 && priv->hw->mac->prog_mtl_rx_algorithms)
+ 		priv->hw->mac->prog_mtl_rx_algorithms(priv->hw,
+-- 
+2.9.3
