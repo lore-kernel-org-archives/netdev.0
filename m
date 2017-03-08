@@ -1,113 +1,73 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] Question on ixgbe flow director
-Date: Wed, 8 Mar 2017 13:03:55 -0800
-Message-ID: <CAKgT0Uf-8fWC-xeqwdzSrW+-HKGiwFJenV4hMukrZEy_L728Hw@mail.gmail.com>
-References: <c5c170c0-a024-5cb2-cd39-81b8cfffd8e5@oracle.com>
- <CAKgT0UfT9zdzPHQawFtGZf9k1mwHG5_jZorXNDsoiOrUfNnZJw@mail.gmail.com> <5e81301b-f660-43a5-3400-8cbf7d3a77aa@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        netdev <netdev@vger.kernel.org>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: tndave <tushar.n.dave@oracle.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: fjes: use new api ethtool_{get|set}_link_ksettings
+Date: Wed,  8 Mar 2017 23:16:11 +0100
+Message-ID: <1489011371-17119-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, izumi.taku@jp.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:38349 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754285AbdCHV6b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 16:58:31 -0500
-Received: by mail-it0-f46.google.com with SMTP id m27so53313233iti.1
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 13:58:22 -0800 (PST)
-In-Reply-To: <5e81301b-f660-43a5-3400-8cbf7d3a77aa@oracle.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36772 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751209AbdCHWQd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 17:16:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 8, 2017 at 11:30 AM, tndave <tushar.n.dave@oracle.com> wrote:
->
->
-> On 03/08/2017 07:39 AM, Alexander Duyck wrote:
->>
->> On Tue, Mar 7, 2017 at 3:43 PM, tndave <tushar.n.dave@oracle.com>
->> wrote:
->>>
->>> Hi,
->>>
->>> I have few questions regarding ixgbe flow director. As per my
->>> understanding flow director in ixgbe can work in 2 exclusive ways,
->>>  a. Using ATR filters - where flow director is setup in HW by
->>> driver identifying transmit traffic. And based on that, receive
->>> traffic of the same flow get assigned/directed to same queue.
->>
->>
->> So ATR for ixgbe uses the Flow Director signature filters. Basically
->> the signature filters are purely hash based filters.  The easiest way
->> to think of it is it is essentially a beefed up version of RSS.
->
-> Alex,
->
-> Thanks for the info.
->>
->>
->>> b. Perfect filter, where user can manually program flow director
->>> using ethtool so that receive packets gets directed to specified
->>> rx queue (depending on on how ethtool flow-type and action etc,.);
->>> But with perfect filters there is no intelligence involved alike
->>> ATR has on identifying transit, right?
->>
->>
->> You are right.  The perfect match filters are the ones we configure
->> via ethtool.  You are correct in that ATR logic is not involved so
->> there is no matching up an Rx flow to a Tx flow.
->>
->>> Few question regarding ixgbe ATR, 1. does ATR works in case if
->>> protocol is UDP? (Based on the current ixgbe_atr() it only
->>> supports TCP)
->>
->>
->> It could, but the software for doing ATR flow identification,
->> ixgbe_atr(), only works on TCP.  The reasoning behind it is that Flow
->> Director doesn't filter fragmented frames and UDP can be fragmented.
->
-> So we could just add code in ixgbe_atr() for non-fragmented udp packets!
-> However question is if it is going to work w.r.t ATR? TCP is connected
-> stream vs udp is stateless and single udp socket can talk to multiple
-> endpoints.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Right so the Tx based approach for UDP also probably won't work
-because there isn't a symmetric set of endpoints used for most UDP
-flows.  For example with TCP you have a fixed set of source and
-destination ports that you can swap and get the opposite direction.
-The same isn't true for UDP.  You can end up with UDP using a random
-source port and sending to the same fixed destination port on both
-ends.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-You might look at the hardware RPS offload that some of the other
-drivers out there support that allow for hardware accelerated RFS
-offload.  Something like that might work for your needs if you are
-needing to route UDP.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/fjes/fjes_ethtool.c |   19 +++++++++----------
+ 1 files changed, 9 insertions(+), 10 deletions(-)
 
->>
->>> 2. Does ATR flow director can be programmed using ethtool? (As per
->>> my understanding only perfect filter can be programmed from
->>> ethtool, is that so?)
->>
->>
->> You can enable/disable the ATR filters via the NTUPLE feaure flag.
->> Basically it toggles between ATR mode, and NTUPLE mode.  In NTUPLE
->> mode the perfect filters are enabled and can be configured via
->> ethtool.
->
-> Got it.
->
-> Thanks.
->
-> -Tushar
->
->>
->>> Thanks in advance, -Tushar
->>
->>
->> Hope that helps.
->>
->> - Alex
->>
->
+diff --git a/drivers/net/fjes/fjes_ethtool.c b/drivers/net/fjes/fjes_ethtool.c
+index 6575f88..7d10171 100644
+--- a/drivers/net/fjes/fjes_ethtool.c
++++ b/drivers/net/fjes/fjes_ethtool.c
+@@ -175,16 +175,15 @@ static void fjes_get_drvinfo(struct net_device *netdev,
+ 		 "platform:%s", plat_dev->name);
+ }
+ 
+-static int fjes_get_settings(struct net_device *netdev,
+-			     struct ethtool_cmd *ecmd)
++static int fjes_get_link_ksettings(struct net_device *netdev,
++				   struct ethtool_link_ksettings *ecmd)
+ {
+-	ecmd->supported = 0;
+-	ecmd->advertising = 0;
+-	ecmd->duplex = DUPLEX_FULL;
+-	ecmd->autoneg = AUTONEG_DISABLE;
+-	ecmd->transceiver = XCVR_DUMMY1;
+-	ecmd->port = PORT_NONE;
+-	ethtool_cmd_speed_set(ecmd, 20000);	/* 20Gb/s */
++	ethtool_link_ksettings_zero_link_mode(ecmd, supported);
++	ethtool_link_ksettings_zero_link_mode(ecmd, advertising);
++	ecmd->base.duplex = DUPLEX_FULL;
++	ecmd->base.autoneg = AUTONEG_DISABLE;
++	ecmd->base.port = PORT_NONE;
++	ecmd->base.speed = 20000;	/* 20Gb/s */
+ 
+ 	return 0;
+ }
+@@ -296,7 +295,6 @@ static int fjes_get_dump_data(struct net_device *netdev,
+ }
+ 
+ static const struct ethtool_ops fjes_ethtool_ops = {
+-		.get_settings		= fjes_get_settings,
+ 		.get_drvinfo		= fjes_get_drvinfo,
+ 		.get_ethtool_stats = fjes_get_ethtool_stats,
+ 		.get_strings      = fjes_get_strings,
+@@ -306,6 +304,7 @@ static int fjes_get_dump_data(struct net_device *netdev,
+ 		.set_dump		= fjes_set_dump,
+ 		.get_dump_flag		= fjes_get_dump_flag,
+ 		.get_dump_data		= fjes_get_dump_data,
++		.get_link_ksettings	= fjes_get_link_ksettings,
+ };
+ 
+ void fjes_set_ethtool_ops(struct net_device *netdev)
+-- 
+1.7.4.4
