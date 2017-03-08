@@ -1,116 +1,33 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net-next v2] net: ipv6: Add early demux handler for UDP unicast
-Date: Wed,  8 Mar 2017 16:36:49 -0700
-Message-ID: <1489016209-19344-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: netdev@vger.kernel.org, eric.dumazet@gmail.com
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net 0/4] bnxt_en: Misc. small fixes.
+Date: Wed,  8 Mar 2017 18:44:31 -0500
+Message-ID: <1489016675-16097-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33192 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750869AbdCHXhC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 18:37:02 -0500
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:35942 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752052AbdCHXqD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 18:46:03 -0500
+Received: by mail-wm0-f48.google.com with SMTP id n11so127218305wma.1
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 15:44:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While running a single stream UDPv6 test, we observed that amount
-of CPU spent in NET_RX softirq was much greater than UDPv4 for an
-equivalent receive rate. The test here was run on an ARM64 based
-Android system. On further analysis with perf, we found that UDPv6
-was spending significant time in the statistics netfilter targets
-which did socket lookup per packet. These statistics rules perform
-a lookup when there is no socket associated with the skb. Since
-there are multiple instances of these rules based on UID, there
-will be equal number of lookups per skb.
+Fixes include moving the initial function reset, notifying the RDMA driver
+during tx timeout, setting dcbx_cap properly depending on whether the
+firmware agent is running or not, and an autoneg related improvement. 
 
-By introducing early demux for UDPv6, we avoid the redundant lookups.
-This also helped to improve the performance (800Mbps -> 870Mbps) on a
-CPU limited system in a single stream UDPv6 receive test with 1450
-byte sized datagrams using iperf.
+Michael Chan (4):
+  bnxt_en: Perform function reset earlier during probe.
+  bnxt_en: Call bnxt_ulp_stop() during tx timeout.
+  bnxt_en: Check if firmware LLDP agent is running.
+  bnxt_en: Ignore 0 value in autoneg supported speed from firmware.
 
-v1->v2: Use IPv6 cookie to validate dst instead of 0 as suggested
-by Eric
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 25 ++++++++++++++++++-------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h     |  1 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c |  2 +-
+ 3 files changed, 20 insertions(+), 8 deletions(-)
 
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/ipv6/udp.c | 59 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 59 insertions(+)
-
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 221825a..8497077 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -851,6 +851,64 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	return 0;
- }
- 
-+static struct sock *__udp6_lib_demux_lookup(struct net *net,
-+			__be16 loc_port, const struct in6_addr *loc_addr,
-+			__be16 rmt_port, const struct in6_addr *rmt_addr,
-+			int dif)
-+{
-+	struct sock *sk;
-+
-+	rcu_read_lock();
-+	sk = __udp6_lib_lookup(net, rmt_addr, rmt_port, loc_addr, loc_port,
-+			       dif, &udp_table, NULL);
-+	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
-+		sk = NULL;
-+	rcu_read_unlock();
-+
-+	return sk;
-+}
-+
-+static void udp_v6_early_demux(struct sk_buff *skb)
-+{
-+	struct net *net = dev_net(skb->dev);
-+	const struct udphdr *uh;
-+	struct sock *sk;
-+	struct dst_entry *dst;
-+	int dif = skb->dev->ifindex;
-+
-+	if (!pskb_may_pull(skb, skb_transport_offset(skb) +
-+	    sizeof(struct udphdr)))
-+		return;
-+
-+	uh = udp_hdr(skb);
-+
-+	if (skb->pkt_type == PACKET_HOST)
-+		sk = __udp6_lib_demux_lookup(net, uh->dest,
-+					     &ipv6_hdr(skb)->daddr,
-+					     uh->source, &ipv6_hdr(skb)->saddr,
-+					     dif);
-+	else
-+		return;
-+
-+	if (!sk)
-+		return;
-+
-+	skb->sk = sk;
-+	skb->destructor = sock_efree;
-+	dst = READ_ONCE(sk->sk_rx_dst);
-+
-+	if (dst)
-+		dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
-+	if (dst) {
-+		if (dst->flags & DST_NOCACHE) {
-+			if (likely(atomic_inc_not_zero(&dst->__refcnt)))
-+				skb_dst_set(skb, dst);
-+		} else {
-+			skb_dst_set_noref(skb, dst);
-+		}
-+	}
-+}
-+
- static __inline__ int udpv6_rcv(struct sk_buff *skb)
- {
- 	return __udp6_lib_rcv(skb, &udp_table, IPPROTO_UDP);
-@@ -1365,6 +1423,7 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
- #endif
- 
- static const struct inet6_protocol udpv6_protocol = {
-+	.early_demux	=	udp_v6_early_demux,
- 	.handler	=	udpv6_rcv,
- 	.err_handler	=	udpv6_err,
- 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
 -- 
-1.9.1
+1.8.3.1
