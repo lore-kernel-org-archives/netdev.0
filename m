@@ -1,41 +1,38 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: wireless/atmel: remove time_t usage
-Date: Wed,  8 Mar 2017 15:13:40 +0000 (UTC)
-Message-ID: <20170308151340.6E8EF607A1@smtp.codeaurora.org>
-References: <20170223161445.19200-1-alexandre.belloni@free-electrons.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 1/2] net: sched: make default fifo qdiscs appear in
+ the dump
+Date: Wed, 08 Mar 2017 07:17:59 -0800
+Message-ID: <1488986279.28631.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <alpine.LSU.2.20.1703081302240.31814@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Simon Kelley <simon@thekelleys.org.uk>,
- Alexandre Belloni <alexandre.belloni@free-electrons.com>,
- linux-wireless@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org
-To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170223161445.19200-1-alexandre.belloni@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Phil Sutter <phil@nwl.cc>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.20.1703081302240.31814@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexandre Belloni <alexandre.belloni@free-electrons.com> wrote:
-> last_qual never really holds a time. It only holds jiffies. Make it the
-> same type as jiffies.
-> 
-> Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+On Wed, 2017-03-08 at 13:03 +0100, Jiri Kosina wrote:
 
-The title should start with "atmel:", I can fix that during commit.
 
--- 
-https://patchwork.kernel.org/patch/9588521/
+> +++ b/net/sched/sch_qfq.c
+> @@ -494,6 +494,8 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+>  			goto destroy_class;
+>  	}
+>  
+> +	if (cl->qdisc != &noop_qdisc)
+> +		qdisc_hash_add(cl->qdisc, true);
 
-Documentation about submitting wireless patches and checking status
-from patchwork:
 
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+Please move the test in qdisc_hash_add() instead of copy/pasting it all
+over the places ?
+
+This is control path, keep it small, thanks !
