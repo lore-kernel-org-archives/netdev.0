@@ -1,51 +1,89 @@
-From: Yaroslav Isakov <yaroslav.isakov@gmail.com>
-Subject: tun offloads bug
-Date: Wed, 8 Mar 2017 23:29:53 +0300
-Message-ID: <CADS+iDW49e+oSw9p_MBOVk4Qojh+e00a5zix-sO8NQethn=pjg@mail.gmail.com>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Re: [Intel-wired-lan] Question on ixgbe flow director
+Date: Wed, 8 Mar 2017 11:30:54 -0800
+Message-ID: <5e81301b-f660-43a5-3400-8cbf7d3a77aa@oracle.com>
+References: <c5c170c0-a024-5cb2-cd39-81b8cfffd8e5@oracle.com>
+ <CAKgT0UfT9zdzPHQawFtGZf9k1mwHG5_jZorXNDsoiOrUfNnZJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=94eb2c131036f55a38054a3dfeeb
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        netdev <netdev@vger.kernel.org>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:34868 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750770AbdCHUbM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 15:31:12 -0500
-Received: by mail-wm0-f53.google.com with SMTP id v186so124204103wmd.0
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 12:30:15 -0800 (PST)
+Received: from userp1050.oracle.com ([156.151.31.82]:27739 "EHLO
+        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754162AbdCHVRf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 16:17:35 -0500
+Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
+        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v28JXTf2016294
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Wed, 8 Mar 2017 19:33:29 GMT
+In-Reply-To: <CAKgT0UfT9zdzPHQawFtGZf9k1mwHG5_jZorXNDsoiOrUfNnZJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---94eb2c131036f55a38054a3dfeeb
-Content-Type: text/plain; charset=UTF-8
 
-Hello!
-I've found a bug in TUN/TAP driver with offloads - when Qemu is trying
-to set offloads on tap device, there is no error, but offloads are not
-appied.
 
-The cause of this is that udev in recent systemd is using ethtool to
-disable offloads. So, udev is setting tun->dev->wanted_features via
-ethtool ioctl to disable TSO, but when qemu is trying to set offloads,
-it's using TUN/TAP ioctl which is not setting wanted_features, so
-netdev_update_features will not see features qemu wants.
+On 03/08/2017 07:39 AM, Alexander Duyck wrote:
+> On Tue, Mar 7, 2017 at 3:43 PM, tndave <tushar.n.dave@oracle.com>
+> wrote:
+>> Hi,
+>>
+>> I have few questions regarding ixgbe flow director. As per my
+>> understanding flow director in ixgbe can work in 2 exclusive ways,
+>>  a. Using ATR filters - where flow director is setup in HW by
+>> driver identifying transmit traffic. And based on that, receive
+>> traffic of the same flow get assigned/directed to same queue.
+>
+> So ATR for ixgbe uses the Flow Director signature filters. Basically
+> the signature filters are purely hash based filters.  The easiest way
+> to think of it is it is essentially a beefed up version of RSS.
+Alex,
 
-This can be easily reproduced - just run qemu with
-guest_tso4=on,guest_tso6=on on systemd with systemd>=226 and after
-booting the VM, ethtool -k tap0 will show that TSO4 is disabled and
-TSO6 is enabled (systemd is not touching TSO6, that's why it's not
-affected at all)
-I've attached pretty trivial patch to fix this problem.
+Thanks for the info.
+>
+>> b. Perfect filter, where user can manually program flow director
+>> using ethtool so that receive packets gets directed to specified
+>> rx queue (depending on on how ethtool flow-type and action etc,.);
+>> But with perfect filters there is no intelligence involved alike
+>> ATR has on identifying transit, right?
+>
+> You are right.  The perfect match filters are the ones we configure
+> via ethtool.  You are correct in that ATR logic is not involved so
+> there is no matching up an Rx flow to a Tx flow.
+>
+>> Few question regarding ixgbe ATR, 1. does ATR works in case if
+>> protocol is UDP? (Based on the current ixgbe_atr() it only
+>> supports TCP)
+>
+> It could, but the software for doing ATR flow identification,
+> ixgbe_atr(), only works on TCP.  The reasoning behind it is that Flow
+> Director doesn't filter fragmented frames and UDP can be fragmented.
+So we could just add code in ixgbe_atr() for non-fragmented udp packets!
+However question is if it is going to work w.r.t ATR? TCP is connected
+stream vs udp is stateless and single udp socket can talk to multiple
+endpoints.
 
---94eb2c131036f55a38054a3dfeeb
-Content-Type: text/x-patch; charset=US-ASCII; name="tun.patch"
-Content-Disposition: attachment; filename="tun.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j01f46or0
+>
+>> 2. Does ATR flow director can be programmed using ethtool? (As per
+>> my understanding only perfect filter can be programmed from
+>> ethtool, is that so?)
+>
+> You can enable/disable the ATR filters via the NTUPLE feaure flag.
+> Basically it toggles between ATR mode, and NTUPLE mode.  In NTUPLE
+> mode the perfect filters are enabled and can be configured via
+> ethtool.
+Got it.
 
-LS0tIHR1bi5jCTIwMTctMDMtMDggMjM6MTk6NDAuMTE3NjE1MjM1ICswMzAwCisrKyB0dW4uYy5u
-ZXcJMjAxNy0wMy0wOCAyMzoyMDoxMi44ODY3NDkxOTUgKzAzMDAKQEAgLTE5MTksNiArMTkxOSw4
-IEBACiAJCXJldHVybiAtRUlOVkFMOwogCiAJdHVuLT5zZXRfZmVhdHVyZXMgPSBmZWF0dXJlczsK
-Kwl0dW4tPmRldi0+d2FudGVkX2ZlYXR1cmVzICY9IH5UVU5fVVNFUl9GRUFUVVJFUzsKKwl0dW4t
-PmRldi0+d2FudGVkX2ZlYXR1cmVzIHw9IGZlYXR1cmVzOwogCW5ldGRldl91cGRhdGVfZmVhdHVy
-ZXModHVuLT5kZXYpOwogCiAJcmV0dXJuIDA7Cg==
---94eb2c131036f55a38054a3dfeeb--
+Thanks.
+
+-Tushar
+>
+>> Thanks in advance, -Tushar
+>
+> Hope that helps.
+>
+> - Alex
+>
