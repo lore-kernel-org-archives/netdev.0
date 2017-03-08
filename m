@@ -1,64 +1,58 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [PATCH 2/2] iproute2: add support for invisible qdisc dumping
-Date: Wed, 8 Mar 2017 11:40:19 +0100 (CET)
-Message-ID: <alpine.LSU.2.20.1703081138180.31814@cbobk.fhfr.pm>
-References: <alpine.LSU.2.20.1702252228010.24579@cbobk.fhfr.pm> <20170227115218.GO6099@orbyte.nwl.cc>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCHv3 net-next 21/22] net: mvpp2: set dma mask and coherent
+ dma mask on PPv2.2
+Date: Wed, 8 Mar 2017 11:00:10 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE7A585@AcuExch.aculab.com>
+References: <1488902000-2658-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1488902000-2658-22-git-send-email-thomas.petazzoni@free-electrons.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE79D2E@AcuExch.aculab.com>
+ <20170307191201.645d23b4@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170227115218.GO6099@orbyte.nwl.cc>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ Yehuda Yitschak <yehuday@marvell.com>, Russell King <linux@arm.linux.org.uk>,
+ Jason Cooper <jason@lakedaemon.net>, Pawel Moll <pawel.moll@arm.com>,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Hanna Hawa <hannah@marvell.com>, Nadav
+ Haklai <nadavh@marvell.com>, Rob Herring <robh+dt@kernel.org>,
+ Andrew Lunn <andrew@lunn.ch>, Kumar Gala <galak@codeaurora.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: 'Thomas Petazzoni' <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170307191201.645d23b4@free-electrons.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Feb 2017, Phil Sutter wrote:
-
-> > Support the new TCA_DUMP_INVISIBLE netlink attribute that allows asking 
-> > kernel to perform 'full qdisc dump', as for historical reasons some of the 
-> > default qdiscs are being hidden by the kernel.
-> > 
-> > The command syntax is being extended by voluntary 'invisible' argument to
-> > 'tc qdisc show'.
-> > 
-> > Signed-off-by: Jiri Kosina <jkosina@suse.cz>
-> > ---
-> >  tc/tc_qdisc.c | 25 +++++++++++++++++++++++--
-> >  1 file changed, 23 insertions(+), 2 deletions(-)
+From: Thomas Petazzoni
+> Sent: 07 March 2017 18:12
+> Hello,
 > 
-> Would you mind adding a description of the new keyword to tc man page as
-> well?
-
-Seems like tc manpage would need more updates, as it doesn't seem to 
-reflect the '[ ingress | clsact ]' possibility either. So I'll send this 
-as a followup patch, fixing all these at once.
-
-> > diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-> > index 3a3701c2..29da9269 100644
-> > --- a/tc/tc_qdisc.c
-> > +++ b/tc/tc_qdisc.c
-> > @@ -34,7 +34,7 @@ static int usage(void)
-> >  	fprintf(stderr, "       [ stab [ help | STAB_OPTIONS] ]\n");
-> >  	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
-> >  	fprintf(stderr, "\n");
-> > -	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ]\n");
-> > +	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact | invisible ]\n");
+> On Tue, 7 Mar 2017 17:24:21 +0000, David Laight wrote:
 > 
-> Doesn't look like these are mutually exclusive. Therefore I would
-> suggest fixing the syntax to:
+> > Are the coherent mappings just used for ring structures?
+> > If it might be reasonable to allocate them as a single entity,
+> > thus guaranteeing they all reside in a single 4G region.
 > 
-> | +	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ] [ invisible ]\n");
+> Do we have the guarantee that a DMA coherent allocation will not span a
+> 4G boundary?
 
-Makes sense, will include this in v2.
+I'm pretty sure they are guaranteed not to cross any boundary they don't have to.
+So a 16k buffer won't cross a 16k boundary.
 
-Thanks,
-
--- 
-Jiri Kosina
-SUSE Labs
+	David
