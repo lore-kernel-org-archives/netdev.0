@@ -1,125 +1,152 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: hyperv: use new api ethtool_{get|set}_link_ksettings
-Date: Wed,  8 Mar 2017 23:41:04 +0100
-Message-ID: <1489012864-30810-1-git-send-email-tremyfr@gmail.com>
+From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
+Subject: [PATCH v2] fjes: Do not load fjes driver if system does not have
+ extended socket device.
+Date: Wed, 8 Mar 2017 16:05:18 -0500
+Message-ID: <7a1a2dbc-99e0-06ba-2261-6e6382937486@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Philippe Reynes <tremyfr@gmail.com>,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
- davem@davemloft.net
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, izumi.taku@jp.fujitsu.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:34881 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751286AbdCHWmK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 17:42:10 -0500
+Received: by mail-qk0-f196.google.com with SMTP id o135so15527355qke.2
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 14:41:10 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+The fjes driver is used only by FUJITSU servers and almost of all
+servers in the world never use it. But currently if ACPI PNP0C02
+is defined in the ACPI table, the following message is always shown:
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+  "FUJITSU Extended Socket Network Device Driver - version 1.2
+   - Copyright (c) 2015 FUJITSU LIMITED"
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+The message makes users confused because there is no reason that
+the message is shown in other vendor servers.
+
+To avoid the confusion, the patch adds a check that the server
+has a extended socket device or not.
+
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+CC: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/hyperv/netvsc_drv.c |   39 +++++++++++++++++++++------------------
- 1 files changed, 21 insertions(+), 18 deletions(-)
+v2:
+	- Order local variable declarations from longest to shortest line
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 617dd90..b12808a 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -789,18 +789,19 @@ static int netvsc_set_channels(struct net_device *net,
- 	return ret;
- }
- 
--static bool netvsc_validate_ethtool_ss_cmd(const struct ethtool_cmd *cmd)
-+static bool
-+netvsc_validate_ethtool_ss_cmd(const struct ethtool_link_ksettings *cmd)
- {
--	struct ethtool_cmd diff1 = *cmd;
--	struct ethtool_cmd diff2 = {};
-+	struct ethtool_link_ksettings diff1 = *cmd;
-+	struct ethtool_link_ksettings diff2 = {};
- 
--	ethtool_cmd_speed_set(&diff1, 0);
--	diff1.duplex = 0;
-+	diff1.base.speed = 0;
-+	diff1.base.duplex = 0;
- 	/* advertising and cmd are usually set */
--	diff1.advertising = 0;
--	diff1.cmd = 0;
-+	ethtool_link_ksettings_zero_link_mode(&diff1, advertising);
-+	diff1.base.cmd = 0;
- 	/* We set port to PORT_OTHER */
--	diff2.port = PORT_OTHER;
-+	diff2.base.port = PORT_OTHER;
- 
- 	return !memcmp(&diff1, &diff2, sizeof(diff1));
- }
-@@ -813,30 +814,32 @@ static void netvsc_init_settings(struct net_device *dev)
- 	ndc->duplex = DUPLEX_UNKNOWN;
- }
- 
--static int netvsc_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int netvsc_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd)
- {
- 	struct net_device_context *ndc = netdev_priv(dev);
- 
--	ethtool_cmd_speed_set(cmd, ndc->speed);
--	cmd->duplex = ndc->duplex;
--	cmd->port = PORT_OTHER;
-+	cmd->base.speed = ndc->speed;
-+	cmd->base.duplex = ndc->duplex;
-+	cmd->base.port = PORT_OTHER;
- 
- 	return 0;
- }
- 
--static int netvsc_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int netvsc_set_link_ksettings(struct net_device *dev,
-+				     const struct ethtool_link_ksettings *cmd)
- {
- 	struct net_device_context *ndc = netdev_priv(dev);
- 	u32 speed;
- 
--	speed = ethtool_cmd_speed(cmd);
-+	speed = cmd->base.speed;
- 	if (!ethtool_validate_speed(speed) ||
--	    !ethtool_validate_duplex(cmd->duplex) ||
-+	    !ethtool_validate_duplex(cmd->base.duplex) ||
- 	    !netvsc_validate_ethtool_ss_cmd(cmd))
- 		return -EINVAL;
- 
- 	ndc->speed = speed;
--	ndc->duplex = cmd->duplex;
-+	ndc->duplex = cmd->base.duplex;
- 
- 	return 0;
- }
-@@ -1170,13 +1173,13 @@ static int netvsc_set_rxfh(struct net_device *dev, const u32 *indir,
- 	.get_channels   = netvsc_get_channels,
- 	.set_channels   = netvsc_set_channels,
- 	.get_ts_info	= ethtool_op_get_ts_info,
--	.get_settings	= netvsc_get_settings,
--	.set_settings	= netvsc_set_settings,
- 	.get_rxnfc	= netvsc_get_rxnfc,
- 	.get_rxfh_key_size = netvsc_get_rxfh_key_size,
- 	.get_rxfh_indir_size = netvsc_rss_indir_size,
- 	.get_rxfh	= netvsc_get_rxfh,
- 	.set_rxfh	= netvsc_set_rxfh,
-+	.get_link_ksettings = netvsc_get_link_ksettings,
-+	.set_link_ksettings = netvsc_set_link_ksettings,
- };
- 
- static const struct net_device_ops device_ops = {
+  drivers/net/fjes/fjes_main.c | 52 +++++++++++++++++++++++++++++++++++++++-----
+  1 file changed, 47 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+index b77e4ecf..a57c2cb 100644
+--- a/drivers/net/fjes/fjes_main.c
++++ b/drivers/net/fjes/fjes_main.c
+@@ -45,6 +45,8 @@
+  MODULE_LICENSE("GPL");
+  MODULE_VERSION(DRV_VERSION);
+
++#define ACPI_MOTHERBOARD_RESOURCE_HID "PNP0C02"
++
+  static int fjes_request_irq(struct fjes_adapter *);
+  static void fjes_free_irq(struct fjes_adapter *);
+
+@@ -79,7 +81,7 @@
+  static int fjes_poll(struct napi_struct *, int);
+
+  static const struct acpi_device_id fjes_acpi_ids[] = {
+-	{"PNP0C02", 0},
++	{ACPI_MOTHERBOARD_RESOURCE_HID, 0},
+  	{"", 0},
+  };
+  MODULE_DEVICE_TABLE(acpi, fjes_acpi_ids);
+@@ -116,18 +118,17 @@
+  	},
+  };
+
+-static int fjes_acpi_add(struct acpi_device *device)
++static bool is_extended_socket_device(struct acpi_device *device)
+  {
+  	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL};
+  	char str_buf[sizeof(FJES_ACPI_SYMBOL) + 1];
+-	struct platform_device *plat_dev;
+  	union acpi_object *str;
+  	acpi_status status;
+  	int result;
+
+  	status = acpi_evaluate_object(device->handle, "_STR", NULL, &buffer);
+  	if (ACPI_FAILURE(status))
+-		return -ENODEV;
++		return false;
+
+  	str = buffer.pointer;
+  	result = utf16s_to_utf8s((wchar_t *)str->string.pointer,
+@@ -137,10 +138,21 @@ static int fjes_acpi_add(struct acpi_device *device)
+
+  	if (strncmp(FJES_ACPI_SYMBOL, str_buf, strlen(FJES_ACPI_SYMBOL)) != 0) {
+  		kfree(buffer.pointer);
+-		return -ENODEV;
++		return false;
+  	}
+  	kfree(buffer.pointer);
+
++	return true;
++}
++
++static int fjes_acpi_add(struct acpi_device *device)
++{
++	struct platform_device *plat_dev;
++	acpi_status status;
++
++	if (!is_extended_socket_device(device))
++		return -ENODEV;
++
+  	status = acpi_walk_resources(device->handle, METHOD_NAME__CRS,
+  				     fjes_get_acpi_resource, fjes_resource);
+  	if (ACPI_FAILURE(status))
+@@ -1476,11 +1488,41 @@ static void fjes_watch_unshare_task(struct work_struct *work)
+  	}
+  }
+
++static acpi_status
++acpi_find_extended_socket_device(acpi_handle obj_handle, u32 level,
++				 void *context, void **return_value)
++{
++	struct acpi_device *device;
++	bool *found = context;
++	int result;
++
++	result = acpi_bus_get_device(obj_handle, &device);
++	if (result)
++		return AE_OK;
++
++	if (strcmp(acpi_device_hid(device), ACPI_MOTHERBOARD_RESOURCE_HID))
++		return AE_OK;
++
++	if (!is_extended_socket_device(device))
++		return AE_OK;
++
++	*found = true;
++	return AE_CTRL_TERMINATE;
++}
++
+  /* fjes_init_module - Driver Registration Routine */
+  static int __init fjes_init_module(void)
+  {
++	bool found = false;
+  	int result;
+
++	acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
++			    acpi_find_extended_socket_device, NULL, &found,
++			    NULL);
++
++	if (!found)
++		return -ENODEV;
++
+  	pr_info("%s - version %s - %s\n",
+  		fjes_driver_string, fjes_driver_version, fjes_copyright);
+
 -- 
-1.7.4.4
+1.8.3.1
