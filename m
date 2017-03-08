@@ -1,38 +1,63 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH v2] net: initialize msg.msg_flags in recvfrom
-Date: Wed,  8 Mar 2017 18:08:16 +0100
-Message-ID: <20170308170816.8533-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [net] netfilter: nat: sctp: fix ICMP packet to be dropped
+ accidently
+Date: Wed, 8 Mar 2017 18:29:43 +0100
+Message-ID: <20170308172943.GA8577@salvia>
+References: <1488621602-4152-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1488621602-4152-1-git-send-email-ying.xue@windriver.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-KMSAN reports a use of uninitialized memory in put_cmsg() because
-msg.msg_flags in recvfrom haven't been initialized properly.
-The flag values don't affect the result on this path, but it's still a
-good idea to initialize them explicitly.
+On Sat, Mar 04, 2017 at 06:00:02PM +0800, Ying Xue wrote:
+> Regarding RFC 792, the first 64 bits of the original SCTP datagram's
+> data could be contained in ICMP packet, such as:
+> 
+>     0                   1                   2                   3
+>     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+>    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>    |     Type      |     Code      |          Checksum             |
+>    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>    |                             unused                            |
+>    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>    |      Internet Header + 64 bits of Original Data Datagram      |
+>    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> 
+> However, according to RFC 4960, SCTP datagram header is as below:
+> 
+>     0                   1                   2                   3
+>     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+>    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>    |     Source Port Number        |     Destination Port Number   |
+>    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>    |                      Verification Tag                         |
+>    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>    |                           Checksum                            |
+>    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> 
+> It means only the first three fields of SCTP header can be carried in
+> ICMP packet except for Checksum field.
+> 
+> At present in sctp_manip_pkt(), no matter whether the packet is ICMP or
+> not, it always calculates SCTP packet checksum. However, not only the
+> calculation of checksum is unnecessary for ICMP, but also it causes
+> another fatal issue that ICMP packet is dropped. The header size of
+> SCTP is used to identify whether the writeable length of skb is bigger
+> than skb->len through skb_make_writable() in sctp_manip_pkt(). But
+> when it deals with ICMP packet, skb_make_writable() directly returns
+> false as the writeable length of skb is bigger than skb->len.
+> Subsequently ICMP is dropped.
+> 
+> Now we correct this misbahavior. When sctp_manip_pkt() handles ICMP
+> packet, 8 bytes rather than the whole SCTP header size is used to check
+> if writeable length of skb is overflowed. Meanwhile, as it's meaningless
+> to calculate checksum when packet is ICMP, the computation of checksum
+> is ignored as well.
 
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
-Changes since v1:
- - removed KMSAN report and reproducer from the description
----
- net/socket.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/socket.c b/net/socket.c
-index 2c1e8677ff2d..e0757e648c0c 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1731,6 +1731,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
- 	/* We assume all kernel code knows the size of sockaddr_storage */
- 	msg.msg_namelen = 0;
- 	msg.msg_iocb = NULL;
-+	msg.msg_flags = 0;
- 	if (sock->file->f_flags & O_NONBLOCK)
- 		flags |= MSG_DONTWAIT;
- 	err = sock_recvmsg(sock, &msg, flags);
--- 
-2.12.0.246.ga2ecc84866-goog
+Applied, thanks.
