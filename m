@@ -1,98 +1,58 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH net-next 4/8] net: stmicro: mtl rx queue enabled as dcb or avb
-Date: Wed,  8 Mar 2017 11:03:11 +0000
-Message-ID: <565ce564736a3a16383dc4dd819eabfea8c88f7a.1488969672.git.jpinto@synopsys.com>
-References: <cover.1488969672.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH net-next v2] net: ipv4: add support for ECMP hash policy choice
+Date: Wed, 08 Mar 2017 13:05:36 +0100
+Message-ID: <878togdldb.fsf@redhat.com>
+References: <1488884508-14016-1-git-send-email-nikolay@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net,
+        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:60136 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752794AbdCHL5c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 06:57:32 -0500
-In-Reply-To: <cover.1488969672.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1488969672.git.jpinto@synopsys.com>
-References: <cover.1488969672.git.jpinto@synopsys.com>
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:34520 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750745AbdCHMHa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 07:07:30 -0500
+Received: by mail-wr0-f172.google.com with SMTP id l37so21798208wrc.1
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 04:05:39 -0800 (PST)
+In-reply-to: <1488884508-14016-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces the enabling of RX queues as DCB or as AVB
-based on configuration.
+Hi Nikolay,
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h      |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c |  8 ++++++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 17 ++++++-----------
- 3 files changed, 13 insertions(+), 14 deletions(-)
+On Tue, Mar 07, 2017 at 11:01 AM GMT, Nikolay Aleksandrov wrote:
+> This patch adds support for ECMP hash policy choice via a new sysctl
+> called fib_multipath_hash_policy and also adds support for L4 hashes.
+> The current values for fib_multipath_hash_policy are:
+>  0 - layer 3 (default)
+>  1 - layer 4
+> If there's an skb hash already set and it matches the chosen policy then it
+> will be used instead of being calculated. The ICMP inner IP addresses use
+> is removed.
+>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+> v2:
+>  - removed the output_key_hash as it's not needed anymore
+>  - reverted to my original/internal patch with L3 as default hash
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index a25b2f8..ad89c47 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -454,7 +454,7 @@ struct stmmac_ops {
- 	/* Enable and verify that the IPC module is supported */
- 	int (*rx_ipc)(struct mac_device_info *hw);
- 	/* Enable RX Queues */
--	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
-+	void (*rx_queue_enable)(struct mac_device_info *hw, u8 mode, u32 queue);
- 	/* Program RX Algorithms */
- 	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
- 	/* Program TX Algorithms */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index ccbfa31..deae508 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -59,13 +59,17 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
- 	writel(value, ioaddr + GMAC_INT_EN);
- }
- 
--static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
-+static void dwmac4_rx_queue_enable(struct mac_device_info *hw,
-+				   u8 mode, u32 queue)
- {
- 	void __iomem *ioaddr = hw->pcsr;
- 	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
- 
- 	value &= GMAC_RX_QUEUE_CLEAR(queue);
--	value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
-+	if (mode == MTL_RX_AVB)
-+		value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
-+	else if (mode == MTL_RX_DCB)
-+		value |= GMAC_RX_DCB_QUEUE_ENABLE(queue);
- 
- 	writel(value, ioaddr + GMAC_RXQ_CTRL0);
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index df3b1ee..26be9f3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1256,19 +1256,14 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
-  */
- static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
- {
--	int rx_count = priv->dma_cap.number_rx_queues;
-+	u32 rx_queues_count = priv->plat->rx_queues_to_use;
- 	int queue = 0;
-+	u8 mode = 0;
- 
--	/* If GMAC does not have multiple queues, then this is not necessary*/
--	if (rx_count == 1)
--		return;
--
--	/**
--	 *  If the core is synthesized with multiple rx queues / multiple
--	 *  dma channels, then rx queues will be disabled by default.
--	 *  For now only rx queue 0 is enabled.
--	 */
--	priv->hw->mac->rx_queue_enable(priv->hw, queue);
-+	for (queue = 0; queue < rx_queues_count; queue++) {
-+		mode = priv->plat->rx_queues_cfg[queue].mode_to_use;
-+		priv->hw->mac->rx_queue_enable(priv->hw, mode, queue);
-+	}
- }
- 
- /**
--- 
-2.9.3
+What about ICMP PTB (Fragmentation Needed) forwarding that makes PMTUD
+work with ECMP in setups like described in RFC7690 [1]?
+
+  ptb -> router ecmp -> next hop L4/L7 load balancer -> destination
+
+       router --> load balancer 1 --->
+            \\--> load balancer 2 ---> load-balanced service
+             \--> load balancer N --->
+
+Removing special treatment of ICMP errors will break it, won't it?
+
+FWIW, I gave a run to your patch (default settings, L3 hash) with a test
+script [2] that simulates such a setup and it confirmed my worries - PTB
+errors don't travel back to the source host any more.
+
+-Jakub
+
+[1] https://tools.ietf.org/html/rfc7690#section-2
+[2] https://github.com/jsitnicki/tools/commit/ccb85e68421df4ffd8b7abf00f6f5fe1c6a5af76
