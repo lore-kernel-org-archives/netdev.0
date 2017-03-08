@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next 5/5] bonding: reduce scope of some global variables
-Date: Wed,  8 Mar 2017 10:56:02 -0800
-Message-ID: <20170308185602.23203-1-mahesh@bandewar.net>
+Subject: [PATCH next 3/5] bonding: remove hardcoded value
+Date: Wed,  8 Mar 2017 10:55:56 -0800
+Message-ID: <20170308185556.23069-1-mahesh@bandewar.net>
 Cc: netdev <netdev@vger.kernel.org>,
         Mahesh Bandewar <mahesh@bandewar.net>,
         Mahesh Bandewar <maheshb@google.com>
@@ -12,54 +12,62 @@ To: Jay Vosburgh <j.vosburgh@gmail.com>,
         David Miller <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35063 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753880AbdCHTEA (ORCPT
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34700 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751600AbdCHTEA (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 14:04:00 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 187so4221268pgb.2
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 11:03:38 -0800 (PST)
+Received: by mail-pf0-f195.google.com with SMTP id o126so4664004pfb.1
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 11:02:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-Many of the bond param variables are declared global while it's not
-really necessary for these variables to be global. So moving them to
-the location these are used.
+Eliminate hard-coded value and use the default that is set.
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/net/bonding/bond_main.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_main.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0f9f5ceae80e..ba934020dfaa 100644
+index 1329110ed85f..0f9f5ceae80e 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -201,12 +201,6 @@ atomic_t netpoll_block_tx = ATOMIC_INIT(0);
- 
- unsigned int bond_net_id __read_mostly;
- 
--static __be32 arp_target[BOND_MAX_ARP_TARGETS];
--static int arp_ip_count;
--static int bond_mode	= BOND_MODE_ROUNDROBIN;
--static int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
--static int lacp_fast;
--
- /*-------------------------- Forward declarations ---------------------------*/
- 
- static int bond_init(struct net_device *bond_dev);
-@@ -4254,6 +4248,11 @@ static int bond_check_params(struct bond_params *params)
+@@ -4254,6 +4254,7 @@ static int bond_check_params(struct bond_params *params)
  	int arp_all_targets_value;
  	u16 ad_actor_sys_prio = 0;
  	u16 ad_user_port_key = 0;
-+	__be32 arp_target[BOND_MAX_ARP_TARGETS];
-+	int arp_ip_count;
-+	int bond_mode	= BOND_MODE_ROUNDROBIN;
-+	int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
-+	int lacp_fast = 0;
- 	int tlb_dynamic_lb = 0;
++	int tlb_dynamic_lb = 0;
  
  	/* Convert string parameters. */
+ 	if (mode) {
+@@ -4566,6 +4567,17 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 	ad_user_port_key = valptr->value;
+ 
++	if (bond_mode == BOND_MODE_TLB) {
++		bond_opt_initstr(&newval, "default");
++		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
++					&newval);
++		if (!valptr) {
++			pr_err("Error: No tlb_dynamic_lb default value");
++			return -EINVAL;
++		}
++		tlb_dynamic_lb = valptr->value;
++	}
++
+ 	if (lp_interval == 0) {
+ 		pr_warn("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
+ 			INT_MAX, BOND_ALB_DEFAULT_LP_INTERVAL);
+@@ -4593,7 +4605,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->min_links = min_links;
+ 	params->lp_interval = lp_interval;
+ 	params->packets_per_slave = packets_per_slave;
+-	params->tlb_dynamic_lb = 1; /* Default value */
++	params->tlb_dynamic_lb = tlb_dynamic_lb;
+ 	params->ad_actor_sys_prio = ad_actor_sys_prio;
+ 	eth_zero_addr(params->ad_actor_system);
+ 	params->ad_user_port_key = ad_user_port_key;
 -- 
 2.12.0.246.ga2ecc84866-goog
