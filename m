@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v4 net-next 12/13] mlx4: make validate_loopback() more generic
-Date: Wed,  8 Mar 2017 08:17:17 -0800
-Message-ID: <20170308161718.2867-13-edumazet@google.com>
+Subject: [PATCH v4 net-next 11/13] mlx4: factorize page_address() calls
+Date: Wed,  8 Mar 2017 08:17:16 -0800
+Message-ID: <20170308161718.2867-12-edumazet@google.com>
 References: <20170308161718.2867-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Tariq Toukan <tariqt@mellanox.com>,
@@ -13,111 +13,95 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33106 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753058AbdCHQRv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 11:17:51 -0500
-Received: by mail-pg0-f46.google.com with SMTP id 25so14905300pgy.0
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 08:17:51 -0800 (PST)
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35235 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753058AbdCHQRy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 11:17:54 -0500
+Received: by mail-pf0-f173.google.com with SMTP id j5so16556111pfb.2
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 08:17:48 -0800 (PST)
 In-Reply-To: <20170308161718.2867-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Testing a boolean in fast path is not worth duplicating
-the code allocating packets, when GRO is on or off.
+We need to compute the frame virtual address at different points.
+Do it once.
 
-If this proves to be a problem, we might later use a jump label.
-
-Next patch will remove this duplicated code and ease code review.
+Following patch will use the new va address for validate_loopback()
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c       | 23 ++++++++++-------------
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c |  6 ------
- 2 files changed, 10 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b5aa3f986508f0a5a89a40e18f8db99767068fef..33b28278c8270197c5a8f35521fd2af5e1e6b1be 100644
+index b62fa265890edd0eff50256bdc50fc907dbe8aa2..b5aa3f986508f0a5a89a40e18f8db99767068fef 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -584,20 +584,17 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 	return skb;
- }
+@@ -734,9 +734,10 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 	/* Process all completed CQEs */
+ 	while (XNOR(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK,
+ 		    cq->mcq.cons_index & cq->size)) {
++		void *va;
  
--static void validate_loopback(struct mlx4_en_priv *priv, struct sk_buff *skb)
-+static void validate_loopback(struct mlx4_en_priv *priv, void *va)
- {
-+	const unsigned char *data = va + ETH_HLEN;
- 	int i;
--	int offset = ETH_HLEN;
- 
--	for (i = 0; i < MLX4_LOOPBACK_TEST_PAYLOAD; i++, offset++) {
--		if (*(skb->data + offset) != (unsigned char) (i & 0xff))
--			goto out_loopback;
-+	for (i = 0; i < MLX4_LOOPBACK_TEST_PAYLOAD; i++) {
-+		if (data[i] != (unsigned char)i)
-+			return;
- 	}
- 	/* Loopback found */
- 	priv->loopback_ok = 1;
+ 		frags = ring->rx_info + (index << priv->log_rx_info);
 -
--out_loopback:
--	dev_kfree_skb_any(skb);
- }
- 
- static bool mlx4_en_refill_rx_buffers(struct mlx4_en_priv *priv,
-@@ -785,6 +782,11 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			}
- 		}
- 
-+		if (unlikely(priv->validate_loopback)) {
-+			validate_loopback(priv, va);
-+			goto next;
-+		}
-+
++		va = page_address(frags[0].page) + frags[0].page_offset;
  		/*
- 		 * Packet is OK - process it.
+ 		 * make sure we read the CQE after we read the ownership bit
  		 */
-@@ -948,11 +950,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			goto next;
+@@ -759,7 +760,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		 * and not performing the selftest or flb disabled
+ 		 */
+ 		if (priv->flags & MLX4_EN_FLAG_RX_FILTER_NEEDED) {
+-			struct ethhdr *ethh;
++			const struct ethhdr *ethh = va;
+ 			dma_addr_t dma;
+ 			/* Get pointer to first fragment since we haven't
+ 			 * skb yet and cast it to ethhdr struct
+@@ -767,8 +768,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 			dma = frags[0].dma + frags[0].page_offset;
+ 			dma_sync_single_for_cpu(priv->ddev, dma, sizeof(*ethh),
+ 						DMA_FROM_DEVICE);
+-			ethh = (struct ethhdr *)(page_address(frags[0].page) +
+-						 frags[0].page_offset);
+ 
+ 			if (is_multicast_ether_addr(ethh->h_dest)) {
+ 				struct mlx4_mac_entry *entry;
+@@ -808,8 +807,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 						priv->frag_info[0].frag_size,
+ 						DMA_FROM_DEVICE);
+ 
+-			xdp.data_hard_start = page_address(frags[0].page);
+-			xdp.data = xdp.data_hard_start + frags[0].page_offset;
++			xdp.data_hard_start = va - frags[0].page_offset;
++			xdp.data = va;
+ 			xdp.data_end = xdp.data + length;
+ 			orig_data = xdp.data;
+ 
+@@ -819,6 +818,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 				length = xdp.data_end - xdp.data;
+ 				frags[0].page_offset = xdp.data -
+ 					xdp.data_hard_start;
++				va = xdp.data;
+ 			}
+ 
+ 			switch (act) {
+@@ -891,7 +891,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 				goto next;
+ 
+ 			if (ip_summed == CHECKSUM_COMPLETE) {
+-				void *va = skb_frag_address(skb_shinfo(gro_skb)->frags);
+ 				if (check_csum(cqe, gro_skb, va,
+ 					       dev->features)) {
+ 					ip_summed = CHECKSUM_NONE;
+@@ -955,7 +954,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
  		}
  
--		if (unlikely(priv->validate_loopback)) {
--			validate_loopback(priv, skb);
--			goto next;
--		}
--
  		if (ip_summed == CHECKSUM_COMPLETE) {
- 			if (check_csum(cqe, skb, va, dev->features)) {
+-			if (check_csum(cqe, skb, skb->data, dev->features)) {
++			if (check_csum(cqe, skb, va, dev->features)) {
  				ip_summed = CHECKSUM_NONE;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-index 95290e1fc9fe7600b2e3bcca334f3fad7d733c09..17112faafbccc5f7a75ee82a287be7952859ae9e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-@@ -81,14 +81,11 @@ static int mlx4_en_test_loopback(struct mlx4_en_priv *priv)
- {
- 	u32 loopback_ok = 0;
- 	int i;
--	bool gro_enabled;
- 
-         priv->loopback_ok = 0;
- 	priv->validate_loopback = 1;
--	gro_enabled = priv->dev->features & NETIF_F_GRO;
- 
- 	mlx4_en_update_loopback_state(priv->dev, priv->dev->features);
--	priv->dev->features &= ~NETIF_F_GRO;
- 
- 	/* xmit */
- 	if (mlx4_en_test_loopback_xmit(priv)) {
-@@ -111,9 +108,6 @@ static int mlx4_en_test_loopback(struct mlx4_en_priv *priv)
- 
- 	priv->validate_loopback = 0;
- 
--	if (gro_enabled)
--		priv->dev->features |= NETIF_F_GRO;
--
- 	mlx4_en_update_loopback_state(priv->dev, priv->dev->features);
- 	return !loopback_ok;
- }
+ 				ring->csum_complete--;
+ 				ring->csum_none++;
 -- 
 2.12.0.246.ga2ecc84866-goog
