@@ -1,37 +1,44 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 1/1] net: rmnet_data: Initial implementation
-Date: Wed, 08 Mar 2017 14:25:19 -0700
-Message-ID: <567a5c64abe80b82d58ef8c94f249848@codeaurora.org>
-References: <1487907054-15129-1-git-send-email-subashab@codeaurora.org>
- <1487907054-15129-2-git-send-email-subashab@codeaurora.org>
- <20170307.121417.1835754162077665274.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
-        netdev-owner@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: David Arcari <darcari@redhat.com>
+Subject: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is changed
+Date: Wed,  8 Mar 2017 16:33:21 -0500
+Message-ID: <1489008801-120389-1-git-send-email-darcari@redhat.com>
+Cc: David Arcari <darcari@redhat.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56462 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752211AbdCHWTr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 17:19:47 -0500
-In-Reply-To: <20170307.121417.1835754162077665274.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:40386 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752324AbdCHW1m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 8 Mar 2017 17:27:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Inside the kernel you should use "u32", "u16", "u8", etc. for purely
-> internal things, and for datastructures exported to userspace you
-> should use "__u32", "__u16", "__u8".
-> 
-> Furthermore, if the members have specific endianness you should
-> properly use the "__le32", "__le16", "__be32", "__be16" etc. types.
-> 
-> 
-> Please use netlink for device instantiation and configuration
-> rather than ioctls.
+When the aquantia device mtu is changed the net_device structure is not
+updated.  As a result the ip command does not properly reflect the mtu change.
 
-Hi David
+Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+has a ndo_change_mtu routine.
 
-Thanks for reviewing. I'll post v2 with these changes.
+Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+
+Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: David Arcari <darcari@redhat.com>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+index dad6362..d05fbfd 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+@@ -98,6 +98,7 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
+ 
+ 	if (err < 0)
+ 		goto err_exit;
++	ndev->mtu = new_mtu;
+ 
+ 	if (netif_running(ndev)) {
+ 		aq_ndev_close(ndev);
+-- 
+1.8.3.1
