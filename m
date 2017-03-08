@@ -1,58 +1,83 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: Re: [PATCH net-next v2] net: ipv4: add support for ECMP hash policy choice
-Date: Wed, 08 Mar 2017 13:05:36 +0100
-Message-ID: <878togdldb.fsf@redhat.com>
-References: <1488884508-14016-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: heap out-of-bounds in fib6_clean_node/rt6_fill_node/fib6_age/fib6_prune_clone
+Date: Wed, 8 Mar 2017 12:55:35 +0100
+Message-ID: <CACT4Y+bcMz13ad2kLaZGvct5sQ+RDki0StnOEbz3exAa8=zxqQ@mail.gmail.com>
+References: <CACT4Y+YrA45diWz_8f4St8oX6aTC1kuGXMUvniGRbqXSGwawZQ@mail.gmail.com>
+ <f707c195-251f-6058-5f4c-d55710533b11@cumulusnetworks.com>
+ <CACT4Y+YCPxKkaZBfAabxtAV71R0ghLT-vUKVewJpm9wb2GXaEQ@mail.gmail.com>
+ <1488658514.9415.356.camel@edumazet-glaptop3.roam.corp.google.com>
+ <4e4d7d51-82de-b21e-cb5d-d804f7b88999@cumulusnetworks.com>
+ <CACT4Y+Z1MvKbb35-jhaY=jEoR+t2u2TiUpkCR_oG3=VNmKjqvQ@mail.gmail.com>
+ <14c01aea-6c2f-6ba5-6aee-52c55f410da7@cumulusnetworks.com>
+ <CACT4Y+aomj0W8M9JNr1GLsT8EFFHV9YsOTYzWkvwKZANE9hiBQ@mail.gmail.com>
+ <CACT4Y+aDzAYs9mbNGeFEkYSB2wTwomZTGEKn4hDH0PAb4uiLqw@mail.gmail.com>
+ <2b60b1b8-4766-0e36-f6fb-79914bf1925d@cumulusnetworks.com>
+ <CACT4Y+YpUZ+7f5bzPh1hATwUXaZaPTu4rYYdz0RY1MHA1WG3SA@mail.gmail.com>
+ <328b1fa7-2d97-6ae3-3b87-e33a0d564ad9@cumulusnetworks.com>
+ <CACT4Y+aQFe+M=ESuShQ4FYNWAd8CNEQ=0rW+aAB0P-tp=PpFyQ@mail.gmail.com>
+ <CACT4Y+aQgM=9QMkyfcXF2B5gGidvL07JP_m_inNXTPXU22i=aA@mail.gmail.com> <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net,
-        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f172.google.com ([209.85.128.172]:34520 "EHLO
-        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750745AbdCHMHa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 07:07:30 -0500
-Received: by mail-wr0-f172.google.com with SMTP id l37so21798208wrc.1
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 04:05:39 -0800 (PST)
-In-reply-to: <1488884508-14016-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+Yx1cgWCkC2c7bze1V1VaecgBfioMvKS2-FUeaRr4DGXg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Nikolay,
-
-On Tue, Mar 07, 2017 at 11:01 AM GMT, Nikolay Aleksandrov wrote:
-> This patch adds support for ECMP hash policy choice via a new sysctl
-> called fib_multipath_hash_policy and also adds support for L4 hashes.
-> The current values for fib_multipath_hash_policy are:
->  0 - layer 3 (default)
->  1 - layer 4
-> If there's an skb hash already set and it matches the chosen policy then it
-> will be used instead of being calculated. The ICMP inner IP addresses use
-> is removed.
+On Tue, Mar 7, 2017 at 9:00 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> On Tue, Mar 7, 2017 at 8:30 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>>>> On 3/7/17 11:13 AM, Dmitry Vyukov wrote:
+>>>>>> on this warning:
+>>>>>>
+>>>>>> /* dst.next really should not be set at this point */
+>>>>>> if (rt->dst.next && rt->dst.next->ops->family != AF_INET6) {
+>>>>>>         pr_warn("fib6_add: adding rt with bad next -- family %d dst
+>>>>>> flags %x\n",
+>>>>>>                 rt->dst.next->ops->family, rt->dst.next->flags);
+>>>>>>
+>>>>>>         WARN_ON(1);
+>>>>>> }
+>>>>>>
+>>>>>> You should have seen the pr_warn in the log preceding the WARN_ON dump.
+>>>>>
+>>>>> Right. They all have the same "IPv6: fib6_add: adding rt with bad next
+>>>>> -- family 2 dst flags 6"
+>>>>
+>>>> remove the previous changes and try the attached.
+>>>
+>>>
+>>> Doing this now.
+>>> FWIW I've also applied your last patch with missing "iter->dst.flags
+>>> &= ~DST_IN_FIB;" and restored the warning in rt6_rcu_free and it did
+>>> not fire (in a limited run). I only saw the "WARNING in fib6_add" that
+>>> I already reported.
+>>
+>>
+>> So far I've hit only:
+>> [ 1103.840031] BUG: KASAN: slab-out-of-bounds in fib6_age+0x3fd/0x480
+>> at addr ffff8800799d2254
+>> without any preceeding warnings.
+>> But note that since the kernel is heavily stressed I can reliably get
+>> any pr_err output if it happens right before BUG/WARNING. Anything
+>> that happens minutes before will be lots because there are tons of
+>> output.
 >
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> v2:
->  - removed the output_key_hash as it's not needed anymore
->  - reverted to my original/internal patch with L3 as default hash
+>
+>
+> So far 6 "KASAN: slab-out-of-bounds Read in fib6_age" but no other warnings.
 
-What about ICMP PTB (Fragmentation Needed) forwarding that makes PMTUD
-work with ECMP in setups like described in RFC7690 [1]?
 
-  ptb -> router ecmp -> next hop L4/L7 load balancer -> destination
-
-       router --> load balancer 1 --->
-            \\--> load balancer 2 ---> load-balanced service
-             \--> load balancer N --->
-
-Removing special treatment of ICMP errors will break it, won't it?
-
-FWIW, I gave a run to your patch (default settings, L3 hash) with a test
-script [2] that simulates such a setup and it confirmed my worries - PTB
-errors don't travel back to the source host any more.
-
--Jakub
-
-[1] https://tools.ietf.org/html/rfc7690#section-2
-[2] https://github.com/jsitnicki/tools/commit/ccb85e68421df4ffd8b7abf00f6f5fe1c6a5af76
+I've got a bunch of the crashes that I was getting previously, but no
+new warnings.
