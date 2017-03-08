@@ -1,71 +1,58 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH next 0/5] bonding: winter cleanup
-Date: Wed, 08 Mar 2017 15:24:06 -0800
-Message-ID: <17528.1489015446@famine>
-References: <20170308185545.22864-1-mahesh@bandewar.net>
+From: Laura Abbott <labbott@redhat.com>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Wed, 8 Mar 2017 15:55:39 -0800
+Message-ID: <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com>
+References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com>
+ <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com>
+ <58B88353.2010508@iogearbox.net>
+ <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com>
+ <58C08535.3070000@iogearbox.net>
+ <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Nikolay Aleksandrov <nikolay@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        Mahesh Bandewar <maheshb@google.com>
-To: Mahesh Bandewar <mahesh@bandewar.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Kees Cook <keescook@chromium.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:52962 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752052AbdCIACX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 19:02:23 -0500
-In-reply-to: <20170308185545.22864-1-mahesh@bandewar.net>
-Content-ID: <17527.1489015446.1@famine>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:36361 "EHLO
+        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750707AbdCIAWU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 19:22:20 -0500
+Received: by mail-qk0-f178.google.com with SMTP id 1so95400197qkl.3
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 16:20:35 -0800 (PST)
+In-Reply-To: <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mahesh Bandewar <mahesh@bandewar.net> wrote:
+On 03/08/2017 02:36 PM, Kees Cook wrote:
+> On Wed, Mar 8, 2017 at 2:27 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> [   28.474232] rodata_test: test data was not read only
+>> [...]
+> 
+> In my tests so far, I've never been able to get rodata_test to fail
+> (Qemu 2.5.0, Ubuntu). I'll retry with your .config and see if I can
+> recheck under Qemu 2.7.1. Do you see these failures on real hardware?
+> 
+> -Kees
+> 
 
->From: Mahesh Bandewar <maheshb@google.com>
->
->Few cleanup patches that I have accumulated over some time now.
->
->(a) First two patches are basically to move the work-queue initialization
->    from every ndo_open / bond_open operation to once at the beginning while
->    port creation. Work-queue initialization is an unnecessary operation
->    for every 'ifup' operation. However we have some mode-specific work-queues
->    and mode can change anytime after port creation. So the second patch is
->    to ensure the correct work-handler is called based on the mode.
->
->(b) Third patch is simple and straightforward that removes hard-coded value
->    that was added into the initial commit and replaces it with the default
->    value configured.
->
->(c) The final patch in the series removes the unimplemented "port-moved" state
->    from the LACP state machine. This state is defined but never set so
->    removing from the state machine logic makes code little cleaner.
->
->(d) Reduce scope of some global variables to local.
+FWIW, I'm seeing the same issue with qemu 2.6.2 and 2.8.0 on Fedora 24
+and rawhide respectively. 
 
-	For all patches in the series:
+I also notice that CONFIG_X86_PAE is turned off in the defconfig. If
+I set CONFIG_HIGHMEM_64G which turns on CONFIG_X86_PAE the problem
+goes away. I can't tell if this is an indication of magically hiding
+the TLB problem or if there is an issue with !X86_PAE invalidation.
 
-Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
 
->Note: None of these patches are making any functional changes.
->
->Mahesh Bandewar (5):
->  bonding: restructure arp-monitor
->  bonding: initialize work-queues during creation of bond
->  bonding: remove hardcoded value
->  bonding: remove "port-moved" state that was never implemented
->  bonding: reduce scope of some global variables
->
-> drivers/net/bonding/bond_3ad.c  | 11 +++------
-> drivers/net/bonding/bond_main.c | 53 ++++++++++++++++++++++++++---------------
-> 2 files changed, 37 insertions(+), 27 deletions(-)
->
->-- 
->2.12.0.246.ga2ecc84866-goog
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Thanks,
+Laura
