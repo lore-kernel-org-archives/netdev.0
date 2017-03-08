@@ -1,47 +1,44 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 4/4] bnxt_en: Ignore 0 value in autoneg supported speed from firmware.
-Date: Wed,  8 Mar 2017 18:44:35 -0500
-Message-ID: <1489016675-16097-5-git-send-email-michael.chan@broadcom.com>
-References: <1489016675-16097-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:33965 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753926AbdCHXqD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 18:46:03 -0500
-Received: by mail-wr0-f176.google.com with SMTP id l37so34120027wrc.1
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 15:44:55 -0800 (PST)
-In-Reply-To: <1489016675-16097-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] tun: remove copyright printing
+Date: Wed, 8 Mar 2017 15:20:48 -0800
+Message-ID: <20170308152048.1bf4f6de@xeon-e3>
+References: <20170308154657.8988-1-clabbe.montjoie@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170308154657.8988-1-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In some situations, the firmware will return 0 for autoneg supported
-speed.  This may happen if the firmware detects no SFP module, for
-example.  The driver should ignore this so that we don't end up with
-an invalid autoneg setting with nothing advertised.  When SFP module
-is inserted, we'll get the updated settings from firmware at that time.
+On Wed,  8 Mar 2017 16:46:57 +0100
+Corentin Labbe <clabbe.montjoie@gmail.com> wrote:
 
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+> Printing copyright does not give any useful information on the boot
+> process.
+> Furthermore, the email address printed is obsolete since
+> commit ba57b6f20429 ("MAINTAINERS: fix bouncing tun/tap entries")
+> 
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+>  drivers/net/tun.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index dc1b1dd..f58b7d8 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -2570,7 +2570,6 @@ static int __init tun_init(void)
+>  	int ret = 0;
+>  
+>  	pr_info("%s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
+> -	pr_info("%s\n", DRV_COPYRIGHT);
+>  
+>  	ret = rtnl_link_register(&tun_link_ops);
+>  	if (ret) {
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 869d4c9..32de458 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5511,8 +5511,9 @@ static int bnxt_hwrm_phy_qcaps(struct bnxt *bp)
- 		bp->lpi_tmr_hi = le32_to_cpu(resp->valid_tx_lpi_timer_high) &
- 				 PORT_PHY_QCAPS_RESP_TX_LPI_TIMER_HIGH_MASK;
- 	}
--	link_info->support_auto_speeds =
--		le16_to_cpu(resp->supported_speeds_auto_mode);
-+	if (resp->supported_speeds_auto_mode)
-+		link_info->support_auto_speeds =
-+			le16_to_cpu(resp->supported_speeds_auto_mode);
- 
- hwrm_phy_qcaps_exit:
- 	mutex_unlock(&bp->hwrm_cmd_lock);
--- 
-1.8.3.1
+Why not just kill the pr_info() all together.
+It is just a vanity message.
