@@ -1,183 +1,78 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v2 net-next 6/8] net: stmicro: flow_ctrl functions adapted to mtl
-Date: Wed,  8 Mar 2017 12:22:46 +0000
-Message-ID: <db4f283659c52071fcc6e500d8d2268513302120.1488975090.git.jpinto@synopsys.com>
-References: <cover.1488975090.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] net: ipv4: add support for ECMP hash policy
+ choice
+Date: Wed, 8 Mar 2017 14:43:37 +0200
+Message-ID: <929a2609-51f8-c385-a727-3f819cf28b4f@cumulusnetworks.com>
+References: <878togdldb.fsf@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net,
+        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com
+To: Jakub Sitnicki <jkbs@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:60671 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752643AbdCHMsU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 07:48:20 -0500
-In-Reply-To: <cover.1488975090.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1488975090.git.jpinto@synopsys.com>
-References: <cover.1488975090.git.jpinto@synopsys.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35094 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752095AbdCHMvz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 07:51:55 -0500
+Received: by mail-wm0-f50.google.com with SMTP id v186so113954958wmd.0
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 04:51:54 -0800 (PST)
+In-Reply-To: <878togdldb.fsf@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adapts flow_ctrl function to prepare it for multiple queues.
+On 08/03/17 14:05, Jakub Sitnicki wrote:
+> Hi Nikolay,
+> 
+> On Tue, Mar 07, 2017 at 11:01 AM GMT, Nikolay Aleksandrov wrote:
+>> This patch adds support for ECMP hash policy choice via a new sysctl
+>> called fib_multipath_hash_policy and also adds support for L4 hashes.
+>> The current values for fib_multipath_hash_policy are:
+>>  0 - layer 3 (default)
+>>  1 - layer 4
+>> If there's an skb hash already set and it matches the chosen policy then it
+>> will be used instead of being calculated. The ICMP inner IP addresses use
+>> is removed.
+>>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> ---
+>> v2:
+>>  - removed the output_key_hash as it's not needed anymore
+>>  - reverted to my original/internal patch with L3 as default hash
+> 
+> What about ICMP PTB (Fragmentation Needed) forwarding that makes PMTUD
+> work with ECMP in setups like described in RFC7690 [1]?
+> 
+>   ptb -> router ecmp -> next hop L4/L7 load balancer -> destination
+> 
+>        router --> load balancer 1 --->
+>             \\--> load balancer 2 ---> load-balanced service
+>              \--> load balancer N --->
+> 
+> Removing special treatment of ICMP errors will break it, won't it?
+> 
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
----
-changes v1->v2:
-- Just to keep up with patch-set version
+Yes, I am aware and this decision was made with that in mind.
+We'd like to use the HW hash when available and IIRC that doesn't play well with
+special-casing ICMP errors for anycast as it may not match also. Another thing,
+again if I remember correctly, was that this behaviour is closer to how hardware
+handles ECMP.
 
- drivers/net/ethernet/stmicro/stmmac/common.h         |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c    | 20 +++++++++++++-------
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    | 17 ++++++++++++++---
- 6 files changed, 34 insertions(+), 14 deletions(-)
+One thing we can do is leave the current L3 behaviour with ICMP error handling
+and add a new L3 mode that tries to use the skb hash when available and doesn't
+care about the packet type.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 32f5f25..5532633 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -473,7 +473,7 @@ struct stmmac_ops {
- 	void (*set_filter)(struct mac_device_info *hw, struct net_device *dev);
- 	/* Flow control setting */
- 	void (*flow_ctrl)(struct mac_device_info *hw, unsigned int duplex,
--			  unsigned int fc, unsigned int pause_time);
-+			  unsigned int fc, unsigned int pause_time, u32 tx_cnt);
- 	/* Set power management mode (e.g. magic frame) */
- 	void (*pmt)(struct mac_device_info *hw, unsigned long mode);
- 	/* Set/Get Unicast MAC addresses */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index 19b9b30..3a95ad9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -216,7 +216,8 @@ static void dwmac1000_set_filter(struct mac_device_info *hw,
- 
- 
- static void dwmac1000_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--				unsigned int fc, unsigned int pause_time)
-+				unsigned int fc, unsigned int pause_time,
-+				u32 tx_cnt)
- {
- 	void __iomem *ioaddr = hw->pcsr;
- 	/* Set flow such that DZPQ in Mac Register 6 is 0,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index e370cce..524135e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -131,7 +131,8 @@ static void dwmac100_set_filter(struct mac_device_info *hw,
- }
- 
- static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--			       unsigned int fc, unsigned int pause_time)
-+			       unsigned int fc, unsigned int pause_time,
-+			       u32 tx_cnt)
- {
- 	void __iomem *ioaddr = hw->pcsr;
- 	unsigned int flow = MAC_FLOW_CTRL_ENABLE;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index a348f7d..65528c4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -337,11 +337,12 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
- }
- 
- static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--			     unsigned int fc, unsigned int pause_time)
-+			     unsigned int fc, unsigned int pause_time,
-+			     u32 tx_cnt)
- {
- 	void __iomem *ioaddr = hw->pcsr;
--	u32 channel = STMMAC_CHAN0;	/* FIXME */
- 	unsigned int flow = 0;
-+	u32 queue = 0;
- 
- 	pr_debug("GMAC Flow-Control:\n");
- 	if (fc & FLOW_RX) {
-@@ -351,13 +352,18 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
- 	}
- 	if (fc & FLOW_TX) {
- 		pr_debug("\tTransmit Flow-Control ON\n");
--		flow |= GMAC_TX_FLOW_CTRL_TFE;
--		writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
- 
--		if (duplex) {
-+		if (duplex)
- 			pr_debug("\tduplex mode: PAUSE %d\n", pause_time);
--			flow |= (pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
--			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
-+
-+		for (queue = 0; queue < tx_cnt; queue++) {
-+			flow |= GMAC_TX_FLOW_CTRL_TFE;
-+
-+			if (duplex)
-+				flow |=
-+				(pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
-+
-+			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(queue));
- 		}
- 	}
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 85d6411..4a5dc89 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -481,6 +481,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 		      struct ethtool_pauseparam *pause)
- {
- 	struct stmmac_priv *priv = netdev_priv(netdev);
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
- 	struct phy_device *phy = netdev->phydev;
- 	int new_pause = FLOW_OFF;
- 
-@@ -511,7 +512,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 	}
- 
- 	priv->hw->mac->flow_ctrl(priv->hw, phy->duplex, priv->flow_ctrl,
--				 priv->pause);
-+				 priv->pause, tx_cnt);
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c10f7a2..1a072e9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -673,6 +673,19 @@ static void stmmac_release_ptp(struct stmmac_priv *priv)
- }
- 
- /**
-+ *  stmmac_mac_flow_ctrl - Configure flow control in all queues
-+ *  @priv: driver private structure
-+ *  Description: It is used for configuring the flow control in all queues
-+ */
-+static void stmmac_mac_flow_ctrl(struct stmmac_priv *priv, u32 duplex)
-+{
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
-+
-+	priv->hw->mac->flow_ctrl(priv->hw, duplex, priv->flow_ctrl,
-+				 priv->pause, tx_cnt);
-+}
-+
-+/**
-  * stmmac_adjust_link - adjusts the link parameters
-  * @dev: net device structure
-  * Description: this is the helper called by the physical abstraction layer
-@@ -687,7 +700,6 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	struct phy_device *phydev = dev->phydev;
- 	unsigned long flags;
- 	int new_state = 0;
--	unsigned int fc = priv->flow_ctrl, pause_time = priv->pause;
- 
- 	if (!phydev)
- 		return;
-@@ -709,8 +721,7 @@ static void stmmac_adjust_link(struct net_device *dev)
- 		}
- 		/* Flow Control operation */
- 		if (phydev->pause)
--			priv->hw->mac->flow_ctrl(priv->hw, phydev->duplex,
--						 fc, pause_time);
-+			stmmac_mac_flow_ctrl(priv, phydev->duplex);
- 
- 		if (phydev->speed != priv->speed) {
- 			new_state = 1;
--- 
-2.9.3
+What do you think ?
+
+> FWIW, I gave a run to your patch (default settings, L3 hash) with a test
+> script [2] that simulates such a setup and it confirmed my worries - PTB
+> errors don't travel back to the source host any more.
+
+Thanks for testing.
+
+> 
+> -Jakub
+> 
+> [1] https://tools.ietf.org/html/rfc7690#section-2
+> [2] https://github.com/jsitnicki/tools/commit/ccb85e68421df4ffd8b7abf00f6f5fe1c6a5af76
+> 
