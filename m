@@ -1,82 +1,104 @@
-From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH v5 18/19] usb: host: Remove remaining pci_pool in comments
-Date: Wed,  8 Mar 2017 17:19:56 +0100
-Message-ID: <20170308161957.28941-19-romain.perier@collabora.com>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v5 16/19] usb: gadget: net2280: Replace PCI pool old API
+Date: Wed,  8 Mar 2017 17:19:54 +0100
+Message-ID: <20170308161957.28941-17-romain.perier@collabora.com>
 References: <20170308161957.28941-1-romain.perier@collabora.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
-        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-To: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170308161957.28941-1-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170308161957.28941-1-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This replaces remaining occurences of pci_pool by dma_pool, as
-this is the new API that could be used for that purpose.
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API.
 
-Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Reviewed-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/usb/host/ehci-hcd.c     | 2 +-
- drivers/usb/host/fotg210-hcd.c  | 2 +-
- drivers/usb/host/oxu210hp-hcd.c | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/usb/gadget/udc/net2280.c | 12 ++++++------
+ drivers/usb/gadget/udc/net2280.h |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
-index ac2c4ea..6e834b83 100644
---- a/drivers/usb/host/ehci-hcd.c
-+++ b/drivers/usb/host/ehci-hcd.c
-@@ -597,7 +597,7 @@ static int ehci_run (struct usb_hcd *hcd)
- 	/*
- 	 * hcc_params controls whether ehci->regs->segment must (!!!)
- 	 * be used; it constrains QH/ITD/SITD and QTD locations.
--	 * pci_pool consistent memory always uses segment zero.
-+	 * dma_pool consistent memory always uses segment zero.
- 	 * streaming mappings for I/O buffers, like pci_map_single(),
- 	 * can return segments above 4GB, if the device allows.
- 	 *
-diff --git a/drivers/usb/host/fotg210-hcd.c b/drivers/usb/host/fotg210-hcd.c
-index 1c5b34b..ced08dc 100644
---- a/drivers/usb/host/fotg210-hcd.c
-+++ b/drivers/usb/host/fotg210-hcd.c
-@@ -5047,7 +5047,7 @@ static int fotg210_run(struct usb_hcd *hcd)
- 	/*
- 	 * hcc_params controls whether fotg210->regs->segment must (!!!)
- 	 * be used; it constrains QH/ITD/SITD and QTD locations.
--	 * pci_pool consistent memory always uses segment zero.
-+	 * dma_pool consistent memory always uses segment zero.
- 	 * streaming mappings for I/O buffers, like pci_map_single(),
- 	 * can return segments above 4GB, if the device allows.
- 	 *
-diff --git a/drivers/usb/host/oxu210hp-hcd.c b/drivers/usb/host/oxu210hp-hcd.c
-index bcf531c..ed20fb3 100644
---- a/drivers/usb/host/oxu210hp-hcd.c
-+++ b/drivers/usb/host/oxu210hp-hcd.c
-@@ -2708,7 +2708,7 @@ static int oxu_run(struct usb_hcd *hcd)
+diff --git a/drivers/usb/gadget/udc/net2280.c b/drivers/usb/gadget/udc/net2280.c
+index 8550441..089081e 100644
+--- a/drivers/usb/gadget/udc/net2280.c
++++ b/drivers/usb/gadget/udc/net2280.c
+@@ -569,7 +569,7 @@ static struct usb_request
+ 	if (ep->dma) {
+ 		struct net2280_dma	*td;
  
- 	/* hcc_params controls whether oxu->regs->segment must (!!!)
- 	 * be used; it constrains QH/ITD/SITD and QTD locations.
--	 * pci_pool consistent memory always uses segment zero.
-+	 * dma_pool consistent memory always uses segment zero.
- 	 * streaming mappings for I/O buffers, like pci_map_single(),
- 	 * can return segments above 4GB, if the device allows.
- 	 *
+-		td = pci_pool_alloc(ep->dev->requests, gfp_flags,
++		td = dma_pool_alloc(ep->dev->requests, gfp_flags,
+ 				&req->td_dma);
+ 		if (!td) {
+ 			kfree(req);
+@@ -597,7 +597,7 @@ static void net2280_free_request(struct usb_ep *_ep, struct usb_request *_req)
+ 	req = container_of(_req, struct net2280_request, req);
+ 	WARN_ON(!list_empty(&req->queue));
+ 	if (req->td)
+-		pci_pool_free(ep->dev->requests, req->td, req->td_dma);
++		dma_pool_free(ep->dev->requests, req->td, req->td_dma);
+ 	kfree(req);
+ }
+ 
+@@ -3578,10 +3578,10 @@ static void net2280_remove(struct pci_dev *pdev)
+ 		for (i = 1; i < 5; i++) {
+ 			if (!dev->ep[i].dummy)
+ 				continue;
+-			pci_pool_free(dev->requests, dev->ep[i].dummy,
++			dma_pool_free(dev->requests, dev->ep[i].dummy,
+ 					dev->ep[i].td_dma);
+ 		}
+-		pci_pool_destroy(dev->requests);
++		dma_pool_destroy(dev->requests);
+ 	}
+ 	if (dev->got_irq)
+ 		free_irq(pdev->irq, dev);
+@@ -3723,7 +3723,7 @@ static int net2280_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	/* DMA setup */
+ 	/* NOTE:  we know only the 32 LSBs of dma addresses may be nonzero */
+-	dev->requests = pci_pool_create("requests", pdev,
++	dev->requests = dma_pool_create("requests", &pdev->dev,
+ 		sizeof(struct net2280_dma),
+ 		0 /* no alignment requirements */,
+ 		0 /* or page-crossing issues */);
+@@ -3735,7 +3735,7 @@ static int net2280_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	for (i = 1; i < 5; i++) {
+ 		struct net2280_dma	*td;
+ 
+-		td = pci_pool_alloc(dev->requests, GFP_KERNEL,
++		td = dma_pool_alloc(dev->requests, GFP_KERNEL,
+ 				&dev->ep[i].td_dma);
+ 		if (!td) {
+ 			ep_dbg(dev, "can't get dummy %d\n", i);
+diff --git a/drivers/usb/gadget/udc/net2280.h b/drivers/usb/gadget/udc/net2280.h
+index 2736a95..1088c37 100644
+--- a/drivers/usb/gadget/udc/net2280.h
++++ b/drivers/usb/gadget/udc/net2280.h
+@@ -187,7 +187,7 @@ struct net2280 {
+ 	struct usb338x_ll_chi_regs	__iomem *ll_chicken_reg;
+ 	struct usb338x_pl_regs		__iomem *plregs;
+ 
+-	struct pci_pool			*requests;
++	struct dma_pool			*requests;
+ 	/* statistics...*/
+ };
+ 
 -- 
 2.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
