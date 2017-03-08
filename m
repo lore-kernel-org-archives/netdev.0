@@ -1,38 +1,98 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH net-next] net: stmicro: replace kzalloc with devm_kzalloc
-Date: Tue,  7 Mar 2017 15:27:36 +0000
-Message-ID: <4e6c083db31dc7a6991401d9d045d3cd89d069b1.1488900195.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Andy Zhou <azhou@ovn.org>
+Subject: [RFC net-next sample action optimization 1/3] openvswitch: deferred fifo api change
+Date: Tue,  7 Mar 2017 16:15:35 -0800
+Message-ID: <1488932137-120383-2-git-send-email-azhou@ovn.org>
+References: <1488932137-120383-1-git-send-email-azhou@ovn.org>
+Cc: joe@ovn.org, pshelar@ovn.org, Andy Zhou <azhou@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:54702 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756581AbdCHACB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 19:02:01 -0500
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33120 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756578AbdCHAWJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Mar 2017 19:22:09 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 77so1555104pgc.0
+        for <netdev@vger.kernel.org>; Tue, 07 Mar 2017 16:22:03 -0800 (PST)
+In-Reply-To: <1488932137-120383-1-git-send-email-azhou@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The axi variable was not being freed upon device removal.
-With devm_kzalloc it ensures that it is properly freed.
+add_deferred_actions() API currently requires actions to be passed in
+as a fully encoded netlink message. So far both 'sample' and 'recirc'
+actions happens to carry actions as fully encoded netlink messages.
+However, this requirement is more restrictive than necessary, future
+patch will need to pass in action lists that are not fully encoded
+by themselves.
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+Signed-off-by: Andy Zhou <azhou@ovn.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/openvswitch/actions.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 433a842..0ba1caf 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -108,7 +108,7 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
- 	if (!np)
- 		return NULL;
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index c82301c..75182e9 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -51,6 +51,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ struct deferred_action {
+ 	struct sk_buff *skb;
+ 	const struct nlattr *actions;
++	int actions_len;
  
--	axi = kzalloc(sizeof(*axi), GFP_KERNEL);
-+	axi = devm_kzalloc(&pdev->dev, sizeof(*axi), GFP_KERNEL);
- 	if (!axi) {
- 		of_node_put(np);
- 		return ERR_PTR(-ENOMEM);
+ 	/* Store pkt_key clone when creating deferred action. */
+ 	struct sw_flow_key pkt_key;
+@@ -119,8 +120,9 @@ static struct deferred_action *action_fifo_put(struct action_fifo *fifo)
+ 
+ /* Return true if fifo is not full */
+ static struct deferred_action *add_deferred_actions(struct sk_buff *skb,
+-						    const struct sw_flow_key *key,
+-						    const struct nlattr *attr)
++				    const struct sw_flow_key *key,
++				    const struct nlattr *actions,
++				    const int actions_len)
+ {
+ 	struct action_fifo *fifo;
+ 	struct deferred_action *da;
+@@ -129,7 +131,8 @@ static struct deferred_action *add_deferred_actions(struct sk_buff *skb,
+ 	da = action_fifo_put(fifo);
+ 	if (da) {
+ 		da->skb = skb;
+-		da->actions = attr;
++		da->actions = actions;
++		da->actions_len = actions_len;
+ 		da->pkt_key = *key;
+ 	}
+ 
+@@ -966,7 +969,8 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 		/* Skip the sample action when out of memory. */
+ 		return 0;
+ 
+-	if (!add_deferred_actions(skb, key, a)) {
++	if (!add_deferred_actions(skb, key, nla_data(acts_list),
++				  nla_len(acts_list))) {
+ 		if (net_ratelimit())
+ 			pr_warn("%s: deferred actions limit reached, dropping sample action\n",
+ 				ovs_dp_name(dp));
+@@ -1123,7 +1127,7 @@ static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
+ 		return 0;
+ 	}
+ 
+-	da = add_deferred_actions(skb, key, NULL);
++	da = add_deferred_actions(skb, key, NULL, 0);
+ 	if (da) {
+ 		da->pkt_key.recirc_id = nla_get_u32(a);
+ 	} else {
+@@ -1278,10 +1282,10 @@ static void process_deferred_actions(struct datapath *dp)
+ 		struct sk_buff *skb = da->skb;
+ 		struct sw_flow_key *key = &da->pkt_key;
+ 		const struct nlattr *actions = da->actions;
++		int actions_len = da->actions_len;
+ 
+ 		if (actions)
+-			do_execute_actions(dp, skb, key, actions,
+-					   nla_len(actions));
++			do_execute_actions(dp, skb, key, actions, actions_len);
+ 		else
+ 			ovs_dp_process_packet(skb, key);
+ 	} while (!action_fifo_is_empty(fifo));
 -- 
-2.9.3
+1.8.3.1
