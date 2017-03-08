@@ -1,189 +1,168 @@
-From: Yuval Shaia <yuval.shaia@oracle.com>
-Subject: Re: [PATCH v3] {net,IB}/{rxe,usnic}: Utilize generic mac to eui32
- function
-Date: Wed, 8 Mar 2017 15:48:57 +0200
-Message-ID: <20170308134856.GA4828@yuval-lap>
-References: <1488915118-23331-1-git-send-email-yuval.shaia@oracle.com>
- <20170308074041.GW14379@mtr-leonro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: benve@cisco.com, dgoodell@cisco.com, dledford@redhat.com,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com, monis@mellanox.com,
-        davem@davemloft.net, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1050.oracle.com ([141.146.126.70]:48293 "EHLO
-        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751994AbdCHQVH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 11:21:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20170308074041.GW14379@mtr-leonro.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v5 01/19] block: DAC960: Replace PCI pool old API
+Date: Wed,  8 Mar 2017 17:19:39 +0100
+Message-ID: <20170308161957.28941-2-romain.perier@collabora.com>
+References: <20170308161957.28941-1-romain.perier@collabora.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170308161957.28941-1-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 08, 2017 at 09:40:41AM +0200, Leon Romanovsky wrote:
-> On Tue, Mar 07, 2017 at 09:31:58PM +0200, Yuval Shaia wrote:
-> > This logic seems to be duplicated in (at least) three separate files.
-> > Move it to one place so code can be re-use.
-> >
-> > Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
-> > ---
-> > v0 -> v1:
-> > 	* Add missing #include
-> > 	* Rename to genaddrconf_ifid_eui48
-> > v1 -> v2:
-> > 	* Reset eui[0] to default if dev_id is used
-> > v2 -> v3:
-> > 	* Add helper function to avoid re-setting eui[0] to default if
-> > 	  dev_id is used
-> > ---
-> >  drivers/infiniband/hw/usnic/usnic_common_util.h | 11 +++--------
-> >  drivers/infiniband/sw/rxe/rxe_net.c             | 11 ++---------
-> >  include/net/addrconf.h                          | 25 +++++++++++++++++++------
-> >  3 files changed, 24 insertions(+), 23 deletions(-)
-> 
-> Not promising statistics :)
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API.
 
-It is not fair, i also added 4 new blank lines :)
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+---
+ drivers/block/DAC960.c | 36 ++++++++++++++++++------------------
+ drivers/block/DAC960.h |  4 ++--
+ 2 files changed, 20 insertions(+), 20 deletions(-)
 
-> 
-> >
-> > diff --git a/drivers/infiniband/hw/usnic/usnic_common_util.h b/drivers/infiniband/hw/usnic/usnic_common_util.h
-> > index b54986d..d91b035 100644
-> > --- a/drivers/infiniband/hw/usnic/usnic_common_util.h
-> > +++ b/drivers/infiniband/hw/usnic/usnic_common_util.h
-> > @@ -34,6 +34,8 @@
-> >  #ifndef USNIC_CMN_UTIL_H
-> >  #define USNIC_CMN_UTIL_H
-> >
-> > +#include <net/addrconf.h>
-> > +
-> >  static inline void
-> >  usnic_mac_to_gid(const char *const mac, char *raw_gid)
-> >  {
-> > @@ -57,14 +59,7 @@ usnic_mac_ip_to_gid(const char *const mac, const __be32 inaddr, char *raw_gid)
-> >  	raw_gid[1] = 0x80;
-> >  	memset(&raw_gid[2], 0, 2);
-> >  	memcpy(&raw_gid[4], &inaddr, 4);
-> > -	raw_gid[8] = mac[0]^2;
-> > -	raw_gid[9] = mac[1];
-> > -	raw_gid[10] = mac[2];
-> > -	raw_gid[11] = 0xff;
-> > -	raw_gid[12] = 0xfe;
-> > -	raw_gid[13] = mac[3];
-> > -	raw_gid[14] = mac[4];
-> > -	raw_gid[15] = mac[5];
-> > +	addrconf_addr_eui48(&raw_gid[8], mac);
-> >  }
-> >
-> >  static inline void
-> > diff --git a/drivers/infiniband/sw/rxe/rxe_net.c b/drivers/infiniband/sw/rxe/rxe_net.c
-> > index d8610960..ab8ea23 100644
-> > --- a/drivers/infiniband/sw/rxe/rxe_net.c
-> > +++ b/drivers/infiniband/sw/rxe/rxe_net.c
-> > @@ -38,6 +38,7 @@
-> >  #include <linux/if_vlan.h>
-> >  #include <net/udp_tunnel.h>
-> >  #include <net/sch_generic.h>
-> > +#include <net/addrconf.h>
-> >  #include <linux/netfilter.h>
-> >  #include <rdma/ib_addr.h>
-> >
-> > @@ -86,18 +87,10 @@ struct rxe_recv_sockets recv_sockets;
-> >
-> >  static __be64 rxe_mac_to_eui64(struct net_device *ndev)
-> >  {
-> 
-> It is worth to drop this wrapper completely. The rxe_mac_to_eui64 is
-> called twice in the same file.
-
-hmmm, this is a classic wrapper to adapt an existing API signature to
-usage. And in this case to return __be64 from existing function which
-returns void.
-
-What we can do is the opposite - get rid of rxe_node_guid and rxe_port_guid
-and call directly to rxe_mac_to_eui64. This is based on the assumption that
-node_guid and port_guid are the same in Soft RoCE.
-What do you think?
-
-> 
-> > -	unsigned char *mac_addr = ndev->dev_addr;
-> >  	__be64 eui64;
-> >  	unsigned char *dst = (unsigned char *)&eui64;
-> >
-> > -	dst[0] = mac_addr[0] ^ 2;
-> > -	dst[1] = mac_addr[1];
-> > -	dst[2] = mac_addr[2];
-> > -	dst[3] = 0xff;
-> > -	dst[4] = 0xfe;
-> > -	dst[5] = mac_addr[3];
-> > -	dst[6] = mac_addr[4];
-> > -	dst[7] = mac_addr[5];
-> > +	addrconf_addr_eui48(dst, ndev->dev_addr);
-> >
-> >  	return eui64;
-> >  }
-> > diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-> > index 17c6fd8..28274ed 100644
-> > --- a/include/net/addrconf.h
-> > +++ b/include/net/addrconf.h
-> > @@ -103,12 +103,25 @@ int addrconf_prefix_rcv_add_addr(struct net *net, struct net_device *dev,
-> >  				 u32 addr_flags, bool sllao, bool tokenized,
-> >  				 __u32 valid_lft, u32 prefered_lft);
-> >
-> > +static inline void addrconf_addr_eui48_xor(u8 *eui, const char *const addr, bool xor)
-> > +{
-> > +	memcpy(eui, addr, 3);
-> > +	if (xor)
-> > +		eui[0] ^= 2;
-> > +	eui[3] = 0xFF;
-> > +	eui[4] = 0xFE;
-> > +	memcpy(eui + 5, addr + 3, 3);
-> > +}
-> > +
-> > +static inline void addrconf_addr_eui48(u8 *eui, const char *const addr)
-> > +{
-> > +	addrconf_addr_eui48_xor(eui, addr, true);
-> 
-> Just put your "eui[0] ^= 2" here and remove redundant "if (xor)".
-> > +}
-> > +
-> >  static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
-> >  {
-> >  	if (dev->addr_len != ETH_ALEN)
-> >  		return -1;
-> > -	memcpy(eui, dev->dev_addr, 3);
-> > -	memcpy(eui + 5, dev->dev_addr + 3, 3);
-> >
-> >  	/*
-> >  	 * The zSeries OSA network cards can be shared among various
-> > @@ -123,14 +136,14 @@ static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
-> >  	 * case.  Hence the resulting interface identifier has local
-> >  	 * scope according to RFC2373.
-> >  	 */
-> > +
-> > +	addrconf_addr_eui48_xor(eui, dev->dev_addr, !dev->dev_id);
-> > +
-> >  	if (dev->dev_id) {
-> >  		eui[3] = (dev->dev_id >> 8) & 0xFF;
-> >  		eui[4] = dev->dev_id & 0xFF;
-> > -	} else {
-> > -		eui[3] = 0xFF;
-> > -		eui[4] = 0xFE;
-> > -		eui[0] ^= 2;
-> 
-> Leave this line.
-
-Along with the above comment - looks better, will do.
-
-> Thanks
-> 
-> >  	}
-> > +
-> >  	return 0;
-> >  }
-> >
-> > --
-> > 2.7.4
-> >
+diff --git a/drivers/block/DAC960.c b/drivers/block/DAC960.c
+index 26a51be..2b221cc 100644
+--- a/drivers/block/DAC960.c
++++ b/drivers/block/DAC960.c
+@@ -268,17 +268,17 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
+   void *AllocationPointer = NULL;
+   void *ScatterGatherCPU = NULL;
+   dma_addr_t ScatterGatherDMA;
+-  struct pci_pool *ScatterGatherPool;
++  struct dma_pool *ScatterGatherPool;
+   void *RequestSenseCPU = NULL;
+   dma_addr_t RequestSenseDMA;
+-  struct pci_pool *RequestSensePool = NULL;
++  struct dma_pool *RequestSensePool = NULL;
+ 
+   if (Controller->FirmwareType == DAC960_V1_Controller)
+     {
+       CommandAllocationLength = offsetof(DAC960_Command_T, V1.EndMarker);
+       CommandAllocationGroupSize = DAC960_V1_CommandAllocationGroupSize;
+-      ScatterGatherPool = pci_pool_create("DAC960_V1_ScatterGather",
+-		Controller->PCIDevice,
++      ScatterGatherPool = dma_pool_create("DAC960_V1_ScatterGather",
++		&Controller->PCIDevice->dev,
+ 	DAC960_V1_ScatterGatherLimit * sizeof(DAC960_V1_ScatterGatherSegment_T),
+ 	sizeof(DAC960_V1_ScatterGatherSegment_T), 0);
+       if (ScatterGatherPool == NULL)
+@@ -290,18 +290,18 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
+     {
+       CommandAllocationLength = offsetof(DAC960_Command_T, V2.EndMarker);
+       CommandAllocationGroupSize = DAC960_V2_CommandAllocationGroupSize;
+-      ScatterGatherPool = pci_pool_create("DAC960_V2_ScatterGather",
+-		Controller->PCIDevice,
++      ScatterGatherPool = dma_pool_create("DAC960_V2_ScatterGather",
++		&Controller->PCIDevice->dev,
+ 	DAC960_V2_ScatterGatherLimit * sizeof(DAC960_V2_ScatterGatherSegment_T),
+ 	sizeof(DAC960_V2_ScatterGatherSegment_T), 0);
+       if (ScatterGatherPool == NULL)
+ 	    return DAC960_Failure(Controller,
+ 			"AUXILIARY STRUCTURE CREATION (SG)");
+-      RequestSensePool = pci_pool_create("DAC960_V2_RequestSense",
+-		Controller->PCIDevice, sizeof(DAC960_SCSI_RequestSense_T),
++      RequestSensePool = dma_pool_create("DAC960_V2_RequestSense",
++		&Controller->PCIDevice->dev, sizeof(DAC960_SCSI_RequestSense_T),
+ 		sizeof(int), 0);
+       if (RequestSensePool == NULL) {
+-	    pci_pool_destroy(ScatterGatherPool);
++	    dma_pool_destroy(ScatterGatherPool);
+ 	    return DAC960_Failure(Controller,
+ 			"AUXILIARY STRUCTURE CREATION (SG)");
+       }
+@@ -335,16 +335,16 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
+       Command->Next = Controller->FreeCommands;
+       Controller->FreeCommands = Command;
+       Controller->Commands[CommandIdentifier-1] = Command;
+-      ScatterGatherCPU = pci_pool_alloc(ScatterGatherPool, GFP_ATOMIC,
++      ScatterGatherCPU = dma_pool_alloc(ScatterGatherPool, GFP_ATOMIC,
+ 							&ScatterGatherDMA);
+       if (ScatterGatherCPU == NULL)
+ 	  return DAC960_Failure(Controller, "AUXILIARY STRUCTURE CREATION");
+ 
+       if (RequestSensePool != NULL) {
+-  	  RequestSenseCPU = pci_pool_alloc(RequestSensePool, GFP_ATOMIC,
++  	  RequestSenseCPU = dma_pool_alloc(RequestSensePool, GFP_ATOMIC,
+ 						&RequestSenseDMA);
+   	  if (RequestSenseCPU == NULL) {
+-                pci_pool_free(ScatterGatherPool, ScatterGatherCPU,
++                dma_pool_free(ScatterGatherPool, ScatterGatherCPU,
+                                 ScatterGatherDMA);
+     		return DAC960_Failure(Controller,
+ 					"AUXILIARY STRUCTURE CREATION");
+@@ -379,8 +379,8 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
+ static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
+ {
+   int i;
+-  struct pci_pool *ScatterGatherPool = Controller->ScatterGatherPool;
+-  struct pci_pool *RequestSensePool = NULL;
++  struct dma_pool *ScatterGatherPool = Controller->ScatterGatherPool;
++  struct dma_pool *RequestSensePool = NULL;
+   void *ScatterGatherCPU;
+   dma_addr_t ScatterGatherDMA;
+   void *RequestSenseCPU;
+@@ -411,9 +411,9 @@ static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
+ 	  RequestSenseDMA = Command->V2.RequestSenseDMA;
+       }
+       if (ScatterGatherCPU != NULL)
+-          pci_pool_free(ScatterGatherPool, ScatterGatherCPU, ScatterGatherDMA);
++          dma_pool_free(ScatterGatherPool, ScatterGatherCPU, ScatterGatherDMA);
+       if (RequestSenseCPU != NULL)
+-          pci_pool_free(RequestSensePool, RequestSenseCPU, RequestSenseDMA);
++          dma_pool_free(RequestSensePool, RequestSenseCPU, RequestSenseDMA);
+ 
+       if ((Command->CommandIdentifier
+ 	   % Controller->CommandAllocationGroupSize) == 1) {
+@@ -438,12 +438,12 @@ static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
+     }
+ 
+   if (ScatterGatherPool != NULL)
+-  	pci_pool_destroy(ScatterGatherPool);
++  	dma_pool_destroy(ScatterGatherPool);
+   if (Controller->FirmwareType == DAC960_V1_Controller)
+   	return;
+ 
+   if (RequestSensePool != NULL)
+-	pci_pool_destroy(RequestSensePool);
++	dma_pool_destroy(RequestSensePool);
+ 
+   for (i = 0; i < DAC960_MaxLogicalDrives; i++) {
+ 	kfree(Controller->V2.LogicalDeviceInformation[i]);
+diff --git a/drivers/block/DAC960.h b/drivers/block/DAC960.h
+index 85fa9bb..47d7d69 100644
+--- a/drivers/block/DAC960.h
++++ b/drivers/block/DAC960.h
+@@ -2316,7 +2316,7 @@ typedef struct DAC960_Controller
+   bool SuppressEnclosureMessages;
+   struct timer_list MonitoringTimer;
+   struct gendisk *disks[DAC960_MaxLogicalDrives];
+-  struct pci_pool *ScatterGatherPool;
++  struct dma_pool *ScatterGatherPool;
+   DAC960_Command_T *FreeCommands;
+   unsigned char *CombinedStatusBuffer;
+   unsigned char *CurrentStatusBuffer;
+@@ -2429,7 +2429,7 @@ typedef struct DAC960_Controller
+       bool NeedDeviceSerialNumberInformation;
+       bool StartLogicalDeviceInformationScan;
+       bool StartPhysicalDeviceInformationScan;
+-      struct pci_pool *RequestSensePool;
++      struct dma_pool *RequestSensePool;
+ 
+       dma_addr_t	FirstCommandMailboxDMA;
+       DAC960_V2_CommandMailbox_T *FirstCommandMailbox;
+-- 
+2.9.3
