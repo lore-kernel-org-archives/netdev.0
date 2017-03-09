@@ -1,37 +1,98 @@
-From: "Mrs. Aruna Assabah" <shahzadromani2@gmail.com>
-Subject: HELLO DEAR
-Date: Thu, 9 Mar 2017 00:44:35 +0000
-Message-ID: <CALtArGRGQS7CUWAeaNxzDFLDaJFryf8AgGmjUNc+US4XnWDHOA@mail.gmail.com>
-Reply-To: nickvalma10@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34643 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750770AbdCIAoi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 19:44:38 -0500
-Received: by mail-wm0-f68.google.com with SMTP id u132so8579389wmg.1
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 16:44:36 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergey Shcherbakov <shchers@gmail.com>
+Subject: [PATCH] net: ks8851: Added support for half-duplex SPI
+Date: Thu,  9 Mar 2017 02:58:14 +0200
+Message-ID: <1489021094-12987-1-git-send-email-shchers@gmail.com>
+Cc: davem@davemloft.net, tremyfr@gmail.com, stephen.boyd@linaro.org,
+        jarod@redhat.com, Sergey Shcherbakov <shchers@gmail.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Friend,
+In original driver was implemented support for half-
+and full-duplex modes, but it was not enabled. Instead
+of it ks8851_rx_1msg method always returns "true" that
+means "full-duplex" mode.
 
-I assume that this message will reach you in good health. My name is
-Mrs. Aruna Sabbah,the foreign operation manager of the African
-Development Bank Burkina Faso (ADB) I have the opportunity of
-transferring the left over funds what of ($25.2Million Dollars) from
-the account of our bank's customer who died along with his entire
-family in a plane crash. However, it's just my urgent need for foreign
-partner that made me to contact you for this transaction.
+This patch replaces hard-coded functionality with
+flexible solution that supports both SPI modes.
 
-I assured you honesty and reliability to champion this business
-opportunity. I am contacting you for this business while the money
-will be shared between us in the ratio of 50/50,on the acceptance of
-my proposal, Further details of the transfer will be forwarded to you
-as soon as i receive your response. Hoping to hear from you as soon as
-possible.
+Signed-off-by: Sergey Shcherbakov <shchers@gmail.com>
+---
+ drivers/net/ethernet/micrel/ks8851.c | 41 ++++++++++--------------------------
+ 1 file changed, 11 insertions(+), 30 deletions(-)
 
-Regards
-Mrs. Aruna Sabbah
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index 279ee46..20358f8 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -212,25 +212,6 @@ static void ks8851_wrreg8(struct ks8851_net *ks, unsigned reg, unsigned val)
+ }
+ 
+ /**
+- * ks8851_rx_1msg - select whether to use one or two messages for spi read
+- * @ks: The device structure
+- *
+- * Return whether to generate a single message with a tx and rx buffer
+- * supplied to spi_sync(), or alternatively send the tx and rx buffers
+- * as separate messages.
+- *
+- * Depending on the hardware in use, a single message may be more efficient
+- * on interrupts or work done by the driver.
+- *
+- * This currently always returns true until we add some per-device data passed
+- * from the platform code to specify which mode is better.
+- */
+-static inline bool ks8851_rx_1msg(struct ks8851_net *ks)
+-{
+-	return true;
+-}
+-
+-/**
+  * ks8851_rdreg - issue read register command and return the data
+  * @ks: The device state
+  * @op: The register address and byte enables in message format.
+@@ -251,14 +232,7 @@ static void ks8851_rdreg(struct ks8851_net *ks, unsigned op,
+ 
+ 	txb[0] = cpu_to_le16(op | KS_SPIOP_RD);
+ 
+-	if (ks8851_rx_1msg(ks)) {
+-		msg = &ks->spi_msg1;
+-		xfer = &ks->spi_xfer1;
+-
+-		xfer->tx_buf = txb;
+-		xfer->rx_buf = trx;
+-		xfer->len = rxl + 2;
+-	} else {
++	if (ks->spidev->master->flags & SPI_MASTER_HALF_DUPLEX) {
+ 		msg = &ks->spi_msg2;
+ 		xfer = ks->spi_xfer2;
+ 
+@@ -270,15 +244,22 @@ static void ks8851_rdreg(struct ks8851_net *ks, unsigned op,
+ 		xfer->tx_buf = NULL;
+ 		xfer->rx_buf = trx;
+ 		xfer->len = rxl;
++	} else {
++		msg = &ks->spi_msg1;
++		xfer = &ks->spi_xfer1;
++
++		xfer->tx_buf = txb;
++		xfer->rx_buf = trx;
++		xfer->len = rxl + 2;
+ 	}
+ 
+ 	ret = spi_sync(ks->spidev, msg);
+ 	if (ret < 0)
+ 		netdev_err(ks->netdev, "read: spi_sync() failed\n");
+-	else if (ks8851_rx_1msg(ks))
+-		memcpy(rxb, trx + 2, rxl);
+-	else
++	else if (ks->spidev->master->flags & SPI_MASTER_HALF_DUPLEX)
+ 		memcpy(rxb, trx, rxl);
++	else
++		memcpy(rxb, trx + 2, rxl);
+ }
+ 
+ /**
+-- 
+1.9.1
