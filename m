@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv6: Remove redundant RTA_OIF in multipath routes
-Date: Thu, 09 Mar 2017 13:07:24 -0800 (PST)
-Message-ID: <20170309.130724.2129937577049742239.davem@davemloft.net>
-References: <1488844651-12737-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v3 net-next] liquidio: improve UDP TX performance
+Date: Thu, 09 Mar 2017 13:08:35 -0800 (PST)
+Message-ID: <20170309.130835.1755242052162375234.davem@davemloft.net>
+References: <20170307024559.GA10612@felix.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        veerasenareddy.burru@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44294 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44314 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750913AbdCIVHb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 16:07:31 -0500
-In-Reply-To: <1488844651-12737-1-git-send-email-dsa@cumulusnetworks.com>
+        with ESMTP id S1750724AbdCIVJa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 16:09:30 -0500
+In-Reply-To: <20170307024559.GA10612@felix.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon,  6 Mar 2017 15:57:31 -0800
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Mon, 6 Mar 2017 18:45:59 -0800
 
-> Dinesh reported that RTA_MULTIPATH nexthops are 8-bytes larger with IPv6
-> than IPv4. The recent refactoring for multipath support in netlink
-> messages does discriminate between non-multipath which needs the OIF
-> and multipath which adds a rtnexthop struct for each hop making the
-> RTA_OIF attribute redundant. Resolve by adding a flag to the info
-> function to skip the oif for multipath.
-> 
-> Fixes: beb1afac518d ("net: ipv6: Add support to dump multipath routes
->        via RTA_MULTIPATH attribute")
-> Reported-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Improve UDP TX performance by:
+> * reducing the ring size from 2K to 512
+> * replacing the numerous streaming DMA allocations for info buffers and
+>   gather lists with one large consistent DMA allocation per ring
 
-Applied.
+I applied this, because one should always use consistent mappings for
+descriptor arrays and things like this, however I am confused about
+this:
+
+> Also, finding an empty entry (in rbtree of device domain's iova mapping in
+> kernel) during Tx path becomes a bottleneck every so often; the loop to
+> find the empty entry goes through over 40K iterations;
+
+A properly balanced tree should not require 40K iterations for a search.
