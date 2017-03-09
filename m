@@ -1,191 +1,94 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 03/14] net: dsa: mv88e6xxx: setup ATU Learn2All
-Date: Thu,  9 Mar 2017 18:33:13 -0500
-Message-ID: <20170309233324.18539-4-vivien.didelot@savoirfairelinux.com>
-References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Borislav Petkov <bp@suse.de>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Fri, 10 Mar 2017 00:44:11 +0100
+Message-ID: <20170309234411.wec53iexfz6skmpl@pd.tnic>
+References: <58C19607.6000605@iogearbox.net>
+ <CA+55aFyxM--wyvxXGhBOqdJHcdC_kKvGYpv-C5SpYvRNkbEmGw@mail.gmail.com>
+ <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com>
+ <58C19F67.3040509@iogearbox.net>
+ <58C1C9DC.7070509@iogearbox.net>
+ <20170309215547.jmdzznlkzaxwu2pf@pd.tnic>
+ <20170309220732.ufqoqlawktsi2gao@pd.tnic>
+ <58C1D305.8090802@iogearbox.net>
+ <20170309224820.5invcnhvr2tl3ges@pd.tnic>
+ <CA+55aFy5vi3af5VBuG6ZOdTeKNxqGSq64J-EkrjaRhGVKXPy0A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Kees Cook <keescook@chromium.org>,
+        Laura Abbott <labbott@redhat.com>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:59330 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752943AbdCIXoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 18:44:34 -0500
+Content-Disposition: inline
+In-Reply-To: <CA+55aFy5vi3af5VBuG6ZOdTeKNxqGSq64J-EkrjaRhGVKXPy0A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Marvell switch chips which can be interconnected have an ATU Learn2All
-feature which allows chosen ports to also learn newly added addresses.
+On Thu, Mar 09, 2017 at 03:26:02PM -0800, Linus Torvalds wrote:
+> So should all of commit ("c109bf95992b x86/cpufeature: Remove
+> cpu_has_pge") just be reverted (and then marked for stable)?
+> 
+> Or do we have some alternate plan?
 
-Enable this feature and mark the DSA links as so called "Message Ports".
+I think we want to do this:
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
+index 6fa85944af83..fc5abff9b7fd 100644
+--- a/arch/x86/include/asm/tlbflush.h
++++ b/arch/x86/include/asm/tlbflush.h
+@@ -188,7 +188,7 @@ static inline void __native_flush_tlb_single(unsigned long addr)
+ 
+ static inline void __flush_tlb_all(void)
+ {
+-	if (static_cpu_has(X86_FEATURE_PGE))
++	if (boot_cpu_has(X86_FEATURE_PGE))
+ 		__flush_tlb_global();
+ 	else
+ 		__flush_tlb();
 ---
- drivers/net/dsa/mv88e6xxx/chip.c        | 32 +++++++++++++++++++-------------
- drivers/net/dsa/mv88e6xxx/global1.h     |  1 +
- drivers/net/dsa/mv88e6xxx/global1_atu.c | 17 +++++++++++++++++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  1 +
- drivers/net/dsa/mv88e6xxx/port.c        | 18 ++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/port.h        |  2 ++
- 6 files changed, 58 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 0ad8200f3321..132bda7ca9a8 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1308,6 +1308,14 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
- 
- static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
- {
-+	int err;
-+
-+	if (chip->info->tag_protocol != DSA_TAG_PROTO_TRAILER) {
-+		err = mv88e6xxx_g1_atu_set_learn2all(chip, true);
-+		if (err)
-+			return err;
-+	}
-+
- 	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
- }
- 
-@@ -2504,6 +2512,16 @@ static int mv88e6xxx_setup_port_normal(struct mv88e6xxx_chip *chip, int port)
- 	return chip->info->ops->port_set_egress_unknowns(chip, port, false);
- }
- 
-+static int mv88e6xxx_setup_message_port(struct mv88e6xxx_chip *chip, int port)
-+{
-+	bool message = dsa_is_dsa_port(chip->ds, port);
-+
-+	if (chip->info->tag_protocol != DSA_TAG_PROTO_TRAILER)
-+		return mv88e6xxx_port_set_message_port(chip, port, message);
-+
-+	return 0;
-+}
-+
- static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
- {
- 	struct dsa_switch *ds = chip->ds;
-@@ -2658,10 +2676,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
- 			return err;
- 	}
- 
--	/* Port Control 1: disable trunking, disable sending
--	 * learning messages to this port.
--	 */
--	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_1, 0x0000);
-+	err = mv88e6xxx_setup_message_port(chip, port);
- 	if (err)
- 		return err;
- 
-@@ -2752,15 +2767,6 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 	if (err < 0)
- 		return err;
- 
--	/* Set the default address aging time to 5 minutes, and
--	 * enable address learn messages to be sent to all message
--	 * ports.
--	 */
--	err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL,
--				 GLOBAL_ATU_CONTROL_LEARN2ALL);
--	if (err)
--		return err;
--
- 	/* Clear all ATU entries */
- 	err = _mv88e6xxx_atu_flush(chip, 0, true);
- 	if (err)
-diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index b8d0fb519bab..18322d05225a 100644
---- a/drivers/net/dsa/mv88e6xxx/global1.h
-+++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -38,6 +38,7 @@ int mv88e6095_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port);
- int mv88e6390_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port);
- int mv88e6390_g1_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
- 
-+int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all);
- int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
- 				  unsigned int msecs);
- 
-diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-index 4d0ada9efc6d..843a21e05f7b 100644
---- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
-+++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-@@ -15,6 +15,23 @@
- 
- /* Offset 0x0A: ATU Control Register */
- 
-+int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all)
-+{
-+	u16 val;
-+	int err;
-+
-+	err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_CONTROL, &val);
-+	if (err)
-+		return err;
-+
-+	if (learn2all)
-+		val |= GLOBAL_ATU_CONTROL_LEARN2ALL;
-+	else
-+		val &= ~GLOBAL_ATU_CONTROL_LEARN2ALL;
-+
-+	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
-+}
-+
- int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
- 				  unsigned int msecs)
- {
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 166b513ff751..45205519b9fe 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -144,6 +144,7 @@
- #define PORT_CONTROL_STATE_LEARNING	0x02
- #define PORT_CONTROL_STATE_FORWARDING	0x03
- #define PORT_CONTROL_1		0x05
-+#define PORT_CONTROL_1_MESSAGE_PORT	BIT(15)
- #define PORT_CONTROL_1_FID_11_4_MASK	(0xff << 0)
- #define PORT_BASE_VLAN		0x06
- #define PORT_BASE_VLAN_FID_3_0_MASK	(0xf << 12)
-diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 9bb0f2134cba..599039dbc384 100644
---- a/drivers/net/dsa/mv88e6xxx/port.c
-+++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -535,6 +535,24 @@ int mv88e6351_port_set_egress_unknowns(struct mv88e6xxx_chip *chip, int port,
- 
- /* Offset 0x05: Port Control 1 */
- 
-+int mv88e6xxx_port_set_message_port(struct mv88e6xxx_chip *chip, int port,
-+				    bool on)
-+{
-+	u16 val;
-+	int err;
-+
-+	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_1, &val);
-+	if (err)
-+		return err;
-+
-+	if (on)
-+		val |= PORT_CONTROL_1_MESSAGE_PORT;
-+	else
-+		val &= ~PORT_CONTROL_1_MESSAGE_PORT;
-+
-+	return mv88e6xxx_port_write(chip, port, PORT_CONTROL_1, val);
-+}
-+
- /* Offset 0x06: Port Based VLAN Map */
- 
- int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
-diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index c83cbb3f4491..19217c06e0fb 100644
---- a/drivers/net/dsa/mv88e6xxx/port.h
-+++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -64,6 +64,8 @@ int mv88e6351_port_set_egress_unknowns(struct mv88e6xxx_chip *chip, int port,
- 				       bool on);
- int mv88e6351_port_set_ether_type(struct mv88e6xxx_chip *chip, int port,
- 				  u16 etype);
-+int mv88e6xxx_port_set_message_port(struct mv88e6xxx_chip *chip, int port,
-+				    bool on);
- int mv88e6165_port_jumbo_config(struct mv88e6xxx_chip *chip, int port);
- int mv88e6095_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port);
- int mv88e6097_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port);
+but it is late here so I'd prefer to do a real patch tomorrow when I'm
+not almost sleeping on the keyboard. Unless Daniel wants to write one
+and test it now.
+
+> This has apparently been going on for a long while (it got merged into
+> 4.7), but presumably it only actually _matters_ if lguest is enabled
+> and used and we've triggered that lguest_arch_host_init() code.
+
+That's what I gather too, yes.
+
+What sane code would go and clear X86_FEATURE_PGE?!? :-)))
+
+> Maybe it's the lguest games with PGE that need to be removed?
+
+Well, as far as I can read the comment in lguest_arch_host_init(), it
+does some monkey business with switching to the guest kernel where
+global pages are not present anymore... or something. So it sounds to me
+like lguest would break if we removed the games but I have no idea what
+it does with that.
+
+And besides, the small hunk above restores the situation before
+("c109bf95992b x86/cpufeature: Remove cpu_has_pge") so applying it would
+actually be a no-brainer.
+
+Thanks.
+
 -- 
-2.12.0
+Regards/Gruss,
+    Boris.
+
+SUSE Linux GmbH, GF: Felix Imendörffer, Jane Smithard, Graham Norton, HRB 21284 (AG Nürnberg)
+-- 
