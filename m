@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next v2 06/10] dpaa_eth: enable Rx checksum offload
-Date: Thu, 9 Mar 2017 16:37:01 +0200
-Message-ID: <1489070225-7891-7-git-send-email-madalin.bucur@nxp.com>
+Subject: [net-next v2 07/10] dpaa_eth: do not ignore port api return value
+Date: Thu, 9 Mar 2017 16:37:02 +0200
+Message-ID: <1489070225-7891-8-git-send-email-madalin.bucur@nxp.com>
 References: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
@@ -24,80 +24,142 @@ Sender: "Linuxppc-dev"
  <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Use the FMan HW parser L4CV flag to offload Rx checksumming.
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 29 ++++++++++++++++++++++++--
- 1 file changed, 27 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 65 +++++++++++++++++---------
+ 1 file changed, 43 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index e19181f..a7a595c 100644
+index a7a595c..ae64cdb 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -137,6 +137,13 @@ MODULE_PARM_DESC(tx_timeout, "The Tx timeout in ms");
- /* L4 Type field: TCP */
- #define FM_L4_PARSE_RESULT_TCP	0x20
- 
-+/* FD status field indicating whether the FM Parser has attempted to validate
-+ * the L4 csum of the frame.
-+ * Note that having this bit set doesn't necessarily imply that the checksum
-+ * is valid. One would have to check the parse results to find that out.
-+ */
-+#define FM_FD_STAT_L4CV         0x00000004
-+
- #define DPAA_SGT_MAX_ENTRIES 16 /* maximum number of entries in SG Table */
- #define DPAA_BUFF_RELEASE_MAX 8 /* maximum number of buffers released at once */
- 
-@@ -235,6 +242,7 @@ static int dpaa_netdev_init(struct net_device *net_dev,
- 	 * For conformity, we'll still declare GSO explicitly.
- 	 */
- 	net_dev->features |= NETIF_F_GSO;
-+	net_dev->features |= NETIF_F_RXCSUM;
- 
- 	net_dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
- 	/* we do not want shared skbs on TX */
-@@ -1526,6 +1534,23 @@ static struct sk_buff *dpaa_cleanup_tx_fd(const struct dpaa_priv *priv,
- 	return skb;
+@@ -1063,9 +1063,9 @@ static int dpaa_fq_free(struct device *dev, struct list_head *list)
+ 	return err;
  }
  
-+static u8 rx_csum_offload(const struct dpaa_priv *priv, const struct qm_fd *fd)
-+{
-+	/* The parser has run and performed L4 checksum validation.
-+	 * We know there were no parser errors (and implicitly no
-+	 * L4 csum error), otherwise we wouldn't be here.
-+	 */
-+	if ((priv->net_dev->features & NETIF_F_RXCSUM) &&
-+	    (be32_to_cpu(fd->status) & FM_FD_STAT_L4CV))
-+		return CHECKSUM_UNNECESSARY;
+-static void dpaa_eth_init_tx_port(struct fman_port *port, struct dpaa_fq *errq,
+-				  struct dpaa_fq *defq,
+-				  struct dpaa_buffer_layout *buf_layout)
++static int dpaa_eth_init_tx_port(struct fman_port *port, struct dpaa_fq *errq,
++				 struct dpaa_fq *defq,
++				 struct dpaa_buffer_layout *buf_layout)
+ {
+ 	struct fman_buffer_prefix_content buf_prefix_content;
+ 	struct fman_port_params params;
+@@ -1084,23 +1084,29 @@ static void dpaa_eth_init_tx_port(struct fman_port *port, struct dpaa_fq *errq,
+ 	params.specific_params.non_rx_params.dflt_fqid = defq->fqid;
+ 
+ 	err = fman_port_config(port, &params);
+-	if (err)
++	if (err) {
+ 		pr_err("%s: fman_port_config failed\n", __func__);
++		return err;
++	}
+ 
+ 	err = fman_port_cfg_buf_prefix_content(port, &buf_prefix_content);
+-	if (err)
++	if (err) {
+ 		pr_err("%s: fman_port_cfg_buf_prefix_content failed\n",
+ 		       __func__);
++		return err;
++	}
+ 
+ 	err = fman_port_init(port);
+ 	if (err)
+ 		pr_err("%s: fm_port_init failed\n", __func__);
 +
-+	/* We're here because either the parser didn't run or the L4 checksum
-+	 * was not verified. This may include the case of a UDP frame with
-+	 * checksum zero or an L4 proto other than TCP/UDP
-+	 */
-+	return CHECKSUM_NONE;
-+}
++	return err;
+ }
+ 
+-static void dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
+-				  size_t count, struct dpaa_fq *errq,
+-				  struct dpaa_fq *defq,
+-				  struct dpaa_buffer_layout *buf_layout)
++static int dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
++				 size_t count, struct dpaa_fq *errq,
++				 struct dpaa_fq *defq,
++				 struct dpaa_buffer_layout *buf_layout)
+ {
+ 	struct fman_buffer_prefix_content buf_prefix_content;
+ 	struct fman_port_rx_params *rx_p;
+@@ -1128,32 +1134,44 @@ static void dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
+ 	}
+ 
+ 	err = fman_port_config(port, &params);
+-	if (err)
++	if (err) {
+ 		pr_err("%s: fman_port_config failed\n", __func__);
++		return err;
++	}
+ 
+ 	err = fman_port_cfg_buf_prefix_content(port, &buf_prefix_content);
+-	if (err)
++	if (err) {
+ 		pr_err("%s: fman_port_cfg_buf_prefix_content failed\n",
+ 		       __func__);
++		return err;
++	}
+ 
+ 	err = fman_port_init(port);
+ 	if (err)
+ 		pr_err("%s: fm_port_init failed\n", __func__);
 +
- /* Build a linear skb around the received buffer.
-  * We are guaranteed there is enough room at the end of the data buffer to
-  * accommodate the shared info area of the skb.
-@@ -1556,7 +1581,7 @@ static struct sk_buff *contig_fd_to_skb(const struct dpaa_priv *priv,
- 	skb_reserve(skb, fd_off);
- 	skb_put(skb, qm_fd_get_length(fd));
++	return err;
+ }
  
--	skb->ip_summed = CHECKSUM_NONE;
-+	skb->ip_summed = rx_csum_offload(priv, fd);
+-static void dpaa_eth_init_ports(struct mac_device *mac_dev,
+-				struct dpaa_bp **bps, size_t count,
+-				struct fm_port_fqs *port_fqs,
+-				struct dpaa_buffer_layout *buf_layout,
+-				struct device *dev)
++static int dpaa_eth_init_ports(struct mac_device *mac_dev,
++			       struct dpaa_bp **bps, size_t count,
++			       struct fm_port_fqs *port_fqs,
++			       struct dpaa_buffer_layout *buf_layout,
++			       struct device *dev)
+ {
+ 	struct fman_port *rxport = mac_dev->port[RX];
+ 	struct fman_port *txport = mac_dev->port[TX];
++	int err;
  
- 	return skb;
+-	dpaa_eth_init_tx_port(txport, port_fqs->tx_errq,
+-			      port_fqs->tx_defq, &buf_layout[TX]);
+-	dpaa_eth_init_rx_port(rxport, bps, count, port_fqs->rx_errq,
+-			      port_fqs->rx_defq, &buf_layout[RX]);
++	err = dpaa_eth_init_tx_port(txport, port_fqs->tx_errq,
++				    port_fqs->tx_defq, &buf_layout[TX]);
++	if (err)
++		return err;
++
++	err = dpaa_eth_init_rx_port(rxport, bps, count, port_fqs->rx_errq,
++				    port_fqs->rx_defq, &buf_layout[RX]);
++
++	return err;
+ }
  
-@@ -1616,7 +1641,7 @@ static struct sk_buff *sg_fd_to_skb(const struct dpaa_priv *priv,
- 			if (WARN_ON(unlikely(!skb)))
- 				goto free_buffers;
+ static int dpaa_bman_release(const struct dpaa_bp *dpaa_bp,
+@@ -2649,8 +2667,10 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ 	priv->rx_headroom = dpaa_get_headroom(&priv->buf_layout[RX]);
  
--			skb->ip_summed = CHECKSUM_NONE;
-+			skb->ip_summed = rx_csum_offload(priv, fd);
+ 	/* All real interfaces need their ports initialized */
+-	dpaa_eth_init_ports(mac_dev, dpaa_bps, DPAA_BPS_NUM, &port_fqs,
+-			    &priv->buf_layout[0], dev);
++	err = dpaa_eth_init_ports(mac_dev, dpaa_bps, DPAA_BPS_NUM, &port_fqs,
++				  &priv->buf_layout[0], dev);
++	if (err)
++		goto init_ports_failed;
  
- 			/* Make sure forwarded skbs will have enough space
- 			 * on Tx, if extra headers are added.
+ 	priv->percpu_priv = devm_alloc_percpu(dev, *priv->percpu_priv);
+ 	if (!priv->percpu_priv) {
+@@ -2683,6 +2703,7 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ napi_add_failed:
+ 	dpaa_napi_del(net_dev);
+ alloc_percpu_failed:
++init_ports_failed:
+ 	dpaa_fq_free(dev, &priv->dpaa_fq_list);
+ fq_alloc_failed:
+ 	qman_delete_cgr_safe(&priv->ingress_cgr);
 -- 
 2.1.0
