@@ -1,41 +1,30 @@
-From: Lev Urusov <urusov@granch.ru>
-Subject: [PATCH] Fix bug while selecting sysfs node size
-Date: Thu,  9 Mar 2017 08:43:49 +0700
-Message-ID: <1489023829-2545-1-git-send-email-urusov@granch.ru>
-Cc: Lev Urusov <urusov@granch.ru>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxy.granch.ru ([195.60.247.82]:51408 "EHLO proxy.granch.ru"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750787AbdCICR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Mar 2017 21:17:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] dccp/tcp: fix routing redirect race
+Date: Wed, 08 Mar 2017 18:10:57 -0800
+Message-ID: <1489025457.28631.19.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1489022121-20571-1-git-send-email-jmaxwell37@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gerrit@erg.abdn.ac.uk, davem@davemloft.net, edumazet@google.com,
+        andreyknvl@google.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, ncardwell@google.com,
+        dccp@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, jmaxwell@redhat.com,
+        Eric Garver <egarver@redhat.com>,
+        Hannes Sowa <hsowa@redhat.com>
+To: Jon Maxwell <jmaxwell37@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489022121-20571-1-git-send-email-jmaxwell37@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lev Urusov <urusov@granch.ru>
+On Thu, 2017-03-09 at 12:15 +1100, Jon Maxwell wrote:
+> We have seen a few incidents lately where a dst_enty has been freed
+> with a dangling TCP socket reference (sk->sk_dst_cache) pointing to that
+> dst_entry. If the conditions/timings are right a crash then ensues when the
+> freed dst_entry is referenced later on. A Common crashing back trace is:
 
-The driver will not be able to take into account the correct number
-of device SPI registers if it is not equal to 128.
+Very nice catch !
 
-Signed-off-by: Lev Urusov <urusov@granch.ru>
----
- drivers/net/phy/spi_ks8995.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index 93ffedf..f084725 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -491,8 +491,8 @@ static int ks8995_probe(struct spi_device *spi)
- 	if (err)
- 		return err;
- 
--	ks->regs_attr.size = ks->chip->regs_size;
- 	memcpy(&ks->regs_attr, &ks8995_registers_attr, sizeof(ks->regs_attr));
-+	ks->regs_attr.size = ks->chip->regs_size;
- 
- 	err = ks8995_reset(ks);
- 	if (err)
--- 
-1.9.1
+Don't we have a similar issue for IPv6 ?
