@@ -1,275 +1,269 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net-next v5 3/7] gtp: merge gtp_get_net and gtp_genl_find_dev
-Date: Thu,  9 Mar 2017 17:42:58 +0100
-Message-ID: <20170309164302.13550-4-aschultz@tpip.net>
+Subject: [PATCH net-next v5 7/7] gtp: add socket to pdp context
+Date: Thu,  9 Mar 2017 17:43:02 +0100
+Message-ID: <20170309164302.13550-8-aschultz@tpip.net>
 References: <20170309164302.13550-1-aschultz@tpip.net>
 Cc: osmocom-net-gprs@lists.osmocom.org, netdev <netdev@vger.kernel.org>
 To: Harald Welte <laforge@gnumonks.org>,
         Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:51672 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:51997 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932722AbdCIQna (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 11:43:30 -0500
+        id S932722AbdCIQne (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 11:43:34 -0500
 In-Reply-To: <20170309164302.13550-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both function are always used together with the final goal to
-get the gtp_dev. This simplifies the code by merging them together.
-
-The netdevice lookup is changed to use the regular dev_get_by_index.
-The gtp netdevice list is now only used to find the PDP contexts for
-imcomming packets. It can be completely eliminated Once the TEID
-hash is moved into the GTP socket.
+Having the socket present in context simplifies the sending logic.
+It also fixes the invalid assumption that we have to use the same
+sending socket for all client IP's on a specific gtp interface.
 
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 ---
- drivers/net/gtp.c | 146 ++++++++++++++++++++++++++----------------------------
- 1 file changed, 69 insertions(+), 77 deletions(-)
+ drivers/net/gtp.c | 94 +++++++++++++++++++++++++++----------------------------
+ 1 file changed, 47 insertions(+), 47 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 9aa2b35..74018eb 100644
+index d58f46f..3e1854f 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -744,21 +744,6 @@ static struct rtnl_link_ops gtp_link_ops __read_mostly = {
- 	.fill_info	= gtp_fill_info,
- };
+@@ -58,6 +58,7 @@ struct pdp_ctx {
+ 	struct in_addr		ms_addr_ip4;
+ 	struct in_addr		sgsn_addr_ip4;
  
--static struct net *gtp_genl_get_net(struct net *src_net, struct nlattr *tb[])
--{
--	struct net *net;
--
--	/* Examine the link attributes and figure out which network namespace
--	 * we are talking about.
--	 */
--	if (tb[GTPA_NET_NS_FD])
--		net = get_net_ns_by_fd(nla_get_u32(tb[GTPA_NET_NS_FD]));
--	else
--		net = get_net(src_net);
--
--	return net;
--}
--
- static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize)
++	struct sock		*sk;
+ 	struct net_device       *dev;
+ 
+ 	atomic_t		tx_seq;
+@@ -179,8 +180,7 @@ static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
+ 	return false;
+ }
+ 
+-static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb, unsigned int hdrlen,
+-		  bool xnet)
++static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb, unsigned int hdrlen)
  {
- 	int i;
-@@ -872,16 +857,30 @@ static int gtp_encap_enable(struct gtp_dev *gtp, struct nlattr *data[])
+ 	struct pcpu_sw_netstats *stats;
+ 
+@@ -190,7 +190,8 @@ static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb, unsigned int hdrlen
+ 	}
+ 
+ 	/* Get rid of the GTP + UDP headers. */
+-	if (iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet))
++	if (iptunnel_pull_header(skb, hdrlen, skb->protocol,
++				 !net_eq(sock_net(pctx->sk), dev_net(pctx->dev))))
+ 		return -1;
+ 
+ 	netdev_dbg(pctx->dev, "forwarding packet from GGSN to uplink\n");
+@@ -214,8 +215,7 @@ static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb, unsigned int hdrlen
+ }
+ 
+ /* 1 means pass up to the stack, -1 means drop and 0 means decapsulated. */
+-static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+-			       bool xnet)
++static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+ {
+ 	unsigned int hdrlen = sizeof(struct udphdr) +
+ 			      sizeof(struct gtp0_header);
+@@ -239,11 +239,10 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 		return 1;
+ 	}
+ 
+-	return gtp_rx(pctx, skb, hdrlen, xnet);
++	return gtp_rx(pctx, skb, hdrlen);
+ }
+ 
+-static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+-				bool xnet)
++static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+ {
+ 	unsigned int hdrlen = sizeof(struct udphdr) +
+ 			      sizeof(struct gtp1_header);
+@@ -282,7 +281,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 		return 1;
+ 	}
+ 
+-	return gtp_rx(pctx, skb, hdrlen, xnet);
++	return gtp_rx(pctx, skb, hdrlen);
+ }
+ 
+ static void gtp_encap_destroy(struct sock *sk)
+@@ -318,7 +317,6 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct gtp_dev *gtp;
+ 	int ret = 0;
+-	bool xnet;
+ 
+ 	gtp = rcu_dereference_sk_user_data(sk);
+ 	if (!gtp)
+@@ -326,16 +324,14 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
+ 
+-	xnet = !net_eq(sock_net(sk), dev_net(gtp->dev));
+-
+ 	switch (udp_sk(sk)->encap_type) {
+ 	case UDP_ENCAP_GTP0:
+ 		netdev_dbg(gtp->dev, "received GTP0 packet\n");
+-		ret = gtp0_udp_encap_recv(gtp, skb, xnet);
++		ret = gtp0_udp_encap_recv(gtp, skb);
+ 		break;
+ 	case UDP_ENCAP_GTP1U:
+ 		netdev_dbg(gtp->dev, "received GTP1U packet\n");
+-		ret = gtp1u_udp_encap_recv(gtp, skb, xnet);
++		ret = gtp1u_udp_encap_recv(gtp, skb);
+ 		break;
+ 	default:
+ 		ret = -1; /* Shouldn't happen. */
+@@ -378,8 +374,9 @@ static void gtp_dev_uninit(struct net_device *dev)
+ 	free_percpu(dev->tstats);
+ }
+ 
+-static struct rtable *ip4_route_output_gtp(struct net *net, struct flowi4 *fl4,
+-					   const struct sock *sk, __be32 daddr)
++static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
++					   const struct sock *sk,
++					   __be32 daddr)
+ {
+ 	memset(fl4, 0, sizeof(*fl4));
+ 	fl4->flowi4_oif		= sk->sk_bound_dev_if;
+@@ -388,7 +385,7 @@ static struct rtable *ip4_route_output_gtp(struct net *net, struct flowi4 *fl4,
+ 	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
+ 	fl4->flowi4_proto	= sk->sk_protocol;
+ 
+-	return ip_route_output_key(net, fl4);
++	return ip_route_output_key(sock_net(sk), fl4);
+ }
+ 
+ static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+@@ -477,7 +474,6 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	struct rtable *rt;
+ 	struct flowi4 fl4;
+ 	struct iphdr *iph;
+-	struct sock *sk;
+ 	__be16 df;
+ 	int mtu;
+ 
+@@ -493,30 +489,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 	netdev_dbg(dev, "found PDP context %p\n", pctx);
+ 
+-	switch (pctx->gtp_version) {
+-	case GTP_V0:
+-		if (gtp->sk0)
+-			sk = gtp->sk0;
+-		else
+-			sk = NULL;
+-		break;
+-	case GTP_V1:
+-		if (gtp->sk1u)
+-			sk = gtp->sk1u;
+-		else
+-			sk = NULL;
+-		break;
+-	default:
+-		return -ENOENT;
+-	}
+-
+-	if (!sk) {
+-		netdev_dbg(dev, "no userspace socket is available, skip\n");
+-		return -ENOENT;
+-	}
+-
+-	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sk0,
+-				  pctx->sgsn_addr_ip4.s_addr);
++	rt = ip4_route_output_gtp(&fl4, pctx->sk, pctx->sgsn_addr_ip4.s_addr);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to SSGN %pI4\n",
+ 			   &pctx->sgsn_addr_ip4.s_addr);
+@@ -561,7 +534,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 		goto err_rt;
+ 	}
+ 
+-	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
++	gtp_set_pktinfo_ipv4(pktinfo, pctx->sk, iph, pctx, rt, &fl4, dev);
+ 	gtp_push_header(skb, pktinfo);
+ 
+ 	return 0;
+@@ -916,7 +889,8 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
+ 	}
+ }
+ 
+-static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
++static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
++			struct genl_info *info)
+ {
+ 	struct net_device *dev = gtp->dev;
+ 	u32 hash_ms, hash_tid = 0;
+@@ -957,6 +931,8 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
+ 	if (pctx == NULL)
+ 		return -ENOMEM;
+ 
++	sock_hold(sk);
++	pctx->sk = sk;
+ 	pctx->dev = gtp->dev;
+ 	ipv4_pdp_fill(pctx, info);
+ 	atomic_set(&pctx->tx_seq, 0);
+@@ -994,16 +970,26 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
  	return 0;
  }
  
--static struct net_device *gtp_find_dev(struct net *net, int ifindex)
-+static struct gtp_dev *gtp_find_dev(struct net *src_net, struct nlattr *nla[])
++static void pdp_context_free(struct rcu_head *head)
++{
++	struct pdp_ctx *pctx = container_of(head, struct pdp_ctx, rcu_head);
++
++	sock_put(pctx->sk);
++	kfree(pctx);
++}
++
+ static void pdp_context_delete(struct pdp_ctx *pctx)
  {
--	struct gtp_net *gn = net_generic(net, gtp_net_id);
--	struct gtp_dev *gtp;
--
--	list_for_each_entry_rcu(gtp, &gn->gtp_dev_list, list) {
--		if (ifindex == gtp->dev->ifindex)
--			return gtp->dev;
--	}
--	return NULL;
-+	struct gtp_dev *gtp = NULL;
-+	struct net_device *dev;
-+	struct net *net;
-+
-+	/* Examine the link attributes and figure out which network namespace
-+	 * we are talking about.
-+	 */
-+	if (nla[GTPA_NET_NS_FD])
-+		net = get_net_ns_by_fd(nla_get_u32(nla[GTPA_NET_NS_FD]));
-+	else
-+		net = get_net(src_net);
-+
-+	if (IS_ERR(net))
-+		return NULL;
-+
-+	/* Check if there's an existing gtpX device to configure */
-+	dev = dev_get_by_index_rcu(net, nla_get_u32(nla[GTPA_LINK]));
-+	if (dev->netdev_ops == &gtp_netdev_ops)
-+		gtp = netdev_priv(dev);
-+
-+	put_net(net);
-+	return gtp;
+ 	hlist_del_rcu(&pctx->hlist_tid);
+ 	hlist_del_rcu(&pctx->hlist_addr);
+-	kfree_rcu(pctx, rcu_head);
++	call_rcu(&pctx->rcu_head, pdp_context_free);
  }
- 
- static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
-@@ -911,9 +910,9 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
- 	}
- }
- 
--static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
-+static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
- {
--	struct gtp_dev *gtp = netdev_priv(dev);
-+	struct net_device *dev = gtp->dev;
- 	u32 hash_ms, hash_tid = 0;
- 	struct pdp_ctx *pctx;
- 	bool found = false;
-@@ -990,8 +989,8 @@ static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
  
  static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
  {
--	struct net_device *dev;
--	struct net *net;
-+	struct gtp_dev *gtp;
-+	int err;
- 
- 	if (!info->attrs[GTPA_VERSION] ||
- 	    !info->attrs[GTPA_LINK] ||
-@@ -1015,77 +1014,79 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
- 		return -EINVAL;
- 	}
- 
--	net = gtp_genl_get_net(sock_net(skb->sk), info->attrs);
--	if (IS_ERR(net))
--		return PTR_ERR(net);
-+	rcu_read_lock();
- 
--	/* Check if there's an existing gtpX device to configure */
--	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL) {
--		put_net(net);
--		return -ENODEV;
-+	gtp = gtp_find_dev(sock_net(skb->sk), info->attrs);
-+	if (!gtp) {
-+		err = -ENODEV;
-+		goto out_unlock;
- 	}
--	put_net(net);
- 
--	return ipv4_pdp_add(dev, info);
-+	err = ipv4_pdp_add(gtp, info);
-+
-+out_unlock:
-+	rcu_read_unlock();
-+	return err;
- }
- 
- static int gtp_genl_del_pdp(struct sk_buff *skb, struct genl_info *info)
- {
--	struct net_device *dev;
- 	struct pdp_ctx *pctx;
++	unsigned int version;
  	struct gtp_dev *gtp;
--	struct net *net;
-+	int err = 0;
- 
- 	if (!info->attrs[GTPA_VERSION] ||
- 	    !info->attrs[GTPA_LINK])
- 		return -EINVAL;
- 
--	net = gtp_genl_get_net(sock_net(skb->sk), info->attrs);
--	if (IS_ERR(net))
--		return PTR_ERR(net);
-+	rcu_read_lock();
- 
--	/* Check if there's an existing gtpX device to configure */
--	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL) {
--		put_net(net);
--		return -ENODEV;
-+	gtp = gtp_find_dev(sock_net(skb->sk), info->attrs);
-+	if (!gtp) {
-+		err = -ENODEV;
-+		goto out_unlock;
- 	}
--	put_net(net);
--
--	gtp = netdev_priv(dev);
- 
- 	switch (nla_get_u32(info->attrs[GTPA_VERSION])) {
- 	case GTP_V0:
--		if (!info->attrs[GTPA_TID])
--			return -EINVAL;
-+		if (!info->attrs[GTPA_TID]) {
-+			err = -EINVAL;
-+			goto out_unlock;
-+		}
- 		pctx = gtp0_pdp_find(gtp, nla_get_u64(info->attrs[GTPA_TID]));
- 		break;
- 	case GTP_V1:
--		if (!info->attrs[GTPA_I_TEI])
--			return -EINVAL;
-+		if (!info->attrs[GTPA_I_TEI]) {
-+			err = -EINVAL;
-+			goto out_unlock;
-+		}
- 		pctx = gtp1_pdp_find(gtp, nla_get_u64(info->attrs[GTPA_I_TEI]));
- 		break;
- 
- 	default:
--		return -EINVAL;
-+		err = -EINVAL;
-+		goto out_unlock;
- 	}
- 
--	if (pctx == NULL)
--		return -ENOENT;
-+	if (!pctx) {
-+		err = -ENOENT;
-+		goto out_unlock;
-+	}
- 
- 	if (pctx->gtp_version == GTP_V0)
--		netdev_dbg(dev, "GTPv0-U: deleting tunnel id = %llx (pdp %p)\n",
-+		netdev_dbg(gtp->dev, "GTPv0-U: deleting tunnel id = %llx (pdp %p)\n",
- 			   pctx->u.v0.tid, pctx);
- 	else if (pctx->gtp_version == GTP_V1)
--		netdev_dbg(dev, "GTPv1-U: deleting tunnel id = %x/%x (pdp %p)\n",
-+		netdev_dbg(gtp->dev, "GTPv1-U: deleting tunnel id = %x/%x (pdp %p)\n",
- 			   pctx->u.v1.i_tei, pctx->u.v1.o_tei, pctx);
- 
- 	hlist_del_rcu(&pctx->hlist_tid);
- 	hlist_del_rcu(&pctx->hlist_addr);
- 	kfree_rcu(pctx, rcu_head);
- 
--	return 0;
-+out_unlock:
-+	rcu_read_unlock();
-+	return err;
- }
- 
- static struct genl_family gtp_genl_family;
-@@ -1129,11 +1130,9 @@ static int gtp_genl_fill_info(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
- static int gtp_genl_get_pdp(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct pdp_ctx *pctx = NULL;
--	struct net_device *dev;
- 	struct sk_buff *skb2;
- 	struct gtp_dev *gtp;
- 	u32 gtp_version;
--	struct net *net;
++	struct sock *sk;
  	int err;
  
  	if (!info->attrs[GTPA_VERSION] ||
-@@ -1149,21 +1148,14 @@ static int gtp_genl_get_pdp(struct sk_buff *skb, struct genl_info *info)
+@@ -1012,7 +998,9 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ 	    !info->attrs[GTPA_MS_ADDRESS])
  		return -EINVAL;
+ 
+-	switch (nla_get_u32(info->attrs[GTPA_VERSION])) {
++	version = nla_get_u32(info->attrs[GTPA_VERSION]);
++
++	switch (version) {
+ 	case GTP_V0:
+ 		if (!info->attrs[GTPA_TID] ||
+ 		    !info->attrs[GTPA_FLOW])
+@@ -1036,7 +1024,19 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ 		goto out_unlock;
  	}
  
--	net = gtp_genl_get_net(sock_net(skb->sk), info->attrs);
--	if (IS_ERR(net))
--		return PTR_ERR(net);
--
--	/* Check if there's an existing gtpX device to configure */
--	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL) {
--		put_net(net);
--		return -ENODEV;
--	}
--	put_net(net);
--
--	gtp = netdev_priv(dev);
--
- 	rcu_read_lock();
+-	err = ipv4_pdp_add(gtp, info);
++	if (version == GTP_V0)
++		sk = gtp->sk0;
++	else if (version == GTP_V1)
++		sk = gtp->sk1u;
++	else
++		sk = NULL;
 +
-+	gtp = gtp_find_dev(sock_net(skb->sk), info->attrs);
-+	if (!gtp) {
++	if (!sk) {
 +		err = -ENODEV;
-+		goto err_unlock;
++		goto out_unlock;
 +	}
 +
- 	if (gtp_version == GTP_V0 &&
- 	    info->attrs[GTPA_TID]) {
- 		u64 tid = nla_get_u64(info->attrs[GTPA_TID]);
++	err = ipv4_pdp_add(gtp, sk, info);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
 -- 
 2.10.2
