@@ -1,49 +1,183 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Thu, 9 Mar 2017 15:26:02 -0800
-Message-ID: <CA+55aFy5vi3af5VBuG6ZOdTeKNxqGSq64J-EkrjaRhGVKXPy0A@mail.gmail.com>
-References: <58C157E6.1010909@iogearbox.net> <alpine.DEB.2.20.1703091547460.3521@nanos>
- <58C19607.6000605@iogearbox.net> <CA+55aFyxM--wyvxXGhBOqdJHcdC_kKvGYpv-C5SpYvRNkbEmGw@mail.gmail.com>
- <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com>
- <58C19F67.3040509@iogearbox.net> <58C1C9DC.7070509@iogearbox.net>
- <20170309215547.jmdzznlkzaxwu2pf@pd.tnic> <20170309220732.ufqoqlawktsi2gao@pd.tnic>
- <58C1D305.8090802@iogearbox.net> <20170309224820.5invcnhvr2tl3ges@pd.tnic>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Kees Cook <keescook@chromium.org>,
-        Laura Abbott <labbott@redhat.com>,
-        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
-        ast@fb.com, "the arch/x86 maintainers" <x86@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Borislav Petkov <bp@suse.de>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 02/14] net: dsa: mv88e6xxx: move ATU ageing time setter
+Date: Thu,  9 Mar 2017 18:33:12 -0500
+Message-ID: <20170309233324.18539-3-vivien.didelot@savoirfairelinux.com>
+References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170309224820.5invcnhvr2tl3ges@pd.tnic>
+In-Reply-To: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 9, 2017 at 2:48 PM, Borislav Petkov <bp@suse.de> wrote:
->
-> I guess we could return to doing boot_cpu_has() in __flush_tlb_all()
-> then. I mean, the timing-sensitivity argument is meh - killing global
-> TLB entries a bit faster doesn't bring me a whole lot when I have to go
-> and walk pagetable and reestablish them, which is the real price to pay
-> anyway.
+Move the ATU ageing time setter code in the new global1_atu.c file, and
+add an mv88e6xxx_atu_setup helper to configure and initialize the ATU.
 
-So should all of commit ("c109bf95992b x86/cpufeature: Remove
-cpu_has_pge") just be reverted (and then marked for stable)?
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/Makefile      |  1 +
+ drivers/net/dsa/mv88e6xxx/chip.c        | 42 ++++++++------------------------
+ drivers/net/dsa/mv88e6xxx/global1.h     |  3 +++
+ drivers/net/dsa/mv88e6xxx/global1_atu.c | 43 +++++++++++++++++++++++++++++++++
+ 4 files changed, 57 insertions(+), 32 deletions(-)
+ create mode 100644 drivers/net/dsa/mv88e6xxx/global1_atu.c
 
-Or do we have some alternate plan?
-
-This has apparently been going on for a long while (it got merged into
-4.7), but presumably it only actually _matters_ if lguest is enabled
-and used and we've triggered that lguest_arch_host_init() code.
-
-Maybe it's the lguest games with PGE that need to be removed?
-
-                Linus
+diff --git a/drivers/net/dsa/mv88e6xxx/Makefile b/drivers/net/dsa/mv88e6xxx/Makefile
+index c36be318de1a..31d37a90cec7 100644
+--- a/drivers/net/dsa/mv88e6xxx/Makefile
++++ b/drivers/net/dsa/mv88e6xxx/Makefile
+@@ -1,5 +1,6 @@
+ obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx.o
+ mv88e6xxx-objs := chip.o
+ mv88e6xxx-objs += global1.o
++mv88e6xxx-objs += global1_atu.o
+ mv88e6xxx-$(CONFIG_NET_DSA_MV88E6XXX_GLOBAL2) += global2.o
+ mv88e6xxx-objs += port.o
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 03dc886ed3d6..0ad8200f3321 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1306,6 +1306,11 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+ 		netdev_err(ds->ports[port].netdev, "failed to update state\n");
+ }
+ 
++static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
++{
++	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
++}
++
+ static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+@@ -2697,33 +2702,6 @@ static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
+ 	return 0;
+ }
+ 
+-static int mv88e6xxx_g1_set_age_time(struct mv88e6xxx_chip *chip,
+-				     unsigned int msecs)
+-{
+-	const unsigned int coeff = chip->info->age_time_coeff;
+-	const unsigned int min = 0x01 * coeff;
+-	const unsigned int max = 0xff * coeff;
+-	u8 age_time;
+-	u16 val;
+-	int err;
+-
+-	if (msecs < min || msecs > max)
+-		return -ERANGE;
+-
+-	/* Round to nearest multiple of coeff */
+-	age_time = (msecs + coeff / 2) / coeff;
+-
+-	err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_CONTROL, &val);
+-	if (err)
+-		return err;
+-
+-	/* AgeTime is 11:4 bits */
+-	val &= ~0xff0;
+-	val |= age_time << 4;
+-
+-	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
+-}
+-
+ static int mv88e6xxx_set_ageing_time(struct dsa_switch *ds,
+ 				     unsigned int ageing_time)
+ {
+@@ -2731,7 +2709,7 @@ static int mv88e6xxx_set_ageing_time(struct dsa_switch *ds,
+ 	int err;
+ 
+ 	mutex_lock(&chip->reg_lock);
+-	err = mv88e6xxx_g1_set_age_time(chip, ageing_time);
++	err = mv88e6xxx_g1_atu_set_age_time(chip, ageing_time);
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	return err;
+@@ -2783,10 +2761,6 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
+ 	if (err)
+ 		return err;
+ 
+-	err = mv88e6xxx_g1_set_age_time(chip, 300000);
+-	if (err)
+-		return err;
+-
+ 	/* Clear all ATU entries */
+ 	err = _mv88e6xxx_atu_flush(chip, 0, true);
+ 	if (err)
+@@ -2872,6 +2846,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ 			goto unlock;
+ 	}
+ 
++	err = mv88e6xxx_atu_setup(chip);
++	if (err)
++		goto unlock;
++
+ 	/* Some generations have the configuration of sending reserved
+ 	 * management frames to the CPU in global2, others in
+ 	 * global1. Hence it does not fit the two setup functions
+diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
+index 1aec7382c02d..b8d0fb519bab 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1.h
++++ b/drivers/net/dsa/mv88e6xxx/global1.h
+@@ -38,4 +38,7 @@ int mv88e6095_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6390_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6390_g1_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
+ 
++int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
++				  unsigned int msecs);
++
+ #endif /* _MV88E6XXX_GLOBAL1_H */
+diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
+new file mode 100644
+index 000000000000..4d0ada9efc6d
+--- /dev/null
++++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
+@@ -0,0 +1,43 @@
++/*
++ * Marvell 88E6xxx Address Translation Unit (ATU) support
++ *
++ * Copyright (c) 2008 Marvell Semiconductor
++ * Copyright (c) 2017 Savoir-faire Linux, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include "mv88e6xxx.h"
++#include "global1.h"
++
++/* Offset 0x0A: ATU Control Register */
++
++int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
++				  unsigned int msecs)
++{
++	const unsigned int coeff = chip->info->age_time_coeff;
++	const unsigned int min = 0x01 * coeff;
++	const unsigned int max = 0xff * coeff;
++	u8 age_time;
++	u16 val;
++	int err;
++
++	if (msecs < min || msecs > max)
++		return -ERANGE;
++
++	/* Round to nearest multiple of coeff */
++	age_time = (msecs + coeff / 2) / coeff;
++
++	err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_CONTROL, &val);
++	if (err)
++		return err;
++
++	/* AgeTime is 11:4 bits */
++	val &= ~0xff0;
++	val |= age_time << 4;
++
++	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
++}
+-- 
+2.12.0
