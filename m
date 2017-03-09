@@ -1,91 +1,49 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: xgbe unbalanced enable for IRQ XX in 4.11-rc1
-Date: Thu, 9 Mar 2017 17:24:46 -0600
-Message-ID: <c6ed2749-a9c7-70b0-c2ab-989a7268d432@amd.com>
-References: <41df0f3a-5867-b0d5-a7f9-14b66eaff7a2@arm.com>
- <e6f6df1d-18fa-070f-f28c-75cd3aae4582@amd.com>
- <25762623-5aae-bfb1-64fd-dd431630c6c9@arm.com>
- <ad2abd2c-5a67-b2d5-d5c8-8252505a71cc@amd.com>
- <1489100780.28631.25.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Thu, 9 Mar 2017 15:26:02 -0800
+Message-ID: <CA+55aFy5vi3af5VBuG6ZOdTeKNxqGSq64J-EkrjaRhGVKXPy0A@mail.gmail.com>
+References: <58C157E6.1010909@iogearbox.net> <alpine.DEB.2.20.1703091547460.3521@nanos>
+ <58C19607.6000605@iogearbox.net> <CA+55aFyxM--wyvxXGhBOqdJHcdC_kKvGYpv-C5SpYvRNkbEmGw@mail.gmail.com>
+ <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com>
+ <58C19F67.3040509@iogearbox.net> <58C1C9DC.7070509@iogearbox.net>
+ <20170309215547.jmdzznlkzaxwu2pf@pd.tnic> <20170309220732.ufqoqlawktsi2gao@pd.tnic>
+ <58C1D305.8090802@iogearbox.net> <20170309224820.5invcnhvr2tl3ges@pd.tnic>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeremy Linton <jeremy.linton@arm.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0051.outbound.protection.outlook.com ([104.47.41.51]:22432
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751623AbdCIXY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 18:24:56 -0500
-In-Reply-To: <1489100780.28631.25.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Kees Cook <keescook@chromium.org>,
+        Laura Abbott <labbott@redhat.com>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, "the arch/x86 maintainers" <x86@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Borislav Petkov <bp@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170309224820.5invcnhvr2tl3ges@pd.tnic>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/9/2017 5:06 PM, Eric Dumazet wrote:
-> On Thu, 2017-03-09 at 16:35 -0600, Tom Lendacky wrote:
->> On 3/9/2017 4:17 PM, Jeremy Linton wrote:
->>> Hi,
->>>
->>> On 03/09/2017 03:39 PM, Tom Lendacky wrote:
->>>> On 3/9/2017 3:26 PM, Jeremy Linton wrote:
->>>>> Hi,
->>>>
->>>> Hi Jeremy,
->>>>
->>>> I'll have a look at it.  Can you send me your kernel config just in
->>>> case?
->>>
->>> Sure, i will send it to you off list to avoid spamming everyone with a
->>> 43k gziped file.
->>>
->>
->> I'm able to recreate the problem with my current config.  If I revert
->> patch 39e6c8208d7b ("net: solve a NAPI race"), then the problem goes
->> away.
->>
->> Eric, any thoughts on this?  I'm guessing the driver should check that
->> napi_complete_done returns true before enabling IRQs...
->>
->> Thanks,
->> Tom
+On Thu, Mar 9, 2017 at 2:48 PM, Borislav Petkov <bp@suse.de> wrote:
 >
-> Yes, it seems this driver has a conditional disable_irq_nosync()
-> following the napi_schedule_prep()
->
-> So it probably needs the same for the enable_irq() side.
+> I guess we could return to doing boot_cpu_has() in __flush_tlb_all()
+> then. I mean, the timing-sensitivity argument is meh - killing global
+> TLB entries a bit faster doesn't bring me a whole lot when I have to go
+> and walk pagetable and reestablish them, which is the real price to pay
+> anyway.
 
-I verified that the issue goes away when the return value for
-napi_complete_done() is checked.  I'll prepare a patch for
-both calls in the driver.
+So should all of commit ("c109bf95992b x86/cpufeature: Remove
+cpu_has_pge") just be reverted (and then marked for stable)?
 
->
-> This would be broken with busy polling anyway, before my patch.
+Or do we have some alternate plan?
 
-Yes, I see that busy polling went into 4.10 so I'll submit it back
-to 4.10 stable as well.
+This has apparently been going on for a long while (it got merged into
+4.7), but presumably it only actually _matters_ if lguest is enabled
+and used and we've triggered that lguest_arch_host_init() code.
 
-Thanks,
-Tom
+Maybe it's the lguest games with PGE that need to be removed?
 
->
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-> index 248f60d171a5a0ce76744a95e2d59039939e6538..c47a3a93f034ab608286d1ae343e9b7778063df8 100644
-> --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-> @@ -2272,9 +2272,8 @@ static int xgbe_one_poll(struct napi_struct *napi, int budget)
->  	processed = xgbe_rx_poll(channel, budget);
->
->  	/* If we processed everything, we are done */
-> -	if (processed < budget) {
-> -		/* Turn off polling */
-> -		napi_complete_done(napi, processed);
-> +	if (processed < budget &&
-> +	    napi_complete_done(napi, processed)) {
->
->  		/* Enable Tx and Rx interrupts */
->  		if (pdata->channel_irq_mode)
->
->
+                Linus
