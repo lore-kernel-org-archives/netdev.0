@@ -1,36 +1,49 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: wcn36xx: Fix error handling
-Date: Thu, 9 Mar 2017 09:02:44 +0100
-Message-ID: <b37f84dce99d4f6fa577845f664aaba6@euamsexm01a.eu.qualcomm.com>
-References: <20170219174751.18966-1-christophe.jaillet@wanadoo.fr>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net] rxrpc: rxrpc_kernel_send_data() needs to handle failed
+ call better
+Date: Thu, 09 Mar 2017 08:10:32 +0000
+Message-ID: <148904703242.5036.16866085054034840990.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <k.eugene.e@gmail.com>, <kvalo@codeaurora.org>,
-        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <kernel-janitors@vger.kernel.org>,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170219174751.18966-1-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60924 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752976AbdCIIKp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 03:10:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Christophe Jaillet <christophe.jaillet@wanadoo.fr> wrote:
-> Reorder 'out_free_dxe_pool' and 'out_free_dxe_ctl' error handling labels
-> in order to match the way resources have been allocated.
-> 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+If rxrpc_kernel_send_data() is asked to send data through a call that has
+already failed (due to a remote abort, received protocol error or network
+error), then return the associated error code saved in the call rather than
+ESHUTDOWN.
 
-Patch applied to ath-next branch of ath.git, thanks.
+This allows the caller to work out whether to ask for the abort code or not
+based on this.
 
-4aa2d31f5df8 wcn36xx: Fix error handling
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
--- 
-https://patchwork.kernel.org/patch/9581709/
+ net/rxrpc/sendmsg.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
+index 47ccfeacc1c6..97ab214ca411 100644
+--- a/net/rxrpc/sendmsg.c
++++ b/net/rxrpc/sendmsg.c
+@@ -618,8 +618,9 @@ int rxrpc_kernel_send_data(struct socket *sock, struct rxrpc_call *call,
+ 		ret = rxrpc_send_data(rxrpc_sk(sock->sk), call, msg, len);
+ 		break;
+ 	case RXRPC_CALL_COMPLETE:
+-		/* It's too late for this call */
+-		ret = -ESHUTDOWN;
++		read_lock_bh(&call->state_lock);
++		ret = -call->error;
++		read_unlock_bh(&call->state_lock);
+ 		break;
+ 	default:
+ 		 /* Request phase complete for this client call */
