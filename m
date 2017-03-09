@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: toshiba: spider_net: use new api
- ethtool_{get|set}_link_ksettings
-Date: Wed, 08 Mar 2017 22:06:40 -0800 (PST)
-Message-ID: <20170308.220640.1494220891289857299.davem@davemloft.net>
-References: <1488753960-16452-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net] team: use ETH_MAX_MTU as max mtu
+Date: Wed, 08 Mar 2017 22:20:00 -0800 (PST)
+Message-ID: <20170308.222000.2114880882228056038.davem@davemloft.net>
+References: <20170306134858.2096-1-jarod@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kou.ishizaki@toshiba.co.jp, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59912 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750793AbdCIGOy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 01:14:54 -0500
-In-Reply-To: <1488753960-16452-1-git-send-email-tremyfr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, netdev@vger.kernel.org
+To: jarod@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170306134858.2096-1-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun,  5 Mar 2017 23:46:00 +0100
+From: Jarod Wilson <jarod@redhat.com>
+Date: Mon,  6 Mar 2017 08:48:58 -0500
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+> This restores the ability to set a team device's mtu to anything higher
+> than 1500. Similar to the reported issue with bonding, the team driver
+> calls ether_setup(), which sets an initial max_mtu of 1500, while the
+> underlying hardware can handle something much larger. Just set it to
+> ETH_MAX_MTU to support all possible values, and the limitations of the
+> underlying devices will prevent setting anything too large.
 > 
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
+> CC: Cong Wang <xiyou.wangcong@gmail.com>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
