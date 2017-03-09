@@ -1,207 +1,79 @@
-From: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 5/7] net: stmmac: Program RX queue size and flow control
-Date: Thu, 9 Mar 2017 21:44:09 +0100
-Message-ID: <20170309204409.GG5554@ulmo.ba.sec>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-6-thierry.reding@gmail.com>
- <74ee5bff-8893-ebd4-bcf8-bb92c476f581@kapsi.fi>
- <20170309194231.GD5554@ulmo.ba.sec>
- <83aaa3b1-a2d4-8ddd-d31a-2fd6c653e3d1@wwwdotorg.org>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH net-next 1/8] net: stmicro: multiple queues dt configuration
+ (fwd)
+Date: Thu, 9 Mar 2017 21:56:09 +0100 (CET)
+Message-ID: <alpine.DEB.2.20.1703092154301.2306@hadrien>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="TmwHKJoIRFM7Mu/A"
-Cc: Mikko Perttunen <cyndis-/1wQRMveznE@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <83aaa3b1-a2d4-8ddd-d31a-2fd6c653e3d1-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>,
+        kbuild-all@01.org, davem@davemloft.net
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:35545 "EHLO
+        mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750880AbdCIU4M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 15:56:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This is just pointing out that lines 200 and 202 are identical.
 
---TmwHKJoIRFM7Mu/A
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+julia
 
-On Thu, Mar 09, 2017 at 01:18:11PM -0700, Stephen Warren wrote:
-> On 03/09/2017 12:42 PM, Thierry Reding wrote:
-> > On Mon, Feb 27, 2017 at 12:09:02PM +0200, Mikko Perttunen wrote:
-> > > On 23.02.2017 19:24, Thierry Reding wrote:
-> > > > From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-> > > >=20
-> > > > Program the receive queue size based on the RX FIFO size and enable
-> > > > hardware flow control for large FIFOs.
->=20
-> > > > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/dri=
-vers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
->=20
-> > > > @@ -252,6 +253,44 @@ static void dwmac4_dma_chan_op_mode(void __iom=
-em *ioaddr, int txmode,
-> > > >  			mtl_rx_op |=3D MTL_OP_MODE_RTC_128;
-> > > >  	}
-> > > >=20
-> > > > +	mtl_rx_op &=3D ~MTL_OP_MODE_RQS_MASK;
-> > > > +	mtl_rx_op |=3D rqs << MTL_OP_MODE_RQS_SHIFT;
-> > > > +
-> > > > +	/* enable flow control only if each channel gets 4 KiB or more FI=
-FO */
-> > > > +	if (rxfifosz >=3D 4096) {
-> > > > +		unsigned int rfd, rfa;
-> > > > +
-> > > > +		mtl_rx_op |=3D MTL_OP_MODE_EHFC;
-> > > > +
-> > > > +		switch (rxfifosz) {
-> > > > +		case 4096:
-> > > > +			rfd =3D 0x03;
-> > > > +			rfa =3D 0x01;
-> > > > +			break;
-> > > > +
-> > > > +		case 8192:
-> > > > +			rfd =3D 0x06;
-> > > > +			rfa =3D 0x0a;
-> > > > +			break;
-> > > > +
-> > > > +		case 16384:
-> > > > +			rfd =3D 0x06;
-> > > > +			rfa =3D 0x12;
-> > > > +			break;
-> > > > +
-> > > > +		default:
-> > > > +			rfd =3D 0x06;
-> > > > +			rfa =3D 0x1e;
-> > > > +			break;
-> > > > +		}
-> > >=20
-> > > Are these values correct? In the 4096 case, rfd > rfa, in all other c=
-ases
-> > > the other way around. In any case it would be useful to have a comment
-> > > clarifying the thresholds in bytes.
-> >=20
-> > I'll investigate. To be honest I simply took this from Stephen's U-Boot
-> > driver since that's already tested. I trust Stephen, so I didn't bother
-> > double-checking.
->=20
-> I don't recall for sure, but I think these values came directly from eith=
-er
-> the upstream kernel (the non-stmmac driver) or NV downstream kernel EQoS
-> driver, and I re-used them without investigating. I'm not even sure if the
-> outer if() expression is true; these numbers might not even end up being
-> used?
+---------- Forwarded message ----------
+Date: Fri, 10 Mar 2017 04:50:01 +0800
+From: kbuild test robot <fengguang.wu@intel.com>
+To: kbuild@01.org
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH net-next 1/8] net: stmicro: multiple queues dt configuration
 
-Yes they are, and they were even the key to making the STMMAC driver
-work on Tegra186. Without programming these fields the driver would fail
-to receive any packets.
+In-Reply-To: <eee93719e5830cfea8e4dcfdac9221a3b6124eb8.1488969672.git.jpinto@synopsys.com>
 
-I noticed that you had comments in the U-Boot driver that I had left out
-(most likely because I forgot to add them after cleaning up after the
-hacking session). Here's the original extract from U-Boot:
+Hi Joao,
 
-		/*
-		 * Set Threshold for Activating Flow Contol space for min 2
-		 * frames ie, (1500 * 1) =3D 1500 bytes.
-		 *
-		 * Set Threshold for Deactivating Flow Contol for space of
-		 * min 1 frame (frame size 1500bytes) in receive fifo
-		 */
-		if (rqs =3D=3D ((4096 / 256) - 1)) {
-			/*
-			 * This violates the above formula because of FIFO size
-			 * limit therefore overflow may occur inspite of this.
-			 */
-			rfd =3D 0x3;	/* Full-3K */
-			rfa =3D 0x1;	/* Full-1.5K */
-		} else if (rqs =3D=3D ((8192 / 256) - 1)) {
-			rfd =3D 0x6;	/* Full-4K */
-			rfa =3D 0xa;	/* Full-6K */
-		} else if (rqs =3D=3D ((16384 / 256) - 1)) {
-			rfd =3D 0x6;	/* Full-4K */
-			rfa =3D 0x12;	/* Full-10K */
-		} else {
-			rfd =3D 0x6;	/* Full-4K */
-			rfa =3D 0x1E;	/* Full-16K */
-		}
+[auto build test WARNING on next-20170308]
+[also build test WARNING on v4.11-rc1]
+[cannot apply to v4.9-rc8 v4.9-rc7 v4.9-rc6]
+[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
 
-Two things are strange about this:
+url:    https://github.com/0day-ci/linux/commits/Joao-Pinto/prepare-mac-operations-for-multiple-queues/20170310-013207
+:::::: branch date: 3 hours ago
+:::::: commit date: 3 hours ago
 
-	1) the first comment says "2 frames", but the threshold value is
-	   clearly just one frame
+>> drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:199:6-8: WARNING: possible condition with no effect (if == else)
 
-	2) the first set of rfd/rfa values has a wrong comment, by my
-	   understanding: Full-3K should really be Full-2.5K
+git remote add linux-review https://github.com/0day-ci/linux
+git remote update linux-review
+git checkout faca7330d9494884feb52b62a037d01266b4d382
+vim +199 drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
 
-The encoding of these values is essentially:
+faca7330 Joao Pinto 2017-03-08  183  		/* TODO: Dynamic mapping to be included in the future */
+faca7330 Joao Pinto 2017-03-08  184
+faca7330 Joao Pinto 2017-03-08  185  		queue++;
+faca7330 Joao Pinto 2017-03-08  186  	}
+faca7330 Joao Pinto 2017-03-08  187
+faca7330 Joao Pinto 2017-03-08  188  	/* Processing TX queues common config */
+faca7330 Joao Pinto 2017-03-08  189  	if (of_property_read_u8(tx_node, "snps,tx-queues-to-use",
+faca7330 Joao Pinto 2017-03-08  190  				&plat->tx_queues_to_use))
+faca7330 Joao Pinto 2017-03-08  191  		plat->tx_queues_to_use = 1;
+faca7330 Joao Pinto 2017-03-08  192
+faca7330 Joao Pinto 2017-03-08  193  	if (of_property_read_bool(tx_node, "snps,tx-sched-wrr"))
+faca7330 Joao Pinto 2017-03-08  194  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_WRR;
+faca7330 Joao Pinto 2017-03-08  195  	else if (of_property_read_bool(tx_node, "snps,tx-sched-wfq"))
+faca7330 Joao Pinto 2017-03-08  196  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_WFQ;
+faca7330 Joao Pinto 2017-03-08  197  	else if (of_property_read_bool(tx_node, "snps,tx-sched-dwrr"))
+faca7330 Joao Pinto 2017-03-08  198  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_DWRR;
+faca7330 Joao Pinto 2017-03-08 @199  	else if (of_property_read_bool(tx_node, "snps,tx-sched-sp"))
+faca7330 Joao Pinto 2017-03-08  200  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_SP;
+faca7330 Joao Pinto 2017-03-08  201  	else
+faca7330 Joao Pinto 2017-03-08  202  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_SP;
+faca7330 Joao Pinto 2017-03-08  203
+faca7330 Joao Pinto 2017-03-08  204  	queue = 0;
+faca7330 Joao Pinto 2017-03-08  205
+faca7330 Joao Pinto 2017-03-08  206  	/* Processing individual TX queue config */
+faca7330 Joao Pinto 2017-03-08  207  	for_each_child_of_node(tx_node, queue_node) {
 
-	threshold =3D full - (1K + value * 0.5K)
-
-Here's my updated version from the kernel driver:
-
-		/*
-		 * Set Threshold for Activating Flow Control to min 2 frames,
-		 * i.e. 1500 * 2 =3D 3000 bytes.
-		 *
-		 * Set Threshold for Deactivating Flow Control to min 1 frame,
-		 * i.e. 1500 bytes.
-		 */
-		switch (rxfifosz) {
-		case 4096:
-			/*
-			 * This violates the above formula because of FIFO size
-			 * limit therefore overflow may occur in spite of this.
-			 */
-			rfd =3D 0x03; /* Full-2.5K */
-			rfa =3D 0x01; /* Full-1.5K */
-			break;
-
-		case 8192:
-			rfd =3D 0x06; /* Full-4K */
-			rfa =3D 0x0a; /* Full-6K */
-			break;
-
-		case 16384:
-			rfd =3D 0x06; /* Full-4K */
-			rfa =3D 0x12; /* Full-10K */
-			break;
-
-		default:
-			rfd =3D 0x06; /* Full-4K */
-			rfa =3D 0x1e; /* Full-16K */
-			break;
-		}
-
-As best as I can tell these values are within the constraints given in
-the TRM and they also make sense to me for the purposes they're used
-for.
-
-Thierry
-
---TmwHKJoIRFM7Mu/A
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljBvpYACgkQ3SOs138+
-s6Gryg/8DOM5OWEz57fxP/P6nyKSWX0RAg2xW9EQXsBb1FiloixLOQCEvLW8X+m0
-UFZH1MLR71LqJSSzvD1ltEaUbeUQBu7fnFnXHu1s39Sh/KO8Z9V6UlNVQTLYNSfX
-q0EEuPT69a8/gR6FITRB5/9VfDWV5x6cAphJPkCv8DXILa90jn3tMY+fqSM8vmtL
-7hCp03Vok3PkEq/xO1CoVZpxnuXnMpUskjd0RxhwwDp7QFo0vItSSCwnkW46c1WL
-J0prHK86ud4UhhDpUrzspYBw+almyo+efqlkv+GWhQvDl/dwbOWMhxna6rsjUPZs
-G9B7rJteocWaZs8QIp0p2JV9apF32zZF5KB/Nh3d8BqaQ8rLGkgrSWbrDBrrFEMs
-n0sbBcnaLFU3BNJ2tW8m3tjOQ6pdN7OZSkDATyg34xcNlUppNz1TYrqn9Jj3VCW8
-dlbCrkXxePgTZwi0hPMbUHEqgCqtfLun4edmxPP47u/6ZoPATzAs0tGOEJ2ancQu
-RIT2G5h02JNsu/+zrNpdA2hPtgJta6gAjJhp1oM3Ylp717TLigEP+JTDNBukoT+H
-PAZHHWup+FWkZdlboNj2WRcwlm8YjzRRXz7MTIDxj+jKOY5yDmauhOBW4yaV0vDN
-qIEU6gEGygpQ7tI7t/JuTFK1QBZPjxogDsysovht8mBf0Dv96uY=
-=xtmq
------END PGP SIGNATURE-----
-
---TmwHKJoIRFM7Mu/A--
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
