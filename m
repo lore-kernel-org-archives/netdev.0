@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] uapi: fix linux/packet_diag.h userspace compilation
- error
-Date: Thu, 09 Mar 2017 13:23:06 -0800 (PST)
-Message-ID: <20170309.132306.2135023022720335742.davem@davemloft.net>
-References: <20170307202802.GA19323@altlinux.org>
-        <20170307.123535.1895338978981637855.davem@davemloft.net>
-        <20170307205050.GB19323@altlinux.org>
+Subject: Re: [PATCH v4 net-next 0/6] drivers: net: xgene-v2: Add RGMII
+ based 1G driver
+Date: Thu, 09 Mar 2017 13:25:25 -0800 (PST)
+Message-ID: <20170309.132525.936435093296208313.davem@davemloft.net>
+References: <1488935325-13603-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@virtuozzo.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: ldv@altlinux.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170307205050.GB19323@altlinux.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
+        David.Laight@aculab.com, linux-arm-kernel@lists.infradead.org,
+        patches@apm.com, kchudgar@apm.com
+To: isubramanian@apm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44580 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751908AbdCIVZ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 16:25:28 -0500
+In-Reply-To: <1488935325-13603-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Date: Tue, 7 Mar 2017 23:50:50 +0300
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Tue,  7 Mar 2017 17:08:39 -0800
 
-> Replace MAX_ADDR_LEN with its numeric value to fix the following
-> linux/packet_diag.h userspace compilation error:
+> This patch set adds support for RGMII based 1GbE hardware which uses a linked
+> list of DMA descriptor architecture (v2) for APM X-Gene SoCs.
 > 
-> /usr/include/linux/packet_diag.h:67:17: error: 'MAX_ADDR_LEN' undeclared here (not in a function)
->   __u8 pdmc_addr[MAX_ADDR_LEN];
-> 
-> This is not the first case in the UAPI where the numeric value
-> of MAX_ADDR_LEN is used instead of symbolic one, uapi/linux/if_link.h
-> already does the same:
-> 
-> $ grep MAX_ADDR_LEN include/uapi/linux/if_link.h 
-> 	__u8 mac[32]; /* MAX_ADDR_LEN */
-> 
-> There are no UAPI headers besides these two that use MAX_ADDR_LEN.
-> 
-> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-> Acked-by: Pavel Emelyanov <xemul@virtuozzo.com>
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 
-Applied and queued up for -stable.
+Series applied, thanks.
