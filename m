@@ -1,56 +1,129 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net-next v5 0/7] gtp: misc improvements
-Date: Thu,  9 Mar 2017 17:42:55 +0100
-Message-ID: <20170309164302.13550-1-aschultz@tpip.net>
+Subject: [PATCH net-next v5 1/7] gtp: switch from struct socket to struct sock for the GTP sockets
+Date: Thu,  9 Mar 2017 17:42:56 +0100
+Message-ID: <20170309164302.13550-2-aschultz@tpip.net>
+References: <20170309164302.13550-1-aschultz@tpip.net>
 Cc: osmocom-net-gprs@lists.osmocom.org, netdev <netdev@vger.kernel.org>
 To: Harald Welte <laforge@gnumonks.org>,
         Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:52755 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:47461 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932719AbdCIQn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 11:43:29 -0500
+        id S932722AbdCIQni (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 11:43:38 -0500
+In-Reply-To: <20170309164302.13550-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+After enabling the UDP encapsulation, only the sk member is used.
 
-This is a resent of last series that missed the merge window. There
-are no changes compared to v4.
+Holding the socket would prevent user space from closing the socket,
+but holding a reference to the sk member does not have the same
+effect.
 
-v4: Compared to v3 it contains mostly smallish naming and spelling fixes.
-It also drops the documentation patch, Harald did a better job with the
-documentation and the some things I described do not yet match the implementation.
-I'll readd the relevant parts with a follow up series.
+This change will make it simpler to later detach the sockets from
+the netdevice.
 
-This series lays the groundwork for removing the socket references from
-the GTP netdevice by removing duplicate code and simplifying the logic on
-some code paths.
+Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+---
+ drivers/net/gtp.c | 42 +++++++++++++++++++++++-------------------
+ 1 file changed, 23 insertions(+), 19 deletions(-)
 
-It slighly changes the GTP genl API by making the socket parameters optional
-(though one of them is still required).
-
-The removal of the socket references will break the 1:1 releation between
-GTP netdevice and GTP socket that prevents us to support multiple VRFs with
-overlapping IP addresse spaces attached to the same GTP-U entity (needed for
-multi APN support, coming a follow up series).
-
-Pablo found a socket hold problem in v2. In order to solve that I had to
-switch the socket references from the struct socket to the internal
-struct sock. This should have no functionl impact, but we can now hang
-on to the reference without blocking user space from closing the GTP socket.
-
-v4->v5:
- * resent for new merge window
-v3->v4:
- * drop the documentation patch
- * spelling fixes
- * pass nlattr instead of genl_info into gtp_find_dev,
-   makes the code slightly more compact and readable
-v2->v3:
- * add documentation to explain the goal of all these changes
- * incorporate review comments
- * switch from struct socket to struct sock
-
-Regards
-Andreas
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 8969874..e1b5af3 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -66,8 +66,8 @@ struct pdp_ctx {
+ struct gtp_dev {
+ 	struct list_head	list;
+ 
+-	struct socket		*sock0;
+-	struct socket		*sock1u;
++	struct sock		*sk0;
++	struct sock		*sk1u;
+ 
+ 	struct net_device	*dev;
+ 
+@@ -261,17 +261,19 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 
+ static void gtp_encap_disable(struct gtp_dev *gtp)
+ {
+-	if (gtp->sock0 && gtp->sock0->sk) {
+-		udp_sk(gtp->sock0->sk)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sock0->sk, NULL);
++	if (gtp->sk0) {
++		udp_sk(gtp->sk0)->encap_type = 0;
++		rcu_assign_sk_user_data(gtp->sk0, NULL);
++		sock_put(gtp->sk0);
+ 	}
+-	if (gtp->sock1u && gtp->sock1u->sk) {
+-		udp_sk(gtp->sock1u->sk)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sock1u->sk, NULL);
++	if (gtp->sk1u) {
++		udp_sk(gtp->sk1u)->encap_type = 0;
++		rcu_assign_sk_user_data(gtp->sk1u, NULL);
++		sock_put(gtp->sk1u);
+ 	}
+ 
+-	gtp->sock0 = NULL;
+-	gtp->sock1u = NULL;
++	gtp->sk0 = NULL;
++	gtp->sk1u = NULL;
+ }
+ 
+ static void gtp_encap_destroy(struct sock *sk)
+@@ -484,14 +486,14 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	switch (pctx->gtp_version) {
+ 	case GTP_V0:
+-		if (gtp->sock0)
+-			sk = gtp->sock0->sk;
++		if (gtp->sk0)
++			sk = gtp->sk0;
+ 		else
+ 			sk = NULL;
+ 		break;
+ 	case GTP_V1:
+-		if (gtp->sock1u)
+-			sk = gtp->sock1u->sk;
++		if (gtp->sk1u)
++			sk = gtp->sk1u;
+ 		else
+ 			sk = NULL;
+ 		break;
+@@ -504,7 +506,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 		return -ENOENT;
+ 	}
+ 
+-	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sock0->sk,
++	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sk0,
+ 				  pctx->sgsn_addr_ip4.s_addr);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to SSGN %pI4\n",
+@@ -839,18 +841,20 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+ 
+ 	netdev_dbg(dev, "enable gtp on %p, %p\n", sock0, sock1u);
+ 
+-	gtp->sock0 = sock0;
+-	gtp->sock1u = sock1u;
++	sock_hold(sock0->sk);
++	gtp->sk0 = sock0->sk;
++	sock_hold(sock1u->sk);
++	gtp->sk1u = sock1u->sk;
+ 
+ 	tuncfg.sk_user_data = gtp;
+ 	tuncfg.encap_rcv = gtp_encap_recv;
+ 	tuncfg.encap_destroy = gtp_encap_destroy;
+ 
+ 	tuncfg.encap_type = UDP_ENCAP_GTP0;
+-	setup_udp_tunnel_sock(sock_net(gtp->sock0->sk), gtp->sock0, &tuncfg);
++	setup_udp_tunnel_sock(sock_net(gtp->sk0), sock0, &tuncfg);
+ 
+ 	tuncfg.encap_type = UDP_ENCAP_GTP1U;
+-	setup_udp_tunnel_sock(sock_net(gtp->sock1u->sk), gtp->sock1u, &tuncfg);
++	setup_udp_tunnel_sock(sock_net(gtp->sk1u), sock1u, &tuncfg);
+ 
+ 	err = 0;
+ err2:
+-- 
+2.10.2
