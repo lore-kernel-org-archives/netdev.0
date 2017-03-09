@@ -1,112 +1,27 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: xgbe unbalanced enable for IRQ XX in 4.11-rc1
-Date: Thu, 9 Mar 2017 15:39:51 -0600
-Message-ID: <e6f6df1d-18fa-070f-f28c-75cd3aae4582@amd.com>
-References: <41df0f3a-5867-b0d5-a7f9-14b66eaff7a2@arm.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH net-next] qed*: Utilize Firmware 8.15.3.0
+Date: Thu, 9 Mar 2017 13:45:57 -0800
+Message-ID: <20170309214557.GA16860@infradead.org>
+References: <1489091851-1282-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Jeremy Linton <jeremy.linton@arm.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0084.outbound.protection.outlook.com ([104.47.40.84]:56463
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750739AbdCIVk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 16:40:26 -0500
-In-Reply-To: <41df0f3a-5867-b0d5-a7f9-14b66eaff7a2@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Tomer Tayar <Tomer.Tayar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Manish Rangankar <Manish.Rangankar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Chad Dupuis <Chad.Dupuis-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1489091851-1282-1-git-send-email-Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 3/9/2017 3:26 PM, Jeremy Linton wrote:
-> Hi,
-
-Hi Jeremy,
-
-I'll have a look at it.  Can you send me your kernel config just in
-case?
-
-Thanks,
-Tom
-
->
-> I have a softiron 3k and under network load (nfs copies, vnc with gnome,
-> etc) it is now throwing these messages as fast as the console will
-> accept them. This is booted DT mode.
->
->
-> [  430.111324] Unbalanced enable for IRQ 33
-> [  430.115239] ------------[ cut here ]------------
-> [  430.119849] WARNING: CPU: 0 PID: 6 at kernel/irq/manage.c:529
-> __enable_irq+0x7c/0x88
-> [  430.127583] Modules linked in: fuse xt_CHECKSUM ipt_MASQUERADE
-> nf_nat_masquerade_ipv4 tun ip6t_rpfilter ip6t_REJECT nf_reject_ipv6
-> xt_conntrack ip_set nfnetlink ebtable_nat ebtable_broute bridge stp llc
-> ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6
-> ip6table_mangle ip6table_raw ip6table_security iptable_nat
-> nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack
-> iptable_mangle iptable_raw iptable_security ebtable_filter ebtables
-> ip6table_filter ip6_tables vfat fat crc32_ce crct10dif_ce amd_xgbe
-> ghash_ce ptp pps_core spi_pl022 ipmi_si i2c_designware_platform
-> ipmi_devintf i2c_designware_core ccp ipmi_msghandler nfsd auth_rpcgss
-> nfs_acl lockd grace sunrpc xfs libcrc32c
-> [  430.188350]
-> [  430.189833] CPU: 0 PID: 6 Comm: ksoftirqd/0 Tainted: G        W I
-> 4.11.0-0.rc1.git0.1.fc27.aarch64 #1
-> [  430.199391] Hardware name: AMD Overdrive/Supercharger/Default string,
-> BIOS ROD1002C 04/08/2016
-> [  430.207994] task: ffff8003e4057900 task.stack: ffff8003f4590000
-> [  430.213904] PC is at __enable_irq+0x7c/0x88
-> [  430.218078] LR is at __enable_irq+0x7c/0x88
-> [  430.222252] pc : [<ffff000008137b14>] lr : [<ffff000008137b14>]
-> pstate: 000001c5
-> [  430.229639] sp : ffff8003f4593c50
-> [  430.232944] x29: ffff8003f4593c50 x28: ffff8003dfeddce0
-> [  430.238248] x27: 0000000000000002 x26: 0000000000000001
-> [  430.243551] x25: 0000000000000040 x24: 00008003f60a0000
-> [  430.248855] x23: ffff8003d5d0a900 x22: 0000000000000040
-> [  430.254158] x21: 0000000000000001 x20: 0000000000000021
-> [  430.259462] x19: ffff8003dc507200 x18: 0000000000000000
-> [  430.264765] x17: 0000000000000000 x16: 0000000000000000
-> [  430.270069] x15: 0000000000000010 x14: ffff000089005e7f
-> [  430.275372] x13: ffff000009005e8d x12: ffff000008e8d000
-> [  430.280676] x11: ffff000008e65458 x10: ffff0000085adce8
-> [  430.285979] x9 : 00000000ffffffd0 x8 : 0000000000000005
-> [  430.291283] x7 : 636e616c61626e55 x6 : ffff8003fee74d98
-> [  430.296586] x5 : ffff8003fee74d98 x4 : 0000000000000000
-> [  430.301890] x3 : ffff8003fee88730 x2 : ffff8003fee74d98
-> [  430.307193] x1 : 00008003f60a0000 x0 : 000000000000001c
-> [  430.312496]
-> [  430.313978] ---[ end trace 5664787410723389 ]---
-> [  430.318586] Call trace:
-> [  430.321023] Exception stack(0xffff8003f4593a80 to 0xffff8003f4593bb0)
-> [  430.327454] 3a80: ffff8003dc507200 0001000000000000 ffff8003f4593c50
-> ffff000008137b14
-> [  430.335277] 3aa0: ffff8003f4593c50 ffff8003f4593c50 ffff8003f4593c10
-> 00000000ffffffc8
-> [  430.343099] 3ac0: ffff8003f4593b00 ffff000008134838 ffff000008b7a570
-> ffff8003f4593bd0
-> [  430.350921] 3ae0: ffff8003f4593c50 ffff8003f4593c50 ffff8003f4593c10
-> 00000000ffffffc8
-> [  430.358743] 3b00: ffff8003f4593bb0 ffff0000081f8130 0000000000000001
-> 0000000000000021
-> [  430.366566] 3b20: 000000000000001c 00008003f60a0000 ffff8003fee74d98
-> ffff8003fee88730
-> [  430.374388] 3b40: 0000000000000000 ffff8003fee74d98 ffff8003fee74d98
-> 636e616c61626e55
-> [  430.382210] 3b60: 0000000000000005 00000000ffffffd0 ffff0000085adce8
-> ffff000008e65458
-> [  430.390033] 3b80: ffff000008e8d000 ffff000009005e8d ffff000089005e7f
-> 0000000000000010
-> [  430.397854] 3ba0: 0000000000000000 0000000000000000
-> [  430.402723] [<ffff000008137b14>] __enable_irq+0x7c/0x88
-> [  430.407939] [<ffff000008137b60>] enable_irq+0x40/0x78
-> [  430.412999] [<ffff0000019a40c8>] xgbe_one_poll+0xc0/0xe8 [amd_xgbe]
-> [  430.419257] [<ffff0000087c1840>] net_rx_action+0x150/0x3c8
-> [  430.424734] [<ffff0000080d2530>] __do_softirq+0x138/0x358
-> [  430.430123] [<ffff0000080d279c>] run_ksoftirqd+0x4c/0x78
-> [  430.435426] [<ffff0000080f2a7c>] smpboot_thread_fn+0x184/0x1b8
-> [  430.441249] [<ffff0000080edf1c>] kthread+0x12c/0x130
-> [  430.446205] [<ffff000008082b70>] ret_from_fork+0x10/0x20
-> [  430.451600] Unbalanced enable for IRQ 33
-> [  430.455516] ------------[ cut here ]------------
+We can't just require a new firmware version in the driver, as
+users most likely won't have it by the time they install the new
+kernel.  So you'll have to support the old firmware version as well.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
