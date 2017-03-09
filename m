@@ -1,54 +1,58 @@
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 2/5] rds: ib: replace spin_lock_irq with spin_lock_irqsave
-Date: Thu,  9 Mar 2017 02:26:42 -0500
-Message-ID: <1489044405-26150-2-git-send-email-yanjun.zhu@oracle.com>
+From: Zhu Yanjun <yanjun.zhu@oracle.com>
+Subject: [PATCH 4/5] rds: ib: add the static type to the function
+Date: Thu,  9 Mar 2017 02:26:44 -0500
+Message-ID: <1489044405-26150-4-git-send-email-yanjun.zhu@oracle.com>
 References: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
-To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1489044405-26150-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:28402 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752575AbdCIH1L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 02:27:11 -0500
+In-Reply-To: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is difficult to make sure the state of the interrupt when this
-function is called. As such, it is safer to use spin_lock_irqsave
-than spin_lock_irq.
+The function rds_ib_map_fmr is used only in the ib_fmr.c
+file. As such, the static type is added to limit it in this file.
 
-Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Joe Jin <joe.jin@oracle.com>
+Cc: Junxiao Bi <junxiao.bi@oracle.com>
+Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
 ---
- net/rds/ib_cm.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/rds/ib_fmr.c | 5 +++--
+ net/rds/ib_mr.h  | 2 --
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index eca3d5f..87ec4dd 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -963,6 +963,7 @@ void rds_ib_conn_free(void *arg)
+diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
+index b807df6..1e00371 100644
+--- a/net/rds/ib_fmr.c
++++ b/net/rds/ib_fmr.c
+@@ -85,8 +85,9 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
+ 	return ERR_PTR(err);
+ }
+ 
+-int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibmr,
+-		   struct scatterlist *sg, unsigned int nents)
++static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev,
++			  struct rds_ib_mr *ibmr, struct scatterlist *sg,
++			  unsigned int nents)
  {
- 	struct rds_ib_connection *ic = arg;
- 	spinlock_t	*lock_ptr;
-+	unsigned long	flags;
- 
- 	rdsdebug("ic %p\n", ic);
- 
-@@ -973,9 +974,9 @@ void rds_ib_conn_free(void *arg)
- 	 */
- 	lock_ptr = ic->rds_ibdev ? &ic->rds_ibdev->spinlock : &ib_nodev_conns_lock;
- 
--	spin_lock_irq(lock_ptr);
-+	spin_lock_irqsave(lock_ptr, flags);
- 	list_del(&ic->ib_node);
--	spin_unlock_irq(lock_ptr);
-+	spin_unlock_irqrestore(lock_ptr, flags);
- 
- 	rds_ib_recv_free_caches(ic);
- 
+ 	struct ib_device *dev = rds_ibdev->dev;
+ 	struct rds_ib_fmr *fmr = &ibmr->u.fmr;
+diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
+index 5d6e98a..0ea4ab0 100644
+--- a/net/rds/ib_mr.h
++++ b/net/rds/ib_mr.h
+@@ -125,8 +125,6 @@ void rds_ib_mr_exit(void);
+ void __rds_ib_teardown_mr(struct rds_ib_mr *);
+ void rds_ib_teardown_mr(struct rds_ib_mr *);
+ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *, int);
+-int rds_ib_map_fmr(struct rds_ib_device *, struct rds_ib_mr *,
+-		   struct scatterlist *, unsigned int);
+ struct rds_ib_mr *rds_ib_reuse_mr(struct rds_ib_mr_pool *);
+ int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *, int, struct rds_ib_mr **);
+ struct rds_ib_mr *rds_ib_reg_fmr(struct rds_ib_device *, struct scatterlist *,
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
