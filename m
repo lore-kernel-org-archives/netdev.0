@@ -1,47 +1,77 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next v2 10/10] dpaa_eth: enable context-A stashing
-Date: Thu, 9 Mar 2017 16:37:05 +0200
-Message-ID: <1489070225-7891-11-git-send-email-madalin.bucur@nxp.com>
-References: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: madalin.bucur@nxp.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Thu, 09 Mar 2017 15:53:30 +0100
+Message-ID: <58C16C6A.2060400@iogearbox.net>
+References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com> <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net> <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com> <58C08535.3070000@iogearbox.net> <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com> <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com> <CAGXu5jLm3jbJoQAsBsTiiQGK1==JTnSkN_GLsuBGqFvAz5B3AQ@mail.gmail.com> <58C152F1.9090004@iogearbox.net> <alpine.DEB.2.20.1703091409080.3521@nanos> <58C157E6.1010909@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Madalin Bucur <madalin.bucur@nxp.com>, linux-kernel@vger.kernel.org,
- camelia.groza@nxp.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
- dan.carpenter@oracle.com
-To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kees Cook <keescook@chromium.org>,
+        Laura Abbott <labbott@redhat.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <58C157E6.1010909@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+On 03/09/2017 02:25 PM, Daniel Borkmann wrote:
+> On 03/09/2017 02:10 PM, Thomas Gleixner wrote:
+>> On Thu, 9 Mar 2017, Daniel Borkmann wrote:
+>>> With regard to CPA_FLUSHTLB that Linus mentioned, when I investigated
+>>> code paths in change_page_attr_set_clr(), I did see that CPA_FLUSHTLB
+>>> was set each time we switched attrs and a cpa_flush_range() was
+>>> performed (with the correct number of pages and cache set to 0). That
+>>> would be a __flush_tlb_all() eventually.
+>>>
+>>> Hmm, it indeed might seem likely that this could be an emulation bug.
+>>
+>> Which variant of __flush_tlb_all() is used when the test fails?
+>>
+>> Check for the following flags in /proc/cpuinfo: pge invpcid
+>
+> I added the following and booted with both variants:
+>
+> printk("X86_FEATURE_PGE:%u\n",     static_cpu_has(X86_FEATURE_PGE));
+> printk("X86_FEATURE_INVPCID:%u\n", static_cpu_has(X86_FEATURE_INVPCID));
+>
+> "-cpu host" gives:
+>
+> [    8.326117] X86_FEATURE_PGE:1
+> [    8.326381] X86_FEATURE_INVPCID:1
+>
+> "-cpu kvm64" gives:
+>
+> [    8.517069] X86_FEATURE_PGE:1
+> [    8.517393] X86_FEATURE_INVPCID:0
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 1b3ea38..aa769cb 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -1052,7 +1052,8 @@ static int dpaa_fq_init(struct dpaa_fq *dpaa_fq, bool td_enable)
- 		/* Initialization common to all ingress queues */
- 		if (dpaa_fq->flags & QMAN_FQ_FLAG_NO_ENQUEUE) {
- 			initfq.we_mask |= cpu_to_be16(QM_INITFQ_WE_CONTEXTA);
--			initfq.fqd.fq_ctrl |= cpu_to_be16(QM_FQCTRL_HOLDACTIVE);
-+			initfq.fqd.fq_ctrl |= cpu_to_be16(QM_FQCTRL_HOLDACTIVE |
-+						QM_FQCTRL_CTXASTASHING);
- 			initfq.fqd.context_a.stashing.exclusive =
- 				QM_STASHING_EXCL_DATA | QM_STASHING_EXCL_CTX |
- 				QM_STASHING_EXCL_ANNOTATION;
--- 
-2.1.0
+Fwiw, I tried switching from using cr4 (__native_flush_tlb_global_irq_disabled())
+to slower cr3 (__native_flush_tlb()) in "-cpu kvm64" mode, and it looks like it
+also lets all test cases pass (rodata_test, test_setmem, test_bpf), no corruption
+happening, etc.
+
+Test diff used:
+
+diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
+index 6fa8594..34f4582 100644
+--- a/arch/x86/include/asm/tlbflush.h
++++ b/arch/x86/include/asm/tlbflush.h
+@@ -188,9 +188,9 @@ static inline void __native_flush_tlb_single(unsigned long addr)
+
+  static inline void __flush_tlb_all(void)
+  {
+-       if (static_cpu_has(X86_FEATURE_PGE))
+-               __flush_tlb_global();
+-       else
++//     if (static_cpu_has(X86_FEATURE_PGE))
++//             __flush_tlb_global();
++//     else
+                 __flush_tlb();
+  }
