@@ -1,104 +1,82 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 net-next 2/8] net: stmicro: configure mtl rx and tx
- algorithms
-Date: Thu, 9 Mar 2017 09:53:12 +0000
-Message-ID: <fb8e92f3-b834-9f0c-5baf-82956001ca84@synopsys.com>
-References: <cover.1488975090.git.jpinto@synopsys.com>
- <02bee5939abb88be5db27752e2469bc756cf36b9.1488975090.git.jpinto@synopsys.com>
- <0f6466c7-74a1-ae62-1fa4-16bc73f8c6c8@axis.com>
- <d8a865ef-5756-fc52-d524-be54f6265e55@synopsys.com>
- <936a80cb-4152-aeb0-8c5e-e4fc48b57b74@axis.com>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: Re: [PATCH v5 04/19] net: e100: Replace PCI pool old API
+Date: Thu, 9 Mar 2017 10:58:30 +0100
+Message-ID: <eab51598-decb-ba26-0ac4-733d9a7f4317@collabora.com>
+References: <20170308161957.28941-1-romain.perier@collabora.com>
+ <20170308161957.28941-5-romain.perier@collabora.com>
+ <1489012825.3477.51.camel@intel.com> <20170309070129.GA13741@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 8bit
-Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Peter Senna Tschudin <peter.senna@collabora.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:55731 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752781AbdCIJyN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 04:54:13 -0500
-In-Reply-To: <936a80cb-4152-aeb0-8c5e-e4fc48b57b74@axis.com>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:35891 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754510AbdCIJ6o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 04:58:44 -0500
+In-Reply-To: <20170309070129.GA13741@collabora.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ã€s 9:37 AM de 3/9/2017, Niklas Cassel escreveu:
-> On 03/08/2017 05:48 PM, Joao Pinto wrote:
->> Ã€s 4:45 PM de 3/8/2017, Niklas Cassel escreveu:
->>> On 03/08/2017 01:22 PM, Joao Pinto wrote:
->>>> This patch adds the RX and TX scheduling algorithms programming.
->>>> It introduces the multiple queues configuration function
->>>> (stmmac_mtl_configuration) in stmmac_main.
->>>>
-
-(snip...)
+Hello,
 
 
->>>> +		stmmac_mac_enable_rx_queues(priv);
->>> Hello Joao
+Le 09/03/2017 à 08:01, Peter Senna Tschudin a écrit :
+> On Wed, Mar 08, 2017 at 02:40:25PM -0800, Jeff Kirsher wrote:
+>> On Wed, 2017-03-08 at 17:19 +0100, Romain Perier wrote:
+>>> The PCI pool API is deprecated. This commit replaces the PCI pool old
+>>> API by the appropriate function with the DMA pool API.
 >>>
->>> Since you are now enabling RX queues here,
->>> perhaps we should move the enabling of TX queue(s) here as well?
->> Hi Niklas,
->> TX enable operation is different, it is part of the DMA Operation Mode
->> configuration. In a later patch I will be updating the DMA Operation Mode
->> configuration and this op will be placed here.
+>>> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+>>> Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+>>> Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+>>> ---
+>>>  drivers/net/ethernet/intel/e100.c | 12 ++++++------
+>>>  1 file changed, 6 insertions(+), 6 deletions(-)
+>> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 >>
->> As indicated by David Miller, this patch-set is focused in MAC ops only. DMA
->> focused patch-set will follow after this one gets accepted.
-> 
-> Not sure that I agree 100% since:
-> 
-> "23.2 Initializing MTL Registers"
-> 
-> 1. Program the Tx Scheduling algorithm. (Which you now do in stmmac_mtl_configuration.)
-> 
-> [snip]
-> 
-> 3. Program the following fields to initialize the mode of operation in the MTL_TxQ0_Operation_Mode
-> a. Transmit Store And Forward (TSF) or Transmit Threshold Control (TTC) in case of threshold mode
-> b. Transmit Queue Enable (TXQEN) to value 2â€˜b10 to enable Transmit Queue0
-> c. Transmit Queue Size (TQS)
-> 
-> 
-> Note that "Initializing DMA" is a separate chapter.
-> 
-> However, since you are planning on moving the MTL_TxQ0_Operation_Mode initialization
-> to stmmac_mtl_configuration in a later patch, I don't think that you have to rework this
-> patch just because of this simple remark.
+>> My only concern is:
+>> - what hardware did this get tested with?  Since this affects all e100
+>> parts, it would be hard to believe that all the affected hardware was
+>> used in testing.
+> This was tested by compilation only(See
+> https://lkml.org/lkml/2017/2/8/661). However this series removes macro
+> definitions of the old pci_pool interface and replace call sites by what
+> the macra was calling.
+>
+> Here are the macros that this series removes from include/pci.h:
+>
+> #define pci_pool dma_pool
+> #define pci_pool_create(name, pdev, size, align, allocation) \
+> 	dma_pool_create(name, &pdev->dev, size, align, allocation)
+> #define pci_pool_destroy(pool) dma_pool_destroy(pool)
+> #define pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
+> #define pci_pool_zalloc(pool, flags, handle) \
+> 	dma_pool_zalloc(pool, flags, handle)
+> #define pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, add
+>
+> So this should not affect run time.
+We cannot test a patch like this one on all affected platforms/drivers
+(at runtime). Simply because we have not the hw. As Peter said, we
+tested this by compilation only for now via make allyesconfig. That's up
+to the maintainer of the subsystem to test and ack this, imho.
+I agree with Peter, this should not affect runtime (as semantically it's
+compatible and have been validated statically and semantically by your
+compiler)
 
-Sorry, I misleaded you. What I was trying to say was that the TX Operation Mode
-is going to be moved here in a later patch.
-
-Thanks for the help.
-
-> 
-> Nice to see some work done on multiqueues for stmmac :)
-> 
-> 
->>
->> Thanks!
->>
->>>
->>>> +}
->>>> +
->>>> +/**
->>>>   * stmmac_hw_setup - setup mac in a usable state.
->>>>   *  @dev : pointer to the device structure.
->>>>   *  Description:
->>>> @@ -1688,9 +1713,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
->>>>  	/* Initialize the MAC Core */
->>>>  	priv->hw->mac->core_init(priv->hw, dev->mtu);
->>>>  
->>>> -	/* Initialize MAC RX Queues */
->>>> -	if (priv->hw->mac->rx_queue_enable)
->>>> -		stmmac_mac_enable_rx_queues(priv);
->>>> +	/* Initialize MTL*/
->>>> +	if (priv->synopsys_id >= DWMAC_CORE_4_00)
->>>> +		stmmac_mtl_configuration(priv);
->>>>  
->>>>  	ret = priv->hw->mac->rx_ipc(priv->hw);
->>>>  	if (!ret) {
-> 
+Regards,
+Romain
