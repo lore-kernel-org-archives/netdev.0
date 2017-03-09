@@ -1,46 +1,71 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: please add some examples to the ip man page
-Date: Thu, 9 Mar 2017 08:17:43 -0700
-Message-ID: <897a47d6-32c5-beef-c8fe-d7020c5956cc@cumulusnetworks.com>
-References: <87pohsj42f.fsf@jidanni.org> <87r328tez5.fsf@jidanni.org>
- <20170309105647.GB29821@gmail.com>
+From: Akshay Bhat <akshay.bhat@timesys.com>
+Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
+Date: Thu, 9 Mar 2017 10:28:36 -0500
+Message-ID: <fe8efa99-e5ce-7549-17fc-85f1ee964e5d@timesys.com>
+References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
+ <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
+ <2197294b-e6cf-6c56-1419-3a4f95c29db7@timesys.com>
+ <6df4a9ae-eaba-6f3f-9c23-ae269548b005@grandegger.com>
+ <1447da4a-6a36-38fb-4298-fd7488697d11@timesys.com>
+ <a9cb37d9-a71e-ce59-c379-d9bde5d8afb9@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 8bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-To: Alexander Alemayhu <alexander@alemayhu.com>,
-        =?UTF-8?B?56mN5Li55bC8IERhbiBKYWNvYnNvbg==?= <jidanni@jidanni.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:36433 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755001AbdCIPRx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 10:17:53 -0500
-Received: by mail-it0-f45.google.com with SMTP id h10so130227511ith.1
-        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 07:17:53 -0800 (PST)
-In-Reply-To: <20170309105647.GB29821@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Akshay Bhat <nodeax@gmail.com>
+To: Wolfgang Grandegger <wg@grandegger.com>, mkl@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a9cb37d9-a71e-ce59-c379-d9bde5d8afb9@grandegger.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/9/17 3:56 AM, Alexander Alemayhu wrote:
-> On Wed, Mar 08, 2017 at 03:17:02PM +0800, 積丹尼 Dan Jacobson wrote:
->> I see.
->> Perhaps on the man page add
->> EXAMPLES
->>    See https://www.kernel.org/doc/Documentation/networking/vrf.txt
->>    https://www.google.com/search?q=ip+linux+command+usage+examples
->> (I thought the latter would be hopeless, but actually found lots!)
+Hi Wolfgang,
+
+On 03/09/2017 09:45 AM, Wolfgang Grandegger wrote:
+> Hello Akshay,
+> 
+> Am 09.03.2017 um 13:34 schrieb Akshay Bhat:
 >>
-> Actual examples in the page would better than links IMO.  git has some
-> nice examples in gittutorial(7) and giteveryday(7). Maybe that can be
-> good inspiration?
+>> Hi Wolfgang,
+>>
+>> Good question. I have not worked with MPC251x but the HI-311x performs
+>> much better because HI-3110 features:
+>> 8 message FIFO (as opposed to 2 buffers on MPC2510)
+>> 20 MHz SPI interface (as opposed to 2.5 MHz on MPC2510)
+>>
+>> As for the real world test results:
+>>
+>> With RT patch applied to the kernel running on a i.MX6 Dual processor
+>> (worst case interrupt latency of 50us as reported by cyclictest), there
+>> are ZERO packet drops.
+>> Tested with Kvaser Leaf sending 100 burst messages (back to back) every
+>> 40ms at a 1M CAN bit rate. 10 million messages were sent by the Kvaser
+>> leaf and received successfully by the HI-311x driver.
+> 
+> This corresponds to a bus load of approx. 50%, I think?
 
-excellent opportunity for an aspiring writer / user to make a
-contribution to improve iproute2.
+The usecase I tested above was more like ~30% (data payload length was
+randomized) but I did test with 50% bus load as well without any dropped
+messages.
 
-git clone
-git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
-cd iproute2
-<make changes>
+> 
+>> Even without the RT patch, I was able to get the packet drop to zero but
+>> this was by moving the CAN/SPI IRQ threads to CPU1 instead of CPU0.
+> 
+> Vanilla Linux is more critical here due to higher latencies. With 2500
+> Messages per sec the RX FIFO (8 Messages) fills up within 3.2 ms... and
+> in a burst even quicker. That's already heavy load.
+> 
 
-commit, send to netdev.
+I agree with Vanilla Linux is more critical due to higher latencies,
+however if the frequency governor is set to performance and CAN/SPI
+threads are moved to another CPU (if that is an option) with SCHED_FIFO
+setting, the driver is able to keep up even at high bit rates / bursts.
+
+I understand SPI based CAN controllers are not ideal choice but for
+users that do not have any other option, I feel this controller/driver
+meets their need :)
+
+Thanks,
+Akshay
