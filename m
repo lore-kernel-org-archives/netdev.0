@@ -1,116 +1,173 @@
-From: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/7] net: stmmac: Balance PTP reference clock
- enable/disable
-Date: Thu, 9 Mar 2017 20:30:12 +0100
-Message-ID: <20170309193012.GB5554@ulmo.ba.sec>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-3-thierry.reding@gmail.com>
- <53f18077-6a4d-339f-192e-287a1f889fb7@kapsi.fi>
+From: Igor Druzhinin <igor.druzhinin@citrix.com>
+Subject: [PATCH net v3] xen-netback: fix race condition on XenBus disconnect
+Date: Thu, 9 Mar 2017 19:41:37 +0000
+Message-ID: <1489088497-9027-1-git-send-email-igor.druzhinin@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="p4qYPpj5QlsIQJ0K"
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mikko Perttunen <cyndis-/1wQRMveznE@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <53f18077-6a4d-339f-192e-287a1f889fb7-/1wQRMveznE@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <paul.durrant@citrix.com>, <jgross@suse.com>,
+        <wei.liu2@citrix.com>, Igor Druzhinin <igor.druzhinin@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:39055 "EHLO SMTP.CITRIX.COM"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754940AbdCITlt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 14:41:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+In some cases during XenBus disconnect event handling and subsequent
+queue resource release there may be some TX handlers active on
+other processors. Use RCU in order to synchronize with them.
 
---p4qYPpj5QlsIQJ0K
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Igor Druzhinin <igor.druzhinin@citrix.com>
+---
+v3:
+ * Fix unintended semantic change in xenvif_get_ethtool_stats
+ * Dropped extra code
 
-On Mon, Feb 27, 2017 at 11:31:39AM +0200, Mikko Perttunen wrote:
-> On 23.02.2017 19:24, Thierry Reding wrote:
-> > From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-> >=20
-> > clk_prepare_enable() and clk_disable_unprepare() for this clock aren't
-> > properly balanced, which can trigger a WARN_ON() in the common clock
-> > framework.
-> >=20
-> > Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-> > ---
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 ++++
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
-> >  2 files changed, 4 insertions(+), 1 deletion(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driver=
-s/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > index 3cbe09682afe..6b7a5ce19589 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > @@ -1711,6 +1711,10 @@ static int stmmac_hw_setup(struct net_device *de=
-v, bool init_ptp)
-> >  	stmmac_mmc_setup(priv);
-> >=20
-> >  	if (init_ptp) {
-> > +		ret =3D clk_prepare_enable(priv->plat->clk_ptp_ref);
-> > +		if (ret < 0)
-> > +			netdev_warn(priv->dev, "failed to enable PTP reference clock: %d\n"=
-, ret);
-> > +
->=20
-> Should we return an error code if the clock enable fails?
+v2:
+ * Add protection for xenvif_get_ethtool_stats
+ * Additional comments and fixes
+---
+ drivers/net/xen-netback/interface.c | 26 +++++++++++++++++---------
+ drivers/net/xen-netback/netback.c   |  2 +-
+ drivers/net/xen-netback/xenbus.c    | 20 ++++++++++----------
+ 3 files changed, 28 insertions(+), 20 deletions(-)
 
-Yeah, that's probably a good idea.
-
-> >  		ret =3D stmmac_init_ptp(priv);
-> >  		if (ret =3D=3D -EOPNOTSUPP)
-> >  			netdev_warn(priv->dev, "PTP not supported by HW\n");
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/dr=
-ivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > index 5b18355c0d2b..d285d6cfbd0d 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > @@ -365,7 +365,6 @@ stmmac_probe_config_dt(struct platform_device *pdev=
-, const char **mac)
-> >  		plat->clk_ptp_ref =3D NULL;
-> >  		dev_warn(&pdev->dev, "PTP uses main clock\n");
-> >  	} else {
-> > -		clk_prepare_enable(plat->clk_ptp_ref);
-> >  		plat->clk_ptp_rate =3D clk_get_rate(plat->clk_ptp_ref);
-> >  		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
-> >  	}
-> >=20
->=20
-> It seems like there will still be a refcount mismatch for the clock if any
-> of the request_irqs that are after stmmac_hw_setup in stmmac_open fail.
-
-Looks like there's a few more things that could be cleaned up on failure
-to request those interrupts. I've added another patch to the series that
-will attempt to do this.
-
-Thierry
-
---p4qYPpj5QlsIQJ0K
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIyBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljBrUQACgkQ3SOs138+
-s6HKdg/452olRbI3ZQXVCtnn/Zlw9rzOaGMA19mcDhHTOdwP+c1PkJpxpTOvSEMw
-4mkq3fs3U6IanszokGNI7lA2/ZV3N2hb2yEN9ysX6qwSEAbBJ/IxeYuOjheF8Qtc
-sPjpWqgjXjraCZjtEE9rtd83EK1RzYRR8lLOq13vgAdpybSDivZBlLj5NXVjav/v
-90yLlXF7HmwbuYiSs18Agt8AYcLU5oP1ORh+MpumAvHcTGbdBlgD0YP9fgDIebOH
-ocvWv1WSZqv7e0wV9wflL98upnZ0qWC2NvGwjKfm00keso0ir0s8Qx7MhLPRH/AS
-IgUl30c5LwVVxkiBE0W3w64TWOxw/tC9QXR8L4+gf9o05cONquoChjAbTznueOGV
-6PHN6rNL1GK5HBxMvWO9nhfJ0wkY47EupzIJDiU+ZuKWZyarOv23qzoo/L+iEVst
-F0j3LjFx4+rCxgWx+WQg3+w9+esHH7B0HR5/Jd8LbiAuKLv4YifhJou2FBIwMbdo
-/FG7m5wubfCruJxDhMZMmNnQtGB7vsVLA4ezSzVW6UdVAp2y8uEGE9fxfGRap0/s
-TJS0IkZ7Q9AgQK4VMOzIIqCX5AslTlERFDNe/WpOyeFGeVzeAyTIq7KyFgWRXtOc
-tAoeBKXYv1g9BNsqOzFY4M510RdmixxLOOhX2hkjgqasIt7Dxw==
-=UQBB
------END PGP SIGNATURE-----
-
---p4qYPpj5QlsIQJ0K--
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 829b26c..a3c018e 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -165,13 +165,17 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = vif->num_queues;
++	unsigned int num_queues;
+ 	u16 index;
+ 	struct xenvif_rx_cb *cb;
+ 
+ 	BUG_ON(skb->dev != dev);
+ 
+-	/* Drop the packet if queues are not set up */
++	/* Drop the packet if queues are not set up.
++	 * This handler should be called inside an RCU read section
++	 * so we don't need to enter it here explicitly.
++	 */
++	num_queues = rcu_dereference(vif)->num_queues;
+ 	if (num_queues < 1)
+ 		goto drop;
+ 
+@@ -222,18 +226,18 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	struct xenvif_queue *queue = NULL;
++	unsigned int num_queues;
+ 	u64 rx_bytes = 0;
+ 	u64 rx_packets = 0;
+ 	u64 tx_bytes = 0;
+ 	u64 tx_packets = 0;
+ 	unsigned int index;
+ 
+-	spin_lock(&vif->lock);
+-	if (vif->queues == NULL)
+-		goto out;
++	rcu_read_lock();
++	num_queues = rcu_dereference(vif)->num_queues;
+ 
+ 	/* Aggregate tx and rx stats from each queue */
+-	for (index = 0; index < vif->num_queues; ++index) {
++	for (index = 0; index < num_queues; ++index) {
+ 		queue = &vif->queues[index];
+ 		rx_bytes += queue->stats.rx_bytes;
+ 		rx_packets += queue->stats.rx_packets;
+@@ -241,8 +245,7 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
+ 		tx_packets += queue->stats.tx_packets;
+ 	}
+ 
+-out:
+-	spin_unlock(&vif->lock);
++	rcu_read_unlock();
+ 
+ 	vif->dev->stats.rx_bytes = rx_bytes;
+ 	vif->dev->stats.rx_packets = rx_packets;
+@@ -378,10 +381,13 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
+ 				     struct ethtool_stats *stats, u64 * data)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+-	unsigned int num_queues = vif->num_queues;
++	unsigned int num_queues;
+ 	int i;
+ 	unsigned int queue_index;
+ 
++	rcu_read_lock();
++	num_queues = rcu_dereference(vif)->num_queues;
++
+ 	for (i = 0; i < ARRAY_SIZE(xenvif_stats); i++) {
+ 		unsigned long accum = 0;
+ 		for (queue_index = 0; queue_index < num_queues; ++queue_index) {
+@@ -390,6 +396,8 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
+ 		}
+ 		data[i] = accum;
+ 	}
++
++	rcu_read_unlock();
+ }
+ 
+ static void xenvif_get_strings(struct net_device *dev, u32 stringset, u8 * data)
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f9bcf4a..602d408 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -214,7 +214,7 @@ static void xenvif_fatal_tx_err(struct xenvif *vif)
+ 	netdev_err(vif->dev, "fatal error; disabling device\n");
+ 	vif->disabled = true;
+ 	/* Disable the vif from queue 0's kthread */
+-	if (vif->queues)
++	if (vif->num_queues)
+ 		xenvif_kick_thread(&vif->queues[0]);
+ }
+ 
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index d2d7cd9..a56d3ea 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -495,26 +495,26 @@ static void backend_disconnect(struct backend_info *be)
+ 	struct xenvif *vif = be->vif;
+ 
+ 	if (vif) {
++		unsigned int num_queues = vif->num_queues;
+ 		unsigned int queue_index;
+-		struct xenvif_queue *queues;
+ 
+ 		xen_unregister_watchers(vif);
+ #ifdef CONFIG_DEBUG_FS
+ 		xenvif_debugfs_delif(vif);
+ #endif /* CONFIG_DEBUG_FS */
+ 		xenvif_disconnect_data(vif);
+-		for (queue_index = 0;
+-		     queue_index < vif->num_queues;
+-		     ++queue_index)
+-			xenvif_deinit_queue(&vif->queues[queue_index]);
+ 
+-		spin_lock(&vif->lock);
+-		queues = vif->queues;
++		/* At this point some of the handlers may still be active
++		 * so we need to have additional synchronization here.
++		 */
+ 		vif->num_queues = 0;
+-		vif->queues = NULL;
+-		spin_unlock(&vif->lock);
++		synchronize_net();
+ 
+-		vfree(queues);
++		for (queue_index = 0; queue_index < num_queues; ++queue_index)
++			xenvif_deinit_queue(&vif->queues[queue_index]);
++
++		vfree(vif->queues);
++		vif->queues = NULL;
+ 
+ 		xenvif_disconnect_ctrl(vif);
+ 	}
+-- 
+1.8.3.1
