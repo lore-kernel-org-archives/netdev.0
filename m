@@ -1,44 +1,52 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Subject: Re: stmmac still supporting spear600 ?
-Date: Thu, 9 Mar 2017 14:49:27 +0530
-Message-ID: <20170309091927.GA3341@vireshk-i7>
-References: <20170309093412.33c0277d@free-electrons.com>
- <373e2760-94c5-4349-33aa-158bc8f4b19e@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Alexandre Torgue <alexandre.torgue@st.com>, netdev@vger.kernel.org,
- Viresh Kumar <vireshk@kernel.org>,
- Shiraz Hashim <shiraz.linux.kernel@gmail.com>,
- linux-arm-kernel@lists.infradead.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <373e2760-94c5-4349-33aa-158bc8f4b19e@st.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCHv2 3/5] rds: ib: remove redundant ib_dealloc_fmr
+Date: Thu,  9 Mar 2017 04:20:43 -0500
+Message-ID: <1489051243-27108-1-git-send-email-yanjun.zhu@oracle.com>
+References: <cffc93fa-f4e6-e61e-54c6-67d6501dd78c@suse.de>
+To: jthumshirn-l3A5Bk7waGM@public.gmane.org, santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cffc93fa-f4e6-e61e-54c6-67d6501dd78c-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09-03-17, 10:09, Giuseppe CAVALLARO wrote:
-> Hello
-> 
-> We do not test stmmac on this spear board since many years
-> and I guess you have to provide parameters from the platform.
-> In fact, stmmac is recently tested with DT.
-> IIRC, the mac on spear600 could not have the HW cap register
-> so it is mandatory to provide all the right parameters and
-> configurations for this HW.
+The function ib_dealloc_fmr will never be called. As such, it should
+be removed.
 
-Same here, I haven't tested it since many years and trust whatever Giuseppe has
-said.
+Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+---
+Change from v1 to v2:
+  remove ibmr NULL test.
 
+ net/rds/ib_fmr.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
+index 4fe8f4f..249ae1c 100644
+--- a/net/rds/ib_fmr.c
++++ b/net/rds/ib_fmr.c
+@@ -78,12 +78,9 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
+ 	return ibmr;
+ 
+ out_no_cigar:
+-	if (ibmr) {
+-		if (fmr->fmr)
+-			ib_dealloc_fmr(fmr->fmr);
+-		kfree(ibmr);
+-	}
++	kfree(ibmr);
+ 	atomic_dec(&pool->item_count);
++
+ 	return ERR_PTR(err);
+ }
+ 
 -- 
-viresh
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
