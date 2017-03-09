@@ -1,59 +1,39 @@
-From: Johannes Thumshirn <jthumshirn@suse.de>
-Subject: Re: [PATCH 3/5] rds: ib: remove redundant ib_dealloc_fmr
-Date: Thu, 9 Mar 2017 09:16:02 +0100
-Message-ID: <cffc93fa-f4e6-e61e-54c6-67d6501dd78c@suse.de>
-References: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
- <1489044405-26150-3-git-send-email-yanjun.zhu@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-To: Zhu Yanjun <yanjun.zhu@oracle.com>, santosh.shilimkar@oracle.com,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        rds-devel@oss.oracle.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/2] mlxsw: spectrum: Add support for VLAN offload for cls_flower
+Date: Thu,  9 Mar 2017 09:25:18 +0100
+Message-ID: <1489047920-3557-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, ivecera@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:39896 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752829AbdCIIRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 03:17:44 -0500
-In-Reply-To: <1489044405-26150-3-git-send-email-yanjun.zhu@oracle.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36248 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752704AbdCIIZY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 03:25:24 -0500
+Received: by mail-wr0-f194.google.com with SMTP id l37so6919380wrc.3
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 00:25:22 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2017 08:26 AM, Zhu Yanjun wrote:
-> The function ib_dealloc_fmr will never be called. As such, it should
-> be removed.
-> 
-> Cc: Joe Jin <joe.jin@oracle.com>
-> Cc: Junxiao Bi <junxiao.bi@oracle.com>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
-> ---
->  net/rds/ib_fmr.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
-> index 4fe8f4f..b807df6 100644
-> --- a/net/rds/ib_fmr.c
-> +++ b/net/rds/ib_fmr.c
-> @@ -78,12 +78,10 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
->  	return ibmr;
->  
->  out_no_cigar:
-> -	if (ibmr) {
-> -		if (fmr->fmr)
-> -			ib_dealloc_fmr(fmr->fmr);
-> +	if (ibmr)
->  		kfree(ibmr);
+From: Jiri Pirko <jiri@mellanox.com>
 
-kfree() already does a NULL check (see
-http://lxr.free-electrons.com/source/mm/slab.c#L3811) so no need to do
-it here.
+This patchset adds support to offload VLAN modify TC action and adds support
+to offload cls_flower rules that include VID and PCP matching.
 
+Petr Machata (2):
+  mlxsw: spectrum: Add support for vlan modify TC action
+  mlxsw: spectrum: Add support for flower matches on VLAN ID, PCP
 
+ .../mellanox/mlxsw/core_acl_flex_actions.c         | 83 ++++++++++++++++++++++
+ .../mellanox/mlxsw/core_acl_flex_actions.h         |  2 +
+ .../ethernet/mellanox/mlxsw/core_acl_flex_keys.h   |  6 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  3 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c | 29 ++++++++
+ .../mellanox/mlxsw/spectrum_acl_flex_keys.h        |  6 ++
+ .../ethernet/mellanox/mlxsw/spectrum_acl_tcam.c    |  2 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  | 34 ++++++++-
+ include/net/tc_act/tc_vlan.h                       |  5 ++
+ 9 files changed, 168 insertions(+), 2 deletions(-)
 
 -- 
-Johannes Thumshirn                                          Storage
-jthumshirn@suse.de                                +49 911 74053 689
-SUSE LINUX GmbH, Maxfeldstr. 5, 90409 Nürnberg
-GF: Felix Imendörffer, Jane Smithard, Graham Norton
-HRB 21284 (AG Nürnberg)
-Key fingerprint = EC38 9CAB C2C4 F25D 8600 D0D0 0393 969D 2D76 0850
+2.7.4
