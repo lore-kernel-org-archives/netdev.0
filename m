@@ -1,94 +1,62 @@
-From: Borislav Petkov <bp@suse.de>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Fri, 10 Mar 2017 00:44:11 +0100
-Message-ID: <20170309234411.wec53iexfz6skmpl@pd.tnic>
-References: <58C19607.6000605@iogearbox.net>
- <CA+55aFyxM--wyvxXGhBOqdJHcdC_kKvGYpv-C5SpYvRNkbEmGw@mail.gmail.com>
- <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com>
- <58C19F67.3040509@iogearbox.net>
- <58C1C9DC.7070509@iogearbox.net>
- <20170309215547.jmdzznlkzaxwu2pf@pd.tnic>
- <20170309220732.ufqoqlawktsi2gao@pd.tnic>
- <58C1D305.8090802@iogearbox.net>
- <20170309224820.5invcnhvr2tl3ges@pd.tnic>
- <CA+55aFy5vi3af5VBuG6ZOdTeKNxqGSq64J-EkrjaRhGVKXPy0A@mail.gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net] amd-xgbe: Enable IRQs only if napi_complete_done() is
+ true
+Date: Thu, 9 Mar 2017 17:48:23 -0600
+Message-ID: <20170309234823.11010.87592.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Kees Cook <keescook@chromium.org>,
-        Laura Abbott <labbott@redhat.com>,
-        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
-        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Jeremy Linton <jeremy.linton@arm.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:59330 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752943AbdCIXoe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 18:44:34 -0500
-Content-Disposition: inline
-In-Reply-To: <CA+55aFy5vi3af5VBuG6ZOdTeKNxqGSq64J-EkrjaRhGVKXPy0A@mail.gmail.com>
+Received: from mail-bl2nam02on0047.outbound.protection.outlook.com ([104.47.38.47]:23887
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752332AbdCIXs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 18:48:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 09, 2017 at 03:26:02PM -0800, Linus Torvalds wrote:
-> So should all of commit ("c109bf95992b x86/cpufeature: Remove
-> cpu_has_pge") just be reverted (and then marked for stable)?
-> 
-> Or do we have some alternate plan?
+Depending on the hardware, the amd-xgbe driver may use disable_irq_nosync()
+and enable_irq() when an interrupt is received to process Rx packets. If
+the napi_complete_done() return value isn't checked an unbalanced enable
+for the IRQ could result, generating a warning stack trace.
 
-I think we want to do this:
+Update the driver to only enable interrupts if napi_complete_done() returns
+true.
 
-diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
-index 6fa85944af83..fc5abff9b7fd 100644
---- a/arch/x86/include/asm/tlbflush.h
-+++ b/arch/x86/include/asm/tlbflush.h
-@@ -188,7 +188,7 @@ static inline void __native_flush_tlb_single(unsigned long addr)
- 
- static inline void __flush_tlb_all(void)
- {
--	if (static_cpu_has(X86_FEATURE_PGE))
-+	if (boot_cpu_has(X86_FEATURE_PGE))
- 		__flush_tlb_global();
- 	else
- 		__flush_tlb();
+Reported-by: Jeremy Linton <jeremy.linton@arm.com>
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-but it is late here so I'd prefer to do a real patch tomorrow when I'm
-not almost sleeping on the keyboard. Unless Daniel wants to write one
-and test it now.
-
-> This has apparently been going on for a long while (it got merged into
-> 4.7), but presumably it only actually _matters_ if lguest is enabled
-> and used and we've triggered that lguest_arch_host_init() code.
-
-That's what I gather too, yes.
-
-What sane code would go and clear X86_FEATURE_PGE?!? :-)))
-
-> Maybe it's the lguest games with PGE that need to be removed?
-
-Well, as far as I can read the comment in lguest_arch_host_init(), it
-does some monkey business with switching to the guest kernel where
-global pages are not present anymore... or something. So it sounds to me
-like lguest would break if we removed the games but I have no idea what
-it does with that.
-
-And besides, the small hunk above restores the situation before
-("c109bf95992b x86/cpufeature: Remove cpu_has_pge") so applying it would
-actually be a no-brainer.
-
-Thanks.
-
--- 
-Regards/Gruss,
-    Boris.
-
-SUSE Linux GmbH, GF: Felix Imendörffer, Jane Smithard, Graham Norton, HRB 21284 (AG Nürnberg)
--- 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 248f60d..ffea985 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -2272,10 +2272,7 @@ static int xgbe_one_poll(struct napi_struct *napi, int budget)
+ 	processed = xgbe_rx_poll(channel, budget);
+ 
+ 	/* If we processed everything, we are done */
+-	if (processed < budget) {
+-		/* Turn off polling */
+-		napi_complete_done(napi, processed);
+-
++	if ((processed < budget) && napi_complete_done(napi, processed)) {
+ 		/* Enable Tx and Rx interrupts */
+ 		if (pdata->channel_irq_mode)
+ 			xgbe_enable_rx_tx_int(pdata, channel);
+@@ -2317,10 +2314,7 @@ static int xgbe_all_poll(struct napi_struct *napi, int budget)
+ 	} while ((processed < budget) && (processed != last_processed));
+ 
+ 	/* If we processed everything, we are done */
+-	if (processed < budget) {
+-		/* Turn off polling */
+-		napi_complete_done(napi, processed);
+-
++	if ((processed < budget) && napi_complete_done(napi, processed)) {
+ 		/* Enable Tx and Rx interrupts */
+ 		xgbe_enable_rx_tx_ints(pdata);
+ 	}
