@@ -1,24 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: smsc: smc91x: use new api
+Subject: Re: [PATCH] net: toshiba: ps3_genic_net: use new api
  ethtool_{get|set}_link_ksettings
-Date: Wed, 08 Mar 2017 22:06:06 -0800 (PST)
-Message-ID: <20170308.220606.1114101273738934697.davem@davemloft.net>
-References: <1488627759-8717-1-git-send-email-tremyfr@gmail.com>
+Date: Wed, 08 Mar 2017 22:06:34 -0800 (PST)
+Message-ID: <20170308.220634.437174407885031242.davem@davemloft.net>
+References: <1488752466-27232-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nico@fluxnic.net, robert.jarzmik@free.fr, mugunthanvnm@ti.com,
-        jarod@redhat.com, felipe.balbi@linux.intel.com,
-        rmk+kernel@armlinux.org.uk, fw@strlen.de, jeremy.linton@arm.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: geoff@infradead.org, linux-kernel@vger.kernel.org, paulus@samba.org,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1488627759-8717-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1488752466-27232-1-git-send-email-tremyfr@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sat,  4 Mar 2017 12:42:39 +0100
+Date: Sun,  5 Mar 2017 23:21:06 +0100
 
 > The ethtool api {get|set}_settings is deprecated.
 > We move this driver to new api {get|set}_link_ksettings.
@@ -27,9 +34,5 @@ Date: Sat,  4 Mar 2017 12:42:39 +0100
 > someone may test this patch.
 > 
 > Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> ---
-> Changelog:
-> v2:
-> - also update comment (feeback from Russel King)
 
 Applied.
