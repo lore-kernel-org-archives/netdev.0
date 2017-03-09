@@ -1,98 +1,132 @@
-From: Sergey Shcherbakov <shchers@gmail.com>
-Subject: [PATCH] net: ks8851: Added support for half-duplex SPI
-Date: Thu,  9 Mar 2017 02:58:14 +0200
-Message-ID: <1489021094-12987-1-git-send-email-shchers@gmail.com>
-Cc: davem@davemloft.net, tremyfr@gmail.com, stephen.boyd@linaro.org,
-        jarod@redhat.com, Sergey Shcherbakov <shchers@gmail.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Jon Maxwell <jmaxwell37@gmail.com>
+Subject: [PATCH net] dccp/tcp: fix routing redirect race
+Date: Thu,  9 Mar 2017 12:15:21 +1100
+Message-ID: <1489022121-20571-1-git-send-email-jmaxwell37@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, edumazet@google.com, andreyknvl@google.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, ncardwell@google.com, dccp@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jmaxwell@redhat.com, Jon Maxwell <jmaxwell37@gmail.com>,
+        Eric Garver <egarver@redhat.com>,
+        Hannes Sowa <hsowa@redhat.com>
+To: gerrit@erg.abdn.ac.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In original driver was implemented support for half-
-and full-duplex modes, but it was not enabled. Instead
-of it ks8851_rx_1msg method always returns "true" that
-means "full-duplex" mode.
+We have seen a few incidents lately where a dst_enty has been freed
+with a dangling TCP socket reference (sk->sk_dst_cache) pointing to that
+dst_entry. If the conditions/timings are right a crash then ensues when the
+freed dst_entry is referenced later on. A Common crashing back trace is:
 
-This patch replaces hard-coded functionality with
-flexible solution that supports both SPI modes.
+ #8 [] page_fault at ffffffff8163e648
+    [exception RIP: __tcp_ack_snd_check+74]
+.
+.   
+ #9 [] tcp_rcv_established at ffffffff81580b64
+#10 [] tcp_v4_do_rcv at ffffffff8158b54a
+#11 [] tcp_v4_rcv at ffffffff8158cd02
+#12 [] ip_local_deliver_finish at ffffffff815668f4
+#13 [] ip_local_deliver at ffffffff81566bd9
+#14 [] ip_rcv_finish at ffffffff8156656d
+#15 [] ip_rcv at ffffffff81566f06
+#16 [] __netif_receive_skb_core at ffffffff8152b3a2
+#17 [] __netif_receive_skb at ffffffff8152b608
+#18 [] netif_receive_skb at ffffffff8152b690
+#19 [] vmxnet3_rq_rx_complete at ffffffffa015eeaf [vmxnet3]
+#20 [] vmxnet3_poll_rx_only at ffffffffa015f32a [vmxnet3]
+#21 [] net_rx_action at ffffffff8152bac2
+#22 [] __do_softirq at ffffffff81084b4f
+#23 [] call_softirq at ffffffff8164845c
+#24 [] do_softirq at ffffffff81016fc5
+#25 [] irq_exit at ffffffff81084ee5
+#26 [] do_IRQ at ffffffff81648ff8
 
-Signed-off-by: Sergey Shcherbakov <shchers@gmail.com>
+Of course it may happen with other NIC drivers as well.
+
+It's found the freed dst_entry here: 
+
+ 224 static bool tcp_in_quickack_mode(struct sock *sk)↩
+ 225 {↩
+ 226 ▹       const struct inet_connection_sock *icsk = inet_csk(sk);↩
+ 227 ▹       const struct dst_entry *dst = __sk_dst_get(sk);↩
+ 228 ↩
+ 229 ▹       return (dst && dst_metric(dst, RTAX_QUICKACK)) ||↩
+ 230 ▹       ▹       (icsk->icsk_ack.quick && !icsk->icsk_ack.pingpong);↩
+ 231 }↩
+
+But there are other backtraces attributed to the same freed dst_entry in 
+netfilter code as well. 
+
+All the vmcores showed 2 significant clues:
+
+- Remote hosts behind the default gateway had always been redirected to a 
+different gateway. A rtable/dst_entry will be added for that host. Making
+more dst_entrys with lower reference counts. Making this more probable.
+
+- All vmcores showed a postitive LockDroppedIcmps value, e.g:
+
+LockDroppedIcmps                  267
+
+A closer look at the tcp_v4_err() handler revealed that do_redirect() will run
+regardless of whether user space has the socket locked. This can result in a 
+race condition where the same dst_entry cached in sk->sk_dst_entry can be 
+decremented twice for the same socket via: 
+
+do_redirect()->__sk_dst_check()-> dst_release(). 
+
+Which leads to the dst_entry being prematurely freed with another socket 
+pointing to it via sk->sk_dst_cache and a subsequent crash.
+
+To fix this skip do_redirect() if usespace has the socket locked. Instead let 
+the redirect take place later when user space does not have the socket 
+locked.
+
+The dccp code is very similar in this respect, so fixing it there too. 
+
+As Eric Garver pointed out the following commit now invalidates routes. Which
+can set the dst->obsolete flag so that ipv4_dst_check() returns null and 
+triggers the dst_release().
+
+Fixes: ceb3320610d6 ("ipv4: Kill routes during PMTU/redirect updates.")
+Cc: Eric Garver <egarver@redhat.com>
+Cc: Hannes Sowa <hsowa@redhat.com>
+Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
 ---
- drivers/net/ethernet/micrel/ks8851.c | 41 ++++++++++--------------------------
- 1 file changed, 11 insertions(+), 30 deletions(-)
+ net/dccp/ipv4.c     | 3 ++-
+ net/ipv4/tcp_ipv4.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index 279ee46..20358f8 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -212,25 +212,6 @@ static void ks8851_wrreg8(struct ks8851_net *ks, unsigned reg, unsigned val)
- }
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 409d0cf..b99168b 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -289,7 +289,8 @@ static void dccp_v4_err(struct sk_buff *skb, u32 info)
  
- /**
-- * ks8851_rx_1msg - select whether to use one or two messages for spi read
-- * @ks: The device structure
-- *
-- * Return whether to generate a single message with a tx and rx buffer
-- * supplied to spi_sync(), or alternatively send the tx and rx buffers
-- * as separate messages.
-- *
-- * Depending on the hardware in use, a single message may be more efficient
-- * on interrupts or work done by the driver.
-- *
-- * This currently always returns true until we add some per-device data passed
-- * from the platform code to specify which mode is better.
-- */
--static inline bool ks8851_rx_1msg(struct ks8851_net *ks)
--{
--	return true;
--}
--
--/**
-  * ks8851_rdreg - issue read register command and return the data
-  * @ks: The device state
-  * @op: The register address and byte enables in message format.
-@@ -251,14 +232,7 @@ static void ks8851_rdreg(struct ks8851_net *ks, unsigned op,
+ 	switch (type) {
+ 	case ICMP_REDIRECT:
+-		dccp_do_redirect(skb, sk);
++		if (!sock_owned_by_user(sk))
++			dccp_do_redirect(skb, sk);
+ 		goto out;
+ 	case ICMP_SOURCE_QUENCH:
+ 		/* Just silently ignore these. */
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 8f3ec13..575e19d 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -431,7 +431,8 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
  
- 	txb[0] = cpu_to_le16(op | KS_SPIOP_RD);
- 
--	if (ks8851_rx_1msg(ks)) {
--		msg = &ks->spi_msg1;
--		xfer = &ks->spi_xfer1;
--
--		xfer->tx_buf = txb;
--		xfer->rx_buf = trx;
--		xfer->len = rxl + 2;
--	} else {
-+	if (ks->spidev->master->flags & SPI_MASTER_HALF_DUPLEX) {
- 		msg = &ks->spi_msg2;
- 		xfer = ks->spi_xfer2;
- 
-@@ -270,15 +244,22 @@ static void ks8851_rdreg(struct ks8851_net *ks, unsigned op,
- 		xfer->tx_buf = NULL;
- 		xfer->rx_buf = trx;
- 		xfer->len = rxl;
-+	} else {
-+		msg = &ks->spi_msg1;
-+		xfer = &ks->spi_xfer1;
-+
-+		xfer->tx_buf = txb;
-+		xfer->rx_buf = trx;
-+		xfer->len = rxl + 2;
- 	}
- 
- 	ret = spi_sync(ks->spidev, msg);
- 	if (ret < 0)
- 		netdev_err(ks->netdev, "read: spi_sync() failed\n");
--	else if (ks8851_rx_1msg(ks))
--		memcpy(rxb, trx + 2, rxl);
--	else
-+	else if (ks->spidev->master->flags & SPI_MASTER_HALF_DUPLEX)
- 		memcpy(rxb, trx, rxl);
-+	else
-+		memcpy(rxb, trx + 2, rxl);
- }
- 
- /**
+ 	switch (type) {
+ 	case ICMP_REDIRECT:
+-		do_redirect(icmp_skb, sk);
++		if (!sock_owned_by_user(sk))
++			do_redirect(icmp_skb, sk);
+ 		goto out;
+ 	case ICMP_SOURCE_QUENCH:
+ 		/* Just silently ignore these. */
 -- 
-1.9.1
+1.8.3.1
