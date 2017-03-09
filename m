@@ -1,94 +1,68 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next v2 09/10] dpaa_eth: enable multiple Tx traffic classes
-Date: Thu, 9 Mar 2017 16:37:04 +0200
-Message-ID: <1489070225-7891-10-git-send-email-madalin.bucur@nxp.com>
-References: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: madalin.bucur@nxp.com
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Thu, 9 Mar 2017 15:49:24 +0100 (CET)
+Message-ID: <alpine.DEB.2.20.1703091547460.3521@nanos>
+References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com> <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net> <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com> <58C08535.3070000@iogearbox.net>
+ <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com> <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com> <CAGXu5jLm3jbJoQAsBsTiiQGK1==JTnSkN_GLsuBGqFvAz5B3AQ@mail.gmail.com> <58C152F1.9090004@iogearbox.net> <alpine.DEB.2.20.1703091409080.3521@nanos>
+ <58C157E6.1010909@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Madalin Bucur <madalin.bucur@nxp.com>, linux-kernel@vger.kernel.org,
- camelia.groza@nxp.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
- dan.carpenter@oracle.com
-To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: Kees Cook <keescook@chromium.org>,
+        Laura Abbott <labbott@redhat.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Galois.linutronix.de ([146.0.238.70]:51295 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754646AbdCIOtv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 09:49:51 -0500
+In-Reply-To: <58C157E6.1010909@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Camelia Groza <camelia.groza@nxp.com>
+On Thu, 9 Mar 2017, Daniel Borkmann wrote:
 
-Implement the setup_tc ndo to configure prioritised Tx traffic classes.
-Priorities range from 0 (lowest) to 3 (highest). The driver assigns
-NR_CPUS queues to each traffic class.
+> On 03/09/2017 02:10 PM, Thomas Gleixner wrote:
+> > On Thu, 9 Mar 2017, Daniel Borkmann wrote:
+> > > With regard to CPA_FLUSHTLB that Linus mentioned, when I investigated
+> > > code paths in change_page_attr_set_clr(), I did see that CPA_FLUSHTLB
+> > > was set each time we switched attrs and a cpa_flush_range() was
+> > > performed (with the correct number of pages and cache set to 0). That
+> > > would be a __flush_tlb_all() eventually.
+> > > 
+> > > Hmm, it indeed might seem likely that this could be an emulation bug.
+> > 
+> > Which variant of __flush_tlb_all() is used when the test fails?
+> > 
+> > Check for the following flags in /proc/cpuinfo: pge invpcid
+> 
+> I added the following and booted with both variants:
+> 
+> printk("X86_FEATURE_PGE:%u\n",     static_cpu_has(X86_FEATURE_PGE));
+> printk("X86_FEATURE_INVPCID:%u\n", static_cpu_has(X86_FEATURE_INVPCID));
+> 
+> "-cpu host" gives:
+> 
+> [    8.326117] X86_FEATURE_PGE:1
+> [    8.326381] X86_FEATURE_INVPCID:1
+> 
+> "-cpu kvm64" gives:
+> 
+> [    8.517069] X86_FEATURE_PGE:1
+> [    8.517393] X86_FEATURE_INVPCID:0
 
-Signed-off-by: Camelia Groza <camelia.groza@nxp.com>
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 36 ++++++++++++++++++++++++++
- 1 file changed, 36 insertions(+)
+That's the one which fails. So it's using the CR4 based flushing. Just ran
+a test on a physical system with PGE=1 and INVPCID=0. Works fine.
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index ac75d09..1b3ea38 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -342,6 +342,41 @@ static void dpaa_get_stats64(struct net_device *net_dev,
- 	}
- }
- 
-+static int dpaa_setup_tc(struct net_device *net_dev, u32 handle, __be16 proto,
-+			 struct tc_to_netdev *tc)
-+{
-+	struct dpaa_priv *priv = netdev_priv(net_dev);
-+	int i;
-+
-+	if (tc->type != TC_SETUP_MQPRIO)
-+		return -EINVAL;
-+
-+	if (tc->tc == priv->num_tc)
-+		return 0;
-+
-+	if (!tc->tc) {
-+		netdev_reset_tc(net_dev);
-+		goto out;
-+	}
-+
-+	if (tc->tc > DPAA_TC_NUM) {
-+		netdev_err(net_dev, "Too many traffic classes: max %d supported.\n",
-+			   DPAA_TC_NUM);
-+		return -EINVAL;
-+	}
-+
-+	netdev_set_num_tc(net_dev, tc->tc);
-+
-+	for (i = 0; i < tc->tc; i++)
-+		netdev_set_tc_queue(net_dev, i, DPAA_TC_TXQ_NUM,
-+				    i * DPAA_TC_TXQ_NUM);
-+
-+out:
-+	priv->num_tc = tc->tc ? tc->tc : 1;
-+	netif_set_real_num_tx_queues(net_dev, priv->num_tc * DPAA_TC_TXQ_NUM);
-+	return 0;
-+}
-+
- static struct mac_device *dpaa_mac_dev_get(struct platform_device *pdev)
- {
- 	struct platform_device *of_dev;
-@@ -2417,6 +2452,7 @@ static const struct net_device_ops dpaa_ops = {
- 	.ndo_validate_addr = eth_validate_addr,
- 	.ndo_set_rx_mode = dpaa_set_rx_mode,
- 	.ndo_do_ioctl = dpaa_ioctl,
-+	.ndo_setup_tc = dpaa_setup_tc,
- };
- 
- static int dpaa_napi_add(struct net_device *net_dev)
--- 
-2.1.0
+Emulation problem?
+
+Thanks,
+
+	tglx
