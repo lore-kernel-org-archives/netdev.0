@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: add support for XPS
-Date: Thu, 09 Mar 2017 13:21:41 -0800 (PST)
-Message-ID: <20170309.132141.782097581053931200.davem@davemloft.net>
-References: <20170307194041.GA13791@felix.cavium.com>
+Subject: Re: [PATCH] uapi: fix linux/packet_diag.h userspace compilation
+ error
+Date: Thu, 09 Mar 2017 13:23:06 -0800 (PST)
+Message-ID: <20170309.132306.2135023022720335742.davem@davemloft.net>
+References: <20170307202802.GA19323@altlinux.org>
+        <20170307.123535.1895338978981637855.davem@davemloft.net>
+        <20170307205050.GB19323@altlinux.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        ricardo.farrington@cavium.com
-To: felix.manlunas@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44504 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752479AbdCIVVy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 16:21:54 -0500
-In-Reply-To: <20170307194041.GA13791@felix.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xemul@virtuozzo.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: ldv@altlinux.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170307205050.GB19323@altlinux.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 7 Mar 2017 11:40:41 -0800
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Date: Tue, 7 Mar 2017 23:50:50 +0300
 
-> From: Rick Farrington <ricardo.farrington@cavium.com>
+> Replace MAX_ADDR_LEN with its numeric value to fix the following
+> linux/packet_diag.h userspace compilation error:
 > 
-> Add support for XPS.
+> /usr/include/linux/packet_diag.h:67:17: error: 'MAX_ADDR_LEN' undeclared here (not in a function)
+>   __u8 pdmc_addr[MAX_ADDR_LEN];
 > 
-> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+> This is not the first case in the UAPI where the numeric value
+> of MAX_ADDR_LEN is used instead of symbolic one, uapi/linux/if_link.h
+> already does the same:
+> 
+> $ grep MAX_ADDR_LEN include/uapi/linux/if_link.h 
+> 	__u8 mac[32]; /* MAX_ADDR_LEN */
+> 
+> There are no UAPI headers besides these two that use MAX_ADDR_LEN.
+> 
+> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+> Acked-by: Pavel Emelyanov <xemul@virtuozzo.com>
 
-Applied.
+Applied and queued up for -stable.
