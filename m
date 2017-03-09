@@ -1,48 +1,89 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Thu, 09 Mar 2017 19:31:03 +0100
-Message-ID: <58C19F67.3040509@iogearbox.net>
-References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com> <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net> <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com> <58C08535.3070000@iogearbox.net> <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com> <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com> <CAGXu5jLm3jbJoQAsBsTiiQGK1==JTnSkN_GLsuBGqFvAz5B3AQ@mail.gmail.com> <58C152F1.9090004@iogearbox.net> <alpine.DEB.2.20.1703091409080.3521@nanos> <58C157E6.1010909@iogearbox.net> <alpine.DEB.2.20.1703091547460.3521@nanos> <58C19607.6000605@iogearbox.net> <CA+55aFyxM--wyvxXGhBOqdJHcdC_kKvGYpv-C5SpYvRNkbEmGw@mail.gmail.com> <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 109581] WARNING: CPU: 1 PID: 0 at
+ net/sched/sch_hfsc.c:1429 hfsc_dequeue+0x166/0x2da()
+Date: Thu, 9 Mar 2017 10:53:29 -0800
+Message-ID: <20170309105329.79cd5e44@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Kees Cook <keescook@chromium.org>,
-        Laura Abbott <labbott@redhat.com>,
-        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
-        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36836 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752441AbdCISyw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 13:54:52 -0500
+Received: by mail-pf0-f179.google.com with SMTP id o126so31965669pfb.3
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 10:53:32 -0800 (PST)
+Received: from xeon-e3 (204-195-18-65.wavecable.com. [204.195.18.65])
+        by smtp.gmail.com with ESMTPSA id x21sm13911175pfa.71.2017.03.09.10.53.31
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Thu, 09 Mar 2017 10:53:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2017 07:15 PM, Linus Torvalds wrote:
-> On Thu, Mar 9, 2017 at 10:10 AM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->>
->> Very odd. We should always have PGE (0x0080) set in cr4 (if the CPU
->> supports it).
->
-> Daniel, do you see the code in probe_page_size_mask() triggering?
->
->          /* Enable PGE if available */
->          if (boot_cpu_has(X86_FEATURE_PGE)) {
->                  cr4_set_bits_and_update_boot(X86_CR4_PGE);
->                  __supported_pte_mask |= _PAGE_GLOBAL;
 
-We do have boot_cpu_has(X86_FEATURE_PGE) and go indeed into this
-branch here. So it seems something must be clearing it later, hmm.
 
->          } else
->                  __supported_pte_mask &= ~_PAGE_GLOBAL;
->
-> but maybe there's something wrong with the percpu cr4 caching?
->
->                 Linus
->
+Begin forwarded message:
+
+Date: Thu, 09 Mar 2017 12:41:19 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 109581] WARNING: CPU: 1 PID: 0 at net/sched/sch_hfsc.c:1429 hfsc_dequeue+0x166/0x2da()
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=109581
+
+--- Comment #33 from Pawel Staszewski (pstaszewski@artcom.pl) ---
+Hi all
+
+Update here with kernel 4.10.1
+[39542.654334] WARNING: CPU: 26 PID: 0 at net/sched/sch_hfsc.c:1400
+hfsc_dequeue+0x13e/0x277
+[39542.654335] Modules linked in: bridge stp llc veth bonding ipmi_si
+[39542.654341] CPU: 26 PID: 0 Comm: swapper/26 Tainted: G        W  O    4.10.1
+#1
+[39542.654342] Call Trace:
+[39542.654344]  <IRQ>
+[39542.654347]  dump_stack+0x63/0x7f
+[39542.654349]  __warn+0xc0/0xdb
+[39542.654351]  warn_slowpath_null+0x18/0x1a
+[39542.654352]  hfsc_dequeue+0x13e/0x277
+[39542.654353]  __qdisc_run+0xf0/0x21b
+[39542.654355]  net_tx_action+0xdc/0xef
+[39542.654356]  __do_softirq+0xbc/0x1c9
+[39542.654358]  irq_exit+0x51/0x5f
+[39542.654360]  smp_apic_timer_interrupt+0x29/0x34
+[39542.654363]  apic_timer_interrupt+0x89/0x90
+[39542.654366] RIP: 0010:cpuidle_enter_state+0x148/0x1a3
+[39542.654367] RSP: 0018:ffffc90003333e98 EFLAGS: 00000246 ORIG_RAX:
+ffffffffffffff10
+[39542.654368] RAX: ffff88046fc153c0 RBX: 0000000000000001 RCX:
+000000000000001f
+[39542.654369] RDX: 0000000000000000 RSI: ffff88046fc12b18 RDI:
+0000000000000000
+[39542.654369] RBP: ffffc90003333ec8 R08: 0000000000000000 R09:
+0000000000000000
+[39542.654370] R10: ffffc90003333e40 R11: ffff88086d387000 R12:
+ffff88046c4f4400
+[39542.654371] R13: 000023f6bddd31c7 R14: 0000000000000000 R15:
+000023f6bddd0579
+[39542.654371]  </IRQ>
+[39542.654373]  ? cpuidle_enter_state+0x101/0x1a3
+[39542.654374]  cpuidle_enter+0x12/0x14
+[39542.654376]  do_idle+0x129/0x1a7
+[39542.654378]  cpu_startup_entry+0x1a/0x1f
+[39542.654379]  start_secondary+0xd6/0xd9
+[39542.654382]  start_cpu+0x14/0x14
+[39542.654383] ---[ end trace de75ea4e514f5380 ]---
+
+Typical configuration fot hfsc on vlan interface:
+tc qdisc del dev vlan1201 root
+tc qdisc add dev vlan1201 handle 1: root hfsc default 100
+tc class add dev vlan1201 parent 1: classid 1:100 hfsc ls m2 2100Mbit ul m2
+2100Mbit
+tc qdisc add dev vlan1201 parent 1:100 handle 100: fq_codel limit 3000 noecn
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
