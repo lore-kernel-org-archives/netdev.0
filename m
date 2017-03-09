@@ -1,79 +1,98 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH net-next 1/8] net: stmicro: multiple queues dt configuration
- (fwd)
-Date: Thu, 9 Mar 2017 21:56:09 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1703092154301.2306@hadrien>
+From: Pavel Belous <pavel.belous@aquantia.com>
+Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is
+ changed
+Date: Thu, 9 Mar 2017 23:57:27 +0300
+Message-ID: <0fd31b4d-6448-77e7-bae5-1ea42c147e17@aquantia.com>
+References: <1489008801-120389-1-git-send-email-darcari@redhat.com>
+ <bdf4795a-ad8f-f48e-0861-24ce5700a5ee@aquantia.com>
+ <6f6ad527-8664-0cdb-2b3d-b79179b8a7a8@redhat.com>
+ <fb362313-386b-1e35-f1c1-0ee2b79b1e19@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>,
-        kbuild-all@01.org, davem@davemloft.net
-To: Joao Pinto <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Arcari <darcari@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:35545 "EHLO
-        mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750880AbdCIU4M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 15:56:12 -0500
+Received: from mail-sn1nam02on0058.outbound.protection.outlook.com ([104.47.36.58]:56810
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752305AbdCIU5p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 15:57:45 -0500
+In-Reply-To: <fb362313-386b-1e35-f1c1-0ee2b79b1e19@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is just pointing out that lines 200 and 202 are identical.
 
-julia
 
----------- Forwarded message ----------
-Date: Fri, 10 Mar 2017 04:50:01 +0800
-From: kbuild test robot <fengguang.wu@intel.com>
-To: kbuild@01.org
-Cc: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH net-next 1/8] net: stmicro: multiple queues dt configuration
+On 09.03.2017 23:28, David Arcari wrote:
+> On 03/09/2017 03:01 PM, David Arcari wrote:
+>> On 03/09/2017 02:02 PM, Pavel Belous wrote:
+>>>
+>>>
+>>> On 09.03.2017 00:33, David Arcari wrote:
+>>>> When the aquantia device mtu is changed the net_device structure is not
+>>>> updated.  As a result the ip command does not properly reflect the mtu change.
+>>>>
+>>>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+>>>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+>>>> has a ndo_change_mtu routine.
+>>>>
+>>>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+>>>>
+>>>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+>>>> Signed-off-by: David Arcari <darcari@redhat.com>
+>>>> ---
+>>>>  drivers/net/ethernet/aquantia/atlantic/aq_main.c | 1 +
+>>>>  1 file changed, 1 insertion(+)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>>> b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>>> index dad6362..d05fbfd 100644
+>>>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>>> @@ -98,6 +98,7 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int
+>>>> new_mtu)
+>>>>
+>>>>      if (err < 0)
+>>>>          goto err_exit;
+>>>> +    ndev->mtu = new_mtu;
+>>>>
+>>>>      if (netif_running(ndev)) {
+>>>>          aq_ndev_close(ndev);
+>>>>
+>>>
+>>> Thank you, David.
+>>>
+>>> I think we should also remove closing/opening net-device after mtu changed.
+>>
+>> Hi Pavel,
+>>
+>> I'll go ahead and submit v2.
+>>
+>> Thanks,
+>>
+>> -Dave
+>
+> Hi Pavel,
+>
+> Before I post v2, won't that mean that if the interface is up that the user will
+> have to manually toggle it for the new mtu to take effect?
+>
+> Is that the desired behavior?
+>
+> Thanks,
+>
+> -Dave
+>
+>>
+>>>
+>>> Regards,
+>>> Pavel
+>>
+>
 
-In-Reply-To: <eee93719e5830cfea8e4dcfdac9221a3b6124eb8.1488969672.git.jpinto@synopsys.com>
+No. The new mtu will take effect immediately.
+Closing/opening is not needed at all.
 
-Hi Joao,
 
-[auto build test WARNING on next-20170308]
-[also build test WARNING on v4.11-rc1]
-[cannot apply to v4.9-rc8 v4.9-rc7 v4.9-rc6]
-[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-
-url:    https://github.com/0day-ci/linux/commits/Joao-Pinto/prepare-mac-operations-for-multiple-queues/20170310-013207
-:::::: branch date: 3 hours ago
-:::::: commit date: 3 hours ago
-
->> drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:199:6-8: WARNING: possible condition with no effect (if == else)
-
-git remote add linux-review https://github.com/0day-ci/linux
-git remote update linux-review
-git checkout faca7330d9494884feb52b62a037d01266b4d382
-vim +199 drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-
-faca7330 Joao Pinto 2017-03-08  183  		/* TODO: Dynamic mapping to be included in the future */
-faca7330 Joao Pinto 2017-03-08  184
-faca7330 Joao Pinto 2017-03-08  185  		queue++;
-faca7330 Joao Pinto 2017-03-08  186  	}
-faca7330 Joao Pinto 2017-03-08  187
-faca7330 Joao Pinto 2017-03-08  188  	/* Processing TX queues common config */
-faca7330 Joao Pinto 2017-03-08  189  	if (of_property_read_u8(tx_node, "snps,tx-queues-to-use",
-faca7330 Joao Pinto 2017-03-08  190  				&plat->tx_queues_to_use))
-faca7330 Joao Pinto 2017-03-08  191  		plat->tx_queues_to_use = 1;
-faca7330 Joao Pinto 2017-03-08  192
-faca7330 Joao Pinto 2017-03-08  193  	if (of_property_read_bool(tx_node, "snps,tx-sched-wrr"))
-faca7330 Joao Pinto 2017-03-08  194  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_WRR;
-faca7330 Joao Pinto 2017-03-08  195  	else if (of_property_read_bool(tx_node, "snps,tx-sched-wfq"))
-faca7330 Joao Pinto 2017-03-08  196  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_WFQ;
-faca7330 Joao Pinto 2017-03-08  197  	else if (of_property_read_bool(tx_node, "snps,tx-sched-dwrr"))
-faca7330 Joao Pinto 2017-03-08  198  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_DWRR;
-faca7330 Joao Pinto 2017-03-08 @199  	else if (of_property_read_bool(tx_node, "snps,tx-sched-sp"))
-faca7330 Joao Pinto 2017-03-08  200  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_SP;
-faca7330 Joao Pinto 2017-03-08  201  	else
-faca7330 Joao Pinto 2017-03-08  202  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_SP;
-faca7330 Joao Pinto 2017-03-08  203
-faca7330 Joao Pinto 2017-03-08  204  	queue = 0;
-faca7330 Joao Pinto 2017-03-08  205
-faca7330 Joao Pinto 2017-03-08  206  	/* Processing individual TX queue config */
-faca7330 Joao Pinto 2017-03-08  207  	for_each_child_of_node(tx_node, queue_node) {
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Regards,
+Pavel
