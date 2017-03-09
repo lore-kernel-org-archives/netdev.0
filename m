@@ -1,23 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sun: sungem: use new api
+Subject: Re: [PATCH] net: sun: cassini: use new api
  ethtool_{get|set}_link_ksettings
-Date: Wed, 08 Mar 2017 22:06:23 -0800 (PST)
-Message-ID: <20170308.220623.1269359554434182544.davem@davemloft.net>
-References: <1488668658-27461-1-git-send-email-tremyfr@gmail.com>
+Date: Wed, 08 Mar 2017 22:06:12 -0800 (PST)
+Message-ID: <20170308.220612.1455331606597198422.davem@davemloft.net>
+References: <1488640572-11174-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, a@unstable.cc, fw@strlen.de, jarod@redhat.com,
-        edumazet@google.com, netdev@vger.kernel.org,
+Cc: jarod@redhat.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1488668658-27461-1-git-send-email-tremyfr@gmail.com>
+In-Reply-To: <1488640572-11174-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun,  5 Mar 2017 00:04:18 +0100
+Date: Sat,  4 Mar 2017 16:16:12 +0100
 
 > The ethtool api {get|set}_settings is deprecated.
 > We move this driver to new api {get|set}_link_ksettings.
