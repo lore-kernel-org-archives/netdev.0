@@ -1,44 +1,36 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [RFC PATCH net] net: Work around lockdep limitation in sockets that use sockets
-Date: Thu, 09 Mar 2017 07:51:34 +0000
-Message-ID: <21773.1489045894@warthog.procyon.org.uk>
-References: <20170308.230625.719131946756053988.davem@davemloft.net> <148881267372.2618.822975702493802450.stgit@warthog.procyon.org.uk>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: wcn36xx: Fix error handling
+Date: Thu, 9 Mar 2017 09:02:44 +0100
+Message-ID: <b37f84dce99d4f6fa577845f664aaba6@euamsexm01a.eu.qualcomm.com>
+References: <20170219174751.18966-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-        linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54272 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752157AbdCIHvh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 02:51:37 -0500
-In-Reply-To: <20170308.230625.719131946756053988.davem@davemloft.net>
-Content-ID: <21772.1489045894.1@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <k.eugene.e@gmail.com>, <kvalo@codeaurora.org>,
+        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <kernel-janitors@vger.kernel.org>,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170219174751.18966-1-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+Christophe Jaillet <christophe.jaillet@wanadoo.fr> wrote:
+> Reorder 'out_free_dxe_pool' and 'out_free_dxe_ctl' error handling labels
+> in order to match the way resources have been allocated.
+> 
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-> I guess this is fine, but I think you can use one of the two "sk_padding"
-> bits in struct sock instead of making the structure larger.
+Patch applied to ath-next branch of ath.git, thanks.
 
-It shouldn't make the structure larger since there's a hole in the structure:
+4aa2d31f5df8 wcn36xx: Fix error handling
 
-		unsigned int		sk_padding : 2,
-					sk_no_check_tx : 1,
-					sk_no_check_rx : 1,
-					sk_userlocks : 4,
-					sk_protocol  : 8,
-					sk_type      : 16;
-	#define SK_PROTOCOL_MAX U8_MAX
-		kmemcheck_bitfield_end(flags);
+-- 
+https://patchwork.kernel.org/patch/9581709/
 
-		u16			sk_gso_max_segs;
-  ---> 2-byte hole here
-		unsigned long	        sk_lingertime;
+Documentation about submitting wireless patches and checking status
+from patchwork:
 
-but I'll quite happily shift it to sk_padding.
-
-Thanks,
-David
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
