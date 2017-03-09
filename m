@@ -1,58 +1,37 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Wed, 8 Mar 2017 15:55:39 -0800
-Message-ID: <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com>
-References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com>
- <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com>
- <58B88353.2010508@iogearbox.net>
- <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com>
- <58C08535.3070000@iogearbox.net>
- <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com>
+From: "Mrs. Aruna Assabah" <shahzadromani2@gmail.com>
+Subject: HELLO DEAR
+Date: Thu, 9 Mar 2017 00:44:35 +0000
+Message-ID: <CALtArGRGQS7CUWAeaNxzDFLDaJFryf8AgGmjUNc+US4XnWDHOA@mail.gmail.com>
+Reply-To: nickvalma10@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
-        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Kees Cook <keescook@chromium.org>,
-        Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:36361 "EHLO
-        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750707AbdCIAWU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 19:22:20 -0500
-Received: by mail-qk0-f178.google.com with SMTP id 1so95400197qkl.3
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 16:20:35 -0800 (PST)
-In-Reply-To: <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34643 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750770AbdCIAoi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 19:44:38 -0500
+Received: by mail-wm0-f68.google.com with SMTP id u132so8579389wmg.1
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 16:44:36 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/08/2017 02:36 PM, Kees Cook wrote:
-> On Wed, Mar 8, 2017 at 2:27 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> [   28.474232] rodata_test: test data was not read only
->> [...]
-> 
-> In my tests so far, I've never been able to get rodata_test to fail
-> (Qemu 2.5.0, Ubuntu). I'll retry with your .config and see if I can
-> recheck under Qemu 2.7.1. Do you see these failures on real hardware?
-> 
-> -Kees
-> 
+Dear Friend,
 
-FWIW, I'm seeing the same issue with qemu 2.6.2 and 2.8.0 on Fedora 24
-and rawhide respectively. 
+I assume that this message will reach you in good health. My name is
+Mrs. Aruna Sabbah,the foreign operation manager of the African
+Development Bank Burkina Faso (ADB) I have the opportunity of
+transferring the left over funds what of ($25.2Million Dollars) from
+the account of our bank's customer who died along with his entire
+family in a plane crash. However, it's just my urgent need for foreign
+partner that made me to contact you for this transaction.
 
-I also notice that CONFIG_X86_PAE is turned off in the defconfig. If
-I set CONFIG_HIGHMEM_64G which turns on CONFIG_X86_PAE the problem
-goes away. I can't tell if this is an indication of magically hiding
-the TLB problem or if there is an issue with !X86_PAE invalidation.
+I assured you honesty and reliability to champion this business
+opportunity. I am contacting you for this business while the money
+will be shared between us in the ratio of 50/50,on the acceptance of
+my proposal, Further details of the transfer will be forwarded to you
+as soon as i receive your response. Hoping to hear from you as soon as
+possible.
 
-
-Thanks,
-Laura
+Regards
+Mrs. Aruna Sabbah
