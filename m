@@ -1,77 +1,46 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Thu, 09 Mar 2017 15:53:30 +0100
-Message-ID: <58C16C6A.2060400@iogearbox.net>
-References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com> <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net> <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com> <58C08535.3070000@iogearbox.net> <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com> <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com> <CAGXu5jLm3jbJoQAsBsTiiQGK1==JTnSkN_GLsuBGqFvAz5B3AQ@mail.gmail.com> <58C152F1.9090004@iogearbox.net> <alpine.DEB.2.20.1703091409080.3521@nanos> <58C157E6.1010909@iogearbox.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: stmmac still supporting spear600 ?
+Date: Thu, 9 Mar 2017 15:56:31 +0100
+Message-ID: <79049eda-5d37-6b70-8945-2d3ab55e56b8@st.com>
+References: <20170309093412.33c0277d@free-electrons.com>
+ <373e2760-94c5-4349-33aa-158bc8f4b19e@st.com>
+ <20170309103236.3e16304f@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>,
-        Laura Abbott <labbott@redhat.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
-        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58C157E6.1010909@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Shiraz Hashim <shiraz.linux.kernel@gmail.com>,
+ Alexandre Torgue <alexandre.torgue@st.com>,
+ linux-arm-kernel@lists.infradead.org, Viresh Kumar <vireshk@kernel.org>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170309103236.3e16304f@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 03/09/2017 02:25 PM, Daniel Borkmann wrote:
-> On 03/09/2017 02:10 PM, Thomas Gleixner wrote:
->> On Thu, 9 Mar 2017, Daniel Borkmann wrote:
->>> With regard to CPA_FLUSHTLB that Linus mentioned, when I investigated
->>> code paths in change_page_attr_set_clr(), I did see that CPA_FLUSHTLB
->>> was set each time we switched attrs and a cpa_flush_range() was
->>> performed (with the correct number of pages and cache set to 0). That
->>> would be a __flush_tlb_all() eventually.
->>>
->>> Hmm, it indeed might seem likely that this could be an emulation bug.
->>
->> Which variant of __flush_tlb_all() is used when the test fails?
->>
->> Check for the following flags in /proc/cpuinfo: pge invpcid
->
-> I added the following and booted with both variants:
->
-> printk("X86_FEATURE_PGE:%u\n",     static_cpu_has(X86_FEATURE_PGE));
-> printk("X86_FEATURE_INVPCID:%u\n", static_cpu_has(X86_FEATURE_INVPCID));
->
-> "-cpu host" gives:
->
-> [    8.326117] X86_FEATURE_PGE:1
-> [    8.326381] X86_FEATURE_INVPCID:1
->
-> "-cpu kvm64" gives:
->
-> [    8.517069] X86_FEATURE_PGE:1
-> [    8.517393] X86_FEATURE_INVPCID:0
+Hello Thomas
 
-Fwiw, I tried switching from using cr4 (__native_flush_tlb_global_irq_disabled())
-to slower cr3 (__native_flush_tlb()) in "-cpu kvm64" mode, and it looks like it
-also lets all test cases pass (rodata_test, test_setmem, test_bpf), no corruption
-happening, etc.
+On 3/9/2017 10:32 AM, Thomas Petazzoni wrote:
 
-Test diff used:
+> OK, I'll have a look. However, I'm still confused by this DMA_RESET bit
+> that never clears, contrary to what the datasheet says. Are there some
+> erratas?
 
-diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
-index 6fa8594..34f4582 100644
---- a/arch/x86/include/asm/tlbflush.h
-+++ b/arch/x86/include/asm/tlbflush.h
-@@ -188,9 +188,9 @@ static inline void __native_flush_tlb_single(unsigned long addr)
+I suggest you to take a look at the tx/rx clocks from PHY.
+You have to provide these otherwise you cannot reset the engine.
 
-  static inline void __flush_tlb_all(void)
-  {
--       if (static_cpu_has(X86_FEATURE_PGE))
--               __flush_tlb_global();
--       else
-+//     if (static_cpu_has(X86_FEATURE_PGE))
-+//             __flush_tlb_global();
-+//     else
-                 __flush_tlb();
-  }
+Best Regards
+Peppe
+
+>
+> Best regards,
+>
+> Thomas
+>
