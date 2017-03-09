@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] sunvnet: better connection management
-Date: Wed, 08 Mar 2017 21:59:51 -0800 (PST)
-Message-ID: <20170308.215951.1257204853862874733.davem@davemloft.net>
-References: <1488842132-512058-1-git-send-email-shannon.nelson@oracle.com>
-        <80e05f39-ea92-bfdf-b7d6-2cee47c8bab6@oracle.com>
+Subject: Re: [PATCH] net: sun: sungem: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Wed, 08 Mar 2017 22:06:23 -0800 (PST)
+Message-ID: <20170308.220623.1269359554434182544.davem@davemloft.net>
+References: <1488668658-27461-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+Cc: mugunthanvnm@ti.com, a@unstable.cc, fw@strlen.de, jarod@redhat.com,
+        edumazet@google.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: shannon.nelson@oracle.com
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <80e05f39-ea92-bfdf-b7d6-2cee47c8bab6@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
+To: tremyfr@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1488668658-27461-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Wed, 8 Mar 2017 15:04:45 -0800
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Sun,  5 Mar 2017 00:04:18 +0100
 
-> On 3/6/2017 3:15 PM, Shannon Nelson wrote:
->> These patches remove some problems in handling of carrier state
->> with the ldmvsw vswitch, remove  an xoff misuse in sunvnet, and
->> add stats for debug and tracking of point-to-point connections
->> between the ldom VMs.
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 > 
-> Further testing shows a problem in one of the patches, so there will
-> be a V2 coming.
+> As I don't have the hardware, I'd be very pleased if
+> someone may test this patch.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-Ok.
+Applied.
