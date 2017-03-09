@@ -1,48 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 00/13] mlx4: order-0 allocations and page
- recycling
-Date: Thu, 09 Mar 2017 09:59:55 -0800 (PST)
-Message-ID: <20170309.095955.966397253795759795.davem@davemloft.net>
-References: <20170308161718.2867-1-edumazet@google.com>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging
+ request at 0000a7cf
+Date: Thu, 09 Mar 2017 10:08:30 -0800 (PST)
+Message-ID: <20170309.100830.994695882061843653.davem@davemloft.net>
+References: <58C157E6.1010909@iogearbox.net>
+        <alpine.DEB.2.20.1703091547460.3521@nanos>
+        <58C19607.6000605@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com,
-        willemb@google.com, brouer@redhat.com, ast@kernel.org,
-        eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41404 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754890AbdCISAT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 13:00:19 -0500
-In-Reply-To: <20170308161718.2867-1-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tglx@linutronix.de, keescook@chromium.org, labbott@redhat.com,
+        torvalds@linux-foundation.org, mingo@kernel.org, hpa@zytor.com,
+        fengguang.wu@intel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, lkp@01.org, ast@fb.com,
+        x86@kernel.org
+To: daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <58C19607.6000605@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Wed,  8 Mar 2017 08:17:05 -0800
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 09 Mar 2017 18:51:03 +0100
 
-> As mentioned half a year ago, we better switch mlx4 driver to order-0
-> allocations and page recycling.
+> I added some debugging around __native_flush_tlb_global_irq_disabled()
+> and if I understand it correctly, the idea of cr4 is that we need to
+> toggle X86_CR4_PGE in order to trigger a TLB flush.
 > 
-> This reduces vulnerability surface thanks to better skb->truesize
-> tracking and provides better performance in most cases.
-> (33 Gbit for one TCP flow on my lab hosts)
+> What I see is that original cr4 is 0x610. The cpu_tlbstate.cr4 is
+> consistent to native_read_cr4() and since cr4 is != 0, it tells me
+> based on the comment in native_read_cr4() that cr4 seems to be
+> supported. Thus, meaning we end up with writing ...
 > 
-> I will provide for linux-4.13 a patch on top of this series,
-> trying to improve data locality as described in
-> https://www.spinics.net/lists/netdev/msg422258.html
+>   native_write_cr4(0x610);
+>   native_write_cr4(0x610);
 > 
-> v2 provides an ethtool -S new counter (rx_alloc_pages) and
-> code factorization, plus Tariq fix.
+> ... twice, and this just doesn't trigger the desired TLB flush. I
+> changed the code into the following ...
 > 
-> v3 includes various fixes based on Tariq tests and feedback
-> from Saeed and Tariq.
+>         cr4 = this_cpu_read(cpu_tlbstate.cr4);
+>         /* clear PGE */
+> -       native_write_cr4(cr4 & ~X86_CR4_PGE);
+> +       native_write_cr4(cr4 ^ X86_CR4_PGE);
+>         /* write old PGE again and flush TLBs */
+>         native_write_cr4(cr4);
 > 
-> v4 rebased on net-next for inclusion in linux-4.12, as requested
-> by Tariq.
-> 
-> Worth noting this patch series deletes ~250 lines of code ;)
+> ... and the test cases seem to be working for me now with "-cpu
+> kvm64",
+> so that seems to trigger the TLB we were missing.
 
-Series applied, thanks everyone.
+Great detective work Daniel.
