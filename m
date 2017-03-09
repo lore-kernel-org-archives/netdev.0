@@ -1,36 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net] net: Work around lockdep limitation in sockets
- that use sockets
-Date: Thu, 09 Mar 2017 09:38:51 -0800 (PST)
-Message-ID: <20170309.093851.1057108507009455288.davem@davemloft.net>
-References: <20170308.230625.719131946756053988.davem@davemloft.net>
-        <148881267372.2618.822975702493802450.stgit@warthog.procyon.org.uk>
-        <21773.1489045894@warthog.procyon.org.uk>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Thu, 9 Mar 2017 09:48:20 -0800
+Message-ID: <CA+55aFyxvUx0J=p8jh8N1a80Vt+f6M-rg=L3zxyiv69bOYhkKQ@mail.gmail.com>
+References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com>
+ <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net>
+ <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com>
+ <58C08535.3070000@iogearbox.net> <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com>
+ <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com> <CAGXu5jLm3jbJoQAsBsTiiQGK1==JTnSkN_GLsuBGqFvAz5B3AQ@mail.gmail.com>
+ <58C152F1.9090004@iogearbox.net> <alpine.DEB.2.20.1703091409080.3521@nanos>
+ <58C157E6.1010909@iogearbox.net> <58C16C6A.2060400@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <21773.1489045894@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Kees Cook <keescook@chromium.org>,
+        Laura Abbott <labbott@redhat.com>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, "the arch/x86 maintainers" <x86@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33890 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932703AbdCIRsr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 12:48:47 -0500
+In-Reply-To: <58C16C6A.2060400@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 09 Mar 2017 07:51:34 +0000
+On Thu, Mar 9, 2017 at 6:53 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>
+> Fwiw, I tried switching from using cr4
+> (__native_flush_tlb_global_irq_disabled())
+> to slower cr3 (__native_flush_tlb()) in "-cpu kvm64" mode, and it looks like
+> it also lets all test cases pass (rodata_test, test_setmem, test_bpf), no
+> corruption happening, etc.
 
-> David Miller <davem@davemloft.net> wrote:
-> 
->> I guess this is fine, but I think you can use one of the two "sk_padding"
->> bits in struct sock instead of making the structure larger.
-> 
-> It shouldn't make the structure larger since there's a hole in the structure:
- ...
-> 		u16			sk_gso_max_segs;
->   ---> 2-byte hole here
-> 		unsigned long	        sk_lingertime;
-> 
-> but I'll quite happily shift it to sk_padding.
+Ok. I think this is conclusive: the qemu "-cpu kvm64" case is
+definitely broken, since changing CR4.PGE is definitely
+architecturally defined to flush all TLB entries.
 
-Ok, then that's fine.
+This is not a guest kernel bug.
+
+Of course, the bug may still be in the *host* kernel. Maybe the
+emulation does something wrong. I see
+
+        if (((cr4 ^ old_cr4) & pdptr_bits) ||
+            (!(cr4 & X86_CR4_PCIDE) && (old_cr4 & X86_CR4_PCIDE)))
+                kvm_mmu_reset_context(vcpu);
+
+(where pdptr_bits includes the PGE bit), but I'm not sure if emulation
+is supposed to do something else too.
+
+                   Linus
