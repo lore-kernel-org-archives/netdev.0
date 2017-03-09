@@ -1,42 +1,46 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v4 net-next 00/13] mlx4: order-0 allocations and page recycling
-Date: Thu, 9 Mar 2017 06:26:46 -0800
-Message-ID: <CANn89iLxDVfBs8FK9gXx0jj6CZGsFprDLfWjBUNeR3gKs-6=YQ@mail.gmail.com>
-References: <20170308161718.2867-1-edumazet@google.com> <e762e84a-07eb-428d-cb48-643fd4516cec@mellanox.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [net-next v2 04/10] fsl/fman: enlarge FIFO to allow for the 5th port
+Date: Thu, 9 Mar 2017 16:36:59 +0200
+Message-ID: <1489070225-7891-5-git-send-email-madalin.bucur@nxp.com>
+References: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Tariq Toukan <tariqt@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:34030 "EHLO
-        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932391AbdCIO12 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 09:27:28 -0500
-Received: by mail-io0-f175.google.com with SMTP id g6so29116458ioj.1
-        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 06:26:48 -0800 (PST)
-In-Reply-To: <e762e84a-07eb-428d-cb48-643fd4516cec@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Madalin Bucur <madalin.bucur@nxp.com>, linux-kernel@vger.kernel.org,
+ camelia.groza@nxp.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
+ dan.carpenter@oracle.com
+To: <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 9, 2017 at 5:49 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/fman/fman.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Hi Eric,
->
-> I was preparing this series for submission as well.
-> You got it done first :)
->
-> Thanks for re-submitting.
-> I am Acking the patches now.
-
-I believe you also could have added a single Ack on this cover,
-instead of one ack per element in the series.
-
-David can you tell us if this is true ?
-
-Thanks Tariq !
+diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
+index d755930..4aefe24 100644
+--- a/drivers/net/ethernet/freescale/fman/fman.c
++++ b/drivers/net/ethernet/freescale/fman/fman.c
+@@ -1212,7 +1212,7 @@ static int fill_soc_specific_params(struct fman_state_struct *state)
+ 		state->max_num_of_open_dmas	= 32;
+ 		state->fm_port_num_of_cg	= 256;
+ 		state->num_of_rx_ports	= 6;
+-		state->total_fifo_size	= 122 * 1024;
++		state->total_fifo_size	= 136 * 1024;
+ 		break;
+ 
+ 	case 2:
+-- 
+2.1.0
