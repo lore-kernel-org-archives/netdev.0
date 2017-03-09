@@ -1,16 +1,16 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v3 net-next 6/9] net: stmicro: flow_ctrl functions adapted to mtl
-Date: Thu,  9 Mar 2017 11:03:14 +0000
-Message-ID: <e83de8f740d0fd486eef8261f25e083711c539cd.1489055407.git.jpinto@synopsys.com>
+Subject: [PATCH v3 net-next 7/9] net: stmicro: prepare irq_status for mtl
+Date: Thu,  9 Mar 2017 11:03:15 +0000
+Message-ID: <9924f5611f699473d1d2333d585c2ce6bd73dffb.1489055407.git.jpinto@synopsys.com>
 References: <cover.1489055407.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         niklas.cassel@axis.com, netdev@vger.kernel.org,
         Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:53143 "EHLO
+Received: from smtprelay.synopsys.com ([198.182.60.111]:53141 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932211AbdCILMd (ORCPT
+        with ESMTP id S932166AbdCILMd (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 06:12:33 -0500
 In-Reply-To: <cover.1489055407.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489055407.git.jpinto@synopsys.com>
@@ -18,167 +18,129 @@ References: <cover.1489055407.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adapts flow_ctrl function to prepare it for multiple queues.
+This patch prepares mac irq status treatment for multiple queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
-changes v1->v3:
+changes v2->v3:
+- local variable declarations from longest to shortest line
+changes v1->v2:
 - Just to keep up with patch-set version
 
- drivers/net/ethernet/stmicro/stmmac/common.h         |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c    | 20 +++++++++++++-------
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    | 17 ++++++++++++++---
- 6 files changed, 34 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 38 ++++++++++++++---------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  5 +++
+ 4 files changed, 31 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 32f5f25..5532633 100644
+index 5532633..6a348d3 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -473,7 +473,7 @@ struct stmmac_ops {
+@@ -469,6 +469,8 @@ struct stmmac_ops {
+ 	/* Handle extra events on specific interrupts hw dependent */
+ 	int (*host_irq_status)(struct mac_device_info *hw,
+ 			       struct stmmac_extra_stats *x);
++	/* Handle MTL interrupts */
++	int (*host_mtl_irq_status)(struct mac_device_info *hw, u32 chan);
+ 	/* Multicast filter setting */
  	void (*set_filter)(struct mac_device_info *hw, struct net_device *dev);
  	/* Flow control setting */
- 	void (*flow_ctrl)(struct mac_device_info *hw, unsigned int duplex,
--			  unsigned int fc, unsigned int pause_time);
-+			  unsigned int fc, unsigned int pause_time, u32 tx_cnt);
- 	/* Set power management mode (e.g. magic frame) */
- 	void (*pmt)(struct mac_device_info *hw, unsigned long mode);
- 	/* Set/Get Unicast MAC addresses */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index 19b9b30..3a95ad9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -216,7 +216,8 @@ static void dwmac1000_set_filter(struct mac_device_info *hw,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index 9dd8ac1..5ca4d64 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -172,7 +172,7 @@ enum power_event {
+ #define MTL_OPERATION_RAA_WSP		(0x1 << 2)
  
+ #define MTL_INT_STATUS			0x00000c20
+-#define MTL_INT_Q0			BIT(0)
++#define MTL_INT_QX(x)			BIT(x)
  
- static void dwmac1000_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--				unsigned int fc, unsigned int pause_time)
-+				unsigned int fc, unsigned int pause_time,
-+				u32 tx_cnt)
- {
- 	void __iomem *ioaddr = hw->pcsr;
- 	/* Set flow such that DZPQ in Mac Register 6 is 0,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index e370cce..524135e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -131,7 +131,8 @@ static void dwmac100_set_filter(struct mac_device_info *hw,
- }
- 
- static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--			       unsigned int fc, unsigned int pause_time)
-+			       unsigned int fc, unsigned int pause_time,
-+			       u32 tx_cnt)
- {
- 	void __iomem *ioaddr = hw->pcsr;
- 	unsigned int flow = MAC_FLOW_CTRL_ENABLE;
+ #define MTL_RXQ_DMA_MAP0		0x00000c30 /* queue 0 to 3 */
+ #define MTL_RXQ_DMA_MAP1		0x00000c34 /* queue 4 to 7 */
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 3eed2c8..5caed2a 100644
+index 5caed2a..be83602 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -337,11 +337,12 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
- }
- 
- static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--			     unsigned int fc, unsigned int pause_time)
-+			     unsigned int fc, unsigned int pause_time,
-+			     u32 tx_cnt)
- {
- 	void __iomem *ioaddr = hw->pcsr;
--	u32 channel = STMMAC_CHAN0;	/* FIXME */
- 	unsigned int flow = 0;
-+	u32 queue = 0;
- 
- 	pr_debug("GMAC Flow-Control:\n");
- 	if (fc & FLOW_RX) {
-@@ -351,13 +352,18 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
- 	}
- 	if (fc & FLOW_TX) {
- 		pr_debug("\tTransmit Flow-Control ON\n");
--		flow |= GMAC_TX_FLOW_CTRL_TFE;
--		writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
- 
--		if (duplex) {
-+		if (duplex)
- 			pr_debug("\tduplex mode: PAUSE %d\n", pause_time);
--			flow |= (pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
--			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
-+
-+		for (queue = 0; queue < tx_cnt; queue++) {
-+			flow |= GMAC_TX_FLOW_CTRL_TFE;
-+
-+			if (duplex)
-+				flow |=
-+				(pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
-+
-+			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(queue));
- 		}
+@@ -417,11 +417,32 @@ static void dwmac4_phystatus(void __iomem *ioaddr, struct stmmac_extra_stats *x)
  	}
  }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 85d6411..4a5dc89 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -481,6 +481,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 		      struct ethtool_pauseparam *pause)
- {
- 	struct stmmac_priv *priv = netdev_priv(netdev);
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
- 	struct phy_device *phy = netdev->phydev;
- 	int new_pause = FLOW_OFF;
  
-@@ -511,7 +512,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 	}
- 
- 	priv->hw->mac->flow_ctrl(priv->hw, phy->duplex, priv->flow_ctrl,
--				 priv->pause);
-+				 priv->pause, tx_cnt);
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 610e7fd..d6c7b036 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -673,6 +673,19 @@ static void stmmac_release_ptp(struct stmmac_priv *priv)
- }
- 
- /**
-+ *  stmmac_mac_flow_ctrl - Configure flow control in all queues
-+ *  @priv: driver private structure
-+ *  Description: It is used for configuring the flow control in all queues
-+ */
-+static void stmmac_mac_flow_ctrl(struct stmmac_priv *priv, u32 duplex)
++static int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
 +{
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
++	u32 mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
++	void __iomem *ioaddr = hw->pcsr;
++	int ret = 0;
 +
-+	priv->hw->mac->flow_ctrl(priv->hw, duplex, priv->flow_ctrl,
-+				 priv->pause, tx_cnt);
++	/* Check MTL Interrupt */
++	if (mtl_int_qx_status & MTL_INT_QX(chan)) {
++		/* read Queue x Interrupt status */
++		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(chan));
++
++		if (status & MTL_RX_OVERFLOW_INT) {
++			/*  clear Interrupt */
++			writel(status | MTL_RX_OVERFLOW_INT,
++			       ioaddr + MTL_CHAN_INT_CTRL(chan));
++			ret = CORE_IRQ_MTL_RX_OVERFLOW;
++		}
++	}
++
++	return ret;
 +}
 +
-+/**
-  * stmmac_adjust_link - adjusts the link parameters
-  * @dev: net device structure
-  * Description: this is the helper called by the physical abstraction layer
-@@ -687,7 +700,6 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	struct phy_device *phydev = dev->phydev;
- 	unsigned long flags;
- 	int new_state = 0;
--	unsigned int fc = priv->flow_ctrl, pause_time = priv->pause;
+ static int dwmac4_irq_status(struct mac_device_info *hw,
+ 			     struct stmmac_extra_stats *x)
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+-	u32 mtl_int_qx_status;
+ 	u32 intr_status;
+ 	int ret = 0;
  
- 	if (!phydev)
- 		return;
-@@ -709,8 +721,7 @@ static void stmmac_adjust_link(struct net_device *dev)
- 		}
- 		/* Flow Control operation */
- 		if (phydev->pause)
--			priv->hw->mac->flow_ctrl(priv->hw, phydev->duplex,
--						 fc, pause_time);
-+			stmmac_mac_flow_ctrl(priv, phydev->duplex);
+@@ -440,20 +461,6 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
+ 		x->irq_receive_pmt_irq_n++;
+ 	}
  
- 		if (phydev->speed != priv->speed) {
- 			new_state = 1;
+-	mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
+-	/* Check MTL Interrupt: Currently only one queue is used: Q0. */
+-	if (mtl_int_qx_status & MTL_INT_Q0) {
+-		/* read Queue 0 Interrupt status */
+-		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
+-
+-		if (status & MTL_RX_OVERFLOW_INT) {
+-			/*  clear Interrupt */
+-			writel(status | MTL_RX_OVERFLOW_INT,
+-			       ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
+-			ret = CORE_IRQ_MTL_RX_OVERFLOW;
+-		}
+-	}
+-
+ 	dwmac_pcs_isr(ioaddr, GMAC_PCS_BASE, intr_status, x);
+ 	if (intr_status & PCS_RGSMIIIS_IRQ)
+ 		dwmac4_phystatus(ioaddr, x);
+@@ -555,6 +562,7 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.map_mtl_to_dma = dwmac4_map_mtl_dma,
+ 	.dump_regs = dwmac4_dump_regs,
+ 	.host_irq_status = dwmac4_irq_status,
++	.host_mtl_irq_status = dwmac4_irq_mtl_status,
+ 	.flow_ctrl = dwmac4_flow_ctrl,
+ 	.pmt = dwmac4_pmt,
+ 	.set_umac_addr = dwmac4_set_umac_addr,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index d6c7b036..09380a2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2880,6 +2880,11 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+ 	if ((priv->plat->has_gmac) || (priv->plat->has_gmac4)) {
+ 		int status = priv->hw->mac->host_irq_status(priv->hw,
+ 							    &priv->xstats);
++
++		if (priv->synopsys_id >= DWMAC_CORE_4_00)
++			status |= priv->hw->mac->host_mtl_irq_status(priv->hw,
++								STMMAC_CHAN0);
++
+ 		if (unlikely(status)) {
+ 			/* For LPI we need to save the tx status */
+ 			if (status & CORE_IRQ_TX_PATH_IN_LPI_MODE)
 -- 
 2.9.3
