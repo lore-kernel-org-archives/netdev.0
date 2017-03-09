@@ -1,61 +1,103 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Thu, 9 Mar 2017 15:45:15 +0100
-Message-ID: <a9cb37d9-a71e-ce59-c379-d9bde5d8afb9@grandegger.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
- <2197294b-e6cf-6c56-1419-3a4f95c29db7@timesys.com>
- <6df4a9ae-eaba-6f3f-9c23-ae269548b005@grandegger.com>
- <1447da4a-6a36-38fb-4298-fd7488697d11@timesys.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [net-next v2 06/10] dpaa_eth: enable Rx checksum offload
+Date: Thu, 9 Mar 2017 16:37:01 +0200
+Message-ID: <1489070225-7891-7-git-send-email-madalin.bucur@nxp.com>
+References: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Akshay Bhat <nodeax@gmail.com>
-To: Akshay Bhat <akshay.bhat@timesys.com>, mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1447da4a-6a36-38fb-4298-fd7488697d11@timesys.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Madalin Bucur <madalin.bucur@nxp.com>, linux-kernel@vger.kernel.org,
+ camelia.groza@nxp.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
+ dan.carpenter@oracle.com
+To: <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Hello Akshay,
+Use the FMan HW parser L4CV flag to offload Rx checksumming.
 
-Am 09.03.2017 um 13:34 schrieb Akshay Bhat:
->
->
-> On 03/09/2017 04:59 AM, Wolfgang Grandegger wrote:
->> Hello Akshay,
->>
->> unfortunately there are not many CAN controllers for the SPI bus. I just
->> know the MPC251x, which behaves badly (message losses) under Linux,
->> especially at hight bit-rates due to insufficient RX buffering. What is
->> your experience with that driver for the HI-311x?
->>
->
-> Hi Wolfgang,
->
-> Good question. I have not worked with MPC251x but the HI-311x performs
-> much better because HI-3110 features:
-> 8 message FIFO (as opposed to 2 buffers on MPC2510)
-> 20 MHz SPI interface (as opposed to 2.5 MHz on MPC2510)
->
-> As for the real world test results:
->
-> With RT patch applied to the kernel running on a i.MX6 Dual processor
-> (worst case interrupt latency of 50us as reported by cyclictest), there
-> are ZERO packet drops.
-> Tested with Kvaser Leaf sending 100 burst messages (back to back) every
-> 40ms at a 1M CAN bit rate. 10 million messages were sent by the Kvaser
-> leaf and received successfully by the HI-311x driver.
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 29 ++++++++++++++++++++++++--
+ 1 file changed, 27 insertions(+), 2 deletions(-)
 
-This corresponds to a bus load of approx. 50%, I think?
-
-> Even without the RT patch, I was able to get the packet drop to zero but
-> this was by moving the CAN/SPI IRQ threads to CPU1 instead of CPU0.
-
-Vanilla Linux is more critical here due to higher latencies. With 2500 
-Messages per sec the RX FIFO (8 Messages) fills up within 3.2 ms... and 
-in a burst even quicker. That's already heavy load.
-
-Wolfgang.
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index e19181f..a7a595c 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -137,6 +137,13 @@ MODULE_PARM_DESC(tx_timeout, "The Tx timeout in ms");
+ /* L4 Type field: TCP */
+ #define FM_L4_PARSE_RESULT_TCP	0x20
+ 
++/* FD status field indicating whether the FM Parser has attempted to validate
++ * the L4 csum of the frame.
++ * Note that having this bit set doesn't necessarily imply that the checksum
++ * is valid. One would have to check the parse results to find that out.
++ */
++#define FM_FD_STAT_L4CV         0x00000004
++
+ #define DPAA_SGT_MAX_ENTRIES 16 /* maximum number of entries in SG Table */
+ #define DPAA_BUFF_RELEASE_MAX 8 /* maximum number of buffers released at once */
+ 
+@@ -235,6 +242,7 @@ static int dpaa_netdev_init(struct net_device *net_dev,
+ 	 * For conformity, we'll still declare GSO explicitly.
+ 	 */
+ 	net_dev->features |= NETIF_F_GSO;
++	net_dev->features |= NETIF_F_RXCSUM;
+ 
+ 	net_dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+ 	/* we do not want shared skbs on TX */
+@@ -1526,6 +1534,23 @@ static struct sk_buff *dpaa_cleanup_tx_fd(const struct dpaa_priv *priv,
+ 	return skb;
+ }
+ 
++static u8 rx_csum_offload(const struct dpaa_priv *priv, const struct qm_fd *fd)
++{
++	/* The parser has run and performed L4 checksum validation.
++	 * We know there were no parser errors (and implicitly no
++	 * L4 csum error), otherwise we wouldn't be here.
++	 */
++	if ((priv->net_dev->features & NETIF_F_RXCSUM) &&
++	    (be32_to_cpu(fd->status) & FM_FD_STAT_L4CV))
++		return CHECKSUM_UNNECESSARY;
++
++	/* We're here because either the parser didn't run or the L4 checksum
++	 * was not verified. This may include the case of a UDP frame with
++	 * checksum zero or an L4 proto other than TCP/UDP
++	 */
++	return CHECKSUM_NONE;
++}
++
+ /* Build a linear skb around the received buffer.
+  * We are guaranteed there is enough room at the end of the data buffer to
+  * accommodate the shared info area of the skb.
+@@ -1556,7 +1581,7 @@ static struct sk_buff *contig_fd_to_skb(const struct dpaa_priv *priv,
+ 	skb_reserve(skb, fd_off);
+ 	skb_put(skb, qm_fd_get_length(fd));
+ 
+-	skb->ip_summed = CHECKSUM_NONE;
++	skb->ip_summed = rx_csum_offload(priv, fd);
+ 
+ 	return skb;
+ 
+@@ -1616,7 +1641,7 @@ static struct sk_buff *sg_fd_to_skb(const struct dpaa_priv *priv,
+ 			if (WARN_ON(unlikely(!skb)))
+ 				goto free_buffers;
+ 
+-			skb->ip_summed = CHECKSUM_NONE;
++			skb->ip_summed = rx_csum_offload(priv, fd);
+ 
+ 			/* Make sure forwarded skbs will have enough space
+ 			 * on Tx, if extra headers are added.
+-- 
+2.1.0
