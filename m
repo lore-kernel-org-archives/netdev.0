@@ -1,46 +1,46 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac still supporting spear600 ?
-Date: Thu, 9 Mar 2017 15:56:31 +0100
-Message-ID: <79049eda-5d37-6b70-8945-2d3ab55e56b8@st.com>
-References: <20170309093412.33c0277d@free-electrons.com>
- <373e2760-94c5-4349-33aa-158bc8f4b19e@st.com>
- <20170309103236.3e16304f@free-electrons.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: please add some examples to the ip man page
+Date: Thu, 9 Mar 2017 08:17:43 -0700
+Message-ID: <897a47d6-32c5-beef-c8fe-d7020c5956cc@cumulusnetworks.com>
+References: <87pohsj42f.fsf@jidanni.org> <87r328tez5.fsf@jidanni.org>
+ <20170309105647.GB29821@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shiraz Hashim <shiraz.linux.kernel@gmail.com>,
- Alexandre Torgue <alexandre.torgue@st.com>,
- linux-arm-kernel@lists.infradead.org, Viresh Kumar <vireshk@kernel.org>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170309103236.3e16304f@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org
+To: Alexander Alemayhu <alexander@alemayhu.com>,
+        =?UTF-8?B?56mN5Li55bC8IERhbiBKYWNvYnNvbg==?= <jidanni@jidanni.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:36433 "EHLO
+        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755001AbdCIPRx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 10:17:53 -0500
+Received: by mail-it0-f45.google.com with SMTP id h10so130227511ith.1
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 07:17:53 -0800 (PST)
+In-Reply-To: <20170309105647.GB29821@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Thomas
+On 3/9/17 3:56 AM, Alexander Alemayhu wrote:
+> On Wed, Mar 08, 2017 at 03:17:02PM +0800, 積丹尼 Dan Jacobson wrote:
+>> I see.
+>> Perhaps on the man page add
+>> EXAMPLES
+>>    See https://www.kernel.org/doc/Documentation/networking/vrf.txt
+>>    https://www.google.com/search?q=ip+linux+command+usage+examples
+>> (I thought the latter would be hopeless, but actually found lots!)
+>>
+> Actual examples in the page would better than links IMO.  git has some
+> nice examples in gittutorial(7) and giteveryday(7). Maybe that can be
+> good inspiration?
 
-On 3/9/2017 10:32 AM, Thomas Petazzoni wrote:
+excellent opportunity for an aspiring writer / user to make a
+contribution to improve iproute2.
 
-> OK, I'll have a look. However, I'm still confused by this DMA_RESET bit
-> that never clears, contrary to what the datasheet says. Are there some
-> erratas?
+git clone
+git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+cd iproute2
+<make changes>
 
-I suggest you to take a look at the tx/rx clocks from PHY.
-You have to provide these otherwise you cannot reset the engine.
-
-Best Regards
-Peppe
-
->
-> Best regards,
->
-> Thomas
->
+commit, send to netdev.
