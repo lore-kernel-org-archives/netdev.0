@@ -1,124 +1,112 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Thu, 09 Mar 2017 22:32:12 +0100
-Message-ID: <58C1C9DC.7070509@iogearbox.net>
-References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com> <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net> <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com> <58C08535.3070000@iogearbox.net> <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com> <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com> <CAGXu5jLm3jbJoQAsBsTiiQGK1==JTnSkN_GLsuBGqFvAz5B3AQ@mail.gmail.com> <58C152F1.9090004@iogearbox.net> <alpine.DEB.2.20.1703091409080.3521@nanos> <58C157E6.1010909@iogearbox.net> <alpine.DEB.2.20.1703091547460.3521@nanos> <58C19607.6000605@iogearbox.net> <CA+55aFyxM--wyvxXGhBOqdJHcdC_kKvGYpv-C5SpYvRNkbEmGw@mail.gmail.com> <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com> <58C19F67.3040509@iogearbox.
- net>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: xgbe unbalanced enable for IRQ XX in 4.11-rc1
+Date: Thu, 9 Mar 2017 15:39:51 -0600
+Message-ID: <e6f6df1d-18fa-070f-f28c-75cd3aae4582@amd.com>
+References: <41df0f3a-5867-b0d5-a7f9-14b66eaff7a2@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Kees Cook <keescook@chromium.org>,
-        Laura Abbott <labbott@redhat.com>,
-        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
-        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, bp@suse.de
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58C19F67.3040509@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Jeremy Linton <jeremy.linton@arm.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0084.outbound.protection.outlook.com ([104.47.40.84]:56463
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750739AbdCIVk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 16:40:26 -0500
+In-Reply-To: <41df0f3a-5867-b0d5-a7f9-14b66eaff7a2@arm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[ + Borislav ]
+On 3/9/2017 3:26 PM, Jeremy Linton wrote:
+> Hi,
 
-On 03/09/2017 07:31 PM, Daniel Borkmann wrote:
-> On 03/09/2017 07:15 PM, Linus Torvalds wrote:
->> On Thu, Mar 9, 2017 at 10:10 AM, Linus Torvalds
->> <torvalds@linux-foundation.org> wrote:
->>>
->>> Very odd. We should always have PGE (0x0080) set in cr4 (if the CPU
->>> supports it).
->>
->> Daniel, do you see the code in probe_page_size_mask() triggering?
->>
->>          /* Enable PGE if available */
->>          if (boot_cpu_has(X86_FEATURE_PGE)) {
->>                  cr4_set_bits_and_update_boot(X86_CR4_PGE);
->>                  __supported_pte_mask |= _PAGE_GLOBAL;
->
-> We do have boot_cpu_has(X86_FEATURE_PGE) and go indeed into this
-> branch here. So it seems something must be clearing it later, hmm.
->
->>          } else
->>                  __supported_pte_mask &= ~_PAGE_GLOBAL;
->>
->> but maybe there's something wrong with the percpu cr4 caching?
+Hi Jeremy,
 
-So, I think I got a little bit further. To the printk's I added
-previously in the test_setmem code that run on the problematic
-kernel, I now extended them into:
-
-   printk("static_cpu X86_FEATURE_PGE:%u\n",     static_cpu_has(X86_FEATURE_PGE));
-   printk("boot_cpu   X86_FEATURE_PGE:%u\n",       boot_cpu_has(X86_FEATURE_PGE));
-   printk("static_cpu X86_FEATURE_INVPCID:%u\n", static_cpu_has(X86_FEATURE_INVPCID));
-   printk("boot_cpu   X86_FEATURE_INVPCID:%u\n",   boot_cpu_has(X86_FEATURE_INVPCID));
-
-And here's what I get in the log:
-
-"-cpu kvm64" gives:
-
-[    8.426865] static_cpu X86_FEATURE_PGE:1
-[    8.427148] boot_cpu   X86_FEATURE_PGE:0
-[    8.427428] static_cpu X86_FEATURE_INVPCID:0
-[    8.427732] boot_cpu   X86_FEATURE_INVPCID:0
-
-"-cpu host" gives:
-
-[    8.426408] static_cpu X86_FEATURE_PGE:1
-[    8.426726] boot_cpu   X86_FEATURE_PGE:0
-[    8.427037] static_cpu X86_FEATURE_INVPCID:1
-[    8.427375] boot_cpu   X86_FEATURE_INVPCID:1
-
-This means at that point in time static_cpu_has(X86_FEATURE_PGE) is
-not the same as boot_cpu_has(X86_FEATURE_PGE).
-
-The code that switches this off is in lguest_arch_host_init(). Right
-before that, both are X86_FEATURE_PGE:1, X86_FEATURE_INVPCID:0 for
-the "-cpu kvm64" case.
-
-Then, the lguest code does:
-
-	get_online_cpus();
-	if (boot_cpu_has(X86_FEATURE_PGE)) { /* We have a broader idea of "global". */
-		/* Remember that this was originally set (for cleanup). */
-		cpu_had_pge = 1;
-		/*
-		 * adjust_pge is a helper function which sets or unsets the PGE
-		 * bit on its CPU, depending on the argument (0 == unset).
-		 */
-		on_each_cpu(adjust_pge, (void *)0, 1);
-		/* Turn off the feature in the global feature set. */
-		clear_cpu_cap(&boot_cpu_data, X86_FEATURE_PGE);
-	}
-	put_online_cpus();
-
-So, adjust_pge() clears X86_CR4_PGE, and boot cpu has X86_FEATURE_PGE
-unset. This means, with static_cpu_has(X86_FEATURE_PGE) still 1, we
-run into using cr4 for TLB flushing with no X86_CR4_PGE bit set (which
-doesn't trigger the flush), whereas we should be using cr3 for flushing
-from that point onwards instead.
-
-I tried with this one, and things seem to work again:
-
-diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
-index 6fa8594..fc5abff 100644
---- a/arch/x86/include/asm/tlbflush.h
-+++ b/arch/x86/include/asm/tlbflush.h
-@@ -188,7 +188,7 @@ static inline void __native_flush_tlb_single(unsigned long addr)
-
-  static inline void __flush_tlb_all(void)
-  {
--       if (static_cpu_has(X86_FEATURE_PGE))
-+       if (boot_cpu_has(X86_FEATURE_PGE))
-                 __flush_tlb_global();
-         else
-                 __flush_tlb();
-
-Presumably coming from c109bf95992b ("x86/cpufeature: Remove cpu_has_pge")?
+I'll have a look at it.  Can you send me your kernel config just in
+case?
 
 Thanks,
-Daniel
+Tom
+
+>
+> I have a softiron 3k and under network load (nfs copies, vnc with gnome,
+> etc) it is now throwing these messages as fast as the console will
+> accept them. This is booted DT mode.
+>
+>
+> [  430.111324] Unbalanced enable for IRQ 33
+> [  430.115239] ------------[ cut here ]------------
+> [  430.119849] WARNING: CPU: 0 PID: 6 at kernel/irq/manage.c:529
+> __enable_irq+0x7c/0x88
+> [  430.127583] Modules linked in: fuse xt_CHECKSUM ipt_MASQUERADE
+> nf_nat_masquerade_ipv4 tun ip6t_rpfilter ip6t_REJECT nf_reject_ipv6
+> xt_conntrack ip_set nfnetlink ebtable_nat ebtable_broute bridge stp llc
+> ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6
+> ip6table_mangle ip6table_raw ip6table_security iptable_nat
+> nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack
+> iptable_mangle iptable_raw iptable_security ebtable_filter ebtables
+> ip6table_filter ip6_tables vfat fat crc32_ce crct10dif_ce amd_xgbe
+> ghash_ce ptp pps_core spi_pl022 ipmi_si i2c_designware_platform
+> ipmi_devintf i2c_designware_core ccp ipmi_msghandler nfsd auth_rpcgss
+> nfs_acl lockd grace sunrpc xfs libcrc32c
+> [  430.188350]
+> [  430.189833] CPU: 0 PID: 6 Comm: ksoftirqd/0 Tainted: G        W I
+> 4.11.0-0.rc1.git0.1.fc27.aarch64 #1
+> [  430.199391] Hardware name: AMD Overdrive/Supercharger/Default string,
+> BIOS ROD1002C 04/08/2016
+> [  430.207994] task: ffff8003e4057900 task.stack: ffff8003f4590000
+> [  430.213904] PC is at __enable_irq+0x7c/0x88
+> [  430.218078] LR is at __enable_irq+0x7c/0x88
+> [  430.222252] pc : [<ffff000008137b14>] lr : [<ffff000008137b14>]
+> pstate: 000001c5
+> [  430.229639] sp : ffff8003f4593c50
+> [  430.232944] x29: ffff8003f4593c50 x28: ffff8003dfeddce0
+> [  430.238248] x27: 0000000000000002 x26: 0000000000000001
+> [  430.243551] x25: 0000000000000040 x24: 00008003f60a0000
+> [  430.248855] x23: ffff8003d5d0a900 x22: 0000000000000040
+> [  430.254158] x21: 0000000000000001 x20: 0000000000000021
+> [  430.259462] x19: ffff8003dc507200 x18: 0000000000000000
+> [  430.264765] x17: 0000000000000000 x16: 0000000000000000
+> [  430.270069] x15: 0000000000000010 x14: ffff000089005e7f
+> [  430.275372] x13: ffff000009005e8d x12: ffff000008e8d000
+> [  430.280676] x11: ffff000008e65458 x10: ffff0000085adce8
+> [  430.285979] x9 : 00000000ffffffd0 x8 : 0000000000000005
+> [  430.291283] x7 : 636e616c61626e55 x6 : ffff8003fee74d98
+> [  430.296586] x5 : ffff8003fee74d98 x4 : 0000000000000000
+> [  430.301890] x3 : ffff8003fee88730 x2 : ffff8003fee74d98
+> [  430.307193] x1 : 00008003f60a0000 x0 : 000000000000001c
+> [  430.312496]
+> [  430.313978] ---[ end trace 5664787410723389 ]---
+> [  430.318586] Call trace:
+> [  430.321023] Exception stack(0xffff8003f4593a80 to 0xffff8003f4593bb0)
+> [  430.327454] 3a80: ffff8003dc507200 0001000000000000 ffff8003f4593c50
+> ffff000008137b14
+> [  430.335277] 3aa0: ffff8003f4593c50 ffff8003f4593c50 ffff8003f4593c10
+> 00000000ffffffc8
+> [  430.343099] 3ac0: ffff8003f4593b00 ffff000008134838 ffff000008b7a570
+> ffff8003f4593bd0
+> [  430.350921] 3ae0: ffff8003f4593c50 ffff8003f4593c50 ffff8003f4593c10
+> 00000000ffffffc8
+> [  430.358743] 3b00: ffff8003f4593bb0 ffff0000081f8130 0000000000000001
+> 0000000000000021
+> [  430.366566] 3b20: 000000000000001c 00008003f60a0000 ffff8003fee74d98
+> ffff8003fee88730
+> [  430.374388] 3b40: 0000000000000000 ffff8003fee74d98 ffff8003fee74d98
+> 636e616c61626e55
+> [  430.382210] 3b60: 0000000000000005 00000000ffffffd0 ffff0000085adce8
+> ffff000008e65458
+> [  430.390033] 3b80: ffff000008e8d000 ffff000009005e8d ffff000089005e7f
+> 0000000000000010
+> [  430.397854] 3ba0: 0000000000000000 0000000000000000
+> [  430.402723] [<ffff000008137b14>] __enable_irq+0x7c/0x88
+> [  430.407939] [<ffff000008137b60>] enable_irq+0x40/0x78
+> [  430.412999] [<ffff0000019a40c8>] xgbe_one_poll+0xc0/0xe8 [amd_xgbe]
+> [  430.419257] [<ffff0000087c1840>] net_rx_action+0x150/0x3c8
+> [  430.424734] [<ffff0000080d2530>] __do_softirq+0x138/0x358
+> [  430.430123] [<ffff0000080d279c>] run_ksoftirqd+0x4c/0x78
+> [  430.435426] [<ffff0000080f2a7c>] smpboot_thread_fn+0x184/0x1b8
+> [  430.441249] [<ffff0000080edf1c>] kthread+0x12c/0x130
+> [  430.446205] [<ffff000008082b70>] ret_from_fork+0x10/0x20
+> [  430.451600] Unbalanced enable for IRQ 33
+> [  430.455516] ------------[ cut here ]------------
