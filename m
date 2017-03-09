@@ -1,69 +1,43 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: net_netdev: use new api ethtool_{get|set}_link_ksettings
-Date: Thu,  9 Mar 2017 23:10:13 +0100
-Message-ID: <1489097413-4202-1-git-send-email-tremyfr@gmail.com>
-Cc: linux-ntb@googlegroups.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: jdmason@kudzu.us, dave.jiang@intel.com, Allen.Hubbe@emc.com,
-        davem@davemloft.net
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Thu, 09 Mar 2017 23:11:17 +0100
+Message-ID: <58C1D305.8090802@iogearbox.net>
+References: <58C152F1.9090004@iogearbox.net> <alpine.DEB.2.20.1703091409080.3521@nanos> <58C157E6.1010909@iogearbox.net> <alpine.DEB.2.20.1703091547460.3521@nanos> <58C19607.6000605@iogearbox.net> <CA+55aFyxM--wyvxXGhBOqdJHcdC_kKvGYpv-C5SpYvRNkbEmGw@mail.gmail.com> <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com> <58C19F67.3040509@iogearbox.net> <58C1C9DC.7070509@iogearbox.net> <20170309215547.jmdzznlkzaxwu2pf@pd.tnic> <20170309220732.ufqoqlawktsi2gao@pd.tnic>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Kees Cook <keescook@chromium.org>,
+        Laura Abbott <labbott@redhat.com>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Borislav Petkov <bp@suse.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170309220732.ufqoqlawktsi2gao@pd.tnic>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On 03/09/2017 11:07 PM, Borislav Petkov wrote:
+> On Thu, Mar 09, 2017 at 10:55:47PM +0100, Borislav Petkov wrote:
+>> Can you make that:
+>>
+>> 	setup_clear_cpu_cap(X86_FEATURE_PGE);
+>>
+>> and see if it fixes your issue?
+>
+> Hmm, in reading the thread a bit more, that might not work. If I see it
+> correctly, lguest does
+>
+>   clear_cpu_cap(&boot_cpu_data, X86_FEATURE_PGE);
+>
+> after the alternatives have run and static_cpu_has() sites have already
+> been patched so clearing that bit won't bring anything.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
-
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ntb_netdev.c |   25 +++++++++++++------------
- 1 files changed, 13 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ntb_netdev.c b/drivers/net/ntb_netdev.c
-index 36877ba..4daf3d0 100644
---- a/drivers/net/ntb_netdev.c
-+++ b/drivers/net/ntb_netdev.c
-@@ -372,18 +372,19 @@ static void ntb_get_drvinfo(struct net_device *ndev,
- 	strlcpy(info->bus_info, pci_name(dev->pdev), sizeof(info->bus_info));
- }
- 
--static int ntb_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int ntb_get_link_ksettings(struct net_device *dev,
-+				  struct ethtool_link_ksettings *cmd)
- {
--	cmd->supported = SUPPORTED_Backplane;
--	cmd->advertising = ADVERTISED_Backplane;
--	ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
--	cmd->duplex = DUPLEX_FULL;
--	cmd->port = PORT_OTHER;
--	cmd->phy_address = 0;
--	cmd->transceiver = XCVR_DUMMY1;
--	cmd->autoneg = AUTONEG_ENABLE;
--	cmd->maxtxpkt = 0;
--	cmd->maxrxpkt = 0;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, Backplane);
-+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	ethtool_link_ksettings_add_link_mode(cmd, advertising, Backplane);
-+
-+	cmd->base.speed = SPEED_UNKNOWN;
-+	cmd->base.duplex = DUPLEX_FULL;
-+	cmd->base.port = PORT_OTHER;
-+	cmd->base.phy_address = 0;
-+	cmd->base.autoneg = AUTONEG_ENABLE;
- 
- 	return 0;
- }
-@@ -391,7 +392,7 @@ static int ntb_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- static const struct ethtool_ops ntb_ethtool_ops = {
- 	.get_drvinfo = ntb_get_drvinfo,
- 	.get_link = ethtool_op_get_link,
--	.get_settings = ntb_get_settings,
-+	.get_link_ksettings = ntb_get_link_ksettings,
- };
- 
- static const struct ntb_queue_handlers ntb_netdev_handlers = {
--- 
-1.7.4.4
+Yeah, I just tried that out and it had no effect unfortunately, the
+static_cpu_has() was still 1.
