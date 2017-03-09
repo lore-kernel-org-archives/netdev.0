@@ -1,58 +1,52 @@
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCH 4/5] rds: ib: add the static type to the function
-Date: Thu,  9 Mar 2017 02:26:44 -0500
-Message-ID: <1489044405-26150-4-git-send-email-yanjun.zhu@oracle.com>
-References: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
-To: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:28402 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752575AbdCIH1L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 02:27:11 -0500
-In-Reply-To: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net] net: Work around lockdep limitation in sockets
+ that use sockets
+Date: Wed, 08 Mar 2017 23:06:25 -0800 (PST)
+Message-ID: <20170308.230625.719131946756053988.davem@davemloft.net>
+References: <148881267372.2618.822975702493802450.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <148881267372.2618.822975702493802450.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The function rds_ib_map_fmr is used only in the ib_fmr.c
-file. As such, the static type is added to limit it in this file.
+From: David Howells <dhowells@redhat.com>
+Date: Mon, 06 Mar 2017 15:04:44 +0000
 
-Cc: Joe Jin <joe.jin@oracle.com>
-Cc: Junxiao Bi <junxiao.bi@oracle.com>
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
----
- net/rds/ib_fmr.c | 5 +++--
- net/rds/ib_mr.h  | 2 --
- 2 files changed, 3 insertions(+), 4 deletions(-)
+> Fix the general case by:
+> 
+>  (1) Double up all the locking keys used in sockets so that one set are
+>      used if the socket is created by userspace and the other set is used
+>      if the socket is created by the kernel.
+> 
+>  (2) Store the kern parameter passed to sk_alloc() in a variable in the
+>      sock struct (sk_kern_sock).  This informs sock_lock_init(),
+>      sock_init_data() and sk_clone_lock() as to the lock keys to be used.
+> 
+>      Note that the child created by sk_clone_lock() inherits the parent's
+>      kern setting.
+> 
+>  (3) Add a 'kern' parameter to ->accept() that is analogous to the one
+>      passed in to ->create() that distinguishes whether kernel_accept() or
+>      sys_accept4() was the caller and can be passed to sk_alloc().
+> 
+>      Note that a lot of accept functions merely dequeue an already
+>      allocated socket.  I haven't touched these as the new socket already
+>      exists before we get the parameter.
+> 
+>      Note also that there are a couple of places where I've made the accepted
+>      socket unconditionally kernel-based:
+> 
+> 	irda_accept()
+> 	rds_rcp_accept_one()
+> 	tcp_accept_from_sock()
+> 
+>      because they follow a sock_create_kern() and accept off of that.
 
-diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
-index b807df6..1e00371 100644
---- a/net/rds/ib_fmr.c
-+++ b/net/rds/ib_fmr.c
-@@ -85,8 +85,9 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
- 	return ERR_PTR(err);
- }
- 
--int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibmr,
--		   struct scatterlist *sg, unsigned int nents)
-+static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev,
-+			  struct rds_ib_mr *ibmr, struct scatterlist *sg,
-+			  unsigned int nents)
- {
- 	struct ib_device *dev = rds_ibdev->dev;
- 	struct rds_ib_fmr *fmr = &ibmr->u.fmr;
-diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
-index 5d6e98a..0ea4ab0 100644
---- a/net/rds/ib_mr.h
-+++ b/net/rds/ib_mr.h
-@@ -125,8 +125,6 @@ void rds_ib_mr_exit(void);
- void __rds_ib_teardown_mr(struct rds_ib_mr *);
- void rds_ib_teardown_mr(struct rds_ib_mr *);
- struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *, int);
--int rds_ib_map_fmr(struct rds_ib_device *, struct rds_ib_mr *,
--		   struct scatterlist *, unsigned int);
- struct rds_ib_mr *rds_ib_reuse_mr(struct rds_ib_mr_pool *);
- int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *, int, struct rds_ib_mr **);
- struct rds_ib_mr *rds_ib_reg_fmr(struct rds_ib_device *, struct scatterlist *,
--- 
-2.7.4
+I guess this is fine, but I think you can use one of the two "sk_padding"
+bits in struct sock instead of making the structure larger.
