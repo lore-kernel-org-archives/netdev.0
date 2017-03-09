@@ -1,13 +1,14 @@
 From: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/7] net: stmmac: Check for DMA mapping errors
-Date: Thu, 9 Mar 2017 20:29:09 +0100
-Message-ID: <20170309192909.GA5554@ulmo.ba.sec>
+Subject: Re: [PATCH 2/7] net: stmmac: Balance PTP reference clock
+ enable/disable
+Date: Thu, 9 Mar 2017 20:30:12 +0100
+Message-ID: <20170309193012.GB5554@ulmo.ba.sec>
 References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-4-thierry.reding@gmail.com>
- <35dec9cd-65db-c62b-f35f-c90cf35b27f2@kapsi.fi>
+ <20170223172438.14770-3-thierry.reding@gmail.com>
+ <53f18077-6a4d-339f-192e-287a1f889fb7@kapsi.fi>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="zYM0uCDKw75PZbzx"
+        protocol="application/pgp-signature"; boundary="p4qYPpj5QlsIQJ0K"
 Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
         Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
         Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
@@ -20,73 +21,96 @@ Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 To: Mikko Perttunen <cyndis-/1wQRMveznE@public.gmane.org>
 Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <35dec9cd-65db-c62b-f35f-c90cf35b27f2-/1wQRMveznE@public.gmane.org>
+In-Reply-To: <53f18077-6a4d-339f-192e-287a1f889fb7-/1wQRMveznE@public.gmane.org>
 Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---zYM0uCDKw75PZbzx
+--p4qYPpj5QlsIQJ0K
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, Feb 27, 2017 at 11:37:24AM +0200, Mikko Perttunen wrote:
+On Mon, Feb 27, 2017 at 11:31:39AM +0200, Mikko Perttunen wrote:
 > On 23.02.2017 19:24, Thierry Reding wrote:
 > > From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
 > >=20
-> > When DMA mapping an SKB fragment, the mapping must be checked for
-> > errors, otherwise the DMA debug code will complain upon unmap.
+> > clk_prepare_enable() and clk_disable_unprepare() for this clock aren't
+> > properly balanced, which can trigger a WARN_ON() in the common clock
+> > framework.
 > >=20
 > > Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
 > > ---
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 ++
-> >  1 file changed, 2 insertions(+)
+> >  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 ++++
+> >  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+> >  2 files changed, 4 insertions(+), 1 deletion(-)
 > >=20
 > > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driver=
 s/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > index 6b7a5ce19589..d7387919bdb6 100644
+> > index 3cbe09682afe..6b7a5ce19589 100644
 > > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 > > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > @@ -2072,6 +2072,8 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff=
- *skb, struct net_device *dev)
-> >  		des =3D skb_frag_dma_map(priv->device, frag, 0,
-> >  				       skb_frag_size(frag),
-> >  				       DMA_TO_DEVICE);
-> > +		if (dma_mapping_error(priv->device, des))
-> > +			goto dma_map_err;
+> > @@ -1711,6 +1711,10 @@ static int stmmac_hw_setup(struct net_device *de=
+v, bool init_ptp)
+> >  	stmmac_mmc_setup(priv);
+> >=20
+> >  	if (init_ptp) {
+> > +		ret =3D clk_prepare_enable(priv->plat->clk_ptp_ref);
+> > +		if (ret < 0)
+> > +			netdev_warn(priv->dev, "failed to enable PTP reference clock: %d\n"=
+, ret);
+> > +
 >=20
-> If this map fails, we should also unmap the previously mapped fragments a=
-nd
-> the separate mapping made using dma_map_single.
+> Should we return an error code if the clock enable fails?
 
-That's already taken care of via the dma_map_err label:
+Yeah, that's probably a good idea.
 
-	dev_kfree_skb()
-	  consume_skb()
-	    __kfree_skb()
-	      skb_release_all()
-	        skb_release_data()
+> >  		ret =3D stmmac_init_ptp(priv);
+> >  		if (ret =3D=3D -EOPNOTSUPP)
+> >  			netdev_warn(priv->dev, "PTP not supported by HW\n");
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/dr=
+ivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> > index 5b18355c0d2b..d285d6cfbd0d 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> > @@ -365,7 +365,6 @@ stmmac_probe_config_dt(struct platform_device *pdev=
+, const char **mac)
+> >  		plat->clk_ptp_ref =3D NULL;
+> >  		dev_warn(&pdev->dev, "PTP uses main clock\n");
+> >  	} else {
+> > -		clk_prepare_enable(plat->clk_ptp_ref);
+> >  		plat->clk_ptp_rate =3D clk_get_rate(plat->clk_ptp_ref);
+> >  		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
+> >  	}
+> >=20
+>=20
+> It seems like there will still be a refcount mismatch for the clock if any
+> of the request_irqs that are after stmmac_hw_setup in stmmac_open fail.
+
+Looks like there's a few more things that could be cleaned up on failure
+to request those interrupts. I've added another patch to the series that
+will attempt to do this.
 
 Thierry
 
---zYM0uCDKw75PZbzx
+--p4qYPpj5QlsIQJ0K
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljBrQEACgkQ3SOs138+
-s6EeSA//UyeGWyF4f8qBLQSLffuXkjyLFBYy8/NLZ7K1kozF6oWntbTZvnOv1nfZ
-tq8ECo28/fKGS/yUai67+GLcpI6ws7fw85A+Xj10YAtShpIcy7j4DK8F20JlfgdG
-DzRcXUJrQlN7uF2LkbDAgwnX0oqXgfJg+D8fVGrQOjQIDkAMXOzeeYysumnCufua
-wVC6f3FdpanLF5QzsDqxs/tYgsPn9aTSuc1Tyeg2uvS7iZvm+AQmkGpslPVQGBS6
-d5pteSs5KH4VRsvtYTFjmvBNK1e1r3YuneaKwIRedIs54O0MI15XSM8Zh3wpcSn/
-+u0hMNoWmveK635kRC1/aFvni5Q3tFfpDXCB5ITaPkwLDvjr5iItnVNqbNiieNRV
-iRJtdSOKGbqe5PKDNELEvhJRprq/Vq6vhis6O4qWeCGxgFdWU3k0sYlhc68xN1sv
-VGgQLXfBhozYt3B9Th6VDqJfrF/oPWN8DeWadI7rvUoMJcA8LS3DFNab7D55JnL6
-vnC/YK04W/mswVrN8MhpsOC3mFvU2hYUwTMaEQpS5svJginyOSRO9ew+jfkpTjUE
-TitRz36zWlO+f2Xb0P8N8pUm7rA1WC0fMQFblPqNAtJtJ2Wi1jYwyJdnB3kJcvzM
-kzooRFmMR/4B3U7EHxKaoRFQ5P96z7es8i4NdOrA/bLBbDVW8RA=
-=eZMU
+iQIyBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljBrUQACgkQ3SOs138+
+s6HKdg/452olRbI3ZQXVCtnn/Zlw9rzOaGMA19mcDhHTOdwP+c1PkJpxpTOvSEMw
+4mkq3fs3U6IanszokGNI7lA2/ZV3N2hb2yEN9ysX6qwSEAbBJ/IxeYuOjheF8Qtc
+sPjpWqgjXjraCZjtEE9rtd83EK1RzYRR8lLOq13vgAdpybSDivZBlLj5NXVjav/v
+90yLlXF7HmwbuYiSs18Agt8AYcLU5oP1ORh+MpumAvHcTGbdBlgD0YP9fgDIebOH
+ocvWv1WSZqv7e0wV9wflL98upnZ0qWC2NvGwjKfm00keso0ir0s8Qx7MhLPRH/AS
+IgUl30c5LwVVxkiBE0W3w64TWOxw/tC9QXR8L4+gf9o05cONquoChjAbTznueOGV
+6PHN6rNL1GK5HBxMvWO9nhfJ0wkY47EupzIJDiU+ZuKWZyarOv23qzoo/L+iEVst
+F0j3LjFx4+rCxgWx+WQg3+w9+esHH7B0HR5/Jd8LbiAuKLv4YifhJou2FBIwMbdo
+/FG7m5wubfCruJxDhMZMmNnQtGB7vsVLA4ezSzVW6UdVAp2y8uEGE9fxfGRap0/s
+TJS0IkZ7Q9AgQK4VMOzIIqCX5AslTlERFDNe/WpOyeFGeVzeAyTIq7KyFgWRXtOc
+tAoeBKXYv1g9BNsqOzFY4M510RdmixxLOOhX2hkjgqasIt7Dxw==
+=UQBB
 -----END PGP SIGNATURE-----
 
---zYM0uCDKw75PZbzx--
+--p4qYPpj5QlsIQJ0K--
