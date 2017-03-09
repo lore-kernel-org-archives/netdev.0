@@ -1,54 +1,42 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next v2 03/10] fsl/fman: remove wrong free
-Date: Thu, 9 Mar 2017 16:36:58 +0200
-Message-ID: <1489070225-7891-4-git-send-email-madalin.bucur@nxp.com>
-References: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: <madalin.bucur@nxp.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v4 net-next 00/13] mlx4: order-0 allocations and page recycling
+Date: Thu, 9 Mar 2017 06:26:46 -0800
+Message-ID: <CANn89iLxDVfBs8FK9gXx0jj6CZGsFprDLfWjBUNeR3gKs-6=YQ@mail.gmail.com>
+References: <20170308161718.2867-1-edumazet@google.com> <e762e84a-07eb-428d-cb48-643fd4516cec@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <camelia.groza@nxp.com>,
-        <dan.carpenter@oracle.com>, <linux-kernel@vger.kernel.org>,
-        <linuxppc-dev@lists.ozlabs.org>,
-        Madalin Bucur <madalin.bucur@nxp.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Tariq Toukan <tariqt@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0064.outbound.protection.outlook.com ([104.47.32.64]:50550
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754704AbdCIOja (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 09:39:30 -0500
-In-Reply-To: <1489070225-7891-1-git-send-email-madalin.bucur@nxp.com>
+Received: from mail-io0-f175.google.com ([209.85.223.175]:34030 "EHLO
+        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932391AbdCIO12 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 09:27:28 -0500
+Received: by mail-io0-f175.google.com with SMTP id g6so29116458ioj.1
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 06:26:48 -0800 (PST)
+In-Reply-To: <e762e84a-07eb-428d-cb48-643fd4516cec@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+On Thu, Mar 9, 2017 at 5:49 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- drivers/net/ethernet/freescale/fman/fman_port.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+> Hi Eric,
+>
+> I was preparing this series for submission as well.
+> You got it done first :)
+>
+> Thanks for re-submitting.
+> I am Acking the patches now.
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_port.c b/drivers/net/ethernet/freescale/fman/fman_port.c
-index f314348..57bf44f 100644
---- a/drivers/net/ethernet/freescale/fman/fman_port.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_port.c
-@@ -1312,7 +1312,7 @@ int fman_port_config(struct fman_port *port, struct fman_port_params *params)
- 	/* Allocate the FM driver's parameters structure */
- 	port->cfg = kzalloc(sizeof(*port->cfg), GFP_KERNEL);
- 	if (!port->cfg)
--		goto err_params;
-+		return -EINVAL;
- 
- 	/* Initialize FM port parameters which will be kept by the driver */
- 	port->port_type = port->dts_params.type;
-@@ -1393,8 +1393,6 @@ int fman_port_config(struct fman_port *port, struct fman_port_params *params)
- 
- err_port_cfg:
- 	kfree(port->cfg);
--err_params:
--	kfree(port);
- 	return -EINVAL;
- }
- EXPORT_SYMBOL(fman_port_config);
--- 
-2.1.0
+I believe you also could have added a single Ack on this cover,
+instead of one ack per element in the series.
+
+David can you tell us if this is true ?
+
+Thanks Tariq !
