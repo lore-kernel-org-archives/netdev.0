@@ -1,183 +1,313 @@
-From: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 5/7] net: stmmac: Program RX queue size and flow control
-Date: Thu, 9 Mar 2017 20:44:25 +0100
-Message-ID: <20170309194425.GE5554@ulmo.ba.sec>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-6-thierry.reding@gmail.com>
- <ea26c03c-6ce0-ff66-dcb5-6f95cdf2caed@synopsys.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [RFC net-next sample action optimization 3/3] openvswitch:
+ Optimize sample action for the clone use cases
+Date: Thu, 9 Mar 2017 11:46:00 -0800
+Message-ID: <CAPWQB7F0XkHWkJ15N-ru83XBUkr2474yjmk0C_H1WErhELr+Ew@mail.gmail.com>
+References: <1488932137-120383-1-git-send-email-azhou@ovn.org> <1488932137-120383-4-git-send-email-azhou@ovn.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="PGNNI9BzQDUtgA2J"
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <ea26c03c-6ce0-ff66-dcb5-6f95cdf2caed-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, pravin shelar <pshelar@ovn.org>
+To: Andy Zhou <azhou@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:51385 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752986AbdCITq2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 14:46:28 -0500
+Received: from mfilter30-d.gandi.net (mfilter30-d.gandi.net [217.70.178.161])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 04F5217209A
+        for <netdev@vger.kernel.org>; Thu,  9 Mar 2017 20:46:25 +0100 (CET)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter30-d.gandi.net (mfilter30-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id Gy2PTdoxl0I3 for <netdev@vger.kernel.org>;
+        Thu,  9 Mar 2017 20:46:22 +0100 (CET)
+Received: from mail-qk0-f182.google.com (mail-qk0-f182.google.com [209.85.220.182])
+        (Authenticated sender: joe@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 426D617209B
+        for <netdev@vger.kernel.org>; Thu,  9 Mar 2017 20:46:22 +0100 (CET)
+Received: by mail-qk0-f182.google.com with SMTP id 1so135957260qkl.3
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 11:46:22 -0800 (PST)
+In-Reply-To: <1488932137-120383-4-git-send-email-azhou@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 7 March 2017 at 16:15, Andy Zhou <azhou@ovn.org> wrote:
+> With the introduction of open flow 'clone' action, the OVS user space
+> can now translate the 'clone' action into kernel datapath 'sample'
+> action, with 100% probability, to ensure that the clone semantics,
+> which is that the packet seen by the clone action is the same as the
+> packet seen by the action after clone, is faithfully carried out
+> in the datapath.
+>
+> While the sample action in the datpath has the matching semantics,
+> its implementation is only optimized for its original use.
+> Specifically, there are two limitation: First, there is a 3 level of
+> nesting restriction, enforced at the flow downloading time. This
+> limit turns out to be too restrictive for the 'clone' use case.
+> Second, the implementation avoid recursive call only if the sample
+> action list has a single userspace action.
+>
+> The optimization implemented in this series removes the static
+> nesting limit check, instead, implement the run time recursion limit
+> check, and recursion avoidance similar to that of the 'recirc' action.
+> This optimization solve both #1 and #2 issues above.
+>
+> Another optimization implemented is to avoid coping flow key as
 
---PGNNI9BzQDUtgA2J
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+*copying
 
-On Thu, Mar 02, 2017 at 03:15:12PM +0000, Joao Pinto wrote:
-> =C3=80s 5:24 PM de 2/23/2017, Thierry Reding escreveu:
-> > From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-> >=20
-> > Program the receive queue size based on the RX FIFO size and enable
-> > hardware flow control for large FIFOs.
-> >=20
-> > Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-> > ---
-> >  drivers/net/ethernet/stmicro/stmmac/dwmac4.h     | 12 +++++++
-> >  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 43 ++++++++++++++++=
-++++++--
-> >  2 files changed, 53 insertions(+), 2 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net=
-/ethernet/stmicro/stmmac/dwmac4.h
-> > index db45134fddf0..9acc1f1252b3 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-> > @@ -180,6 +180,7 @@ enum power_event {
-> >  #define MTL_OP_MODE_TSF			BIT(1)
-> > =20
-> >  #define MTL_OP_MODE_TQS_MASK		GENMASK(24, 16)
-> > +#define MTL_OP_MODE_TQS_SHIFT		16
-> > =20
-> >  #define MTL_OP_MODE_TTC_MASK		0x70
-> >  #define MTL_OP_MODE_TTC_SHIFT		4
-> > @@ -193,6 +194,17 @@ enum power_event {
-> >  #define MTL_OP_MODE_TTC_384		(6 << MTL_OP_MODE_TTC_SHIFT)
-> >  #define MTL_OP_MODE_TTC_512		(7 << MTL_OP_MODE_TTC_SHIFT)
-> > =20
-> > +#define MTL_OP_MODE_RQS_MASK		GENMASK(29, 20)
-> > +#define MTL_OP_MODE_RQS_SHIFT		20
-> > +
-> > +#define MTL_OP_MODE_RFD_MASK		GENMASK(19, 14)
-> > +#define MTL_OP_MODE_RFD_SHIFT		14
-> > +
-> > +#define MTL_OP_MODE_RFA_MASK		GENMASK(13, 8)
-> > +#define MTL_OP_MODE_RFA_SHIFT		8
-> > +
-> > +#define MTL_OP_MODE_EHFC		BIT(7)
-> > +
-> >  #define MTL_OP_MODE_RTC_MASK		0x18
-> >  #define MTL_OP_MODE_RTC_SHIFT		3
-> > =20
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers=
-/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> > index 8d249f3b34c8..03d230201960 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-> > @@ -185,8 +185,9 @@ static void dwmac4_rx_watchdog(void __iomem *ioaddr=
-, u32 riwt)
-> >  }
-> > =20
-> >  static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
-> > -				    int rxmode, u32 channel)
-> > +				    int rxmode, u32 channel, int rxfifosz)
-> >  {
-> > +	unsigned int rqs =3D rxfifosz / 256 - 1;
-> >  	u32 mtl_tx_op, mtl_rx_op, mtl_rx_int;
-> > =20
-> >  	/* Following code only done for channel 0, other channels not yet
-> > @@ -252,6 +253,44 @@ static void dwmac4_dma_chan_op_mode(void __iomem *=
-ioaddr, int txmode,
-> >  			mtl_rx_op |=3D MTL_OP_MODE_RTC_128;
-> >  	}
-> > =20
-> > +	mtl_rx_op &=3D ~MTL_OP_MODE_RQS_MASK;
-> > +	mtl_rx_op |=3D rqs << MTL_OP_MODE_RQS_SHIFT;
-> > +
-> > +	/* enable flow control only if each channel gets 4 KiB or more FIFO */
-> > +	if (rxfifosz >=3D 4096) {
-> > +		unsigned int rfd, rfa;
-> > +
-> > +		mtl_rx_op |=3D MTL_OP_MODE_EHFC;
-> > +
-> > +		switch (rxfifosz) {
-> > +		case 4096:
-> > +			rfd =3D 0x03;
-> > +			rfa =3D 0x01;
-> > +			break;
-> > +
-> > +		case 8192:
-> > +			rfd =3D 0x06;
-> > +			rfa =3D 0x0a;
-> > +			break;
-> > +
-> > +		case 16384:
-> > +			rfd =3D 0x06;
-> > +			rfa =3D 0x12;
-> > +			break;
-> > +
-> > +		default:
-> > +			rfd =3D 0x06;
-> > +			rfa =3D 0x1e;
-> > +			break;
-> > +		}
->=20
-> Are these RFA and RFD values suitable to any setup using thresholds? Plea=
-se
-> justify their values in oerder for other developers to understand them.
->=20
-> > +
-> > +		mtl_rx_op &=3D ~MTL_OP_MODE_RFD_MASK;
-> > +		mtl_rx_op |=3D rfd << MTL_OP_MODE_RFD_SHIFT;
-> > +
-> > +		mtl_rx_op &=3D ~MTL_OP_MODE_RFA_MASK;
-> > +		mtl_rx_op |=3D rfa << MTL_OP_MODE_RFA_SHIFT;
-> > +	}
-> > +
-> >  	writel(mtl_rx_op, ioaddr + MTL_CHAN_RX_OP_MODE(channel));
-> > =20
-> >  	/* Enable MTL RX overflow */
-> > @@ -264,7 +303,7 @@ static void dwmac4_dma_operation_mode(void __iomem =
-*ioaddr, int txmode,
-> >  				      int rxmode, int rxfifosz)
-> >  {
-> >  	/* Only Channel 0 is actually configured and used */
-> > -	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0);
-> > +	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0, rxfifosz);
->=20
-> Why not configure tx fifo as well, you already getting it from the featur=
-es
-> register.
+> long as the actions enclosed does not change the flow key. The
+> detection is performed only once at the flow downloading time.
+>
+> The third optimization implemented is to rewrite the action list
+> at flow downloading time in order to save the fast path from parsing
+> the sample action list in its original form repeatedly.
 
-Primarily I'm not initializing TX FIFO here because we don't pass the
-size into this function. Secondarily, the default seems to work fine,
-and therefore changing it didn't seem relevant.
+Whenever there is an enumeration (1, 2, 3; ..another..., third thing
+implemented) in a commit message, I have to ask whether each "another
+change..." should be a separate patch. It certainly makes it easier to
+review.
 
-Thierry
+I ran this through the OVS kernel tests and it's working correctly
+from that point of view, but I didn't get a chance to dig in and
+ensure for example, runtime behaviour of several nested
+sample(actions(sample(actions(sample(actions(output)))))) handles
+reasonably when it runs out of stack and deferred actions space. At a
+high level though, this seems pretty straightforward.
 
---PGNNI9BzQDUtgA2J
-Content-Type: application/pgp-signature; name="signature.asc"
+Several comments below, thanks.
 
------BEGIN PGP SIGNATURE-----
+>
+> Signed-off-by: Andy Zhou <azhou@ovn.org>
+> ---
+>  net/openvswitch/actions.c      | 106 ++++++++++++++++++------------------
+>  net/openvswitch/datapath.h     |   7 +++
+>  net/openvswitch/flow_netlink.c | 118 ++++++++++++++++++++++++++++-------------
+>  3 files changed, 140 insertions(+), 91 deletions(-)
+>
+> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+> index 259aea9..2e8c372 100644
+> --- a/net/openvswitch/actions.c
+> +++ b/net/openvswitch/actions.c
+> @@ -930,71 +930,52 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+>  }
+>
+>  static int sample(struct datapath *dp, struct sk_buff *skb,
+> -                 struct sw_flow_key *key, const struct nlattr *attr,
+> -                 const struct nlattr *actions, int actions_len)
+> +                 struct sw_flow_key *key, const struct nlattr *attr)
+>  {
+> -       const struct nlattr *acts_list = NULL;
+> -       const struct nlattr *a;
+> -       int rem;
+> -       u32 cutlen = 0;
+> -
+> -       for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
+> -                a = nla_next(a, &rem)) {
+> -               u32 probability;
+> -
+> -               switch (nla_type(a)) {
+> -               case OVS_SAMPLE_ATTR_PROBABILITY:
+> -                       probability = nla_get_u32(a);
+> -                       if (!probability || prandom_u32() > probability)
+> -                               return 0;
+> -                       break;
+> -
+> -               case OVS_SAMPLE_ATTR_ACTIONS:
+> -                       acts_list = a;
+> -                       break;
+> -               }
+> -       }
+> +       struct nlattr *actions;
+> +       struct nlattr *sample_arg;
+> +       struct sw_flow_key *orig = key;
+> +       int rem = nla_len(attr);
+> +       int err = 0;
+> +       const struct sample_arg *arg;
+>
+> -       rem = nla_len(acts_list);
+> -       a = nla_data(acts_list);
+> +       /* The first action is always 'OVS_SAMPLE_ATTR_AUX'. */
 
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljBsJkACgkQ3SOs138+
-s6EuPg/9FLtLLJmttOkIblNeIGUtiRaBEaj7zHYAEGvn8KBPzMNngApsBZpL9jjb
-JfHkWAfim8FPkuO4I0YDr3HD10WxiXTZiTz/9SbguynwKEkco+wXfo9mi1YDa9D5
-cyZ/MNWynatIpcW6ub4toCVJJCUheYJLmOyySm22L3Y1DYYhVrOGoJ+I4ECf1MhI
-J2iAnxW806pHbF8EoTmNd/wPcbuPkb/z1s2qcqDR60paikGYOzhxCmlmJcEEJOwP
-BxdZga7kxQF601uKrCXX1nu5qfaERMZOupJXSbZRTNz6Q7P1q9/Mf6SL/w/NwrJK
-7u38WvlI7+cN4hUhm3G671pG09VECjdV7vz6KvA22OCukLyxnhtZtPY+eRFeOWtW
-gOD64hNJR+tLu0XQMu+n+5ohmSBd1qzjbD8mapH2qkH2ze8OLjCeoaZL7nF4fpBj
-jxITPy9j9qwYcRMs6u5/i4GseEue7Inj00podXz4sKN98nZ/MfgOspD118ueqwr/
-yh3CLRx44SIkHnAjsZtsorTvOCBa/JT8RacRUCnFt3dK/yDkt0LWOQ431n0PwSOw
-TqFroqeoqOGLFTKEsN8EGBL/tV+Bz29sVjHPXg0na4P1OwqN/lyqQL4ZqOVNA5oy
-ccsI8JT7UAka0ZfMfHTyR5vtr07CZUsqQktQqn0729pwv+V3+w0=
-=gBaG
------END PGP SIGNATURE-----
+Is it? This is the only reference to OVS_SAMPLE_ATTR_AUX I can see.
 
---PGNNI9BzQDUtgA2J--
+> +       sample_arg = nla_data(attr);
+
+We could do this in the parent call, like several other actions do.
+
+<snip>
+
+> @@ -1246,9 +1227,24 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>                         err = execute_masked_set_action(skb, key, nla_data(a));
+>                         break;
+>
+> -               case OVS_ACTION_ATTR_SAMPLE:
+> -                       err = sample(dp, skb, key, a, attr, len);
+> +               case OVS_ACTION_ATTR_SAMPLE: {
+> +                       bool last = nla_is_last(a, rem);
+> +                       struct sk_buff *clone_skb;
+> +
+> +                       clone_skb = last ? skb : skb_clone(skb, GFP_ATOMIC);
+> +
+> +                       if (!clone_skb)
+> +                               /* Out of memory, skip this sample action.
+> +                                */
+
+Should we ratelimited complain in this case?
+
+> +                               break;
+> +
+> +                       err = sample(dp, clone_skb, key, a);
+> +                       if (last)
+> +                               return err;
+
+Given that sample() doesn't guarantee it will free 'clone_skb', I
+don't think this is safe.
+
+> +
+> +                       pr_err("executing sample");
+
+Useful for debugging, but don't forget to drop for next version.
+
+>                         break;
+> +                       }
+
+This bracket is typically aligned with the character of the beginning
+of the 'case' that it applies to.
+
+>
+>                 case OVS_ACTION_ATTR_CT:
+>                         if (!is_flow_key_valid(key)) {
+> diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+> index 1c6e937..d7a6e803 100644
+> --- a/net/openvswitch/datapath.h
+> +++ b/net/openvswitch/datapath.h
+> @@ -220,4 +220,11 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>         if (logging_allowed && net_ratelimit())                 \
+>                 pr_info("netlink: " fmt "\n", ##__VA_ARGS__);   \
+>  } while (0)
+> +
+> +#define OVS_SAMPLE_ATTR_ARG  (OVS_ACTION_ATTR_MAX + 1)
+
+This should be defined in include/uapi/linux/openvswitch.h, protected
+by #ifdef __KERNEL__ like the other internal formats. While I don't
+think it actually conflicts with any other internal action format,
+these should be in one place so we don't end up accidentally using the
+same enum twice.
+
+> +struct sample_arg {
+> +       bool exec;
+> +       u32  probability;
+> +};
+
+Perhaps we should move this to either net/openvswitch/flow_netlink.h
+or include/linux/openvswitch.h since it's only for consumption
+internally by the kernel module?
+
+> +
+>  #endif /* datapath.h */
+> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+> index 6f5fa50..0e7cf13 100644
+> --- a/net/openvswitch/flow_netlink.c
+> +++ b/net/openvswitch/flow_netlink.c
+> @@ -1,5 +1,5 @@
+>  /*
+> - * Copyright (c) 2007-2014 Nicira, Inc.
+> + * Copyright (c) 2007-2017 Nicira, Inc.
+>   *
+>   * This program is free software; you can redistribute it and/or
+>   * modify it under the terms of version 2 of the GNU General Public
+> @@ -59,6 +59,39 @@ struct ovs_len_tbl {
+>  #define OVS_ATTR_NESTED -1
+>  #define OVS_ATTR_VARIABLE -2
+>
+> +static bool actions_may_change_flow(const struct nlattr *actions)
+> +{
+> +       struct nlattr *nla;
+> +       int rem;
+> +
+> +       nla_for_each_nested(nla, actions, rem) {
+> +               u16 action = nla_type(nla);
+> +
+> +               switch (action) {
+> +               case OVS_ACTION_ATTR_OUTPUT:
+> +               case OVS_ACTION_ATTR_RECIRC:
+> +               case OVS_ACTION_ATTR_USERSPACE:
+> +               case OVS_ACTION_ATTR_SAMPLE:
+> +               case OVS_ACTION_ATTR_TRUNC:
+
+Trunc doesn't change the flow, but if there's something like
+sample(output,trunc),output() then I wouldn't expect the final output
+to be truncated.
+
+<snip>
+
+> @@ -2621,39 +2670,36 @@ int ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
+>         return err;
+>  }
+>
+> -static int sample_action_to_attr(const struct nlattr *attr, struct sk_buff *skb)
+> +static int sample_action_to_attr(const struct nlattr *attr,
+> +                                struct sk_buff *skb)
+>  {
+> -       const struct nlattr *a;
+> -       struct nlattr *start;
+> -       int err = 0, rem;
+> +       struct nlattr *start, *ac_start, *sample_arg;
+> +       int err = 0, rem = nla_len(attr);
+> +       const struct sample_arg *arg;
+> +       struct nlattr *actions;
+>
+>         start = nla_nest_start(skb, OVS_ACTION_ATTR_SAMPLE);
+>         if (!start)
+>                 return -EMSGSIZE;
+>
+> -       nla_for_each_nested(a, attr, rem) {
+> -               int type = nla_type(a);
+> -               struct nlattr *st_sample;
+> +       sample_arg = nla_data(attr);
+> +       arg = nla_data(sample_arg);
+> +       actions = nla_next(sample_arg, &rem);
+>
+> -               switch (type) {
+> -               case OVS_SAMPLE_ATTR_PROBABILITY:
+> -                       if (nla_put(skb, OVS_SAMPLE_ATTR_PROBABILITY,
+> -                                   sizeof(u32), nla_data(a)))
+> -                               return -EMSGSIZE;
+> -                       break;
+> -               case OVS_SAMPLE_ATTR_ACTIONS:
+> -                       st_sample = nla_nest_start(skb, OVS_SAMPLE_ATTR_ACTIONS);
+> -                       if (!st_sample)
+> -                               return -EMSGSIZE;
+> -                       err = ovs_nla_put_actions(nla_data(a), nla_len(a), skb);
+> -                       if (err)
+> -                               return err;
+> -                       nla_nest_end(skb, st_sample);
+> -                       break;
+> -               }
+> -       }
+> +       if (nla_put_u32(skb, OVS_SAMPLE_ATTR_PROBABILITY, arg->probability))
+> +               return -EMSGSIZE;
+>
+> +       ac_start = nla_nest_start(skb, OVS_SAMPLE_ATTR_ACTIONS);
+> +       if (!ac_start)
+> +               return -EMSGSIZE;
+> +
+> +       err = ovs_nla_put_actions(actions, rem, skb);
+> +       if (err)
+> +               return err;
+
+Shouldn't we nla_nest_cancel() when something fails in the middle of
+nesting nla attributes? For example I believe that upcall will attempt
+to serialize actions, but if actions don't fit in the buffer then
+it'll just skip the actions and forward everything else.
+
+> +
+> +       nla_nest_end(skb, ac_start);
+>         nla_nest_end(skb, start);
+> +
+>         return err;
+>  }
+>
+> --
+> 1.8.3.1
+>
