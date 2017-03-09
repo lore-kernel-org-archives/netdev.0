@@ -1,149 +1,195 @@
-From: Sagi Grimberg <sagi@grimberg.me>
-Subject: [PATCH v3 3/4] nvme-rdma: use inet_pton_with_scope helper
-Date: Thu,  9 Mar 2017 14:49:52 +0200
-Message-ID: <1489063793-12838-4-git-send-email-sagi@grimberg.me>
-References: <1489063793-12838-1-git-send-email-sagi@grimberg.me>
-Cc: Christoph Hellwig <hch@lst.de>
-To: linux-nvme@lists.infradead.org, netdev@vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next v2] net/socket: use per af lockdep classes for sk queues
+Date: Thu,  9 Mar 2017 13:54:08 +0100
+Message-ID: <81575a876486789bb10ca20e21360fb635269b68.1489054753.git.pabeni@redhat.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:54456 "EHLO
-        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752672AbdCIMuB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 07:50:01 -0500
-In-Reply-To: <1489063793-12838-1-git-send-email-sagi@grimberg.me>
+Received: from mx1.redhat.com ([209.132.183.28]:51006 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753678AbdCIMyp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 07:54:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both the destination and the host addresses are now
-parsed using inet_pton_with_scope helper. We also
-get ipv6 (with address scopes support).
+Currently the sock queue's spin locks get their lockdep
+classes by the default init_spin_lock() initializer:
+all socket families get - usually, see below - a single
+class for rx, another specific class for tx, etc.
+This can lead to false positive lockdep splat, as
+reported by Andrey.
+Moreover there are two separate initialization points
+for the sock queues, one in sk_clone_lock() and one
+in sock_init_data(), so that e.g. the rx queue lock
+can get one of two possible, different classes, depending
+on the socket being cloned or not.
+This change tries to address the above, setting explicitly
+a per address family lockdep class for each queue's
+spinlock. Also, move the duplicated initialization code to a
+single location.
 
-Reviewed-by: Christoph Hellwig <hch@lst.de>
-Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
+v1 -> v2:
+ - renamed the init helper
+
+rfc -> v1:
+ - no changes, tested with several different workload
+
+Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- drivers/nvme/host/rdma.c | 63 +++++++++++++++---------------------------------
- 1 file changed, 19 insertions(+), 44 deletions(-)
+ net/core/sock.c | 96 ++++++++++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 78 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/nvme/host/rdma.c b/drivers/nvme/host/rdma.c
-index 779f516e7a4e..7bad791a7fe9 100644
---- a/drivers/nvme/host/rdma.c
-+++ b/drivers/nvme/host/rdma.c
-@@ -129,14 +129,8 @@ struct nvme_rdma_ctrl {
- 	u64			cap;
- 	u32			max_fr_pages;
- 
--	union {
--		struct sockaddr addr;
--		struct sockaddr_in addr_in;
--	};
--	union {
--		struct sockaddr src_addr;
--		struct sockaddr_in src_addr_in;
--	};
-+	struct sockaddr_storage addr;
-+	struct sockaddr_storage src_addr;
- 
- 	struct nvme_ctrl	ctrl;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index f6fd79f..768aedf 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -258,12 +258,66 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_KCM"      ,
+   "clock-AF_QIPCRTR", "clock-AF_SMC"     , "clock-AF_MAX"
  };
-@@ -571,11 +565,12 @@ static int nvme_rdma_init_queue(struct nvme_rdma_ctrl *ctrl,
- 		return PTR_ERR(queue->cm_id);
- 	}
++static const char *const af_family_rlock_key_strings[AF_MAX+1] = {
++  "rlock-AF_UNSPEC", "rlock-AF_UNIX"     , "rlock-AF_INET"     ,
++  "rlock-AF_AX25"  , "rlock-AF_IPX"      , "rlock-AF_APPLETALK",
++  "rlock-AF_NETROM", "rlock-AF_BRIDGE"   , "rlock-AF_ATMPVC"   ,
++  "rlock-AF_X25"   , "rlock-AF_INET6"    , "rlock-AF_ROSE"     ,
++  "rlock-AF_DECnet", "rlock-AF_NETBEUI"  , "rlock-AF_SECURITY" ,
++  "rlock-AF_KEY"   , "rlock-AF_NETLINK"  , "rlock-AF_PACKET"   ,
++  "rlock-AF_ASH"   , "rlock-AF_ECONET"   , "rlock-AF_ATMSVC"   ,
++  "rlock-AF_RDS"   , "rlock-AF_SNA"      , "rlock-AF_IRDA"     ,
++  "rlock-AF_PPPOX" , "rlock-AF_WANPIPE"  , "rlock-AF_LLC"      ,
++  "rlock-27"       , "rlock-28"          , "rlock-AF_CAN"      ,
++  "rlock-AF_TIPC"  , "rlock-AF_BLUETOOTH", "rlock-AF_IUCV"     ,
++  "rlock-AF_RXRPC" , "rlock-AF_ISDN"     , "rlock-AF_PHONET"   ,
++  "rlock-AF_IEEE802154", "rlock-AF_CAIF" , "rlock-AF_ALG"      ,
++  "rlock-AF_NFC"   , "rlock-AF_VSOCK"    , "rlock-AF_KCM"      ,
++  "rlock-AF_QIPCRTR", "rlock-AF_SMC"     , "rlock-AF_MAX"
++};
++static const char *const af_family_wlock_key_strings[AF_MAX+1] = {
++  "wlock-AF_UNSPEC", "wlock-AF_UNIX"     , "wlock-AF_INET"     ,
++  "wlock-AF_AX25"  , "wlock-AF_IPX"      , "wlock-AF_APPLETALK",
++  "wlock-AF_NETROM", "wlock-AF_BRIDGE"   , "wlock-AF_ATMPVC"   ,
++  "wlock-AF_X25"   , "wlock-AF_INET6"    , "wlock-AF_ROSE"     ,
++  "wlock-AF_DECnet", "wlock-AF_NETBEUI"  , "wlock-AF_SECURITY" ,
++  "wlock-AF_KEY"   , "wlock-AF_NETLINK"  , "wlock-AF_PACKET"   ,
++  "wlock-AF_ASH"   , "wlock-AF_ECONET"   , "wlock-AF_ATMSVC"   ,
++  "wlock-AF_RDS"   , "wlock-AF_SNA"      , "wlock-AF_IRDA"     ,
++  "wlock-AF_PPPOX" , "wlock-AF_WANPIPE"  , "wlock-AF_LLC"      ,
++  "wlock-27"       , "wlock-28"          , "wlock-AF_CAN"      ,
++  "wlock-AF_TIPC"  , "wlock-AF_BLUETOOTH", "wlock-AF_IUCV"     ,
++  "wlock-AF_RXRPC" , "wlock-AF_ISDN"     , "wlock-AF_PHONET"   ,
++  "wlock-AF_IEEE802154", "wlock-AF_CAIF" , "wlock-AF_ALG"      ,
++  "wlock-AF_NFC"   , "wlock-AF_VSOCK"    , "wlock-AF_KCM"      ,
++  "wlock-AF_QIPCRTR", "wlock-AF_SMC"     , "wlock-AF_MAX"
++};
++static const char *const af_family_elock_key_strings[AF_MAX+1] = {
++  "elock-AF_UNSPEC", "elock-AF_UNIX"     , "elock-AF_INET"     ,
++  "elock-AF_AX25"  , "elock-AF_IPX"      , "elock-AF_APPLETALK",
++  "elock-AF_NETROM", "elock-AF_BRIDGE"   , "elock-AF_ATMPVC"   ,
++  "elock-AF_X25"   , "elock-AF_INET6"    , "elock-AF_ROSE"     ,
++  "elock-AF_DECnet", "elock-AF_NETBEUI"  , "elock-AF_SECURITY" ,
++  "elock-AF_KEY"   , "elock-AF_NETLINK"  , "elock-AF_PACKET"   ,
++  "elock-AF_ASH"   , "elock-AF_ECONET"   , "elock-AF_ATMSVC"   ,
++  "elock-AF_RDS"   , "elock-AF_SNA"      , "elock-AF_IRDA"     ,
++  "elock-AF_PPPOX" , "elock-AF_WANPIPE"  , "elock-AF_LLC"      ,
++  "elock-27"       , "elock-28"          , "elock-AF_CAN"      ,
++  "elock-AF_TIPC"  , "elock-AF_BLUETOOTH", "elock-AF_IUCV"     ,
++  "elock-AF_RXRPC" , "elock-AF_ISDN"     , "elock-AF_PHONET"   ,
++  "elock-AF_IEEE802154", "elock-AF_CAIF" , "elock-AF_ALG"      ,
++  "elock-AF_NFC"   , "elock-AF_VSOCK"    , "elock-AF_KCM"      ,
++  "elock-AF_QIPCRTR", "elock-AF_SMC"     , "elock-AF_MAX"
++};
  
--	queue->cm_error = -ETIMEDOUT;
- 	if (ctrl->ctrl.opts->mask & NVMF_OPT_HOST_TRADDR)
--		src_addr = &ctrl->src_addr;
-+		src_addr = (struct sockaddr *)&ctrl->src_addr;
+ /*
+- * sk_callback_lock locking rules are per-address-family,
++ * sk_callback_lock and sk queues locking rules are per-address-family,
+  * so split the lock classes by using a per-AF key:
+  */
+ static struct lock_class_key af_callback_keys[AF_MAX];
++static struct lock_class_key af_rlock_keys[AF_MAX];
++static struct lock_class_key af_wlock_keys[AF_MAX];
++static struct lock_class_key af_elock_keys[AF_MAX];
  
--	ret = rdma_resolve_addr(queue->cm_id, src_addr, &ctrl->addr,
-+	queue->cm_error = -ETIMEDOUT;
-+	ret = rdma_resolve_addr(queue->cm_id, src_addr,
-+			(struct sockaddr *)&ctrl->addr,
- 			NVME_RDMA_CONNECT_TIMEOUT_MS);
- 	if (ret) {
- 		dev_info(ctrl->ctrl.device,
-@@ -1857,27 +1852,13 @@ static int nvme_rdma_create_io_queues(struct nvme_rdma_ctrl *ctrl)
- 	return ret;
+ /* Take into consideration the size of the struct sk_buff overhead in the
+  * determination of these values, since that is non-constant across
+@@ -1478,6 +1532,27 @@ void sk_free(struct sock *sk)
  }
+ EXPORT_SYMBOL(sk_free);
  
--static int nvme_rdma_parse_ipaddr(struct sockaddr_in *in_addr, char *p)
--{
--	u8 *addr = (u8 *)&in_addr->sin_addr.s_addr;
--	size_t buflen = strlen(p);
--
--	/* XXX: handle IPv6 addresses */
--
--	if (buflen > INET_ADDRSTRLEN)
--		return -EINVAL;
--	if (in4_pton(p, buflen, addr, '\0', NULL) == 0)
--		return -EINVAL;
--	in_addr->sin_family = AF_INET;
--	return 0;
--}
--
- static struct nvme_ctrl *nvme_rdma_create_ctrl(struct device *dev,
- 		struct nvmf_ctrl_options *opts)
- {
- 	struct nvme_rdma_ctrl *ctrl;
- 	int ret;
- 	bool changed;
-+	char *port;
- 
- 	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
- 	if (!ctrl)
-@@ -1885,34 +1866,28 @@ static struct nvme_ctrl *nvme_rdma_create_ctrl(struct device *dev,
- 	ctrl->ctrl.opts = opts;
- 	INIT_LIST_HEAD(&ctrl->list);
- 
--	ret = nvme_rdma_parse_ipaddr(&ctrl->addr_in, opts->traddr);
-+	if (opts->mask & NVMF_OPT_TRSVCID)
-+		port = opts->trsvcid;
-+	else
-+		port = __stringify(NVME_RDMA_IP_PORT);
++static void sk_init_common(struct sock *sk)
++{
++	skb_queue_head_init(&sk->sk_receive_queue);
++	skb_queue_head_init(&sk->sk_write_queue);
++	skb_queue_head_init(&sk->sk_error_queue);
 +
-+	ret = inet_pton_with_scope(&init_net, AF_UNSPEC,
-+			opts->traddr, port, &ctrl->addr);
- 	if (ret) {
--		pr_err("malformed IP address passed: %s\n", opts->traddr);
-+		pr_err("malformed address passed: %s:%s\n", opts->traddr, port);
- 		goto out_free_ctrl;
++	rwlock_init(&sk->sk_callback_lock);
++	lockdep_set_class_and_name(&sk->sk_receive_queue.lock,
++			af_rlock_keys + sk->sk_family,
++			af_family_rlock_key_strings[sk->sk_family]);
++	lockdep_set_class_and_name(&sk->sk_write_queue.lock,
++			af_wlock_keys + sk->sk_family,
++			af_family_wlock_key_strings[sk->sk_family]);
++	lockdep_set_class_and_name(&sk->sk_error_queue.lock,
++			af_elock_keys + sk->sk_family,
++			af_family_elock_key_strings[sk->sk_family]);
++	lockdep_set_class_and_name(&sk->sk_callback_lock,
++			af_callback_keys + sk->sk_family,
++			af_family_clock_key_strings[sk->sk_family]);
++}
++
+ /**
+  *	sk_clone_lock - clone a socket, and lock its clone
+  *	@sk: the socket to clone
+@@ -1511,13 +1586,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		 */
+ 		atomic_set(&newsk->sk_wmem_alloc, 1);
+ 		atomic_set(&newsk->sk_omem_alloc, 0);
+-		skb_queue_head_init(&newsk->sk_receive_queue);
+-		skb_queue_head_init(&newsk->sk_write_queue);
+-
+-		rwlock_init(&newsk->sk_callback_lock);
+-		lockdep_set_class_and_name(&newsk->sk_callback_lock,
+-				af_callback_keys + newsk->sk_family,
+-				af_family_clock_key_strings[newsk->sk_family]);
++		sk_init_common(newsk);
+ 
+ 		newsk->sk_dst_cache	= NULL;
+ 		newsk->sk_dst_pending_confirm = 0;
+@@ -1528,7 +1597,6 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		newsk->sk_userlocks	= sk->sk_userlocks & ~SOCK_BINDPORT_LOCK;
+ 
+ 		sock_reset_flag(newsk, SOCK_DONE);
+-		skb_queue_head_init(&newsk->sk_error_queue);
+ 
+ 		filter = rcu_dereference_protected(newsk->sk_filter, 1);
+ 		if (filter != NULL)
+@@ -2454,10 +2522,7 @@ EXPORT_SYMBOL(sk_stop_timer);
+ 
+ void sock_init_data(struct socket *sock, struct sock *sk)
+ {
+-	skb_queue_head_init(&sk->sk_receive_queue);
+-	skb_queue_head_init(&sk->sk_write_queue);
+-	skb_queue_head_init(&sk->sk_error_queue);
+-
++	sk_init_common(sk);
+ 	sk->sk_send_head	=	NULL;
+ 
+ 	init_timer(&sk->sk_timer);
+@@ -2480,11 +2545,6 @@ void sock_init_data(struct socket *sock, struct sock *sk)
+ 		sk->sk_uid	=	make_kuid(sock_net(sk)->user_ns, 0);
  	}
  
- 	if (opts->mask & NVMF_OPT_HOST_TRADDR) {
--		ret = nvme_rdma_parse_ipaddr(&ctrl->src_addr_in,
--				opts->host_traddr);
-+		ret = inet_pton_with_scope(&init_net, AF_UNSPEC,
-+			opts->host_traddr, NULL, &ctrl->src_addr);
- 		if (ret) {
--			pr_err("malformed src IP address passed: %s\n",
-+			pr_err("malformed src address passed: %s\n",
- 			       opts->host_traddr);
- 			goto out_free_ctrl;
- 		}
- 	}
- 
--	if (opts->mask & NVMF_OPT_TRSVCID) {
--		u16 port;
+-	rwlock_init(&sk->sk_callback_lock);
+-	lockdep_set_class_and_name(&sk->sk_callback_lock,
+-			af_callback_keys + sk->sk_family,
+-			af_family_clock_key_strings[sk->sk_family]);
 -
--		ret = kstrtou16(opts->trsvcid, 0, &port);
--		if (ret)
--			goto out_free_ctrl;
--
--		ctrl->addr_in.sin_port = cpu_to_be16(port);
--	} else {
--		ctrl->addr_in.sin_port = cpu_to_be16(NVME_RDMA_IP_PORT);
--	}
--
- 	ret = nvme_init_ctrl(&ctrl->ctrl, dev, &nvme_rdma_ctrl_ops,
- 				0 /* no quirks, we're perfect! */);
- 	if (ret)
-@@ -1977,7 +1952,7 @@ static struct nvme_ctrl *nvme_rdma_create_ctrl(struct device *dev,
- 	changed = nvme_change_ctrl_state(&ctrl->ctrl, NVME_CTRL_LIVE);
- 	WARN_ON_ONCE(!changed);
- 
--	dev_info(ctrl->ctrl.device, "new ctrl: NQN \"%s\", addr %pISp\n",
-+	dev_info(ctrl->ctrl.device, "new ctrl: NQN \"%s\", addr %pISpcs\n",
- 		ctrl->ctrl.opts->subsysnqn, &ctrl->addr);
- 
- 	kref_get(&ctrl->ctrl.kref);
+ 	sk->sk_state_change	=	sock_def_wakeup;
+ 	sk->sk_data_ready	=	sock_def_readable;
+ 	sk->sk_write_space	=	sock_def_write_space;
 -- 
-2.7.4
+2.9.3
