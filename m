@@ -1,85 +1,85 @@
-From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Subject: Re: [PATCH 5/7] net: stmmac: Program RX queue size and flow control
-Date: Thu, 9 Mar 2017 13:18:11 -0700
-Message-ID: <83aaa3b1-a2d4-8ddd-d31a-2fd6c653e3d1@wwwdotorg.org>
-References: <20170223172438.14770-1-thierry.reding@gmail.com>
- <20170223172438.14770-6-thierry.reding@gmail.com>
- <74ee5bff-8893-ebd4-bcf8-bb92c476f581@kapsi.fi>
- <20170309194231.GD5554@ulmo.ba.sec>
+From: David Arcari <darcari@redhat.com>
+Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is
+ changed
+Date: Thu, 9 Mar 2017 15:28:44 -0500
+Message-ID: <fb362313-386b-1e35-f1c1-0ee2b79b1e19@redhat.com>
+References: <1489008801-120389-1-git-send-email-darcari@redhat.com>
+ <bdf4795a-ad8f-f48e-0861-24ce5700a5ee@aquantia.com>
+ <6f6ad527-8664-0cdb-2b3d-b79179b8a7a8@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mikko Perttunen <cyndis-/1wQRMveznE@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170309194231.GD5554-EkSeR96xj6Pcmrwk2tT4+A@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Pavel Belous <pavel.belous@aquantia.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37642 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750862AbdCIU2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 15:28:45 -0500
+In-Reply-To: <6f6ad527-8664-0cdb-2b3d-b79179b8a7a8@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2017 12:42 PM, Thierry Reding wrote:
-> On Mon, Feb 27, 2017 at 12:09:02PM +0200, Mikko Perttunen wrote:
->> On 23.02.2017 19:24, Thierry Reding wrote:
->>> From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
->>>
->>> Program the receive queue size based on the RX FIFO size and enable
->>> hardware flow control for large FIFOs.
-
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-
->>> @@ -252,6 +253,44 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
->>>  			mtl_rx_op |= MTL_OP_MODE_RTC_128;
->>>  	}
->>>
->>> +	mtl_rx_op &= ~MTL_OP_MODE_RQS_MASK;
->>> +	mtl_rx_op |= rqs << MTL_OP_MODE_RQS_SHIFT;
->>> +
->>> +	/* enable flow control only if each channel gets 4 KiB or more FIFO */
->>> +	if (rxfifosz >= 4096) {
->>> +		unsigned int rfd, rfa;
->>> +
->>> +		mtl_rx_op |= MTL_OP_MODE_EHFC;
->>> +
->>> +		switch (rxfifosz) {
->>> +		case 4096:
->>> +			rfd = 0x03;
->>> +			rfa = 0x01;
->>> +			break;
->>> +
->>> +		case 8192:
->>> +			rfd = 0x06;
->>> +			rfa = 0x0a;
->>> +			break;
->>> +
->>> +		case 16384:
->>> +			rfd = 0x06;
->>> +			rfa = 0x12;
->>> +			break;
->>> +
->>> +		default:
->>> +			rfd = 0x06;
->>> +			rfa = 0x1e;
->>> +			break;
->>> +		}
+On 03/09/2017 03:01 PM, David Arcari wrote:
+> On 03/09/2017 02:02 PM, Pavel Belous wrote:
 >>
->> Are these values correct? In the 4096 case, rfd > rfa, in all other cases
->> the other way around. In any case it would be useful to have a comment
->> clarifying the thresholds in bytes.
->
-> I'll investigate. To be honest I simply took this from Stephen's U-Boot
-> driver since that's already tested. I trust Stephen, so I didn't bother
-> double-checking.
+>>
+>> On 09.03.2017 00:33, David Arcari wrote:
+>>> When the aquantia device mtu is changed the net_device structure is not
+>>> updated.  As a result the ip command does not properly reflect the mtu change.
+>>>
+>>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+>>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+>>> has a ndo_change_mtu routine.
+>>>
+>>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+>>>
+>>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+>>> Signed-off-by: David Arcari <darcari@redhat.com>
+>>> ---
+>>>  drivers/net/ethernet/aquantia/atlantic/aq_main.c | 1 +
+>>>  1 file changed, 1 insertion(+)
+>>>
+>>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>> b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>> index dad6362..d05fbfd 100644
+>>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>> @@ -98,6 +98,7 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int
+>>> new_mtu)
+>>>
+>>>      if (err < 0)
+>>>          goto err_exit;
+>>> +    ndev->mtu = new_mtu;
+>>>
+>>>      if (netif_running(ndev)) {
+>>>          aq_ndev_close(ndev);
+>>>
+>>
+>> Thank you, David.
+>>
+>> I think we should also remove closing/opening net-device after mtu changed.
+> 
+> Hi Pavel,
+> 
+> I'll go ahead and submit v2.
+> 
+> Thanks,
+> 
+> -Dave
 
-I don't recall for sure, but I think these values came directly from 
-either the upstream kernel (the non-stmmac driver) or NV downstream 
-kernel EQoS driver, and I re-used them without investigating. I'm not 
-even sure if the outer if() expression is true; these numbers might not 
-even end up being used?
+Hi Pavel,
+
+Before I post v2, won't that mean that if the interface is up that the user will
+have to manually toggle it for the new mtu to take effect?
+
+Is that the desired behavior?
+
+Thanks,
+
+-Dave
+
+> 
+>>
+>> Regards,
+>> Pavel
+> 
