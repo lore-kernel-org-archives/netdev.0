@@ -1,56 +1,55 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH v4 net-next 13/13] mlx4: remove duplicate code in
- mlx4_en_process_rx_cq()
-Date: Thu, 9 Mar 2017 15:58:00 +0200
-Message-ID: <6bc15b8b-d2cb-de53-3bb3-d06962d844bd@mellanox.com>
-References: <20170308161718.2867-1-edumazet@google.com>
- <20170308161718.2867-14-edumazet@google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
+ at 0000a7cf
+Date: Thu, 09 Mar 2017 14:25:58 +0100
+Message-ID: <58C157E6.1010909@iogearbox.net>
+References: <20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com> <20170302202338.ci6wwb3yzjmdy4n2@wfg-t540p.sh.intel.com> <58B88353.2010508@iogearbox.net> <CA+55aFy97mLPLb4WXmRn-xLMNt+bNkrb_vaBsh+HOMLLnKPv7Q@mail.gmail.com> <58C08535.3070000@iogearbox.net> <CAGXu5jLB_+47FEJYTYJ5u6-u+vOBpWo_0tWuiNKnGmuMjL-mMQ@mail.gmail.com> <7af7bcc9-9115-be9f-2240-a022487e9b70@redhat.com> <CAGXu5jLm3jbJoQAsBsTiiQGK1==JTnSkN_GLsuBGqFvAz5B3AQ@mail.gmail.com> <58C152F1.9090004@iogearbox.net> <alpine.DEB.2.20.1703091409080.3521@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0047.outbound.protection.outlook.com ([104.47.2.47]:51648
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754137AbdCIN65 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 08:58:57 -0500
-In-Reply-To: <20170308161718.2867-14-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kees Cook <keescook@chromium.org>,
+        Laura Abbott <labbott@redhat.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
+        Fengguang Wu <fengguang.wu@intel.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
+        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.20.1703091409080.3521@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 03/09/2017 02:10 PM, Thomas Gleixner wrote:
+> On Thu, 9 Mar 2017, Daniel Borkmann wrote:
+>> With regard to CPA_FLUSHTLB that Linus mentioned, when I investigated
+>> code paths in change_page_attr_set_clr(), I did see that CPA_FLUSHTLB
+>> was set each time we switched attrs and a cpa_flush_range() was
+>> performed (with the correct number of pages and cache set to 0). That
+>> would be a __flush_tlb_all() eventually.
+>>
+>> Hmm, it indeed might seem likely that this could be an emulation bug.
+>
+> Which variant of __flush_tlb_all() is used when the test fails?
+>
+> Check for the following flags in /proc/cpuinfo: pge invpcid
 
+I added the following and booted with both variants:
 
-On 08/03/2017 6:17 PM, Eric Dumazet wrote:
-> We should keep one way to build skbs, regardless of GRO being on or off.
->
-> Note that I made sure to defer as much as possible the point we need to
-> pull data from the frame, so that future prefetch() we might add
-> are more effective.
->
-> These skb attributes derive from the CQE or ring :
->  ip_summed, csum
->  hash
->  vlan offload
->  hwtstamps
->  queue_mapping
->
-> As a bonus, this patch removes mlx4 dependency on eth_get_headlen()
-> which is very often broken enough to give us headaches.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 209 ++++++-----------------------
->  1 file changed, 41 insertions(+), 168 deletions(-)
->
-Acked-by: Tariq Toukan <tariqt@mellanox.com>
+printk("X86_FEATURE_PGE:%u\n",     static_cpu_has(X86_FEATURE_PGE));
+printk("X86_FEATURE_INVPCID:%u\n", static_cpu_has(X86_FEATURE_INVPCID));
 
-Thanks.
+"-cpu host" gives:
+
+[    8.326117] X86_FEATURE_PGE:1
+[    8.326381] X86_FEATURE_INVPCID:1
+
+"-cpu kvm64" gives:
+
+[    8.517069] X86_FEATURE_PGE:1
+[    8.517393] X86_FEATURE_INVPCID:0
+
+Thanks,
+Daniel
