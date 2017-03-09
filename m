@@ -1,49 +1,31 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH 1/5] rds: ib: drop unnecessary rdma_reject
-Date: Thu, 9 Mar 2017 08:47:33 -0800
-Message-ID: <91fd8533-20ef-555b-f8cf-deeeef946e59@oracle.com>
+From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/5] rds: ib: replace spin_lock_irq with spin_lock_irqsave
+Date: Thu, 9 Mar 2017 08:50:14 -0800
+Message-ID: <65ac3de8-9fdd-b5c5-b7aa-aa4393626551@oracle.com>
 References: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
+ <1489044405-26150-2-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Zhu Yanjun <yanjun.zhu@oracle.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:34757 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754730AbdCIQtI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 11:49:08 -0500
-In-Reply-To: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489044405-26150-2-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 On 3/8/2017 11:26 PM, Zhu Yanjun wrote:
-> When rdma_accept fails, rdma_reject is called in it. As such, it is
-> not necessary to execute rdma_reject again.
+> It is difficult to make sure the state of the interrupt when this
+> function is called. As such, it is safer to use spin_lock_irqsave
+> than spin_lock_irq.
 >
-> Cc: Joe Jin <joe.jin@oracle.com>
-> Cc: Junxiao Bi <junxiao.bi@oracle.com>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
-> ---
->  net/rds/ib_cm.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-> index ce3775a..eca3d5f 100644
-> --- a/net/rds/ib_cm.c
-> +++ b/net/rds/ib_cm.c
-> @@ -677,8 +677,7 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
->  		event->param.conn.initiator_depth);
->
->  	/* rdma_accept() calls rdma_reject() internally if it fails */
-> -	err = rdma_accept(cm_id, &conn_param);
-> -	if (err)
-> +	if (rdma_accept(cm_id, &conn_param))
->  		rds_ib_conn_error(conn, "rdma_accept failed (%d)\n", err);
->
-There are couple of consumer reject reasons needs to be conveyed.
-Current code don't pass them, but downstream code has them and
-hence I kept the code as is. Its good to avoid the reject on
-current code so am fine with the change.
+There is no reason to hold irqs  and as such the code path is
+safe from irq context. I don't see need of this change unless
+you have test case which showed some issue.
 
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Regards,
+Santosh
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
