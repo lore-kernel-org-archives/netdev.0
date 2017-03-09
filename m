@@ -1,225 +1,41 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH net-next] tcp: rename *_sequence_number() to *_seq_and_tsoff()
-Date: Thu,  9 Mar 2017 13:53:55 +0300
-Message-ID: <1489056835-1128-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>
-To: netdev@vger.kernel.org
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: Re: please add some examples to the ip man page
+Date: Thu, 9 Mar 2017 11:56:47 +0100
+Message-ID: <20170309105647.GB29821@gmail.com>
+References: <87pohsj42f.fsf@jidanni.org>
+ <87r328tez5.fsf@jidanni.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org
+To: =?utf-8?B?56mN5Li55bC8?= Dan Jacobson <jidanni@jidanni.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:33718 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752625AbdCIKsA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 05:48:00 -0500
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35070 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751031AbdCIK5G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 05:57:06 -0500
+Received: by mail-wm0-f50.google.com with SMTP id v186so136259797wmd.0
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 02:56:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <87r328tez5.fsf@jidanni.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The functions that are returning tcp sequence number also setup
-TS offset value, so rename them to better describe their purpose.
+On Wed, Mar 08, 2017 at 03:17:02PM +0800, 積丹尼 Dan Jacobson wrote:
+> I see.
+> Perhaps on the man page add
+> EXAMPLES
+>    See https://www.kernel.org/doc/Documentation/networking/vrf.txt
+>    https://www.google.com/search?q=ip+linux+command+usage+examples
+> (I thought the latter would be hopeless, but actually found lots!)
+> 
+Actual examples in the page would better than links IMO.  git has some
+nice examples in gittutorial(7) and giteveryday(7). Maybe that can be
+good inspiration?
 
-No functional changes in this patch.
-
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
- include/net/secure_seq.h |    6 +++---
- include/net/tcp.h        |    2 +-
- net/core/secure_seq.c    |   13 ++++++-------
- net/ipv4/tcp_input.c     |    4 ++--
- net/ipv4/tcp_ipv4.c      |   22 +++++++++++-----------
- net/ipv6/tcp_ipv6.c      |   22 +++++++++++-----------
- 6 files changed, 34 insertions(+), 35 deletions(-)
-
-diff --git a/include/net/secure_seq.h b/include/net/secure_seq.h
-index 0caee63..fe236b3 100644
---- a/include/net/secure_seq.h
-+++ b/include/net/secure_seq.h
-@@ -6,10 +6,10 @@
- u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport);
- u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
- 			       __be16 dport);
--u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
-+u32 secure_tcp_seq_and_tsoff(__be32 saddr, __be32 daddr,
-+			     __be16 sport, __be16 dport, u32 *tsoff);
-+u32 secure_tcpv6_seq_and_tsoff(const __be32 *saddr, const __be32 *daddr,
- 			       __be16 sport, __be16 dport, u32 *tsoff);
--u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
--				 __be16 sport, __be16 dport, u32 *tsoff);
- u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
- 				__be16 sport, __be16 dport);
- u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 6ec4ea6..bede8f7 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1816,7 +1816,7 @@ struct tcp_request_sock_ops {
- 	struct dst_entry *(*route_req)(const struct sock *sk, struct flowi *fl,
- 				       const struct request_sock *req,
- 				       bool *strict);
--	__u32 (*init_seq)(const struct sk_buff *skb, u32 *tsoff);
-+	__u32 (*init_seq_tsoff)(const struct sk_buff *skb, u32 *tsoff);
- 	int (*send_synack)(const struct sock *sk, struct dst_entry *dst,
- 			   struct flowi *fl, struct request_sock *req,
- 			   struct tcp_fastopen_cookie *foc,
-diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-index 758f140..fb87e78 100644
---- a/net/core/secure_seq.c
-+++ b/net/core/secure_seq.c
-@@ -45,8 +45,8 @@ static u32 seq_scale(u32 seq)
- #endif
- 
- #if IS_ENABLED(CONFIG_IPV6)
--u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
--				 __be16 sport, __be16 dport, u32 *tsoff)
-+u32 secure_tcpv6_seq_and_tsoff(const __be32 *saddr, const __be32 *daddr,
-+			       __be16 sport, __be16 dport, u32 *tsoff)
- {
- 	const struct {
- 		struct in6_addr saddr;
-@@ -66,7 +66,7 @@ u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
- 	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
- 	return seq_scale(hash);
- }
--EXPORT_SYMBOL(secure_tcpv6_sequence_number);
-+EXPORT_SYMBOL(secure_tcpv6_seq_and_tsoff);
- 
- u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
- 			       __be16 dport)
-@@ -89,14 +89,13 @@ u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
- 
- #ifdef CONFIG_INET
- 
--/* secure_tcp_sequence_number(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
-+/* secure_tcp_seq_and_tsoff(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
-  * but fortunately, `sport' cannot be 0 in any circumstances. If this changes,
-  * it would be easy enough to have the former function use siphash_4u32, passing
-  * the arguments as separate u32.
-  */
--
--u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
--			       __be16 sport, __be16 dport, u32 *tsoff)
-+u32 secure_tcp_seq_and_tsoff(__be32 saddr, __be32 daddr,
-+			     __be16 sport, __be16 dport, u32 *tsoff)
- {
- 	u64 hash;
- 	net_secret_init();
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 39c393c..96b67a8 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6324,7 +6324,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		goto drop_and_free;
- 
- 	if (isn && tmp_opt.tstamp_ok)
--		af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
-+		af_ops->init_seq_tsoff(skb, &tcp_rsk(req)->ts_off);
- 
- 	if (!want_cookie && !isn) {
- 		/* VJ's idea. We save last timestamp seen
-@@ -6366,7 +6366,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 			goto drop_and_release;
- 		}
- 
--		isn = af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
-+		isn = af_ops->init_seq_tsoff(skb, &tcp_rsk(req)->ts_off);
- 	}
- 	if (!dst) {
- 		dst = af_ops->route_req(sk, &fl, req, NULL);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 9a89b8d..7b332ed 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -94,12 +94,12 @@ static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
- struct inet_hashinfo tcp_hashinfo;
- EXPORT_SYMBOL(tcp_hashinfo);
- 
--static u32 tcp_v4_init_sequence(const struct sk_buff *skb, u32 *tsoff)
-+static u32 tcp_v4_init_seq_and_tsoff(const struct sk_buff *skb, u32 *tsoff)
- {
--	return secure_tcp_sequence_number(ip_hdr(skb)->daddr,
--					  ip_hdr(skb)->saddr,
--					  tcp_hdr(skb)->dest,
--					  tcp_hdr(skb)->source, tsoff);
-+	return secure_tcp_seq_and_tsoff(ip_hdr(skb)->daddr,
-+					ip_hdr(skb)->saddr,
-+					tcp_hdr(skb)->dest,
-+					tcp_hdr(skb)->source, tsoff);
- }
- 
- int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
-@@ -236,11 +236,11 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	rt = NULL;
- 
- 	if (likely(!tp->repair)) {
--		seq = secure_tcp_sequence_number(inet->inet_saddr,
--						 inet->inet_daddr,
--						 inet->inet_sport,
--						 usin->sin_port,
--						 &tp->tsoffset);
-+		seq = secure_tcp_seq_and_tsoff(inet->inet_saddr,
-+					       inet->inet_daddr,
-+					       inet->inet_sport,
-+					       usin->sin_port,
-+					       &tp->tsoffset);
- 		if (!tp->write_seq)
- 			tp->write_seq = seq;
- 	}
-@@ -1249,7 +1249,7 @@ struct request_sock_ops tcp_request_sock_ops __read_mostly = {
- 	.cookie_init_seq =	cookie_v4_init_sequence,
- #endif
- 	.route_req	=	tcp_v4_route_req,
--	.init_seq	=	tcp_v4_init_sequence,
-+	.init_seq_tsoff	=	tcp_v4_init_seq_and_tsoff,
- 	.send_synack	=	tcp_v4_send_synack,
- };
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 60a5295..56f742f 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -101,12 +101,12 @@ static void inet6_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
- 	}
- }
- 
--static u32 tcp_v6_init_sequence(const struct sk_buff *skb, u32 *tsoff)
-+static u32 tcp_v6_init_seq_and_tsoff(const struct sk_buff *skb, u32 *tsoff)
- {
--	return secure_tcpv6_sequence_number(ipv6_hdr(skb)->daddr.s6_addr32,
--					    ipv6_hdr(skb)->saddr.s6_addr32,
--					    tcp_hdr(skb)->dest,
--					    tcp_hdr(skb)->source, tsoff);
-+	return secure_tcpv6_seq_and_tsoff(ipv6_hdr(skb)->daddr.s6_addr32,
-+					  ipv6_hdr(skb)->saddr.s6_addr32,
-+					  tcp_hdr(skb)->dest,
-+					  tcp_hdr(skb)->source, tsoff);
- }
- 
- static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
-@@ -287,11 +287,11 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	sk_set_txhash(sk);
- 
- 	if (likely(!tp->repair)) {
--		seq = secure_tcpv6_sequence_number(np->saddr.s6_addr32,
--						   sk->sk_v6_daddr.s6_addr32,
--						   inet->inet_sport,
--						   inet->inet_dport,
--						   &tp->tsoffset);
-+		seq = secure_tcpv6_seq_and_tsoff(np->saddr.s6_addr32,
-+						 sk->sk_v6_daddr.s6_addr32,
-+						 inet->inet_sport,
-+						 inet->inet_dport,
-+						 &tp->tsoffset);
- 		if (!tp->write_seq)
- 			tp->write_seq = seq;
- 	}
-@@ -755,7 +755,7 @@ struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
- 	.cookie_init_seq =	cookie_v6_init_sequence,
- #endif
- 	.route_req	=	tcp_v6_route_req,
--	.init_seq	=	tcp_v6_init_sequence,
-+	.init_seq_tsoff	=	tcp_v6_init_seq_and_tsoff,
- 	.send_synack	=	tcp_v6_send_synack,
- };
- 
 -- 
-1.7.1
+Mit freundlichen Grüßen
+
+Alexander Alemayhu
