@@ -1,31 +1,40 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next] devlink: Add json and pretty options
- to help and man
-Date: Wed, 8 Mar 2017 17:59:44 -0800
-Message-ID: <20170308175944.5e5a4e20@xeon-e3>
-References: <1488791178-17220-1-git-send-email-roid@mellanox.com>
+Subject: Re: [PATCH iproute2 master] bpf: test for valid type in
+ bpf_get_work_dir
+Date: Wed, 8 Mar 2017 17:57:47 -0800
+Message-ID: <20170308175747.2d235bd5@xeon-e3>
+References: <31298439f86c34288a26fd4c3d2bcac262d37565.1488801657.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: Roi Dayan <roid@mellanox.com>
+Cc: alexei.starovoitov@gmail.com, janerik@rediger.net,
+        netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:35776 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752465AbdCICAK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 21:00:10 -0500
-Received: by mail-pg0-f45.google.com with SMTP id b129so20028124pgc.2
-        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 17:59:46 -0800 (PST)
-In-Reply-To: <1488791178-17220-1-git-send-email-roid@mellanox.com>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:33441 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753969AbdCICGn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Mar 2017 21:06:43 -0500
+Received: by mail-pf0-f177.google.com with SMTP id w189so22179690pfb.0
+        for <netdev@vger.kernel.org>; Wed, 08 Mar 2017 18:06:32 -0800 (PST)
+In-Reply-To: <31298439f86c34288a26fd4c3d2bcac262d37565.1488801657.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  6 Mar 2017 11:06:18 +0200
-Roi Dayan <roid@mellanox.com> wrote:
+On Mon,  6 Mar 2017 13:06:00 +0100
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> While at it also fixed missing double dash for long opts.
+> Jan-Erik reported an assertion in bpf_prog_to_subdir() failed where
+> type was BPF_PROG_TYPE_UNSPEC, which is only used in bpf_init_env()
+> to auto-mount and cache the bpf fs mount point.
 > 
-> Signed-off-by: Roi Dayan <roid@mellanox.com>
+> Therefore, make sure when bpf_init_env() is called multiple times
+> (f.e. eBPF classifier with eBPF action attached) and bpf_mnt_cached
+> is set already that the type is also valid. In bpf_init_env(), we're
+> only interested in the mount point and not a type-specific subdir.
+> 
+> Fixes: e42256699cac ("bpf: make tc's bpf loader generic and move into lib")
+> Reported-by: Jan-Erik Rediger <janerik@rediger.net>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied to master (for 4.11) this doesn't have to wait until net-next (4.12)
+Applied
