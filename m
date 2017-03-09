@@ -1,206 +1,72 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 04/14] net: dsa: mv88e6xxx: rework ATU Load/Purge
-Date: Thu,  9 Mar 2017 18:33:14 -0500
-Message-ID: <20170309233324.18539-5-vivien.didelot@savoirfairelinux.com>
-References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net v3] xen-netback: fix race condition on XenBus
+ disconnect
+Date: Fri, 10 Mar 2017 07:36:20 +0800
+Message-ID: <201703100713.sZb9Gsru%fengguang.wu@intel.com>
+References: <1489088497-9027-1-git-send-email-igor.druzhinin@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+        xen-devel@lists.xenproject.org, paul.durrant@citrix.com,
+        jgross@suse.com, wei.liu2@citrix.com,
+        Igor Druzhinin <igor.druzhinin@citrix.com>
+To: Igor Druzhinin <igor.druzhinin@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:47353 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754596AbdCIXhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 18:37:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1489088497-9027-1-git-send-email-igor.druzhinin@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-All Marvell switch chips have an ATU accessed using the same Global (1)
-register layout. Only the handling of the FID differs as more bits were
-necessary to support more and more databases.
+Hi Igor,
 
-Add and use a fresh documented implementation of the ATU Load/Purge.
+[auto build test WARNING on net/master]
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+url:    https://github.com/0day-ci/linux/commits/Igor-Druzhinin/xen-netback-fix-race-condition-on-XenBus-disconnect/20170310-055447
+reproduce:
+        # apt-get install sparse
+        make ARCH=x86_64 allmodconfig
+        make C=1 CF=-D__CHECK_ENDIAN__
+
+
+sparse warnings: (new ones prefixed by >>)
+
+   include/linux/compiler.h:264:8: sparse: attribute 'no_sanitize_address': unknown attribute
+>> drivers/net/xen-netback/interface.c:178:22: sparse: incompatible types in comparison expression (different address spaces)
+   drivers/net/xen-netback/interface.c:237:22: sparse: incompatible types in comparison expression (different address spaces)
+   drivers/net/xen-netback/interface.c:389:22: sparse: incompatible types in comparison expression (different address spaces)
+
+vim +178 drivers/net/xen-netback/interface.c
+
+   162	}
+   163	
+   164	static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+   165	{
+   166		struct xenvif *vif = netdev_priv(dev);
+   167		struct xenvif_queue *queue = NULL;
+   168		unsigned int num_queues;
+   169		u16 index;
+   170		struct xenvif_rx_cb *cb;
+   171	
+   172		BUG_ON(skb->dev != dev);
+   173	
+   174		/* Drop the packet if queues are not set up.
+   175		 * This handler should be called inside an RCU read section
+   176		 * so we don't need to enter it here explicitly.
+   177		 */
+ > 178		num_queues = rcu_dereference(vif)->num_queues;
+   179		if (num_queues < 1)
+   180			goto drop;
+   181	
+   182		/* Obtain the queue to be used to transmit this packet */
+   183		index = skb_get_queue_mapping(skb);
+   184		if (index >= num_queues) {
+   185			pr_warn_ratelimited("Invalid queue %hu for packet on interface %s\n.",
+   186					    index, vif->dev->name);
+
 ---
- drivers/net/dsa/mv88e6xxx/chip.c        |  22 +------
- drivers/net/dsa/mv88e6xxx/global1.h     |   2 +
- drivers/net/dsa/mv88e6xxx/global1_atu.c | 108 ++++++++++++++++++++++++++++++++
- 3 files changed, 111 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 132bda7ca9a8..eceb9b61679e 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2047,26 +2047,6 @@ static int _mv88e6xxx_atu_mac_read(struct mv88e6xxx_chip *chip,
- 	return 0;
- }
- 
--static int _mv88e6xxx_atu_load(struct mv88e6xxx_chip *chip,
--			       struct mv88e6xxx_atu_entry *entry)
--{
--	int ret;
--
--	ret = _mv88e6xxx_atu_wait(chip);
--	if (ret < 0)
--		return ret;
--
--	ret = _mv88e6xxx_atu_mac_write(chip, entry->mac);
--	if (ret < 0)
--		return ret;
--
--	ret = _mv88e6xxx_atu_data_write(chip, entry);
--	if (ret < 0)
--		return ret;
--
--	return _mv88e6xxx_atu_cmd(chip, entry->fid, GLOBAL_ATU_OP_LOAD_DB);
--}
--
- static int _mv88e6xxx_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
- 				  struct mv88e6xxx_atu_entry *entry);
- 
-@@ -2134,7 +2114,7 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 		entry.state = state;
- 	}
- 
--	return _mv88e6xxx_atu_load(chip, &entry);
-+	return mv88e6xxx_g1_atu_loadpurge(chip, vlan.fid, &entry);
- }
- 
- static int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
-diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 18322d05225a..2c03f2e04639 100644
---- a/drivers/net/dsa/mv88e6xxx/global1.h
-+++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -41,5 +41,7 @@ int mv88e6390_g1_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
- int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all);
- int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
- 				  unsigned int msecs);
-+int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
-+			       struct mv88e6xxx_atu_entry *entry);
- 
- #endif /* _MV88E6XXX_GLOBAL1_H */
-diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-index 843a21e05f7b..09190559178b 100644
---- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
-+++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-@@ -13,6 +13,13 @@
- #include "mv88e6xxx.h"
- #include "global1.h"
- 
-+/* Offset 0x01: ATU FID Register */
-+
-+static int mv88e6xxx_g1_atu_fid_write(struct mv88e6xxx_chip *chip, u16 fid)
-+{
-+	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_FID, fid & 0xfff);
-+}
-+
- /* Offset 0x0A: ATU Control Register */
- 
- int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all)
-@@ -58,3 +65,104 @@ int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
- 
- 	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
- }
-+
-+/* Offset 0x0B: ATU Operation Register */
-+
-+static int mv88e6xxx_g1_atu_op_wait(struct mv88e6xxx_chip *chip)
-+{
-+	return mv88e6xxx_g1_wait(chip, GLOBAL_ATU_OP, GLOBAL_ATU_OP_BUSY);
-+}
-+
-+static int mv88e6xxx_g1_atu_op(struct mv88e6xxx_chip *chip, u16 fid, u16 op)
-+{
-+	u16 val;
-+	int err;
-+
-+	/* FID bits are dispatched all around gradually as more are supported */
-+	if (mv88e6xxx_num_databases(chip) > 256) {
-+		err = mv88e6xxx_g1_atu_fid_write(chip, fid);
-+		if (err)
-+			return err;
-+	} else {
-+		if (mv88e6xxx_num_databases(chip) > 16) {
-+			/* ATU DBNum[7:4] are located in ATU Control 15:12 */
-+			err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_CONTROL, &val);
-+			if (err)
-+				return err;
-+
-+			val = (val & 0x0fff) | ((fid << 8) & 0xf000);
-+			err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
-+			if (err)
-+				return err;
-+		}
-+
-+		/* ATU DBNum[3:0] are located in ATU Operation 3:0 */
-+		op |= fid & 0xf;
-+	}
-+
-+	err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_OP, op);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g1_atu_op_wait(chip);
-+}
-+
-+/* Offset 0x0C: ATU Data Register */
-+
-+static int mv88e6xxx_g1_atu_data_write(struct mv88e6xxx_chip *chip,
-+				       struct mv88e6xxx_atu_entry *entry)
-+{
-+	u16 data = entry->state & 0xf;
-+
-+	if (entry->state != GLOBAL_ATU_DATA_STATE_UNUSED) {
-+		if (entry->trunk)
-+			data |= GLOBAL_ATU_DATA_TRUNK;
-+
-+		data |= (entry->portv_trunkid & mv88e6xxx_port_mask(chip)) << 4;
-+	}
-+
-+	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_DATA, data);
-+}
-+
-+/* Offset 0x0D: ATU MAC Address Register Bytes 0 & 1
-+ * Offset 0x0E: ATU MAC Address Register Bytes 2 & 3
-+ * Offset 0x0F: ATU MAC Address Register Bytes 4 & 5
-+ */
-+
-+static int mv88e6xxx_g1_atu_mac_write(struct mv88e6xxx_chip *chip,
-+				      struct mv88e6xxx_atu_entry *entry)
-+{
-+	u16 val;
-+	int i, err;
-+
-+	for (i = 0; i < 3; i++) {
-+		val = (entry->mac[i * 2] << 8) | entry->mac[i * 2 + 1];
-+		err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_MAC_01 + i, val);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+/* Address Translation Unit operations */
-+
-+int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
-+			       struct mv88e6xxx_atu_entry *entry)
-+{
-+	int err;
-+
-+	err = mv88e6xxx_g1_atu_op_wait(chip);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g1_atu_mac_write(chip, entry);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g1_atu_data_write(chip, entry);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g1_atu_op(chip, fid, GLOBAL_ATU_OP_LOAD_DB);
-+}
--- 
-2.12.0
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
