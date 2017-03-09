@@ -1,89 +1,225 @@
 From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH v2] udp: avoid ufo handling on IP payload compression packets
-Date: Thu,  9 Mar 2017 13:56:46 +0300
-Message-ID: <1489057006-1254-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
+Subject: [PATCH net-next] tcp: rename *_sequence_number() to *_seq_and_tsoff()
+Date: Thu,  9 Mar 2017 13:53:55 +0300
+Message-ID: <1489056835-1128-1-git-send-email-alexey.kodanev@oracle.com>
+Cc: Eric Dumazet <edumazet@google.com>,
         David Miller <davem@davemloft.net>,
         Alexey Kodanev <alexey.kodanev@oracle.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:35082 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:33718 "EHLO
         aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932069AbdCIKut (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 05:50:49 -0500
+        with ESMTP id S1752625AbdCIKsA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 05:48:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit c146066ab802 ("ipv4: Don't use ufo handling on later transformed
-packets") and commit f89c56ce710a ("ipv6: Don't use ufo handling on
-later transformed packets") added a check that 'rt->dst.header_len' isn't
-zero in order to skip UFO, but it doesn't include IPcomp in transport mode
-where it equals zero.
+The functions that are returning tcp sequence number also setup
+TS offset value, so rename them to better describe their purpose.
 
-Packets, after payload compression, may not require further fragmentation,
-and if original length exceeds MTU, later compressed packets will be
-transmitted incorrectly. This can be reproduced with LTP udp_ipsec.sh test
-on veth device with enabled UFO, MTU is 1500 and UDP payload is 2000:
+No functional changes in this patch.
 
-* IPv4 case, offset is wrong + unnecessary fragmentation
-    udp_ipsec.sh -p comp -m transport -s 2000 &
-    tcpdump -ni ltp_ns_veth2
-    ...
-    IP (tos 0x0, ttl 64, id 45203, offset 0, flags [+],
-      proto Compressed IP (108), length 49)
-      10.0.0.2 > 10.0.0.1: IPComp(cpi=0x1000)
-    IP (tos 0x0, ttl 64, id 45203, offset 1480, flags [none],
-      proto UDP (17), length 21) 10.0.0.2 > 10.0.0.1: ip-proto-17
-
-* IPv6 case, sending small fragments
-    udp_ipsec.sh -6 -p comp -m transport -s 2000 &
-    tcpdump -ni ltp_ns_veth2
-    ...
-    IP6 (flowlabel 0x6b9ba, hlim 64, next-header Compressed IP (108)
-      payload length: 37) fd00::2 > fd00::1: IPComp(cpi=0x1000)
-    IP6 (flowlabel 0x6b9ba, hlim 64, next-header Compressed IP (108)
-      payload length: 21) fd00::2 > fd00::1: IPComp(cpi=0x1000)
-
-Fix it by checking 'rt->dst.xfrm' pointer to 'xfrm_state' struct, skip UFO
-if xfrm is set. So the new check will include both cases: IPcomp and IPsec.
-
-Fixes: c146066ab802 ("ipv4: Don't use ufo handling on later transformed packets")
-Fixes: f89c56ce710a ("ipv6: Don't use ufo handling on later transformed packets")
+Suggested-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
 ---
+ include/net/secure_seq.h |    6 +++---
+ include/net/tcp.h        |    2 +-
+ net/core/secure_seq.c    |   13 ++++++-------
+ net/ipv4/tcp_input.c     |    4 ++--
+ net/ipv4/tcp_ipv4.c      |   22 +++++++++++-----------
+ net/ipv6/tcp_ipv6.c      |   22 +++++++++++-----------
+ 6 files changed, 34 insertions(+), 35 deletions(-)
 
-v2: use dst_xfrm() to access xfrm_state
-
- net/ipv4/ip_output.c  |    2 +-
- net/ipv6/ip6_output.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 737ce82..7a3fd25 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -966,7 +966,7 @@ static int __ip_append_data(struct sock *sk,
- 	cork->length += length;
- 	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
--	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
-+	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
- 	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
- 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
- 					 hh_len, fragheaderlen, transhdrlen,
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 528b3c1..df42096 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1385,7 +1385,7 @@ static int __ip6_append_data(struct sock *sk,
- 	if ((((length + fragheaderlen) > mtu) ||
- 	     (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
--	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
-+	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
- 	    (sk->sk_type == SOCK_DGRAM) && !udp_get_no_check6_tx(sk)) {
- 		err = ip6_ufo_append_data(sk, queue, getfrag, from, length,
- 					  hh_len, fragheaderlen, exthdrlen,
+diff --git a/include/net/secure_seq.h b/include/net/secure_seq.h
+index 0caee63..fe236b3 100644
+--- a/include/net/secure_seq.h
++++ b/include/net/secure_seq.h
+@@ -6,10 +6,10 @@
+ u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport);
+ u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+ 			       __be16 dport);
+-u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
++u32 secure_tcp_seq_and_tsoff(__be32 saddr, __be32 daddr,
++			     __be16 sport, __be16 dport, u32 *tsoff);
++u32 secure_tcpv6_seq_and_tsoff(const __be32 *saddr, const __be32 *daddr,
+ 			       __be16 sport, __be16 dport, u32 *tsoff);
+-u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+-				 __be16 sport, __be16 dport, u32 *tsoff);
+ u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
+ 				__be16 sport, __be16 dport);
+ u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 6ec4ea6..bede8f7 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1816,7 +1816,7 @@ struct tcp_request_sock_ops {
+ 	struct dst_entry *(*route_req)(const struct sock *sk, struct flowi *fl,
+ 				       const struct request_sock *req,
+ 				       bool *strict);
+-	__u32 (*init_seq)(const struct sk_buff *skb, u32 *tsoff);
++	__u32 (*init_seq_tsoff)(const struct sk_buff *skb, u32 *tsoff);
+ 	int (*send_synack)(const struct sock *sk, struct dst_entry *dst,
+ 			   struct flowi *fl, struct request_sock *req,
+ 			   struct tcp_fastopen_cookie *foc,
+diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+index 758f140..fb87e78 100644
+--- a/net/core/secure_seq.c
++++ b/net/core/secure_seq.c
+@@ -45,8 +45,8 @@ static u32 seq_scale(u32 seq)
+ #endif
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+-u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+-				 __be16 sport, __be16 dport, u32 *tsoff)
++u32 secure_tcpv6_seq_and_tsoff(const __be32 *saddr, const __be32 *daddr,
++			       __be16 sport, __be16 dport, u32 *tsoff)
+ {
+ 	const struct {
+ 		struct in6_addr saddr;
+@@ -66,7 +66,7 @@ u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+ 	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
+ 	return seq_scale(hash);
+ }
+-EXPORT_SYMBOL(secure_tcpv6_sequence_number);
++EXPORT_SYMBOL(secure_tcpv6_seq_and_tsoff);
+ 
+ u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+ 			       __be16 dport)
+@@ -89,14 +89,13 @@ u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+ 
+ #ifdef CONFIG_INET
+ 
+-/* secure_tcp_sequence_number(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
++/* secure_tcp_seq_and_tsoff(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
+  * but fortunately, `sport' cannot be 0 in any circumstances. If this changes,
+  * it would be easy enough to have the former function use siphash_4u32, passing
+  * the arguments as separate u32.
+  */
+-
+-u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+-			       __be16 sport, __be16 dport, u32 *tsoff)
++u32 secure_tcp_seq_and_tsoff(__be32 saddr, __be32 daddr,
++			     __be16 sport, __be16 dport, u32 *tsoff)
+ {
+ 	u64 hash;
+ 	net_secret_init();
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 39c393c..96b67a8 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6324,7 +6324,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 		goto drop_and_free;
+ 
+ 	if (isn && tmp_opt.tstamp_ok)
+-		af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
++		af_ops->init_seq_tsoff(skb, &tcp_rsk(req)->ts_off);
+ 
+ 	if (!want_cookie && !isn) {
+ 		/* VJ's idea. We save last timestamp seen
+@@ -6366,7 +6366,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 			goto drop_and_release;
+ 		}
+ 
+-		isn = af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
++		isn = af_ops->init_seq_tsoff(skb, &tcp_rsk(req)->ts_off);
+ 	}
+ 	if (!dst) {
+ 		dst = af_ops->route_req(sk, &fl, req, NULL);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 9a89b8d..7b332ed 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -94,12 +94,12 @@ static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
+ struct inet_hashinfo tcp_hashinfo;
+ EXPORT_SYMBOL(tcp_hashinfo);
+ 
+-static u32 tcp_v4_init_sequence(const struct sk_buff *skb, u32 *tsoff)
++static u32 tcp_v4_init_seq_and_tsoff(const struct sk_buff *skb, u32 *tsoff)
+ {
+-	return secure_tcp_sequence_number(ip_hdr(skb)->daddr,
+-					  ip_hdr(skb)->saddr,
+-					  tcp_hdr(skb)->dest,
+-					  tcp_hdr(skb)->source, tsoff);
++	return secure_tcp_seq_and_tsoff(ip_hdr(skb)->daddr,
++					ip_hdr(skb)->saddr,
++					tcp_hdr(skb)->dest,
++					tcp_hdr(skb)->source, tsoff);
+ }
+ 
+ int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
+@@ -236,11 +236,11 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	rt = NULL;
+ 
+ 	if (likely(!tp->repair)) {
+-		seq = secure_tcp_sequence_number(inet->inet_saddr,
+-						 inet->inet_daddr,
+-						 inet->inet_sport,
+-						 usin->sin_port,
+-						 &tp->tsoffset);
++		seq = secure_tcp_seq_and_tsoff(inet->inet_saddr,
++					       inet->inet_daddr,
++					       inet->inet_sport,
++					       usin->sin_port,
++					       &tp->tsoffset);
+ 		if (!tp->write_seq)
+ 			tp->write_seq = seq;
+ 	}
+@@ -1249,7 +1249,7 @@ struct request_sock_ops tcp_request_sock_ops __read_mostly = {
+ 	.cookie_init_seq =	cookie_v4_init_sequence,
+ #endif
+ 	.route_req	=	tcp_v4_route_req,
+-	.init_seq	=	tcp_v4_init_sequence,
++	.init_seq_tsoff	=	tcp_v4_init_seq_and_tsoff,
+ 	.send_synack	=	tcp_v4_send_synack,
+ };
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 60a5295..56f742f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -101,12 +101,12 @@ static void inet6_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
+ 	}
+ }
+ 
+-static u32 tcp_v6_init_sequence(const struct sk_buff *skb, u32 *tsoff)
++static u32 tcp_v6_init_seq_and_tsoff(const struct sk_buff *skb, u32 *tsoff)
+ {
+-	return secure_tcpv6_sequence_number(ipv6_hdr(skb)->daddr.s6_addr32,
+-					    ipv6_hdr(skb)->saddr.s6_addr32,
+-					    tcp_hdr(skb)->dest,
+-					    tcp_hdr(skb)->source, tsoff);
++	return secure_tcpv6_seq_and_tsoff(ipv6_hdr(skb)->daddr.s6_addr32,
++					  ipv6_hdr(skb)->saddr.s6_addr32,
++					  tcp_hdr(skb)->dest,
++					  tcp_hdr(skb)->source, tsoff);
+ }
+ 
+ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+@@ -287,11 +287,11 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 	sk_set_txhash(sk);
+ 
+ 	if (likely(!tp->repair)) {
+-		seq = secure_tcpv6_sequence_number(np->saddr.s6_addr32,
+-						   sk->sk_v6_daddr.s6_addr32,
+-						   inet->inet_sport,
+-						   inet->inet_dport,
+-						   &tp->tsoffset);
++		seq = secure_tcpv6_seq_and_tsoff(np->saddr.s6_addr32,
++						 sk->sk_v6_daddr.s6_addr32,
++						 inet->inet_sport,
++						 inet->inet_dport,
++						 &tp->tsoffset);
+ 		if (!tp->write_seq)
+ 			tp->write_seq = seq;
+ 	}
+@@ -755,7 +755,7 @@ struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
+ 	.cookie_init_seq =	cookie_v6_init_sequence,
+ #endif
+ 	.route_req	=	tcp_v6_route_req,
+-	.init_seq	=	tcp_v6_init_sequence,
++	.init_seq_tsoff	=	tcp_v6_init_seq_and_tsoff,
+ 	.send_synack	=	tcp_v6_send_synack,
+ };
+ 
 -- 
 1.7.1
