@@ -1,56 +1,36 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH v4 net-next 00/13] mlx4: order-0 allocations and page
- recycling
-Date: Thu, 9 Mar 2017 17:53:18 +0200
-Message-ID: <f15e06c4-719a-8c61-e893-16364e261d46@mellanox.com>
-References: <20170308161718.2867-1-edumazet@google.com>
- <e762e84a-07eb-428d-cb48-643fd4516cec@mellanox.com>
- <CANn89iLxDVfBs8FK9gXx0jj6CZGsFprDLfWjBUNeR3gKs-6=YQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] man: ss.8: Add missing protocols to description of -A
+Date: Thu,  9 Mar 2017 17:07:33 +0100
+Message-ID: <20170309160733.9171-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0059.outbound.protection.outlook.com ([104.47.2.59]:57504
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932497AbdCIPx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 10:53:28 -0500
-In-Reply-To: <CANn89iLxDVfBs8FK9gXx0jj6CZGsFprDLfWjBUNeR3gKs-6=YQ@mail.gmail.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:58803 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753861AbdCIQI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 11:08:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The list was missing dccp and sctp protocols.
 
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ man/man8/ss.8 | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On 09/03/2017 4:26 PM, Eric Dumazet wrote:
-> On Thu, Mar 9, 2017 at 5:49 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
->
->> Hi Eric,
->>
->> I was preparing this series for submission as well.
->> You got it done first :)
->>
->> Thanks for re-submitting.
->> I am Acking the patches now.
->
-> I believe you also could have added a single Ack on this cover,
-> instead of one ack per element in the series.
-
-I wasn't sure this is possible, I think patchworks doesn't recognize it.
-Dave, does this work?
-
->
-> David can you tell us if this is true ?
->
-> Thanks Tariq !
->
-
-You're welcome.
+diff --git a/man/man8/ss.8 b/man/man8/ss.8
+index 4ef11523b4268..81de69de8042e 100644
+--- a/man/man8/ss.8
++++ b/man/man8/ss.8
+@@ -132,7 +132,7 @@ Currently the following families are supported: unix, inet, inet6, link, netlink
+ .B \-A QUERY, \-\-query=QUERY, \-\-socket=QUERY
+ List of socket tables to dump, separated by commas. The following identifiers
+ are understood: all, inet, tcp, udp, raw, unix, packet, netlink, unix_dgram,
+-unix_stream, unix_seqpacket, packet_raw, packet_dgram.
++unix_stream, unix_seqpacket, packet_raw, packet_dgram, dccp, sctp.
+ .TP
+ .B \-D FILE, \-\-diag=FILE
+ Do not display anything, just dump raw information about TCP sockets to FILE after applying filters. If FILE is - stdout is used.
+-- 
+2.11.0
