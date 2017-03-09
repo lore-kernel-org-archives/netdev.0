@@ -1,31 +1,61 @@
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/5] rds: ib: replace spin_lock_irq with spin_lock_irqsave
-Date: Thu, 9 Mar 2017 08:50:14 -0800
-Message-ID: <65ac3de8-9fdd-b5c5-b7aa-aa4393626551@oracle.com>
-References: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
- <1489044405-26150-2-git-send-email-yanjun.zhu@oracle.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCHv2 3/5] rds: ib: remove redundant ib_dealloc_fmr
+Date: Thu, 9 Mar 2017 08:51:59 -0800
+Message-ID: <d64b4593-7ada-88a0-6151-65e87ba43ec6@oracle.com>
+References: <cffc93fa-f4e6-e61e-54c6-67d6501dd78c@suse.de>
+ <1489051243-27108-1-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1489044405-26150-2-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Zhu Yanjun <yanjun.zhu@oracle.com>, jthumshirn@suse.de,
+        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        rds-devel@oss.oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1050.oracle.com ([156.151.31.82]:30756 "EHLO
+        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754776AbdCIQya (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 11:54:30 -0500
+In-Reply-To: <1489051243-27108-1-git-send-email-yanjun.zhu@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/8/2017 11:26 PM, Zhu Yanjun wrote:
-> It is difficult to make sure the state of the interrupt when this
-> function is called. As such, it is safer to use spin_lock_irqsave
-> than spin_lock_irq.
+On 3/9/2017 1:20 AM, Zhu Yanjun wrote:
+> The function ib_dealloc_fmr will never be called. As such, it should
+> be removed.
 >
-There is no reason to hold irqs  and as such the code path is
-safe from irq context. I don't see need of this change unless
-you have test case which showed some issue.
+> Cc: Joe Jin <joe.jin@oracle.com>
+> Cc: Junxiao Bi <junxiao.bi@oracle.com>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+> ---
+> Change from v1 to v2:
+>   remove ibmr NULL test.
+>
+While posting updates, please post entire series and also
+give some time between two posts.
 
-Regards,
-Santosh
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+>  net/rds/ib_fmr.c | 7 ++-----
+>  1 file changed, 2 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
+> index 4fe8f4f..249ae1c 100644
+> --- a/net/rds/ib_fmr.c
+> +++ b/net/rds/ib_fmr.c
+> @@ -78,12 +78,9 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
+>  	return ibmr;
+>
+>  out_no_cigar:
+> -	if (ibmr) {
+> -		if (fmr->fmr)
+> -			ib_dealloc_fmr(fmr->fmr);
+> -		kfree(ibmr);
+> -	}
+> +	kfree(ibmr);
+>  	atomic_dec(&pool->item_count);
+> +
+No need of the extra line here.
+
+>  	return ERR_PTR(err);
+>  }
+>
+>
