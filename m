@@ -1,152 +1,135 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net-next 2/7] sctp: implement receiver-side procedures for the SSN/TSN Reset Request Parameter
-Date: Fri, 10 Mar 2017 12:11:07 +0800
-Message-ID: <f224235b4621ea3a182e959873f6fe0ba78e5416.1489118815.git.lucien.xin@gmail.com>
+Subject: [PATCHv2 net-next 3/7] sctp: add support for generating add stream change event notification
+Date: Fri, 10 Mar 2017 12:11:08 +0800
+Message-ID: <70b0da1e9de612702d0ddcdeab67e56b6d11fd78.1489118815.git.lucien.xin@gmail.com>
 References: <cover.1489118815.git.lucien.xin@gmail.com>
  <7bf94990cf77044e0286adc2f393af4c9010213c.1489118815.git.lucien.xin@gmail.com>
+ <f224235b4621ea3a182e959873f6fe0ba78e5416.1489118815.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35689 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753202AbdCJELi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 23:11:38 -0500
-In-Reply-To: <7bf94990cf77044e0286adc2f393af4c9010213c.1489118815.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36592 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753926AbdCJELq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 23:11:46 -0500
+In-Reply-To: <f224235b4621ea3a182e959873f6fe0ba78e5416.1489118815.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1489118815.git.lucien.xin@gmail.com>
 References: <cover.1489118815.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to implement Receiver-Side Procedures for the SSN/TSN
-Reset Request Parameter described in rfc6525 section 6.2.4.
-
-The process is kind of complicate, it's wonth having some comments
-from section 6.2.4 in the codes.
+This patch is to add Stream Change Event described in rfc6525
+section 6.1.3.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/sm.h   |  4 +++
- net/sctp/sm_statefuns.c |  3 ++
- net/sctp/stream.c       | 79 +++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 86 insertions(+)
+ include/net/sctp/ulpevent.h |  4 ++++
+ include/uapi/linux/sctp.h   | 15 +++++++++++++++
+ net/sctp/ulpevent.c         | 28 ++++++++++++++++++++++++++++
+ 3 files changed, 47 insertions(+)
 
-diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-index b6f682e..2629d66 100644
---- a/include/net/sctp/sm.h
-+++ b/include/net/sctp/sm.h
-@@ -293,6 +293,10 @@ struct sctp_chunk *sctp_process_strreset_inreq(
- 				struct sctp_association *asoc,
- 				union sctp_params param,
- 				struct sctp_ulpevent **evp);
-+struct sctp_chunk *sctp_process_strreset_tsnreq(
-+				struct sctp_association *asoc,
-+				union sctp_params param,
-+				struct sctp_ulpevent **evp);
+diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
+index 2ab7ed4..1060494 100644
+--- a/include/net/sctp/ulpevent.h
++++ b/include/net/sctp/ulpevent.h
+@@ -136,6 +136,10 @@ struct sctp_ulpevent *sctp_ulpevent_make_assoc_reset_event(
+ 	const struct sctp_association *asoc, __u16 flags,
+ 	 __u32 local_tsn, __u32 remote_tsn, gfp_t gfp);
  
- /* Prototypes for statetable processing. */
++struct sctp_ulpevent *sctp_ulpevent_make_stream_change_event(
++	const struct sctp_association *asoc, __u16 flags,
++	__u32 strchange_instrms, __u32 strchange_outstrms, gfp_t gfp);
++
+ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
+ 				   struct msghdr *);
+ void sctp_ulpevent_read_rcvinfo(const struct sctp_ulpevent *event,
+diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+index 7735829..fd652e6 100644
+--- a/include/uapi/linux/sctp.h
++++ b/include/uapi/linux/sctp.h
+@@ -513,6 +513,17 @@ struct sctp_assoc_reset_event {
+ 	__u32 assocreset_remote_tsn;
+ };
  
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index e03bb1a..6982064 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3872,6 +3872,9 @@ sctp_disposition_t sctp_sf_do_reconf(struct net *net,
- 		else if (param.p->type == SCTP_PARAM_RESET_IN_REQUEST)
- 			reply = sctp_process_strreset_inreq(
- 				(struct sctp_association *)asoc, param, &ev);
-+		else if (param.p->type == SCTP_PARAM_RESET_TSN_REQUEST)
-+			reply = sctp_process_strreset_tsnreq(
-+				(struct sctp_association *)asoc, param, &ev);
- 		/* More handles for other types will be added here, by now it
- 		 * just ignores other types.
- 		 */
-diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-index 1c6cc04..7e993b0 100644
---- a/net/sctp/stream.c
-+++ b/net/sctp/stream.c
-@@ -477,3 +477,82 @@ struct sctp_chunk *sctp_process_strreset_inreq(
++#define SCTP_ASSOC_CHANGE_DENIED	0x0004
++#define SCTP_ASSOC_CHANGE_FAILED	0x0008
++struct sctp_stream_change_event {
++	__u16 strchange_type;
++	__u16 strchange_flags;
++	__u32 strchange_length;
++	sctp_assoc_t strchange_assoc_id;
++	__u16 strchange_instrms;
++	__u16 strchange_outstrms;
++};
++
+ /*
+  * Described in Section 7.3
+  *   Ancillary Data and Notification Interest Options
+@@ -530,6 +541,7 @@ struct sctp_event_subscribe {
+ 	__u8 sctp_sender_dry_event;
+ 	__u8 sctp_stream_reset_event;
+ 	__u8 sctp_assoc_reset_event;
++	__u8 sctp_stream_change_event;
+ };
  
- 	return chunk;
+ /*
+@@ -556,6 +568,7 @@ union sctp_notification {
+ 	struct sctp_sender_dry_event sn_sender_dry_event;
+ 	struct sctp_stream_reset_event sn_strreset_event;
+ 	struct sctp_assoc_reset_event sn_assocreset_event;
++	struct sctp_stream_change_event sn_strchange_event;
+ };
+ 
+ /* Section 5.3.1
+@@ -587,6 +600,8 @@ enum sctp_sn_type {
+ #define SCTP_STREAM_RESET_EVENT		SCTP_STREAM_RESET_EVENT
+ 	SCTP_ASSOC_RESET_EVENT,
+ #define SCTP_ASSOC_RESET_EVENT		SCTP_ASSOC_RESET_EVENT
++	SCTP_STREAM_CHANGE_EVENT,
++#define SCTP_STREAM_CHANGE_EVENT	SCTP_STREAM_CHANGE_EVENT
+ };
+ 
+ /* Notification error codes used to fill up the error fields in some
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index 420d7f3..ec2b3e0 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -911,6 +911,34 @@ struct sctp_ulpevent *sctp_ulpevent_make_assoc_reset_event(
+ 	return event;
  }
-+
-+struct sctp_chunk *sctp_process_strreset_tsnreq(
-+				struct sctp_association *asoc,
-+				union sctp_params param,
-+				struct sctp_ulpevent **evp)
+ 
++struct sctp_ulpevent *sctp_ulpevent_make_stream_change_event(
++	const struct sctp_association *asoc, __u16 flags,
++	__u32 strchange_instrms, __u32 strchange_outstrms, gfp_t gfp)
 +{
-+	__u32 init_tsn = 0, next_tsn = 0, max_tsn_seen;
-+	struct sctp_strreset_tsnreq *tsnreq = param.v;
-+	struct sctp_stream *stream = asoc->stream;
-+	__u32 result = SCTP_STRRESET_DENIED;
-+	__u32 request_seq;
-+	__u16 i;
++	struct sctp_stream_change_event *schange;
++	struct sctp_ulpevent *event;
++	struct sk_buff *skb;
 +
-+	request_seq = ntohl(tsnreq->request_seq);
-+	if (request_seq > asoc->strreset_inseq) {
-+		result = SCTP_STRRESET_ERR_BAD_SEQNO;
-+		goto out;
-+	} else if (request_seq == asoc->strreset_inseq) {
-+		asoc->strreset_inseq++;
-+	}
++	event = sctp_ulpevent_new(sizeof(struct sctp_stream_change_event),
++				  MSG_NOTIFICATION, gfp);
++	if (!event)
++		return NULL;
 +
-+	if (!(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
-+		goto out;
++	skb = sctp_event2skb(event);
++	schange = (struct sctp_stream_change_event *)
++		skb_put(skb, sizeof(struct sctp_stream_change_event));
 +
-+	if (asoc->strreset_outstanding) {
-+		result = SCTP_STRRESET_ERR_IN_PROGRESS;
-+		goto out;
-+	}
++	schange->strchange_type = SCTP_STREAM_CHANGE_EVENT;
++	schange->strchange_flags = flags;
++	schange->strchange_length = sizeof(struct sctp_stream_change_event);
++	sctp_ulpevent_set_owner(event, asoc);
++	schange->strchange_assoc_id = sctp_assoc2id(asoc);
++	schange->strchange_instrms = strchange_instrms;
++	schange->strchange_outstrms = strchange_outstrms;
 +
-+	/* G3: The same processing as though a SACK chunk with no gap report
-+	 *     and a cumulative TSN ACK of the Sender's Next TSN minus 1 were
-+	 *     received MUST be performed.
-+	 */
-+	max_tsn_seen = sctp_tsnmap_get_max_tsn_seen(&asoc->peer.tsn_map);
-+	sctp_ulpq_reasm_flushtsn(&asoc->ulpq, max_tsn_seen);
-+	sctp_ulpq_abort_pd(&asoc->ulpq, GFP_ATOMIC);
-+
-+	/* G1: Compute an appropriate value for the Receiver's Next TSN -- the
-+	 *     TSN that the peer should use to send the next DATA chunk.  The
-+	 *     value SHOULD be the smallest TSN not acknowledged by the
-+	 *     receiver of the request plus 2^31.
-+	 */
-+	init_tsn = sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + (1 << 31);
-+	sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
-+			 init_tsn, GFP_ATOMIC);
-+
-+	/* G4: The same processing as though a FWD-TSN chunk (as defined in
-+	 *     [RFC3758]) with all streams affected and a new cumulative TSN
-+	 *     ACK of the Receiver's Next TSN minus 1 were received MUST be
-+	 *     performed.
-+	 */
-+	sctp_outq_free(&asoc->outqueue);
-+
-+	/* G2: Compute an appropriate value for the local endpoint's next TSN,
-+	 *     i.e., the next TSN assigned by the receiver of the SSN/TSN reset
-+	 *     chunk.  The value SHOULD be the highest TSN sent by the receiver
-+	 *     of the request plus 1.
-+	 */
-+	next_tsn = asoc->next_tsn;
-+	asoc->ctsn_ack_point = next_tsn - 1;
-+	asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
-+
-+	/* G5:  The next expected and outgoing SSNs MUST be reset to 0 for all
-+	 *      incoming and outgoing streams.
-+	 */
-+	for (i = 0; i < stream->outcnt; i++)
-+		stream->out[i].ssn = 0;
-+	for (i = 0; i < stream->incnt; i++)
-+		stream->in[i].ssn = 0;
-+
-+	result = SCTP_STRRESET_PERFORMED;
-+
-+	*evp = sctp_ulpevent_make_assoc_reset_event(asoc, 0, init_tsn,
-+						    next_tsn, GFP_ATOMIC);
-+
-+out:
-+	return sctp_make_strreset_tsnresp(asoc, result, request_seq,
-+					  next_tsn, init_tsn);
++	return event;
 +}
++
+ /* Return the notification type, assuming this is a notification
+  * event.
+  */
 -- 
 2.1.0
