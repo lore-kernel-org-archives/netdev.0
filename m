@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/5] Mellanox mlx5 fixes 2017-03-09
-Date: Fri, 10 Mar 2017 10:03:43 -0800 (PST)
-Message-ID: <20170310.100343.399238422766007828.davem@davemloft.net>
-References: <20170310123305.2185-1-saeedm@mellanox.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: amd-xgbe: unbalanced irq enable in v4.11-rc1
+Date: Fri, 10 Mar 2017 18:04:34 +0000
+Message-ID: <20170310180434.GC24571@leverpostej>
+References: <20170310171953.GA24571@leverpostej>
+ <6ded1511-af84-e406-7e86-dd84972c451d@amd.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60238 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755430AbdCJSDq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:03:46 -0500
-In-Reply-To: <20170310123305.2185-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>
+To: Tom Lendacky <thomas.lendacky@amd.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <6ded1511-af84-e406-7e86-dd84972c451d@amd.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Fri, 10 Mar 2017 14:33:00 +0200
-
-> This series contains some mlx5 core and ethernet driver fixes.
+On Fri, Mar 10, 2017 at 11:39:42AM -0600, Tom Lendacky wrote:
+> On 3/10/2017 11:19 AM, Mark Rutland wrote:
+> >Hi,
+> >
+> >I'm seeing the below splat when transferring data over the network, using
+> >v4.11-rc1 on an AMD Seattle platform. I don't see the splat with v4.10.
+> >
+> >Looking at just the driver, I couldn't see any suspicious changes. Reverting
+> >commit 402168b4c2dc0734 ("amd-xgbe: Stop the PHY before releasing interrupts")
+> >doesn't change matters.
+> >
+> >Any ideas?
 > 
-> For -stable:
-> net/mlx5e: remove IEEE/CEE mode check when setting DCBX mode (for kernel >= 4.10)
-> net/mlx5e: Avoid wrong identification of rules on deletion (for kernel >= 4.9)
-> net/mlx5: Don't save PCI state when PCI error is detected (for kernel >= 4.9)
-> net/mlx5: Fix create autogroup prev initializer (for kernel >=4.9)
+> Yes, patch submitted.  Please see:
+> 
+> 	http://marc.info/?l=linux-netdev&m=148910333810442&w=2
 
-Series applied, thanks.
+Ah, thanks for the pointer!
+
+That appears to solve the issue for me.
+
+Thanks,
+Mark.
