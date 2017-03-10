@@ -1,95 +1,176 @@
-From: Pavel Belous <pavel.belous@aquantia.com>
-Subject: Re: [PATCH v2] net: ethernet: aquantia: set net_device mtu when mtu
- is changed
-Date: Sat, 11 Mar 2017 00:19:55 +0300
-Message-ID: <279a67c4-a27a-e3b6-08b5-0e0a12abbbde@aquantia.com>
-References: <1489093426-25733-1-git-send-email-darcari@redhat.com>
- <285b77bc-f7d1-9ad6-1bc6-639f13ff9b83@gmx.de> <58C2BC9B.6040907@redhat.com>
+From: Igor Druzhinin <igor.druzhinin@citrix.com>
+Subject: [PATCH net v4] xen-netback: fix race condition on XenBus disconnect
+Date: Fri, 10 Mar 2017 21:36:22 +0000
+Message-ID: <1489181782-120847-1-git-send-email-igor.druzhinin@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Arcari <darcari@redhat.com>,
-        Lino Sanfilippo <LinoSanfilippo@gmx.de>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <paul.durrant@citrix.com>, <jgross@suse.com>,
+        <wei.liu2@citrix.com>, Igor Druzhinin <igor.druzhinin@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0055.outbound.protection.outlook.com ([104.47.40.55]:7264
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754391AbdCJVUv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 10 Mar 2017 16:20:51 -0500
-In-Reply-To: <58C2BC9B.6040907@redhat.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:50111 "EHLO
+        SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933374AbdCJVho (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 16:37:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In some cases during XenBus disconnect event handling and subsequent
+queue resource release there may be some TX handlers active on
+other processors. Use RCU in order to synchronize with them.
 
+Signed-off-by: Igor Druzhinin <igor.druzhinin@citrix.com>
+---
+v4:
+ * Use READ_ONCE instead of rcu_dereference to stop sparse complaining
 
-On 10.03.2017 17:47, David Arcari wrote:
-> Hi,
->
-> On 03/09/2017 05:43 PM, Lino Sanfilippo wrote:
->> Hi,
->>
->> On 09.03.2017 22:03, David Arcari wrote:
->>> When the aquantia device mtu is changed the net_device structure is not
->>> updated.  As a result the ip command does not properly reflect the mtu change.
->>>
->>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
->>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
->>> has a ndo_change_mtu routine.
->>>
->>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
->>>
->>> v2: no longer close/open net-device after mtu change
->>>
->>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
->>> Signed-off-by: David Arcari <darcari@redhat.com>
->>> ---
->>>  drivers/net/ethernet/aquantia/atlantic/aq_main.c | 10 ++--------
->>>  1 file changed, 2 insertions(+), 8 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
->>> index dad6362..bba5ebd 100644
->>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
->>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
->>> @@ -96,15 +96,9 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
->>>  	struct aq_nic_s *aq_nic = netdev_priv(ndev);
->>>  	int err = aq_nic_set_mtu(aq_nic, new_mtu + ETH_HLEN);
->>>
->>> -	if (err < 0)
->>> -		goto err_exit;
->>> +	if (!err)
->>> +		ndev->mtu = new_mtu;
->>>
->>> -	if (netif_running(ndev)) {
->>> -		aq_ndev_close(ndev);
->>> -		aq_ndev_open(ndev);
->>> -	}
->>> -
->>> -err_exit:
->>
->> Removing the restart has nothing to do with the bug you want to fix here, has it?
->> I suggest to send a separate patch for this.
->>
->> Regards,
->> Lino
->>
->
-> I'm fine with that.  Pavel does that work for you?
->
-> It would mean that the original version of this patch should be applied and
-> either you or I could send the follow-up patch.
->
-> Best,
->
-> -Dave
->
+v3:
+ * Fix unintended semantic change in xenvif_get_ethtool_stats
+ * Dropped extra code
 
-David,
+v2:
+ * Add protection for xenvif_get_ethtool_stats
+ * Additional comments and fixes
+---
+ drivers/net/xen-netback/interface.c | 26 +++++++++++++++++---------
+ drivers/net/xen-netback/netback.c   |  2 +-
+ drivers/net/xen-netback/xenbus.c    | 20 ++++++++++----------
+ 3 files changed, 28 insertions(+), 20 deletions(-)
 
-Yes, I think for this it is better to make separate patch.
-I can prepare a patch for "close/open netdev" myself.
-
-Probably you need send the original version of this patch as "v3" (I'm 
-no sure what it is possible to discard v2 and apply v1 instead.)
-
-Thank you,
-Pavel
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 829b26c..8397f6c 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -165,13 +165,17 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = vif->num_queues;
++	unsigned int num_queues;
+ 	u16 index;
+ 	struct xenvif_rx_cb *cb;
+ 
+ 	BUG_ON(skb->dev != dev);
+ 
+-	/* Drop the packet if queues are not set up */
++	/* Drop the packet if queues are not set up.
++	 * This handler should be called inside an RCU read section
++	 * so we don't need to enter it here explicitly.
++	 */
++	num_queues = READ_ONCE(vif->num_queues);
+ 	if (num_queues < 1)
+ 		goto drop;
+ 
+@@ -222,18 +226,18 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	struct xenvif_queue *queue = NULL;
++	unsigned int num_queues;
+ 	u64 rx_bytes = 0;
+ 	u64 rx_packets = 0;
+ 	u64 tx_bytes = 0;
+ 	u64 tx_packets = 0;
+ 	unsigned int index;
+ 
+-	spin_lock(&vif->lock);
+-	if (vif->queues == NULL)
+-		goto out;
++	rcu_read_lock();
++	num_queues = READ_ONCE(vif->num_queues);
+ 
+ 	/* Aggregate tx and rx stats from each queue */
+-	for (index = 0; index < vif->num_queues; ++index) {
++	for (index = 0; index < num_queues; ++index) {
+ 		queue = &vif->queues[index];
+ 		rx_bytes += queue->stats.rx_bytes;
+ 		rx_packets += queue->stats.rx_packets;
+@@ -241,8 +245,7 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
+ 		tx_packets += queue->stats.tx_packets;
+ 	}
+ 
+-out:
+-	spin_unlock(&vif->lock);
++	rcu_read_unlock();
+ 
+ 	vif->dev->stats.rx_bytes = rx_bytes;
+ 	vif->dev->stats.rx_packets = rx_packets;
+@@ -378,10 +381,13 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
+ 				     struct ethtool_stats *stats, u64 * data)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+-	unsigned int num_queues = vif->num_queues;
++	unsigned int num_queues;
+ 	int i;
+ 	unsigned int queue_index;
+ 
++	rcu_read_lock();
++	num_queues = READ_ONCE(vif->num_queues);
++
+ 	for (i = 0; i < ARRAY_SIZE(xenvif_stats); i++) {
+ 		unsigned long accum = 0;
+ 		for (queue_index = 0; queue_index < num_queues; ++queue_index) {
+@@ -390,6 +396,8 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
+ 		}
+ 		data[i] = accum;
+ 	}
++
++	rcu_read_unlock();
+ }
+ 
+ static void xenvif_get_strings(struct net_device *dev, u32 stringset, u8 * data)
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f9bcf4a..602d408 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -214,7 +214,7 @@ static void xenvif_fatal_tx_err(struct xenvif *vif)
+ 	netdev_err(vif->dev, "fatal error; disabling device\n");
+ 	vif->disabled = true;
+ 	/* Disable the vif from queue 0's kthread */
+-	if (vif->queues)
++	if (vif->num_queues)
+ 		xenvif_kick_thread(&vif->queues[0]);
+ }
+ 
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index d2d7cd9..a56d3ea 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -495,26 +495,26 @@ static void backend_disconnect(struct backend_info *be)
+ 	struct xenvif *vif = be->vif;
+ 
+ 	if (vif) {
++		unsigned int num_queues = vif->num_queues;
+ 		unsigned int queue_index;
+-		struct xenvif_queue *queues;
+ 
+ 		xen_unregister_watchers(vif);
+ #ifdef CONFIG_DEBUG_FS
+ 		xenvif_debugfs_delif(vif);
+ #endif /* CONFIG_DEBUG_FS */
+ 		xenvif_disconnect_data(vif);
+-		for (queue_index = 0;
+-		     queue_index < vif->num_queues;
+-		     ++queue_index)
+-			xenvif_deinit_queue(&vif->queues[queue_index]);
+ 
+-		spin_lock(&vif->lock);
+-		queues = vif->queues;
++		/* At this point some of the handlers may still be active
++		 * so we need to have additional synchronization here.
++		 */
+ 		vif->num_queues = 0;
+-		vif->queues = NULL;
+-		spin_unlock(&vif->lock);
++		synchronize_net();
+ 
+-		vfree(queues);
++		for (queue_index = 0; queue_index < num_queues; ++queue_index)
++			xenvif_deinit_queue(&vif->queues[queue_index]);
++
++		vfree(vif->queues);
++		vif->queues = NULL;
+ 
+ 		xenvif_disconnect_ctrl(vif);
+ 	}
+-- 
+1.8.3.1
