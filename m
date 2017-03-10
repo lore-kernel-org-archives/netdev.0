@@ -1,41 +1,73 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next 2/2] ipv4: fib: Remove redundant argument
-Date: Fri, 10 Mar 2017 09:31:52 -0700
-Message-ID: <bc7fb239-48f4-9f3c-9fb0-83276a8c4648@cumulusnetworks.com>
-References: <1489132579-12664-1-git-send-email-jiri@resnulli.us>
- <1489132579-12664-3-git-send-email-jiri@resnulli.us>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH net] amd-xgbe: Enable IRQs only if napi_complete_done() is
+ true
+Date: Fri, 10 Mar 2017 10:33:22 -0600
+Message-ID: <3e8765da-19ee-c320-0ddb-7fe3b585607f@arm.com>
+References: <20170309234823.11010.87592.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        ivecera@redhat.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+To: Tom Lendacky <thomas.lendacky@amd.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:34162 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751316AbdCJQcB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 11:32:01 -0500
-Received: by mail-pg0-f48.google.com with SMTP id 77so40519145pgc.1
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 08:31:55 -0800 (PST)
-In-Reply-To: <1489132579-12664-3-git-send-email-jiri@resnulli.us>
+Received: from foss.arm.com ([217.140.101.70]:60164 "EHLO foss.arm.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755252AbdCJQdn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 10 Mar 2017 11:33:43 -0500
+In-Reply-To: <20170309234823.11010.87592.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/10/17 12:56 AM, Jiri Pirko wrote:
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> We always pass the same event type to fib_notify() and
-> fib_rules_notify(), so we can safely drop this argument.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/net/ip_fib.h    |  9 +++------
->  net/ipv4/fib_notifier.c |  4 ++--
->  net/ipv4/fib_rules.c    |  5 ++---
->  net/ipv4/fib_trie.c     | 15 ++++++---------
->  4 files changed, 13 insertions(+), 20 deletions(-)
-> 
+On 03/09/2017 05:48 PM, Tom Lendacky wrote:
+> Depending on the hardware, the amd-xgbe driver may use disable_irq_nosync()
+> and enable_irq() when an interrupt is received to process Rx packets. If
+> the napi_complete_done() return value isn't checked an unbalanced enable
+> for the IRQ could result, generating a warning stack trace.
+>
+> Update the driver to only enable interrupts if napi_complete_done() returns
+> true.
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+I've been running this for a few hours now and haven't seen the warning. 
+So it appears to be fixed. Thanks!
+
+I guess Dave M picked it up already, but I will toss this in anyway.
+
+
+Tested-by: Jeremy Linton <jeremy.linton@arm.com>
+
+>
+> Reported-by: Jeremy Linton <jeremy.linton@arm.com>
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> ---
+>  drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   10 ++--------
+>  1 file changed, 2 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+> index 248f60d..ffea985 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+> @@ -2272,10 +2272,7 @@ static int xgbe_one_poll(struct napi_struct *napi, int budget)
+>  	processed = xgbe_rx_poll(channel, budget);
+>
+>  	/* If we processed everything, we are done */
+> -	if (processed < budget) {
+> -		/* Turn off polling */
+> -		napi_complete_done(napi, processed);
+> -
+> +	if ((processed < budget) && napi_complete_done(napi, processed)) {
+>  		/* Enable Tx and Rx interrupts */
+>  		if (pdata->channel_irq_mode)
+>  			xgbe_enable_rx_tx_int(pdata, channel);
+> @@ -2317,10 +2314,7 @@ static int xgbe_all_poll(struct napi_struct *napi, int budget)
+>  	} while ((processed < budget) && (processed != last_processed));
+>
+>  	/* If we processed everything, we are done */
+> -	if (processed < budget) {
+> -		/* Turn off polling */
+> -		napi_complete_done(napi, processed);
+> -
+> +	if ((processed < budget) && napi_complete_done(napi, processed)) {
+>  		/* Enable Tx and Rx interrupts */
+>  		xgbe_enable_rx_tx_ints(pdata);
+>  	}
+>
