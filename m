@@ -1,105 +1,86 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 11/13] nfp: reorganize pkt_off variable
-Date: Fri, 10 Mar 2017 10:38:37 -0800
-Message-ID: <20170310183839.39568-12-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 10/13] nfp: validate rx offset from the BAR and size down it's field
+Date: Fri, 10 Mar 2017 10:38:36 -0800
+Message-ID: <20170310183839.39568-11-jakub.kicinski@netronome.com>
 References: <20170310183839.39568-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:35575 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755365AbdCJSje (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:39:34 -0500
-Received: by mail-pg0-f44.google.com with SMTP id b129so41792055pgc.2
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 10:39:33 -0800 (PST)
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:35572 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932965AbdCJSjc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:39:32 -0500
+Received: by mail-pg0-f50.google.com with SMTP id b129so41791932pgc.2
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 10:39:32 -0800 (PST)
 In-Reply-To: <20170310183839.39568-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rename pkt_off variable to dma_off, it should hold data offset
-counting from beginning of DMA mapping.  Compute the value only
-in XDP context.
+NFP_NET_CFG_RX_OFFSET is 32bit wide, make sure what we read from
+there is reasonable for packet headroom.  This allows us to store
+the rx_offset in a 8bit variable.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h        |  6 +++---
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 14 +++++++++++---
+ 2 files changed, 14 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index db92463da440..5f0547c6efb8 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -439,9 +439,9 @@ struct nfp_stat_pair {
+  * @bpf_offload_xdp:	Offloaded BPF program is XDP
+  * @chained_metadata_format:  Firemware will use new metadata format
+  * @rx_dma_dir:		Mapping direction for RX buffers
++ * @rx_offset:		Offset in the RX buffers where packet data starts
+  * @ctrl:		Local copy of the control register/word.
+  * @fl_bufsz:		Currently configured size of the freelist buffers
+- * @rx_offset:		Offset in the RX buffers where packet data starts
+  * @xdp_prog:		Installed XDP program
+  * @tx_rings:		Array of pre-allocated TX ring structures
+  * @rx_rings:		Array of pre-allocated RX ring structures
+@@ -466,11 +466,11 @@ struct nfp_net_dp {
+ 
+ 	u8 rx_dma_dir;
+ 
++	u8 rx_offset;
++
+ 	u32 ctrl;
+ 	u32 fl_bufsz;
+ 
+-	u32 rx_offset;
+-
+ 	struct bpf_prog *xdp_prog;
+ 
+ 	struct nfp_net_tx_ring *tx_rings;
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 513f55dd746b..0e4fa6802733 100644
+index ab03f2f301cd..513f55dd746b 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1453,7 +1453,7 @@ nfp_net_rx_drop(struct nfp_net_r_vector *r_vec, struct nfp_net_rx_ring *rx_ring,
- static bool
- nfp_net_tx_xdp_buf(struct nfp_net_dp *dp, struct nfp_net_rx_ring *rx_ring,
- 		   struct nfp_net_tx_ring *tx_ring,
--		   struct nfp_net_rx_buf *rxbuf, unsigned int pkt_off,
-+		   struct nfp_net_rx_buf *rxbuf, unsigned int dma_off,
- 		   unsigned int pkt_len)
- {
- 	struct nfp_net_tx_buf *txbuf;
-@@ -1484,14 +1484,14 @@ nfp_net_tx_xdp_buf(struct nfp_net_dp *dp, struct nfp_net_rx_ring *rx_ring,
- 	txbuf->pkt_cnt = 1;
- 	txbuf->real_len = pkt_len;
+@@ -3124,10 +3124,18 @@ int nfp_net_netdev_init(struct net_device *netdev)
+ 	nfp_net_write_mac_addr(nn);
  
--	dma_sync_single_for_device(dp->dev, rxbuf->dma_addr + pkt_off,
-+	dma_sync_single_for_device(dp->dev, rxbuf->dma_addr + dma_off,
- 				   pkt_len, DMA_BIDIRECTIONAL);
+ 	/* Determine RX packet/metadata boundary offset */
+-	if (nn->fw_ver.major >= 2)
+-		nn->dp.rx_offset = nn_readl(nn, NFP_NET_CFG_RX_OFFSET);
+-	else
++	if (nn->fw_ver.major >= 2) {
++		u32 reg;
++
++		reg = nn_readl(nn, NFP_NET_CFG_RX_OFFSET);
++		if (reg > NFP_NET_MAX_PREPEND) {
++			nn_err(nn, "Invalid rx offset: %d\n", reg);
++			return -EINVAL;
++		}
++		nn->dp.rx_offset = reg;
++	} else {
+ 		nn->dp.rx_offset = NFP_NET_RX_OFFSET;
++	}
  
- 	/* Build TX descriptor */
- 	txd = &tx_ring->txds[wr_idx];
- 	txd->offset_eop = PCIE_DESC_TX_EOP;
- 	txd->dma_len = cpu_to_le16(pkt_len);
--	nfp_desc_set_dma_addr(txd, rxbuf->dma_addr + pkt_off);
-+	nfp_desc_set_dma_addr(txd, rxbuf->dma_addr + dma_off);
- 	txd->data_len = cpu_to_le16(pkt_len);
- 
- 	txd->flags = 0;
-@@ -1541,7 +1541,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 	tx_ring = r_vec->xdp_ring;
- 
- 	while (pkts_polled < budget) {
--		unsigned int meta_len, data_len, data_off, pkt_len, pkt_off;
-+		unsigned int meta_len, data_len, data_off, pkt_len;
- 		struct nfp_net_rx_buf *rxbuf;
- 		struct nfp_net_rx_desc *rxd;
- 		dma_addr_t new_dma_addr;
-@@ -1579,10 +1579,9 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 		pkt_len = data_len - meta_len;
- 
- 		if (dp->rx_offset == NFP_NET_CFG_RX_OFFSET_DYNAMIC)
--			pkt_off = meta_len;
-+			data_off = NFP_NET_RX_BUF_HEADROOM + meta_len;
- 		else
--			pkt_off = dp->rx_offset;
--		data_off = NFP_NET_RX_BUF_HEADROOM + pkt_off;
-+			data_off = NFP_NET_RX_BUF_HEADROOM + dp->rx_offset;
- 
- 		/* Stats update */
- 		u64_stats_update_begin(&r_vec->rx_sync);
-@@ -1592,10 +1591,12 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 
- 		if (xdp_prog && !(rxd->rxd.flags & PCIE_DESC_RX_BPF &&
- 				  dp->bpf_offload_xdp)) {
-+			unsigned int dma_off;
- 			int act;
- 
-+			dma_off = data_off - NFP_NET_RX_BUF_HEADROOM;
- 			dma_sync_single_for_cpu(dp->dev,
--						rxbuf->dma_addr + pkt_off,
-+						rxbuf->dma_addr + dma_off,
- 						pkt_len, DMA_BIDIRECTIONAL);
- 			act = nfp_net_run_xdp(xdp_prog, rxbuf->frag + data_off,
- 					      pkt_len);
-@@ -1605,7 +1606,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 			case XDP_TX:
- 				if (unlikely(!nfp_net_tx_xdp_buf(dp, rx_ring,
- 								 tx_ring, rxbuf,
--								 pkt_off,
-+								 dma_off,
- 								 pkt_len)))
- 					trace_xdp_exception(dp->netdev,
- 							    xdp_prog, act);
+ 	/* Set default MTU and Freelist buffer size */
+ 	if (nn->max_mtu < NFP_NET_DEFAULT_MTU)
 -- 
 2.11.0
