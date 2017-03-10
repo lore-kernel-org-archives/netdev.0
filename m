@@ -1,60 +1,46 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net 3/8] net: bcmgenet: reserved phy revisions must be checked first
-Date: Thu,  9 Mar 2017 16:49:01 -0800
-Message-ID: <20170310004906.10553-4-opendmb@gmail.com>
-References: <20170310004906.10553-1-opendmb@gmail.com>
+Subject: [PATCH net 0/8] net: bcmgenet: minor bug fixes
+Date: Thu,  9 Mar 2017 16:48:58 -0800
+Message-ID: <20170310004906.10553-1-opendmb@gmail.com>
 Cc: pgynther@google.com, jaedon.shin@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Doug Berger <doug.berger@broadcom.com>
+        linux-kernel@vger.kernel.org, Doug Berger <opendmb@gmail.com>
 To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170310004906.10553-1-opendmb@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Doug Berger <doug.berger@broadcom.com>
+This collection contains a number of fixes for minor issues with the
+bcmgenet driver most of which were present in the initial submission
+of the driver.
 
-The reserved gphy_rev value of 0x01ff must be tested before the old
-or new scheme for GPHY major versioning are tested, otherwise it will
-be treated as 0xff00 according to the old scheme.
+Some bugs were uncovered by inspection prior to the upcoming update for
+GENETv5 support:
+  net: bcmgenet: correct the RBUF_OVFL_CNT and RBUF_ERR_CNT MIB values
+  net: bcmgenet: correct MIB access of UniMAC RUNT counters
+  net: bcmgenet: reserved phy revisions must be checked first
+  net: bcmgenet: synchronize irq0 status between the isr and task
 
-refs #SWLINUX-4311
+Others bugs were found in power management testing:
+  net: bcmgenet: power down internal phy if open or resume fails
+  net: bcmgenet: Power up the internal PHY before probing the MII
+  net: bcmgenet: decouple flow control from bcmgenet_tx_reclaim
+  net: bcmgenet: add begin/complete ethtool ops
 
-Fixes: b04a2f5b9ff5 ("net: bcmgenet: add support for new GENET PHY revision scheme")
-Signed-off-by: Doug Berger <doug.berger@broadcom.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Doug Berger (7):
+  net: bcmgenet: correct the RBUF_OVFL_CNT and RBUF_ERR_CNT MIB values
+  net: bcmgenet: correct MIB access of UniMAC RUNT counters
+  net: bcmgenet: reserved phy revisions must be checked first
+  net: bcmgenet: power down internal phy if open or resume fails
+  net: bcmgenet: synchronize irq0 status between the isr and task
+  net: bcmgenet: Power up the internal PHY before probing the MII
+  net: bcmgenet: decouple flow control from bcmgenet_tx_reclaim
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 01a172d95328..99f8d9024633 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -3226,6 +3226,12 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
- 	 */
- 	gphy_rev = reg & 0xffff;
- 
-+	/* This is reserved so should require special treatment */
-+	if (gphy_rev == 0 || gphy_rev == 0x01ff) {
-+		pr_warn("Invalid GPHY revision detected: 0x%04x\n", gphy_rev);
-+		return;
-+	}
-+
- 	/* This is the good old scheme, just GPHY major, no minor nor patch */
- 	if ((gphy_rev & 0xf0) != 0)
- 		priv->gphy_rev = gphy_rev << 8;
-@@ -3234,12 +3240,6 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
- 	else if ((gphy_rev & 0xff00) != 0)
- 		priv->gphy_rev = gphy_rev;
- 
--	/* This is reserved so should require special treatment */
--	else if (gphy_rev == 0 || gphy_rev == 0x01ff) {
--		pr_warn("Invalid GPHY revision detected: 0x%04x\n", gphy_rev);
--		return;
--	}
--
- #ifdef CONFIG_PHYS_ADDR_T_64BIT
- 	if (!(params->flags & GENET_HAS_40BITS))
- 		pr_warn("GENET does not support 40-bits PA\n");
+Edwin Chan (1):
+  net: bcmgenet: add begin/complete ethtool ops
+
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 206 ++++++++++++++++++-------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  16 +-
+ 2 files changed, 158 insertions(+), 64 deletions(-)
+
 -- 
 2.11.1
