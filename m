@@ -1,100 +1,84 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: amd-xgbe: unbalanced irq enable in v4.11-rc1
-Date: Fri, 10 Mar 2017 17:19:53 +0000
-Message-ID: <20170310171953.GA24571@leverpostej>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] act_connmark: avoid crashing on malformed nlattrs
+ with null parms
+Date: Fri, 10 Mar 2017 09:33:38 -0800
+Message-ID: <CAM_iQpVEXaYm=KGs1fh8tCukHotwynVykr=pxR5bu2s27ug=vg@mail.gmail.com>
+References: <1489161332-5012-1-git-send-email-etienne.noss@wifirst.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Lendacky <thomas.lendacky@amd.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Victorien Molle <victorien.molle@wifirst.fr>
+To: Etienne Noss <etienne.noss@wifirst.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:60540 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755139AbdCJRUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 10 Mar 2017 12:20:09 -0500
-Content-Disposition: inline
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35193 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755362AbdCJReA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 12:34:00 -0500
+Received: by mail-wr0-f193.google.com with SMTP id u108so12426932wrb.2
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 09:33:59 -0800 (PST)
+In-Reply-To: <1489161332-5012-1-git-send-email-etienne.noss@wifirst.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Mar 10, 2017 at 7:55 AM, Etienne Noss <etienne.noss@wifirst.fr> wro=
+te:
+> tcf_connmark_init does not check in its configuration if TCA_CONNMARK_PAR=
+MS
+> is set, resulting in a null pointer dereference when trying to access it.
+>
+> [501099.043007] BUG: unable to handle kernel NULL pointer dereference at =
+0000000000000004
+> [501099.043039] IP: [<ffffffffc10c60fb>] tcf_connmark_init+0x8b/0x180 [ac=
+t_connmark]
+> ...
+> [501099.044334] Call Trace:
+> [501099.044345]  [<ffffffffa47270e8>] ? tcf_action_init_1+0x198/0x1b0
+> [501099.044363]  [<ffffffffa47271b0>] ? tcf_action_init+0xb0/0x120
+> [501099.044380]  [<ffffffffa47250a4>] ? tcf_exts_validate+0xc4/0x110
+> [501099.044398]  [<ffffffffc0f5fa97>] ? u32_set_parms+0xa7/0x270 [cls_u32=
+]
+> [501099.044417]  [<ffffffffc0f60bf0>] ? u32_change+0x680/0x87b [cls_u32]
+> [501099.044436]  [<ffffffffa4725d1d>] ? tc_ctl_tfilter+0x4dd/0x8a0
+> [501099.044454]  [<ffffffffa44a23a1>] ? security_capable+0x41/0x60
+> [501099.044471]  [<ffffffffa470ca01>] ? rtnetlink_rcv_msg+0xe1/0x220
+> [501099.044490]  [<ffffffffa470c920>] ? rtnl_newlink+0x870/0x870
+> [501099.044507]  [<ffffffffa472cc61>] ? netlink_rcv_skb+0xa1/0xc0
+> [501099.044524]  [<ffffffffa47073f4>] ? rtnetlink_rcv+0x24/0x30
+> [501099.044541]  [<ffffffffa472c634>] ? netlink_unicast+0x184/0x230
+> [501099.044558]  [<ffffffffa472c9d8>] ? netlink_sendmsg+0x2f8/0x3b0
+> [501099.044576]  [<ffffffffa46d8880>] ? sock_sendmsg+0x30/0x40
+> [501099.044592]  [<ffffffffa46d8e03>] ? SYSC_sendto+0xd3/0x150
+> [501099.044608]  [<ffffffffa425fda1>] ? __do_page_fault+0x2d1/0x510
+> [501099.044626]  [<ffffffffa47fbd7b>] ? system_call_fast_compare_end+0xc/=
+0x9b
+>
+> Signed-off-by: =C3=89tienne Noss <etienne.noss@wifirst.fr>
+> Signed-off-by: Victorien Molle <victorien.molle@wifirst.fr>
 
-I'm seeing the below splat when transferring data over the network, using
-v4.11-rc1 on an AMD Seattle platform. I don't see the splat with v4.10.
+Fixes:  22a5dc0e5e3e ("net: sched: Introduce connmark action")
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Looking at just the driver, I couldn't see any suspicious changes. Reverting
-commit 402168b4c2dc0734 ("amd-xgbe: Stop the PHY before releasing interrupts")
-doesn't change matters.
 
-Any ideas?
-
-Thanks,
-Mark.
-
-[  106.114135] Unbalanced enable for IRQ 34
-[  106.118157] ------------[ cut here ]------------
-[  106.122793] WARNING: CPU: 0 PID: 0 at kernel/irq/manage.c:529 __enable_irq+0x168/0x1d8
-[  106.130708] Modules linked in:
-[  106.133766] 
-[  106.135262] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.11.0-rc1-00001-g2411f70 #5
-[  106.142830] Hardware name: AMD Seattle (Rev.B0) Development Board (Overdrive) (DT)
-[  106.150398] task: ffff20000a9e2000 task.stack: ffff20000a9c0000
-[  106.156320] PC is at __enable_irq+0x168/0x1d8
-[  106.160679] LR is at __enable_irq+0x168/0x1d8
-[  106.165036] pc : [<ffff2000082a1340>] lr : [<ffff2000082a1340>] pstate: 000001c5
-[  106.172428] sp : ffff8003fff17c50
-[  106.175742] x29: ffff8003fff17c50 x28: ffff800359255160 
-[  106.181063] x27: 1ffff0006b24aa2d x26: ffff800359255170 
-[  106.186385] x25: ffff20000a9ca000 x24: ffff800359255168 
-[  106.191706] x23: ffff80036902ca80 x22: ffff80036bbe8f78 
-[  106.197027] x21: 1ffff0006d77d1ef x20: 0000000000000000 
-[  106.202348] x19: ffff80036bbe8f00 x18: ffff20000a9e27b8 
-[  106.207668] x17: 0000ffff7e2b5d90 x16: 0000000000000000 
-[  106.212989] x15: 1fffe4000153c4f7 x14: 00006003f5590000 
-[  106.218310] x13: ffff20000ac45000 x12: ffff20000b803000 
-[  106.223631] x11: 1fffe40001ba7a8d x10: 0000000000000000 
-[  106.228951] x9 : ffff10007ffe2ee0 x8 : ffff20000a9e27e8 
-[  106.234272] x7 : ffff20000d2d3000 x6 : 0000000000000000 
-[  106.239592] x5 : 0000000041b58ab3 x4 : 1fffe40001ba3a10 
-[  106.244913] x3 : 1fffe40001ba3a10 x2 : dfff200000000000 
-[  106.250234] x1 : ffff10007ffe2f58 x0 : 000000000000001c 
-[  106.255553] 
-[  106.257044] ---[ end trace 86935ef2e5e5c498 ]---
-[  106.261658] Call trace:
-[  106.264106] Exception stack(0xffff8003fff17a00 to 0xffff8003fff17b30)
-[  106.270550] 7a00: ffff80036bbe8f00 0001000000000000 ffff8003fff17c50 ffff2000082a1340
-[  106.278383] 7a20: 00000000000001c5 000000000000003d ffff20000a9ca000 ffff800359255170
-[  106.286216] 7a40: 1ffff0006b24aa2d ffff20000a9e2000 ffff8003fff17b60 0000ffff73870f20
-[  106.294048] 7a60: 0000000041b58ab3 ffff20000a7164f0 ffff200008081ac8 ffff20000a05d4a0
-[  106.301881] 7a80: ffff80036902ca80 ffff800359255168 ffff20000a9ca000 ffff800359255170
-[  106.309713] 7aa0: ffff8003fff17c50 ffff8003fff17c50 ffff8003fff17c10 00000000ffffffc8
-[  106.317546] 7ac0: 0000000041b58ab3 ffff20000a72a340 ffff200008299380 ffff20000a9e2000
-[  106.325379] 7ae0: ffff8003fff17b20 ffff200008bf8f08 ffff80036bbe8f00 ffff80036d8002c0
-[  106.333211] 7b00: ffff80036d8003f8 1ffff0007ffe2f70 0000000000000000 0000000000000000
-[  106.341040] 7b20: 000000000000001c ffff10007ffe2f58
-[  106.345921] [<ffff2000082a1340>] __enable_irq+0x168/0x1d8
-[  106.351323] [<ffff2000082a1458>] enable_irq+0xa8/0x118
-[  106.356467] [<ffff2000094c8950>] xgbe_one_poll+0x190/0x280
-[  106.361956] [<ffff200009c7a944>] net_rx_action+0x6ac/0xd88
-[  106.367444] [<ffff20000808266c>] __do_softirq+0x324/0xb70
-[  106.372845] [<ffff20000815908c>] irq_exit+0x1cc/0x338
-[  106.377900] [<ffff20000829acdc>] __handle_domain_irq+0xdc/0x230
-[  106.383821] [<ffff2000080820f4>] gic_handle_irq+0x6c/0xe0
-[  106.389220] Exception stack(0xffff20000a9c3d40 to 0xffff20000a9c3e70)
-[  106.395663] 3d40: ffff20000a9e27bc 0000000000000007 0000000000000000 1fffe4000153c4f7
-[  106.403495] 3d60: 0000000000000004 0000000000000000 0000000000000000 ffff20000d2d3000
-[  106.411327] 3d80: ffff20000a9e27c0 ffff040001538762 0000000000000000 0000000000000003
-[  106.419160] 3da0: ffff20000b803000 ffff20000ac45000 1ffff0007ffe4281 1fffe4000153c4f7
-[  106.426992] 3dc0: 0000000000000000 0000ffff7e2b5d90 ffff20000a9e27b8 ffff20000a9e2000
-[  106.434824] 3de0: ffff20000a9e2000 0000000000000000 ffff20000a9cfeb0 0000000000000003
-[  106.442656] 3e00: 00000000000000ff ffff20000a9cfe18 ffff20000a901058 0000000000000000
-[  106.450488] 3e20: 0000008004810018 ffff20000a9c3e70 ffff20000808a1d8 ffff20000a9c3e70
-[  106.458321] 3e40: ffff20000808a1dc 0000000060000145 0000000000000000 ffff20000a901058
-[  106.466150] 3e60: ffffffffffffffff ffff20000808a1d8
-[  106.471029] [<ffff200008083ff8>] el1_irq+0xb8/0x130
-[  106.475909] [<ffff20000808a1dc>] arch_cpu_idle+0x1c/0x28
-[  106.481225] [<ffff200009ffd27c>] default_idle_call+0x34/0x78
-[  106.486888] [<ffff20000824db0c>] do_idle+0x21c/0x3c0
-[  106.491856] [<ffff20000824e37c>] cpu_startup_entry+0x24/0x28
-[  106.497517] [<ffff200009fe9824>] rest_init+0x1ec/0x200
-[  106.502659] [<ffff20000a8117a0>] start_kernel+0x5d8/0x604
-[  106.508061] [<ffff20000a8101e8>] __primary_switched+0x6c/0x74
+> ---
+>  net/sched/act_connmark.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/net/sched/act_connmark.c b/net/sched/act_connmark.c
+> index ab8062909962..f9bb43c25697 100644
+> --- a/net/sched/act_connmark.c
+> +++ b/net/sched/act_connmark.c
+> @@ -113,6 +113,9 @@ static int tcf_connmark_init(struct net *net, struct =
+nlattr *nla,
+>         if (ret < 0)
+>                 return ret;
+>
+> +       if (!tb[TCA_CONNMARK_PARMS])
+> +               return -EINVAL;
+> +
+>         parm =3D nla_data(tb[TCA_CONNMARK_PARMS]);
+>
+>         if (!tcf_hash_check(tn, parm->index, a, bind)) {
+> --
+> 2.11.0
+>
