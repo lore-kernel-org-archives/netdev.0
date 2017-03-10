@@ -1,61 +1,49 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] mpls: Do not decrement alive counter for unregister events
-Date: Fri, 10 Mar 2017 14:11:39 -0800
-Message-ID: <1489183899-2397-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Subject: [PATCH net-next 1/3] vxlan: don't allow link-local IPv6 local/remote addresses without interface
+Date: Fri, 10 Mar 2017 23:39:42 +0100
+Message-ID: <58db316c71cf5257ef5da86763c511f8c5938987.1489184335.git.mschiffer@universe-factory.net>
+References: <cover.1489184335.git.mschiffer@universe-factory.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, jbenc@redhat.com, hannes@stressinduktion.org,
+        pshelar@ovn.org, aduyck@mirantis.com, roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:35725 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932482AbdCJWLq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 17:11:46 -0500
-Received: by mail-pf0-f176.google.com with SMTP id j5so46608473pfb.2
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 14:11:45 -0800 (PST)
+Received: from chaos.universe-factory.net ([37.72.148.22]:41716 "EHLO
+        chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932944AbdCJWkp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 17:40:45 -0500
+In-Reply-To: <cover.1489184335.git.mschiffer@universe-factory.net>
+In-Reply-To: <cover.1489184335.git.mschiffer@universe-factory.net>
+References: <cover.1489184335.git.mschiffer@universe-factory.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Multipath routes can be rendered usesless when a device in one of the
-paths is deleted. For example:
-
-$ ip -f mpls ro ls
-100
-	nexthop as to 200 via inet 172.16.2.2  dev virt12
-	nexthop as to 300 via inet 172.16.3.2  dev br0
-101
-	nexthop as to 201 via inet6 2000:2::2  dev virt12
-	nexthop as to 301 via inet6 2000:3::2  dev br0
-
-$ ip li del br0
-
-When br0 is deleted the other hop is not considered in
-mpls_select_multipath because of the alive check -- rt_nhn_alive
-is 0.
-
-rt_nhn_alive is decremented once in mpls_ifdown when the device is taken
-down (NETDEV_DOWN) and again when it is deleted (NETDEV_UNREGISTER). For
-a 2 hop route, deleting one device drops the alive count to 0. Since
-devices are taken down before unregistering, the decrement on
-NETDEV_UNREGISTER is redundant.
-
-Fixes: c89359a42e2a4 ("mpls: support for dead routes")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
 ---
- net/mpls/af_mpls.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/vxlan.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index ccdac9c44fdc..22a9971aa484 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -1288,7 +1288,8 @@ static void mpls_ifdown(struct net_device *dev, int event)
- 				/* fall through */
- 			case NETDEV_CHANGE:
- 				nh->nh_flags |= RTNH_F_LINKDOWN;
--				ACCESS_ONCE(rt->rt_nhn_alive) = rt->rt_nhn_alive - 1;
-+				if (event != NETDEV_UNREGISTER)
-+					ACCESS_ONCE(rt->rt_nhn_alive) = rt->rt_nhn_alive - 1;
- 				break;
- 			}
- 			if (event == NETDEV_UNREGISTER)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index e375560cc74e..cc0ace73d02e 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2922,6 +2922,18 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+ 		pr_info("multicast destination requires interface to be specified\n");
+ 		return -EINVAL;
+ 	}
++#if IS_ENABLED(CONFIG_IPV6)
++	else if (!conf->remote_ifindex &&
++		 ((conf->saddr.sa.sa_family == AF_INET6 &&
++		  (ipv6_addr_type(&conf->saddr.sin6.sin6_addr) &
++		   IPV6_ADDR_LINKLOCAL)) ||
++		  (dst->remote_ip.sa.sa_family == AF_INET6 &&
++		   (ipv6_addr_type(&dst->remote_ip.sin6.sin6_addr) &
++		    IPV6_ADDR_LINKLOCAL)))) {
++		pr_info("link-local local/remote addresses require interface to be specified\n");
++		return -EINVAL;
++	}
++#endif
+ 
+ 	if (conf->mtu) {
+ 		int max_mtu = ETH_MAX_MTU;
 -- 
-2.1.4
+2.12.0
