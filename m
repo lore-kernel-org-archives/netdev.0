@@ -1,129 +1,139 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 4/5] net/mlx5e: Avoid wrong identification of rules on deletion
-Date: Fri, 10 Mar 2017 14:33:04 +0200
-Message-ID: <20170310123305.2185-5-saeedm@mellanox.com>
-References: <20170310123305.2185-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v4 net-next 3/9] net: stmicro: configure tx queue weight
+Date: Fri, 10 Mar 2017 12:18:28 +0000
+Message-ID: <dc00ccdba2e17d19fe249137e4abd3936d8b2c3a.1489146580.git.jpinto@synopsys.com>
+References: <cover.1489146580.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        niklas.cassel@axis.com, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38695 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S937258AbdCJMdc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 07:33:32 -0500
-In-Reply-To: <20170310123305.2185-1-saeedm@mellanox.com>
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:46674 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936528AbdCJMS4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 07:18:56 -0500
+In-Reply-To: <cover.1489146580.git.jpinto@synopsys.com>
+In-Reply-To: <cover.1489146580.git.jpinto@synopsys.com>
+References: <cover.1489146580.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+This patch adds TX queues weight programming.
 
-When deleting offloaded TC flows, we must correctly identify E-switch
-rules. The current check could get us wrong w.r.t to rules set on the
-PF. Since it's possible to set NIC rules on the PF, switch to SRIOV
-offloads mode and then attempt to delete a NIC rule.
-
-To solve that, we add a flags field to offloaded rules, set it on
-creation time and use that over the code where currently needed.
-
-Fixes: 8b32580df1cb ('net/mlx5e: Add TC vlan action for SRIOV offloads')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Roi Dayan <roid@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 33 ++++++++++++++-----------
- 1 file changed, 18 insertions(+), 15 deletions(-)
+Changes v3->v4:
+- variable init was simplified in some functions
+Changes v2->v3:
+- local variable declarations from longest to shortest line
+Changes v1->v2:
+- Just to keep up with patch-set version
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 44406a5ec15d..79481f4cf264 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -48,9 +48,14 @@
- #include "eswitch.h"
- #include "vxlan.h"
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  3 +++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  7 +++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 12 ++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 20 ++++++++++++++++++++
+ 4 files changed, 42 insertions(+)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 5a0a781..a25b2f8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -459,6 +459,9 @@ struct stmmac_ops {
+ 	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
+ 	/* Program TX Algorithms */
+ 	void (*prog_mtl_tx_algorithms)(struct mac_device_info *hw, u32 tx_alg);
++	/* Set MTL TX queues weight */
++	void (*set_mtl_tx_queue_weight)(struct mac_device_info *hw,
++					u32 weight, u32 queue);
+ 	/* Dump MAC registers */
+ 	void (*dump_regs)(struct mac_device_info *hw, u32 *reg_space);
+ 	/* Handle extra events on specific interrupts hw dependent */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index 748ab6f..7d77e78 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -211,6 +211,13 @@ enum power_event {
+ #define MTL_OP_MODE_RTC_96		(2 << MTL_OP_MODE_RTC_SHIFT)
+ #define MTL_OP_MODE_RTC_128		(3 << MTL_OP_MODE_RTC_SHIFT)
  
-+enum {
-+	MLX5E_TC_FLOW_ESWITCH	= BIT(0),
-+};
++/* MTL Queue Quantum Weight */
++#define MTL_TXQ_WEIGHT_BASE_ADDR	0x00000d18
++#define MTL_TXQ_WEIGHT_BASE_OFFSET	0x40
++#define MTL_TXQX_WEIGHT_BASE_ADDR(x)	(MTL_TXQ_WEIGHT_BASE_ADDR + \
++					((x) * MTL_TXQ_WEIGHT_BASE_OFFSET))
++#define MTL_TXQ_WEIGHT_ISCQW_MASK	GENMASK(20, 0)
 +
- struct mlx5e_tc_flow {
- 	struct rhash_head	node;
- 	u64			cookie;
-+	u8			flags;
- 	struct mlx5_flow_handle *rule;
- 	struct list_head	encap; /* flows sharing the same encap */
- 	struct mlx5_esw_flow_attr *attr;
-@@ -177,7 +182,7 @@ static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
- 		mlx5_fc_destroy(priv->mdev, counter);
+ /*  MTL debug */
+ #define MTL_DEBUG_TXSTSFSTS		BIT(5)
+ #define MTL_DEBUG_TXFSTS		BIT(4)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index f966755..fda6cfa 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -116,6 +116,17 @@ static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
  	}
- 
--	if (esw && esw->mode == SRIOV_OFFLOADS) {
-+	if (flow->flags & MLX5E_TC_FLOW_ESWITCH) {
- 		mlx5_eswitch_del_vlan_action(esw, flow->attr);
- 		if (flow->attr->action & MLX5_FLOW_CONTEXT_ACTION_ENCAP)
- 			mlx5e_detach_encap(priv, flow);
-@@ -598,6 +603,7 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
  }
  
- static int parse_cls_flower(struct mlx5e_priv *priv,
-+			    struct mlx5e_tc_flow *flow,
- 			    struct mlx5_flow_spec *spec,
- 			    struct tc_cls_flower_offload *f)
++static void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
++					   u32 weight, u32 queue)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value = readl(ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
++
++	value &= ~MTL_TXQ_WEIGHT_ISCQW_MASK;
++	value |= weight & MTL_TXQ_WEIGHT_ISCQW_MASK;
++	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
++}
++
+ static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
  {
-@@ -609,7 +615,7 @@ static int parse_cls_flower(struct mlx5e_priv *priv,
+ 	void __iomem *ioaddr = hw->pcsr;
+@@ -505,6 +516,7 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.rx_queue_enable = dwmac4_rx_queue_enable,
+ 	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
+ 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
++	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
+ 	.dump_regs = dwmac4_dump_regs,
+ 	.host_irq_status = dwmac4_irq_status,
+ 	.flow_ctrl = dwmac4_flow_ctrl,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index af57f8d..735540f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1645,6 +1645,23 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
+ }
  
- 	err = __parse_cls_flower(priv, spec, f, &min_inline);
- 
--	if (!err && esw->mode == SRIOV_OFFLOADS &&
-+	if (!err && (flow->flags & MLX5E_TC_FLOW_ESWITCH) &&
- 	    rep->vport != FDB_UPLINK_VPORT) {
- 		if (min_inline > esw->offloads.inline_mode) {
- 			netdev_warn(priv->netdev,
-@@ -1132,23 +1138,19 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 			   struct tc_cls_flower_offload *f)
- {
- 	struct mlx5e_tc_table *tc = &priv->fs.tc;
--	int err = 0;
--	bool fdb_flow = false;
-+	int err, attr_size = 0;
- 	u32 flow_tag, action;
- 	struct mlx5e_tc_flow *flow;
- 	struct mlx5_flow_spec *spec;
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
-+	u8 flow_flags = 0;
- 
--	if (esw && esw->mode == SRIOV_OFFLOADS)
--		fdb_flow = true;
--
--	if (fdb_flow)
--		flow = kzalloc(sizeof(*flow) +
--			       sizeof(struct mlx5_esw_flow_attr),
--			       GFP_KERNEL);
--	else
--		flow = kzalloc(sizeof(*flow), GFP_KERNEL);
-+	if (esw && esw->mode == SRIOV_OFFLOADS) {
-+		flow_flags = MLX5E_TC_FLOW_ESWITCH;
-+		attr_size  = sizeof(struct mlx5_esw_flow_attr);
+ /**
++ *  stmmac_set_tx_queue_weight - Set TX queue weight
++ *  @priv: driver private structure
++ *  Description: It is used for setting TX queues weight
++ */
++static void stmmac_set_tx_queue_weight(struct stmmac_priv *priv)
++{
++	u32 tx_queues_count = priv->plat->tx_queues_to_use;
++	u32 weight;
++	u32 queue;
++
++	for (queue = 0; queue < tx_queues_count; queue++) {
++		weight = priv->plat->tx_queues_cfg[queue].weight;
++		priv->hw->mac->set_mtl_tx_queue_weight(priv->hw, weight, queue);
 +	}
++}
++
++/**
+  *  stmmac_mtl_configuration - Configure MTL
+  *  @priv: driver private structure
+  *  Description: It is used for configurring MTL
+@@ -1654,6 +1671,9 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ 	u32 rx_queues_count = priv->plat->rx_queues_to_use;
+ 	u32 tx_queues_count = priv->plat->tx_queues_to_use;
  
-+	flow = kzalloc(sizeof(*flow) + attr_size, GFP_KERNEL);
- 	spec = mlx5_vzalloc(sizeof(*spec));
- 	if (!spec || !flow) {
- 		err = -ENOMEM;
-@@ -1156,12 +1158,13 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 	}
- 
- 	flow->cookie = f->cookie;
-+	flow->flags = flow_flags;
- 
--	err = parse_cls_flower(priv, spec, f);
-+	err = parse_cls_flower(priv, flow, spec, f);
- 	if (err < 0)
- 		goto err_free;
- 
--	if (fdb_flow) {
-+	if (flow->flags & MLX5E_TC_FLOW_ESWITCH) {
- 		flow->attr  = (struct mlx5_esw_flow_attr *)(flow + 1);
- 		err = parse_tc_fdb_actions(priv, f->exts, flow);
- 		if (err < 0)
++	if (tx_queues_count > 1 && priv->hw->mac->set_mtl_tx_queue_weight)
++		stmmac_set_tx_queue_weight(priv);
++
+ 	/* Configure MTL RX algorithms */
+ 	if (rx_queues_count > 1 && priv->hw->mac->prog_mtl_rx_algorithms)
+ 		priv->hw->mac->prog_mtl_rx_algorithms(priv->hw,
 -- 
-2.11.0
+2.9.3
