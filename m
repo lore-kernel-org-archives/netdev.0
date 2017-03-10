@@ -1,206 +1,387 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 02/13] nfp: move control BAR pointer into data path structure
-Date: Fri, 10 Mar 2017 10:38:28 -0800
-Message-ID: <20170310183839.39568-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 03/13] nfp: pass new data path to ring reconfig
+Date: Fri, 10 Mar 2017 10:38:29 -0800
+Message-ID: <20170310183839.39568-4-jakub.kicinski@netronome.com>
 References: <20170310183839.39568-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:36644 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755401AbdCJSj1 (ORCPT
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:36647 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755419AbdCJSj1 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:39:27 -0500
-Received: by mail-pg0-f42.google.com with SMTP id g2so24402898pge.3
+Received: by mail-pg0-f47.google.com with SMTP id g2so24403016pge.3
         for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 10:39:26 -0800 (PST)
 In-Reply-To: <20170310183839.39568-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Control BAR pointer is used to unmask interrupts so it should be
-in the first cacheline of adapter structure.
+Make callers of nfp_net_ring_reconfig() pass newly allocated data
+path structure.  We will gradually make use of that structure
+instead of passing parameters around to all the allocation functions.
+This commit adds allocation and propagation of new data path struct,
+no parameters are converted, yet.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h        | 21 +++++++++++----------
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c    | 14 +++++++-------
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c   |  2 +-
- drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c |  4 ++--
- 4 files changed, 21 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   5 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 108 ++++++++++++++-------
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  14 ++-
+ 3 files changed, 91 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 7d2c38604372..90a44fad6bd5 100644
+index 90a44fad6bd5..74f6d485351f 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -447,6 +447,7 @@ struct nfp_stat_pair {
-  * @xdp_prog:		Installed XDP program
-  * @tx_rings:		Array of pre-allocated TX ring structures
-  * @rx_rings:		Array of pre-allocated RX ring structures
-+ * @ctrl_bar:		Pointer to mapped control BAR
-  *
-  * @txd_cnt:		Size of the TX ring in number of descriptors
-  * @rxd_cnt:		Size of the RX ring in number of descriptors
-@@ -474,6 +475,8 @@ struct nfp_net_dp {
- 	struct nfp_net_tx_ring *tx_rings;
- 	struct nfp_net_rx_ring *rx_rings;
- 
-+	u8 __iomem *ctrl_bar;
+@@ -812,8 +812,11 @@ void nfp_net_irqs_disable(struct pci_dev *pdev);
+ void
+ nfp_net_irqs_assign(struct nfp_net *nn, struct msix_entry *irq_entries,
+ 		    unsigned int n);
 +
- 	/* Cold data follows */
++struct nfp_net_dp *nfp_net_clone_dp(struct nfp_net *nn);
+ int
+-nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
++nfp_net_ring_reconfig(struct nfp_net *nn, struct nfp_net_dp *new,
++		      struct bpf_prog **xdp_prog,
+ 		      struct nfp_net_ring_set *rx, struct nfp_net_ring_set *tx);
  
- 	unsigned int txd_cnt;
-@@ -527,7 +530,6 @@ struct nfp_net_dp {
-  * @vxlan_ports:	VXLAN ports for RX inner csum offload communicated to HW
-  * @vxlan_usecnt:	IPv4/IPv6 VXLAN port use counts
-  * @qcp_cfg:            Pointer to QCP queue used for configuration notification
-- * @ctrl_bar:           Pointer to mapped control BAR
-  * @tx_bar:             Pointer to mapped TX queues
-  * @rx_bar:             Pointer to mapped FL/RX queues
-  * @debugfs_dir:	Device directory in debugfs
-@@ -595,7 +597,6 @@ struct nfp_net {
+ #ifdef CONFIG_NFP_DEBUG
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 951d511643f1..7afefb44b642 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1127,6 +1127,7 @@ nfp_net_free_frag(void *frag, bool xdp)
  
- 	u8 __iomem *qcp_cfg;
- 
--	u8 __iomem *ctrl_bar;
- 	u8 __iomem *tx_bar;
- 	u8 __iomem *rx_bar;
- 
-@@ -622,42 +623,42 @@ struct nfp_net_ring_set {
+ /**
+  * nfp_net_rx_alloc_one() - Allocate and map page frag for RX
++ * @dp:		NFP Net data path struct
+  * @rx_ring:	RX ring structure of the skb
+  * @dma_addr:	Pointer to storage for DMA address (output param)
+  * @fl_bufsz:	size of freelist buffers
+@@ -1137,10 +1138,10 @@ nfp_net_free_frag(void *frag, bool xdp)
+  * Return: allocated page frag or NULL on failure.
   */
- static inline u16 nn_readb(struct nfp_net *nn, int off)
+ static void *
+-nfp_net_rx_alloc_one(struct nfp_net_rx_ring *rx_ring, dma_addr_t *dma_addr,
++nfp_net_rx_alloc_one(struct nfp_net_dp *dp,
++		     struct nfp_net_rx_ring *rx_ring, dma_addr_t *dma_addr,
+ 		     unsigned int fl_bufsz, bool xdp)
  {
--	return readb(nn->ctrl_bar + off);
-+	return readb(nn->dp.ctrl_bar + off);
+-	struct nfp_net_dp *dp = &rx_ring->r_vec->nfp_net->dp;
+ 	int direction;
+ 	void *frag;
+ 
+@@ -1299,7 +1300,7 @@ nfp_net_rx_ring_bufs_alloc(struct nfp_net_dp *dp,
+ 
+ 	for (i = 0; i < rx_ring->cnt - 1; i++) {
+ 		rxbufs[i].frag =
+-			nfp_net_rx_alloc_one(rx_ring, &rxbufs[i].dma_addr,
++			nfp_net_rx_alloc_one(dp, rx_ring, &rxbufs[i].dma_addr,
+ 					     rx_ring->bufsz, xdp);
+ 		if (!rxbufs[i].frag) {
+ 			nfp_net_rx_ring_bufs_free(dp, rx_ring, xdp);
+@@ -1784,7 +1785,8 @@ nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring, u32 cnt, bool is_xdp)
  }
  
- static inline void nn_writeb(struct nfp_net *nn, int off, u8 val)
+ static struct nfp_net_tx_ring *
+-nfp_net_tx_ring_set_prepare(struct nfp_net *nn, struct nfp_net_ring_set *s,
++nfp_net_tx_ring_set_prepare(struct nfp_net *nn, struct nfp_net_dp *dp,
++			    struct nfp_net_ring_set *s,
+ 			    unsigned int num_stack_tx_rings)
  {
--	writeb(val, nn->ctrl_bar + off);
-+	writeb(val, nn->dp.ctrl_bar + off);
+ 	struct nfp_net_tx_ring *rings;
+@@ -1900,10 +1902,10 @@ nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring, unsigned int fl_bufsz,
  }
  
- static inline u16 nn_readw(struct nfp_net *nn, int off)
+ static struct nfp_net_rx_ring *
+-nfp_net_rx_ring_set_prepare(struct nfp_net *nn, struct nfp_net_ring_set *s,
+-			    bool xdp)
++nfp_net_rx_ring_set_prepare(struct nfp_net *nn, struct nfp_net_dp *dp,
++			    struct nfp_net_ring_set *s, bool xdp)
  {
--	return readw(nn->ctrl_bar + off);
-+	return readw(nn->dp.ctrl_bar + off);
- }
+-	unsigned int fl_bufsz =	nfp_net_calc_fl_bufsz(&nn->dp, s->mtu);
++	unsigned int fl_bufsz =	nfp_net_calc_fl_bufsz(dp, s->mtu);
+ 	struct nfp_net_rx_ring *rings;
+ 	unsigned int r;
  
- static inline void nn_writew(struct nfp_net *nn, int off, u16 val)
- {
--	writew(val, nn->ctrl_bar + off);
-+	writew(val, nn->dp.ctrl_bar + off);
- }
+@@ -1917,7 +1919,7 @@ nfp_net_rx_ring_set_prepare(struct nfp_net *nn, struct nfp_net_ring_set *s,
+ 		if (nfp_net_rx_ring_alloc(&rings[r], fl_bufsz, s->dcnt))
+ 			goto err_free_prev;
  
- static inline u32 nn_readl(struct nfp_net *nn, int off)
- {
--	return readl(nn->ctrl_bar + off);
-+	return readl(nn->dp.ctrl_bar + off);
- }
- 
- static inline void nn_writel(struct nfp_net *nn, int off, u32 val)
- {
--	writel(val, nn->ctrl_bar + off);
-+	writel(val, nn->dp.ctrl_bar + off);
- }
- 
- static inline u64 nn_readq(struct nfp_net *nn, int off)
- {
--	return readq(nn->ctrl_bar + off);
-+	return readq(nn->dp.ctrl_bar + off);
- }
- 
- static inline void nn_writeq(struct nfp_net *nn, int off, u64 val)
- {
--	writeq(val, nn->ctrl_bar + off);
-+	writeq(val, nn->dp.ctrl_bar + off);
- }
- 
- /* Flush posted PCI writes by reading something without side effects */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 4620c1bba96e..969c30589f23 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -307,7 +307,7 @@ static void nfp_net_get_stats(struct net_device *netdev,
- 			break;
- 
- 		case NFP_NET_DEV_ET_STATS:
--			io_p = nn->ctrl_bar + nfp_net_et_stats[i].off;
-+			io_p = nn->dp.ctrl_bar + nfp_net_et_stats[i].off;
- 			data[i] = readq(io_p);
- 			break;
- 		}
-@@ -339,15 +339,15 @@ static void nfp_net_get_stats(struct net_device *netdev,
- 	for (j = 0; j < NN_ET_RVEC_GATHER_STATS; j++)
- 		data[i++] = gathered_stats[j];
- 	for (j = 0; j < nn->dp.num_tx_rings; j++) {
--		io_p = nn->ctrl_bar + NFP_NET_CFG_TXR_STATS(j);
-+		io_p = nn->dp.ctrl_bar + NFP_NET_CFG_TXR_STATS(j);
- 		data[i++] = readq(io_p);
--		io_p = nn->ctrl_bar + NFP_NET_CFG_TXR_STATS(j) + 8;
-+		io_p = nn->dp.ctrl_bar + NFP_NET_CFG_TXR_STATS(j) + 8;
- 		data[i++] = readq(io_p);
+-		if (nfp_net_rx_ring_bufs_alloc(&nn->dp, &rings[r], xdp))
++		if (nfp_net_rx_ring_bufs_alloc(dp, &rings[r], xdp))
+ 			goto err_free_ring;
  	}
- 	for (j = 0; j < nn->dp.num_rx_rings; j++) {
--		io_p = nn->ctrl_bar + NFP_NET_CFG_RXR_STATS(j);
-+		io_p = nn->dp.ctrl_bar + NFP_NET_CFG_RXR_STATS(j);
- 		data[i++] = readq(io_p);
--		io_p = nn->ctrl_bar + NFP_NET_CFG_RXR_STATS(j) + 8;
-+		io_p = nn->dp.ctrl_bar + NFP_NET_CFG_RXR_STATS(j) + 8;
- 		data[i++] = readq(io_p);
+ 
+@@ -1925,7 +1927,7 @@ nfp_net_rx_ring_set_prepare(struct nfp_net *nn, struct nfp_net_ring_set *s,
+ 
+ err_free_prev:
+ 	while (r--) {
+-		nfp_net_rx_ring_bufs_free(&nn->dp, &rings[r], xdp);
++		nfp_net_rx_ring_bufs_free(dp, &rings[r], xdp);
+ err_free_ring:
+ 		nfp_net_rx_ring_free(&rings[r]);
  	}
+@@ -2295,14 +2297,15 @@ static int nfp_net_netdev_open(struct net_device *netdev)
+ 			goto err_cleanup_vec_p;
+ 	}
+ 
+-	nn->dp.rx_rings = nfp_net_rx_ring_set_prepare(nn, &rx, nn->dp.xdp_prog);
++	nn->dp.rx_rings = nfp_net_rx_ring_set_prepare(nn, &nn->dp, &rx,
++						      nn->dp.xdp_prog);
+ 	if (!nn->dp.rx_rings) {
+ 		err = -ENOMEM;
+ 		goto err_cleanup_vec;
+ 	}
+ 
+-	nn->dp.tx_rings = nfp_net_tx_ring_set_prepare(nn, &tx,
+-						   nn->dp.num_stack_tx_rings);
++	nn->dp.tx_rings = nfp_net_tx_ring_set_prepare(nn, &nn->dp, &tx,
++						      nn->dp.num_stack_tx_rings);
+ 	if (!nn->dp.tx_rings) {
+ 		err = -ENOMEM;
+ 		goto err_free_rx_rings;
+@@ -2464,7 +2467,8 @@ static void nfp_net_rss_init_itbl(struct nfp_net *nn)
  }
-@@ -461,7 +461,7 @@ static int nfp_net_set_rss_hash_opt(struct nfp_net *nn,
- 	if (new_rss_cfg == nn->rss_cfg)
+ 
+ static int
+-nfp_net_ring_swap_enable(struct nfp_net *nn, unsigned int *num_vecs,
++nfp_net_ring_swap_enable(struct nfp_net *nn, struct nfp_net_dp *dp,
++			 unsigned int *num_vecs,
+ 			 unsigned int *stack_tx_rings,
+ 			 struct bpf_prog **xdp_prog,
+ 			 struct nfp_net_ring_set *rx,
+@@ -2502,14 +2506,35 @@ nfp_net_ring_swap_enable(struct nfp_net *nn, unsigned int *num_vecs,
+ 	return __nfp_net_set_config_and_enable(nn);
+ }
+ 
++struct nfp_net_dp *nfp_net_clone_dp(struct nfp_net *nn)
++{
++	struct nfp_net_dp *new;
++
++	new = kmalloc(sizeof(*new), GFP_KERNEL);
++	if (!new)
++		return NULL;
++
++	*new = nn->dp;
++
++	/* Clear things which need to be recomputed */
++	new->fl_bufsz = 0;
++	new->tx_rings = NULL;
++	new->rx_rings = NULL;
++	new->num_r_vecs = 0;
++	new->num_stack_tx_rings = 0;
++
++	return new;
++}
++
+ static int
+-nfp_net_check_config(struct nfp_net *nn, struct bpf_prog *xdp_prog,
++nfp_net_check_config(struct nfp_net *nn, struct nfp_net_dp *dp,
++		     struct bpf_prog *xdp_prog,
+ 		     struct nfp_net_ring_set *rx, struct nfp_net_ring_set *tx)
+ {
+ 	/* XDP-enabled tests */
+ 	if (!xdp_prog)
  		return 0;
+-	if (rx && nfp_net_calc_fl_bufsz(&nn->dp, rx->mtu) > PAGE_SIZE) {
++	if (rx && nfp_net_calc_fl_bufsz(dp, rx->mtu) > PAGE_SIZE) {
+ 		nn_warn(nn, "MTU too large w/ XDP enabled\n");
+ 		return -EINVAL;
+ 	}
+@@ -2522,7 +2547,8 @@ nfp_net_check_config(struct nfp_net *nn, struct bpf_prog *xdp_prog,
+ }
  
--	writel(new_rss_cfg, nn->ctrl_bar + NFP_NET_CFG_RSS_CTRL);
-+	writel(new_rss_cfg, nn->dp.ctrl_bar + NFP_NET_CFG_RSS_CTRL);
- 	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_RSS);
+ static void
+-nfp_net_ring_reconfig_down(struct nfp_net *nn, struct bpf_prog **xdp_prog,
++nfp_net_ring_reconfig_down(struct nfp_net *nn, struct nfp_net_dp *dp,
++			   struct bpf_prog **xdp_prog,
+ 			   struct nfp_net_ring_set *rx,
+ 			   struct nfp_net_ring_set *tx,
+ 			   unsigned int stack_tx_rings, unsigned int num_vecs)
+@@ -2542,26 +2568,28 @@ nfp_net_ring_reconfig_down(struct nfp_net *nn, struct bpf_prog **xdp_prog,
+ }
+ 
+ int
+-nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
++nfp_net_ring_reconfig(struct nfp_net *nn, struct nfp_net_dp *dp,
++		      struct bpf_prog **xdp_prog,
+ 		      struct nfp_net_ring_set *rx, struct nfp_net_ring_set *tx)
+ {
+ 	unsigned int stack_tx_rings, num_vecs, r;
+ 	int err;
+ 
+-	stack_tx_rings = tx ? tx->n_rings : nn->dp.num_tx_rings;
++	stack_tx_rings = tx ? tx->n_rings : dp->num_tx_rings;
+ 	if (*xdp_prog)
+-		stack_tx_rings -= rx ? rx->n_rings : nn->dp.num_rx_rings;
++		stack_tx_rings -= rx ? rx->n_rings : dp->num_rx_rings;
+ 
+-	num_vecs = max(rx ? rx->n_rings : nn->dp.num_rx_rings, stack_tx_rings);
++	num_vecs = max(rx ? rx->n_rings : dp->num_rx_rings, stack_tx_rings);
+ 
+-	err = nfp_net_check_config(nn, *xdp_prog, rx, tx);
++	err = nfp_net_check_config(nn, dp, *xdp_prog, rx, tx);
+ 	if (err)
+-		return err;
++		goto exit_free_dp;
+ 
+-	if (!netif_running(nn->dp.netdev)) {
+-		nfp_net_ring_reconfig_down(nn, xdp_prog, rx, tx,
++	if (!netif_running(dp->netdev)) {
++		nfp_net_ring_reconfig_down(nn, dp, xdp_prog, rx, tx,
+ 					   stack_tx_rings, num_vecs);
+-		return 0;
++		err = 0;
++		goto exit_free_dp;
+ 	}
+ 
+ 	/* Prepare new rings */
+@@ -2573,13 +2601,13 @@ nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
+ 		}
+ 	}
+ 	if (rx) {
+-		if (!nfp_net_rx_ring_set_prepare(nn, rx, *xdp_prog)) {
++		if (!nfp_net_rx_ring_set_prepare(nn, dp, rx, *xdp_prog)) {
+ 			err = -ENOMEM;
+ 			goto err_cleanup_vecs;
+ 		}
+ 	}
+ 	if (tx) {
+-		if (!nfp_net_tx_ring_set_prepare(nn, tx, stack_tx_rings)) {
++		if (!nfp_net_tx_ring_set_prepare(nn, dp, tx, stack_tx_rings)) {
+ 			err = -ENOMEM;
+ 			goto err_free_rx;
+ 		}
+@@ -2589,7 +2617,7 @@ nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
+ 	nfp_net_close_stack(nn);
+ 	nfp_net_clear_config_and_disable(nn);
+ 
+-	err = nfp_net_ring_swap_enable(nn, &num_vecs, &stack_tx_rings,
++	err = nfp_net_ring_swap_enable(nn, dp, &num_vecs, &stack_tx_rings,
+ 				       xdp_prog, rx, tx);
+ 	if (err) {
+ 		int err2;
+@@ -2597,7 +2625,8 @@ nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
+ 		nfp_net_clear_config_and_disable(nn);
+ 
+ 		/* Try with old configuration and old rings */
+-		err2 = nfp_net_ring_swap_enable(nn, &num_vecs, &stack_tx_rings,
++		err2 = nfp_net_ring_swap_enable(nn, dp, &num_vecs,
++						&stack_tx_rings,
+ 						xdp_prog, rx, tx);
+ 		if (err2)
+ 			nn_err(nn, "Can't restore ring config - FW communication failed (%d,%d)\n",
+@@ -2607,20 +2636,23 @@ nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
+ 		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
+ 
+ 	if (rx)
+-		nfp_net_rx_ring_set_free(&nn->dp, rx, *xdp_prog);
++		nfp_net_rx_ring_set_free(dp, rx, *xdp_prog);
+ 	if (tx)
+ 		nfp_net_tx_ring_set_free(tx);
+ 
+ 	nfp_net_open_stack(nn);
++exit_free_dp:
++	kfree(dp);
+ 
+ 	return err;
+ 
+ err_free_rx:
+ 	if (rx)
+-		nfp_net_rx_ring_set_free(&nn->dp, rx, *xdp_prog);
++		nfp_net_rx_ring_set_free(dp, rx, *xdp_prog);
+ err_cleanup_vecs:
+ 	for (r = num_vecs - 1; r >= nn->dp.num_r_vecs; r--)
+ 		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
++	kfree(dp);
+ 	return err;
+ }
+ 
+@@ -2632,8 +2664,13 @@ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
+ 		.mtu = new_mtu,
+ 		.dcnt = nn->dp.rxd_cnt,
+ 	};
++	struct nfp_net_dp *dp;
++
++	dp = nfp_net_clone_dp(nn);
++	if (!dp)
++		return -ENOMEM;
+ 
+-	return nfp_net_ring_reconfig(nn, &nn->dp.xdp_prog, &rx, NULL);
++	return nfp_net_ring_reconfig(nn, dp, &nn->dp.xdp_prog, &rx, NULL);
+ }
+ 
+ static void nfp_net_stat64(struct net_device *netdev,
+@@ -2960,6 +2997,7 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog)
+ 		.n_rings = nn->dp.num_tx_rings,
+ 		.dcnt = nn->dp.txd_cnt,
+ 	};
++	struct nfp_net_dp *dp;
+ 	int err;
+ 
+ 	if (prog && prog->xdp_adjust_head) {
+@@ -2975,10 +3013,14 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog)
+ 		return 0;
+ 	}
+ 
++	dp = nfp_net_clone_dp(nn);
++	if (!dp)
++		return -ENOMEM;
++
+ 	tx.n_rings += prog ? nn->dp.num_rx_rings : -nn->dp.num_rx_rings;
+ 
+ 	/* We need RX reconfig to remap the buffers (BIDIR vs FROM_DEV) */
+-	err = nfp_net_ring_reconfig(nn, &prog, &rx, &tx);
++	err = nfp_net_ring_reconfig(nn, dp, &prog, &rx, &tx);
  	if (err)
  		return err;
-@@ -573,7 +573,7 @@ static void nfp_net_get_regs(struct net_device *netdev,
- 	regs->version = nn_readl(nn, NFP_NET_CFG_VERSION);
  
- 	for (i = 0; i < NFP_NET_CFG_BAR_SZ / sizeof(u32); i++)
--		regs_buf[i] = readl(nn->ctrl_bar + (i * sizeof(u32)));
-+		regs_buf[i] = readl(nn->dp.ctrl_bar + (i * sizeof(u32)));
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+index 969c30589f23..326ccd74a4bf 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+@@ -196,13 +196,18 @@ static int nfp_net_set_ring_size(struct nfp_net *nn, u32 rxd_cnt, u32 txd_cnt)
+ 		.n_rings = nn->dp.num_tx_rings,
+ 		.dcnt = txd_cnt,
+ 	};
++	struct nfp_net_dp *dp;
+ 
+ 	if (nn->dp.rxd_cnt != rxd_cnt)
+ 		reconfig_rx = &rx;
+ 	if (nn->dp.txd_cnt != txd_cnt)
+ 		reconfig_tx = &tx;
+ 
+-	return nfp_net_ring_reconfig(nn, &nn->dp.xdp_prog,
++	dp = nfp_net_clone_dp(nn);
++	if (!dp)
++		return -ENOMEM;
++
++	return nfp_net_ring_reconfig(nn, dp, &nn->dp.xdp_prog,
+ 				     reconfig_rx, reconfig_tx);
  }
  
- static int nfp_net_get_coalesce(struct net_device *netdev,
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 3935d19a273d..2025cb7c6d90 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -306,7 +306,7 @@ nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
+@@ -772,6 +777,7 @@ static int nfp_net_set_num_rings(struct nfp_net *nn, unsigned int total_rx,
+ 		.n_rings = total_tx,
+ 		.dcnt = nn->dp.txd_cnt,
+ 	};
++	struct nfp_net_dp *dp;
  
- 	nn->cpp = pf->cpp;
- 	nn->fw_ver = *fw_ver;
--	nn->ctrl_bar = ctrl_bar;
-+	nn->dp.ctrl_bar = ctrl_bar;
- 	nn->tx_bar = tx_bar;
- 	nn->rx_bar = rx_bar;
- 	nn->dp.is_vf = 0;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-index bc0bdbc1c8fd..86e61be6f35c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-@@ -210,7 +210,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
- 	vf->nn = nn;
+ 	if (nn->dp.num_rx_rings != total_rx)
+ 		reconfig_rx = &rx;
+@@ -783,7 +789,11 @@ static int nfp_net_set_num_rings(struct nfp_net *nn, unsigned int total_rx,
+ 	if (nn->dp.xdp_prog)
+ 		tx.n_rings += total_rx;
  
- 	nn->fw_ver = fw_ver;
--	nn->ctrl_bar = ctrl_bar;
-+	nn->dp.ctrl_bar = ctrl_bar;
- 	nn->dp.is_vf = 1;
- 	nn->stride_tx = stride;
- 	nn->stride_rx = stride;
-@@ -338,7 +338,7 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
- 	} else {
- 		iounmap(vf->q_bar);
- 	}
--	iounmap(nn->ctrl_bar);
-+	iounmap(nn->dp.ctrl_bar);
- 
- 	nfp_net_netdev_free(nn);
+-	return nfp_net_ring_reconfig(nn, &nn->dp.xdp_prog,
++	dp = nfp_net_clone_dp(nn);
++	if (!dp)
++		return -ENOMEM;
++
++	return nfp_net_ring_reconfig(nn, dp, &nn->dp.xdp_prog,
+ 				     reconfig_rx, reconfig_tx);
+ }
  
 -- 
 2.11.0
