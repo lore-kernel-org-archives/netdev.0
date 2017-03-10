@@ -1,10 +1,10 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net 7/8] net: bcmgenet: add begin/complete ethtool ops
-Date: Thu,  9 Mar 2017 16:49:05 -0800
-Message-ID: <20170310004906.10553-8-opendmb@gmail.com>
+Subject: [PATCH net 2/8] net: bcmgenet: correct MIB access of UniMAC RUNT counters
+Date: Thu,  9 Mar 2017 16:49:00 -0800
+Message-ID: <20170310004906.10553-3-opendmb@gmail.com>
 References: <20170310004906.10553-1-opendmb@gmail.com>
 Cc: pgynther@google.com, jaedon.shin@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Edwin Chan <edwin.chan@broadcom.com>,
+        linux-kernel@vger.kernel.org,
         Doug Berger <doug.berger@broadcom.com>
 To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,54 +12,43 @@ In-Reply-To: <20170310004906.10553-1-opendmb@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Edwin Chan <edwin.chan@broadcom.com>
+From: Doug Berger <doug.berger@broadcom.com>
 
-Make sure clock is enabled for ethtool ops.
+The gap between the Tx status counters and the Rx RUNT counters is now
+being added to allow correct reporting of the registers.
 
 refs #SWLINUX-4311
 
 Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
-Signed-off-by: Edwin Chan <edwin.chan@broadcom.com>
 Signed-off-by: Doug Berger <doug.berger@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f93098840775..ec1f3014e410 100644
+index f0fb7eca8eb4..01a172d95328 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -450,6 +450,22 @@ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
- 			genet_dma_ring_regs[r]);
- }
- 
-+static int bcmgenet_begin(struct net_device *dev)
-+{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+
-+	/* Turn on the clock */
-+	return clk_prepare_enable(priv->clk);
-+}
-+
-+static void bcmgenet_complete(struct net_device *dev)
-+{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+
-+	/* Turn off the clock */
-+	clk_disable_unprepare(priv->clk);
-+}
-+
- static int bcmgenet_get_link_ksettings(struct net_device *dev,
- 				       struct ethtool_link_ksettings *cmd)
- {
-@@ -1022,6 +1038,8 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
- 
- /* standard ethtool support functions. */
- static const struct ethtool_ops bcmgenet_ethtool_ops = {
-+	.begin			= bcmgenet_begin,
-+	.complete		= bcmgenet_complete,
- 	.get_strings		= bcmgenet_get_strings,
- 	.get_sset_count		= bcmgenet_get_sset_count,
- 	.get_ethtool_stats	= bcmgenet_get_ethtool_stats,
+@@ -876,13 +876,16 @@ static void bcmgenet_update_mib_counters(struct bcmgenet_priv *priv)
+ 		case BCMGENET_STAT_NETDEV:
+ 		case BCMGENET_STAT_SOFT:
+ 			continue;
+-		case BCMGENET_STAT_MIB_RX:
+-		case BCMGENET_STAT_MIB_TX:
+ 		case BCMGENET_STAT_RUNT:
+-			if (s->type != BCMGENET_STAT_MIB_RX)
+-				offset = BCMGENET_STAT_OFFSET;
++			offset += BCMGENET_STAT_OFFSET;
++			/* fall through */
++		case BCMGENET_STAT_MIB_TX:
++			offset += BCMGENET_STAT_OFFSET;
++			/* fall through */
++		case BCMGENET_STAT_MIB_RX:
+ 			val = bcmgenet_umac_readl(priv,
+ 						  UMAC_MIB_START + j + offset);
++			offset = 0;	/* Reset Offset */
+ 			break;
+ 		case BCMGENET_STAT_MISC:
+ 			if (GENET_IS_V1(priv)) {
 -- 
 2.11.1
