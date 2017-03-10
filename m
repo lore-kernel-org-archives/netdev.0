@@ -1,30 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ks8851: Added support for half-duplex SPI
-Date: Thu, 09 Mar 2017 18:19:03 -0800 (PST)
-Message-ID: <20170309.181903.1997892032763130789.davem@davemloft.net>
-References: <1489021094-12987-1-git-send-email-shchers@gmail.com>
+Subject: Re: [PATCH net] dccp/tcp: fix routing redirect race
+Date: Thu, 09 Mar 2017 18:21:27 -0800 (PST)
+Message-ID: <20170309.182127.1480610707735412471.davem@davemloft.net>
+References: <1489022121-20571-1-git-send-email-jmaxwell37@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        tremyfr@gmail.com, stephen.boyd@linaro.org, jarod@redhat.com
-To: shchers@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489021094-12987-1-git-send-email-shchers@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: gerrit@erg.abdn.ac.uk, edumazet@google.com, andreyknvl@google.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, ncardwell@google.com, dccp@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jmaxwell@redhat.com, egarver@redhat.com, hsowa@redhat.com
+To: jmaxwell37@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48200 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754006AbdCJCVb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 21:21:31 -0500
+In-Reply-To: <1489022121-20571-1-git-send-email-jmaxwell37@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergey Shcherbakov <shchers@gmail.com>
-Date: Thu,  9 Mar 2017 02:58:14 +0200
+From: Jon Maxwell <jmaxwell37@gmail.com>
+Date: Thu,  9 Mar 2017 12:15:21 +1100
 
-> In original driver was implemented support for half-
-> and full-duplex modes, but it was not enabled. Instead
-> of it ks8851_rx_1msg method always returns "true" that
-> means "full-duplex" mode.
+> We have seen a few incidents lately where a dst_enty has been freed
+> with a dangling TCP socket reference (sk->sk_dst_cache) pointing to that
+> dst_entry. If the conditions/timings are right a crash then ensues when the
+> freed dst_entry is referenced later on. A Common crashing back trace is:
+ ...
+> A closer look at the tcp_v4_err() handler revealed that do_redirect() will run
+> regardless of whether user space has the socket locked. This can result in a 
+> race condition where the same dst_entry cached in sk->sk_dst_entry can be 
+> decremented twice for the same socket via: 
 > 
-> This patch replaces hard-coded functionality with
-> flexible solution that supports both SPI modes.
+> do_redirect()->__sk_dst_check()-> dst_release(). 
 > 
-> Signed-off-by: Sergey Shcherbakov <shchers@gmail.com>
+> Which leads to the dst_entry being prematurely freed with another socket 
+> pointing to it via sk->sk_dst_cache and a subsequent crash.
+> 
+> To fix this skip do_redirect() if usespace has the socket locked. Instead let 
+> the redirect take place later when user space does not have the socket 
+> locked.
+> 
+> The dccp code is very similar in this respect, so fixing it there too. 
+> 
+> As Eric Garver pointed out the following commit now invalidates routes. Which
+> can set the dst->obsolete flag so that ipv4_dst_check() returns null and 
+> triggers the dst_release().
+> 
+> Fixes: ceb3320610d6 ("ipv4: Kill routes during PMTU/redirect updates.")
+> Cc: Eric Garver <egarver@redhat.com>
+> Cc: Hannes Sowa <hsowa@redhat.com>
+> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
 
-Applied.
+Please add the ipv6 side of this fix to this patch and repost.
+
+Thank you.
