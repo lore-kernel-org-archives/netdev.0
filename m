@@ -1,7 +1,7 @@
 From: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 3/9] net: stmmac: Disable PTP reference clock on error
-Date: Fri, 10 Mar 2017 17:34:55 +0100
-Message-ID: <20170310163501.31811-4-thierry.reding@gmail.com>
+Subject: [PATCH v2 4/9] net: stmmac: Balance PTP reference clock enable/disable
+Date: Fri, 10 Mar 2017 17:34:56 +0100
+Message-ID: <20170310163501.31811-5-thierry.reding@gmail.com>
 References: <20170310163501.31811-1-thierry.reding@gmail.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
         Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
@@ -17,39 +17,43 @@ List-Id: netdev.vger.kernel.org
 
 From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
 
-If an error occurs while opening the device, make sure to disable the
-PTP reference clock.
+clk_prepare_enable() and clk_disable_unprepare() for this clock aren't
+properly balanced, which can trigger a WARN_ON() in the common clock
+framework.
 
+Reviewed-By: Joao Pinto <jpinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 ++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 7c38c9baf238..6060410d2b9e 100644
+index 6060410d2b9e..ce6d7e791f3f 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1754,6 +1754,13 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
- 	return 0;
- }
+@@ -1711,6 +1711,10 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	stmmac_mmc_setup(priv);
  
-+static void stmmac_hw_teardown(struct net_device *dev)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
+ 	if (init_ptp) {
++		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
++		if (ret < 0)
++			netdev_warn(priv->dev, "failed to enable PTP reference clock: %d\n", ret);
 +
-+	clk_disable_unprepare(priv->plat->clk_ptp_ref);
-+}
-+
- /**
-  *  stmmac_open - open entry point of the driver
-  *  @dev : pointer to the device structure.
-@@ -1863,6 +1870,7 @@ static int stmmac_open(struct net_device *dev)
- 		phy_stop(dev->phydev);
- 
- 	del_timer_sync(&priv->txtimer);
-+	stmmac_hw_teardown(dev);
- init_error:
- 	free_dma_desc_resources(priv);
- dma_desc_error:
+ 		ret = stmmac_init_ptp(priv);
+ 		if (ret == -EOPNOTSUPP)
+ 			netdev_warn(priv->dev, "PTP not supported by HW\n");
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index f2d94eafeb0a..fe49c3105755 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -365,7 +365,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+ 		plat->clk_ptp_ref = NULL;
+ 		dev_warn(&pdev->dev, "PTP uses main clock\n");
+ 	} else {
+-		clk_prepare_enable(plat->clk_ptp_ref);
+ 		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
+ 		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
+ 	}
 -- 
 2.12.0
