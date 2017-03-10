@@ -1,54 +1,64 @@
-From: "Dorau, Lukasz" <lukasz.dorau@intel.com>
-Subject: Cannot attach BPF to tracepoints
-Date: Fri, 10 Mar 2017 13:49:20 +0000
-Message-ID: <D9FFE20C522965449E182ACE73889AEB48681EB1@irsmsx105.ger.corp.intel.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
+Date: Fri, 10 Mar 2017 15:19:13 +0100
+Message-ID: <20170310141912.GA5184@penelope.horms.nl>
+References: <1486031855-10551-1-git-send-email-simon.horman@netronome.com>
+ <1486031855-10551-2-git-send-email-simon.horman@netronome.com>
+ <20170221152810.GE2694@nanopsycho.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jelinek, Sarah" <sarah.jelinek@intel.com>,
-        "Slusarz, Marcin" <marcin.slusarz@intel.com>,
-        "Chernookyi, Vitalii" <vitalii.chernookyi@intel.com>,
-        "Buella, Gabor" <gabor.buella@intel.com>,
-        "Lebioda, Pawel" <pawel.lebioda@intel.com>,
-        "goldshtn@gmail.com" <goldshtn@gmail.com>,
-        "bgregg@netflix.com" <bgregg@netflix.com>
-To: Alexei Starovoitov <ast@kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-trace-users-owner@vger.kernel.org"
-        <linux-trace-users-owner@vger.kernel.org>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        Ingo Molnar <mingo@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38823 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933791AbdCJOTS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 09:19:18 -0500
+Received: by mail-wm0-f51.google.com with SMTP id t189so11667245wmt.1
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 06:19:16 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170221152810.GE2694@nanopsycho.mtl.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Feb 21, 2017 at 04:28:10PM +0100, Jiri Pirko wrote:
+> Thu, Feb 02, 2017 at 11:37:34AM CET, simon.horman@netronome.com wrote:
+> >Allow dissection of Neighbour Discovery target IP, and source and
+> >destination link-layer addresses for neighbour solicitation and
+> >advertisement messages.
+> >
+> >Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> >---
+> 
+> [...]
+> 
+> >@@ -633,6 +702,18 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+> > 						     FLOW_DISSECTOR_KEY_ICMP,
+> > 						     target_container);
+> > 		key_icmp->icmp = skb_flow_get_be16(skb, nhoff, data, hlen);
+> >+
+> >+		if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ND) &&
+> >+		    ip_proto == IPPROTO_IPV6 && key_icmp->code == 0 &&
+> 
+> IPPROTO_IPV6 say "IPv6-in-IPv4 tunnelling". Please use "NEXTHDR_IPV6"
+> instead.
 
-I cannot attach BPF to tracepoints.
+Thanks, will do.
 
-I used bcc's (https://github.com/iovisor/bcc) trace.py tool:
-https://github.com/iovisor/bcc/blob/master/tools/trace.py
-to test this issue:
+> >+		    (key_icmp->type == NDISC_NEIGHBOUR_SOLICITATION ||
+> >+		     key_icmp->type == NDISC_NEIGHBOUR_ADVERTISEMENT)) {
+> >+			key_nd = skb_flow_dissector_target(flow_dissector,
+> >+							   FLOW_DISSECTOR_KEY_ND,
+> >+							   target_container);
+> >+			if (!(skb_flow_dissect_nd(skb, key_nd, data, nhoff,
+> >+						  hlen, ipv6_payload_len)))
+> >+				goto out_bad;
+> >+		}
+> 
+> You should put this under "switch (ip_proto) {"
 
-# /usr/share/bcc/tools/trace t:syscalls:sys_enter_open
-ioctl(PERF_EVENT_IOC_SET_BPF): Invalid argument
-Failed to attach BPF to tracepoint
-
-# /usr/share/bcc/tools/trace t:syscalls:sys_exit_open
-ioctl(PERF_EVENT_IOC_SET_BPF): Invalid argument
-Failed to attach BPF to tracepoint
-
-However it is possible to attach BPF to raw tracepoints:
-# /usr/share/bcc/tools/trace t:raw_syscalls:sys_enter
-# /usr/share/bcc/tools/trace t:raw_syscalls:sys_exit
-
-and to kprobes:
-# /usr/share/bcc/tools/trace 'sys_open "%s", arg1'
-# /usr/share/bcc/tools/trace 'r::sys_open "%s", arg1'
-
-Can it be a bug in BPF code?
-
-Regards,
-Lukasz
+I see that makes sense in terms of the check against ip_proto.
+But I added it here to allow checking against key_icmp->code
+and key_icmp->type as well.
