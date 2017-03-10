@@ -1,63 +1,53 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net-next 0/7] sctp: add receiver-side procedures for stream reconf asoc reset and add streams and response
-Date: Fri, 10 Mar 2017 12:11:05 +0800
-Message-ID: <cover.1489118815.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/2] net: Avoid unnessary loop when master_idx
+ is invalid in inet_select_addr
+Date: Fri, 10 Mar 2017 12:11:03 +0800
+Message-ID: <CA+6hz4q5N81Fp7rUqVRdzSBX--0OLVZ5QfF3uys0CKGeySe6wA@mail.gmail.com>
+References: <1489114366-7355-1-git-send-email-fgao@ikuai8.com> <75261fc6-d793-031d-0a8e-bd864469ae27@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, Patrick McHardy <kaber@trash.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34784 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751619AbdCJEL3 (ORCPT
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:33616 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751383AbdCJEL3 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 23:11:29 -0500
+Received: by mail-pg0-f43.google.com with SMTP id 25so34173552pgy.0
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 20:11:04 -0800 (PST)
+In-Reply-To: <75261fc6-d793-031d-0a8e-bd864469ae27@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch 2/7, 4/7, 5/7, 6/7 are to implement the process of asoc reset request,
-add streams requests and all kinds of responses.
+Hi David,
 
-Patch 1/7 and 3/7 are ahead of 2/7 and 4/7 to add two event notification
-for asoc reset and add streams.
+On Fri, Mar 10, 2017 at 11:58 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 3/9/17 7:52 PM, fgao@ikuai8.com wrote:
+>> From: Gao Feng <fgao@ikuai8.com>
+>>
+>> When master_idx is invalid, it is zero. It is unnecessary to iterate
+>> all netdevs. Because l3mdev_master_ifindex_rcu(dev) != master_idx must
+>> be true.
+>> Now put this loop into the condition block when master_idx is valid.
+>
+> you are significantly changing how this loop works, not just the
+> master_idx == 0 case. Basically, if dev does not have an address, you
+> are not going to look at the other interfaces.
+>
+> The
+>    if (l3mdev_master_ifindex_rcu(dev) != master_idx)
+>
+> is actually relevant.
+>
+> If dev is enslaved to an L3 device, only consider devices in that
+> domain. Conversely, if dev is NOT enslaved to an L3 device, do NOT
+> consider devices that are enslaved to one. Both of those are equally
+> important.
 
-Patch 7/7 is the last patch for implementing rfc6525 sctp stream reconf
-to add sysctl and sockopt interface for users to enable sctp stream reconf.
+Thanks. I didn't consider about the case that dev is enslaved to an l3
+device you pointed.
 
-After this patchset, sctp stream reconf will be able to work as rfc6525.
-
-v1->v2:
-  - put these into a smaller group.
-  - rename the titles of the commits and improve some changelogs.
-  - improve sctp_chunk_lookup_strreset_param and reuse it in patch 4/7.
-  - process addstrm outreq as the ack of in addstrm inreq if strreset_chunk
-    is not NULL in patch 4/7.
-  - remove the stream alloc when sending addstrm inreq, and the process in
-    peer will response it by sending a addstrm out request back in patch 5/7.
-  - adjust the process of addstrm in resp to fit in the codes that only alloc
-    streams through addstrm outreq in patch 6/7.
-
-Xin Long (7):
-  sctp: add support for generating assoc reset event notification
-  sctp: implement receiver-side procedures for the SSN/TSN Reset Request
-    Parameter
-  sctp: add support for generating add stream change event notification
-  sctp: implement receiver-side procedures for the Add Outgoing Streams
-    Request Parameter
-  sctp: implement receiver-side procedures for the Add Incoming Streams
-    Request Parameter
-  sctp: implement receiver-side procedures for the Reconf Response
-    Parameter
-  sctp: add get and set sockopt for reconf_enable
-
- include/net/sctp/sm.h       |  16 ++
- include/net/sctp/ulpevent.h |   8 +
- include/uapi/linux/sctp.h   |  31 ++++
- net/sctp/sm_statefuns.c     |  15 +-
- net/sctp/socket.c           |  81 +++++++++
- net/sctp/stream.c           | 396 +++++++++++++++++++++++++++++++++++++++++---
- net/sctp/sysctl.c           |   7 +
- net/sctp/ulpevent.c         |  56 +++++++
- 8 files changed, 585 insertions(+), 25 deletions(-)
-
--- 
-2.1.0
+Regards
+Feng
