@@ -1,46 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 0/5] bonding: winter cleanup
-Date: Thu, 09 Mar 2017 17:33:52 -0800 (PST)
-Message-ID: <20170309.173352.1958436790967931477.davem@davemloft.net>
-References: <20170308185545.22864-1-mahesh@bandewar.net>
+Subject: Re: [PATCH v2] fjes: Do not load fjes driver if system does not
+ have extended socket device.
+Date: Thu, 09 Mar 2017 17:35:19 -0800 (PST)
+Message-ID: <20170309.173519.1406243244628930968.davem@davemloft.net>
+References: <7a1a2dbc-99e0-06ba-2261-6e6382937486@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-        nikolay@redhat.com, edumazet@google.com, netdev@vger.kernel.org,
-        maheshb@google.com
-To: mahesh@bandewar.net
+Cc: netdev@vger.kernel.org, izumi.taku@jp.fujitsu.com
+To: yasu.isimatu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47484 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47536 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751013AbdCJBdz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 20:33:55 -0500
-In-Reply-To: <20170308185545.22864-1-mahesh@bandewar.net>
+        with ESMTP id S1750734AbdCJBfV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 20:35:21 -0500
+In-Reply-To: <7a1a2dbc-99e0-06ba-2261-6e6382937486@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Wed,  8 Mar 2017 10:55:45 -0800
+From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
+Date: Wed, 8 Mar 2017 16:05:18 -0500
 
-> Few cleanup patches that I have accumulated over some time now.
+> The fjes driver is used only by FUJITSU servers and almost of all
+> servers in the world never use it. But currently if ACPI PNP0C02
+> is defined in the ACPI table, the following message is always shown:
 > 
-> (a) First two patches are basically to move the work-queue initialization
->     from every ndo_open / bond_open operation to once at the beginning while
->     port creation. Work-queue initialization is an unnecessary operation
->     for every 'ifup' operation. However we have some mode-specific work-queues
->     and mode can change anytime after port creation. So the second patch is
->     to ensure the correct work-handler is called based on the mode.
+>  "FUJITSU Extended Socket Network Device Driver - version 1.2
+>   - Copyright (c) 2015 FUJITSU LIMITED"
 > 
-> (b) Third patch is simple and straightforward that removes hard-coded value
->     that was added into the initial commit and replaces it with the default
->     value configured.
+> The message makes users confused because there is no reason that
+> the message is shown in other vendor servers.
 > 
-> (c) The final patch in the series removes the unimplemented "port-moved" state
->     from the LACP state machine. This state is defined but never set so
->     removing from the state machine logic makes code little cleaner.
+> To avoid the confusion, the patch adds a check that the server
+> has a extended socket device or not.
 > 
-> (d) Reduce scope of some global variables to local.
-> 
-> Note: None of these patches are making any functional changes.
+> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+> CC: Taku Izumi <izumi.taku@jp.fujitsu.com>
+> ---
+> v2:
+> 	- Order local variable declarations from longest to shortest line
 
-This series looks fine to me, applied to net-next, thanks!
+This patch does not apply cleanly to the net tree.
