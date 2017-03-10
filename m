@@ -1,141 +1,194 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v5 net-next 3/9] net: stmmac: configure tx queue weight
-Date: Fri, 10 Mar 2017 18:24:53 +0000
-Message-ID: <3626cff1a36adf882af9237f15aae0592911ce68.1489169213.git.jpinto@synopsys.com>
+Subject: [PATCH v5 net-next 2/9] net: stmmac: configure mtl rx and tx algorithms
+Date: Fri, 10 Mar 2017 18:24:52 +0000
+Message-ID: <aa027812f1ab084c3d1e578369cd35c3be3b7f96.1489169213.git.jpinto@synopsys.com>
 References: <cover.1489169213.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         niklas.cassel@axis.com, netdev@vger.kernel.org,
         Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:56018 "EHLO
+Received: from smtprelay.synopsys.com ([198.182.47.9]:56014 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933432AbdCJSZN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:13 -0500
+        with ESMTP id S933445AbdCJSZP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:15 -0500
 In-Reply-To: <cover.1489169213.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489169213.git.jpinto@synopsys.com>
 References: <cover.1489169213.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds TX queues weight programming.
+This patch adds the RX and TX scheduling algorithms programming.
+It introduces the multiple queues configuration function
+(stmmac_mtl_configuration) in stmmac_main.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
 Changes v4->v5:
 - patch title update (stmicro replaced by stmmac)
 Changes v3->v4:
-- variable init was simplified in some functions
+- Just to keep up with patch-set version
 Changes v2->v3:
-- local variable declarations from longest to shortest line
+- Switch statements with a tab
 Changes v1->v2:
 - Just to keep up with patch-set version
 
- drivers/net/ethernet/stmicro/stmmac/common.h      |  3 +++
- drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  7 +++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 12 ++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 20 ++++++++++++++++++++
- 4 files changed, 42 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  4 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      | 10 +++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 48 +++++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 31 +++++++++++++--
+ 4 files changed, 90 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 5a0a781..a25b2f8 100644
+index 04d9245..5a0a781 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -459,6 +459,9 @@ struct stmmac_ops {
- 	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
- 	/* Program TX Algorithms */
- 	void (*prog_mtl_tx_algorithms)(struct mac_device_info *hw, u32 tx_alg);
-+	/* Set MTL TX queues weight */
-+	void (*set_mtl_tx_queue_weight)(struct mac_device_info *hw,
-+					u32 weight, u32 queue);
+@@ -455,6 +455,10 @@ struct stmmac_ops {
+ 	int (*rx_ipc)(struct mac_device_info *hw);
+ 	/* Enable RX Queues */
+ 	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
++	/* Program RX Algorithms */
++	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
++	/* Program TX Algorithms */
++	void (*prog_mtl_tx_algorithms)(struct mac_device_info *hw, u32 tx_alg);
  	/* Dump MAC registers */
  	void (*dump_regs)(struct mac_device_info *hw, u32 *reg_space);
  	/* Handle extra events on specific interrupts hw dependent */
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-index 748ab6f..7d77e78 100644
+index db45134..748ab6f 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-@@ -211,6 +211,13 @@ enum power_event {
- #define MTL_OP_MODE_RTC_96		(2 << MTL_OP_MODE_RTC_SHIFT)
- #define MTL_OP_MODE_RTC_128		(3 << MTL_OP_MODE_RTC_SHIFT)
+@@ -161,6 +161,16 @@ enum power_event {
+ #define GMAC_HI_REG_AE			BIT(31)
  
-+/* MTL Queue Quantum Weight */
-+#define MTL_TXQ_WEIGHT_BASE_ADDR	0x00000d18
-+#define MTL_TXQ_WEIGHT_BASE_OFFSET	0x40
-+#define MTL_TXQX_WEIGHT_BASE_ADDR(x)	(MTL_TXQ_WEIGHT_BASE_ADDR + \
-+					((x) * MTL_TXQ_WEIGHT_BASE_OFFSET))
-+#define MTL_TXQ_WEIGHT_ISCQW_MASK	GENMASK(20, 0)
+ /*  MTL registers */
++#define MTL_OPERATION_MODE		0x00000c00
++#define MTL_OPERATION_SCHALG_MASK	GENMASK(6, 5)
++#define MTL_OPERATION_SCHALG_WRR	(0x0 << 5)
++#define MTL_OPERATION_SCHALG_WFQ	(0x1 << 5)
++#define MTL_OPERATION_SCHALG_DWRR	(0x2 << 5)
++#define MTL_OPERATION_SCHALG_SP		(0x3 << 5)
++#define MTL_OPERATION_RAA		BIT(2)
++#define MTL_OPERATION_RAA_SP		(0x0 << 2)
++#define MTL_OPERATION_RAA_WSP		(0x1 << 2)
 +
- /*  MTL debug */
- #define MTL_DEBUG_TXSTSFSTS		BIT(5)
- #define MTL_DEBUG_TXFSTS		BIT(4)
+ #define MTL_INT_STATUS			0x00000c20
+ #define MTL_INT_Q0			BIT(0)
+ 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index f966755..fda6cfa 100644
+index 1e79e65..f966755 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -116,6 +116,17 @@ static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
- 	}
+@@ -70,6 +70,52 @@ static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
+ 	writel(value, ioaddr + GMAC_RXQ_CTRL0);
  }
  
-+static void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
-+					   u32 weight, u32 queue)
++static void dwmac4_prog_mtl_rx_algorithms(struct mac_device_info *hw,
++					  u32 rx_alg)
 +{
 +	void __iomem *ioaddr = hw->pcsr;
-+	u32 value = readl(ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
++	u32 value = readl(ioaddr + MTL_OPERATION_MODE);
 +
-+	value &= ~MTL_TXQ_WEIGHT_ISCQW_MASK;
-+	value |= weight & MTL_TXQ_WEIGHT_ISCQW_MASK;
-+	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
++	value &= ~MTL_OPERATION_RAA;
++	switch (rx_alg) {
++	case MTL_RX_ALGORITHM_SP:
++		value |= MTL_OPERATION_RAA_SP;
++		break;
++	case MTL_RX_ALGORITHM_WSP:
++		value |= MTL_OPERATION_RAA_WSP;
++		break;
++	default:
++		break;
++	}
++
++	writel(value, ioaddr + MTL_OPERATION_MODE);
++}
++
++static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
++					  u32 tx_alg)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value = readl(ioaddr + MTL_OPERATION_MODE);
++
++	value &= ~MTL_OPERATION_SCHALG_MASK;
++	switch (tx_alg) {
++	case MTL_TX_ALGORITHM_WRR:
++		value |= MTL_OPERATION_SCHALG_WRR;
++		break;
++	case MTL_TX_ALGORITHM_WFQ:
++		value |= MTL_OPERATION_SCHALG_WFQ;
++		break;
++	case MTL_TX_ALGORITHM_DWRR:
++		value |= MTL_OPERATION_SCHALG_DWRR;
++		break;
++	case MTL_TX_ALGORITHM_SP:
++		value |= MTL_OPERATION_SCHALG_SP;
++		break;
++	default:
++		break;
++	}
 +}
 +
  static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
  {
  	void __iomem *ioaddr = hw->pcsr;
-@@ -505,6 +516,7 @@ static const struct stmmac_ops dwmac4_ops = {
+@@ -457,6 +503,8 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.core_init = dwmac4_core_init,
+ 	.rx_ipc = dwmac4_rx_ipc_enable,
  	.rx_queue_enable = dwmac4_rx_queue_enable,
- 	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
- 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
-+	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
++	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
++	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
  	.dump_regs = dwmac4_dump_regs,
  	.host_irq_status = dwmac4_irq_status,
  	.flow_ctrl = dwmac4_flow_ctrl,
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index af57f8d..735540f 100644
+index 4498a38..af57f8d 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1645,6 +1645,23 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
+@@ -1645,6 +1645,31 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
  }
  
  /**
-+ *  stmmac_set_tx_queue_weight - Set TX queue weight
++ *  stmmac_mtl_configuration - Configure MTL
 + *  @priv: driver private structure
-+ *  Description: It is used for setting TX queues weight
++ *  Description: It is used for configurring MTL
 + */
-+static void stmmac_set_tx_queue_weight(struct stmmac_priv *priv)
++static void stmmac_mtl_configuration(struct stmmac_priv *priv)
 +{
++	u32 rx_queues_count = priv->plat->rx_queues_to_use;
 +	u32 tx_queues_count = priv->plat->tx_queues_to_use;
-+	u32 weight;
-+	u32 queue;
 +
-+	for (queue = 0; queue < tx_queues_count; queue++) {
-+		weight = priv->plat->tx_queues_cfg[queue].weight;
-+		priv->hw->mac->set_mtl_tx_queue_weight(priv->hw, weight, queue);
-+	}
++	/* Configure MTL RX algorithms */
++	if (rx_queues_count > 1 && priv->hw->mac->prog_mtl_rx_algorithms)
++		priv->hw->mac->prog_mtl_rx_algorithms(priv->hw,
++						priv->plat->rx_sched_algorithm);
++
++	/* Configure MTL TX algorithms */
++	if (tx_queues_count > 1 && priv->hw->mac->prog_mtl_tx_algorithms)
++		priv->hw->mac->prog_mtl_tx_algorithms(priv->hw,
++						priv->plat->tx_sched_algorithm);
++
++	/* Enable MAC RX Queues */
++	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_enable)
++		stmmac_mac_enable_rx_queues(priv);
 +}
 +
 +/**
-  *  stmmac_mtl_configuration - Configure MTL
-  *  @priv: driver private structure
-  *  Description: It is used for configurring MTL
-@@ -1654,6 +1671,9 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
- 	u32 rx_queues_count = priv->plat->rx_queues_to_use;
- 	u32 tx_queues_count = priv->plat->tx_queues_to_use;
+  * stmmac_hw_setup - setup mac in a usable state.
+  *  @dev : pointer to the device structure.
+  *  Description:
+@@ -1688,9 +1713,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	/* Initialize the MAC Core */
+ 	priv->hw->mac->core_init(priv->hw, dev->mtu);
  
-+	if (tx_queues_count > 1 && priv->hw->mac->set_mtl_tx_queue_weight)
-+		stmmac_set_tx_queue_weight(priv);
-+
- 	/* Configure MTL RX algorithms */
- 	if (rx_queues_count > 1 && priv->hw->mac->prog_mtl_rx_algorithms)
- 		priv->hw->mac->prog_mtl_rx_algorithms(priv->hw,
+-	/* Initialize MAC RX Queues */
+-	if (priv->hw->mac->rx_queue_enable)
+-		stmmac_mac_enable_rx_queues(priv);
++	/* Initialize MTL*/
++	if (priv->synopsys_id >= DWMAC_CORE_4_00)
++		stmmac_mtl_configuration(priv);
+ 
+ 	ret = priv->hw->mac->rx_ipc(priv->hw);
+ 	if (!ret) {
 -- 
 2.9.3
