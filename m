@@ -1,72 +1,86 @@
-From: Andy Zhou <azhou@ovn.org>
-Subject: Re: [RFC net-next sample action optimization 2/3] openvswitch:
- Refactor recirc key allocation.
-Date: Fri, 10 Mar 2017 13:44:33 -0800
-Message-ID: <CABKoBm2x_hQfGpj7=VOy357nNWGUdMx2xHfT=MbPvmOK4oECbA@mail.gmail.com>
-References: <1488932137-120383-1-git-send-email-azhou@ovn.org>
- <1488932137-120383-3-git-send-email-azhou@ovn.org> <CAPWQB7FsjZ7aUXBT+uH_ht6gu5b4URhAirkX2UX95jTzOZ7g5w@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net: tun: use new api ethtool_{get|set}_link_ksettings
+Date: Fri, 10 Mar 2017 23:57:41 +0200
+Message-ID: <20170310235719-mutt-send-email-mst@kernel.org>
+References: <1489180687-19623-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, pravin shelar <pshelar@ovn.org>
-To: Joe Stringer <joe@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:53170 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934115AbdCJVpb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 16:45:31 -0500
-Received: from mfilter32-d.gandi.net (mfilter32-d.gandi.net [217.70.178.163])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 099C9FB89E
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 22:45:19 +0100 (CET)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter32-d.gandi.net (mfilter32-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 5ijipTg_gJC7 for <netdev@vger.kernel.org>;
-        Fri, 10 Mar 2017 22:45:17 +0100 (CET)
-Received: from mail-pg0-f45.google.com (mail-pg0-f45.google.com [74.125.83.45])
-        (Authenticated sender: azhou@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id BDA46FB8A0
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 22:45:15 +0100 (CET)
-Received: by mail-pg0-f45.google.com with SMTP id 25so43283902pgy.0
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 13:45:15 -0800 (PST)
-In-Reply-To: <CAPWQB7FsjZ7aUXBT+uH_ht6gu5b4URhAirkX2UX95jTzOZ7g5w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, edumazet@google.com, pabeni@redhat.com,
+        fgao@48lvckh6395k16k5.yundunddos.com,
+        elfring@users.sourceforge.net, jarno@ovn.org,
+        rppt@linux.vnet.ibm.com, jarod@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1489180687-19623-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 9, 2017 at 11:11 AM, Joe Stringer <joe@ovn.org> wrote:
-> On 7 March 2017 at 16:15, Andy Zhou <azhou@ovn.org> wrote:
->> The logic of allocating and copy key for each 'exec_actions_level'
->> was specific to execute_recirc(). However, future patches will reuse
->> as well.  Refactor the logic into its own function clone_key().
->>
->> Signed-off-by: Andy Zhou <azhou@ovn.org>
->> ---
->
-> <snip>
->
->> @@ -83,14 +83,32 @@ struct action_fifo {
->>         struct deferred_action fifo[DEFERRED_ACTION_FIFO_SIZE];
->>  };
->>
->> -struct recirc_keys {
->> -       struct sw_flow_key key[OVS_DEFERRED_ACTION_THRESHOLD];
->> +struct action_flow_keys {
->> +       struct sw_flow_key key[OVS_ACTION_RECURSION_THRESHOLD];
->>  };
->
-> I thought the old struct name was clearer on how it would be used -
-> for when actions are deferred.
+On Fri, Mar 10, 2017 at 10:18:07PM +0100, Philippe Reynes wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> As I don't have the hardware,
 
-O.K. I will revert it.
->
->>
->>  static struct action_fifo __percpu *action_fifos;
->> -static struct recirc_keys __percpu *recirc_keys;
->> +static struct action_flow_keys __percpu *flow_keys;
->>  static DEFINE_PER_CPU(int, exec_actions_level);
->>
->> +/* Make a clone of the 'key', using the pre-allocated percpu 'flow_keys'
->> + * space. Since the storage is pre-allocated, the caller does not
->> + * need to check for NULL return pointer.
->> + */
->
-> Hmm? if level > OVS_ACTION_RECURSION_THRESHOLD, this function returns NULL.
-Thanks for catching this. I will update the comment.
+What kind of hardware?
+
+> I'd be very pleased if
+> someone may test this patch.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+>  drivers/net/tun.c |   24 +++++++++++-------------
+>  1 files changed, 11 insertions(+), 13 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index dc1b1dd..c418f0a 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -2430,18 +2430,16 @@ static void tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
+>  
+>  /* ethtool interface */
+>  
+> -static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> -{
+> -	cmd->supported		= 0;
+> -	cmd->advertising	= 0;
+> -	ethtool_cmd_speed_set(cmd, SPEED_10);
+> -	cmd->duplex		= DUPLEX_FULL;
+> -	cmd->port		= PORT_TP;
+> -	cmd->phy_address	= 0;
+> -	cmd->transceiver	= XCVR_INTERNAL;
+> -	cmd->autoneg		= AUTONEG_DISABLE;
+> -	cmd->maxtxpkt		= 0;
+> -	cmd->maxrxpkt		= 0;
+> +static int tun_get_link_ksettings(struct net_device *dev,
+> +				  struct ethtool_link_ksettings *cmd)
+> +{
+> +	ethtool_link_ksettings_zero_link_mode(cmd, supported);
+> +	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
+> +	cmd->base.speed		= SPEED_10;
+> +	cmd->base.duplex	= DUPLEX_FULL;
+> +	cmd->base.port		= PORT_TP;
+> +	cmd->base.phy_address	= 0;
+> +	cmd->base.autoneg	= AUTONEG_DISABLE;
+>  	return 0;
+>  }
+>  
+> @@ -2504,7 +2502,6 @@ static int tun_set_coalesce(struct net_device *dev,
+>  }
+>  
+>  static const struct ethtool_ops tun_ethtool_ops = {
+> -	.get_settings	= tun_get_settings,
+>  	.get_drvinfo	= tun_get_drvinfo,
+>  	.get_msglevel	= tun_get_msglevel,
+>  	.set_msglevel	= tun_set_msglevel,
+> @@ -2512,6 +2509,7 @@ static int tun_set_coalesce(struct net_device *dev,
+>  	.get_ts_info	= ethtool_op_get_ts_info,
+>  	.get_coalesce   = tun_get_coalesce,
+>  	.set_coalesce   = tun_set_coalesce,
+> +	.get_link_ksettings = tun_get_link_ksettings,
+>  };
+>  
+>  static int tun_queue_resize(struct tun_struct *tun)
+> -- 
+> 1.7.4.4
