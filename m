@@ -1,9 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 08/14] net: dsa: mv88e6xxx: rename new FID helper
-Date: Fri, 10 Mar 2017 01:16:53 +0100
-Message-ID: <20170310001653.GA22101@lunn.ch>
+Subject: Re: [PATCH net-next 09/14] net: dsa: mv88e6xxx: rename the port
+ vector member
+Date: Fri, 10 Mar 2017 01:17:54 +0100
+Message-ID: <20170310001754.GB22101@lunn.ch>
 References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
- <20170309233324.18539-9-vivien.didelot@savoirfairelinux.com>
+ <20170309233324.18539-10-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -11,55 +12,25 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:42769 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754626AbdCJAR5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 19:17:57 -0500
 Content-Disposition: inline
-In-Reply-To: <20170309233324.18539-9-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170309233324.18539-10-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 09, 2017 at 06:33:18PM -0500, Vivien Didelot wrote:
-> Rename the _mv88e6xxx_fid_new helper to mv88e6xxx_atu_new to get rid of
-> the old underscore prefix naming convention and be consistent with the
-> rest of the chip-wide ATU API.
-
-Hi Vivien
-
-This is the sort of patch i like. Obviously correct, reviewed in a few
-seconds.
+On Thu, Mar 09, 2017 at 06:33:19PM -0500, Vivien Didelot wrote:
+> Not all Marvell switch chips support port trunking, which is embedded in
+> the port vector data for ATU operations.
+> 
+> Rename the portv_trunkid member of the mv88e6xxx_atu_entry structure to
+> portvec to be more concise and consistent with the different chips.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
     Andrew
-
-
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  drivers/net/dsa/mv88e6xxx/chip.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index 72304ca6e5f0..e45c2f3ed654 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> @@ -1558,7 +1558,7 @@ static int _mv88e6xxx_stu_loadpurge(struct mv88e6xxx_chip *chip,
->  	return _mv88e6xxx_vtu_cmd(chip, GLOBAL_VTU_OP_STU_LOAD_PURGE);
->  }
->  
-> -static int _mv88e6xxx_fid_new(struct mv88e6xxx_chip *chip, u16 *fid)
-> +static int mv88e6xxx_atu_new(struct mv88e6xxx_chip *chip, u16 *fid)
->  {
->  	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
->  	struct mv88e6xxx_vtu_entry vlan;
-> @@ -1612,7 +1612,7 @@ static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
->  	};
->  	int i, err;
->  
-> -	err = _mv88e6xxx_fid_new(chip, &vlan.fid);
-> +	err = mv88e6xxx_atu_new(chip, &vlan.fid);
->  	if (err)
->  		return err;
->  
-> -- 
-> 2.12.0
-> 
