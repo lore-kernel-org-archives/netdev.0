@@ -1,34 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 13/14] net: dsa: mv88e6xxx: add port priority
- override op
-Date: Fri, 10 Mar 2017 01:39:09 +0100
-Message-ID: <20170310003909.GE22101@lunn.ch>
-References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
- <20170309233324.18539-14-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/9] nfp: CRC32 RSS hash, port name reporting
+ and misc fastpath cleanups
+Date: Thu, 09 Mar 2017 16:41:05 -0800 (PST)
+Message-ID: <20170309.164105.1098446021840134571.davem@davemloft.net>
+References: <20170308165708.96087-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170309233324.18539-14-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46968 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751013AbdCJAlI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 19:41:08 -0500
+In-Reply-To: <20170308165708.96087-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 09, 2017 at 06:33:23PM -0500, Vivien Didelot wrote:
-> Add a new operation to disable the DA, SA and VTU priority override.
-> 
-> Setting such limit is not likely to be used soon, so provide a
-> port_disable_pri_override operation directly. This can be changed later
-> for port_set_pri_override when we'll need it.
-> 
-> Also remove the now obsolete mv88e6xxx_6320_family helper.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Wed,  8 Mar 2017 08:56:59 -0800
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> This series adds support for CRC32 RSS hash function to kernel API
+> of which NFP driver immediately makes use.  There is also a
+> .ndo_get_phys_port_name() implementation conforming to switchdev 
+> name format.  Small patch takes advantage of napi_complete_done()'s
+> return code.  Simon provides a fix for potentially trusting values 
+> returned from FW too much.
+> 
+> A handful of unassuming fast path adjustments is also thrown in to make
+> the upcoming xdp_adjust_head() series easier to review.
 
-    Andrew
+Series applied, thanks.
