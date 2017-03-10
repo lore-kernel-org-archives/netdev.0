@@ -1,7 +1,8 @@
 From: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 0/9] net: stmmac: Fixes and Tegra186 support
-Date: Fri, 10 Mar 2017 17:34:52 +0100
-Message-ID: <20170310163501.31811-1-thierry.reding@gmail.com>
+Subject: [PATCH v2 3/9] net: stmmac: Disable PTP reference clock on error
+Date: Fri, 10 Mar 2017 17:34:55 +0100
+Message-ID: <20170310163501.31811-4-thierry.reding@gmail.com>
+References: <20170310163501.31811-1-thierry.reding@gmail.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
         Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
         Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
@@ -10,46 +11,45 @@ Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
         linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170310163501.31811-1-thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
 
-Hi everyone,
+If an error occurs while opening the device, make sure to disable the
+PTP reference clock.
 
-This series of patches start with a few cleanups that I ran across while
-adding Tegra186 support to the stmmac driver. It then adds code for FIFO
-size parsing from feature registers and finally enables support for the
-incarnation of the Synopsys DWC QOS IP found on NVIDIA Tegra186 SoCs.
+Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-This is based on next-20170310.
-
-Changes in v2:
-- address review comments by Mikko and Joao
-- add two additional cleanup patches
-
-Thanks,
-Thierry
-
-Thierry Reding (9):
-  net: stmmac: Rename clk_ptp_ref clock to ptp_ref
-  net: stmmac: Stop PHY and remove TX timer on error
-  net: stmmac: Disable PTP reference clock on error
-  net: stmmac: Balance PTP reference clock enable/disable
-  net: stmmac: Check for DMA mapping errors
-  net: stmmac: Parse FIFO sizes from feature registers
-  net: stmmac: Program RX queue size and flow control
-  net: stmmac: dwc-qos: Split out ->probe() and ->remove()
-  net: stmmac: dwc-qos: Add Tegra186 support
-
- Documentation/devicetree/bindings/net/stmmac.txt   |   6 +-
- drivers/net/ethernet/stmicro/stmmac/common.h       |   3 +
- .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 371 +++++++++++++++++++--
- drivers/net/ethernet/stmicro/stmmac/dwmac4.h       |  15 +
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c   |  57 +++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  23 +-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   3 +-
- 7 files changed, 444 insertions(+), 34 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 7c38c9baf238..6060410d2b9e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1754,6 +1754,13 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	return 0;
+ }
+ 
++static void stmmac_hw_teardown(struct net_device *dev)
++{
++	struct stmmac_priv *priv = netdev_priv(dev);
++
++	clk_disable_unprepare(priv->plat->clk_ptp_ref);
++}
++
+ /**
+  *  stmmac_open - open entry point of the driver
+  *  @dev : pointer to the device structure.
+@@ -1863,6 +1870,7 @@ static int stmmac_open(struct net_device *dev)
+ 		phy_stop(dev->phydev);
+ 
+ 	del_timer_sync(&priv->txtimer);
++	stmmac_hw_teardown(dev);
+ init_error:
+ 	free_dma_desc_resources(priv);
+ dma_desc_error:
 -- 
 2.12.0
