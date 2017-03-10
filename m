@@ -1,116 +1,156 @@
-From: fgao@ikuai8.com
-Subject: [PATCH v3 net-next 1/2] net: Avoid unnessary loop when master_idx is invalid in inet_select_addr
-Date: Fri, 10 Mar 2017 10:52:46 +0800
-Message-ID: <1489114366-7355-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, netdev@vger.kernel.org, gfree.wind@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg278.qq.com ([113.108.11.203]:34468 "EHLO smtpbg278.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752621AbdCJCyY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Mar 2017 21:54:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Maxwell <jmaxwell37@gmail.com>
+Subject: [PATCH net, v1] dccp/tcp: fix routing redirect race
+Date: Fri, 10 Mar 2017 14:31:31 +1100
+Message-ID: <1489116691-26264-1-git-send-email-jmaxwell37@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, edumazet@google.com, andreyknvl@google.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, ncardwell@google.com, dccp@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jmaxwell@redhat.com, Jon Maxwell <jmaxwell37@gmail.com>,
+        Eric Garver <egarver@redhat.com>,
+        Hannes Sowa <hsowa@redhat.com>
+To: gerrit@erg.abdn.ac.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+As Eric Dumazet pointed out this also needs to be fixed in IPv6.
+v1: Contains the IPv6 patch as well.
 
-When master_idx is invalid, it is zero. It is unnecessary to iterate
-all netdevs. Because l3mdev_master_ifindex_rcu(dev) != master_idx must
-be true.
-Now put this loop into the condition block when master_idx is valid.
+We have seen a few incidents lately where a dst_enty has been freed
+with a dangling TCP socket reference (sk->sk_dst_cache) pointing to that
+dst_entry. If the conditions/timings are right a crash then ensues when the
+freed dst_entry is referenced later on. A Common crashing back trace is:
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
+ #8 [] page_fault at ffffffff8163e648
+    [exception RIP: __tcp_ack_snd_check+74]
+.
+.   
+ #9 [] tcp_rcv_established at ffffffff81580b64
+#10 [] tcp_v4_do_rcv at ffffffff8158b54a
+#11 [] tcp_v4_rcv at ffffffff8158cd02
+#12 [] ip_local_deliver_finish at ffffffff815668f4
+#13 [] ip_local_deliver at ffffffff81566bd9
+#14 [] ip_rcv_finish at ffffffff8156656d
+#15 [] ip_rcv at ffffffff81566f06
+#16 [] __netif_receive_skb_core at ffffffff8152b3a2
+#17 [] __netif_receive_skb at ffffffff8152b608
+#18 [] netif_receive_skb at ffffffff8152b690
+#19 [] vmxnet3_rq_rx_complete at ffffffffa015eeaf [vmxnet3]
+#20 [] vmxnet3_poll_rx_only at ffffffffa015f32a [vmxnet3]
+#21 [] net_rx_action at ffffffff8152bac2
+#22 [] __do_softirq at ffffffff81084b4f
+#23 [] call_softirq at ffffffff8164845c
+#24 [] do_softirq at ffffffff81016fc5
+#25 [] irq_exit at ffffffff81084ee5
+#26 [] do_IRQ at ffffffff81648ff8
+
+Of course it may happen with other NIC drivers as well.
+
+It's found the freed dst_entry here: 
+
+ 224 static bool tcp_in_quickack_mode(struct sock *sk)↩
+ 225 {↩
+ 226 ▹       const struct inet_connection_sock *icsk = inet_csk(sk);↩
+ 227 ▹       const struct dst_entry *dst = __sk_dst_get(sk);↩
+ 228 ↩
+ 229 ▹       return (dst && dst_metric(dst, RTAX_QUICKACK)) ||↩
+ 230 ▹       ▹       (icsk->icsk_ack.quick && !icsk->icsk_ack.pingpong);↩
+ 231 }↩
+
+But there are other backtraces attributed to the same freed dst_entry in 
+netfilter code as well. 
+
+All the vmcores showed 2 significant clues:
+
+- Remote hosts behind the default gateway had always been redirected to a 
+different gateway. A rtable/dst_entry will be added for that host. Making
+more dst_entrys with lower reference counts. Making this more probable.
+
+- All vmcores showed a postitive LockDroppedIcmps value, e.g:
+
+LockDroppedIcmps                  267
+
+A closer look at the tcp_v4_err() handler revealed that do_redirect() will run
+regardless of whether user space has the socket locked. This can result in a 
+race condition where the same dst_entry cached in sk->sk_dst_entry can be 
+decremented twice for the same socket via: 
+
+do_redirect()->__sk_dst_check()-> dst_release(). 
+
+Which leads to the dst_entry being prematurely freed with another socket 
+pointing to it via sk->sk_dst_cache and a subsequent crash.
+
+To fix this skip do_redirect() if usespace has the socket locked. Instead let 
+the redirect take place later when user space does not have the socket 
+locked.
+
+The dccp/IPv6 code is very similar in this respect, so fixing it there too. 
+
+As Eric Garver pointed out the following commit now invalidates routes. Which
+can set the dst->obsolete flag so that ipv4_dst_check() returns null and 
+triggers the dst_release().
+
+Fixes: ceb3320610d6 ("ipv4: Kill routes during PMTU/redirect updates.")
+Cc: Eric Garver <egarver@redhat.com>
+Cc: Hannes Sowa <hsowa@redhat.com>
+Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
 ---
- v3: Add the cover letter, per David
- v2: Correct the comit log and remove useless braces, per Sergei
- v1: Initial Version
+ net/dccp/ipv4.c     | 3 ++-
+ net/ipv4/tcp_ipv4.c | 3 ++-
+ net/ipv6/tcp_ipv6.c | 8 +++++---
+ 3 files changed, 9 insertions(+), 5 deletions(-)
 
- net/ipv4/devinet.c | 68 +++++++++++++++++++++++++++++-------------------------
- 1 file changed, 36 insertions(+), 32 deletions(-)
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 5d367b7..1a9e550 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1219,42 +1219,46 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
- no_in_dev:
- 	master_idx = l3mdev_master_ifindex_rcu(dev);
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 409d0cf..b99168b 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -289,7 +289,8 @@ static void dccp_v4_err(struct sk_buff *skb, u32 info)
  
--	/* For VRFs, the VRF device takes the place of the loopback device,
--	 * with addresses on it being preferred.  Note in such cases the
--	 * loopback device will be among the devices that fail the master_idx
--	 * equality check in the loop below.
--	 */
--	if (master_idx &&
--	    (dev = dev_get_by_index_rcu(net, master_idx)) &&
--	    (in_dev = __in_dev_get_rcu(dev))) {
--		for_primary_ifa(in_dev) {
--			if (ifa->ifa_scope != RT_SCOPE_LINK &&
--			    ifa->ifa_scope <= scope) {
--				addr = ifa->ifa_local;
--				goto out_unlock;
-+	if (master_idx) {
-+		/* For VRFs, the VRF device takes the place of the loopback device,
-+		 * with addresses on it being preferred.  Note in such cases the
-+		 * loopback device will be among the devices that fail the master_idx
-+		 * equality check in the loop below.
-+		 */
-+		dev = dev_get_by_index_rcu(net, master_idx);
-+		if (dev) {
-+			in_dev = __in_dev_get_rcu(dev);
-+			if (in_dev) {
-+				for_primary_ifa(in_dev) {
-+					if (ifa->ifa_scope != RT_SCOPE_LINK &&
-+					    ifa->ifa_scope <= scope) {
-+						addr = ifa->ifa_local;
-+						goto out_unlock;
-+					}
-+				} endfor_ifa(in_dev);
- 			}
--		} endfor_ifa(in_dev);
--	}
+ 	switch (type) {
+ 	case ICMP_REDIRECT:
+-		dccp_do_redirect(skb, sk);
++		if (!sock_owned_by_user(sk))
++			dccp_do_redirect(skb, sk);
+ 		goto out;
+ 	case ICMP_SOURCE_QUENCH:
+ 		/* Just silently ignore these. */
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 8f3ec13..575e19d 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -431,7 +431,8 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+ 
+ 	switch (type) {
+ 	case ICMP_REDIRECT:
+-		do_redirect(icmp_skb, sk);
++		if (!sock_owned_by_user(sk))
++			do_redirect(icmp_skb, sk);
+ 		goto out;
+ 	case ICMP_SOURCE_QUENCH:
+ 		/* Just silently ignore these. */
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 60a5295..49fa2e8 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -391,10 +391,12 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	np = inet6_sk(sk);
+ 
+ 	if (type == NDISC_REDIRECT) {
+-		struct dst_entry *dst = __sk_dst_check(sk, np->dst_cookie);
++		if (!sock_owned_by_user(sk)) {
++			struct dst_entry *dst = __sk_dst_check(sk, np->dst_cookie);
+ 
+-		if (dst)
+-			dst->ops->redirect(dst, sk, skb);
++			if (dst)
++				dst->ops->redirect(dst, sk, skb);
 +		}
- 
--	/* Not loopback addresses on loopback should be preferred
--	   in this case. It is important that lo is the first interface
--	   in dev_base list.
--	 */
--	for_each_netdev_rcu(net, dev) {
--		if (l3mdev_master_ifindex_rcu(dev) != master_idx)
--			continue;
-+		/* Not loopback addresses on loopback should be preferred
-+		   in this case. It is important that lo is the first interface
-+		   in dev_base list.
-+		 */
-+		for_each_netdev_rcu(net, dev) {
-+			if (l3mdev_master_ifindex_rcu(dev) != master_idx)
-+				continue;
- 
--		in_dev = __in_dev_get_rcu(dev);
--		if (!in_dev)
--			continue;
-+			in_dev = __in_dev_get_rcu(dev);
-+			if (!in_dev)
-+				continue;
- 
--		for_primary_ifa(in_dev) {
--			if (ifa->ifa_scope != RT_SCOPE_LINK &&
--			    ifa->ifa_scope <= scope) {
--				addr = ifa->ifa_local;
--				goto out_unlock;
--			}
--		} endfor_ifa(in_dev);
-+			for_primary_ifa(in_dev) {
-+				if (ifa->ifa_scope != RT_SCOPE_LINK &&
-+				    ifa->ifa_scope <= scope) {
-+					addr = ifa->ifa_local;
-+					goto out_unlock;
-+				}
-+			} endfor_ifa(in_dev);
-+		}
+ 		goto out;
  	}
- out_unlock:
- 	rcu_read_unlock();
+ 
 -- 
-1.9.1
+1.8.3.1
