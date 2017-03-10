@@ -1,25 +1,25 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v5 net-next 4/9] net: stmmac: mtl rx queue enabled as dcb or avb
-Date: Fri, 10 Mar 2017 18:24:54 +0000
-Message-ID: <a95b0d12ba8ba9f984d7c8e35d24e5a1008bf305.1489169213.git.jpinto@synopsys.com>
+Subject: [PATCH v5 net-next 5/9] net: stmmac: mapping mtl rx to dma channel
+Date: Fri, 10 Mar 2017 18:24:55 +0000
+Message-ID: <0983a4554047407ea6a6fc7948caa544d5dd4dd1.1489169213.git.jpinto@synopsys.com>
 References: <cover.1489169213.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         niklas.cassel@axis.com, netdev@vger.kernel.org,
         Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:51943 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:51950 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933434AbdCJSZP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:15 -0500
+        with ESMTP id S933428AbdCJSZW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:22 -0500
 In-Reply-To: <cover.1489169213.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489169213.git.jpinto@synopsys.com>
 References: <cover.1489169213.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces the enabling of RX queues as DCB or as AVB based
-on configuration.
+This patch adds the functionality of RX queue to dma channel mapping
+based on configuration.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
@@ -30,78 +30,124 @@ Changes v3->v4:
 Changes v1->v3:
 - Just to keep up with patch-set version
 
- drivers/net/ethernet/stmicro/stmmac/common.h      |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c |  8 ++++++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 19 +++++++------------
- 3 files changed, 14 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  7 +++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 25 +++++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 21 +++++++++++++++++++
+ 4 files changed, 55 insertions(+)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index a25b2f8..ad89c47 100644
+index ad89c47..32f5f25 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -454,7 +454,7 @@ struct stmmac_ops {
- 	/* Enable and verify that the IPC module is supported */
- 	int (*rx_ipc)(struct mac_device_info *hw);
- 	/* Enable RX Queues */
--	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
-+	void (*rx_queue_enable)(struct mac_device_info *hw, u8 mode, u32 queue);
- 	/* Program RX Algorithms */
- 	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
- 	/* Program TX Algorithms */
+@@ -462,6 +462,8 @@ struct stmmac_ops {
+ 	/* Set MTL TX queues weight */
+ 	void (*set_mtl_tx_queue_weight)(struct mac_device_info *hw,
+ 					u32 weight, u32 queue);
++	/* RX MTL queue to RX dma mapping */
++	void (*map_mtl_to_dma)(struct mac_device_info *hw, u32 queue, u32 chan);
+ 	/* Dump MAC registers */
+ 	void (*dump_regs)(struct mac_device_info *hw, u32 *reg_space);
+ 	/* Handle extra events on specific interrupts hw dependent */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index 7d77e78..9dd8ac1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -174,6 +174,13 @@ enum power_event {
+ #define MTL_INT_STATUS			0x00000c20
+ #define MTL_INT_Q0			BIT(0)
+ 
++#define MTL_RXQ_DMA_MAP0		0x00000c30 /* queue 0 to 3 */
++#define MTL_RXQ_DMA_MAP1		0x00000c34 /* queue 4 to 7 */
++#define MTL_RXQ_DMA_Q04MDMACH_MASK	GENMASK(3, 0)
++#define MTL_RXQ_DMA_Q04MDMACH(x)	((x) << 0)
++#define MTL_RXQ_DMA_QXMDMACH_MASK(x)	GENMASK(11 + (8 * ((x) - 1)), 8 * (x))
++#define MTL_RXQ_DMA_QXMDMACH(chan, q)	((chan) << (8 * (q)))
++
+ #define MTL_CHAN_BASE_ADDR		0x00000d00
+ #define MTL_CHAN_BASE_OFFSET		0x40
+ #define MTL_CHANX_BASE_ADDR(x)		(MTL_CHAN_BASE_ADDR + \
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index fda6cfa..21a696e 100644
+index 21a696e..e9b153f 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -59,13 +59,17 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
- 	writel(value, ioaddr + GMAC_INT_EN);
+@@ -131,6 +131,30 @@ static void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
+ 	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
  }
  
--static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
-+static void dwmac4_rx_queue_enable(struct mac_device_info *hw,
-+				   u8 mode, u32 queue)
++static void dwmac4_map_mtl_dma(struct mac_device_info *hw, u32 queue, u32 chan)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value;
++
++	if (queue < 4)
++		value = readl(ioaddr + MTL_RXQ_DMA_MAP0);
++	else
++		value = readl(ioaddr + MTL_RXQ_DMA_MAP1);
++
++	if (queue == 0 || queue == 4) {
++		value &= ~MTL_RXQ_DMA_Q04MDMACH_MASK;
++		value |= MTL_RXQ_DMA_Q04MDMACH(chan);
++	} else {
++		value &= ~MTL_RXQ_DMA_QXMDMACH_MASK(queue);
++		value |= MTL_RXQ_DMA_QXMDMACH(chan, queue);
++	}
++
++	if (queue < 4)
++		writel(value, ioaddr + MTL_RXQ_DMA_MAP0);
++	else
++		writel(value, ioaddr + MTL_RXQ_DMA_MAP1);
++}
++
+ static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
  {
  	void __iomem *ioaddr = hw->pcsr;
- 	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
- 
- 	value &= GMAC_RX_QUEUE_CLEAR(queue);
--	value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
-+	if (mode == MTL_RX_AVB)
-+		value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
-+	else if (mode == MTL_RX_DCB)
-+		value |= GMAC_RX_DCB_QUEUE_ENABLE(queue);
- 
- 	writel(value, ioaddr + GMAC_RXQ_CTRL0);
- }
+@@ -521,6 +545,7 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
+ 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
+ 	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
++	.map_mtl_to_dma = dwmac4_map_mtl_dma,
+ 	.dump_regs = dwmac4_dump_regs,
+ 	.host_irq_status = dwmac4_irq_status,
+ 	.flow_ctrl = dwmac4_flow_ctrl,
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 735540f..c3e2dbf 100644
+index c3e2dbf..619bcc6 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1256,19 +1256,14 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
-  */
- static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
- {
--	int rx_count = priv->dma_cap.number_rx_queues;
--	int queue = 0;
--
--	/* If GMAC does not have multiple queues, then this is not necessary*/
--	if (rx_count == 1)
--		return;
-+	u32 rx_queues_count = priv->plat->rx_queues_to_use;
-+	int queue;
-+	u8 mode;
- 
--	/**
--	 *  If the core is synthesized with multiple rx queues / multiple
--	 *  dma channels, then rx queues will be disabled by default.
--	 *  For now only rx queue 0 is enabled.
--	 */
--	priv->hw->mac->rx_queue_enable(priv->hw, queue);
-+	for (queue = 0; queue < rx_queues_count; queue++) {
-+		mode = priv->plat->rx_queues_cfg[queue].mode_to_use;
-+		priv->hw->mac->rx_queue_enable(priv->hw, mode, queue);
-+	}
+@@ -1657,6 +1657,23 @@ static void stmmac_set_tx_queue_weight(struct stmmac_priv *priv)
  }
  
  /**
++ *  stmmac_rx_queue_dma_chan_map - Map RX queue to RX dma channel
++ *  @priv: driver private structure
++ *  Description: It is used for mapping RX queues to RX dma channels
++ */
++static void stmmac_rx_queue_dma_chan_map(struct stmmac_priv *priv)
++{
++	u32 rx_queues_count = priv->plat->rx_queues_to_use;
++	u32 queue;
++	u32 chan;
++
++	for (queue = 0; queue < rx_queues_count; queue++) {
++		chan = priv->plat->rx_queues_cfg[queue].chan;
++		priv->hw->mac->map_mtl_to_dma(priv->hw, queue, chan);
++	}
++}
++
++/**
+  *  stmmac_mtl_configuration - Configure MTL
+  *  @priv: driver private structure
+  *  Description: It is used for configurring MTL
+@@ -1679,6 +1696,10 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ 		priv->hw->mac->prog_mtl_tx_algorithms(priv->hw,
+ 						priv->plat->tx_sched_algorithm);
+ 
++	/* Map RX MTL to DMA channels */
++	if (rx_queues_count > 1 && priv->hw->mac->map_mtl_to_dma)
++		stmmac_rx_queue_dma_chan_map(priv);
++
+ 	/* Enable MAC RX Queues */
+ 	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_enable)
+ 		stmmac_mac_enable_rx_queues(priv);
 -- 
 2.9.3
