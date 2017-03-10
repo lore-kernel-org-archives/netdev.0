@@ -1,89 +1,54 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 3.16 316/370] VSOCK: do not disconnect socket when peer
- has shutdown  SEND only
-Date: Fri, 10 Mar 2017 11:46:23 +0000
-Message-ID: <lsq.1489146383.473380550@decadent.org.uk>
-References: <lsq.1489146380.780052105@decadent.org.uk>
+From: "Dorau, Lukasz" <lukasz.dorau@intel.com>
+Subject: Cannot attach BPF to tracepoints
+Date: Fri, 10 Mar 2017 13:49:20 +0000
+Message-ID: <D9FFE20C522965449E182ACE73889AEB48681EB1@irsmsx105.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: akpm@linux-foundation.org, "Adit Ranadive" <aditr@vmware.com>,
-        "Dmitry Torokhov" <dtor@vmware.com>,
-        "Stefan Hajnoczi" <stefanha@redhat.com>,
-        "Jorgen Hansen" <jhansen@vmware.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "Claudio Imbrenda" <imbrenda@linux.vnet.ibm.com>,
-        "Ian Campbell" <ian.campbell@docker.com>, netdev@vger.kernel.org,
-        "Andy King" <acking@vmware.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jelinek, Sarah" <sarah.jelinek@intel.com>,
+        "Slusarz, Marcin" <marcin.slusarz@intel.com>,
+        "Chernookyi, Vitalii" <vitalii.chernookyi@intel.com>,
+        "Buella, Gabor" <gabor.buella@intel.com>,
+        "Lebioda, Pawel" <pawel.lebioda@intel.com>,
+        "goldshtn@gmail.com" <goldshtn@gmail.com>,
+        "bgregg@netflix.com" <bgregg@netflix.com>
+To: Alexei Starovoitov <ast@kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-trace-users-owner@vger.kernel.org"
+        <linux-trace-users-owner@vger.kernel.org>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <lsq.1489146380.780052105@decadent.org.uk>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.16.42-rc1 review patch.  If anyone has any objections, please let me know.
+Hi,
 
-------------------
+I cannot attach BPF to tracepoints.
 
-From: Ian Campbell <ian.campbell@docker.com>
+I used bcc's (https://github.com/iovisor/bcc) trace.py tool:
+https://github.com/iovisor/bcc/blob/master/tools/trace.py
+to test this issue:
 
-[ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
+# /usr/share/bcc/tools/trace t:syscalls:sys_enter_open
+ioctl(PERF_EVENT_IOC_SET_BPF): Invalid argument
+Failed to attach BPF to tracepoint
 
-The peer may be expecting a reply having sent a request and then done a
-shutdown(SHUT_WR), so tearing down the whole socket at this point seems
-wrong and breaks for me with a client which does a SHUT_WR.
+# /usr/share/bcc/tools/trace t:syscalls:sys_exit_open
+ioctl(PERF_EVENT_IOC_SET_BPF): Invalid argument
+Failed to attach BPF to tracepoint
 
-Looking at other socket family's stream_recvmsg callbacks doing a shutdown
-here does not seem to be the norm and removing it does not seem to have
-had any adverse effects that I can see.
+However it is possible to attach BPF to raw tracepoints:
+# /usr/share/bcc/tools/trace t:raw_syscalls:sys_enter
+# /usr/share/bcc/tools/trace t:raw_syscalls:sys_exit
 
-I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
-on the vmci transport.
+and to kprobes:
+# /usr/share/bcc/tools/trace 'sys_open "%s", arg1'
+# /usr/share/bcc/tools/trace 'r::sys_open "%s", arg1'
 
-Signed-off-by: Ian Campbell <ian.campbell@docker.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stefan Hajnoczi <stefanha@redhat.com>
-Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Cc: Andy King <acking@vmware.com>
-Cc: Dmitry Torokhov <dtor@vmware.com>
-Cc: Jorgen Hansen <jhansen@vmware.com>
-Cc: Adit Ranadive <aditr@vmware.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- net/vmw_vsock/af_vsock.c | 21 +--------------------
- 1 file changed, 1 insertion(+), 20 deletions(-)
+Can it be a bug in BPF code?
 
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1796,27 +1796,8 @@ vsock_stream_recvmsg(struct kiocb *kiocb
- 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
- 		err = 0;
- 
--	if (copied > 0) {
--		/* We only do these additional bookkeeping/notification steps
--		 * if we actually copied something out of the queue pair
--		 * instead of just peeking ahead.
--		 */
--
--		if (!(flags & MSG_PEEK)) {
--			/* If the other side has shutdown for sending and there
--			 * is nothing more to read, then modify the socket
--			 * state.
--			 */
--			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
--				if (vsock_stream_has_data(vsk) <= 0) {
--					sk->sk_state = SS_UNCONNECTED;
--					sock_set_flag(sk, SOCK_DONE);
--					sk->sk_state_change(sk);
--				}
--			}
--		}
-+	if (copied > 0)
- 		err = copied;
--	}
- 
- out_wait:
- 	finish_wait(sk_sleep(sk), &wait);
+Regards,
+Lukasz
