@@ -1,215 +1,153 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v5 net-next 8/9] net: stmmac: mac debug prepared for multiple queues
-Date: Fri, 10 Mar 2017 18:24:58 +0000
-Message-ID: <54a7eb3d654bd77714bfa0a93b03bf2dc35fbb06.1489169213.git.jpinto@synopsys.com>
+Subject: [PATCH v5 net-next 7/9] net: stmmac: prepare irq_status for mtl
+Date: Fri, 10 Mar 2017 18:24:57 +0000
+Message-ID: <2435a26ad521ac15ec1ed8569977efb6ef151aab.1489169213.git.jpinto@synopsys.com>
 References: <cover.1489169213.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         niklas.cassel@axis.com, netdev@vger.kernel.org,
         Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:51956 "EHLO
+Received: from smtprelay.synopsys.com ([198.182.47.9]:56026 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933434AbdCJSZY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:24 -0500
+        with ESMTP id S933453AbdCJSZ1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:27 -0500
 In-Reply-To: <cover.1489169213.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489169213.git.jpinto@synopsys.com>
 References: <cover.1489169213.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares mac debug dump for multiple queues.
+This patch prepares mac irq status treatment for multiple queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
 Changes v4->v5:
 - patch title update (stmicro replaced by stmmac)
 Changes v3->v4:
-- Debug function now gets all rx / tx queues data
-Changes v1->v3:
+- Build error in dwmac4_irq_mtl_status()
+- variable init simplified in some functions
+Changes v2->v3:
+- local variable declarations from longest to shortest line
+Changes v1->v2:
 - Just to keep up with patch-set version
 
- drivers/net/ethernet/stmicro/stmmac/common.h       |   3 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   3 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 107 +++++++++++----------
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   5 +-
- 4 files changed, 64 insertions(+), 54 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 40 ++++++++++++++---------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  5 +++
+ 4 files changed, 33 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 6a348d3..86f43ac 100644
+index 5532633..6a348d3 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -488,7 +488,8 @@ struct stmmac_ops {
- 	void (*reset_eee_mode)(struct mac_device_info *hw);
- 	void (*set_eee_timer)(struct mac_device_info *hw, int ls, int tw);
- 	void (*set_eee_pls)(struct mac_device_info *hw, int link);
--	void (*debug)(void __iomem *ioaddr, struct stmmac_extra_stats *x);
-+	void (*debug)(void __iomem *ioaddr, struct stmmac_extra_stats *x,
-+		      u32 rx_queues, u32 tx_queues);
- 	/* PCS calls */
- 	void (*pcs_ctrl_ane)(void __iomem *ioaddr, bool ane, bool srgmi_ral,
- 			     bool loopback);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index 3a95ad9..7f78f77 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -413,7 +413,8 @@ static void dwmac1000_get_adv_lp(void __iomem *ioaddr, struct rgmii_adv *adv)
- 	dwmac_get_adv_lp(ioaddr, GMAC_PCS_BASE, adv);
- }
+@@ -469,6 +469,8 @@ struct stmmac_ops {
+ 	/* Handle extra events on specific interrupts hw dependent */
+ 	int (*host_irq_status)(struct mac_device_info *hw,
+ 			       struct stmmac_extra_stats *x);
++	/* Handle MTL interrupts */
++	int (*host_mtl_irq_status)(struct mac_device_info *hw, u32 chan);
+ 	/* Multicast filter setting */
+ 	void (*set_filter)(struct mac_device_info *hw, struct net_device *dev);
+ 	/* Flow control setting */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index 9dd8ac1..5ca4d64 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -172,7 +172,7 @@ enum power_event {
+ #define MTL_OPERATION_RAA_WSP		(0x1 << 2)
  
--static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
-+static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
-+			    u32 rx_queues, u32 tx_queues)
- {
- 	u32 value = readl(ioaddr + GMAC_DEBUG);
+ #define MTL_INT_STATUS			0x00000c20
+-#define MTL_INT_Q0			BIT(0)
++#define MTL_INT_QX(x)			BIT(x)
  
+ #define MTL_RXQ_DMA_MAP0		0x00000c30 /* queue 0 to 3 */
+ #define MTL_RXQ_DMA_MAP1		0x00000c34 /* queue 4 to 7 */
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index f0f2dce..670cfee 100644
+index 3069def..f0f2dce 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -469,64 +469,69 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
- 	return ret;
+@@ -416,11 +416,34 @@ static void dwmac4_phystatus(void __iomem *ioaddr, struct stmmac_extra_stats *x)
+ 	}
  }
  
--static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
-+static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
-+			 u32 rx_queues, u32 tx_queues)
- {
- 	u32 value;
--
--	/*  Currently only channel 0 is supported */
--	value = readl(ioaddr + MTL_CHAN_TX_DEBUG(STMMAC_CHAN0));
--
--	if (value & MTL_DEBUG_TXSTSFSTS)
--		x->mtl_tx_status_fifo_full++;
--	if (value & MTL_DEBUG_TXFSTS)
--		x->mtl_tx_fifo_not_empty++;
--	if (value & MTL_DEBUG_TWCSTS)
--		x->mmtl_fifo_ctrl++;
--	if (value & MTL_DEBUG_TRCSTS_MASK) {
--		u32 trcsts = (value & MTL_DEBUG_TRCSTS_MASK)
--			     >> MTL_DEBUG_TRCSTS_SHIFT;
--		if (trcsts == MTL_DEBUG_TRCSTS_WRITE)
--			x->mtl_tx_fifo_read_ctrl_write++;
--		else if (trcsts == MTL_DEBUG_TRCSTS_TXW)
--			x->mtl_tx_fifo_read_ctrl_wait++;
--		else if (trcsts == MTL_DEBUG_TRCSTS_READ)
--			x->mtl_tx_fifo_read_ctrl_read++;
--		else
--			x->mtl_tx_fifo_read_ctrl_idle++;
-+	u32 queue;
++static int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 mtl_int_qx_status;
++	int ret = 0;
 +
-+	for (queue = 0; queue < tx_queues; queue++) {
-+		value = readl(ioaddr + MTL_CHAN_TX_DEBUG(queue));
++	mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
 +
-+		if (value & MTL_DEBUG_TXSTSFSTS)
-+			x->mtl_tx_status_fifo_full++;
-+		if (value & MTL_DEBUG_TXFSTS)
-+			x->mtl_tx_fifo_not_empty++;
-+		if (value & MTL_DEBUG_TWCSTS)
-+			x->mmtl_fifo_ctrl++;
-+		if (value & MTL_DEBUG_TRCSTS_MASK) {
-+			u32 trcsts = (value & MTL_DEBUG_TRCSTS_MASK)
-+				     >> MTL_DEBUG_TRCSTS_SHIFT;
-+			if (trcsts == MTL_DEBUG_TRCSTS_WRITE)
-+				x->mtl_tx_fifo_read_ctrl_write++;
-+			else if (trcsts == MTL_DEBUG_TRCSTS_TXW)
-+				x->mtl_tx_fifo_read_ctrl_wait++;
-+			else if (trcsts == MTL_DEBUG_TRCSTS_READ)
-+				x->mtl_tx_fifo_read_ctrl_read++;
-+			else
-+				x->mtl_tx_fifo_read_ctrl_idle++;
++	/* Check MTL Interrupt */
++	if (mtl_int_qx_status & MTL_INT_QX(chan)) {
++		/* read Queue x Interrupt status */
++		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(chan));
++
++		if (status & MTL_RX_OVERFLOW_INT) {
++			/*  clear Interrupt */
++			writel(status | MTL_RX_OVERFLOW_INT,
++			       ioaddr + MTL_CHAN_INT_CTRL(chan));
++			ret = CORE_IRQ_MTL_RX_OVERFLOW;
 +		}
-+		if (value & MTL_DEBUG_TXPAUSED)
-+			x->mac_tx_in_pause++;
++	}
++
++	return ret;
++}
++
+ static int dwmac4_irq_status(struct mac_device_info *hw,
+ 			     struct stmmac_extra_stats *x)
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+-	u32 mtl_int_qx_status;
+ 	u32 intr_status;
+ 	int ret = 0;
+ 
+@@ -439,20 +462,6 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
+ 		x->irq_receive_pmt_irq_n++;
  	}
--	if (value & MTL_DEBUG_TXPAUSED)
--		x->mac_tx_in_pause++;
  
--	value = readl(ioaddr + MTL_CHAN_RX_DEBUG(STMMAC_CHAN0));
-+	for (queue = 0; queue < rx_queues; queue++) {
-+		value = readl(ioaddr + MTL_CHAN_RX_DEBUG(queue));
- 
--	if (value & MTL_DEBUG_RXFSTS_MASK) {
--		u32 rxfsts = (value & MTL_DEBUG_RXFSTS_MASK)
--			     >> MTL_DEBUG_RRCSTS_SHIFT;
-+		if (value & MTL_DEBUG_RXFSTS_MASK) {
-+			u32 rxfsts = (value & MTL_DEBUG_RXFSTS_MASK)
-+				     >> MTL_DEBUG_RRCSTS_SHIFT;
- 
--		if (rxfsts == MTL_DEBUG_RXFSTS_FULL)
--			x->mtl_rx_fifo_fill_level_full++;
--		else if (rxfsts == MTL_DEBUG_RXFSTS_AT)
--			x->mtl_rx_fifo_fill_above_thresh++;
--		else if (rxfsts == MTL_DEBUG_RXFSTS_BT)
--			x->mtl_rx_fifo_fill_below_thresh++;
--		else
--			x->mtl_rx_fifo_fill_level_empty++;
+-	mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
+-	/* Check MTL Interrupt: Currently only one queue is used: Q0. */
+-	if (mtl_int_qx_status & MTL_INT_Q0) {
+-		/* read Queue 0 Interrupt status */
+-		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
+-
+-		if (status & MTL_RX_OVERFLOW_INT) {
+-			/*  clear Interrupt */
+-			writel(status | MTL_RX_OVERFLOW_INT,
+-			       ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
+-			ret = CORE_IRQ_MTL_RX_OVERFLOW;
+-		}
 -	}
--	if (value & MTL_DEBUG_RRCSTS_MASK) {
--		u32 rrcsts = (value & MTL_DEBUG_RRCSTS_MASK) >>
--			     MTL_DEBUG_RRCSTS_SHIFT;
 -
--		if (rrcsts == MTL_DEBUG_RRCSTS_FLUSH)
--			x->mtl_rx_fifo_read_ctrl_flush++;
--		else if (rrcsts == MTL_DEBUG_RRCSTS_RSTAT)
--			x->mtl_rx_fifo_read_ctrl_read_data++;
--		else if (rrcsts == MTL_DEBUG_RRCSTS_RDATA)
--			x->mtl_rx_fifo_read_ctrl_status++;
--		else
--			x->mtl_rx_fifo_read_ctrl_idle++;
-+			if (rxfsts == MTL_DEBUG_RXFSTS_FULL)
-+				x->mtl_rx_fifo_fill_level_full++;
-+			else if (rxfsts == MTL_DEBUG_RXFSTS_AT)
-+				x->mtl_rx_fifo_fill_above_thresh++;
-+			else if (rxfsts == MTL_DEBUG_RXFSTS_BT)
-+				x->mtl_rx_fifo_fill_below_thresh++;
-+			else
-+				x->mtl_rx_fifo_fill_level_empty++;
-+		}
-+		if (value & MTL_DEBUG_RRCSTS_MASK) {
-+			u32 rrcsts = (value & MTL_DEBUG_RRCSTS_MASK) >>
-+				     MTL_DEBUG_RRCSTS_SHIFT;
+ 	dwmac_pcs_isr(ioaddr, GMAC_PCS_BASE, intr_status, x);
+ 	if (intr_status & PCS_RGSMIIIS_IRQ)
+ 		dwmac4_phystatus(ioaddr, x);
+@@ -554,6 +563,7 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.map_mtl_to_dma = dwmac4_map_mtl_dma,
+ 	.dump_regs = dwmac4_dump_regs,
+ 	.host_irq_status = dwmac4_irq_status,
++	.host_mtl_irq_status = dwmac4_irq_mtl_status,
+ 	.flow_ctrl = dwmac4_flow_ctrl,
+ 	.pmt = dwmac4_pmt,
+ 	.set_umac_addr = dwmac4_set_umac_addr,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index ed57409..3be77d4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2880,6 +2880,11 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+ 	if ((priv->plat->has_gmac) || (priv->plat->has_gmac4)) {
+ 		int status = priv->hw->mac->host_irq_status(priv->hw,
+ 							    &priv->xstats);
 +
-+			if (rrcsts == MTL_DEBUG_RRCSTS_FLUSH)
-+				x->mtl_rx_fifo_read_ctrl_flush++;
-+			else if (rrcsts == MTL_DEBUG_RRCSTS_RSTAT)
-+				x->mtl_rx_fifo_read_ctrl_read_data++;
-+			else if (rrcsts == MTL_DEBUG_RRCSTS_RDATA)
-+				x->mtl_rx_fifo_read_ctrl_status++;
-+			else
-+				x->mtl_rx_fifo_read_ctrl_idle++;
-+		}
-+		if (value & MTL_DEBUG_RWCSTS)
-+			x->mtl_rx_fifo_ctrl_active++;
- 	}
--	if (value & MTL_DEBUG_RWCSTS)
--		x->mtl_rx_fifo_ctrl_active++;
- 
- 	/* GMAC debug */
- 	value = readl(ioaddr + GMAC_DEBUG);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 4a5dc89..61b9369 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -520,6 +520,8 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 				 struct ethtool_stats *dummy, u64 *data)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 rx_queues_count = priv->plat->rx_queues_to_use;
-+	u32 tx_queues_count = priv->plat->tx_queues_to_use;
- 	int i, j = 0;
- 
- 	/* Update the DMA HW counters for dwmac10/100 */
-@@ -550,7 +552,8 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 		if ((priv->hw->mac->debug) &&
- 		    (priv->synopsys_id >= DWMAC_CORE_3_50))
- 			priv->hw->mac->debug(priv->ioaddr,
--					     (void *)&priv->xstats);
-+					     (void *)&priv->xstats,
-+					     rx_queues_count, tx_queues_count);
- 	}
- 	for (i = 0; i < STMMAC_STATS_LEN; i++) {
- 		char *p = (char *)priv + stmmac_gstrings_stats[i].stat_offset;
++		if (priv->synopsys_id >= DWMAC_CORE_4_00)
++			status |= priv->hw->mac->host_mtl_irq_status(priv->hw,
++								STMMAC_CHAN0);
++
+ 		if (unlikely(status)) {
+ 			/* For LPI we need to save the tx status */
+ 			if (status & CORE_IRQ_TX_PATH_IN_LPI_MODE)
 -- 
 2.9.3
