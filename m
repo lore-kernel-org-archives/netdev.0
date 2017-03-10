@@ -1,33 +1,28 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 07/14] net: dsa: mv88e6xxx: rework ATU Remove
-Date: Fri, 10 Mar 2017 03:33:17 +0100
-Message-ID: <20170310023317.GJ22101@lunn.ch>
-References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
- <20170309233324.18539-8-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 0/2] mlxsw: spectrum: Add support for VLAN
+ offload for cls_flower
+Date: Thu, 09 Mar 2017 18:36:05 -0800 (PST)
+Message-ID: <20170309.183605.925403337205111122.davem@davemloft.net>
+References: <1489047920-3557-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170309233324.18539-8-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, petrm@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, ivecera@redhat.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48386 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750816AbdCJCgH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 21:36:07 -0500
+In-Reply-To: <1489047920-3557-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -static int _mv88e6xxx_atu_cmd(struct mv88e6xxx_chip *chip, u16 fid, u16 cmd)
-> -{
-> -	u16 val;
-> -	int err;
-> -
-> -	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G1_ATU_FID)) {
-> -		err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_FID, fid);
-> -		if (err)
-> -			return err;
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  9 Mar 2017 09:25:18 +0100
 
-I think this removal makes MV88E6XXX_FLAG_G1_ATU_FID unused. It should
-be removed from mv88e6xxx.h as well.
+> This patchset adds support to offload VLAN modify TC action and adds support
+> to offload cls_flower rules that include VID and PCP matching.
 
-   Andrew
+Series applied, thanks Jiri.
