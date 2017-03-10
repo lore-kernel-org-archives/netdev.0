@@ -1,137 +1,79 @@
-From: Thierry Du Tre <thierry@dtsystems.be>
-Subject: [PATCH] vlan: support ingress/egress priority map flushing
-Date: Fri, 10 Mar 2017 15:41:35 +0100
-Message-ID: <4d3ee617-df9d-eed7-ced6-1458b3f92a1a@dtsystems.be>
+From: David Arcari <darcari@redhat.com>
+Subject: Re: [PATCH v2] net: ethernet: aquantia: set net_device mtu when mtu
+ is changed
+Date: Fri, 10 Mar 2017 09:47:55 -0500
+Message-ID: <58C2BC9B.6040907@redhat.com>
+References: <1489093426-25733-1-git-send-email-darcari@redhat.com>
+ <285b77bc-f7d1-9ad6-1bc6-639f13ff9b83@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:35537 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932784AbdCJOln (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 09:41:43 -0500
-Received: by mail-wr0-f196.google.com with SMTP id u108so11875240wrb.2
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 06:41:42 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:46174 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751024AbdCJOr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 10 Mar 2017 09:47:57 -0500
+In-Reply-To: <285b77bc-f7d1-9ad6-1bc6-639f13ff9b83@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When sending packets via a vlan device we can manipulate the priority bits in the vlan header (PCP) via a mapping based on tc class value.
-Similarly, when packets are received via a vlan device, the PCP value can be mapped onto a tc class value, which is available for iptables rules and tc queueing disciplines.
+Hi,
 
-One can use the vconfig utility to set both ingress and egress mapping entries (set_ingress_map/set_egress_map) or any other application to call the vlan ioctl handler.
+On 03/09/2017 05:43 PM, Lino Sanfilippo wrote:
+> Hi,
+> 
+> On 09.03.2017 22:03, David Arcari wrote:
+>> When the aquantia device mtu is changed the net_device structure is not
+>> updated.  As a result the ip command does not properly reflect the mtu change.
+>>
+>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+>> has a ndo_change_mtu routine.
+>>
+>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+>>
+>> v2: no longer close/open net-device after mtu change
+>>
+>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+>> Signed-off-by: David Arcari <darcari@redhat.com>
+>> ---
+>>  drivers/net/ethernet/aquantia/atlantic/aq_main.c | 10 ++--------
+>>  1 file changed, 2 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>> index dad6362..bba5ebd 100644
+>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>> @@ -96,15 +96,9 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
+>>  	struct aq_nic_s *aq_nic = netdev_priv(ndev);
+>>  	int err = aq_nic_set_mtu(aq_nic, new_mtu + ETH_HLEN);
+>>  
+>> -	if (err < 0)
+>> -		goto err_exit;
+>> +	if (!err)
+>> +		ndev->mtu = new_mtu;
+>>  
+>> -	if (netif_running(ndev)) {
+>> -		aq_ndev_close(ndev);
+>> -		aq_ndev_open(ndev);
+>> -	}
+>> -
+>> -err_exit:
+> 
+> Removing the restart has nothing to do with the bug you want to fix here, has it?
+> I suggest to send a separate patch for this.
+> 
+> Regards,
+> Lino
+> 
 
-The resulting map can be printed via /proc/net/vlan/<ifname> , i.e. :
-# cat /proc/net/vlan/vlan11
-vlan11  VID: 11  REORDER_HDR: 1  dev->priv_flags: 1
-          total frames received     52331849
-           total bytes received  17451834908
-       Broadcast/Multicast Rcvd      1525155
+I'm fine with that.  Pavel does that work for you?
 
-       total frames transmitted     98569270
-        total bytes transmitted 144870211289
-Device: eth_test
-INGRESS priority mappings: 0:0  1:1  2:2  3:3  4:0  5:0  6:0 7:0
-  EGRESS priority mappings: 0:7
+It would mean that the original version of this patch should be applied and
+either you or I could send the follow-up patch.
 
-The current API offers only GET and SET operations, and when actually using this functionality a flush is missing to reset all entries.
-This patch adds a FLUSH operation for both ingress and egress map which can then be used by vconfig or other applications.
+Best,
 
-Signed-off-by: Thierry Du Tre <thierry@dtsystems.be>
----
-  include/uapi/linux/if_vlan.h |  2 ++
-  net/8021q/vlan.c             | 16 ++++++++++++++++
-  net/8021q/vlan.h             |  2 ++
-  net/8021q/vlan_dev.c         | 23 +++++++++++++++++++++++
-  4 files changed, 43 insertions(+)
-
-diff --git a/include/uapi/linux/if_vlan.h b/include/uapi/linux/if_vlan.h
-index 7e5e6b3..6bdff52 100644
---- a/include/uapi/linux/if_vlan.h
-+++ b/include/uapi/linux/if_vlan.h
-@@ -20,6 +20,8 @@
-  enum vlan_ioctl_cmds {
-  	ADD_VLAN_CMD,
-  	DEL_VLAN_CMD,
-+	FLUSH_VLAN_INGRESS_PRIORITY_CMD,
-+	FLUSH_VLAN_EGRESS_PRIORITY_CMD,
-  	SET_VLAN_INGRESS_PRIORITY_CMD,
-  	SET_VLAN_EGRESS_PRIORITY_CMD,
-  	GET_VLAN_INGRESS_PRIORITY_CMD,
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 467069b..8988419 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -539,6 +539,22 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
-  	}
-  
-  	switch (args.cmd) {
-+	case FLUSH_VLAN_INGRESS_PRIORITY_CMD:
-+		err = -EPERM;
-+		if (!capable(CAP_NET_ADMIN))
-+			break;
-+		vlan_dev_flush_ingress_priority(dev);
-+		err = 0;
-+		break;
-+
-+	case FLUSH_VLAN_EGRESS_PRIORITY_CMD:
-+		err = -EPERM;
-+		if (!capable(CAP_NET_ADMIN))
-+			break;
-+		vlan_dev_flush_egress_priority(dev);
-+		err = 0;
-+		break;
-+
-  	case SET_VLAN_INGRESS_PRIORITY_CMD:
-  		err = -EPERM;
-  		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-index df8bd65..d8d90ca 100644
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
-@@ -97,6 +97,8 @@ static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
-  							    (i) % VLAN_N_VID)))
-  
-  /* found in vlan_dev.c */
-+void vlan_dev_flush_ingress_priority(const struct net_device *dev);
-+void vlan_dev_flush_egress_priority(const struct net_device *dev);
-  void vlan_dev_set_ingress_priority(const struct net_device *dev,
-  				   u32 skb_prio, u16 vlan_prio);
-  int vlan_dev_set_egress_priority(const struct net_device *dev,
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index e97ab82..8fd91c3 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -159,6 +159,29 @@ static int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
-  	return 0;
-  }
-  
-+void vlan_dev_flush_ingress_priority(const struct net_device *dev)
-+{
-+	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
-+
-+	memset(vlan->ingress_priority_map, 0, sizeof(vlan->ingress_priority_map));
-+	vlan->nr_ingress_mappings = 0;
-+}
-+
-+void vlan_dev_flush_egress_priority(const struct net_device *dev)
-+{
-+	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
-+	struct vlan_priority_tci_mapping *mp;
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
-+		while ((mp = vlan->egress_priority_map[i]) != NULL) {
-+			vlan->egress_priority_map[i] = mp->next;
-+			kfree(mp);
-+		}
-+	}
-+	vlan->nr_egress_mappings = 0;
-+}
-+
-  void vlan_dev_set_ingress_priority(const struct net_device *dev,
-  				   u32 skb_prio, u16 vlan_prio)
-  {
--- 
-2.7.4
+-Dave
