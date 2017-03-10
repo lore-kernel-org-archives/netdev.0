@@ -1,53 +1,93 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/10] mlxsw: Preparations for VRF offload
-Date: Fri, 10 Mar 2017 08:53:33 +0100
-Message-ID: <1489132423-12575-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 01/10] mlxsw: spectrum: Sanitize bridge's upper devices
+Date: Fri, 10 Mar 2017 08:53:34 +0100
+Message-ID: <1489132423-12575-2-git-send-email-jiri@resnulli.us>
+References: <1489132423-12575-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:35245 "EHLO
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:33401 "EHLO
         mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750936AbdCJHxq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 02:53:46 -0500
-Received: by mail-wr0-f196.google.com with SMTP id u108so10564630wrb.2
-        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 23:53:45 -0800 (PST)
+        with ESMTP id S1753120AbdCJHxr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 02:53:47 -0500
+Received: by mail-wr0-f196.google.com with SMTP id g10so10560130wrg.0
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 23:53:46 -0800 (PST)
+In-Reply-To: <1489132423-12575-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Ido says:
+We're going to allow bridges stacked on top of port netdevs to be
+enslaved to a VRF, but for now, only VLAN uppers of the VLAN-aware
+bridge are supported.
 
-This patchset aims to prepare the mlxsw driver for VRF offload. The
-follow-up patchsets that introduce VRF support can be found here:
-https://github.com/idosch/linux/tree/idosch-next
+Sanitize any other bridge upper. This is consistent with the way we
+sanitize port netdevs' uppers.
 
-The first four patches are mainly concerned with the netdevice
-notification block. There are no functional changes, but merely
-restructuring to more easily integrate VRF enslavement.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 31 ++++++++++++++++----------
+ 1 file changed, 19 insertions(+), 12 deletions(-)
 
-Patches 5-10 remove various assumptions throughout the code about a
-single virtual router (VR) and also restructure the internal data
-structures to more accurately represent the device's operation.
-
-Ido Schimmel (10):
-  mlxsw: spectrum: Sanitize bridge's upper devices
-  mlxsw: spectrum: Don't assume upper device's type
-  mlxsw: spectrum: Associate PVID vPort with appropriate netdev
-  mlxsw: spectrum: Destroy RIFs based on last removed address
-  mlxsw: spectrum_router: Allow more route types to be programmed
-  mlxsw: spectrum_router: Place RIF related code with router code
-  mlxsw: spectrum_router: Simplify LPM tree allocation
-  mlxsw: spectrum_router: Refactor virtual router handling
-  mlxsw: spectrum_router: Explicitly Associate RIFs with VRs
-  mlxsw: spectrum_router: Make abort mechanism VR-aware
-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          |    4 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  598 +---------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   52 +-
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 1159 +++++++++++++++-----
- 4 files changed, 956 insertions(+), 857 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index ae18067..c27c8f8 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -4565,33 +4565,40 @@ static int mlxsw_sp_netdevice_bridge_event(struct net_device *br_dev,
+ 	struct netdev_notifier_changeupper_info *info;
+ 	struct net_device *upper_dev;
+ 	struct mlxsw_sp *mlxsw_sp;
+-	int err;
++	int err = 0;
+ 
+ 	mlxsw_sp = mlxsw_sp_lower_get(br_dev);
+ 	if (!mlxsw_sp)
+ 		return 0;
+-	if (br_dev != mlxsw_sp->master_bridge.dev)
+-		return 0;
+ 
+ 	info = ptr;
+ 
+ 	switch (event) {
+-	case NETDEV_CHANGEUPPER:
++	case NETDEV_PRECHANGEUPPER:
+ 		upper_dev = info->upper_dev;
+ 		if (!is_vlan_dev(upper_dev))
+-			break;
+-		if (info->linking) {
+-			err = mlxsw_sp_master_bridge_vlan_link(mlxsw_sp,
+-							       upper_dev);
+-			if (err)
+-				return err;
++			return -EINVAL;
++		if (is_vlan_dev(upper_dev) &&
++		    br_dev != mlxsw_sp->master_bridge.dev)
++			return -EINVAL;
++		break;
++	case NETDEV_CHANGEUPPER:
++		upper_dev = info->upper_dev;
++		if (is_vlan_dev(upper_dev)) {
++			if (info->linking)
++				err = mlxsw_sp_master_bridge_vlan_link(mlxsw_sp,
++								       upper_dev);
++			else
++				mlxsw_sp_master_bridge_vlan_unlink(mlxsw_sp,
++								   upper_dev);
+ 		} else {
+-			mlxsw_sp_master_bridge_vlan_unlink(mlxsw_sp, upper_dev);
++			err = -EINVAL;
++			WARN_ON(1);
+ 		}
+ 		break;
+ 	}
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static u16 mlxsw_sp_avail_vfid_get(const struct mlxsw_sp *mlxsw_sp)
 -- 
 2.7.4
