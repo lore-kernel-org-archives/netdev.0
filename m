@@ -1,13 +1,15 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net 0/8] net: bcmgenet: minor bug fixes
-Date: Thu,  9 Mar 2017 16:48:58 -0800
-Message-ID: <20170310004906.10553-1-opendmb@gmail.com>
+Subject: [PATCH v2 net 0/8] net: bcmgenet: minor bug fixes
+Date: Thu,  9 Mar 2017 16:58:42 -0800
+Message-ID: <20170310005850.10808-1-opendmb@gmail.com>
 Cc: pgynther@google.com, jaedon.shin@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Doug Berger <opendmb@gmail.com>
 To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+v2: Accidentally sent the wrong set after rebasing.
 
 This collection contains a number of fixes for minor issues with the
 bcmgenet driver most of which were present in the initial submission
