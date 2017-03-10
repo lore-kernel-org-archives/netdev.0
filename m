@@ -1,45 +1,60 @@
-From: Neil Jerram <neil@tigera.io>
-Subject: [PATCH] Make IP 'forwarding' doc more precise
-Date: Fri, 10 Mar 2017 12:24:57 +0000
-Message-ID: <1489148697-5529-1-git-send-email-neil@tigera.io>
-Cc: Neil Jerram <neil@tigera.io>
-To: netdev@vger.kernel.org
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
+ performance may be compromised." message with "ethtool -K eth0 gro off"
+Date: Fri, 10 Mar 2017 13:22:08 +0100
+Message-ID: <20170310122208.GA293@x4>
+References: <20170202123427.GA7212@x4>
+ <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203115457.GA5296@localhost.localdomain>
+ <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203135355.GA3413@localhost.localdomain>
+ <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203142828.GB3413@localhost.localdomain>
+ <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170206211226.GC3413@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35521 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965185AbdCJMZf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 07:25:35 -0500
-Received: by mail-wm0-f44.google.com with SMTP id v186so9334457wmd.0
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 04:25:29 -0800 (PST)
+Received: from ud10.udmedia.de ([194.117.254.50]:33090 "EHLO
+        mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936768AbdCJMWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 07:22:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20170206211226.GC3413@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It wasn't clear if the 'forwarding' setting needs to be enabled on the
-interface that packets are received from, or on the interface that
-packets are forwarded to, or both.
+On 2017.02.06 at 19:12 -0200, Marcelo Ricardo Leitner wrote:
+> On Fri, Feb 03, 2017 at 06:47:33AM -0800, Eric Dumazet wrote:
+> > On Fri, 2017-02-03 at 12:28 -0200, Marcelo Ricardo Leitner wrote:
+> > 
+> > > Aren't you mixing the endpoints here? MSS is the largest amount of data
+> > > that the peer can receive in a single segment, and not how much it will
+> > > send. For the sending part, that depends on what the other peer
+> > > announced, and we can have 2 different MSS in a single connection, one
+> > > for each peer.
+> > > 
+> > > If a peer later wants to send larger segments, it can, but it must
+> > > respect the mss advertised by the other peer during handshake.
+> > > 
+> > 
+> > I am not mixing endpoints, you are.
+> > 
+> > If you need to be convinced, please grab :
+> > https://patchwork.ozlabs.org/patch/723028/
+> > 
+> > And just watch "ss -temoi ..." 
+> 
+> I still don't get it, but I also hit the warning on my laptop, using
+> iwlwifi. Not sure what I did in order to trigger it, it was by accident.
 
-In fact (according to my code reading) the setting is relevant on the
-interface that packets are received from, so this change updates the doc
-to say that.
+I am running with your debugging patch applied since the beginning of
+February and was not able to reproduce the issue ever again.
+So I think your code is innocent and another bug (,that seems to be
+fixed since then) somehow caused the kernel to jump to the function.
 
-Signed-off-by: Neil Jerram <neil@tigera.io>
----
- Documentation/networking/ip-sysctl.txt | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index fc73eeb..ab02304 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1006,7 +1006,8 @@ accept_redirects - BOOLEAN
- 		FALSE (router)
- 
- forwarding - BOOLEAN
--	Enable IP forwarding on this interface.
-+	Enable IP forwarding on this interface.  This controls whether packets
-+	received _on_ this interface can be forwarded.
- 
- mc_forwarding - BOOLEAN
- 	Do multicast routing. The kernel needs to be compiled with CONFIG_MROUTE
 -- 
-2.7.4
+Markus
