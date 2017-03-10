@@ -1,79 +1,95 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: tun: use new api ethtool_{get|set}_link_ksettings
-Date: Fri, 10 Mar 2017 22:18:07 +0100
-Message-ID: <1489180687-19623-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, mst@redhat.com, edumazet@google.com,
-        pabeni@redhat.com, fgao@ikuai8.com, elfring@users.sourceforge.net,
-        jarno@ovn.org, rppt@linux.vnet.ibm.com, jarod@redhat.com
+From: Pavel Belous <pavel.belous@aquantia.com>
+Subject: Re: [PATCH v2] net: ethernet: aquantia: set net_device mtu when mtu
+ is changed
+Date: Sat, 11 Mar 2017 00:19:55 +0300
+Message-ID: <279a67c4-a27a-e3b6-08b5-0e0a12abbbde@aquantia.com>
+References: <1489093426-25733-1-git-send-email-darcari@redhat.com>
+ <285b77bc-f7d1-9ad6-1bc6-639f13ff9b83@gmx.de> <58C2BC9B.6040907@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Arcari <darcari@redhat.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34411 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932991AbdCJVSR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 16:18:17 -0500
+Received: from mail-co1nam03on0055.outbound.protection.outlook.com ([104.47.40.55]:7264
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754391AbdCJVUv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 10 Mar 2017 16:20:51 -0500
+In-Reply-To: <58C2BC9B.6040907@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/tun.c |   24 +++++++++++-------------
- 1 files changed, 11 insertions(+), 13 deletions(-)
+On 10.03.2017 17:47, David Arcari wrote:
+> Hi,
+>
+> On 03/09/2017 05:43 PM, Lino Sanfilippo wrote:
+>> Hi,
+>>
+>> On 09.03.2017 22:03, David Arcari wrote:
+>>> When the aquantia device mtu is changed the net_device structure is not
+>>> updated.  As a result the ip command does not properly reflect the mtu change.
+>>>
+>>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+>>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+>>> has a ndo_change_mtu routine.
+>>>
+>>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+>>>
+>>> v2: no longer close/open net-device after mtu change
+>>>
+>>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+>>> Signed-off-by: David Arcari <darcari@redhat.com>
+>>> ---
+>>>  drivers/net/ethernet/aquantia/atlantic/aq_main.c | 10 ++--------
+>>>  1 file changed, 2 insertions(+), 8 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>> index dad6362..bba5ebd 100644
+>>> --- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+>>> @@ -96,15 +96,9 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
+>>>  	struct aq_nic_s *aq_nic = netdev_priv(ndev);
+>>>  	int err = aq_nic_set_mtu(aq_nic, new_mtu + ETH_HLEN);
+>>>
+>>> -	if (err < 0)
+>>> -		goto err_exit;
+>>> +	if (!err)
+>>> +		ndev->mtu = new_mtu;
+>>>
+>>> -	if (netif_running(ndev)) {
+>>> -		aq_ndev_close(ndev);
+>>> -		aq_ndev_open(ndev);
+>>> -	}
+>>> -
+>>> -err_exit:
+>>
+>> Removing the restart has nothing to do with the bug you want to fix here, has it?
+>> I suggest to send a separate patch for this.
+>>
+>> Regards,
+>> Lino
+>>
+>
+> I'm fine with that.  Pavel does that work for you?
+>
+> It would mean that the original version of this patch should be applied and
+> either you or I could send the follow-up patch.
+>
+> Best,
+>
+> -Dave
+>
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index dc1b1dd..c418f0a 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -2430,18 +2430,16 @@ static void tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
- 
- /* ethtool interface */
- 
--static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
--{
--	cmd->supported		= 0;
--	cmd->advertising	= 0;
--	ethtool_cmd_speed_set(cmd, SPEED_10);
--	cmd->duplex		= DUPLEX_FULL;
--	cmd->port		= PORT_TP;
--	cmd->phy_address	= 0;
--	cmd->transceiver	= XCVR_INTERNAL;
--	cmd->autoneg		= AUTONEG_DISABLE;
--	cmd->maxtxpkt		= 0;
--	cmd->maxrxpkt		= 0;
-+static int tun_get_link_ksettings(struct net_device *dev,
-+				  struct ethtool_link_ksettings *cmd)
-+{
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	cmd->base.speed		= SPEED_10;
-+	cmd->base.duplex	= DUPLEX_FULL;
-+	cmd->base.port		= PORT_TP;
-+	cmd->base.phy_address	= 0;
-+	cmd->base.autoneg	= AUTONEG_DISABLE;
- 	return 0;
- }
- 
-@@ -2504,7 +2502,6 @@ static int tun_set_coalesce(struct net_device *dev,
- }
- 
- static const struct ethtool_ops tun_ethtool_ops = {
--	.get_settings	= tun_get_settings,
- 	.get_drvinfo	= tun_get_drvinfo,
- 	.get_msglevel	= tun_get_msglevel,
- 	.set_msglevel	= tun_set_msglevel,
-@@ -2512,6 +2509,7 @@ static int tun_set_coalesce(struct net_device *dev,
- 	.get_ts_info	= ethtool_op_get_ts_info,
- 	.get_coalesce   = tun_get_coalesce,
- 	.set_coalesce   = tun_set_coalesce,
-+	.get_link_ksettings = tun_get_link_ksettings,
- };
- 
- static int tun_queue_resize(struct tun_struct *tun)
--- 
-1.7.4.4
+David,
+
+Yes, I think for this it is better to make separate patch.
+I can prepare a patch for "close/open netdev" myself.
+
+Probably you need send the original version of this patch as "v3" (I'm 
+no sure what it is possible to discard v2 and apply v1 instead.)
+
+Thank you,
+Pavel
