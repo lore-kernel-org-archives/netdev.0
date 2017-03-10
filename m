@@ -1,27 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] bnxt_en: Misc. small fixes.
-Date: Thu, 09 Mar 2017 17:38:48 -0800 (PST)
-Message-ID: <20170309.173848.2110997212811315730.davem@davemloft.net>
-References: <1489016675-16097-1-git-send-email-michael.chan@broadcom.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 net 1/8] net: bcmgenet: correct the RBUF_OVFL_CNT and
+ RBUF_ERR_CNT MIB values
+Date: Thu, 9 Mar 2017 17:42:46 -0800
+Message-ID: <e798c012-185b-0e1e-ca9b-3094f354a2d1@gmail.com>
+References: <20170310005850.10808-1-opendmb@gmail.com>
+ <20170310005850.10808-2-opendmb@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47592 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750816AbdCJBkS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 20:40:18 -0500
-In-Reply-To: <1489016675-16097-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pgynther@google.com, jaedon.shin@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Doug Berger <opendmb@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170310005850.10808-2-opendmb@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Wed,  8 Mar 2017 18:44:31 -0500
+On 03/09/2017 04:58 PM, Doug Berger wrote:
+> The location of the RBUF overflow and error counters has moved between
+> different version of the GENET MAC.  This commit corrects the driver to
+> read from the correct locations depending on the version of the GENET
+> MAC.
+> 
+> Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
+> Signed-off-by: Doug Berger <opendmb@gmail.com>
 
-> Fixes include moving the initial function reset, notifying the RDMA driver
-> during tx timeout, setting dcbx_cap properly depending on whether the
-> firmware agent is running or not, and an autoneg related improvement. 
-
-Series applied, thanks Michael.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
