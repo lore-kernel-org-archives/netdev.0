@@ -1,35 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Enable IRQs only if napi_complete_done()
- is true
-Date: Thu, 09 Mar 2017 18:31:47 -0800 (PST)
-Message-ID: <20170309.183147.1115919481874028502.davem@davemloft.net>
-References: <20170309234823.11010.87592.stgit@tlendack-t1.amdoffice.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 07/14] net: dsa: mv88e6xxx: rework ATU Remove
+Date: Fri, 10 Mar 2017 03:33:17 +0100
+Message-ID: <20170310023317.GJ22101@lunn.ch>
+References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
+ <20170309233324.18539-8-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeremy.linton@arm.com
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48292 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753648AbdCJCbu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 21:31:50 -0500
-In-Reply-To: <20170309234823.11010.87592.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170309233324.18539-8-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Thu, 9 Mar 2017 17:48:23 -0600
+> -static int _mv88e6xxx_atu_cmd(struct mv88e6xxx_chip *chip, u16 fid, u16 cmd)
+> -{
+> -	u16 val;
+> -	int err;
+> -
+> -	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G1_ATU_FID)) {
+> -		err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_FID, fid);
+> -		if (err)
+> -			return err;
 
-> Depending on the hardware, the amd-xgbe driver may use disable_irq_nosync()
-> and enable_irq() when an interrupt is received to process Rx packets. If
-> the napi_complete_done() return value isn't checked an unbalanced enable
-> for the IRQ could result, generating a warning stack trace.
-> 
-> Update the driver to only enable interrupts if napi_complete_done() returns
-> true.
-> 
-> Reported-by: Jeremy Linton <jeremy.linton@arm.com>
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+I think this removal makes MV88E6XXX_FLAG_G1_ATU_FID unused. It should
+be removed from mv88e6xxx.h as well.
 
-Applied, thanks.
+   Andrew
