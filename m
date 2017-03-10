@@ -1,48 +1,49 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH v2 net 0/8] net: bcmgenet: minor bug fixes
-Date: Thu,  9 Mar 2017 16:58:42 -0800
-Message-ID: <20170310005850.10808-1-opendmb@gmail.com>
+Subject: [PATCH v2 net 2/8] net: bcmgenet: correct MIB access of UniMAC RUNT counters
+Date: Thu,  9 Mar 2017 16:58:44 -0800
+Message-ID: <20170310005850.10808-3-opendmb@gmail.com>
+References: <20170310005850.10808-1-opendmb@gmail.com>
 Cc: pgynther@google.com, jaedon.shin@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Doug Berger <opendmb@gmail.com>
 To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170310005850.10808-1-opendmb@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v2: Accidentally sent the wrong set after rebasing.
+The gap between the Tx status counters and the Rx RUNT counters is now
+being added to allow correct reporting of the registers.
 
-This collection contains a number of fixes for minor issues with the
-bcmgenet driver most of which were present in the initial submission
-of the driver.
+Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
+Signed-off-by: Doug Berger <opendmb@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-Some bugs were uncovered by inspection prior to the upcoming update for
-GENETv5 support:
-  net: bcmgenet: correct the RBUF_OVFL_CNT and RBUF_ERR_CNT MIB values
-  net: bcmgenet: correct MIB access of UniMAC RUNT counters
-  net: bcmgenet: reserved phy revisions must be checked first
-  net: bcmgenet: synchronize irq0 status between the isr and task
-
-Others bugs were found in power management testing:
-  net: bcmgenet: power down internal phy if open or resume fails
-  net: bcmgenet: Power up the internal PHY before probing the MII
-  net: bcmgenet: decouple flow control from bcmgenet_tx_reclaim
-  net: bcmgenet: add begin/complete ethtool ops
-
-Doug Berger (7):
-  net: bcmgenet: correct the RBUF_OVFL_CNT and RBUF_ERR_CNT MIB values
-  net: bcmgenet: correct MIB access of UniMAC RUNT counters
-  net: bcmgenet: reserved phy revisions must be checked first
-  net: bcmgenet: power down internal phy if open or resume fails
-  net: bcmgenet: synchronize irq0 status between the isr and task
-  net: bcmgenet: Power up the internal PHY before probing the MII
-  net: bcmgenet: decouple flow control from bcmgenet_tx_reclaim
-
-Edwin Chan (1):
-  net: bcmgenet: add begin/complete ethtool ops
-
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 206 ++++++++++++++++++-------
- drivers/net/ethernet/broadcom/genet/bcmgenet.h |  16 +-
- 2 files changed, 158 insertions(+), 64 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index f0fb7eca8eb4..01a172d95328 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -876,13 +876,16 @@ static void bcmgenet_update_mib_counters(struct bcmgenet_priv *priv)
+ 		case BCMGENET_STAT_NETDEV:
+ 		case BCMGENET_STAT_SOFT:
+ 			continue;
+-		case BCMGENET_STAT_MIB_RX:
+-		case BCMGENET_STAT_MIB_TX:
+ 		case BCMGENET_STAT_RUNT:
+-			if (s->type != BCMGENET_STAT_MIB_RX)
+-				offset = BCMGENET_STAT_OFFSET;
++			offset += BCMGENET_STAT_OFFSET;
++			/* fall through */
++		case BCMGENET_STAT_MIB_TX:
++			offset += BCMGENET_STAT_OFFSET;
++			/* fall through */
++		case BCMGENET_STAT_MIB_RX:
+ 			val = bcmgenet_umac_readl(priv,
+ 						  UMAC_MIB_START + j + offset);
++			offset = 0;	/* Reset Offset */
+ 			break;
+ 		case BCMGENET_STAT_MISC:
+ 			if (GENET_IS_V1(priv)) {
 -- 
 2.11.1
