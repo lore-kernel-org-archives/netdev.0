@@ -1,31 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 03/14] net: dsa: mv88e6xxx: setup ATU Learn2All
-Date: Fri, 10 Mar 2017 03:03:29 +0100
-Message-ID: <20170310020329.GH22101@lunn.ch>
-References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
- <20170309233324.18539-4-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ks8851: Added support for half-duplex SPI
+Date: Thu, 09 Mar 2017 18:19:03 -0800 (PST)
+Message-ID: <20170309.181903.1997892032763130789.davem@davemloft.net>
+References: <1489021094-12987-1-git-send-email-shchers@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+        tremyfr@gmail.com, stephen.boyd@linaro.org, jarod@redhat.com
+To: shchers@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170309233324.18539-4-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1489021094-12987-1-git-send-email-shchers@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 09, 2017 at 06:33:13PM -0500, Vivien Didelot wrote:
-> Marvell switch chips which can be interconnected have an ATU Learn2All
-> feature which allows chosen ports to also learn newly added addresses.
+From: Sergey Shcherbakov <shchers@gmail.com>
+Date: Thu,  9 Mar 2017 02:58:14 +0200
+
+> In original driver was implemented support for half-
+> and full-duplex modes, but it was not enabled. Instead
+> of it ks8851_rx_1msg method always returns "true" that
+> means "full-duplex" mode.
 > 
-> Enable this feature and mark the DSA links as so called "Message Ports".
+> This patch replaces hard-coded functionality with
+> flexible solution that supports both SPI modes.
+> 
+> Signed-off-by: Sergey Shcherbakov <shchers@gmail.com>
 
-Hi Vivien
-
-I would of probably split this into two patches. One for adding
-message ports, and one for refactoring the existing learn2all.
-
-	Andrew
+Applied.
