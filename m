@@ -1,347 +1,151 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v4 net-next 9/9] net: stmicro: configuration of CBS in case of a TX AVB queue
-Date: Fri, 10 Mar 2017 12:18:34 +0000
-Message-ID: <11f24554eb5316fdef352905163276c4ef64f760.1489146580.git.jpinto@synopsys.com>
+Subject: [PATCH v4 net-next 7/9] net: stmicro: prepare irq_status for mtl
+Date: Fri, 10 Mar 2017 12:18:32 +0000
+Message-ID: <c08449eacd133302f4eeafe0b8333330be766251.1489146580.git.jpinto@synopsys.com>
 References: <cover.1489146580.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         niklas.cassel@axis.com, netdev@vger.kernel.org,
         Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:46688 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:50676 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936868AbdCJMTH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 07:19:07 -0500
+        with ESMTP id S936388AbdCJMTC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 07:19:02 -0500
 In-Reply-To: <cover.1489146580.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489146580.git.jpinto@synopsys.com>
 References: <cover.1489146580.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the configuration of the AVB Credit-Based Shaper.
+This patch prepares mac irq status treatment for multiple queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
 Changes v3->v4:
-- variable init was simplified in some functions
-Changes v1->v3:
-- Added in v3
+- Build error in dwmac4_irq_mtl_status()
+- variable init simplified in some functions
+changes v2->v3:
+- local variable declarations from longest to shortest line
+changes v1->v2:
+- Just to keep up with patch-set version
 
- Documentation/devicetree/bindings/net/stmmac.txt   | 22 +++++++++--
- drivers/net/ethernet/stmicro/stmmac/common.h       |  4 ++
- drivers/net/ethernet/stmicro/stmmac/dwmac4.h       | 33 ++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 46 +++++++++++++++++++++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 29 ++++++++++++++
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 29 ++++++++++++--
- include/linux/stmmac.h                             | 12 ++++--
- 7 files changed, 164 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 40 ++++++++++++++---------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  5 +++
+ 4 files changed, 33 insertions(+), 16 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 4107e67..9b4d5dd 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -92,8 +92,15 @@ Optional properties:
- 		- snps,tx-sched-dwrr: Deficit Weighted Round Robin
- 		- snps,tx-sched-sp: Strict priority
- 	- For each TX queue
--		- snps,weight: TX queue weight (if using a weighted algorithm)
--
-+		- snps,weight: TX queue weight (if using a DCB weight algorithm)
-+		- Choose one of these modes:
-+			- snps,dcb-algorithm: TX queue will be working in DCB
-+			- snps,avb-algorithm: TX queue will be working in AVB
-+		- Configure Credit Base Shaper (if AVB Mode selected):
-+			- snps,send_slope: enable Low Power Interface
-+			- snps,idle_slope: unlock on WoL
-+			- snps,high_credit: max write outstanding req. limit
-+			- snps,low_credit: max read outstanding req. limit
- Examples:
- 
- 	stmmac_axi_setup: stmmac-axi-config {
-@@ -112,10 +119,19 @@ Examples:
- 	};
- 
- 	mtl_tx_setup: tx-queues-config {
--		snps,tx-queues-to-use = <1>;
-+		snps,tx-queues-to-use = <2>;
- 		snps,tx-sched-wrr;
- 		queue0 {
- 			snps,weight = <0x10>;
-+			snps,dcb-algorithm;
-+		};
-+
-+		queue1 {
-+			snps,avb-algorithm;
-+			snps,send_slope = <0x1000>;
-+			snps,idle_slope = <0x1000>;
-+			snps,high_credit = <0x3E800>;
-+			snps,low_credit = <0xFFC18000>;
- 		};
- 	};
- 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 86f43ac..e3ced07 100644
+index 5532633..6a348d3 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -464,6 +464,10 @@ struct stmmac_ops {
- 					u32 weight, u32 queue);
- 	/* RX MTL queue to RX dma mapping */
- 	void (*map_mtl_to_dma)(struct mac_device_info *hw, u32 queue, u32 chan);
-+	/* Configure AV Algorithm */
-+	void (*config_cbs)(struct mac_device_info *hw, u32 send_slope,
-+			   u32 idle_slope, u32 high_credit, u32 low_credit,
-+			   u32 queue);
- 	/* Dump MAC registers */
- 	void (*dump_regs)(struct mac_device_info *hw, u32 *reg_space);
+@@ -469,6 +469,8 @@ struct stmmac_ops {
  	/* Handle extra events on specific interrupts hw dependent */
+ 	int (*host_irq_status)(struct mac_device_info *hw,
+ 			       struct stmmac_extra_stats *x);
++	/* Handle MTL interrupts */
++	int (*host_mtl_irq_status)(struct mac_device_info *hw, u32 chan);
+ 	/* Multicast filter setting */
+ 	void (*set_filter)(struct mac_device_info *hw, struct net_device *dev);
+ 	/* Flow control setting */
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-index 5ca4d64..cf0e602 100644
+index 9dd8ac1..5ca4d64 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-@@ -218,6 +218,15 @@ enum power_event {
- #define MTL_OP_MODE_RTC_96		(2 << MTL_OP_MODE_RTC_SHIFT)
- #define MTL_OP_MODE_RTC_128		(3 << MTL_OP_MODE_RTC_SHIFT)
+@@ -172,7 +172,7 @@ enum power_event {
+ #define MTL_OPERATION_RAA_WSP		(0x1 << 2)
  
-+/* MTL ETS Control register */
-+#define MTL_ETS_CTRL_BASE_ADDR		0x00000d10
-+#define MTL_ETS_CTRL_BASE_OFFSET	0x40
-+#define MTL_ETSX_CTRL_BASE_ADDR(x)	(MTL_ETS_CTRL_BASE_ADDR + \
-+					((x) * MTL_ETS_CTRL_BASE_OFFSET))
-+
-+#define MTL_ETS_CTRL_CC			BIT(3)
-+#define MTL_ETS_CTRL_AVALG		BIT(2)
-+
- /* MTL Queue Quantum Weight */
- #define MTL_TXQ_WEIGHT_BASE_ADDR	0x00000d18
- #define MTL_TXQ_WEIGHT_BASE_OFFSET	0x40
-@@ -225,6 +234,30 @@ enum power_event {
- 					((x) * MTL_TXQ_WEIGHT_BASE_OFFSET))
- #define MTL_TXQ_WEIGHT_ISCQW_MASK	GENMASK(20, 0)
+ #define MTL_INT_STATUS			0x00000c20
+-#define MTL_INT_Q0			BIT(0)
++#define MTL_INT_QX(x)			BIT(x)
  
-+/* MTL sendSlopeCredit register */
-+#define MTL_SEND_SLP_CRED_BASE_ADDR	0x00000d1c
-+#define MTL_SEND_SLP_CRED_OFFSET	0x40
-+#define MTL_SEND_SLP_CREDX_BASE_ADDR(x)	(MTL_SEND_SLP_CRED_BASE_ADDR + \
-+					((x) * MTL_SEND_SLP_CRED_OFFSET))
-+
-+#define MTL_SEND_SLP_CRED_SSC_MASK	GENMASK(13, 0)
-+
-+/* MTL hiCredit register */
-+#define MTL_HIGH_CRED_BASE_ADDR		0x00000d20
-+#define MTL_HIGH_CRED_OFFSET		0x40
-+#define MTL_HIGH_CREDX_BASE_ADDR(x)	(MTL_HIGH_CRED_BASE_ADDR + \
-+					((x) * MTL_HIGH_CRED_OFFSET))
-+
-+#define MTL_HIGH_CRED_HC_MASK		GENMASK(28, 0)
-+
-+/* MTL loCredit register */
-+#define MTL_LOW_CRED_BASE_ADDR		0x00000d24
-+#define MTL_LOW_CRED_OFFSET		0x40
-+#define MTL_LOW_CREDX_BASE_ADDR(x)	(MTL_LOW_CRED_BASE_ADDR + \
-+					((x) * MTL_LOW_CRED_OFFSET))
-+
-+#define MTL_HIGH_CRED_LC_MASK		GENMASK(28, 0)
-+
- /*  MTL debug */
- #define MTL_DEBUG_TXSTSFSTS		BIT(5)
- #define MTL_DEBUG_TXFSTS		BIT(4)
+ #define MTL_RXQ_DMA_MAP0		0x00000c30 /* queue 0 to 3 */
+ #define MTL_RXQ_DMA_MAP1		0x00000c34 /* queue 4 to 7 */
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 670cfee..10599db 100644
+index 3069def..f0f2dce 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -66,9 +66,9 @@ static void dwmac4_rx_queue_enable(struct mac_device_info *hw,
- 	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
- 
- 	value &= GMAC_RX_QUEUE_CLEAR(queue);
--	if (mode == MTL_RX_AVB)
-+	if (mode == MTL_QUEUE_AVB)
- 		value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
--	else if (mode == MTL_RX_DCB)
-+	else if (mode == MTL_QUEUE_DCB)
- 		value |= GMAC_RX_DCB_QUEUE_ENABLE(queue);
- 
- 	writel(value, ioaddr + GMAC_RXQ_CTRL0);
-@@ -155,6 +155,47 @@ static void dwmac4_map_mtl_dma(struct mac_device_info *hw, u32 queue, u32 chan)
- 		writel(value, ioaddr + MTL_RXQ_DMA_MAP1);
+@@ -416,11 +416,34 @@ static void dwmac4_phystatus(void __iomem *ioaddr, struct stmmac_extra_stats *x)
+ 	}
  }
  
-+static void dwmac4_config_cbs(struct mac_device_info *hw,
-+			      u32 send_slope, u32 idle_slope,
-+			      u32 high_credit, u32 low_credit, u32 queue)
++static int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
 +{
 +	void __iomem *ioaddr = hw->pcsr;
-+	u32 value;
++	u32 mtl_int_qx_status;
++	int ret = 0;
 +
-+	pr_debug("Queue %d configured as AVB. Parameters:\n", queue);
-+	pr_debug("\tsend_slope: 0x%08x\n", send_slope);
-+	pr_debug("\tidle_slope: 0x%08x\n", idle_slope);
-+	pr_debug("\thigh_credit: 0x%08x\n", high_credit);
-+	pr_debug("\tlow_credit: 0x%08x\n", low_credit);
++	mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
 +
-+	/* enable AV algorithm */
-+	value = readl(ioaddr + MTL_ETSX_CTRL_BASE_ADDR(queue));
-+	value |= MTL_ETS_CTRL_AVALG;
-+	value |= MTL_ETS_CTRL_CC;
-+	writel(value, ioaddr + MTL_ETSX_CTRL_BASE_ADDR(queue));
++	/* Check MTL Interrupt */
++	if (mtl_int_qx_status & MTL_INT_QX(chan)) {
++		/* read Queue x Interrupt status */
++		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(chan));
 +
-+	/* configure send slope */
-+	value = readl(ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(queue));
-+	value &= ~MTL_SEND_SLP_CRED_SSC_MASK;
-+	value |= send_slope & MTL_SEND_SLP_CRED_SSC_MASK;
-+	writel(value, ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(queue));
++		if (status & MTL_RX_OVERFLOW_INT) {
++			/*  clear Interrupt */
++			writel(status | MTL_RX_OVERFLOW_INT,
++			       ioaddr + MTL_CHAN_INT_CTRL(chan));
++			ret = CORE_IRQ_MTL_RX_OVERFLOW;
++		}
++	}
 +
-+	/* configure idle slope (same register as tx weight) */
-+	dwmac4_set_mtl_tx_queue_weight(hw, idle_slope, queue);
-+
-+	/* configure high credit */
-+	value = readl(ioaddr + MTL_HIGH_CREDX_BASE_ADDR(queue));
-+	value &= ~MTL_HIGH_CRED_HC_MASK;
-+	value |= high_credit & MTL_HIGH_CRED_HC_MASK;
-+	writel(value, ioaddr + MTL_HIGH_CREDX_BASE_ADDR(queue));
-+
-+	/* configure high credit */
-+	value = readl(ioaddr + MTL_LOW_CREDX_BASE_ADDR(queue));
-+	value &= ~MTL_HIGH_CRED_LC_MASK;
-+	value |= low_credit & MTL_HIGH_CRED_LC_MASK;
-+	writel(value, ioaddr + MTL_LOW_CREDX_BASE_ADDR(queue));
++	return ret;
 +}
 +
- static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
+ static int dwmac4_irq_status(struct mac_device_info *hw,
+ 			     struct stmmac_extra_stats *x)
  {
  	void __iomem *ioaddr = hw->pcsr;
-@@ -566,6 +607,7 @@ static const struct stmmac_ops dwmac4_ops = {
- 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
- 	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
- 	.map_mtl_to_dma = dwmac4_map_mtl_dma,
-+	.config_cbs = dwmac4_config_cbs,
- 	.dump_regs = dwmac4_dump_regs,
- 	.host_irq_status = dwmac4_irq_status,
- 	.host_mtl_irq_status = dwmac4_irq_mtl_status,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3be77d4..ee5cb16 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1668,6 +1668,31 @@ static void stmmac_set_tx_queue_weight(struct stmmac_priv *priv)
- }
+-	u32 mtl_int_qx_status;
+ 	u32 intr_status;
+ 	int ret = 0;
  
- /**
-+ *  stmmac_configure_cbs - Configure CBS in TX queue
-+ *  @priv: driver private structure
-+ *  Description: It is used for configuring CBS in AVB TX queues
-+ */
-+static void stmmac_configure_cbs(struct stmmac_priv *priv)
-+{
-+	u32 tx_queues_count = priv->plat->tx_queues_to_use;
-+	u32 mode_to_use;
-+	u32 queue;
-+
-+	for (queue = 0; queue < tx_queues_count; queue++) {
-+		mode_to_use = priv->plat->tx_queues_cfg[queue].mode_to_use;
-+		if (mode_to_use == MTL_QUEUE_DCB)
-+			continue;
-+
-+		priv->hw->mac->config_cbs(priv->hw,
-+				priv->plat->tx_queues_cfg[queue].send_slope,
-+				priv->plat->tx_queues_cfg[queue].idle_slope,
-+				priv->plat->tx_queues_cfg[queue].high_credit,
-+				priv->plat->tx_queues_cfg[queue].low_credit,
-+				queue);
-+	}
-+}
-+
-+/**
-  *  stmmac_rx_queue_dma_chan_map - Map RX queue to RX dma channel
-  *  @priv: driver private structure
-  *  Description: It is used for mapping RX queues to RX dma channels
-@@ -1707,6 +1732,10 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
- 		priv->hw->mac->prog_mtl_tx_algorithms(priv->hw,
- 						priv->plat->tx_sched_algorithm);
- 
-+	/* Configure CBS in AVB TX queues */
-+	if (tx_queues_count > 1 && priv->hw->mac->config_cbs)
-+		stmmac_configure_cbs(priv);
-+
- 	/* Map RX MTL to DMA channels */
- 	if (rx_queues_count > 1 && priv->hw->mac->map_mtl_to_dma)
- 		stmmac_rx_queue_dma_chan_map(priv);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index ff6af8d..fc339bf 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -171,11 +171,11 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
- 			break;
- 
- 		if (of_property_read_bool(q_node, "snps,dcb-algorithm"))
--			plat->rx_queues_cfg[queue].mode_to_use = MTL_RX_DCB;
-+			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
- 		else if (of_property_read_bool(q_node, "snps,avb-algorithm"))
--			plat->rx_queues_cfg[queue].mode_to_use = MTL_RX_AVB;
-+			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_AVB;
- 		else
--			plat->rx_queues_cfg[queue].mode_to_use = MTL_RX_DCB;
-+			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
- 
- 		if (of_property_read_u8(q_node, "snps,map-to-dma-channel",
- 					&plat->rx_queues_cfg[queue].chan))
-@@ -212,6 +212,29 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
- 					&plat->tx_queues_cfg[queue].weight))
- 			plat->tx_queues_cfg[queue].weight = 0x10 + queue;
- 
-+		if (of_property_read_bool(q_node, "snps,dcb-algorithm")) {
-+			plat->tx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
-+		} else if (of_property_read_bool(q_node,
-+						 "snps,avb-algorithm")) {
-+			plat->tx_queues_cfg[queue].mode_to_use = MTL_QUEUE_AVB;
-+
-+			/* Credit Base Shaper parameters used by AVB */
-+			if (of_property_read_u32(q_node, "snps,send_slope",
-+				&plat->tx_queues_cfg[queue].send_slope))
-+				plat->tx_queues_cfg[queue].send_slope = 0x0;
-+			if (of_property_read_u32(q_node, "snps,idle_slope",
-+				&plat->tx_queues_cfg[queue].idle_slope))
-+				plat->tx_queues_cfg[queue].idle_slope = 0x0;
-+			if (of_property_read_u32(q_node, "snps,high_credit",
-+				&plat->tx_queues_cfg[queue].high_credit))
-+				plat->tx_queues_cfg[queue].high_credit = 0x0;
-+			if (of_property_read_u32(q_node, "snps,low_credit",
-+				&plat->tx_queues_cfg[queue].low_credit))
-+				plat->tx_queues_cfg[queue].low_credit = 0x0;
-+		} else {
-+			plat->tx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
-+		}
-+
- 		queue++;
+@@ -439,20 +462,6 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
+ 		x->irq_receive_pmt_irq_n++;
  	}
  
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 266ff2a..be47b85 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -55,9 +55,9 @@
- #define MTL_RX_ALGORITHM_SP	0x4
- #define MTL_RX_ALGORITHM_WSP	0x5
- 
--/* RX Queue Mode */
--#define MTL_RX_DCB		0x0
--#define MTL_RX_AVB		0x1
-+/* RX/TX Queue Mode */
-+#define MTL_QUEUE_DCB		0x0
-+#define MTL_QUEUE_AVB		0x1
- 
- /* The MDC clock could be set higher than the IEEE 802.3
-  * specified frequency limit 0f 2.5 MHz, by programming a clock divider
-@@ -131,6 +131,12 @@ struct stmmac_rxq_cfg {
- 
- struct stmmac_txq_cfg {
- 	u8 weight;
-+	u8 mode_to_use;
-+	/* Credit Base Shaper parameters */
-+	u32 send_slope;
-+	u32 idle_slope;
-+	u32 high_credit;
-+	u32 low_credit;
- };
- 
- struct plat_stmmacenet_data {
+-	mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
+-	/* Check MTL Interrupt: Currently only one queue is used: Q0. */
+-	if (mtl_int_qx_status & MTL_INT_Q0) {
+-		/* read Queue 0 Interrupt status */
+-		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
+-
+-		if (status & MTL_RX_OVERFLOW_INT) {
+-			/*  clear Interrupt */
+-			writel(status | MTL_RX_OVERFLOW_INT,
+-			       ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
+-			ret = CORE_IRQ_MTL_RX_OVERFLOW;
+-		}
+-	}
+-
+ 	dwmac_pcs_isr(ioaddr, GMAC_PCS_BASE, intr_status, x);
+ 	if (intr_status & PCS_RGSMIIIS_IRQ)
+ 		dwmac4_phystatus(ioaddr, x);
+@@ -554,6 +563,7 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.map_mtl_to_dma = dwmac4_map_mtl_dma,
+ 	.dump_regs = dwmac4_dump_regs,
+ 	.host_irq_status = dwmac4_irq_status,
++	.host_mtl_irq_status = dwmac4_irq_mtl_status,
+ 	.flow_ctrl = dwmac4_flow_ctrl,
+ 	.pmt = dwmac4_pmt,
+ 	.set_umac_addr = dwmac4_set_umac_addr,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index ed57409..3be77d4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2880,6 +2880,11 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+ 	if ((priv->plat->has_gmac) || (priv->plat->has_gmac4)) {
+ 		int status = priv->hw->mac->host_irq_status(priv->hw,
+ 							    &priv->xstats);
++
++		if (priv->synopsys_id >= DWMAC_CORE_4_00)
++			status |= priv->hw->mac->host_mtl_irq_status(priv->hw,
++								STMMAC_CHAN0);
++
+ 		if (unlikely(status)) {
+ 			/* For LPI we need to save the tx status */
+ 			if (status & CORE_IRQ_TX_PATH_IN_LPI_MODE)
 -- 
 2.9.3
