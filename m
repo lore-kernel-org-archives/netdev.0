@@ -1,274 +1,141 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v5 net-next 1/9] net: stmmac: multiple queues dt configuration
-Date: Fri, 10 Mar 2017 18:24:51 +0000
-Message-ID: <c315778b650a846db3c04816fd1d1041bb1e4043.1489169213.git.jpinto@synopsys.com>
+Subject: [PATCH v5 net-next 3/9] net: stmmac: configure tx queue weight
+Date: Fri, 10 Mar 2017 18:24:53 +0000
+Message-ID: <3626cff1a36adf882af9237f15aae0592911ce68.1489169213.git.jpinto@synopsys.com>
 References: <cover.1489169213.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         niklas.cassel@axis.com, netdev@vger.kernel.org,
         Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:51938 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:56018 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932759AbdCJSZJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:09 -0500
+        with ESMTP id S933432AbdCJSZN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:13 -0500
 In-Reply-To: <cover.1489169213.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489169213.git.jpinto@synopsys.com>
 References: <cover.1489169213.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the multiple queues configuration in the Device Tree.
-It was also created a set of structures to keep the RX and TX queues
-configurations to be used in the driver.
+This patch adds TX queues weight programming.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
 Changes v4->v5:
 - patch title update (stmicro replaced by stmmac)
-Changes v2->v4:
-- Just to keep up with patch-set version
+Changes v3->v4:
+- variable init was simplified in some functions
+Changes v2->v3:
+- local variable declarations from longest to shortest line
 Changes v1->v2:
-- RX and TX queues child nodes had bad handle
+- Just to keep up with patch-set version
 
- Documentation/devicetree/bindings/net/stmmac.txt   | 40 ++++++++++
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 91 ++++++++++++++++++++++
- include/linux/stmmac.h                             | 30 +++++++
- 3 files changed, 161 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  3 +++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  7 +++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 12 ++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 20 ++++++++++++++++++++
+ 4 files changed, 42 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index d3bfc2b..4107e67 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -72,6 +72,27 @@ Optional properties:
- 	- snps,mb: mixed-burst
- 	- snps,rb: rebuild INCRx Burst
- - mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
-+- Multiple RX Queues parameters: below the list of all the parameters to
-+				 configure the multiple RX queues:
-+	- snps,rx-queues-to-use: number of RX queues to be used in the driver
-+	- Choose one of these RX scheduling algorithms:
-+		- snps,rx-sched-sp: Strict priority
-+		- snps,rx-sched-wsp: Weighted Strict priority
-+	- For each RX queue
-+		- Choose one of these modes:
-+			- snps,dcb-algorithm: Queue to be enabled as DCB
-+			- snps,avb-algorithm: Queue to be enabled as AVB
-+		- snps,map-to-dma-channel: Channel to map
-+- Multiple TX Queues parameters: below the list of all the parameters to
-+				 configure the multiple TX queues:
-+	- snps,tx-queues-to-use: number of TX queues to be used in the driver
-+	- Choose one of these TX scheduling algorithms:
-+		- snps,tx-sched-wrr: Weighted Round Robin
-+		- snps,tx-sched-wfq: Weighted Fair Queuing
-+		- snps,tx-sched-dwrr: Deficit Weighted Round Robin
-+		- snps,tx-sched-sp: Strict priority
-+	- For each TX queue
-+		- snps,weight: TX queue weight (if using a weighted algorithm)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 5a0a781..a25b2f8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -459,6 +459,9 @@ struct stmmac_ops {
+ 	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
+ 	/* Program TX Algorithms */
+ 	void (*prog_mtl_tx_algorithms)(struct mac_device_info *hw, u32 tx_alg);
++	/* Set MTL TX queues weight */
++	void (*set_mtl_tx_queue_weight)(struct mac_device_info *hw,
++					u32 weight, u32 queue);
+ 	/* Dump MAC registers */
+ 	void (*dump_regs)(struct mac_device_info *hw, u32 *reg_space);
+ 	/* Handle extra events on specific interrupts hw dependent */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index 748ab6f..7d77e78 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -211,6 +211,13 @@ enum power_event {
+ #define MTL_OP_MODE_RTC_96		(2 << MTL_OP_MODE_RTC_SHIFT)
+ #define MTL_OP_MODE_RTC_128		(3 << MTL_OP_MODE_RTC_SHIFT)
  
- Examples:
- 
-@@ -81,6 +102,23 @@ Examples:
- 		snps,blen = <256 128 64 32 0 0 0>;
- 	};
- 
-+	mtl_rx_setup: rx-queues-config {
-+		snps,rx-queues-to-use = <1>;
-+		snps,rx-sched-sp;
-+		queue0 {
-+			snps,dcb-algorithm;
-+			snps,map-to-dma-channel = <0x0>;
-+		};
-+	};
++/* MTL Queue Quantum Weight */
++#define MTL_TXQ_WEIGHT_BASE_ADDR	0x00000d18
++#define MTL_TXQ_WEIGHT_BASE_OFFSET	0x40
++#define MTL_TXQX_WEIGHT_BASE_ADDR(x)	(MTL_TXQ_WEIGHT_BASE_ADDR + \
++					((x) * MTL_TXQ_WEIGHT_BASE_OFFSET))
++#define MTL_TXQ_WEIGHT_ISCQW_MASK	GENMASK(20, 0)
 +
-+	mtl_tx_setup: tx-queues-config {
-+		snps,tx-queues-to-use = <1>;
-+		snps,tx-sched-wrr;
-+		queue0 {
-+			snps,weight = <0x10>;
-+		};
-+	};
+ /*  MTL debug */
+ #define MTL_DEBUG_TXSTSFSTS		BIT(5)
+ #define MTL_DEBUG_TXFSTS		BIT(4)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index f966755..fda6cfa 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -116,6 +116,17 @@ static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
+ 	}
+ }
+ 
++static void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
++					   u32 weight, u32 queue)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value = readl(ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
 +
- 	gmac0: ethernet@e0800000 {
- 		compatible = "st,spear600-gmac";
- 		reg = <0xe0800000 0x8000>;
-@@ -104,4 +142,6 @@ Examples:
- 			phy1: ethernet-phy@0 {
- 			};
- 		};
-+		snps,mtl-rx-config = <&mtl_rx_setup>;
-+		snps,mtl-tx-config = <&mtl_tx_setup>;
- 	};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 433a842..ff6af8d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -132,6 +132,95 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
++	value &= ~MTL_TXQ_WEIGHT_ISCQW_MASK;
++	value |= weight & MTL_TXQ_WEIGHT_ISCQW_MASK;
++	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
++}
++
+ static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+@@ -505,6 +516,7 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.rx_queue_enable = dwmac4_rx_queue_enable,
+ 	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
+ 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
++	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
+ 	.dump_regs = dwmac4_dump_regs,
+ 	.host_irq_status = dwmac4_irq_status,
+ 	.flow_ctrl = dwmac4_flow_ctrl,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index af57f8d..735540f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1645,6 +1645,23 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
  }
  
  /**
-+ * stmmac_mtl_setup - parse DT parameters for multiple queues configuration
-+ * @pdev: platform device
++ *  stmmac_set_tx_queue_weight - Set TX queue weight
++ *  @priv: driver private structure
++ *  Description: It is used for setting TX queues weight
 + */
-+static void stmmac_mtl_setup(struct platform_device *pdev,
-+			     struct plat_stmmacenet_data *plat)
++static void stmmac_set_tx_queue_weight(struct stmmac_priv *priv)
 +{
-+	struct device_node *q_node;
-+	struct device_node *rx_node;
-+	struct device_node *tx_node;
-+	u8 queue = 0;
++	u32 tx_queues_count = priv->plat->tx_queues_to_use;
++	u32 weight;
++	u32 queue;
 +
-+	rx_node = of_parse_phandle(pdev->dev.of_node, "snps,mtl-rx-config", 0);
-+	if (!rx_node)
-+		return;
-+
-+	tx_node = of_parse_phandle(pdev->dev.of_node, "snps,mtl-tx-config", 0);
-+	if (!tx_node) {
-+		of_node_put(rx_node);
-+		return;
++	for (queue = 0; queue < tx_queues_count; queue++) {
++		weight = priv->plat->tx_queues_cfg[queue].weight;
++		priv->hw->mac->set_mtl_tx_queue_weight(priv->hw, weight, queue);
 +	}
-+
-+	/* Processing RX queues common config */
-+	if (of_property_read_u8(rx_node, "snps,rx-queues-to-use",
-+				&plat->rx_queues_to_use))
-+		plat->rx_queues_to_use = 1;
-+
-+	if (of_property_read_bool(rx_node, "snps,rx-sched-sp"))
-+		plat->rx_sched_algorithm = MTL_RX_ALGORITHM_SP;
-+	else if (of_property_read_bool(rx_node, "snps,rx-sched-wsp"))
-+		plat->rx_sched_algorithm = MTL_RX_ALGORITHM_WSP;
-+	else
-+		plat->rx_sched_algorithm = MTL_RX_ALGORITHM_SP;
-+
-+	/* Processing individual RX queue config */
-+	for_each_child_of_node(rx_node, q_node) {
-+		if (queue >= plat->rx_queues_to_use)
-+			break;
-+
-+		if (of_property_read_bool(q_node, "snps,dcb-algorithm"))
-+			plat->rx_queues_cfg[queue].mode_to_use = MTL_RX_DCB;
-+		else if (of_property_read_bool(q_node, "snps,avb-algorithm"))
-+			plat->rx_queues_cfg[queue].mode_to_use = MTL_RX_AVB;
-+		else
-+			plat->rx_queues_cfg[queue].mode_to_use = MTL_RX_DCB;
-+
-+		if (of_property_read_u8(q_node, "snps,map-to-dma-channel",
-+					&plat->rx_queues_cfg[queue].chan))
-+			plat->rx_queues_cfg[queue].chan = queue;
-+		/* TODO: Dynamic mapping to be included in the future */
-+
-+		queue++;
-+	}
-+
-+	/* Processing TX queues common config */
-+	if (of_property_read_u8(tx_node, "snps,tx-queues-to-use",
-+				&plat->tx_queues_to_use))
-+		plat->tx_queues_to_use = 1;
-+
-+	if (of_property_read_bool(tx_node, "snps,tx-sched-wrr"))
-+		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_WRR;
-+	else if (of_property_read_bool(tx_node, "snps,tx-sched-wfq"))
-+		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_WFQ;
-+	else if (of_property_read_bool(tx_node, "snps,tx-sched-dwrr"))
-+		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_DWRR;
-+	else if (of_property_read_bool(tx_node, "snps,tx-sched-sp"))
-+		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_SP;
-+	else
-+		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_SP;
-+
-+	queue = 0;
-+
-+	/* Processing individual TX queue config */
-+	for_each_child_of_node(tx_node, q_node) {
-+		if (queue >= plat->tx_queues_to_use)
-+			break;
-+
-+		if (of_property_read_u8(q_node, "snps,weight",
-+					&plat->tx_queues_cfg[queue].weight))
-+			plat->tx_queues_cfg[queue].weight = 0x10 + queue;
-+
-+		queue++;
-+	}
-+
-+	of_node_put(rx_node);
-+	of_node_put(tx_node);
-+	of_node_put(q_node);
 +}
 +
 +/**
-  * stmmac_dt_phy - parse device-tree driver parameters to allocate PHY resources
-  * @plat: driver data platform structure
-  * @np: device tree node
-@@ -340,6 +429,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+  *  stmmac_mtl_configuration - Configure MTL
+  *  @priv: driver private structure
+  *  Description: It is used for configurring MTL
+@@ -1654,6 +1671,9 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ 	u32 rx_queues_count = priv->plat->rx_queues_to_use;
+ 	u32 tx_queues_count = priv->plat->tx_queues_to_use;
  
- 	plat->axi = stmmac_axi_setup(pdev);
- 
-+	stmmac_mtl_setup(pdev, plat);
++	if (tx_queues_count > 1 && priv->hw->mac->set_mtl_tx_queue_weight)
++		stmmac_set_tx_queue_weight(priv);
 +
- 	/* clock setup */
- 	plat->stmmac_clk = devm_clk_get(&pdev->dev,
- 					STMMAC_RESOURCE_NAME);
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index fc273e9..266ff2a 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -28,6 +28,9 @@
- 
- #include <linux/platform_device.h>
- 
-+#define MTL_MAX_RX_QUEUES	8
-+#define MTL_MAX_TX_QUEUES	8
-+
- #define STMMAC_RX_COE_NONE	0
- #define STMMAC_RX_COE_TYPE1	1
- #define STMMAC_RX_COE_TYPE2	2
-@@ -44,6 +47,18 @@
- #define	STMMAC_CSR_150_250M	0x4	/* MDC = clk_scr_i/102 */
- #define	STMMAC_CSR_250_300M	0x5	/* MDC = clk_scr_i/122 */
- 
-+/* MTL algorithms identifiers */
-+#define MTL_TX_ALGORITHM_WRR	0x0
-+#define MTL_TX_ALGORITHM_WFQ	0x1
-+#define MTL_TX_ALGORITHM_DWRR	0x2
-+#define MTL_TX_ALGORITHM_SP	0x3
-+#define MTL_RX_ALGORITHM_SP	0x4
-+#define MTL_RX_ALGORITHM_WSP	0x5
-+
-+/* RX Queue Mode */
-+#define MTL_RX_DCB		0x0
-+#define MTL_RX_AVB		0x1
-+
- /* The MDC clock could be set higher than the IEEE 802.3
-  * specified frequency limit 0f 2.5 MHz, by programming a clock divider
-  * of value different than the above defined values. The resultant MDIO
-@@ -109,6 +124,15 @@ struct stmmac_axi {
- 	bool axi_rb;
- };
- 
-+struct stmmac_rxq_cfg {
-+	u8 mode_to_use;
-+	u8 chan;
-+};
-+
-+struct stmmac_txq_cfg {
-+	u8 weight;
-+};
-+
- struct plat_stmmacenet_data {
- 	int bus_id;
- 	int phy_addr;
-@@ -133,6 +157,12 @@ struct plat_stmmacenet_data {
- 	int unicast_filter_entries;
- 	int tx_fifo_size;
- 	int rx_fifo_size;
-+	u8 rx_queues_to_use;
-+	u8 tx_queues_to_use;
-+	u8 rx_sched_algorithm;
-+	u8 tx_sched_algorithm;
-+	struct stmmac_rxq_cfg rx_queues_cfg[MTL_MAX_RX_QUEUES];
-+	struct stmmac_txq_cfg tx_queues_cfg[MTL_MAX_TX_QUEUES];
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	int (*init)(struct platform_device *pdev, void *priv);
- 	void (*exit)(struct platform_device *pdev, void *priv);
+ 	/* Configure MTL RX algorithms */
+ 	if (rx_queues_count > 1 && priv->hw->mac->prog_mtl_rx_algorithms)
+ 		priv->hw->mac->prog_mtl_rx_algorithms(priv->hw,
 -- 
 2.9.3
