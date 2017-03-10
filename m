@@ -1,43 +1,90 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 2/2] mpls: allow TTL propagation from IP
- packets to be configured
-Date: Thu, 9 Mar 2017 19:54:23 -0700
-Message-ID: <3a3b0cfe-106c-88ee-e225-0df1458aab4b@cumulusnetworks.com>
-References: <1485808575-16852-1-git-send-email-rshearma@brocade.com>
- <1488933990-14490-1-git-send-email-rshearma@brocade.com>
- <1488933990-14490-3-git-send-email-rshearma@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        roopa <roopa@cumulusnetworks.com>
-To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
+From: fgao@ikuai8.com
+Subject: [PATCH v3 net-next 2/2] net: Eliminate duplicated codes by creating one new function in_dev_select_addr
+Date: Fri, 10 Mar 2017 10:53:06 +0800
+Message-ID: <1489114386-7401-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        kaber@trash.net, netdev@vger.kernel.org, gfree.wind@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35531 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754139AbdCJCy1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 21:54:27 -0500
-Received: by mail-pf0-f178.google.com with SMTP id j5so36145946pfb.2
-        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 18:54:26 -0800 (PST)
-In-Reply-To: <1488933990-14490-3-git-send-email-rshearma@brocade.com>
+Received: from smtpbg340.qq.com ([14.17.44.35]:40258 "EHLO smtpbg340.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754011AbdCJCyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Mar 2017 21:54:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/7/17 5:46 PM, Robert Shearman wrote:
-> @@ -78,6 +70,29 @@ static int mpls_xmit(struct sk_buff *skb)
->  
->  	tun_encap_info = mpls_lwtunnel_encap(dst->lwtstate);
->  
-> +	/* Obtain the ttl */
-> +	if (dst->ops->family == AF_INET) {
-> +		if (tun_encap_info->ttl_propagate == MPLS_TTL_PROP_DISABLED)
-> +			ttl = tun_encap_info->default_ttl;
-> +		else if (tun_encap_info->ttl_propagate == MPLS_TTL_PROP_DEFAULT &&
-> +			 !net->mpls.ip_ttl_propagate)
-> +			ttl = net->mpls.default_ttl;
-> +		else
-> +			ttl = ip_hdr(skb)->ttl;
+From: Gao Feng <fgao@ikuai8.com>
 
-After staring at that for a while, an explanation above this if {} else
-{} section on the ttl selection will be very helpful.
+There are two duplicated loops codes which used to select right
+address in current codes. Now eliminate these codes by creating
+one new function in_dev_select_addr.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v3: Add cover letter
+ v2: Correct the comit log and remove useless braces, per Sergei
+ v1: Initial Version 
+
+ net/ipv4/devinet.c | 33 ++++++++++++++++++---------------
+ 1 file changed, 18 insertions(+), 15 deletions(-)
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 1a9e550..f82d545 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1191,6 +1191,18 @@ static int inet_gifconf(struct net_device *dev, char __user *buf, int len)
+ 	return done;
+ }
+ 
++static __be32 in_dev_select_addr(const struct in_device *in_dev,
++				 int scope)
++{
++	for_primary_ifa(in_dev) {
++		if (ifa->ifa_scope != RT_SCOPE_LINK &&
++		    ifa->ifa_scope <= scope)
++			return ifa->ifa_local;
++	} endfor_ifa(in_dev);
++
++	return 0;
++}
++
+ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ {
+ 	__be32 addr = 0;
+@@ -1229,13 +1241,9 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 		if (dev) {
+ 			in_dev = __in_dev_get_rcu(dev);
+ 			if (in_dev) {
+-				for_primary_ifa(in_dev) {
+-					if (ifa->ifa_scope != RT_SCOPE_LINK &&
+-					    ifa->ifa_scope <= scope) {
+-						addr = ifa->ifa_local;
+-						goto out_unlock;
+-					}
+-				} endfor_ifa(in_dev);
++				addr = in_dev_select_addr(in_dev, scope);
++				if (addr)
++					goto out_unlock;
+ 			}
+ 		}
+ 
+@@ -1250,14 +1258,9 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 			in_dev = __in_dev_get_rcu(dev);
+ 			if (!in_dev)
+ 				continue;
+-
+-			for_primary_ifa(in_dev) {
+-				if (ifa->ifa_scope != RT_SCOPE_LINK &&
+-				    ifa->ifa_scope <= scope) {
+-					addr = ifa->ifa_local;
+-					goto out_unlock;
+-				}
+-			} endfor_ifa(in_dev);
++			addr = in_dev_select_addr(in_dev, scope);
++			if (addr)
++				goto out_unlock;
+ 		}
+ 	}
+ out_unlock:
+-- 
+1.9.1
