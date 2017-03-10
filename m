@@ -1,156 +1,217 @@
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Subject: [PATCH net, v1] dccp/tcp: fix routing redirect race
-Date: Fri, 10 Mar 2017 14:31:31 +1100
-Message-ID: <1489116691-26264-1-git-send-email-jmaxwell37@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, edumazet@google.com, andreyknvl@google.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, ncardwell@google.com, dccp@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        jmaxwell@redhat.com, Jon Maxwell <jmaxwell37@gmail.com>,
-        Eric Garver <egarver@redhat.com>,
-        Hannes Sowa <hsowa@redhat.com>
-To: gerrit@erg.abdn.ac.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next v2] net: Add sysctl to toggle early demux for tcp and udp
+Date: Thu,  9 Mar 2017 20:31:00 -0700
+Message-ID: <1489116660-4244-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org, eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:58454 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752131AbdCJDde (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 22:33:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As Eric Dumazet pointed out this also needs to be fixed in IPv6.
-v1: Contains the IPv6 patch as well.
+Certain system process significant unconnected UDP workload.
+It would be preferrable to disable UDP early demux for those systems
+and enable it for TCP only.
 
-We have seen a few incidents lately where a dst_enty has been freed
-with a dangling TCP socket reference (sk->sk_dst_cache) pointing to that
-dst_entry. If the conditions/timings are right a crash then ensues when the
-freed dst_entry is referenced later on. A Common crashing back trace is:
+v1->v2: Change function pointer instead of adding conditional as
+suggested by Stephen.
 
- #8 [] page_fault at ffffffff8163e648
-    [exception RIP: __tcp_ack_snd_check+74]
-.
-.   
- #9 [] tcp_rcv_established at ffffffff81580b64
-#10 [] tcp_v4_do_rcv at ffffffff8158b54a
-#11 [] tcp_v4_rcv at ffffffff8158cd02
-#12 [] ip_local_deliver_finish at ffffffff815668f4
-#13 [] ip_local_deliver at ffffffff81566bd9
-#14 [] ip_rcv_finish at ffffffff8156656d
-#15 [] ip_rcv at ffffffff81566f06
-#16 [] __netif_receive_skb_core at ffffffff8152b3a2
-#17 [] __netif_receive_skb at ffffffff8152b608
-#18 [] netif_receive_skb at ffffffff8152b690
-#19 [] vmxnet3_rq_rx_complete at ffffffffa015eeaf [vmxnet3]
-#20 [] vmxnet3_poll_rx_only at ffffffffa015f32a [vmxnet3]
-#21 [] net_rx_action at ffffffff8152bac2
-#22 [] __do_softirq at ffffffff81084b4f
-#23 [] call_softirq at ffffffff8164845c
-#24 [] do_softirq at ffffffff81016fc5
-#25 [] irq_exit at ffffffff81084ee5
-#26 [] do_IRQ at ffffffff81648ff8
-
-Of course it may happen with other NIC drivers as well.
-
-It's found the freed dst_entry here: 
-
- 224 static bool tcp_in_quickack_mode(struct sock *sk)↩
- 225 {↩
- 226 ▹       const struct inet_connection_sock *icsk = inet_csk(sk);↩
- 227 ▹       const struct dst_entry *dst = __sk_dst_get(sk);↩
- 228 ↩
- 229 ▹       return (dst && dst_metric(dst, RTAX_QUICKACK)) ||↩
- 230 ▹       ▹       (icsk->icsk_ack.quick && !icsk->icsk_ack.pingpong);↩
- 231 }↩
-
-But there are other backtraces attributed to the same freed dst_entry in 
-netfilter code as well. 
-
-All the vmcores showed 2 significant clues:
-
-- Remote hosts behind the default gateway had always been redirected to a 
-different gateway. A rtable/dst_entry will be added for that host. Making
-more dst_entrys with lower reference counts. Making this more probable.
-
-- All vmcores showed a postitive LockDroppedIcmps value, e.g:
-
-LockDroppedIcmps                  267
-
-A closer look at the tcp_v4_err() handler revealed that do_redirect() will run
-regardless of whether user space has the socket locked. This can result in a 
-race condition where the same dst_entry cached in sk->sk_dst_entry can be 
-decremented twice for the same socket via: 
-
-do_redirect()->__sk_dst_check()-> dst_release(). 
-
-Which leads to the dst_entry being prematurely freed with another socket 
-pointing to it via sk->sk_dst_cache and a subsequent crash.
-
-To fix this skip do_redirect() if usespace has the socket locked. Instead let 
-the redirect take place later when user space does not have the socket 
-locked.
-
-The dccp/IPv6 code is very similar in this respect, so fixing it there too. 
-
-As Eric Garver pointed out the following commit now invalidates routes. Which
-can set the dst->obsolete flag so that ipv4_dst_check() returns null and 
-triggers the dst_release().
-
-Fixes: ceb3320610d6 ("ipv4: Kill routes during PMTU/redirect updates.")
-Cc: Eric Garver <egarver@redhat.com>
-Cc: Hannes Sowa <hsowa@redhat.com>
-Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
 ---
- net/dccp/ipv4.c     | 3 ++-
- net/ipv4/tcp_ipv4.c | 3 ++-
- net/ipv6/tcp_ipv6.c | 8 +++++---
- 3 files changed, 9 insertions(+), 5 deletions(-)
+ include/net/netns/ipv4.h   |  2 ++
+ include/net/tcp.h          |  2 ++
+ include/net/udp.h          |  2 ++
+ net/ipv4/af_inet.c         | 22 ++++++++++++++++++++--
+ net/ipv4/sysctl_net_ipv4.c | 47 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/tcp_ipv6.c        | 10 +++++++++-
+ 6 files changed, 82 insertions(+), 3 deletions(-)
 
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 409d0cf..b99168b 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -289,7 +289,8 @@ static void dccp_v4_err(struct sk_buff *skb, u32 info)
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 0378e88..1e74da23 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -86,6 +86,8 @@ struct netns_ipv4 {
+ 	/* Shall we try to damage output packets if routing dev changes? */
+ 	int sysctl_ip_dynaddr;
+ 	int sysctl_ip_early_demux;
++	int sysctl_tcp_early_demux;
++	int sysctl_udp_early_demux;
  
- 	switch (type) {
- 	case ICMP_REDIRECT:
--		dccp_do_redirect(skb, sk);
-+		if (!sock_owned_by_user(sk))
-+			dccp_do_redirect(skb, sk);
- 		goto out;
- 	case ICMP_SOURCE_QUENCH:
- 		/* Just silently ignore these. */
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 8f3ec13..575e19d 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -431,7 +431,8 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+ 	int sysctl_fwmark_reflect;
+ 	int sysctl_tcp_fwmark_accept;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 6061963..3b6446d 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1953,4 +1953,6 @@ static inline void tcp_listendrop(const struct sock *sk)
+ 	__NET_INC_STATS(sock_net(sk), LINUX_MIB_LISTENDROPS);
+ }
  
- 	switch (type) {
- 	case ICMP_REDIRECT:
--		do_redirect(icmp_skb, sk);
-+		if (!sock_owned_by_user(sk))
-+			do_redirect(icmp_skb, sk);
- 		goto out;
- 	case ICMP_SOURCE_QUENCH:
- 		/* Just silently ignore these. */
++void tcp_v4_early_demux_configure(int enable);
++void tcp_v6_early_demux_configure(int enable);
+ #endif	/* _TCP_H */
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 1661791..7de31d5 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -373,4 +373,6 @@ struct udp_iter_state {
+ #if IS_ENABLED(CONFIG_IPV6)
+ void udpv6_encap_enable(void);
+ #endif
++
++void udp_v4_early_demux_configure(int enable);
+ #endif	/* _UDP_H */
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index f750698..3e11d74 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1579,7 +1579,7 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ };
+ #endif
+ 
+-static const struct net_protocol tcp_protocol = {
++static struct net_protocol tcp_protocol = {
+ 	.early_demux	=	tcp_v4_early_demux,
+ 	.handler	=	tcp_v4_rcv,
+ 	.err_handler	=	tcp_v4_err,
+@@ -1588,7 +1588,7 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ 	.icmp_strict_tag_validation = 1,
+ };
+ 
+-static const struct net_protocol udp_protocol = {
++static struct net_protocol udp_protocol = {
+ 	.early_demux =	udp_v4_early_demux,
+ 	.handler =	udp_rcv,
+ 	.err_handler =	udp_err,
+@@ -1596,6 +1596,22 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ 	.netns_ok =	1,
+ };
+ 
++void tcp_v4_early_demux_configure(int enable)
++{
++	if (enable)
++		tcp_protocol.early_demux = tcp_v4_early_demux;
++	else
++		tcp_protocol.early_demux = NULL;
++}
++
++void udp_v4_early_demux_configure(int enable)
++{
++	if (enable)
++		udp_protocol.early_demux = udp_v4_early_demux;
++	else
++		udp_protocol.early_demux = NULL;
++}
++
+ static const struct net_protocol icmp_protocol = {
+ 	.handler =	icmp_rcv,
+ 	.err_handler =	icmp_err,
+@@ -1700,6 +1716,8 @@ static __net_init int inet_init_net(struct net *net)
+ 	net->ipv4.sysctl_ip_default_ttl = IPDEFTTL;
+ 	net->ipv4.sysctl_ip_dynaddr = 0;
+ 	net->ipv4.sysctl_ip_early_demux = 1;
++	net->ipv4.sysctl_udp_early_demux = 1;
++	net->ipv4.sysctl_tcp_early_demux = 1;
+ 
+ 	return 0;
+ }
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index b2fa498..c61383b 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -253,6 +253,39 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+ 	return ret;
+ }
+ 
++static int proc_tcp_early_demux(struct ctl_table *table, int write,
++				void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret = 0;
++
++	ret = proc_dointvec(table, write, buffer, lenp, ppos);
++
++	if (write && !ret) {
++		int enabled = init_net.ipv4.sysctl_tcp_early_demux;
++
++		tcp_v4_early_demux_configure(enabled);
++		tcp_v6_early_demux_configure(enabled);
++	}
++
++	return ret;
++}
++
++static int proc_udp_early_demux(struct ctl_table *table, int write,
++				void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret = 0;
++
++	ret = proc_dointvec(table, write, buffer, lenp, ppos);
++
++	if (write && !ret) {
++		int enabled = init_net.ipv4.sysctl_udp_early_demux;
++
++		udp_v4_early_demux_configure(enabled);
++	}
++
++	return ret;
++}
++
+ static struct ctl_table ipv4_table[] = {
+ 	{
+ 		.procname	= "tcp_timestamps",
+@@ -737,6 +770,20 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+ 		.proc_handler	= proc_dointvec
+ 	},
+ 	{
++		.procname       = "udp_early_demux",
++		.data           = &init_net.ipv4.sysctl_udp_early_demux,
++		.maxlen         = sizeof(int),
++		.mode           = 0644,
++		.proc_handler   = proc_udp_early_demux
++	},
++	{
++		.procname       = "tcp_early_demux",
++		.data           = &init_net.ipv4.sysctl_tcp_early_demux,
++		.maxlen         = sizeof(int),
++		.mode           = 0644,
++		.proc_handler   = proc_tcp_early_demux
++	},
++	{
+ 		.procname	= "ip_default_ttl",
+ 		.data		= &init_net.ipv4.sysctl_ip_default_ttl,
+ 		.maxlen		= sizeof(int),
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 60a5295..49fa2e8 100644
+index 4c60c6f..0dd761c 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -391,10 +391,12 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	np = inet6_sk(sk);
+@@ -1926,13 +1926,21 @@ struct proto tcpv6_prot = {
+ 	.diag_destroy		= tcp_abort,
+ };
  
- 	if (type == NDISC_REDIRECT) {
--		struct dst_entry *dst = __sk_dst_check(sk, np->dst_cookie);
-+		if (!sock_owned_by_user(sk)) {
-+			struct dst_entry *dst = __sk_dst_check(sk, np->dst_cookie);
+-static const struct inet6_protocol tcpv6_protocol = {
++static struct inet6_protocol tcpv6_protocol = {
+ 	.early_demux	=	tcp_v6_early_demux,
+ 	.handler	=	tcp_v6_rcv,
+ 	.err_handler	=	tcp_v6_err,
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
  
--		if (dst)
--			dst->ops->redirect(dst, sk, skb);
-+			if (dst)
-+				dst->ops->redirect(dst, sk, skb);
-+		}
- 		goto out;
- 	}
- 
++void tcp_v6_early_demux_configure(int enable)
++{
++	if (enable)
++		tcpv6_protocol.early_demux = tcp_v6_early_demux;
++	else
++		tcpv6_protocol.early_demux = NULL;
++}
++
+ static struct inet_protosw tcpv6_protosw = {
+ 	.type		=	SOCK_STREAM,
+ 	.protocol	=	IPPROTO_TCP,
 -- 
-1.8.3.1
+1.9.1
