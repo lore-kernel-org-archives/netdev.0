@@ -1,95 +1,98 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH net-next 1/8] net: stmicro: multiple queues dt
- configuration (fwd)
-Date: Fri, 10 Mar 2017 10:35:03 +0000
-Message-ID: <7d3888f1-79c6-42f5-2e21-3c6f219b5c55@synopsys.com>
-References: <alpine.DEB.2.20.1703092154301.2306@hadrien>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 3.2 167/199] net: sctp, forbid negative length
+Date: Fri, 10 Mar 2017 11:46:10 +0000
+Message-ID: <lsq.1489146370.889744033@decadent.org.uk>
+References: <lsq.1489146368.630732676@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, <kbuild-all@01.org>,
-        <davem@davemloft.net>
-To: Julia Lawall <julia.lawall@lip6.fr>,
-        Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:49513 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934944AbdCJKfK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 05:35:10 -0500
-In-Reply-To: <alpine.DEB.2.20.1703092154301.2306@hadrien>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+        "Jiri Slaby" <jslaby@suse.cz>, linux-sctp@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        "Vlad Yasevich" <vyasevich@gmail.com>,
+        "Neil Horman" <nhorman@tuxdriver.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <lsq.1489146368.630732676@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+3.2.87-rc1 review patch.  If anyone has any objections, please let me know.
 
-Hi Julia,
+------------------
 
-Às 8:56 PM de 3/9/2017, Julia Lawall escreveu:
-> This is just pointing out that lines 200 and 202 are identical.
+From: Jiri Slaby <jslaby@suse.cz>
 
-Yes you are correct. I put like this because you can have an algorithm
-configured, but for some reason you may forget to declare it and so I am
-assuming Strict Priority as the default, if no algorithm is mentioned.
+[ Upstream commit a4b8e71b05c27bae6bad3bdecddbc6b68a3ad8cf ]
 
-Thanks.
+Most of getsockopt handlers in net/sctp/socket.c check len against
+sizeof some structure like:
+        if (len < sizeof(int))
+                return -EINVAL;
 
-> 
-> julia
-> 
-> ---------- Forwarded message ----------
-> Date: Fri, 10 Mar 2017 04:50:01 +0800
-> From: kbuild test robot <fengguang.wu@intel.com>
-> To: kbuild@01.org
-> Cc: Julia Lawall <julia.lawall@lip6.fr>
-> Subject: Re: [PATCH net-next 1/8] net: stmicro: multiple queues dt configuration
-> 
-> In-Reply-To: <eee93719e5830cfea8e4dcfdac9221a3b6124eb8.1488969672.git.jpinto@synopsys.com>
-> 
-> Hi Joao,
-> 
-> [auto build test WARNING on next-20170308]
-> [also build test WARNING on v4.11-rc1]
-> [cannot apply to v4.9-rc8 v4.9-rc7 v4.9-rc6]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-> 
-> url:    https://urldefense.proofpoint.com/v2/url?u=https-3A__github.com_0day-2Dci_linux_commits_Joao-2DPinto_prepare-2Dmac-2Doperations-2Dfor-2Dmultiple-2Dqueues_20170310-2D013207&d=DwIBAg&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=a9WPde3r_rvMfiI6cNc9fiisfaNuQ0Y6Db3AlCshStc&s=UN6vsTbyCs5xra4Pmdmeh5SJtlHnMYuqY2G7dEzfH8A&e= 
-> :::::: branch date: 3 hours ago
-> :::::: commit date: 3 hours ago
-> 
->>> drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:199:6-8: WARNING: possible condition with no effect (if == else)
-> 
-> git remote add linux-review https://urldefense.proofpoint.com/v2/url?u=https-3A__github.com_0day-2Dci_linux&d=DwIBAg&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=a9WPde3r_rvMfiI6cNc9fiisfaNuQ0Y6Db3AlCshStc&s=77GWKJ7l6ZN9uZytFPLhSHX_eDkoS_xGee1Bqiz4bng&e= 
-> git remote update linux-review
-> git checkout faca7330d9494884feb52b62a037d01266b4d382
-> vim +199 drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> 
-> faca7330 Joao Pinto 2017-03-08  183  		/* TODO: Dynamic mapping to be included in the future */
-> faca7330 Joao Pinto 2017-03-08  184
-> faca7330 Joao Pinto 2017-03-08  185  		queue++;
-> faca7330 Joao Pinto 2017-03-08  186  	}
-> faca7330 Joao Pinto 2017-03-08  187
-> faca7330 Joao Pinto 2017-03-08  188  	/* Processing TX queues common config */
-> faca7330 Joao Pinto 2017-03-08  189  	if (of_property_read_u8(tx_node, "snps,tx-queues-to-use",
-> faca7330 Joao Pinto 2017-03-08  190  				&plat->tx_queues_to_use))
-> faca7330 Joao Pinto 2017-03-08  191  		plat->tx_queues_to_use = 1;
-> faca7330 Joao Pinto 2017-03-08  192
-> faca7330 Joao Pinto 2017-03-08  193  	if (of_property_read_bool(tx_node, "snps,tx-sched-wrr"))
-> faca7330 Joao Pinto 2017-03-08  194  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_WRR;
-> faca7330 Joao Pinto 2017-03-08  195  	else if (of_property_read_bool(tx_node, "snps,tx-sched-wfq"))
-> faca7330 Joao Pinto 2017-03-08  196  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_WFQ;
-> faca7330 Joao Pinto 2017-03-08  197  	else if (of_property_read_bool(tx_node, "snps,tx-sched-dwrr"))
-> faca7330 Joao Pinto 2017-03-08  198  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_DWRR;
-> faca7330 Joao Pinto 2017-03-08 @199  	else if (of_property_read_bool(tx_node, "snps,tx-sched-sp"))
-> faca7330 Joao Pinto 2017-03-08  200  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_SP;
-> faca7330 Joao Pinto 2017-03-08  201  	else
-> faca7330 Joao Pinto 2017-03-08  202  		plat->tx_sched_algorithm = MTL_TX_ALGORITHM_SP;
-> faca7330 Joao Pinto 2017-03-08  203
-> faca7330 Joao Pinto 2017-03-08  204  	queue = 0;
-> faca7330 Joao Pinto 2017-03-08  205
-> faca7330 Joao Pinto 2017-03-08  206  	/* Processing individual TX queue config */
-> faca7330 Joao Pinto 2017-03-08  207  	for_each_child_of_node(tx_node, queue_node) {
-> 
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://urldefense.proofpoint.com/v2/url?u=https-3A__lists.01.org_pipermail_kbuild-2Dall&d=DwIBAg&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=a9WPde3r_rvMfiI6cNc9fiisfaNuQ0Y6Db3AlCshStc&s=FIMUAwoZnmD9TLcn9NWRiOonj4uGrJQ1d_-POnyob5k&e=                    Intel Corporation
-> 
+On the first look, the check seems to be correct. But since len is int
+and sizeof returns size_t, int gets promoted to unsigned size_t too. So
+the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
+false.
+
+Fix this in sctp by explicitly checking len < 0 before any getsockopt
+handler is called.
+
+Note that sctp_getsockopt_events already handled the negative case.
+Since we added the < 0 check elsewhere, this one can be removed.
+
+If not checked, this is the result:
+UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
+shift exponent 52 is too large for 32-bit type 'int'
+CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
+ 0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
+ ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
+ 0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
+Call Trace:
+ [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
+...
+ [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
+ [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
+ [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
+ [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
+ [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
+ [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
+ [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
+
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-sctp@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+[bwh: Backported to 3.2: adjust context]
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ net/sctp/socket.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4193,7 +4193,7 @@ static int sctp_getsockopt_disable_fragm
+ static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
+ 				  int __user *optlen)
+ {
+-	if (len <= 0)
++	if (len == 0)
+ 		return -EINVAL;
+ 	if (len > sizeof(struct sctp_event_subscribe))
+ 		len = sizeof(struct sctp_event_subscribe);
+@@ -5586,6 +5586,9 @@ SCTP_STATIC int sctp_getsockopt(struct s
+ 	if (get_user(len, optlen))
+ 		return -EFAULT;
+ 
++	if (len < 0)
++		return -EINVAL;
++
+ 	sctp_lock_sock(sk);
+ 
+ 	switch (optname) {
