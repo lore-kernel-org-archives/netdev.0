@@ -1,63 +1,66 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 3/5] net/mlx5e: remove IEEE/CEE mode check when setting DCBX mode
-Date: Fri, 10 Mar 2017 14:33:03 +0200
-Message-ID: <20170310123305.2185-4-saeedm@mellanox.com>
+Subject: [PATCH net 2/5] net/mlx5: Don't save PCI state when PCI error is detected
+Date: Fri, 10 Mar 2017 14:33:02 +0200
+Message-ID: <20170310123305.2185-3-saeedm@mellanox.com>
 References: <20170310123305.2185-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
+Cc: netdev@vger.kernel.org, Daniel Jurgens <danielj@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38696 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38693 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S937257AbdCJMdc (ORCPT
+        with ESMTP id S937255AbdCJMdc (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 07:33:32 -0500
 In-Reply-To: <20170310123305.2185-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Huy Nguyen <huyn@mellanox.com>
+From: Daniel Jurgens <danielj@mellanox.com>
 
-Currently, the function setdcbx fails if the request dcbx mode
-is either IEEE or CEE. We remove the IEEE/CEE mode check because
-we support both IEEE and CEE interfaces.
+When a PCI error is detected the PCI state could be corrupt, don't save
+it in that flow. Save the state after initialization. After restoring the
+PCI state during slot reset save it again, restoring the state destroys
+the previously saved state info.
 
-Fixes: 3a6a931dfb8e ("net/mlx5e: Support DCBX CEE API")
-Signed-off-by: Huy Nguyen <huyn@mellanox.com>
-Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
+Fixes: 05ac2c0b7438 ('net/mlx5: Fix race between PCI error handlers and
+health work')
+Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
+
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index 0523ed47f597..8fa23f6a1f67 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -302,6 +302,9 @@ static u8 mlx5e_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 	struct mlx5e_dcbx *dcbx = &priv->dcbx;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index c4242a4e8130..e2bd600d19de 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1352,6 +1352,7 @@ static int init_one(struct pci_dev *pdev,
+ 	if (err)
+ 		goto clean_load;
  
-+	if (mode & DCB_CAP_DCBX_LLD_MANAGED)
-+		return 1;
-+
- 	if ((!mode) && MLX5_CAP_GEN(priv->mdev, dcbx)) {
- 		if (dcbx->mode == MLX5E_DCBX_PARAM_VER_OPER_AUTO)
- 			return 0;
-@@ -315,13 +318,10 @@ static u8 mlx5e_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 		return 1;
- 	}
- 
--	if (mlx5e_dcbnl_switch_to_host_mode(netdev_priv(dev)))
-+	if (!(mode & DCB_CAP_DCBX_HOST))
- 		return 1;
- 
--	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
--	    !(mode & DCB_CAP_DCBX_VER_CEE) ||
--	    !(mode & DCB_CAP_DCBX_VER_IEEE) ||
--	    !(mode & DCB_CAP_DCBX_HOST))
-+	if (mlx5e_dcbnl_switch_to_host_mode(netdev_priv(dev)))
- 		return 1;
- 
++	pci_save_state(pdev);
  	return 0;
+ 
+ clean_load:
+@@ -1407,9 +1408,8 @@ static pci_ers_result_t mlx5_pci_err_detected(struct pci_dev *pdev,
+ 
+ 	mlx5_enter_error_state(dev);
+ 	mlx5_unload_one(dev, priv, false);
+-	/* In case of kernel call save the pci state and drain the health wq */
++	/* In case of kernel call drain the health wq */
+ 	if (state) {
+-		pci_save_state(pdev);
+ 		mlx5_drain_health_wq(dev);
+ 		mlx5_pci_disable_device(dev);
+ 	}
+@@ -1461,6 +1461,7 @@ static pci_ers_result_t mlx5_pci_slot_reset(struct pci_dev *pdev)
+ 
+ 	pci_set_master(pdev);
+ 	pci_restore_state(pdev);
++	pci_save_state(pdev);
+ 
+ 	if (wait_vital(pdev)) {
+ 		dev_err(&pdev->dev, "%s: wait_vital timed out\n", __func__);
 -- 
 2.11.0
