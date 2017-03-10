@@ -1,27 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 2/2] net: Eliminate duplicated codes by
- creating one new function in_dev_select_addr
-Date: Thu, 09 Mar 2017 18:36:59 -0800 (PST)
-Message-ID: <20170309.183659.2080368138881100826.davem@davemloft.net>
-References: <1489110273-29481-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH v2] udp: avoid ufo handling on IP payload compression
+ packets
+Date: Thu, 09 Mar 2017 18:29:08 -0800 (PST)
+Message-ID: <20170309.182908.132340749043081051.davem@davemloft.net>
+References: <1489057006-1254-1-git-send-email-alexey.kodanev@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
+        herbert@gondor.apana.org.au
+To: alexey.kodanev@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48408 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48416 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752659AbdCJChB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 21:37:01 -0500
-In-Reply-To: <1489110273-29481-1-git-send-email-fgao@ikuai8.com>
+        with ESMTP id S1752426AbdCJCjh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 21:39:37 -0500
+In-Reply-To: <1489057006-1254-1-git-send-email-alexey.kodanev@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Date: Thu,  9 Mar 2017 13:56:46 +0300
 
-When you change any patch in a patch series, you must repost the
-entire patch series with a proper cover letter rather than just the
-patches which change.
+> commit c146066ab802 ("ipv4: Don't use ufo handling on later transformed
+> packets") and commit f89c56ce710a ("ipv6: Don't use ufo handling on
+> later transformed packets") added a check that 'rt->dst.header_len' isn't
+> zero in order to skip UFO, but it doesn't include IPcomp in transport mode
+> where it equals zero.
+> 
+> Packets, after payload compression, may not require further fragmentation,
+> and if original length exceeds MTU, later compressed packets will be
+> transmitted incorrectly. This can be reproduced with LTP udp_ipsec.sh test
+> on veth device with enabled UFO, MTU is 1500 and UDP payload is 2000:
+> 
+> * IPv4 case, offset is wrong + unnecessary fragmentation
+>     udp_ipsec.sh -p comp -m transport -s 2000 &
+>     tcpdump -ni ltp_ns_veth2
+>     ...
+>     IP (tos 0x0, ttl 64, id 45203, offset 0, flags [+],
+>       proto Compressed IP (108), length 49)
+>       10.0.0.2 > 10.0.0.1: IPComp(cpi=0x1000)
+>     IP (tos 0x0, ttl 64, id 45203, offset 1480, flags [none],
+>       proto UDP (17), length 21) 10.0.0.2 > 10.0.0.1: ip-proto-17
+> 
+> * IPv6 case, sending small fragments
+>     udp_ipsec.sh -6 -p comp -m transport -s 2000 &
+>     tcpdump -ni ltp_ns_veth2
+>     ...
+>     IP6 (flowlabel 0x6b9ba, hlim 64, next-header Compressed IP (108)
+>       payload length: 37) fd00::2 > fd00::1: IPComp(cpi=0x1000)
+>     IP6 (flowlabel 0x6b9ba, hlim 64, next-header Compressed IP (108)
+>       payload length: 21) fd00::2 > fd00::1: IPComp(cpi=0x1000)
+> 
+> Fix it by checking 'rt->dst.xfrm' pointer to 'xfrm_state' struct, skip UFO
+> if xfrm is set. So the new check will include both cases: IPcomp and IPsec.
+> 
+> Fixes: c146066ab802 ("ipv4: Don't use ufo handling on later transformed packets")
+> Fixes: f89c56ce710a ("ipv6: Don't use ufo handling on later transformed packets")
+> Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+> ---
+> 
+> v2: use dst_xfrm() to access xfrm_state
 
-Thanks.
+Applied and queued up for -stable, thanks!
