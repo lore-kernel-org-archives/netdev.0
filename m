@@ -1,63 +1,152 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH v2 net 7/8] net: bcmgenet: add begin/complete ethtool ops
-Date: Thu,  9 Mar 2017 16:58:49 -0800
-Message-ID: <20170310005850.10808-8-opendmb@gmail.com>
+Subject: [PATCH v2 net 1/8] net: bcmgenet: correct the RBUF_OVFL_CNT and RBUF_ERR_CNT MIB values
+Date: Thu,  9 Mar 2017 16:58:43 -0800
+Message-ID: <20170310005850.10808-2-opendmb@gmail.com>
 References: <20170310005850.10808-1-opendmb@gmail.com>
 Cc: pgynther@google.com, jaedon.shin@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Edwin Chan <edwin.chan@broadcom.com>,
-        Doug Berger <opendmb@gmail.com>
+        linux-kernel@vger.kernel.org, Doug Berger <opendmb@gmail.com>
 To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170310005850.10808-1-opendmb@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Edwin Chan <edwin.chan@broadcom.com>
-
-Make sure clock is enabled for ethtool ops.
+The location of the RBUF overflow and error counters has moved between
+different version of the GENET MAC.  This commit corrects the driver to
+read from the correct locations depending on the version of the GENET
+MAC.
 
 Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
-Signed-off-by: Edwin Chan <edwin.chan@broadcom.com>
 Signed-off-by: Doug Berger <opendmb@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 60 +++++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 10 +++--
+ 2 files changed, 60 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f93098840775..ec1f3014e410 100644
+index f92896835d2a..f0fb7eca8eb4 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -450,6 +450,22 @@ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
- 			genet_dma_ring_regs[r]);
+@@ -1,7 +1,7 @@
+ /*
+  * Broadcom GENET (Gigabit Ethernet) controller driver
+  *
+- * Copyright (c) 2014 Broadcom Corporation
++ * Copyright (c) 2014-2017 Broadcom
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -778,8 +778,9 @@ static const struct bcmgenet_stats bcmgenet_gstrings_stats[] = {
+ 	STAT_GENET_RUNT("rx_runt_bytes", mib.rx_runt_bytes),
+ 	/* Misc UniMAC counters */
+ 	STAT_GENET_MISC("rbuf_ovflow_cnt", mib.rbuf_ovflow_cnt,
+-			UMAC_RBUF_OVFL_CNT),
+-	STAT_GENET_MISC("rbuf_err_cnt", mib.rbuf_err_cnt, UMAC_RBUF_ERR_CNT),
++			UMAC_RBUF_OVFL_CNT_V1),
++	STAT_GENET_MISC("rbuf_err_cnt", mib.rbuf_err_cnt,
++			UMAC_RBUF_ERR_CNT_V1),
+ 	STAT_GENET_MISC("mdf_err_cnt", mib.mdf_err_cnt, UMAC_MDF_ERR_CNT),
+ 	STAT_GENET_SOFT_MIB("alloc_rx_buff_failed", mib.alloc_rx_buff_failed),
+ 	STAT_GENET_SOFT_MIB("rx_dma_failed", mib.rx_dma_failed),
+@@ -821,6 +822,45 @@ static void bcmgenet_get_strings(struct net_device *dev, u32 stringset,
+ 	}
  }
  
-+static int bcmgenet_begin(struct net_device *dev)
++static u32 bcmgenet_update_stat_misc(struct bcmgenet_priv *priv, u16 offset)
 +{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
++	u16 new_offset;
++	u32 val;
 +
-+	/* Turn on the clock */
-+	return clk_prepare_enable(priv->clk);
++	switch (offset) {
++	case UMAC_RBUF_OVFL_CNT_V1:
++		if (GENET_IS_V2(priv))
++			new_offset = RBUF_OVFL_CNT_V2;
++		else
++			new_offset = RBUF_OVFL_CNT_V3PLUS;
++
++		val = bcmgenet_rbuf_readl(priv,	new_offset);
++		/* clear if overflowed */
++		if (val == ~0)
++			bcmgenet_rbuf_writel(priv, 0, new_offset);
++		break;
++	case UMAC_RBUF_ERR_CNT_V1:
++		if (GENET_IS_V2(priv))
++			new_offset = RBUF_ERR_CNT_V2;
++		else
++			new_offset = RBUF_ERR_CNT_V3PLUS;
++
++		val = bcmgenet_rbuf_readl(priv,	new_offset);
++		/* clear if overflowed */
++		if (val == ~0)
++			bcmgenet_rbuf_writel(priv, 0, new_offset);
++		break;
++	default:
++		val = bcmgenet_umac_readl(priv, offset);
++		/* clear if overflowed */
++		if (val == ~0)
++			bcmgenet_umac_writel(priv, 0, offset);
++		break;
++	}
++
++	return val;
 +}
 +
-+static void bcmgenet_complete(struct net_device *dev)
-+{
-+	struct bcmgenet_priv *priv = netdev_priv(dev);
-+
-+	/* Turn off the clock */
-+	clk_disable_unprepare(priv->clk);
-+}
-+
- static int bcmgenet_get_link_ksettings(struct net_device *dev,
- 				       struct ethtool_link_ksettings *cmd)
+ static void bcmgenet_update_mib_counters(struct bcmgenet_priv *priv)
  {
-@@ -1022,6 +1038,8 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	int i, j = 0;
+@@ -845,10 +885,16 @@ static void bcmgenet_update_mib_counters(struct bcmgenet_priv *priv)
+ 						  UMAC_MIB_START + j + offset);
+ 			break;
+ 		case BCMGENET_STAT_MISC:
+-			val = bcmgenet_umac_readl(priv, s->reg_offset);
+-			/* clear if overflowed */
+-			if (val == ~0)
+-				bcmgenet_umac_writel(priv, 0, s->reg_offset);
++			if (GENET_IS_V1(priv)) {
++				val = bcmgenet_umac_readl(priv, s->reg_offset);
++				/* clear if overflowed */
++				if (val == ~0)
++					bcmgenet_umac_writel(priv, 0,
++							     s->reg_offset);
++			} else {
++				val = bcmgenet_update_stat_misc(priv,
++								s->reg_offset);
++			}
+ 			break;
+ 		}
  
- /* standard ethtool support functions. */
- static const struct ethtool_ops bcmgenet_ethtool_ops = {
-+	.begin			= bcmgenet_begin,
-+	.complete		= bcmgenet_complete,
- 	.get_strings		= bcmgenet_get_strings,
- 	.get_sset_count		= bcmgenet_get_sset_count,
- 	.get_ethtool_stats	= bcmgenet_get_ethtool_stats,
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 1e2dc34d331a..d5fb0d772dcd 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2014 Broadcom Corporation
++ * Copyright (c) 2014-2017 Broadcom
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -214,7 +214,9 @@ struct bcmgenet_mib_counters {
+ #define  MDIO_REG_SHIFT			16
+ #define  MDIO_REG_MASK			0x1F
+ 
+-#define UMAC_RBUF_OVFL_CNT		0x61C
++#define UMAC_RBUF_OVFL_CNT_V1		0x61C
++#define RBUF_OVFL_CNT_V2		0x80
++#define RBUF_OVFL_CNT_V3PLUS		0x94
+ 
+ #define UMAC_MPD_CTRL			0x620
+ #define  MPD_EN				(1 << 0)
+@@ -224,7 +226,9 @@ struct bcmgenet_mib_counters {
+ 
+ #define UMAC_MPD_PW_MS			0x624
+ #define UMAC_MPD_PW_LS			0x628
+-#define UMAC_RBUF_ERR_CNT		0x634
++#define UMAC_RBUF_ERR_CNT_V1		0x634
++#define RBUF_ERR_CNT_V2			0x84
++#define RBUF_ERR_CNT_V3PLUS		0x98
+ #define UMAC_MDF_ERR_CNT		0x638
+ #define UMAC_MDF_CTRL			0x650
+ #define UMAC_MDF_ADDR			0x654
 -- 
 2.11.1
