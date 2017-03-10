@@ -1,176 +1,72 @@
-From: Igor Druzhinin <igor.druzhinin@citrix.com>
-Subject: [PATCH net v4] xen-netback: fix race condition on XenBus disconnect
-Date: Fri, 10 Mar 2017 21:36:22 +0000
-Message-ID: <1489181782-120847-1-git-send-email-igor.druzhinin@citrix.com>
+From: Andy Zhou <azhou@ovn.org>
+Subject: Re: [RFC net-next sample action optimization 2/3] openvswitch:
+ Refactor recirc key allocation.
+Date: Fri, 10 Mar 2017 13:44:33 -0800
+Message-ID: <CABKoBm2x_hQfGpj7=VOy357nNWGUdMx2xHfT=MbPvmOK4oECbA@mail.gmail.com>
+References: <1488932137-120383-1-git-send-email-azhou@ovn.org>
+ <1488932137-120383-3-git-send-email-azhou@ovn.org> <CAPWQB7FsjZ7aUXBT+uH_ht6gu5b4URhAirkX2UX95jTzOZ7g5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <paul.durrant@citrix.com>, <jgross@suse.com>,
-        <wei.liu2@citrix.com>, Igor Druzhinin <igor.druzhinin@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, pravin shelar <pshelar@ovn.org>
+To: Joe Stringer <joe@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:50111 "EHLO
-        SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933374AbdCJVho (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 16:37:44 -0500
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:53170 "EHLO
+        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934115AbdCJVpb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 16:45:31 -0500
+Received: from mfilter32-d.gandi.net (mfilter32-d.gandi.net [217.70.178.163])
+        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 099C9FB89E
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 22:45:19 +0100 (CET)
+Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
+        by mfilter32-d.gandi.net (mfilter32-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id 5ijipTg_gJC7 for <netdev@vger.kernel.org>;
+        Fri, 10 Mar 2017 22:45:17 +0100 (CET)
+Received: from mail-pg0-f45.google.com (mail-pg0-f45.google.com [74.125.83.45])
+        (Authenticated sender: azhou@ovn.org)
+        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id BDA46FB8A0
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 22:45:15 +0100 (CET)
+Received: by mail-pg0-f45.google.com with SMTP id 25so43283902pgy.0
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 13:45:15 -0800 (PST)
+In-Reply-To: <CAPWQB7FsjZ7aUXBT+uH_ht6gu5b4URhAirkX2UX95jTzOZ7g5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In some cases during XenBus disconnect event handling and subsequent
-queue resource release there may be some TX handlers active on
-other processors. Use RCU in order to synchronize with them.
+On Thu, Mar 9, 2017 at 11:11 AM, Joe Stringer <joe@ovn.org> wrote:
+> On 7 March 2017 at 16:15, Andy Zhou <azhou@ovn.org> wrote:
+>> The logic of allocating and copy key for each 'exec_actions_level'
+>> was specific to execute_recirc(). However, future patches will reuse
+>> as well.  Refactor the logic into its own function clone_key().
+>>
+>> Signed-off-by: Andy Zhou <azhou@ovn.org>
+>> ---
+>
+> <snip>
+>
+>> @@ -83,14 +83,32 @@ struct action_fifo {
+>>         struct deferred_action fifo[DEFERRED_ACTION_FIFO_SIZE];
+>>  };
+>>
+>> -struct recirc_keys {
+>> -       struct sw_flow_key key[OVS_DEFERRED_ACTION_THRESHOLD];
+>> +struct action_flow_keys {
+>> +       struct sw_flow_key key[OVS_ACTION_RECURSION_THRESHOLD];
+>>  };
+>
+> I thought the old struct name was clearer on how it would be used -
+> for when actions are deferred.
 
-Signed-off-by: Igor Druzhinin <igor.druzhinin@citrix.com>
----
-v4:
- * Use READ_ONCE instead of rcu_dereference to stop sparse complaining
-
-v3:
- * Fix unintended semantic change in xenvif_get_ethtool_stats
- * Dropped extra code
-
-v2:
- * Add protection for xenvif_get_ethtool_stats
- * Additional comments and fixes
----
- drivers/net/xen-netback/interface.c | 26 +++++++++++++++++---------
- drivers/net/xen-netback/netback.c   |  2 +-
- drivers/net/xen-netback/xenbus.c    | 20 ++++++++++----------
- 3 files changed, 28 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 829b26c..8397f6c 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -165,13 +165,17 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct xenvif *vif = netdev_priv(dev);
- 	struct xenvif_queue *queue = NULL;
--	unsigned int num_queues = vif->num_queues;
-+	unsigned int num_queues;
- 	u16 index;
- 	struct xenvif_rx_cb *cb;
- 
- 	BUG_ON(skb->dev != dev);
- 
--	/* Drop the packet if queues are not set up */
-+	/* Drop the packet if queues are not set up.
-+	 * This handler should be called inside an RCU read section
-+	 * so we don't need to enter it here explicitly.
-+	 */
-+	num_queues = READ_ONCE(vif->num_queues);
- 	if (num_queues < 1)
- 		goto drop;
- 
-@@ -222,18 +226,18 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
- {
- 	struct xenvif *vif = netdev_priv(dev);
- 	struct xenvif_queue *queue = NULL;
-+	unsigned int num_queues;
- 	u64 rx_bytes = 0;
- 	u64 rx_packets = 0;
- 	u64 tx_bytes = 0;
- 	u64 tx_packets = 0;
- 	unsigned int index;
- 
--	spin_lock(&vif->lock);
--	if (vif->queues == NULL)
--		goto out;
-+	rcu_read_lock();
-+	num_queues = READ_ONCE(vif->num_queues);
- 
- 	/* Aggregate tx and rx stats from each queue */
--	for (index = 0; index < vif->num_queues; ++index) {
-+	for (index = 0; index < num_queues; ++index) {
- 		queue = &vif->queues[index];
- 		rx_bytes += queue->stats.rx_bytes;
- 		rx_packets += queue->stats.rx_packets;
-@@ -241,8 +245,7 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
- 		tx_packets += queue->stats.tx_packets;
- 	}
- 
--out:
--	spin_unlock(&vif->lock);
-+	rcu_read_unlock();
- 
- 	vif->dev->stats.rx_bytes = rx_bytes;
- 	vif->dev->stats.rx_packets = rx_packets;
-@@ -378,10 +381,13 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
- 				     struct ethtool_stats *stats, u64 * data)
- {
- 	struct xenvif *vif = netdev_priv(dev);
--	unsigned int num_queues = vif->num_queues;
-+	unsigned int num_queues;
- 	int i;
- 	unsigned int queue_index;
- 
-+	rcu_read_lock();
-+	num_queues = READ_ONCE(vif->num_queues);
-+
- 	for (i = 0; i < ARRAY_SIZE(xenvif_stats); i++) {
- 		unsigned long accum = 0;
- 		for (queue_index = 0; queue_index < num_queues; ++queue_index) {
-@@ -390,6 +396,8 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
- 		}
- 		data[i] = accum;
- 	}
-+
-+	rcu_read_unlock();
- }
- 
- static void xenvif_get_strings(struct net_device *dev, u32 stringset, u8 * data)
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f9bcf4a..602d408 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -214,7 +214,7 @@ static void xenvif_fatal_tx_err(struct xenvif *vif)
- 	netdev_err(vif->dev, "fatal error; disabling device\n");
- 	vif->disabled = true;
- 	/* Disable the vif from queue 0's kthread */
--	if (vif->queues)
-+	if (vif->num_queues)
- 		xenvif_kick_thread(&vif->queues[0]);
- }
- 
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index d2d7cd9..a56d3ea 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -495,26 +495,26 @@ static void backend_disconnect(struct backend_info *be)
- 	struct xenvif *vif = be->vif;
- 
- 	if (vif) {
-+		unsigned int num_queues = vif->num_queues;
- 		unsigned int queue_index;
--		struct xenvif_queue *queues;
- 
- 		xen_unregister_watchers(vif);
- #ifdef CONFIG_DEBUG_FS
- 		xenvif_debugfs_delif(vif);
- #endif /* CONFIG_DEBUG_FS */
- 		xenvif_disconnect_data(vif);
--		for (queue_index = 0;
--		     queue_index < vif->num_queues;
--		     ++queue_index)
--			xenvif_deinit_queue(&vif->queues[queue_index]);
- 
--		spin_lock(&vif->lock);
--		queues = vif->queues;
-+		/* At this point some of the handlers may still be active
-+		 * so we need to have additional synchronization here.
-+		 */
- 		vif->num_queues = 0;
--		vif->queues = NULL;
--		spin_unlock(&vif->lock);
-+		synchronize_net();
- 
--		vfree(queues);
-+		for (queue_index = 0; queue_index < num_queues; ++queue_index)
-+			xenvif_deinit_queue(&vif->queues[queue_index]);
-+
-+		vfree(vif->queues);
-+		vif->queues = NULL;
- 
- 		xenvif_disconnect_ctrl(vif);
- 	}
--- 
-1.8.3.1
+O.K. I will revert it.
+>
+>>
+>>  static struct action_fifo __percpu *action_fifos;
+>> -static struct recirc_keys __percpu *recirc_keys;
+>> +static struct action_flow_keys __percpu *flow_keys;
+>>  static DEFINE_PER_CPU(int, exec_actions_level);
+>>
+>> +/* Make a clone of the 'key', using the pre-allocated percpu 'flow_keys'
+>> + * space. Since the storage is pre-allocated, the caller does not
+>> + * need to check for NULL return pointer.
+>> + */
+>
+> Hmm? if level > OVS_ACTION_RECURSION_THRESHOLD, this function returns NULL.
+Thanks for catching this. I will update the comment.
