@@ -1,38 +1,31 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 04/14] net: dsa: mv88e6xxx: rework ATU Load/Purge
-Date: Fri, 10 Mar 2017 03:27:48 +0100
-Message-ID: <20170310022748.GI22101@lunn.ch>
-References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
- <20170309233324.18539-5-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] rxrpc: rxrpc_kernel_send_data() needs to handle
+ failed call better
+Date: Thu, 09 Mar 2017 18:30:35 -0800 (PST)
+Message-ID: <20170309.183035.1322866098839970347.davem@davemloft.net>
+References: <148904703242.5036.16866085054034840990.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170309233324.18539-5-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <148904703242.5036.16866085054034840990.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 09, 2017 at 06:33:14PM -0500, Vivien Didelot wrote:
-> All Marvell switch chips have an ATU accessed using the same Global (1)
-> register layout. Only the handling of the FID differs as more bits were
-> necessary to support more and more databases.
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 09 Mar 2017 08:10:32 +0000
+
+> If rxrpc_kernel_send_data() is asked to send data through a call that has
+> already failed (due to a remote abort, received protocol error or network
+> error), then return the associated error code saved in the call rather than
+> ESHUTDOWN.
 > 
-> Add and use a fresh documented implementation of the ATU Load/Purge.
+> This allows the caller to work out whether to ask for the abort code or not
+> based on this.
+> 
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-This is not really the Linux way of doing something. You don't throw
-something away and replace it. You incrementally modify what you have
-into something better.
-
-I really wished you had moved the code, unmodified, into
-global1_atu.c. Then made lots of easy to review small changes. I
-cannot just look at this patch and know it is correct. What i need to
-compare against is not in this patch. So it is a lot harder to review.
-
-I will continue this review later...
-
-  Andrew
+Applied, thanks David.
