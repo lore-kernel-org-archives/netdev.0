@@ -1,59 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] dccp/tcp: fix routing redirect race
-Date: Thu, 09 Mar 2017 18:21:27 -0800 (PST)
-Message-ID: <20170309.182127.1480610707735412471.davem@davemloft.net>
-References: <1489022121-20571-1-git-send-email-jmaxwell37@gmail.com>
+Subject: Re: [PATCH net] net: Work around lockdep limitation in sockets
+ that use sockets
+Date: Thu, 09 Mar 2017 18:25:04 -0800 (PST)
+Message-ID: <20170309.182504.556453593217285552.davem@davemloft.net>
+References: <148904694551.4893.14290556899372744780.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, edumazet@google.com, andreyknvl@google.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, ncardwell@google.com, dccp@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        jmaxwell@redhat.com, egarver@redhat.com, hsowa@redhat.com
-To: jmaxwell37@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48200 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754006AbdCJCVb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 21:21:31 -0500
-In-Reply-To: <1489022121-20571-1-git-send-email-jmaxwell37@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <148904694551.4893.14290556899372744780.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Date: Thu,  9 Mar 2017 12:15:21 +1100
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 09 Mar 2017 08:09:05 +0000
 
-> We have seen a few incidents lately where a dst_enty has been freed
-> with a dangling TCP socket reference (sk->sk_dst_cache) pointing to that
-> dst_entry. If the conditions/timings are right a crash then ensues when the
-> freed dst_entry is referenced later on. A Common crashing back trace is:
+> Lockdep issues a circular dependency warning when AFS issues an operation
+> through AF_RXRPC from a context in which the VFS/VM holds the mmap_sem.
+> 
+> The theory lockdep comes up with is as follows:
  ...
-> A closer look at the tcp_v4_err() handler revealed that do_redirect() will run
-> regardless of whether user space has the socket locked. This can result in a 
-> race condition where the same dst_entry cached in sk->sk_dst_entry can be 
-> decremented twice for the same socket via: 
+> However, lockdep's theory is wrong in this instance because it deals only
+> with lock classes and not individual locks.  The AF_INET lock in (2) isn't
+> really equivalent to the AF_INET lock in (3) as the former deals with a
+> socket entirely internal to the kernel that never sees userspace.  This is
+> a limitation in the design of lockdep.
 > 
-> do_redirect()->__sk_dst_check()-> dst_release(). 
+> Fix the general case by:
 > 
-> Which leads to the dst_entry being prematurely freed with another socket 
-> pointing to it via sk->sk_dst_cache and a subsequent crash.
+>  (1) Double up all the locking keys used in sockets so that one set are
+>      used if the socket is created by userspace and the other set is used
+>      if the socket is created by the kernel.
 > 
-> To fix this skip do_redirect() if usespace has the socket locked. Instead let 
-> the redirect take place later when user space does not have the socket 
-> locked.
+>  (2) Store the kern parameter passed to sk_alloc() in a variable in the
+>      sock struct (sk_kern_sock).  This informs sock_lock_init(),
+>      sock_init_data() and sk_clone_lock() as to the lock keys to be used.
 > 
-> The dccp code is very similar in this respect, so fixing it there too. 
+>      Note that the child created by sk_clone_lock() inherits the parent's
+>      kern setting.
 > 
-> As Eric Garver pointed out the following commit now invalidates routes. Which
-> can set the dst->obsolete flag so that ipv4_dst_check() returns null and 
-> triggers the dst_release().
+>  (3) Add a 'kern' parameter to ->accept() that is analogous to the one
+>      passed in to ->create() that distinguishes whether kernel_accept() or
+>      sys_accept4() was the caller and can be passed to sk_alloc().
 > 
-> Fixes: ceb3320610d6 ("ipv4: Kill routes during PMTU/redirect updates.")
-> Cc: Eric Garver <egarver@redhat.com>
-> Cc: Hannes Sowa <hsowa@redhat.com>
-> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+>      Note that a lot of accept functions merely dequeue an already
+>      allocated socket.  I haven't touched these as the new socket already
+>      exists before we get the parameter.
+> 
+>      Note also that there are a couple of places where I've made the accepted
+>      socket unconditionally kernel-based:
+> 
+> 	irda_accept()
+> 	rds_rcp_accept_one()
+> 	tcp_accept_from_sock()
+> 
+>      because they follow a sock_create_kern() and accept off of that.
+> 
+> Whilst creating this, I noticed that lustre and ocfs don't create sockets
+> through sock_create_kern() and thus they aren't marked as for-kernel,
+> though they appear to be internal.  I wonder if these should do that so
+> that they use the new set of lock keys.
+> 
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Please add the ipv6 side of this fix to this patch and repost.
-
-Thank you.
+Applied, thanks David.
