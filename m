@@ -1,81 +1,53 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net] rxrpc: Wake up the transmitter if Rx window size
- increases on the peer
-Date: Fri, 10 Mar 2017 07:48:49 +0000
-Message-ID: <148913212914.28383.13034499448460205789.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 00/10] mlxsw: Preparations for VRF offload
+Date: Fri, 10 Mar 2017 08:53:33 +0100
+Message-ID: <1489132423-12575-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        ivecera@redhat.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35245 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750936AbdCJHxq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 02:53:46 -0500
+Received: by mail-wr0-f196.google.com with SMTP id u108so10564630wrb.2
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 23:53:45 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The RxRPC ACK packet may contain an extension that includes the peer's
-current Rx window size for this call.  We adjust the local Tx window size
-to match.  However, the transmitter can stall if the receive window is
-reduced to 0 by the peer and then reopened.
+From: Jiri Pirko <jiri@mellanox.com>
 
-This is because the normal way that the transmitter is re-energised is by
-dropping something out of our Tx queue and thus making space.  When a
-single gap is made, the transmitter is woken up.  However, because there's
-nothing in the Tx queue at this point, this doesn't happen.
+Ido says:
 
-To fix this, perform a wake_up() any time we see the peer's Rx window size
-increasing.
+This patchset aims to prepare the mlxsw driver for VRF offload. The
+follow-up patchsets that introduce VRF support can be found here:
+https://github.com/idosch/linux/tree/idosch-next
 
-The observable symptom is that calls start failing on ETIMEDOUT and the
-following:
+The first four patches are mainly concerned with the netdevice
+notification block. There are no functional changes, but merely
+restructuring to more easily integrate VRF enslavement.
 
-	kAFS: SERVER DEAD state=-62
+Patches 5-10 remove various assumptions throughout the code about a
+single virtual router (VR) and also restructure the internal data
+structures to more accurately represent the device's operation.
 
-appears in dmesg.
+Ido Schimmel (10):
+  mlxsw: spectrum: Sanitize bridge's upper devices
+  mlxsw: spectrum: Don't assume upper device's type
+  mlxsw: spectrum: Associate PVID vPort with appropriate netdev
+  mlxsw: spectrum: Destroy RIFs based on last removed address
+  mlxsw: spectrum_router: Allow more route types to be programmed
+  mlxsw: spectrum_router: Place RIF related code with router code
+  mlxsw: spectrum_router: Simplify LPM tree allocation
+  mlxsw: spectrum_router: Refactor virtual router handling
+  mlxsw: spectrum_router: Explicitly Associate RIFs with VRs
+  mlxsw: spectrum_router: Make abort mechanism VR-aware
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          |    4 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  598 +---------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   52 +-
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 1159 +++++++++++++++-----
+ 4 files changed, 956 insertions(+), 857 deletions(-)
 
- net/rxrpc/input.c |   15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
-
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index d74921c4969b..18b2ad8be8e2 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -652,6 +652,7 @@ static void rxrpc_input_ackinfo(struct rxrpc_call *call, struct sk_buff *skb,
- 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
- 	struct rxrpc_peer *peer;
- 	unsigned int mtu;
-+	bool wake = false;
- 	u32 rwind = ntohl(ackinfo->rwind);
- 
- 	_proto("Rx ACK %%%u Info { rx=%u max=%u rwin=%u jm=%u }",
-@@ -659,9 +660,14 @@ static void rxrpc_input_ackinfo(struct rxrpc_call *call, struct sk_buff *skb,
- 	       ntohl(ackinfo->rxMTU), ntohl(ackinfo->maxMTU),
- 	       rwind, ntohl(ackinfo->jumbo_max));
- 
--	if (rwind > RXRPC_RXTX_BUFF_SIZE - 1)
--		rwind = RXRPC_RXTX_BUFF_SIZE - 1;
--	call->tx_winsize = rwind;
-+	if (call->tx_winsize != rwind) {
-+		if (rwind > RXRPC_RXTX_BUFF_SIZE - 1)
-+			rwind = RXRPC_RXTX_BUFF_SIZE - 1;
-+		if (rwind > call->tx_winsize)
-+			wake = true;
-+		call->tx_winsize = rwind;
-+	}
-+
- 	if (call->cong_ssthresh > rwind)
- 		call->cong_ssthresh = rwind;
- 
-@@ -675,6 +681,9 @@ static void rxrpc_input_ackinfo(struct rxrpc_call *call, struct sk_buff *skb,
- 		spin_unlock_bh(&peer->lock);
- 		_net("Net MTU %u (maxdata %u)", peer->mtu, peer->maxdata);
- 	}
-+
-+	if (wake)
-+		wake_up(&call->waitq);
- }
- 
- /*
+-- 
+2.7.4
