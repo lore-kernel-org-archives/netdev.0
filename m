@@ -1,55 +1,69 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 03/14] net: dsa: mv88e6xxx: setup ATU Learn2All
-Date: Fri, 10 Mar 2017 03:00:17 +0100
-Message-ID: <20170310020017.GG22101@lunn.ch>
-References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
- <20170309233324.18539-4-vivien.didelot@savoirfairelinux.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 1/2] mpls: allow TTL propagation to IP packets
+ to be configured
+Date: Thu, 9 Mar 2017 19:00:41 -0700
+Message-ID: <4711aeb8-5da5-4a2b-7304-6b9696e8c1cb@cumulusnetworks.com>
+References: <1485808575-16852-1-git-send-email-rshearma@brocade.com>
+ <1488933990-14490-1-git-send-email-rshearma@brocade.com>
+ <1488933990-14490-2-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170309233324.18539-4-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        roopa <roopa@cumulusnetworks.com>
+To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36040 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754956AbdCJCAz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Mar 2017 21:00:55 -0500
+Received: by mail-pf0-f171.google.com with SMTP id o126so35667721pfb.3
+        for <netdev@vger.kernel.org>; Thu, 09 Mar 2017 18:00:44 -0800 (PST)
+In-Reply-To: <1488933990-14490-2-git-send-email-rshearma@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 09, 2017 at 06:33:13PM -0500, Vivien Didelot wrote:
-> Marvell switch chips which can be interconnected have an ATU Learn2All
-> feature which allows chosen ports to also learn newly added addresses.
-> 
-> Enable this feature and mark the DSA links as so called "Message Ports".
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  drivers/net/dsa/mv88e6xxx/chip.c        | 32 +++++++++++++++++++-------------
->  drivers/net/dsa/mv88e6xxx/global1.h     |  1 +
->  drivers/net/dsa/mv88e6xxx/global1_atu.c | 17 +++++++++++++++++
->  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  1 +
->  drivers/net/dsa/mv88e6xxx/port.c        | 18 ++++++++++++++++++
->  drivers/net/dsa/mv88e6xxx/port.h        |  2 ++
->  6 files changed, 58 insertions(+), 13 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index 0ad8200f3321..132bda7ca9a8 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> @@ -1308,6 +1308,14 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+On 3/7/17 5:46 PM, Robert Shearman wrote:
+> @@ -244,24 +245,33 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+>  		payload_type = ip_hdr(skb)->version;
 >  
->  static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
->  {
-> +	int err;
+>  	switch (payload_type) {
+> -	case MPT_IPV4: {
+> -		struct iphdr *hdr4 = ip_hdr(skb);
+> +	case MPT_IPV4:
+> +		if (rt->rt_ttl_propagate == MPLS_TTL_PROP_ENABLED ||
+> +		    (rt->rt_ttl_propagate == MPLS_TTL_PROP_DEFAULT &&
+> +		     net->mpls.ip_ttl_propagate)) {
+> +			struct iphdr *hdr4 = ip_hdr(skb);
 > +
-> +	if (chip->info->tag_protocol != DSA_TAG_PROTO_TRAILER) {
+> +			csum_replace2(&hdr4->check,
+> +				      htons(hdr4->ttl << 8),
+> +				      htons(dec.ttl << 8));
+> +			hdr4->ttl = dec.ttl;
+> +		}
+>  		skb->protocol = htons(ETH_P_IP);
+> -		csum_replace2(&hdr4->check,
+> -			      htons(hdr4->ttl << 8),
+> -			      htons(dec.ttl << 8));
+> -		hdr4->ttl = dec.ttl;
+>  		success = true;
+>  		break;
+> -	}
+> -	case MPT_IPV6: {
+> -		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+> +	case MPT_IPV6:
+> +		if (rt->rt_ttl_propagate == MPLS_TTL_PROP_ENABLED ||
+> +		    (rt->rt_ttl_propagate == MPLS_TTL_PROP_DEFAULT &&
+> +		     net->mpls.ip_ttl_propagate)) {
+> +			struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+> +
+> +			hdr6->hop_limit = dec.ttl;
+> +		}
+>  		skb->protocol = htons(ETH_P_IPV6);
+> -		hdr6->hop_limit = dec.ttl;
+>  		success = true;
+>  		break;
+> -	}
 
-Hi Vivien
-
-I suspect a lot of things are going to go wrong if this driver is ever
-used with that tagging protocol. And it will be even worse with QCA or
-BRCM. Yes, at some point, 6060 might get merged, and we will have to
-scatter such checks around. But until then, please can we not do this.
-
-      Andrew
+What decrements the TTL if it is not propagated from MPLS to IP?
