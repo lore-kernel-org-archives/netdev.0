@@ -1,48 +1,52 @@
-From: Jonathan Maxwell <jmaxwell37@gmail.com>
-Subject: Re: [PATCH net, v1] dccp/tcp: fix routing redirect race
-Date: Fri, 10 Mar 2017 16:05:19 +1100
-Message-ID: <CAGHK07Cd8e6eDc2hRR6DL77PvFtFPSW2TJzvYf5PO8n38ThvqQ@mail.gmail.com>
-References: <1489116691-26264-1-git-send-email-jmaxwell37@gmail.com> <1489119824.28631.26.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH net-next v2] net: Add sysctl to toggle early demux for tcp
+ and udp
+Date: Thu, 09 Mar 2017 22:26:10 -0700
+Message-ID: <674d67f5d76f761f3e872dff274a8bda@codeaurora.org>
+References: <1489116660-4244-1-git-send-email-subashab@codeaurora.org>
+ <CALx6S360Y3tmKMHVMUEuRKCskuwXi+9JBfce6WiSpko1sHj=Yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: gerrit@erg.abdn.ac.uk, David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        kuznet <kuznet@ms2.inr.ac.ru>, jmorris <jmorris@namei.org>,
-        yoshfuji <yoshfuji@linux-ipv6.org>, kaber <kaber@trash.net>,
-        Neal Cardwell <ncardwell@google.com>, dccp@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jon Maxwell <jmaxwell@redhat.com>,
-        Eric Garver <egarver@redhat.com>,
-        Hannes Sowa <hsowa@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489119824.28631.26.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        netdev-owner@vger.kernel.org
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:49072 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750936AbdCJF0O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 00:26:14 -0500
+In-Reply-To: <CALx6S360Y3tmKMHVMUEuRKCskuwXi+9JBfce6WiSpko1sHj=Yg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 10, 2017 at 3:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2017-03-10 at 14:31 +1100, Jon Maxwell wrote:
->> As Eric Dumazet pointed out this also needs to be fixed in IPv6.
->> v1: Contains the IPv6 patch as well.
->
->> Fixes: ceb3320610d6 ("ipv4: Kill routes during PMTU/redirect updates.")
->> Cc: Eric Garver <egarver@redhat.com>
->> Cc: Hannes Sowa <hsowa@redhat.com>
->> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
->> ---
->>  net/dccp/ipv4.c     | 3 ++-
->>  net/ipv4/tcp_ipv4.c | 3 ++-
->>  net/ipv6/tcp_ipv6.c | 8 +++++---
->
-> Hi Jon.
->
-> You forgot net/dccp/ipv6.c
->
-> dccp_v6_err() has the same issue.
->
->
+On 2017-03-09 20:42, Tom Herbert wrote:
+> On Thu, Mar 9, 2017 at 7:31 PM, Subash Abhinov Kasiviswanathan
+> <subashab@codeaurora.org> wrote:
+>> Certain system process significant unconnected UDP workload.
+>> It would be preferrable to disable UDP early demux for those systems
+>> and enable it for TCP only.
+>> 
+> Presumably you want this for performance reasons. Can you provide some
+> before and after numbers?
 
-Thanks Eric,
+Hi Tom
 
-My bad. I'll fix that and post another patch.
+We are working on UDPv6 performance issues seen on an Android ARM64 
+system.
+Adding an early demux handler (link below) for it helped to increase 
+performance
+(800Mbps -> 870Mbps). This helps because Android statistics rules do 
+multiple
+socket lookup when no socket is associated with the skb.
+
+https://www.mail-archive.com/netdev@vger.kernel.org/msg157003.html
+
+Eric mentioned that server loads usually see more unconnected load and 
+he
+preferred to turn off early demux for UDP, hence this patch. I don't 
+have numbers
+for unconnected loads as of now though.
