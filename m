@@ -1,50 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Enable IRQs only if napi_complete_done()
- is true
-Date: Fri, 10 Mar 2017 10:06:19 -0800 (PST)
-Message-ID: <20170310.100619.750685193394042781.davem@davemloft.net>
-References: <20170309234823.11010.87592.stgit@tlendack-t1.amdoffice.net>
-        <20170309.183147.1115919481874028502.davem@davemloft.net>
-        <ceb2935c-deac-1bcc-c833-ac2944487c98@amd.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeremy.linton@arm.com
-To: thomas.lendacky@amd.com
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v5 net-next 0/9] prepare mac operations for multiple queues
+Date: Fri, 10 Mar 2017 18:24:50 +0000
+Message-ID: <cover.1489169213.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        niklas.cassel@axis.com, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60268 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932621AbdCJSGW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:06:22 -0500
-In-Reply-To: <ceb2935c-deac-1bcc-c833-ac2944487c98@amd.com>
+Received: from smtprelay.synopsys.com ([198.182.47.9]:56010 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932759AbdCJSZF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:25:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Fri, 10 Mar 2017 08:19:37 -0600
+As agreed with David Miller, this patch-set is the first of 3 to enable
+multiple queues in stmmac.
 
-> On 3/9/2017 8:31 PM, David Miller wrote:
->> From: Tom Lendacky <thomas.lendacky@amd.com>
->> Date: Thu, 9 Mar 2017 17:48:23 -0600
->>
->>> Depending on the hardware, the amd-xgbe driver may use
->>> disable_irq_nosync()
->>> and enable_irq() when an interrupt is received to process Rx
->>> packets. If
->>> the napi_complete_done() return value isn't checked an unbalanced
->>> enable
->>> for the IRQ could result, generating a warning stack trace.
->>>
->>> Update the driver to only enable interrupts if napi_complete_done()
->>> returns
->>> true.
->>>
->>> Reported-by: Jeremy Linton <jeremy.linton@arm.com>
->>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
->>
->> Applied, thanks.
-> 
-> Thanks David!  The change to napi_complete_done() from void to bool
-> occurred in 4.10, can you queue this fix up against 4.10 stable?
+This first one concentrates on mac operations adding functionalities as:
+a) Configuration through DT
+b) RX and TX scheduling algorithms programming
+b) TX queues weight programming (essential in weightes algorithms)
+c) RX enable as DCB or AVB (preparing for future AVB support)
+d) Mapping RX queue to DMA channel
+e) IRQ treatment prepared for multiple queues
+f) Debug dump prepared for multiple queues
+g) CBS configuration
 
-Sure, done.
+In v3 patch-set version I included a new patch to enable CBS configuration
+(Patch 9).
+
+Joao Pinto (9):
+  net: stmmac: multiple queues dt configuration
+  net: stmmac: configure mtl rx and tx algorithms
+  net: stmmac: configure tx queue weight
+  net: stmmac: mtl rx queue enabled as dcb or avb
+  net: stmmac: mapping mtl rx to dma channel
+  net: stmmac: flow_ctrl functions adapted to mtl
+  net: stmmac: prepare irq_status for mtl
+  net: stmmac: mac debug prepared for multiple queues
+  net: stmmac: configuration of CBS in case of a TX AVB queue
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |  58 +++-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |  22 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   6 +-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |   3 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h       |  59 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 302 ++++++++++++++++-----
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   8 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 142 ++++++++--
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 114 ++++++++
+ include/linux/stmmac.h                             |  36 +++
+ 10 files changed, 647 insertions(+), 103 deletions(-)
+
+-- 
+2.9.3
