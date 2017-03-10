@@ -1,70 +1,137 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
-Date: Fri, 10 Mar 2017 15:27:32 +0100
-Message-ID: <20170310142732.GA1850@nanopsycho.lan>
-References: <1486031855-10551-1-git-send-email-simon.horman@netronome.com>
- <1486031855-10551-2-git-send-email-simon.horman@netronome.com>
- <20170221152810.GE2694@nanopsycho.mtl.com>
- <20170310141912.GA5184@penelope.horms.nl>
+From: Thierry Du Tre <thierry@dtsystems.be>
+Subject: [PATCH] vlan: support ingress/egress priority map flushing
+Date: Fri, 10 Mar 2017 15:41:35 +0100
+Message-ID: <4d3ee617-df9d-eed7-ced6-1458b3f92a1a@dtsystems.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:36977 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933114AbdCJO1k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 09:27:40 -0500
-Received: by mail-wm0-f41.google.com with SMTP id n11so11862817wma.0
-        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 06:27:34 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170310141912.GA5184@penelope.horms.nl>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35537 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932784AbdCJOln (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 09:41:43 -0500
+Received: by mail-wr0-f196.google.com with SMTP id u108so11875240wrb.2
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 06:41:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Mar 10, 2017 at 03:19:13PM CET, simon.horman@netronome.com wrote:
->On Tue, Feb 21, 2017 at 04:28:10PM +0100, Jiri Pirko wrote:
->> Thu, Feb 02, 2017 at 11:37:34AM CET, simon.horman@netronome.com wrote:
->> >Allow dissection of Neighbour Discovery target IP, and source and
->> >destination link-layer addresses for neighbour solicitation and
->> >advertisement messages.
->> >
->> >Signed-off-by: Simon Horman <simon.horman@netronome.com>
->> >---
->> 
->> [...]
->> 
->> >@@ -633,6 +702,18 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->> > 						     FLOW_DISSECTOR_KEY_ICMP,
->> > 						     target_container);
->> > 		key_icmp->icmp = skb_flow_get_be16(skb, nhoff, data, hlen);
->> >+
->> >+		if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ND) &&
->> >+		    ip_proto == IPPROTO_IPV6 && key_icmp->code == 0 &&
->> 
->> IPPROTO_IPV6 say "IPv6-in-IPv4 tunnelling". Please use "NEXTHDR_IPV6"
->> instead.
->
->Thanks, will do.
->
->> >+		    (key_icmp->type == NDISC_NEIGHBOUR_SOLICITATION ||
->> >+		     key_icmp->type == NDISC_NEIGHBOUR_ADVERTISEMENT)) {
->> >+			key_nd = skb_flow_dissector_target(flow_dissector,
->> >+							   FLOW_DISSECTOR_KEY_ND,
->> >+							   target_container);
->> >+			if (!(skb_flow_dissect_nd(skb, key_nd, data, nhoff,
->> >+						  hlen, ipv6_payload_len)))
->> >+				goto out_bad;
->> >+		}
->> 
->> You should put this under "switch (ip_proto) {"
->
->I see that makes sense in terms of the check against ip_proto.
->But I added it here to allow checking against key_icmp->code
->and key_icmp->type as well.
+When sending packets via a vlan device we can manipulate the priority bits in the vlan header (PCP) via a mapping based on tc class value.
+Similarly, when packets are received via a vlan device, the PCP value can be mapped onto a tc class value, which is available for iptables rules and tc queueing disciplines.
 
-Sure. Just add under "switch (ip_proto) {" and call a wrapper nd
-function from there. In that function, you check dissector_uses_key and
-other needed things.
+One can use the vconfig utility to set both ingress and egress mapping entries (set_ingress_map/set_egress_map) or any other application to call the vlan ioctl handler.
+
+The resulting map can be printed via /proc/net/vlan/<ifname> , i.e. :
+# cat /proc/net/vlan/vlan11
+vlan11  VID: 11  REORDER_HDR: 1  dev->priv_flags: 1
+          total frames received     52331849
+           total bytes received  17451834908
+       Broadcast/Multicast Rcvd      1525155
+
+       total frames transmitted     98569270
+        total bytes transmitted 144870211289
+Device: eth_test
+INGRESS priority mappings: 0:0  1:1  2:2  3:3  4:0  5:0  6:0 7:0
+  EGRESS priority mappings: 0:7
+
+The current API offers only GET and SET operations, and when actually using this functionality a flush is missing to reset all entries.
+This patch adds a FLUSH operation for both ingress and egress map which can then be used by vconfig or other applications.
+
+Signed-off-by: Thierry Du Tre <thierry@dtsystems.be>
+---
+  include/uapi/linux/if_vlan.h |  2 ++
+  net/8021q/vlan.c             | 16 ++++++++++++++++
+  net/8021q/vlan.h             |  2 ++
+  net/8021q/vlan_dev.c         | 23 +++++++++++++++++++++++
+  4 files changed, 43 insertions(+)
+
+diff --git a/include/uapi/linux/if_vlan.h b/include/uapi/linux/if_vlan.h
+index 7e5e6b3..6bdff52 100644
+--- a/include/uapi/linux/if_vlan.h
++++ b/include/uapi/linux/if_vlan.h
+@@ -20,6 +20,8 @@
+  enum vlan_ioctl_cmds {
+  	ADD_VLAN_CMD,
+  	DEL_VLAN_CMD,
++	FLUSH_VLAN_INGRESS_PRIORITY_CMD,
++	FLUSH_VLAN_EGRESS_PRIORITY_CMD,
+  	SET_VLAN_INGRESS_PRIORITY_CMD,
+  	SET_VLAN_EGRESS_PRIORITY_CMD,
+  	GET_VLAN_INGRESS_PRIORITY_CMD,
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 467069b..8988419 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -539,6 +539,22 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
+  	}
+  
+  	switch (args.cmd) {
++	case FLUSH_VLAN_INGRESS_PRIORITY_CMD:
++		err = -EPERM;
++		if (!capable(CAP_NET_ADMIN))
++			break;
++		vlan_dev_flush_ingress_priority(dev);
++		err = 0;
++		break;
++
++	case FLUSH_VLAN_EGRESS_PRIORITY_CMD:
++		err = -EPERM;
++		if (!capable(CAP_NET_ADMIN))
++			break;
++		vlan_dev_flush_egress_priority(dev);
++		err = 0;
++		break;
++
+  	case SET_VLAN_INGRESS_PRIORITY_CMD:
+  		err = -EPERM;
+  		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index df8bd65..d8d90ca 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -97,6 +97,8 @@ static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
+  							    (i) % VLAN_N_VID)))
+  
+  /* found in vlan_dev.c */
++void vlan_dev_flush_ingress_priority(const struct net_device *dev);
++void vlan_dev_flush_egress_priority(const struct net_device *dev);
+  void vlan_dev_set_ingress_priority(const struct net_device *dev,
+  				   u32 skb_prio, u16 vlan_prio);
+  int vlan_dev_set_egress_priority(const struct net_device *dev,
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index e97ab82..8fd91c3 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -159,6 +159,29 @@ static int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
+  	return 0;
+  }
+  
++void vlan_dev_flush_ingress_priority(const struct net_device *dev)
++{
++	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
++
++	memset(vlan->ingress_priority_map, 0, sizeof(vlan->ingress_priority_map));
++	vlan->nr_ingress_mappings = 0;
++}
++
++void vlan_dev_flush_egress_priority(const struct net_device *dev)
++{
++	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
++	struct vlan_priority_tci_mapping *mp;
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
++		while ((mp = vlan->egress_priority_map[i]) != NULL) {
++			vlan->egress_priority_map[i] = mp->next;
++			kfree(mp);
++		}
++	}
++	vlan->nr_egress_mappings = 0;
++}
++
+  void vlan_dev_set_ingress_priority(const struct net_device *dev,
+  				   u32 skb_prio, u16 vlan_prio)
+  {
+-- 
+2.7.4
