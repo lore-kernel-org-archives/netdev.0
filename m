@@ -1,40 +1,50 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: amd-xgbe: unbalanced irq enable in v4.11-rc1
-Date: Fri, 10 Mar 2017 18:04:34 +0000
-Message-ID: <20170310180434.GC24571@leverpostej>
-References: <20170310171953.GA24571@leverpostej>
- <6ded1511-af84-e406-7e86-dd84972c451d@amd.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] amd-xgbe: Enable IRQs only if napi_complete_done()
+ is true
+Date: Fri, 10 Mar 2017 10:06:19 -0800 (PST)
+Message-ID: <20170310.100619.750685193394042781.davem@davemloft.net>
+References: <20170309234823.11010.87592.stgit@tlendack-t1.amdoffice.net>
+        <20170309.183147.1115919481874028502.davem@davemloft.net>
+        <ceb2935c-deac-1bcc-c833-ac2944487c98@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
-To: Tom Lendacky <thomas.lendacky@amd.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6ded1511-af84-e406-7e86-dd84972c451d@amd.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeremy.linton@arm.com
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60268 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932621AbdCJSGW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 13:06:22 -0500
+In-Reply-To: <ceb2935c-deac-1bcc-c833-ac2944487c98@amd.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 10, 2017 at 11:39:42AM -0600, Tom Lendacky wrote:
-> On 3/10/2017 11:19 AM, Mark Rutland wrote:
-> >Hi,
-> >
-> >I'm seeing the below splat when transferring data over the network, using
-> >v4.11-rc1 on an AMD Seattle platform. I don't see the splat with v4.10.
-> >
-> >Looking at just the driver, I couldn't see any suspicious changes. Reverting
-> >commit 402168b4c2dc0734 ("amd-xgbe: Stop the PHY before releasing interrupts")
-> >doesn't change matters.
-> >
-> >Any ideas?
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Fri, 10 Mar 2017 08:19:37 -0600
+
+> On 3/9/2017 8:31 PM, David Miller wrote:
+>> From: Tom Lendacky <thomas.lendacky@amd.com>
+>> Date: Thu, 9 Mar 2017 17:48:23 -0600
+>>
+>>> Depending on the hardware, the amd-xgbe driver may use
+>>> disable_irq_nosync()
+>>> and enable_irq() when an interrupt is received to process Rx
+>>> packets. If
+>>> the napi_complete_done() return value isn't checked an unbalanced
+>>> enable
+>>> for the IRQ could result, generating a warning stack trace.
+>>>
+>>> Update the driver to only enable interrupts if napi_complete_done()
+>>> returns
+>>> true.
+>>>
+>>> Reported-by: Jeremy Linton <jeremy.linton@arm.com>
+>>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+>>
+>> Applied, thanks.
 > 
-> Yes, patch submitted.  Please see:
-> 
-> 	http://marc.info/?l=linux-netdev&m=148910333810442&w=2
+> Thanks David!  The change to napi_complete_done() from void to bool
+> occurred in 4.10, can you queue this fix up against 4.10 stable?
 
-Ah, thanks for the pointer!
-
-That appears to solve the issue for me.
-
-Thanks,
-Mark.
+Sure, done.
