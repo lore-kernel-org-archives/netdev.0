@@ -1,186 +1,96 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v4 net-next 6/9] net: stmicro: flow_ctrl functions adapted to mtl
-Date: Fri, 10 Mar 2017 12:18:31 +0000
-Message-ID: <28f9c5189e3d33dc315ce5e3d5020d626c07c31c.1489146580.git.jpinto@synopsys.com>
-References: <cover.1489146580.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        niklas.cassel@axis.com, netdev@vger.kernel.org,
-        Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:46680 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936762AbdCJMS4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 07:18:56 -0500
-In-Reply-To: <cover.1489146580.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1489146580.git.jpinto@synopsys.com>
-References: <cover.1489146580.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 3.16 330/370] net: sctp, forbid negative length
+Date: Fri, 10 Mar 2017 11:46:23 +0000
+Message-ID: <lsq.1489146383.348099986@decadent.org.uk>
+References: <lsq.1489146380.780052105@decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+        "Vlad Yasevich" <vyasevich@gmail.com>, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, "Neil Horman" <nhorman@tuxdriver.com>,
+        "Jiri Slaby" <jslaby@suse.cz>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <lsq.1489146380.780052105@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adapts flow_ctrl function to prepare it for multiple queues.
+3.16.42-rc1 review patch.  If anyone has any objections, please let me know.
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+------------------
+
+From: Jiri Slaby <jslaby@suse.cz>
+
+[ Upstream commit a4b8e71b05c27bae6bad3bdecddbc6b68a3ad8cf ]
+
+Most of getsockopt handlers in net/sctp/socket.c check len against
+sizeof some structure like:
+        if (len < sizeof(int))
+                return -EINVAL;
+
+On the first look, the check seems to be correct. But since len is int
+and sizeof returns size_t, int gets promoted to unsigned size_t too. So
+the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
+false.
+
+Fix this in sctp by explicitly checking len < 0 before any getsockopt
+handler is called.
+
+Note that sctp_getsockopt_events already handled the negative case.
+Since we added the < 0 check elsewhere, this one can be removed.
+
+If not checked, this is the result:
+UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
+shift exponent 52 is too large for 32-bit type 'int'
+CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
+ 0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
+ ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
+ 0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
+Call Trace:
+ [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
+...
+ [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
+ [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
+ [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
+ [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
+ [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
+ [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
+ [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
+
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-sctp@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
-Changes v3->v4:
-- variable init simplified in some functions
-Changes v1->v3:
-- Just to keep up with patch-set version
+ net/sctp/socket.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
- drivers/net/ethernet/stmicro/stmmac/common.h         |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c    | 20 +++++++++++++-------
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    | 17 ++++++++++++++---
- 6 files changed, 34 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 32f5f25..5532633 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -473,7 +473,7 @@ struct stmmac_ops {
- 	void (*set_filter)(struct mac_device_info *hw, struct net_device *dev);
- 	/* Flow control setting */
- 	void (*flow_ctrl)(struct mac_device_info *hw, unsigned int duplex,
--			  unsigned int fc, unsigned int pause_time);
-+			  unsigned int fc, unsigned int pause_time, u32 tx_cnt);
- 	/* Set power management mode (e.g. magic frame) */
- 	void (*pmt)(struct mac_device_info *hw, unsigned long mode);
- 	/* Set/Get Unicast MAC addresses */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index 19b9b30..3a95ad9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -216,7 +216,8 @@ static void dwmac1000_set_filter(struct mac_device_info *hw,
- 
- 
- static void dwmac1000_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--				unsigned int fc, unsigned int pause_time)
-+				unsigned int fc, unsigned int pause_time,
-+				u32 tx_cnt)
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4280,7 +4280,7 @@ static int sctp_getsockopt_disable_fragm
+ static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
+ 				  int __user *optlen)
  {
- 	void __iomem *ioaddr = hw->pcsr;
- 	/* Set flow such that DZPQ in Mac Register 6 is 0,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index e370cce..524135e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -131,7 +131,8 @@ static void dwmac100_set_filter(struct mac_device_info *hw,
- }
+-	if (len <= 0)
++	if (len == 0)
+ 		return -EINVAL;
+ 	if (len > sizeof(struct sctp_event_subscribe))
+ 		len = sizeof(struct sctp_event_subscribe);
+@@ -5801,6 +5801,9 @@ static int sctp_getsockopt(struct sock *
+ 	if (get_user(len, optlen))
+ 		return -EFAULT;
  
- static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--			       unsigned int fc, unsigned int pause_time)
-+			       unsigned int fc, unsigned int pause_time,
-+			       u32 tx_cnt)
- {
- 	void __iomem *ioaddr = hw->pcsr;
- 	unsigned int flow = MAC_FLOW_CTRL_ENABLE;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index e9b153f..3069def 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -336,11 +336,12 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
- }
- 
- static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
--			     unsigned int fc, unsigned int pause_time)
-+			     unsigned int fc, unsigned int pause_time,
-+			     u32 tx_cnt)
- {
- 	void __iomem *ioaddr = hw->pcsr;
--	u32 channel = STMMAC_CHAN0;	/* FIXME */
- 	unsigned int flow = 0;
-+	u32 queue;
- 
- 	pr_debug("GMAC Flow-Control:\n");
- 	if (fc & FLOW_RX) {
-@@ -350,13 +351,18 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
- 	}
- 	if (fc & FLOW_TX) {
- 		pr_debug("\tTransmit Flow-Control ON\n");
--		flow |= GMAC_TX_FLOW_CTRL_TFE;
--		writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
- 
--		if (duplex) {
-+		if (duplex)
- 			pr_debug("\tduplex mode: PAUSE %d\n", pause_time);
--			flow |= (pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
--			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
++	if (len < 0)
++		return -EINVAL;
 +
-+		for (queue = 0; queue < tx_cnt; queue++) {
-+			flow |= GMAC_TX_FLOW_CTRL_TFE;
-+
-+			if (duplex)
-+				flow |=
-+				(pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
-+
-+			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(queue));
- 		}
- 	}
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 85d6411..4a5dc89 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -481,6 +481,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 		      struct ethtool_pauseparam *pause)
- {
- 	struct stmmac_priv *priv = netdev_priv(netdev);
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
- 	struct phy_device *phy = netdev->phydev;
- 	int new_pause = FLOW_OFF;
+ 	lock_sock(sk);
  
-@@ -511,7 +512,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 	}
- 
- 	priv->hw->mac->flow_ctrl(priv->hw, phy->duplex, priv->flow_ctrl,
--				 priv->pause);
-+				 priv->pause, tx_cnt);
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 619bcc6..ed57409 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -673,6 +673,19 @@ static void stmmac_release_ptp(struct stmmac_priv *priv)
- }
- 
- /**
-+ *  stmmac_mac_flow_ctrl - Configure flow control in all queues
-+ *  @priv: driver private structure
-+ *  Description: It is used for configuring the flow control in all queues
-+ */
-+static void stmmac_mac_flow_ctrl(struct stmmac_priv *priv, u32 duplex)
-+{
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
-+
-+	priv->hw->mac->flow_ctrl(priv->hw, duplex, priv->flow_ctrl,
-+				 priv->pause, tx_cnt);
-+}
-+
-+/**
-  * stmmac_adjust_link - adjusts the link parameters
-  * @dev: net device structure
-  * Description: this is the helper called by the physical abstraction layer
-@@ -687,7 +700,6 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	struct phy_device *phydev = dev->phydev;
- 	unsigned long flags;
- 	int new_state = 0;
--	unsigned int fc = priv->flow_ctrl, pause_time = priv->pause;
- 
- 	if (!phydev)
- 		return;
-@@ -709,8 +721,7 @@ static void stmmac_adjust_link(struct net_device *dev)
- 		}
- 		/* Flow Control operation */
- 		if (phydev->pause)
--			priv->hw->mac->flow_ctrl(priv->hw, phydev->duplex,
--						 fc, pause_time);
-+			stmmac_mac_flow_ctrl(priv, phydev->duplex);
- 
- 		if (phydev->speed != priv->speed) {
- 			new_state = 1;
--- 
-2.9.3
+ 	switch (optname) {
