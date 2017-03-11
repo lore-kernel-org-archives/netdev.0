@@ -1,56 +1,21 @@
-From: Yanjun Zhu <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/5] rds: ib: replace spin_lock_irq with spin_lock_irqsave
-Date: Sun, 12 Mar 2017 10:33:05 +0800
-Message-ID: <58C4B361.6010100@oracle.com>
-References: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
- <1489044405-26150-2-git-send-email-yanjun.zhu@oracle.com>
- <65ac3de8-9fdd-b5c5-b7aa-aa4393626551@oracle.com>
+From: "Teresa Au" <au@dragon.ccut.edu.tw>
+Subject: Proposal...
+Date: Sat, 11 Mar 2017 18:42:25 +0800
+Message-ID: <20170311104519.M13106@dragon.ccut.edu.tw>
+Reply-To: ms_teresa_au001@outlook.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <65ac3de8-9fdd-b5c5-b7aa-aa4393626551-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+        charset=big5
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgates.ccut.edu.tw ([163.23.234.39]:49650 "HELO
+        mailgates.ccut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with SMTP id S1755534AbdCLDZM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 22:25:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry. I have no test case to show some issue.
-But from Linux Kernel Development Second Edition by Robert Love.
 
-Use spin_lock_irq is dangerous since spin_unlock_irq unconditionally 
-enables interrupts.
 
-We can assume the following scenario:
-
---->the interrupt is disabled.
-
-         spin_lock_irq(lock_ptr);   <---this will disable interrupt again
-         list_del(&ic->ib_node);
-         spin_unlock_irq(lock_ptr); <---this will enable interrupt
-
----->the interrupt is enabled.
-
-our code change the state of interrupt. This will make potential risk.
-But spin_lock_irqsave/spin_unlock_irqrestore will not make potential risk.
-
-Zhu Yanjun
-On 2017/3/10 0:50, Santosh Shilimkar wrote:
-> On 3/8/2017 11:26 PM, Zhu Yanjun wrote:
->> It is difficult to make sure the state of the interrupt when this
->> function is called. As such, it is safer to use spin_lock_irqsave
->> than spin_lock_irq.
->>
-> There is no reason to hold irqs  and as such the code path is
-> safe from irq context. I don't see need of this change unless
-> you have test case which showed some issue.
->
-> Regards,
-> Santosh
->
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Personal Business proposal for you,contact me via my personal E-mail for more detail's: 
+ms_teresa_au30@outlook.com
