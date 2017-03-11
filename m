@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 07/17] net: dsa: mv88e6xxx: rework ATU GetNext
-Date: Sat, 11 Mar 2017 16:12:53 -0500
-Message-ID: <20170311211303.24560-8-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 15/17] net: dsa: mv88e6xxx: add port ATU learn limit op
+Date: Sat, 11 Mar 2017 16:13:01 -0500
+Message-ID: <20170311211303.24560-16-vivien.didelot@savoirfairelinux.com>
 References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,311 +9,289 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:55182 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755644AbdCKVPH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:15:07 -0500
 In-Reply-To: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add and use a fresh documented implementation of the ATU GetNext.
+Add a new operation to disable the limiting of learnt MAC addresses.
 
-Since it is not necessary to write the MAC address to iterate from, only
-do it once directly in the ATU GetNext operation, if the provided ATU
-entry structure is not valid. This makes the user code simpler.
-
-Also, there is no need to loop when getting a single ATU entry. So
-remove the mv88e6xxx_atu_get helper and add a simpler snippet in
-mv88e6xxx_port_db_load_purge to lookup a given MAC address.
-
-The _mv88e6xxx_atu_mac_{read,write} are not used anymore thus remove
-them. _mv88e6xxx_atu_data_{read,write} are still used so keep them.
+Setting such limit is not likely to be used soon, so provide a
+port_disable_learn_limit operation directly. This can be changed later
+for port_set_learn_limit when we'll need it.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c        | 140 ++++----------------------------
- drivers/net/dsa/mv88e6xxx/global1.h     |   2 +
- drivers/net/dsa/mv88e6xxx/global1_atu.c |  66 +++++++++++++++
- 3 files changed, 84 insertions(+), 124 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 36 +++++++++++++++++++++++++++++------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
+ drivers/net/dsa/mv88e6xxx/port.c      |  7 +++++++
+ drivers/net/dsa/mv88e6xxx/port.h      |  3 +++
+ 4 files changed, 41 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 95dbf581b54a..2d1ec0d79fb6 100644
+index 0844df1b25e9..06fe86309e27 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2012,76 +2012,6 @@ static int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
- 	return err;
- }
- 
--static int _mv88e6xxx_atu_mac_write(struct mv88e6xxx_chip *chip,
--				    const unsigned char *addr)
--{
--	int i, err;
--
--	for (i = 0; i < 3; i++) {
--		err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_MAC_01 + i,
--					 (addr[i * 2] << 8) | addr[i * 2 + 1]);
--		if (err)
--			return err;
--	}
--
--	return 0;
--}
--
--static int _mv88e6xxx_atu_mac_read(struct mv88e6xxx_chip *chip,
--				   unsigned char *addr)
--{
--	u16 val;
--	int i, err;
--
--	for (i = 0; i < 3; i++) {
--		err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_MAC_01 + i, &val);
--		if (err)
--			return err;
--
--		addr[i * 2] = val >> 8;
--		addr[i * 2 + 1] = val & 0xff;
--	}
--
--	return 0;
--}
--
--static int _mv88e6xxx_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
--				  struct mv88e6xxx_atu_entry *entry);
--
--static int mv88e6xxx_atu_get(struct mv88e6xxx_chip *chip, int fid,
--			     const u8 *addr, struct mv88e6xxx_atu_entry *entry)
--{
--	struct mv88e6xxx_atu_entry next;
--	int err;
--
--	memcpy(next.mac, addr, ETH_ALEN);
--	eth_addr_dec(next.mac);
--
--	err = _mv88e6xxx_atu_mac_write(chip, next.mac);
--	if (err)
--		return err;
--
--	do {
--		err = _mv88e6xxx_atu_getnext(chip, fid, &next);
--		if (err)
--			return err;
--
--		if (next.state == GLOBAL_ATU_DATA_STATE_UNUSED)
--			break;
--
--		if (ether_addr_equal(next.mac, addr)) {
--			*entry = next;
--			return 0;
--		}
--	} while (ether_addr_greater(addr, next.mac));
--
--	memset(entry, 0, sizeof(*entry));
--	entry->fid = fid;
--	ether_addr_copy(entry->mac, addr);
--
--	return 0;
--}
--
- static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 					const unsigned char *addr, u16 vid,
- 					u8 state)
-@@ -2098,10 +2028,21 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_atu_get(chip, vlan.fid, addr, &entry);
-+	entry.state = GLOBAL_ATU_DATA_STATE_UNUSED;
-+	ether_addr_copy(entry.mac, addr);
-+	eth_addr_dec(entry.mac);
-+
-+	err = mv88e6xxx_g1_atu_getnext(chip, vlan.fid, &entry);
- 	if (err)
- 		return err;
- 
-+	/* Initialize a fresh ATU entry if it isn't found */
-+	if (entry.state == GLOBAL_ATU_DATA_STATE_UNUSED ||
-+	    !ether_addr_equal(entry.mac, addr)) {
-+		memset(&entry, 0, sizeof(entry));
-+		ether_addr_copy(entry.mac, addr);
-+	}
-+
- 	/* Purge the ATU entry only if no port is using it anymore */
- 	if (state == GLOBAL_ATU_DATA_STATE_UNUSED) {
- 		entry.portv_trunkid &= ~BIT(port);
-@@ -2152,68 +2093,19 @@ static int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 	return err;
- }
- 
--static int _mv88e6xxx_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
--				  struct mv88e6xxx_atu_entry *entry)
--{
--	struct mv88e6xxx_atu_entry next = { 0 };
--	u16 val;
--	int err;
--
--	next.fid = fid;
--
--	err = _mv88e6xxx_atu_wait(chip);
--	if (err)
--		return err;
--
--	err = _mv88e6xxx_atu_cmd(chip, fid, GLOBAL_ATU_OP_GET_NEXT_DB);
--	if (err)
--		return err;
--
--	err = _mv88e6xxx_atu_mac_read(chip, next.mac);
--	if (err)
--		return err;
--
--	err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_DATA, &val);
--	if (err)
--		return err;
--
--	next.state = val & GLOBAL_ATU_DATA_STATE_MASK;
--	if (next.state != GLOBAL_ATU_DATA_STATE_UNUSED) {
--		unsigned int mask, shift;
--
--		if (val & GLOBAL_ATU_DATA_TRUNK) {
--			next.trunk = true;
--			mask = GLOBAL_ATU_DATA_TRUNK_ID_MASK;
--			shift = GLOBAL_ATU_DATA_TRUNK_ID_SHIFT;
--		} else {
--			next.trunk = false;
--			mask = GLOBAL_ATU_DATA_PORT_VECTOR_MASK;
--			shift = GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT;
--		}
--
--		next.portv_trunkid = (val & mask) >> shift;
--	}
--
--	*entry = next;
--	return 0;
--}
--
- static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
- 				      u16 fid, u16 vid, int port,
- 				      struct switchdev_obj *obj,
- 				      int (*cb)(struct switchdev_obj *obj))
- {
--	struct mv88e6xxx_atu_entry addr = {
--		.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
--	};
-+	struct mv88e6xxx_atu_entry addr;
- 	int err;
- 
--	err = _mv88e6xxx_atu_mac_write(chip, addr.mac);
--	if (err)
--		return err;
-+	addr.state = GLOBAL_ATU_DATA_STATE_UNUSED;
-+	eth_broadcast_addr(addr.mac);
- 
- 	do {
--		err = _mv88e6xxx_atu_getnext(chip, fid, &addr);
-+		err = mv88e6xxx_g1_atu_getnext(chip, fid, &addr);
- 		if (err)
+@@ -2401,15 +2401,15 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
  			return err;
+ 	}
  
-diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 2c03f2e04639..8dd8ecc9f064 100644
---- a/drivers/net/dsa/mv88e6xxx/global1.h
-+++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -41,6 +41,8 @@ int mv88e6390_g1_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
- int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all);
- int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
- 				  unsigned int msecs);
-+int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
-+			     struct mv88e6xxx_atu_entry *entry);
- int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
- 			       struct mv88e6xxx_atu_entry *entry);
- 
-diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-index 09190559178b..94e940522849 100644
---- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
-+++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-@@ -109,6 +109,27 @@ static int mv88e6xxx_g1_atu_op(struct mv88e6xxx_chip *chip, u16 fid, u16 op)
- 
- /* Offset 0x0C: ATU Data Register */
- 
-+static int mv88e6xxx_g1_atu_data_read(struct mv88e6xxx_chip *chip,
-+				      struct mv88e6xxx_atu_entry *entry)
-+{
-+	u16 val;
-+	int err;
-+
-+	err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_DATA, &val);
-+	if (err)
-+		return err;
-+
-+	entry->state = val & 0xf;
-+	if (entry->state != GLOBAL_ATU_DATA_STATE_UNUSED) {
-+		if (val & GLOBAL_ATU_DATA_TRUNK)
-+			entry->trunk = true;
-+
-+		entry->portv_trunkid = (val >> 4) & mv88e6xxx_port_mask(chip);
-+	}
-+
-+	return 0;
-+}
-+
- static int mv88e6xxx_g1_atu_data_write(struct mv88e6xxx_chip *chip,
- 				       struct mv88e6xxx_atu_entry *entry)
- {
-@@ -129,6 +150,24 @@ static int mv88e6xxx_g1_atu_data_write(struct mv88e6xxx_chip *chip,
-  * Offset 0x0F: ATU MAC Address Register Bytes 4 & 5
-  */
- 
-+static int mv88e6xxx_g1_atu_mac_read(struct mv88e6xxx_chip *chip,
-+				     struct mv88e6xxx_atu_entry *entry)
-+{
-+	u16 val;
-+	int i, err;
-+
-+	for (i = 0; i < 3; i++) {
-+		err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_MAC_01 + i, &val);
-+		if (err)
-+			return err;
-+
-+		entry->mac[i * 2] = val >> 8;
-+		entry->mac[i * 2 + 1] = val & 0xff;
-+	}
-+
-+	return 0;
-+}
-+
- static int mv88e6xxx_g1_atu_mac_write(struct mv88e6xxx_chip *chip,
- 				      struct mv88e6xxx_atu_entry *entry)
- {
-@@ -147,6 +186,33 @@ static int mv88e6xxx_g1_atu_mac_write(struct mv88e6xxx_chip *chip,
- 
- /* Address Translation Unit operations */
- 
-+int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
-+			     struct mv88e6xxx_atu_entry *entry)
-+{
-+	int err;
-+
-+	err = mv88e6xxx_g1_atu_op_wait(chip);
-+	if (err)
-+		return err;
-+
-+	/* Write the MAC address to iterate from only once */
-+	if (entry->state == GLOBAL_ATU_DATA_STATE_UNUSED) {
-+		err = mv88e6xxx_g1_atu_mac_write(chip, entry);
++	if (chip->info->ops->port_disable_learn_limit) {
++		err = chip->info->ops->port_disable_learn_limit(chip, port);
 +		if (err)
 +			return err;
 +	}
 +
-+	err = mv88e6xxx_g1_atu_op(chip, fid, GLOBAL_ATU_OP_GET_NEXT_DB);
-+	if (err)
-+		return err;
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+ 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+ 	    mv88e6xxx_6320_family(chip) || mv88e6xxx_6341_family(chip)) {
+-		/* Port ATU control: disable limiting the number of
+-		 * address database entries that this port is allowed
+-		 * to use.
+-		 */
+-		err = mv88e6xxx_port_write(chip, port, PORT_ATU_CONTROL,
+-					   0x0000);
+ 		/* Priority Override: disable DA, SA and VTU priority
+ 		 * override.
+ 		 */
+@@ -2839,6 +2839,7 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -2888,6 +2889,7 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6095_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -2909,6 +2911,7 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
+ 	.port_set_speed = mv88e6185_port_set_speed,
+ 	.port_set_frame_mode = mv88e6085_port_set_frame_mode,
+ 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -2964,6 +2967,7 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -2983,6 +2987,7 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ 	.port_set_speed = mv88e6185_port_set_speed,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3010,6 +3015,7 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3039,6 +3045,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3066,6 +3073,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3095,6 +3103,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3147,6 +3156,7 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
+ 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_pause_config = mv88e6390_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3175,6 +3185,7 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
+ 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_pause_config = mv88e6390_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3203,6 +3214,7 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
+ 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_pause_config = mv88e6390_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3233,6 +3245,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3261,6 +3274,7 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_pause_config = mv88e6390_port_pause_config,
+ 	.port_set_cmode = mv88e6390x_port_set_cmode,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3290,6 +3304,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+@@ -3317,6 +3332,7 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+@@ -3342,6 +3358,7 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3369,6 +3386,7 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3398,6 +3416,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3427,6 +3446,7 @@ static const struct mv88e6xxx_ops mv88e6141_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+@@ -3456,6 +3476,7 @@ static const struct mv88e6xxx_ops mv88e6341_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+@@ -3486,6 +3507,7 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6390_port_pause_config,
+ 	.port_set_cmode = mv88e6390x_port_set_cmode,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3516,6 +3538,7 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6390_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3544,6 +3567,7 @@ static const struct mv88e6xxx_ops mv88e6391_ops = {
+ 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_pause_config = mv88e6390_port_pause_config,
++	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index bde7c775d559..a2a0006d8c98 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -871,6 +871,7 @@ struct mv88e6xxx_ops {
+ 
+ 	int (*port_egress_rate_limiting)(struct mv88e6xxx_chip *chip, int port);
+ 	int (*port_pause_config)(struct mv88e6xxx_chip *chip, int port);
++	int (*port_disable_learn_limit)(struct mv88e6xxx_chip *chip, int port);
+ 
+ 	/* CMODE control what PHY mode the MAC will use, eg. SGMII, RGMII, etc.
+ 	 * Some chips allow this to be configured on specific ports.
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index c918292217ff..8152fc96fa67 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -805,6 +805,13 @@ int mv88e6097_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port)
+ 	return mv88e6xxx_port_write(chip, port, PORT_RATE_CONTROL, 0x0001);
+ }
+ 
++/* Offset 0x0C: Port ATU Control */
 +
-+	err = mv88e6xxx_g1_atu_data_read(chip, entry);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g1_atu_mac_read(chip, entry);
++int mv88e6xxx_port_disable_learn_limit(struct mv88e6xxx_chip *chip, int port)
++{
++	return mv88e6xxx_port_write(chip, port, PORT_ATU_CONTROL, 0);
 +}
 +
- int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
- 			       struct mv88e6xxx_atu_entry *entry)
- {
+ /* Offset 0x0f: Port Ether type */
+ 
+ int mv88e6351_port_set_ether_type(struct mv88e6xxx_chip *chip, int port,
+diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
+index 35d28d05c009..e9eccbf277b8 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.h
++++ b/drivers/net/dsa/mv88e6xxx/port.h
+@@ -75,4 +75,7 @@ int mv88e6xxx_port_get_cmode(struct mv88e6xxx_chip *chip, int port, u8 *cmode);
+ int mv88e6xxx_port_set_map_da(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6095_port_set_upstream_port(struct mv88e6xxx_chip *chip, int port,
+ 				     int upstream_port);
++
++int mv88e6xxx_port_disable_learn_limit(struct mv88e6xxx_chip *chip, int port);
++
+ #endif /* _MV88E6XXX_PORT_H */
 -- 
 2.12.0
