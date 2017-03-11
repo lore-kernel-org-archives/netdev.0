@@ -1,81 +1,114 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] usbnet: smsc95xx: Reduce logging noise
-Date: Fri, 10 Mar 2017 17:45:21 -0800
-Message-ID: <1489196721-12888-1-git-send-email-linux@roeck-us.net>
-Cc: UNGLinuxDriver@microchip.com, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Guenter Roeck <linux@roeck-us.net>
-To: Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Steven Rostedt (VMware)" <rostedt@goodmis.org>
+Subject: [PATCH] netfilter: Force fake conntrack entry to be at least 8
+ bytes aligned
+Date: Sat, 11 Mar 2017 00:25:26 -0500
+Message-ID: <20170311002526.1d21e750@gandalf.local.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        coreteam@netfilter.org, Florian Westphal <fw@strlen.de>
+To: LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:41352 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751095AbdCKFZc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 11 Mar 2017 00:25:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-An insert/remove stress test generated the following log message sequence.
+Since the nfct and nfctinfo have been combined, the nf_conn structure
+must be at least 8 bytes aligned, as the 3 LSB bits are used for the
+nfctinfo. But there's a fake nf_conn structure to denote untracked
+connections, which is created by a PER_CPU construct. This does not
+guarantee that it will be 8 bytes aligned and can break the logic in
+determining the correct nfctinfo.
 
-usb 7-1.1: New USB device found, idVendor=0424, idProduct=ec00
-usb 7-1.1: New USB device strings: Mfr=0, Product=0, SerialNumber=0
-smsc95xx 7-1.1:1.0 (unnamed net_device) (uninitialized):
-				Failed to read reg index 0x00000114: -22
-smsc95xx 7-1.1:1.0 (unnamed net_device) (uninitialized):
-				Error reading MII_ACCESS
-smsc95xx 7-1.1:1.0 (unnamed net_device) (uninitialized):
-				MII is busy in smsc95xx_mdio_read
+I triggered this on a 32bit machine with the following error:
 
-... repeat 100+ times ...
+BUG: unable to handle kernel NULL pointer dereference at 00000af4
+IP: nf_ct_deliver_cached_events+0x1b/0xfb
+*pdpt = 0000000031962001 *pde = 0000000000000000 
 
-smsc95xx 7-1.1:1.0 (unnamed net_device) (uninitialized):
-				MII is busy in smsc95xx_mdio_read
-smsc95xx 7-1.1:1.0 (unnamed net_device) (uninitialized):
-				timeout on PHY Reset
-smsc95xx 7-1.1:1.0 (unnamed net_device) (uninitialized):
-				Failed to init PHY
-smsc95xx 7-1.1:1.0 (unnamed net_device) (uninitialized):
-				Failed to read reg index 0x00000000: -22
-smsc95xx: probe of 7-1.1:1.0 failed with error -22
-usb usb7: USB disconnect, device number 1
-usb 7-1: USB disconnect, device number 2
-usb 7-1.1: USB disconnect, device number 3
+Oops: 0000 [#1] SMP
+[Modules linked in: ip6t_REJECT nf_reject_ipv6 nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables ipv6 crc_ccitt ppdev r8169 parport_pc parport
+  OK  ]
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.10.0-test+ #75
+Hardware name: MSI MS-7823/CSM-H87M-G43 (MS-7823), BIOS V1.6 02/22/2014
+task: c126ec00 task.stack: c1258000
+EIP: nf_ct_deliver_cached_events+0x1b/0xfb
+EFLAGS: 00010202 CPU: 0
+EAX: 0021cd01 EBX: 00000000 ECX: 27b0c767 EDX: 32bcb17a
+ESI: f34135c0 EDI: f34135c0 EBP: f2debd60 ESP: f2debd3c
+ DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+CR0: 80050033 CR2: 00000af4 CR3: 309a0440 CR4: 001406f0
+Call Trace:
+ <SOFTIRQ>
+ ? ipv6_skip_exthdr+0xac/0xcb
+ ipv6_confirm+0x10c/0x119 [nf_conntrack_ipv6]
+ nf_hook_slow+0x22/0xc7
+ nf_hook+0x9a/0xad [ipv6]
+ ? ip6t_do_table+0x356/0x379 [ip6_tables]
+ ? ip6_fragment+0x9e9/0x9e9 [ipv6]
+ ip6_output+0xee/0x107 [ipv6]
+ ? ip6_fragment+0x9e9/0x9e9 [ipv6]
+ dst_output+0x36/0x4d [ipv6]
+ NF_HOOK.constprop.37+0xb2/0xba [ipv6]
+ ? icmp6_dst_alloc+0x2c/0xfd [ipv6]
+ ? local_bh_enable+0x14/0x14 [ipv6]
+ mld_sendpack+0x1c5/0x281 [ipv6]
+ ? mark_held_locks+0x40/0x5c
+ mld_ifc_timer_expire+0x1f6/0x21e [ipv6]
+ call_timer_fn+0x135/0x283
+ ? detach_if_pending+0x55/0x55
+ ? mld_dad_timer_expire+0x3e/0x3e [ipv6]
+ __run_timers+0x111/0x14b
+ ? mld_dad_timer_expire+0x3e/0x3e [ipv6]
+ run_timer_softirq+0x1c/0x36
+ __do_softirq+0x185/0x37c
+ ? test_ti_thread_flag.constprop.19+0xd/0xd
+ do_softirq_own_stack+0x22/0x28
+ </SOFTIRQ>
+ irq_exit+0x5a/0xa4
+ smp_apic_timer_interrupt+0x2a/0x34
+ apic_timer_interrupt+0x37/0x3c
 
-Use netdev_dbg() instead of netdev_warn() for the repeating messages
-to reduce logging noise.
+By using DEFINE/DECLARE_PER_CPU_ALIGNED we can enforce at least 8 byte
+alignment as all cache line sizes are at least 8 bytes or more.
 
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Fixes: a9e419dc7be6 ("netfilter: merge ctinfo into nfct pointer storage area")
+Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
 ---
- drivers/net/usb/smsc95xx.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 831aa33d078a..f69e9e031973 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -100,8 +100,8 @@ static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
- 		 | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
- 		 0, index, &buf, 4);
- 	if (unlikely(ret < 0)) {
--		netdev_warn(dev->net, "Failed to read reg index 0x%08x: %d\n",
--			    index, ret);
-+		netdev_dbg(dev->net, "Failed to read reg index 0x%08x: %d\n",
-+			   index, ret);
- 		return ret;
- 	}
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index f540f9a..1960587 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -244,7 +244,7 @@ extern s32 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+ 			       u32 seq);
  
-@@ -174,7 +174,7 @@ static int __must_check __smsc95xx_phy_wait_not_busy(struct usbnet *dev,
- 	do {
- 		ret = __smsc95xx_read_reg(dev, MII_ADDR, &val, in_pm);
- 		if (ret < 0) {
--			netdev_warn(dev->net, "Error reading MII_ACCESS\n");
-+			netdev_dbg(dev->net, "Error reading MII_ACCESS\n");
- 			return ret;
- 		}
+ /* Fake conntrack entry for untracked connections */
+-DECLARE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
++DECLARE_PER_CPU_ALIGNED(struct nf_conn, nf_conntrack_untracked);
+ static inline struct nf_conn *nf_ct_untracked_get(void)
+ {
+ 	return raw_cpu_ptr(&nf_conntrack_untracked);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 071b97f..ffb78e5 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -181,7 +181,11 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
+ unsigned int nf_conntrack_max __read_mostly;
+ seqcount_t nf_conntrack_generation __read_mostly;
  
-@@ -197,7 +197,7 @@ static int __smsc95xx_mdio_read(struct net_device *netdev, int phy_id, int idx,
- 	/* confirm MII not busy */
- 	ret = __smsc95xx_phy_wait_not_busy(dev, in_pm);
- 	if (ret < 0) {
--		netdev_warn(dev->net, "MII is busy in smsc95xx_mdio_read\n");
-+		netdev_dbg(dev->net, "MII is busy in smsc95xx_mdio_read\n");
- 		goto done;
- 	}
+-DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
++/* nf_conn must be 8 bytes aligned, as the 3 LSB bits are used
++ * for the nfctinfo. We cheat by (ab)using the PER CPU cache line
++ * alignment to enforce this.
++ */
++DEFINE_PER_CPU_ALIGNED(struct nf_conn, nf_conntrack_untracked);
+ EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
  
--- 
-2.7.4
+ static unsigned int nf_conntrack_hash_rnd __read_mostly;
