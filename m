@@ -1,52 +1,26 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH net-next v5 0/7] gtp: misc improvements
-Date: Sat, 11 Mar 2017 22:51:47 +0100
-Message-ID: <20170311215147.lfyqz4jjtxyo5gm4@nataraja>
-References: <20170309164302.13550-1-aschultz@tpip.net>
+From: Karl Aichniger <roberto.prado@mda.gov.br>
+Subject: (unknown)
+Date: Sat, 11 Mar 2017 18:59:07 -0300 (BRT)
+Message-ID: <806583413.5614608.1489269547493.JavaMail.zimbra__42967.092866502$1489269596$gmane$org@mda.gov.br>
+Reply-To: aichingerkarl604@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        osmocom-net-gprs@lists.osmocom.org, netdev <netdev@vger.kernel.org>
-To: Andreas Schultz <aschultz@tpip.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:44084 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932619AbdCKVwO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:52:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20170309164302.13550-1-aschultz@tpip.net>
+Received: from mx2.mda.gov.br ([200.198.212.37]:25004 "EHLO mx2.mda.gov.br"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755340AbdCKV7g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 11 Mar 2017 16:59:36 -0500
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andreas,
 
-> Andreas Schultz (7):
->   gtp: switch from struct socket to struct sock for the GTP sockets
->   gtp: make GTP sockets in gtp_newlink optional
->   gtp: merge gtp_get_net and gtp_genl_find_dev
->   gtp: consolidate gtp socket rx path
->   gtp: unify genl_find_pdp and prepare for per socket lookup
->   gtp: consolidate pdp context destruction into helper
->   gtp: add socket to pdp context
-
-
-I agree with the conceptual and architectural direction that you're
-taking the code, and I also think your current patchset is good to go
-ahead, so feel free to add my "Acked-By: Harald Welte <laforge@gnumonks.org>".
-
-However, the usual disclaimer: I've been out of kernel networking land
-for a long time, so my review skills are clearly not the best anymore.
-I'm happy for any input others can give from that point of view.
-
-There are some minor typos in the commit logs, but at the rate my typos
-increase over the years, I am the last one to complain about wasting
-time on fixing these ;)
-
-Regards,
-	Harald
 
 -- 
-- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-============================================================================
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+
+Hi, I appreciate your beauty! can we get to know each other better if you don't mind? My name is karl, Can you please tell me a little about yourself so that we can get to know each other better?
+
+Best Regards
+Karl.
