@@ -1,33 +1,52 @@
-From: =?UTF-8?Q?Mantas_Mikul=c4=97nas?= <grawity@gmail.com>
-Subject: Re: regression (4.10) - interface remove uevents not generated
-Date: Sat, 11 Mar 2017 23:24:34 +0200
-Message-ID: <3aff47fb-7dde-2d21-74bc-9954560a2b51@gmail.com>
-References: <d519f10b-8512-efa2-03a1-81f6e4a91c7c@gmail.com>
- <20170311195047.GA10561@outlook.office365.com>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH net-next v5 0/7] gtp: misc improvements
+Date: Sat, 11 Mar 2017 22:51:47 +0100
+Message-ID: <20170311215147.lfyqz4jjtxyo5gm4@nataraja>
+References: <20170309164302.13550-1-aschultz@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Andrei Vagin <avagin@virtuozzo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        osmocom-net-gprs@lists.osmocom.org, netdev <netdev@vger.kernel.org>
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:34880 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932781AbdCKVYk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:24:40 -0500
-Received: by mail-lf0-f49.google.com with SMTP id j90so52023936lfk.2
-        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 13:24:39 -0800 (PST)
-In-Reply-To: <20170311195047.GA10561@outlook.office365.com>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:44084 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932619AbdCKVwO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:52:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20170309164302.13550-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-03-11 21:50, Andrei Vagin wrote:
-> Hi Mantas,
-> 
-> Thank you for the report. Could you try out the attached patch?
+Hi Andreas,
 
-Thanks, I tested it on current master but it doesn't seem to help; there
-still aren't any uevents for removed interfaces.
+> Andreas Schultz (7):
+>   gtp: switch from struct socket to struct sock for the GTP sockets
+>   gtp: make GTP sockets in gtp_newlink optional
+>   gtp: merge gtp_get_net and gtp_genl_find_dev
+>   gtp: consolidate gtp socket rx path
+>   gtp: unify genl_find_pdp and prepare for per socket lookup
+>   gtp: consolidate pdp context destruction into helper
+>   gtp: add socket to pdp context
+
+
+I agree with the conceptual and architectural direction that you're
+taking the code, and I also think your current patchset is good to go
+ahead, so feel free to add my "Acked-By: Harald Welte <laforge@gnumonks.org>".
+
+However, the usual disclaimer: I've been out of kernel networking land
+for a long time, so my review skills are clearly not the best anymore.
+I'm happy for any input others can give from that point of view.
+
+There are some minor typos in the commit logs, but at the rate my typos
+increase over the years, I am the last one to complain about wasting
+time on fixing these ;)
+
+Regards,
+	Harald
 
 -- 
-Mantas Mikulėnas <grawity@gmail.com>
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
