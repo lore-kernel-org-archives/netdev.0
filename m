@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 08/17] net: dsa: mv88e6xxx: rework ATU Flush
-Date: Sat, 11 Mar 2017 16:12:54 -0500
-Message-ID: <20170311211303.24560-9-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 05/17] net: dsa: mv88e6xxx: enable ATU Learn2All
+Date: Sat, 11 Mar 2017 16:12:51 -0500
+Message-ID: <20170311211303.24560-6-vivien.didelot@savoirfairelinux.com>
 References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -10,136 +10,99 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:55028 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:54970 "EHLO
         mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755383AbdCKVPE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:15:04 -0500
+        with ESMTP id S1753782AbdCKVPD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:15:03 -0500
 In-Reply-To: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a fresh documented implementation of the ATU Flush/Move operation.
-Use it to replace the current ATU Flush operation.
+The ATU Learn2All feature allows newly learnt addresses to be spanned on
+ports marked as "Message Port", currently all DSA ports.
 
-_mv88e6xxx_atu_flush_move is still used by the Move operation so keep it
-until the Move operation is refactored in a next commit.
+This commit enables this feature which is necessary and quite convenient
+for multi-chip switch fabrics.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c        | 22 +++++---------------
+ drivers/net/dsa/mv88e6xxx/chip.c        | 15 ++++++---------
  drivers/net/dsa/mv88e6xxx/global1.h     |  1 +
- drivers/net/dsa/mv88e6xxx/global1_atu.c | 37 +++++++++++++++++++++++++++++++++
- 3 files changed, 43 insertions(+), 17 deletions(-)
+ drivers/net/dsa/mv88e6xxx/global1_atu.c | 17 +++++++++++++++++
+ 3 files changed, 24 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 2d1ec0d79fb6..8b8c3cb167c1 100644
+index 5c1b5825fe6c..1ee0c05f624e 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1210,17 +1210,6 @@ static int _mv88e6xxx_atu_flush_move(struct mv88e6xxx_chip *chip,
- 	return _mv88e6xxx_atu_cmd(chip, entry->fid, op);
- }
+@@ -1308,6 +1308,12 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
  
--static int _mv88e6xxx_atu_flush(struct mv88e6xxx_chip *chip,
--				u16 fid, bool static_too)
--{
--	struct mv88e6xxx_atu_entry entry = {
--		.fid = fid,
--		.state = 0, /* EntryState bits must be 0 */
--	};
--
--	return _mv88e6xxx_atu_flush_move(chip, &entry, static_too);
--}
--
- static int _mv88e6xxx_atu_move(struct mv88e6xxx_chip *chip, u16 fid,
- 			       int from_port, int to_port, bool static_too)
+ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
  {
-@@ -1310,6 +1299,10 @@ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
- {
- 	int err;
- 
-+	err = mv88e6xxx_g1_atu_flush(chip, 0, true);
++	int err;
++
++	err = mv88e6xxx_g1_atu_set_learn2all(chip, true);
 +	if (err)
 +		return err;
 +
- 	err = mv88e6xxx_g1_atu_set_learn2all(chip, true);
- 	if (err)
- 		return err;
-@@ -1714,7 +1707,7 @@ static int _mv88e6xxx_fid_new(struct mv88e6xxx_chip *chip, u16 *fid)
- 		return -ENOSPC;
- 
- 	/* Clear the database */
--	return _mv88e6xxx_atu_flush(chip, *fid, true);
-+	return mv88e6xxx_g1_atu_flush(chip, *fid, true);
+ 	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
  }
  
- static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
-@@ -2634,11 +2627,6 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
+@@ -2756,15 +2762,6 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
  	if (err < 0)
  		return err;
  
--	/* Clear all ATU entries */
--	err = _mv88e6xxx_atu_flush(chip, 0, true);
+-	/* Set the default address aging time to 5 minutes, and
+-	 * enable address learn messages to be sent to all message
+-	 * ports.
+-	 */
+-	err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL,
+-				 GLOBAL_ATU_CONTROL_LEARN2ALL);
 -	if (err)
 -		return err;
 -
- 	/* Configure the IP ToS mapping registers. */
- 	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_0, 0x0000);
+ 	/* Clear all ATU entries */
+ 	err = _mv88e6xxx_atu_flush(chip, 0, true);
  	if (err)
 diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 8dd8ecc9f064..187acfc8ed37 100644
+index b8d0fb519bab..18322d05225a 100644
 --- a/drivers/net/dsa/mv88e6xxx/global1.h
 +++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -45,5 +45,6 @@ int mv88e6xxx_g1_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
- 			     struct mv88e6xxx_atu_entry *entry);
- int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
- 			       struct mv88e6xxx_atu_entry *entry);
-+int mv88e6xxx_g1_atu_flush(struct mv88e6xxx_chip *chip, u16 fid, bool all);
+@@ -38,6 +38,7 @@ int mv88e6095_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6390_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6390_g1_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
  
- #endif /* _MV88E6XXX_GLOBAL1_H */
++int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all);
+ int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
+ 				  unsigned int msecs);
+ 
 diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-index 94e940522849..7ec9b22feaee 100644
+index 4d0ada9efc6d..843a21e05f7b 100644
 --- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
 +++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-@@ -232,3 +232,40 @@ int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
+@@ -15,6 +15,23 @@
  
- 	return mv88e6xxx_g1_atu_op(chip, fid, GLOBAL_ATU_OP_LOAD_DB);
- }
-+
-+static int mv88e6xxx_g1_atu_flushmove(struct mv88e6xxx_chip *chip, u16 fid,
-+				      struct mv88e6xxx_atu_entry *entry,
-+				      bool all)
+ /* Offset 0x0A: ATU Control Register */
+ 
++int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all)
 +{
-+	u16 op;
++	u16 val;
 +	int err;
 +
-+	err = mv88e6xxx_g1_atu_op_wait(chip);
++	err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_CONTROL, &val);
 +	if (err)
 +		return err;
 +
-+	err = mv88e6xxx_g1_atu_data_write(chip, entry);
-+	if (err)
-+		return err;
-+
-+	/* Flush/Move all or non-static entries from all or a given database */
-+	if (all && fid)
-+		op = GLOBAL_ATU_OP_FLUSH_MOVE_ALL_DB;
-+	else if (fid)
-+		op = GLOBAL_ATU_OP_FLUSH_MOVE_NON_STATIC_DB;
-+	else if (all)
-+		op = GLOBAL_ATU_OP_FLUSH_MOVE_ALL;
++	if (learn2all)
++		val |= GLOBAL_ATU_CONTROL_LEARN2ALL;
 +	else
-+		op = GLOBAL_ATU_OP_FLUSH_MOVE_NON_STATIC;
++		val &= ~GLOBAL_ATU_CONTROL_LEARN2ALL;
 +
-+	return mv88e6xxx_g1_atu_op(chip, fid, op);
++	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
 +}
 +
-+int mv88e6xxx_g1_atu_flush(struct mv88e6xxx_chip *chip, u16 fid, bool all)
-+{
-+	struct mv88e6xxx_atu_entry entry = {
-+		.state = 0, /* Null EntryState means Flush */
-+	};
-+
-+	return mv88e6xxx_g1_atu_flushmove(chip, fid, &entry, all);
-+}
+ int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
+ 				  unsigned int msecs)
+ {
 -- 
 2.12.0
