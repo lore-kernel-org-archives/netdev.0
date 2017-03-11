@@ -1,114 +1,113 @@
-From: "Steven Rostedt (VMware)" <rostedt@goodmis.org>
-Subject: [PATCH] netfilter: Force fake conntrack entry to be at least 8
- bytes aligned
-Date: Sat, 11 Mar 2017 00:25:26 -0500
-Message-ID: <20170311002526.1d21e750@gandalf.local.home>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net] selftests/bpf: fix broken build
+Date: Fri, 10 Mar 2017 22:05:55 -0800
+Message-ID: <1489212355-3289694-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        coreteam@netfilter.org, Florian Westphal <fw@strlen.de>
-To: LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Shuah Khan <shuah@kernel.org>, <netdev@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:41352 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751095AbdCKFZc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 11 Mar 2017 00:25:32 -0500
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49220 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751325AbdCKGGA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 01:06:00 -0500
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2B62PP9020074
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 22:05:59 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0b-00082601.pphosted.com with ESMTP id 293r0rb7m2-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 22:05:59 -0800
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
+ mx-out.facebook.com (10.212.236.87) with ESMTP id
+ ca0bacb4062011e790bc0002c9521c9e-a61eb9a0 for <netdev@vger.kernel.org>;        Fri,
+ 10 Mar 2017 22:05:55 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the nfct and nfctinfo have been combined, the nf_conn structure
-must be at least 8 bytes aligned, as the 3 LSB bits are used for the
-nfctinfo. But there's a fake nf_conn structure to denote untracked
-connections, which is created by a PER_CPU construct. This does not
-guarantee that it will be 8 bytes aligned and can break the logic in
-determining the correct nfctinfo.
+Recent merge of 'linux-kselftest-4.11-rc1' tree broke bpf test build.
+None of the tests were building and test_verifier.c had tons of compiler errors.
+Fix it and add #ifdef CAP_IS_SUPPORTED to support old versions of libcap.
+Tested on centos 6.8 and 7
 
-I triggered this on a 32bit machine with the following error:
-
-BUG: unable to handle kernel NULL pointer dereference at 00000af4
-IP: nf_ct_deliver_cached_events+0x1b/0xfb
-*pdpt = 0000000031962001 *pde = 0000000000000000 
-
-Oops: 0000 [#1] SMP
-[Modules linked in: ip6t_REJECT nf_reject_ipv6 nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables ipv6 crc_ccitt ppdev r8169 parport_pc parport
-  OK  ]
-CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.10.0-test+ #75
-Hardware name: MSI MS-7823/CSM-H87M-G43 (MS-7823), BIOS V1.6 02/22/2014
-task: c126ec00 task.stack: c1258000
-EIP: nf_ct_deliver_cached_events+0x1b/0xfb
-EFLAGS: 00010202 CPU: 0
-EAX: 0021cd01 EBX: 00000000 ECX: 27b0c767 EDX: 32bcb17a
-ESI: f34135c0 EDI: f34135c0 EBP: f2debd60 ESP: f2debd3c
- DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-CR0: 80050033 CR2: 00000af4 CR3: 309a0440 CR4: 001406f0
-Call Trace:
- <SOFTIRQ>
- ? ipv6_skip_exthdr+0xac/0xcb
- ipv6_confirm+0x10c/0x119 [nf_conntrack_ipv6]
- nf_hook_slow+0x22/0xc7
- nf_hook+0x9a/0xad [ipv6]
- ? ip6t_do_table+0x356/0x379 [ip6_tables]
- ? ip6_fragment+0x9e9/0x9e9 [ipv6]
- ip6_output+0xee/0x107 [ipv6]
- ? ip6_fragment+0x9e9/0x9e9 [ipv6]
- dst_output+0x36/0x4d [ipv6]
- NF_HOOK.constprop.37+0xb2/0xba [ipv6]
- ? icmp6_dst_alloc+0x2c/0xfd [ipv6]
- ? local_bh_enable+0x14/0x14 [ipv6]
- mld_sendpack+0x1c5/0x281 [ipv6]
- ? mark_held_locks+0x40/0x5c
- mld_ifc_timer_expire+0x1f6/0x21e [ipv6]
- call_timer_fn+0x135/0x283
- ? detach_if_pending+0x55/0x55
- ? mld_dad_timer_expire+0x3e/0x3e [ipv6]
- __run_timers+0x111/0x14b
- ? mld_dad_timer_expire+0x3e/0x3e [ipv6]
- run_timer_softirq+0x1c/0x36
- __do_softirq+0x185/0x37c
- ? test_ti_thread_flag.constprop.19+0xd/0xd
- do_softirq_own_stack+0x22/0x28
- </SOFTIRQ>
- irq_exit+0x5a/0xa4
- smp_apic_timer_interrupt+0x2a/0x34
- apic_timer_interrupt+0x37/0x3c
-
-By using DEFINE/DECLARE_PER_CPU_ALIGNED we can enforce at least 8 byte
-alignment as all cache line sizes are at least 8 bytes or more.
-
-Fixes: a9e419dc7be6 ("netfilter: merge ctinfo into nfct pointer storage area")
-Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index f540f9a..1960587 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -244,7 +244,7 @@ extern s32 (*nf_ct_nat_offset)(const struct nf_conn *ct,
- 			       u32 seq);
- 
- /* Fake conntrack entry for untracked connections */
--DECLARE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
-+DECLARE_PER_CPU_ALIGNED(struct nf_conn, nf_conntrack_untracked);
- static inline struct nf_conn *nf_ct_untracked_get(void)
- {
- 	return raw_cpu_ptr(&nf_conntrack_untracked);
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 071b97f..ffb78e5 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -181,7 +181,11 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
- unsigned int nf_conntrack_max __read_mostly;
- seqcount_t nf_conntrack_generation __read_mostly;
- 
--DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
-+/* nf_conn must be 8 bytes aligned, as the 3 LSB bits are used
-+ * for the nfctinfo. We cheat by (ab)using the PER CPU cache line
-+ * alignment to enforce this.
+ tools/include/uapi/linux/bpf_perf_event.h   | 18 ++++++++++++++++++
+ tools/testing/selftests/bpf/Makefile        |  4 +++-
+ tools/testing/selftests/bpf/test_verifier.c |  4 ++++
+ 3 files changed, 25 insertions(+), 1 deletion(-)
+ create mode 100644 tools/include/uapi/linux/bpf_perf_event.h
+
+diff --git a/tools/include/uapi/linux/bpf_perf_event.h b/tools/include/uapi/linux/bpf_perf_event.h
+new file mode 100644
+index 000000000000..067427259820
+--- /dev/null
++++ b/tools/include/uapi/linux/bpf_perf_event.h
+@@ -0,0 +1,18 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
 + */
-+DEFINE_PER_CPU_ALIGNED(struct nf_conn, nf_conntrack_untracked);
- EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
++#ifndef _UAPI__LINUX_BPF_PERF_EVENT_H__
++#define _UAPI__LINUX_BPF_PERF_EVENT_H__
++
++#include <linux/types.h>
++#include <linux/ptrace.h>
++
++struct bpf_perf_event_data {
++	struct pt_regs regs;
++	__u64 sample_period;
++};
++
++#endif /* _UAPI__LINUX_BPF_PERF_EVENT_H__ */
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index 4b498265dae6..67531f47781b 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -1,12 +1,14 @@
+ LIBDIR := ../../../lib
+ BPFOBJ := $(LIBDIR)/bpf/bpf.o
  
- static unsigned int nf_conntrack_hash_rnd __read_mostly;
+-CFLAGS += -Wall -O2 -lcap -I../../../include/uapi -I$(LIBDIR)
++CFLAGS += -Wall -O2 -lcap -I../../../include/uapi -I$(LIBDIR) $(BPFOBJ)
+ 
+ TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map
+ 
+ TEST_PROGS := test_kmod.sh
+ 
++all: $(TEST_GEN_PROGS)
++
+ .PHONY: all clean force
+ 
+ # force a rebuild of BPFOBJ when its dependencies are updated
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index e1f5b9eea1e8..d1555e4240c0 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -8,6 +8,8 @@
+  * License as published by the Free Software Foundation.
+  */
+ 
++#include <asm/types.h>
++#include <linux/types.h>
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -4583,10 +4585,12 @@ static bool is_admin(void)
+ 	cap_flag_value_t sysadmin = CAP_CLEAR;
+ 	const cap_value_t cap_val = CAP_SYS_ADMIN;
+ 
++#ifdef CAP_IS_SUPPORTED
+ 	if (!CAP_IS_SUPPORTED(CAP_SETFCAP)) {
+ 		perror("cap_get_flag");
+ 		return false;
+ 	}
++#endif
+ 	caps = cap_get_proc();
+ 	if (!caps) {
+ 		perror("cap_get_proc");
+-- 
+2.8.0
