@@ -1,57 +1,73 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 01/17] net: dsa: mv88e6xxx: add port mask helper
-Date: Sat, 11 Mar 2017 16:12:47 -0500
-Message-ID: <20170311211303.24560-2-vivien.didelot@savoirfairelinux.com>
-References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 00/17] net: dsa: mv88e6xxx: rework ATU support
+Date: Sat, 11 Mar 2017 16:12:46 -0500
+Message-ID: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:55052 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755399AbdCKVPE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:15:04 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a mv88e6xxx_port_mask() helper to get the bitmask of ports in a
-switch chip, that will be used in several features.
+The purpose of this patch series is to rework the code related to the
+Address Translation Unit (ATU), and bring support for it to the 88E6390
+family of switch chips.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 5 +++++
- drivers/net/dsa/mv88e6xxx/port.c      | 2 +-
- 2 files changed, 6 insertions(+), 1 deletion(-)
+All Global (1) ATU related code have been reworked and moved to its own
+file. Some port related bits used for ATU configuration (such as the
+Learn2All and MessagePort feature) have also been taken care of.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 6033f2f6260a..166b513ff751 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -944,6 +944,11 @@ static inline unsigned int mv88e6xxx_num_ports(struct mv88e6xxx_chip *chip)
- 	return chip->info->num_ports;
- }
- 
-+static inline u16 mv88e6xxx_port_mask(struct mv88e6xxx_chip *chip)
-+{
-+	return GENMASK(mv88e6xxx_num_ports(chip) - 1, 0);
-+}
-+
- int mv88e6xxx_read(struct mv88e6xxx_chip *chip, int addr, int reg, u16 *val);
- int mv88e6xxx_write(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val);
- int mv88e6xxx_update(struct mv88e6xxx_chip *chip, int addr, int reg,
-diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 8875784c4718..9bb0f2134cba 100644
---- a/drivers/net/dsa/mv88e6xxx/port.c
-+++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -539,7 +539,7 @@ int mv88e6351_port_set_egress_unknowns(struct mv88e6xxx_chip *chip, int port,
- 
- int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
- {
--	const u16 mask = GENMASK(mv88e6xxx_num_ports(chip) - 1, 0);
-+	const u16 mask = mv88e6xxx_port_mask(chip);
- 	u16 reg;
- 	int err;
- 
+The ports' mode and egress flooding mode have been refactored to fix the
+egress of frames with unknown unicast or multicast destination address,
+and write all these bits regardless the port mode (Normal, DSA, etc.)
+
+Finally remove the eth_addr_greater which was only used by mv88e6xxx.
+
+Changes in v2:
+  - add Reviewed-by tags
+  - split mv88e6xxx_g1_atu_set_age_time and mv88e6xxx_atu_setup addition
+  - remove DSA_TAG_PROTO_TRAILER check
+  - split Message Port and Learn2All addition
+  - remove unused MV88E6XXX_FLAG_G1_ATU_FID flag
+  - add dsa_is_normal_port helper
+
+Vivien Didelot (17):
+  net: dsa: mv88e6xxx: add port mask helper
+  net: dsa: mv88e6xxx: move ATU ageing time setter
+  net: dsa: mv88e6xxx: add ATU setup helper
+  net: dsa: mv88e6xxx: setup message ports
+  net: dsa: mv88e6xxx: enable ATU Learn2All
+  net: dsa: mv88e6xxx: rework ATU Load/Purge
+  net: dsa: mv88e6xxx: rework ATU GetNext
+  net: dsa: mv88e6xxx: rework ATU Flush
+  net: dsa: mv88e6xxx: rework ATU Remove
+  net: dsa: mv88e6xxx: rename new FID helper
+  net: dsa: mv88e6xxx: rename the port vector member
+  net: dsa: add dsa_is_normal_port helper
+  net: dsa: mv88e6xxx: rework port mode setup
+  net: dsa: mv88e6xxx: fix port egress flooding mode
+  net: dsa: mv88e6xxx: add port ATU learn limit op
+  net: dsa: mv88e6xxx: add port priority override op
+  etherdevice: remove unused eth_addr_greater
+
+ drivers/net/dsa/mv88e6xxx/Makefile      |   1 +
+ drivers/net/dsa/mv88e6xxx/chip.c        | 667 +++++++++++---------------------
+ drivers/net/dsa/mv88e6xxx/global1.h     |  11 +
+ drivers/net/dsa/mv88e6xxx/global1_atu.c | 300 ++++++++++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  44 ++-
+ drivers/net/dsa/mv88e6xxx/port.c        |  78 +++-
+ drivers/net/dsa/mv88e6xxx/port.h        |  16 +-
+ include/linux/etherdevice.h             |  15 -
+ include/net/dsa.h                       |   5 +
+ 9 files changed, 638 insertions(+), 499 deletions(-)
+ create mode 100644 drivers/net/dsa/mv88e6xxx/global1_atu.c
+
 -- 
 2.12.0
