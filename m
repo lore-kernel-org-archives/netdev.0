@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 06/17] net: dsa: mv88e6xxx: rework ATU Load/Purge
-Date: Sat, 11 Mar 2017 16:12:52 -0500
-Message-ID: <20170311211303.24560-7-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 02/17] net: dsa: mv88e6xxx: move ATU ageing time setter
+Date: Sat, 11 Mar 2017 16:12:48 -0500
+Message-ID: <20170311211303.24560-3-vivien.didelot@savoirfairelinux.com>
 References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,203 +9,155 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:54996 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754017AbdCKVPD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:15:03 -0500
 In-Reply-To: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-All Marvell switch chips have an ATU accessed using the same Global (1)
-register layout. Only the handling of the FID differs as more bits were
-necessary to support more and more databases.
-
-Add and use a fresh documented implementation of the ATU Load/Purge.
-
-The static mv88e6xxx_g1_atu_{fid_write,op_wait,op,data_write,mac_write}
-functions won't need to be exposed in the end so for the moment keep
-their counterparts _mv88e6xxx_atu_{wait,cmd,data_write,mac_write} as is,
-since they are still used by other ATU operations.
+Move the ATU ageing time setter code in a new global1_atu.c file, which
+will be extended in future patches to contains all consequent Global (1)
+ATU support code.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c        |  22 +------
- drivers/net/dsa/mv88e6xxx/global1.h     |   2 +
- drivers/net/dsa/mv88e6xxx/global1_atu.c | 108 ++++++++++++++++++++++++++++++++
- 3 files changed, 111 insertions(+), 21 deletions(-)
+ drivers/net/dsa/mv88e6xxx/Makefile      |  1 +
+ drivers/net/dsa/mv88e6xxx/chip.c        | 31 ++----------------------
+ drivers/net/dsa/mv88e6xxx/global1.h     |  3 +++
+ drivers/net/dsa/mv88e6xxx/global1_atu.c | 43 +++++++++++++++++++++++++++++++++
+ 4 files changed, 49 insertions(+), 29 deletions(-)
+ create mode 100644 drivers/net/dsa/mv88e6xxx/global1_atu.c
 
+diff --git a/drivers/net/dsa/mv88e6xxx/Makefile b/drivers/net/dsa/mv88e6xxx/Makefile
+index c36be318de1a..31d37a90cec7 100644
+--- a/drivers/net/dsa/mv88e6xxx/Makefile
++++ b/drivers/net/dsa/mv88e6xxx/Makefile
+@@ -1,5 +1,6 @@
+ obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx.o
+ mv88e6xxx-objs := chip.o
+ mv88e6xxx-objs += global1.o
++mv88e6xxx-objs += global1_atu.o
+ mv88e6xxx-$(CONFIG_NET_DSA_MV88E6XXX_GLOBAL2) += global2.o
+ mv88e6xxx-objs += port.o
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 1ee0c05f624e..95dbf581b54a 100644
+index 03dc886ed3d6..b228b8491afc 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2045,26 +2045,6 @@ static int _mv88e6xxx_atu_mac_read(struct mv88e6xxx_chip *chip,
+@@ -2697,33 +2697,6 @@ static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
  	return 0;
  }
  
--static int _mv88e6xxx_atu_load(struct mv88e6xxx_chip *chip,
--			       struct mv88e6xxx_atu_entry *entry)
+-static int mv88e6xxx_g1_set_age_time(struct mv88e6xxx_chip *chip,
+-				     unsigned int msecs)
 -{
--	int ret;
+-	const unsigned int coeff = chip->info->age_time_coeff;
+-	const unsigned int min = 0x01 * coeff;
+-	const unsigned int max = 0xff * coeff;
+-	u8 age_time;
+-	u16 val;
+-	int err;
 -
--	ret = _mv88e6xxx_atu_wait(chip);
--	if (ret < 0)
--		return ret;
+-	if (msecs < min || msecs > max)
+-		return -ERANGE;
 -
--	ret = _mv88e6xxx_atu_mac_write(chip, entry->mac);
--	if (ret < 0)
--		return ret;
+-	/* Round to nearest multiple of coeff */
+-	age_time = (msecs + coeff / 2) / coeff;
 -
--	ret = _mv88e6xxx_atu_data_write(chip, entry);
--	if (ret < 0)
--		return ret;
+-	err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_CONTROL, &val);
+-	if (err)
+-		return err;
 -
--	return _mv88e6xxx_atu_cmd(chip, entry->fid, GLOBAL_ATU_OP_LOAD_DB);
+-	/* AgeTime is 11:4 bits */
+-	val &= ~0xff0;
+-	val |= age_time << 4;
+-
+-	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
 -}
 -
- static int _mv88e6xxx_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
- 				  struct mv88e6xxx_atu_entry *entry);
+ static int mv88e6xxx_set_ageing_time(struct dsa_switch *ds,
+ 				     unsigned int ageing_time)
+ {
+@@ -2731,7 +2704,7 @@ static int mv88e6xxx_set_ageing_time(struct dsa_switch *ds,
+ 	int err;
  
-@@ -2132,7 +2112,7 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 		entry.state = state;
- 	}
+ 	mutex_lock(&chip->reg_lock);
+-	err = mv88e6xxx_g1_set_age_time(chip, ageing_time);
++	err = mv88e6xxx_g1_atu_set_age_time(chip, ageing_time);
+ 	mutex_unlock(&chip->reg_lock);
  
--	return _mv88e6xxx_atu_load(chip, &entry);
-+	return mv88e6xxx_g1_atu_loadpurge(chip, vlan.fid, &entry);
- }
+ 	return err;
+@@ -2783,7 +2756,7 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
+ 	if (err)
+ 		return err;
  
- static int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
+-	err = mv88e6xxx_g1_set_age_time(chip, 300000);
++	err = mv88e6xxx_g1_atu_set_age_time(chip, 300000);
+ 	if (err)
+ 		return err;
+ 
 diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 18322d05225a..2c03f2e04639 100644
+index 1aec7382c02d..b8d0fb519bab 100644
 --- a/drivers/net/dsa/mv88e6xxx/global1.h
 +++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -41,5 +41,7 @@ int mv88e6390_g1_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
- int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all);
- int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
- 				  unsigned int msecs);
-+int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
-+			       struct mv88e6xxx_atu_entry *entry);
+@@ -38,4 +38,7 @@ int mv88e6095_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6390_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6390_g1_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
  
++int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
++				  unsigned int msecs);
++
  #endif /* _MV88E6XXX_GLOBAL1_H */
 diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-index 843a21e05f7b..09190559178b 100644
---- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
+new file mode 100644
+index 000000000000..4d0ada9efc6d
+--- /dev/null
 +++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-@@ -13,6 +13,13 @@
- #include "mv88e6xxx.h"
- #include "global1.h"
- 
-+/* Offset 0x01: ATU FID Register */
-+
-+static int mv88e6xxx_g1_atu_fid_write(struct mv88e6xxx_chip *chip, u16 fid)
-+{
-+	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_FID, fid & 0xfff);
-+}
-+
- /* Offset 0x0A: ATU Control Register */
- 
- int mv88e6xxx_g1_atu_set_learn2all(struct mv88e6xxx_chip *chip, bool learn2all)
-@@ -58,3 +65,104 @@ int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
- 
- 	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
- }
-+
-+/* Offset 0x0B: ATU Operation Register */
-+
-+static int mv88e6xxx_g1_atu_op_wait(struct mv88e6xxx_chip *chip)
-+{
-+	return mv88e6xxx_g1_wait(chip, GLOBAL_ATU_OP, GLOBAL_ATU_OP_BUSY);
-+}
-+
-+static int mv88e6xxx_g1_atu_op(struct mv88e6xxx_chip *chip, u16 fid, u16 op)
-+{
-+	u16 val;
-+	int err;
-+
-+	/* FID bits are dispatched all around gradually as more are supported */
-+	if (mv88e6xxx_num_databases(chip) > 256) {
-+		err = mv88e6xxx_g1_atu_fid_write(chip, fid);
-+		if (err)
-+			return err;
-+	} else {
-+		if (mv88e6xxx_num_databases(chip) > 16) {
-+			/* ATU DBNum[7:4] are located in ATU Control 15:12 */
-+			err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_CONTROL, &val);
-+			if (err)
-+				return err;
-+
-+			val = (val & 0x0fff) | ((fid << 8) & 0xf000);
-+			err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
-+			if (err)
-+				return err;
-+		}
-+
-+		/* ATU DBNum[3:0] are located in ATU Operation 3:0 */
-+		op |= fid & 0xf;
-+	}
-+
-+	err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_OP, op);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g1_atu_op_wait(chip);
-+}
-+
-+/* Offset 0x0C: ATU Data Register */
-+
-+static int mv88e6xxx_g1_atu_data_write(struct mv88e6xxx_chip *chip,
-+				       struct mv88e6xxx_atu_entry *entry)
-+{
-+	u16 data = entry->state & 0xf;
-+
-+	if (entry->state != GLOBAL_ATU_DATA_STATE_UNUSED) {
-+		if (entry->trunk)
-+			data |= GLOBAL_ATU_DATA_TRUNK;
-+
-+		data |= (entry->portv_trunkid & mv88e6xxx_port_mask(chip)) << 4;
-+	}
-+
-+	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_DATA, data);
-+}
-+
-+/* Offset 0x0D: ATU MAC Address Register Bytes 0 & 1
-+ * Offset 0x0E: ATU MAC Address Register Bytes 2 & 3
-+ * Offset 0x0F: ATU MAC Address Register Bytes 4 & 5
+@@ -0,0 +1,43 @@
++/*
++ * Marvell 88E6xxx Address Translation Unit (ATU) support
++ *
++ * Copyright (c) 2008 Marvell Semiconductor
++ * Copyright (c) 2017 Savoir-faire Linux, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
 + */
 +
-+static int mv88e6xxx_g1_atu_mac_write(struct mv88e6xxx_chip *chip,
-+				      struct mv88e6xxx_atu_entry *entry)
++#include "mv88e6xxx.h"
++#include "global1.h"
++
++/* Offset 0x0A: ATU Control Register */
++
++int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
++				  unsigned int msecs)
 +{
++	const unsigned int coeff = chip->info->age_time_coeff;
++	const unsigned int min = 0x01 * coeff;
++	const unsigned int max = 0xff * coeff;
++	u8 age_time;
 +	u16 val;
-+	int i, err;
-+
-+	for (i = 0; i < 3; i++) {
-+		val = (entry->mac[i * 2] << 8) | entry->mac[i * 2 + 1];
-+		err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_MAC_01 + i, val);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+/* Address Translation Unit operations */
-+
-+int mv88e6xxx_g1_atu_loadpurge(struct mv88e6xxx_chip *chip, u16 fid,
-+			       struct mv88e6xxx_atu_entry *entry)
-+{
 +	int err;
 +
-+	err = mv88e6xxx_g1_atu_op_wait(chip);
++	if (msecs < min || msecs > max)
++		return -ERANGE;
++
++	/* Round to nearest multiple of coeff */
++	age_time = (msecs + coeff / 2) / coeff;
++
++	err = mv88e6xxx_g1_read(chip, GLOBAL_ATU_CONTROL, &val);
 +	if (err)
 +		return err;
 +
-+	err = mv88e6xxx_g1_atu_mac_write(chip, entry);
-+	if (err)
-+		return err;
++	/* AgeTime is 11:4 bits */
++	val &= ~0xff0;
++	val |= age_time << 4;
 +
-+	err = mv88e6xxx_g1_atu_data_write(chip, entry);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g1_atu_op(chip, fid, GLOBAL_ATU_OP_LOAD_DB);
++	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
 +}
 -- 
 2.12.0
