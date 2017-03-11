@@ -1,161 +1,68 @@
-From: "Lara Gomez, Ezequiel" <ezegomez@amazon.com>
-Subject: Re: [PATCH] Enable tx timestamping on loopback and dummy
-Date: Sat, 11 Mar 2017 23:37:22 +0000
-Message-ID: <29A6CA32-4A02-40A3-89FB-E7E9814B5FEB@amazon.com>
-References: <20170311144224.GA21305@u480fcf44e5b8574c5490.ant.amazon.com>,<13e4b635-089d-fb4b-4d73-62b807bb86e8@hartkopp.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 04/14] net: dsa: mv88e6xxx: rework ATU Load/Purge
+Date: Sun, 12 Mar 2017 00:40:21 +0100
+Message-ID: <20170311234021.GE15842@lunn.ch>
+References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com>
+ <20170309233324.18539-5-vivien.didelot@savoirfairelinux.com>
+ <20170310022748.GI22101@lunn.ch>
+ <87zigrzg6s.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:44948 "EHLO
-        smtp-fw-9101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751325AbdCKXiH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 18:38:07 -0500
-In-Reply-To: <13e4b635-089d-fb4b-4d73-62b807bb86e8@hartkopp.net>
-Content-Language: en-IE
+Received: from vps0.lunn.ch ([178.209.37.122]:44855 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751325AbdCKXk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 11 Mar 2017 18:40:26 -0500
+Content-Disposition: inline
+In-Reply-To: <87zigrzg6s.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2 and 3 were recommendations by the checkpatch.pl script; as suggested, I'v=
-e broken them down from the timestamping code and resubmitted as two separa=
-te patches (on separate emails though).
+> > I really wished you had moved the code, unmodified, into
+> > global1_atu.c. Then made lots of easy to review small changes. I
+> > cannot just look at this patch and know it is correct. What i need to
+> > compare against is not in this patch. So it is a lot harder to review.
+> 
+> I've addressed all of your comments in this patchset except this one.
 
+Hi Vivien
 
-> On 11 Mar 2017, at 23:17, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
-> =
+This time, i'm not going to push the issue further. But next time i
+will.
 
-> Hi Ezequiel,
-> =
+The point is, we have working code. You don't just throw that
+away. You make lots of small changes to that working code to morph it
+into the code you want. These small changes are all very quick and
+easy to review, because they are all small and obvious. At each stage
+we have working code. If somehow it does break, it is easy to bisect
+it down to one small change. The actual likelyhood of breaking it is
+small, because the changes are all small and obviously correct.
 
->> On 03/11/2017 03:42 PM, Ezequiel Lara Gomez wrote:
->> Also, cleanup some warnings from timestamping code.
-> =
+It does result in more patches, more to review, but it is much easier
+to review, because it should be obviously correct. The overall lines
+of code at the end is the same. So overall there is no harm is having
+lots of small patches.
 
-> in fact you're doing three different things here:
-> =
+> A patch file cannot guarantee that a chunk of code moved around has not
+> been altered in the process. This will just generate more diff for no
+> value, that needs to be updated afterwards anyway.
 
-> 1. introduce tx timestamping
-> 2. silently change an include: <asm/io.h> -> <linux/io.h>
-> 3. fix some whitespace and empty line issues
-> =
+I don't need a guarantee. I would trust you have moved it, without
+editing it. Generating more diff is not a problem. The number of diffs
+is not important at all. What is important is lots of small, easy to
+review, obviously correct patches.
 
-> You'd better provide one patch for 1 & 2 and explain why 2 is needed.
-> =
+> Plus you already complained in the first iteration I sent about
+> modifying lines that I previously added. I took care of logically
+> splitting the new ATU Load/Purge, GetNext, Flush and Remove operations
+> into incremental unmodified chunks in this series.
 
-> Regards,
-> Oliver
-> =
+Unfortunately, you are splitting in the wrong dimension. None of this
+is obviously correct. But it easily code of been.
 
->> =
-
->> This enables testing of SO_TIMESTAMPING options by targetting localhost
->> addresses.
->> =
-
->> Tested on qemu using txtimestamping.c from the kernel selftests.
->> =
-
->> Signed-off-by: Ezequiel Lara Gomez <ezegomez@amazon.com>
->> ---
->> drivers/net/dummy.c    |  1 +
->> drivers/net/loopback.c | 14 +++++++-------
->> 2 files changed, 8 insertions(+), 7 deletions(-)
->> =
-
->> diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
->> index 2c80611..32fdc00 100644
->> --- a/drivers/net/dummy.c
->> +++ b/drivers/net/dummy.c
->> @@ -125,6 +125,7 @@ static netdev_tx_t dummy_xmit(struct sk_buff *skb, s=
-truct net_device *dev)
->>    dstats->tx_bytes +=3D skb->len;
->>    u64_stats_update_end(&dstats->syncp);
->> =
-
->> +    skb_tx_timestamp(skb);
->>    dev_kfree_skb(skb);
->>    return NETDEV_TX_OK;
->> }
->> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
->> index b23b719..8bcf479 100644
->> --- a/drivers/net/loopback.c
->> +++ b/drivers/net/loopback.c
->> @@ -13,7 +13,7 @@
->>  *
->>  *        Alan Cox    :    Fixed oddments for NET3.014
->>  *        Alan Cox    :    Rejig for NET3.029 snap #3
->> - *        Alan Cox    :    Fixed NET3.029 bugs and sped up
->> + *        Alan Cox    :    Fixed NET3.029 bugs and sped up
->>  *        Larry McVoy    :    Tiny tweak to double performance
->>  *        Alan Cox    :    Backed out LMV's tweak - the linux mm
->>  *                    can't take it...
->> @@ -41,7 +41,7 @@
->> #include <linux/in.h>
->> =
-
->> #include <linux/uaccess.h>
->> -#include <asm/io.h>
->> +#include <linux/io.h>
->> =
-
->> #include <linux/inet.h>
->> #include <linux/netdevice.h>
->> @@ -74,6 +74,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
->>    struct pcpu_lstats *lb_stats;
->>    int len;
->> =
-
->> +    skb_tx_timestamp(skb);
->>    skb_orphan(skb);
->> =
-
->>    /* Before queueing this packet to netif_rx(),
->> @@ -149,8 +150,8 @@ static void loopback_dev_free(struct net_device *dev)
->> }
->> =
-
->> static const struct net_device_ops loopback_ops =3D {
->> -    .ndo_init      =3D loopback_dev_init,
->> -    .ndo_start_xmit=3D loopback_xmit,
->> +    .ndo_init        =3D loopback_dev_init,
->> +    .ndo_start_xmit  =3D loopback_xmit,
->>    .ndo_get_stats64 =3D loopback_get_stats64,
->>    .ndo_set_mac_address =3D eth_mac_addr,
->> };
->> @@ -170,7 +171,7 @@ static void loopback_setup(struct net_device *dev)
->>    dev->priv_flags        |=3D IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
->>    netif_keep_dst(dev);
->>    dev->hw_features    =3D NETIF_F_GSO_SOFTWARE;
->> -    dev->features        =3D NETIF_F_SG | NETIF_F_FRAGLIST
->> +    dev->features        =3D NETIF_F_SG | NETIF_F_FRAGLIST
->>        | NETIF_F_GSO_SOFTWARE
->>        | NETIF_F_HW_CSUM
->>        | NETIF_F_RXCSUM
->> @@ -206,7 +207,6 @@ static __net_init int loopback_net_init(struct net *=
-net)
->>    net->loopback_dev =3D dev;
->>    return 0;
->> =
-
->> -
->> out_free_netdev:
->>    free_netdev(dev);
->> out:
->> @@ -217,5 +217,5 @@ static __net_init int loopback_net_init(struct net *=
-net)
->> =
-
->> /* Registered in net/core/dev.c */
->> struct pernet_operations __net_initdata loopback_net_ops =3D {
->> -       .init =3D loopback_net_init,
->> +    .init =3D loopback_net_init,
->> };
->> =
-
-> =
-
-Amazon Data Services Ireland Limited registered office: One Burlington Plaz=
-a, Burlington Road, Dublin 4, Ireland. Registered in Ireland. Registration =
-number 390566.
+   Andrew
