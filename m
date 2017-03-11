@@ -1,121 +1,105 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/9] mlxsw: spectrum_acl_tcam: Add support for retrieving TCAM entry activity
-Date: Sat, 11 Mar 2017 09:42:54 +0100
-Message-ID: <1489221779-3807-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 7/9] mlxsw: spectrum: Add support for Policing and Counting action block
+Date: Sat, 11 Mar 2017 09:42:57 +0100
+Message-ID: <1489221779-3807-8-git-send-email-jiri@resnulli.us>
 References: <1489221779-3807-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, mlxsw@mellanox.com,
         idosch@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33588 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752722AbdCKInI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 03:43:08 -0500
-Received: by mail-wr0-f196.google.com with SMTP id g10so14059125wrg.0
-        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 00:43:07 -0800 (PST)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36230 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755338AbdCKInL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 03:43:11 -0500
+Received: by mail-wr0-f194.google.com with SMTP id l37so14006865wrc.3
+        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 00:43:10 -0800 (PST)
 In-Reply-To: <1489221779-3807-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Add support for retrieving TCAM entry activity. In order to support ACL
-rule activity corresponding TCAM entry should be queried.
+Add support for Policing and Counting action block. This action block
+will be used to bind counter to TCAM entries.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  2 ++
- .../ethernet/mellanox/mlxsw/spectrum_acl_tcam.c    | 42 ++++++++++++++++++++++
- 2 files changed, 44 insertions(+)
+ .../mellanox/mlxsw/core_acl_flex_actions.c         | 51 ++++++++++++++++++++++
+ .../mellanox/mlxsw/core_acl_flex_actions.h         |  2 +
+ 2 files changed, 53 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index b0500b8..26718b1 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -607,6 +607,8 @@ struct mlxsw_sp_acl_profile_ops {
- 			void *ruleset_priv, void *rule_priv,
- 			struct mlxsw_sp_acl_rule_info *rulei);
- 	void (*rule_del)(struct mlxsw_sp *mlxsw_sp, void *rule_priv);
-+	int (*rule_activity_get)(struct mlxsw_sp *mlxsw_sp, void *rule_priv,
-+				 bool *activity);
- };
- 
- struct mlxsw_sp_acl_ops {
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
-index 6858439..3a24289 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
-@@ -561,6 +561,24 @@ mlxsw_sp_acl_tcam_region_entry_remove(struct mlxsw_sp *mlxsw_sp,
- 	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ptce2), ptce2_pl);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
+index fe3c6ea1..a984c36 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
+@@ -760,3 +760,54 @@ int mlxsw_afa_block_append_fwd(struct mlxsw_afa_block *block,
+ 	return err;
  }
- 
-+static int
-+mlxsw_sp_acl_tcam_region_entry_activity_get(struct mlxsw_sp *mlxsw_sp,
-+					    struct mlxsw_sp_acl_tcam_region *region,
-+					    unsigned int offset,
-+					    bool *activity)
-+{
-+	char ptce2_pl[MLXSW_REG_PTCE2_LEN];
-+	int err;
+ EXPORT_SYMBOL(mlxsw_afa_block_append_fwd);
 +
-+	mlxsw_reg_ptce2_pack(ptce2_pl, true, MLXSW_REG_PTCE2_OP_QUERY_CLEAR_ON_READ,
-+			     region->tcam_region_info, offset);
-+	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ptce2), ptce2_pl);
-+	if (err)
-+		return err;
-+	*activity = mlxsw_reg_ptce2_a_get(ptce2_pl);
++/* Policing and Counting Action
++ * ----------------------------
++ * Policing and Counting action is used for binding policer and counter
++ * to ACL rules.
++ */
++
++#define MLXSW_AFA_POLCNT_CODE 0x08
++#define MLXSW_AFA_POLCNT_SIZE 1
++
++enum mlxsw_afa_polcnt_counter_set_type {
++	/* No count */
++	MLXSW_AFA_POLCNT_COUNTER_SET_TYPE_NO_COUNT = 0x00,
++	/* Count packets and bytes */
++	MLXSW_AFA_POLCNT_COUNTER_SET_TYPE_PACKETS_BYTES = 0x03,
++	/* Count only packets */
++	MLXSW_AFA_POLCNT_COUNTER_SET_TYPE_PACKETS = 0x05,
++};
++
++/* afa_polcnt_counter_set_type
++ * Counter set type for flow counters.
++ */
++MLXSW_ITEM32(afa, polcnt, counter_set_type, 0x04, 24, 8);
++
++/* afa_polcnt_counter_index
++ * Counter index for flow counters.
++ */
++MLXSW_ITEM32(afa, polcnt, counter_index, 0x04, 0, 24);
++
++static inline void
++mlxsw_afa_polcnt_pack(char *payload,
++		      enum mlxsw_afa_polcnt_counter_set_type set_type,
++		      u32 counter_index)
++{
++	mlxsw_afa_polcnt_counter_set_type_set(payload, set_type);
++	mlxsw_afa_polcnt_counter_index_set(payload, counter_index);
++}
++
++int mlxsw_afa_block_append_counter(struct mlxsw_afa_block *block,
++				   u32 counter_index)
++{
++	char *act = mlxsw_afa_block_append_action(block,
++						  MLXSW_AFA_POLCNT_CODE,
++						  MLXSW_AFA_POLCNT_SIZE);
++	if (!act)
++		return -ENOBUFS;
++	mlxsw_afa_polcnt_pack(act, MLXSW_AFA_POLCNT_COUNTER_SET_TYPE_PACKETS_BYTES,
++			      counter_index);
 +	return 0;
 +}
-+
- #define MLXSW_SP_ACL_TCAM_CATCHALL_PRIO (~0U)
++EXPORT_SYMBOL(mlxsw_afa_block_append_counter);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
+index 6e103ac..a03362c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
+@@ -64,5 +64,7 @@ int mlxsw_afa_block_append_fwd(struct mlxsw_afa_block *block,
+ 			       u8 local_port, bool in_port);
+ int mlxsw_afa_block_append_vlan_modify(struct mlxsw_afa_block *block,
+ 				       u16 vid, u8 pcp, u8 et);
++int mlxsw_afa_block_append_counter(struct mlxsw_afa_block *block,
++				   u32 counter_index);
  
- static int
-@@ -940,6 +958,19 @@ static void mlxsw_sp_acl_tcam_entry_del(struct mlxsw_sp *mlxsw_sp,
- 	mlxsw_sp_acl_tcam_chunk_put(mlxsw_sp, chunk);
- }
- 
-+static int
-+mlxsw_sp_acl_tcam_entry_activity_get(struct mlxsw_sp *mlxsw_sp,
-+				     struct mlxsw_sp_acl_tcam_entry *entry,
-+				     bool *activity)
-+{
-+	struct mlxsw_sp_acl_tcam_chunk *chunk = entry->chunk;
-+	struct mlxsw_sp_acl_tcam_region *region = chunk->region;
-+
-+	return mlxsw_sp_acl_tcam_region_entry_activity_get(mlxsw_sp, region,
-+							   entry->parman_item.index,
-+							   activity);
-+}
-+
- static const enum mlxsw_afk_element mlxsw_sp_acl_tcam_pattern_ipv4[] = {
- 	MLXSW_AFK_ELEMENT_SRC_SYS_PORT,
- 	MLXSW_AFK_ELEMENT_DMAC,
-@@ -1048,6 +1079,16 @@ mlxsw_sp_acl_tcam_flower_rule_del(struct mlxsw_sp *mlxsw_sp, void *rule_priv)
- 	mlxsw_sp_acl_tcam_entry_del(mlxsw_sp, &rule->entry);
- }
- 
-+static int
-+mlxsw_sp_acl_tcam_flower_rule_activity_get(struct mlxsw_sp *mlxsw_sp,
-+					   void *rule_priv, bool *activity)
-+{
-+	struct mlxsw_sp_acl_tcam_flower_rule *rule = rule_priv;
-+
-+	return mlxsw_sp_acl_tcam_entry_activity_get(mlxsw_sp, &rule->entry,
-+						    activity);
-+}
-+
- static const struct mlxsw_sp_acl_profile_ops mlxsw_sp_acl_tcam_flower_ops = {
- 	.ruleset_priv_size	= sizeof(struct mlxsw_sp_acl_tcam_flower_ruleset),
- 	.ruleset_add		= mlxsw_sp_acl_tcam_flower_ruleset_add,
-@@ -1057,6 +1098,7 @@ static const struct mlxsw_sp_acl_profile_ops mlxsw_sp_acl_tcam_flower_ops = {
- 	.rule_priv_size		= sizeof(struct mlxsw_sp_acl_tcam_flower_rule),
- 	.rule_add		= mlxsw_sp_acl_tcam_flower_rule_add,
- 	.rule_del		= mlxsw_sp_acl_tcam_flower_rule_del,
-+	.rule_activity_get	= mlxsw_sp_acl_tcam_flower_rule_activity_get,
- };
- 
- static const struct mlxsw_sp_acl_profile_ops *
+ #endif
 -- 
 2.7.4
