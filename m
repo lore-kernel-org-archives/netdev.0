@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 03/17] net: dsa: mv88e6xxx: add ATU setup helper
-Date: Sat, 11 Mar 2017 16:12:49 -0500
-Message-ID: <20170311211303.24560-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 17/17] etherdevice: remove unused eth_addr_greater
+Date: Sat, 11 Mar 2017 16:13:03 -0500
+Message-ID: <20170311211303.24560-18-vivien.didelot@savoirfairelinux.com>
 References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,63 +9,44 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:55024 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755340AbdCKVPE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:15:04 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move the configuration of the default ageing time in a new
-mv88e6xxx_atu_setup function.
-
-That function will be extended later to contain all ATU related
-configuration bits.
+eth_addr_greater() was introduced for the mv88e6xxx driver, but is not
+used anymore. There is no other user, thus remove this function.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+ include/linux/etherdevice.h | 15 ---------------
+ 1 file changed, 15 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index b228b8491afc..0ad8200f3321 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1306,6 +1306,11 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
- 		netdev_err(ds->ports[port].netdev, "failed to update state\n");
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index c62b709b1ce0..2d9f80848d4b 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -447,21 +447,6 @@ static inline void eth_addr_dec(u8 *addr)
  }
  
-+static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
-+{
-+	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
-+}
-+
- static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_chip *chip = ds->priv;
-@@ -2756,10 +2761,6 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_g1_atu_set_age_time(chip, 300000);
--	if (err)
--		return err;
+ /**
+- * ether_addr_greater - Compare two Ethernet addresses
+- * @addr1: Pointer to a six-byte array containing the Ethernet address
+- * @addr2: Pointer other six-byte array containing the Ethernet address
+- *
+- * Compare two Ethernet addresses, returns true addr1 is greater than addr2
+- */
+-static inline bool ether_addr_greater(const u8 *addr1, const u8 *addr2)
+-{
+-	u64 u1 = ether_addr_to_u64(addr1);
+-	u64 u2 = ether_addr_to_u64(addr2);
 -
- 	/* Clear all ATU entries */
- 	err = _mv88e6xxx_atu_flush(chip, 0, true);
- 	if (err)
-@@ -2845,6 +2846,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
- 			goto unlock;
- 	}
- 
-+	err = mv88e6xxx_atu_setup(chip);
-+	if (err)
-+		goto unlock;
-+
- 	/* Some generations have the configuration of sending reserved
- 	 * management frames to the CPU in global2, others in
- 	 * global1. Hence it does not fit the two setup functions
+-	return u1 > u2;
+-}
+-
+-/**
+  * is_etherdev_addr - Tell if given Ethernet address belongs to the device.
+  * @dev: Pointer to a device structure
+  * @addr: Pointer to a six-byte array containing the Ethernet address
 -- 
 2.12.0
