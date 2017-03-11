@@ -1,78 +1,121 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: ANNOUNCE: Netdev Conference: What you have been missing
-Date: Sat, 11 Mar 2017 08:04:47 -0500
-Message-ID: <acd80e7e-a371-1173-1058-ed5069abcb84@mojatatu.com>
+From: Ezequiel Lara Gomez <ezegomez@amazon.com>
+Subject: [PATCH] Enable tx timestamping on loopback and dummy
+Date: Sat, 11 Mar 2017 14:42:24 +0000
+Message-ID: <20170311144224.GA21305@u480fcf44e5b8574c5490.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Brenda Butler <bjb@mojatatu.com>,
-        Stephen Jaworski <jaws@mojatatu.com>,
-        netfilter@vger.kernel.org, linux-wireless@vger.kernel.org,
-        lwn@lwn.net
-To: people@netdevconf.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35167 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932485AbdCKNEv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 08:04:51 -0500
-Received: by mail-it0-f65.google.com with SMTP id f203so1926800itf.2
-        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 05:04:50 -0800 (PST)
+Received: from smtp-fw-6002.amazon.com ([52.95.49.90]:55326 "EHLO
+        smtp-fw-6002.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753168AbdCKOmZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 09:42:25 -0500
+Received: from u480fcf44e5b8574c5490.ant.amazon.com (pdx2-ws-svc-lb17-vlan3.amazon.com [10.247.140.70])
+        by email-inbound-relay-64015.pdx4.amazon.com (8.14.7/8.14.7) with ESMTP id v2BEgL9D018457
+        (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 14:42:22 GMT
+Received: from u480fcf44e5b8574c5490.ant.amazon.com (localhost [127.0.0.1])
+        by u480fcf44e5b8574c5490.ant.amazon.com (8.14.4/8.14.4/Debian-4.1ubuntu1) with ESMTP id v2BEgO8Z021919
+        (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 14:42:24 GMT
+Received: (from ezegomez@localhost)
+        by u480fcf44e5b8574c5490.ant.amazon.com (8.14.4/8.14.4/Submit) id v2BEgOkW021914
+        for netdev@vger.kernel.org; Sat, 11 Mar 2017 14:42:24 GMT
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As announced last time, we are making more frequent announcements on
-people@netdevconf.org
+Also, cleanup some warnings from timestamping code.
 
-You can subscribe via mailman here:
-https://lists.netdevconf.org/cgi-bin/mailman/listinfo/people
+This enables testing of SO_TIMESTAMPING options by targetting localhost
+addresses.
 
-We urge people to subscribe to that list to get more up to date
-information and conference discussions. We will still be sending
-weekly summaries and announcements on the netdev list.
+Tested on qemu using txtimestamping.c from the kernel selftests.
 
-If you have already registered for the conference we will
-very likely have registered you already.
+Signed-off-by: Ezequiel Lara Gomez <ezegomez@amazon.com>
+---
+ drivers/net/dummy.c    |  1 +
+ drivers/net/loopback.c | 14 +++++++-------
+ 2 files changed, 8 insertions(+), 7 deletions(-)
 
-Register early so we can plan better (and so you can save some $$).
-https://onlineregistrations.ca/netdev21/
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 2c80611..32fdc00 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -125,6 +125,7 @@ static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	dstats->tx_bytes += skb->len;
+ 	u64_stats_update_end(&dstats->syncp);
+ 
++	skb_tx_timestamp(skb);
+ 	dev_kfree_skb(skb);
+ 	return NETDEV_TX_OK;
+ }
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index b23b719..8bcf479 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -13,7 +13,7 @@
+  *
+  *		Alan Cox	:	Fixed oddments for NET3.014
+  *		Alan Cox	:	Rejig for NET3.029 snap #3
+- *		Alan Cox	: 	Fixed NET3.029 bugs and sped up
++ *		Alan Cox	:	Fixed NET3.029 bugs and sped up
+  *		Larry McVoy	:	Tiny tweak to double performance
+  *		Alan Cox	:	Backed out LMV's tweak - the linux mm
+  *					can't take it...
+@@ -41,7 +41,7 @@
+ #include <linux/in.h>
+ 
+ #include <linux/uaccess.h>
+-#include <asm/io.h>
++#include <linux/io.h>
+ 
+ #include <linux/inet.h>
+ #include <linux/netdevice.h>
+@@ -74,6 +74,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 	struct pcpu_lstats *lb_stats;
+ 	int len;
+ 
++	skb_tx_timestamp(skb);
+ 	skb_orphan(skb);
+ 
+ 	/* Before queueing this packet to netif_rx(),
+@@ -149,8 +150,8 @@ static void loopback_dev_free(struct net_device *dev)
+ }
+ 
+ static const struct net_device_ops loopback_ops = {
+-	.ndo_init      = loopback_dev_init,
+-	.ndo_start_xmit= loopback_xmit,
++	.ndo_init        = loopback_dev_init,
++	.ndo_start_xmit  = loopback_xmit,
+ 	.ndo_get_stats64 = loopback_get_stats64,
+ 	.ndo_set_mac_address = eth_mac_addr,
+ };
+@@ -170,7 +171,7 @@ static void loopback_setup(struct net_device *dev)
+ 	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
+ 	netif_keep_dst(dev);
+ 	dev->hw_features	= NETIF_F_GSO_SOFTWARE;
+-	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
++	dev->features		= NETIF_F_SG | NETIF_F_FRAGLIST
+ 		| NETIF_F_GSO_SOFTWARE
+ 		| NETIF_F_HW_CSUM
+ 		| NETIF_F_RXCSUM
+@@ -206,7 +207,6 @@ static __net_init int loopback_net_init(struct net *net)
+ 	net->loopback_dev = dev;
+ 	return 0;
+ 
+-
+ out_free_netdev:
+ 	free_netdev(dev);
+ out:
+@@ -217,5 +217,5 @@ static __net_init int loopback_net_init(struct net *net)
+ 
+ /* Registered in net/core/dev.c */
+ struct pernet_operations __net_initdata loopback_net_ops = {
+-       .init = loopback_net_init,
++	.init = loopback_net_init,
+ };
+-- 
+1.9.1
 
-- hotel (unfortunately space is running out here. If you cant
-get in and need help from us, please send email to info@netdevconf.org):
-https://www.netdevconf.org/2.1/hotel.html
-
-And here's a summary of whats new since last posting on netdev:
-
-1) New sponsors
-a) Mojatatu - Gold sponsor
-https://netdevconf.org/2.1/news.html?sponsor-mojatatu
-
-b) Verizon - Platinum
-https://netdevconf.org/2.1/news.html?news-verizon-sponsor
-Accepted sessions:
-
-2) New sessions
-a) Talk:  XDP in practice: integrating XDP in our DDoS mitigation 
-pipeline from Gilberto Bertin
-https://netdevconf.org/2.1/news.html?news-bertin
-
-b)Workshop: Network Performance Workshop chaired by
-Alex Duyck
-https://netdevconf.org/2.1/news.html?news-duyck
-
-c) Talk: Netfilter's connection tracking subsystem by
-Florian Westphal
-https://netdevconf.org/2.1/news.html?news-netfilters-talk
-
-d) Talk: IOT Without Things: Building virtual 6LoWPAN Mesh Networks
-by Alexander Aring
-https://netdevconf.org/2.1/news.html?news-aring-talk
-
-e) Talk: Kernel HTTP/TCP/IP stack for HTTP DDoS mitigation
-by Alexander Krizhanovsky
-https://netdevconf.org/2.1/news.html?news-krizhanovsky-talk
-
-A lot more exciting announcements coming.
-
-cheers,
-jamal
+Amazon Data Services Ireland Limited registered office: One Burlington Plaza, Burlington Road, Dublin 4, Ireland. Registered in Ireland. Registration number 390566.
