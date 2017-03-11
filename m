@@ -1,32 +1,78 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] selftests/bpf: fix broken build
-Date: Sat, 11 Mar 2017 12:59:46 +0100
-Message-ID: <58C3E6B2.7010301@iogearbox.net>
-References: <1489212355-3289694-1-git-send-email-ast@fb.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: ANNOUNCE: Netdev Conference: What you have been missing
+Date: Sat, 11 Mar 2017 08:04:47 -0500
+Message-ID: <acd80e7e-a371-1173-1058-ed5069abcb84@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Brenda Butler <bjb@mojatatu.com>,
+        Stephen Jaworski <jaws@mojatatu.com>,
+        netfilter@vger.kernel.org, linux-wireless@vger.kernel.org,
+        lwn@lwn.net
+To: people@netdevconf.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48059 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755432AbdCKL7x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 06:59:53 -0500
-In-Reply-To: <1489212355-3289694-1-git-send-email-ast@fb.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35167 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932485AbdCKNEv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 08:04:51 -0500
+Received: by mail-it0-f65.google.com with SMTP id f203so1926800itf.2
+        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 05:04:50 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2017 07:05 AM, Alexei Starovoitov wrote:
-> Recent merge of 'linux-kselftest-4.11-rc1' tree broke bpf test build.
-> None of the tests were building and test_verifier.c had tons of compiler errors.
-> Fix it and add #ifdef CAP_IS_SUPPORTED to support old versions of libcap.
-> Tested on centos 6.8 and 7
->
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+As announced last time, we are making more frequent announcements on
+people@netdevconf.org
 
-Fix looks correct to me and makes the test suite work again.
+You can subscribe via mailman here:
+https://lists.netdevconf.org/cgi-bin/mailman/listinfo/people
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Tested-by: Daniel Borkmann <daniel@iogearbox.net>
+We urge people to subscribe to that list to get more up to date
+information and conference discussions. We will still be sending
+weekly summaries and announcements on the netdev list.
+
+If you have already registered for the conference we will
+very likely have registered you already.
+
+Register early so we can plan better (and so you can save some $$).
+https://onlineregistrations.ca/netdev21/
+
+- hotel (unfortunately space is running out here. If you cant
+get in and need help from us, please send email to info@netdevconf.org):
+https://www.netdevconf.org/2.1/hotel.html
+
+And here's a summary of whats new since last posting on netdev:
+
+1) New sponsors
+a) Mojatatu - Gold sponsor
+https://netdevconf.org/2.1/news.html?sponsor-mojatatu
+
+b) Verizon - Platinum
+https://netdevconf.org/2.1/news.html?news-verizon-sponsor
+Accepted sessions:
+
+2) New sessions
+a) Talk:  XDP in practice: integrating XDP in our DDoS mitigation 
+pipeline from Gilberto Bertin
+https://netdevconf.org/2.1/news.html?news-bertin
+
+b)Workshop: Network Performance Workshop chaired by
+Alex Duyck
+https://netdevconf.org/2.1/news.html?news-duyck
+
+c) Talk: Netfilter's connection tracking subsystem by
+Florian Westphal
+https://netdevconf.org/2.1/news.html?news-netfilters-talk
+
+d) Talk: IOT Without Things: Building virtual 6LoWPAN Mesh Networks
+by Alexander Aring
+https://netdevconf.org/2.1/news.html?news-aring-talk
+
+e) Talk: Kernel HTTP/TCP/IP stack for HTTP DDoS mitigation
+by Alexander Krizhanovsky
+https://netdevconf.org/2.1/news.html?news-krizhanovsky-talk
+
+A lot more exciting announcements coming.
+
+cheers,
+jamal
