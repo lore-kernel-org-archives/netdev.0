@@ -1,43 +1,59 @@
-From: Geliang Tang <geliangtang@gmail.com>
-Subject: [PATCH] drop_monitor: use setup_timer
-Date: Sat, 11 Mar 2017 08:46:59 +0800
-Message-ID: <03f9cf555a71fced65877c85e49fac7e880b338c.1489061285.git.geliangtang@gmail.com>
-References: <3afa5498142ef68256023257dad37b9f8352e65e.1489060803.git.geliangtang@gmail.com>
-Cc: Geliang Tang <geliangtang@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v2] net: Add sysctl to toggle early demux for tcp
+ and udp
+Date: Fri, 10 Mar 2017 16:49:51 -0800
+Message-ID: <CALx6S36eXpOn70paFnkSyafMkF7Q=MQWJKKb2=d6+hNpK-8V8A@mail.gmail.com>
+References: <1489116660-4244-1-git-send-email-subashab@codeaurora.org>
+ <CALx6S360Y3tmKMHVMUEuRKCskuwXi+9JBfce6WiSpko1sHj=Yg@mail.gmail.com>
+ <674d67f5d76f761f3e872dff274a8bda@codeaurora.org> <CALx6S340TYEFDAbQfG6X4P0tPJWvyxyXpnLgp9JY7UoBuPEJVA@mail.gmail.com>
+ <1489191742.28631.35.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        netdev-owner@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34268 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933434AbdCKArd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 19:47:33 -0500
-In-Reply-To: <3afa5498142ef68256023257dad37b9f8352e65e.1489060803.git.geliangtang@gmail.com>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:34201 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932687AbdCKAtx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Mar 2017 19:49:53 -0500
+Received: by mail-qk0-f181.google.com with SMTP id p64so191284261qke.1
+        for <netdev@vger.kernel.org>; Fri, 10 Mar 2017 16:49:52 -0800 (PST)
+In-Reply-To: <1489191742.28631.35.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use setup_timer() instead of init_timer() to simplify the code.
-
-Signed-off-by: Geliang Tang <geliangtang@gmail.com>
----
- net/core/drop_monitor.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index fb55327..70ccda2 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -412,9 +412,8 @@ static int __init init_net_drop_monitor(void)
- 	for_each_possible_cpu(cpu) {
- 		data = &per_cpu(dm_cpu_data, cpu);
- 		INIT_WORK(&data->dm_alert_work, send_dm_alert);
--		init_timer(&data->send_timer);
--		data->send_timer.data = (unsigned long)data;
--		data->send_timer.function = sched_send_work;
-+		setup_timer(&data->send_timer, sched_send_work,
-+			    (unsigned long)data);
- 		spin_lock_init(&data->lock);
- 		reset_per_cpu_data(data);
- 	}
--- 
-2.9.3
+On Fri, Mar 10, 2017 at 4:22 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2017-03-10 at 08:33 -0800, Tom Herbert wrote:
+>
+>> Okay, now I'm confused. You're saying that when early demux was added
+>> for IPv6 performance improved, but this patch is allowing early demux
+>> to be disabled on the basis that it hurts performance for unconnected
+>> UDP workloads. While it's true that early demux in the case results in
+>> another UDP lookup, Eric's changes to make it lockless have made that
+>> lookup very cheap. So we really need numbers to justify this patch.
+>>
+>
+> Fact that the lookup is lockless does not avoid a cache line miss.
+>
+> Early demux computes a hash based on the 4-tuple, and lookups a hash
+> table with does not fit in cpu caches.
+>
+> A cache line miss per packet is expensive, when handling millions of UDP
+> packets per second, (with millions of 4-tuples)
+>
+>> Even if the numbers were to show a benefit, we still have the problem
+>> that this creates a bimodal performance characteristic, e.g. what if
+>> the work load were 1/2 connected and 1/2 unconnected in real life, or
+>> what it the user incorrectly guesses the actual workload. Maybe a
+>> deeper solution to investigate is making early demux work with
+>> unconnected sockets.
+>
+> Sure, but forcing all UDP applications to perform IP early demux is not
+> better.
+>
+All these hypotheses are quite testable, and it should be obvious that
+if a patch is supposed to improve performance there should be some
+effort to quantify the impact.
