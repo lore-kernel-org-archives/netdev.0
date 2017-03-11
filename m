@@ -1,158 +1,121 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 6/9] mlxsw: spectrum: Add periodic ACL rule activity update
-Date: Sat, 11 Mar 2017 09:42:56 +0100
-Message-ID: <1489221779-3807-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 4/9] mlxsw: spectrum_acl_tcam: Add support for retrieving TCAM entry activity
+Date: Sat, 11 Mar 2017 09:42:54 +0100
+Message-ID: <1489221779-3807-5-git-send-email-jiri@resnulli.us>
 References: <1489221779-3807-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, mlxsw@mellanox.com,
         idosch@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33834 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751788AbdCKInK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 03:43:10 -0500
-Received: by mail-wm0-f68.google.com with SMTP id u132so2247475wmg.1
-        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 00:43:08 -0800 (PST)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:33588 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752722AbdCKInI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 03:43:08 -0500
+Received: by mail-wr0-f196.google.com with SMTP id g10so14059125wrg.0
+        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 00:43:07 -0800 (PST)
 In-Reply-To: <1489221779-3807-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Introduce periodic task for dumping the activity status for the ACL
-rule TCAM entries. This is done in order to emulate last use statistics.
+Add support for retrieving TCAM entry activity. In order to support ACL
+rule activity corresponding TCAM entry should be queried.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.comi>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c | 74 +++++++++++++++++++++-
- 1 file changed, 73 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  2 ++
+ .../ethernet/mellanox/mlxsw/spectrum_acl_tcam.c    | 42 ++++++++++++++++++++++
+ 2 files changed, 44 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-index 1888092..d2f6cbb 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-@@ -50,11 +50,17 @@
- #include "spectrum_acl_flex_keys.h"
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index b0500b8..26718b1 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -607,6 +607,8 @@ struct mlxsw_sp_acl_profile_ops {
+ 			void *ruleset_priv, void *rule_priv,
+ 			struct mlxsw_sp_acl_rule_info *rulei);
+ 	void (*rule_del)(struct mlxsw_sp *mlxsw_sp, void *rule_priv);
++	int (*rule_activity_get)(struct mlxsw_sp *mlxsw_sp, void *rule_priv,
++				 bool *activity);
+ };
  
- struct mlxsw_sp_acl {
-+	struct mlxsw_sp *mlxsw_sp;
- 	struct mlxsw_afk *afk;
- 	struct mlxsw_afa *afa;
- 	const struct mlxsw_sp_acl_ops *ops;
- 	struct rhashtable ruleset_ht;
- 	struct list_head rules;
-+	struct {
-+		struct delayed_work dw;
-+		unsigned long interval;	/* ms */
-+#define MLXSW_SP_ACL_RULE_ACTIVITY_UPDATE_PERIOD_MS 1000
-+	} rule_activity_update;
- 	unsigned long priv[0];
- 	/* priv has to be always the last item */
- };
-@@ -85,6 +91,7 @@ struct mlxsw_sp_acl_rule {
- 	unsigned long cookie; /* HT key */
- 	struct mlxsw_sp_acl_ruleset *ruleset;
- 	struct mlxsw_sp_acl_rule_info *rulei;
-+	u64 last_used;
- 	unsigned long priv[0];
- 	/* priv has to be always the last item */
- };
-@@ -459,6 +466,64 @@ mlxsw_sp_acl_rule_rulei(struct mlxsw_sp_acl_rule *rule)
- 	return rule->rulei;
+ struct mlxsw_sp_acl_ops {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
+index 6858439..3a24289 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
+@@ -561,6 +561,24 @@ mlxsw_sp_acl_tcam_region_entry_remove(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ptce2), ptce2_pl);
  }
  
-+static int mlxsw_sp_acl_rule_activity_update(struct mlxsw_sp *mlxsw_sp,
-+					     struct mlxsw_sp_acl_rule *rule)
++static int
++mlxsw_sp_acl_tcam_region_entry_activity_get(struct mlxsw_sp *mlxsw_sp,
++					    struct mlxsw_sp_acl_tcam_region *region,
++					    unsigned int offset,
++					    bool *activity)
 +{
-+	struct mlxsw_sp_acl_ruleset *ruleset = rule->ruleset;
-+	const struct mlxsw_sp_acl_profile_ops *ops = ruleset->ht_key.ops;
-+	bool active;
++	char ptce2_pl[MLXSW_REG_PTCE2_LEN];
 +	int err;
 +
-+	err = ops->rule_activity_get(mlxsw_sp, rule->priv, &active);
++	mlxsw_reg_ptce2_pack(ptce2_pl, true, MLXSW_REG_PTCE2_OP_QUERY_CLEAR_ON_READ,
++			     region->tcam_region_info, offset);
++	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ptce2), ptce2_pl);
 +	if (err)
 +		return err;
-+	if (active)
-+		rule->last_used = jiffies;
++	*activity = mlxsw_reg_ptce2_a_get(ptce2_pl);
 +	return 0;
 +}
 +
-+static int mlxsw_sp_acl_rules_activity_update(struct mlxsw_sp_acl *acl)
+ #define MLXSW_SP_ACL_TCAM_CATCHALL_PRIO (~0U)
+ 
+ static int
+@@ -940,6 +958,19 @@ static void mlxsw_sp_acl_tcam_entry_del(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_acl_tcam_chunk_put(mlxsw_sp, chunk);
+ }
+ 
++static int
++mlxsw_sp_acl_tcam_entry_activity_get(struct mlxsw_sp *mlxsw_sp,
++				     struct mlxsw_sp_acl_tcam_entry *entry,
++				     bool *activity)
 +{
-+	struct mlxsw_sp_acl_rule *rule;
-+	int err;
++	struct mlxsw_sp_acl_tcam_chunk *chunk = entry->chunk;
++	struct mlxsw_sp_acl_tcam_region *region = chunk->region;
 +
-+	/* Protect internal structures from changes */
-+	rtnl_lock();
-+	list_for_each_entry(rule, &acl->rules, list) {
-+		err = mlxsw_sp_acl_rule_activity_update(acl->mlxsw_sp,
-+							rule);
-+		if (err)
-+			goto err_rule_update;
-+	}
-+	rtnl_unlock();
-+	return 0;
-+
-+err_rule_update:
-+	rtnl_unlock();
-+	return err;
++	return mlxsw_sp_acl_tcam_region_entry_activity_get(mlxsw_sp, region,
++							   entry->parman_item.index,
++							   activity);
 +}
 +
-+static void mlxsw_sp_acl_rule_activity_work_schedule(struct mlxsw_sp_acl *acl)
+ static const enum mlxsw_afk_element mlxsw_sp_acl_tcam_pattern_ipv4[] = {
+ 	MLXSW_AFK_ELEMENT_SRC_SYS_PORT,
+ 	MLXSW_AFK_ELEMENT_DMAC,
+@@ -1048,6 +1079,16 @@ mlxsw_sp_acl_tcam_flower_rule_del(struct mlxsw_sp *mlxsw_sp, void *rule_priv)
+ 	mlxsw_sp_acl_tcam_entry_del(mlxsw_sp, &rule->entry);
+ }
+ 
++static int
++mlxsw_sp_acl_tcam_flower_rule_activity_get(struct mlxsw_sp *mlxsw_sp,
++					   void *rule_priv, bool *activity)
 +{
-+	unsigned long interval = acl->rule_activity_update.interval;
++	struct mlxsw_sp_acl_tcam_flower_rule *rule = rule_priv;
 +
-+	mlxsw_core_schedule_dw(&acl->rule_activity_update.dw,
-+			       msecs_to_jiffies(interval));
++	return mlxsw_sp_acl_tcam_entry_activity_get(mlxsw_sp, &rule->entry,
++						    activity);
 +}
 +
-+static void mlxsw_sp_acl_rul_activity_update_work(struct work_struct *work)
-+{
-+	struct mlxsw_sp_acl *acl = container_of(work, struct mlxsw_sp_acl,
-+						rule_activity_update.dw.work);
-+	int err;
-+
-+	err = mlxsw_sp_acl_rules_activity_update(acl);
-+	if (err)
-+		dev_err(acl->mlxsw_sp->bus_info->dev, "Could not update acl activity");
-+
-+	mlxsw_sp_acl_rule_activity_work_schedule(acl);
-+}
-+
- #define MLXSW_SP_KDVL_ACT_EXT_SIZE 1
+ static const struct mlxsw_sp_acl_profile_ops mlxsw_sp_acl_tcam_flower_ops = {
+ 	.ruleset_priv_size	= sizeof(struct mlxsw_sp_acl_tcam_flower_ruleset),
+ 	.ruleset_add		= mlxsw_sp_acl_tcam_flower_ruleset_add,
+@@ -1057,6 +1098,7 @@ static const struct mlxsw_sp_acl_profile_ops mlxsw_sp_acl_tcam_flower_ops = {
+ 	.rule_priv_size		= sizeof(struct mlxsw_sp_acl_tcam_flower_rule),
+ 	.rule_add		= mlxsw_sp_acl_tcam_flower_rule_add,
+ 	.rule_del		= mlxsw_sp_acl_tcam_flower_rule_del,
++	.rule_activity_get	= mlxsw_sp_acl_tcam_flower_rule_activity_get,
+ };
  
- static int mlxsw_sp_act_kvdl_set_add(void *priv, u32 *p_kvdl_index,
-@@ -551,7 +616,7 @@ int mlxsw_sp_acl_init(struct mlxsw_sp *mlxsw_sp)
- 	if (!acl)
- 		return -ENOMEM;
- 	mlxsw_sp->acl = acl;
--
-+	acl->mlxsw_sp = mlxsw_sp;
- 	acl->afk = mlxsw_afk_create(MLXSW_CORE_RES_GET(mlxsw_sp->core,
- 						       ACL_FLEX_KEYS),
- 				    mlxsw_sp_afk_blocks,
-@@ -580,6 +645,12 @@ int mlxsw_sp_acl_init(struct mlxsw_sp *mlxsw_sp)
- 		goto err_acl_ops_init;
- 
- 	acl->ops = acl_ops;
-+
-+	/* Create the delayed work for the rule activity_update */
-+	INIT_DELAYED_WORK(&acl->rule_activity_update.dw,
-+			  mlxsw_sp_acl_rul_activity_update_work);
-+	acl->rule_activity_update.interval = MLXSW_SP_ACL_RULE_ACTIVITY_UPDATE_PERIOD_MS;
-+	mlxsw_core_schedule_dw(&acl->rule_activity_update.dw, 0);
- 	return 0;
- 
- err_acl_ops_init:
-@@ -598,6 +669,7 @@ void mlxsw_sp_acl_fini(struct mlxsw_sp *mlxsw_sp)
- 	struct mlxsw_sp_acl *acl = mlxsw_sp->acl;
- 	const struct mlxsw_sp_acl_ops *acl_ops = acl->ops;
- 
-+	cancel_delayed_work_sync(&mlxsw_sp->acl->rule_activity_update.dw);
- 	acl_ops->fini(mlxsw_sp, acl->priv);
- 	WARN_ON(!list_empty(&acl->rules));
- 	rhashtable_destroy(&acl->ruleset_ht);
+ static const struct mlxsw_sp_acl_profile_ops *
 -- 
 2.7.4
