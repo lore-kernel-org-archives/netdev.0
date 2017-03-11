@@ -1,32 +1,21 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 03/17] net: dsa: mv88e6xxx: add ATU setup
- helper
-Date: Sun, 12 Mar 2017 00:51:30 +0100
-Message-ID: <20170311235130.GI15842@lunn.ch>
-References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
- <20170311211303.24560-4-vivien.didelot@savoirfairelinux.com>
+From: "Teresa Au" <au@dragon.ccut.edu.tw>
+Subject: Proposal...
+Date: Sat, 11 Mar 2017 18:36:58 +0800
+Message-ID: <20170311103946.M1784@dragon.ccut.edu.tw>
+Reply-To: ms_teresa_au001@outlook.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170311211303.24560-4-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+        charset=big5
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgates.ccut.edu.tw ([163.23.234.39]:38186 "HELO
+        mailgates.ccut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with SMTP id S1753423AbdCLA2i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 19:28:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 11, 2017 at 04:12:49PM -0500, Vivien Didelot wrote:
-> Move the configuration of the default ageing time in a new
-> mv88e6xxx_atu_setup function.
-> 
-> That function will be extended later to contain all ATU related
-> configuration bits.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-    Andrew
+Personal Business proposal for you,contact me via my personal E-mail for more detail's: 
+ms_teresa_au30@outlook.com
