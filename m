@@ -1,37 +1,87 @@
-From: =?UTF-8?Q?Mantas_Mikul=c4=97nas?= <grawity@gmail.com>
-Subject: regression (4.10) - interface remove uevents not generated
-Date: Sat, 11 Mar 2017 17:10:22 +0200
-Message-ID: <d519f10b-8512-efa2-03a1-81f6e4a91c7c@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Andrei Vagin <avagin@openvz.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: improve read-only handling
+Date: Sat, 11 Mar 2017 16:55:49 +0100
+Message-ID: <19a5c15f39cec7e0e8eeba8e2add5db859a6d34a.1489246970.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, ast@kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:35519 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750954AbdCKPKb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 10:10:31 -0500
-Received: by mail-lf0-f66.google.com with SMTP id v2so8806049lfi.2
-        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 07:10:29 -0800 (PST)
+Received: from www62.your-server.de ([213.133.104.62]:44839 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753890AbdCKP4C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 10:56:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Improve bpf_{prog,jit_binary}_{un,}lock_ro() by throwing a
+one-time warning in case of an error when the image couldn't
+be set read-only, and also mark struct bpf_prog as locked when
+bpf_prog_lock_ro() was called.
 
-It seems that commit 002d8a1a6c11b9b2a8ac615095589111dd52749b ("net:
-skip genenerating uevents for network namespaces that are exiting")
-broke 'remove' uevents for *all* network interfaces, even for those in
-the main/default namespace.
+Reason for the latter is that bpf_prog_unlock_ro() is called from
+various places including error paths, and we shouldn't mess with
+page attributes when really not needed.
 
-Other than breaking some of my udev rules, this also causes problems for
-NetworkManager, which apparently relies on those uevents to update its
-interface information cache. (I ended up reverting that commit locally
-just so I could connect to VPNs again.)
+For bpf_jit_binary_unlock_ro() this is not needed as jited flag
+implicitly indicates this, thus for archs with ARCH_HAS_SET_MEMORY
+we're guaranteed to have a previously locked image. Overall, this
+should also help us to identify any further potential issues with
+set_memory_*() helpers.
 
-This problem is present in both v4.10.1 and current master
-(v4.11-rc1-290-g434fd6353b4c).
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ ( My preference is on -net, so we can potentially find and fix
+   any remaining unexpected issue with set_memory_*(). Thanks! )
 
+ include/linux/filter.h | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 0c167fd..fbf7b39 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -409,6 +409,7 @@ struct bpf_prog {
+ 	u16			pages;		/* Number of allocated pages */
+ 	kmemcheck_bitfield_begin(meta);
+ 	u16			jited:1,	/* Is our filter JIT'ed? */
++				locked:1,	/* Program image locked? */
+ 				gpl_compatible:1, /* Is filter GPL compatible? */
+ 				cb_access:1,	/* Is control block accessed? */
+ 				dst_needed:1,	/* Do we need dst entry? */
+@@ -554,22 +555,29 @@ static inline bool bpf_prog_was_classic(const struct bpf_prog *prog)
+ #ifdef CONFIG_ARCH_HAS_SET_MEMORY
+ static inline void bpf_prog_lock_ro(struct bpf_prog *fp)
+ {
+-	set_memory_ro((unsigned long)fp, fp->pages);
++	fp->locked = 1;
++	WARN_ON_ONCE(set_memory_ro((unsigned long)fp, fp->pages));
+ }
+ 
+ static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
+ {
+-	set_memory_rw((unsigned long)fp, fp->pages);
++	if (fp->locked) {
++		WARN_ON_ONCE(set_memory_rw((unsigned long)fp, fp->pages));
++		/* In case set_memory_rw() fails, we want to be the first
++		 * to crash here instead of some random place later on.
++		 */
++		fp->locked = 0;
++	}
+ }
+ 
+ static inline void bpf_jit_binary_lock_ro(struct bpf_binary_header *hdr)
+ {
+-	set_memory_ro((unsigned long)hdr, hdr->pages);
++	WARN_ON_ONCE(set_memory_ro((unsigned long)hdr, hdr->pages));
+ }
+ 
+ static inline void bpf_jit_binary_unlock_ro(struct bpf_binary_header *hdr)
+ {
+-	set_memory_rw((unsigned long)hdr, hdr->pages);
++	WARN_ON_ONCE(set_memory_rw((unsigned long)hdr, hdr->pages));
+ }
+ #else
+ static inline void bpf_prog_lock_ro(struct bpf_prog *fp)
 -- 
-Mantas Mikulėnas <grawity@gmail.com>
+1.9.3
