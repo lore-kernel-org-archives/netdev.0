@@ -1,58 +1,82 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 04/14] net: dsa: mv88e6xxx: rework ATU Load/Purge
-Date: Sat, 11 Mar 2017 15:55:39 -0500
-Message-ID: <87zigrzg6s.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170309233324.18539-1-vivien.didelot@savoirfairelinux.com> <20170309233324.18539-5-vivien.didelot@savoirfairelinux.com> <20170310022748.GI22101@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH v2] net: tun: use new api ethtool_{get|set}_link_ksettings
+Date: Sat, 11 Mar 2017 22:03:50 +0100
+Message-ID: <1489266230-2282-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
+        edumazet@google.com, pabeni@redhat.com, fgao@ikuai8.com,
+        elfring@users.sourceforge.net, jarno@ovn.org,
+        rppt@linux.vnet.ibm.com, jarod@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:54290 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753497AbdCKU4s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 15:56:48 -0500
-In-Reply-To: <20170310022748.GI22101@lunn.ch>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33333 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753497AbdCKVED (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 16:04:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+Changelog:
+v2:
+- Finaly, I've found the hardware and do basic test ;)
+  thanks Michael S. Tsirkin and Eric Dumazet for the feedback
 
-> On Thu, Mar 09, 2017 at 06:33:14PM -0500, Vivien Didelot wrote:
->> All Marvell switch chips have an ATU accessed using the same Global (1)
->> register layout. Only the handling of the FID differs as more bits were
->> necessary to support more and more databases.
->> 
->> Add and use a fresh documented implementation of the ATU Load/Purge.
->
-> This is not really the Linux way of doing something. You don't throw
-> something away and replace it. You incrementally modify what you have
-> into something better.
->
-> I really wished you had moved the code, unmodified, into
-> global1_atu.c. Then made lots of easy to review small changes. I
-> cannot just look at this patch and know it is correct. What i need to
-> compare against is not in this patch. So it is a lot harder to review.
+ drivers/net/tun.c |   24 +++++++++++-------------
+ 1 files changed, 11 insertions(+), 13 deletions(-)
 
-I've addressed all of your comments in this patchset except this one.
-
-A patch file cannot guarantee that a chunk of code moved around has not
-been altered in the process. This will just generate more diff for no
-value, that needs to be updated afterwards anyway.
-
-Plus you already complained in the first iteration I sent about
-modifying lines that I previously added. I took care of logically
-splitting the new ATU Load/Purge, GetNext, Flush and Remove operations
-into incremental unmodified chunks in this series.
-
-I have updated the commit messages to detail the addition of the static
-helpers and their counterparts, but I will resend this patch as is.
-
-Thanks,
-
-        Vivien
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index dc1b1dd..c418f0a 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -2430,18 +2430,16 @@ static void tun_chr_show_fdinfo(struct seq_file *m, struct file *f)
+ 
+ /* ethtool interface */
+ 
+-static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	cmd->supported		= 0;
+-	cmd->advertising	= 0;
+-	ethtool_cmd_speed_set(cmd, SPEED_10);
+-	cmd->duplex		= DUPLEX_FULL;
+-	cmd->port		= PORT_TP;
+-	cmd->phy_address	= 0;
+-	cmd->transceiver	= XCVR_INTERNAL;
+-	cmd->autoneg		= AUTONEG_DISABLE;
+-	cmd->maxtxpkt		= 0;
+-	cmd->maxrxpkt		= 0;
++static int tun_get_link_ksettings(struct net_device *dev,
++				  struct ethtool_link_ksettings *cmd)
++{
++	ethtool_link_ksettings_zero_link_mode(cmd, supported);
++	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
++	cmd->base.speed		= SPEED_10;
++	cmd->base.duplex	= DUPLEX_FULL;
++	cmd->base.port		= PORT_TP;
++	cmd->base.phy_address	= 0;
++	cmd->base.autoneg	= AUTONEG_DISABLE;
+ 	return 0;
+ }
+ 
+@@ -2504,7 +2502,6 @@ static int tun_set_coalesce(struct net_device *dev,
+ }
+ 
+ static const struct ethtool_ops tun_ethtool_ops = {
+-	.get_settings	= tun_get_settings,
+ 	.get_drvinfo	= tun_get_drvinfo,
+ 	.get_msglevel	= tun_get_msglevel,
+ 	.set_msglevel	= tun_set_msglevel,
+@@ -2512,6 +2509,7 @@ static int tun_set_coalesce(struct net_device *dev,
+ 	.get_ts_info	= ethtool_op_get_ts_info,
+ 	.get_coalesce   = tun_get_coalesce,
+ 	.set_coalesce   = tun_set_coalesce,
++	.get_link_ksettings = tun_get_link_ksettings,
+ };
+ 
+ static int tun_queue_resize(struct tun_struct *tun)
+-- 
+1.7.4.4
