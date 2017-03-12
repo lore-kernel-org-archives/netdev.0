@@ -1,44 +1,75 @@
-From: =?UTF-8?Q?Mantas_Mikul=c4=97nas?= <grawity@gmail.com>
-Subject: Re: regression (4.10) - interface remove uevents not generated
-Date: Sun, 12 Mar 2017 12:55:59 +0200
-Message-ID: <46817d29-340c-701c-0503-3db604f25429@gmail.com>
-References: <d519f10b-8512-efa2-03a1-81f6e4a91c7c@gmail.com>
- <20170311195047.GA10561@outlook.office365.com>
- <3aff47fb-7dde-2d21-74bc-9954560a2b51@gmail.com>
- <20170311234324.GA15113@outlook.office365.com>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: [PATCH v2 06/23] MAINTAINERS: Add file patterns for dsa device tree bindings
+Date: Sun, 12 Mar 2017 14:16:50 +0100
+Message-ID: <1489324627-19126-7-git-send-email-geert@linux-m68k.org>
+References: <1489324627-19126-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Andrei Vagin <avagin@virtuozzo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:33148 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755667AbdCLK4F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 06:56:05 -0400
-Received: by mail-lf0-f43.google.com with SMTP id a6so54435470lfa.0
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 03:56:03 -0700 (PDT)
-In-Reply-To: <20170311234324.GA15113@outlook.office365.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489324627-19126-1-git-send-email-geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-03-12 08:51, Andrei Vagin wrote:
-> On Sat, Mar 11, 2017 at 11:24:34PM +0200, Mantas Mikulėnas wrote:
->> On 2017-03-11 21:50, Andrei Vagin wrote:
->>> Hi Mantas,
->>>
->>> Thank you for the report. Could you try out the attached patch?
->>
->> Thanks, I tested it on current master but it doesn't seem to help; there
->> still aren't any uevents for removed interfaces.
-> 
-> I reproduced the issue on my host and the correct patch is attached to
-> this message. Thanks!
+Submitters of device tree binding documentation may forget to CC
+the subsystem maintainer if this is missing.
 
-Just tested, the new patch seems to be working fine here.
+Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Cc: Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+---
+Please apply this patch directly if you want to be involved in device
+tree binding documentation for your subsystem.
 
-Thanks for the quick fix; any chance of getting it into 4.10.x as well?
+v2:
+  - Rebased on top of commit 0d3cd4b6b49865e8 ("net: dsa: mv88e6xxx:
+    move driver in its own folder").
 
+Impact on next-20170310:
+
++Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> (maintainer:MARVELL 88E6XXX ETHERNET SWITCH FABRIC DRIVER)
++Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org> (maintainer:MARVELL 88E6XXX ETHERNET SWITCH FABRIC DRIVER)
+ Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> (maintainer:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS)
+ Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org> (maintainer:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS)
+-"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (commit_signer:11/12=92%)
+-Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> (commit_signer:8/12=67%,authored:7/12=58%)
+-Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (commit_signer:4/12=33%,authored:2/12=17%)
+-Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org> (commit_signer:2/12=17%,authored:1/12=8%)
+-John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org> (commit_signer:1/12=8%,authored:1/12=8%)
+-"Otto Kekäläinen" <otto-Gh1NM5ZPXYb1KXRcyAk9cg@public.gmane.org> (authored:1/12=8%)
+-netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING DRIVERS)
++netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:MARVELL 88E6XXX ETHERNET SWITCH FABRIC DRIVER)
+ devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS)
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
+---
+ MAINTAINERS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ce461fefec6c9463..c0822d4fa5c3ade5 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7812,6 +7812,7 @@ M:	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+ M:	Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>
+ L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ S:	Maintained
++F:	Documentation/devicetree/bindings/net/dsa/
+ F:	drivers/net/dsa/mv88e6xxx/
+ F:	Documentation/devicetree/bindings/net/dsa/marvell.txt
+ 
 -- 
-Mantas Mikulėnas <grawity@gmail.com>
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
