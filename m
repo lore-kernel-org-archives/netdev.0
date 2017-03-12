@@ -1,9 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 12/17] net: dsa: add dsa_is_normal_port helper
-Date: Sat, 11 Mar 2017 18:17:58 -0800
-Message-ID: <e2553201-b071-b0e5-30c2-13cf81ea6101@gmail.com>
+Subject: Re: [PATCH net-next v2 00/17] net: dsa: mv88e6xxx: rework ATU support
+Date: Sat, 11 Mar 2017 18:27:00 -0800
+Message-ID: <d6ad6ba8-3b60-d017-24a9-1f19649d7b4d@gmail.com>
 References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
- <20170311211303.24560-13-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
@@ -13,39 +12,75 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170311211303.24560-13-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Le 03/11/17 à 13:12, Vivien Didelot a écrit :
-> Introduce a dsa_is_normal_port helper to check if a given port is a
-> normal user port as opposed to a CPU port or DSA link.
+> The purpose of this patch series is to rework the code related to the
+> Address Translation Unit (ATU), and bring support for it to the 88E6390
+> family of switch chips.
+> 
+> All Global (1) ATU related code have been reworked and moved to its own
+> file. Some port related bits used for ATU configuration (such as the
+> Learn2All and MessagePort feature) have also been taken care of.
+> 
+> The ports' mode and egress flooding mode have been refactored to fix the
+> egress of frames with unknown unicast or multicast destination address,
+> and write all these bits regardless the port mode (Normal, DSA, etc.)
+> 
+> Finally remove the eth_addr_greater which was only used by mv88e6xxx.
 
-net/dsa/dsa2.c uses the "user" terminology should we use something like
-that here?
+Just some general note on the way the driver seems to be going there
+seems to be a multiplication of new ops being introduced, and most of
+them seem to default to the mv88e6xxx (generic) ones. Should you do
+something like:
+
+if (!ops->foo)
+	ops->foo = mv88e6xxx_foo
+
+Such that you reduce the possibility for a specific switch model to lack
+such an operation?
 
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  include/net/dsa.h | 5 +++++
->  1 file changed, 5 insertions(+)
+> Changes in v2:
+>   - add Reviewed-by tags
+>   - split mv88e6xxx_g1_atu_set_age_time and mv88e6xxx_atu_setup addition
+>   - remove DSA_TAG_PROTO_TRAILER check
+>   - split Message Port and Learn2All addition
+>   - remove unused MV88E6XXX_FLAG_G1_ATU_FID flag
+>   - add dsa_is_normal_port helper
 > 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 4e13e695f025..bf0e42c2a6f7 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -248,6 +248,11 @@ static inline bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
->  	return !!((ds->dsa_port_mask) & (1 << p));
->  }
->  
-> +static inline bool dsa_is_normal_port(struct dsa_switch *ds, int p)
-> +{
-> +	return !dsa_is_cpu_port(ds, p) && !dsa_is_dsa_port(ds, p);
-> +}
-> +
->  static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
->  {
->  	return ds->enabled_port_mask & (1 << p) && ds->ports[p].netdev;
+> Vivien Didelot (17):
+>   net: dsa: mv88e6xxx: add port mask helper
+>   net: dsa: mv88e6xxx: move ATU ageing time setter
+>   net: dsa: mv88e6xxx: add ATU setup helper
+>   net: dsa: mv88e6xxx: setup message ports
+>   net: dsa: mv88e6xxx: enable ATU Learn2All
+>   net: dsa: mv88e6xxx: rework ATU Load/Purge
+>   net: dsa: mv88e6xxx: rework ATU GetNext
+>   net: dsa: mv88e6xxx: rework ATU Flush
+>   net: dsa: mv88e6xxx: rework ATU Remove
+>   net: dsa: mv88e6xxx: rename new FID helper
+>   net: dsa: mv88e6xxx: rename the port vector member
+>   net: dsa: add dsa_is_normal_port helper
+>   net: dsa: mv88e6xxx: rework port mode setup
+>   net: dsa: mv88e6xxx: fix port egress flooding mode
+>   net: dsa: mv88e6xxx: add port ATU learn limit op
+>   net: dsa: mv88e6xxx: add port priority override op
+>   etherdevice: remove unused eth_addr_greater
+> 
+>  drivers/net/dsa/mv88e6xxx/Makefile      |   1 +
+>  drivers/net/dsa/mv88e6xxx/chip.c        | 667 +++++++++++---------------------
+>  drivers/net/dsa/mv88e6xxx/global1.h     |  11 +
+>  drivers/net/dsa/mv88e6xxx/global1_atu.c | 300 ++++++++++++++
+>  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  44 ++-
+>  drivers/net/dsa/mv88e6xxx/port.c        |  78 +++-
+>  drivers/net/dsa/mv88e6xxx/port.h        |  16 +-
+>  include/linux/etherdevice.h             |  15 -
+>  include/net/dsa.h                       |   5 +
+>  9 files changed, 638 insertions(+), 499 deletions(-)
+>  create mode 100644 drivers/net/dsa/mv88e6xxx/global1_atu.c
 > 
 
 
