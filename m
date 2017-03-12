@@ -1,54 +1,70 @@
 From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Subject: [PATCH v7 2/6] 6lowpan: Set MAC address length according to LOWPAN_LLTYPE
-Date: Sun, 12 Mar 2017 10:19:34 +0200
-Message-ID: <20170312081938.11700-3-luiz.dentz@gmail.com>
+Subject: [PATCH v7 4/6] ipv6: addrconf: fix 48 bit 6lowpan autoconfiguration
+Date: Sun, 12 Mar 2017 10:19:36 +0200
+Message-ID: <20170312081938.11700-5-luiz.dentz@gmail.com>
 References: <20170312081938.11700-1-luiz.dentz@gmail.com>
 Cc: patrik.flykt@linux.intel.com, aar@pengutronix.de,
         jukka.rissanen@linux.intel.com, linux-wpan@vger.kernel.org,
         netdev@vger.kernel.org
 To: linux-bluetooth@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:34841 "EHLO
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:33774 "EHLO
         mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754702AbdCLITp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 04:19:45 -0400
+        with ESMTP id S1755723AbdCLITs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 04:19:48 -0400
 In-Reply-To: <20170312081938.11700-1-luiz.dentz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrik Flykt <patrik.flykt@linux.intel.com>
+From: Alexander Aring <aar@pengutronix.de>
 
-Set MAC address length according to the 6LoWPAN link layer in use.
-Bluetooth Low Energy uses 48 bit addressing while IEEE802.15.4 uses
-64 bits.
+This patch adds support for 48 bit 6LoWPAN address length
+autoconfiguration which is the case for BTLE 6LoWPAN.
 
-Signed-off-by: Patrik Flykt <patrik.flykt@linux.intel.com>
+Signed-off-by: Alexander Aring <aar@pengutronix.de>
+Signed-off-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
 Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
- net/6lowpan/core.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ net/ipv6/addrconf.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
-index 5945f7e..5f9909a 100644
---- a/net/6lowpan/core.c
-+++ b/net/6lowpan/core.c
-@@ -23,7 +23,16 @@ int lowpan_register_netdevice(struct net_device *dev,
- {
- 	int i, ret;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3a2025f..7756640 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2052,12 +2052,19 @@ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
+ 	__ipv6_dev_ac_dec(ifp->idev, &addr);
+ }
  
--	dev->addr_len = EUI64_ADDR_LEN;
-+	switch (lltype) {
-+	case LOWPAN_LLTYPE_IEEE802154:
-+		dev->addr_len = EUI64_ADDR_LEN;
+-static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
++static int addrconf_ifid_6lowpan(u8 *eui, struct net_device *dev)
+ {
+-	if (dev->addr_len != EUI64_ADDR_LEN)
++	switch (dev->addr_len) {
++	case ETH_ALEN:
++		return addrconf_ifid_eui48(eui, dev);
++	case EUI64_ADDR_LEN:
++		memcpy(eui, dev->dev_addr, EUI64_ADDR_LEN);
++		eui[0] ^= 2;
 +		break;
-+
-+	case LOWPAN_LLTYPE_BTLE:
-+		dev->addr_len = ETH_ALEN;
-+		break;
++	default:
+ 		return -1;
+-	memcpy(eui, dev->dev_addr, EUI64_ADDR_LEN);
+-	eui[0] ^= 2;
 +	}
 +
- 	dev->type = ARPHRD_6LOWPAN;
- 	dev->mtu = IPV6_MIN_MTU;
- 	dev->priv_flags |= IFF_NO_QUEUE;
+ 	return 0;
+ }
+ 
+@@ -2149,7 +2156,7 @@ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
+ 	case ARPHRD_TUNNEL:
+ 		return addrconf_ifid_gre(eui, dev);
+ 	case ARPHRD_6LOWPAN:
+-		return addrconf_ifid_eui64(eui, dev);
++		return addrconf_ifid_6lowpan(eui, dev);
+ 	case ARPHRD_IEEE1394:
+ 		return addrconf_ifid_ieee1394(eui, dev);
+ 	case ARPHRD_TUNNEL6:
 -- 
 2.9.3
