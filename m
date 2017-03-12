@@ -1,239 +1,168 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next RFC v1 05/27] afnetns: ipv6 integration
-Date: Mon, 13 Mar 2017 00:01:29 +0100
-Message-ID: <20170312230151.5185-6-hannes@stressinduktion.org>
-References: <20170312230151.5185-1-hannes@stressinduktion.org>
+Subject: [PATCH net-next RFC v1 00/27] afnetns: new namespace type for separation on protocol level
+Date: Mon, 13 Mar 2017 00:01:24 +0100
+Message-ID: <20170312230151.5185-1-hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:48852 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:43729 "EHLO
         out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935587AbdCLXCD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:02:03 -0400
+        by vger.kernel.org with ESMTP id S935591AbdCLXCG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:02:06 -0400
 Received: from compute7.internal (compute7.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id 3FF772060A
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:57 -0400 (EDT)
+        by mailout.nyi.internal (Postfix) with ESMTP id 92B8C20682
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:53 -0400 (EDT)
 Received: from m.localhost.localhost (unknown [213.55.211.72])
-        by mail.messagingengine.com (Postfix) with ESMTPA id A33A12436A
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:56 -0400 (EDT)
-In-Reply-To: <20170312230151.5185-1-hannes@stressinduktion.org>
+        by mail.messagingengine.com (Postfix) with ESMTPA id EFB782436A
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:52 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Like the previous IPv4 counterpart, this patch associates every IPv6
-address with a corresponding afnet namespace. The namespace can be set
-via file descriptor and the inode gets reported during dumping.
+--- >8 ---
+Note:
+* BE CAREFUL SOURCE ADDRESS SELECTION 
+--- >8 ---
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/if_inet6.h |  3 +++
- net/core/afnetns.c     |  3 +++
- net/ipv6/addrconf.c    | 70 +++++++++++++++++++++++++++++++++++++++++---------
- 3 files changed, 64 insertions(+), 12 deletions(-)
+afnetns behaves like ordinary namespaces: clone, unshare, setns syscalls
+can work with afnetns with one limitation: one cannot cross the realm
+of a network namespace while changing the afnetns compartement. To get
+into a new afnetns in a different net namespace, one must first change
+to the net namespace and afterwards switch to the desired afnetns.
 
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index f656f9051acafa..cad645851501f4 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -41,6 +41,9 @@ enum {
- struct inet6_ifaddr {
- 	struct in6_addr		addr;
- 	__u32			prefix_len;
-+#if IS_ENABLED(CONFIG_AFNETNS)
-+	struct afnetns		*afnetns;
-+#endif
- 
- 	/* In seconds, relative to tstamp. Expiry is at tstamp + HZ * lft. */
- 	__u32			valid_lft;
-diff --git a/net/core/afnetns.c b/net/core/afnetns.c
-index 12b823ae780796..b96c25b5ebe30d 100644
---- a/net/core/afnetns.c
-+++ b/net/core/afnetns.c
-@@ -56,6 +56,7 @@ void afnetns_free(struct afnetns *afnetns)
- 	put_net(afnetns->net);
- 	kfree(afnetns);
- }
-+EXPORT_SYMBOL(afnetns_free);
- 
- struct afnetns *afnetns_get_by_fd(int fd)
- {
-@@ -76,11 +77,13 @@ struct afnetns *afnetns_get_by_fd(int fd)
- 	fput(file);
- 	return afnetns;
- }
-+EXPORT_SYMBOL(afnetns_get_by_fd);
- 
- unsigned int afnetns_to_inode(struct afnetns *afnetns)
- {
- 	return afnetns->ns.inum;
- }
-+EXPORT_SYMBOL(afnetns_to_inode);
- 
- struct afnetns *copy_afnet_ns(unsigned long flags, struct nsproxy *old)
- {
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8c69768a5c4606..c67f6d3c5b9a7a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -910,7 +910,9 @@ void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp)
- 		return;
- 	}
- 	ip6_rt_put(ifp->rt);
--
-+#if IS_ENABLED(CONFIG_AFNETNS)
-+	afnetns_put(ifp->afnetns);
-+#endif
- 	kfree_rcu(ifp, rcu);
- }
- 
-@@ -942,9 +944,10 @@ static u32 inet6_addr_hash(const struct in6_addr *addr)
- /* On success it returns ifp with increased reference count */
- 
- static struct inet6_ifaddr *
--ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
--	      const struct in6_addr *peer_addr, int pfxlen,
--	      int scope, u32 flags, u32 valid_lft, u32 prefered_lft)
-+__ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
-+		const struct in6_addr *peer_addr, int pfxlen,
-+		int scope, u32 flags, u32 valid_lft, u32 prefered_lft,
-+		struct afnetns *afnetns)
- {
- 	struct net *net = dev_net(idev->dev);
- 	struct inet6_ifaddr *ifa = NULL;
-@@ -1002,7 +1005,9 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	ifa->addr = *addr;
- 	if (peer_addr)
- 		ifa->peer_addr = *peer_addr;
--
-+#if IS_ENABLED(CONFIG_AFNETNS)
-+	ifa->afnetns = afnetns_get(afnetns);
-+#endif
- 	spin_lock_init(&ifa->lock);
- 	INIT_DELAYED_WORK(&ifa->dad_work, addrconf_dad_work);
- 	INIT_HLIST_NODE(&ifa->addr_lst);
-@@ -1054,6 +1059,17 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	goto out2;
- }
- 
-+static struct inet6_ifaddr *ipv6_add_addr(struct inet6_dev *idev,
-+					  const struct in6_addr *addr,
-+					  const struct in6_addr *peer_addr,
-+					  int pfxlen, int scope, u32 flags,
-+					  u32 valid_lft, u32 prefered_lft)
-+{
-+	return __ipv6_add_addr(idev, addr, peer_addr, pfxlen, scope, flags,
-+			       valid_lft, prefered_lft,
-+			       net_afnetns(dev_net(idev->dev)));
-+}
-+
- enum cleanup_prefix_rt_t {
- 	CLEANUP_PREFIX_RT_NOP,    /* no cleanup action for prefix route */
- 	CLEANUP_PREFIX_RT_DEL,    /* delete the prefix route */
-@@ -2741,7 +2757,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
- 			  const struct in6_addr *pfx,
- 			  const struct in6_addr *peer_pfx,
- 			  unsigned int plen, __u32 ifa_flags,
--			  __u32 prefered_lft, __u32 valid_lft)
-+			  __u32 prefered_lft, __u32 valid_lft,
-+			  struct afnetns *afnetns)
- {
- 	struct inet6_ifaddr *ifp;
- 	struct inet6_dev *idev;
-@@ -2799,8 +2816,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
- 		prefered_lft = timeout;
- 	}
- 
--	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
--			    valid_lft, prefered_lft);
-+	ifp = __ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
-+			      valid_lft, prefered_lft, afnetns);
- 
- 	if (!IS_ERR(ifp)) {
- 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
-@@ -2885,7 +2902,8 @@ int addrconf_add_ifaddr(struct net *net, void __user *arg)
- 	rtnl_lock();
- 	err = inet6_addr_add(net, ireq.ifr6_ifindex, &ireq.ifr6_addr, NULL,
- 			     ireq.ifr6_prefixlen, IFA_F_PERMANENT,
--			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
-+			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME,
-+			     net_afnetns(net));
- 	rtnl_unlock();
- 	return err;
- }
-@@ -4502,6 +4520,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in6_addr *pfx, *peer_pfx;
- 	struct inet6_ifaddr *ifa;
-+	struct afnetns *afnetns = NULL;
- 	struct net_device *dev;
- 	u32 valid_lft = INFINITY_LIFE_TIME, preferred_lft = INFINITY_LIFE_TIME;
- 	u32 ifa_flags;
-@@ -4537,15 +4556,31 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR |
- 		     IFA_F_NOPREFIXROUTE | IFA_F_MCAUTOJOIN;
- 
-+#if IS_ENABLED(CONFIG_AFNETNS)
-+	if (tb[IFA_AFNETNS_FD]) {
-+		int fd = nla_get_s32(tb[IFA_AFNETNS_FD]);
-+
-+		afnetns = afnetns_get_by_fd(fd);
-+		if (IS_ERR(afnetns))
-+			return PTR_ERR(afnetns);
-+	} else {
-+		afnetns = afnetns_get(net_afnetns(net));
-+	}
-+#else
-+	if (tb[IFA_AFNETNS_FD])
-+		return -EOPNOTSUPP;
-+#endif
-+
- 	ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
- 	if (!ifa) {
- 		/*
- 		 * It would be best to check for !NLM_F_CREATE here but
- 		 * userspace already relies on not having to provide this.
- 		 */
--		return inet6_addr_add(net, ifm->ifa_index, pfx, peer_pfx,
-+		err =  inet6_addr_add(net, ifm->ifa_index, pfx, peer_pfx,
- 				      ifm->ifa_prefixlen, ifa_flags,
--				      preferred_lft, valid_lft);
-+				      preferred_lft, valid_lft, afnetns);
-+		goto out;
- 	}
- 
- 	if (nlh->nlmsg_flags & NLM_F_EXCL ||
-@@ -4555,6 +4590,10 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		err = inet6_addr_modify(ifa, ifa_flags, preferred_lft, valid_lft);
- 
- 	in6_ifa_put(ifa);
-+out:
-+#if IS_ENABLED(CONFIG_AFNETNS)
-+	afnetns_put(afnetns);
-+#endif
- 
- 	return err;
- }
-@@ -4603,7 +4642,8 @@ static inline int inet6_ifaddr_msgsize(void)
- 	       + nla_total_size(16) /* IFA_LOCAL */
- 	       + nla_total_size(16) /* IFA_ADDRESS */
- 	       + nla_total_size(sizeof(struct ifa_cacheinfo))
--	       + nla_total_size(4)  /* IFA_FLAGS */;
-+	       + nla_total_size(4)  /* IFA_FLAGS */
-+	       + nla_total_size(4); /* IFA_AFNETNS_INODE */
- }
- 
- static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
-@@ -4655,6 +4695,12 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
- 	if (nla_put_u32(skb, IFA_FLAGS, ifa->flags) < 0)
- 		goto error;
- 
-+#if IS_ENABLED(CONFIG_AFNETNS)
-+	if (nla_put_u32(skb, IFA_AFNETNS_INODE,
-+			afnetns_to_inode(ifa->afnetns)))
-+		goto error;
-+#endif
-+
- 	nlmsg_end(skb, nlh);
- 	return 0;
- 
+The primitive objects in the kernel an afnetns relates to are,
+    - process
+    - socket
+    - ipv4 address
+    - ipv6 address.
+
+An afnetns basically forms a namespace around socket binds. While not
+strictly necessary, it also affects the source routing, so firewall rules
+are easier to maintain. It does in now way deal with the reception and
+handling of multicast or broadcast sockets. As the afnetns namespaces
+are connecting to the same L2 network, it does not make sense to try to
+build up separation rules here, as they can be broken anyway.
+
+In comparison to ipvlan, afnetns allows early to use early socket
+demuxing.
+
+Loopback is not possible within an afnetns until its own loopback device
+is added or its private ip address is used.
+
+The easiest way to use afnetns is to use the iproute2 interface, which
+very much follows the style of ip-netns.
+
+$ ip afnetns help
+Usage: ip afnetns list
+       ip afnetns add NAME
+       ip afnetns del NAME
+       ip afnetns exec NAME cmd ...
+
+IP addresses carry a afnetns identifier, too. It is visible with the -d
+(details) option:
+
+$ ip -d a l dev lo
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00 promiscuity 0 numtxqueues 1 numrxqueues 1
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever afnet afnet:[4026531958],self
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever afnet afnet:[4026531958],self
+
+This shows the afnetns inode number, as well as that we are currently in
+the same namespace as the two specified ip addresses. In case we added
+a name for the namespace with ip-afnetns, it will be visible here, too.
+
+$ ip a a 10.0.0.1/24 dev lo afnetns test
+
+This command adds a new ip address to the loopback device and makes it
+available in the test afnetns. Commands in this namespace can use this
+IP address and use it for outgoing communication.
+
+Changelog:
+v1) first published version
+
+The same commands work for IPv6, I only used IPv4 as an example.
+
+This is still work in progress.
+
+Hannes Frederic Sowa (27):
+  afnetns: add CLONE_NEWAFNET flag
+  afnetns: basic namespace operations and representations
+  afnetns: prepare for integration into ipv4
+  afnetns: add net_afnetns
+  afnetns: ipv6 integration
+  afnetns: put afnetns pointer into struct sock
+  ipv4: introduce ifa_find_rcu
+  afnetns: factor out inet_allow_bind
+  afnetns: add sock_afnetns
+  afnetns: add ifa_find_afnetns_rcu
+  afnetns: validate afnetns in inet_allow_bind
+  afnetns: ipv4/udp integration
+  afnetns: use inet_allow_bind in inet6_bind
+  afnetns: check for afnetns in inet6_bind
+  afnetns: add ipv6_get_ifaddr_afnetns_rcu
+  afnetns: add udpv6 support
+  afnetns: introduce __inet_select_addr
+  afnetns: afnetns should influence source address selection
+  afnetns: add afnetns support for tcpv4
+  ipv6: move ipv6_get_ifaddr to vmlinux in case ipv6 is build as module
+  afnetns: add support for tcpv6
+  afnetns: track owning namespace for inet_bind
+  afnetns: use user_ns from afnetns for checking for binding to port <
+    1024
+  afnetns: check afnetns user_ns in inet6_bind
+  afnetns: ipv4: inherit afnetns from calling application
+  afnetns: ipv6: inherit afnetns from calling application
+  afnetns: allow only whitelisted protocols to operate inside afnetns
+
+ Documentation/networking/afnetns.txt    |  64 +++++++++++++
+ drivers/target/iscsi/cxgbit/cxgbit_cm.c |   2 +-
+ fs/proc/namespaces.c                    |   3 +
+ include/linux/inetdevice.h              |  22 ++++-
+ include/linux/nsproxy.h                 |   3 +
+ include/linux/proc_ns.h                 |   1 +
+ include/net/addrconf.h                  |  26 +++++-
+ include/net/afnetns.h                   |  47 ++++++++++
+ include/net/if_inet6.h                  |   3 +
+ include/net/inet_common.h               |   1 +
+ include/net/inet_sock.h                 |   1 +
+ include/net/net_namespace.h             |  12 +++
+ include/net/protocol.h                  |   1 +
+ include/net/route.h                     |  10 +-
+ include/net/sock.h                      |  13 +++
+ include/uapi/linux/if_addr.h            |   2 +
+ include/uapi/linux/sched.h              |   1 +
+ kernel/fork.c                           |  12 ++-
+ kernel/nsproxy.c                        |  24 ++++-
+ net/Kconfig                             |  10 ++
+ net/core/Makefile                       |   1 +
+ net/core/afnetns.c                      | 159 ++++++++++++++++++++++++++++++++
+ net/core/net_namespace.c                |  25 +++++
+ net/core/sock.c                         |  18 +++-
+ net/ipv4/af_inet.c                      | 101 ++++++++++++++------
+ net/ipv4/devinet.c                      | 104 ++++++++++++++++++---
+ net/ipv4/icmp.c                         |   4 +-
+ net/ipv4/igmp.c                         |   2 +-
+ net/ipv4/inet_hashtables.c              |  17 +++-
+ net/ipv4/route.c                        |  21 +++--
+ net/ipv4/tcp_input.c                    |   3 +
+ net/ipv4/udp.c                          |  22 ++++-
+ net/ipv4/udplite.c                      |   3 +-
+ net/ipv4/xfrm4_policy.c                 |   2 +-
+ net/ipv6/addrconf.c                     | 117 +++++++++++++----------
+ net/ipv6/af_inet6.c                     |  78 ++++++++++------
+ net/ipv6/datagram.c                     |   6 +-
+ net/ipv6/inet6_hashtables.c             |  55 ++++++++++-
+ net/ipv6/ndisc.c                        |   4 +-
+ net/ipv6/route.c                        |   2 +-
+ net/ipv6/tcp_ipv6.c                     |   3 +-
+ net/ipv6/udp.c                          |  21 +++--
+ net/ipv6/udplite.c                      |   3 +-
+ net/sctp/protocol.c                     |   4 +-
+ net/tipc/udp_media.c                    |   2 +-
+ 45 files changed, 864 insertions(+), 171 deletions(-)
+ create mode 100644 Documentation/networking/afnetns.txt
+ create mode 100644 include/net/afnetns.h
+ create mode 100644 net/core/afnetns.c
+
 -- 
 2.9.3
