@@ -1,83 +1,93 @@
-From: Borislav Petkov <bp@suse.de>
-Subject: Re: [net/bpf] 3051bf36c2 BUG: unable to handle kernel paging request
- at 0000a7cf
-Date: Sun, 12 Mar 2017 22:40:33 +0100
-Message-ID: <20170312214033.7zllfclxtjvewo2c@pd.tnic>
-References: <58C19607.6000605@iogearbox.net>
- <CA+55aFyxM--wyvxXGhBOqdJHcdC_kKvGYpv-C5SpYvRNkbEmGw@mail.gmail.com>
- <CA+55aFyu-LHqMaZBaa7VNamxhUR99F4Xr+nL9esLDUBhotopVg@mail.gmail.com>
- <58C19F67.3040509@iogearbox.net>
- <58C1C9DC.7070509@iogearbox.net>
- <20170309215547.jmdzznlkzaxwu2pf@pd.tnic>
- <20170309220732.ufqoqlawktsi2gao@pd.tnic>
- <58C1D305.8090802@iogearbox.net>
- <20170309224820.5invcnhvr2tl3ges@pd.tnic>
- <CA+55aFy5vi3af5VBuG6ZOdTeKNxqGSq64J-EkrjaRhGVKXPy0A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Kees Cook <keescook@chromium.org>,
-        Laura Abbott <labbott@redhat.com>,
-        Ingo Molnar <mingo@kernel.org>, Peter Anvin <hpa@zytor.com>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, LKP <lkp@01.org>,
-        ast@fb.com, the arch/x86 maintainers <x86@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-        Thomas Gleixner <tglx@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:41415 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934858AbdCLVks (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 12 Mar 2017 17:40:48 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+55aFy5vi3af5VBuG6ZOdTeKNxqGSq64J-EkrjaRhGVKXPy0A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: usb: r8152: use new api ethtool_{get|set}_link_ksettings
+Date: Sun, 12 Mar 2017 22:41:58 +0100
+Message-ID: <1489354918-6650-1-git-send-email-tremyfr@gmail.com>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, hayeswang@realtek.com, jarod@redhat.com,
+        mario_limonciello@dell.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 09, 2017 at 03:26:02PM -0800, Linus Torvalds wrote:
-> Maybe it's the lguest games with PGE that need to be removed?
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Btw, tglx suggested something else the other day: warn when we're
-changing boot_cpu_data x86_capability bits *after* alternatives have
-run. The reasoning behind it being that potentially some patching
-static_cpu_has() has done won't be correct anymore.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-And it is pretty cheap to do it, it fires nicely on the 32-bit config
-with LGUEST=y.
-
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
-diff --git a/arch/x86/include/asm/cpufeature.h b/arch/x86/include/asm/cpufeature.h
-index d59c15c3defd..f06c3dc6db70 100644
---- a/arch/x86/include/asm/cpufeature.h
-+++ b/arch/x86/include/asm/cpufeature.h
-@@ -124,8 +124,18 @@ extern const char * const x86_bug_flags[NBUGINTS*32];
- 
- #define boot_cpu_has(bit)	cpu_has(&boot_cpu_data, bit)
- 
--#define set_cpu_cap(c, bit)	set_bit(bit, (unsigned long *)((c)->x86_capability))
--#define clear_cpu_cap(c, bit)	clear_bit(bit, (unsigned long *)((c)->x86_capability))
-+#define set_cpu_cap(c, bit)					\
-+({								\
-+	WARN_ON(c == &boot_cpu_data && alternatives_patched);	\
-+	set_bit(bit, (unsigned long *)((c)->x86_capability));	\
-+})
-+
-+#define clear_cpu_cap(c, bit)					\
-+({								\
-+	WARN_ON(c == &boot_cpu_data && alternatives_patched);	\
-+	clear_bit(bit, (unsigned long *)((c)->x86_capability));	\
-+})
-+
- #define setup_clear_cpu_cap(bit) do { \
- 	clear_cpu_cap(&boot_cpu_data, bit);	\
- 	set_bit(bit, (unsigned long *)cpu_caps_cleared); \
+ drivers/net/usb/r8152.c |   21 ++++++++++++---------
+ 1 files changed, 12 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 986243c..227e1fd 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3800,7 +3800,8 @@ static void rtl8152_get_drvinfo(struct net_device *netdev,
+ }
+ 
+ static
+-int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
++int rtl8152_get_link_ksettings(struct net_device *netdev,
++			       struct ethtool_link_ksettings *cmd)
+ {
+ 	struct r8152 *tp = netdev_priv(netdev);
+ 	int ret;
+@@ -3814,7 +3815,7 @@ int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
+ 
+ 	mutex_lock(&tp->control);
+ 
+-	ret = mii_ethtool_gset(&tp->mii, cmd);
++	ret = mii_ethtool_get_link_ksettings(&tp->mii, cmd);
+ 
+ 	mutex_unlock(&tp->control);
+ 
+@@ -3824,7 +3825,8 @@ int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
+ 	return ret;
+ }
+ 
+-static int rtl8152_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int rtl8152_set_link_ksettings(struct net_device *dev,
++				      const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct r8152 *tp = netdev_priv(dev);
+ 	int ret;
+@@ -3835,11 +3837,12 @@ static int rtl8152_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ 	mutex_lock(&tp->control);
+ 
+-	ret = rtl8152_set_speed(tp, cmd->autoneg, cmd->speed, cmd->duplex);
++	ret = rtl8152_set_speed(tp, cmd->base.autoneg, cmd->base.speed,
++				cmd->base.duplex);
+ 	if (!ret) {
+-		tp->autoneg = cmd->autoneg;
+-		tp->speed = cmd->speed;
+-		tp->duplex = cmd->duplex;
++		tp->autoneg = cmd->base.autoneg;
++		tp->speed = cmd->base.speed;
++		tp->duplex = cmd->base.duplex;
+ 	}
+ 
+ 	mutex_unlock(&tp->control);
+@@ -4117,8 +4120,6 @@ static int rtl8152_set_coalesce(struct net_device *netdev,
+ 
+ static const struct ethtool_ops ops = {
+ 	.get_drvinfo = rtl8152_get_drvinfo,
+-	.get_settings = rtl8152_get_settings,
+-	.set_settings = rtl8152_set_settings,
+ 	.get_link = ethtool_op_get_link,
+ 	.nway_reset = rtl8152_nway_reset,
+ 	.get_msglevel = rtl8152_get_msglevel,
+@@ -4132,6 +4133,8 @@ static int rtl8152_set_coalesce(struct net_device *netdev,
+ 	.set_coalesce = rtl8152_set_coalesce,
+ 	.get_eee = rtl_ethtool_get_eee,
+ 	.set_eee = rtl_ethtool_set_eee,
++	.get_link_ksettings = rtl8152_get_link_ksettings,
++	.set_link_ksettings = rtl8152_set_link_ksettings,
+ };
+ 
+ static int rtl8152_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
 -- 
-Regards/Gruss,
-    Boris.
-
-SUSE Linux GmbH, GF: Felix Imendörffer, Jane Smithard, Graham Norton, HRB 21284 (AG Nürnberg)
--- 
+1.7.4.4
