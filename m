@@ -1,88 +1,56 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 00/17] net: dsa: mv88e6xxx: rework ATU support
-Date: Sat, 11 Mar 2017 18:27:00 -0800
-Message-ID: <d6ad6ba8-3b60-d017-24a9-1f19649d7b4d@gmail.com>
-References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
+From: Yanjun Zhu <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/5] rds: ib: replace spin_lock_irq with spin_lock_irqsave
+Date: Sun, 12 Mar 2017 10:33:05 +0800
+Message-ID: <58C4B361.6010100@oracle.com>
+References: <1489044405-26150-1-git-send-email-yanjun.zhu@oracle.com>
+ <1489044405-26150-2-git-send-email-yanjun.zhu@oracle.com>
+ <65ac3de8-9fdd-b5c5-b7aa-aa4393626551@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <65ac3de8-9fdd-b5c5-b7aa-aa4393626551-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le 03/11/17 à 13:12, Vivien Didelot a écrit :
-> The purpose of this patch series is to rework the code related to the
-> Address Translation Unit (ATU), and bring support for it to the 88E6390
-> family of switch chips.
-> 
-> All Global (1) ATU related code have been reworked and moved to its own
-> file. Some port related bits used for ATU configuration (such as the
-> Learn2All and MessagePort feature) have also been taken care of.
-> 
-> The ports' mode and egress flooding mode have been refactored to fix the
-> egress of frames with unknown unicast or multicast destination address,
-> and write all these bits regardless the port mode (Normal, DSA, etc.)
-> 
-> Finally remove the eth_addr_greater which was only used by mv88e6xxx.
+Sorry. I have no test case to show some issue.
+But from Linux Kernel Development Second Edition by Robert Love.
 
-Just some general note on the way the driver seems to be going there
-seems to be a multiplication of new ops being introduced, and most of
-them seem to default to the mv88e6xxx (generic) ones. Should you do
-something like:
+Use spin_lock_irq is dangerous since spin_unlock_irq unconditionally 
+enables interrupts.
 
-if (!ops->foo)
-	ops->foo = mv88e6xxx_foo
+We can assume the following scenario:
 
-Such that you reduce the possibility for a specific switch model to lack
-such an operation?
+--->the interrupt is disabled.
 
-> 
-> Changes in v2:
->   - add Reviewed-by tags
->   - split mv88e6xxx_g1_atu_set_age_time and mv88e6xxx_atu_setup addition
->   - remove DSA_TAG_PROTO_TRAILER check
->   - split Message Port and Learn2All addition
->   - remove unused MV88E6XXX_FLAG_G1_ATU_FID flag
->   - add dsa_is_normal_port helper
-> 
-> Vivien Didelot (17):
->   net: dsa: mv88e6xxx: add port mask helper
->   net: dsa: mv88e6xxx: move ATU ageing time setter
->   net: dsa: mv88e6xxx: add ATU setup helper
->   net: dsa: mv88e6xxx: setup message ports
->   net: dsa: mv88e6xxx: enable ATU Learn2All
->   net: dsa: mv88e6xxx: rework ATU Load/Purge
->   net: dsa: mv88e6xxx: rework ATU GetNext
->   net: dsa: mv88e6xxx: rework ATU Flush
->   net: dsa: mv88e6xxx: rework ATU Remove
->   net: dsa: mv88e6xxx: rename new FID helper
->   net: dsa: mv88e6xxx: rename the port vector member
->   net: dsa: add dsa_is_normal_port helper
->   net: dsa: mv88e6xxx: rework port mode setup
->   net: dsa: mv88e6xxx: fix port egress flooding mode
->   net: dsa: mv88e6xxx: add port ATU learn limit op
->   net: dsa: mv88e6xxx: add port priority override op
->   etherdevice: remove unused eth_addr_greater
-> 
->  drivers/net/dsa/mv88e6xxx/Makefile      |   1 +
->  drivers/net/dsa/mv88e6xxx/chip.c        | 667 +++++++++++---------------------
->  drivers/net/dsa/mv88e6xxx/global1.h     |  11 +
->  drivers/net/dsa/mv88e6xxx/global1_atu.c | 300 ++++++++++++++
->  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h   |  44 ++-
->  drivers/net/dsa/mv88e6xxx/port.c        |  78 +++-
->  drivers/net/dsa/mv88e6xxx/port.h        |  16 +-
->  include/linux/etherdevice.h             |  15 -
->  include/net/dsa.h                       |   5 +
->  9 files changed, 638 insertions(+), 499 deletions(-)
->  create mode 100644 drivers/net/dsa/mv88e6xxx/global1_atu.c
-> 
+         spin_lock_irq(lock_ptr);   <---this will disable interrupt again
+         list_del(&ic->ib_node);
+         spin_unlock_irq(lock_ptr); <---this will enable interrupt
 
+---->the interrupt is enabled.
 
--- 
-Florian
+our code change the state of interrupt. This will make potential risk.
+But spin_lock_irqsave/spin_unlock_irqrestore will not make potential risk.
+
+Zhu Yanjun
+On 2017/3/10 0:50, Santosh Shilimkar wrote:
+> On 3/8/2017 11:26 PM, Zhu Yanjun wrote:
+>> It is difficult to make sure the state of the interrupt when this
+>> function is called. As such, it is safer to use spin_lock_irqsave
+>> than spin_lock_irq.
+>>
+> There is no reason to hold irqs  and as such the code path is
+> safe from irq context. I don't see need of this change unless
+> you have test case which showed some issue.
+>
+> Regards,
+> Santosh
+>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
