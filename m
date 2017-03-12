@@ -1,93 +1,128 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: usb: r8152: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 12 Mar 2017 22:41:58 +0100
-Message-ID: <1489354918-6650-1-git-send-email-tremyfr@gmail.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, hayeswang@realtek.com, jarod@redhat.com,
-        mario_limonciello@dell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ezequiel Lara Gomez <ezegomez@amazon.com>
+Subject: [PATCH v3] Enable tx timestamping on loopback and dummy
+Date: Sun, 12 Mar 2017 21:52:32 +0000
+Message-ID: <20170312215231.GA10928@u480fcf44e5b8574c5490.ant.amazon.com>
+References: <20170311144224.GA21305@u480fcf44e5b8574c5490.ant.amazon.com>
+ <13e4b635-089d-fb4b-4d73-62b807bb86e8@hartkopp.net>
+ <20170312163000.GA1649@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-fw-33001.amazon.com ([207.171.190.10]:14459 "EHLO
+        smtp-fw-33001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935498AbdCLVwd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 17:52:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20170312163000.GA1649@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+>From f3483202625648be728df39622360508f2fb03e1 Mon Sep 17 00:00:00 2001
+From: Ezequiel Lara Gomez <ezegomez@amazon.com>
+Date: Sat, 11 Mar 2017 20:06:54 +0000
+Subject: [PATCH v3] Enable tx timestamping on loopback and dummy
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+This enables testing of SO_TIMESTAMPING options by targetting localhost
+addresses.
+
+Tested on qemu using txtimestamping.c from the kernel selftests, and
+ethtool -T.
 ---
- drivers/net/usb/r8152.c |   21 ++++++++++++---------
- 1 files changed, 12 insertions(+), 9 deletions(-)
+Changes:
+ * Added ethtool flags to both drivers to report they support timestamping.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 986243c..227e1fd 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3800,7 +3800,8 @@ static void rtl8152_get_drvinfo(struct net_device *netdev,
+ drivers/net/dummy.c    | 15 +++++++++++++++
+ drivers/net/loopback.c | 15 +++++++++++++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 2c80611..149244a 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -35,6 +35,7 @@
+ #include <linux/init.h>
+ #include <linux/moduleparam.h>
+ #include <linux/rtnetlink.h>
++#include <linux/net_tstamp.h>
+ #include <net/rtnetlink.h>
+ #include <linux/u64_stats_sync.h>
+ 
+@@ -125,6 +126,7 @@ static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	dstats->tx_bytes += skb->len;
+ 	u64_stats_update_end(&dstats->syncp);
+ 
++	skb_tx_timestamp(skb);
+ 	dev_kfree_skb(skb);
+ 	return NETDEV_TX_OK;
+ }
+@@ -304,8 +306,21 @@ static void dummy_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
  }
  
- static
--int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
-+int rtl8152_get_link_ksettings(struct net_device *netdev,
-+			       struct ethtool_link_ksettings *cmd)
- {
- 	struct r8152 *tp = netdev_priv(netdev);
- 	int ret;
-@@ -3814,7 +3815,7 @@ int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
- 
- 	mutex_lock(&tp->control);
- 
--	ret = mii_ethtool_gset(&tp->mii, cmd);
-+	ret = mii_ethtool_get_link_ksettings(&tp->mii, cmd);
- 
- 	mutex_unlock(&tp->control);
- 
-@@ -3824,7 +3825,8 @@ int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
- 	return ret;
- }
- 
--static int rtl8152_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int rtl8152_set_link_ksettings(struct net_device *dev,
-+				      const struct ethtool_link_ksettings *cmd)
- {
- 	struct r8152 *tp = netdev_priv(dev);
- 	int ret;
-@@ -3835,11 +3837,12 @@ static int rtl8152_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 
- 	mutex_lock(&tp->control);
- 
--	ret = rtl8152_set_speed(tp, cmd->autoneg, cmd->speed, cmd->duplex);
-+	ret = rtl8152_set_speed(tp, cmd->base.autoneg, cmd->base.speed,
-+				cmd->base.duplex);
- 	if (!ret) {
--		tp->autoneg = cmd->autoneg;
--		tp->speed = cmd->speed;
--		tp->duplex = cmd->duplex;
-+		tp->autoneg = cmd->base.autoneg;
-+		tp->speed = cmd->base.speed;
-+		tp->duplex = cmd->base.duplex;
- 	}
- 
- 	mutex_unlock(&tp->control);
-@@ -4117,8 +4120,6 @@ static int rtl8152_set_coalesce(struct net_device *netdev,
- 
- static const struct ethtool_ops ops = {
- 	.get_drvinfo = rtl8152_get_drvinfo,
--	.get_settings = rtl8152_get_settings,
--	.set_settings = rtl8152_set_settings,
- 	.get_link = ethtool_op_get_link,
- 	.nway_reset = rtl8152_nway_reset,
- 	.get_msglevel = rtl8152_get_msglevel,
-@@ -4132,6 +4133,8 @@ static int rtl8152_set_coalesce(struct net_device *netdev,
- 	.set_coalesce = rtl8152_set_coalesce,
- 	.get_eee = rtl_ethtool_get_eee,
- 	.set_eee = rtl_ethtool_set_eee,
-+	.get_link_ksettings = rtl8152_get_link_ksettings,
-+	.set_link_ksettings = rtl8152_set_link_ksettings,
++static int dummy_get_ts_info(struct net_device *dev,
++			      struct ethtool_ts_info *ts_info)
++{
++	ts_info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
++				   SOF_TIMESTAMPING_RX_SOFTWARE |
++				   SOF_TIMESTAMPING_SOFTWARE;
++
++	ts_info->phc_index = -1;
++
++	return 0;
++};
++
+ static const struct ethtool_ops dummy_ethtool_ops = {
+ 	.get_drvinfo            = dummy_get_drvinfo,
++	.get_ts_info		= dummy_get_ts_info,
  };
  
- static int rtl8152_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ static void dummy_free_netdev(struct net_device *dev)
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 122cc2d..3a60d27 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -55,6 +55,7 @@
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
+ #include <linux/percpu.h>
++#include <linux/net_tstamp.h>
+ #include <net/net_namespace.h>
+ #include <linux/u64_stats_sync.h>
+ 
+@@ -74,6 +75,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 	struct pcpu_lstats *lb_stats;
+ 	int len;
+ 
++	skb_tx_timestamp(skb);
+ 	skb_orphan(skb);
+ 
+ 	/* Before queueing this packet to netif_rx(),
+@@ -129,8 +131,21 @@ static u32 always_on(struct net_device *dev)
+ 	return 1;
+ }
+ 
++static int loopback_get_ts_info(struct net_device *netdev,
++				struct ethtool_ts_info *ts_info)
++{
++	ts_info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
++				   SOF_TIMESTAMPING_RX_SOFTWARE |
++				   SOF_TIMESTAMPING_SOFTWARE;
++
++	ts_info->phc_index = -1;
++
++	return 0;
++};
++
+ static const struct ethtool_ops loopback_ethtool_ops = {
+ 	.get_link		= always_on,
++	.get_ts_info		= loopback_get_ts_info,
+ };
+ 
+ static int loopback_dev_init(struct net_device *dev)
 -- 
-1.7.4.4
+1.9.1
+
+Amazon Data Services Ireland Limited registered office: One Burlington Plaza, Burlington Road, Dublin 4, Ireland. Registered in Ireland. Registration number 390566.
