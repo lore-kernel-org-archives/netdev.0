@@ -1,396 +1,406 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH RFC iproute v1 3/4] afnetns: introduce lib/afnetns.c and a name cache
-Date: Mon, 13 Mar 2017 00:01:37 +0100
-Message-ID: <20170312230138.5096-4-hannes@stressinduktion.org>
+Subject: [PATCH RFC iproute v1 1/4] afnetns: add iproute bits for afnetns
+Date: Mon, 13 Mar 2017 00:01:35 +0100
+Message-ID: <20170312230138.5096-2-hannes@stressinduktion.org>
 References: <20170312230138.5096-1-hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47078 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:42994 "EHLO
         out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935422AbdCLXBr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:01:47 -0400
+        by vger.kernel.org with ESMTP id S935487AbdCLXBq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:01:46 -0400
 Received: from compute7.internal (compute7.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id BAB2D20682
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:45 -0400 (EDT)
+        by mailout.nyi.internal (Postfix) with ESMTP id B8EDC20638
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:43 -0400 (EDT)
 Received: from m.localhost.localhost (unknown [213.55.211.72])
-        by mail.messagingengine.com (Postfix) with ESMTPA id 084A7240CF
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:44 -0400 (EDT)
+        by mail.messagingengine.com (Postfix) with ESMTPA id 825B8240CF
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:42 -0400 (EDT)
 In-Reply-To: <20170312230138.5096-1-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a name cache for afnetns, so we don't need to scan the
-inodes all the same again. This speeds up address list in case of many
-configured afnetns and ip addresses.
+Like ip netns, ip afnetns ... provides the basic utility features to
+create, delete afnet namespaces and execute commands inside afnetns.
 
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/afnetns.h   |   6 ++
- include/namespace.h |   3 -
- ip/ipaddress.c      |  12 ++-
- ip/ipafnetns.c      |   1 +
- lib/Makefile        |   2 +-
- lib/afnetns.c       | 226 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- lib/namespace.c     |  21 -----
- 7 files changed, 243 insertions(+), 28 deletions(-)
- create mode 100644 include/afnetns.h
- create mode 100644 lib/afnetns.c
+ include/namespace.h |   5 ++
+ include/utils.h     |   1 +
+ ip/Makefile         |   2 +-
+ ip/ip.c             |   5 +-
+ ip/ip_common.h      |   1 +
+ ip/ipafnetns.c      | 227 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/utils.c         |  36 +++++++++
+ 7 files changed, 274 insertions(+), 3 deletions(-)
+ create mode 100644 ip/ipafnetns.c
 
-diff --git a/include/afnetns.h b/include/afnetns.h
-new file mode 100644
-index 00000000000000..287bcb6153611b
---- /dev/null
-+++ b/include/afnetns.h
-@@ -0,0 +1,6 @@
-+#pragma once
-+
-+#define AFNETNS_RUN_DIR "/var/run/afnetns"
-+
-+int afnetns_open(const char *name);
-+char *afnetns_lookup_name(ino_t inode);
 diff --git a/include/namespace.h b/include/namespace.h
-index e0745ab0b50972..8193e474a75f98 100644
+index 51324b21ba0cd5..acecc8c1f0d2b8 100644
 --- a/include/namespace.h
 +++ b/include/namespace.h
-@@ -7,7 +7,6 @@
+@@ -7,6 +7,7 @@
  #include <sys/syscall.h>
  #include <errno.h>
  
--#define AFNETNS_RUN_DIR "/var/run/afnetns"
++#define AFNETNS_RUN_DIR "/var/run/afnetns"
  #define NETNS_RUN_DIR "/var/run/netns"
  #define NETNS_ETC_DIR "/etc/netns"
  
-@@ -52,8 +51,6 @@ int netns_switch(char *netns);
- int netns_get_fd(const char *netns);
- int netns_foreach(int (*func)(char *nsname, void *arg), void *arg);
+@@ -14,6 +15,10 @@
+ #define CLONE_NEWNET 0x40000000	/* New network namespace (lo, device, names sockets, etc) */
+ #endif
  
--int afnetns_open(const char *name);
--
- struct netns_func {
- 	int (*func)(char *nsname, void *arg);
- 	void *arg;
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 2994b6a3e0a154..d954f3ea5bff40 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -38,6 +38,7 @@
- #include "xdp.h"
- #include "color.h"
- #include "namespace.h"
-+#include "afnetns.h"
- 
- enum {
- 	IPADD_LIST,
-@@ -1004,7 +1005,7 @@ static int afnetns_get_fd(const char *name)
- {
- 	int ns = -1;
- 
--	if (name[0] == '/')
-+	if (strnlen(name, 1) && name[0] == '/')
- 		ns = open(name, O_RDONLY | O_CLOEXEC);
- 	else
- 		ns = afnetns_open(name);
-@@ -1219,8 +1220,13 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 		}
- 	}
- 	if (rta_tb[IFA_AFNETNS_INODE]) {
--		fprintf(fp, " afnet:[%u]",
--			rta_getattr_u32(rta_tb[IFA_AFNETNS_INODE]));
-+		ino_t inode;
-+		char *name;
++#ifndef CLONE_NEWAFNET
++#define CLONE_NEWAFNET	0x00001000	/* Clone new afnet context */
++#endif
 +
-+		inode = rta_getattr_u32(rta_tb[IFA_AFNETNS_INODE]);
-+		name = afnetns_lookup_name(inode);
-+		if (name)
-+			fprintf(fp, " afnet %s", name);
- 	}
- 	fprintf(fp, "\n");
- brief_exit:
+ #ifndef MNT_DETACH
+ #define MNT_DETACH	0x00000002	/* Just detach from the tree */
+ #endif /* MNT_DETACH */
+diff --git a/include/utils.h b/include/utils.h
+index 22369e0b4e0374..59fdd76b502b3c 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -256,6 +256,7 @@ int do_each_netns(int (*func)(char *nsname, void *arg), void *arg,
+ char *int_to_str(int val, char *buf);
+ int get_guid(__u64 *guid, const char *arg);
+ int get_real_family(int rtm_type, int rtm_family);
++int cmd_exec(const char *cmd, char **argv, bool do_fork);
+ 
+ int cmd_exec(const char *cmd, char **argv, bool do_fork);
+ int make_path(const char *path, mode_t mode);
+diff --git a/ip/Makefile b/ip/Makefile
+index 4276a34b529e3f..4da6f33968ffe1 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -8,7 +8,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
+     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o \
+     iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o \
+     iplink_geneve.o iplink_vrf.o iproute_lwtunnel.o ipmacsec.o ipila.o \
+-    ipvrf.o iplink_xstats.o
++    ipvrf.o iplink_xstats.o ipafnetns.o
+ 
+ RTMONOBJ=rtmon.o
+ 
+diff --git a/ip/ip.c b/ip/ip.c
+index 07050b07592ac1..6aa8aaab4c03f9 100644
+--- a/ip/ip.c
++++ b/ip/ip.c
+@@ -51,8 +51,8 @@ static void usage(void)
+ "       ip [ -force ] -batch filename\n"
+ "where  OBJECT := { link | address | addrlabel | route | rule | neigh | ntable |\n"
+ "                   tunnel | tuntap | maddress | mroute | mrule | monitor | xfrm |\n"
+-"                   netns | l2tp | fou | macsec | tcp_metrics | token | netconf | ila |\n"
+-"                   vrf }\n"
++"                   netns | afnetns | l2tp | fou | macsec | tcp_metrics | token |\n"
++"                   netconf | ila | vrf }\n"
+ "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
+ "                    -h[uman-readable] | -iec |\n"
+ "                    -f[amily] { inet | inet6 | ipx | dnet | mpls | bridge | link } |\n"
+@@ -99,6 +99,7 @@ static const struct cmd {
+ 	{ "mroute",	do_multiroute },
+ 	{ "mrule",	do_multirule },
+ 	{ "netns",	do_netns },
++	{ "afnetns",	do_afnetns },
+ 	{ "netconf",	do_ipnetconf },
+ 	{ "vrf",	do_ipvrf},
+ 	{ "help",	do_help },
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index 5a39623aa21d9f..1f59db40038ef2 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -50,6 +50,7 @@ int do_multiaddr(int argc, char **argv);
+ int do_multiroute(int argc, char **argv);
+ int do_multirule(int argc, char **argv);
+ int do_netns(int argc, char **argv);
++int do_afnetns(int argc, char **argv);
+ int do_xfrm(int argc, char **argv);
+ int do_ipl2tp(int argc, char **argv);
+ int do_ipfou(int argc, char **argv);
 diff --git a/ip/ipafnetns.c b/ip/ipafnetns.c
-index 5a197ad3866d18..2fd749a3f20628 100644
---- a/ip/ipafnetns.c
-+++ b/ip/ipafnetns.c
-@@ -7,6 +7,7 @@
- #include "utils.h"
- #include "ip_common.h"
- #include "namespace.h"
-+#include "afnetns.h"
- 
- static void usage(void)
- {
-diff --git a/lib/Makefile b/lib/Makefile
-index 1d24ca24b9a39f..7825021ea3cfa8 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -8,7 +8,7 @@ CFLAGS += -fPIC
- 
- UTILOBJ = utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o \
- 	inet_proto.o namespace.o json_writer.o \
--	names.o color.o bpf.o exec.o fs.o
-+	names.o color.o bpf.o exec.o fs.o afnetns.o
- 
- NLOBJ=libgenl.o ll_map.o libnetlink.o
- 
-diff --git a/lib/afnetns.c b/lib/afnetns.c
 new file mode 100644
-index 00000000000000..d58a55df46daa7
+index 00000000000000..5b7a7e59bc947a
 --- /dev/null
-+++ b/lib/afnetns.c
-@@ -0,0 +1,226 @@
-+#include <stdlib.h>
-+#include <stdio.h>
-+#include <stdbool.h>
-+#include <string.h>
-+#include <errno.h>
-+#include <limits.h>
-+
++++ b/ip/ipafnetns.c
+@@ -0,0 +1,227 @@
 +#include <sys/types.h>
 +#include <sys/stat.h>
-+
++#include <stdio.h>
 +#include <dirent.h>
-+#include <unistd.h>
 +#include <fcntl.h>
 +
-+#include <math.h>
++#include "utils.h"
++#include "ip_common.h"
++#include "namespace.h"
 +
-+#include "list.h"
-+#include "afnetns.h"
-+
-+#define ULONG_CHARS ((int)ceill(log10l(ULONG_MAX)))
-+
-+static struct inode_cache {
-+	struct inode_cache *next;
-+	ino_t inode;
-+	char name[];
-+} *cache[64];
-+
-+static int self_inode(ino_t *me)
++static void usage(void)
 +{
-+	static bool initialized;
-+	static ino_t inode;
-+	long path_size;
++	static const char *help =
++		"Usage: ip afnetns list\n"
++		"       ip afnetns add NAME\n"
++		"       ip afnetns del NAME\n"
++		"       ip afnetns exec NAME cmd ...\n";
++	fputs(help, stderr);
++}
++
++static int afnetns_list(void)
++{
++	struct dirent *entry;
++	DIR *dir;
++
++	dir = opendir(AFNETNS_RUN_DIR);
++	if (!dir)
++		return 0;
++
++	while ((entry = readdir(dir))) {
++		if (!strcmp(entry->d_name, ".") ||
++		    !strcmp(entry->d_name, ".."))
++			continue;
++		printf("%s\n", entry->d_name);
++	}
++	closedir(dir);
++
++	return 0;
++}
++
++static int create_afnetns_dir(void)
++{
++	int err;
++	const mode_t mode = S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
++
++	err = mkdir(AFNETNS_RUN_DIR, mode);
++	if (!err || errno == EEXIST)
++		return 0;
++
++	fprintf(stderr, "Could not create afnet run dir \"%s\": %s\n",
++		AFNETNS_RUN_DIR, strerror(errno));
++	return err;
++}
++
++static int afnetns_delete(int argc, char **argv)
++{
++	const char *name;
 +	char *path;
 +	int err;
 +
-+	if (initialized) {
-+		*me = inode;
-+		return 0;
-+	}
-+
-+	errno = 0;
-+	path_size = pathconf("/proc/self/ns/afnet", _PC_PATH_MAX);
-+	if (path_size < 0) {
-+		if (errno)
-+			perror("pathconf");
-+		else
-+			fprintf(stderr,
-+				"couldn't determine _PC_PATH_MAX for procfs: %zd\n",
-+				path_size);
++	if (argc < 1) {
++		fputs("No afnetns name specified\n", stderr);
 +		return -1;
 +	}
 +
-+	path = malloc(path_size);
-+	if (!path) {
-+		perror("malloc");
-+		return -1;
-+	}
-+
-+	err = readlink("/proc/self/ns/afnet", path, path_size);
++	name = argv[0];
++	err = asprintf(&path, "%s/%s", AFNETNS_RUN_DIR, name);
 +	if (err < 0) {
-+		perror("readlink");
-+		goto out;
-+	} else if (err >= path_size) {
-+		fprintf(stderr, "readlink(\"/proc/self/ns/afnet\") exceeded maximum path length: %d >= %ld",
-+			err, path_size);
-+		err = -1;
-+		goto out;
-+	}
-+	path[err] = '\0';
-+
-+	if (sscanf(path, "afnet:[%lu]", &inode) != 1) {
-+		perror("sscanf");
-+		err = -1;
-+		goto out;
++		perror("asprintf");
++		return err;
 +	}
 +
-+	initialized = true;
-+	*me = inode;
-+	err = 0;
++	err = umount2(path, MNT_DETACH);
++	if (err)
++		fprintf(stderr, "Cannot umount afnet namespace file \"%s\": %s\n",
++			path, strerror(errno));
++
++	err = unlink(path);
++	if (err) {
++		fprintf(stderr, "Cannot remove afnet namespace file \"%s\": %s\n",
++			path, strerror(errno));
++		goto out;
++	}
++
 +out:
 +	free(path);
 +	return err;
 +}
 +
-+static struct inode_cache **lookup_node(ino_t inode)
++static int afnetns_add(int argc, char **argv)
 +{
-+	struct inode_cache **node;
-+
-+	node = cache + (inode & 63);
-+	while (*node && node[0]->inode != inode)
-+		node = &node[0]->next;
-+
-+	return node;
-+}
-+
-+static void fill_cache(void)
-+{
-+	struct dirent *ent;
-+	ino_t me;
-+	DIR *dir;
-+
-+	if (self_inode(&me))
-+		return;
-+
-+	dir = opendir(AFNETNS_RUN_DIR);
-+	if (!dir)
-+		return;
-+
-+	errno = 0;
-+	while ((ent = readdir(dir))) {
-+		struct inode_cache **node;
-+		struct stat buf;
-+		ino_t inode;
-+		bool self;
-+		char *end;
-+		int fd;
-+
-+		if (!strcmp(ent->d_name, ".") ||
-+		    !strcmp(ent->d_name, ".."))
-+			continue;
-+
-+		fd = dirfd(dir);
-+		if (fd < 0) {
-+			perror("dirfd");
-+			continue;
-+		}
-+
-+		if (fstatat(fd, ent->d_name, &buf, 0)) {
-+			perror("fstatat");
-+			continue;
-+		}
-+
-+		inode = buf.st_ino;
-+		self = me == inode;
-+
-+		node = lookup_node(inode);
-+		if (*node)
-+			continue;
-+
-+		*node = malloc(sizeof(**node)
-+			       + strlen(ent->d_name)
-+			       + (self ? strlen(",self") : 0)
-+			       + 1);
-+		if (!*node)
-+			continue;
-+
-+		node[0]->next = NULL;
-+		node[0]->inode = inode;
-+		end  = stpcpy(node[0]->name, ent->d_name);
-+		if (self)
-+			strcpy(end, ",self");
-+
-+		errno = 0;
-+	}
-+
-+	if (errno)
-+		perror("readdir");
-+
-+	if (closedir(dir))
-+		perror("closedir");
-+}
-+
-+static char *lookup_cache(ino_t inode)
-+{
-+	struct inode_cache **node;
-+	bool self;
-+	ino_t me;
-+
-+	node = lookup_node(inode);
-+	if (*node)
-+		return node[0]->name;
-+
-+	if (self_inode(&me))
-+		return NULL;
-+
-+	self = me == inode;
-+
-+	*node = malloc(sizeof(**node) + ULONG_CHARS + strlen("afnet:[]") + 1 +
-+		       (self ? strlen(",self") : 0));
-+	if (!*node)
-+		return NULL;
-+
-+	if (sprintf(node[0]->name, "afnet:[%lu]%s", inode, self ? ",self" : "") < 0) {
-+		free(*node);
-+		*node = NULL;
-+		return NULL;
-+	}
-+
-+	node[0]->next = NULL;
-+	node[0]->inode = inode;
-+	return node[0]->name;
-+}
-+
-+char *afnetns_lookup_name(ino_t inode)
-+{
-+	static bool initialized = false;
-+
-+	if (!initialized) {
-+		fill_cache();
-+		initialized = true;
-+	}
-+
-+	return lookup_cache(inode);
-+}
-+
-+int afnetns_open(const char *name)
-+{
-+	int ns;
++	const char *name;
++	int err, fd;
 +	char *path;
 +
-+	ns = asprintf(&path, "%s/%s", AFNETNS_RUN_DIR, name);
-+	if (ns < 0) {
++	if (argc < 1) {
++		fputs("No afnetns name specified\n", stderr);
++		return -1;
++	}
++
++	err = create_afnetns_dir();
++	if (err)
++		return err;
++
++	name = argv[0];
++	err = asprintf(&path, "%s/%s", AFNETNS_RUN_DIR, name);
++	if (err < 0) {
 +		perror("asprintf");
-+		return ns;
++		return err;
++	}
++
++	fd = open(path, O_RDONLY|O_CREAT|O_EXCL, 0);
++	if (fd < 0) {
++		err = fd;
++		fprintf(stderr, "Cannot create afnetns file \"%s\": %s\n",
++			path, strerror(errno));
++		goto out;
++	}
++	err = close(fd);
++	if (err) {
++		perror("close");
++		goto out;
++	}
++
++	err = unshare(CLONE_NEWAFNET);
++	if (err < 0) {
++		fprintf(stderr, "Failed to create a new afnet namesapce \"%s\": %s\n",
++			name, strerror(errno));
++		goto out;
++	}
++
++	err = mount("/proc/self/ns/afnet", path, "none", MS_BIND, NULL);
++	if (err < 0) {
++		fprintf(stderr, "Bind /proc/self/ns/afnet -> %s failed: %s\n",
++			path, strerror(errno));
++		goto out_delete;
++	}
++
++	err = 0;
++out:
++	free(path);
++	return err;
++out_delete:
++	afnetns_delete(argc, argv);
++	goto out;
++}
++
++static int afnetns_switch(const char *name)
++{
++	int err, ns;
++	char *path;
++
++	err = asprintf(&path, "%s/%s", AFNETNS_RUN_DIR, name);
++	if (err < 0) {
++		perror("asprintf");
++		return err;
 +	};
 +
 +	ns = open(path, O_RDONLY | O_CLOEXEC);
 +	if (ns < 0) {
 +		fprintf(stderr, "Cannot open afnet namespace \"%s\": %s\n",
 +			name, strerror(errno));
++		err = ns;
++		goto out;
 +	}
 +
++	err = setns(ns, CLONE_NEWAFNET);
++	if (err) {
++		fprintf(stderr, "setting the afnet namespace \"%s\" failed: %s\n",
++			name, strerror(errno));
++		goto out;
++	}
++	err = close(ns);
++	if (err) {
++		perror("close");
++		goto out;
++	}
++
++out:
 +	free(path);
-+	return ns;
++	return err;
 +}
 +
-diff --git a/lib/namespace.c b/lib/namespace.c
-index f20e5b6ef5a3ef..30b513889e6e24 100644
---- a/lib/namespace.c
-+++ b/lib/namespace.c
-@@ -124,24 +124,3 @@ int netns_foreach(int (*func)(char *nsname, void *arg), void *arg)
- 	closedir(dir);
- 	return 0;
++static int afnetns_exec(int argc, char **argv)
++{
++	const char *cmd;
++	int err;
++
++	if (argc < 2) {
++		fputs("No netns name and or commands specified\n", stderr);
++		return -1;
++	}
++
++	err = afnetns_switch(argv[0]);
++	if (err)
++		return err;
++
++	cmd = argv[1];
++	return -cmd_exec(cmd, argv + 1, !!batch_mode);
++}
++
++int do_afnetns(int argc, char **argv)
++{
++	if (argc < 1)
++		return afnetns_list();
++
++	if (!matches(*argv, "help")) {
++		usage();
++		return 0;
++	}
++
++	if (!matches(*argv, "list") || !matches(*argv, "show") ||
++	    !matches(*argv, "lst"))
++		return afnetns_list();
++
++	if (!matches(*argv, "add"))
++		return afnetns_add(argc-1, argv+1);
++
++	if (!matches(*argv, "delete"))
++		return afnetns_delete(argc-1, argv+1);
++
++	if (!matches(*argv, "exec"))
++		return afnetns_exec(argc-1, argv+1);
++
++	fprintf(stderr, "Command \"%s\" is unkown, try \"ip afnetns help\".\n", *argv);
++	return -1;
++}
+diff --git a/lib/utils.c b/lib/utils.c
+index 6d5642f4f1f3fa..d80618f7c485a4 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -17,7 +17,9 @@
+ #include <syslog.h>
+ #include <fcntl.h>
+ #include <limits.h>
++#include <sys/types.h>
+ #include <sys/socket.h>
++#include <sys/wait.h>
+ #include <netinet/in.h>
+ #include <string.h>
+ #include <netdb.h>
+@@ -1214,3 +1216,37 @@ int get_real_family(int rtm_type, int rtm_family)
+ 
+ 	return rtm_family == RTNL_FAMILY_IPMR ? AF_INET : AF_INET6;
  }
--
--int afnetns_open(const char *name)
--{
--	int ns;
--	char *path;
--
--	ns = asprintf(&path, "%s/%s", AFNETNS_RUN_DIR, name);
--	if (ns < 0) {
--		perror("asprintf");
--		return ns;
--	};
--
--	ns = open(path, O_RDONLY | O_CLOEXEC);
--	if (ns < 0) {
--		fprintf(stderr, "Cannot open afnet namespace \"%s\": %s\n",
--			name, strerror(errno));
--	}
--
--	free(path);
--	return ns;
--}
++
++int cmd_exec(const char *cmd, char **argv, bool do_fork)
++{
++	fflush(stdout);
++	if (do_fork) {
++		int status;
++		pid_t pid;
++
++		pid = fork();
++		if (pid < 0) {
++			perror("fork");
++			exit(1);
++		}
++
++		if (pid != 0) {
++			/* Parent  */
++			if (waitpid(pid, &status, 0) < 0) {
++				perror("waitpid");
++				exit(1);
++			}
++
++			if (WIFEXITED(status)) {
++				return WEXITSTATUS(status);
++			}
++
++			exit(1);
++		}
++	}
++
++	if (execvp(cmd, argv)  < 0)
++		fprintf(stderr, "exec of \"%s\" failed: %s\n",
++				cmd, strerror(errno));
++	_exit(1);
++}
 -- 
 2.9.3
