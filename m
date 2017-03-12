@@ -1,21 +1,37 @@
-From: "Teresa Au" <au@dragon.ccut.edu.tw>
-Subject: Proposal...
-Date: Sat, 11 Mar 2017 18:34:18 +0800
-Message-ID: <20170311103748.M74463@dragon.ccut.edu.tw>
-Reply-To: ms_teresa_au001@outlook.com
-Mime-Version: 1.0
-Content-Type: text/plain;
-        charset=big5
-To: unlisted-recipients:; (no To-header on input)
+From: Zhu Yanjun <yanjun.zhu@oracle.com>
+Subject: [PATCH 1/1] r8169: replace init_timer with setup_timer
+Date: Sun, 12 Mar 2017 05:02:54 -0400
+Message-ID: <1489309374-1979-1-git-send-email-yanjun.zhu@oracle.com>
+To: nic_swsd@realtek.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgates.ccut.edu.tw ([163.23.234.39]:35388 "HELO
-        mailgates.ccut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with SMTP id S1755049AbdCLI3B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 04:29:01 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:46635 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755303AbdCLJDc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 05:03:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Replace init_timer with setup_timer to simplify the source code.
 
+Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Personal Business proposal for you,contact me via my personal E-mail for more detail's: 
-ms_teresa_au30@outlook.com
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 81f18a8..44cc422 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -8444,9 +8444,7 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	tp->opts1_mask = (tp->mac_version != RTL_GIGA_MAC_VER_01) ?
+ 		~(RxBOVF | RxFOVF) : ~0;
+ 
+-	init_timer(&tp->timer);
+-	tp->timer.data = (unsigned long) dev;
+-	tp->timer.function = rtl8169_phy_timer;
++	setup_timer(&tp->timer, rtl8169_phy_timer, (unsigned long)dev);
+ 
+ 	tp->rtl_fw = RTL_FIRMWARE_UNKNOWN;
+ 
+-- 
+2.7.4
