@@ -1,141 +1,186 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next RFC v1 23/27] afnetns: use user_ns from afnetns for checking for binding to port < 1024
-Date: Mon, 13 Mar 2017 00:01:47 +0100
-Message-ID: <20170312230151.5185-24-hannes@stressinduktion.org>
+Subject: [PATCH net-next RFC v1 27/27] afnetns: allow only whitelisted protocols to operate inside afnetns
+Date: Mon, 13 Mar 2017 00:01:51 +0100
+Message-ID: <20170312230151.5185-28-hannes@stressinduktion.org>
 References: <20170312230151.5185-1-hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39683 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55858 "EHLO
         out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935675AbdCLXCW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:02:22 -0400
+        by vger.kernel.org with ESMTP id S935686AbdCLXCY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:02:24 -0400
 Received: from compute7.internal (compute7.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id E5AE8206F7
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:14 -0400 (EDT)
+        by mailout.nyi.internal (Postfix) with ESMTP id C193E20769
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:17 -0400 (EDT)
 Received: from m.localhost.localhost (unknown [213.55.211.72])
-        by mail.messagingengine.com (Postfix) with ESMTPA id 58C0E240CF
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:14 -0400 (EDT)
+        by mail.messagingengine.com (Postfix) with ESMTPA id 3433B2423E
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:17 -0400 (EDT)
 In-Reply-To: <20170312230151.5185-1-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We only care about inet protocols (which is IPv4 and IPv6). Other
+protocols, like netlink are not under control of afnetns and thus must
+be hardened with capabilities.
+
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/inet_common.h |  2 +-
- net/ipv4/af_inet.c        | 37 ++++++++++++++++++++++---------------
- net/ipv6/af_inet6.c       |  2 +-
- 3 files changed, 24 insertions(+), 17 deletions(-)
+ include/net/protocol.h |  1 +
+ net/ipv4/af_inet.c     | 20 +++++++++++++++-----
+ net/ipv4/udplite.c     |  3 ++-
+ net/ipv6/af_inet6.c    | 14 +++++++++++---
+ net/ipv6/tcp_ipv6.c    |  3 ++-
+ net/ipv6/udp.c         |  3 ++-
+ net/ipv6/udplite.c     |  3 ++-
+ 7 files changed, 35 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-index 4ac8229dca6af4..16dfbb02296be6 100644
---- a/include/net/inet_common.h
-+++ b/include/net/inet_common.h
-@@ -30,7 +30,7 @@ int inet_shutdown(struct socket *sock, int how);
- int inet_listen(struct socket *sock, int backlog);
- void inet_sock_destruct(struct sock *sk);
- int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
--int inet_allow_bind(struct sock *sk, __be32 addr);
-+int inet_allow_bind(struct sock *sk, __be32 addr, unsigned short snum);
- int inet_getname(struct socket *sock, struct sockaddr *uaddr, int *uaddr_len,
- 		 int peer);
- int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index bf36ca34af7ad2..7b64f71b16ccc0 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -91,6 +91,7 @@ struct inet_protosw {
+ #define INET_PROTOSW_REUSE 0x01	     /* Are ports automatically reusable? */
+ #define INET_PROTOSW_PERMANENT 0x02  /* Permanent protocols are unremovable. */
+ #define INET_PROTOSW_ICSK      0x04  /* Is this an inet_connection_sock? */
++#define INET_PROTOSW_AFNETNS_OK 0x08 /* Is this proto afnetns compatible? */
+ 
+ extern const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS];
+ extern const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS];
 diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 5f11399bafd16f..da7e6299073743 100644
+index da7e6299073743..1eb8a8ea49f56c 100644
 --- a/net/ipv4/af_inet.c
 +++ b/net/ipv4/af_inet.c
-@@ -428,12 +428,14 @@ int inet_release(struct socket *sock)
- }
- EXPORT_SYMBOL(inet_release);
+@@ -302,14 +302,22 @@ static int inet_create(struct net *net, struct socket *sock, int protocol,
+ 			goto out_rcu_unlock;
+ 	}
  
--int inet_allow_bind(struct sock *sk, __be32 addr)
-+int inet_allow_bind(struct sock *sk, __be32 addr, unsigned short snum)
- {
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct net *net = sock_net(sk);
-+	struct afnetns *afnetns = NULL;
- 	u32 tb_id = RT_TABLE_LOCAL;
- 	int chk_addr_ret;
-+	int err = 0;
- 
- 	tb_id = l3mdev_fib_table_by_index(net, sk->sk_bound_dev_if) ? : tb_id;
- 	chk_addr_ret = inet_addr_type_table(net, addr, tb_id);
-@@ -453,18 +455,29 @@ int inet_allow_bind(struct sock *sk, __be32 addr)
- 	    chk_addr_ret != RTN_BROADCAST)
- 		return -EADDRNOTAVAIL;
- 
-+	rcu_read_lock();
- 	if (chk_addr_ret == RTN_LOCAL &&
- 	    net_afnetns(net) != sock_afnetns(sk)) {
--		struct afnetns *afnetns;
--
--		rcu_read_lock();
- 		afnetns = ifa_find_afnetns_rcu(net, addr);
- 		if (afnetns != sock_afnetns(sk))
--			chk_addr_ret = -EADDRNOTAVAIL;
--		rcu_read_unlock();
-+			err = -EADDRNOTAVAIL;
-+	}
++	sock->ops = answer->ops;
++	answer_prot = answer->prot;
++	answer_flags = answer->flags;
 +
-+	if (!err && snum && snum < inet_prot_sock(net)) {
-+		struct user_namespace *user_ns;
-+
+ 	err = -EPERM;
+ 	if (sock->type == SOCK_RAW && !kern &&
+ 	    !ns_capable(net->user_ns, CAP_NET_RAW))
+ 		goto out_rcu_unlock;
+ 
+-	sock->ops = answer->ops;
+-	answer_prot = answer->prot;
+-	answer_flags = answer->flags;
 +#if IS_ENABLED(CONFIG_AFNETNS)
-+		user_ns = afnetns ? afnetns->user_ns : net->user_ns;
-+#else
-+		user_ns = net->user_ns;
++	if (unlikely(!kern &&
++		     current->nsproxy->afnet_ns != net->afnet_ns &&
++		     !(answer_flags & INET_PROTOSW_AFNETNS_OK)))
++		goto out_rcu_unlock;
 +#endif
-+		if (!ns_capable(user_ns, CAP_NET_BIND_SERVICE))
-+			err = -EACCES;
- 	}
- 
--	return chk_addr_ret;
-+	rcu_read_unlock();
 +
-+	return err;
- }
- EXPORT_SYMBOL(inet_allow_bind);
+ 	rcu_read_unlock();
  
-@@ -473,7 +486,6 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	struct sockaddr_in *addr = (struct sockaddr_in *)uaddr;
- 	struct sock *sk = sock->sk;
- 	struct inet_sock *inet = inet_sk(sk);
--	struct net *net = sock_net(sk);
- 	unsigned short snum;
- 	int chk_addr_ret;
- 	int err;
-@@ -497,18 +509,13 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			goto out;
- 	}
+ 	WARN_ON(!answer_prot->slab);
+@@ -1060,7 +1068,8 @@ static struct inet_protosw inetsw_array[] =
+ 		.prot =       &tcp_prot,
+ 		.ops =        &inet_stream_ops,
+ 		.flags =      INET_PROTOSW_PERMANENT |
+-			      INET_PROTOSW_ICSK,
++			      INET_PROTOSW_ICSK |
++			      INET_PROTOSW_AFNETNS_OK,
+ 	},
  
--	chk_addr_ret = inet_allow_bind(sk, addr->sin_addr.s_addr);
-+	snum = ntohs(addr->sin_port);
-+	chk_addr_ret = inet_allow_bind(sk, addr->sin_addr.s_addr, snum);
- 	if (chk_addr_ret < 0) {
- 		err = chk_addr_ret;
- 		goto out;
- 	}
+ 	{
+@@ -1068,7 +1077,8 @@ static struct inet_protosw inetsw_array[] =
+ 		.protocol =   IPPROTO_UDP,
+ 		.prot =       &udp_prot,
+ 		.ops =        &inet_dgram_ops,
+-		.flags =      INET_PROTOSW_PERMANENT,
++		.flags =      INET_PROTOSW_PERMANENT |
++			      INET_PROTOSW_AFNETNS_OK,
+        },
  
--	snum = ntohs(addr->sin_port);
--	err = -EACCES;
--	if (snum && snum < inet_prot_sock(net) &&
--	    !ns_capable(net->user_ns, CAP_NET_BIND_SERVICE))
--		goto out;
--
- 	/*      We keep a pair of addresses. rcv_saddr is the one
- 	 *      used by hash lookups, and saddr is used for transmit.
- 	 *
+        {
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+index 59f10fe9782e57..fbdb4208ebc483 100644
+--- a/net/ipv4/udplite.c
++++ b/net/ipv4/udplite.c
+@@ -69,7 +69,8 @@ static struct inet_protosw udplite4_protosw = {
+ 	.protocol	=  IPPROTO_UDPLITE,
+ 	.prot		=  &udplite_prot,
+ 	.ops		=  &inet_dgram_ops,
+-	.flags		=  INET_PROTOSW_PERMANENT,
++	.flags		=  INET_PROTOSW_PERMANENT |
++			   INET_PROTOSW_AFNETNS_OK,
+ };
+ 
+ #ifdef CONFIG_PROC_FS
 diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index ffb116297c0950..30aff01eba5be0 100644
+index 4aa221826e753c..e21804b24be408 100644
 --- a/net/ipv6/af_inet6.c
 +++ b/net/ipv6/af_inet6.c
-@@ -324,7 +324,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			goto out;
- 		}
+@@ -167,14 +167,22 @@ static int inet6_create(struct net *net, struct socket *sock, int protocol,
+ 			goto out_rcu_unlock;
+ 	}
  
--		err = inet_allow_bind(sk, addr->sin6_addr.s6_addr32[3]);
-+		err = inet_allow_bind(sk, addr->sin6_addr.s6_addr32[3], snum);
- 		if (err < 0)
- 			goto out;
- 		else
++	sock->ops = answer->ops;
++	answer_prot = answer->prot;
++	answer_flags = answer->flags;
++
+ 	err = -EPERM;
+ 	if (sock->type == SOCK_RAW && !kern &&
+ 	    !ns_capable(net->user_ns, CAP_NET_RAW))
+ 		goto out_rcu_unlock;
+ 
+-	sock->ops = answer->ops;
+-	answer_prot = answer->prot;
+-	answer_flags = answer->flags;
++#if IS_ENABLED(CONFIG_AFNETNS)
++	if (unlikely(!kern &&
++		     current->nsproxy->afnet_ns != net->afnet_ns &&
++		     !(answer_flags & INET_PROTOSW_AFNETNS_OK)))
++		goto out_rcu_unlock;
++#endif
++
+ 	rcu_read_unlock();
+ 
+ 	WARN_ON(!answer_prot->slab);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 56f742fff96723..5b3b34495d4538 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1944,7 +1944,8 @@ static struct inet_protosw tcpv6_protosw = {
+ 	.prot		=	&tcpv6_prot,
+ 	.ops		=	&inet6_stream_ops,
+ 	.flags		=	INET_PROTOSW_PERMANENT |
+-				INET_PROTOSW_ICSK,
++				INET_PROTOSW_ICSK |
++				INET_PROTOSW_AFNETNS_OK,
+ };
+ 
+ static int __net_init tcpv6_net_init(struct net *net)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index d63e0e362fe72b..8707aab65872f9 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1475,7 +1475,8 @@ static struct inet_protosw udpv6_protosw = {
+ 	.protocol =  IPPROTO_UDP,
+ 	.prot =      &udpv6_prot,
+ 	.ops =       &inet6_dgram_ops,
+-	.flags =     INET_PROTOSW_PERMANENT,
++	.flags =     INET_PROTOSW_PERMANENT |
++		     INET_PROTOSW_AFNETNS_OK,
+ };
+ 
+ int __init udpv6_init(void)
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+index 2784cc363f2b53..331a6eb7a278da 100644
+--- a/net/ipv6/udplite.c
++++ b/net/ipv6/udplite.c
+@@ -63,7 +63,8 @@ static struct inet_protosw udplite6_protosw = {
+ 	.protocol	= IPPROTO_UDPLITE,
+ 	.prot		= &udplitev6_prot,
+ 	.ops		= &inet6_dgram_ops,
+-	.flags		= INET_PROTOSW_PERMANENT,
++	.flags		= INET_PROTOSW_PERMANENT |
++			  INET_PROTOSW_AFNETNS_OK,
+ };
+ 
+ int __init udplitev6_init(void)
 -- 
 2.9.3
