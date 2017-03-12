@@ -1,84 +1,101 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 4/4] uapi/if_ether.h: prevent redefinition of struct ethhdr
-Date: Sun, 12 Mar 2017 23:00:39 +0100
-Message-ID: <20170312220039.16885-5-hauke@hauke-m.de>
-References: <20170312220039.16885-1-hauke@hauke-m.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
-        maillist-linux@barfooze.de, mikko.rapeli@iki.fi
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170312220039.16885-1-hauke@hauke-m.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] net: usb: rtl8150: use new api ethtool_{get|set}_link_ksettings
+Date: Sun, 12 Mar 2017 23:16:25 +0100
+Message-ID: <1489356985-24117-1-git-send-email-tremyfr@gmail.com>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: David Heidelberger <david.heidelberger@ixit.cz>
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Musl provides its own ethhdr struct definition. Add a guard to prevent
-its definition of the appropriate musl header has already been included.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Signed-off-by: John Spencer <maillist-linux@barfooze.de>
-Tested-by: David Heidelberger <david.heidelberger@ixit.cz>
-Signed-off-by: Jonas Gorski <jogo@openwrt.org>
+Signed-off-by: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/uapi/linux/if_ether.h    |  3 +++
- include/uapi/linux/libc-compat.h | 11 +++++++++++
- 2 files changed, 14 insertions(+)
+ drivers/net/usb/rtl8150.c |   35 ++++++++++++++++++++---------------
+ 1 files changed, 20 insertions(+), 15 deletions(-)
 
-diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-index 5bc9bfd816b7..fb5ab8c1e753 100644
---- a/include/uapi/linux/if_ether.h
-+++ b/include/uapi/linux/if_ether.h
-@@ -22,6 +22,7 @@
- #define _UAPI_LINUX_IF_ETHER_H
+diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+index c81c791..daaa88a 100644
+--- a/drivers/net/usb/rtl8150.c
++++ b/drivers/net/usb/rtl8150.c
+@@ -791,47 +791,52 @@ static void rtl8150_get_drvinfo(struct net_device *netdev, struct ethtool_drvinf
+ 	usb_make_path(dev->udev, info->bus_info, sizeof(info->bus_info));
+ }
  
- #include <linux/types.h>
-+#include <linux/libc-compat.h>
+-static int rtl8150_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
++static int rtl8150_get_link_ksettings(struct net_device *netdev,
++				      struct ethtool_link_ksettings *ecmd)
+ {
+ 	rtl8150_t *dev = netdev_priv(netdev);
+ 	short lpa, bmcr;
++	u32 supported;
  
- /*
-  *	IEEE 802.3 Ethernet magic constants.  The frame sizes omit the preamble
-@@ -142,11 +143,13 @@
-  *	This is an Ethernet frame header.
-  */
- 
-+#if __UAPI_DEF_ETHHDR
- struct ethhdr {
- 	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
- 	unsigned char	h_source[ETH_ALEN];	/* source ether addr	*/
- 	__be16		h_proto;		/* packet type ID field	*/
- } __attribute__((packed));
-+#endif
- 
- 
- #endif /* _UAPI_LINUX_IF_ETHER_H */
-diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
-index ce2fa8a4ced6..c92d32f213d1 100644
---- a/include/uapi/linux/libc-compat.h
-+++ b/include/uapi/linux/libc-compat.h
-@@ -87,6 +87,14 @@
- 
- #endif /* _NET_IF_H */
- 
-+/* musl defines the ethhdr struct itself in its netinet/if_ether.h.
-+ * Glibc just includes the kernel header and uses a different guard. */
-+#if defined(_NETINET_IF_ETHER_H)
-+#define __UAPI_DEF_ETHHDR		0
-+#else
-+#define __UAPI_DEF_ETHHDR		1
-+#endif
+-	ecmd->supported = (SUPPORTED_10baseT_Half |
++	supported = (SUPPORTED_10baseT_Half |
+ 			  SUPPORTED_10baseT_Full |
+ 			  SUPPORTED_100baseT_Half |
+ 			  SUPPORTED_100baseT_Full |
+ 			  SUPPORTED_Autoneg |
+ 			  SUPPORTED_TP | SUPPORTED_MII);
+-	ecmd->port = PORT_TP;
+-	ecmd->transceiver = XCVR_INTERNAL;
+-	ecmd->phy_address = dev->phy;
++	ecmd->base.port = PORT_TP;
++	ecmd->base.phy_address = dev->phy;
+ 	get_registers(dev, BMCR, 2, &bmcr);
+ 	get_registers(dev, ANLP, 2, &lpa);
+ 	if (bmcr & BMCR_ANENABLE) {
+ 		u32 speed = ((lpa & (LPA_100HALF | LPA_100FULL)) ?
+ 			     SPEED_100 : SPEED_10);
+-		ethtool_cmd_speed_set(ecmd, speed);
+-		ecmd->autoneg = AUTONEG_ENABLE;
++		ecmd->base.speed = speed;
++		ecmd->base.autoneg = AUTONEG_ENABLE;
+ 		if (speed == SPEED_100)
+-			ecmd->duplex = (lpa & LPA_100FULL) ?
++			ecmd->base.duplex = (lpa & LPA_100FULL) ?
+ 			    DUPLEX_FULL : DUPLEX_HALF;
+ 		else
+-			ecmd->duplex = (lpa & LPA_10FULL) ?
++			ecmd->base.duplex = (lpa & LPA_10FULL) ?
+ 			    DUPLEX_FULL : DUPLEX_HALF;
+ 	} else {
+-		ecmd->autoneg = AUTONEG_DISABLE;
+-		ethtool_cmd_speed_set(ecmd, ((bmcr & BMCR_SPEED100) ?
+-					     SPEED_100 : SPEED_10));
+-		ecmd->duplex = (bmcr & BMCR_FULLDPLX) ?
++		ecmd->base.autoneg = AUTONEG_DISABLE;
++		ecmd->base.speed = ((bmcr & BMCR_SPEED100) ?
++					     SPEED_100 : SPEED_10);
++		ecmd->base.duplex = (bmcr & BMCR_FULLDPLX) ?
+ 		    DUPLEX_FULL : DUPLEX_HALF;
+ 	}
 +
- /* Coordinate with glibc netinet/in.h header. */
- #if defined(_NETINET_IN_H)
- 
-@@ -182,6 +190,9 @@
- /* For the future if glibc adds IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO */
- #define __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO 1
- 
-+/* Definitions for if_ether.h */
-+#define __UAPI_DEF_ETHHDR 		1
++	ethtool_convert_legacy_u32_to_link_mode(ecmd->link_modes.supported,
++						supported);
 +
- /* Definitions for in.h */
- #define __UAPI_DEF_IN_ADDR		1
- #define __UAPI_DEF_IN_IPPROTO		1
+ 	return 0;
+ }
+ 
+ static const struct ethtool_ops ops = {
+ 	.get_drvinfo = rtl8150_get_drvinfo,
+-	.get_settings = rtl8150_get_settings,
+-	.get_link = ethtool_op_get_link
++	.get_link = ethtool_op_get_link,
++	.get_link_ksettings = rtl8150_get_link_ksettings,
+ };
+ 
+ static int rtl8150_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
 -- 
-2.11.0
+1.7.4.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
