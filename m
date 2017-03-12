@@ -1,105 +1,53 @@
-From: Chas Williams <3chas3@gmail.com>
-Subject: [Patch net-next] atm: remove an unnecessary loop
-Date: Sat, 11 Mar 2017 19:41:36 -0500
-Message-ID: <1489279296-9316-1-git-send-email-3chas3@gmail.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-        Chas Williams <3chas3@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:32952 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751469AbdCLAln (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Mar 2017 19:41:43 -0500
-Received: by mail-qt0-f196.google.com with SMTP id r45so2580640qte.0
-        for <netdev@vger.kernel.org>; Sat, 11 Mar 2017 16:41:43 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 12/17] net: dsa: add dsa_is_normal_port helper
+Date: Sat, 11 Mar 2017 18:17:58 -0800
+Message-ID: <e2553201-b071-b0e5-30c2-13cf81ea6101@gmail.com>
+References: <20170311211303.24560-1-vivien.didelot@savoirfairelinux.com>
+ <20170311211303.24560-13-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170311211303.24560-13-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
+Le 03/11/17 à 13:12, Vivien Didelot a écrit :
+> Introduce a dsa_is_normal_port helper to check if a given port is a
+> normal user port as opposed to a CPU port or DSA link.
 
-Andrey reported this kernel warning:
+net/dsa/dsa2.c uses the "user" terminology should we use something like
+that here?
 
-WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
-do not call blocking ops when !TASK_RUNNING; state=1 set at
-[<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  include/net/dsa.h | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index 4e13e695f025..bf0e42c2a6f7 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -248,6 +248,11 @@ static inline bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
+>  	return !!((ds->dsa_port_mask) & (1 << p));
+>  }
+>  
+> +static inline bool dsa_is_normal_port(struct dsa_switch *ds, int p)
+> +{
+> +	return !dsa_is_cpu_port(ds, p) && !dsa_is_dsa_port(ds, p);
+> +}
+> +
+>  static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
+>  {
+>  	return ds->enabled_port_mask & (1 << p) && ds->ports[p].netdev;
+> 
 
-The deeply nested alloc_skb is a problem.
 
-Diagnosis: nesting is wrong. It makes zero sense. Fix it and the
-implicit task state change problem automagically goes away.
-
-alloc_skb() does not need to be in the "while" loop.
-
-alloc_skb() does not need to be in the {prepare_to_wait/add_wait_queue ...
-finish_wait/remove_wait_queue} block.
-
-I claim that:
-- alloc_tx() should only perform the "wait_for_decent_tx_drain" part
-- alloc_skb() ought to be done directly in vcc_sendmsg
-- alloc_skb() failure can be handled gracefully in vcc_sendmsg
-- alloc_skb() may use a (m->msg_flags & MSG_DONTWAIT) dependent
-  GFP_{KERNEL / ATOMIC} flag
-
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Reviewed-and-Tested-by: Chas Williams <3chas3@gmail.com>
-Signed-off-by: Chas Williams <3chas3@gmail.com>
----
- net/atm/common.c | 22 +++++++++++++---------
- 1 file changed, 13 insertions(+), 9 deletions(-)
-
-diff --git a/net/atm/common.c b/net/atm/common.c
-index 9613381..f06422f 100644
---- a/net/atm/common.c
-+++ b/net/atm/common.c
-@@ -62,21 +62,16 @@ static void vcc_remove_socket(struct sock *sk)
- 	write_unlock_irq(&vcc_sklist_lock);
- }
- 
--static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
-+static bool vcc_tx_ready(struct atm_vcc *vcc, unsigned int size)
- {
--	struct sk_buff *skb;
- 	struct sock *sk = sk_atm(vcc);
- 
- 	if (sk_wmem_alloc_get(sk) && !atm_may_send(vcc, size)) {
- 		pr_debug("Sorry: wmem_alloc = %d, size = %d, sndbuf = %d\n",
- 			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
--		return NULL;
-+		return false;
- 	}
--	while (!(skb = alloc_skb(size, GFP_KERNEL)))
--		schedule();
--	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
--	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
--	return skb;
-+	return true;
- }
- 
- static void vcc_sock_destruct(struct sock *sk)
-@@ -606,7 +601,7 @@ int vcc_sendmsg(struct socket *sock, struct msghdr *m, size_t size)
- 	eff = (size+3) & ~3; /* align to word boundary */
- 	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 	error = 0;
--	while (!(skb = alloc_tx(vcc, eff))) {
-+	while (!vcc_tx_ready(vcc, eff)) {
- 		if (m->msg_flags & MSG_DONTWAIT) {
- 			error = -EAGAIN;
- 			break;
-@@ -628,6 +623,15 @@ int vcc_sendmsg(struct socket *sock, struct msghdr *m, size_t size)
- 	finish_wait(sk_sleep(sk), &wait);
- 	if (error)
- 		goto out;
-+
-+	skb = alloc_skb(eff, GFP_KERNEL);
-+	if (!skb) {
-+		error = -ENOMEM;
-+		goto out;
-+	}
-+	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
-+	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
-+
- 	skb->dev = NULL; /* for paths shared with net_device interfaces */
- 	ATM_SKB(skb)->atm_options = vcc->atm_options;
- 	if (!copy_from_iter_full(skb_put(skb, size), size, &m->msg_iter)) {
 -- 
-2.7.4
+Florian
