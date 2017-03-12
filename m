@@ -1,57 +1,48 @@
-From: "santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org" <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCHv2 1/4] rds: ib: drop unnecessary rdma_reject
-Date: Sun, 12 Mar 2017 12:43:42 -0700
-Message-ID: <5ad1f78a-f558-7b26-7a31-95cd7507237f@oracle.com>
-References: <1489306078-3354-1-git-send-email-yanjun.zhu@oracle.com>
- <20170312193357.GH2079@mtr-leonro.local>
+From: Ezequiel Lara Gomez <ezegomez@amazon.com>
+Subject: Re: [PATCH] Enable tx timestamping on loopback and dummy
+Date: Sun, 12 Mar 2017 20:39:03 +0000
+Message-ID: <20170312203902.GB23127@u480fcf44e5b8574c5490.ant.amazon.com>
+References: <20170311144224.GA21305@u480fcf44e5b8574c5490.ant.amazon.com>
+ <13e4b635-089d-fb4b-4d73-62b807bb86e8@hartkopp.net>
+ <20170312163000.GA1649@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170312193357.GH2079-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-fw-33001.amazon.com ([207.171.190.10]:26242 "EHLO
+        smtp-fw-33001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934692AbdCLUjE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 16:39:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20170312163000.GA1649@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/12/17 12:33 PM, Leon Romanovsky wrote:
-> On Sun, Mar 12, 2017 at 04:07:55AM -0400, Zhu Yanjun wrote:
->> When rdma_accept fails, rdma_reject is called in it. As such, it is
->> not necessary to execute rdma_reject again.
->>
->> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->> Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->> ---
->> Change from v1 to v2:
->>   Add the acker.
->>
->>  net/rds/ib_cm.c | 3 +--
->>  1 file changed, 1 insertion(+), 2 deletions(-)
->>
->> diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
->> index ce3775a..eca3d5f 100644
->> --- a/net/rds/ib_cm.c
->> +++ b/net/rds/ib_cm.c
->> @@ -677,8 +677,7 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
->>  		event->param.conn.initiator_depth);
->>
->>  	/* rdma_accept() calls rdma_reject() internally if it fails */
->> -	err = rdma_accept(cm_id, &conn_param);
->> -	if (err)
->> +	if (rdma_accept(cm_id, &conn_param))
->>  		rds_ib_conn_error(conn, "rdma_accept failed (%d)\n", err);
->
-> You omitted initialization of "err" variable which you print here ^^^^^.
->
-Its inited by rds_ib_setup_qp() but you are right. It will print
-failed with error = 0. :-)
+On Sun, Mar 12, 2017 at 05:30:00PM +0100, Richard Cochran wrote:
+> On Sun, Mar 12, 2017 at 12:17:30AM +0100, Oliver Hartkopp wrote:
+> > in fact you're doing three different things here:
+> > 
+> > 1. introduce tx timestamping
+> > 2. silently change an include: <asm/io.h> -> <linux/io.h>
+> > 3. fix some whitespace and empty line issues
+> > 
+> > You'd better provide one patch for 1 & 2 and explain why 2 is needed.
+> 
+> And while you are at it, explain why #1 is needed.
 
-Zhu, please drop that 'err' from the message.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Certainly - 2 (and 3) come from checkpatch.pl suggestions 
+(I'm mostly following through https://kernelnewbies.org/FirstKernelPatch ), 
+so as suggested I've broken them into a separate patch, being
+styling related only (at least according to that script output).
+
+The intent behind 1 is helping developing code that does TX timestamping
+- I lost a good chunk of time toying with it until I realised 127.0.0.1
+could not do TX timestamping because lo did not implement it.
+
+>
+> 
+> Thanks,
+> Richard
+> 
+Amazon Data Services Ireland Limited registered office: One Burlington Plaza, Burlington Road, Dublin 4, Ireland. Registered in Ireland. Registration number 390566.
