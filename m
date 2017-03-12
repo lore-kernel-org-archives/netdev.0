@@ -1,213 +1,235 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next RFC v1 03/27] afnetns: prepare for integration into ipv4
-Date: Mon, 13 Mar 2017 00:01:27 +0100
-Message-ID: <20170312230151.5185-4-hannes@stressinduktion.org>
+Subject: [PATCH net-next RFC v1 05/27] afnetns: ipv6 integration
+Date: Mon, 13 Mar 2017 00:01:29 +0100
+Message-ID: <20170312230151.5185-6-hannes@stressinduktion.org>
 References: <20170312230151.5185-1-hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47678 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:48852 "EHLO
         out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935572AbdCLXB5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:01:57 -0400
+        by vger.kernel.org with ESMTP id S935587AbdCLXCD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:02:03 -0400
 Received: from compute7.internal (compute7.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id C4A7F20749
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:55 -0400 (EDT)
+        by mailout.nyi.internal (Postfix) with ESMTP id 3FF772060A
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:57 -0400 (EDT)
 Received: from m.localhost.localhost (unknown [213.55.211.72])
-        by mail.messagingengine.com (Postfix) with ESMTPA id 36480240CF
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:55 -0400 (EDT)
+        by mail.messagingengine.com (Postfix) with ESMTPA id A33A12436A
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:56 -0400 (EDT)
 In-Reply-To: <20170312230151.5185-1-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Each IPv4 address has an associated afnet namespace, so it is only going
-to be used by applications in the same afnet namespace.
-
-One can open a file descriptor and pass it to the newaddr rtnetlink
-functions to put an IP address into a specific afnet namespace.
-
-Dumping the addresses also returns the appropriate afnetns inode number,
-so a match with the appropriate afnet namespace can be done in user space.
+Like the previous IPv4 counterpart, this patch associates every IPv6
+address with a corresponding afnet namespace. The namespace can be set
+via file descriptor and the inode gets reported during dumping.
 
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/linux/inetdevice.h   |  3 +++
- include/net/afnetns.h        |  2 ++
- include/uapi/linux/if_addr.h |  2 ++
- net/core/afnetns.c           | 26 ++++++++++++++++++++++++++
- net/ipv4/devinet.c           | 39 ++++++++++++++++++++++++++++++++++++++-
- 5 files changed, 71 insertions(+), 1 deletion(-)
+ include/net/if_inet6.h |  3 +++
+ net/core/afnetns.c     |  3 +++
+ net/ipv6/addrconf.c    | 70 +++++++++++++++++++++++++++++++++++++++++---------
+ 3 files changed, 64 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index ee971f335a8b65..d5ac959e90baa1 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -141,6 +141,9 @@ struct in_ifaddr {
- 	unsigned char		ifa_scope;
- 	unsigned char		ifa_prefixlen;
- 	__u32			ifa_flags;
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index f656f9051acafa..cad645851501f4 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -41,6 +41,9 @@ enum {
+ struct inet6_ifaddr {
+ 	struct in6_addr		addr;
+ 	__u32			prefix_len;
 +#if IS_ENABLED(CONFIG_AFNETNS)
 +	struct afnetns		*afnetns;
 +#endif
- 	char			ifa_label[IFNAMSIZ];
  
  	/* In seconds, relative to tstamp. Expiry is at tstamp + HZ * lft. */
-diff --git a/include/net/afnetns.h b/include/net/afnetns.h
-index d5fbb83023acd6..9039086717c356 100644
---- a/include/net/afnetns.h
-+++ b/include/net/afnetns.h
-@@ -19,6 +19,8 @@ int afnet_ns_init(void);
- 
- struct afnetns *afnetns_new(struct net *net);
- struct afnetns *copy_afnet_ns(unsigned long flags, struct nsproxy *old);
-+struct afnetns *afnetns_get_by_fd(int fd);
-+unsigned int afnetns_to_inode(struct afnetns *afnetns);
- void afnetns_free(struct afnetns *afnetns);
- 
- static inline struct afnetns *afnetns_get(struct afnetns *afnetns)
-diff --git a/include/uapi/linux/if_addr.h b/include/uapi/linux/if_addr.h
-index 4318ab1635cedf..c67703808584eb 100644
---- a/include/uapi/linux/if_addr.h
-+++ b/include/uapi/linux/if_addr.h
-@@ -32,6 +32,8 @@ enum {
- 	IFA_CACHEINFO,
- 	IFA_MULTICAST,
- 	IFA_FLAGS,
-+	IFA_AFNETNS_FD,
-+	IFA_AFNETNS_INODE,
- 	__IFA_MAX,
- };
- 
+ 	__u32			valid_lft;
 diff --git a/net/core/afnetns.c b/net/core/afnetns.c
-index 997623e4dc5078..12b823ae780796 100644
+index 12b823ae780796..b96c25b5ebe30d 100644
 --- a/net/core/afnetns.c
 +++ b/net/core/afnetns.c
-@@ -2,6 +2,7 @@
- #include <net/net_namespace.h>
- #include <linux/sched.h>
- #include <linux/sched/task.h>
-+#include <linux/file.h>
- #include <linux/nsproxy.h>
- #include <linux/proc_ns.h>
- 
-@@ -56,6 +57,31 @@ void afnetns_free(struct afnetns *afnetns)
+@@ -56,6 +56,7 @@ void afnetns_free(struct afnetns *afnetns)
+ 	put_net(afnetns->net);
  	kfree(afnetns);
  }
++EXPORT_SYMBOL(afnetns_free);
  
-+struct afnetns *afnetns_get_by_fd(int fd)
-+{
-+	struct file *file;
-+	struct ns_common *ns;
-+	struct afnetns *afnetns;
-+
-+	file = proc_ns_fget(fd);
-+	if (IS_ERR(file))
-+		return ERR_CAST(file);
-+
-+	ns = get_proc_ns(file_inode(file));
-+	if (ns->ops == &afnetns_operations)
-+		afnetns = afnetns_get(ns_to_afnet(ns));
-+	else
-+		afnetns = ERR_PTR(-EINVAL);
-+
-+	fput(file);
-+	return afnetns;
-+}
-+
-+unsigned int afnetns_to_inode(struct afnetns *afnetns)
-+{
-+	return afnetns->ns.inum;
-+}
-+
+ struct afnetns *afnetns_get_by_fd(int fd)
+ {
+@@ -76,11 +77,13 @@ struct afnetns *afnetns_get_by_fd(int fd)
+ 	fput(file);
+ 	return afnetns;
+ }
++EXPORT_SYMBOL(afnetns_get_by_fd);
+ 
+ unsigned int afnetns_to_inode(struct afnetns *afnetns)
+ {
+ 	return afnetns->ns.inum;
+ }
++EXPORT_SYMBOL(afnetns_to_inode);
+ 
  struct afnetns *copy_afnet_ns(unsigned long flags, struct nsproxy *old)
  {
- 	if (flags & CLONE_NEWNET)
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index cebedd545e5e28..d4a38b6e9adb79 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -99,6 +99,7 @@ static const struct nla_policy ifa_ipv4_policy[IFA_MAX+1] = {
- 	[IFA_LABEL]     	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 },
- 	[IFA_CACHEINFO]		= { .len = sizeof(struct ifa_cacheinfo) },
- 	[IFA_FLAGS]		= { .type = NLA_U32 },
-+	[IFA_AFNETNS_FD]	= { .type = NLA_S32 },
- };
- 
- #define IN4_ADDR_HSIZE_SHIFT	8
-@@ -203,6 +204,9 @@ static void inet_rcu_free_ifa(struct rcu_head *head)
- 	struct in_ifaddr *ifa = container_of(head, struct in_ifaddr, rcu_head);
- 	if (ifa->ifa_dev)
- 		in_dev_put(ifa->ifa_dev);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8c69768a5c4606..c67f6d3c5b9a7a 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -910,7 +910,9 @@ void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp)
+ 		return;
+ 	}
+ 	ip6_rt_put(ifp->rt);
+-
 +#if IS_ENABLED(CONFIG_AFNETNS)
-+	afnetns_put(ifa->afnetns);
++	afnetns_put(ifp->afnetns);
 +#endif
- 	kfree(ifa);
+ 	kfree_rcu(ifp, rcu);
  }
  
-@@ -805,6 +809,26 @@ static struct in_ifaddr *rtm_to_ifaddr(struct net *net, struct nlmsghdr *nlh,
- 	else
- 		memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
+@@ -942,9 +944,10 @@ static u32 inet6_addr_hash(const struct in6_addr *addr)
+ /* On success it returns ifp with increased reference count */
+ 
+ static struct inet6_ifaddr *
+-ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+-	      const struct in6_addr *peer_addr, int pfxlen,
+-	      int scope, u32 flags, u32 valid_lft, u32 prefered_lft)
++__ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
++		const struct in6_addr *peer_addr, int pfxlen,
++		int scope, u32 flags, u32 valid_lft, u32 prefered_lft,
++		struct afnetns *afnetns)
+ {
+ 	struct net *net = dev_net(idev->dev);
+ 	struct inet6_ifaddr *ifa = NULL;
+@@ -1002,7 +1005,9 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	ifa->addr = *addr;
+ 	if (peer_addr)
+ 		ifa->peer_addr = *peer_addr;
+-
++#if IS_ENABLED(CONFIG_AFNETNS)
++	ifa->afnetns = afnetns_get(afnetns);
++#endif
+ 	spin_lock_init(&ifa->lock);
+ 	INIT_DELAYED_WORK(&ifa->dad_work, addrconf_dad_work);
+ 	INIT_HLIST_NODE(&ifa->addr_lst);
+@@ -1054,6 +1059,17 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	goto out2;
+ }
+ 
++static struct inet6_ifaddr *ipv6_add_addr(struct inet6_dev *idev,
++					  const struct in6_addr *addr,
++					  const struct in6_addr *peer_addr,
++					  int pfxlen, int scope, u32 flags,
++					  u32 valid_lft, u32 prefered_lft)
++{
++	return __ipv6_add_addr(idev, addr, peer_addr, pfxlen, scope, flags,
++			       valid_lft, prefered_lft,
++			       net_afnetns(dev_net(idev->dev)));
++}
++
+ enum cleanup_prefix_rt_t {
+ 	CLEANUP_PREFIX_RT_NOP,    /* no cleanup action for prefix route */
+ 	CLEANUP_PREFIX_RT_DEL,    /* delete the prefix route */
+@@ -2741,7 +2757,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 			  const struct in6_addr *pfx,
+ 			  const struct in6_addr *peer_pfx,
+ 			  unsigned int plen, __u32 ifa_flags,
+-			  __u32 prefered_lft, __u32 valid_lft)
++			  __u32 prefered_lft, __u32 valid_lft,
++			  struct afnetns *afnetns)
+ {
+ 	struct inet6_ifaddr *ifp;
+ 	struct inet6_dev *idev;
+@@ -2799,8 +2816,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 		prefered_lft = timeout;
+ 	}
+ 
+-	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
+-			    valid_lft, prefered_lft);
++	ifp = __ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
++			      valid_lft, prefered_lft, afnetns);
+ 
+ 	if (!IS_ERR(ifp)) {
+ 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
+@@ -2885,7 +2902,8 @@ int addrconf_add_ifaddr(struct net *net, void __user *arg)
+ 	rtnl_lock();
+ 	err = inet6_addr_add(net, ireq.ifr6_ifindex, &ireq.ifr6_addr, NULL,
+ 			     ireq.ifr6_prefixlen, IFA_F_PERMANENT,
+-			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
++			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME,
++			     net_afnetns(net));
+ 	rtnl_unlock();
+ 	return err;
+ }
+@@ -4502,6 +4520,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct in6_addr *pfx, *peer_pfx;
+ 	struct inet6_ifaddr *ifa;
++	struct afnetns *afnetns = NULL;
+ 	struct net_device *dev;
+ 	u32 valid_lft = INFINITY_LIFE_TIME, preferred_lft = INFINITY_LIFE_TIME;
+ 	u32 ifa_flags;
+@@ -4537,15 +4556,31 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR |
+ 		     IFA_F_NOPREFIXROUTE | IFA_F_MCAUTOJOIN;
  
 +#if IS_ENABLED(CONFIG_AFNETNS)
 +	if (tb[IFA_AFNETNS_FD]) {
 +		int fd = nla_get_s32(tb[IFA_AFNETNS_FD]);
 +
-+		ifa->afnetns = afnetns_get_by_fd(fd);
-+		if (IS_ERR(ifa->afnetns)) {
-+			err = PTR_ERR(ifa->afnetns);
-+			ifa->afnetns = afnetns_get(net->afnet_ns);
-+			goto errout_free;
-+		}
++		afnetns = afnetns_get_by_fd(fd);
++		if (IS_ERR(afnetns))
++			return PTR_ERR(afnetns);
 +	} else {
-+		ifa->afnetns = afnetns_get(net->afnet_ns);
++		afnetns = afnetns_get(net_afnetns(net));
 +	}
 +#else
-+	if (tb[IFA_AFNETNS_FD]) {
-+		err = -EOPNOTSUPP;
-+		goto errout_free;
-+	}
++	if (tb[IFA_AFNETNS_FD])
++		return -EOPNOTSUPP;
 +#endif
 +
- 	if (tb[IFA_CACHEINFO]) {
- 		struct ifa_cacheinfo *ci;
+ 	ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
+ 	if (!ifa) {
+ 		/*
+ 		 * It would be best to check for !NLM_F_CREATE here but
+ 		 * userspace already relies on not having to provide this.
+ 		 */
+-		return inet6_addr_add(net, ifm->ifa_index, pfx, peer_pfx,
++		err =  inet6_addr_add(net, ifm->ifa_index, pfx, peer_pfx,
+ 				      ifm->ifa_prefixlen, ifa_flags,
+-				      preferred_lft, valid_lft);
++				      preferred_lft, valid_lft, afnetns);
++		goto out;
+ 	}
  
-@@ -1089,6 +1113,9 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 			ifa->ifa_mask = inet_make_mask(32);
- 		}
- 		set_ifa_lifetime(ifa, INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
-+#if IS_ENABLED(CONFIG_AFNETNS)
-+		ifa->afnetns = afnetns_get(net->afnet_ns);
-+#endif
- 		ret = inet_set_ifa(dev, ifa);
- 		break;
+ 	if (nlh->nlmsg_flags & NLM_F_EXCL ||
+@@ -4555,6 +4590,10 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		err = inet6_addr_modify(ifa, ifa_flags, preferred_lft, valid_lft);
  
-@@ -1444,6 +1471,9 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
- 				in_dev_hold(in_dev);
- 				ifa->ifa_dev = in_dev;
- 				ifa->ifa_scope = RT_SCOPE_HOST;
+ 	in6_ifa_put(ifa);
++out:
 +#if IS_ENABLED(CONFIG_AFNETNS)
-+				ifa->afnetns = afnetns_get(dev_net(dev)->afnet_ns);
++	afnetns_put(afnetns);
 +#endif
- 				memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
- 				set_ifa_lifetime(ifa, INFINITY_LIFE_TIME,
- 						 INFINITY_LIFE_TIME);
-@@ -1504,7 +1534,8 @@ static size_t inet_nlmsg_size(void)
- 	       + nla_total_size(4) /* IFA_BROADCAST */
- 	       + nla_total_size(IFNAMSIZ) /* IFA_LABEL */
- 	       + nla_total_size(4)  /* IFA_FLAGS */
--	       + nla_total_size(sizeof(struct ifa_cacheinfo)); /* IFA_CACHEINFO */
-+	       + nla_total_size(sizeof(struct ifa_cacheinfo)) /* IFA_CACHEINFO */
+ 
+ 	return err;
+ }
+@@ -4603,7 +4642,8 @@ static inline int inet6_ifaddr_msgsize(void)
+ 	       + nla_total_size(16) /* IFA_LOCAL */
+ 	       + nla_total_size(16) /* IFA_ADDRESS */
+ 	       + nla_total_size(sizeof(struct ifa_cacheinfo))
+-	       + nla_total_size(4)  /* IFA_FLAGS */;
++	       + nla_total_size(4)  /* IFA_FLAGS */
 +	       + nla_total_size(4); /* IFA_AFNETNS_INODE */
  }
  
- static inline u32 cstamp_delta(unsigned long cstamp)
-@@ -1577,6 +1608,12 @@ static int inet_fill_ifaddr(struct sk_buff *skb, struct in_ifaddr *ifa,
- 			  preferred, valid))
- 		goto nla_put_failure;
+ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
+@@ -4655,6 +4695,12 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
+ 	if (nla_put_u32(skb, IFA_FLAGS, ifa->flags) < 0)
+ 		goto error;
  
 +#if IS_ENABLED(CONFIG_AFNETNS)
 +	if (nla_put_u32(skb, IFA_AFNETNS_INODE,
 +			afnetns_to_inode(ifa->afnetns)))
-+		goto nla_put_failure;
++		goto error;
 +#endif
 +
  	nlmsg_end(skb, nlh);
