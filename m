@@ -1,118 +1,108 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next RFC v1 08/27] afnetns: factor out inet_allow_bind
-Date: Mon, 13 Mar 2017 00:01:32 +0100
-Message-ID: <20170312230151.5185-9-hannes@stressinduktion.org>
+Subject: [PATCH net-next RFC v1 17/27] afnetns: introduce __inet_select_addr
+Date: Mon, 13 Mar 2017 00:01:41 +0100
+Message-ID: <20170312230151.5185-18-hannes@stressinduktion.org>
 References: <20170312230151.5185-1-hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:45411 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:32835 "EHLO
         out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935640AbdCLXCQ (ORCPT
+        by vger.kernel.org with ESMTP id S935589AbdCLXCQ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:02:16 -0400
 Received: from compute7.internal (compute7.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id 64F092067F
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:59 -0400 (EDT)
+        by mailout.nyi.internal (Postfix) with ESMTP id 4E66A2060A
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:09 -0400 (EDT)
 Received: from m.localhost.localhost (unknown [213.55.211.72])
-        by mail.messagingengine.com (Postfix) with ESMTPA id D067D240CF
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:58 -0400 (EDT)
+        by mail.messagingengine.com (Postfix) with ESMTPA id 69E0F2423E
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:08 -0400 (EDT)
 In-Reply-To: <20170312230151.5185-1-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/inet_common.h |  1 +
- net/ipv4/af_inet.c        | 51 ++++++++++++++++++++++++++++++-----------------
- 2 files changed, 34 insertions(+), 18 deletions(-)
+ include/linux/inetdevice.h |  2 ++
+ net/ipv4/devinet.c         | 27 ++++++++++++++++++++++++---
+ 2 files changed, 26 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-index b7952d55b9c000..4ac8229dca6af4 100644
---- a/include/net/inet_common.h
-+++ b/include/net/inet_common.h
-@@ -30,6 +30,7 @@ int inet_shutdown(struct socket *sock, int how);
- int inet_listen(struct socket *sock, int backlog);
- void inet_sock_destruct(struct sock *sk);
- int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len);
-+int inet_allow_bind(struct sock *sk, __be32 addr);
- int inet_getname(struct socket *sock, struct sockaddr *uaddr, int *uaddr_len,
- 		 int peer);
- int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 602d40f43687c9..aee599e23137e7 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -428,6 +428,35 @@ int inet_release(struct socket *sock)
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 01cbcfe93383b7..a41bfce099e0a1 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -170,6 +170,8 @@ int inet_addr_onlink(struct in_device *in_dev, __be32 a, __be32 b);
+ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *);
+ void devinet_init(void);
+ struct in_device *inetdev_by_index(struct net *, int);
++__be32 __inet_select_addr(const struct net_device *dev, __be32 dst, int scope,
++			  struct afnetns *afnetns);
+ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+ __be32 inet_confirm_addr(struct net *net, struct in_device *in_dev, __be32 dst,
+ 			 __be32 local, int scope);
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index cc15afefa1df0a..0844d917aa8d7d 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1224,7 +1224,17 @@ static int inet_gifconf(struct net_device *dev, char __user *buf, int len)
+ 	return done;
  }
- EXPORT_SYMBOL(inet_release);
  
-+int inet_allow_bind(struct sock *sk, __be32 addr)
+-__be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
++static struct afnetns *ifa_afnetns(struct in_ifaddr *ifa)
 +{
-+	struct inet_sock *inet = inet_sk(sk);
-+	struct net *net = sock_net(sk);
-+	u32 tb_id = RT_TABLE_LOCAL;
-+	int chk_addr_ret;
-+
-+	tb_id = l3mdev_fib_table_by_index(net, sk->sk_bound_dev_if) ? : tb_id;
-+	chk_addr_ret = inet_addr_type_table(net, addr, tb_id);
-+
-+	/* Not specified by any standard per-se, however it breaks too
-+	 * many applications when removed.  It is unfortunate since
-+	 * allowing applications to make a non-local bind solves
-+	 * several problems with systems using dynamic addressing.
-+	 * (ie. your servers still start up even if your ISDN link
-+	 *  is temporarily down)
-+	 */
-+	if (!net->ipv4.sysctl_ip_nonlocal_bind &&
-+	    !(inet->freebind || inet->transparent) &&
-+	    addr != htonl(INADDR_ANY) &&
-+	    chk_addr_ret != RTN_LOCAL &&
-+	    chk_addr_ret != RTN_MULTICAST &&
-+	    chk_addr_ret != RTN_BROADCAST)
-+		return -EADDRNOTAVAIL;
-+
-+	return chk_addr_ret;
++#if IS_ENABLED(CONFIG_AFNETNS)
++	return ifa->afnetns;
++#else
++	return NULL;
++#endif
 +}
-+EXPORT_SYMBOL(inet_allow_bind);
 +
- int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
++__be32 __inet_select_addr(const struct net_device *dev, __be32 dst,
++			  int scope, struct afnetns *afnetns)
  {
- 	struct sockaddr_in *addr = (struct sockaddr_in *)uaddr;
-@@ -436,7 +465,6 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	struct net *net = sock_net(sk);
- 	unsigned short snum;
- 	int chk_addr_ret;
--	u32 tb_id = RT_TABLE_LOCAL;
- 	int err;
+ 	__be32 addr = 0;
+ 	struct in_device *in_dev;
+@@ -1237,6 +1247,8 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 		goto no_in_dev;
  
- 	/* If the socket has its own bind function then use it. (RAW) */
-@@ -458,24 +486,11 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			goto out;
- 	}
+ 	for_primary_ifa(in_dev) {
++		if (afnetns && afnetns != ifa_afnetns(ifa))
++			continue;
+ 		if (ifa->ifa_scope > scope)
+ 			continue;
+ 		if (!dst || inet_ifa_match(dst, ifa)) {
+@@ -1262,7 +1274,8 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 	    (in_dev = __in_dev_get_rcu(dev))) {
+ 		for_primary_ifa(in_dev) {
+ 			if (ifa->ifa_scope != RT_SCOPE_LINK &&
+-			    ifa->ifa_scope <= scope) {
++			    ifa->ifa_scope <= scope &&
++			    (!afnetns || afnetns == ifa_afnetns(ifa))) {
+ 				addr = ifa->ifa_local;
+ 				goto out_unlock;
+ 			}
+@@ -1283,7 +1296,8 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
  
--	tb_id = l3mdev_fib_table_by_index(net, sk->sk_bound_dev_if) ? : tb_id;
--	chk_addr_ret = inet_addr_type_table(net, addr->sin_addr.s_addr, tb_id);
--
--	/* Not specified by any standard per-se, however it breaks too
--	 * many applications when removed.  It is unfortunate since
--	 * allowing applications to make a non-local bind solves
--	 * several problems with systems using dynamic addressing.
--	 * (ie. your servers still start up even if your ISDN link
--	 *  is temporarily down)
--	 */
--	err = -EADDRNOTAVAIL;
--	if (!net->ipv4.sysctl_ip_nonlocal_bind &&
--	    !(inet->freebind || inet->transparent) &&
--	    addr->sin_addr.s_addr != htonl(INADDR_ANY) &&
--	    chk_addr_ret != RTN_LOCAL &&
--	    chk_addr_ret != RTN_MULTICAST &&
--	    chk_addr_ret != RTN_BROADCAST)
-+	chk_addr_ret = inet_allow_bind(sk, addr->sin_addr.s_addr);
-+	if (chk_addr_ret < 0) {
-+		err = chk_addr_ret;
- 		goto out;
-+	}
+ 		for_primary_ifa(in_dev) {
+ 			if (ifa->ifa_scope != RT_SCOPE_LINK &&
+-			    ifa->ifa_scope <= scope) {
++			    ifa->ifa_scope <= scope &&
++			    (!afnetns || afnetns == ifa_afnetns(ifa))) {
+ 				addr = ifa->ifa_local;
+ 				goto out_unlock;
+ 			}
+@@ -1293,6 +1307,13 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 	rcu_read_unlock();
+ 	return addr;
+ }
++EXPORT_SYMBOL(__inet_select_addr);
++
++__be32 inet_select_addr(const struct net_device *dev, __be32 dst,
++			int scope)
++{
++	return __inet_select_addr(dev, dst, scope, NULL);
++}
+ EXPORT_SYMBOL(inet_select_addr);
  
- 	snum = ntohs(addr->sin_port);
- 	err = -EACCES;
+ static __be32 confirm_addr_indev(struct in_device *in_dev, __be32 dst,
 -- 
 2.9.3
