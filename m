@@ -1,7 +1,7 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 2/4] uapi glibc compat: fix build if libc defines IFF_ECHO
-Date: Sun, 12 Mar 2017 23:00:37 +0100
-Message-ID: <20170312220039.16885-3-hauke@hauke-m.de>
+Subject: [PATCH 3/4] uapi glibc compat: Do not check for __USE_MISC
+Date: Sun, 12 Mar 2017 23:00:38 +0100
+Message-ID: <20170312220039.16885-4-hauke@hauke-m.de>
 References: <20170312220039.16885-1-hauke@hauke-m.de>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
@@ -13,34 +13,28 @@ In-Reply-To: <20170312220039.16885-1-hauke@hauke-m.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-musl 1.1.15 defines IFF_ECHO and the other net_device_flags options.
-When a user application includes linux/if.h and net/if.h the compile
-will fail.
-
-Activate __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO only when
-it is needed. This should also make this work in case glibc will add
-these defines.
+__USE_MISC is glibc specific and not available in musl libc. Only do
+this check when glibc is used. This fixes a problem with musl libc.
 
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- include/uapi/linux/libc-compat.h | 2 ++
- 1 file changed, 2 insertions(+)
+ include/uapi/linux/libc-compat.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
-index 7c1fead03c50..49a8cc3138ae 100644
+index 49a8cc3138ae..ce2fa8a4ced6 100644
 --- a/include/uapi/linux/libc-compat.h
 +++ b/include/uapi/linux/libc-compat.h
-@@ -64,9 +64,11 @@
- /* Everything up to IFF_DYNAMIC, matches net/if.h until glibc 2.23 */
- #define __UAPI_DEF_IF_NET_DEVICE_FLAGS 0
- /* For the future if glibc adds IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO */
-+#ifndef IFF_ECHO
- #ifndef __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO
- #define __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO 1
- #endif /* __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO */
-+#endif /* IFF_ECHO */
+@@ -51,8 +51,8 @@
+ /* We have included libc headers... */
+ #if !defined(__KERNEL__)
  
- #else /* _NET_IF_H */
+-/* Coordinate with glibc net/if.h header. */
+-#if defined(_NET_IF_H) && defined(__USE_MISC)
++/* Coordinate with libc net/if.h header. */
++#if defined(_NET_IF_H) && (!defined(__GLIBC__) || defined(__USE_MISC))
  
+ /* GLIBC headers included first so don't define anything
+  * that would already be defined. */
 -- 
 2.11.0
