@@ -1,44 +1,52 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] dccp: fix memory leak during tear-down of unsuccessful connection request
-Date: Mon, 13 Mar 2017 00:01:30 +0100
-Message-ID: <20170312230130.5013-1-hannes@stressinduktion.org>
+Subject: [PATCH RFC iproute v1 0/4] afnetns: add support for afnetns
+Date: Mon, 13 Mar 2017 00:01:34 +0100
+Message-ID: <20170312230138.5096-1-hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:40126 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:32913 "EHLO
         out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755789AbdCLXBf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:01:35 -0400
+        by vger.kernel.org with ESMTP id S935422AbdCLXBn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:01:43 -0400
 Received: from compute7.internal (compute7.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id DBF6F2067F
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:33 -0400 (EDT)
+        by mailout.nyi.internal (Postfix) with ESMTP id 37A9520682
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:42 -0400 (EDT)
 Received: from m.localhost.localhost (unknown [213.55.211.72])
-        by mail.messagingengine.com (Postfix) with ESMTPA id F35482423E
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:32 -0400 (EDT)
+        by mail.messagingengine.com (Postfix) with ESMTPA id 391A7240CF
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:01:40 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a memory leak, which happens if the connection request
-is not fulfilled between parsing the DCCP options and handling the SYN
-(because e.g. the backlog is full), because we forgot to free the
-list of ack vectors.
+This patchset adds support for afnetns to iproute.
 
-Reported-by: Jianwen Ji <jiji@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/dccp/ccids/ccid2.c | 1 +
- 1 file changed, 1 insertion(+)
+For more information on afnetns please look at the kernel patchset.
 
-diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
-index f053198e730c48..5e3a7302f7747e 100644
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -749,6 +749,7 @@ static void ccid2_hc_tx_exit(struct sock *sk)
- 	for (i = 0; i < hc->tx_seqbufc; i++)
- 		kfree(hc->tx_seqbuf[i]);
- 	hc->tx_seqbufc = 0;
-+	dccp_ackvec_parsed_cleanup(&hc->tx_av_chunks);
- }
- 
- static void ccid2_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+Patches for util-linux commands, namely nsenter and unshare, is
+available here: <https://github.com/hannes/util-linux/tree/afnetns>
+
+Hannes Frederic Sowa (4):
+  afnetns: add iproute bits for afnetns
+  afnetns: support for ipv4/v6 address management
+  afnetns: introduce lib/afnetns.c and a name cache
+  afnetns: only show afnetns when show_details
+
+ include/afnetns.h       |   6 ++
+ include/libnetlink.h    |   7 ++
+ include/linux/if_addr.h |   2 +
+ include/namespace.h     |   4 +
+ include/utils.h         |   1 +
+ ip/Makefile             |   2 +-
+ ip/ip.c                 |   5 +-
+ ip/ip_common.h          |   1 +
+ ip/ipaddress.c          |  38 ++++++++
+ ip/ipafnetns.c          | 216 +++++++++++++++++++++++++++++++++++++++++++++
+ lib/Makefile            |   2 +-
+ lib/afnetns.c           | 226 ++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/utils.c             |  36 ++++++++
+ 13 files changed, 542 insertions(+), 4 deletions(-)
+ create mode 100644 include/afnetns.h
+ create mode 100644 ip/ipafnetns.c
+ create mode 100644 lib/afnetns.c
+
 -- 
 2.9.3
