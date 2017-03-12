@@ -1,101 +1,90 @@
-From: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] net: usb: rtl8150: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 12 Mar 2017 23:16:25 +0100
-Message-ID: <1489356985-24117-1-git-send-email-tremyfr@gmail.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net] tun: fix premature POLLOUT notification on tun devices
+Date: Mon, 13 Mar 2017 00:00:26 +0100
+Message-ID: <20170312230026.4632-1-hannes@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+        Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+        Jonas Lippuner <jonas@lippuner.ca>,
+        aszlig <aszlig@redmoonstudios.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:57342 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933224AbdCLXAh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:00:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+aszlig observed failing ssh tunnels (-w) during initialization since
+commit cc9da6cc4f56e0 ("ipv6: addrconf: use stable address generator for
+ARPHRD_NONE"). We already had reports that the mentioned commit breaks
+Juniper VPN connections. I can't clearly say that the Juniper VPN client
+has the same problem, but it is worth a try to hint to this patch.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+Because of the early generation of link local addresses, the kernel now
+can start asking for routers on the local subnet much earlier than usual.
+Those router solicitation packets arrive inside the ssh channels and
+should be transmitted to the tun fd before the configuration scripts
+might have upped the interface and made it ready for transmission.
 
-Signed-off-by: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+ssh polls on the interface and receives back a POLL_OUT. It tries to send
+the earily router solicitation packet to the tun interface.  Unfortunately
+it hasn't been up'ed yet by config scripts, thus failing with -EIO. ssh
+doesn't retry again and considers the tun interface broken forever.
+
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=121131
+Fixes: cc9da6cc4f56 ("ipv6: addrconf: use stable address generator for ARPHRD_NONE")
+Cc: Bjørn Mork <bjorn@mork.no>
+Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Reported-by: Jonas Lippuner <jonas@lippuner.ca>
+Cc: Jonas Lippuner <jonas@lippuner.ca>
+Reported-by: aszlig <aszlig@redmoonstudios.org>
+Cc: aszlig <aszlig@redmoonstudios.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/usb/rtl8150.c |   35 ++++++++++++++++++++---------------
- 1 files changed, 20 insertions(+), 15 deletions(-)
+ drivers/net/tun.c | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index c81c791..daaa88a 100644
---- a/drivers/net/usb/rtl8150.c
-+++ b/drivers/net/usb/rtl8150.c
-@@ -791,47 +791,52 @@ static void rtl8150_get_drvinfo(struct net_device *netdev, struct ethtool_drvinf
- 	usb_make_path(dev->udev, info->bus_info, sizeof(info->bus_info));
- }
- 
--static int rtl8150_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-+static int rtl8150_get_link_ksettings(struct net_device *netdev,
-+				      struct ethtool_link_ksettings *ecmd)
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index f58b7d850114b0..34cc3c590aa5c5 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -822,7 +822,18 @@ static void tun_net_uninit(struct net_device *dev)
+ /* Net device open. */
+ static int tun_net_open(struct net_device *dev)
  {
- 	rtl8150_t *dev = netdev_priv(netdev);
- 	short lpa, bmcr;
-+	u32 supported;
- 
--	ecmd->supported = (SUPPORTED_10baseT_Half |
-+	supported = (SUPPORTED_10baseT_Half |
- 			  SUPPORTED_10baseT_Full |
- 			  SUPPORTED_100baseT_Half |
- 			  SUPPORTED_100baseT_Full |
- 			  SUPPORTED_Autoneg |
- 			  SUPPORTED_TP | SUPPORTED_MII);
--	ecmd->port = PORT_TP;
--	ecmd->transceiver = XCVR_INTERNAL;
--	ecmd->phy_address = dev->phy;
-+	ecmd->base.port = PORT_TP;
-+	ecmd->base.phy_address = dev->phy;
- 	get_registers(dev, BMCR, 2, &bmcr);
- 	get_registers(dev, ANLP, 2, &lpa);
- 	if (bmcr & BMCR_ANENABLE) {
- 		u32 speed = ((lpa & (LPA_100HALF | LPA_100FULL)) ?
- 			     SPEED_100 : SPEED_10);
--		ethtool_cmd_speed_set(ecmd, speed);
--		ecmd->autoneg = AUTONEG_ENABLE;
-+		ecmd->base.speed = speed;
-+		ecmd->base.autoneg = AUTONEG_ENABLE;
- 		if (speed == SPEED_100)
--			ecmd->duplex = (lpa & LPA_100FULL) ?
-+			ecmd->base.duplex = (lpa & LPA_100FULL) ?
- 			    DUPLEX_FULL : DUPLEX_HALF;
- 		else
--			ecmd->duplex = (lpa & LPA_10FULL) ?
-+			ecmd->base.duplex = (lpa & LPA_10FULL) ?
- 			    DUPLEX_FULL : DUPLEX_HALF;
- 	} else {
--		ecmd->autoneg = AUTONEG_DISABLE;
--		ethtool_cmd_speed_set(ecmd, ((bmcr & BMCR_SPEED100) ?
--					     SPEED_100 : SPEED_10));
--		ecmd->duplex = (bmcr & BMCR_FULLDPLX) ?
-+		ecmd->base.autoneg = AUTONEG_DISABLE;
-+		ecmd->base.speed = ((bmcr & BMCR_SPEED100) ?
-+					     SPEED_100 : SPEED_10);
-+		ecmd->base.duplex = (bmcr & BMCR_FULLDPLX) ?
- 		    DUPLEX_FULL : DUPLEX_HALF;
- 	}
++	struct tun_struct *tun = netdev_priv(dev);
++	int i;
 +
-+	ethtool_convert_legacy_u32_to_link_mode(ecmd->link_modes.supported,
-+						supported);
+ 	netif_tx_start_all_queues(dev);
++
++	for (i = 0; i < tun->numqueues; i++) {
++		struct tun_file *tfile;
++
++		tfile = rtnl_dereference(tun->tfiles[i]);
++		tfile->socket.sk->sk_write_space(tfile->socket.sk);
++	}
 +
  	return 0;
  }
  
- static const struct ethtool_ops ops = {
- 	.get_drvinfo = rtl8150_get_drvinfo,
--	.get_settings = rtl8150_get_settings,
--	.get_link = ethtool_op_get_link
-+	.get_link = ethtool_op_get_link,
-+	.get_link_ksettings = rtl8150_get_link_ksettings,
- };
+@@ -1103,9 +1114,10 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
+ 	if (!skb_array_empty(&tfile->tx_array))
+ 		mask |= POLLIN | POLLRDNORM;
  
- static int rtl8150_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+-	if (sock_writeable(sk) ||
+-	    (!test_and_set_bit(SOCKWQ_ASYNC_NOSPACE, &sk->sk_socket->flags) &&
+-	     sock_writeable(sk)))
++	if (tun->dev->flags & IFF_UP &&
++	    (sock_writeable(sk) ||
++	     (!test_and_set_bit(SOCKWQ_ASYNC_NOSPACE, &sk->sk_socket->flags) &&
++	      sock_writeable(sk))))
+ 		mask |= POLLOUT | POLLWRNORM;
+ 
+ 	if (tun->dev->reg_state != NETREG_REGISTERED)
 -- 
-1.7.4.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.9.3
