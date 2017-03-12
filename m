@@ -1,168 +1,125 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next RFC v1 22/27] afnetns: track owning namespace for inet_bind
-Date: Mon, 13 Mar 2017 00:01:46 +0100
-Message-ID: <20170312230151.5185-23-hannes@stressinduktion.org>
+Subject: [PATCH net-next RFC v1 14/27] afnetns: check for afnetns in inet6_bind
+Date: Mon, 13 Mar 2017 00:01:38 +0100
+Message-ID: <20170312230151.5185-15-hannes@stressinduktion.org>
 References: <20170312230151.5185-1-hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:57761 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:48457 "EHLO
         out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935572AbdCLXCV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:02:21 -0400
+        by vger.kernel.org with ESMTP id S935669AbdCLXCU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:02:20 -0400
 Received: from compute7.internal (compute7.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id 3A56520753
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:14 -0400 (EDT)
+        by mailout.nyi.internal (Postfix) with ESMTP id 586CE20749
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:05 -0400 (EDT)
 Received: from m.localhost.localhost (unknown [213.55.211.72])
-        by mail.messagingengine.com (Postfix) with ESMTPA id 8C120240CF
-        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:13 -0400 (EDT)
+        by mail.messagingengine.com (Postfix) with ESMTPA id B4314240CF
+        for <netdev@vger.kernel.org>; Sun, 12 Mar 2017 19:02:04 -0400 (EDT)
 In-Reply-To: <20170312230151.5185-1-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order for a newly created afnetns to allow its processes to bind to
-ports lower than 1024 we need to track the to be created user namespace
-to check for the permissions for binding so.
-
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/afnetns.h    |  7 +++++--
- kernel/nsproxy.c         |  2 +-
- net/core/afnetns.c       | 18 ++++++++++++------
- net/core/net_namespace.c |  2 +-
- 4 files changed, 19 insertions(+), 10 deletions(-)
+ include/net/addrconf.h |  3 ++-
+ net/ipv6/addrconf.c    | 12 ++++++++++--
+ net/ipv6/af_inet6.c    |  7 +++++--
+ net/ipv6/ndisc.c       |  4 ++--
+ net/ipv6/route.c       |  2 +-
+ 5 files changed, 20 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/afnetns.h b/include/net/afnetns.h
-index 9039086717c356..9db49551fff714 100644
---- a/include/net/afnetns.h
-+++ b/include/net/afnetns.h
-@@ -8,6 +8,7 @@
- struct afnetns {
- #if IS_ENABLED(CONFIG_AFNETNS)
- 	refcount_t ref;
-+	struct user_namespace *user_ns;
- 	struct ns_common ns;
- 	struct net *net;
- #endif
-@@ -17,8 +18,10 @@ extern struct afnetns init_afnetns;
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 17c6fd84e28780..e3f1920ca57968 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -63,7 +63,8 @@ int addrconf_set_dstaddr(struct net *net, void __user *arg);
  
- int afnet_ns_init(void);
+ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ 		  const struct net_device *dev, int strict);
+-int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
++int ipv6_chk_addr_and_flags(struct net *net, struct afnetns *afnetns,
++			    const struct in6_addr *addr,
+ 			    const struct net_device *dev, int strict,
+ 			    u32 banned_flags);
  
--struct afnetns *afnetns_new(struct net *net);
--struct afnetns *copy_afnet_ns(unsigned long flags, struct nsproxy *old);
-+struct afnetns *afnetns_new(struct net *net, struct user_namespace *user_ns);
-+struct afnetns *copy_afnet_ns(unsigned long flags,
-+			      struct user_namespace *user_ns,
-+			      struct nsproxy *old);
- struct afnetns *afnetns_get_by_fd(int fd);
- unsigned int afnetns_to_inode(struct afnetns *afnetns);
- void afnetns_free(struct afnetns *afnetns);
-diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
-index f99ecbdd506137..90462012aecf78 100644
---- a/kernel/nsproxy.c
-+++ b/kernel/nsproxy.c
-@@ -114,7 +114,7 @@ static struct nsproxy *create_new_namespaces(unsigned long flags,
- 	}
- 
- #if IS_ENABLED(CONFIG_AFNETNS)
--	new_nsp->afnet_ns = copy_afnet_ns(flags, tsk->nsproxy);
-+	new_nsp->afnet_ns = copy_afnet_ns(flags, user_ns, tsk->nsproxy);
- 	if (IS_ERR(new_nsp->afnet_ns)) {
- 		err = PTR_ERR(new_nsp->afnet_ns);
- 		goto out_afnet;
-diff --git a/net/core/afnetns.c b/net/core/afnetns.c
-index b96c25b5ebe30d..69d776564c69be 100644
---- a/net/core/afnetns.c
-+++ b/net/core/afnetns.c
-@@ -5,6 +5,7 @@
- #include <linux/file.h>
- #include <linux/nsproxy.h>
- #include <linux/proc_ns.h>
-+#include <linux/user_namespace.h>
- 
- const struct proc_ns_operations afnetns_operations;
- 
-@@ -17,7 +18,8 @@ static struct afnetns *ns_to_afnet(struct ns_common *ns)
- 	return container_of(ns, struct afnetns, ns);
- }
- 
--static int afnet_setup(struct afnetns *afnetns, struct net *net)
-+static int afnet_setup(struct afnetns *afnetns, struct net *net,
-+		       struct user_namespace *user_ns)
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index c67f6d3c5b9a7a..2e546584695118 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1776,11 +1776,13 @@ static int ipv6_count_addresses(struct inet6_dev *idev)
+ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ 		  const struct net_device *dev, int strict)
  {
- 	int err;
- 
-@@ -28,11 +30,12 @@ static int afnet_setup(struct afnetns *afnetns, struct net *net)
- 
- 	refcount_set(&afnetns->ref, 1);
- 	afnetns->net = get_net(net);
-+	afnetns->user_ns = get_user_ns(user_ns);
- 
- 	return err;
+-	return ipv6_chk_addr_and_flags(net, addr, dev, strict, IFA_F_TENTATIVE);
++	return ipv6_chk_addr_and_flags(net, NULL, addr, dev, strict,
++				       IFA_F_TENTATIVE);
  }
+ EXPORT_SYMBOL(ipv6_chk_addr);
  
--struct afnetns *afnetns_new(struct net *net)
-+struct afnetns *afnetns_new(struct net *net, struct user_namespace *user_ns)
+-int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
++int ipv6_chk_addr_and_flags(struct net *net, struct afnetns *afnetns,
++			    const struct in6_addr *addr,
+ 			    const struct net_device *dev, int strict,
+ 			    u32 banned_flags)
  {
- 	int err;
- 	struct afnetns *afnetns;
-@@ -41,7 +44,7 @@ struct afnetns *afnetns_new(struct net *net)
- 	if (!afnetns)
- 		return ERR_PTR(-ENOMEM);
+@@ -1792,6 +1794,12 @@ int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
+ 	hlist_for_each_entry_rcu(ifp, &inet6_addr_lst[hash], addr_lst) {
+ 		if (!net_eq(dev_net(ifp->idev->dev), net))
+ 			continue;
++
++#if IS_ENABLED(CONFIG_AFNETNS)
++		if (afnetns && ifp->afnetns != afnetns)
++			continue;
++#endif
++
+ 		/* Decouple optimistic from tentative for evaluation here.
+ 		 * Ban optimistic addresses explicitly, when required.
+ 		 */
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index f9367c507573bc..ffb116297c0950 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -362,8 +362,11 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+ 				if (!net->ipv6.sysctl.ip_nonlocal_bind &&
+ 				    !(inet->freebind || inet->transparent) &&
+-				    !ipv6_chk_addr(net, &addr->sin6_addr,
+-						   dev, 0)) {
++				    !ipv6_chk_addr_and_flags(net,
++							     sock_afnetns(sk),
++							     &addr->sin6_addr,
++							     dev, 0,
++							     IFA_F_TENTATIVE)) {
+ 					err = -EADDRNOTAVAIL;
+ 					goto out_unlock;
+ 				}
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 7ebac630d3c603..4415659f8cfb0d 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -693,8 +693,8 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	struct in6_addr *target = (struct in6_addr *)&neigh->primary_key;
+ 	int probes = atomic_read(&neigh->probes);
  
--	err = afnet_setup(afnetns, net);
-+	err = afnet_setup(afnetns, net, user_ns);
- 	if (err) {
- 		kfree(afnetns);
- 		return ERR_PTR(err);
-@@ -54,6 +57,7 @@ void afnetns_free(struct afnetns *afnetns)
- {
- 	ns_free_inum(&afnetns->ns);
- 	put_net(afnetns->net);
-+	put_user_ns(afnetns->user_ns);
- 	kfree(afnetns);
- }
- EXPORT_SYMBOL(afnetns_free);
-@@ -85,7 +89,9 @@ unsigned int afnetns_to_inode(struct afnetns *afnetns)
- }
- EXPORT_SYMBOL(afnetns_to_inode);
- 
--struct afnetns *copy_afnet_ns(unsigned long flags, struct nsproxy *old)
-+struct afnetns *copy_afnet_ns(unsigned long flags,
-+			      struct user_namespace *user_ns,
-+			      struct nsproxy *old)
- {
- 	if (flags & CLONE_NEWNET)
- 		return afnetns_get(old->net_ns->afnet_ns);
-@@ -93,7 +99,7 @@ struct afnetns *copy_afnet_ns(unsigned long flags, struct nsproxy *old)
- 	if (!(flags & CLONE_NEWAFNET))
- 		return afnetns_get(old->afnet_ns);
- 
--	return afnetns_new(old->net_ns);
-+	return afnetns_new(old->net_ns, user_ns);
- }
- 
- static struct ns_common *afnet_get(struct task_struct *task)
-@@ -144,7 +150,7 @@ int __init afnet_ns_init(void)
- {
- 	int err;
- 
--	err = afnet_setup(&init_afnetns, &init_net);
-+	err = afnet_setup(&init_afnetns, &init_net, &init_user_ns);
- 	if (err)
- 		return err;
- 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 1b11883d8cdbbd..6bb1c87e72dcc0 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -287,7 +287,7 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
- 
- #if IS_ENABLED(CONFIG_AFNETNS)
- 	if (likely(!net_eq(&init_net, net))) {
--		net->afnet_ns = afnetns_new(net);
-+		net->afnet_ns = afnetns_new(net, user_ns);
- 		if (IS_ERR(net->afnet_ns)) {
- 			error = PTR_ERR(net->afnet_ns);
+-	if (skb && ipv6_chk_addr_and_flags(dev_net(dev), &ipv6_hdr(skb)->saddr,
+-					   dev, 1,
++	if (skb && ipv6_chk_addr_and_flags(dev_net(dev), NULL,
++					   &ipv6_hdr(skb)->saddr, dev, 1,
+ 					   IFA_F_TENTATIVE|IFA_F_OPTIMISTIC))
+ 		saddr = &ipv6_hdr(skb)->saddr;
+ 	probes -= NEIGH_VAR(neigh->parms, UCAST_PROBES);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 229bfcc451ef50..87d87c5413d71e 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2007,7 +2007,7 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ 		 * prefix route was assigned to, which might be non-loopback.
+ 		 */
+ 		err = -EINVAL;
+-		if (ipv6_chk_addr_and_flags(net, gw_addr,
++		if (ipv6_chk_addr_and_flags(net, NULL, gw_addr,
+ 					    gwa_type & IPV6_ADDR_LINKLOCAL ?
+ 					    dev : NULL, 0, 0))
  			goto out;
 -- 
 2.9.3
