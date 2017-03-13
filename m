@@ -1,80 +1,66 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: debug ATU Age Time
-Date: Mon, 13 Mar 2017 23:58:45 +0100
-Message-ID: <20170313225845.GE14183@lunn.ch>
-References: <20170313192043.12478-1-vivien.didelot@savoirfairelinux.com>
- <20170313223932.GC14183@lunn.ch>
- <b7d0e92f-45cb-929d-a724-2a582621f8e1@gmail.com>
+From: David Arcari <darcari@redhat.com>
+Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is
+ changed
+Date: Mon, 13 Mar 2017 19:02:01 -0400
+Message-ID: <58C724E9.9090602@redhat.com>
+References: <1489008801-120389-1-git-send-email-darcari@redhat.com>
+ <20170312.230919.811312629901809185.davem@davemloft.net>
+ <5a3a435e-2ea5-343b-49e9-aff185eb73cc@redhat.com>
+ <20170313.125614.724873987813626999.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Jason Cobham <jcobham@questertangent.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <b7d0e92f-45cb-929d-a724-2a582621f8e1@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Pavel.Belous@aquantia.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59248 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751793AbdCMXCC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 19:02:02 -0400
+In-Reply-To: <20170313.125614.724873987813626999.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 03:42:36PM -0700, Florian Fainelli wrote:
-> On 03/13/2017 03:39 PM, Andrew Lunn wrote:
-> > On Mon, Mar 13, 2017 at 03:20:43PM -0400, Vivien Didelot wrote:
-> >> The ATU ageing time value programmed in the switch is rounded up to the
-> >> nearest multiple of its coefficient (variable depending on the model.)
-> >>
-> >> Add a debug message to inform the user about the exact programmed value.
-> >>
-> >> On 6352, "brctl setageing br0 18" gives "AgeTime set to 0x01 (15000 ms)"
-> >> while on 6390 we get "AgeTime set to 0x05 (18750 ms)".
-> >>
-> >> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> >> ---
-> >>  drivers/net/dsa/mv88e6xxx/global1_atu.c | 9 ++++++++-
-> >>  1 file changed, 8 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-> >> index f6cd3c939da4..bac34737b096 100644
-> >> --- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
-> >> +++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
-> >> @@ -65,7 +65,14 @@ int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
-> >>  	val &= ~0xff0;
-> >>  	val |= age_time << 4;
-> >>  
-> >> -	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
-> >> +	err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
-> >> +	if (err)
-> >> +		return err;
-> >> +
-> >> +	dev_dbg(chip->dev, "AgeTime set to 0x%02x (%d ms)\n", age_time,
-> >> +		age_time * coeff);
-> >> +
-> > 
-> > Hi Vivien
-> > 
-> > You could put the dev_dbg before the mv88e6xxx_g1_write(), to keep the
-> > code simpler. If this write fails, we expect a lot of other things to
-> > go horribly wrong, so having one debug message being not quite accurate
-> > is not important.
+On 03/13/2017 03:56 PM, David Miller wrote:
+> From: David Arcari <darcari@redhat.com>
+> Date: Mon, 13 Mar 2017 11:50:50 -0400
 > 
-> The debug message would not be printed in case mv88e6xxx_g1_write()
-> fails, also, having the message printed after the write occurred is a
-> good way to make sure the write did make it through. Did I miss
-> something in what you are suggesting here?
+>> On 03/13/2017 02:09 AM, David Miller wrote:
+>>> From: David Arcari <darcari@redhat.com>
+>>> Date: Wed,  8 Mar 2017 16:33:21 -0500
+>>>
+>>>> When the aquantia device mtu is changed the net_device structure is not
+>>>> updated.  As a result the ip command does not properly reflect the mtu change.
+>>>>
+>>>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+>>>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+>>>> has a ndo_change_mtu routine.
+>>>>
+>>>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+>>>>
+>>>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+>>>> Signed-off-by: David Arcari <darcari@redhat.com>
+>>>
+>>> Applied, thanks.
+>>>
+>>
+>> Hi David,
+>>
+>> I see that my patch:
+>>
+>> "net: ethernet: aquantia: call set_irq_affinity_hint before free_irq"
+>>
+>> has been applied to net, but I don't see that this patch has been applied.
+> 
+> It is marked as "changes requested" in patchwork, because you were asked to
+> do the restart label removal in a separate patch.
+> 
 
-We never, ever see a read or a write failure on the MDIO bus. If it
-ever does, i expect the switch is dead, gone, never to be heard from
-again until the power is reset. We are going to have lots of
-failures. So it seems simpler to have:
 
-	dev_dbg(chip->dev, "Setting AgeTime to 0x%02x (%d ms)\n", age_time,
-		age_time * coeff);
+Sorry, I was not clear.  I was trying to ask if your "Applied, thanks" reply
+(above) was meant for this email thread.  I believe it was meant for the
+set_irq_affinity_hint patch.
 
-	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
+Thanks,
 
-and accept that if for some unlikely reason the write does fail, the
-debug message is probably not accurate.
-
-      Andrew
+-DA
