@@ -1,52 +1,74 @@
-From: Thierry Du Tre <thierry@dtsystems.be>
-Subject: Re: [PATCH v2] VLAN, support ingress/egress priority map flushing
-Date: Mon, 13 Mar 2017 21:33:52 +0100
-Message-ID: <48d6c820-db6c-8366-9372-a1dfe958cfc1@dtsystems.be>
-References: <f07d2296-31e0-30b1-c798-f5f1d87d573a@dtsystems.be>
- <1489418918.28631.82.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [RESEND PATCH -net] cpsw/netcp: cpts depends on posix_timers
+Date: Mon, 13 Mar 2017 16:41:39 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1703131629570.14436@knanqh.ubzr>
+References: <20170313165849.1378558-1-arnd@arndb.de> <alpine.LFD.2.20.1703131608100.14436@knanqh.ubzr> <CAK8P3a125rioB5Cnoa7nR9Dz_pU5=x7=06_DvXEE-dTpOBiitQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ben Greear <greearb@candelatech.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33290 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751826AbdCMUd4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 16:33:56 -0400
-Received: by mail-wm0-f65.google.com with SMTP id n11so11782981wma.0
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 13:33:55 -0700 (PDT)
-In-Reply-To: <1489418918.28631.82.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        John Stultz <john.stultz@linaro.org>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAK8P3a125rioB5Cnoa7nR9Dz_pU5=x7=06_DvXEE-dTpOBiitQ@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13-03-17 16:28, Eric Dumazet wrote:
-> On Mon, 2017-03-13 at 15:36 +0100, Thierry Du Tre wrote:
->
->> +void vlan_dev_flush_egress_priority(const struct net_device *dev)
->> +{
->> +	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
->> +	struct vlan_priority_tci_mapping *mp;
->> +	int i;
->> +
->> +	for (i = 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
->> +		while ((mp = vlan->egress_priority_map[i]) != NULL) {
->> +			vlan->egress_priority_map[i] = mp->next;
->> +			kfree(mp);
->> +		}
->> +	}
->> +	vlan->nr_egress_mappings = 0;
->> +}
->
-> Are you doing this on a live device ?
->
-> Looks you'll need proper RCU support then.
->
-> Otherwise, crashes will happen, say in egress_priority_map()
->
-> smp_rmb() wont be enough if items can now be destroyed.
-Yes, good point about the smp concurrency.
-I wrongly assumed there was already some locking mechanism in place to 
-protect these structures.
+On Mon, 13 Mar 2017, Arnd Bergmann wrote:
 
-Let me take a look at this and I'll come back with a new proposal.
+> On Mon, Mar 13, 2017 at 9:09 PM, Nicolas Pitre <nicolas.pitre@linaro.org> wrote:
+> > On Mon, 13 Mar 2017, Arnd Bergmann wrote:
+> >
+> >> With posix timers having become optional, we get a build error with
+> >> the cpts time sync option of the CPSW driver:
+> >>
+> >> drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
+> >> drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
+> >>
+> >> It really makes no sense to build this driver if we can't use PTP,
+> >> so it's better to go back to 'select PTP_1588_CLOCK' but instead
+> >> add a dependency on POSIX_TIMERS. Adding 'depends on PTP_1588_CLOCK'
+> >> might also work, but has the risk of circular dependencies when
+> >> mixed with other drivers using 'imply'.
+> >
+> > Could you elaborate on that risk please?
+> 
+> I have seen many circular dependencies in the past that tend to be of type
+> 
+> config FOO
+>      depends on A
+>      select B
+> 
+> config BAR
+>      select A
+>      depends on B
+
+This is really a problem?  I mean in this example there is nothing that 
+prevents A or B to be enabled independently.  Of course if you had:
+
+config A
+	depends on B
+
+config B
+	depends on A
+
+then the circular dependency is obvious.
+
+> The best way to avoid this problem is to only ever use either 'select' or
+> 'depends on' for any given dependency, but not both. In this case, almost
+> all references to PTP_1588_CLOCK use 'select' or 'implies', so I don't
+> want to introduce any more 'depends on'.
+
+I can't find any "select PTP_1588_CLOCK" in the tree.
+
+The "imply" keyword in itself doesn't create nor inforce any 
+dependencies -- that's why it was created in the first place.
+
+So unless I'm mistaken I don't see any problem using "depends on 
+PTP_1588_CLOCK" here.
+
+
+Nicolas
