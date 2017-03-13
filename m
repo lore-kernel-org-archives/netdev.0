@@ -1,54 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu
- is changed
-Date: Mon, 13 Mar 2017 12:56:14 -0700 (PDT)
-Message-ID: <20170313.125614.724873987813626999.davem@davemloft.net>
-References: <1489008801-120389-1-git-send-email-darcari@redhat.com>
-        <20170312.230919.811312629901809185.davem@davemloft.net>
-        <5a3a435e-2ea5-343b-49e9-aff185eb73cc@redhat.com>
+From: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next RFC v1 00/27] afnetns: new namespace type for
+ separation on protocol level
+Date: Mon, 13 Mar 2017 20:56:35 +0100
+Message-ID: <CAHO5Pa1s949dohzEEE68Ux=mXA7N7sR-U98Jwjvx1a_A5AhFEw@mail.gmail.com>
+References: <20170312230151.5185-1-hannes@stressinduktion.org>
+ <20170312.162613.1105038945335893886.davem@davemloft.net> <1489362279.2283.1.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pavel.Belous@aquantia.com
-To: darcari@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55178 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751047AbdCMT4Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 15:56:16 -0400
-In-Reply-To: <5a3a435e-2ea5-343b-49e9-aff185eb73cc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489362279.2283.1.camel-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Arcari <darcari@redhat.com>
-Date: Mon, 13 Mar 2017 11:50:50 -0400
+[CC += linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org]
 
-> On 03/13/2017 02:09 AM, David Miller wrote:
->> From: David Arcari <darcari@redhat.com>
->> Date: Wed,  8 Mar 2017 16:33:21 -0500
->> 
->>> When the aquantia device mtu is changed the net_device structure is not
->>> updated.  As a result the ip command does not properly reflect the mtu change.
->>>
->>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
->>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
->>> has a ndo_change_mtu routine.
->>>
->>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
->>>
->>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
->>> Signed-off-by: David Arcari <darcari@redhat.com>
->> 
->> Applied, thanks.
->> 
-> 
-> Hi David,
-> 
-> I see that my patch:
-> 
-> "net: ethernet: aquantia: call set_irq_affinity_hint before free_irq"
-> 
-> has been applied to net, but I don't see that this patch has been applied.
+Hannes,
 
-It is marked as "changes requested" in patchwork, because you were asked to
-do the restart label removal in a separate patch.
+Since this is a kernel-user-space API change, please CC linux-api@
+(and on future iterations of the series). The kernel source file
+Documentation/SubmitChecklist notes that all Linux kernel patches that
+change userspace interfaces should be CCed to
+linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, so that the various parties who are
+interested in API changes are informed. For further information, see
+https://www.kernel.org/doc/man-pages/linux-api-ml.html
+
+Thanks,
+
+Michael
+
+
+On Mon, Mar 13, 2017 at 12:44 AM, Hannes Frederic Sowa
+<hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org> wrote:
+> Hi,
+>
+> On Sun, 2017-03-12 at 16:26 -0700, David Miller wrote:
+>> From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+>> Date: Mon, 13 Mar 2017 00:01:24 +0100
+>>
+>> > afnetns behaves like ordinary namespaces: clone, unshare, setns syscalls
+>> > can work with afnetns with one limitation: one cannot cross the realm
+>> > of a network namespace while changing the afnetns compartement. To get
+>> > into a new afnetns in a different net namespace, one must first change
+>> > to the net namespace and afterwards switch to the desired afnetns.
+>>
+>> Please explain why this is useful, who wants this kind of facility,
+>> and how it will be used.
+>
+> Yes, I have to enhance the cover letter:
+>
+> The work behind all this is to provide more dense container hosting.
+> Right now we lose performance, because all packets need to be forwarded
+> through either a bridge or must be routed until they reach the
+> containers. For example, we can't make use of early demuxing for the
+> incoming packets. We basically pass the networking stack twice for
+> every packet.
+>
+> The usage is very much in line with how network namespaces are used
+> nowadays:
+>
+> ip afnetns add afns-1
+> ip address add 192.168.1.1/24 dev eth0 afnetns afns-1
+> ip afnetns exec afns-1 /usr/sbin/httpd
+>
+> this spawns a shell where all child processes will only have access to
+> the specific ip addresses, even though they do a wildcard bind. Source
+> address selection will also use only the ip addresses available to the
+> children.
+>
+> In some sense it has lots of characteristics like ipvlan, allowing a
+> single MAC address to host lots of IP addresses which will end up in
+> different namespaces. Unlink ipvlan however, it will also solve the
+> problem around duplicate address detection and multiplexing packets to
+> the IGMP or MLD state machines.
+>
+> The resource consumption in comparison with ordinary namespaces will be
+> much lower. All in all, we will have far less networking subsystems to
+> cross compared to normal netns solutions.
+>
+> Some more information also in the first patch, which adds a
+> Documentation.
+>
+> Bye,
+> Hannes
+>
+
+
+
+-- 
+Michael Kerrisk Linux man-pages maintainer;
+http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface", http://blog.man7.org/
