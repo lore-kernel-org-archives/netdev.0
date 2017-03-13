@@ -1,95 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
-Date: Mon, 13 Mar 2017 14:53:09 +0100
-Message-ID: <20170313135309.GF1796@nanopsycho>
-References: <1486031855-10551-1-git-send-email-simon.horman@netronome.com>
- <1486031855-10551-2-git-send-email-simon.horman@netronome.com>
- <20170221152810.GE2694@nanopsycho.mtl.com>
- <20170310141912.GA5184@penelope.horms.nl>
- <20170310142732.GA1850@nanopsycho.lan>
- <20170313135006.GA4463@penelope.horms.nl>
+From: Sagi Grimberg <sagi@grimberg.me>
+Subject: Re: [PATCH v3 0/4] Introduce a new helper for parsing ipv[4|6]:port
+ to socket address
+Date: Mon, 13 Mar 2017 16:00:09 +0200
+Message-ID: <55ad78fd-266f-09b9-417d-b6cf7b723879@grimberg.me>
+References: <1489063793-12838-1-git-send-email-sagi@grimberg.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-nvme@lists.infradead.org, netdev@vger.kernel.org,
+        Christoph Hellwig <hch@lst.de>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:38805 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751621AbdCMNxM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 09:53:12 -0400
-Received: by mail-wm0-f44.google.com with SMTP id t189so40489673wmt.1
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 06:53:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170313135006.GA4463@penelope.horms.nl>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35048 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751359AbdCMOAO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 10:00:14 -0400
+Received: by mail-wr0-f193.google.com with SMTP id u108so20210619wrb.2
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 07:00:12 -0700 (PDT)
+In-Reply-To: <1489063793-12838-1-git-send-email-sagi@grimberg.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 13, 2017 at 02:50:08PM CET, simon.horman@netronome.com wrote:
->On Fri, Mar 10, 2017 at 03:27:32PM +0100, Jiri Pirko wrote:
->> Fri, Mar 10, 2017 at 03:19:13PM CET, simon.horman@netronome.com wrote:
->> >On Tue, Feb 21, 2017 at 04:28:10PM +0100, Jiri Pirko wrote:
->> >> Thu, Feb 02, 2017 at 11:37:34AM CET, simon.horman@netronome.com wrote:
->> >> >Allow dissection of Neighbour Discovery target IP, and source and
->> >> >destination link-layer addresses for neighbour solicitation and
->> >> >advertisement messages.
->> >> >
->> >> >Signed-off-by: Simon Horman <simon.horman@netronome.com>
->> >> >---
->> >> 
->> >> [...]
->> >> 
->> >> >@@ -633,6 +702,18 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->> >> > 						     FLOW_DISSECTOR_KEY_ICMP,
->> >> > 						     target_container);
->> >> > 		key_icmp->icmp = skb_flow_get_be16(skb, nhoff, data, hlen);
->> >> >+
->> >> >+		if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ND) &&
->> >> >+		    ip_proto == IPPROTO_IPV6 && key_icmp->code == 0 &&
->> >> 
->> >> IPPROTO_IPV6 say "IPv6-in-IPv4 tunnelling". Please use "NEXTHDR_IPV6"
->> >> instead.
->> >
->> >Thanks, will do.
->> >
->> >> >+		    (key_icmp->type == NDISC_NEIGHBOUR_SOLICITATION ||
->> >> >+		     key_icmp->type == NDISC_NEIGHBOUR_ADVERTISEMENT)) {
->> >> >+			key_nd = skb_flow_dissector_target(flow_dissector,
->> >> >+							   FLOW_DISSECTOR_KEY_ND,
->> >> >+							   target_container);
->> >> >+			if (!(skb_flow_dissect_nd(skb, key_nd, data, nhoff,
->> >> >+						  hlen, ipv6_payload_len)))
->> >> >+				goto out_bad;
->> >> >+		}
->> >> 
->> >> You should put this under "switch (ip_proto) {"
->> >
->> >I see that makes sense in terms of the check against ip_proto.
->> >But I added it here to allow checking against key_icmp->code
->> >and key_icmp->type as well.
->> 
->> Sure. Just add under "switch (ip_proto) {" and call a wrapper nd
->> function from there. In that function, you check dissector_uses_key and
->> other needed things.
->
->Hi Jiri,
->
->I'm sorry but I'm having a bit of trouble understanding how best to
->structure the extraction of ICMP and ND.
->
->The way I see things is this:
->
->* ICMP extraction may occur for IPv4 or IPv6 although currently neither
->  IPv4 nor IPv6 is a condition of ICMP extraction.
->* ND extraction may only occur for IPv6
->* ND extraction may only occur for certain ICMP code/type values;
->  thus ICMP extraction should occur before ND extraction.
->
->I wonder if a good alternative to the approach I took above in my patch
->would  be to provide:
->* ICMP extraction conditional on IPv4 and;
->* ICMP extraction conditional on IPv6 followed by
->  ND extraction conditional on ICMP type and code
 
-Makes sense to me.
+> Changes from v1:
+> - rebased to 4.11-rc1
+> - improved changelogs
+>
+> Changes from v0:
+> - rebased on 4.10
+> - splitted inet_pton_with_scope to be a bit saner (from Chrsitoph)
+> - converted nvme-rdma host_traddr to use a generic helper
+>
+> We have some places in the stack that support ipv4 and ipv6. In
+> some cases the user configuration does not reveal which
+> address family is given and needs to be parsed from the input string.
+>
+> Given that the user-input varies between subsystems, some processing
+> is required from the call-site to separate address and port strings.
+>
+> As a side-effect, this set adds ipv6 support for nvme over fabrics.
+
+Hi Dave,
+
+This set got review tags from two kernel maintainers but this is your
+realm so I wouldn't be comfortable moving forward with this without
+your feedback.
