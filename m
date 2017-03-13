@@ -1,131 +1,343 @@
 From: Erez Shitrit <erezsh@mellanox.com>
-Subject: [RFC v1 for accelerated IPoIB 00/25] Enhanced mode for IPoIB driver
-Date: Mon, 13 Mar 2017 20:31:11 +0200
-Message-ID: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+Subject: [RFC v1 for accelerated IPoIB 02/25] IB/ipoib: separate control from HW operation on ipoib_open/stop ndo
+Date: Mon, 13 Mar 2017 20:31:13 +0200
+Message-ID: <1489429896-10781-3-git-send-email-erezsh@mellanox.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         valex@mellanox.com, leonro@mellanox.com, saedm@mellanox.com,
         erezsh@dev.mellanox.co.il, Erez Shitrit <erezsh@mellanox.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49627 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49626 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752385AbdCMSb4 (ORCPT
+        with ESMTP id S1752387AbdCMSb4 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 14:31:56 -0400
+In-Reply-To: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-    The IPoIB protocol encapsulates IP packets over Infiniband datagrams.
-    As a direct RDMA Upper Layer Protocol (ULP), IPoIB cannot support HW
-    features that are specific to the IP protocol stack.
 
-    Nevertheless, RDMA interfaces have been extended to support some of the
-    prominent IP offload features, such as TCP/UDP checksum and TSO.
-    This provided reasonable performance gain for IPoIB but is still
-    insufficient to cope with the increasing network bandwidth demand.
+This patch is preparing the netdev part at the ipoib driver to be able
+to use the ipoib_options.
+It deals with the two flows from the .ndo: ipoib_open and ipoib_stop.
+It arranges that area of code as follows:
+All operations which deal with the HW resources, (for example change QP
+state, post-receive etc.) are done in one place.
+All operations that are control oriented (like restart multicast task,
+start the reap_ah etc.) are done in separate place.
 
-    However, New features are exisiting in common network interfaces that
-    are very hard to implement in IPoIB interfaces while it uses the RDMA
-    layer, examples include TSS and RSS, tunneling offloads, and XDP.
-    Rather than continuously porting IP network interface developments into
-    the RDMA stack, we propose adding an abstract network data-path interfaces
-    to RDMA devices.
+The functions that deals with the HW resources now located at
+__ipoib_ib_dev_open for the ipoib_open flow and __ipoib_ib_dev_stop for
+ipoib_stop.
 
-    In order to present a consistent interface to users, the IPoIB ULP
-    continues to represent the network device to the IP stack.
-    The common code also manages the IPoIB control plane, such as resolving
-    path queries and registering to multicast groups.
-    Data path operations are forwarded to devices that implement the new
-    API, or fallback to the standard implementation otherwise.
-    Using the forgoing approach, we show how IPoIB closes the performance
-    gap compared to state-of-the-art Ethernet network interfaces.
+Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+---
+ drivers/infiniband/ulp/ipoib/ipoib.h      |   2 +-
+ drivers/infiniband/ulp/ipoib/ipoib_ib.c   | 228 +++++++++++++++++-------------
+ drivers/infiniband/ulp/ipoib/ipoib_main.c |   2 +-
+ 3 files changed, 129 insertions(+), 103 deletions(-)
 
-    The implementation idea is to expose a struct that has data members and set
-    of functions that are used for network interfaces, like create, delete, init hw
-    resources, send, and attach/detach multicast to qp.
-    That set of functions encapsulates in new struct, and this struct can or
-    can't be given by the specific HW layer.
-
-    The IPoIB code will be adapted to enable the option of accelerating the
-    network interface, but the code will work as before if the HW below
-    doesn't support the acceleration.
-    Each HW vendor can supply the acceleration for the IPoIB or to leave
-    IPoIB to work as before.
-
-    TBD:
-	1. Few functions in the API might be changed, at least send functions that is not going to use the ipoib_ah struct.
-	2. Currently I used functions for init/cleanup, perhaps later it will be pushed into the ndo_ops struct.
-	3. The low-level-functions will have a new design that will reduce the use of exported function from the mlx5_core layer to the ib layer.
-
-Changes fron v0:
----------------
-1. Use the vnic/hfi API as a base for the new design/impl.
-2. Change the low level driver to support the new struct. 
-
-
-Erez Shitrit (25):
-  IB/ipoib: Separate control and data related initializations
-  IB/ipoib: separate control from HW operation on ipoib_open/stop ndo
-  IB/ipoib: Rename qpn to dqpn in ipoib_send and post_send functions
-  IB/verb: Add ipoib_options struct and API
-  IB/ipoib: Support ipoib acceleration options callbacks
-  hw/mlx5: Add New bit to check over QP creation
-  linux/mlx5/mlx5_ifc.h: Add underlay_qpn field to PRM objects
-  net/mlx5e: Refactor EN code to support IB link
-  net/mlx5e: Creating and Destroying flow-steering tables for IB link
-  net/mlx5e: Support netdevice creation for IB link type
-  net/mlx5e: Refactor attach_netdev API
-  net/mlx5e: Use underlay_qpn in tis creation
-  net/mlx5e: Export resource creation function to be used in IB link
-  net/mlx5: Enable flow-steering for IB link
-  net/mlx5e: Enhanced flow table creation to support ETH and IB links.
-  net/mlx5e: Change cleanup API in order to enable IB link
-  net/mlx5e: Change mlx5e_open_locked and mlx5e_close_locked api
-  net/mlx5e: Export open/close api for IB link
-  include/linux/mlx5: Add mlx5_wqe_eth_pad and enhanced-ipoib-qp-mode
-  net/mlx5e: Refactor TX send flow
-  net/mlx5e: Export send function for IB link type
-  net/mlx5e: New function pointer for build_rx_skb is
-  net/mlx5e: Change the function that checks the packet type
-  net/mlx5e: Add support for build_rx_skb for packet from IB type
-  mlx5_ib: skeleton for mlx5_ib to support ipoib_ops
-
- drivers/infiniband/hw/mlx5/Makefile                |   2 +-
- drivers/infiniband/hw/mlx5/main.c                  |  10 +
- drivers/infiniband/hw/mlx5/mlx5_ipoib_ops.c        | 289 ++++++++++++++
- drivers/infiniband/hw/mlx5/qp.c                    |   5 +-
- drivers/infiniband/ulp/ipoib/ipoib.h               |  35 +-
- drivers/infiniband/ulp/ipoib/ipoib_cm.c            |  66 ++--
- drivers/infiniband/ulp/ipoib/ipoib_ethtool.c       |   6 +-
- drivers/infiniband/ulp/ipoib/ipoib_fs.c            |   4 +-
- drivers/infiniband/ulp/ipoib/ipoib_ib.c            | 316 +++++++--------
- drivers/infiniband/ulp/ipoib/ipoib_main.c          | 299 ++++++++++----
- drivers/infiniband/ulp/ipoib/ipoib_multicast.c     |  39 +-
- drivers/infiniband/ulp/ipoib/ipoib_netlink.c       |  12 +-
- drivers/infiniband/ulp/ipoib/ipoib_verbs.c         |  62 +--
- drivers/infiniband/ulp/ipoib/ipoib_vlan.c          |   9 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  23 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |  12 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  24 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  66 +++-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 432 ++++++++++++++++-----
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  21 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  70 +++-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 292 +++++++++-----
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |   9 +-
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  19 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |   8 +
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  77 ++--
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   3 +-
- include/linux/mlx5/driver.h                        |  18 +
- include/linux/mlx5/fs.h                            |  16 +-
- include/linux/mlx5/mlx5_ifc.h                      |  11 +-
- include/linux/mlx5/qp.h                            |   8 +
- include/rdma/ib_ipoib_accel_ops.h                  |  59 +++
- include/rdma/ib_verbs.h                            |  36 ++
- 34 files changed, 1720 insertions(+), 639 deletions(-)
- create mode 100644 drivers/infiniband/hw/mlx5/mlx5_ipoib_ops.c
- create mode 100644 include/rdma/ib_ipoib_accel_ops.h
-
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
+index 7cd9befd7d54..b3900b253ad5 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib.h
++++ b/drivers/infiniband/ulp/ipoib/ipoib.h
+@@ -501,7 +501,7 @@ void ipoib_send(struct net_device *dev, struct sk_buff *skb,
+ int ipoib_ib_dev_open(struct net_device *dev);
+ void ipoib_ib_dev_up(struct net_device *dev);
+ void ipoib_ib_dev_down(struct net_device *dev);
+-void ipoib_ib_dev_stop(struct net_device *dev);
++int ipoib_ib_dev_stop_default(struct net_device *dev);
+ void ipoib_pkey_dev_check_presence(struct net_device *dev);
+ 
+ int ipoib_dev_init(struct net_device *dev, struct ib_device *ca, int port);
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+index 3c0a35d883e2..5d732c5f01ee 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+@@ -693,24 +693,113 @@ static void ipoib_stop_ah(struct net_device *dev)
+ 	ipoib_flush_ah(dev);
+ }
+ 
+-void ipoib_ib_tx_timer_func(unsigned long ctx)
++static int recvs_pending(struct net_device *dev)
+ {
+-	drain_tx_cq((struct net_device *)ctx);
++	struct ipoib_dev_priv *priv = netdev_priv(dev);
++	int pending = 0;
++	int i;
++
++	for (i = 0; i < ipoib_recvq_size; ++i)
++		if (priv->rx_ring[i].skb)
++			++pending;
++
++	return pending;
+ }
+ 
+-int ipoib_ib_dev_open(struct net_device *dev)
++int ipoib_ib_dev_stop_default(struct net_device *dev)
+ {
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+-	int ret;
++	struct ib_qp_attr qp_attr;
++	unsigned long begin;
++	struct ipoib_tx_buf *tx_req;
++	int i;
+ 
+-	ipoib_pkey_dev_check_presence(dev);
++	if (test_and_clear_bit(IPOIB_FLAG_INITIALIZED, &priv->flags))
++		napi_disable(&priv->napi);
+ 
+-	if (!test_bit(IPOIB_PKEY_ASSIGNED, &priv->flags)) {
+-		ipoib_warn(priv, "P_Key 0x%04x is %s\n", priv->pkey,
+-			   (!(priv->pkey & 0x7fff) ? "Invalid" : "not found"));
+-		return -1;
++	ipoib_cm_dev_stop(dev);
++
++	/*
++	 * Move our QP to the error state and then reinitialize in
++	 * when all work requests have completed or have been flushed.
++	 */
++	qp_attr.qp_state = IB_QPS_ERR;
++	if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
++		ipoib_warn(priv, "Failed to modify QP to ERROR state\n");
++
++	/* Wait for all sends and receives to complete */
++	begin = jiffies;
++
++	while (priv->tx_head != priv->tx_tail || recvs_pending(dev)) {
++		if (time_after(jiffies, begin + 5 * HZ)) {
++			ipoib_warn(priv, "timing out; %d sends %d receives not completed\n",
++				   priv->tx_head - priv->tx_tail, recvs_pending(dev));
++
++			/*
++			 * assume the HW is wedged and just free up
++			 * all our pending work requests.
++			 */
++			while ((int) priv->tx_tail - (int) priv->tx_head < 0) {
++				tx_req = &priv->tx_ring[priv->tx_tail &
++							(ipoib_sendq_size - 1)];
++				ipoib_dma_unmap_tx(priv, tx_req);
++				dev_kfree_skb_any(tx_req->skb);
++				++priv->tx_tail;
++				--priv->tx_outstanding;
++			}
++
++			for (i = 0; i < ipoib_recvq_size; ++i) {
++				struct ipoib_rx_buf *rx_req;
++
++				rx_req = &priv->rx_ring[i];
++				if (!rx_req->skb)
++					continue;
++				ipoib_ud_dma_unmap_rx(priv,
++						      priv->rx_ring[i].mapping);
++				dev_kfree_skb_any(rx_req->skb);
++				rx_req->skb = NULL;
++			}
++
++			goto timeout;
++		}
++
++		ipoib_drain_cq(dev);
++
++		msleep(1);
+ 	}
+ 
++	ipoib_dbg(priv, "All sends and receives done.\n");
++
++timeout:
++	del_timer_sync(&priv->poll_timer);
++	qp_attr.qp_state = IB_QPS_RESET;
++	if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
++		ipoib_warn(priv, "Failed to modify QP to RESET state\n");
++
++	ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
++
++	return 0;
++}
++
++int ipoib_ib_dev_stop(struct net_device *dev)
++{
++	ipoib_ib_dev_stop_default(dev);
++
++	ipoib_flush_ah(dev);
++
++	return 0;
++}
++
++void ipoib_ib_tx_timer_func(unsigned long ctx)
++{
++	drain_tx_cq((struct net_device *)ctx);
++}
++
++int ipoib_ib_dev_open_default(struct net_device *dev)
++{
++	struct ipoib_dev_priv *priv = netdev_priv(dev);
++	int ret;
++
+ 	ret = ipoib_init_qp(dev);
+ 	if (ret) {
+ 		ipoib_warn(priv, "ipoib_init_qp returned %d\n", ret);
+@@ -729,10 +818,6 @@ int ipoib_ib_dev_open(struct net_device *dev)
+ 		goto dev_stop;
+ 	}
+ 
+-	clear_bit(IPOIB_STOP_REAPER, &priv->flags);
+-	queue_delayed_work(priv->wq, &priv->ah_reap_task,
+-			   round_jiffies_relative(HZ));
+-
+ 	if (!test_and_set_bit(IPOIB_FLAG_INITIALIZED, &priv->flags))
+ 		napi_enable(&priv->napi);
+ 
+@@ -744,6 +829,35 @@ int ipoib_ib_dev_open(struct net_device *dev)
+ 	return -1;
+ }
+ 
++int ipoib_ib_dev_open(struct net_device *dev)
++{
++	struct ipoib_dev_priv *priv = netdev_priv(dev);
++
++	ipoib_pkey_dev_check_presence(dev);
++
++	if (!test_bit(IPOIB_PKEY_ASSIGNED, &priv->flags)) {
++		ipoib_warn(priv, "P_Key 0x%04x is %s\n", priv->pkey,
++			   (!(priv->pkey & 0x7fff) ? "Invalid" : "not found"));
++		return -1;
++	}
++
++	clear_bit(IPOIB_STOP_REAPER, &priv->flags);
++	queue_delayed_work(priv->wq, &priv->ah_reap_task,
++			   round_jiffies_relative(HZ));
++
++	if (ipoib_ib_dev_open_default(dev)) {
++		pr_warn("%s: Failed to open dev\n", dev->name);
++		goto stop_ah_reap;
++	}
++
++	return 0;
++
++stop_ah_reap:
++	set_bit(IPOIB_STOP_REAPER, &priv->flags);
++	cancel_delayed_work(&priv->ah_reap_task);
++	return -1;
++}
++
+ void ipoib_pkey_dev_check_presence(struct net_device *dev)
+ {
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+@@ -787,19 +901,6 @@ void ipoib_ib_dev_down(struct net_device *dev)
+ 	ipoib_flush_paths(dev);
+ }
+ 
+-static int recvs_pending(struct net_device *dev)
+-{
+-	struct ipoib_dev_priv *priv = netdev_priv(dev);
+-	int pending = 0;
+-	int i;
+-
+-	for (i = 0; i < ipoib_recvq_size; ++i)
+-		if (priv->rx_ring[i].skb)
+-			++pending;
+-
+-	return pending;
+-}
+-
+ void ipoib_drain_cq(struct net_device *dev)
+ {
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+@@ -839,81 +940,6 @@ void ipoib_drain_cq(struct net_device *dev)
+ 	local_bh_enable();
+ }
+ 
+-void ipoib_ib_dev_stop(struct net_device *dev)
+-{
+-	struct ipoib_dev_priv *priv = netdev_priv(dev);
+-	struct ib_qp_attr qp_attr;
+-	unsigned long begin;
+-	struct ipoib_tx_buf *tx_req;
+-	int i;
+-
+-	if (test_and_clear_bit(IPOIB_FLAG_INITIALIZED, &priv->flags))
+-		napi_disable(&priv->napi);
+-
+-	ipoib_cm_dev_stop(dev);
+-
+-	/*
+-	 * Move our QP to the error state and then reinitialize in
+-	 * when all work requests have completed or have been flushed.
+-	 */
+-	qp_attr.qp_state = IB_QPS_ERR;
+-	if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
+-		ipoib_warn(priv, "Failed to modify QP to ERROR state\n");
+-
+-	/* Wait for all sends and receives to complete */
+-	begin = jiffies;
+-
+-	while (priv->tx_head != priv->tx_tail || recvs_pending(dev)) {
+-		if (time_after(jiffies, begin + 5 * HZ)) {
+-			ipoib_warn(priv, "timing out; %d sends %d receives not completed\n",
+-				   priv->tx_head - priv->tx_tail, recvs_pending(dev));
+-
+-			/*
+-			 * assume the HW is wedged and just free up
+-			 * all our pending work requests.
+-			 */
+-			while ((int) priv->tx_tail - (int) priv->tx_head < 0) {
+-				tx_req = &priv->tx_ring[priv->tx_tail &
+-							(ipoib_sendq_size - 1)];
+-				ipoib_dma_unmap_tx(priv, tx_req);
+-				dev_kfree_skb_any(tx_req->skb);
+-				++priv->tx_tail;
+-				--priv->tx_outstanding;
+-			}
+-
+-			for (i = 0; i < ipoib_recvq_size; ++i) {
+-				struct ipoib_rx_buf *rx_req;
+-
+-				rx_req = &priv->rx_ring[i];
+-				if (!rx_req->skb)
+-					continue;
+-				ipoib_ud_dma_unmap_rx(priv,
+-						      priv->rx_ring[i].mapping);
+-				dev_kfree_skb_any(rx_req->skb);
+-				rx_req->skb = NULL;
+-			}
+-
+-			goto timeout;
+-		}
+-
+-		ipoib_drain_cq(dev);
+-
+-		msleep(1);
+-	}
+-
+-	ipoib_dbg(priv, "All sends and receives done.\n");
+-
+-timeout:
+-	del_timer_sync(&priv->poll_timer);
+-	qp_attr.qp_state = IB_QPS_RESET;
+-	if (ib_modify_qp(priv->qp, &qp_attr, IB_QP_STATE))
+-		ipoib_warn(priv, "Failed to modify QP to RESET state\n");
+-
+-	ipoib_flush_ah(dev);
+-
+-	ib_req_notify_cq(priv->recv_cq, IB_CQ_NEXT_COMP);
+-}
+-
+ /*
+  * Takes whatever value which is in pkey index 0 and updates priv->pkey
+  * returns 0 if the pkey value was changed.
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 8c644bbc2828..be8dcea252f9 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -166,7 +166,7 @@ static int ipoib_stop(struct net_device *dev)
+ 	netif_stop_queue(dev);
+ 
+ 	ipoib_ib_dev_down(dev);
+-	ipoib_ib_dev_stop(dev);
++	ipoib_ib_dev_stop_default(dev);
+ 
+ 	if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags)) {
+ 		struct ipoib_dev_priv *cpriv;
 -- 
 1.8.3.1
