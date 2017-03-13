@@ -1,60 +1,92 @@
 From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCHv3 3/4] rds: ib: add the static type to the function
-Date: Mon, 13 Mar 2017 01:43:47 -0400
-Message-ID: <1489383828-7699-4-git-send-email-yanjun.zhu@oracle.com>
+Subject: [PATCHv3 4/4] rds: ib: unmap the scatter/gather list when error
+Date: Mon, 13 Mar 2017 01:43:48 -0400
+Message-ID: <1489383828-7699-5-git-send-email-yanjun.zhu@oracle.com>
 References: <1489383828-7699-1-git-send-email-yanjun.zhu@oracle.com>
 To: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
         linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
         leon@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43737 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750802AbdCMFoK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 01:44:10 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:49945 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750760AbdCMFoN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 01:44:13 -0400
 In-Reply-To: <1489383828-7699-1-git-send-email-yanjun.zhu@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function rds_ib_map_fmr is used only in the ib_fmr.c
-file. As such, the static type is added to limit it in this file.
+When some errors occur, the scatter/gather list mapped to DMA addresses
+should be handled.
 
 Cc: Joe Jin <joe.jin@oracle.com>
 Cc: Junxiao Bi <junxiao.bi@oracle.com>
 Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
 ---
- net/rds/ib_fmr.c | 5 +++--
- net/rds/ib_mr.h  | 2 --
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ net/rds/ib_fmr.c | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
 
 diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
-index 249ae1c..c936b0d 100644
+index c936b0d..86ef907 100644
 --- a/net/rds/ib_fmr.c
 +++ b/net/rds/ib_fmr.c
-@@ -84,8 +84,9 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
- 	return ERR_PTR(err);
- }
+@@ -112,29 +112,39 @@ static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev,
+ 		u64 dma_addr = ib_sg_dma_address(dev, &scat[i]);
  
--int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibmr,
--		   struct scatterlist *sg, unsigned int nents)
-+static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev,
-+			  struct rds_ib_mr *ibmr, struct scatterlist *sg,
-+			  unsigned int nents)
- {
- 	struct ib_device *dev = rds_ibdev->dev;
- 	struct rds_ib_fmr *fmr = &ibmr->u.fmr;
-diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
-index 5d6e98a..0ea4ab0 100644
---- a/net/rds/ib_mr.h
-+++ b/net/rds/ib_mr.h
-@@ -125,8 +125,6 @@ void rds_ib_mr_exit(void);
- void __rds_ib_teardown_mr(struct rds_ib_mr *);
- void rds_ib_teardown_mr(struct rds_ib_mr *);
- struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *, int);
--int rds_ib_map_fmr(struct rds_ib_device *, struct rds_ib_mr *,
--		   struct scatterlist *, unsigned int);
- struct rds_ib_mr *rds_ib_reuse_mr(struct rds_ib_mr_pool *);
- int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *, int, struct rds_ib_mr **);
- struct rds_ib_mr *rds_ib_reg_fmr(struct rds_ib_device *, struct scatterlist *,
+ 		if (dma_addr & ~PAGE_MASK) {
+-			if (i > 0)
++			if (i > 0) {
++				ib_dma_unmap_sg(dev, sg, nents,
++						DMA_BIDIRECTIONAL);
+ 				return -EINVAL;
+-			else
++			} else {
+ 				++page_cnt;
++			}
+ 		}
+ 		if ((dma_addr + dma_len) & ~PAGE_MASK) {
+-			if (i < sg_dma_len - 1)
++			if (i < sg_dma_len - 1) {
++				ib_dma_unmap_sg(dev, sg, nents,
++						DMA_BIDIRECTIONAL);
+ 				return -EINVAL;
+-			else
++			} else {
+ 				++page_cnt;
++			}
+ 		}
+ 
+ 		len += dma_len;
+ 	}
+ 
+ 	page_cnt += len >> PAGE_SHIFT;
+-	if (page_cnt > ibmr->pool->fmr_attr.max_pages)
++	if (page_cnt > ibmr->pool->fmr_attr.max_pages) {
++		ib_dma_unmap_sg(dev, sg, nents, DMA_BIDIRECTIONAL);
+ 		return -EINVAL;
++	}
+ 
+ 	dma_pages = kmalloc_node(sizeof(u64) * page_cnt, GFP_ATOMIC,
+ 				 rdsibdev_to_node(rds_ibdev));
+-	if (!dma_pages)
++	if (!dma_pages) {
++		ib_dma_unmap_sg(dev, sg, nents, DMA_BIDIRECTIONAL);
+ 		return -ENOMEM;
++	}
+ 
+ 	page_cnt = 0;
+ 	for (i = 0; i < sg_dma_len; ++i) {
+@@ -147,8 +157,10 @@ static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev,
+ 	}
+ 
+ 	ret = ib_map_phys_fmr(fmr->fmr, dma_pages, page_cnt, io_addr);
+-	if (ret)
++	if (ret) {
++		ib_dma_unmap_sg(dev, sg, nents, DMA_BIDIRECTIONAL);
+ 		goto out;
++	}
+ 
+ 	/* Success - we successfully remapped the MR, so we can
+ 	 * safely tear down the old mapping.
 -- 
 2.7.4
