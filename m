@@ -1,56 +1,49 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH 00/11] net: stmmac: prepare dma operations for multiple queues
-Date: Mon, 13 Mar 2017 16:12:31 +0000
-Message-ID: <cover.1489419356.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [RFC PATCH] sock: add SO_RCVQUEUE_SIZE getsockopt
+Date: Mon, 13 Mar 2017 09:12:32 -0700
+Message-ID: <CANn89iJ21dhirFW2OdNqHWfOgq-EieVMm5ou9pZ7g2oUz=+bfA@mail.gmail.com>
+References: <1489420786-19547-1-git-send-email-johunt@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Paolo Abeni <pabeni@redhat.com>, linux-arch@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>
+To: Josh Hunt <johunt@akamai.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:33699 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754000AbdCMQMr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:12:47 -0400
+Received: from mail-it0-f52.google.com ([209.85.214.52]:37622 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753991AbdCMQMo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:12:44 -0400
+Received: by mail-it0-f52.google.com with SMTP id g138so34548125itb.0
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 09:12:38 -0700 (PDT)
+In-Reply-To: <1489420786-19547-1-git-send-email-johunt@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As agreed with David Miller, this patch-set is the second of 3 to enable
-multiple queues in stmmac.
+On Mon, Mar 13, 2017 at 8:59 AM, Josh Hunt <johunt@akamai.com> wrote:
+> Allows application to read the amount of data sitting in the receive
+> queue.
+>
+> Signed-off-by: Josh Hunt <johunt@akamai.com>
+> ---
+>
+> A team here is looking for a way to get the amount of data in a UDP socket's
+> receive queue. It seems like this should be SIOCINQ, but for UDP sockets that
+> returns the size of the next pending datagram. I implemented the patch below,
+> but am wondering if this is the right place for this change? I was debating
+> between this or a new UDP ioctl.
 
-This second one concentrates on dma operations adding functionalities as:
-a) DMA Operation Mode configuration per channel and done in the multiple
-queues configuration function
-b) DMA IRQ enable and Disable by channel
-c) DMA start and stop by channel
-d) RX and TX ring length configuration by channel
-e) RX and TX set tail pointer by channel
-f) DMA Channel initialization broke into Channel comon, RX and
-TX initialization
-g) TSO being configured for all available channels
-h) DMA interrupt treatment by channel
+But what is the 'amount of data' exactly ?
+Number of packets, amount of bytes to read from these packets ?
 
-Joao Pinto (11):
-  net: stmmac: prepare dma op mode config for multiple queues
-  net: stmmac: enable/disable dma irq prepared for multiple queues
-  net: stmmac: rx/tx dma start/stop prepared for multiple queues
-  net: stmmac: prepare stmmac_tx_err for multiple queues
-  net: stmmac: prepare dma interrupt treatment for multiple queues
-  net: stmmac: rx watchdog config prepared for multiple queues
-  net: stmmac: rx and tx ring length prepared for multiple queues
-  net: stmmac: prepare rx/tx set tail function for multiple queues
-  net: stmmac: dma channel init prepared for multiple queues
-  net: stmmac: tso init prepared for multiple queues
-  net: stmmac: stmmac interrupt treatment prepared for multiple queues
+You chose to report kernel memory usage, which is not guaranteed to be
+the same among kernels versions (or kernel configs)
 
- drivers/net/ethernet/stmicro/stmmac/common.h       |  31 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   3 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c   | 192 ++++++-----
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h   |  20 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c   |  56 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |  15 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |  14 +-
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   3 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 372 ++++++++++++++++-----
- 9 files changed, 467 insertions(+), 239 deletions(-)
+If we export these internals, I would export the whole thing, like we
+did with netlink
 
--- 
-2.9.3
+ie tweak sock_diag_put_meminfo() and export the SK_MEMINFO_VARS
+
+So that we avoid adding other options in the future.
