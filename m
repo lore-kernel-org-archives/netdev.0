@@ -1,42 +1,29 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 1/1 v2] net: rmnet_data: Initial implementation
-Date: Mon, 13 Mar 2017 16:01:15 -0600
-Message-ID: <868aee1b58aa4365708966956decf6d3@codeaurora.org>
-References: <1489390989-2408-1-git-send-email-subashab@codeaurora.org>
- <1489390989-2408-2-git-send-email-subashab@codeaurora.org>
- <20170313085420.GA1796@nanopsycho>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: ethernet: aquantia: set net_device mtu when
+ mtu is changed
+Date: Mon, 13 Mar 2017 15:10:02 -0700 (PDT)
+Message-ID: <20170313.151002.1870146397360611967.davem@davemloft.net>
+References: <58C2BC9B.6040907@redhat.com>
+        <279a67c4-a27a-e3b6-08b5-0e0a12abbbde@aquantia.com>
+        <d2b95877-b6f9-8919-c0ea-880022607c6b@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fengguang.wu@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: pavel.belous@aquantia.com, LinoSanfilippo@gmx.de,
+        netdev@vger.kernel.org
+To: darcari@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45466 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751874AbdCMWBT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 18:01:19 -0400
-In-Reply-To: <20170313085420.GA1796@nanopsycho>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57932 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752630AbdCMWKQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 18:10:16 -0400
+In-Reply-To: <d2b95877-b6f9-8919-c0ea-880022607c6b@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-03-13 02:54, Jiri Pirko wrote:
-> Mon, Mar 13, 2017 at 08:43:09AM CET, subashab@codeaurora.org wrote:
->> RmNet Data driver provides a transport agnostic MAP (multiplexing and
-> 
-> Why "data"? Why not just "rmnet"??
-> 
-> Btw, what is "RmNet". Google does not give me much. Is it some
-> priprietady Qualcomm thing? Is there some standard behind it?
-> 
+From: David Arcari <darcari@redhat.com>
+Date: Mon, 13 Mar 2017 16:30:52 -0400
 
-Hi Jiri
+> Please drop v2 of this patch.  We would like to have v1 applied.
 
-Rm interface is used to describe an application processor tethered to
-Qualcomm Technologies, Inc. modems. Since these are netdevices,
-the term RmNet is used. I don't think there are published standards
-available for this but I can provide relevant information and
-document it as well.
-
-rmnet was used for a USB based physical transport earlier, hence
-this platform agnostic multiplexing driver was named as rmnet_data.
+Resubmit v1 again if you want me to do this.
