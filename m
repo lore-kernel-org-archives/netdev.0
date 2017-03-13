@@ -1,77 +1,88 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net-next 4/4] net-next: dsa: add dsa support for Mediatek
- MT7530 switch
-Date: Mon, 13 Mar 2017 17:41:18 +0100
-Message-ID: <20170313164118.GE3953@lunn.ch>
-References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
- <1489421488-300-5-git-send-email-sean.wang@mediatek.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH] MIPS: BPF: Add support for SKF_AD_HATYPE
+Date: Mon, 13 Mar 2017 09:45:26 -0700
+Message-ID: <9da6cebb-b991-e89f-bc88-a2ec530e32ec@gmail.com>
+References: <20170310221405.30648-1-david.daney@cavium.com>
+ <20170313105659.GJ996@jhogan-linux.le.imgtec.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1489421488-300-5-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+        linux-kernel@vger.kernel.org,
+        "Steven J. Hill" <steven.hill@cavium.com>,
+        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
+To: James Hogan <james.hogan@imgtec.com>,
+        David Daney <david.daney@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170313105659.GJ996@jhogan-linux.le.imgtec.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sean
+On 03/13/2017 03:56 AM, James Hogan wrote:
+> On Fri, Mar 10, 2017 at 02:14:05PM -0800, David Daney wrote:
+>> This let's us pass some additional "modprobe test-bpf" tests.
+>>
+>> Reuse the code for SKF_AD_IFINDEX, but substitute the offset and size
+>> of the "type" field.
+>>
+>> Signed-off-by: David Daney <david.daney@cavium.com>
+>
+> I think the BPF maintainers should probably be Cc'd on this patch.
+> Cc'ing now.
+>
 
-Just looking at the GPIO handling at the moment.
+Good point.
 
-> +	/* Reset whole chip through gpio pin or
-> +	 * memory-mapped registers for different
-> +	 * type of hardware
-> +	 */
-> +	if (priv->mcm) {
-> +		regmap_update_bits(priv->ethsys, SYSC_REG_RSTCTRL,
-> +				   RESET_MCM, RESET_MCM);
-> +		usleep_range(1000, 1100);
-> +		regmap_update_bits(priv->ethsys, SYSC_REG_RSTCTRL,
-> +				   RESET_MCM, ~RESET_MCM);
-> +	} else {
-> +		gpio_direction_output(priv->reset, 0);
-> +		usleep_range(1000, 1100);
-> +		gpio_set_value(priv->reset, 1);
-> +	}
+Since there are some corrections needed, I will send another version and 
+CC the proper people.
 
-....
 
-> +	/* Not MCM that indicates switch works as the remote standalone
-> +	 * integrated circuit so the GPIO pin would be used to complete
-> +	 * the reset, otherwise memory-mapped register accessing used
-> +	 * through syscon provides in the case of MCM.
-> +	 */
-> +	if (!priv->mcm) {
-> +		priv->reset = of_get_named_gpio(dn, "mediatek,reset-pin", 0);
-> +		if (!gpio_is_valid(priv->reset))
-> +			return priv->reset;
-> +
-> +		ret = devm_gpio_request_one(&mdiodev->dev,
-> +					    priv->reset, GPIOF_OUT_INIT_LOW,
-> +					    "mediatek,reset-pin");
-> +		if (ret < 0) {
-> +			dev_err(&mdiodev->dev,
-> +				"fail to devm_gpio_request reset\n");
-> +			return ret;
-> +		}
-> +	}
+>> ---
+>>  arch/mips/net/bpf_jit.c | 14 ++++++++++----
+>>  1 file changed, 10 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+>> index 49a2e22..f613708 100644
+>> --- a/arch/mips/net/bpf_jit.c
+>> +++ b/arch/mips/net/bpf_jit.c
+>> @@ -1111,6 +1111,7 @@ static int build_body(struct jit_ctx *ctx)
+>>  			emit_load(r_A, 28, off, ctx);
+>>  			break;
+>>  		case BPF_ANC | SKF_AD_IFINDEX:
+>> +		case BPF_ANC | SKF_AD_HATYPE:
+>>  			/* A = skb->dev->ifindex */
+>
+> this comment should probably be updated.
 
-You are not handling the flags part of the GPIO binding. It is better
-to use devm_gpiod_ API calls, which will handle the active low flags
-for you.
+Right.
 
-    Andrew
+>
+>>  			ctx->flags |= SEEN_SKB | SEEN_A;
+>>  			off = offsetof(struct sk_buff, dev);
+>> @@ -1120,10 +1121,15 @@ static int build_body(struct jit_ctx *ctx)
+>>  			emit_bcond(MIPS_COND_EQ, r_s0, r_zero,
+>>  				   b_imm(prog->len, ctx), ctx);
+>>  			emit_reg_move(r_ret, r_zero, ctx);
+>> -			BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
+>> -						  ifindex) != 4);
+>> -			off = offsetof(struct net_device, ifindex);
+>> -			emit_load(r_A, r_s0, off, ctx);
+>> +			if (code == (BPF_ANC | SKF_AD_IFINDEX)) {
+>> +				BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, ifindex) != 4);
+>> +				off = offsetof(struct net_device, ifindex);
+>> +				emit_load(r_A, r_s0, off, ctx);
+>> +			} else { /* (code == (BPF_ANC | SKF_AD_HATYPE) */
+>> +				BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, type) != 2);
+>> +				off = offsetof(struct net_device, type);
+>> +				emit_half_load(r_A, r_s0, off, ctx);
+>
+> Technically net_device::type is unsigned, and emit_half_load uses LH
+> which sign extends. Does that matter in practice.
+
+The next version will use LHU.
+
+
+>
+> Cheers
+> James
+>
