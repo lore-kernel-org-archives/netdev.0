@@ -1,7 +1,8 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 2/4] net-next: dsa: add Mediatek tag RX/TX handler
-Date: Tue, 14 Mar 2017 00:11:26 +0800
-Message-ID: <1489421488-300-3-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net-next 3/4] net-next: ethernet: mediatek: add CDM able to
+ recognize the tag for DSA
+Date: Tue, 14 Mar 2017 00:11:27 +0800
+Message-ID: <1489421488-300-4-git-send-email-sean.wang@mediatek.com>
 References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,207 +28,56 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-Add the support for the 4-bytes tag for DSA port distinguishing inserted
-allowing receiving and transmitting the packet via the particular port.
-The tag is being added after the source MAC address in the ethernet
-header.
+Allowing CDM can recognize these packets with carrying port-distinguishing
+tag when CONFIG_NET_DSA_TAG_MTK is enabled. Otherwise, these packets will
+be dropped by CDM ingress.
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Landen Chao <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 ---
- include/net/dsa.h  |   1 +
- net/dsa/Kconfig    |   2 +
- net/dsa/Makefile   |   1 +
- net/dsa/dsa.c      |   3 ++
- net/dsa/dsa_priv.h |   3 ++
- net/dsa/tag_mtk.c  | 121 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 131 insertions(+)
- create mode 100644 net/dsa/tag_mtk.c
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 ++++++++
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h | 5 +++++
+ 2 files changed, 13 insertions(+)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index b122196..954cff2 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -27,6 +27,7 @@ enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_EDSA,
- 	DSA_TAG_PROTO_BRCM,
- 	DSA_TAG_PROTO_QCA,
-+	DSA_TAG_PROTO_MTK,
- 	DSA_TAG_LAST,		/* MUST BE LAST */
- };
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 3dd8788..19944e0 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1848,6 +1848,14 @@ static int mtk_hw_init(struct mtk_eth *eth)
+ 	/* GE2, Force 1000M/FD, FC ON */
+ 	mtk_w32(eth, MAC_MCR_FIXED_LINK, MTK_MAC_MCR(1));
  
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 96e47c5..43b67e8 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -41,4 +41,6 @@ config NET_DSA_TAG_TRAILER
- config NET_DSA_TAG_QCA
- 	bool
- 
-+config NET_DSA_TAG_MTK
-+	bool
- endif
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index a3380ed..97c9891 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -8,3 +8,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
- dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
-+dsa_core-$(CONFIG_NET_DSA_TAG_MTK) += tag_mtk.o
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 7899919..3586b1e 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -57,6 +57,9 @@ static struct sk_buff *dsa_slave_notag_xmit(struct sk_buff *skb,
- #ifdef CONFIG_NET_DSA_TAG_QCA
- 	[DSA_TAG_PROTO_QCA] = &qca_netdev_ops,
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_MTK
-+	[DSA_TAG_PROTO_MTK] = &mtk_dsa_netdev_ops,
++#if defined(CONFIG_NET_DSA_TAG_MTK)
++	/* Tell CDMQ to parse the MTK special tag from CPU  */
++	/* QDMA Tx Use CDMQ */
++	u32 val2 = mtk_r32(eth, MTK_CDMQ_IG_CTRL);
++
++	mtk_w32(eth, val2 | MTK_CDMQ_STAG_EN, MTK_CDMQ_IG_CTRL);
 +#endif
- 	[DSA_TAG_PROTO_NONE] = &none_ops,
- };
++
+ 	/* Enable RX VLan Offloading */
+ 	mtk_w32(eth, 1, MTK_CDMP_EG_CTRL);
  
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 6cfd738..de61e8f 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -84,4 +84,7 @@ int dsa_slave_netdevice_event(struct notifier_block *unused,
- /* tag_qca.c */
- extern const struct dsa_device_ops qca_netdev_ops;
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index 99b1c8e..79606db 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -70,11 +70,16 @@
+ /* Frame Engine Interrupt Grouping Register */
+ #define MTK_FE_INT_GRP		0x20
  
-+/* tag_mtk.c */
-+extern const struct dsa_device_ops mtk_dsa_netdev_ops;
++/* CDMP Ingress Control Register */
++#define MTK_CDMQ_IG_CTRL	0x1400
++#define MTK_CDMQ_STAG_EN	BIT(0)
 +
- #endif
-diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
-new file mode 100644
-index 0000000..a2dc014
---- /dev/null
-+++ b/net/dsa/tag_mtk.c
-@@ -0,0 +1,121 @@
-+/*
-+ * Mediatek DSA Tag support
-+ * Copyright (C) 2017 Landen Chao <landen.chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-+ *		      Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/etherdevice.h>
-+#include "dsa_priv.h"
-+
-+#define MTK_HDR_LEN		4
-+#define MTK_HDR_RECV_SOURCE_PORT_MASK	GENMASK(2, 0)
-+#define MTK_HDR_XMIT_DP_BIT_MASK	GENMASK(5, 0)
-+
-+static struct sk_buff *mtk_tag_xmit(struct sk_buff *skb,
-+				    struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	u8 *mtk_tag;
-+
-+	if (skb_cow_head(skb, MTK_HDR_LEN) < 0)
-+		goto out_free;
-+
-+	skb_push(skb, MTK_HDR_LEN);
-+
-+	memmove(skb->data, skb->data + MTK_HDR_LEN, 2 * ETH_ALEN);
-+
-+	/* Build the tag after the MAC Source Address */
-+	mtk_tag = skb->data + 2 * ETH_ALEN;
-+
-+	/* Set the ingress opcode, traffic class, tag enforcment is
-+	 * deprecated
-+	 */
-+	mtk_tag[0] = 0;
-+	mtk_tag[1] = (1 << p->port) & MTK_HDR_XMIT_DP_BIT_MASK;
-+	mtk_tag[2] = 0;
-+	mtk_tag[3] = 0;
-+
-+	return skb;
-+
-+out_free:
-+	kfree_skb(skb);
-+	return NULL;
-+}
-+
-+static int mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
-+		       struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_switch *ds;
-+	int port;
-+	__be16 *phdr, hdr;
-+
-+	if (unlikely(!dst))
-+		goto out_drop;
-+
-+	skb = skb_unshare(skb, GFP_ATOMIC);
-+	if (!skb)
-+		goto out;
-+
-+	if (unlikely(!pskb_may_pull(skb, MTK_HDR_LEN)))
-+		goto out_drop;
-+
-+	/* The MTK header is added by the switch between src addr
-+	 * and ethertype at this point, skb->data points to 2bytes
-+	 * after src addr so header should be 2 bytes right before.
-+	 */
-+	phdr = (__be16 *)(skb->data - 2);
-+	hdr = ntohs(*phdr);
-+
-+	/* Remove MTK tag and recalculate checksum. */
-+	skb_pull_rcsum(skb, MTK_HDR_LEN);
-+
-+	memmove(skb->data - ETH_HLEN,
-+		skb->data - ETH_HLEN - MTK_HDR_LEN,
-+		2 * ETH_ALEN);
-+
-+	/* This protocol doesn't support cascading multiple
-+	 * switches so it's safe to assume the switch is first
-+	 * in the tree.
-+	 */
-+	ds = dst->ds[0];
-+	if (!ds)
-+		goto out_drop;
-+
-+	/* Get source port information */
-+	port = (hdr & MTK_HDR_RECV_SOURCE_PORT_MASK);
-+	if (!ds->ports[port].netdev)
-+		goto out_drop;
-+
-+	/* Update skb & forward the frame accordingly */
-+	skb_push(skb, ETH_HLEN);
-+
-+	skb->pkt_type = PACKET_HOST;
-+	skb->dev = ds->ports[port].netdev;
-+	skb->protocol = eth_type_trans(skb, skb->dev);
-+
-+	skb->dev->stats.rx_packets++;
-+	skb->dev->stats.rx_bytes += skb->len;
-+
-+	netif_receive_skb(skb);
-+
-+	return 0;
-+
-+out_drop:
-+	kfree_skb(skb);
-+out:
-+	return 0;
-+}
-+
-+const struct dsa_device_ops mtk_dsa_netdev_ops = {
-+	.xmit	= mtk_tag_xmit,
-+	.rcv	= mtk_tag_rcv,
-+};
+ /* CDMP Exgress Control Register */
+ #define MTK_CDMP_EG_CTRL	0x404
+ 
+ /* GDM Exgress Control Register */
+ #define MTK_GDMA_FWD_CFG(x)	(0x500 + (x * 0x1000))
++#define MTK_GDMA_STAG_EN	BIT(24)
+ #define MTK_GDMA_ICS_EN		BIT(22)
+ #define MTK_GDMA_TCS_EN		BIT(21)
+ #define MTK_GDMA_UCS_EN		BIT(20)
 -- 
 1.9.1
