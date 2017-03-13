@@ -1,84 +1,208 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/10] mlxsw: Enable VRF offload
-Date: Mon, 13 Mar 2017 08:35:26 +0100
-Message-ID: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
+Subject: [patch net-next 03/10] ipv4: fib_rules: Dump FIB rules when registering FIB notifier
+Date: Mon, 13 Mar 2017 08:38:26 +0100
+Message-ID: <1489390713-2634-3-git-send-email-jiri@resnulli.us>
+References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
+ <1489390713-2634-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33120 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751058AbdCMHfo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 03:35:44 -0400
-Received: by mail-wm0-f67.google.com with SMTP id n11so8324556wma.0
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 00:35:43 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:34426 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751569AbdCMHij (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 03:38:39 -0400
+Received: by mail-wr0-f194.google.com with SMTP id u48so18975730wrc.1
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 00:38:38 -0700 (PDT)
+In-Reply-To: <1489390713-2634-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Ido says:
+In commit c3852ef7f2f8 ("ipv4: fib: Replay events when registering FIB
+notifier") we dumped the FIB tables and replayed the events to the
+passed notification block.
 
-Packets received from netdevs enslaved to different VRF devices are
-forwarded using different FIB tables. In the Spectrum ASIC this is
-achieved by binding different router interfaces (RIFs) to different
-virtual routers (VRs). Each RIF represents an enslaved netdev and each
-VR has its own FIB table according to which packets are forwarded.
+However, we merely sent a RULE_ADD notification in case custom rules
+were in use. As explained in previous patches, this approach won't work
+anymore. Instead, we should notify the caller about all the FIB rules
+and let it act accordingly.
 
-The first three patches mark the default FIB rules and extend the FIB
-notification chain to include the rule's info as part of the
-RULE_{ADD,DEL} events. This allows offloading drivers to sanitize the
-rules they don't support and flush their tables.
+Upon registration to the FIB notification chain, replay a RULE_ADD
+notification for each programmed FIB rule, custom or not. The integrity
+of the dump is ensured by the mechanism introduced in the above
+mentioned commit.
 
-Patches 4-5 introduce small changes in the VRF driver to allow capable
-drivers to more easily offload VRFs.
+Prevent regressions by making sure current listeners correctly sanitize
+the notified rules.
 
-Finally, the last patches gradually add support for VRFs in the mlxsw
-driver. First, on top of port netdevs, stacked LAG and VLAN devices and
-then on top of bridges.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig           |  1 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 11 ++++++++++-
+ drivers/net/ethernet/rocker/Kconfig                   |  2 +-
+ drivers/net/ethernet/rocker/rocker_main.c             | 15 +++++++++++++--
+ net/ipv4/fib_rules.c                                  | 19 ++++++++++++++++---
+ 5 files changed, 41 insertions(+), 7 deletions(-)
 
-Some limitations I would like to point out:
-
-1) The old model where 'oif' / 'iif' rules were programmed for each L3
-master device isn't supported. Upon insertion of these rules the driver
-will flush its tables and forwarding will be done by the kernel instead.
-It's inferior in every way to the single 'l3mdev' rule, so this shouldn't
-be an issue.
-
-2) Inter-VRF routes pointing to a VRF device aren't offloaded. Packets
-hitting these routes will be forwarded by the kernel. Inter-VRF routes
-pointing to netdevs enslaved to a different VRF are offloaded.
-
-3) There's a small discrepancy between the kernel's datapath and the
-device's. By default, packets forwarded by the kernel first do a lookup
-in the LOCAL table and then in the VRF's table (assuming no match). In
-the device, lookup is done only in the VRF's table, which is probably
-the intended behavior.
-
-Ido Schimmel (10):
-  net: fib_rules: Add default rule indication
-  ipv4: fib_rules: Add notifier info to FIB rules notifications
-  ipv4: fib_rules: Dump FIB rules when registering FIB notifier
-  net: Add netif_is_vrf_master helper
-  net: vrf: Set slave's private flag before linking
-  mlxsw: spectrum_router: Associate RIFs with correct VR
-  mlxsw: spectrum_router: Don't destroy RIF if L3 slave
-  mlxsw: spectrum_router: Add support for VRFs
-  mlxsw: spectrum_router: Add support for VRFs on top of bridges
-  mlxsw: spectrum_router: Don't abort on l3mdev rules
-
- drivers/net/ethernet/mellanox/mlxsw/Kconfig        |  1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 71 ++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  8 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 89 +++++++++++++++++++++-
- drivers/net/ethernet/rocker/Kconfig                |  2 +-
- drivers/net/ethernet/rocker/rocker_main.c          | 15 +++-
- drivers/net/vrf.c                                  | 10 ++-
- include/linux/netdevice.h                          |  8 ++
- include/net/fib_rules.h                            |  3 +-
- include/net/ip_fib.h                               |  7 ++
- net/core/fib_rules.c                               |  1 +
- net/ipv4/fib_rules.c                               | 32 ++++++--
- 12 files changed, 224 insertions(+), 23 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+index ef23eae..a549a89 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+@@ -73,6 +73,7 @@ config MLXSW_SWITCHX2
+ config MLXSW_SPECTRUM
+ 	tristate "Mellanox Technologies Spectrum support"
+ 	depends on MLXSW_CORE && MLXSW_PCI && NET_SWITCHDEV && VLAN_8021Q
++	depends on IP_MULTIPLE_TABLES
+ 	depends on PSAMPLE || PSAMPLE=n
+ 	select PARMAN
+ 	default m
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 80345a1..9d4766f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -45,6 +45,7 @@
+ #include <net/neighbour.h>
+ #include <net/arp.h>
+ #include <net/ip_fib.h>
++#include <net/fib_rules.h>
+ 
+ #include "spectrum.h"
+ #include "core.h"
+@@ -2514,6 +2515,7 @@ struct mlxsw_sp_fib_event_work {
+ 	struct work_struct work;
+ 	union {
+ 		struct fib_entry_notifier_info fen_info;
++		struct fib_rule_notifier_info fr_info;
+ 		struct fib_nh_notifier_info fnh_info;
+ 	};
+ 	struct mlxsw_sp *mlxsw_sp;
+@@ -2548,7 +2550,9 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
+ 		break;
+ 	case FIB_EVENT_RULE_ADD: /* fall through */
+ 	case FIB_EVENT_RULE_DEL:
+-		mlxsw_sp_router_fib4_abort(mlxsw_sp);
++		if (!fib_work->fr_info.rule->def)
++			mlxsw_sp_router_fib4_abort(mlxsw_sp);
++		fib_rule_put(fib_work->fr_info.rule);
+ 		break;
+ 	case FIB_EVENT_NH_ADD: /* fall through */
+ 	case FIB_EVENT_NH_DEL:
+@@ -2591,6 +2595,11 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
+ 		 */
+ 		fib_info_hold(fib_work->fen_info.fi);
+ 		break;
++	case FIB_EVENT_RULE_ADD: /* fall through */
++	case FIB_EVENT_RULE_DEL:
++		memcpy(&fib_work->fr_info, ptr, sizeof(fib_work->fr_info));
++		fib_rule_get(fib_work->fr_info.rule);
++		break;
+ 	case FIB_EVENT_NH_ADD: /* fall through */
+ 	case FIB_EVENT_NH_DEL:
+ 		memcpy(&fib_work->fnh_info, ptr, sizeof(fib_work->fnh_info));
+diff --git a/drivers/net/ethernet/rocker/Kconfig b/drivers/net/ethernet/rocker/Kconfig
+index b9952ef..36937dc 100644
+--- a/drivers/net/ethernet/rocker/Kconfig
++++ b/drivers/net/ethernet/rocker/Kconfig
+@@ -17,7 +17,7 @@ if NET_VENDOR_ROCKER
+ 
+ config ROCKER
+ 	tristate "Rocker switch driver (EXPERIMENTAL)"
+-	depends on PCI && NET_SWITCHDEV && BRIDGE
++	depends on PCI && NET_SWITCHDEV && BRIDGE && IP_MULTIPLE_TABLES
+ 	---help---
+ 	  This driver supports Rocker switch device.
+ 
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index b712ec2..f9b00e5 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -33,6 +33,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/netevent.h>
+ #include <net/arp.h>
++#include <net/fib_rules.h>
+ #include <linux/io-64-nonatomic-lo-hi.h>
+ #include <generated/utsrelease.h>
+ 
+@@ -2175,7 +2176,10 @@ static const struct switchdev_ops rocker_port_switchdev_ops = {
+ 
+ struct rocker_fib_event_work {
+ 	struct work_struct work;
+-	struct fib_entry_notifier_info fen_info;
++	union {
++		struct fib_entry_notifier_info fen_info;
++		struct fib_rule_notifier_info fr_info;
++	};
+ 	struct rocker *rocker;
+ 	unsigned long event;
+ };
+@@ -2202,7 +2206,9 @@ static void rocker_router_fib_event_work(struct work_struct *work)
+ 		break;
+ 	case FIB_EVENT_RULE_ADD: /* fall through */
+ 	case FIB_EVENT_RULE_DEL:
+-		rocker_world_fib4_abort(rocker);
++		if (!fib_work->fr_info.rule->def)
++			rocker_world_fib4_abort(rocker);
++		fib_rule_put(fib_work->fr_info.rule);
+ 		break;
+ 	}
+ 	rtnl_unlock();
+@@ -2233,6 +2239,11 @@ static int rocker_router_fib_event(struct notifier_block *nb,
+ 		 */
+ 		fib_info_hold(fib_work->fen_info.fi);
+ 		break;
++	case FIB_EVENT_RULE_ADD: /* fall through */
++	case FIB_EVENT_RULE_DEL:
++		memcpy(&fib_work->fr_info, ptr, sizeof(fib_work->fr_info));
++		fib_rule_get(fib_work->fr_info.rule);
++		break;
+ 	}
+ 
+ 	queue_work(rocker->rocker_owq, &fib_work->work);
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index d14fc0a..724dc3a 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -164,6 +164,17 @@ static struct fib_table *fib_empty_table(struct net *net)
+ 	return NULL;
+ }
+ 
++static int call_fib_rule_notifier(struct notifier_block *nb, struct net *net,
++				  enum fib_event_type event_type,
++				  struct fib_rule *rule)
++{
++	struct fib_rule_notifier_info info = {
++		.rule = rule,
++	};
++
++	return call_fib_notifier(nb, net, event_type, &info.info);
++}
++
+ static int call_fib_rule_notifiers(struct net *net,
+ 				   enum fib_event_type event_type,
+ 				   struct fib_rule *rule)
+@@ -175,12 +186,14 @@ static int call_fib_rule_notifiers(struct net *net,
+ 	return call_fib_notifiers(net, event_type, &info.info);
+ }
+ 
++/* Called with rcu_read_lock() */
+ void fib_rules_notify(struct net *net, struct notifier_block *nb)
+ {
+-	struct fib_notifier_info info;
++	struct fib_rules_ops *ops = net->ipv4.rules_ops;
++	struct fib_rule *rule;
+ 
+-	if (net->ipv4.fib_has_custom_rules)
+-		call_fib_notifier(nb, net, FIB_EVENT_RULE_ADD, &info);
++	list_for_each_entry_rcu(rule, &ops->rules_list, list)
++		call_fib_rule_notifier(nb, net, FIB_EVENT_RULE_ADD, rule);
+ }
+ 
+ static const struct nla_policy fib4_rule_policy[FRA_MAX+1] = {
 -- 
 2.7.4
