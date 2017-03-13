@@ -1,93 +1,81 @@
-From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
-Subject: RE: [PATCH v2] fjes: Do not load fjes driver if system does not
- have extended socket device.
-Date: Mon, 13 Mar 2017 01:02:27 +0000
-Message-ID: <E86EADE93E2D054CBCD4E708C38D364A741CFE6B@G01JPEXMBYT21>
-References: <7a1a2dbc-99e0-06ba-2261-6e6382937486@gmail.com>
- <20170309.173519.1406243244628930968.davem@davemloft.net>
- <b61b605a-d248-261c-6543-243a38d6f97e@gmail.com>
+From: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
+Subject: Re: [PATCH] net: usb: asix88179_178a: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Sun, 12 Mar 2017 19:21:27 -0600
+Message-ID: <392d4ccd-a335-0078-d95b-2e0d142aa2b9@usask.ca>
+References: <1489338156-18632-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: 'Yasuaki Ishimatsu' <yasu.isimatu@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwym04.jp.fujitsu.com ([211.128.242.43]:41836 "EHLO
-        mgwym04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933322AbdCMBNw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 21:13:52 -0400
-Received: from g01jpfmpwyt03.exch.g01.fujitsu.local (g01jpfmpwyt03.exch.g01.fujitsu.local [10.128.193.57])
-        by yt-mxoi1.gw.nic.fujitsu.com (Postfix) with ESMTP id 030BCAC0113
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 10:02:30 +0900 (JST)
-In-Reply-To: <b61b605a-d248-261c-6543-243a38d6f97e@gmail.com>
-Content-Language: ja-JP
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        <jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489338156-18632-1-git-send-email-tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ishimatsu-san,
+I can test it tomorrow. I'll pull a clean copy of 4.10.2, or do you
+suggest a different version than that?
 
- Sorry for my late response.
+Chris
 
+On 2017-03-12 11:02 AM, Philippe Reynes wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 >
-> Which tree did you apply the patch to?
-> 
-> The patch can apply to net-next tree with no conflicts as follows:
-
-  Not net-next but net tree:
-    git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
-
-  I'll review and test your patch soon.
-
-  Sincerely,
-  Taku Izumi
-
-> 
-> # git clone
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-> Cloning into 'net-next'...
-> remote: Counting objects: 5265118, done.
-> remote: Compressing objects: 100% (805485/805485), done.
-> Receiving objects: 100% (5265118/5265118), 910.11 MiB | 23.42 MiB/s, done.
-> remote: Total 5265118 (delta 4419240), reused 5264459 (delta 4418809)
-> Resolving deltas: 100% (4419240/4419240), done.
-> Checking out files: 100% (58005/58005), done.
-> # head -n 30 fjes.patch
-> Subject: [PATCH v2] fjes: Do not load fjes driver if system does not have
-> extended socket device.
-> Date: Wed, 8 Mar 2017 16:05:18 -0500
-> From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
-> To: netdev@vger.kernel.org
-> CC: David Miller <davem@davemloft.net>, izumi.taku@jp.fujitsu.com
-> 
-> The fjes driver is used only by FUJITSU servers and almost of all servers
-> in the world never use it. But currently if ACPI PNP0C02 is defined in the
-> ACPI table, the following message is always shown:
-> 
->   "FUJITSU Extended Socket Network Device Driver - version 1.2
->    - Copyright (c) 2015 FUJITSU LIMITED"
-> 
-> The message makes users confused because there is no reason that the message
-> is shown in other vendor servers.
-> 
-> To avoid the confusion, the patch adds a check that the server has a extended
-> socket device or not.
-> 
-> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-> CC: Taku Izumi <izumi.taku@jp.fujitsu.com>
+> As I don't have the hardware, I'd be very pleased if
+> someone may test this patch.
+>
+> Signed-off-by: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
-> v2:
-> 	- Order local variable declarations from longest to shortest line
-> 
->   drivers/net/fjes/fjes_main.c | 52
-> +++++++++++++++++++++++++++++++++++++++-----
->   1 file changed, 47 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-> index b77e4ecf..a57c2cb 100644 # cd net-next/ # git am ../fjes.patch
-> Applying: fjes: Do not load fjes driver if system does not have extended
-> socket device.
-> #
-> 
-> 
-> Thanks,
-> Yasuaki Ishimatsu
+>  drivers/net/usb/ax88179_178a.c |   14 ++++++++------
+>  1 files changed, 8 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+> index a3a7db0..4a0ae7c 100644
+> --- a/drivers/net/usb/ax88179_178a.c
+> +++ b/drivers/net/usb/ax88179_178a.c
+> @@ -620,16 +620,18 @@ static int ax88179_get_eeprom_len(struct net_device *net)
+>  	return 0;
+>  }
+>  
+> -static int ax88179_get_settings(struct net_device *net, struct ethtool_cmd *cmd)
+> +static int ax88179_get_link_ksettings(struct net_device *net,
+> +				      struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct usbnet *dev = netdev_priv(net);
+> -	return mii_ethtool_gset(&dev->mii, cmd);
+> +	return mii_ethtool_get_link_ksettings(&dev->mii, cmd);
+>  }
+>  
+> -static int ax88179_set_settings(struct net_device *net, struct ethtool_cmd *cmd)
+> +static int ax88179_set_link_ksettings(struct net_device *net,
+> +				      const struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct usbnet *dev = netdev_priv(net);
+> -	return mii_ethtool_sset(&dev->mii, cmd);
+> +	return mii_ethtool_set_link_ksettings(&dev->mii, cmd);
+>  }
+>  
+>  static int
+> @@ -826,11 +828,11 @@ static int ax88179_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
+>  	.set_wol		= ax88179_set_wol,
+>  	.get_eeprom_len		= ax88179_get_eeprom_len,
+>  	.get_eeprom		= ax88179_get_eeprom,
+> -	.get_settings		= ax88179_get_settings,
+> -	.set_settings		= ax88179_set_settings,
+>  	.get_eee		= ax88179_get_eee,
+>  	.set_eee		= ax88179_set_eee,
+>  	.nway_reset		= usbnet_nway_reset,
+> +	.get_link_ksettings	= ax88179_get_link_ksettings,
+> +	.set_link_ksettings	= ax88179_set_link_ksettings,
+>  };
+>  
+>  static void ax88179_set_multicast(struct net_device *net)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
