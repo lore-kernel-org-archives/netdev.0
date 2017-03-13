@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/10] ipv4: fib_rules: Add notifier info to FIB rules notifications
-Date: Mon, 13 Mar 2017 08:38:25 +0100
-Message-ID: <1489390713-2634-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 04/10] net: Add netif_is_vrf_master helper
+Date: Mon, 13 Mar 2017 08:38:27 +0100
+Message-ID: <1489390713-2634-4-git-send-email-jiri@resnulli.us>
 References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
  <1489390713-2634-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
@@ -10,95 +10,83 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34744 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751031AbdCMHih (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 03:38:37 -0400
-Received: by mail-wm0-f68.google.com with SMTP id u132so8332738wmg.1
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 00:38:36 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:36552 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751539AbdCMHik (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 03:38:40 -0400
+Received: by mail-wr0-f196.google.com with SMTP id l37so18870376wrc.3
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 00:38:38 -0700 (PDT)
 In-Reply-To: <1489390713-2634-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Whenever a FIB rule is added or removed, a notification is sent in the
-FIB notification chain. However, listeners don't have a way to tell
-which rule was added or removed.
+Drivers capable of offloading VRF configurations need to know the ports
+are enslaved to an actual VRF device and not some other L3 master.
 
-This is problematic as we would like to give listeners the ability to
-decide which action to execute based on the notified rule. Specifically,
-offloading drivers should be able to determine if they support the
-reflection of the notified FIB rule and flush their LPM tables in case
-they don't.
-
-Do that by adding a notifier info to these notifications and embed the
-common FIB rule struct in it.
+Add a flag to indicate netdev is a VRF master and a corresponding
+helper.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/ip_fib.h |  7 +++++++
- net/ipv4/fib_rules.c | 13 ++++++++-----
- 2 files changed, 15 insertions(+), 5 deletions(-)
+ drivers/net/vrf.c         | 2 +-
+ include/linux/netdevice.h | 8 ++++++++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index d9cee96..79fc314 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -213,6 +213,13 @@ struct fib_entry_notifier_info {
- 	u32 tb_id;
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 22379da..5c9a98e 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -1257,7 +1257,7 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 	if (vrf->tb_id == RT_TABLE_UNSPEC)
+ 		return -EINVAL;
+ 
+-	dev->priv_flags |= IFF_L3MDEV_MASTER;
++	dev->priv_flags |= IFF_L3MDEV_MASTER | IFF_VRF_MASTER;
+ 
+ 	err = register_netdevice(dev);
+ 	if (err)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 97456b25..7908d31 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1356,6 +1356,7 @@ struct net_device_ops {
+  * @IFF_PHONY_HEADROOM: the headroom value is controlled by an external
+  *	entity (i.e. the master device for bridged veth)
+  * @IFF_MACSEC: device is a MACsec device
++ * @IFF_VRF_MASTER: device is a VRF master device
+  */
+ enum netdev_priv_flags {
+ 	IFF_802_1Q_VLAN			= 1<<0,
+@@ -1386,6 +1387,7 @@ enum netdev_priv_flags {
+ 	IFF_RXFH_CONFIGURED		= 1<<25,
+ 	IFF_PHONY_HEADROOM		= 1<<26,
+ 	IFF_MACSEC			= 1<<27,
++	IFF_VRF_MASTER			= 1<<28,
  };
  
-+#ifdef CONFIG_IP_MULTIPLE_TABLES
-+struct fib_rule_notifier_info {
-+	struct fib_notifier_info info; /* must be first */
-+	struct fib_rule *rule;
-+};
-+#endif
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -1415,6 +1417,7 @@ enum netdev_priv_flags {
+ #define IFF_TEAM			IFF_TEAM
+ #define IFF_RXFH_CONFIGURED		IFF_RXFH_CONFIGURED
+ #define IFF_MACSEC			IFF_MACSEC
++#define IFF_VRF_MASTER			IFF_VRF_MASTER
+ 
+ /**
+  *	struct net_device - The DEVICE structure.
+@@ -4155,6 +4158,11 @@ static inline bool netif_supports_nofcs(struct net_device *dev)
+ 	return dev->priv_flags & IFF_SUPP_NOFCS;
+ }
+ 
++static inline bool netif_is_vrf_master(const struct net_device *dev)
++{
++	return dev->priv_flags & IFF_VRF_MASTER;
++}
 +
- struct fib_nh_notifier_info {
- 	struct fib_notifier_info info; /* must be first */
- 	struct fib_nh *fib_nh;
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 2892109..d14fc0a 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -165,11 +165,14 @@ static struct fib_table *fib_empty_table(struct net *net)
- }
- 
- static int call_fib_rule_notifiers(struct net *net,
--				   enum fib_event_type event_type)
-+				   enum fib_event_type event_type,
-+				   struct fib_rule *rule)
+ static inline bool netif_is_l3_master(const struct net_device *dev)
  {
--	struct fib_notifier_info info;
-+	struct fib_rule_notifier_info info = {
-+		.rule = rule,
-+	};
- 
--	return call_fib_notifiers(net, event_type, &info);
-+	return call_fib_notifiers(net, event_type, &info.info);
- }
- 
- void fib_rules_notify(struct net *net, struct notifier_block *nb)
-@@ -236,7 +239,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
- 	rule4->tos = frh->tos;
- 
- 	net->ipv4.fib_has_custom_rules = true;
--	call_fib_rule_notifiers(net, FIB_EVENT_RULE_ADD);
-+	call_fib_rule_notifiers(net, FIB_EVENT_RULE_ADD, rule);
- 
- 	err = 0;
- errout:
-@@ -258,7 +261,7 @@ static int fib4_rule_delete(struct fib_rule *rule)
- 		net->ipv4.fib_num_tclassid_users--;
- #endif
- 	net->ipv4.fib_has_custom_rules = true;
--	call_fib_rule_notifiers(net, FIB_EVENT_RULE_DEL);
-+	call_fib_rule_notifiers(net, FIB_EVENT_RULE_DEL, rule);
- errout:
- 	return err;
- }
+ 	return dev->priv_flags & IFF_L3MDEV_MASTER;
 -- 
 2.7.4
