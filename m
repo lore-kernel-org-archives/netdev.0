@@ -1,72 +1,46 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf] ipv6: avoid write to a possibly cloned skb
-Date: Mon, 13 Mar 2017 16:24:28 +0100
-Message-ID: <20170313152428.12514-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] VLAN, support ingress/egress priority map flushing
+Date: Mon, 13 Mar 2017 08:28:38 -0700
+Message-ID: <1489418918.28631.82.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <f07d2296-31e0-30b1-c798-f5f1d87d573a@dtsystems.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ben Greear <greearb@candelatech.com>
+To: Thierry Du Tre <thierry@dtsystems.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:33590 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751095AbdCMPYN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:24:13 -0400
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33028 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750812AbdCMP2l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:28:41 -0400
+Received: by mail-pf0-f195.google.com with SMTP id v190so19357513pfb.0
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 08:28:40 -0700 (PDT)
+In-Reply-To: <f07d2296-31e0-30b1-c798-f5f1d87d573a@dtsystems.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip6_fragment, in case skb has a fraglist, checks if the
-skb is cloned.  If it is, it will move to the 'slow path' and allocates
-new skbs for each fragment.
+On Mon, 2017-03-13 at 15:36 +0100, Thierry Du Tre wrote:
 
-However, right before entering the slowpath loop, it updates the
-nexthdr value of the last ipv6 extension header to NEXTHDR_FRAGMENT,
-to account for the fragment header that will be inserted in the new
-ipv6-fragment skbs.
+> +void vlan_dev_flush_egress_priority(const struct net_device *dev)
+> +{
+> +	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
+> +	struct vlan_priority_tci_mapping *mp;
+> +	int i;
+> +
+> +	for (i = 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
+> +		while ((mp = vlan->egress_priority_map[i]) != NULL) {
+> +			vlan->egress_priority_map[i] = mp->next;
+> +			kfree(mp);
+> +		}
+> +	}
+> +	vlan->nr_egress_mappings = 0;
+> +}
 
-In case original skb is cloned this munges nexthdr value of another
-skb.  Avoid this by doing the nexthdr update for each of the new fragment
-skbs separately.
 
-This was observed with tcpdump on a bridge device where netfilter ipv6
-reassembly is active:  tcpdump shows malformed fragment headers as
-the l4 header (icmpv6, tcp, etc). is decoded as a fragment header.
+Are you doing this on a live device ?
 
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Reported-by: Andreas Karis <akaris@redhat.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv6/ip6_output.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+Looks you'll need proper RCU support then.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 528b3c1f3fde..2851a1558b89 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -768,13 +768,14 @@ int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 	 *	Fragment the datagram.
- 	 */
- 
--	*prevhdr = NEXTHDR_FRAGMENT;
- 	troom = rt->dst.dev->needed_tailroom;
- 
- 	/*
- 	 *	Keep copying data until we run out.
- 	 */
- 	while (left > 0)	{
-+		u8 *fragnexthdr_offset;
-+
- 		len = left;
- 		/* IF: it doesn't fit, use 'mtu' - the data space left */
- 		if (len > mtu)
-@@ -819,6 +820,10 @@ int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 		 */
- 		skb_copy_from_linear_data(skb, skb_network_header(frag), hlen);
- 
-+		fragnexthdr_offset = skb_network_header(frag);
-+		fragnexthdr_offset += prevhdr - skb_network_header(skb);
-+		*fragnexthdr_offset = NEXTHDR_FRAGMENT;
-+
- 		/*
- 		 *	Build fragment header.
- 		 */
--- 
-2.10.2
+Otherwise, crashes will happen, say in egress_priority_map()
+
+smp_rmb() wont be enough if items can now be destroyed.
