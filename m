@@ -1,40 +1,44 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH] net: stmmac: set default number of rx and tx queues in stmmac_pci
-Date: Mon, 13 Mar 2017 10:07:07 +0000
-Message-ID: <d8f9e892defdcaf7f7e5fe795f2072b16f7e6b87.1489399548.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] Enable tx timestamping on loopback and dummy
+Date: Mon, 13 Mar 2017 11:35:32 +0100
+Message-ID: <20170313103532.GB1875@localhost.localdomain>
+References: <20170311144224.GA21305@u480fcf44e5b8574c5490.ant.amazon.com>
+ <13e4b635-089d-fb4b-4d73-62b807bb86e8@hartkopp.net>
+ <20170312163000.GA1649@localhost.localdomain>
+ <20170312203902.GB23127@u480fcf44e5b8574c5490.ant.amazon.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ezequiel Lara Gomez <ezegomez@amazon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:52394 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750905AbdCMKHM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 06:07:12 -0400
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:34902 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750864AbdCMKfi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 06:35:38 -0400
+Received: by mail-wr0-f180.google.com with SMTP id g10so100603683wrg.2
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 03:35:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170312203902.GB23127@u480fcf44e5b8574c5490.ant.amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch configures default number of RX and TX queues when
-using the pci glue driver.
+On Sun, Mar 12, 2017 at 08:39:03PM +0000, Ezequiel Lara Gomez wrote:
+> On Sun, Mar 12, 2017 at 05:30:00PM +0100, Richard Cochran wrote:
+> > And while you are at it, explain why #1 is needed.
+> 
+> Certainly - 2 (and 3) come from checkpatch.pl suggestions 
+> (I'm mostly following through https://kernelnewbies.org/FirstKernelPatch ), 
+> so as suggested I've broken them into a separate patch, being
+> styling related only (at least according to that script output).
+> 
+> The intent behind 1 is helping developing code that does TX timestamping
+> - I lost a good chunk of time toying with it until I realised 127.0.0.1
+> could not do TX timestamping because lo did not implement it.
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 4 ++++
- 1 file changed, 4 insertions(+)
+IMHO this is not a very convincing reason, but I won't object if
+others agree with this change.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index 5c9e4622..cea472a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -88,6 +88,10 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
- 
- 	/* Set the maxmtu to a default of JUMBO_LEN */
- 	plat->maxmtu = JUMBO_LEN;
-+
-+	/* Set default number of RX and TX queues to use */
-+	plat->tx_queues_to_use = 1;
-+	plat->rx_queues_to_use = 1;
- }
- 
- static int quark_default_data(struct plat_stmmacenet_data *plat,
--- 
-2.9.3
+In any case, the motivation belongs in the commit message...
+
+Thanks,
+Richard
