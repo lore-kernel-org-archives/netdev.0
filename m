@@ -1,122 +1,68 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH 06/11] net: stmmac: rx watchdog config prepared for multiple queues
-Date: Mon, 13 Mar 2017 16:12:37 +0000
-Message-ID: <b38095495df385ce6ab9d732cbe0715a9cb58d0e.1489419356.git.jpinto@synopsys.com>
+Subject: [PATCH 04/11] net: stmmac: prepare stmmac_tx_err for multiple queues
+Date: Mon, 13 Mar 2017 16:12:35 +0000
+Message-ID: <eaebf2be1a75b0850708f85be007a5dd98e75fc2.1489419356.git.jpinto@synopsys.com>
 References: <cover.1489419356.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:57382 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:57374 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752355AbdCMQNL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:13:11 -0400
+        with ESMTP id S1753087AbdCMQNM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:13:12 -0400
 In-Reply-To: <cover.1489419356.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489419356.git.jpinto@synopsys.com>
 References: <cover.1489419356.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds rx watchdog configuration for all queues.
+This patch prepares stmmac_err for multiple queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h         | 2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c  | 3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c     | 8 ++++----
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 3 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    | 3 ++-
- 5 files changed, 11 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 6dfb7f3..5fa23b1 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -443,7 +443,7 @@ struct stmmac_dma_ops {
- 	void (*get_hw_feature)(void __iomem *ioaddr,
- 			       struct dma_features *dma_cap);
- 	/* Program the HW RX Watchdog */
--	void (*rx_watchdog) (void __iomem *ioaddr, u32 riwt);
-+	void (*rx_watchdog)(void __iomem *ioaddr, u32 riwt, u32 number_chan);
- 	void (*set_tx_ring_len)(void __iomem *ioaddr, u32 len);
- 	void (*set_rx_ring_len)(void __iomem *ioaddr, u32 len);
- 	void (*set_rx_tail_ptr)(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index d3654a4..471a9aa 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -247,7 +247,8 @@ static void dwmac1000_get_hw_feature(void __iomem *ioaddr,
- 	dma_cap->enh_desc = (hw_cap & DMA_HW_FEAT_ENHDESSEL) >> 24;
- }
- 
--static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
-+static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt,
-+				  u32 number_chan)
- {
- 	writel(riwt, ioaddr + DMA_RX_WATCHDOG);
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-index 6285e8a..74177f9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-@@ -174,12 +174,12 @@ static void dwmac4_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
- 		_dwmac4_dump_dma_regs(ioaddr, i, reg_space);
- }
- 
--static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt)
-+static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt, u32 number_chan)
- {
--	int i;
-+	u32 chan;
- 
--	for (i = 0; i < DMA_CHANNEL_NB_MAX; i++)
--		writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(i));
-+	for (chan = 0; chan < number_chan; chan++)
-+		writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(chan));
- }
- 
- static void dwmac4_dma_rx_chan_op_mode(void __iomem *ioaddr, int mode,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 61b9369..16808e4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -730,6 +730,7 @@ static int stmmac_set_coalesce(struct net_device *dev,
- 			       struct ethtool_coalesce *ec)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 rx_cnt = priv->plat->rx_queues_to_use;
- 	unsigned int rx_riwt;
- 
- 	/* Check not supported parameters  */
-@@ -768,7 +769,7 @@ static int stmmac_set_coalesce(struct net_device *dev,
- 	priv->tx_coal_frames = ec->tx_max_coalesced_frames;
- 	priv->tx_coal_timer = ec->tx_coalesce_usecs;
- 	priv->rx_riwt = rx_riwt;
--	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt);
-+	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt, rx_cnt);
- 
- 	return 0;
- }
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 053a042..2af8589 100644
+index 58ad199..9b64f2e 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1915,6 +1915,7 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
- static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+@@ -1525,12 +1525,12 @@ static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv, u32 chan)
+ /**
+  * stmmac_tx_err - to manage the tx error
+  * @priv: driver private structure
++ * @chan: channel index
+  * Description: it cleans the descriptors and restarts the transmission
+  * in case of transmission errors.
+  */
+-static void stmmac_tx_err(struct stmmac_priv *priv)
++static void stmmac_tx_err(struct stmmac_priv *priv, u32 chan)
+ {
+-	u32 chan = STMMAC_CHAN0;
+ 	int i;
+ 	netif_stop_queue(priv->dev);
+ 
+@@ -1616,7 +1616,7 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+ 			priv->xstats.threshold = tc;
+ 		}
+ 	} else if (unlikely(status == tx_hard_error))
+-		stmmac_tx_err(priv);
++		stmmac_tx_err(priv, chan);
+ }
+ 
+ /**
+@@ -2944,9 +2944,10 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+ static void stmmac_tx_timeout(struct net_device *dev)
  {
  	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 rx_cnt = priv->plat->rx_queues_to_use;
- 	int ret;
++	u32 chan = STMMAC_CHAN0;
  
- 	/* DMA initialization and SW reset */
-@@ -1988,7 +1989,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	/* Clear Tx resources and restart transmitting again */
+-	stmmac_tx_err(priv);
++	stmmac_tx_err(priv, chan);
+ }
  
- 	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
- 		priv->rx_riwt = MAX_DMA_RIWT;
--		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
-+		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT, rx_cnt);
- 	}
- 
- 	if (priv->hw->pcs && priv->hw->mac->pcs_ctrl_ane)
+ /**
 -- 
 2.9.3
