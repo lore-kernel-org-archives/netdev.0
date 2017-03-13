@@ -1,80 +1,49 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [patch net-next 03/10] ipv4: fib_rules: Dump FIB rules when
- registering FIB notifier
-Date: Mon, 13 Mar 2017 19:33:41 +0200
-Message-ID: <20170313173341.GA6577@splinter.mtl.com>
-References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-3-git-send-email-jiri@resnulli.us>
- <fb57e851-4edf-5753-1036-2505314983ea@cumulusnetworks.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] mlx4: Better use of order-0 pages in RX path
+Date: Mon, 13 Mar 2017 10:34:35 -0700
+Message-ID: <20170313173432.GA31333@ast-mbp.thefacebook.com>
+References: <20170313005848.7076-1-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        shm@cumulusnetworks.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, lorenzo@google.com,
-        mateusz.bajorski@nokia.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39049 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750814AbdCMReg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:34:36 -0400
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35246 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdCMRek (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:34:40 -0400
+Received: by mail-pf0-f196.google.com with SMTP id 67so19669852pfg.2
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 10:34:39 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <fb57e851-4edf-5753-1036-2505314983ea@cumulusnetworks.com>
+In-Reply-To: <20170313005848.7076-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 08:52:45AM -0600, David Ahern wrote:
-> On 3/13/17 1:38 AM, Jiri Pirko wrote:
-> > From: Ido Schimmel <idosch@mellanox.com>
-> > 
-> > In commit c3852ef7f2f8 ("ipv4: fib: Replay events when registering FIB
-> > notifier") we dumped the FIB tables and replayed the events to the
-> > passed notification block.
-> > 
-> > However, we merely sent a RULE_ADD notification in case custom rules
-> > were in use. As explained in previous patches, this approach won't work
-> > anymore. Instead, we should notify the caller about all the FIB rules
-> > and let it act accordingly.
-> > 
-> > Upon registration to the FIB notification chain, replay a RULE_ADD
-> > notification for each programmed FIB rule, custom or not. The integrity
-> > of the dump is ensured by the mechanism introduced in the above
-> > mentioned commit.
-> > 
-> > Prevent regressions by making sure current listeners correctly sanitize
-> > the notified rules.
-> > 
-> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> > ---
-> >  drivers/net/ethernet/mellanox/mlxsw/Kconfig           |  1 +
-> >  drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 11 ++++++++++-
-> >  drivers/net/ethernet/rocker/Kconfig                   |  2 +-
-> >  drivers/net/ethernet/rocker/rocker_main.c             | 15 +++++++++++++--
-> >  net/ipv4/fib_rules.c                                  | 19 ++++++++++++++++---
-> >  5 files changed, 41 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-> > index ef23eae..a549a89 100644
-> > --- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-> > +++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-> > @@ -73,6 +73,7 @@ config MLXSW_SWITCHX2
-> >  config MLXSW_SPECTRUM
-> >  	tristate "Mellanox Technologies Spectrum support"
-> >  	depends on MLXSW_CORE && MLXSW_PCI && NET_SWITCHDEV && VLAN_8021Q
-> > +	depends on IP_MULTIPLE_TABLES
-> >  	depends on PSAMPLE || PSAMPLE=n
-> >  	select PARMAN
-> >  	default m
-> 
-> Why require multiple tables just b/c the h/w has the ability to support
-> multiple tables?
+On Sun, Mar 12, 2017 at 05:58:47PM -0700, Eric Dumazet wrote:
+> @@ -767,10 +814,30 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>  			case XDP_PASS:
+>  				break;
+>  			case XDP_TX:
+> +				/* Make sure we have one page ready to replace this one */
+> +				npage = NULL;
+> +				if (!ring->page_cache.index) {
+> +					npage = mlx4_alloc_page(priv, ring,
+> +								&ndma, numa_mem_id(),
+> +								GFP_ATOMIC | __GFP_MEMALLOC);
 
-No... I defined 'struct fib_rule_notifier_info' based on
-CONFIG_IP_MULTIPLE_TABLES cause I thought it's needed for the embedded
-'struct fib_rule', but now that I'm looking again I see that it's not
-the case.
-
-Will drop it. Thanks.
+did you test this with xdp2 test ?
+under what conditions it allocates ?
+It looks dangerous from security point of view to do allocations here.
+Can it be exploited by an attacker?
+we use xdp for ddos and lb and this is fast path.
+If 1 out of 100s XDP_TX packets hit this allocation we will have serious
+perf regression.
+In general I dont think it's a good idea to penalize x86 in favor of powerpc.
+Can you #ifdef this new code somehow? so we won't have these concerns on x86?
