@@ -1,100 +1,72 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [patch net-next 10/10] mlxsw: spectrum_router: Don't abort on
- l3mdev rules
-Date: Mon, 13 Mar 2017 17:22:25 +0200
-Message-ID: <20170313152225.GA8034@splinter.mtl.com>
-References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-10-git-send-email-jiri@resnulli.us>
- <7ba7c3ca-f9ba-0ee1-7b56-f139bc4e1fc4@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        shm@cumulusnetworks.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, lorenzo@google.com,
-        mateusz.bajorski@nokia.com
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH nf] ipv6: avoid write to a possibly cloned skb
+Date: Mon, 13 Mar 2017 16:24:28 +0100
+Message-ID: <20170313152428.12514-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55473 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750992AbdCMPW2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:22:28 -0400
-Content-Disposition: inline
-In-Reply-To: <7ba7c3ca-f9ba-0ee1-7b56-f139bc4e1fc4@cumulusnetworks.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:33590 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751095AbdCMPYN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:24:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 08:59:11AM -0600, David Ahern wrote:
-> On 3/13/17 1:38 AM, Jiri Pirko wrote:
-> > From: Ido Schimmel <idosch@mellanox.com>
-> > 
-> > Now that port netdevs can be enslaved to a VRF master we need to make
-> > sure the device's routing tables won't be flushed upon the insertion of
-> > a l3mdev rule.
-> > 
-> > Note that we assume the notified l3mdev rule is a simple rule as used by
-> > the VRF master. We don't check for the presence of other selectors such
-> > as 'iif' and 'oif'.
-> > 
-> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> > ---
-> >  drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> > index de54382..fa73ee2 100644
-> > --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> > +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> > @@ -2552,7 +2552,8 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
-> >  		break;
-> >  	case FIB_EVENT_RULE_ADD: /* fall through */
-> >  	case FIB_EVENT_RULE_DEL:
-> > -		if (!fib_work->fr_info.rule->def)
-> > +		if (!fib_work->fr_info.rule->def &&
-> > +		    !fib_work->fr_info.rule->l3mdev)
-> >  			mlxsw_sp_router_fib4_abort(mlxsw_sp);
-> >  		fib_rule_put(fib_work->fr_info.rule);
-> >  		break;
-> > 
-> 
-> You do not want to abort if the default rules are re-ordered. For
-> example, the rule for the local table is moved from priority 0 to just
-> before the main. ie., from this order:
+ip6_fragment, in case skb has a fraglist, checks if the
+skb is cloned.  If it is, it will move to the 'slow path' and allocates
+new skbs for each fragment.
 
-Are you aware of configurations employing the VRF device and leaving the
-rule for the local table at priority 0?
+However, right before entering the slowpath loop, it updates the
+nexthdr value of the last ipv6 extension header to NEXTHDR_FRAGMENT,
+to account for the fragment header that will be inserted in the new
+ipv6-fragment skbs.
 
-> 
-> $ ip ru ls
-> 0:	from all lookup local
-> 32766:	from all lookup main
-> 32767:	from all lookup default
-> 
-> to this order
-> $ ip ru ls
-> 1000:	from all lookup [l3mdev-table]
-> 32765:	from all lookup local
-> 32766:	from all lookup main
-> 32767:	from all lookup default
-> 
-> should not abort offloads.
-> 
-> The default flag added to rules in patch 1 is not really needed; you can
-> key off basic references to hardcoded table ids: RT_TABLE_MAIN and
-> RT_TABLE_LOCAL are set in stone. Simple rules (from all lookup X) where
-> only the priority changes should be enough information to not abort.
+In case original skb is cloned this munges nexthdr value of another
+skb.  Avoid this by doing the nexthdr update for each of the new fragment
+skbs separately.
 
-OK. Will look into that. I didn't like having the local rule first, so
-this might the solution.
+This was observed with tcpdump on a bridge device where netfilter ipv6
+reassembly is active:  tcpdump shows malformed fragment headers as
+the l4 header (icmpv6, tcp, etc). is decoded as a fragment header.
 
-> In addition, if rules are added that reference oif or iif that is not a
-> port netdev for this h/w then why abort offloads? e.g, consider PBR
-> rules related to the management interface.
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Reported-by: Andreas Karis <akaris@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv6/ip6_output.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-I'm aware, but not sure this belongs in this patchset. I prefer to deal
-with the l3mdev rule and re-ordering of the default rules first, then
-move to more advanced use cases.
-
-Thanks David.
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 528b3c1f3fde..2851a1558b89 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -768,13 +768,14 @@ int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 	 *	Fragment the datagram.
+ 	 */
+ 
+-	*prevhdr = NEXTHDR_FRAGMENT;
+ 	troom = rt->dst.dev->needed_tailroom;
+ 
+ 	/*
+ 	 *	Keep copying data until we run out.
+ 	 */
+ 	while (left > 0)	{
++		u8 *fragnexthdr_offset;
++
+ 		len = left;
+ 		/* IF: it doesn't fit, use 'mtu' - the data space left */
+ 		if (len > mtu)
+@@ -819,6 +820,10 @@ int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 		 */
+ 		skb_copy_from_linear_data(skb, skb_network_header(frag), hlen);
+ 
++		fragnexthdr_offset = skb_network_header(frag);
++		fragnexthdr_offset += prevhdr - skb_network_header(skb);
++		*fragnexthdr_offset = NEXTHDR_FRAGMENT;
++
+ 		/*
+ 		 *	Build fragment header.
+ 		 */
+-- 
+2.10.2
