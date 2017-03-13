@@ -1,54 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/2] net: sched: make default fifo qdiscs appear in
- the dump
-Date: Sun, 12 Mar 2017 22:53:26 -0700 (PDT)
-Message-ID: <20170312.225326.432231730454919673.davem@davemloft.net>
-References: <alpine.LSU.2.20.1703081302240.31814@cbobk.fhfr.pm>
-        <alpine.LSU.2.20.1703081602240.31814@cbobk.fhfr.pm>
+Subject: Re: [PATCH net-next v2] net: ipv6: Add early demux handler for UDP
+ unicast
+Date: Sun, 12 Mar 2017 22:54:48 -0700 (PDT)
+Message-ID: <20170312.225448.798984501964691999.davem@davemloft.net>
+References: <1489016209-19344-1-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
-        jhs@mojatatu.com, phil@nwl.cc, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jiri@resnulli.us
-To: jikos@kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52610 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52666 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751610AbdCMFxa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 01:53:30 -0400
-In-Reply-To: <alpine.LSU.2.20.1703081602240.31814@cbobk.fhfr.pm>
+        with ESMTP id S1751856AbdCMFyt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 01:54:49 -0400
+In-Reply-To: <1489016209-19344-1-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Kosina <jikos@kernel.org>
-Date: Wed, 8 Mar 2017 16:03:32 +0100 (CET)
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Date: Wed,  8 Mar 2017 16:36:49 -0700
 
-> From: Jiri Kosina <jkosina@suse.cz>
+> While running a single stream UDPv6 test, we observed that amount
+> of CPU spent in NET_RX softirq was much greater than UDPv4 for an
+> equivalent receive rate. The test here was run on an ARM64 based
+> Android system. On further analysis with perf, we found that UDPv6
+> was spending significant time in the statistics netfilter targets
+> which did socket lookup per packet. These statistics rules perform
+> a lookup when there is no socket associated with the skb. Since
+> there are multiple instances of these rules based on UID, there
+> will be equal number of lookups per skb.
 > 
-> The original reason [1] for having hidden qdiscs (potential scalability
-> issues in qdisc_match_from_root() with single linked list in case of large
-> amount of qdiscs) has been invalidated by 59cc1f61f0 ("net: sched: convert
-> qdisc linked list to hashtable").
+> By introducing early demux for UDPv6, we avoid the redundant lookups.
+> This also helped to improve the performance (800Mbps -> 870Mbps) on a
+> CPU limited system in a single stream UDPv6 receive test with 1450
+> byte sized datagrams using iperf.
 > 
-> This allows us for bringing more clarity and determinism into the dump by
-> making default pfifo qdiscs visible.
+> v1->v2: Use IPv6 cookie to validate dst instead of 0 as suggested
+> by Eric
 > 
-> We're not turning this on by default though, at it was deemed [2] too
-> intrusive / unnecessary change of default behavior towards userspace.
-> Instead, TCA_DUMP_INVISIBLE netlink attribute is introduced, which allows
-> applications to request complete qdisc hierarchy dump, including the
-> ones that have always been implicit/invisible.
-> 
-> Singleton noop_qdisc stays invisible, as teaching the whole infrastructure
-> about singletons would require quite some surgery with very little gain
-> (seeing no qdisc or seeing noop qdisc in the dump is probably setting
-> the same user expectation).
-> 
-> [1] http://lkml.kernel.org/r/1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com
-> [2] http://lkml.kernel.org/r/20161021.105935.1907696543877061916.davem@davemloft.net
-> 
-> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 
-Applied, thanks Jiri.
+Applied, thanks.
