@@ -1,7 +1,7 @@
 From: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [RFC v1 for accelerated IPoIB 18/25] net/mlx5e: Export open/close api for IB link
-Date: Mon, 13 Mar 2017 20:31:29 +0200
-Message-ID: <1489429896-10781-19-git-send-email-erezsh@mellanox.com>
+Subject: [RFC v1 for accelerated IPoIB 23/25] net/mlx5e: Change the function that checks the packet type
+Date: Mon, 13 Mar 2017 20:31:34 +0200
+Message-ID: <1489429896-10781-24-git-send-email-erezsh@mellanox.com>
 References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
@@ -13,128 +13,42 @@ Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-Now IB device is able to call open or close for its net device.
-
-TBD:
-There is one change that is waiting for the new channels api, till then
-used an "if" in the code.
+Now we can use it for non-ethernet type packets (like IB).
+After changing the order of the skb processing the function now can
+check the skb->protocol field to check if it is ETH_P_IP/ETH_P_IPV6
+packet.
 
 Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 23 +++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 13 ++++++++++++-
- include/linux/mlx5/driver.h                       |  3 +++
- 4 files changed, 37 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 2f9242ae06f3..154cab2a301b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -934,4 +934,5 @@ int mlx5e_get_offload_stats(int attr_id, const struct net_device *dev,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 98546b3395df..071a6ecce720 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -549,9 +549,8 @@ static inline void mlx5e_skb_set_hash(struct mlx5_cqe64 *cqe,
  
- bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv);
- bool mlx5e_is_vf_vport_rep(struct mlx5e_priv *priv);
-+bool mlx5e_is_eswitch_vport_mngr(struct mlx5_core_dev *mdev);
- #endif /* __MLX5_EN_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index ca1867cdce48..24efc8ccc075 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2269,7 +2269,9 @@ int mlx5e_open_locked(struct mlx5e_priv *priv)
- 	}
- 
- 	mlx5e_redirect_rqts(priv);
--	mlx5e_update_carrier(priv);
-+	/* only for the RFC, will use channels api when available */
-+	if (MLX5_CAP_GEN(mdev, port_type) == MLX5_CAP_PORT_TYPE_ETH)
-+		mlx5e_update_carrier(priv);
- 	mlx5e_timestamp_init(priv);
- #ifdef CONFIG_RFS_ACCEL
- 	priv->netdev->rx_cpu_rmap = priv->mdev->rmap;
-@@ -2277,7 +2279,7 @@ int mlx5e_open_locked(struct mlx5e_priv *priv)
- 	if (priv->profile->update_stats)
- 		queue_delayed_work(priv->wq, &priv->update_stats_work, 0);
- 
--	if (MLX5_CAP_GEN(mdev, vport_group_manager)) {
-+	if (mlx5e_is_eswitch_vport_mngr(mdev)) {
- 		err = mlx5e_add_sqs_fwd_rules(priv);
- 		if (err)
- 			goto err_close_channels;
-@@ -3899,6 +3901,7 @@ static void mlx5i_nic_init(struct mlx5_core_dev *mdev,
- 	struct mlx5e_priv *priv = ipoib_dev_priv(netdev);
- 
- 	mlx5n_build_nic_netdev_priv_common(mdev, netdev, priv, profile, ppriv);
-+	priv->ppriv = NULL;
- }
- 
- static int mlx5i_init_nic_rx(struct mlx5e_priv *priv)
-@@ -4025,6 +4028,22 @@ void mlx5i_detach(struct mlx5_core_dev *mdev, void *vpriv)
- }
- EXPORT_SYMBOL(mlx5i_detach);
- 
-+int mlx5i_open(void *vpriv)
-+{
-+	struct mlx5e_priv *priv = vpriv;
-+
-+	return mlx5e_open_locked(priv);
-+}
-+EXPORT_SYMBOL(mlx5i_open);
-+
-+int mlx5i_close(void *vpriv)
-+{
-+	struct mlx5e_priv *priv = vpriv;
-+
-+	return mlx5e_close_locked(priv);
-+}
-+EXPORT_SYMBOL(mlx5i_close);
-+
- static const struct mlx5e_profile mlx5e_nic_profile = {
- 	.init		   = mlx5e_nic_init,
- 	.cleanup	   = mlx5e_nic_cleanup,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 21d3d8e0bab7..cbb1092dddd4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -219,7 +219,12 @@ int mlx5e_nic_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- void mlx5e_remove_sqs_fwd_rules(struct mlx5e_priv *priv)
+ static inline bool is_first_ethertype_ip(struct sk_buff *skb)
  {
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
--	struct mlx5_eswitch_rep *rep = priv->ppriv;
-+	struct mlx5_eswitch_rep *rep;
-+
-+	if (!priv->ppriv)
-+		return;
-+
-+	rep = priv->ppriv;
- 
- 	mlx5_eswitch_sqs2vport_stop(esw, rep);
- }
-@@ -323,6 +328,12 @@ bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv)
- 	return false;
+-	__be16 ethertype = ((struct ethhdr *)skb->data)->h_proto;
+-
+-	return (ethertype == htons(ETH_P_IP) || ethertype == htons(ETH_P_IPV6));
++	return (skb->protocol == htons(ETH_P_IP) ||
++		skb->protocol == htons(ETH_P_IPV6));
  }
  
-+bool mlx5e_is_eswitch_vport_mngr(struct mlx5_core_dev *mdev)
-+{
-+	return (MLX5_CAP_GEN(mdev, vport_group_manager) &&
-+		MLX5_CAP_GEN(mdev, port_type) == MLX5_CAP_PORT_TYPE_ETH);
-+}
-+
- bool mlx5e_is_vf_vport_rep(struct mlx5e_priv *priv)
- {
- 	struct mlx5_eswitch_rep *rep = (struct mlx5_eswitch_rep *)priv->ppriv;
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index d0060cfb2a4f..c18be51287e7 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -1139,4 +1139,7 @@ struct net_device *mlx5i_create_netdev(struct mlx5_core_dev *mdev,
- 				       struct mlx5i_create_ext_param *param);
- int mlx5i_attach(struct mlx5_core_dev *mdev, void *vpriv);
- void mlx5i_detach(struct mlx5_core_dev *mdev, void *vpriv);
-+int mlx5i_close(void *vpriv);
-+int mlx5i_open(void *vpriv);
-+
- #endif /* MLX5_DRIVER_H */
+ static inline void mlx5e_handle_csum(struct net_device *netdev,
+@@ -621,8 +620,8 @@ inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 
+ 	skb->mark = be32_to_cpu(cqe->sop_drop_qpn) & MLX5E_TC_FLOW_ID_MASK;
+ 
+-	mlx5e_handle_csum(netdev, cqe, rq, skb, !!lro_num_seg);
+ 	skb->protocol = eth_type_trans(skb, netdev);
++	mlx5e_handle_csum(netdev, cqe, rq, skb, !!lro_num_seg);
+ }
+ 
+ static inline void mlx5e_complete_rx_cqe(struct mlx5e_rq *rq,
 -- 
 1.8.3.1
 
