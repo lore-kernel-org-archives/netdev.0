@@ -1,47 +1,51 @@
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv3 1/4] rds: ib: drop unnecessary rdma_reject
-Date: Mon, 13 Mar 2017 01:43:45 -0400
-Message-ID: <1489383828-7699-2-git-send-email-yanjun.zhu@oracle.com>
+From: Zhu Yanjun <yanjun.zhu@oracle.com>
+Subject: [PATCHv3 2/4] rds: ib: remove redundant ib_dealloc_fmr
+Date: Mon, 13 Mar 2017 01:43:46 -0400
+Message-ID: <1489383828-7699-3-git-send-email-yanjun.zhu@oracle.com>
 References: <1489383828-7699-1-git-send-email-yanjun.zhu@oracle.com>
-To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1489383828-7699-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        leon@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:49921 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750789AbdCMFoJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 01:44:09 -0400
+In-Reply-To: <1489383828-7699-1-git-send-email-yanjun.zhu@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When rdma_accept fails, rdma_reject is called in it. As such, it is
-not necessary to execute rdma_reject again.
+The function ib_dealloc_fmr will never be called. As such, it should
+be removed.
 
-Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Joe Jin <joe.jin@oracle.com>
+Cc: Junxiao Bi <junxiao.bi@oracle.com>
+Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
+Reviewed-by: Johannes Thumshirn <jthumshirn@suse.de>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
 ---
- net/rds/ib_cm.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ net/rds/ib_fmr.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index ce3775a..4b9405c 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -677,9 +677,8 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
- 		event->param.conn.initiator_depth);
+diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
+index 4fe8f4f..249ae1c 100644
+--- a/net/rds/ib_fmr.c
++++ b/net/rds/ib_fmr.c
+@@ -78,12 +78,9 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
+ 	return ibmr;
  
- 	/* rdma_accept() calls rdma_reject() internally if it fails */
--	err = rdma_accept(cm_id, &conn_param);
--	if (err)
--		rds_ib_conn_error(conn, "rdma_accept failed (%d)\n", err);
-+	if (rdma_accept(cm_id, &conn_param))
-+		rds_ib_conn_error(conn, "rdma_accept failed\n");
+ out_no_cigar:
+-	if (ibmr) {
+-		if (fmr->fmr)
+-			ib_dealloc_fmr(fmr->fmr);
+-		kfree(ibmr);
+-	}
++	kfree(ibmr);
+ 	atomic_dec(&pool->item_count);
++
+ 	return ERR_PTR(err);
+ }
  
- out:
- 	if (conn)
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
