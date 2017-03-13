@@ -1,88 +1,83 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: Better use of order-0 pages in RX path
-Date: Mon, 13 Mar 2017 16:51:19 -0700
-Message-ID: <20170313235117.GA83459@ast-mbp.thefacebook.com>
-References: <20170313173432.GA31333@ast-mbp.thefacebook.com>
- <CANn89iL_C8CMaxmkSvFxBMCjHx49JkEaKGoUPWMRYucrx09LnA@mail.gmail.com>
- <20170313183121.GA36306@ast-mbp.thefacebook.com>
- <CANn89iK1eyXH_6ViU0sj=yH+3+WVtVdXaAVBUkkcA=0dCvTkOA@mail.gmail.com>
- <20170313202300.GA52396@ast-mbp.thefacebook.com>
- <CANn89iK6+1KMuxv11TqvfNd2cWRPjWDNkFnO00uC15GMQfqs-g@mail.gmail.com>
- <20170313232137.GA77943@ast-mbp.thefacebook.com>
- <CANn89iL3ODh0xf=+P0gSYN-mGwACeeCO+OwtJzK5JEtOtMdPuw@mail.gmail.com>
- <20170313234050.GA82263@ast-mbp.thefacebook.com>
- <CANn89iKfsYgQmF1AM4zb1M6nnrAqEGJ+nmgJ_53T2NV812ZAVA@mail.gmail.com>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH 3/7] ath9k: Add support for reading the EEPROM data using the nvmem API
+Date: Tue, 14 Mar 2017 00:53:55 +0100
+Message-ID: <1609202.bQK0rlNN3Y@debian64>
+References: <1489439116-4233-1-git-send-email-albeu@free.fr> <1489439116-4233-3-git-send-email-albeu@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        John Crispin <john@phrozen.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, chrisrblake93@gmail.com
+To: Alban <albeu@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:34725 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754510AbdCMXvf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 19:51:35 -0400
-Received: by mail-pg0-f50.google.com with SMTP id 77so72753893pgc.1
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 16:51:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CANn89iKfsYgQmF1AM4zb1M6nnrAqEGJ+nmgJ_53T2NV812ZAVA@mail.gmail.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35941 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750929AbdCMXx7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 19:53:59 -0400
+In-Reply-To: <1489439116-4233-3-git-send-email-albeu@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 04:44:19PM -0700, Eric Dumazet wrote:
-> On Mon, Mar 13, 2017 at 4:40 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Mon, Mar 13, 2017 at 04:28:04PM -0700, Eric Dumazet wrote:
-> >> On Mon, Mar 13, 2017 at 4:21 PM, Alexei Starovoitov
-> >> <alexei.starovoitov@gmail.com> wrote:
-> >> >
-> >> > is it once in the beginning only? If so then why that
-> >> > 'if (!ring->page_cache.index)' check is done for every packet?
-> >>
-> >>
-> >>
-> >> You did not really read the patch, otherwise you would not ask these questions.
-> >
-> > please explain. I see
-> > +  if (!ring->page_cache.index) {
-> > +          npage = mlx4_alloc_page(priv, ring,
-> > which is done for every packet that goes via XDP_TX.
-> >
+On Monday, March 13, 2017 10:05:11 PM CET Alban wrote:
+> Currently SoC platforms use a firmware request to get the EEPROM data.
+> This is mostly a hack and rely on using a user-helper scripts which is
+> deprecated. A nicer alternative is to use the nvmem API which was
+> designed for this kind of task.
 > 
-> Well, we do for all packets, even on hosts not running XDP:
+> Furthermore we let CONFIG_ATH9K_AHB select CONFIG_NVMEM as such
+> devices will generally use this method for loading the EEPROM data.
 > 
-> if (xdp_prog) { ...
-> 
-> ...
-> 
-> Then :
-> 
-> if (doorbell_pending))
->      mlx4_en_xmit_doorbell(priv->tx_ring[TX_XDP][cq->ring]);
-> 
-> And nobody complained of few additional instructions.
+> Signed-off-by: Alban <albeu@free.fr>
+> ---
+> @@ -654,6 +656,25 @@ static int ath9k_init_softc(u16 devid, struct ath_softc *sc,
+>  	if (ret)
+>  		return ret;
+>  
+> +	/* If the EEPROM hasn't been retrieved via firmware request
+> +	 * use the nvmem API insted.
+> +	 */
+> +	if (!ah->eeprom_blob) {
+> +		struct nvmem_cell *eeprom_cell;
+> +
+> +		eeprom_cell = nvmem_cell_get(ah->dev, "eeprom");
+> +		if (!IS_ERR(eeprom_cell)) {
+> +			ah->eeprom_data = nvmem_cell_read(
+> +				eeprom_cell, &ah->eeprom_size);
+> +			nvmem_cell_put(eeprom_cell);
+> +
+> +			if (IS_ERR(ah->eeprom_data)) {
+> +				dev_err(ah->dev, "failed to read eeprom");
+> +				return PTR_ERR(ah->eeprom_data);
+> +			}
+> +		}
+> +	}
+> +
+>  	if (ath9k_led_active_high != -1)
+>  		ah->config.led_active_high = ath9k_led_active_high == 1;
+>  
+Are you sure this works with AR93XX SoCs that have the calibration data
+in the OTP?
 
-it's not the additional 'if' I'm concerned about it's the allocation
-after 'if', since you didn't explain clearly when it's executed.
+I've added Chris to the CC, since he has a HiveAP 121 that has this
+configuration, so he can test, whenever this is a problem or not.
 
-> >> Test it, and if you find a regression, shout loudly.
-> >
-> > that's not how it works. It's a job of submitter to prove
-> > that additional code doesn't cause regressions especially
-> > when there are legitimate concerns.
-> 
-> I have no easy way to test XDP. I  have never used it and am not
-> planning to use it any time soon.
-> 
-> Does it mean I no longer can participate to linux dev ?
+But from what I can tell, devices with the calibration data in the
+OTP would fail now. This is because the OTP is done by ath9k_hw_init()
+which hasn't run yet (it's a bit further down the road in the same
+function though). 
 
-when you're touching the most performance sensitive piece of XDP in
-the driver then yes, you have to show that XDP doesn't regress.
-Especially since it's trivial to test.
-Two mlx4 serves, pktgen and xdp2 is enough.
+Note: the OTP doesn't store the whole caldata. Just a few parts.
+A temporary "eeprom" gets constructed with the help of the 
+ar9300_eep_templates in ar9003_eeprom.c's
+ar9300_eeprom_restore_internal(). But from what I don't think, 
+that the eeprom_blob is constructed/set by the functions in
+ar9003_eeprom.
+
+I think this will require an additional property like
+qca,calibration-in-otp. What's your opinion?
+
+Thanks,
+Christian
