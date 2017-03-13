@@ -1,167 +1,108 @@
-From: Erez Shitrit <erezsh@mellanox.com>
-Subject: [RFC v1 for accelerated IPoIB 10/25] net/mlx5e: Support netdevice creation for IB link type
-Date: Mon, 13 Mar 2017 20:31:21 +0200
-Message-ID: <1489429896-10781-11-git-send-email-erezsh@mellanox.com>
+From: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [RFC v1 for accelerated IPoIB 22/25] net/mlx5e: New function pointer for build_rx_skb is
+Date: Mon, 13 Mar 2017 20:31:33 +0200
+Message-ID: <1489429896-10781-23-git-send-email-erezsh@mellanox.com>
 References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        valex@mellanox.com, leonro@mellanox.com, saedm@mellanox.com,
-        erezsh@dev.mellanox.co.il, Erez Shitrit <erezsh@mellanox.com>
-To: dledford@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49806 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753211AbdCMScD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 14:32:03 -0400
-In-Reply-To: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489429896-10781-1-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-Implement required interface that will able the IB link to be run on top
-of the ETH data structures.
+In order to have the ability to support IB link with the same base code.
 
-Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 98 +++++++++++++++++++++++
- include/linux/mlx5/driver.h                       | 12 +++
- 2 files changed, 110 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  6 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  7 +++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 10 +++++-----
+ 3 files changed, 18 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index b6758d0b93a5..84de1ca11524 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -298,6 +298,11 @@ typedef int (*mlx5e_fp_alloc_wqe)(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe,
+ 
+ typedef void (*mlx5e_fp_dealloc_wqe)(struct mlx5e_rq *rq, u16 ix);
+ 
++typedef void (*mlx5e_fp_build_rx_skb)(struct mlx5_cqe64 *cqe,
++				      u32 cqe_bcnt,
++				      struct mlx5e_rq *rq,
++				      struct sk_buff *skb);
++
+ struct mlx5e_dma_info {
+ 	struct page	*page;
+ 	dma_addr_t	addr;
+@@ -367,6 +372,7 @@ struct mlx5e_rq {
+ 	mlx5e_fp_handle_rx_cqe handle_rx_cqe;
+ 	mlx5e_fp_alloc_wqe     alloc_wqe;
+ 	mlx5e_fp_dealloc_wqe   dealloc_wqe;
++	mlx5e_fp_build_rx_skb  build_rx_skb;
+ 
+ 	unsigned long          state;
+ 	int                    ix;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 88541f99d37b..3db0334cdba0 100644
+index 24efc8ccc075..4dc8b21d011d 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3843,6 +3843,104 @@ static void mlx5e_nic_disable(struct mlx5e_priv *priv)
- 	mlx5_lag_remove(mdev);
+@@ -493,6 +493,12 @@ static int mlx5e_create_rq_umr_mkey(struct mlx5e_rq *rq)
+ 	return mlx5e_create_umr_mkey(priv, num_mtts, PAGE_SHIFT, &rq->umr_mkey);
  }
  
-+static void mlx5i_nic_init(struct mlx5_core_dev *mdev,
-+			   struct net_device *netdev,
-+			   const struct mlx5e_profile *profile,
-+			   void *ppriv)
-+{
-+	struct mlx5e_priv *priv = ipoib_dev_priv(netdev);
++/* forward declaration */
++inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
++			       u32 cqe_bcnt,
++			       struct mlx5e_rq *rq,
++			       struct sk_buff *skb);
 +
-+	mlx5n_build_nic_netdev_priv_common(mdev, netdev, priv, profile, ppriv);
-+}
-+
-+static int mlx5i_init_nic_rx(struct mlx5e_priv *priv)
-+{
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	int err;
-+
-+	err = mlx5n_init_nic_rx_common(priv);
-+	if (err) {
-+		mlx5_core_warn(mdev, "failed create nic rx res, %d\n", err);
-+		return err;
-+	}
-+
-+	err = mlx5i_create_flow_steering(priv);
-+	if (err) {
-+		mlx5_core_warn(mdev, "create flow steering failed, %d\n", err);
-+		return err;
-+	}
-+
-+	return 0;
-+}
-+
-+static void mlx5i_cleanup_nic_rx(struct mlx5e_priv *priv)
-+{
-+	mlx5i_destroy_flow_steering(priv);
-+	mlx5n_cleanup_nic_rx_common(priv);
-+}
-+
-+static const struct mlx5e_profile mlx5i_nic_profile = {
-+	.init		   = mlx5i_nic_init,
-+	.cleanup	   = NULL,
-+	.init_rx	   = mlx5i_init_nic_rx,
-+	.cleanup_rx	   = mlx5i_cleanup_nic_rx,
-+	.init_tx	   = mlx5e_init_nic_tx,
-+	.cleanup_tx	   = mlx5e_cleanup_nic_tx,
-+	.enable		   = NULL,/*mlx5e_nic_enable,*/
-+	.disable	   = NULL,
-+	.update_stats	   = NULL,/*mlx5e_update_stats,*/
-+	.max_nch	   = mlx5e_get_max_num_channels,
-+	.max_tc		   = MLX5E_MAX_NUM_TC,
-+};
-+
-+struct net_device *mlx5i_create_netdev(struct mlx5_core_dev *mdev,
-+				       const char *name,
-+				       void (*setup)(struct net_device *dev),
-+				       struct mlx5i_create_ext_param *param)
-+{
-+	const struct mlx5e_profile *profile = &mlx5i_nic_profile;
-+	int nch = profile->max_nch(mdev);
-+	struct net_device *netdev;
-+	struct mlx5e_priv *priv;
-+
-+	if (mlx5e_check_required_hca_cap(mdev, MLX5_INTERFACE_PROTOCOL_IB))
-+		return NULL;
-+
-+	netdev = alloc_netdev_mqs(sizeof(struct mlx5e_priv) + param->size_base_priv,
-+				  name, NET_NAME_UNKNOWN,
-+				  setup,
-+				  nch * MLX5E_MAX_NUM_TC,
-+				  nch);
-+	if (!netdev) {
-+		pr_err("alloc_netdev_mqs failed\n");
-+		return NULL;
-+	}
-+
-+	if (profile->init)
-+		profile->init(mdev, netdev, profile, &param->size_base_priv);
-+
-+	netif_carrier_off(netdev);
-+
-+	priv = ipoib_dev_priv(netdev);
-+
-+	priv->underlay_qpn = param->qpn;
-+
-+	priv->wq = create_singlethread_workqueue("mlx5i");
-+	if (!priv->wq)
-+		goto err_cleanup_nic;
-+
-+	return netdev;
-+
-+err_cleanup_nic:
-+	if (profile->cleanup)
-+		profile->cleanup(priv);
-+
-+	free_netdev(netdev);
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL(mlx5i_create_netdev);
-+
- static const struct mlx5e_profile mlx5e_nic_profile = {
- 	.init		   = mlx5e_nic_init,
- 	.cleanup	   = mlx5e_nic_cleanup,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 886ff2b00500..d0060cfb2a4f 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -48,6 +48,7 @@
- #include <linux/mlx5/device.h>
- #include <linux/mlx5/doorbell.h>
- #include <linux/mlx5/srq.h>
-+#include <rdma/ib_ipoib_accel_ops.h>
+ static int mlx5e_create_rq(struct mlx5e_channel *c,
+ 			   struct mlx5e_rq_param *param,
+ 			   struct mlx5e_rq *rq)
+@@ -538,6 +544,7 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+ 	if (rq->xdp_prog)
+ 		rq->buff.map_dir = DMA_BIDIRECTIONAL;
  
- enum {
- 	MLX5_BOARD_ID_LEN = 64,
-@@ -1127,4 +1128,15 @@ enum {
- 	MLX5_TRIGGERED_CMD_COMP = (u64)1 << 32,
- };
++	rq->build_rx_skb = mlx5e_build_rx_skb;
+ 	switch (priv->params.rq_wq_type) {
+ 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
+ 		if (mlx5e_is_vf_vport_rep(priv)) {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index ad08e64fee1a..98546b3395df 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -590,10 +590,10 @@ static inline void mlx5e_handle_csum(struct net_device *netdev,
+ 	rq->stats.csum_none++;
+ }
  
-+struct mlx5i_create_ext_param {
-+	int	size_base_priv;
-+	u32	qpn;
-+};
-+
-+struct net_device *mlx5i_create_netdev(struct mlx5_core_dev *mdev,
-+				       const char *name,
-+				       void (*setup)(struct net_device *dev),
-+				       struct mlx5i_create_ext_param *param);
-+int mlx5i_attach(struct mlx5_core_dev *mdev, void *vpriv);
-+void mlx5i_detach(struct mlx5_core_dev *mdev, void *vpriv);
- #endif /* MLX5_DRIVER_H */
+-static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+-				      u32 cqe_bcnt,
+-				      struct mlx5e_rq *rq,
+-				      struct sk_buff *skb)
++inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
++			       u32 cqe_bcnt,
++			       struct mlx5e_rq *rq,
++			       struct sk_buff *skb)
+ {
+ 	struct net_device *netdev = rq->netdev;
+ 	struct mlx5e_tstamp *tstamp = rq->tstamp;
+@@ -632,7 +632,7 @@ static inline void mlx5e_complete_rx_cqe(struct mlx5e_rq *rq,
+ {
+ 	rq->stats.packets++;
+ 	rq->stats.bytes += cqe_bcnt;
+-	mlx5e_build_rx_skb(cqe, cqe_bcnt, rq, skb);
++	rq->build_rx_skb(cqe, cqe_bcnt, rq, skb);
+ }
+ 
+ static inline void mlx5e_xmit_xdp_doorbell(struct mlx5e_sq *sq)
 -- 
 1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
