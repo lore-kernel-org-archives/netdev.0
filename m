@@ -1,65 +1,115 @@
-From: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [RFC v1 for accelerated IPoIB 19/25] include/linux/mlx5: Add mlx5_wqe_eth_pad and enhanced-ipoib-qp-mode
-Date: Mon, 13 Mar 2017 20:31:30 +0200
-Message-ID: <1489429896-10781-20-git-send-email-erezsh@mellanox.com>
+From: Erez Shitrit <erezsh@mellanox.com>
+Subject: [RFC v1 for accelerated IPoIB 24/25] net/mlx5e: Add support for build_rx_skb for packet from IB type
+Date: Mon, 13 Mar 2017 20:31:35 +0200
+Message-ID: <1489429896-10781-25-git-send-email-erezsh@mellanox.com>
 References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1489429896-10781-1-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        valex@mellanox.com, leonro@mellanox.com, saedm@mellanox.com,
+        erezsh@dev.mellanox.co.il, Erez Shitrit <erezsh@mellanox.com>
+To: dledford@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49868 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753273AbdCMScL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 14:32:11 -0400
+In-Reply-To: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-mlx5_wqe_eth_pad will be used for TX flow for IB link type.
-enhanced-ipoib-qp-mode for QP creation.
+New function that parse and build the skb for IPoIB traffic.
 
-Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
 ---
- drivers/infiniband/hw/mlx5/qp.c | 4 ----
- include/linux/mlx5/qp.h         | 8 ++++++++
- 2 files changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  8 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 49 +++++++++++++++++++++++
+ 2 files changed, 57 insertions(+)
 
-diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
-index 41e14d57fec9..d6918e6b6f28 100644
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -71,10 +71,6 @@ enum {
- 	[MLX5_IB_WR_UMR]			= MLX5_OPCODE_UMR,
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 4dc8b21d011d..3b609bcc0914 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -499,6 +499,11 @@ inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 			       struct mlx5e_rq *rq,
+ 			       struct sk_buff *skb);
  
--struct mlx5_wqe_eth_pad {
--	u8 rsvd0[16];
--};
--
- enum raw_qp_set_mask_map {
- 	MLX5_RAW_QP_MOD_SET_RQ_Q_CTR_ID		= 1UL << 0,
- 	MLX5_RAW_QP_RATE_LIMIT			= 1UL << 1,
-diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
-index 219c699c17b7..568fffff8ac9 100644
---- a/include/linux/mlx5/qp.h
-+++ b/include/linux/mlx5/qp.h
-@@ -221,6 +221,14 @@ enum {
- 	MLX5_ETH_WQE_L4_CSUM            = 1 << 7,
- };
++inline void mlx5i_build_rx_skb(struct mlx5_cqe64 *cqe,
++			       u32 cqe_bcnt,
++			       struct mlx5e_rq *rq,
++			       struct sk_buff *skb);
++
+ static int mlx5e_create_rq(struct mlx5e_channel *c,
+ 			   struct mlx5e_rq_param *param,
+ 			   struct mlx5e_rq *rq)
+@@ -584,6 +589,9 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+ 		else
+ 			rq->handle_rx_cqe = mlx5e_handle_rx_cqe;
  
-+struct mlx5_wqe_eth_pad {
-+	u8 rsvd0[16];
-+};
++		if (MLX5_CAP_GEN(mdev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
++			rq->build_rx_skb = mlx5i_build_rx_skb;
 +
-+enum {
-+	MLX5_QP_ENHANCED_ULP_STATELESS_MODE = 2,
-+};
+ 		rq->alloc_wqe = mlx5e_alloc_rx_wqe;
+ 		rq->dealloc_wqe = mlx5e_dealloc_rx_wqe;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 071a6ecce720..db3064c4b052 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -624,6 +624,55 @@ inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 	mlx5e_handle_csum(netdev, cqe, rq, skb, !!lro_num_seg);
+ }
+ 
++#define MLX5_IB_GRH_DGID_OFFSET 24
++#define MLX5_IB_GRH_BYTES       40
++#define MLX5_IPOIB_ENCAP_LEN    4
++#define MLX5_GID_SIZE           16
 +
- struct mlx5_wqe_eth_seg {
- 	u8              rsvd0[4];
- 	u8              cs_flags;
++inline void mlx5i_build_rx_skb(struct mlx5_cqe64 *cqe,
++			       u32 cqe_bcnt,
++			       struct mlx5e_rq *rq,
++			       struct sk_buff *skb)
++{
++	struct net_device *netdev = rq->netdev;
++	u8 *dgid;
++	u8 g;
++
++	skb_put(skb, cqe_bcnt);
++
++	g = (be32_to_cpu(cqe->flags_rqpn) >> 28) & 3;
++	dgid = skb->data + MLX5_IB_GRH_DGID_OFFSET;
++	if ((!g) || dgid[0] != 0xff)
++		skb->pkt_type = PACKET_HOST;
++	else if (memcmp(dgid, netdev->broadcast + 4, MLX5_GID_SIZE) == 0)
++		skb->pkt_type = PACKET_BROADCAST;
++	else
++		skb->pkt_type = PACKET_MULTICAST;
++
++	/* TODO: IB/ipoib: Allow mcast packets from other VFs
++	 * 68996a6e760e5c74654723eeb57bf65628ae87f4
++	 */
++
++	skb_pull(skb, MLX5_IB_GRH_BYTES);
++
++	skb->protocol = *((__be16 *)(skb->data));
++
++	mlx5e_handle_csum(netdev, cqe, rq, skb, rq->priv->params.lro_en);
++
++	skb_record_rx_queue(skb, rq->ix);
++
++	if (likely(netdev->features & NETIF_F_RXHASH))
++		mlx5e_skb_set_hash(cqe, skb);
++
++	skb_reset_mac_header(skb);
++	skb_pull(skb, MLX5_IPOIB_ENCAP_LEN);
++
++	++netdev->stats.rx_packets;
++	netdev->stats.rx_bytes += skb->len;
++
++	skb->dev = netdev;
++}
++
+ static inline void mlx5e_complete_rx_cqe(struct mlx5e_rq *rq,
+ 					 struct mlx5_cqe64 *cqe,
+ 					 u32 cqe_bcnt,
 -- 
 1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
