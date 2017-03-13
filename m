@@ -1,120 +1,137 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] netem: apply correct delay when rate throttling
-Date: Mon, 13 Mar 2017 10:16:58 -0700
-Message-ID: <20170313171658.18606-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Nik Unger <njunger@uwaterloo.ca>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:35879 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753485AbdCMRRg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:17:36 -0400
-Received: by mail-pg0-f46.google.com with SMTP id g2so48739775pge.3
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 10:17:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: Legacy features in PCI Express devices
+Date: Mon, 13 Mar 2017 10:24:53 -0700
+Message-ID: <b26272ff-346a-9774-405f-f1238a89aa8b@gmail.com>
+References: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+        David Laight <david.laight@aculab.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Phuong Nguyen <phuong_nguyen@sigmadesigns.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        Tim Harvey <tharvey@gateworks.com>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Mason <slash.tmp@free.fr>, linux-pci <linux-pci@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nik Unger <njunger@uwaterloo.ca>
+On 03/13/2017 09:10 AM, Mason wrote:
+> Hello,
+>
+> There are two revisions of our PCI Express controller.
+>
+> Rev 1 did not support the following features:
+>
+>   1) legacy PCI interrupt delivery (INTx signals)
+>   2) I/O address space
+>
+> Internally, someone stated that such missing support would prevent
+> some PCIe cards from working with our controller.
+>
+> Are there really modern PCIe cards that require 1) and/or 2)
+> to function?
 
-I recently reported on the netem list that iperf network benchmarks
-show unexpected results when a bandwidth throttling rate has been
-configured for netem. Specifically:
+It depends on your definition of "modern".  I have some JMicron AHCI 
+SATA controllers that support legacy interrupts only.  These are cheap 
+$20 PCIe devices I picked up at Fry's a couple of years ago.  Do they 
+count as modern?
 
-1) The measured link bandwidth *increases* when a higher delay is added
-2) The measured link bandwidth appears higher than the specified limit
-3) The measured link bandwidth for the same very slow settings varies significantly across
-  machines
+I/O address space is probably less important I would say.
 
-The issue can be reproduced by using tc to configure netem with a
-512kbit rate and various (none, 1us, 50ms, 100ms, 200ms) delays on a
-veth pair between network namespaces, and then using iperf (or any
-other network benchmarking tool) to test throughput. Complete detailed
-instructions are in the original email chain here:
-https://lists.linuxfoundation.org/pipermail/netem/2017-February/001672.html
+David.
 
-There appear to be two underlying bugs causing these effects:
+>
+> Can someone provide examples of such cards, so that I may test them
+> on both revisions?
 
-- The first issue causes long delays when the rate is slow and no
-  delay is configured (e.g., "rate 512kbit"). This is because SKBs are
-  not orphaned when no delay is configured, so orphaning does not
-  occur until *after* the rate-induced delay has been applied. For
-  this reason, adding a tiny delay (e.g., "rate 512kbit delay 1us")
-  dramatically increases the measured bandwidth.
 
-- The second issue is that rate-induced delays are not correctly
-  applied, allowing SKB delays to occur in parallel. The indended
-  approach is to compute the delay for an SKB and to add this delay to
-  the end of the current queue. However, the code does not detect
-  existing SKBs in the queue due to improperly testing sch->q.qlen,
-  which is nonzero even when packets exist only in the
-  rbtree. Consequently, new SKBs do not wait for the current queue to
-  empty. When packet delays vary significantly (e.g., if packet sizes
-  are different), then this also causes unintended reordering.
+[root@localhost ddaney]# lspci -s 0005:90:00.0 -vvv
+0005:90:00.0 SATA controller: JMicron Technology Corp. JMB363 SATA/IDE 
+Controller (rev 03) (prog-if 01 [AHCI 1.0])
+	Subsystem: JMicron Technology Corp. JMB363 SATA/IDE Controller
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
+Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
+<MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 26
+	NUMA node: 0
+	Region 5: Memory at 899010010000 (32-bit, non-prefetchable) [size=8K]
+	Expansion ROM at 899010000000 [disabled] [size=64K]
+	Capabilities: [68] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold-)
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [50] Express (v1) Legacy Endpoint, MSI 01
+		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+			ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
+		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+			MaxPayload 128 bytes, MaxReadReq 512 bytes
+		DevSta:	CorrErr- UncorrErr- FatalErr+ UnsuppReq+ AuxPwr- TransPend-
+		LnkCap:	Port #1, Speed 2.5GT/s, Width x1, ASPM L0s, Exit Latency L0s 
+unlimited, L1 unlimited
+			ClockPM- Surprise- LLActRep- BwNot- ASPMOptComp-
+		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- CommClk-
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- 
+BWMgmt- ABWMgmt-
+	Kernel driver in use: ahci
 
-I modified the code to expect a delay (and orphan the SKB) when a rate
-is configured. I also added some defensive tests that correctly find
-the latest scheduled delivery time, even if it is (unexpectedly) for a
-packet in sch->q. I have tested these changes on the latest kernel
-(4.11.0-rc1+) and the iperf / ping test results are as expected.
+[root@localhost ddaney]# lspci -s 0005:90:00.0 -vvv -n
+0005:90:00.0 0106: 197b:2363 (rev 03) (prog-if 01 [AHCI 1.0])
+	Subsystem: 197b:2363
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
+Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
+<MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 26
+	NUMA node: 0
+	Region 5: Memory at 899010010000 (32-bit, non-prefetchable) [size=8K]
+	Expansion ROM at 899010000000 [disabled] [size=64K]
+	Capabilities: [68] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold-)
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [50] Express (v1) Legacy Endpoint, MSI 01
+		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+			ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
+		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+			MaxPayload 128 bytes, MaxReadReq 512 bytes
+		DevSta:	CorrErr- UncorrErr- FatalErr+ UnsuppReq+ AuxPwr- TransPend-
+		LnkCap:	Port #1, Speed 2.5GT/s, Width x1, ASPM L0s, Exit Latency L0s 
+unlimited, L1 unlimited
+			ClockPM- Surprise- LLActRep- BwNot- ASPMOptComp-
+		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- CommClk-
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- 
+BWMgmt- ABWMgmt-
+	Kernel driver in use: ahci
 
-Signed-off-by: Nik Unger <njunger@uwaterloo.ca>
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
----
- net/sched/sch_netem.c | 26 ++++++++++++++++++--------
- 1 file changed, 18 insertions(+), 8 deletions(-)
 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index c8bb62a1e744..94b4928ad413 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -462,7 +462,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 	/* If a delay is expected, orphan the skb. (orphaning usually takes
- 	 * place at TX completion time, so _before_ the link transit delay)
- 	 */
--	if (q->latency || q->jitter)
-+	if (q->latency || q->jitter || q->rate)
- 		skb_orphan_partial(skb);
- 
- 	/*
-@@ -530,21 +530,31 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 		now = psched_get_time();
- 
- 		if (q->rate) {
--			struct sk_buff *last;
-+			struct netem_skb_cb *last = NULL;
-+
-+			if (sch->q.tail)
-+				last = netem_skb_cb(sch->q.tail);
-+			if (q->t_root.rb_node) {
-+				struct sk_buff *t_skb;
-+				struct netem_skb_cb *t_last;
-+
-+				t_skb = netem_rb_to_skb(rb_last(&q->t_root));
-+				t_last = netem_skb_cb(t_skb);
-+				if (!last ||
-+				    t_last->time_to_send > last->time_to_send) {
-+					last = t_last;
-+				}
-+			}
- 
--			if (sch->q.qlen)
--				last = sch->q.tail;
--			else
--				last = netem_rb_to_skb(rb_last(&q->t_root));
- 			if (last) {
- 				/*
- 				 * Last packet in queue is reference point (now),
- 				 * calculate this time bonus and subtract
- 				 * from delay.
- 				 */
--				delay -= netem_skb_cb(last)->time_to_send - now;
-+				delay -= last->time_to_send - now;
- 				delay = max_t(psched_tdiff_t, 0, delay);
--				now = netem_skb_cb(last)->time_to_send;
-+				now = last->time_to_send;
- 			}
- 
- 			delay += packet_len_2_sched_time(qdisc_pkt_len(skb), q);
--- 
-2.11.0
+
+Look!  No MSI.
+
+>
+> I was told to check ath9k-based cards. Any other examples?
+>
+> Looking around, I came across this thread:
+> http://lists.infradead.org/pipermail/linux-arm-kernel/2016-March/418254.html
+> "i.MX6 PCIe: Fix imx6_pcie_deassert_core_reset() polarity"
+>
+> IIUC, although some PCIe boards do support MSI, the driver might not
+> put in the work to use that infrastructure, and instead reverts to
+> legacy interrupts. (So it is a SW issue, in a sense.)
+>
+> Regards.
+>
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+>
