@@ -1,142 +1,44 @@
-From: Thierry Du Tre <thierry@dtsystems.be>
-Subject: [PATCH v2] VLAN, support ingress/egress priority map flushing
-Date: Mon, 13 Mar 2017 15:36:31 +0100
-Message-ID: <f07d2296-31e0-30b1-c798-f5f1d87d573a@dtsystems.be>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [patch net-next 04/10] net: Add netif_is_vrf_master helper
+Date: Mon, 13 Mar 2017 08:39:19 -0600
+Message-ID: <d3d82369-bea2-ea7e-0912-66061bd6cc91@cumulusnetworks.com>
+References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
+ <1489390713-2634-1-git-send-email-jiri@resnulli.us>
+ <1489390713-2634-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        shm@cumulusnetworks.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, lorenzo@google.com,
+        mateusz.bajorski@nokia.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33036 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753077AbdCMOgf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 10:36:35 -0400
-Received: by mail-wm0-f68.google.com with SMTP id n11so10190837wma.0
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 07:36:34 -0700 (PDT)
+Received: from mail-it0-f53.google.com ([209.85.214.53]:36327 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752313AbdCMOjY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 10:39:24 -0400
+Received: by mail-it0-f53.google.com with SMTP id w124so13279011itb.1
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 07:39:24 -0700 (PDT)
+In-Reply-To: <1489390713-2634-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When sending packets via a vlan device we can manipulate the priority bits in the vlan header (PCP) via a mapping based on tc class value.
-Similarly, when packets are received via a vlan device, the PCP value can be mapped onto a tc class value, which is available for iptables rules and tc queueing disciplines.
+On 3/13/17 1:38 AM, Jiri Pirko wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
+> 
+> Drivers capable of offloading VRF configurations need to know the ports
+> are enslaved to an actual VRF device and not some other L3 master.
+> 
+> Add a flag to indicate netdev is a VRF master and a corresponding
+> helper.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  drivers/net/vrf.c         | 2 +-
+>  include/linux/netdevice.h | 8 ++++++++
+>  2 files changed, 9 insertions(+), 1 deletion(-)
+> 
 
-One can use the vconfig utility to set both ingress and egress mapping entries (set_ingress_map/set_egress_map) or any other application to call the vlan ioctl handler.
-
-The resulting map can be printed via /proc/net/vlan/<ifname> , i.e. :
-# cat /proc/net/vlan/vlan11
-vlan11  VID: 11  REORDER_HDR: 1  dev->priv_flags: 1
-          total frames received     52331849
-           total bytes received  17451834908
-       Broadcast/Multicast Rcvd      1525155
-
-       total frames transmitted     98569270
-        total bytes transmitted 144870211289
-Device: eth_test
-INGRESS priority mappings: 0:0  1:1  2:2  3:3  4:0  5:0  6:0 7:0
-  EGRESS priority mappings: 0:7
-
-The current API offers only GET and SET operations, and when actually using this functionality a flush is missing to reset all entries.
-This patch adds a FLUSH operation for both ingress and egress map which can then be used by vconfig or other applications.
-
-Signed-off-by: Thierry Du Tre <thierry@dtsystems.be>
----
-Changes in v2:
-   - Move new vlan cmd values to end of enum list.
-
-  include/uapi/linux/if_vlan.h |  4 +++-
-  net/8021q/vlan.c             | 16 ++++++++++++++++
-  net/8021q/vlan.h             |  2 ++
-  net/8021q/vlan_dev.c         | 23 +++++++++++++++++++++++
-  4 files changed, 44 insertions(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/if_vlan.h b/include/uapi/linux/if_vlan.h
-index 7e5e6b3..8daea77 100644
---- a/include/uapi/linux/if_vlan.h
-+++ b/include/uapi/linux/if_vlan.h
-@@ -27,7 +27,9 @@ enum vlan_ioctl_cmds {
-  	SET_VLAN_NAME_TYPE_CMD,
-  	SET_VLAN_FLAG_CMD,
-  	GET_VLAN_REALDEV_NAME_CMD, /* If this works, you know it's a VLAN device, btw */
--	GET_VLAN_VID_CMD /* Get the VID of this VLAN (specified by name) */
-+	GET_VLAN_VID_CMD, /* Get the VID of this VLAN (specified by name) */
-+	FLUSH_VLAN_INGRESS_PRIORITY_CMD,
-+	FLUSH_VLAN_EGRESS_PRIORITY_CMD
-  };
-  
-  enum vlan_flags {
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 467069b..8988419 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -539,6 +539,22 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
-  	}
-  
-  	switch (args.cmd) {
-+	case FLUSH_VLAN_INGRESS_PRIORITY_CMD:
-+		err = -EPERM;
-+		if (!capable(CAP_NET_ADMIN))
-+			break;
-+		vlan_dev_flush_ingress_priority(dev);
-+		err = 0;
-+		break;
-+
-+	case FLUSH_VLAN_EGRESS_PRIORITY_CMD:
-+		err = -EPERM;
-+		if (!capable(CAP_NET_ADMIN))
-+			break;
-+		vlan_dev_flush_egress_priority(dev);
-+		err = 0;
-+		break;
-+
-  	case SET_VLAN_INGRESS_PRIORITY_CMD:
-  		err = -EPERM;
-  		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-index df8bd65..d8d90ca 100644
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
-@@ -97,6 +97,8 @@ static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
-  							    (i) % VLAN_N_VID)))
-  
-  /* found in vlan_dev.c */
-+void vlan_dev_flush_ingress_priority(const struct net_device *dev);
-+void vlan_dev_flush_egress_priority(const struct net_device *dev);
-  void vlan_dev_set_ingress_priority(const struct net_device *dev,
-  				   u32 skb_prio, u16 vlan_prio);
-  int vlan_dev_set_egress_priority(const struct net_device *dev,
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index e97ab82..8fd91c3 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -159,6 +159,29 @@ static int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
-  	return 0;
-  }
-  
-+void vlan_dev_flush_ingress_priority(const struct net_device *dev)
-+{
-+	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
-+
-+	memset(vlan->ingress_priority_map, 0, sizeof(vlan->ingress_priority_map));
-+	vlan->nr_ingress_mappings = 0;
-+}
-+
-+void vlan_dev_flush_egress_priority(const struct net_device *dev)
-+{
-+	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
-+	struct vlan_priority_tci_mapping *mp;
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
-+		while ((mp = vlan->egress_priority_map[i]) != NULL) {
-+			vlan->egress_priority_map[i] = mp->next;
-+			kfree(mp);
-+		}
-+	}
-+	vlan->nr_egress_mappings = 0;
-+}
-+
-  void vlan_dev_set_ingress_priority(const struct net_device *dev,
-  				   u32 skb_prio, u16 vlan_prio)
-  {
--- 
-2.7.4
+IFF_VRF_MASTER was renamed IFF_L3MDEV_MASTER 18 months ago.
