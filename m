@@ -1,120 +1,52 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [RFC v1 for accelerated IPoIB 25/25] mlx5_ib: skeleton for
- mlx5_ib to support ipoib_ops
-Date: Mon, 13 Mar 2017 14:27:20 -0600
-Message-ID: <20170313202720.GC2738@obsidianresearch.com>
-References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
- <1489429896-10781-26-git-send-email-erezsh@mellanox.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RESEND PATCH -net] cpsw/netcp: cpts depends on posix_timers
+Date: Mon, 13 Mar 2017 21:28:32 +0100
+Message-ID: <CAK8P3a125rioB5Cnoa7nR9Dz_pU5=x7=06_DvXEE-dTpOBiitQ@mail.gmail.com>
+References: <20170313165849.1378558-1-arnd@arndb.de> <alpine.LFD.2.20.1703131608100.14436@knanqh.ubzr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1489429896-10781-26-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        John Stultz <john.stultz@linaro.org>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.20.1703131608100.14436@knanqh.ubzr>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 13, 2017 at 08:31:36PM +0200, Erez Shitrit wrote:
+On Mon, Mar 13, 2017 at 9:09 PM, Nicolas Pitre <nicolas.pitre@linaro.org> wrote:
+> On Mon, 13 Mar 2017, Arnd Bergmann wrote:
+>
+>> With posix timers having become optional, we get a build error with
+>> the cpts time sync option of the CPSW driver:
+>>
+>> drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
+>> drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
+>>
+>> It really makes no sense to build this driver if we can't use PTP,
+>> so it's better to go back to 'select PTP_1588_CLOCK' but instead
+>> add a dependency on POSIX_TIMERS. Adding 'depends on PTP_1588_CLOCK'
+>> might also work, but has the risk of circular dependencies when
+>> mixed with other drivers using 'imply'.
+>
+> Could you elaborate on that risk please?
 
-> +struct net_device *mlx5_alloc_rdma_netdev(struct ib_device *hca,
-> +				     u8 port_num,
-> +				     enum rdma_netdev_t type,
-> +				     const char *name,
-> +				     unsigned char name_assign_type,
-> +				     void (*setup)(struct net_device *));
-> +void mlx5_free_rdma_netdev(struct net_device *netdev);
+I have seen many circular dependencies in the past that tend to be of type
 
-Seems like OK signatures to me..
+config FOO
+     depends on A
+     select B
 
-> +	dev->ib_dev.alloc_rdma_netdev	= mlx5_alloc_rdma_netdev;
-> +	dev->ib_dev.free_rdma_netdev	= mlx5_free_rdma_netdev;
+config BAR
+     select A
+     depends on B
 
-Since mlx5_free_rdma_netdev is empty this should just be NULL
+The best way to avoid this problem is to only ever use either 'select' or
+'depends on' for any given dependency, but not both. In this case, almost
+all references to PTP_1588_CLOCK use 'select' or 'implies', so I don't
+want to introduce any more 'depends on'.
 
-> +int mlx5_ib_dev_init(struct net_device *dev, struct ib_device *hca,
-> +		     int *qp_num)
-> +{
-> +	void *next_priv = ipoib_dev_priv(dev);
-> +	struct rdma_netdev *rn = netdev_priv(dev);
-> +	struct mlx5_ib_dev *ib_dev = to_mdev(hca);
-> +	int ret;
-> +
-> +	ret = mlx5i_attach(ib_dev->mdev, next_priv);
-> +	if (ret) {
-> +		pr_err("Failed resources allocation for device: %s ret: %d\n",
-> +		       dev->name, ret);
-> +		return ret;
-> +	}
-> +
-> +	*qp_num = rn->qp_num;
-> +
-> +	pr_debug("resources allocated for device: %s\n", dev->name);
-> +
-> +	return 0;
-> +}
-> +
-> +void mlx5_ib_dev_cleanup(struct net_device *dev, struct ib_device *hca)
-> +{
-> +	void *next_priv = ipoib_dev_priv(dev);
-> +	struct rdma_netdev *rn = netdev_priv(dev);
-> +	struct mlx5_ib_dev *ib_dev = to_mdev(hca);
-> +	struct mlx5_qp_context context;
-> +	int ret;
-> +
-> +	/* detach qp from flow-steering by reset it */
-> +	ret = mlx5_core_qp_modify(ib_dev->mdev,
-> +				  MLX5_CMD_OP_2RST_QP, 0, &context,
-> +				  (struct mlx5_core_qp *)rn->context);
-> +	if (ret)
-> +		pr_err("%s failed (ret: %d) to reset QP\n", __func__, ret);
-> +
-> +	mlx5i_detach(ib_dev->mdev, next_priv);
-> +
-> +	mlx5_ib_clean_qp(ib_dev, (struct mlx5_core_qp *)rn->context);
-> +}
-
-Why isn't this stuff in open/close?
-
-> +void mlx5_ib_send(struct net_device *dev, struct sk_buff *skb,
-> +		  struct ipoib_ah *address, u32 dqpn, u32 dqkey)
-> +{
-> +	void *next_priv = ipoib_dev_priv(dev);
-> +
-> +	mlx5i_xmit(skb, next_priv, &to_mah(address->ah)->av, dqpn, dqkey);
-
-How come the qkey is not available via ipoib_ah ?
-
-to_mah(address->ah)->av->key.qkey.qkey
-
-?
-
-> +static const struct net_device_ops ipoib_netdev_default_pf = {
-
-That is a weird name for a mlx5 specific structure.
-
-> +	param.size_base_priv = sizeof(struct ipoib_rdma_netdev);
-
-This is really weird, the code in mlx5i_create_netdev calls
-ipoib_dev_priv so it must assume the struct is a ipoib_rdma_netdev.
-
-> +	/* set func pointers */
-> +	rn = netdev_priv(dev);
-> +	rn->qp_num = qp->qpn;
-> +	rn->context = qp;
-
-No for using context.. You need your own driver priv, like this:
-
-struct mlx4_rn_priv
-{
-    struct mlx5e_priv priv;
-    struct mlx5_core_qp *qp;
-};
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+     Arnd
