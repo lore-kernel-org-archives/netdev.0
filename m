@@ -1,114 +1,67 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Avoid delays during VF driver device shutdown
-Date: Mon, 13 Mar 2017 19:29:08 +0200
-Message-ID: <1489426148-7906-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42918 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751085AbdCMR3j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:29:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: Re: ip_rcv_finish() NULL pointer kernel panic
+Date: Mon, 13 Mar 2017 13:30:02 -0400
+Message-ID: <CAOZ2QJPUNm2ymTdcyW6HO9B2yhHv1MfeycywOajDSty0A6ZHFQ@mail.gmail.com>
+References: <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
+ <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170126162433.GB1778@breakpoint.cc> <20170126.130428.2050566986836855986.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: fw@strlen.de, eric.dumazet@gmail.com, lkml@rkeene.org,
+        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20170126.130428.2050566986836855986.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+On Thu, Jan 26, 2017 at 1:04 PM, David Miller <davem@davemloft.net> wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Thu, 26 Jan 2017 17:24:33 +0100
+>
+>> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> > Though possibly with different things not setting the "input" function
+>>> > pointer in the "struct dst_entry".
+>>> >
+>>> > include/net/dst.h:
+>>> >   496 static inline int dst_input(struct sk_buff *skb) {
+>>> >   498         return skb_dst(skb)->input(skb);
+>>> >   499 }
+>>> >
+>>> > Is there any reason not to check to see if this pointer is NULL before
+>>> > blindly calling it ?
+>>>
+>>> Sure. It can not be NULL at this point.
+>>>
+>>> Just look at the code in ip_rcv_finish() :
+>>>
+>>> It first make sure to get a valid dst.
+>>>
+>>> Something is broken, probably in bridge netfilter code.
+>>>
+>>> I suspect the dst here points to &br->fake_rtable, and this is not
+>>> expected.
+>>>
+>>> br_drop_fake_rtable() should have been called somewhere ...
+>>
+>> I think it makes sense to set dst->incoming
+>> to a stub in br_netfilter_rtable_init() to just kfree_skb()+
+>> WARN_ON_ONCE(), no need to add code to ip stack or crash kernel
+>> due to brnf bug.
+>
+> That would certainly make recovery from such bugs must better.
+>
+> But I have to say that this netfilter bridging fake dst has caused
+> several dozen bugs over the years, it is fundamentally a serious
+> problem in and of itself.  It provides DST facilities by hand, in a
+> static object, without using any of the usual methods for creating and
+> facilitating dst objects.
+>
+> Therefore every time someone makes an adjustment to common dst code,
+> this turd (and yes, it _is_ a turd) breaks.  Every single time.
+>
+> So in the long term, instead of polishing this turd, let's get rid of
+> it.
 
-Some Hypervisors detach VFs from VMs by instantly causing an FLR event
-to be generated for a VF.
-
-In the mlx4 case, this will cause that VF's comm channel to be disabled
-before the VM has an opportunity to invoke the VF device's "shutdown"
-method.
-
-For such Hypervisors, there is a race condition between the VF's
-shutdown method and its internal-error detection/reset thread.
-
-The internal-error detection/reset thread (which runs every 5 seconds) also
-detects a disabled comm channel. If the internal-error detection/reset
-flow wins the race, we still get delays (while that flow tries repeatedly
-to detect comm-channel recovery).
-
-The cited commit fixed the command timeout problem when the
-internal-error detection/reset flow loses the race.
-
-This commit avoids the unneeded delays when the internal-error
-detection/reset flow wins.
-
-Fixes: d585df1c5ccf ("net/mlx4_core: Avoid command timeouts during VF driver device shutdown")
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Reported-by: Simon Xiao <sixiao@microsoft.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c  | 11 +++++++++++
- drivers/net/ethernet/mellanox/mlx4/main.c | 11 +++++++++++
- include/linux/mlx4/device.h               |  1 +
- 3 files changed, 23 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index e8c105164931..0e0fa7030565 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2305,6 +2305,17 @@ static int sync_toggles(struct mlx4_dev *dev)
- 		rd_toggle = swab32(readl(&priv->mfunc.comm->slave_read));
- 		if (wr_toggle == 0xffffffff || rd_toggle == 0xffffffff) {
- 			/* PCI might be offline */
-+
-+			/* If device removal has been requested,
-+			 * do not continue retrying.
-+			 */
-+			if (dev->persist->interface_state &
-+			    MLX4_INTERFACE_STATE_NOWAIT) {
-+				mlx4_warn(dev,
-+					  "communication channel is offline\n");
-+				return -EIO;
-+			}
-+
- 			msleep(100);
- 			wr_toggle = swab32(readl(&priv->mfunc.comm->
- 					   slave_write));
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 21377c315083..703205475524 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1940,6 +1940,14 @@ static int mlx4_comm_check_offline(struct mlx4_dev *dev)
- 			       (u32)(1 << COMM_CHAN_OFFLINE_OFFSET));
- 		if (!offline_bit)
- 			return 0;
-+
-+		/* If device removal has been requested,
-+		 * do not continue retrying.
-+		 */
-+		if (dev->persist->interface_state &
-+		    MLX4_INTERFACE_STATE_NOWAIT)
-+			break;
-+
- 		/* There are cases as part of AER/Reset flow that PF needs
- 		 * around 100 msec to load. We therefore sleep for 100 msec
- 		 * to allow other tasks to make use of that CPU during this
-@@ -3955,6 +3963,9 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 	struct devlink *devlink = priv_to_devlink(priv);
- 	int active_vfs = 0;
- 
-+	if (mlx4_is_slave(dev))
-+		persist->interface_state |= MLX4_INTERFACE_STATE_NOWAIT;
-+
- 	mutex_lock(&persist->interface_state_mutex);
- 	persist->interface_state |= MLX4_INTERFACE_STATE_DELETION;
- 	mutex_unlock(&persist->interface_state_mutex);
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 7e66e4f62858..1beb1ec2fbdf 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -476,6 +476,7 @@ enum {
- enum {
- 	MLX4_INTERFACE_STATE_UP		= 1 << 0,
- 	MLX4_INTERFACE_STATE_DELETION	= 1 << 1,
-+	MLX4_INTERFACE_STATE_NOWAIT	= 1 << 2,
- };
- 
- #define MSTR_SM_CHANGE_MASK (MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK | \
--- 
-1.8.3.1
+I'm getting reports of this bug as well; is anyone working on removing
+the bridge fake dst?
