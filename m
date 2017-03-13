@@ -1,137 +1,114 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: Re: Legacy features in PCI Express devices
-Date: Mon, 13 Mar 2017 10:24:53 -0700
-Message-ID: <b26272ff-346a-9774-405f-f1238a89aa8b@gmail.com>
-References: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
-        David Laight <david.laight@aculab.com>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        Phuong Nguyen <phuong_nguyen@sigmadesigns.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        Tim Harvey <tharvey@gateworks.com>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mason <slash.tmp@free.fr>, linux-pci <linux-pci@vger.kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net] net/mlx4_core: Avoid delays during VF driver device shutdown
+Date: Mon, 13 Mar 2017 19:29:08 +0200
+Message-ID: <1489426148-7906-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Jack Morgenstein <jackm@dev.mellanox.co.il>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42918 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751085AbdCMR3j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:29:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/13/2017 09:10 AM, Mason wrote:
-> Hello,
->
-> There are two revisions of our PCI Express controller.
->
-> Rev 1 did not support the following features:
->
->   1) legacy PCI interrupt delivery (INTx signals)
->   2) I/O address space
->
-> Internally, someone stated that such missing support would prevent
-> some PCIe cards from working with our controller.
->
-> Are there really modern PCIe cards that require 1) and/or 2)
-> to function?
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-It depends on your definition of "modern".  I have some JMicron AHCI 
-SATA controllers that support legacy interrupts only.  These are cheap 
-$20 PCIe devices I picked up at Fry's a couple of years ago.  Do they 
-count as modern?
+Some Hypervisors detach VFs from VMs by instantly causing an FLR event
+to be generated for a VF.
 
-I/O address space is probably less important I would say.
+In the mlx4 case, this will cause that VF's comm channel to be disabled
+before the VM has an opportunity to invoke the VF device's "shutdown"
+method.
 
-David.
+For such Hypervisors, there is a race condition between the VF's
+shutdown method and its internal-error detection/reset thread.
 
->
-> Can someone provide examples of such cards, so that I may test them
-> on both revisions?
+The internal-error detection/reset thread (which runs every 5 seconds) also
+detects a disabled comm channel. If the internal-error detection/reset
+flow wins the race, we still get delays (while that flow tries repeatedly
+to detect comm-channel recovery).
 
+The cited commit fixed the command timeout problem when the
+internal-error detection/reset flow loses the race.
 
-[root@localhost ddaney]# lspci -s 0005:90:00.0 -vvv
-0005:90:00.0 SATA controller: JMicron Technology Corp. JMB363 SATA/IDE 
-Controller (rev 03) (prog-if 01 [AHCI 1.0])
-	Subsystem: JMicron Technology Corp. JMB363 SATA/IDE Controller
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B- DisINTx-
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
-<MAbort- >SERR- <PERR- INTx-
-	Latency: 0
-	Interrupt: pin A routed to IRQ 26
-	NUMA node: 0
-	Region 5: Memory at 899010010000 (32-bit, non-prefetchable) [size=8K]
-	Expansion ROM at 899010000000 [disabled] [size=64K]
-	Capabilities: [68] Power Management version 2
-		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold-)
-		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
-	Capabilities: [50] Express (v1) Legacy Endpoint, MSI 01
-		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
-			ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
-		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
-			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-			MaxPayload 128 bytes, MaxReadReq 512 bytes
-		DevSta:	CorrErr- UncorrErr- FatalErr+ UnsuppReq+ AuxPwr- TransPend-
-		LnkCap:	Port #1, Speed 2.5GT/s, Width x1, ASPM L0s, Exit Latency L0s 
-unlimited, L1 unlimited
-			ClockPM- Surprise- LLActRep- BwNot- ASPMOptComp-
-		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- CommClk-
-			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- 
-BWMgmt- ABWMgmt-
-	Kernel driver in use: ahci
+This commit avoids the unneeded delays when the internal-error
+detection/reset flow wins.
 
-[root@localhost ddaney]# lspci -s 0005:90:00.0 -vvv -n
-0005:90:00.0 0106: 197b:2363 (rev 03) (prog-if 01 [AHCI 1.0])
-	Subsystem: 197b:2363
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B- DisINTx-
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
-<MAbort- >SERR- <PERR- INTx-
-	Latency: 0
-	Interrupt: pin A routed to IRQ 26
-	NUMA node: 0
-	Region 5: Memory at 899010010000 (32-bit, non-prefetchable) [size=8K]
-	Expansion ROM at 899010000000 [disabled] [size=64K]
-	Capabilities: [68] Power Management version 2
-		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold-)
-		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
-	Capabilities: [50] Express (v1) Legacy Endpoint, MSI 01
-		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
-			ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
-		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
-			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-			MaxPayload 128 bytes, MaxReadReq 512 bytes
-		DevSta:	CorrErr- UncorrErr- FatalErr+ UnsuppReq+ AuxPwr- TransPend-
-		LnkCap:	Port #1, Speed 2.5GT/s, Width x1, ASPM L0s, Exit Latency L0s 
-unlimited, L1 unlimited
-			ClockPM- Surprise- LLActRep- BwNot- ASPMOptComp-
-		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- CommClk-
-			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- 
-BWMgmt- ABWMgmt-
-	Kernel driver in use: ahci
+Fixes: d585df1c5ccf ("net/mlx4_core: Avoid command timeouts during VF driver device shutdown")
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Reported-by: Simon Xiao <sixiao@microsoft.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/cmd.c  | 11 +++++++++++
+ drivers/net/ethernet/mellanox/mlx4/main.c | 11 +++++++++++
+ include/linux/mlx4/device.h               |  1 +
+ 3 files changed, 23 insertions(+)
 
-
-
-Look!  No MSI.
-
->
-> I was told to check ath9k-based cards. Any other examples?
->
-> Looking around, I came across this thread:
-> http://lists.infradead.org/pipermail/linux-arm-kernel/2016-March/418254.html
-> "i.MX6 PCIe: Fix imx6_pcie_deassert_core_reset() polarity"
->
-> IIUC, although some PCIe boards do support MSI, the driver might not
-> put in the work to use that infrastructure, and instead reverts to
-> legacy interrupts. (So it is a SW issue, in a sense.)
->
-> Regards.
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
->
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index e8c105164931..0e0fa7030565 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -2305,6 +2305,17 @@ static int sync_toggles(struct mlx4_dev *dev)
+ 		rd_toggle = swab32(readl(&priv->mfunc.comm->slave_read));
+ 		if (wr_toggle == 0xffffffff || rd_toggle == 0xffffffff) {
+ 			/* PCI might be offline */
++
++			/* If device removal has been requested,
++			 * do not continue retrying.
++			 */
++			if (dev->persist->interface_state &
++			    MLX4_INTERFACE_STATE_NOWAIT) {
++				mlx4_warn(dev,
++					  "communication channel is offline\n");
++				return -EIO;
++			}
++
+ 			msleep(100);
+ 			wr_toggle = swab32(readl(&priv->mfunc.comm->
+ 					   slave_write));
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 21377c315083..703205475524 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1940,6 +1940,14 @@ static int mlx4_comm_check_offline(struct mlx4_dev *dev)
+ 			       (u32)(1 << COMM_CHAN_OFFLINE_OFFSET));
+ 		if (!offline_bit)
+ 			return 0;
++
++		/* If device removal has been requested,
++		 * do not continue retrying.
++		 */
++		if (dev->persist->interface_state &
++		    MLX4_INTERFACE_STATE_NOWAIT)
++			break;
++
+ 		/* There are cases as part of AER/Reset flow that PF needs
+ 		 * around 100 msec to load. We therefore sleep for 100 msec
+ 		 * to allow other tasks to make use of that CPU during this
+@@ -3955,6 +3963,9 @@ static void mlx4_remove_one(struct pci_dev *pdev)
+ 	struct devlink *devlink = priv_to_devlink(priv);
+ 	int active_vfs = 0;
+ 
++	if (mlx4_is_slave(dev))
++		persist->interface_state |= MLX4_INTERFACE_STATE_NOWAIT;
++
+ 	mutex_lock(&persist->interface_state_mutex);
+ 	persist->interface_state |= MLX4_INTERFACE_STATE_DELETION;
+ 	mutex_unlock(&persist->interface_state_mutex);
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 7e66e4f62858..1beb1ec2fbdf 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -476,6 +476,7 @@ enum {
+ enum {
+ 	MLX4_INTERFACE_STATE_UP		= 1 << 0,
+ 	MLX4_INTERFACE_STATE_DELETION	= 1 << 1,
++	MLX4_INTERFACE_STATE_NOWAIT	= 1 << 2,
+ };
+ 
+ #define MSTR_SM_CHANGE_MASK (MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK | \
+-- 
+1.8.3.1
