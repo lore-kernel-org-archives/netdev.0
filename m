@@ -1,39 +1,70 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: ip_rcv_finish() NULL pointer kernel panic
-Date: Mon, 13 Mar 2017 18:39:42 +0100
-Message-ID: <20170313173942.GB26782@breakpoint.cc>
-References: <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
- <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170126162433.GB1778@breakpoint.cc>
- <20170126.130428.2050566986836855986.davem@davemloft.net>
- <CAOZ2QJPUNm2ymTdcyW6HO9B2yhHv1MfeycywOajDSty0A6ZHFQ@mail.gmail.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Legacy features in PCI Express devices
+Date: Mon, 13 Mar 2017 18:39:55 +0100
+Message-ID: <58fb1386-fa94-dde3-b361-597f9486fa41@free.fr>
+References: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
+ <96b57ba5-641d-46c8-6ba0-cee2c0613a6f@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
-        eric.dumazet@gmail.com, lkml@rkeene.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: Dan Streetman <dan.streetman@canonical.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAOZ2QJPUNm2ymTdcyW6HO9B2yhHv1MfeycywOajDSty0A6ZHFQ@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Helgaas <helgaas@kernel.org>,
+        David Laight <david.laight@aculab.com>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+        Phuong Nguyen <phuong_nguyen@sigmadesigns.com>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        netdev <netdev@vger.kernel.org>,
+        Tim Harvey <tharvey@gateworks.com>,
+        Arnd Bergmann <arnd@arndb.de>
+To: Robin Murphy <robin.murphy@arm.com>,
+        linux-pci <linux-pci@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <96b57ba5-641d-46c8-6ba0-cee2c0613a6f@arm.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan Streetman <dan.streetman@canonical.com> wrote:
-> > But I have to say that this netfilter bridging fake dst has caused
-> > several dozen bugs over the years, it is fundamentally a serious
-> > problem in and of itself.  It provides DST facilities by hand, in a
-> > static object, without using any of the usual methods for creating and
-> > facilitating dst objects.
-> >
-> > Therefore every time someone makes an adjustment to common dst code,
-> > this turd (and yes, it _is_ a turd) breaks.  Every single time.
-> >
-> > So in the long term, instead of polishing this turd, let's get rid of
-> > it.
-> 
-> I'm getting reports of this bug as well; is anyone working on removing
-> the bridge fake dst?
+On 13/03/2017 18:12, Robin Murphy wrote:
 
-I don't see how we can ever remove it (unless we remove the
-call-iptables feature of course).
+> On 13/03/17 16:10, Mason wrote:
+>
+>> There are two revisions of our PCI Express controller.
+>>
+>> Rev 1 did not support the following features:
+>>
+>>   1) legacy PCI interrupt delivery (INTx signals)
+>>   2) I/O address space
+>>
+>> Internally, someone stated that such missing support would prevent
+>> some PCIe cards from working with our controller.
+>>
+>> Are there really modern PCIe cards that require 1) and/or 2)
+>> to function?
+>>
+>> Can someone provide examples of such cards, so that I may test them
+>> on both revisions?
+>>
+>> I was told to check ath9k-based cards. Any other examples?
+>>
+>> Looking around, I came across this thread:
+>> http://lists.infradead.org/pipermail/linux-arm-kernel/2016-March/418254.html
+>> "i.MX6 PCIe: Fix imx6_pcie_deassert_core_reset() polarity"
+>>
+>> IIUC, although some PCIe boards do support MSI, the driver might not
+>> put in the work to use that infrastructure, and instead reverts to
+>> legacy interrupts. (So it is a SW issue, in a sense.)
+> 
+> Secondary to that category is endpoints which nominally support MSI, but
+> in a way which is unreliable or otherwise broken. My experience shows
+> that the Silicon Image SiI 3132 (as integrated on ARM Juno boards, but
+> seemingly also relatively common on 'generic' 2-port SATA cards) falls
+> into that category - using the command-line parameter to force MSIs
+> instead of legacy interrupts leads to the the machine barely reaching
+> userspace before something goes horribly wrong:
+
+Do drivers typically support *both* MSI and INTx?
+
+Specifically, would the xhci driver support both?
+
+If I remove MSI support from my kernel, I might be able to test
+legacy interrupt support that way, right?
+
+Regards.
