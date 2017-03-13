@@ -1,88 +1,65 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: Re: [PATCH] MIPS: BPF: Add support for SKF_AD_HATYPE
-Date: Mon, 13 Mar 2017 09:45:26 -0700
-Message-ID: <9da6cebb-b991-e89f-bc88-a2ec530e32ec@gmail.com>
-References: <20170310221405.30648-1-david.daney@cavium.com>
- <20170313105659.GJ996@jhogan-linux.le.imgtec.org>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/4] dt-bindings: net: dsa: add Mediatek MT7530
+ binding
+Date: Mon, 13 Mar 2017 09:47:23 -0700
+Message-ID: <928d1178-e04a-3e78-4a7a-36127321a949@gmail.com>
+References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
+ <1489421488-300-2-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-        linux-kernel@vger.kernel.org,
-        "Steven J. Hill" <steven.hill@cavium.com>,
-        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
-To: James Hogan <james.hogan@imgtec.com>,
-        David Daney <david.daney@cavium.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170313105659.GJ996@jhogan-linux.le.imgtec.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+ vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1489421488-300-2-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/13/2017 03:56 AM, James Hogan wrote:
-> On Fri, Mar 10, 2017 at 02:14:05PM -0800, David Daney wrote:
->> This let's us pass some additional "modprobe test-bpf" tests.
->>
->> Reuse the code for SKF_AD_IFINDEX, but substitute the offset and size
->> of the "type" field.
->>
->> Signed-off-by: David Daney <david.daney@cavium.com>
->
-> I think the BPF maintainers should probably be Cc'd on this patch.
-> Cc'ing now.
->
+On 03/13/2017 09:11 AM, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
+> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> 
+> Add device-tree binding for Mediatek MT7530 switch.
+> 
+> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/dsa/mt7530.txt         | 94 ++++++++++++++++++++++
+>  1 file changed, 94 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/dsa/mt7530.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/dsa/mt7530.txt b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
+> new file mode 100644
+> index 0000000..0e50dbf
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
+> @@ -0,0 +1,94 @@
+> +Mediatek MT7530 Ethernet switch
+> +================================
+> +
+> +Required properties:
+> +
+> +- compatible: Must be compatible = "mediatek,mt7530";
+> +- #address-cells: Must be 1
+> +- #size-cells: Must be 0
+> +- mediatek,ethsys: Phandle to the syscon node that handles the reset.
+> +- mediatek,ethernet: Phandle to the syscon node that Mediatek ethernet driver
+> +	provides that handles the TRGMII setup used by the switch.
+> +	See
+> +	Documentation/devicetree/bindings/net/mediatek-net.txt for the detailed
+> +	setup on mediatek ethernet.
 
-Good point.
-
-Since there are some corrections needed, I will send another version and 
-CC the proper people.
-
-
->> ---
->>  arch/mips/net/bpf_jit.c | 14 ++++++++++----
->>  1 file changed, 10 insertions(+), 4 deletions(-)
->>
->> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
->> index 49a2e22..f613708 100644
->> --- a/arch/mips/net/bpf_jit.c
->> +++ b/arch/mips/net/bpf_jit.c
->> @@ -1111,6 +1111,7 @@ static int build_body(struct jit_ctx *ctx)
->>  			emit_load(r_A, 28, off, ctx);
->>  			break;
->>  		case BPF_ANC | SKF_AD_IFINDEX:
->> +		case BPF_ANC | SKF_AD_HATYPE:
->>  			/* A = skb->dev->ifindex */
->
-> this comment should probably be updated.
-
-Right.
-
->
->>  			ctx->flags |= SEEN_SKB | SEEN_A;
->>  			off = offsetof(struct sk_buff, dev);
->> @@ -1120,10 +1121,15 @@ static int build_body(struct jit_ctx *ctx)
->>  			emit_bcond(MIPS_COND_EQ, r_s0, r_zero,
->>  				   b_imm(prog->len, ctx), ctx);
->>  			emit_reg_move(r_ret, r_zero, ctx);
->> -			BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
->> -						  ifindex) != 4);
->> -			off = offsetof(struct net_device, ifindex);
->> -			emit_load(r_A, r_s0, off, ctx);
->> +			if (code == (BPF_ANC | SKF_AD_IFINDEX)) {
->> +				BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, ifindex) != 4);
->> +				off = offsetof(struct net_device, ifindex);
->> +				emit_load(r_A, r_s0, off, ctx);
->> +			} else { /* (code == (BPF_ANC | SKF_AD_HATYPE) */
->> +				BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, type) != 2);
->> +				off = offsetof(struct net_device, type);
->> +				emit_half_load(r_A, r_s0, off, ctx);
->
-> Technically net_device::type is unsigned, and emit_half_load uses LH
-> which sign extends. Does that matter in practice.
-
-The next version will use LHU.
-
-
->
-> Cheers
-> James
->
+This seems redundant with the CPU port's ethernet phandle here.
+-- 
+Florian
