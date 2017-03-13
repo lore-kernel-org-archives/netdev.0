@@ -1,115 +1,144 @@
-From: Erez Shitrit <erezsh@mellanox.com>
-Subject: [RFC v1 for accelerated IPoIB 24/25] net/mlx5e: Add support for build_rx_skb for packet from IB type
-Date: Mon, 13 Mar 2017 20:31:35 +0200
-Message-ID: <1489429896-10781-25-git-send-email-erezsh@mellanox.com>
+From: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [RFC v1 for accelerated IPoIB 18/25] net/mlx5e: Export open/close api for IB link
+Date: Mon, 13 Mar 2017 20:31:29 +0200
+Message-ID: <1489429896-10781-19-git-send-email-erezsh@mellanox.com>
 References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        valex@mellanox.com, leonro@mellanox.com, saedm@mellanox.com,
-        erezsh@dev.mellanox.co.il, Erez Shitrit <erezsh@mellanox.com>
-To: dledford@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49868 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753273AbdCMScL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 14:32:11 -0400
-In-Reply-To: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489429896-10781-1-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-New function that parse and build the skb for IPoIB traffic.
+Now IB device is able to call open or close for its net device.
 
-Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+TBD:
+There is one change that is waiting for the new channels api, till then
+used an "if" in the code.
+
+Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  8 ++++
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 49 +++++++++++++++++++++++
- 2 files changed, 57 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 23 +++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 13 ++++++++++++-
+ include/linux/mlx5/driver.h                       |  3 +++
+ 4 files changed, 37 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 2f9242ae06f3..154cab2a301b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -934,4 +934,5 @@ int mlx5e_get_offload_stats(int attr_id, const struct net_device *dev,
+ 
+ bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv);
+ bool mlx5e_is_vf_vport_rep(struct mlx5e_priv *priv);
++bool mlx5e_is_eswitch_vport_mngr(struct mlx5_core_dev *mdev);
+ #endif /* __MLX5_EN_H__ */
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 4dc8b21d011d..3b609bcc0914 100644
+index ca1867cdce48..24efc8ccc075 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -499,6 +499,11 @@ inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
- 			       struct mlx5e_rq *rq,
- 			       struct sk_buff *skb);
+@@ -2269,7 +2269,9 @@ int mlx5e_open_locked(struct mlx5e_priv *priv)
+ 	}
  
-+inline void mlx5i_build_rx_skb(struct mlx5_cqe64 *cqe,
-+			       u32 cqe_bcnt,
-+			       struct mlx5e_rq *rq,
-+			       struct sk_buff *skb);
-+
- static int mlx5e_create_rq(struct mlx5e_channel *c,
- 			   struct mlx5e_rq_param *param,
- 			   struct mlx5e_rq *rq)
-@@ -584,6 +589,9 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
- 		else
- 			rq->handle_rx_cqe = mlx5e_handle_rx_cqe;
+ 	mlx5e_redirect_rqts(priv);
+-	mlx5e_update_carrier(priv);
++	/* only for the RFC, will use channels api when available */
++	if (MLX5_CAP_GEN(mdev, port_type) == MLX5_CAP_PORT_TYPE_ETH)
++		mlx5e_update_carrier(priv);
+ 	mlx5e_timestamp_init(priv);
+ #ifdef CONFIG_RFS_ACCEL
+ 	priv->netdev->rx_cpu_rmap = priv->mdev->rmap;
+@@ -2277,7 +2279,7 @@ int mlx5e_open_locked(struct mlx5e_priv *priv)
+ 	if (priv->profile->update_stats)
+ 		queue_delayed_work(priv->wq, &priv->update_stats_work, 0);
  
-+		if (MLX5_CAP_GEN(mdev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
-+			rq->build_rx_skb = mlx5i_build_rx_skb;
-+
- 		rq->alloc_wqe = mlx5e_alloc_rx_wqe;
- 		rq->dealloc_wqe = mlx5e_dealloc_rx_wqe;
+-	if (MLX5_CAP_GEN(mdev, vport_group_manager)) {
++	if (mlx5e_is_eswitch_vport_mngr(mdev)) {
+ 		err = mlx5e_add_sqs_fwd_rules(priv);
+ 		if (err)
+ 			goto err_close_channels;
+@@ -3899,6 +3901,7 @@ static void mlx5i_nic_init(struct mlx5_core_dev *mdev,
+ 	struct mlx5e_priv *priv = ipoib_dev_priv(netdev);
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 071a6ecce720..db3064c4b052 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -624,6 +624,55 @@ inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
- 	mlx5e_handle_csum(netdev, cqe, rq, skb, !!lro_num_seg);
+ 	mlx5n_build_nic_netdev_priv_common(mdev, netdev, priv, profile, ppriv);
++	priv->ppriv = NULL;
  }
  
-+#define MLX5_IB_GRH_DGID_OFFSET 24
-+#define MLX5_IB_GRH_BYTES       40
-+#define MLX5_IPOIB_ENCAP_LEN    4
-+#define MLX5_GID_SIZE           16
-+
-+inline void mlx5i_build_rx_skb(struct mlx5_cqe64 *cqe,
-+			       u32 cqe_bcnt,
-+			       struct mlx5e_rq *rq,
-+			       struct sk_buff *skb)
+ static int mlx5i_init_nic_rx(struct mlx5e_priv *priv)
+@@ -4025,6 +4028,22 @@ void mlx5i_detach(struct mlx5_core_dev *mdev, void *vpriv)
+ }
+ EXPORT_SYMBOL(mlx5i_detach);
+ 
++int mlx5i_open(void *vpriv)
 +{
-+	struct net_device *netdev = rq->netdev;
-+	u8 *dgid;
-+	u8 g;
++	struct mlx5e_priv *priv = vpriv;
 +
-+	skb_put(skb, cqe_bcnt);
++	return mlx5e_open_locked(priv);
++}
++EXPORT_SYMBOL(mlx5i_open);
 +
-+	g = (be32_to_cpu(cqe->flags_rqpn) >> 28) & 3;
-+	dgid = skb->data + MLX5_IB_GRH_DGID_OFFSET;
-+	if ((!g) || dgid[0] != 0xff)
-+		skb->pkt_type = PACKET_HOST;
-+	else if (memcmp(dgid, netdev->broadcast + 4, MLX5_GID_SIZE) == 0)
-+		skb->pkt_type = PACKET_BROADCAST;
-+	else
-+		skb->pkt_type = PACKET_MULTICAST;
++int mlx5i_close(void *vpriv)
++{
++	struct mlx5e_priv *priv = vpriv;
 +
-+	/* TODO: IB/ipoib: Allow mcast packets from other VFs
-+	 * 68996a6e760e5c74654723eeb57bf65628ae87f4
-+	 */
++	return mlx5e_close_locked(priv);
++}
++EXPORT_SYMBOL(mlx5i_close);
 +
-+	skb_pull(skb, MLX5_IB_GRH_BYTES);
+ static const struct mlx5e_profile mlx5e_nic_profile = {
+ 	.init		   = mlx5e_nic_init,
+ 	.cleanup	   = mlx5e_nic_cleanup,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 21d3d8e0bab7..cbb1092dddd4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -219,7 +219,12 @@ int mlx5e_nic_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
+ void mlx5e_remove_sqs_fwd_rules(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+-	struct mlx5_eswitch_rep *rep = priv->ppriv;
++	struct mlx5_eswitch_rep *rep;
 +
-+	skb->protocol = *((__be16 *)(skb->data));
++	if (!priv->ppriv)
++		return;
 +
-+	mlx5e_handle_csum(netdev, cqe, rq, skb, rq->priv->params.lro_en);
-+
-+	skb_record_rx_queue(skb, rq->ix);
-+
-+	if (likely(netdev->features & NETIF_F_RXHASH))
-+		mlx5e_skb_set_hash(cqe, skb);
-+
-+	skb_reset_mac_header(skb);
-+	skb_pull(skb, MLX5_IPOIB_ENCAP_LEN);
-+
-+	++netdev->stats.rx_packets;
-+	netdev->stats.rx_bytes += skb->len;
-+
-+	skb->dev = netdev;
++	rep = priv->ppriv;
+ 
+ 	mlx5_eswitch_sqs2vport_stop(esw, rep);
+ }
+@@ -323,6 +328,12 @@ bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv)
+ 	return false;
+ }
+ 
++bool mlx5e_is_eswitch_vport_mngr(struct mlx5_core_dev *mdev)
++{
++	return (MLX5_CAP_GEN(mdev, vport_group_manager) &&
++		MLX5_CAP_GEN(mdev, port_type) == MLX5_CAP_PORT_TYPE_ETH);
 +}
 +
- static inline void mlx5e_complete_rx_cqe(struct mlx5e_rq *rq,
- 					 struct mlx5_cqe64 *cqe,
- 					 u32 cqe_bcnt,
+ bool mlx5e_is_vf_vport_rep(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5_eswitch_rep *rep = (struct mlx5_eswitch_rep *)priv->ppriv;
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index d0060cfb2a4f..c18be51287e7 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -1139,4 +1139,7 @@ struct net_device *mlx5i_create_netdev(struct mlx5_core_dev *mdev,
+ 				       struct mlx5i_create_ext_param *param);
+ int mlx5i_attach(struct mlx5_core_dev *mdev, void *vpriv);
+ void mlx5i_detach(struct mlx5_core_dev *mdev, void *vpriv);
++int mlx5i_close(void *vpriv);
++int mlx5i_open(void *vpriv);
++
+ #endif /* MLX5_DRIVER_H */
 -- 
 1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
