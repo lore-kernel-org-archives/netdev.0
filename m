@@ -1,58 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/10] mlxsw: spectrum_router: Don't destroy RIF if L3 slave
-Date: Mon, 13 Mar 2017 08:38:30 +0100
-Message-ID: <1489390713-2634-7-git-send-email-jiri@resnulli.us>
-References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
-To: netdev@vger.kernel.org
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next 0/1 v2] net: Add support for rmnet_data driver
+Date: Mon, 13 Mar 2017 01:43:08 -0600
+Message-ID: <1489390989-2408-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: netdev@vger.kernel.org, davem@davemloft.net, fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36713 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751738AbdCMHis (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 03:38:48 -0400
-Received: by mail-wm0-f68.google.com with SMTP id v190so8330895wme.3
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 00:38:47 -0700 (PDT)
-In-Reply-To: <1489390713-2634-1-git-send-email-jiri@resnulli.us>
+Received: from smtp.codeaurora.org ([198.145.29.96]:43056 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750977AbdCMHnZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 03:43:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+This patch adds support for the rmnet_data driver which is required to
+support recent chipsets using Qualcomm Technologies, Inc. modems. The data
+from hardware follows the multiplexing and aggregation protocol (MAP).
 
-We usually destroy the netdev's router interface (RIF) when the last IP
-address is removed from it.
+This driver can be used to register onto any physical network device in
+IP mode. Physical transports include USB, HSIC, PCIe and IP accelerator.
 
-However, we shouldn't do that if it's enslaved to an L3 master device.
+rmnet_data driver helps to decode these packets and queue them to network
+stack (and encode and transmit it to the physical device).
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+--
+v1: Same as the RFC patch with some minor fixes for issues reported by
+kbuild test robot.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 0eeb556..64f0dc7 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -41,6 +41,7 @@
- #include <linux/in6.h>
- #include <linux/notifier.h>
- #include <linux/inetdevice.h>
-+#include <linux/netdevice.h>
- #include <net/netevent.h>
- #include <net/neighbour.h>
- #include <net/arp.h>
-@@ -2658,7 +2659,7 @@ static bool mlxsw_sp_rif_should_config(struct mlxsw_sp_rif *r,
- 			return true;
- 		return false;
- 	case NETDEV_DOWN:
--		if (r && !in_dev->ifa_list)
-+		if (r && !in_dev->ifa_list && !netif_is_l3_slave(r->dev))
- 			return true;
- 		/* It is possible we already removed the RIF ourselves
- 		 * if it was assigned to a netdev that is now a bridge
+v1->v2: Change datatypes and remove config IOCTL as mentioned by David.
+Also fix checkpatch issues and remove some unused code.
+
+Subash Abhinov Kasiviswanathan (1):
+  net: rmnet_data: Initial implementation
+
+ Documentation/networking/rmnet_data.txt |   82 +++
+ include/uapi/linux/Kbuild               |    1 +
+ include/uapi/linux/if_arp.h             |    1 +
+ include/uapi/linux/if_ether.h           |    4 +-
+ include/uapi/linux/rmnet_data.h         |  214 ++++++
+ net/Kconfig                             |    1 +
+ net/Makefile                            |    1 +
+ net/rmnet_data/Kconfig                  |   21 +
+ net/rmnet_data/Makefile                 |   14 +
+ net/rmnet_data/rmnet_data_config.c      | 1168 +++++++++++++++++++++++++++++++
+ net/rmnet_data/rmnet_data_config.h      |  107 +++
+ net/rmnet_data/rmnet_data_handlers.c    |  556 +++++++++++++++
+ net/rmnet_data/rmnet_data_handlers.h    |   24 +
+ net/rmnet_data/rmnet_data_main.c        |   60 ++
+ net/rmnet_data/rmnet_data_private.h     |   76 ++
+ net/rmnet_data/rmnet_data_stats.c       |   86 +++
+ net/rmnet_data/rmnet_data_stats.h       |   61 ++
+ net/rmnet_data/rmnet_data_trace.h       |  198 ++++++
+ net/rmnet_data/rmnet_data_vnd.c         |  460 ++++++++++++
+ net/rmnet_data/rmnet_data_vnd.h         |   34 +
+ net/rmnet_data/rmnet_map.h              |  100 +++
+ net/rmnet_data/rmnet_map_command.c      |  180 +++++
+ net/rmnet_data/rmnet_map_data.c         |  148 ++++
+ 23 files changed, 3596 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/networking/rmnet_data.txt
+ create mode 100644 include/uapi/linux/rmnet_data.h
+ create mode 100644 net/rmnet_data/Kconfig
+ create mode 100644 net/rmnet_data/Makefile
+ create mode 100644 net/rmnet_data/rmnet_data_config.c
+ create mode 100644 net/rmnet_data/rmnet_data_config.h
+ create mode 100644 net/rmnet_data/rmnet_data_handlers.c
+ create mode 100644 net/rmnet_data/rmnet_data_handlers.h
+ create mode 100644 net/rmnet_data/rmnet_data_main.c
+ create mode 100644 net/rmnet_data/rmnet_data_private.h
+ create mode 100644 net/rmnet_data/rmnet_data_stats.c
+ create mode 100644 net/rmnet_data/rmnet_data_stats.h
+ create mode 100644 net/rmnet_data/rmnet_data_trace.h
+ create mode 100644 net/rmnet_data/rmnet_data_vnd.c
+ create mode 100644 net/rmnet_data/rmnet_data_vnd.h
+ create mode 100644 net/rmnet_data/rmnet_map.h
+ create mode 100644 net/rmnet_data/rmnet_map_command.c
+ create mode 100644 net/rmnet_data/rmnet_map_data.c
+
 -- 
-2.7.4
+1.9.1
