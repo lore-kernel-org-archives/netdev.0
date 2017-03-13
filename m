@@ -1,65 +1,72 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 1/4] dt-bindings: net: dsa: add Mediatek MT7530
- binding
-Date: Mon, 13 Mar 2017 09:47:23 -0700
-Message-ID: <928d1178-e04a-3e78-4a7a-36127321a949@gmail.com>
-References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
- <1489421488-300-2-git-send-email-sean.wang@mediatek.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next v5 0/7] gtp: misc improvements
+Date: Mon, 13 Mar 2017 17:48:12 +0100
+Message-ID: <20170313164812.GA31925@salvia>
+References: <20170309164302.13550-1-aschultz@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
- vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1489421488-300-2-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Harald Welte <laforge@gnumonks.org>,
+        osmocom-net-gprs@lists.osmocom.org, netdev <netdev@vger.kernel.org>
+To: Andreas Schultz <aschultz@tpip.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:33402 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753269AbdCMQsT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 12:48:19 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 6521D1AAAEE
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 17:48:16 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 57647DA817
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 17:48:16 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 3DD5CDA817
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 17:48:13 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20170309164302.13550-1-aschultz@tpip.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/13/2017 09:11 AM, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
-> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+On Thu, Mar 09, 2017 at 05:42:55PM +0100, Andreas Schultz wrote:
+> Hi Pablo,
 > 
-> Add device-tree binding for Mediatek MT7530 switch.
+> This is a resent of last series that missed the merge window. There
+> are no changes compared to v4.
 > 
-> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/dsa/mt7530.txt         | 94 ++++++++++++++++++++++
->  1 file changed, 94 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/dsa/mt7530.txt
+> v4: Compared to v3 it contains mostly smallish naming and spelling fixes.
+> It also drops the documentation patch, Harald did a better job with the
+> documentation and the some things I described do not yet match the implementation.
+> I'll readd the relevant parts with a follow up series.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/dsa/mt7530.txt b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
-> new file mode 100644
-> index 0000000..0e50dbf
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
-> @@ -0,0 +1,94 @@
-> +Mediatek MT7530 Ethernet switch
-> +================================
-> +
-> +Required properties:
-> +
-> +- compatible: Must be compatible = "mediatek,mt7530";
-> +- #address-cells: Must be 1
-> +- #size-cells: Must be 0
-> +- mediatek,ethsys: Phandle to the syscon node that handles the reset.
-> +- mediatek,ethernet: Phandle to the syscon node that Mediatek ethernet driver
-> +	provides that handles the TRGMII setup used by the switch.
-> +	See
-> +	Documentation/devicetree/bindings/net/mediatek-net.txt for the detailed
-> +	setup on mediatek ethernet.
+> This series lays the groundwork for removing the socket references from
+> the GTP netdevice by removing duplicate code and simplifying the logic on
+> some code paths.
+> 
+> It slighly changes the GTP genl API by making the socket parameters optional
+> (though one of them is still required).
+> 
+> The removal of the socket references will break the 1:1 releation between
+> GTP netdevice and GTP socket that prevents us to support multiple VRFs with
+> overlapping IP addresse spaces attached to the same GTP-U entity (needed for
+> multi APN support, coming a follow up series).
+> 
+> Pablo found a socket hold problem in v2. In order to solve that I had to
+> switch the socket references from the struct socket to the internal
+> struct sock. This should have no functionl impact, but we can now hang
+> on to the reference without blocking user space from closing the GTP socket.
 
-This seems redundant with the CPU port's ethernet phandle here.
--- 
-Florian
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+I personally don't like this podge hodge unsorted submissions, I don't
+think they belong to the same series but you keep pushing with this
+patchset in this same way, which is annoying.
+
+In your follow up patchsets, please split them in smaller series that
+are related.
+
+I would like you take the time to develop the VRF idea that you want
+to introduce, I just would like that we avoid bloating the GTP tunnel
+with features that we can just achieve via composite of different
+subsystems.
+
+Thank you.
