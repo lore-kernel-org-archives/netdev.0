@@ -1,53 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] mpls: allow TTL propagation to/from IP
- packets to be configured
-Date: Mon, 13 Mar 2017 15:29:41 -0700 (PDT)
-Message-ID: <20170313.152941.76943783138869668.davem@davemloft.net>
-References: <1488933990-14490-1-git-send-email-rshearma@brocade.com>
-        <1489178605-30027-1-git-send-email-rshearma@brocade.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] usbnet: smsc95xx: Reduce logging noise
+Date: Mon, 13 Mar 2017 15:32:36 -0700 (PDT)
+Message-ID: <20170313.153236.1183838776173721070.davem@davemloft.net>
+References: <1489196721-12888-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
-        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com
-To: rshearma@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58298 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753501AbdCMW3n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 18:29:43 -0400
-In-Reply-To: <1489178605-30027-1-git-send-email-rshearma@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org, UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489196721-12888-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Robert Shearman <rshearma@brocade.com>
-Date: Fri, 10 Mar 2017 20:43:23 +0000
+From: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+Date: Fri, 10 Mar 2017 17:45:21 -0800
 
-> It is sometimes desirable to present an MPLS transport network as a
-> single hop to traffic transiting it because it prevents confusion when
-> diagnosing failures. An example of where confusion can be generated is
-> when addresses used in the provider network overlap with addresses in
-> the overlay network and the addresses get exposed through ICMP errors
-> generated as packets transit the provider network.
+> An insert/remove stress test generated the following log message sequence.
+...
+> Use netdev_dbg() instead of netdev_warn() for the repeating messages
+> to reduce logging noise.
 > 
-> In addition, RFC 3443 defines two methods of deriving TTL for an
-> outgoing packet: Uniform Model where the TTL is propagated to/from the
-> MPLS header and both Pipe Models and Short Pipe Models (with and
-> without PHP) where the TTL is not propagated to/from the MPLS header.
-> 
-> Changes in v3:
->  - decrement ttl on popping last label when not doing ttl propagation,
->    as suggested by David Ahern.
->  - add comment to describe what the somewhat complex conditionals are
->    doing to work out what ttl to use in mpls_iptunnel.c.
->  - rearrange fields fields in struct netns_mpls to keep the platform
->    label fields together, as suggested by David Ahern.
-> 
-> Changes in v2:
->  - add references to RFC 3443 as suggested by David Ahern
->  - fix setting of skb->protocol as noticed by David Ahern
->  - implement per-route/per-LWT configurability as suggested by Eric
->    Biederman
->  - split into two patches for ease of review
+> Signed-off-by: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
 
-Series applied, thanks.
+The problem I have with changes like this is that outside of your
+stress test situation these messages are extremely useful but will
+now be hidden making diagnosis of problems more difficult.
+
+Perhaps you can check the error code or some piece of USB device
+state to see if there was a disconnect, and elide the log message
+in that case specifically.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
