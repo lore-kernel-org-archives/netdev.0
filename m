@@ -1,59 +1,111 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: Legacy features in PCI Express devices
-Date: Mon, 13 Mar 2017 13:55:04 -0500
-Message-ID: <20170313185504.GC8232@bhelgaas-glaptop.roam.corp.google.com>
-References: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net-next] mlx4: Better use of order-0 pages in RX path
+Date: Mon, 13 Mar 2017 11:58:05 -0700
+Message-ID: <CANn89iK1eyXH_6ViU0sj=yH+3+WVtVdXaAVBUkkcA=0dCvTkOA@mail.gmail.com>
+References: <20170313005848.7076-1-edumazet@google.com> <20170313173432.GA31333@ast-mbp.thefacebook.com>
+ <CANn89iL_C8CMaxmkSvFxBMCjHx49JkEaKGoUPWMRYucrx09LnA@mail.gmail.com> <20170313183121.GA36306@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-pci <linux-pci@vger.kernel.org>,
-        David Laight <david.laight@aculab.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
-        Phuong Nguyen <phuong_nguyen@sigmadesigns.com>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
-        Tim Harvey <tharvey@gateworks.com>,
-        Arnd Bergmann <arnd@arndb.de>
-To: Mason <slash.tmp@free.fr>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:34430 "EHLO
+        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751076AbdCMS6H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 14:58:07 -0400
+Received: by mail-io0-f179.google.com with SMTP id g6so90331256ioj.1
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 11:58:06 -0700 (PDT)
+In-Reply-To: <20170313183121.GA36306@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 05:10:57PM +0100, Mason wrote:
-> Hello,
-> 
-> There are two revisions of our PCI Express controller.
-> 
-> Rev 1 did not support the following features:
-> 
->   1) legacy PCI interrupt delivery (INTx signals)
->   2) I/O address space
-> 
-> Internally, someone stated that such missing support would prevent
-> some PCIe cards from working with our controller.
-> 
-> Are there really modern PCIe cards that require 1) and/or 2)
-> to function?
+On Mon, Mar 13, 2017 at 11:31 AM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Mon, Mar 13, 2017 at 10:50:28AM -0700, Eric Dumazet wrote:
+>> On Mon, Mar 13, 2017 at 10:34 AM, Alexei Starovoitov
+>> <alexei.starovoitov@gmail.com> wrote:
+>> > On Sun, Mar 12, 2017 at 05:58:47PM -0700, Eric Dumazet wrote:
+>> >> @@ -767,10 +814,30 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>> >>                       case XDP_PASS:
+>> >>                               break;
+>> >>                       case XDP_TX:
+>> >> +                             /* Make sure we have one page ready to replace this one */
+>> >> +                             npage = NULL;
+>> >> +                             if (!ring->page_cache.index) {
+>> >> +                                     npage = mlx4_alloc_page(priv, ring,
+>> >> +                                                             &ndma, numa_mem_id(),
+>> >> +                                                             GFP_ATOMIC | __GFP_MEMALLOC);
+>> >
+>> > did you test this with xdp2 test ?
+>> > under what conditions it allocates ?
+>> > It looks dangerous from security point of view to do allocations here.
+>> > Can it be exploited by an attacker?
+>> > we use xdp for ddos and lb and this is fast path.
+>> > If 1 out of 100s XDP_TX packets hit this allocation we will have serious
+>> > perf regression.
+>> > In general I dont think it's a good idea to penalize x86 in favor of powerpc.
+>> > Can you #ifdef this new code somehow? so we won't have these concerns on x86?
+>>
+>> Normal paths would never hit this point really. I wanted to be extra
+>> safe, because who knows, some guys could be tempted to set
+>> ethtool -G ethX  rx 512 tx 8192
+>>
+>> Before this patch, if you were able to push enough frames in TX ring,
+>> you would also eventually be forced to allocate memory, or drop frames...
+>
+> hmm. not following.
+> Into xdp tx queues packets don't come from stack. It can only be via xdp_tx.
+> So this rx page belongs to driver, not shared with anyone and it only needs to
+> be put onto tx ring, so I don't understand why driver needs to allocating
+> anything here. To refill the rx ring? but why here?
 
->From a spec point of view, all endpoints, including Legacy, PCI
-Express, and Root Complex Integrated Endpoints, are "required to
-support MSI or MSI-X or both if an interrupt resource is requested"
-(PCIe r3.0, sec 1.3.2).
+Because RX ring can be shared, by packets goind to the upper stacks (say TCP)
 
-The same section says Legacy Endpoints are permitted to use I/O
-Requests, but PCI Express and Root Complex Integrated Endpoints are
-not.  There's a little wiggle room in the I/O BAR description; I would
-interpret it to mean the latter two varieties are permitted to have
-I/O BARs, but they must make the resources described by those BARs
-available via a memory BAR as well, so they can operate with I/O
-address space.
+So there is no guarantee that the pages in the quarantine pool have
+their page count to 1.
 
-But that's only in theory; David has already given examples of devices
-that don't support MSI, and Greg hinted at new devices that might
-require I/O space.  I'm particularly curious about that last one,
-because there are several host bridges that don't support I/O space at
-all.
+The normal TX_XDP path will recycle pages in ring->cache_page .
 
-Bjorn
+This is exactly where I pick up a replacement.
+
+Pages in ring->cache_page have the guarantee to have no other users
+than ourself (mlx4 driver)
+
+You might have not noticed that current mlx4 driver has a lazy refill
+of RX ring buffers, that eventually
+removes all the pages from RX ring, and we have to recover with this
+lazy mlx4_en_recover_from_oom() thing
+that will attempt to restart the allocations.
+
+After my patch, we have the guarantee that the RX ring buffer is
+always fully populated.
+
+When we receive a frame (XDP or not), we drop it if we can not
+replenish the RX slot,
+in case the oldest page in quarantine is not a recycling candidate and
+we can not allocate a new page.
+
+
+
+> rx 512 tx 8192 is meaningless from xdp pov, since most of the tx entries
+> will be unused.
+
+Yes, but as an author of a kernel patch, I do not want to be
+responsible for a crash
+_if_ someone tries something dumb like that.
+
+> why are you saying it will cause this if (!ring->page_cache.index) to trigger?
+>
+>> This patch does not penalize x86, quite the contrary.
+>> It brings a (small) improvement on x86, and a huge improvement on powerpc.
+>
+> for normal tcp stack. sure. I'm worried about xdp fast path that needs to be tested.
+
+Note that TX_XDP in mlx4 is completely broken as I mentioned earlier.
