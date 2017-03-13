@@ -1,7 +1,7 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH 1/2] net: davinci_mdio: add GPIO reset logic
-Date: Mon, 13 Mar 2017 15:42:33 +0200
-Message-ID: <1489412554-2054-2-git-send-email-rogerq@ti.com>
+Subject: [PATCH 2/2] ARM: dts: am335x-icev2: Add CPSW ethernet0 and ethernet1
+Date: Mon, 13 Mar 2017 15:42:34 +0200
+Message-ID: <1489412554-2054-3-git-send-email-rogerq@ti.com>
 References: <1489412554-2054-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,164 +10,150 @@ Cc: <grygorii.strashko@ti.com>, <nsekhar@ti.com>, <jsarha@ti.com>,
         <linux-kernel@vger.kernel.org>, Roger Quadros <rogerq@ti.com>
 To: <davem@davemloft.net>, <tony@atomide.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:10513 "EHLO
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:10518 "EHLO
         lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752951AbdCMNmq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 09:42:46 -0400
+        with ESMTP id S1752995AbdCMNmr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 09:42:47 -0400
 In-Reply-To: <1489412554-2054-1-git-send-email-rogerq@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some boards [1] leave the PHYs at an invalid state
-during system power-up or reset thus causing unreliability
-issues with the PHY like not being detected by the mdio bus
-or link not functional. To work around these boards have
-a GPIO connected to the PHY's reset pin.
-
-Implement GPIO reset handling for such cases.
-
-[1] - am572x-idk, am571x-idk, a437x-idk.
+Enable the 2 ethernet ports as CPSW ports in dual-mac mode
 
 Signed-off-by: Roger Quadros <rogerq@ti.com>
+[nsekhar@ti.com: use AM33XX_IOPAD()]
 Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 ---
- .../devicetree/bindings/net/davinci-mdio.txt       |  2 +
- drivers/net/ethernet/ti/davinci_mdio.c             | 68 +++++++++++++++++++---
- 2 files changed, 62 insertions(+), 8 deletions(-)
+ arch/arm/boot/dts/am335x-icev2.dts | 113 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 113 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-index 621156c..fd6ebe7 100644
---- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-@@ -12,6 +12,8 @@ Required properties:
- 
- Optional properties:
- - ti,hwmods		: Must be "davinci_mdio"
-+- reset-gpios		: array of GPIO specifier for PHY hardware reset control
-+- reset-delay-us	: reset assertion time [in microseconds]
- 
- Note: "ti,hwmods" field is used to fetch the base address and irq
- resources from TI, omap hwmod data base during device registration.
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 33df340..c6f9e55 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -40,6 +40,9 @@
- #include <linux/of_device.h>
- #include <linux/of_mdio.h>
- #include <linux/pinctrl/consumer.h>
-+#include <linux/gpio.h>
-+#include <linux/gpio/consumer.h>
-+#include <linux/of_gpio.h>
- 
- /*
-  * This timeout definition is a worst-case ultra defensive measure against
-@@ -53,6 +56,8 @@
- 
- #define DEF_OUT_FREQ		2200000		/* 2.2 MHz */
- 
-+#define DEFAULT_GPIO_RESET_DELAY	10	/* in microseconds */
+diff --git a/arch/arm/boot/dts/am335x-icev2.dts b/arch/arm/boot/dts/am335x-icev2.dts
+index a2ad076..cc343b0 100644
+--- a/arch/arm/boot/dts/am335x-icev2.dts
++++ b/arch/arm/boot/dts/am335x-icev2.dts
+@@ -201,6 +201,69 @@
+ 			AM33XX_IOPAD(0x938, PIN_OUTPUT_PULLUP | MUX_MODE1) /* (L16) gmii1_rxd2.uart3_txd */
+ 		>;
+ 	};
 +
- struct davinci_mdio_of_param {
- 	int autosuspend_delay_ms;
++	cpsw_default: cpsw_default {
++		pinctrl-single,pins = <
++			/* Slave 1, RMII mode */
++			AM33XX_IOPAD(0x90c, (PIN_INPUT_PULLUP | MUX_MODE1))	/* mii1_crs.rmii1_crs_dv */
++			AM33XX_IOPAD(0x944, (PIN_INPUT_PULLUP | MUX_MODE0))	/* rmii1_refclk.rmii1_refclk */
++			AM33XX_IOPAD(0x940, (PIN_INPUT_PULLUP | MUX_MODE1))	/* mii1_rxd0.rmii1_rxd0 */
++			AM33XX_IOPAD(0x93c, (PIN_INPUT_PULLUP | MUX_MODE1))	/* mii1_rxd1.rmii1_rxd1 */
++			AM33XX_IOPAD(0x910, (PIN_INPUT_PULLUP | MUX_MODE1))	/* mii1_rxerr.rmii1_rxerr */
++			AM33XX_IOPAD(0x928, (PIN_OUTPUT_PULLDOWN | MUX_MODE1))	/* mii1_txd0.rmii1_txd0 */
++			AM33XX_IOPAD(0x924, (PIN_OUTPUT_PULLDOWN | MUX_MODE1))	/* mii1_txd1.rmii1_txd1 */
++			AM33XX_IOPAD(0x914, (PIN_OUTPUT_PULLDOWN | MUX_MODE1))	/* mii1_txen.rmii1_txen */
++			/* Slave 2, RMII mode */
++			AM33XX_IOPAD(0x870, (PIN_INPUT_PULLUP | MUX_MODE3))	/* gpmc_wait0.rmii2_crs_dv */
++			AM33XX_IOPAD(0x908, (PIN_INPUT_PULLUP | MUX_MODE1))	/* mii1_col.rmii2_refclk */
++			AM33XX_IOPAD(0x86c, (PIN_INPUT_PULLUP | MUX_MODE3))	/* gpmc_a11.rmii2_rxd0 */
++			AM33XX_IOPAD(0x868, (PIN_INPUT_PULLUP | MUX_MODE3))	/* gpmc_a10.rmii2_rxd1 */
++			AM33XX_IOPAD(0x874, (PIN_INPUT_PULLUP | MUX_MODE3))	/* gpmc_wpn.rmii2_rxerr */
++			AM33XX_IOPAD(0x854, (PIN_OUTPUT_PULLDOWN | MUX_MODE3))	/* gpmc_a5.rmii2_txd0 */
++			AM33XX_IOPAD(0x850, (PIN_OUTPUT_PULLDOWN | MUX_MODE3))	/* gpmc_a4.rmii2_txd1 */
++			AM33XX_IOPAD(0x840, (PIN_OUTPUT_PULLDOWN | MUX_MODE3))	/* gpmc_a0.rmii2_txen */
++		>;
++	};
++
++	cpsw_sleep: cpsw_sleep {
++		pinctrl-single,pins = <
++			/* Slave 1 reset value */
++			AM33XX_IOPAD(0x90c, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x944, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x940, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x93c, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x910, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x928, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x924, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x914, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++
++			/* Slave 2 reset value */
++			AM33XX_IOPAD(0x870, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x908, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x86c, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x868, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x874, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x854, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x850, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x840, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++		>;
++	};
++
++	davinci_mdio_default: davinci_mdio_default {
++		pinctrl-single,pins = <
++			/* MDIO */
++			AM33XX_IOPAD(0x948, (PIN_INPUT_PULLUP | SLEWCTRL_FAST | MUX_MODE0))	/* mdio_data.mdio_data */
++			AM33XX_IOPAD(0x94c, (PIN_OUTPUT_PULLUP | MUX_MODE0))			/* mdio_clk.mdio_clk */
++		>;
++	};
++
++	davinci_mdio_sleep: davinci_mdio_sleep {
++		pinctrl-single,pins = <
++			/* MDIO reset value */
++			AM33XX_IOPAD(0x948, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++			AM33XX_IOPAD(0x94c, (PIN_INPUT_PULLDOWN | MUX_MODE7))
++		>;
++	};
  };
-@@ -104,6 +109,9 @@ struct davinci_mdio_data {
- 	 */
- 	bool		skip_scan;
- 	u32		clk_div;
-+	struct gpio_desc **gpio_reset;
-+	int		num_gpios;
-+	int		reset_delay_us;
+ 
+ &i2c0 {
+@@ -350,3 +413,53 @@
+ 	pinctrl-0 = <&uart3_pins_default>;
+ 	status = "okay";
  };
- 
- static void davinci_mdio_init_clk(struct davinci_mdio_data *data)
-@@ -142,6 +150,20 @@ static void davinci_mdio_enable(struct davinci_mdio_data *data)
- 	__raw_writel(data->clk_div | CONTROL_ENABLE, &data->regs->control);
- }
- 
-+static void __davinci_gpio_reset(struct davinci_mdio_data *data)
-+{
-+	int i;
 +
-+	for (i = 0; i < data->num_gpios; i++) {
-+		if (!data->gpio_reset[i])
-+			continue;
++&gpio3 {
++	p4 {
++		gpio-hog;
++		gpios = <4 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "PR1_MII_CTRL";
++	};
 +
-+		gpiod_set_value_cansleep(data->gpio_reset[i], 1);
-+		udelay(data->reset_delay_us);
-+		gpiod_set_value_cansleep(data->gpio_reset[i], 0);
-+	}
-+}
++	p10 {
++		gpio-hog;
++		gpios = <10 GPIO_ACTIVE_HIGH>;
++		/* ETH1 mux: Low for MII-PRU, high for RMII-CPSW */
++		output-high;
++		line-name = "MUX_MII_CTL1";
++	};
++};
 +
- static int davinci_mdio_reset(struct mii_bus *bus)
- {
- 	struct davinci_mdio_data *data = bus->priv;
-@@ -317,20 +339,50 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
- }
- 
- #if IS_ENABLED(CONFIG_OF)
--static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
--			 struct platform_device *pdev)
-+static int davinci_mdio_probe_dt(struct davinci_mdio_data *data,
-+				 struct platform_device *pdev)
- {
- 	struct device_node *node = pdev->dev.of_node;
- 	u32 prop;
--
--	if (!node)
--		return -EINVAL;
-+	int error;
-+	int i;
-+	struct gpio_desc *gpiod;
- 
- 	if (of_property_read_u32(node, "bus_freq", &prop)) {
- 		dev_err(&pdev->dev, "Missing bus_freq property in the DT.\n");
--		return -EINVAL;
-+		data->pdata = default_pdata;
-+	} else {
-+		data->pdata.bus_freq = prop;
-+	}
++&cpsw_emac0 {
++	phy_id = <&davinci_mdio>, <1>;
++	phy-mode = "rmii";
++	dual_emac_res_vlan = <1>;
++};
 +
-+	i = of_gpio_named_count(node, "reset-gpios");
-+	if (i > 0) {
-+		data->num_gpios = i;
-+		data->gpio_reset = devm_kcalloc(&pdev->dev, i,
-+						sizeof(struct gpio_desc *),
-+						GFP_KERNEL);
-+		if (!data->gpio_reset)
-+			return -ENOMEM;
++&cpsw_emac1 {
++	phy_id = <&davinci_mdio>, <3>;
++	phy-mode = "rmii";
++	dual_emac_res_vlan = <2>;
++};
 +
-+		for (i = 0; i < data->num_gpios; i++) {
-+			gpiod = devm_gpiod_get_index(&pdev->dev, "reset", i,
-+						     GPIOD_OUT_LOW);
-+			if (IS_ERR(gpiod)) {
-+				error = PTR_ERR(gpiod);
-+				if (error == -ENOENT)
-+					continue;
-+				else
-+					return error;
-+			}
-+			data->gpio_reset[i] = gpiod;
-+		}
++&mac {
++	pinctrl-names = "default", "sleep";
++	pinctrl-0 = <&cpsw_default>;
++	pinctrl-1 = <&cpsw_sleep>;
++	status = "okay";
++	dual_emac;
++};
 +
-+		if (of_property_read_u32(node, "reset-delay-us",
-+					 &data->reset_delay_us))
-+			data->reset_delay_us = DEFAULT_GPIO_RESET_DELAY;
++&phy_sel {
++	rmii-clock-ext;
++};
 +
-+		__davinci_gpio_reset(data);
- 	}
--	data->bus_freq = prop;
- 
- 	return 0;
- }
-@@ -372,7 +424,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 	if (dev->of_node) {
- 		const struct of_device_id	*of_id;
- 
--		ret = davinci_mdio_probe_dt(&data->pdata, pdev);
-+		ret = davinci_mdio_probe_dt(data, pdev);
- 		if (ret)
- 			return ret;
- 		snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s", pdev->name);
++&davinci_mdio {
++	pinctrl-names = "default", "sleep";
++	pinctrl-0 = <&davinci_mdio_default>;
++	pinctrl-1 = <&davinci_mdio_sleep>;
++	status = "okay";
++	reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
++	reset-delay-us = <2>;   /* PHY datasheet states 1uS min */
++};
 -- 
 2.7.4
