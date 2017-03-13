@@ -1,134 +1,122 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH 07/11] net: stmmac: rx and tx ring length prepared for multiple queues
-Date: Mon, 13 Mar 2017 16:12:38 +0000
-Message-ID: <8c297185b6f4625c14a95ed46bdd914c30eb6612.1489419357.git.jpinto@synopsys.com>
+Subject: [PATCH 06/11] net: stmmac: rx watchdog config prepared for multiple queues
+Date: Mon, 13 Mar 2017 16:12:37 +0000
+Message-ID: <b38095495df385ce6ab9d732cbe0715a9cb58d0e.1489419356.git.jpinto@synopsys.com>
 References: <cover.1489419356.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:33705 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:57382 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754082AbdCMQNN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:13:13 -0400
+        with ESMTP id S1752355AbdCMQNL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:13:11 -0400
 In-Reply-To: <cover.1489419356.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489419356.git.jpinto@synopsys.com>
 References: <cover.1489419356.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares tx and rx ring length configuration for multiple queues.
+This patch adds rx watchdog configuration for all queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h      |  4 +--
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h  |  4 +--
- drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c  |  8 +++---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 32 +++++++++++++++++------
- 4 files changed, 32 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h         | 2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c  | 3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c     | 8 ++++----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 3 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    | 3 ++-
+ 5 files changed, 11 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 5fa23b1..bef1fc6 100644
+index 6dfb7f3..5fa23b1 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -444,8 +444,8 @@ struct stmmac_dma_ops {
+@@ -443,7 +443,7 @@ struct stmmac_dma_ops {
+ 	void (*get_hw_feature)(void __iomem *ioaddr,
  			       struct dma_features *dma_cap);
  	/* Program the HW RX Watchdog */
- 	void (*rx_watchdog)(void __iomem *ioaddr, u32 riwt, u32 number_chan);
--	void (*set_tx_ring_len)(void __iomem *ioaddr, u32 len);
--	void (*set_rx_ring_len)(void __iomem *ioaddr, u32 len);
-+	void (*set_tx_ring_len)(void __iomem *ioaddr, u32 len, u32 chan);
-+	void (*set_rx_ring_len)(void __iomem *ioaddr, u32 len, u32 chan);
+-	void (*rx_watchdog) (void __iomem *ioaddr, u32 riwt);
++	void (*rx_watchdog)(void __iomem *ioaddr, u32 riwt, u32 number_chan);
+ 	void (*set_tx_ring_len)(void __iomem *ioaddr, u32 len);
+ 	void (*set_rx_ring_len)(void __iomem *ioaddr, u32 len);
  	void (*set_rx_tail_ptr)(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
- 	void (*set_tx_tail_ptr)(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
- 	void (*enable_tso)(void __iomem *ioaddr, bool en, u32 chan);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-index 946dc14..8474bf9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-@@ -194,8 +194,8 @@ void dwmac4_dma_start_rx(void __iomem *ioaddr, u32 chan);
- void dwmac4_dma_stop_rx(void __iomem *ioaddr, u32 chan);
- int dwmac4_dma_interrupt(void __iomem *ioaddr,
- 			 struct stmmac_extra_stats *x, u32 chan);
--void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len);
--void dwmac4_set_tx_ring_len(void __iomem *ioaddr, u32 len);
-+void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len, u32 chan);
-+void dwmac4_set_tx_ring_len(void __iomem *ioaddr, u32 len, u32 chan);
- void dwmac4_set_rx_tail_ptr(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
- void dwmac4_set_tx_tail_ptr(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-index fcd8ec8..da54c0b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-@@ -94,14 +94,14 @@ void dwmac4_dma_stop_rx(void __iomem *ioaddr, u32 chan)
- 	writel(value, ioaddr + GMAC_CONFIG);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index d3654a4..471a9aa 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -247,7 +247,8 @@ static void dwmac1000_get_hw_feature(void __iomem *ioaddr,
+ 	dma_cap->enh_desc = (hw_cap & DMA_HW_FEAT_ENHDESSEL) >> 24;
  }
  
--void dwmac4_set_tx_ring_len(void __iomem *ioaddr, u32 len)
-+void dwmac4_set_tx_ring_len(void __iomem *ioaddr, u32 len, u32 chan)
+-static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
++static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt,
++				  u32 number_chan)
  {
--	writel(len, ioaddr + DMA_CHAN_TX_RING_LEN(STMMAC_CHAN0));
-+	writel(len, ioaddr + DMA_CHAN_TX_RING_LEN(chan));
+ 	writel(riwt, ioaddr + DMA_RX_WATCHDOG);
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+index 6285e8a..74177f9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+@@ -174,12 +174,12 @@ static void dwmac4_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
+ 		_dwmac4_dump_dma_regs(ioaddr, i, reg_space);
  }
  
--void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len)
-+void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len, u32 chan)
+-static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt)
++static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt, u32 number_chan)
  {
--	writel(len, ioaddr + DMA_CHAN_RX_RING_LEN(STMMAC_CHAN0));
-+	writel(len, ioaddr + DMA_CHAN_RX_RING_LEN(chan));
+-	int i;
++	u32 chan;
+ 
+-	for (i = 0; i < DMA_CHANNEL_NB_MAX; i++)
+-		writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(i));
++	for (chan = 0; chan < number_chan; chan++)
++		writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(chan));
  }
  
- void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan)
+ static void dwmac4_dma_rx_chan_op_mode(void __iomem *ioaddr, int mode,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 61b9369..16808e4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -730,6 +730,7 @@ static int stmmac_set_coalesce(struct net_device *dev,
+ 			       struct ethtool_coalesce *ec)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
++	u32 rx_cnt = priv->plat->rx_queues_to_use;
+ 	unsigned int rx_riwt;
+ 
+ 	/* Check not supported parameters  */
+@@ -768,7 +769,7 @@ static int stmmac_set_coalesce(struct net_device *dev,
+ 	priv->tx_coal_frames = ec->tx_max_coalesced_frames;
+ 	priv->tx_coal_timer = ec->tx_coalesce_usecs;
+ 	priv->rx_riwt = rx_riwt;
+-	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt);
++	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt, rx_cnt);
+ 
+ 	return 0;
+ }
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 2af8589..e60e077 100644
+index 053a042..2af8589 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1802,6 +1802,27 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
- 	add_timer(&priv->txtimer);
- }
+@@ -1915,6 +1915,7 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
++	u32 rx_cnt = priv->plat->rx_queues_to_use;
+ 	int ret;
  
-+static void stmmac_set_rings_length(struct stmmac_priv *priv)
-+{
-+	u32 rx_channels_count = priv->plat->rx_queues_to_use;
-+	u32 tx_channels_count = priv->plat->tx_queues_to_use;
-+	u32 chan;
-+
-+	/* set TX ring length */
-+	if (priv->hw->dma->set_tx_ring_len) {
-+		for (chan = 0; chan < tx_channels_count; chan++)
-+			priv->hw->dma->set_tx_ring_len(priv->ioaddr,
-+						       (DMA_TX_SIZE - 1), chan);
-+	}
-+
-+	/* set RX ring length */
-+	if (priv->hw->dma->set_rx_ring_len) {
-+		for (chan = 0; chan < rx_channels_count; chan++)
-+			priv->hw->dma->set_rx_ring_len(priv->ioaddr,
-+						       (DMA_RX_SIZE - 1), chan);
-+	}
-+}
-+
- /**
-  *  stmmac_set_tx_queue_weight - Set TX queue weight
-  *  @priv: driver private structure
-@@ -1995,14 +2016,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	/* DMA initialization and SW reset */
+@@ -1988,7 +1989,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 
+ 	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
+ 		priv->rx_riwt = MAX_DMA_RIWT;
+-		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
++		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT, rx_cnt);
+ 	}
+ 
  	if (priv->hw->pcs && priv->hw->mac->pcs_ctrl_ane)
- 		priv->hw->mac->pcs_ctrl_ane(priv->hw, 1, priv->hw->ps, 0);
- 
--	/*  set TX ring length */
--	if (priv->hw->dma->set_tx_ring_len)
--		priv->hw->dma->set_tx_ring_len(priv->ioaddr,
--					       (DMA_TX_SIZE - 1));
--	/*  set RX ring length */
--	if (priv->hw->dma->set_rx_ring_len)
--		priv->hw->dma->set_rx_ring_len(priv->ioaddr,
--					       (DMA_RX_SIZE - 1));
-+	/* set TX and RX rings length */
-+	stmmac_set_rings_length(priv);
-+
- 	/* Enable TSO */
- 	if (priv->tso)
- 		priv->hw->dma->enable_tso(priv->ioaddr, 1, STMMAC_CHAN0);
 -- 
 2.9.3
