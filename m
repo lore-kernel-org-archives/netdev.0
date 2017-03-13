@@ -1,10 +1,9 @@
 From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: Re: [PATCH 1/4] uapi glibc compat: add libc compat code when not
- build for kernel
-Date: Mon, 13 Mar 2017 13:28:04 +0200
-Message-ID: <20170313112804.GZ8672@lakka.kapsi.fi>
+Subject: Re: [PATCH 2/4] uapi glibc compat: fix build if libc defines IFF_ECHO
+Date: Mon, 13 Mar 2017 13:28:55 +0200
+Message-ID: <20170313112855.GA8672@lakka.kapsi.fi>
 References: <20170312220039.16885-1-hauke@hauke-m.de>
- <20170312220039.16885-2-hauke@hauke-m.de>
+ <20170312220039.16885-3-hauke@hauke-m.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
@@ -12,60 +11,48 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
         david.heidelberger@ixit.cz, maillist-linux@barfooze.de
 To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kapsi.fi ([217.30.184.167]:50955 "EHLO mail.kapsi.fi"
+Received: from mail.kapsi.fi ([217.30.184.167]:37796 "EHLO mail.kapsi.fi"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750846AbdCML2M (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Mar 2017 07:28:12 -0400
+        id S1750846AbdCML27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 07:28:59 -0400
 Content-Disposition: inline
-In-Reply-To: <20170312220039.16885-2-hauke@hauke-m.de>
+In-Reply-To: <20170312220039.16885-3-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 12, 2017 at 11:00:36PM +0100, Hauke Mehrtens wrote:
-> Instead of checking if this header file is used in the glibc, check if
-> iti is not used in kernel context, this way it will also work with
-> other libc implementations like musl.
+On Sun, Mar 12, 2017 at 11:00:37PM +0100, Hauke Mehrtens wrote:
+> musl 1.1.15 defines IFF_ECHO and the other net_device_flags options.
+> When a user application includes linux/if.h and net/if.h the compile
+> will fail.
+> 
+> Activate __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO only when
+> it is needed. This should also make this work in case glibc will add
+> these defines.
 > 
 > Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 
-Accked-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+Acked-by: Mikko Rapeli <mikko.rapeli@iki.fi>
 
 > ---
->  include/uapi/linux/libc-compat.h | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+>  include/uapi/linux/libc-compat.h | 2 ++
+>  1 file changed, 2 insertions(+)
 > 
 > diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
-> index 44b8a6bd5fe1..7c1fead03c50 100644
+> index 7c1fead03c50..49a8cc3138ae 100644
 > --- a/include/uapi/linux/libc-compat.h
 > +++ b/include/uapi/linux/libc-compat.h
-> @@ -48,8 +48,8 @@
->  #ifndef _UAPI_LIBC_COMPAT_H
->  #define _UAPI_LIBC_COMPAT_H
+> @@ -64,9 +64,11 @@
+>  /* Everything up to IFF_DYNAMIC, matches net/if.h until glibc 2.23 */
+>  #define __UAPI_DEF_IF_NET_DEVICE_FLAGS 0
+>  /* For the future if glibc adds IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO */
+> +#ifndef IFF_ECHO
+>  #ifndef __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO
+>  #define __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO 1
+>  #endif /* __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO */
+> +#endif /* IFF_ECHO */
 >  
-> -/* We have included glibc headers... */
-> -#if defined(__GLIBC__)
-> +/* We have included libc headers... */
-> +#if !defined(__KERNEL__)
+>  #else /* _NET_IF_H */
 >  
->  /* Coordinate with glibc net/if.h header. */
->  #if defined(_NET_IF_H) && defined(__USE_MISC)
-> @@ -168,7 +168,7 @@
->  /* If we did not see any headers from any supported C libraries,
->   * or we are being included in the kernel, then define everything
->   * that we need. */
-> -#else /* !defined(__GLIBC__) */
-> +#else /* defined(__KERNEL__) */
->  
->  /* Definitions for if.h */
->  #define __UAPI_DEF_IF_IFCONF 1
-> @@ -208,6 +208,6 @@
->  /* Definitions for xattr.h */
->  #define __UAPI_DEF_XATTR		1
->  
-> -#endif /* __GLIBC__ */
-> +#endif /* __KERNEL__ */
->  
->  #endif /* _UAPI_LIBC_COMPAT_H */
 > -- 
 > 2.11.0
 > 
