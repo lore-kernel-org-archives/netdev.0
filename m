@@ -1,114 +1,53 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4.9 59/63] x86/tlb: Fix tlb flushing when lguest clears PGE
-Date: Mon, 13 Mar 2017 16:39:46 +0800
-Message-ID: <20170313083417.860726585@linuxfoundation.org>
-References: <20170313083414.786638815@linuxfoundation.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCHv2 net-next 0/4] update ipvs sysctl document
+Date: Mon, 13 Mar 2017 10:14:30 +0100
+Message-ID: <20170313091430.GA17847@verge.net.au>
+References: <1487313241-11361-1-git-send-email-liuhangbin@gmail.com>
+ <1487579498-18967-1-git-send-email-liuhangbin@gmail.com>
+ <alpine.LFD.2.11.1702212154590.1840@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        stable@vger.kernel.org, Fengguang Wu <fengguang.wu@intel.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, bp@suse.de,
-        Kees Cook <keescook@chromium.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Rusty Russell <rusty@rustcorp.com.au>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>, lkp@01.org,
-        Laura Abbott <labbott@redhat.com>,
-        Thomas Gleixner <tglx@linutronix.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170313083414.786638815@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hangbin Liu <liuhangbin@gmail.com>, lvs-devel@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:49155 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752529AbdCMJOg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 05:14:36 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1702212154590.1840@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-4.9-stable review patch.  If anyone has any objections, please let me know.
+On Tue, Feb 21, 2017 at 10:01:44PM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Mon, 20 Feb 2017, Hangbin Liu wrote:
+> 
+> > Fix and add some new ipvs sysctl options. Also use tab instead of
+> > whitespaces to indent the descriptions.
+> > 
+> > V2: Fix some descriptions based on Julian's advice.
+> > 
+> > Hangbin Liu (4):
+> >   ipvs: fix sync_threshold description and add sync_refresh_period, sync_retries
+> >   ipvs: Document sysctl sync_qlen_max and sync_sock_size
+> >   ipvs: Document sysctl sync_ports
+> >   ipvs: Document sysctl pmtu_disc
+> 
+> 	All patches look ok to me, thanks!
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> 
+> 	Simon, can we keep this patchset while in merge window?
 
-------------------
+Hi,
 
-From: Daniel Borkmann <daniel@iogearbox.net>
+I apologise for the extended delay in dealing with this - I have been ill.
 
-commit 2c4ea6e28dbf15ab93632c5c189f3948366b8885 upstream.
-
-Fengguang reported random corruptions from various locations on x86-32
-after commits d2852a224050 ("arch: add ARCH_HAS_SET_MEMORY config") and
-9d876e79df6a ("bpf: fix unlocking of jited image when module ronx not set")
-that uses the former. While x86-32 doesn't have a JIT like x86_64, the
-bpf_prog_lock_ro() and bpf_prog_unlock_ro() got enabled due to
-ARCH_HAS_SET_MEMORY, whereas Fengguang's test kernel doesn't have module
-support built in and therefore never had the DEBUG_SET_MODULE_RONX setting
-enabled.
-
-After investigating the crashes further, it turned out that using
-set_memory_ro() and set_memory_rw() didn't have the desired effect, for
-example, setting the pages as read-only on x86-32 would still let
-probe_kernel_write() succeed without error. This behavior would manifest
-itself in situations where the vmalloc'ed buffer was accessed prior to
-set_memory_*() such as in case of bpf_prog_alloc(). In cases where it
-wasn't, the page attribute changes seemed to have taken effect, leading to
-the conclusion that a TLB invalidate didn't happen. Moreover, it turned out
-that this issue reproduced with qemu in "-cpu kvm64" mode, but not for
-"-cpu host". When the issue occurs, change_page_attr_set_clr() did trigger
-a TLB flush as expected via __flush_tlb_all() through cpa_flush_range(),
-though.
-
-There are 3 variants for issuing a TLB flush: invpcid_flush_all() (depends
-on CPU feature bits X86_FEATURE_INVPCID, X86_FEATURE_PGE), cr4 based flush
-(depends on X86_FEATURE_PGE), and cr3 based flush.  For "-cpu host" case in
-my setup, the flush used invpcid_flush_all() variant, whereas for "-cpu
-kvm64", the flush was cr4 based. Switching the kvm64 case to cr3 manually
-worked fine, and further investigating the cr4 one turned out that
-X86_CR4_PGE bit was not set in cr4 register, meaning the
-__native_flush_tlb_global_irq_disabled() wrote cr4 twice with the same
-value instead of clearing X86_CR4_PGE in the first write to trigger the
-flush.
-
-It turned out that X86_CR4_PGE was cleared from cr4 during init from
-lguest_arch_host_init() via adjust_pge(). The X86_FEATURE_PGE bit is also
-cleared from there due to concerns of using PGE in guest kernel that can
-lead to hard to trace bugs (see bff672e630a0 ("lguest: documentation V:
-Host") in init()). The CPU feature bits are cleared in dynamic
-boot_cpu_data, but they never propagated to __flush_tlb_all() as it uses
-static_cpu_has() instead of boot_cpu_has() for testing which variant of TLB
-flushing to use, meaning they still used the old setting of the host
-kernel.
-
-Clearing via setup_clear_cpu_cap(X86_FEATURE_PGE) so this would propagate
-to static_cpu_has() checks is too late at this point as sections have been
-patched already, so for now, it seems reasonable to switch back to
-boot_cpu_has(X86_FEATURE_PGE) as it was prior to commit c109bf95992b
-("x86/cpufeature: Remove cpu_has_pge"). This lets the TLB flush trigger via
-cr3 as originally intended, properly makes the new page attributes visible
-and thus fixes the crashes seen by Fengguang.
-
-Fixes: c109bf95992b ("x86/cpufeature: Remove cpu_has_pge")
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: bp@suse.de
-Cc: Kees Cook <keescook@chromium.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: lkp@01.org
-Cc: Laura Abbott <labbott@redhat.com>
-Link: http://lkml.kernrl.org/r/20170301125426.l4nf65rx4wahohyl@wfg-t540p.sh.intel.com
-Link: http://lkml.kernel.org/r/25c41ad9eca164be4db9ad84f768965b7eb19d9e.1489191673.git.daniel@iogearbox.net
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
----
- arch/x86/include/asm/tlbflush.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/arch/x86/include/asm/tlbflush.h
-+++ b/arch/x86/include/asm/tlbflush.h
-@@ -188,7 +188,7 @@ static inline void __native_flush_tlb_si
- 
- static inline void __flush_tlb_all(void)
- {
--	if (static_cpu_has(X86_FEATURE_PGE))
-+	if (boot_cpu_has(X86_FEATURE_PGE))
- 		__flush_tlb_global();
- 	else
- 		__flush_tlb();
+I have queued these up for v4.12 in ipvs-next as that seems to be the most
+appropriate course of action at this time. Please let me know if you'd like
+to explore a different approach.
