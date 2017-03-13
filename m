@@ -1,79 +1,63 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: Re: [RFC PATCH] sock: add SO_RCVQUEUE_SIZE getsockopt
-Date: Mon, 13 Mar 2017 18:34:41 -0500
-Message-ID: <9f775c33-01f4-fbd8-4d4d-4ca67f0f6d3b@akamai.com>
-References: <1489420786-19547-1-git-send-email-johunt@akamai.com>
- <CANn89iJ21dhirFW2OdNqHWfOgq-EieVMm5ou9pZ7g2oUz=+bfA@mail.gmail.com>
- <522a2e2d-c288-7019-3f12-2b624d6aa921@akamai.com>
- <20170313.123933.1813218797817423920.davem@davemloft.net>
+From: Andy Zhou <azhou@ovn.org>
+Subject: Re: [net-next sample action optimization 3/3] openvswitch: Optimize
+ sample action for the clone use cases
+Date: Mon, 13 Mar 2017 16:39:08 -0700
+Message-ID: <CABKoBm01ieuSrbhf7yZH9AzZkTNB=kiOAhYTDoinXRtDhQoFoQ@mail.gmail.com>
+References: <1489193500-15260-1-git-send-email-azhou@ovn.org>
+ <1489193500-15260-4-git-send-email-azhou@ovn.org> <CAOrHB_CNyhQM5wVJvYNQtE8+RKLAbPrjsrQtbGe-poHi+5AW+g@mail.gmail.com>
+ <CABKoBm14S4QRZCNYqBdfcVXrmvDnf3xrRXbDsBKGsMufdgeXZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, arnd@arndb.de, soheil@google.com,
-        willemb@google.com, pabeni@redhat.com, linux-arch@vger.kernel.org,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Joe Stringer <joe@ovn.org>
+To: Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay08.akamai.com ([96.6.114.112]:54748 "EHLO
-        prod-mail-xrelay08.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751243AbdCMXep (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 19:34:45 -0400
-In-Reply-To: <20170313.123933.1813218797817423920.davem@davemloft.net>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:58241 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753336AbdCMXjx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 19:39:53 -0400
+Received: from mfilter10-d.gandi.net (mfilter10-d.gandi.net [217.70.178.139])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id B7544172098
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 00:39:51 +0100 (CET)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter10-d.gandi.net (mfilter10-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id VHWimwPJY-ts for <netdev@vger.kernel.org>;
+        Tue, 14 Mar 2017 00:39:50 +0100 (CET)
+Received: from mail-pg0-f49.google.com (mail-pg0-f49.google.com [74.125.83.49])
+        (Authenticated sender: azhou@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 37FD217209A
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 00:39:50 +0100 (CET)
+Received: by mail-pg0-f49.google.com with SMTP id b129so72805529pgc.2
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 16:39:49 -0700 (PDT)
+In-Reply-To: <CABKoBm14S4QRZCNYqBdfcVXrmvDnf3xrRXbDsBKGsMufdgeXZQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/13/2017 02:39 PM, David Miller wrote:
-> From: Josh Hunt <johunt@akamai.com>
-> Date: Mon, 13 Mar 2017 12:38:39 -0500
->
->> On 03/13/2017 11:12 AM, Eric Dumazet wrote:
->>> On Mon, Mar 13, 2017 at 8:59 AM, Josh Hunt <johunt@akamai.com> wrote:
->>>> Allows application to read the amount of data sitting in the receive
->>>> queue.
->>>>
->>>> Signed-off-by: Josh Hunt <johunt@akamai.com>
->>>> ---
->>>>
->>>> A team here is looking for a way to get the amount of data in a UDP
->>>> socket's
->>>> receive queue. It seems like this should be SIOCINQ, but for UDP
->>>> sockets that
->>>> returns the size of the next pending datagram. I implemented the patch
->>>> below,
->>>> but am wondering if this is the right place for this change? I was
->>>> debating
->>>> between this or a new UDP ioctl.
+>>> -       skb = skb_clone(skb, GFP_ATOMIC);
+>>> -       if (!skb)
+>>> -               /* Skip the sample action when out of memory. */
+>>> -               return 0;
+>>> +       if (key) {
+>>> +               err = do_execute_actions(dp, skb, key, actions, rem);
+>>> +       } else if (!add_deferred_actions(skb, orig, actions, rem)) {
 >>>
->>> But what is the 'amount of data' exactly ?
->>> Number of packets, amount of bytes to read from these packets ?
->>
->> I meant bytes. I will clarify in the next version.
+>> We can refactor this code to avoid duplicate code all actions
+>> implementation. This way there could be single function dealing with
+>> both defered action and key fifo arrays.
 >
-> As Eric is hinting, the calculation you are using doesn't represent
-> this.
+> O.K. I will make the change in the next version.
+
+After looking more at it, the sample action and recirc action are different
+enough that I don't see clean ways refactor them. For example, recirc
+needs to deal with setting recirc_id.  recirc calls
+ovs_dp_process_packet, and sample calls do_execute_action.
+
+>> I am not sure if we can put sample or recirc in "may not change flow"
+>> actions list. Consider following set of actions:
+>> sample(sample(set-IP)),userpsace(),...
+>> In this case the userspace action could recieve skb with inconsistent
+>> flow due to preceding of set action nested in the sample action.
 >
-> You need to do something like walk the receive queue and add the
-> skb->len values together.
->
-> sk->sk_rmem_alloc is usually much larger than the sum of the skb->len
-> values in the socket receive queue.  I don't see how this culmination
-> of skb->truesize values is useful, whereas I can see how an application
-> could want the summation of the skb->len values.
->
+> Good catch.  Will fix.
 
-In this particular case they really do want to know total # of bytes in 
-the receive queue, not the data bytes they can consume from an 
-application pov. The kernel currently only exposes this value through 
-netlink or /proc/net/udp from what I saw.
-
-I believe Eric's suggestion in his previous mail was to export all of 
-these meminfo metrics via a single socket option call similar to how its 
-done in netlink. We could then use that for both call sites.
-
-I agree that it would be useful to also have the data you and Eric are 
-suggesting exposed somewhere, the total # of skb->len bytes sitting in 
-the receive queue. I could add that as a second socket option.
-
-Does this sound reasonable?
-
-Josh
+What's the objection on recirc action? It always works on clone key.
