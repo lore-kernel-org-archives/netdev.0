@@ -1,66 +1,30 @@
-From: David Arcari <darcari@redhat.com>
-Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is
- changed
-Date: Mon, 13 Mar 2017 19:02:01 -0400
-Message-ID: <58C724E9.9090602@redhat.com>
-References: <1489008801-120389-1-git-send-email-darcari@redhat.com>
- <20170312.230919.811312629901809185.davem@davemloft.net>
- <5a3a435e-2ea5-343b-49e9-aff185eb73cc@redhat.com>
- <20170313.125614.724873987813626999.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: use net->count to check whether a netns is alive
+ or not
+Date: Mon, 13 Mar 2017 16:03:16 -0700 (PDT)
+Message-ID: <20170313.160316.2050029482820012246.davem@davemloft.net>
+References: <20170313043618.16183-1-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pavel.Belous@aquantia.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59248 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751793AbdCMXCC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Mar 2017 19:02:02 -0400
-In-Reply-To: <20170313.125614.724873987813626999.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-4
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, grawity@gmail.com, stable@vger.kernel.org
+To: avagin@openvz.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170313043618.16183-1-avagin@openvz.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/13/2017 03:56 PM, David Miller wrote:
-> From: David Arcari <darcari@redhat.com>
-> Date: Mon, 13 Mar 2017 11:50:50 -0400
+From: Andrei Vagin <avagin@openvz.org>
+Date: Sun, 12 Mar 2017 21:36:18 -0700
+
+> The previous idea was to check whether a net namespace is in
+> net_exit_list or not. It doesn't work, because net->exit_list is used in
+> __register_pernet_operations and __unregister_pernet_operations where
+> all namespaces are added to a temporary list to make cleanup in a error
+> case, so list_empty(&net->exit_list) always returns false.
 > 
->> On 03/13/2017 02:09 AM, David Miller wrote:
->>> From: David Arcari <darcari@redhat.com>
->>> Date: Wed,  8 Mar 2017 16:33:21 -0500
->>>
->>>> When the aquantia device mtu is changed the net_device structure is not
->>>> updated.  As a result the ip command does not properly reflect the mtu change.
->>>>
->>>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
->>>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
->>>> has a ndo_change_mtu routine.
->>>>
->>>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
->>>>
->>>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
->>>> Signed-off-by: David Arcari <darcari@redhat.com>
->>>
->>> Applied, thanks.
->>>
->>
->> Hi David,
->>
->> I see that my patch:
->>
->> "net: ethernet: aquantia: call set_irq_affinity_hint before free_irq"
->>
->> has been applied to net, but I don't see that this patch has been applied.
-> 
-> It is marked as "changes requested" in patchwork, because you were asked to
-> do the restart label removal in a separate patch.
-> 
+> Reported-by: Mantas Mikulìnas <grawity@gmail.com>
+> Fixes: 002d8a1a6c11 ("net: skip genenerating uevents for network namespaces that are exiting")
+> Signed-off-by: Andrei Vagin <avagin@openvz.org>
 
-
-Sorry, I was not clear.  I was trying to ask if your "Applied, thanks" reply
-(above) was meant for this email thread.  I believe it was meant for the
-set_irq_affinity_hint patch.
-
-Thanks,
-
--DA
+Applied and queued up for -stable, thanks.
