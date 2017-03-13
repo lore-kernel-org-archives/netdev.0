@@ -1,25 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drop_monitor: use setup_timer
-Date: Sun, 12 Mar 2017 23:47:58 -0700 (PDT)
-Message-ID: <20170312.234758.810070491418409907.davem@davemloft.net>
-References: <3afa5498142ef68256023257dad37b9f8352e65e.1489060803.git.geliangtang@gmail.com>
-        <03f9cf555a71fced65877c85e49fac7e880b338c.1489061285.git.geliangtang@gmail.com>
+Subject: Re: [PATCH net] selftests/bpf: fix broken build
+Date: Sun, 12 Mar 2017 23:48:54 -0700 (PDT)
+Message-ID: <20170312.234854.2051066183598409902.davem@davemloft.net>
+References: <1489212355-3289694-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: geliangtang@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <03f9cf555a71fced65877c85e49fac7e880b338c.1489061285.git.geliangtang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: daniel@iogearbox.net, shuah@kernel.org, netdev@vger.kernel.org
+To: ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54340 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751033AbdCMGsz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 02:48:55 -0400
+In-Reply-To: <1489212355-3289694-1-git-send-email-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geliang Tang <geliangtang@gmail.com>
-Date: Sat, 11 Mar 2017 08:46:59 +0800
+From: Alexei Starovoitov <ast@fb.com>
+Date: Fri, 10 Mar 2017 22:05:55 -0800
 
-> Use setup_timer() instead of init_timer() to simplify the code.
+> Recent merge of 'linux-kselftest-4.11-rc1' tree broke bpf test build.
+> None of the tests were building and test_verifier.c had tons of compiler errors.
+> Fix it and add #ifdef CAP_IS_SUPPORTED to support old versions of libcap.
+> Tested on centos 6.8 and 7
 > 
-> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied.
+Applied, thanks.
