@@ -1,84 +1,88 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: mpls: Fix nexthop alive tracking on down events
-Date: Mon, 13 Mar 2017 16:49:10 -0700
-Message-ID: <1489448950-13340-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] mlx4: Better use of order-0 pages in RX path
+Date: Mon, 13 Mar 2017 16:51:19 -0700
+Message-ID: <20170313235117.GA83459@ast-mbp.thefacebook.com>
+References: <20170313173432.GA31333@ast-mbp.thefacebook.com>
+ <CANn89iL_C8CMaxmkSvFxBMCjHx49JkEaKGoUPWMRYucrx09LnA@mail.gmail.com>
+ <20170313183121.GA36306@ast-mbp.thefacebook.com>
+ <CANn89iK1eyXH_6ViU0sj=yH+3+WVtVdXaAVBUkkcA=0dCvTkOA@mail.gmail.com>
+ <20170313202300.GA52396@ast-mbp.thefacebook.com>
+ <CANn89iK6+1KMuxv11TqvfNd2cWRPjWDNkFnO00uC15GMQfqs-g@mail.gmail.com>
+ <20170313232137.GA77943@ast-mbp.thefacebook.com>
+ <CANn89iL3ODh0xf=+P0gSYN-mGwACeeCO+OwtJzK5JEtOtMdPuw@mail.gmail.com>
+ <20170313234050.GA82263@ast-mbp.thefacebook.com>
+ <CANn89iKfsYgQmF1AM4zb1M6nnrAqEGJ+nmgJ_53T2NV812ZAVA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:34009 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751330AbdCMXtR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 19:49:17 -0400
-Received: by mail-pg0-f48.google.com with SMTP id 77so72718412pgc.1
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 16:49:16 -0700 (PDT)
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:34725 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754510AbdCMXvf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 19:51:35 -0400
+Received: by mail-pg0-f50.google.com with SMTP id 77so72753893pgc.1
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 16:51:29 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CANn89iKfsYgQmF1AM4zb1M6nnrAqEGJ+nmgJ_53T2NV812ZAVA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alive tracking of nexthops can account for a link twice if the carrier
-goes down followed by an admin down of the same link rendering multipath
-routes useless. This is similar to 79099aab38c8 for UNREGISTER events and
-DOWN events.
+On Mon, Mar 13, 2017 at 04:44:19PM -0700, Eric Dumazet wrote:
+> On Mon, Mar 13, 2017 at 4:40 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+> > On Mon, Mar 13, 2017 at 04:28:04PM -0700, Eric Dumazet wrote:
+> >> On Mon, Mar 13, 2017 at 4:21 PM, Alexei Starovoitov
+> >> <alexei.starovoitov@gmail.com> wrote:
+> >> >
+> >> > is it once in the beginning only? If so then why that
+> >> > 'if (!ring->page_cache.index)' check is done for every packet?
+> >>
+> >>
+> >>
+> >> You did not really read the patch, otherwise you would not ask these questions.
+> >
+> > please explain. I see
+> > +  if (!ring->page_cache.index) {
+> > +          npage = mlx4_alloc_page(priv, ring,
+> > which is done for every packet that goes via XDP_TX.
+> >
+> 
+> Well, we do for all packets, even on hosts not running XDP:
+> 
+> if (xdp_prog) { ...
+> 
+> ...
+> 
+> Then :
+> 
+> if (doorbell_pending))
+>      mlx4_en_xmit_doorbell(priv->tx_ring[TX_XDP][cq->ring]);
+> 
+> And nobody complained of few additional instructions.
 
-Fix by tracking number of alive nexthops in mpls_ifdown similar to the
-logic in mpls_ifup. Checking the flags per nexthop once after all events
-have been processed is simpler than trying to maintian a running count
-through all event combinations.
+it's not the additional 'if' I'm concerned about it's the allocation
+after 'if', since you didn't explain clearly when it's executed.
 
-Also, WRITE_ONCE is used instead of ACCESS_ONCE to set rt_nhn_alive
-per a comment from checkpatch:
-    WARNING: Prefer WRITE_ONCE(<FOO>, <BAR>) over ACCESS_ONCE(<FOO>) = <BAR>
+> >> Test it, and if you find a regression, shout loudly.
+> >
+> > that's not how it works. It's a job of submitter to prove
+> > that additional code doesn't cause regressions especially
+> > when there are legitimate concerns.
+> 
+> I have no easy way to test XDP. I  have never used it and am not
+> planning to use it any time soon.
+> 
+> Does it mean I no longer can participate to linux dev ?
 
-Fixes: c89359a42e2a4 ("mpls: support for dead routes")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/mpls/af_mpls.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
-
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 33211f9a2656..6414079aa729 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -1269,6 +1269,8 @@ static void mpls_ifdown(struct net_device *dev, int event)
- {
- 	struct mpls_route __rcu **platform_label;
- 	struct net *net = dev_net(dev);
-+	unsigned int nh_flags = RTNH_F_DEAD | RTNH_F_LINKDOWN;
-+	unsigned int alive;
- 	unsigned index;
- 
- 	platform_label = rtnl_dereference(net->mpls.platform_label);
-@@ -1278,9 +1280,11 @@ static void mpls_ifdown(struct net_device *dev, int event)
- 		if (!rt)
- 			continue;
- 
-+		alive = 0;
- 		change_nexthops(rt) {
- 			if (rtnl_dereference(nh->nh_dev) != dev)
--				continue;
-+				goto next;
-+
- 			switch (event) {
- 			case NETDEV_DOWN:
- 			case NETDEV_UNREGISTER:
-@@ -1288,13 +1292,16 @@ static void mpls_ifdown(struct net_device *dev, int event)
- 				/* fall through */
- 			case NETDEV_CHANGE:
- 				nh->nh_flags |= RTNH_F_LINKDOWN;
--				if (event != NETDEV_UNREGISTER)
--					ACCESS_ONCE(rt->rt_nhn_alive) = rt->rt_nhn_alive - 1;
- 				break;
- 			}
- 			if (event == NETDEV_UNREGISTER)
- 				RCU_INIT_POINTER(nh->nh_dev, NULL);
-+next:
-+			if (!(nh->nh_flags & nh_flags))
-+				alive++;
- 		} endfor_nexthops(rt);
-+
-+		WRITE_ONCE(rt->rt_nhn_alive, alive);
- 	}
- }
- 
--- 
-2.1.4
+when you're touching the most performance sensitive piece of XDP in
+the driver then yes, you have to show that XDP doesn't regress.
+Especially since it's trivial to test.
+Two mlx4 serves, pktgen and xdp2 is enough.
