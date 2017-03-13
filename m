@@ -1,66 +1,86 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [patch net-next 04/10] net: Add netif_is_vrf_master helper
-Date: Mon, 13 Mar 2017 17:58:04 +0200
-Message-ID: <20170313155804.GA1702@splinter.mtl.com>
-References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-4-git-send-email-jiri@resnulli.us>
- <d3d82369-bea2-ea7e-0912-66061bd6cc91@cumulusnetworks.com>
- <20170313150103.GA32446@splinter.mtl.com>
- <25a0e468-e288-b9d5-068e-90d4fdfe6b32@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        shm@cumulusnetworks.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, lorenzo@google.com,
-        mateusz.bajorski@nokia.com
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Josh Hunt <johunt@akamai.com>
+Subject: [RFC PATCH] sock: add SO_RCVQUEUE_SIZE getsockopt
+Date: Mon, 13 Mar 2017 11:59:46 -0400
+Message-ID: <1489420786-19547-1-git-send-email-johunt@akamai.com>
+Cc: edumazet@google.com, soheil@google.com, willemb@google.com,
+        pabeni@redhat.com, linux-arch@vger.kernel.org,
+        netdev@vger.kernel.org, Josh Hunt <johunt@akamai.com>
+To: davem@davemloft.net, arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:45646 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753795AbdCMP6I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:58:08 -0400
-Content-Disposition: inline
-In-Reply-To: <25a0e468-e288-b9d5-068e-90d4fdfe6b32@cumulusnetworks.com>
+Received: from prod-mail-xrelay06.akamai.com ([96.6.114.98]:58706 "EHLO
+        prod-mail-xrelay06.akamai.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752359AbdCMP7u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:59:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 09:15:32AM -0600, David Ahern wrote:
-> On 3/13/17 9:01 AM, Ido Schimmel wrote:
-> > On Mon, Mar 13, 2017 at 08:39:19AM -0600, David Ahern wrote:
-> >> On 3/13/17 1:38 AM, Jiri Pirko wrote:
-> >>> From: Ido Schimmel <idosch@mellanox.com>
-> >>>
-> >>> Drivers capable of offloading VRF configurations need to know the ports
-> >>> are enslaved to an actual VRF device and not some other L3 master.
-> >>>
-> >>> Add a flag to indicate netdev is a VRF master and a corresponding
-> >>> helper.
-> >>>
-> >>> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> >>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> >>> ---
-> >>>  drivers/net/vrf.c         | 2 +-
-> >>>  include/linux/netdevice.h | 8 ++++++++
-> >>>  2 files changed, 9 insertions(+), 1 deletion(-)
-> >>>
-> >>
-> >> IFF_VRF_MASTER was renamed IFF_L3MDEV_MASTER 18 months ago.
-> > 
-> > But IFF_L3MDEV_MASTER isn't specific to the VRF driver. It can be set by
-> > other drivers including future ones that might be introduced. I need to
-> > allow enslavement to a VRF master, but reject others.
-> > 
-> 
-> Why isn't an L3MDEV associated with a FIB table sufficient? ie., the
-> L3MDEV_MASTER flag is set and the driver impements l3mdev_fib_table. At
-> that point, what is specific to a VRF device that the offload relies on?
+Allows application to read the amount of data sitting in the receive
+queue.
 
-The one thing specific to the VRF driver is that it only does that. If
-tomorrow a new driver is introduced and in addition to packet forwarding
-according to l3mdev_fib_table it also does something else, then I want
-to be sure mlxsw will be able to support it.
+Signed-off-by: Josh Hunt <johunt@akamai.com>
+---
 
-Current approach seems cleaner to me, but I don't mind dropping this
-patch and introduce it when it's actually needed (if at all). OK?
+A team here is looking for a way to get the amount of data in a UDP socket's
+receive queue. It seems like this should be SIOCINQ, but for UDP sockets that
+returns the size of the next pending datagram. I implemented the patch below,
+but am wondering if this is the right place for this change? I was debating
+between this or a new UDP ioctl.
+
+ include/net/sock.h                | 7 ++++++-
+ include/uapi/asm-generic/socket.h | 2 ++
+ net/core/sock.c                   | 4 ++++
+ 3 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 5e59976..bcfed2ae 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -854,6 +854,11 @@ static inline void __sk_add_backlog(struct sock *sk, struct sk_buff *skb)
+ 	skb->next = NULL;
+ }
+ 
++static unsigned int sk_rcvqueue_size(const struct sock *sk)
++{
++	return sk->sk_backlog.len + atomic_read(&sk->sk_rmem_alloc);
++}
++
+ /*
+  * Take into account size of receive queue and backlog queue
+  * Do not take into account this skb truesize,
+@@ -861,7 +866,7 @@ static inline void __sk_add_backlog(struct sock *sk, struct sk_buff *skb)
+  */
+ static inline bool sk_rcvqueues_full(const struct sock *sk, unsigned int limit)
+ {
+-	unsigned int qsize = sk->sk_backlog.len + atomic_read(&sk->sk_rmem_alloc);
++	unsigned int qsize = sk_rcvqueue_size(sk);
+ 
+ 	return qsize > limit;
+ }
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 2c748dd..36b8cd5 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -94,4 +94,6 @@
+ 
+ #define SCM_TIMESTAMPING_OPT_STATS	54
+ 
++#define SO_RCVQUEUE_SIZE	55
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index f6fd79f..fa69864 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1269,6 +1269,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sk->sk_incoming_cpu;
+ 		break;
+ 
++	case SO_RCVQUEUE_SIZE:
++		v.val = sk_rcvqueue_size(sk);
++		break;
++
+ 	default:
+ 		/* We implement the SO_SNDLOWAT etc to not be settable
+ 		 * (1003.1g 7).
+-- 
+1.9.1
