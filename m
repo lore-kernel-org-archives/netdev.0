@@ -1,59 +1,85 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: Re: [RFC PATCH] sock: add SO_RCVQUEUE_SIZE getsockopt
-Date: Mon, 13 Mar 2017 12:38:39 -0500
-Message-ID: <522a2e2d-c288-7019-3f12-2b624d6aa921@akamai.com>
-References: <1489420786-19547-1-git-send-email-johunt@akamai.com>
- <CANn89iJ21dhirFW2OdNqHWfOgq-EieVMm5ou9pZ7g2oUz=+bfA@mail.gmail.com>
+From: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
+Subject: Re: [PATCH] net: usb: asix88179_178a: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Mon, 13 Mar 2017 11:38:41 -0600
+Message-ID: <127bb0ec-82e7-6aee-f70a-323de6f00e97@usask.ca>
+References: <1489338156-18632-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Paolo Abeni <pabeni@redhat.com>, linux-arch@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:57026 "EHLO
-        prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753219AbdCMRil (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:38:41 -0400
-In-Reply-To: <CANn89iJ21dhirFW2OdNqHWfOgq-EieVMm5ou9pZ7g2oUz=+bfA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        <jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489338156-18632-1-git-send-email-tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/13/2017 11:12 AM, Eric Dumazet wrote:
-> On Mon, Mar 13, 2017 at 8:59 AM, Josh Hunt <johunt@akamai.com> wrote:
->> Allows application to read the amount of data sitting in the receive
->> queue.
->>
->> Signed-off-by: Josh Hunt <johunt@akamai.com>
->> ---
->>
->> A team here is looking for a way to get the amount of data in a UDP socket's
->> receive queue. It seems like this should be SIOCINQ, but for UDP sockets that
->> returns the size of the next pending datagram. I implemented the patch below,
->> but am wondering if this is the right place for this change? I was debating
->> between this or a new UDP ioctl.
->
-> But what is the 'amount of data' exactly ?
-> Number of packets, amount of bytes to read from these packets ?
+I have tested this patch on the Cypress GX3 SuperSpeed to Gigabit Ethernet
+Bridge Controller (Vendor=04b4 ProdID=3610) and the device still
+functions properly with the patch applied.
 
-I meant bytes. I will clarify in the next version.
+Feel free to add my name / email to the tested-by portion of the patch.
 
->
-> You chose to report kernel memory usage, which is not guaranteed to be
-> the same among kernels versions (or kernel configs)
->
-> If we export these internals, I would export the whole thing, like we
-> did with netlink
->
-> ie tweak sock_diag_put_meminfo() and export the SK_MEMINFO_VARS
->
-> So that we avoid adding other options in the future.
->
+Chris
 
-OK, so you're suggesting we provide all of the SK_MEMINFO_VARS data via 
-socket option then? That sounds good to me. I will send that in a v2.
 
-Josh
+On 2017-03-12 11:02 AM, Philippe Reynes wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+>
+> As I don't have the hardware, I'd be very pleased if
+> someone may test this patch.
+>
+> Signed-off-by: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/usb/ax88179_178a.c |   14 ++++++++------
+>  1 files changed, 8 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+> index a3a7db0..4a0ae7c 100644
+> --- a/drivers/net/usb/ax88179_178a.c
+> +++ b/drivers/net/usb/ax88179_178a.c
+> @@ -620,16 +620,18 @@ static int ax88179_get_eeprom_len(struct net_device *net)
+>  	return 0;
+>  }
+>  
+> -static int ax88179_get_settings(struct net_device *net, struct ethtool_cmd *cmd)
+> +static int ax88179_get_link_ksettings(struct net_device *net,
+> +				      struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct usbnet *dev = netdev_priv(net);
+> -	return mii_ethtool_gset(&dev->mii, cmd);
+> +	return mii_ethtool_get_link_ksettings(&dev->mii, cmd);
+>  }
+>  
+> -static int ax88179_set_settings(struct net_device *net, struct ethtool_cmd *cmd)
+> +static int ax88179_set_link_ksettings(struct net_device *net,
+> +				      const struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct usbnet *dev = netdev_priv(net);
+> -	return mii_ethtool_sset(&dev->mii, cmd);
+> +	return mii_ethtool_set_link_ksettings(&dev->mii, cmd);
+>  }
+>  
+>  static int
+> @@ -826,11 +828,11 @@ static int ax88179_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
+>  	.set_wol		= ax88179_set_wol,
+>  	.get_eeprom_len		= ax88179_get_eeprom_len,
+>  	.get_eeprom		= ax88179_get_eeprom,
+> -	.get_settings		= ax88179_get_settings,
+> -	.set_settings		= ax88179_set_settings,
+>  	.get_eee		= ax88179_get_eee,
+>  	.set_eee		= ax88179_set_eee,
+>  	.nway_reset		= usbnet_nway_reset,
+> +	.get_link_ksettings	= ax88179_get_link_ksettings,
+> +	.set_link_ksettings	= ax88179_set_link_ksettings,
+>  };
+>  
+>  static void ax88179_set_multicast(struct net_device *net)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
