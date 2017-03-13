@@ -1,49 +1,48 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [patch net-next 04/10] net: Add netif_is_vrf_master helper
-Date: Mon, 13 Mar 2017 17:01:03 +0200
-Message-ID: <20170313150103.GA32446@splinter.mtl.com>
-References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-1-git-send-email-jiri@resnulli.us>
- <1489390713-2634-4-git-send-email-jiri@resnulli.us>
- <d3d82369-bea2-ea7e-0912-66061bd6cc91@cumulusnetworks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH RFC iproute v1 1/4] afnetns: add iproute bits for
+ afnetns
+Date: Mon, 13 Mar 2017 08:10:06 -0700
+Message-ID: <20170313081006.78b3af9d@xeon-e3>
+References: <20170312230138.5096-1-hannes@stressinduktion.org>
+        <20170312230138.5096-2-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        shm@cumulusnetworks.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, lorenzo@google.com,
-        mateusz.bajorski@nokia.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47542 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753359AbdCMPBV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:01:21 -0400
-Content-Disposition: inline
-In-Reply-To: <d3d82369-bea2-ea7e-0912-66061bd6cc91@cumulusnetworks.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33928 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751703AbdCMPKR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:10:17 -0400
+Received: by mail-pf0-f182.google.com with SMTP id v190so70358422pfb.1
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 08:10:16 -0700 (PDT)
+In-Reply-To: <20170312230138.5096-2-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 08:39:19AM -0600, David Ahern wrote:
-> On 3/13/17 1:38 AM, Jiri Pirko wrote:
-> > From: Ido Schimmel <idosch@mellanox.com>
-> > 
-> > Drivers capable of offloading VRF configurations need to know the ports
-> > are enslaved to an actual VRF device and not some other L3 master.
-> > 
-> > Add a flag to indicate netdev is a VRF master and a corresponding
-> > helper.
-> > 
-> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> > ---
-> >  drivers/net/vrf.c         | 2 +-
-> >  include/linux/netdevice.h | 8 ++++++++
-> >  2 files changed, 9 insertions(+), 1 deletion(-)
-> > 
-> 
-> IFF_VRF_MASTER was renamed IFF_L3MDEV_MASTER 18 months ago.
+On Mon, 13 Mar 2017 00:01:35 +0100
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-But IFF_L3MDEV_MASTER isn't specific to the VRF driver. It can be set by
-other drivers including future ones that might be introduced. I need to
-allow enslavement to a VRF master, but reject others.
+> diff --git a/include/namespace.h b/include/namespace.h
+> index 51324b21ba0cd5..acecc8c1f0d2b8 100644
+> --- a/include/namespace.h
+> +++ b/include/namespace.h
+> @@ -7,6 +7,7 @@
+>  #include <sys/syscall.h>
+>  #include <errno.h>
+>  
+> +#define AFNETNS_RUN_DIR "/var/run/afnetns"
+>  #define NETNS_RUN_DIR "/var/run/netns"
+>  #define NETNS_ETC_DIR "/etc/netns"
+>  
+> @@ -14,6 +15,10 @@
+>  #define CLONE_NEWNET 0x40000000	/* New network namespace (lo, device, names sockets, etc) */
+>  #endif
+>  
+> +#ifndef CLONE_NEWAFNET
+> +#define CLONE_NEWAFNET	0x00001000	/* Clone new afnet context */
+> +#endif
+> +
+
+These bits really need to come from a kernel exported header.
