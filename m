@@ -1,44 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH nf] ipv6: avoid write to a possibly cloned skb
-Date: Mon, 13 Mar 2017 12:54:01 -0700 (PDT)
-Message-ID: <20170313.125401.1159069954838003447.davem@davemloft.net>
-References: <20170313152428.12514-1-fw@strlen.de>
+Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu
+ is changed
+Date: Mon, 13 Mar 2017 12:56:14 -0700 (PDT)
+Message-ID: <20170313.125614.724873987813626999.davem@davemloft.net>
+References: <1489008801-120389-1-git-send-email-darcari@redhat.com>
+        <20170312.230919.811312629901809185.davem@davemloft.net>
+        <5a3a435e-2ea5-343b-49e9-aff185eb73cc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, Pavel.Belous@aquantia.com
+To: darcari@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55062 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55178 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750820AbdCMTyD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 15:54:03 -0400
-In-Reply-To: <20170313152428.12514-1-fw@strlen.de>
+        with ESMTP id S1751047AbdCMT4Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 15:56:16 -0400
+In-Reply-To: <5a3a435e-2ea5-343b-49e9-aff185eb73cc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Mon, 13 Mar 2017 16:24:28 +0100
+From: David Arcari <darcari@redhat.com>
+Date: Mon, 13 Mar 2017 11:50:50 -0400
 
-> ip6_fragment, in case skb has a fraglist, checks if the
-> skb is cloned.  If it is, it will move to the 'slow path' and allocates
-> new skbs for each fragment.
+> On 03/13/2017 02:09 AM, David Miller wrote:
+>> From: David Arcari <darcari@redhat.com>
+>> Date: Wed,  8 Mar 2017 16:33:21 -0500
+>> 
+>>> When the aquantia device mtu is changed the net_device structure is not
+>>> updated.  As a result the ip command does not properly reflect the mtu change.
+>>>
+>>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+>>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+>>> has a ndo_change_mtu routine.
+>>>
+>>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+>>>
+>>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+>>> Signed-off-by: David Arcari <darcari@redhat.com>
+>> 
+>> Applied, thanks.
+>> 
 > 
-> However, right before entering the slowpath loop, it updates the
-> nexthdr value of the last ipv6 extension header to NEXTHDR_FRAGMENT,
-> to account for the fragment header that will be inserted in the new
-> ipv6-fragment skbs.
+> Hi David,
 > 
-> In case original skb is cloned this munges nexthdr value of another
-> skb.  Avoid this by doing the nexthdr update for each of the new fragment
-> skbs separately.
+> I see that my patch:
 > 
-> This was observed with tcpdump on a bridge device where netfilter ipv6
-> reassembly is active:  tcpdump shows malformed fragment headers as
-> the l4 header (icmpv6, tcp, etc). is decoded as a fragment header.
+> "net: ethernet: aquantia: call set_irq_affinity_hint before free_irq"
 > 
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Reported-by: Andreas Karis <akaris@redhat.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> has been applied to net, but I don't see that this patch has been applied.
 
-Great catch Florian, applied, thanks.
+It is marked as "changes requested" in patchwork, because you were asked to
+do the restart label removal in a separate patch.
