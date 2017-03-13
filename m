@@ -1,49 +1,77 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [RFC PATCH] sock: add SO_RCVQUEUE_SIZE getsockopt
-Date: Mon, 13 Mar 2017 09:12:32 -0700
-Message-ID: <CANn89iJ21dhirFW2OdNqHWfOgq-EieVMm5ou9pZ7g2oUz=+bfA@mail.gmail.com>
-References: <1489420786-19547-1-git-send-email-johunt@akamai.com>
+From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH net-next 0/4] net-next: dsa: add Mediatek MT7530 support
+Date: Mon, 13 Mar 2017 17:25:30 +0100
+Message-ID: <09927247-dd22-d341-e58c-c8f36fba4755@phrozen.org>
+References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Paolo Abeni <pabeni@redhat.com>, linux-arch@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>
-To: Josh Hunt <johunt@akamai.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f52.google.com ([209.85.214.52]:37622 "EHLO
-        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753991AbdCMQMo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:12:44 -0400
-Received: by mail-it0-f52.google.com with SMTP id g138so34548125itb.0
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 09:12:38 -0700 (PDT)
-In-Reply-To: <1489420786-19547-1-git-send-email-johunt@akamai.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1489421488-300-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 13, 2017 at 8:59 AM, Josh Hunt <johunt@akamai.com> wrote:
-> Allows application to read the amount of data sitting in the receive
-> queue.
+
+
+On 13/03/17 17:11, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
+> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 >
-> Signed-off-by: Josh Hunt <johunt@akamai.com>
-> ---
+> MT7530 is a 7-ports Gigabit Ethernet Switch that could be found on
+> Mediatek router platforms such as MT7623A or MT7623N which includes 7-port
+> Gigabit Ethernet MAC and 5-port Gigabit Ethernet PHY. Among these ports,
+> The port from 0 to 4 are the user ports connecting with the remote devices
+> while the port 5 and 6 are the CPU ports connecting into Mediatek Ethernet
+> GMAC.
 >
-> A team here is looking for a way to get the amount of data in a UDP socket's
-> receive queue. It seems like this should be SIOCINQ, but for UDP sockets that
-> returns the size of the next pending datagram. I implemented the patch below,
-> but am wondering if this is the right place for this change? I was debating
-> between this or a new UDP ioctl.
+> The patch series integrated Mediatek MT7530 into DSA support which
+> includes the most of the essential callbacks such as tag insertion for
+> port distinguishing, port control, bridge offloading, STP setup and
+> ethtool operations to allow DSA to model each user port into independently
+> standalone netdevice as the other DSA driver had done.
+Hi Sean,
 
-But what is the 'amount of data' exactly ?
-Number of packets, amount of bytes to read from these packets ?
+very cool, i'll give this a spin this week and if it works out will 
+import it into LEDE to get test coverage from our users.
 
-You chose to report kernel memory usage, which is not guaranteed to be
-the same among kernels versions (or kernel configs)
+     John
 
-If we export these internals, I would export the whole thing, like we
-did with netlink
-
-ie tweak sock_diag_put_meminfo() and export the SK_MEMINFO_VARS
-
-So that we avoid adding other options in the future.
+> Sean Wang (4):
+>    dt-bindings: net: dsa: add mt7530 binding
+>    net-next: dsa: add Mediatek tag RX/TX handler
+>    net-next: ethernet: mediatek: add CMD ingress recognize the special
+>      tag
+>    net-next: dsa: add dsa support for Mediatek MT7530 switch
+>
+>   .../devicetree/bindings/net/dsa/mt7530.txt         |   96 ++
+>   drivers/net/dsa/Kconfig                            |    8 +
+>   drivers/net/dsa/Makefile                           |    2 +-
+>   drivers/net/dsa/mt7530.c                           | 1195 ++++++++++++++++++++
+>   drivers/net/dsa/mt7530.h                           |  387 +++++++
+>   drivers/net/ethernet/mediatek/mtk_eth_soc.c        |    8 +
+>   drivers/net/ethernet/mediatek/mtk_eth_soc.h        |    5 +
+>   include/net/dsa.h                                  |    1 +
+>   net/dsa/Kconfig                                    |    2 +
+>   net/dsa/Makefile                                   |    1 +
+>   net/dsa/dsa.c                                      |    3 +
+>   net/dsa/dsa_priv.h                                 |    3 +
+>   net/dsa/tag_mtk.c                                  |  121 ++
+>   13 files changed, 1831 insertions(+), 1 deletion(-)
+>   create mode 100644 Documentation/devicetree/bindings/net/dsa/mt7530.txt
+>   create mode 100644 drivers/net/dsa/mt7530.c
+>   create mode 100644 drivers/net/dsa/mt7530.h
+>   create mode 100644 net/dsa/tag_mtk.c
+>
