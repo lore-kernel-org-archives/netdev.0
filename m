@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/10] ipv4: fib_rules: Dump FIB rules when registering FIB notifier
-Date: Mon, 13 Mar 2017 08:38:26 +0100
-Message-ID: <1489390713-2634-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 02/10] ipv4: fib_rules: Add notifier info to FIB rules notifications
+Date: Mon, 13 Mar 2017 08:38:25 +0100
+Message-ID: <1489390713-2634-2-git-send-email-jiri@resnulli.us>
 References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
  <1489390713-2634-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
@@ -10,199 +10,95 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34426 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751569AbdCMHij (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 03:38:39 -0400
-Received: by mail-wr0-f194.google.com with SMTP id u48so18975730wrc.1
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 00:38:38 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34744 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751031AbdCMHih (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 03:38:37 -0400
+Received: by mail-wm0-f68.google.com with SMTP id u132so8332738wmg.1
+        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 00:38:36 -0700 (PDT)
 In-Reply-To: <1489390713-2634-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-In commit c3852ef7f2f8 ("ipv4: fib: Replay events when registering FIB
-notifier") we dumped the FIB tables and replayed the events to the
-passed notification block.
+Whenever a FIB rule is added or removed, a notification is sent in the
+FIB notification chain. However, listeners don't have a way to tell
+which rule was added or removed.
 
-However, we merely sent a RULE_ADD notification in case custom rules
-were in use. As explained in previous patches, this approach won't work
-anymore. Instead, we should notify the caller about all the FIB rules
-and let it act accordingly.
+This is problematic as we would like to give listeners the ability to
+decide which action to execute based on the notified rule. Specifically,
+offloading drivers should be able to determine if they support the
+reflection of the notified FIB rule and flush their LPM tables in case
+they don't.
 
-Upon registration to the FIB notification chain, replay a RULE_ADD
-notification for each programmed FIB rule, custom or not. The integrity
-of the dump is ensured by the mechanism introduced in the above
-mentioned commit.
-
-Prevent regressions by making sure current listeners correctly sanitize
-the notified rules.
+Do that by adding a notifier info to these notifications and embed the
+common FIB rule struct in it.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/Kconfig           |  1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 11 ++++++++++-
- drivers/net/ethernet/rocker/Kconfig                   |  2 +-
- drivers/net/ethernet/rocker/rocker_main.c             | 15 +++++++++++++--
- net/ipv4/fib_rules.c                                  | 19 ++++++++++++++++---
- 5 files changed, 41 insertions(+), 7 deletions(-)
+ include/net/ip_fib.h |  7 +++++++
+ net/ipv4/fib_rules.c | 13 ++++++++-----
+ 2 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-index ef23eae..a549a89 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-@@ -73,6 +73,7 @@ config MLXSW_SWITCHX2
- config MLXSW_SPECTRUM
- 	tristate "Mellanox Technologies Spectrum support"
- 	depends on MLXSW_CORE && MLXSW_PCI && NET_SWITCHDEV && VLAN_8021Q
-+	depends on IP_MULTIPLE_TABLES
- 	depends on PSAMPLE || PSAMPLE=n
- 	select PARMAN
- 	default m
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 80345a1..9d4766f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -45,6 +45,7 @@
- #include <net/neighbour.h>
- #include <net/arp.h>
- #include <net/ip_fib.h>
-+#include <net/fib_rules.h>
- 
- #include "spectrum.h"
- #include "core.h"
-@@ -2514,6 +2515,7 @@ struct mlxsw_sp_fib_event_work {
- 	struct work_struct work;
- 	union {
- 		struct fib_entry_notifier_info fen_info;
-+		struct fib_rule_notifier_info fr_info;
- 		struct fib_nh_notifier_info fnh_info;
- 	};
- 	struct mlxsw_sp *mlxsw_sp;
-@@ -2548,7 +2550,9 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
- 		break;
- 	case FIB_EVENT_RULE_ADD: /* fall through */
- 	case FIB_EVENT_RULE_DEL:
--		mlxsw_sp_router_fib4_abort(mlxsw_sp);
-+		if (!fib_work->fr_info.rule->def)
-+			mlxsw_sp_router_fib4_abort(mlxsw_sp);
-+		fib_rule_put(fib_work->fr_info.rule);
- 		break;
- 	case FIB_EVENT_NH_ADD: /* fall through */
- 	case FIB_EVENT_NH_DEL:
-@@ -2591,6 +2595,11 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
- 		 */
- 		fib_info_hold(fib_work->fen_info.fi);
- 		break;
-+	case FIB_EVENT_RULE_ADD: /* fall through */
-+	case FIB_EVENT_RULE_DEL:
-+		memcpy(&fib_work->fr_info, ptr, sizeof(fib_work->fr_info));
-+		fib_rule_get(fib_work->fr_info.rule);
-+		break;
- 	case FIB_EVENT_NH_ADD: /* fall through */
- 	case FIB_EVENT_NH_DEL:
- 		memcpy(&fib_work->fnh_info, ptr, sizeof(fib_work->fnh_info));
-diff --git a/drivers/net/ethernet/rocker/Kconfig b/drivers/net/ethernet/rocker/Kconfig
-index b9952ef..36937dc 100644
---- a/drivers/net/ethernet/rocker/Kconfig
-+++ b/drivers/net/ethernet/rocker/Kconfig
-@@ -17,7 +17,7 @@ if NET_VENDOR_ROCKER
- 
- config ROCKER
- 	tristate "Rocker switch driver (EXPERIMENTAL)"
--	depends on PCI && NET_SWITCHDEV && BRIDGE
-+	depends on PCI && NET_SWITCHDEV && BRIDGE && IP_MULTIPLE_TABLES
- 	---help---
- 	  This driver supports Rocker switch device.
- 
-diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index b712ec2..f9b00e5 100644
---- a/drivers/net/ethernet/rocker/rocker_main.c
-+++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -33,6 +33,7 @@
- #include <net/rtnetlink.h>
- #include <net/netevent.h>
- #include <net/arp.h>
-+#include <net/fib_rules.h>
- #include <linux/io-64-nonatomic-lo-hi.h>
- #include <generated/utsrelease.h>
- 
-@@ -2175,7 +2176,10 @@ static const struct switchdev_ops rocker_port_switchdev_ops = {
- 
- struct rocker_fib_event_work {
- 	struct work_struct work;
--	struct fib_entry_notifier_info fen_info;
-+	union {
-+		struct fib_entry_notifier_info fen_info;
-+		struct fib_rule_notifier_info fr_info;
-+	};
- 	struct rocker *rocker;
- 	unsigned long event;
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index d9cee96..79fc314 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -213,6 +213,13 @@ struct fib_entry_notifier_info {
+ 	u32 tb_id;
  };
-@@ -2202,7 +2206,9 @@ static void rocker_router_fib_event_work(struct work_struct *work)
- 		break;
- 	case FIB_EVENT_RULE_ADD: /* fall through */
- 	case FIB_EVENT_RULE_DEL:
--		rocker_world_fib4_abort(rocker);
-+		if (!fib_work->fr_info.rule->def)
-+			rocker_world_fib4_abort(rocker);
-+		fib_rule_put(fib_work->fr_info.rule);
- 		break;
- 	}
- 	rtnl_unlock();
-@@ -2233,6 +2239,11 @@ static int rocker_router_fib_event(struct notifier_block *nb,
- 		 */
- 		fib_info_hold(fib_work->fen_info.fi);
- 		break;
-+	case FIB_EVENT_RULE_ADD: /* fall through */
-+	case FIB_EVENT_RULE_DEL:
-+		memcpy(&fib_work->fr_info, ptr, sizeof(fib_work->fr_info));
-+		fib_rule_get(fib_work->fr_info.rule);
-+		break;
- 	}
  
- 	queue_work(rocker->rocker_owq, &fib_work->work);
++#ifdef CONFIG_IP_MULTIPLE_TABLES
++struct fib_rule_notifier_info {
++	struct fib_notifier_info info; /* must be first */
++	struct fib_rule *rule;
++};
++#endif
++
+ struct fib_nh_notifier_info {
+ 	struct fib_notifier_info info; /* must be first */
+ 	struct fib_nh *fib_nh;
 diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index d14fc0a..724dc3a 100644
+index 2892109..d14fc0a 100644
 --- a/net/ipv4/fib_rules.c
 +++ b/net/ipv4/fib_rules.c
-@@ -164,6 +164,17 @@ static struct fib_table *fib_empty_table(struct net *net)
- 	return NULL;
+@@ -165,11 +165,14 @@ static struct fib_table *fib_empty_table(struct net *net)
  }
  
-+static int call_fib_rule_notifier(struct notifier_block *nb, struct net *net,
-+				  enum fib_event_type event_type,
-+				  struct fib_rule *rule)
-+{
+ static int call_fib_rule_notifiers(struct net *net,
+-				   enum fib_event_type event_type)
++				   enum fib_event_type event_type,
++				   struct fib_rule *rule)
+ {
+-	struct fib_notifier_info info;
 +	struct fib_rule_notifier_info info = {
 +		.rule = rule,
 +	};
-+
-+	return call_fib_notifier(nb, net, event_type, &info.info);
-+}
-+
- static int call_fib_rule_notifiers(struct net *net,
- 				   enum fib_event_type event_type,
- 				   struct fib_rule *rule)
-@@ -175,12 +186,14 @@ static int call_fib_rule_notifiers(struct net *net,
- 	return call_fib_notifiers(net, event_type, &info.info);
+ 
+-	return call_fib_notifiers(net, event_type, &info);
++	return call_fib_notifiers(net, event_type, &info.info);
  }
  
-+/* Called with rcu_read_lock() */
  void fib_rules_notify(struct net *net, struct notifier_block *nb)
- {
--	struct fib_notifier_info info;
-+	struct fib_rules_ops *ops = net->ipv4.rules_ops;
-+	struct fib_rule *rule;
+@@ -236,7 +239,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
+ 	rule4->tos = frh->tos;
  
--	if (net->ipv4.fib_has_custom_rules)
--		call_fib_notifier(nb, net, FIB_EVENT_RULE_ADD, &info);
-+	list_for_each_entry_rcu(rule, &ops->rules_list, list)
-+		call_fib_rule_notifier(nb, net, FIB_EVENT_RULE_ADD, rule);
+ 	net->ipv4.fib_has_custom_rules = true;
+-	call_fib_rule_notifiers(net, FIB_EVENT_RULE_ADD);
++	call_fib_rule_notifiers(net, FIB_EVENT_RULE_ADD, rule);
+ 
+ 	err = 0;
+ errout:
+@@ -258,7 +261,7 @@ static int fib4_rule_delete(struct fib_rule *rule)
+ 		net->ipv4.fib_num_tclassid_users--;
+ #endif
+ 	net->ipv4.fib_has_custom_rules = true;
+-	call_fib_rule_notifiers(net, FIB_EVENT_RULE_DEL);
++	call_fib_rule_notifiers(net, FIB_EVENT_RULE_DEL, rule);
+ errout:
+ 	return err;
  }
- 
- static const struct nla_policy fib4_rule_policy[FRA_MAX+1] = {
 -- 
 2.7.4
