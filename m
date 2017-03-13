@@ -1,56 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [RESEND PATCH -net] cpsw/netcp: cpts depends on posix_timers
-Date: Mon, 13 Mar 2017 17:58:25 +0100
-Message-ID: <20170313165849.1378558-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Nicolas Pitre <nicolas.pitre@linaro.org>,
-        stable@vger.kernel.org,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        John Stultz <john.stultz@linaro.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 2/4] net-next: dsa: add Mediatek tag RX/TX handler
+Date: Mon, 13 Mar 2017 12:59:41 -0400
+Message-ID: <87innd6rk2.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com> <1489421488-300-3-git-send-email-sean.wang@mediatek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        davem@davemloft.net, sean.wang@mediatek.com,
+        Landen.Chao@mediatek.com, keyhaede@gmail.com, objelf@gmail.com
+To: sean.wang@mediatek.com, andrew@lunn.ch, f.fainelli@gmail.com,
+        matthias.bgg@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:37014 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752002AbdCMRBT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:01:19 -0400
+In-Reply-To: <1489421488-300-3-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With posix timers having become optional, we get a build error with
-the cpts time sync option of the CPSW driver:
+Hi Sean,
 
-drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
-drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
+sean.wang@mediatek.com writes:
 
-It really makes no sense to build this driver if we can't use PTP,
-so it's better to go back to 'select PTP_1588_CLOCK' but instead
-add a dependency on POSIX_TIMERS. Adding 'depends on PTP_1588_CLOCK'
-might also work, but has the risk of circular dependencies when
-mixed with other drivers using 'imply'.
+> +	mtk_tag[1] = (1 << p->port) & MTK_HDR_XMIT_DP_BIT_MASK;
 
-Fixes: baa73d9e478f ("posix-timers: Make them configurable")
-Cc: Nicolas Pitre <nicolas.pitre@linaro.org>
-Cc: stable@vger.kernel.org
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
-Originally submitted on Dec 16, but not applied after I missed a
-reply from Nico. I confirmed that this is still needed for v4.10
-and v4.11-rc2 and am resending it without changes.
----
- drivers/net/ethernet/ti/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This won't apply, the port index in now stored in p->dp->index.
 
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index d42257fbe9d9..c114efcd1575 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -76,7 +76,8 @@ config TI_CPSW
- config TI_CPTS_ENABLE
- 	bool "TI Common Platform Time Sync (CPTS) Support"
- 	depends on TI_CPSW || TI_KEYSTONE_NETCP
--	imply PTP_1588_CLOCK
-+	depends on POSIX_TIMERS
-+	select PTP_1588_CLOCK
- 	---help---
- 	  This driver supports the Common Platform Time Sync unit of
- 	  the CPSW Ethernet Switch and Keystone 2 1g/10g Switch Subsystem.
--- 
-2.9.0
+Thanks,
+
+        Vivien
