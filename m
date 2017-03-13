@@ -1,109 +1,36 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 2/2] ARM: dts: am335x-icev2: Add CPSW ethernet0 and
- ethernet1
-Date: Mon, 13 Mar 2017 14:24:21 -0500
-Message-ID: <51a2471f-dace-6d8b-b198-9bd5efe41387@ti.com>
-References: <1489412554-2054-1-git-send-email-rogerq@ti.com>
- <1489412554-2054-3-git-send-email-rogerq@ti.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] isdn/gigaset: fix NULL-deref at probe
+Date: Mon, 13 Mar 2017 12:28:52 -0700 (PDT)
+Message-ID: <20170313.122852.1573749710003810412.davem@davemloft.net>
+References: <20170313123901.28298-1-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <nsekhar@ti.com>, <jsarha@ti.com>, <linux-omap@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Roger Quadros <rogerq@ti.com>, <davem@davemloft.net>,
-        <tony@atomide.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489412554-2054-3-git-send-email-rogerq@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org, pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org,
+        gigaset307x-common-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hjlipp-S0/GAf8tV78@public.gmane.org
+To: johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170313123901.28298-1-johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Mon, 13 Mar 2017 13:39:01 +0100
 
+> Make sure to check the number of endpoints to avoid dereferencing a
+> NULL-pointer should a malicious device lack endpoints.
+> 
+> Fixes: cf7776dc05b8 ("[PATCH] isdn4linux: Siemens Gigaset drivers -
+> direct USB connection")
+> Cc: stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>	# 2.6.17
+> Cc: Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>
+> 
+> Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-On 03/13/2017 08:42 AM, Roger Quadros wrote:
-> Enable the 2 ethernet ports as CPSW ports in dual-mac mode
->
-> Signed-off-by: Roger Quadros <rogerq@ti.com>
-> [nsekhar@ti.com: use AM33XX_IOPAD()]
-> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
-> ---
->  arch/arm/boot/dts/am335x-icev2.dts | 113 +++++++++++++++++++++++++++++++++++++
->  1 file changed, 113 insertions(+)
->
-> diff --git a/arch/arm/boot/dts/am335x-icev2.dts b/arch/arm/boot/dts/am335x-icev2.dts
-> index a2ad076..cc343b0 100644
-> --- a/arch/arm/boot/dts/am335x-icev2.dts
-> +++ b/arch/arm/boot/dts/am335x-icev2.dts
-> @@ -201,6 +201,69 @@
->  			AM33XX_IOPAD(0x938, PIN_OUTPUT_PULLUP | MUX_MODE1) /* (L16) gmii1_rxd2.uart3_txd */
->  		>;
->  	};
-> +
-
->
->  &i2c0 {
-> @@ -350,3 +413,53 @@
->  	pinctrl-0 = <&uart3_pins_default>;
->  	status = "okay";
->  };
-> +
-> +&gpio3 {
-> +	p4 {
-> +		gpio-hog;
-> +		gpios = <4 GPIO_ACTIVE_HIGH>;
-> +		output-high;
-> +		line-name = "PR1_MII_CTRL";
-> +	};
-> +
-> +	p10 {
-> +		gpio-hog;
-> +		gpios = <10 GPIO_ACTIVE_HIGH>;
-> +		/* ETH1 mux: Low for MII-PRU, high for RMII-CPSW */
-> +		output-high;
-> +		line-name = "MUX_MII_CTL1";
-> +	};
-> +};
-> +
-> +&cpsw_emac0 {
-> +	phy_id = <&davinci_mdio>, <1>;
-
-this is deprecated definition.
-pls, use phy-handle.
-
-> +	phy-mode = "rmii";
-> +	dual_emac_res_vlan = <1>;
-> +};
-> +
-> +&cpsw_emac1 {
-> +	phy_id = <&davinci_mdio>, <3>;
-
-same
-
-> +	phy-mode = "rmii";
-> +	dual_emac_res_vlan = <2>;
-> +};
-> +
-> +&mac {
-> +	pinctrl-names = "default", "sleep";
-> +	pinctrl-0 = <&cpsw_default>;
-> +	pinctrl-1 = <&cpsw_sleep>;
-> +	status = "okay";
-> +	dual_emac;
-> +};
-> +
-> +&phy_sel {
-> +	rmii-clock-ext;
-> +};
-> +
-> +&davinci_mdio {
-> +	pinctrl-names = "default", "sleep";
-> +	pinctrl-0 = <&davinci_mdio_default>;
-> +	pinctrl-1 = <&davinci_mdio_sleep>;
-> +	status = "okay";
-> +	reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
-> +	reset-delay-us = <2>;   /* PHY datasheet states 1uS min */
-> +};
->
-
--- 
-regards,
--grygorii
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
