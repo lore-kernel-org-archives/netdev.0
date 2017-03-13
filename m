@@ -1,96 +1,314 @@
-From: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next RFC v1 00/27] afnetns: new namespace type for
- separation on protocol level
-Date: Mon, 13 Mar 2017 20:56:35 +0100
-Message-ID: <CAHO5Pa1s949dohzEEE68Ux=mXA7N7sR-U98Jwjvx1a_A5AhFEw@mail.gmail.com>
-References: <20170312230151.5185-1-hannes@stressinduktion.org>
- <20170312.162613.1105038945335893886.davem@davemloft.net> <1489362279.2283.1.camel@stressinduktion.org>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: use meaningful names for IRQs
+Date: Mon, 13 Mar 2017 12:58:04 -0700
+Message-ID: <20170313195804.GA1796@felix2.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1489362279.2283.1.camel-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0060.outbound.protection.outlook.com ([104.47.33.60]:14499
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751132AbdCMT6S (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 15:58:18 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[CC += linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org]
+From: Rick Farrington <ricardo.farrington@cavium.com>
 
-Hannes,
+All IRQs owned by the PF and VF drivers share the same nondescript name
+"octeon"; this makes it difficult to setup interrupt affinity.
 
-Since this is a kernel-user-space API change, please CC linux-api@
-(and on future iterations of the series). The kernel source file
-Documentation/SubmitChecklist notes that all Linux kernel patches that
-change userspace interfaces should be CCed to
-linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, so that the various parties who are
-interested in API changes are informed. For further information, see
-https://www.kernel.org/doc/man-pages/linux-api-ml.html
+Change the IRQ names to reflect their specific purpose:
 
-Thanks,
+    LiquidIO<id>-<func>-<type>-<queue pair num>
 
-Michael
+Examples:
+    LiquidIO0-pf0-rxtx-3
+    LiquidIO1-vf1-rxtx-0
+    LiquidIO0-pf0-aux
 
+We cannot use netdev->name for naming the IRQs because:
 
-On Mon, Mar 13, 2017 at 12:44 AM, Hannes Frederic Sowa
-<hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org> wrote:
-> Hi,
->
-> On Sun, 2017-03-12 at 16:26 -0700, David Miller wrote:
->> From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
->> Date: Mon, 13 Mar 2017 00:01:24 +0100
->>
->> > afnetns behaves like ordinary namespaces: clone, unshare, setns syscalls
->> > can work with afnetns with one limitation: one cannot cross the realm
->> > of a network namespace while changing the afnetns compartement. To get
->> > into a new afnetns in a different net namespace, one must first change
->> > to the net namespace and afterwards switch to the desired afnetns.
->>
->> Please explain why this is useful, who wants this kind of facility,
->> and how it will be used.
->
-> Yes, I have to enhance the cover letter:
->
-> The work behind all this is to provide more dense container hosting.
-> Right now we lose performance, because all packets need to be forwarded
-> through either a bridge or must be routed until they reach the
-> containers. For example, we can't make use of early demuxing for the
-> incoming packets. We basically pass the networking stack twice for
-> every packet.
->
-> The usage is very much in line with how network namespaces are used
-> nowadays:
->
-> ip afnetns add afns-1
-> ip address add 192.168.1.1/24 dev eth0 afnetns afns-1
-> ip afnetns exec afns-1 /usr/sbin/httpd
->
-> this spawns a shell where all child processes will only have access to
-> the specific ip addresses, even though they do a wildcard bind. Source
-> address selection will also use only the ip addresses available to the
-> children.
->
-> In some sense it has lots of characteristics like ipvlan, allowing a
-> single MAC address to host lots of IP addresses which will end up in
-> different namespaces. Unlink ipvlan however, it will also solve the
-> problem around duplicate address detection and multiplexing packets to
-> the IGMP or MLD state machines.
->
-> The resource consumption in comparison with ordinary namespaces will be
-> much lower. All in all, we will have far less networking subsystems to
-> cross compared to normal netns solutions.
->
-> Some more information also in the first patch, which adds a
-> Documentation.
->
-> Bye,
-> Hannes
->
+    1.  Early during init, the PF and VF drivers require interrupts to
+        send/receive control data from the NIC firmware; so the PF and VF
+        must request IRQs long before the netdev struct is registered.
 
+    2.  The IRQ name can only be specified at the time it is requested.
+        It cannot be changed after that.
 
+Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 72 ++++++++++++++++++----
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 37 +++++++++--
+ .../net/ethernet/cavium/liquidio/liquidio_common.h |  5 ++
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |  3 +
+ 4 files changed, 101 insertions(+), 16 deletions(-)
 
--- 
-Michael Kerrisk Linux man-pages maintainer;
-http://www.kernel.org/doc/man-pages/
-Author of "The Linux Programming Interface", http://blog.man7.org/
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index be9c0e3..3c5de81 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -1076,16 +1076,35 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 	int i;
+ 	int num_ioq_vectors;
+ 	int num_alloc_ioq_vectors;
++	char *queue_irq_names = NULL;
++	char *aux_irq_name = NULL;
+ 
+ 	if (OCTEON_CN23XX_PF(oct) && oct->msix_on) {
+ 		oct->num_msix_irqs = oct->sriov_info.num_pf_rings;
+ 		/* one non ioq interrupt for handling sli_mac_pf_int_sum */
+ 		oct->num_msix_irqs += 1;
+ 
++		/* allocate storage for the names assigned to each irq */
++		oct->irq_name_storage =
++			kcalloc((MAX_IOQ_INTERRUPTS_PER_PF + 1), INTRNAMSIZ,
++				GFP_KERNEL);
++		if (!oct->irq_name_storage) {
++			dev_err(&oct->pci_dev->dev, "Irq name storage alloc failed...\n");
++			return -ENOMEM;
++		}
++
++		queue_irq_names = oct->irq_name_storage;
++		aux_irq_name = &queue_irq_names
++				[IRQ_NAME_OFF(MAX_IOQ_INTERRUPTS_PER_PF)];
++
+ 		oct->msix_entries = kcalloc(
+ 		    oct->num_msix_irqs, sizeof(struct msix_entry), GFP_KERNEL);
+-		if (!oct->msix_entries)
+-			return 1;
++		if (!oct->msix_entries) {
++			dev_err(&oct->pci_dev->dev, "Memory Alloc failed...\n");
++			kfree(oct->irq_name_storage);
++			oct->irq_name_storage = NULL;
++			return -ENOMEM;
++		}
+ 
+ 		msix_entries = (struct msix_entry *)oct->msix_entries;
+ 		/*Assumption is that pf msix vectors start from pf srn to pf to
+@@ -1103,7 +1122,9 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 			dev_err(&oct->pci_dev->dev, "unable to Allocate MSI-X interrupts\n");
+ 			kfree(oct->msix_entries);
+ 			oct->msix_entries = NULL;
+-			return 1;
++			kfree(oct->irq_name_storage);
++			oct->irq_name_storage = NULL;
++			return num_alloc_ioq_vectors;
+ 		}
+ 		dev_dbg(&oct->pci_dev->dev, "OCTEON: Enough MSI-X interrupts are allocated...\n");
+ 
+@@ -1111,9 +1132,12 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 
+ 		/** For PF, there is one non-ioq interrupt handler */
+ 		num_ioq_vectors -= 1;
++
++		snprintf(aux_irq_name, INTRNAMSIZ,
++			 "LiquidIO%u-pf%u-aux", oct->octeon_id, oct->pf_num);
+ 		irqret = request_irq(msix_entries[num_ioq_vectors].vector,
+-				     liquidio_legacy_intr_handler, 0, "octeon",
+-				     oct);
++				     liquidio_legacy_intr_handler, 0,
++				     aux_irq_name, oct);
+ 		if (irqret) {
+ 			dev_err(&oct->pci_dev->dev,
+ 				"OCTEON: Request_irq failed for MSIX interrupt Error: %d\n",
+@@ -1121,13 +1145,20 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 			pci_disable_msix(oct->pci_dev);
+ 			kfree(oct->msix_entries);
+ 			oct->msix_entries = NULL;
+-			return 1;
++			kfree(oct->irq_name_storage);
++			oct->irq_name_storage = NULL;
++			return irqret;
+ 		}
+ 
+ 		for (i = 0; i < num_ioq_vectors; i++) {
++			snprintf(&queue_irq_names[IRQ_NAME_OFF(i)], INTRNAMSIZ,
++				 "LiquidIO%u-pf%u-rxtx-%u",
++				 oct->octeon_id, oct->pf_num, i);
++
+ 			irqret = request_irq(msix_entries[i].vector,
+ 					     liquidio_msix_intr_handler, 0,
+-					     "octeon", &oct->ioq_vector[i]);
++					     &queue_irq_names[IRQ_NAME_OFF(i)],
++					     &oct->ioq_vector[i]);
+ 			if (irqret) {
+ 				dev_err(&oct->pci_dev->dev,
+ 					"OCTEON: Request_irq failed for MSIX interrupt Error: %d\n",
+@@ -1147,7 +1178,9 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 				pci_disable_msix(oct->pci_dev);
+ 				kfree(oct->msix_entries);
+ 				oct->msix_entries = NULL;
+-				return 1;
++				kfree(oct->irq_name_storage);
++				oct->irq_name_storage = NULL;
++				return irqret;
+ 			}
+ 			oct->ioq_vector[i].vector = msix_entries[i].vector;
+ 			/* assign the cpu mask for this msix interrupt vector */
+@@ -1165,15 +1198,29 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 		else
+ 			oct->flags |= LIO_FLAG_MSI_ENABLED;
+ 
++		/* allocate storage for the names assigned to the irq */
++		oct->irq_name_storage = kcalloc(1, INTRNAMSIZ, GFP_KERNEL);
++		if (!oct->irq_name_storage)
++			return -ENOMEM;
++
++		queue_irq_names = oct->irq_name_storage;
++
++		snprintf(&queue_irq_names[IRQ_NAME_OFF(0)], INTRNAMSIZ,
++			 "LiquidIO%u-pf%u-rxtx-%u",
++			 oct->octeon_id, oct->pf_num, 0);
++
+ 		irqret = request_irq(oct->pci_dev->irq,
+-				     liquidio_legacy_intr_handler, IRQF_SHARED,
+-				     "octeon", oct);
++				     liquidio_legacy_intr_handler,
++				     IRQF_SHARED,
++				     &queue_irq_names[IRQ_NAME_OFF(0)], oct);
+ 		if (irqret) {
+ 			if (oct->flags & LIO_FLAG_MSI_ENABLED)
+ 				pci_disable_msi(oct->pci_dev);
+ 			dev_err(&oct->pci_dev->dev, "Request IRQ failed with code: %d\n",
+ 				irqret);
+-			return 1;
++			kfree(oct->irq_name_storage);
++			oct->irq_name_storage = NULL;
++			return irqret;
+ 		}
+ 	}
+ 	return 0;
+@@ -1441,6 +1488,9 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 				pci_disable_msi(oct->pci_dev);
+ 		}
+ 
++		kfree(oct->irq_name_storage);
++		oct->irq_name_storage = NULL;
++
+ 	/* fallthrough */
+ 	case OCT_DEV_MSIX_ALLOC_VECTOR_DONE:
+ 		if (OCTEON_CN23XX_PF(oct))
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 9d5e035..aeaefcb 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -750,6 +750,7 @@ liquidio_msix_intr_handler(int irq __attribute__((unused)), void *dev)
+ static int octeon_setup_interrupt(struct octeon_device *oct)
+ {
+ 	struct msix_entry *msix_entries;
++	char *queue_irq_names = NULL;
+ 	int num_alloc_ioq_vectors;
+ 	int num_ioq_vectors;
+ 	int irqret;
+@@ -758,10 +759,25 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 	if (oct->msix_on) {
+ 		oct->num_msix_irqs = oct->sriov_info.rings_per_vf;
+ 
++		/* allocate storage for the names assigned to each irq */
++		oct->irq_name_storage =
++			kcalloc(MAX_IOQ_INTERRUPTS_PER_VF, INTRNAMSIZ,
++				GFP_KERNEL);
++		if (!oct->irq_name_storage) {
++			dev_err(&oct->pci_dev->dev, "Irq name storage alloc failed...\n");
++			return -ENOMEM;
++		}
++
++		queue_irq_names = oct->irq_name_storage;
++
+ 		oct->msix_entries = kcalloc(
+ 		    oct->num_msix_irqs, sizeof(struct msix_entry), GFP_KERNEL);
+-		if (!oct->msix_entries)
+-			return 1;
++		if (!oct->msix_entries) {
++			dev_err(&oct->pci_dev->dev, "Memory Alloc failed...\n");
++			kfree(oct->irq_name_storage);
++			oct->irq_name_storage = NULL;
++			return -ENOMEM;
++		}
+ 
+ 		msix_entries = (struct msix_entry *)oct->msix_entries;
+ 
+@@ -775,16 +791,23 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 			dev_err(&oct->pci_dev->dev, "unable to Allocate MSI-X interrupts\n");
+ 			kfree(oct->msix_entries);
+ 			oct->msix_entries = NULL;
+-			return 1;
++			kfree(oct->irq_name_storage);
++			oct->irq_name_storage = NULL;
++			return num_alloc_ioq_vectors;
+ 		}
+ 		dev_dbg(&oct->pci_dev->dev, "OCTEON: Enough MSI-X interrupts are allocated...\n");
+ 
+ 		num_ioq_vectors = oct->num_msix_irqs;
+ 
+ 		for (i = 0; i < num_ioq_vectors; i++) {
++			snprintf(&queue_irq_names[IRQ_NAME_OFF(i)], INTRNAMSIZ,
++				 "LiquidIO%u-vf%u-rxtx-%u",
++				 oct->octeon_id, oct->vf_num, i);
++
+ 			irqret = request_irq(msix_entries[i].vector,
+ 					     liquidio_msix_intr_handler, 0,
+-					     "octeon", &oct->ioq_vector[i]);
++					     &queue_irq_names[IRQ_NAME_OFF(i)],
++					     &oct->ioq_vector[i]);
+ 			if (irqret) {
+ 				dev_err(&oct->pci_dev->dev,
+ 					"OCTEON: Request_irq failed for MSIX interrupt Error: %d\n",
+@@ -800,7 +823,9 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 				pci_disable_msix(oct->pci_dev);
+ 				kfree(oct->msix_entries);
+ 				oct->msix_entries = NULL;
+-				return 1;
++				kfree(oct->irq_name_storage);
++				oct->irq_name_storage = NULL;
++				return irqret;
+ 			}
+ 			oct->ioq_vector[i].vector = msix_entries[i].vector;
+ 			/* assign the cpu mask for this msix interrupt vector */
+@@ -945,6 +970,8 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 			pci_disable_msix(oct->pci_dev);
+ 			kfree(oct->msix_entries);
+ 			oct->msix_entries = NULL;
++			kfree(oct->irq_name_storage);
++			oct->irq_name_storage = NULL;
+ 		}
+ 		/* Soft reset the octeon device before exiting */
+ 		if (oct->pci_dev->reset_fn)
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 294c6f3..4a07c0a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -100,6 +100,11 @@ enum octeon_tag_type {
+ 
+ #define BYTES_PER_DHLEN_UNIT        8
+ #define MAX_REG_CNT                 2000000U
++#define INTRNAMSIZ                  32
++#define IRQ_NAME_OFF(i)             ((i) * INTRNAMSIZ)
++#define MAX_IOQ_INTERRUPTS_PER_PF   (64 * 2)
++#define MAX_IOQ_INTERRUPTS_PER_VF   (8 * 2)
++
+ 
+ static inline u32 incr_index(u32 index, u32 count, u32 max)
+ {
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index c301a38..8c5d33e 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -517,6 +517,9 @@ struct octeon_device {
+ 
+ 	void *msix_entries;
+ 
++	/* when requesting IRQs, the names are stored here */
++	void *irq_name_storage;
++
+ 	struct octeon_sriov_info sriov_info;
+ 
+ 	struct octeon_pf_vf_hs_word pfvf_hsword;
