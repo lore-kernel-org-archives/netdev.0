@@ -1,55 +1,93 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 2/2] mpls: allow TTL propagation from IP
- packets to be configured
-Date: Mon, 13 Mar 2017 12:43:06 -0600
-Message-ID: <94d59fa1-cd13-5f43-ef1a-188e25f633ed@cumulusnetworks.com>
-References: <1488933990-14490-1-git-send-email-rshearma@brocade.com>
- <1489178605-30027-1-git-send-email-rshearma@brocade.com>
- <1489178605-30027-3-git-send-email-rshearma@brocade.com>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: [PATCH net-next v5 0/7] gtp: misc improvements
+Date: Mon, 13 Mar 2017 19:45:55 +0100 (CET)
+Message-ID: <1675883877.375949.1489430755546.JavaMail.zimbra@tpip.net>
+References: <20170309164302.13550-1-aschultz@tpip.net> <20170313164812.GA31925@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        roopa <roopa@cumulusnetworks.com>
-To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
+Cc: laforge <laforge@gnumonks.org>,
+        osmocom-net-gprs <osmocom-net-gprs@lists.osmocom.org>,
+        netdev <netdev@vger.kernel.org>
+To: pablo <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:34834 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752385AbdCMSnJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 14:43:09 -0400
-Received: by mail-pg0-f53.google.com with SMTP id b129so67328376pgc.2
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 11:43:08 -0700 (PDT)
-In-Reply-To: <1489178605-30027-3-git-send-email-rshearma@brocade.com>
+Received: from mail.tpip.net ([92.43.49.48]:60399 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750808AbdCMSp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 14:45:59 -0400
+In-Reply-To: <20170313164812.GA31925@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/10/17 1:43 PM, Robert Shearman wrote:
-> Allow TTL propagation from IP packets to MPLS packets to be
-> configured. Add a new optional LWT attribute, MPLS_IPTUNNEL_TTL, which
-> allows the TTL to be set in the resulting MPLS packet, with the value
-> of 0 having the semantics of enabling propagation of the TTL from the
-> IP header (i.e. non-zero values disable propagation).
-> 
-> Also allow the configuration to be overridden globally by reusing the
-> same sysctl to control whether the TTL is propagated from IP packets
-> into the MPLS header. If the per-LWT attribute is set then it
-> overrides the global configuration. If the TTL isn't propagated then a
-> default TTL value is used which can be configured via a new sysctl,
-> "net.mpls.default_ttl". This is kept separate from the configuration
-> of whether IP TTL propagation is enabled as it can be used in the
-> future when non-IP payloads are supported (i.e. where there is no
-> payload TTL that can be propagated).
-> 
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
-> ---
->  Documentation/networking/mpls-sysctl.txt |  8 ++++
->  include/net/mpls_iptunnel.h              |  2 +
->  include/net/netns/mpls.h                 |  1 +
->  include/uapi/linux/mpls_iptunnel.h       |  2 +
->  net/mpls/af_mpls.c                       | 11 +++++
->  net/mpls/mpls_iptunnel.c                 | 73 ++++++++++++++++++++++++++------
->  6 files changed, 84 insertions(+), 13 deletions(-)
+Hi Pablo,
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
-Tested-by: David Ahern <dsa@cumulusnetworks.com>
+----- On Mar 13, 2017, at 5:48 PM, pablo pablo@netfilter.org wrote:
+
+> On Thu, Mar 09, 2017 at 05:42:55PM +0100, Andreas Schultz wrote:
+>> Hi Pablo,
+>> 
+>> This is a resent of last series that missed the merge window. There
+>> are no changes compared to v4.
+>> 
+>> v4: Compared to v3 it contains mostly smallish naming and spelling fixes.
+>> It also drops the documentation patch, Harald did a better job with the
+>> documentation and the some things I described do not yet match the
+>> implementation.
+>> I'll readd the relevant parts with a follow up series.
+>> 
+>> This series lays the groundwork for removing the socket references from
+>> the GTP netdevice by removing duplicate code and simplifying the logic on
+>> some code paths.
+>> 
+>> It slighly changes the GTP genl API by making the socket parameters optional
+>> (though one of them is still required).
+>> 
+>> The removal of the socket references will break the 1:1 releation between
+>> GTP netdevice and GTP socket that prevents us to support multiple VRFs with
+>> overlapping IP addresse spaces attached to the same GTP-U entity (needed for
+>> multi APN support, coming a follow up series).
+>> 
+>> Pablo found a socket hold problem in v2. In order to solve that I had to
+>> switch the socket references from the struct socket to the internal
+>> struct sock. This should have no functionl impact, but we can now hang
+>> on to the reference without blocking user space from closing the GTP socket.
+> 
+> Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+Thanks, Pablo.
+ 
+> I personally don't like this podge hodge unsorted submissions, I don't
+> think they belong to the same series but you keep pushing with this
+> patchset in this same way, which is annoying.
+
+I don't think this a podge hodge series. There is a clear goal behind all
+those changes and every patch is a step towards this. When I tried to
+send the full series including the final change that ties everything
+together, I got told that this was way too much. Now, that I split it into
+a smaller series, I get told that there is no clear idea connecting those
+changes.
+
+Frankly, between the two options, I had no idea how else to submit this
+work.
+
+> In your follow up patchsets, please split them in smaller series that
+> are related.
+
+Now that the basic infrastructure changes are in place, the followup
+changes are much more focused.
+
+The IPv6 transport change might be challenge later one, but that will be
+a separate series anyway.
+
+> I would like you take the time to develop the VRF idea that you want
+> to introduce, I just would like that we avoid bloating the GTP tunnel
+> with features that we can just achieve via composite of different
+> subsystems.
+
+The VRF change is more about moving stuff around, it doesn't add much.
+But you'll see that for yourself when I send the changes.
+
+> Thank you.
+
+Thank you,
+Andreas
