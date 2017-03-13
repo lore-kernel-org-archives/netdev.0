@@ -1,66 +1,100 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] ipv6: make ECMP route replacement less greedy
-Date: Mon, 13 Mar 2017 23:21:44 +0800
-Message-ID: <CADvbK_e21HQ1PMkR2otbOxZsfYW9XZ_c1R3g085eDfsJC82Kkw@mail.gmail.com>
-References: <df56147ddfe635a61f29f651785c02c8c7c56e3d.1489403578.git.sd@queasysnail.net>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [patch net-next 10/10] mlxsw: spectrum_router: Don't abort on
+ l3mdev rules
+Date: Mon, 13 Mar 2017 17:22:25 +0200
+Message-ID: <20170313152225.GA8034@splinter.mtl.com>
+References: <1489390535-2566-1-git-send-email-jiri@resnulli.us>
+ <1489390713-2634-1-git-send-email-jiri@resnulli.us>
+ <1489390713-2634-10-git-send-email-jiri@resnulli.us>
+ <7ba7c3ca-f9ba-0ee1-7b56-f139bc4e1fc4@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>,
-        Michal Kubecek <mkubecek@suse.cz>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        shm@cumulusnetworks.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, lorenzo@google.com,
+        mateusz.bajorski@nokia.com
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:35963 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751089AbdCMPVq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:21:46 -0400
-Received: by mail-qk0-f196.google.com with SMTP id n141so37536819qke.3
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 08:21:45 -0700 (PDT)
-In-Reply-To: <df56147ddfe635a61f29f651785c02c8c7c56e3d.1489403578.git.sd@queasysnail.net>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55473 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750992AbdCMPW2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:22:28 -0400
+Content-Disposition: inline
+In-Reply-To: <7ba7c3ca-f9ba-0ee1-7b56-f139bc4e1fc4@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 8:28 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> Commit 27596472473a ("ipv6: fix ECMP route replacement") introduced a
-> loop that removes all siblings of an ECMP route that is being
-> replaced. However, this loop doesn't stop when it has replaced
-> siblings, and keeps removing other routes with a higher metric.
-> We also end up triggering the WARN_ON after the loop, because after
-> this nsiblings < 0.
->
-> Instead, stop the loop when we have taken care of all routes with the
-> same metric as the route being replaced.
->
->   Reproducer:
->   ===========
->     #!/bin/sh
->
->     ip netns add ns1
->     ip netns add ns2
->     ip -net ns1 link set lo up
->
->     for x in 0 1 2 ; do
->         ip link add veth$x netns ns2 type veth peer name eth$x netns ns1
->         ip -net ns1 link set eth$x up
->         ip -net ns2 link set veth$x up
->     done
->
->     ip -net ns1 -6 r a 2000::/64 nexthop via fe80::0 dev eth0 \
->             nexthop via fe80::1 dev eth1 nexthop via fe80::2 dev eth2
->     ip -net ns1 -6 r a 2000::/64 via fe80::42 dev eth0 metric 256
->     ip -net ns1 -6 r a 2000::/64 via fe80::43 dev eth0 metric 2048
->
->     echo "before replace, 3 routes"
->     ip -net ns1 -6 r | grep -v '^fe80\|^ff00'
->     echo
->
->     ip -net ns1 -6 r c 2000::/64 nexthop via fe80::4 dev eth0 \
->             nexthop via fe80::5 dev eth1 nexthop via fe80::6 dev eth2
->
->     echo "after replace, only 2 routes, metric 2048 is gone"
->     ip -net ns1 -6 r | grep -v '^fe80\|^ff00'
->
-> Fixes: 27596472473a ("ipv6: fix ECMP route replacement")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-Reviewed-by: Xin Long <lucien.xin@gmail.com>
+On Mon, Mar 13, 2017 at 08:59:11AM -0600, David Ahern wrote:
+> On 3/13/17 1:38 AM, Jiri Pirko wrote:
+> > From: Ido Schimmel <idosch@mellanox.com>
+> > 
+> > Now that port netdevs can be enslaved to a VRF master we need to make
+> > sure the device's routing tables won't be flushed upon the insertion of
+> > a l3mdev rule.
+> > 
+> > Note that we assume the notified l3mdev rule is a simple rule as used by
+> > the VRF master. We don't check for the presence of other selectors such
+> > as 'iif' and 'oif'.
+> > 
+> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> > ---
+> >  drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ++-
+> >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> > index de54382..fa73ee2 100644
+> > --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> > +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> > @@ -2552,7 +2552,8 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
+> >  		break;
+> >  	case FIB_EVENT_RULE_ADD: /* fall through */
+> >  	case FIB_EVENT_RULE_DEL:
+> > -		if (!fib_work->fr_info.rule->def)
+> > +		if (!fib_work->fr_info.rule->def &&
+> > +		    !fib_work->fr_info.rule->l3mdev)
+> >  			mlxsw_sp_router_fib4_abort(mlxsw_sp);
+> >  		fib_rule_put(fib_work->fr_info.rule);
+> >  		break;
+> > 
+> 
+> You do not want to abort if the default rules are re-ordered. For
+> example, the rule for the local table is moved from priority 0 to just
+> before the main. ie., from this order:
+
+Are you aware of configurations employing the VRF device and leaving the
+rule for the local table at priority 0?
+
+> 
+> $ ip ru ls
+> 0:	from all lookup local
+> 32766:	from all lookup main
+> 32767:	from all lookup default
+> 
+> to this order
+> $ ip ru ls
+> 1000:	from all lookup [l3mdev-table]
+> 32765:	from all lookup local
+> 32766:	from all lookup main
+> 32767:	from all lookup default
+> 
+> should not abort offloads.
+> 
+> The default flag added to rules in patch 1 is not really needed; you can
+> key off basic references to hardcoded table ids: RT_TABLE_MAIN and
+> RT_TABLE_LOCAL are set in stone. Simple rules (from all lookup X) where
+> only the priority changes should be enough information to not abort.
+
+OK. Will look into that. I didn't like having the local rule first, so
+this might the solution.
+
+> In addition, if rules are added that reference oif or iif that is not a
+> port netdev for this h/w then why abort offloads? e.g, consider PBR
+> rules related to the management interface.
+
+I'm aware, but not sure this belongs in this patchset. I prefer to deal
+with the l3mdev rule and re-ordering of the default rules first, then
+move to more advanced use cases.
+
+Thanks David.
