@@ -1,41 +1,65 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v7 0/6] Bluetooth: 6LoWPAN: Fix lladdr length
-Date: Mon, 13 Mar 2017 15:40:25 -0700 (PDT)
-Message-ID: <20170313.154025.2280737153222354061.davem@davemloft.net>
-References: <20170312081938.11700-1-luiz.dentz@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: debug ATU Age Time
+Date: Mon, 13 Mar 2017 15:42:36 -0700
+Message-ID: <b7d0e92f-45cb-929d-a724-2a582621f8e1@gmail.com>
+References: <20170313192043.12478-1-vivien.didelot@savoirfairelinux.com>
+ <20170313223932.GC14183@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, patrik.flykt-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-        aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-        linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170312081938.11700-1-luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Jason Cobham <jcobham@questertangent.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170313223932.GC14183@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Sun, 12 Mar 2017 10:19:32 +0200
-
-> From: Luiz Augusto von Dentz <luiz.von.dentz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+On 03/13/2017 03:39 PM, Andrew Lunn wrote:
+> On Mon, Mar 13, 2017 at 03:20:43PM -0400, Vivien Didelot wrote:
+>> The ATU ageing time value programmed in the switch is rounded up to the
+>> nearest multiple of its coefficient (variable depending on the model.)
+>>
+>> Add a debug message to inform the user about the exact programmed value.
+>>
+>> On 6352, "brctl setageing br0 18" gives "AgeTime set to 0x01 (15000 ms)"
+>> while on 6390 we get "AgeTime set to 0x05 (18750 ms)".
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> ---
+>>  drivers/net/dsa/mv88e6xxx/global1_atu.c | 9 ++++++++-
+>>  1 file changed, 8 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
+>> index f6cd3c939da4..bac34737b096 100644
+>> --- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
+>> +++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
+>> @@ -65,7 +65,14 @@ int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
+>>  	val &= ~0xff0;
+>>  	val |= age_time << 4;
+>>  
+>> -	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
+>> +	err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	dev_dbg(chip->dev, "AgeTime set to 0x%02x (%d ms)\n", age_time,
+>> +		age_time * coeff);
+>> +
 > 
-> These patches fixes lladdr length to be 6 bytes long and not 8 which cause
-> neighbor advertisement to be sent with wrong lladdr including FF:FE filler
-> bytes for eui64.
+> Hi Vivien
 > 
-> Note: This does not fix some of the existing crashes which I hope to address
-> in a different set.
-> 
-> v2: Make all code paths that generate a link-local from lladdr use the same
-> code.
-> v3: Use lowpan_iphc_uncompress_eui48_lladdr to generate the remote ip address.
-> v4: Handle comments from Stefan Schmidt.
-> v5: Add patch to fix IID format for Bluetooth
-> v6: Fix addrconf_ifid_eui48 to follow IID format for Bluetooth
-> v7: Rework addrconf_ifid_6lowpan so it doesn't use addrconf_ifid_eui48
+> You could put the dev_dbg before the mv88e6xxx_g1_write(), to keep the
+> code simpler. If this write fails, we expect a lot of other things to
+> go horribly wrong, so having one debug message being not quite accurate
+> is not important.
 
-Since this is predominantly bluetooth/6lowpan stuff, please merge this via
-the bluetooth tree.
-
-Thanks!
+The debug message would not be printed in case mv88e6xxx_g1_write()
+fails, also, having the message printed after the write occurred is a
+good way to make sure the write did make it through. Did I miss
+something in what you are suggesting here?
+-- 
+Florian
