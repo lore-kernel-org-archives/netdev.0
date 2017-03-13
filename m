@@ -1,59 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] r8152: fix NULL pointer dereference in r8152_poll
-Date: Mon, 13 Mar 2017 08:46:41 -0700
-Message-ID: <1489420001.28631.87.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170313124727.4681-1-petr.vorel@gmail.com>
-         <1489411084.28631.78.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1489411184.28631.80.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170313153745.wu7cf254obh2x2gn@dell5510>
-         <1489419849.28631.85.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Arcari <darcari@redhat.com>
+Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is
+ changed
+Date: Mon, 13 Mar 2017 11:50:50 -0400
+Message-ID: <5a3a435e-2ea5-343b-49e9-aff185eb73cc@redhat.com>
+References: <1489008801-120389-1-git-send-email-darcari@redhat.com>
+ <20170312.230919.811312629901809185.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com, davem@davemloft.net
-To: Petr Vorel <petr.vorel@gmail.com>
+Cc: netdev@vger.kernel.org, Pavel.Belous@aquantia.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33083 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753415AbdCMPqo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 11:46:44 -0400
-Received: by mail-pf0-f195.google.com with SMTP id v190so19401550pfb.0
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 08:46:43 -0700 (PDT)
-In-Reply-To: <1489419849.28631.85.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:48620 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751409AbdCMPuu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 11:50:50 -0400
+In-Reply-To: <20170312.230919.811312629901809185.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-03-13 at 08:44 -0700, Eric Dumazet wrote:
-> On Mon, 2017-03-13 at 16:37 +0100, Petr Vorel wrote:
-> > Hi Eric,
-> > 
-> > > > The proper work around is to enclose the napi_schedule() in a
-> > > > local_bh_enable()/local_bh_disable()  pair.
-> > 
-> > > Something like :
-> > > --- a/drivers/net/usb/r8152.c
-> > > +++ b/drivers/net/usb/r8152.c
-> > > @@ -3703,8 +3703,10 @@ static int rtl8152_resume(struct usb_interface *intf)
-> > >  			napi_enable(&tp->napi);
-> > >  			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-> > >  			smp_mb__after_atomic();
-> > > +			local_bh_disable();
-> > >  			if (!list_empty(&tp->rx_done))
-> > >  				napi_schedule(&tp->napi);
-> > > +			local_bh_enable();
-> > 
-> > Unfortunately this doesn't work. Code in r8152.c doesn't use
-> > local_bh_enable()/local_bh_disable(). I tried to lock it with
-> > spin_lock_bh()/spin_unlock_bh() and with mutex_lock()/mutex_unlock()
-> > but neither work.
+On 03/13/2017 02:09 AM, David Miller wrote:
+> From: David Arcari <darcari@redhat.com>
+> Date: Wed,  8 Mar 2017 16:33:21 -0500
 > 
-> The local_bh_disable() / local_bh_enable() definitely is the right
-> answer to the issue you described.
+>> When the aquantia device mtu is changed the net_device structure is not
+>> updated.  As a result the ip command does not properly reflect the mtu change.
+>>
+>> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+>> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+>> has a ndo_change_mtu routine.
+>>
+>> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+>>
+>> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+>> Signed-off-by: David Arcari <darcari@redhat.com>
 > 
-> It does not matter what code in r8152.c currently does.
+> Applied, thanks.
 > 
-> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=8cf699ec849f4ca1413cea01289bd7d37dbcc626
 
+Hi David,
 
-You also have to protect other napi_schedule(), like the ones in
-rtl_work_func_t() or rtl8152_post_reset()
+I see that my patch:
+
+"net: ethernet: aquantia: call set_irq_affinity_hint before free_irq"
+
+has been applied to net, but I don't see that this patch has been applied.
+
+Is there any chance that you replied to the wrong patch?  Or am I missing something?
+
+Thanks,
+
+-Dave
