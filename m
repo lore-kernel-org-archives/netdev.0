@@ -1,60 +1,49 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] bridge: drop netfilter fake rtable unconditionally
-Date: Mon, 13 Mar 2017 17:51:24 +0100
-Message-ID: <20170313165124.GA32021@salvia>
-References: <20170313163817.24447-1-fw@strlen.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net 1/3] cpsw/netcp: cpts depends on posix_timers
+Date: Mon, 13 Mar 2017 17:55:54 +0100
+Message-ID: <CAK8P3a3N6p6YfP+6Q7KQ-Sv5sPKfJZT2Bf3vJw9bzPAjGTr17g@mail.gmail.com>
+References: <20161216092017.2560717-1-arnd@arndb.de> <alpine.LFD.2.20.1612161317510.17914@knanqh.ubzr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        John Stultz <john.stultz@linaro.org>,
+        =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
+        <u.kleine-koenig@pengutronix.de>, WingMan Kwok <w-kwok2@ti.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35460 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752270AbdCMQvi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Mar 2017 12:51:38 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id C03FC1AAAF2
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 17:51:30 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A6413DA7FA
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 17:51:30 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 6E4BBDA816
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 17:51:28 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <20170313163817.24447-1-fw@strlen.de>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36013 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752397AbdCMQz4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:55:56 -0400
+In-Reply-To: <alpine.LFD.2.20.1612161317510.17914@knanqh.ubzr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 05:38:17PM +0100, Florian Westphal wrote:
-> Andreas reports kernel oops during rmmod of the br_netfilter module.
-> Hannes debugged the oops down to a NULL rt6info->rt6i_indev.
-> 
-> Problem is that br_netfilter has the nasty concept of adding a fake
-> rtable to skb->dst; this happens in a br_netfilter prerouting hook.
-> 
-> A second hook (in bridge LOCAL_IN) is supposed to remove these again
-> before the skb is handed up the stack.
-> 
-> However, on module unload hooks get unregistered which means an
-> skb could traverse the prerouting hook that attaches the fake_rtable,
-> while the 'fake rtable remove' hook gets removed from the hooklist
-> immediately after.
-> 
-> Fixes: 34666d467cbf1e2e3c7 ("netfilter: bridge: move br_netfilter out of the core")
-> Reported-by: Andreas Karis <akaris@redhat.com>
-> Debugged-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  David, I know you *love* the fake_rtable turd, but I think
->  this patch should go directly via net and not nf tree.
->  After all, this adds to bridge and removes from the netfilter part.
+On Fri, Dec 16, 2016 at 7:18 PM, Nicolas Pitre <nicolas.pitre@linaro.org> wrote:
+> On Fri, 16 Dec 2016, Arnd Bergmann wrote:
+>
+>> With posix timers having become optional, we get a build error with
+>> the cpts time sync option of the CPSW driver:
+>>
+>> drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
+>> drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
+>>
+>> It really makes no sense to build this driver if we can't use PTP,
+>> so it's better to go back to 'select PTP_1588_CLOCK' but instead
+>> add a dependency on POSIX_TIMERS.
+>
+> Why not depend on PTP_1588_CLOCK directly instead?
 
-If this helps speed up this.
+Sorry for dropping the ball on this. I just noticed my two patches in my patch
+are still required, so I'm resending them now.
 
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+I think using 'select' here is better for consistency as we use 'imply'
+elsewhere, and mixing the two might cause circular dependencies.
 
-I also love this bridge netfilter Frankenstein a lot. Looking forward
-you kill this via native bridge conntrack support for nf_tables.
+If you still have concerns about this, please follow up on the resend.
 
-Thanks.
+      Arnd
