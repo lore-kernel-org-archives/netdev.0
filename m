@@ -1,80 +1,193 @@
-From: Erez Shitrit <erezsh@mellanox.com>
-Subject: [RFC v1 for accelerated IPoIB 03/25] IB/ipoib: Rename qpn to dqpn in ipoib_send and post_send functions
-Date: Mon, 13 Mar 2017 20:31:14 +0200
-Message-ID: <1489429896-10781-4-git-send-email-erezsh@mellanox.com>
+From: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [RFC v1 for accelerated IPoIB 13/25] net/mlx5e: Export resource creation function to be used in IB link
+Date: Mon, 13 Mar 2017 20:31:24 +0200
+Message-ID: <1489429896-10781-14-git-send-email-erezsh@mellanox.com>
 References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        valex@mellanox.com, leonro@mellanox.com, saedm@mellanox.com,
-        erezsh@dev.mellanox.co.il, Erez Shitrit <erezsh@mellanox.com>
-To: dledford@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49704 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752742AbdCMScB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 14:32:01 -0400
-In-Reply-To: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489429896-10781-1-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+mlx5i_attach that creates the resources of IB network device.
+mlx5i_detach cleans resources for IB device.
+
+Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/ulp/ipoib/ipoib.h    | 2 +-
- drivers/infiniband/ulp/ipoib/ipoib_ib.c | 8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 122 +++++++++++++++-------
+ 1 file changed, 87 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
-index b3900b253ad5..d94a7a953338 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib.h
-+++ b/drivers/infiniband/ulp/ipoib/ipoib.h
-@@ -483,7 +483,7 @@ static inline void ipoib_put_ah(struct ipoib_ah *ah)
- int ipoib_add_umcast_attr(struct net_device *dev);
- 
- void ipoib_send(struct net_device *dev, struct sk_buff *skb,
--		struct ipoib_ah *address, u32 qpn);
-+		struct ipoib_ah *address, u32 dqpn);
- void ipoib_reap_ah(struct work_struct *work);
- 
- struct ipoib_path *__path_find(struct net_device *dev, void *gid);
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-index 5d732c5f01ee..dd5fb2964e63 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-@@ -514,7 +514,7 @@ void ipoib_send_comp_handler(struct ib_cq *cq, void *dev_ptr)
- 
- static inline int post_send(struct ipoib_dev_priv *priv,
- 			    unsigned int wr_id,
--			    struct ib_ah *address, u32 qpn,
-+			    struct ib_ah *address, u32 dqpn,
- 			    struct ipoib_tx_buf *tx_req,
- 			    void *head, int hlen)
- {
-@@ -524,7 +524,7 @@ static inline int post_send(struct ipoib_dev_priv *priv,
- 	ipoib_build_sge(priv, tx_req);
- 
- 	priv->tx_wr.wr.wr_id	= wr_id;
--	priv->tx_wr.remote_qpn	= qpn;
-+	priv->tx_wr.remote_qpn	= dqpn;
- 	priv->tx_wr.ah		= address;
- 
- 	if (head) {
-@@ -539,7 +539,7 @@ static inline int post_send(struct ipoib_dev_priv *priv,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 87881f9ddf35..5b3c2e67607f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3844,6 +3844,54 @@ static void mlx5e_nic_disable(struct mlx5e_priv *priv)
+ 	mlx5_lag_remove(mdev);
  }
  
- void ipoib_send(struct net_device *dev, struct sk_buff *skb,
--		struct ipoib_ah *address, u32 qpn)
-+		struct ipoib_ah *address, u32 dqpn)
- {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
- 	struct ipoib_tx_buf *tx_req;
-@@ -621,7 +621,7 @@ void ipoib_send(struct net_device *dev, struct sk_buff *skb,
- 	skb_dst_drop(skb);
++static int mlx5n_attach_netdev_common(struct mlx5_core_dev *mdev,
++				      struct mlx5e_priv *priv)
++{
++	const struct mlx5e_profile *profile;
++	struct net_device *netdev;
++	int err;
++
++	netdev = priv->netdev;
++	profile = priv->profile;
++	clear_bit(MLX5E_STATE_DESTROYING, &priv->state);
++
++	err = profile->init_tx(priv);
++	if (err)
++		goto out;
++
++	err = mlx5e_open_drop_rq(priv);
++	if (err) {
++		mlx5_core_err(mdev, "open drop rq failed, %d\n", err);
++		goto err_cleanup_tx;
++	}
++
++	err = profile->init_rx(priv);
++	if (err)
++		goto err_close_drop_rq;
++
++	mlx5e_create_q_counter(priv);
++
++	if (profile->enable)
++		profile->enable(priv);
++
++	rtnl_lock();
++	if (netif_running(netdev))
++		mlx5e_open(netdev);
++	netif_device_attach(netdev);
++	rtnl_unlock();
++
++	return 0;
++
++err_close_drop_rq:
++	mlx5e_close_drop_rq(priv);
++
++err_cleanup_tx:
++	profile->cleanup_tx(priv);
++
++out:
++	return err;
++}
++
+ static void mlx5i_nic_init(struct mlx5_core_dev *mdev,
+ 			   struct net_device *netdev,
+ 			   const struct mlx5e_profile *profile,
+@@ -3942,6 +3990,42 @@ struct net_device *mlx5i_create_netdev(struct mlx5_core_dev *mdev,
+ }
+ EXPORT_SYMBOL(mlx5i_create_netdev);
  
- 	rc = post_send(priv, priv->tx_head & (ipoib_sendq_size - 1),
--		       address->ah, qpn, tx_req, phead, hlen);
-+		       address->ah, dqpn, tx_req, phead, hlen);
- 	if (unlikely(rc)) {
- 		ipoib_warn(priv, "post_send failed, error %d\n", rc);
- 		++dev->stats.tx_errors;
++int mlx5i_attach(struct mlx5_core_dev *mdev, void *vpriv)
++{
++	struct mlx5e_priv *priv = vpriv;
++	struct net_device *netdev = priv->netdev;
++	int err;
++
++	if (netif_device_present(netdev))
++		return 0;
++
++	err = mlx5e_create_mdev_resources(mdev);
++	if (err)
++		return err;
++
++	err = mlx5n_attach_netdev_common(mdev, priv);
++	if (err) {
++		mlx5e_destroy_mdev_resources(mdev);
++		return err;
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(mlx5i_attach);
++
++void mlx5i_detach(struct mlx5_core_dev *mdev, void *vpriv)
++{
++	struct mlx5e_priv *priv = vpriv;
++	struct net_device *netdev = priv->netdev;
++
++	if (!netif_device_present(netdev))
++		return;
++
++	mlx5e_detach_netdev(mdev, netdev);
++	mlx5e_destroy_mdev_resources(mdev);
++}
++EXPORT_SYMBOL(mlx5i_detach);
++
+ static const struct mlx5e_profile mlx5e_nic_profile = {
+ 	.init		   = mlx5e_nic_init,
+ 	.cleanup	   = mlx5e_nic_cleanup,
+@@ -3996,31 +4080,17 @@ struct net_device *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
+ 
+ int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv)
+ {
+-	const struct mlx5e_profile *profile;
+ 	struct net_device *netdev;
+ 	u16 max_mtu;
+ 	int err;
+ 
+ 	netdev = priv->netdev;
+-	profile = priv->profile;
+-	clear_bit(MLX5E_STATE_DESTROYING, &priv->state);
+-
+-	err = profile->init_tx(priv);
+-	if (err)
+-		goto out;
+ 
+-	err = mlx5e_open_drop_rq(priv);
++	err = mlx5n_attach_netdev_common(mdev, priv);
+ 	if (err) {
+-		mlx5_core_err(mdev, "open drop rq failed, %d\n", err);
+-		goto err_cleanup_tx;
++		mlx5_core_err(mdev, "failed attach netdev %d\n", err);
++		return err;
+ 	}
+-
+-	err = profile->init_rx(priv);
+-	if (err)
+-		goto err_close_drop_rq;
+-
+-	mlx5e_create_q_counter(priv);
+-	//TBD do i need to change that?
+ 	mlx5e_init_l2_addr(priv);
+ 
+ 	/* MTU range: 68 - hw-specific max */
+@@ -4030,25 +4100,7 @@ int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv)
+ 
+ 	mlx5e_set_dev_port_mtu(netdev);
+ 
+-	if (profile->enable)
+-		profile->enable(priv);
+-
+-	rtnl_lock();
+-	if (netif_running(netdev))
+-		mlx5e_open(netdev);
+-	netif_device_attach(netdev);
+-	rtnl_unlock();
+-
+ 	return 0;
+-
+-err_close_drop_rq:
+-	mlx5e_close_drop_rq(priv);
+-
+-err_cleanup_tx:
+-	profile->cleanup_tx(priv);
+-
+-out:
+-	return err;
+ }
+ 
+ static void mlx5e_register_vport_rep(struct mlx5_core_dev *mdev)
 -- 
 1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
