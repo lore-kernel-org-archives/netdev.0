@@ -1,77 +1,111 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Mon, 13 Mar 2017 11:20:00 +0200
-Message-ID: <CALzJLG_2iO+DBsPZVRsoebdw2cv_boYywP_vHwgCh7+qooaOdg@mail.gmail.com>
-References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
- <1487780558.9415.81.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0UcXhy3V_iSYFCWqPzdu77v=3-4FEXSyZEiUcB=Y_wGnVw@mail.gmail.com>
- <1487787706.9415.86.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0Uda3Q6MTCdFf2eR_5Sw9KMTzGrnTosxh2iFT6Sn6QCwrw@mail.gmail.com>
- <1487815618.9415.101.camel@edumazet-glaptop3.roam.corp.google.com>
- <1489330636.28631.55.camel@edumazet-glaptop3.roam.corp.google.com>
- <1489332566.28631.57.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG-0V=o95so59ua34uNV8Zp_imYZxP883eXnsPg38f1mfg@mail.gmail.com> <1489337398.28631.58.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCHv3 1/4] rds: ib: drop unnecessary rdma_reject
+Date: Mon, 13 Mar 2017 11:23:27 +0200
+Message-ID: <20170313092327.GK2079@mtr-leonro.local>
+References: <1489383828-7699-1-git-send-email-yanjun.zhu@oracle.com>
+ <1489383828-7699-2-git-send-email-yanjun.zhu@oracle.com>
+ <20170313063224.GJ2079@mtr-leonro.local>
+ <58C63F06.6090804@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:36444 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752502AbdCMJUh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 05:20:37 -0400
-Received: by mail-qt0-f180.google.com with SMTP id r45so26969037qte.3
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 02:20:31 -0700 (PDT)
-In-Reply-To: <1489337398.28631.58.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="K1n7F7fSdjvFAEnM"
+Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
+To: Yanjun Zhu <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <58C63F06.6090804-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 12, 2017 at 6:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2017-03-12 at 17:49 +0200, Saeed Mahameed wrote:
->> On Sun, Mar 12, 2017 at 5:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Sun, 2017-03-12 at 07:57 -0700, Eric Dumazet wrote:
->> >
->> >> Problem is XDP TX :
->> >>
->> >> I do not see any guarantee mlx4_en_recycle_tx_desc() runs while the NAPI
->> >> RX is owned by current cpu.
->> >>
->> >> Since TX completion is using a different NAPI, I really do not believe
->> >> we can avoid an atomic operation, like a spinlock, to protect the list
->> >> of pages ( ring->page_cache )
->> >
->> > A quick fix for net-next would be :
->> >
->>
->> Hi Eric, Good catch.
->>
->> I don't think we need to complicate with an expensive spinlock,
->>  we can simply fix this by not enabling interrupts on XDP TX CQ (not
->> arm this CQ at all).
->> and handle XDP TX CQ completion from the RX NAPI context, in a serial
->> (Atomic) manner before handling RX completions themselves.
->> This way locking is not required since all page cache handling is done
->> from the same context (RX NAPI).
->>
->> This is how we do this in mlx5, and this is the best approach
->> (performance wise) since we dealy XDP TX CQ completions handling
->> until we really need the space they hold (On new RX packets).
+
+--K1n7F7fSdjvFAEnM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Mon, Mar 13, 2017 at 02:41:10PM +0800, Yanjun Zhu wrote:
 >
-> SGTM, can you provide the patch for mlx4 ?
+>
+> On 2017/3/13 14:32, Leon Romanovsky wrote:
+> > On Mon, Mar 13, 2017 at 01:43:45AM -0400, Zhu Yanjun wrote:
+> > > When rdma_accept fails, rdma_reject is called in it. As such, it is
+> > > not necessary to execute rdma_reject again.
+> > It is not always correct, according to the code, rdma_accept can fail
+> > and will return EINVAL and skip calling to rdma_reject.
+> Sure. When -EINVAL is returned, By this function cma_comp(id_priv,
+> RDMA_CM_CONNECT), the connection
+> is lost. As such, it does not matter whether sending rdma_reject or not.
+
+Thanks for the explanation..
+
+>
+> Zhu Yanjun
+> >
+> > 3725 int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
+> > 3726 {
+> > 3727         struct rdma_id_private *id_priv;
+> > 3728         int ret;
+> > 3729
+> > 3730         id_priv = container_of(id, struct rdma_id_private, id);
+> > 3731
+> > 3732         id_priv->owner = task_pid_nr(current);
+> > 3733
+> > 3734         if (!cma_comp(id_priv, RDMA_CM_CONNECT))
+> > 3735                 return -EINVAL;
+> > 3736
+> >
+> >
+> > > Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> > > Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> > > Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> > > Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> > > ---
+> > >   net/rds/ib_cm.c | 5 ++---
+> > >   1 file changed, 2 insertions(+), 3 deletions(-)
+> > >
+> > > diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+> > > index ce3775a..4b9405c 100644
+> > > --- a/net/rds/ib_cm.c
+> > > +++ b/net/rds/ib_cm.c
+> > > @@ -677,9 +677,8 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
+> > >   		event->param.conn.initiator_depth);
+> > >
+> > >   	/* rdma_accept() calls rdma_reject() internally if it fails */
+> > > -	err = rdma_accept(cm_id, &conn_param);
+> > > -	if (err)
+> > > -		rds_ib_conn_error(conn, "rdma_accept failed (%d)\n", err);
+> > > +	if (rdma_accept(cm_id, &conn_param))
+> > > +		rds_ib_conn_error(conn, "rdma_accept failed\n");
+> > >
+> > >   out:
+> > >   	if (conn)
+> > > --
+> > > 2.7.4
+> > >
 >
 
-of course, We will send it soon.
+--K1n7F7fSdjvFAEnM
+Content-Type: application/pgp-signature; name="signature.asc"
 
-> Thanks !
->
->
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAljGZQ8ACgkQ5GN7iDZy
+WKei+xAAj3X+Jv3hjhCpT6sZ7P22ou3WgOkVPkbHI7D5+XVhxue/UMJVs4lYM3XH
+yClbg4yJw16hD4JP6pCv91e7JP+QUDe+AQfo7vcdswsyufvKYTjVKjp0W69wQIug
+IJRkH6kRKut6Knd6plyISNkH4cWJXHp35dMGBIbftiKFQVqkStBN7vkQN6/fqRw6
+0L5vBiS+onsDK6rbu6pn6QPoV4UgFi1vVBT7PfrzfsZpGbQIQz1BwItpaX3NCG64
+ugD5oJ8vZ49aBaUljP9NoZsnPsq5fKJrbrwHfp8ZcEXubTBG7d5gJmmUdJ2PuMzb
+YuuRK/6to/bYTQrVlIk4vdjx99yoPVFvloaaOV3AfSxronoKneIzcZ69MtvOQsUR
+mj96fDna7r66pQi91Ztks+F2hgZVwDwPTC4CRzBCflHYK+kwLoG2ivtobwrfA19b
+/uis4umfnV65OEz4s57USxYraJMseh9D3t0su4+8SYlHrnfD7a3kuHmRJdwota0b
+7FbeHBBFB1autgT+ZDC3uYd2xiqVeKaHCMaPf/E4GOW0e8ZpHXYi92CL0VyWDXIC
+MKrrKrPliVIItsd1cn2W5BtileKD2xVA8pKvgVsvMllQeaZMy7bYUWrQWG++5ZdV
+bsliRit4CZ25JAN/cBK7QpA2LBH/tMurLIUAipHna4Nh5kwgPfs=
+=2ZHE
+-----END PGP SIGNATURE-----
+
+--K1n7F7fSdjvFAEnM--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
