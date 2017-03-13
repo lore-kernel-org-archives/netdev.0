@@ -1,71 +1,69 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [RESEND PATCH -net] cpsw/netcp: work around reverse cpts dependency
-Date: Mon, 13 Mar 2017 17:59:04 +0100
-Message-ID: <20170313165927.1389014-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Richard Cochran <richardcochran@gmail.com>,
-        WingMan Kwok <w-kwok2@ti.com>,
-        Nicolas Pitre <nicolas.pitre@linaro.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Greg <gvrose8192@gmail.com>
+Subject: Re: Legacy features in PCI Express devices
+Date: Mon, 13 Mar 2017 04:08:03 -0700
+Message-ID: <1489403283.21692.1.camel@gmail.com>
+References: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-pci <linux-pci@vger.kernel.org>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        David Laight <david.laight@aculab.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+        Phuong Nguyen <phuong_nguyen@sigmadesigns.com>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        netdev <netdev@vger.kernel.org>,
+        Tim Harvey <tharvey@gateworks.com>,
+        Arnd Bergmann <arnd@arndb.de>
+To: Mason <slash.tmp@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34582 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752799AbdCMRHC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:07:02 -0400
+In-Reply-To: <ef5c9778-fbae-9f4f-ac2e-29b8597537a5@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dependency is reversed: cpsw and netcp call into cpts,
-but cpts depends on the other two in Kconfig. This can lead
-to cpts being a loadable module and its callers built-in:
+On Mon, 2017-03-13 at 17:10 +0100, Mason wrote:
+> Hello,
+> 
+> There are two revisions of our PCI Express controller.
+> 
+> Rev 1 did not support the following features:
+> 
+>   1) legacy PCI interrupt delivery (INTx signals)
 
-drivers/net/ethernet/ti/cpsw.o: In function `cpsw_remove':
-cpsw.c:(.text.cpsw_remove+0xd0): undefined reference to `cpts_release'
-drivers/net/ethernet/ti/cpsw.o: In function `cpsw_rx_handler':
-cpsw.c:(.text.cpsw_rx_handler+0x2dc): undefined reference to `cpts_rx_timestamp'
-drivers/net/ethernet/ti/cpsw.o: In function `cpsw_tx_handler':
-cpsw.c:(.text.cpsw_tx_handler+0x7c): undefined reference to `cpts_tx_timestamp'
-drivers/net/ethernet/ti/cpsw.o: In function `cpsw_ndo_stop':
+I'm not sure about this...
 
-As a workaround, I'm introducing another Kconfig symbol to
-control the compilation of cpts, while making the actual
-module controlled by a silent symbol that is =y when necessary.
+>   2) I/O address space
 
-Fixes: 6246168b4a38 ("net: ethernet: ti: netcp: add support of cpts")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
-Originally submitted on Dec 16, still needed for v4.10 and v4.11-rc2
----
- drivers/net/ethernet/ti/Kconfig | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+But yes, definitely some support this.
 
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index 296c8efd0038..d42257fbe9d9 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -73,8 +73,8 @@ config TI_CPSW
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called cpsw.
- 
--config TI_CPTS
--	tristate "TI Common Platform Time Sync (CPTS) Support"
-+config TI_CPTS_ENABLE
-+	bool "TI Common Platform Time Sync (CPTS) Support"
- 	depends on TI_CPSW || TI_KEYSTONE_NETCP
- 	imply PTP_1588_CLOCK
- 	---help---
-@@ -83,6 +83,12 @@ config TI_CPTS
- 	  The unit can time stamp PTP UDP/IPv4 and Layer 2 packets, and the
- 	  driver offers a PTP Hardware Clock.
- 
-+config TI_CPTS
-+	tristate
-+	depends on TI_CPTS_ENABLE
-+	default y if TI_CPSW=y || TI_KEYSTONE_NETCP=y
-+	default m
-+
- config TI_KEYSTONE_NETCP
- 	tristate "TI Keystone NETCP Core Support"
- 	select TI_CPSW_ALE
--- 
-2.9.0
+We're working on a new type of network controller that uses I/O for some
+types of low latency feature support.
+
+- Greg
+
+> 
+> Internally, someone stated that such missing support would prevent
+> some PCIe cards from working with our controller.
+> 
+> Are there really modern PCIe cards that require 1) and/or 2)
+> to function?
+> 
+> Can someone provide examples of such cards, so that I may test them
+> on both revisions?
+> 
+> I was told to check ath9k-based cards. Any other examples?
+> 
+> Looking around, I came across this thread:
+> http://lists.infradead.org/pipermail/linux-arm-kernel/2016-March/418254.html
+> "i.MX6 PCIe: Fix imx6_pcie_deassert_core_reset() polarity"
+> 
+> IIUC, although some PCIe boards do support MSI, the driver might not
+> put in the work to use that infrastructure, and instead reverts to
+> legacy interrupts. (So it is a SW issue, in a sense.)
+> 
+> Regards.
