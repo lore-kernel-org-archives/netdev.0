@@ -1,41 +1,78 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH] net: usb: r8152: use new api ethtool_{get|set}_link_ksettings
-Date: Mon, 13 Mar 2017 09:25:36 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB201A2DC71@RTITMBSV06.realtek.com.tw>
-References: <1489354918-6650-1-git-send-email-tremyfr@gmail.com>
+From: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] 4.9.13 brcmfmac: fix use-after-free on resume
+Date: Mon, 13 Mar 2017 10:33:27 +0100
+Message-ID: <1a978960-3962-0eda-15b0-b1259b21e58f@broadcom.com>
+References: <CAMVG2stHA9qSUiRFBW=-4jhSMk-o7Frext+Qf9JK3Fo822XHhw@mail.gmail.com>
+ <3626494c-8482-d003-1c83-e6171f6990a8@broadcom.com>
+ <CAMVG2st=ZW-HhqQOMnDunjSJHj8Zw_K2+w2_8AVsHQePN3Ow9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Philippe Reynes <tremyfr@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "jarod@redhat.com" <jarod@redhat.com>,
-        "mario_limonciello@dell.com" <mario_limonciello@dell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([211.75.126.72]:40255 "EHLO
-        rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752020AbdCMJ0G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 05:26:06 -0400
-In-Reply-To: <1489354918-6650-1-git-send-email-tremyfr@gmail.com>
-Content-Language: zh-TW
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Daniel J Blueman <daniel-JCXMqzvhRcvYtjvyW6yDsg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMVG2st=ZW-HhqQOMnDunjSJHj8Zw_K2+w2_8AVsHQePN3Ow9w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Philippe Reynes [mailto:tremyfr@gmail.com]
-> Sent: Monday, March 13, 2017 5:42 AM
-> Subject: [PATCH] net: usb: r8152: use new api ethtool_{get|set}_link_ksettings
+On 6-3-2017 15:50, Daniel J Blueman wrote:
+> On 6 March 2017 at 21:00, Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+>> + linux-wireless
+>>
+>> On 6-3-2017 8:14, Daniel J Blueman wrote:
+>>> KASAN reported 'struct wireless_dev wdev' was read after being freed.
+>>> Fix by freeing after the access.
+>>
+>> I would rather like to see the KASAN report, because something is off
+>> here. This function is called with wdev as a parameter so how can it be
+>> accessed after free here? brcmf_remove_interface() does not free the
+>> wdev nor the brcmf_cfg80211_vif instance which contains the wdev.
+>>
+>> Regards,
+>> Arend
+>>
+>>> Signed-off-by: Daniel J Blueman <daniel-JCXMqzvhRcvYtjvyW6yDsg@public.gmane.org>
+>>>
+>>> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>>> b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>>> index de19c7c..aa0f470 100644
+>>> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>>> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>>> @@ -2288,12 +2288,13 @@ int brcmf_p2p_del_vif(struct wiphy *wiphy,
+>>> struct wireless_dev *wdev)
+>>>                 else
+>>>                         err = 0;
+>>>         }
+>>> -       brcmf_remove_interface(vif->ifp, true);
+>>>
+>>> -       brcmf_cfg80211_arm_vif_event(cfg, NULL);
+>>>         if (vif->wdev.iftype != NL80211_IFTYPE_P2P_DEVICE)
+>>>                 p2p->bss_idx[P2PAPI_BSSCFG_CONNECTION].vif = NULL;
+>>>
+>>> +       brcmf_remove_interface(vif->ifp, true);
+>>> +       brcmf_cfg80211_arm_vif_event(cfg, NULL);
+>>> +
+>>>         return err;
+>>>  }
 > 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
-> 
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> ---
->  drivers/net/usb/r8152.c |   21 ++++++++++++---------
->  1 files changed, 12 insertions(+), 9 deletions(-)
+> Sure, https://quora.org/kernel/brcmfmac/dmesg.txt
 
-Acked-by: Hayes Wang <hayeswang@realtek.com>
+So this dmesg looks to be about a separate issue during resume, which
+you sent an email about earlier [1] which is about using wiphy struct
+after free. However, back to this I further checked the code and it
+seems the vif is indeed freed through the netdev destructor callback
+upon calling brcmf_remove_inteface(). However, I would prefer to store
+vif->wdev.iftype in a local variable and avoid changing the order of the
+calls in the code.
+
+Regards,
+Arend
+
+[1] http://marc.info/?l=linux-netdev&m=148878437808750&w=2
+
+> vmlinux, cfg80211.o, brcmfmac.o and config are in the same path; this
+> is against v4.9.13 stock.
