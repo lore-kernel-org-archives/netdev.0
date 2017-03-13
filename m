@@ -1,72 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next RFC v1 00/27] afnetns: new namespace type for
- separation on protocol level
-Date: Mon, 13 Mar 2017 00:44:39 +0100
-Message-ID: <1489362279.2283.1.camel@stressinduktion.org>
-References: <20170312230151.5185-1-hannes@stressinduktion.org>
-         <20170312.162613.1105038945335893886.davem@davemloft.net>
+From: Yanjun Zhu <yanjun.zhu@oracle.com>
+Subject: Re: [PATCHv2 1/4] rds: ib: drop unnecessary rdma_reject
+Date: Mon, 13 Mar 2017 08:59:28 +0800
+Message-ID: <58C5EEF0.4050806@oracle.com>
+References: <1489306078-3354-1-git-send-email-yanjun.zhu@oracle.com>
+ <20170312193357.GH2079@mtr-leonro.local>
+ <5ad1f78a-f558-7b26-7a31-95cd7507237f@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        rds-devel@oss.oracle.com
+To: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>,
+        Leon Romanovsky <leon@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:34661 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751420AbdCLXor (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 19:44:47 -0400
-In-Reply-To: <20170312.162613.1105038945335893886.davem@davemloft.net>
+Received: from aserp1040.oracle.com ([141.146.126.69]:29767 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755792AbdCMA7L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Mar 2017 20:59:11 -0400
+In-Reply-To: <5ad1f78a-f558-7b26-7a31-95cd7507237f@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Sun, 2017-03-12 at 16:26 -0700, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Mon, 13 Mar 2017 00:01:24 +0100
-> 
-> > afnetns behaves like ordinary namespaces: clone, unshare, setns syscalls
-> > can work with afnetns with one limitation: one cannot cross the realm
-> > of a network namespace while changing the afnetns compartement. To get
-> > into a new afnetns in a different net namespace, one must first change
-> > to the net namespace and afterwards switch to the desired afnetns.
-> 
-> Please explain why this is useful, who wants this kind of facility,
-> and how it will be used.
 
-Yes, I have to enhance the cover letter:
+On 2017/3/13 3:43, santosh.shilimkar@oracle.com wrote:
+> On 3/12/17 12:33 PM, Leon Romanovsky wrote:
+>> On Sun, Mar 12, 2017 at 04:07:55AM -0400, Zhu Yanjun wrote:
+>>> When rdma_accept fails, rdma_reject is called in it. As such, it is
+>>> not necessary to execute rdma_reject again.
+>>>
+>>> Cc: Joe Jin <joe.jin@oracle.com>
+>>> Cc: Junxiao Bi <junxiao.bi@oracle.com>
+>>> Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+>>> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+>>> ---
+>>> Change from v1 to v2:
+>>>   Add the acker.
+>>>
+>>>  net/rds/ib_cm.c | 3 +--
+>>>  1 file changed, 1 insertion(+), 2 deletions(-)
+>>>
+>>> diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+>>> index ce3775a..eca3d5f 100644
+>>> --- a/net/rds/ib_cm.c
+>>> +++ b/net/rds/ib_cm.c
+>>> @@ -677,8 +677,7 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id 
+>>> *cm_id,
+>>>          event->param.conn.initiator_depth);
+>>>
+>>>      /* rdma_accept() calls rdma_reject() internally if it fails */
+>>> -    err = rdma_accept(cm_id, &conn_param);
+>>> -    if (err)
+>>> +    if (rdma_accept(cm_id, &conn_param))
+>>>          rds_ib_conn_error(conn, "rdma_accept failed (%d)\n", err);
+>>
+>> You omitted initialization of "err" variable which you print here ^^^^^.
+>>
+> Its inited by rds_ib_setup_qp() but you are right. It will print
+> failed with error = 0. :-)
+>
+> Zhu, please drop that 'err' from the message.
+OK. I will do.
 
-The work behind all this is to provide more dense container hosting.
-Right now we lose performance, because all packets need to be forwarded
-through either a bridge or must be routed until they reach the
-containers. For example, we can't make use of early demuxing for the
-incoming packets. We basically pass the networking stack twice for
-every packet.
-
-The usage is very much in line with how network namespaces are used
-nowadays:
-
-ip afnetns add afns-1
-ip address add 192.168.1.1/24 dev eth0 afnetns afns-1
-ip afnetns exec afns-1 /usr/sbin/httpd
-
-this spawns a shell where all child processes will only have access to
-the specific ip addresses, even though they do a wildcard bind. Source
-address selection will also use only the ip addresses available to the
-children.
-
-In some sense it has lots of characteristics like ipvlan, allowing a
-single MAC address to host lots of IP addresses which will end up in
-different namespaces. Unlink ipvlan however, it will also solve the
-problem around duplicate address detection and multiplexing packets to
-the IGMP or MLD state machines.
-
-The resource consumption in comparison with ordinary namespaces will be
-much lower. All in all, we will have far less networking subsystems to
-cross compared to normal netns solutions.
-
-Some more information also in the first patch, which adds a
-Documentation.
-
-Bye,
-Hannes
+Zhu Yanjun
