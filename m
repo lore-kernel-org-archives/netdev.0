@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] Enable tx timestamping on loopback and dummy
-Date: Mon, 13 Mar 2017 12:15:04 -0700 (PDT)
-Message-ID: <20170313.121504.1530815997705662155.davem@davemloft.net>
-References: <20170312215231.GA10928@u480fcf44e5b8574c5490.ant.amazon.com>
-        <20170313104006.GC1875@localhost.localdomain>
-        <20170313111608.GA21070@u480fcf44e5b8574c5490.ant.amazon.com>
+Subject: Re: [PATCH net] ipv6: make ECMP route replacement less greedy
+Date: Mon, 13 Mar 2017 12:17:49 -0700 (PDT)
+Message-ID: <20170313.121749.321517795908552015.davem@davemloft.net>
+References: <df56147ddfe635a61f29f651785c02c8c7c56e3d.1489403578.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org
-To: ezegomez@amazon.com
+Cc: netdev@vger.kernel.org, mkubecek@suse.cz,
+        nicolas.dichtel@6wind.com, hannes@stressinduktion.org,
+        lucien.xin@gmail.com
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54164 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54230 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750917AbdCMTPG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 15:15:06 -0400
-In-Reply-To: <20170313111608.GA21070@u480fcf44e5b8574c5490.ant.amazon.com>
+        with ESMTP id S1751141AbdCMTRv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 15:17:51 -0400
+In-Reply-To: <df56147ddfe635a61f29f651785c02c8c7c56e3d.1489403578.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ezequiel Lara Gomez <ezegomez@amazon.com>
-Date: Mon, 13 Mar 2017 11:16:10 +0000
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Mon, 13 Mar 2017 13:28:09 +0100
 
+> Commit 27596472473a ("ipv6: fix ECMP route replacement") introduced a
+> loop that removes all siblings of an ECMP route that is being
+> replaced. However, this loop doesn't stop when it has replaced
+> siblings, and keeps removing other routes with a higher metric.
+> We also end up triggering the WARN_ON after the loop, because after
+> this nsiblings < 0.
 > 
-> From aef15784aecbf6cb08d181eca6186fe7d2261771 Mon Sep 17 00:00:00 2001
-> From: Ezequiel Lara Gomez <ezegomez@amazon.com>
-> Date: Sat, 11 Mar 2017 20:06:54 +0000
-> Subject: [PATCH v4] Enable tx timestamping on loopback and dummy
-> 
-> This enables developing code that uses SOF_TIMESTAMPING_TX_SOFTWARE
-> by using local addresses (without needing to send packets outside),
-> as well as enabling unit and functional testing of TX timestamping code
-> without needing hardware support or network access.
-> 
-> It also fulfills the expectation of software network devices supporting
-> software-based timestamping.
-> 
-> Tested on qemu using txtimestamping.c from the kernel selftests, and
-> ethtool -T.
+> Instead, stop the loop when we have taken care of all routes with the
+> same metric as the route being replaced.
+ ...
+> Fixes: 27596472473a ("ipv6: fix ECMP route replacement")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Please read Documentation/SubmittingPatches, you are failing to provide
-a proper signoff in your patch postings.
+Applied and queued up for -stable, thanks.
