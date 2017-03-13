@@ -1,33 +1,71 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 2/4] net-next: dsa: add Mediatek tag RX/TX handler
-Date: Mon, 13 Mar 2017 12:59:41 -0400
-Message-ID: <87innd6rk2.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com> <1489421488-300-3-git-send-email-sean.wang@mediatek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        davem@davemloft.net, sean.wang@mediatek.com,
-        Landen.Chao@mediatek.com, keyhaede@gmail.com, objelf@gmail.com
-To: sean.wang@mediatek.com, andrew@lunn.ch, f.fainelli@gmail.com,
-        matthias.bgg@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:37014 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752002AbdCMRBT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 13:01:19 -0400
-In-Reply-To: <1489421488-300-3-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [RESEND PATCH -net] cpsw/netcp: work around reverse cpts dependency
+Date: Mon, 13 Mar 2017 17:59:04 +0100
+Message-ID: <20170313165927.1389014-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Richard Cochran <richardcochran@gmail.com>,
+        WingMan Kwok <w-kwok2@ti.com>,
+        Nicolas Pitre <nicolas.pitre@linaro.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sean,
+The dependency is reversed: cpsw and netcp call into cpts,
+but cpts depends on the other two in Kconfig. This can lead
+to cpts being a loadable module and its callers built-in:
 
-sean.wang@mediatek.com writes:
+drivers/net/ethernet/ti/cpsw.o: In function `cpsw_remove':
+cpsw.c:(.text.cpsw_remove+0xd0): undefined reference to `cpts_release'
+drivers/net/ethernet/ti/cpsw.o: In function `cpsw_rx_handler':
+cpsw.c:(.text.cpsw_rx_handler+0x2dc): undefined reference to `cpts_rx_timestamp'
+drivers/net/ethernet/ti/cpsw.o: In function `cpsw_tx_handler':
+cpsw.c:(.text.cpsw_tx_handler+0x7c): undefined reference to `cpts_tx_timestamp'
+drivers/net/ethernet/ti/cpsw.o: In function `cpsw_ndo_stop':
 
-> +	mtk_tag[1] = (1 << p->port) & MTK_HDR_XMIT_DP_BIT_MASK;
+As a workaround, I'm introducing another Kconfig symbol to
+control the compilation of cpts, while making the actual
+module controlled by a silent symbol that is =y when necessary.
 
-This won't apply, the port index in now stored in p->dp->index.
+Fixes: 6246168b4a38 ("net: ethernet: ti: netcp: add support of cpts")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+Originally submitted on Dec 16, still needed for v4.10 and v4.11-rc2
+---
+ drivers/net/ethernet/ti/Kconfig | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-Thanks,
-
-        Vivien
+diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+index 296c8efd0038..d42257fbe9d9 100644
+--- a/drivers/net/ethernet/ti/Kconfig
++++ b/drivers/net/ethernet/ti/Kconfig
+@@ -73,8 +73,8 @@ config TI_CPSW
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called cpsw.
+ 
+-config TI_CPTS
+-	tristate "TI Common Platform Time Sync (CPTS) Support"
++config TI_CPTS_ENABLE
++	bool "TI Common Platform Time Sync (CPTS) Support"
+ 	depends on TI_CPSW || TI_KEYSTONE_NETCP
+ 	imply PTP_1588_CLOCK
+ 	---help---
+@@ -83,6 +83,12 @@ config TI_CPTS
+ 	  The unit can time stamp PTP UDP/IPv4 and Layer 2 packets, and the
+ 	  driver offers a PTP Hardware Clock.
+ 
++config TI_CPTS
++	tristate
++	depends on TI_CPTS_ENABLE
++	default y if TI_CPSW=y || TI_KEYSTONE_NETCP=y
++	default m
++
+ config TI_KEYSTONE_NETCP
+ 	tristate "TI Keystone NETCP Core Support"
+ 	select TI_CPSW_ALE
+-- 
+2.9.0
