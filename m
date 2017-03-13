@@ -1,74 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 0/7] gtp: misc improvements
-Date: Mon, 13 Mar 2017 13:06:52 -0700 (PDT)
-Message-ID: <20170313.130652.118680417397625023.davem@davemloft.net>
-References: <20170309164302.13550-1-aschultz@tpip.net>
-        <20170313164812.GA31925@salvia>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [RESEND PATCH -net] cpsw/netcp: cpts depends on posix_timers
+Date: Mon, 13 Mar 2017 16:09:48 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1703131608100.14436@knanqh.ubzr>
+References: <20170313165849.1378558-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: aschultz@tpip.net, laforge@gnumonks.org,
-        osmocom-net-gprs@lists.osmocom.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55630 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751621AbdCMUGy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 16:06:54 -0400
-In-Reply-To: <20170313164812.GA31925@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        John Stultz <john.stultz@linaro.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170313165849.1378558-1-arnd@arndb.de>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 13 Mar 2017 17:48:12 +0100
+On Mon, 13 Mar 2017, Arnd Bergmann wrote:
 
-> On Thu, Mar 09, 2017 at 05:42:55PM +0100, Andreas Schultz wrote:
->> Hi Pablo,
->> 
->> This is a resent of last series that missed the merge window. There
->> are no changes compared to v4.
->> 
->> v4: Compared to v3 it contains mostly smallish naming and spelling fixes.
->> It also drops the documentation patch, Harald did a better job with the
->> documentation and the some things I described do not yet match the implementation.
->> I'll readd the relevant parts with a follow up series.
->> 
->> This series lays the groundwork for removing the socket references from
->> the GTP netdevice by removing duplicate code and simplifying the logic on
->> some code paths.
->> 
->> It slighly changes the GTP genl API by making the socket parameters optional
->> (though one of them is still required).
->> 
->> The removal of the socket references will break the 1:1 releation between
->> GTP netdevice and GTP socket that prevents us to support multiple VRFs with
->> overlapping IP addresse spaces attached to the same GTP-U entity (needed for
->> multi APN support, coming a follow up series).
->> 
->> Pablo found a socket hold problem in v2. In order to solve that I had to
->> switch the socket references from the struct socket to the internal
->> struct sock. This should have no functionl impact, but we can now hang
->> on to the reference without blocking user space from closing the GTP socket.
+> With posix timers having become optional, we get a build error with
+> the cpts time sync option of the CPSW driver:
 > 
-> Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
+> drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
 > 
-> I personally don't like this podge hodge unsorted submissions, I don't
-> think they belong to the same series but you keep pushing with this
-> patchset in this same way, which is annoying.
+> It really makes no sense to build this driver if we can't use PTP,
+> so it's better to go back to 'select PTP_1588_CLOCK' but instead
+> add a dependency on POSIX_TIMERS. Adding 'depends on PTP_1588_CLOCK'
+> might also work, but has the risk of circular dependencies when
+> mixed with other drivers using 'imply'.
+
+Could you elaborate on that risk please?
+
+
+> Fixes: baa73d9e478f ("posix-timers: Make them configurable")
+> Cc: Nicolas Pitre <nicolas.pitre@linaro.org>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+> Originally submitted on Dec 16, but not applied after I missed a
+> reply from Nico. I confirmed that this is still needed for v4.10
+> and v4.11-rc2 and am resending it without changes.
+> ---
+>  drivers/net/ethernet/ti/Kconfig | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> In your follow up patchsets, please split them in smaller series that
-> are related.
-
-Series applied, and I agree with Pablo.
-
-If the best you can come up with for a Subject line in your series
-header posting is "misc improvements" it absolutely means you are
-putting unrelated changes together in a series and you need to refine
-the submission such that only related changes are submitted together.
-
-Then you can say "gtp: Adjust GTP socket handling", for example, in
-your header posting of a 2 patch series that includes only patches
-#1 and #2.
-
-Then you patiently wait for that patch series to be accepted, and then
-you can move onwards to the other aspects of this series.
+> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+> index d42257fbe9d9..c114efcd1575 100644
+> --- a/drivers/net/ethernet/ti/Kconfig
+> +++ b/drivers/net/ethernet/ti/Kconfig
+> @@ -76,7 +76,8 @@ config TI_CPSW
+>  config TI_CPTS_ENABLE
+>  	bool "TI Common Platform Time Sync (CPTS) Support"
+>  	depends on TI_CPSW || TI_KEYSTONE_NETCP
+> -	imply PTP_1588_CLOCK
+> +	depends on POSIX_TIMERS
+> +	select PTP_1588_CLOCK
+>  	---help---
+>  	  This driver supports the Common Platform Time Sync unit of
+>  	  the CPSW Ethernet Switch and Keystone 2 1g/10g Switch Subsystem.
+> -- 
+> 2.9.0
+> 
+> 
