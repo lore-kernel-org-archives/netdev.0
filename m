@@ -1,46 +1,63 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net-next 2/4] net-next: dsa: add Mediatek tag RX/TX handler
-Date: Mon, 13 Mar 2017 17:27:13 +0100
-Message-ID: <20170313162713.GB3953@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 3/4] net-next: ethernet: mediatek: add CDM able
+ to recognize the tag for DSA
+Date: Mon, 13 Mar 2017 17:30:32 +0100
+Message-ID: <20170313163032.GC3953@lunn.ch>
 References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
- <1489421488-300-3-git-send-email-sean.wang@mediatek.com>
+ <1489421488-300-4-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        matthias.bgg@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        davem@davemloft.net, Landen.Chao@mediatek.com, keyhaede@gmail.com,
+        objelf@gmail.com
+To: sean.wang@mediatek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:46182 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753930AbdCMQai (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 12:30:38 -0400
 Content-Disposition: inline
-In-Reply-To: <1489421488-300-3-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1489421488-300-4-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 14, 2017 at 12:11:26AM +0800, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
-> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+On Tue, Mar 14, 2017 at 12:11:27AM +0800, sean.wang@mediatek.com wrote:
+> From: Sean Wang <sean.wang@mediatek.com>
 > 
-> Add the support for the 4-bytes tag for DSA port distinguishing inserted
-> allowing receiving and transmitting the packet via the particular port.
-> The tag is being added after the source MAC address in the ethernet
-> header.
+> Allowing CDM can recognize these packets with carrying port-distinguishing
+> tag when CONFIG_NET_DSA_TAG_MTK is enabled. Otherwise, these packets will
+> be dropped by CDM ingress.
 > 
-> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Landen Chao <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> Signed-off-by: Landen Chao <Landen.Chao@mediatek.com>
+> ---
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 ++++++++
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.h | 5 +++++
+>  2 files changed, 13 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index 3dd8788..19944e0 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -1848,6 +1848,14 @@ static int mtk_hw_init(struct mtk_eth *eth)
+>  	/* GE2, Force 1000M/FD, FC ON */
+>  	mtk_w32(eth, MAC_MCR_FIXED_LINK, MTK_MAC_MCR(1));
+>  
+> +#if defined(CONFIG_NET_DSA_TAG_MTK)
+> +	/* Tell CDMQ to parse the MTK special tag from CPU  */
+> +	/* QDMA Tx Use CDMQ */
+> +	u32 val2 = mtk_r32(eth, MTK_CDMQ_IG_CTRL);
+> +
+> +	mtk_w32(eth, val2 | MTK_CDMQ_STAG_EN, MTK_CDMQ_IG_CTRL);
+> +#endif
 
-O.K, this one is easy. The others are going to take some work to
-review.
+Hi Sean
 
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Does this need to be conditional on CONFIG_NET_DSA_TAG_MTK? 
+Is there any downside on always having MTK_CDMQ_STAG_EN set?
 
-    Andrew
+Thanks
+   Andrew
