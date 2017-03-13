@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 1/1] net: Eliminate duplicated codes by
- creating one new function in_dev_select_addr
-Date: Sun, 12 Mar 2017 23:27:23 -0700 (PDT)
-Message-ID: <20170312.232723.1350664579927312912.davem@davemloft.net>
-References: <1489120727-22775-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH] Make IP 'forwarding' doc more precise
+Date: Sun, 12 Mar 2017 23:29:01 -0700 (PDT)
+Message-ID: <20170312.232901.1815831214938759086.davem@davemloft.net>
+References: <1489148697-5529-1-git-send-email-neil@tigera.io>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: netdev@vger.kernel.org
+To: neil@tigera.io
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53626 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53690 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750752AbdCMG1Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 02:27:25 -0400
-In-Reply-To: <1489120727-22775-1-git-send-email-fgao@ikuai8.com>
+        with ESMTP id S1750752AbdCMG3D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 02:29:03 -0400
+In-Reply-To: <1489148697-5529-1-git-send-email-neil@tigera.io>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fgao@ikuai8.com
-Date: Fri, 10 Mar 2017 12:38:47 +0800
+From: Neil Jerram <neil@tigera.io>
+Date: Fri, 10 Mar 2017 12:24:57 +0000
 
-> From: Gao Feng <fgao@ikuai8.com>
+> It wasn't clear if the 'forwarding' setting needs to be enabled on the
+> interface that packets are received from, or on the interface that
+> packets are forwarded to, or both.
 > 
-> There are two duplicated loops codes which used to select right
-> address in current codes. Now eliminate these codes by creating
-> one new function in_dev_select_addr.
+> In fact (according to my code reading) the setting is relevant on the
+> interface that packets are received from, so this change updates the doc
+> to say that.
 > 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> Signed-off-by: Neil Jerram <neil@tigera.io>
 
 Applied.
