@@ -1,49 +1,56 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net 1/3] cpsw/netcp: cpts depends on posix_timers
-Date: Mon, 13 Mar 2017 17:55:54 +0100
-Message-ID: <CAK8P3a3N6p6YfP+6Q7KQ-Sv5sPKfJZT2Bf3vJw9bzPAjGTr17g@mail.gmail.com>
-References: <20161216092017.2560717-1-arnd@arndb.de> <alpine.LFD.2.20.1612161317510.17914@knanqh.ubzr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
+Subject: [RESEND PATCH -net] cpsw/netcp: cpts depends on posix_timers
+Date: Mon, 13 Mar 2017 17:58:25 +0100
+Message-ID: <20170313165849.1378558-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Nicolas Pitre <nicolas.pitre@linaro.org>,
+        stable@vger.kernel.org,
         Grygorii Strashko <grygorii.strashko@ti.com>,
         Thomas Gleixner <tglx@linutronix.de>,
-        John Stultz <john.stultz@linaro.org>,
-        =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
-        <u.kleine-koenig@pengutronix.de>, WingMan Kwok <w-kwok2@ti.com>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:36013 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752397AbdCMQz4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 12:55:56 -0400
-In-Reply-To: <alpine.LFD.2.20.1612161317510.17914@knanqh.ubzr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        John Stultz <john.stultz@linaro.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 16, 2016 at 7:18 PM, Nicolas Pitre <nicolas.pitre@linaro.org> wrote:
-> On Fri, 16 Dec 2016, Arnd Bergmann wrote:
->
->> With posix timers having become optional, we get a build error with
->> the cpts time sync option of the CPSW driver:
->>
->> drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
->> drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
->>
->> It really makes no sense to build this driver if we can't use PTP,
->> so it's better to go back to 'select PTP_1588_CLOCK' but instead
->> add a dependency on POSIX_TIMERS.
->
-> Why not depend on PTP_1588_CLOCK directly instead?
+With posix timers having become optional, we get a build error with
+the cpts time sync option of the CPSW driver:
 
-Sorry for dropping the ball on this. I just noticed my two patches in my patch
-are still required, so I'm resending them now.
+drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
+drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
 
-I think using 'select' here is better for consistency as we use 'imply'
-elsewhere, and mixing the two might cause circular dependencies.
+It really makes no sense to build this driver if we can't use PTP,
+so it's better to go back to 'select PTP_1588_CLOCK' but instead
+add a dependency on POSIX_TIMERS. Adding 'depends on PTP_1588_CLOCK'
+might also work, but has the risk of circular dependencies when
+mixed with other drivers using 'imply'.
 
-If you still have concerns about this, please follow up on the resend.
+Fixes: baa73d9e478f ("posix-timers: Make them configurable")
+Cc: Nicolas Pitre <nicolas.pitre@linaro.org>
+Cc: stable@vger.kernel.org
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+Originally submitted on Dec 16, but not applied after I missed a
+reply from Nico. I confirmed that this is still needed for v4.10
+and v4.11-rc2 and am resending it without changes.
+---
+ drivers/net/ethernet/ti/Kconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-      Arnd
+diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+index d42257fbe9d9..c114efcd1575 100644
+--- a/drivers/net/ethernet/ti/Kconfig
++++ b/drivers/net/ethernet/ti/Kconfig
+@@ -76,7 +76,8 @@ config TI_CPSW
+ config TI_CPTS_ENABLE
+ 	bool "TI Common Platform Time Sync (CPTS) Support"
+ 	depends on TI_CPSW || TI_KEYSTONE_NETCP
+-	imply PTP_1588_CLOCK
++	depends on POSIX_TIMERS
++	select PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports the Common Platform Time Sync unit of
+ 	  the CPSW Ethernet Switch and Keystone 2 1g/10g Switch Subsystem.
+-- 
+2.9.0
