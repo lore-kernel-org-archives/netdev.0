@@ -1,116 +1,72 @@
 From: Erez Shitrit <erezsh@mellanox.com>
-Subject: [RFC v1 for accelerated IPoIB 16/25] net/mlx5e: Change cleanup API in order to enable IB link
-Date: Mon, 13 Mar 2017 20:31:27 +0200
-Message-ID: <1489429896-10781-17-git-send-email-erezsh@mellanox.com>
+Subject: [RFC v1 for accelerated IPoIB 14/25] net/mlx5: Enable flow-steering for IB link
+Date: Mon, 13 Mar 2017 20:31:25 +0200
+Message-ID: <1489429896-10781-15-git-send-email-erezsh@mellanox.com>
 References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         valex@mellanox.com, leonro@mellanox.com, saedm@mellanox.com,
         erezsh@dev.mellanox.co.il, Erez Shitrit <erezsh@mellanox.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49781 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49770 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753182AbdCMScC (ORCPT
+        with ESMTP id S1752991AbdCMScC (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 14:32:02 -0400
 In-Reply-To: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-1. Change the mlx5e_detach_netdev api.
-2. Let that function to be called after the rtnl_lock is already held,
-like done in IB link.
+Get the relevant capabilities if supports ipoib_enhanced_offloads and
+init the flow steering table accordingly.
 
 Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 18 +++++++++++-------
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  |  4 ++--
- 3 files changed, 14 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 10 +++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c      |  3 ++-
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 84db4761f09c..a10966df24f6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -921,7 +921,7 @@ struct net_device *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
- 				       void *ppriv);
- void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv);
- int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv);
--void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev);
-+void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv);
- u32 mlx5e_choose_lro_timeout(struct mlx5_core_dev *mdev, u32 wanted_timeout);
- void mlx5e_add_vxlan_port(struct net_device *netdev,
- 			  struct udp_tunnel_info *ti);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 5b3c2e67607f..b91bd7a179fc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -4021,7 +4021,7 @@ void mlx5i_detach(struct mlx5_core_dev *mdev, void *vpriv)
- 	if (!netif_device_present(netdev))
- 		return;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index fa4edd88daf1..dd21fc557281 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1991,9 +1991,6 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
+ 	struct mlx5_flow_steering *steering;
+ 	int err = 0;
  
--	mlx5e_detach_netdev(mdev, netdev);
-+	mlx5e_detach_netdev(mdev, priv);
- 	mlx5e_destroy_mdev_resources(mdev);
- }
- EXPORT_SYMBOL(mlx5i_detach);
-@@ -4126,18 +4126,22 @@ static void mlx5e_register_vport_rep(struct mlx5_core_dev *mdev)
- 	}
- }
- 
--void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
-+void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv)
- {
--	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct net_device *netdev = priv->netdev;
- 	const struct mlx5e_profile *profile = priv->profile;
+-	if (MLX5_CAP_GEN(dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
+-		return 0;
 -
-+	bool locked = false;
- 	set_bit(MLX5E_STATE_DESTROYING, &priv->state);
+ 	err = mlx5_init_fc_stats(dev);
+ 	if (err)
+ 		return err;
+@@ -2004,8 +2001,11 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
+ 	steering->dev = dev;
+ 	dev->priv.steering = steering;
  
--	rtnl_lock();
-+	if (!rtnl_is_locked()) {
-+		rtnl_lock();
-+		locked = true;
-+	}
- 	if (netif_running(netdev))
- 		mlx5e_close(netdev);
- 	netif_device_detach(netdev);
--	rtnl_unlock();
-+	if (locked)
-+		rtnl_unlock();
+-	if (MLX5_CAP_GEN(dev, nic_flow_table) &&
+-	    MLX5_CAP_FLOWTABLE_NIC_RX(dev, ft_support)) {
++	if ((((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) &&
++	      (MLX5_CAP_GEN(dev, nic_flow_table))) ||
++	     ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
++	      MLX5_CAP_GEN(dev, ipoib_enhanced_offloads)))
++	    && MLX5_CAP_FLOWTABLE_NIC_RX(dev, ft_support)) {
+ 		err = init_root_ns(steering);
+ 		if (err)
+ 			goto err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+index 5718aada6605..f95bc78b02f2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+@@ -123,7 +123,8 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
+ 			return err;
+ 	}
  
- 	if (profile->disable)
- 		profile->disable(priv);
-@@ -4183,7 +4187,7 @@ static void mlx5e_detach(struct mlx5_core_dev *mdev, void *vpriv)
- 	if (!netif_device_present(netdev))
- 		return;
- 
--	mlx5e_detach_netdev(mdev, netdev);
-+	mlx5e_detach_netdev(mdev, priv);
- 	mlx5e_destroy_mdev_resources(mdev);
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 0aad28da1638..21d3d8e0bab7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -586,7 +586,7 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
- 	return 0;
- 
- err_detach_netdev:
--	mlx5e_detach_netdev(esw->dev, netdev);
-+	mlx5e_detach_netdev(esw->dev, priv);
- 
- err_destroy_netdev:
- 	mlx5e_destroy_netdev(esw->dev, netdev_priv(netdev));
-@@ -601,6 +601,6 @@ void mlx5e_vport_rep_unload(struct mlx5_eswitch *esw,
- 	struct net_device *netdev = rep->netdev;
- 
- 	unregister_netdev(netdev);
--	mlx5e_detach_netdev(esw->dev, netdev);
-+	mlx5e_detach_netdev(esw->dev, netdev_priv(netdev));
- 	mlx5e_destroy_netdev(esw->dev, netdev_priv(netdev));
- }
+-	if (MLX5_CAP_GEN(dev, nic_flow_table)) {
++	if (MLX5_CAP_GEN(dev, nic_flow_table) ||
++	    MLX5_CAP_GEN(dev, ipoib_enhanced_offloads)) {
+ 		err = mlx5_core_get_caps(dev, MLX5_CAP_FLOW_TABLE);
+ 		if (err)
+ 			return err;
 -- 
 1.8.3.1
