@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] selftests/bpf: fix broken build
-Date: Sun, 12 Mar 2017 23:48:54 -0700 (PDT)
-Message-ID: <20170312.234854.2051066183598409902.davem@davemloft.net>
-References: <1489212355-3289694-1-git-send-email-ast@fb.com>
+Subject: Re: [PATCH] mpls: Send route delete notifications when router
+ module is unloaded
+Date: Sun, 12 Mar 2017 23:40:19 -0700 (PDT)
+Message-ID: <20170312.234019.2178953006416512452.davem@davemloft.net>
+References: <1489167975-11729-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, shuah@kernel.org, netdev@vger.kernel.org
-To: ast@fb.com
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
+        roopa@cumulusnetworks.com, rshearma@brocade.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54340 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54370 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751033AbdCMGsz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 02:48:55 -0400
-In-Reply-To: <1489212355-3289694-1-git-send-email-ast@fb.com>
+        with ESMTP id S1750861AbdCMGto (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 02:49:44 -0400
+In-Reply-To: <1489167975-11729-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Fri, 10 Mar 2017 22:05:55 -0800
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Fri, 10 Mar 2017 09:46:15 -0800
 
-> Recent merge of 'linux-kselftest-4.11-rc1' tree broke bpf test build.
-> None of the tests were building and test_verifier.c had tons of compiler errors.
-> Fix it and add #ifdef CAP_IS_SUPPORTED to support old versions of libcap.
-> Tested on centos 6.8 and 7
+> When the mpls_router module is unloaded, mpls routes are deleted but
+> notifications are not sent to userspace leaving userspace caches
+> out of sync. Add the call to mpls_notify_route in mpls_net_exit as
+> routes are freed.
 > 
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> Fixes: 0189197f44160 ("mpls: Basic routing support")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied, thanks.
+Applied and queued up for -stable.
