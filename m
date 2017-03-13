@@ -1,34 +1,62 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] mpls: Do not decrement alive counter for unregister
- events
-Date: Mon, 13 Mar 2017 16:38:55 -0600
-Message-ID: <6f5259e4-5088-2dbd-f6f9-761500c9763b@cumulusnetworks.com>
-References: <1489183899-2397-1-git-send-email-dsa@cumulusnetworks.com>
- <342ff118-9d48-e974-98e0-0789f6efb4f3@brocade.com>
- <cd885b2c-15f3-6f72-6fa9-aaabaea58ccd@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: debug ATU Age Time
+Date: Mon, 13 Mar 2017 23:39:32 +0100
+Message-ID: <20170313223932.GC14183@lunn.ch>
+References: <20170313192043.12478-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com
-To: Robert Shearman <rshearma@brocade.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jason Cobham <jcobham@questertangent.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:35633 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754568AbdCMWi6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 18:38:58 -0400
-Received: by mail-pg0-f51.google.com with SMTP id b129so71768700pgc.2
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 15:38:57 -0700 (PDT)
-In-Reply-To: <cd885b2c-15f3-6f72-6fa9-aaabaea58ccd@cumulusnetworks.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:46688 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752351AbdCMWjh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 18:39:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20170313192043.12478-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/13/17 3:11 PM, David Ahern wrote:
-> On 3/13/17 5:10 AM, Robert Shearman wrote:
->> Doesn't this leave the problem that if the device's link goes down and
->> then the device gets deleted the alive count will be decremented twice
->> for the same path?
-> yes. and it exposes another bug in multipath selection.
+On Mon, Mar 13, 2017 at 03:20:43PM -0400, Vivien Didelot wrote:
+> The ATU ageing time value programmed in the switch is rounded up to the
+> nearest multiple of its coefficient (variable depending on the model.)
 > 
+> Add a debug message to inform the user about the exact programmed value.
+> 
+> On 6352, "brctl setageing br0 18" gives "AgeTime set to 0x01 (15000 ms)"
+> while on 6390 we get "AgeTime set to 0x05 (18750 ms)".
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx/global1_atu.c | 9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx/global1_atu.c b/drivers/net/dsa/mv88e6xxx/global1_atu.c
+> index f6cd3c939da4..bac34737b096 100644
+> --- a/drivers/net/dsa/mv88e6xxx/global1_atu.c
+> +++ b/drivers/net/dsa/mv88e6xxx/global1_atu.c
+> @@ -65,7 +65,14 @@ int mv88e6xxx_g1_atu_set_age_time(struct mv88e6xxx_chip *chip,
+>  	val &= ~0xff0;
+>  	val |= age_time << 4;
+>  
+> -	return mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
+> +	err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_CONTROL, val);
+> +	if (err)
+> +		return err;
+> +
+> +	dev_dbg(chip->dev, "AgeTime set to 0x%02x (%d ms)\n", age_time,
+> +		age_time * coeff);
+> +
 
-nevermind. I did not set the sysctl to keep ipv6 addresses; link down on
-the veth device took out the address and route
+Hi Vivien
+
+You could put the dev_dbg before the mv88e6xxx_g1_write(), to keep the
+code simpler. If this write fails, we expect a lot of other things to
+go horribly wrong, so having one debug message being not quite accurate
+is not important.
+
+   Andrew
