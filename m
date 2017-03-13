@@ -1,9 +1,9 @@
 From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: Re: [PATCH 2/4] uapi glibc compat: fix build if libc defines IFF_ECHO
-Date: Mon, 13 Mar 2017 13:28:55 +0200
-Message-ID: <20170313112855.GA8672@lakka.kapsi.fi>
+Subject: Re: [PATCH 3/4] uapi glibc compat: Do not check for __USE_MISC
+Date: Mon, 13 Mar 2017 13:29:58 +0200
+Message-ID: <20170313112958.GB8672@lakka.kapsi.fi>
 References: <20170312220039.16885-1-hauke@hauke-m.de>
- <20170312220039.16885-3-hauke@hauke-m.de>
+ <20170312220039.16885-4-hauke@hauke-m.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
@@ -11,48 +11,42 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
         david.heidelberger@ixit.cz, maillist-linux@barfooze.de
 To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kapsi.fi ([217.30.184.167]:37796 "EHLO mail.kapsi.fi"
+Received: from mail.kapsi.fi ([217.30.184.167]:44333 "EHLO mail.kapsi.fi"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750846AbdCML27 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Mar 2017 07:28:59 -0400
+        id S1751264AbdCMLaC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 07:30:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20170312220039.16885-3-hauke@hauke-m.de>
+In-Reply-To: <20170312220039.16885-4-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 12, 2017 at 11:00:37PM +0100, Hauke Mehrtens wrote:
-> musl 1.1.15 defines IFF_ECHO and the other net_device_flags options.
-> When a user application includes linux/if.h and net/if.h the compile
-> will fail.
-> 
-> Activate __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO only when
-> it is needed. This should also make this work in case glibc will add
-> these defines.
-> 
+On Sun, Mar 12, 2017 at 11:00:38PM +0100, Hauke Mehrtens wrote:
+> __USE_MISC is glibc specific and not available in musl libc. Only do
+> this check when glibc is used. This fixes a problem with musl libc.
+
 > Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 
 Acked-by: Mikko Rapeli <mikko.rapeli@iki.fi>
 
 > ---
->  include/uapi/linux/libc-compat.h | 2 ++
->  1 file changed, 2 insertions(+)
+>  include/uapi/linux/libc-compat.h | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
 > diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
-> index 7c1fead03c50..49a8cc3138ae 100644
+> index 49a8cc3138ae..ce2fa8a4ced6 100644
 > --- a/include/uapi/linux/libc-compat.h
 > +++ b/include/uapi/linux/libc-compat.h
-> @@ -64,9 +64,11 @@
->  /* Everything up to IFF_DYNAMIC, matches net/if.h until glibc 2.23 */
->  #define __UAPI_DEF_IF_NET_DEVICE_FLAGS 0
->  /* For the future if glibc adds IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO */
-> +#ifndef IFF_ECHO
->  #ifndef __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO
->  #define __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO 1
->  #endif /* __UAPI_DEF_IF_NET_DEVICE_FLAGS_LOWER_UP_DORMANT_ECHO */
-> +#endif /* IFF_ECHO */
+> @@ -51,8 +51,8 @@
+>  /* We have included libc headers... */
+>  #if !defined(__KERNEL__)
 >  
->  #else /* _NET_IF_H */
+> -/* Coordinate with glibc net/if.h header. */
+> -#if defined(_NET_IF_H) && defined(__USE_MISC)
+> +/* Coordinate with libc net/if.h header. */
+> +#if defined(_NET_IF_H) && (!defined(__GLIBC__) || defined(__USE_MISC))
 >  
+>  /* GLIBC headers included first so don't define anything
+>   * that would already be defined. */
 > -- 
 > 2.11.0
 > 
