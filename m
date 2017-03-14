@@ -1,86 +1,67 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: crypto: deadlock between crypto_alg_sem/rtnl_mutex/genl_mutex
-Date: Tue, 14 Mar 2017 11:25:19 -0400
-Message-ID: <20170314152519.GA21159@oracle.com>
-References: <CACT4Y+bLbNbf0T376JHvemuY+za0+qgrfOKWzvJg5vAkJTCRFg@mail.gmail.com>
- <CACT4Y+bJ1-d3DhCvzEN0PeDd7+P2LNgjF2NHwALXBubOKaOEsw@mail.gmail.com>
- <CACT4Y+YhLM0CetOZn6uXwyBBGM_oVsW-CC3NMg8A5K0xd3F2mA@mail.gmail.com>
- <CACT4Y+YTBPDMOZGMLuZPaQhSFXbeQeahHc8BUDOgNYm6hRy6fw@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 3/3] vxlan: allow multiple VXLANs with same VNI
+ for IPv6 link-local addresses
+Date: Tue, 14 Mar 2017 16:28:15 +0100
+Message-ID: <20170314162815.7aae9e94@griffin>
+References: <cover.1489184335.git.mschiffer@universe-factory.net>
+        <5c74248483272110d0ca249b80b943b0ceb0b610.1489184335.git.mschiffer@universe-factory.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        David Miller <davem@davemloft.net>,
-        linux-crypto@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        netdev <netdev@vger.kernel.org>, santosh.shilimkar@oracle.com,
-        rds-devel@oss.oracle.com, syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, hannes@stressinduktion.org, pshelar@ovn.org,
+        aduyck@mirantis.com, roopa@cumulusnetworks.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Matthias Schiffer <mschiffer@universe-factory.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+YTBPDMOZGMLuZPaQhSFXbeQeahHc8BUDOgNYm6hRy6fw@mail.gmail.com>
+In-Reply-To: <5c74248483272110d0ca249b80b943b0ceb0b610.1489184335.git.mschiffer@universe-factory.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On (03/14/17 09:14), Dmitry Vyukov wrote:
-> Another one now involving rds_tcp_listen_stop
-   :
-> kworker/u4:1/19 is trying to acquire lock:
->  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8409a6ec>] lock_sock
-> include/net/sock.h:1460 [inline]
->  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8409a6ec>]
-> rds_tcp_listen_stop+0x5c/0x150 net/rds/tcp_listen.c:288
-> 
-> but task is already holding lock:
->  (rtnl_mutex){+.+.+.}, at: [<ffffffff8370b057>] rtnl_lock+0x17/0x20
-> net/core/rtnetlink.c:70
+On Fri, 10 Mar 2017 23:39:44 +0100, Matthias Schiffer wrote:
+> @@ -233,17 +234,30 @@ static struct vxlan_dev *vxlan_vs_find_vni(struct vxlan_sock *vs, __be32 vni)
+>  		vni = 0;
+>  
+>  	hlist_for_each_entry_rcu(vxlan, vni_head(vs, vni), hlist) {
+> -		if (vxlan->default_dst.remote_vni == vni)
+> -			return vxlan;
+> +		if (vxlan->default_dst.remote_vni != vni)
+> +			continue;
+> +
+> +		if (IS_ENABLED(CONFIG_IPV6)) {
+> +			const struct vxlan_config *cfg = &vxlan->cfg;
+> +
+> +			if (cfg->remote_ifindex != 0 &&
+> +			    cfg->remote_ifindex != ifindex &&
+> +			    cfg->saddr.sa.sa_family == AF_INET6 &&
+> +			    (ipv6_addr_type(&cfg->saddr.sin6.sin6_addr) &
+> +			     IPV6_ADDR_LINKLOCAL))
 
-Is this also a false positive?
+Calculating this (especially ipv6_addr_type) on every received packet
+looks unnecessarily expensive. Just store the fact the the local
+address is link-local in a flag during config. And compare the flag
+first before considering remote_ifindex.
 
-genl_lock_dumpit takes the genl_lock and then waits on the rtnl_lock
-(e.g., out of tipc_nl_bearer_dump).
+This is especially important for lwtunnels which can have anything in
+the saddr and remote_ifindex, yet those fields are ignored and the
+vni 0 entry has to be returned. It also means that the link-local flag
+must not be set for lwtunnels.
 
-netdev_run_todo takes the rtnl_lock and then wants lock_sock()
-for the TCP/IPv4 socket. 
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +		if (conf->remote_ifindex != tmp->cfg.remote_ifindex &&
+> +		    conf->saddr.sa.sa_family == AF_INET6 &&
+> +		    tmp->cfg.saddr.sa.sa_family == AF_INET6 &&
+> +		    (ipv6_addr_type(&conf->saddr.sin6.sin6_addr) &
+> +		     IPV6_ADDR_LINKLOCAL) &&
+> +		    (ipv6_addr_type(&tmp->cfg.saddr.sin6.sin6_addr) &
+> +		     IPV6_ADDR_LINKLOCAL))
+> +			continue;
+> +#endif
 
-Why is lockdep seeing a circular dependancy here? Same pattern
-seems to be happening  for 
-  http://www.spinics.net/lists/netdev/msg423368.html
-and maybe also http://www.spinics.net/lists/netdev/msg423323.html?
+In patch 1, you're checking for either source and destination address
+being link-local, while here you're consider only those that have both
+addresses link-local.
 
---Sowmini
+Wouldn't it be better to plainly reject configuration that has one
+address link-local but not the other one?
 
-> Chain exists of:
->   sk_lock-AF_INET --> genl_mutex --> rtnl_mutex
-> 
->  Possible unsafe locking scenario:
-> 
->        CPU0                    CPU1
->        ----                    ----
->   lock(rtnl_mutex);
->                                lock(genl_mutex);
->                                lock(rtnl_mutex);
->   lock(sk_lock-AF_INET);
-> 
->  *** DEADLOCK ***
-> 
-> 4 locks held by kworker/u4:1/19:
->  #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff81497943>]
-> __write_once_size include/linux/compiler.h:283 [inline]
->  #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff81497943>] atomic64_set
-> arch/x86/include/asm/atomic64_64.h:33 [inline]
->  #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff81497943>] atomic_long_set
-> include/asm-generic/atomic-long.h:56 [inline]
->  #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff81497943>] set_work_data
-> kernel/workqueue.c:617 [inline]
->  #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff81497943>]
-> set_work_pool_and_clear_pending kernel/workqueue.c:644 [inline]
->  #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff81497943>]
-> process_one_work+0xab3/0x1c10 kernel/workqueue.c:2089
->  #1:  (net_cleanup_work){+.+.+.}, at: [<ffffffff81497997>]
-> process_one_work+0xb07/0x1c10 kernel/workqueue.c:2093
->  #2:  (net_mutex){+.+.+.}, at: [<ffffffff836965cb>]
-> cleanup_net+0x22b/0xa90 net/core/net_namespace.c:429
->  #3:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8370b057>]
-> rtnl_lock+0x17/0x20 net/core/rtnetlink.c:70
-> 
+ Jiri
