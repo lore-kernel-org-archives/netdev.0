@@ -1,87 +1,59 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next] bonding: add 802.3ad support for 25G speeds
-Date: Tue, 14 Mar 2017 14:17:09 -0400
-Message-ID: <20170314181709.GA32819@C02RW35GFVH8.dhcp.broadcom.net>
-References: <20170314154832.13719-1-jarod@redhat.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 16/20] ARM: dts: sun50i-a64: enable dwmac-sun8i on
+ pine64
+Date: Tue, 14 Mar 2017 11:20:31 -0700
+Message-ID: <6fd5818c-94ad-ae1b-2caf-ca657a2f1066@gmail.com>
+References: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
+ <20170314141856.24560-17-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:32800 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751016AbdCNSRU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 14:17:20 -0400
-Received: by mail-wm0-f66.google.com with SMTP id n11so1134655wma.0
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 11:17:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170314154832.13719-1-jarod@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170314141856.24560-17-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 14, 2017 at 11:48:32AM -0400, Jarod Wilson wrote:
-> Cut-n-paste enablement of 802.3ad bonding on 25G NICs, which currently
-> report 0 as their bandwidth.
+On 03/14/2017 07:18 AM, Corentin Labbe wrote:
+> The dwmac-sun8i hardware is present on the pine64
+> It uses an external PHY via RMII.
 > 
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-
-Look good, Jarod.  Probably time for a 50Gbps option, too....
-
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
-
+> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
-> note: I swear I saw a patch for this already, but I don't see it on the
-> list and it isn't committed, so here's this...
+>  arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts | 15 +++++++++++++++
+>  1 file changed, 15 insertions(+)
 > 
->  drivers/net/bonding/bond_3ad.c | 9 +++++++++
->  1 file changed, 9 insertions(+)
-> 
-> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-> index 431926bba9f4..508713b4e533 100644
-> --- a/drivers/net/bonding/bond_3ad.c
-> +++ b/drivers/net/bonding/bond_3ad.c
-> @@ -92,6 +92,7 @@ enum ad_link_speed_type {
->  	AD_LINK_SPEED_2500MBPS,
->  	AD_LINK_SPEED_10000MBPS,
->  	AD_LINK_SPEED_20000MBPS,
-> +	AD_LINK_SPEED_25000MBPS,
->  	AD_LINK_SPEED_40000MBPS,
->  	AD_LINK_SPEED_56000MBPS,
->  	AD_LINK_SPEED_100000MBPS,
-> @@ -260,6 +261,7 @@ static inline int __check_agg_selection_timer(struct port *port)
->   *     %AD_LINK_SPEED_2500MBPS,
->   *     %AD_LINK_SPEED_10000MBPS
->   *     %AD_LINK_SPEED_20000MBPS
-> + *     %AD_LINK_SPEED_25000MBPS
->   *     %AD_LINK_SPEED_40000MBPS
->   *     %AD_LINK_SPEED_56000MBPS
->   *     %AD_LINK_SPEED_100000MBPS
-> @@ -302,6 +304,10 @@ static u16 __get_link_speed(struct port *port)
->  			speed = AD_LINK_SPEED_20000MBPS;
->  			break;
->  
-> +		case SPEED_25000:
-> +			speed = AD_LINK_SPEED_25000MBPS;
-> +			break;
+> diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
+> index c680ed3..b53994d 100644
+> --- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
+> +++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
+> @@ -109,3 +109,18 @@
+>  &usbphy {
+>  	status = "okay";
+>  };
 > +
->  		case SPEED_40000:
->  			speed = AD_LINK_SPEED_40000MBPS;
->  			break;
-> @@ -707,6 +713,9 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
->  		case AD_LINK_SPEED_20000MBPS:
->  			bandwidth = nports * 20000;
->  			break;
-> +		case AD_LINK_SPEED_25000MBPS:
-> +			bandwidth = nports * 25000;
-> +			break;
->  		case AD_LINK_SPEED_40000MBPS:
->  			bandwidth = nports * 40000;
->  			break;
-> -- 
-> 2.11.0
-> 
+> +&mdio {
+> +	ext_rmii_phy1: ethernet-phy@1 {
+> +	      reg = <1>;
+
+Even though it's optional, it's nice to have a:
+
+	compatible = "ethernet-phy-ieee802.3-c22"
+
+string here.
+
+This applies to all DTS files that you have in subsequent patches.
+
+Thanks!
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
