@@ -1,52 +1,51 @@
-From: Zhao Qiang <qiang.zhao@nxp.com>
-Subject: [PATCH] ucc/hdlc: fix two little issue
-Date: Tue, 14 Mar 2017 09:38:33 +0800
-Message-ID: <1489455513-19239-1-git-send-email-qiang.zhao@nxp.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: bond procfs hw addr prints
+Date: Mon, 13 Mar 2017 22:06:06 -0400
+Message-ID: <8aa4aff4-e1b3-83b5-f453-c6485f540705@redhat.com>
+References: <597da6f1-c0fc-ae23-94d1-d0fb3abb3176@redhat.com>
+ <10202.1489451284@famine>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <xiaobo.xie@nxp.com>, <netdev@vger.kernel.org>,
-        Zhao Qiang <qiang.zhao@nxp.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0089.outbound.protection.outlook.com ([104.47.36.89]:4881
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752689AbdCNBwo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Mar 2017 21:52:44 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:33840 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752044AbdCNCGG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 22:06:06 -0400
+In-Reply-To: <10202.1489451284@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1. modify bd_status from u32 to u16 in function hdlc_rx_done,
-because bd_status register is 16bits
-2. write bd_length register before writing bd_status register
+On 2017-03-13 8:28 PM, Jay Vosburgh wrote:
+> Jarod Wilson <jarod@redhat.com> wrote:
+>
+>> I've got a bug report for someone using a Intel OPA devices in a bond, and
+>> it appears these devices have a hardware address length of 20, opposed to
+>> the typical 6 on ethernet. When they dump /proc/net/bonding/bondX, it only
+>> prints the first 6 of the address, per %pM and mac_address_string(), while
+>> sysfs for the interface does print the right thing, since it uses
+>> sysfs_print_mac(), which takes a length argument.
+>
+> 	This (20 octet MAC length) is true for any Infiniband device.
+>
+>> So the question is... What's the best route to take here? Expand %pM to
+>> support variable length hardware addresses? Use sysfs_* in procfs?
+>> Reinvent the wheel? Nothing I've tinkered with just yet feels very clean,
+>> on top of not actually working yet. :)
+>
+> 	sysfs_format_mac (not _print_mac) uses "%*phC", len, addr in its
+> format string.  Perhaps that format would be a better choice than %pM
+> for this case?
 
-Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
----
- drivers/net/wan/fsl_ucc_hdlc.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Ah, I'd failed to fully grasp how %phC worked, had actually tried it w/o 
+the * in there, and only the first char of the addr was printing. 
+Working on an updated version that uses %*phC properly, which does look 
+like the way to go here. (Didn't help that I was also looking at an 
+older codebase that didn't have the sysfs_format_mac de-duplication). 
+I'll try to have a tested patch in flight tomorrow.
 
-diff --git a/drivers/net/wan/fsl_ucc_hdlc.c b/drivers/net/wan/fsl_ucc_hdlc.c
-index a5045b5..6742ae6 100644
---- a/drivers/net/wan/fsl_ucc_hdlc.c
-+++ b/drivers/net/wan/fsl_ucc_hdlc.c
-@@ -381,8 +381,8 @@ static netdev_tx_t ucc_hdlc_tx(struct sk_buff *skb, struct net_device *dev)
- 	/* set bd status and length */
- 	bd_status = (bd_status & T_W_S) | T_R_S | T_I_S | T_L_S | T_TC_S;
- 
--	iowrite16be(bd_status, &bd->status);
- 	iowrite16be(skb->len, &bd->length);
-+	iowrite16be(bd_status, &bd->status);
- 
- 	/* Move to next BD in the ring */
- 	if (!(bd_status & T_W_S))
-@@ -457,7 +457,7 @@ static int hdlc_rx_done(struct ucc_hdlc_private *priv, int rx_work_limit)
- 	struct sk_buff *skb;
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
- 	struct qe_bd *bd;
--	u32 bd_status;
-+	u16 bd_status;
- 	u16 length, howmany = 0;
- 	u8 *bdbuffer;
- 	int i;
 -- 
-2.1.0.27.g96db324
+Jarod Wilson
+jarod@redhat.com
