@@ -1,41 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: debug ATU Age Time
-Date: Tue, 14 Mar 2017 13:05:39 +0100
-Message-ID: <20170314120539.GT15842@lunn.ch>
-References: <20170313192043.12478-1-vivien.didelot@savoirfairelinux.com>
- <20170313223932.GC14183@lunn.ch>
- <b7d0e92f-45cb-929d-a724-2a582621f8e1@gmail.com>
- <20170313225845.GE14183@lunn.ch>
- <535be006-e384-aca3-ee8b-4ed36b66b97a@neratec.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
+Date: Tue, 14 Mar 2017 13:11:15 +0100
+Message-ID: <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
+References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
+ <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
+ <234d9e75-0083-b8b4-c781-add653fdb550@grandegger.com>
+ <b3ebb569-b50c-39ad-dec5-0059fbfba8fb@timesys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Jason Cobham <jcobham@questertangent.com>
-To: Matthias May <matthias.may@neratec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <535be006-e384-aca3-ee8b-4ed36b66b97a@neratec.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Akshay Bhat <nodeax-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Akshay Bhat <akshay.bhat-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b3ebb569-b50c-39ad-dec5-0059fbfba8fb-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Hi
-> The never ever seeing R/W failure on MDIO bus is not exactly accurate.
-> We had with art (atheros calibration tool) the problem that interrupts
-> were being disabled which lead to MDIO operations running into
-> timout/failing.
+Hallo Akshay,
 
-Yes, i've seen similar with power management bugs for the MDIO
-driver. But you get a cascade of failures, lots of warnings and error
-prints, it is clear something bad has happened, and the switch is in
-an inconsistent state. So having one more debug print which is also
-inconsistent does no really harm.
+Am 13.03.2017 um 16:38 schrieb Akshay Bhat:
+> Hi Wolfgang,
+>
+> On 03/09/2017 12:36 PM, Wolfgang Grandegger wrote:
+>> Hello,
+>>
+>> doing a quick review... I realized a few issues...
+>>
+>> Am 17.01.2017 um 20:22 schrieb Akshay Bhat:
+... snip ...
+>> A few other things to check:
+>>
+>> Run "cangen" and monitor the message with "candump -e any,0:0,#FFFFFFF".
+>> Then 1) disconnect the cable or 2) short-circuit CAN low and high at the
+>> connector. You should see error messages. After reconnection or removing
+>> the short-circuit (and bus-off recovery) the state should go back to
+>> "active".
+>>
+>
+> With the above sequence, candump reports "ERRORFRAME" with
+> protocol-violation{{}{acknowledge-slot}}, bus-error. On re-connecting
+> the cable the can state goes back to ACTIVE and I see the messages that
+> were in the queue being sent.
 
-Anyway, this whole conversation has taken more effort than just making
-this simple change to remove a few lines of code. So lets drop it and
-move on.
+Do you get the ACK error also with berr-reporting off? Would be nice if 
+you could show a candump log here.
 
-    Andrew
+Also, any error message should show the bus error counts in data[7,8]:
+
+http://lxr.free-electrons.com/source/drivers/net/can/sja1000/sja1000.c#L408
+
+And please check bus-off as well (short-circuiting CAN low and high).
+
+Wolfgang.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
