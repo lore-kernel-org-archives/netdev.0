@@ -1,43 +1,34 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net] r8152: fix the list rx_done may be used without initialization
-Date: Tue, 14 Mar 2017 14:15:20 +0800
-Message-ID: <1394712342-15778-252-Taiwan-albertk@realtek.com>
-References: <20170313215714.n2p6j4nxtpxbheaj@dell5510>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv3 0/4] rds: ib: trivial patches
+Date: Mon, 13 Mar 2017 23:20:23 -0700 (PDT)
+Message-ID: <20170313.232023.812288063688948196.davem@davemloft.net>
+References: <1489383828-7699-1-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>, <petr.vorel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170313215714.n2p6j4nxtpxbheaj@dell5510>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+        leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489383828-7699-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The list rx_done would be initialized when the linking on occurs.
-Therefore, if a napi is scheduled without any linking on before,
-the following kernel panic would happen.
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 13 Mar 2017 01:43:44 -0400
 
-	BUG: unable to handle kernel NULL pointer dereference at 000000000000008
-	IP: [<ffffffffc085efde>] r8152_poll+0xe1e/0x1210 [r8152]
-	PGD 0
-	Oops: 0002 [#1] SMP
+> v2 -> v3
+> remove err from messages.
+> 
+> Zhu Yanjun (4):
+>   rds: ib: drop unnecessary rdma_reject
+>   rds: ib: remove redundant ib_dealloc_fmr
+>   rds: ib: add the static type to the function
+>   rds: ib: unmap the scatter/gather list when error
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 986243c..bb3eedd 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1362,6 +1362,7 @@ static int alloc_all_mem(struct r8152 *tp)
- 	spin_lock_init(&tp->rx_lock);
- 	spin_lock_init(&tp->tx_lock);
- 	INIT_LIST_HEAD(&tp->tx_free);
-+	INIT_LIST_HEAD(&tp->rx_done);
- 	skb_queue_head_init(&tp->tx_queue);
- 	skb_queue_head_init(&tp->rx_queue);
- 
--- 
-2.7.4
+Series applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
