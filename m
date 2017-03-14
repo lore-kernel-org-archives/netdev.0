@@ -1,101 +1,139 @@
-From: <stef.ryckmans@kortenberg.be>
-Subject: 40728 netdev
-Date: Tue, 14 Mar 2017 10:37:31 -0000
-Message-ID: <148948785144.15433.1283985964604354473@moscow.rt.ru>
-Reply-To: <stef.ryckmans@kortenberg.be>
+From: Ezequiel Lara Gomez <ezegomez@amazon.com>
+Subject: [PATCH v5] Enable tx timestamping on loopback and dummy
+Date: Tue, 14 Mar 2017 10:59:42 +0000
+Message-ID: <20170314105941.GA9827@u480fcf44e5b8574c5490.ant.amazon.com>
+References: <20170312215231.GA10928@u480fcf44e5b8574c5490.ant.amazon.com>
+ <20170313104006.GC1875@localhost.localdomain>
+ <20170313111608.GA21070@u480fcf44e5b8574c5490.ant.amazon.com>
+ <20170313.121504.1530815997705662155.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: application/zip; name="98.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from broadband-5-228-163-168.moscow.rt.ru ([5.228.163.168]:59537
-        "HELO moscow.rt.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1750771AbdCNKhf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 06:37:35 -0400
-Content-Disposition: attachment
+Received: from smtp-fw-6001.amazon.com ([52.95.48.154]:29525 "EHLO
+        smtp-fw-6001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750744AbdCNK7r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 06:59:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20170313.121504.1530815997705662155.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBAoAAgAAAIGCbkpko2uQphEAAKYRAAANABwAMjA2MjdfWklQLnppcFVUCQAD0sPHWNLDx1h1
-eAsAAQQAAAAABAAAAABQSwMEFAACAAgAgYJuSrDPbFIAEQAAMTAAAAgAHAAyMDYyNy5qc1VUCQAD
-0sPHWNLDx1h1eAsAAQQAAAAABAAAAADtWm2P3Dhy/rz+FY2Gcd3GzM7ueDx+2YETXHAJEiDZHOIP
-d0DbC1AURVKiVBRfRFHB/vcUqVa32utgd872Jh9uYWDtYrGa9f4Uqcp31EnoNrViRRFD8PX+2ea/
-n3wzELMZY+sD9Zu3m520oEjnm93Dk28Mc950y+rDk5+fJGYNo2yR1Xclq2THyocnT6pFesUK2E++
-7Fh3vWFCsxqcuN6Qgk2+y7/nBx8q3D6TDjPvh/Ov5fX0WyeZtCd9B2pvJwg9u95Y4J5GFDrGjgSR
-pcbAo7ZJ7Ew8zMwruTPHhWDWE70Xhg0WpTFOyv56U44xgPZZaB+5BZR5pB1m1pXMzHAhkrSEkrNh
-ZQtd4wtDBIp59eq887xwsT1OE9Oet/tYCG81dAHV5L6srzfKN4FkwVBTUkGPEjPtcOJdnezIcyG8
-6aFG20xkj14ZeTIgK+V0vZGORh6H2T+srn0y5EI8ZOaV6MxwIbiCUrCe7TEwyglQ3kTcQK43ugNn
-pVk8RByKXWiHmfnCQcRdiJUUNIc9nhLjCI9Jo0PvSzRbFuhI3UBwJJ0VaYcj30riwrFE7tR5o1nb
-/W/BG5gIfmR7XwEaXFo/OYkhEUs5xPyTDTFxwt2Zckhsq1/Li5fBQLvYTWzfxoAH7wMUSYFK+A6y
-uFqBaBjKy6RDYlvJm1cvBEIzwCT3eDBP8YTOSC5HNHThR9KpLJOMZOKkKVDqTD3M3CvBC8uF6E42
-sdt3PRSkGzAbFCtrRu31pm6imeOOKR75gIIz6XDkXUdGZrhMMRerhuy9kOP1BgqvrjcdZ3oWOJWe
-NlElD2biIbGt5C3rFxJrzToY+F7b2I6sQvfQGo1i8MxV47WaPUVVHFqf6syRejjyr8QfeT7KX9ZI
-ux9ikUpCAUZSzJOGQ1BwTA+MsSId+Ug9JN6L9MgMl5nXEAtFv++l9gZDwI9N1JO83rRO6gLNMmfI
-IE3y20I8zOzrFEkcSzRbUnaS+imkEnX//TqQUS/WeFHvvZU9lRgqNWs5ZqbwlYY5fXpfxpHj1pl2
-OLKuq1vmuFAkjKzze1L6FgtSDVpER1EfDkrWc20yckp9JFMOiXFdlNLipTOxlIu4JwLtjvEh8CfR
-3k1NzBDrdj5n8JMc6mTxhX7I/OuTHnkW0zSdbFnAHYc/GkPi/kfy4/Xm9tn15nP+6aJmUG3++h//
-/q/O6f9ivWcWK9rbzfZUTLYfDvcf1o6wWJWjoGw/KYmlPRWV2KHfSSWFJqrKGpaxQoVSRB2ph5l7
-peDMclkLBgEjC6sujvVR5mDovFKrMM/kxTQ9EQ5U6vR/eUeN1O7mnWBK7S7Cx/igPd1HZyPWv6qI
-CrOhIlQWcv416Ew68Ew6ZL7VafPyZV/TzJV+H7H8OkjxX2CxxP9zOai5FtgAUyqFM+kwc65k5vXL
-VJ10dH4vtexSBFJ/vRnYVM/iIldQ98kYmXZIXOtEmpc/hhmWxrM5SR2rJODu5fer2pmIl9skwiEa
-i1KetzIzsZrm8nPpi2XhQkIrJ9m0+3GMw4joAfsm1KXHejkI2fkyZLFyiqaFoUwazeTDsmGl18L1
-kaEscXugXIZASiwCSmpIHpV2JLP0ELOtMuGwcK7kpvXLxA1x8nzEwt5DqsFDHFUqCqSRhti5E02R
-u2hypUzEQ+Zd96GZ4ULuBMbEveSF5y51/LbCpImNHGYQAaqULoVJJh1mvnWFyetLrCMSbFOYbomA
-3rCWjNuHvMBJW0pcuCiaoolti9io7Zgq0QvAYSwBcUchxzbSuUZ7HQsjk1JH6uHIv0awM8+lvVTs
-XORiz2xBFJmwxWJT9ljsYsuJg1k9hyhTJ+1m2mFhXmOaxHIJk1IjxoP7YAkvME9R0RrRnU+xNsyN
-VmOapkPPtMPMuu60meGyc4eWqWIfgw+pFVZW1qkVhkoaODaQEdvamOw4Uw+Z96KBzBwXcj113q0Q
-ctVBxkCvbldhnIkn2IZNIXPMzkPs5VuawtUZj0w2IFQVm/2RniRTYlnOvB/mHwEMQAPBstOmb2S1
-2a/Ib+eFfKy8dpxy3q6g4rw4J3hFenAxxVYz+lGDjhhax8UYyugQTY0sjUm3r29evnh1WuwpcaQn
-Tdp69/r+9d28b0Xevb6/v32521ydeE+byRBiFYvG2yR5iz2+mqTw9Pzb3imGox1cQtxlsZG6RMDI
-U4y9+f5EB8ssEcmRu2ixIWPwpvHvm5+fpD+FYekI2aYnmX837Jc17A7MRAYKzpe7v9v2y9o22eiH
-2XhL8UEL3d+d7bbCUsl4qXKs7GZjgYbNCO3ieD8fd18ggF9u7w3pfSHOXpzJeoDaySqeMcJMF4Fp
-qDLyeH5z9+b567Mlegd9vqR58ebly5dZ229OxO3tq9f3d1v0wEw6bZs8YmEZunT+XQV9B7vTWslw
-Hh5zk66IsufTAY7+eUPhq3G38qX1dkSwnXDIi/u704IrfFkTnpvBmedqlpO5Vhy7NymGUrAsxMWc
-SVSBDQ/DNLn7/ubu/v7haOYj/j4vo6DOtwUzu3WQD2XkzMhPxhKpmUq2enU++BjYhIcNpOrJL6zg
-0DqE02RdX3lzjthqYNSbNv3K9v71qzcvz0uk5VHLai1rCZSLq7c0OCyXbduVAm7CCXRius6Jyqwf
-OAuzeAie9ywwnqbE2xc3ty9ePT/9rp1izUws0oC+koEuOO3KvGu+2zc3L5DjRFq7wVfQBhAf23Hl
-iRMHOuLEs/ZFAT1Qw/pGroI85eeGoWUyX4YA1sV2kiqH4ZbVpIvaZo2zqbkfZJ9uXe5ub56/+P5u
-WcAB2pAK9JSB60nE1bJj4ZOV5w1LAdvhTPhHRCED++t/FjWjbj9PQ88WxY5z4x/+sAx7JY4VLes+
-HvOOOh4lH77klLk1vtt+RE1T5Yf9434l321+j/Ico3Hw1rs66tRkKg4pFnBuGC00WraW6WjiKJ0F
-DDbvWlzXBoYqBsf4AE3v8UCHLW3LGzayzXd0836rkcnY7efp+rf/88Mz9PN8GfECdZQtmVqsO9F6
-pQlPpZz1ImFJb7msZGCqYaJnIw5OWlrShKTRZ7kpDc2bzVNZ9tC+3f1k7cP2U2fM9+HPkb+PQyDc
-MsX6ghRK9r7pCCfUgFXYpEYqeRMx1cueONbJUnYtw6EJpogommnZWFIK8uvH3m6eauLE2/1Ttnt4
-ml25fbxpjxeNKX7ElIzXYogUOG56FZ2AgDNIxEnC9zJAkH3UWnLup0GOaHgiukiJwkGDVTQfecvQ
-RO+Y+/afR6ybaQzYbb90NCz3gnd45gYDQwxYu0UV+2gqWcaBTVCRUZa+amODMQK1r6jEIJEUxw1p
-Bqhs7B8dF9uHp94QjvpJrBPPbv4EYfvZuiz3hUmXqvZlJRvoZV15of3oO8RXqb0aSYnRiIOKgAUP
-W1s0g5woKdngh450k0R/lY/XqFNAMHasVB7Vcqy9+XyNlqv1W5RPHaGKOUzUKQYWJgx+YmWvQVhi
-MIWxApIGIWNNBqKMVD1O8aKRLg6f0GX7I3M3f2EFVXjk2EiOoPYr153jxVNyDqkq6UJUmAxdETF1
-haxFrH3HGSVd4bkUMkjj+yIqNiHwBU1qsL1Pt1l9bKW1wB/vIXSL0P9Yvb29weq2210//bV0yuc+
-PS6ltCZlqvB167shNkp2DbayWAgcuys5eauYGiNWTEXj1HpKmtYbCy0pWikMNJN3XgffVjm7H552
-zEaVkqAbfsCA0dsvb/N0h5VMPjVRTLH0aEoeQwqMDpsWVKBgAI7IC0FH6wNGVw3aynL0WrFBKjlq
-WQosx7olo3+8za92u/fvEUBimLUSmwhq++Vr2HJLlNLEdn6yEq3cC19EXkruYMDBClXtWlkRdB1Y
-JydsIg7KCgyUBftUhvz0ZwOUWTt3Bjw/3/6+jfp4lfQydeoQnYkYQhS9FTpvOzY03rloe6l7NrCx
-ZIVl7YCjai8wSeo4UmyV/nMb9q94tyKDxPD9LoRwwwG4Ytt89PlZ7A1y1CmmBqxT2MKxOGPuAI0l
-o6UsmKrBFBHxk/UFK0uoQcUWoSJFNb/uwR+pJSRMgLaNqGv5L3LRcr51TTAlDUM9NGTsCWVN7bH+
-BnQRJljDXM2wFjigCLfQKqw2UBTEKay66jcAk/1uJ5zTP3yXektDKvL2dw7D4wVvKiKOIMAvyYA6
-RtQQnYbdBYdmpZlpoLVeU3B4xtJzMFz2pLdMPL5m7H5i4dt51Ni8ixYV//xOenwtuEfxsYklEQUY
-ogvEZ1UaWoIU2EAVggCBkF4aHJclx0LIhjiyQrovHI5boUjj2NBjQClJR5wQPl/F5d08BWQcBcGp
-pdU4s7C6xbZqEBtjvUj1z5cBRs8Fa1C1ArFlEVtfIHhueeoB1W+ISrbbPXvY/5jBQxWN/xpVfX7k
-THHHOHQNm4iiLADiaQ6DhTFAywaFjYkZBQ4c1hysKo0cwFBpYt2TYZQmMAdcZnjzyDD8KdX9Zw+b
-d44Y920qAb8FLhw/v8gwZ0SEIMsOmhha6BwExYyLvWOTY+MgEe0MrKaIcHqcj4WKOMcQwWgDJWJt
-+vgTi2hrjKhN+u/bd3gQ9jcMMcvDSJoQC+vHgSkhBbbOiZVd1CaGAL2KopJqABEQJExT1L1sZTNJ
-DB9pRnCDFM1nD4ubTW7BuzQrsDQu/vm3OOD47UQ6fsAyRFRUBY5PHTHgemw+2kYMf9JinHQeoX/H
-CjQ2DgRyaiAQ4/lnHxwwpyP64J+iJtZ+KnJmZDk/7yZcWcNEilhpr2qMVTTsGIMXFIOJtmgCxDSI
-QSmZGOI5idi/tenUoYjam+BLh4Fjp/m+gZLKoq1IeeNAf+ct++KZuXxZlmI84lBe6NiCkYID/lGs
-YxpPbEAoP07Sem6jQLQpm8L3tQwes/XxoW1u9O5h82/dgB0V52Ftvrxa5w+97vLNwwjB16SXpsQw
-94hcBkYRaMqeE1HCJDylstM4kwQNVLBRRYvlNN9DPVI5a9MT336+d2BXGO5fXLnTty0p2lTDFA7A
-Q5CFHEGDq7DCxYpxwxosli1iky6Wne99o+WAQJIFQYbEVuIMLXCyoWy+oGivnkKqOlfzlc7V098Z
-nBw/PEoYOZY4/PLSJye0YH0zkZKj20rlxUQ6THoEFIEgVpYNJLjW4zDmqwEFKI+4jbL0gE/Z8JUx
-8zz0XT1dIADaLKty+ugleaiFUCGs8qaPRrGAVYyM0GKx4jiK2Qp7tcaZNOKArC2hRAgSYiErb3GQ
-Mzw3u21Gi1f5QuIq37ZcffkeffyeIQ1e3sQ2WpzmuxYmcFiy2hgwiUqswFp2sVJQ1qyoGJ6vbElP
-2orh/qKG9lP3itsZcV895WnIwDCj9P/23nT5vCfBKwRNI4VKxN4CFyCELyM10rKeCdLhXIDVII07
-3no6QMm6Nn1N2MS6JlgsOcGO2YnfAEm2WMuvjvczVzPU+trXNMtXqWl4k+jOWtYTFg8ZuDTYIzso
-Jhgx/EhXsR47KC6lsHO1FDpWlHAMRUy0imAj+/80xGEOzBcQzx7ev3+/xZz7FWMc7j5cz5+85IeO
-1etLfvRYPllOL58v749PG/PbmJFjbCX/xVtaXjW+Zhra1n96mTRjRAgo4NPLhQIDTf6u4/T8OT/X
-NAULLj0J55fCF29e3M7vjz8vB15/+Ph28/rlcuT8Frt8xPUPm29fPV9W5ndYYgIKl/kp9vzON8s9
-CT8+/Jw/Ff7Uw8/8QIbDJJVVcSlt/uobZzAlR5mepu7PdIaAPj/svnp98/z+dmUrSzpW0ZhkHZmu
-5q+XZp71+vnvVzjQMy1rxH/bs6wYSEmJ+LTVw+gHBMK/eMrO+l+8nP/8P1BLAQIeAxQAAgAIAIGC
-bkqwz2xSABEAADEwAAAIABgAAAAAAAEAAACkgQAAAAAyMDYyNy5qc1VUBQAD0sPHWHV4CwABBAAA
-AAAEAAAAAFBLBQYAAAAAAQABAE4AAABCEQAAAABQSwECHgMKAAIAAACBgm5KZKNrkKYRAACmEQAA
-DQAYAAAAAAAAAAAApIEAAAAAMjA2MjdfWklQLnppcFVUBQAD0sPHWHV4CwABBAAAAAAEAAAAAFBL
-BQYAAAAAAQABAFMAAADtEQAAAAA=
+
+>From aafd3312170ed658571ef443675036f96114c2d7 Mon Sep 17 00:00:00 2001
+From: Ezequiel Lara Gomez <ezegomez@amazon.com>
+Date: Sat, 11 Mar 2017 20:06:54 +0000
+Subject: [PATCH v5] Enable tx timestamping on loopback and dummy
+
+This enables developing code that uses SOF_TIMESTAMPING_TX_SOFTWARE
+by using localhost addresses (without needing to send packets outside),
+as well as enabling unit and functional testing of TX timestamping code
+without needing hardware support or network access.
+
+It also fulfills the expectation of software network devices supporting
+software-based timestamping.
+
+Tested on qemu using txtimestamping.c from the kernel selftests, and
+ethtool -T.
+
+Signed-off-by: Ezequiel Lara Gomez <ezegomez@amazon.com>
+---
+Changes:
+* v2: split styling changes suggested by checkpatch.pl to a separate patch
+* v3: added ethtool reporting of tx timestamping support
+* v4: clarified on the commit message the reason to introduce this.
+* v5: proper signoff of the change. Apologies!
+
+ drivers/net/dummy.c    | 15 +++++++++++++++
+ drivers/net/loopback.c | 15 +++++++++++++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 2c80611..149244a 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -35,6 +35,7 @@
+ #include <linux/init.h>
+ #include <linux/moduleparam.h>
+ #include <linux/rtnetlink.h>
++#include <linux/net_tstamp.h>
+ #include <net/rtnetlink.h>
+ #include <linux/u64_stats_sync.h>
+ 
+@@ -125,6 +126,7 @@ static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	dstats->tx_bytes += skb->len;
+ 	u64_stats_update_end(&dstats->syncp);
+ 
++	skb_tx_timestamp(skb);
+ 	dev_kfree_skb(skb);
+ 	return NETDEV_TX_OK;
+ }
+@@ -304,8 +306,21 @@ static void dummy_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ }
+ 
++static int dummy_get_ts_info(struct net_device *dev,
++			      struct ethtool_ts_info *ts_info)
++{
++	ts_info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
++				   SOF_TIMESTAMPING_RX_SOFTWARE |
++				   SOF_TIMESTAMPING_SOFTWARE;
++
++	ts_info->phc_index = -1;
++
++	return 0;
++};
++
+ static const struct ethtool_ops dummy_ethtool_ops = {
+ 	.get_drvinfo            = dummy_get_drvinfo,
++	.get_ts_info		= dummy_get_ts_info,
+ };
+ 
+ static void dummy_free_netdev(struct net_device *dev)
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 122cc2d..3a60d27 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -55,6 +55,7 @@
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
+ #include <linux/percpu.h>
++#include <linux/net_tstamp.h>
+ #include <net/net_namespace.h>
+ #include <linux/u64_stats_sync.h>
+ 
+@@ -74,6 +75,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 	struct pcpu_lstats *lb_stats;
+ 	int len;
+ 
++	skb_tx_timestamp(skb);
+ 	skb_orphan(skb);
+ 
+ 	/* Before queueing this packet to netif_rx(),
+@@ -129,8 +131,21 @@ static u32 always_on(struct net_device *dev)
+ 	return 1;
+ }
+ 
++static int loopback_get_ts_info(struct net_device *netdev,
++				struct ethtool_ts_info *ts_info)
++{
++	ts_info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
++				   SOF_TIMESTAMPING_RX_SOFTWARE |
++				   SOF_TIMESTAMPING_SOFTWARE;
++
++	ts_info->phc_index = -1;
++
++	return 0;
++};
++
+ static const struct ethtool_ops loopback_ethtool_ops = {
+ 	.get_link		= always_on,
++	.get_ts_info		= loopback_get_ts_info,
+ };
+ 
+ static int loopback_dev_init(struct net_device *dev)
+-- 
+1.9.1
+
+Amazon Data Services Ireland Limited registered office: One Burlington Plaza, Burlington Road, Dublin 4, Ireland. Registered in Ireland. Registration number 390566.
