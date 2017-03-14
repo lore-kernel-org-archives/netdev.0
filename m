@@ -1,32 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] sock: add SO_RCVQUEUE_SIZE getsockopt
-Date: Mon, 13 Mar 2017 17:10:08 -0700 (PDT)
-Message-ID: <20170313.171008.1845413549443399902.davem@davemloft.net>
-References: <522a2e2d-c288-7019-3f12-2b624d6aa921@akamai.com>
-        <20170313.123933.1813218797817423920.davem@davemloft.net>
-        <9f775c33-01f4-fbd8-4d4d-4ca67f0f6d3b@akamai.com>
+Subject: Re: [PATCH 09/11] net: stmmac: dma channel init prepared for
+ multiple queues
+Date: Mon, 13 Mar 2017 17:18:57 -0700 (PDT)
+Message-ID: <20170313.171857.406760790328158776.davem@davemloft.net>
+References: <cover.1489419356.git.jpinto@synopsys.com>
+        <cover.1489419356.git.jpinto@synopsys.com>
+        <c5de4f9e818a5e84e880d0ab16bfc6bb59470a27.1489419357.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, arnd@arndb.de, soheil@google.com,
-        willemb@google.com, pabeni@redhat.com, linux-arch@vger.kernel.org,
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org
-To: johunt@akamai.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <9f775c33-01f4-fbd8-4d4d-4ca67f0f6d3b@akamai.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Joao.Pinto@synopsys.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60270 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752001AbdCNAS6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 20:18:58 -0400
+In-Reply-To: <c5de4f9e818a5e84e880d0ab16bfc6bb59470a27.1489419357.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Josh Hunt <johunt@akamai.com>
-Date: Mon, 13 Mar 2017 18:34:41 -0500
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Mon, 13 Mar 2017 16:12:40 +0000
 
-> In this particular case they really do want to know total # of bytes
-> in the receive queue, not the data bytes they can consume from an
-> application pov. The kernel currently only exposes this value through
-> netlink or /proc/net/udp from what I saw.
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index e60e077..44db2e3 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1732,6 +1732,10 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
+>   */
+>  static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+>  {
+> +	u32 rx_channels_count = priv->plat->rx_queues_to_use;
+> +	u32 tx_channels_count = priv->plat->tx_queues_to_use;
+> +	u32 dummy_dma_rx_phy, dummy_dma_tx_phy = 0;
+> +	u32 chan = 0;
+>  	int atds = 0;
+>  	int ret = 0;
+>  
 
-Can you explain in what way this is useful?
+dummy_dma_rx_phy is declared, but not initialized:
 
-The difference between skb->len and skb->truesize is really kernel
-internal implementation detail, and I'm trying to figure out why
-this would be useful to an application.
+> @@ -1749,19 +1753,43 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+>  		return ret;
+>  	}
+>  
+> -	priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg,
+> -			    priv->dma_tx_phy, priv->dma_rx_phy, atds);
+> -
+>  	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
+> -		priv->rx_tail_addr = priv->dma_rx_phy +
+> -			    (DMA_RX_SIZE * sizeof(struct dma_desc));
+> -		priv->hw->dma->set_rx_tail_ptr(priv->ioaddr, priv->rx_tail_addr,
+> -					       STMMAC_CHAN0);
+> +		/* DMA Configuration */
+> +		priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg,
+> +				    dummy_dma_tx_phy, dummy_dma_rx_phy, atds);
+> +
+
+Yet it is used here, still uninitialized.
+
+The compiler even warns about this.
