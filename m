@@ -1,107 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: crypto: deadlock between crypto_alg_sem/rtnl_mutex/genl_mutex
-Date: Tue, 14 Mar 2017 18:25:57 +0800
-Message-ID: <20170314102557.GA1225@gondor.apana.org.au>
-References: <CACT4Y+bLbNbf0T376JHvemuY+za0+qgrfOKWzvJg5vAkJTCRFg@mail.gmail.com>
- <20170314091649.GA711@gondor.apana.org.au>
- <CACT4Y+YT6EZFtMTNywd4BtKyzWrJ9vtDU96TUFi9WLpypkgWhg@mail.gmail.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH] net: mpls: Fix nexthop alive tracking on down events
+Date: Tue, 14 Mar 2017 10:29:16 +0000
+Message-ID: <d38589fb-89a1-13e4-1754-dd4e75ff5707@brocade.com>
+References: <1489448950-13340-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-crypto@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+YT6EZFtMTNywd4BtKyzWrJ9vtDU96TUFi9WLpypkgWhg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <roopa@cumulusnetworks.com>
+To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:60568 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750785AbdCNK33 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 06:29:29 -0400
+In-Reply-To: <1489448950-13340-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 14, 2017 at 10:44:10AM +0100, Dmitry Vyukov wrote:
+On 13/03/17 23:49, David Ahern wrote:
+> Alive tracking of nexthops can account for a link twice if the carrier
+> goes down followed by an admin down of the same link rendering multipath
+> routes useless. This is similar to 79099aab38c8 for UNREGISTER events and
+> DOWN events.
 >
-> Yes, please.
-> Disregarding some reports is not a good way long term.
+> Fix by tracking number of alive nexthops in mpls_ifdown similar to the
+> logic in mpls_ifup. Checking the flags per nexthop once after all events
+> have been processed is simpler than trying to maintian a running count
+> through all event combinations.
+>
+> Also, WRITE_ONCE is used instead of ACCESS_ONCE to set rt_nhn_alive
+> per a comment from checkpatch:
+>     WARNING: Prefer WRITE_ONCE(<FOO>, <BAR>) over ACCESS_ONCE(<FOO>) = <BAR>
+>
+> Fixes: c89359a42e2a4 ("mpls: support for dead routes")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Please try this patch.
-
----8<---
-Subject: netlink: Annotate nlk cb_mutex by protocol
-
-Currently all occurences of nlk->cb_mutex are annotated by lockdep
-as a single class.  This causes a false lcokdep cycle involving
-genl and crypto_user.
-
-This patch fixes it by dividing cb_mutex into individual classes
-based on the netlink protocol.  As genl and crypto_user do not
-use the same netlink protocol this breaks the false dependency
-loop.
-
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7b73c7c..596eaff 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -96,6 +96,44 @@ static inline int netlink_is_kernel(struct sock *sk)
- 
- static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
- 
-+static struct lock_class_key nlk_cb_mutex_keys[MAX_LINKS];
-+
-+static const char *const nlk_cb_mutex_key_strings[MAX_LINKS + 1] = {
-+	"nlk_cb_mutex-ROUTE",
-+	"nlk_cb_mutex-1",
-+	"nlk_cb_mutex-USERSOCK",
-+	"nlk_cb_mutex-FIREWALL",
-+	"nlk_cb_mutex-SOCK_DIAG",
-+	"nlk_cb_mutex-NFLOG",
-+	"nlk_cb_mutex-XFRM",
-+	"nlk_cb_mutex-SELINUX",
-+	"nlk_cb_mutex-ISCSI",
-+	"nlk_cb_mutex-AUDIT",
-+	"nlk_cb_mutex-FIB_LOOKUP",
-+	"nlk_cb_mutex-CONNECTOR",
-+	"nlk_cb_mutex-NETFILTER",
-+	"nlk_cb_mutex-IP6_FW",
-+	"nlk_cb_mutex-DNRTMSG",
-+	"nlk_cb_mutex-KOBJECT_UEVENT",
-+	"nlk_cb_mutex-GENERIC",
-+	"nlk_cb_mutex-17",
-+	"nlk_cb_mutex-SCSITRANSPORT",
-+	"nlk_cb_mutex-ECRYPTFS",
-+	"nlk_cb_mutex-RDMA",
-+	"nlk_cb_mutex-CRYPTO",
-+	"nlk_cb_mutex-SMC",
-+	"nlk_cb_mutex-23",
-+	"nlk_cb_mutex-24",
-+	"nlk_cb_mutex-25",
-+	"nlk_cb_mutex-26",
-+	"nlk_cb_mutex-27",
-+	"nlk_cb_mutex-28",
-+	"nlk_cb_mutex-29",
-+	"nlk_cb_mutex-30",
-+	"nlk_cb_mutex-31",
-+	"nlk_cb_mutex-MAX_LINKS"
-+};
-+
- static int netlink_dump(struct sock *sk);
- static void netlink_skb_destructor(struct sk_buff *skb);
- 
-@@ -585,6 +623,9 @@ static int __netlink_create(struct net *net, struct socket *sock,
- 	} else {
- 		nlk->cb_mutex = &nlk->cb_def_mutex;
- 		mutex_init(nlk->cb_mutex);
-+		lockdep_set_class_and_name(nlk->cb_mutex,
-+					   nlk_cb_mutex_keys + protocol,
-+					   nlk_cb_mutex_key_strings[protocol]);
- 	}
- 	init_waitqueue_head(&nlk->wait);
- 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Acked-by: Robert Shearman <rshearma@brocade.com>
