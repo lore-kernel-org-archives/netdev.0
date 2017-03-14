@@ -1,85 +1,48 @@
-From: David Daney <david.daney@cavium.com>
-Subject: [PATCH v2 2/5] MIPS: BPF: Add JIT support for SKF_AD_HATYPE.
-Date: Tue, 14 Mar 2017 14:21:41 -0700
-Message-ID: <20170314212144.29988-3-david.daney@cavium.com>
-References: <20170314212144.29988-1-david.daney@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org,
-        "Steven J. Hill" <steven.hill@cavium.com>,
-        David Daney <david.daney@cavium.com>
-To: linux-mips@linux-mips.org, ralf@linux-mips.org,
-        James Hogan <james.hogan@imgtec.com>,
-        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20170314212144.29988-1-david.daney@cavium.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: sun: sungem: rix a possible null dereference
+Date: Tue, 14 Mar 2017 22:23:21 +0100
+Message-ID: <1489526601-9423-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, mugunthanvnm@ti.com, jarod@redhat.com,
+        felipe.balbi@linux.intel.com, edumazet@google.com, fw@strlen.de,
+        dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34207 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751872AbdCNVXi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 17:23:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This let's us pass some additional "modprobe test-bpf" tests with JIT
-enabled.
+The function gem_begin_auto_negotiation dereference
+the pointer ep before testing if it's null. This
+patch add a check on ep before dereferencing it.
 
-Reuse the code for SKF_AD_IFINDEX, but substitute the offset and size
-of the "type" field.
+This issue was added by the patch 92552fdd557:
+"net: sun: sungem: use new api ethtool_{get|set}_link_ksettings".
 
-Signed-off-by: David Daney <david.daney@cavium.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- arch/mips/net/bpf_jit.c | 21 +++++++++++++++++----
- 1 file changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sun/sungem.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-index 49a2e22..880e329 100644
---- a/arch/mips/net/bpf_jit.c
-+++ b/arch/mips/net/bpf_jit.c
-@@ -365,6 +365,12 @@ static inline void emit_half_load(unsigned int reg, unsigned int base,
- 	emit_instr(ctx, lh, reg, offset, base);
- }
+diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
+index dbfca04..fa607d0 100644
+--- a/drivers/net/ethernet/sun/sungem.c
++++ b/drivers/net/ethernet/sun/sungem.c
+@@ -1259,8 +1259,9 @@ static void gem_begin_auto_negotiation(struct gem *gp,
+ 	int duplex;
+ 	u32 advertising;
  
-+static inline void emit_half_load_unsigned(unsigned int reg, unsigned int base,
-+					   unsigned int offset, struct jit_ctx *ctx)
-+{
-+	emit_instr(ctx, lhu, reg, offset, base);
-+}
-+
- static inline void emit_mul(unsigned int dst, unsigned int src1,
- 			    unsigned int src2, struct jit_ctx *ctx)
- {
-@@ -1112,6 +1118,8 @@ static int build_body(struct jit_ctx *ctx)
- 			break;
- 		case BPF_ANC | SKF_AD_IFINDEX:
- 			/* A = skb->dev->ifindex */
-+		case BPF_ANC | SKF_AD_HATYPE:
-+			/* A = skb->dev->type */
- 			ctx->flags |= SEEN_SKB | SEEN_A;
- 			off = offsetof(struct sk_buff, dev);
- 			/* Load *dev pointer */
-@@ -1120,10 +1128,15 @@ static int build_body(struct jit_ctx *ctx)
- 			emit_bcond(MIPS_COND_EQ, r_s0, r_zero,
- 				   b_imm(prog->len, ctx), ctx);
- 			emit_reg_move(r_ret, r_zero, ctx);
--			BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
--						  ifindex) != 4);
--			off = offsetof(struct net_device, ifindex);
--			emit_load(r_A, r_s0, off, ctx);
-+			if (code == (BPF_ANC | SKF_AD_IFINDEX)) {
-+				BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, ifindex) != 4);
-+				off = offsetof(struct net_device, ifindex);
-+				emit_load(r_A, r_s0, off, ctx);
-+			} else { /* (code == (BPF_ANC | SKF_AD_HATYPE) */
-+				BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, type) != 2);
-+				off = offsetof(struct net_device, type);
-+				emit_half_load_unsigned(r_A, r_s0, off, ctx);
-+			}
- 			break;
- 		case BPF_ANC | SKF_AD_MARK:
- 			ctx->flags |= SEEN_SKB | SEEN_A;
+-	ethtool_convert_link_mode_to_legacy_u32(&advertising,
+-						ep->link_modes.advertising);
++	if (ep)
++		ethtool_convert_link_mode_to_legacy_u32(
++			&advertising, ep->link_modes.advertising);
+ 
+ 	if (gp->phy_type != phy_mii_mdio0 &&
+      	    gp->phy_type != phy_mii_mdio1)
 -- 
-2.9.3
+1.7.4.4
