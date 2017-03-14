@@ -1,45 +1,86 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: Re: [PATCH net-next 2/4] net-next: dsa: add Mediatek tag RX/TX
- handler
-Date: Tue, 14 Mar 2017 14:22:10 +0800
-Message-ID: <1489472530.1870.21.camel@mtkswgap22>
-References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
-         <1489421488-300-3-git-send-email-sean.wang@mediatek.com>
-         <87innd6rk2.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v1 for accelerated IPoIB 05/25] IB/ipoib: Support ipoib
+ acceleration options callbacks
+Date: Mon, 13 Mar 2017 23:35:38 -0700
+Message-ID: <20170314063538.GB79937@knc-06.sc.intel.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+ <1489429896-10781-6-git-send-email-erezsh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>, <matthias.bgg@gmail.com>,
-        <robh+dt@kernel.org>, <mark.rutland@arm.com>,
-        <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <davem@davemloft.net>,
-        <Landen.Chao@mediatek.com>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87innd6rk2.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1489429896-10781-6-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-03-13 at 12:59 -0400, Vivien Didelot wrote:
-> Hi Sean,
-> 
-> sean.wang@mediatek.com writes:
-> 
-> > +	mtk_tag[1] = (1 << p->port) & MTK_HDR_XMIT_DP_BIT_MASK;
-> 
-> This won't apply, the port index in now stored in p->dp->index.
-> 
-> Thanks,
-> 
->         Vivien
+On Mon, Mar 13, 2017 at 08:31:16PM +0200, Erez Shitrit wrote:
+>+static struct net_device *ipoib_create_netdev_default(struct ib_device *hca,
+>+						      const char *name,
+>+						      void (*setup)(struct net_device *))
+> {
+> 	struct net_device *dev;
+>+	struct rdma_netdev *rn;
+>
+>-	dev = alloc_netdev((int)sizeof(struct ipoib_dev_priv), name,
+>-			   NET_NAME_UNKNOWN, ipoib_setup);
+>+	dev = alloc_netdev((int)sizeof(struct ipoib_rdma_netdev),
+>+			   name,
+>+			   NET_NAME_UNKNOWN, setup);
+> 	if (!dev)
+> 		return NULL;
+>
+>-	return netdev_priv(dev);
+>+	rn = netdev_priv(dev);
+>+
+>+	rn->ib_dev_init = ipoib_dev_init_default;
+>+	rn->ib_dev_cleanup = ipoib_dev_uninit_default;
+>+	rn->send = ipoib_send;
+>+	rn->attach_mcast = ipoib_mcast_attach;
+>+	rn->detach_mcast = ipoib_mcast_detach;
+>+
+>+	dev->netdev_ops = &ipoib_netdev_default_pf;
+>+
 
+Probably no need to set netdev_ops here as it gets overwritten.
 
-Hi Vivien,
+>+	return dev;
+>+}
+>+
+>+struct ipoib_dev_priv *ipoib_intf_alloc(struct ib_device *hca, u8 port,
+>+					const char *name)
+>+{
+>+	struct net_device *dev;
+>+	struct ipoib_dev_priv *priv;
+>+	struct rdma_netdev *rn;
+>+
+>+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+>+	if (!priv) {
+>+		pr_err("%s failed allocting priv\n", __func__);
+>+		return NULL;
+>+	}
+>+
+>+	if (!hca->alloc_rdma_netdev)
+>+		dev = ipoib_create_netdev_default(hca, name, ipoib_setup_common);
+>+	else
+>+		dev = hca->alloc_rdma_netdev(hca, port, RDMA_NETDEV_IPOIB,
+>+					     name, NET_NAME_UNKNOWN,
+>+					     ipoib_setup_common);
+>+	if (!dev) {
+>+		kfree(priv);
+>+		return NULL;
+>+	}
 
-It seems that I need to upgrade to newer kernel to verify this
+This will break ipoib on hfi1 as hfi1 will define alloc_rdma_netdev for 
+OPA_VNIC type. We should probably look for a dedicated return type (-ENODEV?) 
+to determine of the driver supports specified rdma netdev type. Or use a ib 
+device attribute to suggest driver support ipoib rdma netdev.
 
-thanks for your review , I'll fix this in the next one.
-
-	Sean
+Niranjana
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
