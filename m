@@ -1,35 +1,47 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 2/3] vxlan: fix snooping for link-local IPv6
- addresses
-Date: Tue, 14 Mar 2017 15:56:56 +0100
-Message-ID: <20170314155656.1446a358@griffin>
-References: <cover.1489184335.git.mschiffer@universe-factory.net>
-        <a897a68b6a9994b0f7a1d53f6079f5e04fcec443.1489184335.git.mschiffer@universe-factory.net>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net: deadlock between ip_expire/sch_direct_xmit
+Date: Tue, 14 Mar 2017 07:56:56 -0700
+Message-ID: <CANn89iLO1neA3-4ipYr==n_3iDXDXgY0MCkPkp=cEf8n4w6i=g@mail.gmail.com>
+References: <CACT4Y+ZrHr0Cqw5RPeZ6QW16auOPyKSCOea6AciHBswAT3t14Q@mail.gmail.com>
+ <1489502504.28631.115.camel@edumazet-glaptop3.roam.corp.google.com> <CACT4Y+bLJtO55iP5uNPZV+_B+H5-Z2gOiF26sXDmWk9L0rESsw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, hannes@stressinduktion.org, pshelar@ovn.org,
-        aduyck@mirantis.com, roopa@cumulusnetworks.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Matthias Schiffer <mschiffer@universe-factory.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a897a68b6a9994b0f7a1d53f6079f5e04fcec443.1489184335.git.mschiffer@universe-factory.net>
+In-Reply-To: <CACT4Y+bLJtO55iP5uNPZV+_B+H5-Z2gOiF26sXDmWk9L0rESsw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Mar 2017 23:39:43 +0100, Matthias Schiffer wrote:
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -941,16 +941,24 @@ static int vxlan_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
->   */
->  static bool vxlan_snoop(struct net_device *dev,
->  			union vxlan_addr *src_ip, const u8 *src_mac,
-> -			__be32 vni)
-> +			__u32 src_ifindex, __be32 vni)
+On Tue, Mar 14, 2017 at 7:46 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
 
-Just "u32", please. No double underscores for u32 inside the
-kernel-only code. (Also in other places in this patch.)
+> I am confused. Lockdep has observed both of these stacks:
+>
+>        CPU0                    CPU1
+>        ----                    ----
+>   lock(&(&q->lock)->rlock);
+>                                lock(_xmit_ETHER#2);
+>                                lock(&(&q->lock)->rlock);
+>   lock(_xmit_ETHER#2);
+>
+>
+> So it somehow happened. Or what do you mean?
+>
 
-Thanks,
+Lockdep said " possible circular locking dependency detected " .
+It is not an actual deadlock, but lockdep machinery firing.
 
- Jiri
+For a dead lock to happen, this would require that he ICMP message
+sent by ip_expire() is itself fragmented and reassembled.
+This cannot be, because ICMP messages are not candidates for
+fragmentation, but lockdep can not know that of course...
