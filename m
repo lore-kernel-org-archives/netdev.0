@@ -1,7 +1,7 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net-next 08/12] net: bcmgenet: correct return value of __bcmgenet_tx_reclaim
-Date: Mon, 13 Mar 2017 17:41:38 -0700
-Message-ID: <20170314004142.4746-9-opendmb@gmail.com>
+Subject: [PATCH net-next 09/12] net: bcmgenet: return EOPNOTSUPP for unknown ioctl commands
+Date: Mon, 13 Mar 2017 17:41:39 -0700
+Message-ID: <20170314004142.4746-10-opendmb@gmail.com>
 References: <20170314004142.4746-1-opendmb@gmail.com>
 Cc: robh+dt@kernel.org, mark.rutland@arm.com, davem@davemloft.net,
         rafal@milecki.pl, xow@google.com, joel@jms.id.au,
@@ -15,41 +15,52 @@ In-Reply-To: <20170314004142.4746-1-opendmb@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The reclaim function should return the number of buffer descriptors
-reclaimed, not just the number corresponding to skb packets.
+This commit changes the ioctl handling behavior to return the
+EOPNOTSUPP error code instead of the EINVAL error code when an
+unknown ioctl command value is detected.
 
-Also, remove the unnecessary computation when updating the consumer
-index.
-
-While this is not a functional problem it could degrade performance
-of napi in a fragmented transmit stream.
+It also removes some redundant parsing of the ioctl command value
+and allows the SIOCSHWTSTAMP value to be handled.
 
 Signed-off-by: Doug Berger <opendmb@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 19 +++----------------
+ 1 file changed, 3 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 1f94ba1773dd..d90d366b286f 100644
+index d90d366b286f..3b49c14128e2 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1218,7 +1218,7 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
- 	}
+@@ -1062,27 +1062,14 @@ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+ static int bcmgenet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	int val = 0;
  
- 	ring->free_bds += txbds_processed;
--	ring->c_index = (ring->c_index + txbds_processed) & DMA_C_INDEX_MASK;
-+	ring->c_index = c_index;
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
  
- 	dev->stats.tx_packets += pkts_compl;
- 	dev->stats.tx_bytes += bytes_compl;
-@@ -1231,7 +1231,7 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
- 			netif_tx_wake_queue(txq);
- 	}
+-	switch (cmd) {
+-	case SIOCGMIIPHY:
+-	case SIOCGMIIREG:
+-	case SIOCSMIIREG:
+-		if (!priv->phydev)
+-			val = -ENODEV;
+-		else
+-			val = phy_mii_ioctl(priv->phydev, rq, cmd);
+-		break;
+-
+-	default:
+-		val = -EINVAL;
+-		break;
+-	}
++	if (!priv->phydev)
++		return -ENODEV;
  
--	return pkts_compl;
-+	return txbds_processed;
+-	return val;
++	return phy_mii_ioctl(priv->phydev, rq, cmd);
  }
  
- static unsigned int bcmgenet_tx_reclaim(struct net_device *dev,
+ static struct enet_cb *bcmgenet_get_txcb(struct bcmgenet_priv *priv,
 -- 
 2.11.1
