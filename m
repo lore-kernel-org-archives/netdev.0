@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 14/20] ARM64: dts: sun50i-a64: Add dt node for the syscon control module
-Date: Tue, 14 Mar 2017 15:18:50 +0100
-Message-ID: <20170314141856.24560-15-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 18/20] ARM: dts: sun50i-a64: enable dwmac-sun8i on the BananaPi M64
+Date: Tue, 14 Mar 2017 15:18:54 +0100
+Message-ID: <20170314141856.24560-19-clabbe.montjoie@gmail.com>
 References: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
 Cc: f.fainelli@gmail.com, devicetree@vger.kernel.org,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -17,33 +17,38 @@ In-Reply-To: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch add the dt node for the syscon register present on the
-Allwinner A64.
-
-Only two register are present in this syscon and the only one useful is
-the one dedicated to EMAC clock.
+The dwmac-sun8i  hardware is present on the BananaPi M64.
+It uses an external PHY rtl8211e via RGMII.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 6 ++++++
- 1 file changed, 6 insertions(+)
+ arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-index 1c64ea2..3b09af2 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-@@ -121,6 +121,12 @@
- 		#size-cells = <1>;
- 		ranges;
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
+index 6872135..347c262 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
+@@ -77,6 +77,20 @@
+ 	bias-pull-up;
+ };
  
-+		syscon: syscon@01c00000 {
-+			compatible = "syscon",
-+				"allwinner,sun8i-h3-system-controller";
-+			reg = <0x01c00000 0x1000>;
-+		};
++&mdio {
++	ext_rgmii_phy: ethernet-phy@1 {
++		reg = <1>;
++	};
++};
 +
- 		mmc0: mmc@1c0f000 {
- 			compatible = "allwinner,sun50i-a64-mmc";
- 			reg = <0x01c0f000 0x1000>;
++&emac {
++	pinctrl-names = "default";
++	pinctrl-0 = <&rgmii_pins>;
++	phy-mode = "rgmii";
++	phy-handle = <&ext_rgmii_phy>;
++	status = "okay";
++};
++
+ &mmc0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&mmc0_pins>;
 -- 
 2.10.2
