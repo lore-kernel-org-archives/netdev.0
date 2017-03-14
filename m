@@ -1,50 +1,59 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next 0/4] gtp: support multiple APN's per GTP endpoint
-Date: Tue, 14 Mar 2017 12:45:38 +0100
-Message-ID: <20170314114538.GC2992@salvia>
-References: <20170314112548.24027-1-aschultz@tpip.net>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH net-next 1/4] dt-bindings: net: dsa: add Mediatek MT7530
+ binding
+Date: Tue, 14 Mar 2017 12:58:06 +0100
+Message-ID: <20170314115806.GS15842@lunn.ch>
+References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
+ <1489421488-300-2-git-send-email-sean.wang@mediatek.com>
+ <928d1178-e04a-3e78-4a7a-36127321a949@gmail.com>
+ <1489474323.1870.47.camel@mtkswgap22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Harald Welte <laforge@gnumonks.org>,
-        osmocom-net-gprs@lists.osmocom.org,
-        netdev <netdev@vger.kernel.org>,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>
-To: Andreas Schultz <aschultz@tpip.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42392 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750992AbdCNLpw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Mar 2017 07:45:52 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id BB23F24717
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 12:45:44 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A9C48DA865
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 12:45:44 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5D11BDA879
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 12:45:42 +0100 (CET)
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170314112548.24027-1-aschultz@tpip.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1489474323.1870.47.camel@mtkswgap22>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 14, 2017 at 12:25:44PM +0100, Andreas Schultz wrote:
-[...]
-> API impact:
-> -----------
+> By the ways, I have a question which is could current DSA framework
+> allows managing the fabric designated from "multiple cpu ports" to "user
+> ports" in any combination in brctl and in other existing commands?
 > 
-> This is probably the most problematic part of this series...
+> For example.
 > 
-> The removeal of the TEID form the netdevice also means that the gtp genl API
-> for retriving tunnel information and removing tunnels needs to be adjusted.
+> I assume that there are two cpu port called 5, and 6.and there are five
+> user ports called 0, 1, 2 and 3. and the default fabric on the switch is
+> mapping from { 5 } <-> { 0, 1, 2, 3 ,4 } where members in the braces I
+> assumes they also can communicate with each other.
 > 
-> Before this change it was possible to change a GTP tunnel using the gtp
-> netdevice id and the teid. The teid is no longer unique per gtp netdevice.
-> After this change it has to be either the netdevice and MS IP or the GTP
-> socket and teid.
+> Is it feasible for changing the fabric into other combinations in the
+> runtime such as 
+> {5} <-> {0, 1, 2, 3} and {6} <-> {4}
+> {5} <-> {0, 1, 2} and {6} <-> {3, 4} or 
+> {6} <-> {0, 1} and {6} <-> {2, 3, 4} or
+> ....
+> {6} <-> {0, 1, 2, 3 ,4} ?
+> 
+> After some trace code, I found it seemed that only one cpu port could be
+> supported via one dsa registration. 
 
-Then we have to introduce some explicit VRF concept or such to sort
-out this.
+Hi Sean
 
-It is definitely not acceptable to break the existing API.
+This is on our TODO list, and getting near the top of Florians list,
+as far as i understand. A few years ago i did make a proof of concept
+implementation for this, and the new device tree binding was designed
+with this in mind.
+
+     Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
