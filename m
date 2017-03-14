@@ -1,112 +1,87 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v1 for accelerated IPoIB 04/25] IB/verb: Add ipoib_options
- struct and API
-Date: Mon, 13 Mar 2017 23:44:09 -0700
-Message-ID: <20170314064409.GC79937@knc-06.sc.intel.com>
-References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
- <1489429896-10781-5-git-send-email-erezsh@mellanox.com>
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [PATCH net-next 1/4] dt-bindings: net: dsa: add Mediatek MT7530
+ binding
+Date: Tue, 14 Mar 2017 14:52:03 +0800
+Message-ID: <1489474323.1870.47.camel@mtkswgap22>
+References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
+         <1489421488-300-2-git-send-email-sean.wang@mediatek.com>
+         <928d1178-e04a-3e78-4a7a-36127321a949@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1489429896-10781-5-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <andrew@lunn.ch>, <vivien.didelot@savoirfairelinux.com>,
+        <matthias.bgg@gmail.com>, <robh+dt@kernel.org>,
+        <mark.rutland@arm.com>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <davem@davemloft.net>,
+        <Landen.Chao@mediatek.com>, <keyhaede@gmail.com>,
+        <objelf@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <928d1178-e04a-3e78-4a7a-36127321a949@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 13, 2017 at 08:31:15PM +0200, Erez Shitrit wrote:
->+struct ipoib_rdma_netdev {
->+	struct rdma_netdev rn;  /* keep this first */
->+	/* followed by device private data */
->+	char *dev_priv[0];
->+};
->+
->+static inline void *ipoib_priv(const struct net_device *dev)
->+{
->+	struct rdma_netdev *rn = netdev_priv(dev);
->+
->+	return rn->clnt_priv;
->+}
->+
->+static inline void *ipoib_dev_priv(const struct net_device *dev)
->+{
->+	struct ipoib_rdma_netdev *ipoib_rn = netdev_priv(dev);
->+
->+	return ipoib_rn->dev_priv;
->+}
->+
+On Mon, 2017-03-13 at 09:47 -0700, Florian Fainelli wrote:
+> On 03/13/2017 09:11 AM, sean.wang@mediatek.com wrote:
+> > From: Sean Wang <sean.wang@mediatek.com>
+> > 
+> > Add device-tree binding for Mediatek MT7530 switch.
+> > 
+> > Cc: devicetree@vger.kernel.org
+> > Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> > ---
+> >  .../devicetree/bindings/net/dsa/mt7530.txt         | 94 ++++++++++++++++++++++
+> >  1 file changed, 94 insertions(+)
+> >  create mode 100644 Documentation/devicetree/bindings/net/dsa/mt7530.txt
+> > 
+> > diff --git a/Documentation/devicetree/bindings/net/dsa/mt7530.txt b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
+> > new file mode 100644
+> > index 0000000..0e50dbf
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/dsa/mt7530.txt
+> > @@ -0,0 +1,94 @@
+> > +Mediatek MT7530 Ethernet switch
+> > +================================
+> > +
+> > +Required properties:
+> > +
+> > +- compatible: Must be compatible = "mediatek,mt7530";
+> > +- #address-cells: Must be 1
+> > +- #size-cells: Must be 0
+> > +- mediatek,ethsys: Phandle to the syscon node that handles the reset.
+> > +- mediatek,ethernet: Phandle to the syscon node that Mediatek ethernet driver
+> > +	provides that handles the TRGMII setup used by the switch.
+> > +	See
+> > +	Documentation/devicetree/bindings/net/mediatek-net.txt for the detailed
+> > +	setup on mediatek ethernet.
+> 
+> This seems redundant with the CPU port's ethernet phandle here.
 
-It can be confusing to see return of ipoib_priv() getting assigned to 
-ipoib_dev_priv (legacy name). May be we should change ipoib_dev_priv() to 
-ipoib_hw_priv()?
 
+Okay, it is indeed better to reuse the phandle embedded in the cpu
+ports. I will reuse this in the next one.
 
->+#endif /* IB_IPOIB_ACCEL_OPS_H */
->diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
->index 85b9034c8cfc..9b090efccdba 100644
->--- a/include/rdma/ib_verbs.h
->+++ b/include/rdma/ib_verbs.h
->@@ -1901,6 +1901,41 @@ struct ib_port_immutable {
-> 	u32                           max_mad_size;
-> };
->
->+/* rdma netdev type - specifies protocol type */
->+enum rdma_netdev_t {
->+	RDMA_NETDEV_OPA_VNIC,
->+	RDMA_NETDEV_IPOIB
->+};
->+
->+struct ipoib_ah;
->+
->+/**
->+ * struct rdma_netdev - rdma netdev
->+ * For cases where netstack interfacing is required.
->+ */
->+struct rdma_netdev {
->+	void *clnt_priv;
->+
->+	/* control functions */
->+	void (*set_id)(struct net_device *netdev, int id);
->+	/* IB resource allocation function, returns new UD QP */
->+	int (*ib_dev_init)(struct net_device *dev, struct ib_device *hca,
->+			   int *qp_num);
->+	void (*ib_dev_cleanup)(struct net_device *dev, struct ib_device *hca);
->+
->+	/* send packet */
->+	void (*send)(struct net_device *dev, struct sk_buff *skb,
->+		     struct ipoib_ah *address, u32 dqpn, u32 dqkey);
->+
->+	/* multicast */
->+	int (*attach_mcast)(struct net_device *dev, struct ib_device *hca,
->+			    union ib_gid *gid, u16 lid, int set_qkey);
->+	int (*detach_mcast)(struct net_device *dev, struct ib_device *hca,
->+			    union ib_gid *gid, u16 lid);
->+	int qp_num;
+By the ways, I have a question which is could current DSA framework
+allows managing the fabric designated from "multiple cpu ports" to "user
+ports" in any combination in brctl and in other existing commands?
 
-May be ipoib_rdma_netdev structure is the right place for these functions?
+For example.
 
->+	void *context;
+I assume that there are two cpu port called 5, and 6.and there are five
+user ports called 0, 1, 2 and 3. and the default fabric on the switch is
+mapping from { 5 } <-> { 0, 1, 2, 3 ,4 } where members in the braces I
+assumes they also can communicate with each other.
 
-No context should be necessary here.
+Is it feasible for changing the fabric into other combinations in the
+runtime such as 
+{5} <-> {0, 1, 2, 3} and {6} <-> {4}
+{5} <-> {0, 1, 2} and {6} <-> {3, 4} or 
+{6} <-> {0, 1} and {6} <-> {2, 3, 4} or
+....
+{6} <-> {0, 1, 2, 3 ,4} ?
 
->+};
->+
-> struct ib_device {
-> 	struct device                *dma_device;
->
->@@ -2149,6 +2184,7 @@ struct ib_device {
-> 						struct ib_wq_attr *attr,
-> 						u32 wq_attr_mask,
-> 						struct ib_udata *udata);
->+	struct ib_ipoib_accel_ops * (*get_ipoib_accel_ops)(struct ib_device *device);
+After some trace code, I found it seemed that only one cpu port could be
+supported via one dsa registration. 
 
-old code, needs fix.
-
-Niranjana
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Sean
