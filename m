@@ -1,62 +1,57 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH net-next 0/4] gtp: support multiple APN's per GTP endpoint
-Date: Tue, 14 Mar 2017 14:52:59 +0100
-Message-ID: <20170314135259.xcu6d24higtla7k5@nataraja>
-References: <20170314112548.24027-1-aschultz@tpip.net>
- <20170314114538.GC2992@salvia>
- <2005226672.385248.1489495364893.JavaMail.zimbra@tpip.net>
- <20170314134216.GA4170@salvia>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: debug ATU Age Time
+Date: Tue, 14 Mar 2017 15:18:56 +0100
+Message-ID: <20170314141856.GG14183@lunn.ch>
+References: <20170313192043.12478-1-vivien.didelot@savoirfairelinux.com>
+ <20170313223932.GC14183@lunn.ch>
+ <b7d0e92f-45cb-929d-a724-2a582621f8e1@gmail.com>
+ <20170313225845.GE14183@lunn.ch>
+ <535be006-e384-aca3-ee8b-4ed36b66b97a@neratec.com>
+ <20170314120539.GT15842@lunn.ch>
+ <87inncj71i.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        osmocom-net-gprs <osmocom-net-gprs@lists.osmocom.org>,
-        netdev <netdev@vger.kernel.org>,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>
-To: Andreas Schultz <aschultz@tpip.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:42380 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdCNOPG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 10:15:06 -0400
+Cc: Matthias May <matthias.may@neratec.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Jason Cobham <jcobham@questertangent.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170314134216.GA4170@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <87inncj71i.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andreas,
-
-On Tue, Mar 14, 2017 at 02:42:16PM +0100, Pablo Neira Ayuso wrote:
-> On Tue, Mar 14, 2017 at 01:42:44PM +0100, Andreas Schultz wrote:
-> > The only supported and documented API for the GTP module is libgtpnl.
+On Tue, Mar 14, 2017 at 09:56:41AM -0400, Vivien Didelot wrote:
+> Hi Andrew,
 > 
-> No, the netlink interface itself if the API.
+> Andrew Lunn <andrew@lunn.ch> writes:
 > 
-> Stopping trying to find a reason to break API, that is a no-go.
+> >> The never ever seeing R/W failure on MDIO bus is not exactly accurate.
+> >> We had with art (atheros calibration tool) the problem that interrupts
+> >> were being disabled which lead to MDIO operations running into
+> >> timout/failing.
+> >
+> > Yes, i've seen similar with power management bugs for the MDIO
+> > driver. But you get a cascade of failures, lots of warnings and error
+> > prints, it is clear something bad has happened, and the switch is in
+> > an inconsistent state. So having one more debug print which is also
+> > inconsistent does no really harm.
+> >
+> > Anyway, this whole conversation has taken more effort than just making
+> > this simple change to remove a few lines of code. So lets drop it and
+> > move on.
+> 
+> I don't understand nor agree with the fact that sometimes it's OK to not
+> check for errors, based on one developer assumptions. Not checking
+> return code is wrong and very likely error-prone.
 
-As much as one might dislike it as a developer in this particular case,
-the Linux kernel has the very well communicated rule: All userspace
-visible interfaces must not change in an incompatible way.  This
-includes of course all the syscalls, the ioctl() parameters but also the
-netlink interfaces of the networking stack.
+Please go back and look what i said. I did check the error code, in
+that it gets returned to the caller. I just don't check it before
+printing the debug.
 
-The statement "nobody ever used it" is a statement you can never make in
-FOSS software, as you don't know of 99.9999999% of all the users of your
-software.  The fact that none of the FOSS projects that any of us was
-involved in may not have used a certain feature doesn't mean nobody else
-has been using it privately, quietly.  Keep in mind that several Linux
-distributions have already been shipping the gtp module as part of their
-stable releases meanwhile.
+But as i said, lets drop this whole topic.
 
-Also, no matter what Pablo or I may think about, there are general rules
-about how Linux kernel development is done (from coding style to merge
-windows, and also userspace compatibility), and we all have to obey
-them.  There's little point in discussing about them, we all just have
-to live with them.
-
-Regards,
-	Harald
--- 
-- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-============================================================================
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+    Andrew
