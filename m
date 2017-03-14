@@ -1,39 +1,41 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH 3/3] ARM: omap2plus_defconfig: Enable TI Ethernet PHY
-Date: Tue, 14 Mar 2017 14:51:19 +0200
-Message-ID: <f868e8aa-9b6e-0e96-299b-d7229ba4492c@ti.com>
-References: <1489412554-2054-1-git-send-email-rogerq@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <grygorii.strashko@ti.com>,
-        <nsekhar@ti.com>, <jsarha@ti.com>, <linux-omap@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <tony@atomide.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489412554-2054-1-git-send-email-rogerq@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH] net:  Resend IGMP memberships upon peer notification.
+Date: Tue, 14 Mar 2017 08:58:08 -0400
+Message-ID: <1489496288-24139-1-git-send-email-vyasevic@redhat.com>
+Cc: mst@redhat.com, jasowang@redhat.com,
+        Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:33160 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751087AbdCNM6X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 08:58:23 -0400
+Received: by mail-qk0-f195.google.com with SMTP id j127so40998606qke.0
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 05:58:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DP83848_PHY i.e. [TI TLK10X 10/100 Mbps PHY] is used on the
-am335x-icev2 board. Enable the PHY driver for it.
+When we notify peers of potential changes,  it's also good to update
+IGMP memberships.  For example, during VM migration, updating IGMP
+memberships will redirect existing multicast streams to the VM at the
+new location.
 
-Signed-off-by: Roger Quadros <rogerq@ti.com>
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- arch/arm/configs/omap2plus_defconfig | 1 +
+ net/core/dev.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm/configs/omap2plus_defconfig b/arch/arm/configs/omap2plus_defconfig
-index f2462a6..cfa5bac 100644
---- a/arch/arm/configs/omap2plus_defconfig
-+++ b/arch/arm/configs/omap2plus_defconfig
-@@ -167,6 +167,7 @@ CONFIG_TI_CPTS=y
- # CONFIG_NET_VENDOR_VIA is not set
- # CONFIG_NET_VENDOR_WIZNET is not set
- CONFIG_AT803X_PHY=y
-+CONFIG_DP83848_PHY=y
- CONFIG_MICREL_PHY=y
- CONFIG_SMSC_PHY=y
- CONFIG_USB_USBNET=m
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a229bf0..1ed927d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1272,6 +1272,7 @@ void netdev_notify_peers(struct net_device *dev)
+ {
+ 	rtnl_lock();
+ 	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, dev);
++	call_netdevice_notifiers(NETDEV_RESEND_IGMP, dev);
+ 	rtnl_unlock();
+ }
+ EXPORT_SYMBOL(netdev_notify_peers);
 -- 
 2.7.4
