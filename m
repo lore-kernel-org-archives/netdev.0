@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 12/20] ARM: dts: sun8i: Enable dwmac-sun8i on the Orange Pi plus
-Date: Tue, 14 Mar 2017 15:18:48 +0100
-Message-ID: <20170314141856.24560-13-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 20/20] ARM: sunxi: Enable dwmac-sun8i driver on multi_v7_defconfig
+Date: Tue, 14 Mar 2017 15:18:56 +0100
+Message-ID: <20170314141856.24560-21-clabbe.montjoie@gmail.com>
 References: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
 Cc: f.fainelli@gmail.com, devicetree@vger.kernel.org,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -12,79 +12,29 @@ To: robh+dt@kernel.org, mark.rutland@arm.com,
         linux@armlinux.org.uk, catalin.marinas@arm.com,
         will.deacon@arm.com, peppe.cavallaro@st.com,
         alexandre.torgue@st.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:32821 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752490AbdCNOV2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 10:21:28 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The dwmac-sun8i hardware is present on the Orange PI plus.
-It uses an external PHY rtl8211e via RGMII.
-
-This patch create the needed regulator, emac and phy nodes.
+Enable the dwmac-sun8i driver in the multi_v7 default configuration
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts | 35 ++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ arch/arm/configs/multi_v7_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-index 8c40ab7..4e075a2 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-@@ -58,6 +58,18 @@
- 		enable-active-high;
- 		gpio = <&pio 6 11 GPIO_ACTIVE_HIGH>;
- 	};
-+
-+	reg_gmac_3v3: gmac-3v3 {
-+		compatible = "regulator-fixed";
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&gmac_power_pin_orangepi>;
-+		regulator-name = "gmac-3v3";
-+		regulator-min-microvolt = <3300000>;
-+		regulator-max-microvolt = <3300000>;
-+		startup-delay-us = <100000>;
-+		enable-active-high;
-+		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>;
-+	};
- };
- 
- &ehci3 {
-@@ -86,8 +98,31 @@
- 		pins = "PG11";
- 		function = "gpio_out";
- 	};
-+
-+	gmac_power_pin_orangepi: gmac_power_pin@0 {
-+		pins = "PD6";
-+		function = "gpio_out";
-+		drive-strength = <10>;
-+	};
- };
- 
- &usbphy {
- 	usb3_vbus-supply = <&reg_usb3_vbus>;
- };
-+
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		reg = <0>;
-+	};
-+};
-+
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
+diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
+index 36c1b39..380919f 100644
+--- a/arch/arm/configs/multi_v7_defconfig
++++ b/arch/arm/configs/multi_v7_defconfig
+@@ -257,6 +257,7 @@ CONFIG_SMSC911X=y
+ CONFIG_STMMAC_ETH=y
+ CONFIG_STMMAC_PLATFORM=y
+ CONFIG_DWMAC_DWC_QOS_ETH=y
++CONFIG_DWMAC_SUN8I=y
+ CONFIG_TI_CPSW=y
+ CONFIG_XILINX_EMACLITE=y
+ CONFIG_AT803X_PHY=y
 -- 
 2.10.2
