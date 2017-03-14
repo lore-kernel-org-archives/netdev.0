@@ -1,102 +1,78 @@
-From: <informationrequest@redirack.com>
-Subject: (unknown)
-Date: Tue, 14 Mar 2017 17:20:51 -0000
-Message-ID: <148951205125.14277.3797933862626840685@vnpt.vn>
-Reply-To: <informationrequest@redirack.com>
+From: Doug Berger <opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 02/12] net: phy: bcm7xxx: add support for 28nm
+ EPHY
+Date: Tue, 14 Mar 2017 10:23:27 -0700
+Message-ID: <1a487139-ffd9-0598-54da-29986f1e795f@gmail.com>
+References: <20170314004142.4746-1-opendmb@gmail.com>
+ <20170314004142.4746-3-opendmb@gmail.com> <20170314010651.GO15842@lunn.ch>
+ <3e5f7ac9-7e97-60f1-3986-4045522a65f5@gmail.com>
+ <20170314024320.GQ15842@lunn.ch>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_370_netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt.vn ([14.169.168.44]:54623 "HELO vnpt.vn"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1753000AbdCNRU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Mar 2017 13:20:58 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org, xow-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        joel-U3u1mxZcP9KHXe+LvDLADg@public.gmane.org, jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pgynther-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jaedon.shin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170314024320.GQ15842-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-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
+On 03/13/2017 07:43 PM, Andrew Lunn wrote:
+> On Mon, Mar 13, 2017 at 07:06:25PM -0700, Doug Berger wrote:
+>> On 03/13/2017 06:06 PM, Andrew Lunn wrote:
+>>> On Mon, Mar 13, 2017 at 05:41:32PM -0700, Doug Berger wrote:
+>>>> +static int bcm7xxx_28nm_ephy_01_afe_config_init(struct phy_device *phydev)
+>>>> +{
+>>>> +	int ret;
+>>>> +
+>>>> +	/* set shadow mode 2 */
+>>>> +	ret = phy_set_clr_bits(phydev, MII_BCM7XXX_TEST,
+>>>> +			       MII_BCM7XXX_SHD_MODE_2, 0);
+>>>> +	if (ret < 0)
+>>>> +		return ret;
+>>>> +
+>>>> +	/* Set current trim values INT_trim = -1, Ext_trim =0 */
+>>>> +	ret = phy_write(phydev, MII_BCM7XXX_SHD_2_BIAS_TRIM, 0x3BE0);
+>>>> +	if (ret < 0)
+>>>> +		goto reset_shadow_mode;
+>>>> +
+>>>> +	/* Cal reset */
+>>>> +	ret = phy_write(phydev, MII_BCM7XXX_SHD_2_ADDR_CTRL,
+>>>> +			MII_BCM7XXX_SHD_3_TL4);
+>>>> +	if (ret < 0)
+>>>> +		goto reset_shadow_mode;
+>>>
+>>> Hi Doug
+>>>
+>>> It would be nice to have a few blank lines here and there...
+>>>
+>> Thanks for taking the time to review this.
+>>
+>> In general I try to keep lines of related functionality together and use
+>> the blank lines to help identify boundaries.  In this particular case, I
+>> believe it is clearer to keep the code that may return an error code
+>> together with the code that tests for the error.
+> 
+> Hi Doug
+> 
+> I agree with that. Which is why i placed the comment between the goto
+> and the next block of code. This is where i think there should be a
+> blank line, to separate it from setting the trim values.
+> 
+OK, I see.  I thought you were referring to the code blocks above the
+comment.  In that case, as described earlier, the code below the comment
+is tightly coupled with the code above the comment since the pair of
+transactions are how we "/* Cal reset */".  The idea of introducing a
+subroutine/helper function for these paired (addr/data) transactions
+might help readability so I will consider it for a future patch.
+
+Thanks again for the feedback,
+    Doug
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
