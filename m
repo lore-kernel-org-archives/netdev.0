@@ -1,7 +1,7 @@
 From: David Daney <david.daney@cavium.com>
-Subject: [PATCH v2 5/5] MIPS: BPF: Fix multiple problems in JIT skb access helpers.
-Date: Tue, 14 Mar 2017 14:21:44 -0700
-Message-ID: <20170314212144.29988-6-david.daney@cavium.com>
+Subject: [PATCH v2 2/5] MIPS: BPF: Add JIT support for SKF_AD_HATYPE.
+Date: Tue, 14 Mar 2017 14:21:41 -0700
+Message-ID: <20170314212144.29988-3-david.daney@cavium.com>
 References: <20170314212144.29988-1-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,79 +11,75 @@ Cc: linux-kernel@vger.kernel.org,
 To: linux-mips@linux-mips.org, ralf@linux-mips.org,
         James Hogan <james.hogan@imgtec.com>,
         Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
 In-Reply-To: <20170314212144.29988-1-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
- o Socket data is unsigned, so use unsigned accessors instructions.
+This let's us pass some additional "modprobe test-bpf" tests with JIT
+enabled.
 
- o Fix path result pointer generation arithmetic.
-
- o Fix half-word byte swapping code for unsigned semantics.
+Reuse the code for SKF_AD_IFINDEX, but substitute the offset and size
+of the "type" field.
 
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- arch/mips/net/bpf_jit_asm.S | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
+ arch/mips/net/bpf_jit.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/arch/mips/net/bpf_jit_asm.S b/arch/mips/net/bpf_jit_asm.S
-index 5d2e0c8..88a2075 100644
---- a/arch/mips/net/bpf_jit_asm.S
-+++ b/arch/mips/net/bpf_jit_asm.S
-@@ -90,18 +90,14 @@ FEXPORT(sk_load_half_positive)
- 	is_offset_in_header(2, half)
- 	/* Offset within header boundaries */
- 	PTR_ADDU t1, $r_skb_data, offset
--	.set	reorder
--	lh	$r_A, 0(t1)
--	.set	noreorder
-+	lhu	$r_A, 0(t1)
- #ifdef CONFIG_CPU_LITTLE_ENDIAN
- # if defined(__mips_isa_rev) && (__mips_isa_rev >= 2)
--	wsbh	t0, $r_A
--	seh	$r_A, t0
-+	wsbh	$r_A, $r_A
- # else
--	sll	t0, $r_A, 24
--	andi	t1, $r_A, 0xff00
--	sra	t0, t0, 16
--	srl	t1, t1, 8
-+	sll	t0, $r_A, 8
-+	srl	t1, $r_A, 8
-+	andi	t0, t0, 0xff00
- 	or	$r_A, t0, t1
- # endif
- #endif
-@@ -115,7 +111,7 @@ FEXPORT(sk_load_byte_positive)
- 	is_offset_in_header(1, byte)
- 	/* Offset within header boundaries */
- 	PTR_ADDU t1, $r_skb_data, offset
--	lb	$r_A, 0(t1)
-+	lbu	$r_A, 0(t1)
- 	jr	$r_ra
- 	 move	$r_ret, zero
- 	END(sk_load_byte)
-@@ -139,6 +135,11 @@ FEXPORT(sk_load_byte_positive)
-  * (void *to) is returned in r_s0
-  *
-  */
-+#ifdef CONFIG_CPU_LITTLE_ENDIAN
-+#define DS_OFFSET(SIZE) (4 * SZREG)
-+#else
-+#define DS_OFFSET(SIZE) ((4 * SZREG) + (4 - SIZE))
-+#endif
- #define bpf_slow_path_common(SIZE)				\
- 	/* Quick check. Are we within reasonable boundaries? */ \
- 	LONG_ADDIU	$r_s1, $r_skb_len, -SIZE;		\
-@@ -150,7 +151,7 @@ FEXPORT(sk_load_byte_positive)
- 	PTR_LA		t0, skb_copy_bits;			\
- 	PTR_S		$r_ra, (5 * SZREG)($r_sp);		\
- 	/* Assign low slot to a2 */				\
--	move		a2, $r_sp;				\
-+	PTR_ADDIU	a2, $r_sp, DS_OFFSET(SIZE);		\
- 	jalr		t0;					\
- 	/* Reset our destination slot (DS but it's ok) */	\
- 	 INT_S		zero, (4 * SZREG)($r_sp);		\
+diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+index 49a2e22..880e329 100644
+--- a/arch/mips/net/bpf_jit.c
++++ b/arch/mips/net/bpf_jit.c
+@@ -365,6 +365,12 @@ static inline void emit_half_load(unsigned int reg, unsigned int base,
+ 	emit_instr(ctx, lh, reg, offset, base);
+ }
+ 
++static inline void emit_half_load_unsigned(unsigned int reg, unsigned int base,
++					   unsigned int offset, struct jit_ctx *ctx)
++{
++	emit_instr(ctx, lhu, reg, offset, base);
++}
++
+ static inline void emit_mul(unsigned int dst, unsigned int src1,
+ 			    unsigned int src2, struct jit_ctx *ctx)
+ {
+@@ -1112,6 +1118,8 @@ static int build_body(struct jit_ctx *ctx)
+ 			break;
+ 		case BPF_ANC | SKF_AD_IFINDEX:
+ 			/* A = skb->dev->ifindex */
++		case BPF_ANC | SKF_AD_HATYPE:
++			/* A = skb->dev->type */
+ 			ctx->flags |= SEEN_SKB | SEEN_A;
+ 			off = offsetof(struct sk_buff, dev);
+ 			/* Load *dev pointer */
+@@ -1120,10 +1128,15 @@ static int build_body(struct jit_ctx *ctx)
+ 			emit_bcond(MIPS_COND_EQ, r_s0, r_zero,
+ 				   b_imm(prog->len, ctx), ctx);
+ 			emit_reg_move(r_ret, r_zero, ctx);
+-			BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
+-						  ifindex) != 4);
+-			off = offsetof(struct net_device, ifindex);
+-			emit_load(r_A, r_s0, off, ctx);
++			if (code == (BPF_ANC | SKF_AD_IFINDEX)) {
++				BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, ifindex) != 4);
++				off = offsetof(struct net_device, ifindex);
++				emit_load(r_A, r_s0, off, ctx);
++			} else { /* (code == (BPF_ANC | SKF_AD_HATYPE) */
++				BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, type) != 2);
++				off = offsetof(struct net_device, type);
++				emit_half_load_unsigned(r_A, r_s0, off, ctx);
++			}
+ 			break;
+ 		case BPF_ANC | SKF_AD_MARK:
+ 			ctx->flags |= SEEN_SKB | SEEN_A;
 -- 
 2.9.3
