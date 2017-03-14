@@ -1,47 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] sock: add SO_RCVQUEUE_SIZE getsockopt
-Date: Mon, 13 Mar 2017 18:31:27 -0700
-Message-ID: <1489455087.28631.107.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1489420786-19547-1-git-send-email-johunt@akamai.com>
-         <CANn89iJ21dhirFW2OdNqHWfOgq-EieVMm5ou9pZ7g2oUz=+bfA@mail.gmail.com>
-         <522a2e2d-c288-7019-3f12-2b624d6aa921@akamai.com>
-         <20170313.123933.1813218797817423920.davem@davemloft.net>
-         <9f775c33-01f4-fbd8-4d4d-4ca67f0f6d3b@akamai.com>
+From: Pavel Belous <pavel.belous@aquantia.com>
+Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is
+ changed
+Date: Tue, 14 Mar 2017 04:32:38 +0300
+Message-ID: <a0284a60-e33d-389e-3798-bd8827424cb0@aquantia.com>
+References: <1489446436-42246-1-git-send-email-darcari@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-        arnd@arndb.de, soheil@google.com, willemb@google.com,
-        pabeni@redhat.com, linux-arch@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Josh Hunt <johunt@akamai.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <9f775c33-01f4-fbd8-4d4d-4ca67f0f6d3b@akamai.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Arcari <darcari@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0067.outbound.protection.outlook.com ([104.47.36.67]:43008
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751655AbdCNBcx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 21:32:53 -0400
+In-Reply-To: <1489446436-42246-1-git-send-email-darcari@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-03-13 at 18:34 -0500, Josh Hunt wrote:
 
-> In this particular case they really do want to know total # of bytes in 
-> the receive queue, not the data bytes they can consume from an 
-> application pov. The kernel currently only exposes this value through 
-> netlink or /proc/net/udp from what I saw.
-> 
-> I believe Eric's suggestion in his previous mail was to export all of 
-> these meminfo metrics via a single socket option call similar to how its 
-> done in netlink. We could then use that for both call sites.
-> 
-> I agree that it would be useful to also have the data you and Eric are 
-> suggesting exposed somewhere, the total # of skb->len bytes sitting in 
-> the receive queue. I could add that as a second socket option.
+On 03/14/2017 02:07 AM, David Arcari wrote:
+> When the aquantia device mtu is changed the net_device structure is not
+> updated.  As a result the ip command does not properly reflect the mtu change.
+>
+> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
+> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
+> has a ndo_change_mtu routine.
+>
+> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
+>
+> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
+> Signed-off-by: David Arcari <darcari@redhat.com>
+> ---
+>  drivers/net/ethernet/aquantia/atlantic/aq_main.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+> index dad6362..d05fbfd 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
+> @@ -98,6 +98,7 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
+>
+>  	if (err < 0)
+>  		goto err_exit;
+> +	ndev->mtu = new_mtu;
+>
+>  	if (netif_running(ndev)) {
+>  		aq_ndev_close(ndev);
+>
 
-Please note that UDP stack does not maintain a per socket sum(skb->len)
-
-Implementing this in a system call would require to lock the receive
-queue (blocking BH) and iterating over a potential huge skb list.
-
-Or add a new socket field and add/sub every skb->len of packets
-added/removed to/from receive queue.
-
-So I would prefer to not provide this information, this looks quite a
-bloat.
+Tested-by: Pavel Belous <pavel.belous@aquantia.com>
