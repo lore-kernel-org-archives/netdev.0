@@ -1,42 +1,52 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] net: intel: igbvf: use new api
-        ethtool_{get|set}_link_ksettings
-Date: Tue, 14 Mar 2017 01:46:28 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C5B3FF3@ORSMSX101.amr.corp.intel.com>
-References: <1486335319-16273-1-git-send-email-tremyfr@gmail.com>
+From: Zhao Qiang <qiang.zhao@nxp.com>
+Subject: [PATCH] ucc/hdlc: fix two little issue
+Date: Tue, 14 Mar 2017 09:38:33 +0800
+Message-ID: <1489455513-19239-1-git-send-email-qiang.zhao@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Philippe Reynes <tremyfr@gmail.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486335319-16273-1-git-send-email-tremyfr@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <xiaobo.xie@nxp.com>, <netdev@vger.kernel.org>,
+        Zhao Qiang <qiang.zhao@nxp.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0089.outbound.protection.outlook.com ([104.47.36.89]:4881
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752689AbdCNBwo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 21:52:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of Philippe Reynes
-> Sent: Sunday, February 5, 2017 2:55 PM
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; davem@davemloft.net
-> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-
-> kernel@vger.kernel.org; Philippe Reynes <tremyfr@gmail.com>
-> Subject: [Intel-wired-lan] [PATCH] net: intel: igbvf: use new api
-> ethtool_{get|set}_link_ksettings
-> 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
-> 
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> ---
->  drivers/net/ethernet/intel/igbvf/ethtool.c |   38 ++++++++++++++--------------
->  1 files changed, 19 insertions(+), 19 deletions(-)
+1. modify bd_status from u32 to u16 in function hdlc_rx_done,
+because bd_status register is 16bits
+2. write bd_length register before writing bd_status register
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
+---
+ drivers/net/wan/fsl_ucc_hdlc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wan/fsl_ucc_hdlc.c b/drivers/net/wan/fsl_ucc_hdlc.c
+index a5045b5..6742ae6 100644
+--- a/drivers/net/wan/fsl_ucc_hdlc.c
++++ b/drivers/net/wan/fsl_ucc_hdlc.c
+@@ -381,8 +381,8 @@ static netdev_tx_t ucc_hdlc_tx(struct sk_buff *skb, struct net_device *dev)
+ 	/* set bd status and length */
+ 	bd_status = (bd_status & T_W_S) | T_R_S | T_I_S | T_L_S | T_TC_S;
+ 
+-	iowrite16be(bd_status, &bd->status);
+ 	iowrite16be(skb->len, &bd->length);
++	iowrite16be(bd_status, &bd->status);
+ 
+ 	/* Move to next BD in the ring */
+ 	if (!(bd_status & T_W_S))
+@@ -457,7 +457,7 @@ static int hdlc_rx_done(struct ucc_hdlc_private *priv, int rx_work_limit)
+ 	struct sk_buff *skb;
+ 	hdlc_device *hdlc = dev_to_hdlc(dev);
+ 	struct qe_bd *bd;
+-	u32 bd_status;
++	u16 bd_status;
+ 	u16 length, howmany = 0;
+ 	u8 *bdbuffer;
+ 	int i;
+-- 
+2.1.0.27.g96db324
