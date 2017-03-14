@@ -1,58 +1,81 @@
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next 1/4] dt-bindings: net: dsa: add Mediatek MT7530
- binding
-Date: Tue, 14 Mar 2017 14:06:35 +0800
-Message-ID: <1489471595.1870.12.camel@mtkswgap22>
-References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
-         <1489421488-300-2-git-send-email-sean.wang@mediatek.com>
-         <20170313163624.GD3953@lunn.ch>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [PATCH 2/2] ARM: dts: am335x-icev2: Add CPSW ethernet0 and
+ ethernet1
+Date: Tue, 14 Mar 2017 11:37:10 +0530
+Message-ID: <815d2848-86e1-7ca2-a07c-4a69816d6ab0@ti.com>
+References: <1489412554-2054-1-git-send-email-rogerq@ti.com>
+ <1489412554-2054-3-git-send-email-rogerq@ti.com>
+ <51a2471f-dace-6d8b-b198-9bd5efe41387@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <mark.rutland-5wv7dgnIgG8@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, <keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        <objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170313163624.GD3953-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <jsarha@ti.com>, <linux-omap@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+        Roger Quadros <rogerq@ti.com>, <davem@davemloft.net>,
+        <tony@atomide.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51a2471f-dace-6d8b-b198-9bd5efe41387@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-03-13 at 17:36 +0100, Andrew Lunn wrote:
-> > +- mediatek,reset-pin: Phandle to the pinctrl node used for the reset. Which
-> > +	must be required if the property mediatek,mcm of specified as
-> > +	"disabled". See
-> > +	Documentation/devicetree/bindings/pinctrl/pinctrl-mt65xx.txt for
-> > +	the mediatek pintcrl setting for the details.
+On Tuesday 14 March 2017 12:54 AM, Grygorii Strashko wrote:
 > 
-> Hi Sean
 > 
-> This appears to be a plan GPIO line. Marvell has the same. It would be
-> nice to be consistent with the naming. From
-> Documentation/devicetree/bindings/net/dsa/marvell.txt
+> On 03/13/2017 08:42 AM, Roger Quadros wrote:
+>> Enable the 2 ethernet ports as CPSW ports in dual-mac mode
+>>
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>> [nsekhar@ti.com: use AM33XX_IOPAD()]
+>> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
+>> ---
+>>  arch/arm/boot/dts/am335x-icev2.dts | 113
+>> +++++++++++++++++++++++++++++++++++++
+>>  1 file changed, 113 insertions(+)
+>>
+>> diff --git a/arch/arm/boot/dts/am335x-icev2.dts
+>> b/arch/arm/boot/dts/am335x-icev2.dts
+>> index a2ad076..cc343b0 100644
+>> --- a/arch/arm/boot/dts/am335x-icev2.dts
+>> +++ b/arch/arm/boot/dts/am335x-icev2.dts
+>> @@ -201,6 +201,69 @@
+>>              AM33XX_IOPAD(0x938, PIN_OUTPUT_PULLUP | MUX_MODE1) /*
+>> (L16) gmii1_rxd2.uart3_txd */
+>>          >;
+>>      };
+>> +
 > 
-> Optional properties:
+>>
+>>  &i2c0 {
+>> @@ -350,3 +413,53 @@
+>>      pinctrl-0 = <&uart3_pins_default>;
+>>      status = "okay";
+>>  };
+>> +
+>> +&gpio3 {
+>> +    p4 {
+>> +        gpio-hog;
+>> +        gpios = <4 GPIO_ACTIVE_HIGH>;
+>> +        output-high;
+>> +        line-name = "PR1_MII_CTRL";
+>> +    };
+>> +
+>> +    p10 {
+>> +        gpio-hog;
+>> +        gpios = <10 GPIO_ACTIVE_HIGH>;
+>> +        /* ETH1 mux: Low for MII-PRU, high for RMII-CPSW */
+>> +        output-high;
+>> +        line-name = "MUX_MII_CTL1";
+>> +    };
+>> +};
+>> +
+>> +&cpsw_emac0 {
+>> +    phy_id = <&davinci_mdio>, <1>;
 > 
-> - reset-gpios           : Should be a gpio specifier for a reset line
-> 
->   Andrew
+> this is deprecated definition.
+> pls, use phy-handle.
 
+Perhaps cpsw driver should warn about using deprecated DT properties.
 
-Hi Andrew,
-
-I'll change the property into the consistent way, and usage for 
-
-GPIO control be also used in devm_gpiod_* instead as you suggested
-
-for patch 4.
-
-	Sean
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Sekhar
