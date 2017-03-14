@@ -1,29 +1,77 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ucc/hdlc: fix two little issue
-Date: Mon, 13 Mar 2017 21:54:13 -0700 (PDT)
-Message-ID: <20170313.215413.75307787689050093.davem@davemloft.net>
-References: <1489455513-19239-1-git-send-email-qiang.zhao@nxp.com>
+Subject: Re: [PATCH net, v2] dccp/tcp: fix routing redirect race
+Date: Mon, 13 Mar 2017 21:56:19 -0700 (PDT)
+Message-ID: <20170313.215619.510745577558137603.davem@davemloft.net>
+References: <1489124433-32092-1-git-send-email-jmaxwell37@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiaobo.xie@nxp.com, netdev@vger.kernel.org
-To: qiang.zhao@nxp.com
+Cc: gerrit@erg.abdn.ac.uk, edumazet@google.com, andreyknvl@google.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, ncardwell@google.com, dccp@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jmaxwell@redhat.com, egarver@redhat.com, hsowa@redhat.com
+To: jmaxwell37@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35240 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35280 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbdCNEyP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 00:54:15 -0400
-In-Reply-To: <1489455513-19239-1-git-send-email-qiang.zhao@nxp.com>
+        with ESMTP id S1750703AbdCNE4W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 00:56:22 -0400
+In-Reply-To: <1489124433-32092-1-git-send-email-jmaxwell37@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhao Qiang <qiang.zhao@nxp.com>
-Date: Tue, 14 Mar 2017 09:38:33 +0800
+From: Jon Maxwell <jmaxwell37@gmail.com>
+Date: Fri, 10 Mar 2017 16:40:33 +1100
 
-> 1. modify bd_status from u32 to u16 in function hdlc_rx_done,
-> because bd_status register is 16bits
-> 2. write bd_length register before writing bd_status register
+> As Eric Dumazet pointed out this also needs to be fixed in IPv6.
+> v2: Contains the IPv6 tcp/Ipv6 dccp patches as well.
 > 
-> Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
+> We have seen a few incidents lately where a dst_enty has been freed
+> with a dangling TCP socket reference (sk->sk_dst_cache) pointing to that
+> dst_entry. If the conditions/timings are right a crash then ensues when the
+> freed dst_entry is referenced later on. A Common crashing back trace is:
+ ...
+> Of course it may happen with other NIC drivers as well.
+> 
+> It's found the freed dst_entry here:
+ ...
+> But there are other backtraces attributed to the same freed dst_entry in
+> netfilter code as well.
+> 
+> All the vmcores showed 2 significant clues:
+> 
+> - Remote hosts behind the default gateway had always been redirected to a
+> different gateway. A rtable/dst_entry will be added for that host. Making
+> more dst_entrys with lower reference counts. Making this more probable.
+> 
+> - All vmcores showed a postitive LockDroppedIcmps value, e.g:
+> 
+> LockDroppedIcmps                  267
+> 
+> A closer look at the tcp_v4_err() handler revealed that do_redirect() will run
+> regardless of whether user space has the socket locked. This can result in a
+> race condition where the same dst_entry cached in sk->sk_dst_entry can be
+> decremented twice for the same socket via:
+> 
+> do_redirect()->__sk_dst_check()-> dst_release().
+> 
+> Which leads to the dst_entry being prematurely freed with another socket
+> pointing to it via sk->sk_dst_cache and a subsequent crash.
+> 
+> To fix this skip do_redirect() if usespace has the socket locked. Instead let
+> the redirect take place later when user space does not have the socket
+> locked.
+> 
+> The dccp/IPv6 code is very similar in this respect, so fixing it there too.
+> 
+> As Eric Garver pointed out the following commit now invalidates routes. Which
+> can set the dst->obsolete flag so that ipv4_dst_check() returns null and
+> triggers the dst_release().
+> 
+> Fixes: ceb3320610d6 ("ipv4: Kill routes during PMTU/redirect updates.")
+> Cc: Eric Garver <egarver@redhat.com>
+> Cc: Hannes Sowa <hsowa@redhat.com>
+> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
 
-Applied, thank you.
+Applied and queued up for -stable, thank you.
