@@ -1,88 +1,76 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 15/20] ARM64: dts: sun50i-a64: add dwmac-sun8i Ethernet driver
-Date: Tue, 14 Mar 2017 15:18:51 +0100
-Message-ID: <20170314141856.24560-16-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 02/20] net-next: stmmac: add optional setup function
+Date: Tue, 14 Mar 2017 15:18:38 +0100
+Message-ID: <20170314141856.24560-3-clabbe.montjoie@gmail.com>
 References: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
-Cc: f.fainelli@gmail.com, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, f.fainelli@gmail.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
+To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+ wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
+ will.deacon@arm.com, peppe.cavallaro@st.com, alexandre.torgue@st.com,
+ davem@davemloft.net
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The dwmac-sun8i is an Ethernet MAC that supports 10/100/1000 Mbit
-connections. It is very similar to the device found in the Allwinner
-H3, but lacks the internal 100 Mbit PHY and its associated control
-bits.
-This adds the necessary bits to the Allwinner A64 SoC .dtsi, but keeps
-it disabled at this level.
+Instead of ading more ifthen logic for adding a new mac_device_info
+setup function, it is easier to add a function pointer to the function
+needed.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 37 +++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +++-
+ include/linux/stmmac.h                            | 3 +++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-index 3b09af2..57d69e5 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-@@ -277,6 +277,23 @@
- 				bias-pull-up;
- 			};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 4498a38..856ac57 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3101,7 +3101,9 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 	struct mac_device_info *mac;
  
-+			rmii_pins: rmii_pins {
-+				pins = "PD10", "PD11", "PD13", "PD14",
-+						"PD17", "PD18", "PD19", "PD20",
-+						"PD22", "PD23";
-+				function = "emac";
-+				drive-strength = <40>;
-+			};
-+
-+			rgmii_pins: rgmii_pins {
-+				pins = "PD8", "PD9", "PD10", "PD11",
-+						"PD12", "PD13", "PD15",
-+						"PD16", "PD17", "PD18", "PD19",
-+						"PD20", "PD21", "PD22", "PD23";
-+				function = "emac";
-+				drive-strength = <40>;
-+			};
-+
- 			uart0_pins_a: uart0@0 {
- 				pins = "PB8", "PB9";
- 				function = "uart0";
-@@ -381,6 +398,26 @@
- 			#size-cells = <0>;
- 		};
+ 	/* Identify the MAC HW device */
+-	if (priv->plat->has_gmac) {
++	if (priv->plat->setup) {
++		mac = priv->plat->setup(priv);
++	} else if (priv->plat->has_gmac) {
+ 		priv->dev->priv_flags |= IFF_UNICAST_FLT;
+ 		mac = dwmac1000_setup(priv->ioaddr,
+ 				      priv->plat->multicast_filter_bins,
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index fc273e9..8f09f18 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -109,6 +109,8 @@ struct stmmac_axi {
+ 	bool axi_rb;
+ };
  
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun50i-a64-emac";
-+			syscon = <&syscon>;
-+			reg = <0x01c30000 0x100>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			interrupt-names = "macirq";
-+			resets = <&ccu RST_BUS_EMAC>;
-+			reset-names = "stmmaceth";
-+			clocks = <&ccu CLK_BUS_EMAC>;
-+			clock-names = "stmmaceth";
-+			status = "disabled";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
++struct stmmac_priv;
 +
-+			mdio: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+			};
-+		};
-+
- 		gic: interrupt-controller@1c81000 {
- 			compatible = "arm,gic-400";
- 			reg = <0x01c81000 0x1000>,
+ struct plat_stmmacenet_data {
+ 	int bus_id;
+ 	int phy_addr;
+@@ -136,6 +138,7 @@ struct plat_stmmacenet_data {
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+ 	int (*init)(struct platform_device *pdev, void *priv);
+ 	void (*exit)(struct platform_device *pdev, void *priv);
++	struct mac_device_info *(*setup)(struct stmmac_priv *priv);
+ 	void *bsp_priv;
+ 	struct clk *stmmac_clk;
+ 	struct clk *pclk;
 -- 
 2.10.2
