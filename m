@@ -1,50 +1,36 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] net:  Resend IGMP memberships upon peer notification.
-Date: Tue, 14 Mar 2017 17:32:13 +0200
-Message-ID: <20170314173142-mutt-send-email-mst@kernel.org>
-References: <1489496288-24139-1-git-send-email-vyasevic@redhat.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v1 for accelerated IPoIB 05/25] IB/ipoib: Support ipoib
+ acceleration options callbacks
+Date: Tue, 14 Mar 2017 09:44:19 -0600
+Message-ID: <20170314154419.GB3244@obsidianresearch.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+ <1489429896-10781-6-git-send-email-erezsh@mellanox.com>
+ <20170314063538.GB79937@knc-06.sc.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jasowang@redhat.com,
-        Vladislav Yasevich <vyasevic@redhat.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>
+Cc: Erez Shitrit <erezsh@mellanox.com>, dledford@redhat.com,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        valex@mellanox.com, leonro@mellanox.com, saedm@mellanox.com,
+        erezsh@dev.mellanox.co.il
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53568 "EHLO mx1.redhat.com"
+Received: from quartz.orcorp.ca ([184.70.90.242]:46124 "EHLO quartz.orcorp.ca"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750931AbdCNPcQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Mar 2017 11:32:16 -0400
+        id S1751313AbdCNPoY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Mar 2017 11:44:24 -0400
 Content-Disposition: inline
-In-Reply-To: <1489496288-24139-1-git-send-email-vyasevic@redhat.com>
+In-Reply-To: <20170314063538.GB79937@knc-06.sc.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 14, 2017 at 08:58:08AM -0400, Vladislav Yasevich wrote:
-> When we notify peers of potential changes,  it's also good to update
-> IGMP memberships.  For example, during VM migration, updating IGMP
-> memberships will redirect existing multicast streams to the VM at the
-> new location.
-> 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+On Mon, Mar 13, 2017 at 11:35:38PM -0700, Vishwanathapura, Niranjana wrote:
 
+> This will break ipoib on hfi1 as hfi1 will define alloc_rdma_netdev for
+> OPA_VNIC type. We should probably look for a dedicated return type
+> (-ENODEV?) to determine of the driver supports specified rdma netdev type.
+> Or use a ib device attribute to suggest driver support ipoib rdma netdev.
 
-what will happen on the source? will the snooping bridge remove
-membership on port removal as appropriate?
+I think I prefer call and detect ENOSUPP or whatever than yet another
+flag.
 
-> ---
->  net/core/dev.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index a229bf0..1ed927d 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1272,6 +1272,7 @@ void netdev_notify_peers(struct net_device *dev)
->  {
->  	rtnl_lock();
->  	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, dev);
-> +	call_netdevice_notifiers(NETDEV_RESEND_IGMP, dev);
->  	rtnl_unlock();
->  }
->  EXPORT_SYMBOL(netdev_notify_peers);
-> -- 
-> 2.7.4
+Jason
