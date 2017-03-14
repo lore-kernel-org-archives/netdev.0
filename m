@@ -1,103 +1,56 @@
-From: YASUAKI ISHIMATSU <yasu.isimatu@gmail.com>
-Subject: Re: [PATCH v2] fjes: Do not load fjes driver if system does not have
- extended socket device.
-Date: Tue, 14 Mar 2017 12:07:20 -0400
-Message-ID: <81188b74-7f50-911e-9cac-ea20d10ea05a@gmail.com>
-References: <7a1a2dbc-99e0-06ba-2261-6e6382937486@gmail.com>
- <20170309.173519.1406243244628930968.davem@davemloft.net>
- <b61b605a-d248-261c-6543-243a38d6f97e@gmail.com>
- <E86EADE93E2D054CBCD4E708C38D364A741CFE6B@G01JPEXMBYT21>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v1 for accelerated IPoIB 25/25] mlx5_ib: skeleton for
+ mlx5_ib to support ipoib_ops
+Date: Tue, 14 Mar 2017 10:10:13 -0600
+Message-ID: <20170314161013.GF3244@obsidianresearch.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+ <1489429896-10781-26-git-send-email-erezsh@mellanox.com>
+ <20170313202720.GC2738@obsidianresearch.com>
+ <CAAk-MO9ekfWZT-C2SKTw129t=UQty9w2+wzQsvY1Od0k1zSrpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, yasu.isimatu@gmail.com
-To: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Erez Shitrit <erezsh@mellanox.com>,
+        Doug Ledford <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        netdev@vger.kernel.org, valex@mellanox.com,
+        Leon Romanovsky <leonro@mellanox.com>, saedm@mellanox.com
+To: Erez Shitrit <erezsh@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:36740 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751070AbdCNQHX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 12:07:23 -0400
-Received: by mail-qt0-f195.google.com with SMTP id n37so10530891qtb.3
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 09:07:22 -0700 (PDT)
-In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A741CFE6B@G01JPEXMBYT21>
+Received: from quartz.orcorp.ca ([184.70.90.242]:37021 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751635AbdCNQKP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Mar 2017 12:10:15 -0400
+Content-Disposition: inline
+In-Reply-To: <CAAk-MO9ekfWZT-C2SKTw129t=UQty9w2+wzQsvY1Od0k1zSrpA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Mar 14, 2017 at 04:53:24PM +0200, Erez Shitrit wrote:
 
+> > Why isn't this stuff in open/close?
+> 
+> According to ipoib control flows, there is a different between
+> open/close to init/cleanup for example, in open/close the driver
+> doesn't destroy hw resources, just change the state, it destroys
+> them in cleanup.
 
-On 03/12/2017 09:02 PM, Izumi, Taku wrote:
-> Ishimatsu-san,
->
->  Sorry for my late response.
->
->>
->> Which tree did you apply the patch to?
->>
->> The patch can apply to net-next tree with no conflicts as follows:
->
->   Not net-next but net tree:
->     git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+So put it in mlx5_alloc_rdma_netdev then?
 
-I'll update the patch soon.
+Or ndo.init as was suggested?
 
-Thanks,
-Yasuaki Ishimatsu
+Or in the void (*setup)(struct net_device *)
 
->
->   I'll review and test your patch soon.
->
->   Sincerely,
->   Taku Izumi
->
->>
->> # git clone
->> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
->> Cloning into 'net-next'...
->> remote: Counting objects: 5265118, done.
->> remote: Compressing objects: 100% (805485/805485), done.
->> Receiving objects: 100% (5265118/5265118), 910.11 MiB | 23.42 MiB/s, done.
->> remote: Total 5265118 (delta 4419240), reused 5264459 (delta 4418809)
->> Resolving deltas: 100% (4419240/4419240), done.
->> Checking out files: 100% (58005/58005), done.
->> # head -n 30 fjes.patch
->> Subject: [PATCH v2] fjes: Do not load fjes driver if system does not have
->> extended socket device.
->> Date: Wed, 8 Mar 2017 16:05:18 -0500
->> From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
->> To: netdev@vger.kernel.org
->> CC: David Miller <davem@davemloft.net>, izumi.taku@jp.fujitsu.com
->>
->> The fjes driver is used only by FUJITSU servers and almost of all servers
->> in the world never use it. But currently if ACPI PNP0C02 is defined in the
->> ACPI table, the following message is always shown:
->>
->>   "FUJITSU Extended Socket Network Device Driver - version 1.2
->>    - Copyright (c) 2015 FUJITSU LIMITED"
->>
->> The message makes users confused because there is no reason that the message
->> is shown in other vendor servers.
->>
->> To avoid the confusion, the patch adds a check that the server has a extended
->> socket device or not.
->>
->> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
->> CC: Taku Izumi <izumi.taku@jp.fujitsu.com>
->> ---
->> v2:
->> 	- Order local variable declarations from longest to shortest line
->>
->>   drivers/net/fjes/fjes_main.c | 52
->> +++++++++++++++++++++++++++++++++++++++-----
->>   1 file changed, 47 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
->> index b77e4ecf..a57c2cb 100644 # cd net-next/ # git am ../fjes.patch
->> Applying: fjes: Do not load fjes driver if system does not have extended
->> socket device.
->> #
->>
->>
->> Thanks,
->> Yasuaki Ishimatsu
->
+> >> +     param.size_base_priv = sizeof(struct ipoib_rdma_netdev);
+> >
+> > This is really weird, the code in mlx5i_create_netdev calls
+> > ipoib_dev_priv so it must assume the struct is a ipoib_rdma_netdev.
+> 
+> It is the same attitude as in the vnic/hfi
+> (https://patchwork.kernel.org/patch/9587815/)
+
+Not quite, they call alloc_netdev_mqs directly, here indirects through
+mlx5i_create_netdev which assumes a priv layout, Just drop
+param.size_base_priv and put that same calculation in
+mlx5i_create_netdev..
+
+Jason
