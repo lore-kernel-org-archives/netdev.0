@@ -1,54 +1,58 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next] lwtunnel: remove unused but set variable
-Date: Mon, 13 Mar 2017 23:04:48 -0700
-Message-ID: <1489471488-12341-1-git-send-email-roopa@cumulusnetworks.com>
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/4] dt-bindings: net: dsa: add Mediatek MT7530
+ binding
+Date: Tue, 14 Mar 2017 14:06:35 +0800
+Message-ID: <1489471595.1870.12.camel@mtkswgap22>
+References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
+         <1489421488-300-2-git-send-email-sean.wang@mediatek.com>
+         <20170313163624.GD3953@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:35220 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbdCNGEy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 02:04:54 -0400
-Received: by mail-pg0-f44.google.com with SMTP id b129so80069703pgc.2
-        for <netdev@vger.kernel.org>; Mon, 13 Mar 2017 23:04:53 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
+        <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <mark.rutland-5wv7dgnIgG8@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, <keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        <objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170313163624.GD3953-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Mon, 2017-03-13 at 17:36 +0100, Andrew Lunn wrote:
+> > +- mediatek,reset-pin: Phandle to the pinctrl node used for the reset. Which
+> > +	must be required if the property mediatek,mcm of specified as
+> > +	"disabled". See
+> > +	Documentation/devicetree/bindings/pinctrl/pinctrl-mt65xx.txt for
+> > +	the mediatek pintcrl setting for the details.
+> 
+> Hi Sean
+> 
+> This appears to be a plan GPIO line. Marvell has the same. It would be
+> nice to be consistent with the naming. From
+> Documentation/devicetree/bindings/net/dsa/marvell.txt
+> 
+> Optional properties:
+> 
+> - reset-gpios           : Should be a gpio specifier for a reset line
+> 
+>   Andrew
 
-silences the below warning:
-net/core/lwtunnel.c: In function ‘lwtunnel_valid_encap_type_attr’:
-net/core/lwtunnel.c:165:17: warning: variable ‘nla’ set but not used
-[-Wunused-but-set-variable]
 
-Fixes: 9ed59592e3e3 ("lwtunnel: fix autoload of lwt modules")
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/core/lwtunnel.c | 2 --
- 1 file changed, 2 deletions(-)
+Hi Andrew,
 
-diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-index 6df9f8f..b588819 100644
---- a/net/core/lwtunnel.c
-+++ b/net/core/lwtunnel.c
-@@ -162,7 +162,6 @@ int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int remaining)
- 	struct rtnexthop *rtnh = (struct rtnexthop *)attr;
- 	struct nlattr *nla_entype;
- 	struct nlattr *attrs;
--	struct nlattr *nla;
- 	u16 encap_type;
- 	int attrlen;
- 
-@@ -170,7 +169,6 @@ int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int remaining)
- 		attrlen = rtnh_attrlen(rtnh);
- 		if (attrlen > 0) {
- 			attrs = rtnh_attrs(rtnh);
--			nla = nla_find(attrs, attrlen, RTA_ENCAP);
- 			nla_entype = nla_find(attrs, attrlen, RTA_ENCAP_TYPE);
- 
- 			if (nla_entype) {
--- 
-1.9.1
+I'll change the property into the consistent way, and usage for 
+
+GPIO control be also used in devm_gpiod_* instead as you suggested
+
+for patch 4.
+
+	Sean
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
