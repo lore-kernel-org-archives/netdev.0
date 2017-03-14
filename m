@@ -1,120 +1,103 @@
-From: Chas Williams <3chas3@gmail.com>
-Subject: Re: net/atm: warning in alloc_tx/__might_sleep
-Date: Tue, 14 Mar 2017 12:04:11 -0400
-Message-ID: <1489507451.1692.2.camel@gmail.com>
-References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
-         <1484145426.1643.7.camel@gmail.com> <20170111194525.GA16375@dhcp22.suse.cz>
-         <20170111194645.GM16365@dhcp22.suse.cz>
-         <CAM_iQpWqCaHp2OxdaTOvJrf5vuvPn=rVGTvpGuZMEoBNC95EEQ@mail.gmail.com>
-         <1484217654.1643.12.camel@gmail.com>
-         <CAAeHK+z=KB8+Gy43BpFVG+bbfsQzvX59KFbftvipPefghsUKcQ@mail.gmail.com>
+From: YASUAKI ISHIMATSU <yasu.isimatu@gmail.com>
+Subject: Re: [PATCH v2] fjes: Do not load fjes driver if system does not have
+ extended socket device.
+Date: Tue, 14 Mar 2017 12:07:20 -0400
+Message-ID: <81188b74-7f50-911e-9cac-ea20d10ea05a@gmail.com>
+References: <7a1a2dbc-99e0-06ba-2261-6e6382937486@gmail.com>
+ <20170309.173519.1406243244628930968.davem@davemloft.net>
+ <b61b605a-d248-261c-6543-243a38d6f97e@gmail.com>
+ <E86EADE93E2D054CBCD4E708C38D364A741CFE6B@G01JPEXMBYT21>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=iso-2022-jp; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Michal Hocko <mhocko@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+z=KB8+Gy43BpFVG+bbfsQzvX59KFbftvipPefghsUKcQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, yasu.isimatu@gmail.com
+To: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36740 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751070AbdCNQHX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 12:07:23 -0400
+Received: by mail-qt0-f195.google.com with SMTP id n37so10530891qtb.3
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 09:07:22 -0700 (PDT)
+In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A741CFE6B@G01JPEXMBYT21>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-03-13 at 18:43 +0100, Andrey Konovalov wrote:
-> On Thu, Jan 12, 2017 at 11:40 AM, Chas Williams <3chas3@gmail.com> wrote:
-> > On Wed, 2017-01-11 at 20:36 -0800, Cong Wang wrote:
-> >> On Wed, Jan 11, 2017 at 11:46 AM, Michal Hocko <mhocko@kernel.org> wrote:
-> >> > On Wed 11-01-17 20:45:25, Michal Hocko wrote:
-> >> >> On Wed 11-01-17 09:37:06, Chas Williams wrote:
-> >> >> > On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
-> >> >> > > Hi!
-> >> >> > >
-> >> >> > > I've got the following error report while running the syzkaller fuzzer.
-> >> >> > >
-> >> >> > > On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
-> >> >> > >
-> >> >> > > A reproducer is attached.
-> >> >> > >
-> >> >> > > ------------[ cut here ]------------
-> >> >> > > WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
-> >> >> > > do not call blocking ops when !TASK_RUNNING; state=1 set at
-> >> >> > > [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
-> >> >> > > Modules linked in:
-> >> >> > > CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
-> >> >> > > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> >> >> > > Call Trace:
-> >> >> > >  __dump_stack lib/dump_stack.c:15
-> >> >> > >  dump_stack+0x292/0x398 lib/dump_stack.c:51
-> >> >> > >  __warn+0x19f/0x1e0 kernel/panic.c:547
-> >> >> > >  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
-> >> >> > >  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
-> >> >> > >  slab_pre_alloc_hook mm/slab.h:408
-> >> >> > >  slab_alloc_node mm/slub.c:2634
-> >> >> > >  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
-> >> >> > >  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
-> >> >> > >  alloc_skb ./include/linux/skbuff.h:926
-> >> >> > >  alloc_tx net/atm/common.c:75
-> >> >> >
-> >> >> > This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
-> >> >> > fix for this would be simply to switch this GFP_ATOMIC.  See if this is
-> >> >> > any better.
-> >> >> >
-> >> >> > diff --git a/net/atm/common.c b/net/atm/common.c
-> >> >> > index a3ca922..d84220c 100644
-> >> >> > --- a/net/atm/common.c
-> >> >> > +++ b/net/atm/common.c
-> >> >> > @@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
-> >> >> >                      sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
-> >> >> >             return NULL;
-> >> >> >     }
-> >> >> > -   while (!(skb = alloc_skb(size, GFP_KERNEL)))
-> >> >> > +   while (!(skb = alloc_skb(size, GFP_ATOMIC)))
-> >> >> >             schedule();
-> >> >> >     pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
-> >> >> >     atomic_add(skb->truesize, &sk->sk_wmem_alloc);
-> >> >>
-> >> >> Blee, this code is just horrendous. But the "fix" is obviously broken!
-> >> >> schedule() is just a noop if you do not change the task state and what
-> >> >> you are just asking for is a never failing non sleeping allocation - aka
-> >> >> a busy loop in the kernel!
-> >> >
-> >> > And btw. this while loop should be really turned into GFP_KERNEL |
-> >> > __GFP_NOFAIL with and explanation why this allocation cannot possibly
-> >> > fail.
-> >>
-> >> I think a nested loop is quite unnecessary, probably due to the code itself
-> >> is pretty old. The alloc_tx() is in the outer loop, the alloc_skb() is
-> >> in the inner
-> >> loop, both seem to wait for a successful GFP allocation. The inner one
-> >> is even more unnecessary.
-> >>
-> >> Of course, I am not surprised MM may already have a mechanism to do
-> >> the similar logic.
-> >>
-> >> There maybe some reason ATM needs such a logic, although other proto
-> >> could handle skb allocation failure quite well in ->sendmsg().
-> >
-> >
-> > I can't think of any particular reason that it needs this loop here.  I suspect
-> > that the loop for alloc_tx() predates the wait logic in ->sendmsg() and that the
-> > original looping was in alloc_tx() initially and was simply never removed.  Changes
-> > here would date back to before the git conversion.
-> >
-> 
-> Hi,
-> 
-> I'm still seeing this on 4495c08e84729385774601b5146d51d9e5849f81 (4.11-rc2).
-> 
-> Thanks!
 
-David Miller just accepted a patch for net-next that should resolve this issue.
+
+On 03/12/2017 09:02 PM, Izumi, Taku wrote:
+> Ishimatsu-san,
+>
+>  Sorry for my late response.
+>
+>>
+>> Which tree did you apply the patch to?
+>>
+>> The patch can apply to net-next tree with no conflicts as follows:
+>
+>   Not net-next but net tree:
+>     git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+
+I'll update the patch soon.
+
+Thanks,
+Yasuaki Ishimatsu
+
+>
+>   I'll review and test your patch soon.
+>
+>   Sincerely,
+>   Taku Izumi
+>
+>>
+>> # git clone
+>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+>> Cloning into 'net-next'...
+>> remote: Counting objects: 5265118, done.
+>> remote: Compressing objects: 100% (805485/805485), done.
+>> Receiving objects: 100% (5265118/5265118), 910.11 MiB | 23.42 MiB/s, done.
+>> remote: Total 5265118 (delta 4419240), reused 5264459 (delta 4418809)
+>> Resolving deltas: 100% (4419240/4419240), done.
+>> Checking out files: 100% (58005/58005), done.
+>> # head -n 30 fjes.patch
+>> Subject: [PATCH v2] fjes: Do not load fjes driver if system does not have
+>> extended socket device.
+>> Date: Wed, 8 Mar 2017 16:05:18 -0500
+>> From: Yasuaki Ishimatsu <yasu.isimatu@gmail.com>
+>> To: netdev@vger.kernel.org
+>> CC: David Miller <davem@davemloft.net>, izumi.taku@jp.fujitsu.com
+>>
+>> The fjes driver is used only by FUJITSU servers and almost of all servers
+>> in the world never use it. But currently if ACPI PNP0C02 is defined in the
+>> ACPI table, the following message is always shown:
+>>
+>>   "FUJITSU Extended Socket Network Device Driver - version 1.2
+>>    - Copyright (c) 2015 FUJITSU LIMITED"
+>>
+>> The message makes users confused because there is no reason that the message
+>> is shown in other vendor servers.
+>>
+>> To avoid the confusion, the patch adds a check that the server has a extended
+>> socket device or not.
+>>
+>> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+>> CC: Taku Izumi <izumi.taku@jp.fujitsu.com>
+>> ---
+>> v2:
+>> 	- Order local variable declarations from longest to shortest line
+>>
+>>   drivers/net/fjes/fjes_main.c | 52
+>> +++++++++++++++++++++++++++++++++++++++-----
+>>   1 file changed, 47 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+>> index b77e4ecf..a57c2cb 100644 # cd net-next/ # git am ../fjes.patch
+>> Applying: fjes: Do not load fjes driver if system does not have extended
+>> socket device.
+>> #
+>>
+>>
+>> Thanks,
+>> Yasuaki Ishimatsu
+>
