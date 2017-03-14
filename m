@@ -1,58 +1,79 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3] net: ipv4: add support for ECMP hash policy
- choice
-Date: Tue, 14 Mar 2017 17:58:46 +0200
-Message-ID: <8088fe5f-0c0b-bdba-4fba-e9e28bbed02e@cumulusnetworks.com>
-References: <1488884508-14016-1-git-send-email-nikolay@cumulusnetworks.com>
- <1489505775-2913-1-git-send-email-nikolay@cumulusnetworks.com>
- <20170314085502.47d48a4e@xeon-e3>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v1 for accelerated IPoIB 05/25] IB/ipoib: Support ipoib
+ acceleration options callbacks
+Date: Tue, 14 Mar 2017 10:00:21 -0600
+Message-ID: <20170314160021.GD3244@obsidianresearch.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+ <1489429896-10781-6-git-send-email-erezsh@mellanox.com>
+ <20170314063538.GB79937@knc-06.sc.intel.com>
+ <CAAk-MO8gQ5x-4Ubk1nzPntEWa2ivTK6uXyJ4eC7fmtUCNnOdfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
-        jkbs@redhat.com, edumazet@google.com, pch@ordbogen.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>,
+        Erez Shitrit <erezsh@mellanox.com>,
+        Doug Ledford <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        netdev@vger.kernel.org, valex@mellanox.com,
+        Leon Romanovsky <leonro@mellanox.com>, saedm@mellanox.com
+To: Erez Shitrit <erezsh@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f172.google.com ([209.85.128.172]:32847 "EHLO
-        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750852AbdCNP6t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 11:58:49 -0400
-Received: by mail-wr0-f172.google.com with SMTP id u48so127178877wrc.0
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 08:58:48 -0700 (PDT)
-In-Reply-To: <20170314085502.47d48a4e@xeon-e3>
+Received: from quartz.orcorp.ca ([184.70.90.242]:41290 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751000AbdCNQA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Mar 2017 12:00:29 -0400
+Content-Disposition: inline
+In-Reply-To: <CAAk-MO8gQ5x-4Ubk1nzPntEWa2ivTK6uXyJ4eC7fmtUCNnOdfA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/03/17 17:55, Stephen Hemminger wrote:
-> On Tue, 14 Mar 2017 17:36:15 +0200
-> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+On Tue, Mar 14, 2017 at 04:42:55PM +0200, Erez Shitrit wrote:
+> >> +       if (!hca->alloc_rdma_netdev)
+> >> +               dev = ipoib_create_netdev_default(hca, name,
+> >> ipoib_setup_common);
+> >> +       else
+> >> +               dev = hca->alloc_rdma_netdev(hca, port, RDMA_NETDEV_IPOIB,
+> >> +                                            name, NET_NAME_UNKNOWN,
+> >> +                                            ipoib_setup_common);
+> >> +       if (!dev) {
+> >> +               kfree(priv);
+> >> +               return NULL;
+> >> +       }
+> >
+> >
+> > This will break ipoib on hfi1 as hfi1 will define alloc_rdma_netdev for
+> > OPA_VNIC type. We should probably look for a dedicated return type
+> > (-ENODEV?) to determine of the driver supports specified rdma netdev type.
+> > Or use a ib device attribute to suggest driver support ipoib rdma netdev.
 > 
->> This patch adds support for ECMP hash policy choice via a new sysctl
->> called fib_multipath_hash_policy and also adds support for L4 hashes.
->> The current values for fib_multipath_hash_policy are:
->>  0 - layer 3 (default)
->>  1 - layer 4
->> If there's an skb hash already set and it matches the chosen policy then it
->> will be used instead of being calculated (currently only for L4).
->> In L3 mode we always calculate the hash due to the ICMP error special
->> case, the flow dissector's field consistentification should handle the
->> address order thus we can remove the address reversals.
->>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> It is good to see ECMP come back from the grave.
-> Linux used to support it long ago but was abandoned after it was unstable
-> and removed from iproute2 in 2012.
-> 
-> The old API was through route attributes which makes more sense than
-> doing it with sysctl. It makes more sense to use netlink instead.
-> Therefore please go back and do something like the old API rather than doing it through
-> sysctl.
-> 
+> sorry, I don't understand that, we are in ipoib driver, so the type is
+> RDMA_NETDEV_IPOIB, if hfi wants to implement it should use the same
+> flag, and to use OPA_VNIC for vnic.
 
-That's what my initial version did, but this was discussed during NetConf in Seville
-and it was decided that it's best to make a global sysctl, thus the change.
+He means it should look like this:
 
-Thanks,
- Nik
+ if (hca->alloc_rdma_netdev)
+     dev = hca->alloc_rdma_netdev(hca, port, RDMA_NETDEV_IPOIB,
+                                            name, NET_NAME_UNKNOWN,
+                                            ipoib_setup_common);
+
+ if (IS_ERR(dev) && PTR_ERR(dev) != ENOTSUP)
+      goto out;
+
+ dev = ipoib_create_netdev_default(hca, name, ipoib_setup_common);
+ if (IS_ERR(dev))
+      goto out;
+
+ WARN_ON(dev == NULL);
+
+  [...]
+  
+out:
+      return PTR_ERR(dev);
+
+And I'm confused why 'ipoib_create_netdev_default' doesn't need the
+same function signature as hca->alloc_rdma_netdev
+
+Both drivers should implement hca->alloc_rdma_netdev to return ENOTSUP
+if RDMA_NETDEV is not supported.
+
+Jason
