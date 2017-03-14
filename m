@@ -1,64 +1,91 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/7] ath9k: ahb: Add OF support
-Date: Tue, 14 Mar 2017 14:17:27 +0300
-Message-ID: <df4caf97-d6b5-a8a8-250e-94dc41624c12@cogentembedded.com>
-References: <1489439116-4233-1-git-send-email-albeu@free.fr>
- <1489439116-4233-2-git-send-email-albeu@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Crispin <john@phrozen.org>, Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Alban <albeu@free.fr>,
-        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489439116-4233-2-git-send-email-albeu@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH net-next 0/4] gtp: support multiple APN's per GTP endpoint
+Date: Tue, 14 Mar 2017 12:25:44 +0100
+Message-ID: <20170314112548.24027-1-aschultz@tpip.net>
+Cc: osmocom-net-gprs@lists.osmocom.org,
+        netdev <netdev@vger.kernel.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>
+To: Harald Welte <laforge@gnumonks.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:54377 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750846AbdCNL1X (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Mar 2017 07:27:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Support multiple APN's per GTP endpoint and as an additional benefit support
+multiple GTP sockets per GTP entity.
 
-On 3/14/2017 12:05 AM, Alban wrote:
+Use case multiple APN's:
+------------------------
 
-> Allow registering ath9k AHB devices defined in DT. This just add the
-> compatible strings to allow matching the driver and setting the proper
-> device ID.
->
-> Signed-off-by: Alban <albeu@free.fr>
-> ---
->  drivers/net/wireless/ath/ath9k/ahb.c | 47 +++++++++++++++++++++++++++++++++---
->  1 file changed, 43 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/wireless/ath/ath9k/ahb.c b/drivers/net/wireless/ath/ath9k/ahb.c
-> index 2bd982c..36a2645 100644
-> --- a/drivers/net/wireless/ath/ath9k/ahb.c
-> +++ b/drivers/net/wireless/ath/ath9k/ahb.c
-[...]
-> @@ -79,10 +107,20 @@ static int ath_ahb_probe(struct platform_device *pdev)
->  	int ret = 0;
->  	struct ath_hw *ah;
->  	char hw_name[64];
-> +	u16 devid;
->
-> -	if (!dev_get_platdata(&pdev->dev)) {
-> -		dev_err(&pdev->dev, "no platform data specified\n");
-> -		return -EINVAL;
-> +	if (id) {
-> +		devid = id->driver_data;
-> +	} else {
-> +		const struct of_device_id *match;
-> +
-> +		match = of_match_device(ath_ahb_of_match, &pdev->dev);
-> +		if (!match) {
-> +			dev_err(&pdev->dev, "no device match found\n");
-> +			return -EINVAL;
-> +		}
-> +
-> +		devid = (u16)(unsigned long)match->data;
+In 3GPP a APN is control path construct. When mappend into the data path,
+it mean that UE IP's can be source from independended IP networks with
+overlaping IP ranges.
 
-    of_device_get_match_data() instead of the above perhaps?
+3GPP, TS 29.061 version 13.6.0 Release 13, Section 11.3 describes this as:
 
-[...]
+> 2. each private network manages its own addressing. In general this will
+>    result in different private networks having overlapping address ranges.
+>    A logically separate connection (e.g. an IP in IP tunnel or layer 2
+>    virtual circuit) is used between the GGSN/P-GW and each private network.
+>    In this case the IP address alone is not necessarily unique. The pair
+>    of values, Access Point Name (APN) and IPv4 address and/or IPv6 prefixes,
+>    is unique.
 
-MBR, Sergei
+To support such a setup, each APN is mapped to a Linux network device.
+VRF-Lite, network namespaces or other mechanismns can the be used to realize
+the full separation of the per APN IP networks.
+
+Use case multiple GTP sockets per GTP entity:
+---------------------------------------------
+
+A GTP entity like a PGW can use multiple GTP sockets for:
+
+ * separate IPv4 and IPv6 transport endpoints
+ * support multiple reference points in separated IP networks, e.g. have
+   Gn/Gp/S5/S8 in a GRX attaches network and S2a/S2b in another private
+   network
+
+Especially the S2a/S2b separation is an important scenario. The networks
+use for roaming and non roaming attachment (Gn/Gp/S5/S8 reference points)
+are usually different from the connection for trusted and untrusted WiFi
+access (S2a/S2b). Will the GTP transport networks are separated, it is
+still desirable to terminated the tunnels in the same GTP entity to ensure
+uninterrupted IP connectivity during 3G/LTE to/from WiFi handover.
+
+Implementation:
+---------------
+
+APN's are a control path construct, the identification of the associated network
+device need therefore to be bound to be tunnel endpoint identifier.
+
+This series moves the hash for the incoming tunnel endpoint identifiers into
+the socket to support multiple network devices per GTP socket. It the adds
+a method of enabling the GTP encapsulation on a socket without having to
+bound the socket to a network device and finally allows to specify a GTP
+socket per PDP context.
+
+API impact:
+-----------
+
+This is probably the most problematic part of this series...
+
+The removeal of the TEID form the netdevice also means that the gtp genl API
+for retriving tunnel information and removing tunnels needs to be adjusted.
+
+Before this change it was possible to change a GTP tunnel using the gtp
+netdevice id and the teid. The teid is no longer unique per gtp netdevice.
+After this change it has to be either the netdevice and MS IP or the GTP
+socket and teid.
+
+Fortunatly, libgtpnl has always populated the Link Id, TEID, GSN Peer IP and
+MS IP. The library interface has ensured that all information that is mandatory
+after this change is guaranteed to be present.
+
+The only project that doesn't use libgtpnl (OpenAir-CN) is also populating
+all of those values.
+
+The API change will therefore not break any existing userspace applications.
