@@ -1,33 +1,50 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 1/1 v2] net: rmnet_data: Initial implementation
-Date: Tue, 14 Mar 2017 15:19:03 -0600
-Message-ID: <217d998fd9d869f0e5ded0d1add3f550@codeaurora.org>
-References: <1489390989-2408-1-git-send-email-subashab@codeaurora.org>
- <1489390989-2408-2-git-send-email-subashab@codeaurora.org>
- <20170313085420.GA1796@nanopsycho>
- <868aee1b58aa4365708966956decf6d3@codeaurora.org>
- <20170314065530.GA1863@nanopsycho.orion>
+From: David Daney <david.daney@cavium.com>
+Subject: [PATCH v2 0/5] MIPS: BPF: JIT fixes and improvements.
+Date: Tue, 14 Mar 2017 14:21:39 -0700
+Message-ID: <20170314212144.29988-1-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fengguang.wu@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:57600 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750952AbdCNVTF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 17:19:05 -0400
-In-Reply-To: <20170314065530.GA1863@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org,
+        "Steven J. Hill" <steven.hill@cavium.com>,
+        David Daney <david.daney@cavium.com>
+To: linux-mips@linux-mips.org, ralf@linux-mips.org,
+        James Hogan <james.hogan@imgtec.com>,
+        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I believe that this code should be a part of that driver, not a generic
-> code in net/
+Changes from v1:
 
-> 
-> ok, so?
+  - Use unsigned access for SKF_AD_HATYPE
 
-Hi Jiri
+  - Added three more patches for other problems found.
 
-I will move it to drivers/net and rename it to rmnet.
+
+Testing the BPF JIT on Cavium OCTEON (mips64) with the test-bpf module
+identified some failures and unimplemented features.
+
+With this patch set we get:
+
+     test_bpf: Summary: 305 PASSED, 0 FAILED, [85/297 JIT'ed]
+
+Both big and little endian tested.
+
+We still lack eBPF support, but this is better than nothing.
+
+David Daney (5):
+  MIPS: uasm:  Add support for LHU.
+  MIPS: BPF: Add JIT support for SKF_AD_HATYPE.
+  MIPS: BPF: Use unsigned access for unsigned SKB fields.
+  MIPS: BPF: Quit clobbering callee saved registers in JIT code.
+  MIPS: BPF: Fix multiple problems in JIT skb access helpers.
+
+ arch/mips/include/asm/uasm.h |  1 +
+ arch/mips/mm/uasm-mips.c     |  1 +
+ arch/mips/mm/uasm.c          |  3 ++-
+ arch/mips/net/bpf_jit.c      | 41 +++++++++++++++++++++++++++++++----------
+ arch/mips/net/bpf_jit_asm.S  | 23 ++++++++++++-----------
+ 5 files changed, 47 insertions(+), 22 deletions(-)
+
+-- 
+2.9.3
