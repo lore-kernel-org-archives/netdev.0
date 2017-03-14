@@ -1,64 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/13] i40e/i40evf: Change version from 1.6.27 to 2.1.7
-Date: Tue, 14 Mar 2017 15:33:07 -0700
-Message-ID: <20170314223308.53451-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/13] i40e: fix RSS queues only operating on PF0
+Date: Tue, 14 Mar 2017 15:33:03 -0700
+Message-ID: <20170314223308.53451-9-jeffrey.t.kirsher@intel.com>
 References: <20170314223308.53451-1-jeffrey.t.kirsher@intel.com>
-Cc: Bimmy Pujari <bimmy.pujari@intel.com>, netdev@vger.kernel.org,
+Cc: Lihong Yang <lihong.yang@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga06.intel.com ([134.134.136.31]:52066 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752438AbdCNWdd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Mar 2017 18:33:33 -0400
+        id S1752220AbdCNWdb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Mar 2017 18:33:31 -0400
 In-Reply-To: <20170314223308.53451-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bimmy Pujari <bimmy.pujari@intel.com>
+From: Lihong Yang <lihong.yang@intel.com>
 
-Signed-off-by: Bimmy Pujari <bimmy.pujari@intel.com>
+This patch fixes the issue that RSS offloading only works on PF0 by
+using the direct register writing of the hash keys for the VFs instead
+of using the admin queue command to do so.
+
+Change-ID: Ia02cda7dbaa23def342e8786097a2c03db6f580b
+Signed-off-by: Lihong Yang <lihong.yang@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 6 +++---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 11 +++--------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  6 ++----
+ 2 files changed, 5 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 414685c683d7..4d305fb1f188 100644
+index cb678ed7a2ad..e577ff8a9c76 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,9 +39,9 @@ static const char i40e_driver_string[] =
+@@ -8394,13 +8394,10 @@ static int i40e_config_rss_reg(struct i40e_vsi *vsi, const u8 *seed,
  
- #define DRV_KERN "-k"
+ 		if (vsi->type == I40E_VSI_MAIN) {
+ 			for (i = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++)
+-				i40e_write_rx_ctl(hw, I40E_PFQF_HKEY(i),
+-						  seed_dw[i]);
++				wr32(hw, I40E_PFQF_HKEY(i), seed_dw[i]);
+ 		} else if (vsi->type == I40E_VSI_SRIOV) {
+ 			for (i = 0; i <= I40E_VFQF_HKEY1_MAX_INDEX; i++)
+-				i40e_write_rx_ctl(hw,
+-						  I40E_VFQF_HKEY1(i, vf_id),
+-						  seed_dw[i]);
++				wr32(hw, I40E_VFQF_HKEY1(i, vf_id), seed_dw[i]);
+ 		} else {
+ 			dev_err(&pf->pdev->dev, "Cannot set RSS seed - invalid VSI type\n");
+ 		}
+@@ -8418,9 +8415,7 @@ static int i40e_config_rss_reg(struct i40e_vsi *vsi, const u8 *seed,
+ 			if (lut_size != I40E_VF_HLUT_ARRAY_SIZE)
+ 				return -EINVAL;
+ 			for (i = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++)
+-				i40e_write_rx_ctl(hw,
+-						  I40E_VFQF_HLUT1(i, vf_id),
+-						  lut_dw[i]);
++				wr32(hw, I40E_VFQF_HLUT1(i, vf_id), lut_dw[i]);
+ 		} else {
+ 			dev_err(&pf->pdev->dev, "Cannot set RSS LUT - invalid VSI type\n");
+ 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 25ee5af2d136..115a7286ab8f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -702,10 +702,8 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
+ 			dev_info(&pf->pdev->dev,
+ 				 "Could not allocate VF broadcast filter\n");
+ 		spin_unlock_bh(&vsi->mac_filter_hash_lock);
+-		i40e_write_rx_ctl(&pf->hw, I40E_VFQF_HENA1(0, vf->vf_id),
+-				  (u32)hena);
+-		i40e_write_rx_ctl(&pf->hw, I40E_VFQF_HENA1(1, vf->vf_id),
+-				  (u32)(hena >> 32));
++		wr32(&pf->hw, I40E_VFQF_HENA1(0, vf->vf_id), (u32)hena);
++		wr32(&pf->hw, I40E_VFQF_HENA1(1, vf->vf_id), (u32)(hena >> 32));
+ 	}
  
--#define DRV_VERSION_MAJOR 1
--#define DRV_VERSION_MINOR 6
--#define DRV_VERSION_BUILD 27
-+#define DRV_VERSION_MAJOR 2
-+#define DRV_VERSION_MINOR 1
-+#define DRV_VERSION_BUILD 7
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 9492b20da557..6d666bde9df5 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -37,9 +37,9 @@ static const char i40evf_driver_string[] =
- 
- #define DRV_KERN "-k"
- 
--#define DRV_VERSION_MAJOR 1
--#define DRV_VERSION_MINOR 6
--#define DRV_VERSION_BUILD 27
-+#define DRV_VERSION_MAJOR 2
-+#define DRV_VERSION_MINOR 1
-+#define DRV_VERSION_BUILD 7
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD) \
+ 	/* program mac filter */
 -- 
 2.12.0
