@@ -1,181 +1,168 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v2 net-next 1/5] ldmvsw: better use of link up and down on ldom vswitch
-Date: Tue, 14 Mar 2017 10:24:39 -0700
-Message-ID: <1489512283-422140-2-git-send-email-shannon.nelson@oracle.com>
-References: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
-Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Shannon Nelson <shannon.nelson@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH net-next RFC v1 00/27] afnetns: new namespace type for separation on protocol level
+Date: Tue, 14 Mar 2017 12:46:50 -0500
+Message-ID: <87zignlpit.fsf@xmission.com>
+References: <20170312230151.5185-1-hannes@stressinduktion.org>
+        <20170312.162613.1105038945335893886.davem@davemloft.net>
+        <1489362279.2283.1.camel@stressinduktion.org>
+        <CAHO5Pa1s949dohzEEE68Ux=mXA7N7sR-U98Jwjvx1a_A5AhFEw@mail.gmail.com>
+        <874lywu90i.fsf@xmission.com>
+        <cc9229f8-a389-87cc-2512-ee00e200a7c3@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cc9229f8-a389-87cc-2512-ee00e200a7c3-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+        (Hannes Frederic Sowa's message of "Tue, 14 Mar 2017 11:18:13 +0100")
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When an ldom VM is bound, the network vswitch infrastructure is set up for
-it, but was being forced 'UP' by the userland switch configuration script.
-When 'UP' but not actually connected to a running VM, the ipv6 neighbor
-probes fail (not a horrible thing) and start cluttering up the kernel logs.
-Funny thing: these are debug messages that never actually show up, but
-we do see the net_ratelimited messages that say N callbacks were
-suppressed.
+Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org> writes:
 
-This patch defers the netif_carrier_on() until an actual link has been
-established with the VM, as indicated by receiving an LDC_EVENT_UP from
-the underlying LDC protocol.  Similarly, we take the link down when we
-see the LDC_EVENT_RESET.  Now when we see the ndo_open(), we reset the
-link to get things talking again.
+> On 13.03.2017 23:06, Eric W. Biederman wrote:
+>> Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>> 
+>>> On Mon, Mar 13, 2017 at 12:44 AM, Hannes Frederic Sowa
+>>> <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org> wrote:
+>>>> Hi,
+>>>>
+>>>> On Sun, 2017-03-12 at 16:26 -0700, David Miller wrote:
+>>>>> From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+>>>>> Date: Mon, 13 Mar 2017 00:01:24 +0100
+>>>>>
+>>>>>> afnetns behaves like ordinary namespaces: clone, unshare, setns syscalls
+>>>>>> can work with afnetns with one limitation: one cannot cross the realm
+>>>>>> of a network namespace while changing the afnetns compartement. To get
+>>>>>> into a new afnetns in a different net namespace, one must first change
+>>>>>> to the net namespace and afterwards switch to the desired afnetns.
+>>>>>
+>>>>> Please explain why this is useful, who wants this kind of facility,
+>>>>> and how it will be used.
+>>>>
+>>>> Yes, I have to enhance the cover letter:
+>>>>
+>>>> The work behind all this is to provide more dense container hosting.
+>>>> Right now we lose performance, because all packets need to be forwarded
+>>>> through either a bridge or must be routed until they reach the
+>>>> containers. For example, we can't make use of early demuxing for the
+>>>> incoming packets. We basically pass the networking stack twice for
+>>>> every packet.
+>>>>
+>>>> The usage is very much in line with how network namespaces are used
+>>>> nowadays:
+>>>>
+>>>> ip afnetns add afns-1
+>>>> ip address add 192.168.1.1/24 dev eth0 afnetns afns-1
+>>>> ip afnetns exec afns-1 /usr/sbin/httpd
+>>>>
+>>>> this spawns a shell where all child processes will only have access to
+>>>> the specific ip addresses, even though they do a wildcard bind. Source
+>>>> address selection will also use only the ip addresses available to the
+>>>> children.
+>>>>
+>>>> In some sense it has lots of characteristics like ipvlan, allowing a
+>>>> single MAC address to host lots of IP addresses which will end up in
+>>>> different namespaces. Unlink ipvlan however, it will also solve the
+>>>> problem around duplicate address detection and multiplexing packets to
+>>>> the IGMP or MLD state machines.
+>>>>
+>>>> The resource consumption in comparison with ordinary namespaces will be
+>>>> much lower. All in all, we will have far less networking subsystems to
+>>>> cross compared to normal netns solutions.
+>>>>
+>>>> Some more information also in the first patch, which adds a
+>>>> Documentation.
+>> 
+>> If the goal is one ip address per network namespace with a network
+>> device and mac address on the network I have something that I was
+>> working on that I believe is in the end is a much simpler solution.
+>
+> Actually, it should be possible to use more than one IP address per
+> namespace, proper source address selection should deal with that and
+> also correctly select the higher scored ones, based on output device and
+> distance to the remote ip address.
 
-Orabug: 25525312
+Definitely.  I should have said at least one.  Some people want address
+sharing and precludes several kinds of optimizations.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
----
- drivers/net/ethernet/sun/ldmvsw.c         |   27 +++++++++++++++++++++++----
- drivers/net/ethernet/sun/sunvnet_common.c |   20 +++++++++++++++++---
- drivers/net/ethernet/sun/sunvnet_common.h |    1 +
- 3 files changed, 41 insertions(+), 7 deletions(-)
+>> Add routes in the routing table between network namespaces.
+>> 
+>> AKA in the initial network namespace with the network device have
+>> an input route not towards the local loopback device but towards
+>> the network namespaces loopback device.
+>> 
+>> Before other issues took precedence I made it half way to implementing
+>> that.   The ip input path won't get confused if the destination network
+>> device is not in the same network namespace as the device.  Last I
+>> looked the ip output path still had a few places where confusion was
+>> possible between the network socket and the output device.
+>
+> The ip afnetns input path is also of no concern to me and will work
+> quite easily. Right now, the different semantics and rules for selecting
+> a source address are the more problematic ones. I think, that in the
+> case of directly routing from one ns into another this will be the same
+> and the most complex case to deal with?
 
-diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
-index 89952de..121927b 100644
---- a/drivers/net/ethernet/sun/ldmvsw.c
-+++ b/drivers/net/ethernet/sun/ldmvsw.c
-@@ -1,6 +1,6 @@
- /* ldmvsw.c: Sun4v LDOM Virtual Switch Driver.
-  *
-- * Copyright (C) 2016 Oracle. All rights reserved.
-+ * Copyright (C) 2016-2017 Oracle. All rights reserved.
-  */
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-@@ -41,8 +41,8 @@
- static u8 vsw_port_hwaddr[ETH_ALEN] = {0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
- 
- #define DRV_MODULE_NAME		"ldmvsw"
--#define DRV_MODULE_VERSION	"1.1"
--#define DRV_MODULE_RELDATE	"February 3, 2017"
-+#define DRV_MODULE_VERSION	"1.2"
-+#define DRV_MODULE_RELDATE	"March 4, 2017"
- 
- static char version[] =
- 	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")";
-@@ -123,6 +123,20 @@ static void vsw_set_rx_mode(struct net_device *dev)
- 	return sunvnet_set_rx_mode_common(dev, port->vp);
- }
- 
-+int ldmvsw_open(struct net_device *dev)
-+{
-+	struct vnet_port *port = netdev_priv(dev);
-+	struct vio_driver_state *vio = &port->vio;
-+
-+	/* reset the channel */
-+	vio_link_state_change(vio, LDC_EVENT_RESET);
-+	vnet_port_reset(port);
-+	vio_port_up(vio);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(ldmvsw_open);
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void vsw_poll_controller(struct net_device *dev)
- {
-@@ -133,7 +147,7 @@ static void vsw_poll_controller(struct net_device *dev)
- #endif
- 
- static const struct net_device_ops vsw_ops = {
--	.ndo_open		= sunvnet_open_common,
-+	.ndo_open		= ldmvsw_open,
- 	.ndo_stop		= sunvnet_close_common,
- 	.ndo_set_rx_mode	= vsw_set_rx_mode,
- 	.ndo_set_mac_address	= sunvnet_set_mac_addr_common,
-@@ -365,6 +379,11 @@ static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 	napi_enable(&port->napi);
- 	vio_port_up(&port->vio);
- 
-+	/* assure no carrier until we receive an LDC_EVENT_UP,
-+	 * even if the vsw config script tries to force us up
-+	 */
-+	netif_carrier_off(dev);
-+
- 	netdev_info(dev, "LDOM vsw-port %pM\n", dev->dev_addr);
- 
- 	pr_info("%s: PORT ( remote-mac %pM%s )\n", dev->name,
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index fa2d11c..1a65892 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -1,7 +1,7 @@
- /* sunvnet.c: Sun LDOM Virtual Network Driver.
-  *
-  * Copyright (C) 2007, 2008 David S. Miller <davem@davemloft.net>
-- * Copyright (C) 2016 Oracle. All rights reserved.
-+ * Copyright (C) 2016-2017 Oracle. All rights reserved.
-  */
- 
- #include <linux/module.h>
-@@ -43,7 +43,6 @@
- MODULE_VERSION("1.1");
- 
- static int __vnet_tx_trigger(struct vnet_port *port, u32 start);
--static void vnet_port_reset(struct vnet_port *port);
- 
- static inline u32 vnet_tx_dring_avail(struct vio_dring_state *dr)
- {
-@@ -747,6 +746,13 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
- 
- 	/* RESET takes precedent over any other event */
- 	if (port->rx_event & LDC_EVENT_RESET) {
-+		/* a link went down */
-+
-+		if (port->vsw == 1) {
-+			netif_tx_stop_all_queues(dev);
-+			netif_carrier_off(dev);
-+		}
-+
- 		vio_link_state_change(vio, LDC_EVENT_RESET);
- 		vnet_port_reset(port);
- 		vio_port_up(vio);
-@@ -766,6 +772,13 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
- 	}
- 
- 	if (port->rx_event & LDC_EVENT_UP) {
-+		/* a link came up */
-+
-+		if (port->vsw == 1) {
-+			netif_carrier_on(port->dev);
-+			netif_tx_start_all_queues(port->dev);
-+		}
-+
- 		vio_link_state_change(vio, LDC_EVENT_UP);
- 		port->rx_event = 0;
- 		return 0;
-@@ -1631,7 +1644,7 @@ void sunvnet_port_free_tx_bufs_common(struct vnet_port *port)
- }
- EXPORT_SYMBOL_GPL(sunvnet_port_free_tx_bufs_common);
- 
--static void vnet_port_reset(struct vnet_port *port)
-+void vnet_port_reset(struct vnet_port *port)
- {
- 	del_timer(&port->clean_timer);
- 	sunvnet_port_free_tx_bufs_common(port);
-@@ -1639,6 +1652,7 @@ static void vnet_port_reset(struct vnet_port *port)
- 	port->tso = (port->vsw == 0);  /* no tso in vsw, misbehaves in bridge */
- 	port->tsolen = 0;
- }
-+EXPORT_SYMBOL_GPL(vnet_port_reset);
- 
- static int vnet_port_alloc_tx_ring(struct vnet_port *port)
- {
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.h b/drivers/net/ethernet/sun/sunvnet_common.h
-index ce5c824..b21ef47 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.h
-+++ b/drivers/net/ethernet/sun/sunvnet_common.h
-@@ -139,6 +139,7 @@ int sunvnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
- void sunvnet_handshake_complete_common(struct vio_driver_state *vio);
- int sunvnet_poll_common(struct napi_struct *napi, int budget);
- void sunvnet_port_free_tx_bufs_common(struct vnet_port *port);
-+void vnet_port_reset(struct vnet_port *port);
- bool sunvnet_port_is_up_common(struct vnet_port *vnet);
- void sunvnet_port_add_txq_common(struct vnet_port *port);
- void sunvnet_port_rm_txq_common(struct vnet_port *port);
--- 
-1.7.1
+With what I am proposing that case should be drop dead simple and cause
+no confusion.  The extra routes should look like ordinary routes
+for forwarding packets, not local addresses and as such should cause
+no confusion.  So source address selection should work perfectly as is.
+
+>> As long as installing such routes is conditional upon having
+>> CAP_NET_ADMIN in both network namespaces you should be fine and things
+>> should be very simple and very fast.  Because that won't take a special
+>> case through the network stack.
+>> 
+>> Given that performance is your primary motive I suspect this will yield
+>> the fastest possible path through the network stack as no extra steps
+>> need to be taken, and can benefit from any routing improvements to the
+>> ordinary network stack.
+>
+> The major performance improvements come from socket early demuxing,
+> which actually requires the remote netns socket being visible in the
+> initial netns esock tables. We need the same for the representations for
+> IP addresses to have ARP/NDISC work correctly. As soon as you try to
+> just cross one data structure from one netns to another one, it gets
+> really difficult to keep track of all the dependencies. It felt way more
+> complex than this approach.
+
+So I will grant I don't see how to perform early demuxing to the
+namespaces.  Fundamentally that is hard because the general case allows
+network addresses to be repeated in different namespaces.
+
+However there should be a very nice performance gain as a second
+trip through the network stack is avoided and the code to perform the
+input or output work is fundamentally simple.
+
+As for ARP/NDISC to get the the ARP/NDISC replies working you will
+need to enable proxy arp/ndisc, which is what you usually have
+to do with that kind of routing nothing special there.  On the output
+path the ARP/NDISC tables of the outgoing device will be used
+so nothing special needs to happen there.  The latter just falls out of
+how the code is designed.
+
+Similarly we will need proxying for IGMP and MLD to enable subscribing
+to multicast protocols.  But all of that is the ordinary routing.
+
+So I believe it will take a little bit of care to get things going but
+fundamentally it really looks to me like the only new case that needs
+to be supported by the network stack is adding a route to an existing
+routing table that spans network namespaces.  That includes using the
+arp/neighbour table from that network device Which is very well defined
+and trivial to maintain.
+
+The only downside I see is the loss of early_demux but that is
+fundamental as the network addresses may potentially overlap.
+
+So for best performance to containers disabling early_demux looks like
+it will be the way to go.  But I will be really surprised if the route
+table lookup will be expensive unless there are a huge number of
+containers or routes in the system.  Especially as that code uses an
+efficient data structure and was seriously optimized about two years
+ago.
+
+Eric
