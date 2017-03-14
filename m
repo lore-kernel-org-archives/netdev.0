@@ -1,7 +1,7 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net-next 03/12] net: bcmgenet: simplify circular pointer arithmetic
-Date: Mon, 13 Mar 2017 17:41:33 -0700
-Message-ID: <20170314004142.4746-4-opendmb@gmail.com>
+Subject: [PATCH net-next 01/12] net: phy: bcm-phylib: replace obsolete EEE macro references
+Date: Mon, 13 Mar 2017 17:41:31 -0700
+Message-ID: <20170314004142.4746-2-opendmb@gmail.com>
 References: <20170314004142.4746-1-opendmb@gmail.com>
 Cc: robh+dt@kernel.org, mark.rutland@arm.com, davem@davemloft.net,
         rafal@milecki.pl, xow@google.com, joel@jms.id.au,
@@ -15,57 +15,37 @@ In-Reply-To: <20170314004142.4746-1-opendmb@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A 2's complement subtraction will always do a borrow, so masking
-off the sign bits is the same as conditionally adding (mask+1).
+The macros MDIO_AN_EEE_ADV_100TX and MDIO_AN_EEE_ADV_1000T are now
+considered obsolete and are replaced in the kernel with the generic
+macros MDIO_EEE_100TX and MDIO_EEE_1000T respectively.
 
 Signed-off-by: Doug Berger <opendmb@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 19 +++++--------------
- 1 file changed, 5 insertions(+), 14 deletions(-)
+ drivers/net/phy/bcm-phy-lib.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f92896835d2a..2c008b09c4e3 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1,7 +1,7 @@
+diff --git a/drivers/net/phy/bcm-phy-lib.c b/drivers/net/phy/bcm-phy-lib.c
+index ab9ad689617c..9656dbeb5de5 100644
+--- a/drivers/net/phy/bcm-phy-lib.c
++++ b/drivers/net/phy/bcm-phy-lib.c
+@@ -1,5 +1,5 @@
  /*
-  * Broadcom GENET (Gigabit Ethernet) controller driver
+- * Copyright (C) 2015 Broadcom Corporation
++ * Copyright (C) 2015-2017 Broadcom
   *
-- * Copyright (c) 2014 Broadcom Corporation
-+ * Copyright (c) 2014-2017 Broadcom
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -1175,13 +1175,9 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
- 	unsigned int txbds_processed = 0;
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as
+@@ -221,9 +221,9 @@ int bcm_phy_set_eee(struct phy_device *phydev, bool enable)
+ 		return val;
  
- 	/* Compute how many buffers are transmitted since last xmit call */
--	c_index = bcmgenet_tdma_ring_readl(priv, ring->index, TDMA_CONS_INDEX);
--	c_index &= DMA_C_INDEX_MASK;
--
--	if (likely(c_index >= ring->c_index))
--		txbds_ready = c_index - ring->c_index;
--	else
--		txbds_ready = (DMA_C_INDEX_MASK + 1) - ring->c_index + c_index;
-+	c_index = bcmgenet_tdma_ring_readl(priv, ring->index, TDMA_CONS_INDEX)
-+		& DMA_C_INDEX_MASK;
-+	txbds_ready = (c_index - ring->c_index) & DMA_C_INDEX_MASK;
+ 	if (enable)
+-		val |= (MDIO_AN_EEE_ADV_100TX | MDIO_AN_EEE_ADV_1000T);
++		val |= (MDIO_EEE_100TX | MDIO_EEE_1000T);
+ 	else
+-		val &= ~(MDIO_AN_EEE_ADV_100TX | MDIO_AN_EEE_ADV_1000T);
++		val &= ~(MDIO_EEE_100TX | MDIO_EEE_1000T);
  
- 	netif_dbg(priv, tx_done, dev,
- 		  "%s ring=%d old_c_index=%u c_index=%u txbds_ready=%u\n",
-@@ -1611,12 +1607,7 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_rx_ring *ring,
- 	}
- 
- 	p_index &= DMA_P_INDEX_MASK;
--
--	if (likely(p_index >= ring->c_index))
--		rxpkttoprocess = p_index - ring->c_index;
--	else
--		rxpkttoprocess = (DMA_C_INDEX_MASK + 1) - ring->c_index +
--				 p_index;
-+	rxpkttoprocess = (p_index - ring->c_index) & DMA_C_INDEX_MASK;
- 
- 	netif_dbg(priv, rx_status, dev,
- 		  "RDMA: rxpkttoprocess=%d\n", rxpkttoprocess);
+ 	phy_write_mmd_indirect(phydev, BCM_CL45VEN_EEE_ADV,
+ 			       MDIO_MMD_AN, (u32)val);
 -- 
 2.11.1
