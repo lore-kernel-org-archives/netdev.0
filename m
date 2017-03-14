@@ -1,60 +1,50 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net 0/7] qed: Fixes series
-Date: Tue, 14 Mar 2017 15:25:57 +0200
-Message-ID: <1489497964-13734-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net 2/7] qed: Prevent creation of too-big u32-chains
+Date: Tue, 14 Mar 2017 15:25:59 +0200
+Message-ID: <1489497964-13734-3-git-send-email-Yuval.Mintz@cavium.com>
+References: <1489497964-13734-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+Cc: Tomer Tayar <Tomer.Tayar@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:39028 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:39033 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751958AbdCNN0N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 09:26:13 -0400
+        by vger.kernel.org with ESMTP id S1752177AbdCNN0V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 09:26:21 -0400
+In-Reply-To: <1489497964-13734-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This address several different issues in qed.
-The more significant portions:
+From: Tomer Tayar <Tomer.Tayar@cavium.com>
 
-Patch #1 would cause timeout when qedr utilizes the highest
-CIDs availble for it [or when future qede adapters would utilize
-queues in some constellations].
+Current Logic would allow the creation of a chain with U32_MAX + 1
+elements, when the actual maximum supported by the driver infrastructure
+is U32_MAX.
 
-Patch #4 fixes a leak of mapped addresses; When iommu is enabled,
-offloaded storage protocols might eventually run out of resources
-and fail to map additional buffers.
+Fixes: a91eb52abb50 ("qed: Revisit chain implementation")
+Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_dev.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Patches #6,#7 were missing in the initial iSCSI infrastructure
-submissions, and would hamper qedi's stability when it reaches
-out-of-order scenarios.
-
-Dave,
-
-Please consider applying these to 'net'.
-
-Thanks,
-Yuval
-
-Ram Amrani (2):
-  qed: Align CIDs according to DORQ requirement
-  qed: Fix interrupt flags on Rx LL2
-
-Tomer Tayar (1):
-  qed: Prevent creation of too-big u32-chains
-
-Yuval Mintz (4):
-  qed: Fix mapping leak on LL2 rx flow
-  qed: Free previous connections when releasing iSCSI
-  qed: Correct out-of-bound access in OOO history
-  qed: Enable iSCSI Out-of-Order
-
- drivers/net/ethernet/qlogic/qed/qed_cxt.c   |  3 ++-
- drivers/net/ethernet/qlogic/qed/qed_dev.c   |  5 ++---
- drivers/net/ethernet/qlogic/qed/qed_iscsi.c | 31 +++++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_ll2.c   | 11 ++++++----
- drivers/net/ethernet/qlogic/qed/qed_ooo.c   |  2 ++
- 5 files changed, 44 insertions(+), 8 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index e2a081c..e518f91 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -2389,9 +2389,8 @@ void qed_chain_free(struct qed_dev *cdev, struct qed_chain *p_chain)
+ 	 * size/capacity fields are of a u32 type.
+ 	 */
+ 	if ((cnt_type == QED_CHAIN_CNT_TYPE_U16 &&
+-	     chain_size > 0x10000) ||
+-	    (cnt_type == QED_CHAIN_CNT_TYPE_U32 &&
+-	     chain_size > 0x100000000ULL)) {
++	     chain_size > ((u32)U16_MAX + 1)) ||
++	    (cnt_type == QED_CHAIN_CNT_TYPE_U32 && chain_size > U32_MAX)) {
+ 		DP_NOTICE(cdev,
+ 			  "The actual chain size (0x%llx) is larger than the maximal possible value\n",
+ 			  chain_size);
 -- 
 1.9.3
