@@ -1,52 +1,100 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: deadlock between ip_expire/sch_direct_xmit
-Date: Tue, 14 Mar 2017 15:58:31 +0100
-Message-ID: <CACT4Y+bEk8TFZDcuH9S6AJ0A8uJs7ptS3ELHe-DcxkEE3Oanhg@mail.gmail.com>
-References: <CACT4Y+ZrHr0Cqw5RPeZ6QW16auOPyKSCOea6AciHBswAT3t14Q@mail.gmail.com>
- <1489502504.28631.115.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+bLJtO55iP5uNPZV+_B+H5-Z2gOiF26sXDmWk9L0rESsw@mail.gmail.com> <CANn89iLO1neA3-4ipYr==n_3iDXDXgY0MCkPkp=cEf8n4w6i=g@mail.gmail.com>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [PATCH 08/29] drivers, md: convert mddev.active from atomic_t
+ to refcount_t
+Date: Tue, 14 Mar 2017 07:58:59 -0700
+Message-ID: <1489503539.3214.17.camel@HansenPartnership.com>
+References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
+ <1488810076-3754-9-git-send-email-elena.reshetova@intel.com>
+ <87lgs8ukfq.fsf@concordia.ellerman.id.au>
+ <2236FBA76BA1254E88B949DDB74E612B41C588E8@IRSMSX102.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iLO1neA3-4ipYr==n_3iDXDXgY0MCkPkp=cEf8n4w6i=g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "peterz@infradead.org" <peterz@infradead.org>,
+ "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+ "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
+ "linux1394-devel@lists.sourceforge.net"
+ <linux1394-devel@lists.sourceforge.net>,
+ "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+ "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+ "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+ "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
+ "fcoe-devel@open-fcoe.org" <fcoe-devel@open-fcoe.org>,
+ "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+ "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
+ "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
+ Kees Cook <keescook@chromium.org>,
+ "linux-raid@vger.kernel.org" <linux-raid@vger.kernel.org>,
+ "linux-bcache@vger.kernel.org" <linux-bcache@vger.kerne
+To: "Reshetova, Elena" <elena.reshetova@intel.com>, Michael Ellerman
+ <mpe@ellerman.id.au>, "gregkh@linuxfoundation.org"
+ <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <2236FBA76BA1254E88B949DDB74E612B41C588E8@IRSMSX102.ger.corp.intel.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 14, 2017 at 3:56 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Tue, Mar 14, 2017 at 7:46 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->
->> I am confused. Lockdep has observed both of these stacks:
->>
->>        CPU0                    CPU1
->>        ----                    ----
->>   lock(&(&q->lock)->rlock);
->>                                lock(_xmit_ETHER#2);
->>                                lock(&(&q->lock)->rlock);
->>   lock(_xmit_ETHER#2);
->>
->>
->> So it somehow happened. Or what do you mean?
->>
->
-> Lockdep said " possible circular locking dependency detected " .
-> It is not an actual deadlock, but lockdep machinery firing.
->
-> For a dead lock to happen, this would require that he ICMP message
-> sent by ip_expire() is itself fragmented and reassembled.
-> This cannot be, because ICMP messages are not candidates for
-> fragmentation, but lockdep can not know that of course...
+On Tue, 2017-03-14 at 12:29 +0000, Reshetova, Elena wrote:
+> > Elena Reshetova <elena.reshetova@intel.com> writes:
+> > 
+> > > refcount_t type and corresponding API should be
+> > > used instead of atomic_t when the variable is used as
+> > > a reference counter. This allows to avoid accidental
+> > > refcounter overflows that might lead to use-after-free
+> > > situations.
+> > > 
+> > > Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+> > > Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+> > > Signed-off-by: Kees Cook <keescook@chromium.org>
+> > > Signed-off-by: David Windsor <dwindsor@gmail.com>
+> > > ---
+> > >  drivers/md/md.c | 6 +++---
+> > >  drivers/md/md.h | 3 ++-
+> > >  2 files changed, 5 insertions(+), 4 deletions(-)
+> > 
+> > When booting linux-next (specifically 5be4921c9958ec) I'm seeing
+> > the
+> > backtrace below. I suspect this patch is just exposing an existing
+> > issue?
+> 
+> Yes, we have actually been following this issue in the another
+> thread. 
+> It looks like the object is re-used somehow, but I can't quite
+> understand how just by reading the code. 
+> This was what I put into the previous thread:
+> 
+> "The log below indicates that you are using your refcounter in a bit
+> weird way in mddev_find(). 
+> However, I can't find the place (just by reading the code) where you
+> would increment refcounter from zero (vs. setting it to one).
+> It looks like you either iterate over existing nodes (and increment
+> their counters, which should be >= 1 at the time of increment) or
+> create a new node, but then mddev_init() sets the counter to 1. "
+> 
+> If you can help to understand what is going on with the object
+> creation/destruction, would be appreciated!
+> 
+> Also Shaohua Li stopped this patch coming from his tree since the 
+> issue was caught at that time, so we are not going to merge this 
+> until we figure it out. 
 
+Asking on the correct list (dm-devel) would have got you the easy
+answer:  The refcount behind mddev->active is a genuine atomic.  It has
+refcount properties but only if the array fails to initialise (in that
+case, final put kills it).  Once it's added to the system as a gendisk,
+it cannot be freed until md_free().  Thus its ->active count can go to
+zero (when it becomes inactive; usually because of an unmount). On a
+simple allocation regardless of outcome, the last executed statement in
+md_alloc is mddev_put(): that destroys the device if we didn't manage
+to create it or returns 0 and adds an inactive device to the system
+which the user can get with mddev_find().
 
-Ah, I see. Thanks.
+James
