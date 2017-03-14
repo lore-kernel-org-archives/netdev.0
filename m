@@ -1,45 +1,99 @@
-From: Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH net-next 2/4] net-next: dsa: add Mediatek tag RX/TX handler
-Date: Tue, 14 Mar 2017 09:38:22 -0400
-Message-ID: <8760jcger5.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1489421488-300-1-git-send-email-sean.wang@mediatek.com>
- <1489421488-300-3-git-send-email-sean.wang@mediatek.com>
- <87innd6rk2.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <1489472530.1870.21.camel@mtkswgap22>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next 2/4] gtp: add genl cmd to enable GTP
+ encapsulation on UDP socket
+Date: Tue, 14 Mar 2017 14:39:57 +0100
+Message-ID: <20170314133957.GA3838@salvia>
+References: <20170314112548.24027-1-aschultz@tpip.net>
+ <20170314112548.24027-3-aschultz@tpip.net>
+ <20170314114330.GB2992@salvia>
+ <1491326012.385002.1489494505868.JavaMail.zimbra@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1489472530.1870.21.camel@mtkswgap22>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: laforge <laforge@gnumonks.org>,
+        osmocom-net-gprs <osmocom-net-gprs@lists.osmocom.org>,
+        netdev <netdev@vger.kernel.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>
+To: Andreas Schultz <aschultz@tpip.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:38992 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751143AbdCNNkI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Mar 2017 09:40:08 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 36A14E5A51
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 14:40:05 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 25417DA874
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 14:40:05 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id DFC6ADA80B
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 14:40:01 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <1491326012.385002.1489494505868.JavaMail.zimbra@tpip.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sean,
+On Tue, Mar 14, 2017 at 01:28:25PM +0100, Andreas Schultz wrote:
+> ----- On Mar 14, 2017, at 12:43 PM, pablo pablo@netfilter.org wrote:
+[...]
+> A GTP entity serves multiple local IP endpoints, It manages outgoing tunnels
+> by the local APN/VRF, source IP, destination IP and remote tunnel id, incoming
+> tunnels are managed by the local destination IP, local tunnel id and VRF/APN.
+> 
+> Therefor a PDP context needs the following attributes:
+> 
+>  * local source/destination IP (and port - but that's for different series)
+>  * remote destination IP
+>  * local and remote TEID
+>  * VRF/APN
+[...]
+> I'm not sure if this pseudo GTP entity root device fits well with
+> other networking concepts. And more over, I can't really see the need
+> for such an construct.
 
-Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org> writes:
+Some sort of top-level structure that wraps all these objects is
+needed, and that can be a new VRF object itself.
 
->> This won't apply, the port index in now stored in p->dp->index.
->
-> It seems that I need to upgrade to newer kernel to verify this
+You can add a netlink interface to add/dump/delete VRFs, this VRF
+database would be *global* to the GSN. At VRF creation, you attach the
+socket and the GTP device. You can share sockets between VRFs. PDP
+context objects would be added to the corresponding VRF *not to the
+socket*, but actually this will result in inserting this PDP context
+into the socket hashtable and the GTP device hashtable.
 
-Correct. In fact every time you send patches to net-next (or any other
-subsystem branch), you must rebase your patch series onto the latest
-version of that tree, in order to avoid eventuel conflicts.
+We need to introduce a default VRF that is assumed to always exist,
+and that userspace cannot remove, so things don't break backward. If
+no VRF is specified, then we attach things to this default VRF.
+Actually, look at this from a different angle: the existing driver is
+just supporting *one single VRF* at this moment so we just have to
+represent this explicitly. Breaking existing API is a no-go.
 
-Thanks,
+This explicit VRF concept would also allow us to dump PDP contexts
+that belong to a given VRF, by simply indicating the VRF unique id.
+Jamal already requested that we extend iproute2 to have command to
+inspect the gtp driver we cannot escape this, we should allow
+standalone tools to inspect the gtp datapath as we do with other
+existing tunnel drivers, no matter what daemon in userspace implements
+the control plane.
 
-        Vivien
+[...]
+> I think that the user space control instance should own the tunnels and
+> only use the kernel facility to manage them. When the user space instance
+> goes away, so should the tunnels.
+
+This doesn't allow daemon hot restart for whatever administrative
+reason without affecting existing traffic. The kernel owns the
+datapath indeed, that include tunnels.
+
+> From that perspective, I want to keep the kernel facilities to the
+> absolute needed minimum.
+
+If some simple abstraction that we can insert makes this whole thing
+more maintainable, then it makes sense to consider it.
+
+This is all about not exposing the internal layout of the
+representation you use for a very specific reason: The more you expose
+internal details to userspace, the more problems we'll have to extend
+things later on in the future. And don't try to be smart and say:
+"Hey, I already know every usecase we will have in the future" because
+that is not true.
