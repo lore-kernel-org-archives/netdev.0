@@ -1,66 +1,178 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: bond procfs hw addr prints
-Date: Mon, 13 Mar 2017 23:26:55 -0400
-Message-ID: <88a9205f-363c-a6da-8db7-ee301bc080a1@redhat.com>
-References: <597da6f1-c0fc-ae23-94d1-d0fb3abb3176@redhat.com>
- <10202.1489451284@famine> <8aa4aff4-e1b3-83b5-f453-c6485f540705@redhat.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [4.10+] sctp lockdep trace
+Date: Tue, 14 Mar 2017 11:35:33 +0800
+Message-ID: <CADvbK_fr5dis-X8znOtjDFqFrDWcK+RcDD8rz=oNidrJJ1h0+A@mail.gmail.com>
+References: <20170224222110.csrufaq73lq3twy2@codemonkey.org.uk>
+ <20170313201045.GA23552@localhost.localdomain> <20170313201156.GA23553@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Dave Jones <davej@codemonkey.org.uk>,
+        network dev <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46050 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752711AbdCND0z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Mar 2017 23:26:55 -0400
-In-Reply-To: <8aa4aff4-e1b3-83b5-f453-c6485f540705@redhat.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:33248 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752907AbdCNDff (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 23:35:35 -0400
+In-Reply-To: <20170313201156.GA23553@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-03-13 10:06 PM, Jarod Wilson wrote:
-> On 2017-03-13 8:28 PM, Jay Vosburgh wrote:
->> Jarod Wilson <jarod@redhat.com> wrote:
+On Tue, Mar 14, 2017 at 4:11 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Mon, Mar 13, 2017 at 05:10:45PM -0300, Marcelo Ricardo Leitner wrote:
+>> On Fri, Feb 24, 2017 at 05:21:10PM -0500, Dave Jones wrote:
+>> > [  244.251557] ===============================
+>> > [  244.263321] [ ERR: suspicious RCU usage.  ]
+>> > [  244.274982] 4.10.0-think+ #7 Not tainted
+>> > [  244.286511] -------------------------------
+>> > [  244.298008] ./include/linux/rhashtable.h:602 suspicious rcu_dereference_check() usage!
+>> > [  244.309665]
+>> >                other info that might help us debug this:
+>> >
+>> > [  244.344629]
+>> >                rcu_scheduler_active = 2, debug_locks = 1
+>> > [  244.367839] 1 lock held by trinity-c30/1781:
+>> > [  244.379481]  #0:
+>> > [  244.390848]  (
+>> > [  244.402372] sk_lock-AF_INET
+>> > [  244.413825] ){+.+.+.}
+>> > [  244.425231] , at: [<ffffffffa0302fd0>] sctp_sendmsg+0x330/0xfe0 [sctp]
+>> > [  244.436774]
+>> >                stack backtrace:
+>> > [  244.459620] CPU: 3 PID: 1781 Comm: trinity-c30 Not tainted 4.10.0-think+ #7
+>> > [  244.482790] Call Trace:
+>> > [  244.494201]  dump_stack+0x68/0x93
+>> > [  244.505598]  lockdep_rcu_suspicious+0xce/0xf0
+>> > [  244.516924]  sctp_hash_transport+0x406/0x7e0 [sctp]
+>> > [  244.528137]  ? sctp_endpoint_bh_rcv+0x171/0x290 [sctp]
+>> > [  244.539243]  sctp_assoc_add_peer+0x290/0x3c0 [sctp]
+>> > [  244.550291]  sctp_sendmsg+0x8f7/0xfe0 [sctp]
+>> > [  244.561258]  ? rw_copy_check_uvector+0x8e/0x190
+>> > [  244.572308]  ? import_iovec+0x3a/0xe0
+>> > [  244.583232]  inet_sendmsg+0x49/0x1e0
+>> > [  244.594150]  ___sys_sendmsg+0x2d4/0x300
+>> > [  244.605002]  ? debug_smp_processor_id+0x17/0x20
+>> > [  244.615844]  ? debug_smp_processor_id+0x17/0x20
+>> > [  244.626533]  ? get_lock_stats+0x19/0x50
+>> > [  244.637141]  __sys_sendmsg+0x54/0x90
+>> > [  244.647817]  SyS_sendmsg+0x12/0x20
+>> > [  244.658400]  do_syscall_64+0x66/0x1d0
+>> > [  244.668990]  entry_SYSCALL64_slow_path+0x25/0x25
+>> > [  244.679582] RIP: 0033:0x7fe095fcb0f9
+>> > [  244.690079] RSP: 002b:00007ffc5601b1d8 EFLAGS: 00000246
+>> > [  244.700704]  ORIG_RAX: 000000000000002e
+>> > [  244.711248] RAX: ffffffffffffffda RBX: 000000000000002e RCX: 00007fe095fcb0f9
+>> > [  244.721818] RDX: 0000000000000080 RSI: 00005592de12ddc0 RDI: 000000000000012d
+>> > [  244.732282] RBP: 00007fe0965c8000 R08: 000000000000c000 R09: 00000000000000dc
+>> > [  244.742576] R10: 0003021200000088 R11: 0000000000000246 R12: 0000000000000002
+>> > [  244.752804] R13: 00007fe0965c8048 R14: 00007fe0966a1ad8 R15: 00007fe0965c8000
+>> >
+>> > [  244.775549] ===============================
+>> > [  244.785875] [ ERR: suspicious RCU usage.  ]
+>> > [  244.796951] 4.10.0-think+ #7 Not tainted
+>> > [  244.807185] -------------------------------
+>> > [  244.819213] ./include/linux/rhashtable.h:605 suspicious rcu_dereference_check() usage!
+>> > [  244.829420]
+>> >                other info that might help us debug this:
+>> >
+>> > [  244.859963]
+>> >                rcu_scheduler_active = 2, debug_locks = 1
+>> > [  244.879766] 1 lock held by trinity-c30/1781:
+>> > [  244.889953]  #0:
+>> > [  244.900000]  (
+>> > [  244.909854] sk_lock-AF_INET
+>> > [  244.919645] ){+.+.+.}
+>> > [  244.929238] , at: [<ffffffffa0302fd0>] sctp_sendmsg+0x330/0xfe0 [sctp]
+>> > [  244.939167]
+>> >                stack backtrace:
+>> > [  244.958506] CPU: 3 PID: 1781 Comm: trinity-c30 Not tainted 4.10.0-think+ #7
+>> > [  244.978102] Call Trace:
+>> > [  244.987735]  dump_stack+0x68/0x93
+>> > [  244.997112]  lockdep_rcu_suspicious+0xce/0xf0
+>> > [  245.006588]  sctp_hash_transport+0x4ca/0x7e0 [sctp]
+>> > [  245.016264]  ? sctp_endpoint_bh_rcv+0x171/0x290 [sctp]
+>> > [  245.025797]  sctp_assoc_add_peer+0x290/0x3c0 [sctp]
+>> > [  245.035380]  sctp_sendmsg+0x8f7/0xfe0 [sctp]
+>> > [  245.044883]  ? rw_copy_check_uvector+0x8e/0x190
+>> > [  245.054464]  ? import_iovec+0x3a/0xe0
+>> > [  245.064016]  inet_sendmsg+0x49/0x1e0
+>> > [  245.073516]  ___sys_sendmsg+0x2d4/0x300
+>> > [  245.082967]  ? debug_smp_processor_id+0x17/0x20
+>> > [  245.092448]  ? debug_smp_processor_id+0x17/0x20
+>> > [  245.101850]  ? get_lock_stats+0x19/0x50
+>> > [  245.111170]  __sys_sendmsg+0x54/0x90
+>> > [  245.120451]  SyS_sendmsg+0x12/0x20
+>> > [  245.129649]  do_syscall_64+0x66/0x1d0
+>> > [  245.138783]  entry_SYSCALL64_slow_path+0x25/0x25
+>> > [  245.147678] RIP: 0033:0x7fe095fcb0f9
+>> > [  245.156588] RSP: 002b:00007ffc5601b1d8 EFLAGS: 00000246
+>> > [  245.165503]  ORIG_RAX: 000000000000002e
+>> > [  245.174601] RAX: ffffffffffffffda RBX: 000000000000002e RCX: 00007fe095fcb0f9
+>> > [  245.183861] RDX: 0000000000000080 RSI: 00005592de12ddc0 RDI: 000000000000012d
+>> > [  245.193038] RBP: 00007fe0965c8000 R08: 000000000000c000 R09: 00000000000000dc
+>> > [  245.202214] R10: 0003021200000088 R11: 0000000000000246 R12: 0000000000000002
+>> > [  245.211261] R13: 00007fe0965c8048 R14: 00007fe0966a1ad8 R15: 00007fe0965c8000
+>> >
+>> > [  245.308216] ===============================
+>> > [  245.317295] [ ERR: suspicious RCU usage.  ]
+>> > [  245.327876] 4.10.0-think+ #7 Not tainted
+>> > [  245.337065] -------------------------------
+>> > [  245.345840] ./include/linux/rhashtable.h:616 suspicious rcu_dereference_check() usage!
+>> > [  245.356501]
+>> >                other info that might help us debug this:
+>> >
+>> > [  245.382185]
+>> >                rcu_scheduler_active = 2, debug_locks = 1
+>> > [  245.399415] 1 lock held by trinity-c30/1781:
+>> > [  245.408138]  #0:
+>> > [  245.416594]  (
+>> > [  245.424928] sk_lock-AF_INET
+>> > [  245.433279] ){+.+.+.}
+>> > [  245.441889] , at: [<ffffffffa0302fd0>] sctp_sendmsg+0x330/0xfe0 [sctp]
+>> > [  245.450167]
+>> >                stack backtrace:
+>> > [  245.466352] CPU: 3 PID: 1781 Comm: trinity-c30 Not tainted 4.10.0-think+ #7
+>> > [  245.482894] Call Trace:
+>> > [  245.491096]  dump_stack+0x68/0x93
+>> > [  245.499314]  lockdep_rcu_suspicious+0xce/0xf0
+>> > [  245.507610]  sctp_hash_transport+0x6c0/0x7e0 [sctp]
+>> > [  245.515972]  ? sctp_endpoint_bh_rcv+0x171/0x290 [sctp]
+>> > [  245.524366]  sctp_assoc_add_peer+0x290/0x3c0 [sctp]
+>> > [  245.532736]  sctp_sendmsg+0x8f7/0xfe0 [sctp]
+>> > [  245.541040]  ? rw_copy_check_uvector+0x8e/0x190
+>> > [  245.549402]  ? import_iovec+0x3a/0xe0
+>> > [  245.557679]  inet_sendmsg+0x49/0x1e0
+>> > [  245.565887]  ___sys_sendmsg+0x2d4/0x300
+>> > [  245.574092]  ? debug_smp_processor_id+0x17/0x20
+>> > [  245.582342]  ? debug_smp_processor_id+0x17/0x20
+>> > [  245.590508]  ? get_lock_stats+0x19/0x50
+>> > [  245.598641]  __sys_sendmsg+0x54/0x90
+>> > [  245.606745]  SyS_sendmsg+0x12/0x20
+>> > [  245.614784]  do_syscall_64+0x66/0x1d0
+>> > [  245.622828]  entry_SYSCALL64_slow_path+0x25/0x25
+>> > [  245.630894] RIP: 0033:0x7fe095fcb0f9
+>> > [  245.638962] RSP: 002b:00007ffc5601b1d8 EFLAGS: 00000246
+>> > [  245.647071]  ORIG_RAX: 000000000000002e
+>> > [  245.655186] RAX: ffffffffffffffda RBX: 000000000000002e RCX: 00007fe095fcb0f9
+>> > [  245.663435] RDX: 0000000000000080 RSI: 00005592de12ddc0 RDI: 000000000000012d
+>> > [  245.671776] RBP: 00007fe0965c8000 R08: 000000000000c000 R09: 00000000000000dc
+>> > [  245.680111] R10: 0003021200000088 R11: 0000000000000246 R12: 0000000000000002
+>> > [  245.688460] R13: 00007fe0965c8048 R14: 00007fe0966a1ad8 R15: 00007fe0965c8000
+>> >
 >>
->>> I've got a bug report for someone using a Intel OPA devices in a
->>> bond, and
->>> it appears these devices have a hardware address length of 20,
->>> opposed to
->>> the typical 6 on ethernet. When they dump /proc/net/bonding/bondX, it
->>> only
->>> prints the first 6 of the address, per %pM and mac_address_string(),
->>> while
->>> sysfs for the interface does print the right thing, since it uses
->>> sysfs_print_mac(), which takes a length argument.
->>
->>     This (20 octet MAC length) is true for any Infiniband device.
->>
->>> So the question is... What's the best route to take here? Expand %pM to
->>> support variable length hardware addresses? Use sysfs_* in procfs?
->>> Reinvent the wheel? Nothing I've tinkered with just yet feels very
->>> clean,
->>> on top of not actually working yet. :)
->>
->>     sysfs_format_mac (not _print_mac) uses "%*phC", len, addr in its
->> format string.  Perhaps that format would be a better choice than %pM
->> for this case?
+>> Cc'ing Xin and linux-sctp@ mailing list.
 >
-> Ah, I'd failed to fully grasp how %phC worked, had actually tried it w/o
-> the * in there, and only the first char of the addr was printing.
-> Working on an updated version that uses %*phC properly, which does look
-> like the way to go here. (Didn't help that I was also looking at an
-> older codebase that didn't have the sysfs_format_mac de-duplication).
-> I'll try to have a tested patch in flight tomorrow.
+> Seems the same as Andrey Konovalov had reported?
+>
+I would think so, this patch has fixed it:
 
-Hm... One problem I'm seeing: perm_hwaddr[ETH_ALEN], 
-partner_system[ETH_ALEN], mac_addr_value[ETH_ALEN]. Looks like just 
-about all places where storage for only ETH_ALEN is available needs to 
-be adjusted to maybe MAX_ADDR_LEN?
+commit 5179b26694c92373275e4933f5d0ff32d585c675
+Author: Xin Long <lucien.xin@gmail.com>
+Date:   Tue Feb 28 12:41:29 2017 +0800
 
-So I have something tested that uses %*phC, but only on ethernet 
-hardware so far, and I forsee bad juju for infiniband, because of that 
-ETH_ALEN issue...
+    sctp: call rcu_read_lock before checking for duplicate transport nodes
 
--- 
-Jarod Wilson
-jarod@redhat.com
+not sure which commit your tests are based on, Dave, can you
+check if this fix has been in your test kernel?
