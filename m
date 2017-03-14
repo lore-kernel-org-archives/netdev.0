@@ -1,42 +1,141 @@
-From: Andy Zhou <azhou@ovn.org>
-Subject: Re: [net-next sample action optimization 3/3] openvswitch: Optimize
- sample action for the clone use cases
-Date: Tue, 14 Mar 2017 16:11:20 -0700
-Message-ID: <CABKoBm1hX7eBmoOJED2MfLh5O16j5HvdUu+uT5Y90+9SLZ_eMg@mail.gmail.com>
-References: <1489193500-15260-1-git-send-email-azhou@ovn.org>
- <1489193500-15260-4-git-send-email-azhou@ovn.org> <CAOrHB_CNyhQM5wVJvYNQtE8+RKLAbPrjsrQtbGe-poHi+5AW+g@mail.gmail.com>
- <CABKoBm14S4QRZCNYqBdfcVXrmvDnf3xrRXbDsBKGsMufdgeXZQ@mail.gmail.com>
- <CABKoBm01ieuSrbhf7yZH9AzZkTNB=kiOAhYTDoinXRtDhQoFoQ@mail.gmail.com> <CAOrHB_Ciq+txB+-yY5YKKxVCA61WS9y8HOUAjQjApwC2UKd9dw@mail.gmail.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH v4.11] cgroup, net_cls: iterate the fds of only the tasks
+ which are being migrated
+Date: Tue, 14 Mar 2017 19:25:56 -0400
+Message-ID: <20170314232556.GE15132@htj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Joe Stringer <joe@ovn.org>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:44326 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750796AbdCNXMF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 19:12:05 -0400
-Received: from mfilter28-d.gandi.net (mfilter28-d.gandi.net [217.70.178.159])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id F1BB7FB89E
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 00:12:03 +0100 (CET)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter28-d.gandi.net (mfilter28-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id Oaa3GppOVWFs for <netdev@vger.kernel.org>;
-        Wed, 15 Mar 2017 00:12:02 +0100 (CET)
-Received: from mail-pf0-f174.google.com (mail-pf0-f174.google.com [209.85.192.174])
-        (Authenticated sender: azhou@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 3B00CFB87E
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 00:12:02 +0100 (CET)
-Received: by mail-pf0-f174.google.com with SMTP id o126so399161pfb.3
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 16:12:02 -0700 (PDT)
-In-Reply-To: <CAOrHB_Ciq+txB+-yY5YKKxVCA61WS9y8HOUAjQjApwC2UKd9dw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Li Zefan <lizefan@huawei.com>, cgroups@vger.kernel.org,
+        Johannes Weiner <hannes@cmpxchg.org>, kernel-team@fb.com,
+        Nina Schiff <ninasc@fb.com>, David Goode <dgoode@fb.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Actions parameter which hints if it is recirc or sample. We can add
-> recic-id param and set it if it is recic case.
-> will this work?
->
-Just posted v2.  I added a patch in the end to implement this
-refactoring as suggested.
+The net_cls controller controls the classid field of each socket which
+is associated with the cgroup.  Because the classid is per-socket
+attribute, when a task migrates to another cgroup or the configured
+classid of the cgroup changes, the controller needs to walk all
+sockets and update the classid value, which was implemented by
+3b13758f51de ("cgroups: Allow dynamically changing net_classid").
+
+While the approach is not scalable, migrating tasks which have a lot
+of fds attached to them is rare and the cost is born by the ones
+initiating the operations.  However, for simplicity, both the
+migration and classid config change paths call update_classid() which
+scans all fds of all tasks in the target css.  This is an overkill for
+the migration path which only needs to cover a much smaller subset of
+tasks which are actually getting migrated in.
+
+On cgroup v1, this can lead to unexpected scalability issues when one
+tries to migrate a task or process into a net_cls cgroup which already
+contains a lot of fds.  Even if the migration traget doesn't have many
+to get scanned, update_classid() ends up scanning all fds in the
+target cgroup which can be extremely numerous.
+
+Unfortunately, on cgroup v2 which doesn't use net_cls, the problem is
+even worse.  Before bfc2cf6f61fc ("cgroup: call subsys->*attach() only
+for subsystems which are actually affected by migration"), cgroup core
+would call the ->css_attach callback even for controllers which don't
+see actual migration to a different css.
+
+As net_cls is always disabled but still mounted on cgroup v2, whenever
+a process is migrated on the cgroup v2 hierarchy, net_cls sees
+identity migration from root to root and cgroup core used to call
+->css_attach callback for those.  The net_cls ->css_attach ends up
+calling update_classid() on the root net_cls css to which all
+processes on the system belong to as the controller isn't used.  This
+makes any cgroup v2 migration O(total_number_of_fds_on_the_system)
+which is horrible and easily leads to noticeable stalls triggering RCU
+stall warnings and so on.
+
+The worst symptom is already fixed in upstream by bfc2cf6f61fc
+("cgroup: call subsys->*attach() only for subsystems which are
+actually affected by migration"); however, backporting that commit is
+too invasive and we want to avoid other cases too.
+
+This patch updates net_cls's cgrp_attach() to iterate fds of only the
+processes which are actually getting migrated.  This removes the
+surprising migration cost which is dependent on the total number of
+fds in the target cgroup.  As this leaves write_classid() the only
+user of update_classid(), open-code the helper into write_classid().
+
+Reported-by: David Goode <dgoode@fb.com>
+Fixes: 3b13758f51de ("cgroups: Allow dynamically changing net_classid")
+Cc: stable@vger.kernel.org # v4.4+
+Cc: Nina Schiff <ninasc@fb.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+---
+Hello, Dave.
+
+Can you please route this fix for v4.11?  I can also take it through
+cgroup/for-4.11-fixes, if that's preferable.
+
+Thanks.
+
+ net/core/netclassid_cgroup.c |   32 ++++++++++++++++----------------
+ 1 file changed, 16 insertions(+), 16 deletions(-)
+
+--- a/net/core/netclassid_cgroup.c
++++ b/net/core/netclassid_cgroup.c
+@@ -69,27 +69,17 @@ static int update_classid_sock(const voi
+ 	return 0;
+ }
+ 
+-static void update_classid(struct cgroup_subsys_state *css, void *v)
++static void cgrp_attach(struct cgroup_taskset *tset)
+ {
+-	struct css_task_iter it;
++	struct cgroup_subsys_state *css;
+ 	struct task_struct *p;
+ 
+-	css_task_iter_start(css, &it);
+-	while ((p = css_task_iter_next(&it))) {
++	cgroup_taskset_for_each(p, css, tset) {
+ 		task_lock(p);
+-		iterate_fd(p->files, 0, update_classid_sock, v);
++		iterate_fd(p->files, 0, update_classid_sock,
++			   (void *)(unsigned long)css_cls_state(css)->classid);
+ 		task_unlock(p);
+ 	}
+-	css_task_iter_end(&it);
+-}
+-
+-static void cgrp_attach(struct cgroup_taskset *tset)
+-{
+-	struct cgroup_subsys_state *css;
+-
+-	cgroup_taskset_first(tset, &css);
+-	update_classid(css,
+-		       (void *)(unsigned long)css_cls_state(css)->classid);
+ }
+ 
+ static u64 read_classid(struct cgroup_subsys_state *css, struct cftype *cft)
+@@ -101,12 +91,22 @@ static int write_classid(struct cgroup_s
+ 			 u64 value)
+ {
+ 	struct cgroup_cls_state *cs = css_cls_state(css);
++	struct css_task_iter it;
++	struct task_struct *p;
+ 
+ 	cgroup_sk_alloc_disable();
+ 
+ 	cs->classid = (u32)value;
+ 
+-	update_classid(css, (void *)(unsigned long)cs->classid);
++	css_task_iter_start(css, &it);
++	while ((p = css_task_iter_next(&it))) {
++		task_lock(p);
++		iterate_fd(p->files, 0, update_classid_sock,
++			   (void *)(unsigned long)cs->classid);
++		task_unlock(p);
++	}
++	css_task_iter_end(&it);
++
+ 	return 0;
+ }
+ 
