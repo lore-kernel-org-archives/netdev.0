@@ -1,105 +1,367 @@
-From: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [RFC v1 for accelerated IPoIB 05/25] IB/ipoib: Support ipoib
- acceleration options callbacks
-Date: Tue, 14 Mar 2017 16:42:55 +0200
-Message-ID: <CAAk-MO8gQ5x-4Ubk1nzPntEWa2ivTK6uXyJ4eC7fmtUCNnOdfA@mail.gmail.com>
-References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
- <1489429896-10781-6-git-send-email-erezsh@mellanox.com> <20170314063538.GB79937@knc-06.sc.intel.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: deadlock between ip_expire/sch_direct_xmit
+Date: Tue, 14 Mar 2017 15:46:07 +0100
+Message-ID: <CACT4Y+bLJtO55iP5uNPZV+_B+H5-Z2gOiF26sXDmWk9L0rESsw@mail.gmail.com>
+References: <CACT4Y+ZrHr0Cqw5RPeZ6QW16auOPyKSCOea6AciHBswAT3t14Q@mail.gmail.com>
+ <1489502504.28631.115.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170314063538.GB79937-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, jhs@mojatatu.com,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489502504.28631.115.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 14, 2017 at 8:35 AM, Vishwanathapura, Niranjana
-<niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
-> On Mon, Mar 13, 2017 at 08:31:16PM +0200, Erez Shitrit wrote:
+On Tue, Mar 14, 2017 at 3:41 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-03-14 at 14:31 +0100, Dmitry Vyukov wrote:
+>> Hello,
 >>
->> +static struct net_device *ipoib_create_netdev_default(struct ib_device
->> *hca,
->> +                                                     const char *name,
->> +                                                     void (*setup)(struct
->> net_device *))
->> {
->>         struct net_device *dev;
->> +       struct rdma_netdev *rn;
+>> I've got the following deadlock report while running syzkaller fuzzer
+>> on net-next/92cd12c5ed432c5eebd2462d666772a8d8442c3b:
 >>
->> -       dev = alloc_netdev((int)sizeof(struct ipoib_dev_priv), name,
->> -                          NET_NAME_UNKNOWN, ipoib_setup);
->> +       dev = alloc_netdev((int)sizeof(struct ipoib_rdma_netdev),
->> +                          name,
->> +                          NET_NAME_UNKNOWN, setup);
->>         if (!dev)
->>                 return NULL;
 >>
->> -       return netdev_priv(dev);
->> +       rn = netdev_priv(dev);
->> +
->> +       rn->ib_dev_init = ipoib_dev_init_default;
->> +       rn->ib_dev_cleanup = ipoib_dev_uninit_default;
->> +       rn->send = ipoib_send;
->> +       rn->attach_mcast = ipoib_mcast_attach;
->> +       rn->detach_mcast = ipoib_mcast_detach;
->> +
->> +       dev->netdev_ops = &ipoib_netdev_default_pf;
->> +
+>> [ INFO: possible circular locking dependency detected ]
+>> 4.10.0+ #29 Not tainted
+>> -------------------------------------------------------
+>> modprobe/12392 is trying to acquire lock:
+>>  (_xmit_ETHER#2){+.-...}, at: [<ffffffff837a8182>] spin_lock
+>> include/linux/spinlock.h:299 [inline]
+>>  (_xmit_ETHER#2){+.-...}, at: [<ffffffff837a8182>] __netif_tx_lock
+>> include/linux/netdevice.h:3486 [inline]
+>>  (_xmit_ETHER#2){+.-...}, at: [<ffffffff837a8182>]
+>> sch_direct_xmit+0x282/0x6d0 net/sched/sch_generic.c:180
+>>
+>> but task is already holding lock:
+>>  (&(&q->lock)->rlock){+.-...}, at: [<ffffffff8389a4d1>] spin_lock
+>> include/linux/spinlock.h:299 [inline]
+>>  (&(&q->lock)->rlock){+.-...}, at: [<ffffffff8389a4d1>]
+>> ip_expire+0x51/0x6c0 net/ipv4/ip_fragment.c:201
+>>
+>> which lock already depends on the new lock.
+>>
+>>
+>> the existing dependency chain (in reverse order) is:
+>>
+>> -> #1 (&(&q->lock)->rlock){+.-...}:
+>>        validate_chain kernel/locking/lockdep.c:2267 [inline]
+>>        __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3340
+>>        lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3755
+>>        __raw_spin_lock include/linux/spinlock_api_smp.h:142 [inline]
+>>        _raw_spin_lock+0x33/0x50 kernel/locking/spinlock.c:151
+>>        spin_lock include/linux/spinlock.h:299 [inline]
+>>        ip_defrag+0x3a2/0x4130 net/ipv4/ip_fragment.c:669
+>>        ip_check_defrag+0x4e3/0x8b0 net/ipv4/ip_fragment.c:713
+>>        packet_rcv_fanout+0x282/0x800 net/packet/af_packet.c:1459
+>>        deliver_skb net/core/dev.c:1834 [inline]
+>>        dev_queue_xmit_nit+0x294/0xa90 net/core/dev.c:1890
+>>        xmit_one net/core/dev.c:2903 [inline]
+>>        dev_hard_start_xmit+0x16b/0xab0 net/core/dev.c:2923
+>>        sch_direct_xmit+0x31f/0x6d0 net/sched/sch_generic.c:182
+>>        __dev_xmit_skb net/core/dev.c:3092 [inline]
+>>        __dev_queue_xmit+0x13e5/0x1e60 net/core/dev.c:3358
+>>        dev_queue_xmit+0x17/0x20 net/core/dev.c:3423
+>>        neigh_resolve_output+0x6b9/0xb10 net/core/neighbour.c:1308
+>>        neigh_output include/net/neighbour.h:478 [inline]
+>>        ip_finish_output2+0x8b8/0x15a0 net/ipv4/ip_output.c:228
+>>        ip_do_fragment+0x1d93/0x2720 net/ipv4/ip_output.c:672
+>>        ip_fragment.constprop.54+0x145/0x200 net/ipv4/ip_output.c:545
+>>        ip_finish_output+0x82d/0xe10 net/ipv4/ip_output.c:314
+>>        NF_HOOK_COND include/linux/netfilter.h:246 [inline]
+>>        ip_output+0x1f0/0x7a0 net/ipv4/ip_output.c:404
+>>        dst_output include/net/dst.h:486 [inline]
+>>        ip_local_out+0x95/0x170 net/ipv4/ip_output.c:124
+>>        ip_send_skb+0x3c/0xc0 net/ipv4/ip_output.c:1492
+>>        ip_push_pending_frames+0x64/0x80 net/ipv4/ip_output.c:1512
+>>        raw_sendmsg+0x26de/0x3a00 net/ipv4/raw.c:655
+>>        inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:761
+>>        sock_sendmsg_nosec net/socket.c:633 [inline]
+>>        sock_sendmsg+0xca/0x110 net/socket.c:643
+>>        ___sys_sendmsg+0x4a3/0x9f0 net/socket.c:1985
+>>        __sys_sendmmsg+0x25c/0x750 net/socket.c:2075
+>>        SYSC_sendmmsg net/socket.c:2106 [inline]
+>>        SyS_sendmmsg+0x35/0x60 net/socket.c:2101
+>>        do_syscall_64+0x2e8/0x930 arch/x86/entry/common.c:281
+>>        return_from_SYSCALL_64+0x0/0x7a
+>>
+>> -> #0 (_xmit_ETHER#2){+.-...}:
+>>        check_prev_add kernel/locking/lockdep.c:1830 [inline]
+>>        check_prevs_add+0xa8f/0x19f0 kernel/locking/lockdep.c:1940
+>>        validate_chain kernel/locking/lockdep.c:2267 [inline]
+>>        __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3340
+>>        lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3755
+>>        __raw_spin_lock include/linux/spinlock_api_smp.h:142 [inline]
+>>        _raw_spin_lock+0x33/0x50 kernel/locking/spinlock.c:151
+>>        spin_lock include/linux/spinlock.h:299 [inline]
+>>        __netif_tx_lock include/linux/netdevice.h:3486 [inline]
+>>        sch_direct_xmit+0x282/0x6d0 net/sched/sch_generic.c:180
+>>        __dev_xmit_skb net/core/dev.c:3092 [inline]
+>>        __dev_queue_xmit+0x13e5/0x1e60 net/core/dev.c:3358
+>>        dev_queue_xmit+0x17/0x20 net/core/dev.c:3423
+>>        neigh_hh_output include/net/neighbour.h:468 [inline]
+>>        neigh_output include/net/neighbour.h:476 [inline]
+>>        ip_finish_output2+0xf6c/0x15a0 net/ipv4/ip_output.c:228
+>>        ip_finish_output+0xa29/0xe10 net/ipv4/ip_output.c:316
+>>        NF_HOOK_COND include/linux/netfilter.h:246 [inline]
+>>        ip_output+0x1f0/0x7a0 net/ipv4/ip_output.c:404
+>>        dst_output include/net/dst.h:486 [inline]
+>>        ip_local_out+0x95/0x170 net/ipv4/ip_output.c:124
+>>        ip_send_skb+0x3c/0xc0 net/ipv4/ip_output.c:1492
+>>        ip_push_pending_frames+0x64/0x80 net/ipv4/ip_output.c:1512
+>>        icmp_push_reply+0x372/0x4d0 net/ipv4/icmp.c:394
+>>        icmp_send+0x156c/0x1c80 net/ipv4/icmp.c:754
+>>        ip_expire+0x40e/0x6c0 net/ipv4/ip_fragment.c:239
+>>        call_timer_fn+0x241/0x820 kernel/time/timer.c:1268
+>>        expire_timers kernel/time/timer.c:1307 [inline]
+>>        __run_timers+0x960/0xcf0 kernel/time/timer.c:1601
+>>        run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
+>>        __do_softirq+0x31f/0xbe7 kernel/softirq.c:284
+>>        invoke_softirq kernel/softirq.c:364 [inline]
+>>        irq_exit+0x1cc/0x200 kernel/softirq.c:405
+>>        exiting_irq arch/x86/include/asm/apic.h:657 [inline]
+>>        smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:962
+>>        apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:707
+>>        __read_once_size include/linux/compiler.h:254 [inline]
+>>        atomic_read arch/x86/include/asm/atomic.h:26 [inline]
+>>        rcu_dynticks_curr_cpu_in_eqs kernel/rcu/tree.c:350 [inline]
+>>        __rcu_is_watching kernel/rcu/tree.c:1133 [inline]
+>>        rcu_is_watching+0x83/0x110 kernel/rcu/tree.c:1147
+>>        rcu_read_lock_held+0x87/0xc0 kernel/rcu/update.c:293
+>>        radix_tree_deref_slot include/linux/radix-tree.h:238 [inline]
+>>        filemap_map_pages+0x6d4/0x1570 mm/filemap.c:2335
+>>        do_fault_around mm/memory.c:3231 [inline]
+>>        do_read_fault mm/memory.c:3265 [inline]
+>>        do_fault+0xbd5/0x2080 mm/memory.c:3370
+>>        handle_pte_fault mm/memory.c:3600 [inline]
+>>        __handle_mm_fault+0x1062/0x2cb0 mm/memory.c:3714
+>>        handle_mm_fault+0x1e2/0x480 mm/memory.c:3751
+>>        __do_page_fault+0x4f6/0xb60 arch/x86/mm/fault.c:1397
+>>        do_page_fault+0x54/0x70 arch/x86/mm/fault.c:1460
+>>        page_fault+0x28/0x30 arch/x86/entry/entry_64.S:1011
+>>
+>> other info that might help us debug this:
+>>
+>>  Possible unsafe locking scenario:
+>>
+>>        CPU0                    CPU1
+>>        ----                    ----
+>>   lock(&(&q->lock)->rlock);
+>>                                lock(_xmit_ETHER#2);
+>>                                lock(&(&q->lock)->rlock);
+>>   lock(_xmit_ETHER#2);
+>>
+>>  *** DEADLOCK ***
+>>
+>> 10 locks held by modprobe/12392:
+>>  #0:  (&mm->mmap_sem){++++++}, at: [<ffffffff81329758>]
+>> __do_page_fault+0x2b8/0xb60 arch/x86/mm/fault.c:1336
+>>  #1:  (rcu_read_lock){......}, at: [<ffffffff8188cab6>]
+>> filemap_map_pages+0x1e6/0x1570 mm/filemap.c:2324
+>>  #2:  (&(ptlock_ptr(page))->rlock#2){+.+...}, at: [<ffffffff81984a78>]
+>> spin_lock include/linux/spinlock.h:299 [inline]
+>>  #2:  (&(ptlock_ptr(page))->rlock#2){+.+...}, at: [<ffffffff81984a78>]
+>> pte_alloc_one_map mm/memory.c:2944 [inline]
+>>  #2:  (&(ptlock_ptr(page))->rlock#2){+.+...}, at: [<ffffffff81984a78>]
+>> alloc_set_pte+0x13b8/0x1b90 mm/memory.c:3072
+>>  #3:  (((&q->timer))){+.-...}, at: [<ffffffff81627e72>]
+>> lockdep_copy_map include/linux/lockdep.h:175 [inline]
+>>  #3:  (((&q->timer))){+.-...}, at: [<ffffffff81627e72>]
+>> call_timer_fn+0x1c2/0x820 kernel/time/timer.c:1258
+>>  #4:  (&(&q->lock)->rlock){+.-...}, at: [<ffffffff8389a4d1>] spin_lock
+>> include/linux/spinlock.h:299 [inline]
+>>  #4:  (&(&q->lock)->rlock){+.-...}, at: [<ffffffff8389a4d1>]
+>> ip_expire+0x51/0x6c0 net/ipv4/ip_fragment.c:201
+>>  #5:  (rcu_read_lock){......}, at: [<ffffffff8389a633>]
+>> ip_expire+0x1b3/0x6c0 net/ipv4/ip_fragment.c:216
+>>  #6:  (slock-AF_INET){+.-...}, at: [<ffffffff839b3313>] spin_trylock
+>> include/linux/spinlock.h:309 [inline]
+>>  #6:  (slock-AF_INET){+.-...}, at: [<ffffffff839b3313>] icmp_xmit_lock
+>> net/ipv4/icmp.c:219 [inline]
+>>  #6:  (slock-AF_INET){+.-...}, at: [<ffffffff839b3313>]
+>> icmp_send+0x803/0x1c80 net/ipv4/icmp.c:681
+>>  #7:  (rcu_read_lock_bh){......}, at: [<ffffffff838ab9a1>]
+>> ip_finish_output2+0x2c1/0x15a0 net/ipv4/ip_output.c:198
+>>  #8:  (rcu_read_lock_bh){......}, at: [<ffffffff836d1dee>]
+>> __dev_queue_xmit+0x23e/0x1e60 net/core/dev.c:3324
+>>  #9:  (dev->qdisc_running_key ?: &qdisc_running_key){+.....}, at:
+>> [<ffffffff836d3a27>] dev_queue_xmit+0x17/0x20 net/core/dev.c:3423
+>>
+>> stack backtrace:
+>> CPU: 0 PID: 12392 Comm: modprobe Not tainted 4.10.0+ #29
+>> Hardware name: Google Google Compute Engine/Google Compute Engine,
+>> BIOS Google 01/01/2011
+>> Call Trace:
+>>  <IRQ>
+>>  __dump_stack lib/dump_stack.c:16 [inline]
+>>  dump_stack+0x2ee/0x3ef lib/dump_stack.c:52
+>>  print_circular_bug+0x307/0x3b0 kernel/locking/lockdep.c:1204
+>>  check_prev_add kernel/locking/lockdep.c:1830 [inline]
+>>  check_prevs_add+0xa8f/0x19f0 kernel/locking/lockdep.c:1940
+>>  validate_chain kernel/locking/lockdep.c:2267 [inline]
+>>  __lock_acquire+0x2149/0x3430 kernel/locking/lockdep.c:3340
+>>  lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3755
+>>  __raw_spin_lock include/linux/spinlock_api_smp.h:142 [inline]
+>>  _raw_spin_lock+0x33/0x50 kernel/locking/spinlock.c:151
+>>  spin_lock include/linux/spinlock.h:299 [inline]
+>>  __netif_tx_lock include/linux/netdevice.h:3486 [inline]
+>>  sch_direct_xmit+0x282/0x6d0 net/sched/sch_generic.c:180
+>>  __dev_xmit_skb net/core/dev.c:3092 [inline]
+>>  __dev_queue_xmit+0x13e5/0x1e60 net/core/dev.c:3358
+>>  dev_queue_xmit+0x17/0x20 net/core/dev.c:3423
+>>  neigh_hh_output include/net/neighbour.h:468 [inline]
+>>  neigh_output include/net/neighbour.h:476 [inline]
+>>  ip_finish_output2+0xf6c/0x15a0 net/ipv4/ip_output.c:228
+>>  ip_finish_output+0xa29/0xe10 net/ipv4/ip_output.c:316
+>>  NF_HOOK_COND include/linux/netfilter.h:246 [inline]
+>>  ip_output+0x1f0/0x7a0 net/ipv4/ip_output.c:404
+>>  dst_output include/net/dst.h:486 [inline]
+>>  ip_local_out+0x95/0x170 net/ipv4/ip_output.c:124
+>>  ip_send_skb+0x3c/0xc0 net/ipv4/ip_output.c:1492
+>>  ip_push_pending_frames+0x64/0x80 net/ipv4/ip_output.c:1512
+>>  icmp_push_reply+0x372/0x4d0 net/ipv4/icmp.c:394
+>>  icmp_send+0x156c/0x1c80 net/ipv4/icmp.c:754
+>>  ip_expire+0x40e/0x6c0 net/ipv4/ip_fragment.c:239
+>>  call_timer_fn+0x241/0x820 kernel/time/timer.c:1268
+>>  expire_timers kernel/time/timer.c:1307 [inline]
+>>  __run_timers+0x960/0xcf0 kernel/time/timer.c:1601
+>>  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
+>>  __do_softirq+0x31f/0xbe7 kernel/softirq.c:284
+>>  invoke_softirq kernel/softirq.c:364 [inline]
+>>  irq_exit+0x1cc/0x200 kernel/softirq.c:405
+>>  exiting_irq arch/x86/include/asm/apic.h:657 [inline]
+>>  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:962
+>>  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:707
+>> RIP: 0010:__read_once_size include/linux/compiler.h:254 [inline]
+>> RIP: 0010:atomic_read arch/x86/include/asm/atomic.h:26 [inline]
+>> RIP: 0010:rcu_dynticks_curr_cpu_in_eqs kernel/rcu/tree.c:350 [inline]
+>> RIP: 0010:__rcu_is_watching kernel/rcu/tree.c:1133 [inline]
+>> RIP: 0010:rcu_is_watching+0x83/0x110 kernel/rcu/tree.c:1147
+>> RSP: 0000:ffff8801c391f120 EFLAGS: 00000a03 ORIG_RAX: ffffffffffffff10
+>> RAX: dffffc0000000000 RBX: ffff8801c391f148 RCX: 0000000000000000
+>> RDX: 0000000000000000 RSI: 000055edd4374000 RDI: ffff8801dbe1ae0c
+>> RBP: ffff8801c391f1a0 R08: 0000000000000002 R09: 0000000000000000
+>> R10: dffffc0000000000 R11: 0000000000000002 R12: 1ffff10038723e25
+>> R13: ffff8801dbe1ae00 R14: ffff8801c391f680 R15: dffffc0000000000
+>>  </IRQ>
+>>  rcu_read_lock_held+0x87/0xc0 kernel/rcu/update.c:293
+>>  radix_tree_deref_slot include/linux/radix-tree.h:238 [inline]
+>>  filemap_map_pages+0x6d4/0x1570 mm/filemap.c:2335
+>>  do_fault_around mm/memory.c:3231 [inline]
+>>  do_read_fault mm/memory.c:3265 [inline]
+>>  do_fault+0xbd5/0x2080 mm/memory.c:3370
+>>  handle_pte_fault mm/memory.c:3600 [inline]
+>>  __handle_mm_fault+0x1062/0x2cb0 mm/memory.c:3714
+>>  handle_mm_fault+0x1e2/0x480 mm/memory.c:3751
+>>  __do_page_fault+0x4f6/0xb60 arch/x86/mm/fault.c:1397
+>>  do_page_fault+0x54/0x70 arch/x86/mm/fault.c:1460
+>>  page_fault+0x28/0x30 arch/x86/entry/entry_64.S:1011
+>> RIP: 0033:0x7f83172f2786
+>> RSP: 002b:00007fffe859ae80 EFLAGS: 00010293
+>> RAX: 000055edd4373040 RBX: 00007f83175111c8 RCX: 000055edd4373238
+>> RDX: 0000000000000000 RSI: 0000000000000000 RDI: 00007f8317510970
+>> RBP: 00007fffe859afd0 R08: 0000000000000009 R09: 0000000000000000
+>> R10: 0000000000000064 R11: 0000000000000000 R12: 000055edd4373040
+>> R13: 0000000000000000 R14: 00007fffe859afe8 R15: 0000000000000000
 >
 >
-> Probably no need to set netdev_ops here as it gets overwritten.
+> This looks a false positive.
+> An ICMP message can not be possibly fragmented.
 
-No, it is switched, and used.
 
->
->
->> +       return dev;
->> +}
->> +
->> +struct ipoib_dev_priv *ipoib_intf_alloc(struct ib_device *hca, u8 port,
->> +                                       const char *name)
->> +{
->> +       struct net_device *dev;
->> +       struct ipoib_dev_priv *priv;
->> +       struct rdma_netdev *rn;
->> +
->> +       priv = kzalloc(sizeof(*priv), GFP_KERNEL);
->> +       if (!priv) {
->> +               pr_err("%s failed allocting priv\n", __func__);
->> +               return NULL;
->> +       }
->> +
->> +       if (!hca->alloc_rdma_netdev)
->> +               dev = ipoib_create_netdev_default(hca, name,
->> ipoib_setup_common);
->> +       else
->> +               dev = hca->alloc_rdma_netdev(hca, port, RDMA_NETDEV_IPOIB,
->> +                                            name, NET_NAME_UNKNOWN,
->> +                                            ipoib_setup_common);
->> +       if (!dev) {
->> +               kfree(priv);
->> +               return NULL;
->> +       }
->
->
-> This will break ipoib on hfi1 as hfi1 will define alloc_rdma_netdev for
-> OPA_VNIC type. We should probably look for a dedicated return type
-> (-ENODEV?) to determine of the driver supports specified rdma netdev type.
-> Or use a ib device attribute to suggest driver support ipoib rdma netdev.
+I am confused. Lockdep has observed both of these stacks:
 
-sorry, I don't understand that, we are in ipoib driver, so the type is
-RDMA_NETDEV_IPOIB, if hfi wants to implement it should use the same
-flag, and to use OPA_VNIC for vnic.
+       CPU0                    CPU1
+       ----                    ----
+  lock(&(&q->lock)->rlock);
+                               lock(_xmit_ETHER#2);
+                               lock(&(&q->lock)->rlock);
+  lock(_xmit_ETHER#2);
 
 
+So it somehow happened. Or what do you mean?
+
+
+
+> Following patch should fix the lockdep issue.
 >
-> Niranjana
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+> index bbe7f72db9c157ba2d6c5292637c2f58ad39a123..b3cdeec85f1f2c612c362590e828f50596a5c247 100644
+> --- a/net/ipv4/ip_fragment.c
+> +++ b/net/ipv4/ip_fragment.c
+> @@ -198,6 +198,7 @@ static void ip_expire(unsigned long arg)
+>         qp = container_of((struct inet_frag_queue *) arg, struct ipq, q);
+>         net = container_of(qp->q.net, struct net, ipv4.frags);
+>
+> +       rcu_read_lock();
+>         spin_lock(&qp->q.lock);
+>
+>         if (qp->q.flags & INET_FRAG_COMPLETE)
+> @@ -207,7 +208,7 @@ static void ip_expire(unsigned long arg)
+>         __IP_INC_STATS(net, IPSTATS_MIB_REASMFAILS);
+>
+>         if (!inet_frag_evicting(&qp->q)) {
+> -               struct sk_buff *head = qp->q.fragments;
+> +               struct sk_buff *clone, *head = qp->q.fragments;
+>                 const struct iphdr *iph;
+>                 int err;
+>
+> @@ -216,32 +217,40 @@ static void ip_expire(unsigned long arg)
+>                 if (!(qp->q.flags & INET_FRAG_FIRST_IN) || !qp->q.fragments)
+>                         goto out;
+>
+> -               rcu_read_lock();
+>                 head->dev = dev_get_by_index_rcu(net, qp->iif);
+>                 if (!head->dev)
+> -                       goto out_rcu_unlock;
+> +                       goto out;
+> +
+>
+>                 /* skb has no dst, perform route lookup again */
+>                 iph = ip_hdr(head);
+>                 err = ip_route_input_noref(head, iph->daddr, iph->saddr,
+>                                            iph->tos, head->dev);
+>                 if (err)
+> -                       goto out_rcu_unlock;
+> +                       goto out;
+>
+>                 /* Only an end host needs to send an ICMP
+>                  * "Fragment Reassembly Timeout" message, per RFC792.
+>                  */
+>                 if (frag_expire_skip_icmp(qp->user) &&
+>                     (skb_rtable(head)->rt_type != RTN_LOCAL))
+> -                       goto out_rcu_unlock;
+> +                       goto out;
+> +
+> +               clone = skb_clone(head, GFP_ATOMIC);
+>
+>                 /* Send an ICMP "Fragment Reassembly Timeout" message. */
+> -               icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
+> -out_rcu_unlock:
+> -               rcu_read_unlock();
+> +               if (clone) {
+> +                       spin_unlock(&qp->q.lock);
+> +                       icmp_send(clone, ICMP_TIME_EXCEEDED,
+> +                                 ICMP_EXC_FRAGTIME, 0);
+> +                       consume_skb(clone);
+> +                       goto out_rcu_unlock;
+> +               }
+>         }
+>  out:
+>         spin_unlock(&qp->q.lock);
+> +out_rcu_unlock:
+> +       rcu_read_unlock();
+>         ipq_put(qp);
+>  }
+>
+>
+>
+>
