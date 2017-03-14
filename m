@@ -1,59 +1,42 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 16/20] ARM: dts: sun50i-a64: enable dwmac-sun8i on
- pine64
-Date: Tue, 14 Mar 2017 11:20:31 -0700
-Message-ID: <6fd5818c-94ad-ae1b-2caf-ca657a2f1066@gmail.com>
-References: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
- <20170314141856.24560-17-clabbe.montjoie@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 00/11] net: stmmac: prepare dma operations
+ for multiple queues
+Date: Tue, 14 Mar 2017 11:21:52 -0700 (PDT)
+Message-ID: <20170314.112152.1192292460063519158.davem@davemloft.net>
+References: <cover.1489485739.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170314141856.24560-17-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48394 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750851AbdCNSV7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 14:21:59 -0400
+In-Reply-To: <cover.1489485739.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/14/2017 07:18 AM, Corentin Labbe wrote:
-> The dwmac-sun8i hardware is present on the pine64
-> It uses an external PHY via RMII.
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Tue, 14 Mar 2017 10:24:22 +0000
+
+> As agreed with David Miller, this patch-set is the second of 3 to enable
+> multiple queues in stmmac.
 > 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts | 15 +++++++++++++++
->  1 file changed, 15 insertions(+)
-> 
-> diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-> index c680ed3..b53994d 100644
-> --- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-> +++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-> @@ -109,3 +109,18 @@
->  &usbphy {
->  	status = "okay";
->  };
-> +
-> +&mdio {
-> +	ext_rmii_phy1: ethernet-phy@1 {
-> +	      reg = <1>;
+> This second one concentrates on dma operations adding functionalities as:
+> a) DMA Operation Mode configuration per channel and done in the multiple
+> queues configuration function
+> b) DMA IRQ enable and Disable by channel
+> c) DMA start and stop by channel
+> d) RX and TX ring length configuration by channel
+> e) RX and TX set tail pointer by channel
+> f) DMA Channel initialization broke into Channel comon, RX and TX
+> initialization
+> g) TSO being configured for all available channels
+> h) DMA interrupt treatment by channel
 
-Even though it's optional, it's nice to have a:
+Patch #5 doesn't apply cleanly to net-next, please respin this series.
 
-	compatible = "ethernet-phy-ieee802.3-c22"
-
-string here.
-
-This applies to all DTS files that you have in subsequent patches.
-
-Thanks!
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you.
