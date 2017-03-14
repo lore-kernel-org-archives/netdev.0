@@ -1,63 +1,43 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v3] net: ipv4: add support for ECMP hash policy
- choice
-Date: Tue, 14 Mar 2017 16:27:15 -0700
-Message-ID: <20170314162715.141f1d4b@xeon-e3>
-References: <1489505775-2913-1-git-send-email-nikolay@cumulusnetworks.com>
-        <20170314085502.47d48a4e@xeon-e3>
-        <8088fe5f-0c0b-bdba-4fba-e9e28bbed02e@cumulusnetworks.com>
-        <20170314.114837.619141079617104809.davem@davemloft.net>
-        <20170314132506.6233b1e7@xeon-e3>
-        <CAJieiUjeYH=u6W5p18JA=RwKuFpX6HSrifD0fRE1rR2e0fsvhw@mail.gmail.com>
-        <20170314144204.20d5c3a5@xeon-e3>
-        <CAJieiUgQpOidyE-OH73QQpMcQnzEgd+9bGPOKA-yAaFtb3fcwQ@mail.gmail.com>
+Subject: Re: [PATCH iproute2] man: add examples to ip.8
+Date: Tue, 14 Mar 2017 16:42:25 -0700
+Message-ID: <20170314164225.39449f31@xeon-e3>
+References: <20170312204116.11943-1-alexander@alemayhu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Ahern <dsa@cumulusnetworks.com>, jkbs@redhat.com,
-        Eric Dumazet <edumazet@google.com>,
-        Peter Christensen <pch@ordbogen.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com,
+        jidanni@jidanni.org
+To: Alexander Alemayhu <alexander@alemayhu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:36052 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751107AbdCNX1X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 19:27:23 -0400
-Received: by mail-pf0-f179.google.com with SMTP id o126so530647pfb.3
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 16:27:22 -0700 (PDT)
-In-Reply-To: <CAJieiUgQpOidyE-OH73QQpMcQnzEgd+9bGPOKA-yAaFtb3fcwQ@mail.gmail.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:34457 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751079AbdCNXmd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 19:42:33 -0400
+Received: by mail-pg0-f44.google.com with SMTP id 141so699974pgd.1
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 16:42:32 -0700 (PDT)
+In-Reply-To: <20170312204116.11943-1-alexander@alemayhu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Mar 2017 15:38:40 -0700
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+On Sun, 12 Mar 2017 21:41:16 +0100
+Alexander Alemayhu <alexander@alemayhu.com> wrote:
 
-> >> >> > That's what my initial version did, but this was discussed during NetConf in Seville
-> >> >> > and it was decided that it's best to make a global sysctl, thus the change.  
-> >> >>
-> >> >> Correct, we discussed this, and we all agreed to only have a sysctl for now.  
-> >> >
-> >> > Why? If you are going to have private discussions please post the rationale
-> >> > in public.  
-> >>
-> >> Stephen, is there any reason to have a per ecmp route multipath algo
-> >> selection ?.
-> >> All platforms have a global multipath selection algo. I also don't see
-> >> routing daemons ready or willing to specify a per ecmp route multipath
-> >> selection algo attribute.  
-> >
-> > There is no compelling reason to make the attribute per route. But the
-> > issue is more that configuration through sysctl's is problematic. It doesn't
-> > fit into the standard API paradigm. Sysctl's are like routing patches not
-> > part of the real CLI. Trying to trap sysctl's for things like switchedev
-> > offload is particularly problematic. I can see the case for either way,
-> > and don't have a fixed opinion.  
-> 
-> ok. understand the switchdev offload part. It was that way in the past...but
-> today you can listen to sysctl updates on the netconf netlink channel.
-> it works pretty well.
+> Having some examples in the top level man page might make it a little bit=
+ easier
+> for new users to get started. Reused some words / sentences from the exis=
+ting
+> man pages.
+>=20
+> Suggested-by: =E7=A9=8D=E4=B8=B9=E5=B0=BC Dan Jacobson <jidanni@jidanni.o=
+rg>
+> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+> ---
+> This is my first man page patch, hopefully I've done everything correctly.
+> If not please let me know, thanks.
+>=20
+>  man/man8/ip.8 | 28 ++++++++++++++++++++++++++++
+>  1 file changed, 28 insertions(+)
+>=20
 
-Is there another patch to add the NETCONFA_ECMP support?
+Sure looks good, applied.
