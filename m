@@ -1,52 +1,48 @@
-From: Pavel Belous <pavel.belous@aquantia.com>
-Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is
- changed
-Date: Tue, 14 Mar 2017 04:32:38 +0300
-Message-ID: <a0284a60-e33d-389e-3798-bd8827424cb0@aquantia.com>
-References: <1489446436-42246-1-git-send-email-darcari@redhat.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] net: intel: igb: use new api
+        ethtool_{get|set}_link_ksettings
+Date: Tue, 14 Mar 2017 01:44:05 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C5B3FC3@ORSMSX101.amr.corp.intel.com>
+References: <1486317344-20271-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Arcari <darcari@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Philippe Reynes <tremyfr@gmail.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0067.outbound.protection.outlook.com ([104.47.36.67]:43008
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751655AbdCNBcx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Mar 2017 21:32:53 -0400
-In-Reply-To: <1489446436-42246-1-git-send-email-darcari@redhat.com>
+Received: from mga01.intel.com ([192.55.52.88]:3028 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751422AbdCNBoM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Mar 2017 21:44:12 -0400
+In-Reply-To: <1486317344-20271-1-git-send-email-tremyfr@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 03/14/2017 02:07 AM, David Arcari wrote:
-> When the aquantia device mtu is changed the net_device structure is not
-> updated.  As a result the ip command does not properly reflect the mtu change.
->
-> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
-> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
-> has a ndo_change_mtu routine.
->
-> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
->
-> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
-> Signed-off-by: David Arcari <darcari@redhat.com>
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+> Behalf Of Philippe Reynes
+> Sent: Sunday, February 5, 2017 9:56 AM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; davem@davemloft.net
+> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-
+> kernel@vger.kernel.org; Philippe Reynes <tremyfr@gmail.com>
+> Subject: [Intel-wired-lan] [PATCH] net: intel: igb: use new api
+> ethtool_{get|set}_link_ksettings
+> 
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> As I don't have the hardware, I'd be very pleased if
+> someone may test this patch.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 > ---
->  drivers/net/ethernet/aquantia/atlantic/aq_main.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_main.c b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
-> index dad6362..d05fbfd 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_main.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_main.c
-> @@ -98,6 +98,7 @@ static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
->
->  	if (err < 0)
->  		goto err_exit;
-> +	ndev->mtu = new_mtu;
->
->  	if (netif_running(ndev)) {
->  		aq_ndev_close(ndev);
->
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c |  108 ++++++++++++++-----------
+> -
+>  1 files changed, 59 insertions(+), 49 deletions(-)
+> 
 
-Tested-by: Pavel Belous <pavel.belous@aquantia.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
