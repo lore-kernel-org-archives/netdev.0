@@ -1,71 +1,49 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next] bonding: add 802.3ad support for 25G speeds
-Date: Tue, 14 Mar 2017 11:48:32 -0400
-Message-ID: <20170314154832.13719-1-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v3] net: ipv4: add support for ECMP hash policy
+ choice
+Date: Tue, 14 Mar 2017 08:55:02 -0700
+Message-ID: <20170314085502.47d48a4e@xeon-e3>
+References: <1488884508-14016-1-git-send-email-nikolay@cumulusnetworks.com>
+        <1489505775-2913-1-git-send-email-nikolay@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
+        jkbs@redhat.com, edumazet@google.com, pch@ordbogen.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:35702 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751245AbdCNPzV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 11:55:21 -0400
+Received: by mail-pg0-f54.google.com with SMTP id b129so92702106pgc.2
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 08:55:20 -0700 (PDT)
+In-Reply-To: <1489505775-2913-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cut-n-paste enablement of 802.3ad bonding on 25G NICs, which currently
-report 0 as their bandwidth.
+On Tue, 14 Mar 2017 17:36:15 +0200
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
-note: I swear I saw a patch for this already, but I don't see it on the
-list and it isn't committed, so here's this...
+> This patch adds support for ECMP hash policy choice via a new sysctl
+> called fib_multipath_hash_policy and also adds support for L4 hashes.
+> The current values for fib_multipath_hash_policy are:
+>  0 - layer 3 (default)
+>  1 - layer 4
+> If there's an skb hash already set and it matches the chosen policy then it
+> will be used instead of being calculated (currently only for L4).
+> In L3 mode we always calculate the hash due to the ICMP error special
+> case, the flow dissector's field consistentification should handle the
+> address order thus we can remove the address reversals.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
- drivers/net/bonding/bond_3ad.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+It is good to see ECMP come back from the grave.
+Linux used to support it long ago but was abandoned after it was unstable
+and removed from iproute2 in 2012.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 431926bba9f4..508713b4e533 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -92,6 +92,7 @@ enum ad_link_speed_type {
- 	AD_LINK_SPEED_2500MBPS,
- 	AD_LINK_SPEED_10000MBPS,
- 	AD_LINK_SPEED_20000MBPS,
-+	AD_LINK_SPEED_25000MBPS,
- 	AD_LINK_SPEED_40000MBPS,
- 	AD_LINK_SPEED_56000MBPS,
- 	AD_LINK_SPEED_100000MBPS,
-@@ -260,6 +261,7 @@ static inline int __check_agg_selection_timer(struct port *port)
-  *     %AD_LINK_SPEED_2500MBPS,
-  *     %AD_LINK_SPEED_10000MBPS
-  *     %AD_LINK_SPEED_20000MBPS
-+ *     %AD_LINK_SPEED_25000MBPS
-  *     %AD_LINK_SPEED_40000MBPS
-  *     %AD_LINK_SPEED_56000MBPS
-  *     %AD_LINK_SPEED_100000MBPS
-@@ -302,6 +304,10 @@ static u16 __get_link_speed(struct port *port)
- 			speed = AD_LINK_SPEED_20000MBPS;
- 			break;
- 
-+		case SPEED_25000:
-+			speed = AD_LINK_SPEED_25000MBPS;
-+			break;
-+
- 		case SPEED_40000:
- 			speed = AD_LINK_SPEED_40000MBPS;
- 			break;
-@@ -707,6 +713,9 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
- 		case AD_LINK_SPEED_20000MBPS:
- 			bandwidth = nports * 20000;
- 			break;
-+		case AD_LINK_SPEED_25000MBPS:
-+			bandwidth = nports * 25000;
-+			break;
- 		case AD_LINK_SPEED_40000MBPS:
- 			bandwidth = nports * 40000;
- 			break;
--- 
-2.11.0
+The old API was through route attributes which makes more sense than
+doing it with sysctl. It makes more sense to use netlink instead.
+Therefore please go back and do something like the old API rather than doing it through
+sysctl.
