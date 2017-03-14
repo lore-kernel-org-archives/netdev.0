@@ -1,57 +1,113 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: debug ATU Age Time
-Date: Tue, 14 Mar 2017 15:18:56 +0100
-Message-ID: <20170314141856.GG14183@lunn.ch>
-References: <20170313192043.12478-1-vivien.didelot@savoirfairelinux.com>
- <20170313223932.GC14183@lunn.ch>
- <b7d0e92f-45cb-929d-a724-2a582621f8e1@gmail.com>
- <20170313225845.GE14183@lunn.ch>
- <535be006-e384-aca3-ee8b-4ed36b66b97a@neratec.com>
- <20170314120539.GT15842@lunn.ch>
- <87inncj71i.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthias May <matthias.may@neratec.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Jason Cobham <jcobham@questertangent.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 03/20] ARM: sun8i: dt: Add DT bindings documentation for Allwinner dwmac-sun8i
+Date: Tue, 14 Mar 2017 15:18:39 +0100
+Message-ID: <20170314141856.24560-4-clabbe.montjoie@gmail.com>
+References: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
+Cc: f.fainelli@gmail.com, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87inncj71i.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+In-Reply-To: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 14, 2017 at 09:56:41AM -0400, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> >> The never ever seeing R/W failure on MDIO bus is not exactly accurate.
-> >> We had with art (atheros calibration tool) the problem that interrupts
-> >> were being disabled which lead to MDIO operations running into
-> >> timout/failing.
-> >
-> > Yes, i've seen similar with power management bugs for the MDIO
-> > driver. But you get a cascade of failures, lots of warnings and error
-> > prints, it is clear something bad has happened, and the switch is in
-> > an inconsistent state. So having one more debug print which is also
-> > inconsistent does no really harm.
-> >
-> > Anyway, this whole conversation has taken more effort than just making
-> > this simple change to remove a few lines of code. So lets drop it and
-> > move on.
-> 
-> I don't understand nor agree with the fact that sometimes it's OK to not
-> check for errors, based on one developer assumptions. Not checking
-> return code is wrong and very likely error-prone.
+This patch adds documentation for Device-Tree bindings for the
+Allwinner dwmac-sun8i driver.
 
-Please go back and look what i said. I did check the error code, in
-that it gets returned to the caller. I just don't check it before
-printing the debug.
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ .../devicetree/bindings/net/dwmac-sun8i.txt        | 77 ++++++++++++++++++++++
+ 1 file changed, 77 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
 
-But as i said, lets drop this whole topic.
-
-    Andrew
+diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+new file mode 100644
+index 0000000..f01ef17
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+@@ -0,0 +1,77 @@
++* Allwinner sun8i GMAC ethernet controller
++
++This device is a platform glue layer for stmmac.
++Please see stmmac.txt for the other unchanged properties.
++
++Required properties:
++- compatible: should be one of the following string:
++		"allwinner,sun8i-a83t-emac"
++		"allwinner,sun8i-h3-emac"
++		"allwinner,sun50i-a64-emac"
++- reg: address and length of the register for the device.
++- interrupts: interrupt for the device
++- interrupt-names: should be "macirq"
++- clocks: A phandle to the reference clock for this device
++- clock-names: should be "stmmaceth"
++- resets: A phandle to the reset control for this device
++- reset-names: should be "stmmaceth"
++- phy-mode: See ethernet.txt
++- phy-handle: See ethernet.txt
++- #address-cells: shall be 1
++- #size-cells: shall be 0
++- syscon: A phandle to the syscon of the SoC with one of the following
++ compatible string:
++  - allwinner,sun8i-h3-system-controller
++  - allwinner,sun8i-a64-system-controller
++  - allwinner,sun8i-a83t-system-controller
++
++Optional properties:
++- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
++- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
++Both delay properties are in 0.1ns step.
++
++Optional properties for "allwinner,sun8i-h3-emac":
++- allwinner,leds-active-low: EPHY LEDs are active low
++
++Required child node of emac:
++- mdio bus node: should be named mdio
++
++Required properties of the mdio node:
++- #address-cells: shall be 1
++- #size-cells: shall be 0
++
++The device node referenced by "phy" or "phy-handle" should be a child node
++of the mdio node. See phy.txt for the generic PHY bindings.
++
++Required properties of the phy node with "allwinner,sun8i-h3-emac":
++- clocks: a phandle to the reference clock for the EPHY
++- resets: a phandle to the reset control for the EPHY
++
++Example:
++
++emac: ethernet@1c0b000 {
++	compatible = "allwinner,sun8i-h3-emac";
++	syscon = <&syscon>;
++	reg = <0x01c0b000 0x104>;
++	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++	interrupt-names = "macirq";
++	resets = <&ccu RST_BUS_EMAC>;
++	reset-names = "stmmaceth";
++	clocks = <&ccu CLK_BUS_EMAC>;
++	clock-names = "stmmaceth";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	phy = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	mdio: mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		int_mii_phy: ethernet-phy@1 {
++			reg = <1>;
++			clocks = <&ccu CLK_BUS_EPHY>;
++			resets = <&ccu RST_BUS_EPHY>;
++		};
++	};
++};
+-- 
+2.10.2
