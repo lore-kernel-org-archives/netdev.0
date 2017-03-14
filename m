@@ -1,98 +1,57 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v2 net-next 3/5] sunvnet: track port queues correctly
-Date: Tue, 14 Mar 2017 10:24:41 -0700
-Message-ID: <1489512283-422140-4-git-send-email-shannon.nelson@oracle.com>
-References: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
-Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Shannon Nelson <shannon.nelson@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Doug Berger <opendmb@gmail.com>
+Subject: Re: [PATCH net-next 09/12] net: bcmgenet: return EOPNOTSUPP for
+ unknown ioctl commands
+Date: Tue, 14 Mar 2017 10:31:00 -0700
+Message-ID: <07283b51-ef2b-92f8-88c2-3803c6f9c81b@gmail.com>
+References: <20170314004142.4746-1-opendmb@gmail.com>
+ <20170314004142.4746-10-opendmb@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFB052E@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "robh+dt@kernel.org" <robh+dt@kernel.org>,
+        "mark.rutland@arm.com" <mark.rutland@arm.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "rafal@milecki.pl" <rafal@milecki.pl>,
+        "xow@google.com" <xow@google.com>,
+        "joel@jms.id.au" <joel@jms.id.au>,
+        "jon.mason@broadcom.com" <jon.mason@broadcom.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "pgynther@google.com" <pgynther@google.com>,
+        "jaedon.shin@gmail.com" <jaedon.shin@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB052E@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Track our used and unused queue indexies correctly.  Otherwise, as ports
-dropped out and returned, they all eventually ended up with the same
-queue index.
+On 03/14/2017 04:04 AM, David Laight wrote:
+> From: Doug Berger
+>> Sent: 14 March 2017 00:42
+>> This commit changes the ioctl handling behavior to return the
+>> EOPNOTSUPP error code instead of the EINVAL error code when an
+>> unknown ioctl command value is detected.
+>>
+>> It also removes some redundant parsing of the ioctl command value
+>> and allows the SIOCSHWTSTAMP value to be handled.
+> 
+> A better description would seem to be:
+> Remove checks on ioctl command and just forward all ioctl requests
+> to phy_mii_ioctl().
+That is a good description of the code change, but I felt that was
+clearly conveyed by the patch content.  I thought it would be a better
+use of the comment to describe the more subtle functional change that
+might be less clear.
 
-Orabug: 25190537
+> 
+> I also thought the 'generic' response to an unknown ioctl command
+> was ENOTTY.
+and I think it probably helped solicit this feedback :).  I would have
+thought that error makes more sense if there is no ioctl handler, but I
+will definitely look into it.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet_common.c |   24 ++++++++++++++++++++----
- drivers/net/ethernet/sun/sunvnet_common.h |   11 ++---------
- 2 files changed, 22 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index d3dc8ed..5e1d016 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -1728,11 +1728,25 @@ void sunvnet_poll_controller_common(struct net_device *dev, struct vnet *vp)
- void sunvnet_port_add_txq_common(struct vnet_port *port)
- {
- 	struct vnet *vp = port->vp;
--	int n;
-+	int smallest = 0;
-+	int i;
-+
-+	/* find the first least-used q
-+	 * When there are more ldoms than q's, we start to
-+	 * double up on ports per queue.
-+	 */
-+	for (i = 0; i < VNET_MAX_TXQS; i++) {
-+		if (vp->q_used[i] == 0) {
-+			smallest = i;
-+			break;
-+		}
-+		if (vp->q_used[i] < vp->q_used[smallest])
-+			smallest = i;
-+	}
- 
--	n = vp->nports++;
--	n = n & (VNET_MAX_TXQS - 1);
--	port->q_index = n;
-+	vp->nports++;
-+	vp->q_used[smallest]++;
-+	port->q_index = smallest;
- 	netif_tx_wake_queue(netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
- 						port->q_index));
- }
-@@ -1743,5 +1757,7 @@ void sunvnet_port_rm_txq_common(struct vnet_port *port)
- 	port->vp->nports--;
- 	netif_tx_stop_queue(netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
- 						port->q_index));
-+	port->vp->q_used[port->q_index]--;
-+	port->q_index = 0;
- }
- EXPORT_SYMBOL_GPL(sunvnet_port_rm_txq_common);
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.h b/drivers/net/ethernet/sun/sunvnet_common.h
-index c0fac03..b20d6fa 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.h
-+++ b/drivers/net/ethernet/sun/sunvnet_common.h
-@@ -112,22 +112,15 @@ struct vnet_mcast_entry {
- };
- 
- struct vnet {
--	/* Protects port_list and port_hash.  */
--	spinlock_t		lock;
--
-+	spinlock_t		lock; /* Protects port_list and port_hash.  */
- 	struct net_device	*dev;
--
- 	u32			msg_enable;
--
-+	u8			q_used[VNET_MAX_TXQS];
- 	struct list_head	port_list;
--
- 	struct hlist_head	port_hash[VNET_PORT_HASH_SIZE];
--
- 	struct vnet_mcast_entry	*mcast_list;
--
- 	struct list_head	list;
- 	u64			local_mac;
--
- 	int			nports;
- };
- 
--- 
-1.7.1
+Thanks for the feedback,
+    Doug
