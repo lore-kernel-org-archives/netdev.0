@@ -1,183 +1,125 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v2 net-next 02/11] net: stmmac: enable/disable dma irq prepared for multiple queues
-Date: Tue, 14 Mar 2017 10:24:24 +0000
-Message-ID: <66db000115cf6e9afb16b637134274c5f2decddb.1489485739.git.jpinto@synopsys.com>
+Subject: [PATCH v2 net-next 06/11] net: stmmac: rx watchdog config prepared for multiple queues
+Date: Tue, 14 Mar 2017 10:24:28 +0000
+Message-ID: <a73e886e2fea8f60d75337bc357812a01905cd56.1489485739.git.jpinto@synopsys.com>
 References: <cover.1489485739.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:45437 "EHLO
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:49708 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751057AbdCNKZC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 06:25:02 -0400
+        with ESMTP id S1750999AbdCNKY5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 06:24:57 -0400
 In-Reply-To: <cover.1489485739.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489485739.git.jpinto@synopsys.com>
 References: <cover.1489485739.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares the DMA IRQ enable/disable process for multiple queues.
+This patch adds rx watchdog configuration for all queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
 changes v1->v2:
 - Just to keep up the patch-set version
 
- drivers/net/ethernet/stmicro/stmmac/common.h      |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h  |  6 +++---
- drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c  | 12 ++++++------
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h   |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c   |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 13 +++++++------
- 6 files changed, 22 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h         | 2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c  | 3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c     | 8 ++++----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 3 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    | 3 ++-
+ 5 files changed, 11 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 13bd3d4..0351b54 100644
+index 6dfb7f3..5fa23b1 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -431,8 +431,8 @@ struct stmmac_dma_ops {
- 	void (*dma_diagnostic_fr) (void *data, struct stmmac_extra_stats *x,
- 				   void __iomem *ioaddr);
- 	void (*enable_dma_transmission) (void __iomem *ioaddr);
--	void (*enable_dma_irq) (void __iomem *ioaddr);
--	void (*disable_dma_irq) (void __iomem *ioaddr);
-+	void (*enable_dma_irq)(void __iomem *ioaddr, u32 chan);
-+	void (*disable_dma_irq)(void __iomem *ioaddr, u32 chan);
- 	void (*start_tx) (void __iomem *ioaddr);
- 	void (*stop_tx) (void __iomem *ioaddr);
- 	void (*start_rx) (void __iomem *ioaddr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-index 1b06df7..393a657 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-@@ -185,9 +185,9 @@
- 
- int dwmac4_dma_reset(void __iomem *ioaddr);
- void dwmac4_enable_dma_transmission(void __iomem *ioaddr, u32 tail_ptr);
--void dwmac4_enable_dma_irq(void __iomem *ioaddr);
--void dwmac410_enable_dma_irq(void __iomem *ioaddr);
--void dwmac4_disable_dma_irq(void __iomem *ioaddr);
-+void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan);
-+void dwmac410_enable_dma_irq(void __iomem *ioaddr, u32 chan);
-+void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan);
- void dwmac4_dma_start_tx(void __iomem *ioaddr);
- void dwmac4_dma_stop_tx(void __iomem *ioaddr);
- void dwmac4_dma_start_rx(void __iomem *ioaddr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-index c7326d5..c932791 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-@@ -104,21 +104,21 @@ void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len)
- 	writel(len, ioaddr + DMA_CHAN_RX_RING_LEN(STMMAC_CHAN0));
+@@ -443,7 +443,7 @@ struct stmmac_dma_ops {
+ 	void (*get_hw_feature)(void __iomem *ioaddr,
+ 			       struct dma_features *dma_cap);
+ 	/* Program the HW RX Watchdog */
+-	void (*rx_watchdog) (void __iomem *ioaddr, u32 riwt);
++	void (*rx_watchdog)(void __iomem *ioaddr, u32 riwt, u32 number_chan);
+ 	void (*set_tx_ring_len)(void __iomem *ioaddr, u32 len);
+ 	void (*set_rx_ring_len)(void __iomem *ioaddr, u32 len);
+ 	void (*set_rx_tail_ptr)(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index d3654a4..471a9aa 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -247,7 +247,8 @@ static void dwmac1000_get_hw_feature(void __iomem *ioaddr,
+ 	dma_cap->enh_desc = (hw_cap & DMA_HW_FEAT_ENHDESSEL) >> 24;
  }
  
--void dwmac4_enable_dma_irq(void __iomem *ioaddr)
-+void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan)
+-static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
++static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt,
++				  u32 number_chan)
  {
- 	writel(DMA_CHAN_INTR_DEFAULT_MASK, ioaddr +
--	       DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
-+	       DMA_CHAN_INTR_ENA(chan));
+ 	writel(riwt, ioaddr + DMA_RX_WATCHDOG);
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+index 6285e8a..74177f9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+@@ -174,12 +174,12 @@ static void dwmac4_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
+ 		_dwmac4_dump_dma_regs(ioaddr, i, reg_space);
  }
  
--void dwmac410_enable_dma_irq(void __iomem *ioaddr)
-+void dwmac410_enable_dma_irq(void __iomem *ioaddr, u32 chan)
+-static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt)
++static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt, u32 number_chan)
  {
- 	writel(DMA_CHAN_INTR_DEFAULT_MASK_4_10,
--	       ioaddr + DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
-+	       ioaddr + DMA_CHAN_INTR_ENA(chan));
+-	int i;
++	u32 chan;
+ 
+-	for (i = 0; i < DMA_CHANNEL_NB_MAX; i++)
+-		writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(i));
++	for (chan = 0; chan < number_chan; chan++)
++		writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(chan));
  }
  
--void dwmac4_disable_dma_irq(void __iomem *ioaddr)
-+void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan)
+ static void dwmac4_dma_rx_chan_op_mode(void __iomem *ioaddr, int mode,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 61b9369..16808e4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -730,6 +730,7 @@ static int stmmac_set_coalesce(struct net_device *dev,
+ 			       struct ethtool_coalesce *ec)
  {
--	writel(0, ioaddr + DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
-+	writel(0, ioaddr + DMA_CHAN_INTR_ENA(chan));
- }
+ 	struct stmmac_priv *priv = netdev_priv(dev);
++	u32 rx_cnt = priv->plat->rx_queues_to_use;
+ 	unsigned int rx_riwt;
  
- int dwmac4_dma_interrupt(void __iomem *ioaddr,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 56e485f..dec0816 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -137,8 +137,8 @@
- #define DMA_CONTROL_FTF		0x00100000	/* Flush transmit FIFO */
+ 	/* Check not supported parameters  */
+@@ -768,7 +769,7 @@ static int stmmac_set_coalesce(struct net_device *dev,
+ 	priv->tx_coal_frames = ec->tx_max_coalesced_frames;
+ 	priv->tx_coal_timer = ec->tx_coalesce_usecs;
+ 	priv->rx_riwt = rx_riwt;
+-	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt);
++	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt, rx_cnt);
  
- void dwmac_enable_dma_transmission(void __iomem *ioaddr);
--void dwmac_enable_dma_irq(void __iomem *ioaddr);
--void dwmac_disable_dma_irq(void __iomem *ioaddr);
-+void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan);
-+void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan);
- void dwmac_dma_start_tx(void __iomem *ioaddr);
- void dwmac_dma_stop_tx(void __iomem *ioaddr);
- void dwmac_dma_start_rx(void __iomem *ioaddr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index e60bfca..285cfc9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -47,12 +47,12 @@ void dwmac_enable_dma_transmission(void __iomem *ioaddr)
- 	writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
- }
- 
--void dwmac_enable_dma_irq(void __iomem *ioaddr)
-+void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan)
- {
- 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
- }
- 
--void dwmac_disable_dma_irq(void __iomem *ioaddr)
-+void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan)
- {
- 	writel(0, ioaddr + DMA_INTR_ENA);
+ 	return 0;
  }
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 660eef0..77d1b38 100644
+index 053a042..2af8589 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1422,14 +1422,14 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 	netif_tx_unlock(priv->dev);
- }
- 
--static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv)
-+static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv, u32 chan)
+@@ -1915,6 +1915,7 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
  {
--	priv->hw->dma->enable_dma_irq(priv->ioaddr);
-+	priv->hw->dma->enable_dma_irq(priv->ioaddr, chan);
- }
+ 	struct stmmac_priv *priv = netdev_priv(dev);
++	u32 rx_cnt = priv->plat->rx_queues_to_use;
+ 	int ret;
  
--static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv)
-+static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv, u32 chan)
- {
--	priv->hw->dma->disable_dma_irq(priv->ioaddr);
-+	priv->hw->dma->disable_dma_irq(priv->ioaddr, chan);
- }
+ 	/* DMA initialization and SW reset */
+@@ -1988,7 +1989,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
  
- /**
-@@ -1506,7 +1506,7 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- 	status = priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats);
- 	if (likely((status & handle_rx)) || (status & handle_tx)) {
- 		if (likely(napi_schedule_prep(&priv->napi))) {
--			stmmac_disable_dma_irq(priv);
-+			stmmac_disable_dma_irq(priv, chan);
- 			__napi_schedule(&priv->napi);
- 		}
+ 	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
+ 		priv->rx_riwt = MAX_DMA_RIWT;
+-		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
++		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT, rx_cnt);
  	}
-@@ -2832,6 +2832,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
- {
- 	struct stmmac_priv *priv = container_of(napi, struct stmmac_priv, napi);
- 	int work_done = 0;
-+	u32 chan = STMMAC_CHAN0;
  
- 	priv->xstats.napi_poll++;
- 	stmmac_tx_clean(priv);
-@@ -2839,7 +2840,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
- 	work_done = stmmac_rx(priv, budget);
- 	if (work_done < budget) {
- 		napi_complete_done(napi, work_done);
--		stmmac_enable_dma_irq(priv);
-+		stmmac_enable_dma_irq(priv, chan);
- 	}
- 	return work_done;
- }
+ 	if (priv->hw->pcs && priv->hw->mac->pcs_ctrl_ane)
 -- 
 2.9.3
