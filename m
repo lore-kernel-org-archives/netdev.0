@@ -1,285 +1,53 @@
-From: Akshay Bhat <akshay.bhat@timesys.com>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Tue, 14 Mar 2017 12:20:39 -0400
-Message-ID: <3dbf8748-9d04-0f21-0e95-448d7a72e7d5@timesys.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
- <234d9e75-0083-b8b4-c781-add653fdb550@grandegger.com>
- <b3ebb569-b50c-39ad-dec5-0059fbfba8fb@timesys.com>
- <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] tcp_westwood: fix tcp_westwood_info() style mistakes
+Date: Tue, 14 Mar 2017 09:29:34 -0700
+Message-ID: <20170314092934.791228ca@xeon-e3>
+References: <1489476384-16892-1-git-send-email-long.chun@zte.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Akshay Bhat <nodeax@gmail.com>
-To: Wolfgang Grandegger <wg@grandegger.com>, mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        zhong.weidong@zte.com.cn, wang.liang82@zte.com.cn,
+        jiang.biao2@zte.com.cn, cai.qu@zte.com.cn
+To: Chun Long <long.chun@zte.com.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:34856 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751180AbdCNQ3n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 12:29:43 -0400
+Received: by mail-pg0-f42.google.com with SMTP id b129so93264909pgc.2
+        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 09:29:42 -0700 (PDT)
+In-Reply-To: <1489476384-16892-1-git-send-email-long.chun@zte.com.cn>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 14 Mar 2017 15:26:24 +0800
+Chun Long <long.chun@zte.com.cn> wrote:
 
-Hi Wolfgang,
-
-On 03/14/2017 08:11 AM, Wolfgang Grandegger wrote:
-> ... snip ...
->>> A few other things to check:
->>>
->>> Run "cangen" and monitor the message with "candump -e any,0:0,#FFFFFFF".
->>> Then 1) disconnect the cable or 2) short-circuit CAN low and high at the
->>> connector. You should see error messages. After reconnection or removing
->>> the short-circuit (and bus-off recovery) the state should go back to
->>> "active".
->>>
->>
->> With the above sequence, candump reports "ERRORFRAME" with
->> protocol-violation{{}{acknowledge-slot}}, bus-error. On re-connecting
->> the cable the can state goes back to ACTIVE and I see the messages that
->> were in the queue being sent.
+> From: chun Long <long.chun@zte.com.cn>
 > 
-> Do you get the ACK error also with berr-reporting off? Would be nice if
-> you could show a candump log here.
+> replace comma to semi colons in tcp_westwood_info().
 > 
-
-Below is a log for disconnecting and re-connecting CAN cable scenario:
-(Note this is on a 4.1.18 kernel with RT patch)
-
-root@imx6qrom5420b1:~# ip link set can0 up type can bitrate 1000000
-berr-reporting on
-root@imx6qrom5420b1:~# candump -e any,0:0,#FFFFFFF &
-[1] 768
-root@imx6qrom5420b1:~# cangen can0
-  can0  21C   [8]  35 98 C0 7A 95 03 E6 2A
-  can0  6E6   [1]  F2
-  can0  5C7   [2]  42 50
-  can0  57C   [8]  83 7A E4 0C 03 8B 90 45
-  can0  55C   [8]  B9 74 87 52 D8 F4 64 04
-  can0  014   [8]  28 CB 96 57 3B 80 67 4F
-  can0  6AF   [1]  35
-  can0  51E   [8]  B6 C8 6C 1D 3A 87 ED 2E
-  can0  527   [8]  D0 8A D3 59 0E 34 40 78
-  can0  30C   [2]  6A 12
-  can0  145   [8]  CB 6E FF 55 C1 BE C3 22
-  can0  5A5   [8]  C4 49 54 68 02 63 F9 35
-  can0  0BA   [8]  DA 57 5E 3A CE 88 20 1C
-  can0  516   [2]  09 09
-  can0  743   [8]  7C 4D 25 47 61 4C 56 3D
-  can0  31D   [2]  9C D3
-  can0  71E   [8]  53 7C 97 2A 2A F2 9F 56
-  can0  52E   [8]  FE DA 2D 51 73 96 DF 79
-/////disconnect cable
-  can0  20000088   [8]  00 00 00 19 00 00 28 00   ERRORFRAME
-	protocol-violation{{}{acknowledge-slot}}
-	bus-error
-	error-counter-tx-rx{{40}{0}}
-  can0  20000088   [8]  00 00 00 19 00 00 58 00   ERRORFRAME
-	protocol-violation{{}{acknowledge-slot}}
-	bus-error
-	error-counter-tx-rx{{88}{0}}
-  can0  20000088   [8]  00 00 00 19 00 00 80 00   ERRORFRAME
-	protocol-violation{{}{acknowledge-slot}}
-	bus-error
-	error-counter-tx-rx{{128}{0}}
-  can0  2000008C   [8]  00 20 00 19 00 00 80 00   ERRORFRAME
-	controller-problem{tx-error-passive}
-	protocol-violation{{}{acknowledge-slot}}
-	bus-error
-	error-counter-tx-rx{{128}{0}}
-write: No buffer space available
-root@imx6qrom5420b1:~# ip -s -d link show can0
-4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
-mode DEFAULT group default qlen 10
-    link/can  promiscuity 0
-    can <BERR-REPORTING> state ERROR-PASSIVE (berr-counter tx 128 rx 0)
-restart-ms 0
-	  bitrate 1000000 sample-point 0.750
-	  tq 62 prop-seg 5 phase-seg1 6 phase-seg2 4 sjw 1
-	  hi3110: tseg1 2..16 tseg2 2..8 sjw 1..4 brp 1..64 brp-inc 1
-	  clock 16000000
-	  re-started bus-errors arbit-lost error-warn error-pass bus-off
-	  0          6          0          1          1          0
-    RX: bytes  packets  errors  dropped overrun mcast
-    0          0        6       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    106        18       0       0       0       0
-root@imx6qrom5420b1:~#
-/////re-connect cable
-  can0  169   [8]  35 55 A3 1C 0F 47 2E 5B
-  can0  318   [8]  11 AA 27 11 D2 1B CE 34
-  can0  577   [8]  A0 A4 EE 50 8D A2 E1 3E
-  can0  4ED   [8]  52 96 17 7E 31 FC 7D 7C
-  can0  2E7   [8]  92 48 D4 39 05 1E 9F 50
-  can0  200   [8]  4A 66 F6 02 1E 71 8E 26
-  can0  29A   [8]  49 63 2E 7D C9 77 85 7A
-  can0  15A   [7]  3C 0E 65 74 C3 62 80
-  can0  011   [1]  D2
-  can0  26B   [3]  FC D6 68
-  can0  5CE   [8]  6F 02 B5 14 BC 7A D7 02
-
-root@imx6qrom5420b1:~# ip -s -d link show can0
-4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
-mode DEFAULT group default qlen 10
-    link/can  promiscuity 0
-    can <BERR-REPORTING> state ERROR-ACTIVE (berr-counter tx 117 rx 0)
-restart-ms 0
-	  bitrate 1000000 sample-point 0.750
-	  tq 62 prop-seg 5 phase-seg1 6 phase-seg2 4 sjw 1
-	  hi3110: tseg1 2..16 tseg2 2..8 sjw 1..4 brp 1..64 brp-inc 1
-	  clock 16000000
-	  re-started bus-errors arbit-lost error-warn error-pass bus-off
-	  0          7          0          1          1          0
-    RX: bytes  packets  errors  dropped overrun mcast
-    0          0        7       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    181        29       0       0       0       0
-
-
-//Reboot the board and test with bus error reporting off
-
-root@imx6qrom5420b1:~# ip link set can0 up type can bitrate 1000000
-berr-reporting off
-root@imx6qrom5420b1:~# candump -e any,0:0,#FFFFFFF &
-[1] 782
-root@imx6qrom5420b1:~# cangen can0
-  can0  1FA   [3]  C9 FE C2
-  can0  3E2   [5]  85 37 03 5B 6F
-  can0  289   [8]  A4 F6 BF 4A 3F 70 65 1B
-  can0  12D   [8]  B2 72 10 33 AB B4 68 64
-  can0  054   [2]  01 D7
-  can0  4A6   [8]  29 7D 76 56 CA C1 60 00
-  can0  768   [8]  97 3D 92 08 61 C1 D9 03
-  can0  098   [6]  A4 A8 5A 60 92 1A
-  can0  3C9   [8]  71 78 0D 25 AB 27 8B 51
-/////disconnect cable
-write: No buffer space available
-root@imx6qrom5420b1:~# ip -s -d link show can0
-4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
-mode DEFAULT group default qlen 10
-    link/can  promiscuity 0
-    can state ERROR-ACTIVE (berr-counter tx 128 rx 0) restart-ms 0
-	  bitrate 1000000 sample-point 0.750
-	  tq 62 prop-seg 5 phase-seg1 6 phase-seg2 4 sjw 1
-	  hi3110: tseg1 2..16 tseg2 2..8 sjw 1..4 brp 1..64 brp-inc 1
-	  clock 16000000
-	  re-started bus-errors arbit-lost error-warn error-pass bus-off
-	  0          0          0          0          0          0
-    RX: bytes  packets  errors  dropped overrun mcast
-    0          0        0       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    56         9        0       0       0       0
-root@imx6qrom5420b1:~#
-/////re-connect cable
-can0  20000088   [8]  00 00 00 19 00 00 7F 00   ERRORFRAME
-	protocol-violation{{}{acknowledge-slot}}
-	bus-error
-	error-counter-tx-rx{{127}{0}}
-  can0  553   [6]  1A E4 60 6B DC 07
-  can0  7E3   [8]  1C 78 95 6E 10 81 AA 40
-  can0  20C   [8]  BB 35 13 25 60 0A 56 57
-  can0  1D0   [8]  48 4A 39 64 76 E6 57 08
-  can0  43A   [1]  40
-  can0  2CF   [7]  03 45 5E 0F 67 33 4C
-  can0  1CD   [8]  F9 4D AB 1D 96 A5 67 0E
-  can0  515   [8]  41 CD F2 5F 68 92 43 16
-  can0  661   [8]  45 9A 73 69 45 EE 8B 42
-  can0  41B   [1]  55
-  can0  52F   [1]  87
-
-root@imx6qrom5420b1:~# ip -s -d link show can0
-4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
-mode DEFAULT group default qlen 10
-    link/can  promiscuity 0
-    can state ERROR-ACTIVE (berr-counter tx 117 rx 0) restart-ms 0
-	  bitrate 1000000 sample-point 0.750
-	  tq 62 prop-seg 5 phase-seg1 6 phase-seg2 4 sjw 1
-	  hi3110: tseg1 2..16 tseg2 2..8 sjw 1..4 brp 1..64 brp-inc 1
-	  clock 16000000
-	  re-started bus-errors arbit-lost error-warn error-pass bus-off
-	  0          1          0          0          0          0
-    RX: bytes  packets  errors  dropped overrun mcast
-    0          0        1       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    120        20       0       0       0       0
-
-
-> Also, any error message should show the bus error counts in data[7,8]:
->
-> http://lxr.free-electrons.com/source/drivers/net/can/sja1000/sja1000.c#L408
->
-
-I can add this in v4 version of the patch (Above log has this patch
-applied).
-
-> And please check bus-off as well (short-circuiting CAN low and high).
+> ---
+>  net/ipv4/tcp_westwood.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
+> diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
+> index fed66dc..9775453 100644
+> --- a/net/ipv4/tcp_westwood.c
+> +++ b/net/ipv4/tcp_westwood.c
+> @@ -265,8 +265,8 @@ static size_t tcp_westwood_info(struct sock *sk, u32 ext, int *attr,
+>  	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
+>  		info->vegas.tcpv_enabled = 1;
+>  		info->vegas.tcpv_rttcnt	= 0;
+> -		info->vegas.tcpv_rtt	= jiffies_to_usecs(ca->rtt),
+> -		info->vegas.tcpv_minrtt	= jiffies_to_usecs(ca->rtt_min),
+> +		info->vegas.tcpv_rtt	= jiffies_to_usecs(ca->rtt);
+> +		info->vegas.tcpv_minrtt	= jiffies_to_usecs(ca->rtt_min);
+>  
+>  		*attr = INET_DIAG_VEGASINFO;
+>  		return sizeof(struct tcpvegas_info);
 
-I have not been able to check the bus-off condition by (short-circuiting
-CAN low and high). The tec error count remains at 128 when I short the
-CAN low and high pins and the status never goes BUSOFF.
+Look fine.
 
-If I short the CAN high pin to ground, then the TEC goes to 136 but
-thats the highest I have been able to get the TEC to go.
-
-The setup I have is:
-HI-3111 can chip -> ADM3054 can transceiver
-
-//CAN_H and CAN_L shorted
-<snip>
-  can0  2000008C   [8]  00 20 00 19 00 00 80 00   ERRORFRAME
-	controller-problem{tx-error-passive}
-	protocol-violation{{}{acknowledge-slot}}
-	bus-error
-	error-counter-tx-rx{{128}{0}}
-
-root@imx6qrom5420b1:~# ip -s -d link show can0
-4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
-mode DEFAULT group default qlen 10
-    link/can  promiscuity 0
-    can <BERR-REPORTING> state ERROR-PASSIVE (berr-counter tx 128 rx 0)
-restart-ms 0
-	  bitrate 1000000 sample-point 0.750
-	  tq 62 prop-seg 5 phase-seg1 6 phase-seg2 4 sjw 1
-	  hi3110: tseg1 2..16 tseg2 2..8 sjw 1..4 brp 1..64 brp-inc 1
-	  clock 16000000
-	  re-started bus-errors arbit-lost error-warn error-pass bus-off
-	  0          7          0          1          1          0
-    RX: bytes  packets  errors  dropped overrun mcast
-    0          0        7       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    626        109      0       0       0       0
-
-
-//CAN_H shorted to GND
-<snip>
-can0  2000008C   [8]  00 20 00 19 00 00 80 00   ERRORFRAME
-	controller-problem{tx-error-passive}
-	protocol-violation{{}{acknowledge-slot}}
-	bus-error
-	error-counter-tx-rx{{128}{0}}
-
-can0  2000008C   [8]  00 20 01 00 00 00 88 00   ERRORFRAME
-	controller-problem{tx-error-passive}
-	protocol-violation{{single-bit-error}{}}
-	bus-error
-	error-counter-tx-rx{{136}{0}}
-
-root@imx6qrom5420b1:~# ip -s -d link show can0
-4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
-mode DEFAULT group default qlen 10
-    link/can  promiscuity 0
-    can <BERR-REPORTING> state ERROR-PASSIVE (berr-counter tx 136 rx 0)
-restart-ms 0
-	  bitrate 1000000 sample-point 0.750
-	  tq 62 prop-seg 5 phase-seg1 6 phase-seg2 4 sjw 1
-	  hi3110: tseg1 2..16 tseg2 2..8 sjw 1..4 brp 1..64 brp-inc 1
-	  clock 16000000
-	  re-started bus-errors arbit-lost error-warn error-pass bus-off
-	  0          9          0          1          1          0
-    RX: bytes  packets  errors  dropped overrun mcast
-    0          0        9       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    626        109      0       0       0       0
-
-Thanks,
-Akshay
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
