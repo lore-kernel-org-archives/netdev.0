@@ -1,83 +1,57 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v2 net-next 11/11] net: stmmac: stmmac interrupt treatment prepared for multiple queues
-Date: Tue, 14 Mar 2017 10:24:33 +0000
-Message-ID: <798a2fb0f15f79d7f1979b667c7db5045f2125a1.1489485739.git.jpinto@synopsys.com>
+Subject: [PATCH v2 net-next 10/11] net: stmmac: tso init prepared for multiple queues
+Date: Tue, 14 Mar 2017 10:24:32 +0000
+Message-ID: <fab6df2757145ad051b3f1ced4bf96fbfb881780.1489485739.git.jpinto@synopsys.com>
 References: <cover.1489485739.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:45456 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:45447 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751064AbdCNKZF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 06:25:05 -0400
+        with ESMTP id S1750806AbdCNKZM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 06:25:12 -0400
 In-Reply-To: <cover.1489485739.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489485739.git.jpinto@synopsys.com>
 References: <cover.1489485739.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares the main ISR for multiple queues.
+This patch configures TSO for all available tx queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
 changes v1->v2:
 - Just to keep up the patch-set version
 
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 28 ++++++++++++++++-------
- 1 file changed, 20 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index fccd3f7..33de7c4 100644
+index 725fe3e..fccd3f7 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3115,6 +3115,12 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+@@ -1966,6 +1966,8 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
  {
- 	struct net_device *dev = (struct net_device *)dev_id;
  	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 rx_cnt = priv->plat->rx_queues_to_use;
+ 	u32 rx_cnt = priv->plat->rx_queues_to_use;
 +	u32 tx_cnt = priv->plat->tx_queues_to_use;
-+	u32 queues_count;
-+	u32 queue;
-+
-+	queues_count = (rx_cnt > tx_cnt) ? rx_cnt : tx_cnt;
++	u32 chan;
+ 	int ret;
  
- 	if (priv->irq_wake)
- 		pm_wakeup_event(priv->device, 0);
-@@ -3129,20 +3135,26 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
- 		int status = priv->hw->mac->host_irq_status(priv->hw,
- 							    &priv->xstats);
+ 	/* DMA initialization and SW reset */
+@@ -2049,8 +2051,10 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	stmmac_set_rings_length(priv);
  
--		if (priv->synopsys_id >= DWMAC_CORE_4_00)
--			status |= priv->hw->mac->host_mtl_irq_status(priv->hw,
--								STMMAC_CHAN0);
--
- 		if (unlikely(status)) {
- 			/* For LPI we need to save the tx status */
- 			if (status & CORE_IRQ_TX_PATH_IN_LPI_MODE)
- 				priv->tx_path_in_lpi_mode = true;
- 			if (status & CORE_IRQ_TX_PATH_EXIT_LPI_MODE)
- 				priv->tx_path_in_lpi_mode = false;
--			if (status & CORE_IRQ_MTL_RX_OVERFLOW && priv->hw->dma->set_rx_tail_ptr)
--				priv->hw->dma->set_rx_tail_ptr(priv->ioaddr,
--							priv->rx_tail_addr,
--							STMMAC_CHAN0);
-+		}
-+
-+		if (priv->synopsys_id >= DWMAC_CORE_4_00) {
-+			for (queue = 0; queue < queues_count; queue++) {
-+				status |=
-+				priv->hw->mac->host_mtl_irq_status(priv->hw,
-+								   queue);
-+
-+				if (status & CORE_IRQ_MTL_RX_OVERFLOW &&
-+				    priv->hw->dma->set_rx_tail_ptr)
-+					priv->hw->dma->set_rx_tail_ptr(priv->ioaddr,
-+								priv->rx_tail_addr,
-+								queue);
-+			}
- 		}
+ 	/* Enable TSO */
+-	if (priv->tso)
+-		priv->hw->dma->enable_tso(priv->ioaddr, 1, STMMAC_CHAN0);
++	if (priv->tso) {
++		for (chan = 0; chan < tx_cnt; chan++)
++			priv->hw->dma->enable_tso(priv->ioaddr, 1, chan);
++	}
  
- 		/* PCS link status */
+ 	return 0;
+ }
 -- 
 2.9.3
