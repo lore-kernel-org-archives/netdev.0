@@ -1,23 +1,105 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 1/3] vxlan: don't allow link-local IPv6
- local/remote addresses without interface
-Date: Tue, 14 Mar 2017 15:44:02 +0100
-Message-ID: <20170314154402.1b3d6d12@griffin>
-References: <cover.1489184335.git.mschiffer@universe-factory.net>
-        <58db316c71cf5257ef5da86763c511f8c5938987.1489184335.git.mschiffer@universe-factory.net>
+From: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [RFC v1 for accelerated IPoIB 05/25] IB/ipoib: Support ipoib
+ acceleration options callbacks
+Date: Tue, 14 Mar 2017 16:42:55 +0200
+Message-ID: <CAAk-MO8gQ5x-4Ubk1nzPntEWa2ivTK6uXyJ4eC7fmtUCNnOdfA@mail.gmail.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+ <1489429896-10781-6-git-send-email-erezsh@mellanox.com> <20170314063538.GB79937@knc-06.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, hannes@stressinduktion.org, pshelar@ovn.org,
-        aduyck@mirantis.com, roopa@cumulusnetworks.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Matthias Schiffer <mschiffer@universe-factory.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58db316c71cf5257ef5da86763c511f8c5938987.1489184335.git.mschiffer@universe-factory.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170314063538.GB79937-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Mar 2017 23:39:42 +0100, Matthias Schiffer wrote:
-> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+On Tue, Mar 14, 2017 at 8:35 AM, Vishwanathapura, Niranjana
+<niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+> On Mon, Mar 13, 2017 at 08:31:16PM +0200, Erez Shitrit wrote:
+>>
+>> +static struct net_device *ipoib_create_netdev_default(struct ib_device
+>> *hca,
+>> +                                                     const char *name,
+>> +                                                     void (*setup)(struct
+>> net_device *))
+>> {
+>>         struct net_device *dev;
+>> +       struct rdma_netdev *rn;
+>>
+>> -       dev = alloc_netdev((int)sizeof(struct ipoib_dev_priv), name,
+>> -                          NET_NAME_UNKNOWN, ipoib_setup);
+>> +       dev = alloc_netdev((int)sizeof(struct ipoib_rdma_netdev),
+>> +                          name,
+>> +                          NET_NAME_UNKNOWN, setup);
+>>         if (!dev)
+>>                 return NULL;
+>>
+>> -       return netdev_priv(dev);
+>> +       rn = netdev_priv(dev);
+>> +
+>> +       rn->ib_dev_init = ipoib_dev_init_default;
+>> +       rn->ib_dev_cleanup = ipoib_dev_uninit_default;
+>> +       rn->send = ipoib_send;
+>> +       rn->attach_mcast = ipoib_mcast_attach;
+>> +       rn->detach_mcast = ipoib_mcast_detach;
+>> +
+>> +       dev->netdev_ops = &ipoib_netdev_default_pf;
+>> +
+>
+>
+> Probably no need to set netdev_ops here as it gets overwritten.
 
-Acked-by: Jiri Benc <jbenc@redhat.com>
+No, it is switched, and used.
+
+>
+>
+>> +       return dev;
+>> +}
+>> +
+>> +struct ipoib_dev_priv *ipoib_intf_alloc(struct ib_device *hca, u8 port,
+>> +                                       const char *name)
+>> +{
+>> +       struct net_device *dev;
+>> +       struct ipoib_dev_priv *priv;
+>> +       struct rdma_netdev *rn;
+>> +
+>> +       priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+>> +       if (!priv) {
+>> +               pr_err("%s failed allocting priv\n", __func__);
+>> +               return NULL;
+>> +       }
+>> +
+>> +       if (!hca->alloc_rdma_netdev)
+>> +               dev = ipoib_create_netdev_default(hca, name,
+>> ipoib_setup_common);
+>> +       else
+>> +               dev = hca->alloc_rdma_netdev(hca, port, RDMA_NETDEV_IPOIB,
+>> +                                            name, NET_NAME_UNKNOWN,
+>> +                                            ipoib_setup_common);
+>> +       if (!dev) {
+>> +               kfree(priv);
+>> +               return NULL;
+>> +       }
+>
+>
+> This will break ipoib on hfi1 as hfi1 will define alloc_rdma_netdev for
+> OPA_VNIC type. We should probably look for a dedicated return type
+> (-ENODEV?) to determine of the driver supports specified rdma netdev type.
+> Or use a ib device attribute to suggest driver support ipoib rdma netdev.
+
+sorry, I don't understand that, we are in ipoib driver, so the type is
+RDMA_NETDEV_IPOIB, if hfi wants to implement it should use the same
+flag, and to use OPA_VNIC for vnic.
+
+
+>
+> Niranjana
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
