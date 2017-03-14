@@ -1,58 +1,151 @@
-From: YASUAKI ISHIMATSU <yasu.isimatu@gmail.com>
-Subject: Re: [PATCH v2] fjes: Do not load fjes driver if system does not have
- extended socket device.
-Date: Tue, 14 Mar 2017 10:47:24 -0400
-Message-ID: <d7976838-6888-2f34-7526-ab665d0ceaaf@gmail.com>
-References: <7a1a2dbc-99e0-06ba-2261-6e6382937486@gmail.com>
- <87mvcqmjr2.fsf@miraculix.mork.no>
+From: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [RFC v1 for accelerated IPoIB 25/25] mlx5_ib: skeleton for
+ mlx5_ib to support ipoib_ops
+Date: Tue, 14 Mar 2017 16:53:24 +0200
+Message-ID: <CAAk-MO9ekfWZT-C2SKTw129t=UQty9w2+wzQsvY1Od0k1zSrpA@mail.gmail.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+ <1489429896-10781-26-git-send-email-erezsh@mellanox.com> <20170313202720.GC2738@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-        izumi.taku@jp.fujitsu.com
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:35362 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751100AbdCNOr1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 10:47:27 -0400
-Received: by mail-qk0-f196.google.com with SMTP id o135so41335467qke.2
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 07:47:27 -0700 (PDT)
-In-Reply-To: <87mvcqmjr2.fsf@miraculix.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170313202720.GC2738-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 03/12/2017 02:29 PM, Bjørn Mork wrote:
-> Yasuaki Ishimatsu <yasu.isimatu@gmail.com> writes:
+On Mon, Mar 13, 2017 at 10:27 PM, Jason Gunthorpe
+<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
+> On Mon, Mar 13, 2017 at 08:31:36PM +0200, Erez Shitrit wrote:
 >
->> The fjes driver is used only by FUJITSU servers and almost of all
->> servers in the world never use it. But currently if ACPI PNP0C02
->> is defined in the ACPI table, the following message is always shown:
->>
->>  "FUJITSU Extended Socket Network Device Driver - version 1.2
->>   - Copyright (c) 2015 FUJITSU LIMITED"
+>> +struct net_device *mlx5_alloc_rdma_netdev(struct ib_device *hca,
+>> +                                  u8 port_num,
+>> +                                  enum rdma_netdev_t type,
+>> +                                  const char *name,
+>> +                                  unsigned char name_assign_type,
+>> +                                  void (*setup)(struct net_device *));
+>> +void mlx5_free_rdma_netdev(struct net_device *netdev);
 >
-> Matching on PNP0C02 is fundamentally wrong. It's a way to load a device
-> driver on all ACPI systems.  You should not do that. I don't think it is
-> fair to make everyone suffer because of your inability to properly
-> narrow down the driver matching rules.
-
-There are so many similar matching rules. But these modules are not
-listed in blacklist because these modules has proper check like my patch
-and no one suffers.
-
-So I don't think the matching rule is fundamentally wrong.
-
-Thanks,
-Yasuaki Ishimatsu
+> Seems like OK signatures to me..
 >
-> Could we please just delete the whole MODULE_DEVICE_TABLE() from this
-> driver until a proper solution is found? That way we don't need to
-> blacklist the driver everywhere.
+>> +     dev->ib_dev.alloc_rdma_netdev   = mlx5_alloc_rdma_netdev;
+>> +     dev->ib_dev.free_rdma_netdev    = mlx5_free_rdma_netdev;
+>
+> Since mlx5_free_rdma_netdev is empty this should just be NULL
+
+OK,
 
 >
+>> +int mlx5_ib_dev_init(struct net_device *dev, struct ib_device *hca,
+>> +                  int *qp_num)
+>> +{
+>> +     void *next_priv = ipoib_dev_priv(dev);
+>> +     struct rdma_netdev *rn = netdev_priv(dev);
+>> +     struct mlx5_ib_dev *ib_dev = to_mdev(hca);
+>> +     int ret;
+>> +
+>> +     ret = mlx5i_attach(ib_dev->mdev, next_priv);
+>> +     if (ret) {
+>> +             pr_err("Failed resources allocation for device: %s ret: %d\n",
+>> +                    dev->name, ret);
+>> +             return ret;
+>> +     }
+>> +
+>> +     *qp_num = rn->qp_num;
+>> +
+>> +     pr_debug("resources allocated for device: %s\n", dev->name);
+>> +
+>> +     return 0;
+>> +}
+>> +
+>> +void mlx5_ib_dev_cleanup(struct net_device *dev, struct ib_device *hca)
+>> +{
+>> +     void *next_priv = ipoib_dev_priv(dev);
+>> +     struct rdma_netdev *rn = netdev_priv(dev);
+>> +     struct mlx5_ib_dev *ib_dev = to_mdev(hca);
+>> +     struct mlx5_qp_context context;
+>> +     int ret;
+>> +
+>> +     /* detach qp from flow-steering by reset it */
+>> +     ret = mlx5_core_qp_modify(ib_dev->mdev,
+>> +                               MLX5_CMD_OP_2RST_QP, 0, &context,
+>> +                               (struct mlx5_core_qp *)rn->context);
+>> +     if (ret)
+>> +             pr_err("%s failed (ret: %d) to reset QP\n", __func__, ret);
+>> +
+>> +     mlx5i_detach(ib_dev->mdev, next_priv);
+>> +
+>> +     mlx5_ib_clean_qp(ib_dev, (struct mlx5_core_qp *)rn->context);
+>> +}
 >
-> Bjørn
+> Why isn't this stuff in open/close?
+
+According to ipoib control flows, there is a different between
+open/close to init/cleanup
+for example, in open/close the driver doesn't destroy hw resources,
+just change the state, it destroys them in cleanup.
+
 >
+>> +void mlx5_ib_send(struct net_device *dev, struct sk_buff *skb,
+>> +               struct ipoib_ah *address, u32 dqpn, u32 dqkey)
+>> +{
+>> +     void *next_priv = ipoib_dev_priv(dev);
+>> +
+>> +     mlx5i_xmit(skb, next_priv, &to_mah(address->ah)->av, dqpn, dqkey);
+>
+> How come the qkey is not available via ipoib_ah ?
+>
+> to_mah(address->ah)->av->key.qkey.qkey
+>
+> ?
+
+It is, i will change the signature of that function accordingly.
+
+>
+>> +static const struct net_device_ops ipoib_netdev_default_pf = {
+>
+> That is a weird name for a mlx5 specific structure.
+
+OK, will change that.
+
+>
+>> +     param.size_base_priv = sizeof(struct ipoib_rdma_netdev);
+>
+> This is really weird, the code in mlx5i_create_netdev calls
+> ipoib_dev_priv so it must assume the struct is a ipoib_rdma_netdev.
+
+It is the same attitude as in the vnic/hfi
+(https://patchwork.kernel.org/patch/9587815/)
+The lower driver allocates space for the rdma_netdev.
+the only struct that is known between the layers is rdma_netdev.
+
+>
+>> +     /* set func pointers */
+>> +     rn = netdev_priv(dev);
+>> +     rn->qp_num = qp->qpn;
+>> +     rn->context = qp;
+>
+> No for using context.. You need your own driver priv, like this:
+>
+> struct mlx4_rn_priv
+> {
+>     struct mlx5e_priv priv;
+>     struct mlx5_core_qp *qp;
+> };
+
+OK, will try to fix it (i have a priv which is shared with the en
+driver, so i don't want to mix it with ib objects like qp, will find a
+solution for that, thanks.)
+
+
+
+>
+> Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
