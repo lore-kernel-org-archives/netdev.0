@@ -1,67 +1,57 @@
-From: Erez Shitrit <erezsh@dev.mellanox.co.il>
-Subject: Re: [RFC v1 for accelerated IPoIB 25/25] mlx5_ib: skeleton for
- mlx5_ib to support ipoib_ops
-Date: Tue, 14 Mar 2017 18:37:16 +0200
-Message-ID: <CAAk-MO-b+xQOfFtWApJWwQ6vkkpC8Bo=JiPqO29AsQGAhX0UDw@mail.gmail.com>
-References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
- <1489429896-10781-26-git-send-email-erezsh@mellanox.com> <20170313202720.GC2738@obsidianresearch.com>
- <CAAk-MO9ekfWZT-C2SKTw129t=UQty9w2+wzQsvY1Od0k1zSrpA@mail.gmail.com> <20170314161013.GF3244@obsidianresearch.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net: deadlock between ip_expire/sch_direct_xmit
+Date: Tue, 14 Mar 2017 09:41:22 -0700
+Message-ID: <CAM_iQpV9iyOHoYUUO=wwHWz0GpUoQzwX+f3DSxwJo54eCcqH2g@mail.gmail.com>
+References: <CACT4Y+ZrHr0Cqw5RPeZ6QW16auOPyKSCOea6AciHBswAT3t14Q@mail.gmail.com>
+ <1489502504.28631.115.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+bLJtO55iP5uNPZV+_B+H5-Z2gOiF26sXDmWk9L0rESsw@mail.gmail.com> <CANn89iLO1neA3-4ipYr==n_3iDXDXgY0MCkPkp=cEf8n4w6i=g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Erez Shitrit <erezsh@mellanox.com>,
-        Doug Ledford <dledford@redhat.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        netdev@vger.kernel.org, valex@mellanox.com,
-        Leon Romanovsky <leonro@mellanox.com>, saedm@mellanox.com
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:35005 "EHLO
-        mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750865AbdCNQhS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 12:37:18 -0400
-Received: by mail-yw0-f194.google.com with SMTP id h11so13227083ywa.2
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 09:37:17 -0700 (PDT)
-In-Reply-To: <20170314161013.GF3244@obsidianresearch.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89iLO1neA3-4ipYr==n_3iDXDXgY0MCkPkp=cEf8n4w6i=g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 14, 2017 at 6:10 PM, Jason Gunthorpe
-<jgunthorpe@obsidianresearch.com> wrote:
-> On Tue, Mar 14, 2017 at 04:53:24PM +0200, Erez Shitrit wrote:
+On Tue, Mar 14, 2017 at 7:56 AM, Eric Dumazet <edumazet@google.com> wrote:
+> On Tue, Mar 14, 2017 at 7:46 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
 >
->> > Why isn't this stuff in open/close?
+>> I am confused. Lockdep has observed both of these stacks:
 >>
->> According to ipoib control flows, there is a different between
->> open/close to init/cleanup for example, in open/close the driver
->> doesn't destroy hw resources, just change the state, it destroys
->> them in cleanup.
->
-> So put it in mlx5_alloc_rdma_netdev then?
->
-> Or ndo.init as was suggested?
-
-I can do that, as i said to your previous suggestion, will add the
-ib_device to the rdma_netdev and will use the ndo.init
-
->
-> Or in the void (*setup)(struct net_device *)
->
->> >> +     param.size_base_priv = sizeof(struct ipoib_rdma_netdev);
->> >
->> > This is really weird, the code in mlx5i_create_netdev calls
->> > ipoib_dev_priv so it must assume the struct is a ipoib_rdma_netdev.
+>>        CPU0                    CPU1
+>>        ----                    ----
+>>   lock(&(&q->lock)->rlock);
+>>                                lock(_xmit_ETHER#2);
+>>                                lock(&(&q->lock)->rlock);
+>>   lock(_xmit_ETHER#2);
 >>
->> It is the same attitude as in the vnic/hfi
->> (https://patchwork.kernel.org/patch/9587815/)
+>>
+>> So it somehow happened. Or what do you mean?
+>>
 >
-> Not quite, they call alloc_netdev_mqs directly, here indirects through
-> mlx5i_create_netdev which assumes a priv layout, Just drop
-> param.size_base_priv and put that same calculation in
-> mlx5i_create_netdev..
+> Lockdep said " possible circular locking dependency detected " .
+> It is not an actual deadlock, but lockdep machinery firing.
+>
+> For a dead lock to happen, this would require that he ICMP message
+> sent by ip_expire() is itself fragmented and reassembled.
+> This cannot be, because ICMP messages are not candidates for
+> fragmentation, but lockdep can not know that of course...
 
-We are sharing 2 drivers as the low level driver, anyway i will find
-the way to do that.
+It doesn't have to be ICMP, as long as get the same hash for
+the inet_frag_queue, we will need to take the same lock and
+deadlock will happen.
 
->
-> Jason
->
+        hash = ipqhashfn(iph->id, iph->saddr, iph->daddr, iph->protocol);
+
+So it is really up to this hash function.
