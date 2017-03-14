@@ -1,10 +1,10 @@
 From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 01/12] net: phy: bcm-phylib: replace obsolete EEE
- macro references
-Date: Mon, 13 Mar 2017 17:49:17 -0700
-Message-ID: <443a2d7f-b625-9de2-d9f8-385f3c6952cd@gmail.com>
+Subject: Re: [PATCH net-next 02/12] net: phy: bcm7xxx: add support for 28nm
+ EPHY
+Date: Mon, 13 Mar 2017 17:50:18 -0700
+Message-ID: <1d3a31b9-6163-8986-e93e-9e218222ca69@gmail.com>
 References: <20170314004142.4746-1-opendmb@gmail.com>
- <20170314004142.4746-2-opendmb@gmail.com>
+ <20170314004142.4746-3-opendmb@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -15,14 +15,13 @@ Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@pu
         pgynther-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jaedon.shin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 To: Doug Berger <opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170314004142.4746-2-opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <20170314004142.4746-3-opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On 03/13/2017 05:41 PM, Doug Berger wrote:
-> The macros MDIO_AN_EEE_ADV_100TX and MDIO_AN_EEE_ADV_1000T are now
-> considered obsolete and are replaced in the kernel with the generic
-> macros MDIO_EEE_100TX and MDIO_EEE_1000T respectively.
+> This commit adds support for the internal fast ethernet 10/100 PHY
+> found in the BCM7260, BCM7268, and BCM7271 devices.
 > 
 > Signed-off-by: Doug Berger <opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
