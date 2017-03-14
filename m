@@ -1,64 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/11] net: stmmac: dma channel init prepared for
- multiple queues
-Date: Mon, 13 Mar 2017 17:18:57 -0700 (PDT)
-Message-ID: <20170313.171857.406760790328158776.davem@davemloft.net>
-References: <cover.1489419356.git.jpinto@synopsys.com>
-        <cover.1489419356.git.jpinto@synopsys.com>
-        <c5de4f9e818a5e84e880d0ab16bfc6bb59470a27.1489419357.git.jpinto@synopsys.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: bond procfs hw addr prints
+Date: Mon, 13 Mar 2017 17:28:04 -0700
+Message-ID: <10202.1489451284@famine>
+References: <597da6f1-c0fc-ae23-94d1-d0fb3abb3176@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>
+To: Jarod Wilson <jarod@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60270 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752001AbdCNAS6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 20:18:58 -0400
-In-Reply-To: <c5de4f9e818a5e84e880d0ab16bfc6bb59470a27.1489419357.git.jpinto@synopsys.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:57815 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752122AbdCNA2I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Mar 2017 20:28:08 -0400
+In-reply-to: <597da6f1-c0fc-ae23-94d1-d0fb3abb3176@redhat.com>
+Content-ID: <10201.1489451284.1@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Mon, 13 Mar 2017 16:12:40 +0000
+Jarod Wilson <jarod@redhat.com> wrote:
 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index e60e077..44db2e3 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1732,6 +1732,10 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
->   */
->  static int stmmac_init_dma_engine(struct stmmac_priv *priv)
->  {
-> +	u32 rx_channels_count = priv->plat->rx_queues_to_use;
-> +	u32 tx_channels_count = priv->plat->tx_queues_to_use;
-> +	u32 dummy_dma_rx_phy, dummy_dma_tx_phy = 0;
-> +	u32 chan = 0;
->  	int atds = 0;
->  	int ret = 0;
->  
+>I've got a bug report for someone using a Intel OPA devices in a bond, and
+>it appears these devices have a hardware address length of 20, opposed to
+>the typical 6 on ethernet. When they dump /proc/net/bonding/bondX, it only
+>prints the first 6 of the address, per %pM and mac_address_string(), while
+>sysfs for the interface does print the right thing, since it uses
+>sysfs_print_mac(), which takes a length argument.
 
-dummy_dma_rx_phy is declared, but not initialized:
+	This (20 octet MAC length) is true for any Infiniband device.
 
-> @@ -1749,19 +1753,43 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
->  		return ret;
->  	}
->  
-> -	priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg,
-> -			    priv->dma_tx_phy, priv->dma_rx_phy, atds);
-> -
->  	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
-> -		priv->rx_tail_addr = priv->dma_rx_phy +
-> -			    (DMA_RX_SIZE * sizeof(struct dma_desc));
-> -		priv->hw->dma->set_rx_tail_ptr(priv->ioaddr, priv->rx_tail_addr,
-> -					       STMMAC_CHAN0);
-> +		/* DMA Configuration */
-> +		priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg,
-> +				    dummy_dma_tx_phy, dummy_dma_rx_phy, atds);
-> +
+>So the question is... What's the best route to take here? Expand %pM to
+>support variable length hardware addresses? Use sysfs_* in procfs?
+>Reinvent the wheel? Nothing I've tinkered with just yet feels very clean,
+>on top of not actually working yet. :)
 
-Yet it is used here, still uninitialized.
+	sysfs_format_mac (not _print_mac) uses "%*phC", len, addr in its
+format string.  Perhaps that format would be a better choice than %pM
+for this case?
 
-The compiler even warns about this.
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
