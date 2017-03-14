@@ -1,65 +1,71 @@
-From: Doug Berger <opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 00/12] net: bcmgenet: add support for GENETv5
-Date: Mon, 13 Mar 2017 17:41:30 -0700
-Message-ID: <20170314004142.4746-1-opendmb@gmail.com>
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org, xow-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, joel-U3u1mxZcP9KHXe+LvDLADg@public.gmane.org,
-        jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pgynther-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jaedon.shin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        Doug Berger <opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Doug Berger <opendmb@gmail.com>
+Subject: [PATCH net-next 03/12] net: bcmgenet: simplify circular pointer arithmetic
+Date: Mon, 13 Mar 2017 17:41:33 -0700
+Message-ID: <20170314004142.4746-4-opendmb@gmail.com>
+References: <20170314004142.4746-1-opendmb@gmail.com>
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, davem@davemloft.net,
+        rafal@milecki.pl, xow@google.com, joel@jms.id.au,
+        jon.mason@broadcom.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        pgynther@google.com, jaedon.shin@gmail.com,
+        Doug Berger <opendmb@gmail.com>
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170314004142.4746-1-opendmb@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This collection of patches contains changes related to adding
-support for the BCM7260, BCM7268, and BCM7271 devices that
-contain a new version of the GENET MAC IP block (v5) and a new
-fast ethernet (10/100BASE-T) internal PHY.
+A 2's complement subtraction will always do a borrow, so masking
+off the sign bits is the same as conditionally adding (mask+1).
 
-These patches were originally developed on top of the bug fixes
-of the "[PATCH v2 net 0/8] net: bcmgenet: minor bug fixes" patch
-set previously accepted into the net repository, but this
-submission is designed to be applied to the current net-next
-that does not yet include them. As a result there will be some
-merge conflicts that I would be happy to help resolve if desired.
+Signed-off-by: Doug Berger <opendmb@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 19 +++++--------------
+ 1 file changed, 5 insertions(+), 14 deletions(-)
 
-Specifically, conflicts should occur with these patches from the
-minor bug fixes set:
-[PATCH v2 net 3/8] net: bcmgenet: reserved phy revisions must be checked first
-[PATCH v2 net 5/8] net: bcmgenet: synchronize irq0 status between the isr and task
-[PATCH v2 net 8/8] net: bcmgenet: decouple flow control from bcmgenet_tx_reclaim
-
-Doug Berger (12):
-  net: phy: bcm-phylib: replace obsolete EEE macro references
-  net: phy: bcm7xxx: add support for 28nm EPHY
-  net: bcmgenet: simplify circular pointer arithmetic
-  net: bcmgenet: remove meaningless lines
-  net: bcmgenet: manage dma interrupts in napi code
-  net: bcmgenet: remove handling of wol interrupts from isr0
-  net: bcmgenet: clear status to reduce spurious interrupts
-  net: bcmgenet: correct return value of __bcmgenet_tx_reclaim
-  net: bcmgenet: return EOPNOTSUPP for unknown ioctl commands
-  dt-bindings: net: document bcmgenet WoL interrupt
-  dt-bindings: net: update bcmgenet binding for GENETv5
-  net: bcmgenet: add support for the GENETv5 hardware
-
- .../devicetree/bindings/net/brcm,bcmgenet.txt      |  19 +-
- .../devicetree/bindings/net/brcm,unimac-mdio.txt   |   5 +-
- drivers/net/ethernet/broadcom/genet/bcmgenet.c     | 214 +++++++++++---------
- drivers/net/ethernet/broadcom/genet/bcmgenet.h     |  10 +-
- drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c |  13 --
- drivers/net/ethernet/broadcom/genet/bcmmii.c       |  62 +++---
- drivers/net/phy/bcm-phy-lib.c                      |   6 +-
- drivers/net/phy/bcm7xxx.c                          | 215 ++++++++++++++++++++-
- include/linux/brcmphy.h                            |   3 +
- 9 files changed, 403 insertions(+), 144 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index f92896835d2a..2c008b09c4e3 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1,7 +1,7 @@
+ /*
+  * Broadcom GENET (Gigabit Ethernet) controller driver
+  *
+- * Copyright (c) 2014 Broadcom Corporation
++ * Copyright (c) 2014-2017 Broadcom
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -1175,13 +1175,9 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 	unsigned int txbds_processed = 0;
+ 
+ 	/* Compute how many buffers are transmitted since last xmit call */
+-	c_index = bcmgenet_tdma_ring_readl(priv, ring->index, TDMA_CONS_INDEX);
+-	c_index &= DMA_C_INDEX_MASK;
+-
+-	if (likely(c_index >= ring->c_index))
+-		txbds_ready = c_index - ring->c_index;
+-	else
+-		txbds_ready = (DMA_C_INDEX_MASK + 1) - ring->c_index + c_index;
++	c_index = bcmgenet_tdma_ring_readl(priv, ring->index, TDMA_CONS_INDEX)
++		& DMA_C_INDEX_MASK;
++	txbds_ready = (c_index - ring->c_index) & DMA_C_INDEX_MASK;
+ 
+ 	netif_dbg(priv, tx_done, dev,
+ 		  "%s ring=%d old_c_index=%u c_index=%u txbds_ready=%u\n",
+@@ -1611,12 +1607,7 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_rx_ring *ring,
+ 	}
+ 
+ 	p_index &= DMA_P_INDEX_MASK;
+-
+-	if (likely(p_index >= ring->c_index))
+-		rxpkttoprocess = p_index - ring->c_index;
+-	else
+-		rxpkttoprocess = (DMA_C_INDEX_MASK + 1) - ring->c_index +
+-				 p_index;
++	rxpkttoprocess = (p_index - ring->c_index) & DMA_C_INDEX_MASK;
+ 
+ 	netif_dbg(priv, rx_status, dev,
+ 		  "RDMA: rxpkttoprocess=%d\n", rxpkttoprocess);
 -- 
 2.11.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
