@@ -1,48 +1,49 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next 0/4] gtp: support multiple APN's per GTP endpoint
-Date: Tue, 14 Mar 2017 14:42:16 +0100
-Message-ID: <20170314134216.GA4170@salvia>
-References: <20170314112548.24027-1-aschultz@tpip.net>
- <20170314114538.GC2992@salvia>
- <2005226672.385248.1489495364893.JavaMail.zimbra@tpip.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: debug ATU Age Time
+Date: Tue, 14 Mar 2017 09:56:41 -0400
+Message-ID: <87inncj71i.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170313192043.12478-1-vivien.didelot@savoirfairelinux.com> <20170313223932.GC14183@lunn.ch> <b7d0e92f-45cb-929d-a724-2a582621f8e1@gmail.com> <20170313225845.GE14183@lunn.ch> <535be006-e384-aca3-ee8b-4ed36b66b97a@neratec.com> <20170314120539.GT15842@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: laforge <laforge@gnumonks.org>,
-        osmocom-net-gprs <osmocom-net-gprs@lists.osmocom.org>,
-        netdev <netdev@vger.kernel.org>,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>
-To: Andreas Schultz <aschultz@tpip.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40656 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751837AbdCNNm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Mar 2017 09:42:27 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 54A5BE7B82
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 14:42:24 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 45067DA875
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 14:42:24 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 1EBD7DA87B
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 14:42:21 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <2005226672.385248.1489495364893.JavaMail.zimbra@tpip.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Jason Cobham <jcobham@questertangent.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Matthias May <matthias.may@neratec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170314120539.GT15842@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 14, 2017 at 01:42:44PM +0100, Andreas Schultz wrote:
-> > It is definitely not acceptable to break the existing API.
-> 
-> The specific use case of the API that is no longer supported was never used by
-> anyone. [...]
+Hi Andrew,
 
-Yes, this was used openggsn and I tested this with a full blown FOSS
-setup. Yes, a toy thing compared to the proprietary equipment you deal
-with, but we always started with things like this.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-> The only supported and documented API for the GTP module is libgtpnl.
+>> The never ever seeing R/W failure on MDIO bus is not exactly accurate.
+>> We had with art (atheros calibration tool) the problem that interrupts
+>> were being disabled which lead to MDIO operations running into
+>> timout/failing.
+>
+> Yes, i've seen similar with power management bugs for the MDIO
+> driver. But you get a cascade of failures, lots of warnings and error
+> prints, it is clear something bad has happened, and the switch is in
+> an inconsistent state. So having one more debug print which is also
+> inconsistent does no really harm.
+>
+> Anyway, this whole conversation has taken more effort than just making
+> this simple change to remove a few lines of code. So lets drop it and
+> move on.
 
-No, the netlink interface itself if the API.
+I don't understand nor agree with the fact that sometimes it's OK to not
+check for errors, based on one developer assumptions. Not checking
+return code is wrong and very likely error-prone.
 
-Stopping trying to find a reason to break API, that is a no-go.
+If you really want to stand for that point, please send a patch series
+which turns mv88e6xxx_read() and mv88e6xxx_write() into void functions.
+I'd be glad to review and discuss this further. That would indeed make
+*all* the driver code simpler.
+
+Thanks,
+
+        Vivien
