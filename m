@@ -1,8 +1,7 @@
 From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net-next 2/2] tcp: remove tcp_tw_recycle
-Date: Wed, 15 Mar 2017 16:30:46 -0400
-Message-ID: <20170315203046.158791-2-soheil.kdev@gmail.com>
-References: <20170315203046.158791-1-soheil.kdev@gmail.com>
+Subject: [PATCH net-next 1/2] tcp: remove per-destination timestamp cache
+Date: Wed, 15 Mar 2017 16:30:45 -0400
+Message-ID: <20170315203046.158791-1-soheil.kdev@gmail.com>
 Cc: Soheil Hassas Yeganeh <soheil@google.com>,
         Eric Dumazet <edumazet@google.com>,
         Neal Cardwell <ncardwell@google.com>,
@@ -10,35 +9,29 @@ Cc: Soheil Hassas Yeganeh <soheil@google.com>,
         Florian Westphal <fw@strlen.de>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:35199 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751480AbdCOUaw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:30:52 -0400
-Received: by mail-qt0-f195.google.com with SMTP id r5so3365322qtb.2
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 13:30:51 -0700 (PDT)
-In-Reply-To: <20170315203046.158791-1-soheil.kdev@gmail.com>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36075 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751357AbdCOUav (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:30:51 -0400
+Received: by mail-qk0-f193.google.com with SMTP id n141so3496708qke.3
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 13:30:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Soheil Hassas Yeganeh <soheil@google.com>
 
-The tcp_tw_recycle was already broken for connections
-behind NAT, since the per-destination timestamp is not
-monotonically increasing for multiple machines behind
-a single destination address.
+Commit 8a5bd45f6616 (tcp: randomize tcp timestamp offsets for each connection)
+randomizes TCP timestamps per connection. After this commit,
+there is no guarantee that the timestamps received from the
+same destination are monotonically increasing. As a result,
+the per-destination timestamp cache in TCP metrics (i.e., tcpm_ts
+in struct tcp_metrics_block) is broken and cannot be relied upon.
 
-After the randomization of TCP timestamp offsets
-in commit 8a5bd45f6616 (tcp: randomize tcp timestamp offsets
-for each connection), the tcp_tw_recycle is broken for all
-types of connections for the same reason: the timestamps
-received from a single machine is not monotonically increasing,
-anymore.
+Remove the per-destination timestamp cache and all related code
+paths.
 
-Remove tcp_tw_recycle, since it is not functional. Also, remove
-the PAWSPassive SNMP counter since it is only used for
-tcp_tw_recycle, and simplify tcp_v4_route_req and tcp_v6_route_req
-since the strict argument is only set when tcp_tw_recycle is
-enabled.
+Note that this cache was already broken for caching timestamps of
+multiple machines behind a NAT sharing the same address.
 
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
@@ -47,200 +40,335 @@ Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Cc: Lutz Vieweg <lvml@5t9.de>
 Cc: Florian Westphal <fw@strlen.de>
 ---
- Documentation/networking/ip-sysctl.txt |  5 -----
- include/net/netns/ipv4.h               |  1 -
- include/net/tcp.h                      |  3 +--
- include/uapi/linux/snmp.h              |  1 -
- net/ipv4/proc.c                        |  1 -
- net/ipv4/sysctl_net_ipv4.c             |  7 -------
- net/ipv4/tcp_input.c                   | 30 +++++-------------------------
- net/ipv4/tcp_ipv4.c                    | 15 ++-------------
- net/ipv6/tcp_ipv6.c                    |  5 +----
- 9 files changed, 9 insertions(+), 59 deletions(-)
+ include/net/tcp.h        |   6 +-
+ net/ipv4/tcp_input.c     |   6 +-
+ net/ipv4/tcp_ipv4.c      |   4 --
+ net/ipv4/tcp_metrics.c   | 147 ++---------------------------------------------
+ net/ipv4/tcp_minisocks.c |  22 ++-----
+ net/ipv6/tcp_ipv6.c      |   5 --
+ 6 files changed, 11 insertions(+), 179 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index ab0230461377..ed3d0791eb27 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -640,11 +640,6 @@ tcp_tso_win_divisor - INTEGER
- 	building larger TSO frames.
- 	Default: 3
- 
--tcp_tw_recycle - BOOLEAN
--	Enable fast recycling TIME-WAIT sockets. Default value is 0.
--	It should not be changed without advice/request of technical
--	experts.
--
- tcp_tw_reuse - BOOLEAN
- 	Allow to reuse TIME-WAIT sockets for new connections when it is
- 	safe from protocol viewpoint. Default value is 0.
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 622d2da27135..2e9d649ba169 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -33,7 +33,6 @@ struct inet_timewait_death_row {
- 	atomic_t		tw_count;
- 
- 	struct inet_hashinfo 	*hashinfo ____cacheline_aligned_in_smp;
--	int			sysctl_tw_recycle;
- 	int			sysctl_max_tw_buckets;
- };
- 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c81f3b958d44..e614ad4d613e 100644
+index bede8f7fa742..c81f3b958d44 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1810,8 +1810,7 @@ struct tcp_request_sock_ops {
- 				 __u16 *mss);
- #endif
- 	struct dst_entry *(*route_req)(const struct sock *sk, struct flowi *fl,
--				       const struct request_sock *req,
--				       bool *strict);
-+				       const struct request_sock *req);
- 	__u32 (*init_seq_tsoff)(const struct sk_buff *skb, u32 *tsoff);
- 	int (*send_synack)(const struct sock *sk, struct dst_entry *dst,
- 			   struct flowi *fl, struct request_sock *req,
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index 3b2bed7ca9a4..cec0e171d20c 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -177,7 +177,6 @@ enum
- 	LINUX_MIB_TIMEWAITED,			/* TimeWaited */
- 	LINUX_MIB_TIMEWAITRECYCLED,		/* TimeWaitRecycled */
- 	LINUX_MIB_TIMEWAITKILLED,		/* TimeWaitKilled */
--	LINUX_MIB_PAWSPASSIVEREJECTED,		/* PAWSPassiveRejected */
- 	LINUX_MIB_PAWSACTIVEREJECTED,		/* PAWSActiveRejected */
- 	LINUX_MIB_PAWSESTABREJECTED,		/* PAWSEstabRejected */
- 	LINUX_MIB_DELAYEDACKS,			/* DelayedACKs */
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 69cf49e8356d..4ccbf464d1ac 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -199,7 +199,6 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TW", LINUX_MIB_TIMEWAITED),
- 	SNMP_MIB_ITEM("TWRecycled", LINUX_MIB_TIMEWAITRECYCLED),
- 	SNMP_MIB_ITEM("TWKilled", LINUX_MIB_TIMEWAITKILLED),
--	SNMP_MIB_ITEM("PAWSPassive", LINUX_MIB_PAWSPASSIVEREJECTED),
- 	SNMP_MIB_ITEM("PAWSActive", LINUX_MIB_PAWSACTIVEREJECTED),
- 	SNMP_MIB_ITEM("PAWSEstab", LINUX_MIB_PAWSESTABREJECTED),
- 	SNMP_MIB_ITEM("DelayedACKs", LINUX_MIB_DELAYEDACKS),
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index d6880a6149ee..11aaef0939b2 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -981,13 +981,6 @@ static struct ctl_table ipv4_net_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
--		.procname	= "tcp_tw_recycle",
--		.data		= &init_net.ipv4.tcp_death_row.sysctl_tw_recycle,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
- 		.procname	= "tcp_max_syn_backlog",
- 		.data		= &init_net.ipv4.sysctl_max_syn_backlog,
- 		.maxlen		= sizeof(int),
+@@ -406,11 +406,7 @@ void tcp_clear_retrans(struct tcp_sock *tp);
+ void tcp_update_metrics(struct sock *sk);
+ void tcp_init_metrics(struct sock *sk);
+ void tcp_metrics_init(void);
+-bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
+-			bool paws_check, bool timestamps);
+-bool tcp_remember_stamp(struct sock *sk);
+-bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
+-void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
++bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst);
+ void tcp_disable_fack(struct tcp_sock *tp);
+ void tcp_close(struct sock *sk, long timeout);
+ void tcp_init_sock(struct sock *sk);
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index aafec0676d3e..bb09c7095988 100644
+index 96b67a8b18c3..aafec0676d3e 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -6327,31 +6327,11 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		af_ops->init_seq_tsoff(skb, &tcp_rsk(req)->ts_off);
+@@ -6342,8 +6342,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 			dst = af_ops->route_req(sk, &fl, req, &strict);
  
- 	if (!want_cookie && !isn) {
--		/* VJ's idea. We save last timestamp seen
--		 * from the destination in peer table, when entering
--		 * state TIME-WAIT, and check against it before
--		 * accepting new connection request.
--		 *
--		 * If "isn" is not zero, this request hit alive
--		 * timewait bucket, so that all the necessary checks
--		 * are made in the function processing timewait state.
--		 */
--		if (net->ipv4.tcp_death_row.sysctl_tw_recycle) {
--			bool strict;
--
--			dst = af_ops->route_req(sk, &fl, req, &strict);
--
--			if (dst && strict &&
--			    !tcp_peer_is_proven(req, dst)) {
--				NET_INC_STATS(sock_net(sk), LINUX_MIB_PAWSPASSIVEREJECTED);
--				goto drop_and_release;
--			}
--		}
- 		/* Kill the following clause, if you dislike this way. */
--		else if (!net->ipv4.sysctl_tcp_syncookies &&
--			 (net->ipv4.sysctl_max_syn_backlog - inet_csk_reqsk_queue_len(sk) <
--			  (net->ipv4.sysctl_max_syn_backlog >> 2)) &&
--			 !tcp_peer_is_proven(req, dst)) {
-+		if (!net->ipv4.sysctl_tcp_syncookies &&
-+		    (net->ipv4.sysctl_max_syn_backlog - inet_csk_reqsk_queue_len(sk) <
-+		     (net->ipv4.sysctl_max_syn_backlog >> 2)) &&
-+		    !tcp_peer_is_proven(req, dst)) {
+ 			if (dst && strict &&
+-			    !tcp_peer_is_proven(req, dst, true,
+-						tmp_opt.saw_tstamp)) {
++			    !tcp_peer_is_proven(req, dst)) {
+ 				NET_INC_STATS(sock_net(sk), LINUX_MIB_PAWSPASSIVEREJECTED);
+ 				goto drop_and_release;
+ 			}
+@@ -6352,8 +6351,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 		else if (!net->ipv4.sysctl_tcp_syncookies &&
+ 			 (net->ipv4.sysctl_max_syn_backlog - inet_csk_reqsk_queue_len(sk) <
+ 			  (net->ipv4.sysctl_max_syn_backlog >> 2)) &&
+-			 !tcp_peer_is_proven(req, dst, false,
+-					     tmp_opt.saw_tstamp)) {
++			 !tcp_peer_is_proven(req, dst)) {
  			/* Without syncookies last quarter of
  			 * backlog is filled with destinations,
  			 * proven to be alive.
-@@ -6367,7 +6347,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		isn = af_ops->init_seq_tsoff(skb, &tcp_rsk(req)->ts_off);
- 	}
- 	if (!dst) {
--		dst = af_ops->route_req(sk, &fl, req, NULL);
-+		dst = af_ops->route_req(sk, &fl, req);
- 		if (!dst)
- 			goto drop_and_free;
- 	}
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d8b401fff9fe..7482b5d11861 100644
+index 08d870e45658..d8b401fff9fe 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -1213,19 +1213,9 @@ static void tcp_v4_init_req(struct request_sock *req,
+@@ -198,10 +198,6 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 			tp->write_seq	   = 0;
+ 	}
  
- static struct dst_entry *tcp_v4_route_req(const struct sock *sk,
- 					  struct flowi *fl,
--					  const struct request_sock *req,
--					  bool *strict)
-+					  const struct request_sock *req)
- {
--	struct dst_entry *dst = inet_csk_route_req(sk, &fl->u.ip4, req);
+-	if (tcp_death_row->sysctl_tw_recycle &&
+-	    !tp->rx_opt.ts_recent_stamp && fl4->daddr == daddr)
+-		tcp_fetch_timewait_stamp(sk, &rt->dst);
 -
--	if (strict) {
--		if (fl->u.ip4.daddr == inet_rsk(req)->ir_rmt_addr)
--			*strict = true;
--		else
--			*strict = false;
--	}
--
--	return dst;
-+	return inet_csk_route_req(sk, &fl->u.ip4, req);
+ 	inet->inet_dport = usin->sin_port;
+ 	sk_daddr_set(sk, daddr);
+ 
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 0f46e5fe31ad..9d0d4f39e42b 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -45,8 +45,6 @@ struct tcp_metrics_block {
+ 	struct inetpeer_addr		tcpm_saddr;
+ 	struct inetpeer_addr		tcpm_daddr;
+ 	unsigned long			tcpm_stamp;
+-	u32				tcpm_ts;
+-	u32				tcpm_ts_stamp;
+ 	u32				tcpm_lock;
+ 	u32				tcpm_vals[TCP_METRIC_MAX_KERNEL + 1];
+ 	struct tcp_fastopen_metrics	tcpm_fastopen;
+@@ -123,8 +121,6 @@ static void tcpm_suck_dst(struct tcp_metrics_block *tm,
+ 	tm->tcpm_vals[TCP_METRIC_SSTHRESH] = dst_metric_raw(dst, RTAX_SSTHRESH);
+ 	tm->tcpm_vals[TCP_METRIC_CWND] = dst_metric_raw(dst, RTAX_CWND);
+ 	tm->tcpm_vals[TCP_METRIC_REORDERING] = dst_metric_raw(dst, RTAX_REORDERING);
+-	tm->tcpm_ts = 0;
+-	tm->tcpm_ts_stamp = 0;
+ 	if (fastopen_clear) {
+ 		tm->tcpm_fastopen.mss = 0;
+ 		tm->tcpm_fastopen.syn_loss = 0;
+@@ -273,48 +269,6 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
+ 	return tm;
  }
  
- struct request_sock_ops tcp_request_sock_ops __read_mostly = {
-@@ -2462,7 +2452,6 @@ static int __net_init tcp_sk_init(struct net *net)
- 	net->ipv4.sysctl_tcp_tw_reuse = 0;
+-static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock *tw)
+-{
+-	struct tcp_metrics_block *tm;
+-	struct inetpeer_addr saddr, daddr;
+-	unsigned int hash;
+-	struct net *net;
+-
+-	if (tw->tw_family == AF_INET) {
+-		inetpeer_set_addr_v4(&saddr, tw->tw_rcv_saddr);
+-		inetpeer_set_addr_v4(&daddr, tw->tw_daddr);
+-		hash = ipv4_addr_hash(tw->tw_daddr);
+-	}
+-#if IS_ENABLED(CONFIG_IPV6)
+-	else if (tw->tw_family == AF_INET6) {
+-		if (ipv6_addr_v4mapped(&tw->tw_v6_daddr)) {
+-			inetpeer_set_addr_v4(&saddr, tw->tw_rcv_saddr);
+-			inetpeer_set_addr_v4(&daddr, tw->tw_daddr);
+-			hash = ipv4_addr_hash(tw->tw_daddr);
+-		} else {
+-			inetpeer_set_addr_v6(&saddr, &tw->tw_v6_rcv_saddr);
+-			inetpeer_set_addr_v6(&daddr, &tw->tw_v6_daddr);
+-			hash = ipv6_addr_hash(&tw->tw_v6_daddr);
+-		}
+-	}
+-#endif
+-	else
+-		return NULL;
+-
+-	net = twsk_net(tw);
+-	hash ^= net_hash_mix(net);
+-	hash = hash_32(hash, tcp_metrics_hash_log);
+-
+-	for (tm = rcu_dereference(tcp_metrics_hash[hash].chain); tm;
+-	     tm = rcu_dereference(tm->tcpm_next)) {
+-		if (addr_same(&tm->tcpm_saddr, &saddr) &&
+-		    addr_same(&tm->tcpm_daddr, &daddr) &&
+-		    net_eq(tm_net(tm), net))
+-			break;
+-	}
+-	return tm;
+-}
+-
+ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 						 struct dst_entry *dst,
+ 						 bool create)
+@@ -573,8 +527,7 @@ void tcp_init_metrics(struct sock *sk)
+ 	tp->snd_cwnd_stamp = tcp_time_stamp;
+ }
  
- 	cnt = tcp_hashinfo.ehash_mask + 1;
--	net->ipv4.tcp_death_row.sysctl_tw_recycle = 0;
- 	net->ipv4.tcp_death_row.sysctl_max_tw_buckets = (cnt + 1) / 2;
- 	net->ipv4.tcp_death_row.hashinfo = &tcp_hashinfo;
+-bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
+-			bool paws_check, bool timestamps)
++bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst)
+ {
+ 	struct tcp_metrics_block *tm;
+ 	bool ret;
+@@ -584,94 +537,10 @@ bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
  
+ 	rcu_read_lock();
+ 	tm = __tcp_get_metrics_req(req, dst);
+-	if (paws_check) {
+-		if (tm &&
+-		    (u32)get_seconds() - tm->tcpm_ts_stamp < TCP_PAWS_MSL &&
+-		    ((s32)(tm->tcpm_ts - req->ts_recent) > TCP_PAWS_WINDOW ||
+-		     !timestamps))
+-			ret = false;
+-		else
+-			ret = true;
+-	} else {
+-		if (tm && tcp_metric_get(tm, TCP_METRIC_RTT) && tm->tcpm_ts_stamp)
+-			ret = true;
+-		else
+-			ret = false;
+-	}
+-	rcu_read_unlock();
+-
+-	return ret;
+-}
+-
+-void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst)
+-{
+-	struct tcp_metrics_block *tm;
+-
+-	rcu_read_lock();
+-	tm = tcp_get_metrics(sk, dst, true);
+-	if (tm) {
+-		struct tcp_sock *tp = tcp_sk(sk);
+-
+-		if ((u32)get_seconds() - tm->tcpm_ts_stamp <= TCP_PAWS_MSL) {
+-			tp->rx_opt.ts_recent_stamp = tm->tcpm_ts_stamp;
+-			tp->rx_opt.ts_recent = tm->tcpm_ts;
+-		}
+-	}
+-	rcu_read_unlock();
+-}
+-EXPORT_SYMBOL_GPL(tcp_fetch_timewait_stamp);
+-
+-/* VJ's idea. Save last timestamp seen from this destination and hold
+- * it at least for normal timewait interval to use for duplicate
+- * segment detection in subsequent connections, before they enter
+- * synchronized state.
+- */
+-bool tcp_remember_stamp(struct sock *sk)
+-{
+-	struct dst_entry *dst = __sk_dst_get(sk);
+-	bool ret = false;
+-
+-	if (dst) {
+-		struct tcp_metrics_block *tm;
+-
+-		rcu_read_lock();
+-		tm = tcp_get_metrics(sk, dst, true);
+-		if (tm) {
+-			struct tcp_sock *tp = tcp_sk(sk);
+-
+-			if ((s32)(tm->tcpm_ts - tp->rx_opt.ts_recent) <= 0 ||
+-			    ((u32)get_seconds() - tm->tcpm_ts_stamp > TCP_PAWS_MSL &&
+-			     tm->tcpm_ts_stamp <= (u32)tp->rx_opt.ts_recent_stamp)) {
+-				tm->tcpm_ts_stamp = (u32)tp->rx_opt.ts_recent_stamp;
+-				tm->tcpm_ts = tp->rx_opt.ts_recent;
+-			}
+-			ret = true;
+-		}
+-		rcu_read_unlock();
+-	}
+-	return ret;
+-}
+-
+-bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw)
+-{
+-	struct tcp_metrics_block *tm;
+-	bool ret = false;
+-
+-	rcu_read_lock();
+-	tm = __tcp_get_metrics_tw(tw);
+-	if (tm) {
+-		const struct tcp_timewait_sock *tcptw;
+-		struct sock *sk = (struct sock *) tw;
+-
+-		tcptw = tcp_twsk(sk);
+-		if ((s32)(tm->tcpm_ts - tcptw->tw_ts_recent) <= 0 ||
+-		    ((u32)get_seconds() - tm->tcpm_ts_stamp > TCP_PAWS_MSL &&
+-		     tm->tcpm_ts_stamp <= (u32)tcptw->tw_ts_recent_stamp)) {
+-			tm->tcpm_ts_stamp = (u32)tcptw->tw_ts_recent_stamp;
+-			tm->tcpm_ts	   = tcptw->tw_ts_recent;
+-		}
++	if (tm && tcp_metric_get(tm, TCP_METRIC_RTT))
+ 		ret = true;
+-	}
++	else
++		ret = false;
+ 	rcu_read_unlock();
+ 
+ 	return ret;
+@@ -791,14 +660,6 @@ static int tcp_metrics_fill_info(struct sk_buff *msg,
+ 			  jiffies - tm->tcpm_stamp,
+ 			  TCP_METRICS_ATTR_PAD) < 0)
+ 		goto nla_put_failure;
+-	if (tm->tcpm_ts_stamp) {
+-		if (nla_put_s32(msg, TCP_METRICS_ATTR_TW_TS_STAMP,
+-				(s32) (get_seconds() - tm->tcpm_ts_stamp)) < 0)
+-			goto nla_put_failure;
+-		if (nla_put_u32(msg, TCP_METRICS_ATTR_TW_TSVAL,
+-				tm->tcpm_ts) < 0)
+-			goto nla_put_failure;
+-	}
+ 
+ 	{
+ 		int n = 0;
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 7e16243cdb58..692f974e5abe 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -94,7 +94,6 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
+ 	struct tcp_options_received tmp_opt;
+ 	struct tcp_timewait_sock *tcptw = tcp_twsk((struct sock *)tw);
+ 	bool paws_reject = false;
+-	struct inet_timewait_death_row *tcp_death_row = &sock_net((struct sock*)tw)->ipv4.tcp_death_row;
+ 
+ 	tmp_opt.saw_tstamp = 0;
+ 	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
+@@ -149,12 +148,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
+ 			tcptw->tw_ts_recent	  = tmp_opt.rcv_tsval;
+ 		}
+ 
+-		if (tcp_death_row->sysctl_tw_recycle &&
+-		    tcptw->tw_ts_recent_stamp &&
+-		    tcp_tw_remember_stamp(tw))
+-			inet_twsk_reschedule(tw, tw->tw_timeout);
+-		else
+-			inet_twsk_reschedule(tw, TCP_TIMEWAIT_LEN);
++		inet_twsk_reschedule(tw, TCP_TIMEWAIT_LEN);
+ 		return TCP_TW_ACK;
+ 	}
+ 
+@@ -259,12 +253,8 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_timewait_sock *tw;
+-	bool recycle_ok = false;
+ 	struct inet_timewait_death_row *tcp_death_row = &sock_net(sk)->ipv4.tcp_death_row;
+ 
+-	if (tcp_death_row->sysctl_tw_recycle && tp->rx_opt.ts_recent_stamp)
+-		recycle_ok = tcp_remember_stamp(sk);
+-
+ 	tw = inet_twsk_alloc(sk, tcp_death_row, state);
+ 
+ 	if (tw) {
+@@ -317,13 +307,9 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
+ 		if (timeo < rto)
+ 			timeo = rto;
+ 
+-		if (recycle_ok) {
+-			tw->tw_timeout = rto;
+-		} else {
+-			tw->tw_timeout = TCP_TIMEWAIT_LEN;
+-			if (state == TCP_TIME_WAIT)
+-				timeo = TCP_TIMEWAIT_LEN;
+-		}
++		tw->tw_timeout = TCP_TIMEWAIT_LEN;
++		if (state == TCP_TIME_WAIT)
++			timeo = TCP_TIMEWAIT_LEN;
+ 
+ 		inet_twsk_schedule(tw, timeo);
+ 		/* Linkage updates. */
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 853cb43e3e3c..0f08d718a002 100644
+index c73a431fd06f..853cb43e3e3c 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -722,11 +722,8 @@ static void tcp_v6_init_req(struct request_sock *req,
+@@ -265,11 +265,6 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 	sk->sk_gso_type = SKB_GSO_TCPV6;
+ 	ip6_dst_store(sk, dst, NULL, NULL);
  
- static struct dst_entry *tcp_v6_route_req(const struct sock *sk,
- 					  struct flowi *fl,
--					  const struct request_sock *req,
--					  bool *strict)
-+					  const struct request_sock *req)
- {
--	if (strict)
--		*strict = true;
- 	return inet6_csk_route_req(sk, &fl->u.ip6, req, IPPROTO_TCP);
- }
- 
+-	if (tcp_death_row->sysctl_tw_recycle &&
+-	    !tp->rx_opt.ts_recent_stamp &&
+-	    ipv6_addr_equal(&fl6.daddr, &sk->sk_v6_daddr))
+-		tcp_fetch_timewait_stamp(sk, dst);
+-
+ 	icsk->icsk_ext_hdr_len = 0;
+ 	if (opt)
+ 		icsk->icsk_ext_hdr_len = opt->opt_flen +
 -- 
 2.12.0.367.g23dc2f6d3c-goog
