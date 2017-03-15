@@ -1,44 +1,80 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH v2 0/5] MIPS: BPF: JIT fixes and improvements.
-Date: Wed, 15 Mar 2017 14:08:23 +0100
-Message-ID: <20170315130823.GA5512@linux-mips.org>
-References: <20170314212144.29988-1-david.daney@cavium.com>
- <20170314.172937.1289357366273291363.davem@davemloft.net>
- <1d09f001-aa15-e3bf-be85-a13b1132a12a@caviumnetworks.com>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [patch net-next v2 1/9] net: fib_rules: Check if selector
+ matches all packets
+Date: Wed, 15 Mar 2017 17:30:31 +0200
+Message-ID: <20170315153031.GA30399@splinter.mtl.com>
+References: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
+ <1489575912-6469-2-git-send-email-jiri@resnulli.us>
+ <27c557ac-5905-5004-8264-1ceba0ad76c6@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, david.daney@cavium.com,
-        linux-mips@linux-mips.org, james.hogan@imgtec.com, ast@kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        steven.hill@cavium.com
-To: David Daney <ddaney@caviumnetworks.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        shm@cumulusnetworks.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, lorenzo@google.com,
+        mateusz.bajorski@nokia.com
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([148.251.95.138]:45718 "EHLO
-        cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753358AbdCOP2A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 11:28:00 -0400
-Received: from localhost.localdomain ([127.0.0.1]:39218 "EHLO linux-mips.org"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S23991232AbdCOP161FIyV (ORCPT <rfc822;netdev@vger.kernel.org>
-        + 1 other); Wed, 15 Mar 2017 16:27:58 +0100
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:35349 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751416AbdCOPae (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 11:30:34 -0400
 Content-Disposition: inline
-In-Reply-To: <1d09f001-aa15-e3bf-be85-a13b1132a12a@caviumnetworks.com>
+In-Reply-To: <27c557ac-5905-5004-8264-1ceba0ad76c6@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 14, 2017 at 05:34:02PM -0700, David Daney wrote:
-
-> > What tree are you targetting with these changes?  Do you expect
-> > them to go via the MIPS or the net-next tree?
-> > 
-> > Please be explicit about this in the future.
-> > 
+On Wed, Mar 15, 2017 at 09:15:43AM -0600, David Ahern wrote:
+> On 3/15/17 5:05 AM, Jiri Pirko wrote:
+> > diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+> > index b6791d9..4ed475d 100644
+> > --- a/net/core/fib_rules.c
+> > +++ b/net/core/fib_rules.c
+> > @@ -23,6 +23,20 @@ static const struct fib_kuid_range fib_kuid_range_unset = {
+> >  	KUIDT_INIT(~0),
+> >  };
+> >  
+> > +bool fib_rule_matchall(const struct fib_rule *rule)
+> > +{
+> > +	if (rule->iifindex || rule->oifindex || rule->mark || rule->l3mdev ||
 > 
-> Sorry I didn't mention it.
+> l3mdev should not be in that list. Setting l3mdev is functionally
+> equivalent to setting rule->table. The difference is that l3mdev means
+> go get the table from the device. It has no bearing on a 'matchall' intent.
+
+Good idea. Will drop this and the last patch.
+
 > 
-> My expectation is that Ralf would merge it via the MIPS tree, as it is fully
-> contained within arch/mips/*
+> 
+> > +	    rule->tun_id || rule->flags)
+> > +		return false;
+> > +	if (rule->suppress_ifgroup != -1 || rule->suppress_prefixlen != -1)
+> > +		return false;
+> > +	if (!uid_eq(rule->uid_range.start, fib_kuid_range_unset.start) ||
+> > +	    !uid_eq(rule->uid_range.end, fib_kuid_range_unset.end))
+> > +		return false;
+> > +	return true;
+> > +}
+> > +EXPORT_SYMBOL_GPL(fib_rule_matchall);
+> > +
+> >  int fib_default_rule_add(struct fib_rules_ops *ops,
+> >  			 u32 pref, u32 table, u32 flags)
+> >  {
+> > diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+> > index 2892109..7a941a5 100644
+> > --- a/net/ipv4/fib_rules.c
+> > +++ b/net/ipv4/fib_rules.c
+> > @@ -47,6 +47,16 @@ struct fib4_rule {
+> >  #endif
+> >  };
+> >  
+> > +bool fib4_rule_matchall(const struct fib_rule *rule)
+> > +{
+> > +	struct fib4_rule *r = (struct fib4_rule *) rule;
+> 
+> Use container_of instead of typecast.
 
-Thanks, applied.
+There are multiple conversions from 'fib_rule' to 'fib4_rule' in this
+file, all use typecast.
 
-  Ralf
+Thanks David.
