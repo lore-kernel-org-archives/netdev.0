@@ -1,299 +1,111 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/10] netfilter: nft_set_bitmap: keep a list of dummy elements
-Date: Wed, 15 Mar 2017 18:01:10 +0100
-Message-ID: <1489597272-30347-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/10] netfilter: nf_nat_sctp: fix ICMP packet to be dropped accidently
+Date: Wed, 15 Mar 2017 18:01:04 +0100
+Message-ID: <1489597272-30347-3-git-send-email-pablo@netfilter.org>
 References: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37610 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:37460 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753117AbdCORBo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Mar 2017 13:01:44 -0400
+        id S1752182AbdCORBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 13:01:40 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id B7DE61324E3
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:27 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id C00C71324C7
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:20 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 9DCC6DA729
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:27 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B13FDDA8F7
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:20 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 6F083DA86F
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:23 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 521D9DA874
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:18 +0100 (CET)
 In-Reply-To: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Element comments may come without any prior set flag, so we have to keep
-a list of dummy struct nft_set_ext to keep this information around. This
-is only useful for set dumps to userspace. From the packet path, this
-set type relies on the bitmap representation. This patch simplifies the
-logic since we don't need to allocate the dummy nft_set_ext structure
-anymore on the fly at the cost of increasing memory consumption because
-of the list of dummy struct nft_set_ext.
+From: Ying Xue <ying.xue@windriver.com>
 
-Fixes: 665153ff5752 ("netfilter: nf_tables: add bitmap set type")
+Regarding RFC 792, the first 64 bits of the original SCTP datagram's
+data could be contained in ICMP packet, such as:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |     Type      |     Code      |          Checksum             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                             unused                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |      Internet Header + 64 bits of Original Data Datagram      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+However, according to RFC 4960, SCTP datagram header is as below:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |     Source Port Number        |     Destination Port Number   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      Verification Tag                         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Checksum                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+It means only the first three fields of SCTP header can be carried in
+ICMP packet except for Checksum field.
+
+At present in sctp_manip_pkt(), no matter whether the packet is ICMP or
+not, it always calculates SCTP packet checksum. However, not only the
+calculation of checksum is unnecessary for ICMP, but also it causes
+another fatal issue that ICMP packet is dropped. The header size of
+SCTP is used to identify whether the writeable length of skb is bigger
+than skb->len through skb_make_writable() in sctp_manip_pkt(). But
+when it deals with ICMP packet, skb_make_writable() directly returns
+false as the writeable length of skb is bigger than skb->len.
+Subsequently ICMP is dropped.
+
+Now we correct this misbahavior. When sctp_manip_pkt() handles ICMP
+packet, 8 bytes rather than the whole SCTP header size is used to check
+if writeable length of skb is overflowed. Meanwhile, as it's meaningless
+to calculate checksum when packet is ICMP, the computation of checksum
+is ignored as well.
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_set_bitmap.c | 146 +++++++++++++++++++----------------------
- 1 file changed, 66 insertions(+), 80 deletions(-)
+ net/netfilter/nf_nat_proto_sctp.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nft_set_bitmap.c b/net/netfilter/nft_set_bitmap.c
-index 9b024e22717b..8ebbc2940f4c 100644
---- a/net/netfilter/nft_set_bitmap.c
-+++ b/net/netfilter/nft_set_bitmap.c
-@@ -15,6 +15,11 @@
- #include <linux/netfilter/nf_tables.h>
- #include <net/netfilter/nf_tables.h>
- 
-+struct nft_bitmap_elem {
-+	struct list_head	head;
-+	struct nft_set_ext	ext;
-+};
-+
- /* This bitmap uses two bits to represent one element. These two bits determine
-  * the element state in the current and the future generation.
-  *
-@@ -41,8 +46,9 @@
-  *      restore its previous state.
-  */
- struct nft_bitmap {
--	u16	bitmap_size;
--	u8	bitmap[];
-+	struct	list_head	list;
-+	u16			bitmap_size;
-+	u8			bitmap[];
- };
- 
- static inline void nft_bitmap_location(const struct nft_set *set,
-@@ -82,21 +88,43 @@ static bool nft_bitmap_lookup(const struct net *net, const struct nft_set *set,
- 	return nft_bitmap_active(priv->bitmap, idx, off, genmask);
- }
- 
-+static struct nft_bitmap_elem *
-+nft_bitmap_elem_find(const struct nft_set *set, struct nft_bitmap_elem *this,
-+		     u8 genmask)
-+{
-+	const struct nft_bitmap *priv = nft_set_priv(set);
-+	struct nft_bitmap_elem *be;
-+
-+	list_for_each_entry_rcu(be, &priv->list, head) {
-+		if (memcmp(nft_set_ext_key(&be->ext),
-+			   nft_set_ext_key(&this->ext), set->klen) ||
-+		    !nft_set_elem_active(&be->ext, genmask))
-+			continue;
-+
-+		return be;
-+	}
-+	return NULL;
-+}
-+
- static int nft_bitmap_insert(const struct net *net, const struct nft_set *set,
- 			     const struct nft_set_elem *elem,
--			     struct nft_set_ext **_ext)
-+			     struct nft_set_ext **ext)
+diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
+index 31d358691af0..804e8a0ab36e 100644
+--- a/net/netfilter/nf_nat_proto_sctp.c
++++ b/net/netfilter/nf_nat_proto_sctp.c
+@@ -33,8 +33,16 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 	       enum nf_nat_manip_type maniptype)
  {
- 	struct nft_bitmap *priv = nft_set_priv(set);
--	struct nft_set_ext *ext = elem->priv;
-+	struct nft_bitmap_elem *new = elem->priv, *be;
- 	u8 genmask = nft_genmask_next(net);
- 	u32 idx, off;
+ 	sctp_sctphdr_t *hdr;
++	int hdrsize = 8;
  
--	nft_bitmap_location(set, nft_set_ext_key(ext), &idx, &off);
--	if (nft_bitmap_active(priv->bitmap, idx, off, genmask))
-+	be = nft_bitmap_elem_find(set, new, genmask);
-+	if (be) {
-+		*ext = &be->ext;
- 		return -EEXIST;
-+	}
- 
-+	nft_bitmap_location(set, nft_set_ext_key(&new->ext), &idx, &off);
- 	/* Enter 01 state. */
- 	priv->bitmap[idx] |= (genmask << off);
-+	list_add_tail_rcu(&new->head, &priv->list);
- 
- 	return 0;
- }
-@@ -106,13 +134,14 @@ static void nft_bitmap_remove(const struct net *net,
- 			      const struct nft_set_elem *elem)
- {
- 	struct nft_bitmap *priv = nft_set_priv(set);
--	struct nft_set_ext *ext = elem->priv;
-+	struct nft_bitmap_elem *be = elem->priv;
- 	u8 genmask = nft_genmask_next(net);
- 	u32 idx, off;
- 
--	nft_bitmap_location(set, nft_set_ext_key(ext), &idx, &off);
-+	nft_bitmap_location(set, nft_set_ext_key(&be->ext), &idx, &off);
- 	/* Enter 00 state. */
- 	priv->bitmap[idx] &= ~(genmask << off);
-+	list_del_rcu(&be->head);
- }
- 
- static void nft_bitmap_activate(const struct net *net,
-@@ -120,73 +149,52 @@ static void nft_bitmap_activate(const struct net *net,
- 				const struct nft_set_elem *elem)
- {
- 	struct nft_bitmap *priv = nft_set_priv(set);
--	struct nft_set_ext *ext = elem->priv;
-+	struct nft_bitmap_elem *be = elem->priv;
- 	u8 genmask = nft_genmask_next(net);
- 	u32 idx, off;
- 
--	nft_bitmap_location(set, nft_set_ext_key(ext), &idx, &off);
-+	nft_bitmap_location(set, nft_set_ext_key(&be->ext), &idx, &off);
- 	/* Enter 11 state. */
- 	priv->bitmap[idx] |= (genmask << off);
-+	nft_set_elem_change_active(net, set, &be->ext);
- }
- 
- static bool nft_bitmap_flush(const struct net *net,
--			     const struct nft_set *set, void *ext)
-+			     const struct nft_set *set, void *_be)
- {
- 	struct nft_bitmap *priv = nft_set_priv(set);
- 	u8 genmask = nft_genmask_next(net);
-+	struct nft_bitmap_elem *be = _be;
- 	u32 idx, off;
- 
--	nft_bitmap_location(set, nft_set_ext_key(ext), &idx, &off);
-+	nft_bitmap_location(set, nft_set_ext_key(&be->ext), &idx, &off);
- 	/* Enter 10 state, similar to deactivation. */
- 	priv->bitmap[idx] &= ~(genmask << off);
-+	nft_set_elem_change_active(net, set, &be->ext);
- 
- 	return true;
- }
- 
--static struct nft_set_ext *nft_bitmap_ext_alloc(const struct nft_set *set,
--						const struct nft_set_elem *elem)
--{
--	struct nft_set_ext_tmpl tmpl;
--	struct nft_set_ext *ext;
--
--	nft_set_ext_prepare(&tmpl);
--	nft_set_ext_add_length(&tmpl, NFT_SET_EXT_KEY, set->klen);
--
--	ext = kzalloc(tmpl.len, GFP_KERNEL);
--	if (!ext)
--		return NULL;
--
--	nft_set_ext_init(ext, &tmpl);
--	memcpy(nft_set_ext_key(ext), elem->key.val.data, set->klen);
--
--	return ext;
--}
--
- static void *nft_bitmap_deactivate(const struct net *net,
- 				   const struct nft_set *set,
- 				   const struct nft_set_elem *elem)
- {
- 	struct nft_bitmap *priv = nft_set_priv(set);
-+	struct nft_bitmap_elem *this = elem->priv, *be;
- 	u8 genmask = nft_genmask_next(net);
--	struct nft_set_ext *ext;
- 	u32 idx, off;
- 
- 	nft_bitmap_location(set, elem->key.val.data, &idx, &off);
- 
--	if (!nft_bitmap_active(priv->bitmap, idx, off, genmask))
--		return NULL;
--
--	/* We have no real set extension since this is a bitmap, allocate this
--	 * dummy object that is released from the commit/abort path.
--	 */
--	ext = nft_bitmap_ext_alloc(set, elem);
--	if (!ext)
-+	be = nft_bitmap_elem_find(set, this, genmask);
-+	if (!be)
- 		return NULL;
- 
- 	/* Enter 10 state. */
- 	priv->bitmap[idx] &= ~(genmask << off);
-+	nft_set_elem_change_active(net, set, &be->ext);
- 
--	return ext;
-+	return be;
- }
- 
- static void nft_bitmap_walk(const struct nft_ctx *ctx,
-@@ -194,47 +202,23 @@ static void nft_bitmap_walk(const struct nft_ctx *ctx,
- 			    struct nft_set_iter *iter)
- {
- 	const struct nft_bitmap *priv = nft_set_priv(set);
--	struct nft_set_ext_tmpl tmpl;
-+	struct nft_bitmap_elem *be;
- 	struct nft_set_elem elem;
--	struct nft_set_ext *ext;
--	int idx, off;
--	u16 key;
--
--	nft_set_ext_prepare(&tmpl);
--	nft_set_ext_add_length(&tmpl, NFT_SET_EXT_KEY, set->klen);
--
--	for (idx = 0; idx < priv->bitmap_size; idx++) {
--		for (off = 0; off < BITS_PER_BYTE; off += 2) {
--			if (iter->count < iter->skip)
--				goto cont;
--
--			if (!nft_bitmap_active(priv->bitmap, idx, off,
--					       iter->genmask))
--				goto cont;
--
--			ext = kzalloc(tmpl.len, GFP_KERNEL);
--			if (!ext) {
--				iter->err = -ENOMEM;
--				return;
--			}
--			nft_set_ext_init(ext, &tmpl);
--			key = ((idx * BITS_PER_BYTE) + off) >> 1;
--			memcpy(nft_set_ext_key(ext), &key, set->klen);
--
--			elem.priv = ext;
--			iter->err = iter->fn(ctx, set, iter, &elem);
--
--			/* On set flush, this dummy extension object is released
--			 * from the commit/abort path.
--			 */
--			if (!iter->flush)
--				kfree(ext);
--
--			if (iter->err < 0)
--				return;
+-	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
++	/* This could be an inner header returned in imcp packet; in such
++	 * cases we cannot update the checksum field since it is outside
++	 * of the 8 bytes of transport layer headers we are guaranteed.
++	 */
++	if (skb->len >= hdroff + sizeof(*hdr))
++		hdrsize = sizeof(*hdr);
 +
-+	list_for_each_entry_rcu(be, &priv->list, head) {
-+		if (iter->count < iter->skip)
-+			goto cont;
-+		if (!nft_set_elem_active(&be->ext, iter->genmask))
-+			goto cont;
-+
-+		elem.priv = be;
-+
-+		iter->err = iter->fn(ctx, set, iter, &elem);
-+
-+		if (iter->err < 0)
-+			return;
- cont:
--			iter->count++;
--		}
-+		iter->count++;
++	if (!skb_make_writable(skb, hdroff + hdrsize))
+ 		return false;
+ 
+ 	hdr = (struct sctphdr *)(skb->data + hdroff);
+@@ -47,6 +55,9 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 		hdr->dest = tuple->dst.u.sctp.port;
  	}
- }
  
-@@ -265,6 +249,7 @@ static int nft_bitmap_init(const struct nft_set *set,
- {
- 	struct nft_bitmap *priv = nft_set_priv(set);
- 
-+	INIT_LIST_HEAD(&priv->list);
- 	priv->bitmap_size = nft_bitmap_size(set->klen);
- 
- 	return 0;
-@@ -290,6 +275,7 @@ static bool nft_bitmap_estimate(const struct nft_set_desc *desc, u32 features,
- 
- static struct nft_set_ops nft_bitmap_ops __read_mostly = {
- 	.privsize	= nft_bitmap_privsize,
-+	.elemsize	= offsetof(struct nft_bitmap_elem, ext),
- 	.estimate	= nft_bitmap_estimate,
- 	.init		= nft_bitmap_init,
- 	.destroy	= nft_bitmap_destroy,
++	if (hdrsize < sizeof(*hdr))
++		return true;
++
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		hdr->checksum = sctp_compute_cksum(skb, hdroff);
+ 		skb->ip_summed = CHECKSUM_NONE;
 -- 
 2.1.4
