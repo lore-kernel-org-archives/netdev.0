@@ -1,115 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 194723] connect() to localhost stalls after 4.9 ->
- 4.10 upgrade
-Date: Wed, 15 Mar 2017 14:40:34 -0700
-Message-ID: <1489614034.28631.162.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170315133619.64a31120@xeon-e3>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
+Date: Wed, 15 Mar 2017 22:42:33 +0100
+Message-ID: <20170315214233.GA1189@salvia>
+References: <20170203091231.10142-1-jonas@southpole.se>
+ <20170315163916.gins7lzzqhwkvfrc@nataraja>
+ <20170315172348.GA30592@salvia>
+ <20170315191038.nco2icu6e545rzlu@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jonas Bonn <jonas@southpole.se>, netdev@vger.kernel.org,
+        osmocom-net-gprs@lists.osmocom.org
+To: Harald Welte <laforge@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:35391 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753560AbdCOVkh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 17:40:37 -0400
-Received: by mail-pf0-f181.google.com with SMTP id x63so9009019pfx.2
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 14:40:36 -0700 (PDT)
-In-Reply-To: <20170315133619.64a31120@xeon-e3>
+Received: from mail.us.es ([193.147.175.20]:40612 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753314AbdCOVms (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 17:42:48 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E0FBA174D04
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 22:42:43 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D0438DA872
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 22:42:43 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 60888DA848
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 22:42:41 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20170315191038.nco2icu6e545rzlu@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-03-15 at 13:36 -0700, Stephen Hemminger wrote:
-> 
-> Begin forwarded message:
-> 
-> Date: Wed, 15 Mar 2017 19:41:59 +0000
-> From: bugzilla-daemon@bugzilla.kernel.org
-> To: stephen@networkplumber.org
-> Subject: [Bug 194723] connect() to localhost stalls after 4.9 -> 4.10 upgrade
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=194723
-> 
-> --- Comment #15 from Lutz Vieweg (lvml@5t9.de) ---
-> At last, bisecting converged:
-> 
-> git bisect start
-> # bad: [c470abd4fde40ea6a0846a2beab642a578c0b8cd] Linux 4.10
-> git bisect bad c470abd4fde40ea6a0846a2beab642a578c0b8cd
-> # good: [69973b830859bc6529a7a0468ba0d80ee5117826] Linux 4.9
-> git bisect good 69973b830859bc6529a7a0468ba0d80ee5117826
-> # bad: [f4000cd99750065d5177555c0a805c97174d1b9f] Merge tag 'arm64-upstream' of
-> git://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux
-> git bisect bad f4000cd99750065d5177555c0a805c97174d1b9f
-> # bad: [7079efc9d3e7f1f7cdd34082ec58209026315057] Merge tag 'fbdev-4.10' of
-> git://git.kernel.org/pub/scm/linux/kernel/git/tomba/linux
-> git bisect bad 7079efc9d3e7f1f7cdd34082ec58209026315057
-> # bad: [669bb4c58c3091cd54650e37c5f4e345dd12c564] Merge branch 'for-linus' of
-> git://git.kernel.org/pub/scm/linux/kernel/git/egtvedt/linux-avr32
-> git bisect bad 669bb4c58c3091cd54650e37c5f4e345dd12c564
-> # good: [7a8bca043cf1bb0433aa43d008b6c4de6c07d6a2] Merge branch 'sfc-tso-v2'
-> git bisect good 7a8bca043cf1bb0433aa43d008b6c4de6c07d6a2
-> # bad: [4f4f907a6729ae9e132810711c3a05e48311a948] Merge branch 'mvneta-64bit'
-> git bisect bad 4f4f907a6729ae9e132810711c3a05e48311a948
-> # good: [33f8a0458b2ce4546b681c5fae04427e3077a543] Merge tag
-> 'wireless-drivers-next-for-davem-2016-11-25' of
-> git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next
-> git bisect good 33f8a0458b2ce4546b681c5fae04427e3077a543
-> # good: [80439a1704e811697ee01fd09dd95dd10790bc93] qede: Remove 'num_tc'.
-> git bisect good 80439a1704e811697ee01fd09dd95dd10790bc93
-> # good: [5067b6020770ef7c8102f47079c9e577d175ef2c] net/mlx5e: Remove flow encap
-> entry in the correct place
-> git bisect good 5067b6020770ef7c8102f47079c9e577d175ef2c
-> # bad: [7091d8c7055d7310339435ae3af2fb490a92524d] net/sched: cls_flower: Add
-> offload support using egress Hardware device
-> git bisect bad 7091d8c7055d7310339435ae3af2fb490a92524d
-> # good: [b14945ac3efdf5217182a344b037f96d6b0afae1] net: atarilance: use %8ph
-> for printing hex string
-> git bisect good b14945ac3efdf5217182a344b037f96d6b0afae1
-> # bad: [25429d7b7dca01dc4f17205de023a30ca09390d0] tcp: allow to turn tcp
-> timestamp randomization off
-> git bisect bad 25429d7b7dca01dc4f17205de023a30ca09390d0
-> # good: [1d6cff4fca4366d0529dbce170e0f33cfe213790] qed: Add iSCSI out of order
-> packet handling.
-> git bisect good 1d6cff4fca4366d0529dbce170e0f33cfe213790
-> # bad: [95a22caee396cef0bb2ca8fafdd82966a49367bb] tcp: randomize tcp timestamp
-> offsets for each connection
-> git bisect bad 95a22caee396cef0bb2ca8fafdd82966a49367bb
-> 
-> 
-> So the culprit seems to be this change: 
-> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=95a22caee396cef0bb2ca8fafdd82966a49367bb
-> 
-> "tcp: randomize tcp timestamp offsets for each connection
-> jiffies based timestamps allow for easy inference of number of devices
-> behind NAT translators and also makes tracking of hosts simpler.
-> 
-> commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
-> added the main infrastructure that is needed for per-connection ts
-> randomization, in particular writing/reading the on-wire tcp header
-> format takes the offset into account so rest of stack can use normal
-> tcp_time_stamp (jiffies).
-> 
-> So only two items are left:
->  - add a tsoffset for request sockets
->  - extend the tcp isn generator to also return another 32bit number
->    in addition to the ISN.
-> 
-> Re-use of ISN generator also means timestamps are still monotonically
-> increasing for same connection quadruple, i.e. PAWS will still work.
-> 
-> Includes fixes from Eric Dumazet.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> Acked-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> "
-> 
-> I will try to attract some attention from above mentioned people.
-> 
+Hi Harald,
 
-Finally time to get rid of buggy tw_recycle, that apparently some
-distros set to one.
+On Wed, Mar 15, 2017 at 08:10:38PM +0100, Harald Welte wrote:
+> I've modified the patch slightly, see below (compile-tested, but not
+> otherwise tested yet).  Basically rename the flags attribute to 'role',
+> expand the commit log and removed unrelated cosmetic changes.
+> 
+> I've also prepared a corresponding change to libgtpnl into the
+> laforge/sgsn-rol branch, see
+> http://git.osmocom.org/libgtpnl/commit/?h=laforge/sgsn-role
+> 
+> This is not yet tested in any way, but I'm planning to add some
+> associated support to the command line tools and then give it some
+> testing (both against the kernel GTP in GGSN mode, as well as an
+> independent userspace GTP implementation).
+
+Thanks Harald.
+
+> > It would be good if we provide a way to configure GTP via iproute2 for
+> > testing purposes.
+> 
+> I don't really care about which tool is used, as long as it is easily
+> available [and FOSS, of course].
+>
+> > We would need to create some dummy socket from
+> > kernel too though so we don't need any userspace daemon for this
+> > testing mode.
+> 
+> I don't really like that latter idea. It sounds too much like a hack to
+> me.  But then, I don't have enough phantasy right now ti imagine how an
+> actual implementation would look like.
+
+It's not that far away, we can just create the udp socket from
+kernelspace via udp_sock_create() in the test mode. So we don't need
+to pass the file descriptor from userspace. But not asking you to work
+on this, just an idea.
+
+> To me, it is perfectly fine to run a simple, small utility in userspace
+> even for testing.
+
+No problem.
