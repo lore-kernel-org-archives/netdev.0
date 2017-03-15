@@ -1,101 +1,93 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 2/9] ipv4: fib_rules: Add notifier info to FIB rules notifications
-Date: Wed, 15 Mar 2017 12:05:05 +0100
-Message-ID: <1489575912-6469-3-git-send-email-jiri@resnulli.us>
-References: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 0/9] mlxsw: Enable VRF offload
+Date: Wed, 15 Mar 2017 12:05:03 +0100
+Message-ID: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
         kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35233 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752980AbdCOLFT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:19 -0400
-Received: by mail-wm0-f68.google.com with SMTP id z63so4071376wmg.2
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 04:05:17 -0700 (PDT)
-In-Reply-To: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:36455 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752861AbdCOLFQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:16 -0400
+Received: by mail-wr0-f196.google.com with SMTP id l37so1588564wrc.3
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 04:05:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Whenever a FIB rule is added or removed, a notification is sent in the
-FIB notification chain. However, listeners don't have a way to tell
-which rule was added or removed.
+Ido says:
 
-This is problematic as we would like to give listeners the ability to
-decide which action to execute based on the notified rule. Specifically,
-offloading drivers should be able to determine if they support the
-reflection of the notified FIB rule and flush their LPM tables in case
-they don't.
+Packets received from netdevs enslaved to different VRF devices are
+forwarded using different FIB tables. In the Spectrum ASIC this is
+achieved by binding different router interfaces (RIFs) to different
+virtual routers (VRs). Each RIF represents an enslaved netdev and each
+VR has its own FIB table according to which packets are forwarded.
 
-Do that by adding a notifier info to these notifications and embed the
-common FIB rule struct in it.
+The first three patches add helpers to check if the FIB rule's selector
+matches all packets and extend the FIB notification chain to include the
+rule's info as part of the RULE_{ADD,DEL} events. This allows offloading
+drivers to sanitize the rules they don't support and flush their tables.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/ip_fib.h |  5 +++++
- net/ipv4/fib_rules.c | 13 ++++++++-----
- 2 files changed, 13 insertions(+), 5 deletions(-)
+The fourth patch introduces a small change in the VRF driver to allow
+capable drivers to more easily offload VRFs.
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index ec03e0f..319de77 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -213,6 +213,11 @@ struct fib_entry_notifier_info {
- 	u32 tb_id;
- };
- 
-+struct fib_rule_notifier_info {
-+	struct fib_notifier_info info; /* must be first */
-+	struct fib_rule *rule;
-+};
-+
- struct fib_nh_notifier_info {
- 	struct fib_notifier_info info; /* must be first */
- 	struct fib_nh *fib_nh;
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 7a941a5..d9cd3be 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -175,11 +175,14 @@ static struct fib_table *fib_empty_table(struct net *net)
- }
- 
- static int call_fib_rule_notifiers(struct net *net,
--				   enum fib_event_type event_type)
-+				   enum fib_event_type event_type,
-+				   struct fib_rule *rule)
- {
--	struct fib_notifier_info info;
-+	struct fib_rule_notifier_info info = {
-+		.rule = rule,
-+	};
- 
--	return call_fib_notifiers(net, event_type, &info);
-+	return call_fib_notifiers(net, event_type, &info.info);
- }
- 
- void fib_rules_notify(struct net *net, struct notifier_block *nb)
-@@ -246,7 +249,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
- 	rule4->tos = frh->tos;
- 
- 	net->ipv4.fib_has_custom_rules = true;
--	call_fib_rule_notifiers(net, FIB_EVENT_RULE_ADD);
-+	call_fib_rule_notifiers(net, FIB_EVENT_RULE_ADD, rule);
- 
- 	err = 0;
- errout:
-@@ -268,7 +271,7 @@ static int fib4_rule_delete(struct fib_rule *rule)
- 		net->ipv4.fib_num_tclassid_users--;
- #endif
- 	net->ipv4.fib_has_custom_rules = true;
--	call_fib_rule_notifiers(net, FIB_EVENT_RULE_DEL);
-+	call_fib_rule_notifiers(net, FIB_EVENT_RULE_DEL, rule);
- errout:
- 	return err;
- }
+Finally, the last patches gradually add support for VRFs in the mlxsw
+driver. First, on top of port netdevs, stacked LAG and VLAN devices and
+then on top of bridges.
+
+Some limitations I would like to point out:
+
+1) The old model where 'oif' / 'iif' rules were programmed for each L3
+master device isn't supported. Upon insertion of these rules the driver
+will flush its tables and forwarding will be done by the kernel instead.
+It's inferior in every way to the single 'l3mdev' rule, so this shouldn't
+be an issue.
+
+2) Inter-VRF routes pointing to a VRF device aren't offloaded. Packets
+hitting these routes will be forwarded by the kernel. Inter-VRF routes
+pointing to netdevs enslaved to a different VRF are offloaded.
+
+3) There's a small discrepancy between the kernel's datapath and the
+device's. By default, packets forwarded by the kernel first do a lookup
+in the LOCAL table and then in the VRF's table (assuming no match). In
+the device, lookup is done only in the VRF's table, which is probably
+the intended behavior. Changes in v2 allow user to properly re-order the
+default rules without triggering the abort mechanism.
+
+Changes in v2:
+* Drop default rule indication and allow re-ordering of default rules
+  (David Ahern).
+* Remove ifdef around 'struct fib_rule_notifier_info' and drop redundant
+  dependency on IP_MULTIPLE_TABLES from rocker and mlxsw.
+* Add David's Acked-by to the fourth patch.
+* Remove netif_is_vrf_master() and use netif_is_l3_master() instead
+  (David Ahern).
+
+Ido Schimmel (9):
+  net: fib_rules: Check if selector matches all packets
+  ipv4: fib_rules: Add notifier info to FIB rules notifications
+  ipv4: fib_rules: Dump FIB rules when registering FIB notifier
+  net: vrf: Set slave's private flag before linking
+  mlxsw: spectrum_router: Associate RIFs with correct VR
+  mlxsw: spectrum_router: Don't destroy RIF if L3 slave
+  mlxsw: spectrum_router: Add support for VRFs
+  mlxsw: spectrum_router: Add support for VRFs on top of bridges
+  mlxsw: spectrum_router: Don't abort on l3mdev rules
+
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 71 +++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  8 ++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 99 +++++++++++++++++++++-
+ drivers/net/ethernet/rocker/rocker_main.c          | 26 +++++-
+ drivers/net/vrf.c                                  |  8 +-
+ include/net/fib_rules.h                            |  1 +
+ include/net/ip_fib.h                               | 12 +++
+ net/core/fib_rules.c                               | 14 +++
+ net/ipv4/fib_rules.c                               | 42 +++++++--
+ 9 files changed, 261 insertions(+), 20 deletions(-)
+
 -- 
 2.7.4
