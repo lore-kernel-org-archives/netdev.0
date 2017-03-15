@@ -1,57 +1,42 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v1 for accelerated IPoIB 04/25] IB/verb: Add ipoib_options
- struct and API
-Date: Wed, 15 Mar 2017 09:40:50 -0700
-Message-ID: <20170315164050.GA81782@knc-06.sc.intel.com>
-References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
- <1489429896-10781-5-git-send-email-erezsh@mellanox.com>
- <20170313200136.GA2738@obsidianresearch.com>
- <20170314070109.GD79937@knc-06.sc.intel.com>
- <20170314161149.GA15752@obsidianresearch.com>
- <20170315063043.GC2079@mtr-leonro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170315063043.GC2079-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 10/10] netfilter: nft_ct: do cleanup work when NFTA_CT_DIRECTION is invalid
+Date: Wed, 15 Mar 2017 18:01:12 +0100
+Message-ID: <1489597272-30347-11-git-send-email-pablo@netfilter.org>
+References: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 15, 2017 at 08:30:43AM +0200, Leon Romanovsky wrote:
->On Tue, Mar 14, 2017 at 10:11:49AM -0600, Jason Gunthorpe wrote:
->> On Tue, Mar 14, 2017 at 12:01:09AM -0700, Vishwanathapura, Niranjana wrote:
->> > On Mon, Mar 13, 2017 at 02:01:36PM -0600, Jason Gunthorpe wrote:
->> > >>+	/* multicast */
->> > >>+	int (*attach_mcast)(struct net_device *dev, struct ib_device *hca,
->> > >>+			    union ib_gid *gid, u16 lid, int set_qkey);
->> > >>+	int (*detach_mcast)(struct net_device *dev, struct ib_device *hca,
->> > >>+			    union ib_gid *gid, u16 lid);
->> > >
->> > >It would make more sense to store the struct ib_device pointer in the
->> > >struct rdma_netdev.
->> > >
->> >
->> > Agree that it shouldn't be a function parameters.
->> > For opa_vnic, I found it convenient to store ib_device pointer in client and
->> > device private structures as those will be available in most places anyhow.
->>
->> If vnic uses it too, then lets add the ib_device and port num to
->> rdma_netdev itself?
->
->Agree, at the end this rdma_netdev is intended for the drivers/infiniband
->and it is better to have this binding (rdma_netdev and ib_device) as early as possible.
->
+From: Liping Zhang <zlpnobody@gmail.com>
 
-I agree with adding ibdev and port num to rdma_netdev.
+We should jump to invoke __nft_ct_set_destroy() instead of just
+return error.
 
-Niranjana
+Fixes: edee4f1e9245 ("netfilter: nft_ct: add zone id set support")
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nft_ct.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index 91585b5e5307..0264258c46fe 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -544,7 +544,8 @@ static int nft_ct_set_init(const struct nft_ctx *ctx,
+ 		case IP_CT_DIR_REPLY:
+ 			break;
+ 		default:
+-			return -EINVAL;
++			err = -EINVAL;
++			goto err1;
+ 		}
+ 	}
+ 
+-- 
+2.1.4
+
