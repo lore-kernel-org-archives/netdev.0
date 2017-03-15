@@ -1,67 +1,43 @@
-From: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Subject: [PATCH] SUNRPC: fix include for cmpxhg_relaxed()
-Date: Wed, 15 Mar 2017 10:35:42 +0000
-Message-ID: <1489574142-20856-1-git-send-email-mark.rutland@arm.com>
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] fjes: Fix wrong netdevice feature flags
+Date: Wed, 15 Mar 2017 13:41:56 +0300
+Message-ID: <7ebd6b13-28f3-517b-efb5-4e56dc2e0f1f@cogentembedded.com>
+References: <1489553270-7754-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yasu.isimatu@gmail.com
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>, netdev@vger.kernel.org,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:33556 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751694AbdCOKl7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 06:41:59 -0400
+Received: by mail-lf0-f47.google.com with SMTP id a6so5088384lfa.0
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 03:41:58 -0700 (PDT)
+In-Reply-To: <1489553270-7754-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently net/sunrpc/xprtmultipath.c is the only file outside of arch/
-headers and asm-generic/ headers to include <asm/cmpxhcg.h>, apparently
-for the use of cmpxchg_relaxed().
+Hello!
 
-However, many architectures do not provide cmpxchg_relaxed() in their
-<asm/cmpxhcg.h>, and it is necessary to include <linux/atomic.h> to get
-this definition, as noted in Documentation/core-api/atomic_ops.rst:
+On 3/15/2017 7:47 AM, Taku Izumi wrote:
 
-  If someone wants to use xchg(), cmpxchg() and their variants,
-  linux/atomic.h should be included rather than asm/cmpxchg.h, unless
-  the code is in arch/* and can take care of itself.
+> This patch fixes netdev->features for Extended Socket network device.
+>
+> Currently Extended Socket network device's netdev->feature claims
+> NETIF_F_HW_CSUM, however this is completely wrong. There's no feature
+> of checksum offloading.
+> That causes invalid TCP/UDP checksum and packet rjection when IP
 
-Evidently we're getting the right header this via some transitive
-include today, but this isn't something we can/should rely upon,
-especially with ongoing rework of the atomic headers for KASAN
-instrumentation.
+    Rejection.
 
-Let's fix the code to include <linux/atomic.h>, avoiding fragility.
+> forwarding from Extended Socket network device to other network device.
+>
+> NETIF_F_HW_CSUM should be omitted.
+>
+> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+[...]
 
-Signed-off-by: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Cc: Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Cc: J. Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- net/sunrpc/xprtmultipath.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sunrpc/xprtmultipath.c b/net/sunrpc/xprtmultipath.c
-index ae92a9e..3b1e856 100644
---- a/net/sunrpc/xprtmultipath.c
-+++ b/net/sunrpc/xprtmultipath.c
-@@ -12,7 +12,7 @@
- #include <linux/rcupdate.h>
- #include <linux/rculist.h>
- #include <linux/slab.h>
--#include <asm/cmpxchg.h>
-+#include <linux/atomic.h>
- #include <linux/spinlock.h>
- #include <linux/sunrpc/xprt.h>
- #include <linux/sunrpc/addr.h>
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MBR, Sergei
