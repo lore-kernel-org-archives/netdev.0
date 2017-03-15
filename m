@@ -1,160 +1,131 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next] mlx4: Better use of order-0 pages in RX path
-Date: Tue, 14 Mar 2017 21:06:59 -0700
-Message-ID: <20170315040657.GA29637@ast-mbp.thefacebook.com>
-References: <20170314151143.16231-1-edumazet@google.com>
+From: wenxu <wenxu@ucloud.cn>
+Subject: Re: openvswitch conntrack and nat problem in first packet reply with
+ RST
+Date: Wed, 15 Mar 2017 12:19:41 +0800
+Message-ID: <d6ce5a4d-c7ac-2b1e-3de8-8ea4e528a87e@ucloud.cn>
+References: <5e19d70b-baab-0f52-744f-82758e399c47@ucloud.cn>
+ <CAPWQB7GdCeA1Jev-UFS4jEM+9NJOtHt_Mr08bqUqfrfDELuQiA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jarno Rajahalme <jarno@ovn.org>
+To: Joe Stringer <joe@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:34963 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751068AbdCOEHE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 00:07:04 -0400
-Received: by mail-pg0-f51.google.com with SMTP id b129so3176244pgc.2
-        for <netdev@vger.kernel.org>; Tue, 14 Mar 2017 21:07:03 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170314151143.16231-1-edumazet@google.com>
+Received: from m50211.mail.qiye.163.com ([123.125.50.211]:19694 "EHLO
+        m50211.mail.qiye.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751242AbdCOE1b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 00:27:31 -0400
+In-Reply-To: <CAPWQB7GdCeA1Jev-UFS4jEM+9NJOtHt_Mr08bqUqfrfDELuQiA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 14, 2017 at 08:11:43AM -0700, Eric Dumazet wrote:
-> +static struct page *mlx4_alloc_page(struct mlx4_en_priv *priv,
-> +				    struct mlx4_en_rx_ring *ring,
-> +				    dma_addr_t *dma,
-> +				    unsigned int node, gfp_t gfp)
->  {
-> +	if (unlikely(!ring->pre_allocated_count)) {
-> +		unsigned int order = READ_ONCE(ring->rx_alloc_order);
-> +
-> +		page = __alloc_pages_node(node, (gfp & ~__GFP_DIRECT_RECLAIM) |
-> +						__GFP_NOMEMALLOC |
-> +						__GFP_NOWARN |
-> +						__GFP_NORETRY,
-> +					  order);
-> +		if (page) {
-> +			split_page(page, order);
-> +			ring->pre_allocated_count = 1U << order;
-> +		} else {
-> +			if (order > 1)
-> +				ring->rx_alloc_order--;
-> +			page = __alloc_pages_node(node, gfp, 0);
-> +			if (unlikely(!page))
-> +				return NULL;
-> +			ring->pre_allocated_count = 1U;
->  		}
-> +		ring->pre_allocated = page;
-> +		ring->rx_alloc_pages += ring->pre_allocated_count;
->  	}
-> +	page = ring->pre_allocated++;
-> +	ring->pre_allocated_count--;
 
-do you think this style of allocation can be moved into net common?
-If it's a good thing then other drivers should be using it too, right?
+you are correct! Thanks very much.
 
-> +	ring->cons = 0;
-> +	ring->prod = 0;
-> +
-> +	/* Page recycling works best if we have enough pages in the pool.
-> +	 * Apply a factor of two on the minimal allocations required to
-> +	 * populate RX rings.
-> +	 */
+It's works  set a new example as following.
 
-i'm not sure how above comments matches the code below.
-If my math is correct a ring of 1k elements will ask for 1024
-contiguous pages.
+ip,in_port=2 actions=ct(table=1,zone=1,nat)
+ip,in_port=3 actions=ct(table=1,zone=1,nat)
 
-> +retry:
-> +	total = 0;
-> +	pages_per_ring = new_size * stride_bytes * 2 / PAGE_SIZE;
-> +	pages_per_ring = roundup_pow_of_two(pages_per_ring);
-> +
-> +	order = min_t(u32, ilog2(pages_per_ring), MAX_ORDER - 1);
+table=1, ct_state=+new+trk,tcp,in_port=2,tp_dst=123 actions=ct(commit,zone=1,nat(src=2.2.1.7)),output:3
+table=1, ct_state=+new+trk,icmp,in_port=2 actions=ct(commit,zone=1,nat(src=2.2.1.7)),output:3
+table=1, ct_state=+new+trk,ip,in_port=3 actions=ct(commit,zone=1,nat(dst=192.168.0.7)),output:2
+table=1, ct_state=+new+trk, priority=100, tcp,in_port=3,tp_dst=123 actions=drop
+table=1, ct_state=+est+trk,ip,in_port=3 actions=output:2
+table=1, ct_state=+est+trk,ip,in_port=2 actions=output:3
 
-if you're sure it doesn't hurt the rest of the system,
-why use MAX_ORDER - 1? why not MAX_ORDER?
 
->  
-> -/* We recover from out of memory by scheduling our napi poll
-> - * function (mlx4_en_process_cq), which tries to allocate
-> - * all missing RX buffers (call to mlx4_en_refill_rx_buffers).
-> +/* Under memory pressure, each ring->rx_alloc_order might be lowered
-> + * to very small values. Periodically increase t to initial value for
-> + * optimal allocations, in case stress is over.
->   */
-> +	for (ring_ind = 0; ring_ind < priv->rx_ring_num; ring_ind++) {
-> +		ring = priv->rx_ring[ring_ind];
-> +		order = min_t(unsigned int, ring->rx_alloc_order + 1,
-> +			      ring->rx_pref_alloc_order);
-> +		WRITE_ONCE(ring->rx_alloc_order, order);
 
-when recycling is effective in a matter of few seconds it will
-increase ther order back to 10 and the first time the driver needs
-to allocate, it will start that tedious failure loop all over again.
-How about removing this periodic mlx4_en_recover_from_oom() completely
-and switch to increase the order inside mlx4_alloc_page().
-Like N successful __alloc_pages_node() with order X will bump it
-into order X+1. If it fails next time it will do only one failed attempt.
 
-> +static bool mlx4_replenish(struct mlx4_en_priv *priv,
-> +			   struct mlx4_en_rx_ring *ring,
-> +			   struct mlx4_en_frag_info *frag_info)
->  {
-> +	struct mlx4_en_page *en_page = &ring->pool.array[ring->pool.pool_idx];
-> +	if (!mlx4_page_is_reusable(en_page->page)) {
-> +		page = mlx4_alloc_page(priv, ring, &dma, numa_mem_id(),
-> +				       GFP_ATOMIC | __GFP_MEMALLOC);
 
-I don't understand why page_is_reusable is doing !page_is_pfmemalloc(page))
-check, but here you're asking for MEMALLOC pages too, so
-under memory pressure the hw will dma the packet into this page,
-but then the stack will still drop it, so under pressure
-we'll keep alloc/free the pages from reserve. Isn't it better
-to let the hw drop (since we cannot alloc and rx ring is empty) ?
-What am I missing?
-
-> @@ -767,10 +820,30 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  			case XDP_PASS:
->  				break;
->  			case XDP_TX:
-> +				/* Make sure we have one page ready to replace this one */
-> +				npage = NULL;
-> +				if (!ring->page_cache.index) {
-> +					npage = mlx4_alloc_page(priv, ring,
-> +								&ndma, numa_mem_id(),
-> +								GFP_ATOMIC | __GFP_MEMALLOC);
-> +					if (!npage) {
-> +						ring->xdp_drop++;
-> +						goto next;
-> +					}
-> +				}
-
-I think the approach to drop packets after xdp prog executed is incorrect.
-In such case xdp program already parsed the packet, performed all necessary
-changes and now ready to xmit it out. Dropping packet so late, just
-because page_cache is empty, doesn't make any sense. Therefore please change
-this part back to how it was before: allocate buffer at the end of the loop.
-I think you're trying too hard to avoid _oom() callback doing allocs. Say
-all rx packets went via xdp_tx and we don't have any pages to put into rx ring
-at the end of this rx loop. That's still not a problem. The hw will drop
-few packets and when tx completion fires on the same cpu for xdp rings we
-can without locks populate corresponding rx ring.
-So XDP will be able to operate without allocations even when there is
-no free memory in the rest of the system.
-
-Also I was thinking to limit xdp rings to order 0 allocs only, but doing
-large order can indeed decrease tlb misses. That has to be tested more
-thoroughly and if large order will turn out to hurt we can add small patch
-on top of this one to do order0 for xdp rings.
-
-Overall I think there are several good ideas in this patch,
-but drop after xdp_tx is the showstopper and has to be addressed
-before this patch can be merged.
+> On 13 March 2017 at 20:18, wenxu <wenxu@ucloud.cn> wrote:
+>> Hi all,
+>>
+>> There is a simple test for conntrack and nat in openvswitch.  I want to do stateful
+>> firewall with conntrack then do nat
+>>
+>> netns1 port1 with ip 10.0.0.7
+>> netns2 port2 with ip 1.1.1.7
+>>
+>> netns1 10.0.0.7 src -nat to 2.2.1.7 access netns2 1.1.1.7
+>>
+>> 1. # ovs-ofctl add-flow br0  'ip,in_port=1 actions=ct(table=1,zone=1)'
+>> 2. # ovs-ofctl add-flow br0  'ip,in_port=2 actions=ct(table=1,zone=1)'
+>> 3. # ovs-ofctl add-flow br0  'table=1, ct_state=+new+trk,tcp,in_port=1,tp_dst=123 actions=ct(commit,zone=1,nat(src=2.2.1.7)),output:2'
+>> 4. # ovs-ofctl add-flow br0  'table=1, ct_state=+est+trk,ip,in_port=2 actions=ct(commit,zone=1,nat(dst=10.0.0.7)),output:1'
+>> 5. # ovs-ofctl add-flow br0  'table=1, ct_state=+est+trk,ip,in_port=1  actions=ct(commit,zone=1,nat(src=2.2.1.7)),output:2'
+>>
+>>
+>> I  found that  netns1 can access 1.1.1.7:123  when there is 123-port listen on 1.1.1.7  in netns2
+>>
+>> But if there is no listen 123 port, The first RST packet reply by 1.1.1.7
+>> (no datapath kernel rule) can't do dst-nat back to 10.0.0.7.  The second RST packet is ok (there is datapath kernel rule which comes from first RST packet)
+>>
+>> # tcpdump -i eth0 -nnn
+>> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+>> listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
+>> 14:44:13.575200 IP 10.0.0.7.39891 > 1.1.1.7.123: Flags [S], seq 935877775, win 29200, options [mss 1460,sackOK,TS val 584707316 ecr 0,nop,wscale 7], length 0
+>> 14:44:13.576036 IP 1.1.1.7.123 > 2.2.1.7.39891: Flags [R.], seq 0, ack 935877776, win 0, length 0
+>>
+>> But the datapath flow is correct
+>> # ovs-dpctl dump-flows
+>> recirc_id(0),in_port(7),eth_type(0x0800),ipv4(frag=no), packets:0, bytes:0, used:never, actions:ct(zone=1),recirc(0x5a)
+>> recirc_id(0x5a),in_port(7),ct_state(+new+trk),eth_type(0x0800),ipv4(proto=6,frag=no),tcp(dst=123),
+>>  packets:0, bytes:0, used:never,
+>> actions:ct(commit,zone=1,nat(src=2.2.1.7)),8
+>> recirc_id(0),in_port(8),eth_type(0x0800),ipv4(frag=no), packets:0, bytes:0, used:never, actions:ct(zone=1),recirc(0x5b)
+>> recirc_id(0x5b),in_port(8),ct_state(-new+est+trk),eth_type(0x0800),ipv4(frag=no),
+>>  packets:0, bytes:0, used:never,
+>> actions:ct(commit,zone=1,nat(dst=10.0.0.7)),7
+>>
+>>
+>> I think It's a matter with the PACKET-OUT and RST packet
+>>
+>> There are two packet-out for rule2 and rul4. Rule2 go through connect track and find it is an RST packet then delete the conntrack . It leads the second packet(come from rule4) can't find the conntack to do dst-nat.
+>>
+>> In "netfilter/nf_conntrack_proto_tcp.c file
+>>  if (!test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+>>                 /* If only reply is a RST, we can consider ourselves not to
+>>                    have an established connection: this is a fairly common
+>>                    problem case, so we can delete the conntrack
+>>                    immediately.  --RR */
+>>                 if (th->rst ) {
+>>                         nf_ct_kill_acct(ct, ctinfo, skb);
+>>                         return NF_ACCEPT;
+>>                 }
+>>         }
+>>
+>>
+>> It should add a switch to avoid this conntrack  be deleted.
+>>
+>> if (!test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+>>                 /* If only reply is a RST, we can consider ourselves not to
+>>                    have an established connection: this is a fairly common
+>>                    problem case, so we can delete the conntrack
+>>                    immediately.  --RR */
+>> -                if (th->rst ) {
+>> +                if (th->rst && !nf_ct_tcp_rst_no_kill) {
+>>                         nf_ct_kill_acct(ct, ctinfo, skb);
+>>                         return NF_ACCEPT;
+>>                 }
+> How would you know to not kill the entry? How would you ensure it's
+> properly cleaned up later? I'm not sure if there's a way to implement
+> this without some fairly serious plumbing.
+>
+> If you look at the examples in the OVS testsuite[0], it is suggested
+> to use "ct(nat)" with no options early in your rules. This ensures
+> that the connection is looked up, and if necessary, NAT is applied at
+> the same time - meaning that the RST can be NATed back AND the
+> connection is deleted. In the later table you need to differentiate
+> the connections based on whether they were already statefully NATed or
+> not. For new connections, it would be handled by your rule #3 (which
+> would then perform the nat as part of that rule's actions). For
+> existing connections, the packet is already NATed by the time it
+> reaches table 1, and your rules 4-5 shouldn't need to apply the nat.
+> If you still need access to the original tuple for matching purposes,
+> the new fields 'ct_nw_src', 'ct_nw_dst', etc. fields will provide the
+> original ct 5tuple. Note however those are only available on OVS
+> master, should be part of OVS 2.8.
+>
+> [0] https://github.com/openvswitch/ovs/blob/branch-2.7/tests/system-traffic.at#L2331
+> [1] http://openvswitch.org/support/dist-docs/ovs-fields.7.html
