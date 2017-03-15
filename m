@@ -1,81 +1,133 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/10] netfilter: don't track fragmented packets
-Date: Wed, 15 Mar 2017 18:01:03 +0100
-Message-ID: <1489597272-30347-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/10] netfilter: nft_set_bitmap: fetch the element key based on the set->klen
+Date: Wed, 15 Mar 2017 18:01:06 +0100
+Message-ID: <1489597272-30347-5-git-send-email-pablo@netfilter.org>
 References: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37452 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752119AbdCORBk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Mar 2017 13:01:40 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id E1E951324C3
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:19 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id C96EBDA80B
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:19 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 69A76DA872
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:17 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Liping Zhang <zlpnobody@gmail.com>
 
-Andrey reports syzkaller splat caused by
+Currently we just assume the element key as a u32 integer, regardless of
+the set key length.
 
-NF_CT_ASSERT(!ip_is_fragment(ip_hdr(skb)));
+This is incorrect, for example, the tcp port number is only 16 bits.
+So when we use the nft_payload expr to get the tcp dport and store
+it to dreg, the dport will be stored at 0~15 bits, and 16~31 bits
+will be padded with zero.
 
-in ipv4 nat.  But this assertion (and the comment) are wrong, this function
-does see fragments when IP_NODEFRAG setsockopt is used.
+So the reg->data[dreg] will be looked like as below:
+  0          15           31
+  +-+-+-+-+-+-+-+-+-+-+-+-+
+  | tcp dport |      0    |
+  +-+-+-+-+-+-+-+-+-+-+-+-+
+But for these big-endian systems, if we treate this register as a u32
+integer, the element key will be larger than 65535, so the following
+lookup in bitmap set will cause out of bound access.
 
-As conntrack doesn't track packets without complete l4 header, only the
-first fragment is tracked.
+Another issue is that if we add element with comments in bitmap
+set(although the comments will be ignored eventually), the element will
+vanish strangely. Because we treate the element key as a u32 integer, so
+the comments will become the part of the element key, then the element
+key will also be larger than 65535 and out of bound access will happen:
+  # nft add element t s { 1 comment test }
 
-Because applying nat to first packet but not the rest makes no sense this
-also turns off tracking of all fragments.
+Since set->klen is 1 or 2, it's fine to treate the element key as a u8 or
+u16 integer.
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Fixes: 665153ff5752 ("netfilter: nf_tables: add bitmap set type")
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c | 4 ++++
- net/ipv4/netfilter/nf_nat_l3proto_ipv4.c       | 5 -----
- 2 files changed, 4 insertions(+), 5 deletions(-)
+ net/netfilter/nft_set_bitmap.c | 27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index bc1486f2c064..2e14ed11a35c 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -165,6 +165,10 @@ static unsigned int ipv4_conntrack_local(void *priv,
- 	if (skb->len < sizeof(struct iphdr) ||
- 	    ip_hdrlen(skb) < sizeof(struct iphdr))
- 		return NF_ACCEPT;
+diff --git a/net/netfilter/nft_set_bitmap.c b/net/netfilter/nft_set_bitmap.c
+index 152d226552c1..9b024e22717b 100644
+--- a/net/netfilter/nft_set_bitmap.c
++++ b/net/netfilter/nft_set_bitmap.c
+@@ -45,9 +45,17 @@ struct nft_bitmap {
+ 	u8	bitmap[];
+ };
+ 
+-static inline void nft_bitmap_location(u32 key, u32 *idx, u32 *off)
++static inline void nft_bitmap_location(const struct nft_set *set,
++				       const void *key,
++				       u32 *idx, u32 *off)
+ {
+-	u32 k = (key << 1);
++	u32 k;
 +
-+	if (ip_is_fragment(ip_hdr(skb))) /* IP_NODEFRAG setsockopt set */
-+		return NF_ACCEPT;
-+
- 	return nf_conntrack_in(state->net, PF_INET, state->hook, skb);
++	if (set->klen == 2)
++		k = *(u16 *)key;
++	else
++		k = *(u8 *)key;
++	k <<= 1;
+ 
+ 	*idx = k / BITS_PER_BYTE;
+ 	*off = k % BITS_PER_BYTE;
+@@ -69,7 +77,7 @@ static bool nft_bitmap_lookup(const struct net *net, const struct nft_set *set,
+ 	u8 genmask = nft_genmask_cur(net);
+ 	u32 idx, off;
+ 
+-	nft_bitmap_location(*key, &idx, &off);
++	nft_bitmap_location(set, key, &idx, &off);
+ 
+ 	return nft_bitmap_active(priv->bitmap, idx, off, genmask);
  }
+@@ -83,7 +91,7 @@ static int nft_bitmap_insert(const struct net *net, const struct nft_set *set,
+ 	u8 genmask = nft_genmask_next(net);
+ 	u32 idx, off;
  
-diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-index f8aad03d674b..6f5e8d01b876 100644
---- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-@@ -255,11 +255,6 @@ nf_nat_ipv4_fn(void *priv, struct sk_buff *skb,
- 	/* maniptype == SRC for postrouting. */
- 	enum nf_nat_manip_type maniptype = HOOK2MANIP(state->hook);
+-	nft_bitmap_location(nft_set_ext_key(ext)->data[0], &idx, &off);
++	nft_bitmap_location(set, nft_set_ext_key(ext), &idx, &off);
+ 	if (nft_bitmap_active(priv->bitmap, idx, off, genmask))
+ 		return -EEXIST;
  
--	/* We never see fragments: conntrack defrags on pre-routing
--	 * and local-out, and nf_nat_out protects post-routing.
--	 */
--	NF_CT_ASSERT(!ip_is_fragment(ip_hdr(skb)));
--
- 	ct = nf_ct_get(skb, &ctinfo);
- 	/* Can't track?  It's not due to stress, or conntrack would
- 	 * have dropped it.  Hence it's the user's responsibilty to
+@@ -102,7 +110,7 @@ static void nft_bitmap_remove(const struct net *net,
+ 	u8 genmask = nft_genmask_next(net);
+ 	u32 idx, off;
+ 
+-	nft_bitmap_location(nft_set_ext_key(ext)->data[0], &idx, &off);
++	nft_bitmap_location(set, nft_set_ext_key(ext), &idx, &off);
+ 	/* Enter 00 state. */
+ 	priv->bitmap[idx] &= ~(genmask << off);
+ }
+@@ -116,7 +124,7 @@ static void nft_bitmap_activate(const struct net *net,
+ 	u8 genmask = nft_genmask_next(net);
+ 	u32 idx, off;
+ 
+-	nft_bitmap_location(nft_set_ext_key(ext)->data[0], &idx, &off);
++	nft_bitmap_location(set, nft_set_ext_key(ext), &idx, &off);
+ 	/* Enter 11 state. */
+ 	priv->bitmap[idx] |= (genmask << off);
+ }
+@@ -128,7 +136,7 @@ static bool nft_bitmap_flush(const struct net *net,
+ 	u8 genmask = nft_genmask_next(net);
+ 	u32 idx, off;
+ 
+-	nft_bitmap_location(nft_set_ext_key(ext)->data[0], &idx, &off);
++	nft_bitmap_location(set, nft_set_ext_key(ext), &idx, &off);
+ 	/* Enter 10 state, similar to deactivation. */
+ 	priv->bitmap[idx] &= ~(genmask << off);
+ 
+@@ -161,10 +169,9 @@ static void *nft_bitmap_deactivate(const struct net *net,
+ 	struct nft_bitmap *priv = nft_set_priv(set);
+ 	u8 genmask = nft_genmask_next(net);
+ 	struct nft_set_ext *ext;
+-	u32 idx, off, key = 0;
++	u32 idx, off;
+ 
+-	memcpy(&key, elem->key.val.data, set->klen);
+-	nft_bitmap_location(key, &idx, &off);
++	nft_bitmap_location(set, elem->key.val.data, &idx, &off);
+ 
+ 	if (!nft_bitmap_active(priv->bitmap, idx, off, genmask))
+ 		return NULL;
 -- 
 2.1.4
+
