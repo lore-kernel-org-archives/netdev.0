@@ -1,40 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] mlx4: Better use of order-0 pages in RX path
-Date: Wed, 15 Mar 2017 09:27:46 -0700
-Message-ID: <1489595266.28631.153.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170314151143.16231-1-edumazet@google.com>
-         <60f6dc92-511d-b7be-64d2-2532e112d845@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] net/openvswitch: Set the ipv6 source tunnel key
+ address attribute correctly
+Date: Wed, 15 Mar 2017 17:28:59 +0100
+Message-ID: <20170315172859.6c953e7f@griffin>
+References: <1489594247-8601-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Tariq Toukan <ttoukan.linux@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Paul Blakey <paulb@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, mlxsw@mellanox.com,
+        netdev@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36692 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752736AbdCOQ1t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 12:27:49 -0400
-Received: by mail-pf0-f178.google.com with SMTP id o126so11082500pfb.3
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 09:27:48 -0700 (PDT)
-In-Reply-To: <60f6dc92-511d-b7be-64d2-2532e112d845@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40032 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752578AbdCOQ3J (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 12:29:09 -0400
+In-Reply-To: <1489594247-8601-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-03-15 at 17:36 +0200, Tariq Toukan wrote:
+On Wed, 15 Mar 2017 18:10:47 +0200, Or Gerlitz wrote:
+> When dealing with ipv6 source tunnel key address attribute
+> (OVS_TUNNEL_KEY_ATTR_IPV6_SRC) we are wrongly setting the tunnel
+> dst ip, fix that.
+> 
+> Fixes: 6b26ba3a7d95 ('openvswitch: netlink attributes for IPv6 tunneling')
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Reported-by: Paul Blakey <paulb@mellanox.com>
 
-> 
-> Hi Eric,
-> 
-> Thanks for your patch.
-> 
-> I will do the XDP tests and complete the review, by tomorrow.
-> 
+Acked-by: Jiri Benc <jbenc@redhat.com>
 
-Thanks a lot Tariq !
+> Jiri, so I have few wild guesses how things work w.o this fix, e.g: 
+> 
+> (1) typically the tunnel source ip attribute isn't set by user-space
+
+I think this is it.
+
+Thanks for the fix!
+
+ Jiri
