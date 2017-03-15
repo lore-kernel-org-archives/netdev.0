@@ -1,35 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] fjes: Fix wrong netdevice feature flags
-Date: Wed, 15 Mar 2017 12:43:56 -0700 (PDT)
-Message-ID: <20170315.124356.517921155168414807.davem@davemloft.net>
-References: <1489553270-7754-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yasu.isimatu@gmail.com
-To: izumi.taku@jp.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51762 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751183AbdCOToA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 15:44:00 -0400
-In-Reply-To: <1489553270-7754-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 3/3] net: dsa: mv88e6xxx: specify ageing time limits
+Date: Wed, 15 Mar 2017 15:53:50 -0400
+Message-ID: <20170315195350.11059-4-vivien.didelot@savoirfairelinux.com>
+References: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cobham <jcobham@questertangent.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Date: Wed, 15 Mar 2017 13:47:50 +0900
+Now that DSA has ageing time limits, specify them when registering a
+switch so that out-of-range values are handled correctly by the core.
 
-> This patch fixes netdev->features for Extended Socket network device.
-> 
-> Currently Extended Socket network device's netdev->feature claims
-> NETIF_F_HW_CSUM, however this is completely wrong. There's no feature
-> of checksum offloading.
-> That causes invalid TCP/UDP checksum and packet rjection when IP
-> forwarding from Extended Socket network device to other network device.
-> 
-> NETIF_F_HW_CSUM should be omitted.
-> 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reported-by: Jason Cobham <jcobham@questertangent.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Applied, thanks.
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 3354f99df378..2bca297d9296 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -4253,6 +4253,8 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
+ 
+ 	ds->priv = chip;
+ 	ds->ops = &mv88e6xxx_switch_ops;
++	ds->ageing_time_min = chip->info->age_time_coeff;
++	ds->ageing_time_max = chip->info->age_time_coeff * U8_MAX;
+ 
+ 	dev_set_drvdata(dev, ds);
+ 
+-- 
+2.12.0
