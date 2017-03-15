@@ -1,71 +1,36 @@
 From: Harald Welte <laforge@netfilter.org>
 Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
-Date: Wed, 15 Mar 2017 20:10:38 +0100
-Message-ID: <20170315191038.nco2icu6e545rzlu@nataraja>
+Date: Wed, 15 Mar 2017 20:27:47 +0100
+Message-ID: <20170315192747.3oj2ro23qkbhe6iy@nataraja>
 References: <20170203091231.10142-1-jonas@southpole.se>
  <20170315163916.gins7lzzqhwkvfrc@nataraja>
  <20170315172348.GA30592@salvia>
+ <20170315191038.nco2icu6e545rzlu@nataraja>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jonas Bonn <jonas@southpole.se>, netdev@vger.kernel.org,
         osmocom-net-gprs@lists.osmocom.org
 To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:55462 "EHLO
+Received: from ganesha.gnumonks.org ([213.95.27.120]:55556 "EHLO
         ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751183AbdCOTQA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 15:16:00 -0400
+        with ESMTP id S1750774AbdCOT14 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 15:27:56 -0400
 Content-Disposition: inline
-In-Reply-To: <20170315172348.GA30592@salvia>
+In-Reply-To: <20170315191038.nco2icu6e545rzlu@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+On Wed, Mar 15, 2017 at 08:10:38PM +0100, Harald Welte wrote:
+> I've modified the patch slightly, see below (compile-tested, but not
+> otherwise tested yet).  Basically rename the flags attribute to 'role',
+> expand the commit log and removed unrelated cosmetic changes.
 
-On Wed, Mar 15, 2017 at 06:23:48PM +0100, Pablo Neira Ayuso wrote:
-> On Wed, Mar 15, 2017 at 05:39:16PM +0100, Harald Welte wrote:
-> > 
-> > I would definitely like to see this move forward, particularly in order
-> > to test the GGSN-side code.
-> 
-> Agreed.
+I also have a version against current net-next/master, in case anyone is interested..
 
-I've modified the patch slightly, see below (compile-tested, but not
-otherwise tested yet).  Basically rename the flags attribute to 'role',
-expand the commit log and removed unrelated cosmetic changes.
-
-I've also prepared a corresponding change to libgtpnl into the
-laforge/sgsn-rol branch, see
-http://git.osmocom.org/libgtpnl/commit/?h=laforge/sgsn-role
-
-This is not yet tested in any way, but I'm planning to add some
-associated support to the command line tools and then give it some
-testing (both against the kernel GTP in GGSN mode, as well as an
-independent userspace GTP implementation).
-
-> It would be good if we provide a way to configure GTP via iproute2 for
-> testing purposes.
-
-I don't really care about which tool is used, as long as it is easily
-available [and FOSS, of course].
-
-> We would need to create some dummy socket from
-> kernel too though so we don't need any userspace daemon for this
-> testing mode.
-
-I don't really like that latter idea. It sounds too much like a hack to
-me.  But then, I don't have enough phantasy right now ti imagine how an
-actual implementation would look like.
-
-To me, it is perfectly fine to run a simple, small utility in userspace
-even for testing.
-
-Regards,
-	Harald
-
->From 63920950f9498069993def78e178bde85c174e0c Mon Sep 17 00:00:00 2001
+>From 3274a3303d1ec997392a07a92666d57b13997658 Mon Sep 17 00:00:00 2001
 From: Jonas Bonn <jonas@southpole.se>
-Date: Wed, 15 Mar 2017 17:52:28 +0100
+Date: Wed, 15 Mar 2017 20:24:28 +0100
 Subject: [PATCH] gtp: support SGSN-side tunnels
 
 The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
@@ -86,12 +51,17 @@ in determining the PDP context.
 
 Signed-off-by: Jonas Bonn <jonas@southpole.se>
 Signed-off-by: Harald Welte <laforge@gnumonks.org>
+---
+ drivers/net/gtp.c            | 46 +++++++++++++++++++++++++++++++++-----------
+ include/uapi/linux/gtp.h     |  2 +-
+ include/uapi/linux/if_link.h |  7 +++++++
+ 3 files changed, 43 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 99d3df788ce8..9aef4217f6e1 100644
+index 3e1854f34420..3ab593b9be85 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -71,6 +71,7 @@ struct gtp_dev {
+@@ -74,6 +74,7 @@ struct gtp_dev {
  
  	struct net_device	*dev;
  
@@ -99,7 +69,7 @@ index 99d3df788ce8..9aef4217f6e1 100644
  	unsigned int		hash_size;
  	struct hlist_head	*tid_hash;
  	struct hlist_head	*addr_hash;
-@@ -149,8 +150,8 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp, __be32 ms_addr)
+@@ -154,8 +155,8 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp, __be32 ms_addr)
  	return NULL;
  }
  
@@ -110,7 +80,7 @@ index 99d3df788ce8..9aef4217f6e1 100644
  {
  	struct iphdr *iph;
  
-@@ -159,18 +160,21 @@ static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
+@@ -164,27 +165,31 @@ static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
  
  	iph = (struct iphdr *)(skb->data + hdrlen);
  
@@ -136,25 +106,37 @@ index 99d3df788ce8..9aef4217f6e1 100644
  	}
  	return false;
  }
-@@ -204,7 +208,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		goto out_rcu;
- 	}
+ 
+-static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb, unsigned int hdrlen)
++static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb, unsigned int hdrlen,
++		  enum ifla_gtp_role role)
+ {
+ 	struct pcpu_sw_netstats *stats;
  
 -	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
- 		ret = -1;
- 		goto out_rcu;
-@@ -261,7 +265,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		goto out_rcu;
++	if (!gtp_check_ms(skb, pctx, hdrlen, role)) {
+ 		netdev_dbg(pctx->dev, "No PDP ctx for this MS\n");
+ 		return 1;
+ 	}
+@@ -239,7 +244,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+ 		return 1;
  	}
  
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
- 		ret = -1;
- 		goto out_rcu;
-@@ -490,7 +494,11 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+-	return gtp_rx(pctx, skb, hdrlen);
++	return gtp_rx(pctx, skb, hdrlen, gtp->role);
+ }
+ 
+ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+@@ -281,7 +286,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+ 		return 1;
+ 	}
+ 
+-	return gtp_rx(pctx, skb, hdrlen);
++	return gtp_rx(pctx, skb, hdrlen, gtp->role);
+ }
+ 
+ static void gtp_encap_destroy(struct sock *sk)
+@@ -481,7 +486,11 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
  	 * Prepend PDP header with TEI/TID from PDP ctx.
  	 */
  	iph = ip_hdr(skb);
@@ -167,12 +149,13 @@ index 99d3df788ce8..9aef4217f6e1 100644
  	if (!pctx) {
  		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
  			   &iph->daddr);
-@@ -665,12 +673,26 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
- 	int hashsize, err, fd0, fd1;
+@@ -631,13 +640,27 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ {
  	struct gtp_dev *gtp;
  	struct gtp_net *gn;
 +	unsigned int role;
-+
+ 	int hashsize, err;
+ 
 +	/* The default role is GGSN, and for backwards compatibility
 +	 * reasons, the lack of a IFLA_GTP_ROLE IE means that we're
 +	 * operating in GGSN role. */
@@ -183,18 +166,18 @@ index 99d3df788ce8..9aef4217f6e1 100644
 +			return -EINVAL;
 +	} else
 +		role = GTP_ROLE_GGSN;
- 
- 	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
++
+ 	if (!data[IFLA_GTP_FD0] && !data[IFLA_GTP_FD1])
  		return -EINVAL;
  
  	gtp = netdev_priv(dev);
  
 +	gtp->role = role;
 +
- 	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
- 	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
- 
-@@ -722,6 +744,7 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1] = {
+ 	err = gtp_encap_enable(gtp, data);
+ 	if (err < 0)
+ 		return err;
+@@ -685,6 +708,7 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1] = {
  	[IFLA_GTP_FD0]			= { .type = NLA_U32 },
  	[IFLA_GTP_FD1]			= { .type = NLA_U32 },
  	[IFLA_GTP_PDP_HASHSIZE]		= { .type = NLA_U32 },
@@ -216,10 +199,10 @@ index 72a04a0e8cce..79037cca6b51 100644
  	GTPA_FLOW,
  	GTPA_NET_NS_FD,
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 6b13e591abc9..de7bea223749 100644
+index 320fc1e747ee..8b405afb2376 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -536,11 +536,18 @@ enum {
+@@ -538,11 +538,18 @@ enum {
  #define IFLA_PPP_MAX (__IFLA_PPP_MAX - 1)
  
  /* GTP section */
