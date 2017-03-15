@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 3/3] net: dsa: mv88e6xxx: specify ageing time limits
-Date: Wed, 15 Mar 2017 15:53:50 -0400
-Message-ID: <20170315195350.11059-4-vivien.didelot@savoirfairelinux.com>
-References: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 0/3] net: dsa: check out-of-range ageing time
+Date: Wed, 15 Mar 2017 15:53:47 -0400
+Message-ID: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -11,31 +10,68 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that DSA has ageing time limits, specify them when registering a
-switch so that out-of-range values are handled correctly by the core.
+The ageing time limits supported by DSA drivers vary depending on the
+switch model. If a driver returns -ERANGE for out-of-range values, the
+switchdev commit phase will fail with the following stacktrace:
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reported-by: Jason Cobham <jcobham@questertangent.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
- 1 file changed, 2 insertions(+)
+    # brctl setageing br0 4
+    [ 8530.082179] WARNING: CPU: 0 PID: 910 at net/switchdev/switchdev.c:291 switchdev_port_attr_set_now+0xbc/0xc0
+    [ 8530.090679] br0: Commit of attribute (id=5) failed.
+    [ 8530.094256] Modules linked in:
+    [ 8530.096032] CPU: 0 PID: 910 Comm: kworker/0:4 Tainted: G        W       4.10.0 #361
+    [ 8530.102412] Hardware name: Freescale Vybrid VF5xx/VF6xx (Device Tree)
+    [ 8530.107571] Workqueue: events switchdev_deferred_process_work
+    [ 8530.112039] Backtrace:
+    [ 8530.113224] [<8010ca34>] (dump_backtrace) from [<8010cd3c>] (show_stack+0x20/0x24)
+    [ 8530.119521]  r6:00000000 r5:80834da0 r4:80ca7e48 r3:8120ca3c
+    [ 8530.123908] [<8010cd1c>] (show_stack) from [<8037ad40>] (dump_stack+0x24/0x28)
+    [ 8530.129873] [<8037ad1c>] (dump_stack) from [<80118de4>] (__warn+0xf4/0x10c)
+    [ 8530.135545] [<80118cf0>] (__warn) from [<80118e44>] (warn_slowpath_fmt+0x48/0x50)
+    [ 8530.141760]  r9:00000000 r8:81252bec r7:80f19d90 r6:9dc3c000 r5:80ca7e7c r4:80834de8
+    [ 8530.148235] [<80118e00>] (warn_slowpath_fmt) from [<80670b20>] (switchdev_port_attr_set_now+0xbc/0xc0)
+    [ 8530.156240]  r3:9dc3c000 r2:80834de8
+    [ 8530.158539]  r4:ffffffde
+    [ 8530.159788] [<80670a64>] (switchdev_port_attr_set_now) from [<80670b44>] (switchdev_port_attr_set_deferred+0x20/0x6c)
+    [ 8530.169118]  r7:806705a8 r6:9dc3c000 r5:80f19d90 r4:80f19d80
+    [ 8530.173500] [<80670b24>] (switchdev_port_attr_set_deferred) from [<80670580>] (switchdev_deferred_process+0x50/0xe8)
+    [ 8530.182742]  r6:80ca6000 r5:81252bec r4:80f19d80 r3:80670b24
+    [ 8530.187115] [<80670530>] (switchdev_deferred_process) from [<80670930>] (switchdev_deferred_process_work+0x1c/0x24)
+    [ 8530.196277]  r8:00000000 r7:9ffdc100 r6:8120ad6c r5:9ddefc00 r4:81252bf4 r3:9de343c0
+    [ 8530.202756] [<80670914>] (switchdev_deferred_process_work) from [<8012f770>] (process_one_work+0x120/0x3b0)
+    [ 8530.211231] [<8012f650>] (process_one_work) from [<8012fa70>] (worker_thread+0x70/0x534)
+    [ 8530.218046]  r10:9ddefc00 r9:8120ad6c r8:80ca6038 r7:8120ad80 r6:81211f80 r5:9ddefc18
+    [ 8530.224579]  r4:8120ad6c
+    [ 8530.225830] [<8012fa00>] (worker_thread) from [<80135640>] (kthread+0x114/0x144)
+    [ 8530.231955]  r10:9f4e9e94 r9:9de1fe58 r8:8012fa00 r7:9ddefc00 r6:9de1fdc0 r5:00000000
+    [ 8530.238497]  r4:9de1fe40
+    [ 8530.239750] [<8013552c>] (kthread) from [<80108cd8>] (ret_from_fork+0x14/0x3c)
+    [ 8530.245679]  r10:00000000 r9:00000000 r8:00000000 r7:00000000 r6:00000000 r5:8013552c
+    [ 8530.252234]  r4:9de1fdc0 r3:80ca6000
+    [ 8530.254512] ---[ end trace 87475cc71b80ef73 ]---
+    [ 8530.257852] br0: failed (err=-34) to set attribute (id=5)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 3354f99df378..2bca297d9296 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -4253,6 +4253,8 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
- 
- 	ds->priv = chip;
- 	ds->ops = &mv88e6xxx_switch_ops;
-+	ds->ageing_time_min = chip->info->age_time_coeff;
-+	ds->ageing_time_max = chip->info->age_time_coeff * U8_MAX;
- 
- 	dev_set_drvdata(dev, ds);
- 
+This patchset fixes this by adding ageing_time_min and ageing_time_max
+fields to the dsa_switch structure, which can optionally be set by a DSA
+driver.
+
+If provided, the DSA core will check for out-of-range values in the
+SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME prepare phase and return -ERANGE
+accordingly.
+
+Finally set these limits in the mv88e6xxx driver.
+
+Vivien Didelot (3):
+  net: dsa: dsa_fastest_ageing_time return unsigned
+  net: dsa: check out-of-range ageing time value
+  net: dsa: mv88e6xxx: specify ageing time limits
+
+ drivers/net/dsa/mv88e6xxx/chip.c |  2 ++
+ include/net/dsa.h                |  4 ++++
+ net/dsa/slave.c                  | 12 ++++++++----
+ 3 files changed, 14 insertions(+), 4 deletions(-)
+
 -- 
 2.12.0
