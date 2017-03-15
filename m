@@ -1,79 +1,100 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH] net: phy: Don't miss phy_suspend() on PHY_HALTED for
- PHYs with interrupts
-Date: Wed, 15 Mar 2017 16:49:12 +0100
-Message-ID: <20170315154912.GE21021@lunn.ch>
-References: <1489585887-8683-1-git-send-email-rogerq@ti.com>
- <20170315140811.GD21021@lunn.ch>
- <6ec42ad7-0be3-f6c5-2ded-27bf3adbab23@ti.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v1 for accelerated IPoIB 05/25] IB/ipoib: Support ipoib
+ acceleration options callbacks
+Date: Wed, 15 Mar 2017 09:58:02 -0600
+Message-ID: <20170315155802.GB29562@obsidianresearch.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+ <1489429896-10781-6-git-send-email-erezsh@mellanox.com>
+ <20170314063538.GB79937@knc-06.sc.intel.com>
+ <CAAk-MO8gQ5x-4Ubk1nzPntEWa2ivTK6uXyJ4eC7fmtUCNnOdfA@mail.gmail.com>
+ <20170314160021.GD3244@obsidianresearch.com>
+ <20170315064751.GD2079@mtr-leonro.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, davem@davemloft.net, kyle.roeschley@ni.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Erez Shitrit <erezsh@dev.mellanox.co.il>,
+        "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>,
+        Erez Shitrit <erezsh@mellanox.com>,
+        Doug Ledford <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        netdev@vger.kernel.org, valex@mellanox.com, saedm@mellanox.com
+To: Leon Romanovsky <leonro@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:33790 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753433AbdCOP6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 11:58:19 -0400
 Content-Disposition: inline
-In-Reply-To: <6ec42ad7-0be3-f6c5-2ded-27bf3adbab23@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170315064751.GD2079@mtr-leonro.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 15, 2017 at 05:00:08PM +0200, Roger Quadros wrote:
-> Andrew,
+On Wed, Mar 15, 2017 at 08:47:51AM +0200, Leon Romanovsky wrote:
+> On Tue, Mar 14, 2017 at 10:00:21AM -0600, Jason Gunthorpe wrote:
+> > On Tue, Mar 14, 2017 at 04:42:55PM +0200, Erez Shitrit wrote:
+> > > >> +       if (!hca->alloc_rdma_netdev)
+> > > >> +               dev = ipoib_create_netdev_default(hca, name,
+> > > >> ipoib_setup_common);
+> > > >> +       else
+> > > >> +               dev = hca->alloc_rdma_netdev(hca, port, RDMA_NETDEV_IPOIB,
+> > > >> +                                            name, NET_NAME_UNKNOWN,
+> > > >> +                                            ipoib_setup_common);
+> > > >> +       if (!dev) {
+> > > >> +               kfree(priv);
+> > > >> +               return NULL;
+> > > >> +       }
+> > > >
+> > > >
+> > > > This will break ipoib on hfi1 as hfi1 will define alloc_rdma_netdev for
+> > > > OPA_VNIC type. We should probably look for a dedicated return type
+> > > > (-ENODEV?) to determine of the driver supports specified rdma netdev type.
+> > > > Or use a ib device attribute to suggest driver support ipoib rdma netdev.
+> > >
+> > > sorry, I don't understand that, we are in ipoib driver, so the type is
+> > > RDMA_NETDEV_IPOIB, if hfi wants to implement it should use the same
+> > > flag, and to use OPA_VNIC for vnic.
+> >
+> > He means it should look like this:
+> >
+> >  if (hca->alloc_rdma_netdev)
+> >      dev = hca->alloc_rdma_netdev(hca, port, RDMA_NETDEV_IPOIB,
+> >                                             name, NET_NAME_UNKNOWN,
+> >                                             ipoib_setup_common);
+> >
+> >  if (IS_ERR(dev) && PTR_ERR(dev) != ENOTSUP)
+> >       goto out;
+> >
+> >  dev = ipoib_create_netdev_default(hca, name, ipoib_setup_common);
+> >  if (IS_ERR(dev))
+> >       goto out;
+> >
+> >  WARN_ON(dev == NULL);
+> >
+> >   [...]
+> >
+> > out:
+> >       return PTR_ERR(dev);
+> >
+> > And I'm confused why 'ipoib_create_netdev_default' doesn't need the
+> > same function signature as hca->alloc_rdma_netdev
 > 
-> On 15/03/17 16:08, Andrew Lunn wrote:
-> > On Wed, Mar 15, 2017 at 03:51:27PM +0200, Roger Quadros wrote:
-> >> Since commit 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
-> >> phy_suspend() doesn't get called as part of phy_stop() for PHYs using
-> >> interrupts because the phy state machine is never triggered after a phy_stop().
-> >>
-> >> Explicitly trigger the PHY state machine so that it can
-> >> see the new PHY state (HALTED) and suspend the PHY.
-> >>
-> >> Signed-off-by: Roger Quadros <rogerq@ti.com>
-> > 
-> > Hi Roger
-> > 
-> > This seems sensible. It mirrors what phy_start() does.
-> > 
-> > Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> 
-> The reason for this being an RFC was the following comment just before
-> where I add the phy_trigger_machine()
-> 
->         /* Cannot call flush_scheduled_work() here as desired because
->          * of rtnl_lock(), but PHY_HALTED shall guarantee phy_change()
->          * will not reenable interrupts.
->          */
-> 
-> Is this comment still applicable? If yes, is it OK to call
-> phy_trigger_machine() there?
+> And now, I'm confused.
+> In your's proposal, the "dev" will be overwritten, in Erez's proposal,
+> "dev" will be one of two: defaults or device specific.
 
-Humm, good question.
+Well, not Erez's version allowed dev to be ERR_PTR too. More like this then
 
-My _guess_ would be, calling it with sync=True could
-deadlock. sync=False is probably safe. But lets see what Florian says.
+struct rdma_netdev *get_netdev(..)
+{
+   if (hca-alloc_rdma_netdev) {
+       dev = hca-alloc_rdma_netdev(hca, port, RDMA_NETDEV_IPOIB,
+                                              name, NET_NAME_UNKNOWN,
+                                              ipoib_setup_common);
+ 
+       if (!IS_ERR(dev) || PTR_ERR(dev) != ENOTSUP)
+           return dev;
+   }
+ 
+   return ipoib_create_netdev_default(hca, name, ipoib_setup_common);
+}
 
-> 
-> > 
-> > It does however lead to a follow up question. Are there other places
-> > phydev->state is changed and it is missing a phy_trigger_machine()?
-> > 
-> 
-> One other place I think we should add phy_trigger_machine() is phy_start_aneg().
-
-Humm, that might get us into a tight loop.
-
-phy_start_aneg() kicks the phy driver to start autoneg and sets
-phydev->state = PHY_AN.
-
-phy_trigger_machine() triggers the state machine immediately. 
-
-In state PHY_AN, we check if aneg is done. If not, it sets needs_aneg
-= true. At the end of the state machine, this then calls
-phy_start_aneg(), and it all starts again.
-
-We are missing the 1s delay we have with polling. So for
-phy_start_aneg(), we might need a phy_delayed_trigger_machine(), which
-waits a second before doing anything?
-
-      Andrew
+Jason
