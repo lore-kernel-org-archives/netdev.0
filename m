@@ -1,41 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 2/3] net: dsa: check out-of-range ageing time
- value
-Date: Wed, 15 Mar 2017 13:04:04 -0700
-Message-ID: <bdc7c1a8-6ffc-ebd7-2650-476be1218903@gmail.com>
-References: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
- <20170315195350.11059-3-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cobham <jcobham@questertangent.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170315195350.11059-3-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH net-next 1/7] drivers: net: phy: xgene: Fix mdio write
+Date: Wed, 15 Mar 2017 13:27:15 -0700
+Message-ID: <1489609641-31557-2-git-send-email-isubramanian@apm.com>
+References: <1489609641-31557-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+        kchudgar@apm.com, qnguyen@apm.com,
+        Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:34563 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751867AbdCOU0G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:26:06 -0400
+Received: by mail-pg0-f42.google.com with SMTP id 141so14095309pgd.1
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 13:26:05 -0700 (PDT)
+In-Reply-To: <1489609641-31557-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/15/2017 12:53 PM, Vivien Didelot wrote:
-> If a DSA switch driver cannot program an ageing time value due to it
-> being out-of-range, switchdev will raise a stack trace before failing.
-> 
-> To fix this, add ageing_time_min and ageing_time_max members to the
-> dsa_switch in order for the switch drivers to optionally specify their
-> supported ageing time limits.
-> 
-> The DSA core will now check for provided ageing time limits and return
-> -ERANGE from the switchdev prepare phase if the value is out-of-range.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Quan Nguyen <qnguyen@apm.com>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+This patches fixes a typo in the argument to xgene_enet_wr_mdio_csr().
 
-You could simplify the two changes (and remove the check for
-ds->ageing_time_{min,max} by setting ds->ageing_time_min to ~0 by
-default. Absolutely not critical and the code is clear as-is.
+Signed-off-by: Quan Nguyen <qnguyen@apm.com>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+---
+ drivers/net/phy/mdio-xgene.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/mdio-xgene.c b/drivers/net/phy/mdio-xgene.c
+index f095051..3e2ac07 100644
+--- a/drivers/net/phy/mdio-xgene.c
++++ b/drivers/net/phy/mdio-xgene.c
+@@ -229,7 +229,7 @@ static int xgene_xfi_mdio_write(struct mii_bus *bus, int phy_id,
+ 
+ 	val = SET_VAL(HSTPHYADX, phy_id) | SET_VAL(HSTREGADX, reg) |
+ 	      SET_VAL(HSTMIIMWRDAT, data);
+-	xgene_enet_wr_mdio_csr(addr, MIIM_FIELD_ADDR, data);
++	xgene_enet_wr_mdio_csr(addr, MIIM_FIELD_ADDR, val);
+ 
+ 	val = HSTLDCMD | SET_VAL(HSTMIIMCMD, MIIM_CMD_LEGACY_WRITE);
+ 	xgene_enet_wr_mdio_csr(addr, MIIM_COMMAND_ADDR, val);
 -- 
-Florian
+1.9.1
