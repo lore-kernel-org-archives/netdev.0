@@ -1,281 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/12] i40e: fix up recent proxy and wol bits for X722_SUPPORT
-Date: Wed, 15 Mar 2017 02:25:35 -0700
-Message-ID: <20170315092545.63654-3-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/12] i40e: Clarify steps in MAC/VLAN filters initialization routine
+Date: Wed, 15 Mar 2017 02:25:41 -0700
+Message-ID: <20170315092545.63654-9-jeffrey.t.kirsher@intel.com>
 References: <20170315092545.63654-1-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Carolyn Wyborny <carolyn.wyborny@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:55547 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:44457 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752300AbdCOJZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Mar 2017 05:25:56 -0400
+        id S1752498AbdCOJ0B (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 05:26:01 -0400
 In-Reply-To: <20170315092545.63654-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Filip Sadowski <filip.sadowski@intel.com>
 
-Some opcodes added & reordered to be in numerical order with the
-rest of the opcodes.
-This patch adds admin queue structs to support Wake on LAN feature
-for X722.
+This patch clarifies the reason for removal of automatically
+firmware-generated filter and explicit addition of filter which
+accepts frames with any VLAN id.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: Iabf180b6d61c4d8a36d3bcf8457c377a6f2aca0e
+Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 65 +++++++++++++++++++++-
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 65 +++++++++++++++++++++-
- 2 files changed, 128 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 451f48b7540a..251074c677c4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -132,6 +132,10 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_list_func_capabilities	= 0x000A,
- 	i40e_aqc_opc_list_dev_capabilities	= 0x000B,
- 
-+	/* Proxy commands */
-+	i40e_aqc_opc_set_proxy_config		= 0x0104,
-+	i40e_aqc_opc_set_ns_proxy_table_entry	= 0x0105,
-+
- 	/* LAA */
- 	i40e_aqc_opc_mac_address_read	= 0x0107,
- 	i40e_aqc_opc_mac_address_write	= 0x0108,
-@@ -139,6 +143,10 @@ enum i40e_admin_queue_opc {
- 	/* PXE */
- 	i40e_aqc_opc_clear_pxe_mode	= 0x0110,
- 
-+	/* WoL commands */
-+	i40e_aqc_opc_set_wol_filter	= 0x0120,
-+	i40e_aqc_opc_get_wake_reason	= 0x0121,
-+
- 	/* internal switch commands */
- 	i40e_aqc_opc_get_switch_config		= 0x0200,
- 	i40e_aqc_opc_add_statistics		= 0x0201,
-@@ -177,6 +185,7 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_remove_control_packet_filter	= 0x025B,
- 	i40e_aqc_opc_add_cloud_filters		= 0x025C,
- 	i40e_aqc_opc_remove_cloud_filters	= 0x025D,
-+	i40e_aqc_opc_clear_wol_switch_filters	= 0x025E,
- 
- 	i40e_aqc_opc_add_mirror_rule	= 0x0260,
- 	i40e_aqc_opc_delete_mirror_rule	= 0x0261,
-@@ -563,6 +572,56 @@ struct i40e_aqc_clear_pxe {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_clear_pxe);
- 
-+/* Set WoL Filter (0x0120) */
-+
-+struct i40e_aqc_set_wol_filter {
-+	__le16 filter_index;
-+#define I40E_AQC_MAX_NUM_WOL_FILTERS	8
-+#define I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_SHIFT	15
-+#define I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_MASK	(0x1 << \
-+		I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_SHIFT)
-+
-+#define I40E_AQC_SET_WOL_FILTER_INDEX_SHIFT		0
-+#define I40E_AQC_SET_WOL_FILTER_INDEX_MASK	(0x7 << \
-+		I40E_AQC_SET_WOL_FILTER_INDEX_SHIFT)
-+	__le16 cmd_flags;
-+#define I40E_AQC_SET_WOL_FILTER				0x8000
-+#define I40E_AQC_SET_WOL_FILTER_NO_TCO_WOL		0x4000
-+#define I40E_AQC_SET_WOL_FILTER_ACTION_CLEAR		0
-+#define I40E_AQC_SET_WOL_FILTER_ACTION_SET		1
-+	__le16 valid_flags;
-+#define I40E_AQC_SET_WOL_FILTER_ACTION_VALID		0x8000
-+#define I40E_AQC_SET_WOL_FILTER_NO_TCO_ACTION_VALID	0x4000
-+	u8 reserved[2];
-+	__le32	address_high;
-+	__le32	address_low;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_set_wol_filter);
-+
-+struct i40e_aqc_set_wol_filter_data {
-+	u8 filter[128];
-+	u8 mask[16];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x90, i40e_aqc_set_wol_filter_data);
-+
-+/* Get Wake Reason (0x0121) */
-+
-+struct i40e_aqc_get_wake_reason_completion {
-+	u8 reserved_1[2];
-+	__le16 wake_reason;
-+#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_SHIFT	0
-+#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_MASK (0xFF << \
-+		I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_SHIFT)
-+#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_SHIFT	8
-+#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_MASK	(0xFF << \
-+		I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_SHIFT)
-+	u8 reserved_2[12];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_get_wake_reason_completion);
-+
- /* Switch configuration commands (0x02xx) */
- 
- /* Used by many indirect commands that only pass an seid and a buffer in the
-@@ -645,6 +704,8 @@ struct i40e_aqc_set_port_parameters {
- #define I40E_AQ_SET_P_PARAMS_PAD_SHORT_PACKETS	2 /* must set! */
- #define I40E_AQ_SET_P_PARAMS_DOUBLE_VLAN_ENA	4
- 	__le16	bad_frame_vsi;
-+#define I40E_AQ_SET_P_PARAMS_BFRAME_SEID_SHIFT	0x0
-+#define I40E_AQ_SET_P_PARAMS_BFRAME_SEID_MASK	0x3FF
- 	__le16	default_seid;        /* reserved for command */
- 	u8	reserved[10];
- };
-@@ -696,6 +757,7 @@ I40E_CHECK_STRUCT_LEN(0x10, i40e_aqc_switch_resource_alloc_element_resp);
- /* Set Switch Configuration (direct 0x0205) */
- struct i40e_aqc_set_switch_config {
- 	__le16	flags;
-+/* flags used for both fields below */
- #define I40E_AQ_SET_SWITCH_CFG_PROMISC		0x0001
- #define I40E_AQ_SET_SWITCH_CFG_L2_FILTER	0x0002
- 	__le16	valid_flags;
-@@ -1844,11 +1906,12 @@ struct i40e_aqc_get_link_status {
- #define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
- #define I40E_AQ_CONFIG_CRC_ENA		0x04
- #define I40E_AQ_CONFIG_PACING_MASK	0x78
--	u8	external_power_ability;
-+	u8	power_desc;
- #define I40E_AQ_LINK_POWER_CLASS_1	0x00
- #define I40E_AQ_LINK_POWER_CLASS_2	0x01
- #define I40E_AQ_LINK_POWER_CLASS_3	0x02
- #define I40E_AQ_LINK_POWER_CLASS_4	0x03
-+#define I40E_AQ_PWR_CLASS_MASK		0x03
- 	u8	reserved[4];
- };
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index eeb9864bc5b1..c28cb8f27243 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -132,6 +132,10 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_list_func_capabilities	= 0x000A,
- 	i40e_aqc_opc_list_dev_capabilities	= 0x000B,
- 
-+	/* Proxy commands */
-+	i40e_aqc_opc_set_proxy_config		= 0x0104,
-+	i40e_aqc_opc_set_ns_proxy_table_entry	= 0x0105,
-+
- 	/* LAA */
- 	i40e_aqc_opc_mac_address_read	= 0x0107,
- 	i40e_aqc_opc_mac_address_write	= 0x0108,
-@@ -139,6 +143,10 @@ enum i40e_admin_queue_opc {
- 	/* PXE */
- 	i40e_aqc_opc_clear_pxe_mode	= 0x0110,
- 
-+	/* WoL commands */
-+	i40e_aqc_opc_set_wol_filter	= 0x0120,
-+	i40e_aqc_opc_get_wake_reason	= 0x0121,
-+
- 	/* internal switch commands */
- 	i40e_aqc_opc_get_switch_config		= 0x0200,
- 	i40e_aqc_opc_add_statistics		= 0x0201,
-@@ -177,6 +185,7 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_remove_control_packet_filter	= 0x025B,
- 	i40e_aqc_opc_add_cloud_filters		= 0x025C,
- 	i40e_aqc_opc_remove_cloud_filters	= 0x025D,
-+	i40e_aqc_opc_clear_wol_switch_filters	= 0x025E,
- 
- 	i40e_aqc_opc_add_mirror_rule	= 0x0260,
- 	i40e_aqc_opc_delete_mirror_rule	= 0x0261,
-@@ -558,6 +567,56 @@ struct i40e_aqc_clear_pxe {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_clear_pxe);
- 
-+/* Set WoL Filter (0x0120) */
-+
-+struct i40e_aqc_set_wol_filter {
-+	__le16 filter_index;
-+#define I40E_AQC_MAX_NUM_WOL_FILTERS	8
-+#define I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_SHIFT	15
-+#define I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_MASK	(0x1 << \
-+		I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_SHIFT)
-+
-+#define I40E_AQC_SET_WOL_FILTER_INDEX_SHIFT		0
-+#define I40E_AQC_SET_WOL_FILTER_INDEX_MASK	(0x7 << \
-+		I40E_AQC_SET_WOL_FILTER_INDEX_SHIFT)
-+	__le16 cmd_flags;
-+#define I40E_AQC_SET_WOL_FILTER				0x8000
-+#define I40E_AQC_SET_WOL_FILTER_NO_TCO_WOL		0x4000
-+#define I40E_AQC_SET_WOL_FILTER_ACTION_CLEAR		0
-+#define I40E_AQC_SET_WOL_FILTER_ACTION_SET		1
-+	__le16 valid_flags;
-+#define I40E_AQC_SET_WOL_FILTER_ACTION_VALID		0x8000
-+#define I40E_AQC_SET_WOL_FILTER_NO_TCO_ACTION_VALID	0x4000
-+	u8 reserved[2];
-+	__le32	address_high;
-+	__le32	address_low;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_set_wol_filter);
-+
-+struct i40e_aqc_set_wol_filter_data {
-+	u8 filter[128];
-+	u8 mask[16];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x90, i40e_aqc_set_wol_filter_data);
-+
-+/* Get Wake Reason (0x0121) */
-+
-+struct i40e_aqc_get_wake_reason_completion {
-+	u8 reserved_1[2];
-+	__le16 wake_reason;
-+#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_SHIFT	0
-+#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_MASK (0xFF << \
-+		I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_SHIFT)
-+#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_SHIFT	8
-+#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_MASK	(0xFF << \
-+		I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_SHIFT)
-+	u8 reserved_2[12];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_get_wake_reason_completion);
-+
- /* Switch configuration commands (0x02xx) */
- 
- /* Used by many indirect commands that only pass an seid and a buffer in the
-@@ -640,6 +699,8 @@ struct i40e_aqc_set_port_parameters {
- #define I40E_AQ_SET_P_PARAMS_PAD_SHORT_PACKETS	2 /* must set! */
- #define I40E_AQ_SET_P_PARAMS_DOUBLE_VLAN_ENA	4
- 	__le16	bad_frame_vsi;
-+#define I40E_AQ_SET_P_PARAMS_BFRAME_SEID_SHIFT	0x0
-+#define I40E_AQ_SET_P_PARAMS_BFRAME_SEID_MASK	0x3FF
- 	__le16	default_seid;        /* reserved for command */
- 	u8	reserved[10];
- };
-@@ -691,6 +752,7 @@ I40E_CHECK_STRUCT_LEN(0x10, i40e_aqc_switch_resource_alloc_element_resp);
- /* Set Switch Configuration (direct 0x0205) */
- struct i40e_aqc_set_switch_config {
- 	__le16	flags;
-+/* flags used for both fields below */
- #define I40E_AQ_SET_SWITCH_CFG_PROMISC		0x0001
- #define I40E_AQ_SET_SWITCH_CFG_L2_FILTER	0x0002
- 	__le16	valid_flags;
-@@ -1839,11 +1901,12 @@ struct i40e_aqc_get_link_status {
- #define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
- #define I40E_AQ_CONFIG_CRC_ENA		0x04
- #define I40E_AQ_CONFIG_PACING_MASK	0x78
--	u8	external_power_ability;
-+	u8	power_desc;
- #define I40E_AQ_LINK_POWER_CLASS_1	0x00
- #define I40E_AQ_LINK_POWER_CLASS_2	0x01
- #define I40E_AQ_LINK_POWER_CLASS_3	0x02
- #define I40E_AQ_LINK_POWER_CLASS_4	0x03
-+#define I40E_AQ_PWR_CLASS_MASK		0x03
- 	u8	reserved[4];
- };
- 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index e577ff8a9c76..414685c683d7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9461,10 +9461,10 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 	if (vsi->type == I40E_VSI_MAIN) {
+ 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
+ 		ether_addr_copy(mac_addr, hw->mac.perm_addr);
+-		/* The following steps are necessary to prevent reception
+-		 * of tagged packets - some older NVM configurations load a
+-		 * default a MAC-VLAN filter that accepts any tagged packet
+-		 * which must be replaced by a normal filter.
++		/* The following steps are necessary to properly keep track of
++		 * MAC-VLAN filters loaded into firmware - first we remove
++		 * filter that is automatically generated by firmware and then
++		 * add new filter both to the driver hash table and firmware.
+ 		 */
+ 		i40e_rm_default_mac_filter(vsi, mac_addr);
+ 		spin_lock_bh(&vsi->mac_filter_hash_lock);
 -- 
 2.12.0
