@@ -1,83 +1,66 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v3 net-next 11/11] net: stmmac: stmmac interrupt treatment prepared for multiple queues
-Date: Wed, 15 Mar 2017 11:04:55 +0000
-Message-ID: <fe251796d64184393cce955730805822228883df.1489575025.git.jpinto@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 4/9] net: vrf: Set slave's private flag before linking
+Date: Wed, 15 Mar 2017 12:05:07 +0100
+Message-ID: <1489575912-6469-5-git-send-email-jiri@resnulli.us>
+References: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:55195 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753845AbdCOLFa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:30 -0400
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34135 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751695AbdCOLF0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:26 -0400
+Received: by mail-wm0-f65.google.com with SMTP id u132so4072806wmg.1
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 04:05:20 -0700 (PDT)
+In-Reply-To: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares the main ISR for multiple queues.
+From: Ido Schimmel <idosch@mellanox.com>
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+Allow listeners of the subsequent CHANGEUPPER notification to retrieve
+the VRF's table ID by calling l3mdev_fib_table() with the slave netdev.
+Without this change, the netdev won't be considered an L3 slave and the
+function would return 0.
+
+This is consistent with other master device such as bridge and bond that
+set the slave's private flag before linking. It also makes
+do_vrf_{add,del}_slave() symmetric.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-changes v1->v3:
-- Just to keep up the patch-set version
+ drivers/net/vrf.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 28 ++++++++++++++++-------
- 1 file changed, 20 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c802286..d3a2151 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3115,6 +3115,12 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 22379da..c693267 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -746,14 +746,18 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
  {
- 	struct net_device *dev = (struct net_device *)dev_id;
- 	struct stmmac_priv *priv = netdev_priv(dev);
-+	u32 rx_cnt = priv->plat->rx_queues_to_use;
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
-+	u32 queues_count;
-+	u32 queue;
-+
-+	queues_count = (rx_cnt > tx_cnt) ? rx_cnt : tx_cnt;
+ 	int ret;
  
- 	if (priv->irq_wake)
- 		pm_wakeup_event(priv->device, 0);
-@@ -3129,20 +3135,26 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
- 		int status = priv->hw->mac->host_irq_status(priv->hw,
- 							    &priv->xstats);
++	port_dev->priv_flags |= IFF_L3MDEV_SLAVE;
+ 	ret = netdev_master_upper_dev_link(port_dev, dev, NULL, NULL);
+ 	if (ret < 0)
+-		return ret;
++		goto err;
  
--		if (priv->synopsys_id >= DWMAC_CORE_4_00)
--			status |= priv->hw->mac->host_mtl_irq_status(priv->hw,
--								STMMAC_CHAN0);
--
- 		if (unlikely(status)) {
- 			/* For LPI we need to save the tx status */
- 			if (status & CORE_IRQ_TX_PATH_IN_LPI_MODE)
- 				priv->tx_path_in_lpi_mode = true;
- 			if (status & CORE_IRQ_TX_PATH_EXIT_LPI_MODE)
- 				priv->tx_path_in_lpi_mode = false;
--			if (status & CORE_IRQ_MTL_RX_OVERFLOW && priv->hw->dma->set_rx_tail_ptr)
--				priv->hw->dma->set_rx_tail_ptr(priv->ioaddr,
--							priv->rx_tail_addr,
--							STMMAC_CHAN0);
-+		}
-+
-+		if (priv->synopsys_id >= DWMAC_CORE_4_00) {
-+			for (queue = 0; queue < queues_count; queue++) {
-+				status |=
-+				priv->hw->mac->host_mtl_irq_status(priv->hw,
-+								   queue);
-+
-+				if (status & CORE_IRQ_MTL_RX_OVERFLOW &&
-+				    priv->hw->dma->set_rx_tail_ptr)
-+					priv->hw->dma->set_rx_tail_ptr(priv->ioaddr,
-+								priv->rx_tail_addr,
-+								queue);
-+			}
- 		}
+-	port_dev->priv_flags |= IFF_L3MDEV_SLAVE;
+ 	cycle_netdev(port_dev);
  
- 		/* PCS link status */
+ 	return 0;
++
++err:
++	port_dev->priv_flags &= ~IFF_L3MDEV_SLAVE;
++	return ret;
+ }
+ 
+ static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
 -- 
-2.9.3
+2.7.4
