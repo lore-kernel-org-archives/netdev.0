@@ -1,37 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] nl80211: fix dumpit error path RTNL deadlocks
-Date: Wed, 15 Mar 2017 14:59:02 -0700 (PDT)
-Message-ID: <20170315.145902.1038598966216203408.davem@davemloft.net>
-References: <20170315132913.26088-1-johannes@sipsolutions.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames
+ DNAT-ed to bridge device
+Date: Wed, 15 Mar 2017 23:06:05 +0100
+Message-ID: <20170315220605.GA1766@salvia>
+References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
+	<20170315102608.GB24366@breakpoint.cc>
+	<20170315104211.GA24409@salvia> <20170315142720.GU15692@otheros>
+	<20170315181539.GA31875@salvia> <20170315211619.GA3464@otheros>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-        johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170315132913.26088-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
+	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S . Miller" <davem@davemloft.net>
+To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170315211619.GA3464@otheros>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Wed, 15 Mar 2017 14:29:13 +0100
+On Wed, Mar 15, 2017 at 10:16:19PM +0100, Linus Lüssing wrote:
+> On Wed, Mar 15, 2017 at 07:15:39PM +0100, Pablo Neira Ayuso wrote:
+> > Could you update ebtables dnat to check if the ethernet address
+> > matches the one of the input bridge interface, so we mangle the
+> > ->pkt_type accordingly from there, instead of doing this from the
+> > core?
+> 
+> Actually, that was the approach I thought about and went for first
+> (and it would probably work for me). Just checking against the
+> bridge device's net_device::dev_addr.
+> 
+> I scratched it though, as I was afraid that the issue might still
+> exist for people using some other upper device on top of the bridge
+> device. For instance, macvlan? And iterating over the
+> net_device::dev_addrs list seemed too costly for fast path to me.
 
-> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> 
-> Sowmini pointed out Dmitry's RTNL deadlock report to me, and it turns out
-> to be perfectly accurate - there are various error paths that miss unlock
-> of the RTNL.
-> 
-> To fix those, change the locking a bit to not be conditional in all those
-> nl80211_prepare_*_dump() functions, but make those require the RTNL to
-> start with, and fix the buggy error paths. This also let me use sparse
-> (by appropriately overriding the rtnl_lock/rtnl_unlock functions) to
-> validate the changes.
-> 
-> Reported-by: Sowmini Varadhan <sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Reported-by: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+I was more thinking of following the simple approach that we follow in
+ebt_redirect_tg() by taking the input interface.
 
-Johannes, I assume I will get this in a future pull request?
+Anyway, I'm ok with this.
