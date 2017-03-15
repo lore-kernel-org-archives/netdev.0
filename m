@@ -1,85 +1,63 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 4/7] drivers: net: xgene: Fix Rx checksum validation logic
-Date: Wed, 15 Mar 2017 13:27:18 -0700
-Message-ID: <1489609641-31557-5-git-send-email-isubramanian@apm.com>
-References: <1489609641-31557-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-        kchudgar@apm.com, qnguyen@apm.com,
-        Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: properly release sk_frag.page
+Date: Wed, 15 Mar 2017 13:21:28 -0700
+Message-ID: <1489609288.28631.161.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36222 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753840AbdCOU0T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:26:19 -0400
-Received: by mail-pf0-f170.google.com with SMTP id o126so13690497pfb.3
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 13:26:19 -0700 (PDT)
-In-Reply-To: <1489609641-31557-1-git-send-email-isubramanian@apm.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35513 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753368AbdCOU3u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:29:50 -0400
+Received: by mail-pf0-f195.google.com with SMTP id x63so3166699pfx.2
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 13:29:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes Rx checksum validation logic and
-adds NETIF_F_RXCSUM flag.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+I mistakenly added the code to release sk->sk_frag in
+sk_common_release() instead of sk_destruct()
+
+TCP sockets using sk->sk_allocation == GFP_ATOMIC do no call
+sk_common_release() at close time, thus leaking one (order-3) page.
+
+iSCSI is using such sockets.
+
+Fixes: 5640f7685831 ("net: use a per task frag allocator")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 27 +++++++++++++++---------
- 1 file changed, 17 insertions(+), 10 deletions(-)
+ net/core/sock.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index ec43278..e881365 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -601,14 +601,24 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- }
+diff --git a/net/core/sock.c b/net/core/sock.c
+index a96d5f7a5734a52dfd6a2df8490c7bd7f5f6599a..acb0d413749968f24ffc7df3e366b095f80e10f4 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1442,6 +1442,11 @@ static void __sk_destruct(struct rcu_head *head)
+ 		pr_debug("%s: optmem leakage (%d bytes) detected\n",
+ 			 __func__, atomic_read(&sk->sk_omem_alloc));
  
--static void xgene_enet_skip_csum(struct sk_buff *skb)
-+static void xgene_enet_rx_csum(struct sk_buff *skb)
- {
-+	struct net_device *ndev = skb->dev;
- 	struct iphdr *iph = ip_hdr(skb);
++	if (sk->sk_frag.page) {
++		put_page(sk->sk_frag.page);
++		sk->sk_frag.page = NULL;
++	}
++
+ 	if (sk->sk_peer_cred)
+ 		put_cred(sk->sk_peer_cred);
+ 	put_pid(sk->sk_peer_pid);
+@@ -2787,11 +2792,6 @@ void sk_common_release(struct sock *sk)
  
--	if (!ip_is_fragment(iph) ||
--	    (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP)) {
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	sk_refcnt_debug_release(sk);
+ 
+-	if (sk->sk_frag.page) {
+-		put_page(sk->sk_frag.page);
+-		sk->sk_frag.page = NULL;
 -	}
-+	if (!(ndev->features & NETIF_F_RXCSUM))
-+		return;
-+
-+	if (skb->protocol != htons(ETH_P_IP))
-+		return;
-+
-+	if (ip_is_fragment(iph))
-+		return;
-+
-+	if (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP)
-+		return;
-+
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
+-
+ 	sock_put(sk);
  }
- 
- static void xgene_enet_free_pagepool(struct xgene_enet_desc_ring *buf_pool,
-@@ -729,10 +739,7 @@ static int xgene_enet_rx_frame(struct xgene_enet_desc_ring *rx_ring,
- skip_jumbo:
- 	skb_checksum_none_assert(skb);
- 	skb->protocol = eth_type_trans(skb, ndev);
--	if (likely((ndev->features & NETIF_F_IP_CSUM) &&
--		   skb->protocol == htons(ETH_P_IP))) {
--		xgene_enet_skip_csum(skb);
--	}
-+	xgene_enet_rx_csum(skb);
- 
- 	rx_ring->rx_packets++;
- 	rx_ring->rx_bytes += datalen;
-@@ -2039,7 +2046,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 	xgene_enet_setup_ops(pdata);
- 
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
--		ndev->features |= NETIF_F_TSO;
-+		ndev->features |= NETIF_F_TSO | NETIF_F_RXCSUM;
- 		spin_lock_init(&pdata->mss_lock);
- 	}
- 	ndev->hw_features = ndev->features;
--- 
-1.9.1
+ EXPORT_SYMBOL(sk_common_release);
