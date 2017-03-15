@@ -1,94 +1,249 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: Re: [RFC v1 for accelerated IPoIB 14/25] net/mlx5: Enable
- flow-steering for IB link
-Date: Wed, 15 Mar 2017 20:56:38 +0200
-Message-ID: <20170315185638.GG2079@mtr-leonro.local>
-References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
- <1489429896-10781-15-git-send-email-erezsh@mellanox.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
+Date: Wed, 15 Mar 2017 20:10:38 +0100
+Message-ID: <20170315191038.nco2icu6e545rzlu@nataraja>
+References: <20170203091231.10142-1-jonas@southpole.se>
+ <20170315163916.gins7lzzqhwkvfrc@nataraja>
+ <20170315172348.GA30592@salvia>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="OlucDFihBVSxvK/7"
-Cc: <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <valex@mellanox.com>,
-        <saedm@mellanox.com>, <erezsh@dev.mellanox.co.il>
-To: Erez Shitrit <erezsh@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jonas Bonn <jonas@southpole.se>, netdev@vger.kernel.org,
+        osmocom-net-gprs@lists.osmocom.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr30044.outbound.protection.outlook.com ([40.107.3.44]:42491
-        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750877AbdCOTQA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Mar 2017 15:16:00 -0400
+Received: from ganesha.gnumonks.org ([213.95.27.120]:55462 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751183AbdCOTQA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 15:16:00 -0400
 Content-Disposition: inline
-In-Reply-To: <1489429896-10781-15-git-send-email-erezsh@mellanox.com>
+In-Reply-To: <20170315172348.GA30592@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---OlucDFihBVSxvK/7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hi Pablo,
 
-On Mon, Mar 13, 2017 at 08:31:25PM +0200, Erez Shitrit wrote:
->
-> Get the relevant capabilities if supports ipoib_enhanced_offloads and
-> init the flow steering table accordingly.
->
-> Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 10 +++++-----
->  drivers/net/ethernet/mellanox/mlx5/core/fw.c      |  3 ++-
->  2 files changed, 7 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-> index fa4edd88daf1..dd21fc557281 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-> @@ -1991,9 +1991,6 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
->  	struct mlx5_flow_steering *steering;
->  	int err = 0;
->
-> -	if (MLX5_CAP_GEN(dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
-> -		return 0;
-> -
->  	err = mlx5_init_fc_stats(dev);
->  	if (err)
->  		return err;
-> @@ -2004,8 +2001,11 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
->  	steering->dev = dev;
->  	dev->priv.steering = steering;
->
-> -	if (MLX5_CAP_GEN(dev, nic_flow_table) &&
-> -	    MLX5_CAP_FLOWTABLE_NIC_RX(dev, ft_support)) {
-> +	if ((((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_ETH) &&
-> +	      (MLX5_CAP_GEN(dev, nic_flow_table))) ||
-> +	     ((MLX5_CAP_GEN(dev, port_type) == MLX5_CAP_PORT_TYPE_IB) &&
-> +	      MLX5_CAP_GEN(dev, ipoib_enhanced_offloads)))
-> +	    && MLX5_CAP_FLOWTABLE_NIC_RX(dev, ft_support)) {
+On Wed, Mar 15, 2017 at 06:23:48PM +0100, Pablo Neira Ayuso wrote:
+> On Wed, Mar 15, 2017 at 05:39:16PM +0100, Harald Welte wrote:
+> > 
+> > I would definitely like to see this move forward, particularly in order
+> > to test the GGSN-side code.
+> 
+> Agreed.
 
-Erez,
+I've modified the patch slightly, see below (compile-tested, but not
+otherwise tested yet).  Basically rename the flags attribute to 'role',
+expand the commit log and removed unrelated cosmetic changes.
 
-Please calculate the result outside of "if.." and do it in steps,
-it is pretty hard to count all these brackets.
+I've also prepared a corresponding change to libgtpnl into the
+laforge/sgsn-rol branch, see
+http://git.osmocom.org/libgtpnl/commit/?h=laforge/sgsn-role
 
-Thanks
+This is not yet tested in any way, but I'm planning to add some
+associated support to the command line tools and then give it some
+testing (both against the kernel GTP in GGSN mode, as well as an
+independent userspace GTP implementation).
 
---OlucDFihBVSxvK/7
-Content-Type: application/pgp-signature; name="signature.asc"
+> It would be good if we provide a way to configure GTP via iproute2 for
+> testing purposes.
 
------BEGIN PGP SIGNATURE-----
+I don't really care about which tool is used, as long as it is easily
+available [and FOSS, of course].
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAljJjmUACgkQ5GN7iDZy
-WKdugA//ZL8JRzhNUFUhomYMn0+lA0zq/Bgk3dXEnkBPRvBSAKrfufxM5p5XmfZ9
-dzo4d9kbUif/8ZGumLya1oMZMrkpRxMrCU5OJXDBDC2LRR4ltepr2mjNDxcv+khB
-ha5Y8TKqYvaCOW0/brNzTkQJr2i2a7OIZnnGGt/eUwsguFedJqgJyugogckiKZ62
-OPmNE+e3xWn1F4nR+XzVnYTNsFjQ1DvC7RXfR3qaeQAtPH+Q6ZhRRA5AA3iOaOnC
-KnbYffGpU7WV1TRgoscDNWHbC36wGHTMaHOv0q4DWazyM26FwqTMeTGn9FnGgvJj
-TD/fuPs03a4CNTd9+m8cZcNf5rh1A4Q1sq1y91kzme/3h1lud5d1NNYCIWe2GVC9
-31aS3z696AZTR0j6FZctLbFATa+7iXx9QS81cDDFo45/fDgdnfDyjV6Zymldf4OZ
-1OfX1WzLRNmfw6Ob7Gs3HJP3B9dtzEca13TRzrM9/4TpYAIbco2G8nTZSRqsWaZF
-LQXZB3f/WKkrxpp9lx2LHZJtfvCW1pdcsirbBFvoWL14d5SydnF4EvUG+63G+F9n
-0TJzrwksCJql14D7MDSXd0Z1A54nwFAfql3nHJY/MGr0IzZGHOdyp8pGvd5Baa2P
-Nr5xr42UAT/VglYndtzc5n3gxZ4tRfMUQa8YzQ3MIn+v8Hnz/Dk=
-=4+zF
------END PGP SIGNATURE-----
+> We would need to create some dummy socket from
+> kernel too though so we don't need any userspace daemon for this
+> testing mode.
 
---OlucDFihBVSxvK/7--
+I don't really like that latter idea. It sounds too much like a hack to
+me.  But then, I don't have enough phantasy right now ti imagine how an
+actual implementation would look like.
+
+To me, it is perfectly fine to run a simple, small utility in userspace
+even for testing.
+
+Regards,
+	Harald
+
+>From 63920950f9498069993def78e178bde85c174e0c Mon Sep 17 00:00:00 2001
+From: Jonas Bonn <jonas@southpole.se>
+Date: Wed, 15 Mar 2017 17:52:28 +0100
+Subject: [PATCH] gtp: support SGSN-side tunnels
+
+The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
+contexts based on the incoming packets _destination_ address.  For
+real-world use cases, this is sufficient, as the other side of a GTP
+tunnel is not in fact implemented by GTP, but by the protocol stacking
+of a mobile station / user equipment on the radio interface (like PDCP,
+SNDCP).
+
+However, if we want to simulate the mobile station, radio access network
+and SGSN (for example to test the GGSN side implementation), then we
+want to be identifying PDP contexts based on _source_ address.
+
+This patch adds a "role" attribute at GTP-link creation time to specify
+whether we behave like the GGSN or SGSN role of the tunnel; this
+attribute is then used to determine which part of the IP packet to use
+in determining the PDP context.
+
+Signed-off-by: Jonas Bonn <jonas@southpole.se>
+Signed-off-by: Harald Welte <laforge@gnumonks.org>
+
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 99d3df788ce8..9aef4217f6e1 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -71,6 +71,7 @@ struct gtp_dev {
+ 
+ 	struct net_device	*dev;
+ 
++	enum ifla_gtp_role	role;
+ 	unsigned int		hash_size;
+ 	struct hlist_head	*tid_hash;
+ 	struct hlist_head	*addr_hash;
+@@ -149,8 +150,8 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp, __be32 ms_addr)
+ 	return NULL;
+ }
+ 
+-static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
+-				  unsigned int hdrlen)
++static bool gtp_check_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
++				  unsigned int hdrlen, enum ifla_gtp_role role)
+ {
+ 	struct iphdr *iph;
+ 
+@@ -159,18 +160,21 @@ static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
+ 
+ 	iph = (struct iphdr *)(skb->data + hdrlen);
+ 
+-	return iph->saddr == pctx->ms_addr_ip4.s_addr;
++	if (role == GTP_ROLE_SGSN)
++		return iph->daddr == pctx->ms_addr_ip4.s_addr;
++	else
++		return iph->saddr == pctx->ms_addr_ip4.s_addr;
+ }
+ 
+ /* Check if the inner IP source address in this packet is assigned to any
+  * existing mobile subscriber.
+  */
+-static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
+-			     unsigned int hdrlen)
++static bool gtp_check_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
++			     unsigned int hdrlen, enum ifla_gtp_role role)
+ {
+ 	switch (ntohs(skb->protocol)) {
+ 	case ETH_P_IP:
+-		return gtp_check_src_ms_ipv4(skb, pctx, hdrlen);
++		return gtp_check_ms_ipv4(skb, pctx, hdrlen, role);
+ 	}
+ 	return false;
+ }
+@@ -204,7 +208,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 		goto out_rcu;
+ 	}
+ 
+-	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
++	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+ 		ret = -1;
+ 		goto out_rcu;
+@@ -261,7 +265,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 		goto out_rcu;
+ 	}
+ 
+-	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
++	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+ 		ret = -1;
+ 		goto out_rcu;
+@@ -490,7 +494,11 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	 * Prepend PDP header with TEI/TID from PDP ctx.
+ 	 */
+ 	iph = ip_hdr(skb);
+-	pctx = ipv4_pdp_find(gtp, iph->daddr);
++	if (gtp->role == GTP_ROLE_SGSN)
++		pctx = ipv4_pdp_find(gtp, iph->saddr);
++	else
++		pctx = ipv4_pdp_find(gtp, iph->daddr);
++
+ 	if (!pctx) {
+ 		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
+ 			   &iph->daddr);
+@@ -665,12 +673,26 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 	int hashsize, err, fd0, fd1;
+ 	struct gtp_dev *gtp;
+ 	struct gtp_net *gn;
++	unsigned int role;
++
++	/* The default role is GGSN, and for backwards compatibility
++	 * reasons, the lack of a IFLA_GTP_ROLE IE means that we're
++	 * operating in GGSN role. */
++	if (data[IFLA_GTP_ROLE]) {
++		role = nla_get_u32(data[IFLA_GTP_ROLE]);
++		if (role != GTP_ROLE_GGSN &&
++		    role != GTP_ROLE_SGSN)
++			return -EINVAL;
++	} else
++		role = GTP_ROLE_GGSN;
+ 
+ 	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
+ 		return -EINVAL;
+ 
+ 	gtp = netdev_priv(dev);
+ 
++	gtp->role = role;
++
+ 	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
+ 	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
+ 
+@@ -722,6 +744,7 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1] = {
+ 	[IFLA_GTP_FD0]			= { .type = NLA_U32 },
+ 	[IFLA_GTP_FD1]			= { .type = NLA_U32 },
+ 	[IFLA_GTP_PDP_HASHSIZE]		= { .type = NLA_U32 },
++	[IFLA_GTP_ROLE]			= { .type = NLA_U32 },
+ };
+ 
+ static int gtp_validate(struct nlattr *tb[], struct nlattr *data[])
+diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
+index 72a04a0e8cce..79037cca6b51 100644
+--- a/include/uapi/linux/gtp.h
++++ b/include/uapi/linux/gtp.h
+@@ -19,7 +19,7 @@ enum gtp_attrs {
+ 	GTPA_LINK,
+ 	GTPA_VERSION,
+ 	GTPA_TID,	/* for GTPv0 only */
+-	GTPA_SGSN_ADDRESS,
++	GTPA_SGSN_ADDRESS, /* Remote GSN, either SGSN or GGSN */
+ 	GTPA_MS_ADDRESS,
+ 	GTPA_FLOW,
+ 	GTPA_NET_NS_FD,
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 6b13e591abc9..de7bea223749 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -536,11 +536,18 @@ enum {
+ #define IFLA_PPP_MAX (__IFLA_PPP_MAX - 1)
+ 
+ /* GTP section */
++
++enum ifla_gtp_role {
++	GTP_ROLE_GGSN = 0,
++	GTP_ROLE_SGSN,
++};
++
+ enum {
+ 	IFLA_GTP_UNSPEC,
+ 	IFLA_GTP_FD0,
+ 	IFLA_GTP_FD1,
+ 	IFLA_GTP_PDP_HASHSIZE,
++	IFLA_GTP_ROLE,
+ 	__IFLA_GTP_MAX,
+ };
+ #define IFLA_GTP_MAX (__IFLA_GTP_MAX - 1)
+-- 
+2.11.0
+
+-- 
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+============================================================================
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
