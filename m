@@ -1,48 +1,32 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH v2] net: sun: sungem: rix a possible null dereference
-Date: Wed, 15 Mar 2017 22:51:13 +0100
-Message-ID: <1489614673-12595-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, mugunthanvnm@ti.com, jarod@redhat.com,
-        felipe.balbi@linux.intel.com, edumazet@google.com, fw@strlen.de,
-        sergei.shtylyov@cogentembedded.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Wed, 15 Mar 2017 14:55:12 -0700 (PDT)
+Message-ID: <20170315.145512.1542025976162251828.davem@davemloft.net>
+References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
+        <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
+        <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: keescook@chromium.org, daniel@iogearbox.net, mgherzan@gmail.com,
+        netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        linux-arm-kernel@lists.infradead.org
+To: illusionist.neo@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54496 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753314AbdCOVzN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 17:55:13 -0400
+In-Reply-To: <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function gem_begin_auto_negotiation dereference
-the pointer ep before testing if it's null. This
-patch add a check on ep before dereferencing it.
+From: Shubham Bansal <illusionist.neo@gmail.com>
+Date: Wed, 15 Mar 2017 17:43:44 +0530
 
-Fixes: 92552fdd557 ("net: sun: sungem: use new api
-ethtool_{get|set}_link_ksettings")
+>> You can't truncate, but you'll have to build 64-bit ops using 32-bit registers.
+> 
+> A small example would help a lot.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
-Chanelog:
-v2:
-- use Fixes tag (thanks Sergei Shtylyov)
-
- drivers/net/ethernet/sun/sungem.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
-index dbfca04..fa607d0 100644
---- a/drivers/net/ethernet/sun/sungem.c
-+++ b/drivers/net/ethernet/sun/sungem.c
-@@ -1259,8 +1259,9 @@ static void gem_begin_auto_negotiation(struct gem *gp,
- 	int duplex;
- 	u32 advertising;
- 
--	ethtool_convert_link_mode_to_legacy_u32(&advertising,
--						ep->link_modes.advertising);
-+	if (ep)
-+		ethtool_convert_link_mode_to_legacy_u32(
-+			&advertising, ep->link_modes.advertising);
- 
- 	if (gp->phy_type != phy_mii_mdio0 &&
-      	    gp->phy_type != phy_mii_mdio1)
--- 
-1.7.4.4
+You can simply perform 64-bit operations in C code and see what gcc
+outputs for that code on this 32-bit target.
