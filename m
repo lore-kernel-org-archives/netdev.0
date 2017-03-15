@@ -1,118 +1,219 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: net/sctp: recursive locking in sctp_do_peeloff
-Date: Wed, 15 Mar 2017 09:52:47 -0300
-Message-ID: <20170315125247.GB23553@localhost.localdomain>
-References: <CACT4Y+ZHGC6VNJUANgSdZnCfLQrRKtsQ-Dbn6goHScj=pq7xog@mail.gmail.com>
- <CAFSqH7xrmH2Bgq3Xckgb3mkj7j1qkApemEYOq3jbQEtj+TTEpQ@mail.gmail.com>
- <CACT4Y+b1Uu9nGqX=LdJ_nEWxbeCswMOsSpvnW=OLdDKYC5EjDw@mail.gmail.com>
- <CAM_iQpUEWDVHx5+VBB4=r=y_vVbXq32a2QfqY=OU5ri-yyJPaA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] mlx4: Better use of order-0 pages in RX path
+Date: Wed, 15 Mar 2017 06:21:29 -0700
+Message-ID: <1489584089.28631.147.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170314151143.16231-1-edumazet@google.com>
+         <20170315040657.GA29637@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Vladislav Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpUEWDVHx5+VBB4=r=y_vVbXq32a2QfqY=OU5ri-yyJPaA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33759 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751125AbdCONVc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 09:21:32 -0400
+Received: by mail-pg0-f65.google.com with SMTP id y17so2303546pgh.0
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 06:21:31 -0700 (PDT)
+In-Reply-To: <20170315040657.GA29637@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 14, 2017 at 09:52:15PM -0700, Cong Wang wrote:
-> On Fri, Mar 10, 2017 at 12:04 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> > On Fri, Mar 10, 2017 at 8:46 PM, Marcelo Ricardo Leitner
-> > <marcelo.leitner@gmail.com> wrote:
-> >> On Fri, Mar 10, 2017 at 4:11 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> >>> Hello,
-> >>>
-> >>> I've got the following recursive locking report while running
-> >>> syzkaller fuzzer on net-next/9c28286b1b4b9bce6e35dd4c8a1265f03802a89a:
-> >>>
-> >>> [ INFO: possible recursive locking detected ]
-> >>> 4.10.0+ #14 Not tainted
-> >>> ---------------------------------------------
-> >>> syz-executor3/5560 is trying to acquire lock:
-> >>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff8401ebcd>] lock_sock
-> >>> include/net/sock.h:1460 [inline]
-> >>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff8401ebcd>]
-> >>> sctp_close+0xcd/0x9d0 net/sctp/socket.c:1497
-> >>>
-> >>> but task is already holding lock:
-> >>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff84038110>] lock_sock
-> >>> include/net/sock.h:1460 [inline]
-> >>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff84038110>]
-> >>> sctp_getsockopt+0x450/0x67e0 net/sctp/socket.c:6611
-> >>>
-> >>> other info that might help us debug this:
-> >>>  Possible unsafe locking scenario:
-> >>>
-> >>>        CPU0
-> >>>        ----
-> >>>   lock(sk_lock-AF_INET6);
-> >>>   lock(sk_lock-AF_INET6);
-> >>>
-> >>>  *** DEADLOCK ***
-> >>>
-> >>>  May be due to missing lock nesting notation
-> >>
-> >> Pretty much the case, I suppose. The lock held by sctp_getsockopt() is
-> >> on one socket, while the other lock that sctp_close() is getting later
-> >> is on the newly created (which failed) socket during peeloff
-> >> operation.
-> >
-> >
-> > Does this mean that never-ever lock 2 sockets at a time except for
-> > this case? If so, it probably suggests that this case should not do it
-> > either.
-> >
+On Tue, 2017-03-14 at 21:06 -0700, Alexei Starovoitov wrote:
+> On Tue, Mar 14, 2017 at 08:11:43AM -0700, Eric Dumazet wrote:
+> > +static struct page *mlx4_alloc_page(struct mlx4_en_priv *priv,
+> > +				    struct mlx4_en_rx_ring *ring,
+> > +				    dma_addr_t *dma,
+> > +				    unsigned int node, gfp_t gfp)
+> >  {
+> > +	if (unlikely(!ring->pre_allocated_count)) {
+> > +		unsigned int order = READ_ONCE(ring->rx_alloc_order);
+> > +
+> > +		page = __alloc_pages_node(node, (gfp & ~__GFP_DIRECT_RECLAIM) |
+> > +						__GFP_NOMEMALLOC |
+> > +						__GFP_NOWARN |
+> > +						__GFP_NORETRY,
+> > +					  order);
+> > +		if (page) {
+> > +			split_page(page, order);
+> > +			ring->pre_allocated_count = 1U << order;
+> > +		} else {
+> > +			if (order > 1)
+> > +				ring->rx_alloc_order--;
+> > +			page = __alloc_pages_node(node, gfp, 0);
+> > +			if (unlikely(!page))
+> > +				return NULL;
+> > +			ring->pre_allocated_count = 1U;
+> >  		}
+> > +		ring->pre_allocated = page;
+> > +		ring->rx_alloc_pages += ring->pre_allocated_count;
+> >  	}
+> > +	page = ring->pre_allocated++;
+> > +	ring->pre_allocated_count--;
 > 
-> Yeah, actually for the error path we don't even need to lock sock
-> since it is newly allocated and no one else could see it yet.
+> do you think this style of allocation can be moved into net common?
+> If it's a good thing then other drivers should be using it too, right?
+
+Yes, we might do this once this proves to work well.
+
+> 
+> > +	ring->cons = 0;
+> > +	ring->prod = 0;
+> > +
+> > +	/* Page recycling works best if we have enough pages in the pool.
+> > +	 * Apply a factor of two on the minimal allocations required to
+> > +	 * populate RX rings.
+> > +	 */
+> 
+> i'm not sure how above comments matches the code below.
+> If my math is correct a ring of 1k elements will ask for 1024
+> contiguous pages.
+
+On x86 it might be the case, unless you use MTU=900 ?
+
+On PowerPC, PAGE_SIZE=65536
+
+65536/1536 = 42  
+
+So for 1024 elements, we need 1024/42 = ~24 pages.
+
+Thus allocating 48 pages is the goal.
+Rounded to next power of two (although nothing in my code really needs
+this additional constraint, a page pool does not have to have a power of
+two entries)
+
+Later, we might chose a different factor, maybe an elastic one.
+
+> 
+> > +retry:
+> > +	total = 0;
+> > +	pages_per_ring = new_size * stride_bytes * 2 / PAGE_SIZE;
+> > +	pages_per_ring = roundup_pow_of_two(pages_per_ring);
+> > +
+> > +	order = min_t(u32, ilog2(pages_per_ring), MAX_ORDER - 1);
+> 
+> if you're sure it doesn't hurt the rest of the system,
+> why use MAX_ORDER - 1? why not MAX_ORDER?
+
+alloc_page(GFP_...,   MAX_ORDER)  never succeeds ;)
+
+Because of the __GRP_NOWARN you would not see the error I guess, but we
+would get one pesky order-0 page in the ring buffer ;)
+
+> 
+> >  
+> > -/* We recover from out of memory by scheduling our napi poll
+> > - * function (mlx4_en_process_cq), which tries to allocate
+> > - * all missing RX buffers (call to mlx4_en_refill_rx_buffers).
+> > +/* Under memory pressure, each ring->rx_alloc_order might be lowered
+> > + * to very small values. Periodically increase t to initial value for
+> > + * optimal allocations, in case stress is over.
+> >   */
+> > +	for (ring_ind = 0; ring_ind < priv->rx_ring_num; ring_ind++) {
+> > +		ring = priv->rx_ring[ring_ind];
+> > +		order = min_t(unsigned int, ring->rx_alloc_order + 1,
+> > +			      ring->rx_pref_alloc_order);
+> > +		WRITE_ONCE(ring->rx_alloc_order, order);
+> 
+> when recycling is effective in a matter of few seconds it will
+> increase ther order back to 10 and the first time the driver needs
+> to allocate, it will start that tedious failure loop all over again.
+> How about removing this periodic mlx4_en_recover_from_oom() completely
+> and switch to increase the order inside mlx4_alloc_page().
+> Like N successful __alloc_pages_node() with order X will bump it
+> into order X+1. If it fails next time it will do only one failed attempt.
+
+I wanted to do the increase out of line. (not in the data path)
+
+We probably could increase only if ring->rx_alloc_pages got a
+significant increase since the last mlx4_en_recover_from_oom() call.
+
+(That would require a new ring->prior_rx_alloc_pages out of hot cache
+lines)
+
+Or maybe attempt the allocation from process context (from
+mlx4_en_recover_from_oom())
+
+I have not really thought very hard about this, since data path, if
+really needing new pages, will very fast probe rx_alloc_order back to
+available pages in the zone.
+
+> 
+> > +static bool mlx4_replenish(struct mlx4_en_priv *priv,
+> > +			   struct mlx4_en_rx_ring *ring,
+> > +			   struct mlx4_en_frag_info *frag_info)
+> >  {
+> > +	struct mlx4_en_page *en_page = &ring->pool.array[ring->pool.pool_idx];
+> > +	if (!mlx4_page_is_reusable(en_page->page)) {
+> > +		page = mlx4_alloc_page(priv, ring, &dma, numa_mem_id(),
+> > +				       GFP_ATOMIC | __GFP_MEMALLOC);
+> 
+> I don't understand why page_is_reusable is doing !page_is_pfmemalloc(page))
+> check, but here you're asking for MEMALLOC pages too, so
+> under memory pressure the hw will dma the packet into this page,
+> but then the stack will still drop it, so under pressure
+> we'll keep alloc/free the pages from reserve. Isn't it better
+> to let the hw drop (since we cannot alloc and rx ring is empty) ?
+> What am I missing?
+
+We do not want to drop packets that might help SWAP over NFS from
+freeing memory and help us recovering from pressure. This is the whole
+point of __GFP_MEMALLOC protocol : hw wont know that a particular TCP
+packet must not be dropped.
+
+> 
+> > @@ -767,10 +820,30 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+> >  			case XDP_PASS:
+> >  				break;
+> >  			case XDP_TX:
+> > +				/* Make sure we have one page ready to replace this one */
+> > +				npage = NULL;
+> > +				if (!ring->page_cache.index) {
+> > +					npage = mlx4_alloc_page(priv, ring,
+> > +								&ndma, numa_mem_id(),
+> > +								GFP_ATOMIC | __GFP_MEMALLOC);
+> > +					if (!npage) {
+> > +						ring->xdp_drop++;
+> > +						goto next;
+> > +					}
+> > +				}
+> 
+> I think the approach to drop packets after xdp prog executed is incorrect.
+> In such case xdp program already parsed the packet, performed all necessary
+> changes and now ready to xmit it out. Dropping packet so late, just
+> because page_cache is empty, doesn't make any sense. Therefore please change
+> this part back to how it was before: allocate buffer at the end of the loop.
+> I think you're trying too hard to avoid _oom() callback doing allocs. Say
+> all rx packets went via xdp_tx and we don't have any pages to put into rx ring
+> at the end of this rx loop. That's still not a problem. The hw will drop
+> few packets and when tx completion fires on the same cpu for xdp rings we
+> can without locks populate corresponding rx ring.
+> So XDP will be able to operate without allocations even when there is
+> no free memory in the rest of the system.
+> 
+> Also I was thinking to limit xdp rings to order 0 allocs only, but doing
+> large order can indeed decrease tlb misses. That has to be tested more
+> thoroughly and if large order will turn out to hurt we can add small patch
+> on top of this one to do order0 for xdp rings.
+
+
+> 
+> Overall I think there are several good ideas in this patch,
+> but drop after xdp_tx is the showstopper and has to be addressed
+> before this patch can be merged.
 > 
 
-Agreed.
+The xmit itself can drop the packet if TX ring is full.
 
-> Instead of checking for the status of the sock, I believe the following
-> one-line fix should do the trick too. Can you give it a try?
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 0f378ea..4de62d4 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -1494,7 +1494,7 @@ static void sctp_close(struct sock *sk, long timeout)
-> 
->         pr_debug("%s: sk:%p, timeout:%ld\n", __func__, sk, timeout);
-> 
-> -       lock_sock(sk);
-> +       lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
->         sk->sk_shutdown = SHUTDOWN_MASK;
->         sk->sk_state = SCTP_SS_CLOSING;
+I can do the change, but you are focusing on this allocation that will
+never happen but for the first packets going through XDP_TX
 
-I refrained on doing this just because it will change the lock signature
-for the first level too, as sctp_close() can be called directly, and
-might avoid some other lockdep detections.
-
-Then you probably also need:
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 465a9c8464f9..02506b4406d2 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1543,7 +1543,7 @@ static void sctp_close(struct sock *sk, long timeout)
- 	 * held and that should be grabbed before socket lock.
- 	 */
- 	spin_lock_bh(&net->sctp.addr_wq_lock);
--	bh_lock_sock(sk);
-+	bh_lock_sock_nested(sk);
- 
- 	/* Hold the sock, since sk_common_release() will put sock_put()
- 	 * and we have just a little more cleanup.
-
-because sctp_close will re-lock the socket a little later (for backlog
-processing).
-
-  Marcelo
+I am fine adding overhead for the non XDP_TX, since you really want it.
