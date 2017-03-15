@@ -1,57 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] MIPS: BPF: JIT fixes and improvements.
-Date: Tue, 14 Mar 2017 17:36:45 -0700 (PDT)
-Message-ID: <20170314.173645.1126342566528886979.davem@davemloft.net>
-References: <20170314212144.29988-1-david.daney@cavium.com>
-        <20170314.172937.1289357366273291363.davem@davemloft.net>
-        <1d09f001-aa15-e3bf-be85-a13b1132a12a@caviumnetworks.com>
+Subject: Re: [net-next 01/13] i40evf: fix client warnings
+Date: Tue, 14 Mar 2017 17:39:49 -0700 (PDT)
+Message-ID: <20170314.173949.1164218813681950110.davem@davemloft.net>
+References: <20170314223308.53451-1-jeffrey.t.kirsher@intel.com>
+        <20170314223308.53451-2-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: david.daney@cavium.com, ralf@linux-mips.org,
-        linux-mips@linux-mips.org, james.hogan@imgtec.com, ast@kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        steven.hill@cavium.com
-To: ddaney@caviumnetworks.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1d09f001-aa15-e3bf-be85-a13b1132a12a@caviumnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: faisal.latif@intel.com, netdev@vger.kernel.org, nhorman@redhat.com,
+        sassmann@redhat.com, jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58546 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750849AbdCOAjv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Mar 2017 20:39:51 -0400
+In-Reply-To: <20170314223308.53451-2-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <ddaney@caviumnetworks.com>
-Date: Tue, 14 Mar 2017 17:34:02 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 14 Mar 2017 15:32:56 -0700
 
-> On 03/14/2017 05:29 PM, David Miller wrote:
->> From: David Daney <david.daney@cavium.com>
->> Date: Tue, 14 Mar 2017 14:21:39 -0700
->>
->>> Changes from v1:
->>>
->>>   - Use unsigned access for SKF_AD_HATYPE
->>>
->>>   - Added three more patches for other problems found.
->>>
->>>
->>> Testing the BPF JIT on Cavium OCTEON (mips64) with the test-bpf module
->>> identified some failures and unimplemented features.
->>>
->>> With this patch set we get:
->>>
->>>      test_bpf: Summary: 305 PASSED, 0 FAILED, [85/297 JIT'ed]
->>>
->>> Both big and little endian tested.
->>>
->>> We still lack eBPF support, but this is better than nothing.
->>
->> What tree are you targetting with these changes?  Do you expect
->> them to go via the MIPS or the net-next tree?
->>
->> Please be explicit about this in the future.
->>
+> From: Faisal Latif <faisal.latif@intel.com>
 > 
-> Sorry I didn't mention it.
+> The function prototype in i40evf_client.h are giving warnings while
+> compiling i40iwvf module. Move these function prototypes to i40evf.h.
+> Also fix return code from u32 to int and this return code is
+> consistent with i40e_client.h
 > 
-> My expectation is that Ralf would merge it via the MIPS tree, as it is
-> fully contained within arch/mips/*
+> Change-Id: Ie3757f844993aabc27654aaf02ec14fb985ad2c4
+> Signed-off-by: Faisal Latif <faisal.latif@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Great, thanks for letting me know.
+There is no such i40evf_client.h header file in the tree.
+
+>  int i40evf_config_rss(struct i40evf_adapter *adapter);
+> +int i40evf_lan_add_device(struct i40evf_adapter *adapter);
+> +int i40evf_lan_del_device(struct i40evf_adapter *adapter);
+> +void i40evf_client_subtask(struct i40evf_adapter *adapter);
+> +void i40evf_notify_client_message(struct i40e_vsi *vsi, u8 *msg, u16 len);
+> +void i40evf_notify_client_l2_params(struct i40e_vsi *vsi);
+> +void i40evf_notify_client_open(struct i40e_vsi *vsi);
+> +void i40evf_notify_client_close(struct i40e_vsi *vsi);
+>  #endif /* _I40EVF_H_ */
+
+And these functions do not exist in the tree either.
+
+This really isn't acceptable.
