@@ -1,40 +1,142 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames
- DNAT-ed to bridge device
-Date: Wed, 15 Mar 2017 15:27:20 +0100
-Message-ID: <20170315142720.GU15692@otheros>
-References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
-	<20170315102608.GB24366@breakpoint.cc>
-	<20170315104211.GA24409@salvia>
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Subject: Re: [PATCH net-next 3/3] vxlan: allow multiple VXLANs with same VNI
+ for IPv6 link-local addresses
+Date: Wed, 15 Mar 2017 15:29:29 +0100
+Message-ID: <1542ef1a-4bc2-d142-1910-0583c3c543a6@universe-factory.net>
+References: <cover.1489184335.git.mschiffer@universe-factory.net>
+ <5c74248483272110d0ca249b80b943b0ceb0b610.1489184335.git.mschiffer@universe-factory.net>
+ <20170314162815.7aae9e94@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S . Miller" <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170315104211.GA24409@salvia>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="3A0G9WHNefdjwO6mRbf880AUgG7NP8WTI"
+Cc: davem@davemloft.net, hannes@stressinduktion.org, pshelar@ovn.org,
+        aduyck@mirantis.com, roopa@cumulusnetworks.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170314162815.7aae9e94@griffin>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 15, 2017 at 11:42:11AM +0100, Pablo Neira Ayuso wrote:
-> I'm missing then why redirect is not then just enough for Linus usecase.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--3A0G9WHNefdjwO6mRbf880AUgG7NP8WTI
+Content-Type: multipart/mixed; boundary="V8PLdBuoDoaebTm16EogSmNd7MeWmarRS";
+ protected-headers="v1"
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+To: Jiri Benc <jbenc@redhat.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org, pshelar@ovn.org,
+ aduyck@mirantis.com, roopa@cumulusnetworks.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+Message-ID: <1542ef1a-4bc2-d142-1910-0583c3c543a6@universe-factory.net>
+Subject: Re: [PATCH net-next 3/3] vxlan: allow multiple VXLANs with same VNI
+ for IPv6 link-local addresses
+References: <cover.1489184335.git.mschiffer@universe-factory.net>
+ <5c74248483272110d0ca249b80b943b0ceb0b610.1489184335.git.mschiffer@universe-factory.net>
+ <20170314162815.7aae9e94@griffin>
+In-Reply-To: <20170314162815.7aae9e94@griffin>
 
-For my usecase, the MAC address is configured by the user from a
-Web-UI. It may or may not be the one from the bridge device.
+--V8PLdBuoDoaebTm16EogSmNd7MeWmarRS
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Besides, found it counter intuitive that DNAT did not work here
-and took me some time to find out why. At least I didn't read about
-any such known limitations of the dnat target in the ebtables
-manpage.
+On 03/14/2017 04:28 PM, Jiri Benc wrote:
+> On Fri, 10 Mar 2017 23:39:44 +0100, Matthias Schiffer wrote:
+>> @@ -233,17 +234,30 @@ static struct vxlan_dev *vxlan_vs_find_vni(struc=
+t vxlan_sock *vs, __be32 vni)
+>>  		vni =3D 0;
+>> =20
+>>  	hlist_for_each_entry_rcu(vxlan, vni_head(vs, vni), hlist) {
+>> -		if (vxlan->default_dst.remote_vni =3D=3D vni)
+>> -			return vxlan;
+>> +		if (vxlan->default_dst.remote_vni !=3D vni)
+>> +			continue;
+>> +
+>> +		if (IS_ENABLED(CONFIG_IPV6)) {
+>> +			const struct vxlan_config *cfg =3D &vxlan->cfg;
+>> +
+>> +			if (cfg->remote_ifindex !=3D 0 &&
+>> +			    cfg->remote_ifindex !=3D ifindex &&
+>> +			    cfg->saddr.sa.sa_family =3D=3D AF_INET6 &&
+>> +			    (ipv6_addr_type(&cfg->saddr.sin6.sin6_addr) &
+>> +			     IPV6_ADDR_LINKLOCAL))
+>=20
+> Calculating this (especially ipv6_addr_type) on every received packet
+> looks unnecessarily expensive. Just store the fact the the local
+> address is link-local in a flag during config. And compare the flag
+> first before considering remote_ifindex.
+>=20
+> This is especially important for lwtunnels which can have anything in
+> the saddr and remote_ifindex, yet those fields are ignored and the
+> vni 0 entry has to be returned. It also means that the link-local flag
+> must not be set for lwtunnels.
+>=20
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +		if (conf->remote_ifindex !=3D tmp->cfg.remote_ifindex &&
+>> +		    conf->saddr.sa.sa_family =3D=3D AF_INET6 &&
+>> +		    tmp->cfg.saddr.sa.sa_family =3D=3D AF_INET6 &&
+>> +		    (ipv6_addr_type(&conf->saddr.sin6.sin6_addr) &
+>> +		     IPV6_ADDR_LINKLOCAL) &&
+>> +		    (ipv6_addr_type(&tmp->cfg.saddr.sin6.sin6_addr) &
+>> +		     IPV6_ADDR_LINKLOCAL))
+>> +			continue;
+>> +#endif
+>=20
+> In patch 1, you're checking for either source and destination address
+> being link-local, while here you're consider only those that have both
+> addresses link-local.
+>=20
+> Wouldn't it be better to plainly reject configuration that has one
+> address link-local but not the other one?
+
+While ensuring that the destination address is link-local iff the source
+address is would also be an option, it didn't seem too useful as the
+destination address will be a multicast address anyways in "normal" VXLAN=
+
+configurations. If we really want to check this, I guess the valid
+combinations are:
+
+source link-local - destination link-local UC
+source link-local - destination link-local MC
+source global/... - destination global/... UC
+source global/... - destination any MC
+
+Does this make sense?
+
+
+>=20
+>  Jiri
+
+Thanks for your comments, I'll send a v2 soon.
+
+Matthias
+
+
+
+
+
+--V8PLdBuoDoaebTm16EogSmNd7MeWmarRS--
+
+--3A0G9WHNefdjwO6mRbf880AUgG7NP8WTI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEZmTnvaa2aYgexS51Fu8/ZMsgHZwFAljJT8oACgkQFu8/ZMsg
+HZyMEhAAzBRnKYNDUhubbaeaxITSfIjDrNwQPfHpgyFK7IRccr3WCtCHb4xFEil2
+ScPSlbggr1iRzSCeR/AN0SzBQ0KGnvWbaT8PcmAwbqIFmClFXmdpqzoEgTuHrE6X
+wO/JT5E2Nkiq41JlQ58SVRafMTb5qvGPxUQrLLUwQEcZ/2i48MHBv9JB1MQVkdP0
+OC7zr8r+KBaHDFcHGpGJ09B5GTOyobaG9jlIsgkXF7mV3RxL7ECADKAh6UnYhCOq
+nRu0UDF9eBXQWFM9meS7Al40i/EEkrv1dAKw70nO4z0bOfkL2tapBKEmusHvpZ6m
+uvw1IbAJBkJcArwUowtttNMzLrsay6wPGtqvgCI0H/c76QQ80+zwS4FaZcbnB2Q+
+8gkQ7tSfM5DvDfARqEc/0hzfGAjcwsXBqC5rFOLAih6DKnCUWcD6lsrFdv8mIs3t
+kdccAVf7Lb2SXjK7hIatXkjzyqWh3mZxhafhffEfAIWys5s2Fon+KLDwYP+ZHnO7
+cvhQEIBBDjG8/87zZyIw2qRka60EWbfOFhCTgt36sdQS+ZXSCUreERNJRNVf6uyV
+vtsPH2m2jGobxDjqQ3WwaNRWemI7YTGuAdbFK25EhGD115YU+Qg9oOlJ8fUo8cGT
+ZZtg7yzu3yo8pbQTsnPab1oD8yj8ysBFtkf1Wpor2Idf0ORbEYk=
+=EQRF
+-----END PGP SIGNATURE-----
+
+--3A0G9WHNefdjwO6mRbf880AUgG7NP8WTI--
