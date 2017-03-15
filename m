@@ -1,95 +1,118 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Wed, 15 Mar 2017 17:43:44 +0530
-Message-ID: <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
-References: <20170130103853.GA34633@in3o.xyz> <CAGXu5j+7+D=N8U9Zpq1Uq526B4C4g=gQZtQ1iCMt3juDFgfgJA@mail.gmail.com>
- <CAHgaXd+nj69n-Xf46N=4M-j-0hKHVrrLfsvRZCG=2CCAtVF6ZA@mail.gmail.com>
- <CAGXu5j+NSLomuSgD40kys+pWc+J9aB6Bbk_gSP9Lp_ScimQn_w@mail.gmail.com>
- <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com> <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: net/sctp: recursive locking in sctp_do_peeloff
+Date: Wed, 15 Mar 2017 09:52:47 -0300
+Message-ID: <20170315125247.GB23553@localhost.localdomain>
+References: <CACT4Y+ZHGC6VNJUANgSdZnCfLQrRKtsQ-Dbn6goHScj=pq7xog@mail.gmail.com>
+ <CAFSqH7xrmH2Bgq3Xckgb3mkj7j1qkApemEYOq3jbQEtj+TTEpQ@mail.gmail.com>
+ <CACT4Y+b1Uu9nGqX=LdJ_nEWxbeCswMOsSpvnW=OLdDKYC5EjDw@mail.gmail.com>
+ <CAM_iQpUEWDVHx5+VBB4=r=y_vVbXq32a2QfqY=OU5ri-yyJPaA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>, Mircea Gherzan <mgherzan@gmail.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-	"linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <kernel-hardening-return-7038-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Vladislav Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpUEWDVHx5+VBB4=r=y_vVbXq32a2QfqY=OU5ri-yyJPaA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi kees,
+On Tue, Mar 14, 2017 at 09:52:15PM -0700, Cong Wang wrote:
+> On Fri, Mar 10, 2017 at 12:04 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> > On Fri, Mar 10, 2017 at 8:46 PM, Marcelo Ricardo Leitner
+> > <marcelo.leitner@gmail.com> wrote:
+> >> On Fri, Mar 10, 2017 at 4:11 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> >>> Hello,
+> >>>
+> >>> I've got the following recursive locking report while running
+> >>> syzkaller fuzzer on net-next/9c28286b1b4b9bce6e35dd4c8a1265f03802a89a:
+> >>>
+> >>> [ INFO: possible recursive locking detected ]
+> >>> 4.10.0+ #14 Not tainted
+> >>> ---------------------------------------------
+> >>> syz-executor3/5560 is trying to acquire lock:
+> >>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff8401ebcd>] lock_sock
+> >>> include/net/sock.h:1460 [inline]
+> >>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff8401ebcd>]
+> >>> sctp_close+0xcd/0x9d0 net/sctp/socket.c:1497
+> >>>
+> >>> but task is already holding lock:
+> >>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff84038110>] lock_sock
+> >>> include/net/sock.h:1460 [inline]
+> >>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff84038110>]
+> >>> sctp_getsockopt+0x450/0x67e0 net/sctp/socket.c:6611
+> >>>
+> >>> other info that might help us debug this:
+> >>>  Possible unsafe locking scenario:
+> >>>
+> >>>        CPU0
+> >>>        ----
+> >>>   lock(sk_lock-AF_INET6);
+> >>>   lock(sk_lock-AF_INET6);
+> >>>
+> >>>  *** DEADLOCK ***
+> >>>
+> >>>  May be due to missing lock nesting notation
+> >>
+> >> Pretty much the case, I suppose. The lock held by sctp_getsockopt() is
+> >> on one socket, while the other lock that sctp_close() is getting later
+> >> is on the newly created (which failed) socket during peeloff
+> >> operation.
+> >
+> >
+> > Does this mean that never-ever lock 2 sockets at a time except for
+> > this case? If so, it probably suggests that this case should not do it
+> > either.
+> >
+> 
+> Yeah, actually for the error path we don't even need to lock sock
+> since it is newly allocated and no one else could see it yet.
+> 
 
-> It seems like you're suggesting truncating the 64-bit register values?
-> I think your best solution is going to be to use a memory scratch
-> space and build 64-bit operations using 32-bit registers and memory
-> operations.
+Agreed.
 
-Yes. I was suggesting the truncating of 64-bit register values, but
-for 32 bit operands only. So when I am truncating the BPF register, I
-am getting rid of non-useful bytes only.
+> Instead of checking for the status of the sock, I believe the following
+> one-line fix should do the trick too. Can you give it a try?
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 0f378ea..4de62d4 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -1494,7 +1494,7 @@ static void sctp_close(struct sock *sk, long timeout)
+> 
+>         pr_debug("%s: sk:%p, timeout:%ld\n", __func__, sk, timeout);
+> 
+> -       lock_sock(sk);
+> +       lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
+>         sk->sk_shutdown = SHUTDOWN_MASK;
+>         sk->sk_state = SCTP_SS_CLOSING;
 
- Can you explain how to use memory scratch space and build 64-bit
-operations using 32-bit registers and memory operations ? A small
-example would help a lot.
+I refrained on doing this just because it will change the lock signature
+for the first level too, as sctp_close() can be called directly, and
+might avoid some other lockdep detections.
 
->> - Similarly, For all BPF_ALU class instructions.
->> - For BPF_ADD, I will mask the addition result to 32 bit only.
->>  I am not sure, Overflow might be a problem.
->> - For BPF_SUB, I will mask the subtraction result to 32 bit only.
->>  I am not sure, Underflow might be problem.
->> - For BPF_MUL, similar to BPF_ADD. Overflow Problem ?
->> - For BPF_DIV, 32 bit masking should be fine, I guess.
->> - For BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_MOD 32 bit
->>  masking should be fine.
->> - For BPF_NEG and BPF_ARSH, might be a problem because of the sign bit.
->> - For BPF_END, 32 bit masking should work fine.
->>  Let me know if any of the above point is wrong or need your suggestion.
->>
->> - Although, for ALU instructions, there is a big problem of register
->>   flag manipulations. Generally, architecture's ABI takes care of this
->>   part but as we are doing 64 bit Instructions emulation(kind of) on 32
->>   bit machine, it needs to be done manually. Does that sound correct ?
->
-> You can't truncate, but you'll have to build 64-bit ops using 32-bit registers.
+Then you probably also need:
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 465a9c8464f9..02506b4406d2 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1543,7 +1543,7 @@ static void sctp_close(struct sock *sk, long timeout)
+ 	 * held and that should be grabbed before socket lock.
+ 	 */
+ 	spin_lock_bh(&net->sctp.addr_wq_lock);
+-	bh_lock_sock(sk);
++	bh_lock_sock_nested(sk);
+ 
+ 	/* Hold the sock, since sk_common_release() will put sock_put()
+ 	 * and we have just a little more cleanup.
 
-A small example would help a lot.
->
->>
->> - I am not JITing BPF_ALU64 class instructions as of now. As we have to
->>   take care of atomic instructions and race conditions with these
->>   instruction which looks complicated to me as of now. Will try to figure out
->>   this part and implement it later. Currently, I will just let it be
->>   interpreted by the ebpf interpreter.
->>
->> - For BPF_JMP class, I am assuming that, although eBPF is 64 bit ABI,
->>   the address pointers on 32 bit arch like arm will be of 32 bit only.
->>   So, for BPF_JMP, masking the 64 bit destination address to 32 bit
->>   should do the trick and no address will be corrupted in this way. Am I
->>   correct to assume this ?
->>   Also, I need to check for address getting out of the allowed memory
->>   range.
->
-> That's probably true, but the JIT should likely detect a truncation
-> here, if you're going to depend on it, and reject the BPF.
+because sctp_close will re-lock the socket a little later (for backlog
+processing).
 
-Okay. So I guess I have to use memory for this as well ?
-An example would be great.
-
->
->> - For BPF_LD, BPF_LDX, BPF_ST and BPF_STX class instructions, I am
->>   assuming the same thing as above - All addresses and pointers are 32
->>   bit - which can be taken care just by maksing the eBPF register
->>   values. Does that sound correct ?
->>   Also, I need to check for the address overflow, address getting out
->>   of the allowed memory range and things like that.
->
-> I'd say, get something working and send a patch -- that's likely the
-> best way to get more detailed feedback. :)
-I would love to but I have to understand what to implement first.
-
-
--Shubham
+  Marcelo
