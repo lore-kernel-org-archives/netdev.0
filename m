@@ -1,183 +1,84 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v3 net-next 02/11] net: stmmac: enable/disable dma irq prepared for multiple queues
-Date: Wed, 15 Mar 2017 11:04:46 +0000
-Message-ID: <be7be96ab355e0829c85da11fdecee0de53bf983.1489575025.git.jpinto@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 5/9] mlxsw: spectrum_router: Associate RIFs with correct VR
+Date: Wed, 15 Mar 2017 12:05:08 +0100
+Message-ID: <1489575912-6469-6-git-send-email-jiri@resnulli.us>
+References: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:55176 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753821AbdCOLFP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:15 -0400
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34146 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753855AbdCOLF1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:27 -0400
+Received: by mail-wm0-f67.google.com with SMTP id u132so4072917wmg.1
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 04:05:26 -0700 (PDT)
+In-Reply-To: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares the DMA IRQ enable/disable process for multiple queues.
+From: Ido Schimmel <idosch@mellanox.com>
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+When a router interface (RIF) is created due to a netdev being enslaved
+to a VRF master, then it should be associated with the appropriate
+virtual router (VR) and not the default one.
+
+If netdev is a VRF slave, lookup the VR based on the VRF's table ID.
+Otherwise default to the MAIN table.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-changes v1->v3:
-- Just to keep up the patch-set version
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
- drivers/net/ethernet/stmicro/stmmac/common.h      |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h  |  6 +++---
- drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c  | 12 ++++++------
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h   |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c   |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 13 +++++++------
- 6 files changed, 22 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 13bd3d4..0351b54 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -431,8 +431,8 @@ struct stmmac_dma_ops {
- 	void (*dma_diagnostic_fr) (void *data, struct stmmac_extra_stats *x,
- 				   void __iomem *ioaddr);
- 	void (*enable_dma_transmission) (void __iomem *ioaddr);
--	void (*enable_dma_irq) (void __iomem *ioaddr);
--	void (*disable_dma_irq) (void __iomem *ioaddr);
-+	void (*enable_dma_irq)(void __iomem *ioaddr, u32 chan);
-+	void (*disable_dma_irq)(void __iomem *ioaddr, u32 chan);
- 	void (*start_tx) (void __iomem *ioaddr);
- 	void (*stop_tx) (void __iomem *ioaddr);
- 	void (*start_rx) (void __iomem *ioaddr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-index 1b06df7..393a657 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-@@ -185,9 +185,9 @@
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 7a714d4..c29713a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -46,6 +46,7 @@
+ #include <net/arp.h>
+ #include <net/ip_fib.h>
+ #include <net/fib_rules.h>
++#include <net/l3mdev.h>
  
- int dwmac4_dma_reset(void __iomem *ioaddr);
- void dwmac4_enable_dma_transmission(void __iomem *ioaddr, u32 tail_ptr);
--void dwmac4_enable_dma_irq(void __iomem *ioaddr);
--void dwmac410_enable_dma_irq(void __iomem *ioaddr);
--void dwmac4_disable_dma_irq(void __iomem *ioaddr);
-+void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan);
-+void dwmac410_enable_dma_irq(void __iomem *ioaddr, u32 chan);
-+void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan);
- void dwmac4_dma_start_tx(void __iomem *ioaddr);
- void dwmac4_dma_stop_tx(void __iomem *ioaddr);
- void dwmac4_dma_start_rx(void __iomem *ioaddr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-index c7326d5..c932791 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-@@ -104,21 +104,21 @@ void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len)
- 	writel(len, ioaddr + DMA_CHAN_RX_RING_LEN(STMMAC_CHAN0));
- }
- 
--void dwmac4_enable_dma_irq(void __iomem *ioaddr)
-+void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan)
+ #include "spectrum.h"
+ #include "core.h"
+@@ -2771,6 +2772,7 @@ mlxsw_sp_vport_rif_sp_create(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 			     struct net_device *l3_dev)
  {
- 	writel(DMA_CHAN_INTR_DEFAULT_MASK, ioaddr +
--	       DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
-+	       DMA_CHAN_INTR_ENA(chan));
- }
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_vport->mlxsw_sp;
++	u32 tb_id = l3mdev_fib_table(l3_dev);
+ 	struct mlxsw_sp_vr *vr;
+ 	struct mlxsw_sp_fid *f;
+ 	struct mlxsw_sp_rif *r;
+@@ -2781,7 +2783,7 @@ mlxsw_sp_vport_rif_sp_create(struct mlxsw_sp_port *mlxsw_sp_vport,
+ 	if (rif == MLXSW_SP_INVALID_RIF)
+ 		return ERR_PTR(-ERANGE);
  
--void dwmac410_enable_dma_irq(void __iomem *ioaddr)
-+void dwmac410_enable_dma_irq(void __iomem *ioaddr, u32 chan)
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, RT_TABLE_MAIN);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id ? : RT_TABLE_MAIN);
+ 	if (IS_ERR(vr))
+ 		return ERR_CAST(vr);
+ 
+@@ -3019,6 +3021,7 @@ static int mlxsw_sp_rif_bridge_create(struct mlxsw_sp *mlxsw_sp,
+ 				      struct net_device *l3_dev,
+ 				      struct mlxsw_sp_fid *f)
  {
- 	writel(DMA_CHAN_INTR_DEFAULT_MASK_4_10,
--	       ioaddr + DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
-+	       ioaddr + DMA_CHAN_INTR_ENA(chan));
- }
++	u32 tb_id = l3mdev_fib_table(l3_dev);
+ 	struct mlxsw_sp_vr *vr;
+ 	struct mlxsw_sp_rif *r;
+ 	u16 rif;
+@@ -3028,7 +3031,7 @@ static int mlxsw_sp_rif_bridge_create(struct mlxsw_sp *mlxsw_sp,
+ 	if (rif == MLXSW_SP_INVALID_RIF)
+ 		return -ERANGE;
  
--void dwmac4_disable_dma_irq(void __iomem *ioaddr)
-+void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan)
- {
--	writel(0, ioaddr + DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
-+	writel(0, ioaddr + DMA_CHAN_INTR_ENA(chan));
- }
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, RT_TABLE_MAIN);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id ? : RT_TABLE_MAIN);
+ 	if (IS_ERR(vr))
+ 		return PTR_ERR(vr);
  
- int dwmac4_dma_interrupt(void __iomem *ioaddr,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 56e485f..dec0816 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -137,8 +137,8 @@
- #define DMA_CONTROL_FTF		0x00100000	/* Flush transmit FIFO */
- 
- void dwmac_enable_dma_transmission(void __iomem *ioaddr);
--void dwmac_enable_dma_irq(void __iomem *ioaddr);
--void dwmac_disable_dma_irq(void __iomem *ioaddr);
-+void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan);
-+void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan);
- void dwmac_dma_start_tx(void __iomem *ioaddr);
- void dwmac_dma_stop_tx(void __iomem *ioaddr);
- void dwmac_dma_start_rx(void __iomem *ioaddr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index e60bfca..285cfc9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -47,12 +47,12 @@ void dwmac_enable_dma_transmission(void __iomem *ioaddr)
- 	writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
- }
- 
--void dwmac_enable_dma_irq(void __iomem *ioaddr)
-+void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan)
- {
- 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
- }
- 
--void dwmac_disable_dma_irq(void __iomem *ioaddr)
-+void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan)
- {
- 	writel(0, ioaddr + DMA_INTR_ENA);
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c4e4a53..18cf58c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1422,14 +1422,14 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 	netif_tx_unlock(priv->dev);
- }
- 
--static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv)
-+static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv, u32 chan)
- {
--	priv->hw->dma->enable_dma_irq(priv->ioaddr);
-+	priv->hw->dma->enable_dma_irq(priv->ioaddr, chan);
- }
- 
--static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv)
-+static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv, u32 chan)
- {
--	priv->hw->dma->disable_dma_irq(priv->ioaddr);
-+	priv->hw->dma->disable_dma_irq(priv->ioaddr, chan);
- }
- 
- /**
-@@ -1506,7 +1506,7 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- 	status = priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats);
- 	if (likely((status & handle_rx)) || (status & handle_tx)) {
- 		if (likely(napi_schedule_prep(&priv->napi))) {
--			stmmac_disable_dma_irq(priv);
-+			stmmac_disable_dma_irq(priv, chan);
- 			__napi_schedule(&priv->napi);
- 		}
- 	}
-@@ -2832,6 +2832,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
- {
- 	struct stmmac_priv *priv = container_of(napi, struct stmmac_priv, napi);
- 	int work_done = 0;
-+	u32 chan = STMMAC_CHAN0;
- 
- 	priv->xstats.napi_poll++;
- 	stmmac_tx_clean(priv);
-@@ -2839,7 +2840,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
- 	work_done = stmmac_rx(priv, budget);
- 	if (work_done < budget) {
- 		napi_complete_done(napi, work_done);
--		stmmac_enable_dma_irq(priv);
-+		stmmac_enable_dma_irq(priv, chan);
- 	}
- 	return work_done;
- }
 -- 
-2.9.3
+2.7.4
