@@ -1,46 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net/udp: slab-out-of-bounds Read in udp_recvmsg
-Date: Wed, 15 Mar 2017 15:08:29 -0700 (PDT)
-Message-ID: <20170315.150829.1653001387394027005.davem@davemloft.net>
-References: <CACT4Y+aKW-yNfdWBvAWck3xNFKKeKEf8BNOmtFg2EZZjN98BVg@mail.gmail.com>
-        <1489593673.28631.150.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1489594233.28631.152.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net] net/openvswitch: Set the ipv6 source tunnel key
+ address attribute correctly
+Date: Wed, 15 Mar 2017 15:11:18 -0700 (PDT)
+Message-ID: <20170315.151118.335264369893582168.davem@davemloft.net>
+References: <1489594247-8601-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, ycheng@google.com, soheil@google.com,
-        ncardwell@google.com, zzoru007@gmail.com, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        syzkaller@googlegroups.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489594233.28631.152.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jbenc@redhat.com, paulb@mellanox.com, roid@mellanox.com,
+        mlxsw@mellanox.com, netdev@vger.kernel.org
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54724 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750819AbdCOWLU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 18:11:20 -0400
+In-Reply-To: <1489594247-8601-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 15 Mar 2017 09:10:33 -0700
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed, 15 Mar 2017 18:10:47 +0200
 
-> @@ -692,12 +692,17 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
->  	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2))
->  		empty = 0;
->  	if (!empty) {
-> +		unsigned int hlen = skb_headlen(skb);
-> +
->  		put_cmsg(msg, SOL_SOCKET,
->  			 SCM_TIMESTAMPING, sizeof(tss), &tss);
->  
-> -		if (skb->len && (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS))
-> +		if (hlen &&
-> +		    (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS) &&
-> +		    sk->sk_protocol == IPPROTO_TCP &&
-> +		    sk->sk_type == SOCK_STREAM)
->  			put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_OPT_STATS,
-> -				 skb->len, skb->data);
-> +				 hlen, skb->data);
+> When dealing with ipv6 source tunnel key address attribute
+> (OVS_TUNNEL_KEY_ATTR_IPV6_SRC) we are wrongly setting the tunnel
+> dst ip, fix that.
+> 
+> Fixes: 6b26ba3a7d95 ('openvswitch: netlink attributes for IPv6 tunneling')
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Reported-by: Paul Blakey <paulb@mellanox.com>
 
-Hmmm, what is the true intention of SOF_TIMESTAMPING_OPT_STATS then?  The
-existing code seems to want to dump the entire SKB into the cmsg, and if
-that's the case then the fix is to linearlize the skb before the put_cmsg()
-or have a way to put a non-linear SKB into a cmsg.
+Applied and queued up for -stable, thanks!
