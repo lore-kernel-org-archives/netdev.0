@@ -1,374 +1,117 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net-next 1/2] tcp: remove per-destination timestamp cache
-Date: Wed, 15 Mar 2017 16:30:45 -0400
-Message-ID: <20170315203046.158791-1-soheil.kdev@gmail.com>
-Cc: Soheil Hassas Yeganeh <soheil@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>, Lutz Vieweg <lvml@5t9.de>,
-        Florian Westphal <fw@strlen.de>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 194723] connect() to localhost stalls after 4.9 -> 4.10
+ upgrade
+Date: Wed, 15 Mar 2017 13:36:19 -0700
+Message-ID: <20170315133619.64a31120@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:36075 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751357AbdCOUav (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:30:51 -0400
-Received: by mail-qk0-f193.google.com with SMTP id n141so3496708qke.3
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 13:30:50 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35659 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751416AbdCOUgr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:36:47 -0400
+Received: by mail-pf0-f181.google.com with SMTP id x63so8379366pfx.2
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 13:36:27 -0700 (PDT)
+Received: from xeon-e3 (204-195-18-65.wavecable.com. [204.195.18.65])
+        by smtp.gmail.com with ESMTPSA id 15sm5992298pgh.21.2017.03.15.13.36.26
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Wed, 15 Mar 2017 13:36:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
 
-Commit 8a5bd45f6616 (tcp: randomize tcp timestamp offsets for each connection)
-randomizes TCP timestamps per connection. After this commit,
-there is no guarantee that the timestamps received from the
-same destination are monotonically increasing. As a result,
-the per-destination timestamp cache in TCP metrics (i.e., tcpm_ts
-in struct tcp_metrics_block) is broken and cannot be relied upon.
 
-Remove the per-destination timestamp cache and all related code
-paths.
+Begin forwarded message:
 
-Note that this cache was already broken for caching timestamps of
-multiple machines behind a NAT sharing the same address.
+Date: Wed, 15 Mar 2017 19:41:59 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 194723] connect() to localhost stalls after 4.9 -> 4.10 upgrade
 
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Cc: Lutz Vieweg <lvml@5t9.de>
-Cc: Florian Westphal <fw@strlen.de>
----
- include/net/tcp.h        |   6 +-
- net/ipv4/tcp_input.c     |   6 +-
- net/ipv4/tcp_ipv4.c      |   4 --
- net/ipv4/tcp_metrics.c   | 147 ++---------------------------------------------
- net/ipv4/tcp_minisocks.c |  22 ++-----
- net/ipv6/tcp_ipv6.c      |   5 --
- 6 files changed, 11 insertions(+), 179 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index bede8f7fa742..c81f3b958d44 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -406,11 +406,7 @@ void tcp_clear_retrans(struct tcp_sock *tp);
- void tcp_update_metrics(struct sock *sk);
- void tcp_init_metrics(struct sock *sk);
- void tcp_metrics_init(void);
--bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
--			bool paws_check, bool timestamps);
--bool tcp_remember_stamp(struct sock *sk);
--bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
--void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
-+bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst);
- void tcp_disable_fack(struct tcp_sock *tp);
- void tcp_close(struct sock *sk, long timeout);
- void tcp_init_sock(struct sock *sk);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 96b67a8b18c3..aafec0676d3e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6342,8 +6342,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 			dst = af_ops->route_req(sk, &fl, req, &strict);
- 
- 			if (dst && strict &&
--			    !tcp_peer_is_proven(req, dst, true,
--						tmp_opt.saw_tstamp)) {
-+			    !tcp_peer_is_proven(req, dst)) {
- 				NET_INC_STATS(sock_net(sk), LINUX_MIB_PAWSPASSIVEREJECTED);
- 				goto drop_and_release;
- 			}
-@@ -6352,8 +6351,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		else if (!net->ipv4.sysctl_tcp_syncookies &&
- 			 (net->ipv4.sysctl_max_syn_backlog - inet_csk_reqsk_queue_len(sk) <
- 			  (net->ipv4.sysctl_max_syn_backlog >> 2)) &&
--			 !tcp_peer_is_proven(req, dst, false,
--					     tmp_opt.saw_tstamp)) {
-+			 !tcp_peer_is_proven(req, dst)) {
- 			/* Without syncookies last quarter of
- 			 * backlog is filled with destinations,
- 			 * proven to be alive.
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 08d870e45658..d8b401fff9fe 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -198,10 +198,6 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 			tp->write_seq	   = 0;
- 	}
- 
--	if (tcp_death_row->sysctl_tw_recycle &&
--	    !tp->rx_opt.ts_recent_stamp && fl4->daddr == daddr)
--		tcp_fetch_timewait_stamp(sk, &rt->dst);
--
- 	inet->inet_dport = usin->sin_port;
- 	sk_daddr_set(sk, daddr);
- 
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 0f46e5fe31ad..9d0d4f39e42b 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -45,8 +45,6 @@ struct tcp_metrics_block {
- 	struct inetpeer_addr		tcpm_saddr;
- 	struct inetpeer_addr		tcpm_daddr;
- 	unsigned long			tcpm_stamp;
--	u32				tcpm_ts;
--	u32				tcpm_ts_stamp;
- 	u32				tcpm_lock;
- 	u32				tcpm_vals[TCP_METRIC_MAX_KERNEL + 1];
- 	struct tcp_fastopen_metrics	tcpm_fastopen;
-@@ -123,8 +121,6 @@ static void tcpm_suck_dst(struct tcp_metrics_block *tm,
- 	tm->tcpm_vals[TCP_METRIC_SSTHRESH] = dst_metric_raw(dst, RTAX_SSTHRESH);
- 	tm->tcpm_vals[TCP_METRIC_CWND] = dst_metric_raw(dst, RTAX_CWND);
- 	tm->tcpm_vals[TCP_METRIC_REORDERING] = dst_metric_raw(dst, RTAX_REORDERING);
--	tm->tcpm_ts = 0;
--	tm->tcpm_ts_stamp = 0;
- 	if (fastopen_clear) {
- 		tm->tcpm_fastopen.mss = 0;
- 		tm->tcpm_fastopen.syn_loss = 0;
-@@ -273,48 +269,6 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
- 	return tm;
- }
- 
--static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock *tw)
--{
--	struct tcp_metrics_block *tm;
--	struct inetpeer_addr saddr, daddr;
--	unsigned int hash;
--	struct net *net;
--
--	if (tw->tw_family == AF_INET) {
--		inetpeer_set_addr_v4(&saddr, tw->tw_rcv_saddr);
--		inetpeer_set_addr_v4(&daddr, tw->tw_daddr);
--		hash = ipv4_addr_hash(tw->tw_daddr);
--	}
--#if IS_ENABLED(CONFIG_IPV6)
--	else if (tw->tw_family == AF_INET6) {
--		if (ipv6_addr_v4mapped(&tw->tw_v6_daddr)) {
--			inetpeer_set_addr_v4(&saddr, tw->tw_rcv_saddr);
--			inetpeer_set_addr_v4(&daddr, tw->tw_daddr);
--			hash = ipv4_addr_hash(tw->tw_daddr);
--		} else {
--			inetpeer_set_addr_v6(&saddr, &tw->tw_v6_rcv_saddr);
--			inetpeer_set_addr_v6(&daddr, &tw->tw_v6_daddr);
--			hash = ipv6_addr_hash(&tw->tw_v6_daddr);
--		}
--	}
--#endif
--	else
--		return NULL;
--
--	net = twsk_net(tw);
--	hash ^= net_hash_mix(net);
--	hash = hash_32(hash, tcp_metrics_hash_log);
--
--	for (tm = rcu_dereference(tcp_metrics_hash[hash].chain); tm;
--	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_saddr, &saddr) &&
--		    addr_same(&tm->tcpm_daddr, &daddr) &&
--		    net_eq(tm_net(tm), net))
--			break;
--	}
--	return tm;
--}
--
- static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
- 						 struct dst_entry *dst,
- 						 bool create)
-@@ -573,8 +527,7 @@ void tcp_init_metrics(struct sock *sk)
- 	tp->snd_cwnd_stamp = tcp_time_stamp;
- }
- 
--bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
--			bool paws_check, bool timestamps)
-+bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst)
- {
- 	struct tcp_metrics_block *tm;
- 	bool ret;
-@@ -584,94 +537,10 @@ bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
- 
- 	rcu_read_lock();
- 	tm = __tcp_get_metrics_req(req, dst);
--	if (paws_check) {
--		if (tm &&
--		    (u32)get_seconds() - tm->tcpm_ts_stamp < TCP_PAWS_MSL &&
--		    ((s32)(tm->tcpm_ts - req->ts_recent) > TCP_PAWS_WINDOW ||
--		     !timestamps))
--			ret = false;
--		else
--			ret = true;
--	} else {
--		if (tm && tcp_metric_get(tm, TCP_METRIC_RTT) && tm->tcpm_ts_stamp)
--			ret = true;
--		else
--			ret = false;
--	}
--	rcu_read_unlock();
--
--	return ret;
--}
--
--void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst)
--{
--	struct tcp_metrics_block *tm;
--
--	rcu_read_lock();
--	tm = tcp_get_metrics(sk, dst, true);
--	if (tm) {
--		struct tcp_sock *tp = tcp_sk(sk);
--
--		if ((u32)get_seconds() - tm->tcpm_ts_stamp <= TCP_PAWS_MSL) {
--			tp->rx_opt.ts_recent_stamp = tm->tcpm_ts_stamp;
--			tp->rx_opt.ts_recent = tm->tcpm_ts;
--		}
--	}
--	rcu_read_unlock();
--}
--EXPORT_SYMBOL_GPL(tcp_fetch_timewait_stamp);
--
--/* VJ's idea. Save last timestamp seen from this destination and hold
-- * it at least for normal timewait interval to use for duplicate
-- * segment detection in subsequent connections, before they enter
-- * synchronized state.
-- */
--bool tcp_remember_stamp(struct sock *sk)
--{
--	struct dst_entry *dst = __sk_dst_get(sk);
--	bool ret = false;
--
--	if (dst) {
--		struct tcp_metrics_block *tm;
--
--		rcu_read_lock();
--		tm = tcp_get_metrics(sk, dst, true);
--		if (tm) {
--			struct tcp_sock *tp = tcp_sk(sk);
--
--			if ((s32)(tm->tcpm_ts - tp->rx_opt.ts_recent) <= 0 ||
--			    ((u32)get_seconds() - tm->tcpm_ts_stamp > TCP_PAWS_MSL &&
--			     tm->tcpm_ts_stamp <= (u32)tp->rx_opt.ts_recent_stamp)) {
--				tm->tcpm_ts_stamp = (u32)tp->rx_opt.ts_recent_stamp;
--				tm->tcpm_ts = tp->rx_opt.ts_recent;
--			}
--			ret = true;
--		}
--		rcu_read_unlock();
--	}
--	return ret;
--}
--
--bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw)
--{
--	struct tcp_metrics_block *tm;
--	bool ret = false;
--
--	rcu_read_lock();
--	tm = __tcp_get_metrics_tw(tw);
--	if (tm) {
--		const struct tcp_timewait_sock *tcptw;
--		struct sock *sk = (struct sock *) tw;
--
--		tcptw = tcp_twsk(sk);
--		if ((s32)(tm->tcpm_ts - tcptw->tw_ts_recent) <= 0 ||
--		    ((u32)get_seconds() - tm->tcpm_ts_stamp > TCP_PAWS_MSL &&
--		     tm->tcpm_ts_stamp <= (u32)tcptw->tw_ts_recent_stamp)) {
--			tm->tcpm_ts_stamp = (u32)tcptw->tw_ts_recent_stamp;
--			tm->tcpm_ts	   = tcptw->tw_ts_recent;
--		}
-+	if (tm && tcp_metric_get(tm, TCP_METRIC_RTT))
- 		ret = true;
--	}
-+	else
-+		ret = false;
- 	rcu_read_unlock();
- 
- 	return ret;
-@@ -791,14 +660,6 @@ static int tcp_metrics_fill_info(struct sk_buff *msg,
- 			  jiffies - tm->tcpm_stamp,
- 			  TCP_METRICS_ATTR_PAD) < 0)
- 		goto nla_put_failure;
--	if (tm->tcpm_ts_stamp) {
--		if (nla_put_s32(msg, TCP_METRICS_ATTR_TW_TS_STAMP,
--				(s32) (get_seconds() - tm->tcpm_ts_stamp)) < 0)
--			goto nla_put_failure;
--		if (nla_put_u32(msg, TCP_METRICS_ATTR_TW_TSVAL,
--				tm->tcpm_ts) < 0)
--			goto nla_put_failure;
--	}
- 
- 	{
- 		int n = 0;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 7e16243cdb58..692f974e5abe 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -94,7 +94,6 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 	struct tcp_options_received tmp_opt;
- 	struct tcp_timewait_sock *tcptw = tcp_twsk((struct sock *)tw);
- 	bool paws_reject = false;
--	struct inet_timewait_death_row *tcp_death_row = &sock_net((struct sock*)tw)->ipv4.tcp_death_row;
- 
- 	tmp_opt.saw_tstamp = 0;
- 	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
-@@ -149,12 +148,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 			tcptw->tw_ts_recent	  = tmp_opt.rcv_tsval;
- 		}
- 
--		if (tcp_death_row->sysctl_tw_recycle &&
--		    tcptw->tw_ts_recent_stamp &&
--		    tcp_tw_remember_stamp(tw))
--			inet_twsk_reschedule(tw, tw->tw_timeout);
--		else
--			inet_twsk_reschedule(tw, TCP_TIMEWAIT_LEN);
-+		inet_twsk_reschedule(tw, TCP_TIMEWAIT_LEN);
- 		return TCP_TW_ACK;
- 	}
- 
-@@ -259,12 +253,8 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct inet_timewait_sock *tw;
--	bool recycle_ok = false;
- 	struct inet_timewait_death_row *tcp_death_row = &sock_net(sk)->ipv4.tcp_death_row;
- 
--	if (tcp_death_row->sysctl_tw_recycle && tp->rx_opt.ts_recent_stamp)
--		recycle_ok = tcp_remember_stamp(sk);
--
- 	tw = inet_twsk_alloc(sk, tcp_death_row, state);
- 
- 	if (tw) {
-@@ -317,13 +307,9 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
- 		if (timeo < rto)
- 			timeo = rto;
- 
--		if (recycle_ok) {
--			tw->tw_timeout = rto;
--		} else {
--			tw->tw_timeout = TCP_TIMEWAIT_LEN;
--			if (state == TCP_TIME_WAIT)
--				timeo = TCP_TIMEWAIT_LEN;
--		}
-+		tw->tw_timeout = TCP_TIMEWAIT_LEN;
-+		if (state == TCP_TIME_WAIT)
-+			timeo = TCP_TIMEWAIT_LEN;
- 
- 		inet_twsk_schedule(tw, timeo);
- 		/* Linkage updates. */
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index c73a431fd06f..853cb43e3e3c 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -265,11 +265,6 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	sk->sk_gso_type = SKB_GSO_TCPV6;
- 	ip6_dst_store(sk, dst, NULL, NULL);
- 
--	if (tcp_death_row->sysctl_tw_recycle &&
--	    !tp->rx_opt.ts_recent_stamp &&
--	    ipv6_addr_equal(&fl6.daddr, &sk->sk_v6_daddr))
--		tcp_fetch_timewait_stamp(sk, dst);
--
- 	icsk->icsk_ext_hdr_len = 0;
- 	if (opt)
- 		icsk->icsk_ext_hdr_len = opt->opt_flen +
+https://bugzilla.kernel.org/show_bug.cgi?id=194723
+
+--- Comment #15 from Lutz Vieweg (lvml@5t9.de) ---
+At last, bisecting converged:
+
+git bisect start
+# bad: [c470abd4fde40ea6a0846a2beab642a578c0b8cd] Linux 4.10
+git bisect bad c470abd4fde40ea6a0846a2beab642a578c0b8cd
+# good: [69973b830859bc6529a7a0468ba0d80ee5117826] Linux 4.9
+git bisect good 69973b830859bc6529a7a0468ba0d80ee5117826
+# bad: [f4000cd99750065d5177555c0a805c97174d1b9f] Merge tag 'arm64-upstream' of
+git://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux
+git bisect bad f4000cd99750065d5177555c0a805c97174d1b9f
+# bad: [7079efc9d3e7f1f7cdd34082ec58209026315057] Merge tag 'fbdev-4.10' of
+git://git.kernel.org/pub/scm/linux/kernel/git/tomba/linux
+git bisect bad 7079efc9d3e7f1f7cdd34082ec58209026315057
+# bad: [669bb4c58c3091cd54650e37c5f4e345dd12c564] Merge branch 'for-linus' of
+git://git.kernel.org/pub/scm/linux/kernel/git/egtvedt/linux-avr32
+git bisect bad 669bb4c58c3091cd54650e37c5f4e345dd12c564
+# good: [7a8bca043cf1bb0433aa43d008b6c4de6c07d6a2] Merge branch 'sfc-tso-v2'
+git bisect good 7a8bca043cf1bb0433aa43d008b6c4de6c07d6a2
+# bad: [4f4f907a6729ae9e132810711c3a05e48311a948] Merge branch 'mvneta-64bit'
+git bisect bad 4f4f907a6729ae9e132810711c3a05e48311a948
+# good: [33f8a0458b2ce4546b681c5fae04427e3077a543] Merge tag
+'wireless-drivers-next-for-davem-2016-11-25' of
+git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next
+git bisect good 33f8a0458b2ce4546b681c5fae04427e3077a543
+# good: [80439a1704e811697ee01fd09dd95dd10790bc93] qede: Remove 'num_tc'.
+git bisect good 80439a1704e811697ee01fd09dd95dd10790bc93
+# good: [5067b6020770ef7c8102f47079c9e577d175ef2c] net/mlx5e: Remove flow encap
+entry in the correct place
+git bisect good 5067b6020770ef7c8102f47079c9e577d175ef2c
+# bad: [7091d8c7055d7310339435ae3af2fb490a92524d] net/sched: cls_flower: Add
+offload support using egress Hardware device
+git bisect bad 7091d8c7055d7310339435ae3af2fb490a92524d
+# good: [b14945ac3efdf5217182a344b037f96d6b0afae1] net: atarilance: use %8ph
+for printing hex string
+git bisect good b14945ac3efdf5217182a344b037f96d6b0afae1
+# bad: [25429d7b7dca01dc4f17205de023a30ca09390d0] tcp: allow to turn tcp
+timestamp randomization off
+git bisect bad 25429d7b7dca01dc4f17205de023a30ca09390d0
+# good: [1d6cff4fca4366d0529dbce170e0f33cfe213790] qed: Add iSCSI out of order
+packet handling.
+git bisect good 1d6cff4fca4366d0529dbce170e0f33cfe213790
+# bad: [95a22caee396cef0bb2ca8fafdd82966a49367bb] tcp: randomize tcp timestamp
+offsets for each connection
+git bisect bad 95a22caee396cef0bb2ca8fafdd82966a49367bb
+
+
+So the culprit seems to be this change: 
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=95a22caee396cef0bb2ca8fafdd82966a49367bb
+
+"tcp: randomize tcp timestamp offsets for each connection
+jiffies based timestamps allow for easy inference of number of devices
+behind NAT translators and also makes tracking of hosts simpler.
+
+commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
+added the main infrastructure that is needed for per-connection ts
+randomization, in particular writing/reading the on-wire tcp header
+format takes the offset into account so rest of stack can use normal
+tcp_time_stamp (jiffies).
+
+So only two items are left:
+ - add a tsoffset for request sockets
+ - extend the tcp isn generator to also return another 32bit number
+   in addition to the ISN.
+
+Re-use of ISN generator also means timestamps are still monotonically
+increasing for same connection quadruple, i.e. PAWS will still work.
+
+Includes fixes from Eric Dumazet.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+"
+
+I will try to attract some attention from above mentioned people.
+
 -- 
-2.12.0.367.g23dc2f6d3c-goog
+You are receiving this mail because:
+You are the assignee for the bug.
