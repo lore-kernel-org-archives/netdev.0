@@ -1,76 +1,51 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net] amd-xgbe: Fix jumbo MTU processing on newer hardware
-Date: Wed, 15 Mar 2017 17:52:44 -0500
-Message-ID: <1b4a099a-66a8-3fdb-01ed-bc110756244a@amd.com>
-References: <20170315201123.12279.98988.stgit@tlendack-t1.amdoffice.net>
- <20170315.153710.150813448900229829.davem@davemloft.net>
- <fce6d38d-6115-641d-ec68-47c2311021ce@amd.com>
- <20170315.154149.1161814285370679300.davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH net-next 1/2] tcp: remove per-destination timestamp cache
+Date: Wed, 15 Mar 2017 23:55:08 +0100
+Message-ID: <20170315225508.GB14761@1wt.eu>
+References: <20170315203046.158791-1-soheil.kdev@gmail.com>
+ <20170315.154044.170788541865531834.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: soheil.kdev@gmail.com, netdev@vger.kernel.org, soheil@google.com,
+        edumazet@google.com, ncardwell@google.com, ycheng@google.com,
+        lvml@5t9.de, fw@strlen.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0086.outbound.protection.outlook.com ([104.47.34.86]:22641
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753983AbdCOWwx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Mar 2017 18:52:53 -0400
-In-Reply-To: <20170315.154149.1161814285370679300.davem@davemloft.net>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:32308 "EHLO 1wt.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752101AbdCOW4U (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 18:56:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20170315.154044.170788541865531834.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/15/2017 5:41 PM, David Miller wrote:
-> From: Tom Lendacky <thomas.lendacky@amd.com>
-> Date: Wed, 15 Mar 2017 17:40:51 -0500
->
->> On 3/15/2017 5:37 PM, David Miller wrote:
->>> From: Tom Lendacky <thomas.lendacky@amd.com>
->>> Date: Wed, 15 Mar 2017 15:11:23 -0500
->>>
->>>> Newer hardware does not provide a cumulative payload length when
->>>> multiple
->>>> descriptors are needed to handle the data. Once the MTU increases
->>>> beyond
->>>> the size that can be handled by a single descriptor, the SKB does not
->>>> get
->>>> built properly by the driver.
->>>>
->>>> The driver will now calculate the size of the data buffers used by the
->>>> hardware.  The first buffer of the first descriptor is for packet
->>>> headers
->>>> or packet headers and data when the headers can't be split. Subsequent
->>>> descriptors in a multi-descriptor chain will not use the first
->>>> buffer. The
->>>> second buffer is used by all the descriptors in the chain for payload
->>>> data.
->>>> Based on whether the driver is processing the first, intermediate, or
->>>> last
->>>> descriptor it can calculate the buffer usage and build the SKB
->>>> properly.
->>>>
->>>> Tested and verified on both old and new hardware.
->>>>
->>>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
->>>
->>> Applied, thanks Tom.
->>
->> Thanks David.  This is another patch for 4.10 stable. Can you please
->> queue it up?
->
-> Can you properly state this in your patch postings, instead of always
-> mentioning it later?
->
+Hi David,
 
-Sorry, yes, I can do that.  I didn't realize you preferred it that way.
-Do you want the "Cc" tag to stable included in the patch or just
-mention the stable targets in the patch description?  I know you
-coordinate the stable submissions and I don't want to mess anything up.
+On Wed, Mar 15, 2017 at 03:40:44PM -0700, David Miller wrote:
+> From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+> Date: Wed, 15 Mar 2017 16:30:45 -0400
+> 
+> > Note that this cache was already broken for caching timestamps of
+> > multiple machines behind a NAT sharing the same address.
+> 
+> That's the documented, well established, limitation of time-wait
+> recycling.
+> 
+> People who enable it, need to consider this issue.
+> 
+> This limitation of the feature does not give us a reason to break the
+> feature even further as a matter of convenience, or to remove it
+> altogether for the same reason.
+> 
+> Please, instead, fix the bug that was introduced.
 
-Thanks,
-Tom
+At least I can say I've seen many people enable it without understanding
+its impact, confusing it with tcp_tw_reuse, and copy-pasting it from
+random blogs and complaining about issues in production.
 
+I agree that it's hard to arbiter between stupidity and flexibility
+though :-/
 
-> Thank you.
->
+Regards,
+Willy
