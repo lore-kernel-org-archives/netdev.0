@@ -1,57 +1,101 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v3 net-next 10/11] net: stmmac: tso init prepared for multiple queues
-Date: Wed, 15 Mar 2017 11:04:54 +0000
-Message-ID: <3a72f5ba3a401e916c6a8ec85d8715895b8c99ac.1489575025.git.jpinto@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 2/9] ipv4: fib_rules: Add notifier info to FIB rules notifications
+Date: Wed, 15 Mar 2017 12:05:05 +0100
+Message-ID: <1489575912-6469-3-git-send-email-jiri@resnulli.us>
+References: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.47.9]:58142 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752980AbdCOLFW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:22 -0400
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35233 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752980AbdCOLFT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:19 -0400
+Received: by mail-wm0-f68.google.com with SMTP id z63so4071376wmg.2
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 04:05:17 -0700 (PDT)
+In-Reply-To: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch configures TSO for all available tx queues.
+From: Ido Schimmel <idosch@mellanox.com>
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+Whenever a FIB rule is added or removed, a notification is sent in the
+FIB notification chain. However, listeners don't have a way to tell
+which rule was added or removed.
+
+This is problematic as we would like to give listeners the ability to
+decide which action to execute based on the notified rule. Specifically,
+offloading drivers should be able to determine if they support the
+reflection of the notified FIB rule and flush their LPM tables in case
+they don't.
+
+Do that by adding a notifier info to these notifications and embed the
+common FIB rule struct in it.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-changes v1->v3:
-- Just to keep up the patch-set version
+ include/net/ip_fib.h |  5 +++++
+ net/ipv4/fib_rules.c | 13 ++++++++-----
+ 2 files changed, 13 insertions(+), 5 deletions(-)
 
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 2868391..c802286 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1966,6 +1966,8 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index ec03e0f..319de77 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -213,6 +213,11 @@ struct fib_entry_notifier_info {
+ 	u32 tb_id;
+ };
+ 
++struct fib_rule_notifier_info {
++	struct fib_notifier_info info; /* must be first */
++	struct fib_rule *rule;
++};
++
+ struct fib_nh_notifier_info {
+ 	struct fib_notifier_info info; /* must be first */
+ 	struct fib_nh *fib_nh;
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 7a941a5..d9cd3be 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -175,11 +175,14 @@ static struct fib_table *fib_empty_table(struct net *net)
+ }
+ 
+ static int call_fib_rule_notifiers(struct net *net,
+-				   enum fib_event_type event_type)
++				   enum fib_event_type event_type,
++				   struct fib_rule *rule)
  {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	u32 rx_cnt = priv->plat->rx_queues_to_use;
-+	u32 tx_cnt = priv->plat->tx_queues_to_use;
-+	u32 chan;
- 	int ret;
+-	struct fib_notifier_info info;
++	struct fib_rule_notifier_info info = {
++		.rule = rule,
++	};
  
- 	/* DMA initialization and SW reset */
-@@ -2049,8 +2051,10 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
- 	stmmac_set_rings_length(priv);
+-	return call_fib_notifiers(net, event_type, &info);
++	return call_fib_notifiers(net, event_type, &info.info);
+ }
  
- 	/* Enable TSO */
--	if (priv->tso)
--		priv->hw->dma->enable_tso(priv->ioaddr, 1, STMMAC_CHAN0);
-+	if (priv->tso) {
-+		for (chan = 0; chan < tx_cnt; chan++)
-+			priv->hw->dma->enable_tso(priv->ioaddr, 1, chan);
-+	}
+ void fib_rules_notify(struct net *net, struct notifier_block *nb)
+@@ -246,7 +249,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
+ 	rule4->tos = frh->tos;
  
- 	return 0;
+ 	net->ipv4.fib_has_custom_rules = true;
+-	call_fib_rule_notifiers(net, FIB_EVENT_RULE_ADD);
++	call_fib_rule_notifiers(net, FIB_EVENT_RULE_ADD, rule);
+ 
+ 	err = 0;
+ errout:
+@@ -268,7 +271,7 @@ static int fib4_rule_delete(struct fib_rule *rule)
+ 		net->ipv4.fib_num_tclassid_users--;
+ #endif
+ 	net->ipv4.fib_has_custom_rules = true;
+-	call_fib_rule_notifiers(net, FIB_EVENT_RULE_DEL);
++	call_fib_rule_notifiers(net, FIB_EVENT_RULE_DEL, rule);
+ errout:
+ 	return err;
  }
 -- 
-2.9.3
+2.7.4
