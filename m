@@ -1,93 +1,183 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 0/9] mlxsw: Enable VRF offload
-Date: Wed, 15 Mar 2017 12:05:03 +0100
-Message-ID: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
-To: netdev@vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v3 net-next 02/11] net: stmmac: enable/disable dma irq prepared for multiple queues
+Date: Wed, 15 Mar 2017 11:04:46 +0000
+Message-ID: <be7be96ab355e0829c85da11fdecee0de53bf983.1489575025.git.jpinto@synopsys.com>
+References: <cover.1489575025.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:36455 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752861AbdCOLFQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:16 -0400
-Received: by mail-wr0-f196.google.com with SMTP id l37so1588564wrc.3
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 04:05:15 -0700 (PDT)
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:55176 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753821AbdCOLFP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:15 -0400
+In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
+In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
+References: <cover.1489575025.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+This patch prepares the DMA IRQ enable/disable process for multiple queues.
 
-Ido says:
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+changes v1->v3:
+- Just to keep up the patch-set version
 
-Packets received from netdevs enslaved to different VRF devices are
-forwarded using different FIB tables. In the Spectrum ASIC this is
-achieved by binding different router interfaces (RIFs) to different
-virtual routers (VRs). Each RIF represents an enslaved netdev and each
-VR has its own FIB table according to which packets are forwarded.
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  4 ++--
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h  |  6 +++---
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c  | 12 ++++++------
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h   |  4 ++--
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c   |  4 ++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 13 +++++++------
+ 6 files changed, 22 insertions(+), 21 deletions(-)
 
-The first three patches add helpers to check if the FIB rule's selector
-matches all packets and extend the FIB notification chain to include the
-rule's info as part of the RULE_{ADD,DEL} events. This allows offloading
-drivers to sanitize the rules they don't support and flush their tables.
-
-The fourth patch introduces a small change in the VRF driver to allow
-capable drivers to more easily offload VRFs.
-
-Finally, the last patches gradually add support for VRFs in the mlxsw
-driver. First, on top of port netdevs, stacked LAG and VLAN devices and
-then on top of bridges.
-
-Some limitations I would like to point out:
-
-1) The old model where 'oif' / 'iif' rules were programmed for each L3
-master device isn't supported. Upon insertion of these rules the driver
-will flush its tables and forwarding will be done by the kernel instead.
-It's inferior in every way to the single 'l3mdev' rule, so this shouldn't
-be an issue.
-
-2) Inter-VRF routes pointing to a VRF device aren't offloaded. Packets
-hitting these routes will be forwarded by the kernel. Inter-VRF routes
-pointing to netdevs enslaved to a different VRF are offloaded.
-
-3) There's a small discrepancy between the kernel's datapath and the
-device's. By default, packets forwarded by the kernel first do a lookup
-in the LOCAL table and then in the VRF's table (assuming no match). In
-the device, lookup is done only in the VRF's table, which is probably
-the intended behavior. Changes in v2 allow user to properly re-order the
-default rules without triggering the abort mechanism.
-
-Changes in v2:
-* Drop default rule indication and allow re-ordering of default rules
-  (David Ahern).
-* Remove ifdef around 'struct fib_rule_notifier_info' and drop redundant
-  dependency on IP_MULTIPLE_TABLES from rocker and mlxsw.
-* Add David's Acked-by to the fourth patch.
-* Remove netif_is_vrf_master() and use netif_is_l3_master() instead
-  (David Ahern).
-
-Ido Schimmel (9):
-  net: fib_rules: Check if selector matches all packets
-  ipv4: fib_rules: Add notifier info to FIB rules notifications
-  ipv4: fib_rules: Dump FIB rules when registering FIB notifier
-  net: vrf: Set slave's private flag before linking
-  mlxsw: spectrum_router: Associate RIFs with correct VR
-  mlxsw: spectrum_router: Don't destroy RIF if L3 slave
-  mlxsw: spectrum_router: Add support for VRFs
-  mlxsw: spectrum_router: Add support for VRFs on top of bridges
-  mlxsw: spectrum_router: Don't abort on l3mdev rules
-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 71 +++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  8 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 99 +++++++++++++++++++++-
- drivers/net/ethernet/rocker/rocker_main.c          | 26 +++++-
- drivers/net/vrf.c                                  |  8 +-
- include/net/fib_rules.h                            |  1 +
- include/net/ip_fib.h                               | 12 +++
- net/core/fib_rules.c                               | 14 +++
- net/ipv4/fib_rules.c                               | 42 +++++++--
- 9 files changed, 261 insertions(+), 20 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 13bd3d4..0351b54 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -431,8 +431,8 @@ struct stmmac_dma_ops {
+ 	void (*dma_diagnostic_fr) (void *data, struct stmmac_extra_stats *x,
+ 				   void __iomem *ioaddr);
+ 	void (*enable_dma_transmission) (void __iomem *ioaddr);
+-	void (*enable_dma_irq) (void __iomem *ioaddr);
+-	void (*disable_dma_irq) (void __iomem *ioaddr);
++	void (*enable_dma_irq)(void __iomem *ioaddr, u32 chan);
++	void (*disable_dma_irq)(void __iomem *ioaddr, u32 chan);
+ 	void (*start_tx) (void __iomem *ioaddr);
+ 	void (*stop_tx) (void __iomem *ioaddr);
+ 	void (*start_rx) (void __iomem *ioaddr);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
+index 1b06df7..393a657 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
+@@ -185,9 +185,9 @@
+ 
+ int dwmac4_dma_reset(void __iomem *ioaddr);
+ void dwmac4_enable_dma_transmission(void __iomem *ioaddr, u32 tail_ptr);
+-void dwmac4_enable_dma_irq(void __iomem *ioaddr);
+-void dwmac410_enable_dma_irq(void __iomem *ioaddr);
+-void dwmac4_disable_dma_irq(void __iomem *ioaddr);
++void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan);
++void dwmac410_enable_dma_irq(void __iomem *ioaddr, u32 chan);
++void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan);
+ void dwmac4_dma_start_tx(void __iomem *ioaddr);
+ void dwmac4_dma_stop_tx(void __iomem *ioaddr);
+ void dwmac4_dma_start_rx(void __iomem *ioaddr);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
+index c7326d5..c932791 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
+@@ -104,21 +104,21 @@ void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len)
+ 	writel(len, ioaddr + DMA_CHAN_RX_RING_LEN(STMMAC_CHAN0));
+ }
+ 
+-void dwmac4_enable_dma_irq(void __iomem *ioaddr)
++void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan)
+ {
+ 	writel(DMA_CHAN_INTR_DEFAULT_MASK, ioaddr +
+-	       DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
++	       DMA_CHAN_INTR_ENA(chan));
+ }
+ 
+-void dwmac410_enable_dma_irq(void __iomem *ioaddr)
++void dwmac410_enable_dma_irq(void __iomem *ioaddr, u32 chan)
+ {
+ 	writel(DMA_CHAN_INTR_DEFAULT_MASK_4_10,
+-	       ioaddr + DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
++	       ioaddr + DMA_CHAN_INTR_ENA(chan));
+ }
+ 
+-void dwmac4_disable_dma_irq(void __iomem *ioaddr)
++void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan)
+ {
+-	writel(0, ioaddr + DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
++	writel(0, ioaddr + DMA_CHAN_INTR_ENA(chan));
+ }
+ 
+ int dwmac4_dma_interrupt(void __iomem *ioaddr,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+index 56e485f..dec0816 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+@@ -137,8 +137,8 @@
+ #define DMA_CONTROL_FTF		0x00100000	/* Flush transmit FIFO */
+ 
+ void dwmac_enable_dma_transmission(void __iomem *ioaddr);
+-void dwmac_enable_dma_irq(void __iomem *ioaddr);
+-void dwmac_disable_dma_irq(void __iomem *ioaddr);
++void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan);
++void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan);
+ void dwmac_dma_start_tx(void __iomem *ioaddr);
+ void dwmac_dma_stop_tx(void __iomem *ioaddr);
+ void dwmac_dma_start_rx(void __iomem *ioaddr);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+index e60bfca..285cfc9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+@@ -47,12 +47,12 @@ void dwmac_enable_dma_transmission(void __iomem *ioaddr)
+ 	writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
+ }
+ 
+-void dwmac_enable_dma_irq(void __iomem *ioaddr)
++void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan)
+ {
+ 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+ }
+ 
+-void dwmac_disable_dma_irq(void __iomem *ioaddr)
++void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan)
+ {
+ 	writel(0, ioaddr + DMA_INTR_ENA);
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index c4e4a53..18cf58c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1422,14 +1422,14 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+ 	netif_tx_unlock(priv->dev);
+ }
+ 
+-static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv)
++static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv, u32 chan)
+ {
+-	priv->hw->dma->enable_dma_irq(priv->ioaddr);
++	priv->hw->dma->enable_dma_irq(priv->ioaddr, chan);
+ }
+ 
+-static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv)
++static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv, u32 chan)
+ {
+-	priv->hw->dma->disable_dma_irq(priv->ioaddr);
++	priv->hw->dma->disable_dma_irq(priv->ioaddr, chan);
+ }
+ 
+ /**
+@@ -1506,7 +1506,7 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+ 	status = priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats);
+ 	if (likely((status & handle_rx)) || (status & handle_tx)) {
+ 		if (likely(napi_schedule_prep(&priv->napi))) {
+-			stmmac_disable_dma_irq(priv);
++			stmmac_disable_dma_irq(priv, chan);
+ 			__napi_schedule(&priv->napi);
+ 		}
+ 	}
+@@ -2832,6 +2832,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct stmmac_priv *priv = container_of(napi, struct stmmac_priv, napi);
+ 	int work_done = 0;
++	u32 chan = STMMAC_CHAN0;
+ 
+ 	priv->xstats.napi_poll++;
+ 	stmmac_tx_clean(priv);
+@@ -2839,7 +2840,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+ 	work_done = stmmac_rx(priv, budget);
+ 	if (work_done < budget) {
+ 		napi_complete_done(napi, work_done);
+-		stmmac_enable_dma_irq(priv);
++		stmmac_enable_dma_irq(priv, chan);
+ 	}
+ 	return work_done;
+ }
 -- 
-2.7.4
+2.9.3
