@@ -1,52 +1,29 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames
- DNAT-ed to bridge device
-Date: Wed, 15 Mar 2017 23:06:05 +0100
-Message-ID: <20170315220605.GA1766@salvia>
-References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
-	<20170315102608.GB24366@breakpoint.cc>
-	<20170315104211.GA24409@salvia> <20170315142720.GU15692@otheros>
-	<20170315181539.GA31875@salvia> <20170315211619.GA3464@otheros>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netxen_nic: remove redundant check if retries is zero
+Date: Wed, 15 Mar 2017 15:06:18 -0700 (PDT)
+Message-ID: <20170315.150618.516724613328619597.davem@davemloft.net>
+References: <20170315153158.16122-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S . Miller" <davem@davemloft.net>
-To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170315211619.GA3464@otheros>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: manish.chopra@cavium.com, rahul.verma@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170315153158.16122-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 15, 2017 at 10:16:19PM +0100, Linus Lüssing wrote:
-> On Wed, Mar 15, 2017 at 07:15:39PM +0100, Pablo Neira Ayuso wrote:
-> > Could you update ebtables dnat to check if the ethernet address
-> > matches the one of the input bridge interface, so we mangle the
-> > ->pkt_type accordingly from there, instead of doing this from the
-> > core?
-> 
-> Actually, that was the approach I thought about and went for first
-> (and it would probably work for me). Just checking against the
-> bridge device's net_device::dev_addr.
-> 
-> I scratched it though, as I was afraid that the issue might still
-> exist for people using some other upper device on top of the bridge
-> device. For instance, macvlan? And iterating over the
-> net_device::dev_addrs list seemed too costly for fast path to me.
+From: Colin King <colin.king@canonical.com>
+Date: Wed, 15 Mar 2017 15:31:58 +0000
 
-I was more thinking of following the simple approach that we follow in
-ebt_redirect_tg() by taking the input interface.
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> At the end of the timeout loop, retries will always be zero so
+> the check for zero is redundant so remove it.  Also replace
+> printk with pr_err as recommended by checkpatch.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Anyway, I'm ok with this.
+Applied.
