@@ -1,37 +1,77 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH] net: phy: Don't miss phy_suspend() on PHY_HALTED for
- PHYs with interrupts
-Date: Wed, 15 Mar 2017 15:08:11 +0100
-Message-ID: <20170315140811.GD21021@lunn.ch>
-References: <1489585887-8683-1-git-send-email-rogerq@ti.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH] netfilter: logging copyrights is useless
+Date: Wed, 15 Mar 2017 14:57:59 +0100
+Message-ID: <20170315135759.nzszcnbgh2o4xytm@nataraja>
+References: <20170315131739.16285-1-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, davem@davemloft.net, kyle.roeschley@ni.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>
+Cc: pablo@netfilter.org, kadlec@blackhole.kfki.hu, davem@davemloft.net,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1489585887-8683-1-git-send-email-rogerq@ti.com>
+In-Reply-To: <20170315131739.16285-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 15, 2017 at 03:51:27PM +0200, Roger Quadros wrote:
-> Since commit 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
-> phy_suspend() doesn't get called as part of phy_stop() for PHYs using
-> interrupts because the phy state machine is never triggered after a phy_stop().
-> 
-> Explicitly trigger the PHY state machine so that it can
-> see the new PHY state (HALTED) and suspend the PHY.
-> 
-> Signed-off-by: Roger Quadros <rogerq@ti.com>
+Hi Corentin,
 
-Hi Roger
+On Wed, Mar 15, 2017 at 02:17:39PM +0100, Corentin Labbe wrote:
+> Logging copyrights does not add any useful information in logs.
+> This patch remove such logging
 
-This seems sensible. It mirrors what phy_start() does.
+Historically, there were plenty of more copyright notices for certain
+drivers or sections of the code being printed while booting.  I still
+remember fondly the many ethernet driver notices of a Donald Becker, for
+example.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+I understand that it is questionable whether or not such statements are
+"useful".  You might argue, their use is in
+* stating a legal formality to the user
+* making it simpler to determine if a given part of code is used in a
+  given device (e.g. as part of GPL enforcement) while just logging the
+  serial console and no requirement to (find a way to) dump the internal
+  flash
 
-It does however lead to a follow up question. Are there other places
-phydev->state is changed and it is missing a phy_trigger_machine()?
+Besides such practical arguments (it is of what use to whom), there are
+legal concerns regarding the removal of copyright statements.  This
+holds true on whether or not it is Free Software, or whether or not it
+is GPL licensed.  If an author puts a copyright statement somehwere, he
+exercises his right to be regarded as the author of the work.  It is
+typically not permitted to remove such notices, as that would be a
+copyright infringement in itself.
 
-	      Andrew
+Also, beyond general legal concerns, the GPLv2 states explicitly:
+
+> c) If the modified program normally reads commands interactively
+> when run, you must cause it, when started running for such
+> interactive use in the most ordinary way, to print or display an
+> announcement including an appropriate copyright notice and a notice
+> that there is no warranty (or else, saying that you provide a
+> warranty) and that users may redistribute the program under these
+> conditions, and telling the user how to view a copy of this License.
+> (Exception: if the Program itself is interactive but does not normally
+> print such an announcement, your work based on the Program is not
+> required to print an announcement.)
+
+Now you can argue whether the kernel is a an interactive program, but at
+least you can see some intent to not remove any notices/messages that
+were originally present in the program.
+
+So I think your patch could only applied if the respective copyright
+holders agree to remove their respective notices.
+
+I personally would argue to keep them.  Nobody has complained about them
+so far, and they have probably saved many weeks of my work time in GPL
+compliance / enforcement work.  I understand this is a "niche use case",
+though ;)
+
+-- 
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+============================================================================
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
