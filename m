@@ -1,94 +1,56 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3] net: ipv4: add support for ECMP hash policy choice
-Date: Wed, 15 Mar 2017 12:46:23 +0200
-Message-ID: <B403ACFE-A028-454D-94C1-F7023457C87C@cumulusnetworks.com>
-References: <1489505775-2913-1-git-send-email-nikolay@cumulusnetworks.com> <20170314085502.47d48a4e@xeon-e3> <8088fe5f-0c0b-bdba-4fba-e9e28bbed02e@cumulusnetworks.com> <20170314.114837.619141079617104809.davem@davemloft.net> <20170314132506.6233b1e7@xeon-e3> <CAJieiUjeYH=u6W5p18JA=RwKuFpX6HSrifD0fRE1rR2e0fsvhw@mail.gmail.com> <20170314144204.20d5c3a5@xeon-e3> <CAJieiUgQpOidyE-OH73QQpMcQnzEgd+9bGPOKA-yAaFtb3fcwQ@mail.gmail.com> <20170314162715.141f1d4b@xeon-e3> <0c0473f7-beab-ea87-6dde-77aa345258ff@cumulusnetworks.com> <5b5cf0ac-d152-3c8e-d54b-1059f561efee@6wind.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>, jkbs@redhat.com,
-        Eric Dumazet <edumazet@google.com>,
-        Peter Christensen <pch@ordbogen.com>
-To: nicolas.dichtel@6wind.com
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v3 net-next 00/11] net: stmmac: prepare dma operations for multiple queues
+Date: Wed, 15 Mar 2017 11:04:44 +0000
+Message-ID: <cover.1489575025.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:35876 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753300AbdCOKqt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 06:46:49 -0400
-Received: by mail-wm0-f42.google.com with SMTP id n11so84228561wma.1
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 03:46:47 -0700 (PDT)
-In-Reply-To: <5b5cf0ac-d152-3c8e-d54b-1059f561efee@6wind.com>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:58117 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753780AbdCOLFB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+As agreed with David Miller, this patch-set is the second of 3 to enable
+multiple queues in stmmac.
 
-> On Mar 15, 2017, at 11:17 AM, Nicolas Dichtel =
-<nicolas.dichtel@6wind.com> wrote:
->=20
-> Le 15/03/2017 =E0 00:45, David Ahern a =E9crit :
->> On 3/14/17 5:27 PM, Stephen Hemminger wrote:
->>> On Tue, 14 Mar 2017 15:38:40 -0700
->>> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->>>=20
->>>>>>>>> That's what my initial version did, but this was discussed =
-during NetConf in Seville
->>>>>>>>> and it was decided that it's best to make a global sysctl, =
-thus the change. =20
->>>>>>>>=20
->>>>>>>> Correct, we discussed this, and we all agreed to only have a =
-sysctl for now. =20
->>>>>>>=20
->>>>>>> Why? If you are going to have private discussions please post =
-the rationale
->>>>>>> in public. =20
->>>>>>=20
->>>>>> Stephen, is there any reason to have a per ecmp route multipath =
-algo
->>>>>> selection ?.
->>>>>> All platforms have a global multipath selection algo. I also =
-don't see
->>>>>> routing daemons ready or willing to specify a per ecmp route =
-multipath
->>>>>> selection algo attribute. =20
->>>>>=20
->>>>> There is no compelling reason to make the attribute per route. But =
-the
->>>>> issue is more that configuration through sysctl's is problematic. =
-It doesn't
->>>>> fit into the standard API paradigm. Sysctl's are like routing =
-patches not
->>>>> part of the real CLI. Trying to trap sysctl's for things like =
-switchedev
->>>>> offload is particularly problematic. I can see the case for either =
-way,
->>>>> and don't have a fixed opinion. =20
->>>>=20
->>>> ok. understand the switchdev offload part. It was that way in the =
-past...but
->>>> today you can listen to sysctl updates on the netconf netlink =
-channel.
->>>> it works pretty well.
->>>=20
->>> Is there another patch to add the NETCONFA_ECMP support?
->>>=20
->>=20
->> does userspace care?
-> Yes, I think it is needed so that userspace can correctly monitor this =
-behavior.
-> It also enables to check this parameter through netlink.
->=20
->=20
-> Regards,
-> Nicolas
+This second one concentrates on dma operations adding functionalities as:
+a) DMA Operation Mode configuration per channel and done in the multiple
+queues configuration function
+b) DMA IRQ enable and Disable by channel
+c) DMA start and stop by channel
+d) RX and TX ring length configuration by channel
+e) RX and TX set tail pointer by channel
+f) DMA Channel initialization broke into Channel comon, RX and TX
+initialization
+g) TSO being configured for all available channels
+h) DMA interrupt treatment by channel
 
-This doesn=92t fit the NETCONFA model well, there is no =93all=94, =
-=93default=94 or per iface option to be set, also
-the other multipath sysctl which affects behaviour doesn=92t have a =
-notification.
+Joao Pinto (11):
+  net: stmmac: prepare dma op mode config for multiple queues
+  net: stmmac: enable/disable dma irq prepared for multiple queues
+  net: stmmac: rx/tx dma start/stop prepared for multiple queues
+  net: stmmac: prepare stmmac_tx_err for multiple queues
+  net: stmmac: prepare dma interrupt treatment for multiple queues
+  net: stmmac: rx watchdog config prepared for multiple queues
+  net: stmmac: rx and tx ring length prepared for multiple queues
+  net: stmmac: prepare rx/tx set tail function for multiple queues
+  net: stmmac: dma channel init prepared for multiple queues
+  net: stmmac: tso init prepared for multiple queues
+  net: stmmac: stmmac interrupt treatment prepared for multiple queues
 
-Thanks,
- Nik
+ drivers/net/ethernet/stmicro/stmmac/common.h       |  31 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   3 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c   | 192 ++++++-----
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h   |  20 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c   |  56 ++--
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |  15 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |  14 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   3 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 367 ++++++++++++++++-----
+ 9 files changed, 465 insertions(+), 236 deletions(-)
+
+-- 
+2.9.3
