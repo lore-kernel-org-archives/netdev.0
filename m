@@ -1,32 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Wed, 15 Mar 2017 14:55:12 -0700 (PDT)
-Message-ID: <20170315.145512.1542025976162251828.davem@davemloft.net>
-References: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
-        <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
-        <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] nl80211: fix dumpit error path RTNL deadlocks
+Date: Wed, 15 Mar 2017 14:59:02 -0700 (PDT)
+Message-ID: <20170315.145902.1038598966216203408.davem@davemloft.net>
+References: <20170315132913.26088-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: keescook@chromium.org, daniel@iogearbox.net, mgherzan@gmail.com,
-        netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        linux-arm-kernel@lists.infradead.org
-To: illusionist.neo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54496 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753314AbdCOVzN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 17:55:13 -0400
-In-Reply-To: <CAHgaXdJL92XRjHae2Nb9j9SerSe65=N=ErDHTQf23sdBxwthzw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170315132913.26088-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Date: Wed, 15 Mar 2017 17:43:44 +0530
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Wed, 15 Mar 2017 14:29:13 +0100
 
->> You can't truncate, but you'll have to build 64-bit ops using 32-bit registers.
+> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 > 
-> A small example would help a lot.
+> Sowmini pointed out Dmitry's RTNL deadlock report to me, and it turns out
+> to be perfectly accurate - there are various error paths that miss unlock
+> of the RTNL.
+> 
+> To fix those, change the locking a bit to not be conditional in all those
+> nl80211_prepare_*_dump() functions, but make those require the RTNL to
+> start with, and fix the buggy error paths. This also let me use sparse
+> (by appropriately overriding the rtnl_lock/rtnl_unlock functions) to
+> validate the changes.
+> 
+> Reported-by: Sowmini Varadhan <sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Reported-by: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-You can simply perform 64-bit operations in C code and see what gcc
-outputs for that code on this 32-bit target.
+Johannes, I assume I will get this in a future pull request?
