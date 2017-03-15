@@ -1,15 +1,15 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v3 net-next 01/11] net: stmmac: prepare dma op mode config for multiple queues
-Date: Wed, 15 Mar 2017 11:04:45 +0000
-Message-ID: <efde5ec3d6873d0b2ad5b806f230f5804257915d.1489575025.git.jpinto@synopsys.com>
+Subject: [PATCH v3 net-next 03/11] net: stmmac: rx/tx dma start/stop prepared for multiple queues
+Date: Wed, 15 Mar 2017 11:04:47 +0000
+Message-ID: <ccf6804f664bbebeb6137f4b42e7ad6c5257aaf4.1489575025.git.jpinto@synopsys.com>
 References: <cover.1489575025.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:58121 "EHLO
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:58127 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753794AbdCOLFH (ORCPT
+        with ESMTP id S1753793AbdCOLFH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:07 -0400
 In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
 In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
@@ -17,353 +17,344 @@ References: <cover.1489575025.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares DMA Operation Mode configuration for multiple queues.
-The work consisted on breaking the DMA operation Mode configuration function
-into RX and TX scope and adapting its mechanism in stmmac_main.
+This patch prepares the RX/TX DMA stop/start process for multiple queues.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
 changes v1->v3:
 - Just to keep up the patch-set version
 
- drivers/net/ethernet/stmicro/stmmac/common.h      |   3 +
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  | 118 +++++++++++-----------
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  82 +++++++++++----
- 3 files changed, 124 insertions(+), 79 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h      |   8 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h  |   8 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c  |  24 ++---
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h   |   8 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c   |   8 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 108 +++++++++++++++++++---
+ 6 files changed, 125 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 9f0d26d..13bd3d4 100644
+index 0351b54..042b482 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -424,6 +424,9 @@ struct stmmac_dma_ops {
- 	 * An invalid value enables the store-and-forward mode */
- 	void (*dma_mode)(void __iomem *ioaddr, int txmode, int rxmode,
- 			 int rxfifosz);
-+	void (*dma_rx_mode)(void __iomem *ioaddr, int mode, u32 channel,
-+			    int fifosz);
-+	void (*dma_tx_mode)(void __iomem *ioaddr, int mode, u32 channel);
- 	/* To track extra statistic (if supported) */
- 	void (*dma_diagnostic_fr) (void *data, struct stmmac_extra_stats *x,
- 				   void __iomem *ioaddr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-index 6ac6b26..6285e8a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-@@ -182,70 +182,26 @@ static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt)
- 		writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(i));
+@@ -433,10 +433,10 @@ struct stmmac_dma_ops {
+ 	void (*enable_dma_transmission) (void __iomem *ioaddr);
+ 	void (*enable_dma_irq)(void __iomem *ioaddr, u32 chan);
+ 	void (*disable_dma_irq)(void __iomem *ioaddr, u32 chan);
+-	void (*start_tx) (void __iomem *ioaddr);
+-	void (*stop_tx) (void __iomem *ioaddr);
+-	void (*start_rx) (void __iomem *ioaddr);
+-	void (*stop_rx) (void __iomem *ioaddr);
++	void (*start_tx)(void __iomem *ioaddr, u32 chan);
++	void (*stop_tx)(void __iomem *ioaddr, u32 chan);
++	void (*start_rx)(void __iomem *ioaddr, u32 chan);
++	void (*stop_rx)(void __iomem *ioaddr, u32 chan);
+ 	int (*dma_interrupt) (void __iomem *ioaddr,
+ 			      struct stmmac_extra_stats *x);
+ 	/* If supported then get the optional core features */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
+index 393a657..2c19042 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
+@@ -188,10 +188,10 @@ void dwmac4_enable_dma_transmission(void __iomem *ioaddr, u32 tail_ptr);
+ void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan);
+ void dwmac410_enable_dma_irq(void __iomem *ioaddr, u32 chan);
+ void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan);
+-void dwmac4_dma_start_tx(void __iomem *ioaddr);
+-void dwmac4_dma_stop_tx(void __iomem *ioaddr);
+-void dwmac4_dma_start_rx(void __iomem *ioaddr);
+-void dwmac4_dma_stop_rx(void __iomem *ioaddr);
++void dwmac4_dma_start_tx(void __iomem *ioaddr, u32 chan);
++void dwmac4_dma_stop_tx(void __iomem *ioaddr, u32 chan);
++void dwmac4_dma_start_rx(void __iomem *ioaddr, u32 chan);
++void dwmac4_dma_stop_rx(void __iomem *ioaddr, u32 chan);
+ int dwmac4_dma_interrupt(void __iomem *ioaddr,
+ 			 struct stmmac_extra_stats *x);
+ void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
+index c932791..3512d18 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
+@@ -45,49 +45,49 @@ void dwmac4_set_tx_tail_ptr(void __iomem *ioaddr, u32 tail_ptr, u32 chan)
+ 	writel(tail_ptr, ioaddr + DMA_CHAN_TX_END_ADDR(0));
  }
  
--static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
--				    int rxmode, u32 channel, int rxfifosz)
-+static void dwmac4_dma_rx_chan_op_mode(void __iomem *ioaddr, int mode,
-+				       u32 channel, int fifosz)
+-void dwmac4_dma_start_tx(void __iomem *ioaddr)
++void dwmac4_dma_start_tx(void __iomem *ioaddr, u32 chan)
  {
--	unsigned int rqs = rxfifosz / 256 - 1;
--	u32 mtl_tx_op, mtl_rx_op, mtl_rx_int;
--
--	/* Following code only done for channel 0, other channels not yet
--	 * supported.
--	 */
--	mtl_tx_op = readl(ioaddr + MTL_CHAN_TX_OP_MODE(channel));
--
--	if (txmode == SF_DMA_MODE) {
--		pr_debug("GMAC: enable TX store and forward mode\n");
--		/* Transmit COE type 2 cannot be done in cut-through mode. */
--		mtl_tx_op |= MTL_OP_MODE_TSF;
--	} else {
--		pr_debug("GMAC: disabling TX SF (threshold %d)\n", txmode);
--		mtl_tx_op &= ~MTL_OP_MODE_TSF;
--		mtl_tx_op &= MTL_OP_MODE_TTC_MASK;
--		/* Set the transmit threshold */
--		if (txmode <= 32)
--			mtl_tx_op |= MTL_OP_MODE_TTC_32;
--		else if (txmode <= 64)
--			mtl_tx_op |= MTL_OP_MODE_TTC_64;
--		else if (txmode <= 96)
--			mtl_tx_op |= MTL_OP_MODE_TTC_96;
--		else if (txmode <= 128)
--			mtl_tx_op |= MTL_OP_MODE_TTC_128;
--		else if (txmode <= 192)
--			mtl_tx_op |= MTL_OP_MODE_TTC_192;
--		else if (txmode <= 256)
--			mtl_tx_op |= MTL_OP_MODE_TTC_256;
--		else if (txmode <= 384)
--			mtl_tx_op |= MTL_OP_MODE_TTC_384;
--		else
--			mtl_tx_op |= MTL_OP_MODE_TTC_512;
--	}
--	/* For an IP with DWC_EQOS_NUM_TXQ == 1, the fields TXQEN and TQS are RO
--	 * with reset values: TXQEN on, TQS == DWC_EQOS_TXFIFO_SIZE.
--	 * For an IP with DWC_EQOS_NUM_TXQ > 1, the fields TXQEN and TQS are R/W
--	 * with reset values: TXQEN off, TQS 256 bytes.
--	 *
--	 * Write the bits in both cases, since it will have no effect when RO.
--	 * For DWC_EQOS_NUM_TXQ > 1, the top bits in MTL_OP_MODE_TQS_MASK might
--	 * be RO, however, writing the whole TQS field will result in a value
--	 * equal to DWC_EQOS_TXFIFO_SIZE, just like for DWC_EQOS_NUM_TXQ == 1.
--	 */
--	mtl_tx_op |= MTL_OP_MODE_TXQEN | MTL_OP_MODE_TQS_MASK;
--	writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
-+	unsigned int rqs = fifosz / 256 - 1;
-+	u32 mtl_rx_op, mtl_rx_int;
+-	u32 value = readl(ioaddr + DMA_CHAN_TX_CONTROL(STMMAC_CHAN0));
++	u32 value = readl(ioaddr + DMA_CHAN_TX_CONTROL(chan));
  
- 	mtl_rx_op = readl(ioaddr + MTL_CHAN_RX_OP_MODE(channel));
+ 	value |= DMA_CONTROL_ST;
+-	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(STMMAC_CHAN0));
++	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(chan));
  
--	if (rxmode == SF_DMA_MODE) {
-+	if (mode == SF_DMA_MODE) {
- 		pr_debug("GMAC: enable RX store and forward mode\n");
- 		mtl_rx_op |= MTL_OP_MODE_RSF;
- 	} else {
--		pr_debug("GMAC: disable RX SF mode (threshold %d)\n", rxmode);
-+		pr_debug("GMAC: disable RX SF mode (threshold %d)\n", mode);
- 		mtl_rx_op &= ~MTL_OP_MODE_RSF;
- 		mtl_rx_op &= MTL_OP_MODE_RTC_MASK;
--		if (rxmode <= 32)
-+		if (mode <= 32)
- 			mtl_rx_op |= MTL_OP_MODE_RTC_32;
--		else if (rxmode <= 64)
-+		else if (mode <= 64)
- 			mtl_rx_op |= MTL_OP_MODE_RTC_64;
--		else if (rxmode <= 96)
-+		else if (mode <= 96)
- 			mtl_rx_op |= MTL_OP_MODE_RTC_96;
- 		else
- 			mtl_rx_op |= MTL_OP_MODE_RTC_128;
-@@ -255,7 +211,7 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
- 	mtl_rx_op |= rqs << MTL_OP_MODE_RQS_SHIFT;
- 
- 	/* enable flow control only if each channel gets 4 KiB or more FIFO */
--	if (rxfifosz >= 4096) {
-+	if (fifosz >= 4096) {
- 		unsigned int rfd, rfa;
- 
- 		mtl_rx_op |= MTL_OP_MODE_EHFC;
-@@ -266,7 +222,7 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
- 		 * Set Threshold for Deactivating Flow Control to min 1 frame,
- 		 * i.e. 1500 bytes.
- 		 */
--		switch (rxfifosz) {
-+		switch (fifosz) {
- 		case 4096:
- 			/* This violates the above formula because of FIFO size
- 			 * limit therefore overflow may occur in spite of this.
-@@ -306,11 +262,49 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
- 	       ioaddr + MTL_CHAN_INT_CTRL(channel));
+ 	value = readl(ioaddr + GMAC_CONFIG);
+ 	value |= GMAC_CONFIG_TE;
+ 	writel(value, ioaddr + GMAC_CONFIG);
  }
  
--static void dwmac4_dma_operation_mode(void __iomem *ioaddr, int txmode,
--				      int rxmode, int rxfifosz)
-+static void dwmac4_dma_tx_chan_op_mode(void __iomem *ioaddr, int mode,
-+				       u32 channel)
+-void dwmac4_dma_stop_tx(void __iomem *ioaddr)
++void dwmac4_dma_stop_tx(void __iomem *ioaddr, u32 chan)
  {
--	/* Only Channel 0 is actually configured and used */
--	dwmac4_dma_chan_op_mode(ioaddr, txmode, rxmode, 0, rxfifosz);
-+	u32 mtl_tx_op = readl(ioaddr + MTL_CHAN_TX_OP_MODE(channel));
-+
-+	if (mode == SF_DMA_MODE) {
-+		pr_debug("GMAC: enable TX store and forward mode\n");
-+		/* Transmit COE type 2 cannot be done in cut-through mode. */
-+		mtl_tx_op |= MTL_OP_MODE_TSF;
-+	} else {
-+		pr_debug("GMAC: disabling TX SF (threshold %d)\n", mode);
-+		mtl_tx_op &= ~MTL_OP_MODE_TSF;
-+		mtl_tx_op &= MTL_OP_MODE_TTC_MASK;
-+		/* Set the transmit threshold */
-+		if (mode <= 32)
-+			mtl_tx_op |= MTL_OP_MODE_TTC_32;
-+		else if (mode <= 64)
-+			mtl_tx_op |= MTL_OP_MODE_TTC_64;
-+		else if (mode <= 96)
-+			mtl_tx_op |= MTL_OP_MODE_TTC_96;
-+		else if (mode <= 128)
-+			mtl_tx_op |= MTL_OP_MODE_TTC_128;
-+		else if (mode <= 192)
-+			mtl_tx_op |= MTL_OP_MODE_TTC_192;
-+		else if (mode <= 256)
-+			mtl_tx_op |= MTL_OP_MODE_TTC_256;
-+		else if (mode <= 384)
-+			mtl_tx_op |= MTL_OP_MODE_TTC_384;
-+		else
-+			mtl_tx_op |= MTL_OP_MODE_TTC_512;
-+	}
-+	/* For an IP with DWC_EQOS_NUM_TXQ == 1, the fields TXQEN and TQS are RO
-+	 * with reset values: TXQEN on, TQS == DWC_EQOS_TXFIFO_SIZE.
-+	 * For an IP with DWC_EQOS_NUM_TXQ > 1, the fields TXQEN and TQS are R/W
-+	 * with reset values: TXQEN off, TQS 256 bytes.
-+	 *
-+	 * Write the bits in both cases, since it will have no effect when RO.
-+	 * For DWC_EQOS_NUM_TXQ > 1, the top bits in MTL_OP_MODE_TQS_MASK might
-+	 * be RO, however, writing the whole TQS field will result in a value
-+	 * equal to DWC_EQOS_TXFIFO_SIZE, just like for DWC_EQOS_NUM_TXQ == 1.
-+	 */
-+	mtl_tx_op |= MTL_OP_MODE_TXQEN | MTL_OP_MODE_TQS_MASK;
-+	writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
+-	u32 value = readl(ioaddr + DMA_CHAN_TX_CONTROL(STMMAC_CHAN0));
++	u32 value = readl(ioaddr + DMA_CHAN_TX_CONTROL(chan));
+ 
+ 	value &= ~DMA_CONTROL_ST;
+-	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(STMMAC_CHAN0));
++	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(chan));
+ 
+ 	value = readl(ioaddr + GMAC_CONFIG);
+ 	value &= ~GMAC_CONFIG_TE;
+ 	writel(value, ioaddr + GMAC_CONFIG);
  }
  
- static void dwmac4_get_hw_feature(void __iomem *ioaddr,
-@@ -387,7 +381,8 @@ const struct stmmac_dma_ops dwmac4_dma_ops = {
- 	.init = dwmac4_dma_init,
- 	.axi = dwmac4_dma_axi,
- 	.dump_regs = dwmac4_dump_dma_regs,
--	.dma_mode = dwmac4_dma_operation_mode,
-+	.dma_rx_mode = dwmac4_dma_rx_chan_op_mode,
-+	.dma_tx_mode = dwmac4_dma_tx_chan_op_mode,
- 	.enable_dma_irq = dwmac4_enable_dma_irq,
- 	.disable_dma_irq = dwmac4_disable_dma_irq,
- 	.start_tx = dwmac4_dma_start_tx,
-@@ -409,7 +404,8 @@ const struct stmmac_dma_ops dwmac410_dma_ops = {
- 	.init = dwmac4_dma_init,
- 	.axi = dwmac4_dma_axi,
- 	.dump_regs = dwmac4_dump_dma_regs,
--	.dma_mode = dwmac4_dma_operation_mode,
-+	.dma_rx_mode = dwmac4_dma_rx_chan_op_mode,
-+	.dma_tx_mode = dwmac4_dma_tx_chan_op_mode,
- 	.enable_dma_irq = dwmac410_enable_dma_irq,
- 	.disable_dma_irq = dwmac4_disable_dma_irq,
- 	.start_tx = dwmac4_dma_start_tx,
+-void dwmac4_dma_start_rx(void __iomem *ioaddr)
++void dwmac4_dma_start_rx(void __iomem *ioaddr, u32 chan)
+ {
+-	u32 value = readl(ioaddr + DMA_CHAN_RX_CONTROL(STMMAC_CHAN0));
++	u32 value = readl(ioaddr + DMA_CHAN_RX_CONTROL(chan));
+ 
+ 	value |= DMA_CONTROL_SR;
+ 
+-	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(STMMAC_CHAN0));
++	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(chan));
+ 
+ 	value = readl(ioaddr + GMAC_CONFIG);
+ 	value |= GMAC_CONFIG_RE;
+ 	writel(value, ioaddr + GMAC_CONFIG);
+ }
+ 
+-void dwmac4_dma_stop_rx(void __iomem *ioaddr)
++void dwmac4_dma_stop_rx(void __iomem *ioaddr, u32 chan)
+ {
+-	u32 value = readl(ioaddr + DMA_CHAN_RX_CONTROL(STMMAC_CHAN0));
++	u32 value = readl(ioaddr + DMA_CHAN_RX_CONTROL(chan));
+ 
+ 	value &= ~DMA_CONTROL_SR;
+-	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(STMMAC_CHAN0));
++	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(chan));
+ 
+ 	value = readl(ioaddr + GMAC_CONFIG);
+ 	value &= ~GMAC_CONFIG_RE;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+index dec0816..6c6cc71 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+@@ -139,10 +139,10 @@
+ void dwmac_enable_dma_transmission(void __iomem *ioaddr);
+ void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan);
+ void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan);
+-void dwmac_dma_start_tx(void __iomem *ioaddr);
+-void dwmac_dma_stop_tx(void __iomem *ioaddr);
+-void dwmac_dma_start_rx(void __iomem *ioaddr);
+-void dwmac_dma_stop_rx(void __iomem *ioaddr);
++void dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan);
++void dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan);
++void dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan);
++void dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan);
+ int dwmac_dma_interrupt(void __iomem *ioaddr, struct stmmac_extra_stats *x);
+ int dwmac_dma_reset(void __iomem *ioaddr);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+index 285cfc9..7be60c3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+@@ -57,28 +57,28 @@ void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan)
+ 	writel(0, ioaddr + DMA_INTR_ENA);
+ }
+ 
+-void dwmac_dma_start_tx(void __iomem *ioaddr)
++void dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan)
+ {
+ 	u32 value = readl(ioaddr + DMA_CONTROL);
+ 	value |= DMA_CONTROL_ST;
+ 	writel(value, ioaddr + DMA_CONTROL);
+ }
+ 
+-void dwmac_dma_stop_tx(void __iomem *ioaddr)
++void dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan)
+ {
+ 	u32 value = readl(ioaddr + DMA_CONTROL);
+ 	value &= ~DMA_CONTROL_ST;
+ 	writel(value, ioaddr + DMA_CONTROL);
+ }
+ 
+-void dwmac_dma_start_rx(void __iomem *ioaddr)
++void dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan)
+ {
+ 	u32 value = readl(ioaddr + DMA_CONTROL);
+ 	value |= DMA_CONTROL_SR;
+ 	writel(value, ioaddr + DMA_CONTROL);
+ }
+ 
+-void dwmac_dma_stop_rx(void __iomem *ioaddr)
++void dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan)
+ {
+ 	u32 value = readl(ioaddr + DMA_CONTROL);
+ 	value &= ~DMA_CONTROL_SR;
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index ec363e1..c4e4a53 100644
+index 18cf58c..a537276 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1285,14 +1285,20 @@ static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
-  */
- static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
- {
-+	u32 rx_channels_count = priv->plat->rx_queues_to_use;
-+	u32 tx_channels_count = priv->plat->tx_queues_to_use;
- 	int rxfifosz = priv->plat->rx_fifo_size;
-+	u32 txmode = 0;
-+	u32 rxmode = 0;
-+	u32 chan = 0;
- 
- 	if (rxfifosz == 0)
- 		rxfifosz = priv->dma_cap.rx_fifo_size;
- 
--	if (priv->plat->force_thresh_dma_mode)
--		priv->hw->dma->dma_mode(priv->ioaddr, tc, tc, rxfifosz);
--	else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
-+	if (priv->plat->force_thresh_dma_mode) {
-+		txmode = tc;
-+		rxmode = tc;
-+	} else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
- 		/*
- 		 * In case of GMAC, SF mode can be enabled
- 		 * to perform the TX COE in HW. This depends on:
-@@ -1300,12 +1306,26 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
- 		 * 2) There is no bugged Jumbo frame support
- 		 *    that needs to not insert csum in the TDES.
- 		 */
--		priv->hw->dma->dma_mode(priv->ioaddr, SF_DMA_MODE, SF_DMA_MODE,
--					rxfifosz);
-+		txmode = SF_DMA_MODE;
-+		rxmode = SF_DMA_MODE;
- 		priv->xstats.threshold = SF_DMA_MODE;
--	} else
--		priv->hw->dma->dma_mode(priv->ioaddr, tc, SF_DMA_MODE,
-+	} else {
-+		txmode = tc;
-+		rxmode = SF_DMA_MODE;
-+	}
-+
-+	/* configure all channels */
-+	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
-+		for (chan = 0; chan < rx_channels_count; chan++)
-+			priv->hw->dma->dma_rx_mode(priv->ioaddr, rxmode, chan,
-+						   rxfifosz);
-+
-+		for (chan = 0; chan < tx_channels_count; chan++)
-+			priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan);
-+	} else {
-+		priv->hw->dma->dma_mode(priv->ioaddr, txmode, rxmode,
- 					rxfifosz);
-+	}
+@@ -1278,6 +1278,96 @@ static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
  }
  
  /**
-@@ -1444,6 +1464,34 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
- }
- 
- /**
-+ *  stmmac_set_dma_operation_mode - Set DMA operation mode by channel
-+ *  @priv: driver private structure
-+ *  @txmode: TX operating mode
-+ *  @rxmode: RX operating mode
-+ *  @chan: channel index
-+ *  Description: it is used for configuring of the DMA operation mode in
-+ *  runtime in order to program the tx/rx DMA thresholds or Store-And-Forward
-+ *  mode.
++ * stmmac_start_rx_dma - start RX DMA channel
++ * @priv: driver private structure
++ * @chan: RX channel index
++ * Description:
++ * This starts a RX DMA channel
 + */
-+static void stmmac_set_dma_operation_mode(struct stmmac_priv *priv, u32 txmode,
-+					  u32 rxmode, u32 chan)
++static void stmmac_start_rx_dma(struct stmmac_priv *priv, u32 chan)
 +{
-+	int rxfifosz = priv->plat->rx_fifo_size;
-+
-+	if (rxfifosz == 0)
-+		rxfifosz = priv->dma_cap.rx_fifo_size;
-+
-+	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
-+		priv->hw->dma->dma_rx_mode(priv->ioaddr, rxmode, chan,
-+					   rxfifosz);
-+		priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan);
-+	} else {
-+		priv->hw->dma->dma_mode(priv->ioaddr, txmode, rxmode,
-+					rxfifosz);
-+	}
++	netdev_dbg(priv->dev, "DMA RX processes started in channel %d\n", chan);
++	priv->hw->dma->start_rx(priv->ioaddr, chan);
 +}
 +
 +/**
-  * stmmac_dma_interrupt - DMA ISR
-  * @priv: driver private structure
-  * Description: this is the DMA ISR. It is called by the main ISR.
-@@ -1452,11 +1500,8 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
++ * stmmac_start_tx_dma - start TX DMA channel
++ * @priv: driver private structure
++ * @chan: TX channel index
++ * Description:
++ * This starts a TX DMA channel
++ */
++static void stmmac_start_tx_dma(struct stmmac_priv *priv, u32 chan)
++{
++	netdev_dbg(priv->dev, "DMA TX processes started in channel %d\n", chan);
++	priv->hw->dma->start_tx(priv->ioaddr, chan);
++}
++
++/**
++ * stmmac_stop_rx_dma - stop RX DMA channel
++ * @priv: driver private structure
++ * @chan: RX channel index
++ * Description:
++ * This stops a RX DMA channel
++ */
++static void stmmac_stop_rx_dma(struct stmmac_priv *priv, u32 chan)
++{
++	netdev_dbg(priv->dev, "DMA RX processes stopped in channel %d\n", chan);
++	priv->hw->dma->stop_rx(priv->ioaddr, chan);
++}
++
++/**
++ * stmmac_stop_tx_dma - stop TX DMA channel
++ * @priv: driver private structure
++ * @chan: TX channel index
++ * Description:
++ * This stops a TX DMA channel
++ */
++static void stmmac_stop_tx_dma(struct stmmac_priv *priv, u32 chan)
++{
++	netdev_dbg(priv->dev, "DMA TX processes stopped in channel %d\n", chan);
++	priv->hw->dma->stop_tx(priv->ioaddr, chan);
++}
++
++/**
++ * stmmac_start_all_dma - start all RX and TX DMA channels
++ * @priv: driver private structure
++ * Description:
++ * This starts all the RX and TX DMA channels
++ */
++static void stmmac_start_all_dma(struct stmmac_priv *priv)
++{
++	u32 rx_channels_count = priv->plat->rx_queues_to_use;
++	u32 tx_channels_count = priv->plat->tx_queues_to_use;
++	u32 chan = 0;
++
++	for (chan = 0; chan < rx_channels_count; chan++)
++		stmmac_start_rx_dma(priv, chan);
++
++	for (chan = 0; chan < tx_channels_count; chan++)
++		stmmac_start_tx_dma(priv, chan);
++}
++
++/**
++ * stmmac_stop_all_dma - stop all RX and TX DMA channels
++ * @priv: driver private structure
++ * Description:
++ * This stops the RX and TX DMA channels
++ */
++static void stmmac_stop_all_dma(struct stmmac_priv *priv)
++{
++	u32 rx_channels_count = priv->plat->rx_queues_to_use;
++	u32 tx_channels_count = priv->plat->tx_queues_to_use;
++	u32 chan = 0;
++
++	for (chan = 0; chan < rx_channels_count; chan++)
++		stmmac_stop_rx_dma(priv, chan);
++
++	for (chan = 0; chan < tx_channels_count; chan++)
++		stmmac_stop_tx_dma(priv, chan);
++}
++
++/**
+  *  stmmac_dma_operation_mode - HW DMA operation mode
+  *  @priv: driver private structure
+  *  Description: it is used for configuring the DMA operation mode register in
+@@ -1440,10 +1530,11 @@ static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv, u32 chan)
   */
- static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+ static void stmmac_tx_err(struct stmmac_priv *priv)
  {
 +	u32 chan = STMMAC_CHAN0;
- 	int status;
--	int rxfifosz = priv->plat->rx_fifo_size;
--
--	if (rxfifosz == 0)
--		rxfifosz = priv->dma_cap.rx_fifo_size;
+ 	int i;
+ 	netif_stop_queue(priv->dev);
  
- 	status = priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats);
- 	if (likely((status & handle_rx)) || (status & handle_tx)) {
-@@ -1471,11 +1516,12 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- 		    (tc <= 256)) {
- 			tc += 64;
- 			if (priv->plat->force_thresh_dma_mode)
--				priv->hw->dma->dma_mode(priv->ioaddr, tc, tc,
--							rxfifosz);
-+				stmmac_set_dma_operation_mode(priv->ioaddr,
-+							      tc, tc, chan);
- 			else
--				priv->hw->dma->dma_mode(priv->ioaddr, tc,
--							SF_DMA_MODE, rxfifosz);
-+				stmmac_set_dma_operation_mode(priv->ioaddr, tc,
-+							     SF_DMA_MODE, chan);
-+
- 			priv->xstats.threshold = tc;
- 		}
- 	} else if (unlikely(status == tx_hard_error))
-@@ -1749,6 +1795,9 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
- 	/* Enable MAC RX Queues */
- 	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_enable)
- 		stmmac_mac_enable_rx_queues(priv);
-+
-+	/* Set the HW DMA mode and the COE */
-+	stmmac_dma_operation_mode(priv);
- }
+-	priv->hw->dma->stop_tx(priv->ioaddr);
++	stmmac_stop_tx_dma(priv, chan);
+ 	dma_free_tx_skbufs(priv);
+ 	for (i = 0; i < DMA_TX_SIZE; i++)
+ 		if (priv->extend_desc)
+@@ -1457,7 +1548,7 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
+ 	priv->dirty_tx = 0;
+ 	priv->cur_tx = 0;
+ 	netdev_reset_queue(priv->dev);
+-	priv->hw->dma->start_tx(priv->ioaddr);
++	stmmac_start_tx_dma(priv, chan);
  
- /**
-@@ -1812,9 +1861,6 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
- 	else
- 		stmmac_set_mac(priv->ioaddr, true);
+ 	priv->dev->stats.tx_errors++;
+ 	netif_wake_queue(priv->dev);
+@@ -1882,9 +1973,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 			    __func__);
+ #endif
+ 	/* Start the ball rolling... */
+-	netdev_dbg(priv->dev, "DMA RX/TX processes started...\n");
+-	priv->hw->dma->start_tx(priv->ioaddr);
+-	priv->hw->dma->start_rx(priv->ioaddr);
++	stmmac_start_all_dma(priv);
  
--	/* Set the HW DMA mode and the COE */
--	stmmac_dma_operation_mode(priv);
--
- 	stmmac_mmc_setup(priv);
+ 	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS;
  
- 	if (init_ptp) {
+@@ -2070,8 +2159,7 @@ static int stmmac_release(struct net_device *dev)
+ 		free_irq(priv->lpi_irq, dev);
+ 
+ 	/* Stop TX/RX DMA and clear the descriptors */
+-	priv->hw->dma->stop_tx(priv->ioaddr);
+-	priv->hw->dma->stop_rx(priv->ioaddr);
++	stmmac_stop_all_dma(priv);
+ 
+ 	/* Release and free the Rx/Tx resources */
+ 	free_dma_desc_resources(priv);
+@@ -3546,8 +3634,7 @@ int stmmac_dvr_remove(struct device *dev)
+ 
+ 	netdev_info(priv->dev, "%s: removing driver", __func__);
+ 
+-	priv->hw->dma->stop_rx(priv->ioaddr);
+-	priv->hw->dma->stop_tx(priv->ioaddr);
++	stmmac_stop_all_dma(priv);
+ 
+ 	stmmac_set_mac(priv->ioaddr, false);
+ 	netif_carrier_off(ndev);
+@@ -3593,8 +3680,7 @@ int stmmac_suspend(struct device *dev)
+ 	napi_disable(&priv->napi);
+ 
+ 	/* Stop TX/RX DMA */
+-	priv->hw->dma->stop_tx(priv->ioaddr);
+-	priv->hw->dma->stop_rx(priv->ioaddr);
++	stmmac_stop_all_dma(priv);
+ 
+ 	/* Enable Power down mode by programming the PMT regs */
+ 	if (device_may_wakeup(priv->device)) {
 -- 
 2.9.3
