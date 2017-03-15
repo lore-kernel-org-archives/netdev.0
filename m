@@ -1,52 +1,27 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: bcmgenet: Do not suspend PHY if Wake-on-LAN is enabled
-Date: Wed, 15 Mar 2017 12:57:21 -0700
-Message-ID: <20170315195721.11507-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, opendmb@gmail.com, pgynther@google.com,
-        jaedon.shin@gmail.com, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 00/12][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-03-15
+Date: Wed, 15 Mar 2017 13:01:25 -0700 (PDT)
+Message-ID: <20170315.130125.162139558387781374.davem@davemloft.net>
+References: <20170315092545.63654-1-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36640 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753821AbdCOT5c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 15:57:32 -0400
-Received: by mail-wm0-f66.google.com with SMTP id x124so774350wmf.3
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 12:57:31 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:52634 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751236AbdCOUB1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:01:27 -0400
+In-Reply-To: <20170315092545.63654-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Suspending the PHY would be putting it in a low power state where it
-may no longer allow us to do Wake-on-LAN.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 15 Mar 2017 02:25:33 -0700
 
-Fixes: cc013fb48898 ("net: bcmgenet: correctly suspend and resume PHY device")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+> This series contains updates to i40e and i40evf only.
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 69015fa50f20..365895ed3c3e 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -3481,7 +3481,8 @@ static int bcmgenet_suspend(struct device *d)
- 
- 	bcmgenet_netif_stop(dev);
- 
--	phy_suspend(priv->phydev);
-+	if (!device_may_wakeup(d))
-+		phy_suspend(priv->phydev);
- 
- 	netif_device_detach(dev);
- 
-@@ -3578,7 +3579,8 @@ static int bcmgenet_resume(struct device *d)
- 
- 	netif_device_attach(dev);
- 
--	phy_resume(priv->phydev);
-+	if (!device_may_wakeup(d))
-+		phy_resume(priv->phydev);
- 
- 	if (priv->eee.eee_enabled)
- 		bcmgenet_eee_enable_set(dev, true);
--- 
-2.9.3
+Pulled, thanks Jeff.
