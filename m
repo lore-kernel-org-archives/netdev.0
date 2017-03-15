@@ -1,40 +1,40 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH] net: ethernet: aquantia: set net_device mtu when mtu is
- changed
-Date: Wed, 15 Mar 2017 16:49:51 -0400
-Message-ID: <33753b9a-8e76-f178-5eb4-a148ab2a683e@redhat.com>
-References: <1489008801-120389-1-git-send-email-darcari@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 0/3] net: dsa: check out-of-range ageing time
+Date: Wed, 15 Mar 2017 22:05:56 +0100
+Message-ID: <20170315210556.GA7416@lunn.ch>
+References: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Belous <Pavel.Belous@aquantia.com>
-To: David Arcari <darcari@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jason Cobham <jcobham@questertangent.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60378 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:50090 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751183AbdCOUtw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Mar 2017 16:49:52 -0400
-In-Reply-To: <1489008801-120389-1-git-send-email-darcari@redhat.com>
+        id S1751357AbdCOVGB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 17:06:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-03-08 4:33 PM, David Arcari wrote:
-> When the aquantia device mtu is changed the net_device structure is not
-> updated.  As a result the ip command does not properly reflect the mtu change.
->
-> Commit 5513e16421cb incorrectly assumed that __dev_set_mtu() was making the
-> assignment ndev->mtu = new_mtu;  This is not true in the case where the driver
-> has a ndo_change_mtu routine.
->
-> Fixes: 5513e16421cb ("net: ethernet: aquantia: Fixes for aq_ndev_change_mtu")
->
-> Cc: Pavel Belous <Pavel.Belous@aquantia.com>
-> Signed-off-by: David Arcari <darcari@redhat.com>
+> This patchset fixes this by adding ageing_time_min and ageing_time_max
+> fields to the dsa_switch structure, which can optionally be set by a DSA
+> driver.
+> 
+> If provided, the DSA core will check for out-of-range values in the
+> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME prepare phase and return -ERANGE
+> accordingly.
+> 
+> Finally set these limits in the mv88e6xxx driver.
 
-Looks like an appropriate and necessary fix to me.
+Hi Vivien
 
-Reviewed-by: Jarod Wilson <jarod@redhat.com>
+Thanks for doing it this way. Nicely done.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
