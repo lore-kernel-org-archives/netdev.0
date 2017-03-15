@@ -1,87 +1,47 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/sctp: recursive locking in sctp_do_peeloff
-Date: Tue, 14 Mar 2017 21:52:15 -0700
-Message-ID: <CAM_iQpUEWDVHx5+VBB4=r=y_vVbXq32a2QfqY=OU5ri-yyJPaA@mail.gmail.com>
-References: <CACT4Y+ZHGC6VNJUANgSdZnCfLQrRKtsQ-Dbn6goHScj=pq7xog@mail.gmail.com>
- <CAFSqH7xrmH2Bgq3Xckgb3mkj7j1qkApemEYOq3jbQEtj+TTEpQ@mail.gmail.com> <CACT4Y+b1Uu9nGqX=LdJ_nEWxbeCswMOsSpvnW=OLdDKYC5EjDw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vladislav Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+b1Uu9nGqX=LdJ_nEWxbeCswMOsSpvnW=OLdDKYC5EjDw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: [PATCH net] fjes: Fix wrong netdevice feature flags
+Date: Wed, 15 Mar 2017 13:47:50 +0900
+Message-ID: <1489553270-7754-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Cc: yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwkm03.jp.fujitsu.com ([202.219.69.170]:59256 "EHLO
+        mgwkm03.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750819AbdCOFPB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 01:15:01 -0400
+Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
+        by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id B94DFAC00DA
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 14:03:31 +0900 (JST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 10, 2017 at 12:04 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Fri, Mar 10, 2017 at 8:46 PM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
->> On Fri, Mar 10, 2017 at 4:11 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>> Hello,
->>>
->>> I've got the following recursive locking report while running
->>> syzkaller fuzzer on net-next/9c28286b1b4b9bce6e35dd4c8a1265f03802a89a:
->>>
->>> [ INFO: possible recursive locking detected ]
->>> 4.10.0+ #14 Not tainted
->>> ---------------------------------------------
->>> syz-executor3/5560 is trying to acquire lock:
->>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff8401ebcd>] lock_sock
->>> include/net/sock.h:1460 [inline]
->>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff8401ebcd>]
->>> sctp_close+0xcd/0x9d0 net/sctp/socket.c:1497
->>>
->>> but task is already holding lock:
->>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff84038110>] lock_sock
->>> include/net/sock.h:1460 [inline]
->>>  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff84038110>]
->>> sctp_getsockopt+0x450/0x67e0 net/sctp/socket.c:6611
->>>
->>> other info that might help us debug this:
->>>  Possible unsafe locking scenario:
->>>
->>>        CPU0
->>>        ----
->>>   lock(sk_lock-AF_INET6);
->>>   lock(sk_lock-AF_INET6);
->>>
->>>  *** DEADLOCK ***
->>>
->>>  May be due to missing lock nesting notation
->>
->> Pretty much the case, I suppose. The lock held by sctp_getsockopt() is
->> on one socket, while the other lock that sctp_close() is getting later
->> is on the newly created (which failed) socket during peeloff
->> operation.
->
->
-> Does this mean that never-ever lock 2 sockets at a time except for
-> this case? If so, it probably suggests that this case should not do it
-> either.
->
+This patch fixes netdev->features for Extended Socket network device.
 
-Yeah, actually for the error path we don't even need to lock sock
-since it is newly allocated and no one else could see it yet.
+Currently Extended Socket network device's netdev->feature claims
+NETIF_F_HW_CSUM, however this is completely wrong. There's no feature
+of checksum offloading.
+That causes invalid TCP/UDP checksum and packet rjection when IP
+forwarding from Extended Socket network device to other network device.
 
-Instead of checking for the status of the sock, I believe the following
-one-line fix should do the trick too. Can you give it a try?
+NETIF_F_HW_CSUM should be omitted.
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 0f378ea..4de62d4 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1494,7 +1494,7 @@ static void sctp_close(struct sock *sk, long timeout)
+Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+---
+ drivers/net/fjes/fjes_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-        pr_debug("%s: sk:%p, timeout:%ld\n", __func__, sk, timeout);
-
--       lock_sock(sk);
-+       lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
-        sk->sk_shutdown = SHUTDOWN_MASK;
-        sk->sk_state = SCTP_SS_CLOSING;
+diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+index b75d9cd..c4b3c4b 100644
+--- a/drivers/net/fjes/fjes_main.c
++++ b/drivers/net/fjes/fjes_main.c
+@@ -1316,7 +1316,7 @@ static void fjes_netdev_setup(struct net_device *netdev)
+ 	netdev->min_mtu = fjes_support_mtu[0];
+ 	netdev->max_mtu = fjes_support_mtu[3];
+ 	netdev->flags |= IFF_BROADCAST;
+-	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_CTAG_FILTER;
++	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+ }
+ 
+ static void fjes_irq_watch_task(struct work_struct *work)
+-- 
+1.8.3.1
