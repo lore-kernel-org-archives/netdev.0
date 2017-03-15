@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 00/11] net: stmmac: prepare dma operations
- for multiple queues
-Date: Wed, 15 Mar 2017 14:44:46 -0700 (PDT)
-Message-ID: <20170315.144446.84996623298168099.davem@davemloft.net>
-References: <cover.1489575025.git.jpinto@synopsys.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: Re: [PATCH] net: sun: sungem: rix a possible null dereference
+Date: Wed, 15 Mar 2017 22:45:03 +0100
+Message-ID: <CAC=8w91tNO1LM23V=vp4spS9QGKwMCB1T7HVM7=r1WOfH_XOSQ@mail.gmail.com>
+References: <1489526601-9423-1-git-send-email-tremyfr@gmail.com> <88708a0d-7b8a-b1d7-ee66-fd51c6bfe0fe@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54352 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751277AbdCOVou (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 17:44:50 -0400
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, mugunthanvnm@ti.com, jarod@redhat.com,
+        felipe.balbi@linux.intel.com, edumazet@google.com, fw@strlen.de,
+        dan.carpenter@oracle.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <88708a0d-7b8a-b1d7-ee66-fd51c6bfe0fe@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Wed, 15 Mar 2017 11:04:44 +0000
+Hi Sergei,
 
-> As agreed with David Miller, this patch-set is the second of 3 to enable
-> multiple queues in stmmac.
-> 
-> This second one concentrates on dma operations adding functionalities as:
-> a) DMA Operation Mode configuration per channel and done in the multiple
-> queues configuration function
-> b) DMA IRQ enable and Disable by channel
-> c) DMA start and stop by channel
-> d) RX and TX ring length configuration by channel
-> e) RX and TX set tail pointer by channel
-> f) DMA Channel initialization broke into Channel comon, RX and TX
-> initialization
-> g) TSO being configured for all available channels
-> h) DMA interrupt treatment by channel
+On 3/15/17, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
+> Hello!
+>
+> On 3/15/2017 12:23 AM, Philippe Reynes wrote:
+>
+>> The function gem_begin_auto_negotiation dereference
+>> the pointer ep before testing if it's null. This
+>> patch add a check on ep before dereferencing it.
+>>
+>> This issue was added by the patch 92552fdd557:
+>> "net: sun: sungem: use new api ethtool_{get|set}_link_ksettings".
+>
+>     There's Fixes: tag for that now, described in
+> Documentation/process/submitting-patches.rst...
 
-Series applied.
+Thanks a lot for pointing me this tag.
+I'm sending a v2 of this patch with this tag.
+
+>> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+>> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> [...]
+>
+> MBR, Sergei
+>
+
+Thanks,
+Philippe
