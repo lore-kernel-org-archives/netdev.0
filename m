@@ -1,911 +1,281 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/12] i40e: KISS the client interface
-Date: Wed, 15 Mar 2017 02:25:37 -0700
-Message-ID: <20170315092545.63654-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/12] i40e: fix up recent proxy and wol bits for X722_SUPPORT
+Date: Wed, 15 Mar 2017 02:25:35 -0700
+Message-ID: <20170315092545.63654-3-jeffrey.t.kirsher@intel.com>
 References: <20170315092545.63654-1-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jacob Keller <jacob.e.keller@intel.com>,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Carolyn Wyborny <carolyn.wyborny@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:55547 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751694AbdCOJZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Mar 2017 05:25:57 -0400
+        id S1752300AbdCOJZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 05:25:56 -0400
 In-Reply-To: <20170315092545.63654-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-(KISS is Keep It Simple, Stupid. Or is it?)
+Some opcodes added & reordered to be in numerical order with the
+rest of the opcodes.
+This patch adds admin queue structs to support Wake on LAN feature
+for X722.
 
-The client interface vastly overengineered for what it needs to do.
-It was originally designed to support multiple clients on multiple
-netdevs, possibly even with multiple drivers. None of this happened,
-and now we know that there will only ever be one client for i40e
-(i40iw) and one for i40evf (i40iwvf). So, time for some KISS. Since
-i40e and i40evf are a Dynasty, we'll simplify this one to match the
-VF interface.
-
-First, be a Destroyer and remove all of the lists and locks required
-to support multiple clients. Keep one static around to keep track of
-one client, and track the client instances for each netdev in the
-driver's pf (or adapter) struct. Now it's Almost Human.
-
-Since we already know the client type is iWarp, get rid of any checks
-for this. Same for VSI type - it's always going to be the same type,
-so it's just a Parasite.
-
-While we're at it, fix up some comments. This makes the function
-headers actually match the functions.
-
-These changes reduce code complexity, simplify maintenance,
-squash some lurking timing bugs, and allow us to Rock and Roll All
-Nite.
-
-Change-ID: I1ea79948ad73b8685272451440a34507f9a9012e
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_client.c      | 457 +++++++--------------
- drivers/net/ethernet/intel/i40e/i40e_client.h      |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  32 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   2 +-
- 5 files changed, 179 insertions(+), 328 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 65 +++++++++++++++++++++-
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 65 +++++++++++++++++++++-
+ 2 files changed, 128 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 82d8040fa418..9b2bb8d971cc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -348,8 +348,10 @@ struct i40e_pf {
- #define I40E_FLAG_TRUE_PROMISC_SUPPORT		BIT_ULL(51)
- #define I40E_FLAG_HAVE_CRT_RETIMER		BIT_ULL(52)
- #define I40E_FLAG_PTP_L4_CAPABLE		BIT_ULL(53)
--#define I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE		BIT_ULL(54)
-+#define I40E_FLAG_CLIENT_RESET			BIT_ULL(54)
- #define I40E_FLAG_TEMP_LINK_POLLING		BIT_ULL(55)
-+#define I40E_FLAG_CLIENT_L2_CHANGE		BIT_ULL(56)
-+#define I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE		BIT_ULL(57)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 451f48b7540a..251074c677c4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -132,6 +132,10 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_list_func_capabilities	= 0x000A,
+ 	i40e_aqc_opc_list_dev_capabilities	= 0x000B,
  
- 	/* tracks features that get auto disabled by errors */
- 	u64 auto_disable_flags;
-@@ -358,6 +360,7 @@ struct i40e_pf {
- 	struct i40e_fcoe fcoe;
++	/* Proxy commands */
++	i40e_aqc_opc_set_proxy_config		= 0x0104,
++	i40e_aqc_opc_set_ns_proxy_table_entry	= 0x0105,
++
+ 	/* LAA */
+ 	i40e_aqc_opc_mac_address_read	= 0x0107,
+ 	i40e_aqc_opc_mac_address_write	= 0x0108,
+@@ -139,6 +143,10 @@ enum i40e_admin_queue_opc {
+ 	/* PXE */
+ 	i40e_aqc_opc_clear_pxe_mode	= 0x0110,
  
- #endif /* I40E_FCOE */
-+	struct i40e_client_instance *cinst;
- 	bool stat_offsets_loaded;
- 	struct i40e_hw_port_stats stats;
- 	struct i40e_hw_port_stats stats_offsets;
-@@ -813,8 +816,7 @@ void i40e_notify_client_of_l2_param_changes(struct i40e_vsi *vsi);
- void i40e_notify_client_of_netdev_close(struct i40e_vsi *vsi, bool reset);
- void i40e_notify_client_of_vf_enable(struct i40e_pf *pf, u32 num_vfs);
- void i40e_notify_client_of_vf_reset(struct i40e_pf *pf, u32 vf_id);
--int i40e_vf_client_capable(struct i40e_pf *pf, u32 vf_id,
--			   enum i40e_client_type type);
-+int i40e_vf_client_capable(struct i40e_pf *pf, u32 vf_id);
- /**
-  * i40e_irq_dynamic_enable - Enable default interrupt generation settings
-  * @vsi: pointer to a vsi
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index d570219efd9f..a9f0d22a7cf4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -32,16 +32,10 @@
- #include "i40e_client.h"
++	/* WoL commands */
++	i40e_aqc_opc_set_wol_filter	= 0x0120,
++	i40e_aqc_opc_get_wake_reason	= 0x0121,
++
+ 	/* internal switch commands */
+ 	i40e_aqc_opc_get_switch_config		= 0x0200,
+ 	i40e_aqc_opc_add_statistics		= 0x0201,
+@@ -177,6 +185,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_remove_control_packet_filter	= 0x025B,
+ 	i40e_aqc_opc_add_cloud_filters		= 0x025C,
+ 	i40e_aqc_opc_remove_cloud_filters	= 0x025D,
++	i40e_aqc_opc_clear_wol_switch_filters	= 0x025E,
  
- static const char i40e_client_interface_version_str[] = I40E_CLIENT_VERSION_STR;
--
-+static struct i40e_client *registered_client;
- static LIST_HEAD(i40e_devices);
- static DEFINE_MUTEX(i40e_device_mutex);
+ 	i40e_aqc_opc_add_mirror_rule	= 0x0260,
+ 	i40e_aqc_opc_delete_mirror_rule	= 0x0261,
+@@ -563,6 +572,56 @@ struct i40e_aqc_clear_pxe {
  
--static LIST_HEAD(i40e_clients);
--static DEFINE_MUTEX(i40e_client_mutex);
--
--static LIST_HEAD(i40e_client_instances);
--static DEFINE_MUTEX(i40e_client_instance_mutex);
--
- static int i40e_client_virtchnl_send(struct i40e_info *ldev,
- 				     struct i40e_client *client,
- 				     u32 vf_id, u8 *msg, u16 len);
-@@ -67,28 +61,6 @@ static struct i40e_ops i40e_lan_ops = {
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_clear_pxe);
+ 
++/* Set WoL Filter (0x0120) */
++
++struct i40e_aqc_set_wol_filter {
++	__le16 filter_index;
++#define I40E_AQC_MAX_NUM_WOL_FILTERS	8
++#define I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_SHIFT	15
++#define I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_MASK	(0x1 << \
++		I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_SHIFT)
++
++#define I40E_AQC_SET_WOL_FILTER_INDEX_SHIFT		0
++#define I40E_AQC_SET_WOL_FILTER_INDEX_MASK	(0x7 << \
++		I40E_AQC_SET_WOL_FILTER_INDEX_SHIFT)
++	__le16 cmd_flags;
++#define I40E_AQC_SET_WOL_FILTER				0x8000
++#define I40E_AQC_SET_WOL_FILTER_NO_TCO_WOL		0x4000
++#define I40E_AQC_SET_WOL_FILTER_ACTION_CLEAR		0
++#define I40E_AQC_SET_WOL_FILTER_ACTION_SET		1
++	__le16 valid_flags;
++#define I40E_AQC_SET_WOL_FILTER_ACTION_VALID		0x8000
++#define I40E_AQC_SET_WOL_FILTER_NO_TCO_ACTION_VALID	0x4000
++	u8 reserved[2];
++	__le32	address_high;
++	__le32	address_low;
++};
++
++I40E_CHECK_CMD_LENGTH(i40e_aqc_set_wol_filter);
++
++struct i40e_aqc_set_wol_filter_data {
++	u8 filter[128];
++	u8 mask[16];
++};
++
++I40E_CHECK_STRUCT_LEN(0x90, i40e_aqc_set_wol_filter_data);
++
++/* Get Wake Reason (0x0121) */
++
++struct i40e_aqc_get_wake_reason_completion {
++	u8 reserved_1[2];
++	__le16 wake_reason;
++#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_SHIFT	0
++#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_MASK (0xFF << \
++		I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_SHIFT)
++#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_SHIFT	8
++#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_MASK	(0xFF << \
++		I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_SHIFT)
++	u8 reserved_2[12];
++};
++
++I40E_CHECK_CMD_LENGTH(i40e_aqc_get_wake_reason_completion);
++
+ /* Switch configuration commands (0x02xx) */
+ 
+ /* Used by many indirect commands that only pass an seid and a buffer in the
+@@ -645,6 +704,8 @@ struct i40e_aqc_set_port_parameters {
+ #define I40E_AQ_SET_P_PARAMS_PAD_SHORT_PACKETS	2 /* must set! */
+ #define I40E_AQ_SET_P_PARAMS_DOUBLE_VLAN_ENA	4
+ 	__le16	bad_frame_vsi;
++#define I40E_AQ_SET_P_PARAMS_BFRAME_SEID_SHIFT	0x0
++#define I40E_AQ_SET_P_PARAMS_BFRAME_SEID_MASK	0x3FF
+ 	__le16	default_seid;        /* reserved for command */
+ 	u8	reserved[10];
+ };
+@@ -696,6 +757,7 @@ I40E_CHECK_STRUCT_LEN(0x10, i40e_aqc_switch_resource_alloc_element_resp);
+ /* Set Switch Configuration (direct 0x0205) */
+ struct i40e_aqc_set_switch_config {
+ 	__le16	flags;
++/* flags used for both fields below */
+ #define I40E_AQ_SET_SWITCH_CFG_PROMISC		0x0001
+ #define I40E_AQ_SET_SWITCH_CFG_L2_FILTER	0x0002
+ 	__le16	valid_flags;
+@@ -1844,11 +1906,12 @@ struct i40e_aqc_get_link_status {
+ #define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
+ #define I40E_AQ_CONFIG_CRC_ENA		0x04
+ #define I40E_AQ_CONFIG_PACING_MASK	0x78
+-	u8	external_power_ability;
++	u8	power_desc;
+ #define I40E_AQ_LINK_POWER_CLASS_1	0x00
+ #define I40E_AQ_LINK_POWER_CLASS_2	0x01
+ #define I40E_AQ_LINK_POWER_CLASS_3	0x02
+ #define I40E_AQ_LINK_POWER_CLASS_4	0x03
++#define I40E_AQ_PWR_CLASS_MASK		0x03
+ 	u8	reserved[4];
  };
  
- /**
-- * i40e_client_type_to_vsi_type - convert client type to vsi type
-- * @client_type: the i40e_client type
-- *
-- * returns the related vsi type value
-- **/
--static
--enum i40e_vsi_type i40e_client_type_to_vsi_type(enum i40e_client_type type)
--{
--	switch (type) {
--	case I40E_CLIENT_IWARP:
--		return I40E_VSI_IWARP;
--
--	case I40E_CLIENT_VMDQ2:
--		return I40E_VSI_VMDQ2;
--
--	default:
--		pr_err("i40e: Client type unknown\n");
--		return I40E_VSI_TYPE_UNKNOWN;
--	}
--}
--
--/**
-  * i40e_client_get_params - Get the params that can change at runtime
-  * @vsi: the VSI with the message
-  * @param: clinet param struct
-@@ -134,31 +106,22 @@ int i40e_client_get_params(struct i40e_vsi *vsi, struct i40e_params *params)
- void
- i40e_notify_client_of_vf_msg(struct i40e_vsi *vsi, u32 vf_id, u8 *msg, u16 len)
- {
--	struct i40e_client_instance *cdev;
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_client_instance *cdev = pf->cinst;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index eeb9864bc5b1..c28cb8f27243 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -132,6 +132,10 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_list_func_capabilities	= 0x000A,
+ 	i40e_aqc_opc_list_dev_capabilities	= 0x000B,
  
--	if (!vsi)
-+	if (!cdev || !cdev->client)
-+		return;
-+	if (!cdev->client->ops || !cdev->client->ops->virtchnl_receive) {
-+		dev_dbg(&pf->pdev->dev,
-+			"Cannot locate client instance virtual channel receive routine\n");
-+		return;
-+	}
-+	if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state)) {
-+		dev_dbg(&pf->pdev->dev, "Client is not open, abort virtchnl_receive\n");
- 		return;
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry(cdev, &i40e_client_instances, list) {
--		if (cdev->lan_info.pf == vsi->back) {
--			if (!cdev->client ||
--			    !cdev->client->ops ||
--			    !cdev->client->ops->virtchnl_receive) {
--				dev_dbg(&vsi->back->pdev->dev,
--					"Cannot locate client instance virtual channel receive routine\n");
--				continue;
--			}
--			if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,
--				      &cdev->state)) {
--				dev_dbg(&vsi->back->pdev->dev, "Client is not open, abort virtchnl_receive\n");
--				continue;
--			}
--			cdev->client->ops->virtchnl_receive(&cdev->lan_info,
--							    cdev->client,
--							    vf_id, msg, len);
--		}
- 	}
--	mutex_unlock(&i40e_client_instance_mutex);
-+	cdev->client->ops->virtchnl_receive(&cdev->lan_info, cdev->client,
-+					    vf_id, msg, len);
- }
- 
- /**
-@@ -169,39 +132,28 @@ i40e_notify_client_of_vf_msg(struct i40e_vsi *vsi, u32 vf_id, u8 *msg, u16 len)
-  **/
- void i40e_notify_client_of_l2_param_changes(struct i40e_vsi *vsi)
- {
--	struct i40e_client_instance *cdev;
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_client_instance *cdev = pf->cinst;
- 	struct i40e_params params;
- 
--	if (!vsi)
-+	if (!cdev || !cdev->client)
-+		return;
-+	if (!cdev->client->ops || !cdev->client->ops->l2_param_change) {
-+		dev_dbg(&vsi->back->pdev->dev,
-+			"Cannot locate client instance l2_param_change routine\n");
-+		return;
-+	}
-+	if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state)) {
-+		dev_dbg(&vsi->back->pdev->dev, "Client is not open, abort l2 param change\n");
- 		return;
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry(cdev, &i40e_client_instances, list) {
--		if (cdev->lan_info.pf == vsi->back) {
--			if (!cdev->client ||
--			    !cdev->client->ops ||
--			    !cdev->client->ops->l2_param_change) {
--				dev_dbg(&vsi->back->pdev->dev,
--					"Cannot locate client instance l2_param_change routine\n");
--				continue;
--			}
--	memset(&params, 0, sizeof(params));
--	i40e_client_get_params(vsi, &params);
--			if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,
--				      &cdev->state)) {
--				dev_dbg(&vsi->back->pdev->dev, "Client is not open, abort l2 param change\n");
--				continue;
--			}
--			cdev->lan_info.params = params;
--			cdev->client->ops->l2_param_change(&cdev->lan_info,
--							   cdev->client,
--							   &params);
--		}
- 	}
--	mutex_unlock(&i40e_client_instance_mutex);
-+	memcpy(&cdev->lan_info.params, &params, sizeof(struct i40e_params));
-+	cdev->client->ops->l2_param_change(&cdev->lan_info, cdev->client,
-+					   &params);
- }
- 
- /**
-- * i40e_client_release_qvlist
-+ * i40e_client_release_qvlist - release MSI-X vector mapping for client
-  * @ldev: pointer to L2 context.
-  *
-  **/
-@@ -237,26 +189,19 @@ static void i40e_client_release_qvlist(struct i40e_info *ldev)
-  **/
- void i40e_notify_client_of_netdev_close(struct i40e_vsi *vsi, bool reset)
- {
--	struct i40e_client_instance *cdev;
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_client_instance *cdev = pf->cinst;
- 
--	if (!vsi)
-+	if (!cdev || !cdev->client)
-+		return;
-+	if (!cdev->client->ops || !cdev->client->ops->close) {
-+		dev_dbg(&vsi->back->pdev->dev,
-+			"Cannot locate client instance close routine\n");
- 		return;
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry(cdev, &i40e_client_instances, list) {
--		if (cdev->lan_info.netdev == vsi->netdev) {
--			if (!cdev->client ||
--			    !cdev->client->ops || !cdev->client->ops->close) {
--				dev_dbg(&vsi->back->pdev->dev,
--					"Cannot locate client instance close routine\n");
--				continue;
--			}
--			cdev->client->ops->close(&cdev->lan_info, cdev->client,
--						 reset);
--			clear_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state);
--			i40e_client_release_qvlist(&cdev->lan_info);
--		}
- 	}
--	mutex_unlock(&i40e_client_instance_mutex);
-+	cdev->client->ops->close(&cdev->lan_info, cdev->client, reset);
-+	clear_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state);
-+	i40e_client_release_qvlist(&cdev->lan_info);
- }
- 
- /**
-@@ -268,30 +213,20 @@ void i40e_notify_client_of_netdev_close(struct i40e_vsi *vsi, bool reset)
-  **/
- void i40e_notify_client_of_vf_reset(struct i40e_pf *pf, u32 vf_id)
- {
--	struct i40e_client_instance *cdev;
-+	struct i40e_client_instance *cdev = pf->cinst;
- 
--	if (!pf)
-+	if (!cdev || !cdev->client)
-+		return;
-+	if (!cdev->client->ops || !cdev->client->ops->vf_reset) {
-+		dev_dbg(&pf->pdev->dev,
-+			"Cannot locate client instance VF reset routine\n");
-+		return;
-+	}
-+	if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,  &cdev->state)) {
-+		dev_dbg(&pf->pdev->dev, "Client is not open, abort vf-reset\n");
- 		return;
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry(cdev, &i40e_client_instances, list) {
--		if (cdev->lan_info.pf == pf) {
--			if (!cdev->client ||
--			    !cdev->client->ops ||
--			    !cdev->client->ops->vf_reset) {
--				dev_dbg(&pf->pdev->dev,
--					"Cannot locate client instance VF reset routine\n");
--				continue;
--			}
--			if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,
--				      &cdev->state)) {
--				dev_dbg(&pf->pdev->dev, "Client is not open, abort vf-reset\n");
--				continue;
--			}
--			cdev->client->ops->vf_reset(&cdev->lan_info,
--						    cdev->client, vf_id);
--		}
- 	}
--	mutex_unlock(&i40e_client_instance_mutex);
-+	cdev->client->ops->vf_reset(&cdev->lan_info, cdev->client, vf_id);
- }
- 
- /**
-@@ -303,30 +238,21 @@ void i40e_notify_client_of_vf_reset(struct i40e_pf *pf, u32 vf_id)
-  **/
- void i40e_notify_client_of_vf_enable(struct i40e_pf *pf, u32 num_vfs)
- {
--	struct i40e_client_instance *cdev;
-+	struct i40e_client_instance *cdev = pf->cinst;
- 
--	if (!pf)
-+	if (!cdev || !cdev->client)
-+		return;
-+	if (!cdev->client->ops || !cdev->client->ops->vf_enable) {
-+		dev_dbg(&pf->pdev->dev,
-+			"Cannot locate client instance VF enable routine\n");
-+		return;
-+	}
-+	if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,
-+		      &cdev->state)) {
-+		dev_dbg(&pf->pdev->dev, "Client is not open, abort vf-enable\n");
- 		return;
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry(cdev, &i40e_client_instances, list) {
--		if (cdev->lan_info.pf == pf) {
--			if (!cdev->client ||
--			    !cdev->client->ops ||
--			    !cdev->client->ops->vf_enable) {
--				dev_dbg(&pf->pdev->dev,
--					"Cannot locate client instance VF enable routine\n");
--				continue;
--			}
--			if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,
--				      &cdev->state)) {
--				dev_dbg(&pf->pdev->dev, "Client is not open, abort vf-enable\n");
--				continue;
--			}
--			cdev->client->ops->vf_enable(&cdev->lan_info,
--						     cdev->client, num_vfs);
--		}
- 	}
--	mutex_unlock(&i40e_client_instance_mutex);
-+	cdev->client->ops->vf_enable(&cdev->lan_info, cdev->client, num_vfs);
- }
- 
- /**
-@@ -337,37 +263,25 @@ void i40e_notify_client_of_vf_enable(struct i40e_pf *pf, u32 num_vfs)
-  * If there is a client of the specified type attached to this PF, call
-  * its vf_capable routine
-  **/
--int i40e_vf_client_capable(struct i40e_pf *pf, u32 vf_id,
--			   enum i40e_client_type type)
-+int i40e_vf_client_capable(struct i40e_pf *pf, u32 vf_id)
- {
--	struct i40e_client_instance *cdev;
-+	struct i40e_client_instance *cdev = pf->cinst;
- 	int capable = false;
- 
--	if (!pf)
--		return false;
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry(cdev, &i40e_client_instances, list) {
--		if (cdev->lan_info.pf == pf) {
--			if (!cdev->client ||
--			    !cdev->client->ops ||
--			    !cdev->client->ops->vf_capable ||
--			    !(cdev->client->type == type)) {
--				dev_dbg(&pf->pdev->dev,
--					"Cannot locate client instance VF capability routine\n");
--				continue;
--			}
--			if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,
--				      &cdev->state)) {
--				dev_dbg(&pf->pdev->dev, "Client is not open, abort vf-capable\n");
--				continue;
--			}
--			capable = cdev->client->ops->vf_capable(&cdev->lan_info,
--								cdev->client,
--								vf_id);
--			break;
--		}
-+	if (!cdev || !cdev->client)
-+		goto out;
-+	if (!cdev->client->ops || !cdev->client->ops->vf_capable) {
-+		dev_info(&pf->pdev->dev,
-+			 "Cannot locate client instance VF capability routine\n");
-+		goto out;
- 	}
--	mutex_unlock(&i40e_client_instance_mutex);
-+	if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state))
-+		goto out;
++	/* Proxy commands */
++	i40e_aqc_opc_set_proxy_config		= 0x0104,
++	i40e_aqc_opc_set_ns_proxy_table_entry	= 0x0105,
 +
-+	capable = cdev->client->ops->vf_capable(&cdev->lan_info,
-+						cdev->client,
-+						vf_id);
-+out:
- 	return capable;
- }
+ 	/* LAA */
+ 	i40e_aqc_opc_mac_address_read	= 0x0107,
+ 	i40e_aqc_opc_mac_address_write	= 0x0108,
+@@ -139,6 +143,10 @@ enum i40e_admin_queue_opc {
+ 	/* PXE */
+ 	i40e_aqc_opc_clear_pxe_mode	= 0x0110,
  
-@@ -377,27 +291,19 @@ int i40e_vf_client_capable(struct i40e_pf *pf, u32 vf_id,
-  * @client: pointer to a client struct in the client list.
-  * @existing: if there was already an existing instance
-  *
-- * Returns cdev ptr on success or if already exists, NULL on failure
-  **/
--static
--struct i40e_client_instance *i40e_client_add_instance(struct i40e_pf *pf,
--						     struct i40e_client *client,
--						     bool *existing)
-+static void i40e_client_add_instance(struct i40e_pf *pf)
- {
--	struct i40e_client_instance *cdev;
-+	struct i40e_client_instance *cdev = NULL;
- 	struct netdev_hw_addr *mac = NULL;
- 	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
- 
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry(cdev, &i40e_client_instances, list) {
--		if ((cdev->lan_info.pf == pf) && (cdev->client == client)) {
--			*existing = true;
--			goto out;
--		}
--	}
-+	if (!registered_client || pf->cinst)
-+		return;
++	/* WoL commands */
++	i40e_aqc_opc_set_wol_filter	= 0x0120,
++	i40e_aqc_opc_get_wake_reason	= 0x0121,
 +
- 	cdev = kzalloc(sizeof(*cdev), GFP_KERNEL);
- 	if (!cdev)
--		goto out;
-+		return;
+ 	/* internal switch commands */
+ 	i40e_aqc_opc_get_switch_config		= 0x0200,
+ 	i40e_aqc_opc_add_statistics		= 0x0201,
+@@ -177,6 +185,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_remove_control_packet_filter	= 0x025B,
+ 	i40e_aqc_opc_add_cloud_filters		= 0x025C,
+ 	i40e_aqc_opc_remove_cloud_filters	= 0x025D,
++	i40e_aqc_opc_clear_wol_switch_filters	= 0x025E,
  
- 	cdev->lan_info.pf = (void *)pf;
- 	cdev->lan_info.netdev = vsi->netdev;
-@@ -417,7 +323,7 @@ struct i40e_client_instance *i40e_client_add_instance(struct i40e_pf *pf,
- 	if (i40e_client_get_params(vsi, &cdev->lan_info.params)) {
- 		kfree(cdev);
- 		cdev = NULL;
--		goto out;
-+		return;
- 	}
+ 	i40e_aqc_opc_add_mirror_rule	= 0x0260,
+ 	i40e_aqc_opc_delete_mirror_rule	= 0x0261,
+@@ -558,6 +567,56 @@ struct i40e_aqc_clear_pxe {
  
- 	cdev->lan_info.msix_count = pf->num_iwarp_msix;
-@@ -430,41 +336,20 @@ struct i40e_client_instance *i40e_client_add_instance(struct i40e_pf *pf,
- 	else
- 		dev_err(&pf->pdev->dev, "MAC address list is empty!\n");
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_clear_pxe);
  
--	cdev->client = client;
--	INIT_LIST_HEAD(&cdev->list);
--	list_add(&cdev->list, &i40e_client_instances);
--out:
--	mutex_unlock(&i40e_client_instance_mutex);
--	return cdev;
-+	cdev->client = registered_client;
-+	pf->cinst = cdev;
- }
- 
- /**
-  * i40e_client_del_instance - removes a client instance from the list
-  * @pf: pointer to the board struct
-  *
-- * Returns 0 on success or non-0 on error
-  **/
- static
--int i40e_client_del_instance(struct i40e_pf *pf, struct i40e_client *client)
-+void i40e_client_del_instance(struct i40e_pf *pf)
- {
--	struct i40e_client_instance *cdev, *tmp;
--	int ret = -ENODEV;
--
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry_safe(cdev, tmp, &i40e_client_instances, list) {
--		if ((cdev->lan_info.pf != pf) || (cdev->client != client))
--			continue;
--
--		dev_info(&pf->pdev->dev, "Deleted instance of Client %s, of dev %d bus=0x%02x func=0x%02x)\n",
--			 client->name, pf->hw.pf_id,
--			 pf->hw.bus.device, pf->hw.bus.func);
--		list_del(&cdev->list);
--		kfree(cdev);
--		ret = 0;
--		break;
--	}
--	mutex_unlock(&i40e_client_instance_mutex);
--	return ret;
-+	kfree(pf->cinst);
-+	pf->cinst = NULL;
- }
- 
- /**
-@@ -473,67 +358,50 @@ int i40e_client_del_instance(struct i40e_pf *pf, struct i40e_client *client)
-  **/
- void i40e_client_subtask(struct i40e_pf *pf)
- {
-+	struct i40e_client *client = registered_client;
- 	struct i40e_client_instance *cdev;
--	struct i40e_client *client;
--	bool existing = false;
-+	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
- 	int ret = 0;
- 
- 	if (!(pf->flags & I40E_FLAG_SERVICE_CLIENT_REQUESTED))
- 		return;
- 	pf->flags &= ~I40E_FLAG_SERVICE_CLIENT_REQUESTED;
-+	cdev = pf->cinst;
- 
- 	/* If we're down or resetting, just bail */
- 	if (test_bit(__I40E_DOWN, &pf->state) ||
- 	    test_bit(__I40E_CONFIG_BUSY, &pf->state))
- 		return;
- 
--	/* Check client state and instantiate client if client registered */
--	mutex_lock(&i40e_client_mutex);
--	list_for_each_entry(client, &i40e_clients, list) {
--		/* first check client is registered */
--		if (!test_bit(__I40E_CLIENT_REGISTERED, &client->state))
--			continue;
--
--		/* Do we also need the LAN VSI to be up, to create instance */
--		if (!(client->flags & I40E_CLIENT_FLAGS_LAUNCH_ON_PROBE)) {
--			/* check if L2 VSI is up, if not we are not ready */
--			if (test_bit(__I40E_DOWN, &pf->vsi[pf->lan_vsi]->state))
--				continue;
--		} else {
--			dev_warn(&pf->pdev->dev, "This client %s is being instantiated at probe\n",
--				 client->name);
--		}
--
--		/* Add the client instance to the instance list */
--		cdev = i40e_client_add_instance(pf, client, &existing);
--		if (!cdev)
--			continue;
--
--		if (!existing) {
--			dev_info(&pf->pdev->dev, "Added instance of Client %s to PF%d bus=0x%02x dev=0x%02x func=0x%02x\n",
--				 client->name, pf->hw.pf_id,
--				 pf->hw.bus.bus_id, pf->hw.bus.device,
--				 pf->hw.bus.func);
--		}
-+	if (!client || !cdev)
-+		return;
- 
--		mutex_lock(&i40e_client_instance_mutex);
--		if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,
--			      &cdev->state)) {
--			/* Send an Open request to the client */
--			if (client->ops && client->ops->open)
--				ret = client->ops->open(&cdev->lan_info,
--							client);
--			if (!ret) {
--				set_bit(__I40E_CLIENT_INSTANCE_OPENED,
--					&cdev->state);
--			} else {
--				/* remove client instance */
--				i40e_client_del_instance(pf, client);
-+	/* Here we handle client opens. If the client is down, but
-+	 * the netdev is up, then open the client.
-+	 */
-+	if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state)) {
-+		if (!test_bit(__I40E_DOWN, &vsi->state) &&
-+		    client->ops && client->ops->open) {
-+			set_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state);
-+			ret = client->ops->open(&cdev->lan_info, client);
-+			if (ret) {
-+				/* Remove failed client instance */
-+				clear_bit(__I40E_CLIENT_INSTANCE_OPENED,
-+					  &cdev->state);
-+				i40e_client_del_instance(pf);
- 			}
- 		}
--		mutex_unlock(&i40e_client_instance_mutex);
-+	} else {
-+	/* Likewise for client close. If the client is up, but the netdev
-+	 * is down, then close the client.
-+	 */
-+		if (test_bit(__I40E_DOWN, &vsi->state) &&
-+		    client->ops && client->ops->close) {
-+			clear_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state);
-+			client->ops->close(&cdev->lan_info, client, false);
-+			i40e_client_release_qvlist(&cdev->lan_info);
-+		}
- 	}
--	mutex_unlock(&i40e_client_mutex);
- }
- 
- /**
-@@ -601,7 +469,6 @@ int i40e_lan_del_device(struct i40e_pf *pf)
- 			break;
- 		}
- 	}
--
- 	mutex_unlock(&i40e_device_mutex);
- 	return ret;
- }
-@@ -610,22 +477,24 @@ int i40e_lan_del_device(struct i40e_pf *pf)
-  * i40e_client_release - release client specific resources
-  * @client: pointer to the registered client
-  *
-- * Return 0 on success or < 0 on error
-  **/
--static int i40e_client_release(struct i40e_client *client)
-+static void i40e_client_release(struct i40e_client *client)
- {
--	struct i40e_client_instance *cdev, *tmp;
-+	struct i40e_client_instance *cdev;
-+	struct i40e_device *ldev;
- 	struct i40e_pf *pf;
--	int ret = 0;
- 
--	LIST_HEAD(cdevs_tmp);
--
--	mutex_lock(&i40e_client_instance_mutex);
--	list_for_each_entry_safe(cdev, tmp, &i40e_client_instances, list) {
--		if (strncmp(cdev->client->name, client->name,
--			    I40E_CLIENT_STR_LENGTH))
-+	mutex_lock(&i40e_device_mutex);
-+	list_for_each_entry(ldev, &i40e_devices, list) {
-+		pf = ldev->pf;
-+		cdev = pf->cinst;
-+		if (!cdev)
- 			continue;
--		pf = (struct i40e_pf *)cdev->lan_info.pf;
++/* Set WoL Filter (0x0120) */
 +
-+		while (test_and_set_bit(__I40E_SERVICE_SCHED,
-+					&pf->state))
-+			usleep_range(500, 1000);
++struct i40e_aqc_set_wol_filter {
++	__le16 filter_index;
++#define I40E_AQC_MAX_NUM_WOL_FILTERS	8
++#define I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_SHIFT	15
++#define I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_MASK	(0x1 << \
++		I40E_AQC_SET_WOL_FILTER_TYPE_MAGIC_SHIFT)
 +
- 		if (test_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state)) {
- 			if (client->ops && client->ops->close)
- 				client->ops->close(&cdev->lan_info, client,
-@@ -637,18 +506,13 @@ static int i40e_client_release(struct i40e_client *client)
- 				 "Client %s instance for PF id %d closed\n",
- 				 client->name, pf->hw.pf_id);
- 		}
--		/* delete the client instance from the list */
--		list_move(&cdev->list, &cdevs_tmp);
-+		/* delete the client instance */
-+		i40e_client_del_instance(pf);
- 		dev_info(&pf->pdev->dev, "Deleted client instance of Client %s\n",
- 			 client->name);
-+		clear_bit(__I40E_SERVICE_SCHED, &pf->state);
- 	}
--	mutex_unlock(&i40e_client_instance_mutex);
--
--	/* free the client device and release its vsi */
--	list_for_each_entry_safe(cdev, tmp, &cdevs_tmp, list) {
--		kfree(cdev);
--	}
--	return ret;
-+	mutex_unlock(&i40e_device_mutex);
- }
- 
- /**
-@@ -664,6 +528,7 @@ static void i40e_client_prepare(struct i40e_client *client)
- 	mutex_lock(&i40e_device_mutex);
- 	list_for_each_entry(ldev, &i40e_devices, list) {
- 		pf = ldev->pf;
-+		i40e_client_add_instance(pf);
- 		/* Start the client subtask */
- 		pf->flags |= I40E_FLAG_SERVICE_CLIENT_REQUESTED;
- 		i40e_service_event_schedule(pf);
-@@ -792,8 +657,8 @@ static void i40e_client_request_reset(struct i40e_info *ldev,
- 		break;
- 	default:
- 		dev_warn(&pf->pdev->dev,
--			 "Client %s instance for PF id %d request an unsupported reset: %d.\n",
--			 client->name, pf->hw.pf_id, reset_level);
-+			 "Client for PF id %d requested an unsupported reset: %d.\n",
-+			 pf->hw.pf_id, reset_level);
- 		break;
- 	}
- 
-@@ -852,8 +717,8 @@ static int i40e_client_update_vsi_ctxt(struct i40e_info *ldev,
- 	} else {
- 		update = false;
- 		dev_warn(&pf->pdev->dev,
--			 "Client %s instance for PF id %d request an unsupported Config: %x.\n",
--			 client->name, pf->hw.pf_id, flag);
-+			 "Client for PF id %d request an unsupported Config: %x.\n",
-+			 pf->hw.pf_id, flag);
- 	}
- 
- 	if (update) {
-@@ -878,7 +743,6 @@ static int i40e_client_update_vsi_ctxt(struct i40e_info *ldev,
- int i40e_register_client(struct i40e_client *client)
- {
- 	int ret = 0;
--	enum i40e_vsi_type vsi_type;
- 
- 	if (!client) {
- 		ret = -EIO;
-@@ -891,11 +755,9 @@ int i40e_register_client(struct i40e_client *client)
- 		goto out;
- 	}
- 
--	mutex_lock(&i40e_client_mutex);
--	if (i40e_client_is_registered(client)) {
-+	if (registered_client) {
- 		pr_info("i40e: Client %s has already been registered!\n",
- 			client->name);
--		mutex_unlock(&i40e_client_mutex);
- 		ret = -EEXIST;
- 		goto out;
- 	}
-@@ -908,22 +770,11 @@ int i40e_register_client(struct i40e_client *client)
- 			client->version.major, client->version.minor,
- 			client->version.build,
- 			i40e_client_interface_version_str);
--		mutex_unlock(&i40e_client_mutex);
- 		ret = -EIO;
- 		goto out;
- 	}
- 
--	vsi_type = i40e_client_type_to_vsi_type(client->type);
--	if (vsi_type == I40E_VSI_TYPE_UNKNOWN) {
--		pr_info("i40e: Failed to register client %s due to unknown client type %d\n",
--			client->name, client->type);
--		mutex_unlock(&i40e_client_mutex);
--		ret = -EIO;
--		goto out;
--	}
--	list_add(&client->list, &i40e_clients);
--	set_bit(__I40E_CLIENT_REGISTERED, &client->state);
--	mutex_unlock(&i40e_client_mutex);
-+	registered_client = client;
- 
- 	i40e_client_prepare(client);
- 
-@@ -943,29 +794,21 @@ int i40e_unregister_client(struct i40e_client *client)
- {
- 	int ret = 0;
- 
--	/* When a unregister request comes through we would have to send
--	 * a close for each of the client instances that were opened.
--	 * client_release function is called to handle this.
--	 */
--	mutex_lock(&i40e_client_mutex);
--	if (!client || i40e_client_release(client)) {
--		ret = -EIO;
--		goto out;
--	}
--
--	/* TODO: check if device is in reset, or if that matters? */
--	if (!i40e_client_is_registered(client)) {
-+	if (registered_client != client) {
- 		pr_info("i40e: Client %s has not been registered\n",
- 			client->name);
- 		ret = -ENODEV;
- 		goto out;
- 	}
--	clear_bit(__I40E_CLIENT_REGISTERED, &client->state);
--	list_del(&client->list);
--	pr_info("i40e: Unregistered client %s with return code %d\n",
--		client->name, ret);
-+	registered_client = NULL;
-+	/* When a unregister request comes through we would have to send
-+	 * a close for each of the client instances that were opened.
-+	 * client_release function is called to handle this.
-+	 */
-+	i40e_client_release(client);
++#define I40E_AQC_SET_WOL_FILTER_INDEX_SHIFT		0
++#define I40E_AQC_SET_WOL_FILTER_INDEX_MASK	(0x7 << \
++		I40E_AQC_SET_WOL_FILTER_INDEX_SHIFT)
++	__le16 cmd_flags;
++#define I40E_AQC_SET_WOL_FILTER				0x8000
++#define I40E_AQC_SET_WOL_FILTER_NO_TCO_WOL		0x4000
++#define I40E_AQC_SET_WOL_FILTER_ACTION_CLEAR		0
++#define I40E_AQC_SET_WOL_FILTER_ACTION_SET		1
++	__le16 valid_flags;
++#define I40E_AQC_SET_WOL_FILTER_ACTION_VALID		0x8000
++#define I40E_AQC_SET_WOL_FILTER_NO_TCO_ACTION_VALID	0x4000
++	u8 reserved[2];
++	__le32	address_high;
++	__le32	address_low;
++};
 +
-+	pr_info("i40e: Unregistered client %s\n", client->name);
- out:
--	mutex_unlock(&i40e_client_mutex);
- 	return ret;
- }
- EXPORT_SYMBOL(i40e_unregister_client);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.h b/drivers/net/ethernet/intel/i40e/i40e_client.h
-index 528bd79b05fe..15b21a5315b5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.h
-@@ -57,11 +57,6 @@ enum i40e_client_instance_state {
- 	__I40E_CLIENT_INSTANCE_OPENED,
++I40E_CHECK_CMD_LENGTH(i40e_aqc_set_wol_filter);
++
++struct i40e_aqc_set_wol_filter_data {
++	u8 filter[128];
++	u8 mask[16];
++};
++
++I40E_CHECK_STRUCT_LEN(0x90, i40e_aqc_set_wol_filter_data);
++
++/* Get Wake Reason (0x0121) */
++
++struct i40e_aqc_get_wake_reason_completion {
++	u8 reserved_1[2];
++	__le16 wake_reason;
++#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_SHIFT	0
++#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_MASK (0xFF << \
++		I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_MATCHED_INDEX_SHIFT)
++#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_SHIFT	8
++#define I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_MASK	(0xFF << \
++		I40E_AQC_GET_WAKE_UP_REASON_WOL_REASON_RESERVED_SHIFT)
++	u8 reserved_2[12];
++};
++
++I40E_CHECK_CMD_LENGTH(i40e_aqc_get_wake_reason_completion);
++
+ /* Switch configuration commands (0x02xx) */
+ 
+ /* Used by many indirect commands that only pass an seid and a buffer in the
+@@ -640,6 +699,8 @@ struct i40e_aqc_set_port_parameters {
+ #define I40E_AQ_SET_P_PARAMS_PAD_SHORT_PACKETS	2 /* must set! */
+ #define I40E_AQ_SET_P_PARAMS_DOUBLE_VLAN_ENA	4
+ 	__le16	bad_frame_vsi;
++#define I40E_AQ_SET_P_PARAMS_BFRAME_SEID_SHIFT	0x0
++#define I40E_AQ_SET_P_PARAMS_BFRAME_SEID_MASK	0x3FF
+ 	__le16	default_seid;        /* reserved for command */
+ 	u8	reserved[10];
+ };
+@@ -691,6 +752,7 @@ I40E_CHECK_STRUCT_LEN(0x10, i40e_aqc_switch_resource_alloc_element_resp);
+ /* Set Switch Configuration (direct 0x0205) */
+ struct i40e_aqc_set_switch_config {
+ 	__le16	flags;
++/* flags used for both fields below */
+ #define I40E_AQ_SET_SWITCH_CFG_PROMISC		0x0001
+ #define I40E_AQ_SET_SWITCH_CFG_L2_FILTER	0x0002
+ 	__le16	valid_flags;
+@@ -1839,11 +1901,12 @@ struct i40e_aqc_get_link_status {
+ #define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
+ #define I40E_AQ_CONFIG_CRC_ENA		0x04
+ #define I40E_AQ_CONFIG_PACING_MASK	0x78
+-	u8	external_power_ability;
++	u8	power_desc;
+ #define I40E_AQ_LINK_POWER_CLASS_1	0x00
+ #define I40E_AQ_LINK_POWER_CLASS_2	0x01
+ #define I40E_AQ_LINK_POWER_CLASS_3	0x02
+ #define I40E_AQ_LINK_POWER_CLASS_4	0x03
++#define I40E_AQ_PWR_CLASS_MASK		0x03
+ 	u8	reserved[4];
  };
  
--enum i40e_client_type {
--	I40E_CLIENT_IWARP,
--	I40E_CLIENT_VMDQ2
--};
--
- struct i40e_ops;
- struct i40e_client;
- 
-@@ -214,7 +209,8 @@ struct i40e_client {
- 	u32 flags;
- #define I40E_CLIENT_FLAGS_LAUNCH_ON_PROBE	BIT(0)
- #define I40E_TX_FLAGS_NOTIFY_OTHER_EVENTS	BIT(2)
--	enum i40e_client_type type;
-+	u8 type;
-+#define I40E_CLIENT_IWARP 0
- 	const struct i40e_client_ops *ops; /* client ops provided by the client */
- };
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index e8a8351c8ea9..3d7f179af6be 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2487,13 +2487,15 @@ static int i40e_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
- 
- 	netdev_info(netdev, "changing MTU from %d to %d\n",
- 		    netdev->mtu, new_mtu);
- 	netdev->mtu = new_mtu;
- 	if (netif_running(netdev))
- 		i40e_vsi_reinit_locked(vsi);
--	i40e_notify_client_of_l2_param_changes(vsi);
-+	pf->flags |= (I40E_FLAG_SERVICE_CLIENT_REQUESTED |
-+		      I40E_FLAG_CLIENT_L2_CHANGE);
- 	return 0;
- }
- 
-@@ -4463,17 +4465,16 @@ static void i40e_napi_disable_all(struct i40e_vsi *vsi)
-  **/
- static void i40e_vsi_close(struct i40e_vsi *vsi)
- {
--	bool reset = false;
--
-+	struct i40e_pf *pf = vsi->back;
- 	if (!test_and_set_bit(__I40E_DOWN, &vsi->state))
- 		i40e_down(vsi);
- 	i40e_vsi_free_irq(vsi);
- 	i40e_vsi_free_tx_resources(vsi);
- 	i40e_vsi_free_rx_resources(vsi);
- 	vsi->current_netdev_flags = 0;
--	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
--		reset = true;
--	i40e_notify_client_of_netdev_close(vsi, reset);
-+	pf->flags |= I40E_FLAG_SERVICE_CLIENT_REQUESTED;
-+	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state))
-+		pf->flags |=  I40E_FLAG_CLIENT_RESET;
- }
- 
- /**
-@@ -5542,8 +5543,6 @@ void i40e_down(struct i40e_vsi *vsi)
- 		i40e_clean_rx_ring(vsi->rx_rings[i]);
- 	}
- 
--	i40e_notify_client_of_netdev_close(vsi, false);
--
- }
- 
- /**
-@@ -6021,8 +6020,8 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
- 		i40e_service_event_schedule(pf);
- 	} else {
- 		i40e_pf_unquiesce_all_vsi(pf);
--		/* Notify the client for the DCB changes */
--		i40e_notify_client_of_l2_param_changes(pf->vsi[pf->lan_vsi]);
-+	pf->flags |= (I40E_FLAG_SERVICE_CLIENT_REQUESTED |
-+		      I40E_FLAG_CLIENT_L2_CHANGE);
- 	}
- 
- exit:
-@@ -7411,7 +7410,18 @@ static void i40e_service_task(struct work_struct *work)
- 	i40e_vc_process_vflr_event(pf);
- 	i40e_watchdog_subtask(pf);
- 	i40e_fdir_reinit_subtask(pf);
--	i40e_client_subtask(pf);
-+	if (pf->flags & I40E_FLAG_CLIENT_RESET) {
-+		/* Client subtask will reopen next time through. */
-+		i40e_notify_client_of_netdev_close(pf->vsi[pf->lan_vsi], true);
-+		pf->flags &= ~I40E_FLAG_CLIENT_RESET;
-+	} else {
-+		i40e_client_subtask(pf);
-+		if (pf->flags & I40E_FLAG_CLIENT_L2_CHANGE) {
-+			i40e_notify_client_of_l2_param_changes(
-+							pf->vsi[pf->lan_vsi]);
-+			pf->flags &= ~I40E_FLAG_CLIENT_L2_CHANGE;
-+		}
-+	}
- 	i40e_sync_filters_subtask(pf);
- 	i40e_sync_udp_filters_subtask(pf);
- 	i40e_clean_adminq_subtask(pf);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 78460c52b7c4..25ee5af2d136 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1359,7 +1359,7 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 	if (!vsi->info.pvid)
- 		vfres->vf_offload_flags |= I40E_VIRTCHNL_VF_OFFLOAD_VLAN;
- 
--	if (i40e_vf_client_capable(pf, vf->vf_id, I40E_CLIENT_IWARP) &&
-+	if (i40e_vf_client_capable(pf, vf->vf_id) &&
- 	    (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_IWARP)) {
- 		vfres->vf_offload_flags |= I40E_VIRTCHNL_VF_OFFLOAD_IWARP;
- 		set_bit(I40E_VF_STAT_IWARPENA, &vf->vf_states);
 -- 
 2.12.0
