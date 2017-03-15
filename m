@@ -1,40 +1,39 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 0/3] net: dsa: check out-of-range ageing time
-Date: Wed, 15 Mar 2017 22:05:56 +0100
-Message-ID: <20170315210556.GA7416@lunn.ch>
-References: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames DNAT-ed to
+ bridge device
+Date: Wed, 15 Mar 2017 22:16:19 +0100
+Message-ID: <20170315211619.GA3464@otheros>
+References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
+ <20170315102608.GB24366@breakpoint.cc>
+ <20170315104211.GA24409@salvia>
+ <20170315142720.GU15692@otheros>
+ <20170315181539.GA31875@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Jason Cobham <jcobham@questertangent.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50090 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751357AbdCOVGB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 15 Mar 2017 17:06:01 -0400
+Content-Type: text/plain; charset=utf-8
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+        "David S . Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        bridge@lists.linux-foundation.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170315181539.GA31875@salvia>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> This patchset fixes this by adding ageing_time_min and ageing_time_max
-> fields to the dsa_switch structure, which can optionally be set by a DSA
-> driver.
-> 
-> If provided, the DSA core will check for out-of-range values in the
-> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME prepare phase and return -ERANGE
-> accordingly.
-> 
-> Finally set these limits in the mv88e6xxx driver.
+On Wed, Mar 15, 2017 at 07:15:39PM +0100, Pablo Neira Ayuso wrote:
+> Could you update ebtables dnat to check if the ethernet address
+> matches the one of the input bridge interface, so we mangle the
+> ->pkt_type accordingly from there, instead of doing this from the
+> core?
 
-Hi Vivien
+Actually, that was the approach I thought about and went for first
+(and it would probably work for me). Just checking against the
+bridge device's net_device::dev_addr.
 
-Thanks for doing it this way. Nicely done.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+I scratched it though, as I was afraid that the issue might still
+exist for people using some other upper device on top of the bridge
+device. For instance, macvlan? And iterating over the
+net_device::dev_addrs list seemed too costly for fast path to me.
