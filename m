@@ -1,34 +1,49 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RESEND PATCH -net] cpsw/netcp: cpts depends on posix_timers
-Date: Wed, 15 Mar 2017 15:55:24 +0100
-Message-ID: <CAK8P3a0h3yDRNstN-O4KhSJxPm9RSVvgJt3t=em2JW1KVUfYfw@mail.gmail.com>
-References: <20170313165849.1378558-1-arnd@arndb.de> <alpine.LFD.2.20.1703131608100.14436@knanqh.ubzr>
- <CAK8P3a125rioB5Cnoa7nR9Dz_pU5=x7=06_DvXEE-dTpOBiitQ@mail.gmail.com>
- <alpine.LFD.2.20.1703131629570.14436@knanqh.ubzr> <alpine.LFD.2.20.1703131648350.14436@knanqh.ubzr>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3] net: ipv4: add support for ECMP hash policy
+ choice
+Date: Wed, 15 Mar 2017 09:01:16 -0600
+Message-ID: <5c0b73c5-ee6b-d67f-b01e-0d749c8ced6d@cumulusnetworks.com>
+References: <1489505775-2913-1-git-send-email-nikolay@cumulusnetworks.com>
+ <20170314085502.47d48a4e@xeon-e3>
+ <8088fe5f-0c0b-bdba-4fba-e9e28bbed02e@cumulusnetworks.com>
+ <20170314.114837.619141079617104809.davem@davemloft.net>
+ <20170314132506.6233b1e7@xeon-e3>
+ <CAJieiUjeYH=u6W5p18JA=RwKuFpX6HSrifD0fRE1rR2e0fsvhw@mail.gmail.com>
+ <20170314144204.20d5c3a5@xeon-e3>
+ <CAJieiUgQpOidyE-OH73QQpMcQnzEgd+9bGPOKA-yAaFtb3fcwQ@mail.gmail.com>
+ <20170314162715.141f1d4b@xeon-e3>
+ <0c0473f7-beab-ea87-6dde-77aa345258ff@cumulusnetworks.com>
+ <5b5cf0ac-d152-3c8e-d54b-1059f561efee@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        John Stultz <john.stultz@linaro.org>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.20.1703131648350.14436@knanqh.ubzr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>, jkbs@redhat.com,
+        Eric Dumazet <edumazet@google.com>,
+        Peter Christensen <pch@ordbogen.com>
+To: nicolas.dichtel@6wind.com,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:36323 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753137AbdCOPBU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 11:01:20 -0400
+Received: by mail-pg0-f43.google.com with SMTP id g2so10331424pge.3
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 08:01:19 -0700 (PDT)
+In-Reply-To: <5b5cf0ac-d152-3c8e-d54b-1059f561efee@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 13, 2017 at 9:51 PM, Nicolas Pitre <nicolas.pitre@linaro.org> wrote:
-> On Mon, 13 Mar 2017, Nicolas Pitre wrote:
->
->> So unless I'm mistaken I don't see any problem using "depends on
->> PTP_1588_CLOCK" here.
->
-> Furthermore that wouldn't be a first. See for example
-> PTP_1588_CLOCK_GIANFAR, PTP_1588_CLOCK_IXP46X, DP83640_PHY, etc.
+On 3/15/17 3:17 AM, Nicolas Dichtel wrote:
+>>> Is there another patch to add the NETCONFA_ECMP support?
+>>>
+>>
+>> does userspace care?
+> Yes, I think it is needed so that userspace can correctly monitor this behavior.
+> It also enables to check this parameter through netlink.
+> 
 
-Ok, I'll give this a few rounds on the randconfig builder and submit it that way
-unless I run into problems.
-
-    Arnd
+I don't understand why userspace cares. What can userspace do with that
+information?
