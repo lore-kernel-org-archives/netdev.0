@@ -1,27 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/12][pull request] 40GbE Intel Wired LAN Driver
- Updates 2017-03-15
-Date: Wed, 15 Mar 2017 13:01:25 -0700 (PDT)
-Message-ID: <20170315.130125.162139558387781374.davem@davemloft.net>
-References: <20170315092545.63654-1-jeffrey.t.kirsher@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 3/3] net: dsa: mv88e6xxx: specify ageing time
+ limits
+Date: Wed, 15 Mar 2017 13:04:33 -0700
+Message-ID: <1c4d818c-6f87-2114-f564-a7bb2db4a187@gmail.com>
+References: <20170315195350.11059-1-vivien.didelot@savoirfairelinux.com>
+ <20170315195350.11059-4-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52634 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751236AbdCOUB1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 16:01:27 -0400
-In-Reply-To: <20170315092545.63654-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cobham <jcobham@questertangent.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170315195350.11059-4-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 15 Mar 2017 02:25:33 -0700
+On 03/15/2017 12:53 PM, Vivien Didelot wrote:
+> Now that DSA has ageing time limits, specify them when registering a
+> switch so that out-of-range values are handled correctly by the core.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Reported-by: Jason Cobham <jcobham@questertangent.com>
 
-> This series contains updates to i40e and i40evf only.
-
-Pulled, thanks Jeff.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
