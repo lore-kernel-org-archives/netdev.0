@@ -1,370 +1,113 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/10] netfilter: nf_tables: fix mismatch in big-endian system
-Date: Wed, 15 Mar 2017 18:01:07 +0100
-Message-ID: <1489597272-30347-6-git-send-email-pablo@netfilter.org>
-References: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 00/10] Netfilter fixes for net
+Date: Wed, 15 Mar 2017 18:01:02 +0100
+Message-ID: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1489597272-30347-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:37608 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752578AbdCORBm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 13:01:42 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 146511324D0
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:22 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 01C1ADA86D
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:22 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 2DD72DA878
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:01:16 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <zlpnobody@gmail.com>
+Hi David,
 
-Currently, there are two different methods to store an u16 integer to
-the u32 data register. For example:
-  u32 *dest = &regs->data[priv->dreg];
-  1. *dest = 0; *(u16 *) dest = val_u16;
-  2. *dest = val_u16;
+The following patchset contains Netfilter fixes for your net tree, a
+rather large batch of fixes targeted to nf_tables, conntrack and bridge
+netfilter. More specifically, they are:
 
-For method 1, the u16 value will be stored like this, either in
-big-endian or little-endian system:
-  0          15           31
-  +-+-+-+-+-+-+-+-+-+-+-+-+
-  |   Value   |     0     |
-  +-+-+-+-+-+-+-+-+-+-+-+-+
+1) Don't track fragmented packets if the socket option IP_NODEFRAG is set.
+   From Florian Westphal.
 
-For method 2, in little-endian system, the u16 value will be the same
-as listed above. But in big-endian system, the u16 value will be stored
-like this:
-  0          15           31
-  +-+-+-+-+-+-+-+-+-+-+-+-+
-  |     0     |   Value   |
-  +-+-+-+-+-+-+-+-+-+-+-+-+
+2) SCTP protocol tracker assumes that ICMP error messages contain the
+   checksum field, what results in packet drops. From Ying Xue.
 
-So later we use "memcmp(&regs->data[priv->sreg], data, 2);" to do
-compare in nft_cmp, nft_lookup expr ..., method 2 will get the wrong
-result in big-endian system, as 0~15 bits will always be zero.
+3) Fix inconsistent handling of AH traffic from nf_tables.
 
-For the similar reason, when loading an u16 value from the u32 data
-register, we should use "*(u16 *) sreg;" instead of "(u16)*sreg;",
-the 2nd method will get the wrong value in the big-endian system.
+4) Fix new bitmap set representation with big endian. Fix mismatches in
+   nf_tables due to incorrect big endian handling too. Both patches
+   from Liping Zhang.
 
-So introduce some wrapper functions to store/load an u8 or u16
-integer to/from the u32 data register, and use them in the right
-place.
+5) Bridge netfilter doesn't honor maximum fragment size field, cap to
+   largest fragment seen. From Florian Westphal.
 
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/net/netfilter/nf_tables.h   | 29 +++++++++++++++++++++++++++
- net/ipv4/netfilter/nft_masq_ipv4.c  |  8 ++++----
- net/ipv4/netfilter/nft_redir_ipv4.c |  8 ++++----
- net/ipv6/netfilter/nft_masq_ipv6.c  |  8 ++++----
- net/ipv6/netfilter/nft_redir_ipv6.c |  8 ++++----
- net/netfilter/nft_ct.c              | 18 +++++++++--------
- net/netfilter/nft_meta.c            | 40 +++++++++++++++++++------------------
- net/netfilter/nft_nat.c             |  8 ++++----
- 8 files changed, 80 insertions(+), 47 deletions(-)
+6) Fake conntrack entry needs to be aligned to 8 bytes since the 3 LSB
+   bits are now used to store the ctinfo. From Steven Rostedt.
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 2aa8a9d80fbe..70c5ca0c60b1 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -103,6 +103,35 @@ struct nft_regs {
- 	};
- };
- 
-+/* Store/load an u16 or u8 integer to/from the u32 data register.
-+ *
-+ * Note, when using concatenations, register allocation happens at 32-bit
-+ * level. So for store instruction, pad the rest part with zero to avoid
-+ * garbage values.
-+ */
-+
-+static inline void nft_reg_store16(u32 *dreg, u16 val)
-+{
-+	*dreg = 0;
-+	*(u16 *)dreg = val;
-+}
-+
-+static inline void nft_reg_store8(u32 *dreg, u8 val)
-+{
-+	*dreg = 0;
-+	*(u8 *)dreg = val;
-+}
-+
-+static inline u16 nft_reg_load16(u32 *sreg)
-+{
-+	return *(u16 *)sreg;
-+}
-+
-+static inline u8 nft_reg_load8(u32 *sreg)
-+{
-+	return *(u8 *)sreg;
-+}
-+
- static inline void nft_data_copy(u32 *dst, const struct nft_data *src,
- 				 unsigned int len)
- {
-diff --git a/net/ipv4/netfilter/nft_masq_ipv4.c b/net/ipv4/netfilter/nft_masq_ipv4.c
-index a0ea8aad1bf1..f18677277119 100644
---- a/net/ipv4/netfilter/nft_masq_ipv4.c
-+++ b/net/ipv4/netfilter/nft_masq_ipv4.c
-@@ -26,10 +26,10 @@ static void nft_masq_ipv4_eval(const struct nft_expr *expr,
- 	memset(&range, 0, sizeof(range));
- 	range.flags = priv->flags;
- 	if (priv->sreg_proto_min) {
--		range.min_proto.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_min];
--		range.max_proto.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_max];
-+		range.min_proto.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_min]);
-+		range.max_proto.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_max]);
- 	}
- 	regs->verdict.code = nf_nat_masquerade_ipv4(pkt->skb, nft_hook(pkt),
- 						    &range, nft_out(pkt));
-diff --git a/net/ipv4/netfilter/nft_redir_ipv4.c b/net/ipv4/netfilter/nft_redir_ipv4.c
-index 1650ed23c15d..5120be1d3118 100644
---- a/net/ipv4/netfilter/nft_redir_ipv4.c
-+++ b/net/ipv4/netfilter/nft_redir_ipv4.c
-@@ -26,10 +26,10 @@ static void nft_redir_ipv4_eval(const struct nft_expr *expr,
- 
- 	memset(&mr, 0, sizeof(mr));
- 	if (priv->sreg_proto_min) {
--		mr.range[0].min.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_min];
--		mr.range[0].max.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_max];
-+		mr.range[0].min.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_min]);
-+		mr.range[0].max.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_max]);
- 		mr.range[0].flags |= NF_NAT_RANGE_PROTO_SPECIFIED;
- 	}
- 
-diff --git a/net/ipv6/netfilter/nft_masq_ipv6.c b/net/ipv6/netfilter/nft_masq_ipv6.c
-index 6c5b5b1830a7..4146536e9c15 100644
---- a/net/ipv6/netfilter/nft_masq_ipv6.c
-+++ b/net/ipv6/netfilter/nft_masq_ipv6.c
-@@ -27,10 +27,10 @@ static void nft_masq_ipv6_eval(const struct nft_expr *expr,
- 	memset(&range, 0, sizeof(range));
- 	range.flags = priv->flags;
- 	if (priv->sreg_proto_min) {
--		range.min_proto.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_min];
--		range.max_proto.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_max];
-+		range.min_proto.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_min]);
-+		range.max_proto.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_max]);
- 	}
- 	regs->verdict.code = nf_nat_masquerade_ipv6(pkt->skb, &range,
- 						    nft_out(pkt));
-diff --git a/net/ipv6/netfilter/nft_redir_ipv6.c b/net/ipv6/netfilter/nft_redir_ipv6.c
-index f5ac080fc084..a27e424f690d 100644
---- a/net/ipv6/netfilter/nft_redir_ipv6.c
-+++ b/net/ipv6/netfilter/nft_redir_ipv6.c
-@@ -26,10 +26,10 @@ static void nft_redir_ipv6_eval(const struct nft_expr *expr,
- 
- 	memset(&range, 0, sizeof(range));
- 	if (priv->sreg_proto_min) {
--		range.min_proto.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_min],
--		range.max_proto.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_max],
-+		range.min_proto.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_min]);
-+		range.max_proto.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_max]);
- 		range.flags |= NF_NAT_RANGE_PROTO_SPECIFIED;
- 	}
- 
-diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
-index bf548a7a71ec..91585b5e5307 100644
---- a/net/netfilter/nft_ct.c
-+++ b/net/netfilter/nft_ct.c
-@@ -83,7 +83,7 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
- 
- 	switch (priv->key) {
- 	case NFT_CT_DIRECTION:
--		*dest = CTINFO2DIR(ctinfo);
-+		nft_reg_store8(dest, CTINFO2DIR(ctinfo));
- 		return;
- 	case NFT_CT_STATUS:
- 		*dest = ct->status;
-@@ -151,20 +151,22 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
- 		return;
- 	}
- 	case NFT_CT_L3PROTOCOL:
--		*dest = nf_ct_l3num(ct);
-+		nft_reg_store8(dest, nf_ct_l3num(ct));
- 		return;
- 	case NFT_CT_PROTOCOL:
--		*dest = nf_ct_protonum(ct);
-+		nft_reg_store8(dest, nf_ct_protonum(ct));
- 		return;
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	case NFT_CT_ZONE: {
- 		const struct nf_conntrack_zone *zone = nf_ct_zone(ct);
-+		u16 zoneid;
- 
- 		if (priv->dir < IP_CT_DIR_MAX)
--			*dest = nf_ct_zone_id(zone, priv->dir);
-+			zoneid = nf_ct_zone_id(zone, priv->dir);
- 		else
--			*dest = zone->id;
-+			zoneid = zone->id;
- 
-+		nft_reg_store16(dest, zoneid);
- 		return;
- 	}
- #endif
-@@ -183,10 +185,10 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
- 		       nf_ct_l3num(ct) == NFPROTO_IPV4 ? 4 : 16);
- 		return;
- 	case NFT_CT_PROTO_SRC:
--		*dest = (__force __u16)tuple->src.u.all;
-+		nft_reg_store16(dest, (__force u16)tuple->src.u.all);
- 		return;
- 	case NFT_CT_PROTO_DST:
--		*dest = (__force __u16)tuple->dst.u.all;
-+		nft_reg_store16(dest, (__force u16)tuple->dst.u.all);
- 		return;
- 	default:
- 		break;
-@@ -205,7 +207,7 @@ static void nft_ct_set_zone_eval(const struct nft_expr *expr,
- 	const struct nft_ct *priv = nft_expr_priv(expr);
- 	struct sk_buff *skb = pkt->skb;
- 	enum ip_conntrack_info ctinfo;
--	u16 value = regs->data[priv->sreg];
-+	u16 value = nft_reg_load16(&regs->data[priv->sreg]);
- 	struct nf_conn *ct;
- 
- 	ct = nf_ct_get(skb, &ctinfo);
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index e1f5ca9b423b..7b60e01f38ff 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -45,16 +45,15 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 		*dest = skb->len;
- 		break;
- 	case NFT_META_PROTOCOL:
--		*dest = 0;
--		*(__be16 *)dest = skb->protocol;
-+		nft_reg_store16(dest, (__force u16)skb->protocol);
- 		break;
- 	case NFT_META_NFPROTO:
--		*dest = nft_pf(pkt);
-+		nft_reg_store8(dest, nft_pf(pkt));
- 		break;
- 	case NFT_META_L4PROTO:
- 		if (!pkt->tprot_set)
- 			goto err;
--		*dest = pkt->tprot;
-+		nft_reg_store8(dest, pkt->tprot);
- 		break;
- 	case NFT_META_PRIORITY:
- 		*dest = skb->priority;
-@@ -85,14 +84,12 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 	case NFT_META_IIFTYPE:
- 		if (in == NULL)
- 			goto err;
--		*dest = 0;
--		*(u16 *)dest = in->type;
-+		nft_reg_store16(dest, in->type);
- 		break;
- 	case NFT_META_OIFTYPE:
- 		if (out == NULL)
- 			goto err;
--		*dest = 0;
--		*(u16 *)dest = out->type;
-+		nft_reg_store16(dest, out->type);
- 		break;
- 	case NFT_META_SKUID:
- 		sk = skb_to_full_sk(skb);
-@@ -142,19 +139,19 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- #endif
- 	case NFT_META_PKTTYPE:
- 		if (skb->pkt_type != PACKET_LOOPBACK) {
--			*dest = skb->pkt_type;
-+			nft_reg_store8(dest, skb->pkt_type);
- 			break;
- 		}
- 
- 		switch (nft_pf(pkt)) {
- 		case NFPROTO_IPV4:
- 			if (ipv4_is_multicast(ip_hdr(skb)->daddr))
--				*dest = PACKET_MULTICAST;
-+				nft_reg_store8(dest, PACKET_MULTICAST);
- 			else
--				*dest = PACKET_BROADCAST;
-+				nft_reg_store8(dest, PACKET_BROADCAST);
- 			break;
- 		case NFPROTO_IPV6:
--			*dest = PACKET_MULTICAST;
-+			nft_reg_store8(dest, PACKET_MULTICAST);
- 			break;
- 		case NFPROTO_NETDEV:
- 			switch (skb->protocol) {
-@@ -168,14 +165,14 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 					goto err;
- 
- 				if (ipv4_is_multicast(iph->daddr))
--					*dest = PACKET_MULTICAST;
-+					nft_reg_store8(dest, PACKET_MULTICAST);
- 				else
--					*dest = PACKET_BROADCAST;
-+					nft_reg_store8(dest, PACKET_BROADCAST);
- 
- 				break;
- 			}
- 			case htons(ETH_P_IPV6):
--				*dest = PACKET_MULTICAST;
-+				nft_reg_store8(dest, PACKET_MULTICAST);
- 				break;
- 			default:
- 				WARN_ON_ONCE(1);
-@@ -230,7 +227,9 @@ void nft_meta_set_eval(const struct nft_expr *expr,
- {
- 	const struct nft_meta *meta = nft_expr_priv(expr);
- 	struct sk_buff *skb = pkt->skb;
--	u32 value = regs->data[meta->sreg];
-+	u32 *sreg = &regs->data[meta->sreg];
-+	u32 value = *sreg;
-+	u8 pkt_type;
- 
- 	switch (meta->key) {
- 	case NFT_META_MARK:
-@@ -240,9 +239,12 @@ void nft_meta_set_eval(const struct nft_expr *expr,
- 		skb->priority = value;
- 		break;
- 	case NFT_META_PKTTYPE:
--		if (skb->pkt_type != value &&
--		    skb_pkt_type_ok(value) && skb_pkt_type_ok(skb->pkt_type))
--			skb->pkt_type = value;
-+		pkt_type = nft_reg_load8(sreg);
-+
-+		if (skb->pkt_type != pkt_type &&
-+		    skb_pkt_type_ok(pkt_type) &&
-+		    skb_pkt_type_ok(skb->pkt_type))
-+			skb->pkt_type = pkt_type;
- 		break;
- 	case NFT_META_NFTRACE:
- 		skb->nf_trace = !!value;
-diff --git a/net/netfilter/nft_nat.c b/net/netfilter/nft_nat.c
-index 19a7bf3236f9..439e0bd152a0 100644
---- a/net/netfilter/nft_nat.c
-+++ b/net/netfilter/nft_nat.c
-@@ -65,10 +65,10 @@ static void nft_nat_eval(const struct nft_expr *expr,
- 	}
- 
- 	if (priv->sreg_proto_min) {
--		range.min_proto.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_min];
--		range.max_proto.all =
--			*(__be16 *)&regs->data[priv->sreg_proto_max];
-+		range.min_proto.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_min]);
-+		range.max_proto.all = (__force __be16)nft_reg_load16(
-+			&regs->data[priv->sreg_proto_max]);
- 		range.flags |= NF_NAT_RANGE_PROTO_SPECIFIED;
- 	}
- 
--- 
-2.1.4
+7) Fix element comments with the bitmap set type. Revert the flush
+   field in the nft_set_iter structure, not required anymore after
+   fixing up element comments.
 
+8) Missing error on invalid conntrack direction from nft_ct, also from
+   Liping Zhang.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 8d70eeb84ab277377c017af6a21d0a337025dede:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2017-03-04 17:31:39 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
+
+for you to fetch changes up to 4494dbc6dec37817f2cc2aa7604039a9e87ada18:
+
+  netfilter: nft_ct: do cleanup work when NFTA_CT_DIRECTION is invalid (2017-03-15 17:15:54 +0100)
+
+----------------------------------------------------------------
+Florian Westphal (2):
+      netfilter: don't track fragmented packets
+      netfilter: bridge: honor frag_max_size when refragmenting
+
+Liping Zhang (3):
+      netfilter: nft_set_bitmap: fetch the element key based on the set->klen
+      netfilter: nf_tables: fix mismatch in big-endian system
+      netfilter: nft_ct: do cleanup work when NFTA_CT_DIRECTION is invalid
+
+Pablo Neira Ayuso (3):
+      netfilter: nf_tables: set pktinfo->thoff at AH header if found
+      netfilter: nft_set_bitmap: keep a list of dummy elements
+      Revert "netfilter: nf_tables: add flush field to struct nft_set_iter"
+
+Steven Rostedt (VMware) (1):
+      netfilter: Force fake conntrack entry to be at least 8 bytes aligned
+
+Ying Xue (1):
+      netfilter: nf_nat_sctp: fix ICMP packet to be dropped accidently
+
+ include/net/netfilter/nf_conntrack.h           |   2 +-
+ include/net/netfilter/nf_tables.h              |  30 ++++-
+ include/net/netfilter/nf_tables_ipv6.h         |   6 +-
+ net/bridge/br_netfilter_hooks.c                |  12 +-
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   4 +
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c       |   5 -
+ net/ipv4/netfilter/nft_masq_ipv4.c             |   8 +-
+ net/ipv4/netfilter/nft_redir_ipv4.c            |   8 +-
+ net/ipv6/netfilter/nft_masq_ipv6.c             |   8 +-
+ net/ipv6/netfilter/nft_redir_ipv6.c            |   8 +-
+ net/netfilter/nf_conntrack_core.c              |   6 +-
+ net/netfilter/nf_nat_proto_sctp.c              |  13 +-
+ net/netfilter/nf_tables_api.c                  |   4 -
+ net/netfilter/nft_ct.c                         |  21 ++--
+ net/netfilter/nft_meta.c                       |  40 +++---
+ net/netfilter/nft_nat.c                        |   8 +-
+ net/netfilter/nft_set_bitmap.c                 | 165 ++++++++++++-------------
+ 17 files changed, 194 insertions(+), 154 deletions(-)
