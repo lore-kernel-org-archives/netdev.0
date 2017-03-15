@@ -1,46 +1,48 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: Re: [PATCH] net: sun: sungem: rix a possible null dereference
-Date: Wed, 15 Mar 2017 22:45:03 +0100
-Message-ID: <CAC=8w91tNO1LM23V=vp4spS9QGKwMCB1T7HVM7=r1WOfH_XOSQ@mail.gmail.com>
-References: <1489526601-9423-1-git-send-email-tremyfr@gmail.com> <88708a0d-7b8a-b1d7-ee66-fd51c6bfe0fe@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, mugunthanvnm@ti.com, jarod@redhat.com,
+Subject: [PATCH v2] net: sun: sungem: rix a possible null dereference
+Date: Wed, 15 Mar 2017 22:51:13 +0100
+Message-ID: <1489614673-12595-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, mugunthanvnm@ti.com, jarod@redhat.com,
         felipe.balbi@linux.intel.com, edumazet@google.com, fw@strlen.de,
-        dan.carpenter@oracle.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+        sergei.shtylyov@cogentembedded.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <88708a0d-7b8a-b1d7-ee66-fd51c6bfe0fe@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+The function gem_begin_auto_negotiation dereference
+the pointer ep before testing if it's null. This
+patch add a check on ep before dereferencing it.
 
-On 3/15/17, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
-> Hello!
->
-> On 3/15/2017 12:23 AM, Philippe Reynes wrote:
->
->> The function gem_begin_auto_negotiation dereference
->> the pointer ep before testing if it's null. This
->> patch add a check on ep before dereferencing it.
->>
->> This issue was added by the patch 92552fdd557:
->> "net: sun: sungem: use new api ethtool_{get|set}_link_ksettings".
->
->     There's Fixes: tag for that now, described in
-> Documentation/process/submitting-patches.rst...
+Fixes: 92552fdd557 ("net: sun: sungem: use new api
+ethtool_{get|set}_link_ksettings")
 
-Thanks a lot for pointing me this tag.
-I'm sending a v2 of this patch with this tag.
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+Chanelog:
+v2:
+- use Fixes tag (thanks Sergei Shtylyov)
 
->> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
->> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> [...]
->
-> MBR, Sergei
->
+ drivers/net/ethernet/sun/sungem.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Thanks,
-Philippe
+diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
+index dbfca04..fa607d0 100644
+--- a/drivers/net/ethernet/sun/sungem.c
++++ b/drivers/net/ethernet/sun/sungem.c
+@@ -1259,8 +1259,9 @@ static void gem_begin_auto_negotiation(struct gem *gp,
+ 	int duplex;
+ 	u32 advertising;
+ 
+-	ethtool_convert_link_mode_to_legacy_u32(&advertising,
+-						ep->link_modes.advertising);
++	if (ep)
++		ethtool_convert_link_mode_to_legacy_u32(
++			&advertising, ep->link_modes.advertising);
+ 
+ 	if (gp->phy_type != phy_mii_mdio0 &&
+      	    gp->phy_type != phy_mii_mdio1)
+-- 
+1.7.4.4
