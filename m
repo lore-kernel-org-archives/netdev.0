@@ -1,194 +1,162 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v3 net-next 05/11] net: stmmac: prepare dma interrupt treatment for multiple queues
-Date: Wed, 15 Mar 2017 11:04:49 +0000
-Message-ID: <855277f6d00110f41d042ac0a2e4c638c784da56.1489575025.git.jpinto@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 1/9] net: fib_rules: Check if selector matches all packets
+Date: Wed, 15 Mar 2017 12:05:04 +0100
+Message-ID: <1489575912-6469-2-git-send-email-jiri@resnulli.us>
+References: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:55182 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753821AbdCOLFL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:11 -0400
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1489575025.git.jpinto@synopsys.com>
-References: <cover.1489575025.git.jpinto@synopsys.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35228 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753843AbdCOLFX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 07:05:23 -0400
+Received: by mail-wm0-f65.google.com with SMTP id z63so4071291wmg.2
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 04:05:21 -0700 (PDT)
+In-Reply-To: <1489575912-6469-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares DMA interrupts treatment for multiple queues.
+From: Ido Schimmel <idosch@mellanox.com>
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+Currently, when non-default (custom) FIB rules are used, devices capable
+of layer 3 offloading flush their tables and let the kernel do the
+forwarding instead.
+
+When these devices' drivers are loaded they register to the FIB
+notification chain, which lets them know about the existence of any
+custom FIB rules. This is done by sending a RULE_ADD notification based
+on the value of 'net->ipv4.fib_has_custom_rules'.
+
+This approach is problematic when VRF offload is taken into account, as
+upon the creation of the first VRF netdev, a l3mdev rule is programmed
+to direct skbs to the VRF's table.
+
+Instead of merely reading the above value and sending a single RULE_ADD
+notification, we should iterate over all the FIB rules and send a
+detailed notification for each, thereby allowing offloading drivers to
+sanitize the rules they don't support and potentially flush their
+tables.
+
+While l3mdev rules are uniquely marked, the default rules are not.
+Therefore, when they are being notified they might invoke offloading
+drivers to unnecessarily flush their tables.
+
+Solve this by adding helpers that check whether a FIB rule's selector
+matches all packets and is thus essentially a NOP. Unlike the selector,
+the rule's action is completely visible to potential listeners and can
+therefore be sanitized by them.
+
+As noted by David Ahern, uniquely marking the default rules is
+insufficient. When using VRFs, it's common to avoid false hits by moving
+the rule for the local table to just before the main table:
+
+Default configuration:
+$ ip rule show
+0:      from all lookup local
+32766:  from all lookup main
+32767:  from all lookup default
+
+Common configuration with VRFs:
+$ ip rule show
+1000:   from all lookup [l3mdev-table]
+32765:  from all lookup local
+32766:  from all lookup main
+32767:  from all lookup default
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-changes v2->v3:
-- patch was not being applied cleanly
-changes v1->v2:
-- Just to keep up the patch-set version
+ include/net/fib_rules.h |  1 +
+ include/net/ip_fib.h    |  7 +++++++
+ net/core/fib_rules.c    | 14 ++++++++++++++
+ net/ipv4/fib_rules.c    | 10 ++++++++++
+ 4 files changed, 32 insertions(+)
 
- drivers/net/ethernet/stmicro/stmmac/common.h      |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h  |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c  |  8 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h   |  3 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c   |  2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 51 +++++++++++++----------
- 6 files changed, 39 insertions(+), 29 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 042b482..6dfb7f3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -438,7 +438,7 @@ struct stmmac_dma_ops {
- 	void (*start_rx)(void __iomem *ioaddr, u32 chan);
- 	void (*stop_rx)(void __iomem *ioaddr, u32 chan);
- 	int (*dma_interrupt) (void __iomem *ioaddr,
--			      struct stmmac_extra_stats *x);
-+			      struct stmmac_extra_stats *x, u32 chan);
- 	/* If supported then get the optional core features */
- 	void (*get_hw_feature)(void __iomem *ioaddr,
- 			       struct dma_features *dma_cap);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-index 2c19042..946dc14 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
-@@ -193,7 +193,7 @@ void dwmac4_dma_stop_tx(void __iomem *ioaddr, u32 chan);
- void dwmac4_dma_start_rx(void __iomem *ioaddr, u32 chan);
- void dwmac4_dma_stop_rx(void __iomem *ioaddr, u32 chan);
- int dwmac4_dma_interrupt(void __iomem *ioaddr,
--			 struct stmmac_extra_stats *x);
-+			 struct stmmac_extra_stats *x, u32 chan);
- void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len);
- void dwmac4_set_tx_ring_len(void __iomem *ioaddr, u32 len);
- void dwmac4_set_rx_tail_ptr(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-index 3512d18..fcd8ec8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-@@ -122,11 +122,11 @@ void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan)
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 8dbfdf7..1243b9c 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -141,6 +141,7 @@ int fib_rules_lookup(struct fib_rules_ops *, struct flowi *, int flags,
+ 		     struct fib_lookup_arg *);
+ int fib_default_rule_add(struct fib_rules_ops *, u32 pref, u32 table,
+ 			 u32 flags);
++bool fib_rule_matchall(const struct fib_rule *rule);
+ 
+ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh);
+ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh);
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index d9cee96..ec03e0f 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -311,6 +311,11 @@ static inline int fib_lookup(struct net *net, const struct flowi4 *flp,
+ 	return err;
  }
  
- int dwmac4_dma_interrupt(void __iomem *ioaddr,
--			 struct stmmac_extra_stats *x)
-+			 struct stmmac_extra_stats *x, u32 chan)
++static inline bool fib4_rule_matchall(const struct fib_rule *rule)
++{
++	return true;
++}
++
+ #else /* CONFIG_IP_MULTIPLE_TABLES */
+ int __net_init fib4_rules_init(struct net *net);
+ void __net_exit fib4_rules_exit(struct net *net);
+@@ -355,6 +360,8 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+ 	return err;
+ }
+ 
++bool fib4_rule_matchall(const struct fib_rule *rule);
++
+ #endif /* CONFIG_IP_MULTIPLE_TABLES */
+ 
+ /* Exported by fib_frontend.c */
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index b6791d9..4ed475d 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -23,6 +23,20 @@ static const struct fib_kuid_range fib_kuid_range_unset = {
+ 	KUIDT_INIT(~0),
+ };
+ 
++bool fib_rule_matchall(const struct fib_rule *rule)
++{
++	if (rule->iifindex || rule->oifindex || rule->mark || rule->l3mdev ||
++	    rule->tun_id || rule->flags)
++		return false;
++	if (rule->suppress_ifgroup != -1 || rule->suppress_prefixlen != -1)
++		return false;
++	if (!uid_eq(rule->uid_range.start, fib_kuid_range_unset.start) ||
++	    !uid_eq(rule->uid_range.end, fib_kuid_range_unset.end))
++		return false;
++	return true;
++}
++EXPORT_SYMBOL_GPL(fib_rule_matchall);
++
+ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 			 u32 pref, u32 table, u32 flags)
  {
- 	int ret = 0;
- 
--	u32 intr_status = readl(ioaddr + DMA_CHAN_STATUS(0));
-+	u32 intr_status = readl(ioaddr + DMA_CHAN_STATUS(chan));
- 
- 	/* ABNORMAL interrupts */
- 	if (unlikely(intr_status & DMA_CHAN_STATUS_AIS)) {
-@@ -153,7 +153,7 @@ int dwmac4_dma_interrupt(void __iomem *ioaddr,
- 		if (likely(intr_status & DMA_CHAN_STATUS_RI)) {
- 			u32 value;
- 
--			value = readl(ioaddr + DMA_CHAN_INTR_ENA(STMMAC_CHAN0));
-+			value = readl(ioaddr + DMA_CHAN_INTR_ENA(chan));
- 			/* to schedule NAPI on real RIE event. */
- 			if (likely(value & DMA_CHAN_INTR_ENA_RIE)) {
- 				x->rx_normal_irq_n++;
-@@ -172,7 +172,7 @@ int dwmac4_dma_interrupt(void __iomem *ioaddr,
- 	 * status [21-0] expect reserved bits [5-3]
- 	 */
- 	writel((intr_status & 0x3fffc7),
--	       ioaddr + DMA_CHAN_STATUS(STMMAC_CHAN0));
-+	       ioaddr + DMA_CHAN_STATUS(chan));
- 
- 	return ret;
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 6c6cc71..9091df8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -143,7 +143,8 @@ void dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan);
- void dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan);
- void dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan);
- void dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan);
--int dwmac_dma_interrupt(void __iomem *ioaddr, struct stmmac_extra_stats *x);
-+int dwmac_dma_interrupt(void __iomem *ioaddr, struct stmmac_extra_stats *x,
-+			u32 chan);
- int dwmac_dma_reset(void __iomem *ioaddr);
- 
- #endif /* __DWMAC_DMA_H__ */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index 7be60c3..38f9430 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -156,7 +156,7 @@ static void show_rx_process_state(unsigned int status)
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 2892109..7a941a5 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -47,6 +47,16 @@ struct fib4_rule {
  #endif
+ };
  
- int dwmac_dma_interrupt(void __iomem *ioaddr,
--			struct stmmac_extra_stats *x)
-+			struct stmmac_extra_stats *x, u32 chan)
++bool fib4_rule_matchall(const struct fib_rule *rule)
++{
++	struct fib4_rule *r = (struct fib4_rule *) rule;
++
++	if (r->dst_len || r->src_len || r->tos)
++		return false;
++	return fib_rule_matchall(rule);
++}
++EXPORT_SYMBOL_GPL(fib4_rule_matchall);
++
+ int __fib_lookup(struct net *net, struct flowi4 *flp,
+ 		 struct fib_result *res, unsigned int flags)
  {
- 	int ret = 0;
- 	/* read the status register (CSR5) */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index b166c05..79a792a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1591,32 +1591,41 @@ static void stmmac_set_dma_operation_mode(struct stmmac_priv *priv, u32 txmode,
-  */
- static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- {
--	u32 chan = STMMAC_CHAN0;
-+	u32 tx_channel_count = priv->plat->tx_queues_to_use;
- 	int status;
-+	u32 chan;
- 
--	status = priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats);
--	if (likely((status & handle_rx)) || (status & handle_tx)) {
--		if (likely(napi_schedule_prep(&priv->napi))) {
--			stmmac_disable_dma_irq(priv, chan);
--			__napi_schedule(&priv->napi);
-+	for (chan = 0; chan < tx_channel_count; chan++) {
-+		status = priv->hw->dma->dma_interrupt(priv->ioaddr,
-+						      &priv->xstats, chan);
-+		if (likely((status & handle_rx)) || (status & handle_tx)) {
-+			if (likely(napi_schedule_prep(&priv->napi))) {
-+				stmmac_disable_dma_irq(priv, chan);
-+				__napi_schedule(&priv->napi);
-+			}
- 		}
--	}
--	if (unlikely(status & tx_hard_error_bump_tc)) {
--		/* Try to bump up the dma threshold on this failure */
--		if (unlikely(priv->xstats.threshold != SF_DMA_MODE) &&
--		    (tc <= 256)) {
--			tc += 64;
--			if (priv->plat->force_thresh_dma_mode)
--				stmmac_set_dma_operation_mode(priv->ioaddr,
--							      tc, tc, chan);
--			else
--				stmmac_set_dma_operation_mode(priv->ioaddr, tc,
--							     SF_DMA_MODE, chan);
- 
--			priv->xstats.threshold = tc;
-+		if (unlikely(status & tx_hard_error_bump_tc)) {
-+			/* Try to bump up the dma threshold on this failure */
-+			if (unlikely(priv->xstats.threshold != SF_DMA_MODE) &&
-+			    (tc <= 256)) {
-+				tc += 64;
-+				if (priv->plat->force_thresh_dma_mode)
-+					stmmac_set_dma_operation_mode(priv,
-+								      tc,
-+								      tc,
-+								      chan);
-+				else
-+					stmmac_set_dma_operation_mode(priv,
-+								    tc,
-+								    SF_DMA_MODE,
-+								    chan);
-+				priv->xstats.threshold = tc;
-+			}
-+		} else if (unlikely(status == tx_hard_error)) {
-+			stmmac_tx_err(priv, chan);
- 		}
--	} else if (unlikely(status == tx_hard_error))
--		stmmac_tx_err(priv, chan);
-+	}
- }
- 
- /**
 -- 
-2.9.3
+2.7.4
