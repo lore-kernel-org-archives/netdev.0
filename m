@@ -1,104 +1,32 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH] net: mvneta: support suspend and resume
-Date: Wed, 15 Mar 2017 15:18:43 +0800
-Message-ID: <20170315151843.258f214f@xhacker>
-References: <1489561714-2368-1-git-send-email-jiel@marvell.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next 4/5] sunvnet: count multicast packets
+Date: Wed, 15 Mar 2017 08:50:05 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
+References: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
+ <1489512283-422140-5-git-send-email-shannon.nelson@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <thomas.petazzoni@free-electrons.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Jane Li <jiel@marvell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:39280 "EHLO
-        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751642AbdCOHX0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 03:23:26 -0400
-In-Reply-To: <1489561714-2368-1-git-send-email-jiel@marvell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Shannon Nelson' <shannon.nelson@oracle.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489512283-422140-5-git-send-email-shannon.nelson@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jane,
+From: Shannon Nelson
+> Sent: 14 March 2017 17:25
+...
+> +	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
+> +		dev->stats.multicast++;
 
-On Wed, 15 Mar 2017 15:08:34 +0800 Jane Li  wrote:
+I'd guess that:
+	dev->stats.multicast += is_multicast_ether_addr(eth_hdr(skb)->h_dest);
+generates faster code.
+Especially if is_multicast_ether_addr(x) is (*x >> 7).
 
-> Add basic support for handling suspend and resume.
-> 
-> Signed-off-by: Jane Li <jiel@marvell.com>
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 44 +++++++++++++++++++++++++++++++++++
->  1 file changed, 44 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 61dd446..4f16342 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -4405,6 +4405,49 @@ static int mvneta_remove(struct platform_device *pdev)
->  	return 0;
->  }
->  
-> +#ifdef CONFIG_PM_SLEEP
-> +static int mvneta_suspend(struct device *device)
-> +{
-> +	struct net_device *dev = dev_get_drvdata(device);
-> +	struct mvneta_port *pp = netdev_priv(dev);
-> +
-> +	if (netif_running(dev))
-> +		mvneta_stop(dev);
-> +	netif_device_detach(dev);
-> +	clk_disable_unprepare(pp->clk_bus);
-> +	clk_disable_unprepare(pp->clk);
-> +	return 0;
-> +}
-> +
-> +static int mvneta_resume(struct device *device)
-> +{
-> +	struct net_device *dev = dev_get_drvdata(device);
-> +	struct mvneta_port *pp = netdev_priv(dev);
-> +	int err;
-> +
-> +	clk_prepare_enable(pp->clk);
-> +	clk_prepare_enable(pp->clk_bus);
-
-we may miss the necessary registers setting in mvneta_bm_port_init() and
-mvneta_conf_mbus_windows(). those registers also need to be restored.
-
-
-> +	mvneta_defaults_set(pp);
-
-before restore the default setting, is it safer to mvneta_port_disable()?
-
-Thanks,
-Jisheng
-
-> +	err = mvneta_port_power_up(pp, pp->phy_interface);
-> +	if (err < 0) {
-> +		dev_err(device, "can't power up port\n");
-> +		return err;
-> +	}
-> +
-> +	if (pp->use_inband_status)
-> +		mvneta_fixed_link_update(pp, dev->phydev);
-> +
-> +	netif_device_attach(dev);
-> +	if (netif_running(dev))
-> +		mvneta_open(dev);
-> +	return 0;
-> +}
-> +#endif
-> +
-> +static const struct dev_pm_ops mvneta_pm_ops = {
-> +	SET_LATE_SYSTEM_SLEEP_PM_OPS(mvneta_suspend, mvneta_resume)
-> +};
-> +
->  static const struct of_device_id mvneta_match[] = {
->  	{ .compatible = "marvell,armada-370-neta" },
->  	{ .compatible = "marvell,armada-xp-neta" },
-> @@ -4419,6 +4462,7 @@ static int mvneta_remove(struct platform_device *pdev)
->  	.driver = {
->  		.name = MVNETA_DRIVER_NAME,
->  		.of_match_table = mvneta_match,
-> +		.pm = &mvneta_pm_ops,
->  	},
->  };
->  
+	David
