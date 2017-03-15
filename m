@@ -1,42 +1,55 @@
-From: administrador <kepala.kanwil-jateng@customs.go.id>
-Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
-Date: Wed, 15 Mar 2017 11:08:57 +0530
-Message-ID: <20170315054018.D93BB13C8364@mail.customs.go.id>
-Reply-To: Sistemass_Adminss@mail2world.com
+From: SAFETY NET CREDIT <luiz.cavalcante@mda.gov.br>
+Subject: lening bieden
+Date: Wed, 15 Mar 2017 03:13:14 -0300 (BRT)
+Message-ID: <763930825.6247954.1489558394860.JavaMail.zimbra__15012.2701809325$1489558432$gmane$org@mda.gov.br>
+Reply-To: "safetynetcredit1@gmail.com" <safetynetcredit1@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
-To: Recipients <kepala.kanwil-jateng@customs.go.id>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.customs.go.id ([202.61.126.135]:54434 "EHLO
-        mail.customs.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750837AbdCOFxK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 01:53:10 -0400
-Content-Description: Mail message body
+Received: from mx2.mda.gov.br ([200.198.212.37]:17253 "EHLO mx2.mda.gov.br"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751036AbdCOGNV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 15 Mar 2017 02:13:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ATENCI=D3N;
+Goede dag,
 
-Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
-dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
- puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
-r su
-buz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo, env=
-=EDe la siguiente informaci=F3n a continuaci=F3n:
+ Dit is vangnet krediet leningen aan te bieden.
 
-nombre:
-Nombre de usuario:
-contrase=F1a:
-Confirmar contrase=F1a:
-E-mail:
-tel=E9fono:
+  Vangnet CREDIT biedt flexibele en betaalbare leningen voor welk doel u te=
+ helpen uw doelen te bereiken. we lening tegen lage rente van 3%. Hier zijn=
+ een aantal belangrijke kenmerken van de persoonlijke lening aangeboden doo=
+r vangnet CREDIT. Hier zijn de Loan Factoren we werken met de toonaangevend=
+e Britse makelaars die toegang hebben tot de top kredietverstrekkers hebben=
+ en in staat zijn om de beste financi=C3=ABle oplossing tegen een betaalbar=
+e price.Please vinden als u ge=C3=AFnteresseerd bent vriendelijk contact me=
+t ons op via deze e-mail: safetynetcredit1@gmail.com
 
-Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
+Na de reactie, zal u een aanvraag voor een lening te vullen ontvangen. Geen=
+ sociale zekerheid en geen credit check, 100% gegarandeerd.
 
-Disculpa las molestias.
-C=F3digo de verificaci=F3n: es: 006524
-Correo Soporte T=E9cnico =A9 2017
+Het zal ons een eer zijn als u ons toelaten om u van dienst zijn.
 
-=A1gracias
-Sistemas administrador=20
+
+INFORMATIE NODIG
+
+Jullie namen:
+Adres: ...........
+Telefoon: ...........
+Benodigd ........
+Looptijd: ...............
+Beroep: ...........
+Maandelijks Inkomen Level: ........
+Geslacht: ...............
+Geboortedatum: ........
+Staat: ..................
+Land: ..........
+Doel: .........
+
+Ontmoeting uw financi=C3=ABle behoeften is onze trots.
+
+
+Dr.John Mahama.
