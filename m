@@ -1,43 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] fjes: Fix wrong netdevice feature flags
-Date: Wed, 15 Mar 2017 13:41:56 +0300
-Message-ID: <7ebd6b13-28f3-517b-efb5-4e56dc2e0f1f@cogentembedded.com>
-References: <1489553270-7754-1-git-send-email-izumi.taku@jp.fujitsu.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames
+ DNAT-ed to bridge device
+Date: Wed, 15 Mar 2017 11:42:11 +0100
+Message-ID: <20170315104211.GA24409@salvia>
+References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
+	<20170315102608.GB24366@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: yasu.isimatu@gmail.com
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>, netdev@vger.kernel.org,
-        davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:33556 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751694AbdCOKl7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 06:41:59 -0400
-Received: by mail-lf0-f47.google.com with SMTP id a6so5088384lfa.0
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 03:41:58 -0700 (PDT)
-In-Reply-To: <1489553270-7754-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S . Miller" <davem@davemloft.net>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170315102608.GB24366@breakpoint.cc>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+On Wed, Mar 15, 2017 at 11:26:08AM +0100, Florian Westphal wrote:
+> Linus Lüssing <linus.luessing@c0d3.blue> wrote:
+> > When trying to redirect bridged frames to the bridge device itself
+> > via the ebtables nat-prerouting chain and the dnat target then this
+> > currently fails:
+> > 
+> > The ethernet destination of the frame is dnat'ed to the MAC address of
+> > the bridge itself just fine and the correctly altered frame can even
+> > be captured via a tcpdump on br0 (with or without promisc mode).
+> >
+> > However, the IP code drops it in the beginning of ip_input.c/ip_rcv()
+> > as the dnat target did not update the skb->pkt_type.
+> 
+> Right, thats the reason why ebtables also has ebt_redirect target
+> which does this pkt_type fixup.
 
-On 3/15/2017 7:47 AM, Taku Izumi wrote:
-
-> This patch fixes netdev->features for Extended Socket network device.
->
-> Currently Extended Socket network device's netdev->feature claims
-> NETIF_F_HW_CSUM, however this is completely wrong. There's no feature
-> of checksum offloading.
-> That causes invalid TCP/UDP checksum and packet rjection when IP
-
-    Rejection.
-
-> forwarding from Extended Socket network device to other network device.
->
-> NETIF_F_HW_CSUM should be omitted.
->
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-[...]
-
-MBR, Sergei
+I'm missing then why redirect is not then just enough for Linus usecase.
