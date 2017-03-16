@@ -1,71 +1,58 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: netdev level filtering? perhaps pushing socket filters down?
-Date: Thu, 16 Mar 2017 15:52:04 -0700
-Message-ID: <58CB1714.8000305@candelatech.com>
-References: <1489703635.3930.5.camel@sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: tcp_get_info() should read tcp_time_stamp later
+Date: Thu, 16 Mar 2017 15:43:19 -0700
+Message-ID: <1489704199.28631.262.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Johannes Berg <johannes@sipsolutions.net>,
-        netdev <netdev@vger.kernel.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:51840 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752820AbdCPWmT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 18:42:19 -0400
-In-Reply-To: <1489703635.3930.5.camel@sipsolutions.net>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:36385 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751389AbdCPWnW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 18:43:22 -0400
+Received: by mail-it0-f65.google.com with SMTP id u69so892767ita.3
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 15:43:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2017 03:33 PM, Johannes Berg wrote:
-> Hi all,
->
-> Occasionally - we just had another case - people want to hook into
-> packets received and processed by the mac80211 stack, but because they
-> don't need all of them (e.g. not data packets), even adding a monitor
-> interface and bringing it up has too high a cost because SKBs need to
-> be prepared to send them to the monitor interface, even if no socket is
-> consuming them.
->
-> Ideally, we'd be able to detect that there are filter programs attached
-> to the socket(s) that are looking at the frames coming in on the
-> monitor interface, and we could somehow magically run those before we
-> create a new SKB.
-> One problem here is that we wouldn't really want to prepare all the
-> radiotap header just to throw it away, so we'd have to be able to
-> analyse the filter program to make sure it doesn't access anything but
-> the radiotap header length, and that only in order to jump over it.
-> That seems ... difficult, but we don't even know the header length -
-> although we could fudge that and make a very long constant-size header,
-> which might make it possible to do such analysis, or handle it by
-> trapping on such access. But it seems rather difficult to implement
-> this.
->
-> The next best thing would be to install a filter program on the virtual
-> monitor *interface* (netdev), but say that it doesn't get frames with
-> radiotap, but pure 802.11 frames. We already have those in SKB format
-> at this point, so it'd be simple to run such a program and only pass
-> the SKB to the monitor netdev's RX when the program asked to do that.
->
-> This now seems a bit like XDP, but for XDP this header difference
-> doesn't seem appropriate either.
->
-> Anyone have any other thoughts?
+From: Eric Dumazet <edumazet@google.com>
 
-Attach at just above the driver, before it ever gets to stations/vdevs,
-and ignore radiotap headers and/or add special processing for metadata like
-rx-info?
+Commit b369e7fd41f7 ("tcp: make TCP_INFO more consistent") moved
+lock_sock_fast() earlier in tcp_get_info()
 
-Thanks,
-Ben
+This has the minor effect that jiffies value being sampled at the
+beginning of tcp_get_info() is more likely to be off by one, and we
+report big tcpi_last_data_sent values (like 0xFFFFFFFF).
 
->
-> Thanks,
-> johannes
->
+Since we lock the socket, fetching tcp_time_stamp right before
+doing the jiffies_to_msecs() calls is enough to remove these
+wrong values.
 
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index cf4555581282c608f920254078264e36e18584c6..1e319a525d51b0b603a5ccc5143381c752b9f2c7 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2770,7 +2770,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk); /* iff sk_type == SOCK_STREAM */
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+-	u32 now = tcp_time_stamp, intv;
++	u32 now, intv;
+ 	u64 rate64;
+ 	bool slow;
+ 	u32 rate;
+@@ -2839,6 +2839,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_retrans = tp->retrans_out;
+ 	info->tcpi_fackets = tp->fackets_out;
+ 
++	now = tcp_time_stamp;
+ 	info->tcpi_last_data_sent = jiffies_to_msecs(now - tp->lsndtime);
+ 	info->tcpi_last_data_recv = jiffies_to_msecs(now - icsk->icsk_ack.lrcvtime);
+ 	info->tcpi_last_ack_recv = jiffies_to_msecs(now - tp->rcv_tstamp);
