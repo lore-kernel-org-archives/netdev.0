@@ -1,90 +1,71 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 1/5] net: Do not record sender_cpu as napi_id in
- socket receive paths
-Date: Thu, 16 Mar 2017 15:33:05 -0700
-Message-ID: <CAKgT0UcHgdb0Z_KvjPJuS1gtcFEi8rj2dKouUeXkuvwjopDiBQ@mail.gmail.com>
-References: <20170316183142.15806.38824.stgit@localhost.localdomain>
- <20170316183238.15806.14293.stgit@localhost.localdomain> <1489701936.28631.249.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: netdev level filtering? perhaps pushing socket filters down?
+Date: Thu, 16 Mar 2017 15:52:04 -0700
+Message-ID: <58CB1714.8000305@candelatech.com>
+References: <1489703635.3930.5.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489701936.28631.249.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Johannes Berg <johannes@sipsolutions.net>,
+        netdev <netdev@vger.kernel.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:51840 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752820AbdCPWmT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 18:42:19 -0400
+In-Reply-To: <1489703635.3930.5.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 16, 2017 at 3:05 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-03-16 at 11:32 -0700, Alexander Duyck wrote:
->> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
->>
->> Fix sk_mark_napi_id() and sk_mark_napi_id_once() to set sk_napi_id only if
->> skb->napi_id is a valid value.
->>
->> This happens in loopback paths where skb->napi_id is not updated in
->> rx path and holds sender_cpu that is set in xmit path.
->>
->> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> ---
->>  include/net/busy_poll.h |    5 +++--
->>  1 file changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
->> index c0452de83086..67991635953e 100644
->> --- a/include/net/busy_poll.h
->> +++ b/include/net/busy_poll.h
->> @@ -116,7 +116,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
->>  static inline void sk_mark_napi_id(struct sock *sk, const struct sk_buff *skb)
->>  {
->>  #ifdef CONFIG_NET_RX_BUSY_POLL
->> -     sk->sk_napi_id = skb->napi_id;
->> +     if (skb->napi_id > (u32)NR_CPUS)
->> +             sk->sk_napi_id = skb->napi_id;
->>  #endif
->>  }
->>
->> @@ -125,7 +126,7 @@ static inline void sk_mark_napi_id_once(struct sock *sk,
->>                                       const struct sk_buff *skb)
->>  {
->>  #ifdef CONFIG_NET_RX_BUSY_POLL
->> -     if (!sk->sk_napi_id)
->> +     if (!sk->sk_napi_id && (skb->napi_id > (u32)NR_CPUS))
->>               sk->sk_napi_id = skb->napi_id;
->>  #endif
->>  }
->>
+On 03/16/2017 03:33 PM, Johannes Berg wrote:
+> Hi all,
 >
-> It is not clear why this patch is needed .
+> Occasionally - we just had another case - people want to hook into
+> packets received and processed by the mac80211 stack, but because they
+> don't need all of them (e.g. not data packets), even adding a monitor
+> interface and bringing it up has too high a cost because SKBs need to
+> be prepared to send them to the monitor interface, even if no socket is
+> consuming them.
 >
-> What you describe here is the case we might receive packets for a socket
-> coming from different interfaces ?
+> Ideally, we'd be able to detect that there are filter programs attached
+> to the socket(s) that are looking at the frames coming in on the
+> monitor interface, and we could somehow magically run those before we
+> create a new SKB.
+> One problem here is that we wouldn't really want to prepare all the
+> radiotap header just to throw it away, so we'd have to be able to
+> analyse the filter program to make sure it doesn't access anything but
+> the radiotap header length, and that only in order to jump over it.
+> That seems ... difficult, but we don't even know the header length -
+> although we could fudge that and make a very long constant-size header,
+> which might make it possible to do such analysis, or handle it by
+> trapping on such access. But it seems rather difficult to implement
+> this.
 >
-> If skb->napi_id is a sender_cpu, why should we prevent overwriting the
-> sk_napi_id with it, knowing that busy polling will simply ignore the
-> invalid value ?
+> The next best thing would be to install a filter program on the virtual
+> monitor *interface* (netdev), but say that it doesn't get frames with
+> radiotap, but pure 802.11 frames. We already have those in SKB format
+> at this point, so it'd be simple to run such a program and only pass
+> the SKB to the monitor netdev's RX when the program asked to do that.
 >
-> Do not get me wrong :
+> This now seems a bit like XDP, but for XDP this header difference
+> doesn't seem appropriate either.
 >
-> I simply try to understand why the test about napi_id validity is now
-> done twice :
->
-> 1) At the time we are writing into sk->sk_napi_id
+> Anyone have any other thoughts?
 
-I would argue that this is the one piece we were missing.
+Attach at just above the driver, before it ever gets to stations/vdevs,
+and ignore radiotap headers and/or add special processing for metadata like
+rx-info?
 
-> 2) At busy polling time when we read sk->sk_napi_id
+Thanks,
+Ben
 
-Unless there was something recently added I don't think this was ever
-checked.  Instead we start digging into the hash looking for the ID
-that won't ever be there.  Maybe we should add something to napi_by_id
-that just returns NULL in these cases.
+>
+> Thanks,
+> johannes
+>
 
-On top of that I think there end up being several spots where once we
-lock in a non-NAPI ID it is stuck such as the sk_mark_napi_id_once
-call.  I figure we are better off locking in an actual NAPI ID rather
-than getting a sender_cpu stuck in there.
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
