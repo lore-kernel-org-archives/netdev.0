@@ -1,89 +1,75 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net-next 1/2] tcp: remove per-destination timestamp cache
-Date: Thu, 16 Mar 2017 17:05:44 +0100
-Message-ID: <20170316160544.GD15641@1wt.eu>
-References: <20170315203046.158791-1-soheil.kdev@gmail.com>
- <20170315.154044.170788541865531834.davem@davemloft.net>
- <20170315225508.GB14761@1wt.eu>
- <58CA778D.9020208@5t9.de>
- <CADVnQy=Bxs-e-KxQsA8nPSfm9fVtogouxCRdgmrR0WyBkMS=Xw@mail.gmail.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net] rxrpc: Ignore BUSY packets on old calls
+Date: Thu, 16 Mar 2017 16:27:10 +0000
+Message-ID: <148968163004.20909.2389917167977671935.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lutz Vieweg <lvml@5t9.de>, David Miller <davem@davemloft.net>,
-        Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Florian Westphal <fw@strlen.de>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:33416 "EHLO 1wt.eu"
+Received: from mx1.redhat.com ([209.132.183.28]:57792 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752636AbdCPQGs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Mar 2017 12:06:48 -0400
-Content-Disposition: inline
-In-Reply-To: <CADVnQy=Bxs-e-KxQsA8nPSfm9fVtogouxCRdgmrR0WyBkMS=Xw@mail.gmail.com>
+        id S1752181AbdCPQ1O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Mar 2017 12:27:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Neal,
+If we receive a BUSY packet for a call we think we've just completed, the
+packet is handed off to the connection processor to deal with - but the
+connection processor doesn't expect a BUSY packet and so flags a protocol
+error.
 
-On Thu, Mar 16, 2017 at 11:40:52AM -0400, Neal Cardwell wrote:
-> On Thu, Mar 16, 2017 at 7:31 AM, Lutz Vieweg <lvml@5t9.de> wrote:
-> >
-> > On 03/15/2017 11:55 PM, Willy Tarreau wrote:
-> >>
-> >> At least I can say I've seen many people enable it without understanding its impact, confusing it
-> >> with tcp_tw_reuse, and copy-pasting it from random blogs and complaining about issues in
-> >> production.
-> >
-> >
-> > I currently wonder: What it the correct advise to an operator who needs
-> > to run one server instance that is meant to accept thousands of new,
-> > short-lived TCP connections per minute?
-> 
-> Note that for this to be a problem there would have to be thousands of
-> new, short-lived TCP connections per minute from a single source IP
-> address to a single destination IP address. Normal client software
-> should not be doing this. AFAIK this is pretty rare, unless someone is
-> running a load test or has an overly-aggressive monitoring system. NAT
-> boxes or proxies with that kind of traffic should be running with
-> multiple public source IPs.
+Fix this by simply ignoring the BUSY packet for the moment.
 
-In fact it's the regular stuff with reverse-proxies. You can scan the
-whole source port range every second. But when enabling timestamps, you
-benefit from PAWS and you don't have any problem anymore, everything
-works pretty well.
+The symptom of this may appear as a system call failing with EPROTO.  This
+may be triggered by pressing ctrl-C under some circumstances.
 
-> But if/when the problem occurs, then the feasible solutions I'm aware
-> of, in approximate descending order of preference, are:
-> 
-> (1) use longer connections from the client side (browsers and RPC libraries are
->     usually pretty good about keeping connections open for a long time, so this
->     is usually sufficient)
-> 
-> (2) have the client do the close(), so the client is the side to carry the
->     TIME_WAIT state
+This comes about we abort calls due to interruption by a signal (which we
+shouldn't do, but that's going to be a large fix and mostly in fs/afs/).
+What happens is that we abort the call and may also abort follow up calls
+too (this needs offloading somehoe).  So we see a transmission of something
+like the following sequence of packets:
 
-That's impossible for proxies, as you can't connect again from the same
-source port, causing the performances to be divided by more than 100. What
-proxies have to do when they're forced to close first an outgoing connection
-is to set SO_LINGER to (0,0) so that an RST is used and the source port can
-be reused. But as you guess, if that RST gets lost, then next opening is
-not that beautiful : either [SYN, ACK, RST, pause, SYN, SYN-ACK, ACK] or
-[SYN, RST, pause SYN, SYN-ACK, ACK] depending on whether the SYN appears
-in the previous window or not.
+	DATA for call N
+	ABORT call N
+	DATA for call N+1
+	ABORT call N+1
 
-> (3) have the server use SO_LINGER with a timeout of 0, so that
->     the connection is closed with a RST and the server carries no
->     TIME_WAIT state
+in very quick succession on the same channel.  However, the peer may have
+deferred the processing of the ABORT from the call N to a background thread
+and thus sees the DATA message from the call N+1 coming in before it has
+cleared the channel.  Thus it sends a BUSY packet[*].
 
-The problem is that it also kills the tail data.
+[*] Note that some implementations (OpenAFS, for example) mark the BUSY
+    packet with one plus the callNumber of the call prior to call N.
+    Ordinarily, this would be call N, but there's no requirement for the
+    calls on a channel to be numbered strictly sequentially (the number is
+    required to increase).
 
-Quite frankly, the only issues I'm used to see are with clients closing
-first and with reusing source connections. As soon as timestamps are
-enabled on both sides and people don't blindly play with tcp_tw_recycle,
-I really never face any connection issue.
+    This is wrong and means that the callNumber in the BUSY packet should
+    be ignored (it really ought to be N+1 since that's what it's in
+    response to).
 
-Willy
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
+
+ net/rxrpc/conn_event.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
+index 3f9d8d7ec632..b099b64366f3 100644
+--- a/net/rxrpc/conn_event.c
++++ b/net/rxrpc/conn_event.c
+@@ -275,6 +275,10 @@ static int rxrpc_process_event(struct rxrpc_connection *conn,
+ 		rxrpc_conn_retransmit_call(conn, skb);
+ 		return 0;
+ 
++	case RXRPC_PACKET_TYPE_BUSY:
++		/* Just ignore BUSY packets for now. */
++		return 0;
++
+ 	case RXRPC_PACKET_TYPE_ABORT:
+ 		if (skb_copy_bits(skb, sizeof(struct rxrpc_wire_header),
+ 				  &wtmp, sizeof(wtmp)) < 0)
