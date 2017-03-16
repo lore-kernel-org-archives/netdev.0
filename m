@@ -1,49 +1,36 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 2/2] net/sched: fq_codel: Avoid set-but-unused variable
-Date: Thu, 16 Mar 2017 12:53:42 +0200
-Message-ID: <1489661622-14498-3-git-send-email-ogerlitz@mellanox.com>
-References: <1489661622-14498-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 0/2] small set of sched cleanups
+Date: Thu, 16 Mar 2017 12:53:40 +0200
+Message-ID: <1489661622-14498-1-git-send-email-ogerlitz@mellanox.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
         Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52574 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52564 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751912AbdCPLUi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 07:20:38 -0400
-In-Reply-To: <1489661622-14498-1-git-send-email-ogerlitz@mellanox.com>
+        with ESMTP id S1751182AbdCPLU1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 07:20:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code introduced by commit 2ccccf5fb43f ("net_sched: update
-hierarchical backlog too") only sets prev_backlog in fq_codel_dequeue()
-but not using that anywhere, remove that setting.
+Hi Dave,
 
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
+Just two cleanups -- but for the 2nd one I think we need ack from 
+Cong Wang to make sure this isn't actually a bug report..
+
+Or.
+
+changes from V1:
+  - addressed comment from Sergei to use 12 hex digits etc
+
+
+Or Gerlitz (2):
+  net/sched: act_ife: Staticfy find_decode_metaid()
+  net/sched: fq_codel: Avoid set-but-unused variable
+
+ net/sched/act_ife.c      | 4 ++--
  net/sched/sch_fq_codel.c | 2 --
- 1 file changed, 2 deletions(-)
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 9f3a884..097bbe9 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -288,7 +288,6 @@ static struct sk_buff *fq_codel_dequeue(struct Qdisc *sch)
- 	struct fq_codel_flow *flow;
- 	struct list_head *head;
- 	u32 prev_drop_count, prev_ecn_mark;
--	unsigned int prev_backlog;
- 
- begin:
- 	head = &q->new_flows;
-@@ -307,7 +306,6 @@ static struct sk_buff *fq_codel_dequeue(struct Qdisc *sch)
- 
- 	prev_drop_count = q->cstats.drop_count;
- 	prev_ecn_mark = q->cstats.ecn_mark;
--	prev_backlog = sch->qstats.backlog;
- 
- 	skb = codel_dequeue(sch, &sch->qstats.backlog, &q->cparams,
- 			    &flow->cvars, &q->cstats, qdisc_pkt_len,
 -- 
 2.3.7
