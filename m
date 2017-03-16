@@ -1,160 +1,129 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 2/2] batman-adv: Initialize gw sel_class via batadv_algo
-Date: Thu, 16 Mar 2017 13:55:12 +0100
-Message-ID: <20170316125512.30364-3-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 1/2] batman-adv: Keep fragments equally sized
+Date: Thu, 16 Mar 2017 13:55:11 +0100
+Message-ID: <20170316125512.30364-2-sw@simonwunderlich.de>
 References: <20170316125512.30364-1-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Sven Eckelmann <sven@narfation.org>,
-        Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:51832 "EHLO
-        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751924AbdCPMzR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 08:55:17 -0400
-In-Reply-To: <20170316125512.30364-1-sw@simonwunderlich.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20170316125512.30364-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Sven Eckelmann <sven@narfation.org>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 
-The gateway selection class variable is shared between different algorithm
-versions. But the interpretation of the content is algorithm specific. The
-initialization is therefore also algorithm specific.
+The batman-adv fragmentation packets have the design problem that they
+cannot be refragmented and cannot handle padding by the underlying link.
+The latter often leads to problems when networks are incorrectly configured
+and don't use a common MTU.
 
-But this was implemented incorrectly and the initialization for BATMAN_V
-always overwrote the value previously written for BATMAN_IV. This could
-only be avoided when BATMAN_V was disabled during compile time.
+The sender could for example fragment a 1271 byte frame (plus external
+ethernet header (14) and batadv unicast header (10)) to fit in a 1280 bytes
+large MTU of the underlying link (max. 1294 byte frames). This would create
+a 1294 bytes large frame (fragment 2) and a 55 bytes large frame
+(fragment 1). The extra 54 bytes are the fragment header (20) added to each
+fragment and the external ethernet header (14) for the second fragment.
 
-Using a special batadv_algo hook for this initialization avoids this
-problem.
+Let us assume that the next hop is then not able to transport 1294 bytes to
+its next hop. The 1294 byte large frame will be dropped but the 55 bytes
+large fragment will still be forwarded to its destination.
 
-Fixes: 50164d8f500f ("batman-adv: B.A.T.M.A.N. V - implement GW selection logic")
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Or let us assume that the underlying hardware requires that each frame has
+a minimum size (e.g. 60 bytes). Then it will pad the 55 bytes frame to 60
+bytes. The receiver of the 60 bytes frame will no longer be able to
+correctly assemble the two frames together because it is not aware that 5
+bytes of the 60 bytes frame are padding and don't belong to the reassembled
+frame.
+
+This can partly be avoided by splitting frames more equally. In this
+example, the 675 and 674 bytes large fragment frames could both potentially
+reach its destination without being too large or too small.
+
+Reported-by: Martin Weinelt <martin-VjL1Zewfs7ir2odhgoY7gCae+QG6wtwz@public.gmane.org>
+Fixes: ee75ed88879a ("batman-adv: Fragment and send skbs larger than mtu")
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Acked-by: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/bat_iv_ogm.c     | 11 +++++++++++
- net/batman-adv/bat_v.c          | 14 +++++++++++---
- net/batman-adv/gateway_common.c |  5 +++++
- net/batman-adv/soft-interface.c |  1 -
- net/batman-adv/types.h          |  2 ++
- 5 files changed, 29 insertions(+), 4 deletions(-)
+ net/batman-adv/fragmentation.c | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index f00f666e2ccd..7bfd0d7ef49d 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -2477,6 +2477,16 @@ static void batadv_iv_iface_activate(struct batadv_hard_iface *hard_iface)
- 	batadv_iv_ogm_schedule(hard_iface);
- }
- 
-+/**
-+ * batadv_iv_init_sel_class - initialize GW selection class
-+ * @bat_priv: the bat priv with all the soft interface information
-+ */
-+static void batadv_iv_init_sel_class(struct batadv_priv *bat_priv)
-+{
-+	/* set default TQ difference threshold to 20 */
-+	atomic_set(&bat_priv->gw.sel_class, 20);
-+}
-+
- static struct batadv_gw_node *
- batadv_iv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
- {
-@@ -2823,6 +2833,7 @@ static struct batadv_algo_ops batadv_batman_iv __read_mostly = {
- 		.del_if = batadv_iv_ogm_orig_del_if,
- 	},
- 	.gw = {
-+		.init_sel_class = batadv_iv_init_sel_class,
- 		.get_best_gw_node = batadv_iv_gw_get_best_gw_node,
- 		.is_eligible = batadv_iv_gw_is_eligible,
- #ifdef CONFIG_BATMAN_ADV_DEBUGFS
-diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
-index 2ac612d7bab4..2e2471ca84e3 100644
---- a/net/batman-adv/bat_v.c
-+++ b/net/batman-adv/bat_v.c
-@@ -668,6 +668,16 @@ static bool batadv_v_neigh_is_sob(struct batadv_neigh_node *neigh1,
- 	return ret;
- }
- 
-+/**
-+ * batadv_v_init_sel_class - initialize GW selection class
-+ * @bat_priv: the bat priv with all the soft interface information
-+ */
-+static void batadv_v_init_sel_class(struct batadv_priv *bat_priv)
-+{
-+	/* set default throughput difference threshold to 5Mbps */
-+	atomic_set(&bat_priv->gw.sel_class, 50);
-+}
-+
- static ssize_t batadv_v_store_sel_class(struct batadv_priv *bat_priv,
- 					char *buff, size_t count)
- {
-@@ -1052,6 +1062,7 @@ static struct batadv_algo_ops batadv_batman_v __read_mostly = {
- 		.dump = batadv_v_orig_dump,
- 	},
- 	.gw = {
-+		.init_sel_class = batadv_v_init_sel_class,
- 		.store_sel_class = batadv_v_store_sel_class,
- 		.show_sel_class = batadv_v_show_sel_class,
- 		.get_best_gw_node = batadv_v_gw_get_best_gw_node,
-@@ -1092,9 +1103,6 @@ int batadv_v_mesh_init(struct batadv_priv *bat_priv)
- 	if (ret < 0)
- 		return ret;
- 
--	/* set default throughput difference threshold to 5Mbps */
--	atomic_set(&bat_priv->gw.sel_class, 50);
--
- 	return 0;
- }
- 
-diff --git a/net/batman-adv/gateway_common.c b/net/batman-adv/gateway_common.c
-index 21184810d89f..3e3f91ab694f 100644
---- a/net/batman-adv/gateway_common.c
-+++ b/net/batman-adv/gateway_common.c
-@@ -253,6 +253,11 @@ static void batadv_gw_tvlv_ogm_handler_v1(struct batadv_priv *bat_priv,
+diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
+index 11149e5be4e0..106bda56ec98 100644
+--- a/net/batman-adv/fragmentation.c
++++ b/net/batman-adv/fragmentation.c
+@@ -404,7 +404,7 @@ bool batadv_frag_skb_fwd(struct sk_buff *skb,
+  * batadv_frag_create - create a fragment from skb
+  * @skb: skb to create fragment from
+  * @frag_head: header to use in new fragment
+- * @mtu: size of new fragment
++ * @fragment_size: size of new fragment
+  *
+  * Split the passed skb into two fragments: A new one with size matching the
+  * passed mtu and the old one with the rest. The new skb contains data from the
+@@ -414,11 +414,11 @@ bool batadv_frag_skb_fwd(struct sk_buff *skb,
   */
- void batadv_gw_init(struct batadv_priv *bat_priv)
+ static struct sk_buff *batadv_frag_create(struct sk_buff *skb,
+ 					  struct batadv_frag_packet *frag_head,
+-					  unsigned int mtu)
++					  unsigned int fragment_size)
  {
-+	if (bat_priv->algo_ops->gw.init_sel_class)
-+		bat_priv->algo_ops->gw.init_sel_class(bat_priv);
-+	else
-+		atomic_set(&bat_priv->gw.sel_class, 1);
-+
- 	batadv_tvlv_handler_register(bat_priv, batadv_gw_tvlv_ogm_handler_v1,
- 				     NULL, BATADV_TVLV_GW, 1,
- 				     BATADV_TVLV_HANDLER_OGM_CIFNOTFND);
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 7b3494ae6ad9..2e0b3463ab4a 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -820,7 +820,6 @@ static int batadv_softif_init_late(struct net_device *dev)
- 	atomic_set(&bat_priv->mcast.num_want_all_ipv6, 0);
- #endif
- 	atomic_set(&bat_priv->gw.mode, BATADV_GW_MODE_OFF);
--	atomic_set(&bat_priv->gw.sel_class, 20);
- 	atomic_set(&bat_priv->gw.bandwidth_down, 100);
- 	atomic_set(&bat_priv->gw.bandwidth_up, 20);
- 	atomic_set(&bat_priv->orig_interval, 1000);
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index e913aee28c98..5137d859694c 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -1489,6 +1489,7 @@ struct batadv_algo_orig_ops {
+ 	struct sk_buff *skb_fragment;
+ 	unsigned int header_size = sizeof(*frag_head);
+-	unsigned int fragment_size = mtu - header_size;
++	unsigned int mtu = fragment_size + header_size;
  
- /**
-  * struct batadv_algo_gw_ops - mesh algorithm callbacks (GW specific)
-+ * @init_sel_class: initialize GW selection class (optional)
-  * @store_sel_class: parse and stores a new GW selection class (optional)
-  * @show_sel_class: prints the current GW selection class (optional)
-  * @get_best_gw_node: select the best GW from the list of available nodes
-@@ -1499,6 +1500,7 @@ struct batadv_algo_orig_ops {
-  * @dump: dump gateways to a netlink socket (optional)
-  */
- struct batadv_algo_gw_ops {
-+	void (*init_sel_class)(struct batadv_priv *bat_priv);
- 	ssize_t (*store_sel_class)(struct batadv_priv *bat_priv, char *buff,
- 				   size_t count);
- 	ssize_t (*show_sel_class)(struct batadv_priv *bat_priv, char *buff);
+ 	skb_fragment = netdev_alloc_skb(NULL, mtu + ETH_HLEN);
+ 	if (!skb_fragment)
+@@ -456,7 +456,7 @@ int batadv_frag_send_packet(struct sk_buff *skb,
+ 	struct sk_buff *skb_fragment;
+ 	unsigned int mtu = neigh_node->if_incoming->net_dev->mtu;
+ 	unsigned int header_size = sizeof(frag_header);
+-	unsigned int max_fragment_size, max_packet_size;
++	unsigned int max_fragment_size, num_fragments;
+ 	int ret;
+ 
+ 	/* To avoid merge and refragmentation at next-hops we never send
+@@ -464,10 +464,15 @@ int batadv_frag_send_packet(struct sk_buff *skb,
+ 	 */
+ 	mtu = min_t(unsigned int, mtu, BATADV_FRAG_MAX_FRAG_SIZE);
+ 	max_fragment_size = mtu - header_size;
+-	max_packet_size = max_fragment_size * BATADV_FRAG_MAX_FRAGMENTS;
++
++	if (skb->len == 0 || max_fragment_size == 0)
++		return -EINVAL;
++
++	num_fragments = (skb->len - 1) / max_fragment_size + 1;
++	max_fragment_size = (skb->len - 1) / num_fragments + 1;
+ 
+ 	/* Don't even try to fragment, if we need more than 16 fragments */
+-	if (skb->len > max_packet_size) {
++	if (num_fragments > BATADV_FRAG_MAX_FRAGMENTS) {
+ 		ret = -EAGAIN;
+ 		goto free_skb;
+ 	}
+@@ -507,7 +512,8 @@ int batadv_frag_send_packet(struct sk_buff *skb,
+ 			goto put_primary_if;
+ 		}
+ 
+-		skb_fragment = batadv_frag_create(skb, &frag_header, mtu);
++		skb_fragment = batadv_frag_create(skb, &frag_header,
++						  max_fragment_size);
+ 		if (!skb_fragment) {
+ 			ret = -ENOMEM;
+ 			goto put_primary_if;
 -- 
 2.11.0
