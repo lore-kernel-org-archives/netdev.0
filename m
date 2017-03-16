@@ -1,7 +1,7 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 03/11] net: usb: sr9800: use new api ethtool_{get|set}_link_ksettings
-Date: Thu, 16 Mar 2017 23:18:49 +0100
-Message-ID: <1489702737-2401-4-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 08/11] net: usb: smsc75xx: use new api ethtool_{get|set}_link_ksettings
+Date: Thu, 16 Mar 2017 23:18:54 +0100
+Message-ID: <1489702737-2401-9-git-send-email-tremyfr@gmail.com>
 References: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
 Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
@@ -24,24 +24,28 @@ someone may test this patch.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/usb/sr9800.c |    4 ++--
+ drivers/net/usb/smsc75xx.c |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/usb/sr9800.c b/drivers/net/usb/sr9800.c
-index a50df0d..a696b62 100644
---- a/drivers/net/usb/sr9800.c
-+++ b/drivers/net/usb/sr9800.c
-@@ -524,9 +524,9 @@ static int sr_set_mac_address(struct net_device *net, void *p)
- 	.set_wol	= sr_set_wol,
- 	.get_eeprom_len	= sr_get_eeprom_len,
- 	.get_eeprom	= sr_get_eeprom,
+diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
+index 0b17b40..1ab0ff4 100644
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -743,13 +743,13 @@ static int smsc75xx_ethtool_set_wol(struct net_device *net,
+ 	.get_drvinfo	= usbnet_get_drvinfo,
+ 	.get_msglevel	= usbnet_get_msglevel,
+ 	.set_msglevel	= usbnet_set_msglevel,
 -	.get_settings	= usbnet_get_settings,
 -	.set_settings	= usbnet_set_settings,
- 	.nway_reset	= usbnet_nway_reset,
+ 	.get_eeprom_len	= smsc75xx_ethtool_get_eeprom_len,
+ 	.get_eeprom	= smsc75xx_ethtool_get_eeprom,
+ 	.set_eeprom	= smsc75xx_ethtool_set_eeprom,
+ 	.get_wol	= smsc75xx_ethtool_get_wol,
+ 	.set_wol	= smsc75xx_ethtool_set_wol,
 +	.get_link_ksettings	= usbnet_get_link_ksettings,
 +	.set_link_ksettings	= usbnet_set_link_ksettings,
  };
  
- static int sr9800_link_reset(struct usbnet *dev)
+ static int smsc75xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
 -- 
 1.7.4.4
