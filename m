@@ -1,81 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 4/5] sunvnet: count multicast packets
-Date: Thu, 16 Mar 2017 11:30:02 -0700 (PDT)
-Message-ID: <20170316.113002.1116238459858653812.davem@davemloft.net>
-References: <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
-        <4ee0ac85-62a3-2cb2-0d5d-d17e4334bde8@oracle.com>
-        <063D6719AE5E284EB5DD2968C1650D6DCFFB283F@AcuExch.aculab.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: [net-next PATCH 0/5] Add busy poll support for epoll under certain
+ circumstances
+Date: Thu, 16 Mar 2017 11:32:31 -0700
+Message-ID: <20170316183142.15806.38824.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: shannon.nelson@oracle.com, netdev@vger.kernel.org,
-        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David.Laight@ACULAB.COM
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB283F@AcuExch.aculab.com>
-Sender: sparclinux-owner@vger.kernel.org
+Cc: sridhar.samudrala@intel.com, edumazet@google.com,
+        davem@davemloft.net
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Thu, 16 Mar 2017 12:12:06 +0000
+This patch series is meant to add busy polling support to epoll when all of
+the sockets on a given epoll are either local or are being sourced by the
+same NAPI ID.
 
-> From: Shannon Nelson
->> Sent: 16 March 2017 00:18
->> To: David Laight; netdev@vger.kernel.org; davem@davemloft.net
->> On 3/15/2017 1:50 AM, David Laight wrote:
->> > From: Shannon Nelson
->> >> Sent: 14 March 2017 17:25
->> > ...
->> >> +	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
->> >> +		dev->stats.multicast++;
->> >
->> > I'd guess that:
->> > 	dev->stats.multicast += is_multicast_ether_addr(eth_hdr(skb)->h_dest);
->> > generates faster code.
->> > Especially if is_multicast_ether_addr(x) is (*x >> 7).
-> 
-> I'd clearly got brain-fade there, mcast bit is the first transmitted bit
-> (on ethernet) but the bytes are sent LSB first (like async).
->> > 	David
->> 
->> Hi David, thanks for the comment.  My local instruction level
->> performance guru is on vacation this week so I can't do a quick check
->> with him today on this.  However, I"m not too worried here since the
->> inline code for is_multicast_ether_addr() is simply
->> 
->> 	return 0x01 & addr[0];
->> 
->> and objdump tells me that on sparc it compiles down to a simple single
->> byte load and compare:
->> 
->>      325c:	c2 08 80 03 	ldub  [ %g2 + %g3 ], %g1
->>      3260:	80 88 60 01 	btst  1, %g1
->>      3264:	32 60 00 b3 	bne,a,pn   %xcc, 3530 <vnet_rx_one+0x430>
->>      3268:	c2 5c 61 68 	ldx  [ %l1 + 0x168 ], %g1
->> 		dev->stats.multicast++;
-> 
-> Followed by a branch that might be marked 'assume taken' so the
-> normal path takes the branch.
+In order to support this the first two patches clean up a few issues we
+found with the NAPI ID tracking and infrastructure.
 
-The branch is predicted not taken, so the fallthrough happens most
-often.  And this is optimal for most Niagara parts as taken branches
-make the cpu thread yield whereas non-taken branches do not.
+In the third patch we introduce SO_INCOMING_NAPI_ID so that applications
+have a means of trying to sort their incoming sockets to identify which
+requests should be routed where in order to keep the epoll listener aligned
+to a given Rx queue without having to rely on IRQ pinning.
 
-But this is such a petty thing to be discussing compared to the substance
-of this person's changes.  David, I really wish you wouldn't waste people's
-time with this stuff.
+Finally the last two patches refactor the existing busy poll infrastructure
+to make it so that we can call it without necessarily needing a socket, and
+enable the bits needed to support epoll when all of the sockets on the
+epoll either share the same NAPI ID, or simply are reporting no NAPI ID.
 
-Maybe if you had to review hundreds of networking patches every day like
-I do, you would start to understand the costs of the interference you
-place into the review process when you bring up such small matters like
-this all the time.
+---
 
-I'd much rather you review the substance of a person's changes,
-because that actually helps things more forward.  If you want to micro
-optimize then _do it on your own time_, submit patches that do the
-micro optimization, and have it go through the review process like
-everyone else's changes.
+Sridhar Samudrala (5):
+      net: Do not record sender_cpu as napi_id in socket receive paths
+      net: Call sk_mark_napi_id() in the ACK receive path
+      net: Introduce SO_INCOMING_NAPI_ID
+      net: Commonize busy polling code to focus on napi_id instead of socket
+      epoll: Add busy poll support to epoll with socket fds.
 
-I very much appreciate your cooperation on this matter.
 
-Thanks.
+ arch/alpha/include/uapi/asm/socket.h   |    2 +
+ arch/avr32/include/uapi/asm/socket.h   |    2 +
+ arch/frv/include/uapi/asm/socket.h     |    2 +
+ arch/ia64/include/uapi/asm/socket.h    |    2 +
+ arch/m32r/include/uapi/asm/socket.h    |    2 +
+ arch/mips/include/uapi/asm/socket.h    |    2 +
+ arch/mn10300/include/uapi/asm/socket.h |    2 +
+ arch/parisc/include/uapi/asm/socket.h  |    2 +
+ arch/powerpc/include/uapi/asm/socket.h |    2 +
+ arch/s390/include/uapi/asm/socket.h    |    2 +
+ arch/sparc/include/uapi/asm/socket.h   |    2 +
+ arch/xtensa/include/uapi/asm/socket.h  |    2 +
+ fs/eventpoll.c                         |  115 ++++++++++++++++++++++++++++++++
+ include/net/busy_poll.h                |   14 +++-
+ include/uapi/asm-generic/socket.h      |    2 +
+ net/core/dev.c                         |   16 ++--
+ net/core/sock.c                        |   22 ++++++
+ net/ipv4/tcp_ipv4.c                    |    1 
+ 18 files changed, 183 insertions(+), 11 deletions(-)
+
+--
