@@ -1,58 +1,105 @@
-From: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 04/11] net: usb: cdc_ncm: use new api ethtool_{get|set}_link_ksettings
-Date: Thu, 16 Mar 2017 23:18:50 +0100
-Message-ID: <1489702737-2401-5-git-send-email-tremyfr@gmail.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 01/11] net: usb: usbnet: add new api ethtool_{get|set}_link_ksettings
+Date: Thu, 16 Mar 2017 23:18:47 +0100
+Message-ID: <1489702737-2401-2-git-send-email-tremyfr@gmail.com>
 References: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org,
-        steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org, UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org,
-        gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org, allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-        jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, peter.chen-3arQi8VN3Tc@public.gmane.org, stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org,
-        akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1489702737-2401-1-git-send-email-tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: oliver@neukum.org, jacmet@sunsite.dk,
+        steve.glendinning@shawell.net, UNGLinuxDriver@microchip.com,
+        gregkh@linuxfoundation.org, davem@davemloft.net,
+        robert.foss@collabora.com, allan@asix.com.tw, grundler@google.com,
+        jarod@redhat.com, peter.chen@nxp.com, stefan.bruens@rwth-aachen.de,
+        akpm@linux-foundation.org, adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35651 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752562AbdCPWUG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 18:20:06 -0400
+In-Reply-To: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+We add the new api {get|set}_link_ksettings to this driver.
 
 As I don't have the hardware, I'd be very pleased if
 someone may test this patch.
 
-Signed-off-by: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/usb/cdc_ncm.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/usb/usbnet.c   |   36 ++++++++++++++++++++++++++++++++++++
+ include/linux/usb/usbnet.h |    4 ++++
+ 2 files changed, 40 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index f317984..b6c1d3a 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -131,8 +131,6 @@ static void cdc_ncm_get_strings(struct net_device __always_unused *netdev, u32 s
- static void cdc_ncm_update_rxtx_max(struct usbnet *dev, u32 new_rx, u32 new_tx);
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 3de65ea..1b40b18 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -980,6 +980,40 @@ int usbnet_set_settings (struct net_device *net, struct ethtool_cmd *cmd)
+ }
+ EXPORT_SYMBOL_GPL(usbnet_set_settings);
  
- static const struct ethtool_ops cdc_ncm_ethtool_ops = {
--	.get_settings      = usbnet_get_settings,
--	.set_settings      = usbnet_set_settings,
- 	.get_link          = usbnet_get_link,
- 	.nway_reset        = usbnet_nway_reset,
- 	.get_drvinfo       = usbnet_get_drvinfo,
-@@ -142,6 +140,8 @@ static void cdc_ncm_get_strings(struct net_device __always_unused *netdev, u32 s
- 	.get_sset_count    = cdc_ncm_get_sset_count,
- 	.get_strings       = cdc_ncm_get_strings,
- 	.get_ethtool_stats = cdc_ncm_get_ethtool_stats,
-+	.get_link_ksettings      = usbnet_get_link_ksettings,
-+	.set_link_ksettings      = usbnet_set_link_ksettings,
++int usbnet_get_link_ksettings(struct net_device *net,
++			      struct ethtool_link_ksettings *cmd)
++{
++	struct usbnet *dev = netdev_priv(net);
++
++	if (!dev->mii.mdio_read)
++		return -EOPNOTSUPP;
++
++	return mii_ethtool_get_link_ksettings(&dev->mii, cmd);
++}
++EXPORT_SYMBOL_GPL(usbnet_get_link_ksettings);
++
++int usbnet_set_link_ksettings(struct net_device *net,
++			      const struct ethtool_link_ksettings *cmd)
++{
++	struct usbnet *dev = netdev_priv(net);
++	int retval;
++
++	if (!dev->mii.mdio_write)
++		return -EOPNOTSUPP;
++
++	retval = mii_ethtool_set_link_ksettings(&dev->mii, cmd);
++
++	/* link speed/duplex might have changed */
++	if (dev->driver_info->link_reset)
++		dev->driver_info->link_reset(dev);
++
++	/* hard_mtu or rx_urb_size may change in link_reset() */
++	usbnet_update_max_qlen(dev);
++
++	return retval;
++}
++EXPORT_SYMBOL_GPL(usbnet_set_link_ksettings);
++
+ u32 usbnet_get_link (struct net_device *net)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+@@ -1046,6 +1080,8 @@ void usbnet_set_msglevel (struct net_device *net, u32 level)
+ 	.get_msglevel		= usbnet_get_msglevel,
+ 	.set_msglevel		= usbnet_set_msglevel,
+ 	.get_ts_info		= ethtool_op_get_ts_info,
++	.get_link_ksettings	= usbnet_get_link_ksettings,
++	.set_link_ksettings	= usbnet_set_link_ksettings,
  };
  
- static u32 cdc_ncm_check_rx_max(struct usbnet *dev, u32 new_rx)
+ /*-------------------------------------------------------------------------*/
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 6e0ce8c..5bd8007 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -265,6 +265,10 @@ extern int usbnet_get_settings(struct net_device *net,
+ 			       struct ethtool_cmd *cmd);
+ extern int usbnet_set_settings(struct net_device *net,
+ 			       struct ethtool_cmd *cmd);
++extern int usbnet_get_link_ksettings(struct net_device *net,
++				     struct ethtool_link_ksettings *cmd);
++extern int usbnet_set_link_ksettings(struct net_device *net,
++				     const struct ethtool_link_ksettings *cmd);
+ extern u32 usbnet_get_link(struct net_device *net);
+ extern u32 usbnet_get_msglevel(struct net_device *);
+ extern void usbnet_set_msglevel(struct net_device *, u32);
 -- 
 1.7.4.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
