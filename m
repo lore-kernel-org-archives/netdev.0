@@ -1,53 +1,129 @@
-From: Kris Murphy <kriskend@linux.vnet.ibm.com>
-Subject: [PATCH v2] openvswitch: Add missing case OVS_TUNNEL_KEY_ATTR_PAD
-Date: Thu, 16 Mar 2017 10:51:28 -0500
-Message-ID: <1489679488-18874-1-git-send-email-kriskend@linux.vnet.ibm.com>
-References: <1b8ba07efdee3db310d4504462924565684ebd64.1489677257.git.kriskend@linux.vnet.ibm.com>
-Cc: seroyer@linux.vnet.ibm.com, adreznec@linux.vnet.ibm.com,
-        Kris Murphy <kriskend@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:37005 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752940AbdCPPvy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 11:51:54 -0400
-Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2GFnWiC031541
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 11:51:38 -0400
-Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 297kqkxk7u-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 11:51:38 -0400
-Received: from localhost
-        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <kriskend@linux.vnet.ibm.com>;
-        Thu, 16 Mar 2017 11:51:37 -0400
-In-Reply-To: <1b8ba07efdee3db310d4504462924565684ebd64.1489677257.git.kriskend@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 08/17] net: convert sk_filter.refcnt from atomic_t to
+ refcount_t
+Date: Thu, 16 Mar 2017 17:04:49 +0100
+Message-ID: <58CAB7A1.8060500@iogearbox.net>
+References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com> <1489678147-21404-9-git-send-email-elena.reshetova@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        stephen@networkplumber.org, peterz@infradead.org,
+        keescook@chromium.org, Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>,
+        alexei.starovoitov@gmail.com
+To: Elena Reshetova <elena.reshetova@intel.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489678147-21404-9-git-send-email-elena.reshetova@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added a case for OVS_TUNNEL_KEY_ATTR_PAD to the switch statement
-in ip_tun_from_nlattr in order to prevent the default case
-returning an error.
+On 03/16/2017 04:28 PM, Elena Reshetova wrote:
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
+>
+> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Signed-off-by: David Windsor <dwindsor@gmail.com>
+> ---
+>   include/linux/filter.h | 3 ++-
+>   net/core/filter.c      | 7 ++++---
+>   2 files changed, 6 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index 8053c38..20247e7 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -7,6 +7,7 @@
+>   #include <stdarg.h>
+>
+>   #include <linux/atomic.h>
+> +#include <linux/refcount.h>
+>   #include <linux/compat.h>
+>   #include <linux/skbuff.h>
+>   #include <linux/linkage.h>
+> @@ -431,7 +432,7 @@ struct bpf_prog {
+>   };
+>
+>   struct sk_filter {
+> -	atomic_t	refcnt;
+> +	refcount_t	refcnt;
+>   	struct rcu_head	rcu;
+>   	struct bpf_prog	*prog;
+>   };
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index ebaeaf2..62267e2 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -928,7 +928,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
+>    */
+>   static void sk_filter_release(struct sk_filter *fp)
+>   {
+> -	if (atomic_dec_and_test(&fp->refcnt))
+> +	if (refcount_dec_and_test(&fp->refcnt))
+>   		call_rcu(&fp->rcu, sk_filter_release_rcu);
+>   }
+>
+> @@ -950,7 +950,7 @@ bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+>   	/* same check as in sock_kmalloc() */
+>   	if (filter_size <= sysctl_optmem_max &&
+>   	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
+> -		atomic_inc(&fp->refcnt);
+> +		refcount_inc(&fp->refcnt);
+>   		atomic_add(filter_size, &sk->sk_omem_alloc);
+>   		return true;
+>   	}
+> @@ -1179,12 +1179,13 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
+>   		return -ENOMEM;
+>
+>   	fp->prog = prog;
+> -	atomic_set(&fp->refcnt, 0);
+> +	refcount_set(&fp->refcnt, 1);
+>
+>   	if (!sk_filter_charge(sk, fp)) {
+>   		kfree(fp);
+>   		return -ENOMEM;
+>   	}
+> +	refcount_set(&fp->refcnt, 1);
 
-Fixes: b46f6ded906e ("libnl: nla_put_be64(): align on a 64-bit area")
-Signed-off-by: Kris Murphy <kriskend@linux.vnet.ibm.com>
----
- net/openvswitch/flow_netlink.c | 2 ++
- 1 file changed, 2 insertions(+)
+Regarding the two subsequent refcount_set(, 1) that look a bit strange
+due to the sk_filter_charge() having refcount_inc() I presume ... can't
+the refcount API handle such corner case? Or alternatively the let the
+sk_filter_charge() handle it, for example:
 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 6f5fa50..ceb3f3c 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -665,6 +665,8 @@ static int ip_tun_from_nlattr(const struct nlattr *attr,
- 			tun_flags |= TUNNEL_VXLAN_OPT;
- 			opts_type = type;
- 			break;
-+		case OVS_TUNNEL_KEY_ATTR_PAD:
-+			break;
- 		default:
- 			OVS_NLERR(log, "Unknown IP tunnel attribute %d",
- 				  type);
--- 
-2.7.4
+bool __sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+{
+	u32 filter_size = bpf_prog_size(fp->prog->len);
+
+	/* same check as in sock_kmalloc() */
+	if (filter_size <= sysctl_optmem_max &&
+	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
+		atomic_add(filter_size, &sk->sk_omem_alloc);
+		return true;
+	}
+	return false;
+}
+
+And this goes to filter.h:
+
+bool __sk_filter_charge(struct sock *sk, struct sk_filter *fp);
+
+bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+{
+	bool ret = __sk_filter_charge(sk, fp);
+	if (ret)
+		refcount_inc(&fp->refcnt);
+	return ret;
+}
+
+... and let __sk_attach_prog() call __sk_filter_charge() and only fo
+the second refcount_set()?
+
+>   	old_fp = rcu_dereference_protected(sk->sk_filter,
+>   					   lockdep_sock_is_held(sk));
+>
