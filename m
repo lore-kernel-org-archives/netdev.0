@@ -1,13 +1,15 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next] r8152: simply the arguments
-Date: Thu, 16 Mar 2017 14:27:34 +0800
-Message-ID: <1394712342-15778-253-Taiwan-albertk@realtek.com>
+Subject: [PATCH v2 net-next] r8152: simply the arguments
+Date: Thu, 16 Mar 2017 14:32:22 +0800
+Message-ID: <1394712342-15778-254-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-253-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
         <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-253-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -15,11 +17,11 @@ Replace &tp->napi with napi and tp->netdev with netdev.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 44 +++++++++++++++++++++++++++-----------------
- 1 file changed, 27 insertions(+), 17 deletions(-)
+ drivers/net/usb/r8152.c | 43 ++++++++++++++++++++++++++-----------------
+ 1 file changed, 26 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 227e1fd..e480e9f 100644
+index 227e1fd..4b85e95 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
 @@ -1761,6 +1761,7 @@ static int rx_bottom(struct r8152 *tp, int budget)
@@ -57,16 +59,15 @@ index 227e1fd..e480e9f 100644
  				work_done++;
  				stats->rx_packets++;
  				stats->rx_bytes += pkt_len;
-@@ -3150,6 +3151,8 @@ static bool rtl8153_in_nway(struct r8152 *tp)
+@@ -3150,6 +3151,7 @@ static bool rtl8153_in_nway(struct r8152 *tp)
  static void set_carrier(struct r8152 *tp)
  {
  	struct net_device *netdev = tp->netdev;
 +	struct napi_struct *napi = &tp->napi;
-+
  	u8 speed;
  
  	speed = rtl8152_get_speed(tp);
-@@ -3159,7 +3162,7 @@ static void set_carrier(struct r8152 *tp)
+@@ -3159,7 +3161,7 @@ static void set_carrier(struct r8152 *tp)
  			tp->rtl_ops.enable(tp);
  			set_bit(RTL8152_SET_RX_MODE, &tp->flags);
  			netif_stop_queue(netdev);
@@ -75,7 +76,7 @@ index 227e1fd..e480e9f 100644
  			netif_carrier_on(netdev);
  			rtl_start_rx(tp);
  			napi_enable(&tp->napi);
-@@ -3169,9 +3172,9 @@ static void set_carrier(struct r8152 *tp)
+@@ -3169,9 +3171,9 @@ static void set_carrier(struct r8152 *tp)
  	} else {
  		if (netif_carrier_ok(netdev)) {
  			netif_carrier_off(netdev);
@@ -87,7 +88,7 @@ index 227e1fd..e480e9f 100644
  			netif_info(tp, link, netdev, "carrier off\n");
  		}
  	}
-@@ -3633,11 +3636,13 @@ static int rtl8152_runtime_suspend(struct r8152 *tp)
+@@ -3633,11 +3635,13 @@ static int rtl8152_runtime_suspend(struct r8152 *tp)
  		tp->rtl_ops.autosuspend_en(tp, true);
  
  		if (netif_carrier_ok(netdev)) {
@@ -103,7 +104,7 @@ index 227e1fd..e480e9f 100644
  		}
  	}
  
-@@ -3653,12 +3658,14 @@ static int rtl8152_system_suspend(struct r8152 *tp)
+@@ -3653,12 +3657,14 @@ static int rtl8152_system_suspend(struct r8152 *tp)
  	netif_device_detach(netdev);
  
  	if (netif_running(netdev) && test_bit(WORK_ENABLE, &tp->flags)) {
@@ -120,7 +121,7 @@ index 227e1fd..e480e9f 100644
  	}
  
  	return ret;
-@@ -3684,35 +3691,38 @@ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
+@@ -3684,35 +3690,38 @@ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
  static int rtl8152_resume(struct usb_interface *intf)
  {
  	struct r8152 *tp = usb_get_intfdata(intf);
