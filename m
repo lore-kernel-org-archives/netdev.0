@@ -1,78 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Fix jumbo MTU processing on newer
- hardware
-Date: Wed, 15 Mar 2017 16:43:42 -0700 (PDT)
-Message-ID: <20170315.164342.1399522126912671968.davem@davemloft.net>
-References: <fce6d38d-6115-641d-ec68-47c2311021ce@amd.com>
-        <20170315.154149.1161814285370679300.davem@davemloft.net>
-        <1b4a099a-66a8-3fdb-01ed-bc110756244a@amd.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] tcp: remove per-destination timestamp cache
+Date: Wed, 15 Mar 2017 17:06:58 -0700
+Message-ID: <1489622818.28631.191.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170315203046.158791-1-soheil.kdev@gmail.com>
+         <20170315.154044.170788541865531834.davem@davemloft.net>
+         <1489618741.28631.172.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170315.164508.1392215340407263261.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Cc: soheil.kdev@gmail.com, netdev@vger.kernel.org, soheil@google.com,
+        edumazet@google.com, ncardwell@google.com, ycheng@google.com,
+        lvml@5t9.de, fw@strlen.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56418 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750926AbdCOXts (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 19:49:48 -0400
-In-Reply-To: <1b4a099a-66a8-3fdb-01ed-bc110756244a@amd.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35809 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750977AbdCPAHG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 20:07:06 -0400
+Received: by mail-pg0-f68.google.com with SMTP id g2so3866067pge.2
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 17:07:05 -0700 (PDT)
+In-Reply-To: <20170315.164508.1392215340407263261.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Wed, 15 Mar 2017 17:52:44 -0500
+On Wed, 2017-03-15 at 16:45 -0700, David Miller wrote:
 
-> On 3/15/2017 5:41 PM, David Miller wrote:
->> From: Tom Lendacky <thomas.lendacky@amd.com>
->> Date: Wed, 15 Mar 2017 17:40:51 -0500
->>
->>> On 3/15/2017 5:37 PM, David Miller wrote:
->>>> From: Tom Lendacky <thomas.lendacky@amd.com>
->>>> Date: Wed, 15 Mar 2017 15:11:23 -0500
->>>>
->>>>> Newer hardware does not provide a cumulative payload length when
->>>>> multiple
->>>>> descriptors are needed to handle the data. Once the MTU increases
->>>>> beyond
->>>>> the size that can be handled by a single descriptor, the SKB does not
->>>>> get
->>>>> built properly by the driver.
->>>>>
->>>>> The driver will now calculate the size of the data buffers used by the
->>>>> hardware.  The first buffer of the first descriptor is for packet
->>>>> headers
->>>>> or packet headers and data when the headers can't be split. Subsequent
->>>>> descriptors in a multi-descriptor chain will not use the first
->>>>> buffer. The
->>>>> second buffer is used by all the descriptors in the chain for payload
->>>>> data.
->>>>> Based on whether the driver is processing the first, intermediate, or
->>>>> last
->>>>> descriptor it can calculate the buffer usage and build the SKB
->>>>> properly.
->>>>>
->>>>> Tested and verified on both old and new hardware.
->>>>>
->>>>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
->>>>
->>>> Applied, thanks Tom.
->>>
->>> Thanks David.  This is another patch for 4.10 stable. Can you please
->>> queue it up?
->>
->> Can you properly state this in your patch postings, instead of always
->> mentioning it later?
->>
-> 
-> Sorry, yes, I can do that.  I didn't realize you preferred it that
-> way.
-> Do you want the "Cc" tag to stable included in the patch or just
-> mention the stable targets in the patch description?  I know you
-> coordinate the stable submissions and I don't want to mess anything
-> up.
+> Ok, I guess we can remove it in that case.  I'm still a bit disappointed
+> as I was always hoping someone would find a way to make this work even
+> in the presence of NAT.
 
-Just put a note after a "---" delimiter, requesting that I queue it up
-for -stable.
+Nat are good, Nat are good.
 
-Thanks.
+I can't find this hilarious video we watched in Copenhagen ;)
