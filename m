@@ -1,88 +1,81 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 3/9] net, ipv6: convert inet6_ifaddr.refcnt from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 20:23:25 +0200
-Message-ID: <1489688611-4542-4-git-send-email-elena.reshetova@intel.com>
-References: <1489688611-4542-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-        jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
-        steffen.klassert@secunet.com, kuznet@ms2.inr.ac.ru,
-        peterz@infradead.org, keescook@chromium.org,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489688611-4542-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 4/5] sunvnet: count multicast packets
+Date: Thu, 16 Mar 2017 11:30:02 -0700 (PDT)
+Message-ID: <20170316.113002.1116238459858653812.davem@davemloft.net>
+References: <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
+        <4ee0ac85-62a3-2cb2-0d5d-d17e4334bde8@oracle.com>
+        <063D6719AE5E284EB5DD2968C1650D6DCFFB283F@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shannon.nelson@oracle.com, netdev@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David.Laight@ACULAB.COM
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB283F@AcuExch.aculab.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Thu, 16 Mar 2017 12:12:06 +0000
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
----
- include/net/addrconf.h | 6 +++---
- include/net/if_inet6.h | 2 +-
- net/ipv6/addrconf.c    | 2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+> From: Shannon Nelson
+>> Sent: 16 March 2017 00:18
+>> To: David Laight; netdev@vger.kernel.org; davem@davemloft.net
+>> On 3/15/2017 1:50 AM, David Laight wrote:
+>> > From: Shannon Nelson
+>> >> Sent: 14 March 2017 17:25
+>> > ...
+>> >> +	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
+>> >> +		dev->stats.multicast++;
+>> >
+>> > I'd guess that:
+>> > 	dev->stats.multicast += is_multicast_ether_addr(eth_hdr(skb)->h_dest);
+>> > generates faster code.
+>> > Especially if is_multicast_ether_addr(x) is (*x >> 7).
+> 
+> I'd clearly got brain-fade there, mcast bit is the first transmitted bit
+> (on ethernet) but the bytes are sent LSB first (like async).
+>> > 	David
+>> 
+>> Hi David, thanks for the comment.  My local instruction level
+>> performance guru is on vacation this week so I can't do a quick check
+>> with him today on this.  However, I"m not too worried here since the
+>> inline code for is_multicast_ether_addr() is simply
+>> 
+>> 	return 0x01 & addr[0];
+>> 
+>> and objdump tells me that on sparc it compiles down to a simple single
+>> byte load and compare:
+>> 
+>>      325c:	c2 08 80 03 	ldub  [ %g2 + %g3 ], %g1
+>>      3260:	80 88 60 01 	btst  1, %g1
+>>      3264:	32 60 00 b3 	bne,a,pn   %xcc, 3530 <vnet_rx_one+0x430>
+>>      3268:	c2 5c 61 68 	ldx  [ %l1 + 0x168 ], %g1
+>> 		dev->stats.multicast++;
+> 
+> Followed by a branch that might be marked 'assume taken' so the
+> normal path takes the branch.
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index e5704b9..7b2fdd4 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -326,18 +326,18 @@ void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp);
- 
- static inline void in6_ifa_put(struct inet6_ifaddr *ifp)
- {
--	if (atomic_dec_and_test(&ifp->refcnt))
-+	if (refcount_dec_and_test(&ifp->refcnt))
- 		inet6_ifa_finish_destroy(ifp);
- }
- 
- static inline void __in6_ifa_put(struct inet6_ifaddr *ifp)
- {
--	atomic_dec(&ifp->refcnt);
-+	refcount_dec(&ifp->refcnt);
- }
- 
- static inline void in6_ifa_hold(struct inet6_ifaddr *ifp)
- {
--	atomic_inc(&ifp->refcnt);
-+	refcount_inc(&ifp->refcnt);
- }
- 
- 
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index e7a17b2..2b41cb8 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -46,7 +46,7 @@ struct inet6_ifaddr {
- 	/* In seconds, relative to tstamp. Expiry is at tstamp + HZ * lft. */
- 	__u32			valid_lft;
- 	__u32			prefered_lft;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- 	spinlock_t		lock;
- 
- 	int			state;
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index a2ce7666..94f45dc 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1011,7 +1011,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	ifa->idev = idev;
- 	in6_dev_hold(idev);
- 	/* For caller */
--	in6_ifa_hold(ifa);
-+	refcount_set(&ifa->refcnt, 1);
- 
- 	/* Add to big hash table */
- 	hash = inet6_addr_hash(addr);
--- 
-2.7.4
+The branch is predicted not taken, so the fallthrough happens most
+often.  And this is optimal for most Niagara parts as taken branches
+make the cpu thread yield whereas non-taken branches do not.
+
+But this is such a petty thing to be discussing compared to the substance
+of this person's changes.  David, I really wish you wouldn't waste people's
+time with this stuff.
+
+Maybe if you had to review hundreds of networking patches every day like
+I do, you would start to understand the costs of the interference you
+place into the review process when you bring up such small matters like
+this all the time.
+
+I'd much rather you review the substance of a person's changes,
+because that actually helps things more forward.  If you want to micro
+optimize then _do it on your own time_, submit patches that do the
+micro optimization, and have it go through the review process like
+everyone else's changes.
+
+I very much appreciate your cooperation on this matter.
+
+Thanks.
