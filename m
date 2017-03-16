@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 8/9] mlxsw: spectrum_router: Add support for VRFs on top of bridges
-Date: Thu, 16 Mar 2017 09:08:19 +0100
-Message-ID: <1489651700-3586-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 7/9] mlxsw: spectrum_router: Add support for VRFs
+Date: Thu, 16 Mar 2017 09:08:18 +0100
+Message-ID: <1489651700-3586-8-git-send-email-jiri@resnulli.us>
 References: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
@@ -9,160 +9,156 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:36780 "EHLO
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:34347 "EHLO
         mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751428AbdCPIIr (ORCPT
+        with ESMTP id S1751366AbdCPIIr (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 04:08:47 -0400
-Received: by mail-wr0-f196.google.com with SMTP id l37so4805267wrc.3
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 01:08:32 -0700 (PDT)
+Received: by mail-wr0-f196.google.com with SMTP id u48so4828395wrc.1
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 01:08:30 -0700 (PDT)
 In-Reply-To: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-In a similar fashion to the previous patch, allow bridges and VLAN
-devices on top of bridges to be enslaved to a VRF master device.
+Allow port netdevs, LAG and VLAN devices stacked on top of these to be
+enslaved to a VRF master device.
+
+Upon enslavement, create a router interface (RIF) for the enslaved
+netdev and associate it with a virtual router (VR) based on the VRF's
+table ID.
+
+If a RIF already exists for the netdev (f.e., due to the existence of an
+IP address), then it's deleted and a new one is created with the
+appropriate VR binding.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 52 +++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  4 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 26 +++++++++++
- 3 files changed, 81 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 19 ++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  4 +++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 41 ++++++++++++++++++++++
+ 3 files changed, 61 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 659df32..28019f8 100644
+index 475499b..659df32 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -4111,7 +4111,7 @@ static int mlxsw_sp_netdevice_bridge_event(struct net_device *br_dev,
- 	switch (event) {
- 	case NETDEV_PRECHANGEUPPER:
+@@ -3951,7 +3951,8 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
  		upper_dev = info->upper_dev;
--		if (!is_vlan_dev(upper_dev))
-+		if (!is_vlan_dev(upper_dev) && !netif_is_l3_master(upper_dev))
+ 		if (!is_vlan_dev(upper_dev) &&
+ 		    !netif_is_lag_master(upper_dev) &&
+-		    !netif_is_bridge_master(upper_dev))
++		    !netif_is_bridge_master(upper_dev) &&
++		    !netif_is_l3_master(upper_dev))
  			return -EINVAL;
- 		if (is_vlan_dev(upper_dev) &&
- 		    br_dev != mlxsw_sp->master_bridge.dev)
-@@ -4126,6 +4126,12 @@ static int mlxsw_sp_netdevice_bridge_event(struct net_device *br_dev,
+ 		if (!info->linking)
+ 			break;
+@@ -3991,6 +3992,11 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
  			else
- 				mlxsw_sp_master_bridge_vlan_unlink(mlxsw_sp,
- 								   upper_dev);
+ 				mlxsw_sp_port_lag_leave(mlxsw_sp_port,
+ 							upper_dev);
 +		} else if (netif_is_l3_master(upper_dev)) {
 +			if (info->linking)
-+				err = mlxsw_sp_bridge_vrf_join(mlxsw_sp,
-+							       br_dev);
++				err = mlxsw_sp_port_vrf_join(mlxsw_sp_port);
 +			else
-+				mlxsw_sp_bridge_vrf_leave(mlxsw_sp, br_dev);
++				mlxsw_sp_port_vrf_leave(mlxsw_sp_port);
  		} else {
  			err = -EINVAL;
  			WARN_ON(1);
-@@ -4415,6 +4421,47 @@ static int mlxsw_sp_netdevice_lag_vport_event(struct net_device *lag_dev,
- 	return 0;
- }
- 
-+static int mlxsw_sp_netdevice_bridge_vlan_event(struct net_device *vlan_dev,
-+						unsigned long event, void *ptr)
-+{
-+	struct netdev_notifier_changeupper_info *info;
-+	struct mlxsw_sp *mlxsw_sp;
-+	int err = 0;
-+
-+	mlxsw_sp = mlxsw_sp_lower_get(vlan_dev);
-+	if (!mlxsw_sp)
-+		return 0;
-+
-+	info = ptr;
-+
-+	switch (event) {
-+	case NETDEV_PRECHANGEUPPER:
-+		/* VLAN devices are only allowed on top of the
-+		 * VLAN-aware bridge.
-+		 */
-+		if (WARN_ON(vlan_dev_real_dev(vlan_dev) !=
-+			    mlxsw_sp->master_bridge.dev))
-+			return -EINVAL;
-+		if (!netif_is_l3_master(info->upper_dev))
-+			return -EINVAL;
-+		break;
-+	case NETDEV_CHANGEUPPER:
-+		if (netif_is_l3_master(info->upper_dev)) {
+@@ -4353,14 +4359,16 @@ static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
+ 	switch (event) {
+ 	case NETDEV_PRECHANGEUPPER:
+ 		upper_dev = info->upper_dev;
+-		if (!netif_is_bridge_master(upper_dev))
++		if (!netif_is_bridge_master(upper_dev) &&
++		    !netif_is_l3_master(upper_dev))
+ 			return -EINVAL;
+ 		if (!info->linking)
+ 			break;
+ 		/* We can't have multiple VLAN interfaces configured on
+ 		 * the same port and being members in the same bridge.
+ 		 */
+-		if (!mlxsw_sp_port_master_bridge_check(mlxsw_sp_port,
++		if (netif_is_bridge_master(upper_dev) &&
++		    !mlxsw_sp_port_master_bridge_check(mlxsw_sp_port,
+ 						       upper_dev))
+ 			return -EINVAL;
+ 		break;
+@@ -4372,6 +4380,11 @@ static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
+ 								 upper_dev);
+ 			else
+ 				mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport);
++		} else if (netif_is_l3_master(upper_dev)) {
 +			if (info->linking)
-+				err = mlxsw_sp_bridge_vrf_join(mlxsw_sp,
-+							       vlan_dev);
++				err = mlxsw_sp_vport_vrf_join(mlxsw_sp_vport);
 +			else
-+				mlxsw_sp_bridge_vrf_leave(mlxsw_sp, vlan_dev);
-+		} else {
-+			err = -EINVAL;
-+			WARN_ON(1);
-+		}
-+		break;
-+	}
-+
-+	return err;
-+}
-+
- static int mlxsw_sp_netdevice_vlan_event(struct net_device *vlan_dev,
- 					 unsigned long event, void *ptr)
- {
-@@ -4427,6 +4474,9 @@ static int mlxsw_sp_netdevice_vlan_event(struct net_device *vlan_dev,
- 	else if (netif_is_lag_master(real_dev))
- 		return mlxsw_sp_netdevice_lag_vport_event(real_dev, event, ptr,
- 							  vid);
-+	else if (netif_is_bridge_master(real_dev))
-+		return mlxsw_sp_netdevice_bridge_vlan_event(vlan_dev, event,
-+							    ptr);
- 
- 	return 0;
- }
++				mlxsw_sp_vport_vrf_leave(mlxsw_sp_vport);
+ 		} else {
+ 			err = -EINVAL;
+ 			WARN_ON(1);
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 60004d9..0e223f6 100644
+index 5502232..60004d9 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -582,6 +582,10 @@ int mlxsw_sp_vport_vrf_join(struct mlxsw_sp_port *mlxsw_sp_vport);
- void mlxsw_sp_vport_vrf_leave(struct mlxsw_sp_port *mlxsw_sp_vport);
- int mlxsw_sp_port_vrf_join(struct mlxsw_sp_port *mlxsw_sp_port);
- void mlxsw_sp_port_vrf_leave(struct mlxsw_sp_port *mlxsw_sp_port);
-+int mlxsw_sp_bridge_vrf_join(struct mlxsw_sp *mlxsw_sp,
-+			     struct net_device *l3_dev);
-+void mlxsw_sp_bridge_vrf_leave(struct mlxsw_sp *mlxsw_sp,
-+			       struct net_device *l3_dev);
+@@ -578,6 +578,10 @@ int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
+ 			    unsigned long event, void *ptr);
+ void mlxsw_sp_rif_bridge_destroy(struct mlxsw_sp *mlxsw_sp,
+ 				 struct mlxsw_sp_rif *r);
++int mlxsw_sp_vport_vrf_join(struct mlxsw_sp_port *mlxsw_sp_vport);
++void mlxsw_sp_vport_vrf_leave(struct mlxsw_sp_port *mlxsw_sp_vport);
++int mlxsw_sp_port_vrf_join(struct mlxsw_sp_port *mlxsw_sp_port);
++void mlxsw_sp_port_vrf_leave(struct mlxsw_sp_port *mlxsw_sp_port);
  
  int mlxsw_sp_kvdl_alloc(struct mlxsw_sp *mlxsw_sp, unsigned int entry_count);
  void mlxsw_sp_kvdl_free(struct mlxsw_sp *mlxsw_sp, int entry_index);
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index e262688..c89f4b4 100644
+index 91ec62a..e262688 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3267,6 +3267,32 @@ void mlxsw_sp_port_vrf_leave(struct mlxsw_sp_port *mlxsw_sp_port)
- 	mlxsw_sp_vport_vrf_leave(mlxsw_sp_vport);
+@@ -3226,6 +3226,47 @@ int mlxsw_sp_netdevice_router_port_event(struct net_device *dev)
+ 	return err;
  }
  
-+int mlxsw_sp_bridge_vrf_join(struct mlxsw_sp *mlxsw_sp,
-+			     struct net_device *l3_dev)
++int mlxsw_sp_vport_vrf_join(struct mlxsw_sp_port *mlxsw_sp_vport)
 +{
-+	struct mlxsw_sp_fid *f;
++	struct mlxsw_sp_fid *f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
++	struct net_device *dev = mlxsw_sp_vport->dev;
 +
-+	f = mlxsw_sp_bridge_fid_get(mlxsw_sp, l3_dev);
-+	if (WARN_ON(!f))
-+		return -EINVAL;
++	/* In case vPort already has a RIF, then we need to drop it.
++	 * A new one will be created using the VRF's VR.
++	 */
++	if (f && f->r)
++		mlxsw_sp_vport_rif_sp_leave(mlxsw_sp_vport);
 +
-+	if (f->r)
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
-+
-+	return mlxsw_sp_rif_bridge_create(mlxsw_sp, l3_dev, f);
++	return mlxsw_sp_vport_rif_sp_join(mlxsw_sp_vport, dev);
 +}
 +
-+void mlxsw_sp_bridge_vrf_leave(struct mlxsw_sp *mlxsw_sp,
-+			       struct net_device *l3_dev)
++void mlxsw_sp_vport_vrf_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
 +{
-+	struct mlxsw_sp_fid *f;
++	mlxsw_sp_vport_rif_sp_leave(mlxsw_sp_vport);
++}
 +
-+	f = mlxsw_sp_bridge_fid_get(mlxsw_sp, l3_dev);
-+	if (WARN_ON(!f))
++int mlxsw_sp_port_vrf_join(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, 1);
++	if (WARN_ON(!mlxsw_sp_vport))
++		return -EINVAL;
++
++	return mlxsw_sp_vport_vrf_join(mlxsw_sp_vport);
++}
++
++void mlxsw_sp_port_vrf_leave(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, 1);
++	if (WARN_ON(!mlxsw_sp_vport))
 +		return;
-+	mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
++
++	mlxsw_sp_vport_vrf_leave(mlxsw_sp_vport);
 +}
 +
  static void mlxsw_sp_router_fib_dump_flush(struct notifier_block *nb)
