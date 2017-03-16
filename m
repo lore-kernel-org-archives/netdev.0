@@ -1,33 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] openvswitch: Add missing case
- OVS_TUNNEL_KEY_ATTR_PAD
-Date: Thu, 16 Mar 2017 12:00:28 -0700 (PDT)
-Message-ID: <20170316.120028.1195095010958027326.davem@davemloft.net>
-References: <1b8ba07efdee3db310d4504462924565684ebd64.1489677257.git.kriskend@linux.vnet.ibm.com>
-        <1489679488-18874-1-git-send-email-kriskend@linux.vnet.ibm.com>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+ atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 12:10:32 -0700 (PDT)
+Message-ID: <20170316.121032.405930218798336643.davem@davemloft.net>
+References: <1489678147-21404-8-git-send-email-elena.reshetova@intel.com>
+	<1489683534.28631.231.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAGXu5jJpFwiDR_o=oarN_2vDr56cwQ=Bg-5NikUmDtxtzWnAcQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, seroyer@linux.vnet.ibm.com,
-        adreznec@linux.vnet.ibm.com
-To: kriskend@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41300 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752014AbdCPTJs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 15:09:48 -0400
-In-Reply-To: <1489679488-18874-1-git-send-email-kriskend@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, peterz@infradead.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, ishkamiel@gmail.com, kuznet@ms2.inr.ac.ru,
+	kaber@trash.net, elena.reshetova@intel.com, dwindsor@gmail.com
+To: keescook@chromium.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAGXu5jJpFwiDR_o=oarN_2vDr56cwQ=Bg-5NikUmDtxtzWnAcQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Kris Murphy <kriskend@linux.vnet.ibm.com>
-Date: Thu, 16 Mar 2017 10:51:28 -0500
+From: Kees Cook <keescook@chromium.org>
+Date: Thu, 16 Mar 2017 11:38:25 -0600
 
-> Added a case for OVS_TUNNEL_KEY_ATTR_PAD to the switch statement
-> in ip_tun_from_nlattr in order to prevent the default case
-> returning an error.
-> 
-> Fixes: b46f6ded906e ("libnl: nla_put_be64(): align on a 64-bit area")
-> Signed-off-by: Kris Murphy <kriskend@linux.vnet.ibm.com>
+> I am, of course, biased, but I think the evidence of actual
+> refcounting attacks outweighs the theoretical performance cost of
+> these changes.
 
-Applied and queued up for -stable, thanks.
+This is not theoretical at all.
+
+We count the nanoseconds that every packet takes to get processed and
+you are adding quite a bit.
+
+I understand your point of view, but this is knowingly going to add
+performance regressions to the networking code.
