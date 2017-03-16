@@ -1,85 +1,114 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 11:38:25 -0600
-Message-ID: <CAGXu5jJpFwiDR_o=oarN_2vDr56cwQ=Bg-5NikUmDtxtzWnAcQ@mail.gmail.com>
-References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
- <1489678147-21404-8-git-send-email-elena.reshetova@intel.com> <1489683534.28631.231.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH 08/29] drivers, md: convert mddev.active from atomic_t
+ to refcount_t
+Date: Thu, 16 Mar 2017 18:00:07 +0000
+Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C59FF8@IRSMSX102.ger.corp.intel.com>
+References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
+	 <1488810076-3754-9-git-send-email-elena.reshetova@intel.com>
+	 <87lgs8ukfq.fsf@concordia.ellerman.id.au>
+	 <2236FBA76BA1254E88B949DDB74E612B41C588E8@IRSMSX102.ger.corp.intel.com>
+ <1489503539.3214.17.camel@HansenPartnership.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Elena Reshetova <elena.reshetova@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        bridge@lists.linux-foundation.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489683534.28631.231.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org" <xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
+	<linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, "linux-bcache-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-bcache-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org"
+	<devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org>, "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org"
+	<fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>, "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org"
+	<open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, "devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org"
+	<devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>, "target-devel-u79uwXL29TZNg+MwTxZMZA@public.gmane.org
+To: James Bottomley <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>, Michael Ellerman
+	<mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>, "gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org"
+	<gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <open-iscsi+bncBCWONPVE7ANRBLVFVPDAKGQEK762NQQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <1489503539.3214.17.camel-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>
+Content-Language: en-US
+List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/open-iscsi
+List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/open-iscsi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 16, 2017 at 10:58 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-03-16 at 17:28 +0200, Elena Reshetova wrote:
->> refcount_t type and corresponding API should be
->> used instead of atomic_t when the variable is used as
->> a reference counter. This allows to avoid accidental
->> refcounter overflows that might lead to use-after-free
->> situations.
->
->
-> ...
->
->>  static __always_inline void sock_hold(struct sock *sk)
->>  {
->> -     atomic_inc(&sk->sk_refcnt);
->> +     refcount_inc(&sk->sk_refcnt);
->>  }
->>
->
-> While I certainly see the value of these refcount_t, we have a very
-> different behavior on these atomic_inc() which were doing a single
-> inlined LOCK RMW on x86.
+> On Tue, 2017-03-14 at 12:29 +0000, Reshetova, Elena wrote:
+> > > Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
+> > >
+> > > > refcount_t type and corresponding API should be
+> > > > used instead of atomic_t when the variable is used as
+> > > > a reference counter. This allows to avoid accidental
+> > > > refcounter overflows that might lead to use-after-free
+> > > > situations.
+> > > >
+> > > > Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> > > > Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > > > Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> > > > Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > > > ---
+> > > >  drivers/md/md.c | 6 +++---
+> > > >  drivers/md/md.h | 3 ++-
+> > > >  2 files changed, 5 insertions(+), 4 deletions(-)
+> > >
+> > > When booting linux-next (specifically 5be4921c9958ec) I'm seeing
+> > > the
+> > > backtrace below. I suspect this patch is just exposing an existing
+> > > issue?
+> >
+> > Yes, we have actually been following this issue in the another
+> > thread.
+> > It looks like the object is re-used somehow, but I can't quite
+> > understand how just by reading the code.
+> > This was what I put into the previous thread:
+> >
+> > "The log below indicates that you are using your refcounter in a bit
+> > weird way in mddev_find().
+> > However, I can't find the place (just by reading the code) where you
+> > would increment refcounter from zero (vs. setting it to one).
+> > It looks like you either iterate over existing nodes (and increment
+> > their counters, which should be >= 1 at the time of increment) or
+> > create a new node, but then mddev_init() sets the counter to 1. "
+> >
+> > If you can help to understand what is going on with the object
+> > creation/destruction, would be appreciated!
+> >
+> > Also Shaohua Li stopped this patch coming from his tree since the
+> > issue was caught at that time, so we are not going to merge this
+> > until we figure it out.
+> 
+> Asking on the correct list (dm-devel) would have got you the easy
+> answer:  The refcount behind mddev->active is a genuine atomic.  It has
+> refcount properties but only if the array fails to initialise (in that
+> case, final put kills it).  Once it's added to the system as a gendisk,
+> it cannot be freed until md_free().  Thus its ->active count can go to
+> zero (when it becomes inactive; usually because of an unmount). On a
+> simple allocation regardless of outcome, the last executed statement in
+> md_alloc is mddev_put(): that destroys the device if we didn't manage
+> to create it or returns 0 and adds an inactive device to the system
+> which the user can get with mddev_find().
 
-I think we can certainly investigate arch-specific ways to improve the
-performance, but the consensus seemed to be that getting the
-infrastructure in and doing the migration was the first set of steps.
+Thank you James for explaining this! I guess in this case, the conversion doesn't make sense. 
+And sorry about not asking in a correct place: we are handling many similar patches now and while I try to reach the right audience using get_maintainer script, it doesn't always succeeds. 
 
-> We now call an external function performing a
-> atomic_read(), various ops/tests, then atomic_cmpxchg_relaxed(), in a
-> loop, loosing the nice ability for x86 of preventing live locks.
->
-> Looks a lot of bloat, just to be able to chase hypothetical bugs in the
-> kernel.
->
-> I would love to have a way to enable extra debugging when I want a debug
-> kernel, like LOCKDEP or KASAN.
->
-> By adding all this bloat, we assert linux kernel is terminally buggy and
-> every atomic_inc() we did was suspicious, and need to be always
-> instrumented/validated.
+Best Regards,
+Elena.
 
-This IS the assertion, unfortunately. With average 5 year lifetimes on
-security flaws[1], and many of the last couple years' public exploits
-being refcount flaws[2], this is something we have to get done. We
-need the default kernel to be much more self-protective, and this is
-one of many places to make it happen.
-
-I am, of course, biased, but I think the evidence of actual
-refcounting attacks outweighs the theoretical performance cost of
-these changes. If there is a realistic workflow that shows actual
-problems, let's examine it and find a solution for that as a separate
-part of this work without blocking this migration.
-
--Kees
-
-[1] https://outflux.net/blog/archives/2016/10/18/security-bug-lifetime/
-[2] http://kernsec.org/wiki/index.php/Bug_Classes/Integer_overflow
+> 
+> James
+> 
 
 -- 
-Kees Cook
-Pixel Security
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+Visit this group at https://groups.google.com/group/open-iscsi.
+For more options, visit https://groups.google.com/d/optout.
