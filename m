@@ -1,129 +1,41 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 08/17] net: convert sk_filter.refcnt from atomic_t to
- refcount_t
-Date: Thu, 16 Mar 2017 17:04:49 +0100
-Message-ID: <58CAB7A1.8060500@iogearbox.net>
-References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com> <1489678147-21404-9-git-send-email-elena.reshetova@intel.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v1 for accelerated IPoIB 04/25] IB/verb: Add ipoib_options
+ struct and API
+Date: Thu, 16 Mar 2017 10:04:34 -0600
+Message-ID: <20170316160434.GC23821@obsidianresearch.com>
+References: <1489429896-10781-1-git-send-email-erezsh@mellanox.com>
+ <1489429896-10781-5-git-send-email-erezsh@mellanox.com>
+ <20170313200136.GA2738@obsidianresearch.com>
+ <CAAk-MO8vPepHWHF_2GMbtC3yyxht1VFs=3Gu1r+drDs7ZbdpOg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        stephen@networkplumber.org, peterz@infradead.org,
-        keescook@chromium.org, Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>,
-        alexei.starovoitov@gmail.com
-To: Elena Reshetova <elena.reshetova@intel.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489678147-21404-9-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Erez Shitrit <erezsh@mellanox.com>,
+        Doug Ledford <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        netdev@vger.kernel.org, valex@mellanox.com,
+        Leon Romanovsky <leonro@mellanox.com>, saedm@mellanox.com
+To: Erez Shitrit <erezsh@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:33866 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752103AbdCPQFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Mar 2017 12:05:12 -0400
+Content-Disposition: inline
+In-Reply-To: <CAAk-MO8vPepHWHF_2GMbtC3yyxht1VFs=3Gu1r+drDs7ZbdpOg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2017 04:28 PM, Elena Reshetova wrote:
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
->
-> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
-> ---
->   include/linux/filter.h | 3 ++-
->   net/core/filter.c      | 7 ++++---
->   2 files changed, 6 insertions(+), 4 deletions(-)
->
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index 8053c38..20247e7 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -7,6 +7,7 @@
->   #include <stdarg.h>
->
->   #include <linux/atomic.h>
-> +#include <linux/refcount.h>
->   #include <linux/compat.h>
->   #include <linux/skbuff.h>
->   #include <linux/linkage.h>
-> @@ -431,7 +432,7 @@ struct bpf_prog {
->   };
->
->   struct sk_filter {
-> -	atomic_t	refcnt;
-> +	refcount_t	refcnt;
->   	struct rcu_head	rcu;
->   	struct bpf_prog	*prog;
->   };
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index ebaeaf2..62267e2 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -928,7 +928,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
->    */
->   static void sk_filter_release(struct sk_filter *fp)
->   {
-> -	if (atomic_dec_and_test(&fp->refcnt))
-> +	if (refcount_dec_and_test(&fp->refcnt))
->   		call_rcu(&fp->rcu, sk_filter_release_rcu);
->   }
->
-> @@ -950,7 +950,7 @@ bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
->   	/* same check as in sock_kmalloc() */
->   	if (filter_size <= sysctl_optmem_max &&
->   	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
-> -		atomic_inc(&fp->refcnt);
-> +		refcount_inc(&fp->refcnt);
->   		atomic_add(filter_size, &sk->sk_omem_alloc);
->   		return true;
->   	}
-> @@ -1179,12 +1179,13 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
->   		return -ENOMEM;
->
->   	fp->prog = prog;
-> -	atomic_set(&fp->refcnt, 0);
-> +	refcount_set(&fp->refcnt, 1);
->
->   	if (!sk_filter_charge(sk, fp)) {
->   		kfree(fp);
->   		return -ENOMEM;
->   	}
-> +	refcount_set(&fp->refcnt, 1);
+On Thu, Mar 16, 2017 at 05:17:55PM +0200, Erez Shitrit wrote:
+ 
+> The QP as a part of the HW resources, it is created in the low-level
+> driver, and used by the upper ipoib for few reasons, (for example the
+> mac of the ipoib interface includes from the qp_num)
+> Now, if we want to use the ndo's init/uninit i need to store member
+> variables (qp_num and context) in the rdma_netdev, that will let me
+> use the ndos as is.
+> rdma_netdev is the one who belongs to both layers, ipoib and the low-level.
 
-Regarding the two subsequent refcount_set(, 1) that look a bit strange
-due to the sk_filter_charge() having refcount_inc() I presume ... can't
-the refcount API handle such corner case? Or alternatively the let the
-sk_filter_charge() handle it, for example:
+IPOIB rdma_netdev's can be casted to ipoib_rdma_netdev, so it is where
+ipoib specific cross-layer stuff should live
 
-bool __sk_filter_charge(struct sock *sk, struct sk_filter *fp)
-{
-	u32 filter_size = bpf_prog_size(fp->prog->len);
-
-	/* same check as in sock_kmalloc() */
-	if (filter_size <= sysctl_optmem_max &&
-	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
-		atomic_add(filter_size, &sk->sk_omem_alloc);
-		return true;
-	}
-	return false;
-}
-
-And this goes to filter.h:
-
-bool __sk_filter_charge(struct sock *sk, struct sk_filter *fp);
-
-bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
-{
-	bool ret = __sk_filter_charge(sk, fp);
-	if (ret)
-		refcount_inc(&fp->refcnt);
-	return ret;
-}
-
-... and let __sk_attach_prog() call __sk_filter_charge() and only fo
-the second refcount_set()?
-
->   	old_fp = rcu_dereference_protected(sk->sk_filter,
->   					   lockdep_sock_is_held(sk));
->
+Jason
