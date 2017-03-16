@@ -1,114 +1,269 @@
-From: "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH 08/29] drivers, md: convert mddev.active from atomic_t
- to refcount_t
-Date: Thu, 16 Mar 2017 18:00:07 +0000
-Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C59FF8@IRSMSX102.ger.corp.intel.com>
-References: <1488810076-3754-1-git-send-email-elena.reshetova@intel.com>
-	 <1488810076-3754-9-git-send-email-elena.reshetova@intel.com>
-	 <87lgs8ukfq.fsf@concordia.ellerman.id.au>
-	 <2236FBA76BA1254E88B949DDB74E612B41C588E8@IRSMSX102.ger.corp.intel.com>
- <1489503539.3214.17.camel@HansenPartnership.com>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net: stmmac: RX queue routing configuration
+Date: Thu, 16 Mar 2017 10:12:57 -0700
+Message-ID: <d63aca9d-4110-9c7b-5981-87ef01ccd5e9@gmail.com>
+References: <cover.1489661229.git.jpinto@synopsys.com>
+ <625ef961b7fd7bda4f92180afce299fc9c887e77.1489661229.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org" <xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
-	<linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, "linux-bcache-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-bcache-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org"
-	<devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org>, "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org"
-	<fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>, "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org"
-	<open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, "devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org"
-	<devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>, "target-devel-u79uwXL29TZNg+MwTxZMZA@public.gmane.org
-To: James Bottomley <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>, Michael Ellerman
-	<mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>, "gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org"
-	<gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <open-iscsi+bncBCWONPVE7ANRBLVFVPDAKGQEK762NQQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <1489503539.3214.17.camel-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>
-Content-Language: en-US
-List-Post: <https://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/open-iscsi
-List-Subscribe: <https://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/open-iscsi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34953 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752031AbdCPSIG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 14:08:06 -0400
+Received: by mail-wm0-f68.google.com with SMTP id z133so4213260wmb.2
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 11:08:05 -0700 (PDT)
+In-Reply-To: <625ef961b7fd7bda4f92180afce299fc9c887e77.1489661229.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Tue, 2017-03-14 at 12:29 +0000, Reshetova, Elena wrote:
-> > > Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
-> > >
-> > > > refcount_t type and corresponding API should be
-> > > > used instead of atomic_t when the variable is used as
-> > > > a reference counter. This allows to avoid accidental
-> > > > refcounter overflows that might lead to use-after-free
-> > > > situations.
-> > > >
-> > > > Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> > > > Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > > > Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> > > > Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > > > ---
-> > > >  drivers/md/md.c | 6 +++---
-> > > >  drivers/md/md.h | 3 ++-
-> > > >  2 files changed, 5 insertions(+), 4 deletions(-)
-> > >
-> > > When booting linux-next (specifically 5be4921c9958ec) I'm seeing
-> > > the
-> > > backtrace below. I suspect this patch is just exposing an existing
-> > > issue?
-> >
-> > Yes, we have actually been following this issue in the another
-> > thread.
-> > It looks like the object is re-used somehow, but I can't quite
-> > understand how just by reading the code.
-> > This was what I put into the previous thread:
-> >
-> > "The log below indicates that you are using your refcounter in a bit
-> > weird way in mddev_find().
-> > However, I can't find the place (just by reading the code) where you
-> > would increment refcounter from zero (vs. setting it to one).
-> > It looks like you either iterate over existing nodes (and increment
-> > their counters, which should be >= 1 at the time of increment) or
-> > create a new node, but then mddev_init() sets the counter to 1. "
-> >
-> > If you can help to understand what is going on with the object
-> > creation/destruction, would be appreciated!
-> >
-> > Also Shaohua Li stopped this patch coming from his tree since the
-> > issue was caught at that time, so we are not going to merge this
-> > until we figure it out.
+On 03/16/2017 03:56 AM, Joao Pinto wrote:
+> This patch adds the configuration of RX queues' routing.
 > 
-> Asking on the correct list (dm-devel) would have got you the easy
-> answer:  The refcount behind mddev->active is a genuine atomic.  It has
-> refcount properties but only if the array fails to initialise (in that
-> case, final put kills it).  Once it's added to the system as a gendisk,
-> it cannot be freed until md_free().  Thus its ->active count can go to
-> zero (when it becomes inactive; usually because of an unmount). On a
-> simple allocation regardless of outcome, the last executed statement in
-> md_alloc is mddev_put(): that destroys the device if we didn't manage
-> to create it or returns 0 and adds an inactive device to the system
-> which the user can get with mddev_find().
-
-Thank you James for explaining this! I guess in this case, the conversion doesn't make sense. 
-And sorry about not asking in a correct place: we are handling many similar patches now and while I try to reach the right audience using get_maintainer script, it doesn't always succeeds. 
-
-Best Regards,
-Elena.
-
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt   | 19 ++++++-
+>  drivers/net/ethernet/stmicro/stmmac/common.h       |  9 ++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h       | 18 +++++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 63 ++++++++++++++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 25 +++++++++
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |  8 +++
+>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 49 +++++++++++++++++
+>  include/linux/stmmac.h                             | 12 +++++
+>  8 files changed, 202 insertions(+), 1 deletion(-)
 > 
-> James
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index b9a9ae9..9c9e774 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -84,6 +84,16 @@ Optional properties:
+>  			- snps,avb-algorithm: Queue to be enabled as AVB
+>  		- snps,map-to-dma-channel: Channel to map
+>  	- snps,priority: RX queue priority
+> +	- Specifiy RX Queue for processing certain types of packets:
+> +		- snps,avcp-to-queue: AV Untagged Control packets
+> +		- snps,ptp-to-queue: PTP Packets
+> +		- snps,dcbcp-to-queue: DCB Control Packets
+> +		- snps,up-to-queue: Untagged Packets
+> +		- snps,multi-broad-cast-queue: Multicast & Broadcast Packets
+> +		- snps,tpqc-queue: Tagged PTPoE Packets Queuing Control. Values:
+> +			0x0 - Priority based (RX queues non-AV)
+> +			0x1 - Routes to queue indicated in "snps,ptp-to-queue"
+> +			0x2 - Priority based (RX queues AV enabled)
+>  - Multiple TX Queues parameters: below the list of all the parameters to
+>  				 configure the multiple TX queues:
+>  	- snps,tx-queues-to-use: number of TX queues to be used in the driver
+
+You are allowing a policy to be defined with Device Tree here which is
+usually frowned upon. Can you look into existing facilities offered by
+tc offloads, e.g: mqprio etc. to allow users to dynamically configure
+the queue mappings at runtime?
+
+> @@ -112,8 +122,15 @@ Examples:
+>  	};
+>  
+>  	mtl_rx_setup: rx-queues-config {
+> -		snps,rx-queues-to-use = <1>;
+> +		snps,rx-queues-to-use = <0>;
+>  		snps,rx-sched-sp;
+> +		snps,avcp-to-queue = <0>;
+> +		snps,ptp-to-queue = <0>;
+> +		snps,dcbcp-to-queue = <0>;
+> +		snps,up-to-queue = <0>;
+> +		snps,multi-broad-cast-queue = <0>;
+> +		snps,tpqc-queue = <0>;
+> +
+>  		queue0 {
+>  			snps,dcb-algorithm;
+>  			snps,map-to-dma-channel = <0x0>;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+> index e0b31e7..e08c4c4 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> @@ -473,6 +473,15 @@ struct stmmac_ops {
+>  	void (*rx_queue_prio)(struct mac_device_info *hw, u32 prio, u32 queue);
+>  	/* TX Queues Priority */
+>  	void (*tx_queue_prio)(struct mac_device_info *hw, u32 prio, u32 queue);
+> +	/* RX Queues Routing */
+> +	void (*rx_queue_routing)(struct mac_device_info *hw,
+> +				 bool route_avcp_enable, u8 route_avcp_queue,
+> +				 bool route_ptp_enable, u8 route_ptp_queue,
+> +				 bool route_dcbcp_enable, u8 route_dcbcp_queue,
+> +				 bool route_up_enable, u8 route_up_queue,
+> +				 bool route_multi_broad_enable,
+> +				 u8 route_multi_broad_queue,
+> +				 bool route_tpqc_enable, u8 route_tpqc_queue);
+>  	/* Program RX Algorithms */
+>  	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
+>  	/* Program TX Algorithms */
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> index a6c382d..93cc3f6 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> @@ -44,6 +44,24 @@
+>  #define GMAC_ADDR_HIGH(reg)		(0x300 + reg * 8)
+>  #define GMAC_ADDR_LOW(reg)		(0x304 + reg * 8)
+>  
+> +/* RX Queues Routing */
+> +#define GMAC_RXQCTRL_AVCPQ_MASK		GENMASK(2, 0)
+> +#define GMAC_RXQCTRL_AVCPQ_SHIFT	0
+> +#define GMAC_RXQCTRL_PTPQ_MASK		GENMASK(6, 4)
+> +#define GMAC_RXQCTRL_PTPQ_SHIFT		4
+> +#define GMAC_RXQCTRL_DCBCPQ_MASK	GENMASK(10, 8)
+> +#define GMAC_RXQCTRL_DCBCPQ_SHIFT	8
+> +#define GMAC_RXQCTRL_UPQ_MASK		GENMASK(14, 12)
+> +#define GMAC_RXQCTRL_UPQ_SHIFT		12
+> +#define GMAC_RXQCTRL_MCBCQ_MASK		GENMASK(18, 16)
+> +#define GMAC_RXQCTRL_MCBCQ_SHIFT	16
+> +#define GMAC_RXQCTRL_MCBCQEN		BIT(20)
+> +#define GMAC_RXQCTRL_MCBCQEN_SHIFT	20
+> +#define GMAC_RXQCTRL_TACPQE		BIT(21)
+> +#define GMAC_RXQCTRL_TACPQE_SHIFT	21
+> +#define GMAC_RXQCTRL_TPQC_MASK		GENMASK(24, 22)
+> +#define GMAC_RXQCTRL_TPQC_SHIFT		22
+> +
+>  /* MAC Packet Filtering */
+>  #define GMAC_PACKET_FILTER_PR		BIT(0)
+>  #define GMAC_PACKET_FILTER_HMC		BIT(2)
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> index 342f62a..8fc1f56 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> @@ -109,6 +109,68 @@ static void dwmac4_tx_queue_priority(struct mac_device_info *hw,
+>  	writel(value, ioaddr + base_register);
+>  }
+>  
+> +static void dwmac4_tx_queue_routing(struct mac_device_info *hw,
+> +				    bool route_avcp_enable,
+> +				    u8 route_avcp_queue,
+> +				    bool route_ptp_enable,
+> +				    u8 route_ptp_queue,
+> +				    bool route_dcbcp_enable,
+> +				    u8 route_dcbcp_queue,
+> +				    bool route_up_enable,
+> +				    u8 route_up_queue,
+> +				    bool route_multi_broad_enable,
+> +				    u8 route_multi_broad_queue,
+> +				    bool route_tpqc_enable,
+> +				    u8 route_tpqc_queue)
+> +{
+
+This is not looking good at all 13 parameters passed here... thankfully
+this is not called in a hot path.
+
+So here is what I would suggest:
+
+- put the bool, u8, and masks, shifts, offsets parameters in a
+structure, define an array of structures holding these variables in your
+driver's private context, index them with an enumeration for each queue
+
+- pass a reference to this structure here, and iterate over the array of
+structures and do the programming based on what this structure contains
+for MASK, SHIFT, base register etc...
+
+> +	void __iomem *ioaddr = hw->pcsr;
+> +	u32 value;
+> +
+> +	value = readl(ioaddr + GMAC_RXQ_CTRL1);
+> +
+
+>  static int quark_default_data(struct plat_stmmacenet_data *plat,
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 77b0468..5e82379 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -165,6 +165,55 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
+>  	else
+>  		plat->rx_sched_algorithm = MTL_RX_ALGORITHM_SP;
+>  
+> +	/* RX routing configuration */
+> +	if (of_property_read_u8(rx_node, "snps,avcp-to-queue",
+> +				&plat->route_avcp_queue)) {
+> +		plat->route_avcp_queue = 0;
+> +		plat->route_avcp_enable = false;
+> +	} else {
+> +		plat->route_avcp_enable = true;
+> +	}
+
+This is very redundant too, see the suggestion above, define an array of
+property names and look them up in a loop using the queue enumeration.
+
+> +
+> +	if (of_property_read_u8(rx_node, "snps,ptp-to-queue",
+> +				&plat->route_ptp_queue)) {
+> +		plat->route_ptp_queue = 0;
+> +		plat->route_ptp_enable = false;
+> +	} else {
+> +		plat->route_ptp_enable = true;
+> +	}
+> +
+> +	if (of_property_read_u8(rx_node, "snps,dcbcp-to-queue",
+> +				&plat->route_dcbcp_queue)) {
+> +		plat->route_dcbcp_queue = 0;
+> +		plat->route_dcbcp_enable = false;
+> +	} else {
+> +		plat->route_dcbcp_enable = true;
+> +	}
+> +
+> +	if (of_property_read_u8(rx_node, "snps,up-to-queue",
+> +				&plat->route_up_queue)) {
+> +		plat->route_up_queue = 0;
+> +		plat->route_up_enable = false;
+> +	} else {
+> +		plat->route_up_enable = true;
+> +	}
+> +
+> +	if (of_property_read_u8(rx_node, "snps,multi-broad-cast-queue",
+> +				&plat->route_multi_broad_queue)) {
+> +		plat->route_multi_broad_queue = 0;
+> +		plat->route_multi_broad_enable = false;
+> +	} else {
+> +		plat->route_multi_broad_enable = true;
+> +	}
+> +
+> +	if (of_property_read_u8(rx_node, "snps,tpqc-queue",
+> +				&plat->route_tpqc_queue)) {
+> +		plat->route_tpqc_queue = 0;
+> +		plat->route_tpqc_enable = false;
+> +	} else {
+> +		plat->route_tpqc_enable = true;
+> +	}
+> +
+>  	/* Processing individual RX queue config */
+>  	for_each_child_of_node(rx_node, q_node) {
+>  		if (queue >= plat->rx_queues_to_use)
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index b7d5e7a..8f5ebf5 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -171,6 +171,18 @@ struct plat_stmmacenet_data {
+>  	u8 tx_queues_to_use;
+>  	u8 rx_sched_algorithm;
+>  	u8 tx_sched_algorithm;
+> +	bool route_avcp_enable;
+> +	u8 route_avcp_queue;
+> +	bool route_ptp_enable;
+> +	u8 route_ptp_queue;
+> +	bool route_dcbcp_enable;
+> +	u8 route_dcbcp_queue;
+> +	bool route_up_enable;
+> +	u8 route_up_queue;
+> +	bool route_multi_broad_enable;
+> +	u8 route_multi_broad_queue;
+> +	bool route_tpqc_enable;
+> +	u8 route_tpqc_queue;
+
+Same here, this absolutely does not scale.
+
+>  	struct stmmac_rxq_cfg rx_queues_cfg[MTL_MAX_RX_QUEUES];
+>  	struct stmmac_txq_cfg tx_queues_cfg[MTL_MAX_TX_QUEUES];
+>  	void (*fix_mac_speed)(void *priv, unsigned int speed);
 > 
+
 
 -- 
-You received this message because you are subscribed to the Google Groups "open-iscsi" group.
-To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-Visit this group at https://groups.google.com/group/open-iscsi.
-For more options, visit https://groups.google.com/d/optout.
+Florian
