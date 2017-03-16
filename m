@@ -1,54 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] mlx4: Better use of order-0 pages in RX path
-Date: Thu, 16 Mar 2017 05:00:14 -0700
-Message-ID: <1489665614.28631.206.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170314151143.16231-1-edumazet@google.com>
-         <20170315040657.GA29637@ast-mbp.thefacebook.com>
-         <1489584089.28631.147.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170315230608.GA90318@ast-mbp.thefacebook.com>
-         <1489626436.28631.198.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170316015618.GA12660@ast-mbp.thefacebook.com>
-         <CANn89iJRPmQcShBiPwcK_jaAQZsQOOStg5TmY-=AmORKSNPiOA@mail.gmail.com>
-         <20170316053907.GA22917@ast-mbp.thefacebook.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next 4/5] sunvnet: count multicast packets
+Date: Thu, 16 Mar 2017 12:12:06 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFB283F@AcuExch.aculab.com>
+References: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
+ <1489512283-422140-5-git-send-email-shannon.nelson@oracle.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
+ <4ee0ac85-62a3-2cb2-0d5d-d17e4334bde8@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:34854 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751357AbdCPMBd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 08:01:33 -0400
-Received: by mail-pf0-f169.google.com with SMTP id x63so18037019pfx.2
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 05:00:16 -0700 (PDT)
-In-Reply-To: <20170316053907.GA22917@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Shannon Nelson' <shannon.nelson@oracle.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4ee0ac85-62a3-2cb2-0d5d-d17e4334bde8@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-03-15 at 22:39 -0700, Alexei Starovoitov wrote:
+From: Shannon Nelson
+> Sent: 16 March 2017 00:18
+> To: David Laight; netdev@vger.kernel.org; davem@davemloft.net
+> On 3/15/2017 1:50 AM, David Laight wrote:
+> > From: Shannon Nelson
+> >> Sent: 14 March 2017 17:25
+> > ...
+> >> +	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
+> >> +		dev->stats.multicast++;
+> >
+> > I'd guess that:
+> > 	dev->stats.multicast += is_multicast_ether_addr(eth_hdr(skb)->h_dest);
+> > generates faster code.
+> > Especially if is_multicast_ether_addr(x) is (*x >> 7).
 
-> when there is no room in the rx fifo the hw will increment the counter.
-> That's the same as oom causing alloc fails and rx ring not being replenished.
-> When there is nothing free in rx ring to dma the packet to, the hw will
-> increment that counter.
+I'd clearly got brain-fade there, mcast bit is the first transmitted bit
+(on ethernet) but the bytes are sent LSB first (like async).
+> > 	David
+> 
+> Hi David, thanks for the comment.  My local instruction level
+> performance guru is on vacation this week so I can't do a quick check
+> with him today on this.  However, I"m not too worried here since the
+> inline code for is_multicast_ether_addr() is simply
+> 
+> 	return 0x01 & addr[0];
+> 
+> and objdump tells me that on sparc it compiles down to a simple single
+> byte load and compare:
+> 
+>      325c:	c2 08 80 03 	ldub  [ %g2 + %g3 ], %g1
+>      3260:	80 88 60 01 	btst  1, %g1
+>      3264:	32 60 00 b3 	bne,a,pn   %xcc, 3530 <vnet_rx_one+0x430>
+>      3268:	c2 5c 61 68 	ldx  [ %l1 + 0x168 ], %g1
+> 		dev->stats.multicast++;
 
-After 4096 frames were lost buy linux mlx4 driver, then hw will finally
-catch up and start increasing its own hw counter.
+Followed by a branch that might be marked 'assume taken' so the
+normal path takes the branch.
+I guess that is followed by 'add 1 to %g1', 'stx %g1, [ %l1 + 0x168 ]'
+and a branch to 3530.
+GCC must be using that condition to generate get the bottom of a loop
+to 'fallthrough' to its top!
 
+My version should generate something like:
+		ldub  [ %g2 + %g3 ], %g1
+		ldx   [ %l1 + 0x168 ], %g2
+		and   1, %g1
+		add   %g1, %g2, %g2
+		stx   %g2, [ %l1 + 0x168 ]
+While this looks like 5 instructions (rather than 2) it has fewer pipeline
+stalls and can be 'spread out' into the surrounding lines of code to
+reduce the stalls further.
 
-While you pretended that you received millions of frames and wanted that
-not a single one could be dropped without a report.
+> I don't think this driver will ever be used on anything bug sparc, so
+> I'm not worried about how x86 might compile this.
 
-This is simply not true.
+On x86 gcc is likely to ignore the 'unlikely' and generate a forwards
+(predicted not taken) branch around the increment.
+I've had to but asm comments in the else part of conditionals like
+that to force gcc to generate a forwards jump to the 'unlikely' statements.
 
-I do not believe I will continue the discussion.
-
-We can not really agree it seems, so why annoying all netdev readers.
+	David
