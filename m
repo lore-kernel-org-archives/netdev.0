@@ -1,81 +1,64 @@
-From: Lutz Vieweg <lvml@5t9.de>
-Subject: Re: [PATCH net-next 1/2] tcp: remove per-destination timestamp cache
-Date: Thu, 16 Mar 2017 18:30:49 +0100
-Message-ID: <58CACBC9.40900@5t9.de>
-References: <20170315203046.158791-1-soheil.kdev@gmail.com> <20170315.154044.170788541865531834.davem@davemloft.net> <20170315225508.GB14761@1wt.eu> <58CA778D.9020208@5t9.de> <CADVnQy=Bxs-e-KxQsA8nPSfm9fVtogouxCRdgmrR0WyBkMS=Xw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-        Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Florian Westphal <fw@strlen.de>
-To: Neal Cardwell <ncardwell@google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] bridge: resolve a false alarm of lockdep
+Date: Thu, 16 Mar 2017 10:32:42 -0700
+Message-ID: <1489685562-1436-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: avagin@gmail.com, Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p05-ob.smtp.rzone.de ([81.169.146.180]:21718 "EHLO
-        mo4-p05-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752072AbdCPRb0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 13:31:26 -0400
-In-Reply-To: <CADVnQy=Bxs-e-KxQsA8nPSfm9fVtogouxCRdgmrR0WyBkMS=Xw@mail.gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35013 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752140AbdCPRcy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 13:32:54 -0400
+Received: by mail-pg0-f68.google.com with SMTP id g2so6795905pge.2
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 10:32:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2017 04:40 PM, Neal Cardwell wrote:
->> I currently wonder: What it the correct advise to an operator who need=
-s
->> to run one server instance that is meant to accept thousands of new,
->> short-lived TCP connections per minute?
->
-> Note that for this to be a problem there would have to be thousands of
-> new, short-lived TCP connections per minute from a single source IP
-> address to a single destination IP address. Normal client software
-> should not be doing this. AFAIK this is pretty rare, unless someone is
-> running a load test or has an overly-aggressive monitoring system.
+Andrei reported a false alarm of lockdep at net/bridge/br_fdb.c:109,
+this is because in Andrei's case, a spin_bug() was already triggered
+before this, therefore the debug_locks is turned off, lockdep_is_held()
+is no longer accurate after that. We should use lockdep_assert_held_once()
+instead of lockdep_is_held() to respect debug_locks.
 
-Indeed, I meanwhile found that a load/regression test scenario had
-been the rationale for the tcp_tw_recycle =3D 1 setting - when a
-recorded log of hundreds of thousands connections (each placing
-one or a few requests) was replayed, this failed due to excessive
-number of TIME_WAIT state connections.
+Reported-by: Andrei Vagin <avagin@gmail.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/bridge/br_fdb.c     | 2 +-
+ net/bridge/br_private.h | 9 ---------
+ 2 files changed, 1 insertion(+), 10 deletions(-)
 
-Do I understand correctly that "tcp_tw_recycle =3D 1" is fine
-in such a scenario as one can be sure both client and server
-are at fixed, not-NATed IP addresses?
-
-I wonder whether there might be a possibility to limit the use
-of "tcp_tw_recycle =3D 1" to either a certain address or listen-port rang=
-e?
-
-If not, I guess our best option at this time is to advise
-enabling "tcp_tw_recycle =3D 1" only while explicitely performing
-local load/regression tests, and to disable it otherwise.
-(This however means that running both automated continous integration
-tests and any services for remote clients on the same system
-would not mix well, as the setting could be "right" for only one
-of them.)
-
-
-> (1) use longer connections from the client side
-
-Sure, in cases where that is under our control, we do exactly that.
-
-> (2) have the client do the close(), so the client is the side to carry =
-the
->      TIME_WAIT state
-
-In the load/regression test scenario, we are both server and client,
-so I guess this would not help.
-
-> (3) have the server use SO_LINGER with a timeout of 0, so that
->      the connection is closed with a RST and the server carries no
->      TIME_WAIT state
-
-Potentially losing the end of some conversation is not really
-an option for most protocols / use cases.
-
-Regards,
-
-Lutz Vieweg
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 4f598dc..6e08b71 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -106,7 +106,7 @@ static struct net_bridge_fdb_entry *br_fdb_find(struct net_bridge *br,
+ 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
+ 	struct net_bridge_fdb_entry *fdb;
+ 
+-	WARN_ON_ONCE(!br_hash_lock_held(br));
++	lockdep_assert_held_once(&br->hash_lock);
+ 
+ 	rcu_read_lock();
+ 	fdb = fdb_find_rcu(head, addr, vid);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 2288fca..6136818 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -531,15 +531,6 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
+ int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
+ 			      const unsigned char *addr, u16 vid);
+ 
+-static inline bool br_hash_lock_held(struct net_bridge *br)
+-{
+-#ifdef CONFIG_LOCKDEP
+-	return lockdep_is_held(&br->hash_lock);
+-#else
+-	return true;
+-#endif
+-}
+-
+ /* br_forward.c */
+ enum br_pkt_type {
+ 	BR_PKT_UNICAST,
+-- 
+2.5.5
