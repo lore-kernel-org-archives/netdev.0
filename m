@@ -1,39 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 5/5] epoll: Add busy poll support to epoll with
- socket fds.
-Date: Thu, 16 Mar 2017 15:11:44 -0700
-Message-ID: <1489702304.28631.251.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170316183142.15806.38824.stgit@localhost.localdomain>
-         <20170316183302.15806.2645.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        sridhar.samudrala@intel.com, edumazet@google.com,
-        davem@davemloft.net
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 05/11] net: usb: dm9601: use new api ethtool_{get|set}_link_ksettings
+Date: Thu, 16 Mar 2017 23:18:51 +0100
+Message-ID: <1489702737-2401-6-git-send-email-tremyfr@gmail.com>
+References: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: oliver@neukum.org, jacmet@sunsite.dk,
+        steve.glendinning@shawell.net, UNGLinuxDriver@microchip.com,
+        gregkh@linuxfoundation.org, davem@davemloft.net,
+        robert.foss@collabora.com, allan@asix.com.tw, grundler@google.com,
+        jarod@redhat.com, peter.chen@nxp.com, stefan.bruens@rwth-aachen.de,
+        akpm@linux-foundation.org, adobriyan@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170316183302.15806.2645.stgit@localhost.localdomain>
+In-Reply-To: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-03-16 at 11:33 -0700, Alexander Duyck wrote:
-> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-> +/*
-> + * If busy polling is on and the file is a socket, return a pointer to
-> + * struct sock
-> + */
-> +static inline struct sock *ep_sk_from_file(struct file *file)
-> +{
-> +	struct inode *inode = file_inode(file);
-> +
-> +	if (!S_ISSOCK(inode->i_mode))
-> +		return NULL;
-> +
-> +	return ((struct socket *)file->private_data)->sk;
-> +}
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-I believe a more standard way is to use sock_from_file()
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/usb/dm9601.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-(This does not have to fetch a cache line to read i_mode ))
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index 0b4bdd3..fea1b64 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -281,9 +281,9 @@ static int dm9601_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
+ 	.set_msglevel	= usbnet_set_msglevel,
+ 	.get_eeprom_len	= dm9601_get_eeprom_len,
+ 	.get_eeprom	= dm9601_get_eeprom,
+-	.get_settings	= usbnet_get_settings,
+-	.set_settings	= usbnet_set_settings,
+ 	.nway_reset	= usbnet_nway_reset,
++	.get_link_ksettings	= usbnet_get_link_ksettings,
++	.set_link_ksettings	= usbnet_set_link_ksettings,
+ };
+ 
+ static void dm9601_set_multicast(struct net_device *net)
+-- 
+1.7.4.4
