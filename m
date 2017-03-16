@@ -1,77 +1,48 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [net-next sample action optimization v2 4/4] Openvswitch:
- Refactor sample and recirc actions implementation
-Date: Thu, 16 Mar 2017 12:24:20 -0700
-Message-ID: <CAOrHB_ANWNUDU_HaM-ohvDb_LhWe+_Sk_e4fkiAX=Aq=oSkM6w@mail.gmail.com>
-References: <1489532891-33497-1-git-send-email-azhou@ovn.org> <1489532891-33497-5-git-send-email-azhou@ovn.org>
+From: Yaroslav Isakov <yaroslav.isakov@gmail.com>
+Subject: Re: [PATCH] tun: fix inability to set offloads after disabling them
+ via ethtool
+Date: Thu, 16 Mar 2017 22:42:18 +0300
+Message-ID: <CADS+iDWhMQRRNke576R0x4h9Qrg+YDbUm4VE8bjsbG24_rtNDA@mail.gmail.com>
+References: <58cae999.1b582e0a.a78bb.68f6@mx.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Joe Stringer <joe@ovn.org>
-To: Andy Zhou <azhou@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:60049 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752353AbdCPTdL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 15:33:11 -0400
-Received: from relay2-d.mail.gandi.net (relay2-d.mail.gandi.net [217.70.183.194])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id D544A47B708
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 20:25:25 +0100 (CET)
-Received: from mfilter18-d.gandi.net (mfilter18-d.gandi.net [217.70.178.146])
-        by relay2-d.mail.gandi.net (Postfix) with ESMTP id A9011C5A49
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 20:24:23 +0100 (CET)
-Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
-        by mfilter18-d.gandi.net (mfilter18-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id f8duDimc_d1F for <netdev@vger.kernel.org>;
-        Thu, 16 Mar 2017 20:24:21 +0100 (CET)
-Received: from mail-wm0-f51.google.com (mail-wm0-f51.google.com [74.125.82.51])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 81DA8C5A67
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 20:24:21 +0100 (CET)
-Received: by mail-wm0-f51.google.com with SMTP id v203so5309402wmg.0
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 12:24:21 -0700 (PDT)
-In-Reply-To: <1489532891-33497-5-git-send-email-azhou@ovn.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34636 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751954AbdCPTnD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 15:43:03 -0400
+Received: by mail-wm0-f66.google.com with SMTP id u132so62705wmg.1
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 12:42:40 -0700 (PDT)
+In-Reply-To: <58cae999.1b582e0a.a78bb.68f6@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 14, 2017 at 4:08 PM, Andy Zhou <azhou@ovn.org> wrote:
-> Added execute_or_defer_actions() that both sample and recirc
-> action's implementation can use.
+Sorry for spamming mailing list, forgot to check via checkpatch.pl,
+will resend it one more time
+
+2017-03-16 21:08 GMT+03:00 Yaroslav Isakov <yaroslav.isakov@gmail.com>:
+> Added missing logic in tun driver, which prevents apps to set
+> offloads using tun ioctl, if offloads were previously disabled via ethtool
 >
-> Signed-off-by: Andy Zhou <azhou@ovn.org>
+> Signed-of-by: Yaroslav Isakov (yaroslav.isakov@gmail.com)
 > ---
->  net/openvswitch/actions.c | 96 +++++++++++++++++++++++++++++------------------
->  1 file changed, 59 insertions(+), 37 deletions(-)
+>  drivers/net/tun.c | 2 ++
+>  1 file changed, 2 insertions(+)
 >
-> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> index 1638370..fd7d903 100644
-> --- a/net/openvswitch/actions.c
-> +++ b/net/openvswitch/actions.c
-...
-
-> @@ -1286,6 +1262,52 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 34cc3c5..cc88cd7 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1931,6 +1931,8 @@ static int set_offload(struct tun_struct *tun, unsigned long arg)
+>                 return -EINVAL;
+>
+>         tun->set_features = features;
+> +       tun->dev->wanted_features &= ~TUN_USER_FEATURES;
+> +       tun->dev->wanted_features |= features;
+>         netdev_update_features(tun->dev);
+>
 >         return 0;
->  }
+> --
+> 2.10.2
 >
-> +static int execute_or_defer_actions(struct datapath *dp, struct sk_buff *skb,
-> +                                   struct sw_flow_key *clone,
-> +                                   struct sw_flow_key *key,
-> +                                   u32 *recirc_id,
-> +                                   const struct nlattr *actions, int len)
-> +{
-> +       struct deferred_action *da;
-> +
-> +       /* If within the limit of 'OVS_DEFERRED_ACTION_THRESHOLD',
-> +        * recirc immediately, otherwise, defer it for later execution.
-> +        */
-> +       if (clone) {
-> +               if (recirc_id) {
-> +                       clone->recirc_id = *recirc_id;
-> +                       ovs_dp_process_packet(skb, clone);
-> +                       return 0;
-> +               } else {
-> +                       return do_execute_actions(dp, skb, clone,
-> +                                                 actions, len);
-
-the exec_actions_level inc and dec should be moved here, since it is
-only needed around this function.
