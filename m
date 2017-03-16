@@ -1,107 +1,31 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [RFC PATCH] net: phy: Don't miss phy_suspend() on PHY_HALTED for
- PHYs with interrupts
-Date: Thu, 16 Mar 2017 09:46:49 +0200
-Message-ID: <6d3f2d3c-69e0-43a4-9862-126a7c173934@ti.com>
-References: <1489585887-8683-1-git-send-email-rogerq@ti.com>
- <20170315140811.GD21021@lunn.ch>
- <6ec42ad7-0be3-f6c5-2ded-27bf3adbab23@ti.com>
- <20170315154912.GE21021@lunn.ch>
+From: Maxim Uvarov <muvarov@gmail.com>
+Subject: port mirror on dsa switches?
+Date: Thu, 16 Mar 2017 13:32:01 +0300
+Message-ID: <CAJGZr0JzRZHTkdKCqFrwAG5fj-j3Ez2DYVOygiE9oQ3BTHZ4FA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <f.fainelli@gmail.com>, <davem@davemloft.net>,
-        <kyle.roeschley@ni.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170315154912.GE21021@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f182.google.com ([209.85.217.182]:34685 "EHLO
+        mail-ua0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751136AbdCPKcD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 06:32:03 -0400
+Received: by mail-ua0-f182.google.com with SMTP id f54so23478817uaa.1
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 03:32:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15/03/17 17:49, Andrew Lunn wrote:
-> On Wed, Mar 15, 2017 at 05:00:08PM +0200, Roger Quadros wrote:
->> Andrew,
->>
->> On 15/03/17 16:08, Andrew Lunn wrote:
->>> On Wed, Mar 15, 2017 at 03:51:27PM +0200, Roger Quadros wrote:
->>>> Since commit 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
->>>> phy_suspend() doesn't get called as part of phy_stop() for PHYs using
->>>> interrupts because the phy state machine is never triggered after a phy_stop().
->>>>
->>>> Explicitly trigger the PHY state machine so that it can
->>>> see the new PHY state (HALTED) and suspend the PHY.
->>>>
->>>> Signed-off-by: Roger Quadros <rogerq@ti.com>
->>>
->>> Hi Roger
->>>
->>> This seems sensible. It mirrors what phy_start() does.
->>>
->>> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
->>
->> The reason for this being an RFC was the following comment just before
->> where I add the phy_trigger_machine()
->>
->>         /* Cannot call flush_scheduled_work() here as desired because
->>          * of rtnl_lock(), but PHY_HALTED shall guarantee phy_change()
->>          * will not reenable interrupts.
->>          */
->>
->> Is this comment still applicable? If yes, is it OK to call
->> phy_trigger_machine() there?
-> 
-> Humm, good question.
-> 
-> My _guess_ would be, calling it with sync=True could
-> deadlock. sync=False is probably safe. But lets see what Florian says.
+Hello,
 
-I agree that we should use phy_trigger_machine() with sync=False.
+Some dsa switches can support port mirror in hardware. Does somebody
+have any idea how to
+work with it from linux side in generic way?
 
-> 
->>
->>>
->>> It does however lead to a follow up question. Are there other places
->>> phydev->state is changed and it is missing a phy_trigger_machine()?
->>>
->>
->> One other place I think we should add phy_trigger_machine() is phy_start_aneg().
-> 
-> Humm, that might get us into a tight loop.
-> 
-> phy_start_aneg() kicks the phy driver to start autoneg and sets
-> phydev->state = PHY_AN.
-> 
-> phy_trigger_machine() triggers the state machine immediately. 
-> 
-> In state PHY_AN, we check if aneg is done. If not, it sets needs_aneg
-> = true. At the end of the state machine, this then calls
-> phy_start_aneg(), and it all starts again.
-> 
-> We are missing the 1s delay we have with polling. So for
-> phy_start_aneg(), we might need a phy_delayed_trigger_machine(), which
-> waits a second before doing anything?
-
-I think that should do the trick.
-
-How about this?
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 8fef03b..162061c 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -630,6 +630,10 @@ int phy_start_aneg(struct phy_device *phydev)
- 
- out_unlock:
- 	mutex_unlock(&phydev->lock);
-+
-+	if (!err)
-+		queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, HZ);
-+
- 	return err;
- }
- EXPORT_SYMBOL(phy_start_aneg);
+That might be part of 'struct dsa_switch_ops', but it's not clear
+which user space app should control that.
+The same question about QoS set up on dsa switch ports.
 
 -- 
-cheers,
--roger
+Best regards,
+Maxim Uvarov
