@@ -1,57 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 6/9] mlxsw: spectrum_router: Don't destroy RIF if L3 slave
-Date: Thu, 16 Mar 2017 09:08:17 +0100
-Message-ID: <1489651700-3586-7-git-send-email-jiri@resnulli.us>
-References: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
-To: netdev@vger.kernel.org
+From: Kevin Xu <kaiwen.xu@hulu.com>
+Subject: [PATCH] [PATCH net] net: Do not hold the reference for the same sk_rx_dst.
+Date: Thu, 16 Mar 2017 01:08:30 -0700
+Message-ID: <1489651711-4105-1-git-send-email-kaiwen.xu@hulu.com>
+Cc: netdev@vger.kernel.org, Kevin Xu <kaiwen.xu@hulu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34412 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751487AbdCPIIq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 04:08:46 -0400
-Received: by mail-wm0-f67.google.com with SMTP id u132so8291184wmg.1
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 01:08:29 -0700 (PDT)
-In-Reply-To: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
+Received: from smtppool.hulu.com ([208.91.156.120]:8043 "EHLO
+        smtppool.els.hulu.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751130AbdCPIPO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 04:15:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+In some rare cases, inet_sk_rx_dst_set() may be called multiple times
+on the same dst, causing reference count leakage. Eventually, it
+prevents net_device to be destroyed. The bug then manifested as
 
-We usually destroy the netdev's router interface (RIF) when the last IP
-address is removed from it.
+unregister_netdevice: waiting for lo to become free. Usage count = 1
 
-However, we shouldn't do that if it's enslaved to an L3 master device.
+in the kernel log, preventing new network namespace creation.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+The patch works around the issue by checking whether the socket already
+has the same dst set.
+
+Signed-off-by: Kevin Xu <kaiwen.xu@hulu.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv4/tcp_ipv4.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 5aad0ae..91ec62a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -41,6 +41,7 @@
- #include <linux/in6.h>
- #include <linux/notifier.h>
- #include <linux/inetdevice.h>
-+#include <linux/netdevice.h>
- #include <net/netevent.h>
- #include <net/neighbour.h>
- #include <net/arp.h>
-@@ -2660,7 +2661,7 @@ static bool mlxsw_sp_rif_should_config(struct mlxsw_sp_rif *r,
- 			return true;
- 		return false;
- 	case NETDEV_DOWN:
--		if (r && !in_dev->ifa_list)
-+		if (r && !in_dev->ifa_list && !netif_is_l3_slave(r->dev))
- 			return true;
- 		/* It is possible we already removed the RIF ourselves
- 		 * if it was assigned to a netdev that is now a bridge
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 575e19d..f425c14 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1807,9 +1807,14 @@ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+ 
+-	if (dst && dst_hold_safe(dst)) {
+-		sk->sk_rx_dst = dst;
+-		inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
++	if (dst) {
++		if (unlikely(dst == sk->sk_rx_dst))
++			return;
++
++		if (dst_hold_safe(dst)) {
++			sk->sk_rx_dst = dst;
++			inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
++		}
+ 	}
+ }
+ EXPORT_SYMBOL(inet_sk_rx_dst_set);
 -- 
-2.7.4
+1.9.1
