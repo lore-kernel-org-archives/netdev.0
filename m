@@ -1,35 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] tcp: remove per-destination timestamp cache
-Date: Wed, 15 Mar 2017 17:06:58 -0700
-Message-ID: <1489622818.28631.191.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170315203046.158791-1-soheil.kdev@gmail.com>
-         <20170315.154044.170788541865531834.davem@davemloft.net>
-         <1489618741.28631.172.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170315.164508.1392215340407263261.davem@davemloft.net>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: Re: [PATCH v2 net-next 4/5] sunvnet: count multicast packets
+Date: Wed, 15 Mar 2017 17:17:44 -0700
+Message-ID: <4ee0ac85-62a3-2cb2-0d5d-d17e4334bde8@oracle.com>
+References: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
+ <1489512283-422140-5-git-send-email-shannon.nelson@oracle.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: soheil.kdev@gmail.com, netdev@vger.kernel.org, soheil@google.com,
-        edumazet@google.com, ncardwell@google.com, ycheng@google.com,
-        lvml@5t9.de, fw@strlen.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35809 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750977AbdCPAHG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 20:07:06 -0400
-Received: by mail-pg0-f68.google.com with SMTP id g2so3866067pge.2
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 17:07:05 -0700 (PDT)
-In-Reply-To: <20170315.164508.1392215340407263261.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-03-15 at 16:45 -0700, David Miller wrote:
+On 3/15/2017 1:50 AM, David Laight wrote:
+> From: Shannon Nelson
+>> Sent: 14 March 2017 17:25
+> ...
+>> +	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
+>> +		dev->stats.multicast++;
+>
+> I'd guess that:
+> 	dev->stats.multicast += is_multicast_ether_addr(eth_hdr(skb)->h_dest);
+> generates faster code.
+> Especially if is_multicast_ether_addr(x) is (*x >> 7).
+>
+> 	David
 
-> Ok, I guess we can remove it in that case.  I'm still a bit disappointed
-> as I was always hoping someone would find a way to make this work even
-> in the presence of NAT.
+Hi David, thanks for the comment.  My local instruction level 
+performance guru is on vacation this week so I can't do a quick check 
+with him today on this.  However, I"m not too worried here since the 
+inline code for is_multicast_ether_addr() is simply
 
-Nat are good, Nat are good.
+	return 0x01 & addr[0];
 
-I can't find this hilarious video we watched in Copenhagen ;)
+and objdump tells me that on sparc it compiles down to a simple single 
+byte load and compare:
+
+     325c:	c2 08 80 03 	ldub  [ %g2 + %g3 ], %g1
+     3260:	80 88 60 01 	btst  1, %g1
+     3264:	32 60 00 b3 	bne,a,pn   %xcc, 3530 <vnet_rx_one+0x430>
+     3268:	c2 5c 61 68 	ldx  [ %l1 + 0x168 ], %g1
+		dev->stats.multicast++;
+
+I don't think this driver will ever be used on anything bug sparc, so 
+I'm not worried about how x86 might compile this.
+
+sln
+
