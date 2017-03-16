@@ -1,31 +1,66 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] [PATCH net] net: Do not hold the reference for the same sk_rx_dst.
-Date: Thu, 16 Mar 2017 16:13:48 -0700
-Message-ID: <CAM_iQpUPYhXkaWK9crnjjHeDoFeH3cofdcjenHvkna90MXvYYQ@mail.gmail.com>
-References: <1489651711-4105-1-git-send-email-kaiwen.xu@hulu.com> <1489699996.28631.237.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix wrong information about link modes
+ reported to ethtool
+Date: Thu, 16 Mar 2017 16:16:17 -0700
+Message-ID: <20170316231616.GA1819@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kevin Xu <kaiwen.xu@hulu.com>, David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        manish.awasthi@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f171.google.com ([209.85.128.171]:36672 "EHLO
-        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752220AbdCPXOa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 19:14:30 -0400
-Received: by mail-wr0-f171.google.com with SMTP id u108so41808524wrb.3
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 16:14:09 -0700 (PDT)
-In-Reply-To: <1489699996.28631.237.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-co1nam03on0063.outbound.protection.outlook.com ([104.47.40.63]:5009
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751871AbdCPXQY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Mar 2017 19:16:24 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 16, 2017 at 2:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Have you backported the redirect fix ?
->
-> commit 45caeaa5ac0b4b11784ac6f932c0ad4c6b67cda0
->
-> Or other fixes that went very recently (pick David Miller net tree)
+From: Manish Awasthi <manish.awasthi@cavium.com>
 
-Why the commit above is relevant here? It fixes a double-release,
-while Kevin's case is a double-hold... Not to mention it sk_rx_dst
-instead of sk_dst_cache, according to Kevin.
+Information reported to ethtool about link modes is wrong for 25G NIC.  Fix
+it by checking for presence of 25G NIC, checking the link speed reported by
+NIC firmware, and then assigning proper values to the
+ethtool_link_ksettings struct.
+
+Signed-off-by: Manish Awasthi <manish.awasthi@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index 50384ce..6eef3b9 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -213,17 +213,23 @@ static int lio_get_link_ksettings(struct net_device *netdev,
+ 	struct lio *lio = GET_LIO(netdev);
+ 	struct octeon_device *oct = lio->oct_dev;
+ 	struct oct_link_info *linfo;
+-	u32 supported, advertising;
++	u32 supported = 0, advertising = 0;
+ 
+ 	linfo = &lio->linfo;
+ 
+ 	if (linfo->link.s.if_mode == INTERFACE_MODE_XAUI ||
+ 	    linfo->link.s.if_mode == INTERFACE_MODE_RXAUI ||
++	    linfo->link.s.if_mode == INTERFACE_MODE_XLAUI ||
+ 	    linfo->link.s.if_mode == INTERFACE_MODE_XFI) {
+ 		ecmd->base.port = PORT_FIBRE;
+-		supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE |
+-			     SUPPORTED_Pause);
+-		advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_Pause);
++
++		if (linfo->link.s.speed == SPEED_10000) {
++			supported = SUPPORTED_10000baseT_Full;
++			advertising = ADVERTISED_10000baseT_Full;
++		}
++
++		supported |= SUPPORTED_FIBRE | SUPPORTED_Pause;
++		advertising |= ADVERTISED_Pause;
+ 		ethtool_convert_legacy_u32_to_link_mode(
+ 			ecmd->link_modes.supported, supported);
+ 		ethtool_convert_legacy_u32_to_link_mode(
