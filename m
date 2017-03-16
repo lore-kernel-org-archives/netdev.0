@@ -1,36 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211 2017-03-16
-Date: Thu, 16 Mar 2017 11:18:19 -0700 (PDT)
-Message-ID: <20170316.111819.199681647414354942.davem@davemloft.net>
-References: <20170316095156.31253-1-johannes@sipsolutions.net>
+From: Kaiwen Xu <kaiwen.xu@hulu.com>
+Subject: Re: [PATCH] [PATCH net] net: Do not hold the reference for the same
+ sk_rx_dst.
+Date: Thu, 16 Mar 2017 11:18:39 -0700
+Message-ID: <20170316181839.GA61894@kevinmbp.test.hulu.com>
+References: <1489651711-4105-1-git-send-email-kaiwen.xu@hulu.com>
+ <87h92tv8uv.fsf@redhat.com>
+ <242C9F89-8639-4C31-B3E5-B56C4F785E41@hulu.com>
+ <87fuidv6ts.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset="us-ascii"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jakub Sitnicki <jkbs@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38876 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752338AbdCPSSZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 14:18:25 -0400
-In-Reply-To: <20170316095156.31253-1-johannes@sipsolutions.net>
+Received: from mail-by2nam03on0117.outbound.protection.outlook.com ([104.47.42.117]:24574
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752935AbdCPSSr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Mar 2017 14:18:47 -0400
+Content-Disposition: inline
+In-Reply-To: <87fuidv6ts.fsf@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 16 Mar 2017 10:51:55 +0100
-
-> Here's the pull request you were waiting for. I went through all my
-> pending patches but only this one is applicable for net.git at this
-> time, so it's just a single one.
+On Thu, Mar 16, 2017 at 11:45:03AM +0100, Jakub Sitnicki wrote:
+> On Thu, Mar 16, 2017 at 10:12 AM GMT, Kevin Xu wrote:
+> > Do you mean the message looping endlessly?
 > 
-> Since I didn't have a current base, I forwarded to net.git first
-> and re-validated the patch there, but you might might have to be
-> careful if you merge to not fast-fwd on your side (though, even
-> if you do that, I don't think it matters much).
+> No, the message is emitted just once. Around 100 seconds after
+> destroying a few namespaces. Occurs not so often, maybe once per ten
+> runs.
 > 
-> Please pull and let me know if there's any problem.
+> -Jakub
+> 
 
-I was able to fast-forward pull this, so it should be fine.
+I saw that happening from time to time during my test as well, I suspect
+it was because some TCP sockets stays in either TCP_TIME_WAIT or
+TCP_FIN_WAIT1. But eventually those sockets get destroyed and lo gets
+deleted as well.
 
-Thanks!
+The patch was fixing an issue I am seeing, that the message gets looped
+forever, and causing a deadlock on new network ns creation.
+
+Kevin
+
+> > If so, then I suppose it's a different bug.
+> >
+> > Kevin
+> >
+> >> On Mar 16, 2017, at 3:01 AM, Jakub Sitnicki <jkbs@redhat.com> wrote:
+> >>
+> >>> On Thu, Mar 16, 2017 at 08:08 AM GMT, Kevin Xu wrote:
+> >>> In some rare cases, inet_sk_rx_dst_set() may be called multiple times
+> >>> on the same dst, causing reference count leakage. Eventually, it
+> >>> prevents net_device to be destroyed. The bug then manifested as
+> >>>
+> >>> unregister_netdevice: waiting for lo to become free. Usage count = 1
+> >>>
+> >>> in the kernel log, preventing new network namespace creation.
+> >>>
+> >>> The patch works around the issue by checking whether the socket already
+> >>> has the same dst set.
+> >>>
+> >>> Signed-off-by: Kevin Xu <kaiwen.xu@hulu.com>
+> >>> ---
+> >>
+> >> FWIW, with this patch applied I'm still sometimes seeing:
+> >>
+> >> [  125.928095] unregister_netdevice: waiting for lo to become free. Usage count = 1
+> >>
+> >> -Jakub
