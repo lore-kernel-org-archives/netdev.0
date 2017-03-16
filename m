@@ -1,141 +1,130 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH v3] net: mvneta: support suspend and resume
-Date: Thu, 16 Mar 2017 15:48:31 +0800
-Message-ID: <20170316154831.6afdfad1@xhacker>
-References: <1489648308-39743-1-git-send-email-jiel@marvell.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH 3/4] uapi glibc compat: Do not check for __USE_MISC
+Date: Thu, 16 Mar 2017 07:59:12 +0000
+Message-ID: <1489651152.4195.192.camel@infradead.org>
+References: <20170312220039.16885-1-hauke@hauke-m.de>
+         <20170312220039.16885-4-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <thomas.petazzoni@free-electrons.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Jane Li <jiel@marvell.com>
+Content-Type: multipart/signed; micalg="sha-256"; protocol="application/x-pkcs7-signature"; boundary="=-j1hRANviEaxUFx5vgxQg"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
+        maillist-linux@barfooze.de, mikko.rapeli@iki.fi
+To: Hauke Mehrtens <hauke@hauke-m.de>, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489648308-39743-1-git-send-email-jiel@marvell.com>
+In-Reply-To: <20170312220039.16885-4-hauke@hauke-m.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Mar 2017 15:11:48 +0800 Jane Li wrote:
 
-> Add basic support for handling suspend and resume.
-> 
-> Signed-off-by: Jane Li <jiel@marvell.com>
-> ---
-> Since v2:
-> - use SIMPLE_DEV_PM_OPS instead of SET_LATE_SYSTEM_SLEEP_PM_OPS
-> 
-> Since v1:
-> - add mvneta_conf_mbus_windows() and mvneta_bm_port_init() in mvneta_resume()
-> 
->  drivers/net/ethernet/marvell/mvneta.c | 60 ++++++++++++++++++++++++++++++++---
->  1 file changed, 56 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 61dd446..b0fea26 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -431,6 +431,7 @@ struct mvneta_port {
->  	/* Flags for special SoC configurations */
->  	bool neta_armada3700;
->  	u16 rx_offset_correction;
-> +	const struct mbus_dram_target_info *dram_target_info;
->  };
->  
->  /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-> @@ -4118,7 +4119,6 @@ static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
->  /* Device initialization routine */
->  static int mvneta_probe(struct platform_device *pdev)
->  {
-> -	const struct mbus_dram_target_info *dram_target_info;
->  	struct resource *res;
->  	struct device_node *dn = pdev->dev.of_node;
->  	struct device_node *phy_node;
-> @@ -4267,13 +4267,13 @@ static int mvneta_probe(struct platform_device *pdev)
->  
->  	pp->tx_csum_limit = tx_csum_limit;
->  
-> -	dram_target_info = mv_mbus_dram_info();
-> +	pp->dram_target_info = mv_mbus_dram_info();
->  	/* Armada3700 requires setting default configuration of Mbus
->  	 * windows, however without using filled mbus_dram_target_info
->  	 * structure.
->  	 */
-> -	if (dram_target_info || pp->neta_armada3700)
-> -		mvneta_conf_mbus_windows(pp, dram_target_info);
-> +	if (pp->dram_target_info || pp->neta_armada3700)
-> +		mvneta_conf_mbus_windows(pp, pp->dram_target_info);
->  
->  	pp->tx_ring_size = MVNETA_MAX_TXD;
->  	pp->rx_ring_size = MVNETA_MAX_RXD;
-> @@ -4405,6 +4405,57 @@ static int mvneta_remove(struct platform_device *pdev)
->  	return 0;
->  }
->  
-> +#ifdef CONFIG_PM_SLEEP
-> +static int mvneta_suspend(struct device *device)
-> +{
-> +	struct net_device *dev = dev_get_drvdata(device);
-> +	struct mvneta_port *pp = netdev_priv(dev);
-> +
-> +	if (netif_running(dev))
-> +		mvneta_stop(dev);
-> +	netif_device_detach(dev);
-> +	clk_disable_unprepare(pp->clk_bus);
-> +	clk_disable_unprepare(pp->clk);
-> +	return 0;
-> +}
-> +
-> +static int mvneta_resume(struct device *device)
-> +{
-> +	struct platform_device *pdev = to_platform_device(device);
-> +	struct net_device *dev = dev_get_drvdata(device);
-> +	struct mvneta_port *pp = netdev_priv(dev);
-> +	int err;
-> +
-> +	clk_prepare_enable(pp->clk);
-> +	clk_prepare_enable(pp->clk_bus);
+--=-j1hRANviEaxUFx5vgxQg
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-hmm, since clk_bus is optional, it's better to add check here.
+On Sun, 2017-03-12 at 23:00 +0100, Hauke Mehrtens wrote:
+> __USE_MISC is glibc specific and not available in musl libc. Only do
+> this check when glibc is used. This fixes a problem with musl libc.
+> ...
+> -/* Coordinate with glibc net/if.h header. */
+> -#if defined(_NET_IF_H) && defined(__USE_MISC)
+> +/* Coordinate with libc net/if.h header. */
+> +#if defined(_NET_IF_H) && (!defined(__GLIBC__) || defined(__USE_MISC))
 
-Except the above, you could add
+I *really* don't like building up a plethora of knowledge about
+specific libc implementations in the kernel. As a general rule, if we
+have *anything* that depends on __GLIBC__ then we are Doing It Wrong=E2=84=
+=A2.
+--=-j1hRANviEaxUFx5vgxQg
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
 
-Reviewed-by: Jisheng Zhang <jszhang@marvell.com>
+MIAGCSqGSIb3DQEHAqCAMIACAQExDzANBglghkgBZQMEAgEFADCABgkqhkiG9w0BBwEAAKCCDzUw
+ggSvMIIDl6ADAgECAhEA4CPLFRKDU4mtYW56VGdrITANBgkqhkiG9w0BAQsFADBvMQswCQYDVQQG
+EwJTRTEUMBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFkZFRydXN0IEV4dGVybmFsIFRU
+UCBOZXR3b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBFeHRlcm5hbCBDQSBSb290MB4XDTE0MTIyMjAw
+MDAwMFoXDTIwMDUzMDEwNDgzOFowgZsxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1h
+bmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMUEw
+PwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNlY3VyZSBF
+bWFpbCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAImxDdp6UxlOcFIdvFamBia3
+uEngludRq/HwWhNJFaO0jBtgvHpRQqd5jKQi3xdhTpHVdiMKFNNKAn+2HQmAbqUEPdm6uxb+oYep
+LkNSQxZ8rzJQyKZPWukI2M+TJZx7iOgwZOak+FaA/SokFDMXmaxE5WmLo0YGS8Iz1OlAnwawsayT
+QLm1CJM6nCpToxDbPSBhPFUDjtlOdiUCISn6o3xxdk/u4V+B6ftUgNvDezVSt4TeIj0sMC0xf1m9
+UjewM2ktQ+v61qXxl3dnUYzZ7ifrvKUHOHaMpKk4/9+M9QOsSb7K93OZOg8yq5yVOhM9DkY6V3Rh
+UL7GQD/L5OKfoiECAwEAAaOCARcwggETMB8GA1UdIwQYMBaAFK29mHo0tCb3+sQmVO8DveAky1Qa
+MB0GA1UdDgQWBBSSYWuC4aKgqk/sZ/HCo/e0gADB7DAOBgNVHQ8BAf8EBAMCAYYwEgYDVR0TAQH/
+BAgwBgEB/wIBADAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwEQYDVR0gBAowCDAGBgRV
+HSAAMEQGA1UdHwQ9MDswOaA3oDWGM2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9BZGRUcnVzdEV4
+dGVybmFsQ0FSb290LmNybDA1BggrBgEFBQcBAQQpMCcwJQYIKwYBBQUHMAGGGWh0dHA6Ly9vY3Nw
+LnVzZXJ0cnVzdC5jb20wDQYJKoZIhvcNAQELBQADggEBABsqbqxVwTqriMXY7c1V86prYSvACRAj
+mQ/FZmpvsfW0tXdeDwJhAN99Bf4Ss6SAgAD8+x1banICCkG8BbrBWNUmwurVTYT7/oKYz1gb4yJj
+nFL4uwU2q31Ypd6rO2Pl2tVz7+zg+3vio//wQiOcyraNTT7kSxgDsqgt1Ni7QkuQaYUQ26Y3NOh7
+4AEQpZzKOsefT4g0bopl0BqKu6ncyso20fT8wmQpNa/WsadxEdIDQ7GPPprsnjJT9HaSyoY0B7ks
+yuYcStiZDcGG4pCS+1pCaiMhEOllx/XVu37qjIUgAmLq0ToHLFnFmTPyOInltukWeh95FPZKEBom
++nyK+5swggU9MIIEJaADAgECAhBqC1BYlVMtBFBN4igR/howMA0GCSqGSIb3DQEBCwUAMIGbMQsw
+CQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3Jk
+MRowGAYDVQQKExFDT01PRE8gQ0EgTGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xp
+ZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0EwHhcNMTYxMjIwMDAwMDAwWhcN
+MTcxMjIwMjM1OTU5WjAkMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZyYWRlYWQub3JnMIIBIjAN
+BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwbTrFaiGdvN2pThnR9q+4eaXB2wQZQNqhter5ZrJ
+pPO47e87bZ+f1tmYoh6+rB90G/XN24NErPRfvU4zVzNT9pCtCzSSVnBlZQBpaEYMKhcXo5PGKNsm
+An8BoGwNXjlxwbBNRaNO+ky0wNCaMNd1JLxEuvqg9J7rrcpHhWmnpXD5IKa8gv9GyVAJgOpiBOts
+p91sShc2kHvWJ5waPEWPCHDH9J+twGGKqKIIU7fdbURLUgUL1wlDSAHf/lgIAVCSj2H2HpoGqHpy
+HgOAClX9iRSLNa0Znj8HTaqfOwxXevsz1KkLFY+Ahm426GIEqdfkK2iT6Hhgc7tjNO3f8i5ALQID
+AQABo4IB8TCCAe0wHwYDVR0jBBgwFoAUkmFrguGioKpP7GfxwqP3tIAAwewwHQYDVR0OBBYEFILE
+dmHLtK6oxmFJZvBhTQhvqrS0MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMCAGA1UdJQQZ
+MBcGCCsGAQUFBwMEBgsrBgEEAbIxAQMFAjARBglghkgBhvhCAQEEBAMCBSAwRgYDVR0gBD8wPTA7
+BgwrBgEEAbIxAQIBAQEwKzApBggrBgEFBQcCARYdaHR0cHM6Ly9zZWN1cmUuY29tb2RvLm5ldC9D
+UFMwXQYDVR0fBFYwVDBSoFCgToZMaHR0cDovL2NybC5jb21vZG9jYS5jb20vQ09NT0RPU0hBMjU2
+Q2xpZW50QXV0aGVudGljYXRpb25hbmRTZWN1cmVFbWFpbENBLmNybDCBkAYIKwYBBQUHAQEEgYMw
+gYAwWAYIKwYBBQUHMAKGTGh0dHA6Ly9jcnQuY29tb2RvY2EuY29tL0NPTU9ET1NIQTI1NkNsaWVu
+dEF1dGhlbnRpY2F0aW9uYW5kU2VjdXJlRW1haWxDQS5jcnQwJAYIKwYBBQUHMAGGGGh0dHA6Ly9v
+Y3NwLmNvbW9kb2NhLmNvbTAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRlYWQub3JnMA0GCSqGSIb3
+DQEBCwUAA4IBAQA+AfvNhFwtapF5Lzjapgul3zYuEnMfR538Ya1vhP8wuOkcoJeT2gEFXzVO2WUu
+eWM0g0/DumnRB53htV/Qq/+vsL0i6a2+iOO7kHi5O7bZkgbdNv0t2lzonDUHi6LTa7NUj+tv+j6y
+hW+iNquC3ACP1dIZH8gJmicHblW63qRgp6wxhn315MLBeavi3uiSag2eeKFePiTIwJjN2UYq6kWg
+PL5G/Ycf9x/xN1XBTfJiURc0FsXhrA98VMWnt52C5Lo4txhGjzTI+IZg40b3YDs6E7mTYb5KKmbc
+QZA9priOFDdj1z5W9BdWhU6I/D0P9y8Z4Tr6+ZscMUVD0RqWy2LeMIIFPTCCBCWgAwIBAgIQagtQ
+WJVTLQRQTeIoEf4aMDANBgkqhkiG9w0BAQsFADCBmzELMAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdy
+ZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEaMBgGA1UEChMRQ09NT0RPIENBIExp
+bWl0ZWQxQTA/BgNVBAMTOENPTU9ETyBTSEEtMjU2IENsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQg
+U2VjdXJlIEVtYWlsIENBMB4XDTE2MTIyMDAwMDAwMFoXDTE3MTIyMDIzNTk1OVowJDEiMCAGCSqG
+SIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
+ggEBAMG06xWohnbzdqU4Z0favuHmlwdsEGUDaobXq+WayaTzuO3vO22fn9bZmKIevqwfdBv1zduD
+RKz0X71OM1czU/aQrQs0klZwZWUAaWhGDCoXF6OTxijbJgJ/AaBsDV45ccGwTUWjTvpMtMDQmjDX
+dSS8RLr6oPSe663KR4Vpp6Vw+SCmvIL/RslQCYDqYgTrbKfdbEoXNpB71iecGjxFjwhwx/SfrcBh
+iqiiCFO33W1ES1IFC9cJQ0gB3/5YCAFQko9h9h6aBqh6ch4DgApV/YkUizWtGZ4/B02qnzsMV3r7
+M9SpCxWPgIZuNuhiBKnX5Ctok+h4YHO7YzTt3/IuQC0CAwEAAaOCAfEwggHtMB8GA1UdIwQYMBaA
+FJJha4LhoqCqT+xn8cKj97SAAMHsMB0GA1UdDgQWBBSCxHZhy7SuqMZhSWbwYU0Ib6q0tDAOBgNV
+HQ8BAf8EBAMCBaAwDAYDVR0TAQH/BAIwADAgBgNVHSUEGTAXBggrBgEFBQcDBAYLKwYBBAGyMQED
+BQIwEQYJYIZIAYb4QgEBBAQDAgUgMEYGA1UdIAQ/MD0wOwYMKwYBBAGyMQECAQEBMCswKQYIKwYB
+BQUHAgEWHWh0dHBzOi8vc2VjdXJlLmNvbW9kby5uZXQvQ1BTMF0GA1UdHwRWMFQwUqBQoE6GTGh0
+dHA6Ly9jcmwuY29tb2RvY2EuY29tL0NPTU9ET1NIQTI1NkNsaWVudEF1dGhlbnRpY2F0aW9uYW5k
+U2VjdXJlRW1haWxDQS5jcmwwgZAGCCsGAQUFBwEBBIGDMIGAMFgGCCsGAQUFBzAChkxodHRwOi8v
+Y3J0LmNvbW9kb2NhLmNvbS9DT01PRE9TSEEyNTZDbGllbnRBdXRoZW50aWNhdGlvbmFuZFNlY3Vy
+ZUVtYWlsQ0EuY3J0MCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5jb21vZG9jYS5jb20wHgYDVR0R
+BBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzANBgkqhkiG9w0BAQsFAAOCAQEAPgH7zYRcLWqReS84
+2qYLpd82LhJzH0ed/GGtb4T/MLjpHKCXk9oBBV81TtllLnljNINPw7pp0Qed4bVf0Kv/r7C9Iumt
+vojju5B4uTu22ZIG3Tb9Ldpc6Jw1B4ui02uzVI/rb/o+soVvojargtwAj9XSGR/ICZonB25Vut6k
+YKesMYZ99eTCwXmr4t7okmoNnnihXj4kyMCYzdlGKupFoDy+Rv2HH/cf8TdVwU3yYlEXNBbF4awP
+fFTFp7edguS6OLcYRo80yPiGYONG92A7OhO5k2G+Sipm3EGQPaa4jhQ3Y9c+VvQXVoVOiPw9D/cv
+GeE6+vmbHDFFQ9Ealsti3jGCA9MwggPPAgEBMIGwMIGbMQswCQYDVQQGEwJHQjEbMBkGA1UECBMS
+R3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0Eg
+TGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xpZW50IEF1dGhlbnRpY2F0aW9uIGFu
+ZCBTZWN1cmUgRW1haWwgQ0ECEGoLUFiVUy0EUE3iKBH+GjAwDQYJYIZIAWUDBAIBBQCgggHzMBgG
+CSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE3MDMxNjA3NTkxMlowLwYJ
+KoZIhvcNAQkEMSIEIDiKtzoo8XvR6DPqupOZD5ZTQjwrA1TgwrJWqdeyllGuMIHBBgkrBgEEAYI3
+EAQxgbMwgbAwgZsxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAO
+BgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01P
+RE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNlY3VyZSBFbWFpbCBDQQIQagtQ
+WJVTLQRQTeIoEf4aMDCBwwYLKoZIhvcNAQkQAgsxgbOggbAwgZsxCzAJBgNVBAYTAkdCMRswGQYD
+VQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9E
+TyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRp
+b24gYW5kIFNlY3VyZSBFbWFpbCBDQQIQagtQWJVTLQRQTeIoEf4aMDANBgkqhkiG9w0BAQEFAASC
+AQC/W+m/Bxn7TMW1fWcvwV8o9p9NuqCDAs5M9KjenFFUzod1aosJNY7yItsWuZx0WPNIS2r1ohBR
+gcupGDGe3V8nXg7mQRiNwcRBfrUFTrtdi1uTObfkWOAwQAIdJhMzSpQm5ehuFO9GQJdBSb/PFuSM
+C1c3F4KRHAT+jC/OrG45x1mx070RAojdJDeF7Xw1fDOp96mnIFcS7axbMJXQEAKanx/cpX0tBwX8
+FAhHcmxXeqWgsDfxU+lWDNrDwFL1uYrCeWo1k4mU/r69Dl1cvwgylckwEUyb9Pdcd9qUdfUfnSxy
+nWN1qosBg55bf3a1+cNVMgGPifQMG8qeGIxRa7t3AAAAAAAA
 
-> +	if (pp->dram_target_info || pp->neta_armada3700)
-> +		mvneta_conf_mbus_windows(pp, pp->dram_target_info);
-> +	if (pp->bm_priv) {
-> +		err = mvneta_bm_port_init(pdev, pp);
-> +		if (err < 0) {
-> +			dev_info(&pdev->dev, "use SW buffer management\n");
-> +			pp->bm_priv = NULL;
-> +		}
-> +	}
-> +	mvneta_defaults_set(pp);
-> +	err = mvneta_port_power_up(pp, pp->phy_interface);
-> +	if (err < 0) {
-> +		dev_err(device, "can't power up port\n");
-> +		return err;
-> +	}
-> +
-> +	if (pp->use_inband_status)
-> +		mvneta_fixed_link_update(pp, dev->phydev);
-> +
-> +	netif_device_attach(dev);
-> +	if (netif_running(dev))
-> +		mvneta_open(dev);
-> +	return 0;
-> +}
-> +#endif
-> +
-> +static SIMPLE_DEV_PM_OPS(mvneta_pm_ops, mvneta_suspend, mvneta_resume);
-> +
->  static const struct of_device_id mvneta_match[] = {
->  	{ .compatible = "marvell,armada-370-neta" },
->  	{ .compatible = "marvell,armada-xp-neta" },
-> @@ -4419,6 +4470,7 @@ static int mvneta_remove(struct platform_device *pdev)
->  	.driver = {
->  		.name = MVNETA_DRIVER_NAME,
->  		.of_match_table = mvneta_match,
-> +		.pm = &mvneta_pm_ops,
->  	},
->  };
->  
+
+--=-j1hRANviEaxUFx5vgxQg--
