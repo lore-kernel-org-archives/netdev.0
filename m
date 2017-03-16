@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 14/17] net: convert inet_frag_queue.refcnt from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 17:29:04 +0200
-Message-ID: <1489678147-21404-15-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 11/17] net: convert netpoll_info.refcnt from atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 17:29:01 +0200
+Message-ID: <1489678147-21404-12-git-send-email-elena.reshetova@intel.com>
 References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -10,10 +10,14 @@ Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         Hans Liljestrand <ishkamiel@gmail.com>,
         David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.43]:38188 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754797AbdCPPaF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Mar 2017 11:30:05 -0400
 In-Reply-To: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -26,102 +30,61 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/inet_frag.h  |  4 ++--
- net/ipv4/inet_fragment.c | 14 +++++++-------
- net/ipv4/ip_fragment.c   |  2 +-
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ include/linux/netpoll.h | 3 ++-
+ net/core/netpoll.c      | 6 +++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 5894730..5a334bf 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -50,7 +50,7 @@ struct inet_frag_queue {
- 	spinlock_t		lock;
- 	struct timer_list	timer;
- 	struct hlist_node	list;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- 	struct sk_buff		*fragments;
- 	struct sk_buff		*fragments_tail;
- 	ktime_t			stamp;
-@@ -129,7 +129,7 @@ void inet_frag_maybe_warn_overflow(struct inet_frag_queue *q,
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 1828900..27c0aaa 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -11,6 +11,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/rcupdate.h>
+ #include <linux/list.h>
++#include <linux/refcount.h>
  
- static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f)
- {
--	if (atomic_dec_and_test(&q->refcnt))
-+	if (refcount_dec_and_test(&q->refcnt))
- 		inet_frag_destroy(q, f);
- }
+ union inet_addr {
+ 	__u32		all[4];
+@@ -34,7 +35,7 @@ struct netpoll {
+ };
  
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index b5e9317..96e95e8 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -276,11 +276,11 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
- void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
- {
- 	if (del_timer(&fq->timer))
--		atomic_dec(&fq->refcnt);
-+		refcount_dec(&fq->refcnt);
+ struct netpoll_info {
+-	atomic_t refcnt;
++	refcount_t refcnt;
  
- 	if (!(fq->flags & INET_FRAG_COMPLETE)) {
- 		fq_unlink(fq, f);
--		atomic_dec(&fq->refcnt);
-+		refcount_dec(&fq->refcnt);
- 	}
- }
- EXPORT_SYMBOL(inet_frag_kill);
-@@ -329,7 +329,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- 	 */
- 	hlist_for_each_entry(qp, &hb->chain, list) {
- 		if (qp->net == nf && f->match(qp, arg)) {
--			atomic_inc(&qp->refcnt);
-+			refcount_inc(&qp->refcnt);
- 			spin_unlock(&hb->chain_lock);
- 			qp_in->flags |= INET_FRAG_COMPLETE;
- 			inet_frag_put(qp_in, f);
-@@ -339,9 +339,9 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- #endif
- 	qp = qp_in;
- 	if (!mod_timer(&qp->timer, jiffies + nf->timeout))
--		atomic_inc(&qp->refcnt);
-+		refcount_inc(&qp->refcnt);
+ 	struct semaphore dev_lock;
  
--	atomic_inc(&qp->refcnt);
-+	refcount_inc(&qp->refcnt);
- 	hlist_add_head(&qp->list, &hb->chain);
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 891d88e..8b9083d 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -626,7 +626,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+ 		skb_queue_head_init(&npinfo->txq);
+ 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
  
- 	spin_unlock(&hb->chain_lock);
-@@ -370,7 +370,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+-		atomic_set(&npinfo->refcnt, 1);
++		refcount_set(&npinfo->refcnt, 1);
  
- 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
- 	spin_lock_init(&q->lock);
--	atomic_set(&q->refcnt, 1);
-+	refcount_set(&q->refcnt, 1);
- 
- 	return q;
- }
-@@ -405,7 +405,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 	spin_lock(&hb->chain_lock);
- 	hlist_for_each_entry(q, &hb->chain, list) {
- 		if (q->net == nf && f->match(q, key)) {
--			atomic_inc(&q->refcnt);
-+			refcount_inc(&q->refcnt);
- 			spin_unlock(&hb->chain_lock);
- 			return q;
+ 		ops = np->dev->netdev_ops;
+ 		if (ops->ndo_netpoll_setup) {
+@@ -636,7 +636,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
  		}
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index bbe7f72..4fed6f6 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -303,7 +303,7 @@ static int ip_frag_reinit(struct ipq *qp)
- 	unsigned int sum_truesize = 0;
- 
- 	if (!mod_timer(&qp->q.timer, jiffies + qp->q.net->timeout)) {
--		atomic_inc(&qp->q.refcnt);
-+		refcount_inc(&qp->q.refcnt);
- 		return -ETIMEDOUT;
+ 	} else {
+ 		npinfo = rtnl_dereference(ndev->npinfo);
+-		atomic_inc(&npinfo->refcnt);
++		refcount_inc(&npinfo->refcnt);
  	}
  
+ 	npinfo->netpoll = np;
+@@ -815,7 +815,7 @@ void __netpoll_cleanup(struct netpoll *np)
+ 
+ 	synchronize_srcu(&netpoll_srcu);
+ 
+-	if (atomic_dec_and_test(&npinfo->refcnt)) {
++	if (refcount_dec_and_test(&npinfo->refcnt)) {
+ 		const struct net_device_ops *ops;
+ 
+ 		ops = np->dev->netdev_ops;
 -- 
 2.7.4
