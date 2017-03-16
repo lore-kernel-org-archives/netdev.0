@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 11/17] net: convert netpoll_info.refcnt from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 17:29:01 +0200
-Message-ID: <1489678147-21404-12-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 10/17] net: convert in_device.refcnt from atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 17:29:00 +0200
+Message-ID: <1489678147-21404-11-git-send-email-elena.reshetova@intel.com>
 References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -10,14 +10,10 @@ Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         Hans Liljestrand <ishkamiel@gmail.com>,
         David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:38188 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754797AbdCPPaF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 16 Mar 2017 11:30:05 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -30,61 +26,68 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/linux/netpoll.h | 3 ++-
- net/core/netpoll.c      | 6 +++---
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ include/linux/inetdevice.h | 11 ++++++-----
+ net/ipv4/devinet.c         |  2 +-
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 1828900..27c0aaa 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index ee971f3..5cd9671 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
 @@ -11,6 +11,7 @@
- #include <linux/interrupt.h>
- #include <linux/rcupdate.h>
- #include <linux/list.h>
+ #include <linux/timer.h>
+ #include <linux/sysctl.h>
+ #include <linux/rtnetlink.h>
 +#include <linux/refcount.h>
  
- union inet_addr {
- 	__u32		all[4];
-@@ -34,7 +35,7 @@ struct netpoll {
- };
+ struct ipv4_devconf {
+ 	void	*sysctl;
+@@ -22,7 +23,7 @@ struct ipv4_devconf {
  
- struct netpoll_info {
--	atomic_t refcnt;
-+	refcount_t refcnt;
+ struct in_device {
+ 	struct net_device	*dev;
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	int			dead;
+ 	struct in_ifaddr	*ifa_list;	/* IP ifaddr chain		*/
  
- 	struct semaphore dev_lock;
+@@ -212,7 +213,7 @@ static inline struct in_device *in_dev_get(const struct net_device *dev)
+ 	rcu_read_lock();
+ 	in_dev = __in_dev_get_rcu(dev);
+ 	if (in_dev)
+-		atomic_inc(&in_dev->refcnt);
++		refcount_inc(&in_dev->refcnt);
+ 	rcu_read_unlock();
+ 	return in_dev;
+ }
+@@ -233,12 +234,12 @@ void in_dev_finish_destroy(struct in_device *idev);
  
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 891d88e..8b9083d 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -626,7 +626,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 		skb_queue_head_init(&npinfo->txq);
- 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
+ static inline void in_dev_put(struct in_device *idev)
+ {
+-	if (atomic_dec_and_test(&idev->refcnt))
++	if (refcount_dec_and_test(&idev->refcnt))
+ 		in_dev_finish_destroy(idev);
+ }
  
--		atomic_set(&npinfo->refcnt, 1);
-+		refcount_set(&npinfo->refcnt, 1);
+-#define __in_dev_put(idev)  atomic_dec(&(idev)->refcnt)
+-#define in_dev_hold(idev)   atomic_inc(&(idev)->refcnt)
++#define __in_dev_put(idev)  refcount_dec(&(idev)->refcnt)
++#define in_dev_hold(idev)   refcount_inc(&(idev)->refcnt)
  
- 		ops = np->dev->netdev_ops;
- 		if (ops->ndo_netpoll_setup) {
-@@ -636,7 +636,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 		}
- 	} else {
- 		npinfo = rtnl_dereference(ndev->npinfo);
--		atomic_inc(&npinfo->refcnt);
-+		refcount_inc(&npinfo->refcnt);
- 	}
+ #endif /* __KERNEL__ */
  
- 	npinfo->netpoll = np;
-@@ -815,7 +815,7 @@ void __netpoll_cleanup(struct netpoll *np)
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index cebedd5..1527146 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -251,7 +251,7 @@ static struct in_device *inetdev_init(struct net_device *dev)
+ 	/* Reference in_dev->dev */
+ 	dev_hold(dev);
+ 	/* Account for reference dev->ip_ptr (below) */
+-	in_dev_hold(in_dev);
++	refcount_set(&in_dev->refcnt, 1);
  
- 	synchronize_srcu(&netpoll_srcu);
- 
--	if (atomic_dec_and_test(&npinfo->refcnt)) {
-+	if (refcount_dec_and_test(&npinfo->refcnt)) {
- 		const struct net_device_ops *ops;
- 
- 		ops = np->dev->netdev_ops;
+ 	err = devinet_sysctl_register(in_dev);
+ 	if (err) {
 -- 
 2.7.4
