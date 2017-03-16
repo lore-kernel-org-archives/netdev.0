@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 08/17] net: convert sk_filter.refcnt from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 17:28:58 +0200
-Message-ID: <1489678147-21404-9-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 05/17] net: convert sk_buff_fclones.fclone_ref from atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 17:28:55 +0200
+Message-ID: <1489678147-21404-6-git-send-email-elena.reshetova@intel.com>
 References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -26,67 +26,74 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/linux/filter.h | 3 ++-
- net/core/filter.c      | 7 ++++---
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ include/linux/skbuff.h |  4 ++--
+ net/core/skbuff.c      | 10 +++++-----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 8053c38..20247e7 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -7,6 +7,7 @@
- #include <stdarg.h>
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 0bcaec4..63ce21f 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -945,7 +945,7 @@ struct sk_buff_fclones {
  
- #include <linux/atomic.h>
-+#include <linux/refcount.h>
- #include <linux/compat.h>
- #include <linux/skbuff.h>
- #include <linux/linkage.h>
-@@ -431,7 +432,7 @@ struct bpf_prog {
+ 	struct sk_buff	skb2;
+ 
+-	atomic_t	fclone_ref;
++	refcount_t	fclone_ref;
  };
  
- struct sk_filter {
--	atomic_t	refcnt;
-+	refcount_t	refcnt;
- 	struct rcu_head	rcu;
- 	struct bpf_prog	*prog;
- };
-diff --git a/net/core/filter.c b/net/core/filter.c
-index ebaeaf2..62267e2 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -928,7 +928,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
-  */
- static void sk_filter_release(struct sk_filter *fp)
- {
--	if (atomic_dec_and_test(&fp->refcnt))
-+	if (refcount_dec_and_test(&fp->refcnt))
- 		call_rcu(&fp->rcu, sk_filter_release_rcu);
+ /**
+@@ -965,7 +965,7 @@ static inline bool skb_fclone_busy(const struct sock *sk,
+ 	fclones = container_of(skb, struct sk_buff_fclones, skb1);
+ 
+ 	return skb->fclone == SKB_FCLONE_ORIG &&
+-	       atomic_read(&fclones->fclone_ref) > 1 &&
++	       refcount_read(&fclones->fclone_ref) > 1 &&
+ 	       fclones->skb2.sk == sk;
  }
  
-@@ -950,7 +950,7 @@ bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
- 	/* same check as in sock_kmalloc() */
- 	if (filter_size <= sysctl_optmem_max &&
- 	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
--		atomic_inc(&fp->refcnt);
-+		refcount_inc(&fp->refcnt);
- 		atomic_add(filter_size, &sk->sk_omem_alloc);
- 		return true;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 94e961f..6911269 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -268,7 +268,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 
+ 		kmemcheck_annotate_bitfield(&fclones->skb2, flags1);
+ 		skb->fclone = SKB_FCLONE_ORIG;
+-		atomic_set(&fclones->fclone_ref, 1);
++		refcount_set(&fclones->fclone_ref, 1);
+ 
+ 		fclones->skb2.fclone = SKB_FCLONE_CLONE;
  	}
-@@ -1179,12 +1179,13 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
- 		return -ENOMEM;
+@@ -629,7 +629,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 		 * This test would have no chance to be true for the clone,
+ 		 * while here, branch prediction will be good.
+ 		 */
+-		if (atomic_read(&fclones->fclone_ref) == 1)
++		if (refcount_read(&fclones->fclone_ref) == 1)
+ 			goto fastpath;
+ 		break;
  
- 	fp->prog = prog;
--	atomic_set(&fp->refcnt, 0);
-+	refcount_set(&fp->refcnt, 1);
- 
- 	if (!sk_filter_charge(sk, fp)) {
- 		kfree(fp);
- 		return -ENOMEM;
+@@ -637,7 +637,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 		fclones = container_of(skb, struct sk_buff_fclones, skb2);
+ 		break;
  	}
-+	refcount_set(&fp->refcnt, 1);
+-	if (!atomic_dec_and_test(&fclones->fclone_ref))
++	if (!refcount_dec_and_test(&fclones->fclone_ref))
+ 		return;
+ fastpath:
+ 	kmem_cache_free(skbuff_fclone_cache, fclones);
+@@ -1018,9 +1018,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 		return NULL;
  
- 	old_fp = rcu_dereference_protected(sk->sk_filter,
- 					   lockdep_sock_is_held(sk));
+ 	if (skb->fclone == SKB_FCLONE_ORIG &&
+-	    atomic_read(&fclones->fclone_ref) == 1) {
++	    refcount_read(&fclones->fclone_ref) == 1) {
+ 		n = &fclones->skb2;
+-		atomic_set(&fclones->fclone_ref, 2);
++		refcount_set(&fclones->fclone_ref, 2);
+ 	} else {
+ 		if (skb_pfmemalloc(skb))
+ 			gfp_mask |= __GFP_MEMALLOC;
 -- 
 2.7.4
