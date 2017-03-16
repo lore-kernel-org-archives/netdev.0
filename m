@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 6/6] samples/bpf: add map_lookup microbenchmark
-Date: Wed, 15 Mar 2017 18:26:44 -0700
-Message-ID: <1489627604-2288703-7-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 1/6] bpf: move fixup_bpf_calls() function
+Date: Wed, 15 Mar 2017 18:26:39 -0700
+Message-ID: <1489627604-2288703-2-git-send-email-ast@fb.com>
 References: <1489627604-2288703-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,191 +10,184 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
         <netdev@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38459 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750895AbdCPB0r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 21:26:47 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2G1PRPU024782
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:26:45 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:40405 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750919AbdCPB2e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 21:28:34 -0400
+Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2G1J1x1003790
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:26:57 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 297au1sqf7-3
+        by mx0a-00082601.pphosted.com with ESMTP id 297e3ngmyf-6
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:26:45 -0700
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:26:57 -0700
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
  mx-out.facebook.com (10.103.99.99) with ESMTP  id
- 9dda798409e711e7bf680002c9dfb610-186a36e0 for <netdev@vger.kernel.org>;        Wed,
+ 9db4a09c09e711e7924b0002c9dfb610-bc1fb9a0 for <netdev@vger.kernel.org>;        Wed,
  15 Mar 2017 18:26:44 -0700
 In-Reply-To: <1489627604-2288703-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-$ map_perf_test 128
-speed of HASH bpf_map_lookup_elem() in lookups per second
-	w/o JIT		w/JIT
-before	46M		58M
-after	42M		74M
-
-perf report
-before:
-    54.23%  map_perf_test  [kernel.kallsyms]  [k] __htab_map_lookup_elem
-    14.24%  map_perf_test  [kernel.kallsyms]  [k] lookup_elem_raw
-     8.84%  map_perf_test  [kernel.kallsyms]  [k] htab_map_lookup_elem
-     5.93%  map_perf_test  [kernel.kallsyms]  [k] bpf_map_lookup_elem
-     2.30%  map_perf_test  [kernel.kallsyms]  [k] bpf_prog_da4fc6a3f41761a2
-     1.49%  map_perf_test  [kernel.kallsyms]  [k] kprobe_ftrace_handler
-
-after:
-    60.03%  map_perf_test  [kernel.kallsyms]  [k] __htab_map_lookup_elem
-    18.07%  map_perf_test  [kernel.kallsyms]  [k] lookup_elem_raw
-     2.91%  map_perf_test  [kernel.kallsyms]  [k] bpf_prog_da4fc6a3f41761a2
-     1.94%  map_perf_test  [kernel.kallsyms]  [k] _einittext
-     1.90%  map_perf_test  [kernel.kallsyms]  [k] __audit_syscall_exit
-     1.72%  map_perf_test  [kernel.kallsyms]  [k] kprobe_ftrace_handler
-
-Notice that bpf_map_lookup_elem() and htab_map_lookup_elem() are trivial
-functions, yet they take sizeable amount of cpu time.
-htab_map_gen_lookup() removes bpf_map_lookup_elem() and converts
-htab_map_lookup_elem() into three BPF insns which causing cpu time
-for bpf_prog_da4fc6a3f41761a2() slightly increase.
-
-$ map_perf_test 256
-speed of ARRAY bpf_map_lookup_elem() in lookups per second
-	w/o JIT		w/JIT
-before	97M		174M
-after	64M		280M
-
-before:
-    37.33%  map_perf_test  [kernel.kallsyms]  [k] array_map_lookup_elem
-    13.95%  map_perf_test  [kernel.kallsyms]  [k] bpf_map_lookup_elem
-     6.54%  map_perf_test  [kernel.kallsyms]  [k] bpf_prog_da4fc6a3f41761a2
-     4.57%  map_perf_test  [kernel.kallsyms]  [k] kprobe_ftrace_handler
-
-after:
-    32.86%  map_perf_test  [kernel.kallsyms]  [k] bpf_prog_da4fc6a3f41761a2
-     6.54%  map_perf_test  [kernel.kallsyms]  [k] kprobe_ftrace_handler
-
-array_map_gen_lookup() removes calls to array_map_lookup_elem()
-and bpf_map_lookup_elem() and replaces them with 7 bpf insns.
-
-The performance without JIT is slower, since executing extra insns
-in the interpreter is slower than running native C code,
-but with JIT the performance gains are obvious,
-since native C->x86 code is replaced with fewer bpf->x86 instructions.
+no functional change.
+move fixup_bpf_calls() to verifier.c
+it's being refactored in the next patch
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- samples/bpf/map_perf_test_kern.c | 33 +++++++++++++++++++++++++++++++++
- samples/bpf/map_perf_test_user.c | 32 ++++++++++++++++++++++++++++++++
- 2 files changed, 65 insertions(+)
+ kernel/bpf/syscall.c  | 56 --------------------------------------------------
+ kernel/bpf/verifier.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 57 insertions(+), 56 deletions(-)
 
-diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
-index a91872a97742..9da2a3441b0a 100644
---- a/samples/bpf/map_perf_test_kern.c
-+++ b/samples/bpf/map_perf_test_kern.c
-@@ -65,6 +65,13 @@ struct bpf_map_def SEC("maps") lpm_trie_map_alloc = {
- 	.map_flags = BPF_F_NO_PREALLOC,
- };
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 7af0dcc5d755..48c914b983bd 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -586,59 +586,6 @@ void bpf_register_prog_type(struct bpf_prog_type_list *tl)
+ 	list_add(&tl->list_node, &bpf_prog_types);
+ }
  
-+struct bpf_map_def SEC("maps") array_map = {
-+	.type = BPF_MAP_TYPE_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = MAX_ENTRIES,
-+};
-+
- SEC("kprobe/sys_getuid")
- int stress_hmap(struct pt_regs *ctx)
+-/* fixup insn->imm field of bpf_call instructions:
+- * if (insn->imm == BPF_FUNC_map_lookup_elem)
+- *      insn->imm = bpf_map_lookup_elem - __bpf_call_base;
+- * else if (insn->imm == BPF_FUNC_map_update_elem)
+- *      insn->imm = bpf_map_update_elem - __bpf_call_base;
+- * else ...
+- *
+- * this function is called after eBPF program passed verification
+- */
+-static void fixup_bpf_calls(struct bpf_prog *prog)
+-{
+-	const struct bpf_func_proto *fn;
+-	int i;
+-
+-	for (i = 0; i < prog->len; i++) {
+-		struct bpf_insn *insn = &prog->insnsi[i];
+-
+-		if (insn->code == (BPF_JMP | BPF_CALL)) {
+-			/* we reach here when program has bpf_call instructions
+-			 * and it passed bpf_check(), means that
+-			 * ops->get_func_proto must have been supplied, check it
+-			 */
+-			BUG_ON(!prog->aux->ops->get_func_proto);
+-
+-			if (insn->imm == BPF_FUNC_get_route_realm)
+-				prog->dst_needed = 1;
+-			if (insn->imm == BPF_FUNC_get_prandom_u32)
+-				bpf_user_rnd_init_once();
+-			if (insn->imm == BPF_FUNC_xdp_adjust_head)
+-				prog->xdp_adjust_head = 1;
+-			if (insn->imm == BPF_FUNC_tail_call) {
+-				/* mark bpf_tail_call as different opcode
+-				 * to avoid conditional branch in
+-				 * interpeter for every normal call
+-				 * and to prevent accidental JITing by
+-				 * JIT compiler that doesn't support
+-				 * bpf_tail_call yet
+-				 */
+-				insn->imm = 0;
+-				insn->code |= BPF_X;
+-				continue;
+-			}
+-
+-			fn = prog->aux->ops->get_func_proto(insn->imm);
+-			/* all functions that have prototype and verifier allowed
+-			 * programs to call them, must be real in-kernel functions
+-			 */
+-			BUG_ON(!fn->func);
+-			insn->imm = fn->func - __bpf_call_base;
+-		}
+-	}
+-}
+-
+ /* drop refcnt on maps used by eBPF program and free auxilary data */
+ static void free_used_maps(struct bpf_prog_aux *aux)
  {
-@@ -165,5 +172,31 @@ int stress_lpm_trie_map_alloc(struct pt_regs *ctx)
+@@ -892,9 +839,6 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 	if (err < 0)
+ 		goto free_used_maps;
+ 
+-	/* fixup BPF_CALL->imm field */
+-	fixup_bpf_calls(prog);
+-
+ 	/* eBPF program is ready to be JITed */
+ 	prog = bpf_prog_select_runtime(prog, &err);
+ 	if (err < 0)
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 796b68d00119..e41da6c57053 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -3233,6 +3233,60 @@ static int convert_ctx_accesses(struct bpf_verifier_env *env)
  	return 0;
  }
  
-+SEC("kprobe/sys_getpgid")
-+int stress_hash_map_lookup(struct pt_regs *ctx)
++/* fixup insn->imm field of bpf_call instructions:
++ * if (insn->imm == BPF_FUNC_map_lookup_elem)
++ *      insn->imm = bpf_map_lookup_elem - __bpf_call_base;
++ * else if (insn->imm == BPF_FUNC_map_update_elem)
++ *      insn->imm = bpf_map_update_elem - __bpf_call_base;
++ * else ...
++ *
++ * this function is called after eBPF program passed verification
++ */
++static void fixup_bpf_calls(struct bpf_prog *prog)
 +{
-+	u32 key = 1, i;
-+	long *value;
-+
-+#pragma clang loop unroll(full)
-+	for (i = 0; i < 64; ++i)
-+		value = bpf_map_lookup_elem(&hash_map, &key);
-+
-+	return 0;
-+}
-+
-+SEC("kprobe/sys_getpgrp")
-+int stress_array_map_lookup(struct pt_regs *ctx)
-+{
-+	u32 key = 1, i;
-+	long *value;
-+
-+#pragma clang loop unroll(full)
-+	for (i = 0; i < 64; ++i)
-+		value = bpf_map_lookup_elem(&array_map, &key);
-+
-+	return 0;
-+}
-+
- char _license[] SEC("license") = "GPL";
- u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
-index 680260a91f50..e29ff318a793 100644
---- a/samples/bpf/map_perf_test_user.c
-+++ b/samples/bpf/map_perf_test_user.c
-@@ -38,6 +38,8 @@ static __u64 time_get_ns(void)
- #define LRU_HASH_PREALLOC	(1 << 4)
- #define PERCPU_LRU_HASH_PREALLOC	(1 << 5)
- #define LPM_KMALLOC		(1 << 6)
-+#define HASH_LOOKUP		(1 << 7)
-+#define ARRAY_LOOKUP		(1 << 8)
- 
- static int test_flags = ~0;
- 
-@@ -125,6 +127,30 @@ static void test_lpm_kmalloc(int cpu)
- 	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
- }
- 
-+static void test_hash_lookup(int cpu)
-+{
-+	__u64 start_time;
++	const struct bpf_func_proto *fn;
 +	int i;
 +
-+	start_time = time_get_ns();
-+	for (i = 0; i < MAX_CNT; i++)
-+		syscall(__NR_getpgid, 0);
-+	printf("%d:hash_lookup %lld lookups per sec\n",
-+	       cpu, MAX_CNT * 1000000000ll * 64 / (time_get_ns() - start_time));
++	for (i = 0; i < prog->len; i++) {
++		struct bpf_insn *insn = &prog->insnsi[i];
++
++		if (insn->code == (BPF_JMP | BPF_CALL)) {
++			/* we reach here when program has bpf_call instructions
++			 * and it passed bpf_check(), means that
++			 * ops->get_func_proto must have been supplied, check it
++			 */
++			BUG_ON(!prog->aux->ops->get_func_proto);
++
++			if (insn->imm == BPF_FUNC_get_route_realm)
++				prog->dst_needed = 1;
++			if (insn->imm == BPF_FUNC_get_prandom_u32)
++				bpf_user_rnd_init_once();
++			if (insn->imm == BPF_FUNC_xdp_adjust_head)
++				prog->xdp_adjust_head = 1;
++			if (insn->imm == BPF_FUNC_tail_call) {
++				/* mark bpf_tail_call as different opcode
++				 * to avoid conditional branch in
++				 * interpeter for every normal call
++				 * and to prevent accidental JITing by
++				 * JIT compiler that doesn't support
++				 * bpf_tail_call yet
++				 */
++				insn->imm = 0;
++				insn->code |= BPF_X;
++				continue;
++			}
++
++			fn = prog->aux->ops->get_func_proto(insn->imm);
++			/* all functions that have prototype and verifier allowed
++			 * programs to call them, must be real in-kernel functions
++			 */
++			BUG_ON(!fn->func);
++			insn->imm = fn->func - __bpf_call_base;
++		}
++	}
 +}
 +
-+static void test_array_lookup(int cpu)
-+{
-+	__u64 start_time;
-+	int i;
 +
-+	start_time = time_get_ns();
-+	for (i = 0; i < MAX_CNT; i++)
-+		syscall(__NR_getpgrp, 0);
-+	printf("%d:array_lookup %lld lookups per sec\n",
-+	       cpu, MAX_CNT * 1000000000ll * 64 / (time_get_ns() - start_time));
-+}
-+
- static void loop(int cpu)
+ static void free_states(struct bpf_verifier_env *env)
  {
- 	cpu_set_t cpuset;
-@@ -153,6 +179,12 @@ static void loop(int cpu)
+ 	struct bpf_verifier_state_list *sl, *sln;
+@@ -3328,6 +3382,9 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 		/* program is valid, convert *(u32*)(ctx + off) accesses */
+ 		ret = convert_ctx_accesses(env);
  
- 	if (test_flags & LPM_KMALLOC)
- 		test_lpm_kmalloc(cpu);
++	if (ret == 0)
++		fixup_bpf_calls(env->prog);
 +
-+	if (test_flags & HASH_LOOKUP)
-+		test_hash_lookup(cpu);
-+
-+	if (test_flags & ARRAY_LOOKUP)
-+		test_array_lookup(cpu);
- }
- 
- static void run_perf_test(int tasks)
+ 	if (log_level && log_len >= log_size - 1) {
+ 		BUG_ON(log_len >= log_size);
+ 		/* verifier log exceeded user supplied buffer */
 -- 
 2.8.0
