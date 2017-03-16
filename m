@@ -1,136 +1,45 @@
-From: Jane Li <jiel@marvell.com>
-Subject: [PATCH v4] net: mvneta: support suspend and resume
-Date: Thu, 16 Mar 2017 16:22:28 +0800
-Message-ID: <1489652548-45156-1-git-send-email-jiel@marvell.com>
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: Re: [PATCH 3/4] uapi glibc compat: Do not check for __USE_MISC
+Date: Thu, 16 Mar 2017 10:26:44 +0200
+Message-ID: <20170316082644.GD8672@lakka.kapsi.fi>
+References: <20170312220039.16885-1-hauke@hauke-m.de>
+ <20170312220039.16885-4-hauke@hauke-m.de>
+ <1489651152.4195.192.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <jszhang@marvell.com>, Jane Li <jiel@marvell.com>
-To: <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Hauke Mehrtens <hauke@hauke-m.de>, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        jarod@redhat.com, jogo@openwrt.org, david.heidelberger@ixit.cz,
+        maillist-linux@barfooze.de
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1489651152.4195.192.camel@infradead.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add basic support for handling suspend and resume.
+On Thu, Mar 16, 2017 at 07:59:12AM +0000, David Woodhouse wrote:
+> On Sun, 2017-03-12 at 23:00 +0100, Hauke Mehrtens wrote:
+> > __USE_MISC is glibc specific and not available in musl libc. Only do
+> > this check when glibc is used. This fixes a problem with musl libc.
+> > ...
+> > -/* Coordinate with glibc net/if.h header. */
+> > -#if defined(_NET_IF_H) && defined(__USE_MISC)
+> > +/* Coordinate with libc net/if.h header. */
+> > +#if defined(_NET_IF_H) && (!defined(__GLIBC__) || defined(__USE_MISC))
+> 
+> I *really* don't like building up a plethora of knowledge about
+> specific libc implementations in the kernel. As a general rule, if we
+> have *anything* that depends on __GLIBC__ then we are Doing It Wrong™.
 
-Signed-off-by: Jane Li <jiel@marvell.com>
-Reviewed-by: Jisheng Zhang <jszhang@marvell.com>
----
-Since v3:
-- check clk_bus before enabling it during resume
+Kernel does not depend on glibc but uapi headers check for some defintions
+so that userspace code can include both libc and kernel header files
+without compiler errors.
 
-Since v2:
-- use SIMPLE_DEV_PM_OPS instead of SET_LATE_SYSTEM_SLEEP_PM_OPS
+This interface between kernel and libc header files is messy due to long
+history of copying header files from kernel to libc implementations etc
+and thus this kind of ifdef magic with in depth knowledge of various
+libc's defintions is currently unavoidable.
 
-Since v1:
-- add mvneta_conf_mbus_windows() and mvneta_bm_port_init() in mvneta_resume()
-
- drivers/net/ethernet/marvell/mvneta.c | 61 ++++++++++++++++++++++++++++++++---
- 1 file changed, 57 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 61dd446..aebbc53 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -431,6 +431,7 @@ struct mvneta_port {
- 	/* Flags for special SoC configurations */
- 	bool neta_armada3700;
- 	u16 rx_offset_correction;
-+	const struct mbus_dram_target_info *dram_target_info;
- };
- 
- /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-@@ -4118,7 +4119,6 @@ static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
- /* Device initialization routine */
- static int mvneta_probe(struct platform_device *pdev)
- {
--	const struct mbus_dram_target_info *dram_target_info;
- 	struct resource *res;
- 	struct device_node *dn = pdev->dev.of_node;
- 	struct device_node *phy_node;
-@@ -4267,13 +4267,13 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	pp->tx_csum_limit = tx_csum_limit;
- 
--	dram_target_info = mv_mbus_dram_info();
-+	pp->dram_target_info = mv_mbus_dram_info();
- 	/* Armada3700 requires setting default configuration of Mbus
- 	 * windows, however without using filled mbus_dram_target_info
- 	 * structure.
- 	 */
--	if (dram_target_info || pp->neta_armada3700)
--		mvneta_conf_mbus_windows(pp, dram_target_info);
-+	if (pp->dram_target_info || pp->neta_armada3700)
-+		mvneta_conf_mbus_windows(pp, pp->dram_target_info);
- 
- 	pp->tx_ring_size = MVNETA_MAX_TXD;
- 	pp->rx_ring_size = MVNETA_MAX_RXD;
-@@ -4405,6 +4405,58 @@ static int mvneta_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+#ifdef CONFIG_PM_SLEEP
-+static int mvneta_suspend(struct device *device)
-+{
-+	struct net_device *dev = dev_get_drvdata(device);
-+	struct mvneta_port *pp = netdev_priv(dev);
-+
-+	if (netif_running(dev))
-+		mvneta_stop(dev);
-+	netif_device_detach(dev);
-+	clk_disable_unprepare(pp->clk_bus);
-+	clk_disable_unprepare(pp->clk);
-+	return 0;
-+}
-+
-+static int mvneta_resume(struct device *device)
-+{
-+	struct platform_device *pdev = to_platform_device(device);
-+	struct net_device *dev = dev_get_drvdata(device);
-+	struct mvneta_port *pp = netdev_priv(dev);
-+	int err;
-+
-+	clk_prepare_enable(pp->clk);
-+	if (!IS_ERR(pp->clk_bus))
-+		clk_prepare_enable(pp->clk_bus);
-+	if (pp->dram_target_info || pp->neta_armada3700)
-+		mvneta_conf_mbus_windows(pp, pp->dram_target_info);
-+	if (pp->bm_priv) {
-+		err = mvneta_bm_port_init(pdev, pp);
-+		if (err < 0) {
-+			dev_info(&pdev->dev, "use SW buffer management\n");
-+			pp->bm_priv = NULL;
-+		}
-+	}
-+	mvneta_defaults_set(pp);
-+	err = mvneta_port_power_up(pp, pp->phy_interface);
-+	if (err < 0) {
-+		dev_err(device, "can't power up port\n");
-+		return err;
-+	}
-+
-+	if (pp->use_inband_status)
-+		mvneta_fixed_link_update(pp, dev->phydev);
-+
-+	netif_device_attach(dev);
-+	if (netif_running(dev))
-+		mvneta_open(dev);
-+	return 0;
-+}
-+#endif
-+
-+static SIMPLE_DEV_PM_OPS(mvneta_pm_ops, mvneta_suspend, mvneta_resume);
-+
- static const struct of_device_id mvneta_match[] = {
- 	{ .compatible = "marvell,armada-370-neta" },
- 	{ .compatible = "marvell,armada-xp-neta" },
-@@ -4419,6 +4471,7 @@ static int mvneta_remove(struct platform_device *pdev)
- 	.driver = {
- 		.name = MVNETA_DRIVER_NAME,
- 		.of_match_table = mvneta_match,
-+		.pm = &mvneta_pm_ops,
- 	},
- };
- 
--- 
-1.9.1
+-Mikko
