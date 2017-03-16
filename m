@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 12/17] net: convert unix_address.refcnt from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 17:29:02 +0200
-Message-ID: <1489678147-21404-13-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 13/17] net: convert fib_rule.refcnt from atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 17:29:03 +0200
+Message-ID: <1489678147-21404-14-git-send-email-elena.reshetova@intel.com>
 References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -26,70 +26,67 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/af_unix.h | 3 ++-
- net/unix/af_unix.c    | 8 ++++----
+ include/net/fib_rules.h | 7 ++++---
+ net/core/fib_rules.c    | 4 ++--
  2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index fd60ecc..3a385e4 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -4,6 +4,7 @@
- #include <linux/socket.h>
- #include <linux/un.h>
- #include <linux/mutex.h>
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 8dbfdf7..26ae0ad 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -5,6 +5,7 @@
+ #include <linux/slab.h>
+ #include <linux/netdevice.h>
+ #include <linux/fib_rules.h>
 +#include <linux/refcount.h>
- #include <net/sock.h>
+ #include <net/flow.h>
+ #include <net/rtnetlink.h>
  
- void unix_inflight(struct user_struct *user, struct file *fp);
-@@ -21,7 +22,7 @@ extern spinlock_t unix_table_lock;
- extern struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
+@@ -29,7 +30,7 @@ struct fib_rule {
+ 	struct fib_rule __rcu	*ctarget;
+ 	struct net		*fr_net;
  
- struct unix_address {
--	atomic_t	refcnt;
-+	refcount_t	refcnt;
- 	int		len;
- 	unsigned int	hash;
- 	struct sockaddr_un name[0];
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index e9f8102..5e2a402 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -212,7 +212,7 @@ EXPORT_SYMBOL_GPL(unix_peer_get);
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	u32			pref;
+ 	int			suppress_ifgroup;
+ 	int			suppress_prefixlen;
+@@ -103,12 +104,12 @@ struct fib_rules_ops {
  
- static inline void unix_release_addr(struct unix_address *addr)
+ static inline void fib_rule_get(struct fib_rule *rule)
  {
--	if (atomic_dec_and_test(&addr->refcnt))
-+	if (refcount_dec_and_test(&addr->refcnt))
- 		kfree(addr);
+-	atomic_inc(&rule->refcnt);
++	refcount_inc(&rule->refcnt);
  }
  
-@@ -861,7 +861,7 @@ static int unix_autobind(struct socket *sock)
- 		goto out;
+ static inline void fib_rule_put(struct fib_rule *rule)
+ {
+-	if (atomic_dec_and_test(&rule->refcnt))
++	if (refcount_dec_and_test(&rule->refcnt))
+ 		kfree_rcu(rule, rcu);
+ }
  
- 	addr->name->sun_family = AF_UNIX;
--	atomic_set(&addr->refcnt, 1);
-+	refcount_set(&addr->refcnt, 1);
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index b6791d9..53d55d5 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -32,7 +32,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 	if (r == NULL)
+ 		return -ENOMEM;
  
- retry:
- 	addr->len = sprintf(addr->name->sun_path+1, "%05x", ordernum) + 1 + sizeof(short);
-@@ -1036,7 +1036,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	memcpy(addr->name, sunaddr, addr_len);
- 	addr->len = addr_len;
- 	addr->hash = hash ^ sk->sk_type;
--	atomic_set(&addr->refcnt, 1);
-+	refcount_set(&addr->refcnt, 1);
+-	atomic_set(&r->refcnt, 1);
++	refcount_set(&r->refcnt, 1);
+ 	r->action = FR_ACT_TO_TBL;
+ 	r->pref = pref;
+ 	r->table = table;
+@@ -269,7 +269,7 @@ int fib_rules_lookup(struct fib_rules_ops *ops, struct flowi *fl,
  
- 	if (sun_path[0]) {
- 		addr->hash = UNIX_HASH_SIZE;
-@@ -1327,7 +1327,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
- 
- 	/* copy address information from listening to new sock*/
- 	if (otheru->addr) {
--		atomic_inc(&otheru->addr->refcnt);
-+		refcount_inc(&otheru->addr->refcnt);
- 		newu->addr = otheru->addr;
- 	}
- 	if (otheru->path.dentry) {
+ 		if (err != -EAGAIN) {
+ 			if ((arg->flags & FIB_LOOKUP_NOREF) ||
+-			    likely(atomic_inc_not_zero(&rule->refcnt))) {
++			    likely(refcount_inc_not_zero(&rule->refcnt))) {
+ 				arg->rule = rule;
+ 				goto out;
+ 			}
 -- 
 2.7.4
