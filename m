@@ -1,84 +1,49 @@
-From: Akshay Bhat <akshay.bhat@timesys.com>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Thu, 16 Mar 2017 18:29:38 -0400
-Message-ID: <69173747-cc2e-55f7-acad-4b5ba2a22863@timesys.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
- <234d9e75-0083-b8b4-c781-add653fdb550@grandegger.com>
- <b3ebb569-b50c-39ad-dec5-0059fbfba8fb@timesys.com>
- <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
- <3dbf8748-9d04-0f21-0e95-448d7a72e7d5@timesys.com>
- <41439729-42d0-d883-2801-2d3607f2aeab@grandegger.com>
- <CANiP4c8WMeT1Cr7WDXew1ne7DFR04oaA8Uch0zvyyOf5yCa37A@mail.gmail.com>
- <3dba0948-ffcb-8e80-fb32-62bb0aca6627@grandegger.com>
- <54d9a104-8ed1-4bb3-666e-042d3781dbfb@timesys.com>
- <006d9e14-47bf-1add-97c3-24098b43267f@grandegger.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: netdev level filtering? perhaps pushing socket filters down?
+Date: Thu, 16 Mar 2017 23:33:55 +0100
+Message-ID: <1489703635.3930.5.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: mkl@pengutronix.de, linux-can@vger.kernel.org,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Wolfgang Grandegger <wg@grandegger.com>,
-        Akshay Bhat <nodeax@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <006d9e14-47bf-1add-97c3-24098b43267f@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Wolfgang,
+Hi all,
 
-On 03/16/2017 04:02 PM, Wolfgang Grandegger wrote:
-> 
-> Looks much better now! There are message for state changes to error
-> warning and passive. Just the following message is not correct:
-> 
->  (000.200824)  can0  20000004   [8]  00 40 00 00 00 00 5F 19   ERRORFRAME
->     controller-problem{}
->     error-counter-tx-rx{{95}{25}}
-> 
-> Sorry, forgot to mention... the function can_change_state() [1]
-> should be used for that purpose, if possible. It fixes the issue
-> above as well.
-> 
+Occasionally - we just had another case - people want to hook into
+packets received and processed by the mac80211 stack, but because they
+don't need all of them (e.g. not data packets), even adding a monitor
+interface and bringing it up has too high a cost because SKBs need to
+be prepared to send them to the monitor interface, even if no socket is
+consuming them.
 
-The updated driver (the one used to create the above log) is using
-can_change_state() function. data[1] 40 corresponds to
-CAN_ERR_CRTL_ACTIVE, so looks correct? Could it be that the can-utils I
-am using is old and not reporting state change?
+Ideally, we'd be able to detect that there are filter programs attached
+to the socket(s) that are looking at the frames coming in on the
+monitor interface, and we could somehow magically run those before we
+create a new SKB.
+One problem here is that we wouldn't really want to prepare all the
+radiotap header just to throw it away, so we'd have to be able to
+analyse the filter program to make sure it doesn't access anything but
+the radiotap header length, and that only in order to jump over it.
+That seems ... difficult, but we don't even know the header length -
+although we could fudge that and make a very long constant-size header,
+which might make it possible to do such analysis, or handle it by
+trapping on such access. But it seems rather difficult to implement
+this.
 
-Tentative v4 driver for reference:
-http://pastebin.com/4xFVL1Sj
+The next best thing would be to install a filter program on the virtual
+monitor *interface* (netdev), but say that it doesn't get frames with
+radiotap, but pure 802.11 frames. We already have those in SKB format
+at this point, so it'd be simple to run such a program and only pass
+the SKB to the monitor netdev's RX when the program asked to do that.
 
->> berr-reporting off case:
->> http://pastebin.com/fUn3j7qU
-> 
-> Ditto.
-> 
-> I just had another look to the manual and there is this undocumented
-> STATFE register at offset 0x1E. It's mentioned in some other parts of
-> the doc as interrupt enable register for STATF events. I would assume
-> the same bit layout than STATF. If you set bit 2 (BUSOFF), 3 (ERRP)
-> and 4 (ERRW), you may get interrupts. It's worth a try, I think. If
-> it works, it's the much better solution.
-> 
+This now seems a bit like XDP, but for XDP this header difference
+doesn't seem appropriate either.
 
-The HI-311x has a INT pin and a STAT pin. The hardware I have has only
-the INT pin connected to the processor. If the STAT pin was also
-connected, then like you mentioned it could be a much better solution to
-use STAT for state changes.
-
-Enabling BUSOFF/ERRP/ERRW bits in STATFE did not generate any interrupts
-on the INT pin. Should we make it a requirement that both INT and STAT
-pins need to be connected in hardware for the driver to do the error
-reporting?
+Anyone have any other thoughts?
 
 Thanks,
-Akshay
-
-> Wolfgang.
-> 
-> [1] http://lxr.free-electrons.com/ident?i=can_change_state
-> 
-> Wolfgang.
-> 
+johannes
