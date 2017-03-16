@@ -1,44 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v3 0/9] mlxsw: Enable VRF offload
-Date: Thu, 16 Mar 2017 10:20:22 -0700 (PDT)
-Message-ID: <20170316.102022.1371204829896380177.davem@davemloft.net>
-References: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [net-next sample action optimization v2 1/4] openvswitch:
+ Deferred fifo API change.
+Date: Thu, 16 Mar 2017 10:28:18 -0700
+Message-ID: <CAOrHB_B9_HpA38SL8V66=wOi9enTpgQ_Di-Kf5CUJ0oLPS97xA@mail.gmail.com>
+References: <1489532891-33497-1-git-send-email-azhou@ovn.org> <1489532891-33497-2-git-send-email-azhou@ovn.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
-To: jiri@resnulli.us
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Joe Stringer <joe@ovn.org>
+To: Andy Zhou <azhou@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37080 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751185AbdCPRVg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 13:21:36 -0400
-In-Reply-To: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:50447 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751478AbdCPR30 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 13:29:26 -0400
+Received: from mfilter11-d.gandi.net (mfilter11-d.gandi.net [217.70.178.131])
+        by relay2-d.mail.gandi.net (Postfix) with ESMTP id E27E6C5A9A
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 18:28:20 +0100 (CET)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+        by mfilter11-d.gandi.net (mfilter11-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id VDzQPBLsu0tu for <netdev@vger.kernel.org>;
+        Thu, 16 Mar 2017 18:28:19 +0100 (CET)
+Received: from mail-wm0-f43.google.com (mail-wm0-f43.google.com [74.125.82.43])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 98858C5A78
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 18:28:19 +0100 (CET)
+Received: by mail-wm0-f43.google.com with SMTP id n11so53853484wma.0
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 10:28:19 -0700 (PDT)
+In-Reply-To: <1489532891-33497-2-git-send-email-azhou@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 16 Mar 2017 09:08:11 +0100
+On Tue, Mar 14, 2017 at 4:08 PM, Andy Zhou <azhou@ovn.org> wrote:
+> add_deferred_actions() API currently requires actions to be passed in
+> as a fully encoded netlink message. So far both 'sample' and 'recirc'
+> actions happens to carry actions as fully encoded netlink messages.
+> However, this requirement is more restrictive than necessary, future
+> patch will need to pass in action lists that are not fully encoded
+> by themselves.
 
-> Packets received from netdevs enslaved to different VRF devices are
-> forwarded using different FIB tables. In the Spectrum ASIC this is
-> achieved by binding different router interfaces (RIFs) to different
-> virtual routers (VRs). Each RIF represents an enslaved netdev and each
-> VR has its own FIB table according to which packets are forwarded.
-> 
-> The first three patches add an helper to check if a FIB rule is a
-> default rule and extend the FIB notification chain to include the rule's
-> info as part of the RULE_{ADD,DEL} events. This allows offloading
-> drivers to sanitize the rules they don't support and flush their tables.
-> 
-> The fourth patch introduces a small change in the VRF driver to allow
-> capable drivers to more easily offload VRFs.
-> 
-> Finally, the last patches gradually add support for VRFs in the mlxsw
-> driver. First, on top of port netdevs, stacked LAG and VLAN devices and
-> then on top of bridges.
-
-Series applied, thanks.
+It is not obvious why this change is required?
+can you explain it.
