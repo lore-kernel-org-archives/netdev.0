@@ -1,87 +1,135 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH-v5 0/4] vsock: cancel connect packets when failing to
-	connect
-Date: Thu, 16 Mar 2017 15:14:37 +0800
-Message-ID: <20170316071437.GA17296@stefanha-x1.localdomain>
-References: <1489541537-130429-1-git-send-email-bergwolf@gmail.com>
+From: Jane Li <jiel@marvell.com>
+Subject: [PATCH v3] net: mvneta: support suspend and resume
+Date: Thu, 16 Mar 2017 15:11:48 +0800
+Message-ID: <1489648308-39743-1-git-send-email-jiel@marvell.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8578893806983484154=="
-Cc: netdev@vger.kernel.org, Jorgen Hansen <jhansen@vmware.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Peng Tao <bergwolf@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1489541537-130429-1-git-send-email-bergwolf@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <jszhang@marvell.com>, Jane Li <jiel@marvell.com>
+To: <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:34277 "EHLO
+        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751141AbdCPHjb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 03:39:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Add basic support for handling suspend and resume.
 
---===============8578893806983484154==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="dDRMvlgZJXvWKvBx"
-Content-Disposition: inline
+Signed-off-by: Jane Li <jiel@marvell.com>
+---
+Since v2:
+- use SIMPLE_DEV_PM_OPS instead of SET_LATE_SYSTEM_SLEEP_PM_OPS
 
+Since v1:
+- add mvneta_conf_mbus_windows() and mvneta_bm_port_init() in mvneta_resume()
 
---dDRMvlgZJXvWKvBx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+ drivers/net/ethernet/marvell/mvneta.c | 60 ++++++++++++++++++++++++++++++++---
+ 1 file changed, 56 insertions(+), 4 deletions(-)
 
-On Wed, Mar 15, 2017 at 09:32:13AM +0800, Peng Tao wrote:
-> Currently, if a connect call fails on a signal or timeout (e.g., guest is=
- still
-> in the process of starting up), we'll just return to caller and leave the=
- connect
-> packet queued and they are sent even though the connection is considered =
-a failure,
-> which can confuse applications with unwanted false connect attempt.
->=20
-> The patchset enables vsock (both host and guest) to cancel queued packets=
- when
-> a connect attempt is considered to fail.
->=20
-> v5 changelog:
->   - change virtio_vsock_pkt->cancel_token back to virtio_vsock_pkt->vsk
-
-As discussed previously, it's an opaque token that is not interpreted or
-dereferenced.  A unique integer could be used instead of the pointer we
-conveniently use as the token today.  I still think it should be void *
-or uintptr_t, but let's move on.
-
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
-
---dDRMvlgZJXvWKvBx
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJYyjtcAAoJEJykq7OBq3PIYZ4H+wSoBh/205nht7+rP7p+yhbS
-pc/cNMeSUKjkWRuR3+yPuWVT/UgUa4Cz83L+KkjHMBLhwVPDhfaubChH7sIzFkG+
-QAqJk0ro5edUf17PC1/sqhW7lYLx3U0gQPCFgHnbjvMpYMIwRqugwDXtxWkuEtet
-ry5dptEHmp2+WNfaeWTfZkkR9/Nn23DyQMFpxD0FIWMtpZXXTtsVYLrZwWQ142kR
-RPI/TZRhXyuB9iusQrsodvQCLGL1sbnaD7GXzZEgKNCxYbYbwWV1bazX/VI+xXSB
-QjrUibTBDQ9oTF0DTIUrrvqY6YtLy8NrXxxOHqRQKS5J+3aObDFBIr6zvqBzE4U=
-=uTSm
------END PGP SIGNATURE-----
-
---dDRMvlgZJXvWKvBx--
-
---===============8578893806983484154==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---===============8578893806983484154==--
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 61dd446..b0fea26 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -431,6 +431,7 @@ struct mvneta_port {
+ 	/* Flags for special SoC configurations */
+ 	bool neta_armada3700;
+ 	u16 rx_offset_correction;
++	const struct mbus_dram_target_info *dram_target_info;
+ };
+ 
+ /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
+@@ -4118,7 +4119,6 @@ static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+ /* Device initialization routine */
+ static int mvneta_probe(struct platform_device *pdev)
+ {
+-	const struct mbus_dram_target_info *dram_target_info;
+ 	struct resource *res;
+ 	struct device_node *dn = pdev->dev.of_node;
+ 	struct device_node *phy_node;
+@@ -4267,13 +4267,13 @@ static int mvneta_probe(struct platform_device *pdev)
+ 
+ 	pp->tx_csum_limit = tx_csum_limit;
+ 
+-	dram_target_info = mv_mbus_dram_info();
++	pp->dram_target_info = mv_mbus_dram_info();
+ 	/* Armada3700 requires setting default configuration of Mbus
+ 	 * windows, however without using filled mbus_dram_target_info
+ 	 * structure.
+ 	 */
+-	if (dram_target_info || pp->neta_armada3700)
+-		mvneta_conf_mbus_windows(pp, dram_target_info);
++	if (pp->dram_target_info || pp->neta_armada3700)
++		mvneta_conf_mbus_windows(pp, pp->dram_target_info);
+ 
+ 	pp->tx_ring_size = MVNETA_MAX_TXD;
+ 	pp->rx_ring_size = MVNETA_MAX_RXD;
+@@ -4405,6 +4405,57 @@ static int mvneta_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
++static int mvneta_suspend(struct device *device)
++{
++	struct net_device *dev = dev_get_drvdata(device);
++	struct mvneta_port *pp = netdev_priv(dev);
++
++	if (netif_running(dev))
++		mvneta_stop(dev);
++	netif_device_detach(dev);
++	clk_disable_unprepare(pp->clk_bus);
++	clk_disable_unprepare(pp->clk);
++	return 0;
++}
++
++static int mvneta_resume(struct device *device)
++{
++	struct platform_device *pdev = to_platform_device(device);
++	struct net_device *dev = dev_get_drvdata(device);
++	struct mvneta_port *pp = netdev_priv(dev);
++	int err;
++
++	clk_prepare_enable(pp->clk);
++	clk_prepare_enable(pp->clk_bus);
++	if (pp->dram_target_info || pp->neta_armada3700)
++		mvneta_conf_mbus_windows(pp, pp->dram_target_info);
++	if (pp->bm_priv) {
++		err = mvneta_bm_port_init(pdev, pp);
++		if (err < 0) {
++			dev_info(&pdev->dev, "use SW buffer management\n");
++			pp->bm_priv = NULL;
++		}
++	}
++	mvneta_defaults_set(pp);
++	err = mvneta_port_power_up(pp, pp->phy_interface);
++	if (err < 0) {
++		dev_err(device, "can't power up port\n");
++		return err;
++	}
++
++	if (pp->use_inband_status)
++		mvneta_fixed_link_update(pp, dev->phydev);
++
++	netif_device_attach(dev);
++	if (netif_running(dev))
++		mvneta_open(dev);
++	return 0;
++}
++#endif
++
++static SIMPLE_DEV_PM_OPS(mvneta_pm_ops, mvneta_suspend, mvneta_resume);
++
+ static const struct of_device_id mvneta_match[] = {
+ 	{ .compatible = "marvell,armada-370-neta" },
+ 	{ .compatible = "marvell,armada-xp-neta" },
+@@ -4419,6 +4470,7 @@ static int mvneta_remove(struct platform_device *pdev)
+ 	.driver = {
+ 		.name = MVNETA_DRIVER_NAME,
+ 		.of_match_table = mvneta_match,
++		.pm = &mvneta_pm_ops,
+ 	},
+ };
+ 
+-- 
+1.9.1
