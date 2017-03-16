@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 17/17] net: convert packet_fanout.sk_ref from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 17:29:07 +0200
-Message-ID: <1489678147-21404-18-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 15/17] net: convert net.passive from atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 17:29:05 +0200
+Message-ID: <1489678147-21404-16-git-send-email-elena.reshetova@intel.com>
 References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -26,66 +26,66 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- net/packet/af_packet.c | 8 ++++----
- net/packet/internal.h  | 4 +++-
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ include/net/net_namespace.h | 3 ++-
+ net/core/net-sysfs.c        | 2 +-
+ net/core/net_namespace.c    | 4 ++--
+ 3 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index ad5e5dc..ef868a7 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1698,7 +1698,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		match->flags = flags;
- 		INIT_LIST_HEAD(&match->list);
- 		spin_lock_init(&match->lock);
--		atomic_set(&match->sk_ref, 0);
-+		refcount_set(&match->sk_ref, 0);
- 		fanout_init_data(match);
- 		match->prot_hook.type = po->prot_hook.type;
- 		match->prot_hook.dev = po->prot_hook.dev;
-@@ -1712,10 +1712,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	    match->prot_hook.type == po->prot_hook.type &&
- 	    match->prot_hook.dev == po->prot_hook.dev) {
- 		err = -ENOSPC;
--		if (atomic_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
-+		if (refcount_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
- 			__dev_remove_pack(&po->prot_hook);
- 			po->fanout = match;
--			atomic_inc(&match->sk_ref);
-+			refcount_set(&match->sk_ref, refcount_read(&match->sk_ref) + 1);
- 			__fanout_link(sk, po);
- 			err = 0;
- 		}
-@@ -1744,7 +1744,7 @@ static struct packet_fanout *fanout_release(struct sock *sk)
- 	if (f) {
- 		po->fanout = NULL;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index af8fe8a..ec6dcaf 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -5,6 +5,7 @@
+ #define __NET_NET_NAMESPACE_H
  
--		if (atomic_dec_and_test(&f->sk_ref))
-+		if (refcount_dec_and_test(&f->sk_ref))
- 			list_del(&f->list);
- 		else
- 			f = NULL;
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index 9ee4631..94d1d40 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -1,6 +1,8 @@
- #ifndef __PACKET_INTERNAL_H__
- #define __PACKET_INTERNAL_H__
- 
+ #include <linux/atomic.h>
 +#include <linux/refcount.h>
-+
- struct packet_mclist {
- 	struct packet_mclist	*next;
- 	int			ifindex;
-@@ -86,7 +88,7 @@ struct packet_fanout {
- 	struct list_head	list;
- 	struct sock		*arr[PACKET_FANOUT_MAX];
- 	spinlock_t		lock;
--	atomic_t		sk_ref;
-+	refcount_t		sk_ref;
- 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
- };
+ #include <linux/workqueue.h>
+ #include <linux/list.h>
+ #include <linux/sysctl.h>
+@@ -45,7 +46,7 @@ struct netns_ipvs;
+ #define NETDEV_HASHENTRIES (1 << NETDEV_HASHBITS)
+ 
+ struct net {
+-	atomic_t		passive;	/* To decided when the network
++	refcount_t		passive;	/* To decided when the network
+ 						 * namespace should be freed.
+ 						 */
+ 	atomic_t		count;		/* To decided when the network
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 3945821..d62caad 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1444,7 +1444,7 @@ static void *net_grab_current_ns(void)
+ 	struct net *ns = current->nsproxy->net_ns;
+ #ifdef CONFIG_NET_NS
+ 	if (ns)
+-		atomic_inc(&ns->passive);
++		refcount_inc(&ns->passive);
+ #endif
+ 	return ns;
+ }
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 652468f..cb981aa 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -283,7 +283,7 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
+ 	LIST_HEAD(net_exit_list);
+ 
+ 	atomic_set(&net->count, 1);
+-	atomic_set(&net->passive, 1);
++	refcount_set(&net->passive, 1);
+ 	net->dev_base_seq = 1;
+ 	net->user_ns = user_ns;
+ 	idr_init(&net->netns_ids);
+@@ -360,7 +360,7 @@ static void net_free(struct net *net)
+ void net_drop_ns(void *p)
+ {
+ 	struct net *ns = p;
+-	if (ns && atomic_dec_and_test(&ns->passive))
++	if (ns && refcount_dec_and_test(&ns->passive))
+ 		net_free(ns);
+ }
  
 -- 
 2.7.4
