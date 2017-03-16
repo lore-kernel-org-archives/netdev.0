@@ -1,55 +1,111 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: Re: [PATCH v2 net-next 4/5] sunvnet: count multicast packets
-Date: Wed, 15 Mar 2017 17:17:44 -0700
-Message-ID: <4ee0ac85-62a3-2cb2-0d5d-d17e4334bde8@oracle.com>
-References: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
- <1489512283-422140-5-git-send-email-shannon.nelson@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrei Vagin <avagin@openvz.org>
+Subject: [PATCH net-next] net/8021q: create device with all possible features in wanted_features
+Date: Wed, 15 Mar 2017 17:41:14 -0700
+Message-ID: <20170316004114.17059-1-avagin@openvz.org>
+Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>,
+        Alexey Kuznetsov <kuznet@virtuozzo.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34018 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750836AbdCPAle (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 20:41:34 -0400
+Received: by mail-pf0-f195.google.com with SMTP id o126so3795420pfb.1
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 17:41:33 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/15/2017 1:50 AM, David Laight wrote:
-> From: Shannon Nelson
->> Sent: 14 March 2017 17:25
-> ...
->> +	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
->> +		dev->stats.multicast++;
->
-> I'd guess that:
-> 	dev->stats.multicast += is_multicast_ether_addr(eth_hdr(skb)->h_dest);
-> generates faster code.
-> Especially if is_multicast_ether_addr(x) is (*x >> 7).
->
-> 	David
+wanted_features is a set of features which have to be enabled if a
+hardware allows that.
 
-Hi David, thanks for the comment.  My local instruction level 
-performance guru is on vacation this week so I can't do a quick check 
-with him today on this.  However, I"m not too worried here since the 
-inline code for is_multicast_ether_addr() is simply
+Currently when a vlan device is created, its wanted_features is set to
+current features of its base device.
 
-	return 0x01 & addr[0];
+The problem is that the base device can get new features and they are
+not propagated to vlan-s of this device.
 
-and objdump tells me that on sparc it compiles down to a simple single 
-byte load and compare:
+If we look at bonding devices, they doesn't have this problem and this
+patch suggests to fix this issue by the same way how it works for bonding
+devices.
 
-     325c:	c2 08 80 03 	ldub  [ %g2 + %g3 ], %g1
-     3260:	80 88 60 01 	btst  1, %g1
-     3264:	32 60 00 b3 	bne,a,pn   %xcc, 3530 <vnet_rx_one+0x430>
-     3268:	c2 5c 61 68 	ldx  [ %l1 + 0x168 ], %g1
-		dev->stats.multicast++;
+We meet this problem, when we try to create a vlan device over a bonding
+device. When a system are booting, real devices require time to be
+initialized, so bonding devices created without slaves, then vlan
+devices are created and only then ethernet devices are added to the
+bonding device. As a result we have vlan devices with disabled
+scatter-gather.
 
-I don't think this driver will ever be used on anything bug sparc, so 
-I'm not worried about how x86 might compile this.
+* create a bonding device
+  $ ip link add bond0 type bond
+  $ ethtool -k bond0 | grep scatter
+  scatter-gather: off
+	tx-scatter-gather: off [requested on]
+	tx-scatter-gather-fraglist: off [requested on]
 
-sln
+* create a vlan device
+  $ ip link add link bond0 name bond0.10 type vlan id 10
+  $ ethtool -k bond0.10 | grep scatter
+  scatter-gather: off
+	tx-scatter-gather: off
+	tx-scatter-gather-fraglist: off
 
+* Add a slave device to bond0
+  $ ip link set dev eth0 master bond0
+
+And now we can see that the bond0 device has got the scatter-gather
+feature, but the bond0.10 hasn't got it.
+[root@laptop linux-task-diag]# ethtool -k bond0 | grep scatter
+scatter-gather: on
+	tx-scatter-gather: on
+	tx-scatter-gather-fraglist: on
+[root@laptop linux-task-diag]# ethtool -k bond0.10 | grep scatter
+scatter-gather: off
+	tx-scatter-gather: off
+	tx-scatter-gather-fraglist: off
+
+With this patch the vlan device will get all new features from the
+bonding device.
+
+Here is a call trace how features which are set in this patch reach
+dev->wanted_features.
+
+register_netdevice
+   vlan_dev_init
+	...
+	dev->hw_features = NETIF_F_HW_CSUM | NETIF_F_SG |
+		       NETIF_F_FRAGLIST | NETIF_F_GSO_SOFTWARE |
+		       NETIF_F_HIGHDMA | NETIF_F_SCTP_CRC |
+		       NETIF_F_ALL_FCOE;
+
+	dev->features |= dev->hw_features;
+	...
+    dev->wanted_features = dev->features & dev->hw_features;
+    __netdev_update_features(dev);
+        vlan_dev_fix_features
+	   ...
+
+Cc: Alexey Kuznetsov <kuznet@virtuozzo.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Andrei Vagin <avagin@openvz.org>
+---
+ net/8021q/vlan_dev.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 10da6c5..b9ad2f8 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -562,8 +562,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CRC |
+ 			   NETIF_F_ALL_FCOE;
+ 
+-	dev->features |= real_dev->vlan_features | NETIF_F_LLTX |
+-			 NETIF_F_GSO_SOFTWARE;
++	dev->features |= dev->hw_features | NETIF_F_LLTX;
+ 	dev->gso_max_size = real_dev->gso_max_size;
+ 	dev->gso_max_segs = real_dev->gso_max_segs;
+ 	if (dev->features & NETIF_F_VLAN_FEATURES)
+-- 
+2.9.3
