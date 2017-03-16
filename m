@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 02/17] net: convert neigh_params.refcnt from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 17:28:52 +0200
-Message-ID: <1489678147-21404-3-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 03/17] net: convert nf_bridge_info.use from atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 17:28:53 +0200
+Message-ID: <1489678147-21404-4-git-send-email-elena.reshetova@intel.com>
 References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -26,77 +26,71 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/neighbour.h | 6 +++---
- net/core/neighbour.c    | 8 ++++----
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ include/linux/skbuff.h               | 6 +++---
+ include/net/netfilter/br_netfilter.h | 2 +-
+ net/bridge/br_netfilter_hooks.c      | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 9a66cfc9..d2eab49 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -77,7 +77,7 @@ struct neigh_parms {
- 	void	*sysctl_table;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 4bcb75f..957a2b0 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -250,7 +250,7 @@ struct nf_conntrack {
  
- 	int dead;
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 	struct rcu_head rcu_head;
- 
- 	int	reachable_time;
-@@ -394,12 +394,12 @@ void neigh_sysctl_unregister(struct neigh_parms *p);
- 
- static inline void __neigh_parms_put(struct neigh_parms *parms)
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ struct nf_bridge_info {
+-	atomic_t		use;
++	refcount_t		use;
+ 	enum {
+ 		BRNF_PROTO_UNCHANGED,
+ 		BRNF_PROTO_8021Q,
+@@ -3589,13 +3589,13 @@ static inline void nf_conntrack_get(struct nf_conntrack *nfct)
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ static inline void nf_bridge_put(struct nf_bridge_info *nf_bridge)
  {
--	atomic_dec(&parms->refcnt);
-+	refcount_dec(&parms->refcnt);
+-	if (nf_bridge && atomic_dec_and_test(&nf_bridge->use))
++	if (nf_bridge && refcount_dec_and_test(&nf_bridge->use))
+ 		kfree(nf_bridge);
  }
- 
- static inline struct neigh_parms *neigh_parms_clone(struct neigh_parms *parms)
+ static inline void nf_bridge_get(struct nf_bridge_info *nf_bridge)
  {
--	atomic_inc(&parms->refcnt);
-+	refcount_inc(&parms->refcnt);
- 	return parms;
+ 	if (nf_bridge)
+-		atomic_inc(&nf_bridge->use);
++		refcount_inc(&nf_bridge->use);
  }
+ #endif /* CONFIG_BRIDGE_NETFILTER */
+ static inline void nf_reset(struct sk_buff *skb)
+diff --git a/include/net/netfilter/br_netfilter.h b/include/net/netfilter/br_netfilter.h
+index 0b0c35c..925524e 100644
+--- a/include/net/netfilter/br_netfilter.h
++++ b/include/net/netfilter/br_netfilter.h
+@@ -8,7 +8,7 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+ 	skb->nf_bridge = kzalloc(sizeof(struct nf_bridge_info), GFP_ATOMIC);
  
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 36f8008..9b38acd 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -673,7 +673,7 @@ static void neigh_parms_destroy(struct neigh_parms *parms);
+ 	if (likely(skb->nf_bridge))
+-		atomic_set(&(skb->nf_bridge->use), 1);
++		refcount_set(&(skb->nf_bridge->use), 1);
  
- static inline void neigh_parms_put(struct neigh_parms *parms)
+ 	return skb->nf_bridge;
+ }
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 52739e6..ac04135 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -149,12 +149,12 @@ static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
  {
--	if (atomic_dec_and_test(&parms->refcnt))
-+	if (refcount_dec_and_test(&parms->refcnt))
- 		neigh_parms_destroy(parms);
- }
+ 	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
  
-@@ -1436,7 +1436,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- 	p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
- 	if (p) {
- 		p->tbl		  = tbl;
--		atomic_set(&p->refcnt, 1);
-+		refcount_set(&p->refcnt, 1);
- 		p->reachable_time =
- 				neigh_rand_reach_time(NEIGH_VAR(p, BASE_REACHABLE_TIME));
- 		dev_hold(dev);
-@@ -1499,7 +1499,7 @@ void neigh_table_init(int index, struct neigh_table *tbl)
- 	INIT_LIST_HEAD(&tbl->parms_list);
- 	list_add(&tbl->parms.list, &tbl->parms_list);
- 	write_pnet(&tbl->parms.net, &init_net);
--	atomic_set(&tbl->parms.refcnt, 1);
-+	refcount_set(&tbl->parms.refcnt, 1);
- 	tbl->parms.reachable_time =
- 			  neigh_rand_reach_time(NEIGH_VAR(&tbl->parms, BASE_REACHABLE_TIME));
+-	if (atomic_read(&nf_bridge->use) > 1) {
++	if (refcount_read(&nf_bridge->use) > 1) {
+ 		struct nf_bridge_info *tmp = nf_bridge_alloc(skb);
  
-@@ -1746,7 +1746,7 @@ static int neightbl_fill_parms(struct sk_buff *skb, struct neigh_parms *parms)
- 
- 	if ((parms->dev &&
- 	     nla_put_u32(skb, NDTPA_IFINDEX, parms->dev->ifindex)) ||
--	    nla_put_u32(skb, NDTPA_REFCNT, atomic_read(&parms->refcnt)) ||
-+	    nla_put_u32(skb, NDTPA_REFCNT, refcount_read(&parms->refcnt)) ||
- 	    nla_put_u32(skb, NDTPA_QUEUE_LENBYTES,
- 			NEIGH_VAR(parms, QUEUE_LEN_BYTES)) ||
- 	    /* approximative value for deprecated QUEUE_LEN (in packets) */
+ 		if (tmp) {
+ 			memcpy(tmp, nf_bridge, sizeof(struct nf_bridge_info));
+-			atomic_set(&tmp->use, 1);
++			refcount_set(&tmp->use, 1);
+ 		}
+ 		nf_bridge_put(nf_bridge);
+ 		nf_bridge = tmp;
 -- 
 2.7.4
