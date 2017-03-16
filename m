@@ -1,41 +1,39 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/2] net/sched: act_ife: Staticfy find_decode_metaid()
-Date: Thu, 16 Mar 2017 10:49:04 +0200
-Message-ID: <1489654145-20532-2-git-send-email-ogerlitz@mellanox.com>
-References: <1489654145-20532-1-git-send-email-ogerlitz@mellanox.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52397 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751583AbdCPItQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 04:49:16 -0400
-In-Reply-To: <1489654145-20532-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: ath10k: remove redundant error check
+Date: Thu, 16 Mar 2017 09:57:51 +0100
+Message-ID: <f9f879b23b604117bf434e122146882e@euamsexm01a.eu.qualcomm.com>
+References: <20170228111439.19546-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <ath10k@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170228111439.19546-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As it's used only on that file.
+Colin Ian King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The check on ret for an error is redundant because it is already been
+> checked for non-zero earlier on and ret is never non-zero at this point.
+> Fix this by removing the redundant check and error message.
+> 
+> Detected by CoverityScan, CID#1357170 ("Logically Dead Code")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- net/sched/act_ife.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Patch applied to ath-next branch of ath.git, thanks.
 
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index 71e7ff22..c75ea5c 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -603,8 +603,8 @@ static int tcf_ife_dump(struct sk_buff *skb, struct tc_action *a, int bind,
- 	return -1;
- }
- 
--int find_decode_metaid(struct sk_buff *skb, struct tcf_ife_info *ife,
--		       u16 metaid, u16 mlen, void *mdata)
-+static int find_decode_metaid(struct sk_buff *skb, struct tcf_ife_info *ife,
-+			      u16 metaid, u16 mlen, void *mdata)
- {
- 	struct tcf_meta_info *e;
- 
+51f60b8b6979 ath10k: remove redundant error check
+
 -- 
-2.3.7
+https://patchwork.kernel.org/patch/9595221/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
