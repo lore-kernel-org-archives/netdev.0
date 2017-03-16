@@ -1,55 +1,65 @@
 From: Kris Murphy <kriskend@linux.vnet.ibm.com>
-Subject: [PATCH 1/1] openvswitch: Add missing case OVS_TUNNEL_KEY_ATTR_PAD
-Date: Thu, 16 Mar 2017 10:26:03 -0500
-Message-ID: <1b8ba07efdee3db310d4504462924565684ebd64.1489677257.git.kriskend@linux.vnet.ibm.com>
-References: <cover.1489677257.git.kriskend@linux.vnet.ibm.com>
+Subject: [PATCH 0/1] openvswitch: Add missing case OVS_TUNNEL_KEY_ATTR_PAD
+Date: Thu, 16 Mar 2017 10:26:02 -0500
+Message-ID: <cover.1489677257.git.kriskend@linux.vnet.ibm.com>
 Cc: seroyer@linux.vnet.ibm.com, adreznec@linux.vnet.ibm.com,
         Kris Murphy <kriskend@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:42440 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55005 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752029AbdCPP0X (ORCPT
+        by vger.kernel.org with ESMTP id S1751841AbdCPP0X (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 11:26:23 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2GFDwYP064970
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 11:26:20 -0400
-Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 297u87pe5k-1
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2GFDwU5135694
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 11:26:15 -0400
+Received: from e18.ny.us.ibm.com (e18.ny.us.ibm.com [129.33.205.208])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 297nkn8khq-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 11:26:20 -0400
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 11:26:15 -0400
 Received: from localhost
-        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <kriskend@linux.vnet.ibm.com>;
-        Thu, 16 Mar 2017 11:26:18 -0400
-In-Reply-To: <cover.1489677257.git.kriskend@linux.vnet.ibm.com>
-In-Reply-To: <cover.1489677257.git.kriskend@linux.vnet.ibm.com>
-References: <cover.1489677257.git.kriskend@linux.vnet.ibm.com>
+        Thu, 16 Mar 2017 11:26:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added a case for OVS_TUNNEL_KEY_ATTR_PAD to the switch statement
-in ip_tun_from_nlattr in order to prevent the default case
-returning an error.
+Recreate and error info:
 
-Fixes: b46f6ded906e ("libnl: nla_put_be64(): align on a 64-bit area")
-Signed-off-by: Kris Murphy <kriskend@linux.vnet.ibm.com>
----
+Hit a new issue with OVS after updating to the Ubuntu 4.8 kernel from the
+Ubuntu 4.4 kernel.
+
+Iperf was used to send traffic between client VMs over VXLAN. The traffic did 
+still flow, but every packet had to go to user space due to the flow creation 
+failures, which drastically impacted performance and cpu utilization.
+
+When using VXLAN, the following error is showing up in dmesg
+
+openvswitch: netlink: Unknown IP tunnel attribute 14
+
+Also there are tons of these errors in the openvswitch log
+
+2017-03-01T15:50:47.860Z|00018|dpif(handler164)|WARN|system@ovs-system: failed 
+to put[create] (Invalid argument) ufid:2d1a9aeb-7b24-4235-a208-a01f98237e60 
+recirc_id(0),dp_hash(0/0),skb_pri
+
+Debug showed that this attribute, OVS_TUNNEL_KEY_ATTR_PAD, was being seen in the 
+switch statement in method, static int ip_tun_from_nlattr, in flow_netlink.c .  
+Because there is no case for this attribute, the default is hit and returns an 
+error.
+
+The issue was first seen using the packages in the Ubuntu 4.8 kernel, which is 
+OVS 2.5.  OVS 2.6 and 2.6.1 were also tried with the kernel packages and the 
+same issue was seen.  Tried building OVS 2.7 and loading the 
+openvswitch-datapath-dkms_2.7.0-1_all.deb that got built but the issue persisted.  
+The proposed patch seems to eliminate the error messages and also fixed the 
+segmentation and performance issues that were seen. 
+
+Kris Murphy (1):
+  openvswitch: Add missing case OVS_TUNNEL_KEY_ATTR_PAD
+
  net/openvswitch/flow_netlink.c | 2 ++
  1 file changed, 2 insertions(+)
 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 6f5fa50..1e75fec 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -665,6 +665,8 @@ static int ip_tun_from_nlattr(const struct nlattr *attr,
- 			tun_flags |= TUNNEL_VXLAN_OPT;
- 			opts_type = type;
- 			break;
-+                case OVS_TUNNEL_KEY_ATTR_PAD:
-+                        break;
- 		default:
- 			OVS_NLERR(log, "Unknown IP tunnel attribute %d",
- 				  type);
 -- 
 2.7.4
