@@ -1,29 +1,30 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: netdev level filtering? perhaps pushing socket filters down?
-Date: Thu, 16 Mar 2017 23:44:04 +0100
-Message-ID: <1489704244.3930.7.camel@sipsolutions.net>
-References: <1489703635.3930.5.camel@sipsolutions.net>
-         <58CB1714.8000305@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <58CB1714.8000305-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 0/3] netvsc: small changesfor net-next
+Date: Thu, 16 Mar 2017 16:12:36 -0700
+Message-ID: <20170316231239.12996-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: kys@microsoft.com, davem@davemloft.net, haiyangz@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:32943 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752191AbdCPXMt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 19:12:49 -0400
+Received: by mail-pg0-f44.google.com with SMTP id n190so32055035pga.0
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 16:12:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+One bugfix, and two non-code patches
 
-> Attach at just above the driver, before it ever gets to
-> stations/vdevs, and ignore radiotap headers and/or add special
-> processing for metadata like rx-info?
+Stephen Hemminger (3):
+  netvsc: avoid race with callback
+  netvsc: add comments about callback's and NAPI
+  netvsc: remove unused #define
 
-That'd be a different feature, perhaps more like XDP.
+ drivers/net/hyperv/hyperv_net.h   |  3 ---
+ drivers/net/hyperv/netvsc.c       | 31 +++++++++++++++++--------------
+ drivers/net/hyperv/rndis_filter.c | 15 ++++++++++-----
+ 3 files changed, 27 insertions(+), 22 deletions(-)
 
-There anyway is no radiotap header at that point, but not changing
-whether or not it makes it to other virtual interfaces is actually not
-what we're looking for here at all.
-
-johannes
+-- 
+2.11.0
