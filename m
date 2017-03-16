@@ -1,83 +1,60 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net-next 4/5] sunvnet: count multicast packets
-Date: Thu, 16 Mar 2017 12:12:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFB283F@AcuExch.aculab.com>
-References: <1489512283-422140-1-git-send-email-shannon.nelson@oracle.com>
- <1489512283-422140-5-git-send-email-shannon.nelson@oracle.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFB12CF@AcuExch.aculab.com>
- <4ee0ac85-62a3-2cb2-0d5d-d17e4334bde8@oracle.com>
+From: Numan Siddique <nusiddiq-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [RFC] [net]openvswitch: Clear the ct flow key for the
+ recirculated packet
+Date: Thu, 16 Mar 2017 17:55:06 +0530
+Message-ID: <af0d1942-726b-b637-e8e3-2f4857bb00a2@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Shannon Nelson' <shannon.nelson@oracle.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4ee0ac85-62a3-2cb2-0d5d-d17e4334bde8@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Shannon Nelson
-> Sent: 16 March 2017 00:18
-> To: David Laight; netdev@vger.kernel.org; davem@davemloft.net
-> On 3/15/2017 1:50 AM, David Laight wrote:
-> > From: Shannon Nelson
-> >> Sent: 14 March 2017 17:25
-> > ...
-> >> +	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
-> >> +		dev->stats.multicast++;
-> >
-> > I'd guess that:
-> > 	dev->stats.multicast += is_multicast_ether_addr(eth_hdr(skb)->h_dest);
-> > generates faster code.
-> > Especially if is_multicast_ether_addr(x) is (*x >> 7).
+It is possible that the ct flow key information would have
+gone stale for the packets received from the userspace due to
+clone or ct_clear actions.
 
-I'd clearly got brain-fade there, mcast bit is the first transmitted bit
-(on ethernet) but the bytes are sent LSB first (like async).
-> > 	David
-> 
-> Hi David, thanks for the comment.  My local instruction level
-> performance guru is on vacation this week so I can't do a quick check
-> with him today on this.  However, I"m not too worried here since the
-> inline code for is_multicast_ether_addr() is simply
-> 
-> 	return 0x01 & addr[0];
-> 
-> and objdump tells me that on sparc it compiles down to a simple single
-> byte load and compare:
-> 
->      325c:	c2 08 80 03 	ldub  [ %g2 + %g3 ], %g1
->      3260:	80 88 60 01 	btst  1, %g1
->      3264:	32 60 00 b3 	bne,a,pn   %xcc, 3530 <vnet_rx_one+0x430>
->      3268:	c2 5c 61 68 	ldx  [ %l1 + 0x168 ], %g1
-> 		dev->stats.multicast++;
+In the case of OVN, it adds ping responder flows, which modifies
+the original icmp4 request packet to a reply packet. It uses the
+OVS actions - clone and ct_clear. When the reply packet hits the
+"ovs_ct_execute" function, and since the ct flow key info is not
+cleared, the connection tracker doesn't set the state to
+ESTABLISHED state.
 
-Followed by a branch that might be marked 'assume taken' so the
-normal path takes the branch.
-I guess that is followed by 'add 1 to %g1', 'stx %g1, [ %l1 + 0x168 ]'
-and a branch to 3530.
-GCC must be using that condition to generate get the bottom of a loop
-to 'fallthrough' to its top!
+Note: This patch is marked as RFC, as I am not sure if this is the correct
+place to address this issue or it should be addressed in ovs-vswitchd
+to set the OVS_KEY_ATTR_CT_STATE and other related attributes
+properly for ct_clear action.
 
-My version should generate something like:
-		ldub  [ %g2 + %g3 ], %g1
-		ldx   [ %l1 + 0x168 ], %g2
-		and   1, %g1
-		add   %g1, %g2, %g2
-		stx   %g2, [ %l1 + 0x168 ]
-While this looks like 5 instructions (rather than 2) it has fewer pipeline
-stalls and can be 'spread out' into the surrounding lines of code to
-reduce the stalls further.
+Signed-off-by: Numan Siddique <nusiddiq-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ net/openvswitch/flow.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-> I don't think this driver will ever be used on anything bug sparc, so
-> I'm not worried about how x86 might compile this.
-
-On x86 gcc is likely to ignore the 'unlikely' and generate a forwards
-(predicted not taken) branch around the increment.
-I've had to but asm comments in the else part of conditionals like
-that to force gcc to generate a forwards jump to the 'unlikely' statements.
-
-	David
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 9d4bb8e..72b73db 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -836,6 +836,11 @@ int ovs_flow_key_extract_userspace(struct net *net, const struct nlattr *attr,
+ 	if (err)
+ 		return err;
+ 
++	/* Clear the ct flow key after key_extract to avoid using
++	 * stale ct key information.
++	*/
++	ovs_ct_fill_key(skb, key);
++
+ 	/* Check that we have conntrack original direction tuple metadata only
+ 	 * for packets for which it makes sense.  Otherwise the key may be
+ 	 * corrupted due to overlapping key fields.
+-- 
+2.9.3
