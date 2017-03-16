@@ -1,7 +1,7 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 08/11] net: usb: smsc75xx: use new api ethtool_{get|set}_link_ksettings
-Date: Thu, 16 Mar 2017 23:18:54 +0100
-Message-ID: <1489702737-2401-9-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 07/11] net: usb: sierra_net: use new api ethtool_{get|set}_link_ksettings
+Date: Thu, 16 Mar 2017 23:18:53 +0100
+Message-ID: <1489702737-2401-8-git-send-email-tremyfr@gmail.com>
 References: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
 Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
@@ -24,28 +24,24 @@ someone may test this patch.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/usb/smsc75xx.c |    4 ++--
+ drivers/net/usb/sierra_net.c |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
-index 0b17b40..1ab0ff4 100644
---- a/drivers/net/usb/smsc75xx.c
-+++ b/drivers/net/usb/smsc75xx.c
-@@ -743,13 +743,13 @@ static int smsc75xx_ethtool_set_wol(struct net_device *net,
- 	.get_drvinfo	= usbnet_get_drvinfo,
- 	.get_msglevel	= usbnet_get_msglevel,
- 	.set_msglevel	= usbnet_set_msglevel,
--	.get_settings	= usbnet_get_settings,
--	.set_settings	= usbnet_set_settings,
- 	.get_eeprom_len	= smsc75xx_ethtool_get_eeprom_len,
- 	.get_eeprom	= smsc75xx_ethtool_get_eeprom,
- 	.set_eeprom	= smsc75xx_ethtool_set_eeprom,
- 	.get_wol	= smsc75xx_ethtool_get_wol,
- 	.set_wol	= smsc75xx_ethtool_set_wol,
-+	.get_link_ksettings	= usbnet_get_link_ksettings,
-+	.set_link_ksettings	= usbnet_set_link_ksettings,
+diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
+index ac69f28..c8f60b8 100644
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@ -648,9 +648,9 @@ static u32 sierra_net_get_link(struct net_device *net)
+ 	.get_link = sierra_net_get_link,
+ 	.get_msglevel = usbnet_get_msglevel,
+ 	.set_msglevel = usbnet_set_msglevel,
+-	.get_settings = usbnet_get_settings,
+-	.set_settings = usbnet_set_settings,
+ 	.nway_reset = usbnet_nway_reset,
++	.get_link_ksettings = usbnet_get_link_ksettings,
++	.set_link_ksettings = usbnet_set_link_ksettings,
  };
  
- static int smsc75xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ static int sierra_net_get_fw_attr(struct usbnet *dev, u16 *datap)
 -- 
 1.7.4.4
