@@ -1,107 +1,120 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 5/6] bpf: inline htab_map_lookup_elem()
-Date: Wed, 15 Mar 2017 18:26:43 -0700
-Message-ID: <1489627604-2288703-6-git-send-email-ast@fb.com>
-References: <1489627604-2288703-1-git-send-email-ast@fb.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next] mlx4: Better use of order-0 pages in RX path
+Date: Wed, 15 Mar 2017 18:56:20 -0700
+Message-ID: <20170316015618.GA12660@ast-mbp.thefacebook.com>
+References: <20170314151143.16231-1-edumazet@google.com>
+ <20170315040657.GA29637@ast-mbp.thefacebook.com>
+ <1489584089.28631.147.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170315230608.GA90318@ast-mbp.thefacebook.com>
+ <1489626436.28631.198.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Fengguang Wu <fengguang.wu@intel.com>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33882 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750868AbdCPB2e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 21:28:34 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2G1PPh4030019
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:27:05 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 297cyx13x1-5
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:27:05 -0700
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
- mx-out.facebook.com (10.102.107.99) with ESMTP id
- 9dd4327209e711e78dc20002c99293a0-f20da9a0 for <netdev@vger.kernel.org>;        Wed,
- 15 Mar 2017 18:26:44 -0700
-In-Reply-To: <1489627604-2288703-1-git-send-email-ast@fb.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36294 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750892AbdCPB4Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 15 Mar 2017 21:56:25 -0400
+Received: by mail-pf0-f194.google.com with SMTP id r137so142117pfr.3
+        for <netdev@vger.kernel.org>; Wed, 15 Mar 2017 18:56:24 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1489626436.28631.198.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Optimize:
-bpf_call
-  bpf_map_lookup_elem
-    map->ops->map_lookup_elem
-      htab_map_lookup_elem
-        __htab_map_lookup_elem
-into:
-bpf_call
-  __htab_map_lookup_elem
+On Wed, Mar 15, 2017 at 06:07:16PM -0700, Eric Dumazet wrote:
+> On Wed, 2017-03-15 at 16:06 -0700, Alexei Starovoitov wrote:
+> 
+> > yes. and we have 'xdp_tx_full' counter for it that we monitor.
+> > When tx ring and mtu are sized properly, we don't expect to see it
+> > incrementing at all. This is something in our control. 'Our' means
+> > humans that setup the environment.
+> > 'cache empty' condition is something ephemeral. Packets will be dropped
+> > and we won't have any tools to address it. These packets are real
+> > people requests. Any drop needs to be categorized.
+> > Like there is 'rx_fifo_errors' counter that mlx4 reports when
+> > hw is dropping packets before they reach the driver. We see it
+> > incrementing depending on the traffic pattern though overall Mpps
+> > through the nic is not too high and this is something we
+> > actively investigating too.
+> 
+> 
+> This all looks nice, except that current mlx4 driver does not have a
+> counter of failed allocations.
+> 
+> You are asking me to keep some inexistent functionality.
+> 
+> Look in David net tree :
+> 
+> mlx4_en_refill_rx_buffers()
+> ...
+>    if (mlx4_en_prepare_rx_desc(...))
+>       break;
+> 
+> 
+> So in case of memory pressure, mlx4 stops working and not a single
+> counter is incremented/reported.
 
-to improve performance of JITed programs.
+Not quite. That is exactly the case i'm asking to keep.
+In case of memory pressure (like in the above case rx fifo
+won't be replenished) and in case of hw receiving
+faster than the driver can drain the rx ring,
+the hw will increment 'rx_fifo_errors' counter.
+And that's what we monitor already and what I described in previous email.
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/bpf/hashtab.c | 31 ++++++++++++++++++++++++++++++-
- 1 file changed, 30 insertions(+), 1 deletion(-)
+> Is it really what you want ?
 
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index afe5bab376c9..000153acb6d5 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -419,7 +419,11 @@ static struct htab_elem *lookup_nulls_elem_raw(struct hlist_nulls_head *head,
- 	return NULL;
- }
- 
--/* Called from syscall or from eBPF program */
-+/* Called from syscall or from eBPF program directly, so
-+ * arguments have to match bpf_map_lookup_elem() exactly.
-+ * The return value is adjusted by BPF instructions
-+ * in htab_map_gen_lookup().
-+ */
- static void *__htab_map_lookup_elem(struct bpf_map *map, void *key)
- {
- 	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
-@@ -451,6 +455,30 @@ static void *htab_map_lookup_elem(struct bpf_map *map, void *key)
- 	return NULL;
- }
- 
-+/* inline bpf_map_lookup_elem() call.
-+ * Instead of:
-+ * bpf_prog
-+ *   bpf_map_lookup_elem
-+ *     map->ops->map_lookup_elem
-+ *       htab_map_lookup_elem
-+ *         __htab_map_lookup_elem
-+ * do:
-+ * bpf_prog
-+ *   __htab_map_lookup_elem
-+ */
-+static u32 htab_map_gen_lookup(struct bpf_map *map, struct bpf_insn *insn_buf)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+	const int ret = BPF_REG_0;
-+
-+	*insn++ = BPF_EMIT_CALL((u64 (*)(u64, u64, u64, u64, u64))__htab_map_lookup_elem);
-+	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 1);
-+	*insn++ = BPF_ALU64_IMM(BPF_ADD, ret,
-+				offsetof(struct htab_elem, key) +
-+				round_up(map->key_size, 8));
-+	return insn - insn_buf;
-+}
-+
- static void *htab_lru_map_lookup_elem(struct bpf_map *map, void *key)
- {
- 	struct htab_elem *l = __htab_map_lookup_elem(map, key);
-@@ -1062,6 +1090,7 @@ static const struct bpf_map_ops htab_ops = {
- 	.map_lookup_elem = htab_map_lookup_elem,
- 	.map_update_elem = htab_map_update_elem,
- 	.map_delete_elem = htab_map_delete_elem,
-+	.map_gen_lookup = htab_map_gen_lookup,
- };
- 
- static struct bpf_map_type_list htab_type __ro_after_init = {
--- 
-2.8.0
+almost. see below.
+
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c |   38 +++++++++++++----------------
+>  1 file changed, 18 insertions(+), 20 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index cc41f2f145541b469b52e7014659d5fdbb7dac68..e5ef8999087b52705faf083c94cde439aab9e2b7 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -793,10 +793,24 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>                 if (xdp_prog) {
+>                         struct xdp_buff xdp;
+>                         struct page *npage;
+> -                       dma_addr_t ndma, dma;
+> +                       dma_addr_t dma;
+>                         void *orig_data;
+>                         u32 act;
+>  
+> +                       /* Make sure we have one page ready to replace this one, per Alexei request */
+
+do you have to add snarky comments?
+
+> +                       if (unlikely(!ring->page_cache.index)) {
+> +                               npage = mlx4_alloc_page(priv, ring,
+> +                                                       &ring->page_cache.buf[0].dma,
+> +                                                       numa_mem_id(),
+> +                                                       GFP_ATOMIC | __GFP_MEMALLOC);
+> +                               if (!npage) {
+> +                                       /* replace this by a new ring->rx_alloc_failed++
+> +                                        */
+> +                                       ring->xdp_drop++;
+
+counting it as 'xdp_drop' is incorrect.
+'xdp_drop' should be incremented only when program actually doing it,
+otherwise that's confusing to the user.
+If you add new counter 'rx_alloc_failed' (as you implying above)
+than it's similar to the existing state.
+Before: for both hw receives too much and oom with rx fifo empty - we
+will see 'rx_fifo_errors' counter.
+After: most rx_fifo_erros would mean hw receive issues and oom will
+be covered by this new counter.
+
+Another thought... if we do this 'replenish rx ring immediately'
+why do it for xdp rings only? Let's do it for all rings?
+the above 'if (unlikely(!ring->page_cache.index)) ..alloc_page'
+can move before 'if (xdp_prog)' and simplify the rest?
