@@ -1,76 +1,54 @@
-From: Lutz Vieweg <lvml@5t9.de>
-Subject: Re: [PATCH net-next 1/2] tcp: remove per-destination timestamp cache
-Date: Thu, 16 Mar 2017 12:31:25 +0100
-Message-ID: <58CA778D.9020208@5t9.de>
-References: <20170315203046.158791-1-soheil.kdev@gmail.com> <20170315.154044.170788541865531834.davem@davemloft.net> <20170315225508.GB14761@1wt.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] mlx4: Better use of order-0 pages in RX path
+Date: Thu, 16 Mar 2017 05:00:14 -0700
+Message-ID: <1489665614.28631.206.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170314151143.16231-1-edumazet@google.com>
+         <20170315040657.GA29637@ast-mbp.thefacebook.com>
+         <1489584089.28631.147.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170315230608.GA90318@ast-mbp.thefacebook.com>
+         <1489626436.28631.198.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170316015618.GA12660@ast-mbp.thefacebook.com>
+         <CANn89iJRPmQcShBiPwcK_jaAQZsQOOStg5TmY-=AmORKSNPiOA@mail.gmail.com>
+         <20170316053907.GA22917@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: soheil.kdev@gmail.com, netdev@vger.kernel.org, soheil@google.com,
-        edumazet@google.com, ncardwell@google.com, ycheng@google.com,
-        fw@strlen.de
-To: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p05-ob.smtp.rzone.de ([81.169.146.183]:24967 "EHLO
-        mo4-p05-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751478AbdCPLhf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 07:37:35 -0400
-In-Reply-To: <20170315225508.GB14761@1wt.eu>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34854 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751357AbdCPMBd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 08:01:33 -0400
+Received: by mail-pf0-f169.google.com with SMTP id x63so18037019pfx.2
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 05:00:16 -0700 (PDT)
+In-Reply-To: <20170316053907.GA22917@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/15/2017 11:55 PM, Willy Tarreau wrote:
-> At least I can say I've seen many people enable it without understandin=
-g its impact, confusing it
-> with tcp_tw_reuse, and copy-pasting it from random blogs and complainin=
-g about issues in
-> production.
+On Wed, 2017-03-15 at 22:39 -0700, Alexei Starovoitov wrote:
 
-I currently wonder: What it the correct advise to an operator who needs
-to run one server instance that is meant to accept thousands of new,
-short-lived TCP connections per minute?
+> when there is no room in the rx fifo the hw will increment the counter.
+> That's the same as oom causing alloc fails and rx ring not being replenished.
+> When there is nothing free in rx ring to dma the packet to, the hw will
+> increment that counter.
 
-The explanation text at
-https://vincent.bernat.im/en/blog/2014-tcp-time-wait-state-linux
-seems to provide comprehensive advise, but its summary is, after all,
-somewhat disappointing:
-
-> The universal solution is to increase the number of possible quadruplet=
-s by using, for example,
-> more server ports. This will allow you to not exhaust the possible conn=
-ections with TIME-WAIT
-> entries.
-
-Assuming an operator has to deal with a given server executable, which do=
-es not
-provide a feature to "open many listening ports for the same purpose in p=
-arallel",
-this is hardly an option. (Of course, if you can start just N instead of =
-1 server
-instance, this becomes an option, but not everything is a simple, statele=
-ss web server.)
-
-> On the server side, do not enable net.ipv4.tcp_tw_recycle unless you ar=
-e pretty sure you will
-> never have NAT devices in the mix. Enabling net.ipv4.tcp_tw_reuse is us=
-eless for incoming
-> connections.
-
-So basically both options won't help the server operator.
-
-> On the client side, enabling net.ipv4.tcp_tw_reuse is another almost-sa=
-fe solution. Enabling
-> net.ipv4.tcp_tw_recycle in addition to net.ipv4.tcp_tw_reuse is mostly =
-useless.
-
-If you just operate the server, but not the (remote) clients, this is not=
- relevant.
+After 4096 frames were lost buy linux mlx4 driver, then hw will finally
+catch up and start increasing its own hw counter.
 
 
-Is the final verdict that unless a server software by itself offers to op=
-en
-N listen ports for the same purpose, there is no solution?
+While you pretended that you received millions of frames and wanted that
+not a single one could be dropped without a report.
 
-Regards,
+This is simply not true.
 
-Lutz Vieweg
+I do not believe I will continue the discussion.
+
+We can not really agree it seems, so why annoying all netdev readers.
