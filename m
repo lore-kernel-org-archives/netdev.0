@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 8/9] net, ipv4: convert cipso_v4_doi.refcount from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 20:23:30 +0200
-Message-ID: <1489688611-4542-9-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 6/9] net, ipv6: convert xfrm6_tunnel_spi.refcnt from atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 20:23:28 +0200
+Message-ID: <1489688611-4542-7-git-send-email-elena.reshetova@intel.com>
 References: <1489688611-4542-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
@@ -27,88 +27,48 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/cipso_ipv4.h |  3 ++-
- net/ipv4/cipso_ipv4.c    | 12 ++++++------
- 2 files changed, 8 insertions(+), 7 deletions(-)
+ net/ipv6/xfrm6_tunnel.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
-index a34b141..880adb2 100644
---- a/include/net/cipso_ipv4.h
-+++ b/include/net/cipso_ipv4.h
-@@ -41,6 +41,7 @@
- #include <net/netlabel.h>
- #include <net/request_sock.h>
- #include <linux/atomic.h>
-+#include <linux/refcount.h>
- #include <asm/unaligned.h>
- 
- /* known doi values */
-@@ -85,7 +86,7 @@ struct cipso_v4_doi {
- 	} map;
- 	u8 tags[CIPSO_V4_TAG_MAXCNT];
- 
--	atomic_t refcount;
-+	refcount_t refcount;
- 	struct list_head list;
- 	struct rcu_head rcu;
+diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
+index d7b731a..4e438bc 100644
+--- a/net/ipv6/xfrm6_tunnel.c
++++ b/net/ipv6/xfrm6_tunnel.c
+@@ -59,7 +59,7 @@ struct xfrm6_tunnel_spi {
+ 	struct hlist_node	list_byspi;
+ 	xfrm_address_t		addr;
+ 	u32			spi;
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	struct rcu_head		rcu_head;
  };
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index ae20616..0d8e309 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -375,7 +375,7 @@ static struct cipso_v4_doi *cipso_v4_doi_search(u32 doi)
- 	struct cipso_v4_doi *iter;
  
- 	list_for_each_entry_rcu(iter, &cipso_v4_doi_list, list)
--		if (iter->doi == doi && atomic_read(&iter->refcount))
-+		if (iter->doi == doi && refcount_read(&iter->refcount))
- 			return iter;
- 	return NULL;
- }
-@@ -429,7 +429,7 @@ int cipso_v4_doi_add(struct cipso_v4_doi *doi_def,
- 		}
- 	}
+@@ -160,7 +160,7 @@ static u32 __xfrm6_tunnel_alloc_spi(struct net *net, xfrm_address_t *saddr)
  
--	atomic_set(&doi_def->refcount, 1);
-+	refcount_set(&doi_def->refcount, 1);
+ 	memcpy(&x6spi->addr, saddr, sizeof(x6spi->addr));
+ 	x6spi->spi = spi;
+-	atomic_set(&x6spi->refcnt, 1);
++	refcount_set(&x6spi->refcnt, 1);
  
- 	spin_lock(&cipso_v4_doi_list_lock);
- 	if (cipso_v4_doi_search(doi_def->doi)) {
-@@ -533,7 +533,7 @@ int cipso_v4_doi_remove(u32 doi, struct netlbl_audit *audit_info)
- 		ret_val = -ENOENT;
- 		goto doi_remove_return;
- 	}
--	if (!atomic_dec_and_test(&doi_def->refcount)) {
-+	if (!refcount_dec_and_test(&doi_def->refcount)) {
- 		spin_unlock(&cipso_v4_doi_list_lock);
- 		ret_val = -EBUSY;
- 		goto doi_remove_return;
-@@ -576,7 +576,7 @@ struct cipso_v4_doi *cipso_v4_doi_getdef(u32 doi)
- 	doi_def = cipso_v4_doi_search(doi);
- 	if (!doi_def)
- 		goto doi_getdef_return;
--	if (!atomic_inc_not_zero(&doi_def->refcount))
-+	if (!refcount_inc_not_zero(&doi_def->refcount))
- 		doi_def = NULL;
+ 	hlist_add_head_rcu(&x6spi->list_byspi, &xfrm6_tn->spi_byspi[index]);
  
- doi_getdef_return:
-@@ -597,7 +597,7 @@ void cipso_v4_doi_putdef(struct cipso_v4_doi *doi_def)
- 	if (!doi_def)
- 		return;
- 
--	if (!atomic_dec_and_test(&doi_def->refcount))
-+	if (!refcount_dec_and_test(&doi_def->refcount))
- 		return;
- 	spin_lock(&cipso_v4_doi_list_lock);
- 	list_del_rcu(&doi_def->list);
-@@ -630,7 +630,7 @@ int cipso_v4_doi_walk(u32 *skip_cnt,
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(iter_doi, &cipso_v4_doi_list, list)
--		if (atomic_read(&iter_doi->refcount) > 0) {
-+		if (refcount_read(&iter_doi->refcount) > 0) {
- 			if (doi_cnt++ < *skip_cnt)
- 				continue;
- 			ret_val = callback(iter_doi, cb_arg);
+@@ -178,7 +178,7 @@ __be32 xfrm6_tunnel_alloc_spi(struct net *net, xfrm_address_t *saddr)
+ 	spin_lock_bh(&xfrm6_tunnel_spi_lock);
+ 	x6spi = __xfrm6_tunnel_spi_lookup(net, saddr);
+ 	if (x6spi) {
+-		atomic_inc(&x6spi->refcnt);
++		refcount_inc(&x6spi->refcnt);
+ 		spi = x6spi->spi;
+ 	} else
+ 		spi = __xfrm6_tunnel_alloc_spi(net, saddr);
+@@ -207,7 +207,7 @@ static void xfrm6_tunnel_free_spi(struct net *net, xfrm_address_t *saddr)
+ 				  list_byaddr)
+ 	{
+ 		if (xfrm6_addr_equal(&x6spi->addr, saddr)) {
+-			if (atomic_dec_and_test(&x6spi->refcnt)) {
++			if (refcount_dec_and_test(&x6spi->refcnt)) {
+ 				hlist_del_rcu(&x6spi->list_byaddr);
+ 				hlist_del_rcu(&x6spi->list_byspi);
+ 				call_rcu(&x6spi->rcu_head, x6spi_destroy_rcu);
 -- 
 2.7.4
