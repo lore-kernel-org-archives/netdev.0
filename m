@@ -1,34 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] net: mvneta: support suspend and resume
-Date: Thu, 16 Mar 2017 10:20:51 -0700 (PDT)
-Message-ID: <20170316.102051.849511497560035279.davem@davemloft.net>
-References: <1489652548-45156-1-git-send-email-jiel@marvell.com>
+Subject: Re: [patch net-next v3 0/9] mlxsw: Enable VRF offload
+Date: Thu, 16 Mar 2017 10:20:22 -0700 (PDT)
+Message-ID: <20170316.102022.1371204829896380177.davem@davemloft.net>
+References: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jszhang@marvell.com
-To: jiel@marvell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489652548-45156-1-git-send-email-jiel@marvell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37080 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751185AbdCPRVg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 13:21:36 -0400
+In-Reply-To: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jane Li <jiel@marvell.com>
-Date: Thu, 16 Mar 2017 16:22:28 +0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 16 Mar 2017 09:08:11 +0100
 
-> Add basic support for handling suspend and resume.
+> Packets received from netdevs enslaved to different VRF devices are
+> forwarded using different FIB tables. In the Spectrum ASIC this is
+> achieved by binding different router interfaces (RIFs) to different
+> virtual routers (VRs). Each RIF represents an enslaved netdev and each
+> VR has its own FIB table according to which packets are forwarded.
 > 
-> Signed-off-by: Jane Li <jiel@marvell.com>
-> Reviewed-by: Jisheng Zhang <jszhang@marvell.com>
-> ---
-> Since v3:
-> - check clk_bus before enabling it during resume
+> The first three patches add an helper to check if a FIB rule is a
+> default rule and extend the FIB notification chain to include the rule's
+> info as part of the RULE_{ADD,DEL} events. This allows offloading
+> drivers to sanitize the rules they don't support and flush their tables.
 > 
-> Since v2:
-> - use SIMPLE_DEV_PM_OPS instead of SET_LATE_SYSTEM_SLEEP_PM_OPS
+> The fourth patch introduces a small change in the VRF driver to allow
+> capable drivers to more easily offload VRFs.
 > 
-> Since v1:
-> - add mvneta_conf_mbus_windows() and mvneta_bm_port_init() in mvneta_resume()
+> Finally, the last patches gradually add support for VRFs in the mlxsw
+> driver. First, on top of port netdevs, stacked LAG and VLAN devices and
+> then on top of bridges.
 
-Applied to net-next.
+Series applied, thanks.
