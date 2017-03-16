@@ -1,45 +1,41 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 5/5] epoll: Add busy poll support to epoll with
- socket fds.
-Date: Thu, 16 Mar 2017 15:38:39 -0700
-Message-ID: <CAKgT0UfwxL4tG+XJAsqx+AW_LtMuLCqYZYh+uJXRnYN13MTXJA@mail.gmail.com>
-References: <20170316183142.15806.38824.stgit@localhost.localdomain>
- <20170316183302.15806.2645.stgit@localhost.localdomain> <1489702304.28631.251.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Performance issue with igb with lots of different src-ip addrs.
+Date: Thu, 16 Mar 2017 15:49:03 -0700
+Message-ID: <58CB165F.7030302@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489702304.28631.251.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: e1000-devel list <e1000-devel@lists.sourceforge.net>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:51734 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751321AbdCPWjS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 18:39:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 16, 2017 at 3:11 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-03-16 at 11:33 -0700, Alexander Duyck wrote:
->> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
->
->> +/*
->> + * If busy polling is on and the file is a socket, return a pointer to
->> + * struct sock
->> + */
->> +static inline struct sock *ep_sk_from_file(struct file *file)
->> +{
->> +     struct inode *inode = file_inode(file);
->> +
->> +     if (!S_ISSOCK(inode->i_mode))
->> +             return NULL;
->> +
->> +     return ((struct socket *)file->private_data)->sk;
->> +}
->
-> I believe a more standard way is to use sock_from_file()
->
-> (This does not have to fetch a cache line to read i_mode ))
+Hello,
 
-Thanks.  Will make sure to update to use that for v2.
+We notice that when using two igb ports as a bridge, if we use pktgen to
+drive traffic through the bridge and randomize (or use a very large range)
+for the source IP addr in pktgen, then performance of igb is very poor (like 150Mbps
+throughput instead of 1Gbps).  It runs right at line speed if we use same src/dest
+IP addr in pktgen.  So, seems it is related to lots of src/dest IP addresses.
 
-- Alex
+We see same problem when using pktgen to send to itself, and we see this in
+several different kernels.  We specifically tested bridge mode in this stock
+Fedora kernel:
+
+  Linux lfo350-59cc 4.9.13-101.fc24.x86_64 #1 SMP Tue Mar 7 23:48:32 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux
+
+e1000e does not show this problem in our testing.
+
+Any ideas what the issue might be and how to fix it?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
