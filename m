@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [net-next PATCH 4/5] net: Commonize busy polling code to focus on
- napi_id instead of socket
-Date: Thu, 16 Mar 2017 11:32:56 -0700
-Message-ID: <20170316183256.15806.38680.stgit@localhost.localdomain>
+Subject: [net-next PATCH 5/5] epoll: Add busy poll support to epoll with
+ socket fds.
+Date: Thu, 16 Mar 2017 11:33:02 -0700
+Message-ID: <20170316183302.15806.2645.stgit@localhost.localdomain>
 References: <20170316183142.15806.38824.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,132 +17,186 @@ List-Id: netdev.vger.kernel.org
 
 From: Sridhar Samudrala <sridhar.samudrala@intel.com>
 
-Move the core functionality in sk_busy_loop() to napi_busy_loop() and
-make it independent of sk.
+This patch adds busy poll support to epoll if all the sockets attached
+to an epoll fd receive packets from the same receive queue(NAPI ID). NAPI
+ID is maintained per epoll and is set from sk when the first event is
+received for a socket with a non-zero NAPI ID. It is validated to make sure
+that all the later events for sockets have the same NAPI ID. Busy polling
+is disabled if an event is received for a socket with NAPI ID that is
+different from the epoll NAPI ID.
 
-This enables re-using this function in epoll busy loop implementation.
+An application can use SO_INCOMING_CPU or SO_REUSEPORT_ATTACH_C/EBPF socket
+options to spread the incoming connections to specific worker threads
+based on the incoming queue. This enables epoll for each worker thread
+to have only sockets that receive packets from a single queue. So when an
+application calls epoll_wait() and there are no events available to report,
+busy polling is done on the associated queue to pull the packets.
 
 Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- include/net/busy_poll.h |    9 +++++++++
- net/core/dev.c          |   16 ++++++++--------
- net/core/sock.c         |   18 ++++++++++++++++++
- 3 files changed, 35 insertions(+), 8 deletions(-)
+ fs/eventpoll.c |  115 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 114 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-index 67991635953e..24bc10d56b49 100644
---- a/include/net/busy_poll.h
-+++ b/include/net/busy_poll.h
-@@ -71,6 +71,9 @@ static inline bool busy_loop_timeout(unsigned long end_time)
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+index 341251421ced..304e1592be83 100644
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -42,6 +42,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/compat.h>
+ #include <linux/rculist.h>
++#include <net/busy_poll.h>
  
- bool sk_busy_loop(struct sock *sk, int nonblock);
- 
-+bool napi_busy_loop(unsigned int napi_id, unsigned long end_time, int nonblock,
-+		    bool (*loop_end)(void *), void *loop_end_arg);
+ /*
+  * LOCKING:
+@@ -224,6 +225,11 @@ struct eventpoll {
+ 	/* used to optimize loop detection check */
+ 	int visited;
+ 	struct list_head visited_list_link;
 +
- /* used in the NIC receive handler to mark the skb */
- static inline void skb_mark_napi_id(struct sk_buff *skb,
- 				    struct napi_struct *napi)
-@@ -110,6 +113,12 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
- 	return false;
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	/* used to track busy poll napi_id */
++	unsigned int napi_id;
++#endif
+ };
+ 
+ /* Wait structure used by the poll hooks */
+@@ -384,8 +390,109 @@ static inline int ep_events_available(struct eventpoll *ep)
+ 	return !list_empty(&ep->rdllist) || ep->ovflist != EP_UNACTIVE_PTR;
  }
  
-+static inline bool napi_busy_loop(unsigned int napi_id, unsigned long end_time,
-+				  int nonblock, bool (*loop_end)(void *),
-+				  void *loop_end_arg)
++#ifdef CONFIG_NET_RX_BUSY_POLL
++
++/*
++ * NAPI ID value used to indicate busy poll is disabled. 2 or more sockets
++ * associated with different NAPI IDs are attached to epoll.
++ */
++#define BUSY_POLL_DISABLED_NAPI_ID	1
++
++/*
++ * If busy polling is on and the file is a socket, return a pointer to
++ * struct sock
++ */
++static inline struct sock *ep_sk_from_file(struct file *file)
++{
++	struct inode *inode = file_inode(file);
++
++	if (!S_ISSOCK(inode->i_mode))
++		return NULL;
++
++	return ((struct socket *)file->private_data)->sk;
++}
++
++/*
++ * If busy polling is on and the file for this pwq is a socket,
++ * return a pointer to struct sock
++ */
++static inline struct sock *ep_sk_from_pwq(struct eppoll_entry *pwq)
++{
++	return ep_sk_from_file(pwq->base->ffd.file);
++}
++
++static inline bool epoll_can_busy_loop(struct eventpoll *ep)
++{
++	return net_busy_loop_on() && (ep->napi_id > BUSY_POLL_DISABLED_NAPI_ID);
++}
++
++/*
++ * Set epoll busy poll napi id from sk if it is not already set.
++ * If it is already set and is not equal to the sk napi id, set it
++ * to BUSY_POLL_DISABLED_NAPI_ID so that busy polling gets disabled
++ * on this epoll.
++ */
++static inline void ep_set_busy_poll_napi_id(struct eventpoll *ep,
++					    struct eppoll_entry *pwq)
++{
++	struct sock *sk;
++
++	if ((ep->napi_id == BUSY_POLL_DISABLED_NAPI_ID) || !net_busy_loop_on())
++		return;
++
++	sk = ep_sk_from_pwq(pwq);
++	if (!sk || !sk->sk_napi_id)
++		return;
++
++	/* epoll has a matching napi id, return */
++	if (sk->sk_napi_id == ep->napi_id)
++		return;
++
++	/* disable busy polling if napi id already set, else set it. */
++	ep->napi_id = ep->napi_id ? BUSY_POLL_DISABLED_NAPI_ID :
++				    sk->sk_napi_id;
++}
++
++static bool epoll_napi_busy_loop_end(void *p)
++{
++	struct eventpoll *ep = p;
++
++	return ep_events_available(ep);
++}
++
++/*
++ * Busy poll if globally on and supporting sockets found && no events,
++ * busy loop will return if need_resched or ep_events_available.
++ *
++ * we must do our busy polling with irqs enabled
++ */
++static bool epoll_busy_loop(struct eventpoll *ep, int nonblock)
++{
++	unsigned long end_time = !nonblock ? busy_loop_end_time() : 0;
++
++	if (!epoll_can_busy_loop(ep) || ep_events_available(ep))
++		return false;
++
++	return napi_busy_loop(ep->napi_id, end_time, nonblock,
++			      epoll_napi_busy_loop_end, ep);
++}
++
++#else /* CONFIG_NET_RX_BUSY_POLL */
++
++static inline void ep_set_busy_poll_napi_id(struct eventpoll *ep,
++					    struct eppoll_entry *pwq)
++{
++}
++
++static inline bool epoll_busy_loop(struct eventpoll *ep, int nonblock)
 +{
 +	return false;
 +}
- #endif /* CONFIG_NET_RX_BUSY_POLL */
- 
- /* used in the protocol hanlder to propagate the napi_id to the socket */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7869ae3837ca..4e55765c6998 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5060,9 +5060,9 @@ static void busy_poll_stop(struct napi_struct *napi, void *have_poll_lock)
- 		do_softirq();
- }
- 
--bool sk_busy_loop(struct sock *sk, int nonblock)
-+bool napi_busy_loop(unsigned int napi_id, unsigned long end_time, int nonblock,
-+		    bool (*loop_end)(void *), void *loop_end_arg)
- {
--	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
- 	int (*napi_poll)(struct napi_struct *napi, int budget);
- 	void *have_poll_lock = NULL;
- 	struct napi_struct *napi;
-@@ -5074,7 +5074,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 
- 	rcu_read_lock();
- 
--	napi = napi_by_id(sk->sk_napi_id);
-+	napi = napi_by_id(napi_id);
- 	if (!napi)
- 		goto out;
- 
-@@ -5102,11 +5102,11 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 		trace_napi_poll(napi, rc, BUSY_POLL_BUDGET);
- count:
- 		if (rc > 0)
--			__NET_ADD_STATS(sock_net(sk),
-+			__NET_ADD_STATS(dev_net(napi->dev),
- 					LINUX_MIB_BUSYPOLLRXPACKETS, rc);
- 		local_bh_enable();
- 
--		if (nonblock || !skb_queue_empty(&sk->sk_receive_queue) ||
-+		if (nonblock || loop_end(loop_end_arg) ||
- 		    busy_loop_timeout(end_time))
- 			break;
- 
-@@ -5116,7 +5116,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 			preempt_enable();
- 			rcu_read_unlock();
- 			cond_resched();
--			rc = !skb_queue_empty(&sk->sk_receive_queue);
-+			rc = loop_end(loop_end_arg);
- 			if (rc || busy_loop_timeout(end_time))
- 				return rc;
- 			goto restart;
-@@ -5126,12 +5126,12 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 	if (napi_poll)
- 		busy_poll_stop(napi, have_poll_lock);
- 	preempt_enable();
--	rc = !skb_queue_empty(&sk->sk_receive_queue);
-+	rc = loop_end(loop_end_arg);
- out:
- 	rcu_read_unlock();
- 	return rc;
- }
--EXPORT_SYMBOL(sk_busy_loop);
-+EXPORT_SYMBOL(napi_busy_loop);
- 
- #endif /* CONFIG_NET_RX_BUSY_POLL */
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 74288b2d4b3d..f606d89f044a 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -3205,3 +3205,21 @@ static int __init proto_init(void)
- subsys_initcall(proto_init);
- 
- #endif /* PROC_FS */
 +
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static bool sk_napi_busy_loop_end(void *p)
-+{
-+	struct sock *sk = p;
-+
-+	return !skb_queue_empty(&sk->sk_receive_queue);
-+}
-+
-+bool sk_busy_loop(struct sock *sk, int nonblock)
-+{
-+	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
-+
-+	return napi_busy_loop(sk->sk_napi_id, end_time, nonblock,
-+			      sk_napi_busy_loop_end, sk);
-+}
-+EXPORT_SYMBOL(sk_busy_loop);
 +#endif /* CONFIG_NET_RX_BUSY_POLL */
++
+ /**
+- * ep_call_nested - Perform a bound (possibly) nested call, by checking
++ * ep_call_nested	 - Perform a bound (possibly) nested call, by checking
+  *                  that the recursion limit is not exceeded, and that
+  *                  the same nested call (by the meaning of same cookie) is
+  *                  no re-entered.
+@@ -1022,6 +1129,8 @@ static int ep_poll_callback(wait_queue_t *wait, unsigned mode, int sync, void *k
+ 
+ 	spin_lock_irqsave(&ep->lock, flags);
+ 
++	ep_set_busy_poll_napi_id(ep, ep_pwq_from_wait(wait));
++
+ 	/*
+ 	 * If the event mask does not contain any poll(2) event, we consider the
+ 	 * descriptor to be disabled. This condition is likely the effect of the
+@@ -1127,6 +1236,7 @@ static void ep_ptable_queue_proc(struct file *file, wait_queue_head_t *whead,
+ 			add_wait_queue(whead, &pwq->wait);
+ 		list_add_tail(&pwq->llink, &epi->pwqlist);
+ 		epi->nwait++;
++		ep_set_busy_poll_napi_id(epi->ep, pwq);
+ 	} else {
+ 		/* We have to signal that an error occurred */
+ 		epi->nwait = -1;
+@@ -1637,6 +1747,9 @@ static int ep_poll(struct eventpoll *ep, struct epoll_event __user *events,
+ 	}
+ 
+ fetch_events:
++
++	epoll_busy_loop(ep, timed_out);
++
+ 	spin_lock_irqsave(&ep->lock, flags);
+ 
+ 	if (!ep_events_available(ep)) {
