@@ -1,56 +1,44 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: Re: [PATCH] [PATCH net] net: Do not hold the reference for the same sk_rx_dst.
-Date: Thu, 16 Mar 2017 11:45:03 +0100
-Message-ID: <87fuidv6ts.fsf@redhat.com>
-References: <1489651711-4105-1-git-send-email-kaiwen.xu@hulu.com> <87h92tv8uv.fsf@redhat.com> <242C9F89-8639-4C31-B3E5-B56C4F785E41@hulu.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "davem\@davemloft.net" <davem@davemloft.net>,
-        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kevin Xu <kaiwen.xu@hulu.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH net-next 0/3] net: stmmac: adding multiple buffers and routing
+Date: Thu, 16 Mar 2017 10:56:54 +0000
+Message-ID: <cover.1489661229.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:35197 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751353AbdCPKpH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 06:45:07 -0400
-Received: by mail-wm0-f41.google.com with SMTP id u132so31578578wmg.0
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 03:45:06 -0700 (PDT)
-In-reply-to: <242C9F89-8639-4C31-B3E5-B56C4F785E41@hulu.com>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:52328 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751362AbdCPK54 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 06:57:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 16, 2017 at 10:12 AM GMT, Kevin Xu wrote:
-> Do you mean the message looping endlessly?
+As agreed with David Miller, this patch-set is the third and last to enable
+multiple queues in stmmac.
 
-No, the message is emitted just once. Around 100 seconds after
-destroying a few namespaces. Occurs not so often, maybe once per ten
-runs.
+This third one focuses on:
 
--Jakub
+a) Enable multiple buffering to the driver and queue independent data
+b) Configuration of RX and TX queues' priority
+c) Configuration of RX queues' routing
 
-> If so, then I suppose it's a different bug.
->
-> Kevin
->
->> On Mar 16, 2017, at 3:01 AM, Jakub Sitnicki <jkbs@redhat.com> wrote:
->>
->>> On Thu, Mar 16, 2017 at 08:08 AM GMT, Kevin Xu wrote:
->>> In some rare cases, inet_sk_rx_dst_set() may be called multiple times
->>> on the same dst, causing reference count leakage. Eventually, it
->>> prevents net_device to be destroyed. The bug then manifested as
->>>
->>> unregister_netdevice: waiting for lo to become free. Usage count = 1
->>>
->>> in the kernel log, preventing new network namespace creation.
->>>
->>> The patch works around the issue by checking whether the socket already
->>> has the same dst set.
->>>
->>> Signed-off-by: Kevin Xu <kaiwen.xu@hulu.com>
->>> ---
->>
->> FWIW, with this patch applied I'm still sometimes seeing:
->>
->> [  125.928095] unregister_netdevice: waiting for lo to become free. Usage count = 1
->>
->> -Jakub
+Joao Pinto (3):
+  net: stmmac: enable multiple buffers
+  net: stmmac: TX and RX queue priority configuration
+  net: stmmac: RX queue routing configuration
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |   24 +-
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c   |   45 +-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   13 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h       |   31 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  |  100 ++
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c    |   46 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   49 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 1379 ++++++++++++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |   12 +
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   65 +
+ include/linux/stmmac.h                             |   16 +
+ 11 files changed, 1306 insertions(+), 474 deletions(-)
+
+-- 
+2.9.3
