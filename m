@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 05/17] net: convert sk_buff_fclones.fclone_ref from atomic_t to refcount_t
-Date: Thu, 16 Mar 2017 17:28:55 +0200
-Message-ID: <1489678147-21404-6-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 12/17] net: convert unix_address.refcnt from atomic_t to refcount_t
+Date: Thu, 16 Mar 2017 17:29:02 +0200
+Message-ID: <1489678147-21404-13-git-send-email-elena.reshetova@intel.com>
 References: <1489678147-21404-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -26,74 +26,70 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/linux/skbuff.h |  4 ++--
- net/core/skbuff.c      | 10 +++++-----
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ include/net/af_unix.h | 3 ++-
+ net/unix/af_unix.c    | 8 ++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0bcaec4..63ce21f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -945,7 +945,7 @@ struct sk_buff_fclones {
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index fd60ecc..3a385e4 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -4,6 +4,7 @@
+ #include <linux/socket.h>
+ #include <linux/un.h>
+ #include <linux/mutex.h>
++#include <linux/refcount.h>
+ #include <net/sock.h>
  
- 	struct sk_buff	skb2;
+ void unix_inflight(struct user_struct *user, struct file *fp);
+@@ -21,7 +22,7 @@ extern spinlock_t unix_table_lock;
+ extern struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
  
--	atomic_t	fclone_ref;
-+	refcount_t	fclone_ref;
- };
+ struct unix_address {
+-	atomic_t	refcnt;
++	refcount_t	refcnt;
+ 	int		len;
+ 	unsigned int	hash;
+ 	struct sockaddr_un name[0];
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index e9f8102..5e2a402 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -212,7 +212,7 @@ EXPORT_SYMBOL_GPL(unix_peer_get);
  
- /**
-@@ -965,7 +965,7 @@ static inline bool skb_fclone_busy(const struct sock *sk,
- 	fclones = container_of(skb, struct sk_buff_fclones, skb1);
- 
- 	return skb->fclone == SKB_FCLONE_ORIG &&
--	       atomic_read(&fclones->fclone_ref) > 1 &&
-+	       refcount_read(&fclones->fclone_ref) > 1 &&
- 	       fclones->skb2.sk == sk;
+ static inline void unix_release_addr(struct unix_address *addr)
+ {
+-	if (atomic_dec_and_test(&addr->refcnt))
++	if (refcount_dec_and_test(&addr->refcnt))
+ 		kfree(addr);
  }
  
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 94e961f..6911269 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -268,7 +268,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+@@ -861,7 +861,7 @@ static int unix_autobind(struct socket *sock)
+ 		goto out;
  
- 		kmemcheck_annotate_bitfield(&fclones->skb2, flags1);
- 		skb->fclone = SKB_FCLONE_ORIG;
--		atomic_set(&fclones->fclone_ref, 1);
-+		refcount_set(&fclones->fclone_ref, 1);
+ 	addr->name->sun_family = AF_UNIX;
+-	atomic_set(&addr->refcnt, 1);
++	refcount_set(&addr->refcnt, 1);
  
- 		fclones->skb2.fclone = SKB_FCLONE_CLONE;
+ retry:
+ 	addr->len = sprintf(addr->name->sun_path+1, "%05x", ordernum) + 1 + sizeof(short);
+@@ -1036,7 +1036,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	memcpy(addr->name, sunaddr, addr_len);
+ 	addr->len = addr_len;
+ 	addr->hash = hash ^ sk->sk_type;
+-	atomic_set(&addr->refcnt, 1);
++	refcount_set(&addr->refcnt, 1);
+ 
+ 	if (sun_path[0]) {
+ 		addr->hash = UNIX_HASH_SIZE;
+@@ -1327,7 +1327,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 	/* copy address information from listening to new sock*/
+ 	if (otheru->addr) {
+-		atomic_inc(&otheru->addr->refcnt);
++		refcount_inc(&otheru->addr->refcnt);
+ 		newu->addr = otheru->addr;
  	}
-@@ -629,7 +629,7 @@ static void kfree_skbmem(struct sk_buff *skb)
- 		 * This test would have no chance to be true for the clone,
- 		 * while here, branch prediction will be good.
- 		 */
--		if (atomic_read(&fclones->fclone_ref) == 1)
-+		if (refcount_read(&fclones->fclone_ref) == 1)
- 			goto fastpath;
- 		break;
- 
-@@ -637,7 +637,7 @@ static void kfree_skbmem(struct sk_buff *skb)
- 		fclones = container_of(skb, struct sk_buff_fclones, skb2);
- 		break;
- 	}
--	if (!atomic_dec_and_test(&fclones->fclone_ref))
-+	if (!refcount_dec_and_test(&fclones->fclone_ref))
- 		return;
- fastpath:
- 	kmem_cache_free(skbuff_fclone_cache, fclones);
-@@ -1018,9 +1018,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- 		return NULL;
- 
- 	if (skb->fclone == SKB_FCLONE_ORIG &&
--	    atomic_read(&fclones->fclone_ref) == 1) {
-+	    refcount_read(&fclones->fclone_ref) == 1) {
- 		n = &fclones->skb2;
--		atomic_set(&fclones->fclone_ref, 2);
-+		refcount_set(&fclones->fclone_ref, 2);
- 	} else {
- 		if (skb_pfmemalloc(skb))
- 			gfp_mask |= __GFP_MEMALLOC;
+ 	if (otheru->path.dentry) {
 -- 
 2.7.4
