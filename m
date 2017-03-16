@@ -1,7 +1,7 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 07/11] net: usb: sierra_net: use new api ethtool_{get|set}_link_ksettings
-Date: Thu, 16 Mar 2017 23:18:53 +0100
-Message-ID: <1489702737-2401-8-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 09/11] net: usb: sr9700: use new api ethtool_{get|set}_link_ksettings
+Date: Thu, 16 Mar 2017 23:18:55 +0100
+Message-ID: <1489702737-2401-10-git-send-email-tremyfr@gmail.com>
 References: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
 Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
@@ -24,24 +24,24 @@ someone may test this patch.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/usb/sierra_net.c |    4 ++--
+ drivers/net/usb/sr9700.c |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
-index ac69f28..c8f60b8 100644
---- a/drivers/net/usb/sierra_net.c
-+++ b/drivers/net/usb/sierra_net.c
-@@ -648,9 +648,9 @@ static u32 sierra_net_get_link(struct net_device *net)
- 	.get_link = sierra_net_get_link,
- 	.get_msglevel = usbnet_get_msglevel,
- 	.set_msglevel = usbnet_set_msglevel,
--	.get_settings = usbnet_get_settings,
--	.set_settings = usbnet_set_settings,
- 	.nway_reset = usbnet_nway_reset,
-+	.get_link_ksettings = usbnet_get_link_ksettings,
-+	.set_link_ksettings = usbnet_set_link_ksettings,
+diff --git a/drivers/net/usb/sr9700.c b/drivers/net/usb/sr9700.c
+index 4a1e9c4..950a3a9 100644
+--- a/drivers/net/usb/sr9700.c
++++ b/drivers/net/usb/sr9700.c
+@@ -249,9 +249,9 @@ static int sr9700_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ 	.set_msglevel	= usbnet_set_msglevel,
+ 	.get_eeprom_len	= sr9700_get_eeprom_len,
+ 	.get_eeprom	= sr9700_get_eeprom,
+-	.get_settings	= usbnet_get_settings,
+-	.set_settings	= usbnet_set_settings,
+ 	.nway_reset	= usbnet_nway_reset,
++	.get_link_ksettings	= usbnet_get_link_ksettings,
++	.set_link_ksettings	= usbnet_set_link_ksettings,
  };
  
- static int sierra_net_get_fw_attr(struct usbnet *dev, u16 *datap)
+ static void sr9700_set_multicast(struct net_device *netdev)
 -- 
 1.7.4.4
