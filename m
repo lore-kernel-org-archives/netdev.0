@@ -1,44 +1,41 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] [PATCH net] net: Do not hold the reference for the same
- sk_rx_dst.
-Date: Thu, 16 Mar 2017 16:29:05 -0700
-Message-ID: <1489706945.28631.270.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1489651711-4105-1-git-send-email-kaiwen.xu@hulu.com>
-         <1489699996.28631.237.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpUPYhXkaWK9crnjjHeDoFeH3cofdcjenHvkna90MXvYYQ@mail.gmail.com>
+Subject: Re: NAPI complete race backport?
+Date: Thu, 16 Mar 2017 16:33:39 -0700
+Message-ID: <1489707219.28631.271.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170316.162533.1242265332354542301.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kevin Xu <kaiwen.xu@hulu.com>, David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33828 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752072AbdCPX3I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 19:29:08 -0400
-Received: by mail-pf0-f194.google.com with SMTP id o126so7222218pfb.1
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 16:29:07 -0700 (PDT)
-In-Reply-To: <CAM_iQpUPYhXkaWK9crnjjHeDoFeH3cofdcjenHvkna90MXvYYQ@mail.gmail.com>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:35766 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751185AbdCPXdm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 19:33:42 -0400
+Received: by mail-pg0-f53.google.com with SMTP id b129so32142956pgc.2
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 16:33:41 -0700 (PDT)
+In-Reply-To: <20170316.162533.1242265332354542301.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-03-16 at 16:13 -0700, Cong Wang wrote:
-> On Thu, Mar 16, 2017 at 2:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Have you backported the redirect fix ?
-> >
-> > commit 45caeaa5ac0b4b11784ac6f932c0ad4c6b67cda0
-> >
-> > Or other fixes that went very recently (pick David Miller net tree)
+On Thu, 2017-03-16 at 16:25 -0700, David Miller wrote:
+> Eric, could you please give me a backport of commit:
 > 
-> Why the commit above is relevant here? It fixes a double-release,
-> while Kevin's case is a double-hold... Not to mention it sk_rx_dst
-> instead of sk_dst_cache, according to Kevin.
+> ====================
+> From 39e6c8208d7b6fb9d2047850fb3327db567b564b Mon Sep 17 00:00:00 2001
+> From: Eric Dumazet <edumazet@google.com>
+> Date: Tue, 28 Feb 2017 10:34:50 -0800
+> Subject: [PATCH] net: solve a NAPI race
+> ====================
+> 
+> for 4.10 and earlier?
+> 
+> This is before __napi_complete() is removed, so the empty poll list
+> handling in napi_complete_done() needs to be a bit different.
+> 
+> Thanks!
 
-Yes you are right.
+Sure, I will send a patch by tomorrow I think.
 
-I was lazy, the other fix I wanted to mention was 
-02b2faaf0af1d85585f
-
-In any case I wanted to make sure the reported issue is not for some old
-kernels.
+Thanks.
