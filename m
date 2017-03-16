@@ -1,135 +1,88 @@
-From: <momofr@free.fr>
-Subject: 40948 netdev
-Date: Thu, 16 Mar 2017 15:46:43 -0000
-Message-ID: <148967920308.9225.4576973615214575930@telnetprovedor.com.br>
-Reply-To: <momofr@free.fr>
-Mime-Version: 1.0
-Content-Type: application/zip; name="92992485162.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 143.208.79.20.telnetprovedor.com.br ([143.208.79.20]:36057 "HELO
-        telnetprovedor.com.br" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1753659AbdCPPqz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 11:46:55 -0400
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steve Lin <steven.lin1@broadcom.com>
+Subject: [PATCH] net: ethernet: bgmac: Allow MAC address to be specified in DTB
+Date: Thu, 16 Mar 2017 11:48:58 -0400
+Message-ID: <1489679338-39705-1-git-send-email-steven.lin1@broadcom.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        bcm-kernel-feedback-list@broadcom.com, steven.lin1@broadcom.com
+To: davem@davemloft.net, rafal@milecki.pl, jon.mason@broadcom.com,
+        f.fainelli@gmail.com, tklauser@distanz.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
-GQAAAAA=
+Allows the BCMA version of the bgmac driver to obtain MAC address
+from the device tree.  If no MAC address is specified there, then
+the previous behavior (obtaining MAC address from SPROM) is
+used.
+
+Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bgmac-bcma.c | 39 ++++++++++++++++++------------
+ 1 file changed, 23 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+index cf15b7e..6322594 100644
+--- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
++++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+@@ -11,6 +11,7 @@
+ #include <linux/bcma/bcma.h>
+ #include <linux/brcmphy.h>
+ #include <linux/etherdevice.h>
++#include <linux/of_net.h>
+ #include "bgmac.h"
+ 
+ static inline bool bgmac_is_bcm4707_family(struct bcma_device *core)
+@@ -114,7 +115,7 @@ static int bgmac_probe(struct bcma_device *core)
+ 	struct ssb_sprom *sprom = &core->bus->sprom;
+ 	struct mii_bus *mii_bus;
+ 	struct bgmac *bgmac;
+-	u8 *mac;
++	const u8 *mac = NULL;
+ 	int err;
+ 
+ 	bgmac = bgmac_alloc(&core->dev);
+@@ -127,21 +128,27 @@ static int bgmac_probe(struct bcma_device *core)
+ 
+ 	bcma_set_drvdata(core, bgmac);
+ 
+-	switch (core->core_unit) {
+-	case 0:
+-		mac = sprom->et0mac;
+-		break;
+-	case 1:
+-		mac = sprom->et1mac;
+-		break;
+-	case 2:
+-		mac = sprom->et2mac;
+-		break;
+-	default:
+-		dev_err(bgmac->dev, "Unsupported core_unit %d\n",
+-			core->core_unit);
+-		err = -ENOTSUPP;
+-		goto err;
++	if (bgmac->dev->of_node)
++		mac = of_get_mac_address(bgmac->dev->of_node);
++
++	/* If no MAC address assigned via device tree, check SPROM */
++	if (!mac) {
++		switch (core->core_unit) {
++		case 0:
++			mac = sprom->et0mac;
++			break;
++		case 1:
++			mac = sprom->et1mac;
++			break;
++		case 2:
++			mac = sprom->et2mac;
++			break;
++		default:
++			dev_err(bgmac->dev, "Unsupported core_unit %d\n",
++				core->core_unit);
++			err = -ENOTSUPP;
++			goto err;
++		}
+ 	}
+ 
+ 	ether_addr_copy(bgmac->net_dev->dev_addr, mac);
+-- 
+2.1.0
