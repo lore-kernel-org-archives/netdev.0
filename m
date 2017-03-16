@@ -1,49 +1,57 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: netdev level filtering? perhaps pushing socket filters down?
-Date: Thu, 16 Mar 2017 23:33:55 +0100
-Message-ID: <1489703635.3930.5.camel@sipsolutions.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH 2/5] net: Call sk_mark_napi_id() in the ACK
+ receive path
+Date: Thu, 16 Mar 2017 15:36:21 -0700
+Message-ID: <CAKgT0UeEstUeZ8J-Q9EmUvHZS1id=xND=tME9XhKjOOg+t66UQ@mail.gmail.com>
+References: <20170316183142.15806.38824.stgit@localhost.localdomain>
+ <20170316183244.15806.77453.stgit@localhost.localdomain> <1489701893.28631.248.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489701893.28631.248.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Thu, Mar 16, 2017 at 3:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2017-03-16 at 11:32 -0700, Alexander Duyck wrote:
+>> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+>>
+>> Call sk_mark_napi_id() in the ACK receive path of a TCP_NEW_SYN_RECV
+>> socket, so that sk->napi_id is set even if the socket hasn't yet received
+>> any data.  With this change we should be able to start busy polling
+>> slightly earlier.
+>>
+>> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> ---
+>>  net/ipv4/tcp_ipv4.c |    1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+>> index 08d870e45658..b86002a296f1 100644
+>> --- a/net/ipv4/tcp_ipv4.c
+>> +++ b/net/ipv4/tcp_ipv4.c
+>> @@ -1687,6 +1687,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
+>>                       tcp_v4_send_reset(nsk, skb);
+>>                       goto discard_and_relse;
+>>               } else {
+>> +                     sk_mark_napi_id(nsk, skb);
+>>                       sock_put(sk);
+>>                       return 0;
+>>               }
+>>
+>
+> Seems good, but what about IPv6 ?
 
-Occasionally - we just had another case - people want to hook into
-packets received and processed by the mac80211 stack, but because they
-don't need all of them (e.g. not data packets), even adding a monitor
-interface and bringing it up has too high a cost because SKBs need to
-be prepared to send them to the monitor interface, even if no socket is
-consuming them.
+Sorry, I spaced out and overlooked that this would also be an issue for IPv6.
 
-Ideally, we'd be able to detect that there are filter programs attached
-to the socket(s) that are looking at the frames coming in on the
-monitor interface, and we could somehow magically run those before we
-create a new SKB.
-One problem here is that we wouldn't really want to prepare all the
-radiotap header just to throw it away, so we'd have to be able to
-analyse the filter program to make sure it doesn't access anything but
-the radiotap header length, and that only in order to jump over it.
-That seems ... difficult, but we don't even know the header length -
-although we could fudge that and make a very long constant-size header,
-which might make it possible to do such analysis, or handle it by
-trapping on such access. But it seems rather difficult to implement
-this.
+> Frankly this calls for the sk_mark_napi_id() being done in
+> tcp_child_process() instead of its four callers.
 
-The next best thing would be to install a filter program on the virtual
-monitor *interface* (netdev), but say that it doesn't get frames with
-radiotap, but pure 802.11 frames. We already have those in SKB format
-at this point, so it'd be simple to run such a program and only pass
-the SKB to the monitor netdev's RX when the program asked to do that.
-
-This now seems a bit like XDP, but for XDP this header difference
-doesn't seem appropriate either.
-
-Anyone have any other thoughts?
-
-Thanks,
-johannes
+We can look into that for the next version.
