@@ -1,101 +1,172 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 0/9] mlxsw: Enable VRF offload
-Date: Thu, 16 Mar 2017 09:08:11 +0100
-Message-ID: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 1/9] ipv4: fib_rules: Check if rule is a default rule
+Date: Thu, 16 Mar 2017 09:08:12 +0100
+Message-ID: <1489651700-3586-2-git-send-email-jiri@resnulli.us>
+References: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
         kaber@trash.net, lorenzo@google.com, mateusz.bajorski@nokia.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36056 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751161AbdCPIIr (ORCPT
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35459 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751182AbdCPIIr (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 04:08:47 -0400
-Received: by mail-wm0-f67.google.com with SMTP id x124so2660446wmf.3
-        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 01:08:22 -0700 (PDT)
+Received: by mail-wm0-f68.google.com with SMTP id z133so1464511wmb.2
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 01:08:23 -0700 (PDT)
+In-Reply-To: <1489651700-3586-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Ido says:
+Currently, when non-default (custom) FIB rules are used, devices capable
+of layer 3 offloading flush their tables and let the kernel do the
+forwarding instead.
 
-Packets received from netdevs enslaved to different VRF devices are
-forwarded using different FIB tables. In the Spectrum ASIC this is
-achieved by binding different router interfaces (RIFs) to different
-virtual routers (VRs). Each RIF represents an enslaved netdev and each
-VR has its own FIB table according to which packets are forwarded.
+When these devices' drivers are loaded they register to the FIB
+notification chain, which lets them know about the existence of any
+custom FIB rules. This is done by sending a RULE_ADD notification based
+on the value of 'net->ipv4.fib_has_custom_rules'.
 
-The first three patches add an helper to check if a FIB rule is a
-default rule and extend the FIB notification chain to include the rule's
-info as part of the RULE_{ADD,DEL} events. This allows offloading
-drivers to sanitize the rules they don't support and flush their tables.
+This approach is problematic when VRF offload is taken into account, as
+upon the creation of the first VRF netdev, a l3mdev rule is programmed
+to direct skbs to the VRF's table.
 
-The fourth patch introduces a small change in the VRF driver to allow
-capable drivers to more easily offload VRFs.
+Instead of merely reading the above value and sending a single RULE_ADD
+notification, we should iterate over all the FIB rules and send a
+detailed notification for each, thereby allowing offloading drivers to
+sanitize the rules they don't support and potentially flush their
+tables.
 
-Finally, the last patches gradually add support for VRFs in the mlxsw
-driver. First, on top of port netdevs, stacked LAG and VLAN devices and
-then on top of bridges.
+While l3mdev rules are uniquely marked, the default rules are not.
+Therefore, when they are being notified they might invoke offloading
+drivers to unnecessarily flush their tables.
 
-Some limitations I would like to point out:
+Solve this by adding an helper to check if a FIB rule is a default rule.
+Namely, its selector should match all packets and its action should
+point to the local, main or default tables.
 
-1) The old model where 'oif' / 'iif' rules were programmed for each L3
-master device isn't supported. Upon insertion of these rules the driver
-will flush its tables and forwarding will be done by the kernel instead.
-It's inferior in every way to the single 'l3mdev' rule, so this shouldn't
-be an issue.
+As noted by David Ahern, uniquely marking the default rules is
+insufficient. When using VRFs, it's common to avoid false hits by moving
+the rule for the local table to just before the main table:
 
-2) Inter-VRF routes pointing to a VRF device aren't offloaded. Packets
-hitting these routes will be forwarded by the kernel. Inter-VRF routes
-pointing to netdevs enslaved to a different VRF are offloaded.
+Default configuration:
+$ ip rule show
+0:      from all lookup local
+32766:  from all lookup main
+32767:  from all lookup default
 
-3) There's a small discrepancy between the kernel's datapath and the
-device's. By default, packets forwarded by the kernel first do a lookup
-in the local table and then in the VRF's table (assuming no match). In
-the device, lookup is done only in the VRF's table, which is probably
-the intended behavior. Changes in v2 allow user to properly re-order the
-default rules without triggering the abort mechanism.
+Common configuration with VRFs:
+$ ip rule show
+1000:   from all lookup [l3mdev-table]
+32765:  from all lookup local
+32766:  from all lookup main
+32767:  from all lookup default
 
-Changes in v3:
-* Remove 'l3mdev' from the matchall list, as it's related to the action
-  and not the selector (David Ahern).
-* Use container_of() instead of typecasting (David Ahern).
-* Add David's Acked-by to the second patch.
-* Add an helper in IPv4 code to check if rule is a default rule (David
-  Ahern).
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/fib_rules.h |  1 +
+ include/net/ip_fib.h    |  7 +++++++
+ net/core/fib_rules.c    | 14 ++++++++++++++
+ net/ipv4/fib_rules.c    | 21 +++++++++++++++++++++
+ 4 files changed, 43 insertions(+)
 
-Changes in v2:
-* Drop default rule indication and allow re-ordering of default rules
-  (David Ahern).
-* Remove ifdef around 'struct fib_rule_notifier_info' and drop redundant
-  dependency on IP_MULTIPLE_TABLES from rocker and mlxsw.
-* Add David's Acked-by to the fourth patch.
-* Remove netif_is_vrf_master() and use netif_is_l3_master() instead
-  (David Ahern).
-
-Ido Schimmel (9):
-  ipv4: fib_rules: Check if rule is a default rule
-  ipv4: fib_rules: Add notifier info to FIB rules notifications
-  ipv4: fib_rules: Dump FIB rules when registering FIB notifier
-  net: vrf: Set slave's private flag before linking
-  mlxsw: spectrum_router: Associate RIFs with correct VR
-  mlxsw: spectrum_router: Don't destroy RIF if L3 slave
-  mlxsw: spectrum_router: Add support for VRFs
-  mlxsw: spectrum_router: Add support for VRFs on top of bridges
-  mlxsw: spectrum_router: Don't abort on l3mdev rules
-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 71 ++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  8 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 90 +++++++++++++++++++++-
- drivers/net/ethernet/rocker/rocker_main.c          | 17 +++-
- drivers/net/vrf.c                                  |  8 +-
- include/net/fib_rules.h                            |  1 +
- include/net/ip_fib.h                               | 12 +++
- net/core/fib_rules.c                               | 14 ++++
- net/ipv4/fib_rules.c                               | 53 +++++++++++--
- 9 files changed, 254 insertions(+), 20 deletions(-)
-
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 8dbfdf7..1243b9c 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -141,6 +141,7 @@ int fib_rules_lookup(struct fib_rules_ops *, struct flowi *, int flags,
+ 		     struct fib_lookup_arg *);
+ int fib_default_rule_add(struct fib_rules_ops *, u32 pref, u32 table,
+ 			 u32 flags);
++bool fib_rule_matchall(const struct fib_rule *rule);
+ 
+ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh);
+ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh);
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index d9cee96..da6fa7b 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -311,6 +311,11 @@ static inline int fib_lookup(struct net *net, const struct flowi4 *flp,
+ 	return err;
+ }
+ 
++static inline bool fib4_rule_default(const struct fib_rule *rule)
++{
++	return true;
++}
++
+ #else /* CONFIG_IP_MULTIPLE_TABLES */
+ int __net_init fib4_rules_init(struct net *net);
+ void __net_exit fib4_rules_exit(struct net *net);
+@@ -355,6 +360,8 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+ 	return err;
+ }
+ 
++bool fib4_rule_default(const struct fib_rule *rule);
++
+ #endif /* CONFIG_IP_MULTIPLE_TABLES */
+ 
+ /* Exported by fib_frontend.c */
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index b6791d9..816e3cc 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -23,6 +23,20 @@ static const struct fib_kuid_range fib_kuid_range_unset = {
+ 	KUIDT_INIT(~0),
+ };
+ 
++bool fib_rule_matchall(const struct fib_rule *rule)
++{
++	if (rule->iifindex || rule->oifindex || rule->mark || rule->tun_id ||
++	    rule->flags)
++		return false;
++	if (rule->suppress_ifgroup != -1 || rule->suppress_prefixlen != -1)
++		return false;
++	if (!uid_eq(rule->uid_range.start, fib_kuid_range_unset.start) ||
++	    !uid_eq(rule->uid_range.end, fib_kuid_range_unset.end))
++		return false;
++	return true;
++}
++EXPORT_SYMBOL_GPL(fib_rule_matchall);
++
+ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 			 u32 pref, u32 table, u32 flags)
+ {
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 2892109..d531bc9 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -47,6 +47,27 @@ struct fib4_rule {
+ #endif
+ };
+ 
++static bool fib4_rule_matchall(const struct fib_rule *rule)
++{
++	struct fib4_rule *r = container_of(rule, struct fib4_rule, common);
++
++	if (r->dst_len || r->src_len || r->tos)
++		return false;
++	return fib_rule_matchall(rule);
++}
++
++bool fib4_rule_default(const struct fib_rule *rule)
++{
++	if (!fib4_rule_matchall(rule) || rule->action != FR_ACT_TO_TBL ||
++	    rule->l3mdev)
++		return false;
++	if (rule->table != RT_TABLE_LOCAL && rule->table != RT_TABLE_MAIN &&
++	    rule->table != RT_TABLE_DEFAULT)
++		return false;
++	return true;
++}
++EXPORT_SYMBOL_GPL(fib4_rule_default);
++
+ int __fib_lookup(struct net *net, struct flowi4 *flp,
+ 		 struct fib_result *res, unsigned int flags)
+ {
 -- 
 2.7.4
