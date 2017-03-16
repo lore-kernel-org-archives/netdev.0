@@ -1,40 +1,53 @@
-From: "Mr.Ghazi Ahmed" <ghaziahmed538@gmail.com>
-Subject: Dear Friend,
-Date: Thu, 16 Mar 2017 09:45:57 +0000 (UTC)
-Message-ID: <516389774.1338337.1489657557204@mail.yahoo.com>
-References: <516389774.1338337.1489657557204.ref@mail.yahoo.com>
-Reply-To: "Mr.Ghazi Ahmed" <ahmedghazi905@yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-To: unlisted-recipients:; (no To-header on input)
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2017-03-16
+Date: Thu, 16 Mar 2017 10:51:55 +0100
+Message-ID: <20170316095156.31253-1-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm7.bullet.mail.bf1.yahoo.com ([98.139.212.166]:59727 "EHLO
-        nm7.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751219AbdCPJsi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 05:48:38 -0400
+Received: from s3.sipsolutions.net ([5.9.151.49]:41700 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751763AbdCPJwD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 16 Mar 2017 05:52:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a business proposal in the tune of $10.2m USD for you to handle with=
- me. I have opportunity to transfer this abandon fund to your bank account =
-in your country which belongs to our client.
+Hi Dave,
 
-I am inviting you in this transaction where this money can be shared betwee=
-n us at ratio of 60/40% and help the needy around us don=E2=80=99t be afrai=
-d of anything I am with you I will instruct you what you will do to maintai=
-n this fund.
+Here's the pull request you were waiting for. I went through all my
+pending patches but only this one is applicable for net.git at this
+time, so it's just a single one.
 
-Please kindly contact me with your information's if you are interested in t=
-his tranasction for more details.
+Since I didn't have a current base, I forwarded to net.git first
+and re-validated the patch there, but you might might have to be
+careful if you merge to not fast-fwd on your side (though, even
+if you do that, I don't think it matters much).
 
-1. Your Full Name.....................
-2. Your Address......................
-3. Your Country of Origin.............
-4. What do you do for living ...............
-5. Your Age..........................
-6. Gender.........................
-7. Your ID card copy and telephone number for easy communication...........=
-....
+Please pull and let me know if there's any problem.
 
-Mr.Ghazi Ahmed
+Thanks,
+johannes
+
+
+
+The following changes since commit 22a0e18eac7a9e986fec76c60fa4a2926d1291e2:
+
+  net: properly release sk_frag.page (2017-03-15 15:37:45 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-03-16
+
+for you to fetch changes up to ea90e0dc8cecba6359b481e24d9c37160f6f524f:
+
+  nl80211: fix dumpit error path RTNL deadlocks (2017-03-16 10:30:03 +0100)
+
+----------------------------------------------------------------
+Just a single fix, for the RTNL locking issues.
+
+----------------------------------------------------------------
+Johannes Berg (1):
+      nl80211: fix dumpit error path RTNL deadlocks
+
+ net/wireless/nl80211.c | 127 ++++++++++++++++++++++---------------------------
+ 1 file changed, 56 insertions(+), 71 deletions(-)
