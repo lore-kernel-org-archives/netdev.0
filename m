@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv6: set route type for anycast routes
-Date: Thu, 16 Mar 2017 20:41:11 -0700 (PDT)
-Message-ID: <20170316.204111.427731399512369532.davem@davemloft.net>
-References: <1489626873-5371-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3] net: ipv4: add support for ECMP hash
+ policy choice
+Date: Thu, 16 Mar 2017 20:36:03 -0700 (PDT)
+Message-ID: <20170316.203603.382155320913663365.davem@davemloft.net>
+References: <20170314132506.6233b1e7@xeon-e3>
+        <20170314.172424.1077779028779735713.davem@davemloft.net>
+        <CALx6S34UWgOcKKvnq32FKLnXpXDitDR+t1s8GmhMBnNAQHLTSw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: dsa@cumulusnetworks.com
+Cc: stephen@networkplumber.org, nikolay@cumulusnetworks.com,
+        netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, jkbs@redhat.com, edumazet@google.com,
+        pch@ordbogen.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54444 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54600 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751930AbdCQDlN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:41:13 -0400
-In-Reply-To: <1489626873-5371-1-git-send-email-dsa@cumulusnetworks.com>
+        with ESMTP id S1752253AbdCQDpR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:45:17 -0400
+In-Reply-To: <CALx6S34UWgOcKKvnq32FKLnXpXDitDR+t1s8GmhMBnNAQHLTSw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed, 15 Mar 2017 18:14:33 -0700
+From: Tom Herbert <tom@herbertland.com>
+Date: Tue, 14 Mar 2017 19:30:47 -0700
 
-> Anycast routes have the RTF_ANYCAST flag set, but when dumping routes
-> for userspace the route type is not set to RTN_ANYCAST. Make it so.
-> 
-> Fixes: 58c4fb86eabcb ("[IPV6]: Flag RTF_ANYCAST for anycast routes")
-> CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Agreed, but then why do we even need any complexity here by that
+> argument? RSS is specifically defined to do 5-tuple hashing for TCP
+> (and UDP), and 3-tuple. No one has ever complained that doing per flow
+> RSS for TCP is bad thing AFAIK. We followed that same model for RPS,
+> RFS, and XPS via state in the connection context. The skb_hash is
+> often given to us for free, whereas in order to do a 3-tuple we have
+> to actually do more work and do at least an extra jhash. I suppose the
+> argument is probably that switches allow this configuration and
+> somehow we want to have feature parity, but it would be very
+> interesting to know if anyone is not doing per flow ECMP in real life
+> and why...
 
-Good catch, applied, thanks.
+Anyone doing any kind of hardware offload work requires the
+possibility of getting feature parity on the software side.  It's the
+only way to properly test and debug things.
