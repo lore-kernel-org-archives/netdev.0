@@ -1,23 +1,32 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 03/18] net, l2tp: convert l2tp_session.ref_count from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 13:12:44 +0200
-Message-ID: <1489749179-12063-4-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 02/18] net,
+	l2tp: convert l2tp_tunnel.ref_count from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 13:12:43 +0200
+Message-ID: <1489749179-12063-3-git-send-email-elena.reshetova@intel.com>
 References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org,
-        linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
-        jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru, 3chas3@gmail.com, ralf@linux-mips.org,
-        stephen@networkplumber.org, jchapman@katalix.com, jhs@mojatatu.com,
-        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
-        linux-x25@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-        marcel@holtmann.org, johan.hedberg@gmail.com, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
+Cc: peterz@infradead.org, jchapman@katalix.com,
+	Elena Reshetova <elena.reshetova@intel.com>,
+	johan.hedberg@gmail.com, linux-x25@vger.kernel.org,
+	bridge@lists.linux-foundation.org, jmorris@namei.org,
+	3chas3@gmail.com, Hans Liljestrand <ishkamiel@gmail.com>,
+	keescook@chromium.org, marcel@holtmann.org, jhs@mojatatu.com,
+	kuznet@ms2.inr.ac.ru, linux-hams@vger.kernel.org,
+	David Windsor <dwindsor@gmail.com>, yoshfuji@linux-ipv6.org,
+	linux-decnet-user@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	kaber@trash.net, linux-bluetooth@vger.kernel.org, davem@davemloft.net
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -31,67 +40,131 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- net/l2tp/l2tp_core.c |  2 +-
- net/l2tp/l2tp_core.h | 10 +++++-----
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ net/l2tp/l2tp_core.c    | 14 +++++++-------
+ net/l2tp/l2tp_core.h    |  3 ++-
+ net/l2tp/l2tp_debugfs.c |  5 ++---
+ net/l2tp/l2tp_ppp.c     |  2 +-
+ 4 files changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 37e9cf3..20ee848 100644
+index 8adab63..37e9cf3 100644
 --- a/net/l2tp/l2tp_core.c
 +++ b/net/l2tp/l2tp_core.c
-@@ -1796,7 +1796,7 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
- 		/* Bump the reference count. The session context is deleted
- 		 * only when this drops to zero.
- 		 */
--		l2tp_session_inc_refcount(session);
-+		refcount_set(&session->ref_count, 1);
- 		l2tp_tunnel_inc_refcount(tunnel);
- 
- 		/* Ensure tunnel socket isn't deleted */
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index b942854..568b721 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -99,7 +99,7 @@ struct l2tp_session {
- 	int			nr_oos_count;	/* For OOS recovery */
- 	int			nr_oos_count_max;
- 	struct hlist_node	hlist;		/* Hash list node */
--	atomic_t		ref_count;
-+	refcount_t		ref_count;
- 
- 	char			name[32];	/* for logging */
- 	char			ifname[IFNAMSIZ];
-@@ -271,12 +271,12 @@ int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+@@ -132,12 +132,12 @@ static inline struct l2tp_net *l2tp_pernet(struct net *net)
   */
- static inline void l2tp_session_inc_refcount_1(struct l2tp_session *session)
+ static inline void l2tp_tunnel_inc_refcount_1(struct l2tp_tunnel *tunnel)
  {
--	atomic_inc(&session->ref_count);
-+	refcount_inc(&session->ref_count);
+-	atomic_inc(&tunnel->ref_count);
++	refcount_inc(&tunnel->ref_count);
  }
  
- static inline void l2tp_session_dec_refcount_1(struct l2tp_session *session)
+ static inline void l2tp_tunnel_dec_refcount_1(struct l2tp_tunnel *tunnel)
  {
--	if (atomic_dec_and_test(&session->ref_count))
-+	if (refcount_dec_and_test(&session->ref_count))
- 		l2tp_session_free(session);
+-	if (atomic_dec_and_test(&tunnel->ref_count))
++	if (refcount_dec_and_test(&tunnel->ref_count))
+ 		l2tp_tunnel_free(tunnel);
  }
- 
-@@ -285,14 +285,14 @@ static inline void l2tp_session_dec_refcount_1(struct l2tp_session *session)
+ #ifdef L2TP_REFCNT_DEBUG
+@@ -145,14 +145,14 @@ static inline void l2tp_tunnel_dec_refcount_1(struct l2tp_tunnel *tunnel)
  do {									\
- 	pr_debug("l2tp_session_inc_refcount: %s:%d %s: cnt=%d\n",	\
- 		 __func__, __LINE__, (_s)->name,			\
--		 atomic_read(&_s->ref_count));				\
-+		 refcount_read(&_s->ref_count));			\
- 	l2tp_session_inc_refcount_1(_s);				\
+ 	pr_debug("l2tp_tunnel_inc_refcount: %s:%d %s: cnt=%d\n",	\
+ 		 __func__, __LINE__, (_t)->name,			\
+-		 atomic_read(&_t->ref_count));				\
++		 refcount_read(&_t->ref_count));			\
+ 	l2tp_tunnel_inc_refcount_1(_t);					\
  } while (0)
- #define l2tp_session_dec_refcount(_s)					\
+ #define l2tp_tunnel_dec_refcount(_t)					\
  do {									\
- 	pr_debug("l2tp_session_dec_refcount: %s:%d %s: cnt=%d\n",	\
- 		 __func__, __LINE__, (_s)->name,			\
--		 atomic_read(&_s->ref_count));				\
-+		 refcount_read(&_s->ref_count));			\
- 	l2tp_session_dec_refcount_1(_s);				\
+ 	pr_debug("l2tp_tunnel_dec_refcount: %s:%d %s: cnt=%d\n",	\
+ 		 __func__, __LINE__, (_t)->name,			\
+-		 atomic_read(&_t->ref_count));				\
++		 refcount_read(&_t->ref_count));			\
+ 	l2tp_tunnel_dec_refcount_1(_t);					\
  } while (0)
  #else
+@@ -1303,7 +1303,7 @@ static void l2tp_udp_encap_destroy(struct sock *sk)
+  */
+ static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel)
+ {
+-	BUG_ON(atomic_read(&tunnel->ref_count) != 0);
++	BUG_ON(refcount_read(&tunnel->ref_count) != 0);
+ 	BUG_ON(tunnel->sock != NULL);
+ 	l2tp_info(tunnel, L2TP_MSG_CONTROL, "%s: free...\n", tunnel->name);
+ 	kfree_rcu(tunnel, rcu);
+@@ -1617,7 +1617,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	/* Bump the reference count. The tunnel context is deleted
+ 	 * only when this drops to zero. Must be done before list insertion
+ 	 */
+-	l2tp_tunnel_inc_refcount(tunnel);
++	refcount_set(&tunnel->ref_count, 1);
+ 	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
+ 	list_add_rcu(&tunnel->list, &pn->l2tp_tunnel_list);
+ 	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
+@@ -1656,7 +1656,7 @@ void l2tp_session_free(struct l2tp_session *session)
+ {
+ 	struct l2tp_tunnel *tunnel = session->tunnel;
+ 
+-	BUG_ON(atomic_read(&session->ref_count) != 0);
++	BUG_ON(refcount_read(&session->ref_count) != 0);
+ 
+ 	if (tunnel) {
+ 		BUG_ON(tunnel->magic != L2TP_TUNNEL_MAGIC);
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index aebf281..b942854 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -7,6 +7,7 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++#include <linux/refcount.h>
+ 
+ #ifndef _L2TP_CORE_H_
+ #define _L2TP_CORE_H_
+@@ -177,7 +178,7 @@ struct l2tp_tunnel {
+ 	struct list_head	list;		/* Keep a list of all tunnels */
+ 	struct net		*l2tp_net;	/* the net we belong to */
+ 
+-	atomic_t		ref_count;
++	refcount_t		ref_count;
+ #ifdef CONFIG_DEBUG_FS
+ 	void (*show)(struct seq_file *m, void *arg);
+ #endif
+diff --git a/net/l2tp/l2tp_debugfs.c b/net/l2tp/l2tp_debugfs.c
+index 2d6760a..189e738 100644
+--- a/net/l2tp/l2tp_debugfs.c
++++ b/net/l2tp/l2tp_debugfs.c
+@@ -145,8 +145,7 @@ static void l2tp_dfs_seq_tunnel_show(struct seq_file *m, void *v)
+ 		   "");
+ 	seq_printf(m, " %d sessions, refcnt %d/%d\n", session_count,
+ 		   tunnel->sock ? atomic_read(&tunnel->sock->sk_refcnt) : 0,
+-		   atomic_read(&tunnel->ref_count));
+-
++		   refcount_read(&tunnel->ref_count));
+ 	seq_printf(m, " %08x rx %ld/%ld/%ld rx %ld/%ld/%ld\n",
+ 		   tunnel->debug,
+ 		   atomic_long_read(&tunnel->stats.tx_packets),
+@@ -171,7 +170,7 @@ static void l2tp_dfs_seq_session_show(struct seq_file *m, void *v)
+ 		   "");
+ 	if (session->send_seq || session->recv_seq)
+ 		seq_printf(m, "   nr %hu, ns %hu\n", session->nr, session->ns);
+-	seq_printf(m, "   refcnt %d\n", atomic_read(&session->ref_count));
++	seq_printf(m, "   refcnt %d\n", refcount_read(&session->ref_count));
+ 	seq_printf(m, "   config %d/%d/%c/%c/%s/%s %08x %u\n",
+ 		   session->mtu, session->mru,
+ 		   session->recv_seq ? 'R' : '-',
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index 36cc56f..eb1a85a 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -1607,7 +1607,7 @@ static void pppol2tp_seq_tunnel_show(struct seq_file *m, void *v)
+ 	seq_printf(m, "\nTUNNEL '%s', %c %d\n",
+ 		   tunnel->name,
+ 		   (tunnel == tunnel->sock->sk_user_data) ? 'Y' : 'N',
+-		   atomic_read(&tunnel->ref_count) - 1);
++		   refcount_read(&tunnel->ref_count) - 1);
+ 	seq_printf(m, " %08x %ld/%ld/%ld %ld/%ld/%ld\n",
+ 		   tunnel->debug,
+ 		   atomic_long_read(&tunnel->stats.tx_packets),
 -- 
 2.7.4
