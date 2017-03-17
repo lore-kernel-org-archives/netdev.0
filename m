@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 06/23] net, ceph: convert ceph_pagelist.refcnt from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 14:10:29 +0200
-Message-ID: <1489752646-8749-7-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 04/23] net, ceph: convert ceph_snap_context.nref from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 14:10:27 +0200
+Message-ID: <1489752646-8749-5-git-send-email-elena.reshetova@intel.com>
 References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org,
         davem@davemloft.net, linux-x25@vger.kernel.org,
@@ -32,67 +32,61 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- fs/ceph/mds_client.c          | 2 +-
- include/linux/ceph/pagelist.h | 6 +++---
- net/ceph/pagelist.c           | 2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ include/linux/ceph/libceph.h | 3 ++-
+ net/ceph/snapshot.c          | 6 +++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/fs/ceph/mds_client.c b/fs/ceph/mds_client.c
-index c681762..7b38e6c 100644
---- a/fs/ceph/mds_client.c
-+++ b/fs/ceph/mds_client.c
-@@ -1991,7 +1991,7 @@ static struct ceph_msg *create_request_message(struct ceph_mds_client *mdsc,
- 
- 	if (req->r_pagelist) {
- 		struct ceph_pagelist *pagelist = req->r_pagelist;
--		atomic_inc(&pagelist->refcnt);
-+		refcount_inc(&pagelist->refcnt);
- 		ceph_msg_data_add_pagelist(msg, pagelist);
- 		msg->hdr.data_len = cpu_to_le32(pagelist->length);
- 	} else {
-diff --git a/include/linux/ceph/pagelist.h b/include/linux/ceph/pagelist.h
-index 13d71fe..75a7db2 100644
---- a/include/linux/ceph/pagelist.h
-+++ b/include/linux/ceph/pagelist.h
-@@ -2,7 +2,7 @@
- #define __FS_CEPH_PAGELIST_H
- 
- #include <asm/byteorder.h>
--#include <linux/atomic.h>
+diff --git a/include/linux/ceph/libceph.h b/include/linux/ceph/libceph.h
+index 1816c5e..26dc674 100644
+--- a/include/linux/ceph/libceph.h
++++ b/include/linux/ceph/libceph.h
+@@ -14,6 +14,7 @@
+ #include <linux/wait.h>
+ #include <linux/writeback.h>
+ #include <linux/slab.h>
 +#include <linux/refcount.h>
- #include <linux/list.h>
- #include <linux/types.h>
  
-@@ -13,7 +13,7 @@ struct ceph_pagelist {
- 	size_t room;
- 	struct list_head free_list;
- 	size_t num_pages_free;
--	atomic_t refcnt;
-+	refcount_t refcnt;
- };
+ #include <linux/ceph/types.h>
+ #include <linux/ceph/messenger.h>
+@@ -159,7 +160,7 @@ struct ceph_client {
+  * dirtied.
+  */
+ struct ceph_snap_context {
+-	atomic_t nref;
++	refcount_t nref;
+ 	u64 seq;
+ 	u32 num_snaps;
+ 	u64 snaps[];
+diff --git a/net/ceph/snapshot.c b/net/ceph/snapshot.c
+index 705414e..e14a5d0 100644
+--- a/net/ceph/snapshot.c
++++ b/net/ceph/snapshot.c
+@@ -49,7 +49,7 @@ struct ceph_snap_context *ceph_create_snap_context(u32 snap_count,
+ 	if (!snapc)
+ 		return NULL;
  
- struct ceph_pagelist_cursor {
-@@ -30,7 +30,7 @@ static inline void ceph_pagelist_init(struct ceph_pagelist *pl)
- 	pl->room = 0;
- 	INIT_LIST_HEAD(&pl->free_list);
- 	pl->num_pages_free = 0;
--	atomic_set(&pl->refcnt, 1);
-+	refcount_set(&pl->refcnt, 1);
- }
+-	atomic_set(&snapc->nref, 1);
++	refcount_set(&snapc->nref, 1);
+ 	snapc->num_snaps = snap_count;
  
- extern void ceph_pagelist_release(struct ceph_pagelist *pl);
-diff --git a/net/ceph/pagelist.c b/net/ceph/pagelist.c
-index 6864007..ce09f73 100644
---- a/net/ceph/pagelist.c
-+++ b/net/ceph/pagelist.c
-@@ -16,7 +16,7 @@ static void ceph_pagelist_unmap_tail(struct ceph_pagelist *pl)
- 
- void ceph_pagelist_release(struct ceph_pagelist *pl)
+ 	return snapc;
+@@ -59,7 +59,7 @@ EXPORT_SYMBOL(ceph_create_snap_context);
+ struct ceph_snap_context *ceph_get_snap_context(struct ceph_snap_context *sc)
  {
--	if (!atomic_dec_and_test(&pl->refcnt))
-+	if (!refcount_dec_and_test(&pl->refcnt))
+ 	if (sc)
+-		atomic_inc(&sc->nref);
++		refcount_inc(&sc->nref);
+ 	return sc;
+ }
+ EXPORT_SYMBOL(ceph_get_snap_context);
+@@ -68,7 +68,7 @@ void ceph_put_snap_context(struct ceph_snap_context *sc)
+ {
+ 	if (!sc)
  		return;
- 	ceph_pagelist_unmap_tail(pl);
- 	while (!list_empty(&pl->head)) {
+-	if (atomic_dec_and_test(&sc->nref)) {
++	if (refcount_dec_and_test(&sc->nref)) {
+ 		/*printk(" deleting snap_context %p\n", sc);*/
+ 		kfree(sc);
+ 	}
 -- 
 2.7.4
