@@ -1,91 +1,41 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Performance issue with igb with lots of different
-	src-ip addrs.
-Date: Thu, 16 Mar 2017 19:46:47 -0700
-Message-ID: <f110481e-5c8f-5d03-7fe7-bf9558cb7c1a@candelatech.com>
-References: <58CB165F.7030302@candelatech.com>
-	<CAKgT0Ufwo-s0WUKu2kyELdx-CRHgmasEjyg+xnfgSGjo0dV_iQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 1/5] net: Do not record sender_cpu as napi_id
+ in socket receive paths
+Date: Thu, 16 Mar 2017 19:55:22 -0700
+Message-ID: <1489719322.28631.278.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170316183142.15806.38824.stgit@localhost.localdomain>
+         <20170316183238.15806.14293.stgit@localhost.localdomain>
+         <1489701936.28631.249.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAKgT0UcHgdb0Z_KvjPJuS1gtcFEi8rj2dKouUeXkuvwjopDiBQ@mail.gmail.com>
+         <1489704618.28631.267.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAKgT0UeTRNxb9B5Y7mhZ4QmKrUNSYDHBbQu6=kM+6X6ETuRu8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel list <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>
 To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAKgT0Ufwo-s0WUKu2kyELdx-CRHgmasEjyg+xnfgSGjo0dV_iQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UeTRNxb9B5Y7mhZ4QmKrUNSYDHBbQu6=kM+6X6ETuRu8g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm actually using a hacked up version of pktgen nicely driven by our
-GUI tool, but the crux is that you need to set min and max src IP to some large
-range.
+On Thu, 2017-03-16 at 19:40 -0700, Alexander Duyck wrote:
 
-We are driving pktgen from a separate machine.  Stock pktgen isn't good at reporting
-received pkts last I checked, so it may be more difficult to easily view the problem.
+> I don't know.  My concern here is about the cost of going through all
+> that code just for something that we know shouldn't be valid.  If
+> nothing else I might update sk_can_busy_loop so that it doesn't try
+> busy looping on a sk_napi_id that is NR_CPU or less.
 
-I'll be happy to set up my tool on your Fedora 24 or similar VM or machine if you
-want.
+But why would that be a win ?
 
-Thanks,
-Ben
+if napi_by_id() returns NULL, we immediately give up, (goto out;)
 
-On 03/16/2017 07:35 PM, Alexander Duyck wrote:
-> Can you include the pktgen script you are running?
->
-> Also when you say you are driving traffic through the bridge are you
-> sending from something external on the system or are you actually
-> directing the traffic from pktgen into the bridge directly?
->
-> - Alex
->
-> On Thu, Mar 16, 2017 at 3:49 PM, Ben Greear <greearb@candelatech.com> wrote:
->> Hello,
->>
->> We notice that when using two igb ports as a bridge, if we use pktgen to
->> drive traffic through the bridge and randomize (or use a very large range)
->> for the source IP addr in pktgen, then performance of igb is very poor (like
->> 150Mbps
->> throughput instead of 1Gbps).  It runs right at line speed if we use same
->> src/dest
->> IP addr in pktgen.  So, seems it is related to lots of src/dest IP
->> addresses.
->>
->> We see same problem when using pktgen to send to itself, and we see this in
->> several different kernels.  We specifically tested bridge mode in this stock
->> Fedora kernel:
->>
->>  Linux lfo350-59cc 4.9.13-101.fc24.x86_64 #1 SMP Tue Mar 7 23:48:32 UTC 2017
->> x86_64 x86_64 x86_64 GNU/Linux
->>
->> e1000e does not show this problem in our testing.
->>
->> Any ideas what the issue might be and how to fix it?
->>
->> Thanks,
->> Ben
->>
->> --
->> Ben Greear <greearb@candelatech.com>
->> Candela Technologies Inc  http://www.candelatech.com
->>
->
+So why should we add a code that will add something that will not be
+useful for the vast majority of the cases where the ID is valid and we
+need to do the hash look up ?
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Is libc trying to avoid doing syscalls like close(-1) ?
