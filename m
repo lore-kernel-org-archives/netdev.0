@@ -1,192 +1,55 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: remove duplicate code
-Date: Fri, 17 Mar 2017 10:50:05 -0700
-Message-ID: <20170317175005.GA2276@felix-thinkpad.cavium.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: Re: [PATCH 3/4] uapi glibc compat: Do not check for __USE_MISC
+Date: Fri, 17 Mar 2017 19:17:52 +0100
+Message-ID: <e2a5018f-46fc-003e-3632-51e356c907ea@hauke-m.de>
+References: <20170312220039.16885-1-hauke@hauke-m.de>
+ <20170312220039.16885-4-hauke@hauke-m.de>
+ <1489651152.4195.192.camel@infradead.org>
+ <20170316082644.GD8672@lakka.kapsi.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0062.outbound.protection.outlook.com ([104.47.38.62]:5056
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751101AbdCQSGG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Mar 2017 14:06:06 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, jarod@redhat.com, jogo@openwrt.org,
+        david.heidelberger@ixit.cz, maillist-linux@barfooze.de
+To: Mikko Rapeli <mikko.rapeli@iki.fi>,
+        David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170316082644.GD8672@lakka.kapsi.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Satanand Burla <satananda.burla@cavium.com>
+On 03/16/2017 09:26 AM, Mikko Rapeli wrote:
+> On Thu, Mar 16, 2017 at 07:59:12AM +0000, David Woodhouse wrote:
+>> On Sun, 2017-03-12 at 23:00 +0100, Hauke Mehrtens wrote:
+>>> __USE_MISC is glibc specific and not available in musl libc. Only do
+>>> this check when glibc is used. This fixes a problem with musl libc.
+>>> ...
+>>> -/* Coordinate with glibc net/if.h header. */
+>>> -#if defined(_NET_IF_H) && defined(__USE_MISC)
+>>> +/* Coordinate with libc net/if.h header. */
+>>> +#if defined(_NET_IF_H) && (!defined(__GLIBC__) || defined(__USE_MISC))
+>>
+>> I *really* don't like building up a plethora of knowledge about
+>> specific libc implementations in the kernel. As a general rule, if we
+>> have *anything* that depends on __GLIBC__ then we are Doing It Wrong™.
+> 
+> Kernel does not depend on glibc but uapi headers check for some defintions
+> so that userspace code can include both libc and kernel header files
+> without compiler errors.
+> 
+> This interface between kernel and libc header files is messy due to long
+> history of copying header files from kernel to libc implementations etc
+> and thus this kind of ifdef magic with in depth knowledge of various
+> libc's defintions is currently unavoidable.
 
-Remove code duplicated in PF and VF; define that code once only in a common
-header file included by PF and VF.
- 
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 36 ----------------------
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 36 ----------------------
- .../net/ethernet/cavium/liquidio/octeon_network.h  | 36 ++++++++++++++++++++++
- 3 files changed, 36 insertions(+), 72 deletions(-)
+I agree with you David.
+Should I change my patch?
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index ca529a7..7e9227c 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -60,12 +60,6 @@ MODULE_PARM_DESC(fw_type, "Type of firmware to be loaded. Default \"nic\"");
- 
- static int ptp_enable = 1;
- 
--/* Bit mask values for lio->ifstate */
--#define   LIO_IFSTATE_DROQ_OPS             0x01
--#define   LIO_IFSTATE_REGISTERED           0x02
--#define   LIO_IFSTATE_RUNNING              0x04
--#define   LIO_IFSTATE_RX_TIMESTAMP_ENABLED 0x08
--
- /* Polling interval for determining when NIC application is alive */
- #define LIQUIDIO_STARTER_POLL_INTERVAL_MS 100
- 
-@@ -531,36 +525,6 @@ static void liquidio_deinit_pci(void)
- }
- 
- /**
-- * \brief check interface state
-- * @param lio per-network private data
-- * @param state_flag flag state to check
-- */
--static inline int ifstate_check(struct lio *lio, int state_flag)
--{
--	return atomic_read(&lio->ifstate) & state_flag;
--}
--
--/**
-- * \brief set interface state
-- * @param lio per-network private data
-- * @param state_flag flag state to set
-- */
--static inline void ifstate_set(struct lio *lio, int state_flag)
--{
--	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) | state_flag));
--}
--
--/**
-- * \brief clear interface state
-- * @param lio per-network private data
-- * @param state_flag flag state to clear
-- */
--static inline void ifstate_reset(struct lio *lio, int state_flag)
--{
--	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
--}
--
--/**
-  * \brief Stop Tx queues
-  * @param netdev network device
-  */
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 7b83be4..c37c165 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -39,12 +39,6 @@ MODULE_PARM_DESC(debug, "NETIF_MSG debug bits");
- 
- #define DEFAULT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK)
- 
--/* Bit mask values for lio->ifstate */
--#define   LIO_IFSTATE_DROQ_OPS             0x01
--#define   LIO_IFSTATE_REGISTERED           0x02
--#define   LIO_IFSTATE_RUNNING              0x04
--#define   LIO_IFSTATE_RX_TIMESTAMP_ENABLED 0x08
--
- struct liquidio_if_cfg_context {
- 	int octeon_id;
- 
-@@ -336,36 +330,6 @@ static struct pci_driver liquidio_vf_pci_driver = {
- };
- 
- /**
-- * \brief check interface state
-- * @param lio per-network private data
-- * @param state_flag flag state to check
-- */
--static int ifstate_check(struct lio *lio, int state_flag)
--{
--	return atomic_read(&lio->ifstate) & state_flag;
--}
--
--/**
-- * \brief set interface state
-- * @param lio per-network private data
-- * @param state_flag flag state to set
-- */
--static void ifstate_set(struct lio *lio, int state_flag)
--{
--	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) | state_flag));
--}
--
--/**
-- * \brief clear interface state
-- * @param lio per-network private data
-- * @param state_flag flag state to clear
-- */
--static void ifstate_reset(struct lio *lio, int state_flag)
--{
--	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
--}
--
--/**
-  * \brief Stop Tx queues
-  * @param netdev network device
-  */
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index eef2a1e..ddb61bf 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -28,6 +28,12 @@
- #define LIO_MAX_MTU_SIZE (OCTNET_MAX_FRM_SIZE - OCTNET_FRM_HEADER_SIZE)
- #define LIO_MIN_MTU_SIZE ETH_MIN_MTU
- 
-+/* Bit mask values for lio->ifstate */
-+#define   LIO_IFSTATE_DROQ_OPS             0x01
-+#define   LIO_IFSTATE_REGISTERED           0x02
-+#define   LIO_IFSTATE_RUNNING              0x04
-+#define   LIO_IFSTATE_RX_TIMESTAMP_ENABLED 0x08
-+
- struct oct_nic_stats_resp {
- 	u64     rh;
- 	struct oct_link_stats stats;
-@@ -438,4 +444,34 @@ static inline void octeon_fast_packet_next(struct octeon_droq *droq,
- 	       get_rbd(droq->recv_buf_list[idx].buffer), copy_len);
- }
- 
-+/**
-+ * \brief check interface state
-+ * @param lio per-network private data
-+ * @param state_flag flag state to check
-+ */
-+static inline int ifstate_check(struct lio *lio, int state_flag)
-+{
-+	return atomic_read(&lio->ifstate) & state_flag;
-+}
-+
-+/**
-+ * \brief set interface state
-+ * @param lio per-network private data
-+ * @param state_flag flag state to set
-+ */
-+static inline void ifstate_set(struct lio *lio, int state_flag)
-+{
-+	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) | state_flag));
-+}
-+
-+/**
-+ * \brief clear interface state
-+ * @param lio per-network private data
-+ * @param state_flag flag state to clear
-+ */
-+static inline void ifstate_reset(struct lio *lio, int state_flag)
-+{
-+	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
-+}
-+
- #endif
+The check for __USE_MISC was added in this commit:
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f0a3fdca794d1e68ae284ef4caefe681f7c18e89
+
+musl does not define it, but still adds the defines which glibc adds
+when __USE_MISC is set.
+
+Hauke
