@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 13/18] net, sched: convert Qdisc.refcnt from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 13:12:54 +0200
-Message-ID: <1489749179-12063-14-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 11/18] net, bridge: convert net_bridge_vlan.refcnt from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 13:12:52 +0200
+Message-ID: <1489749179-12063-12-git-send-email-elena.reshetova@intel.com>
 References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org,
         linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
@@ -31,111 +31,70 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/sch_generic.h | 3 ++-
- net/sched/sch_api.c       | 8 ++++----
- net/sched/sch_generic.c   | 8 ++++----
- 3 files changed, 10 insertions(+), 9 deletions(-)
+ net/bridge/br_private.h | 3 ++-
+ net/bridge/br_vlan.c    | 8 ++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index aeec408..cd7463f 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -8,6 +8,7 @@
- #include <linux/pkt_cls.h>
- #include <linux/percpu.h>
- #include <linux/dynamic_queue_limits.h>
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 2288fca..16cb470 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -21,6 +21,7 @@
+ #include <net/ip6_fib.h>
+ #include <linux/if_vlan.h>
+ #include <linux/rhashtable.h>
 +#include <linux/refcount.h>
- #include <net/gen_stats.h>
- #include <net/rtnetlink.h>
  
-@@ -93,7 +94,7 @@ struct Qdisc {
- 	struct sk_buff		*skb_bad_txq;
- 	struct rcu_head		rcu_head;
- 	int			padded;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
+ #define BR_HASH_BITS 8
+ #define BR_HASH_SIZE (1 << BR_HASH_BITS)
+@@ -127,7 +128,7 @@ struct net_bridge_vlan {
+ 		struct net_bridge_port	*port;
+ 	};
+ 	union {
+-		atomic_t		refcnt;
++		refcount_t		refcnt;
+ 		struct net_bridge_vlan	*brvlan;
+ 	};
  
- 	spinlock_t		busylock ____cacheline_aligned_in_smp;
- };
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index bcf49cd..806f7b5 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -828,7 +828,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 62e68c0..e4e9e1a 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -158,7 +158,7 @@ static struct net_bridge_vlan *br_vlan_get_master(struct net_bridge *br, u16 vid
+ 		if (WARN_ON(!masterv))
+ 			return NULL;
+ 	}
+-	atomic_inc(&masterv->refcnt);
++	refcount_inc(&masterv->refcnt);
  
- 			old = dev_graft_qdisc(dev_queue, new);
- 			if (new && i > 0)
--				atomic_inc(&new->refcnt);
-+				refcount_inc(&new->refcnt);
- 
- 			if (!ingress)
- 				qdisc_destroy(old);
-@@ -839,7 +839,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 			notify_and_destroy(net, skb, n, classid,
- 					   dev->qdisc, new);
- 			if (new && !new->ops->attach)
--				atomic_inc(&new->refcnt);
-+				refcount_inc(&new->refcnt);
- 			dev->qdisc = new ? : &noop_qdisc;
- 
- 			if (new && new->ops->attach)
-@@ -1245,7 +1245,7 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
- 				if (q == p ||
- 				    (p && check_loop(q, p, 0)))
- 					return -ELOOP;
--				atomic_inc(&q->refcnt);
-+				refcount_inc(&q->refcnt);
- 				goto graft;
- 			} else {
- 				if (!q)
-@@ -1360,7 +1360,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
- 	tcm->tcm_ifindex = qdisc_dev(q)->ifindex;
- 	tcm->tcm_parent = clid;
- 	tcm->tcm_handle = q->handle;
--	tcm->tcm_info = atomic_read(&q->refcnt);
-+	tcm->tcm_info = refcount_read(&q->refcnt);
- 	if (nla_put_string(skb, TCA_KIND, q->ops->id))
- 		goto nla_put_failure;
- 	if (q->ops->dump && q->ops->dump(q, skb) < 0)
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index b052b27..6e0c695 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -633,7 +633,7 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
- 	sch->dequeue = ops->dequeue;
- 	sch->dev_queue = dev_queue;
- 	dev_hold(dev);
--	atomic_set(&sch->refcnt, 1);
-+	refcount_set(&sch->refcnt, 1);
- 
- 	return sch;
- errout:
-@@ -701,7 +701,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
- 	const struct Qdisc_ops  *ops = qdisc->ops;
- 
- 	if (qdisc->flags & TCQ_F_BUILTIN ||
--	    !atomic_dec_and_test(&qdisc->refcnt))
-+	    !refcount_dec_and_test(&qdisc->refcnt))
+ 	return masterv;
+ }
+@@ -182,7 +182,7 @@ static void br_vlan_put_master(struct net_bridge_vlan *masterv)
  		return;
  
- #ifdef CONFIG_NET_SCHED
-@@ -739,7 +739,7 @@ struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
- 	spin_lock_bh(root_lock);
- 
- 	/* Prune old scheduler */
--	if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
-+	if (oqdisc && refcount_read(&oqdisc->refcnt) <= 1)
- 		qdisc_reset(oqdisc);
- 
- 	/* ... and graft new one */
-@@ -785,7 +785,7 @@ static void attach_default_qdiscs(struct net_device *dev)
- 	    dev->priv_flags & IFF_NO_QUEUE) {
- 		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
- 		dev->qdisc = txq->qdisc_sleeping;
--		atomic_inc(&dev->qdisc->refcnt);
-+		refcount_inc(&dev->qdisc->refcnt);
- 	} else {
- 		qdisc = qdisc_create_dflt(txq, &mq_qdisc_ops, TC_H_ROOT);
- 		if (qdisc) {
+ 	vg = br_vlan_group(masterv->br);
+-	if (atomic_dec_and_test(&masterv->refcnt)) {
++	if (refcount_dec_and_test(&masterv->refcnt)) {
+ 		rhashtable_remove_fast(&vg->vlan_hash,
+ 				       &masterv->vnode, br_vlan_rht_params);
+ 		__vlan_del_list(masterv);
+@@ -573,7 +573,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+ 				br_err(br, "failed insert local address into bridge forwarding table\n");
+ 				return ret;
+ 			}
+-			atomic_inc(&vlan->refcnt);
++			refcount_inc(&vlan->refcnt);
+ 			vlan->flags |= BRIDGE_VLAN_INFO_BRENTRY;
+ 			vg->num_vlans++;
+ 		}
+@@ -595,7 +595,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+ 	vlan->flags &= ~BRIDGE_VLAN_INFO_PVID;
+ 	vlan->br = br;
+ 	if (flags & BRIDGE_VLAN_INFO_BRENTRY)
+-		atomic_set(&vlan->refcnt, 1);
++		refcount_set(&vlan->refcnt, 1);
+ 	ret = __vlan_add(vlan, flags);
+ 	if (ret) {
+ 		free_percpu(vlan->stats);
 -- 
 2.7.4
