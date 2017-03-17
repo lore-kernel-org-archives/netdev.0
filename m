@@ -1,36 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 1/5] net: Do not record sender_cpu as napi_id
- in socket receive paths
-Date: Thu, 16 Mar 2017 19:57:28 -0700
-Message-ID: <1489719448.28631.279.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170316183142.15806.38824.stgit@localhost.localdomain>
-         <20170316183238.15806.14293.stgit@localhost.localdomain>
-         <1489701936.28631.249.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAKgT0UcHgdb0Z_KvjPJuS1gtcFEi8rj2dKouUeXkuvwjopDiBQ@mail.gmail.com>
-         <1489704618.28631.267.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAKgT0UeTRNxb9B5Y7mhZ4QmKrUNSYDHBbQu6=kM+6X6ETuRu8g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND PATCH -net] cpsw/netcp: work around reverse cpts
+ dependency
+Date: Thu, 16 Mar 2017 20:13:23 -0700 (PDT)
+Message-ID: <20170316.201323.374866113649500200.davem@davemloft.net>
+References: <20170313165927.1389014-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33677 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752379AbdCQDGo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:06:44 -0400
-In-Reply-To: <CAKgT0UeTRNxb9B5Y7mhZ4QmKrUNSYDHBbQu6=kM+6X6ETuRu8g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: grygorii.strashko@ti.com, tglx@linutronix.de,
+        richardcochran@gmail.com, w-kwok2@ti.com, nicolas.pitre@linaro.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170313165927.1389014-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-03-16 at 19:40 -0700, Alexander Duyck wrote:
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 13 Mar 2017 17:59:04 +0100
 
-> What I probably can do is go through and replace all the spots where
-> we where checking for sk_napi_id being 0, and instead replace it with
-> a check against NR_CPUS.
+> The dependency is reversed: cpsw and netcp call into cpts,
+> but cpts depends on the other two in Kconfig. This can lead
+> to cpts being a loadable module and its callers built-in:
+> 
+> drivers/net/ethernet/ti/cpsw.o: In function `cpsw_remove':
+> cpsw.c:(.text.cpsw_remove+0xd0): undefined reference to `cpts_release'
+> drivers/net/ethernet/ti/cpsw.o: In function `cpsw_rx_handler':
+> cpsw.c:(.text.cpsw_rx_handler+0x2dc): undefined reference to `cpts_rx_timestamp'
+> drivers/net/ethernet/ti/cpsw.o: In function `cpsw_tx_handler':
+> cpsw.c:(.text.cpsw_tx_handler+0x7c): undefined reference to `cpts_tx_timestamp'
+> drivers/net/ethernet/ti/cpsw.o: In function `cpsw_ndo_stop':
+> 
+> As a workaround, I'm introducing another Kconfig symbol to
+> control the compilation of cpts, while making the actual
+> module controlled by a silent symbol that is =y when necessary.
+> 
+> Fixes: 6246168b4a38 ("net: ethernet: ti: netcp: add support of cpts")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> ---
+> Originally submitted on Dec 16, still needed for v4.10 and v4.11-rc2
 
-This seems a good idea.
+I'm fine with this change, but please keep the user visible Kconfig
+symbol name the same, use the new name for the internal one.
+
+I know that this means you have to make more changes elsewhere in
+order to accomplish this.
