@@ -1,619 +1,103 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Subject: Re: [PATCH net-next] ipv6: Implement optimized IPv6 masked address
- comparison for ARM64
-Date: Fri, 17 Mar 2017 12:00:42 +0000
-Message-ID: <bfa8020c-bd12-8de1-5be5-a3408c293600@arm.com>
-References: <1489725772-7571-1-git-send-email-subashab@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: James Greenhalgh <James.Greenhalgh@arm.com>
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        luke.starrett@broadcom.com, catalin.marinas@arm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:45348 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751084AbdCQMKd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Mar 2017 08:10:33 -0400
-In-Reply-To: <1489725772-7571-1-git-send-email-subashab@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 00/23] various networking refcount conversions, part 2
+Date: Fri, 17 Mar 2017 14:10:23 +0200
+Message-ID: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-x25-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        zyan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sage-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+        jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+        herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+        jreuter-K7Hl1MveuGQ@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+        keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 17/03/17 04:42, Subash Abhinov Kasiviswanathan wrote:
-> Android devices use multiple ip[6]tables for statistics, UID matching
-> and other functionality. Perf output indicated that ip6_do_table
-> was taking a considerable amount of CPU and more that ip_do_table
-> for an equivalent rate. ipv6_masked_addr_cmp was chosen for
-> optimization as there are more instructions required than the
-> equivalent operation in ip_packet_match.
-> 
-> Using 128 bit operations helps to reduce the number of instructions
-> for the match on an ARM64 system. This helps to improve UDPv6 DL
-> performance by 40Mbps (860Mbps -> 900Mbps) on a CPU limited system.
+This series, for the rest of network subsystem components, replaces atomic_t reference
+counters with the new refcount_t type and API (see include/linux/refcount.h).
+By doing this we prevent intentional or accidental
+underflows or overflows that can led to use-after-free vulnerabilities.
 
-After trying to have a look at the codegen difference it makes, I think
-I may have found why it's faster ;)
+The patches are fully independent and can be cherry-picked separately.
+Since we convert all kernel subsystems in the same fashion, resulting
+in about 300 patches, we have to group them for sending at least in some
+fashion to be manageable. Please excuse the long cc list.
 
-----------
-[root@space-channel-5 ~]# cat > ip.c
-#include <stdbool.h>
-#include <netinet/in.h>
-	
-bool
-ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
-		     const struct in6_addr *a2)
-{
-	const unsigned long *ul1 = (const unsigned long *)a1;
-	const unsigned long *ulm = (const unsigned long *)m;
-	const unsigned long *ul2 = (const unsigned long *)a2;
+If there are no objections to the patches, please merge them via respective trees.
 
-	return !!(((ul1[0] ^ ul2[0]) & ulm[0]) |
-		  ((ul1[1] ^ ul2[1]) & ulm[1]));
-}
+Elena Reshetova (23):
+  net, sunrpc: convert rpc_cred.cr_count from atomic_t to refcount_t
+  net, sunrpc: convert gss_cl_ctx.count from atomic_t to refcount_t
+  net, sunrpc: convert gss_upcall_msg.count from atomic_t to refcount_t
+  net, ceph: convert ceph_snap_context.nref from atomic_t to refcount_t
+  net, ceph: convert ceph_osd.o_ref from atomic_t to refcount_t
+  net, ceph: convert ceph_pagelist.refcnt from atomic_t to refcount_t
+  net, rds: convert rds_ib_device.refcount from atomic_t to refcount_t
+  net, rds: convert rds_incoming.i_refcount from atomic_t to refcount_t
+  net, rds: convert rds_mr.r_refcount from atomic_t to refcount_t
+  net, rds: convert rds_message.m_refcount from atomic_t to refcount_t
+  net, x25: convert x25_route.refcnt from atomic_t to refcount_t
+  net, x25: convert x25_neigh.refcnt from atomic_t to refcount_t
+  net, xfrm: convert xfrm_state.refcnt from atomic_t to refcount_t
+  net, xfrm: convert xfrm_policy.refcnt from atomic_t to refcount_t
+  net, xfrm: convert sec_path.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_auth_bytes.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_datamsg.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_chunk.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_transport.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_ep_common.refcnt from atomic_t to refcount_t
+  net, ax25: convert ax25_uid_assoc.refcount from atomic_t to refcount_t
+  net, ax25: convert ax25_route.refcount from atomic_t to refcount_t
+  net, ax25: convert ax25_cb.refcount from atomic_t to refcount_t
 
-bool
-ipv6_masked_addr_cmp_new(const struct in6_addr *a1, const struct
-in6_addr *m,
-		     const struct in6_addr *a2)
-{
-	const __uint128_t *ul1 = (const __uint128_t *)a1;
-	const __uint128_t *ulm = (const __uint128_t *)m;
-	const __uint128_t *ul2 = (const __uint128_t *)a1;
+ fs/ceph/mds_client.c            |  2 +-
+ include/linux/ceph/libceph.h    |  3 ++-
+ include/linux/ceph/osd_client.h |  3 ++-
+ include/linux/ceph/pagelist.h   |  6 +++---
+ include/linux/sunrpc/auth.h     |  8 ++++----
+ include/linux/sunrpc/auth_gss.h |  3 ++-
+ include/net/ax25.h              | 20 ++++++++++----------
+ include/net/sctp/auth.h         |  5 +++--
+ include/net/sctp/structs.h      |  8 ++++----
+ include/net/x25.h               | 13 +++++++------
+ include/net/xfrm.h              | 21 +++++++++++----------
+ net/ax25/af_ax25.c              |  2 +-
+ net/ax25/ax25_route.c           |  2 +-
+ net/ax25/ax25_uid.c             |  2 +-
+ net/ceph/osd_client.c           | 16 ++++++++--------
+ net/ceph/pagelist.c             |  2 +-
+ net/ceph/snapshot.c             |  6 +++---
+ net/key/af_key.c                |  2 +-
+ net/rds/ib.c                    | 12 ++++++------
+ net/rds/ib.h                    |  2 +-
+ net/rds/ib_rdma.c               |  4 ++--
+ net/rds/message.c               | 12 ++++++------
+ net/rds/rdma.c                  | 10 +++++-----
+ net/rds/rds.h                   |  9 +++++----
+ net/rds/recv.c                  | 12 ++++++------
+ net/sctp/associola.c            |  6 +++---
+ net/sctp/auth.c                 |  4 ++--
+ net/sctp/chunk.c                |  6 +++---
+ net/sctp/endpointola.c          |  6 +++---
+ net/sctp/sm_make_chunk.c        |  6 +++---
+ net/sctp/transport.c            |  8 ++++----
+ net/sunrpc/auth.c               | 12 ++++++------
+ net/sunrpc/auth_gss/auth_gss.c  | 28 ++++++++++++++--------------
+ net/x25/x25_link.c              |  2 +-
+ net/x25/x25_route.c             |  2 +-
+ net/xfrm/xfrm_input.c           |  4 ++--
+ net/xfrm/xfrm_policy.c          |  4 ++--
+ net/xfrm/xfrm_state.c           |  4 ++--
+ 38 files changed, 142 insertions(+), 135 deletions(-)
 
-	return !!((*ul1 ^ *ul2) & *ulm);
-}
-[root@space-channel-5 ~]# gcc -c -O2 ip.c
-[root@space-channel-5 ~]# objdump -d ip.o
+-- 
+2.7.4
 
-ip.o:     file format elf64-littleaarch64
-
-
-Disassembly of section .text:
-
-0000000000000000 <ipv6_masked_addr_cmp>:
-   0:	a9401847 	ldp	x7, x6, [x2]
-   4:	a9401003 	ldp	x3, x4, [x0]
-   8:	f9400025 	ldr	x5, [x1]
-   c:	f9400422 	ldr	x2, [x1, #8]
-  10:	ca070060 	eor	x0, x3, x7
-  14:	ca060081 	eor	x1, x4, x6
-  18:	8a050000 	and	x0, x0, x5
-  1c:	8a020021 	and	x1, x1, x2
-  20:	aa010000 	orr	x0, x0, x1
-  24:	f100001f 	cmp	x0, #0x0
-  28:	1a9f07e0 	cset	w0, ne  // ne = any
-  2c:	d65f03c0 	ret
-
-0000000000000030 <ipv6_masked_addr_cmp_new>:
-  30:	52800000 	mov	w0, #0x0                   	// #0
-  34:	d65f03c0 	ret
-[root@space-channel-5 ~]# gcc --version
-gcc (GCC) 6.3.1 20170306
-Copyright (C) 2016 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions.  There is NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-----------
-
-That's clearly not right - I'm not sure quite what undefined behaviour
-assumption convinces GCC to optimise the whole thing away, but I do note
-that the generic 64-bit version really isn't far off optimal already.
-Even if it happens to work out in practice due to inlining behaviour, I
-don't think that's something we'd want to rely on.
-
-Robin.
-
-> Tested on x86_64 UML to check if generic version is used and ARM64
-> to verify that ARM64 version is used.
-> 
-> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> ---
->  arch/alpha/include/asm/Kbuild      |  1 +
->  arch/arc/include/asm/Kbuild        |  1 +
->  arch/arm/include/asm/Kbuild        |  1 +
->  arch/arm64/include/asm/ipv6.h      | 29 +++++++++++++++++++++++++++++
->  arch/avr32/include/asm/Kbuild      |  1 +
->  arch/blackfin/include/asm/Kbuild   |  1 +
->  arch/c6x/include/asm/Kbuild        |  1 +
->  arch/cris/include/asm/Kbuild       |  1 +
->  arch/frv/include/asm/Kbuild        |  1 +
->  arch/h8300/include/asm/Kbuild      |  1 +
->  arch/hexagon/include/asm/Kbuild    |  1 +
->  arch/ia64/include/asm/Kbuild       |  1 +
->  arch/m32r/include/asm/Kbuild       |  1 +
->  arch/m68k/include/asm/Kbuild       |  1 +
->  arch/metag/include/asm/Kbuild      |  1 +
->  arch/microblaze/include/asm/Kbuild |  1 +
->  arch/mips/include/asm/Kbuild       |  1 +
->  arch/mn10300/include/asm/Kbuild    |  1 +
->  arch/nios2/include/asm/Kbuild      |  1 +
->  arch/openrisc/include/asm/Kbuild   |  1 +
->  arch/parisc/include/asm/Kbuild     |  1 +
->  arch/powerpc/include/asm/Kbuild    |  1 +
->  arch/s390/include/asm/Kbuild       |  1 +
->  arch/score/include/asm/Kbuild      |  1 +
->  arch/sh/include/asm/Kbuild         |  1 +
->  arch/sparc/include/asm/Kbuild      |  1 +
->  arch/tile/include/asm/Kbuild       |  1 +
->  arch/um/include/asm/Kbuild         |  1 +
->  arch/unicore32/include/asm/Kbuild  |  1 +
->  arch/x86/include/asm/Kbuild        |  1 +
->  arch/xtensa/include/asm/Kbuild     |  1 +
->  include/asm-generic/ipv6.h         | 32 ++++++++++++++++++++++++++++++++
->  include/net/ipv6.h                 | 20 +-------------------
->  33 files changed, 92 insertions(+), 19 deletions(-)
->  create mode 100644 arch/arm64/include/asm/ipv6.h
->  create mode 100644 include/asm-generic/ipv6.h
-> 
-> diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
-> index d103db5..5b7e92b 100644
-> --- a/arch/alpha/include/asm/Kbuild
-> +++ b/arch/alpha/include/asm/Kbuild
-> @@ -3,6 +3,7 @@
->  generic-y += clkdev.h
->  generic-y += exec.h
->  generic-y += export.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += mcs_spinlock.h
->  generic-y += mm-arch-hooks.h
-> diff --git a/arch/arc/include/asm/Kbuild b/arch/arc/include/asm/Kbuild
-> index 63a0401..99f1456 100644
-> --- a/arch/arc/include/asm/Kbuild
-> +++ b/arch/arc/include/asm/Kbuild
-> @@ -14,6 +14,7 @@ generic-y += hw_irq.h
->  generic-y += ioctl.h
->  generic-y += ioctls.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kmap_types.h
-> diff --git a/arch/arm/include/asm/Kbuild b/arch/arm/include/asm/Kbuild
-> index b14e8c7..a0ba9ac 100644
-> --- a/arch/arm/include/asm/Kbuild
-> +++ b/arch/arm/include/asm/Kbuild
-> @@ -9,6 +9,7 @@ generic-y += errno.h
->  generic-y += exec.h
->  generic-y += ioctl.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += kdebug.h
->  generic-y += local.h
-> diff --git a/arch/arm64/include/asm/ipv6.h b/arch/arm64/include/asm/ipv6.h
-> new file mode 100644
-> index 0000000..d49dec6
-> --- /dev/null
-> +++ b/arch/arm64/include/asm/ipv6.h
-> @@ -0,0 +1,29 @@
-> +/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 and
-> + * only version 2 as published by the Free Software Foundation.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + */
-> +
-> +#ifndef __ASM_IPV6_H
-> +#define __ASM_IPV6_H
-> +
-> +#include <linux/types.h>
-> +
-> +static inline bool
-> +ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
-> +		     const struct in6_addr *a2)
-> +{
-> +	const __uint128_t *ul1 = (const __uint128_t *)a1;
-> +	const __uint128_t *ulm = (const __uint128_t *)m;
-> +	const __uint128_t *ul2 = (const __uint128_t *)a1;
-> +
-> +	return !!((*ul1 ^ *ul2) & *ulm);
-> +}
-> +#define ipv6_masked_addr_cmp ipv6_masked_addr_cmp
-> +#endif /* __ASM_IPV6_H */
-> diff --git a/arch/avr32/include/asm/Kbuild b/arch/avr32/include/asm/Kbuild
-> index 3d7ef2c..fd6a964 100644
-> --- a/arch/avr32/include/asm/Kbuild
-> +++ b/arch/avr32/include/asm/Kbuild
-> @@ -6,6 +6,7 @@ generic-y += div64.h
->  generic-y += emergency-restart.h
->  generic-y += exec.h
->  generic-y += futex.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += local.h
-> diff --git a/arch/blackfin/include/asm/Kbuild b/arch/blackfin/include/asm/Kbuild
-> index 625db8a..f713d85 100644
-> --- a/arch/blackfin/include/asm/Kbuild
-> +++ b/arch/blackfin/include/asm/Kbuild
-> @@ -12,6 +12,7 @@ generic-y += futex.h
->  generic-y += hw_irq.h
->  generic-y += ioctl.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/c6x/include/asm/Kbuild b/arch/c6x/include/asm/Kbuild
-> index 82619c3..ff8033f 100644
-> --- a/arch/c6x/include/asm/Kbuild
-> +++ b/arch/c6x/include/asm/Kbuild
-> @@ -20,6 +20,7 @@ generic-y += io.h
->  generic-y += ioctl.h
->  generic-y += ioctls.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/cris/include/asm/Kbuild b/arch/cris/include/asm/Kbuild
-> index 0f5132b..c5b5fa0 100644
-> --- a/arch/cris/include/asm/Kbuild
-> +++ b/arch/cris/include/asm/Kbuild
-> @@ -15,6 +15,7 @@ generic-y += futex.h
->  generic-y += hardirq.h
->  generic-y += ioctl.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/frv/include/asm/Kbuild b/arch/frv/include/asm/Kbuild
-> index c33b467..0717ffb 100644
-> --- a/arch/frv/include/asm/Kbuild
-> +++ b/arch/frv/include/asm/Kbuild
-> @@ -1,6 +1,7 @@
->  
->  generic-y += clkdev.h
->  generic-y += exec.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += mcs_spinlock.h
->  generic-y += mm-arch-hooks.h
-> diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
-> index 341740c..0058275 100644
-> --- a/arch/h8300/include/asm/Kbuild
-> +++ b/arch/h8300/include/asm/Kbuild
-> @@ -23,6 +23,7 @@ generic-y += hw_irq.h
->  generic-y += ioctl.h
->  generic-y += ioctls.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/hexagon/include/asm/Kbuild b/arch/hexagon/include/asm/Kbuild
-> index 797b64a..4985925 100644
-> --- a/arch/hexagon/include/asm/Kbuild
-> +++ b/arch/hexagon/include/asm/Kbuild
-> @@ -20,6 +20,7 @@ generic-y += ioctl.h
->  generic-y += ioctls.h
->  generic-y += iomap.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/ia64/include/asm/Kbuild b/arch/ia64/include/asm/Kbuild
-> index 502a91d..cacba4c 100644
-> --- a/arch/ia64/include/asm/Kbuild
-> +++ b/arch/ia64/include/asm/Kbuild
-> @@ -1,6 +1,7 @@
->  
->  generic-y += clkdev.h
->  generic-y += exec.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += kvm_para.h
->  generic-y += mcs_spinlock.h
-> diff --git a/arch/m32r/include/asm/Kbuild b/arch/m32r/include/asm/Kbuild
-> index deb2987..8ed14f5 100644
-> --- a/arch/m32r/include/asm/Kbuild
-> +++ b/arch/m32r/include/asm/Kbuild
-> @@ -2,6 +2,7 @@
->  generic-y += clkdev.h
->  generic-y += current.h
->  generic-y += exec.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += kvm_para.h
->  generic-y += mcs_spinlock.h
-> diff --git a/arch/m68k/include/asm/Kbuild b/arch/m68k/include/asm/Kbuild
-> index d4f9ccb..1ddfeac 100644
-> --- a/arch/m68k/include/asm/Kbuild
-> +++ b/arch/m68k/include/asm/Kbuild
-> @@ -9,6 +9,7 @@ generic-y += futex.h
->  generic-y += hw_irq.h
->  generic-y += ioctl.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/metag/include/asm/Kbuild b/arch/metag/include/asm/Kbuild
-> index f9b9df5..2382a6e 100644
-> --- a/arch/metag/include/asm/Kbuild
-> +++ b/arch/metag/include/asm/Kbuild
-> @@ -16,6 +16,7 @@ generic-y += hw_irq.h
->  generic-y += ioctl.h
->  generic-y += ioctls.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/microblaze/include/asm/Kbuild b/arch/microblaze/include/asm/Kbuild
-> index 1732ec1..66b7d8a 100644
-> --- a/arch/microblaze/include/asm/Kbuild
-> +++ b/arch/microblaze/include/asm/Kbuild
-> @@ -3,6 +3,7 @@ generic-y += barrier.h
->  generic-y += clkdev.h
->  generic-y += device.h
->  generic-y += exec.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += mcs_spinlock.h
->  generic-y += mm-arch-hooks.h
-> diff --git a/arch/mips/include/asm/Kbuild b/arch/mips/include/asm/Kbuild
-> index 2535c7b..4453f33 100644
-> --- a/arch/mips/include/asm/Kbuild
-> +++ b/arch/mips/include/asm/Kbuild
-> @@ -5,6 +5,7 @@ generic-y += current.h
->  generic-y += dma-contiguous.h
->  generic-y += emergency-restart.h
->  generic-y += export.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += local64.h
->  generic-y += mcs_spinlock.h
-> diff --git a/arch/mn10300/include/asm/Kbuild b/arch/mn10300/include/asm/Kbuild
-> index 97f64c7..df55c2b 100644
-> --- a/arch/mn10300/include/asm/Kbuild
-> +++ b/arch/mn10300/include/asm/Kbuild
-> @@ -2,6 +2,7 @@
->  generic-y += barrier.h
->  generic-y += clkdev.h
->  generic-y += exec.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += mcs_spinlock.h
->  generic-y += mm-arch-hooks.h
-> diff --git a/arch/nios2/include/asm/Kbuild b/arch/nios2/include/asm/Kbuild
-> index aaa3c21..d6b13ee 100644
-> --- a/arch/nios2/include/asm/Kbuild
-> +++ b/arch/nios2/include/asm/Kbuild
-> @@ -22,6 +22,7 @@ generic-y += hw_irq.h
->  generic-y += ioctl.h
->  generic-y += ioctls.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/openrisc/include/asm/Kbuild b/arch/openrisc/include/asm/Kbuild
-> index fb01873..0d9ad5a 100644
-> --- a/arch/openrisc/include/asm/Kbuild
-> +++ b/arch/openrisc/include/asm/Kbuild
-> @@ -25,6 +25,7 @@ generic-y += ioctl.h
->  generic-y += ioctls.h
->  generic-y += ipcbuf.h
->  generic-y += irq.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/parisc/include/asm/Kbuild b/arch/parisc/include/asm/Kbuild
-> index a9909c2..b0e156e 100644
-> --- a/arch/parisc/include/asm/Kbuild
-> +++ b/arch/parisc/include/asm/Kbuild
-> @@ -8,6 +8,7 @@ generic-y += div64.h
->  generic-y += emergency-restart.h
->  generic-y += exec.h
->  generic-y += hw_irq.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/powerpc/include/asm/Kbuild b/arch/powerpc/include/asm/Kbuild
-> index 5c4fbc8..f675f7c 100644
-> --- a/arch/powerpc/include/asm/Kbuild
-> +++ b/arch/powerpc/include/asm/Kbuild
-> @@ -1,6 +1,7 @@
->  generic-y += clkdev.h
->  generic-y += div64.h
->  generic-y += export.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += local64.h
-> diff --git a/arch/s390/include/asm/Kbuild b/arch/s390/include/asm/Kbuild
-> index 8aea32f..53a2335 100644
-> --- a/arch/s390/include/asm/Kbuild
-> +++ b/arch/s390/include/asm/Kbuild
-> @@ -2,6 +2,7 @@ generic-y += asm-offsets.h
->  generic-y += clkdev.h
->  generic-y += dma-contiguous.h
->  generic-y += export.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += mcs_spinlock.h
->  generic-y += mm-arch-hooks.h
-> diff --git a/arch/score/include/asm/Kbuild b/arch/score/include/asm/Kbuild
-> index 926943a..9405456 100644
-> --- a/arch/score/include/asm/Kbuild
-> +++ b/arch/score/include/asm/Kbuild
-> @@ -4,6 +4,7 @@ header-y +=
->  generic-y += barrier.h
->  generic-y += clkdev.h
->  generic-y += current.h
-> +generic-y += ipv6.h
->  generic-y += irq_work.h
->  generic-y += mcs_spinlock.h
->  generic-y += mm-arch-hooks.h
-> diff --git a/arch/sh/include/asm/Kbuild b/arch/sh/include/asm/Kbuild
-> index cf2a750..3984834 100644
-> --- a/arch/sh/include/asm/Kbuild
-> +++ b/arch/sh/include/asm/Kbuild
-> @@ -10,6 +10,7 @@ generic-y += exec.h
->  generic-y += fcntl.h
->  generic-y += ioctl.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kvm_para.h
-> diff --git a/arch/sparc/include/asm/Kbuild b/arch/sparc/include/asm/Kbuild
-> index e9e837b..d2acdaf 100644
-> --- a/arch/sparc/include/asm/Kbuild
-> +++ b/arch/sparc/include/asm/Kbuild
-> @@ -6,6 +6,7 @@ generic-y += div64.h
->  generic-y += emergency-restart.h
->  generic-y += exec.h
->  generic-y += export.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += linkage.h
-> diff --git a/arch/tile/include/asm/Kbuild b/arch/tile/include/asm/Kbuild
-> index aa48b6e..9487778 100644
-> --- a/arch/tile/include/asm/Kbuild
-> +++ b/arch/tile/include/asm/Kbuild
-> @@ -12,6 +12,7 @@ generic-y += fcntl.h
->  generic-y += hw_irq.h
->  generic-y += ioctl.h
->  generic-y += ioctls.h
-> +generic-y += ipv6.h
->  generic-y += ipcbuf.h
->  generic-y += irq_regs.h
->  generic-y += local.h
-> diff --git a/arch/um/include/asm/Kbuild b/arch/um/include/asm/Kbuild
-> index e9d42aa..b226353 100644
-> --- a/arch/um/include/asm/Kbuild
-> +++ b/arch/um/include/asm/Kbuild
-> @@ -11,6 +11,7 @@ generic-y += futex.h
->  generic-y += hardirq.h
->  generic-y += hw_irq.h
->  generic-y += io.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/unicore32/include/asm/Kbuild b/arch/unicore32/include/asm/Kbuild
-> index 84205fe..d01d723 100644
-> --- a/arch/unicore32/include/asm/Kbuild
-> +++ b/arch/unicore32/include/asm/Kbuild
-> @@ -19,6 +19,7 @@ generic-y += hw_irq.h
->  generic-y += ioctl.h
->  generic-y += ioctls.h
->  generic-y += ipcbuf.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/arch/x86/include/asm/Kbuild b/arch/x86/include/asm/Kbuild
-> index 5d6a53f..8a68e12 100644
-> --- a/arch/x86/include/asm/Kbuild
-> +++ b/arch/x86/include/asm/Kbuild
-> @@ -9,5 +9,6 @@ generated-y += xen-hypercalls.h
->  generic-y += clkdev.h
->  generic-y += dma-contiguous.h
->  generic-y += early_ioremap.h
-> +generic-y += ipv6.h
->  generic-y += mcs_spinlock.h
->  generic-y += mm-arch-hooks.h
-> diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
-> index f41408c..dc02075 100644
-> --- a/arch/xtensa/include/asm/Kbuild
-> +++ b/arch/xtensa/include/asm/Kbuild
-> @@ -9,6 +9,7 @@ generic-y += exec.h
->  generic-y += fcntl.h
->  generic-y += hardirq.h
->  generic-y += ioctl.h
-> +generic-y += ipv6.h
->  generic-y += irq_regs.h
->  generic-y += irq_work.h
->  generic-y += kdebug.h
-> diff --git a/include/asm-generic/ipv6.h b/include/asm-generic/ipv6.h
-> new file mode 100644
-> index 0000000..754adac
-> --- /dev/null
-> +++ b/include/asm-generic/ipv6.h
-> @@ -0,0 +1,32 @@
-> +/*	Linux INET6 implementation
-> + *
-> + *	Authors:
-> + *	Pedro Roque		<roque@di.fc.ul.pt>
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License
-> + * as published by the Free Software Foundation; either version
-> + * 2 of the License, or (at your option) any later version.
-> + */
-> +
-> +#ifndef ipv6_masked_addr_cmp
-> +#define ipv6_masked_addr_cmp ipv6_masked_addr_cmp
-> +static inline bool
-> +ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
-> +		     const struct in6_addr *a2)
-> +{
-> +#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
-> +	const unsigned long *ul1 = (const unsigned long *)a1;
-> +	const unsigned long *ulm = (const unsigned long *)m;
-> +	const unsigned long *ul2 = (const unsigned long *)a2;
-> +
-> +	return !!(((ul1[0] ^ ul2[0]) & ulm[0]) |
-> +		  ((ul1[1] ^ ul2[1]) & ulm[1]));
-> +#else
-> +	return !!(((a1->s6_addr32[0] ^ a2->s6_addr32[0]) & m->s6_addr32[0]) |
-> +		  ((a1->s6_addr32[1] ^ a2->s6_addr32[1]) & m->s6_addr32[1]) |
-> +		  ((a1->s6_addr32[2] ^ a2->s6_addr32[2]) & m->s6_addr32[2]) |
-> +		  ((a1->s6_addr32[3] ^ a2->s6_addr32[3]) & m->s6_addr32[3]));
-> +#endif
-> +}
-> +#endif
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index dbf0abb..08ad1a98 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -21,6 +21,7 @@
->  #include <net/flow.h>
->  #include <net/flow_dissector.h>
->  #include <net/snmp.h>
-> +#include <asm/ipv6.h>
->  
->  #define SIN6_LEN_RFC2133	24
->  
-> @@ -385,25 +386,6 @@ static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr
->  	return memcmp(a1, a2, sizeof(struct in6_addr));
->  }
->  
-> -static inline bool
-> -ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
-> -		     const struct in6_addr *a2)
-> -{
-> -#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
-> -	const unsigned long *ul1 = (const unsigned long *)a1;
-> -	const unsigned long *ulm = (const unsigned long *)m;
-> -	const unsigned long *ul2 = (const unsigned long *)a2;
-> -
-> -	return !!(((ul1[0] ^ ul2[0]) & ulm[0]) |
-> -		  ((ul1[1] ^ ul2[1]) & ulm[1]));
-> -#else
-> -	return !!(((a1->s6_addr32[0] ^ a2->s6_addr32[0]) & m->s6_addr32[0]) |
-> -		  ((a1->s6_addr32[1] ^ a2->s6_addr32[1]) & m->s6_addr32[1]) |
-> -		  ((a1->s6_addr32[2] ^ a2->s6_addr32[2]) & m->s6_addr32[2]) |
-> -		  ((a1->s6_addr32[3] ^ a2->s6_addr32[3]) & m->s6_addr32[3]));
-> -#endif
-> -}
-> -
->  static inline void ipv6_addr_prefix(struct in6_addr *pfx, 
->  				    const struct in6_addr *addr,
->  				    int plen)
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
