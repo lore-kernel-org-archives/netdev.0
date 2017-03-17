@@ -1,48 +1,66 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL 0/5] IPVS Updates for v4.12
-Date: Fri, 17 Mar 2017 12:39:32 +0100
-Message-ID: <20170317113932.GA3099@salvia>
-References: <1489668195-15240-1-git-send-email-horms@verge.net.au>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: [B.A.T.M.A.N.] [PATCH] batman-adv: Omit unnecessary memset of netdev private data
+Date: Fri, 17 Mar 2017 12:54:57 +0100
+Message-ID: <5753967.hXycxaDlX0@bentobox>
+References: <20170317110859.9273-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: multipart/signed; boundary="nextPart2484949.QoaI9YlGiM"; micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: Tobias Klauser <tklauser@distanz.ch>,
+        Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Antonio Quartulli <a@unstable.cc>, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>
+To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54940 "EHLO mail.us.es"
+Received: from narfation.org ([79.140.41.39]:33752 "EHLO v3-1039.vlinux.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751057AbdCQLsn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Mar 2017 07:48:43 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 74F616B193
-        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 12:39:35 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 661EDEBAC4
-        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 12:39:35 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 02E9CEBAC4
-        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 12:39:33 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <1489668195-15240-1-git-send-email-horms@verge.net.au>
+        id S1750898AbdCQLzF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 07:55:05 -0400
+In-Reply-To: <20170317110859.9273-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 16, 2017 at 01:43:10PM +0100, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider these enhancements to the IPVS for v4.12.
-> 
-> * Update sysctl documentation
-> * Remove unnecessary printk in __ip_vs_init
-> 
-> The following changes since commit 03e5fd0e9bcc1f34b7a542786b34b8f771e7c260:
-> 
->   netfilter: nft_set_rbtree: use per-set rwlock to improve the scalability (2017-03-13 19:30:43 +0100)
-> 
-> are available in the git repository at:
-> 
->   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v4.12
+--nextPart2484949.QoaI9YlGiM
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="iso-8859-1"
 
-Pulled, thanks Simon!
+On Freitag, 17. M=E4rz 2017 12:08:59 CET Tobias Klauser wrote:
+> The memory for netdev_priv is allocated using kzalloc in alloc_netdev
+> (or alloc_netdev_mq respectively) so there is no need to set it to 0
+> again.
+>=20
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> ---
+>  net/batman-adv/soft-interface.c | 4 ----
+>  1 file changed, 4 deletions(-)
+
+Thanks, applied in 9210dca17a0acc2d01928893a61647153d578e33 [1].
+
+Kind regards,
+	Sven
+
+[1] https://git.open-mesh.org/batman-adv.git/commit/9210dca17a0acc2d0192889=
+3a61647153d578e33
+--nextPart2484949.QoaI9YlGiM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAljLzpEACgkQXYcKB8Em
+e0YebA//cCRmJQDtnWrfW5Mvj+iJLkRywRWCClB478G45fW+xRpi/m4rr7VBzeSW
+2OqxuNJQLIYPzWSxgigRIHGbXotS3KMeB1tgicOCP9lXcPbrnxFrHB9IddkLlj2j
+nYZkZ9Kej/+9hW2teCbcSUd5ErAj5BUo5NoTdcl4zVyhlWJSi4tZCnvAHN64Luq6
+DLCD6JpF3qS1S4j3U8WQl/6dC02d7Bu54ouyxolegdcwmXzr/qsDodytNEtyYi40
+UU2IyfBeYfgcEqXZBBFKuxb98giecJk1XezWEQV/bpMpmCBkFz2UypOmmbm+a9Ra
+WICrkN+MBGqL68qa0rZT5veT5dXr+kqyfjZrq/LVpJQwUOZ+nqUjoXTOocEgacbR
+BY7EoF9Ca7RT/ozxS/+i/3IHKJCrG2DtrzOxnZzEthO7/69SkiMd1iGYiSFW2tsw
+Ink+27dWvGC9ZnkmYLyvCpJ5PFYfuwogdCLJoxEAJbjY382nBeug2vGto509l3fW
+fRc6xoYVdtOhOfLoHEznwHbbVdj7qdJaDTcuQLYaWTlD/BdC+JoKraCJe7D5wI1z
+42N2ehc5mqmAvg+TLPG8PMRKrzE71LcQESszxxrVu7r7jaSDTv89+jARDozEJeDq
+aqOW8xdLk89zUMYIzWH3WPkPF429o3i/WILWMa0JBBKQpRDgAHg=
+=MY+Y
+-----END PGP SIGNATURE-----
+
+--nextPart2484949.QoaI9YlGiM--
