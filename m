@@ -1,42 +1,65 @@
-From: John Allen <jallen@linux.vnet.ibm.com>
-Subject: [PATCH net 0/4] ibmvnic: Initialization fixes and improvements
-Date: Fri, 17 Mar 2017 17:13:39 -0500
-Message-ID: <1489788823-20980-1-git-send-email-jallen@linux.vnet.ibm.com>
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com,
-        nfont@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55329 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751105AbdCQX3K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 19:29:10 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2HM8wvh009430
-        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 18:13:52 -0400
-Received: from e19.ny.us.ibm.com (e19.ny.us.ibm.com [129.33.205.209])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 297wd1tg0y-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 18:13:51 -0400
-Received: from localhost
-        by e19.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
-        Fri, 17 Mar 2017 18:13:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andreas Gruenbacher <agruenba@redhat.com>
+Subject: [PATCH] rhashtable: Add
+	rhashtable_lookup_get_insert_fast
+Date: Sat, 18 Mar 2017 00:36:15 +0100
+Message-ID: <1489793775-25152-1-git-send-email-agruenba@redhat.com>
+Cc: netdev@vger.kernel.org, cluster-devel@redhat.com,
+	Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: linux-kernel@vger.kernel.org
+Return-path: <cluster-devel-bounces@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/cluster-devel>,
+	<mailto:cluster-devel-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/cluster-devel>
+List-Post: <mailto:cluster-devel@redhat.com>
+List-Help: <mailto:cluster-devel-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/cluster-devel>,
+	<mailto:cluster-devel-request@redhat.com?subject=subscribe>
+Sender: cluster-devel-bounces@redhat.com
+Errors-To: cluster-devel-bounces@redhat.com
+List-Id: netdev.vger.kernel.org
 
-These patches resolve issues with the ibmvnic initialization process.
+Add rhashtable_lookup_get_insert_fast for fixed keys, similar to
+rhashtable_lookup_get_insert_key for explicit keys.
 
-John Allen (1):
-  ibmvnic: Move login and queue negotiation into ibmvnic_open
+Signed-off-by: Andreas Gruenbacher <agruenba@redhat.com>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ include/linux/rhashtable.h | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-Nathan Fontenot (3):
-  ibmvnic: Move login to its own routine
-  ibmvnic: Move ibmvnic adapter intialization to its own routine
-  ibmvnic: Correct ibmvnic handling of device open/close
-
- drivers/net/ethernet/ibm/ibmvnic.c | 320 +++++++++++++++++++++----------------
- drivers/net/ethernet/ibm/ibmvnic.h |   1 +
- 2 files changed, 180 insertions(+), 141 deletions(-)
-
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 092292b..e507290 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -916,6 +916,28 @@ static inline int rhashtable_lookup_insert_fast(
+ }
+ 
+ /**
++ * rhashtable_lookup_get_insert_fast - lookup and insert object into hash table
++ * @ht:		hash table
++ * @obj:	pointer to hash head inside object
++ * @params:	hash table parameters
++ *
++ * Just like rhashtable_lookup_insert_fast(), but this function returns the
++ * object if it exists, NULL if it did not and the insertion was successful,
++ * and an ERR_PTR otherwise.
++ */
++static inline void *rhashtable_lookup_get_insert_fast(
++	struct rhashtable *ht, struct rhash_head *obj,
++	const struct rhashtable_params params)
++{
++	const char *key = rht_obj(ht, obj);
++
++	BUG_ON(ht->p.obj_hashfn);
++
++	return __rhashtable_insert_fast(ht, key + ht->p.key_offset, obj, params,
++					false);
++}
++
++/**
+  * rhashtable_lookup_insert_key - search and insert object to hash table
+  *				  with explicit key
+  * @ht:		hash table
 -- 
 2.7.4
