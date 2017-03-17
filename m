@@ -1,61 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] bpf: inline bpf_map_lookup_elem()
-Date: Thu, 16 Mar 2017 20:44:28 -0700 (PDT)
-Message-ID: <20170316.204428.88037066577723816.davem@davemloft.net>
-References: <1489627604-2288703-1-git-send-email-ast@fb.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net: ipv6: set route type for anycast routes
+Date: Thu, 16 Mar 2017 21:45:12 -0600
+Message-ID: <36c5c36b-a3d4-f76a-bae9-1ad2af3bea2c@cumulusnetworks.com>
+References: <1489626873-5371-1-git-send-email-dsa@cumulusnetworks.com>
+ <20170316.204111.427731399512369532.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, fengguang.wu@intel.com,
-        netdev@vger.kernel.org, kernel-team@fb.com
-To: ast@fb.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54576 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751132AbdCQDpR (ORCPT
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:32993 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752422AbdCQDpR (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:45:17 -0400
-In-Reply-To: <1489627604-2288703-1-git-send-email-ast@fb.com>
+Received: by mail-pg0-f47.google.com with SMTP id n190so34694894pga.0
+        for <netdev@vger.kernel.org>; Thu, 16 Mar 2017 20:45:14 -0700 (PDT)
+In-Reply-To: <20170316.204111.427731399512369532.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Wed, 15 Mar 2017 18:26:38 -0700
+On 3/16/17 9:41 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Wed, 15 Mar 2017 18:14:33 -0700
+> 
+>> Anycast routes have the RTF_ANYCAST flag set, but when dumping routes
+>> for userspace the route type is not set to RTN_ANYCAST. Make it so.
+>>
+>> Fixes: 58c4fb86eabcb ("[IPV6]: Flag RTF_ANYCAST for anycast routes")
+>> CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> 
+> Good catch, applied, thanks.
 
-> bpf_map_lookup_elem() is one of the most frequently used helper functions.
-> Improve JITed program performance by inlining this helper.
-> 
-> bpf_map_type	before  after
-> hash		58M	74M
-> array		174M	280M
-> 
-> The values are number of lookups per second in ideal conditions
-> measured by micro-benchmark in patch 6.
-> 
-> The 'perf report' for HASH map type:
-> before:
->     54.23%  map_perf_test  [kernel.kallsyms]  [k] __htab_map_lookup_elem
->     14.24%  map_perf_test  [kernel.kallsyms]  [k] lookup_elem_raw
->      8.84%  map_perf_test  [kernel.kallsyms]  [k] htab_map_lookup_elem
->      5.93%  map_perf_test  [kernel.kallsyms]  [k] bpf_map_lookup_elem
->      2.30%  map_perf_test  [kernel.kallsyms]  [k] bpf_prog_da4fc6a3f41761a2
->      1.49%  map_perf_test  [kernel.kallsyms]  [k] kprobe_ftrace_handler
-> 
-> after:
->     60.03%  map_perf_test  [kernel.kallsyms]  [k] __htab_map_lookup_elem
->     18.07%  map_perf_test  [kernel.kallsyms]  [k] lookup_elem_raw
->      2.91%  map_perf_test  [kernel.kallsyms]  [k] bpf_prog_da4fc6a3f41761a2
->      1.94%  map_perf_test  [kernel.kallsyms]  [k] _einittext
->      1.90%  map_perf_test  [kernel.kallsyms]  [k] __audit_syscall_exit
->      1.72%  map_perf_test  [kernel.kallsyms]  [k] kprobe_ftrace_handler
-> 
-> so the cost of htab_map_lookup_elem() and bpf_map_lookup_elem()
-> is gone after inlining.
-> 
-> 'per-cpu' and 'lru' map types can be optimized similarly in the future.
-> 
-> Note the sparse will complain that bpf is addictive ;)
-> kernel/bpf/hashtab.c:438:19: sparse: subtraction of functions? Share your drugs
-> kernel/bpf/verifier.c:3342:38: sparse: subtraction of functions? Share your drugs
-> it's not a new warning, just in new places.
-
-Series applied, thanks.
+Can you put this into stable for back to say 4.4? that way tools can
+directly discriminate anycast routes from host routes for at least
+new'ish kernels. Thanks,
