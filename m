@@ -1,123 +1,72 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Fri, 17 Mar 2017 18:04:42 +0100
-Message-ID: <7730cff6-6e85-c98d-0315-bd3888d3aeb1@grandegger.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
- <234d9e75-0083-b8b4-c781-add653fdb550@grandegger.com>
- <b3ebb569-b50c-39ad-dec5-0059fbfba8fb@timesys.com>
- <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
- <3dbf8748-9d04-0f21-0e95-448d7a72e7d5@timesys.com>
- <41439729-42d0-d883-2801-2d3607f2aeab@grandegger.com>
- <CANiP4c8WMeT1Cr7WDXew1ne7DFR04oaA8Uch0zvyyOf5yCa37A@mail.gmail.com>
- <3dba0948-ffcb-8e80-fb32-62bb0aca6627@grandegger.com>
- <54d9a104-8ed1-4bb3-666e-042d3781dbfb@timesys.com>
- <006d9e14-47bf-1add-97c3-24098b43267f@grandegger.com>
- <69173747-cc2e-55f7-acad-4b5ba2a22863@timesys.com>
- <d5182e77-c243-1980-4cb6-39cd95075f4f@grandegger.com>
- <0362316b-ef76-1733-dbfc-8b644f758db9@timesys.com>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: Re: ip_auto_config() prevents network device to be registered
+Date: Fri, 17 Mar 2017 14:18:08 -0300
+Message-ID: <1b5986dc-64a5-62a5-d4ca-6540ceb4e0fe@osg.samsung.com>
+References: <b7ad0acb-1cad-3a45-0b0f-57d576ff1a36@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, linux-can@vger.kernel.org,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Akshay Bhat <akshay.bhat@timesys.com>,
-        Akshay Bhat <nodeax@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailproxy01.manitu.net ([217.11.48.65]:48170 "EHLO
-        mailproxy01.manitu.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751057AbdCQRRd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 13:17:33 -0400
-In-Reply-To: <0362316b-ef76-1733-dbfc-8b644f758db9@timesys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+        Kevin Hilman <khilman@baylibre.com>,
+        Shuah Khan <shuahkh@osg.samsung.com>,
+        LKML <linux-kernel@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b7ad0acb-1cad-3a45-0b0f-57d576ff1a36@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Akshay,
+Hello,
 
-Am 17.03.2017 um 17:00 schrieb Akshay Bhat:
-> Hi Wolfgang,
->
-> On 03/17/2017 03:39 AM, Wolfgang Grandegger wrote:
->> Hello Akshay,
->>
->> Am 16.03.2017 um 23:29 schrieb Akshay Bhat:
->>> Hi Wolfgang,
->>>
->>> On 03/16/2017 04:02 PM, Wolfgang Grandegger wrote:
->>>>
->>>> Looks much better now! There are message for state changes to error
->>>> warning and passive. Just the following message is not correct:
->>>>
->>>>  (000.200824)  can0  20000004   [8]  00 40 00 00 00 00 5F 19
->>>> ERRORFRAME
->>>>     controller-problem{}
->>>>     error-counter-tx-rx{{95}{25}}
->>>>
->>>> Sorry, forgot to mention... the function can_change_state() [1]
->>>> should be used for that purpose, if possible. It fixes the issue
->>>> above as well.
->>>>
->>>
->>> The updated driver (the one used to create the above log) is using
->>> can_change_state() function. data[1] 40 corresponds to
->>> CAN_ERR_CRTL_ACTIVE, so looks correct? Could it be that the can-utils I
->>> am using is old and not reporting state change?
->>
->> Hm, yes. The raw data looks correct. You could download and build a
->> recent version from "https://github.com/linux-can/can-utils" to check.
->> It could also be a bug.
->>
->
-> Turned out to be a old version of can-utils. Using the above git tree
-> reports the flag.
->
->  (000.200308)  can0  20000004   [8]  00 40 00 00 00 00 5F 00   ERRORFRAME
->         controller-problem{back-to-error-active}
->         error-counter-tx-rx{{95}{0}}
->
->>> Enabling BUSOFF/ERRP/ERRW bits in STATFE did not generate any interrupts
->>> on the INT pin. Should we make it a requirement that both INT and STAT
->>> pins need to be connected in hardware for the driver to do the error
->>> reporting?
->>
->> As I said, it's the better solution, especially if interrupt flooding
->> does harm. How does your system behave when bus errors come in due to no
->> cable connected?
->>
->
-> I did not see any issues on the system with the cable disconnected. In
-> my particular setup with the cable disconnected the system goes to
-> tx-error-passive and does not get any further interrupts until a state
-> change occurs.
+On 01/31/2017 02:49 PM, Javier Martinez Canillas wrote:
+> 
+> The kernelci folks pointed out that a Samsung Exynos based board was failing
+> to boot when trying to mount the rootfs via NFS, due a networking issue [0].
+> 
+> I looked at the issue and it turned out to be a race between ip_auto_config()
+> and register_netdev() when using the ip=dhcp param in the kernel command line.
+> 
+> The problem is that ip_auto_config() calls wait_for_devices() [1] and returns
+> as soon as it finds a network device registered. Then ic_open_devs() [2] is
+> called then to bring the network devs up and wait for their carrier signals.
+> 
+> But ic_open_devs() grabs the rtnl_mutex lock [3] when doing this, which is the
+> same lock that register_netdev() [4] grabs before registering a network device.
+> 
+> And so if a network dev is found and wait_for_devices() returns, ic_open_devs()
+> will be called and no new network dev could be registered in the meantime.
+> 
+> So since ic_open_devs() waits up to CONF_CARRIER_TIMEOUT (120 secs) with this
+> lock held, if the network dev that's supposed to get its IP over DHCP isn't the
+> first to be registered, the boot test job may timeout and be considered a fail.
+> 
+> A workaround is to use ip=:::::eth0:dhcp instead ip=dhcp, so wait_for_devices()
+> waits for this specific device. Another workaround is to increase the timeout
+> for the job to be much bigger than CONF_CARRIER_TIMEOUT so ip_auto_config() can
+> retry and the network devices can be registered between tries.
+> 
+> But I wonder if someone can suggest a proper way to fix this. Grabbing a mutex
+> that prevents network devs to be registered for 120 secs doesn't sound correct.
+> 
+> Thanks a lot for your help and please let me know if I misunderstood something.
+> 
+> [0]: https://storage.kernelci.org/mainline/v4.9/arm-exynos_defconfig/lab-collabora/boot-exynos5422-odroidxu3_rootfs:nfs.html
+> [1]: http://lxr.free-electrons.com/source/net/ipv4/ipconfig.c#L1368
+> [2]: http://lxr.free-electrons.com/source/net/ipv4/ipconfig.c#L202
+> [3]: http://lxr.free-electrons.com/source/net/core/rtnetlink.c#L68
+> [4]: http://lxr.free-electrons.com/source/net/core/dev.c#L7326
+> 
+> 
 
-Hm, that's unusual. Cable disconnected and then send a message:
+Any comments on this?
 
-$ grep /proc/interrupts; sleep 10; /proc/interrupts
+We are still seeing this problem with today's -next (20170310):
 
-should make things clear. But maybe it's a clever chip and it does stop 
-sending error messages if the error counter does not change any more. 
-After bus-off, the chip is quiet, of course. Should have a closer look 
-to the CAN standard.
+https://storage.kernelci.org/next/next-20170310/arm-exynos_defconfig/lab-collabora/boot-exynos5422-odroidxu3.html
 
->> So far using NAPI was mandatory. There is the problem of out-of-order
->> message reception if handled in the isr on multi processor systems.
->> Marc, what is the current policy?
->>
->
-> Since this is a SPI based CAN, I am wary for any additional latencies
-> NAPI might introduce. The RX handling is being done at the very
-> beginning of the ISR for this reason.
->
-> Can we go ahead with the existing implementation and re-visit this at a
-> later time?
-
-Likely yes, as Marc has already reviewed the driver once.
-
-BTW: what system board/processor are you using?
-
-> Thanks again for all your help in reviewing/improving the driver :)
-
-You are welcome!
-
-Wolfgang.
+Best regards,
+-- 
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
