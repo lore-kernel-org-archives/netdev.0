@@ -1,119 +1,56 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 12/18] net, calipso: convert calipso_doi.refcount from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 13:12:53 +0200
-Message-ID: <1489749179-12063-13-git-send-email-elena.reshetova@intel.com>
-References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org,
-        linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
-        jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru, 3chas3@gmail.com, ralf@linux-mips.org,
-        stephen@networkplumber.org, jchapman@katalix.com, jhs@mojatatu.com,
-        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
-        linux-x25@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-        marcel@holtmann.org, johan.hedberg@gmail.com, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Subject: [PATCH] batman-adv: Omit unnecessary memset of
+	netdev private data
+Date: Fri, 17 Mar 2017 12:08:59 +0100
+Message-ID: <20170317110859.9273-1-tklauser@distanz.ch>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
+ Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>, Antonio Quartulli <a@unstable.cc>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+The memory for netdev_priv is allocated using kzalloc in alloc_netdev
+(or alloc_netdev_mq respectively) so there is no need to set it to 0
+again.
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
+Signed-off-by: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
 ---
- include/net/calipso.h |  4 ++--
- net/ipv6/calipso.c    | 12 ++++++------
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ net/batman-adv/soft-interface.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/include/net/calipso.h b/include/net/calipso.h
-index b1b30cd..5f95b11 100644
---- a/include/net/calipso.h
-+++ b/include/net/calipso.h
-@@ -38,7 +38,7 @@
- #include <linux/skbuff.h>
- #include <net/netlabel.h>
- #include <net/request_sock.h>
--#include <linux/atomic.h>
-+#include <linux/refcount.h>
- #include <asm/unaligned.h>
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 5d099b2e6cfc..8226495c6664 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -972,8 +972,6 @@ static void batadv_softif_free(struct net_device *dev)
+  */
+ static void batadv_softif_init_early(struct net_device *dev)
+ {
+-	struct batadv_priv *priv = netdev_priv(dev);
+-
+ 	ether_setup(dev);
  
- /* known doi values */
-@@ -57,7 +57,7 @@ struct calipso_doi {
- 	u32 doi;
- 	u32 type;
+ 	dev->netdev_ops = &batadv_netdev_ops;
+@@ -990,8 +988,6 @@ static void batadv_softif_init_early(struct net_device *dev)
+ 	eth_hw_addr_random(dev);
  
--	atomic_t refcount;
-+	refcount_t refcount;
- 	struct list_head list;
- 	struct rcu_head rcu;
- };
-diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
-index 37ac9de..997611f 100644
---- a/net/ipv6/calipso.c
-+++ b/net/ipv6/calipso.c
-@@ -338,7 +338,7 @@ static struct calipso_doi *calipso_doi_search(u32 doi)
- 	struct calipso_doi *iter;
- 
- 	list_for_each_entry_rcu(iter, &calipso_doi_list, list)
--		if (iter->doi == doi && atomic_read(&iter->refcount))
-+		if (iter->doi == doi && refcount_read(&iter->refcount))
- 			return iter;
- 	return NULL;
+ 	dev->ethtool_ops = &batadv_ethtool_ops;
+-
+-	memset(priv, 0, sizeof(*priv));
  }
-@@ -370,7 +370,7 @@ static int calipso_doi_add(struct calipso_doi *doi_def,
- 	if (doi_def->doi == CALIPSO_DOI_UNKNOWN)
- 		goto doi_add_return;
  
--	atomic_set(&doi_def->refcount, 1);
-+	refcount_set(&doi_def->refcount, 1);
- 
- 	spin_lock(&calipso_doi_list_lock);
- 	if (calipso_doi_search(doi_def->doi)) {
-@@ -458,7 +458,7 @@ static int calipso_doi_remove(u32 doi, struct netlbl_audit *audit_info)
- 		ret_val = -ENOENT;
- 		goto doi_remove_return;
- 	}
--	if (!atomic_dec_and_test(&doi_def->refcount)) {
-+	if (!refcount_dec_and_test(&doi_def->refcount)) {
- 		spin_unlock(&calipso_doi_list_lock);
- 		ret_val = -EBUSY;
- 		goto doi_remove_return;
-@@ -499,7 +499,7 @@ static struct calipso_doi *calipso_doi_getdef(u32 doi)
- 	doi_def = calipso_doi_search(doi);
- 	if (!doi_def)
- 		goto doi_getdef_return;
--	if (!atomic_inc_not_zero(&doi_def->refcount))
-+	if (!refcount_inc_not_zero(&doi_def->refcount))
- 		doi_def = NULL;
- 
- doi_getdef_return:
-@@ -520,7 +520,7 @@ static void calipso_doi_putdef(struct calipso_doi *doi_def)
- 	if (!doi_def)
- 		return;
- 
--	if (!atomic_dec_and_test(&doi_def->refcount))
-+	if (!refcount_dec_and_test(&doi_def->refcount))
- 		return;
- 	spin_lock(&calipso_doi_list_lock);
- 	list_del_rcu(&doi_def->list);
-@@ -553,7 +553,7 @@ static int calipso_doi_walk(u32 *skip_cnt,
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(iter_doi, &calipso_doi_list, list)
--		if (atomic_read(&iter_doi->refcount) > 0) {
-+		if (refcount_read(&iter_doi->refcount) > 0) {
- 			if (doi_cnt++ < *skip_cnt)
- 				continue;
- 			ret_val = callback(iter_doi, cb_arg);
+ struct net_device *batadv_softif_create(struct net *net, const char *name)
 -- 
-2.7.4
+2.11.0
