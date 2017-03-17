@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 06/18] net, decnet: convert dn_fib_info.fib_clntref from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 13:12:47 +0200
-Message-ID: <1489749179-12063-7-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 08/18] net, atm: convert lec_arp_table.usage from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 13:12:49 +0200
+Message-ID: <1489749179-12063-9-git-send-email-elena.reshetova@intel.com>
 References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org,
         linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
@@ -31,70 +31,50 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/dn_fib.h | 5 +++--
- net/decnet/dn_fib.c  | 6 +++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ net/atm/lec.c      | 6 +++---
+ net/atm/lec_arpc.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/dn_fib.h b/include/net/dn_fib.h
-index f2ca135..81210a8 100644
---- a/include/net/dn_fib.h
-+++ b/include/net/dn_fib.h
-@@ -2,6 +2,7 @@
- #define _NET_DN_FIB_H
- 
- #include <linux/netlink.h>
-+#include <linux/refcount.h>
- 
- extern const struct nla_policy rtm_dn_policy[];
- 
-@@ -28,7 +29,7 @@ struct dn_fib_info {
- 	struct dn_fib_info	*fib_next;
- 	struct dn_fib_info	*fib_prev;
- 	int 			fib_treeref;
--	atomic_t		fib_clntref;
-+	refcount_t		fib_clntref;
- 	int			fib_dead;
- 	unsigned int		fib_flags;
- 	int			fib_protocol;
-@@ -130,7 +131,7 @@ void dn_fib_free_info(struct dn_fib_info *fi);
- 
- static inline void dn_fib_info_put(struct dn_fib_info *fi)
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 09cfe87..431f32c 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -101,12 +101,12 @@ static void lec_vcc_close(struct lec_priv *priv, struct atm_vcc *vcc);
+ /* must be done under lec_arp_lock */
+ static inline void lec_arp_hold(struct lec_arp_table *entry)
  {
--	if (atomic_dec_and_test(&fi->fib_clntref))
-+	if (refcount_dec_and_test(&fi->fib_clntref))
- 		dn_fib_free_info(fi);
+-	atomic_inc(&entry->usage);
++	refcount_inc(&entry->usage);
  }
  
-diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
-index 7af0ba61..85058c3 100644
---- a/net/decnet/dn_fib.c
-+++ b/net/decnet/dn_fib.c
-@@ -389,7 +389,7 @@ struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, struct nlattr *att
- 	}
+ static inline void lec_arp_put(struct lec_arp_table *entry)
+ {
+-	if (atomic_dec_and_test(&entry->usage))
++	if (refcount_dec_and_test(&entry->usage))
+ 		kfree(entry);
+ }
  
- 	fi->fib_treeref++;
--	atomic_inc(&fi->fib_clntref);
-+	refcount_set(&fi->fib_clntref, 1);
- 	spin_lock(&dn_fib_info_lock);
- 	fi->fib_next = dn_fib_info_list;
- 	fi->fib_prev = NULL;
-@@ -425,7 +425,7 @@ int dn_fib_semantic_match(int type, struct dn_fib_info *fi, const struct flowidn
- 		switch (type) {
- 		case RTN_NAT:
- 			DN_FIB_RES_RESET(*res);
--			atomic_inc(&fi->fib_clntref);
-+			refcount_inc(&fi->fib_clntref);
- 			return 0;
- 		case RTN_UNICAST:
- 		case RTN_LOCAL:
-@@ -438,7 +438,7 @@ int dn_fib_semantic_match(int type, struct dn_fib_info *fi, const struct flowidn
- 			}
- 			if (nhsel < fi->fib_nhs) {
- 				res->nh_sel = nhsel;
--				atomic_inc(&fi->fib_clntref);
-+				refcount_inc(&fi->fib_clntref);
- 				return 0;
- 			}
- 			endfor_nexthops(fi);
+@@ -1564,7 +1564,7 @@ static struct lec_arp_table *make_entry(struct lec_priv *priv,
+ 	to_return->last_used = jiffies;
+ 	to_return->priv = priv;
+ 	skb_queue_head_init(&to_return->tx_wait);
+-	atomic_set(&to_return->usage, 1);
++	refcount_set(&to_return->usage, 1);
+ 	return to_return;
+ }
+ 
+diff --git a/net/atm/lec_arpc.h b/net/atm/lec_arpc.h
+index ec67435..d923f53 100644
+--- a/net/atm/lec_arpc.h
++++ b/net/atm/lec_arpc.h
+@@ -47,7 +47,7 @@ struct lec_arp_table {
+ 					 * the length of the tlvs array
+ 					 */
+ 	struct sk_buff_head tx_wait;	/* wait queue for outgoing packets */
+-	atomic_t usage;			/* usage count */
++	refcount_t usage;		/* usage count */
+ };
+ 
+ /*
 -- 
 2.7.4
