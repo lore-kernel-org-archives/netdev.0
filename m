@@ -1,58 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rxrpc: Ignore BUSY packets on old calls
-Date: Thu, 16 Mar 2017 21:28:11 -0700 (PDT)
-Message-ID: <20170316.212811.922027663786917489.davem@davemloft.net>
-References: <148968163004.20909.2389917167977671935.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net] netvsc: fix race during initialization
+Date: Thu, 16 Mar 2017 21:35:48 -0700 (PDT)
+Message-ID: <20170316.213548.1576100698734340553.davem@davemloft.net>
+References: <20170316192132.9095-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <148968163004.20909.2389917167977671935.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kys@microsoft.com, netdev@vger.kernel.org, sthemmin@microsoft.com
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56606 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751311AbdCQEfy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 00:35:54 -0400
+In-Reply-To: <20170316192132.9095-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 16 Mar 2017 16:27:10 +0000
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 16 Mar 2017 12:21:32 -0700
 
-> If we receive a BUSY packet for a call we think we've just completed, the
-> packet is handed off to the connection processor to deal with - but the
-> connection processor doesn't expect a BUSY packet and so flags a protocol
-> error.
+> When device is being setup on boot, there is a small race where
+> network device callback is registered, but the netvsc_device pointer
+> is not set yet.  This can cause a NULL ptr dereference if packet
+> arrives during this window.
 > 
-> Fix this by simply ignoring the BUSY packet for the moment.
-> 
-> The symptom of this may appear as a system call failing with EPROTO.  This
-> may be triggered by pressing ctrl-C under some circumstances.
-> 
-> This comes about we abort calls due to interruption by a signal (which we
-> shouldn't do, but that's going to be a large fix and mostly in fs/afs/).
-> What happens is that we abort the call and may also abort follow up calls
-> too (this needs offloading somehoe).  So we see a transmission of something
-> like the following sequence of packets:
-> 
-> 	DATA for call N
-> 	ABORT call N
-> 	DATA for call N+1
-> 	ABORT call N+1
-> 
-> in very quick succession on the same channel.  However, the peer may have
-> deferred the processing of the ABORT from the call N to a background thread
-> and thus sees the DATA message from the call N+1 coming in before it has
-> cleared the channel.  Thus it sends a BUSY packet[*].
-> 
-> [*] Note that some implementations (OpenAFS, for example) mark the BUSY
->     packet with one plus the callNumber of the call prior to call N.
->     Ordinarily, this would be call N, but there's no requirement for the
->     calls on a channel to be numbered strictly sequentially (the number is
->     required to increase).
-> 
->     This is wrong and means that the callNumber in the BUSY packet should
->     be ignored (it really ought to be N+1 since that's what it's in
->     response to).
-> 
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> Fixes: 46b4f7f5d1f7 ("netvsc: eliminate per-device outstanding send counter")
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> ---
+> Applies to 4.11 only, not in earlier versions.
+> net-next needs different patch
 
-Applied, thanks David.
+Applied, thanks Stephen.
