@@ -1,48 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH -net] cpsw/netcp: work around reverse cpts
- dependency
-Date: Thu, 16 Mar 2017 20:13:23 -0700 (PDT)
-Message-ID: <20170316.201323.374866113649500200.davem@davemloft.net>
-References: <20170313165927.1389014-1-arnd@arndb.de>
+Subject: Re: [PATCH net-next] liquidio: remove/replace invalid code
+Date: Thu, 16 Mar 2017 20:16:09 -0700 (PDT)
+Message-ID: <20170316.201609.764940367660329908.davem@davemloft.net>
+References: <20170313190731.GA1756@felix2.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grygorii.strashko@ti.com, tglx@linutronix.de,
-        richardcochran@gmail.com, w-kwok2@ti.com, nicolas.pitre@linaro.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170313165927.1389014-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: felix.manlunas@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53352 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752017AbdCQDQ3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:16:29 -0400
+In-Reply-To: <20170313190731.GA1756@felix2.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 13 Mar 2017 17:59:04 +0100
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Mon, 13 Mar 2017 12:07:32 -0700
 
-> The dependency is reversed: cpsw and netcp call into cpts,
-> but cpts depends on the other two in Kconfig. This can lead
-> to cpts being a loadable module and its callers built-in:
+> From: Rick Farrington <ricardo.farrington@cavium.com>
 > 
-> drivers/net/ethernet/ti/cpsw.o: In function `cpsw_remove':
-> cpsw.c:(.text.cpsw_remove+0xd0): undefined reference to `cpts_release'
-> drivers/net/ethernet/ti/cpsw.o: In function `cpsw_rx_handler':
-> cpsw.c:(.text.cpsw_rx_handler+0x2dc): undefined reference to `cpts_rx_timestamp'
-> drivers/net/ethernet/ti/cpsw.o: In function `cpsw_tx_handler':
-> cpsw.c:(.text.cpsw_tx_handler+0x7c): undefined reference to `cpts_tx_timestamp'
-> drivers/net/ethernet/ti/cpsw.o: In function `cpsw_ndo_stop':
+> Remove invalid call to dma_sync_single_for_cpu() because previous DMA
+> allocation was coherent--not streaming.  Remove code that references fields
+> in struct list_head; replace it with calls to list_empty() and
+> list_first_entry().  Also, add comment to clarify complicated if statement.
 > 
-> As a workaround, I'm introducing another Kconfig symbol to
-> control the compilation of cpts, while making the actual
-> module controlled by a silent symbol that is =y when necessary.
-> 
-> Fixes: 6246168b4a38 ("net: ethernet: ti: netcp: add support of cpts")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
-> Originally submitted on Dec 16, still needed for v4.10 and v4.11-rc2
+> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
 
-I'm fine with this change, but please keep the user visible Kconfig
-symbol name the same, use the new name for the internal one.
-
-I know that this means you have to make more changes elsewhere in
-order to accomplish this.
+Applied.
