@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/13] igb: Add support for using order 1 pages to receive large frames
-Date: Fri, 17 Mar 2017 12:58:14 -0700
-Message-ID: <20170317195818.74912-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/13] igb: Clear Rx buffer_info in configure instead of clean
+Date: Fri, 17 Mar 2017 12:58:08 -0700
+Message-ID: <20170317195818.74912-4-jeffrey.t.kirsher@intel.com>
 References: <20170317195818.74912-1-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,265 +10,96 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:30552 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751258AbdCQT62 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Mar 2017 15:58:28 -0400
+        id S1751207AbdCQT60 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 15:58:26 -0400
 In-Reply-To: <20170317195818.74912-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds support for using 3K buffers in order 1 pages the same way
-we were using 2K buffers in 4K pages.  We are reserving 1K of room for now
-to have space available for future headroom and tailroom when we enable
-build_skb support.
+This change makes it so that instead of going through the entire ring on Rx
+cleanup we only go through the region that was designated to be cleaned up
+and stop when we reach the region where new allocations should start.
 
-One side effect of this patch is that we can end up using a larger buffer
-if jumbo frames is enabled.  The impact shouldn't be too great, but it
-could hurt small packet performance for UDP workloads if jumbo frames is
-enabled as the truesize of frames will be larger.
+In addition we can avoid having to perform a memset on the Rx buffer_info
+structures until we are about to start using the ring again.  By deferring
+this we can avoid dirtying the cache any more than we have to which can
+help to improve the time needed to bring the interface down and then back
+up again in a reset or suspend/resume cycle.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      | 30 ++++++++++++++-
- drivers/net/ethernet/intel/igb/igb_main.c | 64 +++++++++++++++++++++++--------
- 2 files changed, 76 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 24 ++++++++++--------------
+ 1 file changed, 10 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index bffdfe65a0b6..eb91c87e0c1d 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -142,9 +142,9 @@ struct vf_data_storage {
- /* Supported Rx Buffer Sizes */
- #define IGB_RXBUFFER_256	256
- #define IGB_RXBUFFER_2048	2048
-+#define IGB_RXBUFFER_3072	3072
- #define IGB_RX_HDR_LEN		IGB_RXBUFFER_256
- #define IGB_TS_HDR_LEN		16
--#define IGB_RX_BUFSZ		IGB_RXBUFFER_2048
- 
- #define IGB_SKB_PAD		(NET_SKB_PAD + NET_IP_ALIGN)
- #if (PAGE_SIZE < 8192)
-@@ -313,12 +313,40 @@ struct igb_q_vector {
- };
- 
- enum e1000_ring_flags_t {
-+	IGB_RING_FLAG_RX_3K_BUFFER,
- 	IGB_RING_FLAG_RX_SCTP_CSUM,
- 	IGB_RING_FLAG_RX_LB_VLAN_BSWAP,
- 	IGB_RING_FLAG_TX_CTX_IDX,
- 	IGB_RING_FLAG_TX_DETECT_HANG
- };
- 
-+#define ring_uses_large_buffer(ring) \
-+	test_bit(IGB_RING_FLAG_RX_3K_BUFFER, &(ring)->flags)
-+#define set_ring_uses_large_buffer(ring) \
-+	set_bit(IGB_RING_FLAG_RX_3K_BUFFER, &(ring)->flags)
-+#define clear_ring_uses_large_buffer(ring) \
-+	clear_bit(IGB_RING_FLAG_RX_3K_BUFFER, &(ring)->flags)
-+
-+static inline unsigned int igb_rx_bufsz(struct igb_ring *ring)
-+{
-+#if (PAGE_SIZE < 8192)
-+	if (ring_uses_large_buffer(ring))
-+		return IGB_RXBUFFER_3072;
-+#endif
-+	return IGB_RXBUFFER_2048;
-+}
-+
-+static inline unsigned int igb_rx_pg_order(struct igb_ring *ring)
-+{
-+#if (PAGE_SIZE < 8192)
-+	if (ring_uses_large_buffer(ring))
-+		return 1;
-+#endif
-+	return 0;
-+}
-+
-+#define igb_rx_pg_size(_ring) (PAGE_SIZE << igb_rx_pg_order(_ring))
-+
- #define IGB_TXD_DCMD (E1000_ADVTXD_DCMD_EOP | E1000_ADVTXD_DCMD_RS)
- 
- #define IGB_RX_DESC(R, i)	\
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 44c590c5d5b7..24c20d401240 100644
+index 1d76d3a90a17..680f0d3d9b72 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -554,7 +554,7 @@ static void igb_dump(struct igb_adapter *adapter)
- 					  16, 1,
- 					  page_address(buffer_info->page) +
- 						      buffer_info->page_offset,
--					  IGB_RX_BUFSZ, true);
-+					  igb_rx_bufsz(rx_ring), true);
- 				}
- 			}
- 		}
-@@ -3746,7 +3746,10 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+@@ -3435,7 +3435,7 @@ int igb_setup_rx_resources(struct igb_ring *rx_ring)
  
- 	/* set descriptor configuration */
- 	srrctl = IGB_RX_HDR_LEN << E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
--	srrctl |= IGB_RX_BUFSZ >> E1000_SRRCTL_BSIZEPKT_SHIFT;
-+	if (ring_uses_large_buffer(ring))
-+		srrctl |= IGB_RXBUFFER_3072 >> E1000_SRRCTL_BSIZEPKT_SHIFT;
-+	else
-+		srrctl |= IGB_RXBUFFER_2048 >> E1000_SRRCTL_BSIZEPKT_SHIFT;
- 	srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
- 	if (hw->mac.type >= e1000_82580)
- 		srrctl |= E1000_SRRCTL_TIMESTAMP;
-@@ -3776,6 +3779,23 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	wr32(E1000_RXDCTL(reg_idx), rxdctl);
- }
+ 	size = sizeof(struct igb_rx_buffer) * rx_ring->count;
  
-+static void igb_set_rx_buffer_len(struct igb_adapter *adapter,
-+				  struct igb_ring *rx_ring)
-+{
-+	/* set build_skb and buffer size flags */
-+	clear_ring_uses_large_buffer(rx_ring);
-+
-+	if (adapter->flags & IGB_FLAG_RX_LEGACY)
-+		return;
-+
-+#if (PAGE_SIZE < 8192)
-+	if (adapter->max_frame_size <= IGB_MAX_FRAME_BUILD_SKB)
-+		return;
-+
-+	set_ring_uses_large_buffer(rx_ring);
-+#endif
-+}
-+
- /**
-  *  igb_configure_rx - Configure receive Unit after Reset
-  *  @adapter: board private structure
-@@ -3793,8 +3813,12 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 	/* Setup the HW Rx Head and Tail Descriptor Pointers and
- 	 * the Base and Length of the Rx Descriptor Ring
- 	 */
--	for (i = 0; i < adapter->num_rx_queues; i++)
--		igb_configure_rx_ring(adapter, adapter->rx_ring[i]);
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		struct igb_ring *rx_ring = adapter->rx_ring[i];
-+
-+		igb_set_rx_buffer_len(adapter, rx_ring);
-+		igb_configure_rx_ring(adapter, rx_ring);
-+	}
- }
+-	rx_ring->rx_buffer_info = vzalloc(size);
++	rx_ring->rx_buffer_info = vmalloc(size);
+ 	if (!rx_ring->rx_buffer_info)
+ 		goto err;
  
- /**
-@@ -3969,13 +3993,13 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 		dma_sync_single_range_for_cpu(rx_ring->dev,
- 					      buffer_info->dma,
- 					      buffer_info->page_offset,
--					      IGB_RX_BUFSZ,
-+					      igb_rx_bufsz(rx_ring),
- 					      DMA_FROM_DEVICE);
+@@ -3759,6 +3759,10 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	rxdctl |= IGB_RX_HTHRESH << 8;
+ 	rxdctl |= IGB_RX_WTHRESH << 16;
  
- 		/* free resources associated with mapping */
- 		dma_unmap_page_attrs(rx_ring->dev,
- 				     buffer_info->dma,
--				     PAGE_SIZE,
-+				     igb_rx_pg_size(rx_ring),
- 				     DMA_FROM_DEVICE,
- 				     IGB_RX_DMA_ATTR);
- 		__page_frag_cache_drain(buffer_info->page,
-@@ -6870,7 +6894,7 @@ static inline bool igb_page_is_reserved(struct page *page)
- 
- static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
- 				  struct page *page,
--				  unsigned int truesize)
-+				  const unsigned int truesize)
++	/* initialize rx_buffer_info */
++	memset(ring->rx_buffer_info, 0,
++	       sizeof(struct igb_rx_buffer) * ring->count);
++
+ 	/* initialize Rx descriptor 0 */
+ 	rx_desc = IGB_RX_DESC(ring, 0);
+ 	rx_desc->wb.upper.length = 0;
+@@ -3937,23 +3941,16 @@ static void igb_free_all_rx_resources(struct igb_adapter *adapter)
+  **/
+ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
  {
- 	unsigned int pagecnt_bias = rx_buffer->pagecnt_bias--;
+-	unsigned long size;
+-	u16 i;
++	u16 i = rx_ring->next_to_clean;
  
-@@ -6884,12 +6908,14 @@ static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
- 		return false;
+ 	if (rx_ring->skb)
+ 		dev_kfree_skb(rx_ring->skb);
+ 	rx_ring->skb = NULL;
  
- 	/* flip page offset to other buffer */
--	rx_buffer->page_offset ^= IGB_RX_BUFSZ;
-+	rx_buffer->page_offset ^= truesize;
- #else
- 	/* move offset up to the next cache line */
- 	rx_buffer->page_offset += truesize;
-+#define IGB_LAST_OFFSET \
-+	(SKB_WITH_OVERHEAD(PAGE_SIZE) - IGB_RXBUFFER_2048)
+-	if (!rx_ring->rx_buffer_info)
+-		return;
+-
+ 	/* Free all the Rx ring sk_buffs */
+-	for (i = 0; i < rx_ring->count; i++) {
++	while (i != rx_ring->next_to_alloc) {
+ 		struct igb_rx_buffer *buffer_info = &rx_ring->rx_buffer_info[i];
  
--	if (rx_buffer->page_offset > (PAGE_SIZE - IGB_RX_BUFSZ))
-+	if (rx_buffer->page_offset > IGB_LAST_OFFSET)
- 		return false;
- #endif
- 
-@@ -6929,7 +6955,7 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
- 	struct page *page = rx_buffer->page;
- 	void *va = page_address(page) + rx_buffer->page_offset;
- #if (PAGE_SIZE < 8192)
--	unsigned int truesize = IGB_RX_BUFSZ;
-+	unsigned int truesize = igb_rx_pg_size(rx_ring) / 2;
- #else
- 	unsigned int truesize = SKB_DATA_ALIGN(size);
- #endif
-@@ -7025,7 +7051,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- 		 * any references we are holding to it
+-		if (!buffer_info->page)
+-			continue;
+-
+ 		/* Invalidate cache lines that may have been written to by
+ 		 * device so that we avoid corrupting memory.
  		 */
- 		dma_unmap_page_attrs(rx_ring->dev, rx_buffer->dma,
--				     PAGE_SIZE, DMA_FROM_DEVICE,
-+				     igb_rx_pg_size(rx_ring), DMA_FROM_DEVICE,
- 				     IGB_RX_DMA_ATTR);
- 		__page_frag_cache_drain(page, rx_buffer->pagecnt_bias);
- 	}
-@@ -7278,21 +7304,23 @@ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
- 		return true;
+@@ -3972,12 +3969,11 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 		__page_frag_cache_drain(buffer_info->page,
+ 					buffer_info->pagecnt_bias);
  
- 	/* alloc new page for storage */
--	page = dev_alloc_page();
-+	page = dev_alloc_pages(igb_rx_pg_order(rx_ring));
- 	if (unlikely(!page)) {
- 		rx_ring->rx_stats.alloc_failed++;
- 		return false;
+-		buffer_info->page = NULL;
++		i++;
++		if (i == rx_ring->count)
++			i = 0;
  	}
  
- 	/* map page for use */
--	dma = dma_map_page_attrs(rx_ring->dev, page, 0, PAGE_SIZE,
--				 DMA_FROM_DEVICE, IGB_RX_DMA_ATTR);
-+	dma = dma_map_page_attrs(rx_ring->dev, page, 0,
-+				 igb_rx_pg_size(rx_ring),
-+				 DMA_FROM_DEVICE,
-+				 IGB_RX_DMA_ATTR);
- 
- 	/* if mapping failed free memory back to system since
- 	 * there isn't much point in holding memory we can't use
- 	 */
- 	if (dma_mapping_error(rx_ring->dev, dma)) {
--		__free_page(page);
-+		__free_pages(page, igb_rx_pg_order(rx_ring));
- 
- 		rx_ring->rx_stats.alloc_failed++;
- 		return false;
-@@ -7315,6 +7343,7 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
- 	union e1000_adv_rx_desc *rx_desc;
- 	struct igb_rx_buffer *bi;
- 	u16 i = rx_ring->next_to_use;
-+	u16 bufsz;
- 
- 	/* nothing to do */
- 	if (!cleaned_count)
-@@ -7324,14 +7353,15 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
- 	bi = &rx_ring->rx_buffer_info[i];
- 	i -= rx_ring->count;
- 
-+	bufsz = igb_rx_bufsz(rx_ring);
-+
- 	do {
- 		if (!igb_alloc_mapped_page(rx_ring, bi))
- 			break;
- 
- 		/* sync the buffer for use by the device */
- 		dma_sync_single_range_for_device(rx_ring->dev, bi->dma,
--						 bi->page_offset,
--						 IGB_RX_BUFSZ,
-+						 bi->page_offset, bufsz,
- 						 DMA_FROM_DEVICE);
- 
- 		/* Refresh the desc even if buffer_addrs didn't change
+-	size = sizeof(struct igb_rx_buffer) * rx_ring->count;
+-	memset(rx_ring->rx_buffer_info, 0, size);
+-
+ 	rx_ring->next_to_alloc = 0;
+ 	rx_ring->next_to_clean = 0;
+ 	rx_ring->next_to_use = 0;
 -- 
 2.12.0
