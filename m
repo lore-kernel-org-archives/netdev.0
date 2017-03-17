@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 10/18] net, atm: convert eg_cache_entry.use from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 13:12:51 +0200
-Message-ID: <1489749179-12063-11-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 12/18] net, calipso: convert calipso_doi.refcount from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 13:12:53 +0200
+Message-ID: <1489749179-12063-13-git-send-email-elena.reshetova@intel.com>
 References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org,
         linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
@@ -31,89 +31,89 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- net/atm/mpoa_caches.c | 14 +++++++-------
- net/atm/mpoa_caches.h |  2 +-
+ include/net/calipso.h |  4 ++--
+ net/ipv6/calipso.c    | 12 ++++++------
  2 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/atm/mpoa_caches.c b/net/atm/mpoa_caches.c
-index 05e89e9..4ccaa16 100644
---- a/net/atm/mpoa_caches.c
-+++ b/net/atm/mpoa_caches.c
-@@ -339,7 +339,7 @@ static eg_cache_entry *eg_cache_get_by_cache_id(__be32 cache_id,
- 	entry = mpc->eg_cache;
- 	while (entry != NULL) {
- 		if (entry->ctrl_info.cache_id == cache_id) {
--			atomic_inc(&entry->use);
-+			refcount_inc(&entry->use);
- 			read_unlock_irq(&mpc->egress_lock);
- 			return entry;
- 		}
-@@ -360,7 +360,7 @@ static eg_cache_entry *eg_cache_get_by_tag(__be32 tag, struct mpoa_client *mpc)
- 	entry = mpc->eg_cache;
- 	while (entry != NULL) {
- 		if (entry->ctrl_info.tag == tag) {
--			atomic_inc(&entry->use);
-+			refcount_inc(&entry->use);
- 			read_unlock_irqrestore(&mpc->egress_lock, flags);
- 			return entry;
- 		}
-@@ -382,7 +382,7 @@ static eg_cache_entry *eg_cache_get_by_vcc(struct atm_vcc *vcc,
- 	entry = mpc->eg_cache;
- 	while (entry != NULL) {
- 		if (entry->shortcut == vcc) {
--			atomic_inc(&entry->use);
-+			refcount_inc(&entry->use);
- 			read_unlock_irqrestore(&mpc->egress_lock, flags);
- 			return entry;
- 		}
-@@ -402,7 +402,7 @@ static eg_cache_entry *eg_cache_get_by_src_ip(__be32 ipaddr,
- 	entry = mpc->eg_cache;
- 	while (entry != NULL) {
- 		if (entry->latest_ip_addr == ipaddr) {
--			atomic_inc(&entry->use);
-+			refcount_inc(&entry->use);
- 			read_unlock_irq(&mpc->egress_lock);
- 			return entry;
- 		}
-@@ -415,7 +415,7 @@ static eg_cache_entry *eg_cache_get_by_src_ip(__be32 ipaddr,
+diff --git a/include/net/calipso.h b/include/net/calipso.h
+index b1b30cd..5f95b11 100644
+--- a/include/net/calipso.h
++++ b/include/net/calipso.h
+@@ -38,7 +38,7 @@
+ #include <linux/skbuff.h>
+ #include <net/netlabel.h>
+ #include <net/request_sock.h>
+-#include <linux/atomic.h>
++#include <linux/refcount.h>
+ #include <asm/unaligned.h>
  
- static void eg_cache_put(eg_cache_entry *entry)
- {
--	if (atomic_dec_and_test(&entry->use)) {
-+	if (refcount_dec_and_test(&entry->use)) {
- 		memset(entry, 0, sizeof(eg_cache_entry));
- 		kfree(entry);
+ /* known doi values */
+@@ -57,7 +57,7 @@ struct calipso_doi {
+ 	u32 doi;
+ 	u32 type;
+ 
+-	atomic_t refcount;
++	refcount_t refcount;
+ 	struct list_head list;
+ 	struct rcu_head rcu;
+ };
+diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+index 37ac9de..997611f 100644
+--- a/net/ipv6/calipso.c
++++ b/net/ipv6/calipso.c
+@@ -338,7 +338,7 @@ static struct calipso_doi *calipso_doi_search(u32 doi)
+ 	struct calipso_doi *iter;
+ 
+ 	list_for_each_entry_rcu(iter, &calipso_doi_list, list)
+-		if (iter->doi == doi && atomic_read(&iter->refcount))
++		if (iter->doi == doi && refcount_read(&iter->refcount))
+ 			return iter;
+ 	return NULL;
+ }
+@@ -370,7 +370,7 @@ static int calipso_doi_add(struct calipso_doi *doi_def,
+ 	if (doi_def->doi == CALIPSO_DOI_UNKNOWN)
+ 		goto doi_add_return;
+ 
+-	atomic_set(&doi_def->refcount, 1);
++	refcount_set(&doi_def->refcount, 1);
+ 
+ 	spin_lock(&calipso_doi_list_lock);
+ 	if (calipso_doi_search(doi_def->doi)) {
+@@ -458,7 +458,7 @@ static int calipso_doi_remove(u32 doi, struct netlbl_audit *audit_info)
+ 		ret_val = -ENOENT;
+ 		goto doi_remove_return;
  	}
-@@ -468,7 +468,7 @@ static eg_cache_entry *eg_cache_add_entry(struct k_message *msg,
- 	dprintk("adding an egress entry, ip = %pI4, this should be our IP\n",
- 		&msg->content.eg_info.eg_dst_ip);
+-	if (!atomic_dec_and_test(&doi_def->refcount)) {
++	if (!refcount_dec_and_test(&doi_def->refcount)) {
+ 		spin_unlock(&calipso_doi_list_lock);
+ 		ret_val = -EBUSY;
+ 		goto doi_remove_return;
+@@ -499,7 +499,7 @@ static struct calipso_doi *calipso_doi_getdef(u32 doi)
+ 	doi_def = calipso_doi_search(doi);
+ 	if (!doi_def)
+ 		goto doi_getdef_return;
+-	if (!atomic_inc_not_zero(&doi_def->refcount))
++	if (!refcount_inc_not_zero(&doi_def->refcount))
+ 		doi_def = NULL;
  
--	atomic_set(&entry->use, 1);
-+	refcount_set(&entry->use, 1);
- 	dprintk("new_eg_cache_entry: about to lock\n");
- 	write_lock_irq(&client->egress_lock);
- 	entry->next = client->eg_cache;
-@@ -484,7 +484,7 @@ static eg_cache_entry *eg_cache_add_entry(struct k_message *msg,
- 	dprintk("new_eg_cache_entry cache_id %u\n",
- 		ntohl(entry->ctrl_info.cache_id));
- 	dprintk("mps_ip = %pI4\n", &entry->ctrl_info.mps_ip);
--	atomic_inc(&entry->use);
-+	refcount_inc(&entry->use);
+ doi_getdef_return:
+@@ -520,7 +520,7 @@ static void calipso_doi_putdef(struct calipso_doi *doi_def)
+ 	if (!doi_def)
+ 		return;
  
- 	write_unlock_irq(&client->egress_lock);
- 	dprintk("new_eg_cache_entry: unlocked\n");
-diff --git a/net/atm/mpoa_caches.h b/net/atm/mpoa_caches.h
-index 38a4e7e..30fe348 100644
---- a/net/atm/mpoa_caches.h
-+++ b/net/atm/mpoa_caches.h
-@@ -59,7 +59,7 @@ typedef struct eg_cache_entry{
- 	uint16_t             entry_state;
- 	__be32             latest_ip_addr;    /* The src IP address of the last packet */
- 	struct eg_ctrl_info  ctrl_info;
--	atomic_t             use;
-+	refcount_t             use;
- } eg_cache_entry;
+-	if (!atomic_dec_and_test(&doi_def->refcount))
++	if (!refcount_dec_and_test(&doi_def->refcount))
+ 		return;
+ 	spin_lock(&calipso_doi_list_lock);
+ 	list_del_rcu(&doi_def->list);
+@@ -553,7 +553,7 @@ static int calipso_doi_walk(u32 *skip_cnt,
  
- struct eg_cache_ops{
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(iter_doi, &calipso_doi_list, list)
+-		if (atomic_read(&iter_doi->refcount) > 0) {
++		if (refcount_read(&iter_doi->refcount) > 0) {
+ 			if (doi_cnt++ < *skip_cnt)
+ 				continue;
+ 			ret_val = callback(iter_doi, cb_arg);
 -- 
 2.7.4
