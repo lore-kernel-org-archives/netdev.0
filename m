@@ -1,54 +1,47 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH net-next 2/3] net: stmmac: TX and RX queue priority
- configuration
-Date: Fri, 17 Mar 2017 11:16:39 +0000
-Message-ID: <ac4c6a5e-0a24-744b-f382-ade18289e907@synopsys.com>
-References: <cover.1489661229.git.jpinto@synopsys.com>
- <d4f473fe775aef91382a1ce93aa9234631446daf.1489661229.git.jpinto@synopsys.com>
- <c68496fb-761e-5f96-17d4-b32c9ed04be2@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] r8152: simply the arguments
+Date: Fri, 17 Mar 2017 11:08:05 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFB3ABD@AcuExch.aculab.com>
+References: <1394712342-15778-253-Taiwan-albertk@realtek.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFB29DA@AcuExch.aculab.com>
+ <0835B3720019904CB8F7AA43166CEEB201A32FCB@RTITMBSV06.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.47.9]:45257 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751231AbdCQLQp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 07:16:45 -0400
-In-Reply-To: <c68496fb-761e-5f96-17d4-b32c9ed04be2@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd <nic_swsd@realtek.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: 'Hayes Wang' <hayeswang@realtek.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB201A32FCB@RTITMBSV06.realtek.com.tw>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Às 4:55 PM de 3/16/2017, Florian Fainelli escreveu:
-> On 03/16/2017 03:56 AM, Joao Pinto wrote:
->> This patch adds the configuration of RX and TX queues' priority.
->>
->> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->> ---
->>  Documentation/devicetree/bindings/net/stmmac.txt   |  5 +++
->>  drivers/net/ethernet/stmicro/stmmac/common.h       |  4 ++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h       | 13 ++++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 37 +++++++++++++++++
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 48 ++++++++++++++++++++++
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |  4 ++
->>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 16 ++++++++
->>  include/linux/stmmac.h                             |  4 ++
->>  8 files changed, 131 insertions(+)
->>
->> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
->> index a7b0e41..b9a9ae9 100644
->> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->> @@ -83,6 +83,7 @@ Optional properties:
->>  			- snps,dcb-algorithm: Queue to be enabled as DCB
->>  			- snps,avb-algorithm: Queue to be enabled as AVB
->>  		- snps,map-to-dma-channel: Channel to map
->> +	- snps,priority: RX queue priority
+From: Hayes Wang
+> Sent: 17 March 2017 03:00
+> To: David Laight; netdev@vger.kernel.org
+> Cc: nic_swsd; linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org
+> Subject: RE: [PATCH net-next] r8152: simply the arguments
 > 
-> You need to be more verbose about how this property is constructed and
-> what are the acceptable values: type, size, range.
+> David Laight [mailto:David.Laight@ACULAB.COM]
+> > Sent: Thursday, March 16, 2017 10:28 PM
+> [...]
+> > If you are really lucky the compiler will optimise it away.
+> > Otherwise it will generate another local variable and possibly
+> > a register spill to stack.
+> 
+> However, I could reduce the time for calculating the address,
+> because I only calculate it once and save the result to a variable.
+> Right?
 
-Ok, I will do that. Thanks.
+ address you want is just an offset from another pointer that is
+commonly used and ought to be assigned to a register variable.
+
+The offset can be added by the instruction that puts the value into
+the register used for the first function argument.
+
+So 'saving' it in another variable is extra work.
+
+	David
