@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 17/23] net, sctp: convert sctp_datamsg.refcnt from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 14:10:40 +0200
-Message-ID: <1489752646-8749-18-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 16/23] net, sctp: convert sctp_auth_bytes.refcnt from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 14:10:39 +0200
+Message-ID: <1489752646-8749-17-git-send-email-elena.reshetova@intel.com>
 References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org,
         davem@davemloft.net, linux-x25@vger.kernel.org,
@@ -32,51 +32,61 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/sctp/structs.h | 2 +-
- net/sctp/chunk.c           | 6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ include/net/sctp/auth.h | 5 +++--
+ net/sctp/auth.c         | 4 ++--
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index a244db5..106e1d3 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -491,7 +491,7 @@ struct sctp_datamsg {
- 	/* Chunks waiting to be submitted to lower layer. */
- 	struct list_head chunks;
- 	/* Reference counting. */
+diff --git a/include/net/sctp/auth.h b/include/net/sctp/auth.h
+index 9b9fb12..328fccc 100644
+--- a/include/net/sctp/auth.h
++++ b/include/net/sctp/auth.h
+@@ -31,6 +31,7 @@
+ #define __sctp_auth_h__
+ 
+ #include <linux/list.h>
++#include <linux/refcount.h>
+ 
+ struct sctp_endpoint;
+ struct sctp_association;
+@@ -53,7 +54,7 @@ struct sctp_hmac {
+  * over SCTP-AUTH
+  */
+ struct sctp_auth_bytes {
 -	atomic_t refcnt;
 +	refcount_t refcnt;
- 	/* When is this message no longer interesting to the peer? */
- 	unsigned long expires_at;
- 	/* Did the messenge fail to send? */
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index e3621cb..30c73ce 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -49,7 +49,7 @@
- /* Initialize datamsg from memory. */
- static void sctp_datamsg_init(struct sctp_datamsg *msg)
- {
--	atomic_set(&msg->refcnt, 1);
-+	refcount_set(&msg->refcnt, 1);
- 	msg->send_failed = 0;
- 	msg->send_error = 0;
- 	msg->can_delay = 1;
-@@ -136,13 +136,13 @@ static void sctp_datamsg_destroy(struct sctp_datamsg *msg)
- /* Hold a reference. */
- static void sctp_datamsg_hold(struct sctp_datamsg *msg)
- {
--	atomic_inc(&msg->refcnt);
-+	refcount_inc(&msg->refcnt);
+ 	__u32 len;
+ 	__u8  data[];
+ };
+@@ -76,7 +77,7 @@ static inline void sctp_auth_key_hold(struct sctp_auth_bytes *key)
+ 	if (!key)
+ 		return;
+ 
+-	atomic_inc(&key->refcnt);
++	refcount_inc(&key->refcnt);
  }
  
- /* Release a reference. */
- void sctp_datamsg_put(struct sctp_datamsg *msg)
- {
--	if (atomic_dec_and_test(&msg->refcnt))
-+	if (refcount_dec_and_test(&msg->refcnt))
- 		sctp_datamsg_destroy(msg);
- }
+ void sctp_auth_key_put(struct sctp_auth_bytes *key);
+diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+index f99d485..b6c98fe 100644
+--- a/net/sctp/auth.c
++++ b/net/sctp/auth.c
+@@ -63,7 +63,7 @@ void sctp_auth_key_put(struct sctp_auth_bytes *key)
+ 	if (!key)
+ 		return;
  
+-	if (atomic_dec_and_test(&key->refcnt)) {
++	if (refcount_dec_and_test(&key->refcnt)) {
+ 		kzfree(key);
+ 		SCTP_DBG_OBJCNT_DEC(keys);
+ 	}
+@@ -84,7 +84,7 @@ static struct sctp_auth_bytes *sctp_auth_create_key(__u32 key_len, gfp_t gfp)
+ 		return NULL;
+ 
+ 	key->len = key_len;
+-	atomic_set(&key->refcnt, 1);
++	refcount_set(&key->refcnt, 1);
+ 	SCTP_DBG_OBJCNT_INC(keys);
+ 
+ 	return key;
 -- 
 2.7.4
