@@ -1,107 +1,322 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
- atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 09:13:16 -0700
-Message-ID: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1489678147-21404-8-git-send-email-elena.reshetova@intel.com>
-	<1489683534.28631.231.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAGXu5jJpFwiDR_o=oarN_2vDr56cwQ=Bg-5NikUmDtxtzWnAcQ@mail.gmail.com>
-	<20170316.121032.405930218798336643.davem@davemloft.net>
-	<2236FBA76BA1254E88B949DDB74E612B41C5A53B@IRSMSX102.ger.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "keescook@chromium.org" <keescook@chromium.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"ishkamiel@gmail.com" <ishkamiel@gmail.com>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>,
-	"dwindsor@gmail.com" <dwindsor@gmail.com>
-To: "Reshetova, Elena" <elena.reshetova@intel.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <2236FBA76BA1254E88B949DDB74E612B41C5A53B@IRSMSX102.ger.corp.intel.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v2 net-next 2/3] net: stmmac: TX and RX queue priority configuration
+Date: Fri, 17 Mar 2017 16:11:06 +0000
+Message-ID: <e0366788a0caf5dc53246c075ed85f3c9f2d3fba.1489766674.git.jpinto@synopsys.com>
+References: <cover.1489766674.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:46978 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751100AbdCQQSm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 12:18:42 -0400
+In-Reply-To: <cover.1489766674.git.jpinto@synopsys.com>
+In-Reply-To: <cover.1489766674.git.jpinto@synopsys.com>
+References: <cover.1489766674.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-03-17 at 07:42 +0000, Reshetova, Elena wrote:
+This patch adds the configuration of RX and TX queues' priority.
 
-> Should we then first measure the actual numbers to understand what we
-> are talking here about? 
-> I would be glad to do it if you suggest what is the correct way to do
-> measurements here to actually reflect the real life use cases. 
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+changes v1->v2:
+- added range value info in the DT bindings
 
-How have these patches been tested in real life exactly ?
+ Documentation/devicetree/bindings/net/stmmac.txt   |  5 +++
+ drivers/net/ethernet/stmicro/stmmac/common.h       |  4 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h       | 13 ++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 37 +++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 48 ++++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |  4 ++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 16 ++++++++
+ include/linux/stmmac.h                             |  4 ++
+ 8 files changed, 131 insertions(+)
 
-Can you quantify number of added cycles per TCP packet, where I expect
-we have maybe 20 atomic operations in all layers ...
-
-
-(sk refcnt, skb->users, page refcounts, sk->sk_wmem_alloc,
-sk->sk_rmem_alloc, qdisc ...)
-
-Once we 'protect' all of them, cost will be quite high.
-
-This translates to more fossil fuel being burnt.
-
-one atomic_inc() used to be a single x86 instruction.
-
-Rough estimate of refcount_inc() :
-
-0000000000000140 <refcount_inc>:
- 140:	55                   	push   %rbp
- 141:	48 89 e5             	mov    %rsp,%rbp
- 144:	e8 00 00 00 00       	callq  refcount_inc_not_zero
- 149:	84 c0                	test   %al,%al
- 14b:	74 02                	je     14f <refcount_inc+0xf>
- 14d:	5d                   	pop    %rbp
- 14e:	c3                   	retq   
-
-00000000000000e0 <refcount_inc_not_zero>:
-  e0:	8b 17                	mov    (%rdi),%edx
-  e2:	eb 10                	jmp    f4 <refcount_inc_not_zero+0x14>
-  e4:	85 c9                	test   %ecx,%ecx
-  e6:	74 1b                	je     103 <refcount_inc_not_zero+0x23>
-  e8:	89 d0                	mov    %edx,%eax
-  ea:	f0 0f b1 0f          	lock cmpxchg %ecx,(%rdi)
-  ee:	39 d0                	cmp    %edx,%eax
-  f0:	74 0c                	je     fe <refcount_inc_not_zero+0x1e>
-  f2:	89 c2                	mov    %eax,%edx
-  f4:	85 d2                	test   %edx,%edx
-  f6:	8d 4a 01             	lea    0x1(%rdx),%ecx
-  f9:	75 e9                	jne    e4 <refcount_inc_not_zero+0x4>
-  fb:	31 c0                	xor    %eax,%eax
-  fd:	c3                   	retq   
-  fe:	83 f9 ff             	cmp    $0xffffffff,%ecx
- 101:	74 06                	je     109 <refcount_inc_not_zero+0x29>
- 103:	b8 01 00 00 00       	mov    $0x1,%eax
- 108:	c3                   	retq   
-
-This is simply bloat for most cases.
-
-Again, I believe this infrastructure makes sense for debugging kernels.
-
-If some vendors are willing to run fully enabled debug kernels,
-that is their choice. Probably many devices wont show any difference.
-
-Have we forced KASAN being enabled in linux kernel, just because
-it found ~400 bugs so far ?
-
-I believe refcount_t infra is not mature enough to be widely used
-right now.
-
-Maybe in few months when we have more flexibility, like existing
-debugging facilities (CONFIG_DEBUG_PAGEALLOC, CONFIG_DEBUG_PAGE_REF,
-LOCKDEP, KMEMLEAK, KASAN, ...)
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index a7b0e41..d11bd09 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -83,6 +83,7 @@ Optional properties:
+ 			- snps,dcb-algorithm: Queue to be enabled as DCB
+ 			- snps,avb-algorithm: Queue to be enabled as AVB
+ 		- snps,map-to-dma-channel: Channel to map
++		- snps,priority: RX queue priority (Range: 0x0 to 0xF)
+ - Multiple TX Queues parameters: below the list of all the parameters to
+ 				 configure the multiple TX queues:
+ 	- snps,tx-queues-to-use: number of TX queues to be used in the driver
+@@ -101,6 +102,7 @@ Optional properties:
+ 			- snps,idle_slope: unlock on WoL
+ 			- snps,high_credit: max write outstanding req. limit
+ 			- snps,low_credit: max read outstanding req. limit
++		- snps,priority: TX queue priority (Range: 0x0 to 0xF)
+ Examples:
+ 
+ 	stmmac_axi_setup: stmmac-axi-config {
+@@ -115,6 +117,7 @@ Examples:
+ 		queue0 {
+ 			snps,dcb-algorithm;
+ 			snps,map-to-dma-channel = <0x0>;
++			snps,priority = <0x0>;
+ 		};
+ 	};
+ 
+@@ -124,6 +127,7 @@ Examples:
+ 		queue0 {
+ 			snps,weight = <0x10>;
+ 			snps,dcb-algorithm;
++			snps,priority = <0x0>;
+ 		};
+ 
+ 		queue1 {
+@@ -132,6 +136,7 @@ Examples:
+ 			snps,idle_slope = <0x1000>;
+ 			snps,high_credit = <0x3E800>;
+ 			snps,low_credit = <0xFFC18000>;
++			snps,priority = <0x1>;
+ 		};
+ 	};
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index badc441..e0b31e7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -469,6 +469,10 @@ struct stmmac_ops {
+ 	int (*rx_ipc)(struct mac_device_info *hw);
+ 	/* Enable RX Queues */
+ 	void (*rx_queue_enable)(struct mac_device_info *hw, u8 mode, u32 queue);
++	/* RX Queues Priority */
++	void (*rx_queue_prio)(struct mac_device_info *hw, u32 prio, u32 queue);
++	/* TX Queues Priority */
++	void (*tx_queue_prio)(struct mac_device_info *hw, u32 prio, u32 queue);
+ 	/* Program RX Algorithms */
+ 	void (*prog_mtl_rx_algorithms)(struct mac_device_info *hw, u32 rx_alg);
+ 	/* Program TX Algorithms */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index 54bcdb4..a6c382d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -22,7 +22,12 @@
+ #define GMAC_HASH_TAB_32_63		0x00000014
+ #define GMAC_RX_FLOW_CTRL		0x00000090
+ #define GMAC_QX_TX_FLOW_CTRL(x)		(0x70 + x * 4)
++#define GMAC_TXQ_PRTY_MAP0		0x98
++#define GMAC_TXQ_PRTY_MAP1		0x9C
+ #define GMAC_RXQ_CTRL0			0x000000a0
++#define GMAC_RXQ_CTRL1			0x000000a4
++#define GMAC_RXQ_CTRL2			0x000000a8
++#define GMAC_RXQ_CTRL3			0x000000ac
+ #define GMAC_INT_STATUS			0x000000b0
+ #define GMAC_INT_EN			0x000000b4
+ #define GMAC_1US_TIC_COUNTER		0x000000dc
+@@ -54,6 +59,14 @@
+ /* MAC Flow Control RX */
+ #define GMAC_RX_FLOW_CTRL_RFE		BIT(0)
+ 
++/* RX Queues Priorities */
++#define GMAC_RXQCTRL_PSRQX_MASK(x)	GENMASK(7 + ((x) * 8), 0 + ((x) * 8))
++#define GMAC_RXQCTRL_PSRQX_SHIFT(x)	((x) * 8)
++
++/* TX Queues Priorities */
++#define GMAC_TXQCTRL_PSTQX_MASK(x)	GENMASK(7 + ((x) * 8), 0 + ((x) * 8))
++#define GMAC_TXQCTRL_PSTQX_SHIFT(x)	((x) * 8)
++
+ /* MAC Flow Control TX */
+ #define GMAC_TX_FLOW_CTRL_TFE		BIT(1)
+ #define GMAC_TX_FLOW_CTRL_PT_SHIFT	16
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index 10599db..342f62a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -74,6 +74,41 @@ static void dwmac4_rx_queue_enable(struct mac_device_info *hw,
+ 	writel(value, ioaddr + GMAC_RXQ_CTRL0);
+ }
+ 
++static void dwmac4_rx_queue_priority(struct mac_device_info *hw,
++				     u32 prio, u32 queue)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 base_register;
++	u32 value;
++
++	base_register = (queue < 4) ? GMAC_RXQ_CTRL2 : GMAC_RXQ_CTRL3;
++
++	value = readl(ioaddr + base_register);
++
++	value &= ~GMAC_RXQCTRL_PSRQX_MASK(queue);
++	value |= (prio << GMAC_RXQCTRL_PSRQX_SHIFT(queue)) &
++						GMAC_RXQCTRL_PSRQX_MASK(queue);
++	writel(value, ioaddr + base_register);
++}
++
++static void dwmac4_tx_queue_priority(struct mac_device_info *hw,
++				     u32 prio, u32 queue)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 base_register;
++	u32 value;
++
++	base_register = (queue < 4) ? GMAC_TXQ_PRTY_MAP0 : GMAC_TXQ_PRTY_MAP1;
++
++	value = readl(ioaddr + base_register);
++
++	value &= ~GMAC_TXQCTRL_PSTQX_MASK(queue);
++	value |= (prio << GMAC_TXQCTRL_PSTQX_SHIFT(queue)) &
++						GMAC_TXQCTRL_PSTQX_MASK(queue);
++
++	writel(value, ioaddr + base_register);
++}
++
+ static void dwmac4_prog_mtl_rx_algorithms(struct mac_device_info *hw,
+ 					  u32 rx_alg)
+ {
+@@ -603,6 +638,8 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.core_init = dwmac4_core_init,
+ 	.rx_ipc = dwmac4_rx_ipc_enable,
+ 	.rx_queue_enable = dwmac4_rx_queue_enable,
++	.rx_queue_prio = dwmac4_rx_queue_priority,
++	.tx_queue_prio = dwmac4_tx_queue_priority,
+ 	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
+ 	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
+ 	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index a389dfb..0f2c0d7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2293,6 +2293,46 @@ static void stmmac_rx_queue_dma_chan_map(struct stmmac_priv *priv)
+ }
+ 
+ /**
++ *  stmmac_mac_config_rx_queues_prio - Configure RX Queue priority
++ *  @priv: driver private structure
++ *  Description: It is used for configuring the RX Queue Priority
++ */
++static void stmmac_mac_config_rx_queues_prio(struct stmmac_priv *priv)
++{
++	u32 rx_queues_count = priv->plat->rx_queues_to_use;
++	u32 queue;
++	u32 prio;
++
++	for (queue = 0; queue < rx_queues_count; queue++) {
++		if (!priv->plat->rx_queues_cfg[queue].use_prio)
++			continue;
++
++		prio = priv->plat->rx_queues_cfg[queue].prio;
++		priv->hw->mac->rx_queue_prio(priv->hw, prio, queue);
++	}
++}
++
++/**
++ *  stmmac_mac_config_tx_queues_prio - Configure TX Queue priority
++ *  @priv: driver private structure
++ *  Description: It is used for configuring the TX Queue Priority
++ */
++static void stmmac_mac_config_tx_queues_prio(struct stmmac_priv *priv)
++{
++	u32 tx_queues_count = priv->plat->tx_queues_to_use;
++	u32 queue;
++	u32 prio;
++
++	for (queue = 0; queue < tx_queues_count; queue++) {
++		if (!priv->plat->tx_queues_cfg[queue].use_prio)
++			continue;
++
++		prio = priv->plat->tx_queues_cfg[queue].prio;
++		priv->hw->mac->tx_queue_prio(priv->hw, prio, queue);
++	}
++}
++
++/**
+  *  stmmac_mtl_configuration - Configure MTL
+  *  @priv: driver private structure
+  *  Description: It is used for configurring MTL
+@@ -2329,6 +2369,14 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ 
+ 	/* Set the HW DMA mode and the COE */
+ 	stmmac_dma_operation_mode(priv);
++
++	/* Set RX priorities */
++	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_prio)
++		stmmac_mac_config_rx_queues_prio(priv);
++
++	/* Set TX priorities */
++	if (tx_queues_count > 1 && priv->hw->mac->tx_queue_prio)
++		stmmac_mac_config_tx_queues_prio(priv);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index cea472a..ffe4fac 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -92,6 +92,10 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
+ 	/* Set default number of RX and TX queues to use */
+ 	plat->tx_queues_to_use = 1;
+ 	plat->rx_queues_to_use = 1;
++
++	/* Disable Priority config by default */
++	plat->tx_queues_cfg[0].use_prio = false;
++	plat->rx_queues_cfg[0].use_prio = false;
+ }
+ 
+ static int quark_default_data(struct plat_stmmacenet_data *plat,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 37f550a..77b0468 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -182,6 +182,14 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
+ 			plat->rx_queues_cfg[queue].chan = queue;
+ 		/* TODO: Dynamic mapping to be included in the future */
+ 
++		if (of_property_read_u32(q_node, "snps,priority",
++					&plat->rx_queues_cfg[queue].prio)) {
++			plat->rx_queues_cfg[queue].prio = 0;
++			plat->rx_queues_cfg[queue].use_prio = false;
++		} else {
++			plat->rx_queues_cfg[queue].use_prio = true;
++		}
++
+ 		queue++;
+ 	}
+ 
+@@ -235,6 +243,14 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
+ 			plat->tx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
+ 		}
+ 
++		if (of_property_read_u32(q_node, "snps,priority",
++					&plat->tx_queues_cfg[queue].prio)) {
++			plat->tx_queues_cfg[queue].prio = 0;
++			plat->tx_queues_cfg[queue].use_prio = false;
++		} else {
++			plat->tx_queues_cfg[queue].use_prio = true;
++		}
++
+ 		queue++;
+ 	}
+ 
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index be47b85..b7d5e7a 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -127,6 +127,8 @@ struct stmmac_axi {
+ struct stmmac_rxq_cfg {
+ 	u8 mode_to_use;
+ 	u8 chan;
++	bool use_prio;
++	u32 prio;
+ };
+ 
+ struct stmmac_txq_cfg {
+@@ -137,6 +139,8 @@ struct stmmac_txq_cfg {
+ 	u32 idle_slope;
+ 	u32 high_credit;
+ 	u32 low_credit;
++	bool use_prio;
++	u32 prio;
+ };
+ 
+ struct plat_stmmacenet_data {
+-- 
+2.9.3
