@@ -1,127 +1,74 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: [PATCH net-next v3 2/2]L2TP:Adjust intf MTU, add underlay L3, L2
- hdrs
-Date: Thu, 16 Mar 2017 21:43:13 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1703162137310.11399@vera100.eng.brocade.com>
+From: Numan Siddique <nusiddiq-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC] [net]openvswitch: Clear the ct flow key for the
+ recirculated packet
+Date: Fri, 17 Mar 2017 11:34:41 +0530
+Message-ID: <CAH=CPzrYJdM3rO_7KrNgwwn1dpD1sFbDDu48rFZV8_VThuU=FQ@mail.gmail.com>
+References: <af0d1942-726b-b637-e8e3-2f4857bb00a2@redhat.com>
+	<CAPWQB7GAJYjHBY1EP+Xyq_9nigSAcKMHb-4eTfvBNf_LQ-NuGA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kleptog@svana.org, jchapman@katalix.com, davem@redhat.com,
-        nprachan@brocade.com, rshearma@brocade.com,
-        stephen@networkplumber.org, sdietric@brocade.com,
-        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
-        bhong@brocade.com, jblunck@brocade.com,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAPWQB7GAJYjHBY1EP+Xyq_9nigSAcKMHb-4eTfvBNf_LQ-NuGA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-In existing kernel code, when setting up the L2TP interface, all of the
-tunnel encapsulation headers are not taken into account when setting
-up the MTU on the  L2TP logical interface device. Due to this, the
-packets created by the applications on top of the L2TP layer are larger
-than they ought to be, relative to the underlay MTU, which leads to
-needless fragmentation once the L2TP packet is encapsulated in an outer IP
-packet.
-
-Specifically, the MTU calculation  does not take into account the (outer)
-IP header imposed on the encapsulated L2TP packet, and the Layer 2 header
-imposed on the inner L2TP packet prior to encapsulation. The patch posted
-here takes care of these.
-
-Existing code also seems to assume an Ethernet (non-jumbo) underlay. The
-patch uses the PMTU mechanism and the dst entry in the L2TP tunnel socket
-to directly pull up the underlay MTU (as the baseline number on top of
-which the encapsulation headers are factored in).  Ethernet MTU is
-assumed as a fallback only if this fails.
-
-Picked up review comments from James Chapman, added a function
-to compute ip header + ip option overhead on a socket, and factored it
-into L2TP change-set.
-
-Signed-off-by: R. Parameswaran <rparames@brocade.com>
----
- net/l2tp/l2tp_eth.c | 51 +++++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 47 insertions(+), 4 deletions(-)
-
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 8bf18a5..f512d97 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -30,6 +30,9 @@
- #include <net/xfrm.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/udp.h>
- 
- #include "l2tp_core.h"
- 
-@@ -204,6 +207,49 @@ static void l2tp_eth_show(struct seq_file *m, void *arg)
- }
- #endif
- 
-+static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
-+				struct l2tp_session *session,
-+				struct net_device *dev)
-+{
-+	unsigned int overhead = 0;
-+	struct dst_entry *dst;
-+	u32 l3_overhead = 0;
-+
-+	if (session->mtu != 0) {
-+		dev->mtu = session->mtu;
-+		dev->needed_headroom += session->hdr_len;
-+		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
-+			dev->needed_headroom += sizeof(struct udphdr);
-+		return;
-+	}
-+	overhead = session->hdr_len;
-+	l3_overhead = kernel_sock_ip_overhead(tunnel->sock);
-+	if (!tunnel->sock || (l3_overhead == 0)) {
-+		/* L3 Overhead couldn't be identified, dev mtu stays at 1500 */
-+		return;
-+	}
-+	/* Adjust MTU, factor overhead - underlay L3, overlay L2 hdr */
-+	overhead += ETH_HLEN + l3_overhead;
-+	/* Additionally, if the encap is UDP, account for UDP header size */
-+	if (tunnel->encap == L2TP_ENCAPTYPE_UDP) {
-+		overhead += sizeof(struct udphdr);
-+		dev->needed_headroom += sizeof(struct udphdr);
-+	}
-+	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
-+	dst = sk_dst_get(tunnel->sock);
-+	if (dst) {
-+		/* dst_mtu will use PMTU if found, else fallback to intf MTU */
-+		u32 pmtu = dst_mtu(dst);
-+
-+		if (pmtu != 0)
-+			dev->mtu = pmtu;
-+		dst_release(dst);
-+	}
-+	session->mtu = dev->mtu - overhead;
-+	dev->mtu = session->mtu;
-+	dev->needed_headroom += session->hdr_len;
-+}
-+
- static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
- {
- 	struct net_device *dev;
-@@ -253,12 +299,9 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
- 	}
- 
- 	dev_net_set(dev, net);
--	if (session->mtu == 0)
--		session->mtu = dev->mtu - session->hdr_len;
--	dev->mtu = session->mtu;
--	dev->needed_headroom += session->hdr_len;
- 	dev->min_mtu = 0;
- 	dev->max_mtu = ETH_MAX_MTU;
-+	l2tp_eth_adjust_mtu(tunnel, session, dev);
- 
- 	priv = netdev_priv(dev);
- 	priv->dev = dev;
--- 
-2.1.4
+T24gRnJpLCBNYXIgMTcsIDIwMTcgYXQgNTo0MiBBTSwgSm9lIFN0cmluZ2VyIDxqb2VAb3ZuLm9y
+Zz4gd3JvdGU6Cgo+IE9uIDE2IE1hcmNoIDIwMTcgYXQgMDU6MjUsIE51bWFuIFNpZGRpcXVlIDxu
+dXNpZGRpcUByZWRoYXQuY29tPiB3cm90ZToKPiA+IEl0IGlzIHBvc3NpYmxlIHRoYXQgdGhlIGN0
+IGZsb3cga2V5IGluZm9ybWF0aW9uIHdvdWxkIGhhdmUKPiA+IGdvbmUgc3RhbGUgZm9yIHRoZSBw
+YWNrZXRzIHJlY2VpdmVkIGZyb20gdGhlIHVzZXJzcGFjZSBkdWUgdG8KPiA+IGNsb25lIG9yIGN0
+X2NsZWFyIGFjdGlvbnMuCj4gPgo+ID4gSW4gdGhlIGNhc2Ugb2YgT1ZOLCBpdCBhZGRzIHBpbmcg
+cmVzcG9uZGVyIGZsb3dzLCB3aGljaCBtb2RpZmllcwo+ID4gdGhlIG9yaWdpbmFsIGljbXA0IHJl
+cXVlc3QgcGFja2V0IHRvIGEgcmVwbHkgcGFja2V0LiBJdCB1c2VzIHRoZQo+ID4gT1ZTIGFjdGlv
+bnMgLSBjbG9uZSBhbmQgY3RfY2xlYXIuIFdoZW4gdGhlIHJlcGx5IHBhY2tldCBoaXRzIHRoZQo+
+ID4gIm92c19jdF9leGVjdXRlIiBmdW5jdGlvbiwgYW5kIHNpbmNlIHRoZSBjdCBmbG93IGtleSBp
+bmZvIGlzIG5vdAo+ID4gY2xlYXJlZCwgdGhlIGNvbm5lY3Rpb24gdHJhY2tlciBkb2Vzbid0IHNl
+dCB0aGUgc3RhdGUgdG8KPiA+IEVTVEFCTElTSEVEIHN0YXRlLgo+ID4KPiA+IE5vdGU6IFRoaXMg
+cGF0Y2ggaXMgbWFya2VkIGFzIFJGQywgYXMgSSBhbSBub3Qgc3VyZSBpZiB0aGlzIGlzIHRoZQo+
+IGNvcnJlY3QKPiA+IHBsYWNlIHRvIGFkZHJlc3MgdGhpcyBpc3N1ZSBvciBpdCBzaG91bGQgYmUg
+YWRkcmVzc2VkIGluIG92cy12c3dpdGNoZAo+ID4gdG8gc2V0IHRoZSBPVlNfS0VZX0FUVFJfQ1Rf
+U1RBVEUgYW5kIG90aGVyIHJlbGF0ZWQgYXR0cmlidXRlcwo+ID4gcHJvcGVybHkgZm9yIGN0X2Ns
+ZWFyIGFjdGlvbi4KPgo+IEhtbS4gSSBzZWUgYSBjb3VwbGUgb2Ygb3B0aW9ucy4KPgo+IEF0IHRo
+ZSBtb21lbnQgdGhlIGN0X2NsZWFyIGF0IHRoZSBoaWdoZXIgbGF5ZXIgaXMgbm90IGJhY2tlZCBi
+eSBhbnkKPiBhY3Rpb24gaW4gdGhlIGRhdGFwYXRoIGxheWVyLiBCYXNpY2FsbHkgd2UganVzdCBj
+bGVhciB0aGUgZmllbGRzIGluCj4gdGhlIGZsb3cgbWV0YWRhdGEgdGhlbiBmcm9tIHRoZSBPcGVu
+RmxvdyBwb2ludCBvZiB2aWV3IHRoZXJlIGlzIG5vCj4gc3VjaCBzdGF0ZSwgc28gd2UgY2FuIG1h
+dGNoIG9uIGl0IGFzIHRob3VnaCBpdCBoYXNuJ3QgYmVlbiB0aHJvdWdoIHRoZQo+IGNvbm5lY3Rp
+b24gdHJhY2tlciwgYW5kIGZvciBpbnN0YW5jZSwgdHJ5IHRvIHNlbmQgaXQgdGhyb3VnaCB0aGUK
+PiBjb25uZWN0aW9uIHRyYWNrZXIgYWdhaW4uIElmIHdlIHdlcmUgdG8gaW50cm9kdWNlIGFuIG9w
+ZW52c3dpdGNoCj4ga2VybmVsIEFQSSB0byBhY3R1YWxseSBjbGVhciB0aGUgJ3NrYi0+bmZjdCcg
+YW5kIHBlcmhhcHMgdGhlIHJlbGF0ZWQKPiBjdCBmbG93IGtleSBmaWVsZHMgaW4gdGhlIGtlcm5l
+bCwgdGhlbiBzdWJzZXF1ZW50IGN0IGxvb2t1cHMgd291bGQgbm90Cj4gYXNzdW1lIHRoYXQgdGhl
+IHNrYiBpcyBhbHJlYWR5IGNhY2hlZCwgYW5kIGl0IHNob3VsZCBydW4gdGhyb3VnaCB0aGUKPiBj
+b25uZWN0aW9uIHRyYWNrZXIgYW5kIGVzdGFibGlzaCB0aGUgc3RhdGUuCj4KPiBBbHRlcm5hdGl2
+ZWx5LCB3aXRob3V0IGNoYW5naW5nIHRoZSBPVlMgQVBJLCB3ZSBjb3VsZCBtYWtlIHRoZSBhY3Rp
+b25zCj4gYSBiaXQgc21hcnRlci4gSWYgeW91IGNoYW5nZSBmaWVsZHMgcmVsYXRlZCB0byBDVCBs
+b29rdXAgKGllLCB0aGUKPiA1dHVwbGUpIHZpYSBzZXQgYWN0aW9ucywgdGhlbiB0aGUgY29ubnRy
+YWNrIGVudHJ5IGFzc29jaWF0ZWQgd2l0aCB0aGUKPiBza2IgaXMgbm8gbG9uZ2VyIHZhbGlkIGZv
+ciB0aGUgY3VycmVudCBwYWNrZXQuIENsZWFyIHRoZSBza2ItPm5mY3QKPiB3aGVuIG1hbmlwdWxh
+dGluZyB0aG9zZSBmaWVsZHMsIHRoZW4gd2hlbiB0aGUgQ1QgYWN0aW9uIGdldHMgZXhlY3V0ZWQs
+Cj4gaXQgY2FuIHRyZWF0IHRoaXMgcGFja2V0IGFzIGNvbXBsZXRlbHkgbmV3IGFuZCBydW4gaXQg
+dGhyb3VnaCB0aGUKPiBjb25uZWN0aW9uIHRyYWNrZXIgdG8gZXN0YWJsaXNoIHRoZSBzdGF0ZS4K
+PgoKCuKAi1RoYW5rcyDigIsKCuKAi2ZvciB0aGUgY29tbWVudHMuIEkgd2lsbCBnaXZlIHRoaXMg
+b3B0aW9ucyBhIHRyeS4KCuKAiwoKPgo+IEkgdGVuZCB0byBsaWtlIHRoZSBsYXR0ZXIgYmVjYXVz
+ZSBpdCBkb2Vzbid0IGludm9sdmUgZXh0ZW5kaW5nIHRoZQo+IEFQSSwgYnV0IEkgY2FuJ3QgaGVs
+cCBidXQgd29uZGVyIGlmIHRoZSBmYWN0IHdlJ3ZlIG5vdyBnb3QgYSBjdF9jbGVhcgo+IGFjdGlv
+biBhdCB0aGUgbGF5ZXIgYWJvdmUgbWVhbnMgdGhhdCBldmVudHVhbGx5IHdlJ3JlIGdvaW5nIHRv
+IG5lZWQKPiB0aGUgZXF1aXZhbGVudCBmdW5jdGlvbmFsaXR5IGluIHRoZSBkYXRhcGF0aCBBUEku
+IEllLCB3ZSBjb3VsZCBzb2x2ZQo+IHRoaXMgcHJvYmxlbSBidXQgbWF5YmUgc29tZXRoaW5nIG1v
+cmUgZGV0YWlsZWQgYW5kIG9ic2N1cmUgY29tZXMgdXAKPiBsYXRlciB3aGVyZSB3ZSdyZSBub3Qg
+cmVhbGx5IHNhdGlzZnlpbmcgdGhlIGV4cGVjdGF0aW9ucyBvZiB0aGUKPiBPcGVuRmxvdyAnY3Rf
+Y2xlYXInIGFjdGlvbi4KPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cHM6Ly9tYWls
+Lm9wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL292cy1kZXYK
