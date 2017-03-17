@@ -1,49 +1,36 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH v3] net: sun: sungem: rix a possible null dereference
-Date: Fri, 17 Mar 2017 22:54:04 +0100
-Message-ID: <1489787644-28822-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, mugunthanvnm@ti.com, jarod@redhat.com,
-        felipe.balbi@linux.intel.com, edumazet@google.com, fw@strlen.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: udp: add socket option to report RX queue level
+Date: Fri, 17 Mar 2017 15:01:10 -0700
+Message-ID: <1489788070.28631.322.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170317211312.38117-1-ckuiper@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pgynther@google.com
+To: Chris Kuiper <ckuiper@google.com>, Josh Hunt <johunt@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:35215 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751023AbdCQWCM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 18:02:12 -0400
+Received: by mail-pf0-f178.google.com with SMTP id x63so37406685pfx.2
+        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 15:01:11 -0700 (PDT)
+In-Reply-To: <20170317211312.38117-1-ckuiper@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function gem_begin_auto_negotiation dereference
-the pointer ep before testing if it's null. This
-patch add a check on ep before dereferencing it.
+On Fri, 2017-03-17 at 14:13 -0700, Chris Kuiper wrote:
+> This adds a new socket option "SO_RXQ_ALLOC" that enables providing
+> the RX queue buffer allocation as ancillary data from the recvmsg()
+> system call. The value reported is a byte number and together with
+> the RX queue size (obtained via getsockopt(SO_RCVBUF) can be used to
+> calculate a percentage value on how full the socket buffer is.
+> ---
 
-Fixes: 92552fdda557 ("net: sun: sungem: use new api
-ethtool_{get|set}_link_ksettings")
+Seems a lot of overhead, and only UDP would be supported.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
-Changelog:
-v3:
-- fix the sha1-id in the tag Fixes (thanks David Miller)
-v2:
-- use Fixes tag (thanks Sergei Shtylyov)
+I very much prefer Josh Hunt proposal
+( https://patchwork.ozlabs.org/patch/738250/ )
 
- drivers/net/ethernet/sun/sungem.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
-index dbfca04..fa607d0 100644
---- a/drivers/net/ethernet/sun/sungem.c
-+++ b/drivers/net/ethernet/sun/sungem.c
-@@ -1259,8 +1259,9 @@ static void gem_begin_auto_negotiation(struct gem *gp,
- 	int duplex;
- 	u32 advertising;
- 
--	ethtool_convert_link_mode_to_legacy_u32(&advertising,
--						ep->link_modes.advertising);
-+	if (ep)
-+		ethtool_convert_link_mode_to_legacy_u32(
-+			&advertising, ep->link_modes.advertising);
- 
- 	if (gp->phy_type != phy_mii_mdio0 &&
-      	    gp->phy_type != phy_mii_mdio1)
--- 
-1.7.4.4
+Ie using a separate getsockopt() call instead of adding code to UDP fast
+path ?
