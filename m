@@ -1,72 +1,192 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: Re: ip_auto_config() prevents network device to be registered
-Date: Fri, 17 Mar 2017 14:18:08 -0300
-Message-ID: <1b5986dc-64a5-62a5-d4ca-6540ceb4e0fe@osg.samsung.com>
-References: <b7ad0acb-1cad-3a45-0b0f-57d576ff1a36@osg.samsung.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: remove duplicate code
+Date: Fri, 17 Mar 2017 10:50:05 -0700
+Message-ID: <20170317175005.GA2276@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
-        Kevin Hilman <khilman@baylibre.com>,
-        Shuah Khan <shuahkh@osg.samsung.com>,
-        LKML <linux-kernel@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b7ad0acb-1cad-3a45-0b0f-57d576ff1a36@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0062.outbound.protection.outlook.com ([104.47.38.62]:5056
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751101AbdCQSGG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 14:06:06 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Satanand Burla <satananda.burla@cavium.com>
 
-On 01/31/2017 02:49 PM, Javier Martinez Canillas wrote:
-> 
-> The kernelci folks pointed out that a Samsung Exynos based board was failing
-> to boot when trying to mount the rootfs via NFS, due a networking issue [0].
-> 
-> I looked at the issue and it turned out to be a race between ip_auto_config()
-> and register_netdev() when using the ip=dhcp param in the kernel command line.
-> 
-> The problem is that ip_auto_config() calls wait_for_devices() [1] and returns
-> as soon as it finds a network device registered. Then ic_open_devs() [2] is
-> called then to bring the network devs up and wait for their carrier signals.
-> 
-> But ic_open_devs() grabs the rtnl_mutex lock [3] when doing this, which is the
-> same lock that register_netdev() [4] grabs before registering a network device.
-> 
-> And so if a network dev is found and wait_for_devices() returns, ic_open_devs()
-> will be called and no new network dev could be registered in the meantime.
-> 
-> So since ic_open_devs() waits up to CONF_CARRIER_TIMEOUT (120 secs) with this
-> lock held, if the network dev that's supposed to get its IP over DHCP isn't the
-> first to be registered, the boot test job may timeout and be considered a fail.
-> 
-> A workaround is to use ip=:::::eth0:dhcp instead ip=dhcp, so wait_for_devices()
-> waits for this specific device. Another workaround is to increase the timeout
-> for the job to be much bigger than CONF_CARRIER_TIMEOUT so ip_auto_config() can
-> retry and the network devices can be registered between tries.
-> 
-> But I wonder if someone can suggest a proper way to fix this. Grabbing a mutex
-> that prevents network devs to be registered for 120 secs doesn't sound correct.
-> 
-> Thanks a lot for your help and please let me know if I misunderstood something.
-> 
-> [0]: https://storage.kernelci.org/mainline/v4.9/arm-exynos_defconfig/lab-collabora/boot-exynos5422-odroidxu3_rootfs:nfs.html
-> [1]: http://lxr.free-electrons.com/source/net/ipv4/ipconfig.c#L1368
-> [2]: http://lxr.free-electrons.com/source/net/ipv4/ipconfig.c#L202
-> [3]: http://lxr.free-electrons.com/source/net/core/rtnetlink.c#L68
-> [4]: http://lxr.free-electrons.com/source/net/core/dev.c#L7326
-> 
-> 
+Remove code duplicated in PF and VF; define that code once only in a common
+header file included by PF and VF.
+ 
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 36 ----------------------
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 36 ----------------------
+ .../net/ethernet/cavium/liquidio/octeon_network.h  | 36 ++++++++++++++++++++++
+ 3 files changed, 36 insertions(+), 72 deletions(-)
 
-Any comments on this?
-
-We are still seeing this problem with today's -next (20170310):
-
-https://storage.kernelci.org/next/next-20170310/arm-exynos_defconfig/lab-collabora/boot-exynos5422-odroidxu3.html
-
-Best regards,
--- 
-Javier Martinez Canillas
-Open Source Group
-Samsung Research America
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index ca529a7..7e9227c 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -60,12 +60,6 @@ MODULE_PARM_DESC(fw_type, "Type of firmware to be loaded. Default \"nic\"");
+ 
+ static int ptp_enable = 1;
+ 
+-/* Bit mask values for lio->ifstate */
+-#define   LIO_IFSTATE_DROQ_OPS             0x01
+-#define   LIO_IFSTATE_REGISTERED           0x02
+-#define   LIO_IFSTATE_RUNNING              0x04
+-#define   LIO_IFSTATE_RX_TIMESTAMP_ENABLED 0x08
+-
+ /* Polling interval for determining when NIC application is alive */
+ #define LIQUIDIO_STARTER_POLL_INTERVAL_MS 100
+ 
+@@ -531,36 +525,6 @@ static void liquidio_deinit_pci(void)
+ }
+ 
+ /**
+- * \brief check interface state
+- * @param lio per-network private data
+- * @param state_flag flag state to check
+- */
+-static inline int ifstate_check(struct lio *lio, int state_flag)
+-{
+-	return atomic_read(&lio->ifstate) & state_flag;
+-}
+-
+-/**
+- * \brief set interface state
+- * @param lio per-network private data
+- * @param state_flag flag state to set
+- */
+-static inline void ifstate_set(struct lio *lio, int state_flag)
+-{
+-	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) | state_flag));
+-}
+-
+-/**
+- * \brief clear interface state
+- * @param lio per-network private data
+- * @param state_flag flag state to clear
+- */
+-static inline void ifstate_reset(struct lio *lio, int state_flag)
+-{
+-	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
+-}
+-
+-/**
+  * \brief Stop Tx queues
+  * @param netdev network device
+  */
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 7b83be4..c37c165 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -39,12 +39,6 @@ MODULE_PARM_DESC(debug, "NETIF_MSG debug bits");
+ 
+ #define DEFAULT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK)
+ 
+-/* Bit mask values for lio->ifstate */
+-#define   LIO_IFSTATE_DROQ_OPS             0x01
+-#define   LIO_IFSTATE_REGISTERED           0x02
+-#define   LIO_IFSTATE_RUNNING              0x04
+-#define   LIO_IFSTATE_RX_TIMESTAMP_ENABLED 0x08
+-
+ struct liquidio_if_cfg_context {
+ 	int octeon_id;
+ 
+@@ -336,36 +330,6 @@ static struct pci_driver liquidio_vf_pci_driver = {
+ };
+ 
+ /**
+- * \brief check interface state
+- * @param lio per-network private data
+- * @param state_flag flag state to check
+- */
+-static int ifstate_check(struct lio *lio, int state_flag)
+-{
+-	return atomic_read(&lio->ifstate) & state_flag;
+-}
+-
+-/**
+- * \brief set interface state
+- * @param lio per-network private data
+- * @param state_flag flag state to set
+- */
+-static void ifstate_set(struct lio *lio, int state_flag)
+-{
+-	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) | state_flag));
+-}
+-
+-/**
+- * \brief clear interface state
+- * @param lio per-network private data
+- * @param state_flag flag state to clear
+- */
+-static void ifstate_reset(struct lio *lio, int state_flag)
+-{
+-	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
+-}
+-
+-/**
+  * \brief Stop Tx queues
+  * @param netdev network device
+  */
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
+index eef2a1e..ddb61bf 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
+@@ -28,6 +28,12 @@
+ #define LIO_MAX_MTU_SIZE (OCTNET_MAX_FRM_SIZE - OCTNET_FRM_HEADER_SIZE)
+ #define LIO_MIN_MTU_SIZE ETH_MIN_MTU
+ 
++/* Bit mask values for lio->ifstate */
++#define   LIO_IFSTATE_DROQ_OPS             0x01
++#define   LIO_IFSTATE_REGISTERED           0x02
++#define   LIO_IFSTATE_RUNNING              0x04
++#define   LIO_IFSTATE_RX_TIMESTAMP_ENABLED 0x08
++
+ struct oct_nic_stats_resp {
+ 	u64     rh;
+ 	struct oct_link_stats stats;
+@@ -438,4 +444,34 @@ static inline void octeon_fast_packet_next(struct octeon_droq *droq,
+ 	       get_rbd(droq->recv_buf_list[idx].buffer), copy_len);
+ }
+ 
++/**
++ * \brief check interface state
++ * @param lio per-network private data
++ * @param state_flag flag state to check
++ */
++static inline int ifstate_check(struct lio *lio, int state_flag)
++{
++	return atomic_read(&lio->ifstate) & state_flag;
++}
++
++/**
++ * \brief set interface state
++ * @param lio per-network private data
++ * @param state_flag flag state to set
++ */
++static inline void ifstate_set(struct lio *lio, int state_flag)
++{
++	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) | state_flag));
++}
++
++/**
++ * \brief clear interface state
++ * @param lio per-network private data
++ * @param state_flag flag state to clear
++ */
++static inline void ifstate_reset(struct lio *lio, int state_flag)
++{
++	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
++}
++
+ #endif
