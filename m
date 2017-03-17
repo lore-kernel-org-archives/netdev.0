@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: tcp_get_info() should read tcp_time_stamp
- later
-Date: Thu, 16 Mar 2017 21:37:37 -0700 (PDT)
-Message-ID: <20170316.213737.1012464455308900056.davem@davemloft.net>
-References: <1489704199.28631.262.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] liquidio: fix wrong information about link
+ modes reported to ethtool
+Date: Thu, 16 Mar 2017 21:40:56 -0700 (PDT)
+Message-ID: <20170316.214056.1795199104687281989.davem@davemloft.net>
+References: <20170316231616.GA1819@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        manish.awasthi@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56688 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56888 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751284AbdCQEhl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 00:37:41 -0400
-In-Reply-To: <1489704199.28631.262.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1751173AbdCQEmS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 00:42:18 -0400
+In-Reply-To: <20170316231616.GA1819@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 16 Mar 2017 15:43:19 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Thu, 16 Mar 2017 16:16:17 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Manish Awasthi <manish.awasthi@cavium.com>
 > 
-> Commit b369e7fd41f7 ("tcp: make TCP_INFO more consistent") moved
-> lock_sock_fast() earlier in tcp_get_info()
+> Information reported to ethtool about link modes is wrong for 25G NIC.  Fix
+> it by checking for presence of 25G NIC, checking the link speed reported by
+> NIC firmware, and then assigning proper values to the
+> ethtool_link_ksettings struct.
 > 
-> This has the minor effect that jiffies value being sampled at the
-> beginning of tcp_get_info() is more likely to be off by one, and we
-> report big tcpi_last_data_sent values (like 0xFFFFFFFF).
-> 
-> Since we lock the socket, fetching tcp_time_stamp right before
-> doing the jiffies_to_msecs() calls is enough to remove these
-> wrong values.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Manish Awasthi <manish.awasthi@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
-Applied, thanks Eric.
+Applied.
