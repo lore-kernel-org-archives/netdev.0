@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 01/18] net, llc: convert llc_sap.refcnt from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 13:12:42 +0200
-Message-ID: <1489749179-12063-2-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 03/18] net, l2tp: convert l2tp_session.ref_count from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 13:12:44 +0200
+Message-ID: <1489749179-12063-4-git-send-email-elena.reshetova@intel.com>
 References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org,
         linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
@@ -31,52 +31,67 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/llc.h  | 6 +++---
- net/llc/llc_core.c | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/l2tp/l2tp_core.c |  2 +-
+ net/l2tp/l2tp_core.h | 10 +++++-----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/llc.h b/include/net/llc.h
-index e8e61d4..dc35f25 100644
---- a/include/net/llc.h
-+++ b/include/net/llc.h
-@@ -55,7 +55,7 @@ struct llc_sap {
- 	unsigned char	 state;
- 	unsigned char	 p_bit;
- 	unsigned char	 f_bit;
--	atomic_t         refcnt;
-+	refcount_t		 refcnt;
- 	int		 (*rcv_func)(struct sk_buff *skb,
- 				     struct net_device *dev,
- 				     struct packet_type *pt,
-@@ -113,14 +113,14 @@ struct llc_sap *llc_sap_open(unsigned char lsap,
- 					struct net_device *orig_dev));
- static inline void llc_sap_hold(struct llc_sap *sap)
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 37e9cf3..20ee848 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1796,7 +1796,7 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
+ 		/* Bump the reference count. The session context is deleted
+ 		 * only when this drops to zero.
+ 		 */
+-		l2tp_session_inc_refcount(session);
++		refcount_set(&session->ref_count, 1);
+ 		l2tp_tunnel_inc_refcount(tunnel);
+ 
+ 		/* Ensure tunnel socket isn't deleted */
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index b942854..568b721 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -99,7 +99,7 @@ struct l2tp_session {
+ 	int			nr_oos_count;	/* For OOS recovery */
+ 	int			nr_oos_count_max;
+ 	struct hlist_node	hlist;		/* Hash list node */
+-	atomic_t		ref_count;
++	refcount_t		ref_count;
+ 
+ 	char			name[32];	/* for logging */
+ 	char			ifname[IFNAMSIZ];
+@@ -271,12 +271,12 @@ int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+  */
+ static inline void l2tp_session_inc_refcount_1(struct l2tp_session *session)
  {
--	atomic_inc(&sap->refcnt);
-+	refcount_inc(&sap->refcnt);
+-	atomic_inc(&session->ref_count);
++	refcount_inc(&session->ref_count);
  }
  
- void llc_sap_close(struct llc_sap *sap);
- 
- static inline void llc_sap_put(struct llc_sap *sap)
+ static inline void l2tp_session_dec_refcount_1(struct l2tp_session *session)
  {
--	if (atomic_dec_and_test(&sap->refcnt))
-+	if (refcount_dec_and_test(&sap->refcnt))
- 		llc_sap_close(sap);
+-	if (atomic_dec_and_test(&session->ref_count))
++	if (refcount_dec_and_test(&session->ref_count))
+ 		l2tp_session_free(session);
  }
  
-diff --git a/net/llc/llc_core.c b/net/llc/llc_core.c
-index 842851c..8904126 100644
---- a/net/llc/llc_core.c
-+++ b/net/llc/llc_core.c
-@@ -41,7 +41,7 @@ static struct llc_sap *llc_sap_alloc(void)
- 		spin_lock_init(&sap->sk_lock);
- 		for (i = 0; i < LLC_SK_LADDR_HASH_ENTRIES; i++)
- 			INIT_HLIST_NULLS_HEAD(&sap->sk_laddr_hash[i], i);
--		atomic_set(&sap->refcnt, 1);
-+		refcount_set(&sap->refcnt, 1);
- 	}
- 	return sap;
- }
+@@ -285,14 +285,14 @@ static inline void l2tp_session_dec_refcount_1(struct l2tp_session *session)
+ do {									\
+ 	pr_debug("l2tp_session_inc_refcount: %s:%d %s: cnt=%d\n",	\
+ 		 __func__, __LINE__, (_s)->name,			\
+-		 atomic_read(&_s->ref_count));				\
++		 refcount_read(&_s->ref_count));			\
+ 	l2tp_session_inc_refcount_1(_s);				\
+ } while (0)
+ #define l2tp_session_dec_refcount(_s)					\
+ do {									\
+ 	pr_debug("l2tp_session_dec_refcount: %s:%d %s: cnt=%d\n",	\
+ 		 __func__, __LINE__, (_s)->name,			\
+-		 atomic_read(&_s->ref_count));				\
++		 refcount_read(&_s->ref_count));			\
+ 	l2tp_session_dec_refcount_1(_s);				\
+ } while (0)
+ #else
 -- 
 2.7.4
