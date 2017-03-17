@@ -1,70 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netem: apply correct delay when rate
- throttling
-Date: Thu, 16 Mar 2017 20:15:54 -0700 (PDT)
-Message-ID: <20170316.201554.1318233586227395731.davem@davemloft.net>
-References: <20170313171658.18606-1-sthemmin@microsoft.com>
+Subject: Re: [PATCH net] net/mlx4_core: Avoid delays during VF driver
+ device shutdown
+Date: Thu, 16 Mar 2017 20:16:00 -0700 (PDT)
+Message-ID: <20170316.201600.1967474925238950208.davem@davemloft.net>
+References: <1489426148-7906-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, njunger@uwaterloo.ca
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com,
+        jackm@dev.mellanox.co.il
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53340 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53346 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750970AbdCQDQ3 (ORCPT
+        with ESMTP id S1751081AbdCQDQ3 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:16:29 -0400
-In-Reply-To: <20170313171658.18606-1-sthemmin@microsoft.com>
+In-Reply-To: <1489426148-7906-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 13 Mar 2017 10:16:58 -0700
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Mon, 13 Mar 2017 19:29:08 +0200
 
-> From: Nik Unger <njunger@uwaterloo.ca>
+> From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 > 
-> I recently reported on the netem list that iperf network benchmarks
-> show unexpected results when a bandwidth throttling rate has been
-> configured for netem. Specifically:
+> Some Hypervisors detach VFs from VMs by instantly causing an FLR event
+> to be generated for a VF.
 > 
-> 1) The measured link bandwidth *increases* when a higher delay is added
-> 2) The measured link bandwidth appears higher than the specified limit
-> 3) The measured link bandwidth for the same very slow settings varies significantly across
->   machines
+> In the mlx4 case, this will cause that VF's comm channel to be disabled
+> before the VM has an opportunity to invoke the VF device's "shutdown"
+> method.
 > 
-> The issue can be reproduced by using tc to configure netem with a
-> 512kbit rate and various (none, 1us, 50ms, 100ms, 200ms) delays on a
-> veth pair between network namespaces, and then using iperf (or any
-> other network benchmarking tool) to test throughput. Complete detailed
-> instructions are in the original email chain here:
-> https://lists.linuxfoundation.org/pipermail/netem/2017-February/001672.html
+> For such Hypervisors, there is a race condition between the VF's
+> shutdown method and its internal-error detection/reset thread.
 > 
-> There appear to be two underlying bugs causing these effects:
+> The internal-error detection/reset thread (which runs every 5 seconds) also
+> detects a disabled comm channel. If the internal-error detection/reset
+> flow wins the race, we still get delays (while that flow tries repeatedly
+> to detect comm-channel recovery).
 > 
-> - The first issue causes long delays when the rate is slow and no
->   delay is configured (e.g., "rate 512kbit"). This is because SKBs are
->   not orphaned when no delay is configured, so orphaning does not
->   occur until *after* the rate-induced delay has been applied. For
->   this reason, adding a tiny delay (e.g., "rate 512kbit delay 1us")
->   dramatically increases the measured bandwidth.
+> The cited commit fixed the command timeout problem when the
+> internal-error detection/reset flow loses the race.
 > 
-> - The second issue is that rate-induced delays are not correctly
->   applied, allowing SKB delays to occur in parallel. The indended
->   approach is to compute the delay for an SKB and to add this delay to
->   the end of the current queue. However, the code does not detect
->   existing SKBs in the queue due to improperly testing sch->q.qlen,
->   which is nonzero even when packets exist only in the
->   rbtree. Consequently, new SKBs do not wait for the current queue to
->   empty. When packet delays vary significantly (e.g., if packet sizes
->   are different), then this also causes unintended reordering.
+> This commit avoids the unneeded delays when the internal-error
+> detection/reset flow wins.
 > 
-> I modified the code to expect a delay (and orphan the SKB) when a rate
-> is configured. I also added some defensive tests that correctly find
-> the latest scheduled delivery time, even if it is (unexpectedly) for a
-> packet in sch->q. I have tested these changes on the latest kernel
-> (4.11.0-rc1+) and the iperf / ping test results are as expected.
-> 
-> Signed-off-by: Nik Unger <njunger@uwaterloo.ca>
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Fixes: d585df1c5ccf ("net/mlx4_core: Avoid command timeouts during VF driver device shutdown")
+> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> Reported-by: Simon Xiao <sixiao@microsoft.com>
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 
 Applied.
