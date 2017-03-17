@@ -1,24 +1,24 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 16/23] net, sctp: convert sctp_auth_bytes.refcnt from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 14:10:39 +0200
-Message-ID: <1489752646-8749-17-git-send-email-elena.reshetova@intel.com>
+From: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 22/23] net, ax25: convert ax25_route.refcount from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 14:10:45 +0200
+Message-ID: <1489752646-8749-23-git-send-email-elena.reshetova@intel.com>
 References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org,
-        davem@davemloft.net, linux-x25@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-hams@vger.kernel.org,
-        linux-nfs@vger.kernel.org, ceph-devel@vger.kernel.org,
-        zyan@redhat.com, sage@redhat.com, bfields@fieldses.org,
-        jlayton@poochiereds.net, steffen.klassert@secunet.com,
-        herbert@gondor.apana.org.au, santosh.shilimkar@oracle.com,
-        jreuter@yaina.de, ralf@linux-mips.org, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-x25-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        zyan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sage-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+        jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+        herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+        jreuter-K7Hl1MveuGQ@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+        keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489752646-8749-1-git-send-email-elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -27,66 +27,62 @@ a reference counter. This allows to avoid accidental
 refcounter overflows that might lead to use-after-free
 situations.
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
+Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/sctp/auth.h | 5 +++--
- net/sctp/auth.c         | 4 ++--
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ include/net/ax25.h    | 6 +++---
+ net/ax25/ax25_route.c | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/sctp/auth.h b/include/net/sctp/auth.h
-index 9b9fb12..328fccc 100644
---- a/include/net/sctp/auth.h
-+++ b/include/net/sctp/auth.h
-@@ -31,6 +31,7 @@
- #define __sctp_auth_h__
+diff --git a/include/net/ax25.h b/include/net/ax25.h
+index edd82f0..e3467ba 100644
+--- a/include/net/ax25.h
++++ b/include/net/ax25.h
+@@ -185,7 +185,7 @@ typedef struct {
  
- #include <linux/list.h>
-+#include <linux/refcount.h>
+ typedef struct ax25_route {
+ 	struct ax25_route	*next;
+-	atomic_t		refcount;
++	refcount_t		refcount;
+ 	ax25_address		callsign;
+ 	struct net_device	*dev;
+ 	ax25_digi		*digipeat;
+@@ -194,14 +194,14 @@ typedef struct ax25_route {
  
- struct sctp_endpoint;
- struct sctp_association;
-@@ -53,7 +54,7 @@ struct sctp_hmac {
-  * over SCTP-AUTH
-  */
- struct sctp_auth_bytes {
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 	__u32 len;
- 	__u8  data[];
- };
-@@ -76,7 +77,7 @@ static inline void sctp_auth_key_hold(struct sctp_auth_bytes *key)
- 	if (!key)
- 		return;
- 
--	atomic_inc(&key->refcnt);
-+	refcount_inc(&key->refcnt);
+ static inline void ax25_hold_route(ax25_route *ax25_rt)
+ {
+-	atomic_inc(&ax25_rt->refcount);
++	refcount_inc(&ax25_rt->refcount);
  }
  
- void sctp_auth_key_put(struct sctp_auth_bytes *key);
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index f99d485..b6c98fe 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -63,7 +63,7 @@ void sctp_auth_key_put(struct sctp_auth_bytes *key)
- 	if (!key)
- 		return;
+ void __ax25_put_route(ax25_route *ax25_rt);
  
--	if (atomic_dec_and_test(&key->refcnt)) {
-+	if (refcount_dec_and_test(&key->refcnt)) {
- 		kzfree(key);
- 		SCTP_DBG_OBJCNT_DEC(keys);
+ static inline void ax25_put_route(ax25_route *ax25_rt)
+ {
+-	if (atomic_dec_and_test(&ax25_rt->refcount))
++	if (refcount_dec_and_test(&ax25_rt->refcount))
+ 		__ax25_put_route(ax25_rt);
+ }
+ 
+diff --git a/net/ax25/ax25_route.c b/net/ax25/ax25_route.c
+index e1fda27..0446b89 100644
+--- a/net/ax25/ax25_route.c
++++ b/net/ax25/ax25_route.c
+@@ -114,7 +114,7 @@ static int __must_check ax25_rt_add(struct ax25_routes_struct *route)
+ 		return -ENOMEM;
  	}
-@@ -84,7 +84,7 @@ static struct sctp_auth_bytes *sctp_auth_create_key(__u32 key_len, gfp_t gfp)
- 		return NULL;
  
- 	key->len = key_len;
--	atomic_set(&key->refcnt, 1);
-+	refcount_set(&key->refcnt, 1);
- 	SCTP_DBG_OBJCNT_INC(keys);
- 
- 	return key;
+-	atomic_set(&ax25_rt->refcount, 1);
++	refcount_set(&ax25_rt->refcount, 1);
+ 	ax25_rt->callsign     = route->dest_addr;
+ 	ax25_rt->dev          = ax25_dev->dev;
+ 	ax25_rt->digipeat     = NULL;
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
