@@ -1,25 +1,29 @@
-From: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 22/23] net, ax25: convert ax25_route.refcount from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 14:10:45 +0200
-Message-ID: <1489752646-8749-23-git-send-email-elena.reshetova@intel.com>
+From: Elena Reshetova <elena.reshetova@intel.com>
+Subject: [PATCH 09/23] net, rds: convert rds_mr.r_refcount from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 14:10:32 +0200
+Message-ID: <1489752646-8749-10-git-send-email-elena.reshetova@intel.com>
 References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-x25-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        zyan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sage-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-        jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
-        herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-        jreuter-K7Hl1MveuGQ@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-        keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1489752646-8749-1-git-send-email-elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org,
+        davem@davemloft.net, linux-x25@vger.kernel.org,
+        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+        nhorman@tuxdriver.com, linux-hams@vger.kernel.org,
+        linux-nfs@vger.kernel.org, ceph-devel@vger.kernel.org,
+        zyan@redhat.com, sage@redhat.com, bfields@fieldses.org,
+        jlayton@poochiereds.net, steffen.klassert@secunet.com,
+        herbert@gondor.apana.org.au, santosh.shilimkar@oracle.com,
+        jreuter@yaina.de, ralf@linux-mips.org, peterz@infradead.org,
+        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:20894 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751102AbdCQMQu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 08:16:50 -0400
+In-Reply-To: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -27,62 +31,85 @@ a reference counter. This allows to avoid accidental
 refcounter overflows that might lead to use-after-free
 situations.
 
-Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/ax25.h    | 6 +++---
- net/ax25/ax25_route.c | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/rds/rdma.c | 10 +++++-----
+ net/rds/rds.h  |  4 ++--
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/ax25.h b/include/net/ax25.h
-index edd82f0..e3467ba 100644
---- a/include/net/ax25.h
-+++ b/include/net/ax25.h
-@@ -185,7 +185,7 @@ typedef struct {
- 
- typedef struct ax25_route {
- 	struct ax25_route	*next;
--	atomic_t		refcount;
-+	refcount_t		refcount;
- 	ax25_address		callsign;
- 	struct net_device	*dev;
- 	ax25_digi		*digipeat;
-@@ -194,14 +194,14 @@ typedef struct ax25_route {
- 
- static inline void ax25_hold_route(ax25_route *ax25_rt)
- {
--	atomic_inc(&ax25_rt->refcount);
-+	refcount_inc(&ax25_rt->refcount);
+diff --git a/net/rds/rdma.c b/net/rds/rdma.c
+index f06fac4..8886f15 100644
+--- a/net/rds/rdma.c
++++ b/net/rds/rdma.c
+@@ -84,7 +84,7 @@ static struct rds_mr *rds_mr_tree_walk(struct rb_root *root, u64 key,
+ 	if (insert) {
+ 		rb_link_node(&insert->r_rb_node, parent, p);
+ 		rb_insert_color(&insert->r_rb_node, root);
+-		atomic_inc(&insert->r_refcount);
++		refcount_inc(&insert->r_refcount);
+ 	}
+ 	return NULL;
  }
+@@ -99,7 +99,7 @@ static void rds_destroy_mr(struct rds_mr *mr)
+ 	unsigned long flags;
  
- void __ax25_put_route(ax25_route *ax25_rt);
+ 	rdsdebug("RDS: destroy mr key is %x refcnt %u\n",
+-			mr->r_key, atomic_read(&mr->r_refcount));
++			mr->r_key, refcount_read(&mr->r_refcount));
  
- static inline void ax25_put_route(ax25_route *ax25_rt)
- {
--	if (atomic_dec_and_test(&ax25_rt->refcount))
-+	if (refcount_dec_and_test(&ax25_rt->refcount))
- 		__ax25_put_route(ax25_rt);
- }
- 
-diff --git a/net/ax25/ax25_route.c b/net/ax25/ax25_route.c
-index e1fda27..0446b89 100644
---- a/net/ax25/ax25_route.c
-+++ b/net/ax25/ax25_route.c
-@@ -114,7 +114,7 @@ static int __must_check ax25_rt_add(struct ax25_routes_struct *route)
- 		return -ENOMEM;
+ 	if (test_and_set_bit(RDS_MR_DEAD, &mr->r_state))
+ 		return;
+@@ -223,7 +223,7 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
+ 		goto out;
  	}
  
--	atomic_set(&ax25_rt->refcount, 1);
-+	refcount_set(&ax25_rt->refcount, 1);
- 	ax25_rt->callsign     = route->dest_addr;
- 	ax25_rt->dev          = ax25_dev->dev;
- 	ax25_rt->digipeat     = NULL;
+-	atomic_set(&mr->r_refcount, 1);
++	refcount_set(&mr->r_refcount, 1);
+ 	RB_CLEAR_NODE(&mr->r_rb_node);
+ 	mr->r_trans = rs->rs_transport;
+ 	mr->r_sock = rs;
+@@ -307,7 +307,7 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
+ 
+ 	rdsdebug("RDS: get_mr key is %x\n", mr->r_key);
+ 	if (mr_ret) {
+-		atomic_inc(&mr->r_refcount);
++		refcount_inc(&mr->r_refcount);
+ 		*mr_ret = mr;
+ 	}
+ 
+@@ -756,7 +756,7 @@ int rds_cmsg_rdma_dest(struct rds_sock *rs, struct rds_message *rm,
+ 	if (!mr)
+ 		err = -EINVAL;	/* invalid r_key */
+ 	else
+-		atomic_inc(&mr->r_refcount);
++		refcount_inc(&mr->r_refcount);
+ 	spin_unlock_irqrestore(&rs->rs_rdma_lock, flags);
+ 
+ 	if (mr) {
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index d8070c7..7487597 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -276,7 +276,7 @@ struct rds_incoming {
+ 
+ struct rds_mr {
+ 	struct rb_node		r_rb_node;
+-	atomic_t		r_refcount;
++	refcount_t		r_refcount;
+ 	u32			r_key;
+ 
+ 	/* A copy of the creation flags */
+@@ -855,7 +855,7 @@ int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
+ void __rds_put_mr_final(struct rds_mr *mr);
+ static inline void rds_mr_put(struct rds_mr *mr)
+ {
+-	if (atomic_dec_and_test(&mr->r_refcount))
++	if (refcount_dec_and_test(&mr->r_refcount))
+ 		__rds_put_mr_final(mr);
+ }
+ 
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
