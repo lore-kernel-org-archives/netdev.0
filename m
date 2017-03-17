@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 11/18] net, bridge: convert net_bridge_vlan.refcnt from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 13:12:52 +0200
-Message-ID: <1489749179-12063-12-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 14/18] net, lapb: convert lapb_cb.refcnt from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 13:12:55 +0200
+Message-ID: <1489749179-12063-15-git-send-email-elena.reshetova@intel.com>
 References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org,
         linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
@@ -15,10 +15,14 @@ Cc: linux-kernel@vger.kernel.org,
         Hans Liljestrand <ishkamiel@gmail.com>,
         David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:3494 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751425AbdCQLPu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 07:15:50 -0400
 In-Reply-To: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -31,70 +35,58 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- net/bridge/br_private.h | 3 ++-
- net/bridge/br_vlan.c    | 8 ++++----
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ include/net/lapb.h    | 3 ++-
+ net/lapb/lapb_iface.c | 6 +++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 2288fca..16cb470 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -21,6 +21,7 @@
- #include <net/ip6_fib.h>
- #include <linux/if_vlan.h>
- #include <linux/rhashtable.h>
+diff --git a/include/net/lapb.h b/include/net/lapb.h
+index 9510f87..85e7737 100644
+--- a/include/net/lapb.h
++++ b/include/net/lapb.h
+@@ -1,6 +1,7 @@
+ #ifndef _LAPB_H
+ #define _LAPB_H 
+ #include <linux/lapb.h>
 +#include <linux/refcount.h>
  
- #define BR_HASH_BITS 8
- #define BR_HASH_SIZE (1 << BR_HASH_BITS)
-@@ -127,7 +128,7 @@ struct net_bridge_vlan {
- 		struct net_bridge_port	*port;
- 	};
- 	union {
--		atomic_t		refcnt;
-+		refcount_t		refcnt;
- 		struct net_bridge_vlan	*brvlan;
- 	};
+ #define	LAPB_HEADER_LEN	20		/* LAPB over Ethernet + a bit more */
  
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 62e68c0..e4e9e1a 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -158,7 +158,7 @@ static struct net_bridge_vlan *br_vlan_get_master(struct net_bridge *br, u16 vid
- 		if (WARN_ON(!masterv))
- 			return NULL;
- 	}
--	atomic_inc(&masterv->refcnt);
-+	refcount_inc(&masterv->refcnt);
+@@ -101,7 +102,7 @@ struct lapb_cb {
+ 	struct lapb_frame	frmr_data;
+ 	unsigned char		frmr_type;
  
- 	return masterv;
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ };
+ 
+ /* lapb_iface.c */
+diff --git a/net/lapb/lapb_iface.c b/net/lapb/lapb_iface.c
+index b50b64a..e15314e 100644
+--- a/net/lapb/lapb_iface.c
++++ b/net/lapb/lapb_iface.c
+@@ -54,12 +54,12 @@ static void lapb_free_cb(struct lapb_cb *lapb)
+ 
+ static __inline__ void lapb_hold(struct lapb_cb *lapb)
+ {
+-	atomic_inc(&lapb->refcnt);
++	refcount_inc(&lapb->refcnt);
  }
-@@ -182,7 +182,7 @@ static void br_vlan_put_master(struct net_bridge_vlan *masterv)
- 		return;
  
- 	vg = br_vlan_group(masterv->br);
--	if (atomic_dec_and_test(&masterv->refcnt)) {
-+	if (refcount_dec_and_test(&masterv->refcnt)) {
- 		rhashtable_remove_fast(&vg->vlan_hash,
- 				       &masterv->vnode, br_vlan_rht_params);
- 		__vlan_del_list(masterv);
-@@ -573,7 +573,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
- 				br_err(br, "failed insert local address into bridge forwarding table\n");
- 				return ret;
- 			}
--			atomic_inc(&vlan->refcnt);
-+			refcount_inc(&vlan->refcnt);
- 			vlan->flags |= BRIDGE_VLAN_INFO_BRENTRY;
- 			vg->num_vlans++;
- 		}
-@@ -595,7 +595,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
- 	vlan->flags &= ~BRIDGE_VLAN_INFO_PVID;
- 	vlan->br = br;
- 	if (flags & BRIDGE_VLAN_INFO_BRENTRY)
--		atomic_set(&vlan->refcnt, 1);
-+		refcount_set(&vlan->refcnt, 1);
- 	ret = __vlan_add(vlan, flags);
- 	if (ret) {
- 		free_percpu(vlan->stats);
+ static __inline__ void lapb_put(struct lapb_cb *lapb)
+ {
+-	if (atomic_dec_and_test(&lapb->refcnt))
++	if (refcount_dec_and_test(&lapb->refcnt))
+ 		lapb_free_cb(lapb);
+ }
+ 
+@@ -136,7 +136,7 @@ static struct lapb_cb *lapb_create_cb(void)
+ 	lapb->mode    = LAPB_DEFAULT_MODE;
+ 	lapb->window  = LAPB_DEFAULT_WINDOW;
+ 	lapb->state   = LAPB_STATE_0;
+-	atomic_set(&lapb->refcnt, 1);
++	refcount_set(&lapb->refcnt, 1);
+ out:
+ 	return lapb;
+ }
 -- 
 2.7.4
