@@ -1,65 +1,45 @@
-From: Andreas Gruenbacher <agruenba@redhat.com>
-Subject: [PATCH] rhashtable: Add
-	rhashtable_lookup_get_insert_fast
-Date: Sat, 18 Mar 2017 00:36:15 +0100
-Message-ID: <1489793775-25152-1-git-send-email-agruenba@redhat.com>
-Cc: netdev@vger.kernel.org, cluster-devel@redhat.com,
-	Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: linux-kernel@vger.kernel.org
-Return-path: <cluster-devel-bounces@redhat.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/options/cluster-devel>,
-	<mailto:cluster-devel-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/cluster-devel>
-List-Post: <mailto:cluster-devel@redhat.com>
-List-Help: <mailto:cluster-devel-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/cluster-devel>,
-	<mailto:cluster-devel-request@redhat.com?subject=subscribe>
-Sender: cluster-devel-bounces@redhat.com
-Errors-To: cluster-devel-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2] ip route: Add missing space between nexthop and via for mpls multipath routes
+Date: Fri, 17 Mar 2017 16:39:14 -0700
+Message-ID: <1489793954-10667-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:34177 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751087AbdCRAPc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 20:15:32 -0400
+Received: by mail-pf0-f170.google.com with SMTP id p189so20661681pfp.1
+        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 17:14:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add rhashtable_lookup_get_insert_fast for fixed keys, similar to
-rhashtable_lookup_get_insert_key for explicit keys.
+MPLS multipath routes are missing a space between 'nexthop' and 'via':
 
-Signed-off-by: Andreas Gruenbacher <agruenba@redhat.com>
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+$ ip -net ns1 -f mpls ro ls
+100
+	nexthopvia inet 172.16.2.2  dev virt12
+	nexthopvia inet 172.16.3.2  dev br0
+
+Add it.
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/linux/rhashtable.h | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ ip/iproute.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 092292b..e507290 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -916,6 +916,28 @@ static inline int rhashtable_lookup_insert_fast(
- }
+diff --git a/ip/iproute.c b/ip/iproute.c
+index a7296dca8b91..7cdf0726feb3 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -655,7 +655,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 					size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
+ 					struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
  
- /**
-+ * rhashtable_lookup_get_insert_fast - lookup and insert object into hash table
-+ * @ht:		hash table
-+ * @obj:	pointer to hash head inside object
-+ * @params:	hash table parameters
-+ *
-+ * Just like rhashtable_lookup_insert_fast(), but this function returns the
-+ * object if it exists, NULL if it did not and the insertion was successful,
-+ * and an ERR_PTR otherwise.
-+ */
-+static inline void *rhashtable_lookup_get_insert_fast(
-+	struct rhashtable *ht, struct rhash_head *obj,
-+	const struct rhashtable_params params)
-+{
-+	const char *key = rht_obj(ht, obj);
-+
-+	BUG_ON(ht->p.obj_hashfn);
-+
-+	return __rhashtable_insert_fast(ht, key + ht->p.key_offset, obj, params,
-+					false);
-+}
-+
-+/**
-  * rhashtable_lookup_insert_key - search and insert object to hash table
-  *				  with explicit key
-  * @ht:		hash table
+-					fprintf(fp, "via %s %s ",
++					fprintf(fp, " via %s %s ",
+ 						family_name(via->rtvia_family),
+ 						format_host(via->rtvia_family, len, via->rtvia_addr));
+ 				}
 -- 
-2.7.4
+2.1.4
