@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: sun: sungem: rix a possible null dereference
-Date: Thu, 16 Mar 2017 20:38:38 -0700 (PDT)
-Message-ID: <20170316.203838.1381913035641014041.davem@davemloft.net>
-References: <1489614673-12595-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH] net: ipv6: set route type for anycast routes
+Date: Thu, 16 Mar 2017 20:41:11 -0700 (PDT)
+Message-ID: <20170316.204111.427731399512369532.davem@davemloft.net>
+References: <1489626873-5371-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, jarod@redhat.com,
-        felipe.balbi@linux.intel.com, edumazet@google.com, fw@strlen.de,
-        sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54324 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54444 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752431AbdCQDk2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:40:28 -0400
-In-Reply-To: <1489614673-12595-1-git-send-email-tremyfr@gmail.com>
+        with ESMTP id S1751930AbdCQDlN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:41:13 -0400
+In-Reply-To: <1489626873-5371-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Wed, 15 Mar 2017 22:51:13 +0100
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 15 Mar 2017 18:14:33 -0700
 
-> The function gem_begin_auto_negotiation dereference
-> the pointer ep before testing if it's null. This
-> patch add a check on ep before dereferencing it.
+> Anycast routes have the RTF_ANYCAST flag set, but when dumping routes
+> for userspace the route type is not set to RTN_ANYCAST. Make it so.
 > 
-> Fixes: 92552fdd557 ("net: sun: sungem: use new api
+> Fixes: 58c4fb86eabcb ("[IPV6]: Flag RTF_ANYCAST for anycast routes")
+> CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-[davem@localhost net-next]$ git describe 92552fdd557
-fatal: Not a valid object name 92552fdd557
-[davem@localhost net-next]$
-
-I don't know where you got that SHA1-ID, but it's not the one that
-was actually used.
-
-It is advised that you use Linus's or one of my GIT trees to find the
-proper commit IDs.
+Good catch, applied, thanks.
