@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 21/23] net, ax25: convert ax25_uid_assoc.refcount from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 14:10:44 +0200
-Message-ID: <1489752646-8749-22-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 18/23] net, sctp: convert sctp_chunk.refcnt from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 14:10:41 +0200
+Message-ID: <1489752646-8749-19-git-send-email-elena.reshetova@intel.com>
 References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-x25-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -32,58 +32,51 @@ Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.o
 Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/ax25.h  | 8 ++++----
- net/ax25/ax25_uid.c | 2 +-
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ include/net/sctp/structs.h | 2 +-
+ net/sctp/sm_make_chunk.c   | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ax25.h b/include/net/ax25.h
-index e602f81..edd82f0 100644
---- a/include/net/ax25.h
-+++ b/include/net/ax25.h
-@@ -11,7 +11,7 @@
- #include <linux/timer.h>
- #include <linux/list.h>
- #include <linux/slab.h>
--#include <linux/atomic.h>
-+#include <linux/refcount.h>
- #include <net/neighbour.h>
- #include <net/sock.h>
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 106e1d3..7ee0c26 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -520,7 +520,7 @@ int sctp_chunk_abandoned(struct sctp_chunk *);
+ struct sctp_chunk {
+ 	struct list_head list;
  
-@@ -158,7 +158,7 @@ enum {
+-	atomic_t refcnt;
++	refcount_t refcnt;
  
- typedef struct ax25_uid_assoc {
- 	struct hlist_node	uid_node;
--	atomic_t		refcount;
-+	refcount_t		refcount;
- 	kuid_t			uid;
- 	ax25_address		call;
- } ax25_uid_assoc;
-@@ -167,11 +167,11 @@ typedef struct ax25_uid_assoc {
- 	hlist_for_each_entry(__ax25, list, uid_node)
+ 	/* How many times this chunk have been sent, for prsctp RTX policy */
+ 	int sent_count;
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 969a30c..a54add6 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1346,7 +1346,7 @@ struct sctp_chunk *sctp_chunkify(struct sk_buff *skb,
+ 	INIT_LIST_HEAD(&retval->transmitted_list);
+ 	INIT_LIST_HEAD(&retval->frag_list);
+ 	SCTP_DBG_OBJCNT_INC(chunk);
+-	atomic_set(&retval->refcnt, 1);
++	refcount_set(&retval->refcnt, 1);
  
- #define ax25_uid_hold(ax25) \
--	atomic_inc(&((ax25)->refcount))
-+	refcount_inc(&((ax25)->refcount))
- 
- static inline void ax25_uid_put(ax25_uid_assoc *assoc)
+ nodata:
+ 	return retval;
+@@ -1459,13 +1459,13 @@ void sctp_chunk_free(struct sctp_chunk *chunk)
+ /* Grab a reference to the chunk. */
+ void sctp_chunk_hold(struct sctp_chunk *ch)
  {
--	if (atomic_dec_and_test(&assoc->refcount)) {
-+	if (refcount_dec_and_test(&assoc->refcount)) {
- 		kfree(assoc);
- 	}
+-	atomic_inc(&ch->refcnt);
++	refcount_inc(&ch->refcnt);
  }
-diff --git a/net/ax25/ax25_uid.c b/net/ax25/ax25_uid.c
-index 0403b0d..83b035f 100644
---- a/net/ax25/ax25_uid.c
-+++ b/net/ax25/ax25_uid.c
-@@ -107,7 +107,7 @@ int ax25_uid_ioctl(int cmd, struct sockaddr_ax25 *sax)
- 		if ((ax25_uid = kmalloc(sizeof(*ax25_uid), GFP_KERNEL)) == NULL)
- 			return -ENOMEM;
  
--		atomic_set(&ax25_uid->refcount, 1);
-+		refcount_set(&ax25_uid->refcount, 1);
- 		ax25_uid->uid  = sax25_kuid;
- 		ax25_uid->call = sax->sax25_call;
+ /* Release a reference to the chunk. */
+ void sctp_chunk_put(struct sctp_chunk *ch)
+ {
+-	if (atomic_dec_and_test(&ch->refcnt))
++	if (refcount_dec_and_test(&ch->refcnt))
+ 		sctp_chunk_destroy(ch);
+ }
  
 -- 
 2.7.4
