@@ -1,102 +1,107 @@
-From: Akshay Bhat <akshay.bhat@timesys.com>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Fri, 17 Mar 2017 12:00:32 -0400
-Message-ID: <0362316b-ef76-1733-dbfc-8b644f758db9@timesys.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
- <234d9e75-0083-b8b4-c781-add653fdb550@grandegger.com>
- <b3ebb569-b50c-39ad-dec5-0059fbfba8fb@timesys.com>
- <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
- <3dbf8748-9d04-0f21-0e95-448d7a72e7d5@timesys.com>
- <41439729-42d0-d883-2801-2d3607f2aeab@grandegger.com>
- <CANiP4c8WMeT1Cr7WDXew1ne7DFR04oaA8Uch0zvyyOf5yCa37A@mail.gmail.com>
- <3dba0948-ffcb-8e80-fb32-62bb0aca6627@grandegger.com>
- <54d9a104-8ed1-4bb3-666e-042d3781dbfb@timesys.com>
- <006d9e14-47bf-1add-97c3-24098b43267f@grandegger.com>
- <69173747-cc2e-55f7-acad-4b5ba2a22863@timesys.com>
- <d5182e77-c243-1980-4cb6-39cd95075f4f@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+ atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 09:13:16 -0700
+Message-ID: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1489678147-21404-8-git-send-email-elena.reshetova@intel.com>
+	<1489683534.28631.231.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAGXu5jJpFwiDR_o=oarN_2vDr56cwQ=Bg-5NikUmDtxtzWnAcQ@mail.gmail.com>
+	<20170316.121032.405930218798336643.davem@davemloft.net>
+	<2236FBA76BA1254E88B949DDB74E612B41C5A53B@IRSMSX102.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: mkl@pengutronix.de, linux-can@vger.kernel.org,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Wolfgang Grandegger <wg@grandegger.com>,
-        Akshay Bhat <nodeax@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d5182e77-c243-1980-4cb6-39cd95075f4f@grandegger.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "keescook@chromium.org" <keescook@chromium.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"ishkamiel@gmail.com" <ishkamiel@gmail.com>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	David Miller <davem@davemloft.net>,
+	"dwindsor@gmail.com" <dwindsor@gmail.com>
+To: "Reshetova, Elena" <elena.reshetova@intel.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <2236FBA76BA1254E88B949DDB74E612B41C5A53B@IRSMSX102.ger.corp.intel.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Wolfgang,
+On Fri, 2017-03-17 at 07:42 +0000, Reshetova, Elena wrote:
 
-On 03/17/2017 03:39 AM, Wolfgang Grandegger wrote:
-> Hello Akshay,
-> 
-> Am 16.03.2017 um 23:29 schrieb Akshay Bhat:
->> Hi Wolfgang,
->>
->> On 03/16/2017 04:02 PM, Wolfgang Grandegger wrote:
->>>
->>> Looks much better now! There are message for state changes to error
->>> warning and passive. Just the following message is not correct:
->>>
->>>  (000.200824)  can0  20000004   [8]  00 40 00 00 00 00 5F 19  
->>> ERRORFRAME
->>>     controller-problem{}
->>>     error-counter-tx-rx{{95}{25}}
->>>
->>> Sorry, forgot to mention... the function can_change_state() [1]
->>> should be used for that purpose, if possible. It fixes the issue
->>> above as well.
->>>
->>
->> The updated driver (the one used to create the above log) is using
->> can_change_state() function. data[1] 40 corresponds to
->> CAN_ERR_CRTL_ACTIVE, so looks correct? Could it be that the can-utils I
->> am using is old and not reporting state change?
-> 
-> Hm, yes. The raw data looks correct. You could download and build a
-> recent version from "https://github.com/linux-can/can-utils" to check.
-> It could also be a bug.
-> 
+> Should we then first measure the actual numbers to understand what we
+> are talking here about? 
+> I would be glad to do it if you suggest what is the correct way to do
+> measurements here to actually reflect the real life use cases. 
 
-Turned out to be a old version of can-utils. Using the above git tree
-reports the flag.
+How have these patches been tested in real life exactly ?
 
- (000.200308)  can0  20000004   [8]  00 40 00 00 00 00 5F 00   ERRORFRAME
-        controller-problem{back-to-error-active}
-        error-counter-tx-rx{{95}{0}}
+Can you quantify number of added cycles per TCP packet, where I expect
+we have maybe 20 atomic operations in all layers ...
 
->> Enabling BUSOFF/ERRP/ERRW bits in STATFE did not generate any interrupts
->> on the INT pin. Should we make it a requirement that both INT and STAT
->> pins need to be connected in hardware for the driver to do the error
->> reporting?
-> 
-> As I said, it's the better solution, especially if interrupt flooding
-> does harm. How does your system behave when bus errors come in due to no
-> cable connected?
->
 
-I did not see any issues on the system with the cable disconnected. In
-my particular setup with the cable disconnected the system goes to
-tx-error-passive and does not get any further interrupts until a state
-change occurs.
+(sk refcnt, skb->users, page refcounts, sk->sk_wmem_alloc,
+sk->sk_rmem_alloc, qdisc ...)
 
-> So far using NAPI was mandatory. There is the problem of out-of-order
-> message reception if handled in the isr on multi processor systems.
-> Marc, what is the current policy?
-> 
+Once we 'protect' all of them, cost will be quite high.
 
-Since this is a SPI based CAN, I am wary for any additional latencies
-NAPI might introduce. The RX handling is being done at the very
-beginning of the ISR for this reason.
+This translates to more fossil fuel being burnt.
 
-Can we go ahead with the existing implementation and re-visit this at a
-later time?
+one atomic_inc() used to be a single x86 instruction.
 
-Thanks again for all your help in reviewing/improving the driver :)
+Rough estimate of refcount_inc() :
 
-Akshay
+0000000000000140 <refcount_inc>:
+ 140:	55                   	push   %rbp
+ 141:	48 89 e5             	mov    %rsp,%rbp
+ 144:	e8 00 00 00 00       	callq  refcount_inc_not_zero
+ 149:	84 c0                	test   %al,%al
+ 14b:	74 02                	je     14f <refcount_inc+0xf>
+ 14d:	5d                   	pop    %rbp
+ 14e:	c3                   	retq   
 
-> Wolfgang.
+00000000000000e0 <refcount_inc_not_zero>:
+  e0:	8b 17                	mov    (%rdi),%edx
+  e2:	eb 10                	jmp    f4 <refcount_inc_not_zero+0x14>
+  e4:	85 c9                	test   %ecx,%ecx
+  e6:	74 1b                	je     103 <refcount_inc_not_zero+0x23>
+  e8:	89 d0                	mov    %edx,%eax
+  ea:	f0 0f b1 0f          	lock cmpxchg %ecx,(%rdi)
+  ee:	39 d0                	cmp    %edx,%eax
+  f0:	74 0c                	je     fe <refcount_inc_not_zero+0x1e>
+  f2:	89 c2                	mov    %eax,%edx
+  f4:	85 d2                	test   %edx,%edx
+  f6:	8d 4a 01             	lea    0x1(%rdx),%ecx
+  f9:	75 e9                	jne    e4 <refcount_inc_not_zero+0x4>
+  fb:	31 c0                	xor    %eax,%eax
+  fd:	c3                   	retq   
+  fe:	83 f9 ff             	cmp    $0xffffffff,%ecx
+ 101:	74 06                	je     109 <refcount_inc_not_zero+0x29>
+ 103:	b8 01 00 00 00       	mov    $0x1,%eax
+ 108:	c3                   	retq   
+
+This is simply bloat for most cases.
+
+Again, I believe this infrastructure makes sense for debugging kernels.
+
+If some vendors are willing to run fully enabled debug kernels,
+that is their choice. Probably many devices wont show any difference.
+
+Have we forced KASAN being enabled in linux kernel, just because
+it found ~400 bugs so far ?
+
+I believe refcount_t infra is not mature enough to be widely used
+right now.
+
+Maybe in few months when we have more flexibility, like existing
+debugging facilities (CONFIG_DEBUG_PAGEALLOC, CONFIG_DEBUG_PAGE_REF,
+LOCKDEP, KMEMLEAK, KASAN, ...)
