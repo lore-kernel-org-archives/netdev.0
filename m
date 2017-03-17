@@ -1,65 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] sch_dsmark: fix invalid skb_cow() usage
-Date: Fri, 17 Mar 2017 08:05:28 -0700
-Message-ID: <1489763128.28631.286.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rodrigo venancio <smithrichand50@gmail.com>
+Subject: De groeten
+Date: Fri, 17 Mar 2017 16:15:07 +0100
+Message-ID: <CADSuP7oj4PwP2MmkkE+fdA_U=UxS=NOxTn0Swk2DJprbaHjOzQ__40556.0473366224$1489763754$gmane$org@mail.gmail.com>
+Reply-To: rodrigolawfirm000@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34964 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751311AbdCQPGF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 11:06:05 -0400
-Received: by mail-pg0-f66.google.com with SMTP id g2so10201162pge.2
-        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 08:05:30 -0700 (PDT)
+Received: from mail-it0-f67.google.com ([209.85.214.67]:34762 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751065AbdCQPPn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 11:15:43 -0400
+Received: by mail-it0-f67.google.com with SMTP id r141so4560639ita.1
+        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 08:15:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+De groeten
 
-skb_cow(skb, sizeof(ip header)) is not very helpful in this context.
+In een korte inleiding, ik ben advocaat Rodrigo Venancio, uit Portugal
+maar momenteel woonachtig in Londen, ik stuurde u een e-mail met
+betrekking tot uw
+overleden familielid, maar ik heb geen reactie van u ontvangen,
+overledene is een burger van uw land met dezelfde achternaam met
+je, hij is een exporteur van goud hier in Londen,
 
-First we need to use pskb_may_pull() to make sure the ip header
-is in skb linear part, then use skb_try_make_writable() to
-address clones issues.
+uw Brother stierf een paar jaar geleden met zijn familie, het verlaten
+van zijn bedrijf
+en enorme hoeveelheden geld gestort in UBS Investment Bank hier in
+Londen,
 
-Fixes: 4c30719f4f55 ("[PKT_SCHED] dsmark: handle cloned and non-linear skb's")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_dsmark.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 802ac7c2e5e87eed1341ba4c09d3e5d70bc75876..5334e309f17f0ef4416dddcdc9278c14ecb5585d 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -201,9 +201,13 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 	pr_debug("%s(skb %p,sch %p,[qdisc %p])\n", __func__, skb, sch, p);
- 
- 	if (p->set_tc_index) {
-+		int wlen = skb_network_offset(skb);
-+
- 		switch (tc_skb_protocol(skb)) {
- 		case htons(ETH_P_IP):
--			if (skb_cow_head(skb, sizeof(struct iphdr)))
-+			wlen += sizeof(struct iphdr);
-+			if (!pskb_may_pull(skb, wlen) ||
-+			    skb_try_make_writable(skb, wlen))
- 				goto drop;
- 
- 			skb->tc_index = ipv4_get_dsfield(ip_hdr(skb))
-@@ -211,7 +215,9 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 			break;
- 
- 		case htons(ETH_P_IPV6):
--			if (skb_cow_head(skb, sizeof(struct ipv6hdr)))
-+			wlen += sizeof(struct ipv6hdr);
-+			if (!pskb_may_pull(skb, wlen) ||
-+			    skb_try_make_writable(skb, wlen))
- 				goto drop;
- 
- 			skb->tc_index = ipv6_get_dsfield(ipv6_hdr(skb))
+Ik ben zijn persoonlijke advocaat en ik heb uw samenwerking, zodat we
+kunnen krijgen
+het geld van de bank voordat de regering eindelijk grijpen, de
+totale bedrag op de bank loopt =C2=A3 7.500.000, zal GBP maar ik uitleggen
+Meer in detail als ik van u horen
