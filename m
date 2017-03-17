@@ -1,24 +1,24 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 04/23] net, ceph: convert ceph_snap_context.nref from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 14:10:27 +0200
-Message-ID: <1489752646-8749-5-git-send-email-elena.reshetova@intel.com>
+From: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 10/23] net, rds: convert rds_message.m_refcount from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 14:10:33 +0200
+Message-ID: <1489752646-8749-11-git-send-email-elena.reshetova@intel.com>
 References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org,
-        davem@davemloft.net, linux-x25@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-hams@vger.kernel.org,
-        linux-nfs@vger.kernel.org, ceph-devel@vger.kernel.org,
-        zyan@redhat.com, sage@redhat.com, bfields@fieldses.org,
-        jlayton@poochiereds.net, steffen.klassert@secunet.com,
-        herbert@gondor.apana.org.au, santosh.shilimkar@oracle.com,
-        jreuter@yaina.de, ralf@linux-mips.org, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-x25-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        zyan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sage-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+        jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+        herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+        jreuter-K7Hl1MveuGQ@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+        keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489752646-8749-1-git-send-email-elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -27,66 +27,69 @@ a reference counter. This allows to avoid accidental
 refcounter overflows that might lead to use-after-free
 situations.
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
+Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/linux/ceph/libceph.h | 3 ++-
- net/ceph/snapshot.c          | 6 +++---
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ net/rds/message.c | 12 ++++++------
+ net/rds/rds.h     |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/ceph/libceph.h b/include/linux/ceph/libceph.h
-index 1816c5e..26dc674 100644
---- a/include/linux/ceph/libceph.h
-+++ b/include/linux/ceph/libceph.h
-@@ -14,6 +14,7 @@
- #include <linux/wait.h>
- #include <linux/writeback.h>
- #include <linux/slab.h>
-+#include <linux/refcount.h>
+diff --git a/net/rds/message.c b/net/rds/message.c
+index 49bfb51..4318cc9 100644
+--- a/net/rds/message.c
++++ b/net/rds/message.c
+@@ -48,8 +48,8 @@ static unsigned int	rds_exthdr_size[__RDS_EXTHDR_MAX] = {
  
- #include <linux/ceph/types.h>
- #include <linux/ceph/messenger.h>
-@@ -159,7 +160,7 @@ struct ceph_client {
-  * dirtied.
-  */
- struct ceph_snap_context {
--	atomic_t nref;
-+	refcount_t nref;
- 	u64 seq;
- 	u32 num_snaps;
- 	u64 snaps[];
-diff --git a/net/ceph/snapshot.c b/net/ceph/snapshot.c
-index 705414e..e14a5d0 100644
---- a/net/ceph/snapshot.c
-+++ b/net/ceph/snapshot.c
-@@ -49,7 +49,7 @@ struct ceph_snap_context *ceph_create_snap_context(u32 snap_count,
- 	if (!snapc)
- 		return NULL;
- 
--	atomic_set(&snapc->nref, 1);
-+	refcount_set(&snapc->nref, 1);
- 	snapc->num_snaps = snap_count;
- 
- 	return snapc;
-@@ -59,7 +59,7 @@ EXPORT_SYMBOL(ceph_create_snap_context);
- struct ceph_snap_context *ceph_get_snap_context(struct ceph_snap_context *sc)
+ void rds_message_addref(struct rds_message *rm)
  {
- 	if (sc)
--		atomic_inc(&sc->nref);
-+		refcount_inc(&sc->nref);
- 	return sc;
+-	rdsdebug("addref rm %p ref %d\n", rm, atomic_read(&rm->m_refcount));
+-	atomic_inc(&rm->m_refcount);
++	rdsdebug("addref rm %p ref %d\n", rm, refcount_read(&rm->m_refcount));
++	refcount_inc(&rm->m_refcount);
  }
- EXPORT_SYMBOL(ceph_get_snap_context);
-@@ -68,7 +68,7 @@ void ceph_put_snap_context(struct ceph_snap_context *sc)
+ EXPORT_SYMBOL_GPL(rds_message_addref);
+ 
+@@ -83,9 +83,9 @@ static void rds_message_purge(struct rds_message *rm)
+ 
+ void rds_message_put(struct rds_message *rm)
  {
- 	if (!sc)
- 		return;
--	if (atomic_dec_and_test(&sc->nref)) {
-+	if (refcount_dec_and_test(&sc->nref)) {
- 		/*printk(" deleting snap_context %p\n", sc);*/
- 		kfree(sc);
- 	}
+-	rdsdebug("put rm %p ref %d\n", rm, atomic_read(&rm->m_refcount));
+-	WARN(!atomic_read(&rm->m_refcount), "danger refcount zero on %p\n", rm);
+-	if (atomic_dec_and_test(&rm->m_refcount)) {
++	rdsdebug("put rm %p ref %d\n", rm, refcount_read(&rm->m_refcount));
++	WARN(!refcount_read(&rm->m_refcount), "danger refcount zero on %p\n", rm);
++	if (refcount_dec_and_test(&rm->m_refcount)) {
+ 		BUG_ON(!list_empty(&rm->m_sock_item));
+ 		BUG_ON(!list_empty(&rm->m_conn_item));
+ 		rds_message_purge(rm);
+@@ -206,7 +206,7 @@ struct rds_message *rds_message_alloc(unsigned int extra_len, gfp_t gfp)
+ 	rm->m_used_sgs = 0;
+ 	rm->m_total_sgs = extra_len / sizeof(struct scatterlist);
+ 
+-	atomic_set(&rm->m_refcount, 1);
++	refcount_set(&rm->m_refcount, 1);
+ 	INIT_LIST_HEAD(&rm->m_sock_item);
+ 	INIT_LIST_HEAD(&rm->m_conn_item);
+ 	spin_lock_init(&rm->m_rs_lock);
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 7487597..8c205ff 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -355,7 +355,7 @@ static inline u32 rds_rdma_cookie_offset(rds_rdma_cookie_t cookie)
+ #define RDS_MSG_FLUSH		8
+ 
+ struct rds_message {
+-	atomic_t		m_refcount;
++	refcount_t		m_refcount;
+ 	struct list_head	m_sock_item;
+ 	struct list_head	m_conn_item;
+ 	struct rds_incoming	m_inc;
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
