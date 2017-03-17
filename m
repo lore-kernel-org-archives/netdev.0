@@ -1,94 +1,60 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Fri, 17 Mar 2017 08:39:30 +0100
-Message-ID: <d5182e77-c243-1980-4cb6-39cd95075f4f@grandegger.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
- <234d9e75-0083-b8b4-c781-add653fdb550@grandegger.com>
- <b3ebb569-b50c-39ad-dec5-0059fbfba8fb@timesys.com>
- <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
- <3dbf8748-9d04-0f21-0e95-448d7a72e7d5@timesys.com>
- <41439729-42d0-d883-2801-2d3607f2aeab@grandegger.com>
- <CANiP4c8WMeT1Cr7WDXew1ne7DFR04oaA8Uch0zvyyOf5yCa37A@mail.gmail.com>
- <3dba0948-ffcb-8e80-fb32-62bb0aca6627@grandegger.com>
- <54d9a104-8ed1-4bb3-666e-042d3781dbfb@timesys.com>
- <006d9e14-47bf-1add-97c3-24098b43267f@grandegger.com>
- <69173747-cc2e-55f7-acad-4b5ba2a22863@timesys.com>
+From: "Reshetova, Elena" <elena.reshetova@intel.com>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+ atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 07:42:24 +0000
+Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C5A53B@IRSMSX102.ger.corp.intel.com>
+References: <1489678147-21404-8-git-send-email-elena.reshetova@intel.com>
+	<1489683534.28631.231.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAGXu5jJpFwiDR_o=oarN_2vDr56cwQ=Bg-5NikUmDtxtzWnAcQ@mail.gmail.com>
+	<20170316.121032.405930218798336643.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, linux-can@vger.kernel.org,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Akshay Bhat <akshay.bhat@timesys.com>,
-        Akshay Bhat <nodeax@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <69173747-cc2e-55f7-acad-4b5ba2a22863@timesys.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"ishkamiel@gmail.com" <ishkamiel@gmail.com>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"dwindsor@gmail.com" <dwindsor@gmail.com>
+To: David Miller <davem@davemloft.net>, "keescook@chromium.org"
+	<keescook@chromium.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170316.121032.405930218798336643.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hello Akshay,
+> From: Kees Cook <keescook@chromium.org>
+> Date: Thu, 16 Mar 2017 11:38:25 -0600
+>=20
+> > I am, of course, biased, but I think the evidence of actual
+> > refcounting attacks outweighs the theoretical performance cost of
+> > these changes.
+>=20
+> This is not theoretical at all.
+>=20
+> We count the nanoseconds that every packet takes to get processed and
+> you are adding quite a bit.
+>=20
+> I understand your point of view, but this is knowingly going to add
+> performance regressions to the networking code.
 
-Am 16.03.2017 um 23:29 schrieb Akshay Bhat:
-> Hi Wolfgang,
->
-> On 03/16/2017 04:02 PM, Wolfgang Grandegger wrote:
->>
->> Looks much better now! There are message for state changes to error
->> warning and passive. Just the following message is not correct:
->>
->>  (000.200824)  can0  20000004   [8]  00 40 00 00 00 00 5F 19   ERRORFRAME
->>     controller-problem{}
->>     error-counter-tx-rx{{95}{25}}
->>
->> Sorry, forgot to mention... the function can_change_state() [1]
->> should be used for that purpose, if possible. It fixes the issue
->> above as well.
->>
->
-> The updated driver (the one used to create the above log) is using
-> can_change_state() function. data[1] 40 corresponds to
-> CAN_ERR_CRTL_ACTIVE, so looks correct? Could it be that the can-utils I
-> am using is old and not reporting state change?
+Should we then first measure the actual numbers to understand what we are t=
+alking here about?=20
+I would be glad to do it if you suggest what is the correct way to do measu=
+rements here to actually reflect the real life use cases.=20
 
-Hm, yes. The raw data looks correct. You could download and build a 
-recent version from "https://github.com/linux-can/can-utils" to check. 
-It could also be a bug.
-
-> Tentative v4 driver for reference:
-> http://pastebin.com/4xFVL1Sj
->
->>> berr-reporting off case:
->>> http://pastebin.com/fUn3j7qU
->>
->> Ditto.
->>
->> I just had another look to the manual and there is this undocumented
->> STATFE register at offset 0x1E. It's mentioned in some other parts of
->> the doc as interrupt enable register for STATF events. I would assume
->> the same bit layout than STATF. If you set bit 2 (BUSOFF), 3 (ERRP)
->> and 4 (ERRW), you may get interrupts. It's worth a try, I think. If
->> it works, it's the much better solution.
->>
->
-> The HI-311x has a INT pin and a STAT pin. The hardware I have has only
-> the INT pin connected to the processor. If the STAT pin was also
-> connected, then like you mentioned it could be a much better solution to
-> use STAT for state changes.
-
-OK, I understand.
-
-> Enabling BUSOFF/ERRP/ERRW bits in STATFE did not generate any interrupts
-> on the INT pin. Should we make it a requirement that both INT and STAT
-> pins need to be connected in hardware for the driver to do the error
-> reporting?
-
-As I said, it's the better solution, especially if interrupt flooding 
-does harm. How does your system behave when bus errors come in due to no 
-cable connected?
-
-So far using NAPI was mandatory. There is the problem of out-of-order 
-message reception if handled in the isr on multi processor systems. 
-Marc, what is the current policy?
-
-Wolfgang.
+Best Regards,
+Elena.
