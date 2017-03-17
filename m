@@ -1,92 +1,75 @@
-From: Akshay Bhat <akshay.bhat-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Fri, 17 Mar 2017 14:28:42 -0400
-Message-ID: <ff5d44d1-3bfe-8dae-2aaa-561ab0cb989c@timesys.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
- <234d9e75-0083-b8b4-c781-add653fdb550@grandegger.com>
- <b3ebb569-b50c-39ad-dec5-0059fbfba8fb@timesys.com>
- <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
- <3dbf8748-9d04-0f21-0e95-448d7a72e7d5@timesys.com>
- <41439729-42d0-d883-2801-2d3607f2aeab@grandegger.com>
- <CANiP4c8WMeT1Cr7WDXew1ne7DFR04oaA8Uch0zvyyOf5yCa37A@mail.gmail.com>
- <3dba0948-ffcb-8e80-fb32-62bb0aca6627@grandegger.com>
- <54d9a104-8ed1-4bb3-666e-042d3781dbfb@timesys.com>
- <006d9e14-47bf-1add-97c3-24098b43267f@grandegger.com>
- <69173747-cc2e-55f7-acad-4b5ba2a22863@timesys.com>
- <d5182e77-c243-1980-4cb6-39cd95075f4f@grandegger.com>
- <0362316b-ef76-1733-dbfc-8b644f758db9@timesys.com>
- <7730cff6-6e85-c98d-0315-bd3888d3aeb1@grandegger.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-        Akshay Bhat <nodeax-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <7730cff6-6e85-c98d-0315-bd3888d3aeb1-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] 1GbE Intel Wired LAN Driver Updates 2017-03-17
+Date: Fri, 17 Mar 2017 12:58:05 -0700
+Message-ID: <20170317195818.74912-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:30552 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751096AbdCQT6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 15:58:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Wolfgang,
+This series contains updates to mainly igb, with one fix for ixgbe.
 
-On 03/17/2017 01:04 PM, Wolfgang Grandegger wrote:
-> 
-> Hm, that's unusual. Cable disconnected and then send a message:
-> 
-> $ grep /proc/interrupts; sleep 10; /proc/interrupts
-> 
-> should make things clear. But maybe it's a clever chip and it does stop
-> sending error messages if the error counter does not change any more.
-> After bus-off, the chip is quiet, of course. Should have a closer look
-> to the CAN standard.
->
+Alex does all the changes in the series, starting with adding support
+for DMA_ATTR_WEAK_ORDERING to improve performance on some platforms.
+Modified igb to use the length of the packet instead of the DD status
+bit to determine if a new descriptor is ready to be processed.  Modified
+the driver to only go through the region in the receive ring that was
+designated to be cleaned up, instead of going through the entire ring
+on cleanup.  Cleaned up the transmit side, by clearing the transmit
+buffer_info only when resetting the rings.  Added a new upper limit for
+receive, which is based on the size of a 2K buffer minus padding, which
+will allow us to support build_skb going forward.  Fixed ethtool testing
+to only sync on the size of the frame that is being tested, instead of
+the entire receive buffer.  Updated the handling of page addresses to
+always use a void pointer with the consistent name of "va" to indicate
+that we are working with a virtual address.  Added a "chicken bit" so
+that we can turn off the new receive allocation feature, in the case
+where we need to fallback to the legacy receive path.  Added support for
+using 3K buffers in order 1 pages the same way we were using 2K buffers
+in 4K pages.  Added support for padding packet, since we limit the size
+of the frame, we are able to write to an offset within the buffer instead
+of having to write at the very start of the buffer.  This allows us to
+leaving padding room for things like supporting XDP in the future.
+Refactored the receive buffer page management, since there are 2-3 paths
+that can be taken depending on what receive modes are enabled, so to
+improve maintainability, break out the common bits into their own
+functions.  Add support for build_skb, again.  Lastly, fixed a typo in
+igb and ixgbe code comments.
 
-The interrupt count does not increment after device reaches
-tx-error-passive (with cable disconnected).
+The following are changes since commit fe723dff0fa4181ddb8116e72bc67d00d4239cb6:
+  liquidio: fix wrong information about link modes reported to ethtool
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
 
-# while true; do grep -i hi3110 /proc/interrupts; sleep 10; done &
-[1] 793
-#
-111:          0          0  gpio-mxc  12 Edge      hi3110
-# candump -t d -e any,0:0,#FFFFFFF &
-[2] 798
-# cansend can0 123#
-#
- (000.000000)  can0  20000004   [8]  00 08 00 00 00 00 60 00   ERRORFRAME
-	controller-problem{tx-error-warning}
-	error-counter-tx-rx{{96}{0}}
- (000.002122)  can0  20000004   [8]  00 20 00 00 00 00 80 00   ERRORFRAME
-	controller-problem{tx-error-passive}
-	error-counter-tx-rx{{128}{0}}
-111:         10          0  gpio-mxc  12 Edge      hi3110
-111:         10          0  gpio-mxc  12 Edge      hi3110
-111:         10          0  gpio-mxc  12 Edge      hi3110
+Alexander Duyck (13):
+  igb: Add support for DMA_ATTR_WEAK_ORDERING
+  igb: Use length to determine if descriptor is done
+  igb: Clear Rx buffer_info in configure instead of clean
+  igb: Don't bother clearing Tx buffer_info in igb_clean_tx_ring
+  igb: Limit maximum frame Rx based on MTU
+  igb: Only sync size of expected frame in ethtool testing
+  igb: Use page_address offset from page instead of masking virtual
+    address
+  igb: Add support for ethtool private flag to allow use of legacy Rx
+  igb: Add support for using order 1 pages to receive large frames
+  igb: Add support for padding packet
+  igb: Break out Rx buffer page management
+  igb: Re-add support for build_skb in igb
+  igb/ixgbe: Fix typo in igb_build_skb and/or ixgbe_build_skb code
+    comment
 
->>> So far using NAPI was mandatory. There is the problem of out-of-order
->>> message reception if handled in the isr on multi processor systems.
->>> Marc, what is the current policy?
->>>
->>
->> Since this is a SPI based CAN, I am wary for any additional latencies
->> NAPI might introduce. The RX handling is being done at the very
->> beginning of the ISR for this reason.
->>
->> Can we go ahead with the existing implementation and re-visit this at a
->> later time?
-> 
-> Likely yes, as Marc has already reviewed the driver once.
-> 
+ drivers/net/ethernet/intel/igb/igb.h          |  58 ++-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c  |  65 +++-
+ drivers/net/ethernet/intel/igb/igb_main.c     | 514 ++++++++++++++++----------
+ drivers/net/ethernet/intel/igb/igb_ptp.c      |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   2 +-
+ 5 files changed, 439 insertions(+), 203 deletions(-)
 
-Thanks, I will go ahead and submit v4 patch.
-
-> BTW: what system board/processor are you using?
-> 
-
-It is a custom board using Phytec phyFLEX-i.MX6 Dual SOM.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+2.12.0
