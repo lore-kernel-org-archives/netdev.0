@@ -1,55 +1,61 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: Re: [PATCH 3/4] uapi glibc compat: Do not check for __USE_MISC
-Date: Fri, 17 Mar 2017 19:17:52 +0100
-Message-ID: <e2a5018f-46fc-003e-3632-51e356c907ea@hauke-m.de>
-References: <20170312220039.16885-1-hauke@hauke-m.de>
- <20170312220039.16885-4-hauke@hauke-m.de>
- <1489651152.4195.192.camel@infradead.org>
- <20170316082644.GD8672@lakka.kapsi.fi>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: add debug error messages to report
+ command timeout
+Date: Fri, 17 Mar 2017 11:23:08 -0700
+Message-ID: <20170317182308.GA2319@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jarod@redhat.com, jogo@openwrt.org,
-        david.heidelberger@ixit.cz, maillist-linux@barfooze.de
-To: Mikko Rapeli <mikko.rapeli@iki.fi>,
-        David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170316082644.GD8672@lakka.kapsi.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0088.outbound.protection.outlook.com ([104.47.37.88]:16448
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751100AbdCQSXr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 14:23:47 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2017 09:26 AM, Mikko Rapeli wrote:
-> On Thu, Mar 16, 2017 at 07:59:12AM +0000, David Woodhouse wrote:
->> On Sun, 2017-03-12 at 23:00 +0100, Hauke Mehrtens wrote:
->>> __USE_MISC is glibc specific and not available in musl libc. Only do
->>> this check when glibc is used. This fixes a problem with musl libc.
->>> ...
->>> -/* Coordinate with glibc net/if.h header. */
->>> -#if defined(_NET_IF_H) && defined(__USE_MISC)
->>> +/* Coordinate with libc net/if.h header. */
->>> +#if defined(_NET_IF_H) && (!defined(__GLIBC__) || defined(__USE_MISC))
->>
->> I *really* don't like building up a plethora of knowledge about
->> specific libc implementations in the kernel. As a general rule, if we
->> have *anything* that depends on __GLIBC__ then we are Doing It Wrong™.
-> 
-> Kernel does not depend on glibc but uapi headers check for some defintions
-> so that userspace code can include both libc and kernel header files
-> without compiler errors.
-> 
-> This interface between kernel and libc header files is messy due to long
-> history of copying header files from kernel to libc implementations etc
-> and thus this kind of ifdef magic with in depth knowledge of various
-> libc's defintions is currently unavoidable.
+From: Rick Farrington <ricardo.farrington@cavium.com>
 
-I agree with you David.
-Should I change my patch?
+Add timeout error message in lio_process_ordered_list().  Add host failure
+status in existing error message in if_cfg_callback().
 
-The check for __USE_MISC was added in this commit:
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f0a3fdca794d1e68ae284ef4caefe681f7c18e89
+Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c         | 4 ++--
+ drivers/net/ethernet/cavium/liquidio/response_manager.c | 2 ++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-musl does not define it, but still adds the defines which glibc adds
-when __USE_MISC is set.
-
-Hauke
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index be9c0e3..046d816 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2209,8 +2209,8 @@ static void if_cfg_callback(struct octeon_device *oct,
+ 
+ 	oct = lio_get_device(ctx->octeon_id);
+ 	if (resp->status)
+-		dev_err(&oct->pci_dev->dev, "nic if cfg instruction failed. Status: %llx\n",
+-			CVM_CAST64(resp->status));
++		dev_err(&oct->pci_dev->dev, "nic if cfg instruction failed. Status: 0x%llx (0x%08x)\n",
++			CVM_CAST64(resp->status), status);
+ 	WRITE_ONCE(ctx->cond, 1);
+ 
+ 	snprintf(oct->fw_info.liquidio_firmware_version, 32, "%s",
+diff --git a/drivers/net/ethernet/cavium/liquidio/response_manager.c b/drivers/net/ethernet/cavium/liquidio/response_manager.c
+index 2fbaae9..a50ee98 100644
+--- a/drivers/net/ethernet/cavium/liquidio/response_manager.c
++++ b/drivers/net/ethernet/cavium/liquidio/response_manager.c
+@@ -113,6 +113,8 @@ int lio_process_ordered_list(struct octeon_device *octeon_dev,
+ 			}
+ 		} else if (force_quit || (sc->timeout &&
+ 			time_after(jiffies, (unsigned long)sc->timeout))) {
++			dev_err(&octeon_dev->pci_dev->dev, "%s: cmd failed, timeout (%ld, %ld)\n",
++				__func__, (long)jiffies, (long)sc->timeout);
+ 			status = OCTEON_REQUEST_TIMEOUT;
+ 		}
+ 
