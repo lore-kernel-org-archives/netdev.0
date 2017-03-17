@@ -1,75 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/13][pull request] 1GbE Intel Wired LAN Driver Updates 2017-03-17
-Date: Fri, 17 Mar 2017 12:58:05 -0700
-Message-ID: <20170317195818.74912-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 02/13] igb: Use length to determine if descriptor is done
+Date: Fri, 17 Mar 2017 12:58:07 -0700
+Message-ID: <20170317195818.74912-3-jeffrey.t.kirsher@intel.com>
+References: <20170317195818.74912-1-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:30552 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:63132 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751096AbdCQT6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Mar 2017 15:58:24 -0400
+        id S1751180AbdCQT6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 15:58:25 -0400
+In-Reply-To: <20170317195818.74912-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to mainly igb, with one fix for ixgbe.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Alex does all the changes in the series, starting with adding support
-for DMA_ATTR_WEAK_ORDERING to improve performance on some platforms.
-Modified igb to use the length of the packet instead of the DD status
-bit to determine if a new descriptor is ready to be processed.  Modified
-the driver to only go through the region in the receive ring that was
-designated to be cleaned up, instead of going through the entire ring
-on cleanup.  Cleaned up the transmit side, by clearing the transmit
-buffer_info only when resetting the rings.  Added a new upper limit for
-receive, which is based on the size of a 2K buffer minus padding, which
-will allow us to support build_skb going forward.  Fixed ethtool testing
-to only sync on the size of the frame that is being tested, instead of
-the entire receive buffer.  Updated the handling of page addresses to
-always use a void pointer with the consistent name of "va" to indicate
-that we are working with a virtual address.  Added a "chicken bit" so
-that we can turn off the new receive allocation feature, in the case
-where we need to fallback to the legacy receive path.  Added support for
-using 3K buffers in order 1 pages the same way we were using 2K buffers
-in 4K pages.  Added support for padding packet, since we limit the size
-of the frame, we are able to write to an offset within the buffer instead
-of having to write at the very start of the buffer.  This allows us to
-leaving padding room for things like supporting XDP in the future.
-Refactored the receive buffer page management, since there are 2-3 paths
-that can be taken depending on what receive modes are enabled, so to
-improve maintainability, break out the common bits into their own
-functions.  Add support for build_skb, again.  Lastly, fixed a typo in
-igb and ixgbe code comments.
+This change makes it so that we use the length of the packet instead of the
+DD status bit to determine if a new descriptor is ready to be processed.
+The obvious advantage is that it cuts down on reads as we don't really even
+need the DD bit if going from a 0 to a non-zero value on size is enough to
+inform us that the packet has been completed.
 
-The following are changes since commit fe723dff0fa4181ddb8116e72bc67d00d4239cb6:
-  liquidio: fix wrong information about link modes reported to ethtool
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+In addition I have updated the code so that we only reset the Rx descriptor
+length for descriptor zero when resetting a ring instead of having to do a
+memset with 0 over the entire ring.  By doing this we can save some time on
+initialization.
 
-Alexander Duyck (13):
-  igb: Add support for DMA_ATTR_WEAK_ORDERING
-  igb: Use length to determine if descriptor is done
-  igb: Clear Rx buffer_info in configure instead of clean
-  igb: Don't bother clearing Tx buffer_info in igb_clean_tx_ring
-  igb: Limit maximum frame Rx based on MTU
-  igb: Only sync size of expected frame in ethtool testing
-  igb: Use page_address offset from page instead of masking virtual
-    address
-  igb: Add support for ethtool private flag to allow use of legacy Rx
-  igb: Add support for using order 1 pages to receive large frames
-  igb: Add support for padding packet
-  igb: Break out Rx buffer page management
-  igb: Re-add support for build_skb in igb
-  igb/ixgbe: Fix typo in igb_build_skb and/or ixgbe_build_skb code
-    comment
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |  2 +-
+ drivers/net/ethernet/intel/igb/igb_main.c    | 14 ++++++++------
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
- drivers/net/ethernet/intel/igb/igb.h          |  58 ++-
- drivers/net/ethernet/intel/igb/igb_ethtool.c  |  65 +++-
- drivers/net/ethernet/intel/igb/igb_main.c     | 514 ++++++++++++++++----------
- drivers/net/ethernet/intel/igb/igb_ptp.c      |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   2 +-
- 5 files changed, 439 insertions(+), 203 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 737b664d004c..3f5f7744c90f 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -1811,7 +1811,7 @@ static int igb_clean_test_rings(struct igb_ring *rx_ring,
+ 	tx_ntc = tx_ring->next_to_clean;
+ 	rx_desc = IGB_RX_DESC(rx_ring, rx_ntc);
+ 
+-	while (igb_test_staterr(rx_desc, E1000_RXD_STAT_DD)) {
++	while (rx_desc->wb.upper.length) {
+ 		/* check Rx buffer */
+ 		rx_buffer_info = &rx_ring->rx_buffer_info[rx_ntc];
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index cf7ee9cdac6f..1d76d3a90a17 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3720,6 +3720,7 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 			   struct igb_ring *ring)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
++	union e1000_adv_rx_desc *rx_desc;
+ 	u64 rdba = ring->dma;
+ 	int reg_idx = ring->reg_idx;
+ 	u32 srrctl = 0, rxdctl = 0;
+@@ -3758,6 +3759,10 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	rxdctl |= IGB_RX_HTHRESH << 8;
+ 	rxdctl |= IGB_RX_WTHRESH << 16;
+ 
++	/* initialize Rx descriptor 0 */
++	rx_desc = IGB_RX_DESC(ring, 0);
++	rx_desc->wb.upper.length = 0;
++
+ 	/* enable receive descriptor fetching */
+ 	rxdctl |= E1000_RXDCTL_QUEUE_ENABLE;
+ 	wr32(E1000_RXDCTL(reg_idx), rxdctl);
+@@ -3973,9 +3978,6 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 	size = sizeof(struct igb_rx_buffer) * rx_ring->count;
+ 	memset(rx_ring->rx_buffer_info, 0, size);
+ 
+-	/* Zero out the descriptor ring */
+-	memset(rx_ring->desc, 0, rx_ring->size);
+-
+ 	rx_ring->next_to_alloc = 0;
+ 	rx_ring->next_to_clean = 0;
+ 	rx_ring->next_to_use = 0;
+@@ -7172,7 +7174,7 @@ static int igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
+ 
+ 		rx_desc = IGB_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		if (!rx_desc->wb.upper.status_error)
++		if (!rx_desc->wb.upper.length)
+ 			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+@@ -7312,8 +7314,8 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
+ 			i -= rx_ring->count;
+ 		}
+ 
+-		/* clear the status bits for the next_to_use descriptor */
+-		rx_desc->wb.upper.status_error = 0;
++		/* clear the length for the next_to_use descriptor */
++		rx_desc->wb.upper.length = 0;
+ 
+ 		cleaned_count--;
+ 	} while (cleaned_count);
 -- 
 2.12.0
