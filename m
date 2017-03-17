@@ -1,56 +1,141 @@
-From: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
-Subject: [PATCH] batman-adv: Omit unnecessary memset of
-	netdev private data
-Date: Fri, 17 Mar 2017 12:08:59 +0100
-Message-ID: <20170317110859.9273-1-tklauser@distanz.ch>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
- Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>, Antonio Quartulli <a@unstable.cc>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Elena Reshetova <elena.reshetova@intel.com>
+Subject: [PATCH 13/18] net, sched: convert Qdisc.refcnt from atomic_t to refcount_t
+Date: Fri, 17 Mar 2017 13:12:54 +0200
+Message-ID: <1489749179-12063-14-git-send-email-elena.reshetova@intel.com>
+References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
+Cc: linux-kernel@vger.kernel.org,
+        linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
+        jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
+        kuznet@ms2.inr.ac.ru, 3chas3@gmail.com, ralf@linux-mips.org,
+        stephen@networkplumber.org, jchapman@katalix.com, jhs@mojatatu.com,
+        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
+        linux-x25@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+        marcel@holtmann.org, johan.hedberg@gmail.com, peterz@infradead.org,
+        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The memory for netdev_priv is allocated using kzalloc in alloc_netdev
-(or alloc_netdev_mq respectively) so there is no need to set it to 0
-again.
+refcount_t type and corresponding API should be
+used instead of atomic_t when the variable is used as
+a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free
+situations.
 
-Signed-off-by: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- net/batman-adv/soft-interface.c | 4 ----
- 1 file changed, 4 deletions(-)
+ include/net/sch_generic.h | 3 ++-
+ net/sched/sch_api.c       | 8 ++++----
+ net/sched/sch_generic.c   | 8 ++++----
+ 3 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 5d099b2e6cfc..8226495c6664 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -972,8 +972,6 @@ static void batadv_softif_free(struct net_device *dev)
-  */
- static void batadv_softif_init_early(struct net_device *dev)
- {
--	struct batadv_priv *priv = netdev_priv(dev);
--
- 	ether_setup(dev);
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index aeec408..cd7463f 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -8,6 +8,7 @@
+ #include <linux/pkt_cls.h>
+ #include <linux/percpu.h>
+ #include <linux/dynamic_queue_limits.h>
++#include <linux/refcount.h>
+ #include <net/gen_stats.h>
+ #include <net/rtnetlink.h>
  
- 	dev->netdev_ops = &batadv_netdev_ops;
-@@ -990,8 +988,6 @@ static void batadv_softif_init_early(struct net_device *dev)
- 	eth_hw_addr_random(dev);
+@@ -93,7 +94,7 @@ struct Qdisc {
+ 	struct sk_buff		*skb_bad_txq;
+ 	struct rcu_head		rcu_head;
+ 	int			padded;
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
  
- 	dev->ethtool_ops = &batadv_ethtool_ops;
--
--	memset(priv, 0, sizeof(*priv));
- }
+ 	spinlock_t		busylock ____cacheline_aligned_in_smp;
+ };
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index bcf49cd..806f7b5 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -828,7 +828,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
  
- struct net_device *batadv_softif_create(struct net *net, const char *name)
+ 			old = dev_graft_qdisc(dev_queue, new);
+ 			if (new && i > 0)
+-				atomic_inc(&new->refcnt);
++				refcount_inc(&new->refcnt);
+ 
+ 			if (!ingress)
+ 				qdisc_destroy(old);
+@@ -839,7 +839,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 			notify_and_destroy(net, skb, n, classid,
+ 					   dev->qdisc, new);
+ 			if (new && !new->ops->attach)
+-				atomic_inc(&new->refcnt);
++				refcount_inc(&new->refcnt);
+ 			dev->qdisc = new ? : &noop_qdisc;
+ 
+ 			if (new && new->ops->attach)
+@@ -1245,7 +1245,7 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+ 				if (q == p ||
+ 				    (p && check_loop(q, p, 0)))
+ 					return -ELOOP;
+-				atomic_inc(&q->refcnt);
++				refcount_inc(&q->refcnt);
+ 				goto graft;
+ 			} else {
+ 				if (!q)
+@@ -1360,7 +1360,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+ 	tcm->tcm_ifindex = qdisc_dev(q)->ifindex;
+ 	tcm->tcm_parent = clid;
+ 	tcm->tcm_handle = q->handle;
+-	tcm->tcm_info = atomic_read(&q->refcnt);
++	tcm->tcm_info = refcount_read(&q->refcnt);
+ 	if (nla_put_string(skb, TCA_KIND, q->ops->id))
+ 		goto nla_put_failure;
+ 	if (q->ops->dump && q->ops->dump(q, skb) < 0)
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index b052b27..6e0c695 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -633,7 +633,7 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	sch->dequeue = ops->dequeue;
+ 	sch->dev_queue = dev_queue;
+ 	dev_hold(dev);
+-	atomic_set(&sch->refcnt, 1);
++	refcount_set(&sch->refcnt, 1);
+ 
+ 	return sch;
+ errout:
+@@ -701,7 +701,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 	const struct Qdisc_ops  *ops = qdisc->ops;
+ 
+ 	if (qdisc->flags & TCQ_F_BUILTIN ||
+-	    !atomic_dec_and_test(&qdisc->refcnt))
++	    !refcount_dec_and_test(&qdisc->refcnt))
+ 		return;
+ 
+ #ifdef CONFIG_NET_SCHED
+@@ -739,7 +739,7 @@ struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
+ 	spin_lock_bh(root_lock);
+ 
+ 	/* Prune old scheduler */
+-	if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
++	if (oqdisc && refcount_read(&oqdisc->refcnt) <= 1)
+ 		qdisc_reset(oqdisc);
+ 
+ 	/* ... and graft new one */
+@@ -785,7 +785,7 @@ static void attach_default_qdiscs(struct net_device *dev)
+ 	    dev->priv_flags & IFF_NO_QUEUE) {
+ 		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
+ 		dev->qdisc = txq->qdisc_sleeping;
+-		atomic_inc(&dev->qdisc->refcnt);
++		refcount_inc(&dev->qdisc->refcnt);
+ 	} else {
+ 		qdisc = qdisc_create_dflt(txq, &mq_qdisc_ops, TC_H_ROOT);
+ 		if (qdisc) {
 -- 
-2.11.0
+2.7.4
