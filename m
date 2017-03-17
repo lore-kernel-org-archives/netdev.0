@@ -1,85 +1,119 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 12/23] net, x25: convert x25_neigh.refcnt from atomic_t to refcount_t
-Date: Fri, 17 Mar 2017 14:10:35 +0200
-Message-ID: <1489752646-8749-13-git-send-email-elena.reshetova@intel.com>
-References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org,
-        davem@davemloft.net, linux-x25@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-hams@vger.kernel.org,
-        linux-nfs@vger.kernel.org, ceph-devel@vger.kernel.org,
-        zyan@redhat.com, sage@redhat.com, bfields@fieldses.org,
-        jlayton@poochiereds.net, steffen.klassert@secunet.com,
-        herbert@gondor.apana.org.au, santosh.shilimkar@oracle.com,
-        jreuter@yaina.de, ralf@linux-mips.org, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: netdev@vger.kernel.org
+From: James Greenhalgh <james.greenhalgh@arm.com>
+Subject: Re: [PATCH net-next] ipv6: Implement optimized IPv6 masked address
+ comparison for ARM64
+Date: Fri, 17 Mar 2017 12:22:52 +0000
+Message-ID: <20170317122252.GA32449@arm.com>
+References: <1489725772-7571-1-git-send-email-subashab@codeaurora.org>
+ <bfa8020c-bd12-8de1-5be5-a3408c293600@arm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <luke.starrett@broadcom.com>, <catalin.marinas@arm.com>,
+        <nd@arm.com>
+To: Robin Murphy <robin.murphy@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:26903 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751084AbdCQMQv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 17 Mar 2017 08:16:51 -0400
-In-Reply-To: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com>
+Received: from mail-he1eur01on0041.outbound.protection.outlook.com ([104.47.0.41]:48736
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751018AbdCQMXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 17 Mar 2017 08:23:07 -0400
+Content-Disposition: inline
+In-Reply-To: <bfa8020c-bd12-8de1-5be5-a3408c293600@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+On Fri, Mar 17, 2017 at 12:00:42PM +0000, Robin Murphy wrote:
+> On 17/03/17 04:42, Subash Abhinov Kasiviswanathan wrote:
+> > Android devices use multiple ip[6]tables for statistics, UID matching
+> > and other functionality. Perf output indicated that ip6_do_table
+> > was taking a considerable amount of CPU and more that ip_do_table
+> > for an equivalent rate. ipv6_masked_addr_cmp was chosen for
+> > optimization as there are more instructions required than the
+> > equivalent operation in ip_packet_match.
+> > 
+> > Using 128 bit operations helps to reduce the number of instructions
+> > for the match on an ARM64 system. This helps to improve UDPv6 DL
+> > performance by 40Mbps (860Mbps -> 900Mbps) on a CPU limited system.
+> 
+> After trying to have a look at the codegen difference it makes, I think
+> I may have found why it's faster ;)
+> 
+> ----------
+> [root@space-channel-5 ~]# cat > ip.c
+> #include <stdbool.h>
+> #include <netinet/in.h>
+> 	
+> bool
+> ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
+> 		     const struct in6_addr *a2)
+> {
+> 	const unsigned long *ul1 = (const unsigned long *)a1;
+> 	const unsigned long *ulm = (const unsigned long *)m;
+> 	const unsigned long *ul2 = (const unsigned long *)a2;
+> 
+> 	return !!(((ul1[0] ^ ul2[0]) & ulm[0]) |
+> 		  ((ul1[1] ^ ul2[1]) & ulm[1]));
+> }
+> 
+> bool
+> ipv6_masked_addr_cmp_new(const struct in6_addr *a1, const struct
+> in6_addr *m,
+> 		     const struct in6_addr *a2)
+> {
+> 	const __uint128_t *ul1 = (const __uint128_t *)a1;
+> 	const __uint128_t *ulm = (const __uint128_t *)m;
+> 	const __uint128_t *ul2 = (const __uint128_t *)a1;
+> 
+> 	return !!((*ul1 ^ *ul2) & *ulm);
+> }
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
----
- include/net/x25.h  | 6 +++---
- net/x25/x25_link.c | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+<snip>
 
-diff --git a/include/net/x25.h b/include/net/x25.h
-index 83a6d31..265756c 100644
---- a/include/net/x25.h
-+++ b/include/net/x25.h
-@@ -142,7 +142,7 @@ struct x25_neigh {
- 	unsigned long		t20;
- 	struct timer_list	t20timer;
- 	unsigned long		global_facil_mask;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- };
- 
- struct x25_sock {
-@@ -243,12 +243,12 @@ void x25_link_free(void);
- /* x25_neigh.c */
- static __inline__ void x25_neigh_hold(struct x25_neigh *nb)
- {
--	atomic_inc(&nb->refcnt);
-+	refcount_inc(&nb->refcnt);
- }
- 
- static __inline__ void x25_neigh_put(struct x25_neigh *nb)
- {
--	if (atomic_dec_and_test(&nb->refcnt))
-+	if (refcount_dec_and_test(&nb->refcnt))
- 		kfree(nb);
- }
- 
-diff --git a/net/x25/x25_link.c b/net/x25/x25_link.c
-index bcaa180..e0cd04d 100644
---- a/net/x25/x25_link.c
-+++ b/net/x25/x25_link.c
-@@ -266,7 +266,7 @@ void x25_link_device_up(struct net_device *dev)
- 				       X25_MASK_PACKET_SIZE |
- 				       X25_MASK_WINDOW_SIZE;
- 	nb->t20      = sysctl_x25_restart_request_timeout;
--	atomic_set(&nb->refcnt, 1);
-+	refcount_set(&nb->refcnt, 1);
- 
- 	write_lock_bh(&x25_neigh_list_lock);
- 	list_add(&nb->node, &x25_neigh_list);
--- 
-2.7.4
+> That's clearly not right - I'm not sure quite what undefined behaviour
+> assumption convinces GCC to optimise the whole thing away>
+
+While the pointer casting is a bit ghastly, I don't actually think that
+GCC is taking advantage of undefined behaviour here, rather it looks like
+you have a simple typo on line 3:
+
+> 	const __uint128_t *ul1 = (const __uint128_t *)a1;
+> 	const __uint128_t *ulm = (const __uint128_t *)m;
+> 	const __uint128_t *ul2 = (const __uint128_t *)a1;
+
+ul2 = a2, surely?
+
+As it is (stripping casts) you have a1 ^ a1, which will get you to 0
+pretty quickly. Fixing that up for you;
+
+  bool
+  ipv6_masked_addr_cmp_new(const struct in6_addr *a1, const struct
+  in6_addr *m,
+  		     const struct in6_addr *a2)
+  {
+  	const __uint128_t *ul1 = (const __uint128_t *)a1;
+  	const __uint128_t *ulm = (const __uint128_t *)m;
+  	const __uint128_t *ul2 = (const __uint128_t *)a2;
+
+  	return !!((*ul1 ^ *ul2) & *ulm);
+  }
+
+$ gcc -O2
+
+  ipv6_masked_addr_cmp_new:
+	ldp	x4, x3, [x0]
+	ldp	x5, x2, [x2]
+	ldp	x0, x1, [x1]
+	eor	x4, x4, x5
+	eor	x2, x3, x2
+	and	x0, x0, x4
+	and	x1, x1, x2
+	orr	x0, x0, x1
+	cmp	x0, 0
+	cset	w0, ne
+	ret
+
+Which at least looks like it might calculate something useful :-)
+
+Cheers,
+James
