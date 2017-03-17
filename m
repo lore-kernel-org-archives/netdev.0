@@ -1,33 +1,40 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next] r8152: simply the arguments
-Date: Fri, 17 Mar 2017 02:59:42 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB201A32FCB@RTITMBSV06.realtek.com.tw>
-References: <1394712342-15778-253-Taiwan-albertk@realtek.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFFB29DA@AcuExch.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: sun: sungem: rix a possible null dereference
+Date: Thu, 16 Mar 2017 20:38:38 -0700 (PDT)
+Message-ID: <20170316.203838.1381913035641014041.davem@davemloft.net>
+References: <1489614673-12595-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB29DA@AcuExch.aculab.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mugunthanvnm@ti.com, jarod@redhat.com,
+        felipe.balbi@linux.intel.com, edumazet@google.com, fw@strlen.de,
+        sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54324 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752431AbdCQDk2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 16 Mar 2017 23:40:28 -0400
+In-Reply-To: <1489614673-12595-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Laight [mailto:David.Laight@ACULAB.COM]
-> Sent: Thursday, March 16, 2017 10:28 PM
-[...]
-> If you are really lucky the compiler will optimise it away.
-> Otherwise it will generate another local variable and possibly
-> a register spill to stack.
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Wed, 15 Mar 2017 22:51:13 +0100
 
-However, I could reduce the time for calculating the address,
-because I only calculate it once and save the result to a variable.
-Right?
+> The function gem_begin_auto_negotiation dereference
+> the pointer ep before testing if it's null. This
+> patch add a check on ep before dereferencing it.
+> 
+> Fixes: 92552fdd557 ("net: sun: sungem: use new api
 
-Best Regards,
-Hayes
+[davem@localhost net-next]$ git describe 92552fdd557
+fatal: Not a valid object name 92552fdd557
+[davem@localhost net-next]$
+
+I don't know where you got that SHA1-ID, but it's not the one that
+was actually used.
+
+It is advised that you use Linus's or one of my GIT trees to find the
+proper commit IDs.
