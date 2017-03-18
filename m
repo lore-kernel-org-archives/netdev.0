@@ -1,45 +1,43 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/5] mm subsystem refcounter conversions
-Date: Sun, 19 Mar 2017 00:37:02 +0800
-Message-ID: <20170318163702.GA23796@gondor.apana.org.au>
-References: <20170228172156.de13fdc41a3ca6a4deea7750@linux-foundation.org>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from atomic_t to
+ refcount_t
+Date: Sun, 19 Mar 2017 00:47:59 +0800
+Message-ID: <20170318164759.GA23837@gondor.apana.org.au>
+References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: elena.reshetova@intel.com, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, peterz@infradead.org,
-	gregkh@linuxfoundation.org, viro@zeniv.linux.org.uk,
-	catalin.marinas@arm.com, mingo@redhat.com, arnd@arndb.de,
-	luto@kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: elena.reshetova@intel.com, davem@davemloft.net,
+        keescook@chromium.org, peterz@infradead.org,
+        netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, kaber@trash.net, stephen@networkplumber.org,
+        ishkamiel@gmail.com, dwindsor@gmail.com,
+        Andrew Morton <akpm@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170228172156.de13fdc41a3ca6a4deea7750@linux-foundation.org>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
->
-> The performance implications of this proposal are terrifying.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2017-03-17 at 07:42 +0000, Reshetova, Elena wrote:
 > 
-> I suggest adding a set of non-debug inlined refcount functions which
-> just fall back to the simple atomic.h operations.
+>> Should we then first measure the actual numbers to understand what we
+>> are talking here about? 
+>> I would be glad to do it if you suggest what is the correct way to do
+>> measurements here to actually reflect the real life use cases. 
 > 
-> And add a new CONFIG_DEBUG_REFCOUNT.  So the performance (and code
-> size!) with CONFIG_DEBUG_REFCOUNT=n is unaltered from present code. 
-> And make CONFIG_DEBUG_REFCOUNT suitably difficult to set.
+> How have these patches been tested in real life exactly ?
+> 
+> Can you quantify number of added cycles per TCP packet, where I expect
+> we have maybe 20 atomic operations in all layers ...
 
-I agree.  Refcounts are used in many performance-critical sites
-within the network subsystem.
+I completely agree.  I think this thing needs to default to the
+existing atomic_t behaviour.
 
 Thanks,
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
