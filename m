@@ -1,160 +1,108 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [net-next sample action optimization v3 4/4] Openvswitch:
- Refactor sample and recirc actions implementation
-Date: Sat, 18 Mar 2017 12:22:39 -0700
-Message-ID: <CAOrHB_B_Rd+kxKhq6n7gs=NF3nh5rk9YsQ2nNFfLLTk=o4o7ow@mail.gmail.com>
-References: <1489704510-35975-1-git-send-email-azhou@ovn.org> <1489704510-35975-5-git-send-email-azhou@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Joe Stringer <joe@ovn.org>
-To: Andy Zhou <azhou@ovn.org>
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Subject: [PATCH net 1/2] tcp: fix SCM_TIMESTAMPING_OPT_STATS for normal skbs
+Date: Sat, 18 Mar 2017 17:02:59 -0400
+Message-ID: <20170318210300.163288-1-soheil.kdev@gmail.com>
+Cc: zzoru007@gmail.com, Soheil Hassas Yeganeh <soheil@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:56892 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751795AbdCRTWo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 15:22:44 -0400
-Received: from mfilter17-d.gandi.net (mfilter17-d.gandi.net [217.70.178.145])
-        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 134A51720A1
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 20:22:42 +0100 (CET)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-        by mfilter17-d.gandi.net (mfilter17-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id p8cxsaemLYw8 for <netdev@vger.kernel.org>;
-        Sat, 18 Mar 2017 20:22:40 +0100 (CET)
-Received: from mail-wr0-f170.google.com (mail-wr0-f170.google.com [209.85.128.170])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 9C3E4172098
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 20:22:40 +0100 (CET)
-Received: by mail-wr0-f170.google.com with SMTP id u108so70044480wrb.3
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 12:22:40 -0700 (PDT)
-In-Reply-To: <1489704510-35975-5-git-send-email-azhou@ovn.org>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:33166 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751187AbdCRVMZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 17:12:25 -0400
+Received: by mail-qt0-f196.google.com with SMTP id r45so13363433qte.0
+        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 14:12:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 16, 2017 at 3:48 PM, Andy Zhou <azhou@ovn.org> wrote:
-> Added clone_execute() that both the sample and the recirc
-> action implementation can use.
->
-> Signed-off-by: Andy Zhou <azhou@ovn.org>
-> ---
->  net/openvswitch/actions.c | 175 ++++++++++++++++++++++++----------------------
->  1 file changed, 92 insertions(+), 83 deletions(-)
->
-> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> index 3529f7b..e38fa7f 100644
-> --- a/net/openvswitch/actions.c
-> +++ b/net/openvswitch/actions.c
-> @@ -44,10 +44,6 @@
->  #include "conntrack.h"
->  #include "vport.h"
->
-> -static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
-> -                             struct sw_flow_key *key,
-> -                             const struct nlattr *attr, int len);
-> -
->  struct deferred_action {
->         struct sk_buff *skb;
->         const struct nlattr *actions;
-> @@ -166,6 +162,12 @@ static bool is_flow_key_valid(const struct sw_flow_key *key)
->         return !(key->mac_proto & SW_FLOW_KEY_INVALID);
->  }
->
-> +static int clone_execute(struct datapath *dp, struct sk_buff *skb,
-> +                        struct sw_flow_key *key,
-> +                        u32 recirc_id,
-> +                        const struct nlattr *actions, int len,
-> +                        bool last, bool clone_flow_key);
-> +
-With this function the diff stat looks much better.
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-...
-...
-> +/* Execute the actions on the clone of the packet. The effect of the
-> + * execution does not affect the original 'skb' nor the original 'key'.
-> + *
-> + * The execution may be deferred in case the actions can not be executed
-> + * immediately.
-> + */
-> +static int clone_execute(struct datapath *dp, struct sk_buff *skb,
-> +                        struct sw_flow_key *key, u32 recirc_id,
-> +                        const struct nlattr *actions, int len,
-> +                        bool last, bool clone_flow_key)
-> +{
-> +       bool is_sample = actions;
-Standard practice is use !! to convert pointer to boolean.
-I think this function does not need to know about sample action. So we
-can rename the boolean to have_actions or something similar.
+__sock_recv_timestamp can be called for both normal skbs (for
+receive timestamps) and for skbs on the error queue (for transmit
+timestamps).
 
-> +       struct deferred_action *da;
-> +       struct sw_flow_key *clone;
-> +       int err = 0;
-> +
-> +       skb = last ? skb : skb_clone(skb, GFP_ATOMIC);
-> +       if (!skb) {
-> +               /* Out of memory, skip this action.
-> +                */
-> +               return 0;
-> +       }
-> +
-> +       /* In case the sample actions won't change the 'key',
-> +        * current key can be used directly to execute sample actions.
-> +        * Otherwise, allocate a new key from the
-> +        * next recursion level of 'flow_keys'. If
-> +        * successful, execute the sample actions without
-> +        * deferring.
-> +        */
-> +       if (is_sample && clone_flow_key)
-> +               __this_cpu_inc(exec_actions_level);
-> +
-There is no need to increment actions level up here. it is only
-required for do_execute_actions(). ovs_dp_process_packet() already
-does it.
+Commit 1c885808e456
+(tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING)
+assumes any skb passed to __sock_recv_timestamp are from
+the error queue, containing OPT_STATS in the content of the skb.
+This results in accessing invalid memory or generating junk
+data.
 
+To fix this, set skb->pkt_type to PACKET_OUTGOING for packets
+on the error queue. This is safe because on the receive path
+on local sockets skb->pkt_type is never set to PACKET_OUTGOING.
+With that, copy OPT_STATS from a packet, only if its pkt_type
+is PACKET_OUTGOING.
 
-> +       clone = clone_flow_key ? clone_key(key) : key;
-> +       if (clone) {
-> +               if (is_sample) {
-> +                       err = do_execute_actions(dp, skb, clone,
-> +                                                actions, len);
-> +               } else {
-> +                       clone->recirc_id = recirc_id;
-> +                       ovs_dp_process_packet(skb, clone);
-> +               }
-> +       }
-wont this execute action twice, once here and again in deferred actions list?
+Fixes: 1c885808e456 ("tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING")
+Reported-by: JongHwan Kim <zzoru007@gmail.com>
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/core/skbuff.c | 10 ++++++++++
+ net/socket.c      | 13 ++++++++++++-
+ 2 files changed, 22 insertions(+), 1 deletion(-)
 
-> +
-> +       if (is_sample && clone_flow_key)
-> +               __this_cpu_dec(exec_actions_level);
-> +
-> +       /* Out of 'flow_keys' space. Defer them */
-> +       da = add_deferred_actions(skb, key, actions, len);
-> +       if (da) {
-> +               if (!is_sample) {
-> +                       key = &da->pkt_key;
-> +                       key->recirc_id = recirc_id;
-> +               }
-> +       } else {
-> +               /* Drop the SKB and log an error. */
-> +               kfree_skb(skb);
-> +
-> +               if (net_ratelimit()) {
-> +                       if (is_sample) {
-> +                               pr_warn("%s: deferred action limit reached, drop sample action\n",
-> +                                       ovs_dp_name(dp));
-> +                       } else {
-> +                               pr_warn("%s: deferred action limit reached, drop recirc action\n",
-> +                                       ovs_dp_name(dp));
-> +                       }
-> +               }
-> +       }
-> +
-> +       return err;
-> +}
-> +
->  static void process_deferred_actions(struct datapath *dp)
->  {
->         struct action_fifo *fifo = this_cpu_ptr(action_fifos);
-> --
-> 1.8.3.1
->
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index cd4ba8c6b609..b1fbd1958eb6 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3694,6 +3694,15 @@ static void sock_rmem_free(struct sk_buff *skb)
+ 	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
+ }
+ 
++static void skb_set_err_queue(struct sk_buff *skb)
++{
++	/* pkt_type of skbs received on local sockets is never PACKET_OUTGOING.
++	 * So, it is safe to (mis)use it to mark skbs on the error queue.
++	 */
++	skb->pkt_type = PACKET_OUTGOING;
++	BUILD_BUG_ON(PACKET_OUTGOING == 0);
++}
++
+ /*
+  * Note: We dont mem charge error packets (no sk_forward_alloc changes)
+  */
+@@ -3707,6 +3716,7 @@ int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
+ 	skb->sk = sk;
+ 	skb->destructor = sock_rmem_free;
+ 	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
++	skb_set_err_queue(skb);
+ 
+ 	/* before exiting rcu section, make sure dst is refcounted */
+ 	skb_dst_force(skb);
+diff --git a/net/socket.c b/net/socket.c
+index e034fe4164be..692d6989d2c2 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -652,6 +652,16 @@ int kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+ }
+ EXPORT_SYMBOL(kernel_sendmsg);
+ 
++static bool skb_is_err_queue(const struct sk_buff *skb)
++{
++	/* pkt_type of skbs enqueued on the error queue are set to
++	 * PACKET_OUTGOING in skb_set_err_queue(). This is only safe to do
++	 * in recvmsg, since skbs received on a local socket will never
++	 * have a pkt_type of PACKET_OUTGOING.
++	 */
++	return skb->pkt_type == PACKET_OUTGOING;
++}
++
+ /*
+  * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
+  */
+@@ -695,7 +705,8 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 		put_cmsg(msg, SOL_SOCKET,
+ 			 SCM_TIMESTAMPING, sizeof(tss), &tss);
+ 
+-		if (skb->len && (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS))
++		if (skb_is_err_queue(skb) && skb->len &&
++		    (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS))
+ 			put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_OPT_STATS,
+ 				 skb->len, skb->data);
+ 	}
+-- 
+2.12.0.367.g23dc2f6d3c-goog
