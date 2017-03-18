@@ -1,69 +1,49 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: veth: use new api ethtool_{get|set}_link_ksettings
-Date: Sat, 18 Mar 2017 12:13:26 +0100
-Message-ID: <1489835606-23692-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, lucien.xin@gmail.com, jarod@redhat.com,
-        stephen@networkplumber.org, dsa@cumulusnetworks.com,
-        aduyck@mirantis.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: define dst_pending_confirm as a bit in sctp_transport
+Date: Sat, 18 Mar 2017 19:27:23 +0800
+Message-ID: <b4390881b14adce583817529e5d58599acb5a8ee.1489836443.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, ja@ssi.bg
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35552 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751302AbdCRLeK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 07:34:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+As tp->dst_pending_confirm's value can only be set 0 or 1, this
+patch is to change to define it as a bit instead of __u32.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- drivers/net/veth.c |   22 ++++++++++------------
- 1 files changed, 10 insertions(+), 12 deletions(-)
+ include/net/sctp/structs.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 8c39d6d..730b133 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -45,18 +45,16 @@ struct veth_priv {
- 	{ "peer_ifindex" },
- };
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 07a0b12..4f64519 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -753,6 +753,8 @@ struct sctp_transport {
+ 		/* Is the Path MTU update pending on this tranport */
+ 		pmtu_pending:1,
  
--static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int veth_get_link_ksettings(struct net_device *dev,
-+				   struct ethtool_link_ksettings *cmd)
- {
--	cmd->supported		= 0;
--	cmd->advertising	= 0;
--	ethtool_cmd_speed_set(cmd, SPEED_10000);
--	cmd->duplex		= DUPLEX_FULL;
--	cmd->port		= PORT_TP;
--	cmd->phy_address	= 0;
--	cmd->transceiver	= XCVR_INTERNAL;
--	cmd->autoneg		= AUTONEG_DISABLE;
--	cmd->maxtxpkt		= 0;
--	cmd->maxrxpkt		= 0;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	cmd->base.speed = SPEED_10000;
-+	cmd->base.duplex	= DUPLEX_FULL;
-+	cmd->base.port		= PORT_TP;
-+	cmd->base.phy_address	= 0;
-+	cmd->base.autoneg	= AUTONEG_DISABLE;
- 	return 0;
- }
++		dst_pending_confirm:1,	/* need to confirm neighbour */
++
+ 		/* Has this transport moved the ctsn since we last sacked */
+ 		sack_generation:1;
+ 	u32 dst_cookie;
+@@ -806,8 +808,6 @@ struct sctp_transport {
  
-@@ -95,12 +93,12 @@ static void veth_get_ethtool_stats(struct net_device *dev,
- }
+ 	__u32 burst_limited;	/* Holds old cwnd when max.burst is applied */
  
- static const struct ethtool_ops veth_ethtool_ops = {
--	.get_settings		= veth_get_settings,
- 	.get_drvinfo		= veth_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_strings		= veth_get_strings,
- 	.get_sset_count		= veth_get_sset_count,
- 	.get_ethtool_stats	= veth_get_ethtool_stats,
-+	.get_link_ksettings	= veth_get_link_ksettings,
- };
- 
- static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+-	__u32 dst_pending_confirm;	/* need to confirm neighbour */
+-
+ 	/* Destination */
+ 	struct dst_entry *dst;
+ 	/* Source address. */
 -- 
-1.7.4.4
+2.1.0
