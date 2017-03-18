@@ -1,78 +1,89 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v2 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Sat, 18 Mar 2017 13:30:51 +0100
-Message-ID: <9545c361-61e2-0d93-c5a6-c0b3837e1c8d@grandegger.com>
-References: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
- <1484680922-25813-2-git-send-email-akshay.bhat@timesys.com>
- <234d9e75-0083-b8b4-c781-add653fdb550@grandegger.com>
- <b3ebb569-b50c-39ad-dec5-0059fbfba8fb@timesys.com>
- <eb4e0f6f-14de-3369-0d50-7371ae74f4fb@grandegger.com>
- <3dbf8748-9d04-0f21-0e95-448d7a72e7d5@timesys.com>
- <41439729-42d0-d883-2801-2d3607f2aeab@grandegger.com>
- <CANiP4c8WMeT1Cr7WDXew1ne7DFR04oaA8Uch0zvyyOf5yCa37A@mail.gmail.com>
- <3dba0948-ffcb-8e80-fb32-62bb0aca6627@grandegger.com>
- <54d9a104-8ed1-4bb3-666e-042d3781dbfb@timesys.com>
- <006d9e14-47bf-1add-97c3-24098b43267f@grandegger.com>
- <69173747-cc2e-55f7-acad-4b5ba2a22863@timesys.com>
- <d5182e77-c243-1980-4cb6-39cd95075f4f@grandegger.com>
- <0362316b-ef76-1733-dbfc-8b644f758db9@timesys.com>
- <7730cff6-6e85-c98d-0315-bd3888d3aeb1@grandegger.com>
- <ff5d44d1-3bfe-8dae-2aaa-561ab0cb989c@timesys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Akshay Bhat <akshay.bhat-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>,
-        Akshay Bhat <nodeax-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <ff5d44d1-3bfe-8dae-2aaa-561ab0cb989c-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Elena Reshetova <elena.reshetova@intel.com>
+Subject: [PATCH] net: convert sk_filter.refcnt from atomic_t to refcount_t
+Date: Sat, 18 Mar 2017 14:58:09 +0200
+Message-ID: <1489841889-27601-1-git-send-email-elena.reshetova@intel.com>
+Cc: ast@fb.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        peterz@infradead.org, keescook@chromium.org,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
+To: daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Akshay,
+refcount_t type and corresponding API should be
+used instead of atomic_t when the variable is used as
+a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free
+situations.
 
-Am 17.03.2017 um 19:28 schrieb Akshay Bhat:
-> Hi Wolfgang,
->
-> On 03/17/2017 01:04 PM, Wolfgang Grandegger wrote:
->>
->> Hm, that's unusual. Cable disconnected and then send a message:
->>
->> $ grep /proc/interrupts; sleep 10; /proc/interrupts
->>
->> should make things clear. But maybe it's a clever chip and it does stop
->> sending error messages if the error counter does not change any more.
->> After bus-off, the chip is quiet, of course. Should have a closer look
->> to the CAN standard.
->>
->
-> The interrupt count does not increment after device reaches
-> tx-error-passive (with cable disconnected).
->
-> # while true; do grep -i hi3110 /proc/interrupts; sleep 10; done &
-> [1] 793
-> #
-> 111:          0          0  gpio-mxc  12 Edge      hi3110
-> # candump -t d -e any,0:0,#FFFFFFF &
-> [2] 798
-> # cansend can0 123#
-> #
->  (000.000000)  can0  20000004   [8]  00 08 00 00 00 00 60 00   ERRORFRAME
-> 	controller-problem{tx-error-warning}
-> 	error-counter-tx-rx{{96}{0}}
->  (000.002122)  can0  20000004   [8]  00 20 00 00 00 00 80 00   ERRORFRAME
-> 	controller-problem{tx-error-passive}
-> 	error-counter-tx-rx{{128}{0}}
-> 111:         10          0  gpio-mxc  12 Edge      hi3110
-> 111:         10          0  gpio-mxc  12 Edge      hi3110
-> 111:         10          0  gpio-mxc  12 Edge      hi3110
+Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
+---
+ include/linux/filter.h | 3 ++-
+ net/core/filter.c      | 7 ++++---
+ 2 files changed, 6 insertions(+), 4 deletions(-)
 
-OK, then there is no good reason connecting the STAT interrupt pin.
-
-Wolfgang.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 8053c38..20247e7 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -7,6 +7,7 @@
+ #include <stdarg.h>
+ 
+ #include <linux/atomic.h>
++#include <linux/refcount.h>
+ #include <linux/compat.h>
+ #include <linux/skbuff.h>
+ #include <linux/linkage.h>
+@@ -431,7 +432,7 @@ struct bpf_prog {
+ };
+ 
+ struct sk_filter {
+-	atomic_t	refcnt;
++	refcount_t	refcnt;
+ 	struct rcu_head	rcu;
+ 	struct bpf_prog	*prog;
+ };
+diff --git a/net/core/filter.c b/net/core/filter.c
+index ebaeaf2..62267e2 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -928,7 +928,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
+  */
+ static void sk_filter_release(struct sk_filter *fp)
+ {
+-	if (atomic_dec_and_test(&fp->refcnt))
++	if (refcount_dec_and_test(&fp->refcnt))
+ 		call_rcu(&fp->rcu, sk_filter_release_rcu);
+ }
+ 
+@@ -950,7 +950,7 @@ bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+ 	/* same check as in sock_kmalloc() */
+ 	if (filter_size <= sysctl_optmem_max &&
+ 	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
+-		atomic_inc(&fp->refcnt);
++		refcount_inc(&fp->refcnt);
+ 		atomic_add(filter_size, &sk->sk_omem_alloc);
+ 		return true;
+ 	}
+@@ -1179,12 +1179,13 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
+ 		return -ENOMEM;
+ 
+ 	fp->prog = prog;
+-	atomic_set(&fp->refcnt, 0);
++	refcount_set(&fp->refcnt, 1);
+ 
+ 	if (!sk_filter_charge(sk, fp)) {
+ 		kfree(fp);
+ 		return -ENOMEM;
+ 	}
++	refcount_set(&fp->refcnt, 1);
+ 
+ 	old_fp = rcu_dereference_protected(sk->sk_filter,
+ 					   lockdep_sock_is_held(sk));
+-- 
+2.7.4
