@@ -1,32 +1,69 @@
-From: Rami Rosen <roszenrami@gmail.com>
-Subject: Re: SO_BINDTODEVICE in VRFs not working?
-Date: Sat, 18 Mar 2017 12:28:18 +0200
-Message-ID: <CAKoUArnvBBF=CdzKNBNLOu4ZDw8yG7RJ4J+ruXOQSrcV91U0+Q@mail.gmail.com>
-References: <0ac6f5aa-ca23-0cb0-603f-b30758c4c6c3@orlandi.com> <8f53ba28-d897-45c4-862c-3d3850dbd79d@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniele Orlandi <daniele@orlandi.com>,
-        Netdev <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:36214 "EHLO
-        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751332AbdCRKye (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 06:54:34 -0400
-Received: by mail-it0-f49.google.com with SMTP id w124so46981900itb.1
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 03:53:29 -0700 (PDT)
-In-Reply-To: <8f53ba28-d897-45c4-862c-3d3850dbd79d@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: veth: use new api ethtool_{get|set}_link_ksettings
+Date: Sat, 18 Mar 2017 12:13:26 +0100
+Message-ID: <1489835606-23692-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, lucien.xin@gmail.com, jarod@redhat.com,
+        stephen@networkplumber.org, dsa@cumulusnetworks.com,
+        aduyck@mirantis.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
->Bind to the VRF device not an interface enslaved to it. I want to add
->the option for enslaved interfaces but have not gotten around to it.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/veth.c |   22 ++++++++++------------
+ 1 files changed, 10 insertions(+), 12 deletions(-)
 
-Maybe this should be added as a note/TBD to the VRF documentation
-(which does mention setsockopt with SO_BINDTODEVICE):
-http://lxr.free-electrons.com/source/Documentation/networking/vrf.txt#L97
-
-Regards,
-Rami Rosen
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 8c39d6d..730b133 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -45,18 +45,16 @@ struct veth_priv {
+ 	{ "peer_ifindex" },
+ };
+ 
+-static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int veth_get_link_ksettings(struct net_device *dev,
++				   struct ethtool_link_ksettings *cmd)
+ {
+-	cmd->supported		= 0;
+-	cmd->advertising	= 0;
+-	ethtool_cmd_speed_set(cmd, SPEED_10000);
+-	cmd->duplex		= DUPLEX_FULL;
+-	cmd->port		= PORT_TP;
+-	cmd->phy_address	= 0;
+-	cmd->transceiver	= XCVR_INTERNAL;
+-	cmd->autoneg		= AUTONEG_DISABLE;
+-	cmd->maxtxpkt		= 0;
+-	cmd->maxrxpkt		= 0;
++	ethtool_link_ksettings_zero_link_mode(cmd, supported);
++	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
++	cmd->base.speed = SPEED_10000;
++	cmd->base.duplex	= DUPLEX_FULL;
++	cmd->base.port		= PORT_TP;
++	cmd->base.phy_address	= 0;
++	cmd->base.autoneg	= AUTONEG_DISABLE;
+ 	return 0;
+ }
+ 
+@@ -95,12 +93,12 @@ static void veth_get_ethtool_stats(struct net_device *dev,
+ }
+ 
+ static const struct ethtool_ops veth_ethtool_ops = {
+-	.get_settings		= veth_get_settings,
+ 	.get_drvinfo		= veth_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_strings		= veth_get_strings,
+ 	.get_sset_count		= veth_get_sset_count,
+ 	.get_ethtool_stats	= veth_get_ethtool_stats,
++	.get_link_ksettings	= veth_get_link_ksettings,
+ };
+ 
+ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+-- 
+1.7.4.4
