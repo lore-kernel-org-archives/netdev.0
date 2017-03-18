@@ -1,88 +1,110 @@
-From: John Allen <jallen@linux.vnet.ibm.com>
-Subject: [PATCH net 2/4] ibmvnic: Move login to its own routine
-Date: Fri, 17 Mar 2017 17:13:41 -0500
-Message-ID: <1489788823-20980-3-git-send-email-jallen@linux.vnet.ibm.com>
-References: <1489788823-20980-1-git-send-email-jallen@linux.vnet.ibm.com>
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com,
-        nfont@linux.vnet.ibm.com
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: [PATCH net-next v4 1/2]L2TP:Adjust intf MTU, add underlay L3, L2
+ hdrs
+Date: Fri, 17 Mar 2017 18:53:51 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1703171847580.10094@vera100.eng.brocade.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kleptog@svana.org, jchapman@katalix.com, davem@redhat.com,
+        nprachan@brocade.com, rshearma@brocade.com,
+        stephen@networkplumber.org, sdietric@brocade.com,
+        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
+        bhong@brocade.com, jblunck@brocade.com,
+        linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:53614 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751023AbdCRBuJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 21:50:09 -0400
-Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2HM9152141440
-        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 18:14:06 -0400
-Received: from e36.co.us.ibm.com (e36.co.us.ibm.com [32.97.110.154])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 297yvckdr0-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 17 Mar 2017 18:14:05 -0400
-Received: from localhost
-        by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
-        Fri, 17 Mar 2017 16:14:05 -0600
-In-Reply-To: <1489788823-20980-1-git-send-email-jallen@linux.vnet.ibm.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33726 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751023AbdCRCDU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 22:03:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the code that handles login and renegotiation of ibmvnic
-capabilities to its own routine.
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+In existing kernel code, when setting up the L2TP interface, all of the
+tunnel encapsulation headers are not taken into account when setting
+up the MTU on the  L2TP logical interface device. Due to this, the
+packets created by the applications on top of the L2TP layer are larger
+than they ought to be, relative to the underlay MTU, which leads to
+needless fragmentation once the L2TP packet is encapsulated in an outer IP
+packet.  Specifically, the MTU calculation  does not take into account the
+(outer) IP header imposed on the encapsulated L2TP packet, and the Layer 2
+header imposed on the inner L2TP packet prior to encapsulation.
+
+Change-set here (1/2) introduces a new kernel API to compute the IP overhead
+on an IPv4 or IPv6 socket, which is then used in the L2TP code-path.
+
+Signed-off-by: R. Parameswaran <rparames@brocade.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c | 28 ++++++++++++++++++++--------
- 1 file changed, 20 insertions(+), 8 deletions(-)
+ include/linux/net.h |  3 +++
+ net/socket.c        | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 7588c12..b6606d8 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -371,18 +371,11 @@ static void free_rx_pool(struct ibmvnic_adapter *adapter,
- 	pool->rx_buff = NULL;
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 0620f5e..a42fab2 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -298,6 +298,9 @@ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+ int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
+ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how);
+ 
++/* Following routine returns the IP overhead imposed by a socket.  */
++u32 kernel_sock_ip_overhead(struct sock *sk);
++
+ #define MODULE_ALIAS_NETPROTO(proto) \
+ 	MODULE_ALIAS("net-pf-" __stringify(proto))
+ 
+diff --git a/net/socket.c b/net/socket.c
+index e034fe4..69598e1 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -3345,3 +3345,47 @@ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
+ 	return sock->ops->shutdown(sock, how);
  }
- 
--static int ibmvnic_open(struct net_device *netdev)
-+static int ibmvnic_login(struct net_device *netdev)
- {
- 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
- 	unsigned long timeout = msecs_to_jiffies(30000);
- 	struct device *dev = &adapter->vdev->dev;
--	struct ibmvnic_tx_pool *tx_pool;
--	union ibmvnic_crq crq;
--	int rxadd_subcrqs;
--	u64 *size_array;
--	int tx_subcrqs;
--	int rc = 0;
--	int i, j;
- 
- 	do {
- 		if (adapter->renegotiate) {
-@@ -407,6 +400,25 @@ static int ibmvnic_open(struct net_device *netdev)
- 		}
- 	} while (adapter->renegotiate);
- 
-+	return 0;
-+}
+ EXPORT_SYMBOL(kernel_sock_shutdown);
 +
-+static int ibmvnic_open(struct net_device *netdev)
++/* This routine returns the IP overhead imposed by a socket i.e.
++ * the length of the underlying IP header, depending on whether
++ * this is an IPv4 or IPv6 socket and the length from IP options turned
++ * on at the socket.
++ */
++u32 kernel_sock_ip_overhead(struct sock *sk)
 +{
-+	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-+	struct device *dev = &adapter->vdev->dev;
-+	struct ibmvnic_tx_pool *tx_pool;
-+	union ibmvnic_crq crq;
-+	int rxadd_subcrqs;
-+	u64 *size_array;
-+	int tx_subcrqs;
-+	int rc = 0;
-+	int i, j;
++	struct inet_sock *inet;
++	struct ipv6_pinfo *np;
++	struct ip_options_rcu *opt;
++	struct ipv6_txoptions *optv6 = NULL;
++	u32 overhead = 0;
++	bool owned_by_user;
 +
-+	rc = ibmvnic_login(netdev);
-+	if (rc)
-+		return rc;
++	if (!sk)
++		return overhead;
 +
- 	rc = netif_set_real_num_tx_queues(netdev, adapter->req_tx_queues);
- 	if (rc) {
- 		dev_err(dev, "failed to set the number of tx queues\n");
++	owned_by_user = sock_owned_by_user(sk);
++	switch (sk->sk_family) {
++	case AF_INET:
++		inet = inet_sk(sk);
++		overhead += sizeof(struct iphdr);
++		opt = rcu_dereference_protected(inet->inet_opt,
++						owned_by_user);
++		if (opt)
++			overhead += opt->opt.optlen;
++		return overhead;
++#if IS_ENABLED(CONFIG_IPV6)
++	case AF_INET6:
++		np = inet6_sk(sk);
++		overhead += sizeof(struct ipv6hdr);
++		if (np)
++			optv6 = rcu_dereference_protected(np->opt,
++							  owned_by_user);
++		if (optv6)
++			overhead += (optv6->opt_flen + optv6->opt_nflen);
++		return overhead;
++#endif /* IS_ENABLED(CONFIG_IPV6) */
++	default: /* Returns 0 overhead if the socket is not ipv4 or ipv6 */
++		return overhead;
++	}
++}
++EXPORT_SYMBOL(kernel_sock_ip_overhead);
 -- 
-2.7.4
+2.1.4
