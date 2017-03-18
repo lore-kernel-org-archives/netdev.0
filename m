@@ -1,9 +1,9 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: remove temporary variable confirm from
- sctp_packet_transmit
-Date: Sat, 18 Mar 2017 15:05:07 -0400
-Message-ID: <20170318190507.GA14004@neilslaptop.think-freely.org>
-References: <a1bef2ad80e5a7338fc5c6786ea61835014b8c61.1489835542.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: define dst_pending_confirm as a bit in
+ sctp_transport
+Date: Sat, 18 Mar 2017 15:07:08 -0400
+Message-ID: <20170318190708.GB14004@neilslaptop.think-freely.org>
+References: <b4390881b14adce583817529e5d58599acb5a8ee.1489836443.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
@@ -12,58 +12,46 @@ Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
         Vlad Yasevich <vyasevich@gmail.com>, ja@ssi.bg
 To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42515 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42558 "EHLO
         smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751726AbdCRTF3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 15:05:29 -0400
+        with ESMTP id S1751685AbdCRTHW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 15:07:22 -0400
 Content-Disposition: inline
-In-Reply-To: <a1bef2ad80e5a7338fc5c6786ea61835014b8c61.1489835542.git.lucien.xin@gmail.com>
+In-Reply-To: <b4390881b14adce583817529e5d58599acb5a8ee.1489836443.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 18, 2017 at 07:12:22PM +0800, Xin Long wrote:
-> Commit c86a773c7802 ("sctp: add dst_pending_confirm flag") introduced
-> a temporary variable "confirm" in sctp_packet_transmit.
+On Sat, Mar 18, 2017 at 07:27:23PM +0800, Xin Long wrote:
+> As tp->dst_pending_confirm's value can only be set 0 or 1, this
+> patch is to change to define it as a bit instead of __u32.
 > 
-> But it broke the rule that longer lines should be above shorter ones.
-> Besides, this variable is not necessary, so this patch is to just
-> remove it and use tp->dst_pending_confirm directly.
-> 
-> Fixes: c86a773c7802 ("sctp: add dst_pending_confirm flag")
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 > ---
->  net/sctp/output.c | 7 +++----
->  1 file changed, 3 insertions(+), 4 deletions(-)
+>  include/net/sctp/structs.h | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 71ce6b9..1224421 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -546,7 +546,6 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  	struct sctp_association *asoc = tp->asoc;
->  	struct sctp_chunk *chunk, *tmp;
->  	int pkt_count, gso = 0;
-> -	int confirm;
->  	struct dst_entry *dst;
->  	struct sk_buff *head;
->  	struct sctphdr *sh;
-> @@ -625,13 +624,13 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  			asoc->peer.last_sent_to = tp;
->  	}
->  	head->ignore_df = packet->ipfragok;
-> -	confirm = tp->dst_pending_confirm;
-> -	if (confirm)
-> +	if (tp->dst_pending_confirm)
->  		skb_set_dst_pending_confirm(head, 1);
->  	/* neighbour should be confirmed on successful transmission or
->  	 * positive error
->  	 */
-> -	if (tp->af_specific->sctp_xmit(head, tp) >= 0 && confirm)
-> +	if (tp->af_specific->sctp_xmit(head, tp) >= 0 &&
-> +	    tp->dst_pending_confirm)
->  		tp->dst_pending_confirm = 0;
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 07a0b12..4f64519 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -753,6 +753,8 @@ struct sctp_transport {
+>  		/* Is the Path MTU update pending on this tranport */
+>  		pmtu_pending:1,
 >  
->  out:
+> +		dst_pending_confirm:1,	/* need to confirm neighbour */
+> +
+>  		/* Has this transport moved the ctsn since we last sacked */
+>  		sack_generation:1;
+>  	u32 dst_cookie;
+> @@ -806,8 +808,6 @@ struct sctp_transport {
+>  
+>  	__u32 burst_limited;	/* Holds old cwnd when max.burst is applied */
+>  
+> -	__u32 dst_pending_confirm;	/* need to confirm neighbour */
+> -
+>  	/* Destination */
+>  	struct dst_entry *dst;
+>  	/* Source address. */
 > -- 
 > 2.1.0
 > 
