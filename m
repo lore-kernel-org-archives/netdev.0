@@ -1,27 +1,32 @@
-From: "Bar. Nasir Mehmood Raja" <hcm-air_ops@scanwell.com>
-Subject: Re: Great Loan offer!!!
-Date: Sat, 18 Mar 2017 09:21:22 +0000
-Message-ID: <CORP-MIS-032ZCRTkLK000193b1@smtp1.scanwell.com>
-Reply-To: yusuf@gifg-uae.com
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: SO_BINDTODEVICE in VRFs not working?
+Date: Sat, 18 Mar 2017 12:28:18 +0200
+Message-ID: <CAKoUArnvBBF=CdzKNBNLOu4ZDw8yG7RJ4J+ruXOQSrcV91U0+Q@mail.gmail.com>
+References: <0ac6f5aa-ca23-0cb0-603f-b30758c4c6c3@orlandi.com> <8f53ba28-d897-45c4-862c-3d3850dbd79d@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <hcm-air_ops@scanwell.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniele Orlandi <daniele@orlandi.com>,
+        Netdev <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.bemta8.messagelabs.com ([216.82.243.201]:47478 "EHLO
-        mail1.bemta8.messagelabs.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751040AbdCRKM3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 06:12:29 -0400
-Content-Description: Mail message body
+Received: from mail-it0-f49.google.com ([209.85.214.49]:36214 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751332AbdCRKye (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 06:54:34 -0400
+Received: by mail-it0-f49.google.com with SMTP id w124so46981900itb.1
+        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 03:53:29 -0700 (PDT)
+In-Reply-To: <8f53ba28-d897-45c4-862c-3d3850dbd79d@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My name is Yusuf Khaled Group Chief Financial Officer in GIFG, UAE. The GIFG is financial powerhouse in the gulf region, capable of funding extremely wide variety of projects including real estate, amusement parks, eco and green projects, golf courses, hotels and hotel resorts, manufacturing, residential housing, sports stadium, theme parks, tourism and tourist projects, transport, including rail, road and shipping, water parks and many other types of project in over 60 countries worldwide.
+Hi,
 
-Kindly let me know if you have a viable project which requires partnership funding, joint Investment or loan.
+>Bind to the VRF device not an interface enslaved to it. I want to add
+>the option for enslaved interfaces but have not gotten around to it.
 
-As Group Chief Financial Officer at GIFG, I have the connection within the company to facilitate your loan or project funding without any upfront payment.
+Maybe this should be added as a note/TBD to the VRF documentation
+(which does mention setsockopt with SO_BINDTODEVICE):
+http://lxr.free-electrons.com/source/Documentation/networking/vrf.txt#L97
 
-Yusuf Khaled 
-Group Chief Financial Officer
-http://www.gifg-uae.com/
+Regards,
+Rami Rosen
