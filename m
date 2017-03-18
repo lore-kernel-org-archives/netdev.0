@@ -1,79 +1,126 @@
-From: Daniele Orlandi <daniele@orlandi.com>
-Subject: SO_BINDTODEVICE in VRFs not working?
-Date: Sat, 18 Mar 2017 02:59:57 +0100
-Message-ID: <0ac6f5aa-ca23-0cb0-603f-b30758c4c6c3@orlandi.com>
+From: R Parameswaran <parameswaran.r7@gmail.com>
+Subject: Re: [PATCH net-next v3 1/2]L2TP:Adjust intf MTU, add underlay L3, L2 hdrs
+Date: Fri, 17 Mar 2017 18:46:47 -0700
+Message-ID: <CAGeBGG6fs9U1diMV5wAfJsU=+=J_CeTx7OKQ_6kRp6zuvL3UEw@mail.gmail.com>
+References: <alpine.DEB.2.11.1703162125310.7174@vera100.eng.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Cc: kleptog@svana.org, James Chapman <jchapman@katalix.com>,
+        mostrows@speakeasy.net, acme@xconectiva.com.br, davem@redhat.com,
+        Nachi Prachanda <nprachan@brocade.com>,
+        Robert Shearman <rshearma@brocade.com>,
+        stephen@networkplumber.org,
+        Sven-Thorsten Dietrich <sdietric@brocade.com>,
+        Chas Williams III <ciwillia@brocade.com>,
+        Luca Boccassi <lboccass@brocade.com>,
+        Derek Fawcus <dfawcus@brocade.com>,
+        Bill Hong <bhong@brocade.com>, jblunck@brocade.com,
+        linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from submission.geniusware.it ([62.212.12.144]:39175 "EHLO
-        submission.orlandi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751101AbdCRCRw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 17 Mar 2017 22:17:52 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by submission.orlandi.com (Postfix) with ESMTP id C67A14C25BA
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 02:59:57 +0100 (CET)
-Received: from submission.orlandi.com ([127.0.0.1])
-        by localhost (submission.orlandi.com [127.0.0.1]) (amavisd-new, port 10024)
-        with LMTP id xZSPRSvR5JsK for <netdev@vger.kernel.org>;
-        Sat, 18 Mar 2017 02:59:57 +0100 (CET)
-Received: from [IPv6:2a02:20:20:cafe::21] (unknown [IPv6:2a02:20:20:cafe::21])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
-        (No client certificate requested)
-        (Authenticated sender: daniele@orlandi.com)
-        by submission.orlandi.com (Postfix) with ESMTPSA id 640C94C25B6
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 02:59:57 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1703162125310.7174@vera100.eng.brocade.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+[Posting a v4 patch-set shortly based on additional code review
+comments received in internal review, please disregard the v3 patches]
 
-Hello,
-
-I'm writing an application that should listen on a TCP port bound to an 
-inteface in a VRF.
-
-The bind/listen sequence is the following:
-
-   int s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-   char *ifname = "eth1";
-   setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname)+1);
-
-   struct sockaddr_in addr;
-   memset(&addr, 0, sizeof addr);
-   addr.sin_family = AF_INET;
-   addr.sin_port = htons(555);
-   addr.sin_addr.s_addr = inet_addr("0.0.0.0");
-
-   bind(s, (struct sockaddr *)&addr, sizeof(addr));
-
-   listen(s, 5);
-
-The application is confirmed to be bound to the correct interface via "ss":
-
-Netid State    Local Address:Port     Peer Address:Port
-tcp   LISTEN   *%eth1:555             *:*
-
-I can ping the interface address finely, however I get an RST whenever I 
-try to connect from a remote host:
-
-$ ping 10.10.10.10
-PING 10.10.10.10 (10.10.10.10) 56(84) bytes of data.
-64 bytes from 10.10.10.10: icmp_seq=1 ttl=64 time=0.758 ms
-64 bytes from 10.10.10.10: icmp_seq=2 ttl=64 time=0.350 ms
-
-$ telnet 10.10.10.10 555
-Trying 10.10.10.10...
-telnet: Unable to connect to remote host: Connection refused
-
-A similar piece of code without setsockopt run via "ip vrf exec" does 
-however work!
-
-
-What am I doing wrong?!?!
-
-Thank you!
-
--- 
-   Daniele Orlandi
+On Thu, Mar 16, 2017 at 9:33 PM, R. Parameswaran
+<parameswaran.r7@gmail.com> wrote:
+>
+>
+> In existing kernel code, when setting up the L2TP interface, all of the
+> tunnel encapsulation headers are not taken into account when setting
+> up the MTU on the  L2TP logical interface device. Due to this, the
+> packets created by the applications on top of the L2TP layer are larger
+> than they ought to be, relative to the underlay MTU, which leads to
+> needless fragmentation once the L2TP packet is encapsulated in an outer IP
+> packet.
+>
+> Specifically, the MTU calculation  does not take into account the (outer)
+> IP header imposed on the encapsulated L2TP packet, and the Layer 2 header
+> imposed on the inner L2TP packet prior to encapsulation. The patch posted
+> here takes care of these.
+>
+> Existing code also seems to assume an Ethernet (non-jumbo) underlay. The
+> patch uses the PMTU mechanism and the dst entry in the L2TP tunnel socket
+> to directly pull up the underlay MTU (as the baseline number on top of
+> which the encapsulation headers are factored in).  Ethernet MTU is
+> assumed as a fallback only if this fails.
+>
+> Picked up review comments from James Chapman, added a function
+> to compute ip header + ip option overhead on a socket, and factored it
+> into L2TP change-set.
+>
+> Signed-off-by: R. Parameswaran <rparames@brocade.com>
+> ---
+>  include/linux/net.h |  3 +++
+>  net/socket.c        | 41 +++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 44 insertions(+)
+>
+> diff --git a/include/linux/net.h b/include/linux/net.h
+> index 0620f5e..a42fab2 100644
+> --- a/include/linux/net.h
+> +++ b/include/linux/net.h
+> @@ -298,6 +298,9 @@ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+>  int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
+>  int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how);
+>
+> +/* Following routine returns the IP overhead imposed by a socket.  */
+> +u32 kernel_sock_ip_overhead(struct sock *sk);
+> +
+>  #define MODULE_ALIAS_NETPROTO(proto) \
+>         MODULE_ALIAS("net-pf-" __stringify(proto))
+>
+> diff --git a/net/socket.c b/net/socket.c
+> index e034fe4..af54b12 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -3345,3 +3345,44 @@ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
+>         return sock->ops->shutdown(sock, how);
+>  }
+>  EXPORT_SYMBOL(kernel_sock_shutdown);
+> +
+> +/*     This routine returns the IP overhead imposed by a socket i.e.
+> + *     the length of the underlying IP header, depending on whether
+> + *     this is an IPv4 or IPv6 socket and the length from IP options turned
+> + *     on at the socket.
+> + */
+> +u32 kernel_sock_ip_overhead(struct sock *sk)
+> +{
+> +       struct inet_sock *inet;
+> +       struct ipv6_pinfo *np;
+> +       struct ip_options_rcu *opt = NULL;
+> +       struct ipv6_txoptions *optv6 = NULL;
+> +       u32 overhead = 0;
+> +       bool owned_by_user = sock_owned_by_user(sk);
+> +
+> +       if (!sk)
+> +               return overhead;
+> +       switch (sk->sk_family) {
+> +       case AF_INET:
+> +               inet = inet_sk(sk);
+> +               overhead += sizeof(struct iphdr);
+> +               if (inet)
+> +                       opt = rcu_dereference_protected(inet->inet_opt,
+> +                                                       owned_by_user);
+> +               if (opt)
+> +                       overhead += opt->opt.optlen;
+> +               return overhead;
+> +       case AF_INET6:
+> +               np = inet6_sk(sk);
+> +               overhead += sizeof(struct ipv6hdr);
+> +               if (np)
+> +                       optv6 = rcu_dereference_protected(np->opt,
+> +                                                         owned_by_user);
+> +               if (optv6)
+> +                       overhead += (optv6->opt_flen + optv6->opt_nflen);
+> +               return overhead;
+> +       default: /* Returns 0 overhead if the socket is not ipv4 or ipv6 */
+> +               return overhead;
+> +       }
+> +}
+> +EXPORT_SYMBOL(kernel_sock_ip_overhead);
+> --
+> 2.1.4
+>
