@@ -1,89 +1,169 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH] net: convert sk_filter.refcnt from atomic_t to refcount_t
-Date: Sat, 18 Mar 2017 14:58:09 +0200
-Message-ID: <1489841889-27601-1-git-send-email-elena.reshetova@intel.com>
-Cc: ast@fb.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        peterz@infradead.org, keescook@chromium.org,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: daniel@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: Re: [PATCH RFC net-next v2 1/4] skbuff: add stub to help computing
+ crc32c on SCTP packets
+Date: Sat, 18 Mar 2017 14:17:25 +0100
+Message-ID: <1489843045.2456.2.camel@redhat.com>
+References: <1488202783.2713.67.camel@redhat.com>
+         <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
+         <CAKgT0Udbs_=vanS+oF8ePXTNjEfsq9y==bhtQ-5Cxb-g+iO4bg@mail.gmail.com>
+         <1488837077.3068.13.camel@redhat.com>
+         <CAKgT0Uf6i+TmMyywgT7-X=n+P+a4_U1Z+Qrts7v1=v79MPsS+w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: David Laight <David.Laight@aculab.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55354 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751025AbdCRN1x (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 18 Mar 2017 09:27:53 -0400
+In-Reply-To: <CAKgT0Uf6i+TmMyywgT7-X=n+P+a4_U1Z+Qrts7v1=v79MPsS+w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+hello Alexander and Tom,
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
----
- include/linux/filter.h | 3 ++-
- net/core/filter.c      | 7 ++++---
- 2 files changed, 6 insertions(+), 4 deletions(-)
+On Tue, 2017-03-07 at 10:06 -0800, Alexander Duyck wrote:
+> 
+> You might even take this one step
+> further.  You could convert crc32_csum into a 1 bit enum for now.
+> Basically you would use 0 for 1's compliement csum, and 1 to represent
+> a crc32c csum.  Then if we end up having to add another bit for
+> something like FCoE in the future it would give us 4 possible checksum
+> types instead of just giving us 1 with a bit mask.
+<...>
+> I would say if you can't use an extra bit to indicate the checksum type
+> you probably don't have too much other choice.
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 8053c38..20247e7 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -7,6 +7,7 @@
- #include <stdarg.h>
- 
- #include <linux/atomic.h>
-+#include <linux/refcount.h>
- #include <linux/compat.h>
- #include <linux/skbuff.h>
- #include <linux/linkage.h>
-@@ -431,7 +432,7 @@ struct bpf_prog {
- };
- 
- struct sk_filter {
--	atomic_t	refcnt;
-+	refcount_t	refcnt;
- 	struct rcu_head	rcu;
- 	struct bpf_prog	*prog;
- };
-diff --git a/net/core/filter.c b/net/core/filter.c
-index ebaeaf2..62267e2 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -928,7 +928,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
-  */
- static void sk_filter_release(struct sk_filter *fp)
- {
--	if (atomic_dec_and_test(&fp->refcnt))
-+	if (refcount_dec_and_test(&fp->refcnt))
- 		call_rcu(&fp->rcu, sk_filter_release_rcu);
+Unluckily, there are no free bits in struct sk_buff (i.e. there is 1 + 8 
+bits after skb->xmit_more, but its content would be be lost after
+__copy_skb_header() _ so simply we can't use them).
+As soon as two bits in sk_buff are freed, we will be able to rely on the
+skb metadata, instead of inspecting the packet headers, to understand
+what algorithm is used to ensure data integrity in the packet.
+
+> As far as the patch you provided I would say it is a good start, but
+> was a bit to aggressive in a few spots.  For now we don't have support
+> for offloading crc32c when encapsulating a frame so you don't need to
+> worry about that too much for now.  
+
+Ok _ so, skb_csum_hwoffload_help(skb, features) will assume that skb needs
+crc32c if all the following conditions are met:
+- feature bitmask does not have NETIF_F_SCTP_CRC bit set
+- skb->csum_offset is equal to 8 (i.e. offsetof(struct sctphdr,checksum)).
+- skb is carrying an (outer, non encapsulated) IPv4/IPv6 header with
+protocol number equal to 132 (i.e. IPPROTO_SCTP)
+
+In any other case, we will compute the internet checksum or do nothing _
+just what it's happening right now for non-GSO packets reaching
+validate_xmit_skb(). I think this implementation can be extended to the
+FCoE case if needed.
+
+> Also as far as the features test
+> you should only need to find that one of the feature bits is set in
+> the list you were testing.  What might make sense would be to look
+> into updating can_checksum_protocol to possibly factor in csum_offset
+> when determining if we can offload it or not.
+
+Looking again at the code, I noticed that the number of test on 'features'
+bits can be reduced: see below.
+
+can_checksum_protocol() takes an ethertype as parameter, so we would need
+to invent a non-standardized valure for SCTP. Moreover, it is used in
+skb_segment() for GSO: so, adding extra CPU cycles would affect
+performance on a path where the kernel is already showing the right
+behavior (GSO SCTP packets have their CRC32 computed correctly when
+sctp_gso_segment() is called).     
+
+
+hello Tom,
+> > On Tue, 2017-02-28 at 11:50 -0800, Tom Herbert wrote:
+> > > 
+> > > Return value looks complex. Maybe we should just change
+> > > skb_csum_*_help to return bool, true of checksum was handled false if
+> > > not.
+> > 
+> > These functions can return -EINVAL if skb is a GSO packet, or -ENOMEM if
+> > skb_linearize(skb) or pskb_expand_head(skb) fail, or 0. I would preserve the
+> > return value of skb_checksum_help() and provide similar range of return values
+> > for skb_sctp_csum_help() (also known as skb_crc32c_csum_help()): this can
+> > help eventual future attempts to remove skb_warn_bad_offload(). It makes
+> > sense to make boolean the return value of skb_csum_hwoffload_help(),
+> > since we are using it only for non-GSO packets.
+
+the above statement is still valid after the body of the function changed. A
+very small thing: according to the kernel coding style, I should find a
+'predicative' name for this function. Something like
+
+skb_can_resolve_partial_csum(),
+
+(which is terrible, I know)
+
+or similar / better.
+
+Please let me know if you think the code below is ok for you.
+Thank you in advance!
+
+regards,
+
+--
+davide
+
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2987,6 +2987,38 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
+ 	return skb;
  }
  
-@@ -950,7 +950,7 @@ bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
- 	/* same check as in sock_kmalloc() */
- 	if (filter_size <= sysctl_optmem_max &&
- 	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
--		atomic_inc(&fp->refcnt);
-+		refcount_inc(&fp->refcnt);
- 		atomic_add(filter_size, &sk->sk_omem_alloc);
- 		return true;
++static bool skb_csum_hwoffload_help(struct sk_buff *skb,
++				    netdev_features_t features)
++{
++	bool crc32c_csum_hwoff = !!(features & NETIF_F_SCTP_CRC);
++	bool inet_csum_hwoff = !!(features & NETIF_F_CSUM_MASK);
++	unsigned int offset = 0;
++
++	if (crc32c_csum_hwoff && inet_csum_hwoff)
++		return true;
++
++	if (skb->encapsulation ||
++	    skb->csum_offset != offsetof(struct sctphdr, checksum))
++		goto inet_csum;
++
++	switch (vlan_get_protocol(skb)) {
++	case ntohs(ETH_P_IP):
++		if (ip_hdr(skb)->protocol == IPPROTO_SCTP)
++			goto crc32c_csum;
++		break;
++	case ntohs(ETH_P_IPV6):
++		if (ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL) ==
++		    IPPROTO_SCTP)
++			goto crc32c_csum;
++		break;
++	}
++inet_csum:
++	return inet_csum_hwoff ? true : !skb_checksum_help(skb);
++
++crc32c_csum:
++	return crc32c_csum_hwoff ? true : !skb_crc32c_csum_help(skb);
++}
++
+ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	netdev_features_t features;
+@@ -3022,8 +3054,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+ 			else
+ 				skb_set_transport_header(skb,
+ 							 skb_checksum_start_offset(skb));
+-			if (!(features & NETIF_F_CSUM_MASK) &&
+-			    skb_checksum_help(skb))
++			if (skb_csum_hwoffload_help(skb, features) == false)
+ 				goto out_kfree_skb;
+ 		}
  	}
-@@ -1179,12 +1179,13 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
- 		return -ENOMEM;
- 
- 	fp->prog = prog;
--	atomic_set(&fp->refcnt, 0);
-+	refcount_set(&fp->refcnt, 1);
- 
- 	if (!sk_filter_charge(sk, fp)) {
- 		kfree(fp);
- 		return -ENOMEM;
- 	}
-+	refcount_set(&fp->refcnt, 1);
- 
- 	old_fp = rcu_dereference_protected(sk->sk_filter,
- 					   lockdep_sock_is_held(sk));
--- 
-2.7.4
