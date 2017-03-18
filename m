@@ -1,90 +1,37 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH] net: usb: pegasus: use new api
- ethtool_{get|set}_link_ksettings
-Date: Sat, 18 Mar 2017 12:24:13 +0200
-Message-ID: <20170318102413.isi5fgq5qwwng2se@p310>
-References: <1489790044-11867-1-git-send-email-tremyfr@gmail.com>
+From: Daniele Orlandi <daniele@orlandi.com>
+Subject: Re: SO_BINDTODEVICE in VRFs not working?
+Date: Sat, 18 Mar 2017 13:02:45 +0100
+Message-ID: <ba46da79-be30-b69c-583b-14673e468a6c@orlandi.com>
+References: <0ac6f5aa-ca23-0cb0-603f-b30758c4c6c3@orlandi.com>
+ <8f53ba28-d897-45c4-862c-3d3850dbd79d@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1489790044-11867-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 8bit
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from submission.geniusware.it ([62.212.12.144]:41199 "EHLO
+        submission.orlandi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751320AbdCRM2E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 08:28:04 -0400
+In-Reply-To: <8f53ba28-d897-45c4-862c-3d3850dbd79d@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17-03-17 23:34:04, Philippe Reynes wrote:
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+On 18/03/2017 06:54, David Ahern wrote:
+>
+>>   int s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+>>
+>>   char *ifname = "eth1";
 > 
-> As I don't have the hardware, I'd be very pleased if someone may test this 
-> patch.
+> Bind to the VRF device not an interface enslaved to it.
 
-Yep, the patch seems to be working fine on real hardware.
+Oh... thanks, it was that simple...
 
-Acked-by: Petko Manolov <petkan@nucleusys.com>
+Well, yes, I think it should be possible to bind to the specific
+interfaces too although it's not what I was looking for.
 
+Thank you,
+Bye,
 
-cheers,
-Petko
-
-
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> ---
->  drivers/net/usb/pegasus.c |   14 ++++++++------
->  1 files changed, 8 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-> index 3667448..321e059 100644
-> --- a/drivers/net/usb/pegasus.c
-> +++ b/drivers/net/usb/pegasus.c
-> @@ -953,20 +953,22 @@ static inline void pegasus_reset_wol(struct net_device *dev)
->  }
->  
->  static int
-> -pegasus_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-> +pegasus_get_link_ksettings(struct net_device *dev,
-> +			   struct ethtool_link_ksettings *ecmd)
->  {
->  	pegasus_t *pegasus;
->  
->  	pegasus = netdev_priv(dev);
-> -	mii_ethtool_gset(&pegasus->mii, ecmd);
-> +	mii_ethtool_get_link_ksettings(&pegasus->mii, ecmd);
->  	return 0;
->  }
->  
->  static int
-> -pegasus_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-> +pegasus_set_link_ksettings(struct net_device *dev,
-> +			   const struct ethtool_link_ksettings *ecmd)
->  {
->  	pegasus_t *pegasus = netdev_priv(dev);
-> -	return mii_ethtool_sset(&pegasus->mii, ecmd);
-> +	return mii_ethtool_set_link_ksettings(&pegasus->mii, ecmd);
->  }
->  
->  static int pegasus_nway_reset(struct net_device *dev)
-> @@ -995,14 +997,14 @@ static void pegasus_set_msglevel(struct net_device *dev, u32 v)
->  
->  static const struct ethtool_ops ops = {
->  	.get_drvinfo = pegasus_get_drvinfo,
-> -	.get_settings = pegasus_get_settings,
-> -	.set_settings = pegasus_set_settings,
->  	.nway_reset = pegasus_nway_reset,
->  	.get_link = pegasus_get_link,
->  	.get_msglevel = pegasus_get_msglevel,
->  	.set_msglevel = pegasus_set_msglevel,
->  	.get_wol = pegasus_get_wol,
->  	.set_wol = pegasus_set_wol,
-> +	.get_link_ksettings = pegasus_get_link_ksettings,
-> +	.set_link_ksettings = pegasus_set_link_ksettings,
->  };
->  
->  static int pegasus_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
-> -- 
-> 1.7.4.4
-> 
-> 
+-- 
+  Daniele Orlandi
