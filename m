@@ -1,65 +1,62 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: out_qlen should be updated when pruning unsent queue
-Date: Sat, 18 Mar 2017 20:03:59 +0800
-Message-ID: <16cb6e6d2ef47481123bc3ff1b99e8abf5334d14.1489838639.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: convert sk_filter.refcnt from atomic_t to refcount_t
+Date: Sat, 18 Mar 2017 17:33:22 +0300
+Message-ID: <a19263a2-141b-22ad-4300-0ffe54cae8d6@cogentembedded.com>
+References: <1489841889-27601-1-git-send-email-elena.reshetova@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        peterz@infradead.org, keescook@chromium.org,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
+To: Elena Reshetova <elena.reshetova@intel.com>, daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33733 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751107AbdCROsR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 10:48:17 -0400
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:34338 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751645AbdCRQRf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 12:17:35 -0400
+Received: by mail-lf0-f54.google.com with SMTP id z15so42825515lfd.1
+        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 09:17:34 -0700 (PDT)
+In-Reply-To: <1489841889-27601-1-git-send-email-elena.reshetova@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to fix the issue that sctp_prsctp_prune_sent forgot
-to update q->out_qlen when removing a chunk from unsent queue.
+Hello!
 
-Fixes: 8dbdf1f5b09c ("sctp: implement prsctp PRIO policy")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/outqueue.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+On 3/18/2017 3:58 PM, Elena Reshetova wrote:
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index db352e5..025ccff 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -382,17 +382,18 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
- }
- 
- static int sctp_prsctp_prune_unsent(struct sctp_association *asoc,
--				    struct sctp_sndrcvinfo *sinfo,
--				    struct list_head *queue, int msg_len)
-+				    struct sctp_sndrcvinfo *sinfo, int msg_len)
- {
-+	struct sctp_outq *q = &asoc->outqueue;
- 	struct sctp_chunk *chk, *temp;
- 
--	list_for_each_entry_safe(chk, temp, queue, list) {
-+	list_for_each_entry_safe(chk, temp, &q->out_chunk_list, list) {
- 		if (!SCTP_PR_PRIO_ENABLED(chk->sinfo.sinfo_flags) ||
- 		    chk->sinfo.sinfo_timetolive <= sinfo->sinfo_timetolive)
- 			continue;
- 
- 		list_del_init(&chk->list);
-+		q->out_qlen -= chk->skb->len;
- 		asoc->sent_cnt_removable--;
- 		asoc->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
- 
-@@ -431,9 +432,7 @@ void sctp_prsctp_prune(struct sctp_association *asoc,
- 			return;
- 	}
- 
--	sctp_prsctp_prune_unsent(asoc, sinfo,
--				 &asoc->outqueue.out_chunk_list,
--				 msg_len);
-+	sctp_prsctp_prune_unsent(asoc, sinfo, msg_len);
- }
- 
- /* Mark all the eligible packets on a transport for retransmission.  */
--- 
-2.1.0
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
+>
+> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Signed-off-by: David Windsor <dwindsor@gmail.com>
+[...]
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index ebaeaf2..62267e2 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+[...]
+> @@ -1179,12 +1179,13 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
+>  		return -ENOMEM;
+>
+>  	fp->prog = prog;
+> -	atomic_set(&fp->refcnt, 0);
+> +	refcount_set(&fp->refcnt, 1);
+>
+>  	if (!sk_filter_charge(sk, fp)) {
+>  		kfree(fp);
+>  		return -ENOMEM;
+>  	}
+> +	refcount_set(&fp->refcnt, 1);
+
+    Why do it twice?
+
+[...]
+
+MBR, Sergei
