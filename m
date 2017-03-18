@@ -1,53 +1,71 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next v2] net: Add sysctl to toggle early demux for tcp
- and udp
-Date: Sat, 18 Mar 2017 10:44:02 -0700
-Message-ID: <CALx6S343iWzOKrKwHquG8qmyLyKOgQr_KroHyypE_9MFt2+1BQ@mail.gmail.com>
-References: <1489116660-4244-1-git-send-email-subashab@codeaurora.org>
- <CALx6S360Y3tmKMHVMUEuRKCskuwXi+9JBfce6WiSpko1sHj=Yg@mail.gmail.com>
- <674d67f5d76f761f3e872dff274a8bda@codeaurora.org> <CALx6S340TYEFDAbQfG6X4P0tPJWvyxyXpnLgp9JY7UoBuPEJVA@mail.gmail.com>
- <1489191742.28631.35.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S36eXpOn70paFnkSyafMkF7Q=MQWJKKb2=d6+hNpK-8V8A@mail.gmail.com> <e643b82c330eabfa0cef21c480eb6c2c@codeaurora.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] sctp: remove temporary variable confirm from
+ sctp_packet_transmit
+Date: Sat, 18 Mar 2017 15:05:07 -0400
+Message-ID: <20170318190507.GA14004@neilslaptop.think-freely.org>
+References: <a1bef2ad80e5a7338fc5c6786ea61835014b8c61.1489835542.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        netdev-owner@vger.kernel.org
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, ja@ssi.bg
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f176.google.com ([209.85.216.176]:36519 "EHLO
-        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751785AbdCRRoE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 13:44:04 -0400
-Received: by mail-qt0-f176.google.com with SMTP id r45so83179880qte.3
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 10:44:03 -0700 (PDT)
-In-Reply-To: <e643b82c330eabfa0cef21c480eb6c2c@codeaurora.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42515 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751726AbdCRTF3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 15:05:29 -0400
+Content-Disposition: inline
+In-Reply-To: <a1bef2ad80e5a7338fc5c6786ea61835014b8c61.1489835542.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 18, 2017 at 10:32 AM, Subash Abhinov Kasiviswanathan
-<subashab@codeaurora.org> wrote:
->> All these hypotheses are quite testable, and it should be obvious that
->> if a patch is supposed to improve performance there should be some
->> effort to quantify the impact.
->
->
-> Hi Tom
->
-> I ran a single stream unconnected UDPv4 test on an ARM64 system and I see
-> a slight increase in performance (782 -> 788Mbps) with udp demux disabled.
-> A rudimentary app which does a sendto/recvfrom along with some
-> statistics collection was used for this.
->
-Less than 1% performance improvement in a benchmark doesn't justify
-the complexity of the patch. Eric's hypothesis was that an unconnected
-UDP socket may show issues because of cache misses in look-ups due to
-so many different sources. This should be fairly easy to benchmark by
-randomly setting source address in your test (IP any and routing my
-need to be set appropriately).
-
-> --
-> The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
->
-> a Linux Foundation Collaborative Project
+On Sat, Mar 18, 2017 at 07:12:22PM +0800, Xin Long wrote:
+> Commit c86a773c7802 ("sctp: add dst_pending_confirm flag") introduced
+> a temporary variable "confirm" in sctp_packet_transmit.
+> 
+> But it broke the rule that longer lines should be above shorter ones.
+> Besides, this variable is not necessary, so this patch is to just
+> remove it and use tp->dst_pending_confirm directly.
+> 
+> Fixes: c86a773c7802 ("sctp: add dst_pending_confirm flag")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/output.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 71ce6b9..1224421 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -546,7 +546,6 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+>  	struct sctp_association *asoc = tp->asoc;
+>  	struct sctp_chunk *chunk, *tmp;
+>  	int pkt_count, gso = 0;
+> -	int confirm;
+>  	struct dst_entry *dst;
+>  	struct sk_buff *head;
+>  	struct sctphdr *sh;
+> @@ -625,13 +624,13 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+>  			asoc->peer.last_sent_to = tp;
+>  	}
+>  	head->ignore_df = packet->ipfragok;
+> -	confirm = tp->dst_pending_confirm;
+> -	if (confirm)
+> +	if (tp->dst_pending_confirm)
+>  		skb_set_dst_pending_confirm(head, 1);
+>  	/* neighbour should be confirmed on successful transmission or
+>  	 * positive error
+>  	 */
+> -	if (tp->af_specific->sctp_xmit(head, tp) >= 0 && confirm)
+> +	if (tp->af_specific->sctp_xmit(head, tp) >= 0 &&
+> +	    tp->dst_pending_confirm)
+>  		tp->dst_pending_confirm = 0;
+>  
+>  out:
+> -- 
+> 2.1.0
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
