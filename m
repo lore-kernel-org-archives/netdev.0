@@ -1,81 +1,90 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net] sctp: remove temporary variable confirm from
- sctp_packet_transmit
-Date: Sat, 18 Mar 2017 13:48:46 +0200 (EET)
-Message-ID: <alpine.LFD.2.20.1703181323280.7390@ja.home.ssi.bg>
-References: <a1bef2ad80e5a7338fc5c6786ea61835014b8c61.1489835542.git.lucien.xin@gmail.com>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH] net: usb: pegasus: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Sat, 18 Mar 2017 12:24:13 +0200
+Message-ID: <20170318102413.isi5fgq5qwwng2se@p310>
+References: <1489790044-11867-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:57900 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751320AbdCRLuf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 18 Mar 2017 07:50:35 -0400
-In-Reply-To: <a1bef2ad80e5a7338fc5c6786ea61835014b8c61.1489835542.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1489790044-11867-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Sat, 18 Mar 2017, Xin Long wrote:
-
-> Commit c86a773c7802 ("sctp: add dst_pending_confirm flag") introduced
-> a temporary variable "confirm" in sctp_packet_transmit.
+On 17-03-17 23:34:04, Philippe Reynes wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 > 
-> But it broke the rule that longer lines should be above shorter ones.
-> Besides, this variable is not necessary, so this patch is to just
-> remove it and use tp->dst_pending_confirm directly.
-> 
-> Fixes: c86a773c7802 ("sctp: add dst_pending_confirm flag")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> As I don't have the hardware, I'd be very pleased if someone may test this 
+> patch.
+
+Yep, the patch seems to be working fine on real hardware.
+
+Acked-by: Petko Manolov <petkan@nucleusys.com>
+
+
+cheers,
+Petko
+
+
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 > ---
->  net/sctp/output.c | 7 +++----
->  1 file changed, 3 insertions(+), 4 deletions(-)
+>  drivers/net/usb/pegasus.c |   14 ++++++++------
+>  1 files changed, 8 insertions(+), 6 deletions(-)
 > 
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 71ce6b9..1224421 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -546,7 +546,6 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  	struct sctp_association *asoc = tp->asoc;
->  	struct sctp_chunk *chunk, *tmp;
->  	int pkt_count, gso = 0;
-> -	int confirm;
->  	struct dst_entry *dst;
->  	struct sk_buff *head;
->  	struct sctphdr *sh;
-> @@ -625,13 +624,13 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  			asoc->peer.last_sent_to = tp;
->  	}
->  	head->ignore_df = packet->ipfragok;
-> -	confirm = tp->dst_pending_confirm;
-> -	if (confirm)
-> +	if (tp->dst_pending_confirm)
->  		skb_set_dst_pending_confirm(head, 1);
->  	/* neighbour should be confirmed on successful transmission or
->  	 * positive error
->  	 */
-> -	if (tp->af_specific->sctp_xmit(head, tp) >= 0 && confirm)
-> +	if (tp->af_specific->sctp_xmit(head, tp) >= 0 &&
-> +	    tp->dst_pending_confirm)
->  		tp->dst_pending_confirm = 0;
+> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+> index 3667448..321e059 100644
+> --- a/drivers/net/usb/pegasus.c
+> +++ b/drivers/net/usb/pegasus.c
+> @@ -953,20 +953,22 @@ static inline void pegasus_reset_wol(struct net_device *dev)
+>  }
 >  
->  out:
+>  static int
+> -pegasus_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+> +pegasus_get_link_ksettings(struct net_device *dev,
+> +			   struct ethtool_link_ksettings *ecmd)
+>  {
+>  	pegasus_t *pegasus;
+>  
+>  	pegasus = netdev_priv(dev);
+> -	mii_ethtool_gset(&pegasus->mii, ecmd);
+> +	mii_ethtool_get_link_ksettings(&pegasus->mii, ecmd);
+>  	return 0;
+>  }
+>  
+>  static int
+> -pegasus_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+> +pegasus_set_link_ksettings(struct net_device *dev,
+> +			   const struct ethtool_link_ksettings *ecmd)
+>  {
+>  	pegasus_t *pegasus = netdev_priv(dev);
+> -	return mii_ethtool_sset(&pegasus->mii, ecmd);
+> +	return mii_ethtool_set_link_ksettings(&pegasus->mii, ecmd);
+>  }
+>  
+>  static int pegasus_nway_reset(struct net_device *dev)
+> @@ -995,14 +997,14 @@ static void pegasus_set_msglevel(struct net_device *dev, u32 v)
+>  
+>  static const struct ethtool_ops ops = {
+>  	.get_drvinfo = pegasus_get_drvinfo,
+> -	.get_settings = pegasus_get_settings,
+> -	.set_settings = pegasus_set_settings,
+>  	.nway_reset = pegasus_nway_reset,
+>  	.get_link = pegasus_get_link,
+>  	.get_msglevel = pegasus_get_msglevel,
+>  	.set_msglevel = pegasus_set_msglevel,
+>  	.get_wol = pegasus_get_wol,
+>  	.set_wol = pegasus_set_wol,
+> +	.get_link_ksettings = pegasus_get_link_ksettings,
+> +	.set_link_ksettings = pegasus_set_link_ksettings,
+>  };
+>  
+>  static int pegasus_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
 > -- 
-
-	I played safe here, I was not sure if currently
-or some day in the future the SCTP stack can allow another
-thread to set tp->dst_pending_confirm concurrently with the
-sending. My idea was only when skb was used to confirm
-neighbour only then to clear the indication. I guess, your
-patch is ok because we should be locking the socket
-everywhere.
-
-Regards
+> 1.7.4.4
+> 
+> 
