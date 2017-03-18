@@ -1,108 +1,179 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net 1/2] tcp: fix SCM_TIMESTAMPING_OPT_STATS for normal skbs
-Date: Sat, 18 Mar 2017 17:02:59 -0400
-Message-ID: <20170318210300.163288-1-soheil.kdev@gmail.com>
-Cc: zzoru007@gmail.com, Soheil Hassas Yeganeh <soheil@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Willem de Bruijn <willemb@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC net-next v2 1/4] skbuff: add stub to help computing
+ crc32c on SCTP packets
+Date: Sat, 18 Mar 2017 15:35:54 -0700
+Message-ID: <CALx6S34cSH+z+humkp5s7UHAqnafHHB-GTqobHyb-SfKNe+MiA@mail.gmail.com>
+References: <1488202783.2713.67.camel@redhat.com> <56fcd0848eae2b0693797e09500892659323546c.1488199633.git.dcaratti@redhat.com>
+ <CAKgT0Udbs_=vanS+oF8ePXTNjEfsq9y==bhtQ-5Cxb-g+iO4bg@mail.gmail.com>
+ <1488837077.3068.13.camel@redhat.com> <CAKgT0Uf6i+TmMyywgT7-X=n+P+a4_U1Z+Qrts7v1=v79MPsS+w@mail.gmail.com>
+ <1489843045.2456.2.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        David Laight <David.Laight@aculab.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "linux-sctp @ vger . kernel . org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Davide Caratti <dcaratti@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:33166 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751187AbdCRVMZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 17:12:25 -0400
-Received: by mail-qt0-f196.google.com with SMTP id r45so13363433qte.0
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 14:12:15 -0700 (PDT)
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:33781 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751222AbdCRWnp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 18:43:45 -0400
+Received: by mail-qk0-f180.google.com with SMTP id y76so88025655qkb.0
+        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 15:43:45 -0700 (PDT)
+In-Reply-To: <1489843045.2456.2.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+On Sat, Mar 18, 2017 at 6:17 AM, Davide Caratti <dcaratti@redhat.com> wrote:
+> hello Alexander and Tom,
+>
+> On Tue, 2017-03-07 at 10:06 -0800, Alexander Duyck wrote:
+>>
+>> You might even take this one step
+>> further.  You could convert crc32_csum into a 1 bit enum for now.
+>> Basically you would use 0 for 1's compliement csum, and 1 to represent
+>> a crc32c csum.  Then if we end up having to add another bit for
+>> something like FCoE in the future it would give us 4 possible checksum
+>> types instead of just giving us 1 with a bit mask.
+> <...>
+>> I would say if you can't use an extra bit to indicate the checksum type
+>> you probably don't have too much other choice.
+>
+> Unluckily, there are no free bits in struct sk_buff (i.e. there is 1 + 8
+> bits after skb->xmit_more, but its content would be be lost after
+> __copy_skb_header() _ so simply we can't use them).
+> As soon as two bits in sk_buff are freed, we will be able to rely on the
+> skb metadata, instead of inspecting the packet headers, to understand
+> what algorithm is used to ensure data integrity in the packet.
+>
+>> As far as the patch you provided I would say it is a good start, but
+>> was a bit to aggressive in a few spots.  For now we don't have support
+>> for offloading crc32c when encapsulating a frame so you don't need to
+>> worry about that too much for now.
+>
+> Ok _ so, skb_csum_hwoffload_help(skb, features) will assume that skb needs
+> crc32c if all the following conditions are met:
+> - feature bitmask does not have NETIF_F_SCTP_CRC bit set
+> - skb->csum_offset is equal to 8 (i.e. offsetof(struct sctphdr,checksum)).
+> - skb is carrying an (outer, non encapsulated) IPv4/IPv6 header with
+> protocol number equal to 132 (i.e. IPPROTO_SCTP)
+>
+That's too complicated. Just create a non_ip_csum bit in skbuff.
+csum_bad can replaced with this I think. If the bit is set then more
+work can be done to differentiate between alternative checksums.
 
-__sock_recv_timestamp can be called for both normal skbs (for
-receive timestamps) and for skbs on the error queue (for transmit
-timestamps).
+Tom
 
-Commit 1c885808e456
-(tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING)
-assumes any skb passed to __sock_recv_timestamp are from
-the error queue, containing OPT_STATS in the content of the skb.
-This results in accessing invalid memory or generating junk
-data.
-
-To fix this, set skb->pkt_type to PACKET_OUTGOING for packets
-on the error queue. This is safe because on the receive path
-on local sockets skb->pkt_type is never set to PACKET_OUTGOING.
-With that, copy OPT_STATS from a packet, only if its pkt_type
-is PACKET_OUTGOING.
-
-Fixes: 1c885808e456 ("tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING")
-Reported-by: JongHwan Kim <zzoru007@gmail.com>
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/core/skbuff.c | 10 ++++++++++
- net/socket.c      | 13 ++++++++++++-
- 2 files changed, 22 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index cd4ba8c6b609..b1fbd1958eb6 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3694,6 +3694,15 @@ static void sock_rmem_free(struct sk_buff *skb)
- 	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
- }
- 
-+static void skb_set_err_queue(struct sk_buff *skb)
-+{
-+	/* pkt_type of skbs received on local sockets is never PACKET_OUTGOING.
-+	 * So, it is safe to (mis)use it to mark skbs on the error queue.
-+	 */
-+	skb->pkt_type = PACKET_OUTGOING;
-+	BUILD_BUG_ON(PACKET_OUTGOING == 0);
-+}
-+
- /*
-  * Note: We dont mem charge error packets (no sk_forward_alloc changes)
-  */
-@@ -3707,6 +3716,7 @@ int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
- 	skb->sk = sk;
- 	skb->destructor = sock_rmem_free;
- 	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
-+	skb_set_err_queue(skb);
- 
- 	/* before exiting rcu section, make sure dst is refcounted */
- 	skb_dst_force(skb);
-diff --git a/net/socket.c b/net/socket.c
-index e034fe4164be..692d6989d2c2 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -652,6 +652,16 @@ int kernel_sendmsg(struct socket *sock, struct msghdr *msg,
- }
- EXPORT_SYMBOL(kernel_sendmsg);
- 
-+static bool skb_is_err_queue(const struct sk_buff *skb)
-+{
-+	/* pkt_type of skbs enqueued on the error queue are set to
-+	 * PACKET_OUTGOING in skb_set_err_queue(). This is only safe to do
-+	 * in recvmsg, since skbs received on a local socket will never
-+	 * have a pkt_type of PACKET_OUTGOING.
-+	 */
-+	return skb->pkt_type == PACKET_OUTGOING;
-+}
-+
- /*
-  * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
-  */
-@@ -695,7 +705,8 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
- 		put_cmsg(msg, SOL_SOCKET,
- 			 SCM_TIMESTAMPING, sizeof(tss), &tss);
- 
--		if (skb->len && (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS))
-+		if (skb_is_err_queue(skb) && skb->len &&
-+		    (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS))
- 			put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_OPT_STATS,
- 				 skb->len, skb->data);
- 	}
--- 
-2.12.0.367.g23dc2f6d3c-goog
+> In any other case, we will compute the internet checksum or do nothing _
+> just what it's happening right now for non-GSO packets reaching
+> validate_xmit_skb(). I think this implementation can be extended to the
+> FCoE case if needed.
+>
+>> Also as far as the features test
+>> you should only need to find that one of the feature bits is set in
+>> the list you were testing.  What might make sense would be to look
+>> into updating can_checksum_protocol to possibly factor in csum_offset
+>> when determining if we can offload it or not.
+>
+> Looking again at the code, I noticed that the number of test on 'features'
+> bits can be reduced: see below.
+>
+> can_checksum_protocol() takes an ethertype as parameter, so we would need
+> to invent a non-standardized valure for SCTP. Moreover, it is used in
+> skb_segment() for GSO: so, adding extra CPU cycles would affect
+> performance on a path where the kernel is already showing the right
+> behavior (GSO SCTP packets have their CRC32 computed correctly when
+> sctp_gso_segment() is called).
+>
+>
+> hello Tom,
+>> > On Tue, 2017-02-28 at 11:50 -0800, Tom Herbert wrote:
+>> > >
+>> > > Return value looks complex. Maybe we should just change
+>> > > skb_csum_*_help to return bool, true of checksum was handled false if
+>> > > not.
+>> >
+>> > These functions can return -EINVAL if skb is a GSO packet, or -ENOMEM if
+>> > skb_linearize(skb) or pskb_expand_head(skb) fail, or 0. I would preserve the
+>> > return value of skb_checksum_help() and provide similar range of return values
+>> > for skb_sctp_csum_help() (also known as skb_crc32c_csum_help()): this can
+>> > help eventual future attempts to remove skb_warn_bad_offload(). It makes
+>> > sense to make boolean the return value of skb_csum_hwoffload_help(),
+>> > since we are using it only for non-GSO packets.
+>
+> the above statement is still valid after the body of the function changed. A
+> very small thing: according to the kernel coding style, I should find a
+> 'predicative' name for this function. Something like
+>
+> skb_can_resolve_partial_csum(),
+>
+> (which is terrible, I know)
+>
+> or similar / better.
+>
+> Please let me know if you think the code below is ok for you.
+> Thank you in advance!
+>
+> regards,
+>
+> --
+> davide
+>
+>
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2987,6 +2987,38 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
+>         return skb;
+>  }
+>
+> +static bool skb_csum_hwoffload_help(struct sk_buff *skb,
+> +                                   netdev_features_t features)
+> +{
+> +       bool crc32c_csum_hwoff = !!(features & NETIF_F_SCTP_CRC);
+> +       bool inet_csum_hwoff = !!(features & NETIF_F_CSUM_MASK);
+> +       unsigned int offset = 0;
+> +
+> +       if (crc32c_csum_hwoff && inet_csum_hwoff)
+> +               return true;
+> +
+> +       if (skb->encapsulation ||
+> +           skb->csum_offset != offsetof(struct sctphdr, checksum))
+> +               goto inet_csum;
+> +
+> +       switch (vlan_get_protocol(skb)) {
+> +       case ntohs(ETH_P_IP):
+> +               if (ip_hdr(skb)->protocol == IPPROTO_SCTP)
+> +                       goto crc32c_csum;
+> +               break;
+> +       case ntohs(ETH_P_IPV6):
+> +               if (ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL) ==
+> +                   IPPROTO_SCTP)
+> +                       goto crc32c_csum;
+> +               break;
+> +       }
+> +inet_csum:
+> +       return inet_csum_hwoff ? true : !skb_checksum_help(skb);
+> +
+> +crc32c_csum:
+> +       return crc32c_csum_hwoff ? true : !skb_crc32c_csum_help(skb);
+> +}
+> +
+>  static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+>  {
+>         netdev_features_t features;
+> @@ -3022,8 +3054,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+>                         else
+>                                 skb_set_transport_header(skb,
+>                                                          skb_checksum_start_offset(skb));
+> -                       if (!(features & NETIF_F_CSUM_MASK) &&
+> -                           skb_checksum_help(skb))
+> +                       if (skb_csum_hwoffload_help(skb, features) == false)
+>                                 goto out_kfree_skb;
+>                 }
+>         }
+>
+>
+>
