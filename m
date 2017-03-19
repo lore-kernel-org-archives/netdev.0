@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v6 06/15] mlx5: Replace PCI pool old API
-Date: Sun, 19 Mar 2017 18:03:55 +0100
-Message-ID: <20170319170404.17362-7-romain.perier@collabora.com>
+Subject: [PATCH v6 14/15] scsi: pmcraid: Replace PCI pool old API
+Date: Sun, 19 Mar 2017 18:04:03 +0100
+Message-ID: <20170319170404.17362-15-romain.perier@collabora.com>
 References: <20170319170404.17362-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -18,82 +18,74 @@ To: Dan Williams <dan.j.williams@intel.com>,
         "Martin K. Petersen" <martin.petersen@oracle.com>,
         Felipe Balbi <balbi@kernel.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170319170404.17362-1-romain.perier@collabora.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commit replaces the PCI pool old
 API by the appropriate function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
- include/linux/mlx5/driver.h                   |  2 +-
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/scsi/pmcraid.c | 10 +++++-----
+ drivers/scsi/pmcraid.h |  2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index caa837e..6eef344 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -1061,7 +1061,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
- 	if (!mailbox)
- 		return ERR_PTR(-ENOMEM);
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index 49e70a3..0f893c4 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -4699,13 +4699,13 @@ pmcraid_release_control_blocks(
+ 		return;
  
--	mailbox->buf = pci_pool_zalloc(dev->cmd.pool, flags,
-+	mailbox->buf = dma_pool_zalloc(dev->cmd.pool, flags,
- 				       &mailbox->dma);
- 	if (!mailbox->buf) {
- 		mlx5_core_dbg(dev, "failed allocation\n");
-@@ -1076,7 +1076,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
- static void free_cmd_box(struct mlx5_core_dev *dev,
- 			 struct mlx5_cmd_mailbox *mailbox)
- {
--	pci_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
-+	dma_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
- 	kfree(mailbox);
- }
- 
-@@ -1696,7 +1696,8 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
- 		return -EINVAL;
+ 	for (i = 0; i < max_index; i++) {
+-		pci_pool_free(pinstance->control_pool,
++		dma_pool_free(pinstance->control_pool,
+ 			      pinstance->cmd_list[i]->ioa_cb,
+ 			      pinstance->cmd_list[i]->ioa_cb_bus_addr);
+ 		pinstance->cmd_list[i]->ioa_cb = NULL;
+ 		pinstance->cmd_list[i]->ioa_cb_bus_addr = 0;
  	}
- 
--	cmd->pool = pci_pool_create("mlx5_cmd", dev->pdev, size, align, 0);
-+	cmd->pool = dma_pool_create("mlx5_cmd", &dev->pdev->dev, size, align,
-+				    0);
- 	if (!cmd->pool)
- 		return -ENOMEM;
- 
-@@ -1786,7 +1787,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
- 	free_cmd_page(dev, cmd);
- 
- err_free_pool:
--	pci_pool_destroy(cmd->pool);
-+	dma_pool_destroy(cmd->pool);
- 
- 	return err;
+-	pci_pool_destroy(pinstance->control_pool);
++	dma_pool_destroy(pinstance->control_pool);
+ 	pinstance->control_pool = NULL;
  }
-@@ -1800,6 +1801,6 @@ void mlx5_cmd_cleanup(struct mlx5_core_dev *dev)
- 	destroy_workqueue(cmd->wq);
- 	destroy_msg_cache(dev);
- 	free_cmd_page(dev, cmd);
--	pci_pool_destroy(cmd->pool);
-+	dma_pool_destroy(cmd->pool);
- }
- EXPORT_SYMBOL(mlx5_cmd_cleanup);
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 48d8b66..0e33e65 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -284,7 +284,7 @@ struct mlx5_cmd {
- 	struct semaphore pages_sem;
- 	int	mode;
- 	struct mlx5_cmd_work_ent *ent_arr[MLX5_MAX_COMMANDS];
--	struct pci_pool *pool;
-+	struct dma_pool *pool;
- 	struct mlx5_cmd_debug dbg;
- 	struct cmd_msg_cache cache[MLX5_NUM_COMMAND_CACHES];
- 	int checksum_disabled;
+ 
+@@ -4762,8 +4762,8 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
+ 		pinstance->host->unique_id);
+ 
+ 	pinstance->control_pool =
+-		pci_pool_create(pinstance->ctl_pool_name,
+-				pinstance->pdev,
++		dma_pool_create(pinstance->ctl_pool_name,
++				&pinstance->pdev->dev,
+ 				sizeof(struct pmcraid_control_block),
+ 				PMCRAID_IOARCB_ALIGNMENT, 0);
+ 
+@@ -4772,7 +4772,7 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
+ 
+ 	for (i = 0; i < PMCRAID_MAX_CMD; i++) {
+ 		pinstance->cmd_list[i]->ioa_cb =
+-			pci_pool_alloc(
++			dma_pool_alloc(
+ 				pinstance->control_pool,
+ 				GFP_KERNEL,
+ 				&(pinstance->cmd_list[i]->ioa_cb_bus_addr));
+diff --git a/drivers/scsi/pmcraid.h b/drivers/scsi/pmcraid.h
+index 568b18a..acf5a7b 100644
+--- a/drivers/scsi/pmcraid.h
++++ b/drivers/scsi/pmcraid.h
+@@ -755,7 +755,7 @@ struct pmcraid_instance {
+ 
+ 	/* structures related to command blocks */
+ 	struct kmem_cache *cmd_cachep;		/* cache for cmd blocks */
+-	struct pci_pool *control_pool;		/* pool for control blocks */
++	struct dma_pool *control_pool;		/* pool for control blocks */
+ 	char   cmd_pool_name[64];		/* name of cmd cache */
+ 	char   ctl_pool_name[64];		/* name of control cache */
+ 
 -- 
 2.9.3
