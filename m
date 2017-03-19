@@ -1,49 +1,58 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames
- DNAT-ed to bridge device
-Date: Sun, 19 Mar 2017 17:55:06 +0100
-Message-ID: <20170319165506.GA15475@otheros>
-References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
-	<20170315102608.GB24366@breakpoint.cc>
-	<20170315104211.GA24409@salvia> <20170315142720.GU15692@otheros>
-	<20170315181539.GA31875@salvia> <20170315211619.GA3464@otheros>
-	<20170315220605.GA1766@salvia> <20170317131044.GA11995@salvia>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 0/7] phylib MMD accessor cleanups
+Date: Sun, 19 Mar 2017 18:01:29 +0100
+Message-ID: <20170319170129.GB15440@lunn.ch>
+References: <20170319105943.GR21222@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S . Miller" <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, linux-usb@vger.kernel.org,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+        netdev@vger.kernel.org, Woojung Huh <woojung.huh@microchip.com>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:53056 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751490AbdCSRCR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 19 Mar 2017 13:02:17 -0400
 Content-Disposition: inline
-In-Reply-To: <20170317131044.GA11995@salvia>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170319105943.GR21222@n2100.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 17, 2017 at 02:10:44PM +0100, Pablo Neira Ayuso wrote:
-> Wait.
+On Sun, Mar 19, 2017 at 10:59:44AM +0000, Russell King - ARM Linux wrote:
+> Hi,
 > 
-> May this break local multicast listener that are bound to the bridge
-> interface? Assuming the bridge interface got an IP address, and that
-> there is local multicast listener.
+> This series cleans up the phylib MMD accessors.  We have two accessors
+> at present, phy_(read|write)_mmd() and phy_(read|write)_mmd_indirect()
 > 
-> Missing anything here?
+> The _indirect methods access the MMD registers via a clause 22 phy,
+> whereas the non-_indirect methods acess via clause 45 accesses.
+> 
+> Current PHY-independent parts of phylib (such as EEE) access the MMD
+> registers via the _indirect methods, which is no good if you have a
+> clause 45 PHY that doesn't respond to clause 22 accesses.
+> 
+> In order to make these features available, we need to rework these
+> accessors such that they can access the MMD registers using a method
+> dependent on the clause that the PHY conforms with.
+> 
+> This series of patches does exactly that - we merge the functionality
+> of the indirect accesses into the clause 45 accessors, and use these
+> exclusively to access MMD registers.  Internally, the new clause
+> independent MMD accessors indirect via the PHY drivers read_mmd/write_mmd
+> methods if present, otherwise fall back to using clause 45 accesses if
+> the PHY is a clause 45 phy, or clause 22 indirect accesses if the PHY
+> is clause 22.
+> 
+> Note: confusingly, phy_read_mmd_indirect() vs phy_read_mmd() switches
+> the order of prtad and devad, which means that converting between the
+> two is not a simple matter of just replacing the function name.  Same
+> applies for the write methods.
 
-Hm, for multicast packets usually the code path a few lines
-later in br_handle_frame_finish() should be taken instead.
+Hi Russell
 
-But you might be right for IP multicast packets with a unicast MAC
-destination (due to whatever reason, for instance via DNAT'ing
-again).
+This all looks good, apart from the one typo i spotted.
 
-Will check that - thanks!
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
