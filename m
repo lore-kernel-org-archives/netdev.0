@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v6 14/15] scsi: pmcraid: Replace PCI pool old API
-Date: Sun, 19 Mar 2017 18:04:03 +0100
-Message-ID: <20170319170404.17362-15-romain.perier@collabora.com>
+Subject: [PATCH v6 15/15] PCI: Remove PCI pool macro functions
+Date: Sun, 19 Mar 2017 18:04:04 +0100
+Message-ID: <20170319170404.17362-16-romain.perier@collabora.com>
 References: <20170319170404.17362-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -23,69 +23,34 @@ In-Reply-To: <20170319170404.17362-1-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API.
+Now that all the drivers use dma pool API, we can remove the macro
+functions for PCI pool.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/scsi/pmcraid.c | 10 +++++-----
- drivers/scsi/pmcraid.h |  2 +-
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ include/linux/pci.h | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
-index 49e70a3..0f893c4 100644
---- a/drivers/scsi/pmcraid.c
-+++ b/drivers/scsi/pmcraid.c
-@@ -4699,13 +4699,13 @@ pmcraid_release_control_blocks(
- 		return;
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index eb3da1a..04a0703 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1281,15 +1281,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
+ #include <linux/pci-dma.h>
+ #include <linux/dmapool.h>
  
- 	for (i = 0; i < max_index; i++) {
--		pci_pool_free(pinstance->control_pool,
-+		dma_pool_free(pinstance->control_pool,
- 			      pinstance->cmd_list[i]->ioa_cb,
- 			      pinstance->cmd_list[i]->ioa_cb_bus_addr);
- 		pinstance->cmd_list[i]->ioa_cb = NULL;
- 		pinstance->cmd_list[i]->ioa_cb_bus_addr = 0;
- 	}
--	pci_pool_destroy(pinstance->control_pool);
-+	dma_pool_destroy(pinstance->control_pool);
- 	pinstance->control_pool = NULL;
- }
- 
-@@ -4762,8 +4762,8 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
- 		pinstance->host->unique_id);
- 
- 	pinstance->control_pool =
--		pci_pool_create(pinstance->ctl_pool_name,
--				pinstance->pdev,
-+		dma_pool_create(pinstance->ctl_pool_name,
-+				&pinstance->pdev->dev,
- 				sizeof(struct pmcraid_control_block),
- 				PMCRAID_IOARCB_ALIGNMENT, 0);
- 
-@@ -4772,7 +4772,7 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
- 
- 	for (i = 0; i < PMCRAID_MAX_CMD; i++) {
- 		pinstance->cmd_list[i]->ioa_cb =
--			pci_pool_alloc(
-+			dma_pool_alloc(
- 				pinstance->control_pool,
- 				GFP_KERNEL,
- 				&(pinstance->cmd_list[i]->ioa_cb_bus_addr));
-diff --git a/drivers/scsi/pmcraid.h b/drivers/scsi/pmcraid.h
-index 568b18a..acf5a7b 100644
---- a/drivers/scsi/pmcraid.h
-+++ b/drivers/scsi/pmcraid.h
-@@ -755,7 +755,7 @@ struct pmcraid_instance {
- 
- 	/* structures related to command blocks */
- 	struct kmem_cache *cmd_cachep;		/* cache for cmd blocks */
--	struct pci_pool *control_pool;		/* pool for control blocks */
-+	struct dma_pool *control_pool;		/* pool for control blocks */
- 	char   cmd_pool_name[64];		/* name of cmd cache */
- 	char   ctl_pool_name[64];		/* name of control cache */
- 
+-#define	pci_pool dma_pool
+-#define pci_pool_create(name, pdev, size, align, allocation) \
+-		dma_pool_create(name, &pdev->dev, size, align, allocation)
+-#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
+-#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
+-#define	pci_pool_zalloc(pool, flags, handle) \
+-		dma_pool_zalloc(pool, flags, handle)
+-#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
+-
+ struct msix_entry {
+ 	u32	vector;	/* kernel uses to write allocated vector */
+ 	u16	entry;	/* driver uses to specify entry, OS writes */
 -- 
 2.9.3
