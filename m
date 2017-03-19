@@ -1,109 +1,63 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 4/4] flowcache: more "unsigned int" in struct
- flow_cache_percpu
-Date: Mon, 20 Mar 2017 01:31:24 +0300
-Message-ID: <20170319223124.GD17015@avx2>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/4] flowcache: make struct
+ flow_cache_percpu::hash_rnd_recalc bool
+Date: Sun, 19 Mar 2017 16:11:59 -0700
+Message-ID: <1489965119.16816.12.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170319222743.GC17015@avx2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-        netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+        davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:35097 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752223AbdCSWcS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 18:32:18 -0400
-Received: by mail-lf0-f65.google.com with SMTP id v2so8838542lfi.2
-        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 15:31:28 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35760 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752459AbdCSXMC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 19:12:02 -0400
+Received: by mail-pg0-f66.google.com with SMTP id g2so17053769pge.2
+        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 16:12:01 -0700 (PDT)
+In-Reply-To: <20170319222743.GC17015@avx2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make ->hash_count, ->low_watermark and ->high_watermark unsigned int
-and propagate unsignedness to other variables.
+On Mon, 2017-03-20 at 01:27 +0300, Alexey Dobriyan wrote:
+> ->hash_rnd_recalc is only used in boolean context.
+> 
+> Space savings on x86_64 come from the fact that "MOV rm8, imm8" is
+> shorter than "MOV rm32, imm32" by at least 3 bytes.
+> 
+> 	add/remove: 0/0 grow/shrink: 0/3 up/down: 0/-10 (-10)
+> 	function                                     old     new   delta
+> 	flow_cache_new_hashrnd                       166     163      -3
+> 	flow_cache_cpu_up_prep                       171     168      -3
+> 	flow_cache_lookup                           1148    1144      -4
+> 	Total: Before=170822872, After=170822862, chg -0.00%
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> ---
+> 
+>  include/net/flowcache.h |    2 +-
+>  net/core/flow.c         |    6 +++---
+>  2 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> --- a/include/net/flowcache.h
+> +++ b/include/net/flowcache.h
+> @@ -10,7 +10,7 @@ struct flow_cache_percpu {
+>  	struct hlist_head		*hash_table;
+>  	int				hash_count;
+>  	u32				hash_rnd;
+> -	int				hash_rnd_recalc;
+> +	bool				hash_rnd_recalc;
 
-This doesn't change code generation because these fields aren't used
-in 64-bit contexts but make it anyway: these fields can't be negative
-numbers.
+hash_rnd_recalc can be written from flow_cache_new_hashrnd() without any
+locking.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+Some arches do not have the ability to store an u8 atomically.
 
- include/net/flowcache.h |    6 +++---
- net/core/flow.c         |   13 +++++++------
- 2 files changed, 10 insertions(+), 9 deletions(-)
+So your patch adds a possibility that in the future, we might have a
+bug, if another field is added there.
 
---- a/include/net/flowcache.h
-+++ b/include/net/flowcache.h
-@@ -8,7 +8,7 @@
- 
- struct flow_cache_percpu {
- 	struct hlist_head		*hash_table;
--	int				hash_count;
-+	unsigned int			hash_count;
- 	u32				hash_rnd;
- 	bool				hash_rnd_recalc;
- 	struct tasklet_struct		flush_tasklet;
-@@ -18,8 +18,8 @@ struct flow_cache {
- 	u32				hash_shift;
- 	struct flow_cache_percpu __percpu *percpu;
- 	struct hlist_node		node;
--	int				low_watermark;
--	int				high_watermark;
-+	unsigned int			low_watermark;
-+	unsigned int			high_watermark;
- 	struct timer_list		rnd_timer;
- };
- #endif	/* _NET_FLOWCACHE_H */
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -99,7 +99,8 @@ static void flow_cache_gc_task(struct work_struct *work)
- }
- 
- static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
--				     int deleted, struct list_head *gc_list,
-+				     unsigned int deleted,
-+				     struct list_head *gc_list,
- 				     struct netns_xfrm *xfrm)
- {
- 	if (deleted) {
-@@ -114,18 +115,18 @@ static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
- 
- static void __flow_cache_shrink(struct flow_cache *fc,
- 				struct flow_cache_percpu *fcp,
--				int shrink_to)
-+				unsigned int shrink_to)
- {
- 	struct flow_cache_entry *fle;
- 	struct hlist_node *tmp;
- 	LIST_HEAD(gc_list);
--	int deleted = 0;
-+	unsigned int deleted = 0;
- 	struct netns_xfrm *xfrm = container_of(fc, struct netns_xfrm,
- 						flow_cache_global);
- 	unsigned int i;
- 
- 	for (i = 0; i < flow_cache_hash_size(fc); i++) {
--		int saved = 0;
-+		unsigned int saved = 0;
- 
- 		hlist_for_each_entry_safe(fle, tmp,
- 					  &fcp->hash_table[i], u.hlist) {
-@@ -146,7 +147,7 @@ static void __flow_cache_shrink(struct flow_cache *fc,
- static void flow_cache_shrink(struct flow_cache *fc,
- 			      struct flow_cache_percpu *fcp)
- {
--	int shrink_to = fc->low_watermark / flow_cache_hash_size(fc);
-+	unsigned int shrink_to = fc->low_watermark / flow_cache_hash_size(fc);
- 
- 	__flow_cache_shrink(fc, fcp, shrink_to);
- }
-@@ -296,7 +297,7 @@ static void flow_cache_flush_tasklet(unsigned long data)
- 	struct flow_cache_entry *fle;
- 	struct hlist_node *tmp;
- 	LIST_HEAD(gc_list);
--	int deleted = 0;
-+	unsigned int deleted = 0;
- 	struct netns_xfrm *xfrm = container_of(fc, struct netns_xfrm,
- 						flow_cache_global);
- 	unsigned int i;
+Basically the whole integer here should be reserved, or converted to a
+real flag (that can be manipulated with clear_bit() and set_bit()),
+but this would consume 8 bytes instead of 4 ;)
