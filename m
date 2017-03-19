@@ -1,94 +1,153 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [RFC PATCH 2/6] virtio-net: make header length handling uniform
-Date: Sun, 19 Mar 2017 00:06:33 -0400
-Message-ID: <1489896397-2275-3-git-send-email-vyasevic@redhat.com>
+Subject: [RFC PATCH 4/6] virtio-net: Add support for IPv6 fragment id vnet header extension.
+Date: Sun, 19 Mar 2017 00:06:35 -0400
+Message-ID: <1489896397-2275-5-git-send-email-vyasevic@redhat.com>
 References: <1489896397-2275-1-git-send-email-vyasevic@redhat.com>
 Cc: virtualization@list.linux-foundation.org, mst@redhat.com,
         Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:33725 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751355AbdCSEGy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 00:06:54 -0400
-Received: by mail-qk0-f193.google.com with SMTP id j127so14344968qke.0
-        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 21:06:53 -0700 (PDT)
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:33946 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751090AbdCSEG5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 00:06:57 -0400
+Received: by mail-qk0-f196.google.com with SMTP id v127so14353919qkb.1
+        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 21:06:56 -0700 (PDT)
 In-Reply-To: <1489896397-2275-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Consistently use hdr_len stored in virtnet_info
-structure instead of direclty using specific sizes.
-This will be required as the size of the virtio net
-header grows due to future extensions.
+This adds the ability to pass a guest generated IPv6 fragment id to the
+host hypervisor.  The id is passed as big endian to eliminate unnecessary
+conversions.  The host will be able to directly use this id instead of
+attempting to generate its own.  This makes the IPv6 framgnet id sligtly
+harder to predict.
 
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/virtio_net.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/virtio_net.c        | 27 +++++++++++++++++++++++++--
+ include/linux/virtio_net.h      | 20 ++++++++++++++++++++
+ include/uapi/linux/virtio_net.h |  7 +++++++
+ 3 files changed, 52 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 78f459d..2905d52 100644
+index b61de96..7ea717b 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -402,7 +402,7 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
- 	u32 act;
+@@ -168,6 +168,7 @@ struct virtnet_info {
+ struct virtio_net_hdr_max {
+ 	struct virtio_net_hdr_mrg_rxbuf hdr;
+ 	struct virtio_net_ext_hdr ext_hdr;
++	struct virtio_net_ext_ip6frag ip6f_ext;
+ };
  
- 	if (vi->mergeable_rx_bufs) {
--		hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+		hdr_padded_len = padded_vnet_hdr(vi);
- 		xdp.data = data + hdr_padded_len;
- 		xdp.data_end = xdp.data + (len - vi->hdr_len);
- 		buf = data;
-@@ -845,9 +845,9 @@ static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
- 	return err;
+ static inline u8 padded_vnet_hdr(struct virtnet_info *vi)
+@@ -2155,6 +2156,23 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
+ 	return true;
  }
  
--static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
-+static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len,
-+					  u8 hdr_len)
++static void virtnet_init_extensions(struct virtio_device *vdev)
++{
++	struct virtnet_info *vi = vdev->priv;
++
++	/* Start with V1 header size plus the extension header */
++	vi->hdr_len = sizeof(struct virtio_net_hdr_v1) +
++		      sizeof(struct virtio_net_ext_hdr);
++
++	/* now check all the negotiated extensions and add up
++	 * the sizes
++	 */
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_IP6_FRAGID)) {
++		vi->hdr_len += sizeof(u32);
++		vi->ext_mask |= VIRTIO_NET_EXT_F_IP6FRAG;
++	}
++}
++
+ #define MIN_MTU ETH_MIN_MTU
+ #define MAX_MTU ETH_MAX_MTU
+ 
+@@ -2272,8 +2290,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+ 		vi->mergeable_rx_bufs = true;
+ 
+-	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||
+-	    virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_IP6_FRAGID))
++		vi->hdr_ext = true;
++
++	if (vi->hdr_ext)
++		virtnet_init_extensions(vdev);
++	else if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||
++		 virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
+ 		vi->hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+ 	else
+ 		vi->hdr_len = sizeof(struct virtio_net_hdr);
+diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+index 4790ade..663214f 100644
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -99,6 +99,16 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
+ static inline int virtio_net_ext_to_skb(struct sk_buff *skb,
+ 					struct virtio_net_ext_hdr *ext)
  {
--	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
- 	unsigned int len;
- 
- 	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
-@@ -855,7 +855,9 @@ static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
- 	return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
++	__u8 *ptr = ext->extensions;
++
++	if (ext->flags & VIRTIO_NET_EXT_F_IP6FRAG) {
++		struct virtio_net_ext_ip6frag *fhdr =
++					(struct virtio_net_ext_ip6frag *)ptr;
++
++		skb_shinfo(skb)->ip6_frag_id = fhdr->frag_id;
++		ptr += sizeof(struct virtio_net_ext_ip6frag);
++	}
++
+ 	return 0;
  }
  
--static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
-+static int add_recvbuf_mergeable(struct virtnet_info *vi,
-+				 struct receive_queue *rq,
-+				 gfp_t gfp)
+@@ -106,6 +116,16 @@ static inline int virtio_net_ext_from_skb(const struct sk_buff *skb,
+ 					  struct virtio_net_ext_hdr *ext,
+ 					  __u32 ext_mask)
  {
- 	struct page_frag *alloc_frag = &rq->alloc_frag;
- 	char *buf;
-@@ -863,7 +865,7 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
- 	int err;
- 	unsigned int len, hole;
- 
--	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
-+	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len, vi->hdr_len);
- 	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
- 		return -ENOMEM;
- 
-@@ -906,7 +908,7 @@ static bool try_fill_recv(struct virtnet_info *vi, struct receive_queue *rq,
- 	gfp |= __GFP_COLD;
- 	do {
- 		if (vi->mergeable_rx_bufs)
--			err = add_recvbuf_mergeable(rq, gfp);
-+			err = add_recvbuf_mergeable(vi, rq, gfp);
- 		else if (vi->big_packets)
- 			err = add_recvbuf_big(vi, rq, gfp);
- 		else
-@@ -2081,7 +2083,7 @@ static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
- 
- 	BUG_ON(queue_index >= vi->max_queue_pairs);
- 	avg = &vi->rq[queue_index].mrg_avg_pkt_len;
--	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg));
-+	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg, vi->hdr_len));
++	__u8 *ptr = ext->extensions;
++
++	if ((ext_mask & VIRTIO_NET_EXT_F_IP6FRAG) &&
++	    skb_shinfo(skb)->ip6_frag_id) {
++		struct virtio_net_ext_ip6frag *fhdr =
++					(struct virtio_net_ext_ip6frag *)ptr;
++		fhdr->frag_id = skb_shinfo(skb)->ip6_frag_id;
++		ext->flags |= VIRTIO_NET_EXT_F_IP6FRAG;
++	}
++
+ 	return 0;
  }
+ #endif /* _LINUX_VIRTIO_NET_H */
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index 0039b72..eac8d94 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -56,6 +56,7 @@
+ #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
+ 					 * Steering */
+ #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
++#define VIRTIO_NET_F_IP6_FRAGID    24	/* Host supports VLAN accleration */
  
- static struct rx_queue_attribute mergeable_rx_buffer_size_attribute =
+ #ifndef VIRTIO_NET_NO_LEGACY
+ #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+@@ -109,10 +110,16 @@ struct virtio_net_hdr_v1 {
+  * this header.
+  */
+ struct virtio_net_ext_hdr {
++#define VIRTIO_NET_EXT_F_IP6FRAG	(1<<0)
+ 	__u32 flags;
+ 	__u8 extensions[];
+ };
+ 
++/* Same as vlan_hdr */
++struct virtio_net_ext_ip6frag {
++	__be32 frag_id;
++};
++
+ #ifndef VIRTIO_NET_NO_LEGACY
+ /* This header comes first in the scatter-gather list.
+  * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
 -- 
 2.7.4
