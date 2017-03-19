@@ -1,48 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] net: Add sysctl to toggle early demux for
- tcp and udp
-Date: Sun, 19 Mar 2017 12:18:39 -0700
-Message-ID: <1489951119.16816.3.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1489116660-4244-1-git-send-email-subashab@codeaurora.org>
-         <CALx6S360Y3tmKMHVMUEuRKCskuwXi+9JBfce6WiSpko1sHj=Yg@mail.gmail.com>
-         <674d67f5d76f761f3e872dff274a8bda@codeaurora.org>
-         <CALx6S340TYEFDAbQfG6X4P0tPJWvyxyXpnLgp9JY7UoBuPEJVA@mail.gmail.com>
-         <1489191742.28631.35.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALx6S36eXpOn70paFnkSyafMkF7Q=MQWJKKb2=d6+hNpK-8V8A@mail.gmail.com>
-         <e643b82c330eabfa0cef21c480eb6c2c@codeaurora.org>
-         <CALx6S343iWzOKrKwHquG8qmyLyKOgQr_KroHyypE_9MFt2+1BQ@mail.gmail.com>
-         <c965b4cc8b5f81cc17836f91423935f5@codeaurora.org>
+Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
+ performance may be compromised." message with "ethtool -K eth0 gro off"
+Date: Sun, 19 Mar 2017 12:20:26 -0700
+Message-ID: <1489951226.16816.5.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170202123427.GA7212@x4>
+         <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170203115457.GA5296@localhost.localdomain>
+         <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170203135355.GA3413@localhost.localdomain>
+         <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170203142828.GB3413@localhost.localdomain>
+         <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170206211226.GC3413@localhost.localdomain> <20170319121417.GA293@x4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        netdev-owner@vger.kernel.org
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        netdev@vger.kernel.org
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35641 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751643AbdCSTSn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 15:18:43 -0400
-In-Reply-To: <c965b4cc8b5f81cc17836f91423935f5@codeaurora.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:33905 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752272AbdCSTs0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 15:48:26 -0400
+Received: by mail-pg0-f54.google.com with SMTP id 21so33575561pgg.1
+        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 12:46:41 -0700 (PDT)
+In-Reply-To: <20170319121417.GA293@x4>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-03-18 at 20:07 -0600, Subash Abhinov Kasiviswanathan wrote:
-> > Less than 1% performance improvement in a benchmark doesn't justify
-> > the complexity of the patch. Eric's hypothesis was that an unconnected
-> > UDP socket may show issues because of cache misses in look-ups due to
-> > so many different sources. This should be fairly easy to benchmark by
-> > randomly setting source address in your test (IP any and routing my
-> > need to be set appropriately).
+On Sun, 2017-03-19 at 13:14 +0100, Markus Trippelsdorf wrote:
+> On 2017.02.06 at 19:12 -0200, Marcelo Ricardo Leitner wrote:
+> > On Fri, Feb 03, 2017 at 06:47:33AM -0800, Eric Dumazet wrote:
+> > > On Fri, 2017-02-03 at 12:28 -0200, Marcelo Ricardo Leitner wrote:
+> > > 
+> > > > Aren't you mixing the endpoints here? MSS is the largest amount of data
+> > > > that the peer can receive in a single segment, and not how much it will
+> > > > send. For the sending part, that depends on what the other peer
+> > > > announced, and we can have 2 different MSS in a single connection, one
+> > > > for each peer.
+> > > > 
+> > > > If a peer later wants to send larger segments, it can, but it must
+> > > > respect the mss advertised by the other peer during handshake.
+> > > > 
+> > > 
+> > > I am not mixing endpoints, you are.
+> > > 
+> > > If you need to be convinced, please grab :
+> > > https://patchwork.ozlabs.org/patch/723028/
+> > > 
+> > > And just watch "ss -temoi ..." 
 > > 
+> > I still don't get it, but I also hit the warning on my laptop, using
+> > iwlwifi. Not sure what I did in order to trigger it, it was by accident.
 > 
-> With different source addresses, a larger increase is seen here
-> (633->654Mbps).
+> After many weeks without any warning, I've hit the issue again today:
+> 
+>  TCP: eth0: Driver has suspect GRO implementation, TCP performance may be compromised. rcv_mss:1448 advmss:1448 len:1460
+> 
 
-Yes, also note the extra cache line might be not noticed if the cpu can
-keep in its caches the whole UDP hash table (1 MB on 64bit kernels for
-the portion touched in IP early demux)
+It is very possible the sender suddenly forgot to use TCP timestamps.
 
-So the exact slowdown depends on CPU generation / cache sizes.
+This warning is a hint, and can not assume senders are not dumb.
