@@ -1,23 +1,51 @@
-From: "Castano Giovanni" <divineprove17@activist.com>
-Subject: Re: Passionate Partner
-Date: Sat, 18 Mar 2017 06:06:46 -0700
-Message-ID: <20170318050907.333C7202323158@mail.banavih.gob.ve>
-Reply-To: divineprove12@adexec.com
+From: Sagi Grimberg <sagi@grimberg.me>
+Subject: Re: [PATCH v3 0/4] Introduce a new helper for parsing ipv[4|6]:port
+ to socket address
+Date: Sun, 19 Mar 2017 18:12:31 +0200
+Message-ID: <17d44419-a9db-1822-985e-619083e999b9@grimberg.me>
+References: <1489063793-12838-1-git-send-email-sagi@grimberg.me>
+ <55ad78fd-266f-09b9-417d-b6cf7b723879@grimberg.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <divineprove17@activist.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-nvme@lists.infradead.org, netdev@vger.kernel.org,
+        Christoph Hellwig <hch@lst.de>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.banavih.gob.ve ([190.202.88.35]:52928 "EHLO
-        mail.banavih.gob.ve" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751369AbdCSN4j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 09:56:39 -0400
-Content-Description: Mail message body
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:35387 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751731AbdCSQMe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 12:12:34 -0400
+Received: by mail-qt0-f196.google.com with SMTP id r5so14809885qtb.2
+        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 09:12:33 -0700 (PDT)
+In-Reply-To: <55ad78fd-266f-09b9-417d-b6cf7b723879@grimberg.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir,
-Did you recieved my mail? 
-I have sent it twice without a response.
 
-Castano Giovanni
+>> Changes from v1:
+>> - rebased to 4.11-rc1
+>> - improved changelogs
+>>
+>> Changes from v0:
+>> - rebased on 4.10
+>> - splitted inet_pton_with_scope to be a bit saner (from Chrsitoph)
+>> - converted nvme-rdma host_traddr to use a generic helper
+>>
+>> We have some places in the stack that support ipv4 and ipv6. In
+>> some cases the user configuration does not reveal which
+>> address family is given and needs to be parsed from the input string.
+>>
+>> Given that the user-input varies between subsystems, some processing
+>> is required from the call-site to separate address and port strings.
+>>
+>> As a side-effect, this set adds ipv6 support for nvme over fabrics.
+>
+> Hi Dave,
+>
+> This set got review tags from two kernel maintainers but this is your
+> realm so I wouldn't be comfortable moving forward with this without
+> your feedback.
+
+Would it be possible to get a review from one of the netdev folks
+on patch 1/4?
