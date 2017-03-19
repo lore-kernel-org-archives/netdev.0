@@ -1,73 +1,109 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC 0/7] phylib MMD accessor cleanups
-Date: Sun, 19 Mar 2017 15:30:38 -0700
-Message-ID: <0b44bbd9-2be9-85cb-1518-4e4ec36927e1@gmail.com>
-References: <20170319105943.GR21222@n2100.armlinux.org.uk>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 4/4] flowcache: more "unsigned int" in struct
+ flow_cache_percpu
+Date: Mon, 20 Mar 2017 01:31:24 +0300
+Message-ID: <20170319223124.GD17015@avx2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-usb@vger.kernel.org,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
-        netdev@vger.kernel.org, Woojung Huh <woojung.huh@microchip.com>
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f195.google.com ([74.125.82.195]:35148 "EHLO
-        mail-ot0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752143AbdCSWal (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 18:30:41 -0400
-In-Reply-To: <20170319105943.GR21222@n2100.armlinux.org.uk>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:35097 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752223AbdCSWcS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 18:32:18 -0400
+Received: by mail-lf0-f65.google.com with SMTP id v2so8838542lfi.2
+        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 15:31:28 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/19/17 à 03:59, Russell King - ARM Linux a écrit :
-> Hi,
-> 
-> This series cleans up the phylib MMD accessors.  We have two accessors
-> at present, phy_(read|write)_mmd() and phy_(read|write)_mmd_indirect()
-> 
-> The _indirect methods access the MMD registers via a clause 22 phy,
-> whereas the non-_indirect methods acess via clause 45 accesses.
-> 
-> Current PHY-independent parts of phylib (such as EEE) access the MMD
-> registers via the _indirect methods, which is no good if you have a
-> clause 45 PHY that doesn't respond to clause 22 accesses.
-> 
-> In order to make these features available, we need to rework these
-> accessors such that they can access the MMD registers using a method
-> dependent on the clause that the PHY conforms with.
-> 
-> This series of patches does exactly that - we merge the functionality
-> of the indirect accesses into the clause 45 accessors, and use these
-> exclusively to access MMD registers.  Internally, the new clause
-> independent MMD accessors indirect via the PHY drivers read_mmd/write_mmd
-> methods if present, otherwise fall back to using clause 45 accesses if
-> the PHY is a clause 45 phy, or clause 22 indirect accesses if the PHY
-> is clause 22.
+Make ->hash_count, ->low_watermark and ->high_watermark unsigned int
+and propagate unsignedness to other variables.
 
-LGTM:
+This doesn't change code generation because these fields aren't used
+in 64-bit contexts but make it anyway: these fields can't be negative
+numbers.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-> 
-> Note: confusingly, phy_read_mmd_indirect() vs phy_read_mmd() switches
-> the order of prtad and devad, which means that converting between the
-> two is not a simple matter of just replacing the function name.  Same
-> applies for the write methods.
-> 
->  drivers/net/phy/Makefile      |   2 +-
->  drivers/net/phy/bcm-phy-lib.c |  12 ++---
->  drivers/net/phy/dp83867.c     |  25 +++++-----
->  drivers/net/phy/intel-xway.c  |  26 +++++-----
->  drivers/net/phy/micrel.c      |  13 +++--
->  drivers/net/phy/microchip.c   |   5 +-
->  drivers/net/phy/phy-core.c    | 101 ++++++++++++++++++++++++++++++++++++++
->  drivers/net/phy/phy.c         | 110 ++++--------------------------------------
->  drivers/net/phy/phy_device.c  |   4 +-
->  drivers/net/usb/lan78xx.c     |  10 ++--
->  include/linux/phy.h           |  80 +++++++++---------------------
->  11 files changed, 178 insertions(+), 210 deletions(-)
-> 
+ include/net/flowcache.h |    6 +++---
+ net/core/flow.c         |   13 +++++++------
+ 2 files changed, 10 insertions(+), 9 deletions(-)
 
-
--- 
-Florian
+--- a/include/net/flowcache.h
++++ b/include/net/flowcache.h
+@@ -8,7 +8,7 @@
+ 
+ struct flow_cache_percpu {
+ 	struct hlist_head		*hash_table;
+-	int				hash_count;
++	unsigned int			hash_count;
+ 	u32				hash_rnd;
+ 	bool				hash_rnd_recalc;
+ 	struct tasklet_struct		flush_tasklet;
+@@ -18,8 +18,8 @@ struct flow_cache {
+ 	u32				hash_shift;
+ 	struct flow_cache_percpu __percpu *percpu;
+ 	struct hlist_node		node;
+-	int				low_watermark;
+-	int				high_watermark;
++	unsigned int			low_watermark;
++	unsigned int			high_watermark;
+ 	struct timer_list		rnd_timer;
+ };
+ #endif	/* _NET_FLOWCACHE_H */
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -99,7 +99,8 @@ static void flow_cache_gc_task(struct work_struct *work)
+ }
+ 
+ static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
+-				     int deleted, struct list_head *gc_list,
++				     unsigned int deleted,
++				     struct list_head *gc_list,
+ 				     struct netns_xfrm *xfrm)
+ {
+ 	if (deleted) {
+@@ -114,18 +115,18 @@ static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
+ 
+ static void __flow_cache_shrink(struct flow_cache *fc,
+ 				struct flow_cache_percpu *fcp,
+-				int shrink_to)
++				unsigned int shrink_to)
+ {
+ 	struct flow_cache_entry *fle;
+ 	struct hlist_node *tmp;
+ 	LIST_HEAD(gc_list);
+-	int deleted = 0;
++	unsigned int deleted = 0;
+ 	struct netns_xfrm *xfrm = container_of(fc, struct netns_xfrm,
+ 						flow_cache_global);
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < flow_cache_hash_size(fc); i++) {
+-		int saved = 0;
++		unsigned int saved = 0;
+ 
+ 		hlist_for_each_entry_safe(fle, tmp,
+ 					  &fcp->hash_table[i], u.hlist) {
+@@ -146,7 +147,7 @@ static void __flow_cache_shrink(struct flow_cache *fc,
+ static void flow_cache_shrink(struct flow_cache *fc,
+ 			      struct flow_cache_percpu *fcp)
+ {
+-	int shrink_to = fc->low_watermark / flow_cache_hash_size(fc);
++	unsigned int shrink_to = fc->low_watermark / flow_cache_hash_size(fc);
+ 
+ 	__flow_cache_shrink(fc, fcp, shrink_to);
+ }
+@@ -296,7 +297,7 @@ static void flow_cache_flush_tasklet(unsigned long data)
+ 	struct flow_cache_entry *fle;
+ 	struct hlist_node *tmp;
+ 	LIST_HEAD(gc_list);
+-	int deleted = 0;
++	unsigned int deleted = 0;
+ 	struct netns_xfrm *xfrm = container_of(fc, struct netns_xfrm,
+ 						flow_cache_global);
+ 	unsigned int i;
