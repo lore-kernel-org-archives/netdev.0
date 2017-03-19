@@ -1,51 +1,44 @@
-From: Sagi Grimberg <sagi@grimberg.me>
-Subject: Re: [PATCH v3 0/4] Introduce a new helper for parsing ipv[4|6]:port
- to socket address
-Date: Sun, 19 Mar 2017 18:12:31 +0200
-Message-ID: <17d44419-a9db-1822-985e-619083e999b9@grimberg.me>
-References: <1489063793-12838-1-git-send-email-sagi@grimberg.me>
- <55ad78fd-266f-09b9-417d-b6cf7b723879@grimberg.me>
+From: Tony Lindgren <tony@atomide.com>
+Subject: [PATCH] net: qmi_wwan: Add USB IDs for MDM6600 modem on Motorola Droid 4
+Date: Sun, 19 Mar 2017 09:19:57 -0700
+Message-ID: <20170319161957.6625-1-tony@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-nvme@lists.infradead.org, netdev@vger.kernel.org,
-        Christoph Hellwig <hch@lst.de>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:35387 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751731AbdCSQMe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 12:12:34 -0400
-Received: by mail-qt0-f196.google.com with SMTP id r5so14809885qtb.2
-        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 09:12:33 -0700 (PDT)
-In-Reply-To: <55ad78fd-266f-09b9-417d-b6cf7b723879@grimberg.me>
+Received: from muru.com ([72.249.23.125]:40508 "EHLO muru.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751475AbdCSQUD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 19 Mar 2017 12:20:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This gets qmicli working with the MDM6600 modem.
 
->> Changes from v1:
->> - rebased to 4.11-rc1
->> - improved changelogs
->>
->> Changes from v0:
->> - rebased on 4.10
->> - splitted inet_pton_with_scope to be a bit saner (from Chrsitoph)
->> - converted nvme-rdma host_traddr to use a generic helper
->>
->> We have some places in the stack that support ipv4 and ipv6. In
->> some cases the user configuration does not reveal which
->> address family is given and needs to be parsed from the input string.
->>
->> Given that the user-input varies between subsystems, some processing
->> is required from the call-site to separate address and port strings.
->>
->> As a side-effect, this set adds ipv6 support for nvme over fabrics.
->
-> Hi Dave,
->
-> This set got review tags from two kernel maintainers but this is your
-> realm so I wouldn't be comfortable moving forward with this without
-> your feedback.
+Cc: Bjørn Mork <bjorn@mork.no>
+Reviewed-by: Sebastian Reichel <sre@kernel.org>
+Tested-by: Sebastian Reichel <sre@kernel.org>
+Signed-off-by: Tony Lindgren <tony@atomide.com>
+---
+ drivers/net/usb/qmi_wwan.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Would it be possible to get a review from one of the netdev folks
-on patch 1/4?
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -580,6 +580,10 @@ static const struct usb_device_id products[] = {
+ 		USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_VENDOR_SPEC, 0x01, 0x69),
+ 		.driver_info        = (unsigned long)&qmi_wwan_info,
+ 	},
++	{	/* Motorola Mapphone devices with MDM6600 */
++		USB_VENDOR_AND_INTERFACE_INFO(0x22b8, USB_CLASS_VENDOR_SPEC, 0xfb, 0xff),
++		.driver_info        = (unsigned long)&qmi_wwan_info,
++	},
+ 
+ 	/* 2. Combined interface devices matching on class+protocol */
+ 	{	/* Huawei E367 and possibly others in "Windows mode" */
+-- 
+2.11.1
