@@ -1,42 +1,59 @@
-From: Gal Pressman <galp@mellanox.com>
-Subject: [PATCH ethtool] ethtool: Fix SFF 8079 cable technology bit parsing
-Date: Sun, 19 Mar 2017 14:10:41 +0200
-Message-ID: <1489925441-20098-1-git-send-email-galp@mellanox.com>
-Cc: Gal Pressman <galp@mellanox.com>
-To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
+ performance may be compromised." message with "ethtool -K eth0 gro off"
+Date: Sun, 19 Mar 2017 13:14:17 +0100
+Message-ID: <20170319121417.GA293@x4>
+References: <20170202123427.GA7212@x4>
+ <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203115457.GA5296@localhost.localdomain>
+ <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203135355.GA3413@localhost.localdomain>
+ <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203142828.GB3413@localhost.localdomain>
+ <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170206211226.GC3413@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49139 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750955AbdCSMLW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 08:11:22 -0400
+Received: from ud10.udmedia.de ([194.117.254.50]:51566 "EHLO
+        mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751562AbdCSMPE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 08:15:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20170206211226.GC3413@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to the transceiver compliance code definition in the spec, bits
-2 & 3 in the 8th byte are indication of active/passive cable, and not
-specifically related to FC/copper.
+On 2017.02.06 at 19:12 -0200, Marcelo Ricardo Leitner wrote:
+> On Fri, Feb 03, 2017 at 06:47:33AM -0800, Eric Dumazet wrote:
+> > On Fri, 2017-02-03 at 12:28 -0200, Marcelo Ricardo Leitner wrote:
+> > 
+> > > Aren't you mixing the endpoints here? MSS is the largest amount of data
+> > > that the peer can receive in a single segment, and not how much it will
+> > > send. For the sending part, that depends on what the other peer
+> > > announced, and we can have 2 different MSS in a single connection, one
+> > > for each peer.
+> > > 
+> > > If a peer later wants to send larger segments, it can, but it must
+> > > respect the mss advertised by the other peer during handshake.
+> > > 
+> > 
+> > I am not mixing endpoints, you are.
+> > 
+> > If you need to be convinced, please grab :
+> > https://patchwork.ozlabs.org/patch/723028/
+> > 
+> > And just watch "ss -temoi ..." 
+> 
+> I still don't get it, but I also hit the warning on my laptop, using
+> iwlwifi. Not sure what I did in order to trigger it, it was by accident.
 
-Fixes: 2edf56749abe ("ethtool: Addition of -m option to dump module eeprom")
-Signed-off-by: Gal Pressman <galp@mellanox.com>
----
- sfpid.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+After many weeks without any warning, I've hit the issue again today:
 
-diff --git a/sfpid.c b/sfpid.c
-index fd6415c..1732e5e 100644
---- a/sfpid.c
-+++ b/sfpid.c
-@@ -137,9 +137,9 @@ static void sff8079_show_transceiver(const __u8 *id)
- 	if (id[8] & (1 << 4))
- 		printf("%s FC: Longwave laser (LL)\n", pfx);
- 	if (id[8] & (1 << 3))
--		printf("%s FC: Copper Active\n", pfx);
-+		printf("%s Active Cable\n", pfx);
- 	if (id[8] & (1 << 2))
--		printf("%s FC: Copper Passive\n", pfx);
-+		printf("%s Passive Cable\n", pfx);
- 	if (id[8] & (1 << 1))
- 		printf("%s FC: Copper FC-BaseT\n", pfx);
- 	/* Fibre Channel transmission media */
+ TCP: eth0: Driver has suspect GRO implementation, TCP performance may be compromised. rcv_mss:1448 advmss:1448 len:1460
+
 -- 
-2.7.4
+Markus
