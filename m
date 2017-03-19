@@ -1,52 +1,55 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 4/9] qed: Correct default VF coalescing configuration
-Date: Sun, 19 Mar 2017 13:08:15 +0200
-Message-ID: <1489921700-6850-5-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 8/9] qed: Raise verbosity of Malicious VF indications
+Date: Sun, 19 Mar 2017 13:08:19 +0200
+Message-ID: <1489921700-6850-9-git-send-email-Yuval.Mintz@cavium.com>
 References: <1489921700-6850-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:45805 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:45835 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751968AbdCSLIp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 07:08:45 -0400
+        by vger.kernel.org with ESMTP id S1752002AbdCSLIw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 07:08:52 -0400
 In-Reply-To: <1489921700-6850-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When starting the VF's vport, the PF would first configure
-the status blocks of the VF and then reset them.
-That would cause some of the configured information to be lost -
-specifically it would mean that all the VFs queues would use
-the Rx coalescing state-machine of the status block.
+Malicious VF existance should be interesting enough for the
+hyperuser. Change the PF indication that one of its child VF
+became malicious to appear by default.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index aea1e4c..098330e 100644
+index d592de0..0d37d73 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -1755,6 +1755,8 @@ static void qed_iov_vf_mbx_start_vport(struct qed_hwfn *p_hwfn,
- 	vf->state = VF_ENABLED;
- 	start = &mbx->req_virt->start_vport;
+@@ -3386,11 +3386,17 @@ static void qed_sriov_vfpf_malicious(struct qed_hwfn *p_hwfn,
+ 	if (!p_vf)
+ 		return;
  
-+	qed_iov_enable_vf_traffic(p_hwfn, p_ptt, vf);
-+
- 	/* Initialize Status block in CAU */
- 	for (sb_id = 0; sb_id < vf->num_sbs; sb_id++) {
- 		if (!start->sb_addr[sb_id]) {
-@@ -1768,7 +1770,6 @@ static void qed_iov_vf_mbx_start_vport(struct qed_hwfn *p_hwfn,
- 				    start->sb_addr[sb_id],
- 				    vf->igu_sbs[sb_id], vf->abs_vf_id, 1);
- 	}
--	qed_iov_enable_vf_traffic(p_hwfn, p_ptt, vf);
+-	DP_INFO(p_hwfn,
+-		"VF [%d] - Malicious behavior [%02x]\n",
+-		p_vf->abs_vf_id, p_data->err_id);
++	if (!p_vf->b_malicious) {
++		DP_NOTICE(p_hwfn,
++			  "VF [%d] - Malicious behavior [%02x]\n",
++			  p_vf->abs_vf_id, p_data->err_id);
  
- 	vf->mtu = start->mtu;
- 	vf->shadow_config.inner_vlan_removal = start->inner_vlan_removal;
+-	p_vf->b_malicious = true;
++		p_vf->b_malicious = true;
++	} else {
++		DP_INFO(p_hwfn,
++			"VF [%d] - Malicious behavior [%02x]\n",
++			p_vf->abs_vf_id, p_data->err_id);
++	}
+ }
+ 
+ int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
 -- 
 1.9.3
