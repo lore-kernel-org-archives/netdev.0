@@ -1,51 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
- atomic_t to refcount_t
-Date: Sat, 18 Mar 2017 18:21:21 -0700 (PDT)
-Message-ID: <20170318.182121.439615057765380575.davem@davemloft.net>
-References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170318164759.GA23837@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: keescook@chromium.org, eric.dumazet@gmail.com, peterz@infradead.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, jmorris@namei.org,
-	ishkamiel@gmail.com, kuznet@ms2.inr.ac.ru,
-	akpm@linux-foundation.org, kaber@trash.net,
-	elena.reshetova@intel.com, dwindsor@gmail.com
-To: herbert@gondor.apana.org.au
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170318164759.GA23837@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Kevin Xu <kaiwen.xu@hulu.com>
+Subject: [PATCH net v2] net: Do not hold the reference for the same sk_rx_dst
+Date: Sat, 18 Mar 2017 18:48:41 -0700
+Message-ID: <1489888121-1051-1-git-send-email-kaiwen.xu@hulu.com>
+References: <20170316.111647.1545474188593011995.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Kevin Xu <kaiwen.xu@hulu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtppool.hulu.com ([208.91.156.120]:58453 "EHLO
+        smtppool.els.hulu.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751189AbdCSCFK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 22:05:10 -0400
+In-Reply-To: <20170316.111647.1545474188593011995.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 19 Mar 2017 00:47:59 +0800
+In some rare cases, inet_sk_rx_dst_set() may be called multiple times
+on the same dst, causing double refcounting. Eventually, it
+prevents net_device to be destroyed. The bug manifested as
 
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Fri, 2017-03-17 at 07:42 +0000, Reshetova, Elena wrote:
->> 
->>> Should we then first measure the actual numbers to understand what we
->>> are talking here about? 
->>> I would be glad to do it if you suggest what is the correct way to do
->>> measurements here to actually reflect the real life use cases. 
->> 
->> How have these patches been tested in real life exactly ?
->> 
->> Can you quantify number of added cycles per TCP packet, where I expect
->> we have maybe 20 atomic operations in all layers ...
-> 
-> I completely agree.  I think this thing needs to default to the
-> existing atomic_t behaviour.
+unregister_netdevice: waiting for lo to become free. Usage count = 1
 
-I totally agree as well, the refcount_t facility as-is is unacceptable
-for networking.
+in the kernel log, preventing new network namespace creation.
+
+Signed-off-by: Kevin Xu <kaiwen.xu@hulu.com>
+---
+ net/ipv4/tcp_ipv4.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 575e19d..ca588d1 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1806,9 +1806,11 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
++	struct dst_entry *old;
+ 
+ 	if (dst && dst_hold_safe(dst)) {
+-		sk->sk_rx_dst = dst;
++		old = xchg(&sk->sk_rx_dst, dst);
++		dst_release(old);
+ 		inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
+ 	}
+ }
+-- 
+1.9.1
