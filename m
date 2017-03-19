@@ -1,65 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
- performance may be compromised." message with "ethtool -K eth0 gro off"
-Date: Sun, 19 Mar 2017 12:20:26 -0700
-Message-ID: <1489951226.16816.5.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170202123427.GA7212@x4>
-         <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170203115457.GA5296@localhost.localdomain>
-         <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170203135355.GA3413@localhost.localdomain>
-         <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170203142828.GB3413@localhost.localdomain>
-         <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170206211226.GC3413@localhost.localdomain> <20170319121417.GA293@x4>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 1/4] flowcache: make flow_key_size() return "unsigned int"
+Date: Mon, 20 Mar 2017 01:20:19 +0300
+Message-ID: <20170319222019.GA17015@avx2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
         netdev@vger.kernel.org
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:33905 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752272AbdCSTs0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 15:48:26 -0400
-Received: by mail-pg0-f54.google.com with SMTP id 21so33575561pgg.1
-        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 12:46:41 -0700 (PDT)
-In-Reply-To: <20170319121417.GA293@x4>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33763 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752156AbdCSWVF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 18:21:05 -0400
+Received: by mail-lf0-f68.google.com with SMTP id r36so8845069lfi.0
+        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 15:20:31 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2017-03-19 at 13:14 +0100, Markus Trippelsdorf wrote:
-> On 2017.02.06 at 19:12 -0200, Marcelo Ricardo Leitner wrote:
-> > On Fri, Feb 03, 2017 at 06:47:33AM -0800, Eric Dumazet wrote:
-> > > On Fri, 2017-02-03 at 12:28 -0200, Marcelo Ricardo Leitner wrote:
-> > > 
-> > > > Aren't you mixing the endpoints here? MSS is the largest amount of data
-> > > > that the peer can receive in a single segment, and not how much it will
-> > > > send. For the sending part, that depends on what the other peer
-> > > > announced, and we can have 2 different MSS in a single connection, one
-> > > > for each peer.
-> > > > 
-> > > > If a peer later wants to send larger segments, it can, but it must
-> > > > respect the mss advertised by the other peer during handshake.
-> > > > 
-> > > 
-> > > I am not mixing endpoints, you are.
-> > > 
-> > > If you need to be convinced, please grab :
-> > > https://patchwork.ozlabs.org/patch/723028/
-> > > 
-> > > And just watch "ss -temoi ..." 
-> > 
-> > I still don't get it, but I also hit the warning on my laptop, using
-> > iwlwifi. Not sure what I did in order to trigger it, it was by accident.
-> 
-> After many weeks without any warning, I've hit the issue again today:
-> 
->  TCP: eth0: Driver has suspect GRO implementation, TCP performance may be compromised. rcv_mss:1448 advmss:1448 len:1460
-> 
+flow keys aren't 4GB+ numbers so 64-bit arithmetic is excessive.
 
-It is very possible the sender suddenly forgot to use TCP timestamps.
+Space savings (I'm not sure what is CSWTCH):
 
-This warning is a hint, and can not assume senders are not dumb.
+	add/remove: 0/0 grow/shrink: 0/2 up/down: 0/-48 (-48)
+	function                                     old     new   delta
+	flow_cache_lookup                           1163    1159      -4
+	CSWTCH                                     75553   75509     -44
+	Total: Before=170822932, After=170822884, chg -0.00%
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
+
+ include/net/flow.h |    2 +-
+ net/core/flow.c    |    6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -202,7 +202,7 @@ static inline struct flowi *flowidn_to_flowi(struct flowidn *fldn)
+ 
+ typedef unsigned long flow_compare_t;
+ 
+-static inline size_t flow_key_size(u16 family)
++static inline unsigned int flow_key_size(u16 family)
+ {
+ 	switch (family) {
+ 	case AF_INET:
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -161,7 +161,7 @@ static void flow_new_hash_rnd(struct flow_cache *fc,
+ static u32 flow_hash_code(struct flow_cache *fc,
+ 			  struct flow_cache_percpu *fcp,
+ 			  const struct flowi *key,
+-			  size_t keysize)
++			  unsigned int keysize)
+ {
+ 	const u32 *k = (const u32 *) key;
+ 	const u32 length = keysize * sizeof(flow_compare_t) / sizeof(u32);
+@@ -174,7 +174,7 @@ static u32 flow_hash_code(struct flow_cache *fc,
+  * important assumptions that we can here, such as alignment.
+  */
+ static int flow_key_compare(const struct flowi *key1, const struct flowi *key2,
+-			    size_t keysize)
++			    unsigned int keysize)
+ {
+ 	const flow_compare_t *k1, *k1_lim, *k2;
+ 
+@@ -199,7 +199,7 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
+ 	struct flow_cache_percpu *fcp;
+ 	struct flow_cache_entry *fle, *tfle;
+ 	struct flow_cache_object *flo;
+-	size_t keysize;
++	unsigned int keysize;
+ 	unsigned int hash;
+ 
+ 	local_bh_disable();
