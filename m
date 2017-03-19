@@ -1,41 +1,42 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next v2] net: Add sysctl to toggle early demux for tcp
- and udp
-Date: Sat, 18 Mar 2017 20:07:22 -0600
-Message-ID: <c965b4cc8b5f81cc17836f91423935f5@codeaurora.org>
-References: <1489116660-4244-1-git-send-email-subashab@codeaurora.org>
- <CALx6S360Y3tmKMHVMUEuRKCskuwXi+9JBfce6WiSpko1sHj=Yg@mail.gmail.com>
- <674d67f5d76f761f3e872dff274a8bda@codeaurora.org>
- <CALx6S340TYEFDAbQfG6X4P0tPJWvyxyXpnLgp9JY7UoBuPEJVA@mail.gmail.com>
- <1489191742.28631.35.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S36eXpOn70paFnkSyafMkF7Q=MQWJKKb2=d6+hNpK-8V8A@mail.gmail.com>
- <e643b82c330eabfa0cef21c480eb6c2c@codeaurora.org>
- <CALx6S343iWzOKrKwHquG8qmyLyKOgQr_KroHyypE_9MFt2+1BQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net v2] net: Do not hold the reference for the same sk_rx_dst
+Date: Sat, 18 Mar 2017 20:49:43 -0700
+Message-ID: <CAM_iQpXFY+isbSR71GWyf_=-o-LEB6Ftj6P0_5c3zf9echsGnA@mail.gmail.com>
+References: <20170316.111647.1545474188593011995.davem@davemloft.net> <1489888121-1051-1-git-send-email-kaiwen.xu@hulu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        netdev-owner@vger.kernel.org
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Kevin Xu <kaiwen.xu@hulu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45572 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751315AbdCSCIn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 22:08:43 -0400
-In-Reply-To: <CALx6S343iWzOKrKwHquG8qmyLyKOgQr_KroHyypE_9MFt2+1BQ@mail.gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36198 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751327AbdCSDuF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 18 Mar 2017 23:50:05 -0400
+Received: by mail-wm0-f67.google.com with SMTP id x124so9091555wmf.3
+        for <netdev@vger.kernel.org>; Sat, 18 Mar 2017 20:50:04 -0700 (PDT)
+In-Reply-To: <1489888121-1051-1-git-send-email-kaiwen.xu@hulu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Less than 1% performance improvement in a benchmark doesn't justify
-> the complexity of the patch. Eric's hypothesis was that an unconnected
-> UDP socket may show issues because of cache misses in look-ups due to
-> so many different sources. This should be fairly easy to benchmark by
-> randomly setting source address in your test (IP any and routing my
-> need to be set appropriately).
-> 
+On Sat, Mar 18, 2017 at 6:48 PM, Kevin Xu <kaiwen.xu@hulu.com> wrote:
+> In some rare cases, inet_sk_rx_dst_set() may be called multiple times
+> on the same dst, causing double refcounting. Eventually, it
+> prevents net_device to be destroyed. The bug manifested as
+>
+> unregister_netdevice: waiting for lo to become free. Usage count = 1
+>
+> in the kernel log, preventing new network namespace creation.
+>
+> Signed-off-by: Kevin Xu <kaiwen.xu@hulu.com>
 
-With different source addresses, a larger increase is seen here
-(633->654Mbps).
+Don't know why you don't follow the discussion on your v1...
+
+It is protected by bh_lock_sock(), so your patch is not needed
+at all.
+
+Read net/ipv4/udp.c:
+
+1762 /* For TCP sockets, sk_rx_dst is protected by socket lock
+1763  * For UDP, we use xchg() to guard against concurrent changes.
+1764  */
