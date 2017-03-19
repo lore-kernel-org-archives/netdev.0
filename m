@@ -1,60 +1,120 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 2/9] qed: Clean VF malicious indication when disabling IOV
-Date: Sun, 19 Mar 2017 13:08:13 +0200
-Message-ID: <1489921700-6850-3-git-send-email-Yuval.Mintz@cavium.com>
-References: <1489921700-6850-1-git-send-email-Yuval.Mintz@cavium.com>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH RFC 2/7] net: phy: make phy_(read|write)_mmd() generic MMD
+ accessors
+Date: Sun, 19 Mar 2017 11:00:23 +0000
+Message-ID: <E1cpYZT-0006Ub-Sa@rmk-PC.armlinux.org.uk>
+References: <20170319105943.GR21222@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:45798 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751922AbdCSLIl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 07:08:41 -0400
-In-Reply-To: <1489921700-6850-1-git-send-email-Yuval.Mintz@cavium.com>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:43358 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751565AbdCSLKO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 19 Mar 2017 07:10:14 -0400
+In-Reply-To: <20170319105943.GR21222@n2100.armlinux.org.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a VF is considered malicious, driver handling of the VF
-FLR flow would clean said indication - but not if the FLR is
-part of an sriov-disable flow.
-That leads to further issues, as PF wouldn't re-enable the
-previously malicious VF when sriov is re-enabled.
+Make phy_(read|write)_mmd() generic 802.3 clause 45 register accessors
+for both Clause 22 and Clause 45 PHYs, using either the direct register
+reading for Clause 45, or the indirect method for Clause 22 PHYs.
+Allow this behaviour to be overriden by PHY drivers where necessary.
 
-No reason for that - simply clean malicious indications in
-the sriov-disable flow as well.
-
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/phy/phy-core.c | 31 +++++++++++++++++++++++--------
+ include/linux/phy.h        | 24 ++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 16f503c..2403d58 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -693,6 +693,11 @@ static int qed_iov_enable_vf_access(struct qed_hwfn *p_hwfn,
- 	u32 igu_vf_conf = IGU_VF_CONF_FUNC_EN;
- 	int rc;
+diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
+index b8d8276a3099..b50b3a64cf6a 100644
+--- a/drivers/net/phy/phy-core.c
++++ b/drivers/net/phy/phy-core.c
+@@ -69,11 +69,18 @@ EXPORT_SYMBOL(phy_read_mmd_indirect);
+  */
+ int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
+ {
+-	if (!phydev->is_c45)
+-		return -EOPNOTSUPP;
++	if (regnum > (u16)~0 || devad > 32)
++		return -EINVAL;
  
-+	/* It's possible VF was previously considered malicious -
-+	 * clear the indication even if we're only going to disable VF.
-+	 */
-+	vf->b_malicious = false;
+-	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr,
+-			    MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff));
++	if (phydev->drv->read_mmd)
++		return phydev->drv->read_mmd(phydev, devad, regnum);
 +
- 	if (vf->to_disable)
- 		return 0;
++	if (phydev->is_c45) {
++		u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
++		return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr, addr);
++	}
++
++	return phy_read_mmd_indirect(phydev, regnum, devad);
+ }
+ EXPORT_SYMBOL(phy_read_mmd);
  
-@@ -705,9 +710,6 @@ static int qed_iov_enable_vf_access(struct qed_hwfn *p_hwfn,
+@@ -125,11 +132,19 @@ EXPORT_SYMBOL(phy_write_mmd_indirect);
+  */
+ int phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
+ {
+-	if (!phydev->is_c45)
+-		return -EOPNOTSUPP;
++	if (regnum > (u16)~0 || devad > 32)
++		return -EINVAL;
  
- 	qed_iov_vf_igu_reset(p_hwfn, p_ptt, vf);
+-	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
++	if (phydev->drv->read_mmd)
++		return phydev->drv->write_mmd(phydev, devad, regnum, val);
++
++	if (phydev->is_c45) {
++		u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
++
++		return mdiobus_write(phydev->mdio.bus, phydev->mdio.addr,
++				     addr, val);
++	}
  
--	/* It's possible VF was previously considered malicious */
--	vf->b_malicious = false;
--
- 	rc = qed_mcp_config_vf_msix(p_hwfn, p_ptt, vf->abs_vf_id, vf->num_sbs);
- 	if (rc)
- 		return rc;
+-	return mdiobus_write(phydev->mdio.bus, phydev->mdio.addr, regnum, val);
++	return phy_write_mmd_indirect(phydev, regnum, devad, val);
+ }
+ EXPORT_SYMBOL(phy_write_mmd);
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 2d32e9227516..374450e0c205 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -587,6 +587,30 @@ struct phy_driver {
+ 	 */
+ 	void (*link_change_notify)(struct phy_device *dev);
+ 
++	/*
++	 * Phy specific driver override for reading a MMD register.
++	 * This function is optional for PHY specific drivers.  When
++	 * not provided, the default MMD read function will be used
++	 * by phy_read_mmd(), which will use either a direct read for
++	 * Clause 45 PHYs or an indirect read for Clause 22 PHYs.
++	 *  devnum is the MMD device number within the PHY device,
++	 *  regnum is the register within the selected MMD device.
++	 */
++	int (*read_mmd)(struct phy_device *dev, int devnum, u16 regnum);
++
++	/*
++	 * Phy specific driver override for writing a MMD register.
++	 * This function is optional for PHY specific drivers.  When
++	 * not provided, the default MMD write function will be used
++	 * by phy_write_mmd(), which will use either a direct write for
++	 * Clause 45 PHYs, or an indirect write for Clause 22 PHYs.
++	 *  devnum is the MMD device number within the PHY device,
++	 *  regnum is the register within the selected MMD device.
++	 *  val is the value to be written.
++	 */
++	int (*write_mmd)(struct phy_device *dev, int devnum, u16 regnum,
++			 u16 val);
++
+ 	/* A function provided by a phy specific driver to override the
+ 	 * the PHY driver framework support for reading a MMD register
+ 	 * from the PHY. If not supported, return -1. This function is
 -- 
-1.9.3
+2.7.4
