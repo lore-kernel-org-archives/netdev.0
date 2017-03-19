@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v6 05/15] mlx4: Replace PCI pool old API
-Date: Sun, 19 Mar 2017 18:03:54 +0100
-Message-ID: <20170319170404.17362-6-romain.perier@collabora.com>
+Subject: [PATCH v6 03/15] IB/mthca: Replace PCI pool old API
+Date: Sun, 19 Mar 2017 18:03:52 +0100
+Message-ID: <20170319170404.17362-4-romain.perier@collabora.com>
 References: <20170319170404.17362-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -18,9 +18,9 @@ To: Dan Williams <dan.j.williams@intel.com>,
         "Martin K. Petersen" <martin.petersen@oracle.com>,
         Felipe Balbi <balbi@kernel.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170319170404.17362-1-romain.perier@collabora.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 The PCI pool API is deprecated. This commit replaces the PCI pool old
@@ -30,64 +30,120 @@ Signed-off-by: Romain Perier <romain.perier@collabora.com>
 Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
 Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c  | 10 +++++-----
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |  2 +-
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/infiniband/hw/mthca/mthca_av.c  | 10 +++++-----
+ drivers/infiniband/hw/mthca/mthca_cmd.c |  8 ++++----
+ drivers/infiniband/hw/mthca/mthca_dev.h |  4 ++--
+ 3 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index e8c1051..fb69604 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2516,8 +2516,8 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
+diff --git a/drivers/infiniband/hw/mthca/mthca_av.c b/drivers/infiniband/hw/mthca/mthca_av.c
+index c9f0f36..9d041b6 100644
+--- a/drivers/infiniband/hw/mthca/mthca_av.c
++++ b/drivers/infiniband/hw/mthca/mthca_av.c
+@@ -186,7 +186,7 @@ int mthca_create_ah(struct mthca_dev *dev,
+ 
+ on_hca_fail:
+ 	if (ah->type == MTHCA_AH_PCI_POOL) {
+-		ah->av = pci_pool_zalloc(dev->av_table.pool,
++		ah->av = dma_pool_zalloc(dev->av_table.pool,
+ 					 GFP_ATOMIC, &ah->avdma);
+ 		if (!ah->av)
+ 			return -ENOMEM;
+@@ -245,7 +245,7 @@ int mthca_destroy_ah(struct mthca_dev *dev, struct mthca_ah *ah)
+ 		break;
+ 
+ 	case MTHCA_AH_PCI_POOL:
+-		pci_pool_free(dev->av_table.pool, ah->av, ah->avdma);
++		dma_pool_free(dev->av_table.pool, ah->av, ah->avdma);
+ 		break;
+ 
+ 	case MTHCA_AH_KMALLOC:
+@@ -333,7 +333,7 @@ int mthca_init_av_table(struct mthca_dev *dev)
+ 	if (err)
+ 		return err;
+ 
+-	dev->av_table.pool = pci_pool_create("mthca_av", dev->pdev,
++	dev->av_table.pool = dma_pool_create("mthca_av", &dev->pdev->dev,
+ 					     MTHCA_AV_SIZE,
+ 					     MTHCA_AV_SIZE, 0);
+ 	if (!dev->av_table.pool)
+@@ -353,7 +353,7 @@ int mthca_init_av_table(struct mthca_dev *dev)
+ 	return 0;
+ 
+  out_free_pool:
+-	pci_pool_destroy(dev->av_table.pool);
++	dma_pool_destroy(dev->av_table.pool);
+ 
+  out_free_alloc:
+ 	mthca_alloc_cleanup(&dev->av_table.alloc);
+@@ -367,6 +367,6 @@ void mthca_cleanup_av_table(struct mthca_dev *dev)
+ 
+ 	if (dev->av_table.av_map)
+ 		iounmap(dev->av_table.av_map);
+-	pci_pool_destroy(dev->av_table.pool);
++	dma_pool_destroy(dev->av_table.pool);
+ 	mthca_alloc_cleanup(&dev->av_table.alloc);
+ }
+diff --git a/drivers/infiniband/hw/mthca/mthca_cmd.c b/drivers/infiniband/hw/mthca/mthca_cmd.c
+index c7f49bb..7f219c8 100644
+--- a/drivers/infiniband/hw/mthca/mthca_cmd.c
++++ b/drivers/infiniband/hw/mthca/mthca_cmd.c
+@@ -530,7 +530,7 @@ int mthca_cmd_init(struct mthca_dev *dev)
+ 		return -ENOMEM;
  	}
  
- 	if (!priv->cmd.pool) {
--		priv->cmd.pool = pci_pool_create("mlx4_cmd",
--						 dev->persist->pdev,
-+		priv->cmd.pool = dma_pool_create("mlx4_cmd",
-+						 &dev->persist->pdev->dev,
- 						 MLX4_MAILBOX_SIZE,
- 						 MLX4_MAILBOX_SIZE, 0);
- 		if (!priv->cmd.pool)
-@@ -2588,7 +2588,7 @@ void mlx4_cmd_cleanup(struct mlx4_dev *dev, int cleanup_mask)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
+-	dev->cmd.pool = pci_pool_create("mthca_cmd", dev->pdev,
++	dev->cmd.pool = dma_pool_create("mthca_cmd", &dev->pdev->dev,
+ 					MTHCA_MAILBOX_SIZE,
+ 					MTHCA_MAILBOX_SIZE, 0);
+ 	if (!dev->cmd.pool) {
+@@ -543,7 +543,7 @@ int mthca_cmd_init(struct mthca_dev *dev)
  
- 	if (priv->cmd.pool && (cleanup_mask & MLX4_CMD_CLEANUP_POOL)) {
--		pci_pool_destroy(priv->cmd.pool);
-+		dma_pool_destroy(priv->cmd.pool);
- 		priv->cmd.pool = NULL;
- 	}
- 
-@@ -2680,7 +2680,7 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
+ void mthca_cmd_cleanup(struct mthca_dev *dev)
+ {
+-	pci_pool_destroy(dev->cmd.pool);
++	dma_pool_destroy(dev->cmd.pool);
+ 	iounmap(dev->hcr);
+ 	if (dev->cmd.flags & MTHCA_CMD_POST_DOORBELLS)
+ 		iounmap(dev->cmd.dbell_map);
+@@ -613,7 +613,7 @@ struct mthca_mailbox *mthca_alloc_mailbox(struct mthca_dev *dev,
  	if (!mailbox)
  		return ERR_PTR(-ENOMEM);
  
--	mailbox->buf = pci_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
-+	mailbox->buf = dma_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
- 				       &mailbox->dma);
+-	mailbox->buf = pci_pool_alloc(dev->cmd.pool, gfp_mask, &mailbox->dma);
++	mailbox->buf = dma_pool_alloc(dev->cmd.pool, gfp_mask, &mailbox->dma);
  	if (!mailbox->buf) {
  		kfree(mailbox);
-@@ -2697,7 +2697,7 @@ void mlx4_free_cmd_mailbox(struct mlx4_dev *dev,
+ 		return ERR_PTR(-ENOMEM);
+@@ -627,7 +627,7 @@ void mthca_free_mailbox(struct mthca_dev *dev, struct mthca_mailbox *mailbox)
  	if (!mailbox)
  		return;
  
--	pci_pool_free(mlx4_priv(dev)->cmd.pool, mailbox->buf, mailbox->dma);
-+	dma_pool_free(mlx4_priv(dev)->cmd.pool, mailbox->buf, mailbox->dma);
+-	pci_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
++	dma_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
  	kfree(mailbox);
  }
- EXPORT_SYMBOL_GPL(mlx4_free_cmd_mailbox);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index b4f1bc5..69c8764 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -628,7 +628,7 @@ struct mlx4_mgm {
+ 
+diff --git a/drivers/infiniband/hw/mthca/mthca_dev.h b/drivers/infiniband/hw/mthca/mthca_dev.h
+index 4393a02..8c3f6ed 100644
+--- a/drivers/infiniband/hw/mthca/mthca_dev.h
++++ b/drivers/infiniband/hw/mthca/mthca_dev.h
+@@ -118,7 +118,7 @@ enum {
  };
  
- struct mlx4_cmd {
--	struct pci_pool	       *pool;
-+	struct dma_pool	       *pool;
- 	void __iomem	       *hcr;
- 	struct mutex		slave_cmd_mutex;
- 	struct semaphore	poll_sem;
+ struct mthca_cmd {
+-	struct pci_pool          *pool;
++	struct dma_pool          *pool;
+ 	struct mutex              hcr_mutex;
+ 	struct semaphore 	  poll_sem;
+ 	struct semaphore 	  event_sem;
+@@ -263,7 +263,7 @@ struct mthca_qp_table {
+ };
+ 
+ struct mthca_av_table {
+-	struct pci_pool   *pool;
++	struct dma_pool   *pool;
+ 	int                num_ddr_avs;
+ 	u64                ddr_av_base;
+ 	void __iomem      *av_map;
 -- 
 2.9.3
