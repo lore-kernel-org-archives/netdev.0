@@ -1,719 +1,1851 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH 1/3] soc: qcom: smd: Transition client drivers from smd to rpmsg
-Date: Mon, 20 Mar 2017 16:35:42 -0700
-Message-ID: <20170320233544.1656-1-bjorn.andersson@linaro.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-bluetooth@vger.kernel.org,
-        linux-kernel@vger.kernel.org, wcn36xx@lists.infradead.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>,
+Subject: [PATCH 2/3] soc: qcom: smd: Remove standalone driver
+Date: Mon, 20 Mar 2017 16:35:43 -0700
+Message-ID: <20170320233544.1656-2-bjorn.andersson@linaro.org>
+References: <20170320233544.1656-1-bjorn.andersson@linaro.org>
+Cc: Marcel Holtmann <marcel@holtmann.org>,
         Gustavo Padovan <gustavo@padovan.org>,
         Johan Hedberg <johan.hedberg@gmail.com>,
         Eugene Krasnikov <k.eugene.e@gmail.com>,
         Kalle Valo <kvalo@codeaurora.org>,
-        Andy Gross <andy.gross@linaro.org>,
         David Brown <david.brown@linaro.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, linux-bluetooth@vger.kernel.org,
+        linux-kernel@vger.kernel.org, wcn36xx@lists.infradead.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org
+To: Andy Gross <andy.gross@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:34750 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754858AbdCTXmR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 19:42:17 -0400
+Received: by mail-pg0-f46.google.com with SMTP id 21so51500786pgg.1
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 16:42:16 -0700 (PDT)
+In-Reply-To: <20170320233544.1656-1-bjorn.andersson@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-By moving these client drivers to use RPMSG instead of the direct SMD
-API we can reuse them ontop of the newly added GLINK wire-protocol
-support found in the 820 and 835 Qualcomm platforms.
+Remove the standalone SMD implementation as we have transitioned the
+client drivers to use the RPMSG based one.
 
-As the new (RPMSG-based) and old SMD implementations are mutually
-exclusive we have to change all client drivers in one commit, to make
-sure we have a working system before and after this transition.
+Also remove all dependencies on QCOM_SMD from Kconfig files, in order to
+keep them selectable in the absence of the removed symbol.
 
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
 
-Based on v4.11-rc3 with Arnd's Kconfig dependency fixes for BT_QCOMSMD
-(https://lkml.org/lkml/2017/3/20/1038).
+Based on v4.11-rc3 with Arnd's Kconfig dependency fixes in remoteproc
+(https://lkml.org/lkml/2017/3/20/1027).
 
- drivers/bluetooth/Kconfig                  |  2 +-
- drivers/bluetooth/btqcomsmd.c              | 32 +++++++++----------
- drivers/net/wireless/ath/wcn36xx/Kconfig   |  2 +-
- drivers/net/wireless/ath/wcn36xx/main.c    |  6 ++--
- drivers/net/wireless/ath/wcn36xx/smd.c     | 10 +++---
- drivers/net/wireless/ath/wcn36xx/smd.h     |  6 ++--
- drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  2 +-
- drivers/soc/qcom/Kconfig                   |  4 +--
- drivers/soc/qcom/smd-rpm.c                 | 43 +++++++++++++------------
- drivers/soc/qcom/wcnss_ctrl.c              | 50 +++++++++++++++++-------------
- include/linux/soc/qcom/wcnss_ctrl.h        | 11 ++++---
- net/qrtr/Kconfig                           |  2 +-
- net/qrtr/smd.c                             | 42 ++++++++++++-------------
- 13 files changed, 108 insertions(+), 104 deletions(-)
+ drivers/remoteproc/Kconfig     |    6 +-
+ drivers/rpmsg/Kconfig          |    1 -
+ drivers/soc/qcom/Kconfig       |    8 -
+ drivers/soc/qcom/Makefile      |    1 -
+ drivers/soc/qcom/smd.c         | 1560 ----------------------------------------
+ include/linux/rpmsg/qcom_smd.h |    2 +-
+ include/linux/soc/qcom/smd.h   |  139 ----
+ 7 files changed, 4 insertions(+), 1713 deletions(-)
+ delete mode 100644 drivers/soc/qcom/smd.c
+ delete mode 100644 include/linux/soc/qcom/smd.h
 
-diff --git a/drivers/bluetooth/Kconfig b/drivers/bluetooth/Kconfig
-index 08e054507d0b..a6a9dd4d0eef 100644
---- a/drivers/bluetooth/Kconfig
-+++ b/drivers/bluetooth/Kconfig
-@@ -344,7 +344,7 @@ config BT_WILINK
- 
- config BT_QCOMSMD
- 	tristate "Qualcomm SMD based HCI support"
--	depends on QCOM_SMD || (COMPILE_TEST && QCOM_SMD=n)
-+	depends on RPMSG || (COMPILE_TEST && RPMSG=n)
- 	depends on QCOM_WCNSS_CTRL || (COMPILE_TEST && QCOM_WCNSS_CTRL=n)
- 	select BT_QCA
+diff --git a/drivers/remoteproc/Kconfig b/drivers/remoteproc/Kconfig
+index 1dc43fc5f65f..faad69a1a597 100644
+--- a/drivers/remoteproc/Kconfig
++++ b/drivers/remoteproc/Kconfig
+@@ -76,7 +76,7 @@ config QCOM_ADSP_PIL
+ 	depends on OF && ARCH_QCOM
+ 	depends on REMOTEPROC
+ 	depends on QCOM_SMEM
+-	depends on RPMSG_QCOM_SMD || QCOM_SMD || (COMPILE_TEST && QCOM_SMD=n && RPMSG_QCOM_SMD=n)
++	depends on RPMSG_QCOM_SMD || (COMPILE_TEST && RPMSG_QCOM_SMD=n)
+ 	select MFD_SYSCON
+ 	select QCOM_MDT_LOADER
+ 	select QCOM_RPROC_COMMON
+@@ -93,7 +93,7 @@ config QCOM_Q6V5_PIL
+ 	depends on OF && ARCH_QCOM
+ 	depends on QCOM_SMEM
+ 	depends on REMOTEPROC
+-	depends on RPMSG_QCOM_SMD || QCOM_SMD || (COMPILE_TEST && QCOM_SMD=n && RPMSG_QCOM_SMD=n)
++	depends on RPMSG_QCOM_SMD || (COMPILE_TEST && RPMSG_QCOM_SMD=n)
+ 	select MFD_SYSCON
+ 	select QCOM_RPROC_COMMON
+ 	select QCOM_SCM
+@@ -104,7 +104,7 @@ config QCOM_Q6V5_PIL
+ config QCOM_WCNSS_PIL
+ 	tristate "Qualcomm WCNSS Peripheral Image Loader"
+ 	depends on OF && ARCH_QCOM
+-	depends on RPMSG_QCOM_SMD || QCOM_SMD || (COMPILE_TEST && QCOM_SMD=n && RPMSG_QCOM_SMD=n)
++	depends on RPMSG_QCOM_SMD || (COMPILE_TEST && RPMSG_QCOM_SMD=n)
+ 	depends on QCOM_SMEM
+ 	depends on REMOTEPROC
+ 	select QCOM_MDT_LOADER
+diff --git a/drivers/rpmsg/Kconfig b/drivers/rpmsg/Kconfig
+index f12ac0b28263..edc008f55663 100644
+--- a/drivers/rpmsg/Kconfig
++++ b/drivers/rpmsg/Kconfig
+@@ -16,7 +16,6 @@ config RPMSG_CHAR
+ config RPMSG_QCOM_SMD
+ 	tristate "Qualcomm Shared Memory Driver (SMD)"
+ 	depends on QCOM_SMEM
+-	depends on QCOM_SMD=n
+ 	select RPMSG
  	help
-diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
-index 8d4868af9bbd..ef730c173d4b 100644
---- a/drivers/bluetooth/btqcomsmd.c
-+++ b/drivers/bluetooth/btqcomsmd.c
-@@ -14,7 +14,7 @@
- 
- #include <linux/module.h>
- #include <linux/slab.h>
--#include <linux/soc/qcom/smd.h>
-+#include <linux/rpmsg.h>
- #include <linux/soc/qcom/wcnss_ctrl.h>
- #include <linux/platform_device.h>
- 
-@@ -26,8 +26,8 @@
- struct btqcomsmd {
- 	struct hci_dev *hdev;
- 
--	struct qcom_smd_channel *acl_channel;
--	struct qcom_smd_channel *cmd_channel;
-+	struct rpmsg_endpoint *acl_channel;
-+	struct rpmsg_endpoint *cmd_channel;
- };
- 
- static int btqcomsmd_recv(struct hci_dev *hdev, unsigned int type,
-@@ -48,19 +48,19 @@ static int btqcomsmd_recv(struct hci_dev *hdev, unsigned int type,
- 	return hci_recv_frame(hdev, skb);
- }
- 
--static int btqcomsmd_acl_callback(struct qcom_smd_channel *channel,
--				  const void *data, size_t count)
-+static int btqcomsmd_acl_callback(struct rpmsg_device *rpdev, void *data,
-+				  int count, void *priv, u32 addr)
- {
--	struct btqcomsmd *btq = qcom_smd_get_drvdata(channel);
-+	struct btqcomsmd *btq = priv;
- 
- 	btq->hdev->stat.byte_rx += count;
- 	return btqcomsmd_recv(btq->hdev, HCI_ACLDATA_PKT, data, count);
- }
- 
--static int btqcomsmd_cmd_callback(struct qcom_smd_channel *channel,
--				  const void *data, size_t count)
-+static int btqcomsmd_cmd_callback(struct rpmsg_device *rpdev, void *data,
-+				  int count, void *priv, u32 addr)
- {
--	struct btqcomsmd *btq = qcom_smd_get_drvdata(channel);
-+	struct btqcomsmd *btq = priv;
- 
- 	return btqcomsmd_recv(btq->hdev, HCI_EVENT_PKT, data, count);
- }
-@@ -72,12 +72,12 @@ static int btqcomsmd_send(struct hci_dev *hdev, struct sk_buff *skb)
- 
- 	switch (hci_skb_pkt_type(skb)) {
- 	case HCI_ACLDATA_PKT:
--		ret = qcom_smd_send(btq->acl_channel, skb->data, skb->len);
-+		ret = rpmsg_send(btq->acl_channel, skb->data, skb->len);
- 		hdev->stat.acl_tx++;
- 		hdev->stat.byte_tx += skb->len;
- 		break;
- 	case HCI_COMMAND_PKT:
--		ret = qcom_smd_send(btq->cmd_channel, skb->data, skb->len);
-+		ret = rpmsg_send(btq->cmd_channel, skb->data, skb->len);
- 		hdev->stat.cmd_tx++;
- 		break;
- 	default:
-@@ -114,18 +114,15 @@ static int btqcomsmd_probe(struct platform_device *pdev)
- 	wcnss = dev_get_drvdata(pdev->dev.parent);
- 
- 	btq->acl_channel = qcom_wcnss_open_channel(wcnss, "APPS_RIVA_BT_ACL",
--						   btqcomsmd_acl_callback);
-+						   btqcomsmd_acl_callback, btq);
- 	if (IS_ERR(btq->acl_channel))
- 		return PTR_ERR(btq->acl_channel);
- 
- 	btq->cmd_channel = qcom_wcnss_open_channel(wcnss, "APPS_RIVA_BT_CMD",
--						   btqcomsmd_cmd_callback);
-+						   btqcomsmd_cmd_callback, btq);
- 	if (IS_ERR(btq->cmd_channel))
- 		return PTR_ERR(btq->cmd_channel);
- 
--	qcom_smd_set_drvdata(btq->acl_channel, btq);
--	qcom_smd_set_drvdata(btq->cmd_channel, btq);
--
- 	hdev = hci_alloc_dev();
- 	if (!hdev)
- 		return -ENOMEM;
-@@ -158,6 +155,9 @@ static int btqcomsmd_remove(struct platform_device *pdev)
- 	hci_unregister_dev(btq->hdev);
- 	hci_free_dev(btq->hdev);
- 
-+	rpmsg_destroy_ept(btq->cmd_channel);
-+	rpmsg_destroy_ept(btq->acl_channel);
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/wireless/ath/wcn36xx/Kconfig b/drivers/net/wireless/ath/wcn36xx/Kconfig
-index 4b83e87f0b94..20bf967a70b9 100644
---- a/drivers/net/wireless/ath/wcn36xx/Kconfig
-+++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
-@@ -2,7 +2,7 @@ config WCN36XX
- 	tristate "Qualcomm Atheros WCN3660/3680 support"
- 	depends on MAC80211 && HAS_DMA
- 	depends on QCOM_WCNSS_CTRL || QCOM_WCNSS_CTRL=n
--	depends on QCOM_SMD || QCOM_SMD=n
-+	depends on RPMSG || RPMSG=n
- 	---help---
- 	  This module adds support for wireless adapters based on
- 	  Qualcomm Atheros WCN3660 and WCN3680 mobile chipsets.
-diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index 7a0c2e7da7f6..bb7110f7fc86 100644
---- a/drivers/net/wireless/ath/wcn36xx/main.c
-+++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -22,7 +22,7 @@
- #include <linux/of_address.h>
- #include <linux/of_device.h>
- #include <linux/of_irq.h>
--#include <linux/soc/qcom/smd.h>
-+#include <linux/rpmsg.h>
- #include <linux/soc/qcom/smem_state.h>
- #include <linux/soc/qcom/wcnss_ctrl.h>
- #include "wcn36xx.h"
-@@ -1218,15 +1218,13 @@ static int wcn36xx_probe(struct platform_device *pdev)
- 
- 	INIT_WORK(&wcn->scan_work, wcn36xx_hw_scan_worker);
- 
--	wcn->smd_channel = qcom_wcnss_open_channel(wcnss, "WLAN_CTRL", wcn36xx_smd_rsp_process);
-+	wcn->smd_channel = qcom_wcnss_open_channel(wcnss, "WLAN_CTRL", wcn36xx_smd_rsp_process, hw);
- 	if (IS_ERR(wcn->smd_channel)) {
- 		wcn36xx_err("failed to open WLAN_CTRL channel\n");
- 		ret = PTR_ERR(wcn->smd_channel);
- 		goto out_wq;
- 	}
- 
--	qcom_smd_set_drvdata(wcn->smd_channel, hw);
--
- 	addr = of_get_property(pdev->dev.of_node, "local-mac-address", &ret);
- 	if (addr && ret != ETH_ALEN) {
- 		wcn36xx_err("invalid local-mac-address\n");
-diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index 1c2966f7db7a..9c6590d5348a 100644
---- a/drivers/net/wireless/ath/wcn36xx/smd.c
-+++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -19,7 +19,7 @@
- #include <linux/etherdevice.h>
- #include <linux/firmware.h>
- #include <linux/bitops.h>
--#include <linux/soc/qcom/smd.h>
-+#include <linux/rpmsg.h>
- #include "smd.h"
- 
- struct wcn36xx_cfg_val {
-@@ -254,7 +254,7 @@ static int wcn36xx_smd_send_and_wait(struct wcn36xx *wcn, size_t len)
- 
- 	init_completion(&wcn->hal_rsp_compl);
- 	start = jiffies;
--	ret = qcom_smd_send(wcn->smd_channel, wcn->hal_buf, len);
-+	ret = rpmsg_send(wcn->smd_channel, wcn->hal_buf, len);
- 	if (ret) {
- 		wcn36xx_err("HAL TX failed\n");
- 		goto out;
-@@ -2205,11 +2205,11 @@ int wcn36xx_smd_set_mc_list(struct wcn36xx *wcn,
- 	return ret;
- }
- 
--int wcn36xx_smd_rsp_process(struct qcom_smd_channel *channel,
--			    const void *buf, size_t len)
-+int wcn36xx_smd_rsp_process(struct rpmsg_device *rpdev,
-+			    void *buf, int len, void *priv, u32 addr)
- {
- 	const struct wcn36xx_hal_msg_header *msg_header = buf;
--	struct ieee80211_hw *hw = qcom_smd_get_drvdata(channel);
-+	struct ieee80211_hw *hw = priv;
- 	struct wcn36xx *wcn = hw->priv;
- 	struct wcn36xx_hal_ind_msg *msg_ind;
- 	wcn36xx_dbg_dump(WCN36XX_DBG_SMD_DUMP, "SMD <<< ", buf, len);
-diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
-index 8892ccd67b14..013fc9546f56 100644
---- a/drivers/net/wireless/ath/wcn36xx/smd.h
-+++ b/drivers/net/wireless/ath/wcn36xx/smd.h
-@@ -51,7 +51,7 @@ struct wcn36xx_hal_ind_msg {
- };
- 
- struct wcn36xx;
--struct qcom_smd_channel;
-+struct rpmsg_device;
- 
- int wcn36xx_smd_open(struct wcn36xx *wcn);
- void wcn36xx_smd_close(struct wcn36xx *wcn);
-@@ -129,8 +129,8 @@ int wcn36xx_smd_trigger_ba(struct wcn36xx *wcn, u8 sta_index);
- 
- int wcn36xx_smd_update_cfg(struct wcn36xx *wcn, u32 cfg_id, u32 value);
- 
--int wcn36xx_smd_rsp_process(struct qcom_smd_channel *channel,
--			    const void *buf, size_t len);
-+int wcn36xx_smd_rsp_process(struct rpmsg_device *rpdev,
-+			    void *buf, int len, void *priv, u32 addr);
- 
- int wcn36xx_smd_set_mc_list(struct wcn36xx *wcn,
- 			    struct ieee80211_vif *vif,
-diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-index 7423998ddeb4..b52b4da9a967 100644
---- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-+++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-@@ -195,7 +195,7 @@ struct wcn36xx {
- 	void __iomem		*ccu_base;
- 	void __iomem		*dxe_base;
- 
--	struct qcom_smd_channel *smd_channel;
-+	struct rpmsg_endpoint	*smd_channel;
- 
- 	struct qcom_smem_state  *tx_enable_state;
- 	unsigned		tx_enable_state_bit;
+ 	  Say y here to enable support for the Qualcomm Shared Memory Driver
 diff --git a/drivers/soc/qcom/Kconfig b/drivers/soc/qcom/Kconfig
-index 78b1bb7bcf20..751dce0c19b3 100644
+index 751dce0c19b3..4428a580a995 100644
 --- a/drivers/soc/qcom/Kconfig
 +++ b/drivers/soc/qcom/Kconfig
-@@ -43,7 +43,7 @@ config QCOM_SMD
+@@ -33,14 +33,6 @@ config QCOM_SMEM
+ 	  The driver provides an interface to items in a heap shared among all
+ 	  processors in a Qualcomm platform.
  
+-config QCOM_SMD
+-	tristate "Qualcomm Shared Memory Driver (SMD)"
+-	depends on QCOM_SMEM
+-	help
+-	  Say y here to enable support for the Qualcomm Shared Memory Driver
+-	  providing communication channels to remote processors in Qualcomm
+-	  platforms.
+-
  config QCOM_SMD_RPM
  	tristate "Qualcomm Resource Power Manager (RPM) over SMD"
--	depends on QCOM_SMD && OF
-+	depends on RPMSG && OF
- 	help
- 	  If you say yes to this option, support will be included for the
- 	  Resource Power Manager system found in the Qualcomm 8974 based
-@@ -76,7 +76,7 @@ config QCOM_SMSM
- 
- config QCOM_WCNSS_CTRL
- 	tristate "Qualcomm WCNSS control driver"
--	depends on QCOM_SMD
-+	depends on RPMSG
- 	help
- 	  Client driver for the WCNSS_CTRL SMD channel, used to download nv
- 	  firmware to a newly booted WCNSS chip.
-diff --git a/drivers/soc/qcom/smd-rpm.c b/drivers/soc/qcom/smd-rpm.c
-index 6609d7e0edb0..0dcf1bf33126 100644
---- a/drivers/soc/qcom/smd-rpm.c
-+++ b/drivers/soc/qcom/smd-rpm.c
-@@ -19,7 +19,7 @@
- #include <linux/interrupt.h>
- #include <linux/slab.h>
- 
--#include <linux/soc/qcom/smd.h>
-+#include <linux/rpmsg.h>
- #include <linux/soc/qcom/smd-rpm.h>
- 
- #define RPM_REQUEST_TIMEOUT     (5 * HZ)
-@@ -32,7 +32,7 @@
-  * @ack_status:		result of the rpm request
-  */
- struct qcom_smd_rpm {
--	struct qcom_smd_channel *rpm_channel;
-+	struct rpmsg_endpoint *rpm_channel;
- 	struct device *dev;
- 
- 	struct completion ack;
-@@ -133,7 +133,7 @@ int qcom_rpm_smd_write(struct qcom_smd_rpm *rpm,
- 	pkt->req.data_len = cpu_to_le32(count);
- 	memcpy(pkt->payload, buf, count);
- 
--	ret = qcom_smd_send(rpm->rpm_channel, pkt, size);
-+	ret = rpmsg_send(rpm->rpm_channel, pkt, size);
- 	if (ret)
- 		goto out;
- 
-@@ -150,14 +150,16 @@ int qcom_rpm_smd_write(struct qcom_smd_rpm *rpm,
- }
- EXPORT_SYMBOL(qcom_rpm_smd_write);
- 
--static int qcom_smd_rpm_callback(struct qcom_smd_channel *channel,
--				 const void *data,
--				 size_t count)
-+static int qcom_smd_rpm_callback(struct rpmsg_device *rpdev,
-+				 void *data,
-+				 int count,
-+				 void *priv,
-+				 u32 addr)
- {
- 	const struct qcom_rpm_header *hdr = data;
- 	size_t hdr_length = le32_to_cpu(hdr->length);
- 	const struct qcom_rpm_message *msg;
--	struct qcom_smd_rpm *rpm = qcom_smd_get_drvdata(channel);
-+	struct qcom_smd_rpm *rpm = dev_get_drvdata(&rpdev->dev);
- 	const u8 *buf = data + sizeof(struct qcom_rpm_header);
- 	const u8 *end = buf + hdr_length;
- 	char msgbuf[32];
-@@ -196,29 +198,27 @@ static int qcom_smd_rpm_callback(struct qcom_smd_channel *channel,
- 	return 0;
- }
- 
--static int qcom_smd_rpm_probe(struct qcom_smd_device *sdev)
-+static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
- {
- 	struct qcom_smd_rpm *rpm;
- 
--	rpm = devm_kzalloc(&sdev->dev, sizeof(*rpm), GFP_KERNEL);
-+	rpm = devm_kzalloc(&rpdev->dev, sizeof(*rpm), GFP_KERNEL);
- 	if (!rpm)
- 		return -ENOMEM;
- 
- 	mutex_init(&rpm->lock);
- 	init_completion(&rpm->ack);
- 
--	rpm->dev = &sdev->dev;
--	rpm->rpm_channel = sdev->channel;
--	qcom_smd_set_drvdata(sdev->channel, rpm);
-+	rpm->dev = &rpdev->dev;
-+	rpm->rpm_channel = rpdev->ept;
-+	dev_set_drvdata(&rpdev->dev, rpm);
- 
--	dev_set_drvdata(&sdev->dev, rpm);
+ 	depends on RPMSG && OF
+diff --git a/drivers/soc/qcom/Makefile b/drivers/soc/qcom/Makefile
+index 1f30260b06b8..414f0de274fa 100644
+--- a/drivers/soc/qcom/Makefile
++++ b/drivers/soc/qcom/Makefile
+@@ -1,7 +1,6 @@
+ obj-$(CONFIG_QCOM_GSBI)	+=	qcom_gsbi.o
+ obj-$(CONFIG_QCOM_MDT_LOADER)	+= mdt_loader.o
+ obj-$(CONFIG_QCOM_PM)	+=	spm.o
+-obj-$(CONFIG_QCOM_SMD) +=	smd.o
+ obj-$(CONFIG_QCOM_SMD_RPM)	+= smd-rpm.o
+ obj-$(CONFIG_QCOM_SMEM) +=	smem.o
+ obj-$(CONFIG_QCOM_SMEM_STATE) += smem_state.o
+diff --git a/drivers/soc/qcom/smd.c b/drivers/soc/qcom/smd.c
+deleted file mode 100644
+index 322034ab9d37..000000000000
+--- a/drivers/soc/qcom/smd.c
++++ /dev/null
+@@ -1,1560 +0,0 @@
+-/*
+- * Copyright (c) 2015, Sony Mobile Communications AB.
+- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 and
+- * only version 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- */
 -
--	return of_platform_populate(sdev->dev.of_node, NULL, NULL, &sdev->dev);
-+	return of_platform_populate(rpdev->dev.of_node, NULL, NULL, &rpdev->dev);
- }
- 
--static void qcom_smd_rpm_remove(struct qcom_smd_device *sdev)
-+static void qcom_smd_rpm_remove(struct rpmsg_device *rpdev)
- {
--	of_platform_depopulate(&sdev->dev);
-+	of_platform_depopulate(&rpdev->dev);
- }
- 
- static const struct of_device_id qcom_smd_rpm_of_match[] = {
-@@ -229,26 +229,25 @@ static const struct of_device_id qcom_smd_rpm_of_match[] = {
- };
- MODULE_DEVICE_TABLE(of, qcom_smd_rpm_of_match);
- 
--static struct qcom_smd_driver qcom_smd_rpm_driver = {
-+static struct rpmsg_driver qcom_smd_rpm_driver = {
- 	.probe = qcom_smd_rpm_probe,
- 	.remove = qcom_smd_rpm_remove,
- 	.callback = qcom_smd_rpm_callback,
--	.driver  = {
-+	.drv  = {
- 		.name  = "qcom_smd_rpm",
--		.owner = THIS_MODULE,
- 		.of_match_table = qcom_smd_rpm_of_match,
- 	},
- };
- 
- static int __init qcom_smd_rpm_init(void)
- {
--	return qcom_smd_driver_register(&qcom_smd_rpm_driver);
-+	return register_rpmsg_driver(&qcom_smd_rpm_driver);
- }
- arch_initcall(qcom_smd_rpm_init);
- 
- static void __exit qcom_smd_rpm_exit(void)
- {
--	qcom_smd_driver_unregister(&qcom_smd_rpm_driver);
-+	unregister_rpmsg_driver(&qcom_smd_rpm_driver);
- }
- module_exit(qcom_smd_rpm_exit);
- 
-diff --git a/drivers/soc/qcom/wcnss_ctrl.c b/drivers/soc/qcom/wcnss_ctrl.c
-index 520aedd29965..b9069184df19 100644
---- a/drivers/soc/qcom/wcnss_ctrl.c
-+++ b/drivers/soc/qcom/wcnss_ctrl.c
-@@ -14,10 +14,10 @@
- #include <linux/firmware.h>
- #include <linux/module.h>
- #include <linux/slab.h>
+-#include <linux/interrupt.h>
+-#include <linux/io.h>
+-#include <linux/mfd/syscon.h>
+-#include <linux/module.h>
+-#include <linux/of_irq.h>
+-#include <linux/of_platform.h>
+-#include <linux/platform_device.h>
+-#include <linux/regmap.h>
+-#include <linux/sched.h>
+-#include <linux/slab.h>
 -#include <linux/soc/qcom/smd.h>
- #include <linux/io.h>
- #include <linux/of_platform.h>
- #include <linux/platform_device.h>
-+#include <linux/rpmsg.h>
- #include <linux/soc/qcom/wcnss_ctrl.h>
- 
- #define WCNSS_REQUEST_TIMEOUT	(5 * HZ)
-@@ -40,7 +40,7 @@
-  */
- struct wcnss_ctrl {
- 	struct device *dev;
+-#include <linux/soc/qcom/smem.h>
+-#include <linux/wait.h>
+-
+-/*
+- * The Qualcomm Shared Memory communication solution provides point-to-point
+- * channels for clients to send and receive streaming or packet based data.
+- *
+- * Each channel consists of a control item (channel info) and a ring buffer
+- * pair. The channel info carry information related to channel state, flow
+- * control and the offsets within the ring buffer.
+- *
+- * All allocated channels are listed in an allocation table, identifying the
+- * pair of items by name, type and remote processor.
+- *
+- * Upon creating a new channel the remote processor allocates channel info and
+- * ring buffer items from the smem heap and populate the allocation table. An
+- * interrupt is sent to the other end of the channel and a scan for new
+- * channels should be done. A channel never goes away, it will only change
+- * state.
+- *
+- * The remote processor signals it intent for bring up the communication
+- * channel by setting the state of its end of the channel to "opening" and
+- * sends out an interrupt. We detect this change and register a smd device to
+- * consume the channel. Upon finding a consumer we finish the handshake and the
+- * channel is up.
+- *
+- * Upon closing a channel, the remote processor will update the state of its
+- * end of the channel and signal us, we will then unregister any attached
+- * device and close our end of the channel.
+- *
+- * Devices attached to a channel can use the qcom_smd_send function to push
+- * data to the channel, this is done by copying the data into the tx ring
+- * buffer, updating the pointers in the channel info and signaling the remote
+- * processor.
+- *
+- * The remote processor does the equivalent when it transfer data and upon
+- * receiving the interrupt we check the channel info for new data and delivers
+- * this to the attached device. If the device is not ready to receive the data
+- * we leave it in the ring buffer for now.
+- */
+-
+-struct smd_channel_info;
+-struct smd_channel_info_pair;
+-struct smd_channel_info_word;
+-struct smd_channel_info_word_pair;
+-
+-#define SMD_ALLOC_TBL_COUNT	2
+-#define SMD_ALLOC_TBL_SIZE	64
+-
+-/*
+- * This lists the various smem heap items relevant for the allocation table and
+- * smd channel entries.
+- */
+-static const struct {
+-	unsigned alloc_tbl_id;
+-	unsigned info_base_id;
+-	unsigned fifo_base_id;
+-} smem_items[SMD_ALLOC_TBL_COUNT] = {
+-	{
+-		.alloc_tbl_id = 13,
+-		.info_base_id = 14,
+-		.fifo_base_id = 338
+-	},
+-	{
+-		.alloc_tbl_id = 266,
+-		.info_base_id = 138,
+-		.fifo_base_id = 202,
+-	},
+-};
+-
+-/**
+- * struct qcom_smd_edge - representing a remote processor
+- * @dev:		device for this edge
+- * @of_node:		of_node handle for information related to this edge
+- * @edge_id:		identifier of this edge
+- * @remote_pid:		identifier of remote processor
+- * @irq:		interrupt for signals on this edge
+- * @ipc_regmap:		regmap handle holding the outgoing ipc register
+- * @ipc_offset:		offset within @ipc_regmap of the register for ipc
+- * @ipc_bit:		bit in the register at @ipc_offset of @ipc_regmap
+- * @channels:		list of all channels detected on this edge
+- * @channels_lock:	guard for modifications of @channels
+- * @allocated:		array of bitmaps representing already allocated channels
+- * @smem_available:	last available amount of smem triggering a channel scan
+- * @scan_work:		work item for discovering new channels
+- * @state_work:		work item for edge state changes
+- */
+-struct qcom_smd_edge {
+-	struct device dev;
+-
+-	struct device_node *of_node;
+-	unsigned edge_id;
+-	unsigned remote_pid;
+-
+-	int irq;
+-
+-	struct regmap *ipc_regmap;
+-	int ipc_offset;
+-	int ipc_bit;
+-
+-	struct list_head channels;
+-	spinlock_t channels_lock;
+-
+-	DECLARE_BITMAP(allocated[SMD_ALLOC_TBL_COUNT], SMD_ALLOC_TBL_SIZE);
+-
+-	unsigned smem_available;
+-
+-	wait_queue_head_t new_channel_event;
+-
+-	struct work_struct scan_work;
+-	struct work_struct state_work;
+-};
+-
+-#define to_smd_edge(d) container_of(d, struct qcom_smd_edge, dev)
+-
+-/*
+- * SMD channel states.
+- */
+-enum smd_channel_state {
+-	SMD_CHANNEL_CLOSED,
+-	SMD_CHANNEL_OPENING,
+-	SMD_CHANNEL_OPENED,
+-	SMD_CHANNEL_FLUSHING,
+-	SMD_CHANNEL_CLOSING,
+-	SMD_CHANNEL_RESET,
+-	SMD_CHANNEL_RESET_OPENING
+-};
+-
+-/**
+- * struct qcom_smd_channel - smd channel struct
+- * @edge:		qcom_smd_edge this channel is living on
+- * @qsdev:		reference to a associated smd client device
+- * @name:		name of the channel
+- * @state:		local state of the channel
+- * @remote_state:	remote state of the channel
+- * @info:		byte aligned outgoing/incoming channel info
+- * @info_word:		word aligned outgoing/incoming channel info
+- * @tx_lock:		lock to make writes to the channel mutually exclusive
+- * @fblockread_event:	wakeup event tied to tx fBLOCKREADINTR
+- * @tx_fifo:		pointer to the outgoing ring buffer
+- * @rx_fifo:		pointer to the incoming ring buffer
+- * @fifo_size:		size of each ring buffer
+- * @bounce_buffer:	bounce buffer for reading wrapped packets
+- * @cb:			callback function registered for this channel
+- * @recv_lock:		guard for rx info modifications and cb pointer
+- * @pkt_size:		size of the currently handled packet
+- * @list:		lite entry for @channels in qcom_smd_edge
+- */
+-struct qcom_smd_channel {
+-	struct qcom_smd_edge *edge;
+-
+-	struct qcom_smd_device *qsdev;
+-
+-	char *name;
+-	enum smd_channel_state state;
+-	enum smd_channel_state remote_state;
+-
+-	struct smd_channel_info_pair *info;
+-	struct smd_channel_info_word_pair *info_word;
+-
+-	struct mutex tx_lock;
+-	wait_queue_head_t fblockread_event;
+-
+-	void *tx_fifo;
+-	void *rx_fifo;
+-	int fifo_size;
+-
+-	void *bounce_buffer;
+-	qcom_smd_cb_t cb;
+-
+-	spinlock_t recv_lock;
+-
+-	int pkt_size;
+-
+-	void *drvdata;
+-
+-	struct list_head list;
+-};
+-
+-/*
+- * Format of the smd_info smem items, for byte aligned channels.
+- */
+-struct smd_channel_info {
+-	__le32 state;
+-	u8  fDSR;
+-	u8  fCTS;
+-	u8  fCD;
+-	u8  fRI;
+-	u8  fHEAD;
+-	u8  fTAIL;
+-	u8  fSTATE;
+-	u8  fBLOCKREADINTR;
+-	__le32 tail;
+-	__le32 head;
+-};
+-
+-struct smd_channel_info_pair {
+-	struct smd_channel_info tx;
+-	struct smd_channel_info rx;
+-};
+-
+-/*
+- * Format of the smd_info smem items, for word aligned channels.
+- */
+-struct smd_channel_info_word {
+-	__le32 state;
+-	__le32 fDSR;
+-	__le32 fCTS;
+-	__le32 fCD;
+-	__le32 fRI;
+-	__le32 fHEAD;
+-	__le32 fTAIL;
+-	__le32 fSTATE;
+-	__le32 fBLOCKREADINTR;
+-	__le32 tail;
+-	__le32 head;
+-};
+-
+-struct smd_channel_info_word_pair {
+-	struct smd_channel_info_word tx;
+-	struct smd_channel_info_word rx;
+-};
+-
+-#define GET_RX_CHANNEL_FLAG(channel, param)				     \
+-	({								     \
+-		BUILD_BUG_ON(sizeof(channel->info->rx.param) != sizeof(u8)); \
+-		channel->info_word ?					     \
+-			le32_to_cpu(channel->info_word->rx.param) :	     \
+-			channel->info->rx.param;			     \
+-	})
+-
+-#define GET_RX_CHANNEL_INFO(channel, param)				      \
+-	({								      \
+-		BUILD_BUG_ON(sizeof(channel->info->rx.param) != sizeof(u32)); \
+-		le32_to_cpu(channel->info_word ?			      \
+-			channel->info_word->rx.param :			      \
+-			channel->info->rx.param);			      \
+-	})
+-
+-#define SET_RX_CHANNEL_FLAG(channel, param, value)			     \
+-	({								     \
+-		BUILD_BUG_ON(sizeof(channel->info->rx.param) != sizeof(u8)); \
+-		if (channel->info_word)					     \
+-			channel->info_word->rx.param = cpu_to_le32(value);   \
+-		else							     \
+-			channel->info->rx.param = value;		     \
+-	})
+-
+-#define SET_RX_CHANNEL_INFO(channel, param, value)			      \
+-	({								      \
+-		BUILD_BUG_ON(sizeof(channel->info->rx.param) != sizeof(u32)); \
+-		if (channel->info_word)					      \
+-			channel->info_word->rx.param = cpu_to_le32(value);    \
+-		else							      \
+-			channel->info->rx.param = cpu_to_le32(value);	      \
+-	})
+-
+-#define GET_TX_CHANNEL_FLAG(channel, param)				     \
+-	({								     \
+-		BUILD_BUG_ON(sizeof(channel->info->tx.param) != sizeof(u8)); \
+-		channel->info_word ?					     \
+-			le32_to_cpu(channel->info_word->tx.param) :          \
+-			channel->info->tx.param;			     \
+-	})
+-
+-#define GET_TX_CHANNEL_INFO(channel, param)				      \
+-	({								      \
+-		BUILD_BUG_ON(sizeof(channel->info->tx.param) != sizeof(u32)); \
+-		le32_to_cpu(channel->info_word ?			      \
+-			channel->info_word->tx.param :			      \
+-			channel->info->tx.param);			      \
+-	})
+-
+-#define SET_TX_CHANNEL_FLAG(channel, param, value)			     \
+-	({								     \
+-		BUILD_BUG_ON(sizeof(channel->info->tx.param) != sizeof(u8)); \
+-		if (channel->info_word)					     \
+-			channel->info_word->tx.param = cpu_to_le32(value);   \
+-		else							     \
+-			channel->info->tx.param = value;		     \
+-	})
+-
+-#define SET_TX_CHANNEL_INFO(channel, param, value)			      \
+-	({								      \
+-		BUILD_BUG_ON(sizeof(channel->info->tx.param) != sizeof(u32)); \
+-		if (channel->info_word)					      \
+-			channel->info_word->tx.param = cpu_to_le32(value);   \
+-		else							      \
+-			channel->info->tx.param = cpu_to_le32(value);	      \
+-	})
+-
+-/**
+- * struct qcom_smd_alloc_entry - channel allocation entry
+- * @name:	channel name
+- * @cid:	channel index
+- * @flags:	channel flags and edge id
+- * @ref_count:	reference count of the channel
+- */
+-struct qcom_smd_alloc_entry {
+-	u8 name[20];
+-	__le32 cid;
+-	__le32 flags;
+-	__le32 ref_count;
+-} __packed;
+-
+-#define SMD_CHANNEL_FLAGS_EDGE_MASK	0xff
+-#define SMD_CHANNEL_FLAGS_STREAM	BIT(8)
+-#define SMD_CHANNEL_FLAGS_PACKET	BIT(9)
+-
+-/*
+- * Each smd packet contains a 20 byte header, with the first 4 being the length
+- * of the packet.
+- */
+-#define SMD_PACKET_HEADER_LEN	20
+-
+-/*
+- * Signal the remote processor associated with 'channel'.
+- */
+-static void qcom_smd_signal_channel(struct qcom_smd_channel *channel)
+-{
+-	struct qcom_smd_edge *edge = channel->edge;
+-
+-	regmap_write(edge->ipc_regmap, edge->ipc_offset, BIT(edge->ipc_bit));
+-}
+-
+-/*
+- * Initialize the tx channel info
+- */
+-static void qcom_smd_channel_reset(struct qcom_smd_channel *channel)
+-{
+-	SET_TX_CHANNEL_INFO(channel, state, SMD_CHANNEL_CLOSED);
+-	SET_TX_CHANNEL_FLAG(channel, fDSR, 0);
+-	SET_TX_CHANNEL_FLAG(channel, fCTS, 0);
+-	SET_TX_CHANNEL_FLAG(channel, fCD, 0);
+-	SET_TX_CHANNEL_FLAG(channel, fRI, 0);
+-	SET_TX_CHANNEL_FLAG(channel, fHEAD, 0);
+-	SET_TX_CHANNEL_FLAG(channel, fTAIL, 0);
+-	SET_TX_CHANNEL_FLAG(channel, fSTATE, 1);
+-	SET_TX_CHANNEL_FLAG(channel, fBLOCKREADINTR, 1);
+-	SET_TX_CHANNEL_INFO(channel, head, 0);
+-	SET_RX_CHANNEL_INFO(channel, tail, 0);
+-
+-	qcom_smd_signal_channel(channel);
+-
+-	channel->state = SMD_CHANNEL_CLOSED;
+-	channel->pkt_size = 0;
+-}
+-
+-/*
+- * Set the callback for a channel, with appropriate locking
+- */
+-static void qcom_smd_channel_set_callback(struct qcom_smd_channel *channel,
+-					  qcom_smd_cb_t cb)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&channel->recv_lock, flags);
+-	channel->cb = cb;
+-	spin_unlock_irqrestore(&channel->recv_lock, flags);
+-};
+-
+-/*
+- * Calculate the amount of data available in the rx fifo
+- */
+-static size_t qcom_smd_channel_get_rx_avail(struct qcom_smd_channel *channel)
+-{
+-	unsigned head;
+-	unsigned tail;
+-
+-	head = GET_RX_CHANNEL_INFO(channel, head);
+-	tail = GET_RX_CHANNEL_INFO(channel, tail);
+-
+-	return (head - tail) & (channel->fifo_size - 1);
+-}
+-
+-/*
+- * Set tx channel state and inform the remote processor
+- */
+-static void qcom_smd_channel_set_state(struct qcom_smd_channel *channel,
+-				       int state)
+-{
+-	struct qcom_smd_edge *edge = channel->edge;
+-	bool is_open = state == SMD_CHANNEL_OPENED;
+-
+-	if (channel->state == state)
+-		return;
+-
+-	dev_dbg(&edge->dev, "set_state(%s, %d)\n", channel->name, state);
+-
+-	SET_TX_CHANNEL_FLAG(channel, fDSR, is_open);
+-	SET_TX_CHANNEL_FLAG(channel, fCTS, is_open);
+-	SET_TX_CHANNEL_FLAG(channel, fCD, is_open);
+-
+-	SET_TX_CHANNEL_INFO(channel, state, state);
+-	SET_TX_CHANNEL_FLAG(channel, fSTATE, 1);
+-
+-	channel->state = state;
+-	qcom_smd_signal_channel(channel);
+-}
+-
+-/*
+- * Copy count bytes of data using 32bit accesses, if that's required.
+- */
+-static void smd_copy_to_fifo(void __iomem *dst,
+-			     const void *src,
+-			     size_t count,
+-			     bool word_aligned)
+-{
+-	if (word_aligned) {
+-		__iowrite32_copy(dst, src, count / sizeof(u32));
+-	} else {
+-		memcpy_toio(dst, src, count);
+-	}
+-}
+-
+-/*
+- * Copy count bytes of data using 32bit accesses, if that is required.
+- */
+-static void smd_copy_from_fifo(void *dst,
+-			       const void __iomem *src,
+-			       size_t count,
+-			       bool word_aligned)
+-{
+-	if (word_aligned) {
+-		__ioread32_copy(dst, src, count / sizeof(u32));
+-	} else {
+-		memcpy_fromio(dst, src, count);
+-	}
+-}
+-
+-/*
+- * Read count bytes of data from the rx fifo into buf, but don't advance the
+- * tail.
+- */
+-static size_t qcom_smd_channel_peek(struct qcom_smd_channel *channel,
+-				    void *buf, size_t count)
+-{
+-	bool word_aligned;
+-	unsigned tail;
+-	size_t len;
+-
+-	word_aligned = channel->info_word;
+-	tail = GET_RX_CHANNEL_INFO(channel, tail);
+-
+-	len = min_t(size_t, count, channel->fifo_size - tail);
+-	if (len) {
+-		smd_copy_from_fifo(buf,
+-				   channel->rx_fifo + tail,
+-				   len,
+-				   word_aligned);
+-	}
+-
+-	if (len != count) {
+-		smd_copy_from_fifo(buf + len,
+-				   channel->rx_fifo,
+-				   count - len,
+-				   word_aligned);
+-	}
+-
+-	return count;
+-}
+-
+-/*
+- * Advance the rx tail by count bytes.
+- */
+-static void qcom_smd_channel_advance(struct qcom_smd_channel *channel,
+-				     size_t count)
+-{
+-	unsigned tail;
+-
+-	tail = GET_RX_CHANNEL_INFO(channel, tail);
+-	tail += count;
+-	tail &= (channel->fifo_size - 1);
+-	SET_RX_CHANNEL_INFO(channel, tail, tail);
+-}
+-
+-/*
+- * Read out a single packet from the rx fifo and deliver it to the device
+- */
+-static int qcom_smd_channel_recv_single(struct qcom_smd_channel *channel)
+-{
+-	unsigned tail;
+-	size_t len;
+-	void *ptr;
+-	int ret;
+-
+-	if (!channel->cb)
+-		return 0;
+-
+-	tail = GET_RX_CHANNEL_INFO(channel, tail);
+-
+-	/* Use bounce buffer if the data wraps */
+-	if (tail + channel->pkt_size >= channel->fifo_size) {
+-		ptr = channel->bounce_buffer;
+-		len = qcom_smd_channel_peek(channel, ptr, channel->pkt_size);
+-	} else {
+-		ptr = channel->rx_fifo + tail;
+-		len = channel->pkt_size;
+-	}
+-
+-	ret = channel->cb(channel, ptr, len);
+-	if (ret < 0)
+-		return ret;
+-
+-	/* Only forward the tail if the client consumed the data */
+-	qcom_smd_channel_advance(channel, len);
+-
+-	channel->pkt_size = 0;
+-
+-	return 0;
+-}
+-
+-/*
+- * Per channel interrupt handling
+- */
+-static bool qcom_smd_channel_intr(struct qcom_smd_channel *channel)
+-{
+-	bool need_state_scan = false;
+-	int remote_state;
+-	__le32 pktlen;
+-	int avail;
+-	int ret;
+-
+-	/* Handle state changes */
+-	remote_state = GET_RX_CHANNEL_INFO(channel, state);
+-	if (remote_state != channel->remote_state) {
+-		channel->remote_state = remote_state;
+-		need_state_scan = true;
+-	}
+-	/* Indicate that we have seen any state change */
+-	SET_RX_CHANNEL_FLAG(channel, fSTATE, 0);
+-
+-	/* Signal waiting qcom_smd_send() about the interrupt */
+-	if (!GET_TX_CHANNEL_FLAG(channel, fBLOCKREADINTR))
+-		wake_up_interruptible(&channel->fblockread_event);
+-
+-	/* Don't consume any data until we've opened the channel */
+-	if (channel->state != SMD_CHANNEL_OPENED)
+-		goto out;
+-
+-	/* Indicate that we've seen the new data */
+-	SET_RX_CHANNEL_FLAG(channel, fHEAD, 0);
+-
+-	/* Consume data */
+-	for (;;) {
+-		avail = qcom_smd_channel_get_rx_avail(channel);
+-
+-		if (!channel->pkt_size && avail >= SMD_PACKET_HEADER_LEN) {
+-			qcom_smd_channel_peek(channel, &pktlen, sizeof(pktlen));
+-			qcom_smd_channel_advance(channel, SMD_PACKET_HEADER_LEN);
+-			channel->pkt_size = le32_to_cpu(pktlen);
+-		} else if (channel->pkt_size && avail >= channel->pkt_size) {
+-			ret = qcom_smd_channel_recv_single(channel);
+-			if (ret)
+-				break;
+-		} else {
+-			break;
+-		}
+-	}
+-
+-	/* Indicate that we have seen and updated tail */
+-	SET_RX_CHANNEL_FLAG(channel, fTAIL, 1);
+-
+-	/* Signal the remote that we've consumed the data (if requested) */
+-	if (!GET_RX_CHANNEL_FLAG(channel, fBLOCKREADINTR)) {
+-		/* Ensure ordering of channel info updates */
+-		wmb();
+-
+-		qcom_smd_signal_channel(channel);
+-	}
+-
+-out:
+-	return need_state_scan;
+-}
+-
+-/*
+- * The edge interrupts are triggered by the remote processor on state changes,
+- * channel info updates or when new channels are created.
+- */
+-static irqreturn_t qcom_smd_edge_intr(int irq, void *data)
+-{
+-	struct qcom_smd_edge *edge = data;
 -	struct qcom_smd_channel *channel;
-+	struct rpmsg_endpoint *channel;
- 
- 	struct completion ack;
- 	struct completion cbc;
-@@ -122,11 +122,13 @@ struct wcnss_download_nv_resp {
-  *
-  * Handles any incoming packets from the remote WCNSS_CTRL service.
-  */
--static int wcnss_ctrl_smd_callback(struct qcom_smd_channel *channel,
--				   const void *data,
--				   size_t count)
-+static int wcnss_ctrl_smd_callback(struct rpmsg_device *rpdev,
-+				   void *data,
-+				   int count,
-+				   void *priv,
-+				   u32 addr)
- {
--	struct wcnss_ctrl *wcnss = qcom_smd_get_drvdata(channel);
-+	struct wcnss_ctrl *wcnss = dev_get_drvdata(&rpdev->dev);
- 	const struct wcnss_download_nv_resp *nvresp;
- 	const struct wcnss_version_resp *version;
- 	const struct wcnss_msg_hdr *hdr = data;
-@@ -180,7 +182,7 @@ static int wcnss_request_version(struct wcnss_ctrl *wcnss)
- 
- 	msg.type = WCNSS_VERSION_REQ;
- 	msg.len = sizeof(msg);
--	ret = qcom_smd_send(wcnss->channel, &msg, sizeof(msg));
-+	ret = rpmsg_send(wcnss->channel, &msg, sizeof(msg));
- 	if (ret < 0)
- 		return ret;
- 
-@@ -238,7 +240,7 @@ static int wcnss_download_nv(struct wcnss_ctrl *wcnss, bool *expect_cbc)
- 
- 		memcpy(req->fragment, data, req->frag_size);
- 
--		ret = qcom_smd_send(wcnss->channel, req, req->hdr.len);
-+		ret = rpmsg_send(wcnss->channel, req, req->hdr.len);
- 		if (ret < 0) {
- 			dev_err(wcnss->dev, "failed to send smd packet\n");
- 			goto release_fw;
-@@ -274,11 +276,16 @@ static int wcnss_download_nv(struct wcnss_ctrl *wcnss, bool *expect_cbc)
-  * @name:	SMD channel name
-  * @cb:		callback to handle incoming data on the channel
-  */
--struct qcom_smd_channel *qcom_wcnss_open_channel(void *wcnss, const char *name, qcom_smd_cb_t cb)
-+struct rpmsg_endpoint *qcom_wcnss_open_channel(void *wcnss, const char *name, rpmsg_rx_cb_t cb, void *priv)
- {
-+	struct rpmsg_channel_info chinfo;
- 	struct wcnss_ctrl *_wcnss = wcnss;
- 
--	return qcom_smd_open_channel(_wcnss->channel, name, cb);
-+	strncpy(chinfo.name, name, sizeof(chinfo.name));
-+	chinfo.src = RPMSG_ADDR_ANY;
-+	chinfo.dst = RPMSG_ADDR_ANY;
-+
-+	return rpmsg_create_ept(_wcnss->channel->rpdev, cb, priv, chinfo);
- }
- EXPORT_SYMBOL(qcom_wcnss_open_channel);
- 
-@@ -306,35 +313,34 @@ static void wcnss_async_probe(struct work_struct *work)
- 	of_platform_populate(wcnss->dev->of_node, NULL, NULL, wcnss->dev);
- }
- 
--static int wcnss_ctrl_probe(struct qcom_smd_device *sdev)
-+static int wcnss_ctrl_probe(struct rpmsg_device *rpdev)
- {
- 	struct wcnss_ctrl *wcnss;
- 
--	wcnss = devm_kzalloc(&sdev->dev, sizeof(*wcnss), GFP_KERNEL);
-+	wcnss = devm_kzalloc(&rpdev->dev, sizeof(*wcnss), GFP_KERNEL);
- 	if (!wcnss)
- 		return -ENOMEM;
- 
--	wcnss->dev = &sdev->dev;
--	wcnss->channel = sdev->channel;
-+	wcnss->dev = &rpdev->dev;
-+	wcnss->channel = rpdev->ept;
- 
- 	init_completion(&wcnss->ack);
- 	init_completion(&wcnss->cbc);
- 	INIT_WORK(&wcnss->probe_work, wcnss_async_probe);
- 
--	qcom_smd_set_drvdata(sdev->channel, wcnss);
--	dev_set_drvdata(&sdev->dev, wcnss);
-+	dev_set_drvdata(&rpdev->dev, wcnss);
- 
- 	schedule_work(&wcnss->probe_work);
- 
- 	return 0;
- }
- 
--static void wcnss_ctrl_remove(struct qcom_smd_device *sdev)
-+static void wcnss_ctrl_remove(struct rpmsg_device *rpdev)
- {
--	struct wcnss_ctrl *wcnss = qcom_smd_get_drvdata(sdev->channel);
-+	struct wcnss_ctrl *wcnss = dev_get_drvdata(&rpdev->dev);
- 
- 	cancel_work_sync(&wcnss->probe_work);
--	of_platform_depopulate(&sdev->dev);
-+	of_platform_depopulate(&rpdev->dev);
- }
- 
- static const struct of_device_id wcnss_ctrl_of_match[] = {
-@@ -342,18 +348,18 @@ static const struct of_device_id wcnss_ctrl_of_match[] = {
- 	{}
- };
- 
--static struct qcom_smd_driver wcnss_ctrl_driver = {
-+static struct rpmsg_driver wcnss_ctrl_driver = {
- 	.probe = wcnss_ctrl_probe,
- 	.remove = wcnss_ctrl_remove,
- 	.callback = wcnss_ctrl_smd_callback,
--	.driver  = {
-+	.drv  = {
- 		.name  = "qcom_wcnss_ctrl",
- 		.owner = THIS_MODULE,
- 		.of_match_table = wcnss_ctrl_of_match,
- 	},
- };
- 
--module_qcom_smd_driver(wcnss_ctrl_driver);
-+module_rpmsg_driver(wcnss_ctrl_driver);
- 
- MODULE_DESCRIPTION("Qualcomm WCNSS control driver");
- MODULE_LICENSE("GPL v2");
-diff --git a/include/linux/soc/qcom/wcnss_ctrl.h b/include/linux/soc/qcom/wcnss_ctrl.h
-index eab64976a73b..a4dd4d7c711d 100644
---- a/include/linux/soc/qcom/wcnss_ctrl.h
-+++ b/include/linux/soc/qcom/wcnss_ctrl.h
-@@ -1,16 +1,19 @@
- #ifndef __WCNSS_CTRL_H__
- #define __WCNSS_CTRL_H__
- 
--#include <linux/soc/qcom/smd.h>
-+#include <linux/rpmsg.h>
- 
- #if IS_ENABLED(CONFIG_QCOM_WCNSS_CTRL)
- 
--struct qcom_smd_channel *qcom_wcnss_open_channel(void *wcnss, const char *name, qcom_smd_cb_t cb);
-+struct rpmsg_endpoint *qcom_wcnss_open_channel(void *wcnss, const char *name,
-+					       rpmsg_rx_cb_t cb, void *priv);
- 
- #else
- 
--static inline struct qcom_smd_channel*
--qcom_wcnss_open_channel(void *wcnss, const char *name, qcom_smd_cb_t cb)
-+static struct rpmsg_endpoint *qcom_wcnss_open_channel(void *wcnss,
-+						      const char *name,
-+						      rpmsg_rx_cb_t cb,
-+						      void *priv)
- {
- 	WARN_ON(1);
- 	return ERR_PTR(-ENXIO);
-diff --git a/net/qrtr/Kconfig b/net/qrtr/Kconfig
-index b83c6807a5ae..326fd97444f5 100644
---- a/net/qrtr/Kconfig
-+++ b/net/qrtr/Kconfig
-@@ -16,7 +16,7 @@ if QRTR
- 
- config QRTR_SMD
- 	tristate "SMD IPC Router channels"
--	depends on QCOM_SMD || (COMPILE_TEST && QCOM_SMD=n)
-+	depends on RPMSG || (COMPILE_TEST && RPMSG=n)
- 	---help---
- 	  Say Y here to support SMD based ipcrouter channels.  SMD is the
- 	  most common transport for IPC Router.
-diff --git a/net/qrtr/smd.c b/net/qrtr/smd.c
-index 0d11132b3370..50615d5efac1 100644
---- a/net/qrtr/smd.c
-+++ b/net/qrtr/smd.c
-@@ -14,21 +14,21 @@
- 
- #include <linux/module.h>
- #include <linux/skbuff.h>
--#include <linux/soc/qcom/smd.h>
-+#include <linux/rpmsg.h>
- 
- #include "qrtr.h"
- 
- struct qrtr_smd_dev {
- 	struct qrtr_endpoint ep;
+-	unsigned available;
+-	bool kick_scanner = false;
+-	bool kick_state = false;
+-
+-	/*
+-	 * Handle state changes or data on each of the channels on this edge
+-	 */
+-	spin_lock(&edge->channels_lock);
+-	list_for_each_entry(channel, &edge->channels, list) {
+-		spin_lock(&channel->recv_lock);
+-		kick_state |= qcom_smd_channel_intr(channel);
+-		spin_unlock(&channel->recv_lock);
+-	}
+-	spin_unlock(&edge->channels_lock);
+-
+-	/*
+-	 * Creating a new channel requires allocating an smem entry, so we only
+-	 * have to scan if the amount of available space in smem have changed
+-	 * since last scan.
+-	 */
+-	available = qcom_smem_get_free_space(edge->remote_pid);
+-	if (available != edge->smem_available) {
+-		edge->smem_available = available;
+-		kick_scanner = true;
+-	}
+-
+-	if (kick_scanner)
+-		schedule_work(&edge->scan_work);
+-	if (kick_state)
+-		schedule_work(&edge->state_work);
+-
+-	return IRQ_HANDLED;
+-}
+-
+-/*
+- * Delivers any outstanding packets in the rx fifo, can be used after probe of
+- * the clients to deliver any packets that wasn't delivered before the client
+- * was setup.
+- */
+-static void qcom_smd_channel_resume(struct qcom_smd_channel *channel)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&channel->recv_lock, flags);
+-	qcom_smd_channel_intr(channel);
+-	spin_unlock_irqrestore(&channel->recv_lock, flags);
+-}
+-
+-/*
+- * Calculate how much space is available in the tx fifo.
+- */
+-static size_t qcom_smd_get_tx_avail(struct qcom_smd_channel *channel)
+-{
+-	unsigned head;
+-	unsigned tail;
+-	unsigned mask = channel->fifo_size - 1;
+-
+-	head = GET_TX_CHANNEL_INFO(channel, head);
+-	tail = GET_TX_CHANNEL_INFO(channel, tail);
+-
+-	return mask - ((head - tail) & mask);
+-}
+-
+-/*
+- * Write count bytes of data into channel, possibly wrapping in the ring buffer
+- */
+-static int qcom_smd_write_fifo(struct qcom_smd_channel *channel,
+-			       const void *data,
+-			       size_t count)
+-{
+-	bool word_aligned;
+-	unsigned head;
+-	size_t len;
+-
+-	word_aligned = channel->info_word;
+-	head = GET_TX_CHANNEL_INFO(channel, head);
+-
+-	len = min_t(size_t, count, channel->fifo_size - head);
+-	if (len) {
+-		smd_copy_to_fifo(channel->tx_fifo + head,
+-				 data,
+-				 len,
+-				 word_aligned);
+-	}
+-
+-	if (len != count) {
+-		smd_copy_to_fifo(channel->tx_fifo,
+-				 data + len,
+-				 count - len,
+-				 word_aligned);
+-	}
+-
+-	head += count;
+-	head &= (channel->fifo_size - 1);
+-	SET_TX_CHANNEL_INFO(channel, head, head);
+-
+-	return count;
+-}
+-
+-/**
+- * qcom_smd_send - write data to smd channel
+- * @channel:	channel handle
+- * @data:	buffer of data to write
+- * @len:	number of bytes to write
+- *
+- * This is a blocking write of len bytes into the channel's tx ring buffer and
+- * signal the remote end. It will sleep until there is enough space available
+- * in the tx buffer, utilizing the fBLOCKREADINTR signaling mechanism to avoid
+- * polling.
+- */
+-int qcom_smd_send(struct qcom_smd_channel *channel, const void *data, int len)
+-{
+-	__le32 hdr[5] = { cpu_to_le32(len), };
+-	int tlen = sizeof(hdr) + len;
+-	int ret;
+-
+-	/* Word aligned channels only accept word size aligned data */
+-	if (channel->info_word && len % 4)
+-		return -EINVAL;
+-
+-	/* Reject packets that are too big */
+-	if (tlen >= channel->fifo_size)
+-		return -EINVAL;
+-
+-	ret = mutex_lock_interruptible(&channel->tx_lock);
+-	if (ret)
+-		return ret;
+-
+-	while (qcom_smd_get_tx_avail(channel) < tlen) {
+-		if (channel->state != SMD_CHANNEL_OPENED) {
+-			ret = -EPIPE;
+-			goto out;
+-		}
+-
+-		SET_TX_CHANNEL_FLAG(channel, fBLOCKREADINTR, 0);
+-
+-		ret = wait_event_interruptible(channel->fblockread_event,
+-				       qcom_smd_get_tx_avail(channel) >= tlen ||
+-				       channel->state != SMD_CHANNEL_OPENED);
+-		if (ret)
+-			goto out;
+-
+-		SET_TX_CHANNEL_FLAG(channel, fBLOCKREADINTR, 1);
+-	}
+-
+-	SET_TX_CHANNEL_FLAG(channel, fTAIL, 0);
+-
+-	qcom_smd_write_fifo(channel, hdr, sizeof(hdr));
+-	qcom_smd_write_fifo(channel, data, len);
+-
+-	SET_TX_CHANNEL_FLAG(channel, fHEAD, 1);
+-
+-	/* Ensure ordering of channel info updates */
+-	wmb();
+-
+-	qcom_smd_signal_channel(channel);
+-
+-out:
+-	mutex_unlock(&channel->tx_lock);
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL(qcom_smd_send);
+-
+-static struct qcom_smd_device *to_smd_device(struct device *dev)
+-{
+-	return container_of(dev, struct qcom_smd_device, dev);
+-}
+-
+-static struct qcom_smd_driver *to_smd_driver(struct device *dev)
+-{
+-	struct qcom_smd_device *qsdev = to_smd_device(dev);
+-
+-	return container_of(qsdev->dev.driver, struct qcom_smd_driver, driver);
+-}
+-
+-static int qcom_smd_dev_match(struct device *dev, struct device_driver *drv)
+-{
+-	struct qcom_smd_device *qsdev = to_smd_device(dev);
+-	struct qcom_smd_driver *qsdrv = container_of(drv, struct qcom_smd_driver, driver);
+-	const struct qcom_smd_id *match = qsdrv->smd_match_table;
+-	const char *name = qsdev->channel->name;
+-
+-	if (match) {
+-		while (match->name[0]) {
+-			if (!strcmp(match->name, name))
+-				return 1;
+-			match++;
+-		}
+-	}
+-
+-	return of_driver_match_device(dev, drv);
+-}
+-
+-/*
+- * Helper for opening a channel
+- */
+-static int qcom_smd_channel_open(struct qcom_smd_channel *channel,
+-				 qcom_smd_cb_t cb)
+-{
+-	size_t bb_size;
+-
+-	/*
+-	 * Packets are maximum 4k, but reduce if the fifo is smaller
+-	 */
+-	bb_size = min(channel->fifo_size, SZ_4K);
+-	channel->bounce_buffer = kmalloc(bb_size, GFP_KERNEL);
+-	if (!channel->bounce_buffer)
+-		return -ENOMEM;
+-
+-	qcom_smd_channel_set_callback(channel, cb);
+-	qcom_smd_channel_set_state(channel, SMD_CHANNEL_OPENING);
+-	qcom_smd_channel_set_state(channel, SMD_CHANNEL_OPENED);
+-
+-	return 0;
+-}
+-
+-/*
+- * Helper for closing and resetting a channel
+- */
+-static void qcom_smd_channel_close(struct qcom_smd_channel *channel)
+-{
+-	qcom_smd_channel_set_callback(channel, NULL);
+-
+-	kfree(channel->bounce_buffer);
+-	channel->bounce_buffer = NULL;
+-
+-	qcom_smd_channel_set_state(channel, SMD_CHANNEL_CLOSED);
+-	qcom_smd_channel_reset(channel);
+-}
+-
+-/*
+- * Probe the smd client.
+- *
+- * The remote side have indicated that it want the channel to be opened, so
+- * complete the state handshake and probe our client driver.
+- */
+-static int qcom_smd_dev_probe(struct device *dev)
+-{
+-	struct qcom_smd_device *qsdev = to_smd_device(dev);
+-	struct qcom_smd_driver *qsdrv = to_smd_driver(dev);
+-	struct qcom_smd_channel *channel = qsdev->channel;
+-	int ret;
+-
+-	ret = qcom_smd_channel_open(channel, qsdrv->callback);
+-	if (ret)
+-		return ret;
+-
+-	ret = qsdrv->probe(qsdev);
+-	if (ret)
+-		goto err;
+-
+-	qcom_smd_channel_resume(channel);
+-
+-	return 0;
+-
+-err:
+-	dev_err(&qsdev->dev, "probe failed\n");
+-
+-	qcom_smd_channel_close(channel);
+-	return ret;
+-}
+-
+-/*
+- * Remove the smd client.
+- *
+- * The channel is going away, for some reason, so remove the smd client and
+- * reset the channel state.
+- */
+-static int qcom_smd_dev_remove(struct device *dev)
+-{
+-	struct qcom_smd_device *qsdev = to_smd_device(dev);
+-	struct qcom_smd_driver *qsdrv = to_smd_driver(dev);
+-	struct qcom_smd_channel *channel = qsdev->channel;
+-
+-	qcom_smd_channel_set_state(channel, SMD_CHANNEL_CLOSING);
+-
+-	/*
+-	 * Make sure we don't race with the code receiving data.
+-	 */
+-	qcom_smd_channel_set_callback(channel, NULL);
+-
+-	/* Wake up any sleepers in qcom_smd_send() */
+-	wake_up_interruptible(&channel->fblockread_event);
+-
+-	/*
+-	 * We expect that the client might block in remove() waiting for any
+-	 * outstanding calls to qcom_smd_send() to wake up and finish.
+-	 */
+-	if (qsdrv->remove)
+-		qsdrv->remove(qsdev);
+-
+-	/* The client is now gone, close the primary channel */
+-	qcom_smd_channel_close(channel);
+-	channel->qsdev = NULL;
+-
+-	return 0;
+-}
+-
+-static struct bus_type qcom_smd_bus = {
+-	.name = "qcom_smd",
+-	.match = qcom_smd_dev_match,
+-	.probe = qcom_smd_dev_probe,
+-	.remove = qcom_smd_dev_remove,
+-};
+-
+-/*
+- * Release function for the qcom_smd_device object.
+- */
+-static void qcom_smd_release_device(struct device *dev)
+-{
+-	struct qcom_smd_device *qsdev = to_smd_device(dev);
+-
+-	kfree(qsdev);
+-}
+-
+-/*
+- * Finds the device_node for the smd child interested in this channel.
+- */
+-static struct device_node *qcom_smd_match_channel(struct device_node *edge_node,
+-						  const char *channel)
+-{
+-	struct device_node *child;
+-	const char *name;
+-	const char *key;
+-	int ret;
+-
+-	for_each_available_child_of_node(edge_node, child) {
+-		key = "qcom,smd-channels";
+-		ret = of_property_read_string(child, key, &name);
+-		if (ret)
+-			continue;
+-
+-		if (strcmp(name, channel) == 0)
+-			return child;
+-	}
+-
+-	return NULL;
+-}
+-
+-/*
+- * Create a smd client device for channel that is being opened.
+- */
+-static int qcom_smd_create_device(struct qcom_smd_channel *channel)
+-{
+-	struct qcom_smd_device *qsdev;
+-	struct qcom_smd_edge *edge = channel->edge;
+-	struct device_node *node;
+-	int ret;
+-
+-	if (channel->qsdev)
+-		return -EEXIST;
+-
+-	dev_dbg(&edge->dev, "registering '%s'\n", channel->name);
+-
+-	qsdev = kzalloc(sizeof(*qsdev), GFP_KERNEL);
+-	if (!qsdev)
+-		return -ENOMEM;
+-
+-	node = qcom_smd_match_channel(edge->of_node, channel->name);
+-	dev_set_name(&qsdev->dev, "%s.%s",
+-		     edge->of_node->name,
+-		     node ? node->name : channel->name);
+-
+-	qsdev->dev.parent = &edge->dev;
+-	qsdev->dev.bus = &qcom_smd_bus;
+-	qsdev->dev.release = qcom_smd_release_device;
+-	qsdev->dev.of_node = node;
+-
+-	qsdev->channel = channel;
+-
+-	channel->qsdev = qsdev;
+-
+-	ret = device_register(&qsdev->dev);
+-	if (ret) {
+-		dev_err(&edge->dev, "device_register failed: %d\n", ret);
+-		put_device(&qsdev->dev);
+-	}
+-
+-	return ret;
+-}
+-
+-/*
+- * Destroy a smd client device for a channel that's going away.
+- */
+-static void qcom_smd_destroy_device(struct qcom_smd_channel *channel)
+-{
+-	struct device *dev;
+-
+-	BUG_ON(!channel->qsdev);
+-
+-	dev = &channel->qsdev->dev;
+-
+-	device_unregister(dev);
+-	of_node_put(dev->of_node);
+-	put_device(dev);
+-}
+-
+-/**
+- * qcom_smd_driver_register - register a smd driver
+- * @qsdrv:	qcom_smd_driver struct
+- */
+-int qcom_smd_driver_register(struct qcom_smd_driver *qsdrv)
+-{
+-	qsdrv->driver.bus = &qcom_smd_bus;
+-	return driver_register(&qsdrv->driver);
+-}
+-EXPORT_SYMBOL(qcom_smd_driver_register);
+-
+-void *qcom_smd_get_drvdata(struct qcom_smd_channel *channel)
+-{
+-	return channel->drvdata;
+-}
+-EXPORT_SYMBOL(qcom_smd_get_drvdata);
+-
+-void qcom_smd_set_drvdata(struct qcom_smd_channel *channel, void *data)
+-{
+-	channel->drvdata = data;
+-}
+-EXPORT_SYMBOL(qcom_smd_set_drvdata);
+-
+-/**
+- * qcom_smd_driver_unregister - unregister a smd driver
+- * @qsdrv:	qcom_smd_driver struct
+- */
+-void qcom_smd_driver_unregister(struct qcom_smd_driver *qsdrv)
+-{
+-	driver_unregister(&qsdrv->driver);
+-}
+-EXPORT_SYMBOL(qcom_smd_driver_unregister);
+-
+-static struct qcom_smd_channel *
+-qcom_smd_find_channel(struct qcom_smd_edge *edge, const char *name)
+-{
 -	struct qcom_smd_channel *channel;
-+	struct rpmsg_endpoint *channel;
- 	struct device *dev;
- };
- 
- /* from smd to qrtr */
--static int qcom_smd_qrtr_callback(struct qcom_smd_channel *channel,
--				  const void *data, size_t len)
-+static int qcom_smd_qrtr_callback(struct rpmsg_device *rpdev,
-+				  void *data, int len, void *priv, u32 addr)
- {
--	struct qrtr_smd_dev *qdev = qcom_smd_get_drvdata(channel);
-+	struct qrtr_smd_dev *qdev = dev_get_drvdata(&rpdev->dev);
- 	int rc;
- 
- 	if (!qdev)
-@@ -54,7 +54,7 @@ static int qcom_smd_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
- 	if (rc)
- 		goto out;
- 
--	rc = qcom_smd_send(qdev->channel, skb->data, skb->len);
-+	rc = rpmsg_send(qdev->channel, skb->data, skb->len);
- 
- out:
- 	if (rc)
-@@ -64,57 +64,55 @@ static int qcom_smd_qrtr_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
- 	return rc;
- }
- 
--static int qcom_smd_qrtr_probe(struct qcom_smd_device *sdev)
-+static int qcom_smd_qrtr_probe(struct rpmsg_device *rpdev)
- {
- 	struct qrtr_smd_dev *qdev;
- 	int rc;
- 
--	qdev = devm_kzalloc(&sdev->dev, sizeof(*qdev), GFP_KERNEL);
-+	qdev = devm_kzalloc(&rpdev->dev, sizeof(*qdev), GFP_KERNEL);
- 	if (!qdev)
- 		return -ENOMEM;
- 
--	qdev->channel = sdev->channel;
--	qdev->dev = &sdev->dev;
-+	qdev->channel = rpdev->ept;
-+	qdev->dev = &rpdev->dev;
- 	qdev->ep.xmit = qcom_smd_qrtr_send;
- 
- 	rc = qrtr_endpoint_register(&qdev->ep, QRTR_EP_NID_AUTO);
- 	if (rc)
- 		return rc;
- 
--	qcom_smd_set_drvdata(sdev->channel, qdev);
--	dev_set_drvdata(&sdev->dev, qdev);
-+	dev_set_drvdata(&rpdev->dev, qdev);
- 
--	dev_dbg(&sdev->dev, "Qualcomm SMD QRTR driver probed\n");
-+	dev_dbg(&rpdev->dev, "Qualcomm SMD QRTR driver probed\n");
- 
- 	return 0;
- }
- 
--static void qcom_smd_qrtr_remove(struct qcom_smd_device *sdev)
-+static void qcom_smd_qrtr_remove(struct rpmsg_device *rpdev)
- {
--	struct qrtr_smd_dev *qdev = dev_get_drvdata(&sdev->dev);
-+	struct qrtr_smd_dev *qdev = dev_get_drvdata(&rpdev->dev);
- 
- 	qrtr_endpoint_unregister(&qdev->ep);
- 
--	dev_set_drvdata(&sdev->dev, NULL);
-+	dev_set_drvdata(&rpdev->dev, NULL);
- }
- 
--static const struct qcom_smd_id qcom_smd_qrtr_smd_match[] = {
-+static const struct rpmsg_device_id qcom_smd_qrtr_smd_match[] = {
- 	{ "IPCRTR" },
- 	{}
- };
- 
--static struct qcom_smd_driver qcom_smd_qrtr_driver = {
-+static struct rpmsg_driver qcom_smd_qrtr_driver = {
- 	.probe = qcom_smd_qrtr_probe,
- 	.remove = qcom_smd_qrtr_remove,
- 	.callback = qcom_smd_qrtr_callback,
--	.smd_match_table = qcom_smd_qrtr_smd_match,
+-	struct qcom_smd_channel *ret = NULL;
+-	unsigned long flags;
+-	unsigned state;
+-
+-	spin_lock_irqsave(&edge->channels_lock, flags);
+-	list_for_each_entry(channel, &edge->channels, list) {
+-		if (strcmp(channel->name, name))
+-			continue;
+-
+-		state = GET_RX_CHANNEL_INFO(channel, state);
+-		if (state != SMD_CHANNEL_OPENING &&
+-		    state != SMD_CHANNEL_OPENED)
+-			continue;
+-
+-		ret = channel;
+-		break;
+-	}
+-	spin_unlock_irqrestore(&edge->channels_lock, flags);
+-
+-	return ret;
+-}
+-
+-/**
+- * qcom_smd_open_channel() - claim additional channels on the same edge
+- * @sdev:	smd_device handle
+- * @name:	channel name
+- * @cb:		callback method to use for incoming data
+- *
+- * Returns a channel handle on success, or -EPROBE_DEFER if the channel isn't
+- * ready.
+- *
+- * Any channels returned must be closed with a call to qcom_smd_close_channel()
+- */
+-struct qcom_smd_channel *qcom_smd_open_channel(struct qcom_smd_channel *parent,
+-					       const char *name,
+-					       qcom_smd_cb_t cb)
+-{
+-	struct qcom_smd_channel *channel;
+-	struct qcom_smd_device *sdev = parent->qsdev;
+-	struct qcom_smd_edge *edge = parent->edge;
+-	int ret;
+-
+-	/* Wait up to HZ for the channel to appear */
+-	ret = wait_event_interruptible_timeout(edge->new_channel_event,
+-			(channel = qcom_smd_find_channel(edge, name)) != NULL,
+-			HZ);
+-	if (!ret)
+-		return ERR_PTR(-ETIMEDOUT);
+-
+-	if (channel->state != SMD_CHANNEL_CLOSED) {
+-		dev_err(&sdev->dev, "channel %s is busy\n", channel->name);
+-		return ERR_PTR(-EBUSY);
+-	}
+-
+-	channel->qsdev = sdev;
+-	ret = qcom_smd_channel_open(channel, cb);
+-	if (ret) {
+-		channel->qsdev = NULL;
+-		return ERR_PTR(ret);
+-	}
+-
+-	return channel;
+-}
+-EXPORT_SYMBOL(qcom_smd_open_channel);
+-
+-/**
+- * qcom_smd_close_channel() - close an additionally opened channel
+- * @channel:	channel handle, returned by qcom_smd_open_channel()
+- */
+-void qcom_smd_close_channel(struct qcom_smd_channel *channel)
+-{
+-	qcom_smd_channel_close(channel);
+-	channel->qsdev = NULL;
+-}
+-EXPORT_SYMBOL(qcom_smd_close_channel);
+-
+-/*
+- * Allocate the qcom_smd_channel object for a newly found smd channel,
+- * retrieving and validating the smem items involved.
+- */
+-static struct qcom_smd_channel *qcom_smd_create_channel(struct qcom_smd_edge *edge,
+-							unsigned smem_info_item,
+-							unsigned smem_fifo_item,
+-							char *name)
+-{
+-	struct qcom_smd_channel *channel;
+-	size_t fifo_size;
+-	size_t info_size;
+-	void *fifo_base;
+-	void *info;
+-	int ret;
+-
+-	channel = devm_kzalloc(&edge->dev, sizeof(*channel), GFP_KERNEL);
+-	if (!channel)
+-		return ERR_PTR(-ENOMEM);
+-
+-	channel->edge = edge;
+-	channel->name = devm_kstrdup(&edge->dev, name, GFP_KERNEL);
+-	if (!channel->name)
+-		return ERR_PTR(-ENOMEM);
+-
+-	mutex_init(&channel->tx_lock);
+-	spin_lock_init(&channel->recv_lock);
+-	init_waitqueue_head(&channel->fblockread_event);
+-
+-	info = qcom_smem_get(edge->remote_pid, smem_info_item, &info_size);
+-	if (IS_ERR(info)) {
+-		ret = PTR_ERR(info);
+-		goto free_name_and_channel;
+-	}
+-
+-	/*
+-	 * Use the size of the item to figure out which channel info struct to
+-	 * use.
+-	 */
+-	if (info_size == 2 * sizeof(struct smd_channel_info_word)) {
+-		channel->info_word = info;
+-	} else if (info_size == 2 * sizeof(struct smd_channel_info)) {
+-		channel->info = info;
+-	} else {
+-		dev_err(&edge->dev,
+-			"channel info of size %zu not supported\n", info_size);
+-		ret = -EINVAL;
+-		goto free_name_and_channel;
+-	}
+-
+-	fifo_base = qcom_smem_get(edge->remote_pid, smem_fifo_item, &fifo_size);
+-	if (IS_ERR(fifo_base)) {
+-		ret =  PTR_ERR(fifo_base);
+-		goto free_name_and_channel;
+-	}
+-
+-	/* The channel consist of a rx and tx fifo of equal size */
+-	fifo_size /= 2;
+-
+-	dev_dbg(&edge->dev, "new channel '%s' info-size: %zu fifo-size: %zu\n",
+-			  name, info_size, fifo_size);
+-
+-	channel->tx_fifo = fifo_base;
+-	channel->rx_fifo = fifo_base + fifo_size;
+-	channel->fifo_size = fifo_size;
+-
+-	qcom_smd_channel_reset(channel);
+-
+-	return channel;
+-
+-free_name_and_channel:
+-	devm_kfree(&edge->dev, channel->name);
+-	devm_kfree(&edge->dev, channel);
+-
+-	return ERR_PTR(ret);
+-}
+-
+-/*
+- * Scans the allocation table for any newly allocated channels, calls
+- * qcom_smd_create_channel() to create representations of these and add
+- * them to the edge's list of channels.
+- */
+-static void qcom_channel_scan_worker(struct work_struct *work)
+-{
+-	struct qcom_smd_edge *edge = container_of(work, struct qcom_smd_edge, scan_work);
+-	struct qcom_smd_alloc_entry *alloc_tbl;
+-	struct qcom_smd_alloc_entry *entry;
+-	struct qcom_smd_channel *channel;
+-	unsigned long flags;
+-	unsigned fifo_id;
+-	unsigned info_id;
+-	int tbl;
+-	int i;
+-	u32 eflags, cid;
+-
+-	for (tbl = 0; tbl < SMD_ALLOC_TBL_COUNT; tbl++) {
+-		alloc_tbl = qcom_smem_get(edge->remote_pid,
+-				    smem_items[tbl].alloc_tbl_id, NULL);
+-		if (IS_ERR(alloc_tbl))
+-			continue;
+-
+-		for (i = 0; i < SMD_ALLOC_TBL_SIZE; i++) {
+-			entry = &alloc_tbl[i];
+-			eflags = le32_to_cpu(entry->flags);
+-			if (test_bit(i, edge->allocated[tbl]))
+-				continue;
+-
+-			if (entry->ref_count == 0)
+-				continue;
+-
+-			if (!entry->name[0])
+-				continue;
+-
+-			if (!(eflags & SMD_CHANNEL_FLAGS_PACKET))
+-				continue;
+-
+-			if ((eflags & SMD_CHANNEL_FLAGS_EDGE_MASK) != edge->edge_id)
+-				continue;
+-
+-			cid = le32_to_cpu(entry->cid);
+-			info_id = smem_items[tbl].info_base_id + cid;
+-			fifo_id = smem_items[tbl].fifo_base_id + cid;
+-
+-			channel = qcom_smd_create_channel(edge, info_id, fifo_id, entry->name);
+-			if (IS_ERR(channel))
+-				continue;
+-
+-			spin_lock_irqsave(&edge->channels_lock, flags);
+-			list_add(&channel->list, &edge->channels);
+-			spin_unlock_irqrestore(&edge->channels_lock, flags);
+-
+-			dev_dbg(&edge->dev, "new channel found: '%s'\n", channel->name);
+-			set_bit(i, edge->allocated[tbl]);
+-
+-			wake_up_interruptible(&edge->new_channel_event);
+-		}
+-	}
+-
+-	schedule_work(&edge->state_work);
+-}
+-
+-/*
+- * This per edge worker scans smem for any new channels and register these. It
+- * then scans all registered channels for state changes that should be handled
+- * by creating or destroying smd client devices for the registered channels.
+- *
+- * LOCKING: edge->channels_lock only needs to cover the list operations, as the
+- * worker is killed before any channels are deallocated
+- */
+-static void qcom_channel_state_worker(struct work_struct *work)
+-{
+-	struct qcom_smd_channel *channel;
+-	struct qcom_smd_edge *edge = container_of(work,
+-						  struct qcom_smd_edge,
+-						  state_work);
+-	unsigned remote_state;
+-	unsigned long flags;
+-
+-	/*
+-	 * Register a device for any closed channel where the remote processor
+-	 * is showing interest in opening the channel.
+-	 */
+-	spin_lock_irqsave(&edge->channels_lock, flags);
+-	list_for_each_entry(channel, &edge->channels, list) {
+-		if (channel->state != SMD_CHANNEL_CLOSED)
+-			continue;
+-
+-		remote_state = GET_RX_CHANNEL_INFO(channel, state);
+-		if (remote_state != SMD_CHANNEL_OPENING &&
+-		    remote_state != SMD_CHANNEL_OPENED)
+-			continue;
+-
+-		spin_unlock_irqrestore(&edge->channels_lock, flags);
+-		qcom_smd_create_device(channel);
+-		spin_lock_irqsave(&edge->channels_lock, flags);
+-	}
+-
+-	/*
+-	 * Unregister the device for any channel that is opened where the
+-	 * remote processor is closing the channel.
+-	 */
+-	list_for_each_entry(channel, &edge->channels, list) {
+-		if (channel->state != SMD_CHANNEL_OPENING &&
+-		    channel->state != SMD_CHANNEL_OPENED)
+-			continue;
+-
+-		remote_state = GET_RX_CHANNEL_INFO(channel, state);
+-		if (remote_state == SMD_CHANNEL_OPENING ||
+-		    remote_state == SMD_CHANNEL_OPENED)
+-			continue;
+-
+-		spin_unlock_irqrestore(&edge->channels_lock, flags);
+-		qcom_smd_destroy_device(channel);
+-		spin_lock_irqsave(&edge->channels_lock, flags);
+-	}
+-	spin_unlock_irqrestore(&edge->channels_lock, flags);
+-}
+-
+-/*
+- * Parses an of_node describing an edge.
+- */
+-static int qcom_smd_parse_edge(struct device *dev,
+-			       struct device_node *node,
+-			       struct qcom_smd_edge *edge)
+-{
+-	struct device_node *syscon_np;
+-	const char *key;
+-	int irq;
+-	int ret;
+-
+-	INIT_LIST_HEAD(&edge->channels);
+-	spin_lock_init(&edge->channels_lock);
+-
+-	INIT_WORK(&edge->scan_work, qcom_channel_scan_worker);
+-	INIT_WORK(&edge->state_work, qcom_channel_state_worker);
+-
+-	edge->of_node = of_node_get(node);
+-
+-	key = "qcom,smd-edge";
+-	ret = of_property_read_u32(node, key, &edge->edge_id);
+-	if (ret) {
+-		dev_err(dev, "edge missing %s property\n", key);
+-		return -EINVAL;
+-	}
+-
+-	edge->remote_pid = QCOM_SMEM_HOST_ANY;
+-	key = "qcom,remote-pid";
+-	of_property_read_u32(node, key, &edge->remote_pid);
+-
+-	syscon_np = of_parse_phandle(node, "qcom,ipc", 0);
+-	if (!syscon_np) {
+-		dev_err(dev, "no qcom,ipc node\n");
+-		return -ENODEV;
+-	}
+-
+-	edge->ipc_regmap = syscon_node_to_regmap(syscon_np);
+-	if (IS_ERR(edge->ipc_regmap))
+-		return PTR_ERR(edge->ipc_regmap);
+-
+-	key = "qcom,ipc";
+-	ret = of_property_read_u32_index(node, key, 1, &edge->ipc_offset);
+-	if (ret < 0) {
+-		dev_err(dev, "no offset in %s\n", key);
+-		return -EINVAL;
+-	}
+-
+-	ret = of_property_read_u32_index(node, key, 2, &edge->ipc_bit);
+-	if (ret < 0) {
+-		dev_err(dev, "no bit in %s\n", key);
+-		return -EINVAL;
+-	}
+-
+-	irq = irq_of_parse_and_map(node, 0);
+-	if (irq < 0) {
+-		dev_err(dev, "required smd interrupt missing\n");
+-		return -EINVAL;
+-	}
+-
+-	ret = devm_request_irq(dev, irq,
+-			       qcom_smd_edge_intr, IRQF_TRIGGER_RISING,
+-			       node->name, edge);
+-	if (ret) {
+-		dev_err(dev, "failed to request smd irq\n");
+-		return ret;
+-	}
+-
+-	edge->irq = irq;
+-
+-	return 0;
+-}
+-
+-/*
+- * Release function for an edge.
+- * Reset the state of each associated channel and free the edge context.
+- */
+-static void qcom_smd_edge_release(struct device *dev)
+-{
+-	struct qcom_smd_channel *channel;
+-	struct qcom_smd_edge *edge = to_smd_edge(dev);
+-
+-	list_for_each_entry(channel, &edge->channels, list) {
+-		SET_RX_CHANNEL_INFO(channel, state, SMD_CHANNEL_CLOSED);
+-		SET_RX_CHANNEL_INFO(channel, head, 0);
+-		SET_RX_CHANNEL_INFO(channel, tail, 0);
+-	}
+-
+-	kfree(edge);
+-}
+-
+-/**
+- * qcom_smd_register_edge() - register an edge based on an device_node
+- * @parent:	parent device for the edge
+- * @node:	device_node describing the edge
+- *
+- * Returns an edge reference, or negative ERR_PTR() on failure.
+- */
+-struct qcom_smd_edge *qcom_smd_register_edge(struct device *parent,
+-					     struct device_node *node)
+-{
+-	struct qcom_smd_edge *edge;
+-	int ret;
+-
+-	edge = kzalloc(sizeof(*edge), GFP_KERNEL);
+-	if (!edge)
+-		return ERR_PTR(-ENOMEM);
+-
+-	init_waitqueue_head(&edge->new_channel_event);
+-
+-	edge->dev.parent = parent;
+-	edge->dev.release = qcom_smd_edge_release;
+-	dev_set_name(&edge->dev, "%s:%s", dev_name(parent), node->name);
+-	ret = device_register(&edge->dev);
+-	if (ret) {
+-		pr_err("failed to register smd edge\n");
+-		return ERR_PTR(ret);
+-	}
+-
+-	ret = qcom_smd_parse_edge(&edge->dev, node, edge);
+-	if (ret) {
+-		dev_err(&edge->dev, "failed to parse smd edge\n");
+-		goto unregister_dev;
+-	}
+-
+-	schedule_work(&edge->scan_work);
+-
+-	return edge;
+-
+-unregister_dev:
+-	put_device(&edge->dev);
+-	return ERR_PTR(ret);
+-}
+-EXPORT_SYMBOL(qcom_smd_register_edge);
+-
+-static int qcom_smd_remove_device(struct device *dev, void *data)
+-{
+-	device_unregister(dev);
+-	of_node_put(dev->of_node);
+-	put_device(dev);
+-
+-	return 0;
+-}
+-
+-/**
+- * qcom_smd_unregister_edge() - release an edge and its children
+- * @edge:	edge reference acquired from qcom_smd_register_edge
+- */
+-int qcom_smd_unregister_edge(struct qcom_smd_edge *edge)
+-{
+-	int ret;
+-
+-	disable_irq(edge->irq);
+-	cancel_work_sync(&edge->scan_work);
+-	cancel_work_sync(&edge->state_work);
+-
+-	ret = device_for_each_child(&edge->dev, NULL, qcom_smd_remove_device);
+-	if (ret)
+-		dev_warn(&edge->dev, "can't remove smd device: %d\n", ret);
+-
+-	device_unregister(&edge->dev);
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL(qcom_smd_unregister_edge);
+-
+-static int qcom_smd_probe(struct platform_device *pdev)
+-{
+-	struct device_node *node;
+-	void *p;
+-
+-	/* Wait for smem */
+-	p = qcom_smem_get(QCOM_SMEM_HOST_ANY, smem_items[0].alloc_tbl_id, NULL);
+-	if (PTR_ERR(p) == -EPROBE_DEFER)
+-		return PTR_ERR(p);
+-
+-	for_each_available_child_of_node(pdev->dev.of_node, node)
+-		qcom_smd_register_edge(&pdev->dev, node);
+-
+-	return 0;
+-}
+-
+-static int qcom_smd_remove_edge(struct device *dev, void *data)
+-{
+-	struct qcom_smd_edge *edge = to_smd_edge(dev);
+-
+-	return qcom_smd_unregister_edge(edge);
+-}
+-
+-/*
+- * Shut down all smd clients by making sure that each edge stops processing
+- * events and scanning for new channels, then call destroy on the devices.
+- */
+-static int qcom_smd_remove(struct platform_device *pdev)
+-{
+-	int ret;
+-
+-	ret = device_for_each_child(&pdev->dev, NULL, qcom_smd_remove_edge);
+-	if (ret)
+-		dev_warn(&pdev->dev, "can't remove smd device: %d\n", ret);
+-
+-	return ret;
+-}
+-
+-static const struct of_device_id qcom_smd_of_match[] = {
+-	{ .compatible = "qcom,smd" },
+-	{}
+-};
+-MODULE_DEVICE_TABLE(of, qcom_smd_of_match);
+-
+-static struct platform_driver qcom_smd_driver = {
+-	.probe = qcom_smd_probe,
+-	.remove = qcom_smd_remove,
 -	.driver = {
-+	.id_table = qcom_smd_qrtr_smd_match,
-+	.drv = {
- 		.name = "qcom_smd_qrtr",
--		.owner = THIS_MODULE,
- 	},
- };
+-		.name = "qcom-smd",
+-		.of_match_table = qcom_smd_of_match,
+-	},
+-};
+-
+-static int __init qcom_smd_init(void)
+-{
+-	int ret;
+-
+-	ret = bus_register(&qcom_smd_bus);
+-	if (ret) {
+-		pr_err("failed to register smd bus: %d\n", ret);
+-		return ret;
+-	}
+-
+-	return platform_driver_register(&qcom_smd_driver);
+-}
+-postcore_initcall(qcom_smd_init);
+-
+-static void __exit qcom_smd_exit(void)
+-{
+-	platform_driver_unregister(&qcom_smd_driver);
+-	bus_unregister(&qcom_smd_bus);
+-}
+-module_exit(qcom_smd_exit);
+-
+-MODULE_AUTHOR("Bjorn Andersson <bjorn.andersson@sonymobile.com>");
+-MODULE_DESCRIPTION("Qualcomm Shared Memory Driver");
+-MODULE_LICENSE("GPL v2");
+diff --git a/include/linux/rpmsg/qcom_smd.h b/include/linux/rpmsg/qcom_smd.h
+index 8ec8b6439b25..f27917e0a101 100644
+--- a/include/linux/rpmsg/qcom_smd.h
++++ b/include/linux/rpmsg/qcom_smd.h
+@@ -6,7 +6,7 @@
  
--module_qcom_smd_driver(qcom_smd_qrtr_driver);
-+module_rpmsg_driver(qcom_smd_qrtr_driver);
+ struct qcom_smd_edge;
  
- MODULE_DESCRIPTION("Qualcomm IPC-Router SMD interface driver");
- MODULE_LICENSE("GPL v2");
+-#if IS_ENABLED(CONFIG_RPMSG_QCOM_SMD) || IS_ENABLED(CONFIG_QCOM_SMD)
++#if IS_ENABLED(CONFIG_RPMSG_QCOM_SMD)
+ 
+ struct qcom_smd_edge *qcom_smd_register_edge(struct device *parent,
+ 					     struct device_node *node);
+diff --git a/include/linux/soc/qcom/smd.h b/include/linux/soc/qcom/smd.h
+deleted file mode 100644
+index f148e0ffbec7..000000000000
+--- a/include/linux/soc/qcom/smd.h
++++ /dev/null
+@@ -1,139 +0,0 @@
+-#ifndef __QCOM_SMD_H__
+-#define __QCOM_SMD_H__
+-
+-#include <linux/device.h>
+-#include <linux/mod_devicetable.h>
+-
+-struct qcom_smd;
+-struct qcom_smd_channel;
+-struct qcom_smd_lookup;
+-
+-/**
+- * struct qcom_smd_id - struct used for matching a smd device
+- * @name:	name of the channel
+- */
+-struct qcom_smd_id {
+-	char name[20];
+-};
+-
+-/**
+- * struct qcom_smd_device - smd device struct
+- * @dev:	the device struct
+- * @channel:	handle to the smd channel for this device
+- */
+-struct qcom_smd_device {
+-	struct device dev;
+-	struct qcom_smd_channel *channel;
+-};
+-
+-typedef int (*qcom_smd_cb_t)(struct qcom_smd_channel *, const void *, size_t);
+-
+-/**
+- * struct qcom_smd_driver - smd driver struct
+- * @driver:	underlying device driver
+- * @smd_match_table: static channel match table
+- * @probe:	invoked when the smd channel is found
+- * @remove:	invoked when the smd channel is closed
+- * @callback:	invoked when an inbound message is received on the channel,
+- *		should return 0 on success or -EBUSY if the data cannot be
+- *		consumed at this time
+- */
+-struct qcom_smd_driver {
+-	struct device_driver driver;
+-	const struct qcom_smd_id *smd_match_table;
+-
+-	int (*probe)(struct qcom_smd_device *dev);
+-	void (*remove)(struct qcom_smd_device *dev);
+-	qcom_smd_cb_t callback;
+-};
+-
+-#if IS_ENABLED(CONFIG_QCOM_SMD)
+-
+-int qcom_smd_driver_register(struct qcom_smd_driver *drv);
+-void qcom_smd_driver_unregister(struct qcom_smd_driver *drv);
+-
+-struct qcom_smd_channel *qcom_smd_open_channel(struct qcom_smd_channel *channel,
+-					       const char *name,
+-					       qcom_smd_cb_t cb);
+-void qcom_smd_close_channel(struct qcom_smd_channel *channel);
+-void *qcom_smd_get_drvdata(struct qcom_smd_channel *channel);
+-void qcom_smd_set_drvdata(struct qcom_smd_channel *channel, void *data);
+-int qcom_smd_send(struct qcom_smd_channel *channel, const void *data, int len);
+-
+-
+-struct qcom_smd_edge *qcom_smd_register_edge(struct device *parent,
+-					     struct device_node *node);
+-int qcom_smd_unregister_edge(struct qcom_smd_edge *edge);
+-
+-#else
+-
+-static inline int qcom_smd_driver_register(struct qcom_smd_driver *drv)
+-{
+-	return -ENXIO;
+-}
+-
+-static inline void qcom_smd_driver_unregister(struct qcom_smd_driver *drv)
+-{
+-	/* This shouldn't be possible */
+-	WARN_ON(1);
+-}
+-
+-static inline struct qcom_smd_channel *
+-qcom_smd_open_channel(struct qcom_smd_channel *channel,
+-		      const char *name,
+-		      qcom_smd_cb_t cb)
+-{
+-	/* This shouldn't be possible */
+-	WARN_ON(1);
+-	return NULL;
+-}
+-
+-static inline void qcom_smd_close_channel(struct qcom_smd_channel *channel)
+-{
+-	/* This shouldn't be possible */
+-	WARN_ON(1);
+-}
+-
+-static inline void *qcom_smd_get_drvdata(struct qcom_smd_channel *channel)
+-{
+-	/* This shouldn't be possible */
+-	WARN_ON(1);
+-	return NULL;
+-}
+-
+-static inline void qcom_smd_set_drvdata(struct qcom_smd_channel *channel, void *data)
+-{
+-	/* This shouldn't be possible */
+-	WARN_ON(1);
+-}
+-
+-static inline int qcom_smd_send(struct qcom_smd_channel *channel,
+-				const void *data, int len)
+-{
+-	/* This shouldn't be possible */
+-	WARN_ON(1);
+-	return -ENXIO;
+-}
+-
+-static inline struct qcom_smd_edge *
+-qcom_smd_register_edge(struct device *parent,
+-		       struct device_node *node)
+-{
+-	return ERR_PTR(-ENXIO);
+-}
+-
+-static inline int qcom_smd_unregister_edge(struct qcom_smd_edge *edge)
+-{
+-	/* This shouldn't be possible */
+-	WARN_ON(1);
+-	return -ENXIO;
+-}
+-
+-#endif
+-
+-#define module_qcom_smd_driver(__smd_driver) \
+-	module_driver(__smd_driver, qcom_smd_driver_register, \
+-		      qcom_smd_driver_unregister)
+-
+-
+-#endif
 -- 
 2.12.0
