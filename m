@@ -1,204 +1,91 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 1/2] net: vrf: performance improvements for IPv4
-Date: Mon, 20 Mar 2017 11:19:44 -0700
-Message-ID: <1490033985-14874-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1490033985-14874-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/2] net: vrf: performance improvements
+Date: Mon, 20 Mar 2017 11:19:43 -0700
+Message-ID: <1490033985-14874-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36772 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756115AbdCTSUD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 14:20:03 -0400
-Received: by mail-pf0-f170.google.com with SMTP id o126so69271251pfb.3
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:19:58 -0700 (PDT)
-In-Reply-To: <1490033985-14874-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:34965 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756115AbdCTST6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 14:19:58 -0400
+Received: by mail-pg0-f42.google.com with SMTP id t143so15399531pgb.2
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:19:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VRF driver allows users to implement device based features for an
-entire domain. For example, a qdisc or netfilter rules can be attached
-to a VRF device or tcpdump can be used to view packets for all devices
-in the L3 domain.
+Device based features for VRF such as qdisc, netfilter and packet
+captures are implemented by switching the dst on skbuffs to its per-VRF
+dst. This has the effect of controlling the output function which points
+a function in the VRF driver. [1] The skb proceeds down the stack with
+dst->dev pointing to the VRF device. Netfilter, qdisc and tc rules and
+network taps are evaluated based on this device. Finally, the skb makes
+it to the vrf_xmit function which resets the dst based on a FIB lookup.
 
-The device-based features come with a performance penalty, most
-notably in the Tx path. The VRF driver uses the l3mdev_l3_out hook
-to switch the dst on an skb to its private dst. This allows the skb
-to traverse the xmit stack with the device set to the VRF device
-which in turn enables the netfilter and qdisc features. The VRF
-driver then performs the FIB lookup again and reinserts the packet.
+The feature comes at cost - between 5 and 10% depending on test (TCP vs
+UDP, stream vs RR and IPv4 vs IPv6). The main cost is requiring a FIB
+lookup in the VRF driver for each packet sent through it. The FIB lookup
+is required because the real dst gets dropped so that the skb can
+traverse the stack with dst->dev set to the VRF device.
 
-This patch avoids the redirect for IPv4 packets if a qdisc has not
-been attached to a VRF device which is the default config. In this
-case the netfilter hooks and network taps are directly traversed in
-the l3mdev_l3_out handler. If a qdisc is attached to a VRF device,
-then the redirect using the vrf dst is done.
+All of that is really driven by the qdisc and not replicating the
+processing of __dev_queue_xmit if a qdisc is set up on the device. But,
+VRF devices by default do not have a qdisc and really have no need for
+multiple Tx queues. This means the performance overhead is inflicted upon
+all users for the potential use case of a qdisc being configured.
 
-Additional overhead is removed by only checking packet taps if a
-socket is open on the device (vrf_dev->ptype_all list is not empty).
-Packet sockets bound to any device will still get a copy of the
-packet via the real ingress or egress interface.
+The overhead can be avoided by checking if the default configuration
+applies to a specific VRF device before switching the dst. If a device
+does not have a qdisc, the pass through netfilter hooks and packet taps
+can be done inline without dropping the dst and thus avoiding the
+performance penalty. With this change performance overhead of VRF drops
+to neglible (difference with run-over-run variance) to 3% depending on
+test type.
 
-The end result of this change is a decrease in the overhead of VRF
-for the default, baseline case (ie., no netfilter rules, no packet
-sockets, no qdisc) to ~3% for UDP which has a lookup per packet and
-< 1% overhead for connected sockets that leverage early demux and
-avoid FIB lookups.
+netperf performance comparison for 3 cases:
+1. L3_MASTER_DEVICE compiled out
+2. VRF with this patch set
+3. current VRF code
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/vrf.c | 106 ++++++++++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 96 insertions(+), 10 deletions(-)
+IPv4
+----
+           no-l3mdev     new-vrf     old-vrf
+TCP_RR       28778        28938*       27169
+TCP_CRR      10706        10490         9770
+UDP_RR       30750        29813        29256
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 7f28021d9d93..cdf7253ae89e 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -104,6 +104,23 @@ static void vrf_get_stats64(struct net_device *dev,
- 	}
- }
- 
-+/* by default VRF devices do not have a qdisc and are expected
-+ * to be created with only a single queue.
-+ */
-+static bool qdisc_tx_is_default(const struct net_device *dev)
-+{
-+	struct netdev_queue *txq;
-+	struct Qdisc *qdisc;
-+
-+	if (dev->num_tx_queues > 1)
-+		return false;
-+
-+	txq = netdev_get_tx_queue(dev, 0);
-+	qdisc = rcu_access_pointer(txq->qdisc);
-+
-+	return !qdisc->enqueue;
-+}
-+
- /* Local traffic destined to local address. Reinsert the packet to rx
-  * path, similar to loopback handling.
-  */
-@@ -357,6 +374,29 @@ static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return ret;
- }
- 
-+static int vrf_finish_direct(struct net *net, struct sock *sk,
-+			     struct sk_buff *skb)
-+{
-+	struct net_device *vrf_dev = skb->dev;
-+
-+	if (!list_empty(&vrf_dev->ptype_all) &&
-+	    likely(skb_headroom(skb) >= ETH_HLEN)) {
-+		struct ethhdr *eth = (struct ethhdr *)skb_push(skb, ETH_HLEN);
-+
-+		ether_addr_copy(eth->h_source, vrf_dev->dev_addr);
-+		eth_zero_addr(eth->h_dest);
-+		eth->h_proto = skb->protocol;
-+
-+		rcu_read_lock_bh();
-+		dev_queue_xmit_nit(skb, vrf_dev);
-+		rcu_read_unlock_bh();
-+
-+		skb_pull(skb, ETH_HLEN);
-+	}
-+
-+	return 1;
-+}
-+
- #if IS_ENABLED(CONFIG_IPV6)
- /* modelled after ip6_finish_output2 */
- static int vrf_finish_output6(struct net *net, struct sock *sk,
-@@ -607,18 +647,13 @@ static int vrf_output(struct net *net, struct sock *sk, struct sk_buff *skb)
-  * packet to go through device based features such as qdisc, netfilter
-  * hooks and packet sockets with skb->dev set to vrf device.
-  */
--static struct sk_buff *vrf_ip_out(struct net_device *vrf_dev,
--				  struct sock *sk,
--				  struct sk_buff *skb)
-+static struct sk_buff *vrf_ip_out_redirect(struct net_device *vrf_dev,
-+					   struct sk_buff *skb)
- {
- 	struct net_vrf *vrf = netdev_priv(vrf_dev);
- 	struct dst_entry *dst = NULL;
- 	struct rtable *rth;
- 
--	/* don't divert multicast */
--	if (ipv4_is_multicast(ip_hdr(skb)->daddr))
--		return skb;
--
- 	rcu_read_lock();
- 
- 	rth = rcu_dereference(vrf->rth);
-@@ -640,6 +675,55 @@ static struct sk_buff *vrf_ip_out(struct net_device *vrf_dev,
- 	return skb;
- }
- 
-+static int vrf_output_direct(struct net *net, struct sock *sk,
-+			     struct sk_buff *skb)
-+{
-+	skb->protocol = htons(ETH_P_IP);
-+
-+	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
-+			    net, sk, skb, NULL, skb->dev,
-+			    vrf_finish_direct,
-+			    !(IPCB(skb)->flags & IPSKB_REROUTED));
-+}
-+
-+static struct sk_buff *vrf_ip_out_direct(struct net_device *vrf_dev,
-+					 struct sock *sk,
-+					 struct sk_buff *skb)
-+{
-+	struct net *net = dev_net(vrf_dev);
-+	int err;
-+
-+	skb->dev = vrf_dev;
-+
-+	err = nf_hook(NFPROTO_IPV4, NF_INET_LOCAL_OUT, net, sk,
-+		      skb, NULL, vrf_dev, vrf_output_direct);
-+
-+	if (likely(err == 1))
-+		err = vrf_output_direct(net, sk, skb);
-+
-+	/* reset skb device */
-+	if (likely(err == 1))
-+		nf_reset(skb);
-+	else
-+		skb = NULL;
-+
-+	return skb;
-+}
-+
-+static struct sk_buff *vrf_ip_out(struct net_device *vrf_dev,
-+				  struct sock *sk,
-+				  struct sk_buff *skb)
-+{
-+	/* don't divert multicast */
-+	if (ipv4_is_multicast(ip_hdr(skb)->daddr))
-+		return skb;
-+
-+	if (qdisc_tx_is_default(vrf_dev))
-+		return vrf_ip_out_direct(vrf_dev, sk, skb);
-+
-+	return vrf_ip_out_redirect(vrf_dev, skb);
-+}
-+
- /* called with rcu lock held */
- static struct sk_buff *vrf_l3_out(struct net_device *vrf_dev,
- 				  struct sock *sk,
-@@ -1023,9 +1107,11 @@ static struct sk_buff *vrf_ip_rcv(struct net_device *vrf_dev,
- 
- 	vrf_rx_stats(vrf_dev, skb->len);
- 
--	skb_push(skb, skb->mac_len);
--	dev_queue_xmit_nit(skb, vrf_dev);
--	skb_pull(skb, skb->mac_len);
-+	if (!list_empty(&vrf_dev->ptype_all)) {
-+		skb_push(skb, skb->mac_len);
-+		dev_queue_xmit_nit(skb, vrf_dev);
-+		skb_pull(skb, skb->mac_len);
-+	}
- 
- 	skb = vrf_rcv_nfhook(NFPROTO_IPV4, NF_INET_PRE_ROUTING, skb, vrf_dev);
- out:
+* Although higher in the final run used for submitting this patch set, I
+  think what this really represents is a neglible performance overhead for
+  VRF with this change (i.e, within the +-1% variance of runs). Most
+  notably the FIB lookups in the Tx path are avoided for TCP_RR.
+
+IPv6
+----
+           no-l3mdev     new-vrf     old-vrf
+TCP_RR       29495        29432       27794
+TCP_CRR      10520        10338        9870
+UDP_RR       26137        27019*      26511
+
+* UDP is consistently better with VRF for two reasons:
+  1. Source address selection with L3 domains is considering fewer
+     addresses since only addresses on interfaces in the domain are
+     considered for the selection. Specifically, perf-top shows
+     shows ipv6_get_saddr_eval, ipv6_dev_get_saddr and __ipv6_dev_get_saddr
+     running much lower with vrf than without.
+
+  2. The VRF table contains all routes (i.e, there are no separate local
+     and main tables per VRF). That means ip6_pol_route_output only has 1
+     lookup for VRF where it does 2 without it (1 in the local table and 1
+     in the main table).
+
+[1] http://netdevconf.org/1.2/papers/ahern-what-is-l3mdev-paper.pdf
+
+David Ahern (2):
+  net: vrf: performance improvements for IPv4
+  net: vrf: performance improvements for IPv6
+
+ drivers/net/vrf.c | 172 +++++++++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 152 insertions(+), 20 deletions(-)
+
 -- 
 2.1.4
