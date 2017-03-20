@@ -1,60 +1,48 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH nf 1/1] netfilter: snmp: Fix one possible panic when
- snmp_trap_helper fail to register
-Date: Mon, 20 Mar 2017 17:57:21 +0800
-Message-ID: <CA+6hz4qqSnBDFuNQNkBGpaEc1t2o+o6+TDKN4rZWcwjygxcXWA@mail.gmail.com>
-References: <1489974248-60293-1-git-send-email-fgao@ikuai8.com> <b2344023-5045-a127-a3f2-0fc7ef898505@cogentembedded.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from atomic_t to
+ refcount_t
+Date: Mon, 20 Mar 2017 11:39:37 +0100
+Message-ID: <20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
+References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170318164759.GA23837@gondor.apana.org.au>
+ <20170318.182121.439615057765380575.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, jolsa@redhat.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:36666 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753442AbdCTKZC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 06:25:02 -0400
-In-Reply-To: <b2344023-5045-a127-a3f2-0fc7ef898505@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
+        elena.reshetova@intel.com, keescook@chromium.org,
+        netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, kaber@trash.net, stephen@networkplumber.org,
+        ishkamiel@gmail.com, dwindsor@gmail.com, akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170318.182121.439615057765380575.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 20, 2017 at 5:37 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello!
->
-> On 3/20/2017 4:44 AM, fgao@ikuai8.com wrote:
->
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> In the commit ("netfilter: nf_conntrack: nf_conntrack snmp helper"),
->
->
->    Need to specify the 12-digit SHA1 ID as well.
+On Sat, Mar 18, 2017 at 06:21:21PM -0700, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Sun, 19 Mar 2017 00:47:59 +0800
+> 
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> On Fri, 2017-03-17 at 07:42 +0000, Reshetova, Elena wrote:
+> >> 
+> >>> Should we then first measure the actual numbers to understand what we
+> >>> are talking here about? 
+> >>> I would be glad to do it if you suggest what is the correct way to do
+> >>> measurements here to actually reflect the real life use cases. 
+> >> 
+> >> How have these patches been tested in real life exactly ?
+> >> 
+> >> Can you quantify number of added cycles per TCP packet, where I expect
+> >> we have maybe 20 atomic operations in all layers ...
+> > 
+> > I completely agree.  I think this thing needs to default to the
+> > existing atomic_t behaviour.
+> 
+> I totally agree as well, the refcount_t facility as-is is unacceptable
+> for networking.
 
-Thanks Sergei.
-I didn't know it is asked to add SHA1 ID into description, thanks your reminder.
-
-I have sent the v2 patch.
-
-Regards
-Feng
-
->
->> the snmp_helper is replaced by nf_nat_snmp_hook. So the snmp_helper
->> is never registered. But it still tries to unregister the snmp_helper,
->> it could cause the panic.
->>
->> Now remove the useless snmp_helper and the unregister call in the
->> error handler.
->>
->> Fixes: 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp helper")
->>
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->
-> [...]
->
-> MBR, Sergei
->
+Can we at least give a benchmark and have someone run numbers? We should
+be able to quantify these things.
