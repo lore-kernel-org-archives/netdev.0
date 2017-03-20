@@ -1,42 +1,59 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net 1/1] net: tcp: Permit user set TCP_MAXSEG to default value
-Date: Tue, 21 Mar 2017 05:30:17 +0800
-Message-ID: <1490045417-32412-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: Re: mlx5e backports for v4.9 -stable
+Date: Mon, 20 Mar 2017 23:32:57 +0200
+Message-ID: <a53a8f31-a01f-50ee-7aef-4c1a37f2c393@mellanox.com>
+References: <20170316.170631.2026655873781156952.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <tariqt@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg291.qq.com ([113.108.11.223]:43787 "EHLO smtpbg291.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755919AbdCTVbd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 17:31:33 -0400
+Received: from mail-ve1eur01on0055.outbound.protection.outlook.com ([104.47.1.55]:48080
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753046AbdCTVdP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 17:33:15 -0400
+In-Reply-To: <20170316.170631.2026655873781156952.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
 
-When user_mss is zero, it means use the default value. But the current
-codes don't permit user set TCP_MAXSEG to the default value.
-It would return the -EINVAL when val is zero.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/ipv4/tcp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+On 03/17/2017 02:06 AM, David Miller wrote:
+> 
+> Commits:
+> 
+> ====================
+> From b0d4660b4cc52e6477ca3a43435351d565dfcedc Mon Sep 17 00:00:00 2001
+> From: Tariq Toukan <tariqt@mellanox.com>
+> Date: Wed, 22 Feb 2017 17:20:14 +0200
+> Subject: [PATCH] net/mlx5e: Fix broken CQE compression initialization
+> ====================
+> 
+> and
+> 
+> ====================
+> From 6dc4b54e77282caf17f0ff72aa32dd296037fbc0 Mon Sep 17 00:00:00 2001
+> From: Saeed Mahameed <saeedm@mellanox.com>
+> Date: Wed, 22 Feb 2017 17:20:15 +0200
+> Subject: [PATCH] net/mlx5e: Update MPWQE stride size when modifying CQE
+>  compress state
+> ====================
+> 
+> do not apply even closely to v4.9 while I was working on -stable backports.
+> 
+> Please provide proper backports of these two patches if you want them to
+> show up in v4.9 -stable.
+> 
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1e319a5..dd5e8e2 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2470,7 +2470,8 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		/* Values greater than interface MTU won't take effect. However
- 		 * at the point when this call is done we typically don't yet
- 		 * know which interface is going to be used */
--		if (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW) {
-+		if (val < 0 || (val > 0 && val < TCP_MIN_MSS) ||
-+		    val > MAX_TCP_WINDOW) {
- 			err = -EINVAL;
- 			break;
- 		}
--- 
-1.9.1
+Hi Dave,
+
+thank you for trying, we will provide the patches, but I don't know what is the right procedure
+to do so.
+
+is it ok to post the patches applied on top tag v4.9.16  of kernel/git/stable/linux-stable.git ?
+to whom should I send them ? 
+
+thanks,
+Saeed.
