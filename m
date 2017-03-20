@@ -1,31 +1,35 @@
-From: "aishagada7@ono.com" <aishagada7@ono.com>
-Subject: FROM AISHA GADDAFI
-Date: Mon, 20 Mar 2017 12:58:54 +0100 (CET)
-Message-ID: <25309075.174711490011134379.JavaMail.defaultUser__25841.6649805897$1490012196$gmane$org@defaultHost>
-Reply-To: aishagada7@ono.com
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH] mlxsw: spectrum: fix swapped order of arguments packets
+ and bytes
+Date: Mon, 20 Mar 2017 14:16:19 +0200
+Message-ID: <20170320121619.GA12091@splinter.mtl.com>
+References: <20170320113722.30311-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ono.com ([62.42.230.163]:33925 "EHLO smtp3.ono.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754205AbdCTMOy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 08:14:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170320113722.30311-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-for more details,contact me at my private email : agaddafi752(at)gmail.
-com
-Dr. Aisha Gaddafi, the daughter of late Libyan president, I need a 
-partner or an investor that will help me in investing the sum of $87.5 
-million USD in his or her country, the funds is deposited here in 
-Burkina Faso where I am staying for the moment with my family, I would 
-like to know your mind tows the investment  of the total sum mentioned 
-above, note you will received  30% of the total sum after the transfer 
-is completed into your account, 
-for more details,contact me at my private email : agaddafi752(at)gmail.
-com
-Yours friend Dr. Aisha Gaddafi
- 
-FROM AISHA GADDAFI
+On Mon, Mar 20, 2017 at 11:37:22AM +0000, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The arguments packets and bytes to call mlxsw_sp_acl_rule_get_stats are
+> in the wrong order. Fix this by swapping them.
+> 
+> Detected by CoverityScan, CID#1419705 ("Arguments in wrong order")
+> 
+> Fixes: 7c1b8eb175b69add8ea ("mlxsw: spectrum: Add support for TC flower offload statistics")
+
+Only need first 12 characters.
+
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+
+Acked-by: Ido Schimmel <idosch@mellanox.com>
+
+Thanks!
