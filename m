@@ -1,79 +1,65 @@
-From: Shuah Khan <shuah@kernel.org>
-Subject: Re: [PATCH v2 net] selftests/bpf: fix broken build, take 2
-Date: Mon, 20 Mar 2017 10:37:26 -0600
-Message-ID: <8300dcbc-8652-6366-bb57-96feb06c5998@kernel.org>
-References: <1489989794-6859-1-git-send-email-zlim.lnx@gmail.com>
- <58CFF5D0.8040708@iogearbox.net>
- <20170320154523.GA80094@ast-mbp.thefacebook.com>
-Reply-To: shuah@kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] net: convert sk_filter.refcnt from atomic_t to refcount_t
+Date: Mon, 20 Mar 2017 18:13:33 +0100
+Message-ID: <58D00DBD.5080702@iogearbox.net>
+References: <1490002641-10498-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
-        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-        Shuah Khan <shuah@kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-po-11v.sys.comcast.net ([96.114.154.170]:55458 "EHLO
-        resqmta-po-11v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755872AbdCTQtW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 12:49:22 -0400
-In-Reply-To: <20170320154523.GA80094@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ast@fb.com, linux-kernel@vger.kernel.org, peterz@infradead.org,
+        netdev@vger.kernel.org, Hans Liljestrand <ishkamiel@gmail.com>,
+        Kees Cook <keescook@chromium.org>,
+        David Windsor <dwindsor@gmail.com>
+To: Elena Reshetova <elena.reshetova@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490002641-10498-1-git-send-email-elena.reshetova@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/20/2017 09:45 AM, Alexei Starovoitov wrote:
-> On Mon, Mar 20, 2017 at 04:31:28PM +0100, Daniel Borkmann wrote:
->> On 03/20/2017 07:03 AM, Zi Shen Lim wrote:
->>> Merge of 'linux-kselftest-4.11-rc1':
->>>
->>> 1. Partially removed use of 'test_objs' target, breaking force rebuild of
->>> BPFOBJ, introduced in commit d498f8719a09 ("bpf: Rebuild bpf.o for any
->>> dependency update").
->>>
->>>   Update target so dependency on BPFOBJ is restored.
->>>
->>> 2. Introduced commit 2047f1d8ba28 ("selftests: Fix the .c linking rule")
->>> which fixes order of LDLIBS.
->>>
->>>   Commit d02d8986a768 ("bpf: Always test unprivileged programs") added
->>> libcap dependency into CFLAGS. Use LDLIBS instead to fix linking of
->>> test_verifier.
->>>
->>> 3. Introduced commit d83c3ba0b926 ("selftests: Fix selftests build to
->>> just build, not run tests").
->>>
->>>   Reordering the Makefile allows us to remove the 'all' target.
->>>
->>> Tested both:
->>>     selftests/bpf$ make
->>> and
->>>     selftests$ make TARGETS=bpf
->>> on Ubuntu 16.04.2.
->>>
->>> Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
->>
->> Looks reasonable to me as follow up to 1da8ac7c49fb ("selftests/bpf:
->> fix broken build"), thanks for fixing Zi!
->>
->> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->> Tested-by: Daniel Borkmann <daniel@iogearbox.net>
-> 
-> worked for me as well:
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> Tested-by: Alexei Starovoitov <ast@kernel.org>
-> 
-> 
-> 
+On 03/20/2017 10:37 AM, Elena Reshetova wrote:
+[...]
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index ebaeaf2..389cb8d 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -928,7 +928,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
+>    */
+>   static void sk_filter_release(struct sk_filter *fp)
+>   {
+> -	if (atomic_dec_and_test(&fp->refcnt))
+> +	if (refcount_dec_and_test(&fp->refcnt))
+>   		call_rcu(&fp->rcu, sk_filter_release_rcu);
+>   }
+>
+> @@ -943,20 +943,27 @@ void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
+>   /* try to charge the socket memory if there is space available
+>    * return true on success
+>    */
+> -bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+> +bool __sk_filter_charge(struct sock *sk, struct sk_filter *fp)
 
-David,
+And this then becomes: static bool __sk_filter_charge(...)
 
-Could you please apply it to your tree. I think you already applied
-the first fix.
+>   {
+>   	u32 filter_size = bpf_prog_size(fp->prog->len);
+>
+>   	/* same check as in sock_kmalloc() */
+>   	if (filter_size <= sysctl_optmem_max &&
+>   	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
+> -		atomic_inc(&fp->refcnt);
+>   		atomic_add(filter_size, &sk->sk_omem_alloc);
+>   		return true;
+>   	}
+>   	return false;
+>   }
 
-Acked-by: Shuah Khan <shuahkh@osg.samsung.com>
+Since here is just all in slow-path, looks fine to me if the above
+is addressed as well in v3:
 
-thanks,
--- Shuah
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Please make sure you add [PATCH net-next] in your subject in future
+so that it's clear which tree this goes to.
+
+Thanks,
+Daniel
