@@ -1,46 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from atomic_t to
- refcount_t
-Date: Mon, 20 Mar 2017 09:34:44 -0700
-Message-ID: <1490027684.16816.63.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170318164759.GA23837@gondor.apana.org.au>
-         <20170318.182121.439615057765380575.davem@davemloft.net>
-         <20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
-         <20170320131629.GA26405@gondor.apana.org.au>
-         <20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
-         <20170320132713.GA26954@gondor.apana.org.au>
-         <20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-         <1490021461.16816.52.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1490021946.16816.54.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1490026735.16816.58.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH nf v2 1/1] netfilter: snmp: Fix one possible panic when
+ snmp_trap_helper fail to register
+Date: Mon, 20 Mar 2017 19:35:28 +0300
+Message-ID: <4da3e4cf-bcfa-e0fe-539c-4fc03e8959a9@cogentembedded.com>
+References: <1490003728-33866-1-git-send-email-fgao@ikuai8.com>
+ <02f61fe0-37d9-8837-1c8f-390c5dea6ff4@cogentembedded.com>
+ <CA+6hz4pkQR0xvwru2cr8gPgsC6aeEXh+45+82awk_BE5D-mqTQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        David Miller <davem@davemloft.net>, elena.reshetova@intel.com,
-        keescook@chromium.org, netdev@vger.kernel.org,
-        bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        stephen@networkplumber.org, ishkamiel@gmail.com,
-        dwindsor@gmail.com, akpm@linux-foundation.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490026735.16816.58.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        "David S. Miller" <davem@davemloft.net>, jolsa@redhat.com,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Feng Gao <gfree.wind@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:32943 "EHLO
+        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755403AbdCTQfn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 12:35:43 -0400
+Received: by mail-lf0-f46.google.com with SMTP id a6so57729130lfa.0
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 09:35:36 -0700 (PDT)
+In-Reply-To: <CA+6hz4pkQR0xvwru2cr8gPgsC6aeEXh+45+82awk_BE5D-mqTQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-03-20 at 09:18 -0700, Eric Dumazet wrote:
+On 03/20/2017 01:15 PM, Feng Gao wrote:
 
-> Interesting.
-> 
-> UDP ipv4 xmit path gets a ~25 % improvement on PPC with this patch.
-> 
-> ( 20 concurrent netperf -t UDP_STREAM  : 2.45 Mpps -> 3.07 Mpps )
+>>> From: Gao Feng <fgao@ikuai8.com>
+>>>
+>>> In the commit <93557f53e1fb> ("netfilter: nf_conntrack: nf_conntrack snmp
+>>
+>>
+>>    Angle brackets not needed. :-)
+>>    The commit citing style is the same as for the Fixes: tag.
+>
+> The checkpatch.pl reports the following error, if remove the angle brackets.
 
-Well, there _is_ a difference, but not 25 % (this was probably caused by
-different queues on TX or RX between my reboots).
+    Because it stops recognizing the commit ID! :-)
 
-I added a sysctl hack to be able to dynamically change on a given
-workload, and we hit other bottlenecks (mainly qdisc locks and driver tx
-locks) anyway.
+> ERROR: Please use git commit description style 'commit <12+ chars of
+> sha1> ("<title line>")' - ie: 'commit fatal: ambig ("evision or path
+> not in the working tree.")'
+
+    So check the patch in the correct tree because that seems to be the 
+problem... Angle brackets are surely not required.
+
+> #7:
+> In the commit 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp
+>
+> total: 1 errors, 0 warnings, 0 checks, 27 lines checked
+>
+>
+> Regards
+> Feng
+
+[...]
+
+MBR, Sergei
