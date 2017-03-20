@@ -1,32 +1,35 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: Re: [PATCH net-next] stmmac: call stmmac_init_phy from
  stmmac_dvr_probe
-Date: Mon, 20 Mar 2017 17:42:25 +0000
-Message-ID: <ca027cda-2a8f-55d9-42e9-7f26e832e7bf@synopsys.com>
+Date: Mon, 20 Mar 2017 10:43:48 -0700
+Message-ID: <257f3b05-805d-fd59-5435-89ede6b0fe4b@gmail.com>
 References: <20170320172915.8313-1-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Niklas Cassel <niklass@axis.com>
-To: Niklas Cassel <niklas.cassel@axis.com>, <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:57179 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753264AbdCTRmb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 13:42:31 -0400
+To: Niklas Cassel <niklas.cassel@axis.com>, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, Joao.Pinto@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170320172915.8313-1-niklass@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Às 5:29 PM de 3/20/2017, Niklas Cassel escreveu:
+On 03/20/2017 10:29 AM, Niklas Cassel wrote:
 > From: Niklas Cassel <niklas.cassel@axis.com>
 > 
 > It is usually possible to do
 > ethtool -s autoneg on
 > so that you trigger an autoneg before calling
 > ip link set dev eth0 up
+
+This is completely driver specific and there is no guarantee for this to
+work universally across all device drivers because when your interface
+is brought down, the most sensible thing to expect in return is that
+your PHY is powered down (unless your interface participates in
+Wake-on-LAN).
+
 > 
 > However, stmmac returns -EBUSY if !netif_running.
 > The only reason for this appears to be that stmmac_init_phy
@@ -36,11 +39,15 @@ List-ID: <netdev.vger.kernel.org>
 > works as soon as register_netdev has been called.
 > stmmac_check_ether_addr was also moved to probe,
 > so that the ordering doesn't change.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-> ---
 
-Hi Niklas, did you test this patch?
+Are you sure this is a good idea? There are many drivers that moved the
+PHY probe into ndo_open() for mainly two things:
 
-Thanks.
-Joao
+- phy_connect() starts the PHY state machine and starting the state
+machine without a network device running is kind of wasting cycles
+
+- if the interface is probed, but not used, you are keeping the Ethernet
+link running without being able to service packets, which is at best a
+waste of power
+--
+Florian
