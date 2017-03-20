@@ -1,80 +1,60 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: out_qlen should be updated when pruning unsent
- queue
-Date: Mon, 20 Mar 2017 15:43:11 -0300
-Message-ID: <20170320184311.GE23553@localhost.localdomain>
-References: <16cb6e6d2ef47481123bc3ff1b99e8abf5334d14.1489838639.git.lucien.xin@gmail.com>
+From: Akshay Bhat <akshay.bhat-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH v4 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
+Date: Mon, 20 Mar 2017 15:04:46 -0400
+Message-ID: <31a8e038-f0b8-6854-6ab9-288a79ff91d0@timesys.com>
+References: <1489785040-26477-1-git-send-email-akshay.bhat@timesys.com>
+ <1489785040-26477-2-git-send-email-akshay.bhat@timesys.com>
+ <78bf099d-32ad-9981-6ba9-fe56fbcabc3e@grandegger.com>
+ <7f768a65-bdf0-3b43-17e8-9aaca5997663@timesys.com>
+ <86fb20f6-8a3a-163f-9dc6-ba7f5368b689@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57670 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932757AbdCTSnZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 14:43:25 -0400
-Content-Disposition: inline
-In-Reply-To: <16cb6e6d2ef47481123bc3ff1b99e8abf5334d14.1489838639.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Akshay Bhat <nodeax-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <86fb20f6-8a3a-163f-9dc6-ba7f5368b689-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 18, 2017 at 08:03:59PM +0800, Xin Long wrote:
-> This patch is to fix the issue that sctp_prsctp_prune_sent forgot
-> to update q->out_qlen when removing a chunk from unsent queue.
-> 
-> Fixes: 8dbdf1f5b09c ("sctp: implement prsctp PRIO policy")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Hi Wolfgang,
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+On 03/20/2017 12:46 PM, Wolfgang Grandegger wrote:
+..snip..
+>>
+>> The top 3 bits of HI3110_READ_ERR (BUSOFF, TXERRP, RXERRP) are valid
+>> even if HI3110_INT_BUSERR is not set.
+> 
+> I'm confused! If you disable BUSERR interrupts, you do not get the
+> status bits any longer, you said. But the manual says: "Bits 4:0 in the
+> ERR register can be read to determine the source of the error.", which
+> excludes the above bits... but obviously the controller does it that way.
+> 
 
-> ---
->  net/sctp/outqueue.c | 11 +++++------
->  1 file changed, 5 insertions(+), 6 deletions(-)
-> 
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index db352e5..025ccff 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -382,17 +382,18 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
->  }
->  
->  static int sctp_prsctp_prune_unsent(struct sctp_association *asoc,
-> -				    struct sctp_sndrcvinfo *sinfo,
-> -				    struct list_head *queue, int msg_len)
-> +				    struct sctp_sndrcvinfo *sinfo, int msg_len)
->  {
-> +	struct sctp_outq *q = &asoc->outqueue;
->  	struct sctp_chunk *chk, *temp;
->  
-> -	list_for_each_entry_safe(chk, temp, queue, list) {
-> +	list_for_each_entry_safe(chk, temp, &q->out_chunk_list, list) {
->  		if (!SCTP_PR_PRIO_ENABLED(chk->sinfo.sinfo_flags) ||
->  		    chk->sinfo.sinfo_timetolive <= sinfo->sinfo_timetolive)
->  			continue;
->  
->  		list_del_init(&chk->list);
-> +		q->out_qlen -= chk->skb->len;
->  		asoc->sent_cnt_removable--;
->  		asoc->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
->  
-> @@ -431,9 +432,7 @@ void sctp_prsctp_prune(struct sctp_association *asoc,
->  			return;
->  	}
->  
-> -	sctp_prsctp_prune_unsent(asoc, sinfo,
-> -				 &asoc->outqueue.out_chunk_list,
-> -				 msg_len);
-> +	sctp_prsctp_prune_unsent(asoc, sinfo, msg_len);
->  }
->  
->  /* Mark all the eligible packets on a transport for retransmission.  */
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+I agree this feature could use better documentation.
+
+Based on testing:
+
+If BUSERRIE bit in INTE is clear,
+On cable disconnect: No interrupts related to bus errors are generated.
+So status change messages do not go out.
+
+If BUSERRIE bit in INTE is set,
+On cable disconnect: Interrupts are generated due to ACKERR. The
+interrupt routine reads the BUSOFF/TXERRP/RXERRP bits of ERR register
+and reports the state. If CAN_CTRLMODE_BERR_REPORTING is set, then
+protocol errors are also reported by the interrupt.
+On cable re-connect: Interrupts are generated due to TXCPLT. The
+interrupt routine reads the BUSOFF/TXERRP/RXERRP bits of ERR register
+and reports the state.
+
+Let me know if this helps clear things up :)
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
