@@ -1,165 +1,159 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/22] netfilter: Use pr_cont where appropriate
-Date: Mon, 20 Mar 2017 11:08:32 +0100
-Message-ID: <1490004530-9128-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 15/22] netfilter: nft_set_rbtree: use per-set rwlock to improve the scalability
+Date: Mon, 20 Mar 2017 11:08:43 +0100
+Message-ID: <1490004530-9128-16-git-send-email-pablo@netfilter.org>
 References: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52112 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754019AbdCTKJk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 06:09:40 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id EBE19523E9
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:08 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id DB191DA7F7
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:08 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 4C810DA86E
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:03 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
+From: Liping Zhang <zlpnobody@gmail.com>
 
-Logging output was changed when simple printks without KERN_CONT
-are now emitted on a new line and KERN_CONT is required to continue
-lines so use pr_cont.
+Karel Rericha reported that in his test case, ICMP packets going through
+boxes had normally about 5ms latency. But when running nft, actually
+listing the sets with interval flags, latency would go up to 30-100ms.
+This was observed when router throughput is from 600Mbps to 2Gbps.
 
-Miscellanea:
+This is because we use a single global spinlock to protect the whole
+rbtree sets, so "dumping sets" will race with the "key lookup" inevitably.
+But actually they are all _readers_, so it's ok to convert the spinlock
+to rwlock to avoid competition between them. Also use per-set rwlock since
+each set is independent.
 
-o realign arguments
-o use print_hex_dump instead of a local variant
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Reported-by: Karel Rericha <karel@unitednetworks.cz>
+Tested-by: Karel Rericha <karel@unitednetworks.cz>
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/netfilter/ebt_log.c         | 34 +++++++++++++++++-----------------
- net/ipv4/netfilter/nf_nat_snmp_basic.c | 15 ++-------------
- 2 files changed, 19 insertions(+), 30 deletions(-)
+ net/netfilter/nft_set_rbtree.c | 31 ++++++++++++++++---------------
+ 1 file changed, 16 insertions(+), 15 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index 98b9c8e8615e..707caea39743 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -62,10 +62,10 @@ print_ports(const struct sk_buff *skb, uint8_t protocol, int offset)
- 		pptr = skb_header_pointer(skb, offset,
- 					  sizeof(_ports), &_ports);
- 		if (pptr == NULL) {
--			printk(" INCOMPLETE TCP/UDP header");
-+			pr_cont(" INCOMPLETE TCP/UDP header");
- 			return;
- 		}
--		printk(" SPT=%u DPT=%u", ntohs(pptr->src), ntohs(pptr->dst));
-+		pr_cont(" SPT=%u DPT=%u", ntohs(pptr->src), ntohs(pptr->dst));
- 	}
- }
+diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
+index 78dfbf9588b3..e97e2fb53f0a 100644
+--- a/net/netfilter/nft_set_rbtree.c
++++ b/net/netfilter/nft_set_rbtree.c
+@@ -18,9 +18,8 @@
+ #include <linux/netfilter/nf_tables.h>
+ #include <net/netfilter/nf_tables.h>
  
-@@ -100,11 +100,11 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
+-static DEFINE_SPINLOCK(nft_rbtree_lock);
+-
+ struct nft_rbtree {
++	rwlock_t		lock;
+ 	struct rb_root		root;
+ };
  
- 		ih = skb_header_pointer(skb, 0, sizeof(_iph), &_iph);
- 		if (ih == NULL) {
--			printk(" INCOMPLETE IP header");
-+			pr_cont(" INCOMPLETE IP header");
- 			goto out;
- 		}
--		printk(" IP SRC=%pI4 IP DST=%pI4, IP tos=0x%02X, IP proto=%d",
--		       &ih->saddr, &ih->daddr, ih->tos, ih->protocol);
-+		pr_cont(" IP SRC=%pI4 IP DST=%pI4, IP tos=0x%02X, IP proto=%d",
-+			&ih->saddr, &ih->daddr, ih->tos, ih->protocol);
- 		print_ports(skb, ih->protocol, ih->ihl*4);
- 		goto out;
- 	}
-@@ -120,11 +120,11 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
+@@ -44,14 +43,14 @@ static bool nft_rbtree_equal(const struct nft_set *set, const void *this,
+ static bool nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
+ 			      const u32 *key, const struct nft_set_ext **ext)
+ {
+-	const struct nft_rbtree *priv = nft_set_priv(set);
++	struct nft_rbtree *priv = nft_set_priv(set);
+ 	const struct nft_rbtree_elem *rbe, *interval = NULL;
+ 	u8 genmask = nft_genmask_cur(net);
+ 	const struct rb_node *parent;
+ 	const void *this;
+ 	int d;
  
- 		ih = skb_header_pointer(skb, 0, sizeof(_iph), &_iph);
- 		if (ih == NULL) {
--			printk(" INCOMPLETE IPv6 header");
-+			pr_cont(" INCOMPLETE IPv6 header");
- 			goto out;
- 		}
--		printk(" IPv6 SRC=%pI6 IPv6 DST=%pI6, IPv6 priority=0x%01X, Next Header=%d",
--		       &ih->saddr, &ih->daddr, ih->priority, ih->nexthdr);
-+		pr_cont(" IPv6 SRC=%pI6 IPv6 DST=%pI6, IPv6 priority=0x%01X, Next Header=%d",
-+			&ih->saddr, &ih->daddr, ih->priority, ih->nexthdr);
- 		nexthdr = ih->nexthdr;
- 		offset_ph = ipv6_skip_exthdr(skb, sizeof(_iph), &nexthdr, &frag_off);
- 		if (offset_ph == -1)
-@@ -142,12 +142,12 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
- 
- 		ah = skb_header_pointer(skb, 0, sizeof(_arph), &_arph);
- 		if (ah == NULL) {
--			printk(" INCOMPLETE ARP header");
-+			pr_cont(" INCOMPLETE ARP header");
- 			goto out;
- 		}
--		printk(" ARP HTYPE=%d, PTYPE=0x%04x, OPCODE=%d",
--		       ntohs(ah->ar_hrd), ntohs(ah->ar_pro),
--		       ntohs(ah->ar_op));
-+		pr_cont(" ARP HTYPE=%d, PTYPE=0x%04x, OPCODE=%d",
-+			ntohs(ah->ar_hrd), ntohs(ah->ar_pro),
-+			ntohs(ah->ar_op));
- 
- 		/* If it's for Ethernet and the lengths are OK,
- 		 * then log the ARP payload
-@@ -161,17 +161,17 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
- 			ap = skb_header_pointer(skb, sizeof(_arph),
- 						sizeof(_arpp), &_arpp);
- 			if (ap == NULL) {
--				printk(" INCOMPLETE ARP payload");
-+				pr_cont(" INCOMPLETE ARP payload");
- 				goto out;
+-	spin_lock_bh(&nft_rbtree_lock);
++	read_lock_bh(&priv->lock);
+ 	parent = priv->root.rb_node;
+ 	while (parent != NULL) {
+ 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
+@@ -75,7 +74,7 @@ static bool nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
  			}
--			printk(" ARP MAC SRC=%pM ARP IP SRC=%pI4 ARP MAC DST=%pM ARP IP DST=%pI4",
--					ap->mac_src, ap->ip_src, ap->mac_dst, ap->ip_dst);
-+			pr_cont(" ARP MAC SRC=%pM ARP IP SRC=%pI4 ARP MAC DST=%pM ARP IP DST=%pI4",
-+				ap->mac_src, ap->ip_src,
-+				ap->mac_dst, ap->ip_dst);
- 		}
+ 			if (nft_rbtree_interval_end(rbe))
+ 				goto out;
+-			spin_unlock_bh(&nft_rbtree_lock);
++			read_unlock_bh(&priv->lock);
+ 
+ 			*ext = &rbe->ext;
+ 			return true;
+@@ -85,12 +84,12 @@ static bool nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
+ 	if (set->flags & NFT_SET_INTERVAL && interval != NULL &&
+ 	    nft_set_elem_active(&interval->ext, genmask) &&
+ 	    !nft_rbtree_interval_end(interval)) {
+-		spin_unlock_bh(&nft_rbtree_lock);
++		read_unlock_bh(&priv->lock);
+ 		*ext = &interval->ext;
+ 		return true;
  	}
  out:
--	printk("\n");
-+	pr_cont("\n");
- 	spin_unlock_bh(&ebt_log_lock);
--
+-	spin_unlock_bh(&nft_rbtree_lock);
++	read_unlock_bh(&priv->lock);
+ 	return false;
  }
  
- static unsigned int
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index c9b52c361da2..ef49989c93b1 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -998,18 +998,6 @@ static unsigned char snmp_trap_decode(struct asn1_ctx *ctx,
-  *
-  *****************************************************************************/
+@@ -140,12 +139,13 @@ static int nft_rbtree_insert(const struct net *net, const struct nft_set *set,
+ 			     const struct nft_set_elem *elem,
+ 			     struct nft_set_ext **ext)
+ {
++	struct nft_rbtree *priv = nft_set_priv(set);
+ 	struct nft_rbtree_elem *rbe = elem->priv;
+ 	int err;
  
--static void hex_dump(const unsigned char *buf, size_t len)
--{
--	size_t i;
--
--	for (i = 0; i < len; i++) {
--		if (i && !(i % 16))
--			printk("\n");
--		printk("%02x ", *(buf + i));
--	}
--	printk("\n");
--}
--
- /*
-  * Parse and mangle SNMP message according to mapping.
-  * (And this is the fucking 'basic' method).
-@@ -1026,7 +1014,8 @@ static int snmp_parse_mangle(unsigned char *msg,
- 	struct snmp_object *obj;
+-	spin_lock_bh(&nft_rbtree_lock);
++	write_lock_bh(&priv->lock);
+ 	err = __nft_rbtree_insert(net, set, rbe, ext);
+-	spin_unlock_bh(&nft_rbtree_lock);
++	write_unlock_bh(&priv->lock);
  
- 	if (debug > 1)
--		hex_dump(msg, len);
-+		print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_NONE, 16, 1,
-+			       msg, len, 0);
+ 	return err;
+ }
+@@ -157,9 +157,9 @@ static void nft_rbtree_remove(const struct net *net,
+ 	struct nft_rbtree *priv = nft_set_priv(set);
+ 	struct nft_rbtree_elem *rbe = elem->priv;
  
- 	asn1_open(&ctx, msg, len);
+-	spin_lock_bh(&nft_rbtree_lock);
++	write_lock_bh(&priv->lock);
+ 	rb_erase(&rbe->node, &priv->root);
+-	spin_unlock_bh(&nft_rbtree_lock);
++	write_unlock_bh(&priv->lock);
+ }
  
+ static void nft_rbtree_activate(const struct net *net,
+@@ -224,12 +224,12 @@ static void nft_rbtree_walk(const struct nft_ctx *ctx,
+ 			    struct nft_set *set,
+ 			    struct nft_set_iter *iter)
+ {
+-	const struct nft_rbtree *priv = nft_set_priv(set);
++	struct nft_rbtree *priv = nft_set_priv(set);
+ 	struct nft_rbtree_elem *rbe;
+ 	struct nft_set_elem elem;
+ 	struct rb_node *node;
+ 
+-	spin_lock_bh(&nft_rbtree_lock);
++	read_lock_bh(&priv->lock);
+ 	for (node = rb_first(&priv->root); node != NULL; node = rb_next(node)) {
+ 		rbe = rb_entry(node, struct nft_rbtree_elem, node);
+ 
+@@ -242,13 +242,13 @@ static void nft_rbtree_walk(const struct nft_ctx *ctx,
+ 
+ 		iter->err = iter->fn(ctx, set, iter, &elem);
+ 		if (iter->err < 0) {
+-			spin_unlock_bh(&nft_rbtree_lock);
++			read_unlock_bh(&priv->lock);
+ 			return;
+ 		}
+ cont:
+ 		iter->count++;
+ 	}
+-	spin_unlock_bh(&nft_rbtree_lock);
++	read_unlock_bh(&priv->lock);
+ }
+ 
+ static unsigned int nft_rbtree_privsize(const struct nlattr * const nla[])
+@@ -262,6 +262,7 @@ static int nft_rbtree_init(const struct nft_set *set,
+ {
+ 	struct nft_rbtree *priv = nft_set_priv(set);
+ 
++	rwlock_init(&priv->lock);
+ 	priv->root = RB_ROOT;
+ 	return 0;
+ }
 -- 
 2.1.4
+
