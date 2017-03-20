@@ -1,70 +1,70 @@
-From: PJ Waskiewicz <pjwaskiewicz@gmail.com>
-Subject: [PATCH] enic: Store permanent MAC address during probe()
-Date: Mon, 20 Mar 2017 15:41:20 -0700
-Message-ID: <20170320224120.24484-1-pjw@netapp.com>
-Cc: PJ Waskiewicz <pjwaskiewicz@gmail.com>
-To: netdev@vger.kernel.org, Christian Benvenuti <benve@cisco.com>,
-        Sujith Sankar <ssujith@cisco.com>,
-        Govindarajulu Varadarajan <_govind@gmx.com>,
-        Neel Patel <neepatel@cisco.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 1/1] net: tcp: Permit user set TCP_MAXSEG to default
+ value
+Date: Mon, 20 Mar 2017 15:45:47 -0700
+Message-ID: <1490049947.16816.89.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1490045417-32412-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34888 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754058AbdCTWl0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 18:41:26 -0400
-Received: by mail-pf0-f196.google.com with SMTP id n11so7916081pfg.2
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 15:41:25 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35902 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754058AbdCTWp7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 18:45:59 -0400
+Received: by mail-pf0-f193.google.com with SMTP id r137so15468444pfr.3
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 15:45:49 -0700 (PDT)
+In-Reply-To: <1490045417-32412-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: PJ Waskiewicz <pjwaskiewicz@gmail.com>
+On Tue, 2017-03-21 at 05:30 +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> When user_mss is zero, it means use the default value. But the current
+> codes don't permit user set TCP_MAXSEG to the default value.
+> It would return the -EINVAL when val is zero.
+> 
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ---
+>  net/ipv4/tcp.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 1e319a5..dd5e8e2 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2470,7 +2470,8 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+>  		/* Values greater than interface MTU won't take effect. However
+>  		 * at the point when this call is done we typically don't yet
+>  		 * know which interface is going to be used */
+> -		if (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW) {
+> +		if (val < 0 || (val > 0 && val < TCP_MIN_MSS) ||
+> +		    val > MAX_TCP_WINDOW) {
+>  			err = -EINVAL;
+>  			break;
+>  		}
 
-The permanent MAC address is useful to store for things like ethtool,
-and when bonding with modes such as active/passive or LACP.  This
-follows the model of other Ethernet drivers, such as ixgbe.
+This is a convoluted way to express that val == 0 is accepted ...
 
-This was verified on a C220 chassis with the Cisco VNIC Ethernet device.
+What about :
 
-Signed-off-by: PJ Waskiewicz <pjwaskiewicz@gmail.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 4b87bee..8bb2114 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -964,6 +964,16 @@ void enic_reset_addr_lists(struct enic *enic)
- 	enic->flags = 0;
- }
- 
-+static int enic_set_perm_mac_addr(struct net_device *netdev, char *addr)
-+{
-+	if (!is_valid_ether_addr(addr) && !is_zero_ether_addr(addr))
-+		return -EADDRNOTAVAIL;
-+
-+	memcpy(netdev->perm_addr, addr, netdev->addr_len);
-+
-+	return 0;
-+}
-+
- static int enic_set_mac_addr(struct net_device *netdev, char *addr)
- {
- 	struct enic *enic = netdev_priv(netdev);
-@@ -2872,6 +2882,14 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out_dev_deinit;
- 	}
- 
-+	/* Store off permanent MAC address
-+	 */
-+	err = enic_set_perm_mac_addr(netdev, enic->mac_addr);
-+	if (err) {
-+		dev_err(dev, "Invalid MAC address, aborting\n");
-+		goto err_out_dev_deinit;
-+	}
-+
- 	enic->tx_coalesce_usecs = enic->config.intr_timer_usec;
- 	/* rx coalesce time already got initialized. This gets used
- 	 * if adaptive coal is turned off
--- 
-2.10.2
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 1e319a525d51b0b603a5ccc5143381c752b9f2c7..7db78d72896ac7c4befba5966704ed18ecbac409 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2469,8 +2469,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 	case TCP_MAXSEG:
+ 		/* Values greater than interface MTU won't take effect. However
+ 		 * at the point when this call is done we typically don't yet
+-		 * know which interface is going to be used */
+-		if (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW) {
++		 * know which interface is going to be used.
++		 */
++		if (val && (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW)) {
+ 			err = -EINVAL;
+ 			break;
+ 		}
