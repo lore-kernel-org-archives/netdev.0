@@ -1,192 +1,143 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/22] netfilter: nf_tables: add nft_set_lookup()
-Date: Mon, 20 Mar 2017 11:08:35 +0100
-Message-ID: <1490004530-9128-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/22] netfilter: nft_fib: Support existence check
+Date: Mon, 20 Mar 2017 11:08:40 +0100
+Message-ID: <1490004530-9128-13-git-send-email-pablo@netfilter.org>
 References: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52108 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:52168 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754032AbdCTKJj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 06:09:39 -0400
+        id S1754073AbdCTKJq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 06:09:46 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 74FAD523EF
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:08 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id 4255C52335
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:16 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 65C70DA3FA
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:08 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 31DAEDA729
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:16 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id DD1BCDA80B
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:05 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id DAD91DA729
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:09 +0100 (CET)
 In-Reply-To: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new function consolidates set lookup via either name or ID by
-introducing a new nft_set_lookup() function. Replace existing spots
-where we can use this too.
+From: Phil Sutter <phil@nwl.cc>
 
+Instead of the actual interface index or name, set destination register
+to just 1 or 0 depending on whether the lookup succeeded or not if
+NFTA_FIB_F_PRESENT was set in userspace.
+
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |  9 +++++----
- net/netfilter/nf_tables_api.c     | 31 ++++++++++++++++++++++++-------
- net/netfilter/nft_dynset.c        | 14 ++++----------
- net/netfilter/nft_lookup.c        | 14 ++++----------
- net/netfilter/nft_objref.c        | 14 ++++----------
- 5 files changed, 41 insertions(+), 41 deletions(-)
+ include/net/netfilter/nft_fib.h          |  2 +-
+ include/uapi/linux/netfilter/nf_tables.h |  1 +
+ net/ipv4/netfilter/nft_fib_ipv4.c        |  4 ++--
+ net/ipv6/netfilter/nft_fib_ipv6.c        |  2 +-
+ net/netfilter/nft_fib.c                  | 14 +++++++++-----
+ 5 files changed, 14 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 2aa8a9d80fbe..f0d46726d06e 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -385,10 +385,11 @@ static inline struct nft_set *nft_set_container_of(const void *priv)
- 	return (void *)priv - offsetof(struct nft_set, data);
- }
+diff --git a/include/net/netfilter/nft_fib.h b/include/net/netfilter/nft_fib.h
+index 5ceb2205e4e3..381af9469e6a 100644
+--- a/include/net/netfilter/nft_fib.h
++++ b/include/net/netfilter/nft_fib.h
+@@ -32,6 +32,6 @@ void nft_fib6_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
+ void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
+ 		   const struct nft_pktinfo *pkt);
  
--struct nft_set *nf_tables_set_lookup(const struct nft_table *table,
--				     const struct nlattr *nla, u8 genmask);
--struct nft_set *nf_tables_set_lookup_byid(const struct net *net,
--					  const struct nlattr *nla, u8 genmask);
-+struct nft_set *nft_set_lookup(const struct net *net,
-+			       const struct nft_table *table,
-+			       const struct nlattr *nla_set_name,
-+			       const struct nlattr *nla_set_id,
-+			       u8 genmask);
+-void nft_fib_store_result(void *reg, enum nft_fib_result r,
++void nft_fib_store_result(void *reg, const struct nft_fib *priv,
+ 			  const struct nft_pktinfo *pkt, int index);
+ #endif
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 34c8d08b687a..8f3842690d17 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -1257,6 +1257,7 @@ enum nft_fib_flags {
+ 	NFTA_FIB_F_MARK		= 1 << 2,	/* use skb->mark */
+ 	NFTA_FIB_F_IIF		= 1 << 3,	/* restrict to iif */
+ 	NFTA_FIB_F_OIF		= 1 << 4,	/* restrict to oif */
++	NFTA_FIB_F_PRESENT	= 1 << 5,	/* check existence only */
+ };
  
- static inline unsigned long nft_set_gc_interval(const struct nft_set *set)
- {
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index fd8789eccc92..4559f5d66bcc 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -2534,8 +2534,8 @@ static int nft_ctx_init_from_setattr(struct nft_ctx *ctx, struct net *net,
- 	return 0;
- }
+ enum nft_ct_helper_attributes {
+diff --git a/net/ipv4/netfilter/nft_fib_ipv4.c b/net/ipv4/netfilter/nft_fib_ipv4.c
+index 2981291910dd..f4e4462cb5bb 100644
+--- a/net/ipv4/netfilter/nft_fib_ipv4.c
++++ b/net/ipv4/netfilter/nft_fib_ipv4.c
+@@ -90,7 +90,7 @@ void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
  
--struct nft_set *nf_tables_set_lookup(const struct nft_table *table,
--				     const struct nlattr *nla, u8 genmask)
-+static struct nft_set *nf_tables_set_lookup(const struct nft_table *table,
-+					    const struct nlattr *nla, u8 genmask)
- {
- 	struct nft_set *set;
- 
-@@ -2549,11 +2549,10 @@ struct nft_set *nf_tables_set_lookup(const struct nft_table *table,
+ 	if (nft_hook(pkt) == NF_INET_PRE_ROUTING &&
+ 	    nft_fib_is_loopback(pkt->skb, nft_in(pkt))) {
+-		nft_fib_store_result(dest, priv->result, pkt,
++		nft_fib_store_result(dest, priv, pkt,
+ 				     nft_in(pkt)->ifindex);
+ 		return;
  	}
- 	return ERR_PTR(-ENOENT);
- }
--EXPORT_SYMBOL_GPL(nf_tables_set_lookup);
+@@ -99,7 +99,7 @@ void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
+ 	if (ipv4_is_zeronet(iph->saddr)) {
+ 		if (ipv4_is_lbcast(iph->daddr) ||
+ 		    ipv4_is_local_multicast(iph->daddr)) {
+-			nft_fib_store_result(dest, priv->result, pkt,
++			nft_fib_store_result(dest, priv, pkt,
+ 					     get_ifindex(pkt->skb->dev));
+ 			return;
+ 		}
+diff --git a/net/ipv6/netfilter/nft_fib_ipv6.c b/net/ipv6/netfilter/nft_fib_ipv6.c
+index 765facf03d45..e8d88d82636b 100644
+--- a/net/ipv6/netfilter/nft_fib_ipv6.c
++++ b/net/ipv6/netfilter/nft_fib_ipv6.c
+@@ -159,7 +159,7 @@ void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
  
--struct nft_set *nf_tables_set_lookup_byid(const struct net *net,
--					  const struct nlattr *nla,
--					  u8 genmask)
-+static struct nft_set *nf_tables_set_lookup_byid(const struct net *net,
-+						 const struct nlattr *nla,
-+						 u8 genmask)
+ 	if (nft_hook(pkt) == NF_INET_PRE_ROUTING &&
+ 	    nft_fib_is_loopback(pkt->skb, nft_in(pkt))) {
+-		nft_fib_store_result(dest, priv->result, pkt,
++		nft_fib_store_result(dest, priv, pkt,
+ 				     nft_in(pkt)->ifindex);
+ 		return;
+ 	}
+diff --git a/net/netfilter/nft_fib.c b/net/netfilter/nft_fib.c
+index fd0b19303b0d..21df8cccea65 100644
+--- a/net/netfilter/nft_fib.c
++++ b/net/netfilter/nft_fib.c
+@@ -24,7 +24,8 @@ const struct nla_policy nft_fib_policy[NFTA_FIB_MAX + 1] = {
+ EXPORT_SYMBOL(nft_fib_policy);
+ 
+ #define NFTA_FIB_F_ALL (NFTA_FIB_F_SADDR | NFTA_FIB_F_DADDR | \
+-			NFTA_FIB_F_MARK | NFTA_FIB_F_IIF | NFTA_FIB_F_OIF)
++			NFTA_FIB_F_MARK | NFTA_FIB_F_IIF | NFTA_FIB_F_OIF | \
++			NFTA_FIB_F_PRESENT)
+ 
+ int nft_fib_validate(const struct nft_ctx *ctx, const struct nft_expr *expr,
+ 		     const struct nft_data **data)
+@@ -133,19 +134,22 @@ int nft_fib_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ }
+ EXPORT_SYMBOL_GPL(nft_fib_dump);
+ 
+-void nft_fib_store_result(void *reg, enum nft_fib_result r,
++void nft_fib_store_result(void *reg, const struct nft_fib *priv,
+ 			  const struct nft_pktinfo *pkt, int index)
  {
- 	struct nft_trans *trans;
- 	u32 id = ntohl(nla_get_be32(nla));
-@@ -2568,7 +2567,25 @@ struct nft_set *nf_tables_set_lookup_byid(const struct net *net,
- 	}
- 	return ERR_PTR(-ENOENT);
- }
--EXPORT_SYMBOL_GPL(nf_tables_set_lookup_byid);
-+
-+struct nft_set *nft_set_lookup(const struct net *net,
-+			       const struct nft_table *table,
-+			       const struct nlattr *nla_set_name,
-+			       const struct nlattr *nla_set_id,
-+			       u8 genmask)
-+{
-+	struct nft_set *set;
-+
-+	set = nf_tables_set_lookup(table, nla_set_name, genmask);
-+	if (IS_ERR(set)) {
-+		if (!nla_set_id)
-+			return set;
-+
-+		set = nf_tables_set_lookup_byid(net, nla_set_id, genmask);
-+	}
-+	return set;
-+}
-+EXPORT_SYMBOL_GPL(nft_set_lookup);
+ 	struct net_device *dev;
+ 	u32 *dreg = reg;
  
- static int nf_tables_set_alloc_name(struct nft_ctx *ctx, struct nft_set *set,
- 				    const char *name)
-diff --git a/net/netfilter/nft_dynset.c b/net/netfilter/nft_dynset.c
-index 049ad2d9ee66..3948da380259 100644
---- a/net/netfilter/nft_dynset.c
-+++ b/net/netfilter/nft_dynset.c
-@@ -133,16 +133,10 @@ static int nft_dynset_init(const struct nft_ctx *ctx,
- 			priv->invert = true;
- 	}
- 
--	set = nf_tables_set_lookup(ctx->table, tb[NFTA_DYNSET_SET_NAME],
--				   genmask);
--	if (IS_ERR(set)) {
--		if (tb[NFTA_DYNSET_SET_ID])
--			set = nf_tables_set_lookup_byid(ctx->net,
--							tb[NFTA_DYNSET_SET_ID],
--							genmask);
--		if (IS_ERR(set))
--			return PTR_ERR(set);
--	}
-+	set = nft_set_lookup(ctx->net, ctx->table, tb[NFTA_DYNSET_SET_NAME],
-+			     tb[NFTA_DYNSET_SET_ID], genmask);
-+	if (IS_ERR(set))
-+		return PTR_ERR(set);
- 
- 	if (set->ops->update == NULL)
- 		return -EOPNOTSUPP;
-diff --git a/net/netfilter/nft_lookup.c b/net/netfilter/nft_lookup.c
-index e21aea7e5ec8..475570e89ede 100644
---- a/net/netfilter/nft_lookup.c
-+++ b/net/netfilter/nft_lookup.c
-@@ -71,16 +71,10 @@ static int nft_lookup_init(const struct nft_ctx *ctx,
- 	    tb[NFTA_LOOKUP_SREG] == NULL)
- 		return -EINVAL;
- 
--	set = nf_tables_set_lookup(ctx->table, tb[NFTA_LOOKUP_SET], genmask);
--	if (IS_ERR(set)) {
--		if (tb[NFTA_LOOKUP_SET_ID]) {
--			set = nf_tables_set_lookup_byid(ctx->net,
--							tb[NFTA_LOOKUP_SET_ID],
--							genmask);
--		}
--		if (IS_ERR(set))
--			return PTR_ERR(set);
--	}
-+	set = nft_set_lookup(ctx->net, ctx->table, tb[NFTA_LOOKUP_SET],
-+			     tb[NFTA_LOOKUP_SET_ID], genmask);
-+	if (IS_ERR(set))
-+		return PTR_ERR(set);
- 
- 	if (set->flags & NFT_SET_EVAL)
- 		return -EOPNOTSUPP;
-diff --git a/net/netfilter/nft_objref.c b/net/netfilter/nft_objref.c
-index 1ae8c49ca4a1..1dd428fbaaa3 100644
---- a/net/netfilter/nft_objref.c
-+++ b/net/netfilter/nft_objref.c
-@@ -116,16 +116,10 @@ static int nft_objref_map_init(const struct nft_ctx *ctx,
- 	struct nft_set *set;
- 	int err;
- 
--	set = nf_tables_set_lookup(ctx->table, tb[NFTA_OBJREF_SET_NAME], genmask);
--	if (IS_ERR(set)) {
--		if (tb[NFTA_OBJREF_SET_ID]) {
--			set = nf_tables_set_lookup_byid(ctx->net,
--							tb[NFTA_OBJREF_SET_ID],
--							genmask);
--		}
--		if (IS_ERR(set))
--			return PTR_ERR(set);
--	}
-+	set = nft_set_lookup(ctx->net, ctx->table, tb[NFTA_OBJREF_SET_NAME],
-+			     tb[NFTA_OBJREF_SET_ID], genmask);
-+	if (IS_ERR(set))
-+		return PTR_ERR(set);
- 
- 	if (!(set->flags & NFT_SET_OBJECT))
- 		return -EINVAL;
+-	switch (r) {
++	switch (priv->result) {
+ 	case NFT_FIB_RESULT_OIF:
+-		*dreg = index;
++		*dreg = (priv->flags & NFTA_FIB_F_PRESENT) ? !!index : index;
+ 		break;
+ 	case NFT_FIB_RESULT_OIFNAME:
+ 		dev = dev_get_by_index_rcu(nft_net(pkt), index);
+-		strncpy(reg, dev ? dev->name : "", IFNAMSIZ);
++		if (priv->flags & NFTA_FIB_F_PRESENT)
++			*dreg = !!dev;
++		else
++			strncpy(reg, dev ? dev->name : "", IFNAMSIZ);
+ 		break;
+ 	default:
+ 		WARN_ON_ONCE(1);
 -- 
 2.1.4
