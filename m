@@ -1,65 +1,71 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 2/4] flowcache: make flow_cache_hash_size() return
- "unsigned int"
-Date: Mon, 20 Mar 2017 09:08:30 +0300
-Message-ID: <20170320060830.GA1789@avx2>
-References: <20170319222449.GB17015@avx2>
- <1489965221.16816.14.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH v6 06/15] mlx5: Replace PCI pool old API
+Date: Mon, 20 Mar 2017 08:31:09 +0200
+Message-ID: <20170320063109.GT2079@mtr-leonro.local>
+References: <20170319170404.17362-1-romain.perier@collabora.com>
+ <20170319170404.17362-7-romain.perier@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:34362 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752998AbdCTGRJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 02:17:09 -0400
-Received: by mail-lf0-f67.google.com with SMTP id y193so9221552lfd.1
-        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 23:17:07 -0700 (PDT)
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="peRj85VDUce1fu/0"
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Romain Perier <romain.perier@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1489965221.16816.14.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170319170404.17362-7-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 19, 2017 at 04:13:41PM -0700, Eric Dumazet wrote:
-> On Mon, 2017-03-20 at 01:24 +0300, Alexey Dobriyan wrote:
-> > Hash size can't negative so "unsigned int" is logically correct.
-> 
-> 
-> >  	struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, cpu);
-> > -	size_t sz = sizeof(struct hlist_head) * flow_cache_hash_size(fc);
-> > +	unsigned int sz = sizeof(struct hlist_head) * flow_cache_hash_size(fc);
-> >  
-> >  	if (!fcp->hash_table) {
-> >  		fcp->hash_table = kzalloc_node(sz, GFP_KERNEL, cpu_to_node(cpu));
-> >  		if (!fcp->hash_table) {
-> > -			pr_err("NET: failed to allocate flow cache sz %zu\n", sz);
-> > +			pr_err("NET: failed to allocate flow cache sz %u\n", sz);
-> 
-> 
-> I do not see any improvement here.
-> 
-> What is wrong with size_t exactly ?
 
-REX prefixes and sign extensions, lots of them.
+--peRj85VDUce1fu/0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Before:
-	ffffffff8505b1b5:       41 bd 01 00 00 00       mov    r13d,0x1
-	ffffffff8505b1bb:       41 d3 e5                shl    r13d,cl
-	ffffffff8505b1be:       4d 63 ed                movsxd r13,r13d
-	ffffffff8505b1c1:       49 c1 e5 03             shl    r13,0x3
-	ffffffff8505b1c5:       e8 86 28 0a fc          call   __cpu_to_node
-			...
-	ffffffff8505b20b:       4c 89 ee                mov    rsi,r13
+On Sun, Mar 19, 2017 at 06:03:55PM +0100, Romain Perier wrote:
+> The PCI pool API is deprecated. This commit replaces the PCI pool old
+> API by the appropriate function with the DMA pool API.
+>
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
+>  include/linux/mlx5/driver.h                   |  2 +-
+>  2 files changed, 7 insertions(+), 6 deletions(-)
+>
 
-After:
-	ffffffff8505b1b5:       41 bd 08 00 00 00       mov    r13d,0x8
-	ffffffff8505b1bb:       41 d3 e5                shl    r13d,cl
-	ffffffff8505b1be:       e8 8d 28 0a fc          call   __cpu_to_node
-			...
-	ffffffff8505b1c3:       44 89 ef                mov    edi,r13d
+Thanks,
+Acked-by: Leon Romanovsky <leonro@mellanox.com>
 
-Basically, one can do s/size_t/unsigned int/g across whole networking
-stack and nothing will change but the code becomes smaller (including
-things like sendmsg() because VFS truncates lengths at INT_MAX).
+--peRj85VDUce1fu/0
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAljPdy0ACgkQ5GN7iDZy
+WKc7PxAAxvvR6hINJAkQu/B9aGA/bGBFZ4DzxFApyaGMSz7HBcqwl4SWdhXLFTX6
+QztH4XHNdTD9N9TtLoU2hcFASucanTw1fyS5Pesn6FdfdCEYRtCNgpRlTfkdBfGD
+Ko2E3IQFFG0tolBW0na0daDTqruRWtQt5GY582HWocAywrpyEzsiIpMxKggZ4u8c
+U6X7fyki7VqqOH11maxjPBnXIafAZg09HPpgPhhrXbBmLwlDxTR6DZjEjkm8ej6X
+KXONdZjCWq9dAESB2VeKEwD9eNcHEp7rEo0WoymVTLtjoe7nyD7/vA9183BUgT8n
+QSu/YqcgJEYCv/eOMZf4uJOqab9fCuLEbmbXbYRdKxgkqvaqZe2Upo6Q9PEUgr+w
+GL0Jm97UZAYn0xJ8DWeK6NTFhgsbIZ4nL6t8VUwZii5LFz5Htz0tzqPpplTjNTtz
+aQGhZikTB7b5O4G/sYRzD+/Msym2jQbHqTa/9rFtXYVcZb8h9yhcmoH9egewsxZN
+kXl2f7AVR132LG9Gvrq4eEi2nJzNBbIt0uNaq+CcP2C+UyzRVwb0Z0zr+1H/Simp
+OZWxy4G8uAjW4fKi6tKGgf5mwZGWc725McxB6MCLKYLK3bq26Y2JMIwZJ3UvJ6Dk
+mwTRwJvAWUbq3tAqwsQmzbF+oTea2dQexR5FBHd5SMDSElgHjKM=
+=b1Gs
+-----END PGP SIGNATURE-----
+
+--peRj85VDUce1fu/0--
