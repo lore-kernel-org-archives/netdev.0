@@ -1,74 +1,121 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/13][pull request] 40GbE Intel Wired LAN Driver Updates 2017-03-20
-Date: Mon, 20 Mar 2017 16:46:59 -0700
-Message-ID: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 02/13] i40evf: use new api ethtool_{get|set}_link_ksettings
+Date: Mon, 20 Mar 2017 16:47:01 -0700
+Message-ID: <20170320234712.84157-3-jeffrey.t.kirsher@intel.com>
+References: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
+Cc: Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:49349 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:59023 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754163AbdCTXrS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 19:47:18 -0400
+        id S1754163AbdCTXrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 19:47:19 -0400
+In-Reply-To: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Philippe Reynes <tremyfr@gmail.com>
 
-Philippe Reynes updates i40e and i40evf to use the new ethtool API for
-{get|set}_link_ksettings.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Jake provides the remaining patches in the series, starting with a fix
-for i40e where the firmware expected the port numbers for the offloaded
-UDP tunnels in Little Endian format and we were sending them in Big Endian
-format which put the wrong port number to be put in the UDP tunnel list.
-Changed the driver to use __be32 values instead of arrays for
-(src|dst)_ip.  Refactored the exit flow of i40e_add_fdir_ethtool() which
-removes the dependency on having a non-zero return value.  Fixed a memory
-leak by running kfree() and returning immediately when we fail to add
-flow director filter.  Fixed a potential issue where could update the
-filter count without actually succeeding in adding a filter, by moving
-the ATR exit check to after we have sent the TCP/IPv4 filter to the ring
-successfully.  Ensures that the fd_tcp_rule count is reset to 0, before
-we reprogram the filters so that we do not end up with a stale count
-which does not correctly reflect the number of programmed filters.  Added
-a check whether we have TCP/IPv4 filters before re-enabling ATR after
-flushing and replaying FDIR filters.  Added counters for each filter
-type in preparation for adding code to properly check the mask value.
-Fixed potential issues by explicitly checking the flow type at the
-start of i40e_add_fdir_ethtool().  To avoid possible memory leaks,
-we now unconditionally delete the old filter, even if it is identical to
-the new filter and ensures will always update the filters as expected.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-The following are changes since commit fe723dff0fa4181ddb8116e72bc67d00d4239cb6:
-  liquidio: fix wrong information about link modes reported to ethtool
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 31 +++++++++++-----------
+ 1 file changed, 15 insertions(+), 16 deletions(-)
 
-Jacob Keller (11):
-  i40e: send correct port number to AdminQ when enabling UDP tunnels
-  i40e: don't use arrays for (src|dst)_ip
-  i40e: rework exit flow of i40e_add_fdir_ethtool
-  i40e: return immediately when failing to add fdir filter
-  i40e: exit ATR mode only when adding TCP/IPv4 filter succeeds
-  i40e: remove redundant check for fd_tcp_rule when restoring filters
-  i40e: reset fd_tcp_rule count when restoring filters
-  i40e: don't re-enable ATR when flushing filters if SB has TCP4/IPv4
-    rules
-  i40e: add counters for UDP/IPv4 and IPv4 filters
-  i40e: explicitly fail on extended MAC field for ethtool_rx_flow_spec
-  i40e: always remove old filter when adding new FDir filter
-
-Philippe Reynes (2):
-  i40e: use new api ethtool_{get|set}_link_ksettings
-  i40evf: use new api ethtool_{get|set}_link_ksettings
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  16 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 323 ++++++++++++---------
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  43 +--
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  84 +++---
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  31 +-
- 5 files changed, 273 insertions(+), 224 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 272d600c1ed0..122efbd29a19 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -64,51 +64,50 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
+ 	(I40EVF_GLOBAL_STATS_LEN + I40EVF_QUEUE_STATS_LEN(_dev))
+ 
+ /**
+- * i40evf_get_settings - Get Link Speed and Duplex settings
++ * i40evf_get_link_ksettings - Get Link Speed and Duplex settings
+  * @netdev: network interface device structure
+- * @ecmd: ethtool command
++ * @cmd: ethtool command
+  *
+  * Reports speed/duplex settings. Because this is a VF, we don't know what
+  * kind of link we really have, so we fake it.
+  **/
+-static int i40evf_get_settings(struct net_device *netdev,
+-			       struct ethtool_cmd *ecmd)
++static int i40evf_get_link_ksettings(struct net_device *netdev,
++				     struct ethtool_link_ksettings *cmd)
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 
+-	ecmd->supported = 0;
+-	ecmd->autoneg = AUTONEG_DISABLE;
+-	ecmd->transceiver = XCVR_DUMMY1;
+-	ecmd->port = PORT_NONE;
++	ethtool_link_ksettings_zero_link_mode(cmd, supported);
++	cmd->base.autoneg = AUTONEG_DISABLE;
++	cmd->base.port = PORT_NONE;
+ 	/* Set speed and duplex */
+ 	switch (adapter->link_speed) {
+ 	case I40E_LINK_SPEED_40GB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_40000);
++		cmd->base.speed = SPEED_40000;
+ 		break;
+ 	case I40E_LINK_SPEED_25GB:
+ #ifdef SPEED_25000
+-		ethtool_cmd_speed_set(ecmd, SPEED_25000);
++		cmd->base.speed = SPEED_25000;
+ #else
+ 		netdev_info(netdev,
+ 			    "Speed is 25G, display not supported by this version of ethtool.\n");
+ #endif
+ 		break;
+ 	case I40E_LINK_SPEED_20GB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_20000);
++		cmd->base.speed = SPEED_20000;
+ 		break;
+ 	case I40E_LINK_SPEED_10GB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_10000);
++		cmd->base.speed = SPEED_10000;
+ 		break;
+ 	case I40E_LINK_SPEED_1GB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_1000);
++		cmd->base.speed = SPEED_1000;
+ 		break;
+ 	case I40E_LINK_SPEED_100MB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_100);
++		cmd->base.speed = SPEED_100;
+ 		break;
+ 	default:
+ 		break;
+ 	}
+-	ecmd->duplex = DUPLEX_FULL;
++	cmd->base.duplex = DUPLEX_FULL;
+ 
+ 	return 0;
+ }
+@@ -643,7 +642,6 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+ }
+ 
+ static const struct ethtool_ops i40evf_ethtool_ops = {
+-	.get_settings		= i40evf_get_settings,
+ 	.get_drvinfo		= i40evf_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_ringparam		= i40evf_get_ringparam,
+@@ -663,6 +661,7 @@ static const struct ethtool_ops i40evf_ethtool_ops = {
+ 	.set_rxfh		= i40evf_set_rxfh,
+ 	.get_channels		= i40evf_get_channels,
+ 	.get_rxfh_key_size	= i40evf_get_rxfh_key_size,
++	.get_link_ksettings	= i40evf_get_link_ksettings,
+ };
+ 
+ /**
 -- 
 2.12.0
