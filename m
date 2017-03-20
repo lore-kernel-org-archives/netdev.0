@@ -1,55 +1,165 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4.10 34/63] team: use ETH_MAX_MTU as max mtu
-Date: Mon, 20 Mar 2017 18:51:59 +0100
-Message-ID: <20170320174745.095987919@linuxfoundation.org>
-References: <20170320174742.712298584@linuxfoundation.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCHv2 net-next 2/7] sctp: implement receiver-side procedures
+ for the SSN/TSN Reset Request Parameter
+Date: Mon, 20 Mar 2017 15:04:57 -0300
+Message-ID: <20170320180457.GD23553@localhost.localdomain>
+References: <cover.1489118815.git.lucien.xin@gmail.com>
+ <f224235b4621ea3a182e959873f6fe0ba78e5416.1489118815.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        stable@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        Jarod Wilson <jarod@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170320174742.712298584@linuxfoundation.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54054 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755025AbdCTSHf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 14:07:35 -0400
+Content-Disposition: inline
+In-Reply-To: <f224235b4621ea3a182e959873f6fe0ba78e5416.1489118815.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-4.10-stable review patch.  If anyone has any objections, please let me know.
+On Fri, Mar 10, 2017 at 12:11:07PM +0800, Xin Long wrote:
+> This patch is to implement Receiver-Side Procedures for the SSN/TSN
+> Reset Request Parameter described in rfc6525 section 6.2.4.
+> 
+> The process is kind of complicate, it's wonth having some comments
+> from section 6.2.4 in the codes.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  include/net/sctp/sm.h   |  4 +++
+>  net/sctp/sm_statefuns.c |  3 ++
+>  net/sctp/stream.c       | 79 +++++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 86 insertions(+)
+> 
+> diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+> index b6f682e..2629d66 100644
+> --- a/include/net/sctp/sm.h
+> +++ b/include/net/sctp/sm.h
+> @@ -293,6 +293,10 @@ struct sctp_chunk *sctp_process_strreset_inreq(
+>  				struct sctp_association *asoc,
+>  				union sctp_params param,
+>  				struct sctp_ulpevent **evp);
+> +struct sctp_chunk *sctp_process_strreset_tsnreq(
+> +				struct sctp_association *asoc,
+> +				union sctp_params param,
+> +				struct sctp_ulpevent **evp);
+>  
+>  /* Prototypes for statetable processing. */
+>  
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index e03bb1a..6982064 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -3872,6 +3872,9 @@ sctp_disposition_t sctp_sf_do_reconf(struct net *net,
+>  		else if (param.p->type == SCTP_PARAM_RESET_IN_REQUEST)
+>  			reply = sctp_process_strreset_inreq(
+>  				(struct sctp_association *)asoc, param, &ev);
+> +		else if (param.p->type == SCTP_PARAM_RESET_TSN_REQUEST)
+> +			reply = sctp_process_strreset_tsnreq(
+> +				(struct sctp_association *)asoc, param, &ev);
+>  		/* More handles for other types will be added here, by now it
+>  		 * just ignores other types.
+>  		 */
+> diff --git a/net/sctp/stream.c b/net/sctp/stream.c
+> index 1c6cc04..7e993b0 100644
+> --- a/net/sctp/stream.c
+> +++ b/net/sctp/stream.c
+> @@ -477,3 +477,82 @@ struct sctp_chunk *sctp_process_strreset_inreq(
+>  
+>  	return chunk;
+>  }
+> +
+> +struct sctp_chunk *sctp_process_strreset_tsnreq(
+> +				struct sctp_association *asoc,
+> +				union sctp_params param,
+> +				struct sctp_ulpevent **evp)
+> +{
+> +	__u32 init_tsn = 0, next_tsn = 0, max_tsn_seen;
+> +	struct sctp_strreset_tsnreq *tsnreq = param.v;
+> +	struct sctp_stream *stream = asoc->stream;
+> +	__u32 result = SCTP_STRRESET_DENIED;
+> +	__u32 request_seq;
+> +	__u16 i;
+> +
+> +	request_seq = ntohl(tsnreq->request_seq);
+> +	if (request_seq > asoc->strreset_inseq) {
+> +		result = SCTP_STRRESET_ERR_BAD_SEQNO;
+> +		goto out;
+> +	} else if (request_seq == asoc->strreset_inseq) {
+> +		asoc->strreset_inseq++;
+> +	}
 
-------------------
+I guess I already asked this, but.. why request_seq <
+asoc->strreset_inseq is allowed?
 
-From: Jarod Wilson <jarod@redhat.com>
-
-
-[ Upstream commit 3331aa378e9bcbd0d16de9034b0c20f4050e26b4 ]
-
-This restores the ability to set a team device's mtu to anything higher
-than 1500. Similar to the reported issue with bonding, the team driver
-calls ether_setup(), which sets an initial max_mtu of 1500, while the
-underlying hardware can handle something much larger. Just set it to
-ETH_MAX_MTU to support all possible values, and the limitations of the
-underlying devices will prevent setting anything too large.
-
-Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
-CC: Cong Wang <xiyou.wangcong@gmail.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/net/team/team.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -2075,6 +2075,7 @@ static int team_dev_type_check_change(st
- static void team_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
-+	dev->max_mtu = ETH_MAX_MTU;
- 
- 	dev->netdev_ops = &team_netdev_ops;
- 	dev->ethtool_ops = &team_ethtool_ops;
+> +
+> +	if (!(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
+> +		goto out;
+> +
+> +	if (asoc->strreset_outstanding) {
+> +		result = SCTP_STRRESET_ERR_IN_PROGRESS;
+> +		goto out;
+> +	}
+> +
+> +	/* G3: The same processing as though a SACK chunk with no gap report
+> +	 *     and a cumulative TSN ACK of the Sender's Next TSN minus 1 were
+> +	 *     received MUST be performed.
+> +	 */
+> +	max_tsn_seen = sctp_tsnmap_get_max_tsn_seen(&asoc->peer.tsn_map);
+> +	sctp_ulpq_reasm_flushtsn(&asoc->ulpq, max_tsn_seen);
+> +	sctp_ulpq_abort_pd(&asoc->ulpq, GFP_ATOMIC);
+> +
+> +	/* G1: Compute an appropriate value for the Receiver's Next TSN -- the
+> +	 *     TSN that the peer should use to send the next DATA chunk.  The
+> +	 *     value SHOULD be the smallest TSN not acknowledged by the
+> +	 *     receiver of the request plus 2^31.
+> +	 */
+> +	init_tsn = sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + (1 << 31);
+> +	sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
+> +			 init_tsn, GFP_ATOMIC);
+> +
+> +	/* G4: The same processing as though a FWD-TSN chunk (as defined in
+> +	 *     [RFC3758]) with all streams affected and a new cumulative TSN
+> +	 *     ACK of the Receiver's Next TSN minus 1 were received MUST be
+> +	 *     performed.
+> +	 */
+> +	sctp_outq_free(&asoc->outqueue);
+> +
+> +	/* G2: Compute an appropriate value for the local endpoint's next TSN,
+> +	 *     i.e., the next TSN assigned by the receiver of the SSN/TSN reset
+> +	 *     chunk.  The value SHOULD be the highest TSN sent by the receiver
+> +	 *     of the request plus 1.
+> +	 */
+> +	next_tsn = asoc->next_tsn;
+> +	asoc->ctsn_ack_point = next_tsn - 1;
+> +	asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
+> +
+> +	/* G5:  The next expected and outgoing SSNs MUST be reset to 0 for all
+> +	 *      incoming and outgoing streams.
+> +	 */
+> +	for (i = 0; i < stream->outcnt; i++)
+> +		stream->out[i].ssn = 0;
+> +	for (i = 0; i < stream->incnt; i++)
+> +		stream->in[i].ssn = 0;
+> +
+> +	result = SCTP_STRRESET_PERFORMED;
+> +
+> +	*evp = sctp_ulpevent_make_assoc_reset_event(asoc, 0, init_tsn,
+> +						    next_tsn, GFP_ATOMIC);
+> +
+> +out:
+> +	return sctp_make_strreset_tsnresp(asoc, result, request_seq,
+> +					  next_tsn, init_tsn);
+> +}
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
