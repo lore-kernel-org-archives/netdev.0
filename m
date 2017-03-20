@@ -1,138 +1,116 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/22] netfilter: limit: use per-rule spinlock to improve the scalability
-Date: Mon, 20 Mar 2017 11:08:42 +0100
-Message-ID: <1490004530-9128-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/22] netfilter: provide nft_ctx in object init function
+Date: Mon, 20 Mar 2017 11:08:38 +0100
+Message-ID: <1490004530-9128-11-git-send-email-pablo@netfilter.org>
 References: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52146 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:52114 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753915AbdCTKJp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 06:09:45 -0400
+        id S1754019AbdCTKJq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 06:09:46 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id EDC01523FF
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:13 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id DCFC2DA877
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:13 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A3E14DA87B
+        by mail.us.es (Postfix) with ESMTP id 44F9A523F9
         for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 34CE2DA874
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 5572ADA87E
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:08 +0100 (CET)
 In-Reply-To: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <zlpnobody@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-The limit token is independent between each rules, so there's no
-need to use a global spinlock.
+this is needed by the upcoming ct helper object type --
+we'd like to be able use the table family (ip, ip6, inet) to figure
+out which helper has to be requested.
 
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_limit.c | 10 +++++-----
- net/netfilter/xt_limit.c  | 11 ++++++-----
- 2 files changed, 11 insertions(+), 10 deletions(-)
+ include/net/netfilter/nf_tables.h | 3 ++-
+ net/netfilter/nf_tables_api.c     | 7 ++++---
+ net/netfilter/nft_counter.c       | 3 ++-
+ net/netfilter/nft_quota.c         | 3 ++-
+ 4 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/nft_limit.c b/net/netfilter/nft_limit.c
-index c6baf412236d..18dd57a52651 100644
---- a/net/netfilter/nft_limit.c
-+++ b/net/netfilter/nft_limit.c
-@@ -17,9 +17,8 @@
- #include <linux/netfilter/nf_tables.h>
- #include <net/netfilter/nf_tables.h>
- 
--static DEFINE_SPINLOCK(limit_lock);
--
- struct nft_limit {
-+	spinlock_t	lock;
- 	u64		last;
- 	u64		tokens;
- 	u64		tokens_max;
-@@ -34,7 +33,7 @@ static inline bool nft_limit_eval(struct nft_limit *limit, u64 cost)
- 	u64 now, tokens;
- 	s64 delta;
- 
--	spin_lock_bh(&limit_lock);
-+	spin_lock_bh(&limit->lock);
- 	now = ktime_get_ns();
- 	tokens = limit->tokens + now - limit->last;
- 	if (tokens > limit->tokens_max)
-@@ -44,11 +43,11 @@ static inline bool nft_limit_eval(struct nft_limit *limit, u64 cost)
- 	delta = tokens - cost;
- 	if (delta >= 0) {
- 		limit->tokens = delta;
--		spin_unlock_bh(&limit_lock);
-+		spin_unlock_bh(&limit->lock);
- 		return limit->invert;
- 	}
- 	limit->tokens = tokens;
--	spin_unlock_bh(&limit_lock);
-+	spin_unlock_bh(&limit->lock);
- 	return !limit->invert;
- }
- 
-@@ -86,6 +85,7 @@ static int nft_limit_init(struct nft_limit *limit,
- 			limit->invert = true;
- 	}
- 	limit->last = ktime_get_ns();
-+	spin_lock_init(&limit->lock);
- 
- 	return 0;
- }
-diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
-index dab962df1787..d27b5f1ea619 100644
---- a/net/netfilter/xt_limit.c
-+++ b/net/netfilter/xt_limit.c
-@@ -18,6 +18,7 @@
- #include <linux/netfilter/xt_limit.h>
- 
- struct xt_limit_priv {
-+	spinlock_t lock;
- 	unsigned long prev;
- 	uint32_t credit;
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index f0d46726d06e..49436849d7d7 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -1017,7 +1017,8 @@ struct nft_object_type {
+ 	unsigned int			maxattr;
+ 	struct module			*owner;
+ 	const struct nla_policy		*policy;
+-	int				(*init)(const struct nlattr * const tb[],
++	int				(*init)(const struct nft_ctx *ctx,
++						const struct nlattr *const tb[],
+ 						struct nft_object *obj);
+ 	void				(*destroy)(struct nft_object *obj);
+ 	int				(*dump)(struct sk_buff *skb,
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 4559f5d66bcc..12cc5218de96 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -4095,7 +4095,8 @@ static const struct nla_policy nft_obj_policy[NFTA_OBJ_MAX + 1] = {
+ 	[NFTA_OBJ_DATA]		= { .type = NLA_NESTED },
  };
-@@ -32,8 +33,6 @@ MODULE_ALIAS("ip6t_limit");
-  * see net/sched/sch_tbf.c in the linux source tree
-  */
  
--static DEFINE_SPINLOCK(limit_lock);
--
- /* Rusty: This is my (non-mathematically-inclined) understanding of
-    this algorithm.  The `average rate' in jiffies becomes your initial
-    amount of credit `credit' and the most credit you can ever have
-@@ -72,7 +71,7 @@ limit_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	struct xt_limit_priv *priv = r->master;
- 	unsigned long now = jiffies;
+-static struct nft_object *nft_obj_init(const struct nft_object_type *type,
++static struct nft_object *nft_obj_init(const struct nft_ctx *ctx,
++				       const struct nft_object_type *type,
+ 				       const struct nlattr *attr)
+ {
+ 	struct nlattr *tb[type->maxattr + 1];
+@@ -4115,7 +4116,7 @@ static struct nft_object *nft_obj_init(const struct nft_object_type *type,
+ 	if (obj == NULL)
+ 		goto err1;
  
--	spin_lock_bh(&limit_lock);
-+	spin_lock_bh(&priv->lock);
- 	priv->credit += (now - xchg(&priv->prev, now)) * CREDITS_PER_JIFFY;
- 	if (priv->credit > r->credit_cap)
- 		priv->credit = r->credit_cap;
-@@ -80,11 +79,11 @@ limit_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	if (priv->credit >= r->cost) {
- 		/* We're not limited. */
- 		priv->credit -= r->cost;
--		spin_unlock_bh(&limit_lock);
-+		spin_unlock_bh(&priv->lock);
- 		return true;
- 	}
+-	err = type->init((const struct nlattr * const *)tb, obj);
++	err = type->init(ctx, (const struct nlattr * const *)tb, obj);
+ 	if (err < 0)
+ 		goto err2;
  
--	spin_unlock_bh(&limit_lock);
-+	spin_unlock_bh(&priv->lock);
- 	return false;
- }
+@@ -4223,7 +4224,7 @@ static int nf_tables_newobj(struct net *net, struct sock *nlsk,
+ 	if (IS_ERR(type))
+ 		return PTR_ERR(type);
  
-@@ -126,6 +125,8 @@ static int limit_mt_check(const struct xt_mtchk_param *par)
- 		r->credit_cap = priv->credit; /* Credits full. */
- 		r->cost = user2credits(r->avg);
- 	}
-+	spin_lock_init(&priv->lock);
-+
+-	obj = nft_obj_init(type, nla[NFTA_OBJ_DATA]);
++	obj = nft_obj_init(&ctx, type, nla[NFTA_OBJ_DATA]);
+ 	if (IS_ERR(obj)) {
+ 		err = PTR_ERR(obj);
+ 		goto err1;
+diff --git a/net/netfilter/nft_counter.c b/net/netfilter/nft_counter.c
+index 7f8422213341..67a710ebde09 100644
+--- a/net/netfilter/nft_counter.c
++++ b/net/netfilter/nft_counter.c
+@@ -82,7 +82,8 @@ static int nft_counter_do_init(const struct nlattr * const tb[],
  	return 0;
  }
  
+-static int nft_counter_obj_init(const struct nlattr * const tb[],
++static int nft_counter_obj_init(const struct nft_ctx *ctx,
++				const struct nlattr * const tb[],
+ 				struct nft_object *obj)
+ {
+ 	struct nft_counter_percpu_priv *priv = nft_obj_data(obj);
+diff --git a/net/netfilter/nft_quota.c b/net/netfilter/nft_quota.c
+index 2d6fe3559912..25e33159be57 100644
+--- a/net/netfilter/nft_quota.c
++++ b/net/netfilter/nft_quota.c
+@@ -99,7 +99,8 @@ static int nft_quota_do_init(const struct nlattr * const tb[],
+ 	return 0;
+ }
+ 
+-static int nft_quota_obj_init(const struct nlattr * const tb[],
++static int nft_quota_obj_init(const struct nft_ctx *ctx,
++			      const struct nlattr * const tb[],
+ 			      struct nft_object *obj)
+ {
+ 	struct nft_quota *priv = nft_obj_data(obj);
 -- 
 2.1.4
