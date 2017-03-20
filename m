@@ -1,67 +1,45 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/22] netfilter: nft_exthdr: Allow checking TCP option presence, too
-Date: Mon, 20 Mar 2017 11:08:29 +0100
-Message-ID: <1490004530-9128-2-git-send-email-pablo@netfilter.org>
-References: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH nf v2 1/1] netfilter: snmp: Fix one possible panic when
+ snmp_trap_helper fail to register
+Date: Mon, 20 Mar 2017 13:09:00 +0300
+Message-ID: <02f61fe0-37d9-8837-1c8f-390c5dea6ff4@cogentembedded.com>
+References: <1490003728-33866-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: fgao@ikuai8.com, pablo@netfilter.org, davem@davemloft.net,
+        jolsa@redhat.com, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51724 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753969AbdCTKJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 06:09:28 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 3D8D4523E5
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:01 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 2C3FEDA7F7
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:01 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id EC574DA87B
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:08:58 +0100 (CET)
-In-Reply-To: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:32829 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753962AbdCTKJ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 06:09:28 -0400
+Received: by mail-lf0-f54.google.com with SMTP id a6so53259500lfa.0
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 03:09:02 -0700 (PDT)
+In-Reply-To: <1490003728-33866-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
+On 3/20/2017 12:55 PM, fgao@ikuai8.com wrote:
 
-Honor NFT_EXTHDR_F_PRESENT flag so we check if the TCP option is
-present.
+> From: Gao Feng <fgao@ikuai8.com>
+>
+> In the commit <93557f53e1fb> ("netfilter: nf_conntrack: nf_conntrack snmp
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nft_exthdr.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+    Angle brackets not needed. :-)
+    The commit citing style is the same as for the Fixes: tag.
 
-diff --git a/net/netfilter/nft_exthdr.c b/net/netfilter/nft_exthdr.c
-index c308920b194c..d212a85d2f33 100644
---- a/net/netfilter/nft_exthdr.c
-+++ b/net/netfilter/nft_exthdr.c
-@@ -98,14 +98,21 @@ static void nft_exthdr_tcp_eval(const struct nft_expr *expr,
- 			goto err;
- 
- 		offset = i + priv->offset;
--		dest[priv->len / NFT_REG32_SIZE] = 0;
--		memcpy(dest, opt + offset, priv->len);
-+		if (priv->flags & NFT_EXTHDR_F_PRESENT) {
-+			*dest = 1;
-+		} else {
-+			dest[priv->len / NFT_REG32_SIZE] = 0;
-+			memcpy(dest, opt + offset, priv->len);
-+		}
- 
- 		return;
- 	}
- 
- err:
--	regs->verdict.code = NFT_BREAK;
-+	if (priv->flags & NFT_EXTHDR_F_PRESENT)
-+		*dest = 0;
-+	else
-+		regs->verdict.code = NFT_BREAK;
- }
- 
- static const struct nla_policy nft_exthdr_policy[NFTA_EXTHDR_MAX + 1] = {
--- 
-2.1.4
+> helper"), the snmp_helper is replaced by nf_nat_snmp_hook. So the
+> snmp_helper is never registered. But it still tries to unregister the
+> snmp_helper, it could cause the panic.
+>
+> Now remove the useless snmp_helper and the unregister call in the
+> error handler.
+>
+> Fixes: 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp helper")
+>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+[...]
+
+MBR, Sergei
