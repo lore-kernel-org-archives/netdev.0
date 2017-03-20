@@ -1,40 +1,47 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2 03/20] ARM: sun8i: dt: Add DT bindings documentation
- for Allwinner dwmac-sun8i
-Date: Mon, 20 Mar 2017 17:21:24 -0500
-Message-ID: <20170320222124.iiko4ovjcgn6575r@rob-hp-laptop>
-References: <20170314141856.24560-1-clabbe.montjoie@gmail.com>
- <20170314141856.24560-4-clabbe.montjoie@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 1/2] net: Busy polling should ignore sender CPUs
+Date: Mon, 20 Mar 2017 15:16:11 -0700
+Message-ID: <1490048171.16816.85.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170320214643.13922.51284.stgit@localhost.localdomain>
+         <20170320214848.13922.79201.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170314141856.24560-4-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        sridhar.samudrala@intel.com, edumazet@google.com,
+        davem@davemloft.net
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170320214848.13922.79201.stgit@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 14, 2017 at 03:18:39PM +0100, Corentin Labbe wrote:
-> This patch adds documentation for Device-Tree bindings for the
-> Allwinner dwmac-sun8i driver.
-
-"dt-bindings: net: ..." is the preferred subject prefix if you respin.
- 
+On Mon, 2017-03-20 at 14:48 -0700, Alexander Duyck wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> This patch is a cleanup/fix for NAPI IDs following the changes that made it
+> so that sender_cpu and napi_id were doing a better job of sharing the same
+> location in the sk_buff.
+> 
+> One issue I found is that we weren't validating the napi_id as being valid
+> before we started trying to setup the busy polling.  This change corrects
+> that by using the MIN_NAPI_ID value that is now used in both allocating the
+> NAPI IDs, as well as validating them.
+> 
+> Fixes: 52bd2d62ce675 ("net: better skb->sender_cpu and skb->napi_id cohabitation")
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 > ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 77 ++++++++++++++++++++++
->  1 file changed, 77 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This Fixes: tag seems not really needed here.
+
+If really busy polling is attempted to a socket with a <wrong> napi id,
+nothing bad happens. This fits the advisory model of busy polling...
+
+Otherwise, your patch would be a candidate for net tree.
+
+Also note that as soon as sk_can_busy_loop(sk) returns some status,
+another cpu might already have changed sk->sk_napi_id to something else,
+possibly with a <wrong> napi id again.
+
+If your upcoming code depends on sk->sk_napi_id being verified, then
+you need to read it once.
