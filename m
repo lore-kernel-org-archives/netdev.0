@@ -1,64 +1,41 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net] selftests/bpf: fix broken build, take 2
-Date: Mon, 20 Mar 2017 08:45:25 -0700
-Message-ID: <20170320154523.GA80094@ast-mbp.thefacebook.com>
-References: <1489989794-6859-1-git-send-email-zlim.lnx@gmail.com>
- <58CFF5D0.8040708@iogearbox.net>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from atomic_t to
+ refcount_t
+Date: Mon, 20 Mar 2017 15:59:38 +0100
+Message-ID: <20170320145938.cmj5m33uxunladli@hirez.programming.kicks-ass.net>
+References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170318164759.GA23837@gondor.apana.org.au>
+ <20170318.182121.439615057765380575.davem@davemloft.net>
+ <20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
+ <20170320131629.GA26405@gondor.apana.org.au>
+ <20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
+ <20170320132713.GA26954@gondor.apana.org.au>
+ <20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
+ <1490021461.16816.52.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35038 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753614AbdCTPpb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 11:45:31 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n11so6533188pfg.2
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 08:45:30 -0700 (PDT)
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        David Miller <davem@davemloft.net>, elena.reshetova@intel.com,
+        keescook@chromium.org, netdev@vger.kernel.org,
+        bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        stephen@networkplumber.org, ishkamiel@gmail.com,
+        dwindsor@gmail.com, akpm@linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <58CFF5D0.8040708@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1490021461.16816.52.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 20, 2017 at 04:31:28PM +0100, Daniel Borkmann wrote:
-> On 03/20/2017 07:03 AM, Zi Shen Lim wrote:
-> >Merge of 'linux-kselftest-4.11-rc1':
-> >
-> >1. Partially removed use of 'test_objs' target, breaking force rebuild of
-> >BPFOBJ, introduced in commit d498f8719a09 ("bpf: Rebuild bpf.o for any
-> >dependency update").
-> >
-> >   Update target so dependency on BPFOBJ is restored.
-> >
-> >2. Introduced commit 2047f1d8ba28 ("selftests: Fix the .c linking rule")
-> >which fixes order of LDLIBS.
-> >
-> >   Commit d02d8986a768 ("bpf: Always test unprivileged programs") added
-> >libcap dependency into CFLAGS. Use LDLIBS instead to fix linking of
-> >test_verifier.
-> >
-> >3. Introduced commit d83c3ba0b926 ("selftests: Fix selftests build to
-> >just build, not run tests").
-> >
-> >   Reordering the Makefile allows us to remove the 'all' target.
-> >
-> >Tested both:
-> >     selftests/bpf$ make
-> >and
-> >     selftests$ make TARGETS=bpf
-> >on Ubuntu 16.04.2.
-> >
-> >Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
-> 
-> Looks reasonable to me as follow up to 1da8ac7c49fb ("selftests/bpf:
-> fix broken build"), thanks for fixing Zi!
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> Tested-by: Daniel Borkmann <daniel@iogearbox.net>
+On Mon, Mar 20, 2017 at 07:51:01AM -0700, Eric Dumazet wrote:
+> PowerPC has no efficient atomic_inc() and this definitely shows on
+> network intensive workloads involving concurrent cores/threads.
 
-worked for me as well:
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Tested-by: Alexei Starovoitov <ast@kernel.org>
+Correct, PPC LL/SC are dreadfully expensive.
+
+> atomic_cmpxchg() on PowerPC is horribly more expensive because of the
+> added two SYNC instructions.
+
+Note that refcount_t uses atomic_cmpxchg_release() and
+atomic_cmpxchg_relaxed() which avoid most of the painful barriers.
