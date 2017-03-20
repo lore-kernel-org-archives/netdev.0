@@ -1,54 +1,64 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] liquidio: use meaningful names for IRQs
-Date: Mon, 20 Mar 2017 08:15:30 -0700
-Message-ID: <20170320081530.0f4cdbee@xeon-e3>
-References: <20170313195804.GA1796@felix2.cavium.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net] selftests/bpf: fix broken build, take 2
+Date: Mon, 20 Mar 2017 08:45:25 -0700
+Message-ID: <20170320154523.GA80094@ast-mbp.thefacebook.com>
+References: <1489989794-6859-1-git-send-email-zlim.lnx@gmail.com>
+ <58CFF5D0.8040708@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com, ricardo.farrington@cavium.com
-To: Felix Manlunas <felix.manlunas@cavium.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:36010 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753946AbdCTPYo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 11:24:44 -0400
-Received: by mail-pg0-f53.google.com with SMTP id g2so78658444pge.3
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 08:23:58 -0700 (PDT)
-In-Reply-To: <20170313195804.GA1796@felix2.cavium.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35038 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753614AbdCTPpb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 11:45:31 -0400
+Received: by mail-pf0-f193.google.com with SMTP id n11so6533188pfg.2
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 08:45:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <58CFF5D0.8040708@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 13 Mar 2017 12:58:04 -0700
-Felix Manlunas <felix.manlunas@cavium.com> wrote:
+On Mon, Mar 20, 2017 at 04:31:28PM +0100, Daniel Borkmann wrote:
+> On 03/20/2017 07:03 AM, Zi Shen Lim wrote:
+> >Merge of 'linux-kselftest-4.11-rc1':
+> >
+> >1. Partially removed use of 'test_objs' target, breaking force rebuild of
+> >BPFOBJ, introduced in commit d498f8719a09 ("bpf: Rebuild bpf.o for any
+> >dependency update").
+> >
+> >   Update target so dependency on BPFOBJ is restored.
+> >
+> >2. Introduced commit 2047f1d8ba28 ("selftests: Fix the .c linking rule")
+> >which fixes order of LDLIBS.
+> >
+> >   Commit d02d8986a768 ("bpf: Always test unprivileged programs") added
+> >libcap dependency into CFLAGS. Use LDLIBS instead to fix linking of
+> >test_verifier.
+> >
+> >3. Introduced commit d83c3ba0b926 ("selftests: Fix selftests build to
+> >just build, not run tests").
+> >
+> >   Reordering the Makefile allows us to remove the 'all' target.
+> >
+> >Tested both:
+> >     selftests/bpf$ make
+> >and
+> >     selftests$ make TARGETS=bpf
+> >on Ubuntu 16.04.2.
+> >
+> >Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+> 
+> Looks reasonable to me as follow up to 1da8ac7c49fb ("selftests/bpf:
+> fix broken build"), thanks for fixing Zi!
+> 
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Tested-by: Daniel Borkmann <daniel@iogearbox.net>
 
-> From: Rick Farrington <ricardo.farrington@cavium.com>
-> 
-> All IRQs owned by the PF and VF drivers share the same nondescript name
-> "octeon"; this makes it difficult to setup interrupt affinity.
-> 
-> Change the IRQ names to reflect their specific purpose:
-> 
->     LiquidIO<id>-<func>-<type>-<queue pair num>
-> 
-> Examples:
->     LiquidIO0-pf0-rxtx-3
->     LiquidIO1-vf1-rxtx-0
->     LiquidIO0-pf0-aux
-> 
-> We cannot use netdev->name for naming the IRQs because:
-> 
->     1.  Early during init, the PF and VF drivers require interrupts to
->         send/receive control data from the NIC firmware; so the PF and VF
->         must request IRQs long before the netdev struct is registered.
-> 
->     2.  The IRQ name can only be specified at the time it is requested.
->         It cannot be changed after that.
-> 
-> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-
-Irqbalance used to parse the interrupt names and expect the network device name.
+worked for me as well:
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Tested-by: Alexei Starovoitov <ast@kernel.org>
