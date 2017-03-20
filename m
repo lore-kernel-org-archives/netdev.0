@@ -1,46 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
- atomic_t to refcount_t
-Date: Mon, 20 Mar 2017 07:59:06 -0700
-Message-ID: <1490021946.16816.54.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170318164759.GA23837@gondor.apana.org.au>
-	<20170318.182121.439615057765380575.davem@davemloft.net>
-	<20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
-	<20170320131629.GA26405@gondor.apana.org.au>
-	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
-	<20170320132713.GA26954@gondor.apana.org.au>
-	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-	<1490021461.16816.52.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: declare struct sctp_stream before using it
+Date: Mon, 20 Mar 2017 22:33:57 +0800
+Message-ID: <CADvbK_ffhWRSkzESfar9JRUUX_defGdM4hiPrVz5ZQS6yNjG3A@mail.gmail.com>
+References: <1a16b414118d0876373774654d86e2a2a936b9d1.1490003187.git.lucien.xin@gmail.com>
+ <20170320132920.GA7855@hmswarspite.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: keescook@chromium.org, kaber@trash.net, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	jmorris@namei.org, ishkamiel@gmail.com, kuznet@ms2.inr.ac.ru,
-	akpm@linux-foundation.org, dwindsor@gmail.com,
-	David Miller <davem@davemloft.net>, elena.reshetova@intel.com,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1490021461.16816.52.camel@edumazet-glaptop3.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:34631 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754788AbdCTO7I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 10:59:08 -0400
+In-Reply-To: <20170320132920.GA7855@hmswarspite.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-03-20 at 07:51 -0700, Eric Dumazet wrote:
+On Mon, Mar 20, 2017 at 9:29 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
+> On Mon, Mar 20, 2017 at 05:46:27PM +0800, Xin Long wrote:
+>> sctp_stream_free uses struct sctp_stream as a param, but struct sctp_stream
+>> is defined after it's declaration.
+>>
+>> This patch is to declare struct sctp_stream before sctp_stream_free.
+>>
+>> Fixes: a83863174a61 ("sctp: prepare asoc stream for stream reconf")
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  include/net/sctp/structs.h | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+>> index 4f64519..592dece 100644
+>> --- a/include/net/sctp/structs.h
+>> +++ b/include/net/sctp/structs.h
+>> @@ -83,6 +83,7 @@ struct sctp_bind_addr;
+>>  struct sctp_ulpq;
+>>  struct sctp_ep_common;
+>>  struct crypto_shash;
+>> +struct sctp_stream;
+>>
+>>
+>>  #include <net/sctp/tsnmap.h>
+>> --
+>> 2.1.0
+>>
+>>
+>
+> Not sure I follow.  did we run into a compilation failure here?
+no compilation err was found, even now.
 
-> atomic_cmpxchg() on PowerPC is horribly more expensive because of the
-> added two SYNC instructions.
+because of
+struct sctp_stream *sctp_stream_new(__u16 incnt, __u16 outcnt, gfp_t gfp);
+void sctp_stream_free(struct sctp_stream *stream);
 
-Although I just saw that refcount was using atomic_cmpxchg_relaxed()
+I'm not sure why gcc did not complain, but when I moved sctp_stream_new
+below sctp_stream_free:
+void sctp_stream_free(struct sctp_stream *stream);
+struct sctp_stream *sctp_stream_new(__u16 incnt, __u16 outcnt, gfp_t gfp);
 
-Time to find some documentation (probably missing) or get some specs for
-this thing.
+the err showed up.
+
+So the better thing we should do is to declare struct sctp_stream to
+avoid this potential issue.
+
+Besides, I'm planing to change the return value type of sctp_stream_new.
+after which, the issue will be exposed.
+
+>
+> Neil
+>
