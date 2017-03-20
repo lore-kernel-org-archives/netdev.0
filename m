@@ -1,55 +1,129 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/13] i40e: don't re-enable ATR when flushing filters if SB has TCP4/IPv4 rules
-Date: Mon, 20 Mar 2017 16:47:09 -0700
-Message-ID: <20170320234712.84157-11-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/13] i40e: don't use arrays for (src|dst)_ip
+Date: Mon, 20 Mar 2017 16:47:03 -0700
+Message-ID: <20170320234712.84157-5-jeffrey.t.kirsher@intel.com>
 References: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:49349 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:59023 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932103AbdCTXrV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 19:47:21 -0400
+        id S1755901AbdCTXrU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 19:47:20 -0400
 In-Reply-To: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-When flushing and replaying FDIR filters, it is possible we would
-disable ATR, and then re-enable it even though we should have kept
-it disabled due to existing TCP/IPv4 filters. Fix this by checking
-whether we have TCP4/IPv4 filters before re-enabling.
+The code originally included src_ip and dst_ip with enough space to
+support ipv6 filters. However, no actual support for ipv6 filters has
+been implemented. Thus, remove the arrays and just use __be32 values.
+Should ipv6 support be added in the future, we can replace these with
+a union that has sizes for both values.
 
-Alternatively, we could instead restore ATR and then replay filters,
-however, this would cause us to rapidly enable and then disable ATR in
-some cases.
-
-Change-ID: I076e4cc1e4409bce7f98f3c213295433a4ff43d8
+Change-Id: I1bc04032244a80eb6ebc8a4e6c723a4a665c1dd5
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Avinash Dayanand <avinash.dayanand@intel.com>
-Reviewed-by: Alan Brady <alan.brady@intel.com>
-Reviewed-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 12 ++++++------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 12 ++++++------
+ 3 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 437b79eeb8b5..cc33ac835181 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6228,7 +6228,7 @@ static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
- 	} else {
- 		/* replay sideband filters */
- 		i40e_fdir_filter_restore(pf->vsi[pf->lan_vsi]);
--		if (!disable_atr)
-+		if (!disable_atr && !pf->fd_tcp_rule)
- 			pf->hw_disabled_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
- 		clear_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
- 		if (I40E_DEBUG_FD & pf->hw.debug_mask)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index fba8495a8787..55ea1c0221e6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -208,8 +208,8 @@ struct i40e_fdir_filter {
+ 	u8 flow_type;
+ 	u8 ip4_proto;
+ 	/* TX packet view of src and dst */
+-	__be32 dst_ip[4];
+-	__be32 src_ip[4];
++	__be32 dst_ip;
++	__be32 src_ip;
+ 	__be16 src_port;
+ 	__be16 dst_port;
+ 	__be32 sctp_v_tag;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index ceb57ad59e8f..7a22b473dbdd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2406,8 +2406,8 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
+ 	 */
+ 	fsp->h_u.tcp_ip4_spec.psrc = rule->dst_port;
+ 	fsp->h_u.tcp_ip4_spec.pdst = rule->src_port;
+-	fsp->h_u.tcp_ip4_spec.ip4src = rule->dst_ip[0];
+-	fsp->h_u.tcp_ip4_spec.ip4dst = rule->src_ip[0];
++	fsp->h_u.tcp_ip4_spec.ip4src = rule->dst_ip;
++	fsp->h_u.tcp_ip4_spec.ip4dst = rule->src_ip;
+ 
+ 	if (rule->dest_ctl == I40E_FILTER_PROGRAM_DESC_DEST_DROP_PACKET)
+ 		fsp->ring_cookie = RX_CLS_FLOW_DISC;
+@@ -2630,8 +2630,8 @@ static int i40e_set_rss_hash_opt(struct i40e_pf *pf, struct ethtool_rxnfc *nfc)
+ static bool i40e_match_fdir_input_set(struct i40e_fdir_filter *rule,
+ 				      struct i40e_fdir_filter *input)
+ {
+-	if ((rule->dst_ip[0] != input->dst_ip[0]) ||
+-	    (rule->src_ip[0] != input->src_ip[0]) ||
++	if ((rule->dst_ip != input->dst_ip) ||
++	    (rule->src_ip != input->src_ip) ||
+ 	    (rule->dst_port != input->dst_port) ||
+ 	    (rule->src_port != input->src_port))
+ 		return false;
+@@ -2807,8 +2807,8 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 	 */
+ 	input->dst_port = fsp->h_u.tcp_ip4_spec.psrc;
+ 	input->src_port = fsp->h_u.tcp_ip4_spec.pdst;
+-	input->dst_ip[0] = fsp->h_u.tcp_ip4_spec.ip4src;
+-	input->src_ip[0] = fsp->h_u.tcp_ip4_spec.ip4dst;
++	input->dst_ip = fsp->h_u.tcp_ip4_spec.ip4src;
++	input->src_ip = fsp->h_u.tcp_ip4_spec.ip4dst;
+ 
+ 	if (ntohl(fsp->m_ext.data[1])) {
+ 		vf_id = ntohl(fsp->h_ext.data[1]);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 6eb5dc4168f3..c4d3a40a3f10 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -219,9 +219,9 @@ static int i40e_add_del_fdir_udpv4(struct i40e_vsi *vsi,
+ 	udp = (struct udphdr *)(raw_packet + IP_HEADER_OFFSET
+ 	      + sizeof(struct iphdr));
+ 
+-	ip->daddr = fd_data->dst_ip[0];
++	ip->daddr = fd_data->dst_ip;
+ 	udp->dest = fd_data->dst_port;
+-	ip->saddr = fd_data->src_ip[0];
++	ip->saddr = fd_data->src_ip;
+ 	udp->source = fd_data->src_port;
+ 
+ 	fd_data->pctype = I40E_FILTER_PCTYPE_NONF_IPV4_UDP;
+@@ -281,9 +281,9 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 	tcp = (struct tcphdr *)(raw_packet + IP_HEADER_OFFSET
+ 	      + sizeof(struct iphdr));
+ 
+-	ip->daddr = fd_data->dst_ip[0];
++	ip->daddr = fd_data->dst_ip;
+ 	tcp->dest = fd_data->dst_port;
+-	ip->saddr = fd_data->src_ip[0];
++	ip->saddr = fd_data->src_ip;
+ 	tcp->source = fd_data->src_port;
+ 
+ 	if (add) {
+@@ -359,8 +359,8 @@ static int i40e_add_del_fdir_ipv4(struct i40e_vsi *vsi,
+ 		memcpy(raw_packet, packet, I40E_IP_DUMMY_PACKET_LEN);
+ 		ip = (struct iphdr *)(raw_packet + IP_HEADER_OFFSET);
+ 
+-		ip->saddr = fd_data->src_ip[0];
+-		ip->daddr = fd_data->dst_ip[0];
++		ip->saddr = fd_data->src_ip;
++		ip->daddr = fd_data->dst_ip;
+ 		ip->protocol = 0;
+ 
+ 		fd_data->pctype = i;
 -- 
 2.12.0
