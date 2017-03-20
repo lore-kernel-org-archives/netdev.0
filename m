@@ -1,113 +1,99 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 1/7] Documentation: dt: net: Update the ath9k binding for
- SoC devices
-Date: Mon, 20 Mar 2017 17:06:19 -0500
-Message-ID: <20170320220619.6lybt3wieqqedfuo@rob-hp-laptop>
-References: <1489439116-4233-1-git-send-email-albeu@free.fr>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] stmmac: call stmmac_init_phy from
+ stmmac_dvr_probe
+Date: Mon, 20 Mar 2017 15:07:02 -0700
+Message-ID: <285d0fe6-9257-5e44-1272-be22dc271094@gmail.com>
+References: <20170320172915.8313-1-niklass@axis.com>
+ <257f3b05-805d-fd59-5435-89ede6b0fe4b@gmail.com>
+ <82fbc595-5269-bcd9-d75f-778fbd8d2bdb@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        John Crispin <john@phrozen.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alban <albeu@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:34737 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755951AbdCTWGW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 18:06:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1489439116-4233-1-git-send-email-albeu@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Niklas Cassel <niklas.cassel@axis.com>, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, Joao.Pinto@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <82fbc595-5269-bcd9-d75f-778fbd8d2bdb@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 13, 2017 at 10:05:09PM +0100, Alban wrote:
-> The current binding only cover PCI devices so extend it for SoC devices.
+On 03/20/2017 11:34 AM, Niklas Cassel wrote:
+> On 03/20/2017 06:43 PM, Florian Fainelli wrote:
+>> On 03/20/2017 10:29 AM, Niklas Cassel wrote:
+>>> From: Niklas Cassel <niklas.cassel@axis.com>
+>>>
+>>> It is usually possible to do
+>>> ethtool -s autoneg on
+>>> so that you trigger an autoneg before calling
+>>> ip link set dev eth0 up
+>> This is completely driver specific and there is no guarantee for this to
+>> work universally across all device drivers because when your interface
+>> is brought down, the most sensible thing to expect in return is that
+>> your PHY is powered down (unless your interface participates in
+>> Wake-on-LAN).
+>>
+>>> However, stmmac returns -EBUSY if !netif_running.
+>>> The only reason for this appears to be that stmmac_init_phy
+>>> is called from stmmac_open instead of from stmmac_dvr_probe.
+>>>
+>>> Move stmmac_init_phy to stmmac_dvr_probe so that ethool
+>>> works as soon as register_netdev has been called.
+>>> stmmac_check_ether_addr was also moved to probe,
+>>> so that the ordering doesn't change.
+>> Are you sure this is a good idea? There are many drivers that moved the
+>> PHY probe into ndo_open() for mainly two things:
+>>
+>> - phy_connect() starts the PHY state machine and starting the state
+>> machine without a network device running is kind of wasting cycles
+>>
+>> - if the interface is probed, but not used, you are keeping the Ethernet
+>> link running without being able to service packets, which is at best a
+>> waste of power
 > 
-> Most SoC platforms use an MTD partition for the calibration data
-> instead of an EEPROM. The qca,no-eeprom property was added to allow
-> loading the EEPROM content using firmware loading. This new binding
-> replace this hack with NVMEM cells, so we also mark the qca,no-eeprom
-> property as deprecated in case anyone ever used it.
+> Hello Florian
 > 
-> Signed-off-by: Alban <albeu@free.fr>
-> ---
->  .../devicetree/bindings/net/wireless/qca,ath9k.txt | 41 ++++++++++++++++++++--
->  1 file changed, 38 insertions(+), 3 deletions(-)
+> Thank you for your input.
+> I can see the point in keeping phy_connect in ndo_open.
+> 
+> What I dislike is the -EBUSY from stmmac_ethtool_get_link_ksettings,
+> since this will create warnings in user space by our favorite monolith.
+> (Please don't flame me, I dislike it as much as you guys.)
+> 
+> [ WARNING ] systemd-udevd[236]: link_config: could not get ethtool features for eth0
+> [ WARNING ] systemd-udevd[236]: Could not set offload features of eth0: Device or resource busy
 
-For the subject, "dt-bindings: net: ..." and one nit below, otherwise:
-
-Acked-by: Rob Herring <robh@kernel.org>
+Then let's silence the warning, because it's not really helpful in the
+first place.
 
 > 
-> diff --git a/Documentation/devicetree/bindings/net/wireless/qca,ath9k.txt b/Documentation/devicetree/bindings/net/wireless/qca,ath9k.txt
-> index b7396c8..61f5f6d 100644
-> --- a/Documentation/devicetree/bindings/net/wireless/qca,ath9k.txt
-> +++ b/Documentation/devicetree/bindings/net/wireless/qca,ath9k.txt
-> @@ -27,16 +27,34 @@ Required properties:
->  			- 0034 for AR9462
->  			- 0036 for AR9565
->  			- 0037 for AR9485
-> +		For SoC devices the compatible should be "qca,<soctype>-wmac"
-> +		and one of the following fallbacks:
-> +			- "qca,ar9100-wmac"
-> +			- "qca,ar9330-wmac"
-> +			- "qca,ar9340-wmac"
-> +			- "qca,qca9550-wmac"
-> +			- "qca,qca9530-wmac"
->  - reg: Address and length of the register set for the device.
->  
-> +Required properties for SoC devices:
-> +- interrupt-parent: phandle of the parent interrupt controller.
-> +- interrupts: Interrupt specifier for the controllers interrupt.
-> +
->  Optional properties:
-> +- mac-address: See ethernet.txt in the parent directory
-> +- local-mac-address: See ethernet.txt in the parent directory
-> +- clock-names: has to be "ref"
-> +- clocks: phandle of the reference clock
-> +- resets: phandle of the reset line
-> +- nvmem-cell-names: has to be "eeprom" and/or "address"
-> +- nvmem-cells: phandle to the eeprom nvmem cell and/or to the mac address
-> +		nvmem cell.
-> +
-> +Deprecated properties:
->  - qca,no-eeprom: Indicates that there is no physical EEPROM connected to the
->  			ath9k wireless chip (in this case the calibration /
->  			EEPROM data will be loaded from userspace using the
->  			kernel firmware loader).
-> -- mac-address: See ethernet.txt in the parent directory
-> -- local-mac-address: See ethernet.txt in the parent directory
-> -
->  
->  In this example, the node is defined as child node of the PCI controller:
->  &pci0 {
-> @@ -46,3 +64,20 @@ In this example, the node is defined as child node of the PCI controller:
->  		qca,no-eeprom;
->  	};
->  };
-> +
-> +In this example it is defined as a SoC device:
-> +	wmac@180c0000 {
-
-wifi@...
-
-> +		compatible = "qca,ar9132-wmac", "qca,ar9100-wmac";
-> +		reg = <0x180c0000 0x30000>;
-> +
-> +		interrupt-parent = <&cpuintc>;
-> +		interrupts = <2>;
-> +
-> +		clock-names = "ref";
-> +		clocks = <&extosc>;
-> +
-> +		nvmem-cell-names = "eeprom", "address";
-> +		nvmem-cells = <&wmac_eeprom>, <&wmac_address>;
-> +
-> +		resets = <&rst 22>;
-> +	};
-> -- 
-> 2.7.4
 > 
+> However, it is kind of sad that drivers are so inconsistent of what goes
+> in probe and what goes in ndo_open...which is tied together with the
+> whole mess of when certain ethtool commands work or do not work.
+
+Well, inconsistent here is kind of big statement, what I meant to say is
+that your proposed change actually makes thing inconsistent.
+
+> 
+> Do you know of a good way to avoid the -EBUSY in stmmac_ethtool_get_link_ksettings,
+> but still keep phy_connect in ndo_open?
+
+Let me rephrase this: doing an ethtool operation on an interface that is
+not open is not a defined behavior which adheres to a contract with the
+kernel. ethtool operations on interfaces that are DOWN, may succeed if
+they do not involve a piece of hardware that needs to be active (e.g:
+the PHY) but there is no guarantee that a) the change is immediately
+applied, or b) that the results are consistent.
+
+The best thing to do IMHO is just silence the warning, return an error
+coed, and come back configuring the interface at a later time when it is
+guaranteed to be operational.
+
+> The current code checks netif_running(), which checks __LINK_STATE_START,
+> which gets set by __dev_open().
+> stmmac_ethtool_get_link_ksettings also returns -ENODEV if ndev->phydev == NULL.
+> 
+
+
+-- 
+Florian
