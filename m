@@ -1,278 +1,121 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: [PATCH] sock: introduce SO_MEMINFO getsockopt
-Date: Mon, 20 Mar 2017 15:22:03 -0400
-Message-ID: <1490037723-6475-1-git-send-email-johunt@akamai.com>
-Cc: netdev@vger.kernel.org, edumazet@google.com, jbaron@akamai.com,
-        ckuiper@google.com, pgynther@google.com,
-        Josh Hunt <johunt@akamai.com>
-To: davem@davemloft.net
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
+ performance may be compromised." message with "ethtool -K eth0 gro off"
+Date: Mon, 20 Mar 2017 16:27:14 -0300
+Message-ID: <20170320192714.GB23552@localhost.localdomain>
+References: <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203115457.GA5296@localhost.localdomain>
+ <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203135355.GA3413@localhost.localdomain>
+ <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170203142828.GB3413@localhost.localdomain>
+ <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170206211226.GC3413@localhost.localdomain>
+ <20170319121417.GA293@x4>
+ <1489951226.16816.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+        netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay08.akamai.com ([96.6.114.112]:9361 "EHLO
-        prod-mail-xrelay08.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752569AbdCTTY1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 15:24:27 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:49996 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755850AbdCTThz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 15:37:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1489951226.16816.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows reading of SK_MEMINFO_VARS via socket option. This way an
-application can get all meminfo related information in single socket
-option call instead of multiple calls.
+On Sun, Mar 19, 2017 at 12:20:26PM -0700, Eric Dumazet wrote:
+> On Sun, 2017-03-19 at 13:14 +0100, Markus Trippelsdorf wrote:
+> > On 2017.02.06 at 19:12 -0200, Marcelo Ricardo Leitner wrote:
+> > > On Fri, Feb 03, 2017 at 06:47:33AM -0800, Eric Dumazet wrote:
+> > > > On Fri, 2017-02-03 at 12:28 -0200, Marcelo Ricardo Leitner wrote:
+> > > > 
+> > > > > Aren't you mixing the endpoints here? MSS is the largest amount of data
+> > > > > that the peer can receive in a single segment, and not how much it will
+> > > > > send. For the sending part, that depends on what the other peer
+> > > > > announced, and we can have 2 different MSS in a single connection, one
+> > > > > for each peer.
+> > > > > 
+> > > > > If a peer later wants to send larger segments, it can, but it must
+> > > > > respect the mss advertised by the other peer during handshake.
+> > > > > 
+> > > > 
+> > > > I am not mixing endpoints, you are.
+> > > > 
+> > > > If you need to be convinced, please grab :
+> > > > https://patchwork.ozlabs.org/patch/723028/
+> > > > 
+> > > > And just watch "ss -temoi ..." 
+> > > 
+> > > I still don't get it, but I also hit the warning on my laptop, using
+> > > iwlwifi. Not sure what I did in order to trigger it, it was by accident.
+> > 
+> > After many weeks without any warning, I've hit the issue again today:
 
-Adds helper function, sk_get_meminfo(), and uses that for both
-getsockopt and sock_diag_put_meminfo().
+Nice!
 
-Suggested by Eric Dumazet.
+> > 
+> >  TCP: eth0: Driver has suspect GRO implementation, TCP performance may be compromised. rcv_mss:1448 advmss:1448 len:1460
+> > 
+> 
+> It is very possible the sender suddenly forgot to use TCP timestamps.
 
-Signed-off-by: Josh Hunt <johunt@akamai.com>
-Reviewed-by: Jason Baron <jbaron@akamai.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- arch/alpha/include/uapi/asm/socket.h   |  2 ++
- arch/avr32/include/uapi/asm/socket.h   |  2 ++
- arch/frv/include/uapi/asm/socket.h     |  2 ++
- arch/ia64/include/uapi/asm/socket.h    |  2 ++
- arch/m32r/include/uapi/asm/socket.h    |  2 ++
- arch/mips/include/uapi/asm/socket.h    |  3 +++
- arch/mn10300/include/uapi/asm/socket.h |  2 ++
- arch/parisc/include/uapi/asm/socket.h  |  2 ++
- arch/powerpc/include/uapi/asm/socket.h |  2 ++
- arch/s390/include/uapi/asm/socket.h    |  2 ++
- arch/sparc/include/uapi/asm/socket.h   |  2 ++
- arch/xtensa/include/uapi/asm/socket.h  |  2 ++
- include/net/sock.h                     |  2 ++
- include/uapi/asm-generic/socket.h      |  2 ++
- net/core/sock.c                        | 30 ++++++++++++++++++++++++++++++
- net/core/sock_diag.c                   | 10 +---------
- 16 files changed, 60 insertions(+), 9 deletions(-)
+By those 12 bytes, seems so, yes.
 
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index afc901b..089db42 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -99,4 +99,6 @@
+> This warning is a hint, and can not assume senders are not dumb.
+
+Agreed. But we can make it consider such cases. What about the following
+patch? (untested)
+
+I think we can directly account for the size of the timestamps in there,
+as that won't make a difference to congestion control in case it's
+wrong, and also validate against MTU if we have it. I didn't subtract
+the headers from MTU on purpose, as dealing with ipv4/ipv6 there is
+not worth for the same reason.
+
+This should silent this false-positive.
+
+---8<---
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 96b67a8b18c3..96a99446ddce 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -126,7 +126,8 @@ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
+ #define REXMIT_LOST	1 /* retransmit packets marked lost */
+ #define REXMIT_NEW	2 /* FRTO-style transmit of unsent/new packets */
  
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index 5a65042..6eabcbd 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -92,4 +92,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif /* _UAPI__ASM_AVR32_SOCKET_H */
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index 81e0353..bd497f8 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -92,5 +92,7 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif /* _ASM_SOCKET_H */
- 
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index 57feb0c..f1bb546 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -101,4 +101,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index 5853f8e9..459c460 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -92,4 +92,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index 566ecdc..688c18d 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -110,4 +110,7 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index 0e12527..312d2c4 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -92,4 +92,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index 7a109b7..b98ec38 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -91,4 +91,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	0x402F
- 
-+#define SO_MEMINFO		0x4030
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index 44583a5..099a889 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -99,4 +99,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index b24a64c..6199bb3 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -98,4 +98,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define	SO_MEMINFO		55
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index a25dc32..12cd8c2 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -88,6 +88,8 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	0x0038
- 
-+#define SO_MEMINFO		0x0039
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index 9fdbe1f..d0b85f6 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -103,4 +103,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 08142be..cb241a0 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -2362,6 +2362,8 @@ bool sk_ns_capable(const struct sock *sk,
- bool sk_capable(const struct sock *sk, int cap);
- bool sk_net_capable(const struct sock *sk, int cap);
- 
-+void sk_get_meminfo(const struct sock *sk, u32 *meminfo);
-+
- extern __u32 sysctl_wmem_max;
- extern __u32 sysctl_rmem_max;
- 
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 2c748dd..8313702 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -94,4 +94,6 @@
- 
- #define SCM_TIMESTAMPING_OPT_STATS	54
- 
-+#define SO_MEMINFO		55
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index a83731c..f8c0373 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1313,6 +1313,21 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		v.val = sk->sk_incoming_cpu;
- 		break;
- 
-+	case SO_MEMINFO:
-+	{
-+		u32 meminfo[SK_MEMINFO_VARS];
-+
-+		if (get_user(len, optlen))
-+			return -EFAULT;
-+
-+		sk_get_meminfo(sk, meminfo);
-+
-+		len = min_t(unsigned int, len, sizeof(meminfo));
-+		if (copy_to_user(optval, &meminfo, len))
-+			return -EFAULT;
-+
-+		goto lenout;
-+	}
- 	default:
- 		/* We implement the SO_SNDLOWAT etc to not be settable
- 		 * (1003.1g 7).
-@@ -2861,6 +2876,21 @@ void sk_common_release(struct sock *sk)
- }
- EXPORT_SYMBOL(sk_common_release);
- 
-+void sk_get_meminfo(const struct sock *sk, u32 *mem)
-+{
-+	memset(mem, 0, sizeof(*mem) * SK_MEMINFO_VARS);
-+
-+	mem[SK_MEMINFO_RMEM_ALLOC] = sk_rmem_alloc_get(sk);
-+	mem[SK_MEMINFO_RCVBUF] = sk->sk_rcvbuf;
-+	mem[SK_MEMINFO_WMEM_ALLOC] = sk_wmem_alloc_get(sk);
-+	mem[SK_MEMINFO_SNDBUF] = sk->sk_sndbuf;
-+	mem[SK_MEMINFO_FWD_ALLOC] = sk->sk_forward_alloc;
-+	mem[SK_MEMINFO_WMEM_QUEUED] = sk->sk_wmem_queued;
-+	mem[SK_MEMINFO_OPTMEM] = atomic_read(&sk->sk_omem_alloc);
-+	mem[SK_MEMINFO_BACKLOG] = sk->sk_backlog.len;
-+	mem[SK_MEMINFO_DROPS] = atomic_read(&sk->sk_drops);
-+}
-+
- #ifdef CONFIG_PROC_FS
- #define PROTO_INUSE_NR	64	/* should be enough for the first time */
- struct prot_inuse {
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index 6b10573..8d11ee7 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -59,15 +59,7 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
+-static void tcp_gro_dev_warn(struct sock *sk, const struct sk_buff *skb)
++static void tcp_gro_dev_warn(struct sock *sk, const struct sk_buff *skb,
++			     unsigned int len)
  {
- 	u32 mem[SK_MEMINFO_VARS];
+ 	static bool __once __read_mostly;
  
--	mem[SK_MEMINFO_RMEM_ALLOC] = sk_rmem_alloc_get(sk);
--	mem[SK_MEMINFO_RCVBUF] = sk->sk_rcvbuf;
--	mem[SK_MEMINFO_WMEM_ALLOC] = sk_wmem_alloc_get(sk);
--	mem[SK_MEMINFO_SNDBUF] = sk->sk_sndbuf;
--	mem[SK_MEMINFO_FWD_ALLOC] = sk->sk_forward_alloc;
--	mem[SK_MEMINFO_WMEM_QUEUED] = sk->sk_wmem_queued;
--	mem[SK_MEMINFO_OPTMEM] = atomic_read(&sk->sk_omem_alloc);
--	mem[SK_MEMINFO_BACKLOG] = sk->sk_backlog.len;
--	mem[SK_MEMINFO_DROPS] = atomic_read(&sk->sk_drops);
-+	sk_get_meminfo(sk, mem);
+@@ -137,8 +138,9 @@ static void tcp_gro_dev_warn(struct sock *sk, const struct sk_buff *skb)
  
- 	return nla_put(skb, attrtype, sizeof(mem), &mem);
+ 		rcu_read_lock();
+ 		dev = dev_get_by_index_rcu(sock_net(sk), skb->skb_iif);
+-		pr_warn("%s: Driver has suspect GRO implementation, TCP performance may be compromised.\n",
+-			dev ? dev->name : "Unknown driver");
++		if (!dev || len >= dev->mtu)
++			pr_warn("%s: Driver has suspect GRO implementation, TCP performance may be compromised.\n",
++				dev ? dev->name : "Unknown driver");
+ 		rcu_read_unlock();
+ 	}
  }
--- 
-1.9.1
+@@ -161,8 +163,9 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
+ 	if (len >= icsk->icsk_ack.rcv_mss) {
+ 		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
+ 					       tcp_sk(sk)->advmss);
+-		if (unlikely(icsk->icsk_ack.rcv_mss != len))
+-			tcp_gro_dev_warn(sk, skb);
++		/* The + 12 accounts for the possible lack of timestamps */
++		if (unlikely(icsk->icsk_ack.rcv_mss + 12 < len))
++			tcp_gro_dev_warn(sk, skb, len);
+ 	} else {
+ 		/* Otherwise, we make more careful check taking into account,
+ 		 * that SACKs block is variable.
