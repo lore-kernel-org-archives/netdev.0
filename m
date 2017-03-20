@@ -1,55 +1,282 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/22] netfilter: bridge: remove unneeded rcu_read_lock
-Date: Mon, 20 Mar 2017 11:08:36 +0100
-Message-ID: <1490004530-9128-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/22] netfilter: nft_ct: add helper set support
+Date: Mon, 20 Mar 2017 11:08:39 +0100
+Message-ID: <1490004530-9128-12-git-send-email-pablo@netfilter.org>
 References: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52088 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754036AbdCTKJk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 06:09:40 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 0B9F3523EC
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:10 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id EE908DA874
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:09 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B0802DA863
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:06 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-as comment says, the function is always called with rcu read lock held.
+this allows to assign connection tracking helpers to
+connections via nft objref infrastructure.
+
+The idea is to first specifiy a helper object:
+
+ table ip filter {
+    ct helper some-name {
+      type "ftp"
+      protocol tcp
+      l3proto ip
+    }
+ }
+
+and then assign it via
+
+nft add ... ct helper set "some-name"
+
+helper assignment works for new conntracks only as we cannot expand the
+conntrack extension area once it has been committed to the main conntrack
+table.
+
+ipv4 and ipv6 protocols are tracked stored separately so
+we can also handle families that observe both ipv4 and ipv6 traffic.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/br_netfilter_hooks.c | 3 ---
- 1 file changed, 3 deletions(-)
+ include/uapi/linux/netfilter/nf_tables.h |  12 ++-
+ net/netfilter/nft_ct.c                   | 171 +++++++++++++++++++++++++++++++
+ 2 files changed, 182 insertions(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index 95087e6e8258..52739e6c610e 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -1016,13 +1016,10 @@ int br_nf_hook_thresh(unsigned int hook, struct net *net,
- 	if (!elem)
- 		return okfn(net, sk, skb);
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 4f7d75682c59..34c8d08b687a 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -1259,10 +1259,20 @@ enum nft_fib_flags {
+ 	NFTA_FIB_F_OIF		= 1 << 4,	/* restrict to oif */
+ };
  
--	/* We may already have this, but read-locks nest anyway */
--	rcu_read_lock();
- 	nf_hook_state_init(&state, hook, NFPROTO_BRIDGE, indev, outdev,
- 			   sk, net, okfn);
++enum nft_ct_helper_attributes {
++	NFTA_CT_HELPER_UNSPEC,
++	NFTA_CT_HELPER_NAME,
++	NFTA_CT_HELPER_L3PROTO,
++	NFTA_CT_HELPER_L4PROTO,
++	__NFTA_CT_HELPER_MAX,
++};
++#define NFTA_CT_HELPER_MAX	(__NFTA_CT_HELPER_MAX - 1)
++
+ #define NFT_OBJECT_UNSPEC	0
+ #define NFT_OBJECT_COUNTER	1
+ #define NFT_OBJECT_QUOTA	2
+-#define __NFT_OBJECT_MAX	3
++#define NFT_OBJECT_CT_HELPER	3
++#define __NFT_OBJECT_MAX	4
+ #define NFT_OBJECT_MAX		(__NFT_OBJECT_MAX - 1)
  
- 	ret = nf_hook_slow(skb, &state, elem);
--	rcu_read_unlock();
- 	if (ret == 1)
- 		ret = okfn(net, sk, skb);
+ /**
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index bf548a7a71ec..4144ae845bdd 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -32,6 +32,12 @@ struct nft_ct {
+ 	};
+ };
  
++struct nft_ct_helper_obj  {
++	struct nf_conntrack_helper *helper4;
++	struct nf_conntrack_helper *helper6;
++	u8 l4proto;
++};
++
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+ static DEFINE_PER_CPU(struct nf_conn *, nft_ct_pcpu_template);
+ static unsigned int nft_ct_pcpu_template_refcnt __read_mostly;
+@@ -730,6 +736,162 @@ static struct nft_expr_type nft_notrack_type __read_mostly = {
+ 	.owner		= THIS_MODULE,
+ };
+ 
++static int nft_ct_helper_obj_init(const struct nft_ctx *ctx,
++				  const struct nlattr * const tb[],
++				  struct nft_object *obj)
++{
++	struct nft_ct_helper_obj *priv = nft_obj_data(obj);
++	struct nf_conntrack_helper *help4, *help6;
++	char name[NF_CT_HELPER_NAME_LEN];
++	int family = ctx->afi->family;
++
++	if (!tb[NFTA_CT_HELPER_NAME] || !tb[NFTA_CT_HELPER_L4PROTO])
++		return -EINVAL;
++
++	priv->l4proto = nla_get_u8(tb[NFTA_CT_HELPER_L4PROTO]);
++	if (!priv->l4proto)
++		return -ENOENT;
++
++	nla_strlcpy(name, tb[NFTA_CT_HELPER_NAME], sizeof(name));
++
++	if (tb[NFTA_CT_HELPER_L3PROTO])
++		family = ntohs(nla_get_be16(tb[NFTA_CT_HELPER_L3PROTO]));
++
++	help4 = NULL;
++	help6 = NULL;
++
++	switch (family) {
++	case NFPROTO_IPV4:
++		if (ctx->afi->family == NFPROTO_IPV6)
++			return -EINVAL;
++
++		help4 = nf_conntrack_helper_try_module_get(name, family,
++							   priv->l4proto);
++		break;
++	case NFPROTO_IPV6:
++		if (ctx->afi->family == NFPROTO_IPV4)
++			return -EINVAL;
++
++		help6 = nf_conntrack_helper_try_module_get(name, family,
++							   priv->l4proto);
++		break;
++	case NFPROTO_NETDEV: /* fallthrough */
++	case NFPROTO_BRIDGE: /* same */
++	case NFPROTO_INET:
++		help4 = nf_conntrack_helper_try_module_get(name, NFPROTO_IPV4,
++							   priv->l4proto);
++		help6 = nf_conntrack_helper_try_module_get(name, NFPROTO_IPV6,
++							   priv->l4proto);
++		break;
++	default:
++		return -EAFNOSUPPORT;
++	}
++
++	/* && is intentional; only error if INET found neither ipv4 or ipv6 */
++	if (!help4 && !help6)
++		return -ENOENT;
++
++	priv->helper4 = help4;
++	priv->helper6 = help6;
++
++	return 0;
++}
++
++static void nft_ct_helper_obj_destroy(struct nft_object *obj)
++{
++	struct nft_ct_helper_obj *priv = nft_obj_data(obj);
++
++	if (priv->helper4)
++		module_put(priv->helper4->me);
++	if (priv->helper6)
++		module_put(priv->helper6->me);
++}
++
++static void nft_ct_helper_obj_eval(struct nft_object *obj,
++				   struct nft_regs *regs,
++				   const struct nft_pktinfo *pkt)
++{
++	const struct nft_ct_helper_obj *priv = nft_obj_data(obj);
++	struct nf_conn *ct = (struct nf_conn *)skb_nfct(pkt->skb);
++	struct nf_conntrack_helper *to_assign = NULL;
++	struct nf_conn_help *help;
++
++	if (!ct ||
++	    nf_ct_is_confirmed(ct) ||
++	    nf_ct_is_template(ct) ||
++	    priv->l4proto != nf_ct_protonum(ct))
++		return;
++
++	switch (nf_ct_l3num(ct)) {
++	case NFPROTO_IPV4:
++		to_assign = priv->helper4;
++		break;
++	case NFPROTO_IPV6:
++		to_assign = priv->helper6;
++		break;
++	default:
++		WARN_ON_ONCE(1);
++		return;
++	}
++
++	if (!to_assign)
++		return;
++
++	if (test_bit(IPS_HELPER_BIT, &ct->status))
++		return;
++
++	help = nf_ct_helper_ext_add(ct, to_assign, GFP_ATOMIC);
++	if (help) {
++		rcu_assign_pointer(help->helper, to_assign);
++		set_bit(IPS_HELPER_BIT, &ct->status);
++	}
++}
++
++static int nft_ct_helper_obj_dump(struct sk_buff *skb,
++				  struct nft_object *obj, bool reset)
++{
++	const struct nft_ct_helper_obj *priv = nft_obj_data(obj);
++	const struct nf_conntrack_helper *helper = priv->helper4;
++	u16 family;
++
++	if (nla_put_string(skb, NFTA_CT_HELPER_NAME, helper->name))
++		return -1;
++
++	if (nla_put_u8(skb, NFTA_CT_HELPER_L4PROTO, priv->l4proto))
++		return -1;
++
++	if (priv->helper4 && priv->helper6)
++		family = NFPROTO_INET;
++	else if (priv->helper6)
++		family = NFPROTO_IPV6;
++	else
++		family = NFPROTO_IPV4;
++
++	if (nla_put_be16(skb, NFTA_CT_HELPER_L3PROTO, htons(family)))
++		return -1;
++
++	return 0;
++}
++
++static const struct nla_policy nft_ct_helper_policy[NFTA_CT_HELPER_MAX + 1] = {
++	[NFTA_CT_HELPER_NAME] = { .type = NLA_STRING,
++				  .len = NF_CT_HELPER_NAME_LEN - 1 },
++	[NFTA_CT_HELPER_L3PROTO] = { .type = NLA_U16 },
++	[NFTA_CT_HELPER_L4PROTO] = { .type = NLA_U8 },
++};
++
++static struct nft_object_type nft_ct_helper_obj __read_mostly = {
++	.type		= NFT_OBJECT_CT_HELPER,
++	.size		= sizeof(struct nft_ct_helper_obj),
++	.maxattr	= NFTA_CT_HELPER_MAX,
++	.policy		= nft_ct_helper_policy,
++	.eval		= nft_ct_helper_obj_eval,
++	.init		= nft_ct_helper_obj_init,
++	.destroy	= nft_ct_helper_obj_destroy,
++	.dump		= nft_ct_helper_obj_dump,
++	.owner		= THIS_MODULE,
++};
++
+ static int __init nft_ct_module_init(void)
+ {
+ 	int err;
+@@ -744,7 +906,14 @@ static int __init nft_ct_module_init(void)
+ 	if (err < 0)
+ 		goto err1;
+ 
++	err = nft_register_obj(&nft_ct_helper_obj);
++	if (err < 0)
++		goto err2;
++
+ 	return 0;
++
++err2:
++	nft_unregister_expr(&nft_notrack_type);
+ err1:
+ 	nft_unregister_expr(&nft_ct_type);
+ 	return err;
+@@ -752,6 +921,7 @@ static int __init nft_ct_module_init(void)
+ 
+ static void __exit nft_ct_module_exit(void)
+ {
++	nft_unregister_obj(&nft_ct_helper_obj);
+ 	nft_unregister_expr(&nft_notrack_type);
+ 	nft_unregister_expr(&nft_ct_type);
+ }
+@@ -763,3 +933,4 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
+ MODULE_ALIAS_NFT_EXPR("ct");
+ MODULE_ALIAS_NFT_EXPR("notrack");
++MODULE_ALIAS_NFT_OBJ(NFT_OBJECT_CT_HELPER);
 -- 
 2.1.4
+
