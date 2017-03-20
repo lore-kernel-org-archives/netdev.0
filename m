@@ -1,36 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] mlxsw: spectrum: fix swapped order of arguments packets
- and bytes
-Date: Mon, 20 Mar 2017 13:20:42 +0100
-Message-ID: <20170320122042.GA1883@nanopsycho.orion>
-References: <20170320113722.30311-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f172.google.com ([209.85.128.172]:33431 "EHLO
-        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754363AbdCTM2d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 08:28:33 -0400
-Received: by mail-wr0-f172.google.com with SMTP id u48so91140984wrc.0
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 05:27:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170320113722.30311-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [netfilter-next] netfilter: remove unused refcount variable
+Date: Mon, 20 Mar 2017 13:37:01 +0100
+Message-ID: <20170320123708.4025261-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Liping Zhang <liping.zhang@spreadtrum.com>,
+        David Windsor <dwindsor@gmail.com>,
+        "Reshetova, Elena" <elena.reshetova@intel.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Phil Turnbull <phil.turnbull@oracle.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Mar 20, 2017 at 12:37:22PM CET, colin.king@canonical.com wrote:
->From: Colin Ian King <colin.king@canonical.com>
->
->The arguments packets and bytes to call mlxsw_sp_acl_rule_get_stats are
->in the wrong order. Fix this by swapping them.
->
->Detected by CoverityScan, CID#1419705 ("Arguments in wrong order")
->
->Fixes: 7c1b8eb175b69add8ea ("mlxsw: spectrum: Add support for TC flower offload statistics")
->Signed-off-by: Colin Ian King <colin.king@canonical.com>
+The refcount variable was accidentally introduced without any reference
+to it. Removing it again avoids this warning:
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+net/netfilter/nfnetlink_acct.c: In function 'nfnl_acct_try_del':
+net/netfilter/nfnetlink_acct.c:329:15: error: unused variable 'refcount' [-Werror=unused-variable]
+
+Fixes: b54ab92b84b6 ("netfilter: refcounter conversions")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/netfilter/nfnetlink_acct.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
+index f44cbd35357f..c86da174a5fc 100644
+--- a/net/netfilter/nfnetlink_acct.c
++++ b/net/netfilter/nfnetlink_acct.c
+@@ -326,7 +326,6 @@ static int nfnl_acct_get(struct net *net, struct sock *nfnl,
+ static int nfnl_acct_try_del(struct nf_acct *cur)
+ {
+ 	int ret = 0;
+-	unsigned int refcount;
+ 
+ 	/* We want to avoid races with nfnl_acct_put. So only when the current
+ 	 * refcnt is 1, we decrease it to 0.
+-- 
+2.9.0
