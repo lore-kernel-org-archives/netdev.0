@@ -1,44 +1,74 @@
-From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 3/3] soc: qcom: smd-rpm: Add msm8996 compatibility
-Date: Mon, 20 Mar 2017 16:35:44 -0700
-Message-ID: <20170320233544.1656-3-bjorn.andersson@linaro.org>
-References: <20170320233544.1656-1-bjorn.andersson@linaro.org>
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        David Brown <david.brown-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andy Gross <andy.gross-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170320233544.1656-1-bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] 40GbE Intel Wired LAN Driver Updates 2017-03-20
+Date: Mon, 20 Mar 2017 16:46:59 -0700
+Message-ID: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.43]:49349 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754163AbdCTXrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 19:47:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With the RPM driver transitioned to RPMSG we can reuse the SMD-RPM
-driver ontop of GLINK for 8996, without any modifications.
+This series contains updates to i40e and i40evf only.
 
-Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
----
- drivers/soc/qcom/smd-rpm.c | 1 +
- 1 file changed, 1 insertion(+)
+Philippe Reynes updates i40e and i40evf to use the new ethtool API for
+{get|set}_link_ksettings.
 
-diff --git a/drivers/soc/qcom/smd-rpm.c b/drivers/soc/qcom/smd-rpm.c
-index 0dcf1bf33126..c2346752b3ea 100644
---- a/drivers/soc/qcom/smd-rpm.c
-+++ b/drivers/soc/qcom/smd-rpm.c
-@@ -225,6 +225,7 @@ static const struct of_device_id qcom_smd_rpm_of_match[] = {
- 	{ .compatible = "qcom,rpm-apq8084" },
- 	{ .compatible = "qcom,rpm-msm8916" },
- 	{ .compatible = "qcom,rpm-msm8974" },
-+	{ .compatible = "qcom,rpm-msm8996" },
- 	{}
- };
- MODULE_DEVICE_TABLE(of, qcom_smd_rpm_of_match);
+Jake provides the remaining patches in the series, starting with a fix
+for i40e where the firmware expected the port numbers for the offloaded
+UDP tunnels in Little Endian format and we were sending them in Big Endian
+format which put the wrong port number to be put in the UDP tunnel list.
+Changed the driver to use __be32 values instead of arrays for
+(src|dst)_ip.  Refactored the exit flow of i40e_add_fdir_ethtool() which
+removes the dependency on having a non-zero return value.  Fixed a memory
+leak by running kfree() and returning immediately when we fail to add
+flow director filter.  Fixed a potential issue where could update the
+filter count without actually succeeding in adding a filter, by moving
+the ATR exit check to after we have sent the TCP/IPv4 filter to the ring
+successfully.  Ensures that the fd_tcp_rule count is reset to 0, before
+we reprogram the filters so that we do not end up with a stale count
+which does not correctly reflect the number of programmed filters.  Added
+a check whether we have TCP/IPv4 filters before re-enabling ATR after
+flushing and replaying FDIR filters.  Added counters for each filter
+type in preparation for adding code to properly check the mask value.
+Fixed potential issues by explicitly checking the flow type at the
+start of i40e_add_fdir_ethtool().  To avoid possible memory leaks,
+we now unconditionally delete the old filter, even if it is identical to
+the new filter and ensures will always update the filters as expected.
+
+The following are changes since commit fe723dff0fa4181ddb8116e72bc67d00d4239cb6:
+  liquidio: fix wrong information about link modes reported to ethtool
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Jacob Keller (11):
+  i40e: send correct port number to AdminQ when enabling UDP tunnels
+  i40e: don't use arrays for (src|dst)_ip
+  i40e: rework exit flow of i40e_add_fdir_ethtool
+  i40e: return immediately when failing to add fdir filter
+  i40e: exit ATR mode only when adding TCP/IPv4 filter succeeds
+  i40e: remove redundant check for fd_tcp_rule when restoring filters
+  i40e: reset fd_tcp_rule count when restoring filters
+  i40e: don't re-enable ATR when flushing filters if SB has TCP4/IPv4
+    rules
+  i40e: add counters for UDP/IPv4 and IPv4 filters
+  i40e: explicitly fail on extended MAC field for ethtool_rx_flow_spec
+  i40e: always remove old filter when adding new FDir filter
+
+Philippe Reynes (2):
+  i40e: use new api ethtool_{get|set}_link_ksettings
+  i40evf: use new api ethtool_{get|set}_link_ksettings
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  16 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 323 ++++++++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  43 +--
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  84 +++---
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  31 +-
+ 5 files changed, 273 insertions(+), 224 deletions(-)
+
 -- 
 2.12.0
