@@ -1,37 +1,55 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip route: Add missing space between nexthop
- and via for mpls multipath routes
-Date: Mon, 20 Mar 2017 10:15:20 -0700
-Message-ID: <20170320101520.6d2851fa@xeon-e3>
-References: <1489793954-10667-1-git-send-email-dsa@cumulusnetworks.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.10 34/63] team: use ETH_MAX_MTU as max mtu
+Date: Mon, 20 Mar 2017 18:51:59 +0100
+Message-ID: <20170320174745.095987919@linuxfoundation.org>
+References: <20170320174742.712298584@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:35443 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754844AbdCTRsY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 13:48:24 -0400
-Received: by mail-pg0-f54.google.com with SMTP id t143so15001862pgb.2
-        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 10:47:59 -0700 (PDT)
-In-Reply-To: <1489793954-10667-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        stable@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        Jarod Wilson <jarod@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170320174742.712298584@linuxfoundation.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Mar 2017 16:39:14 -0700
-David Ahern <dsa@cumulusnetworks.com> wrote:
+4.10-stable review patch.  If anyone has any objections, please let me know.
 
-> MPLS multipath routes are missing a space between 'nexthop' and 'via':
-> 
-> $ ip -net ns1 -f mpls ro ls
-> 100
-> 	nexthopvia inet 172.16.2.2  dev virt12
-> 	nexthopvia inet 172.16.3.2  dev br0
-> 
-> Add it.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+------------------
 
-Applied
+From: Jarod Wilson <jarod@redhat.com>
+
+
+[ Upstream commit 3331aa378e9bcbd0d16de9034b0c20f4050e26b4 ]
+
+This restores the ability to set a team device's mtu to anything higher
+than 1500. Similar to the reported issue with bonding, the team driver
+calls ether_setup(), which sets an initial max_mtu of 1500, while the
+underlying hardware can handle something much larger. Just set it to
+ETH_MAX_MTU to support all possible values, and the limitations of the
+underlying devices will prevent setting anything too large.
+
+Fixes: 91572088e3fd ("net: use core MTU range checking in core net infra")
+CC: Cong Wang <xiyou.wangcong@gmail.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/net/team/team.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2075,6 +2075,7 @@ static int team_dev_type_check_change(st
+ static void team_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
++	dev->max_mtu = ETH_MAX_MTU;
+ 
+ 	dev->netdev_ops = &team_netdev_ops;
+ 	dev->ethtool_ops = &team_ethtool_ops;
