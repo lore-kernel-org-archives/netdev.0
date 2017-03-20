@@ -1,67 +1,86 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] i40evf: dereference vsi after vsi has been null checked
-Date: Mon, 20 Mar 2017 12:03:03 +0000
-Message-ID: <20170320120303.32284-1-colin.king@canonical.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH] net: veth: use new api ethtool_{get|set}_link_ksettings
+Date: Mon, 20 Mar 2017 20:25:28 +0800
+Message-ID: <CADvbK_dvNYaZ=qE0xkpxVQvyE3d6m3jgWPHEUW3_6Q1mz8oq3Q@mail.gmail.com>
+References: <1489835606-23692-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: davem <davem@davemloft.net>, jarod@redhat.com,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        dsa@cumulusnetworks.com, aduyck@mirantis.com,
+        network dev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Philippe Reynes <tremyfr@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489835606-23692-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Sat, Mar 18, 2017 at 7:13 PM, Philippe Reynes <tremyfr@gmail.com> wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+>  drivers/net/veth.c |   22 ++++++++++------------
+>  1 files changed, 10 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> index 8c39d6d..730b133 100644
+> --- a/drivers/net/veth.c
+> +++ b/drivers/net/veth.c
+> @@ -45,18 +45,16 @@ struct veth_priv {
+>         { "peer_ifindex" },
+>  };
+>
+> -static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> +static int veth_get_link_ksettings(struct net_device *dev,
+> +                                  struct ethtool_link_ksettings *cmd)
+>  {
+> -       cmd->supported          = 0;
+> -       cmd->advertising        = 0;
+> -       ethtool_cmd_speed_set(cmd, SPEED_10000);
+> -       cmd->duplex             = DUPLEX_FULL;
+> -       cmd->port               = PORT_TP;
+> -       cmd->phy_address        = 0;
+> -       cmd->transceiver        = XCVR_INTERNAL;
+> -       cmd->autoneg            = AUTONEG_DISABLE;
+> -       cmd->maxtxpkt           = 0;
+> -       cmd->maxrxpkt           = 0;
+> +       ethtool_link_ksettings_zero_link_mode(cmd, supported);
+> +       ethtool_link_ksettings_zero_link_mode(cmd, advertising);
+> +       cmd->base.speed = SPEED_10000;
+> +       cmd->base.duplex        = DUPLEX_FULL;
+> +       cmd->base.port          = PORT_TP;
+> +       cmd->base.phy_address   = 0;
+It seem always:
+        memset(&link_ksettings, 0, sizeof(link_ksettings));
+        err = dev->ethtool_ops->get_link_ksettings(dev, &link_ksettings);
 
-vsi is being dereferenced before the vsi null check; if vsi is
-null we end up with a null pointer dereference.  Fix this by
-performing vsi deference after the vsi null check.  Also remove
-the need for using adapter by using vsi->back->cinst.
+do we really need:
+       ethtool_link_ksettings_zero_link_mode(cmd, supported);
+       ethtool_link_ksettings_zero_link_mode(cmd, advertising);
+       cmd->base.phy_address   = 0;
+?
 
-Detected by CoverityScan, CID#1419696, CID#1419697
-("Dereference before null check")
-
-Fixes: ed0e894de7c133 ("i40evf: add client interface")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf_client.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_client.c b/drivers/net/ethernet/intel/i40evf/i40evf_client.c
-index 5b43e5b6e2eb..a579b2a5bd37 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_client.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_client.c
-@@ -34,12 +34,12 @@ static struct i40e_ops i40evf_lan_ops = {
-  **/
- void i40evf_notify_client_message(struct i40e_vsi *vsi, u8 *msg, u16 len)
- {
--	struct i40evf_adapter *adapter = vsi->back;
--	struct i40e_client_instance *cinst = adapter->cinst;
-+	struct i40e_client_instance *cinst;
- 
- 	if (!vsi)
- 		return;
- 
-+	cinst = vsi->back->cinst;
- 	if (!cinst || !cinst->client || !cinst->client->ops ||
- 	    !cinst->client->ops->virtchnl_receive) {
- 		dev_dbg(&vsi->back->pdev->dev,
-@@ -58,12 +58,13 @@ void i40evf_notify_client_message(struct i40e_vsi *vsi, u8 *msg, u16 len)
-  **/
- void i40evf_notify_client_l2_params(struct i40e_vsi *vsi)
- {
--	struct i40evf_adapter *adapter = vsi->back;
--	struct i40e_client_instance *cinst = adapter->cinst;
-+	struct i40e_client_instance *cinst;
- 	struct i40e_params params;
- 
- 	if (!vsi)
- 		return;
-+
-+	cinst = vsi->back->cinst;
- 	memset(&params, 0, sizeof(params));
- 	params.mtu = vsi->netdev->mtu;
- 	params.link_up = vsi->back->link_up;
--- 
-2.11.0
+> +       cmd->base.autoneg       = AUTONEG_DISABLE;
+>         return 0;
+>  }
+>
+> @@ -95,12 +93,12 @@ static void veth_get_ethtool_stats(struct net_device *dev,
+>  }
+>
+>  static const struct ethtool_ops veth_ethtool_ops = {
+> -       .get_settings           = veth_get_settings,
+>         .get_drvinfo            = veth_get_drvinfo,
+>         .get_link               = ethtool_op_get_link,
+>         .get_strings            = veth_get_strings,
+>         .get_sset_count         = veth_get_sset_count,
+>         .get_ethtool_stats      = veth_get_ethtool_stats,
+> +       .get_link_ksettings     = veth_get_link_ksettings,
+>  };
+>
+>  static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+> --
+> 1.7.4.4
+>
