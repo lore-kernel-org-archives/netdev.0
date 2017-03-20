@@ -1,282 +1,237 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 11/22] netfilter: nft_ct: add helper set support
-Date: Mon, 20 Mar 2017 11:08:39 +0100
-Message-ID: <1490004530-9128-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/22] netfilter: nft_hash: support of symmetric hash
+Date: Mon, 20 Mar 2017 11:08:31 +0100
+Message-ID: <1490004530-9128-4-git-send-email-pablo@netfilter.org>
 References: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:52078 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754089AbdCTKJv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 06:09:51 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id AD6DF523E1
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:03 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 97B9BDA8EC
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:03 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A3AD8DA391
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 11:09:00 +0100 (CET)
 In-Reply-To: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Laura Garcia Liebana <nevola@gmail.com>
 
-this allows to assign connection tracking helpers to
-connections via nft objref infrastructure.
+This patch provides symmetric hash support according to source
+ip address and port, and destination ip address and port.
 
-The idea is to first specifiy a helper object:
+For this purpose, the __skb_get_hash_symmetric() is used to
+identify the flow as it uses FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL
+flag by default.
 
- table ip filter {
-    ct helper some-name {
-      type "ftp"
-      protocol tcp
-      l3proto ip
-    }
- }
+The new attribute NFTA_HASH_TYPE has been included to support
+different types of hashing functions. Currently supported
+NFT_HASH_JENKINS through jhash and NFT_HASH_SYM through symhash.
 
-and then assign it via
+The main difference between both types are:
+ - jhash requires an expression with sreg, symhash doesn't.
+ - symhash supports modulus and offset, but not seed.
 
-nft add ... ct helper set "some-name"
+Examples:
 
-helper assignment works for new conntracks only as we cannot expand the
-conntrack extension area once it has been committed to the main conntrack
-table.
+ nft add rule ip nat prerouting ct mark set jhash ip saddr mod 2
+ nft add rule ip nat prerouting ct mark set symhash mod 2
 
-ipv4 and ipv6 protocols are tracked stored separately so
-we can also handle families that observe both ipv4 and ipv6 traffic.
+By default, jenkins hash will be used if no hash type is
+provided for compatibility reasons.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Laura Garcia Liebana <laura.garcia@zevenet.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |  12 ++-
- net/netfilter/nft_ct.c                   | 171 +++++++++++++++++++++++++++++++
- 2 files changed, 182 insertions(+), 1 deletion(-)
+ include/uapi/linux/netfilter/nf_tables.h | 13 +++++
+ net/netfilter/nft_hash.c                 | 99 +++++++++++++++++++++++++++++++-
+ 2 files changed, 111 insertions(+), 1 deletion(-)
 
 diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 4f7d75682c59..34c8d08b687a 100644
+index 05215d30fe5c..4f7d75682c59 100644
 --- a/include/uapi/linux/netfilter/nf_tables.h
 +++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -1259,10 +1259,20 @@ enum nft_fib_flags {
- 	NFTA_FIB_F_OIF		= 1 << 4,	/* restrict to oif */
+@@ -816,6 +816,17 @@ enum nft_rt_keys {
  };
- 
-+enum nft_ct_helper_attributes {
-+	NFTA_CT_HELPER_UNSPEC,
-+	NFTA_CT_HELPER_NAME,
-+	NFTA_CT_HELPER_L3PROTO,
-+	NFTA_CT_HELPER_L4PROTO,
-+	__NFTA_CT_HELPER_MAX,
-+};
-+#define NFTA_CT_HELPER_MAX	(__NFTA_CT_HELPER_MAX - 1)
-+
- #define NFT_OBJECT_UNSPEC	0
- #define NFT_OBJECT_COUNTER	1
- #define NFT_OBJECT_QUOTA	2
--#define __NFT_OBJECT_MAX	3
-+#define NFT_OBJECT_CT_HELPER	3
-+#define __NFT_OBJECT_MAX	4
- #define NFT_OBJECT_MAX		(__NFT_OBJECT_MAX - 1)
  
  /**
-diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
-index bf548a7a71ec..4144ae845bdd 100644
---- a/net/netfilter/nft_ct.c
-+++ b/net/netfilter/nft_ct.c
-@@ -32,6 +32,12 @@ struct nft_ct {
- 	};
- };
- 
-+struct nft_ct_helper_obj  {
-+	struct nf_conntrack_helper *helper4;
-+	struct nf_conntrack_helper *helper6;
-+	u8 l4proto;
++ * enum nft_hash_types - nf_tables hash expression types
++ *
++ * @NFT_HASH_JENKINS: Jenkins Hash
++ * @NFT_HASH_SYM: Symmetric Hash
++ */
++enum nft_hash_types {
++	NFT_HASH_JENKINS,
++	NFT_HASH_SYM,
 +};
 +
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- static DEFINE_PER_CPU(struct nf_conn *, nft_ct_pcpu_template);
- static unsigned int nft_ct_pcpu_template_refcnt __read_mostly;
-@@ -730,6 +736,162 @@ static struct nft_expr_type nft_notrack_type __read_mostly = {
- 	.owner		= THIS_MODULE,
++/**
+  * enum nft_hash_attributes - nf_tables hash expression netlink attributes
+  *
+  * @NFTA_HASH_SREG: source register (NLA_U32)
+@@ -824,6 +835,7 @@ enum nft_rt_keys {
+  * @NFTA_HASH_MODULUS: modulus value (NLA_U32)
+  * @NFTA_HASH_SEED: seed value (NLA_U32)
+  * @NFTA_HASH_OFFSET: add this offset value to hash result (NLA_U32)
++ * @NFTA_HASH_TYPE: hash operation (NLA_U32: nft_hash_types)
+  */
+ enum nft_hash_attributes {
+ 	NFTA_HASH_UNSPEC,
+@@ -833,6 +845,7 @@ enum nft_hash_attributes {
+ 	NFTA_HASH_MODULUS,
+ 	NFTA_HASH_SEED,
+ 	NFTA_HASH_OFFSET,
++	NFTA_HASH_TYPE,
+ 	__NFTA_HASH_MAX,
+ };
+ #define NFTA_HASH_MAX	(__NFTA_HASH_MAX - 1)
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index ccb834ef049b..a6a4633725bb 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -38,6 +38,25 @@ static void nft_jhash_eval(const struct nft_expr *expr,
+ 	regs->data[priv->dreg] = h + priv->offset;
+ }
+ 
++struct nft_symhash {
++	enum nft_registers      dreg:8;
++	u32			modulus;
++	u32			offset;
++};
++
++static void nft_symhash_eval(const struct nft_expr *expr,
++			     struct nft_regs *regs,
++			     const struct nft_pktinfo *pkt)
++{
++	struct nft_symhash *priv = nft_expr_priv(expr);
++	struct sk_buff *skb = pkt->skb;
++	u32 h;
++
++	h = reciprocal_scale(__skb_get_hash_symmetric(skb), priv->modulus);
++
++	regs->data[priv->dreg] = h + priv->offset;
++}
++
+ static const struct nla_policy nft_hash_policy[NFTA_HASH_MAX + 1] = {
+ 	[NFTA_HASH_SREG]	= { .type = NLA_U32 },
+ 	[NFTA_HASH_DREG]	= { .type = NLA_U32 },
+@@ -45,6 +64,7 @@ static const struct nla_policy nft_hash_policy[NFTA_HASH_MAX + 1] = {
+ 	[NFTA_HASH_MODULUS]	= { .type = NLA_U32 },
+ 	[NFTA_HASH_SEED]	= { .type = NLA_U32 },
+ 	[NFTA_HASH_OFFSET]	= { .type = NLA_U32 },
++	[NFTA_HASH_TYPE]	= { .type = NLA_U32 },
  };
  
-+static int nft_ct_helper_obj_init(const struct nft_ctx *ctx,
-+				  const struct nlattr * const tb[],
-+				  struct nft_object *obj)
+ static int nft_jhash_init(const struct nft_ctx *ctx,
+@@ -92,6 +112,32 @@ static int nft_jhash_init(const struct nft_ctx *ctx,
+ 					   NFT_DATA_VALUE, sizeof(u32));
+ }
+ 
++static int nft_symhash_init(const struct nft_ctx *ctx,
++			    const struct nft_expr *expr,
++			    const struct nlattr * const tb[])
 +{
-+	struct nft_ct_helper_obj *priv = nft_obj_data(obj);
-+	struct nf_conntrack_helper *help4, *help6;
-+	char name[NF_CT_HELPER_NAME_LEN];
-+	int family = ctx->afi->family;
++	struct nft_symhash *priv = nft_expr_priv(expr);
 +
-+	if (!tb[NFTA_CT_HELPER_NAME] || !tb[NFTA_CT_HELPER_L4PROTO])
++	if (!tb[NFTA_HASH_DREG]    ||
++	    !tb[NFTA_HASH_MODULUS])
 +		return -EINVAL;
 +
-+	priv->l4proto = nla_get_u8(tb[NFTA_CT_HELPER_L4PROTO]);
-+	if (!priv->l4proto)
-+		return -ENOENT;
++	if (tb[NFTA_HASH_OFFSET])
++		priv->offset = ntohl(nla_get_be32(tb[NFTA_HASH_OFFSET]));
 +
-+	nla_strlcpy(name, tb[NFTA_CT_HELPER_NAME], sizeof(name));
++	priv->dreg = nft_parse_register(tb[NFTA_HASH_DREG]);
 +
-+	if (tb[NFTA_CT_HELPER_L3PROTO])
-+		family = ntohs(nla_get_be16(tb[NFTA_CT_HELPER_L3PROTO]));
++	priv->modulus = ntohl(nla_get_be32(tb[NFTA_HASH_MODULUS]));
++	if (priv->modulus <= 1)
++		return -ERANGE;
 +
-+	help4 = NULL;
-+	help6 = NULL;
++	if (priv->offset + priv->modulus - 1 < priv->offset)
++		return -EOVERFLOW;
 +
-+	switch (family) {
-+	case NFPROTO_IPV4:
-+		if (ctx->afi->family == NFPROTO_IPV6)
-+			return -EINVAL;
-+
-+		help4 = nf_conntrack_helper_try_module_get(name, family,
-+							   priv->l4proto);
-+		break;
-+	case NFPROTO_IPV6:
-+		if (ctx->afi->family == NFPROTO_IPV4)
-+			return -EINVAL;
-+
-+		help6 = nf_conntrack_helper_try_module_get(name, family,
-+							   priv->l4proto);
-+		break;
-+	case NFPROTO_NETDEV: /* fallthrough */
-+	case NFPROTO_BRIDGE: /* same */
-+	case NFPROTO_INET:
-+		help4 = nf_conntrack_helper_try_module_get(name, NFPROTO_IPV4,
-+							   priv->l4proto);
-+		help6 = nf_conntrack_helper_try_module_get(name, NFPROTO_IPV6,
-+							   priv->l4proto);
-+		break;
-+	default:
-+		return -EAFNOSUPPORT;
-+	}
-+
-+	/* && is intentional; only error if INET found neither ipv4 or ipv6 */
-+	if (!help4 && !help6)
-+		return -ENOENT;
-+
-+	priv->helper4 = help4;
-+	priv->helper6 = help6;
-+
-+	return 0;
++	return nft_validate_register_store(ctx, priv->dreg, NULL,
++					   NFT_DATA_VALUE, sizeof(u32));
 +}
 +
-+static void nft_ct_helper_obj_destroy(struct nft_object *obj)
-+{
-+	struct nft_ct_helper_obj *priv = nft_obj_data(obj);
-+
-+	if (priv->helper4)
-+		module_put(priv->helper4->me);
-+	if (priv->helper6)
-+		module_put(priv->helper6->me);
-+}
-+
-+static void nft_ct_helper_obj_eval(struct nft_object *obj,
-+				   struct nft_regs *regs,
-+				   const struct nft_pktinfo *pkt)
-+{
-+	const struct nft_ct_helper_obj *priv = nft_obj_data(obj);
-+	struct nf_conn *ct = (struct nf_conn *)skb_nfct(pkt->skb);
-+	struct nf_conntrack_helper *to_assign = NULL;
-+	struct nf_conn_help *help;
-+
-+	if (!ct ||
-+	    nf_ct_is_confirmed(ct) ||
-+	    nf_ct_is_template(ct) ||
-+	    priv->l4proto != nf_ct_protonum(ct))
-+		return;
-+
-+	switch (nf_ct_l3num(ct)) {
-+	case NFPROTO_IPV4:
-+		to_assign = priv->helper4;
-+		break;
-+	case NFPROTO_IPV6:
-+		to_assign = priv->helper6;
-+		break;
-+	default:
-+		WARN_ON_ONCE(1);
-+		return;
-+	}
-+
-+	if (!to_assign)
-+		return;
-+
-+	if (test_bit(IPS_HELPER_BIT, &ct->status))
-+		return;
-+
-+	help = nf_ct_helper_ext_add(ct, to_assign, GFP_ATOMIC);
-+	if (help) {
-+		rcu_assign_pointer(help->helper, to_assign);
-+		set_bit(IPS_HELPER_BIT, &ct->status);
-+	}
-+}
-+
-+static int nft_ct_helper_obj_dump(struct sk_buff *skb,
-+				  struct nft_object *obj, bool reset)
-+{
-+	const struct nft_ct_helper_obj *priv = nft_obj_data(obj);
-+	const struct nf_conntrack_helper *helper = priv->helper4;
-+	u16 family;
-+
-+	if (nla_put_string(skb, NFTA_CT_HELPER_NAME, helper->name))
-+		return -1;
-+
-+	if (nla_put_u8(skb, NFTA_CT_HELPER_L4PROTO, priv->l4proto))
-+		return -1;
-+
-+	if (priv->helper4 && priv->helper6)
-+		family = NFPROTO_INET;
-+	else if (priv->helper6)
-+		family = NFPROTO_IPV6;
-+	else
-+		family = NFPROTO_IPV4;
-+
-+	if (nla_put_be16(skb, NFTA_CT_HELPER_L3PROTO, htons(family)))
-+		return -1;
-+
-+	return 0;
-+}
-+
-+static const struct nla_policy nft_ct_helper_policy[NFTA_CT_HELPER_MAX + 1] = {
-+	[NFTA_CT_HELPER_NAME] = { .type = NLA_STRING,
-+				  .len = NF_CT_HELPER_NAME_LEN - 1 },
-+	[NFTA_CT_HELPER_L3PROTO] = { .type = NLA_U16 },
-+	[NFTA_CT_HELPER_L4PROTO] = { .type = NLA_U8 },
-+};
-+
-+static struct nft_object_type nft_ct_helper_obj __read_mostly = {
-+	.type		= NFT_OBJECT_CT_HELPER,
-+	.size		= sizeof(struct nft_ct_helper_obj),
-+	.maxattr	= NFTA_CT_HELPER_MAX,
-+	.policy		= nft_ct_helper_policy,
-+	.eval		= nft_ct_helper_obj_eval,
-+	.init		= nft_ct_helper_obj_init,
-+	.destroy	= nft_ct_helper_obj_destroy,
-+	.dump		= nft_ct_helper_obj_dump,
-+	.owner		= THIS_MODULE,
-+};
-+
- static int __init nft_ct_module_init(void)
+ static int nft_jhash_dump(struct sk_buff *skb,
+ 			  const struct nft_expr *expr)
  {
- 	int err;
-@@ -744,7 +906,14 @@ static int __init nft_ct_module_init(void)
- 	if (err < 0)
- 		goto err1;
- 
-+	err = nft_register_obj(&nft_ct_helper_obj);
-+	if (err < 0)
-+		goto err2;
+@@ -110,6 +156,28 @@ static int nft_jhash_dump(struct sk_buff *skb,
+ 	if (priv->offset != 0)
+ 		if (nla_put_be32(skb, NFTA_HASH_OFFSET, htonl(priv->offset)))
+ 			goto nla_put_failure;
++	if (nla_put_be32(skb, NFTA_HASH_TYPE, htonl(NFT_HASH_JENKINS)))
++		goto nla_put_failure;
++	return 0;
 +
++nla_put_failure:
++	return -1;
++}
++
++static int nft_symhash_dump(struct sk_buff *skb,
++			    const struct nft_expr *expr)
++{
++	const struct nft_symhash *priv = nft_expr_priv(expr);
++
++	if (nft_dump_register(skb, NFTA_HASH_DREG, priv->dreg))
++		goto nla_put_failure;
++	if (nla_put_be32(skb, NFTA_HASH_MODULUS, htonl(priv->modulus)))
++		goto nla_put_failure;
++	if (priv->offset != 0)
++		if (nla_put_be32(skb, NFTA_HASH_OFFSET, htonl(priv->offset)))
++			goto nla_put_failure;
++	if (nla_put_be32(skb, NFTA_HASH_TYPE, htonl(NFT_HASH_SYM)))
++		goto nla_put_failure;
  	return 0;
-+
-+err2:
-+	nft_unregister_expr(&nft_notrack_type);
- err1:
- 	nft_unregister_expr(&nft_ct_type);
- 	return err;
-@@ -752,6 +921,7 @@ static int __init nft_ct_module_init(void)
  
- static void __exit nft_ct_module_exit(void)
- {
-+	nft_unregister_obj(&nft_ct_helper_obj);
- 	nft_unregister_expr(&nft_notrack_type);
- 	nft_unregister_expr(&nft_ct_type);
- }
-@@ -763,3 +933,4 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
- MODULE_ALIAS_NFT_EXPR("ct");
- MODULE_ALIAS_NFT_EXPR("notrack");
-+MODULE_ALIAS_NFT_OBJ(NFT_OBJECT_CT_HELPER);
+ nla_put_failure:
+@@ -125,9 +193,38 @@ static const struct nft_expr_ops nft_jhash_ops = {
+ 	.dump		= nft_jhash_dump,
+ };
+ 
++static const struct nft_expr_ops nft_symhash_ops = {
++	.type		= &nft_hash_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_symhash)),
++	.eval		= nft_symhash_eval,
++	.init		= nft_symhash_init,
++	.dump		= nft_symhash_dump,
++};
++
++static const struct nft_expr_ops *
++nft_hash_select_ops(const struct nft_ctx *ctx,
++		    const struct nlattr * const tb[])
++{
++	u32 type;
++
++	if (!tb[NFTA_HASH_TYPE])
++		return &nft_jhash_ops;
++
++	type = ntohl(nla_get_be32(tb[NFTA_HASH_TYPE]));
++	switch (type) {
++	case NFT_HASH_SYM:
++		return &nft_symhash_ops;
++	case NFT_HASH_JENKINS:
++		return &nft_jhash_ops;
++	default:
++		break;
++	}
++	return ERR_PTR(-EOPNOTSUPP);
++}
++
+ static struct nft_expr_type nft_hash_type __read_mostly = {
+ 	.name		= "hash",
+-	.ops		= &nft_jhash_ops,
++	.select_ops	= &nft_hash_select_ops,
+ 	.policy		= nft_hash_policy,
+ 	.maxattr	= NFTA_HASH_MAX,
+ 	.owner		= THIS_MODULE,
 -- 
 2.1.4
-
