@@ -1,38 +1,37 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [3/3] mwifiex: wake system up when receives a wake irq
-Date: Mon, 20 Mar 2017 16:44:20 +0000 (UTC)
-Message-ID: <20170320164421.2735E60DAF@smtp.codeaurora.org>
-References: <1487917471-5501-3-git-send-email-jeffy.chen@rock-chips.com>
+Subject: Re: atmel: remove time_t usage
+Date: Mon, 20 Mar 2017 16:43:37 +0000 (UTC)
+Message-ID: <20170320164337.CC0E1601A1@smtp.codeaurora.org>
+References: <20170223161445.19200-1-alexandre.belloni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Brian Norris <briannorris@chromium.org>,
-        Rajat Jain <rajatja@google.com>,
-        Jeffy Chen <jeffy.chen@rock-chips.com>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Nishant Sarmukadam <nishants@marvell.com>
-To: Jeffy Chen <jeffy.chen@rock-chips.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487917471-5501-3-git-send-email-jeffy.chen@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Simon Kelley <simon@thekelleys.org.uk>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:34952 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755737AbdCTQpU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 12:45:20 -0400
+In-Reply-To: <20170223161445.19200-1-alexandre.belloni@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeffy Chen <jeffy.chen@rock-chips.com> wrote:
-> Currrently we are disabling this wake irq after receiving it. If this
-> happens before we finish suspend and the pm event check is disabled,
-> the system will continue suspending, and this irq would not work again.
+Alexandre Belloni <alexandre.belloni@free-electrons.com> wrote:
+> last_qual never really holds a time. It only holds jiffies. Make it the
+> same type as jiffies.
 > 
-> We may need to abort system suspend to avoid that.
-> 
-> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+> Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-ef7e07147425 mwifiex: wake system up when receives a wake irq
+5c5105666de5 atmel: remove time_t usage
 
 -- 
-https://patchwork.kernel.org/patch/9589459/
+https://patchwork.kernel.org/patch/9588521/
 
 Documentation about submitting wireless patches and checking status
 from patchwork:
