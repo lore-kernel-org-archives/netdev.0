@@ -1,41 +1,69 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: declare struct sctp_stream before using it
-Date: Mon, 20 Mar 2017 17:46:27 +0800
-Message-ID: <1a16b414118d0876373774654d86e2a2a936b9d1.1490003187.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35540 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752346AbdCTJzv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 05:55:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: fgao@ikuai8.com
+Subject: [PATCH nf v2 1/1] netfilter: snmp: Fix one possible panic when snmp_trap_helper fail to register
+Date: Mon, 20 Mar 2017 17:55:28 +0800
+Message-ID: <1490003728-33866-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, davem@davemloft.net, jolsa@redhat.com,
+        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-sctp_stream_free uses struct sctp_stream as a param, but struct sctp_stream
-is defined after it's declaration.
+From: Gao Feng <fgao@ikuai8.com>
 
-This patch is to declare struct sctp_stream before sctp_stream_free.
+In the commit <93557f53e1fb> ("netfilter: nf_conntrack: nf_conntrack snmp
+helper"), the snmp_helper is replaced by nf_nat_snmp_hook. So the
+snmp_helper is never registered. But it still tries to unregister the
+snmp_helper, it could cause the panic.
 
-Fixes: a83863174a61 ("sctp: prepare asoc stream for stream reconf")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Now remove the useless snmp_helper and the unregister call in the
+error handler.
+
+Fixes: 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp helper")
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 ---
- include/net/sctp/structs.h | 1 +
- 1 file changed, 1 insertion(+)
+ v2: Add the SHA1 ID in the description, per Sergei
+ v1: Initial version
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 4f64519..592dece 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -83,6 +83,7 @@ struct sctp_bind_addr;
- struct sctp_ulpq;
- struct sctp_ep_common;
- struct crypto_shash;
-+struct sctp_stream;
+ net/ipv4/netfilter/nf_nat_snmp_basic.c | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
+
+diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+index c9b52c3..5787364 100644
+--- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
++++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+@@ -1260,16 +1260,6 @@ static int help(struct sk_buff *skb, unsigned int protoff,
+ 	.timeout	= 180,
+ };
  
+-static struct nf_conntrack_helper snmp_helper __read_mostly = {
+-	.me			= THIS_MODULE,
+-	.help			= help,
+-	.expect_policy		= &snmp_exp_policy,
+-	.name			= "snmp",
+-	.tuple.src.l3num	= AF_INET,
+-	.tuple.src.u.udp.port	= cpu_to_be16(SNMP_PORT),
+-	.tuple.dst.protonum	= IPPROTO_UDP,
+-};
+-
+ static struct nf_conntrack_helper snmp_trap_helper __read_mostly = {
+ 	.me			= THIS_MODULE,
+ 	.help			= help,
+@@ -1294,10 +1284,8 @@ static int __init nf_nat_snmp_basic_init(void)
+ 	RCU_INIT_POINTER(nf_nat_snmp_hook, help);
  
- #include <net/sctp/tsnmap.h>
+ 	ret = nf_conntrack_helper_register(&snmp_trap_helper);
+-	if (ret < 0) {
+-		nf_conntrack_helper_unregister(&snmp_helper);
++	if (ret < 0)
+ 		return ret;
+-	}
+ 	return ret;
+ }
+ 
 -- 
-2.1.0
+1.9.1
+
+
