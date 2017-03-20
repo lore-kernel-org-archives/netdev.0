@@ -1,40 +1,45 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v2 1/9] net: stmmac: Rename clk_ptp_ref clock to ptp_ref
-Date: Mon, 20 Mar 2017 10:18:55 -0500
-Message-ID: <20170320151855.32siq45uta6jvjep@rob-hp-laptop>
-References: <20170310163501.31811-1-thierry.reding@gmail.com>
- <20170310163501.31811-2-thierry.reding@gmail.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: ath10k: remove redundant check of len with buf_len
+Date: Mon, 20 Mar 2017 16:25:19 +0100
+Message-ID: <a669166e00c5481e880f6cfbb28fea7f@euamsexm01a.eu.qualcomm.com>
+References: <20170315163641.17052-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Jon Hunter <jonathanh@nvidia.com>,
-        Mikko Perttunen <cyndis@kapsi.fi>, netdev@vger.kernel.org,
-        linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org
-To: Thierry Reding <thierry.reding@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170310163501.31811-2-thierry.reding@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ ath10k@lists.infradead.org
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170315163641.17052-1-colin.king@canonical.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
+List-Post: <mailto:ath10k@lists.infradead.org>
+List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
+Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
+Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 10, 2017 at 05:34:53PM +0100, Thierry Reding wrote:
-> From: Thierry Reding <treding@nvidia.com>
+Colin Ian King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> There aren't currently any users of the "clk_ptp_ref", but there are
-> other references to "ptp_ref", so I'm leaning towards considering that a
-> typo. Fix it.
+> The check of len > buf_len is redundant as len is initialized
+> to 0 and buf_len to 4096, so this comparison is always false.
+> Remove it.
 > 
-> Cc: Mark Rutland <mark.rutland@arm.com>
-> Cc: Rob Herring <robh+dt@kernel.org>
-> Cc: devicetree@vger.kernel.org
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt      | 6 +++---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
->  2 files changed, 4 insertions(+), 4 deletions(-)
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Acked-by: Rob Herring <robh@kernel.org>
+Patch applied to ath-next branch of ath.git, thanks.
+
+eed4721fb617 ath10k: remove redundant check of len with buf_len
+
+-- 
+https://patchwork.kernel.org/patch/9626131/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
