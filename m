@@ -1,31 +1,49 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH RFC 3/7] net: lan78xx: update for
- phy_(read|write)_mmd_indirect() removal
-Date: Mon, 20 Mar 2017 14:29:22 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40A2991A@CHN-SV-EXMX02.mchp-main.com>
-References: <20170319105943.GR21222@n2100.armlinux.org.uk>
- <E1cpYZZ-0006Uj-8Z@rmk-PC.armlinux.org.uk>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] i40e: fix memcpy with swapped arguments
+Date: Mon, 20 Mar 2017 14:46:27 +0000
+Message-ID: <20170320144627.11524-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>
-To: <rmk+kernel@armlinux.org.uk>, <f.fainelli@gmail.com>
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa3.microchip.iphmx.com ([68.232.153.233]:55028 "EHLO
-        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755472AbdCTOjD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 10:39:03 -0400
-In-Reply-To: <E1cpYZZ-0006Uj-8Z@rmk-PC.armlinux.org.uk>
-Content-Language: en-US
+Received: from youngberry.canonical.com ([91.189.89.112]:35669 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753509AbdCTOqd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 10:46:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ID4gbGFuNzh4eCBhcHBlYXJzIHRvIHVzZSBwaHlsaWIgaW4gYSByYXRoZXIgd2VpcmQgd2F5LCBh
-Y2Nlc3NpbmcgdGhlIFBIWQ0KPiBwYXJ0bHkgdGhyb3VnaCBwaHlsaWIsIGFuZCBwYXJ0bHkgYnkg
-bWFraWduIGRpcmVjdCBhY2Nlc3NlcyB0byBpdCwNCj4gaW5jbHVkaW5nIHRvIHRoZSBDbGF1c2Ug
-NDUgcmVnaXN0ZXJzLiAgQXMgdGhlIGluZGlyZWN0IE1NRCBhY2Nlc3NvcnMgYXJlDQo+IGdvaW5n
-IGF3YXksIHVwZGF0ZSB0aGlzIGRyaXZlciB0byB1c2UgdGhlIHBsYWluIHBoeV8ocmVhZHx3cml0
-ZSlfbW1kKCkNCj4gYWNjZXNzb3JzIGluc3RlYWQuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBSdXNz
-ZWxsIEtpbmcgPHJtaytrZXJuZWxAYXJtbGludXgub3JnLnVrPg0KQWNrZWQtYnk6IFdvb2p1bmcg
-SHVoIDxXb29qdW5nLkh1aEBtaWNyb2NoaXAuY29tPg0K
+From: Colin Ian King <colin.king@canonical.com>
+
+The current code copies an uninitialized params into
+cdev->lan_info.params and then passes the uninitialized params
+to the call cdev->client->ops->l2_param_change.  I believe the
+order of the source and destination in the memcpy is the wrong
+way around and should be swapped.
+
+Detected with static analysis by cppcheck
+
+Fixes: 0ef2d5afb12d ("i40e: KISS the client interface")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_client.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
+index a9f0d22a7cf4..191580ed946d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+@@ -147,7 +147,7 @@ void i40e_notify_client_of_l2_param_changes(struct i40e_vsi *vsi)
+ 		dev_dbg(&vsi->back->pdev->dev, "Client is not open, abort l2 param change\n");
+ 		return;
+ 	}
+-	memcpy(&cdev->lan_info.params, &params, sizeof(struct i40e_params));
++	memcpy(&params, &cdev->lan_info.params, sizeof(struct i40e_params));
+ 	cdev->client->ops->l2_param_change(&cdev->lan_info, cdev->client,
+ 					   &params);
+ }
+-- 
+2.11.0
