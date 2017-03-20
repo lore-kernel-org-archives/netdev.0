@@ -1,82 +1,79 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC PATCH] net: phy: Don't miss phy_suspend() on PHY_HALTED for
- PHYs with interrupts
-Date: Mon, 20 Mar 2017 09:42:43 -0700
-Message-ID: <73c622c8-5dd3-43a2-df60-b0195241bf0d@gmail.com>
-References: <1489585887-8683-1-git-send-email-rogerq@ti.com>
- <20170315140811.GD21021@lunn.ch>
- <6ec42ad7-0be3-f6c5-2ded-27bf3adbab23@ti.com>
+From: Shuah Khan <shuah@kernel.org>
+Subject: Re: [PATCH v2 net] selftests/bpf: fix broken build, take 2
+Date: Mon, 20 Mar 2017 10:37:26 -0600
+Message-ID: <8300dcbc-8652-6366-bb57-96feb06c5998@kernel.org>
+References: <1489989794-6859-1-git-send-email-zlim.lnx@gmail.com>
+ <58CFF5D0.8040708@iogearbox.net>
+ <20170320154523.GA80094@ast-mbp.thefacebook.com>
+Reply-To: shuah@kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kyle.roeschley@ni.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6ec42ad7-0be3-f6c5-2ded-27bf3adbab23@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
+        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+        Shuah Khan <shuah@kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from resqmta-po-11v.sys.comcast.net ([96.114.154.170]:55458 "EHLO
+        resqmta-po-11v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755872AbdCTQtW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 12:49:22 -0400
+In-Reply-To: <20170320154523.GA80094@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/15/2017 08:00 AM, Roger Quadros wrote:
-> Andrew,
-> 
-> On 15/03/17 16:08, Andrew Lunn wrote:
->> On Wed, Mar 15, 2017 at 03:51:27PM +0200, Roger Quadros wrote:
->>> Since commit 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
->>> phy_suspend() doesn't get called as part of phy_stop() for PHYs using
->>> interrupts because the phy state machine is never triggered after a phy_stop().
+On 03/20/2017 09:45 AM, Alexei Starovoitov wrote:
+> On Mon, Mar 20, 2017 at 04:31:28PM +0100, Daniel Borkmann wrote:
+>> On 03/20/2017 07:03 AM, Zi Shen Lim wrote:
+>>> Merge of 'linux-kselftest-4.11-rc1':
 >>>
->>> Explicitly trigger the PHY state machine so that it can
->>> see the new PHY state (HALTED) and suspend the PHY.
+>>> 1. Partially removed use of 'test_objs' target, breaking force rebuild of
+>>> BPFOBJ, introduced in commit d498f8719a09 ("bpf: Rebuild bpf.o for any
+>>> dependency update").
 >>>
->>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>>>   Update target so dependency on BPFOBJ is restored.
+>>>
+>>> 2. Introduced commit 2047f1d8ba28 ("selftests: Fix the .c linking rule")
+>>> which fixes order of LDLIBS.
+>>>
+>>>   Commit d02d8986a768 ("bpf: Always test unprivileged programs") added
+>>> libcap dependency into CFLAGS. Use LDLIBS instead to fix linking of
+>>> test_verifier.
+>>>
+>>> 3. Introduced commit d83c3ba0b926 ("selftests: Fix selftests build to
+>>> just build, not run tests").
+>>>
+>>>   Reordering the Makefile allows us to remove the 'all' target.
+>>>
+>>> Tested both:
+>>>     selftests/bpf$ make
+>>> and
+>>>     selftests$ make TARGETS=bpf
+>>> on Ubuntu 16.04.2.
+>>>
+>>> Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
 >>
->> Hi Roger
+>> Looks reasonable to me as follow up to 1da8ac7c49fb ("selftests/bpf:
+>> fix broken build"), thanks for fixing Zi!
 >>
->> This seems sensible. It mirrors what phy_start() does.
->>
->> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>> Tested-by: Daniel Borkmann <daniel@iogearbox.net>
 > 
-> The reason for this being an RFC was the following comment just before
-> where I add the phy_trigger_machine()
+> worked for me as well:
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Tested-by: Alexei Starovoitov <ast@kernel.org>
 > 
->         /* Cannot call flush_scheduled_work() here as desired because
->          * of rtnl_lock(), but PHY_HALTED shall guarantee phy_change()
->          * will not reenable interrupts.
->          */
 > 
-> Is this comment still applicable? If yes, is it OK to call
-> phy_trigger_machine() there?
-
-I think the comment is still applicable, most PHYLIB consumers will call
-this with rtnl_lock() held from ndo_close() for instance.
-
-> 
->>
->> It does however lead to a follow up question. Are there other places
->> phydev->state is changed and it is missing a phy_trigger_machine()?
->>
-> 
-> One other place I think we should add phy_trigger_machine() is phy_start_aneg().
-> 
-> Since commit 3c293f4e08b5 I was not getting my ethernet link to come up if
-> ethernet cable was plugged before the ethernet interface was brought up.
-> The PHY seems to be stuck from RUNNING to AN state with no new interrupts from the
-> PHY.
-> 
-> I could workaround it on my board by doing either of the following:
-> 
-> 1) explicitly halt the PHY at ethernet driver probe time. Then when
-> network interface is brought up it resumes the PHY and we see the
-> Link/ANEG done interrupt.
-> 
-> 2) force BMCR_ANRESTART every time from .config_aneg in the PHY driver.
-> 
-> I will still keep approach 1 as it is desirable to put the PHY in low power mode
-> for us but I need a second opinion if we should call phy_trigger_machine()
-> from phy_start_aneg() or not.
 > 
 
+David,
 
--- 
-Florian
+Could you please apply it to your tree. I think you already applied
+the first fix.
+
+Acked-by: Shuah Khan <shuahkh@osg.samsung.com>
+
+thanks,
+-- Shuah
