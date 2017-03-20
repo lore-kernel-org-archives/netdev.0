@@ -1,43 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the akpm tree with the net-next tree
-Date: Mon, 20 Mar 2017 16:10:51 +1100
-Message-ID: <20170320161051.55a2927d@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: PROBLEM: null-ptr deref in ip_options_echo may lead to denial
+ of service
+Date: Sun, 19 Mar 2017 22:25:00 -0700
+Message-ID: <1489987500.16816.19.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAC9A2PqFcJ2k5Nm8QyxbOrO6rQnfHxcPvsnkzPMGUuJ5hCXM1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Doug Berger <opendmb@gmail.com>,
-        Stephen Boyd <sboyd@codeaurora.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, security@kernel.org, netdev@vger.kernel.org
+To: Anarcheuz Fritz <anarcheuz@gmail.com>,
+        Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34401 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752514AbdCTFZD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 01:25:03 -0400
+Received: by mail-pf0-f196.google.com with SMTP id o126so15565333pfb.1
+        for <netdev@vger.kernel.org>; Sun, 19 Mar 2017 22:25:02 -0700 (PDT)
+In-Reply-To: <CAC9A2PqFcJ2k5Nm8QyxbOrO6rQnfHxcPvsnkzPMGUuJ5hCXM1Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Mon, 2017-03-20 at 12:59 +0800, Anarcheuz Fritz wrote:
+> Hi David,
+> 
+> 
+> While working on some legacy kernel I stumbled upon a null-ptr deref in
+> ip_options_echo. The bug has been verified on the latest version
+> 3.2.87 from the supported long-term branch.
+> 
 
-Today's linux-next merge of the akpm tree got a conflict in:
+Fixed in commit 34b2cef20f19c87999fff3da4071e66937db9644
+("ipv4: keep skb->dst around in presence of IP options")
 
-  Documentation/devicetree/bindings/net/brcm,unimac-mdio.txt
+For 3.2, since d826eb14ecef was not backported, following patch should
+do it.
 
-between commit:
+(Bug origin was f84af32cbca70 ("net: ip_queue_rcv_skb() helper"))
 
-  0ce5aa1d6c97 ("dt-bindings: net: update bcmgenet binding for GENETv5")
-
-from the net-next tree and patch:
-
-  "scripts/spelling.txt: Add regsiter -> register spelling mistake"
-
-from the akpm tree.
-
-I fixed it up (the former also fixed the typo from the latter, so I just
-used that) and can carry the fix as necessary. This is now fixed as far as
-linux-next is concerned, but any non trivial conflicts should be mentioned
-to your upstream maintainer when your tree is submitted for merging.
-You may also want to consider cooperating with the maintainer of the
-conflicting tree to minimise any particularly complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index b3648bbef0da..a6e1eeb02267 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1009,7 +1009,8 @@ e_inval:
+  */
+ int ip_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+-	if (!(inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO))
++	if (!(inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO) &&
++	    !IPCB(skb)->opt.optlen)
+ 		skb_dst_drop(skb);
+ 	return sock_queue_rcv_skb(sk, skb);
+ }
