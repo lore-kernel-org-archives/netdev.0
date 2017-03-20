@@ -1,120 +1,148 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/13] i40evf: use new api ethtool_{get|set}_link_ksettings
-Date: Mon, 20 Mar 2017 16:47:01 -0700
-Message-ID: <20170320234712.84157-3-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/13] i40e: return immediately when failing to add fdir filter
+Date: Mon, 20 Mar 2017 16:47:05 -0700
+Message-ID: <20170320234712.84157-7-jeffrey.t.kirsher@intel.com>
 References: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
-Cc: Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga05.intel.com ([192.55.52.43]:59023 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754163AbdCTXrT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 19:47:19 -0400
+        id S1755916AbdCTXrU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 19:47:20 -0400
 In-Reply-To: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Instead of setting err=true and checking this to determine when to free
+the raw_packet near the end of the function, simply kfree and return
+immediately. The resulting code is a bit cleaner and has one less
+variable. This also resolves a subtle bug in the ipv4 case which could
+fail to add the first filter and then never free the memory, resulting
+in a small memory leak.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
-
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Change-ID: I7583aac033481dc794b4acaa14445059c8930ff1
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Reviewed-by: Avinash Dayanand <avinash.dayanand@intel.com>
+Reviewed-by: Alan Brady <alan.brady@intel.com>
+Reviewed-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 31 +++++++++++-----------
- 1 file changed, 15 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 33 ++++++++++++-----------------
+ 1 file changed, 14 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index 272d600c1ed0..122efbd29a19 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -64,51 +64,50 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
- 	(I40EVF_GLOBAL_STATS_LEN + I40EVF_QUEUE_STATS_LEN(_dev))
- 
- /**
-- * i40evf_get_settings - Get Link Speed and Duplex settings
-+ * i40evf_get_link_ksettings - Get Link Speed and Duplex settings
-  * @netdev: network interface device structure
-- * @ecmd: ethtool command
-+ * @cmd: ethtool command
-  *
-  * Reports speed/duplex settings. Because this is a VF, we don't know what
-  * kind of link we really have, so we fake it.
-  **/
--static int i40evf_get_settings(struct net_device *netdev,
--			       struct ethtool_cmd *ecmd)
-+static int i40evf_get_link_ksettings(struct net_device *netdev,
-+				     struct ethtool_link_ksettings *cmd)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
--	ecmd->supported = 0;
--	ecmd->autoneg = AUTONEG_DISABLE;
--	ecmd->transceiver = XCVR_DUMMY1;
--	ecmd->port = PORT_NONE;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	cmd->base.autoneg = AUTONEG_DISABLE;
-+	cmd->base.port = PORT_NONE;
- 	/* Set speed and duplex */
- 	switch (adapter->link_speed) {
- 	case I40E_LINK_SPEED_40GB:
--		ethtool_cmd_speed_set(ecmd, SPEED_40000);
-+		cmd->base.speed = SPEED_40000;
- 		break;
- 	case I40E_LINK_SPEED_25GB:
- #ifdef SPEED_25000
--		ethtool_cmd_speed_set(ecmd, SPEED_25000);
-+		cmd->base.speed = SPEED_25000;
- #else
- 		netdev_info(netdev,
- 			    "Speed is 25G, display not supported by this version of ethtool.\n");
- #endif
- 		break;
- 	case I40E_LINK_SPEED_20GB:
--		ethtool_cmd_speed_set(ecmd, SPEED_20000);
-+		cmd->base.speed = SPEED_20000;
- 		break;
- 	case I40E_LINK_SPEED_10GB:
--		ethtool_cmd_speed_set(ecmd, SPEED_10000);
-+		cmd->base.speed = SPEED_10000;
- 		break;
- 	case I40E_LINK_SPEED_1GB:
--		ethtool_cmd_speed_set(ecmd, SPEED_1000);
-+		cmd->base.speed = SPEED_1000;
- 		break;
- 	case I40E_LINK_SPEED_100MB:
--		ethtool_cmd_speed_set(ecmd, SPEED_100);
-+		cmd->base.speed = SPEED_100;
- 		break;
- 	default:
- 		break;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index c4d3a40a3f10..005257b4f218 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -203,7 +203,6 @@ static int i40e_add_del_fdir_udpv4(struct i40e_vsi *vsi,
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct udphdr *udp;
+ 	struct iphdr *ip;
+-	bool err = false;
+ 	u8 *raw_packet;
+ 	int ret;
+ 	static char packet[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0,
+@@ -230,7 +229,9 @@ static int i40e_add_del_fdir_udpv4(struct i40e_vsi *vsi,
+ 		dev_info(&pf->pdev->dev,
+ 			 "PCTYPE:%d, Filter command send failed for fd_id:%d (ret = %d)\n",
+ 			 fd_data->pctype, fd_data->fd_id, ret);
+-		err = true;
++		/* Free the packet buffer since it wasn't added to the ring */
++		kfree(raw_packet);
++		return -EOPNOTSUPP;
+ 	} else if (I40E_DEBUG_FD & pf->hw.debug_mask) {
+ 		if (add)
+ 			dev_info(&pf->pdev->dev,
+@@ -241,10 +242,8 @@ static int i40e_add_del_fdir_udpv4(struct i40e_vsi *vsi,
+ 				 "Filter deleted for PCTYPE %d loc = %d\n",
+ 				 fd_data->pctype, fd_data->fd_id);
  	}
--	ecmd->duplex = DUPLEX_FULL;
-+	cmd->base.duplex = DUPLEX_FULL;
+-	if (err)
+-		kfree(raw_packet);
  
- 	return 0;
- }
-@@ -643,7 +642,6 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+-	return err ? -EOPNOTSUPP : 0;
++	return 0;
  }
  
- static const struct ethtool_ops i40evf_ethtool_ops = {
--	.get_settings		= i40evf_get_settings,
- 	.get_drvinfo		= i40evf_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_ringparam		= i40evf_get_ringparam,
-@@ -663,6 +661,7 @@ static const struct ethtool_ops i40evf_ethtool_ops = {
- 	.set_rxfh		= i40evf_set_rxfh,
- 	.get_channels		= i40evf_get_channels,
- 	.get_rxfh_key_size	= i40evf_get_rxfh_key_size,
-+	.get_link_ksettings	= i40evf_get_link_ksettings,
- };
+ #define I40E_TCPIP_DUMMY_PACKET_LEN 54
+@@ -263,7 +262,6 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct tcphdr *tcp;
+ 	struct iphdr *ip;
+-	bool err = false;
+ 	u8 *raw_packet;
+ 	int ret;
+ 	/* Dummy packet */
+@@ -305,12 +303,13 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 
+ 	fd_data->pctype = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
+ 	ret = i40e_program_fdir_filter(fd_data, raw_packet, pf, add);
+-
+ 	if (ret) {
+ 		dev_info(&pf->pdev->dev,
+ 			 "PCTYPE:%d, Filter command send failed for fd_id:%d (ret = %d)\n",
+ 			 fd_data->pctype, fd_data->fd_id, ret);
+-		err = true;
++		/* Free the packet buffer since it wasn't added to the ring */
++		kfree(raw_packet);
++		return -EOPNOTSUPP;
+ 	} else if (I40E_DEBUG_FD & pf->hw.debug_mask) {
+ 		if (add)
+ 			dev_info(&pf->pdev->dev, "Filter OK for PCTYPE %d loc = %d)\n",
+@@ -321,10 +320,7 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 				 fd_data->pctype, fd_data->fd_id);
+ 	}
+ 
+-	if (err)
+-		kfree(raw_packet);
+-
+-	return err ? -EOPNOTSUPP : 0;
++	return 0;
+ }
+ 
+ #define I40E_IP_DUMMY_PACKET_LEN 34
+@@ -343,7 +339,6 @@ static int i40e_add_del_fdir_ipv4(struct i40e_vsi *vsi,
+ {
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct iphdr *ip;
+-	bool err = false;
+ 	u8 *raw_packet;
+ 	int ret;
+ 	int i;
+@@ -365,12 +360,15 @@ static int i40e_add_del_fdir_ipv4(struct i40e_vsi *vsi,
+ 
+ 		fd_data->pctype = i;
+ 		ret = i40e_program_fdir_filter(fd_data, raw_packet, pf, add);
+-
+ 		if (ret) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "PCTYPE:%d, Filter command send failed for fd_id:%d (ret = %d)\n",
+ 				 fd_data->pctype, fd_data->fd_id, ret);
+-			err = true;
++			/* The packet buffer wasn't added to the ring so we
++			 * need to free it now.
++			 */
++			kfree(raw_packet);
++			return -EOPNOTSUPP;
+ 		} else if (I40E_DEBUG_FD & pf->hw.debug_mask) {
+ 			if (add)
+ 				dev_info(&pf->pdev->dev,
+@@ -383,10 +381,7 @@ static int i40e_add_del_fdir_ipv4(struct i40e_vsi *vsi,
+ 		}
+ 	}
+ 
+-	if (err)
+-		kfree(raw_packet);
+-
+-	return err ? -EOPNOTSUPP : 0;
++	return 0;
+ }
  
  /**
 -- 
