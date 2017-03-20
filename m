@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [net-next PATCH 2/2] tcp: Record Rx hash and NAPI ID in
- tcp_child_process
-Date: Mon, 20 Mar 2017 14:48:54 -0700
-Message-ID: <20170320214854.13922.5086.stgit@localhost.localdomain>
+Subject: [net-next PATCH 1/2] net: Busy polling should ignore sender CPUs
+Date: Mon, 20 Mar 2017 14:48:48 -0700
+Message-ID: <20170320214848.13922.79201.stgit@localhost.localdomain>
 References: <20170320214643.13922.51284.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,70 +16,68 @@ List-Id: netdev.vger.kernel.org
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-While working on some recent busy poll changes we found that child sockets
-were being instantiated without NAPI ID being set.  In our first attempt to
-fix it, it was suggested that we should just pull programming the NAPI ID
-into the function itself since all callers will need to have it set.
+This patch is a cleanup/fix for NAPI IDs following the changes that made it
+so that sender_cpu and napi_id were doing a better job of sharing the same
+location in the sk_buff.
 
-In addition to NAPI ID I have decided to also pull in populating the Rx
-hash since it likely has the same problem as NAPI ID but just doesn't have
-the visibility.
+One issue I found is that we weren't validating the napi_id as being valid
+before we started trying to setup the busy polling.  This change corrects
+that by using the MIN_NAPI_ID value that is now used in both allocating the
+NAPI IDs, as well as validating them.
 
-Reported-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Suggested-by: Eric Dumazet <edumazet@google.com>
+Fixes: 52bd2d62ce675 ("net: better skb->sender_cpu and skb->napi_id cohabitation")
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- net/ipv4/tcp_ipv4.c      |    2 --
- net/ipv4/tcp_minisocks.c |    5 +++++
- net/ipv6/tcp_ipv6.c      |    2 --
- 3 files changed, 5 insertions(+), 4 deletions(-)
+ include/net/busy_poll.h |   11 +++++++++--
+ net/core/dev.c          |    6 +++---
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 7482b5d11861..20cbd2f07f28 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1409,8 +1409,6 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		if (!nsk)
- 			goto discard;
- 		if (nsk != sk) {
--			sock_rps_save_rxhash(nsk, skb);
--			sk_mark_napi_id(nsk, skb);
- 			if (tcp_child_process(sk, nsk, skb)) {
- 				rsk = nsk;
- 				goto reset;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 692f974e5abe..245b63856c04 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -26,6 +26,7 @@
- #include <net/tcp.h>
- #include <net/inet_common.h>
- #include <net/xfrm.h>
-+#include <net/busy_poll.h>
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index c0452de83086..edf1310212a1 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -35,6 +35,12 @@
+ extern unsigned int sysctl_net_busy_read __read_mostly;
+ extern unsigned int sysctl_net_busy_poll __read_mostly;
  
- int sysctl_tcp_abort_on_overflow __read_mostly;
- 
-@@ -798,6 +799,10 @@ int tcp_child_process(struct sock *parent, struct sock *child,
- 	int ret = 0;
- 	int state = child->sk_state;
- 
-+	/* record Rx hash and NAPI ID of child */
-+	sock_rps_save_rxhash(child, skb);
-+	sk_mark_napi_id(child, skb);
++/*		0 - Reserved to indicate value not set
++ *     1..NR_CPUS - Reserved for sender_cpu
++ *  NR_CPUS+1..~0 - Region available for NAPI IDs
++ */
++#define MIN_NAPI_ID ((unsigned int)(NR_CPUS + 1))
 +
- 	tcp_segs_in(tcp_sk(child), skb);
- 	if (!sock_owned_by_user(child)) {
- 		ret = tcp_rcv_state_process(child, skb);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 0f08d718a002..ee13e380c0dd 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1293,8 +1293,6 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 			goto discard;
+ static inline bool net_busy_loop_on(void)
+ {
+ 	return sysctl_net_busy_poll;
+@@ -58,10 +64,11 @@ static inline unsigned long busy_loop_end_time(void)
  
- 		if (nsk != sk) {
--			sock_rps_save_rxhash(nsk, skb);
--			sk_mark_napi_id(nsk, skb);
- 			if (tcp_child_process(sk, nsk, skb))
- 				goto reset;
- 			if (opt_skb)
+ static inline bool sk_can_busy_loop(const struct sock *sk)
+ {
+-	return sk->sk_ll_usec && sk->sk_napi_id && !signal_pending(current);
++	return sk->sk_ll_usec &&
++	       (sk->sk_napi_id >= MIN_NAPI_ID) &&
++	       !signal_pending(current);
+ }
+ 
+-
+ static inline bool busy_loop_timeout(unsigned long end_time)
+ {
+ 	unsigned long now = busy_loop_us_clock();
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7869ae3837ca..5bbe30c08a5b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5143,10 +5143,10 @@ static void napi_hash_add(struct napi_struct *napi)
+ 
+ 	spin_lock(&napi_hash_lock);
+ 
+-	/* 0..NR_CPUS+1 range is reserved for sender_cpu use */
++	/* 0..NR_CPUS range is reserved for sender_cpu use */
+ 	do {
+-		if (unlikely(++napi_gen_id < NR_CPUS + 1))
+-			napi_gen_id = NR_CPUS + 1;
++		if (unlikely(++napi_gen_id < MIN_NAPI_ID))
++			napi_gen_id = MIN_NAPI_ID;
+ 	} while (napi_by_id(napi_gen_id));
+ 	napi->napi_id = napi_gen_id;
+ 
