@@ -1,111 +1,46 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH] net: convert sk_filter.refcnt from atomic_t to refcount_t
-Date: Mon, 20 Mar 2017 11:37:21 +0200
-Message-ID: <1490002641-10498-1-git-send-email-elena.reshetova@intel.com>
-Cc: ast@fb.com, linux-kernel@vger.kernel.org, peterz@infradead.org,
-        netdev@vger.kernel.org,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        Kees Cook <keescook@chromium.org>,
-        David Windsor <dwindsor@gmail.com>
-To: daniel@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH nf 1/1] netfilter: snmp: Fix one possible panic when
+ snmp_trap_helper fail to register
+Date: Mon, 20 Mar 2017 12:37:23 +0300
+Message-ID: <b2344023-5045-a127-a3f2-0fc7ef898505@cogentembedded.com>
+References: <1489974248-60293-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: fgao@ikuai8.com, pablo@netfilter.org, jolsa@redhat.com,
+        davem@davemloft.net, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:36447 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753402AbdCTJhi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 05:37:38 -0400
+Received: by mail-lf0-f48.google.com with SMTP id y193so52840973lfd.3
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 02:37:25 -0700 (PDT)
+In-Reply-To: <1489974248-60293-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+Hello!
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
----
- include/linux/filter.h |  3 ++-
- net/core/filter.c      | 17 ++++++++++++-----
- 2 files changed, 14 insertions(+), 6 deletions(-)
+On 3/20/2017 4:44 AM, fgao@ikuai8.com wrote:
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 8053c38..20247e7 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -7,6 +7,7 @@
- #include <stdarg.h>
- 
- #include <linux/atomic.h>
-+#include <linux/refcount.h>
- #include <linux/compat.h>
- #include <linux/skbuff.h>
- #include <linux/linkage.h>
-@@ -431,7 +432,7 @@ struct bpf_prog {
- };
- 
- struct sk_filter {
--	atomic_t	refcnt;
-+	refcount_t	refcnt;
- 	struct rcu_head	rcu;
- 	struct bpf_prog	*prog;
- };
-diff --git a/net/core/filter.c b/net/core/filter.c
-index ebaeaf2..389cb8d 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -928,7 +928,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
-  */
- static void sk_filter_release(struct sk_filter *fp)
- {
--	if (atomic_dec_and_test(&fp->refcnt))
-+	if (refcount_dec_and_test(&fp->refcnt))
- 		call_rcu(&fp->rcu, sk_filter_release_rcu);
- }
- 
-@@ -943,20 +943,27 @@ void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
- /* try to charge the socket memory if there is space available
-  * return true on success
-  */
--bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
-+bool __sk_filter_charge(struct sock *sk, struct sk_filter *fp)
- {
- 	u32 filter_size = bpf_prog_size(fp->prog->len);
- 
- 	/* same check as in sock_kmalloc() */
- 	if (filter_size <= sysctl_optmem_max &&
- 	    atomic_read(&sk->sk_omem_alloc) + filter_size < sysctl_optmem_max) {
--		atomic_inc(&fp->refcnt);
- 		atomic_add(filter_size, &sk->sk_omem_alloc);
- 		return true;
- 	}
- 	return false;
- }
- 
-+bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
-+{
-+	bool ret = __sk_filter_charge(sk, fp);
-+	if (ret)
-+		refcount_inc(&fp->refcnt);
-+	return ret;
-+}
-+
- static struct bpf_prog *bpf_migrate_filter(struct bpf_prog *fp)
- {
- 	struct sock_filter *old_prog;
-@@ -1179,12 +1186,12 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
- 		return -ENOMEM;
- 
- 	fp->prog = prog;
--	atomic_set(&fp->refcnt, 0);
- 
--	if (!sk_filter_charge(sk, fp)) {
-+	if (!__sk_filter_charge(sk, fp)) {
- 		kfree(fp);
- 		return -ENOMEM;
- 	}
-+	refcount_set(&fp->refcnt, 1);
- 
- 	old_fp = rcu_dereference_protected(sk->sk_filter,
- 					   lockdep_sock_is_held(sk));
--- 
-2.7.4
+> From: Gao Feng <fgao@ikuai8.com>
+>
+> In the commit ("netfilter: nf_conntrack: nf_conntrack snmp helper"),
+
+    Need to specify the 12-digit SHA1 ID as well.
+
+> the snmp_helper is replaced by nf_nat_snmp_hook. So the snmp_helper
+> is never registered. But it still tries to unregister the snmp_helper,
+> it could cause the panic.
+>
+> Now remove the useless snmp_helper and the unregister call in the
+> error handler.
+>
+> Fixes: 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp helper")
+>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+[...]
+
+MBR, Sergei
