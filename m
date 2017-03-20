@@ -1,99 +1,69 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] stmmac: call stmmac_init_phy from
- stmmac_dvr_probe
-Date: Mon, 20 Mar 2017 15:07:02 -0700
-Message-ID: <285d0fe6-9257-5e44-1272-be22dc271094@gmail.com>
-References: <20170320172915.8313-1-niklass@axis.com>
- <257f3b05-805d-fd59-5435-89ede6b0fe4b@gmail.com>
- <82fbc595-5269-bcd9-d75f-778fbd8d2bdb@axis.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next 10/12] dt-bindings: net: document bcmgenet WoL
+ interrupt
+Date: Mon, 20 Mar 2017 17:09:43 -0500
+Message-ID: <20170320220943.aubgkguoavuqskih@rob-hp-laptop>
+References: <20170314004142.4746-1-opendmb@gmail.com>
+ <20170314004142.4746-11-opendmb@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Niklas Cassel <niklas.cassel@axis.com>, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, Joao.Pinto@synopsys.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <82fbc595-5269-bcd9-d75f-778fbd8d2bdb@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org, xow-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, joel-U3u1mxZcP9KHXe+LvDLADg@public.gmane.org,
+        jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pgynther-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jaedon.shin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Doug Berger <opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170314004142.4746-11-opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/20/2017 11:34 AM, Niklas Cassel wrote:
-> On 03/20/2017 06:43 PM, Florian Fainelli wrote:
->> On 03/20/2017 10:29 AM, Niklas Cassel wrote:
->>> From: Niklas Cassel <niklas.cassel@axis.com>
->>>
->>> It is usually possible to do
->>> ethtool -s autoneg on
->>> so that you trigger an autoneg before calling
->>> ip link set dev eth0 up
->> This is completely driver specific and there is no guarantee for this to
->> work universally across all device drivers because when your interface
->> is brought down, the most sensible thing to expect in return is that
->> your PHY is powered down (unless your interface participates in
->> Wake-on-LAN).
->>
->>> However, stmmac returns -EBUSY if !netif_running.
->>> The only reason for this appears to be that stmmac_init_phy
->>> is called from stmmac_open instead of from stmmac_dvr_probe.
->>>
->>> Move stmmac_init_phy to stmmac_dvr_probe so that ethool
->>> works as soon as register_netdev has been called.
->>> stmmac_check_ether_addr was also moved to probe,
->>> so that the ordering doesn't change.
->> Are you sure this is a good idea? There are many drivers that moved the
->> PHY probe into ndo_open() for mainly two things:
->>
->> - phy_connect() starts the PHY state machine and starting the state
->> machine without a network device running is kind of wasting cycles
->>
->> - if the interface is probed, but not used, you are keeping the Ethernet
->> link running without being able to service packets, which is at best a
->> waste of power
+On Mon, Mar 13, 2017 at 05:41:40PM -0700, Doug Berger wrote:
+> A third interrupt cell can be provided to optionally specify
+> the interrupt used for handling Wake on LAN events.
 > 
-> Hello Florian
-> 
-> Thank you for your input.
-> I can see the point in keeping phy_connect in ndo_open.
-> 
-> What I dislike is the -EBUSY from stmmac_ethtool_get_link_ksettings,
-> since this will create warnings in user space by our favorite monolith.
-> (Please don't flame me, I dislike it as much as you guys.)
-> 
-> [ WARNING ] systemd-udevd[236]: link_config: could not get ethtool features for eth0
-> [ WARNING ] systemd-udevd[236]: Could not set offload features of eth0: Device or resource busy
+> Typically the wake up handling uses a separate interrupt
+> controller, so the interrupts-extended property is used to
+> accommodate this.
 
-Then let's silence the warning, because it's not really helpful in the
-first place.
+Using interrupts vs. interrupts-extended is beyond the scope of the 
+binding doc. IOW, documenting interrupts is enough and using
+interrupts-extended is allowed.
 
 > 
+> Signed-off-by: Doug Berger <opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/brcm,bcmgenet.txt | 9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
 > 
-> However, it is kind of sad that drivers are so inconsistent of what goes
-> in probe and what goes in ndo_open...which is tied together with the
-> whole mess of when certain ethtool commands work or do not work.
+> diff --git a/Documentation/devicetree/bindings/net/brcm,bcmgenet.txt b/Documentation/devicetree/bindings/net/brcm,bcmgenet.txt
+> index 10587bdadbbe..01a70463cbc5 100644
+> --- a/Documentation/devicetree/bindings/net/brcm,bcmgenet.txt
+> +++ b/Documentation/devicetree/bindings/net/brcm,bcmgenet.txt
+> @@ -4,9 +4,12 @@ Required properties:
+>  - compatible: should contain one of "brcm,genet-v1", "brcm,genet-v2",
+>    "brcm,genet-v3", "brcm,genet-v4".
+>  - reg: address and length of the register set for the device
+> -- interrupts: must be two cells, the first cell is the general purpose
+> -  interrupt line, while the second cell is the interrupt for the ring
+> -  RX and TX queues operating in ring mode
+> +- interrupts and/or interrupts-extended: must be two cells, the first cell
+> +  is the general purpose interrupt line, while the second cell is the
+> +  interrupt for the ring RX and TX queues operating in ring mode.  An
+> +  optional third interrupt cell for Wake-on-LAN can be specified.
 
-Well, inconsistent here is kind of big statement, what I meant to say is
-that your proposed change actually makes thing inconsistent.
+Does the generic wakeup source work for this?
 
+> +  See Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+> +  for information on the property specifics.
+>  - phy-mode: see ethernet.txt file in the same directory
+>  - #address-cells: should be 1
+>  - #size-cells: should be 1
+> -- 
+> 2.11.1
 > 
-> Do you know of a good way to avoid the -EBUSY in stmmac_ethtool_get_link_ksettings,
-> but still keep phy_connect in ndo_open?
-
-Let me rephrase this: doing an ethtool operation on an interface that is
-not open is not a defined behavior which adheres to a contract with the
-kernel. ethtool operations on interfaces that are DOWN, may succeed if
-they do not involve a piece of hardware that needs to be active (e.g:
-the PHY) but there is no guarantee that a) the change is immediately
-applied, or b) that the results are consistent.
-
-The best thing to do IMHO is just silence the warning, return an error
-coed, and come back configuring the interface at a later time when it is
-guaranteed to be operational.
-
-> The current code checks netif_running(), which checks __LINK_STATE_START,
-> which gets set by __dev_open().
-> stmmac_ethtool_get_link_ksettings also returns -ENODEV if ndev->phydev == NULL.
-> 
-
-
--- 
-Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
