@@ -1,8 +1,8 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next v2 3/5] net-next: ethernet: mediatek: add CDM able to
- recognize the tag for DSA
-Date: Tue, 21 Mar 2017 17:35:08 +0800
-Message-ID: <1490088910-19405-4-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net-next v2 4/5] net-next: ethernet: mediatek: add device_node
+ of GMAC pointing into the netdev instance
+Date: Tue, 21 Mar 2017 17:35:09 +0800
+Message-ID: <1490088910-19405-5-git-send-email-sean.wang@mediatek.com>
 References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,49 +28,28 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-The patch adds the setup for allowing CDM can recognize these packets with
-carrying port-distinguishing tag. Otherwise, these tagging packets will be
-handled incorrectly by CDM. The setup is working out for general untag
-packets as well.
+the patch adds the setup of the corresponding device node of GMAC into the
+netdev instance which could allow other modules such as DSA to find the
+instance through the node in dt-bindings using of_find_net_device_by_node()
+call.
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Landen Chao <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 6 ++++++
- drivers/net/ethernet/mediatek/mtk_eth_soc.h | 4 ++++
- 2 files changed, 10 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 9e75768..c21ed99 100644
+index c21ed99..84b09a4 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1846,6 +1846,12 @@ static int mtk_hw_init(struct mtk_eth *eth)
- 	/* GE2, Force 1000M/FD, FC ON */
- 	mtk_w32(eth, MAC_MCR_FIXED_LINK, MTK_MAC_MCR(1));
+@@ -2323,6 +2323,8 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
+ 	eth->netdev[id]->ethtool_ops = &mtk_ethtool_ops;
  
-+	/* Indicates CDM to parse the MTK special tag from CPU
-+	 * which also is working out for untag packets.
-+	 */
-+	val = mtk_r32(eth, MTK_CDMQ_IG_CTRL);
-+	mtk_w32(eth, val | MTK_CDMQ_STAG_EN, MTK_CDMQ_IG_CTRL);
+ 	eth->netdev[id]->irq = eth->irq[0];
++	eth->netdev[id]->dev.of_node = np;
 +
- 	/* Enable RX VLan Offloading */
- 	mtk_w32(eth, 1, MTK_CDMP_EG_CTRL);
+ 	return 0;
  
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 99b1c8e..996024d 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -70,6 +70,10 @@
- /* Frame Engine Interrupt Grouping Register */
- #define MTK_FE_INT_GRP		0x20
- 
-+/* CDMP Ingress Control Register */
-+#define MTK_CDMQ_IG_CTRL	0x1400
-+#define MTK_CDMQ_STAG_EN	BIT(0)
-+
- /* CDMP Exgress Control Register */
- #define MTK_CDMP_EG_CTRL	0x404
- 
+ free_netdev:
 -- 
 1.9.1
