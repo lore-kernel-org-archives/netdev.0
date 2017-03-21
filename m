@@ -1,113 +1,81 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1 1/1] tipc: fix nametbl deadlock at tipc_nametbl_unsubscribe
-Date: Tue, 21 Mar 2017 10:47:49 +0100
-Message-ID: <1490089669-2144-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames
+ DNAT-ed to bridge device
+Date: Tue, 21 Mar 2017 11:11:21 +0100
+Message-ID: <20170321101121.GB1719@salvia>
+References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
+	<20170315102608.GB24366@breakpoint.cc>
+	<20170315104211.GA24409@salvia> <20170315142720.GU15692@otheros>
+	<20170315181539.GA31875@salvia> <20170315211619.GA3464@otheros>
+	<20170315220605.GA1766@salvia> <20170317131044.GA11995@salvia>
+	<20170319165506.GA15475@otheros> <20170321000947.GA31709@otheros>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-        <jon.maloy@ericsson.com>, <maloy@donjonn.com>,
-        <ying.xue@windriver.com>, <thompa.atl@gmail.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:63889 "EHLO
-        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751176AbdCUJr5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 05:47:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
+	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S . Miller" <davem@davemloft.net>
+To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170321000947.GA31709@otheros>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
+On Tue, Mar 21, 2017 at 01:09:47AM +0100, Linus Lüssing wrote:
+> On Sun, Mar 19, 2017 at 05:55:06PM +0100, Linus Lüssing wrote:
+> > On Fri, Mar 17, 2017 at 02:10:44PM +0100, Pablo Neira Ayuso wrote:
+> > > Wait.
+> > > 
+> > > May this break local multicast listener that are bound to the bridge
+> > > interface? Assuming the bridge interface got an IP address, and that
+> > > there is local multicast listener.
+> > > 
+> > > Missing anything here?
+> > 
+> > Hm, for multicast packets usually the code path a few lines
+> > later in br_handle_frame_finish() should be taken instead.
+> > 
+> > But you might be right for IP multicast packets with a unicast MAC
+> > destination (due to whatever reason, for instance via DNAT'ing
+> > again).
+> > 
+> > Will check that - thanks!
+> 
+> Ok, I tested DNAT'ing an IP multicast packet to the unicast MAC address
+> of the bridge interface.
+> 
+> Both ping-ing to an IPv4 and IPv6 multicast listener on br0 worked
+> and was replied to fine, both with or without changing skb->pkt_type
+> from PACKET_MULTICAST to PACKET_HOST.
+> ("$ ping 224.1.0.123" and "$ ping6 ff02::1:ff40:707c%in0" from a
+>  network namespace, tied into the bridge via veth)
+> 
+> Also, a DNAT'ed PACKET_BROADCAST worked, with or without changing
+> it to PACKET_HOST.
+> 
+> I also checked via tcpdump that the destination MAC was changed
+> successfully.
 
-Until now, tipc_nametbl_unsubscribe() is called at subscriptions
-reference count cleanup. Usually the subscriptions cleanup is
-called at subscription timeout or at subscription cancel or at
-subscriber delete.
+Thanks for looking into this more in depth.
 
-We have ignored the possibility of this being called from other
-locations, which causes deadlock as we try to grab the
-tn->nametbl_lock while holding it already.
+> So, so far I wasn't able to find any bugs with the current
+> patch. But I think I like the idea of leaving the skb->pkt_type
+> unaltered for PACKET_MULTICAST and PACKET_BROADCAST, seems cleaner.
 
-   CPU1:                             CPU2:
-----------                     ----------------
-tipc_nametbl_publish
-spin_lock_bh(&tn->nametbl_lock)
-tipc_nametbl_insert_publ
-tipc_nameseq_insert_publ
-tipc_subscrp_report_overlap
-tipc_subscrp_get
-tipc_subscrp_send_event
-                             tipc_close_conn
-                             tipc_subscrb_release_cb
-                             tipc_subscrb_delete
-                             tipc_subscrp_put
-tipc_subscrp_put
-tipc_subscrp_kref_release
-tipc_nametbl_unsubscribe
-spin_lock_bh(&tn->nametbl_lock)
-<<grab nametbl_lock again>>
+Yes, and matching on skb->pkt_type would not break from netfilter.
 
-   CPU1:                              CPU2:
-----------                     ----------------
-tipc_nametbl_stop
-spin_lock_bh(&tn->nametbl_lock)
-tipc_purge_publications
-tipc_nameseq_remove_publ
-tipc_subscrp_report_overlap
-tipc_subscrp_get
-tipc_subscrp_send_event
-                             tipc_close_conn
-                             tipc_subscrb_release_cb
-                             tipc_subscrb_delete
-                             tipc_subscrp_put
-tipc_subscrp_put
-tipc_subscrp_kref_release
-tipc_nametbl_unsubscribe
-spin_lock_bh(&tn->nametbl_lock)
-<<grab nametbl_lock again>>
+> I'd just add an "if (skb->pkt_type == PACKET_OTHERHOST)" check
+> then and resend a PATCH v2.
 
-In this commit, we advance the calling of tipc_nametbl_unsubscribe()
-from the refcount cleanup to the intended callers.
-
-Fixes: d094c4d5f5c7 ("tipc: add subscription refcount to avoid invalid delete")
-Reported-by: John Thompson <thompa.atl@gmail.com>
-Acked-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
----
- net/tipc/subscr.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 9d94e65d0894..271cd66e4b3b 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -141,6 +141,11 @@ void tipc_subscrp_report_overlap(struct tipc_subscription *sub, u32 found_lower,
- static void tipc_subscrp_timeout(unsigned long data)
- {
- 	struct tipc_subscription *sub = (struct tipc_subscription *)data;
-+	struct tipc_subscriber *subscriber = sub->subscriber;
-+
-+	spin_lock_bh(&subscriber->lock);
-+	tipc_nametbl_unsubscribe(sub);
-+	spin_unlock_bh(&subscriber->lock);
- 
- 	/* Notify subscriber of timeout */
- 	tipc_subscrp_send_event(sub, sub->evt.s.seq.lower, sub->evt.s.seq.upper,
-@@ -173,7 +178,6 @@ static void tipc_subscrp_kref_release(struct kref *kref)
- 	struct tipc_subscriber *subscriber = sub->subscriber;
- 
- 	spin_lock_bh(&subscriber->lock);
--	tipc_nametbl_unsubscribe(sub);
- 	list_del(&sub->subscrp_list);
- 	atomic_dec(&tn->subscription_count);
- 	spin_unlock_bh(&subscriber->lock);
-@@ -205,6 +209,7 @@ static void tipc_subscrb_subscrp_delete(struct tipc_subscriber *subscriber,
- 		if (s && memcmp(s, &sub->evt.s, sizeof(struct tipc_subscr)))
- 			continue;
- 
-+		tipc_nametbl_unsubscribe(sub);
- 		tipc_subscrp_get(sub);
- 		spin_unlock_bh(&subscriber->lock);
- 		tipc_subscrp_delete(sub);
--- 
-2.1.4
+Thanks.
