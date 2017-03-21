@@ -1,75 +1,62 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames
- DNAT-ed to bridge device
-Date: Tue, 21 Mar 2017 01:09:47 +0100
-Message-ID: <20170321000947.GA31709@otheros>
-References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
-	<20170315102608.GB24366@breakpoint.cc>
-	<20170315104211.GA24409@salvia> <20170315142720.GU15692@otheros>
-	<20170315181539.GA31875@salvia> <20170315211619.GA3464@otheros>
-	<20170315220605.GA1766@salvia> <20170317131044.GA11995@salvia>
-	<20170319165506.GA15475@otheros>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH] [v2, -net] cpsw/netcp: cpts depends on posix_timers
+Date: Mon, 20 Mar 2017 20:17:16 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1703202016420.2304@knanqh.ubzr>
+References: <20170320085849.1038064-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S . Miller" <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170319165506.GA15475@otheros>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        "David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
+        John Stultz <john.stultz@linaro.org>,
+        WingMan Kwok <w-kwok2@ti.com>,
+        =?ISO-8859-15?Q?Uwe_Kleine-K=F6nig?=
+        <u.kleine-koenig@pengutronix.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170320085849.1038064-1-arnd@arndb.de>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 19, 2017 at 05:55:06PM +0100, Linus Lüssing wrote:
-> On Fri, Mar 17, 2017 at 02:10:44PM +0100, Pablo Neira Ayuso wrote:
-> > Wait.
-> > 
-> > May this break local multicast listener that are bound to the bridge
-> > interface? Assuming the bridge interface got an IP address, and that
-> > there is local multicast listener.
-> > 
-> > Missing anything here?
+On Mon, 20 Mar 2017, Arnd Bergmann wrote:
+
+> With posix timers having become optional, we get a build error with
+> the cpts time sync option of the CPSW driver:
 > 
-> Hm, for multicast packets usually the code path a few lines
-> later in br_handle_frame_finish() should be taken instead.
+> drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
+> drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
 > 
-> But you might be right for IP multicast packets with a unicast MAC
-> destination (due to whatever reason, for instance via DNAT'ing
-> again).
+> This adds a hard dependency on PTP_CLOCK to avoid the problem, as
+> building it without PTP support makes no sense anyway.
 > 
-> Will check that - thanks!
+> Fixes: baa73d9e478f ("posix-timers: Make them configurable")
+> Cc: Nicolas Pitre <nicolas.pitre@linaro.org>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Ok, I tested DNAT'ing an IP multicast packet to the unicast MAC address
-of the bridge interface.
+Acked-by: Nicolas Pitre <nico@linaro.org>
 
-Both ping-ing to an IPv4 and IPv6 multicast listener on br0 worked
-and was replied to fine, both with or without changing skb->pkt_type
-from PACKET_MULTICAST to PACKET_HOST.
-("$ ping 224.1.0.123" and "$ ping6 ff02::1:ff40:707c%in0" from a
- network namespace, tied into the bridge via veth)
-
-Also, a DNAT'ed PACKET_BROADCAST worked, with or without changing
-it to PACKET_HOST.
-
-I also checked via tcpdump that the destination MAC was changed
-successfully.
-
-
-So, so far I wasn't able to find any bugs with the current
-patch. But I think I like the idea of leaving the skb->pkt_type
-unaltered for PACKET_MULTICAST and PACKET_BROADCAST, seems cleaner.
-
-I'd just add an "if (skb->pkt_type == PACKET_OTHERHOST)" check
-then and resend a PATCH v2.
+> ---
+> v2: use 'depends on' instead of 'select' as suggested by Nico.
+> ---
+>  drivers/net/ethernet/ti/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+> index d923890a9fda..9e631952b86f 100644
+> --- a/drivers/net/ethernet/ti/Kconfig
+> +++ b/drivers/net/ethernet/ti/Kconfig
+> @@ -76,7 +76,7 @@ config TI_CPSW
+>  config TI_CPTS
+>  	bool "TI Common Platform Time Sync (CPTS) Support"
+>  	depends on TI_CPSW || TI_KEYSTONE_NETCP
+> -	imply PTP_1588_CLOCK
+> +	depends on PTP_1588_CLOCK
+>  	---help---
+>  	  This driver supports the Common Platform Time Sync unit of
+>  	  the CPSW Ethernet Switch and Keystone 2 1g/10g Switch Subsystem.
+> -- 
+> 2.9.0
+> 
+> 
