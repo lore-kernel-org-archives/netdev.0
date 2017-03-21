@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 0/8] vhost-net rx batching
-Date: Tue, 21 Mar 2017 12:04:39 +0800
-Message-ID: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next 1/8] ptr_ring: introduce batch dequeuing
+Date: Tue, 21 Mar 2017 12:04:40 +0800
+Message-ID: <1490069087-4783-2-git-send-email-jasowang@redhat.com>
+References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -9,6 +10,7 @@ To: mst@redhat.com, kvm@vger.kernel.org,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -20,37 +22,93 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi all:
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 65 insertions(+)
 
-This series tries to implement rx batching for vhost-net. This is done
-by batching the dequeuing from skb_array which was exported by
-underlayer socket and pass the sbk back through msg_control to finish
-userspace copying.
-
-Tests shows at most 19% improvment on rx pps.
-
-Please review.
-
-Thanks
-
-Jason Wang (8):
-  ptr_ring: introduce batch dequeuing
-  skb_array: introduce batch dequeuing
-  tun: export skb_array
-  tap: export skb_array
-  tun: support receiving skb through msg_control
-  tap: support receiving skb from msg_control
-  vhost_net: try batch dequing from skb array
-  vhost_net: use lockless peeking for skb array during busy polling
-
- drivers/net/tap.c         | 25 ++++++++++++++---
- drivers/net/tun.c         | 31 +++++++++++++++------
- drivers/vhost/net.c       | 71 +++++++++++++++++++++++++++++++++++++++++++----
- include/linux/if_tap.h    |  5 ++++
- include/linux/if_tun.h    |  5 ++++
- include/linux/ptr_ring.h  | 65 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/skb_array.h | 25 +++++++++++++++++
- 7 files changed, 209 insertions(+), 18 deletions(-)
-
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+index 6c70444..4771ded 100644
+--- a/include/linux/ptr_ring.h
++++ b/include/linux/ptr_ring.h
+@@ -247,6 +247,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
+ 	return ptr;
+ }
+ 
++static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
++					     void **array, int n)
++{
++	void *ptr;
++	int i = 0;
++
++	while (i < n) {
++		ptr = __ptr_ring_consume(r);
++		if (!ptr)
++			break;
++		array[i++] = ptr;
++	}
++
++	return i;
++}
++
+ /*
+  * Note: resize (below) nests producer lock within consumer lock, so if you
+  * call this in interrupt or BH context, you must disable interrupts/BH when
+@@ -297,6 +313,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
+ 	return ptr;
+ }
+ 
++static inline int ptr_ring_consume_batched(struct ptr_ring *r,
++					   void **array, int n)
++{
++	int ret;
++
++	spin_lock(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock(&r->consumer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_irq(struct ptr_ring *r,
++					       void **array, int n)
++{
++	int ret;
++
++	spin_lock_irq(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_irq(&r->consumer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_any(struct ptr_ring *r,
++					       void **array, int n)
++{
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
++
++	return ret;
++}
++
++static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
++					      void **array, int n)
++{
++	int ret;
++
++	spin_lock_bh(&r->consumer_lock);
++	ret = __ptr_ring_consume_batched(r, array, n);
++	spin_unlock_bh(&r->consumer_lock);
++
++	return ret;
++}
++
+ /* Cast to structure type and call a function without discarding from FIFO.
+  * Function must return a value.
+  * Callers must take consumer_lock.
 -- 
 2.7.4
