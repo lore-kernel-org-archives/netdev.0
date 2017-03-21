@@ -1,75 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 05/13] i40e: rework exit flow of i40e_add_fdir_ethtool
-Date: Tue, 21 Mar 2017 13:11:05 +0300
-Message-ID: <2871a7df-bdd7-7f74-8326-40bf381e65cd@cogentembedded.com>
-References: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
- <20170320234712.84157-6-jeffrey.t.kirsher@intel.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: linux-next-20170320 breaks stmmac on meson (Amlogic S905GXBB)
+Date: Tue, 21 Mar 2017 10:13:08 +0000
+Message-ID: <88d2fa04-a9db-dbab-2c4f-03310ef7d540@synopsys.com>
+References: <690d5153-7725-83e6-208a-6cb4cac3cd93@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <clabbe.montjoie@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: Heiner Kallweit <hkallweit1@gmail.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:34166 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756711AbdCUKUL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 06:20:11 -0400
-Received: by mail-lf0-f50.google.com with SMTP id z15so65411652lfd.1
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 03:19:41 -0700 (PDT)
-In-Reply-To: <20170320234712.84157-6-jeffrey.t.kirsher@intel.com>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:46458 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756428AbdCUKWE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 06:22:04 -0400
+In-Reply-To: <690d5153-7725-83e6-208a-6cb4cac3cd93@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
 
-On 3/21/2017 2:47 AM, Jeff Kirsher wrote:
+Hi Heiner and Corentin,
 
-> From: Jacob Keller <jacob.e.keller@intel.com>
->
-> Refactor the exit flow of the i40e_add_fdir_ethtool function. Move the
-> input_label to the end of the function, removing the dependency on
+Às 9:58 PM de 3/20/2017, Heiner Kallweit escreveu:
+> As reported by Corentin Labbe before:
+> stmmac in the latest next kernel is broken also on meson8b.
+> 
+> The following commit seems to create the trouble:
+> 6deee2221e11 "net: stmmac: prepare dma op mode config for multiple queues"
+> 
+> I also get queue timeout errors.
 
-    I don't see 'input_label' anywhere. Perhaps 'free_input' label was meant?
+>From what you are describing it seems that the tx op mode is not being
+configured by some reason and so it is not enabled.
 
-> having a non-zero return value. Add a comment explaining why it is ok
-> not to free the fdir data structure, because the structure is now stored
-> in the fdir_filter_list.
->
-> Change-Id: I723342181d59cd0c9f3b31140c37961ba37bb242
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 15 +++++++++++----
->  1 file changed, 11 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> index 7a22b473dbdd..d16a5a6b24fc 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> @@ -2828,12 +2828,19 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
->  	}
->
->  	ret = i40e_add_del_fdir(vsi, input, true);
-> -free_input:
->  	if (ret)
-> -		kfree(input);
-> -	else
-> -		i40e_update_ethtool_fdir_entry(vsi, input, fsp->location, NULL);
-> +		goto free_input;
-> +
-> +	/* Add the input filter to the fdir_input_list, possibly replacing
-> +	 * a previous filter. Do not free the input structure after adding it
-> +	 * to the list as this would cause a use-after-free bug.
-> +	 */
-> +	i40e_update_ethtool_fdir_entry(vsi, input, fsp->location, NULL);
->
-> +	return 0;
-> +
-> +free_input:
-> +	kfree(input);
->  	return ret;
->  }
+Please check if this path is being executed:
 
-MBR, Sergei
+stmmac_mtl_configuration >> stmmac_dma_operation_mode >> priv->hw->dma->dma_tx_mode
+
+It must iterate by all the available channels / queues, that should be =1 since
+I assume you have a single queue:
+
+	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
+		for (chan = 0; chan < rx_channels_count; chan++)
+			priv->hw->dma->dma_rx_mode(priv->ioaddr, rxmode, chan,
+						   rxfifosz);
+
+		for (chan = 0; chan < tx_channels_count; chan++)
+			priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan);
+
+Could you please check if RX and TX op mode are being programmed?
+
+The rx and tx queue counters are initialized in stmmac_mtl_setup() function
+(stmmac_platform.c). If they are not declared in DT they assume the default
+value of 1.
+
+> 
+> Rgds, Heiner
+> 
+
+Thanks.
