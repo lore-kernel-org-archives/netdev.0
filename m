@@ -1,15 +1,15 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 4/8] net/mlx5e: Use the proper UAPI values when offloading TC vlan actions
-Date: Tue, 21 Mar 2017 15:59:15 +0200
-Message-ID: <20170321135919.25018-5-saeedm@mellanox.com>
+Subject: [PATCH net 1/8] net/mlx5: Add missing entries for set/query rate limit commands
+Date: Tue, 21 Mar 2017 15:59:12 +0200
+Message-ID: <20170321135919.25018-2-saeedm@mellanox.com>
 References: <20170321135919.25018-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38172 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38148 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1757593AbdCUN7y (ORCPT
+        with ESMTP id S1757532AbdCUN7y (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 09:59:54 -0400
 In-Reply-To: <20170321135919.25018-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,40 +17,39 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Currently we use the non UAPI values and we miss erring on
-the modify action which is not supported, fix that.
+The switch cases for the rate limit set and query commands were
+missing, which could get us wrong under fw error or driver reset
+flow, fix that.
 
-Fixes: 8b32580df1cb ('net/mlx5e: Add TC vlan action for SRIOV offloads')
+Fixes: 1466cc5b23d1 ('net/mlx5: Rate limit tables support')
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reported-by: Petr Machata <petrm@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 2825b5665456..9c13abaf3885 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -1131,14 +1131,16 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 		}
- 
- 		if (is_tcf_vlan(a)) {
--			if (tcf_vlan_action(a) == VLAN_F_POP) {
-+			if (tcf_vlan_action(a) == TCA_VLAN_ACT_POP) {
- 				attr->action |= MLX5_FLOW_CONTEXT_ACTION_VLAN_POP;
--			} else if (tcf_vlan_action(a) == VLAN_F_PUSH) {
-+			} else if (tcf_vlan_action(a) == TCA_VLAN_ACT_PUSH) {
- 				if (tcf_vlan_push_proto(a) != htons(ETH_P_8021Q))
- 					return -EOPNOTSUPP;
- 
- 				attr->action |= MLX5_FLOW_CONTEXT_ACTION_VLAN_PUSH;
- 				attr->vlan = tcf_vlan_push_vid(a);
-+			} else { /* action is TCA_VLAN_ACT_MODIFY */
-+				return -EOPNOTSUPP;
- 			}
- 			continue;
- 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index caa837e5e2b9..a380353a78c2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -361,6 +361,8 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_QUERY_VPORT_COUNTER:
+ 	case MLX5_CMD_OP_ALLOC_Q_COUNTER:
+ 	case MLX5_CMD_OP_QUERY_Q_COUNTER:
++	case MLX5_CMD_OP_SET_RATE_LIMIT:
++	case MLX5_CMD_OP_QUERY_RATE_LIMIT:
+ 	case MLX5_CMD_OP_ALLOC_PD:
+ 	case MLX5_CMD_OP_ALLOC_UAR:
+ 	case MLX5_CMD_OP_CONFIG_INT_MODERATION:
+@@ -497,6 +499,8 @@ const char *mlx5_command_str(int command)
+ 	MLX5_COMMAND_STR_CASE(ALLOC_Q_COUNTER);
+ 	MLX5_COMMAND_STR_CASE(DEALLOC_Q_COUNTER);
+ 	MLX5_COMMAND_STR_CASE(QUERY_Q_COUNTER);
++	MLX5_COMMAND_STR_CASE(SET_RATE_LIMIT);
++	MLX5_COMMAND_STR_CASE(QUERY_RATE_LIMIT);
+ 	MLX5_COMMAND_STR_CASE(ALLOC_PD);
+ 	MLX5_COMMAND_STR_CASE(DEALLOC_PD);
+ 	MLX5_COMMAND_STR_CASE(ALLOC_UAR);
 -- 
 2.11.0
