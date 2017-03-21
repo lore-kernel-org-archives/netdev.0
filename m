@@ -1,77 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 1/2] gtp: rename SGSN netlink attribute
-Date: Tue, 21 Mar 2017 16:15:11 +0100
-Message-ID: <20170321151511.GA20650@salvia>
-References: <20170203091231.10142-1-jonas@southpole.se>
- <20170321150430.23314-1-jonas@southpole.se>
- <20170321150748.GA20384@salvia>
- <7eb92d97-7f36-525b-f3dc-57295adc637b@southpole.se>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH 3/3] net: stmmac: Use AVB mode by default
+Date: Tue, 21 Mar 2017 15:23:00 +0000
+Message-ID: <bac4dbe3-dd38-8b2b-71f1-dbb04d8298bd@synopsys.com>
+References: <20170321151211.31841-1-thierry.reding@gmail.com>
+ <20170321151211.31841-3-thierry.reding@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: laforge@gnumonks.org, netdev@vger.kernel.org
-To: Jonas Bonn <jonas@southpole.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55496 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757180AbdCUPXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Mar 2017 11:23:43 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id E71D1174D1B
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 16:15:16 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D3944DA86C
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 16:15:16 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id AC32CDA86C
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 16:15:14 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <7eb92d97-7f36-525b-f3dc-57295adc637b@southpole.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        "LABBE Corentin" <clabbe.montjoie@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Thierry Reding <thierry.reding@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170321151211.31841-3-thierry.reding@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 21, 2017 at 04:10:26PM +0100, Jonas Bonn wrote:
-> On 03/21/2017 04:07 PM, Pablo Neira Ayuso wrote:
-> >On Tue, Mar 21, 2017 at 04:04:29PM +0100, Jonas Bonn wrote:
-> >>diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
-> >>index 72a04a0..c51ebb0 100644
-> >>--- a/include/uapi/linux/gtp.h
-> >>+++ b/include/uapi/linux/gtp.h
-> >>@@ -19,7 +19,7 @@ enum gtp_attrs {
-> >>  	GTPA_LINK,
-> >>  	GTPA_VERSION,
-> >>  	GTPA_TID,	/* for GTPv0 only */
-> >>-	GTPA_SGSN_ADDRESS,
-> >>+	GTPA_PEER_ADDRESS,	/* Remote GSN peer, either SGSN or GGSN */
-> >We need here:
-> >
-> >#define GTPA_SGSN_ADDRESS GTPA_PEER_ADDRESS
-> >
-> >for backward compatibility. Anything that is exposed through uapi
-> >cannot be changed.
+Às 3:12 PM de 3/21/2017, Thierry Reding escreveu:
+> From: Thierry Reding <treding@nvidia.com>
 > 
-> Yes... look a couple of lines further down...
+> Prior to the recent multi-queue changes the driver would configure the
+> queues to use the AVB mode, but the mode then got switched to DCB. The
+> hardware still works fine in DCB mode, but my testing capabilities are
+> limited, so it's safer to revert to the prior setting anyway.
 > 
-> >>  	GTPA_MS_ADDRESS,
-> >>  	GTPA_FLOW,
-> >>  	GTPA_NET_NS_FD,
-> >>@@ -29,5 +29,6 @@ enum gtp_attrs {
-> >>  	__GTPA_MAX,
-> >>  };
-> >>  #define GTPA_MAX (__GTPA_MAX + 1)
-> >>+#define GTPA_SGSN_ADDRESS GTPA_PEER_ADDRESS /* maintain legacy attr name */
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
+> ---
+>  include/linux/stmmac.h | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> ^^^^... there it is! :)
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index be47b859e954..8349a5c1537b 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -56,8 +56,8 @@
+>  #define MTL_RX_ALGORITHM_WSP	0x5
+>  
+>  /* RX/TX Queue Mode */
+> -#define MTL_QUEUE_DCB		0x0
+> -#define MTL_QUEUE_AVB		0x1
+> +#define MTL_QUEUE_AVB		0x0
+> +#define MTL_QUEUE_DCB		0x1
+>  
+>  /* The MDC clock could be set higher than the IEEE 802.3
+>   * specified frequency limit 0f 2.5 MHz, by programming a clock divider
+> 
 
-Oh right!
+Thierry, I don't understand this patch. It will have 0 impact.
 
-Please, move it there to the enum definition, just after the new
-GTPA_PEER_ADDRESS. We usually do this in other areas of the networking
-code.
+In stmmac_platform configuration, 0 impact:
 
-You also have to resubmit indicating net-next in your patch subject,
-ie.  [PATCH net-next v3 1/2] gtp: rename SGSN netlink attribute
+		if (of_property_read_bool(q_node, "snps,dcb-algorithm"))
+			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
+		else if (of_property_read_bool(q_node, "snps,avb-algorithm"))
+			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_AVB;
+		else
+**			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
 
-David usually requests that you explicitly indicate the target tree in
-some way.
+In dwmac4_core, 0 impact:
 
-Thanks!
+	value &= GMAC_RX_QUEUE_CLEAR(queue);
+	if (mode == MTL_QUEUE_AVB)
+		value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
+	else if (mode == MTL_QUEUE_DCB)
+		value |= GMAC_RX_DCB_QUEUE_ENABLE(queue);
+
+I think you should set the default mode in (**).
+
+Thanks.
