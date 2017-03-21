@@ -1,7 +1,7 @@
 From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next v7 3/3] A Sample of using socket cookie and uid for traffic monitoring
-Date: Tue, 21 Mar 2017 15:05:34 -0700
-Message-ID: <1490133934-7055-4-git-send-email-chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next v7 2/3] Add a eBPF helper function to retrieve socket uid
+Date: Tue, 21 Mar 2017 15:05:33 -0700
+Message-ID: <1490133934-7055-3-git-send-email-chenbofeng.kernel@gmail.com>
 References: <1490133934-7055-1-git-send-email-chenbofeng.kernel@gmail.com>
 Cc: Lorenzo Colitti <lorenzo@google.com>,
         Willem de Bruijn <willemb@google.com>,
@@ -10,327 +10,117 @@ To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
         Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35746 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756464AbdCUWFy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 18:05:54 -0400
-Received: by mail-pg0-f67.google.com with SMTP id g2so27269092pge.2
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 15:05:53 -0700 (PDT)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33123 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757217AbdCUWGC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 18:06:02 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 79so18563508pgf.0
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 15:05:56 -0700 (PDT)
 In-Reply-To: <1490133934-7055-1-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Chenbo Feng <fengc@google.com>
 
-Add a sample program to demostrate the possible usage of
-get_socket_cookie and get_socket_uid helper function. The program will
-store bytes and packets counting of in/out traffic monitored by iptables
-and store the stats in a bpf map in per socket base. The owner uid of
-the socket will be stored as part of the data entry. A shell script for
-running the program is also included.
+Returns the owner uid of the socket inside a sk_buff. This is useful to
+perform per-UID accounting of network traffic or per-UID packet
+filtering. The socket need to be a fullsock otherwise overflowuid is
+returned.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Chenbo Feng <fengc@google.com>
 ---
- samples/bpf/Makefile                         |   3 +
- samples/bpf/cookie_uid_helper_example.c      | 217 +++++++++++++++++++++++++++
- samples/bpf/libbpf.h                         |  10 ++
- samples/bpf/run_cookie_uid_helper_example.sh |  14 ++
- 4 files changed, 244 insertions(+)
- create mode 100644 samples/bpf/cookie_uid_helper_example.c
- create mode 100755 samples/bpf/run_cookie_uid_helper_example.sh
+ include/uapi/linux/bpf.h       |  9 ++++++++-
+ net/core/filter.c              | 22 ++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h |  3 ++-
+ 3 files changed, 32 insertions(+), 2 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 09e9d53..f803f51 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -34,6 +34,7 @@ hostprogs-y += sampleip
- hostprogs-y += tc_l2_redirect
- hostprogs-y += lwt_len_hist
- hostprogs-y += xdp_tx_iptunnel
-+hostprogs-y += per_socket_stats_example
- 
- # Libbpf dependencies
- LIBBPF := ../../tools/lib/bpf/bpf.o
-@@ -72,6 +73,7 @@ sampleip-objs := bpf_load.o $(LIBBPF) sampleip_user.o
- tc_l2_redirect-objs := bpf_load.o $(LIBBPF) tc_l2_redirect_user.o
- lwt_len_hist-objs := bpf_load.o $(LIBBPF) lwt_len_hist_user.o
- xdp_tx_iptunnel-objs := bpf_load.o $(LIBBPF) xdp_tx_iptunnel_user.o
-+per_socket_stats_example-objs := $(LIBBPF) cookie_uid_helper_example.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -105,6 +107,7 @@ always += trace_event_kern.o
- always += sampleip_kern.o
- always += lwt_len_hist_kern.o
- always += xdp_tx_iptunnel_kern.o
-+always += cookie_uid_helper_example.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-diff --git a/samples/bpf/cookie_uid_helper_example.c b/samples/bpf/cookie_uid_helper_example.c
-new file mode 100644
-index 0000000..f6e5e58
---- /dev/null
-+++ b/samples/bpf/cookie_uid_helper_example.c
-@@ -0,0 +1,217 @@
-+/* This test is a demo of using get_socket_uid and get_socket_cookie
-+ * helper function to do per socket based network traffic monitoring.
-+ * It requires iptables version higher then 1.6.1. to load pinned eBPF
-+ * program into the xt_bpf match.
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index dc81a9f..ff42111 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -462,6 +462,12 @@ union bpf_attr {
+  *     @skb: pointer to skb
+  *     Return: 8 Bytes non-decreasing number on success or 0 if the socket
+  *     field is missing inside sk_buff
 + *
-+ * TEST:
-+ * ./run_cookie_uid_helper_example.sh
-+ * Then generate some traffic in variate ways. ping 0 -c 10 would work
-+ * but the cookie and uid in this case could both be 0. A sample output
-+ * with some traffic generated by web browser is shown below:
-+ *
-+ * cookie: 877, uid: 0x3e8, Pakcet Count: 20, Bytes Count: 11058
-+ * cookie: 132, uid: 0x0, Pakcet Count: 2, Bytes Count: 286
-+ * cookie: 812, uid: 0x3e8, Pakcet Count: 3, Bytes Count: 1726
-+ * cookie: 802, uid: 0x3e8, Pakcet Count: 2, Bytes Count: 104
-+ * cookie: 877, uid: 0x3e8, Pakcet Count: 20, Bytes Count: 11058
-+ * cookie: 831, uid: 0x3e8, Pakcet Count: 2, Bytes Count: 104
-+ * cookie: 0, uid: 0x0, Pakcet Count: 6, Bytes Count: 712
-+ * cookie: 880, uid: 0xfffe, Pakcet Count: 1, Bytes Count: 70
-+ *
-+ * Clean up: if using shell script, the script file will delete the iptables
-+ * rule and unmount the bpf program when exit. Else the iptables rule need
-+ * to be deleted by hand, see run_cookie_uid_helper_example.sh for detail.
-+ */
++ * u32 bpf_get_socket_uid(skb)
++ *     Get the owner uid of the socket stored inside sk_buff.
++ *     @skb: pointer to skb
++ *     Return: uid of the socket owner on success or 0 if the socket pointer
++ *     inside sk_buff is NULL
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -510,7 +516,8 @@ union bpf_attr {
+ 	FN(skb_change_head),		\
+ 	FN(xdp_adjust_head),		\
+ 	FN(probe_read_str),		\
+-	FN(get_socket_cookie),
++	FN(get_socket_cookie),		\
++	FN(get_socket_uid),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 5b65ae3..2f022df 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2612,6 +2612,24 @@ static const struct bpf_func_proto bpf_get_socket_cookie_proto = {
+ 	.arg1_type      = ARG_PTR_TO_CTX,
+ };
+ 
++BPF_CALL_1(bpf_get_socket_uid, struct sk_buff *, skb)
++{
++	struct sock *sk = sk_to_full_sk(skb->sk);
++	kuid_t kuid;
 +
-+#define _GNU_SOURCE
++	if (!sk || !sk_fullsock(sk))
++		return overflowuid;
++	kuid = sock_net_uid(sock_net(sk), sk);
++	return from_kuid_munged(&init_user_ns, kuid);
++}
 +
-+#define offsetof(type, member)	__builtin_offsetof(type, member)
-+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
-+
-+#include <arpa/inet.h>
-+#include <errno.h>
-+#include <error.h>
-+#include <limits.h>
-+#include <linux/bpf.h>
-+#include <linux/if_ether.h>
-+#include <stdbool.h>
-+#include <stdint.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/socket.h>
-+#include <sys/stat.h>
-+#include <sys/types.h>
-+#include <unistd.h>
-+#include <bpf/bpf.h>
-+#include "libbpf.h"
-+
-+struct stats {
-+	uint32_t uid;
-+	uint64_t packets;
-+	uint64_t bytes;
++static const struct bpf_func_proto bpf_get_socket_uid_proto = {
++	.func           = bpf_get_socket_uid,
++	.gpl_only       = false,
++	.ret_type       = RET_INTEGER,
++	.arg1_type      = ARG_PTR_TO_CTX,
 +};
 +
-+static int map_fd, prog_fd;
-+
-+static void maps_create(void)
-+{
-+	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(uint32_t),
-+				sizeof(struct stats), 100, 0);
-+	if (map_fd < 0)
-+		error(1, errno, "map create failed!\n");
-+}
-+
-+static void prog_load(void)
-+{
-+	static char log_buf[1 << 16];
-+
-+	struct bpf_insn prog[] = {
-+		/*
-+		 * Save sk_buff for future usage. value stored in R6 to R10 will
-+		 * not be reset after a bpf helper function call.
-+		 */
-+		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+		/*
-+		 * pc1: BPF_FUNC_get_socket_cookie takes one parameter,
-+		 * R1: sk_buff
-+		 */
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				BPF_FUNC_get_socket_cookie),
-+		/* pc2-4: save &socketCookie to r7 for future usage*/
-+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -8),
-+		BPF_MOV64_REG(BPF_REG_7, BPF_REG_10),
-+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_7, -8),
-+		/*
-+		 * pc5-8: set up the registers for BPF_FUNC_map_lookup_elem,
-+		 * it takes two parameters (R1: map_fd,  R2: &socket_cookie)
-+		 */
-+		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
-+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_7),
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				BPF_FUNC_map_lookup_elem),
-+		/*
-+		 * pc9. if r0 != 0x0, go to pc+14, since we have the cookie
-+		 * stored already
-+		 * Otherwise do pc10-22 to setup a new data entry.
-+		 */
-+		BPF_JMP_IMM(BPF_JNE, BPF_REG_0, 0, 14),
-+		BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				BPF_FUNC_get_socket_uid),
-+		/*
-+		 * Place a struct stats in the R10 stack and sequentially
-+		 * place the member value into the memory. Packets value
-+		 * is set by directly place a IMM value 1 into the stack.
-+		 */
-+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0,
-+				-32 + offsetof(struct stats, uid)),
-+		BPF_ST_MEM(BPF_DW, BPF_REG_10,
-+				-32 + offsetof(struct stats, packets), 1),
-+		/*
-+		 * __sk_buff is a special struct used for eBPF program to
-+		 * directly access some sk_buff field.
-+		 */
-+		BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6,
-+				offsetof(struct __sk_buff, len)),
-+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1,
-+				-32 + offsetof(struct stats, bytes)),
-+		/*
-+		 * add new map entry using BPF_FUNC_map_update_elem, it takes
-+		 * 4 parameters (R1: map_fd, R2: &socket_cookie, R3: &stats,
-+		 * R4: flags)
-+		 */
-+		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
-+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_7),
-+		BPF_MOV64_REG(BPF_REG_3, BPF_REG_10),
-+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, -32),
-+		BPF_MOV64_IMM(BPF_REG_4, 0),
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				BPF_FUNC_map_update_elem),
-+		BPF_JMP_IMM(BPF_JA, 0, 0, 5),
-+		/*
-+		 * pc24-30 update the packet info to a exist data entry, it can
-+		 * be done by directly write to pointers instead of using
-+		 * BPF_FUNC_map_update_elem helper function
-+		 */
-+		BPF_MOV64_REG(BPF_REG_9, BPF_REG_0),
-+		BPF_MOV64_IMM(BPF_REG_1, 1),
-+		BPF_STX_XADD(BPF_DW, BPF_REG_9, BPF_REG_1,
-+				offsetof(struct stats, packets)),
-+		BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6,
-+				offsetof(struct __sk_buff, len)),
-+		BPF_STX_XADD(BPF_DW, BPF_REG_9, BPF_REG_1,
-+				offsetof(struct stats, bytes)),
-+		BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_6,
-+				offsetof(struct __sk_buff, len)),
-+		BPF_EXIT_INSN(),
-+	};
-+	prog_fd = bpf_load_program(BPF_PROG_TYPE_SOCKET_FILTER, prog,
-+					ARRAY_SIZE(prog), "GPL", 0,
-+					log_buf, sizeof(log_buf));
-+	if (prog_fd < 0)
-+		error(1, errno, "failed to load prog\n%s\n", log_buf);
-+}
-+
-+static void prog_attach_iptables(char *file)
-+{
-+	int ret;
-+	char rules[100];
-+
-+	if (bpf_obj_pin(prog_fd, file))
-+		error(1, errno, "bpf_obj_pin");
-+	if (strlen(file) > 50) {
-+		printf("file path too long: %s\n", file);
-+		exit(1);
-+	}
-+	sprintf(rules, "iptables -A INPUT -m bpf --object-pinned %s -j ACCEPT",
-+		file);
-+	ret = system(rules);
-+	if (ret < 0) {
-+		printf("iptables rule update failed: %d/n", WEXITSTATUS(ret));
-+		exit(1);
-+	}
-+}
-+
-+static void print_table(void)
-+{
-+	struct stats curEntry;
-+	uint32_t curN = UINT32_MAX;
-+	uint32_t nextN, res;
-+
-+	while (bpf_map_get_next_key(map_fd, &curN, &nextN) > -1) {
-+		curN = nextN;
-+		res = bpf_map_lookup_elem(map_fd, &curN, &curEntry);
-+		if (res < 0) {
-+			error(1, errno, "fail to get entry value of Key: %u\n",
-+				curN);
-+		} else {
-+			printf("cookie: %u, uid: 0x%x, Packet Count: %lu,"
-+				" Bytes Count: %lu\n", curN, curEntry.uid,
-+				curEntry.packets, curEntry.bytes);
-+		}
-+	}
-+}
-+
-+int main(int argc, char *argv[])
-+{
-+	if (argc > 2) {
-+		printf("Too many argument provided\n");
-+		return 1;
-+	} else if (argc < 2) {
-+		printf("Usage: %s bpfObjName\n", argv[0]);
-+		return 1;
-+	}
-+
-+	maps_create();
-+	prog_load();
-+	prog_attach_iptables(argv[1]);
-+
-+	while (true) {
-+		print_table();
-+		printf("\n");
-+		sleep(1);
-+	};
-+
-+	return 0;
-+}
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-index 3705fba..8ab36a0 100644
---- a/samples/bpf/libbpf.h
-+++ b/samples/bpf/libbpf.h
-@@ -135,6 +135,16 @@ struct bpf_insn;
- 		.off   = OFF,					\
- 		.imm   = 0 })
+ static const struct bpf_func_proto *
+ bpf_base_func_proto(enum bpf_func_id func_id)
+ {
+@@ -2648,6 +2666,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_skb_load_bytes_proto;
+ 	case BPF_FUNC_get_socket_cookie:
+ 		return &bpf_get_socket_cookie_proto;
++	case BPF_FUNC_get_socket_uid:
++		return &bpf_get_socket_uid_proto;
+ 	default:
+ 		return bpf_base_func_proto(func_id);
+ 	}
+@@ -2709,6 +2729,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_skb_under_cgroup_proto;
+ 	case BPF_FUNC_get_socket_cookie:
+ 		return &bpf_get_socket_cookie_proto;
++	case BPF_FUNC_get_socket_uid:
++		return &bpf_get_socket_uid_proto;
+ 	default:
+ 		return bpf_base_func_proto(func_id);
+ 	}
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index a94bdd3..4a2d56d 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -504,7 +504,8 @@ union bpf_attr {
+ 	FN(skb_change_head),		\
+ 	FN(xdp_adjust_head),		\
+ 	FN(probe_read_str),		\
+-	FN(get_socket_cookie),
++	FN(get_socket_cookie),		\
++	FN(get_socket_uid),
  
-+/* Atomic memory add, *(uint *)(dst_reg + off16) += src_reg */
-+
-+#define BPF_STX_XADD(SIZE, DST, SRC, OFF)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_XADD,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
- /* Memory store, *(uint *) (dst_reg + off16) = imm32 */
- 
- #define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
-diff --git a/samples/bpf/run_cookie_uid_helper_example.sh b/samples/bpf/run_cookie_uid_helper_example.sh
-new file mode 100755
-index 0000000..40da8aa
---- /dev/null
-+++ b/samples/bpf/run_cookie_uid_helper_example.sh
-@@ -0,0 +1,14 @@
-+#!/bin/bash
-+local_dir="$(pwd)"
-+root_dir=$local_dir/../..
-+mnt_dir=$(mktemp -d --tmp)
-+
-+on_exit() {
-+	iptables -D INPUT -m bpf --object-pinned ${mnt_dir}/bpf_prog -j ACCEPT
-+	umount ${mnt_dir}
-+	rm -r ${mnt_dir}
-+}
-+
-+trap on_exit EXIT
-+mount -t bpf bpf ${mnt_dir}
-+./per_socket_stats_example ${mnt_dir}/bpf_prog
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
 -- 
 2.7.4
