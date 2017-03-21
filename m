@@ -1,21 +1,32 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2] bridge: ebtables: fix reception of frames
- DNAT-ed to bridge device
-Date: Tue, 21 Mar 2017 16:32:45 -0700
-Message-ID: <20170321163245.34159349@xeon-e3>
-References: <20170321222845.8373-1-linus.luessing@c0d3.blue>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+	atomic_t to refcount_t
+Date: Tue, 21 Mar 2017 16:51:13 -0700
+Message-ID: <CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
+References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20170318164759.GA23837@gondor.apana.org.au>
+	<20170318.182121.439615057765380575.davem@davemloft.net>
+	<20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
+	<20170320131629.GA26405@gondor.apana.org.au>
+	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
+	<20170320132713.GA26954@gondor.apana.org.au>
+	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
+	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
+	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S . Miller" <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Linus =?UTF-8?B?TMO8c3Npbmc=?= <linus.luessing@c0d3.blue>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, Patrick McHardy <kaber@trash.net>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Network Development <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, "Reshetova,
+	Elena" <elena.reshetova@intel.com>, David Windsor <dwindsor@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170321222845.8373-1-linus.luessing@c0d3.blue>
+In-Reply-To: <1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -27,12 +38,69 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Mar 2017 23:28:45 +0100
-Linus L=C3=BCssing <linus.luessing@c0d3.blue> wrote:
+On Tue, Mar 21, 2017 at 2:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-03-21 at 13:49 -0700, Kees Cook wrote:
+>
+>> Yeah, this is exactly what I'd like to find as well. Just comparing
+>> cycles between refcount implementations, while interesting, doesn't
+>> show us real-world performance changes, which is what we need to
+>> measure.
+>>
+>> Is Eric's "20 concurrent 'netperf -t UDP_STREAM'" example (from
+>> elsewhere in this email thread) real-world meaningful enough?
+>
+> Not at all ;)
+>
+> This was targeting the specific change I had in mind for
+> ip_idents_reserve(), which is not used by TCP flows.
 
-> However, the IP code drops it in the beginning of ip_input.c/ip_rcv()
-> as the dnat target did not update the skb->pkt_type. If after
-> dnat'ing the packet is now destined to us then the skb->pkt_type
-> needs to be updated from PACKET_OTHERHOST to PACKET_HOST, too.
+Okay, I just wanted to check. I didn't think so, but it was the only
+example in the thread.
 
-Why not fix DNAT netfilter module rather than hacking bridge code here.
+> Unfortunately there is no good test simulating real-world workloads,
+> which are mostly using TCP flows.
+
+Sure, but there has to be _something_ that can be used to test to
+measure the effects. Without a meaningful test, it's weird to reject a
+change for performance reasons.
+
+> Most synthetic tools you can find are not using epoll(), and very often
+> hit bottlenecks in other layers.
+>
+>
+> It looks like our suggestion to get kernel builds with atomic_inc()
+> being exactly an atomic_inc() is not even discussed or implemented.
+
+So, FWIW, I originally tried to make this a CONFIG in the first couple
+passes at getting a refcount defense. I would be fine with this, but I
+was not able to convince Peter. :) However, things have evolved a lot
+since then, so perhaps there are things do be done here.
+
+> Coding this would require less time than running a typical Google kernel
+> qualification (roughly one month, thousands of hosts..., days of SWE).
+
+It wasn't the issue of coding time; just that it had been specifically
+not wanted. :)
+
+Am I understanding you correctly that you'd want something like:
+
+refcount.h:
+#ifdef UNPROTECTED_REFCOUNT
+#define refcount_inc(x)   atomic_inc(x)
+...
+#else
+void refcount_inc(...
+...
+#endif
+
+some/net.c:
+#define UNPROTECTED_REFCOUNT
+#include <refcount.h>
+
+or similar?
+
+-Kees
+
+-- 
+Kees Cook
+Pixel Security
