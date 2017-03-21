@@ -1,47 +1,66 @@
-From: Tommi Rantala <tommi.t.rantala@nokia.com>
-Subject: Re: "tipc: fix socket timer deadlock" to stable?
-Date: Tue, 21 Mar 2017 09:50:20 +0200
-Message-ID: <876102a9-a205-36a3-bc29-f0bb2bf70eff@nokia.com>
-References: <42aebc97-bd71-a9f8-490b-42d8e81283c6@nokia.com>
- <A2BAEFC30C8FD34388F02C9B3121859D3D7173F1@eusaamb103.ericsson.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, GUNA <gbalasun@gmail.com>,
-        Ying Xue <ying.xue@windriver.com>
-To: Jon Maloy <jon.maloy@ericsson.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0096.outbound.protection.outlook.com ([104.47.0.96]:6272
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755783AbdCUHua (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Mar 2017 03:50:30 -0400
-In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D3D7173F1@eusaamb103.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 1/3] soc: qcom: smd: Transition client drivers from smd to
+ rpmsg
+Date: Tue, 21 Mar 2017 09:20:01 +0100
+Message-ID: <3DCEF38C-F8FC-4941-936F-921247E13B78@holtmann.org>
+References: <20170320233544.1656-1-bjorn.andersson@linaro.org>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Andy Gross <andy.gross@linaro.org>,
+        David Brown <david.brown@linaro.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, wcn36xx@lists.infradead.org,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20170320233544.1656-1-bjorn.andersson@linaro.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13.03.2017 14:18, Jon Maloy wrote:
->> -----Original Message-----
->> From: Tommi Rantala [mailto:tommi.t.rantala@nokia.com]
->>
->> We're seeing this tipc deadlock in 4.4.y, that was fixed in the mainline commit
->> f1d048f24e66ba85d3dabf3d076cefa5f2b546b0 "tipc: fix socket timer
->> deadlock".
->>
->> Could/should this patch also be included in the stable kernel trees?
->
-> I think it should. If action is required by me here (?) I will repost the commit for 4.4.
->
-> ///jon
+Hi Bjorn,
 
-Hi Jon, yes, please do repost the commit. After reading through 
-Documentation/networking/netdev-FAQ.txt, you probably want to send it 
-with suitable subject-prefix so that the patch is not lost in the noise.
+> By moving these client drivers to use RPMSG instead of the direct SMD
+> API we can reuse them ontop of the newly added GLINK wire-protocol
+> support found in the 820 and 835 Qualcomm platforms.
+> 
+> As the new (RPMSG-based) and old SMD implementations are mutually
+> exclusive we have to change all client drivers in one commit, to make
+> sure we have a working system before and after this transition.
+> 
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> ---
+> 
+> Based on v4.11-rc3 with Arnd's Kconfig dependency fixes for BT_QCOMSMD
+> (https://lkml.org/lkml/2017/3/20/1038).
+> 
+> drivers/bluetooth/Kconfig                  |  2 +-
+> drivers/bluetooth/btqcomsmd.c              | 32 +++++++++----------
+> drivers/net/wireless/ath/wcn36xx/Kconfig   |  2 +-
+> drivers/net/wireless/ath/wcn36xx/main.c    |  6 ++--
+> drivers/net/wireless/ath/wcn36xx/smd.c     | 10 +++---
+> drivers/net/wireless/ath/wcn36xx/smd.h     |  6 ++--
+> drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  2 +-
+> drivers/soc/qcom/Kconfig                   |  4 +--
+> drivers/soc/qcom/smd-rpm.c                 | 43 +++++++++++++------------
+> drivers/soc/qcom/wcnss_ctrl.c              | 50 +++++++++++++++++-------------
+> include/linux/soc/qcom/wcnss_ctrl.h        | 11 ++++---
+> net/qrtr/Kconfig                           |  2 +-
+> net/qrtr/smd.c                             | 42 ++++++++++++-------------
+> 13 files changed, 108 insertions(+), 104 deletions(-)
 
->> I just checked that the patch applies on top of 4.4.53, only the line numbers
->> are different compared to the upstream commit.
+I think that it is best if Dave takes these directly then and I pull them back down later into our trees. Including the Kconfig fix that I will ACK as well.
 
-(Actually there is also a small change in the patch context.)
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
 
--Tommi
+Regards
+
+Marcel
