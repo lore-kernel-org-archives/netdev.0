@@ -1,39 +1,265 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/11] net: usbnet: move to new api
- ethtool_{get|set}_link_ksettings
-Date: Tue, 21 Mar 2017 16:04:34 -0700 (PDT)
-Message-ID: <20170321.160434.1088351210921535166.davem@davemloft.net>
-References: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.org, jacmet@sunsite.dk,
-        steve.glendinning@shawell.net, UNGLinuxDriver@microchip.com,
-        gregkh@linuxfoundation.org, robert.foss@collabora.com,
-        allan@asix.com.tw, grundler@google.com, jarod@redhat.com,
-        peter.chen@nxp.com, stefan.bruens@rwth-aachen.de,
-        akpm@linux-foundation.org, adobriyan@gmail.com,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/5] e1000e: use new API ethtool_{get|set}_link_ksettings
+Date: Tue, 21 Mar 2017 16:00:25 -0700
+Message-ID: <20170321230028.69510-3-jeffrey.t.kirsher@intel.com>
+References: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
+Cc: Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58264 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756464AbdCUXG2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 19:06:28 -0400
-In-Reply-To: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
+Received: from mga14.intel.com ([192.55.52.115]:28557 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757425AbdCUXIi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Mar 2017 19:08:38 -0400
+In-Reply-To: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Thu, 16 Mar 2017 23:18:46 +0100
 
-> The ethtool api {get|set}_settings is deprecated. On usbnet, it
-> was often implemented with usbnet_{get|set}_settings.
-> 
-> In this serie, I add usbnet_{get|set}_link_ksettings
-> in the first patch, then I update all the driver to
-> use this new api, and in the last patch I remove the
-> old api usbnet_{get|set}_settings.
+The ethtool API {get|set}_settings is deprecated.
+We move this driver to new API {get|set}_link_ksettings.
 
-Series applied, thanks Philippe.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
+
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/ethtool.c | 111 +++++++++++++++-------------
+ 1 file changed, 59 insertions(+), 52 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index 7aff68a4a4df..e70b1ebff60d 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -117,55 +117,52 @@ static const char e1000_gstrings_test[][ETH_GSTRING_LEN] = {
+ 
+ #define E1000_TEST_LEN ARRAY_SIZE(e1000_gstrings_test)
+ 
+-static int e1000_get_settings(struct net_device *netdev,
+-			      struct ethtool_cmd *ecmd)
++static int e1000_get_link_ksettings(struct net_device *netdev,
++				    struct ethtool_link_ksettings *cmd)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 speed;
++	u32 speed, supported, advertising;
+ 
+ 	if (hw->phy.media_type == e1000_media_type_copper) {
+-		ecmd->supported = (SUPPORTED_10baseT_Half |
+-				   SUPPORTED_10baseT_Full |
+-				   SUPPORTED_100baseT_Half |
+-				   SUPPORTED_100baseT_Full |
+-				   SUPPORTED_1000baseT_Full |
+-				   SUPPORTED_Autoneg |
+-				   SUPPORTED_TP);
++		supported = (SUPPORTED_10baseT_Half |
++			     SUPPORTED_10baseT_Full |
++			     SUPPORTED_100baseT_Half |
++			     SUPPORTED_100baseT_Full |
++			     SUPPORTED_1000baseT_Full |
++			     SUPPORTED_Autoneg |
++			     SUPPORTED_TP);
+ 		if (hw->phy.type == e1000_phy_ife)
+-			ecmd->supported &= ~SUPPORTED_1000baseT_Full;
+-		ecmd->advertising = ADVERTISED_TP;
++			supported &= ~SUPPORTED_1000baseT_Full;
++		advertising = ADVERTISED_TP;
+ 
+ 		if (hw->mac.autoneg == 1) {
+-			ecmd->advertising |= ADVERTISED_Autoneg;
++			advertising |= ADVERTISED_Autoneg;
+ 			/* the e1000 autoneg seems to match ethtool nicely */
+-			ecmd->advertising |= hw->phy.autoneg_advertised;
++			advertising |= hw->phy.autoneg_advertised;
+ 		}
+ 
+-		ecmd->port = PORT_TP;
+-		ecmd->phy_address = hw->phy.addr;
+-		ecmd->transceiver = XCVR_INTERNAL;
+-
++		cmd->base.port = PORT_TP;
++		cmd->base.phy_address = hw->phy.addr;
+ 	} else {
+-		ecmd->supported   = (SUPPORTED_1000baseT_Full |
+-				     SUPPORTED_FIBRE |
+-				     SUPPORTED_Autoneg);
++		supported   = (SUPPORTED_1000baseT_Full |
++			       SUPPORTED_FIBRE |
++			       SUPPORTED_Autoneg);
+ 
+-		ecmd->advertising = (ADVERTISED_1000baseT_Full |
+-				     ADVERTISED_FIBRE |
+-				     ADVERTISED_Autoneg);
++		advertising = (ADVERTISED_1000baseT_Full |
++			       ADVERTISED_FIBRE |
++			       ADVERTISED_Autoneg);
+ 
+-		ecmd->port = PORT_FIBRE;
+-		ecmd->transceiver = XCVR_EXTERNAL;
++		cmd->base.port = PORT_FIBRE;
+ 	}
+ 
+ 	speed = SPEED_UNKNOWN;
+-	ecmd->duplex = DUPLEX_UNKNOWN;
++	cmd->base.duplex = DUPLEX_UNKNOWN;
+ 
+ 	if (netif_running(netdev)) {
+ 		if (netif_carrier_ok(netdev)) {
+ 			speed = adapter->link_speed;
+-			ecmd->duplex = adapter->link_duplex - 1;
++			cmd->base.duplex = adapter->link_duplex - 1;
+ 		}
+ 	} else if (!pm_runtime_suspended(netdev->dev.parent)) {
+ 		u32 status = er32(STATUS);
+@@ -179,30 +176,36 @@ static int e1000_get_settings(struct net_device *netdev,
+ 				speed = SPEED_10;
+ 
+ 			if (status & E1000_STATUS_FD)
+-				ecmd->duplex = DUPLEX_FULL;
++				cmd->base.duplex = DUPLEX_FULL;
+ 			else
+-				ecmd->duplex = DUPLEX_HALF;
++				cmd->base.duplex = DUPLEX_HALF;
+ 		}
+ 	}
+ 
+-	ethtool_cmd_speed_set(ecmd, speed);
+-	ecmd->autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
++	cmd->base.speed = speed;
++	cmd->base.autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
+ 			 hw->mac.autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
+ 
+ 	/* MDI-X => 2; MDI =>1; Invalid =>0 */
+ 	if ((hw->phy.media_type == e1000_media_type_copper) &&
+ 	    netif_carrier_ok(netdev))
+-		ecmd->eth_tp_mdix = hw->phy.is_mdix ? ETH_TP_MDI_X : ETH_TP_MDI;
++		cmd->base.eth_tp_mdix = hw->phy.is_mdix ?
++			ETH_TP_MDI_X : ETH_TP_MDI;
+ 	else
+-		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
++		cmd->base.eth_tp_mdix = ETH_TP_MDI_INVALID;
+ 
+ 	if (hw->phy.mdix == AUTO_ALL_MODES)
+-		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
++		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
+ 	else
+-		ecmd->eth_tp_mdix_ctrl = hw->phy.mdix;
++		cmd->base.eth_tp_mdix_ctrl = hw->phy.mdix;
+ 
+ 	if (hw->phy.media_type != e1000_media_type_copper)
+-		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;
++		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						advertising);
+ 
+ 	return 0;
+ }
+@@ -262,12 +265,16 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
+ 	return -EINVAL;
+ }
+ 
+-static int e1000_set_settings(struct net_device *netdev,
+-			      struct ethtool_cmd *ecmd)
++static int e1000_set_link_ksettings(struct net_device *netdev,
++				    const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int ret_val = 0;
++	u32 advertising;
++
++	ethtool_convert_link_mode_to_legacy_u32(&advertising,
++						cmd->link_modes.advertising);
+ 
+ 	pm_runtime_get_sync(netdev->dev.parent);
+ 
+@@ -285,14 +292,14 @@ static int e1000_set_settings(struct net_device *netdev,
+ 	 * some hardware doesn't allow MDI setting when speed or
+ 	 * duplex is forced.
+ 	 */
+-	if (ecmd->eth_tp_mdix_ctrl) {
++	if (cmd->base.eth_tp_mdix_ctrl) {
+ 		if (hw->phy.media_type != e1000_media_type_copper) {
+ 			ret_val = -EOPNOTSUPP;
+ 			goto out;
+ 		}
+ 
+-		if ((ecmd->eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
+-		    (ecmd->autoneg != AUTONEG_ENABLE)) {
++		if ((cmd->base.eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
++		    (cmd->base.autoneg != AUTONEG_ENABLE)) {
+ 			e_err("forcing MDI/MDI-X state is not supported when link speed and/or duplex are forced\n");
+ 			ret_val = -EINVAL;
+ 			goto out;
+@@ -302,35 +309,35 @@ static int e1000_set_settings(struct net_device *netdev,
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->state))
+ 		usleep_range(1000, 2000);
+ 
+-	if (ecmd->autoneg == AUTONEG_ENABLE) {
++	if (cmd->base.autoneg == AUTONEG_ENABLE) {
+ 		hw->mac.autoneg = 1;
+ 		if (hw->phy.media_type == e1000_media_type_fiber)
+ 			hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full |
+ 			    ADVERTISED_FIBRE | ADVERTISED_Autoneg;
+ 		else
+-			hw->phy.autoneg_advertised = ecmd->advertising |
++			hw->phy.autoneg_advertised = advertising |
+ 			    ADVERTISED_TP | ADVERTISED_Autoneg;
+-		ecmd->advertising = hw->phy.autoneg_advertised;
++		advertising = hw->phy.autoneg_advertised;
+ 		if (adapter->fc_autoneg)
+ 			hw->fc.requested_mode = e1000_fc_default;
+ 	} else {
+-		u32 speed = ethtool_cmd_speed(ecmd);
++		u32 speed = cmd->base.speed;
+ 		/* calling this overrides forced MDI setting */
+-		if (e1000_set_spd_dplx(adapter, speed, ecmd->duplex)) {
++		if (e1000_set_spd_dplx(adapter, speed, cmd->base.duplex)) {
+ 			ret_val = -EINVAL;
+ 			goto out;
+ 		}
+ 	}
+ 
+ 	/* MDI-X => 2; MDI => 1; Auto => 3 */
+-	if (ecmd->eth_tp_mdix_ctrl) {
++	if (cmd->base.eth_tp_mdix_ctrl) {
+ 		/* fix up the value for auto (3 => 0) as zero is mapped
+ 		 * internally to auto
+ 		 */
+-		if (ecmd->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
++		if (cmd->base.eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
+ 			hw->phy.mdix = AUTO_ALL_MODES;
+ 		else
+-			hw->phy.mdix = ecmd->eth_tp_mdix_ctrl;
++			hw->phy.mdix = cmd->base.eth_tp_mdix_ctrl;
+ 	}
+ 
+ 	/* reset the link */
+@@ -2313,8 +2320,6 @@ static int e1000e_get_ts_info(struct net_device *netdev,
+ }
+ 
+ static const struct ethtool_ops e1000_ethtool_ops = {
+-	.get_settings		= e1000_get_settings,
+-	.set_settings		= e1000_set_settings,
+ 	.get_drvinfo		= e1000_get_drvinfo,
+ 	.get_regs_len		= e1000_get_regs_len,
+ 	.get_regs		= e1000_get_regs,
+@@ -2342,6 +2347,8 @@ static const struct ethtool_ops e1000_ethtool_ops = {
+ 	.get_ts_info		= e1000e_get_ts_info,
+ 	.get_eee		= e1000e_get_eee,
+ 	.set_eee		= e1000e_set_eee,
++	.get_link_ksettings	= e1000_get_link_ksettings,
++	.set_link_ksettings	= e1000_set_link_ksettings,
+ };
+ 
+ void e1000e_set_ethtool_ops(struct net_device *netdev)
+-- 
+2.12.0
