@@ -1,67 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
- atomic_t to refcount_t
-Date: Tue, 21 Mar 2017 14:23:09 -0700
-Message-ID: <1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170318164759.GA23837@gondor.apana.org.au>
-	<20170318.182121.439615057765380575.davem@davemloft.net>
-	<20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
-	<20170320131629.GA26405@gondor.apana.org.au>
-	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
-	<20170320132713.GA26954@gondor.apana.org.au>
-	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [net-next 05/13] i40e: rework exit flow of i40e_add_fdir_ethtool
+Date: Tue, 21 Mar 2017 21:25:01 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5857DBA534@ORSMSX115.amr.corp.intel.com>
+References: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
+ <20170320234712.84157-6-jeffrey.t.kirsher@intel.com>
+ <2871a7df-bdd7-7f74-8326-40bf381e65cd@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, Patrick McHardy <kaber@trash.net>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Network Development <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
-	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, "Reshetova,
-	Elena" <elena.reshetova@intel.com>, David Windsor <dwindsor@gmail.com>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga07.intel.com ([134.134.136.100]:32248 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758392AbdCUVZE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Mar 2017 17:25:04 -0400
+In-Reply-To: <2871a7df-bdd7-7f74-8326-40bf381e65cd@cogentembedded.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-03-21 at 13:49 -0700, Kees Cook wrote:
-
-> Yeah, this is exactly what I'd like to find as well. Just comparing
-> cycles between refcount implementations, while interesting, doesn't
-> show us real-world performance changes, which is what we need to
-> measure.
-> 
-> Is Eric's "20 concurrent 'netperf -t UDP_STREAM'" example (from
-> elsewhere in this email thread) real-world meaningful enough?
-
-Not at all ;)
-
-This was targeting the specific change I had in mind for
-ip_idents_reserve(), which is not used by TCP flows.
-
-Unfortunately there is no good test simulating real-world workloads,
-which are mostly using TCP flows.
-
-Most synthetic tools you can find are not using epoll(), and very often
-hit bottlenecks in other layers.
-
-
-It looks like our suggestion to get kernel builds with atomic_inc()
-being exactly an atomic_inc() is not even discussed or implemented.
-
-Coding this would require less time than running a typical Google kernel
-qualification (roughly one month, thousands of hosts..., days of SWE).
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTZXJnZWkgU2h0eWx5b3YgW21h
+aWx0bzpzZXJnZWkuc2h0eWx5b3ZAY29nZW50ZW1iZWRkZWQuY29tXQ0KPiBTZW50OiBUdWVzZGF5
+LCBNYXJjaCAyMSwgMjAxNyAzOjExIEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQgPGplZmZy
+ZXkudC5raXJzaGVyQGludGVsLmNvbT47IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IEtlbGxl
+ciwgSmFjb2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPjsgbmV0ZGV2QHZnZXIua2VybmVs
+Lm9yZzsNCj4gbmhvcm1hbkByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tOyBqb2dyZWVu
+ZUByZWRoYXQuY29tDQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDUvMTNdIGk0MGU6IHJld29y
+ayBleGl0IGZsb3cgb2YgaTQwZV9hZGRfZmRpcl9ldGh0b29sDQo+IA0KPiBIZWxsbyENCj4gDQo+
+IE9uIDMvMjEvMjAxNyAyOjQ3IEFNLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+IA0KPiA+IEZyb206
+IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiA+DQo+ID4gUmVmYWN0
+b3IgdGhlIGV4aXQgZmxvdyBvZiB0aGUgaTQwZV9hZGRfZmRpcl9ldGh0b29sIGZ1bmN0aW9uLiBN
+b3ZlIHRoZQ0KPiA+IGlucHV0X2xhYmVsIHRvIHRoZSBlbmQgb2YgdGhlIGZ1bmN0aW9uLCByZW1v
+dmluZyB0aGUgZGVwZW5kZW5jeSBvbg0KPiANCj4gICAgIEkgZG9uJ3Qgc2VlICdpbnB1dF9sYWJl
+bCcgYW55d2hlcmUuIFBlcmhhcHMgJ2ZyZWVfaW5wdXQnIGxhYmVsIHdhcyBtZWFudD8NCj4gDQoN
+CllvdSdyZSBjb3JyZWN0LiANCg0KVGhhbmtzLA0KSmFrZQ0KDQo=
