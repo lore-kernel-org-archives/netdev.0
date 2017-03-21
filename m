@@ -1,73 +1,172 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH 3/3] net: stmmac: Use AVB mode by default
-Date: Tue, 21 Mar 2017 15:23:00 +0000
-Message-ID: <bac4dbe3-dd38-8b2b-71f1-dbb04d8298bd@synopsys.com>
-References: <20170321151211.31841-1-thierry.reding@gmail.com>
- <20170321151211.31841-3-thierry.reding@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        "LABBE Corentin" <clabbe.montjoie@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Thierry Reding <thierry.reding@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170321151211.31841-3-thierry.reding@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jonas Bonn <jonas@southpole.se>
+Subject: [PATCH v2 2/2] gtp: support SGSN-side tunnels
+Date: Tue, 21 Mar 2017 16:04:30 +0100
+Message-ID: <20170321150430.23314-2-jonas@southpole.se>
+References: <20170203091231.10142-1-jonas@southpole.se>
+ <20170321150430.23314-1-jonas@southpole.se>
+Cc: Jonas Bonn <jonas@southpole.se>
+To: laforge@gnumonks.org, pablo@netfilter.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.southpole.se ([37.247.8.11]:38526 "EHLO mail.southpole.se"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757426AbdCUPZs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Mar 2017 11:25:48 -0400
+In-Reply-To: <20170321150430.23314-1-jonas@southpole.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Às 3:12 PM de 3/21/2017, Thierry Reding escreveu:
-> From: Thierry Reding <treding@nvidia.com>
-> 
-> Prior to the recent multi-queue changes the driver would configure the
-> queues to use the AVB mode, but the mode then got switched to DCB. The
-> hardware still works fine in DCB mode, but my testing capabilities are
-> limited, so it's safer to revert to the prior setting anyway.
-> 
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
-> ---
->  include/linux/stmmac.h | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-> index be47b859e954..8349a5c1537b 100644
-> --- a/include/linux/stmmac.h
-> +++ b/include/linux/stmmac.h
-> @@ -56,8 +56,8 @@
->  #define MTL_RX_ALGORITHM_WSP	0x5
->  
->  /* RX/TX Queue Mode */
-> -#define MTL_QUEUE_DCB		0x0
-> -#define MTL_QUEUE_AVB		0x1
-> +#define MTL_QUEUE_AVB		0x0
-> +#define MTL_QUEUE_DCB		0x1
->  
->  /* The MDC clock could be set higher than the IEEE 802.3
->   * specified frequency limit 0f 2.5 MHz, by programming a clock divider
-> 
+The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
+contexts based on the incoming packets _destination_ address.  If we
+want to write an SGSN, then we want to be idenityfing PDP contexts
+based on _source_ address.
 
-Thierry, I don't understand this patch. It will have 0 impact.
+This patch adds a "role" argument at GTP-link creation time to specify
+whether we are on the GGSN or SGSN side of the tunnel; this flag is then
+used to determine which part of the IP packet to use in determining
+the PDP context.
 
-In stmmac_platform configuration, 0 impact:
+Signed-off-by: Jonas Bonn <jonas@southpole.se>
+---
+ drivers/net/gtp.c            | 41 +++++++++++++++++++++++++++++++----------
+ include/uapi/linux/if_link.h |  7 +++++++
+ 2 files changed, 38 insertions(+), 10 deletions(-)
 
-		if (of_property_read_bool(q_node, "snps,dcb-algorithm"))
-			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
-		else if (of_property_read_bool(q_node, "snps,avb-algorithm"))
-			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_AVB;
-		else
-**			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
-
-In dwmac4_core, 0 impact:
-
-	value &= GMAC_RX_QUEUE_CLEAR(queue);
-	if (mode == MTL_QUEUE_AVB)
-		value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
-	else if (mode == MTL_QUEUE_DCB)
-		value |= GMAC_RX_DCB_QUEUE_ENABLE(queue);
-
-I think you should set the default mode in (**).
-
-Thanks.
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 3806be6..b54d1a3 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -72,6 +72,7 @@ struct gtp_dev {
+ 	struct net		*net;
+ 	struct net_device	*dev;
+ 
++	unsigned int		role;
+ 	unsigned int		hash_size;
+ 	struct hlist_head	*tid_hash;
+ 	struct hlist_head	*addr_hash;
+@@ -150,8 +151,8 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp, __be32 ms_addr)
+ 	return NULL;
+ }
+ 
+-static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
+-				  unsigned int hdrlen)
++static bool gtp_check_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
++				  unsigned int hdrlen, unsigned int role)
+ {
+ 	struct iphdr *iph;
+ 
+@@ -160,18 +161,22 @@ static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
+ 
+ 	iph = (struct iphdr *)(skb->data + hdrlen);
+ 
+-	return iph->saddr == pctx->ms_addr_ip4.s_addr;
++	if (role == GTP_ROLE_SGSN) {
++		return iph->daddr == pctx->ms_addr_ip4.s_addr;
++	} else {
++		return iph->saddr == pctx->ms_addr_ip4.s_addr;
++	}
+ }
+ 
+-/* Check if the inner IP source address in this packet is assigned to any
++/* Check if the inner IP address in this packet is assigned to any
+  * existing mobile subscriber.
+  */
+-static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
+-			     unsigned int hdrlen)
++static bool gtp_check_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
++			     unsigned int hdrlen, unsigned int role)
+ {
+ 	switch (ntohs(skb->protocol)) {
+ 	case ETH_P_IP:
+-		return gtp_check_src_ms_ipv4(skb, pctx, hdrlen);
++		return gtp_check_ms_ipv4(skb, pctx, hdrlen, role);
+ 	}
+ 	return false;
+ }
+@@ -205,7 +210,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 		goto out_rcu;
+ 	}
+ 
+-	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
++	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+ 		ret = -1;
+ 		goto out_rcu;
+@@ -262,7 +267,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 		goto out_rcu;
+ 	}
+ 
+-	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
++	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+ 		ret = -1;
+ 		goto out_rcu;
+@@ -491,7 +496,11 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	 * Prepend PDP header with TEI/TID from PDP ctx.
+ 	 */
+ 	iph = ip_hdr(skb);
+-	pctx = ipv4_pdp_find(gtp, iph->daddr);
++	if (gtp->role == GTP_ROLE_SGSN) {
++		pctx = ipv4_pdp_find(gtp, iph->saddr);
++	} else {
++		pctx = ipv4_pdp_find(gtp, iph->daddr);
++	}
+ 	if (!pctx) {
+ 		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
+ 			   &iph->daddr);
+@@ -666,12 +675,23 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 	int hashsize, err, fd0, fd1;
+ 	struct gtp_dev *gtp;
+ 	struct gtp_net *gn;
++	unsigned int role;
++
++	if (data[IFLA_GTP_ROLE]) {
++		role = nla_get_u32(data[IFLA_GTP_ROLE]);
++		if (role > GTP_ROLE_SGSN)
++			return -EINVAL;
++	} else {
++		role = GTP_ROLE_GGSN;
++	}
+ 
+ 	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
+ 		return -EINVAL;
+ 
+ 	gtp = netdev_priv(dev);
+ 
++	gtp->role = role;
++
+ 	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
+ 	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
+ 
+@@ -723,6 +743,7 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1] = {
+ 	[IFLA_GTP_FD0]			= { .type = NLA_U32 },
+ 	[IFLA_GTP_FD1]			= { .type = NLA_U32 },
+ 	[IFLA_GTP_PDP_HASHSIZE]		= { .type = NLA_U32 },
++	[IFLA_GTP_ROLE]			= { .type = NLA_U32 },
+ };
+ 
+ static int gtp_validate(struct nlattr *tb[], struct nlattr *data[])
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index ccde456..da62d8c 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -533,11 +533,18 @@ enum {
+ #define IFLA_PPP_MAX (__IFLA_PPP_MAX - 1)
+ 
+ /* GTP section */
++
++enum ifla_gtp_role {
++	GTP_ROLE_GGSN = 0,
++	GTP_ROLE_SGSN,
++};
++
+ enum {
+ 	IFLA_GTP_UNSPEC,
+ 	IFLA_GTP_FD0,
+ 	IFLA_GTP_FD1,
+ 	IFLA_GTP_PDP_HASHSIZE,
++	IFLA_GTP_ROLE,
+ 	__IFLA_GTP_MAX,
+ };
+ #define IFLA_GTP_MAX (__IFLA_GTP_MAX - 1)
+-- 
+2.9.3
