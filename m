@@ -1,46 +1,55 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net v3 1/1] net: tcp: Permit user set TCP_MAXSEG to default value
-Date: Tue, 21 Mar 2017 09:28:03 +0800
-Message-ID: <1490059683-13884-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        gfree.wind@gmail.com
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: Re: [PATCH] enic: Store permanent MAC address during probe()
+Date: Mon, 20 Mar 2017 18:49:21 -0700
+Message-ID: <alpine.LNX.2.20.1703201835570.17033@cisco>
+References: <20170320224120.24484-1-pjw@netapp.com> <alpine.LNX.2.20.1703201701590.17033@cisco> <CACMb8d1o=YGsA0VoNQAA6_svLFz3X7EnD4g_AXXvBg2oO_1hjQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"; format=flowed
+Cc: <netdev@vger.kernel.org>, Christian Benvenuti <benve@cisco.com>,
+        Govindarajulu Varadarajan <_govind@gmx.com>,
+        Neel Patel <neepatel@cisco.com>
+To: PJ Waskiewicz <pjwaskiewicz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg291.qq.com ([113.108.11.223]:33847 "EHLO smtpbg291.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754583AbdCUB3E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 21:29:04 -0400
+Received: from rcdn-iport-9.cisco.com ([173.37.86.80]:55241 "EHLO
+        rcdn-iport-9.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755352AbdCUB4T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 21:56:19 -0400
+In-Reply-To: <CACMb8d1o=YGsA0VoNQAA6_svLFz3X7EnD4g_AXXvBg2oO_1hjQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On Mon, 20 Mar 2017, PJ Waskiewicz wrote:
 
-When user_mss is zero, it means use the default value. But the current
-codes don't permit user set TCP_MAXSEG to the default value.
-It would return the -EINVAL when val is zero.
+> On Mon, Mar 20, 2017 at 5:33 PM, Govindarajulu Varadarajan
+> <gvaradar@cisco.com> wrote:
+>> On Mon, 20 Mar 2017, PJ Waskiewicz wrote:
+>>
+>>> From: PJ Waskiewicz <pjwaskiewicz@gmail.com>
+>>>
+>>> The permanent MAC address is useful to store for things like ethtool,
+>>> and when bonding with modes such as active/passive or LACP.
+>>
+>> Is this patch fixing an issue with bonding drive on enic?
+>
+> We noticed that running ethtool -P <eth> on an enic, even on 4.9,
+> returned nothing.  This has fallout when using bonding, where LACP or
+> Active/Passive overrides the LAA on one of the slaves, one can't
+> figure out what the physical MAC address is of each slave.  So not a
+> problem with bonding directly, it's more secondary as a result of the
+> driver not reporting the actual permanent address.
+>
+>>
+>>> This follows the model of other Ethernet drivers, such as ixgbe.
+>>>
+>>
+>> While other drivers set netdev->perm_addr, doesn't this actually come free
+>> in
+>> register_netdevice().
+>
+> I thought it did as well, but in 4.9 when we tested it wasn't working.
+> Hence the patch.  :-)
+>
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v3: Correct the logic error, per Neal
- v2: Make codes more clearer, per Eric
- v1: initial version
-
- net/ipv4/tcp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1e319a5..4f7f163 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2470,7 +2470,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		/* Values greater than interface MTU won't take effect. However
- 		 * at the point when this call is done we typically don't yet
- 		 * know which interface is going to be used */
--		if (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW) {
-+		if (val && (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW)) {
- 			err = -EINVAL;
- 			break;
- 		}
--- 
-1.9.1
+Can you try with net-next? In my setup I do not see the issue on net-next and on
+4.9 kernel. The issue for all drivers was fixed in
+948b337e62ca9 ("net: init perm_addr in register_netdevice()")
