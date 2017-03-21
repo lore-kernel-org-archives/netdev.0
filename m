@@ -1,70 +1,30 @@
-From: <scotte@kincaidlaw.com>
-Subject: 17379 netdev
-Date: Tue, 21 Mar 2017 13:25:59 -0000
-Message-ID: <149010275912.19462.3256705084232810318@tyumen.ru>
-Reply-To: <scotte@kincaidlaw.com>
-Mime-Version: 1.0
-Content-Type: application/zip; name="979967002865.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from leased-client-5.tyumen.ru ([217.195.223.5]:34107 "HELO
-        tyumen.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1756327AbdCUN0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Mar 2017 09:26:04 -0400
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: simran singhal <singhalsimran0@gmail.com>
+Subject: [PATCH v2 0/2] netfilter: Compress return logic
+Date: Tue, 21 Mar 2017 19:00:06 +0530
+Message-ID: <1490103008-665-1-git-send-email-singhalsimran0@gmail.com>
+Cc: kadlec@blackhole.kfki.hu, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        gregkh@linuxfoundation.org, outreachy-kernel@googlegroups.com,
+        wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
+To: pablo@netfilter.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-UEsDBAoAAgAAAESZdUr5RntD1QoAANUKAAANABwAemlwLTI4MDA0LnppcFVUCQADLybRWC8m0Vh1
-eAsAAQQAAAAABAAAAABQSwMEFAACAAgARJl1Sh5Kc+YvCgAAXRMAAAgAHAAyODAwNC5qc1VUCQAD
-LybRWC8m0Vh1eAsAAQQAAAAABAAAAACtmFlvW8cVx59twN/B4BNZEc7sC1QVKAIU6EOf8uikxawS
-Y4lUKGqz4e+e31xSIrO0aYECtiVdHc6c5b+c636/LrvVZv3+Nt3vLn/8vNrUeXl8fkrbH+9bXbx7
-++Xd2zfbtrvfjpDtXfv7encSsJRucf7u7dd3b/vLQeuHx8+fdte11vnh4w9p+z69v3gvzw8/PD9t
-L282D5+uHi5mOQVdijLNlxprcLbI0Jw0okpletZGqph1zN1r23sowcckhdVJC62C7NZn4ZwO2dde
-o9ZN1hpi5IuoScugjOSjyXmtci8lB6Vid1VXlaLsIrcknSoqe8M5VbfcgwrJ2dq6TylZLUxNVQdh
-NOeQnxa5t9pj1L23EnKKRQTRZ2cUN0tVdB2ls7YnZWWJMakgXM66yiCCscL2ZoVUVgjbKK8onWVM
-LZG5r6aWyI9SNm+CEyZYlY3y5G9iLk10YkRQxYmRuZJGFyFkbl0nn1srLirXuKtzF4EidSmai/Qr
-5eZGG2u0JbreMqm1JIjJXZsms3QmJOWCtqlHva+mCRW6Z5LUKZNsrUutiuVjqTul/Yik55Z+imku
-iurEqI65MDVntOgmhurpfQ+hKnrVRGrORK9EM45rneq5xxaU65zjyNyLZl0PUqkivCFLF30mxpfG
-ObLYKEnTSNmdKIpWy8x8rWo5TnNJdEIFH9x+vi+zUd5qWzLdlD1Xuqi5UXBaC0Y2qhMiOzpiehK+
-KZEz1Tmhu6piHCoazWzaMjD60IXrqqcQXAwu5FJEJHOpBUmKpIOs0ibnAhnrwPSVajIksCVEMRRo
-q8+2kk920scuqitGq14LeQcptZQpTx0QpuXmtfe9kI/Qdl9NL9XVXILw0jVrhJNWWYqlSJPaxIU/
-mEswxTN6V6ihGHgXybxo+CBViz7BBREsMaUbSOlSgVOgTjk6UKwLnrt8N9WUA3pLKDwCj1J0RStB
-XfCOPBTdrtrnAgskyGwkokXQ0ZR9NYNu2npLz3sxzsJCE02kbbJ0L4A1/dQgQUFOSFXd4BRZCarT
-MD0Z5EAmW7tSEDfHYCropedDDZKM4Jy6JgwEOpDJhiKLVEygArCYRWSq3kAiaQdfvNGt21KnI3v1
-xFCbTN0rwxi9TdGMbvOIuaicc3D7auJBE3I03TFeeg6wVYB9tAE9qyCqxoCWpE6bNEgwOSfvncmp
-5Aji6XmlPWmvGAzXS4Ee5sHQ35kdTKc6J/i3K18QO3qEjrn/jVOior2axnaDur3wRlcyTwPDqF0P
-PVQJionMeuhGTwMJFnzacXHvtBBBpm7f6oAlfPFkReXMbkh1aQ2xz1ULKRQii8zDrj3qwsRNysg6
-FHqeBu+6NFErIUG48yh4VvBFDskoAd6h5NKkLNrI3PrelIebDWfxrqVAq3s4VCOGugppOKwgHbRM
-E5FU8So13TgaNYiqD3VV0sLBFKfMbajVIK9yQma2xSg8qNFPI1EKZ8jYBlG8hMR0ALkb+pMQcLRT
-8BGkZ8TEAHki1K8oT1VDSEY+ZYj+iQeJKXMVNVcXeEcXaEPC7zy9SPtqMAsdFHjHmVLLxjaMJxhE
-Y3LPpOJAGzc6lLyFgmI4EaSo3MjskrXZqu5CS3hGmRCF+gyV5h45uGDSQBTtGa4Hv3E9B+aODmsU
-1PMVZGbdxsTqUHQdY4V+omOCBoRXJUA4+AYgYKnBIGYnxnytMfXgnrDYKSiFI3gvK71KBfZ3xX0e
-tLTBPjkUuA7Nd0llINXBMGpeLMopjBdqaB2Sy7WDuswXhYd4NqffOOMr05sHeF1JOsBiEIu0BFRK
-o35TMwDXJoSIGKIcmcw1MfX395B9Nb+zjYhJN8hq+PXeX9AcuhkAHzfq5vRLTFLNCToghjO2Q3XW
-IgLsDygGbB1oEZjKUIMRxFf4gGambsBA2CsGpsRvMkNVlbvwl8LuoRufwXYwGhvkQHimx6WjvXSU
-TWzai+i2OqgAdENBisHRiAxoC/gcWsVGBc7pp6UPVBEc7kkMqtqdB4K/OO3lHCu40cJ0D4n9VF20
-QKGRpoLqw4XZMTDBGpgiUCr11Rm15XBMTKCrGA7sxqNJA5xU9JxuRzoJW7Vlg2oO7UkHZB54g78U
-UaRBVSFWkhgnDPVMEFuH3G26UdY0YiZVHLuWnBTDkBW+Q6Iwt/SaYpicMf8n7xhO/UfnsPLhQa2P
-c0Y+yZO5OiDTTHsIjmcLuoqXDRfeV2NiR1PHBOnD2JMrGiVRRYBCdUgYtqszAwe7ADGoCZly+N/g
-C8uBH77g4a3XGvREwc42thKBHvqxP5DqwfWGup5yKphAA9ASYpAdqqOTFfFXybM/aNYt6kPu2TDQ
-EmikDrs9W3c+3f8P7jm9BaDiemJxHt6B7yMaaIrY77dk1UZMUsM96adJ0J7FCy5UFoNuqY7lHA44
-EAXTWZxSZv50B/D8ZjuC6d4OP0ZKUCm2K8PSgTGFjo6Rj7FD7aetlQuojsRRHuZ70DrHjhGSPuwG
-rR8UGitsCZgCQkeNE6Ks2r/jMIJkXYaH/AEsKPm4sVVVmyn0M5JVAOdj60INElZEB/w0u5KHRvGY
-GDPWELYapveaVS0adUXTcc+BljS8rGfeJsRUXXipbqAXNc2TJzYyL3tPROWygkd1qHQ+7GnGusmv
-OxNElwFPyGbPdGxPMu+x7E47GzHQKU4MRTHouuuszggqc2nSdbwDMx8D9GMfO7xV8YJQCixOw6mH
-e+r9+57jTQF1DWiGC2Nfjn5Yv0wJv+BOauhiXx2Za617RhrHbqDYSAsfYCHf7+QiHPxmKCc1sk8V
-JsNSzqoCmFQWk/7gjNNmHvNA3egV+xjKxc6mYTr7A+uP8mPDV2Mumd2AFY8lQPL2KHg1QFr3WZk0
-PP0VUXGqro7N1rzu2/928wG9wTisL72owdDe2fnx1fz4Rv2rt/HHh+39TzdP7XFz+jbeb29v7x6u
-Pt/dXsyeH67Tv9rsw03alav5N99/90V+/eZycXL4MfrjP9Lu6kO/3my28+nbbVrXzc188adjzIfr
-tr7cXS1++FUm/7f/YLi/fViv7q83t23+/LnfrVv7lNJJcbunh8f6vLl8uh41PF6trtt8t71vixHw
-Zrd9Hl+m798cQy/m6/b4/m+HO+azbbtd3abVtm9my9k4td3erDf3u5+uLi9G5F+32/Q8V0oslXEk
-qZZeLhFTvjU8Uks8bAlH+MszLZfRLb1eYrZLG5dKiqVfRrlY3t09le3N0+rp7uJ45essGIYaw1jm
-1WqVP12X9dPF97PvZ8vNY/60uW9X6epCnHemMVI8fbjcls2P96vr2/WWiONv/ny88DCok1+enZ18
-7Oxs8WXV58cHf7k49uBlyF9+cc3XY5pnF9/ttqv15Ye+3dx8e5W2325qm78O+JjFx+P1P4xh//N4
-ycfj4T8szr/Ozk7B/N/+MJsfk1qczxanmJlA/uZN3rb0afr26/inTM1v28UrTsbjr0eY/gJgPD8B
-5Ol/fi3OfwZQSwECHgMUAAIACABEmXVKHkpz5i8KAABdEwAACAAYAAAAAAABAAAApIEAAAAAMjgw
-MDQuanNVVAUAAy8m0Vh1eAsAAQQAAAAABAAAAABQSwUGAAAAAAEAAQBOAAAAcQoAAAAAUEsBAh4D
-CgACAAAARJl1SvlGe0PVCgAA1QoAAA0AGAAAAAAAAAAAAKSBAAAAAHppcC0yODAwNC56aXBVVAUA
-Ay8m0Vh1eAsAAQQAAAAABAAAAABQSwUGAAAAAAEAAQBTAAAAHAsAAAAA
+This patch series Simplify function returns by merging
+assignment and return into one command line.
+
+v2:
+  -Change the subject of cover patch
+
+simran singhal (2):
+  netfilter: ipset: Compress return logic
+  netfilter: ipvs: Compress return logic
+
+ net/netfilter/ipset/ip_set_list_set.c | 5 +----
+ net/netfilter/ipvs/ip_vs_ftp.c        | 5 +----
+ 2 files changed, 2 insertions(+), 8 deletions(-)
+
+-- 
+2.7.4
