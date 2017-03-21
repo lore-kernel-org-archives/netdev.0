@@ -1,125 +1,120 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC PATCH] net: phy: Don't miss phy_suspend() on PHY_HALTED for
- PHYs with interrupts
-Date: Tue, 21 Mar 2017 09:00:40 -0700
-Message-ID: <3abf0390-b91f-46f7-968d-0844f1a245a8@gmail.com>
-References: <1489585887-8683-1-git-send-email-rogerq@ti.com>
- <20170315140811.GD21021@lunn.ch>
- <6ec42ad7-0be3-f6c5-2ded-27bf3adbab23@ti.com>
- <20170315154912.GE21021@lunn.ch>
- <6d3f2d3c-69e0-43a4-9862-126a7c173934@ti.com>
- <e69e9b50-3223-d5d4-e003-dd04e741387d@gmail.com>
- <625a9ee1-ea65-3991-2f5c-df95ddf12700@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kyle.roeschley@ni.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>, Andrew Lunn <andrew@lunn.ch>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH] ipv6: make sure to initialize sockc.tsflags before first use
+Date: Tue, 21 Mar 2017 17:14:27 +0100
+Message-ID: <20170321161427.103713-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net, soheil@google.com, kuznet@ms2.inr.ac.ru
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <625a9ee1-ea65-3991-2f5c-df95ddf12700@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/21/2017 03:09 AM, Roger Quadros wrote:
-> On 20/03/17 18:41, Florian Fainelli wrote:
->> On 03/16/2017 12:46 AM, Roger Quadros wrote:
->>> On 15/03/17 17:49, Andrew Lunn wrote:
->>>> On Wed, Mar 15, 2017 at 05:00:08PM +0200, Roger Quadros wrote:
->>>>> Andrew,
->>>>>
->>>>> On 15/03/17 16:08, Andrew Lunn wrote:
->>>>>> On Wed, Mar 15, 2017 at 03:51:27PM +0200, Roger Quadros wrote:
->>>>>>> Since commit 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
->>>>>>> phy_suspend() doesn't get called as part of phy_stop() for PHYs using
->>>>>>> interrupts because the phy state machine is never triggered after a phy_stop().
->>>>>>>
->>>>>>> Explicitly trigger the PHY state machine so that it can
->>>>>>> see the new PHY state (HALTED) and suspend the PHY.
->>>>>>>
->>>>>>> Signed-off-by: Roger Quadros <rogerq@ti.com>
->>>>>>
->>>>>> Hi Roger
->>>>>>
->>>>>> This seems sensible. It mirrors what phy_start() does.
->>>>>>
->>>>>> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
->>>>>
->>>>> The reason for this being an RFC was the following comment just before
->>>>> where I add the phy_trigger_machine()
->>>>>
->>>>>         /* Cannot call flush_scheduled_work() here as desired because
->>>>>          * of rtnl_lock(), but PHY_HALTED shall guarantee phy_change()
->>>>>          * will not reenable interrupts.
->>>>>          */
->>>>>
->>>>> Is this comment still applicable? If yes, is it OK to call
->>>>> phy_trigger_machine() there?
->>>>
->>>> Humm, good question.
->>>>
->>>> My _guess_ would be, calling it with sync=True could
->>>> deadlock. sync=False is probably safe. But lets see what Florian says.
->>>
->>> I agree that we should use phy_trigger_machine() with sync=False.
->>>
->>>>
->>>>>
->>>>>>
->>>>>> It does however lead to a follow up question. Are there other places
->>>>>> phydev->state is changed and it is missing a phy_trigger_machine()?
->>>>>>
->>>>>
->>>>> One other place I think we should add phy_trigger_machine() is phy_start_aneg().
->>>>
->>>> Humm, that might get us into a tight loop.
->>>>
->>>> phy_start_aneg() kicks the phy driver to start autoneg and sets
->>>> phydev->state = PHY_AN.
->>>>
->>>> phy_trigger_machine() triggers the state machine immediately. 
->>>>
->>>> In state PHY_AN, we check if aneg is done. If not, it sets needs_aneg
->>>> = true. At the end of the state machine, this then calls
->>>> phy_start_aneg(), and it all starts again.
->>>>
->>>> We are missing the 1s delay we have with polling. So for
->>>> phy_start_aneg(), we might need a phy_delayed_trigger_machine(), which
->>>> waits a second before doing anything?
->>>
->>> I think that should do the trick.
->>>
->>> How about this?
->>
->> This sounds like a possible fix indeed, however I would like to better
->> assess the impact on non interrupt driven PHYs before rolling such a change.
-> 
-> Is it safer if I add a check to do this only for interrupt driven PHYs?
+In the case udp_sk(sk)->pending is AF_INET6, udpv6_sendmsg() would
+jump to do_append_data, skipping the initialization of sockc.tsflags.
+Fix the problem by moving sockc.tsflags initialization earlier.
 
-Yes I think this is a good solution that would not impact polled PHYs.
-Can you submit a formal patch for that change?
+The bug was detected with KMSAN.
 
-Thanks!
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+For the record, here is the KMSAN report:
 
-> 
-> e.g.
-> 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 4b855f2..e0f5755 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -630,6 +630,9 @@ int phy_start_aneg(struct phy_device *phydev)
->  
->  out_unlock:
->  	mutex_unlock(&phydev->lock);
-> +	if (!err && phy_interrupt_is_valid(phydev))
-> +		queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, HZ);
-> +
->  	return err;
->  }
->  EXPORT_SYMBOL(phy_start_aneg);
-> 
+==================================================================
+BUG: KMSAN: use of unitialized memory
+CPU: 0 PID: 1027 Comm: udpv6_sendmsg Not tainted 4.8.0-rc6+ #2041
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 0000000000000000 ffff88010c17f1a8 ffffffff825b5098 ffff88010c17f0e8
+ 0000000000000000 ffffffff85bae870 0000000000000092 ffffffff85bae550
+ 0000000000000000 0000000000000092 0000000000000000 0000000000000002
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff825b5098>] dump_stack+0x238/0x290 lib/dump_stack.c:51
+ [<ffffffff818e86f0>] kmsan_report+0x180/0x210 mm/kmsan/kmsan.c:1022
+ [<ffffffff818e9dea>] __msan_warning+0x8a/0x100 mm/kmsan/kmsan_instr.c:431
+ [<     inline     >] sock_tx_timestamp ./include/net/sock.h:2162
+ [<ffffffff849a9680>] __ip6_append_data+0x52e0/0x6160 net/ipv6/ip6_output.c:1336
+ [<ffffffff849a26c3>] ip6_append_data+0x453/0x750 net/ipv6/ip6_output.c:1599
+ [<ffffffff84a68d02>] udpv6_sendmsg+0x10f2/0x47f0 net/ipv6/udp.c:1261
+ [<ffffffff847d046e>] inet_sendmsg+0x64e/0x930 net/ipv4/af_inet.c:740
+ [<     inline     >] sock_sendmsg_nosec net/socket.c:609
+ [<     inline     >] sock_sendmsg net/socket.c:619
+ [<ffffffff842c1ae0>] ___sys_sendmsg+0xe10/0x14e0 net/socket.c:1943
+ [<ffffffff842c2b7c>] __sys_sendmmsg+0x4ac/0x880 net/socket.c:2033
+ [<ffffffff842c30c8>] SYSC_sendmmsg+0xb8/0x130 net/socket.c:2062
+ [<ffffffff842c2fe5>] SyS_sendmmsg+0x95/0xc0 net/socket.c:2057
+ [<ffffffff81005688>] do_syscall_64+0x58/0x70 arch/x86/entry/common.c:292
+ [<ffffffff851db97c>] entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.o:?
+chained origin: 00000000922009b8
+ [<ffffffff810bd5e7>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
+ [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:349
+ [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:364
+ [<ffffffff818e7a9e>] kmsan_internal_chain_origin+0x12e/0x1f0 mm/kmsan/kmsan.c:581
+ [<ffffffff818e9cdc>] __msan_set_alloca_origin4+0xdc/0x160 mm/kmsan/kmsan_instr.c:386
+ [<ffffffff84a67ef8>] udpv6_sendmsg+0x2e8/0x47f0 net/ipv6/udp.c:1014
+ [<ffffffff847d046e>] inet_sendmsg+0x64e/0x930 net/ipv4/af_inet.c:740
+ [<     inline     >] sock_sendmsg_nosec net/socket.c:609
+ [<     inline     >] sock_sendmsg net/socket.c:619
+ [<ffffffff842c1ae0>] ___sys_sendmsg+0xe10/0x14e0 net/socket.c:1943
+ [<ffffffff842c2b7c>] __sys_sendmmsg+0x4ac/0x880 net/socket.c:2033
+ [<ffffffff842c30c8>] SYSC_sendmmsg+0xb8/0x130 net/socket.c:2062
+ [<ffffffff842c2fe5>] SyS_sendmmsg+0x95/0xc0 net/socket.c:2057
+ [<ffffffff81005688>] do_syscall_64+0x58/0x70 arch/x86/entry/common.c:292
+ [<ffffffff851db97c>] return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.o:?
+origin description: ----sockc@udpv6_sendmsg (origin=000000009e8009b7)
+==================================================================
 
+and the reproducer that triggers it:
+==================================================================
+  #define _GNU_SOURCE
+  #include <netinet/ip.h>
+  #include <string.h>
 
+  int main()
+  {
+    int sock = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+
+    struct sockaddr_in6 addr;
+    memset(&addr, 0, sizeof(struct sockaddr_in6));
+    addr.sin6_family = AF_INET6;
+    addr.sin6_port = htons(20000);
+    inet_pton(AF_INET6, "ffff:0:400::", &addr.sin6_addr);
+
+    struct msghdr msg;
+    memset(&msg, 0, sizeof(struct msghdr));
+    msg.msg_name = &addr;
+    msg.msg_namelen = sizeof(struct sockaddr_in6);
+    sendmsg(sock, &msg, MSG_DONTROUTE|MSG_MORE);
+
+    struct mmsghdr mmsg;
+    memset(&mmsg, 0, sizeof(struct mmsghdr));
+    sendmmsg(sock, &mmsg, 1, 0);
+    return 0;
+  }
+==================================================================
+
+---
+ net/ipv6/udp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 4e4c401e3bc6..e28082f0a307 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1035,6 +1035,7 @@ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	ipc6.hlimit = -1;
+ 	ipc6.tclass = -1;
+ 	ipc6.dontfrag = -1;
++	sockc.tsflags = sk->sk_tsflags;
+ 
+ 	/* destination address check */
+ 	if (sin6) {
+@@ -1159,7 +1160,6 @@ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 
+ 	fl6.flowi6_mark = sk->sk_mark;
+ 	fl6.flowi6_uid = sk->sk_uid;
+-	sockc.tsflags = sk->sk_tsflags;
+ 
+ 	if (msg->msg_controllen) {
+ 		opt = &opt_space;
 -- 
-Florian
+2.12.1.500.gab5fba24ee-goog
