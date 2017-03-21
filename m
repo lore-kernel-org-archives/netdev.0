@@ -1,60 +1,157 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: IPv6 IGMP issue in v4.4.44 ??
-Date: Tue, 21 Mar 2017 18:00:36 -0400
-Message-ID: <58D1A284.7050802@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH iproute2 v3 1/1] actions: Add support for user cookies
+Date: Tue, 21 Mar 2017 18:01:37 -0400
+Message-ID: <1490133697-14469-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:52459 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757292AbdCUWAi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 18:00:38 -0400
+Received: from mail-io0-f196.google.com ([209.85.223.196]:35112 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757799AbdCUWBr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 18:01:47 -0400
+Received: by mail-io0-f196.google.com with SMTP id f103so8577935ioi.2
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 15:01:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David, experts,
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-I see an issue with IGMP for IPv6 when I test HSR redundancy network
-interface. As soon as I set up an HSR interface, I see some IGMP messages
-(destination mac address: 33 33 00 00 00 02 going over HSR interface to
-slave interfaces, at the egress where as for IPv6, I see similar messages
-going directly over the Ethernet interfaces that are attached to
-HSR master. It appears that the NETDEV_CHANGEUPPER is not handled properly
-and the mcast snoop sends the packets over the old interfaces at timer
-expiry. 
+Make use of 128b user cookies
 
-A dump of the message at the slave Ethernet interface looks like below.
+Introduce optional 128-bit action cookie.
+Like all other cookie schemes in the networking world (eg in protocols
+like http or existing kernel fib protocol field, etc) the idea is to
+save user state that when retrieved serves as a correlator. The kernel
+_should not_ intepret it. The user can store whatever they wish in the
+128 bits.
 
-IPv4
+Sample exercise(showing variable length use of cookie)
 
-[   64.643842] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 89 2f 10 3e fc 
-[   64.649910] 18 86 dd 60 00 00 00 00 10 3a ff fe 80 00 00 00 
-[   64.655705] 00 00 00 72 ff 76 ff fe 1c 0f 8d ff 02 00 00 00 
-[   64.661503] 00 00 00 00 00 00 00 00 00 00 02 85 00 8d dc 
+.. create an accept action with cookie a1b2c3d4
+sudo $TC actions add action ok index 1 cookie a1b2c3d4
 
+.. dump all gact actions..
+sudo $TC -s actions ls action gact
 
-You can see this is tagged with HSR.
+    action order 0: gact action pass
+     random type none pass val 0
+     index 1 ref 1 bind 0 installed 5 sec used 5 sec
+    Action statistics:
+    Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+    backlog 0b 0p requeues 0
+    cookie a1b2c3d4
 
-IPv6
+.. bind the accept action to a filter..
+sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
+u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
 
-[   65.559130] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 86 dd 60 00 00 
-[   65.565205] 00 00 10 3a ff fe 80 00 00 00 00 00 00 72 ff 76 
-[   65.571011] ff fe 1c 0f 8d ff 02 00 00 00 00 00 00 00 00 00 
-[   65.576806] 00 00 00 00 02 85 00 8d dc 00 00 00 00 01 01 
+... send some traffic..
+$ ping 127.0.0.1 -c 3
+PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
+64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
+64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
+64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
 
-This is going directly to the slave Ethernet interface.
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ tc/m_action.c | 44 ++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 38 insertions(+), 6 deletions(-)
 
-When I put a WARN_ONCE, I found this is coming directly from 
-mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
-
-Do you think this is fixed in latest kernel at master? If so, could
-you point me to some commits.
-
-Thanks
-
+diff --git a/tc/m_action.c b/tc/m_action.c
+index 05ef07e..6ba7615 100644
+--- a/tc/m_action.c
++++ b/tc/m_action.c
+@@ -150,18 +150,19 @@ new_cmd(char **argv)
+ 
+ }
+ 
+-int
+-parse_action(int *argc_p, char ***argv_p, int tca_id, struct nlmsghdr *n)
++int parse_action(int *argc_p, char ***argv_p, int tca_id, struct nlmsghdr *n)
+ {
+ 	int argc = *argc_p;
+ 	char **argv = *argv_p;
+ 	struct rtattr *tail, *tail2;
+ 	char k[16];
++	int act_ck_len = 0;
+ 	int ok = 0;
+ 	int eap = 0; /* expect action parameters */
+ 
+ 	int ret = 0;
+ 	int prio = 0;
++	unsigned char act_ck[TC_COOKIE_MAX_SIZE];
+ 
+ 	if (argc <= 0)
+ 		return -1;
+@@ -215,16 +216,39 @@ done0:
+ 			addattr_l(n, MAX_MSG, ++prio, NULL, 0);
+ 			addattr_l(n, MAX_MSG, TCA_ACT_KIND, k, strlen(k) + 1);
+ 
+-			ret = a->parse_aopt(a, &argc, &argv, TCA_ACT_OPTIONS, n);
++			ret = a->parse_aopt(a, &argc, &argv, TCA_ACT_OPTIONS,
++					    n);
+ 
+ 			if (ret < 0) {
+ 				fprintf(stderr, "bad action parsing\n");
+ 				goto bad_val;
+ 			}
++
++			if (*argv && strcmp(*argv, "cookie") == 0) {
++				size_t slen;
++
++				NEXT_ARG();
++				slen = strlen(*argv);
++				if (slen > TC_COOKIE_MAX_SIZE * 2)
++					invarg("cookie cannot exceed %d\n",
++					       *argv);
++
++				if (hex2mem(*argv, act_ck, slen / 2) < 0)
++					invarg("cookie must be a hex string\n",
++					       *argv);
++
++				act_ck_len = slen;
++				argc--;
++				argv++;
++			}
++
++			if (act_ck_len)
++				addattr_l(n, MAX_MSG, TCA_ACT_COOKIE,
++					  &act_ck, act_ck_len);
++
+ 			tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
+ 			ok++;
+ 		}
+-
+ 	}
+ 
+ 	if (eap > 0) {
+@@ -245,8 +269,7 @@ bad_val:
+ 	return -1;
+ }
+ 
+-static int
+-tc_print_one_action(FILE *f, struct rtattr *arg)
++static int tc_print_one_action(FILE *f, struct rtattr *arg)
+ {
+ 
+ 	struct rtattr *tb[TCA_ACT_MAX + 1];
+@@ -274,8 +297,17 @@ tc_print_one_action(FILE *f, struct rtattr *arg)
+ 		return err;
+ 
+ 	if (show_stats && tb[TCA_ACT_STATS]) {
++
+ 		fprintf(f, "\tAction statistics:\n");
+ 		print_tcstats2_attr(f, tb[TCA_ACT_STATS], "\t", NULL);
++		if (tb[TCA_ACT_COOKIE]) {
++			int strsz = RTA_PAYLOAD(tb[TCA_ACT_COOKIE]);
++			char b1[strsz+1];
++
++			fprintf(f, "\n\tcookie len %d %s ", strsz,
++				hexstring_n2a(RTA_DATA(tb[TCA_ACT_COOKIE]),
++					      strsz, b1, sizeof(b1)));
++		}
+ 		fprintf(f, "\n");
+ 	}
+ 
 -- 
-Murali Karicheri
-Linux Kernel, Keystone
+1.9.1
