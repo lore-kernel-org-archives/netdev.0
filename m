@@ -1,40 +1,80 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
- atomic_t to refcount_t
-Date: Tue, 21 Mar 2017 15:36:06 -0700 (PDT)
-Message-ID: <20170321.153606.2138520242577188528.davem@davemloft.net>
-References: <20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
-	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH] net: unix: properly re-increment inflight counter of
+ GC discarded candidates
+Date: Tue, 21 Mar 2017 15:27:40 -0700 (PDT)
+Message-ID: <20170321.152740.423576909432306907.davem@davemloft.net>
+References: <20170315031642.19576-1-andreyu@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: keescook@chromium.org, peterz@infradead.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	jmorris@namei.org, ishkamiel@gmail.com, kuznet@ms2.inr.ac.ru,
-	akpm@linux-foundation.org, dwindsor@gmail.com, kaber@trash.net,
-	elena.reshetova@intel.com, herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: andreyu@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57840 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757046AbdCUWgy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 18:36:54 -0400
+In-Reply-To: <20170315031642.19576-1-andreyu@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 21 Mar 2017 14:23:09 -0700
+From: Andrey Ulanov <andreyu@google.com>
+Date: Tue, 14 Mar 2017 20:16:42 -0700
 
-> It looks like our suggestion to get kernel builds with atomic_inc()
-> being exactly an atomic_inc() is not even discussed or implemented.
+> Dmitry has reported that a BUG_ON() condition in unix_notinflight()
+> may be triggered by a simple code that forwards unix socket in an
+> SCM_RIGHTS message.
+> That is caused by incorrect unix socket GC implementation in unix_gc().
 > 
-> Coding this would require less time than running a typical Google kernel
-> qualification (roughly one month, thousands of hosts..., days of SWE).
+> The GC first collects list of candidates, then (a) decrements their
+> "children's" inflight counter, (b) checks which inflight counters are
+> now 0, and then (c) increments all inflight counters back.
+> (a) and (c) are done by calling scan_children() with inc_inflight or
+> dec_inflight as the second argument.
+> 
+> Commit 6209344f5a37 ("net: unix: fix inflight counting bug in garbage
+> collector") changed scan_children() such that it no longer considers
+> sockets that do not have UNIX_GC_CANDIDATE flag. It also added a block
+> of code that that unsets this flag _before_ invoking
+> scan_children(, dec_iflight, ). This may lead to incorrect inflight
+> counters for some sockets.
+> 
+> This change fixes this bug by changing order of operations:
+> UNIX_GC_CANDIDATE is now unset only after all inflight counters are
+> restored to the original state.
+> 
+>   kernel BUG at net/unix/garbage.c:149!
+>   RIP: 0010:[<ffffffff8717ebf4>]  [<ffffffff8717ebf4>]
+>   unix_notinflight+0x3b4/0x490 net/unix/garbage.c:149
+>   Call Trace:
+>    [<ffffffff8716cfbf>] unix_detach_fds.isra.19+0xff/0x170 net/unix/af_unix.c:1487
+>    [<ffffffff8716f6a9>] unix_destruct_scm+0xf9/0x210 net/unix/af_unix.c:1496
+>    [<ffffffff86a90a01>] skb_release_head_state+0x101/0x200 net/core/skbuff.c:655
+>    [<ffffffff86a9808a>] skb_release_all+0x1a/0x60 net/core/skbuff.c:668
+>    [<ffffffff86a980ea>] __kfree_skb+0x1a/0x30 net/core/skbuff.c:684
+>    [<ffffffff86a98284>] kfree_skb+0x184/0x570 net/core/skbuff.c:705
+>    [<ffffffff871789d5>] unix_release_sock+0x5b5/0xbd0 net/unix/af_unix.c:559
+>    [<ffffffff87179039>] unix_release+0x49/0x90 net/unix/af_unix.c:836
+>    [<ffffffff86a694b2>] sock_release+0x92/0x1f0 net/socket.c:570
+>    [<ffffffff86a6962b>] sock_close+0x1b/0x20 net/socket.c:1017
+>    [<ffffffff81a76b8e>] __fput+0x34e/0x910 fs/file_table.c:208
+>    [<ffffffff81a771da>] ____fput+0x1a/0x20 fs/file_table.c:244
+>    [<ffffffff81483ab0>] task_work_run+0x1a0/0x280 kernel/task_work.c:116
+>    [<     inline     >] exit_task_work include/linux/task_work.h:21
+>    [<ffffffff8141287a>] do_exit+0x183a/0x2640 kernel/exit.c:828
+>    [<ffffffff8141383e>] do_group_exit+0x14e/0x420 kernel/exit.c:931
+>    [<ffffffff814429d3>] get_signal+0x663/0x1880 kernel/signal.c:2307
+>    [<ffffffff81239b45>] do_signal+0xc5/0x2190 arch/x86/kernel/signal.c:807
+>    [<ffffffff8100666a>] exit_to_usermode_loop+0x1ea/0x2d0
+>   arch/x86/entry/common.c:156
+>    [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
+>    [<ffffffff81009693>] syscall_return_slowpath+0x4d3/0x570
+>   arch/x86/entry/common.c:259
+>    [<ffffffff881478e6>] entry_SYSCALL_64_fastpath+0xc4/0xc6
+> 
+> Link: https://lkml.org/lkml/2017/3/6/252
+> Signed-off-by: Andrey Ulanov <andreyu@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Fixes: 6209344 ("net: unix: fix inflight counting bug in garbage collector")
 
-+1
+Applied and queued up for -stable, thanks.
