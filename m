@@ -1,106 +1,251 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
-	atomic_t to refcount_t
-Date: Tue, 21 Mar 2017 16:51:13 -0700
-Message-ID: <CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
-References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170318164759.GA23837@gondor.apana.org.au>
-	<20170318.182121.439615057765380575.davem@davemloft.net>
-	<20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
-	<20170320131629.GA26405@gondor.apana.org.au>
-	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
-	<20170320132713.GA26954@gondor.apana.org.au>
-	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
-	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, Patrick McHardy <kaber@trash.net>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Network Development <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
-	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, "Reshetova,
-	Elena" <elena.reshetova@intel.com>, David Windsor <dwindsor@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/5] e1000: use new API ethtool_{get|set}_link_ksettings
+Date: Tue, 21 Mar 2017 16:00:24 -0700
+Message-ID: <20170321230028.69510-2-jeffrey.t.kirsher@intel.com>
+References: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
+Cc: Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:21445 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933121AbdCUX5J (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Mar 2017 19:57:09 -0400
+In-Reply-To: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 21, 2017 at 2:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2017-03-21 at 13:49 -0700, Kees Cook wrote:
->
->> Yeah, this is exactly what I'd like to find as well. Just comparing
->> cycles between refcount implementations, while interesting, doesn't
->> show us real-world performance changes, which is what we need to
->> measure.
->>
->> Is Eric's "20 concurrent 'netperf -t UDP_STREAM'" example (from
->> elsewhere in this email thread) real-world meaningful enough?
->
-> Not at all ;)
->
-> This was targeting the specific change I had in mind for
-> ip_idents_reserve(), which is not used by TCP flows.
+From: Philippe Reynes <tremyfr@gmail.com>
 
-Okay, I just wanted to check. I didn't think so, but it was the only
-example in the thread.
+The ethtool API {get|set}_settings is deprecated.
+We move this driver to new API {get|set}_link_ksettings.
 
-> Unfortunately there is no good test simulating real-world workloads,
-> which are mostly using TCP flows.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Sure, but there has to be _something_ that can be used to test to
-measure the effects. Without a meaningful test, it's weird to reject a
-change for performance reasons.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 117 +++++++++++------------
+ 1 file changed, 58 insertions(+), 59 deletions(-)
 
-> Most synthetic tools you can find are not using epoll(), and very often
-> hit bottlenecks in other layers.
->
->
-> It looks like our suggestion to get kernel builds with atomic_inc()
-> being exactly an atomic_inc() is not even discussed or implemented.
-
-So, FWIW, I originally tried to make this a CONFIG in the first couple
-passes at getting a refcount defense. I would be fine with this, but I
-was not able to convince Peter. :) However, things have evolved a lot
-since then, so perhaps there are things do be done here.
-
-> Coding this would require less time than running a typical Google kernel
-> qualification (roughly one month, thousands of hosts..., days of SWE).
-
-It wasn't the issue of coding time; just that it had been specifically
-not wanted. :)
-
-Am I understanding you correctly that you'd want something like:
-
-refcount.h:
-#ifdef UNPROTECTED_REFCOUNT
-#define refcount_inc(x)   atomic_inc(x)
-...
-#else
-void refcount_inc(...
-...
-#endif
-
-some/net.c:
-#define UNPROTECTED_REFCOUNT
-#include <refcount.h>
-
-or similar?
-
--Kees
-
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index 975eeb885ca2..ec8aa4562cc9 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -103,104 +103,104 @@ static const char e1000_gstrings_test[][ETH_GSTRING_LEN] = {
+ 
+ #define E1000_TEST_LEN	ARRAY_SIZE(e1000_gstrings_test)
+ 
+-static int e1000_get_settings(struct net_device *netdev,
+-			      struct ethtool_cmd *ecmd)
++static int e1000_get_link_ksettings(struct net_device *netdev,
++				    struct ethtool_link_ksettings *cmd)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
++	u32 supported, advertising;
+ 
+ 	if (hw->media_type == e1000_media_type_copper) {
+-		ecmd->supported = (SUPPORTED_10baseT_Half |
+-				   SUPPORTED_10baseT_Full |
+-				   SUPPORTED_100baseT_Half |
+-				   SUPPORTED_100baseT_Full |
+-				   SUPPORTED_1000baseT_Full|
+-				   SUPPORTED_Autoneg |
+-				   SUPPORTED_TP);
+-		ecmd->advertising = ADVERTISED_TP;
++		supported = (SUPPORTED_10baseT_Half |
++			     SUPPORTED_10baseT_Full |
++			     SUPPORTED_100baseT_Half |
++			     SUPPORTED_100baseT_Full |
++			     SUPPORTED_1000baseT_Full|
++			     SUPPORTED_Autoneg |
++			     SUPPORTED_TP);
++		advertising = ADVERTISED_TP;
+ 
+ 		if (hw->autoneg == 1) {
+-			ecmd->advertising |= ADVERTISED_Autoneg;
++			advertising |= ADVERTISED_Autoneg;
+ 			/* the e1000 autoneg seems to match ethtool nicely */
+-			ecmd->advertising |= hw->autoneg_advertised;
++			advertising |= hw->autoneg_advertised;
+ 		}
+ 
+-		ecmd->port = PORT_TP;
+-		ecmd->phy_address = hw->phy_addr;
+-
+-		if (hw->mac_type == e1000_82543)
+-			ecmd->transceiver = XCVR_EXTERNAL;
+-		else
+-			ecmd->transceiver = XCVR_INTERNAL;
+-
++		cmd->base.port = PORT_TP;
++		cmd->base.phy_address = hw->phy_addr;
+ 	} else {
+-		ecmd->supported   = (SUPPORTED_1000baseT_Full |
+-				     SUPPORTED_FIBRE |
+-				     SUPPORTED_Autoneg);
++		supported   = (SUPPORTED_1000baseT_Full |
++			       SUPPORTED_FIBRE |
++			       SUPPORTED_Autoneg);
+ 
+-		ecmd->advertising = (ADVERTISED_1000baseT_Full |
+-				     ADVERTISED_FIBRE |
+-				     ADVERTISED_Autoneg);
++		advertising = (ADVERTISED_1000baseT_Full |
++			       ADVERTISED_FIBRE |
++			       ADVERTISED_Autoneg);
+ 
+-		ecmd->port = PORT_FIBRE;
+-
+-		if (hw->mac_type >= e1000_82545)
+-			ecmd->transceiver = XCVR_INTERNAL;
+-		else
+-			ecmd->transceiver = XCVR_EXTERNAL;
++		cmd->base.port = PORT_FIBRE;
+ 	}
+ 
+ 	if (er32(STATUS) & E1000_STATUS_LU) {
+ 		e1000_get_speed_and_duplex(hw, &adapter->link_speed,
+ 					   &adapter->link_duplex);
+-		ethtool_cmd_speed_set(ecmd, adapter->link_speed);
++		cmd->base.speed = adapter->link_speed;
+ 
+ 		/* unfortunately FULL_DUPLEX != DUPLEX_FULL
+ 		 * and HALF_DUPLEX != DUPLEX_HALF
+ 		 */
+ 		if (adapter->link_duplex == FULL_DUPLEX)
+-			ecmd->duplex = DUPLEX_FULL;
++			cmd->base.duplex = DUPLEX_FULL;
+ 		else
+-			ecmd->duplex = DUPLEX_HALF;
++			cmd->base.duplex = DUPLEX_HALF;
+ 	} else {
+-		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
+-		ecmd->duplex = DUPLEX_UNKNOWN;
++		cmd->base.speed = SPEED_UNKNOWN;
++		cmd->base.duplex = DUPLEX_UNKNOWN;
+ 	}
+ 
+-	ecmd->autoneg = ((hw->media_type == e1000_media_type_fiber) ||
++	cmd->base.autoneg = ((hw->media_type == e1000_media_type_fiber) ||
+ 			 hw->autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
+ 
+ 	/* MDI-X => 1; MDI => 0 */
+ 	if ((hw->media_type == e1000_media_type_copper) &&
+ 	    netif_carrier_ok(netdev))
+-		ecmd->eth_tp_mdix = (!!adapter->phy_info.mdix_mode ?
++		cmd->base.eth_tp_mdix = (!!adapter->phy_info.mdix_mode ?
+ 				     ETH_TP_MDI_X : ETH_TP_MDI);
+ 	else
+-		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
++		cmd->base.eth_tp_mdix = ETH_TP_MDI_INVALID;
+ 
+ 	if (hw->mdix == AUTO_ALL_MODES)
+-		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
++		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
+ 	else
+-		ecmd->eth_tp_mdix_ctrl = hw->mdix;
++		cmd->base.eth_tp_mdix_ctrl = hw->mdix;
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						advertising);
++
+ 	return 0;
+ }
+ 
+-static int e1000_set_settings(struct net_device *netdev,
+-			      struct ethtool_cmd *ecmd)
++static int e1000_set_link_ksettings(struct net_device *netdev,
++				    const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
++	u32 advertising;
++
++	ethtool_convert_link_mode_to_legacy_u32(&advertising,
++						cmd->link_modes.advertising);
+ 
+ 	/* MDI setting is only allowed when autoneg enabled because
+ 	 * some hardware doesn't allow MDI setting when speed or
+ 	 * duplex is forced.
+ 	 */
+-	if (ecmd->eth_tp_mdix_ctrl) {
++	if (cmd->base.eth_tp_mdix_ctrl) {
+ 		if (hw->media_type != e1000_media_type_copper)
+ 			return -EOPNOTSUPP;
+ 
+-		if ((ecmd->eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
+-		    (ecmd->autoneg != AUTONEG_ENABLE)) {
++		if ((cmd->base.eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
++		    (cmd->base.autoneg != AUTONEG_ENABLE)) {
+ 			e_err(drv, "forcing MDI/MDI-X state is not supported when link speed and/or duplex are forced\n");
+ 			return -EINVAL;
+ 		}
+@@ -209,32 +209,31 @@ static int e1000_set_settings(struct net_device *netdev,
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+ 		msleep(1);
+ 
+-	if (ecmd->autoneg == AUTONEG_ENABLE) {
++	if (cmd->base.autoneg == AUTONEG_ENABLE) {
+ 		hw->autoneg = 1;
+ 		if (hw->media_type == e1000_media_type_fiber)
+ 			hw->autoneg_advertised = ADVERTISED_1000baseT_Full |
+-				     ADVERTISED_FIBRE |
+-				     ADVERTISED_Autoneg;
++						 ADVERTISED_FIBRE |
++						 ADVERTISED_Autoneg;
+ 		else
+-			hw->autoneg_advertised = ecmd->advertising |
++			hw->autoneg_advertised = advertising |
+ 						 ADVERTISED_TP |
+ 						 ADVERTISED_Autoneg;
+-		ecmd->advertising = hw->autoneg_advertised;
+ 	} else {
+-		u32 speed = ethtool_cmd_speed(ecmd);
++		u32 speed = cmd->base.speed;
+ 		/* calling this overrides forced MDI setting */
+-		if (e1000_set_spd_dplx(adapter, speed, ecmd->duplex)) {
++		if (e1000_set_spd_dplx(adapter, speed, cmd->base.duplex)) {
+ 			clear_bit(__E1000_RESETTING, &adapter->flags);
+ 			return -EINVAL;
+ 		}
+ 	}
+ 
+ 	/* MDI-X => 2; MDI => 1; Auto => 3 */
+-	if (ecmd->eth_tp_mdix_ctrl) {
+-		if (ecmd->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
++	if (cmd->base.eth_tp_mdix_ctrl) {
++		if (cmd->base.eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
+ 			hw->mdix = AUTO_ALL_MODES;
+ 		else
+-			hw->mdix = ecmd->eth_tp_mdix_ctrl;
++			hw->mdix = cmd->base.eth_tp_mdix_ctrl;
+ 	}
+ 
+ 	/* reset the link */
+@@ -1875,8 +1874,6 @@ static void e1000_get_strings(struct net_device *netdev, u32 stringset,
+ }
+ 
+ static const struct ethtool_ops e1000_ethtool_ops = {
+-	.get_settings		= e1000_get_settings,
+-	.set_settings		= e1000_set_settings,
+ 	.get_drvinfo		= e1000_get_drvinfo,
+ 	.get_regs_len		= e1000_get_regs_len,
+ 	.get_regs		= e1000_get_regs,
+@@ -1901,6 +1898,8 @@ static const struct ethtool_ops e1000_ethtool_ops = {
+ 	.get_coalesce		= e1000_get_coalesce,
+ 	.set_coalesce		= e1000_set_coalesce,
+ 	.get_ts_info		= ethtool_op_get_ts_info,
++	.get_link_ksettings	= e1000_get_link_ksettings,
++	.set_link_ksettings	= e1000_set_link_ksettings,
+ };
+ 
+ void e1000_set_ethtool_ops(struct net_device *netdev)
 -- 
-Kees Cook
-Pixel Security
+2.12.0
