@@ -1,73 +1,70 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: fix dma operation mode config for older
- versions
-Date: Tue, 21 Mar 2017 21:46:47 +0100
-Message-ID: <20170321204644.GB1064@mithrandir.ba.sec>
-References: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490118934.git.jpinto@synopsys.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+	atomic_t to refcount_t
+Date: Tue, 21 Mar 2017 13:49:00 -0700
+Message-ID: <CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
+References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20170318164759.GA23837@gondor.apana.org.au>
+	<20170318.182121.439615057765380575.davem@davemloft.net>
+	<20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
+	<20170320131629.GA26405@gondor.apana.org.au>
+	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
+	<20170320132713.GA26954@gondor.apana.org.au>
+	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="PmA2V3Z32TCmWXqI"
-Cc: davem@davemloft.net, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, clabbe.montjoie@gmail.com,
-        sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
-To: Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35651 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932478AbdCUUrp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 16:47:45 -0400
-Received: by mail-wm0-f67.google.com with SMTP id z133so5304770wmb.2
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 13:46:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490118934.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>, Patrick McHardy <kaber@trash.net>,
+	Network Development <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, "Reshetova,
+	Elena" <elena.reshetova@intel.com>, David Windsor <dwindsor@gmail.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Mar 20, 2017 at 6:40 AM, Peter Zijlstra <peterz@infradead.org> wrote:
+> On Mon, Mar 20, 2017 at 09:27:13PM +0800, Herbert Xu wrote:
+>> On Mon, Mar 20, 2017 at 02:23:57PM +0100, Peter Zijlstra wrote:
+>> >
+>> > So what bench/setup do you want ran?
+>>
+>> You can start by counting how many cycles an atomic op takes
+>> vs. how many cycles this new code takes.
+>
+> On what uarch?
+>
+> I think I tested hand coded asm version and it ended up about double the
+> cycles for a cmpxchg loop vs the direct instruction on an IVB-EX (until
+> the memory bus saturated, at which point they took the same). Newer
+> parts will of course have different numbers,
+>
+> Can't we run some iperf on a 40gbe fiber loop or something? It would be
+> very useful to have an actual workload we can run.
 
---PmA2V3Z32TCmWXqI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Yeah, this is exactly what I'd like to find as well. Just comparing
+cycles between refcount implementations, while interesting, doesn't
+show us real-world performance changes, which is what we need to
+measure.
 
-Resending with Sergei's proper email address.
+Is Eric's "20 concurrent 'netperf -t UDP_STREAM'" example (from
+elsewhere in this email thread) real-world meaningful enough?
 
-On Tue, Mar 21, 2017 at 06:02:36PM +0000, Joao Pinto wrote:
-> This patch fixes a bug introduced in:
-> commit 6deee2221e11 ("net: stmmac: prepare dma op mode config for multiple
-> queues")
->=20
-> The dma operation mode configuration routine was wrongly moved to a
-> function (stmmac_mtl_configuration) that is only executed if the
-> core version is >=3D 4.00.
->=20
-> Reported-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+-Kees
 
-With Florian's comments addressed, this is:
-
-Reviewed-by: Thierry Reding <thierry.reding@gmail.com>
-
---PmA2V3Z32TCmWXqI
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljRkTQACgkQ3SOs138+
-s6FaCRAApNsI4l6nw2GTlJfB3Qwjzu8kzh/ZVuAoR51EFI+CE5Dxt0nW3yYn/tHr
-m2a1uVZKo3DQ1oEQNDvIg2k4vfU9vC9nKchOVMTa9CcL8htbPmUdvLJ7UHGbDdn1
-1AKFGsjwvIVSvuIAr0fIqg1xn0304iHJdRFeTAHjjRcreshJWI3kPTohvMZ7E0qX
-OP6cyqRd3bJKjETZK5DBAlhRHsY962ARfhQTAnTCkosCY98kG3yZnCFci4bCOFq7
-jKvo67785ayn8lIxY8w4LqREOVvHAWA/6qhle5d3GTJxZaH2aD87jogmgDJfBePt
-/OOnn9HTAAlYIqvhEC4IigDQ4clfRlCokD0Fs89TYn3hoaNSGSqZj9VKhHrUwSpq
-5piERxBiTMzp0T9oUyXMx2znSe3Adtl8+n73P5zcV3uwQa2Caxl/zm+3wQrLxC1u
-t15+tjEkdbnttniDBCqdzvjDk1MlB+bk/l6QCvSPn2l2As/4aCjvbfbN0jW9M4oz
-Lx4yvX2wbXxiEYC5bEQL0oSRef7qKqwgw/CkaeCWPB76BiAmgQJWjsL6zqk5RV/W
-rxuAPDGhz9+Pm3Gvo/55ATyt1XGF9wh1fA7el1/qLkQtdcpdi2VCWIpVxdn4feRc
-1lONvyufGB0nGD0LKE8sj5xcmYoTvuzPhcoeY+jXNXXn7fpNmpc=
-=v/tA
------END PGP SIGNATURE-----
-
---PmA2V3Z32TCmWXqI--
+-- 
+Kees Cook
+Pixel Security
