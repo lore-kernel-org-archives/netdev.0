@@ -1,80 +1,95 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: unix: properly re-increment inflight counter of
- GC discarded candidates
-Date: Tue, 21 Mar 2017 15:27:40 -0700 (PDT)
-Message-ID: <20170321.152740.423576909432306907.davem@davemloft.net>
-References: <20170315031642.19576-1-andreyu@google.com>
+Subject: Re: [PATCH net-next] net/8021q: create device with all possible
+ features in wanted_features
+Date: Tue, 21 Mar 2017 15:28:11 -0700 (PDT)
+Message-ID: <20170321.152811.737733862441297207.davem@davemloft.net>
+References: <20170316004114.17059-1-avagin@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andreyu@google.com
+Cc: netdev@vger.kernel.org, kuznet@virtuozzo.com
+To: avagin@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57840 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57836 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757046AbdCUWgy (ORCPT
+        with ESMTP id S1757217AbdCUWgy (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 18:36:54 -0400
-In-Reply-To: <20170315031642.19576-1-andreyu@google.com>
+In-Reply-To: <20170316004114.17059-1-avagin@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Ulanov <andreyu@google.com>
-Date: Tue, 14 Mar 2017 20:16:42 -0700
+From: Andrei Vagin <avagin@openvz.org>
+Date: Wed, 15 Mar 2017 17:41:14 -0700
 
-> Dmitry has reported that a BUG_ON() condition in unix_notinflight()
-> may be triggered by a simple code that forwards unix socket in an
-> SCM_RIGHTS message.
-> That is caused by incorrect unix socket GC implementation in unix_gc().
+> wanted_features is a set of features which have to be enabled if a
+> hardware allows that.
 > 
-> The GC first collects list of candidates, then (a) decrements their
-> "children's" inflight counter, (b) checks which inflight counters are
-> now 0, and then (c) increments all inflight counters back.
-> (a) and (c) are done by calling scan_children() with inc_inflight or
-> dec_inflight as the second argument.
+> Currently when a vlan device is created, its wanted_features is set to
+> current features of its base device.
 > 
-> Commit 6209344f5a37 ("net: unix: fix inflight counting bug in garbage
-> collector") changed scan_children() such that it no longer considers
-> sockets that do not have UNIX_GC_CANDIDATE flag. It also added a block
-> of code that that unsets this flag _before_ invoking
-> scan_children(, dec_iflight, ). This may lead to incorrect inflight
-> counters for some sockets.
+> The problem is that the base device can get new features and they are
+> not propagated to vlan-s of this device.
 > 
-> This change fixes this bug by changing order of operations:
-> UNIX_GC_CANDIDATE is now unset only after all inflight counters are
-> restored to the original state.
+> If we look at bonding devices, they doesn't have this problem and this
+> patch suggests to fix this issue by the same way how it works for bonding
+> devices.
 > 
->   kernel BUG at net/unix/garbage.c:149!
->   RIP: 0010:[<ffffffff8717ebf4>]  [<ffffffff8717ebf4>]
->   unix_notinflight+0x3b4/0x490 net/unix/garbage.c:149
->   Call Trace:
->    [<ffffffff8716cfbf>] unix_detach_fds.isra.19+0xff/0x170 net/unix/af_unix.c:1487
->    [<ffffffff8716f6a9>] unix_destruct_scm+0xf9/0x210 net/unix/af_unix.c:1496
->    [<ffffffff86a90a01>] skb_release_head_state+0x101/0x200 net/core/skbuff.c:655
->    [<ffffffff86a9808a>] skb_release_all+0x1a/0x60 net/core/skbuff.c:668
->    [<ffffffff86a980ea>] __kfree_skb+0x1a/0x30 net/core/skbuff.c:684
->    [<ffffffff86a98284>] kfree_skb+0x184/0x570 net/core/skbuff.c:705
->    [<ffffffff871789d5>] unix_release_sock+0x5b5/0xbd0 net/unix/af_unix.c:559
->    [<ffffffff87179039>] unix_release+0x49/0x90 net/unix/af_unix.c:836
->    [<ffffffff86a694b2>] sock_release+0x92/0x1f0 net/socket.c:570
->    [<ffffffff86a6962b>] sock_close+0x1b/0x20 net/socket.c:1017
->    [<ffffffff81a76b8e>] __fput+0x34e/0x910 fs/file_table.c:208
->    [<ffffffff81a771da>] ____fput+0x1a/0x20 fs/file_table.c:244
->    [<ffffffff81483ab0>] task_work_run+0x1a0/0x280 kernel/task_work.c:116
->    [<     inline     >] exit_task_work include/linux/task_work.h:21
->    [<ffffffff8141287a>] do_exit+0x183a/0x2640 kernel/exit.c:828
->    [<ffffffff8141383e>] do_group_exit+0x14e/0x420 kernel/exit.c:931
->    [<ffffffff814429d3>] get_signal+0x663/0x1880 kernel/signal.c:2307
->    [<ffffffff81239b45>] do_signal+0xc5/0x2190 arch/x86/kernel/signal.c:807
->    [<ffffffff8100666a>] exit_to_usermode_loop+0x1ea/0x2d0
->   arch/x86/entry/common.c:156
->    [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
->    [<ffffffff81009693>] syscall_return_slowpath+0x4d3/0x570
->   arch/x86/entry/common.c:259
->    [<ffffffff881478e6>] entry_SYSCALL_64_fastpath+0xc4/0xc6
+> We meet this problem, when we try to create a vlan device over a bonding
+> device. When a system are booting, real devices require time to be
+> initialized, so bonding devices created without slaves, then vlan
+> devices are created and only then ethernet devices are added to the
+> bonding device. As a result we have vlan devices with disabled
+> scatter-gather.
 > 
-> Link: https://lkml.org/lkml/2017/3/6/252
-> Signed-off-by: Andrey Ulanov <andreyu@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Fixes: 6209344 ("net: unix: fix inflight counting bug in garbage collector")
+> * create a bonding device
+>   $ ip link add bond0 type bond
+>   $ ethtool -k bond0 | grep scatter
+>   scatter-gather: off
+> 	tx-scatter-gather: off [requested on]
+> 	tx-scatter-gather-fraglist: off [requested on]
+> 
+> * create a vlan device
+>   $ ip link add link bond0 name bond0.10 type vlan id 10
+>   $ ethtool -k bond0.10 | grep scatter
+>   scatter-gather: off
+> 	tx-scatter-gather: off
+> 	tx-scatter-gather-fraglist: off
+> 
+> * Add a slave device to bond0
+>   $ ip link set dev eth0 master bond0
+> 
+> And now we can see that the bond0 device has got the scatter-gather
+> feature, but the bond0.10 hasn't got it.
+> [root@laptop linux-task-diag]# ethtool -k bond0 | grep scatter
+> scatter-gather: on
+> 	tx-scatter-gather: on
+> 	tx-scatter-gather-fraglist: on
+> [root@laptop linux-task-diag]# ethtool -k bond0.10 | grep scatter
+> scatter-gather: off
+> 	tx-scatter-gather: off
+> 	tx-scatter-gather-fraglist: off
+> 
+> With this patch the vlan device will get all new features from the
+> bonding device.
+> 
+> Here is a call trace how features which are set in this patch reach
+> dev->wanted_features.
+> 
+> register_netdevice
+>    vlan_dev_init
+> 	...
+> 	dev->hw_features = NETIF_F_HW_CSUM | NETIF_F_SG |
+> 		       NETIF_F_FRAGLIST | NETIF_F_GSO_SOFTWARE |
+> 		       NETIF_F_HIGHDMA | NETIF_F_SCTP_CRC |
+> 		       NETIF_F_ALL_FCOE;
+> 
+> 	dev->features |= dev->hw_features;
+> 	...
+>     dev->wanted_features = dev->features & dev->hw_features;
+>     __netdev_update_features(dev);
+>         vlan_dev_fix_features
+> 	   ...
+> 
+> Signed-off-by: Andrei Vagin <avagin@openvz.org>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
