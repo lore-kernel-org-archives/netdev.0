@@ -1,28 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/22] Netfilter/IPVS updates for net-next
-Date: Tue, 21 Mar 2017 14:34:41 -0700 (PDT)
-Message-ID: <20170321.143441.976994670207919918.davem@davemloft.net>
-References: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH-v5 0/4] vsock: cancel connect packets when failing to
+ connect
+Date: Tue, 21 Mar 2017 14:42:00 -0700 (PDT)
+Message-ID: <20170321.144200.728688553537467782.davem@davemloft.net>
+References: <1489541537-130429-1-git-send-email-bergwolf@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1490004530-9128-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, stefanha@redhat.com, jhansen@vmware.com
+To: bergwolf@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57216 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758437AbdCUVmC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 17:42:02 -0400
+In-Reply-To: <1489541537-130429-1-git-send-email-bergwolf@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 20 Mar 2017 11:08:28 +0100
+From: Peng Tao <bergwolf@gmail.com>
+Date: Wed, 15 Mar 2017 09:32:13 +0800
 
-> The following patchset contains Netfilter/IPVS updates for your
-> net-next tree. A couple of new features for nf_tables, and unsorted
-> cleanups and incremental updates for the Netfilter tree. More
-> specifically, they are:
- ...
-> You can pull these changes from:
+> Currently, if a connect call fails on a signal or timeout (e.g., guest is still
+> in the process of starting up), we'll just return to caller and leave the connect
+> packet queued and they are sent even though the connection is considered a failure,
+> which can confuse applications with unwanted false connect attempt.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> The patchset enables vsock (both host and guest) to cancel queued packets when
+> a connect attempt is considered to fail.
+> 
+> v5 changelog:
+>   - change virtio_vsock_pkt->cancel_token back to virtio_vsock_pkt->vsk
+> v4 changelog:
+>   - drop two unnecessary void * cast
+>   - update new callback comment
+> v3 changelog:
+>   - define cancel_pkt callback in struct vsock_transport rather than struct virtio_transport
+>   - rename virtio_vsock_pkt->vsk to virtio_vsock_pkt->cancel_token
+> v2 changelog:
+>   - fix queued_replies counting and resume tx/rx when necessary
 
-Pulled, thanks a lot Pablo.
+Series applied, thanks.
