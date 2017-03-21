@@ -1,75 +1,72 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH nf v2 1/1] netfilter: snmp: Fix one possible panic when
- snmp_trap_helper fail to register
-Date: Tue, 21 Mar 2017 08:26:04 +0800
-Message-ID: <CA+6hz4r+VQmL+-2dhLO0jjnydrR9FgM_9f-+XtUQid7OUJz1_Q@mail.gmail.com>
-References: <1490003728-33866-1-git-send-email-fgao@ikuai8.com>
- <02f61fe0-37d9-8837-1c8f-390c5dea6ff4@cogentembedded.com> <CA+6hz4pkQR0xvwru2cr8gPgsC6aeEXh+45+82awk_BE5D-mqTQ@mail.gmail.com>
- <4da3e4cf-bcfa-e0fe-539c-4fc03e8959a9@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        "David S. Miller" <davem@davemloft.net>, jolsa@redhat.com,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4da3e4cf-bcfa-e0fe-539c-4fc03e8959a9@cogentembedded.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH nf v3 1/1] netfilter: snmp: Fix one possible panic when snmp_trap_helper fail to register
+Date: Tue, 21 Mar 2017 08:22:29 +0800
+Message-ID: <1490055749-52357-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, davem@davemloft.net, jolsa@redhat.com,
+        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbg340.qq.com ([14.17.44.35]:43450 "EHLO smtpbg340.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755077AbdCUAdT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 20 Mar 2017 20:33:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 21, 2017 at 12:35 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> On 03/20/2017 01:15 PM, Feng Gao wrote:
->
->>>> From: Gao Feng <fgao@ikuai8.com>
->>>>
->>>> In the commit <93557f53e1fb> ("netfilter: nf_conntrack: nf_conntrack
->>>> snmp
->>>
->>>
->>>
->>>    Angle brackets not needed. :-)
->>>    The commit citing style is the same as for the Fixes: tag.
->>
->>
->> The checkpatch.pl reports the following error, if remove the angle
->> brackets.
->
->
->    Because it stops recognizing the commit ID! :-)
->
->> ERROR: Please use git commit description style 'commit <12+ chars of
->> sha1> ("<title line>")' - ie: 'commit fatal: ambig ("evision or path
->> not in the working tree.")'
->
->
->    So check the patch in the correct tree because that seems to be the
-> problem... Angle brackets are surely not required.
+From: Gao Feng <fgao@ikuai8.com>
 
-Actually I didn't add the angle brackets firstly, but it fail to pass
-the check_patch.pl check.
-So I had to modify it.
+In the commit 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp
+helper"), the snmp_helper is replaced by nf_nat_snmp_hook. So the
+snmp_helper is never registered. But it still tries to unregister the
+snmp_helper, it could cause the panic.
 
-Ok, I removed the angle brackets now, just ignored the error report of
-check_patch.pl.
+Now remove the useless snmp_helper and the unregister call in the
+error handler.
 
-Best Regards
-Feng
+Fixes: 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp helper")
 
->
->> #7:
->> In the commit 93557f53e1fb ("netfilter: nf_conntrack: nf_conntrack snmp
->>
->> total: 1 errors, 0 warnings, 0 checks, 27 lines checked
->>
->>
->> Regards
->> Feng
->
->
-> [...]
->
-> MBR, Sergei
->
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v3: Remove the angle brackets in description, per Sergei
+ v2: Add the SHA1 ID in the description, per Sergei
+ v1: Initial version
+
+ net/ipv4/netfilter/nf_nat_snmp_basic.c | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
+
+diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+index c9b52c3..5787364 100644
+--- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
++++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+@@ -1260,16 +1260,6 @@ static int help(struct sk_buff *skb, unsigned int protoff,
+ 	.timeout	= 180,
+ };
+ 
+-static struct nf_conntrack_helper snmp_helper __read_mostly = {
+-	.me			= THIS_MODULE,
+-	.help			= help,
+-	.expect_policy		= &snmp_exp_policy,
+-	.name			= "snmp",
+-	.tuple.src.l3num	= AF_INET,
+-	.tuple.src.u.udp.port	= cpu_to_be16(SNMP_PORT),
+-	.tuple.dst.protonum	= IPPROTO_UDP,
+-};
+-
+ static struct nf_conntrack_helper snmp_trap_helper __read_mostly = {
+ 	.me			= THIS_MODULE,
+ 	.help			= help,
+@@ -1294,10 +1284,8 @@ static int __init nf_nat_snmp_basic_init(void)
+ 	RCU_INIT_POINTER(nf_nat_snmp_hook, help);
+ 
+ 	ret = nf_conntrack_helper_register(&snmp_trap_helper);
+-	if (ret < 0) {
+-		nf_conntrack_helper_unregister(&snmp_helper);
++	if (ret < 0)
+ 		return ret;
+-	}
+ 	return ret;
+ }
+ 
+-- 
+1.9.1
