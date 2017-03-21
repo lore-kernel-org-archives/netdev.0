@@ -1,64 +1,48 @@
-From: <morice.diane@gmail.com>
-Subject: 23003 netdev
-Date: Tue, 21 Mar 2017 05:53:46 -0000
-Message-ID: <149007562621.18826.10683865453062572511@tpgi.com.au>
-Reply-To: <morice.diane@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: SCTP MSG_MORE code
+Date: Tue, 21 Mar 2017 14:01:07 +0800
+Message-ID: <CADvbK_ffK4Cw6FmwDUw-hDJBANqWpxrCMMzFQ5ikb7jD_tSdkQ@mail.gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6DCFFB5839@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="26884182.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 14-201-250-195.static.tpgi.com.au ([14.201.250.195]:60034 "HELO
-        tpgi.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751880AbdCUFxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Mar 2017 01:53:54 -0400
-Content-Disposition: attachment
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:33192 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752036AbdCUGBJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 02:01:09 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB5839@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAEAAAAAFBLBQYAAAAAAQABAFMAAAC5CQAAAAA=
+On Tue, Mar 21, 2017 at 1:49 AM, David Laight <David.Laight@aculab.com> wrote:
+> Something needs to be done with SCTP MSG_MORE before the end of the rc cycle.
+> The current code is definitely broken.
+agreed.
+
+>
+> I objected to the last 'fix' patch because it clears the flag is a place where
+> I don't think it is necessary to do so - so could generate extra ethernet frames.
+>
+Sorry, can you double check the last 'fix' patch ?
+I could not get 'generate extra ethernet frames'.
+
+if we keep sending data with "MSG_MORE", after one ethernet frame
+is sent, "followed by a second ethernet frame with 1 chunk in it" will NOT
+happen, as in this loop the asoc's msg_more flag is still set, and this flush
+is called by sctp_sendmsg(the function msg_more should care more).
+
+
+If your point about "generate extra ethernet frames"  is right, sure, I will
+change the way to fix that. but before this, pls check it again, appreciate it.
+
+>         David
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
