@@ -1,68 +1,82 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/8] ptr_ring: introduce batch dequeuing
-Date: Tue, 21 Mar 2017 13:25:10 +0300
-Message-ID: <9ecd2a27-4f93-2b3f-cb91-c558976973a2@cogentembedded.com>
-References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
-	<1490069087-4783-2-git-send-email-jasowang@redhat.com>
+From: "Reshetova, Elena" <elena.reshetova@intel.com>
+Subject: RE: [PATCH] net: convert sk_filter.refcnt from atomic_t to
+ refcount_t
+Date: Tue, 21 Mar 2017 10:43:12 +0000
+Message-ID: <2236FBA76BA1254E88B949DDB74E612B41C5C8D1@IRSMSX102.ger.corp.intel.com>
+References: <1490002641-10498-1-git-send-email-elena.reshetova@intel.com>
+ <58D00DBD.5080702@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1490069087-4783-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "ast@fb.com" <ast@fb.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "peterz@infradead.org" <peterz@infradead.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        Kees Cook <keescook@chromium.org>,
+        David Windsor <dwindsor@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <58D00DBD.5080702@iogearbox.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+> On 03/20/2017 10:37 AM, Elena Reshetova wrote:
+> [...]
+> > diff --git a/net/core/filter.c b/net/core/filter.c
+> > index ebaeaf2..389cb8d 100644
+> > --- a/net/core/filter.c
+> > +++ b/net/core/filter.c
+> > @@ -928,7 +928,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
+> >    */
+> >   static void sk_filter_release(struct sk_filter *fp)
+> >   {
+> > -	if (atomic_dec_and_test(&fp->refcnt))
+> > +	if (refcount_dec_and_test(&fp->refcnt))
+> >   		call_rcu(&fp->rcu, sk_filter_release_rcu);
+> >   }
+> >
+> > @@ -943,20 +943,27 @@ void sk_filter_uncharge(struct sock *sk, struct
+> sk_filter *fp)
+> >   /* try to charge the socket memory if there is space available
+> >    * return true on success
+> >    */
+> > -bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+> > +bool __sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+> 
+> And this then becomes: static bool __sk_filter_charge(...)
 
-On 3/21/2017 7:04 AM, Jason Wang wrote:
+Ups, I guess I am getting too tired of all these patch sendings, so more and more mistakes slide in. 
+Will try switching to smth else to get attention back in order. 
 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  include/linux/ptr_ring.h | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 65 insertions(+)
->
-> diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-> index 6c70444..4771ded 100644
-> --- a/include/linux/ptr_ring.h
-> +++ b/include/linux/ptr_ring.h
-> @@ -247,6 +247,22 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
->  	return ptr;
->  }
->
-> +static inline int __ptr_ring_consume_batched(struct ptr_ring *r,
-> +					     void **array, int n)
-> +{
-> +	void *ptr;
-> +	int i = 0;
-> +
-> +	while (i < n) {
+> 
+> >   {
+> >   	u32 filter_size = bpf_prog_size(fp->prog->len);
+> >
+> >   	/* same check as in sock_kmalloc() */
+> >   	if (filter_size <= sysctl_optmem_max &&
+> >   	    atomic_read(&sk->sk_omem_alloc) + filter_size <
+> sysctl_optmem_max) {
+> > -		atomic_inc(&fp->refcnt);
+> >   		atomic_add(filter_size, &sk->sk_omem_alloc);
+> >   		return true;
+> >   	}
+> >   	return false;
+> >   }
+> 
+> Since here is just all in slow-path, looks fine to me if the above
+> is addressed as well in v3:
+> 
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> 
+> Please make sure you add [PATCH net-next] in your subject in future
+> so that it's clear which tree this goes to.
 
-    Hm, why not *for*?
+Thank you very much! Will do. 
 
-> +		ptr = __ptr_ring_consume(r);
-> +		if (!ptr)
-> +			break;
-> +		array[i++] = ptr;
-> +	}
-> +
-> +	return i;
-> +}
-> +
->  /*
->   * Note: resize (below) nests producer lock within consumer lock, so if you
->   * call this in interrupt or BH context, you must disable interrupts/BH when
-> @@ -297,6 +313,55 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
-[...]
-
-MBR, Sergei
+Best Regards,
+Elena.
+> 
+> Thanks,
+> Daniel
