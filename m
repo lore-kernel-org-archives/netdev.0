@@ -1,58 +1,52 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: stmmac still supporting spear600 ?
-Date: Tue, 21 Mar 2017 15:50:54 +0100
-Message-ID: <20170321155054.2f4cb921@free-electrons.com>
-References: <20170309093412.33c0277d@free-electrons.com>
-        <373e2760-94c5-4349-33aa-158bc8f4b19e@st.com>
-        <20170309103236.3e16304f@free-electrons.com>
-        <79049eda-5d37-6b70-8945-2d3ab55e56b8@st.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net 7/8] net/mlx5e: Count GSO packets correctly
+Date: Tue, 21 Mar 2017 07:40:43 -0700
+Message-ID: <f6cd891b-248f-86a7-f28c-2cd7a03929db@fb.com>
+References: <20170321135919.25018-1-saeedm@mellanox.com>
+ <20170321135919.25018-8-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexandre Torgue <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, Viresh Kumar <vireshk@kernel.org>,
-        Shiraz Hashim <shiraz.linux.kernel@gmail.com>,
-        <linux-arm-kernel@lists.infradead.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Cc: <netdev@vger.kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
+        Gal Pressman <galp@mellanox.com>, <kernel-team@fb.com>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:58048 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932333AbdCUOvL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 10:51:11 -0400
-In-Reply-To: <79049eda-5d37-6b70-8945-2d3ab55e56b8@st.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50217 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1757017AbdCUPC6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 11:02:58 -0400
+In-Reply-To: <20170321135919.25018-8-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 3/21/17 6:59 AM, Saeed Mahameed wrote:
+> From: Gal Pressman <galp@mellanox.com>
+>
+> TX packets statistics ('tx_packets' counter) used to count GSO packets
+> as one, even though it contains multiple segments.
+> This patch will increment the counter by the number of segments, and
+> align the driver with the behavior of other drivers in the stack.
+>
+> Note that no information is lost in this patch due to 'tx_tso_packets'
+> counter existence.
+>
+> Before, ethtool showed:
+> $ ethtool -S ens6 | egrep "tx_packets|tx_tso_packets"
+>      tx_packets: 61340
+>      tx_tso_packets: 60954
+>      tx_packets_phy: 2451115
+>
+> Now, we will see the more logical statistics:
+> $ ethtool -S ens6 | egrep "tx_packets|tx_tso_packets"
+>      tx_packets: 2451115
+>      tx_tso_packets: 60954
+>      tx_packets_phy: 2451115
+>
+> Fixes: e586b3b0baee ("net/mlx5: Ethernet Datapath files")
+> Signed-off-by: Gal Pressman <galp@mellanox.com>
+> Cc: kernel-team@fb.com
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 
-On Thu, 9 Mar 2017 15:56:31 +0100, Giuseppe CAVALLARO wrote:
-
-> On 3/9/2017 10:32 AM, Thomas Petazzoni wrote:
-> 
-> > OK, I'll have a look. However, I'm still confused by this DMA_RESET bit
-> > that never clears, contrary to what the datasheet says. Are there some
-> > erratas?  
-> 
-> I suggest you to take a look at the tx/rx clocks from PHY.
-> You have to provide these otherwise you cannot reset the engine.
-
-Thanks for the hint.
-
-Further research has revealed that everything is working fine on a
-platform with a Gigabit PHY connected via GMII.
-
-However, on a different platform (which I'm using) with a 10/100 PHY
-connected via MII, DMA_RESET never clears, and networking doesn't work.
-The SMSC PHY LAN8700 is also supposed to be providing the clock through
-its TX_CLK pin. I double checked, and both the MAC and PHY are in MII
-mode, but still no luck so far.
-
-Of course, if you have any suggestion or hint, I'm all ears :)
-
-Thanks,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+thank you for fixing!
+Acked-by: Alexei Starovoitov <ast@kernel.org>
