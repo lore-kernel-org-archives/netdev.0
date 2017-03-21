@@ -1,8 +1,8 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH net-next 5/7] net: phy: convert micrel to new
- read_mmd/write_mmd driver methods
-Date: Tue, 21 Mar 2017 16:36:58 +0000
-Message-ID: <E1cqMmI-0006wx-F9@rmk-PC.armlinux.org.uk>
+Subject: [PATCH net-next 3/7] net: lan78xx: update for
+ phy_(read|write)_mmd_indirect() removal
+Date: Tue, 21 Mar 2017 16:36:48 +0000
+Message-ID: <E1cqMm8-0006wj-6J@rmk-PC.armlinux.org.uk>
 References: <20170321163555.GA21222@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,63 +12,60 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>, linux-usb@vger.kernel.org,
         netdev@vger.kernel.org, Woojung Huh <woojung.huh@microchip.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:54104 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:54084 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932589AbdCUQhi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 12:37:38 -0400
+        with ESMTP id S1757163AbdCUQhZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 12:37:25 -0400
 In-Reply-To: <20170321163555.GA21222@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert micrel to the new read_mmd/write_mmd driver methods.  This
-Clause 22 PHY does not support any MMD access method.
+lan78xx appears to use phylib in a rather weird way, accessing the PHY
+partly through phylib, and partly by making direct accesses to it,
+including to the Clause 45 registers.  As the indirect MMD accessors are
+going away, update this driver to use the plain phy_(read|write)_mmd()
+accessors instead.
 
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Acked-by: Woojung Huh <Woojung.Huh@microchip.com>
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/micrel.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+ drivers/net/usb/lan78xx.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 6742070ca676..b847184de6fc 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -637,8 +637,7 @@ static int ksz8873mll_config_aneg(struct phy_device *phydev)
-  * MMD extended PHY registers.
-  */
- static int
--ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
--		      int regnum)
-+ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int devad, u16 regnum)
- {
- 	return -1;
- }
-@@ -646,10 +645,10 @@ ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
- /* This routine does nothing since the Micrel ksz9021 does not support
-  * standard IEEE MMD extended PHY registers.
-  */
--static void
--ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
--		      int regnum, u32 val)
-+static int
-+ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int devad, u16 regnum, u16 val)
- {
-+	return -1;
- }
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 9889a70ff4f6..d885e0325422 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1952,10 +1952,10 @@ static int lan8835_fixup(struct phy_device *phydev)
+ 	struct lan78xx_net *dev = netdev_priv(phydev->attached_dev);
  
- static int kszphy_get_sset_count(struct phy_device *phydev)
-@@ -962,8 +961,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
--	.read_mmd_indirect = ksz9021_rd_mmd_phyreg,
--	.write_mmd_indirect = ksz9021_wr_mmd_phyreg,
-+	.read_mmd	= ksz9021_rd_mmd_phyreg,
-+	.write_mmd	= ksz9021_wr_mmd_phyreg,
- }, {
- 	.phy_id		= PHY_ID_KSZ9031,
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	/* LED2/PME_N/IRQ_N/RGMII_ID pin to IRQ_N mode */
+-	buf = phy_read_mmd_indirect(phydev, 0x8010, 3);
++	buf = phy_read_mmd(phydev, MDIO_MMD_PCS, 0x8010);
+ 	buf &= ~0x1800;
+ 	buf |= 0x0800;
+-	phy_write_mmd_indirect(phydev, 0x8010, 3, buf);
++	phy_write_mmd(phydev, MDIO_MMD_PCS, 0x8010, buf);
+ 
+ 	/* RGMII MAC TXC Delay Enable */
+ 	ret = lan78xx_write_reg(dev, MAC_RGMII_ID,
+@@ -1975,11 +1975,11 @@ static int ksz9031rnx_fixup(struct phy_device *phydev)
+ 
+ 	/* Micrel9301RNX PHY configuration */
+ 	/* RGMII Control Signal Pad Skew */
+-	phy_write_mmd_indirect(phydev, 4, 2, 0x0077);
++	phy_write_mmd(phydev, MDIO_MMD_WIS, 4, 0x0077);
+ 	/* RGMII RX Data Pad Skew */
+-	phy_write_mmd_indirect(phydev, 5, 2, 0x7777);
++	phy_write_mmd(phydev, MDIO_MMD_WIS, 5, 0x7777);
+ 	/* RGMII RX Clock Pad Skew */
+-	phy_write_mmd_indirect(phydev, 8, 2, 0x1FF);
++	phy_write_mmd(phydev, MDIO_MMD_WIS, 8, 0x1FF);
+ 
+ 	dev->interface = PHY_INTERFACE_MODE_RGMII_RXID;
+ 
 -- 
 2.7.4
