@@ -1,100 +1,142 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-stable] ipv4: keep skb->dst around in presence of IP
- options
-Date: Tue, 21 Mar 2017 11:25:29 +0000
-Message-ID: <1490095529.4770.12.camel@decadent.org.uk>
-References: <CAC9A2PqFcJ2k5Nm8QyxbOrO6rQnfHxcPvsnkzPMGUuJ5hCXM1Q@mail.gmail.com>
-         <1489987500.16816.19.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1490056423.4770.6.camel@decadent.org.uk>
-         <1490056561.4770.7.camel@decadent.org.uk>
-         <1490070228.16816.98.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [v5,net-next,1/9] net: stmmac: multiple queues dt configuration
+Date: Tue, 21 Mar 2017 12:32:45 +0100
+Message-ID: <20170321113245.GA10526@ulmo.ba.sec>
+References: <c315778b650a846db3c04816fd1d1041bb1e4043.1489169213.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-S6IZ/sap6Aw9nSOQp+Px"
-Cc: Anarcheuz Fritz <anarcheuz@gmail.com>, davem@davemloft.net,
-        security@kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40880 "EHLO
-        shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756896AbdCULZx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 07:25:53 -0400
-In-Reply-To: <1490070228.16816.98.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="cWoXeonUoKmBZSoM"
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, niklas.cassel-VrBV9hrLPhE@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <c315778b650a846db3c04816fd1d1041bb1e4043.1489169213.git.jpinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---=-S6IZ/sap6Aw9nSOQp+Px
-Content-Type: text/plain; charset="UTF-8"
+--cWoXeonUoKmBZSoM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2017-03-20 at 21:23 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Fri, Mar 10, 2017 at 06:24:51PM +0000, Joao Pinto wrote:
+> This patch adds the multiple queues configuration in the Device Tree.
+> It was also created a set of structures to keep the RX and TX queues
+> configurations to be used in the driver.
 >=20
-> Upstream commit 34b2cef20f19c87999fff3da4071e66937db9644
-> ("ipv4: keep skb->dst around in presence of IP options") incorrectly
-> root caused commit d826eb14ecef ("ipv4: PKTINFO doesnt need dst
-> reference") as bug origin.
->=20
-> This patch should fix the issue for 3.2.xx stable kernels, since IPv4
-> options seem to get more traction these days, after years of oblivion
-> ;)
->=20
-> Fixes: f84af32cbca70 ("net: ip_queue_rcv_skb() helper"))
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Anarcheuz Fritz <anarcheuz@gmail.com>
+> Signed-off-by: Joao Pinto <jpinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
 > ---
+> Changes v4->v5:
+> - patch title update (stmicro replaced by stmmac)
+> Changes v2->v4:
+> - Just to keep up with patch-set version
+> Changes v1->v2:
+> - RX and TX queues child nodes had bad handle
 >=20
-> This is a backport for 3.2 kernels.
-
-Added to the queue, thanks.
-
-Ben.
-
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index b3648bbef0da..a6e1eeb02267 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -1009,7 +1009,8 @@ e_inval:
-> =C2=A0 */
-> =C2=A0int ip_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-> =C2=A0{
-> -	if (!(inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO))
-> +	if (!(inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO) &&
-> +	=C2=A0=C2=A0=C2=A0=C2=A0!IPCB(skb)->opt.optlen)
-> =C2=A0		skb_dst_drop(skb);
-> =C2=A0	return sock_queue_rcv_skb(sk, skb);
-> =C2=A0}
+>  Documentation/devicetree/bindings/net/stmmac.txt   | 40 ++++++++++
+>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 91 ++++++++++++++++=
+++++++
+>  include/linux/stmmac.h                             | 30 +++++++
+>  3 files changed, 161 insertions(+)
 >=20
->=20
---=20
-Ben Hutchings
-Power corrupts.=C2=A0=C2=A0Absolute power is kind of neat.
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0- John Lehman, Secretary of the US Navy
-1981-1987
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documenta=
+tion/devicetree/bindings/net/stmmac.txt
+> index d3bfc2b..4107e67 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -72,6 +72,27 @@ Optional properties:
+>  	- snps,mb: mixed-burst
+>  	- snps,rb: rebuild INCRx Burst
+>  - mdio: with compatible =3D "snps,dwmac-mdio", create and register mdio =
+bus.
+> +- Multiple RX Queues parameters: below the list of all the parameters to
+> +				 configure the multiple RX queues:
+> +	- snps,rx-queues-to-use: number of RX queues to be used in the driver
+> +	- Choose one of these RX scheduling algorithms:
+> +		- snps,rx-sched-sp: Strict priority
+> +		- snps,rx-sched-wsp: Weighted Strict priority
+> +	- For each RX queue
+> +		- Choose one of these modes:
+> +			- snps,dcb-algorithm: Queue to be enabled as DCB
+> +			- snps,avb-algorithm: Queue to be enabled as AVB
+> +		- snps,map-to-dma-channel: Channel to map
+> +- Multiple TX Queues parameters: below the list of all the parameters to
+> +				 configure the multiple TX queues:
+> +	- snps,tx-queues-to-use: number of TX queues to be used in the driver
+> +	- Choose one of these TX scheduling algorithms:
+> +		- snps,tx-sched-wrr: Weighted Round Robin
+> +		- snps,tx-sched-wfq: Weighted Fair Queuing
+> +		- snps,tx-sched-dwrr: Deficit Weighted Round Robin
+> +		- snps,tx-sched-sp: Strict priority
+> +	- For each TX queue
+> +		- snps,weight: TX queue weight (if using a weighted algorithm)
+> =20
+>  Examples:
+> =20
+> @@ -81,6 +102,23 @@ Examples:
+>  		snps,blen =3D <256 128 64 32 0 0 0>;
+>  	};
+> =20
+> +	mtl_rx_setup: rx-queues-config {
+> +		snps,rx-queues-to-use =3D <1>;
+> +		snps,rx-sched-sp;
+> +		queue0 {
+> +			snps,dcb-algorithm;
+> +			snps,map-to-dma-channel =3D <0x0>;
+> +		};
+> +	};
+> +
+> +	mtl_tx_setup: tx-queues-config {
+> +		snps,tx-queues-to-use =3D <1>;
+> +		snps,tx-sched-wrr;
+> +		queue0 {
+> +			snps,weight =3D <0x10>;
+> +		};
+> +	};
+> +
+>  	gmac0: ethernet@e0800000 {
+>  		compatible =3D "st,spear600-gmac";
+>  		reg =3D <0xe0800000 0x8000>;
+> @@ -104,4 +142,6 @@ Examples:
+>  			phy1: ethernet-phy@0 {
+>  			};
+>  		};
+> +		snps,mtl-rx-config =3D <&mtl_rx_setup>;
+> +		snps,mtl-tx-config =3D <&mtl_tx_setup>;
+>  	};
 
+That's kind of an odd placement for these nodes. Wouldn't they be better
+located within the controller's device tree node, rather than referenced
+by phandle? Making them children of the root node leaves them completely
+without context.
 
---=-S6IZ/sap6Aw9nSOQp+Px
+Thierry
+
+--cWoXeonUoKmBZSoM
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAABCgAdFiEErCspvTSmr92z9o8157/I7JWGEQkFAljRDakACgkQ57/I7JWG
-EQmzfRAAtQ5D1b1dQ9FokfyDs2qQMn4cWkeUHBFpabCX5HHPA6EuOyUKwQEmNGZK
-q++YIVY3nmlfXGdnoAP/XiqY38cZ5pTOCJRVrSt9q7GmFxTxR6vqvJqId8bb0D3Y
-H2G93FBOx/1DkY9W/Ht7bDrXhlZJmQtGnhHjenTcyAPEWAspRHpCQB/tVXFxkcAh
-e1+F9pnlv6dnZAmkdZz/XjFFNv95RFOf5DdgirAyf7Ak5UZCaHdoa8zz4hCPDyqH
-vpQAfbL/KaGXRTmH5Hh8FJrqZq1ZEpcPAAkEWaYZwvgDKgfw20Qz68TyAoUswru3
-0rdRGejG1Cke3zJWw8DYMGwsnj/Z62my+qhGgW28vcGEW9yT5YxfNlbkNxO3l3OS
-mUFY7oswQSjnZBqjodYNZEmFxpe/NjedocyIaJisnkeJP1xESULxghzL/Kw1x8Yv
-kqqzl1fV9ap+baCxa8zQg/OY7eScegv90s+c2hqkaXn2B0dPWoiV0nHBYgPhp76Y
-cWlnL9CIkPe/qEG23lMSfn51yn037jjWYt6D41+t3B6/HBipHnyv20Yt425kM/iC
-vlH6qIGlCMLaac4Tmv7+YEEUOjEE7zx+y7Kc7ZDgLQlSBFGgIsMDb5V1VAhkx05y
-+rxOCqJ4Fojt/+8MZ8CFBZnWHeNM6ERwJH+h7ZTUBWQ7c0gqBlg=
-=88wL
+iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljRD1sACgkQ3SOs138+
+s6E2ihAAvzjSHlEXKv19FLXgDyTCKUzexrTl99xI6q35CB0hOwiZLvG2Boc8nCNZ
+gdhhsT1MDV/2VlunRHt9KfWp1QmT0FIuQHRA6ZPpTAwWlszKFIRSka4c5w31kSmJ
+U6Df8bu0azwp6iJ90c+Fq84IWtC1CeJfSXNB4QAWMDbcxqU2Cwj5lTcMdomILqya
+ec9qOamNC1wF4nqvtQ0bQDz1CTsdb8ZNZCFpZR+0g33bRMpX7hRT0XRQ8FsjvcXv
+APwqFyBxiYd6bX1hTKstxgW0JR8Lkep4c5MnuuhQTvWcBxN9Sg5vsBXqXDG/dWyf
+UfNiHR5/Vn7R3rldp71q+/EjV+XPmCFTwAMam0LJbhGVauSv7yV/zr5oPXAaEBLV
+fyPpBjxBTLxSYfmtqVpI5mj089HgPof7Qg+Mvoor4NKhU8BVjaor24dP1mkiFRSW
+JLbBa3aF60We0xOKIX5A0kLca/aCLc2KsjAU/HuogceOmyBYIc1/LTIIIH5cFLNO
+ex9JjmOq3GSm+MJ7y5v+/GQejqRRHQhv8+goyZEMdZbtWWipCbRtflddyeQ9wbq2
+Wuvzbs3KoKIJt8z5N1GYGGnrGdsgQQywj39hSTMrpkbhfbfl1ViuqIo6j2/L0x1w
+aj4O4aU/T2EeJ4JbreC1rp+1Az0Yg2NBKgP4hkdrEl0Vbv/c4ks=
+=miiN
 -----END PGP SIGNATURE-----
 
---=-S6IZ/sap6Aw9nSOQp+Px--
+--cWoXeonUoKmBZSoM--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
