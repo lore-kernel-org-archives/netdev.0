@@ -1,48 +1,81 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: SCTP MSG_MORE code
-Date: Tue, 21 Mar 2017 14:01:07 +0800
-Message-ID: <CADvbK_ffK4Cw6FmwDUw-hDJBANqWpxrCMMzFQ5ikb7jD_tSdkQ@mail.gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6DCFFB5839@AcuExch.aculab.com>
+From: PJ Waskiewicz <pjwaskiewicz@gmail.com>
+Subject: Re: [PATCH] enic: Store permanent MAC address during probe()
+Date: Mon, 20 Mar 2017 23:20:34 -0700
+Message-ID: <CACMb8d2CDNSiVEDU4y+bDqEGWR2hRssKVoJEyG9g3tZ5DjzRhA@mail.gmail.com>
+References: <20170320224120.24484-1-pjw@netapp.com> <alpine.LNX.2.20.1703201701590.17033@cisco>
+ <CACMb8d1o=YGsA0VoNQAA6_svLFz3X7EnD4g_AXXvBg2oO_1hjQ@mail.gmail.com> <alpine.LNX.2.20.1703201835570.17033@cisco>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Christian Benvenuti <benve@cisco.com>,
+        Govindarajulu Varadarajan <_govind@gmx.com>,
+        Neel Patel <neepatel@cisco.com>
+To: Govindarajulu Varadarajan <gvaradar@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:33192 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752036AbdCUGBJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 02:01:09 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB5839@AcuExch.aculab.com>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:35247 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756585AbdCUG33 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 02:29:29 -0400
+Received: by mail-pg0-f50.google.com with SMTP id t143so23316808pgb.2
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 23:29:16 -0700 (PDT)
+In-Reply-To: <alpine.LNX.2.20.1703201835570.17033@cisco>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 21, 2017 at 1:49 AM, David Laight <David.Laight@aculab.com> wrote:
-> Something needs to be done with SCTP MSG_MORE before the end of the rc cycle.
-> The current code is definitely broken.
-agreed.
-
+On Mon, Mar 20, 2017 at 6:49 PM, Govindarajulu Varadarajan
+<gvaradar@cisco.com> wrote:
+> On Mon, 20 Mar 2017, PJ Waskiewicz wrote:
 >
-> I objected to the last 'fix' patch because it clears the flag is a place where
-> I don't think it is necessary to do so - so could generate extra ethernet frames.
+>> On Mon, Mar 20, 2017 at 5:33 PM, Govindarajulu Varadarajan
+>> <gvaradar@cisco.com> wrote:
+>>>
+>>> On Mon, 20 Mar 2017, PJ Waskiewicz wrote:
+>>>
+>>>> From: PJ Waskiewicz <pjwaskiewicz@gmail.com>
+>>>>
+>>>> The permanent MAC address is useful to store for things like ethtool,
+>>>> and when bonding with modes such as active/passive or LACP.
+>>>
+>>>
+>>> Is this patch fixing an issue with bonding drive on enic?
+>>
+>>
+>> We noticed that running ethtool -P <eth> on an enic, even on 4.9,
+>> returned nothing.  This has fallout when using bonding, where LACP or
+>> Active/Passive overrides the LAA on one of the slaves, one can't
+>> figure out what the physical MAC address is of each slave.  So not a
+>> problem with bonding directly, it's more secondary as a result of the
+>> driver not reporting the actual permanent address.
+>>
+>>>
+>>>> This follows the model of other Ethernet drivers, such as ixgbe.
+>>>>
+>>>
+>>> While other drivers set netdev->perm_addr, doesn't this actually come
+>>> free
+>>> in
+>>> register_netdevice().
+>>
+>>
+>> I thought it did as well, but in 4.9 when we tested it wasn't working.
+>> Hence the patch.  :-)
+>>
 >
-Sorry, can you double check the last 'fix' patch ?
-I could not get 'generate extra ethernet frames'.
+> Can you try with net-next? In my setup I do not see the issue on net-next
+> and on
+> 4.9 kernel. The issue for all drivers was fixed in
+> 948b337e62ca9 ("net: init perm_addr in register_netdevice()")
 
-if we keep sending data with "MSG_MORE", after one ethernet frame
-is sent, "followed by a second ethernet frame with 1 chunk in it" will NOT
-happen, as in this loop the asoc's msg_more flag is still set, and this flush
-is called by sctp_sendmsg(the function msg_more should care more).
+The fix looks like it went in after 4.9 was tagged and released.  4.9
+was tagged 12/11/2016, and 948b337e62ca9 was committed 1/8/2017.  That
+would explain why I didn't see it in 4.9.
 
+That being said, looks like 4.10 does work as expected without my
+patch, so I'm fine carrying the patch internally to our 4.9 tree.  I'm
+not sure it's worth sending either this patch or the netdev-level
+patch to -stable though, it's a small issue that is already fixed
+upstream.
 
-If your point about "generate extra ethernet frames"  is right, sure, I will
-change the way to fix that. but before this, pls check it again, appreciate it.
+Consider this patch rescinded.
 
->         David
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-PJ
