@@ -1,109 +1,126 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: Re: [PATCH 1/3] net: stmmac: Always enable MAC RX queues
-Date: Tue, 21 Mar 2017 17:38:50 +0100
-Message-ID: <20170321163850.GA31875@ulmo.ba.sec>
-References: <20170321151211.31841-1-thierry.reding@gmail.com>
- <970fc0aa-33f9-3eca-45e7-36df38d16e84@synopsys.com>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH net-next 2/7] net: phy: make phy_(read|write)_mmd() generic
+ MMD accessors
+Date: Tue, 21 Mar 2017 16:36:43 +0000
+Message-ID: <E1cqMm3-0006wc-1x@rmk-PC.armlinux.org.uk>
+References: <20170321163555.GA21222@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="9amGYk9869ThD9tj"
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        LABBE Corentin <clabbe.montjoie@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, linux-usb@vger.kernel.org,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+        netdev@vger.kernel.org, Woojung Huh <woojung.huh@microchip.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:54070 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757766AbdCUQhY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 12:37:24 -0400
+In-Reply-To: <20170321163555.GA21222@n2100.armlinux.org.uk>
 Content-Disposition: inline
-In-Reply-To: <970fc0aa-33f9-3eca-45e7-36df38d16e84@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Make phy_(read|write)_mmd() generic 802.3 clause 45 register accessors
+for both Clause 22 and Clause 45 PHYs, using either the direct register
+reading for Clause 45, or the indirect method for Clause 22 PHYs.
+Allow this behaviour to be overriden by PHY drivers where necessary.
 
---9amGYk9869ThD9tj
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/phy/phy-core.c | 33 +++++++++++++++++++++++++--------
+ include/linux/phy.h        | 24 ++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 8 deletions(-)
 
-On Tue, Mar 21, 2017 at 03:18:20PM +0000, Joao Pinto wrote:
-> =C3=80s 3:12 PM de 3/21/2017, Thierry Reding escreveu:
-> > From: Thierry Reding <treding@nvidia.com>
-> >=20
-> > The MAC RX queues always need to be enabled in order to receive network
-> > packets. Remove the condition that this only needs to be done for multi-
-> > queue configurations.
-> >=20
-> > Signed-off-by: Thierry Reding <treding@nvidia.com>
-> > ---
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driver=
-s/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > index d3a21519e4c0..298956032098 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > @@ -1943,7 +1943,7 @@ static void stmmac_mtl_configuration(struct stmma=
-c_priv *priv)
-> >  		stmmac_rx_queue_dma_chan_map(priv);
-> > =20
-> >  	/* Enable MAC RX Queues */
-> > -	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_enable)
-> > +	if (priv->hw->mac->rx_queue_enable)
-> >  		stmmac_mac_enable_rx_queues(priv);
-> > =20
-> >  	/* Set the HW DMA mode and the COE */
-> >=20
->=20
-> This text is from the Databook:
->=20
-> "In multiple Rx queues configuration, all the queues are disabled by defa=
-ult.
-> Enable the Rx queue by programming the corresponding field in this regist=
-er."
->=20
-> So by theory, only multiple queue configured cores needs the enable opera=
-tion.
-
-But that's related to multiple queues configured in the core when it was
-instantiated (i.e. the capabilities). rx_queues_count reflects the
-number of queues enabled in the driver, so it can be 1 even if the core
-itself supports more than one queue.
-
-In that case, we still want to enable the MAC RX queue because it will
-otherwise remain disabled.
-
->=20
-> >>> But came to my attention a setup that has 1 RX queue and 2 TX queues,=
- which
-> enables multiple queues mechanism inside the core (even with 1 RX) and so=
- RX
-> needs to be enabled. Because of that I agree with this patch.
->=20
-> Acked-By: Joao Pinto <jpinto@synopsys.com>
-
-Yeah, that case would also require this patch.
-
-Thierry
-
---9amGYk9869ThD9tj
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljRVxcACgkQ3SOs138+
-s6ELLg//fSXcCmAlW9RZg84qluzTi2TpIGronl0dXKxZ7eghbexmKzdO429LYQWd
-khjKdqbc7l5L0DuvxjslRvN+eWmU1sqoJ2/hiW3oft5RumcuGfJ7hYCQYi7ETd2k
-Dpl5xn/8wjduMK2HS2EScJbhDnHtgIaP9AmNz6z225GTsnRKScv/Bx3M1sJT0oyp
-Yf6xdQFfB4nEAwPnHgTUtLBTl+xnRM4M9Uzj8+dFfBatOatoNyqL6ELPX5SNp6o8
-GtxmG07mtevSItFcJvWVaMne5qwnHKOAgMnode/kDPYaHLiTOYX99pzyMZ/ankT7
-jsAcq/vrZKb5nHiKcTe1raSvU5G/gwmPcM6Q5t2w99bs1OAY/KOzd78Ljl4uZnYp
-ZhdvUAPP+zOulYnPidNOdmZdL1CmMkyHNQwfG098Zsp0EKEcQTlp50zPl7E7BGjR
-fUJYCF+PHMC7KdWDTDJ8XORuW8aLZzlgw3t2N043JhB7hVD2MUpCqK6YHT4w8wM7
-2p/nirJor8Yd5sdQU5frYtoV0N4OW4rVr4jx9KwAc87xEIO9rYC24EypYNuqN4AK
-5s1kvvbrjFsdPbHXkGXbukCEY9Z+IjcatjvlroPw2PZ42V26O4w4xVZPSAVqMZcV
-pxc11aJuMPOq9WuPOtjJF6oOz6JbzEJ+3MRM/MQ4SRJS7B4UvfQ=
-=GGAg
------END PGP SIGNATURE-----
-
---9amGYk9869ThD9tj--
+diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
+index b8d8276a3099..d791100afab2 100644
+--- a/drivers/net/phy/phy-core.c
++++ b/drivers/net/phy/phy-core.c
+@@ -69,11 +69,18 @@ EXPORT_SYMBOL(phy_read_mmd_indirect);
+  */
+ int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
+ {
+-	if (!phydev->is_c45)
+-		return -EOPNOTSUPP;
++	if (regnum > (u16)~0 || devad > 32)
++		return -EINVAL;
+ 
+-	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr,
+-			    MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff));
++	if (phydev->drv->read_mmd)
++		return phydev->drv->read_mmd(phydev, devad, regnum);
++
++	if (phydev->is_c45) {
++		u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
++		return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr, addr);
++	}
++
++	return phy_read_mmd_indirect(phydev, regnum, devad);
+ }
+ EXPORT_SYMBOL(phy_read_mmd);
+ 
+@@ -125,11 +132,21 @@ EXPORT_SYMBOL(phy_write_mmd_indirect);
+  */
+ int phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
+ {
+-	if (!phydev->is_c45)
+-		return -EOPNOTSUPP;
++	if (regnum > (u16)~0 || devad > 32)
++		return -EINVAL;
++
++	if (phydev->drv->read_mmd)
++		return phydev->drv->write_mmd(phydev, devad, regnum, val);
++
++	if (phydev->is_c45) {
++		u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
++
++		return mdiobus_write(phydev->mdio.bus, phydev->mdio.addr,
++				     addr, val);
++	}
+ 
+-	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
++	phy_write_mmd_indirect(phydev, regnum, devad, val);
+ 
+-	return mdiobus_write(phydev->mdio.bus, phydev->mdio.addr, regnum, val);
++	return 0;
+ }
+ EXPORT_SYMBOL(phy_write_mmd);
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index bcb4549b41d6..b8feeffeb64c 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -587,6 +587,30 @@ struct phy_driver {
+ 	 */
+ 	void (*link_change_notify)(struct phy_device *dev);
+ 
++	/*
++	 * Phy specific driver override for reading a MMD register.
++	 * This function is optional for PHY specific drivers.  When
++	 * not provided, the default MMD read function will be used
++	 * by phy_read_mmd(), which will use either a direct read for
++	 * Clause 45 PHYs or an indirect read for Clause 22 PHYs.
++	 *  devnum is the MMD device number within the PHY device,
++	 *  regnum is the register within the selected MMD device.
++	 */
++	int (*read_mmd)(struct phy_device *dev, int devnum, u16 regnum);
++
++	/*
++	 * Phy specific driver override for writing a MMD register.
++	 * This function is optional for PHY specific drivers.  When
++	 * not provided, the default MMD write function will be used
++	 * by phy_write_mmd(), which will use either a direct write for
++	 * Clause 45 PHYs, or an indirect write for Clause 22 PHYs.
++	 *  devnum is the MMD device number within the PHY device,
++	 *  regnum is the register within the selected MMD device.
++	 *  val is the value to be written.
++	 */
++	int (*write_mmd)(struct phy_device *dev, int devnum, u16 regnum,
++			 u16 val);
++
+ 	/* A function provided by a phy specific driver to override the
+ 	 * the PHY driver framework support for reading a MMD register
+ 	 * from the PHY. If not supported, return -1. This function is
+-- 
+2.7.4
