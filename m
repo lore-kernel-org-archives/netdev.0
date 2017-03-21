@@ -1,52 +1,31 @@
-From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCH RFC 0/7] phylib MMD accessor cleanups
-Date: Tue, 21 Mar 2017 13:09:13 +0000
-Message-ID: <20170321130912.GY21222@n2100.armlinux.org.uk>
-References: <20170319105943.GR21222@n2100.armlinux.org.uk>
- <0b44bbd9-2be9-85cb-1518-4e4ec36927e1@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Microchip Linux Driver Support <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Woojung Huh <woojung.huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <0b44bbd9-2be9-85cb-1518-4e4ec36927e1-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: simran singhal <singhalsimran0@gmail.com>
+Subject: [PATCH 0/2] netfilter: ,netdev@vger.kernel.org
+Date: Tue, 21 Mar 2017 18:53:17 +0530
+Message-ID: <1490102599-27579-1-git-send-email-singhalsimran0@gmail.com>
+Cc: kadlec@blackhole.kfki.hu, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        gregkh@linuxfoundation.org, outreachy-kernel@googlegroups.com,
+        wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34726 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932499AbdCUNXX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 09:23:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 19, 2017 at 03:30:38PM -0700, Florian Fainelli wrote:
-> Le 03/19/17 à 03:59, Russell King - ARM Linux a écrit :
-> > This series of patches does exactly that - we merge the functionality
-> > of the indirect accesses into the clause 45 accessors, and use these
-> > exclusively to access MMD registers.  Internally, the new clause
-> > independent MMD accessors indirect via the PHY drivers read_mmd/write_mmd
-> > methods if present, otherwise fall back to using clause 45 accesses if
-> > the PHY is a clause 45 phy, or clause 22 indirect accesses if the PHY
-> > is clause 22.
-> 
-> LGTM:
-> 
-> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+This patch series Simplify function returns by merging 
+assignment and return into one command line.
 
-Thanks.  When I posted this last time around (19th Jan) I mentioned
-about marking the old _indirect() accessors with __deprecated - is
-that still something we want to do?
+simran singhal (2):
+  netfilter: ipset: Compress return logic
+  netfilter: ipvs: Compress return logic
 
-I haven't tested this against net-next yet, so I don't know if there
-are any new users of the indirect accessors - going down the deprecated
-route would avoid breakage, but means having to submit a patch later to
-actually remove them.
-
-How would people want this handled?
+ net/netfilter/ipset/ip_set_list_set.c | 5 +----
+ net/netfilter/ipvs/ip_vs_ftp.c        | 5 +----
+ 2 files changed, 2 insertions(+), 8 deletions(-)
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.4
