@@ -1,53 +1,67 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 1/1] actions: Add support for user cookies
-Date: Tue, 21 Mar 2017 14:22:02 -0700
-Message-ID: <20170321142202.525fa06e@xeon-e3>
-References: <1490128502-22133-1-git-send-email-jhs@emojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+ atomic_t to refcount_t
+Date: Tue, 21 Mar 2017 14:23:09 -0700
+Message-ID: <1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20170318164759.GA23837@gondor.apana.org.au>
+	<20170318.182121.439615057765380575.davem@davemloft.net>
+	<20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
+	<20170320131629.GA26405@gondor.apana.org.au>
+	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
+	<20170320132713.GA26954@gondor.apana.org.au>
+	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
+	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:35212 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756389AbdCUVWN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 17:22:13 -0400
-Received: by mail-pg0-f45.google.com with SMTP id t143so33426429pgb.2
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 14:22:12 -0700 (PDT)
-In-Reply-To: <1490128502-22133-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, Patrick McHardy <kaber@trash.net>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Network Development <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, "Reshetova,
+	Elena" <elena.reshetova@intel.com>, David Windsor <dwindsor@gmail.com>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Minor style issues.
+On Tue, 2017-03-21 at 13:49 -0700, Kees Cook wrote:
 
-> +			if (*argv && strcmp(*argv, "cookie") == 0) {
-> +				int slen;
-slen is strlen() and that returns size_t not int.
+> Yeah, this is exactly what I'd like to find as well. Just comparing
+> cycles between refcount implementations, while interesting, doesn't
+> show us real-world performance changes, which is what we need to
+> measure.
+> 
+> Is Eric's "20 concurrent 'netperf -t UDP_STREAM'" example (from
+> elsewhere in this email thread) real-world meaningful enough?
 
-> +
-> +				NEXT_ARG();
-> +				slen = strlen(*argv);
-> +				if (slen > (TC_COOKIE_MAX_SIZE*2))
+Not at all ;)
 
-No extra (), and space around *
+This was targeting the specific change I had in mind for
+ip_idents_reserve(), which is not used by TCP flows.
 
-> +					invarg("cookie cannot exceed %d\n",
-> +					       *argv);
-> +
-> +				if (hex2mem(*argv, act_ck, slen/2) < 0)
-Space around / operator
+Unfortunately there is no good test simulating real-world workloads,
+which are mostly using TCP flows.
 
-> +					invarg("cookie must be a hex string\n",
-> +					       *argv);
-> +
-> +				act_ck_len = slen;
-> +				argc--;
-> +				argv++;
-> +			}
-> +
-> +			if (act_ck_len)
-> +				addattr_l(n, MAX_MSG, TCA_ACT_COOKIE,
-> +					  (const void *)&act_ck, act_ck_len);
+Most synthetic tools you can find are not using epoll(), and very often
+hit bottlenecks in other layers.
 
-Cast to void *  is not necessary.
+
+It looks like our suggestion to get kernel builds with atomic_inc()
+being exactly an atomic_inc() is not even discussed or implemented.
+
+Coding this would require less time than running a typical Google kernel
+qualification (roughly one month, thousands of hosts..., days of SWE).
