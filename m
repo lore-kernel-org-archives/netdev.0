@@ -1,58 +1,48 @@
-From: "Mody, Rasesh" <Rasesh.Mody@cavium.com>
-Subject: RE: [PATCH] bna: integer overflow bug in debugfs
-Date: Tue, 21 Mar 2017 01:14:05 +0000
-Message-ID: <BLUPR0701MB15723BB97F9129EC1020326E9F3D0@BLUPR0701MB1572.namprd07.prod.outlook.com>
-References: <20170317205234.GA2888@mwanda>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net v2 1/1] net: tcp: Permit user set TCP_MAXSEG to
+ default value
+Date: Mon, 20 Mar 2017 21:23:14 -0400
+Message-ID: <CADVnQy=8DK3B7HriNXums=NLEehkC9aCLK_uMpE7QmJLP6rNWw@mail.gmail.com>
+References: <1490057105-7068-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>,
-        Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        Krishna Gudipati <kgudipat@brocade.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Netdev <netdev@vger.kernel.org>, gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0080.outbound.protection.outlook.com ([104.47.36.80]:16256
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754163AbdCUBQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 21:16:09 -0400
-In-Reply-To: <20170317205234.GA2888@mwanda>
-Content-Language: en-US
+Received: from mail-ot0-f169.google.com ([74.125.82.169]:36374 "EHLO
+        mail-ot0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755220AbdCUBXq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 20 Mar 2017 21:23:46 -0400
+Received: by mail-ot0-f169.google.com with SMTP id i1so143444692ota.3
+        for <netdev@vger.kernel.org>; Mon, 20 Mar 2017 18:23:45 -0700 (PDT)
+In-Reply-To: <1490057105-7068-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
-> Sent: Friday, March 17, 2017 1:53 PM
->=20
-> We could allocate less memory than intended because we do:
->=20
-> 	bnad->regdata =3D kzalloc(len << 2, GFP_KERNEL);
->=20
-> The shift can overflow leading to a crash.  This is debugfs code so the i=
-mpact
-> is very small.
->=20
-> Fixes: 7afc5dbde091 ("bna: Add debugfs interface.")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->=20
-> diff --git a/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
-> b/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
-> index 05c1c1dd7751..cebfe3bd086e 100644
-> --- a/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
-> +++ b/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
-> @@ -325,7 +325,7 @@ bnad_debugfs_write_regrd(struct file *file, const
-> char __user *buf,
->  		return PTR_ERR(kern_buf);
->=20
->  	rc =3D sscanf(kern_buf, "%x:%x", &addr, &len);
-> -	if (rc < 2) {
-> +	if (rc < 2 || len > UINT_MAX >> 2) {
->  		netdev_warn(bnad->netdev, "failed to read user buffer\n");
->  		kfree(kern_buf);
->  		return -EINVAL;
+On Mon, Mar 20, 2017 at 8:45 PM, <fgao@ikuai8.com> wrote:
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 1e319a5..4f7f163 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2470,7 +2470,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+>                 /* Values greater than interface MTU won't take effect. However
+>                  * at the point when this call is done we typically don't yet
+>                  * know which interface is going to be used */
+> -               if (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW) {
+> +               if (!val && (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW)) {
+>                         err = -EINVAL;
+>                         break;
 
-You are correct, thanks Dan for adding the check.
+I believe the sense of the val check is flipped in the proposed patch.
 
-Acked-by: Rasesh Mody <rasesh.mody@cavium.com>
+I believe Eric suggested:
+
+  if (val && (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW)) {
+
+Has this been tested?
+
+neal
