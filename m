@@ -1,31 +1,112 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH] ipv6: make sure to initialize sockc.tsflags before first use
-Date: Tue, 21 Mar 2017 12:25:58 -0400
-Message-ID: <CACSApvbY0a6NFs+k1X5wMJC007z-NgYzgSdpuAncw6PHvNhu5g@mail.gmail.com>
-References: <20170321161427.103713-1-glider@google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] stmmac: call stmmac_init_phy from
+ stmmac_dvr_probe
+Date: Tue, 21 Mar 2017 09:32:39 -0700
+Message-ID: <c475800d-3e0c-3adf-668a-bb2235812b4c@gmail.com>
+References: <20170320172915.8313-1-niklass@axis.com>
+ <257f3b05-805d-fd59-5435-89ede6b0fe4b@gmail.com>
+ <82fbc595-5269-bcd9-d75f-778fbd8d2bdb@axis.com>
+ <285d0fe6-9257-5e44-1272-be22dc271094@gmail.com>
+ <fb001e95-5660-4d08-73f0-14ab1c52d648@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>, kcc@google.com,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Alexander Potapenko <glider@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Niklas Cassel <niklas.cassel@axis.com>, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, Joao.Pinto@synopsys.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170321161427.103713-1-glider@google.com>
+In-Reply-To: <fb001e95-5660-4d08-73f0-14ab1c52d648@axis.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 21, 2017 at 12:14 PM, Alexander Potapenko <glider@google.com> wrote:
-> In the case udp_sk(sk)->pending is AF_INET6, udpv6_sendmsg() would
-> jump to do_append_data, skipping the initialization of sockc.tsflags.
-> Fix the problem by moving sockc.tsflags initialization earlier.
->
-> The bug was detected with KMSAN.
+On 03/21/2017 02:04 AM, Niklas Cassel wrote:
+> On 03/20/2017 11:07 PM, Florian Fainelli wrote:
+>>
+>> (snip)
+>>>
+>>> However, it is kind of sad that drivers are so inconsistent of what goes
+>>> in probe and what goes in ndo_open...which is tied together with the
+>>> whole mess of when certain ethtool commands work or do not work.
+>> Well, inconsistent here is kind of big statement, what I meant to say is
+>> that your proposed change actually makes thing inconsistent.
+> 
+> What I mean is that it is about 50/50 if something e.g. phy_connect
+> is called from probe or from ndo_open.
+> This is what I think is inconsistent.
+> 
+> git grep -p -E "phy_connect\(|phy_connect_direct\(" drivers/net/ethernet/ | grep open | wc -l
+> 12
+> 
+> git grep -p -E "phy_connect\(|phy_connect_direct\(" drivers/net/ethernet/ | grep probe | wc -l
+> 27
+> even if we exclude *_mii_probe/*_mdio_probe which are done
+> git grep -p mii_probe drivers/net/ethernet/ | grep open | wc -l
+> 6
+> git grep -p mdio_probe drivers/net/ethernet/ | grep open | wc -l
+> 2
+> 
+> phy_connect done from probe:
+> 27-6-2=19
+> 
+> phy_connect done from ndo_open:
+> 12+6+2=20
+> 
+> 
+>>
+>>> Do you know of a good way to avoid the -EBUSY in stmmac_ethtool_get_link_ksettings,
+>>> but still keep phy_connect in ndo_open?
+>> Let me rephrase this: doing an ethtool operation on an interface that is
+>> not open is not a defined behavior which adheres to a contract with the
+>> kernel. ethtool operations on interfaces that are DOWN, may succeed if
+>> they do not involve a piece of hardware that needs to be active (e.g:
+>> the PHY) but there is no guarantee that a) the change is immediately
+>> applied, or b) that the results are consistent.
+>>
+>> The best thing to do IMHO is just silence the warning, return an error
+>> coed, and come back configuring the interface at a later time when it is
+>> guaranteed to be operational.
+> 
+> Thank you for your feedback. I agree with you,
+> silencing the warning would be the best way forward.
+> David, please ignore this patch.
+> 
+> 
+> 
+> However, since ethtool is a user interface, I think that it would
+> have been nice if it wasn't so driver specific regarding to if a
+> command works before the interface is open or not.
 
-Nice catch and thanks for the fix! This is missing a "fixes"
-attribution, added below.
+On premise I agree, in practice, every HW and driver is different, and
+enforcing standard behaviors is even more difficult as there are
+multiple pieces of HW interconnected to each other: MAC, MDIO bus, PHY
+etc. all with different power management capabilities and properties,
+and different requirements, and of course, varying degrees of brokenness.
 
-> Signed-off-by: Alexander Potapenko <glider@google.com>
+> 
+> If the user does some ethtool operation that affects e.g. the PHY
+> before the interface is open, perhaps there is a way to save this
+> setting so it could be applied when the resource is available.
 
-Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+Well behaving driver will connect to the PHY as one of their final
+driver's ndo_open() step, any call in between will result in phydev
+being NULL which will return a proper error code and should be acted
+upon by the application doing the ethtool calls (or the one doing
+ioctl() calls similar to ethtool).
+
+> 
+> For the PHY case, net_device has a pointer to a phy_device,
+> register_netdev could create a dummy phy_device if
+> ndev->phy_device is NULL, that way changes could be saved
+> and applied when phy_connect replaces the dummy device
+> (or perhaps when phy_start() is called).
+> (If it isn't a dummy phy_device, changes could be applied immediately.)
+> This way it would not matter if phy_connect is done from probe
+> or from ndo_open.
+> 
+
+I don't think there is a need for a dummy PHY device, you can do this in
+your driver if you want to, but this adds a lot of complexity for little
+value, and, keep in mind that before ndo_open() is complete, most
+operations against your network driver can be undefined.
+-- 
+Florian
