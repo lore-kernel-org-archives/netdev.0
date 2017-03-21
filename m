@@ -1,42 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] net: usb: usbnet: add new api
- ethtool_{get|set}_link_ksettings
-Date: Tue, 21 Mar 2017 16:03:40 -0700 (PDT)
-Message-ID: <20170321.160340.2023320645829462653.davem@davemloft.net>
-References: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
-        <1489702737-2401-2-git-send-email-tremyfr@gmail.com>
-        <1490095983.8154.8.camel@suse.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tremyfr@gmail.com, allan@asix.com.tw, robert.foss@collabora.com,
-        adobriyan@gmail.com, grundler@google.com,
-        akpm@linux-foundation.org, gregkh@linuxfoundation.org,
-        UNGLinuxDriver@microchip.com, peter.chen@nxp.com, jarod@redhat.com,
-        stefan.bruens@rwth-aachen.de, steve.glendinning@shawell.net,
-        jacmet@sunsite.dk, linux-kernel@vger.kernel.org,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: oneukum@suse.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490095983.8154.8.camel@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/5][pull request] Intel Wired LAN Driver Updates 2017-03-21
+Date: Tue, 21 Mar 2017 16:00:23 -0700
+Message-ID: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:44539 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758202AbdCUXMv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 21 Mar 2017 19:12:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oneukum@suse.com>
-Date: Tue, 21 Mar 2017 12:33:03 +0100
+This series contains updates to e1000, e1000e, igb, igbvf and ixgb.
 
-> Am Donnerstag, den 16.03.2017, 23:18 +0100 schrieb Philippe Reynes:
->> The ethtool api {get|set}_settings is deprecated.
->> We add the new api {get|set}_link_ksettings to this driver.
->> 
->> As I don't have the hardware, I'd be very pleased if
->> someone may test this patch.
->> 
-> 
-> Unfortunately I lack hardware to test.
-> Phillipe and I had a patch collision. David, please take his
-> patch for the next merge window. It looks good and is comprehensive and
-> nobody has reported issues. We will never find testers for all those
-> drivers on this list.
+This finishes up the work Philippe Reynes did to update the Intel drivers
+to the new API for ethtool (get|set)_link_ksettings.
 
-Ok.
+The following are changes since commit b3407c8e5eb78e4e0b57a97a4dd2e411354b60cd:
+  Cleanup some warning from timestamping code.
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+
+Philippe Reynes (5):
+  e1000: use new API ethtool_{get|set}_link_ksettings
+  e1000e: use new API ethtool_{get|set}_link_ksettings
+  igb: use new API ethtool_{get|set}_link_ksettings
+  igbvf: use new API ethtool_{get|set}_link_ksettings
+  ixgb: use new API ethtool_{get|set}_link_ksettings
+
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 117 ++++++++++---------
+ drivers/net/ethernet/intel/e1000e/ethtool.c      | 111 +++++++++---------
+ drivers/net/ethernet/intel/igb/igb_ethtool.c     | 138 ++++++++++++-----------
+ drivers/net/ethernet/intel/igbvf/ethtool.c       |  38 +++----
+ drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c   |  39 ++++---
+ 5 files changed, 232 insertions(+), 211 deletions(-)
+
+-- 
+2.12.0
