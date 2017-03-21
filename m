@@ -1,67 +1,39 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next v2] net: Add sysctl to toggle early demux for tcp
- and udp
-Date: Tue, 21 Mar 2017 15:49:16 -0700
-Message-ID: <CALx6S36OBcdbk==Fi-bqO0BdAFzk1TkL76PPUwUQ8Dgz518zBw@mail.gmail.com>
-References: <1489116660-4244-1-git-send-email-subashab@codeaurora.org>
- <CALx6S360Y3tmKMHVMUEuRKCskuwXi+9JBfce6WiSpko1sHj=Yg@mail.gmail.com>
- <674d67f5d76f761f3e872dff274a8bda@codeaurora.org> <CALx6S340TYEFDAbQfG6X4P0tPJWvyxyXpnLgp9JY7UoBuPEJVA@mail.gmail.com>
- <1489191742.28631.35.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S36eXpOn70paFnkSyafMkF7Q=MQWJKKb2=d6+hNpK-8V8A@mail.gmail.com>
- <e643b82c330eabfa0cef21c480eb6c2c@codeaurora.org> <CALx6S343iWzOKrKwHquG8qmyLyKOgQr_KroHyypE_9MFt2+1BQ@mail.gmail.com>
- <c965b4cc8b5f81cc17836f91423935f5@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/11] net: usbnet: move to new api
+ ethtool_{get|set}_link_ksettings
+Date: Tue, 21 Mar 2017 16:04:34 -0700 (PDT)
+Message-ID: <20170321.160434.1088351210921535166.davem@davemloft.net>
+References: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        netdev-owner@vger.kernel.org
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: oliver@neukum.org, jacmet@sunsite.dk,
+        steve.glendinning@shawell.net, UNGLinuxDriver@microchip.com,
+        gregkh@linuxfoundation.org, robert.foss@collabora.com,
+        allan@asix.com.tw, grundler@google.com, jarod@redhat.com,
+        peter.chen@nxp.com, stefan.bruens@rwth-aachen.de,
+        akpm@linux-foundation.org, adobriyan@gmail.com,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:35890 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933007AbdCUWtX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 18:49:23 -0400
-Received: by mail-qt0-f196.google.com with SMTP id n37so23331825qtb.3
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 15:49:22 -0700 (PDT)
-In-Reply-To: <c965b4cc8b5f81cc17836f91423935f5@codeaurora.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58264 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756464AbdCUXG2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 19:06:28 -0400
+In-Reply-To: <1489702737-2401-1-git-send-email-tremyfr@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 18, 2017 at 7:07 PM, Subash Abhinov Kasiviswanathan
-<subashab@codeaurora.org> wrote:
->> Less than 1% performance improvement in a benchmark doesn't justify
->> the complexity of the patch. Eric's hypothesis was that an unconnected
->> UDP socket may show issues because of cache misses in look-ups due to
->> so many different sources. This should be fairly easy to benchmark by
->> randomly setting source address in your test (IP any and routing my
->> need to be set appropriately).
->>
->
-> With different source addresses, a larger increase is seen here
-> (633->654Mbps).
->
-Thanks for running the tests. It's obviously not a huge win at least
-relative to performance improvement we got from early demux, but I
-suppose with very specific and engineered loads this might have value.
-Please include this is next patch sets.
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Thu, 16 Mar 2017 23:18:46 +0100
 
-Generally, I think a good goal moving forward would be a to apply the
-0 or 1 times rule for connection lookup. That is for any transport
-tuple in a receive packet we want to do at most one connection lookup.
-So early demux would need to apply to unconnected sockets and then we
-wouldn't have to do the second lookup in UDP (or TCP for a SYN)
-receive (note we also do an extra lookup for GRO with UDP
-encapsulation). A reason we haven't this before might be that the
-lookup may actually find the wrong socket (for example we go into a
-different network namespace). Maybe the stack should consider any
-lookup result outside of the protocol stack to be provisional (and it
-would be super nice if we could somehow cache a dst with an
-unconnected socket also ;-) )
+> The ethtool api {get|set}_settings is deprecated. On usbnet, it
+> was often implemented with usbnet_{get|set}_settings.
+> 
+> In this serie, I add usbnet_{get|set}_link_ksettings
+> in the first patch, then I update all the driver to
+> use this new api, and in the last patch I remove the
+> old api usbnet_{get|set}_settings.
 
-Tom
-
->
-> --
-> The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-> a Linux Foundation Collaborative Project
+Series applied, thanks Philippe.
