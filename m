@@ -1,41 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] net: fix dma operation mode config for older
- versions
-Date: Tue, 21 Mar 2017 20:53:46 +0300
-Message-ID: <a9aa6a41-d5d1-80fd-6d8c-74db98ee7dec@cogentembedded.com>
-References: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490117473.git.jpinto@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v2 net-next] net: fix dma operation mode config for older versions
+Date: Tue, 21 Mar 2017 18:00:53 +0000
+Message-ID: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490118934.git.jpinto@synopsys.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         clabbe.montjoie@gmail.com, thierry.reding@gmail.com,
-        netdev@vger.kernel.org
-To: Joao Pinto <Joao.Pinto@synopsys.com>, davem@davemloft.net
+        ^Crgei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:33247 "EHLO
-        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932875AbdCURxu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 13:53:50 -0400
-Received: by mail-lf0-f42.google.com with SMTP id a6so70038566lfa.0
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 10:53:49 -0700 (PDT)
-In-Reply-To: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490117473.git.jpinto@synopsys.com>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:53897 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757267AbdCUSBk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 14:01:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/21/2017 08:36 PM, Joao Pinto wrote:
+This patch fixes a bug introduced in:
+commit 6deee2221e11 ("net: stmmac: prepare dma op mode config for multiple
+queues")
 
-> This patch fixes a bug introduced in commit:
-> 6deee22 (net: stmmac: prepare dma op mode config for multiple queues)
+The dma operation mode configuration routine was wrongly moved to a
+function (stmmac_mtl_configuration) that is only executed if the
+core version is >= 4.00.
 
-    Need 12 hex digits and the commit summary enclosed into ("").
+Reported-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> The dma operation mode configuration routine was wrongly moved to a
-> function (stmmac_mtl_configuration) that is only executed if the
-> core version is >= 4.00.
->
-> Reported-by: Corentin Labbe <clabbe.montjoie@gmail.com>
->
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index d3a2151..225a3a3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1945,9 +1945,6 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
+ 	/* Enable MAC RX Queues */
+ 	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_enable)
+ 		stmmac_mac_enable_rx_queues(priv);
+-
+-	/* Set the HW DMA mode and the COE */
+-	stmmac_dma_operation_mode(priv);
+ }
+ 
+ /**
+@@ -2014,6 +2011,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	else
+ 		stmmac_set_mac(priv->ioaddr, true);
+ 
++	/* Set the HW DMA mode and the COE */
++	stmmac_dma_operation_mode(priv);
++
+ 	stmmac_mmc_setup(priv);
+ 
+ 	if (init_ptp) {
+-- 
+2.9.3
