@@ -1,87 +1,27 @@
-From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net] net: bcmgenet: remove bcmgenet_internal_phy_setup()
-Date: Tue, 21 Mar 2017 14:01:06 -0700
-Message-ID: <20170321210106.3875-1-opendmb@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Doug Berger <opendmb@gmail.com>
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/13][pull request] 1GbE Intel Wired LAN Driver
+ Updates 2017-03-17
+Date: Tue, 21 Mar 2017 14:20:57 -0700 (PDT)
+Message-ID: <20170321.142057.327093329684660580.davem@davemloft.net>
+References: <20170317195818.74912-1-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56966 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758263AbdCUVVl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 17:21:41 -0400
+In-Reply-To: <20170317195818.74912-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 6ac3ce8295e6 ("net: bcmgenet: Remove excessive PHY reset")
-removed the bcmgenet_mii_reset() function from bcmgenet_power_up() and
-bcmgenet_internal_phy_setup() functions.  In so doing it broke the reset
-of the internal PHY devices used by the GENETv1-GENETv3 which required
-this reset before the UniMAC was enabled.  It also broke the internal
-GPHY devices used by the GENETv4 because the config_init that installed
-the AFE workaround was no longer occurring after the reset of the GPHY
-performed by bcmgenet_phy_power_set() in bcmgenet_internal_phy_setup().
-In addition the code in bcmgenet_internal_phy_setup() related to the
-"enable APD" comment goes with the bcmgenet_mii_reset() so it should
-have also been removed.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 17 Mar 2017 12:58:05 -0700
 
-Commit bd4060a6108b ("net: bcmgenet: Power on integrated GPHY in
-bcmgenet_power_up()") moved the bcmgenet_phy_power_set() call to the
-bcmgenet_power_up() function, but failed to remove it from the
-bcmgenet_internal_phy_setup() function.  Had it done so, the
-bcmgenet_internal_phy_setup() function would have been empty and could
-have been removed at that time.
+> This series contains updates to mainly igb, with one fix for ixgbe.
 
-Commit 5dbebbb44a6a ("net: bcmgenet: Software reset EPHY after power on")
-was submitted to correct the functional problems introduced by
-commit 6ac3ce8295e6 ("net: bcmgenet: Remove excessive PHY reset"). It
-was included in v4.4 and made available on 4.3-stable. Unfortunately,
-it didn't fully revert the commit because this bcmgenet_mii_reset()
-doesn't apply the soft reset to the internal GPHY used by GENETv4 like
-the previous one did. This prevents the restoration of the AFE work-
-arounds for internal GPHY devices after the bcmgenet_phy_power_set() in
-bcmgenet_internal_phy_setup().
-
-This commit takes the alternate approach of removing the unnecessary
-bcmgenet_internal_phy_setup() function which shouldn't have been in v4.3
-so that when bcmgenet_mii_reset() was restored it should have only gone
-into bcmgenet_power_up().  This will avoid the problems while also
-removing the redundancy (and hopefully some of the confusion).
-
-Fixes: 6ac3ce8295e6 ("net: bcmgenet: Remove excessive PHY reset")
-Signed-off-by: Doug Berger <opendmb@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmmii.c | 15 ---------------
- 1 file changed, 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index e87607621e62..2f9281936f0e 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -220,20 +220,6 @@ void bcmgenet_phy_power_set(struct net_device *dev, bool enable)
- 	udelay(60);
- }
- 
--static void bcmgenet_internal_phy_setup(struct net_device *dev)
--{
--	struct bcmgenet_priv *priv = netdev_priv(dev);
--	u32 reg;
--
--	/* Power up PHY */
--	bcmgenet_phy_power_set(dev, true);
--	/* enable APD */
--	reg = bcmgenet_ext_readl(priv, EXT_EXT_PWR_MGMT);
--	reg |= EXT_PWR_DN_EN_LD;
--	bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
--	bcmgenet_mii_reset(dev);
--}
--
- static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
- {
- 	u32 reg;
-@@ -281,7 +267,6 @@ int bcmgenet_mii_config(struct net_device *dev)
- 
- 		if (priv->internal_phy) {
- 			phy_name = "internal PHY";
--			bcmgenet_internal_phy_setup(dev);
- 		} else if (priv->phy_interface == PHY_INTERFACE_MODE_MOCA) {
- 			phy_name = "MoCA";
- 			bcmgenet_moca_phy_setup(priv);
--- 
-2.11.1
+Pulled, thanks Jeff.
