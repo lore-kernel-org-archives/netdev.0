@@ -1,84 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: declare struct sctp_stream before using it
-Date: Tue, 21 Mar 2017 07:36:48 -0400
-Message-ID: <20170321113648.GA29216@hmswarspite.think-freely.org>
-References: <1a16b414118d0876373774654d86e2a2a936b9d1.1490003187.git.lucien.xin@gmail.com>
- <20170320132920.GA7855@hmswarspite.think-freely.org>
- <CADvbK_ffhWRSkzESfar9JRUUX_defGdM4hiPrVz5ZQS6yNjG3A@mail.gmail.com>
+From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH RFC 0/7] phylib MMD accessor cleanups
+Date: Tue, 21 Mar 2017 13:09:13 +0000
+Message-ID: <20170321130912.GY21222@n2100.armlinux.org.uk>
+References: <20170319105943.GR21222@n2100.armlinux.org.uk>
+ <0b44bbd9-2be9-85cb-1518-4e4ec36927e1@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53043 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757031AbdCUMwY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 08:52:24 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Microchip Linux Driver Support <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Woojung Huh <woojung.huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CADvbK_ffhWRSkzESfar9JRUUX_defGdM4hiPrVz5ZQS6yNjG3A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <0b44bbd9-2be9-85cb-1518-4e4ec36927e1-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 20, 2017 at 10:33:57PM +0800, Xin Long wrote:
-> On Mon, Mar 20, 2017 at 9:29 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-> > On Mon, Mar 20, 2017 at 05:46:27PM +0800, Xin Long wrote:
-> >> sctp_stream_free uses struct sctp_stream as a param, but struct sctp_stream
-> >> is defined after it's declaration.
-> >>
-> >> This patch is to declare struct sctp_stream before sctp_stream_free.
-> >>
-> >> Fixes: a83863174a61 ("sctp: prepare asoc stream for stream reconf")
-> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> >> ---
-> >>  include/net/sctp/structs.h | 1 +
-> >>  1 file changed, 1 insertion(+)
-> >>
-> >> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> >> index 4f64519..592dece 100644
-> >> --- a/include/net/sctp/structs.h
-> >> +++ b/include/net/sctp/structs.h
-> >> @@ -83,6 +83,7 @@ struct sctp_bind_addr;
-> >>  struct sctp_ulpq;
-> >>  struct sctp_ep_common;
-> >>  struct crypto_shash;
-> >> +struct sctp_stream;
-> >>
-> >>
-> >>  #include <net/sctp/tsnmap.h>
-> >> --
-> >> 2.1.0
-> >>
-> >>
-> >
-> > Not sure I follow.  did we run into a compilation failure here?
-> no compilation err was found, even now.
+On Sun, Mar 19, 2017 at 03:30:38PM -0700, Florian Fainelli wrote:
+> Le 03/19/17 à 03:59, Russell King - ARM Linux a écrit :
+> > This series of patches does exactly that - we merge the functionality
+> > of the indirect accesses into the clause 45 accessors, and use these
+> > exclusively to access MMD registers.  Internally, the new clause
+> > independent MMD accessors indirect via the PHY drivers read_mmd/write_mmd
+> > methods if present, otherwise fall back to using clause 45 accesses if
+> > the PHY is a clause 45 phy, or clause 22 indirect accesses if the PHY
+> > is clause 22.
 > 
-> because of
-> struct sctp_stream *sctp_stream_new(__u16 incnt, __u16 outcnt, gfp_t gfp);
-> void sctp_stream_free(struct sctp_stream *stream);
+> LGTM:
 > 
-> I'm not sure why gcc did not complain, but when I moved sctp_stream_new
-> below sctp_stream_free:
-> void sctp_stream_free(struct sctp_stream *stream);
-> struct sctp_stream *sctp_stream_new(__u16 incnt, __u16 outcnt, gfp_t gfp);
-> 
-> the err showed up.
-> 
-odd, its almost like gcc considered the return value of sctp_stream_new to be a
-forward declaration of the struct.
+> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Anywho, can't hurt to make this chagne
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Thanks.  When I posted this last time around (19th Jan) I mentioned
+about marking the old _indirect() accessors with __deprecated - is
+that still something we want to do?
 
-> So the better thing we should do is to declare struct sctp_stream to
-> avoid this potential issue.
-> 
-> Besides, I'm planing to change the return value type of sctp_stream_new.
-> after which, the issue will be exposed.
-> 
-> >
-> > Neil
-> >
-> 
+I haven't tested this against net-next yet, so I don't know if there
+are any new users of the indirect accessors - going down the deprecated
+route would avoid breakage, but means having to submit a patch later to
+actually remove them.
+
+How would people want this handled?
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
