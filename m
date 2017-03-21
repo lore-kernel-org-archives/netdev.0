@@ -1,90 +1,75 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/13] i40e: exit ATR mode only when adding TCP/IPv4 filter succeeds
-Date: Mon, 20 Mar 2017 16:47:06 -0700
-Message-ID: <20170320234712.84157-8-jeffrey.t.kirsher@intel.com>
-References: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:49349 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755925AbdCTXrU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 20 Mar 2017 19:47:20 -0400
-In-Reply-To: <20170320234712.84157-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net] bridge: ebtables: fix reception of frames
+ DNAT-ed to bridge device
+Date: Tue, 21 Mar 2017 01:09:47 +0100
+Message-ID: <20170321000947.GA31709@otheros>
+References: <20170315031811.22714-1-linus.luessing@c0d3.blue>
+	<20170315102608.GB24366@breakpoint.cc>
+	<20170315104211.GA24409@salvia> <20170315142720.GU15692@otheros>
+	<20170315181539.GA31875@salvia> <20170315211619.GA3464@otheros>
+	<20170315220605.GA1766@salvia> <20170317131044.GA11995@salvia>
+	<20170319165506.GA15475@otheros>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
+	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S . Miller" <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170319165506.GA15475@otheros>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+On Sun, Mar 19, 2017 at 05:55:06PM +0100, Linus Lüssing wrote:
+> On Fri, Mar 17, 2017 at 02:10:44PM +0100, Pablo Neira Ayuso wrote:
+> > Wait.
+> > 
+> > May this break local multicast listener that are bound to the bridge
+> > interface? Assuming the bridge interface got an IP address, and that
+> > there is local multicast listener.
+> > 
+> > Missing anything here?
+> 
+> Hm, for multicast packets usually the code path a few lines
+> later in br_handle_frame_finish() should be taken instead.
+> 
+> But you might be right for IP multicast packets with a unicast MAC
+> destination (due to whatever reason, for instance via DNAT'ing
+> again).
+> 
+> Will check that - thanks!
 
-Move ATR exit check after we have sent the TCP/IPv4 filter to the ring
-successfully. This avoids an issue where we potentially update the
-filter count without actually succeeding in adding the filter. Now, we
-only increment the fd_tcp_rule after we've succeeded. Additionally, we
-will re-enable ATR mode only after deletion of the filter is actually
-posted to the FDIR ring.
+Ok, I tested DNAT'ing an IP multicast packet to the unicast MAC address
+of the bridge interface.
 
-Change-ID: If5c1dea422081cc5e2de65618b01b4c3bf6bd586
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 34 ++++++++++++++---------------
- 1 file changed, 17 insertions(+), 17 deletions(-)
+Both ping-ing to an IPv4 and IPv6 multicast listener on br0 worked
+and was replied to fine, both with or without changing skb->pkt_type
+from PACKET_MULTICAST to PACKET_HOST.
+("$ ping 224.1.0.123" and "$ ping6 ff02::1:ff40:707c%in0" from a
+ network namespace, tied into the bridge via veth)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 005257b4f218..05f3d0d5a004 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -284,23 +284,6 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
- 	ip->saddr = fd_data->src_ip;
- 	tcp->source = fd_data->src_port;
- 
--	if (add) {
--		pf->fd_tcp_rule++;
--		if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
--		    I40E_DEBUG_FD & pf->hw.debug_mask)
--			dev_info(&pf->pdev->dev, "Forcing ATR off, sideband rules for TCP/IPv4 flow being applied\n");
--		pf->hw_disabled_flags |= I40E_FLAG_FD_ATR_ENABLED;
--	} else {
--		pf->fd_tcp_rule = (pf->fd_tcp_rule > 0) ?
--				  (pf->fd_tcp_rule - 1) : 0;
--		if (pf->fd_tcp_rule == 0) {
--			if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
--			    I40E_DEBUG_FD & pf->hw.debug_mask)
--				dev_info(&pf->pdev->dev, "ATR re-enabled due to no sideband TCP/IPv4 rules\n");
--			pf->hw_disabled_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
--		}
--	}
--
- 	fd_data->pctype = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
- 	ret = i40e_program_fdir_filter(fd_data, raw_packet, pf, add);
- 	if (ret) {
-@@ -320,6 +303,23 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
- 				 fd_data->pctype, fd_data->fd_id);
- 	}
- 
-+	if (add) {
-+		pf->fd_tcp_rule++;
-+		if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
-+		    I40E_DEBUG_FD & pf->hw.debug_mask)
-+			dev_info(&pf->pdev->dev, "Forcing ATR off, sideband rules for TCP/IPv4 flow being applied\n");
-+		pf->hw_disabled_flags |= I40E_FLAG_FD_ATR_ENABLED;
-+	} else {
-+		pf->fd_tcp_rule = (pf->fd_tcp_rule > 0) ?
-+				  (pf->fd_tcp_rule - 1) : 0;
-+		if (pf->fd_tcp_rule == 0) {
-+			if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
-+			    I40E_DEBUG_FD & pf->hw.debug_mask)
-+				dev_info(&pf->pdev->dev, "ATR re-enabled due to no sideband TCP/IPv4 rules\n");
-+			pf->hw_disabled_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
-+		}
-+	}
-+
- 	return 0;
- }
- 
--- 
-2.12.0
+Also, a DNAT'ed PACKET_BROADCAST worked, with or without changing
+it to PACKET_HOST.
+
+I also checked via tcpdump that the destination MAC was changed
+successfully.
+
+
+So, so far I wasn't able to find any bugs with the current
+patch. But I think I like the idea of leaving the skb->pkt_type
+unaltered for PACKET_MULTICAST and PACKET_BROADCAST, seems cleaner.
+
+I'd just add an "if (skb->pkt_type == PACKET_OTHERHOST)" check
+then and resend a PATCH v2.
