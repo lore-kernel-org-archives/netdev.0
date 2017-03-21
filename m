@@ -1,87 +1,71 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/4] drivers: net: xgene-v2: Add MDIO support
-Date: Tue, 21 Mar 2017 21:35:50 +0100
-Message-ID: <20170321203550.GD30655@lunn.ch>
-References: <1490124283-10371-1-git-send-email-isubramanian@apm.com>
- <1490124283-10371-2-git-send-email-isubramanian@apm.com>
+From: Thierry Reding <thierry.reding@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: fix dma operation mode config for older
+ versions
+Date: Tue, 21 Mar 2017 21:42:25 +0100
+Message-ID: <20170321204223.GA1064@mithrandir.ba.sec>
+References: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490118934.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, f.fainelli@gmail.com,
-        David.Laight@aculab.com, linux-arm-kernel@lists.infradead.org,
-        patches@apm.com, kchudgar@apm.com
-To: Iyappan Subramanian <isubramanian@apm.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="ZGiS0Q5IWpPtfppv"
+Cc: davem@davemloft.net, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, clabbe.montjoie@gmail.com,
+        ^Crgei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55861 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933546AbdCUUfz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Mar 2017 16:35:55 -0400
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:35593 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933109AbdCUUma (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 16:42:30 -0400
+Received: by mail-wr0-f195.google.com with SMTP id u108so24187402wrb.2
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 13:42:29 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1490124283-10371-2-git-send-email-isubramanian@apm.com>
+In-Reply-To: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490118934.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> @@ -511,9 +512,9 @@ static int xge_close(struct net_device *ndev)
->  {
->  	struct xge_pdata *pdata = netdev_priv(ndev);
->  
-> -	netif_carrier_off(ndev);
->  	netif_stop_queue(ndev);
->  	xge_mac_disable(pdata);
-> +	phy_stop(ndev->phydev);
->  
->  	xge_intr_disable(pdata);
->  	xge_free_irq(ndev);
-> @@ -683,9 +684,14 @@ static int xge_probe(struct platform_device *pdev)
->  	if (ret)
->  		goto err;
->  
-> +	spin_lock_init(&pdata->mdio_lock);
-> +
 
-...
+--ZGiS0Q5IWpPtfppv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> +static int xge_mdio_write(struct mii_bus *bus, int phy_id, int reg, u16 data)
-> +{
-> +	struct xge_pdata *pdata = bus->priv;
-> +	u32 done, val = 0;
-> +	u8 wait = 10;
-> +	int ret = 0;
-> +
-> +	spin_lock(&pdata->mdio_lock);
-> +
-> +	SET_REG_BITS(&val, PHY_ADDR, phy_id);
-> +	SET_REG_BITS(&val, REG_ADDR, reg);
-> +	xge_wr_csr(pdata, MII_MGMT_ADDRESS, val);
-> +
-> +	xge_wr_csr(pdata, MII_MGMT_CONTROL, data);
-> +	do {
-> +		usleep_range(5, 10);
-> +		done = xge_rd_csr(pdata, MII_MGMT_INDICATORS);
-> +	} while ((done & MII_MGMT_BUSY) && wait--);
-> +
-> +	if (done & MII_MGMT_BUSY) {
-> +		dev_err(&bus->dev, "MII_MGMT write failed\n");
-> +		ret = -ETIMEDOUT;
-> +	}
-> +
-> +	spin_unlock(&pdata->mdio_lock);
-> +
-> +	return ret;
-> +}
-> +
-> +static int xge_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-> +{
-> +	struct xge_pdata *pdata = bus->priv;
-> +	u32 data, done, val = 0;
-> +	u8 wait = 10;
-> +
-> +	spin_lock(&pdata->mdio_lock);
-> +
+On Tue, Mar 21, 2017 at 06:00:53PM +0000, Joao Pinto wrote:
+> This patch fixes a bug introduced in:
+> commit 6deee2221e11 ("net: stmmac: prepare dma op mode config for multiple
+> queues")
+>=20
+> The dma operation mode configuration routine was wrongly moved to a
+> function (stmmac_mtl_configuration) that is only executed if the
+> core version is >=3D 4.00.
+>=20
+> Reported-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
 
-Hi Iyappan
+With Florian's comments addressed, this is:
 
-Please could you explain what this lock is protecting which the
-mii_bus mdio_lock in mdio_bus.c is not protecting?
+Reviewed-by: Thierry Reding <thierry.reding@gmail.com>
 
-Thanks
-	Andrew
+--ZGiS0Q5IWpPtfppv
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEiOrDCAFJzPfAjcif3SOs138+s6EFAljRkCsACgkQ3SOs138+
+s6EGlA/+PAmcCde9s5qhqv5qOtkg79uTdSYfuDL2Qsfvz+ZJKIeYtuRD9Qz8RlFm
+1P/defqe8bzLVk+2NUw88gGCJBHofIA3UBM1uLRwTtYE/qy600Tc4q+ZQ6Ofqogz
+dzLdH6qUtwIjbE/Yi4mEjCeNXO7iBd2uVYSDR2H0r2VKdmQVBsVGBHL9hnozuEXn
+04SysNMKY9qkXRGIgmEz/rwhTxDYa+M4R07ss2yahiFc+rRnRz2A3ISyoIaql4UM
+VrYZ23g/qWA4htmYnBXbckSxNbIuMdKgwxForBWxHrqyxdRqncnCgsQrex4Z+8Cf
+ScfkX9nkpCknvAjm6LK9NbhvgOfAnLQTaC7Cu1ZTke+g9V/4F+wfIb1ZQ6wG2FnN
+2cJj3hqUV9wXTqirnUVDRdPKnbhEgtqnUUBEBfc8dmjcNFu8b9ensZb9SyCocSgX
+Orf1Jdh398a31CGyckEo0O7zeJyvfjFq7YGeqS/jY9nuTiWMK1clt7OyrHltc4cz
+Vao2bFCFRR18q8hkHqVNzzFiLPY1s1GYXLTzX/Km7tN3S73cby2KS4fsAbbboqNc
+4dTiuo5qllZfxOO74rgywPb4mhWbOltdY/KfPTBTuVyX9KCWmaw2fa/fwTVZjl+n
+ZSw4ZCsAO27/vWTKgrBsCPRAkmCrvF6nA58G+5eRXIaUyUeFrDI=
+=6YSX
+-----END PGP SIGNATURE-----
+
+--ZGiS0Q5IWpPtfppv--
