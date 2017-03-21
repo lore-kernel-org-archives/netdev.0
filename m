@@ -1,172 +1,141 @@
 From: Jonas Bonn <jonas@southpole.se>
-Subject: [PATCH v2 2/2] gtp: support SGSN-side tunnels
-Date: Tue, 21 Mar 2017 16:04:30 +0100
-Message-ID: <20170321150430.23314-2-jonas@southpole.se>
+Subject: [PATCH v2 1/2] gtp: rename SGSN netlink attribute
+Date: Tue, 21 Mar 2017 16:04:29 +0100
+Message-ID: <20170321150430.23314-1-jonas@southpole.se>
 References: <20170203091231.10142-1-jonas@southpole.se>
- <20170321150430.23314-1-jonas@southpole.se>
 Cc: Jonas Bonn <jonas@southpole.se>
 To: laforge@gnumonks.org, pablo@netfilter.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([37.247.8.11]:38526 "EHLO mail.southpole.se"
+Received: from mail.southpole.se ([37.247.8.11]:38527 "EHLO mail.southpole.se"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757426AbdCUPZs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1757180AbdCUPZs (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 21 Mar 2017 11:25:48 -0400
-In-Reply-To: <20170321150430.23314-1-jonas@southpole.se>
+In-Reply-To: <20170203091231.10142-1-jonas@southpole.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
-contexts based on the incoming packets _destination_ address.  If we
-want to write an SGSN, then we want to be idenityfing PDP contexts
-based on _source_ address.
+This is a mostly cosmetic rename of the SGSN netlink attribute to
+the GTP link.  The justification for this is that we will be making
+the module support decapsulation of "downstream" SGSN packets, in
+which case the netlink parameter actually refers to the upstream GGSN
+peer.  Renaming the parameter makes the relationship clearer.
 
-This patch adds a "role" argument at GTP-link creation time to specify
-whether we are on the GGSN or SGSN side of the tunnel; this flag is then
-used to determine which part of the IP packet to use in determining
-the PDP context.
+The legacy name is maintained as a define in the header file in order
+to not break existing code.
 
 Signed-off-by: Jonas Bonn <jonas@southpole.se>
 ---
- drivers/net/gtp.c            | 41 +++++++++++++++++++++++++++++++----------
- include/uapi/linux/if_link.h |  7 +++++++
- 2 files changed, 38 insertions(+), 10 deletions(-)
+ drivers/net/gtp.c        | 22 +++++++++++-----------
+ include/uapi/linux/gtp.h |  3 ++-
+ 2 files changed, 13 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 3806be6..b54d1a3 100644
+index 50349a9..3806be6 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -72,6 +72,7 @@ struct gtp_dev {
- 	struct net		*net;
- 	struct net_device	*dev;
+@@ -56,7 +56,7 @@ struct pdp_ctx {
+ 	u16			af;
  
-+	unsigned int		role;
- 	unsigned int		hash_size;
- 	struct hlist_head	*tid_hash;
- 	struct hlist_head	*addr_hash;
-@@ -150,8 +151,8 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp, __be32 ms_addr)
- 	return NULL;
- }
+ 	struct in_addr		ms_addr_ip4;
+-	struct in_addr		sgsn_addr_ip4;
++	struct in_addr		peer_addr_ip4;
  
--static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
--				  unsigned int hdrlen)
-+static bool gtp_check_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
-+				  unsigned int hdrlen, unsigned int role)
+ 	atomic_t		tx_seq;
+ 	struct rcu_head		rcu_head;
+@@ -522,17 +522,17 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 
+ 	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sock0->sk,
+-				  pctx->sgsn_addr_ip4.s_addr);
++				  pctx->peer_addr_ip4.s_addr);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to SSGN %pI4\n",
+-			   &pctx->sgsn_addr_ip4.s_addr);
++			   &pctx->peer_addr_ip4.s_addr);
+ 		dev->stats.tx_carrier_errors++;
+ 		goto err;
+ 	}
+ 
+ 	if (rt->dst.dev == dev) {
+ 		netdev_dbg(dev, "circular route to SSGN %pI4\n",
+-			   &pctx->sgsn_addr_ip4.s_addr);
++			   &pctx->peer_addr_ip4.s_addr);
+ 		dev->stats.collisions++;
+ 		goto err_rt;
+ 	}
+@@ -894,8 +894,8 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
  {
- 	struct iphdr *iph;
+ 	pctx->gtp_version = nla_get_u32(info->attrs[GTPA_VERSION]);
+ 	pctx->af = AF_INET;
+-	pctx->sgsn_addr_ip4.s_addr =
+-		nla_get_be32(info->attrs[GTPA_SGSN_ADDRESS]);
++	pctx->peer_addr_ip4.s_addr =
++		nla_get_be32(info->attrs[GTPA_PEER_ADDRESS]);
+ 	pctx->ms_addr_ip4.s_addr =
+ 		nla_get_be32(info->attrs[GTPA_MS_ADDRESS]);
  
-@@ -160,18 +161,22 @@ static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
- 
- 	iph = (struct iphdr *)(skb->data + hdrlen);
- 
--	return iph->saddr == pctx->ms_addr_ip4.s_addr;
-+	if (role == GTP_ROLE_SGSN) {
-+		return iph->daddr == pctx->ms_addr_ip4.s_addr;
-+	} else {
-+		return iph->saddr == pctx->ms_addr_ip4.s_addr;
-+	}
- }
- 
--/* Check if the inner IP source address in this packet is assigned to any
-+/* Check if the inner IP address in this packet is assigned to any
-  * existing mobile subscriber.
-  */
--static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
--			     unsigned int hdrlen)
-+static bool gtp_check_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
-+			     unsigned int hdrlen, unsigned int role)
- {
- 	switch (ntohs(skb->protocol)) {
- 	case ETH_P_IP:
--		return gtp_check_src_ms_ipv4(skb, pctx, hdrlen);
-+		return gtp_check_ms_ipv4(skb, pctx, hdrlen, role);
- 	}
- 	return false;
- }
-@@ -205,7 +210,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		goto out_rcu;
+@@ -981,13 +981,13 @@ static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
+ 	switch (pctx->gtp_version) {
+ 	case GTP_V0:
+ 		netdev_dbg(dev, "GTPv0-U: new PDP ctx id=%llx ssgn=%pI4 ms=%pI4 (pdp=%p)\n",
+-			   pctx->u.v0.tid, &pctx->sgsn_addr_ip4,
++			   pctx->u.v0.tid, &pctx->peer_addr_ip4,
+ 			   &pctx->ms_addr_ip4, pctx);
+ 		break;
+ 	case GTP_V1:
+ 		netdev_dbg(dev, "GTPv1-U: new PDP ctx id=%x/%x ssgn=%pI4 ms=%pI4 (pdp=%p)\n",
+ 			   pctx->u.v1.i_tei, pctx->u.v1.o_tei,
+-			   &pctx->sgsn_addr_ip4, &pctx->ms_addr_ip4, pctx);
++			   &pctx->peer_addr_ip4, &pctx->ms_addr_ip4, pctx);
+ 		break;
  	}
  
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
- 		ret = -1;
- 		goto out_rcu;
-@@ -262,7 +267,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		goto out_rcu;
- 	}
+@@ -1001,7 +1001,7 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
  
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
- 		ret = -1;
- 		goto out_rcu;
-@@ -491,7 +496,11 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	 * Prepend PDP header with TEI/TID from PDP ctx.
- 	 */
- 	iph = ip_hdr(skb);
--	pctx = ipv4_pdp_find(gtp, iph->daddr);
-+	if (gtp->role == GTP_ROLE_SGSN) {
-+		pctx = ipv4_pdp_find(gtp, iph->saddr);
-+	} else {
-+		pctx = ipv4_pdp_find(gtp, iph->daddr);
-+	}
- 	if (!pctx) {
- 		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
- 			   &iph->daddr);
-@@ -666,12 +675,23 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
- 	int hashsize, err, fd0, fd1;
- 	struct gtp_dev *gtp;
- 	struct gtp_net *gn;
-+	unsigned int role;
-+
-+	if (data[IFLA_GTP_ROLE]) {
-+		role = nla_get_u32(data[IFLA_GTP_ROLE]);
-+		if (role > GTP_ROLE_SGSN)
-+			return -EINVAL;
-+	} else {
-+		role = GTP_ROLE_GGSN;
-+	}
- 
- 	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
+ 	if (!info->attrs[GTPA_VERSION] ||
+ 	    !info->attrs[GTPA_LINK] ||
+-	    !info->attrs[GTPA_SGSN_ADDRESS] ||
++	    !info->attrs[GTPA_PEER_ADDRESS] ||
+ 	    !info->attrs[GTPA_MS_ADDRESS])
  		return -EINVAL;
  
- 	gtp = netdev_priv(dev);
+@@ -1114,7 +1114,7 @@ static int gtp_genl_fill_info(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
+ 		goto nlmsg_failure;
  
-+	gtp->role = role;
-+
- 	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
- 	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
+ 	if (nla_put_u32(skb, GTPA_VERSION, pctx->gtp_version) ||
+-	    nla_put_be32(skb, GTPA_SGSN_ADDRESS, pctx->sgsn_addr_ip4.s_addr) ||
++	    nla_put_be32(skb, GTPA_PEER_ADDRESS, pctx->peer_addr_ip4.s_addr) ||
+ 	    nla_put_be32(skb, GTPA_MS_ADDRESS, pctx->ms_addr_ip4.s_addr))
+ 		goto nla_put_failure;
  
-@@ -723,6 +743,7 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1] = {
- 	[IFLA_GTP_FD0]			= { .type = NLA_U32 },
- 	[IFLA_GTP_FD1]			= { .type = NLA_U32 },
- 	[IFLA_GTP_PDP_HASHSIZE]		= { .type = NLA_U32 },
-+	[IFLA_GTP_ROLE]			= { .type = NLA_U32 },
+@@ -1267,7 +1267,7 @@ static struct nla_policy gtp_genl_policy[GTPA_MAX + 1] = {
+ 	[GTPA_LINK]		= { .type = NLA_U32, },
+ 	[GTPA_VERSION]		= { .type = NLA_U32, },
+ 	[GTPA_TID]		= { .type = NLA_U64, },
+-	[GTPA_SGSN_ADDRESS]	= { .type = NLA_U32, },
++	[GTPA_PEER_ADDRESS]	= { .type = NLA_U32, },
+ 	[GTPA_MS_ADDRESS]	= { .type = NLA_U32, },
+ 	[GTPA_FLOW]		= { .type = NLA_U16, },
+ 	[GTPA_NET_NS_FD]	= { .type = NLA_U32, },
+diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
+index 72a04a0..c51ebb0 100644
+--- a/include/uapi/linux/gtp.h
++++ b/include/uapi/linux/gtp.h
+@@ -19,7 +19,7 @@ enum gtp_attrs {
+ 	GTPA_LINK,
+ 	GTPA_VERSION,
+ 	GTPA_TID,	/* for GTPv0 only */
+-	GTPA_SGSN_ADDRESS,
++	GTPA_PEER_ADDRESS,	/* Remote GSN peer, either SGSN or GGSN */
+ 	GTPA_MS_ADDRESS,
+ 	GTPA_FLOW,
+ 	GTPA_NET_NS_FD,
+@@ -29,5 +29,6 @@ enum gtp_attrs {
+ 	__GTPA_MAX,
  };
+ #define GTPA_MAX (__GTPA_MAX + 1)
++#define GTPA_SGSN_ADDRESS GTPA_PEER_ADDRESS /* maintain legacy attr name */
  
- static int gtp_validate(struct nlattr *tb[], struct nlattr *data[])
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index ccde456..da62d8c 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -533,11 +533,18 @@ enum {
- #define IFLA_PPP_MAX (__IFLA_PPP_MAX - 1)
- 
- /* GTP section */
-+
-+enum ifla_gtp_role {
-+	GTP_ROLE_GGSN = 0,
-+	GTP_ROLE_SGSN,
-+};
-+
- enum {
- 	IFLA_GTP_UNSPEC,
- 	IFLA_GTP_FD0,
- 	IFLA_GTP_FD1,
- 	IFLA_GTP_PDP_HASHSIZE,
-+	IFLA_GTP_ROLE,
- 	__IFLA_GTP_MAX,
- };
- #define IFLA_GTP_MAX (__IFLA_GTP_MAX - 1)
+ #endif /* _UAPI_LINUX_GTP_H_ */
 -- 
 2.9.3
