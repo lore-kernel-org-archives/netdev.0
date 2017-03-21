@@ -1,47 +1,147 @@
 From: Jie Deng <Jie.Deng1@synopsys.com>
-Subject: Re: [PATCH 2/2] [net-next] net: dwc-xlgmac: add module license
-Date: Tue, 21 Mar 2017 10:34:05 +0800
-Message-ID: <c146aa97-3c33-e457-7a1d-435a6efeaeaf@synopsys.com>
-References: <20170320085123.1032301-1-arnd@arndb.de>
- <20170320085123.1032301-2-arnd@arndb.de>
+Subject: [PATCH net-next 1/2] net: dwc-xlgmac: declaration of dual license in headers
+Date: Tue, 21 Mar 2017 11:59:04 +0800
+Message-ID: <d8c550bcf611f0350058ea8d6a88f99f8a117f06.1490067991.git.jiedeng@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>, Jie Deng <Jie.Deng1@synopsys.com>
+Content-Type: text/plain
+Cc: <arnd@arndb.de>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Jie Deng <Jie.Deng1@synopsys.com>
+To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170320085123.1032301-2-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2017/3/20 16:51, Arnd Bergmann wrote:
-> When building the driver as a module, we get a warning about the
-> lack of a license:
->
-> WARNING: modpost: missing MODULE_LICENSE() in drivers/net/ethernet/synopsys/dwc-xlgmac.o
-> see include/linux/module.h for more information
->
-> Curiously the text in the .c files only mentions GPLv2+, while the license
-> tag in the PCI driver contains both GPL and BSD. I picked the license text
-> as the more definite reference here and put a GPL tag in there.
->
-> Fixes: 65e0ace2c5cd ("net: dwc-xlgmac: Initial driver for DesignWare Enterprise Ethernet")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  drivers/net/ethernet/synopsys/dwc-xlgmac-common.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-common.c b/drivers/net/ethernet/synopsys/dwc-xlgmac-common.c
-> index 726d78ac4907..b72196ab647f 100644
-> --- a/drivers/net/ethernet/synopsys/dwc-xlgmac-common.c
-> +++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-common.c
-> @@ -25,6 +25,7 @@
->  
->  static int debug = -1;
->  module_param(debug, int, 0644);
-> +MODULE_LICENSE("GPL");
->  MODULE_PARM_DESC(debug, "DWC ethernet debug level (0=none,...,16=all)");
->  static const u32 default_msg_level = (NETIF_MSG_LINK | NETIF_MSG_IFDOWN |
->  				      NETIF_MSG_IFUP);
-This driver uses dual license. I will update the headers to include BSD. Thanks!
+This patch adds declaration of dual license in file headers.
+
+Signed-off-by: Jie Deng <jiedeng@synopsys.com>
+---
+ drivers/net/ethernet/synopsys/dwc-xlgmac-common.c | 6 ++----
+ drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c   | 6 ++----
+ drivers/net/ethernet/synopsys/dwc-xlgmac-hw.c     | 6 ++----
+ drivers/net/ethernet/synopsys/dwc-xlgmac-net.c    | 6 ++----
+ drivers/net/ethernet/synopsys/dwc-xlgmac-pci.c    | 6 ++----
+ drivers/net/ethernet/synopsys/dwc-xlgmac-reg.h    | 6 ++----
+ drivers/net/ethernet/synopsys/dwc-xlgmac.h        | 6 ++----
+ 7 files changed, 14 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-common.c b/drivers/net/ethernet/synopsys/dwc-xlgmac-common.c
+index 726d78a..53ad707 100644
+--- a/drivers/net/ethernet/synopsys/dwc-xlgmac-common.c
++++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-common.c
+@@ -2,10 +2,8 @@
+  *
+  * Copyright (c) 2017 Synopsys, Inc. (www.synopsys.com)
+  *
+- * This program is free software; you can redistribute it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
++ * This program is dual-licensed; you may select either version 2 of
++ * the GNU General Public License ("GPL") or BSD license ("BSD").
+  *
+  * This Synopsys DWC XLGMAC software driver and associated documentation
+  * (hereinafter the "Software") is an unsupported proprietary work of
+diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c b/drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c
+index 55c796e..bfe810e 100644
+--- a/drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c
++++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c
+@@ -2,10 +2,8 @@
+  *
+  * Copyright (c) 2017 Synopsys, Inc. (www.synopsys.com)
+  *
+- * This program is free software; you can redistribute it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
++ * This program is dual-licensed; you may select either version 2 of
++ * the GNU General Public License ("GPL") or BSD license ("BSD").
+  *
+  * This Synopsys DWC XLGMAC software driver and associated documentation
+  * (hereinafter the "Software") is an unsupported proprietary work of
+diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-hw.c b/drivers/net/ethernet/synopsys/dwc-xlgmac-hw.c
+index 5cf3e90..e2a58ec 100644
+--- a/drivers/net/ethernet/synopsys/dwc-xlgmac-hw.c
++++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-hw.c
+@@ -2,10 +2,8 @@
+  *
+  * Copyright (c) 2017 Synopsys, Inc. (www.synopsys.com)
+  *
+- * This program is free software; you can redistribute it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
++ * This program is dual-licensed; you may select either version 2 of
++ * the GNU General Public License ("GPL") or BSD license ("BSD").
+  *
+  * This Synopsys DWC XLGMAC software driver and associated documentation
+  * (hereinafter the "Software") is an unsupported proprietary work of
+diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-net.c b/drivers/net/ethernet/synopsys/dwc-xlgmac-net.c
+index 5e8428b..6acf86c 100644
+--- a/drivers/net/ethernet/synopsys/dwc-xlgmac-net.c
++++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-net.c
+@@ -2,10 +2,8 @@
+  *
+  * Copyright (c) 2017 Synopsys, Inc. (www.synopsys.com)
+  *
+- * This program is free software; you can redistribute it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
++ * This program is dual-licensed; you may select either version 2 of
++ * the GNU General Public License ("GPL") or BSD license ("BSD").
+  *
+  * This Synopsys DWC XLGMAC software driver and associated documentation
+  * (hereinafter the "Software") is an unsupported proprietary work of
+diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-pci.c b/drivers/net/ethernet/synopsys/dwc-xlgmac-pci.c
+index 504e80d..386bafe 100644
+--- a/drivers/net/ethernet/synopsys/dwc-xlgmac-pci.c
++++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-pci.c
+@@ -2,10 +2,8 @@
+  *
+  * Copyright (c) 2017 Synopsys, Inc. (www.synopsys.com)
+  *
+- * This program is free software; you can redistribute it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
++ * This program is dual-licensed; you may select either version 2 of
++ * the GNU General Public License ("GPL") or BSD license ("BSD").
+  *
+  * This Synopsys DWC XLGMAC software driver and associated documentation
+  * (hereinafter the "Software") is an unsupported proprietary work of
+diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-reg.h b/drivers/net/ethernet/synopsys/dwc-xlgmac-reg.h
+index 7824481..3754f22 100644
+--- a/drivers/net/ethernet/synopsys/dwc-xlgmac-reg.h
++++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-reg.h
+@@ -2,10 +2,8 @@
+  *
+  * Copyright (c) 2017 Synopsys, Inc. (www.synopsys.com)
+  *
+- * This program is free software; you can redistribute it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
++ * This program is dual-licensed; you may select either version 2 of
++ * the GNU General Public License ("GPL") or BSD license ("BSD").
+  *
+  * This Synopsys DWC XLGMAC software driver and associated documentation
+  * (hereinafter the "Software") is an unsupported proprietary work of
+diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac.h b/drivers/net/ethernet/synopsys/dwc-xlgmac.h
+index 7a4dc64..676b2fb8 100644
+--- a/drivers/net/ethernet/synopsys/dwc-xlgmac.h
++++ b/drivers/net/ethernet/synopsys/dwc-xlgmac.h
+@@ -2,10 +2,8 @@
+  *
+  * Copyright (c) 2017 Synopsys, Inc. (www.synopsys.com)
+  *
+- * This program is free software; you can redistribute it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
++ * This program is dual-licensed; you may select either version 2 of
++ * the GNU General Public License ("GPL") or BSD license ("BSD").
+  *
+  * This Synopsys DWC XLGMAC software driver and associated documentation
+  * (hereinafter the "Software") is an unsupported proprietary work of
+-- 
+1.9.1
