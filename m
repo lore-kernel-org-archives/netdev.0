@@ -1,112 +1,80 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] stmmac: call stmmac_init_phy from
- stmmac_dvr_probe
-Date: Tue, 21 Mar 2017 09:32:39 -0700
-Message-ID: <c475800d-3e0c-3adf-668a-bb2235812b4c@gmail.com>
-References: <20170320172915.8313-1-niklass@axis.com>
- <257f3b05-805d-fd59-5435-89ede6b0fe4b@gmail.com>
- <82fbc595-5269-bcd9-d75f-778fbd8d2bdb@axis.com>
- <285d0fe6-9257-5e44-1272-be22dc271094@gmail.com>
- <fb001e95-5660-4d08-73f0-14ab1c52d648@axis.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH net-next 0/7] Clean up PHY MMD accessors
+Date: Tue, 21 Mar 2017 16:35:55 +0000
+Message-ID: <20170321163555.GA21222@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Niklas Cassel <niklas.cassel@axis.com>, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, Joao.Pinto@synopsys.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <fb001e95-5660-4d08-73f0-14ab1c52d648@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Woojung Huh <woojung.huh@microchip.com>,
+ Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+ linux-usb@vger.kernel.org,
+ Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+ linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 03/21/2017 02:04 AM, Niklas Cassel wrote:
-> On 03/20/2017 11:07 PM, Florian Fainelli wrote:
->>
->> (snip)
->>>
->>> However, it is kind of sad that drivers are so inconsistent of what goes
->>> in probe and what goes in ndo_open...which is tied together with the
->>> whole mess of when certain ethtool commands work or do not work.
->> Well, inconsistent here is kind of big statement, what I meant to say is
->> that your proposed change actually makes thing inconsistent.
-> 
-> What I mean is that it is about 50/50 if something e.g. phy_connect
-> is called from probe or from ndo_open.
-> This is what I think is inconsistent.
-> 
-> git grep -p -E "phy_connect\(|phy_connect_direct\(" drivers/net/ethernet/ | grep open | wc -l
-> 12
-> 
-> git grep -p -E "phy_connect\(|phy_connect_direct\(" drivers/net/ethernet/ | grep probe | wc -l
-> 27
-> even if we exclude *_mii_probe/*_mdio_probe which are done
-> git grep -p mii_probe drivers/net/ethernet/ | grep open | wc -l
-> 6
-> git grep -p mdio_probe drivers/net/ethernet/ | grep open | wc -l
-> 2
-> 
-> phy_connect done from probe:
-> 27-6-2=19
-> 
-> phy_connect done from ndo_open:
-> 12+6+2=20
-> 
-> 
->>
->>> Do you know of a good way to avoid the -EBUSY in stmmac_ethtool_get_link_ksettings,
->>> but still keep phy_connect in ndo_open?
->> Let me rephrase this: doing an ethtool operation on an interface that is
->> not open is not a defined behavior which adheres to a contract with the
->> kernel. ethtool operations on interfaces that are DOWN, may succeed if
->> they do not involve a piece of hardware that needs to be active (e.g:
->> the PHY) but there is no guarantee that a) the change is immediately
->> applied, or b) that the results are consistent.
->>
->> The best thing to do IMHO is just silence the warning, return an error
->> coed, and come back configuring the interface at a later time when it is
->> guaranteed to be operational.
-> 
-> Thank you for your feedback. I agree with you,
-> silencing the warning would be the best way forward.
-> David, please ignore this patch.
-> 
-> 
-> 
-> However, since ethtool is a user interface, I think that it would
-> have been nice if it wasn't so driver specific regarding to if a
-> command works before the interface is open or not.
+This series cleans up phylib's MMD accessors, so that we have a common
+way of accessing the Clause 45 register set.
 
-On premise I agree, in practice, every HW and driver is different, and
-enforcing standard behaviors is even more difficult as there are
-multiple pieces of HW interconnected to each other: MAC, MDIO bus, PHY
-etc. all with different power management capabilities and properties,
-and different requirements, and of course, varying degrees of brokenness.
+The current situation is far from ideal - we have phy_(read|write)_mmd()
+which accesses Clause 45 registers over Clause 45 accesses, and we have
+phy_(read|write)_mmd_indirect(), which accesses Clause 45 registers via
+Clause 22 register 13/14.
 
-> 
-> If the user does some ethtool operation that affects e.g. the PHY
-> before the interface is open, perhaps there is a way to save this
-> setting so it could be applied when the resource is available.
+Generic code uses the indirect methods to access standard Clause 45
+features, and when we come to add Clause 45 PHY support to phylib, we
+would need to make these conditional upon the PHY type, or duplicate
+these functions.
 
-Well behaving driver will connect to the PHY as one of their final
-driver's ndo_open() step, any call in between will result in phydev
-being NULL which will return a proper error code and should be acted
-upon by the application doing the ethtool calls (or the one doing
-ioctl() calls similar to ethtool).
+An alternative solution is to merge these accessors together, and select
+the appropriate access method depending upon the 802.3 clause that the
+PHY conforms with.  The result is that we have a single set of
+phy_(read|write)_mmd() accessors.
 
-> 
-> For the PHY case, net_device has a pointer to a phy_device,
-> register_netdev could create a dummy phy_device if
-> ndev->phy_device is NULL, that way changes could be saved
-> and applied when phy_connect replaces the dummy device
-> (or perhaps when phy_start() is called).
-> (If it isn't a dummy phy_device, changes could be applied immediately.)
-> This way it would not matter if phy_connect is done from probe
-> or from ndo_open.
-> 
+For cases which require special handling, we still allow PHY drivers to
+override all MMD accesses - except rather than just overriding the
+indirect accesses.  This keeps existing overrides working.
 
-I don't think there is a need for a dummy PHY device, you can do this in
-your driver if you want to, but this adds a lot of complexity for little
-value, and, keep in mind that before ndo_open() is complete, most
-operations against your network driver can be undefined.
+Combining the two also has another beneficial side effect - we get rid
+of similar functions that take arguments in different orders.  The
+old direct accessors took the phy structure, devad and register number,
+whereas the indirect accessors took the phy structure, register number
+and devad in that order.  Care must be taken when updating future
+drivers that the argument order is correct, and the function name is
+not merely replaced.
+
+This patch set is against net-next.
+
+ drivers/net/phy/Makefile      |   2 +-
+ drivers/net/phy/bcm-phy-lib.c |  12 ++---
+ drivers/net/phy/dp83867.c     |  25 +++++-----
+ drivers/net/phy/intel-xway.c  |  26 +++++-----
+ drivers/net/phy/micrel.c      |  13 +++--
+ drivers/net/phy/microchip.c   |   5 +-
+ drivers/net/phy/phy-core.c    | 101 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/phy.c         | 110 ++++--------------------------------------
+ drivers/net/phy/phy_device.c  |   4 +-
+ drivers/net/usb/lan78xx.c     |  10 ++--
+ include/linux/phy.h           |  80 +++++++++---------------------
+ 11 files changed, 178 insertions(+), 210 deletions(-)
+
+RFC->v1:
+- minor update patch 2 to resolve a build error that the 0-day builder
+  discovered.
+- reviewed-by / acked-bys added
+
 -- 
-Florian
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
