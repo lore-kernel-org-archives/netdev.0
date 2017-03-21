@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 2/8] skb_array: introduce batch dequeuing
-Date: Tue, 21 Mar 2017 12:04:41 +0800
-Message-ID: <1490069087-4783-3-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next 3/8] tun: export skb_array
+Date: Tue, 21 Mar 2017 12:04:42 +0800
+Message-ID: <1490069087-4783-4-git-send-email-jasowang@redhat.com>
 References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,61 +22,60 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+This patch exports skb_array through tun_get_skb_array(). Caller can
+then manipulate skb array directly.
+
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/skb_array.h | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ drivers/net/tun.c      | 13 +++++++++++++
+ include/linux/if_tun.h |  5 +++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-index f4dfade..90e44b9 100644
---- a/include/linux/skb_array.h
-+++ b/include/linux/skb_array.h
-@@ -97,21 +97,46 @@ static inline struct sk_buff *skb_array_consume(struct skb_array *a)
- 	return ptr_ring_consume(&a->ring);
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index c418f0a..70dd9ec 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -2613,6 +2613,19 @@ struct socket *tun_get_socket(struct file *file)
  }
+ EXPORT_SYMBOL_GPL(tun_get_socket);
  
-+static inline int skb_array_consume_batched(struct skb_array *a,
-+					    void **array, int n)
++struct skb_array *tun_get_skb_array(struct file *file)
 +{
-+	return ptr_ring_consume_batched(&a->ring, array, n);
-+}
++	struct tun_file *tfile;
 +
- static inline struct sk_buff *skb_array_consume_irq(struct skb_array *a)
++	if (file->f_op != &tun_fops)
++		return ERR_PTR(-EINVAL);
++	tfile = file->private_data;
++	if (!tfile)
++		return ERR_PTR(-EBADFD);
++	return &tfile->tx_array;
++}
++EXPORT_SYMBOL_GPL(tun_get_skb_array);
++
+ module_init(tun_init);
+ module_exit(tun_cleanup);
+ MODULE_DESCRIPTION(DRV_DESCRIPTION);
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index ed6da2e..bf9bdf4 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -19,6 +19,7 @@
+ 
+ #if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
+ struct socket *tun_get_socket(struct file *);
++struct skb_array *tun_get_skb_array(struct file *file);
+ #else
+ #include <linux/err.h>
+ #include <linux/errno.h>
+@@ -28,5 +29,9 @@ static inline struct socket *tun_get_socket(struct file *f)
  {
- 	return ptr_ring_consume_irq(&a->ring);
+ 	return ERR_PTR(-EINVAL);
  }
- 
-+static inline int skb_array_consume_batched_irq(struct skb_array *a,
-+						void **array, int n)
++static inline struct skb_array *tun_get_skb_array(struct file *f)
 +{
-+	return ptr_ring_consume_batched_irq(&a->ring, array, n);
++	return ERR_PTR(-EINVAL);
 +}
-+
- static inline struct sk_buff *skb_array_consume_any(struct skb_array *a)
- {
- 	return ptr_ring_consume_any(&a->ring);
- }
- 
-+static inline int skb_array_consume_batched_any(struct skb_array *a,
-+						void **array, int n)
-+{
-+	return ptr_ring_consume_batched_any(&a->ring, array, n);
-+}
-+
-+
- static inline struct sk_buff *skb_array_consume_bh(struct skb_array *a)
- {
- 	return ptr_ring_consume_bh(&a->ring);
- }
- 
-+static inline int skb_array_consume_batched_bh(struct skb_array *a,
-+					       void **array, int n)
-+{
-+	return ptr_ring_consume_batched_bh(&a->ring, array, n);
-+}
-+
- static inline int __skb_array_len_with_tag(struct sk_buff *skb)
- {
- 	if (likely(skb)) {
+ #endif /* CONFIG_TUN */
+ #endif /* __IF_TUN_H */
 -- 
 2.7.4
