@@ -1,73 +1,113 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: mlx5e backports for v4.9 -stable
-Date: Tue, 21 Mar 2017 11:42:09 +0200
-Message-ID: <CALzJLG8bvsTHXj0_BTOS_6XVhRzocc=1WMNvWCVxCdqPUeh-gA@mail.gmail.com>
-References: <20170316.170631.2026655873781156952.davem@davemloft.net> <a53a8f31-a01f-50ee-7aef-4c1a37f2c393@mellanox.com>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 1/1] tipc: fix nametbl deadlock at tipc_nametbl_unsubscribe
+Date: Tue, 21 Mar 2017 10:47:49 +0100
+Message-ID: <1490089669-2144-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+        <jon.maloy@ericsson.com>, <maloy@donjonn.com>,
+        <ying.xue@windriver.com>, <thompa.atl@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:35293 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756409AbdCUJmh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 05:42:37 -0400
-Received: by mail-qt0-f194.google.com with SMTP id r5so20657647qtb.2
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 02:42:30 -0700 (PDT)
-In-Reply-To: <a53a8f31-a01f-50ee-7aef-4c1a37f2c393@mellanox.com>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:63889 "EHLO
+        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751176AbdCUJr5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 05:47:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 20, 2017 at 11:32 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
->
->
-> On 03/17/2017 02:06 AM, David Miller wrote:
->>
->> Commits:
->>
->> ====================
->> From b0d4660b4cc52e6477ca3a43435351d565dfcedc Mon Sep 17 00:00:00 2001
->> From: Tariq Toukan <tariqt@mellanox.com>
->> Date: Wed, 22 Feb 2017 17:20:14 +0200
->> Subject: [PATCH] net/mlx5e: Fix broken CQE compression initialization
->> ====================
->>
->> and
->>
->> ====================
->> From 6dc4b54e77282caf17f0ff72aa32dd296037fbc0 Mon Sep 17 00:00:00 2001
->> From: Saeed Mahameed <saeedm@mellanox.com>
->> Date: Wed, 22 Feb 2017 17:20:15 +0200
->> Subject: [PATCH] net/mlx5e: Update MPWQE stride size when modifying CQE
->>  compress state
->> ====================
->>
->> do not apply even closely to v4.9 while I was working on -stable backports.
->>
->> Please provide proper backports of these two patches if you want them to
->> show up in v4.9 -stable.
->>
->
-> Hi Dave,
->
-> thank you for trying, we will provide the patches, but I don't know what is the right procedure
-> to do so.
->
-> is it ok to post the patches applied on top tag v4.9.16  of kernel/git/stable/linux-stable.git ?
-> to whom should I send them ?
->
+From: Ying Xue <ying.xue@windriver.com>
 
-Actually, it looks like the fixes tag is not accurate, the bug is exposed only
-with the new user control of CQE compression feature which should have
-took care of
-those issues, 9bcc86064bb5 ("net/mlx5e: Add CQE compression user control")
-and this patch was only introduced in 4.10.
+Until now, tipc_nametbl_unsubscribe() is called at subscriptions
+reference count cleanup. Usually the subscriptions cleanup is
+called at subscription timeout or at subscription cancel or at
+subscriber delete.
 
-No need to apply those patches into 4.9-stable.
+We have ignored the possibility of this being called from other
+locations, which causes deadlock as we try to grab the
+tn->nametbl_lock while holding it already.
 
-Sorry for the inconvenience.
+   CPU1:                             CPU2:
+----------                     ----------------
+tipc_nametbl_publish
+spin_lock_bh(&tn->nametbl_lock)
+tipc_nametbl_insert_publ
+tipc_nameseq_insert_publ
+tipc_subscrp_report_overlap
+tipc_subscrp_get
+tipc_subscrp_send_event
+                             tipc_close_conn
+                             tipc_subscrb_release_cb
+                             tipc_subscrb_delete
+                             tipc_subscrp_put
+tipc_subscrp_put
+tipc_subscrp_kref_release
+tipc_nametbl_unsubscribe
+spin_lock_bh(&tn->nametbl_lock)
+<<grab nametbl_lock again>>
 
-thanks,
-Saeed.
+   CPU1:                              CPU2:
+----------                     ----------------
+tipc_nametbl_stop
+spin_lock_bh(&tn->nametbl_lock)
+tipc_purge_publications
+tipc_nameseq_remove_publ
+tipc_subscrp_report_overlap
+tipc_subscrp_get
+tipc_subscrp_send_event
+                             tipc_close_conn
+                             tipc_subscrb_release_cb
+                             tipc_subscrb_delete
+                             tipc_subscrp_put
+tipc_subscrp_put
+tipc_subscrp_kref_release
+tipc_nametbl_unsubscribe
+spin_lock_bh(&tn->nametbl_lock)
+<<grab nametbl_lock again>>
+
+In this commit, we advance the calling of tipc_nametbl_unsubscribe()
+from the refcount cleanup to the intended callers.
+
+Fixes: d094c4d5f5c7 ("tipc: add subscription refcount to avoid invalid delete")
+Reported-by: John Thompson <thompa.atl@gmail.com>
+Acked-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+ net/tipc/subscr.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 9d94e65d0894..271cd66e4b3b 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -141,6 +141,11 @@ void tipc_subscrp_report_overlap(struct tipc_subscription *sub, u32 found_lower,
+ static void tipc_subscrp_timeout(unsigned long data)
+ {
+ 	struct tipc_subscription *sub = (struct tipc_subscription *)data;
++	struct tipc_subscriber *subscriber = sub->subscriber;
++
++	spin_lock_bh(&subscriber->lock);
++	tipc_nametbl_unsubscribe(sub);
++	spin_unlock_bh(&subscriber->lock);
+ 
+ 	/* Notify subscriber of timeout */
+ 	tipc_subscrp_send_event(sub, sub->evt.s.seq.lower, sub->evt.s.seq.upper,
+@@ -173,7 +178,6 @@ static void tipc_subscrp_kref_release(struct kref *kref)
+ 	struct tipc_subscriber *subscriber = sub->subscriber;
+ 
+ 	spin_lock_bh(&subscriber->lock);
+-	tipc_nametbl_unsubscribe(sub);
+ 	list_del(&sub->subscrp_list);
+ 	atomic_dec(&tn->subscription_count);
+ 	spin_unlock_bh(&subscriber->lock);
+@@ -205,6 +209,7 @@ static void tipc_subscrb_subscrp_delete(struct tipc_subscriber *subscriber,
+ 		if (s && memcmp(s, &sub->evt.s, sizeof(struct tipc_subscr)))
+ 			continue;
+ 
++		tipc_nametbl_unsubscribe(sub);
+ 		tipc_subscrp_get(sub);
+ 		spin_unlock_bh(&subscriber->lock);
+ 		tipc_subscrp_delete(sub);
+-- 
+2.1.4
