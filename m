@@ -1,120 +1,106 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/5] igbvf: use new API ethtool_{get|set}_link_ksettings
-Date: Tue, 21 Mar 2017 16:00:27 -0700
-Message-ID: <20170321230028.69510-5-jeffrey.t.kirsher@intel.com>
-References: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
-Cc: Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:21237 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758202AbdCUXNY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Mar 2017 19:13:24 -0400
-In-Reply-To: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH net-next 1/4] drivers: net: xgene-v2: Add MDIO support
+Date: Tue, 21 Mar 2017 16:18:46 -0700
+Message-ID: <CAKh23Fn_re2CmT_XDD7YgqAGEa61rfaL5XHHqaPujzhMx9XVeg@mail.gmail.com>
+References: <1490124283-10371-1-git-send-email-isubramanian@apm.com>
+ <1490124283-10371-2-git-send-email-isubramanian@apm.com>
+ <20170321203550.GD30655@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev <netdev@vger.kernel.org>,
+ patches <patches@apm.com>, David Laight <David.Laight@aculab.com>,
+ Keyur Chudgar <kchudgar@apm.com>, David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170321203550.GD30655@lunn.ch>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Philippe Reynes <tremyfr@gmail.com>
+On Tue, Mar 21, 2017 at 1:35 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> @@ -511,9 +512,9 @@ static int xge_close(struct net_device *ndev)
+>>  {
+>>       struct xge_pdata *pdata = netdev_priv(ndev);
+>>
+>> -     netif_carrier_off(ndev);
+>>       netif_stop_queue(ndev);
+>>       xge_mac_disable(pdata);
+>> +     phy_stop(ndev->phydev);
+>>
+>>       xge_intr_disable(pdata);
+>>       xge_free_irq(ndev);
+>> @@ -683,9 +684,14 @@ static int xge_probe(struct platform_device *pdev)
+>>       if (ret)
+>>               goto err;
+>>
+>> +     spin_lock_init(&pdata->mdio_lock);
+>> +
+>
+> ...
+>
+>> +static int xge_mdio_write(struct mii_bus *bus, int phy_id, int reg, u16 data)
+>> +{
+>> +     struct xge_pdata *pdata = bus->priv;
+>> +     u32 done, val = 0;
+>> +     u8 wait = 10;
+>> +     int ret = 0;
+>> +
+>> +     spin_lock(&pdata->mdio_lock);
+>> +
+>> +     SET_REG_BITS(&val, PHY_ADDR, phy_id);
+>> +     SET_REG_BITS(&val, REG_ADDR, reg);
+>> +     xge_wr_csr(pdata, MII_MGMT_ADDRESS, val);
+>> +
+>> +     xge_wr_csr(pdata, MII_MGMT_CONTROL, data);
+>> +     do {
+>> +             usleep_range(5, 10);
+>> +             done = xge_rd_csr(pdata, MII_MGMT_INDICATORS);
+>> +     } while ((done & MII_MGMT_BUSY) && wait--);
+>> +
+>> +     if (done & MII_MGMT_BUSY) {
+>> +             dev_err(&bus->dev, "MII_MGMT write failed\n");
+>> +             ret = -ETIMEDOUT;
+>> +     }
+>> +
+>> +     spin_unlock(&pdata->mdio_lock);
+>> +
+>> +     return ret;
+>> +}
+>> +
+>> +static int xge_mdio_read(struct mii_bus *bus, int phy_id, int reg)
+>> +{
+>> +     struct xge_pdata *pdata = bus->priv;
+>> +     u32 data, done, val = 0;
+>> +     u8 wait = 10;
+>> +
+>> +     spin_lock(&pdata->mdio_lock);
+>> +
+>
+> Hi Iyappan
+>
+> Please could you explain what this lock is protecting which the
+> mii_bus mdio_lock in mdio_bus.c is not protecting?
 
-The ethtool API {get|set}_settings is deprecated.
-We move this driver to new API {get|set}_link_ksettings.
+Hi Keyur,
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+Please could you explain what this lock is protecting which the
+mii_bus mdio_lock in mdio_bus.c is not protecting?
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igbvf/ethtool.c | 38 +++++++++++++++---------------
- 1 file changed, 19 insertions(+), 19 deletions(-)
+I agree with him.  Actually there is a mutex on mdio_bus.  So the mdio
+bus read and write are locked.  we don't need the lock.
 
-diff --git a/drivers/net/ethernet/intel/igbvf/ethtool.c b/drivers/net/ethernet/intel/igbvf/ethtool.c
-index 8dea1b1367ef..34faa113a8a0 100644
---- a/drivers/net/ethernet/intel/igbvf/ethtool.c
-+++ b/drivers/net/ethernet/intel/igbvf/ethtool.c
-@@ -71,45 +71,45 @@ static const char igbvf_gstrings_test[][ETH_GSTRING_LEN] = {
- 
- #define IGBVF_TEST_LEN ARRAY_SIZE(igbvf_gstrings_test)
- 
--static int igbvf_get_settings(struct net_device *netdev,
--			      struct ethtool_cmd *ecmd)
-+static int igbvf_get_link_ksettings(struct net_device *netdev,
-+				    struct ethtool_link_ksettings *cmd)
- {
- 	struct igbvf_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 status;
- 
--	ecmd->supported   = SUPPORTED_1000baseT_Full;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, 1000baseT_Full);
-+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	ethtool_link_ksettings_add_link_mode(cmd, advertising, 1000baseT_Full);
- 
--	ecmd->advertising = ADVERTISED_1000baseT_Full;
--
--	ecmd->port = -1;
--	ecmd->transceiver = XCVR_DUMMY1;
-+	cmd->base.port = -1;
- 
- 	status = er32(STATUS);
- 	if (status & E1000_STATUS_LU) {
- 		if (status & E1000_STATUS_SPEED_1000)
--			ethtool_cmd_speed_set(ecmd, SPEED_1000);
-+			cmd->base.speed = SPEED_1000;
- 		else if (status & E1000_STATUS_SPEED_100)
--			ethtool_cmd_speed_set(ecmd, SPEED_100);
-+			cmd->base.speed = SPEED_100;
- 		else
--			ethtool_cmd_speed_set(ecmd, SPEED_10);
-+			cmd->base.speed = SPEED_10;
- 
- 		if (status & E1000_STATUS_FD)
--			ecmd->duplex = DUPLEX_FULL;
-+			cmd->base.duplex = DUPLEX_FULL;
- 		else
--			ecmd->duplex = DUPLEX_HALF;
-+			cmd->base.duplex = DUPLEX_HALF;
- 	} else {
--		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
--		ecmd->duplex = DUPLEX_UNKNOWN;
-+		cmd->base.speed = SPEED_UNKNOWN;
-+		cmd->base.duplex = DUPLEX_UNKNOWN;
- 	}
- 
--	ecmd->autoneg = AUTONEG_DISABLE;
-+	cmd->base.autoneg = AUTONEG_DISABLE;
- 
- 	return 0;
- }
- 
--static int igbvf_set_settings(struct net_device *netdev,
--			      struct ethtool_cmd *ecmd)
-+static int igbvf_set_link_ksettings(struct net_device *netdev,
-+				    const struct ethtool_link_ksettings *cmd)
- {
- 	return -EOPNOTSUPP;
- }
-@@ -443,8 +443,6 @@ static void igbvf_get_strings(struct net_device *netdev, u32 stringset,
- }
- 
- static const struct ethtool_ops igbvf_ethtool_ops = {
--	.get_settings		= igbvf_get_settings,
--	.set_settings		= igbvf_set_settings,
- 	.get_drvinfo		= igbvf_get_drvinfo,
- 	.get_regs_len		= igbvf_get_regs_len,
- 	.get_regs		= igbvf_get_regs,
-@@ -467,6 +465,8 @@ static const struct ethtool_ops igbvf_ethtool_ops = {
- 	.get_ethtool_stats	= igbvf_get_ethtool_stats,
- 	.get_coalesce		= igbvf_get_coalesce,
- 	.set_coalesce		= igbvf_set_coalesce,
-+	.get_link_ksettings	= igbvf_get_link_ksettings,
-+	.set_link_ksettings	= igbvf_set_link_ksettings,
- };
- 
- void igbvf_set_ethtool_ops(struct net_device *netdev)
--- 
-2.12.0
+Do you agree ?
+
+
+>
+> Thanks
+>         Andrew
