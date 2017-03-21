@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun: fix inability to set offloads after disabling
- them via ethtool
-Date: Tue, 21 Mar 2017 15:31:25 -0700 (PDT)
-Message-ID: <20170321.153125.2107918979977138191.davem@davemloft.net>
-References: <58caeb36.0a212e0a.87e63.3119@mx.google.com>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+ atomic_t to refcount_t
+Date: Tue, 21 Mar 2017 15:36:06 -0700 (PDT)
+Message-ID: <20170321.153606.2138520242577188528.davem@davemloft.net>
+References: <20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
+	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
+	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yaroslav.isakov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57776 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933347AbdCUWbq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 18:31:46 -0400
-In-Reply-To: <58caeb36.0a212e0a.87e63.3119@mx.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: keescook@chromium.org, peterz@infradead.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, ishkamiel@gmail.com, kuznet@ms2.inr.ac.ru,
+	akpm@linux-foundation.org, dwindsor@gmail.com, kaber@trash.net,
+	elena.reshetova@intel.com, herbert@gondor.apana.org.au
+To: eric.dumazet@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Yaroslav Isakov <yaroslav.isakov@gmail.com>
-Date: Thu, 16 Mar 2017 22:44:10 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 21 Mar 2017 14:23:09 -0700
 
-> Added missing logic in tun driver, which prevents apps to set
-> offloads using tun ioctl, if offloads were previously disabled via ethtool
+> It looks like our suggestion to get kernel builds with atomic_inc()
+> being exactly an atomic_inc() is not even discussed or implemented.
 > 
-> Signed-off-by: Yaroslav Isakov <yaroslav.isakov@gmail.com>
+> Coding this would require less time than running a typical Google kernel
+> qualification (roughly one month, thousands of hosts..., days of SWE).
 
-Applied, thanks.
++1
