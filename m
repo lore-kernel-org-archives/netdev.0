@@ -1,35 +1,61 @@
-From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [PATCH v1] NFC: Add nfc_dbg() macro
-Date: Wed, 22 Mar 2017 21:22:51 +0200
-Message-ID: <20170322192251.30261-1-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-        Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-        Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 1/3] soc: qcom: smd: Transition client drivers from smd to
+ rpmsg
+Date: Wed, 22 Mar 2017 20:23:15 +0100
+Message-ID: <21FCFC89-07EE-49EE-81C2-A138DD4C5F99@holtmann.org>
+References: <20170320233544.1656-1-bjorn.andersson@linaro.org>
+ <20170322.114439.679826829857326050.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
+        "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Andy Gross <andy.gross@linaro.org>,
+        David Brown <david.brown@linaro.org>, arnd@arndb.de,
+        linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+        linux-soc@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170322.114439.679826829857326050.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In some cases nfc_dbg() is useful. Add such macro to a header.
+Hi Dave,
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
----
- include/net/nfc/nfc.h | 1 +
- 1 file changed, 1 insertion(+)
+>> By moving these client drivers to use RPMSG instead of the direct SMD
+>> API we can reuse them ontop of the newly added GLINK wire-protocol
+>> support found in the 820 and 835 Qualcomm platforms.
+>> 
+>> As the new (RPMSG-based) and old SMD implementations are mutually
+>> exclusive we have to change all client drivers in one commit, to make
+>> sure we have a working system before and after this transition.
+>> 
+>> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+>> ---
+>> 
+>> Based on v4.11-rc3 with Arnd's Kconfig dependency fixes for BT_QCOMSMD
+>> (https://lkml.org/lkml/2017/3/20/1038).
+> 
+> Just some questions since I'm supposed to merge this into my net-next
+> tree.
+> 
+> What is the status of the Kconfig dependency fix and how will I be
+> getting it?
 
-diff --git a/include/net/nfc/nfc.h b/include/net/nfc/nfc.h
-index 1a3de8b34ad2..bbdc73a3239d 100644
---- a/include/net/nfc/nfc.h
-+++ b/include/net/nfc/nfc.h
-@@ -27,6 +27,7 @@
- #include <linux/device.h>
- #include <linux/skbuff.h>
- 
-+#define nfc_dbg(dev, fmt, ...) dev_dbg((dev), "NFC: " fmt, ##__VA_ARGS__)
- #define nfc_info(dev, fmt, ...) dev_info((dev), "NFC: " fmt, ##__VA_ARGS__)
- #define nfc_err(dev, fmt, ...) dev_err((dev), "NFC: " fmt, ##__VA_ARGS__)
- 
--- 
-2.11.0
+I acked that one separately and added you:
+
+[PATCH v2] Bluetooth: btqcomsmd: fix compile-test dependency
+
+> Second, should I merge all three of these patches to net-next or just
+> this one?
+
+I think you have to take all 3 patches. Otherwise it will break.
+
+Regards
+
+Marcel
