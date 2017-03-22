@@ -1,46 +1,31 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: [PATCH 2/2] netfilter: ipset: warn users of list:set that parameter 'size' is ignored
-Date: Tue, 21 Mar 2017 22:06:22 -0400
-Message-ID: <1490148382-2633-2-git-send-email-vpai@akamai.com>
-References: <1490148382-2633-1-git-send-email-vpai@akamai.com>
-Cc: johunt@akamai.com, vpai@akamai.com,
-        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        coreteam@netfilter.org, pai.vishwain@gmail.com
-To: pablo@netfilter.org, kadlec@blackhole.kfki.hu
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1490148382-2633-1-git-send-email-vpai@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: qmi_wwan: Add USB IDs for MDM6600 modem on
+ Motorola Droid 4
+Date: Tue, 21 Mar 2017 19:07:03 -0700 (PDT)
+Message-ID: <20170321.190703.1994975170465187670.davem@davemloft.net>
+References: <20170319161957.6625-1-tony@atomide.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org, bjorn@mork.no
+To: tony@atomide.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60382 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751621AbdCVCHx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 22:07:53 -0400
+In-Reply-To: <20170319161957.6625-1-tony@atomide.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Revision 4 warns the users that the parameter 'size' is ignored. The
-kernel module doesn't need any changes, it will work with both the
-revisions.
+From: Tony Lindgren <tony@atomide.com>
+Date: Sun, 19 Mar 2017 09:19:57 -0700
 
-Note that this will not restore old behavior before commit 00590fdd5be0
-("netfilter: ipset: Introduce RCU locking in list type") for users of
-the older revision. It will be a much bigger change if that is
-what we need.
+> This gets qmicli working with the MDM6600 modem.
+> 
+> Cc: Bjørn Mork <bjorn@mork.no>
+> Reviewed-by: Sebastian Reichel <sre@kernel.org>
+> Tested-by: Sebastian Reichel <sre@kernel.org>
+> Signed-off-by: Tony Lindgren <tony@atomide.com>
 
-Reviewed-by: Josh Hunt <johunt@akamai.com>
-Signed-off-by: Vishwanath Pai <vpai@akamai.com>
----
- net/netfilter/ipset/ip_set_list_set.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index 178d4eb..d4f820a 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -19,7 +19,8 @@
- #define IPSET_TYPE_REV_MIN	0
- /*				1    Counters support added */
- /*				2    Comments support added */
--#define IPSET_TYPE_REV_MAX	3 /* skbinfo support added */
-+/*				3    skbinfo support added */
-+#define IPSET_TYPE_REV_MAX	4 /* size argument is ignored */
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
--- 
-1.9.1
-
+Applied, thanks.
