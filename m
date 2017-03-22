@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] fjes: Do not load fjes driver
-Date: Wed, 22 Mar 2017 12:39:04 -0700 (PDT)
-Message-ID: <20170322.123904.2127246481524648740.davem@davemloft.net>
-References: <c0bb31ae-1f5b-9b73-ed51-a8d56361ff59@gmail.com>
+Subject: Re: [PATCH] ipv6: make sure to initialize sockc.tsflags before
+ first use
+Date: Wed, 22 Mar 2017 12:40:53 -0700 (PDT)
+Message-ID: <20170322.124053.395077714485086280.davem@davemloft.net>
+References: <20170321161427.103713-1-glider@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, izumi.taku@jp.fujitsu.com
-To: yasu.isimatu@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43706 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759313AbdCVTkG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 15:40:06 -0400
-In-Reply-To: <c0bb31ae-1f5b-9b73-ed51-a8d56361ff59@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        soheil@google.com, kuznet@ms2.inr.ac.ru,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: glider@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170321161427.103713-1-glider@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: YASUAKI ISHIMATSU <yasu.isimatu@gmail.com>
-Date: Tue, 21 Mar 2017 11:28:02 -0400
+From: Alexander Potapenko <glider@google.com>
+Date: Tue, 21 Mar 2017 17:14:27 +0100
 
-> The fjes driver is used only by FUJITSU servers and almost of all
-> servers in the world never use it. But currently if ACPI PNP0C02
-> is defined in the ACPI table, the following message is always shown:
+> In the case udp_sk(sk)->pending is AF_INET6, udpv6_sendmsg() would
+> jump to do_append_data, skipping the initialization of sockc.tsflags.
+> Fix the problem by moving sockc.tsflags initialization earlier.
 > 
->  "FUJITSU Extended Socket Network Device Driver - version 1.2
->   - Copyright (c) 2015 FUJITSU LIMITED"
+> The bug was detected with KMSAN.
 > 
-> The message makes users confused because there is no reason that
-> the message is shown in other vendor servers.
-> 
-> To avoid the confusion, the patch adds several checks.
-> 
-> v3:
->   - Rebase on latest net tree.
->   - Add _STA method check to avoid loading fjes driver.
-> 
-> v2:
->   - Order local variable declarations from longest to shortest line
+> Signed-off-by: Alexander Potapenko <glider@google.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thank you.
