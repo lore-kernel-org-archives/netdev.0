@@ -1,47 +1,70 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next v7 2/3] Add a eBPF helper function to retrieve
- socket uid
-Date: Wed, 22 Mar 2017 21:06:47 +0900
-Message-ID: <CAKD1Yr3o_Vp80FLbG5-9B7Ldag7sZOj4CHKjRWO-SfBL=ZS0pw@mail.gmail.com>
-References: <1490133934-7055-1-git-send-email-chenbofeng.kernel@gmail.com>
- <1490133934-7055-3-git-send-email-chenbofeng.kernel@gmail.com> <CAF=yD-+D5oHcU3qq4nDDWE1Bt4k2Vv9Ekf=FoKMdrc0F5dGS_Q@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+ atomic_t to refcount_t
+Date: Wed, 22 Mar 2017 13:11:00 +0100
+Message-ID: <20170322121100.cjeqno4g3s5n2qtl@hirez.programming.kicks-ass.net>
+References: <20170318164759.GA23837@gondor.apana.org.au>
+	<20170318.182121.439615057765380575.davem@davemloft.net>
+	<20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
+	<20170320131629.GA26405@gondor.apana.org.au>
+	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
+	<20170320132713.GA26954@gondor.apana.org.au>
+	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
+	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
+	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Willem de Bruijn <willemb@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:34710 "EHLO
-        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934256AbdCVMHJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 08:07:09 -0400
-Received: by mail-vk0-f46.google.com with SMTP id z204so65740559vkd.1
-        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 05:07:08 -0700 (PDT)
-In-Reply-To: <CAF=yD-+D5oHcU3qq4nDDWE1Bt4k2Vv9Ekf=FoKMdrc0F5dGS_Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>, Patrick McHardy <kaber@trash.net>,
+	Network Development <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, "Reshetova,
+	Elena" <elena.reshetova@intel.com>, David Windsor <dwindsor@gmail.com>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 22, 2017 at 8:09 PM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
->> +       if (!sk || !sk_fullsock(sk))
->> +               return overflowuid;
->> +       kuid = sock_net_uid(sock_net(sk), sk);
->> +       return from_kuid_munged(&init_user_ns, kuid);
->
-> Ideally, this would be the user namespace relative to the BPF program.
+On Tue, Mar 21, 2017 at 04:51:13PM -0700, Kees Cook wrote:
+> On Tue, Mar 21, 2017 at 2:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-What about sock_net(sk)->user_ns? We've already matched a socket, and
-it's guaranteed to be a full socket and non-NULL (otherwise we've
-already returned overflowuid), so it seems like the most correct
-namespace to use is the one of the socket we've matched. Given that sk
-is non-NULL, sock_net_uid just returns sk->sk_uid, so I think you can
-just write this as:
+> > Unfortunately there is no good test simulating real-world workloads,
+> > which are mostly using TCP flows.
+> 
+> Sure, but there has to be _something_ that can be used to test to
+> measure the effects. Without a meaningful test, it's weird to reject a
+> change for performance reasons.
 
-if (!sk || !sk_fullsock(sk))
-        return overflowuid;
-return from_kuid_munged(sock_net(sk)->user_ns, sk->uid);
+This. How can you optimize if there's no way to actually measure
+something?
+
+> > Most synthetic tools you can find are not using epoll(), and very often
+> > hit bottlenecks in other layers.
+> >
+> >
+> > It looks like our suggestion to get kernel builds with atomic_inc()
+> > being exactly an atomic_inc() is not even discussed or implemented.
+> 
+> So, FWIW, I originally tried to make this a CONFIG in the first couple
+> passes at getting a refcount defense. I would be fine with this, but I
+> was not able to convince Peter. :) However, things have evolved a lot
+> since then, so perhaps there are things do be done here.
+
+Well, the argument was that unless there's a benchmark that shows it
+cares, its all premature optimization.
+
+Similarly, you wanted this enabled at all times because hardening.
