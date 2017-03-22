@@ -1,72 +1,62 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v3 net-next] net: stmmac: fix dma operation mode config
- for older versions
-Date: Wed, 22 Mar 2017 13:37:21 +0100
-Message-ID: <20170322123721.GA24523@Red>
-References: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490183441.git.jpinto@synopsys.com>
+Subject: Re: [PATCH 2/3] net: stmmac: Restore DT backwards-compatibility
+Date: Wed, 22 Mar 2017 13:38:38 +0100
+Message-ID: <20170322123838.GB24523@Red>
+References: <20170321151211.31841-1-thierry.reding@gmail.com>
+ <20170321151211.31841-2-thierry.reding@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, thierry.reding@gmail.com,
-        sergei.shtylyov@cogentembedded.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Joao Pinto <Joao.Pinto@synopsys.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Thierry Reding <thierry.reding@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36289 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750952AbdCVMh1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 08:37:27 -0400
-Received: by mail-wr0-f194.google.com with SMTP id l37so26482724wrc.3
-        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 05:37:26 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34767 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752391AbdCVMin (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 08:38:43 -0400
 Content-Disposition: inline
-In-Reply-To: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490183441.git.jpinto@synopsys.com>
+In-Reply-To: <20170321151211.31841-2-thierry.reding@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 22, 2017 at 11:56:05AM +0000, Joao Pinto wrote:
-> The dma operation mode configuration routine was wrongly moved to a
-> function (stmmac_mtl_configuration) that is only executed if the
-> core version is >= 4.00.
+On Tue, Mar 21, 2017 at 04:12:10PM +0100, Thierry Reding wrote:
+> From: Thierry Reding <treding@nvidia.com>
 > 
-> Fixes: 6deee2221e11 ("net: stmmac: prepare dma op mode config for multiple queues")
-> Reported-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> Reviewed-by: Thierry Reding <thierry.reding@gmail.com>
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> Recent changes to support multiple queues in the device tree bindings
+> resulted in the number of RX and TX queues to be initialized to zero for
+> device trees not adhering to the new bindings.
+> 
+> Restore backwards-compatibility with those device trees by falling back
+> to a single RX and TX queues each.
+> 
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
 > ---
-> changes v2->v3:
-> - Commit ID and title should be under a 'Fixes' tag
-> changes v1->v2:
-> - commit id did not have 12 digits
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
 > 
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index d3a2151..225a3a3 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1945,9 +1945,6 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
->  	/* Enable MAC RX Queues */
->  	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_enable)
->  		stmmac_mac_enable_rx_queues(priv);
-> -
-> -	/* Set the HW DMA mode and the COE */
-> -	stmmac_dma_operation_mode(priv);
->  }
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 37f550ae76a5..74b0aff79b25 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -143,6 +143,13 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
+>  	struct device_node *tx_node;
+>  	u8 queue = 0;
 >  
->  /**
-> @@ -2014,6 +2011,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
->  	else
->  		stmmac_set_mac(priv->ioaddr, true);
->  
-> +	/* Set the HW DMA mode and the COE */
-> +	stmmac_dma_operation_mode(priv);
+> +	/* For backwards-compatibility with device trees that don't have any
+> +	 * snps,mtl-rx-config or snps,mtl-tx-config properties, we fall back
+> +	 * to one RX and TX queues each.
+> +	 */
+> +	plat->rx_queues_to_use = 1;
+> +	plat->tx_queues_to_use = 1;
 > +
->  	stmmac_mmc_setup(priv);
->  
->  	if (init_ptp) {
+>  	rx_node = of_parse_phandle(pdev->dev.of_node, "snps,mtl-rx-config", 0);
+>  	if (!rx_node)
+>  		return;
 > -- 
-> 2.9.3
+> 2.12.0
 > 
 
 Tested-by: Corentin Labbe <clabbe.montjoie@gmail.com>
