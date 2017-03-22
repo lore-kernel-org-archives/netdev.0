@@ -1,41 +1,54 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH v2 0/2] net: phy: state machine fixes for interrupt driven PHYs
-Date: Wed, 22 Mar 2017 13:02:02 +0200
-Message-ID: <1490180524-28675-1-git-send-email-rogerq@ti.com>
+Subject: [PATCH v2 1/2] net: phy: Fix PHY AN done state machine for interrupt driven PHYs
+Date: Wed, 22 Mar 2017 13:02:03 +0200
+Message-ID: <1490180524-28675-2-git-send-email-rogerq@ti.com>
+References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <andrew@lunn.ch>, <davem@davemloft.net>, <kyle.roeschley@ni.com>,
         <nsekhar@ti.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Roger Quadros <rogerq@ti.com>
+        <linux-kernel@vger.kernel.org>, Roger Quadros <rogerq@ti.com>,
+        "stable # v4 . 9+" <stable@vger.kernel.org>
 To: <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:48173 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758822AbdCVLFX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 07:05:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490180524-28675-1-git-send-email-rogerq@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+he ethernet link on an interrupt driven PHY was not coming up if the
+ethernet cable was plugged before the ethernet interface was brought up.
 
-These 2 patches fix the following 2 issues with the PHY state machine
-when used with interrupt driven PHYs.
+The PHY state machine seems to be stuck from RUNNING to AN state
+with no new interrupts from the PHY. So it doesn't know when the
+PHY Auto-negotiation has been completed and doesn't transition to RUNNING
+state with ANEG done thus netif_carrier_on() is never called.
 
-- PHY link not coming up if Ethernet cable is plugged before Ethernet network
-interface is brought up.
+NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
+advertisement parameters didn't change.
 
-- PHY not being suspended when PHY is halted.
+Fix this by scheduling the PHY state machine in phy_start_aneg().
 
-cheers,
--roger
+Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
+Cc: stable <stable@vger.kernel.org> # v4.9+
+Signed-off-by: Roger Quadros <rogerq@ti.com>
+---
+ drivers/net/phy/phy.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Roger Quadros (2):
-  net: phy: Fix PHY AN done state machine for interrupt driven PHYs
-  net: phy: Don't miss phy_suspend() on PHY_HALTED for PHYs with
-    interrupts
-
- drivers/net/phy/phy.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 1be69d8..49dedf8 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -630,6 +630,10 @@ int phy_start_aneg(struct phy_device *phydev)
+ 
+ out_unlock:
+ 	mutex_unlock(&phydev->lock);
++	if (!err && phy_interrupt_is_valid(phydev))
++		queue_delayed_work(system_power_efficient_wq,
++				   &phydev->state_queue, HZ);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(phy_start_aneg);
 -- 
 2.7.4
