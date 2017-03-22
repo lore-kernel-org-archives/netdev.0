@@ -1,56 +1,42 @@
-From: Jie Deng <Jie.Deng1@synopsys.com>
-Subject: Re: [patch -next] net: dwc-xlgmac: fix an error code in
- xlgmac_alloc_pages()
-Date: Wed, 22 Mar 2017 12:16:36 +0800
-Message-ID: <7542f1f3-eb36-125a-a030-49b02cb92e0b@synopsys.com>
-References: <20170321204227.GB22118@mwanda>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [net-next sample action optimization v4 4/4] Openvswitch:
+ Refactor sample and recirc actions implementation
+Date: Tue, 21 Mar 2017 22:59:57 -0700
+Message-ID: <CAOrHB_C8BiTqgwAKMBUKSv4FXVVmk5m6ty+qRroJ7ofjCB-6wQ@mail.gmail.com>
+References: <1490052750-60187-1-git-send-email-azhou@ovn.org> <1490052750-60187-5-git-send-email-azhou@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        Jie Deng <Jie.Deng1@synopsys.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Joe Stringer <joe@ovn.org>
+To: Andy Zhou <azhou@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:34904 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751042AbdCVERc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 00:17:32 -0400
-In-Reply-To: <20170321204227.GB22118@mwanda>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:44295 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758514AbdCVGAs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 02:00:48 -0400
+Received: from mfilter19-d.gandi.net (mfilter19-d.gandi.net [217.70.178.147])
+        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 9C0DFC5A61
+        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 06:59:59 +0100 (CET)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+        by mfilter19-d.gandi.net (mfilter19-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id xMkHPTn6538w for <netdev@vger.kernel.org>;
+        Wed, 22 Mar 2017 06:59:58 +0100 (CET)
+Received: from mail-wm0-f50.google.com (mail-wm0-f50.google.com [74.125.82.50])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 326FFC5A43
+        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 06:59:58 +0100 (CET)
+Received: by mail-wm0-f50.google.com with SMTP id n11so27436683wma.0
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 22:59:58 -0700 (PDT)
+In-Reply-To: <1490052750-60187-5-git-send-email-azhou@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017/3/22 4:42, Dan Carpenter wrote:
+On Mon, Mar 20, 2017 at 4:32 PM, Andy Zhou <azhou@ovn.org> wrote:
+> Added clone_execute() that both the sample and the recirc
+> action implementation can use.
+>
+> Signed-off-by: Andy Zhou <azhou@ovn.org>
 
-> The dma_mapping_error() returns true if there is an error but we want
-> to return -ENOMEM and not 1.
->
-> Fixes: 65e0ace2c5cd ("net: dwc-xlgmac: Initial driver for DesignWare Enterprise Ethernet")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c b/drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c
-> index 55c796ed7d26..39b5cb967bba 100644
-> --- a/drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c
-> +++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-desc.c
-> @@ -335,7 +335,6 @@ static int xlgmac_alloc_pages(struct xlgmac_pdata *pdata,
->  {
->  	struct page *pages = NULL;
->  	dma_addr_t pages_dma;
-> -	int ret;
->  
->  	/* Try to obtain pages, decreasing order if necessary */
->  	gfp |= __GFP_COLD | __GFP_COMP | __GFP_NOWARN;
-> @@ -352,10 +351,9 @@ static int xlgmac_alloc_pages(struct xlgmac_pdata *pdata,
->  	/* Map the pages */
->  	pages_dma = dma_map_page(pdata->dev, pages, 0,
->  				 PAGE_SIZE << order, DMA_FROM_DEVICE);
-> -	ret = dma_mapping_error(pdata->dev, pages_dma);
-> -	if (ret) {
-> +	if (dma_mapping_error(pdata->dev, pages_dma)) {
->  		put_page(pages);
-> -		return ret;
-> +		return -ENOMEM;
->  	}
->  
->  	pa->pages = pages;
-Thanks for fixes.
-Reviewed-by: Jie Deng <jiedeng@synopsys.com>
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
+
+Thanks for working on this.
