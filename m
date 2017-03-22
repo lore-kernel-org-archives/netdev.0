@@ -1,58 +1,74 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: Problem: net: mvneta: auto-negotiation with disconnected network
- cable
-Date: Thu, 23 Mar 2017 00:34:51 +0300
-Message-ID: <c5e143f0-f6b4-ff74-4239-e64ca025821b@list.ru>
-References: <DB6PR0501MB2712340C8CDC37F3038766AD943C0@DB6PR0501MB2712.eurprd05.prod.outlook.com>
+From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/3] soc: qcom: smd: Transition client drivers from smd
+ to rpmsg
+Date: Wed, 22 Mar 2017 14:57:33 -0700
+Message-ID: <20170322215733.GH20094@minitux>
+References: <20170320233544.1656-1-bjorn.andersson@linaro.org>
+ <20170322.114439.679826829857326050.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "thomas.petazzoni@free-electrons.com"
-        <thomas.petazzoni@free-electrons.com>
-To: Maxime Morin <maxime.morin@vitec.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback3.mail.ru ([94.100.181.189]:38202 "EHLO
-        fallback3.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751606AbdCVV4b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 17:56:31 -0400
-Received: from smtp46.i.mail.ru (smtp46.i.mail.ru [94.100.177.106])
-        by fallback3.mail.ru (mPOP.Fallback_MX) with ESMTP id B27B72F3A5DB
-        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 00:35:04 +0300 (MSK)
-In-Reply-To: <DB6PR0501MB2712340C8CDC37F3038766AD943C0@DB6PR0501MB2712.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, andy.gross-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+        david.brown-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
+        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170322.114439.679826829857326050.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-22.03.2017 16:23, Maxime Morin пишет:
-> Hi all,
->
-> I work on an embedded platform based on the Marvell Armada 88F6707, that is connected to a Marvell Alaska 88E1512 ethernet transceiver. A defect has appeared recently, and it turns out to be a regression on the network part. There is a complete lost of the network when following these steps:
->      1) boot the board with the network cable disconnected
->      2) run the following commands (or equivalent):
->          ip link set eth0 up
->          ip addr add 10.0.0.80/24 dev eth0
->          ethtool -s eth0 autoneg on #this is the command that really breaks the network
-Why do you call it a regression, if previously
-this command did nothing at all?
+On Wed 22 Mar 11:44 PDT 2017, David Miller wrote:
 
->      3) plug the network cable
->          => there is no network, and no way to have it back except by rebooting
-> If I do not launch the "ethtool" command, when I plug the network cable it works, so it really seems to be related to the auto-negotiation set to "on" when the network cable has never been connected.
-So if you do that with the cable plugged it, there
-is no breakage?
-When you do "ethtool -s eth0 autoneg off" it doesn't
-revive?
+> From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Date: Mon, 20 Mar 2017 16:35:42 -0700
+> 
+> > By moving these client drivers to use RPMSG instead of the direct SMD
+> > API we can reuse them ontop of the newly added GLINK wire-protocol
+> > support found in the 820 and 835 Qualcomm platforms.
+> > 
+> > As the new (RPMSG-based) and old SMD implementations are mutually
+> > exclusive we have to change all client drivers in one commit, to make
+> > sure we have a working system before and after this transition.
+> > 
+> > Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> > ---
+> > 
+> > Based on v4.11-rc3 with Arnd's Kconfig dependency fixes for BT_QCOMSMD
+> > (https://lkml.org/lkml/2017/3/20/1038).
+> 
+> Just some questions since I'm supposed to merge this into my net-next
+> tree.
+> 
+> What is the status of the Kconfig dependency fix and how will I be
+> getting it?
+> 
 
-> I did a "git bisect" to find when the regression was introduced, because it previously worked with kernel 4.4, but not with the recent ones. The commit that made appear the issue is this one: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=0c0744fc1dd5b
-> If I remove on mvneta.c the part that was added on this commit on the function mvneta_ethtool_set_link_ksettings (mvneta_ethtool_set_settings at that time), I do not have the issue, but I can't call that a fix...
-> So, could it be a driver issue, or maybe a wrong configuration somewhere? If you need additional information to reproduce the problem please ask me, I will be as responsive as possible.
-It seems mvneta_set_autoneg() does some non-symmetric
-things. It clears
-MVNETA_GMAC_FORCE_LINK_PASS |
-MVNETA_GMAC_FORCE_LINK_DOWN |
-MVNETA_GMAC_AN_FLOW_CTRL_EN
-when enabling autoneg, and does not restore these flags
-when disabling it. Try to make it to set or to restore these
-flags and see if that makes "ethtool -s eth0 autoneg off" to
-get the network back alive.
+There are two Kconfig dependencies in play here, the first is
+c3104aae5d8c ("remoteproc: qcom: fix QCOM_SMD dependencies"), this was
+picked up by Linus yesterday and will as such be in v4.10-rc4.
+
+The other dependency, is the one Marcel wants you to pick up here is
+https://patchwork.kernel.org/patch/9635385/. It's on LKML, but if you
+want I can resend it with you as direct recipient, with Marcel's ack.
+
+Likely Arnd would like this fix to be sent upstream for v4.11 already.
+
+> Second, should I merge all three of these patches to net-next or just
+> this one?
+> 
+
+I would like all three to be merged in this cycle and in addition I have
+a couple of patches coming up that will cause some minor conflicts with
+patch 2 - so I would prefer if patch 2 was available in a tag I can
+merge into my tree.
+
+Would it be possible for you to prepare merge all 4 (these 3 and the
+bluetooth fix) and prepare a tag for Andy, Marcel and myself to include
+in our trees?
+
+Regards,
+Bjorn
