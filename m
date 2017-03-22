@@ -1,64 +1,67 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
- atomic_t to refcount_t
-Date: Wed, 22 Mar 2017 16:08:47 +0100
-Message-ID: <20170322150847.rsvhkbft3bn35rim@hirez.programming.kicks-ass.net>
-References: <20170320132713.GA26954@gondor.apana.org.au>
-	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
-	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
-	<1490148199.16816.126.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170322122540.odnm4j3r4c4uf7wt@hirez.programming.kicks-ass.net>
-	<1490188936.16816.143.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170322143329.ya5jnretfptf4iud@hirez.programming.kicks-ass.net>
-	<1490194444.16816.154.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: initialize icsk_ack.lrcvtime at session start time
+Date: Wed, 22 Mar 2017 08:10:21 -0700
+Message-ID: <1490195421.16816.157.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook@chromium.org>, Patrick McHardy <kaber@trash.net>,
-	Network Development <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
-	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Windsor <dwindsor@gmail.com>,
-	David Miller <davem@davemloft.net>, "Reshetova,
-	Elena" <elena.reshetova@intel.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1490194444.16816.154.camel@edumazet-glaptop3.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34952 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758814AbdCVPLB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 11:11:01 -0400
+Received: by mail-pf0-f194.google.com with SMTP id n11so15896002pfg.2
+        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 08:10:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 22, 2017 at 07:54:04AM -0700, Eric Dumazet wrote:
-> On Wed, 2017-03-22 at 15:33 +0100, Peter Zijlstra wrote:
-> 
-> > 
-> > But I would feel a whole lot better about the entire thing if we could
-> > measure their impact. It would also give us good precedent to whack
-> > other potential users of _nocheck over the head with -- show numbers.
-> 
-> I wont be able to measure the impact on real workloads, our productions
-> kernels are based on 4.3 at this moment.
+From: Eric Dumazet <edumazet@google.com>
 
-Is there really no micro bench that exercises the relevant network
-paths? Do you really fully rely on Google production workloads?
+icsk_ack.lrcvtime has a 0 value at socket creation time.
 
-> I guess someone could code a lib/test_refcount.c launching X threads
-> using either atomic_inc or refcount_inc() in a loop.
-> 
-> That would give a rough estimate of the refcount_t overhead among
-> various platforms.
+tcpi_last_data_recv can have bogus value if no payload is ever received.
 
-Its also a fairly meaningless number. It doesn't include any of the
-other work the network path does.
+This patch initializes icsk_ack.lrcvtime for active sessions
+in tcp_finish_connect(), and for passive sessions in
+tcp_create_openreq_child()
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c     |    2 +-
+ net/ipv4/tcp_minisocks.c |    1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 39c393cc0fd3c17130cd5d8d8b37f31ad3aeafd9..c43119726a62e494063fd940001b483215d0fe26 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5541,6 +5541,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 
+ 	tcp_set_state(sk, TCP_ESTABLISHED);
++	icsk->icsk_ack.lrcvtime = tcp_time_stamp;
+ 
+ 	if (skb) {
+ 		icsk->icsk_af_ops->sk_rx_dst_set(sk, skb);
+@@ -5759,7 +5760,6 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 			 * to stand against the temptation 8)     --ANK
+ 			 */
+ 			inet_csk_schedule_ack(sk);
+-			icsk->icsk_ack.lrcvtime = tcp_time_stamp;
+ 			tcp_enter_quickack_mode(sk);
+ 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+ 						  TCP_DELACK_MAX, TCP_RTO_MAX);
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 7e16243cdb58c830f869fe483730e86400e2eb00..65c0f3d13eca47c6394c09925decf54287d01b48 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -460,6 +460,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
+ 		newtp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
+ 		minmax_reset(&newtp->rtt_min, tcp_time_stamp, ~0U);
+ 		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
++		newicsk->icsk_ack.lrcvtime = tcp_time_stamp;
+ 
+ 		newtp->packets_out = 0;
+ 		newtp->retrans_out = 0;
