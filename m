@@ -1,69 +1,64 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [PATCH 4.11] genetlink: fix counting regression on ctrl_dumpfamily()
-Date: Wed, 22 Mar 2017 16:08:33 +0100
-Message-ID: <1490195313-13272-1-git-send-email-sgruszka@redhat.com>
-Cc: linux-wireless@vger.kernel.org,
-        Stanislaw Gruszka <sgruszka@redhat.com>,
-        Xose Vazquez Perez <xose.vazquez@gmail.com>,
-        Larry Finger <Larry.Finger@lwfinger.net>,
-        Johannes Berg <johannes@sipsolutions.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38690 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759905AbdCVPIu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Mar 2017 11:08:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+ atomic_t to refcount_t
+Date: Wed, 22 Mar 2017 16:08:47 +0100
+Message-ID: <20170322150847.rsvhkbft3bn35rim@hirez.programming.kicks-ass.net>
+References: <20170320132713.GA26954@gondor.apana.org.au>
+	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
+	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
+	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
+	<1490148199.16816.126.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20170322122540.odnm4j3r4c4uf7wt@hirez.programming.kicks-ass.net>
+	<1490188936.16816.143.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20170322143329.ya5jnretfptf4iud@hirez.programming.kicks-ass.net>
+	<1490194444.16816.154.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook@chromium.org>, Patrick McHardy <kaber@trash.net>,
+	Network Development <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Windsor <dwindsor@gmail.com>,
+	David Miller <davem@davemloft.net>, "Reshetova,
+	Elena" <elena.reshetova@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1490194444.16816.154.camel@edumazet-glaptop3.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Commit 2ae0f17df1cd ("genetlink: use idr to track families") replaced
+On Wed, Mar 22, 2017 at 07:54:04AM -0700, Eric Dumazet wrote:
+> On Wed, 2017-03-22 at 15:33 +0100, Peter Zijlstra wrote:
+> 
+> > 
+> > But I would feel a whole lot better about the entire thing if we could
+> > measure their impact. It would also give us good precedent to whack
+> > other potential users of _nocheck over the head with -- show numbers.
+> 
+> I wont be able to measure the impact on real workloads, our productions
+> kernels are based on 4.3 at this moment.
 
-	if (++n < fams_to_skip)
-		continue;
-into:
+Is there really no micro bench that exercises the relevant network
+paths? Do you really fully rely on Google production workloads?
 
-	if (n++ < fams_to_skip)
-		continue;
+> I guess someone could code a lib/test_refcount.c launching X threads
+> using either atomic_inc or refcount_inc() in a loop.
+> 
+> That would give a rough estimate of the refcount_t overhead among
+> various platforms.
 
-This subtle change cause that on retry ctrl_dumpfamily() call we omit
-one family that failed to do ctrl_fill_info() on previous call, because
-cb->args[0] = n number counts also family that failed to do
-ctrl_fill_info().
-
-Patch fixes the problem and avoid confusion in the future just decrease
-n counter when ctrl_fill_info() fail.
-
-User visible problem caused by this bug is failure to get access to
-some genetlink family i.e. nl80211. However problem is reproducible
-only if number of registered genetlink families is big enough to
-cause second call of ctrl_dumpfamily().
-
-Cc: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Cc: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Fixes: 2ae0f17df1cd ("genetlink: use idr to track families")
-Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
----
-Dave, please also target this for 4.10+ -stable.
-
- net/netlink/genetlink.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index fb6e10f..92e0981 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -783,8 +783,10 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 		if (ctrl_fill_info(rt, NETLINK_CB(cb->skb).portid,
- 				   cb->nlh->nlmsg_seq, NLM_F_MULTI,
--				   skb, CTRL_CMD_NEWFAMILY) < 0)
-+				   skb, CTRL_CMD_NEWFAMILY) < 0) {
-+			n--;
- 			break;
-+		}
- 	}
- 
- 	cb->args[0] = n;
--- 
-1.7.1
+Its also a fairly meaningless number. It doesn't include any of the
+other work the network path does.
