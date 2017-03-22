@@ -1,104 +1,35 @@
-From: David Arcari <darcari@redhat.com>
-Subject: Re: [PATCH net 4/5] net:ethernet:aquantia: Fix for LSO with IPv6.
-Date: Wed, 22 Mar 2017 15:21:50 -0400
-Message-ID: <53b27be8-5f10-87cc-9a6a-0cbb9ac7c7f5@redhat.com>
-References: <cover.1490202165.git.pavel.belous@aquantia.com>
- <da72827dfe52c4dc96a1b5eda6d0f3d15da60646.1490202165.git.pavel.belous@aquantia.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>
-To: Pavel Belous <Pavel.Belous@aquantia.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45562 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934716AbdCVTVv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Mar 2017 15:21:51 -0400
-In-Reply-To: <da72827dfe52c4dc96a1b5eda6d0f3d15da60646.1490202165.git.pavel.belous@aquantia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: [PATCH v1] NFC: Add nfc_dbg() macro
+Date: Wed, 22 Mar 2017 21:22:51 +0200
+Message-ID: <20170322192251.30261-1-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+        Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+        Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+In some cases nfc_dbg() is useful. Add such macro to a header.
 
-On 03/22/2017 01:06 PM, Pavel Belous wrote:
-> From: Pavel Belous <pavel.belous@aquantia.com>
-> 
-> Fix Context Command bit: L3 type = "0" for IPv4, "1" for IPv6.
-> 
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
-> ---
->  drivers/net/ethernet/aquantia/atlantic/aq_nic.c           | 3 +++
->  drivers/net/ethernet/aquantia/atlantic/aq_ring.h          | 3 ++-
->  drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 3 +++
->  drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 3 +++
->  4 files changed, 11 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> index 95f9841..293b261 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> @@ -487,6 +487,9 @@ static unsigned int aq_nic_map_skb(struct aq_nic_s *self,
->  		dx_buff->mss = skb_shinfo(skb)->gso_size;
->  		dx_buff->is_txc = 1U;
->  
-> +		dx_buff->is_ipv6 =
-> +			(ip_hdr(skb)->version == 6) ? 1U : 0U;
-> +
->  		dx = aq_ring_next_dx(ring, dx);
->  		dx_buff = &ring->buff_ring[dx];
->  		++ret;
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-> index 2572546..eecd6d1 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-> @@ -58,7 +58,8 @@ struct __packed aq_ring_buff_s {
->  			u8 len_l2;
->  			u8 len_l3;
->  			u8 len_l4;
-> -			u8 rsvd2;
-> +			u8 is_ipv6:1;
-> +			u8 rsvd2:7;
->  			u32 len_pkt;
->  		};
->  	};
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-> index a2b746a..d62436e 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-> @@ -433,6 +433,9 @@ static int hw_atl_a0_hw_ring_tx_xmit(struct aq_hw_s *self,
->  				    buff->len_l3 +
->  				    buff->len_l2);
->  			is_gso = true;
-> +
-> +			if (buff->is_ipv6)
-> +				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_IPV6;
+Signed-off-by: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+---
+ include/net/nfc/nfc.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-I think this is a mistake.  I believe it should be HW_ATL_A0_TXD_CTL_CMD_IPV6.
-
-AFAICT this file doesn't include hw_atl_b0_internal.h, so I don't believe this
-will compile.
-
-Thanks,
-
--DA
-
->  		} else {
->  			buff_pa_len = buff->len;
->  
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-> index cab2931..69488c9 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-> @@ -471,6 +471,9 @@ static int hw_atl_b0_hw_ring_tx_xmit(struct aq_hw_s *self,
->  				    buff->len_l3 +
->  				    buff->len_l2);
->  			is_gso = true;
-> +
-> +			if (buff->is_ipv6)
-> +				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_IPV6;
->  		} else {
->  			buff_pa_len = buff->len;
->  
-> 
+diff --git a/include/net/nfc/nfc.h b/include/net/nfc/nfc.h
+index 1a3de8b34ad2..bbdc73a3239d 100644
+--- a/include/net/nfc/nfc.h
++++ b/include/net/nfc/nfc.h
+@@ -27,6 +27,7 @@
+ #include <linux/device.h>
+ #include <linux/skbuff.h>
+ 
++#define nfc_dbg(dev, fmt, ...) dev_dbg((dev), "NFC: " fmt, ##__VA_ARGS__)
+ #define nfc_info(dev, fmt, ...) dev_info((dev), "NFC: " fmt, ##__VA_ARGS__)
+ #define nfc_err(dev, fmt, ...) dev_err((dev), "NFC: " fmt, ##__VA_ARGS__)
+ 
+-- 
+2.11.0
