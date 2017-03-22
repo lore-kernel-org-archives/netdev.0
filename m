@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] r8152: fix the rx settings of RTL8153
-Date: Wed, 22 Mar 2017 10:52:57 -0700 (PDT)
-Message-ID: <20170322.105257.1084620999883432568.davem@davemloft.net>
-References: <1394712342-15778-256-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH 2/2] [net-next] net: dwc-xlgmac: add module license
+Date: Wed, 22 Mar 2017 10:53:14 -0700 (PDT)
+Message-ID: <20170322.105314.1598893528436587108.davem@davemloft.net>
+References: <20170320085123.1032301-1-arnd@arndb.de>
+        <20170320085123.1032301-2-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: jiedeng@synopsys.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42176 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42192 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935791AbdCVRxE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 13:53:04 -0400
-In-Reply-To: <1394712342-15778-256-Taiwan-albertk@realtek.com>
+        with ESMTP id S935398AbdCVRxQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 13:53:16 -0400
+In-Reply-To: <20170320085123.1032301-2-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Mon, 20 Mar 2017 16:13:43 +0800
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 20 Mar 2017 09:51:13 +0100
 
-> The RMS and the rx early size should base on the same rx size. However,
-> the RMS is set to 9K bytes now and the rx early depends on mtu. For using
-> the rx buffer effectively, sync the two settings according to the mtu.
+> When building the driver as a module, we get a warning about the
+> lack of a license:
+> 
+> WARNING: modpost: missing MODULE_LICENSE() in drivers/net/ethernet/synopsys/dwc-xlgmac.o
+> see include/linux/module.h for more information
+> 
+> Curiously the text in the .c files only mentions GPLv2+, while the license
+> tag in the PCI driver contains both GPL and BSD. I picked the license text
+> as the more definite reference here and put a GPL tag in there.
+> 
+> Fixes: 65e0ace2c5cd ("net: dwc-xlgmac: Initial driver for DesignWare Enterprise Ethernet")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Series applied.
+Applied.
