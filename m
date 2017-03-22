@@ -1,29 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: remove useless err from sctp_association_init
-Date: Wed, 22 Mar 2017 10:58:08 -0700 (PDT)
-Message-ID: <20170322.105808.1596473942928669549.davem@davemloft.net>
-References: <82209fcc4742baa1c4855af7e54b88177e9d0537.1490004028.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
-To: lucien.xin@gmail.com
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH iproute2 1/1] tc: print skbedit action when dumping actions.
+Date: Wed, 22 Mar 2017 14:00:31 -0400
+Message-ID: <1490205631-16494-1-git-send-email-mrv@mojatatu.com>
+Cc: netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42354 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934301AbdCVR6T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 13:58:19 -0400
-In-Reply-To: <82209fcc4742baa1c4855af7e54b88177e9d0537.1490004028.git.lucien.xin@gmail.com>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:36638 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965391AbdCVSB1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 14:01:27 -0400
+Received: by mail-it0-f54.google.com with SMTP id w124so27969471itb.1
+        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 11:01:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Mon, 20 Mar 2017 18:00:28 +0800
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+---
+ tc/m_skbedit.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-> This patch is to remove the unnecessary temporary variable 'err' from
-> sctp_association_init.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-
-Applied.
+diff --git a/tc/m_skbedit.c b/tc/m_skbedit.c
+index 8660d60..638715f 100644
+--- a/tc/m_skbedit.c
++++ b/tc/m_skbedit.c
+@@ -214,6 +214,8 @@ static int print_skbedit(struct action_util *au, FILE *f, struct rtattr *arg)
+ 			fprintf(f, " ptype %d", *ptype);
+ 	}
+ 
++	fprintf(f, " %s", action_n2a(p->action));
++
+ 	fprintf(f, "\n\t index %u ref %d bind %d",
+ 		p->index, p->refcnt, p->bindcnt);
+ 
+-- 
+1.9.1
