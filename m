@@ -1,58 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
- atomic_t to refcount_t
-Date: Wed, 22 Mar 2017 07:54:04 -0700
-Message-ID: <1490194444.16816.154.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170320131629.GA26405@gondor.apana.org.au>
-	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
-	<20170320132713.GA26954@gondor.apana.org.au>
-	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
-	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
-	<1490148199.16816.126.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170322122540.odnm4j3r4c4uf7wt@hirez.programming.kicks-ass.net>
-	<1490188936.16816.143.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170322143329.ya5jnretfptf4iud@hirez.programming.kicks-ass.net>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: IGMP on IPv6
+Date: Wed, 22 Mar 2017 11:04:05 -0400
+Message-ID: <58D29265.1020604@ti.com>
+References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>, Patrick McHardy <kaber@trash.net>,
-	Network Development <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
-	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Windsor <dwindsor@gmail.com>,
-	David Miller <davem@davemloft.net>, "Reshetova,
-	Elena" <elena.reshetova@intel.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170322143329.ya5jnretfptf4iud@hirez.programming.kicks-ass.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: Hangbin Liu <liuhangbin@gmail.com>,
+        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lelnx193.ext.ti.com ([198.47.27.77]:55014 "EHLO
+        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759638AbdCVPES (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 11:04:18 -0400
+In-Reply-To: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-03-22 at 15:33 +0100, Peter Zijlstra wrote:
+Hi Liu,
 
-> 
-> But I would feel a whole lot better about the entire thing if we could
-> measure their impact. It would also give us good precedent to whack
-> other potential users of _nocheck over the head with -- show numbers.
+I saw that you have sent patches to the list for IGMP and have a question on IGMP on IPv6.
+Hope you can clarify. I have posted the question already to the list and is reproduced
+below. Let me know if you have an answer.
 
-I wont be able to measure the impact on real workloads, our productions
-kernels are based on 4.3 at this moment.
+========= See email with subject "IPv6 IGMP issue in v4.4.44 ?? ========================
+Cut-n-paste from that email....
 
-I guess someone could code a lib/test_refcount.c launching X threads
-using either atomic_inc or refcount_inc() in a loop.
+I see an issue with IGMP for IPv6 when I test HSR redundancy network
+interface. As soon as I set up an HSR interface, I see some IGMP messages
+(destination mac address: 33 33 00 00 00 02 going over HSR interface to
+slave interfaces, at the egress where as for IPv6, I see similar messages
+going directly over the Ethernet interfaces that are attached to
+HSR master. It appears that the NETDEV_CHANGEUPPER is not handled properly
+and the mcast snoop sends the packets over the old interfaces at timer
+expiry. 
 
-That would give a rough estimate of the refcount_t overhead among
-various platforms.
+A dump of the message at the slave Ethernet interface looks like below.
+
+IPv4
+
+[   64.643842] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 89 2f 10 3e fc 
+[   64.649910] 18 86 dd 60 00 00 00 00 10 3a ff fe 80 00 00 00 
+[   64.655705] 00 00 00 72 ff 76 ff fe 1c 0f 8d ff 02 00 00 00 
+[   64.661503] 00 00 00 00 00 00 00 00 00 00 02 85 00 8d dc 
+
+
+You can see this is tagged with HSR.
+
+IPv6
+
+[   65.559130] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 86 dd 60 00 00 
+[   65.565205] 00 00 10 3a ff fe 80 00 00 00 00 00 00 72 ff 76 
+[   65.571011] ff fe 1c 0f 8d ff 02 00 00 00 00 00 00 00 00 00 
+[   65.576806] 00 00 00 00 02 85 00 8d dc 00 00 00 00 01 01 
+
+This is going directly to the slave Ethernet interface.
+
+When I put a WARN_ONCE, I found this is coming directly from 
+mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
+
+Do you think this is fixed in latest kernel at master? If so, could
+you point me to some commits.
+
+
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
