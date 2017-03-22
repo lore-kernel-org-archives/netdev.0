@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rhashtable: Add
-	rhashtable_lookup_get_insert_fast
-Date: Tue, 21 Mar 2017 17:52:56 -0700 (PDT)
-Message-ID: <20170321.175256.1034761109998919012.davem@davemloft.net>
-References: <1489793775-25152-1-git-send-email-agruenba@redhat.com>
+Subject: Re: [PATCH] net: vrf: Reset rt6i_idev in local dst after put
+Date: Tue, 21 Mar 2017 17:51:25 -0700 (PDT)
+Message-ID: <20170321.175125.405948588572698532.davem@davemloft.net>
+References: <1489792031-13547-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, cluster-devel@redhat.com, tgraf@suug.ch
-To: agruenba@redhat.com
-Return-path: <cluster-devel-bounces@redhat.com>
-In-Reply-To: <1489793775-25152-1-git-send-email-agruenba@redhat.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/options/cluster-devel>,
-	<mailto:cluster-devel-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/cluster-devel>
-List-Post: <mailto:cluster-devel@redhat.com>
-List-Help: <mailto:cluster-devel-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/cluster-devel>,
-	<mailto:cluster-devel-request@redhat.com?subject=subscribe>
-Sender: cluster-devel-bounces@redhat.com
-Errors-To: cluster-devel-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59394 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751042AbdCVBBm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:01:42 -0400
+In-Reply-To: <1489792031-13547-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Gruenbacher <agruenba@redhat.com>
-Date: Sat, 18 Mar 2017 00:36:15 +0100
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Fri, 17 Mar 2017 16:07:11 -0700
 
-> Add rhashtable_lookup_get_insert_fast for fixed keys, similar to
-> rhashtable_lookup_get_insert_key for explicit keys.
+> The VRF driver takes a reference to the inet6_dev on the VRF device for
+> its rt6_local dst when handling local traffic through the VRF device as
+> a loopback. When the device is deleted the driver does a put on the idev
+> but does not reset rt6i_idev in the rt6_info struct. When the dst is
+> destroyed, dst_destroy calls ip6_dst_destroy which does a second put for
+> what is essentially the same reference causing it to be prematurely freed.
+> Reset rt6i_idev after the put in the vrf driver.
 > 
-> Signed-off-by: Andreas Gruenbacher <agruenba@redhat.com>
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Fixes: b4869aa2f881e ("net: vrf: ipv6 support for local traffic to
+>                        local addresses")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied to net-next, thanks.
+Applied and queued up for -stable.
