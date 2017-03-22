@@ -1,41 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] net: stmmac: fix dma operation mode config
- for older versions
-Date: Wed, 22 Mar 2017 15:35:26 -0700 (PDT)
-Message-ID: <20170322.153526.1732529873991893898.davem@davemloft.net>
-References: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490183441.git.jpinto@synopsys.com>
+Subject: Re: [PATCH net] socket, bpf: fix sk_filter use after free in
+ sk_clone_lock
+Date: Wed, 22 Mar 2017 15:37:35 -0700 (PDT)
+Message-ID: <20170322.153735.1284654162173125944.davem@davemloft.net>
+References: <3016fb20a3666f0db138b85049f9000ecd33a1f6.1490184193.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        clabbe.montjoie@gmail.com, thierry.reding@gmail.com,
-        sergei.shtylyov@cogentembedded.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
+Cc: ast@kernel.org, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45334 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45370 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751738AbdCVWfa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:35:30 -0400
-In-Reply-To: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490183441.git.jpinto@synopsys.com>
+        with ESMTP id S1751355AbdCVWhh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:37:37 -0400
+In-Reply-To: <3016fb20a3666f0db138b85049f9000ecd33a1f6.1490184193.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Wed, 22 Mar 2017 11:56:05 +0000
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 22 Mar 2017 13:08:08 +0100
 
-> The dma operation mode configuration routine was wrongly moved to a
-> function (stmmac_mtl_configuration) that is only executed if the
-> core version is >= 4.00.
+> In sk_clone_lock(), we create a new socket and inherit most of the
+> parent's members via sock_copy() which memcpy()'s various sections.
+> Now, in case the parent socket had a BPF socket filter attached,
+> then newsk->sk_filter points to the same instance as the original
+> sk->sk_filter.
 > 
-> Fixes: 6deee2221e11 ("net: stmmac: prepare dma op mode config for multiple queues")
-> Reported-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> Reviewed-by: Thierry Reding <thierry.reding@gmail.com>
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
-> ---
-> changes v2->v3:
-> - Commit ID and title should be under a 'Fixes' tag
-> changes v1->v2:
-> - commit id did not have 12 digits
+> sk_filter_charge() is then called on the newsk->sk_filter to take a
+> reference and should that fail due to hitting max optmem, we bail
+> out and release the newsk instance.
+> 
+> The issue is that commit 278571baca2a ("net: filter: simplify socket
+> charging") wrongly combined the dismantle path with the failure path
+> of xfrm_sk_clone_policy(). This means, even when charging failed, we
+> call sk_free_unlock_clone() on the newsk, which then still points to
+> the same sk_filter as the original sk.
+> 
+> Thus, sk_free_unlock_clone() calls into __sk_destruct() eventually
+> where it tests for present sk_filter and calls sk_filter_uncharge()
+> on it, which potentially lets sk_omem_alloc wrap around and releases
+> the eBPF prog and sk_filter structure from the (still intact) parent.
+> 
+> Fix it by making sure that when sk_filter_charge() failed, we reset
+> newsk->sk_filter back to NULL before passing to sk_free_unlock_clone(),
+> so that we don't mess with the parents sk_filter.
+> 
+> Only if xfrm_sk_clone_policy() fails, we did reach the point where
+> either the parent's filter was NULL and as a result newsk's as well
+> or where we previously had a successful sk_filter_charge(), thus for
+> that case, we do need sk_filter_uncharge() to release the prior taken
+> reference on sk_filter.
+> 
+> Fixes: 278571baca2a ("net: filter: simplify socket charging")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks Daniel.
