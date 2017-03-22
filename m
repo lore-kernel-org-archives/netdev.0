@@ -1,88 +1,159 @@
-From: Sven Eckelmann <sven.eckelmann@openmesh.com>
-Subject: [REGRESSION] mac80211: IBSS vif queue stopped when started after 11s vif
-Date: Wed, 22 Mar 2017 10:15:11 +0100
-Message-ID: <1978424.XTv2Qph05K@bentobox>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart12317554.V7rrdmb2pt"; micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org
+From: Joel Scherpelz <jscherpelz@google.com>
+Subject: [PATCH net-next] net: ipv6: Add sysctl for minimum prefix len acceptable in RIOs.
+Date: Wed, 22 Mar 2017 18:19:04 +0900
+Message-ID: <20170322091904.73420-1-jscherpelz@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Joel Scherpelz <jscherpelz@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:36218 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758957AbdCVJPU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 05:15:20 -0400
-Received: by mail-wr0-f182.google.com with SMTP id u108so126204620wrb.3
-        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 02:15:19 -0700 (PDT)
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:33026 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759011AbdCVJTc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 05:19:32 -0400
+Received: by mail-pg0-f50.google.com with SMTP id w20so3791809pgc.0
+        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 02:19:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart12317554.V7rrdmb2pt
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+This commit adds a new sysctl accept_ra_rt_info_min_plen that
+defines the minimum acceptable prefix length of Route Information
+Options. The new sysctl is intended to be used together with
+accept_ra_rt_info_max_plen to configure a range of acceptable
+prefix lengths. It is useful to prevent misconfigurations from
+unintentionally blackholing too much of the IPv6 address space
+(e.g., home routers announcing RIOs for fc00::/7, which is
+incorrect).
 
-Hi,
+Signed-off-by: Joel Scherpelz <jscherpelz@google.com>
+---
+ Documentation/networking/ip-sysctl.txt | 13 +++++++++++--
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ include/uapi/linux/sysctl.h            |  1 +
+ net/ipv6/addrconf.c                    | 10 ++++++++++
+ net/ipv6/ndisc.c                       |  2 ++
+ 6 files changed, 26 insertions(+), 2 deletions(-)
 
-I had following "simple" setup with LEDE with a single ath9k phy and multiple 
-vif:
-
- * encrypted AP
- * encrypted 802.11s meshpoint
- * encrypted IBSS
-
-Everything was started in the order by hostapd/wpa_supplicant (but immediately 
-after each other).
-
-The problem which I've experienced was that IBSS was not able to communicate 
-with its link partner. The reason for that problem was that the IBSS 
-interface's queue was stopped (QUEUE_STATE_DRV_XOFF). This problem disappeared 
-when either the IBSS or meshpoint interface was changed to unencrypted (which 
-disables wpa_supplicant in LEDE).
-
-It looks like ieee80211_do_open didn't start the queues via 
-netif_start_subqueue because local->queue_stop_reasons was for all queues set 
-to IEEE80211_QUEUE_STOP_REASON_OFFCHANNEL. This happened because 
-ieee80211_offchannel_stop_vifs was called from somewhere in the scan code at 
-that time and ieee80211_offchannel_return was not yet called.
-
-
-This behavior seems to be introduced by 2b730daacee6 ("mac80211: don't start 
-new netdev queues if driver stopped"). I have therefore chosen to call it for 
-now a regression by this change. Especially because it is rather odd that the 
-commit talked about not starting the queues for AP_VLAN and 2b436312f091 
-("mac80211: fix queue handling crash") introduced extra code to use the old 
-behavior again for AP_VLAN.
-
-But I could be completely wrong about it. It would therefore be interesting 
-for me to know who would be responsible to start the queues when 
-ieee80211_do_open rejected it for IBSS.
-
-I am now simply using this setup with a revert of 
-2b436312f0919c05804fed5aa4b7f255db196e7a and 
-2b730daacee6c318bce7b6373c19909e36a74590.
-
-Kind regards,
-	Sven
---nextPart12317554.V7rrdmb2pt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAljSQJ8ACgkQXYcKB8Em
-e0a0UxAAok1EvYmt7CdriRQOxdOGq6Ib7X/xoVcrW1ACDDwhjF1s6ke1hARJHT1E
-ASP5IEMsKXyrVWsZNE5Mx9wpp1b0G/QRxs/pZepUyrKMEUngHH2Vo4oZfV1lhOa5
-6/tM/Pm54ARd9Sv7ZdelCUI2LVKftLMDXbPeyXD7sPaQVE+v8y6Td0gystIyuvND
-wcbmYLLZ/Nv+YDB068XghjNLb9SnPDQNjvQFlIHxqOjraHjZ4vjKGcw6nEmjT6Ru
-Uge7vjnUa2EMQ/8xq2Qr1ICRqJurYR/h+LR6T2TfgGOWvSKN2Sk/Bi0qzHu5tP6T
-HD32VD4eSyziUuKDwr9k0BWzOTdPWw9ruf9/y54q/gQyT8XzRPyXqSAMsD8hi5oI
-Hjv6eY5sCa4aBV68rhHCzzvpvdsEC7G0ijt/dUxgD6ozLoh0ll9zymrp6mzb/PNA
-o40xMAiidZuzz0vcNTrIeGxiwdcgoMeNH0ES7UcxMAlsl3UPzkhEjtM7UOf6YaV4
-sHGfUmSsyd5sz/Rsm1G8j+4Cn1P0K3GpAfM75lsPMJfNkOVX1sz8XCE89VhhZ4Rb
-1SujUm3GPKXzehmPO5bk27LMHwdkcTs6+zO4b1Z/R1nG33QhaxbE4H84SAQv0vwG
-TMS8sbIoRMfUHUAikTb9rMJhOUkCPQL4J96J3xcXcMrSD1F5yQw=
-=JpAT
------END PGP SIGNATURE-----
-
---nextPart12317554.V7rrdmb2pt--
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index ed3d0791eb27..3099c1e2706f 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1453,11 +1453,20 @@ accept_ra_pinfo - BOOLEAN
+ 	Functional default: enabled if accept_ra is enabled.
+ 			    disabled if accept_ra is disabled.
+ 
++accept_ra_rt_info_min_plen - INTEGER
++	Minimum prefix length of Route Information in RA.
++
++	Route Information w/ prefix smaller than this variable shall
++	be ignored.
++
++	Functional default: 0 if accept_ra_rtr_pref is enabled.
++			    -1 if accept_ra_rtr_pref is disabled.
++
+ accept_ra_rt_info_max_plen - INTEGER
+ 	Maximum prefix length of Route Information in RA.
+ 
+-	Route Information w/ prefix larger than or equal to this
+-	variable shall be ignored.
++	Route Information w/ prefix larger than this variable shall
++	be ignored.
+ 
+ 	Functional default: 0 if accept_ra_rtr_pref is enabled.
+ 			    -1 if accept_ra_rtr_pref is disabled.
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index f0d79bd054ca..e1b442996f81 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -37,6 +37,7 @@ struct ipv6_devconf {
+ 	__s32		accept_ra_rtr_pref;
+ 	__s32		rtr_probe_interval;
+ #ifdef CONFIG_IPV6_ROUTE_INFO
++	__s32		accept_ra_rt_info_min_plen;
+ 	__s32		accept_ra_rt_info_max_plen;
+ #endif
+ #endif
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index d8f6a1ac9af4..2ae59178189d 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -184,6 +184,7 @@ enum {
+ 	DEVCONF_ENHANCED_DAD,
+ 	DEVCONF_ADDR_GEN_MODE,
+ 	DEVCONF_DISABLE_POLICY,
++	DEVCONF_ACCEPT_RA_RT_INFO_MIN_PLEN,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/include/uapi/linux/sysctl.h b/include/uapi/linux/sysctl.h
+index d2b12152e358..e13d48058b8d 100644
+--- a/include/uapi/linux/sysctl.h
++++ b/include/uapi/linux/sysctl.h
+@@ -568,6 +568,7 @@ enum {
+ 	NET_IPV6_PROXY_NDP=23,
+ 	NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
+ 	NET_IPV6_ACCEPT_RA_FROM_LOCAL=26,
++	NET_IPV6_ACCEPT_RA_RT_INFO_MIN_PLEN=27,
+ 	__NET_IPV6_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8c69768a5c46..dff5beb26a01 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -224,6 +224,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.accept_ra_rtr_pref	= 1,
+ 	.rtr_probe_interval	= 60 * HZ,
+ #ifdef CONFIG_IPV6_ROUTE_INFO
++	.accept_ra_rt_info_min_plen = 0,
+ 	.accept_ra_rt_info_max_plen = 0,
+ #endif
+ #endif
+@@ -277,6 +278,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.accept_ra_rtr_pref	= 1,
+ 	.rtr_probe_interval	= 60 * HZ,
+ #ifdef CONFIG_IPV6_ROUTE_INFO
++	.accept_ra_rt_info_min_plen = 0,
+ 	.accept_ra_rt_info_max_plen = 0,
+ #endif
+ #endif
+@@ -4979,6 +4981,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_RTR_PROBE_INTERVAL] =
+ 		jiffies_to_msecs(cnf->rtr_probe_interval);
+ #ifdef CONFIG_IPV6_ROUTE_INFO
++	array[DEVCONF_ACCEPT_RA_RT_INFO_MIN_PLEN] = cnf->accept_ra_rt_info_min_plen;
+ 	array[DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN] = cnf->accept_ra_rt_info_max_plen;
+ #endif
+ #endif
+@@ -6122,6 +6125,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 	},
+ #ifdef CONFIG_IPV6_ROUTE_INFO
+ 	{
++		.procname	= "accept_ra_rt_info_min_plen",
++		.data		= &ipv6_devconf.accept_ra_rt_info_min_plen,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
+ 		.procname	= "accept_ra_rt_info_max_plen",
+ 		.data		= &ipv6_devconf.accept_ra_rt_info_max_plen,
+ 		.maxlen		= sizeof(int),
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 7ebac630d3c6..ffa23be1b533 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1418,6 +1418,8 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 			if (ri->prefix_len == 0 &&
+ 			    !in6_dev->cnf.accept_ra_defrtr)
+ 				continue;
++			if (ri->prefix_len < in6_dev->cnf.accept_ra_rt_info_min_plen)
++				continue;
+ 			if (ri->prefix_len > in6_dev->cnf.accept_ra_rt_info_max_plen)
+ 				continue;
+ 			rt6_route_rcv(skb->dev, (u8 *)p, (p->nd_opt_len) << 3,
+-- 
+2.12.1.500.gab5fba24ee-goog
