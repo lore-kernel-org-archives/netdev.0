@@ -1,67 +1,65 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net-next v2 4/5] net-next: ethernet: mediatek: add
- device_node of GMAC pointing into the netdev instance
-Date: Wed, 22 Mar 2017 19:18:46 +0100
-Message-ID: <20170322181846.GN30655@lunn.ch>
-References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
- <1490088910-19405-5-git-send-email-sean.wang@mediatek.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] net: vrf: performance improvements
+Date: Wed, 22 Mar 2017 11:20:14 -0700 (PDT)
+Message-ID: <20170322.112014.2051512482980780927.davem@davemloft.net>
+References: <1490033985-14874-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
-        matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1490088910-19405-5-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42606 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965486AbdCVSUQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 14:20:16 -0400
+In-Reply-To: <1490033985-14874-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 21, 2017 at 05:35:09PM +0800, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
-> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 20 Mar 2017 11:19:43 -0700
+
+> Device based features for VRF such as qdisc, netfilter and packet
+> captures are implemented by switching the dst on skbuffs to its per-VRF
+> dst. This has the effect of controlling the output function which points
+> a function in the VRF driver. [1] The skb proceeds down the stack with
+> dst->dev pointing to the VRF device. Netfilter, qdisc and tc rules and
+> network taps are evaluated based on this device. Finally, the skb makes
+> it to the vrf_xmit function which resets the dst based on a FIB lookup.
 > 
-> the patch adds the setup of the corresponding device node of GMAC into the
-> netdev instance which could allow other modules such as DSA to find the
-> instance through the node in dt-bindings using of_find_net_device_by_node()
-> call.
+> The feature comes at cost - between 5 and 10% depending on test (TCP vs
+> UDP, stream vs RR and IPv4 vs IPv6). The main cost is requiring a FIB
+> lookup in the VRF driver for each packet sent through it. The FIB lookup
+> is required because the real dst gets dropped so that the skb can
+> traverse the stack with dst->dev set to the VRF device.
 > 
-> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 ++
->  1 file changed, 2 insertions(+)
+> All of that is really driven by the qdisc and not replicating the
+> processing of __dev_queue_xmit if a qdisc is set up on the device. But,
+> VRF devices by default do not have a qdisc and really have no need for
+> multiple Tx queues. This means the performance overhead is inflicted upon
+> all users for the potential use case of a qdisc being configured.
 > 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index c21ed99..84b09a4 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -2323,6 +2323,8 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
->  	eth->netdev[id]->ethtool_ops = &mtk_ethtool_ops;
->  
->  	eth->netdev[id]->irq = eth->irq[0];
-> +	eth->netdev[id]->dev.of_node = np;
-> +
+> The overhead can be avoided by checking if the default configuration
+> applies to a specific VRF device before switching the dst. If a device
+> does not have a qdisc, the pass through netfilter hooks and packet taps
+> can be done inline without dropping the dst and thus avoiding the
+> performance penalty. With this change performance overhead of VRF drops
+> to neglible (difference with run-over-run variance) to 3% depending on
+> test type.
+ ...
+> * UDP is consistently better with VRF for two reasons:
+>   1. Source address selection with L3 domains is considering fewer
+>      addresses since only addresses on interfaces in the domain are
+>      considered for the selection. Specifically, perf-top shows
+>      shows ipv6_get_saddr_eval, ipv6_dev_get_saddr and __ipv6_dev_get_saddr
+>      running much lower with vrf than without.
+> 
+>   2. The VRF table contains all routes (i.e, there are no separate local
+>      and main tables per VRF). That means ip6_pol_route_output only has 1
+>      lookup for VRF where it does 2 without it (1 in the local table and 1
+>      in the main table).
+> 
+> [1] http://netdevconf.org/1.2/papers/ahern-what-is-l3mdev-paper.pdf
 
-Humm, O.K. This is not obvious, until you look at of_dev_node_match()
-in net-sysfs.c.
-
-Most Ethernet drivers don't set netdev.dev.of_node. But they do call
-SET_NETDEV_DEV(), which sets netdev.dev.parent.
-
-of_dev_node_match() first looks at netdev.dev.parent->of_node, and if that
-does not match, then looks at netdev.dev.of_node.
-
-For the mtk Ethernet driver, the parent is not going to work, because
-of the sub devices. So netdev.dev.of_node does need to be set.
-
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-
-    Andrew
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks David.
