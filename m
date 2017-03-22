@@ -1,32 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: out_qlen should be updated when pruning
- unsent queue
-Date: Tue, 21 Mar 2017 18:32:48 -0700 (PDT)
-Message-ID: <20170321.183248.1571202262140371999.davem@davemloft.net>
-References: <16cb6e6d2ef47481123bc3ff1b99e8abf5334d14.1489838639.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net 1/2] tcp: fix SCM_TIMESTAMPING_OPT_STATS for normal
+ skbs
+Date: Tue, 21 Mar 2017 18:44:56 -0700 (PDT)
+Message-ID: <20170321.184456.1610083834421484383.davem@davemloft.net>
+References: <20170318210300.163288-1-soheil.kdev@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        vyasevich@gmail.com
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, zzoru007@gmail.com, soheil@google.com,
+        edumazet@google.com, willemb@google.com
+To: soheil.kdev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59784 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59818 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751192AbdCVBmW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:42:22 -0400
-In-Reply-To: <16cb6e6d2ef47481123bc3ff1b99e8abf5334d14.1489838639.git.lucien.xin@gmail.com>
+        with ESMTP id S1750987AbdCVBo5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:44:57 -0400
+In-Reply-To: <20170318210300.163288-1-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sat, 18 Mar 2017 20:03:59 +0800
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Date: Sat, 18 Mar 2017 17:02:59 -0400
 
-> This patch is to fix the issue that sctp_prsctp_prune_sent forgot
-> to update q->out_qlen when removing a chunk from unsent queue.
+> From: Soheil Hassas Yeganeh <soheil@google.com>
 > 
-> Fixes: 8dbdf1f5b09c ("sctp: implement prsctp PRIO policy")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> __sock_recv_timestamp can be called for both normal skbs (for
+> receive timestamps) and for skbs on the error queue (for transmit
+> timestamps).
+> 
+> Commit 1c885808e456
+> (tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING)
+> assumes any skb passed to __sock_recv_timestamp are from
+> the error queue, containing OPT_STATS in the content of the skb.
+> This results in accessing invalid memory or generating junk
+> data.
+> 
+> To fix this, set skb->pkt_type to PACKET_OUTGOING for packets
+> on the error queue. This is safe because on the receive path
+> on local sockets skb->pkt_type is never set to PACKET_OUTGOING.
+> With that, copy OPT_STATS from a packet, only if its pkt_type
+> is PACKET_OUTGOING.
+> 
+> Fixes: 1c885808e456 ("tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING")
+> Reported-by: JongHwan Kim <zzoru007@gmail.com>
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied, thanks.
+Applied and queued up for -stable.
