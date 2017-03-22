@@ -1,39 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 4/5] net-next: ethernet: mediatek: add
- device_node of GMAC pointing into the netdev instance
-Date: Wed, 22 Mar 2017 11:23:03 -0700
-Message-ID: <7a6d4273-bdac-42f5-9f50-a43bdd952495@gmail.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v2 3/5] net-next: ethernet: mediatek: add CDM
+ able to recognize the tag for DSA
+Date: Wed, 22 Mar 2017 11:23:22 -0700
+Message-ID: <d2145f56-930d-64ed-22bb-859a232aad93@gmail.com>
 References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
- <1490088910-19405-5-git-send-email-sean.wang@mediatek.com>
+ <1490088910-19405-4-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        davem@davemloft.net, Landen.Chao@mediatek.com, keyhaede@gmail.com,
-        objelf@gmail.com
-To: sean.wang@mediatek.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, matthias.bgg@gmail.com,
-        robh+dt@kernel.org, mark.rutland@arm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34529 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965542AbdCVSXL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 14:23:11 -0400
-In-Reply-To: <1490088910-19405-5-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+        vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490088910-19405-4-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/21/2017 02:35 AM, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
+On 03/21/2017 02:35 AM, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
+> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 > 
-> the patch adds the setup of the corresponding device node of GMAC into the
-> netdev instance which could allow other modules such as DSA to find the
-> instance through the node in dt-bindings using of_find_net_device_by_node()
-> call.
+> The patch adds the setup for allowing CDM can recognize these packets with
+> carrying port-distinguishing tag. Otherwise, these tagging packets will be
+> handled incorrectly by CDM. The setup is working out for general untag
+> packets as well.
 > 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Landen Chao <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 -- 
 Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
