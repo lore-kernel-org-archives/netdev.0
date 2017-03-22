@@ -1,46 +1,103 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: Problem: net: mvneta: auto-negotiation with disconnected network
- cable
-Date: Thu, 23 Mar 2017 01:03:37 +0300
-Message-ID: <b7737751-b051-b717-a856-3e11c73dd25d@list.ru>
-References: <DB6PR0501MB2712340C8CDC37F3038766AD943C0@DB6PR0501MB2712.eurprd05.prod.outlook.com>
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: [PATCH net-next v4 1/2] New kernel function to get IP overhead on
+ a socket.
+Date: Wed, 22 Mar 2017 15:59:13 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1703221554000.9002@vera100.eng.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "thomas.petazzoni@free-electrons.com"
-        <thomas.petazzoni@free-electrons.com>
-To: Maxime Morin <maxime.morin@vitec.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kleptog@svana.org, jchapman@katalix.com, davem@redhat.com,
+        nprachan@brocade.com, rshearma@brocade.com,
+        stephen@networkplumber.org, sdietric@brocade.com,
+        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
+        bhong@brocade.com, jblunck@brocade.com,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback9.m.smailru.net ([94.100.178.49]:36689 "EHLO
-        fallback9.m.smailru.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753906AbdCVWtB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:49:01 -0400
-Received: from [10.161.25.39] (port=55642 helo=smtp62.i.mail.ru)
-        by fallback9.m.smailru.net with esmtp (envelope-from <stsp@list.ru>)
-        id 1cqoM8-0001IW-Qu
-        for netdev@vger.kernel.org; Thu, 23 Mar 2017 01:03:49 +0300
-In-Reply-To: <DB6PR0501MB2712340C8CDC37F3038766AD943C0@DB6PR0501MB2712.eurprd05.prod.outlook.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34183 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753610AbdCVW71 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:59:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-22.03.2017 16:23, Maxime Morin пишет:
-> Hi all,
->
-> I work on an embedded platform based on the Marvell Armada 88F6707, that is connected to a Marvell Alaska 88E1512 ethernet transceiver. A defect has appeared recently, and it turns out to be a regression on the network part. There is a complete lost of the network when following these steps:
->      1) boot the board with the network cable disconnected
->      2) run the following commands (or equivalent):
->          ip link set eth0 up
->          ip addr add 10.0.0.80/24 dev eth0
->          ethtool -s eth0 autoneg on #this is the command that really breaks the network
-In fact, the problem is that this control is
-counter-intuitive. It could instead be
 
-ethtool autoneg [on|off|mdio|inband]
+A new function, kernel_sock_ip_overhead(), is provided
+to calculate the cumulative overhead imposed by the IP
+Header and IP options, if any, on a socket's payload.
+The new function returns an overhead of zero for sockets
+that do not belong to the IPv4 or IPv6 address families.
 
-with "on" implying "mdio". In that case you would
-never notice the change. Unfortunately there seems
-to be no way of passing the autoneg mode, so I fused
-"on" to "inband"... So, unless I am mistaken, this clearly
-needs a rework. But I have really forgot all the details.
+Signed-off-by: R. Parameswaran <rparames@brocade.com>
+---
+ include/linux/net.h |  3 +++
+ net/socket.c        | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+)
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 0620f5e..a42fab2 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -298,6 +298,9 @@ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+ int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
+ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how);
+ 
++/* Following routine returns the IP overhead imposed by a socket.  */
++u32 kernel_sock_ip_overhead(struct sock *sk);
++
+ #define MODULE_ALIAS_NETPROTO(proto) \
+ 	MODULE_ALIAS("net-pf-" __stringify(proto))
+ 
+diff --git a/net/socket.c b/net/socket.c
+index e034fe4..69598e1 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -3345,3 +3345,47 @@ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
+ 	return sock->ops->shutdown(sock, how);
+ }
+ EXPORT_SYMBOL(kernel_sock_shutdown);
++
++/* This routine returns the IP overhead imposed by a socket i.e.
++ * the length of the underlying IP header, depending on whether
++ * this is an IPv4 or IPv6 socket and the length from IP options turned
++ * on at the socket.
++ */
++u32 kernel_sock_ip_overhead(struct sock *sk)
++{
++	struct inet_sock *inet;
++	struct ipv6_pinfo *np;
++	struct ip_options_rcu *opt;
++	struct ipv6_txoptions *optv6 = NULL;
++	u32 overhead = 0;
++	bool owned_by_user;
++
++	if (!sk)
++		return overhead;
++
++	owned_by_user = sock_owned_by_user(sk);
++	switch (sk->sk_family) {
++	case AF_INET:
++		inet = inet_sk(sk);
++		overhead += sizeof(struct iphdr);
++		opt = rcu_dereference_protected(inet->inet_opt,
++						owned_by_user);
++		if (opt)
++			overhead += opt->opt.optlen;
++		return overhead;
++#if IS_ENABLED(CONFIG_IPV6)
++	case AF_INET6:
++		np = inet6_sk(sk);
++		overhead += sizeof(struct ipv6hdr);
++		if (np)
++			optv6 = rcu_dereference_protected(np->opt,
++							  owned_by_user);
++		if (optv6)
++			overhead += (optv6->opt_flen + optv6->opt_nflen);
++		return overhead;
++#endif /* IS_ENABLED(CONFIG_IPV6) */
++	default: /* Returns 0 overhead if the socket is not ipv4 or ipv6 */
++		return overhead;
++	}
++}
++EXPORT_SYMBOL(kernel_sock_ip_overhead);
+-- 
+2.1.4
