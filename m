@@ -1,50 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 4.11] genetlink: fix counting regression on
- ctrl_dumpfamily()
-Date: Wed, 22 Mar 2017 15:39:15 -0700 (PDT)
-Message-ID: <20170322.153915.842535433384366274.davem@davemloft.net>
-References: <1490195313-13272-1-git-send-email-sgruszka@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: initialize icsk_ack.lrcvtime at session start
+ time
+Date: Wed, 22 Mar 2017 15:40:11 -0700 (PDT)
+Message-ID: <20170322.154011.793246495784624746.davem@davemloft.net>
+References: <1490195421.16816.157.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        xose.vazquez-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
-        johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-To: sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1490195313-13272-1-git-send-email-sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45406 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752680AbdCVWkM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:40:12 -0400
+In-Reply-To: <1490195421.16816.157.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 22 Mar 2017 16:08:33 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 22 Mar 2017 08:10:21 -0700
 
-> Commit 2ae0f17df1cd ("genetlink: use idr to track families") replaced
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> 	if (++n < fams_to_skip)
-> 		continue;
-> into:
+> icsk_ack.lrcvtime has a 0 value at socket creation time.
 > 
-> 	if (n++ < fams_to_skip)
-> 		continue;
+> tcpi_last_data_recv can have bogus value if no payload is ever received.
 > 
-> This subtle change cause that on retry ctrl_dumpfamily() call we omit
-> one family that failed to do ctrl_fill_info() on previous call, because
-> cb->args[0] = n number counts also family that failed to do
-> ctrl_fill_info().
+> This patch initializes icsk_ack.lrcvtime for active sessions
+> in tcp_finish_connect(), and for passive sessions in
+> tcp_create_openreq_child()
 > 
-> Patch fixes the problem and avoid confusion in the future just decrease
-> n counter when ctrl_fill_info() fail.
-> 
-> User visible problem caused by this bug is failure to get access to
-> some genetlink family i.e. nl80211. However problem is reproducible
-> only if number of registered genetlink families is big enough to
-> cause second call of ctrl_dumpfamily().
-> 
-> Cc: Xose Vazquez Perez <xose.vazquez-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Fixes: 2ae0f17df1cd ("genetlink: use idr to track families")
-> Signed-off-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied and queued up for -stable, thanks.
