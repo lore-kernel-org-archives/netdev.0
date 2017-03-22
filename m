@@ -1,59 +1,97 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 14/15] nfp: remove defensive checks around ndo_open()/ndo_close()
-Date: Tue, 21 Mar 2017 17:59:20 -0700
-Message-ID: <20170322005921.10965-15-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 09/15] nfp: fix invalid area detection
+Date: Tue, 21 Mar 2017 17:59:15 -0700
+Message-ID: <20170322005921.10965-10-jakub.kicinski@netronome.com>
 References: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:36263 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758524AbdCVBGf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:06:35 -0400
-Received: by mail-pg0-f41.google.com with SMTP id g2so100789976pge.3
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 18:06:34 -0700 (PDT)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35612 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758253AbdCVBGK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:06:10 -0400
+Received: by mail-pf0-f182.google.com with SMTP id 20so38782922pfk.2
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 18:06:07 -0700 (PDT)
 In-Reply-To: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Device open and close handlers check if the device is already
-in the desired state.  Thanks to our reconfig infrastructure
-this should not be necessary, there doesn't seem to be any
-code in the driver which depends on it.
+Core should detect when someone is trying to request an access
+window which is too large for a given type of access.  Otherwise
+the requester will be put on a wait queue for ever without any
+error message.
+
+Add const qualifiers to clarify that we are only looking at read-
+-only members in relevant functions.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 10 ----------
- 1 file changed, 10 deletions(-)
+ .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c  | 29 +++++++++++-----------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index d35eeba86bac..e12353a7c83c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2233,11 +2233,6 @@ static int nfp_net_netdev_open(struct net_device *netdev)
- 	struct nfp_net *nn = netdev_priv(netdev);
- 	int err, r;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+index 15cc3e77cf6a..43dc68e01274 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+@@ -217,7 +217,7 @@ static resource_size_t nfp_bar_resource_start(struct nfp_bar *bar)
+ #define TARGET_WIDTH_64    8
  
--	if (nn->dp.ctrl & NFP_NET_CFG_CTRL_ENABLE) {
--		nn_err(nn, "Dev is already enabled: 0x%08x\n", nn->dp.ctrl);
--		return -EBUSY;
--	}
--
- 	/* Step 1: Allocate resources for rings and the like
- 	 * - Request interrupts
- 	 * - Allocate RX and TX ring resources
-@@ -2368,11 +2363,6 @@ static int nfp_net_netdev_close(struct net_device *netdev)
+ static int
+-compute_bar(struct nfp6000_pcie *nfp, struct nfp_bar *bar,
++compute_bar(const struct nfp6000_pcie *nfp, const struct nfp_bar *bar,
+ 	    u32 *bar_config, u64 *bar_base,
+ 	    int tgt, int act, int tok, u64 offset, size_t size, int width)
  {
- 	struct nfp_net *nn = netdev_priv(netdev);
+@@ -410,35 +410,36 @@ find_matching_bar(struct nfp6000_pcie *nfp,
  
--	if (!(nn->dp.ctrl & NFP_NET_CFG_CTRL_ENABLE)) {
--		nn_err(nn, "Dev is not up: 0x%08x\n", nn->dp.ctrl);
--		return 0;
--	}
+ /* Return EAGAIN if no resource is available */
+ static int
+-find_unused_bar_noblock(struct nfp6000_pcie *nfp,
++find_unused_bar_noblock(const struct nfp6000_pcie *nfp,
+ 			int tgt, int act, int tok,
+ 			u64 offset, size_t size, int width)
+ {
+-	int n, invalid = 0;
++	int n, busy = 0;
+ 
+ 	for (n = 0; n < nfp->bars; n++) {
+-		struct nfp_bar *bar = &nfp->bar[n];
++		const struct nfp_bar *bar = &nfp->bar[n];
+ 		int err;
+ 
+-		if (bar->bitsize == 0) {
+-			invalid++;
+-			continue;
+-		}
 -
- 	/* Step 1: Disable RX and TX rings from the Linux kernel perspective
- 	 */
- 	nfp_net_close_stack(nn);
+-		if (atomic_read(&bar->refcnt) != 0)
++		if (!bar->bitsize)
+ 			continue;
+ 
+ 		/* Just check to see if we can make it fit... */
+ 		err = compute_bar(nfp, bar, NULL, NULL,
+ 				  tgt, act, tok, offset, size, width);
++		if (err)
++			continue;
+ 
+-		if (err < 0)
+-			invalid++;
+-		else
++		if (!atomic_read(&bar->refcnt))
+ 			return n;
++
++		busy++;
+ 	}
+ 
+-	return (n == invalid) ? -EINVAL : -EAGAIN;
++	if (WARN(!busy, "No suitable BAR found for request tgt:0x%x act:0x%x tok:0x%x off:0x%llx size:%zd width:%d\n",
++		 tgt, act, tok, offset, size, width))
++		return -EINVAL;
++
++	return -EAGAIN;
+ }
+ 
+ static int
 -- 
 2.11.0
