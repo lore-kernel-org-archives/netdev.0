@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] soc: qcom: smd: Transition client drivers from smd
- to rpmsg
-Date: Wed, 22 Mar 2017 11:44:39 -0700 (PDT)
-Message-ID: <20170322.114439.679826829857326050.davem@davemloft.net>
-References: <20170320233544.1656-1-bjorn.andersson@linaro.org>
+Subject: Re: [PATCH net v3 1/1] net: tcp: Permit user set TCP_MAXSEG to
+ default value
+Date: Wed, 22 Mar 2017 11:48:13 -0700 (PDT)
+Message-ID: <20170322.114813.1044261413851089870.davem@davemloft.net>
+References: <1490059683-13884-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-        k.eugene.e@gmail.com, kvalo@codeaurora.org, andy.gross@linaro.org,
-        david.brown@linaro.org, arnd@arndb.de,
-        linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-        linux-soc@vger.kernel.org
-To: bjorn.andersson@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170320233544.1656-1-bjorn.andersson@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42970 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965753AbdCVSsP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 14:48:15 -0400
+In-Reply-To: <1490059683-13884-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Date: Mon, 20 Mar 2017 16:35:42 -0700
+From: fgao@ikuai8.com
+Date: Tue, 21 Mar 2017 09:28:03 +0800
 
-> By moving these client drivers to use RPMSG instead of the direct SMD
-> API we can reuse them ontop of the newly added GLINK wire-protocol
-> support found in the 820 and 835 Qualcomm platforms.
+> From: Gao Feng <fgao@ikuai8.com>
 > 
-> As the new (RPMSG-based) and old SMD implementations are mutually
-> exclusive we have to change all client drivers in one commit, to make
-> sure we have a working system before and after this transition.
+> When user_mss is zero, it means use the default value. But the current
+> codes don't permit user set TCP_MAXSEG to the default value.
+> It would return the -EINVAL when val is zero.
 > 
-> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 > ---
-> 
-> Based on v4.11-rc3 with Arnd's Kconfig dependency fixes for BT_QCOMSMD
-> (https://lkml.org/lkml/2017/3/20/1038).
+>  v3: Correct the logic error, per Neal
+>  v2: Make codes more clearer, per Eric
+>  v1: initial version
 
-Just some questions since I'm supposed to merge this into my net-next
-tree.
-
-What is the status of the Kconfig dependency fix and how will I be
-getting it?
-
-Second, should I merge all three of these patches to net-next or just
-this one?
-
-Thanks.
+Applied to net-next, thanks.
