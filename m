@@ -1,145 +1,408 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: [PATCH 1/2] netfilter: ipset: warn users of list:set that parameter 'size' is ignored
-Date: Tue, 21 Mar 2017 22:06:21 -0400
-Message-ID: <1490148382-2633-1-git-send-email-vpai@akamai.com>
-Cc: johunt@akamai.com, vpai@akamai.com,
-        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        coreteam@netfilter.org, pai.vishwain@gmail.com
-To: pablo@netfilter.org, kadlec@blackhole.kfki.hu
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net] bpf: fix hashmap extra_elems logic
+Date: Tue, 21 Mar 2017 19:05:04 -0700
+Message-ID: <1490148304-1459018-1-git-send-email-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Dave Jones <davej@codemonkey.org.uk>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54179 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1758650AbdCVC1D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 22:27:03 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2M23KuJ007848
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 19:05:05 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 29bdhk0e5u-2
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 19:05:05 -0700
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
+ mx-out.facebook.com (10.102.107.97) with ESMTP id
+ f721a6640ea311e7a5920002c99331b0-4bffb9a0 for <netdev@vger.kernel.org>;        Tue,
+ 21 Mar 2017 19:05:04 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since kernel commit 00590fdd5be0 ("netfilter: ipset: Introduce RCU
-locking in list type"), the parameter 'size' has not been in use and
-is ignored by the kernel. This is not very apparent to the user. This
-commit makes 'size' optional and also warns the user if they try to
-specify it. We also don't print it out on 'ipset l'.
+In both kmalloc and prealloc mode the bpf_map_update_elem() is using
+per-cpu extra_elems to do atomic update when the map is full.
+There are two issues with it. The logic can be misused, since it allows
+max_entries+num_cpus elements to be present in the map. And alloc_extra_elems()
+at map creation time can fail percpu alloc for large map values with a warn:
+WARNING: CPU: 3 PID: 2752 at ../mm/percpu.c:892 pcpu_alloc+0x119/0xa60
+illegal size (32824) or align (8) for percpu allocation
 
-I created revision 4 to make this change, revision 3 should work with
-older kernels just like before.
+The fixes for both of these issues are different for kmalloc and prealloc modes.
+For prealloc mode allocate extra num_possible_cpus elements and store
+their pointers into extra_elems array instead of actual elements.
+Hence we can use these hidden(spare) elements not only when the map is full
+but during bpf_map_update_elem() that replaces existing element too.
+That also improves performance, since pcpu_freelist_pop/push is avoided.
+Unfortunately this approach cannot be used for kmalloc mode which needs
+to kfree elements after rcu grace period. Therefore switch it back to normal
+kmalloc even when full and old element exists like it was prior to
+commit 6c9059817432 ("bpf: pre-allocate hash map elements").
 
-Reviewed-by: Josh Hunt <johunt@akamai.com>
-Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+Add tests to check for over max_entries and large map values.
+
+Reported-by: Dave Jones <davej@codemonkey.org.uk>
+Fixes: 6c9059817432 ("bpf: pre-allocate hash map elements")
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
 ---
- lib/ipset_list_set.c | 92 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 92 insertions(+)
+ kernel/bpf/hashtab.c                    | 144 ++++++++++++++++----------------
+ tools/testing/selftests/bpf/test_maps.c |  29 ++++++-
+ 2 files changed, 97 insertions(+), 76 deletions(-)
 
-diff --git a/lib/ipset_list_set.c b/lib/ipset_list_set.c
-index 45934e7..2d8bc7a 100644
---- a/lib/ipset_list_set.c
-+++ b/lib/ipset_list_set.c
-@@ -322,6 +322,31 @@ static const struct ipset_arg list_set_create_args3[] = {
- 	{ },
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index afe5bab376c9..361a69dfe543 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -30,18 +30,12 @@ struct bpf_htab {
+ 		struct pcpu_freelist freelist;
+ 		struct bpf_lru lru;
+ 	};
+-	void __percpu *extra_elems;
++	struct htab_elem *__percpu *extra_elems;
+ 	atomic_t count;	/* number of elements in this hashtable */
+ 	u32 n_buckets;	/* number of hash buckets */
+ 	u32 elem_size;	/* size of each element in bytes */
  };
  
-+/* Parse commandline arguments */
-+static const struct ipset_arg list_set_create_args4[] = {
-+	{ .name = { "size", NULL },
-+	  .has_arg = IPSET_OPTIONAL_ARG,	.opt = IPSET_OPT_SIZE,
-+	  .parse = ipset_parse_ignored,
-+	},
-+	{ .name = { "timeout", NULL },
-+	  .has_arg = IPSET_MANDATORY_ARG,	.opt = IPSET_OPT_TIMEOUT,
-+	  .parse = ipset_parse_timeout,		.print = ipset_print_number,
-+	},
-+	{ .name = { "counters", NULL },
-+	  .has_arg = IPSET_NO_ARG,		.opt = IPSET_OPT_COUNTERS,
-+	  .parse = ipset_parse_flag,		.print = ipset_print_flag,
-+	},
-+	{ .name = { "comment", NULL },
-+	  .has_arg = IPSET_NO_ARG,		.opt = IPSET_OPT_CREATE_COMMENT,
-+	  .parse = ipset_parse_flag,		.print = ipset_print_flag,
-+	},
-+	{ .name = { "skbinfo", NULL },
-+	  .has_arg = IPSET_NO_ARG,		.opt = IPSET_OPT_SKBINFO,
-+	  .parse = ipset_parse_flag,		.print = ipset_print_flag,
-+	},
-+	{ },
-+};
-+
- static const struct ipset_arg list_set_adt_args3[] = {
- 	{ .name = { "timeout", NULL },
- 	  .has_arg = IPSET_MANDATORY_ARG,	.opt = IPSET_OPT_TIMEOUT,
-@@ -426,6 +451,72 @@ static struct ipset_type ipset_list_set3 = {
- 	.usage = list_set_usage3,
- 	.description = "skbinfo support",
- };
-+
-+static const char list_set_usage4[] =
-+"create SETNAME list:set\n"
-+"               [timeout VALUE] [counters] [comment]\n"
-+"		[skbinfo]\n"
-+"add    SETNAME NAME [before|after NAME] [timeout VALUE]\n"
-+"               [packets VALUE] [bytes VALUE] [comment STRING]\n"
-+"		[skbmark VALUE] [skbprio VALUE] [skbqueue VALUE]\n"
-+"del    SETNAME NAME [before|after NAME]\n"
-+"test   SETNAME NAME [before|after NAME]\n\n"
-+"where NAME are existing set names.\n";
-+
-+static struct ipset_type ipset_list_set4 = {
-+	.name = "list:set",
-+	.alias = { "setlist", NULL },
-+	.revision = 4,
-+	.family = NFPROTO_UNSPEC,
-+	.dimension = IPSET_DIM_ONE,
-+	.elem = {
-+		[IPSET_DIM_ONE - 1] = {
-+			.parse = ipset_parse_setname,
-+			.print = ipset_print_name,
-+			.opt = IPSET_OPT_NAME
-+		},
-+	},
-+	.compat_parse_elem = ipset_parse_name_compat,
-+	.args = {
-+		[IPSET_CREATE] = list_set_create_args4,
-+		[IPSET_ADD] = list_set_adt_args3,
-+		[IPSET_DEL] = list_set_adt_args2,
-+		[IPSET_TEST] = list_set_adt_args2,
-+	},
-+	.mandatory = {
-+		[IPSET_CREATE] = 0,
-+		[IPSET_ADD] = IPSET_FLAG(IPSET_OPT_NAME),
-+		[IPSET_DEL] = IPSET_FLAG(IPSET_OPT_NAME),
-+		[IPSET_TEST] = IPSET_FLAG(IPSET_OPT_NAME),
-+	},
-+	.full = {
-+		[IPSET_CREATE] = IPSET_FLAG(IPSET_OPT_SIZE)
-+			| IPSET_FLAG(IPSET_OPT_TIMEOUT)
-+			| IPSET_FLAG(IPSET_OPT_COUNTERS)
-+			| IPSET_FLAG(IPSET_OPT_CREATE_COMMENT)
-+			| IPSET_FLAG(IPSET_OPT_SKBINFO),
-+		[IPSET_ADD] = IPSET_FLAG(IPSET_OPT_NAME)
-+			| IPSET_FLAG(IPSET_OPT_BEFORE)
-+			| IPSET_FLAG(IPSET_OPT_NAMEREF)
-+			| IPSET_FLAG(IPSET_OPT_TIMEOUT)
-+			| IPSET_FLAG(IPSET_OPT_PACKETS)
-+			| IPSET_FLAG(IPSET_OPT_BYTES)
-+			| IPSET_FLAG(IPSET_OPT_ADT_COMMENT)
-+			| IPSET_FLAG(IPSET_OPT_SKBMARK)
-+			| IPSET_FLAG(IPSET_OPT_SKBPRIO)
-+			| IPSET_FLAG(IPSET_OPT_SKBQUEUE),
-+		[IPSET_DEL] = IPSET_FLAG(IPSET_OPT_NAME)
-+			| IPSET_FLAG(IPSET_OPT_BEFORE)
-+			| IPSET_FLAG(IPSET_OPT_NAMEREF),
-+		[IPSET_TEST] = IPSET_FLAG(IPSET_OPT_NAME)
-+			| IPSET_FLAG(IPSET_OPT_BEFORE)
-+			| IPSET_FLAG(IPSET_OPT_NAMEREF),
-+	},
-+
-+	.usage = list_set_usage4,
-+	.description = "ignore and warn users about parameter 'size'",
-+};
-+
- void _init(void);
- void _init(void)
- {
-@@ -433,4 +524,5 @@ void _init(void)
- 	ipset_type_add(&ipset_list_set1);
- 	ipset_type_add(&ipset_list_set2);
- 	ipset_type_add(&ipset_list_set3);
-+	ipset_type_add(&ipset_list_set4);
+-enum extra_elem_state {
+-	HTAB_NOT_AN_EXTRA_ELEM = 0,
+-	HTAB_EXTRA_ELEM_FREE,
+-	HTAB_EXTRA_ELEM_USED
+-};
+-
+ /* each htab element is struct htab_elem + key + value */
+ struct htab_elem {
+ 	union {
+@@ -56,7 +50,6 @@ struct htab_elem {
+ 	};
+ 	union {
+ 		struct rcu_head rcu;
+-		enum extra_elem_state state;
+ 		struct bpf_lru_node lru_node;
+ 	};
+ 	u32 hash;
+@@ -77,6 +70,11 @@ static bool htab_is_percpu(const struct bpf_htab *htab)
+ 		htab->map.map_type == BPF_MAP_TYPE_LRU_PERCPU_HASH;
  }
+ 
++static bool htab_is_prealloc(const struct bpf_htab *htab)
++{
++	return !(htab->map.map_flags & BPF_F_NO_PREALLOC);
++}
++
+ static inline void htab_elem_set_ptr(struct htab_elem *l, u32 key_size,
+ 				     void __percpu *pptr)
+ {
+@@ -128,17 +126,20 @@ static struct htab_elem *prealloc_lru_pop(struct bpf_htab *htab, void *key,
+ 
+ static int prealloc_init(struct bpf_htab *htab)
+ {
++	u32 num_entries = htab->map.max_entries;
+ 	int err = -ENOMEM, i;
+ 
+-	htab->elems = bpf_map_area_alloc(htab->elem_size *
+-					 htab->map.max_entries);
++	if (!htab_is_percpu(htab) && !htab_is_lru(htab))
++		num_entries += num_possible_cpus();
++
++	htab->elems = bpf_map_area_alloc(htab->elem_size * num_entries);
+ 	if (!htab->elems)
+ 		return -ENOMEM;
+ 
+ 	if (!htab_is_percpu(htab))
+ 		goto skip_percpu_elems;
+ 
+-	for (i = 0; i < htab->map.max_entries; i++) {
++	for (i = 0; i < num_entries; i++) {
+ 		u32 size = round_up(htab->map.value_size, 8);
+ 		void __percpu *pptr;
+ 
+@@ -166,11 +167,11 @@ static int prealloc_init(struct bpf_htab *htab)
+ 	if (htab_is_lru(htab))
+ 		bpf_lru_populate(&htab->lru, htab->elems,
+ 				 offsetof(struct htab_elem, lru_node),
+-				 htab->elem_size, htab->map.max_entries);
++				 htab->elem_size, num_entries);
+ 	else
+ 		pcpu_freelist_populate(&htab->freelist,
+ 				       htab->elems + offsetof(struct htab_elem, fnode),
+-				       htab->elem_size, htab->map.max_entries);
++				       htab->elem_size, num_entries);
+ 
+ 	return 0;
+ 
+@@ -191,16 +192,22 @@ static void prealloc_destroy(struct bpf_htab *htab)
+ 
+ static int alloc_extra_elems(struct bpf_htab *htab)
+ {
+-	void __percpu *pptr;
++	struct htab_elem *__percpu *pptr, *l_new;
++	struct pcpu_freelist_node *l;
+ 	int cpu;
+ 
+-	pptr = __alloc_percpu_gfp(htab->elem_size, 8, GFP_USER | __GFP_NOWARN);
++	pptr = __alloc_percpu_gfp(sizeof(struct htab_elem *), 8,
++				  GFP_USER | __GFP_NOWARN);
+ 	if (!pptr)
+ 		return -ENOMEM;
+ 
+ 	for_each_possible_cpu(cpu) {
+-		((struct htab_elem *)per_cpu_ptr(pptr, cpu))->state =
+-			HTAB_EXTRA_ELEM_FREE;
++		l = pcpu_freelist_pop(&htab->freelist);
++		/* pop will succeed, since prealloc_init()
++		 * preallocated extra num_possible_cpus elements
++		 */
++		l_new = container_of(l, struct htab_elem, fnode);
++		*per_cpu_ptr(pptr, cpu) = l_new;
+ 	}
+ 	htab->extra_elems = pptr;
+ 	return 0;
+@@ -342,25 +349,25 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 		raw_spin_lock_init(&htab->buckets[i].lock);
+ 	}
+ 
+-	if (!percpu && !lru) {
+-		/* lru itself can remove the least used element, so
+-		 * there is no need for an extra elem during map_update.
+-		 */
+-		err = alloc_extra_elems(htab);
+-		if (err)
+-			goto free_buckets;
+-	}
+-
+ 	if (prealloc) {
+ 		err = prealloc_init(htab);
+ 		if (err)
+-			goto free_extra_elems;
++			goto free_buckets;
++
++		if (!percpu && !lru) {
++			/* lru itself can remove the least used element, so
++			 * there is no need for an extra elem during map_update.
++			 */
++			err = alloc_extra_elems(htab);
++			if (err)
++				goto free_prealloc;
++		}
+ 	}
+ 
+ 	return &htab->map;
+ 
+-free_extra_elems:
+-	free_percpu(htab->extra_elems);
++free_prealloc:
++	prealloc_destroy(htab);
+ free_buckets:
+ 	bpf_map_area_free(htab->buckets);
+ free_htab:
+@@ -575,12 +582,7 @@ static void htab_elem_free_rcu(struct rcu_head *head)
+ 
+ static void free_htab_elem(struct bpf_htab *htab, struct htab_elem *l)
+ {
+-	if (l->state == HTAB_EXTRA_ELEM_USED) {
+-		l->state = HTAB_EXTRA_ELEM_FREE;
+-		return;
+-	}
+-
+-	if (!(htab->map.map_flags & BPF_F_NO_PREALLOC)) {
++	if (htab_is_prealloc(htab)) {
+ 		pcpu_freelist_push(&htab->freelist, &l->fnode);
+ 	} else {
+ 		atomic_dec(&htab->count);
+@@ -610,47 +612,43 @@ static void pcpu_copy_value(struct bpf_htab *htab, void __percpu *pptr,
+ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
+ 					 void *value, u32 key_size, u32 hash,
+ 					 bool percpu, bool onallcpus,
+-					 bool old_elem_exists)
++					 struct htab_elem *old_elem)
+ {
+ 	u32 size = htab->map.value_size;
+-	bool prealloc = !(htab->map.map_flags & BPF_F_NO_PREALLOC);
+-	struct htab_elem *l_new;
++	bool prealloc = htab_is_prealloc(htab);
++	struct htab_elem *l_new, **pl_new;
+ 	void __percpu *pptr;
+-	int err = 0;
+ 
+ 	if (prealloc) {
+-		struct pcpu_freelist_node *l;
++		if (old_elem) {
++			/* if we're updating the existing element,
++			 * use per-cpu extra elems to avoid freelist_pop/push
++			 */
++			pl_new = this_cpu_ptr(htab->extra_elems);
++			l_new = *pl_new;
++			*pl_new = old_elem;
++		} else {
++			struct pcpu_freelist_node *l;
+ 
+-		l = pcpu_freelist_pop(&htab->freelist);
+-		if (!l)
+-			err = -E2BIG;
+-		else
++			l = pcpu_freelist_pop(&htab->freelist);
++			if (!l)
++				return ERR_PTR(-E2BIG);
+ 			l_new = container_of(l, struct htab_elem, fnode);
+-	} else {
+-		if (atomic_inc_return(&htab->count) > htab->map.max_entries) {
+-			atomic_dec(&htab->count);
+-			err = -E2BIG;
+-		} else {
+-			l_new = kmalloc(htab->elem_size,
+-					GFP_ATOMIC | __GFP_NOWARN);
+-			if (!l_new)
+-				return ERR_PTR(-ENOMEM);
+ 		}
+-	}
+-
+-	if (err) {
+-		if (!old_elem_exists)
+-			return ERR_PTR(err);
+-
+-		/* if we're updating the existing element and the hash table
+-		 * is full, use per-cpu extra elems
+-		 */
+-		l_new = this_cpu_ptr(htab->extra_elems);
+-		if (l_new->state != HTAB_EXTRA_ELEM_FREE)
+-			return ERR_PTR(-E2BIG);
+-		l_new->state = HTAB_EXTRA_ELEM_USED;
+ 	} else {
+-		l_new->state = HTAB_NOT_AN_EXTRA_ELEM;
++		if (atomic_inc_return(&htab->count) > htab->map.max_entries)
++			if (!old_elem) {
++				/* when map is full and update() is replacing
++				 * old element, it's ok to allocate, since
++				 * old element will be freed immediately.
++				 * Otherwise return an error
++				 */
++				atomic_dec(&htab->count);
++				return ERR_PTR(-E2BIG);
++			}
++		l_new = kmalloc(htab->elem_size, GFP_ATOMIC | __GFP_NOWARN);
++		if (!l_new)
++			return ERR_PTR(-ENOMEM);
+ 	}
+ 
+ 	memcpy(l_new->key, key, key_size);
+@@ -731,7 +729,7 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 		goto err;
+ 
+ 	l_new = alloc_htab_elem(htab, key, value, key_size, hash, false, false,
+-				!!l_old);
++				l_old);
+ 	if (IS_ERR(l_new)) {
+ 		/* all pre-allocated elements are in use or memory exhausted */
+ 		ret = PTR_ERR(l_new);
+@@ -744,7 +742,8 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 	hlist_nulls_add_head_rcu(&l_new->hash_node, head);
+ 	if (l_old) {
+ 		hlist_nulls_del_rcu(&l_old->hash_node);
+-		free_htab_elem(htab, l_old);
++		if (!htab_is_prealloc(htab))
++			free_htab_elem(htab, l_old);
+ 	}
+ 	ret = 0;
+ err:
+@@ -856,7 +855,7 @@ static int __htab_percpu_map_update_elem(struct bpf_map *map, void *key,
+ 				value, onallcpus);
+ 	} else {
+ 		l_new = alloc_htab_elem(htab, key, value, key_size,
+-					hash, true, onallcpus, false);
++					hash, true, onallcpus, NULL);
+ 		if (IS_ERR(l_new)) {
+ 			ret = PTR_ERR(l_new);
+ 			goto err;
+@@ -1024,8 +1023,7 @@ static void delete_all_elements(struct bpf_htab *htab)
+ 
+ 		hlist_nulls_for_each_entry_safe(l, n, head, hash_node) {
+ 			hlist_nulls_del_rcu(&l->hash_node);
+-			if (l->state != HTAB_EXTRA_ELEM_USED)
+-				htab_elem_free(htab, l);
++			htab_elem_free(htab, l);
+ 		}
+ 	}
+ }
+@@ -1045,7 +1043,7 @@ static void htab_map_free(struct bpf_map *map)
+ 	 * not have executed. Wait for them.
+ 	 */
+ 	rcu_barrier();
+-	if (htab->map.map_flags & BPF_F_NO_PREALLOC)
++	if (!htab_is_prealloc(htab))
+ 		delete_all_elements(htab);
+ 	else
+ 		prealloc_destroy(htab);
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index cada17ac00b8..a0aa2009b0e0 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -80,8 +80,9 @@ static void test_hashmap(int task, void *data)
+ 	assert(bpf_map_update_elem(fd, &key, &value, BPF_EXIST) == 0);
+ 	key = 2;
+ 	assert(bpf_map_update_elem(fd, &key, &value, BPF_ANY) == 0);
+-	key = 1;
+-	assert(bpf_map_update_elem(fd, &key, &value, BPF_ANY) == 0);
++	key = 3;
++	assert(bpf_map_update_elem(fd, &key, &value, BPF_NOEXIST) == -1 &&
++	       errno == E2BIG);
+ 
+ 	/* Check that key = 0 doesn't exist. */
+ 	key = 0;
+@@ -110,6 +111,24 @@ static void test_hashmap(int task, void *data)
+ 	close(fd);
+ }
+ 
++static void test_hashmap_sizes(int task, void *data)
++{
++	int fd, i, j;
++
++	for (i = 1; i <= 512; i <<= 1)
++		for (j = 1; j <= 1 << 18; j <<= 1) {
++			fd = bpf_create_map(BPF_MAP_TYPE_HASH, i, j,
++					    2, map_flags);
++			if (fd < 0) {
++				printf("Failed to create hashmap key=%d value=%d '%s'\n",
++				       i, j, strerror(errno));
++				exit(1);
++			}
++			close(fd);
++			usleep(10); /* give kernel time to destroy */
++		}
++}
++
+ static void test_hashmap_percpu(int task, void *data)
+ {
+ 	unsigned int nr_cpus = bpf_num_possible_cpus();
+@@ -317,7 +336,10 @@ static void test_arraymap_percpu(int task, void *data)
+ static void test_arraymap_percpu_many_keys(void)
+ {
+ 	unsigned int nr_cpus = bpf_num_possible_cpus();
+-	unsigned int nr_keys = 20000;
++	/* nr_keys is not too large otherwise the test stresses percpu
++	 * allocator more than anything else
++	 */
++	unsigned int nr_keys = 2000;
+ 	long values[nr_cpus];
+ 	int key, fd, i;
+ 
+@@ -419,6 +441,7 @@ static void test_map_stress(void)
+ {
+ 	run_parallel(100, test_hashmap, NULL);
+ 	run_parallel(100, test_hashmap_percpu, NULL);
++	run_parallel(100, test_hashmap_sizes, NULL);
+ 
+ 	run_parallel(100, test_arraymap, NULL);
+ 	run_parallel(100, test_arraymap_percpu, NULL);
 -- 
-1.9.1
-
+2.8.0
