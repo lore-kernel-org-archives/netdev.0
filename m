@@ -1,58 +1,36 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH v2 net 5/5] net:ethernet:aquantia: Reset is_gso flag when EOP reached.
-Date: Thu, 23 Mar 2017 00:19:25 +0300
-Message-ID: <854264bee9fd61f0476ec1362801b31f1a2aeca3.1490217414.git.pavel.belous@aquantia.com>
-References: <cover.1490217414.git.pavel.belous@aquantia.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: ipv6: Add sysctl for minimum prefix len
+ acceptable in RIOs.
+Date: Wed, 22 Mar 2017 14:21:06 -0700 (PDT)
+Message-ID: <20170322.142106.1607838051053330169.davem@davemloft.net>
+References: <20170322091904.73420-1-jscherpelz@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        David Arcari <darcari@redhat.com>,
-        Pavel Belous <pavel.belous@aquantia.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, ek@google.com,
+        lorenzo@google.com
+To: jscherpelz@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0066.outbound.protection.outlook.com ([104.47.40.66]:28576
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751368AbdCVVUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Mar 2017 17:20:05 -0400
-In-Reply-To: <cover.1490217414.git.pavel.belous@aquantia.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44886 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751159AbdCVV25 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 17:28:57 -0400
+In-Reply-To: <20170322091904.73420-1-jscherpelz@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <pavel.belous@aquantia.com>
+From: Joel Scherpelz <jscherpelz@google.com>
+Date: Wed, 22 Mar 2017 18:19:04 +0900
 
-We need to reset is_gso flag when EOP reached (entire LSO packet processed).
+> This commit adds a new sysctl accept_ra_rt_info_min_plen that
+> defines the minimum acceptable prefix length of Route Information
+> Options. The new sysctl is intended to be used together with
+> accept_ra_rt_info_max_plen to configure a range of acceptable
+> prefix lengths. It is useful to prevent misconfigurations from
+> unintentionally blackholing too much of the IPv6 address space
+> (e.g., home routers announcing RIOs for fc00::/7, which is
+> incorrect).
+> 
+> Signed-off-by: Joel Scherpelz <jscherpelz@google.com>
 
-Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
----
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 1 +
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 1 +
- 2 files changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-index a536875..4ee15ff 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-@@ -461,6 +461,7 @@ static int hw_atl_a0_hw_ring_tx_xmit(struct aq_hw_s *self,
- 			if (unlikely(buff->is_eop)) {
- 				txd->ctl |= HW_ATL_A0_TXD_CTL_EOP;
- 				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_WB;
-+				is_gso = false;
- 			}
- 		}
- 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-index 69488c9..4215070 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-@@ -499,6 +499,7 @@ static int hw_atl_b0_hw_ring_tx_xmit(struct aq_hw_s *self,
- 			if (unlikely(buff->is_eop)) {
- 				txd->ctl |= HW_ATL_B0_TXD_CTL_EOP;
- 				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_WB;
-+				is_gso = false;
- 			}
- 		}
- 
--- 
-2.7.4
+Applied, thank you.
