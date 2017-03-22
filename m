@@ -1,82 +1,49 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 net-next] net: fix dma operation mode config for older
- versions
-Date: Wed, 22 Mar 2017 11:07:08 +0000
-Message-ID: <0d1ff4c8-a438-f746-ef7e-9f8eb39ba352@synopsys.com>
-References: <3b8aeab69d2987db68c74f48a3ac13c7241e1542.1490118934.git.jpinto@synopsys.com>
- <14d56634-1ec0-2d21-4e60-c1adde5d42f5@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next v7 2/3] Add a eBPF helper function to retrieve
+ socket uid
+Date: Wed, 22 Mar 2017 11:09:38 +0000
+Message-ID: <CAF=yD-+D5oHcU3qq4nDDWE1Bt4k2Vv9Ekf=FoKMdrc0F5dGS_Q@mail.gmail.com>
+References: <1490133934-7055-1-git-send-email-chenbofeng.kernel@gmail.com> <1490133934-7055-3-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <clabbe.montjoie@gmail.com>, <thierry.reding@gmail.com>,
-        <sergei.shtylyov@cogentembedded.com>, <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.47.9]:39810 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759029AbdCVLHS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 07:07:18 -0400
-In-Reply-To: <14d56634-1ec0-2d21-4e60-c1adde5d42f5@gmail.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36687 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934031AbdCVLKl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 07:10:41 -0400
+Received: by mail-qk0-f195.google.com with SMTP id n141so25633542qke.3
+        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 04:10:19 -0700 (PDT)
+In-Reply-To: <1490133934-7055-3-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Às 6:56 PM de 3/21/2017, Florian Fainelli escreveu:
-> On 03/21/2017 11:02 AM, Joao Pinto wrote:
->> This patch fixes a bug introduced in:
->> commit 6deee2221e11 ("net: stmmac: prepare dma op mode config for multiple
->> queues")
-> 
-> So even though this is against net-next which is the only tree so far
-> having the offending commit, it is nice to see this appear later in the
-> commit messages as:
-> 
-> Fixes: 6deee2221e11 ("net: stmmac: prepare dma op mode config for
-> multiple queues")
-> 
-> Also, your subject for this patch should be:
-> 
-> net: stmmac: fix dma operation mode config for older versions
+> +BPF_CALL_1(bpf_get_socket_uid, struct sk_buff *, skb)
+> +{
+> +       struct sock *sk = sk_to_full_sk(skb->sk);
+> +       kuid_t kuid;
+> +
+> +       if (!sk || !sk_fullsock(sk))
+> +               return overflowuid;
+> +       kuid = sock_net_uid(sock_net(sk), sk);
+> +       return from_kuid_munged(&init_user_ns, kuid);
 
-Ok, I will do that! Thanks.
+Ideally, this would be the user namespace relative to the BPF program.
 
-> 
->>
->> The dma operation mode configuration routine was wrongly moved to a
->> function (stmmac_mtl_configuration) that is only executed if the
->> core version is >= 4.00.
->>
->> Reported-by: Corentin Labbe <clabbe.montjoie@gmail.com>
->> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->> ---
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++---
->>  1 file changed, 3 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index d3a2151..225a3a3 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -1945,9 +1945,6 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
->>  	/* Enable MAC RX Queues */
->>  	if (rx_queues_count > 1 && priv->hw->mac->rx_queue_enable)
->>  		stmmac_mac_enable_rx_queues(priv);
->> -
->> -	/* Set the HW DMA mode and the COE */
->> -	stmmac_dma_operation_mode(priv);
->>  }
->>  
->>  /**
->> @@ -2014,6 +2011,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
->>  	else
->>  		stmmac_set_mac(priv->ioaddr, true);
->>  
->> +	/* Set the HW DMA mode and the COE */
->> +	stmmac_dma_operation_mode(priv);
->> +
->>  	stmmac_mmc_setup(priv);
->>  
->>  	if (init_ptp) {
->>
-> 
-> 
+With no such association stored, using init_user_ns is fine. But if we
+define it as such now, we cannot change it to resolve userns later.
+
+We could associate a BPF program with the userns of the process that
+loads the program. And expose bpf_prog state to external functions,
+for instance through a perpcu local variable.
+
+Also, unconditionally using init_user_ns will allow a process
+sandboxed in a user namespace to learn its uid in the initns. If the
+initns is not its parentns, this may be a new capability.
