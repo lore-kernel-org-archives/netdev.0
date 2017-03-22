@@ -1,49 +1,60 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 13/15] nfp: flush xmit_more on error paths
-Date: Tue, 21 Mar 2017 17:59:19 -0700
-Message-ID: <20170322005921.10965-14-jakub.kicinski@netronome.com>
-References: <20170322005921.10965-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com, kubakici@wp.pl,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:33489 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758582AbdCVBIm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:08:42 -0400
-Received: by mail-pg0-f51.google.com with SMTP id n190so101337238pga.0
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 18:08:35 -0700 (PDT)
-In-Reply-To: <20170322005921.10965-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v2 net-next 0/4] drivers: net: xgene-v2: Add MDIO and ethtool
+ support
+Date: Tue, 21 Mar 2017 18:18:01 -0700
+Message-ID: <1490145485-32661-1-git-send-email-isubramanian@apm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kchudgar@apm.com, patches@apm.com, linux-arm-kernel@lists.infradead.org,
+ Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, andrew@lunn.ch,
+ f.fainelli@gmail.com, David.Laight@aculab.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-In case of ring full or DMA mapping error remember to flush xmit_more
-delayed kicks.
+This patch set,
+    
+- adds phy management and ethtool support
+- fixes ethernet reset
+- addresses review comments from previous patch set
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 2 ++
- 1 file changed, 2 insertions(+)
+v2: Address review comments from v1
+	- removed mdio_lock, since there is a top level lock in mdio_bus.c
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 255294b8bc5f..d35eeba86bac 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -759,6 +759,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
- 		nn_dp_warn(dp, "TX ring %d busy. wrp=%u rdp=%u\n",
- 			   qidx, tx_ring->wr_p, tx_ring->rd_p);
- 		netif_tx_stop_queue(nd_q);
-+		nfp_net_tx_xmit_more_flush(tx_ring);
- 		u64_stats_update_begin(&r_vec->tx_sync);
- 		r_vec->tx_busy++;
- 		u64_stats_update_end(&r_vec->tx_sync);
-@@ -867,6 +868,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
- 	tx_ring->txbufs[wr_idx].fidx = -2;
- err_free:
- 	nn_dp_warn(dp, "Failed to map DMA TX buffer\n");
-+	nfp_net_tx_xmit_more_flush(tx_ring);
- 	u64_stats_update_begin(&r_vec->tx_sync);
- 	r_vec->tx_errors++;
- 	u64_stats_update_end(&r_vec->tx_sync);
+v1:
+	- Initial version
+---
+
+Iyappan Subramanian (4):
+  drivers: net: xgene-v2: Add MDIO support
+  drivers: net: xgene-v2: Add ethtool support
+  drivers: net: xgene-v2: Fix port reset
+  drivers: net: xgene-v2: misc fixes
+
+ drivers/net/ethernet/apm/xgene-v2/Makefile  |   2 +-
+ drivers/net/ethernet/apm/xgene-v2/enet.c    |  24 +++-
+ drivers/net/ethernet/apm/xgene-v2/enet.h    |   2 +
+ drivers/net/ethernet/apm/xgene-v2/ethtool.c | 121 ++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene-v2/mac.c     |   2 +-
+ drivers/net/ethernet/apm/xgene-v2/mac.h     |   2 +-
+ drivers/net/ethernet/apm/xgene-v2/main.c    |  67 +++++------
+ drivers/net/ethernet/apm/xgene-v2/main.h    |   5 +
+ drivers/net/ethernet/apm/xgene-v2/mdio.c    | 167 ++++++++++++++++++++++++++++
+ 9 files changed, 351 insertions(+), 41 deletions(-)
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/ethtool.c
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/mdio.c
+
 -- 
-2.11.0
+1.9.1
