@@ -1,67 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from atomic_t to
- refcount_t
-Date: Tue, 21 Mar 2017 19:03:19 -0700
-Message-ID: <1490148199.16816.126.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1489767196.28631.305.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170318164759.GA23837@gondor.apana.org.au>
-         <20170318.182121.439615057765380575.davem@davemloft.net>
-         <20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
-         <20170320131629.GA26405@gondor.apana.org.au>
-         <20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
-         <20170320132713.GA26954@gondor.apana.org.au>
-         <20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-         <CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
-         <1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        David Miller <davem@davemloft.net>,
-        "Reshetova, Elena" <elena.reshetova@intel.com>,
-        Network Development <netdev@vger.kernel.org>,
-        bridge@lists.linux-foundation.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>,
-        Andrew Morton <akpm@linux-foundation.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vishwanath Pai <vpai@akamai.com>
+Subject: [PATCH 2/2] netfilter: ipset: warn users of list:set that parameter 'size' is ignored
+Date: Tue, 21 Mar 2017 22:06:22 -0400
+Message-ID: <1490148382-2633-2-git-send-email-vpai@akamai.com>
+References: <1490148382-2633-1-git-send-email-vpai@akamai.com>
+Cc: johunt@akamai.com, vpai@akamai.com,
+        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        coreteam@netfilter.org, pai.vishwain@gmail.com
+To: pablo@netfilter.org, kadlec@blackhole.kfki.hu
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1490148382-2633-1-git-send-email-vpai@akamai.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-03-21 at 16:51 -0700, Kees Cook wrote:
+Revision 4 warns the users that the parameter 'size' is ignored. The
+kernel module doesn't need any changes, it will work with both the
+revisions.
 
-> Am I understanding you correctly that you'd want something like:
-> 
-> refcount.h:
-> #ifdef UNPROTECTED_REFCOUNT
-> #define refcount_inc(x)   atomic_inc(x)
-> ...
-> #else
-> void refcount_inc(...
-> ...
-> #endif
-> 
-> some/net.c:
-> #define UNPROTECTED_REFCOUNT
-> #include <refcount.h>
-> 
-> or similar?
+Note that this will not restore old behavior before commit 00590fdd5be0
+("netfilter: ipset: Introduce RCU locking in list type") for users of
+the older revision. It will be a much bigger change if that is
+what we need.
 
-At first, it could be something simple like that yes.
+Reviewed-by: Josh Hunt <johunt@akamai.com>
+Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+---
+ net/netfilter/ipset/ip_set_list_set.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Note that we might define two refcount_inc()  : One that does whole
-tests, and refcount_inc_relaxed() that might translate to atomic_inc()
-on non debug kernels.
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index 178d4eb..d4f820a 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -19,7 +19,8 @@
+ #define IPSET_TYPE_REV_MIN	0
+ /*				1    Counters support added */
+ /*				2    Comments support added */
+-#define IPSET_TYPE_REV_MAX	3 /* skbinfo support added */
++/*				3    skbinfo support added */
++#define IPSET_TYPE_REV_MAX	4 /* size argument is ignored */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+-- 
+1.9.1
 
-Then later, maybe provide a dynamic infrastructure so that we can
-dynamically force the full checks even for refcount_inc_relaxed() on say
-1% of the hosts, to get better debug coverage ?
