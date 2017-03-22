@@ -1,23 +1,33 @@
-From: Lindsey <hesterh940@gmail.com>
-Subject: (unknown)
-Date: Wed, 22 Mar 2017 09:38:49 +0000
-Message-ID: <CAHW53HjhgiK2N6Wo15amF0-02fsiNuiUG3XE+BdcLcX_RK1MSw@mail.gmail.com>
-Reply-To: kiblerlindseyy@outlook.com
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next] net: ipv6: Add sysctl for minimum prefix len
+ acceptable in RIOs.
+Date: Wed, 22 Mar 2017 19:13:51 +0900
+Message-ID: <CAKD1Yr0RRiTbxuWiDPCtem2jcVcZ2BU6=GxyrkTFAhgogYWhBA@mail.gmail.com>
+References: <20170322091904.73420-1-jscherpelz@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Erik Kline <ek@google.com>
+To: Joel Scherpelz <jscherpelz@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:33598 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752391AbdCVJrn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 05:47:43 -0400
-Received: by mail-qk0-f195.google.com with SMTP id j127so25413872qke.0
-        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 02:46:59 -0700 (PDT)
-Subject: 
+Received: from mail-vk0-f42.google.com ([209.85.213.42]:34952 "EHLO
+        mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758777AbdCVKOs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 06:14:48 -0400
+Received: by mail-vk0-f42.google.com with SMTP id r69so10401402vke.2
+        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 03:14:12 -0700 (PDT)
+In-Reply-To: <20170322091904.73420-1-jscherpelz@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, i am sergeant Lindsey Kibler, How's everything with you, , I
-picked interest on you after going through your profile I really want
-to have a good friendship with you.Beside i have something very vital
-to tell you please write me back
+On Wed, Mar 22, 2017 at 6:19 PM, Joel Scherpelz <jscherpelz@google.com> wrote:
+> It is useful to prevent misconfigurations from
+> unintentionally blackholing too much of the IPv6 address space
+> (e.g., home routers announcing RIOs for fc00::/7, which is
+> incorrect).
+>
+> Signed-off-by: Joel Scherpelz <jscherpelz@google.com>
+
+Acked-by: Lorenzo Colitti <lorenzo@google.com>
