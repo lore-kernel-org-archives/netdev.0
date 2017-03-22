@@ -1,63 +1,151 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
- atomic_t to refcount_t
-Date: Wed, 22 Mar 2017 08:22:27 -0700
-Message-ID: <1490196147.16816.162.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170320132713.GA26954@gondor.apana.org.au>
-	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
-	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
-	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
-	<1490148199.16816.126.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170322122540.odnm4j3r4c4uf7wt@hirez.programming.kicks-ass.net>
-	<1490188936.16816.143.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170322143329.ya5jnretfptf4iud@hirez.programming.kicks-ass.net>
-	<1490194444.16816.154.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20170322150847.rsvhkbft3bn35rim@hirez.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>, Patrick McHardy <kaber@trash.net>,
-	Network Development <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
-	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Windsor <dwindsor@gmail.com>,
-	David Miller <davem@davemloft.net>, "Reshetova,
-	Elena" <elena.reshetova@intel.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170322150847.rsvhkbft3bn35rim@hirez.programming.kicks-ass.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Wadim Egorov <w.egorov@phytec.de>
+Subject: [PATCH] net: stmmac: dwmac-rk: Add handling for RGMII_ID/RXID/TXID
+Date: Wed, 22 Mar 2017 16:50:22 +0100
+Message-ID: <1490197822-35428-1-git-send-email-w.egorov@phytec.de>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-rockchip@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.x-arc.de ([217.6.246.34]:38305 "EHLO root.phytec.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935532AbdCVPub (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Mar 2017 11:50:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-03-22 at 16:08 +0100, Peter Zijlstra wrote:
-> On Wed, Mar 22, 2017 at 07:54:04AM -0700, Eric Dumazet wrote:
-> > On Wed, 2017-03-22 at 15:33 +0100, Peter Zijlstra wrote:
-> > 
-> > > 
-> > > But I would feel a whole lot better about the entire thing if we could
-> > > measure their impact. It would also give us good precedent to whack
-> > > other potential users of _nocheck over the head with -- show numbers.
-> > 
-> > I wont be able to measure the impact on real workloads, our productions
-> > kernels are based on 4.3 at this moment.
-> 
-> Is there really no micro bench that exercises the relevant network
-> paths? Do you really fully rely on Google production workloads?
+ATM dwmac-rk will always set and enable it's internal delay lines.
+Using PHY internal delays in combination with the phy-mode rgmii-id/rxid/txid
+was not possible. Only rgmii was supported.
 
-You could run a synflood test, with ~10 Mpps.
+Now we can disable rockchip's gmac delay lines and also use rgmii-id/rxid/txid.
 
-sock_hold() is definitely used in SYN handling.
+Tested only with a RK3288 based board.
 
-Last upstream kernels do not work on my lab hosts, for whatever reason.
+Signed-off-by: Wadim Egorov <w.egorov@phytec.de>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 53 ++++++++++++++++++--------
+ 1 file changed, 37 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index e5db6ac..05ee0f4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -74,6 +74,10 @@ struct rk_priv_data {
+ #define GRF_BIT(nr)	(BIT(nr) | BIT(nr+16))
+ #define GRF_CLR_BIT(nr)	(BIT(nr+16))
+ 
++#define DELAY_ENABLE(soc, tx, rx) \
++	((tx) ? soc##_GMAC_TXCLK_DLY_ENABLE : soc##_GMAC_TXCLK_DLY_DISABLE | \
++	 (rx) ? soc##_GMAC_RXCLK_DLY_ENABLE : soc##_GMAC_RXCLK_DLY_DISABLE)
++
+ #define RK3228_GRF_MAC_CON0	0x0900
+ #define RK3228_GRF_MAC_CON1	0x0904
+ 
+@@ -115,8 +119,7 @@ static void rk3228_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
+ 		     RK3228_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3228_GMAC_RMII_MODE_CLR |
+-		     RK3228_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3228_GMAC_TXCLK_DLY_ENABLE);
++		     DELAY_ENABLE(RK3228, tx_delay, rx_delay));
+ 
+ 	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON0,
+ 		     RK3228_GMAC_CLK_RX_DL_CFG(rx_delay) |
+@@ -232,8 +235,7 @@ static void rk3288_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 		     RK3288_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3288_GMAC_RMII_MODE_CLR);
+ 	regmap_write(bsp_priv->grf, RK3288_GRF_SOC_CON3,
+-		     RK3288_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3288_GMAC_TXCLK_DLY_ENABLE |
++		     DELAY_ENABLE(RK3288, tx_delay, rx_delay) |
+ 		     RK3288_GMAC_CLK_RX_DL_CFG(rx_delay) |
+ 		     RK3288_GMAC_CLK_TX_DL_CFG(tx_delay));
+ }
+@@ -460,8 +462,7 @@ static void rk3366_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 		     RK3366_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3366_GMAC_RMII_MODE_CLR);
+ 	regmap_write(bsp_priv->grf, RK3366_GRF_SOC_CON7,
+-		     RK3366_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3366_GMAC_TXCLK_DLY_ENABLE |
++		     DELAY_ENABLE(RK3366, tx_delay, rx_delay) |
+ 		     RK3366_GMAC_CLK_RX_DL_CFG(rx_delay) |
+ 		     RK3366_GMAC_CLK_TX_DL_CFG(tx_delay));
+ }
+@@ -572,8 +573,7 @@ static void rk3368_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 		     RK3368_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3368_GMAC_RMII_MODE_CLR);
+ 	regmap_write(bsp_priv->grf, RK3368_GRF_SOC_CON16,
+-		     RK3368_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3368_GMAC_TXCLK_DLY_ENABLE |
++		     DELAY_ENABLE(RK3368, tx_delay, rx_delay) |
+ 		     RK3368_GMAC_CLK_RX_DL_CFG(rx_delay) |
+ 		     RK3368_GMAC_CLK_TX_DL_CFG(tx_delay));
+ }
+@@ -684,8 +684,7 @@ static void rk3399_set_to_rgmii(struct rk_priv_data *bsp_priv,
+ 		     RK3399_GMAC_PHY_INTF_SEL_RGMII |
+ 		     RK3399_GMAC_RMII_MODE_CLR);
+ 	regmap_write(bsp_priv->grf, RK3399_GRF_SOC_CON6,
+-		     RK3399_GMAC_RXCLK_DLY_ENABLE |
+-		     RK3399_GMAC_TXCLK_DLY_ENABLE |
++		     DELAY_ENABLE(RK3399, tx_delay, rx_delay) |
+ 		     RK3399_GMAC_CLK_RX_DL_CFG(rx_delay) |
+ 		     RK3399_GMAC_CLK_TX_DL_CFG(tx_delay));
+ }
+@@ -985,14 +984,29 @@ static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
+ 		return ret;
+ 
+ 	/*rmii or rgmii*/
+-	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII) {
++	switch (bsp_priv->phy_iface) {
++	case PHY_INTERFACE_MODE_RGMII:
+ 		dev_info(dev, "init for RGMII\n");
+ 		bsp_priv->ops->set_to_rgmii(bsp_priv, bsp_priv->tx_delay,
+ 					    bsp_priv->rx_delay);
+-	} else if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII) {
++		break;
++	case PHY_INTERFACE_MODE_RGMII_ID:
++		dev_info(dev, "init for RGMII_ID\n");
++		bsp_priv->ops->set_to_rgmii(bsp_priv, 0, 0);
++		break;
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++		dev_info(dev, "init for RGMII_RXID\n");
++		bsp_priv->ops->set_to_rgmii(bsp_priv, bsp_priv->tx_delay, 0);
++		break;
++	case PHY_INTERFACE_MODE_RGMII_TXID:
++		dev_info(dev, "init for RGMII_TXID\n");
++		bsp_priv->ops->set_to_rgmii(bsp_priv, 0, bsp_priv->rx_delay);
++		break;
++	case PHY_INTERFACE_MODE_RMII:
+ 		dev_info(dev, "init for RMII\n");
+ 		bsp_priv->ops->set_to_rmii(bsp_priv);
+-	} else {
++		break;
++	default:
+ 		dev_err(dev, "NO interface defined!\n");
+ 	}
+ 
+@@ -1022,12 +1036,19 @@ static void rk_fix_speed(void *priv, unsigned int speed)
+ 	struct rk_priv_data *bsp_priv = priv;
+ 	struct device *dev = &bsp_priv->pdev->dev;
+ 
+-	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII)
++	switch (bsp_priv->phy_iface) {
++	case PHY_INTERFACE_MODE_RGMII:
++	case PHY_INTERFACE_MODE_RGMII_ID:
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++	case PHY_INTERFACE_MODE_RGMII_TXID:
+ 		bsp_priv->ops->set_rgmii_speed(bsp_priv, speed);
+-	else if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RMII)
++		break;
++	case PHY_INTERFACE_MODE_RMII:
+ 		bsp_priv->ops->set_rmii_speed(bsp_priv, speed);
+-	else
++		break;
++	default:
+ 		dev_err(dev, "unsupported interface %d", bsp_priv->phy_iface);
++	}
+ }
+ 
+ static int rk_gmac_probe(struct platform_device *pdev)
+-- 
+1.9.1
