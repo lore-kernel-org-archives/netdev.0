@@ -1,36 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipv6: Add sysctl for minimum prefix len
- acceptable in RIOs.
-Date: Wed, 22 Mar 2017 14:21:06 -0700 (PDT)
-Message-ID: <20170322.142106.1607838051053330169.davem@davemloft.net>
-References: <20170322091904.73420-1-jscherpelz@google.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [patch] sfc: cleanup a condition in efx_udp_tunnel_del()
+Date: Wed, 22 Mar 2017 17:41:16 -0400
+Message-ID: <adcdb8bb-b870-e023-4b0a-9d11efe099e4@redhat.com>
+References: <20170322091002.GB14520@mwanda>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, ek@google.com,
-        lorenzo@google.com
-To: jscherpelz@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44886 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751159AbdCVV25 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 17:28:57 -0400
-In-Reply-To: <20170322091904.73420-1-jscherpelz@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Edward Cree <ecree@solarflare.com>,
+        Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+        Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170322091002.GB14520@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joel Scherpelz <jscherpelz@google.com>
-Date: Wed, 22 Mar 2017 18:19:04 +0900
+On 2017-03-22 5:10 AM, Dan Carpenter wrote:
+> Presumably if there is an "add" function, there is also a "del"
+> function.  But it causes a static checker warning because it looks like
+> a common cut and paste bug.
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> This commit adds a new sysctl accept_ra_rt_info_min_plen that
-> defines the minimum acceptable prefix length of Route Information
-> Options. The new sysctl is intended to be used together with
-> accept_ra_rt_info_max_plen to configure a range of acceptable
-> prefix lengths. It is useful to prevent misconfigurations from
-> unintentionally blackholing too much of the IPv6 address space
-> (e.g., home routers announcing RIOs for fc00::/7, which is
-> incorrect).
-> 
-> Signed-off-by: Joel Scherpelz <jscherpelz@google.com>
+Agreed, looks like a cut-n-paste buglet.
 
-Applied, thank you.
+Acked-by: Jarod Wilson <jarod@redhat.com>
+
+-- 
+Jarod Wilson
+jarod@redhat.com
