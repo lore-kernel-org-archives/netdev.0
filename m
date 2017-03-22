@@ -1,77 +1,118 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4.11] cgroup, net_cls: iterate the fds of only the
- tasks which are being migrated
-Date: Wed, 22 Mar 2017 10:33:28 -0700 (PDT)
-Message-ID: <20170322.103328.2258083179184839596.davem@davemloft.net>
-References: <20170314232556.GE15132@htj.duckdns.org>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Wed, 22 Mar 2017 19:39:17 +0200
+Message-ID: <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
+ <20170301144845.783f8cad@redhat.com>
+ <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        lizefan@huawei.com, cgroups@vger.kernel.org, hannes@cmpxchg.org,
-        kernel-team@fb.com, ninasc@fb.com, dgoode@fb.com
-To: tj@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170314232556.GE15132@htj.duckdns.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <akpm@linux-foundation.org>, linux-mm <linux-mm@kvack.org>, Saeed Mahameed
+	<saeedm@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, "netdev@vger.kernel.org"
+	<netdev@vger.kernel.org>, Mel Gorman <mgorman@techsingularity.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Tejun Heo <tj@kernel.org>
-Date: Tue, 14 Mar 2017 19:25:56 -0400
 
-> The net_cls controller controls the classid field of each socket which
-> is associated with the cgroup.  Because the classid is per-socket
-> attribute, when a task migrates to another cgroup or the configured
-> classid of the cgroup changes, the controller needs to walk all
-> sockets and update the classid value, which was implemented by
-> 3b13758f51de ("cgroups: Allow dynamically changing net_classid").
-> 
-> While the approach is not scalable, migrating tasks which have a lot
-> of fds attached to them is rare and the cost is born by the ones
-> initiating the operations.  However, for simplicity, both the
-> migration and classid config change paths call update_classid() which
-> scans all fds of all tasks in the target css.  This is an overkill for
-> the migration path which only needs to cover a much smaller subset of
-> tasks which are actually getting migrated in.
-> 
-> On cgroup v1, this can lead to unexpected scalability issues when one
-> tries to migrate a task or process into a net_cls cgroup which already
-> contains a lot of fds.  Even if the migration traget doesn't have many
-> to get scanned, update_classid() ends up scanning all fds in the
-> target cgroup which can be extremely numerous.
-> 
-> Unfortunately, on cgroup v2 which doesn't use net_cls, the problem is
-> even worse.  Before bfc2cf6f61fc ("cgroup: call subsys->*attach() only
-> for subsystems which are actually affected by migration"), cgroup core
-> would call the ->css_attach callback even for controllers which don't
-> see actual migration to a different css.
-> 
-> As net_cls is always disabled but still mounted on cgroup v2, whenever
-> a process is migrated on the cgroup v2 hierarchy, net_cls sees
-> identity migration from root to root and cgroup core used to call
-> ->css_attach callback for those.  The net_cls ->css_attach ends up
-> calling update_classid() on the root net_cls css to which all
-> processes on the system belong to as the controller isn't used.  This
-> makes any cgroup v2 migration O(total_number_of_fds_on_the_system)
-> which is horrible and easily leads to noticeable stalls triggering RCU
-> stall warnings and so on.
-> 
-> The worst symptom is already fixed in upstream by bfc2cf6f61fc
-> ("cgroup: call subsys->*attach() only for subsystems which are
-> actually affected by migration"); however, backporting that commit is
-> too invasive and we want to avoid other cases too.
-> 
-> This patch updates net_cls's cgrp_attach() to iterate fds of only the
-> processes which are actually getting migrated.  This removes the
-> surprising migration cost which is dependent on the total number of
-> fds in the target cgroup.  As this leaves write_classid() the only
-> user of update_classid(), open-code the helper into write_classid().
-> 
-> Reported-by: David Goode <dgoode@fb.com>
-> Fixes: 3b13758f51de ("cgroups: Allow dynamically changing net_classid")
-> Cc: stable@vger.kernel.org # v4.4+
-> Cc: Nina Schiff <ninasc@fb.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Tejun Heo <tj@kernel.org>
 
-Applied, thanks.
+On 01/03/2017 7:36 PM, Tariq Toukan wrote:
+>
+> On 01/03/2017 3:48 PM, Jesper Dangaard Brouer wrote:
+>> Hi NetDev community,
+>>
+>> I just wanted to make net driver people aware that this MM commit[1] got
+>> merged and is available in net-next.
+>>
+>>   commit 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator 
+>> for irq-safe requests")
+>>   [1] https://git.kernel.org/davem/net-next/c/374ad05ab64d696
+>>
+>> It provides approx 14% speedup of order-0 page allocations.  I do know
+>> most driver do their own page-recycling.  Thus, this gain will only be
+>> seen when this page recycling is insufficient, which Tariq was affected
+>> by AFAIK.
+> Thanks Jesper, this is great news!
+> I will start perf testing this tomorrow.
+>>
+>> We are also playing with a bulk page allocator facility[2], that I've
+>> benchmarked[3][4].  While I'm seeing between 34%-46% improvements by
+>> bulking, I believe we actually need to do better, before it reach our
+>> performance target for high-speed networking.
+> Very promising!
+> This fits perfectly in our Striding RQ feature (Multi-Packet WQE)
+> where we allocate fragmented buffers (of order-0 pages) of 256KB total.
+> Big like :)
+>
+> Thanks,
+> Tariq
+>> --Jesper
+>>
+>> [2] 
+>> http://lkml.kernel.org/r/20170109163518.6001-5-mgorman%40techsingularity.net
+>> [3] http://lkml.kernel.org/r/20170116152518.5519dc1e%40redhat.com
+>> [4] 
+>> https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/bench/page_bench04_bulk.c
+>>
+>>
+>> On Mon, 27 Feb 2017 12:25:03 -0800 akpm@linux-foundation.org wrote:
+>>
+>>> The patch titled
+>>>       Subject: mm, page_alloc: only use per-cpu allocator for 
+>>> irq-safe requests
+>>> has been removed from the -mm tree.  Its filename was
+>>> mm-page_alloc-only-use-per-cpu-allocator-for-irq-safe-requests.patch
+>>>
+>>> This patch was dropped because it was merged into mainline or a 
+>>> subsystem tree
+>>>
+>>> ------------------------------------------------------
+>>> From: Mel Gorman <mgorman@techsingularity.net>
+>>> Subject: mm, page_alloc: only use per-cpu allocator for irq-safe 
+>>> requests
+>>>
+>>> Many workloads that allocate pages are not handling an interrupt at a
+>>> time.  As allocation requests may be from IRQ context, it's 
+>>> necessary to
+>>> disable/enable IRQs for every page allocation.  This cost is the 
+>>> bulk of
+>>> the free path but also a significant percentage of the allocation path.
+>>>
+>>> This patch alters the locking and checks such that only irq-safe
+>>> allocation requests use the per-cpu allocator.  All others acquire the
+>>> irq-safe zone->lock and allocate from the buddy allocator. It relies on
+>>> disabling preemption to safely access the per-cpu structures. It 
+>>> could be
+>>> slightly modified to avoid soft IRQs using it but it's not clear it's
+>>> worthwhile.
+>>>
+>>> This modification may slow allocations from IRQ context slightly but 
+>>> the
+>>> main gain from the per-cpu allocator is that it scales better for
+>>> allocations from multiple contexts.  There is an implicit assumption 
+>>> that
+>>> intensive allocations from IRQ contexts on multiple CPUs from a single
+>>> NUMA node are rare 
+Hi Mel, Jesper, and all.
+
+This assumption contradicts regular multi-stream traffic that is 
+naturally handled
+over close numa cores.  I compared iperf TCP multistream (8 streams)
+over CX4 (mlx5 driver) with kernels v4.10 (before this series) vs
+kernel v4.11-rc1 (with this series).
+I disabled the page-cache (recycle) mechanism to stress the page allocator,
+and see a drastic degradation in BW, from 47.5 G in v4.10 to 31.4 G in 
+v4.11-rc1 (34% drop).
+I noticed queued_spin_lock_slowpath occupies 62.87% of CPU time.
+
+Best,
+Tariq
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
