@@ -1,54 +1,66 @@
-From: Maxime Morin <maxime.morin@vitec.com>
-Subject: Problem: net: mvneta: auto-negotiation with disconnected network
- cable
-Date: Wed, 22 Mar 2017 13:23:41 +0000
-Message-ID: <DB6PR0501MB2712340C8CDC37F3038766AD943C0@DB6PR0501MB2712.eurprd05.prod.outlook.com>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [2/2] zd1211rw: fix NULL-deref at probe
+Date: Wed, 22 Mar 2017 14:24:59 +0100
+Message-ID: <20170322132459.GD10130@localhost>
+References: <20170313124421.28587-2-johan@kernel.org>
+ <20170322090415.BE414609FF@smtp.codeaurora.org>
+ <20170322124548.GC10130@localhost>
+ <87r31p31nv.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "stsp@list.ru" <stsp@list.ru>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "thomas.petazzoni@free-electrons.com"
-        <thomas.petazzoni@free-electrons.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0075.outbound.protection.outlook.com ([104.47.0.75]:41696
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751400AbdCVNY3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Mar 2017 09:24:29 -0400
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <johan@kernel.org>,
+        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Daniel Drake <dsd@gentoo.org>,
+        Ulrich Kunitz <kune@deine-taler.de>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87r31p31nv.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Wed, Mar 22, 2017 at 03:02:12PM +0200, Kalle Valo wrote:
+> Johan Hovold <johan@kernel.org> writes:
+> 
+> > On Wed, Mar 22, 2017 at 09:04:15AM +0000, Kalle Valo wrote:
+> >> Johan Hovold <johan@kernel.org> wrote:
+> >> > Make sure to check the number of endpoints to avoid dereferencing a
+> >> > NULL-pointer or accessing memory beyond the endpoint array should a
+> >> > malicious device lack the expected endpoints.
+> >> > 
+> >> > Fixes: a1030e92c150 ("[PATCH] zd1211rw: Convert installer CDROM
+> >> > device into WLAN device")
+> >> > Cc: Daniel Drake <dsd@gentoo.org>
+> >> > Signed-off-by: Johan Hovold <johan@kernel.org>
+> >> 
+> >> Patch applied to wireless-drivers-next.git, thanks.
+> >> 
+> >> ca260ece6a57 zd1211rw: fix NULL-deref at probe
+> >
+> > What about patch 1/2 which fixes the same bug (literally copied from the
+> > zd1211rw driver)?
+> 
+> I will apply that to my separate ath.git tree, just didn't get to your
+> patch yet.
 
-I work on an embedded platform based on the Marvell Armada 88F6707, that is=
- connected to a Marvell Alaska 88E1512 ethernet transceiver. A defect has a=
-ppeared recently, and it turns out to be a regression on the network part. =
-There is a complete lost of the network when following these steps:
-    1) boot the board with the network cable disconnected
-    2) run the following commands (or equivalent):
-        ip link set eth0 up
-        ip addr add 10.0.0.80/24 dev eth0
-        ethtool -s eth0 autoneg on #this is the command that really breaks =
-the network
-    3) plug the network cable
-        =3D> there is no network, and no way to have it back except by rebo=
-oting
-If I do not launch the "ethtool" command, when I plug the network cable it =
-works, so it really seems to be related to the auto-negotiation set to "on"=
- when the network cable has never been connected.
-I did a "git bisect" to find when the regression was introduced, because it=
- previously worked with kernel 4.4, but not with the recent ones. The commi=
-t that made appear the issue is this one: https://git.kernel.org/pub/scm/li=
-nux/kernel/git/torvalds/linux.git/commit/?id=3D0c0744fc1dd5b
-If I remove on mvneta.c the part that was added on this commit on the funct=
-ion mvneta_ethtool_set_link_ksettings (mvneta_ethtool_set_settings at that =
-time), I do not have the issue, but I can't call that a fix...
-So, could it be a driver issue, or maybe a wrong configuration somewhere? I=
-f you need additional information to reproduce the problem please ask me, I=
- will be as responsive as possible.
+Ah, ok. 
 
-Best regards,
-Maxime MORIN=
+> > And as these fixes should be backported to stable (I left out the tag
+> > for networking drivers)
+> 
+> Actually for wireless drivers you should add the stable tag.
+
+Alright, will do in the future.
+
+> > why only apply to -next?
+> 
+> I didn't see that the fix was important enough for 4.11.
+
+Ok, but fixes for these types of crashes that can be triggered by a
+malicious device have typically gone into the current -rc (a couple just
+went in through the net tree for example).
+
+Thanks,
+Johan
