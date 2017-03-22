@@ -1,59 +1,53 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH v2 net] net:ethernet:aquantia: Fix for RX checksum offload.
-Date: Thu, 23 Mar 2017 02:20:39 +0300
-Message-ID: <29c8e2af99d9528db8cd4fa33c18080aaad6bef1.1490224721.git.pavel.belous@aquantia.com>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Wed, 22 Mar 2017 23:40:04 +0000
+Message-ID: <20170322234004.kffsce4owewgpqnm@techsingularity.net>
+References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
+ <20170301144845.783f8cad@redhat.com>
+ <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
+ <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        David Arcari <darcari@redhat.com>,
-        Pavel Belous <pavel.belous@aquantia.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0047.outbound.protection.outlook.com ([104.47.32.47]:35446
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751844AbdCVXVy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Mar 2017 19:21:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Belous <pavel.belous@aquantia.com>
+On Wed, Mar 22, 2017 at 07:39:17PM +0200, Tariq Toukan wrote:
+> > > > This modification may slow allocations from IRQ context slightly
+> > > > but the
+> > > > main gain from the per-cpu allocator is that it scales better for
+> > > > allocations from multiple contexts.  There is an implicit
+> > > > assumption that
+> > > > intensive allocations from IRQ contexts on multiple CPUs from a single
+> > > > NUMA node are rare
+> Hi Mel, Jesper, and all.
+> 
+> This assumption contradicts regular multi-stream traffic that is naturally
+> handled
+> over close numa cores.  I compared iperf TCP multistream (8 streams)
+> over CX4 (mlx5 driver) with kernels v4.10 (before this series) vs
+> kernel v4.11-rc1 (with this series).
+> I disabled the page-cache (recycle) mechanism to stress the page allocator,
+> and see a drastic degradation in BW, from 47.5 G in v4.10 to 31.4 G in
+> v4.11-rc1 (34% drop).
+> I noticed queued_spin_lock_slowpath occupies 62.87% of CPU time.
 
-Since AQC-100/107/108 chips supports hardware checksums for RX we should indicate this
-via NETIF_F_RXCSUM flag.
+Can you get the stack trace for the spin lock slowpath to confirm it's
+from IRQ context?
 
-v1->v2: 'Signed-off-by' tag added.
-
-Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
----
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h | 1 +
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h | 1 +
- 2 files changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h
-index 1093ea1..0592a03 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h
-@@ -137,6 +137,7 @@ static struct aq_hw_caps_s hw_atl_a0_hw_caps_ = {
- 	.tx_rings = HW_ATL_A0_TX_RINGS,
- 	.rx_rings = HW_ATL_A0_RX_RINGS,
- 	.hw_features = NETIF_F_HW_CSUM |
-+			NETIF_F_RXCSUM |
- 			NETIF_F_RXHASH |
- 			NETIF_F_SG |
- 			NETIF_F_TSO,
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h
-index 8bdee3d..f3957e93 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h
-@@ -188,6 +188,7 @@ static struct aq_hw_caps_s hw_atl_b0_hw_caps_ = {
- 	.tx_rings = HW_ATL_B0_TX_RINGS,
- 	.rx_rings = HW_ATL_B0_RX_RINGS,
- 	.hw_features = NETIF_F_HW_CSUM |
-+			NETIF_F_RXCSUM |
- 			NETIF_F_RXHASH |
- 			NETIF_F_SG |
- 			NETIF_F_TSO |
 -- 
-2.7.4
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
