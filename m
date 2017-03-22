@@ -1,68 +1,69 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: IGMP on IPv6
-Date: Wed, 22 Mar 2017 11:04:05 -0400
-Message-ID: <58D29265.1020604@ti.com>
-References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-To: Hangbin Liu <liuhangbin@gmail.com>,
-        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH 4.11] genetlink: fix counting regression on ctrl_dumpfamily()
+Date: Wed, 22 Mar 2017 16:08:33 +0100
+Message-ID: <1490195313-13272-1-git-send-email-sgruszka@redhat.com>
+Cc: linux-wireless@vger.kernel.org,
+        Stanislaw Gruszka <sgruszka@redhat.com>,
+        Xose Vazquez Perez <xose.vazquez@gmail.com>,
+        Larry Finger <Larry.Finger@lwfinger.net>,
+        Johannes Berg <johannes@sipsolutions.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:55014 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759638AbdCVPES (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 11:04:18 -0400
-In-Reply-To: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38690 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759905AbdCVPIu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Mar 2017 11:08:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Liu,
+Commit 2ae0f17df1cd ("genetlink: use idr to track families") replaced
 
-I saw that you have sent patches to the list for IGMP and have a question on IGMP on IPv6.
-Hope you can clarify. I have posted the question already to the list and is reproduced
-below. Let me know if you have an answer.
+	if (++n < fams_to_skip)
+		continue;
+into:
 
-========= See email with subject "IPv6 IGMP issue in v4.4.44 ?? ========================
-Cut-n-paste from that email....
+	if (n++ < fams_to_skip)
+		continue;
 
-I see an issue with IGMP for IPv6 when I test HSR redundancy network
-interface. As soon as I set up an HSR interface, I see some IGMP messages
-(destination mac address: 33 33 00 00 00 02 going over HSR interface to
-slave interfaces, at the egress where as for IPv6, I see similar messages
-going directly over the Ethernet interfaces that are attached to
-HSR master. It appears that the NETDEV_CHANGEUPPER is not handled properly
-and the mcast snoop sends the packets over the old interfaces at timer
-expiry. 
+This subtle change cause that on retry ctrl_dumpfamily() call we omit
+one family that failed to do ctrl_fill_info() on previous call, because
+cb->args[0] = n number counts also family that failed to do
+ctrl_fill_info().
 
-A dump of the message at the slave Ethernet interface looks like below.
+Patch fixes the problem and avoid confusion in the future just decrease
+n counter when ctrl_fill_info() fail.
 
-IPv4
+User visible problem caused by this bug is failure to get access to
+some genetlink family i.e. nl80211. However problem is reproducible
+only if number of registered genetlink families is big enough to
+cause second call of ctrl_dumpfamily().
 
-[   64.643842] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 89 2f 10 3e fc 
-[   64.649910] 18 86 dd 60 00 00 00 00 10 3a ff fe 80 00 00 00 
-[   64.655705] 00 00 00 72 ff 76 ff fe 1c 0f 8d ff 02 00 00 00 
-[   64.661503] 00 00 00 00 00 00 00 00 00 00 02 85 00 8d dc 
+Cc: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Fixes: 2ae0f17df1cd ("genetlink: use idr to track families")
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+Dave, please also target this for 4.10+ -stable.
 
+ net/netlink/genetlink.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-You can see this is tagged with HSR.
-
-IPv6
-
-[   65.559130] 33 33 00 00 00 02 70 ff 76 1c 0f 8d 86 dd 60 00 00 
-[   65.565205] 00 00 10 3a ff fe 80 00 00 00 00 00 00 72 ff 76 
-[   65.571011] ff fe 1c 0f 8d ff 02 00 00 00 00 00 00 00 00 00 
-[   65.576806] 00 00 00 00 02 85 00 8d dc 00 00 00 00 01 01 
-
-This is going directly to the slave Ethernet interface.
-
-When I put a WARN_ONCE, I found this is coming directly from 
-mld_ifc_timer_expire() -> mld_sendpack() -> ip6_output()
-
-Do you think this is fixed in latest kernel at master? If so, could
-you point me to some commits.
-
-
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index fb6e10f..92e0981 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -783,8 +783,10 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 		if (ctrl_fill_info(rt, NETLINK_CB(cb->skb).portid,
+ 				   cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-				   skb, CTRL_CMD_NEWFAMILY) < 0)
++				   skb, CTRL_CMD_NEWFAMILY) < 0) {
++			n--;
+ 			break;
++		}
+ 	}
+ 
+ 	cb->args[0] = n;
 -- 
-Murali Karicheri
-Linux Kernel, Keystone
+1.7.1
