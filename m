@@ -1,69 +1,63 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 10/15] nfp: fix nfp_cpp_read()/nfp_cpp_write() error paths
-Date: Tue, 21 Mar 2017 17:59:16 -0700
-Message-ID: <20170322005921.10965-11-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 06/15] nfp: lock area cache earlier
+Date: Tue, 21 Mar 2017 17:59:12 -0700
+Message-ID: <20170322005921.10965-7-jakub.kicinski@netronome.com>
 References: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:36627 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758558AbdCVBIH (ORCPT
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:34993 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757414AbdCVBIH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:08:07 -0400
-Received: by mail-pg0-f43.google.com with SMTP id g2so100804581pge.3
+Received: by mail-pf0-f175.google.com with SMTP id 20so38798972pfk.2
         for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 18:08:06 -0700 (PDT)
 In-Reply-To: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When acquiring an area fails we can't call function doing both
-release and free.
+We shouldn't access area_cache_list without its lock even
+to check if it's empty.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-index 2e4796b52b84..e2abba4c3a3f 100644
+index 4e08362d8c97..5189fedb0f4f 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-@@ -951,12 +951,14 @@ int nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
- 			return -ENOMEM;
+@@ -821,10 +821,7 @@ area_cache_get(struct nfp_cpp *cpp, u32 id,
+ 	 * the need for special case code below when
+ 	 * checking against available cache size.
+ 	 */
+-	if (length == 0)
+-		return NULL;
+-
+-	if (list_empty(&cpp->area_cache_list) || id == 0)
++	if (length == 0 || id == 0)
+ 		return NULL;
  
- 		err = nfp_cpp_area_acquire(area);
--		if (err)
--			goto out;
-+		if (err) {
-+			nfp_cpp_area_free(area);
-+			return err;
-+		}
- 	}
+ 	/* Remap from cpp_island to cpp_target */
+@@ -832,10 +829,15 @@ area_cache_get(struct nfp_cpp *cpp, u32 id,
+ 	if (err < 0)
+ 		return NULL;
  
- 	err = nfp_cpp_area_read(area, offset, kernel_vaddr, length);
--out:
+-	addr += *offset;
+-
+ 	mutex_lock(&cpp->area_cache_mutex);
+ 
++	if (list_empty(&cpp->area_cache_list)) {
++		mutex_unlock(&cpp->area_cache_mutex);
++		return NULL;
++	}
 +
- 	if (cache)
- 		area_cache_put(cpp, cache);
- 	else
-@@ -993,13 +995,14 @@ int nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
- 			return -ENOMEM;
- 
- 		err = nfp_cpp_area_acquire(area);
--		if (err)
--			goto out;
-+		if (err) {
-+			nfp_cpp_area_free(area);
-+			return err;
-+		}
- 	}
- 
- 	err = nfp_cpp_area_write(area, offset, kernel_vaddr, length);
- 
--out:
- 	if (cache)
- 		area_cache_put(cpp, cache);
- 	else
++	addr += *offset;
++
+ 	/* See if we have a match */
+ 	list_for_each_entry(cache, &cpp->area_cache_list, entry) {
+ 		if (id == cache->id &&
 -- 
 2.11.0
