@@ -1,90 +1,127 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: race condition in kernel/padata.c
-Date: Thu, 23 Mar 2017 00:03:43 +0100
-Message-ID: <CAHmME9oLWiprOyZXo7zvGm7xq+1Kchw9ybLS_TM-9xDyHF0mxQ@mail.gmail.com>
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: [PATCH net-next v4 2/2] L2TP:Adjust intf MTU, add underlay L3, L2
+ hdrs.
+Date: Wed, 22 Mar 2017 16:03:34 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1703221559360.9002@vera100.eng.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
- Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>, Netdev <netdev@vger.kernel.org>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kleptog@svana.org, jchapman@katalix.com, davem@redhat.com,
+        nprachan@brocade.com, rshearma@brocade.com,
+        stephen@networkplumber.org, sdietric@brocade.com,
+        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
+        bhong@brocade.com, jblunck@brocade.com,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36453 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754132AbdCVXEI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 19:04:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey Steffen,
 
-WireGuard makes really heavy use of padata, feeding it units of work
-from different cores in different contexts all at the same time. For
-the most part, everything has been fine, but one particular user has
-consistently run into mysterious bugs. He's using a rather old dual
-core CPU, which have a tendency to bring out race conditions
-sometimes. After struggling with getting a good backtrace, we finally
-managed to extract this from list debugging:
+Existing L2TP kernel code does not derive the optimal MTU for Ethernet
+pseudowires and instead leaves this to a userspace L2TP daemon or
+operator. If an MTU is not specified, the existing kernel code chooses
+an MTU that does not take account of all tunnel header overheads, which
+can lead to unwanted IP fragmentation. When L2TP is used without a
+control plane (userspace daemon), we would prefer that the kernel does a
+better job of choosing a default pseudowire MTU, taking account of all
+tunnel header overheads, including IP header options, if any. This patch
+addresses this.
 
-[87487.298728] WARNING: CPU: 1 PID: 882 at lib/list_debug.c:33
-__list_add+0xae/0x130
-[87487.301868] list_add corruption. prev->next should be next
-(ffffb17abfc043d0), but was ffff8dba70872c80. (prev=ffff8dba70872b00).
-[87487.339011]  [<ffffffff9a53d075>] dump_stack+0x68/0xa3
-[87487.342198]  [<ffffffff99e119a1>] ? console_unlock+0x281/0x6d0
-[87487.345364]  [<ffffffff99d6b91f>] __warn+0xff/0x140
-[87487.348513]  [<ffffffff99d6b9aa>] warn_slowpath_fmt+0x4a/0x50
-[87487.351659]  [<ffffffff9a58b5de>] __list_add+0xae/0x130
-[87487.354772]  [<ffffffff9add5094>] ? _raw_spin_lock+0x64/0x70
-[87487.357915]  [<ffffffff99eefd66>] padata_reorder+0x1e6/0x420
-[87487.361084]  [<ffffffff99ef0055>] padata_do_serial+0xa5/0x120
+Change-set here uses a new kernel function, kernel_sock_ip_overhead,
+to factor the outer IP overhead on the L2TP tunnel socket (including
+IP Options, if any) when calculating the default MTU for an Ethernet
+pseudowire, along with consideration of the inner Ethernet header.
 
-padata_reorder calls list_add_tail with the list to which its adding
-locked, which seems correct:
+Signed-off-by: R. Parameswaran <rparames@brocade.com>
+---
+ net/l2tp/l2tp_eth.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 51 insertions(+), 4 deletions(-)
 
-spin_lock(&squeue->serial.lock);
-list_add_tail(&padata->list, &squeue->serial.list);
-spin_unlock(&squeue->serial.lock);
-
-This therefore leaves only place where such inconsistency could occur:
-if padata->list is added at the same time on two different threads.
-This pdata pointer comes from the function call to
-padata_get_next(pd), which has in it the following block:
-
-next_queue = per_cpu_ptr(pd->pqueue, cpu);
-padata = NULL;
-reorder = &next_queue->reorder;
-if (!list_empty(&reorder->list)) {
-       padata = list_entry(reorder->list.next,
-                           struct padata_priv, list);
-       spin_lock(&reorder->lock);
-       list_del_init(&padata->list);
-       atomic_dec(&pd->reorder_objects);
-       spin_unlock(&reorder->lock);
-
-       pd->processed++;
-
-       goto out;
-}
-out:
-return padata;
-
-I strongly suspect that the problem here is that two threads can race
-on reorder list. Even though the deletion is locked, call to
-list_entry is not locked, which means it's feasible that two threads
-pick up the same padata object and subsequently call list_add_tail on
-them at the same time. The fix would thus be to hoist that lock
-outside of that block.
-
-This theory is unconfirmed at the moment, but I'll be playing with
-some patches to see if this fixes the issue and then I'll get back to
-you. In the meantime, if you have any insight before I potentially
-waste some time, I'm all ears.
-
-Thanks,
-Jason
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 8bf18a5..9c18a4e 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -30,6 +30,9 @@
+ #include <net/xfrm.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/udp.h>
+ 
+ #include "l2tp_core.h"
+ 
+@@ -204,6 +207,53 @@ static void l2tp_eth_show(struct seq_file *m, void *arg)
+ }
+ #endif
+ 
++static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
++				struct l2tp_session *session,
++				struct net_device *dev)
++{
++	unsigned int overhead = 0;
++	struct dst_entry *dst;
++	u32 l3_overhead = 0;
++
++	/* if the encap is UDP, account for UDP header size */
++	if (tunnel->encap == L2TP_ENCAPTYPE_UDP) {
++		overhead += sizeof(struct udphdr);
++		dev->needed_headroom += sizeof(struct udphdr);
++	}
++	if (session->mtu != 0) {
++		dev->mtu = session->mtu;
++		dev->needed_headroom += session->hdr_len;
++		return;
++	}
++	l3_overhead = kernel_sock_ip_overhead(tunnel->sock);
++	if (l3_overhead == 0) {
++		/* L3 Overhead couldn't be identified, this could be
++		 * because tunnel->sock was NULL or the socket's
++		 * address family was not IPv4 or IPv6,
++		 * dev mtu stays at 1500.
++		 */
++		return;
++	}
++	/* Adjust MTU, factor overhead - underlay L3, overlay L2 hdr
++	 * UDP overhead, if any, was already factored in above.
++	 */
++	overhead += session->hdr_len + ETH_HLEN + l3_overhead;
++
++	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
++	dst = sk_dst_get(tunnel->sock);
++	if (dst) {
++		/* dst_mtu will use PMTU if found, else fallback to intf MTU */
++		u32 pmtu = dst_mtu(dst);
++
++		if (pmtu != 0)
++			dev->mtu = pmtu;
++		dst_release(dst);
++	}
++	session->mtu = dev->mtu - overhead;
++	dev->mtu = session->mtu;
++	dev->needed_headroom += session->hdr_len;
++}
++
+ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
+ {
+ 	struct net_device *dev;
+@@ -253,12 +303,9 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
+ 	}
+ 
+ 	dev_net_set(dev, net);
+-	if (session->mtu == 0)
+-		session->mtu = dev->mtu - session->hdr_len;
+-	dev->mtu = session->mtu;
+-	dev->needed_headroom += session->hdr_len;
+ 	dev->min_mtu = 0;
+ 	dev->max_mtu = ETH_MAX_MTU;
++	l2tp_eth_adjust_mtu(tunnel, session, dev);
+ 
+ 	priv = netdev_priv(dev);
+ 	priv->dev = dev;
+-- 
+2.1.4
