@@ -1,55 +1,73 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [2/2] zd1211rw: fix NULL-deref at probe
-Date: Wed, 22 Mar 2017 15:02:12 +0200
-Message-ID: <87r31p31nv.fsf@kamboji.qca.qualcomm.com>
-References: <20170313124421.28587-2-johan@kernel.org>
-        <20170322090415.BE414609FF@smtp.codeaurora.org>
-        <20170322124548.GC10130@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 07/17] net: convert sock.sk_refcnt from
+ atomic_t to refcount_t
+Date: Wed, 22 Mar 2017 06:22:16 -0700
+Message-ID: <1490188936.16816.143.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170318.182121.439615057765380575.davem@davemloft.net>
+	<20170320103937.lq7nfnutupr3gkn7@hirez.programming.kicks-ass.net>
+	<20170320131629.GA26405@gondor.apana.org.au>
+	<20170320132357.acygo3umw6fiwb4p@hirez.programming.kicks-ass.net>
+	<20170320132713.GA26954@gondor.apana.org.au>
+	<20170320134017.h3c2jrsnd4guuyu7@hirez.programming.kicks-ass.net>
+	<CAGXu5j+HK6jXeA3EdJGMLK_7o04AiTwXmmjuKOmExz0g5rs=kw@mail.gmail.com>
+	<1490131389.16816.123.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAGXu5jKPckDxKV8ShY=5VtGm62Qxr5-gO9JDa_C+UL_P84jxVw@mail.gmail.com>
+	<1490148199.16816.126.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20170322122540.odnm4j3r4c4uf7wt@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-        Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170322124548.GC10130@localhost> (Johan Hovold's message of
-        "Wed, 22 Mar 2017 13:45:48 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kees Cook <keescook@chromium.org>, Patrick McHardy <kaber@trash.net>,
+	Network Development <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
+	James Morris <jmorris@namei.org>, Hans Liljestrand <ishkamiel@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Windsor <dwindsor@gmail.com>,
+	David Miller <davem@davemloft.net>, "Reshetova,
+	Elena" <elena.reshetova@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170322122540.odnm4j3r4c4uf7wt@hirez.programming.kicks-ass.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> writes:
+On Wed, 2017-03-22 at 13:25 +0100, Peter Zijlstra wrote:
+> On Tue, Mar 21, 2017 at 07:03:19PM -0700, Eric Dumazet wrote:
+> 
+> > Note that we might define two refcount_inc()  : One that does whole
+> > tests, and refcount_inc_relaxed() that might translate to atomic_inc()
+> > on non debug kernels.
+> 
+> So you'd want a duplicate interface, such that most code, which doesn't
+> care about refcount performance much, can still have all the tests
+> enabled.
+> 
+> But the code that cares about it (and preferably can prove it with
+> numbers) can use the other.
+> 
+> I'm also somewhat hesitant to use _relaxed for this distinction, as it
+> has a clear meaning in atomics, maybe _nocheck?
+> 
+> Also; what operations do you want _nocheck variants of, only
+> refcount_inc() ?
 
-> On Wed, Mar 22, 2017 at 09:04:15AM +0000, Kalle Valo wrote:
->> Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
->> > Make sure to check the number of endpoints to avoid dereferencing a
->> > NULL-pointer or accessing memory beyond the endpoint array should a
->> > malicious device lack the expected endpoints.
->> > 
->> > Fixes: a1030e92c150 ("[PATCH] zd1211rw: Convert installer CDROM
->> > device into WLAN device")
->> > Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
->> > Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->> 
->> Patch applied to wireless-drivers-next.git, thanks.
->> 
->> ca260ece6a57 zd1211rw: fix NULL-deref at probe
->
-> What about patch 1/2 which fixes the same bug (literally copied from the
-> zd1211rw driver)?
+I was mostly thinking of points where we were already checking the value
+either before or after the atomic_inc(), using some lazy check (a la
+WARN_ON(atomic_read(p) == 0) or something like that.
 
-I will apply that to my separate ath.git tree, just didn't get to your
-patch yet.
+But admittedly we can replace all these by standard refcount_inc() and
+simply provide a CONFIG option to turn off the checks, and let brave
+people enable this option.
 
-> And as these fixes should be backported to stable (I left out the tag
-> for networking drivers)
 
-Actually for wireless drivers you should add the stable tag.
-
-> why only apply to -next?
-
-I didn't see that the fix was important enough for 4.11.
-
--- 
-Kalle Valo
+ 
