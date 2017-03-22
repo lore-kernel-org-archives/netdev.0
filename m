@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] enic: update enic maintainers
-Date: Wed, 22 Mar 2017 12:49:52 -0700 (PDT)
-Message-ID: <20170322.124952.1430592875203596471.davem@davemloft.net>
-References: <20170321220748.17370-1-gvaradar@cisco.com>
+Subject: Re: [PATCH net-next 00/15] nfp: allow concurrency in core and
+ minor fixes
+Date: Wed, 22 Mar 2017 13:02:20 -0700 (PDT)
+Message-ID: <20170322.130220.989621142548715686.davem@davemloft.net>
+References: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benve@cisco.com
-To: gvaradar@cisco.com
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com, kubakici@wp.pl
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43838 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43944 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933879AbdCVTty (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 15:49:54 -0400
-In-Reply-To: <20170321220748.17370-1-gvaradar@cisco.com>
+        with ESMTP id S1751027AbdCVUCW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 16:02:22 -0400
+In-Reply-To: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <gvaradar@cisco.com>
-Date: Tue, 21 Mar 2017 15:07:48 -0700
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Tue, 21 Mar 2017 17:59:06 -0700
 
-> update enic maintainers
+> The first 10 patches of this series prepare nfpcore for concurrent 
+> accesses.  This will be needed by upcoming hwmon and devlink patches.
+> Most locking is already in place, the patches in this series iron out
+> a few bugs.
 > 
-> Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
+> Last 5 patches are fixes and cleanups to the netdev code, including
+> removal of doorbell pointers used only on old versions of the chip,
+> removal of unnecessarily defensive code and flushing xmit_more more
+> carefully on error paths.
 
-MAINTAINERS updates can always go to 'net' (unless it's for something
-new in 'net-next') so that's where I've applied this patch.
-
-Thanks.
+Series applied, thank you.
