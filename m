@@ -1,52 +1,46 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next v7 2/3] Add a eBPF helper function to retrieve
- socket uid
-Date: Wed, 22 Mar 2017 12:25:30 -0700
-Message-ID: <cd485888-1e49-199a-a51b-537dbb1fe0f3@fb.com>
-References: <1490133934-7055-1-git-send-email-chenbofeng.kernel@gmail.com>
- <1490133934-7055-3-git-send-email-chenbofeng.kernel@gmail.com>
- <CAF=yD-+D5oHcU3qq4nDDWE1Bt4k2Vv9Ekf=FoKMdrc0F5dGS_Q@mail.gmail.com>
- <CAKD1Yr3o_Vp80FLbG5-9B7Ldag7sZOj4CHKjRWO-SfBL=ZS0pw@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/4] bpf: Fix and simplifications on inline map
+ lookup
+Date: Wed, 22 Mar 2017 20:33:16 +0100
+Message-ID: <58D2D17C.5000508@iogearbox.net>
+References: <20170322170035.923581-1-kafai@fb.com> <20170322170035.923581-2-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Willem de Bruijn <willemb@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: Lorenzo Colitti <lorenzo@google.com>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Cc: Alexei Starovoitov <ast@fb.com>,
+        FB Kernel Team <Kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36980 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S965926AbdCVTZy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 15:25:54 -0400
-In-Reply-To: <CAKD1Yr3o_Vp80FLbG5-9B7Ldag7sZOj4CHKjRWO-SfBL=ZS0pw@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:38483 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934729AbdCVTdZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 15:33:25 -0400
+In-Reply-To: <20170322170035.923581-2-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/22/17 5:06 AM, Lorenzo Colitti wrote:
-> On Wed, Mar 22, 2017 at 8:09 PM, Willem de Bruijn
-> <willemdebruijn.kernel@gmail.com> wrote:
->>> +       if (!sk || !sk_fullsock(sk))
->>> +               return overflowuid;
->>> +       kuid = sock_net_uid(sock_net(sk), sk);
->>> +       return from_kuid_munged(&init_user_ns, kuid);
->>
->> Ideally, this would be the user namespace relative to the BPF program.
+On 03/22/2017 06:00 PM, Martin KaFai Lau wrote:
+> Fix in verifier:
+> For the same bpf_map_lookup_elem() instruction (i.e. "call 1"),
+> a broken case is "a different type of map could be used for the
+> same lookup instruction". For example, an array in one case and a
+> hashmap in another.  We have to resort to the old dynamic call behavior
+> in this case.  The fix is to check for collision on insn_aux->map_ptr.
+> If there is collision, don't inline the map lookup.
 >
-> What about sock_net(sk)->user_ns? We've already matched a socket, and
-> it's guaranteed to be a full socket and non-NULL (otherwise we've
-> already returned overflowuid), so it seems like the most correct
-> namespace to use is the one of the socket we've matched. Given that sk
-> is non-NULL, sock_net_uid just returns sk->sk_uid, so I think you can
-> just write this as:
+> Please see the "do_reg_lookup()" in test_map_in_map_kern.c in the later
+> patch for how-to trigger the above case.
 >
-> if (!sk || !sk_fullsock(sk))
->         return overflowuid;
-> return from_kuid_munged(sock_net(sk)->user_ns, sk->uid);
+> Simplifications on array_map_gen_lookup():
+> 1. Calculate elem_size from map->value_size.  It removes the
+>     need for 'struct bpf_array' which makes the later map-in-map
+>     implementation easier.
+> 2. Remove the 'elem_size == 1' test
 >
+> Fixes: 81ed18ab3098 ("bpf: add helper inlining infra and optimize map_array lookup")
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-makes sense to me.
+Ok, makes sense (could have been split into two actually).
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
