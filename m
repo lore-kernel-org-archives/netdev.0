@@ -1,7 +1,8 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net 0/5] net:ethernet:aquantia: Misc fixes for atlantic driver.
-Date: Wed, 22 Mar 2017 20:06:26 +0300
-Message-ID: <cover.1490202165.git.pavel.belous@aquantia.com>
+Subject: [PATCH net 2/5] net:ethernet:aquantia: Fix packet type detection (TCP/UDP) for IPv6.
+Date: Wed, 22 Mar 2017 20:06:28 +0300
+Message-ID: <7653a74d977f4eedc2ed155940d2518442bd2c3f.1490202165.git.pavel.belous@aquantia.com>
+References: <cover.1490202165.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org,
@@ -13,30 +14,55 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-co1nam03on0070.outbound.protection.outlook.com ([104.47.40.70]:62429
         "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751125AbdCVRHM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Mar 2017 13:07:12 -0400
+        id S1751125AbdCVRHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Mar 2017 13:07:16 -0400
+In-Reply-To: <cover.1490202165.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-The following patchset containg several fixes for aQuantia AQtion driver
-for net tree: A couple fixes for IPv6 and other fixes.
+In order for the checksum offloads to work correctly we need to set the
+packet type bit (TCP/UDP) in the TX context buffer.
 
-Pavel Belous (5):
-  net:ethernet:aquantia: Remove adapter re-opening when mtu changed.
-  net:ethernet:aquantia: Fix packet type detection (TCP/UDP) for IPv6.
-  net:ethernet:aquantia: Missing spinlock initialization.
-  net:ethernet:aquantia: Fix for LSO with IPv6.
-  net:ethernet:aquantia: Reset is_gso flag when EOP reached.
+Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
 
- drivers/net/ethernet/aquantia/atlantic/aq_main.c   |  5 -----
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 26 +++++++++++++++++-----
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  1 +
- drivers/net/ethernet/aquantia/atlantic/aq_ring.h   |  3 ++-
- .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |  4 ++++
- .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |  4 ++++
- 6 files changed, 31 insertions(+), 12 deletions(-)
-
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+index ee78444..95f9841 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+@@ -508,12 +508,23 @@ static unsigned int aq_nic_map_skb(struct aq_nic_s *self,
+ 	++ret;
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		dx_buff->is_ip_cso = (htons(ETH_P_IP) == skb->protocol) ?
+-			1U : 0U;
+-		dx_buff->is_tcp_cso =
+-			(ip_hdr(skb)->protocol == IPPROTO_TCP) ? 1U : 0U;
+-		dx_buff->is_udp_cso =
+-			(ip_hdr(skb)->protocol == IPPROTO_UDP) ? 1U : 0U;
++		dx_buff->is_ip_cso = (htons(ETH_P_IP) == skb->protocol) ? 1U : 0U;
++
++		if (ip_hdr(skb)->version == 4) {
++			dx_buff->is_tcp_cso =
++				(ip_hdr(skb)->protocol == IPPROTO_TCP) ?
++					1U : 0U;
++			dx_buff->is_udp_cso =
++				(ip_hdr(skb)->protocol == IPPROTO_UDP) ?
++					1U : 0U;
++		} else if (ip_hdr(skb)->version == 6) {
++			dx_buff->is_tcp_cso =
++				(ipv6_hdr(skb)->nexthdr == NEXTHDR_TCP) ?
++					1U : 0U;
++			dx_buff->is_udp_cso =
++				(ipv6_hdr(skb)->nexthdr == NEXTHDR_UDP) ?
++					1U : 0U;
++		}
+ 	}
+ 
+ 	for (; nr_frags--; ++frag_count) {
 -- 
 2.7.4
