@@ -1,127 +1,110 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: [PATCH net-next v4 2/2] L2TP:Adjust intf MTU, add underlay L3, L2
- hdrs.
-Date: Wed, 22 Mar 2017 16:03:34 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1703221559360.9002@vera100.eng.brocade.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v4 1/2] New kernel function to get IP overhead on
+ a socket.
+Date: Wed, 22 Mar 2017 16:03:23 -0700
+Message-ID: <CALx6S351vjeWtKhi9GmXhBjq0Kw5wriz6Hv-h-E9bVTtgeYXjg@mail.gmail.com>
+References: <alpine.DEB.2.11.1703221554000.9002@vera100.eng.brocade.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kleptog@svana.org, jchapman@katalix.com, davem@redhat.com,
-        nprachan@brocade.com, rshearma@brocade.com,
-        stephen@networkplumber.org, sdietric@brocade.com,
-        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
-        bhong@brocade.com, jblunck@brocade.com,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36453 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754132AbdCVXEI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 19:04:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        kleptog@svana.org, jchapman@katalix.com,
+        David Miller <davem@redhat.com>, nprachan@brocade.com,
+        rshearma@brocade.com,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        sdietric@brocade.com, ciwillia@brocade.com, lboccass@brocade.com,
+        dfawcus@brocade.com, bhong@brocade.com, jblunck@brocade.com,
+        LKML <linux-kernel@vger.kernel.org>
+To: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1703221554000.9002@vera100.eng.brocade.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Mar 22, 2017 at 3:59 PM, R. Parameswaran
+<parameswaran.r7@gmail.com> wrote:
+>
+> A new function, kernel_sock_ip_overhead(), is provided
+> to calculate the cumulative overhead imposed by the IP
+> Header and IP options, if any, on a socket's payload.
+> The new function returns an overhead of zero for sockets
+> that do not belong to the IPv4 or IPv6 address families.
+>
+Can you provide some context as to why this is needed?
 
-Existing L2TP kernel code does not derive the optimal MTU for Ethernet
-pseudowires and instead leaves this to a userspace L2TP daemon or
-operator. If an MTU is not specified, the existing kernel code chooses
-an MTU that does not take account of all tunnel header overheads, which
-can lead to unwanted IP fragmentation. When L2TP is used without a
-control plane (userspace daemon), we would prefer that the kernel does a
-better job of choosing a default pseudowire MTU, taking account of all
-tunnel header overheads, including IP header options, if any. This patch
-addresses this.
+Tom
 
-Change-set here uses a new kernel function, kernel_sock_ip_overhead,
-to factor the outer IP overhead on the L2TP tunnel socket (including
-IP Options, if any) when calculating the default MTU for an Ethernet
-pseudowire, along with consideration of the inner Ethernet header.
-
-Signed-off-by: R. Parameswaran <rparames@brocade.com>
----
- net/l2tp/l2tp_eth.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 51 insertions(+), 4 deletions(-)
-
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 8bf18a5..9c18a4e 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -30,6 +30,9 @@
- #include <net/xfrm.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/udp.h>
- 
- #include "l2tp_core.h"
- 
-@@ -204,6 +207,53 @@ static void l2tp_eth_show(struct seq_file *m, void *arg)
- }
- #endif
- 
-+static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
-+				struct l2tp_session *session,
-+				struct net_device *dev)
-+{
-+	unsigned int overhead = 0;
-+	struct dst_entry *dst;
-+	u32 l3_overhead = 0;
-+
-+	/* if the encap is UDP, account for UDP header size */
-+	if (tunnel->encap == L2TP_ENCAPTYPE_UDP) {
-+		overhead += sizeof(struct udphdr);
-+		dev->needed_headroom += sizeof(struct udphdr);
-+	}
-+	if (session->mtu != 0) {
-+		dev->mtu = session->mtu;
-+		dev->needed_headroom += session->hdr_len;
-+		return;
-+	}
-+	l3_overhead = kernel_sock_ip_overhead(tunnel->sock);
-+	if (l3_overhead == 0) {
-+		/* L3 Overhead couldn't be identified, this could be
-+		 * because tunnel->sock was NULL or the socket's
-+		 * address family was not IPv4 or IPv6,
-+		 * dev mtu stays at 1500.
-+		 */
-+		return;
-+	}
-+	/* Adjust MTU, factor overhead - underlay L3, overlay L2 hdr
-+	 * UDP overhead, if any, was already factored in above.
-+	 */
-+	overhead += session->hdr_len + ETH_HLEN + l3_overhead;
-+
-+	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
-+	dst = sk_dst_get(tunnel->sock);
-+	if (dst) {
-+		/* dst_mtu will use PMTU if found, else fallback to intf MTU */
-+		u32 pmtu = dst_mtu(dst);
-+
-+		if (pmtu != 0)
-+			dev->mtu = pmtu;
-+		dst_release(dst);
-+	}
-+	session->mtu = dev->mtu - overhead;
-+	dev->mtu = session->mtu;
-+	dev->needed_headroom += session->hdr_len;
-+}
-+
- static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
- {
- 	struct net_device *dev;
-@@ -253,12 +303,9 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
- 	}
- 
- 	dev_net_set(dev, net);
--	if (session->mtu == 0)
--		session->mtu = dev->mtu - session->hdr_len;
--	dev->mtu = session->mtu;
--	dev->needed_headroom += session->hdr_len;
- 	dev->min_mtu = 0;
- 	dev->max_mtu = ETH_MAX_MTU;
-+	l2tp_eth_adjust_mtu(tunnel, session, dev);
- 
- 	priv = netdev_priv(dev);
- 	priv->dev = dev;
--- 
-2.1.4
+> Signed-off-by: R. Parameswaran <rparames@brocade.com>
+> ---
+>  include/linux/net.h |  3 +++
+>  net/socket.c        | 44 ++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 47 insertions(+)
+>
+> diff --git a/include/linux/net.h b/include/linux/net.h
+> index 0620f5e..a42fab2 100644
+> --- a/include/linux/net.h
+> +++ b/include/linux/net.h
+> @@ -298,6 +298,9 @@ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+>  int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
+>  int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how);
+>
+> +/* Following routine returns the IP overhead imposed by a socket.  */
+> +u32 kernel_sock_ip_overhead(struct sock *sk);
+> +
+>  #define MODULE_ALIAS_NETPROTO(proto) \
+>         MODULE_ALIAS("net-pf-" __stringify(proto))
+>
+> diff --git a/net/socket.c b/net/socket.c
+> index e034fe4..69598e1 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -3345,3 +3345,47 @@ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
+>         return sock->ops->shutdown(sock, how);
+>  }
+>  EXPORT_SYMBOL(kernel_sock_shutdown);
+> +
+> +/* This routine returns the IP overhead imposed by a socket i.e.
+> + * the length of the underlying IP header, depending on whether
+> + * this is an IPv4 or IPv6 socket and the length from IP options turned
+> + * on at the socket.
+> + */
+> +u32 kernel_sock_ip_overhead(struct sock *sk)
+> +{
+> +       struct inet_sock *inet;
+> +       struct ipv6_pinfo *np;
+> +       struct ip_options_rcu *opt;
+> +       struct ipv6_txoptions *optv6 = NULL;
+> +       u32 overhead = 0;
+> +       bool owned_by_user;
+> +
+> +       if (!sk)
+> +               return overhead;
+> +
+> +       owned_by_user = sock_owned_by_user(sk);
+> +       switch (sk->sk_family) {
+> +       case AF_INET:
+> +               inet = inet_sk(sk);
+> +               overhead += sizeof(struct iphdr);
+> +               opt = rcu_dereference_protected(inet->inet_opt,
+> +                                               owned_by_user);
+> +               if (opt)
+> +                       overhead += opt->opt.optlen;
+> +               return overhead;
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +       case AF_INET6:
+> +               np = inet6_sk(sk);
+> +               overhead += sizeof(struct ipv6hdr);
+> +               if (np)
+> +                       optv6 = rcu_dereference_protected(np->opt,
+> +                                                         owned_by_user);
+> +               if (optv6)
+> +                       overhead += (optv6->opt_flen + optv6->opt_nflen);
+> +               return overhead;
+> +#endif /* IS_ENABLED(CONFIG_IPV6) */
+> +       default: /* Returns 0 overhead if the socket is not ipv4 or ipv6 */
+> +               return overhead;
+> +       }
+> +}
+> +EXPORT_SYMBOL(kernel_sock_ip_overhead);
+> --
+> 2.1.4
+>
