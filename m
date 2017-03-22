@@ -1,40 +1,34 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [2/2] zd1211rw: fix NULL-deref at probe
-Date: Wed, 22 Mar 2017 09:04:15 +0000 (UTC)
-Message-ID: <20170322090415.BE414609FF@smtp.codeaurora.org>
-References: <20170313124421.28587-2-johan@kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] sfc: cleanup a condition in efx_udp_tunnel_del()
+Date: Wed, 22 Mar 2017 12:10:02 +0300
+Message-ID: <20170322091002.GB14520@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-        Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170313124421.28587-2-johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Edward Cree <ecree@solarflare.com>,
+        Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> Make sure to check the number of endpoints to avoid dereferencing a
-> NULL-pointer or accessing memory beyond the endpoint array should a
-> malicious device lack the expected endpoints.
-> 
-> Fixes: a1030e92c150 ("[PATCH] zd1211rw: Convert installer CDROM device into WLAN device")
-> Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-> Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Presumably if there is an "add" function, there is also a "del"
+function.  But it causes a static checker warning because it looks like
+a common cut and paste bug.
 
-Patch applied to wireless-drivers-next.git, thanks.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-ca260ece6a57 zd1211rw: fix NULL-deref at probe
-
--- 
-https://patchwork.kernel.org/patch/9620721/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 8c4c273643dc..203c8c3752e7 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2404,7 +2404,7 @@ static void efx_udp_tunnel_del(struct net_device *dev, struct udp_tunnel_info *t
+ 	tnl.type = (u16)efx_tunnel_type;
+ 	tnl.port = ti->port;
+ 
+-	if (efx->type->udp_tnl_add_port)
++	if (efx->type->udp_tnl_del_port)
+ 		(void)efx->type->udp_tnl_del_port(efx, tnl);
+ }
+ 
