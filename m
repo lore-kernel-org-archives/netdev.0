@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH v2 net 3/5] net:ethernet:aquantia: Missing spinlock initialization.
-Date: Thu, 23 Mar 2017 00:19:23 +0300
-Message-ID: <d0c931e1a22f3046bfcc73df8d662e06b52bfa34.1490217414.git.pavel.belous@aquantia.com>
+Subject: [PATCH v2 net 4/5] net:ethernet:aquantia: Fix for LSO with IPv6.
+Date: Thu, 23 Mar 2017 00:19:24 +0300
+Message-ID: <5d2e1c7e61e9505b280c8b05d0808f2c3acfa85b.1490217414.git.pavel.belous@aquantia.com>
 References: <cover.1490217414.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,32 +14,79 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-co1nam03on0066.outbound.protection.outlook.com ([104.47.40.66]:28576
         "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752603AbdCVVUA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Mar 2017 17:20:00 -0400
+        id S1752563AbdCVVUC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Mar 2017 17:20:02 -0400
 In-Reply-To: <cover.1490217414.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-Fix for missing initialization aq_ring header.lock spinlock.
+Fix Context Command bit: L3 type = "0" for IPv4, "1" for IPv6.
 
 Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c           | 3 +++
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.h          | 3 ++-
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 3 +++
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 3 +++
+ 4 files changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-index 0358e607..3a8a4aa 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-@@ -101,6 +101,7 @@ int aq_ring_init(struct aq_ring_s *self)
- 	self->hw_head = 0;
- 	self->sw_head = 0;
- 	self->sw_tail = 0;
-+	spin_lock_init(&self->header.lock);
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+index db2b51d..cdb0299 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+@@ -487,6 +487,9 @@ static unsigned int aq_nic_map_skb(struct aq_nic_s *self,
+ 		dx_buff->mss = skb_shinfo(skb)->gso_size;
+ 		dx_buff->is_txc = 1U;
+ 
++		dx_buff->is_ipv6 =
++			(ip_hdr(skb)->version == 6) ? 1U : 0U;
++
+ 		dx = aq_ring_next_dx(ring, dx);
+ 		dx_buff = &ring->buff_ring[dx];
+ 		++ret;
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
+index 2572546..eecd6d1 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
+@@ -58,7 +58,8 @@ struct __packed aq_ring_buff_s {
+ 			u8 len_l2;
+ 			u8 len_l3;
+ 			u8 len_l4;
+-			u8 rsvd2;
++			u8 is_ipv6:1;
++			u8 rsvd2:7;
+ 			u32 len_pkt;
+ 		};
+ 	};
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+index a2b746a..a536875 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+@@ -433,6 +433,9 @@ static int hw_atl_a0_hw_ring_tx_xmit(struct aq_hw_s *self,
+ 				    buff->len_l3 +
+ 				    buff->len_l2);
+ 			is_gso = true;
++
++			if (buff->is_ipv6)
++				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_IPV6;
+ 		} else {
+ 			buff_pa_len = buff->len;
+ 
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+index cab2931..69488c9 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+@@ -471,6 +471,9 @@ static int hw_atl_b0_hw_ring_tx_xmit(struct aq_hw_s *self,
+ 				    buff->len_l3 +
+ 				    buff->len_l2);
+ 			is_gso = true;
++
++			if (buff->is_ipv6)
++				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_IPV6;
+ 		} else {
+ 			buff_pa_len = buff->len;
  
 -- 
 2.7.4
