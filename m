@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlxsw: spectrum: fix swapped order of arguments
- packets and bytes
-Date: Wed, 22 Mar 2017 11:13:16 -0700 (PDT)
-Message-ID: <20170322.111316.704822691734054909.davem@davemloft.net>
-References: <20170320113722.30311-1-colin.king@canonical.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net] tcp: initialize icsk_ack.lrcvtime at session start time
+Date: Wed, 22 Mar 2017 14:13:57 -0400
+Message-ID: <CADVnQymzFmP6ZAMjphr2bVxf7vYrE0tvpNvkxQv07fu6XTBbzw@mail.gmail.com>
+References: <1490195421.16816.157.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170320113722.30311-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:36313 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935279AbdCVSO3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 14:14:29 -0400
+Received: by mail-oi0-f45.google.com with SMTP id r203so49583791oib.3
+        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 11:14:28 -0700 (PDT)
+In-Reply-To: <1490195421.16816.157.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Mon, 20 Mar 2017 11:37:22 +0000
+On Wed, Mar 22, 2017 at 11:10 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> icsk_ack.lrcvtime has a 0 value at socket creation time.
+>
+> tcpi_last_data_recv can have bogus value if no payload is ever received.
+>
+> This patch initializes icsk_ack.lrcvtime for active sessions
+> in tcp_finish_connect(), and for passive sessions in
+> tcp_create_openreq_child()
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> The arguments packets and bytes to call mlxsw_sp_acl_rule_get_stats are
-> in the wrong order. Fix this by swapping them.
-> 
-> Detected by CoverityScan, CID#1419705 ("Arguments in wrong order")
-> 
-> Fixes: 7c1b8eb175b69add8ea ("mlxsw: spectrum: Add support for TC flower offload statistics")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Thanks, Eric!
 
-Applied, thanks.
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+neal
