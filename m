@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: initialize icsk_ack.lrcvtime at session start
- time
-Date: Wed, 22 Mar 2017 15:40:11 -0700 (PDT)
-Message-ID: <20170322.154011.793246495784624746.davem@davemloft.net>
-References: <1490195421.16816.157.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net] inet: frag: release spinlock before calling
+ icmp_send()
+Date: Wed, 22 Mar 2017 15:41:03 -0700 (PDT)
+Message-ID: <20170322.154103.2047938994168800668.davem@davemloft.net>
+References: <CACT4Y+ZrHr0Cqw5RPeZ6QW16auOPyKSCOea6AciHBswAT3t14Q@mail.gmail.com>
+        <1490198235.16816.172.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: dvyukov@google.com, edumazet@google.com, netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45406 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45422 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752680AbdCVWkM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:40:12 -0400
-In-Reply-To: <1490195421.16816.157.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1753240AbdCVWlF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:41:05 -0400
+In-Reply-To: <1490198235.16816.172.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 22 Mar 2017 08:10:21 -0700
+Date: Wed, 22 Mar 2017 08:57:15 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> icsk_ack.lrcvtime has a 0 value at socket creation time.
+> Dmitry reported a lockdep splat [1] (false positive) that we can fix
+> by releasing the spinlock before calling icmp_send() from ip_expire()
 > 
-> tcpi_last_data_recv can have bogus value if no payload is ever received.
-> 
-> This patch initializes icsk_ack.lrcvtime for active sessions
-> in tcp_finish_connect(), and for passive sessions in
-> tcp_create_openreq_child()
-> 
+> This is a false positive because sending an ICMP message can not
+> possibly re-enter the IP frag engine.
+ ...
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks Eric.
