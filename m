@@ -1,97 +1,61 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 09/15] nfp: fix invalid area detection
-Date: Tue, 21 Mar 2017 17:59:15 -0700
-Message-ID: <20170322005921.10965-10-jakub.kicinski@netronome.com>
-References: <20170322005921.10965-1-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 00/15] nfp: allow concurrency in core and minor fixes
+Date: Tue, 21 Mar 2017 17:59:06 -0700
+Message-ID: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35612 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758253AbdCVBGK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:06:10 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 20so38782922pfk.2
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 18:06:07 -0700 (PDT)
-In-Reply-To: <20170322005921.10965-1-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35713 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933083AbdCVBGs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:06:48 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 20so38786837pfk.2
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 18:06:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Core should detect when someone is trying to request an access
-window which is too large for a given type of access.  Otherwise
-the requester will be put on a wait queue for ever without any
-error message.
+Hi!
 
-Add const qualifiers to clarify that we are only looking at read-
--only members in relevant functions.
+The first 10 patches of this series prepare nfpcore for concurrent 
+accesses.  This will be needed by upcoming hwmon and devlink patches.
+Most locking is already in place, the patches in this series iron out
+a few bugs.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c  | 29 +++++++++++-----------
- 1 file changed, 15 insertions(+), 14 deletions(-)
+Last 5 patches are fixes and cleanups to the netdev code, including
+removal of doorbell pointers used only on old versions of the chip,
+removal of unnecessarily defensive code and flushing xmit_more more
+carefully on error paths.
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
-index 15cc3e77cf6a..43dc68e01274 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
-@@ -217,7 +217,7 @@ static resource_size_t nfp_bar_resource_start(struct nfp_bar *bar)
- #define TARGET_WIDTH_64    8
- 
- static int
--compute_bar(struct nfp6000_pcie *nfp, struct nfp_bar *bar,
-+compute_bar(const struct nfp6000_pcie *nfp, const struct nfp_bar *bar,
- 	    u32 *bar_config, u64 *bar_base,
- 	    int tgt, int act, int tok, u64 offset, size_t size, int width)
- {
-@@ -410,35 +410,36 @@ find_matching_bar(struct nfp6000_pcie *nfp,
- 
- /* Return EAGAIN if no resource is available */
- static int
--find_unused_bar_noblock(struct nfp6000_pcie *nfp,
-+find_unused_bar_noblock(const struct nfp6000_pcie *nfp,
- 			int tgt, int act, int tok,
- 			u64 offset, size_t size, int width)
- {
--	int n, invalid = 0;
-+	int n, busy = 0;
- 
- 	for (n = 0; n < nfp->bars; n++) {
--		struct nfp_bar *bar = &nfp->bar[n];
-+		const struct nfp_bar *bar = &nfp->bar[n];
- 		int err;
- 
--		if (bar->bitsize == 0) {
--			invalid++;
--			continue;
--		}
--
--		if (atomic_read(&bar->refcnt) != 0)
-+		if (!bar->bitsize)
- 			continue;
- 
- 		/* Just check to see if we can make it fit... */
- 		err = compute_bar(nfp, bar, NULL, NULL,
- 				  tgt, act, tok, offset, size, width);
-+		if (err)
-+			continue;
- 
--		if (err < 0)
--			invalid++;
--		else
-+		if (!atomic_read(&bar->refcnt))
- 			return n;
-+
-+		busy++;
- 	}
- 
--	return (n == invalid) ? -EINVAL : -EAGAIN;
-+	if (WARN(!busy, "No suitable BAR found for request tgt:0x%x act:0x%x tok:0x%x off:0x%llx size:%zd width:%d\n",
-+		 tgt, act, tok, offset, size, width))
-+		return -EINVAL;
-+
-+	return -EAGAIN;
- }
- 
- static int
+Jakub Kicinski (15):
+  nfp: disallow sharing mutexes on the same machine
+  nfp: fail graciously when someone tries to grab global lock
+  nfp: remove cpp mutex cache
+  nfp: move mutex code out of nfp_cppcore.c
+  nfp: document expected locking in the core
+  nfp: lock area cache earlier
+  nfp: correct return codes when msleep gets interrupted
+  nfp: don't ignore return value of wait_event_interruptible
+  nfp: fix invalid area detection
+  nfp: fix nfp_cpp_read()/nfp_cpp_write() error paths
+  nfp: don't use netdev_warn() before netdev is registered
+  nfp: remove RX queue pointers
+  nfp: flush xmit_more on error paths
+  nfp: remove defensive checks around ndo_open()/ndo_close()
+  nfp: disable FW on reconfiguration errors
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   8 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  50 +--
+ .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |  15 +-
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   9 +-
+ .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c  |  29 +-
+ .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   | 467 ++++-----------------
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c | 345 +++++++++++++++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c   |  12 +-
+ .../ethernet/netronome/nfp/nfpcore/nfp_resource.c  |  15 +-
+ 10 files changed, 484 insertions(+), 467 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mutex.c
+
 -- 
 2.11.0
