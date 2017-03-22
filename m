@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sch_dsmark: fix invalid skb_cow() usage
-Date: Tue, 21 Mar 2017 17:22:08 -0700 (PDT)
-Message-ID: <20170321.172208.1665261530100272388.davem@davemloft.net>
-References: <1489763128.28631.286.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH v2 net-next 0/3] net: stmmac: adding multiple buffers
+ and routing
+Date: Tue, 21 Mar 2017 17:24:15 -0700 (PDT)
+Message-ID: <20170321.172415.220434094284460335.davem@davemloft.net>
+References: <cover.1489766674.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-        weiwan@google.com
-To: eric.dumazet@gmail.com
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59108 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59130 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757217AbdCVAWK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 20:22:10 -0400
-In-Reply-To: <1489763128.28631.286.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1757696AbdCVAYR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 20:24:17 -0400
+In-Reply-To: <cover.1489766674.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 17 Mar 2017 08:05:28 -0700
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Fri, 17 Mar 2017 16:11:04 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+> As agreed with David Miller, this patch-set is the third and last to enable
+> multiple queues in stmmac.
 > 
-> skb_cow(skb, sizeof(ip header)) is not very helpful in this context.
+> This third one focuses on:
 > 
-> First we need to use pskb_may_pull() to make sure the ip header
-> is in skb linear part, then use skb_try_make_writable() to
-> address clones issues.
-> 
-> Fixes: 4c30719f4f55 ("[PKT_SCHED] dsmark: handle cloned and non-linear skb's")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> a) Enable multiple buffering to the driver and queue independent data
+> b) Configuration of RX and TX queues' priority
+> c) Configuration of RX queues' routing
 
-Applied and queued up for -stable, thanks.
+Series applied, thanks.
