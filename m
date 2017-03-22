@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] inet: frag: release spinlock before calling
- icmp_send()
-Date: Wed, 22 Mar 2017 15:41:03 -0700 (PDT)
-Message-ID: <20170322.154103.2047938994168800668.davem@davemloft.net>
-References: <CACT4Y+ZrHr0Cqw5RPeZ6QW16auOPyKSCOea6AciHBswAT3t14Q@mail.gmail.com>
-        <1490198235.16816.172.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next 0/4] bpf: Add map-in-map support
+Date: Wed, 22 Mar 2017 15:46:07 -0700 (PDT)
+Message-ID: <20170322.154607.22357159467333403.davem@davemloft.net>
+References: <20170322170035.923581-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, edumazet@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
+        Kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45422 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45462 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753240AbdCVWlF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:41:05 -0400
-In-Reply-To: <1490198235.16816.172.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1751355AbdCVWq4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 18:46:56 -0400
+In-Reply-To: <20170322170035.923581-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 22 Mar 2017 08:57:15 -0700
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Wed, 22 Mar 2017 10:00:31 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> This patchset adds map-in-map support (map->map).
+> One use case is the (vips -> webservers) in the L4 load balancer so
+> that different vips can be backed by different set of webservers.
 > 
-> Dmitry reported a lockdep splat [1] (false positive) that we can fix
-> by releasing the spinlock before calling icmp_send() from ip_expire()
-> 
-> This is a false positive because sending an ICMP message can not
-> possibly re-enter the IP frag engine.
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Please refer to the individual commit log for details.
 
-Applied, thanks Eric.
+Series applied, thanks Martin.
