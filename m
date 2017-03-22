@@ -1,61 +1,52 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 1/3] soc: qcom: smd: Transition client drivers from smd to
- rpmsg
-Date: Wed, 22 Mar 2017 20:23:15 +0100
-Message-ID: <21FCFC89-07EE-49EE-81C2-A138DD4C5F99@holtmann.org>
-References: <20170320233544.1656-1-bjorn.andersson@linaro.org>
- <20170322.114439.679826829857326050.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset=us-ascii
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next v7 2/3] Add a eBPF helper function to retrieve
+ socket uid
+Date: Wed, 22 Mar 2017 12:25:30 -0700
+Message-ID: <cd485888-1e49-199a-a51b-537dbb1fe0f3@fb.com>
+References: <1490133934-7055-1-git-send-email-chenbofeng.kernel@gmail.com>
+ <1490133934-7055-3-git-send-email-chenbofeng.kernel@gmail.com>
+ <CAF=yD-+D5oHcU3qq4nDDWE1Bt4k2Vv9Ekf=FoKMdrc0F5dGS_Q@mail.gmail.com>
+ <CAKD1Yr3o_Vp80FLbG5-9B7Ldag7sZOj4CHKjRWO-SfBL=ZS0pw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Andy Gross <andy.gross@linaro.org>,
-        David Brown <david.brown@linaro.org>, arnd@arndb.de,
-        linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-        linux-soc@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170322.114439.679826829857326050.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36980 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S965926AbdCVTZy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 15:25:54 -0400
+In-Reply-To: <CAKD1Yr3o_Vp80FLbG5-9B7Ldag7sZOj4CHKjRWO-SfBL=ZS0pw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On 3/22/17 5:06 AM, Lorenzo Colitti wrote:
+> On Wed, Mar 22, 2017 at 8:09 PM, Willem de Bruijn
+> <willemdebruijn.kernel@gmail.com> wrote:
+>>> +       if (!sk || !sk_fullsock(sk))
+>>> +               return overflowuid;
+>>> +       kuid = sock_net_uid(sock_net(sk), sk);
+>>> +       return from_kuid_munged(&init_user_ns, kuid);
+>>
+>> Ideally, this would be the user namespace relative to the BPF program.
+>
+> What about sock_net(sk)->user_ns? We've already matched a socket, and
+> it's guaranteed to be a full socket and non-NULL (otherwise we've
+> already returned overflowuid), so it seems like the most correct
+> namespace to use is the one of the socket we've matched. Given that sk
+> is non-NULL, sock_net_uid just returns sk->sk_uid, so I think you can
+> just write this as:
+>
+> if (!sk || !sk_fullsock(sk))
+>         return overflowuid;
+> return from_kuid_munged(sock_net(sk)->user_ns, sk->uid);
+>
 
->> By moving these client drivers to use RPMSG instead of the direct SMD
->> API we can reuse them ontop of the newly added GLINK wire-protocol
->> support found in the 820 and 835 Qualcomm platforms.
->> 
->> As the new (RPMSG-based) and old SMD implementations are mutually
->> exclusive we have to change all client drivers in one commit, to make
->> sure we have a working system before and after this transition.
->> 
->> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
->> ---
->> 
->> Based on v4.11-rc3 with Arnd's Kconfig dependency fixes for BT_QCOMSMD
->> (https://lkml.org/lkml/2017/3/20/1038).
-> 
-> Just some questions since I'm supposed to merge this into my net-next
-> tree.
-> 
-> What is the status of the Kconfig dependency fix and how will I be
-> getting it?
-
-I acked that one separately and added you:
-
-[PATCH v2] Bluetooth: btqcomsmd: fix compile-test dependency
-
-> Second, should I merge all three of these patches to net-next or just
-> this one?
-
-I think you have to take all 3 patches. Otherwise it will break.
-
-Regards
-
-Marcel
+makes sense to me.
