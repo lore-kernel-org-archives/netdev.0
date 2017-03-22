@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] tcp: fix SCM_TIMESTAMPING_OPT_STATS for normal
- skbs
-Date: Tue, 21 Mar 2017 18:44:56 -0700 (PDT)
-Message-ID: <20170321.184456.1610083834421484383.davem@davemloft.net>
+Subject: Re: [PATCH net 2/2] tcp: mark skbs with SCM_TIMESTAMPING_OPT_STATS
+Date: Tue, 21 Mar 2017 18:45:05 -0700 (PDT)
+Message-ID: <20170321.184505.1293299114093848920.davem@davemloft.net>
 References: <20170318210300.163288-1-soheil.kdev@gmail.com>
+        <20170318210300.163288-2-soheil.kdev@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,35 +11,27 @@ Cc: netdev@vger.kernel.org, zzoru007@gmail.com, soheil@google.com,
         edumazet@google.com, willemb@google.com
 To: soheil.kdev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59818 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59838 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750987AbdCVBo5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:44:57 -0400
-In-Reply-To: <20170318210300.163288-1-soheil.kdev@gmail.com>
+        with ESMTP id S1756711AbdCVBpM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:45:12 -0400
+In-Reply-To: <20170318210300.163288-2-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Date: Sat, 18 Mar 2017 17:02:59 -0400
+Date: Sat, 18 Mar 2017 17:03:00 -0400
 
 > From: Soheil Hassas Yeganeh <soheil@google.com>
 > 
-> __sock_recv_timestamp can be called for both normal skbs (for
-> receive timestamps) and for skbs on the error queue (for transmit
-> timestamps).
+> SOF_TIMESTAMPING_OPT_STATS can be enabled and disabled
+> while packets are collected on the error queue.
+> So, checking SOF_TIMESTAMPING_OPT_STATS in sk->sk_tsflags
+> is not enough to safely assume that the skb contains
+> OPT_STATS data.
 > 
-> Commit 1c885808e456
-> (tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING)
-> assumes any skb passed to __sock_recv_timestamp are from
-> the error queue, containing OPT_STATS in the content of the skb.
-> This results in accessing invalid memory or generating junk
-> data.
-> 
-> To fix this, set skb->pkt_type to PACKET_OUTGOING for packets
-> on the error queue. This is safe because on the receive path
-> on local sockets skb->pkt_type is never set to PACKET_OUTGOING.
-> With that, copy OPT_STATS from a packet, only if its pkt_type
-> is PACKET_OUTGOING.
+> Add a bit in sock_exterr_skb to indicate whether the
+> skb contains opt_stats data.
 > 
 > Fixes: 1c885808e456 ("tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING")
 > Reported-by: JongHwan Kim <zzoru007@gmail.com>
@@ -47,4 +39,4 @@ Date: Sat, 18 Mar 2017 17:02:59 -0400
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 > Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied and queued up for -stable.
+Also applied and queued up for -stable.
