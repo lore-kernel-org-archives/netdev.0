@@ -1,44 +1,77 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [net-next sample action optimization v4 1/4] openvswitch:
- Deferred fifo API change.
-Date: Tue, 21 Mar 2017 22:59:36 -0700
-Message-ID: <CAOrHB_BQfUwVQ8T-V72wbU-SzRso8xavsurMvyaKbop9fm3Qrg@mail.gmail.com>
-References: <1490052750-60187-1-git-send-email-azhou@ovn.org> <1490052750-60187-2-git-send-email-azhou@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Joe Stringer <joe@ovn.org>
-To: Andy Zhou <azhou@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:36370 "EHLO
-        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758022AbdCVGAs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 02:00:48 -0400
-Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
-        by relay5-d.mail.gandi.net (Postfix) with ESMTP id 6267041C084
-        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 06:59:39 +0100 (CET)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-        by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id aNSUED32eD_E for <netdev@vger.kernel.org>;
-        Wed, 22 Mar 2017 06:59:37 +0100 (CET)
-Received: from mail-wm0-f49.google.com (mail-wm0-f49.google.com [74.125.82.49])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 2DC4741C087
-        for <netdev@vger.kernel.org>; Wed, 22 Mar 2017 06:59:37 +0100 (CET)
-Received: by mail-wm0-f49.google.com with SMTP id t189so27423968wmt.1
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 22:59:37 -0700 (PDT)
-In-Reply-To: <1490052750-60187-2-git-send-email-azhou@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: vmxnet3: use new api ethtool_{get|set}_link_ksettings
+Date: Wed, 22 Mar 2017 08:27:57 +0100
+Message-ID: <1490167677-27130-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: skhare@vmware.com, pv-drivers@vmware.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 20, 2017 at 4:32 PM, Andy Zhou <azhou@ovn.org> wrote:
-> add_deferred_actions() API currently requires actions to be passed in
-> as a fully encoded netlink message. So far both 'sample' and 'recirc'
-> actions happens to carry actions as fully encoded netlink messages.
-> However, this requirement is more restrictive than necessary, future
-> patch will need to pass in action lists that are not fully encoded
-> by themselves.
->
-> Signed-off-by: Andy Zhou <azhou@ovn.org>
-> Acked-by: Joe Stringer <joe@ovn.org>
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
+
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |   25 ++++++++++++++-----------
+ 1 files changed, 14 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index f88ffaf..2ff2731 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -471,22 +471,25 @@ int vmxnet3_set_features(struct net_device *netdev, netdev_features_t features)
+ 
+ 
+ static int
+-vmxnet3_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
++vmxnet3_get_link_ksettings(struct net_device *netdev,
++			   struct ethtool_link_ksettings *ecmd)
+ {
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+ 
+-	ecmd->supported = SUPPORTED_10000baseT_Full | SUPPORTED_1000baseT_Full |
+-			  SUPPORTED_TP;
+-	ecmd->advertising = ADVERTISED_TP;
+-	ecmd->port = PORT_TP;
+-	ecmd->transceiver = XCVR_INTERNAL;
++	ethtool_link_ksettings_zero_link_mode(ecmd, supported);
++	ethtool_link_ksettings_add_link_mode(ecmd, supported, 10000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(ecmd, supported, 1000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(ecmd, supported, TP);
++	ethtool_link_ksettings_zero_link_mode(ecmd, advertising);
++	ethtool_link_ksettings_add_link_mode(ecmd, advertising, TP);
++	ecmd->base.port = PORT_TP;
+ 
+ 	if (adapter->link_speed) {
+-		ethtool_cmd_speed_set(ecmd, adapter->link_speed);
+-		ecmd->duplex = DUPLEX_FULL;
++		ecmd->base.speed = adapter->link_speed;
++		ecmd->base.duplex = DUPLEX_FULL;
+ 	} else {
+-		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
+-		ecmd->duplex = DUPLEX_UNKNOWN;
++		ecmd->base.speed = SPEED_UNKNOWN;
++		ecmd->base.duplex = DUPLEX_UNKNOWN;
+ 	}
+ 	return 0;
+ }
+@@ -880,7 +883,6 @@ int vmxnet3_set_features(struct net_device *netdev, netdev_features_t features)
+ }
+ 
+ static const struct ethtool_ops vmxnet3_ethtool_ops = {
+-	.get_settings      = vmxnet3_get_settings,
+ 	.get_drvinfo       = vmxnet3_get_drvinfo,
+ 	.get_regs_len      = vmxnet3_get_regs_len,
+ 	.get_regs          = vmxnet3_get_regs,
+@@ -900,6 +902,7 @@ int vmxnet3_set_features(struct net_device *netdev, netdev_features_t features)
+ 	.get_rxfh          = vmxnet3_get_rss,
+ 	.set_rxfh          = vmxnet3_set_rss,
+ #endif
++	.get_link_ksettings = vmxnet3_get_link_ksettings,
+ };
+ 
+ void vmxnet3_set_ethtool_ops(struct net_device *netdev)
+-- 
+1.7.4.4
