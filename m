@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/15] nfp: allow concurrency in core and
- minor fixes
-Date: Wed, 22 Mar 2017 13:02:20 -0700 (PDT)
-Message-ID: <20170322.130220.989621142548715686.davem@davemloft.net>
-References: <20170322005921.10965-1-jakub.kicinski@netronome.com>
+From: Zach Brown <zach.brown@ni.com>
+Subject: [PATCH] net: phy: handle state correctly in phy_stop_machine
+Date: Wed, 22 Mar 2017 15:27:01 -0500
+Message-ID: <1490214421-7269-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com, kubakici@wp.pl
-To: jakub.kicinski@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43944 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751027AbdCVUCW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 16:02:22 -0400
-In-Reply-To: <20170322005921.10965-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Tue, 21 Mar 2017 17:59:06 -0700
+From: Nathan Sullivan <nathan.sullivan@ni.com>
 
-> The first 10 patches of this series prepare nfpcore for concurrent 
-> accesses.  This will be needed by upcoming hwmon and devlink patches.
-> Most locking is already in place, the patches in this series iron out
-> a few bugs.
-> 
-> Last 5 patches are fixes and cleanups to the netdev code, including
-> removal of doorbell pointers used only on old versions of the chip,
-> removal of unnecessarily defensive code and flushing xmit_more more
-> carefully on error paths.
+If the PHY is halted on stop, then do not set the state to PHY_UP.  This
+ensures the phy will be restarted later in phy_start when the machine is
+started again.
 
-Series applied, thank you.
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+Signed-off-by: Brad Mouring <brad.mouring@ni.com>
+Acked-by: Xander Huff <xander.huff@ni.com>
+Acked-by: Kyle Roeschley <kyle.roeschley@ni.com>
+---
+ drivers/net/phy/phy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 7cc1b7d..fe2d4c4 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -678,7 +678,7 @@ void phy_stop_machine(struct phy_device *phydev)
+ 	cancel_delayed_work_sync(&phydev->state_queue);
+ 
+ 	mutex_lock(&phydev->lock);
+-	if (phydev->state > PHY_UP)
++	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
+ 		phydev->state = PHY_UP;
+ 	mutex_unlock(&phydev->lock);
+ }
+-- 
+2.7.4
