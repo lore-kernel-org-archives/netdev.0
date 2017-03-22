@@ -1,37 +1,72 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 4.11] genetlink: fix counting regression on
- ctrl_dumpfamily()
-Date: Wed, 22 Mar 2017 23:05:25 +0100
-Message-ID: <1490220325.14145.0.camel@sipsolutions.net>
-References: <1490195313-13272-1-git-send-email-sgruszka@redhat.com>
+From: Pavel Belous <pavel.belous@aquantia.com>
+Subject: Re: [PATCH v2 net 0/5] net:ethernet:aquantia: Misc fixes for atlantic
+ driver.
+Date: Thu, 23 Mar 2017 01:05:41 +0300
+Message-ID: <35924252-6a37-cff8-3c35-a3fffd3f50f9@aquantia.com>
+References: <cover.1490217414.git.pavel.belous@aquantia.com>
+ <b9effbcb-b201-b197-801c-3ff276b8677d@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-        Xose Vazquez Perez <xose.vazquez@gmail.com>,
-        Larry Finger <Larry.Finger@lwfinger.net>
-To: Stanislaw Gruszka <sgruszka@redhat.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        David Arcari <darcari@redhat.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:59124 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751355AbdCVWF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 22 Mar 2017 18:05:29 -0400
-In-Reply-To: <1490195313-13272-1-git-send-email-sgruszka@redhat.com>
+Received: from mail-bn3nam01on0083.outbound.protection.outlook.com ([104.47.33.83]:57115
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751250AbdCVWGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 22 Mar 2017 18:06:34 -0400
+In-Reply-To: <b9effbcb-b201-b197-801c-3ff276b8677d@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-03-22 at 16:08 +0100, Stanislaw Gruszka wrote:
-> Commit 2ae0f17df1cd ("genetlink: use idr to track families") replaced
-> 
-> 	if (++n < fams_to_skip)
-> 		continue;
-> into:
-> 
-> 	if (n++ < fams_to_skip)
-> 		continue;
 
-D'oh. I don't know how that ended up in there, tbh.
 
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
+On 03/23/2017 12:44 AM, Florian Fainelli wrote:
+> On 03/22/2017 02:19 PM, Pavel Belous wrote:
+>> From: Pavel Belous <pavel.belous@aquantia.com>
+>>
+>> The following patchset containg several fixes for aQuantia AQtion driver
+>> for net tree: A couple fixes for IPv6 and other fixes.
+>>
+>> v1->v2: Fix compilation error (using HW_ATL_A0_TXD_CTL_CMD_IPV6 instead
+>>         HW_ATL_B0_TXD_CTL_CMD_IPV6).
+>
+> Since you are fixing bugs, can you add proper Fixes: <12-digit commit>
+> ("Commit subject") tags for each commit?
+>
+> Also, you may want to fix your subjects to be:
+>
+> net: ethernet: aquantia: Remove adapter re-opening when MTU changed
+>
+> Thanks!
+>
 
-johannes
+Thank you, Florian.
+I will add 'Fixes' tags in patchset v3.
+
+Regards,
+Pavel
+
+>>
+>>
+>> Pavel Belous (5):
+>>   net:ethernet:aquantia: Remove adapter re-opening when mtu changed.
+>>   net:ethernet:aquantia: Fix packet type detection (TCP/UDP) for IPv6.
+>>   net:ethernet:aquantia: Missing spinlock initialization.
+>>   net:ethernet:aquantia: Fix for LSO with IPv6.
+>>   net:ethernet:aquantia: Reset is_gso flag when EOP reached.
+>>
+>>  drivers/net/ethernet/aquantia/atlantic/aq_main.c   |  5 -----
+>>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 23 ++++++++++++++++++----
+>>  drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  1 +
+>>  drivers/net/ethernet/aquantia/atlantic/aq_ring.h   |  3 ++-
+>>  .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |  4 ++++
+>>  .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |  4 ++++
+>>  6 files changed, 30 insertions(+), 10 deletions(-)
+>>
+>
+>
