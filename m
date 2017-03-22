@@ -1,30 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next sample action optimization v4 0/4]
-Date: Wed, 22 Mar 2017 11:28:51 -0700 (PDT)
-Message-ID: <20170322.112851.1917100598047204156.davem@davemloft.net>
-References: <1490052750-60187-1-git-send-email-azhou@ovn.org>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH net-next v2 5/5] net-next: dsa: add dsa support for
+ Mediatek MT7530 switch
+Date: Wed, 22 Mar 2017 19:30:02 +0100
+Message-ID: <20170322183002.GP30655@lunn.ch>
+References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
+ <1490088910-19405-6-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@ovn.org, pshelar@ovn.org
-To: azhou@ovn.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42774 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965446AbdCVS2x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 14:28:53 -0400
-In-Reply-To: <1490052750-60187-1-git-send-email-azhou@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
+        matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1490088910-19405-6-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Zhou <azhou@ovn.org>
-Date: Mon, 20 Mar 2017 16:32:26 -0700
+> +static int
+> +core_read_mmd_indirect(struct mt7530_priv *priv, int prtad, int devad)
+> +{
+> +	struct mii_bus *bus = priv->bus;
+> +	int value, ret;
+> +
+> +	/* Write the desired MMD Devad */
+> +	ret = bus->write(bus, 0, MII_MMD_CTRL, devad);
+> +	if (ret < 0)
+> +		goto err;
+> +
+> +	/* Write the desired MMD register address */
+> +	ret = bus->write(bus, 0, MII_MMD_DATA, prtad);
+> +	if (ret < 0)
+> +		goto err;
+> +
+> +	/* Select the Function : DATA with no post increment */
+> +	ret = bus->write(bus, 0, MII_MMD_CTRL, (devad | MII_MMD_CTRL_NOINCR));
+> +	if (ret < 0)
+> +		goto err;
 
-> The sample action can be used for translating Openflow 'clone' action.
-> However its implementation has not been sufficiently optimized for this
-> use case. This series attempts to close the gap.
-> 
-> Patch 3 commit message has more details on the specific optimizations
-> implemented.
+Hi Sean
 
-Series applied, thanks.
+This appear to be a copy of mmd_phy_indirect(). There are patches from
+Russell King which made this a public function. Once Russell patches
+make net-next, it would be nice to use mmd_phy_indirect(). But that
+might be as a follow up patch, rather than now, depending on the order
+of acceptance of the patches.
+
+   Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
