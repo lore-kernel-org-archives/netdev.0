@@ -1,40 +1,30 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v2 3/5] net-next: ethernet: mediatek: add CDM
- able to recognize the tag for DSA
-Date: Wed, 22 Mar 2017 11:23:22 -0700
-Message-ID: <d2145f56-930d-64ed-22bb-859a232aad93@gmail.com>
-References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
- <1490088910-19405-4-git-send-email-sean.wang@mediatek.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/2] NAPI ID fixups related to busy polling
+Date: Wed, 22 Mar 2017 11:26:29 -0700 (PDT)
+Message-ID: <20170322.112629.1655081687167143481.davem@davemloft.net>
+References: <20170320214643.13922.51284.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1490088910-19405-4-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        sridhar.samudrala@intel.com, edumazet@google.com
+To: alexander.duyck@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170320214643.13922.51284.stgit@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/21/2017 02:35 AM, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
-> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> 
-> The patch adds the setup for allowing CDM can recognize these packets with
-> carrying port-distinguishing tag. Otherwise, these tagging packets will be
-> handled incorrectly by CDM. The setup is working out for general untag
-> packets as well.
-> 
-> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Landen Chao <Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Mon, 20 Mar 2017 14:48:41 -0700
 
-Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> These two patches are a couple of minor clean-ups related to busy polling.
+> The first one addresses the fact that we were trying to busy poll on
+> sender_cpu values instead of true NAPI IDs.  The second addresses the fact
+> that there were a few paths where TCP sockets were being instanciated based
+> on a received patcket, but not recording the hash or NAPI ID of the packet
+> that was used to instanciate them.
+
+I'm expecting a respin of this.  Patch #1 appears to be 'net' material, and
+Eric asked for some other minor tweaks as well.
+
+Thanks.
