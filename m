@@ -1,92 +1,90 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 15/15] nfp: disable FW on reconfiguration errors
-Date: Tue, 21 Mar 2017 17:59:21 -0700
-Message-ID: <20170322005921.10965-16-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 02/15] nfp: fail graciously when someone tries to grab global lock
+Date: Tue, 21 Mar 2017 17:59:08 -0700
+Message-ID: <20170322005921.10965-3-jakub.kicinski@netronome.com>
 References: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:35807 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756711AbdCVBH0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:07:26 -0400
-Received: by mail-pg0-f48.google.com with SMTP id t143so35480006pgb.2
-        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 18:07:25 -0700 (PDT)
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34481 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758257AbdCVBHo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 21 Mar 2017 21:07:44 -0400
+Received: by mail-pf0-f177.google.com with SMTP id p189so63580503pfp.1
+        for <netdev@vger.kernel.org>; Tue, 21 Mar 2017 18:07:43 -0700 (PDT)
 In-Reply-To: <20170322005921.10965-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since we no longer need to keep the FW enabled for .ndo_close()
-to work we can always stop FW after reconfiguration failure.
-This seems to make most FWs more resilient to faults (at least
-in error injection scenarios).
+The global device lock is acquired to search the resource table.
+The lock is actually itself part of the table (entry 0).
+Therefore if someone asks for resource 0 we would deadlock since
+double locking is no longer allowed.
+
+Currently the driver doesn't try to lock that resource so let's
+simply make sure we fail graciously and not add special handling
+of this case until really need.  Hide the relevant defines in
+the source file.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 29 ++++++++--------------
- 1 file changed, 11 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h          |  9 +--------
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c | 15 ++++++++++++---
+ 2 files changed, 13 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index e12353a7c83c..8f2da128ce0f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2127,7 +2127,11 @@ nfp_net_tx_ring_hw_cfg_write(struct nfp_net *nn,
- 	nn_writeb(nn, NFP_NET_CFG_TXR_VEC(idx), tx_ring->r_vec->irq_entry);
- }
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
+index 42cb720b696d..f7ca8e374923 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
+@@ -66,14 +66,7 @@ int nfp_nsp_write_eth_table(struct nfp_nsp *state,
  
--static int __nfp_net_set_config_and_enable(struct nfp_net *nn)
-+/**
-+ * nfp_net_set_config_and_enable() - Write control BAR and enable NFP
-+ * @nn:      NFP Net device to reconfigure
-+ */
-+static int nfp_net_set_config_and_enable(struct nfp_net *nn)
- {
- 	u32 new_ctrl, update = 0;
- 	unsigned int r;
-@@ -2176,6 +2180,10 @@ static int __nfp_net_set_config_and_enable(struct nfp_net *nn)
+ /* Implemented in nfp_resource.c */
  
- 	nn_writel(nn, NFP_NET_CFG_CTRL, new_ctrl);
- 	err = nfp_net_reconfig(nn, update);
-+	if (err) {
-+		nfp_net_clear_config_and_disable(nn);
-+		return err;
-+	}
- 
- 	nn->dp.ctrl = new_ctrl;
- 
-@@ -2191,22 +2199,7 @@ static int __nfp_net_set_config_and_enable(struct nfp_net *nn)
- 		udp_tunnel_get_rx_info(nn->dp.netdev);
- 	}
- 
--	return err;
--}
+-#define NFP_RESOURCE_TBL_TARGET		NFP_CPP_TARGET_MU
+-#define NFP_RESOURCE_TBL_BASE		0x8100000000ULL
 -
--/**
-- * nfp_net_set_config_and_enable() - Write control BAR and enable NFP
-- * @nn:      NFP Net device to reconfigure
-- */
--static int nfp_net_set_config_and_enable(struct nfp_net *nn)
--{
--	int err;
+-/* NFP Resource Table self-identifier */
+-#define NFP_RESOURCE_TBL_NAME		"nfp.res"
+-#define NFP_RESOURCE_TBL_KEY		0x00000000 /* Special key for entry 0 */
 -
--	err = __nfp_net_set_config_and_enable(nn);
--	if (err)
--		nfp_net_clear_config_and_disable(nn);
--
--	return err;
-+	return 0;
- }
+-/* All other keys are CRC32-POSIX of the 8-byte identification string */
++/* All keys are CRC32-POSIX of the 8-byte identification string */
+ 
+ /* ARM/PCI vNIC Interfaces 0..3 */
+ #define NFP_RESOURCE_VNIC_PCI_0		"vnic.p0"
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
+index a2850344f8b4..2d15a7c9d0de 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
+@@ -45,6 +45,13 @@
+ #include "nfp_cpp.h"
+ #include "nfp6000/nfp6000.h"
+ 
++#define NFP_RESOURCE_TBL_TARGET		NFP_CPP_TARGET_MU
++#define NFP_RESOURCE_TBL_BASE		0x8100000000ULL
++
++/* NFP Resource Table self-identifier */
++#define NFP_RESOURCE_TBL_NAME		"nfp.res"
++#define NFP_RESOURCE_TBL_KEY		0x00000000 /* Special key for entry 0 */
++
+ #define NFP_RESOURCE_ENTRY_NAME_SZ	8
  
  /**
-@@ -2447,7 +2440,7 @@ static int nfp_net_dp_swap_enable(struct nfp_net *nn, struct nfp_net_dp *dp)
- 			return err;
- 	}
+@@ -100,9 +107,11 @@ static int nfp_cpp_resource_find(struct nfp_cpp *cpp, struct nfp_resource *res)
+ 	strncpy(name_pad, res->name, sizeof(name_pad));
  
--	return __nfp_net_set_config_and_enable(nn);
-+	return nfp_net_set_config_and_enable(nn);
- }
+ 	/* Search for a matching entry */
+-	key = NFP_RESOURCE_TBL_KEY;
+-	if (memcmp(name_pad, NFP_RESOURCE_TBL_NAME "\0\0\0\0\0\0\0\0", 8))
+-		key = crc32_posix(name_pad, sizeof(name_pad));
++	if (!memcmp(name_pad, NFP_RESOURCE_TBL_NAME "\0\0\0\0\0\0\0\0", 8)) {
++		nfp_err(cpp, "Grabbing device lock not supported\n");
++		return -EOPNOTSUPP;
++	}
++	key = crc32_posix(name_pad, sizeof(name_pad));
  
- struct nfp_net_dp *nfp_net_clone_dp(struct nfp_net *nn)
+ 	for (i = 0; i < NFP_RESOURCE_TBL_ENTRIES; i++) {
+ 		u64 addr = NFP_RESOURCE_TBL_BASE +
 -- 
 2.11.0
