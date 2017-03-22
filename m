@@ -1,251 +1,124 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/5] e1000: use new API ethtool_{get|set}_link_ksettings
-Date: Tue, 21 Mar 2017 16:00:24 -0700
-Message-ID: <20170321230028.69510-2-jeffrey.t.kirsher@intel.com>
-References: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
-Cc: Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:21445 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933121AbdCUX5J (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 21 Mar 2017 19:57:09 -0400
-In-Reply-To: <20170321230028.69510-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Keyur Chudgar <kchudgar@apm.com>
+Subject: RE: [PATCH net-next 1/4] drivers: net: xgene-v2: Add MDIO support
+Date: Tue, 21 Mar 2017 17:08:49 -0700
+Message-ID: <e9bb420df0c62d49c0fce1bf45f8c686@mail.gmail.com>
+References: <1490124283-10371-1-git-send-email-isubramanian@apm.com>
+ <1490124283-10371-2-git-send-email-isubramanian@apm.com>
+ <20170321203550.GD30655@lunn.ch>
+ <CAKh23Fn_re2CmT_XDD7YgqAGEa61rfaL5XHHqaPujzhMx9XVeg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev <netdev@vger.kernel.org>,
+ patches <patches@apm.com>, David Laight <David.Laight@aculab.com>,
+ David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Iyappan Subramanian <isubramanian@apm.com>, Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAKh23Fn_re2CmT_XDD7YgqAGEa61rfaL5XHHqaPujzhMx9XVeg@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Philippe Reynes <tremyfr@gmail.com>
+Hi Iyappan,
 
-The ethtool API {get|set}_settings is deprecated.
-We move this driver to new API {get|set}_link_ksettings.
+I agree with Andrew.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+Let's re-post the patch after addressing Andrew's comment.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 117 +++++++++++------------
- 1 file changed, 58 insertions(+), 59 deletions(-)
+Thanks,
+Keyur
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index 975eeb885ca2..ec8aa4562cc9 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -103,104 +103,104 @@ static const char e1000_gstrings_test[][ETH_GSTRING_LEN] = {
- 
- #define E1000_TEST_LEN	ARRAY_SIZE(e1000_gstrings_test)
- 
--static int e1000_get_settings(struct net_device *netdev,
--			      struct ethtool_cmd *ecmd)
-+static int e1000_get_link_ksettings(struct net_device *netdev,
-+				    struct ethtool_link_ksettings *cmd)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
-+	u32 supported, advertising;
- 
- 	if (hw->media_type == e1000_media_type_copper) {
--		ecmd->supported = (SUPPORTED_10baseT_Half |
--				   SUPPORTED_10baseT_Full |
--				   SUPPORTED_100baseT_Half |
--				   SUPPORTED_100baseT_Full |
--				   SUPPORTED_1000baseT_Full|
--				   SUPPORTED_Autoneg |
--				   SUPPORTED_TP);
--		ecmd->advertising = ADVERTISED_TP;
-+		supported = (SUPPORTED_10baseT_Half |
-+			     SUPPORTED_10baseT_Full |
-+			     SUPPORTED_100baseT_Half |
-+			     SUPPORTED_100baseT_Full |
-+			     SUPPORTED_1000baseT_Full|
-+			     SUPPORTED_Autoneg |
-+			     SUPPORTED_TP);
-+		advertising = ADVERTISED_TP;
- 
- 		if (hw->autoneg == 1) {
--			ecmd->advertising |= ADVERTISED_Autoneg;
-+			advertising |= ADVERTISED_Autoneg;
- 			/* the e1000 autoneg seems to match ethtool nicely */
--			ecmd->advertising |= hw->autoneg_advertised;
-+			advertising |= hw->autoneg_advertised;
- 		}
- 
--		ecmd->port = PORT_TP;
--		ecmd->phy_address = hw->phy_addr;
--
--		if (hw->mac_type == e1000_82543)
--			ecmd->transceiver = XCVR_EXTERNAL;
--		else
--			ecmd->transceiver = XCVR_INTERNAL;
--
-+		cmd->base.port = PORT_TP;
-+		cmd->base.phy_address = hw->phy_addr;
- 	} else {
--		ecmd->supported   = (SUPPORTED_1000baseT_Full |
--				     SUPPORTED_FIBRE |
--				     SUPPORTED_Autoneg);
-+		supported   = (SUPPORTED_1000baseT_Full |
-+			       SUPPORTED_FIBRE |
-+			       SUPPORTED_Autoneg);
- 
--		ecmd->advertising = (ADVERTISED_1000baseT_Full |
--				     ADVERTISED_FIBRE |
--				     ADVERTISED_Autoneg);
-+		advertising = (ADVERTISED_1000baseT_Full |
-+			       ADVERTISED_FIBRE |
-+			       ADVERTISED_Autoneg);
- 
--		ecmd->port = PORT_FIBRE;
--
--		if (hw->mac_type >= e1000_82545)
--			ecmd->transceiver = XCVR_INTERNAL;
--		else
--			ecmd->transceiver = XCVR_EXTERNAL;
-+		cmd->base.port = PORT_FIBRE;
- 	}
- 
- 	if (er32(STATUS) & E1000_STATUS_LU) {
- 		e1000_get_speed_and_duplex(hw, &adapter->link_speed,
- 					   &adapter->link_duplex);
--		ethtool_cmd_speed_set(ecmd, adapter->link_speed);
-+		cmd->base.speed = adapter->link_speed;
- 
- 		/* unfortunately FULL_DUPLEX != DUPLEX_FULL
- 		 * and HALF_DUPLEX != DUPLEX_HALF
- 		 */
- 		if (adapter->link_duplex == FULL_DUPLEX)
--			ecmd->duplex = DUPLEX_FULL;
-+			cmd->base.duplex = DUPLEX_FULL;
- 		else
--			ecmd->duplex = DUPLEX_HALF;
-+			cmd->base.duplex = DUPLEX_HALF;
- 	} else {
--		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
--		ecmd->duplex = DUPLEX_UNKNOWN;
-+		cmd->base.speed = SPEED_UNKNOWN;
-+		cmd->base.duplex = DUPLEX_UNKNOWN;
- 	}
- 
--	ecmd->autoneg = ((hw->media_type == e1000_media_type_fiber) ||
-+	cmd->base.autoneg = ((hw->media_type == e1000_media_type_fiber) ||
- 			 hw->autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
- 
- 	/* MDI-X => 1; MDI => 0 */
- 	if ((hw->media_type == e1000_media_type_copper) &&
- 	    netif_carrier_ok(netdev))
--		ecmd->eth_tp_mdix = (!!adapter->phy_info.mdix_mode ?
-+		cmd->base.eth_tp_mdix = (!!adapter->phy_info.mdix_mode ?
- 				     ETH_TP_MDI_X : ETH_TP_MDI);
- 	else
--		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
-+		cmd->base.eth_tp_mdix = ETH_TP_MDI_INVALID;
- 
- 	if (hw->mdix == AUTO_ALL_MODES)
--		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
-+		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
- 	else
--		ecmd->eth_tp_mdix_ctrl = hw->mdix;
-+		cmd->base.eth_tp_mdix_ctrl = hw->mdix;
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
-+
- 	return 0;
- }
- 
--static int e1000_set_settings(struct net_device *netdev,
--			      struct ethtool_cmd *ecmd)
-+static int e1000_set_link_ksettings(struct net_device *netdev,
-+				    const struct ethtool_link_ksettings *cmd)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
-+	u32 advertising;
-+
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
- 
- 	/* MDI setting is only allowed when autoneg enabled because
- 	 * some hardware doesn't allow MDI setting when speed or
- 	 * duplex is forced.
- 	 */
--	if (ecmd->eth_tp_mdix_ctrl) {
-+	if (cmd->base.eth_tp_mdix_ctrl) {
- 		if (hw->media_type != e1000_media_type_copper)
- 			return -EOPNOTSUPP;
- 
--		if ((ecmd->eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
--		    (ecmd->autoneg != AUTONEG_ENABLE)) {
-+		if ((cmd->base.eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
-+		    (cmd->base.autoneg != AUTONEG_ENABLE)) {
- 			e_err(drv, "forcing MDI/MDI-X state is not supported when link speed and/or duplex are forced\n");
- 			return -EINVAL;
- 		}
-@@ -209,32 +209,31 @@ static int e1000_set_settings(struct net_device *netdev,
- 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
- 		msleep(1);
- 
--	if (ecmd->autoneg == AUTONEG_ENABLE) {
-+	if (cmd->base.autoneg == AUTONEG_ENABLE) {
- 		hw->autoneg = 1;
- 		if (hw->media_type == e1000_media_type_fiber)
- 			hw->autoneg_advertised = ADVERTISED_1000baseT_Full |
--				     ADVERTISED_FIBRE |
--				     ADVERTISED_Autoneg;
-+						 ADVERTISED_FIBRE |
-+						 ADVERTISED_Autoneg;
- 		else
--			hw->autoneg_advertised = ecmd->advertising |
-+			hw->autoneg_advertised = advertising |
- 						 ADVERTISED_TP |
- 						 ADVERTISED_Autoneg;
--		ecmd->advertising = hw->autoneg_advertised;
- 	} else {
--		u32 speed = ethtool_cmd_speed(ecmd);
-+		u32 speed = cmd->base.speed;
- 		/* calling this overrides forced MDI setting */
--		if (e1000_set_spd_dplx(adapter, speed, ecmd->duplex)) {
-+		if (e1000_set_spd_dplx(adapter, speed, cmd->base.duplex)) {
- 			clear_bit(__E1000_RESETTING, &adapter->flags);
- 			return -EINVAL;
- 		}
- 	}
- 
- 	/* MDI-X => 2; MDI => 1; Auto => 3 */
--	if (ecmd->eth_tp_mdix_ctrl) {
--		if (ecmd->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
-+	if (cmd->base.eth_tp_mdix_ctrl) {
-+		if (cmd->base.eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
- 			hw->mdix = AUTO_ALL_MODES;
- 		else
--			hw->mdix = ecmd->eth_tp_mdix_ctrl;
-+			hw->mdix = cmd->base.eth_tp_mdix_ctrl;
- 	}
- 
- 	/* reset the link */
-@@ -1875,8 +1874,6 @@ static void e1000_get_strings(struct net_device *netdev, u32 stringset,
- }
- 
- static const struct ethtool_ops e1000_ethtool_ops = {
--	.get_settings		= e1000_get_settings,
--	.set_settings		= e1000_set_settings,
- 	.get_drvinfo		= e1000_get_drvinfo,
- 	.get_regs_len		= e1000_get_regs_len,
- 	.get_regs		= e1000_get_regs,
-@@ -1901,6 +1898,8 @@ static const struct ethtool_ops e1000_ethtool_ops = {
- 	.get_coalesce		= e1000_get_coalesce,
- 	.set_coalesce		= e1000_set_coalesce,
- 	.get_ts_info		= ethtool_op_get_ts_info,
-+	.get_link_ksettings	= e1000_get_link_ksettings,
-+	.set_link_ksettings	= e1000_set_link_ksettings,
- };
- 
- void e1000_set_ethtool_ops(struct net_device *netdev)
--- 
-2.12.0
+> -----Original Message-----
+> From: Iyappan Subramanian [mailto:isubramanian@apm.com]
+> Sent: Tuesday, March 21, 2017 4:19 PM
+> To: Andrew Lunn
+> Cc: David Miller; netdev; Florian Fainelli; David Laight; linux-arm-
+> kernel@lists.infradead.org; patches; Keyur Chudgar
+> Subject: Re: [PATCH net-next 1/4] drivers: net: xgene-v2: Add MDIO
+> support
+>
+> On Tue, Mar 21, 2017 at 1:35 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> >> @@ -511,9 +512,9 @@ static int xge_close(struct net_device *ndev)  {
+> >>       struct xge_pdata *pdata = netdev_priv(ndev);
+> >>
+> >> -     netif_carrier_off(ndev);
+> >>       netif_stop_queue(ndev);
+> >>       xge_mac_disable(pdata);
+> >> +     phy_stop(ndev->phydev);
+> >>
+> >>       xge_intr_disable(pdata);
+> >>       xge_free_irq(ndev);
+> >> @@ -683,9 +684,14 @@ static int xge_probe(struct platform_device
+> *pdev)
+> >>       if (ret)
+> >>               goto err;
+> >>
+> >> +     spin_lock_init(&pdata->mdio_lock);
+> >> +
+> >
+> > ...
+> >
+> >> +static int xge_mdio_write(struct mii_bus *bus, int phy_id, int reg,
+> >> +u16 data) {
+> >> +     struct xge_pdata *pdata = bus->priv;
+> >> +     u32 done, val = 0;
+> >> +     u8 wait = 10;
+> >> +     int ret = 0;
+> >> +
+> >> +     spin_lock(&pdata->mdio_lock);
+> >> +
+> >> +     SET_REG_BITS(&val, PHY_ADDR, phy_id);
+> >> +     SET_REG_BITS(&val, REG_ADDR, reg);
+> >> +     xge_wr_csr(pdata, MII_MGMT_ADDRESS, val);
+> >> +
+> >> +     xge_wr_csr(pdata, MII_MGMT_CONTROL, data);
+> >> +     do {
+> >> +             usleep_range(5, 10);
+> >> +             done = xge_rd_csr(pdata, MII_MGMT_INDICATORS);
+> >> +     } while ((done & MII_MGMT_BUSY) && wait--);
+> >> +
+> >> +     if (done & MII_MGMT_BUSY) {
+> >> +             dev_err(&bus->dev, "MII_MGMT write failed\n");
+> >> +             ret = -ETIMEDOUT;
+> >> +     }
+> >> +
+> >> +     spin_unlock(&pdata->mdio_lock);
+> >> +
+> >> +     return ret;
+> >> +}
+> >> +
+> >> +static int xge_mdio_read(struct mii_bus *bus, int phy_id, int reg)
+> {
+> >> +     struct xge_pdata *pdata = bus->priv;
+> >> +     u32 data, done, val = 0;
+> >> +     u8 wait = 10;
+> >> +
+> >> +     spin_lock(&pdata->mdio_lock);
+> >> +
+> >
+> > Hi Iyappan
+> >
+> > Please could you explain what this lock is protecting which the
+> > mii_bus mdio_lock in mdio_bus.c is not protecting?
+>
+> Hi Keyur,
+>
+> Please could you explain what this lock is protecting which the mii_bus
+> mdio_lock in mdio_bus.c is not protecting?
+>
+> I agree with him.  Actually there is a mutex on mdio_bus.  So the mdio
+> bus read and write are locked.  we don't need the lock.
+>
+> Do you agree ?
+>
+>
+> >
+> > Thanks
+> >         Andrew
