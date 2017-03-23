@@ -1,45 +1,50 @@
-From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [net-next PATCH v2 0/8] Add busy poll support for epoll
-Date: Thu, 23 Mar 2017 15:49:08 -0700
-Message-ID: <CANn89i+ygBw_tHcAaDJhHJqvOYAqkHJ3nnokByUQWVeXv0MDfA@mail.gmail.com>
-References: <20170323211820.12615.88907.stgit@localhost.localdomain>
- <20170323220721.GA62356@ast-mbp.thefacebook.com> <CAKgT0Uctdf4N-w72EY8T5Zfw=QCSCgAesXdgOh-HUYdD=Aq9AA@mail.gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] xfrm: use "unsigned int" in __xfrm6_pref_hash()
+Date: Fri, 24 Mar 2017 01:53:09 +0300
+Message-ID: <20170323225309.GC31372@avx2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Samudrala, Sridhar" <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKgT0Uctdf4N-w72EY8T5Zfw=QCSCgAesXdgOh-HUYdD=Aq9AA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:34652 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754645AbdCWWxO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 18:53:14 -0400
+Received: by mail-lf0-f66.google.com with SMTP id y193so18356610lfd.1
+        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 15:53:13 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 23, 2017 at 3:38 PM, Alexander Duyck
-<alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Thu, Mar 23, 2017 at 3:07 PM, Alexei Starovoitov
+x86_64 is zero-extending arch so "unsigned int" is preferred over "int"
+for address calculations.
 
->> it all sounds awesome, but i cannot quite visualize the impact.
->> Can you post some sample code/minibenchmark and numbers before/after?
->>
->> Thanks!
->>
->
-> Anything specific you are looking for?  I can probably work with our
-> team internally to setup the benchmark in the next day or so.
->
-> I've been doing most of my benchmarking at my desk with sockperf with
-> just one thread and multiple sockets and seeing some modest savings
-> with my round trip times dropping from something like 18 microseconds
-> on average to 8 microseconds for ping-pong tests.
+Space savings:
 
-Same reduction for me, on 1000/1000 bytes RPC.
+	add/remove: 0/0 grow/shrink: 0/3 up/down: 0/-58 (-58)
+	function                                     old     new   delta
+	xfrm_hash_resize                            2752    2743      -9
+	policy_hash_bysel                            985     973     -12
+	policy_hash_direct                          1036     999     -37
 
-26 usec -> 16 usec  per transaction
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-(If you use sockperf, beware that it displays half round trips)
+ net/xfrm/xfrm_hash.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Also note that the gains also depends on how the interrupt mitigation
-parameters are set.
+--- a/net/xfrm/xfrm_hash.h
++++ b/net/xfrm/xfrm_hash.h
+@@ -54,8 +54,8 @@ static inline unsigned int __xfrm4_dpref_spref_hash(const xfrm_address_t *daddr,
+ static inline unsigned int __xfrm6_pref_hash(const xfrm_address_t *addr,
+ 					     __u8 prefixlen)
+ {
+-	int pdw;
+-	int pbi;
++	unsigned int pdw;
++	unsigned int pbi;
+ 	u32 initval = 0;
+ 
+ 	pdw = prefixlen >> 5;     /* num of whole u32 in prefix */
