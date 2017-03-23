@@ -1,101 +1,99 @@
-From: Alban <albeu@free.fr>
-Subject: Re: [PATCH 3/7] ath9k: Add support for reading the EEPROM data
- using the nvmem API
-Date: Thu, 23 Mar 2017 15:43:28 +0100
-Message-ID: <20170323154328.4bb5db44@avionic-0020>
-References: <1489439116-4233-1-git-send-email-albeu@free.fr>
-        <1489439116-4233-3-git-send-email-albeu@free.fr>
-        <1609202.bQK0rlNN3Y@debian64>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Thu, 23 Mar 2017 14:51:33 +0000
+Message-ID: <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
+ <20170301144845.783f8cad@redhat.com>
+ <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
+ <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+ <20170322234004.kffsce4owewgpqnm@techsingularity.net>
+ <20170323144347.1e6f29de@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/Qa.CfbMbWyb.SYL5PtXbDRf"; protocol="application/pgp-signature"
-Cc: Alban <albeu@free.fr>,
-        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        John Crispin <john@phrozen.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, chrisrblake93@gmail.com
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1609202.bQK0rlNN3Y@debian64>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Tariq Toukan <tariqt@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170323144347.1e6f29de@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/Qa.CfbMbWyb.SYL5PtXbDRf
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Thu, Mar 23, 2017 at 02:43:47PM +0100, Jesper Dangaard Brouer wrote:
+> On Wed, 22 Mar 2017 23:40:04 +0000
+> Mel Gorman <mgorman@techsingularity.net> wrote:
+> 
+> > On Wed, Mar 22, 2017 at 07:39:17PM +0200, Tariq Toukan wrote:
+> > > > > > This modification may slow allocations from IRQ context slightly
+> > > > > > but the
+> > > > > > main gain from the per-cpu allocator is that it scales better for
+> > > > > > allocations from multiple contexts.  There is an implicit
+> > > > > > assumption that
+> > > > > > intensive allocations from IRQ contexts on multiple CPUs from a single
+> > > > > > NUMA node are rare  
+> > > Hi Mel, Jesper, and all.
+> > > 
+> > > This assumption contradicts regular multi-stream traffic that is naturally
+> > > handled
+> > > over close numa cores.  I compared iperf TCP multistream (8 streams)
+> > > over CX4 (mlx5 driver) with kernels v4.10 (before this series) vs
+> > > kernel v4.11-rc1 (with this series).
+> > > I disabled the page-cache (recycle) mechanism to stress the page allocator,
+> > > and see a drastic degradation in BW, from 47.5 G in v4.10 to 31.4 G in
+> > > v4.11-rc1 (34% drop).
+> > > I noticed queued_spin_lock_slowpath occupies 62.87% of CPU time.  
+> > 
+> > Can you get the stack trace for the spin lock slowpath to confirm it's
+> > from IRQ context?
+> 
+> AFAIK allocations happen in softirq.  Argh and during review I missed
+> that in_interrupt() also covers softirq.  To Mel, can we use a in_irq()
+> check instead?
+> 
+> (p.s. just landed and got home)
 
-On Tue, 14 Mar 2017 00:53:55 +0100
-Christian Lamparter <chunkeey@googlemail.com> wrote:
+Not built or even boot tested. I'm unable to run tests at the moment
 
-> On Monday, March 13, 2017 10:05:11 PM CET Alban wrote:
-> > Currently SoC platforms use a firmware request to get the EEPROM data.
-> > This is mostly a hack and rely on using a user-helper scripts which is
-> > deprecated. A nicer alternative is to use the nvmem API which was
-> > designed for this kind of task.
-> >=20
-> > Furthermore we let CONFIG_ATH9K_AHB select CONFIG_NVMEM as such
-> > devices will generally use this method for loading the EEPROM data.
-> >=20
-> > Signed-off-by: Alban <albeu@free.fr>
-> > ---
-> > @@ -654,6 +656,25 @@ static int ath9k_init_softc(u16 devid, struct ath_=
-softc *sc,
-> >  	if (ret)
-> >  		return ret;
-> > =20
-> > +	/* If the EEPROM hasn't been retrieved via firmware request
-> > +	 * use the nvmem API insted.
-> > +	 */
-> > +	if (!ah->eeprom_blob) {
-> > +		struct nvmem_cell *eeprom_cell;
-> > +
-> > +		eeprom_cell =3D nvmem_cell_get(ah->dev, "eeprom");
-> > +		if (!IS_ERR(eeprom_cell)) {
-> > +			ah->eeprom_data =3D nvmem_cell_read(
-> > +				eeprom_cell, &ah->eeprom_size);
-> > +			nvmem_cell_put(eeprom_cell);
-> > +
-> > +			if (IS_ERR(ah->eeprom_data)) {
-> > +				dev_err(ah->dev, "failed to read eeprom");
-> > +				return PTR_ERR(ah->eeprom_data);
-> > +			}
-> > +		}
-> > +	}
-> > +
-> >  	if (ath9k_led_active_high !=3D -1)
-> >  		ah->config.led_active_high =3D ath9k_led_active_high =3D=3D 1;
-> >   =20
-> Are you sure this works with AR93XX SoCs that have the calibration data
-> in the OTP?
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 6cbde310abed..f82225725bc1 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -2481,7 +2481,7 @@ void free_hot_cold_page(struct page *page, bool cold)
+ 	unsigned long pfn = page_to_pfn(page);
+ 	int migratetype;
+ 
+-	if (in_interrupt()) {
++	if (in_irq()) {
+ 		__free_pages_ok(page, 0);
+ 		return;
+ 	}
+@@ -2647,7 +2647,7 @@ static struct page *__rmqueue_pcplist(struct zone *zone, int migratetype,
+ {
+ 	struct page *page;
+ 
+-	VM_BUG_ON(in_interrupt());
++	VM_BUG_ON(in_irq());
+ 
+ 	do {
+ 		if (list_empty(list)) {
+@@ -2704,7 +2704,7 @@ struct page *rmqueue(struct zone *preferred_zone,
+ 	unsigned long flags;
+ 	struct page *page;
+ 
+-	if (likely(order == 0) && !in_interrupt()) {
++	if (likely(order == 0) && !in_irq()) {
+ 		page = rmqueue_pcplist(preferred_zone, zone, order,
+ 				gfp_flags, migratetype);
+ 		goto out;
 
-I only tested this on an ar9132 platform, so it might well be that a
-few things are missing for the newer SoC. However this shouldn't break
-anything existing as a platform needs to define an nvmem cell on the
-athk9 device for this code to be used at all.
+-- 
+Mel Gorman
+SUSE Labs
 
-Alban
-
---Sig_/Qa.CfbMbWyb.SYL5PtXbDRf
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJY098QAAoJEHSUmkuduC28pU8P/i3jxIr34un4PVGUm2PtC+Ng
-f49Htkd72NLj/srYraNQUquaNvaWUvP6VwRv7SBxHuPPFe7E9cc9pYM2XQmacqFr
-EoeFW/1Zf0NhrKNn7pVPlV6+zTfxoxBZ+LpzAOfOnihwKtUwbkNM5bepYRgSjbSN
-DT2KoaulFqkvgg3394dHeK33K9WKdhJMKePB6BFNiJs0pKrJ9OA0dU7m5yMKQI3g
-7vFi2oduArbfqjeO0KJtIMefsknpxCmX1p+ERP3RxbH/stAA6Wuo7NUKk5afsBUa
-CWVJhNp/AFwY9WhnA3a/LygUN7vre+Oz25VTW8IiI2EjszgcG6EiQyaYNuFlErDI
-WSyH2jrH7wpDuwrFk64DiA9r1ZYkjlwTELmq181yEa2Hp9HgePHLMNzertgcChc+
-OY/DHV/ICtzOgialA8FzOV/DJadjB8rrgcoeCoGXkE5Za6l1+vRgPOD/Pd6J3LTm
-QR9Eooj/cb995Im1iWe/zaVoJKZgVD7HRkPL8flmUADqOgeW+p4rw1drW6fUma1h
-U2cCcMCBYOIbCrzu2b2BSi+R4EDr/zNRZtzimZxmHv/z0+2cEH8XAq+O5cfxkSKv
-1RP8rRX9B5iWwQnfWuhoyOzm5wusfT9dctkm1qdrzUM0hB6g6u4B/jertVwJSzHO
-1+TyxIhutQuwiS1a1vo/
-=J5ti
------END PGP SIGNATURE-----
-
---Sig_/Qa.CfbMbWyb.SYL5PtXbDRf--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
