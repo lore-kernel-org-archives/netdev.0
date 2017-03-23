@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [net-next PATCH v2 8/8] net: Introduce SO_INCOMING_NAPI_ID
-Date: Thu, 23 Mar 2017 14:38:02 -0700
-Message-ID: <20170323213802.12615.58216.stgit@localhost.localdomain>
+Subject: [net-next PATCH v2 6/8] net: Commonize busy polling code to focus
+ on napi_id instead of socket
+Date: Thu, 23 Mar 2017 14:37:49 -0700
+Message-ID: <20170323213749.12615.38165.stgit@localhost.localdomain>
 References: <20170323211820.12615.88907.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,209 +11,153 @@ Cc: sridhar.samudrala@intel.com, edumazet@google.com,
         davem@davemloft.net, linux-api@vger.kernel.org
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36713 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751410AbdCWVie (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 17:38:34 -0400
+Received: from mail-it0-f65.google.com ([209.85.214.65]:36814 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754335AbdCWViG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 17:38:06 -0400
 In-Reply-To: <20170323211820.12615.88907.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sridhar Samudrala <sridhar.samudrala@intel.com>
 
-This socket option returns the NAPI ID associated with the queue on which
-the last frame is received. This information can be used by the apps to
-split the incoming flows among the threads based on the Rx queue on which
-they are received.
+Move the core functionality in sk_busy_loop() to napi_busy_loop() and
+make it independent of sk.
 
-If the NAPI ID actually represents a sender_cpu then the value is ignored
-and 0 is returned.
+This enables re-using this function in epoll busy loop implementation.
 
 Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/alpha/include/uapi/asm/socket.h   |    2 ++
- arch/avr32/include/uapi/asm/socket.h   |    2 ++
- arch/frv/include/uapi/asm/socket.h     |    2 ++
- arch/ia64/include/uapi/asm/socket.h    |    2 ++
- arch/m32r/include/uapi/asm/socket.h    |    2 ++
- arch/mips/include/uapi/asm/socket.h    |    1 +
- arch/mn10300/include/uapi/asm/socket.h |    2 ++
- arch/parisc/include/uapi/asm/socket.h  |    2 ++
- arch/powerpc/include/uapi/asm/socket.h |    2 ++
- arch/s390/include/uapi/asm/socket.h    |    2 ++
- arch/sparc/include/uapi/asm/socket.h   |    2 ++
- arch/xtensa/include/uapi/asm/socket.h  |    2 ++
- include/uapi/asm-generic/socket.h      |    2 ++
- net/core/sock.c                        |   12 ++++++++++++
- 14 files changed, 37 insertions(+)
+ include/net/busy_poll.h |   20 +++++++++++++++-----
+ net/core/dev.c          |   21 ++++++++-------------
+ net/core/sock.c         |   11 +++++++++++
+ 3 files changed, 34 insertions(+), 18 deletions(-)
 
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index 089db42c1b40..1bb8cac61a28 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -101,4 +101,6 @@
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index 4626cb22f625..336a874c0fed 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -61,7 +61,11 @@ static inline bool sk_can_busy_loop(const struct sock *sk)
+ 	return sk->sk_ll_usec && !signal_pending(current);
+ }
  
- #define SO_MEMINFO		55
- 
-+#define SO_INCOMING_NAPI_ID	56
+-void sk_busy_loop(struct sock *sk, int nonblock);
++bool sk_busy_loop_end(void *p, unsigned long start_time);
 +
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index 6eabcbd2f82a..f824eeb0f2e4 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -94,4 +94,6 @@
++void napi_busy_loop(unsigned int napi_id,
++		    bool (*loop_end)(void *, unsigned long),
++		    void *loop_end_arg);
  
- #define SO_MEMINFO		55
+ #else /* CONFIG_NET_RX_BUSY_POLL */
+ static inline unsigned long net_busy_loop_on(void)
+@@ -74,10 +78,6 @@ static inline bool sk_can_busy_loop(struct sock *sk)
+ 	return false;
+ }
  
-+#define SO_INCOMING_NAPI_ID	56
+-static inline void sk_busy_loop(struct sock *sk, int nonblock)
+-{
+-}
+-
+ #endif /* CONFIG_NET_RX_BUSY_POLL */
+ 
+ static inline unsigned long busy_loop_current_time(void)
+@@ -121,6 +121,16 @@ static inline bool sk_busy_loop_timeout(struct sock *sk,
+ 	return true;
+ }
+ 
++static inline void sk_busy_loop(struct sock *sk, int nonblock)
++{
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	unsigned int napi_id = READ_ONCE(sk->sk_napi_id);
 +
- #endif /* _UAPI__ASM_AVR32_SOCKET_H */
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index bd497f8356b9..a8ad9bebfc47 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -94,5 +94,7 @@
- 
- #define SO_MEMINFO		55
- 
-+#define SO_INCOMING_NAPI_ID	56
++	if (napi_id >= MIN_NAPI_ID)
++		napi_busy_loop(napi_id, nonblock ? NULL : sk_busy_loop_end, sk);
++#endif
++}
 +
- #endif /* _ASM_SOCKET_H */
+ /* used in the NIC receive handler to mark the skb */
+ static inline void skb_mark_napi_id(struct sk_buff *skb,
+ 				    struct napi_struct *napi)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 73ebf2f5600e..b082f70e50c5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5060,20 +5060,17 @@ static void busy_poll_stop(struct napi_struct *napi, void *have_poll_lock)
+ 		do_softirq();
+ }
  
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index f1bb54686168..6af3253e4209 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -103,4 +103,6 @@
+-void sk_busy_loop(struct sock *sk, int nonblock)
++void napi_busy_loop(unsigned int napi_id,
++		    bool (*loop_end)(void *, unsigned long),
++		    void *loop_end_arg)
+ {
+-	unsigned long start_time = nonblock ? 0 : busy_loop_current_time();
++	unsigned long start_time = loop_end ? busy_loop_current_time() : 0;
+ 	int (*napi_poll)(struct napi_struct *napi, int budget);
+ 	void *have_poll_lock = NULL;
+ 	struct napi_struct *napi;
+-	unsigned int napi_id;
+ 	int work;
  
- #define SO_MEMINFO		55
+ restart:
+-	napi_id = READ_ONCE(sk->sk_napi_id);
+-	if (napi_id < MIN_NAPI_ID)
+-		return;
+-
+ 	work = 0;
+ 	napi_poll = NULL;
  
-+#define SO_INCOMING_NAPI_ID	56
-+
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index 459c46076f6f..e98b6bb897c0 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -94,4 +94,6 @@
+@@ -5107,12 +5104,11 @@ void sk_busy_loop(struct sock *sk, int nonblock)
+ 		trace_napi_poll(napi, work, BUSY_POLL_BUDGET);
+ count:
+ 		if (work > 0)
+-			__NET_ADD_STATS(sock_net(sk),
++			__NET_ADD_STATS(dev_net(napi->dev),
+ 					LINUX_MIB_BUSYPOLLRXPACKETS, work);
+ 		local_bh_enable();
  
- #define SO_MEMINFO		55
+-		if (nonblock || !skb_queue_empty(&sk->sk_receive_queue) ||
+-		    sk_busy_loop_timeout(sk, start_time))
++		if (!loop_end || loop_end(loop_end_arg, start_time))
+ 			break;
  
-+#define SO_INCOMING_NAPI_ID	56
-+
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index 688c18dd62ef..ae2b62e39d4d 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -112,5 +112,6 @@
+ 		if (unlikely(need_resched())) {
+@@ -5121,8 +5117,7 @@ void sk_busy_loop(struct sock *sk, int nonblock)
+ 			preempt_enable();
+ 			rcu_read_unlock();
+ 			cond_resched();
+-			if (!skb_queue_empty(&sk->sk_receive_queue) ||
+-			    sk_busy_loop_timeout(sk, start_time))
++			if (loop_end(loop_end_arg, start_time))
+ 				return;
+ 			goto restart;
+ 		}
+@@ -5134,7 +5129,7 @@ void sk_busy_loop(struct sock *sk, int nonblock)
+ out:
+ 	rcu_read_unlock();
+ }
+-EXPORT_SYMBOL(sk_busy_loop);
++EXPORT_SYMBOL(napi_busy_loop);
  
- #define SO_MEMINFO		55
+ #endif /* CONFIG_NET_RX_BUSY_POLL */
  
-+#define SO_INCOMING_NAPI_ID	56
- 
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index 312d2c457a04..e4ac1843ee01 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -94,4 +94,6 @@
- 
- #define SO_MEMINFO		55
- 
-+#define SO_INCOMING_NAPI_ID	56
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index b98ec38f2083..f754c793e82a 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -93,4 +93,6 @@
- 
- #define SO_MEMINFO		0x4030
- 
-+#define SO_INCOMING_NAPI_ID	0x4031
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index 099a889240f6..5f84af7dcb2e 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -101,4 +101,6 @@
- 
- #define SO_MEMINFO		55
- 
-+#define SO_INCOMING_NAPI_ID	56
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index 6199bb34f7fa..25ac4960e707 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -100,4 +100,6 @@
- 
- #define	SO_MEMINFO		55
- 
-+#define SO_INCOMING_NAPI_ID	56
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index 12cd8c2ec422..b05513acd589 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -90,6 +90,8 @@
- 
- #define SO_MEMINFO		0x0039
- 
-+#define SO_INCOMING_NAPI_ID	0x003a
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index d0b85f6c1484..786606c81edd 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -105,4 +105,6 @@
- 
- #define SO_MEMINFO		55
- 
-+#define SO_INCOMING_NAPI_ID	56
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 8313702c1eae..c98a52fb572a 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -96,4 +96,6 @@
- 
- #define SO_MEMINFO		55
- 
-+#define SO_INCOMING_NAPI_ID	56
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
 diff --git a/net/core/sock.c b/net/core/sock.c
-index 0aa725cb3dd6..1de6c369ed86 100644
+index f8c0373a3a74..0aa725cb3dd6 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -1328,6 +1328,18 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+@@ -3231,3 +3231,14 @@ static int __init proto_init(void)
+ subsys_initcall(proto_init);
  
- 		goto lenout;
- 	}
+ #endif /* PROC_FS */
 +
 +#ifdef CONFIG_NET_RX_BUSY_POLL
-+	case SO_INCOMING_NAPI_ID:
-+		v.val = READ_ONCE(sk->sk_napi_id);
++bool sk_busy_loop_end(void *p, unsigned long start_time)
++{
++	struct sock *sk = p;
 +
-+		/* aggregate non-NAPI IDs down to 0 */
-+		if (v.val < MIN_NAPI_ID)
-+			v.val = 0;
-+
-+		break;
-+#endif
-+
- 	default:
- 		/* We implement the SO_SNDLOWAT etc to not be settable
- 		 * (1003.1g 7).
++	return !skb_queue_empty(&sk->sk_receive_queue) ||
++	       sk_busy_loop_timeout(sk, start_time);
++}
++EXPORT_SYMBOL(sk_busy_loop_end);
++#endif /* CONFIG_NET_RX_BUSY_POLL */
