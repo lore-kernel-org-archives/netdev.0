@@ -1,101 +1,48 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net 2/3] s390/qeth: no ETH header for outbound AF_IUCV
-Date: Thu, 23 Mar 2017 14:55:09 +0100
-Message-ID: <20170323135510.98972-3-ubraun@linux.vnet.ibm.com>
-References: <20170323135510.98972-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
-        ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:49646 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1755860AbdCWNzY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 09:55:24 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2NDrr9H145133
-        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 09:55:23 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 29bxj17rxy-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 09:55:22 -0400
-Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Thu, 23 Mar 2017 13:55:20 -0000
-In-Reply-To: <20170323135510.98972-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
+Subject: Re: [PATCH net-next v2 5/5] net-next: dsa: add dsa support for
+ Mediatek MT7530 switch
+Date: Thu, 23 Mar 2017 15:09:06 +0100
+Message-ID: <c9ffd691-b959-1e19-5bea-6386b816bac2@nbd.name>
+References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
+ <1490088910-19405-6-git-send-email-sean.wang@mediatek.com>
+ <20170323072233.GA10076@lunn.ch> <1490256416.14184.2.camel@mtkswgap22>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
+        matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490256416.14184.2.camel@mtkswgap22>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+On 2017-03-23 09:06, Sean Wang wrote:
+> Hi Andrew,
+> 
+> The purpose for the regmap table registered is to 
+> 
+> provide a way which helps us to look up a specific 
+> 
+> register on the switch through regmap-debugfs.
+> 
+> 
+> And not all ranges of register is defined
+> 
+> so I only include the meaningful ones in a sparse way 
+> 
+> for the table.
+I think in that case it might be nice to make regmap support optional in
+order to avoid pulling in bloat on platforms that don't need it.
 
-With AF_IUCV traffic, the skb passed to hard_start_xmit() has a 14 byte
-slot at skb->data, intended for an ETH header. qeth_l3_fill_af_iucv_hdr()
-fills this ETH header... and then immediately moves it to the
-skb's headroom, where it disappears and is never seen again.
+- Felix
 
-But it's still possible for us to return NETDEV_TX_BUSY after the skb has
-been modified. Since we didn't get a private copy of the skb, the next
-time the skb is delivered to hard_start_xmit() it no longer has the
-expected layout (we moved the ETH header to the headroom, so skb->data
-now starts at the IUCV_TRANS header). So when qeth_l3_fill_af_iucv_hdr()
-does another round of rebuilding, the resulting qeth header ends up
-all wrong. On transmission, the buffer is then rejected by
-the HiperSockets device with SBALF15 = x'04'.
-When this error is passed back to af_iucv as TX_NOTIFY_UNREACHABLE, it
-tears down the offending socket.
 
-As the ETH header for AF_IUCV serves no purpose, just align the code to
-what we do for IP traffic on L3 HiperSockets: keep the ETH header at
-skb->data, and pass down data_offset = ETH_HLEN to qeth_fill_buffer().
-When mapping the payload into the SBAL elements, the ETH header is then
-stripped off. This avoids the skb manipulations in
-qeth_l3_fill_af_iucv_hdr(), and any buffer re-entering hard_start_xmit()
-after NETDEV_TX_BUSY is now processed properly.
-
-Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_l3_main.c | 15 ++++-----------
- 1 file changed, 4 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index 72aa953..653f0fb 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -2609,17 +2609,13 @@ static void qeth_l3_fill_af_iucv_hdr(struct qeth_card *card,
- 	char daddr[16];
- 	struct af_iucv_trans_hdr *iucv_hdr;
- 
--	skb_pull(skb, 14);
--	card->dev->header_ops->create(skb, card->dev, 0,
--				      card->dev->dev_addr, card->dev->dev_addr,
--				      card->dev->addr_len);
--	skb_pull(skb, 14);
--	iucv_hdr = (struct af_iucv_trans_hdr *)skb->data;
- 	memset(hdr, 0, sizeof(struct qeth_hdr));
- 	hdr->hdr.l3.id = QETH_HEADER_TYPE_LAYER3;
- 	hdr->hdr.l3.ext_flags = 0;
--	hdr->hdr.l3.length = skb->len;
-+	hdr->hdr.l3.length = skb->len - ETH_HLEN;
- 	hdr->hdr.l3.flags = QETH_HDR_IPV6 | QETH_CAST_UNICAST;
-+
-+	iucv_hdr = (struct af_iucv_trans_hdr *) (skb->data + ETH_HLEN);
- 	memset(daddr, 0, sizeof(daddr));
- 	daddr[0] = 0xfe;
- 	daddr[1] = 0x80;
-@@ -2823,10 +2819,7 @@ static int qeth_l3_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if ((card->info.type == QETH_CARD_TYPE_IQD) &&
- 	    !skb_is_nonlinear(skb)) {
- 		new_skb = skb;
--		if (new_skb->protocol == ETH_P_AF_IUCV)
--			data_offset = 0;
--		else
--			data_offset = ETH_HLEN;
-+		data_offset = ETH_HLEN;
- 		hdr = kmem_cache_alloc(qeth_core_header_cache, GFP_ATOMIC);
- 		if (!hdr)
- 			goto tx_drop;
--- 
-2.8.4
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
