@@ -1,106 +1,147 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: [PATCH net-next v4 1/2] New kernel function to get IP overhead on
- a socket.
-Date: Wed, 22 Mar 2017 18:21:26 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1703221818330.4650@vera100.eng.brocade.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kleptog@svana.org, jchapman@katalix.com, davem@redhat.com,
-        nprachan@brocade.com, rshearma@brocade.com,
-        stephen@networkplumber.org, sdietric@brocade.com,
-        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
-        bhong@brocade.com, jblunck@brocade.com,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36710 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751738AbdCWBVi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 21:21:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: [PATCH] net: usbnet: support 64bit stats in qmi_wwan driver
+Date: Thu, 23 Mar 2017 11:25:32 +1000
+Message-ID: <1490232332-19274-1-git-send-email-gerg@linux-m68k.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+To: bjorn-yOkvZcmFvRU@public.gmane.org, oneukum-IBi9RG/b67k@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Add support for the net stats64 counters to the usbnet core and then to
+the qmi_wwan driver.
 
-A new function, kernel_sock_ip_overhead(), is provided
-to calculate the cumulative overhead imposed by the IP
-Header and IP options, if any, on a socket's payload.
-The new function returns an overhead of zero for sockets
-that do not belong to the IPv4 or IPv6 address families.
-This is used in the L2TP code path to compute the
-total outer IP overhead on the L2TP tunnel socket when
-calculating the default MTU for Ethernet pseudowires.
+This is a strait forward addition of 64bit counters for RX and TX packets
+and byte counts. It is done in the same style as for the other net drivers
+that support stats64.
 
-Signed-off-by: R. Parameswaran <rparames@brocade.com>
+The bulk of the change is to the usbnet core. Then it is trivial to use
+that in the qmi_wwan.c driver. It would be very simple to extend this
+support to other usbnet based drivers.
+
+The motivation to add this is that it is not particularly difficult to
+get the RX and TX byte counts to wrap on 32bit platforms.
+
+Signed-off-by: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
 ---
- include/linux/net.h |  3 +++
- net/socket.c        | 44 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 47 insertions(+)
+ drivers/net/usb/qmi_wwan.c |  1 +
+ drivers/net/usb/usbnet.c   | 27 +++++++++++++++++++++++++++
+ include/linux/usb/usbnet.h | 12 ++++++++++++
+ 3 files changed, 40 insertions(+)
 
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 0620f5e..a42fab2 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -298,6 +298,9 @@ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
- int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
- int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how);
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 503a9f0..eb09e79 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -328,6 +328,7 @@ static int qmi_wwan_mac_addr(struct net_device *dev, void *p)
+ 	.ndo_change_mtu		= usbnet_change_mtu,
+ 	.ndo_set_mac_address	= qmi_wwan_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_get_stats64	= usbnet_get_stats64,
+ };
  
-+/* Following routine returns the IP overhead imposed by a socket.  */
-+u32 kernel_sock_ip_overhead(struct sock *sk);
+ /* using a counter to merge subdriver requests with our own into a
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 3de65ea..5dc0f15 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -330,6 +330,11 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
+ 	dev->net->stats.rx_packets++;
+ 	dev->net->stats.rx_bytes += skb->len;
+ 
++	u64_stats_update_begin(&dev->stats.syncp);
++	dev->stats.rx_packets++;
++	dev->stats.rx_bytes += skb->len;
++	u64_stats_update_end(&dev->stats.syncp);
 +
- #define MODULE_ALIAS_NETPROTO(proto) \
- 	MODULE_ALIAS("net-pf-" __stringify(proto))
- 
-diff --git a/net/socket.c b/net/socket.c
-index e034fe4..69598e1 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -3345,3 +3345,47 @@ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
- 	return sock->ops->shutdown(sock, how);
+ 	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
+ 		  skb->len + sizeof (struct ethhdr), skb->protocol);
+ 	memset (skb->cb, 0, sizeof (struct skb_data));
+@@ -980,6 +985,22 @@ int usbnet_set_settings (struct net_device *net, struct ethtool_cmd *cmd)
  }
- EXPORT_SYMBOL(kernel_sock_shutdown);
-+
-+/* This routine returns the IP overhead imposed by a socket i.e.
-+ * the length of the underlying IP header, depending on whether
-+ * this is an IPv4 or IPv6 socket and the length from IP options turned
-+ * on at the socket.
-+ */
-+u32 kernel_sock_ip_overhead(struct sock *sk)
+ EXPORT_SYMBOL_GPL(usbnet_set_settings);
+ 
++void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
 +{
-+	struct inet_sock *inet;
-+	struct ipv6_pinfo *np;
-+	struct ip_options_rcu *opt;
-+	struct ipv6_txoptions *optv6 = NULL;
-+	u32 overhead = 0;
-+	bool owned_by_user;
++	struct usbnet *dev = netdev_priv(net);
++	unsigned int start;
 +
-+	if (!sk)
-+		return overhead;
++	netdev_stats_to_stats64(stats, &net->stats);
 +
-+	owned_by_user = sock_owned_by_user(sk);
-+	switch (sk->sk_family) {
-+	case AF_INET:
-+		inet = inet_sk(sk);
-+		overhead += sizeof(struct iphdr);
-+		opt = rcu_dereference_protected(inet->inet_opt,
-+						owned_by_user);
-+		if (opt)
-+			overhead += opt->opt.optlen;
-+		return overhead;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	case AF_INET6:
-+		np = inet6_sk(sk);
-+		overhead += sizeof(struct ipv6hdr);
-+		if (np)
-+			optv6 = rcu_dereference_protected(np->opt,
-+							  owned_by_user);
-+		if (optv6)
-+			overhead += (optv6->opt_flen + optv6->opt_nflen);
-+		return overhead;
-+#endif /* IS_ENABLED(CONFIG_IPV6) */
-+	default: /* Returns 0 overhead if the socket is not ipv4 or ipv6 */
-+		return overhead;
-+	}
++	do {
++		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
++		stats->rx_packets = dev->stats.rx_packets;
++		stats->rx_bytes = dev->stats.rx_bytes;
++		stats->tx_packets = dev->stats.tx_packets;
++		stats->tx_bytes = dev->stats.tx_bytes;
++	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
 +}
-+EXPORT_SYMBOL(kernel_sock_ip_overhead);
++
+ u32 usbnet_get_link (struct net_device *net)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+@@ -1213,6 +1234,11 @@ static void tx_complete (struct urb *urb)
+ 	if (urb->status == 0) {
+ 		dev->net->stats.tx_packets += entry->packets;
+ 		dev->net->stats.tx_bytes += entry->length;
++
++		u64_stats_update_begin(&dev->stats.syncp);
++		dev->stats.tx_packets += entry->packets;
++		dev->stats.tx_bytes += entry->length;
++		u64_stats_update_end(&dev->stats.syncp);
+ 	} else {
+ 		dev->net->stats.tx_errors++;
+ 
+@@ -1657,6 +1683,7 @@ void usbnet_disconnect (struct usb_interface *intf)
+ 	init_timer (&dev->delay);
+ 	mutex_init (&dev->phy_mutex);
+ 	mutex_init(&dev->interrupt_mutex);
++	u64_stats_init(&dev->stats.syncp);
+ 	dev->interrupt_count = 0;
+ 
+ 	dev->net = net;
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 6e0ce8c..f381dd8 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -22,6 +22,14 @@
+ #ifndef	__LINUX_USB_USBNET_H
+ #define	__LINUX_USB_USBNET_H
+ 
++struct usbnet_stats64 {
++	struct u64_stats_sync	syncp;
++	u64			rx_packets;
++	u64			rx_bytes;
++	u64			tx_packets;
++	u64			tx_bytes;
++};
++
+ /* interface from usbnet core to each USB networking link we handle */
+ struct usbnet {
+ 	/* housekeeping */
+@@ -64,6 +72,8 @@ struct usbnet {
+ 	struct usb_anchor	deferred;
+ 	struct tasklet_struct	bh;
+ 
++	struct usbnet_stats64	stats;
++
+ 	struct work_struct	kevent;
+ 	unsigned long		flags;
+ #		define EVENT_TX_HALT	0
+@@ -265,6 +275,8 @@ extern int usbnet_get_settings(struct net_device *net,
+ 			       struct ethtool_cmd *cmd);
+ extern int usbnet_set_settings(struct net_device *net,
+ 			       struct ethtool_cmd *cmd);
++extern void usbnet_get_stats64(struct net_device *dev,
++			       struct rtnl_link_stats64 *stats);
+ extern u32 usbnet_get_link(struct net_device *net);
+ extern u32 usbnet_get_msglevel(struct net_device *);
+ extern void usbnet_set_msglevel(struct net_device *, u32);
 -- 
-2.1.4
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
