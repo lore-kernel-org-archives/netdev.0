@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: handle state correctly in phy_stop_machine
-Date: Thu, 23 Mar 2017 14:25:35 -0700 (PDT)
-Message-ID: <20170323.142535.1891859018491163013.davem@davemloft.net>
-References: <1490214421-7269-1-git-send-email-zach.brown@ni.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2 1/2] gtp: rename SGSN netlink attribute
+Date: Thu, 23 Mar 2017 22:28:47 +0100
+Message-ID: <20170323212847.GB1309@salvia>
+References: <20170203091231.10142-1-jonas@southpole.se>
+ <20170321150430.23314-1-jonas@southpole.se>
+ <20170323.141622.745302655159056947.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: zach.brown@ni.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490214421-7269-1-git-send-email-zach.brown@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jonas@southpole.se, laforge@gnumonks.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:39826 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751336AbdCWV24 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 23 Mar 2017 17:28:56 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 0586ACE762
+        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 22:28:53 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 82FB7DA865
+        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 22:28:54 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 6E0D4DA807
+        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 22:28:52 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20170323.141622.745302655159056947.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zach Brown <zach.brown@ni.com>
-Date: Wed, 22 Mar 2017 15:27:01 -0500
+On Thu, Mar 23, 2017 at 02:16:22PM -0700, David Miller wrote:
+> Can I get a review of these two patches from some GTP experts?
 
-> From: Nathan Sullivan <nathan.sullivan@ni.com>
-> 
-> If the PHY is halted on stop, then do not set the state to PHY_UP.  This
-> ensures the phy will be restarted later in phy_start when the machine is
-> started again.
-> 
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
-> Signed-off-by: Brad Mouring <brad.mouring@ni.com>
-> Acked-by: Xander Huff <xander.huff@ni.com>
-> Acked-by: Kyle Roeschley <kyle.roeschley@ni.com>
+I asked Jonas to resend indicating [PATCH net-next] in the subject and
+some minor comestic change.
 
-Florian, please review.
+Apart from patches look good so Jonas, you can add this in your follow
+up version.
+
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
