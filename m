@@ -1,94 +1,73 @@
-From: Maxime Morin <maxime.morin@vitec.com>
-Subject: Re: Problem: net: mvneta: auto-negotiation with disconnected network
- cable
-Date: Thu, 23 Mar 2017 11:30:04 +0000
-Message-ID: <AM4PR0501MB270859E18A4D7F73F297AF64943F0@AM4PR0501MB2708.eurprd05.prod.outlook.com>
-References: <DB6PR0501MB2712340C8CDC37F3038766AD943C0@DB6PR0501MB2712.eurprd05.prod.outlook.com>,<c5e143f0-f6b4-ff74-4239-e64ca025821b@list.ru>
+From: Greg Ungerer <gerg@linux-m68k.org>
+Subject: Re: [PATCH] net: usbnet: support 64bit stats in qmi_wwan driver
+Date: Thu, 23 Mar 2017 21:43:00 +1000
+Message-ID: <a2b53c79-2700-05a2-b090-a61fdb3da2b2@linux-m68k.org>
+References: <1490232332-19274-1-git-send-email-gerg@linux-m68k.org>
+ <87zigcz92k.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "thomas.petazzoni@free-electrons.com"
-        <thomas.petazzoni@free-electrons.com>
-To: Stas Sergeev <stsp@list.ru>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: oneukum@suse.com, netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10052.outbound.protection.outlook.com ([40.107.1.52]:9282
-        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753871AbdCWLbD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Mar 2017 07:31:03 -0400
-In-Reply-To: <c5e143f0-f6b4-ff74-4239-e64ca025821b@list.ru>
-Content-Language: en-GB
+Received: from icp-osb-irony-out1.external.iinet.net.au ([203.59.1.210]:64988
+        "EHLO icp-osb-irony-out1.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751660AbdCWLnE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 07:43:04 -0400
+In-Reply-To: <87zigcz92k.fsf@miraculix.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-Thank you very much for your help and your reactivity! See my answer bellow=
-:
+Hi Bjorn,
 
-> 22.03.2017 16:23, Maxime Morin =D0=C9=DB=C5=D4:
-> > Hi all,
-> >
-> > I work on an embedded platform based on the Marvell Armada 88F6707, tha=
-t is connected to a Marvell Alaska 88E1512 ethernet transceiver. A defect h=
-as appeared recently, and it turns out to be a regression on the network pa=
-rt. There is a complete lost of the network when following these steps:
-> >      1) boot the board with the network cable disconnected
-> >      2) run the following commands (or equivalent):
-> >          ip link set eth0 up
-> >          ip addr add 10.0.0.80/24 dev eth0
-> >          ethtool -s eth0 autoneg on #this is the command that really br=
-eaks the network
-> Why do you call it a regression, if previously
-> this command did nothing at all?
+On 23/03/17 18:33, Bjørn Mork wrote:
+> Greg Ungerer <gerg@linux-m68k.org> writes:
+>
+>> Add support for the net stats64 counters to the usbnet core and then to
+>> the qmi_wwan driver.
+>>
+>> This is a strait forward addition of 64bit counters for RX and TX packets
+>> and byte counts. It is done in the same style as for the other net drivers
+>> that support stats64.
+>>
+>> The bulk of the change is to the usbnet core. Then it is trivial to use
+>> that in the qmi_wwan.c driver. It would be very simple to extend this
+>> support to other usbnet based drivers.
+>>
+>> The motivation to add this is that it is not particularly difficult to
+>> get the RX and TX byte counts to wrap on 32bit platforms.
+>
+> You must have a higher quota than me :)
 
-I called that a regression because we still pass through the function phy_e=
-thtool_sset(), which I though was also doing something about the auto-negot=
-iation. But apparently not.
+Well, not me personally :-)
 
->=20
-> >      3) plug the network cable
-> >          =3D> there is no network, and no way to have it back except by=
- rebooting
-> > If I do not launch the "ethtool" command, when I plug the network cable=
- it works, so it really seems to be related to the auto-negotiation set to =
-"on" when the network cable has never been > connected.
-> So if you do that with the cable plugged it, there
-> is no breakage?
-> When you do "ethtool -s eth0 autoneg off" it doesn't
-> revive?
 
-Unfortunately no, it does not. I tried many things with ethtool, but it nev=
-er gets back.
+> But the patch does not apply to current net-next du to a conflict with
+> the ethtool_{get|set}_link_ksettings changes.
 
-> > I did a "git bisect" to find when the regression was introduced, becaus=
-e it previously worked with kernel 4.4, but not with the recent ones. The c=
-ommit that made appear the issue is this one: https://git.kernel.org/pub/sc=
-m/linux/kernel/git/torvalds/linux.git/commit/?id=3D0c0744fc1dd5b
-> > If I remove on mvneta.c the part that was added on this commit on the f=
-unction mvneta_ethtool_set_link_ksettings (mvneta_ethtool_set_settings at t=
-hat time), I do not have the issue, but I can't call that a fix...
-> > So, could it be a driver issue, or maybe a wrong configuration somewher=
-e? If you need additional information to reproduce the problem please ask m=
-e, I will be as responsive as possible.
-> It seems mvneta_set_autoneg() does some non-symmetric
-> things. It clears
-> MVNETA_GMAC_FORCE_LINK_PASS |
-> MVNETA_GMAC_FORCE_LINK_DOWN |
-> MVNETA_GMAC_AN_FLOW_CTRL_EN
-> when enabling autoneg, and does not restore these flags
-> when disabling it. Try to make it to set or to restore these
-> flags and see if that makes "ethtool -s eth0 autoneg off" to
-> get the network back alive> .
+Ok, will respin against net-next. I generated this against 4.11-rc2.
 
-As you suggested, I just set these three flags when the function is called =
-with "enable" set to 0. And it works!
-Actually, I did not even have to set autoneg to off. When the module is pro=
-bed, the default param are applied (mvneta_defaults_set()), and mvneta_set_=
-autoneg() is called with "enable" to 0, and it seems to fix everything. I t=
-ested it then, by setting autoneg to off/on, booting with or without the ca=
-ble plugged, and I failed to break it. It seems to be fixed. Should I submi=
-t a patch? (would be the first time...)
 
-Again, thanks a lot for your help.=
+>> +void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
+>> +{
+>> +	struct usbnet *dev = netdev_priv(net);
+>> +	unsigned int start;
+>> +
+>> +	netdev_stats_to_stats64(stats, &net->stats);
+>> +
+>> +	do {
+>> +		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
+>> +		stats->rx_packets = dev->stats.rx_packets;
+>> +		stats->rx_bytes = dev->stats.rx_bytes;
+>> +		stats->tx_packets = dev->stats.tx_packets;
+>> +		stats->tx_bytes = dev->stats.tx_bytes;
+>> +	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
+>> +}
+>> +
+>
+> And I believe EXPORT_SYMBOL is missing here?
+
+Yep, will fix that too. Thanks.
+
+Regards
+Greg
