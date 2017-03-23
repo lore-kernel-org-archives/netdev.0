@@ -1,28 +1,27 @@
 From: Greg Ungerer <gerg@linux-m68k.org>
 Subject: Re: [PATCH] net: usbnet: support 64bit stats in qmi_wwan driver
-Date: Thu, 23 Mar 2017 21:43:00 +1000
-Message-ID: <a2b53c79-2700-05a2-b090-a61fdb3da2b2@linux-m68k.org>
+Date: Thu, 23 Mar 2017 21:43:41 +1000
+Message-ID: <99ed5c61-d7d8-82ac-b026-ea4f8bda7dfc@linux-m68k.org>
 References: <1490232332-19274-1-git-send-email-gerg@linux-m68k.org>
- <87zigcz92k.fsf@miraculix.mork.no>
+ <1490258807.25543.0.camel@suse.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: oneukum@suse.com, netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>, bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from icp-osb-irony-out1.external.iinet.net.au ([203.59.1.210]:64988
+Received: from icp-osb-irony-out1.external.iinet.net.au ([203.59.1.210]:65087
         "EHLO icp-osb-irony-out1.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751660AbdCWLnE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 07:43:04 -0400
-In-Reply-To: <87zigcz92k.fsf@miraculix.mork.no>
+        by vger.kernel.org with ESMTP id S932829AbdCWLnp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 07:43:45 -0400
+In-Reply-To: <1490258807.25543.0.camel@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bjorn,
+Hi Oliver,
 
-On 23/03/17 18:33, Bjørn Mork wrote:
-> Greg Ungerer <gerg@linux-m68k.org> writes:
->
+On 23/03/17 18:46, Oliver Neukum wrote:
+> Am Donnerstag, den 23.03.2017, 11:25 +1000 schrieb Greg Ungerer:
 >> Add support for the net stats64 counters to the usbnet core and then to
 >> the qmi_wwan driver.
 >>
@@ -37,37 +36,12 @@ On 23/03/17 18:33, Bjørn Mork wrote:
 >> The motivation to add this is that it is not particularly difficult to
 >> get the RX and TX byte counts to wrap on 32bit platforms.
 >
-> You must have a higher quota than me :)
-
-Well, not me personally :-)
-
-
-> But the patch does not apply to current net-next du to a conflict with
-> the ethtool_{get|set}_link_ksettings changes.
-
-Ok, will respin against net-next. I generated this against 4.11-rc2.
-
-
->> +void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
->> +{
->> +	struct usbnet *dev = netdev_priv(net);
->> +	unsigned int start;
->> +
->> +	netdev_stats_to_stats64(stats, &net->stats);
->> +
->> +	do {
->> +		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
->> +		stats->rx_packets = dev->stats.rx_packets;
->> +		stats->rx_bytes = dev->stats.rx_bytes;
->> +		stats->tx_packets = dev->stats.tx_packets;
->> +		stats->tx_bytes = dev->stats.tx_bytes;
->> +	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
->> +}
->> +
+> Hi,
 >
-> And I believe EXPORT_SYMBOL is missing here?
+> you need to export the symbol usbnet_get_stats64
+> Other than that it looks good.
 
-Yep, will fix that too. Thanks.
+Thanks. I will respin a v2 with that fixed.
 
 Regards
 Greg
