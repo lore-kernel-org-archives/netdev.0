@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [net-next PATCH v2 7/8] epoll: Add busy poll support to epoll with
- socket fds.
-Date: Thu, 23 Mar 2017 14:37:55 -0700
-Message-ID: <20170323213755.12615.6599.stgit@localhost.localdomain>
+Subject: [net-next PATCH v2 8/8] net: Introduce SO_INCOMING_NAPI_ID
+Date: Thu, 23 Mar 2017 14:38:02 -0700
+Message-ID: <20170323213802.12615.58216.stgit@localhost.localdomain>
 References: <20170323211820.12615.88907.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,178 +9,210 @@ Content-Transfer-Encoding: 7bit
 Cc: sridhar.samudrala@intel.com, edumazet@google.com,
         davem@davemloft.net, linux-api@vger.kernel.org
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36713 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751410AbdCWVie (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 17:38:34 -0400
 In-Reply-To: <20170323211820.12615.88907.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Sridhar Samudrala <sridhar.samudrala@intel.com>
 
-This patch adds busy poll support to epoll. The implementation is meant to
-be opportunistic in that it will take the NAPI ID from the last socket
-that is added to the ready list that contains a valid NAPI ID and it will
-use that for busy polling until the ready list goes empty.  Once the ready
-list goes empty the NAPI ID is reset and busy polling is disabled until a
-new socket is added to the ready list.
+This socket option returns the NAPI ID associated with the queue on which
+the last frame is received. This information can be used by the apps to
+split the incoming flows among the threads based on the Rx queue on which
+they are received.
 
-In addition when we insert a new socket into the epoll we record the NAPI
-ID and assume we are going to receive events on it.  If that doesn't occur
-it will be evicted as the active NAPI ID and we will resume normal
-behavior.
-
-An application can use SO_INCOMING_CPU or SO_REUSEPORT_ATTACH_C/EBPF socket
-options to spread the incoming connections to specific worker threads
-based on the incoming queue. This enables epoll for each worker thread
-to have only sockets that receive packets from a single queue. So when an
-application calls epoll_wait() and there are no events available to report,
-busy polling is done on the associated queue to pull the packets.
+If the NAPI ID actually represents a sender_cpu then the value is ignored
+and 0 is returned.
 
 Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- fs/eventpoll.c |   93 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 93 insertions(+)
+ arch/alpha/include/uapi/asm/socket.h   |    2 ++
+ arch/avr32/include/uapi/asm/socket.h   |    2 ++
+ arch/frv/include/uapi/asm/socket.h     |    2 ++
+ arch/ia64/include/uapi/asm/socket.h    |    2 ++
+ arch/m32r/include/uapi/asm/socket.h    |    2 ++
+ arch/mips/include/uapi/asm/socket.h    |    1 +
+ arch/mn10300/include/uapi/asm/socket.h |    2 ++
+ arch/parisc/include/uapi/asm/socket.h  |    2 ++
+ arch/powerpc/include/uapi/asm/socket.h |    2 ++
+ arch/s390/include/uapi/asm/socket.h    |    2 ++
+ arch/sparc/include/uapi/asm/socket.h   |    2 ++
+ arch/xtensa/include/uapi/asm/socket.h  |    2 ++
+ include/uapi/asm-generic/socket.h      |    2 ++
+ net/core/sock.c                        |   12 ++++++++++++
+ 14 files changed, 37 insertions(+)
 
-diff --git a/fs/eventpoll.c b/fs/eventpoll.c
-index 341251421ced..5420767c9b68 100644
---- a/fs/eventpoll.c
-+++ b/fs/eventpoll.c
-@@ -42,6 +42,7 @@
- #include <linux/seq_file.h>
- #include <linux/compat.h>
- #include <linux/rculist.h>
-+#include <net/busy_poll.h>
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index 089db42c1b40..1bb8cac61a28 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -101,4 +101,6 @@
  
- /*
-  * LOCKING:
-@@ -224,6 +225,11 @@ struct eventpoll {
- 	/* used to optimize loop detection check */
- 	int visited;
- 	struct list_head visited_list_link;
-+
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	/* used to track busy poll napi_id */
-+	unsigned int napi_id;
-+#endif
- };
+ #define SO_MEMINFO		55
  
- /* Wait structure used by the poll hooks */
-@@ -384,6 +390,77 @@ static inline int ep_events_available(struct eventpoll *ep)
- 	return !list_empty(&ep->rdllist) || ep->ovflist != EP_UNACTIVE_PTR;
- }
++#define SO_INCOMING_NAPI_ID	56
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index 6eabcbd2f82a..f824eeb0f2e4 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -94,4 +94,6 @@
  
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static bool ep_busy_loop_end(void *p, unsigned long start_time)
-+{
-+	struct eventpoll *ep = p;
-+
-+	return ep_events_available(ep) || busy_loop_timeout(start_time);
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
-+/*
-+ * Busy poll if globally on and supporting sockets found && no events,
-+ * busy loop will return if need_resched or ep_events_available.
-+ *
-+ * we must do our busy polling with irqs enabled
-+ */
-+static void ep_busy_loop(struct eventpoll *ep, int nonblock)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	unsigned int napi_id = READ_ONCE(ep->napi_id);
-+
-+	if ((napi_id >= MIN_NAPI_ID) && net_busy_loop_on())
-+		napi_busy_loop(napi_id, nonblock ? NULL : ep_busy_loop_end, ep);
-+#endif
-+}
-+
-+static inline void ep_reset_busy_poll_napi_id(struct eventpoll *ep)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	if (ep->napi_id)
-+		ep->napi_id = 0;
-+#endif
-+}
-+
-+/*
-+ * Set epoll busy poll NAPI ID from sk.
-+ */
-+static inline void ep_set_busy_poll_napi_id(struct epitem *epi)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	struct eventpoll *ep;
-+	unsigned int napi_id;
-+	struct socket *sock;
-+	struct sock *sk;
-+	int err;
-+
-+	if (!net_busy_loop_on())
-+		return;
-+
-+	sock = sock_from_file(epi->ffd.file, &err);
-+	if (!sock)
-+		return;
-+
-+	sk = sock->sk;
-+	if (!sk)
-+		return;
-+
-+	napi_id = READ_ONCE(sk->sk_napi_id);
-+	ep = epi->ep;
-+
-+	/* Non-NAPI IDs can be rejected
-+	 *	or
-+	 * Nothing to do if we already have this ID
-+	 */
-+	if (napi_id < MIN_NAPI_ID || napi_id == ep->napi_id)
-+		return;
-+
-+	/* record NAPI ID for use in next busy poll */
-+	ep->napi_id = napi_id;
-+#endif
-+}
-+
- /**
-  * ep_call_nested - Perform a bound (possibly) nested call, by checking
-  *                  that the recursion limit is not exceeded, and that
-@@ -1022,6 +1099,8 @@ static int ep_poll_callback(wait_queue_t *wait, unsigned mode, int sync, void *k
+ #define SO_MEMINFO		55
  
- 	spin_lock_irqsave(&ep->lock, flags);
- 
-+	ep_set_busy_poll_napi_id(epi);
++#define SO_INCOMING_NAPI_ID	56
 +
- 	/*
- 	 * If the event mask does not contain any poll(2) event, we consider the
- 	 * descriptor to be disabled. This condition is likely the effect of the
-@@ -1363,6 +1442,9 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
- 	/* We have to drop the new item inside our item list to keep track of it */
- 	spin_lock_irqsave(&ep->lock, flags);
+ #endif /* _UAPI__ASM_AVR32_SOCKET_H */
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index bd497f8356b9..a8ad9bebfc47 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -94,5 +94,7 @@
  
-+	/* record NAPI ID of new item if present */
-+	ep_set_busy_poll_napi_id(epi);
+ #define SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
 +
- 	/* If the file is already "ready" we drop it inside the ready list */
- 	if ((revents & event->events) && !ep_is_linked(&epi->rdllink)) {
- 		list_add_tail(&epi->rdllink, &ep->rdllist);
-@@ -1637,10 +1719,21 @@ static int ep_poll(struct eventpoll *ep, struct epoll_event __user *events,
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index f1bb54686168..6af3253e4209 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -103,4 +103,6 @@
+ 
+ #define SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index 459c46076f6f..e98b6bb897c0 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -94,4 +94,6 @@
+ 
+ #define SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index 688c18dd62ef..ae2b62e39d4d 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -112,5 +112,6 @@
+ 
+ #define SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
+ 
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index 312d2c457a04..e4ac1843ee01 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -94,4 +94,6 @@
+ 
+ #define SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index b98ec38f2083..f754c793e82a 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -93,4 +93,6 @@
+ 
+ #define SO_MEMINFO		0x4030
+ 
++#define SO_INCOMING_NAPI_ID	0x4031
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index 099a889240f6..5f84af7dcb2e 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -101,4 +101,6 @@
+ 
+ #define SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index 6199bb34f7fa..25ac4960e707 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -100,4 +100,6 @@
+ 
+ #define	SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index 12cd8c2ec422..b05513acd589 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -90,6 +90,8 @@
+ 
+ #define SO_MEMINFO		0x0039
+ 
++#define SO_INCOMING_NAPI_ID	0x003a
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index d0b85f6c1484..786606c81edd 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -105,4 +105,6 @@
+ 
+ #define SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 8313702c1eae..c98a52fb572a 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -96,4 +96,6 @@
+ 
+ #define SO_MEMINFO		55
+ 
++#define SO_INCOMING_NAPI_ID	56
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 0aa725cb3dd6..1de6c369ed86 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1328,6 +1328,18 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 		goto lenout;
  	}
- 
- fetch_events:
 +
-+	if (!ep_events_available(ep))
-+		ep_busy_loop(ep, timed_out);
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	case SO_INCOMING_NAPI_ID:
++		v.val = READ_ONCE(sk->sk_napi_id);
 +
- 	spin_lock_irqsave(&ep->lock, flags);
- 
- 	if (!ep_events_available(ep)) {
- 		/*
-+		 * Busy poll timed out.  Drop NAPI ID for now, we can add
-+		 * it back in when we have moved a socket with a valid NAPI
-+		 * ID onto the ready list.
-+		 */
-+		ep_reset_busy_poll_napi_id(ep);
++		/* aggregate non-NAPI IDs down to 0 */
++		if (v.val < MIN_NAPI_ID)
++			v.val = 0;
 +
-+		/*
- 		 * We don't have any available event to return to the caller.
- 		 * We need to sleep here, and we will be wake up by
- 		 * ep_poll_callback() when events will become available.
++		break;
++#endif
++
+ 	default:
+ 		/* We implement the SO_SNDLOWAT etc to not be settable
+ 		 * (1003.1g 7).
