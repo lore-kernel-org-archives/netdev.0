@@ -1,48 +1,33 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 1/2] net: phy: Fix PHY AN done state machine for
- interrupt driven PHYs
-Date: Thu, 23 Mar 2017 12:52:10 +0300
-Message-ID: <fb34f546-f7a7-f09a-b301-af3fdc1709c0@cogentembedded.com>
-References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
- <1490180524-28675-2-git-send-email-rogerq@ti.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: stmmac: Performance regression after commit aff3d9eff843 "net:
+ stmmac: enable multiple buffers"
+Date: Thu, 23 Mar 2017 11:08:28 +0100
+Message-ID: <20170323100828.GC16625@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, davem@davemloft.net, kyle.roeschley@ni.com,
-        nsekhar@ti.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "stable # v4 . 9+" <stable@vger.kernel.org>
-To: Roger Quadros <rogerq@ti.com>, f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490180524-28675-2-git-send-email-rogerq@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Joao.Pinto@synopsys.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f178.google.com ([209.85.128.178]:34261 "EHLO
+        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751538AbdCWKIf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 06:08:35 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Hello
 
-On 3/22/2017 2:02 PM, Roger Quadros wrote:
+Using next-20170323 produce a huge performance regression on my sunxi boards.
+On dwmac-sun8i, iperf goes from 94mbs/s to 37 when sending.
 
-> he ethernet link on an interrupt driven PHY was not coming up if the
+On cubieboard2(dwmac-sunxi), iperf made the kernel flood with "ndesc_get_rx_status: Oversized frame spanned multiple buffers"
+and network is lost after.
 
-    s/he/The/?
+Reverting aff3d9eff84399e433c4aca65a9bb236581bc082 fix the issue.
+I still try to found which part of this patch mades the performance lower.
 
-> ethernet cable was plugged before the ethernet interface was brought up.
-
-    Also, my spell checker trips on "ethernet", perhaps should be capitalized?
-
-> The PHY state machine seems to be stuck from RUNNING to AN state
-> with no new interrupts from the PHY. So it doesn't know when the
-> PHY Auto-negotiation has been completed and doesn't transition to RUNNING
-> state with ANEG done thus netif_carrier_on() is never called.
->
-> NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
-> advertisement parameters didn't change.
->
-> Fix this by scheduling the PHY state machine in phy_start_aneg().
->
-> Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
-> Cc: stable <stable@vger.kernel.org> # v4.9+
-> Signed-off-by: Roger Quadros <rogerq@ti.com>
-[...]
-
-MBR, Sergei
+Regards
+Corentin Labbe
