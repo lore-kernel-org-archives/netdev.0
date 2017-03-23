@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: dwmac-rk: Add handling for
- RGMII_ID/RXID/TXID
-Date: Wed, 22 Mar 2017 19:32:41 -0700 (PDT)
-Message-ID: <20170322.193241.552898718641680618.davem@davemloft.net>
-References: <1490197822-35428-1-git-send-email-w.egorov@phytec.de>
+Subject: Re: [PATCH net-next] liquidio: allocate RX buffers in OOM
+ conditions in PF and VF
+Date: Wed, 22 Mar 2017 19:37:26 -0700 (PDT)
+Message-ID: <20170322.193726.2099479598078112953.davem@davemloft.net>
+References: <20170322183113.GA1035@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-rockchip@lists.infradead.org
-To: w.egorov@phytec.de
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46972 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47076 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750955AbdCWCcn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 22:32:43 -0400
-In-Reply-To: <1490197822-35428-1-git-send-email-w.egorov@phytec.de>
+        with ESMTP id S1751308AbdCWCh2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 22:37:28 -0400
+In-Reply-To: <20170322183113.GA1035@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wadim Egorov <w.egorov@phytec.de>
-Date: Wed, 22 Mar 2017 16:50:22 +0100
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Wed, 22 Mar 2017 11:31:13 -0700
 
-> @@ -74,6 +74,10 @@ struct rk_priv_data {
->  #define GRF_BIT(nr)	(BIT(nr) | BIT(nr+16))
->  #define GRF_CLR_BIT(nr)	(BIT(nr+16))
->  
-> +#define DELAY_ENABLE(soc, tx, rx) \
-> +	((tx) ? soc##_GMAC_TXCLK_DLY_ENABLE : soc##_GMAC_TXCLK_DLY_DISABLE | \
-> +	 (rx) ? soc##_GMAC_RXCLK_DLY_ENABLE : soc##_GMAC_RXCLK_DLY_DISABLE)
+> From: Satanand Burla <satananda.burla@cavium.com>
+> 
+> Add workqueue that is periodically run to try to allocate RX buffers in OOM
+> conditions in PF and VF.
+> 
+> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
-This doesn't evaluate the way you want it to.
+Applied, but I'm really not so sure you want to poll these queue states
+4 times a second all the time.
 
-You need to put parenthesis around both "x ? a : b" expressions.
+Why don't you trigger the workqueue when you actually get an allocation
+failure?
