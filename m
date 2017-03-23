@@ -1,53 +1,116 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Wed, 22 Mar 2017 23:40:04 +0000
-Message-ID: <20170322234004.kffsce4owewgpqnm@techsingularity.net>
-References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
- <20170301144845.783f8cad@redhat.com>
- <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
- <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 23 Mar 2017 11:00:09 +1100
+Message-ID: <20170323110009.15847147@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Tariq Toukan <tariqt@mellanox.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Doug Berger <opendmb@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 22, 2017 at 07:39:17PM +0200, Tariq Toukan wrote:
-> > > > This modification may slow allocations from IRQ context slightly
-> > > > but the
-> > > > main gain from the per-cpu allocator is that it scales better for
-> > > > allocations from multiple contexts.  There is an implicit
-> > > > assumption that
-> > > > intensive allocations from IRQ contexts on multiple CPUs from a single
-> > > > NUMA node are rare
-> Hi Mel, Jesper, and all.
-> 
-> This assumption contradicts regular multi-stream traffic that is naturally
-> handled
-> over close numa cores.  I compared iperf TCP multistream (8 streams)
-> over CX4 (mlx5 driver) with kernels v4.10 (before this series) vs
-> kernel v4.11-rc1 (with this series).
-> I disabled the page-cache (recycle) mechanism to stress the page allocator,
-> and see a drastic degradation in BW, from 47.5 G in v4.10 to 31.4 G in
-> v4.11-rc1 (34% drop).
-> I noticed queued_spin_lock_slowpath occupies 62.87% of CPU time.
+Hi all,
 
-Can you get the stack trace for the spin lock slowpath to confirm it's
-from IRQ context?
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  drivers/net/ethernet/broadcom/genet/bcmmii.c
+
+between commit:
+
+  31739eae738c ("net: bcmgenet: remove bcmgenet_internal_phy_setup()")
+
+from the net tree and commit:
+
+  421380856d9c ("net: bcmgenet: add support for the GENETv5 hardware")
+
+from the net-next tree.
+
+I fixed it up (I just removed the bcmgenet_internal_phy_setup() function)
+and can carry the fix as necessary. This is now fixed as far as linux-next
+is concerned, but any non trivial conflicts should be mentioned to your
+upstream maintainer when your tree is submitted for merging.  You may
+also want to consider cooperating with the maintainer of the conflicting
+tree to minimise any particularly complex conflicts.
 
 -- 
-Mel Gorman
-SUSE Labs
+Cheers,
+Stephen Rothwell
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --cc drivers/net/ethernet/broadcom/genet/bcmmii.c
+index 2f9281936f0e,8df47c90cfc5..000000000000
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@@ -195,31 -195,49 +195,33 @@@ void bcmgenet_phy_power_set(struct net_
+  	u32 reg = 0;
+  
+  	/* EXT_GPHY_CTRL is only valid for GENETv4 and onward */
+- 	if (!GENET_IS_V4(priv))
+- 		return;
+- 
+- 	reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
+- 	if (enable) {
+- 		reg &= ~EXT_CK25_DIS;
+- 		bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
+- 		mdelay(1);
+- 
+- 		reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN);
+- 		reg |= EXT_GPHY_RESET;
++ 	if (GENET_IS_V4(priv)) {
++ 		reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
++ 		if (enable) {
++ 			reg &= ~EXT_CK25_DIS;
++ 			bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
++ 			mdelay(1);
++ 
++ 			reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN);
++ 			reg |= EXT_GPHY_RESET;
++ 			bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
++ 			mdelay(1);
++ 
++ 			reg &= ~EXT_GPHY_RESET;
++ 		} else {
++ 			reg |= EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN |
++ 			       EXT_GPHY_RESET;
++ 			bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
++ 			mdelay(1);
++ 			reg |= EXT_CK25_DIS;
++ 		}
+  		bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
+- 		mdelay(1);
+- 
+- 		reg &= ~EXT_GPHY_RESET;
++ 		udelay(60);
+  	} else {
+- 		reg |= EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN | EXT_GPHY_RESET;
+- 		bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
+  		mdelay(1);
+- 		reg |= EXT_CK25_DIS;
+  	}
+- 	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
+- 	udelay(60);
+  }
+  
+ -static void bcmgenet_internal_phy_setup(struct net_device *dev)
+ -{
+ -	struct bcmgenet_priv *priv = netdev_priv(dev);
+ -	u32 reg;
+ -
+ -	/* Power up PHY */
+ -	bcmgenet_phy_power_set(dev, true);
+ -	if (!GENET_IS_V5(priv)) {
+ -		/* enable APD */
+ -		reg = bcmgenet_ext_readl(priv, EXT_EXT_PWR_MGMT);
+ -		reg |= EXT_PWR_DN_EN_LD;
+ -		bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
+ -	}
+ -	bcmgenet_mii_reset(dev);
+ -}
+ -
+  static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
+  {
+  	u32 reg;
