@@ -1,7 +1,8 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH v3 net 0/5] net:ethernet:aquantia: Misc fixes for atlantic driver.
-Date: Thu, 23 Mar 2017 14:19:40 +0300
-Message-ID: <cover.1490267633.git.pavel.belous@aquantia.com>
+Subject: [PATCH v3 net 3/5] net:ethernet:aquantia: Missing spinlock initialization.
+Date: Thu, 23 Mar 2017 14:19:43 +0300
+Message-ID: <bf3a7df99a61de2d30717f731cca4ad2461125d1.1490267633.git.pavel.belous@aquantia.com>
+References: <cover.1490267633.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org,
@@ -10,37 +11,37 @@ Cc: netdev@vger.kernel.org,
         Pavel Belous <pavel.belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0079.outbound.protection.outlook.com ([104.47.37.79]:2176
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam01on0051.outbound.protection.outlook.com ([104.47.34.51]:11640
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754631AbdCWLUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Mar 2017 07:20:16 -0400
+        id S1754636AbdCWLU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 23 Mar 2017 07:20:26 -0400
+In-Reply-To: <cover.1490267633.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-The following patchset containg several fixes for aQuantia AQtion driver
-for net tree: A couple fixes for IPv6 and other fixes.
+Fix for missing initialization aq_ring header.lock spinlock.
 
-v1->v2: Fix compilation error (using HW_ATL_A0_TXD_CTL_CMD_IPV6 instead
-        HW_ATL_B0_TXD_CTL_CMD_IPV6).
-v2->v3: Added "Fixes" tags.
+Fixes: 018423e90bee ("net: ethernet: aquantia: Add ring support code")
 
-Pavel Belous (5):
-  net:ethernet:aquantia: Remove adapter re-opening when MTU changed.
-  net:ethernet:aquantia: Fix packet type detection (TCP/UDP) for IPv6.
-  net:ethernet:aquantia: Missing spinlock initialization.
-  net:ethernet:aquantia: Fix for LSO with IPv6.
-  net:ethernet:aquantia: Reset is_gso flag when EOP reached.
+Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 1 +
+ 1 file changed, 1 insertion(+)
 
- drivers/net/ethernet/aquantia/atlantic/aq_main.c   |  5 -----
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 23 ++++++++++++++++++----
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  1 +
- drivers/net/ethernet/aquantia/atlantic/aq_ring.h   |  3 ++-
- .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |  4 ++++
- .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |  4 ++++
- 6 files changed, 30 insertions(+), 10 deletions(-)
-
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+index 0358e607..3a8a4aa 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+@@ -101,6 +101,7 @@ int aq_ring_init(struct aq_ring_s *self)
+ 	self->hw_head = 0;
+ 	self->sw_head = 0;
+ 	self->sw_tail = 0;
++	spin_lock_init(&self->header.lock);
+ 	return 0;
+ }
+ 
 -- 
 2.7.4
