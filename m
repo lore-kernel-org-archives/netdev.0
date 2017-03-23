@@ -1,71 +1,147 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 6/6] qed: Reserve VF feature before PF
-Date: Thu, 23 Mar 2017 15:50:20 +0200
-Message-ID: <1490277020-31208-7-git-send-email-Yuval.Mintz@cavium.com>
-References: <1490277020-31208-1-git-send-email-Yuval.Mintz@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net 1/3] s390/qeth: size calculation outbound buffers
+Date: Thu, 23 Mar 2017 14:55:08 +0100
+Message-ID: <20170323135510.98972-2-ubraun@linux.vnet.ibm.com>
+References: <20170323135510.98972-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
+        ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:46985 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933668AbdCWNut (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 09:50:49 -0400
-In-Reply-To: <1490277020-31208-1-git-send-email-Yuval.Mintz@cavium.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:42364 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755863AbdCWNzY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 09:55:24 -0400
+Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v2NDrqL4026159
+        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 09:55:22 -0400
+Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 29c4yw7j7b-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 09:55:22 -0400
+Received: from localhost
+        by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Thu, 23 Mar 2017 13:55:17 -0000
+In-Reply-To: <20170323135510.98972-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Align the driver feature distribution with the flow utilized
-by the management firmware - first reserve L2 queues for
-VFs and use all the remaining for the PF.
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 
-The current distribution might lead to PFs with an enormous
-amount of queues, but at the same time leave us with insufficient
-resources for starting all VFs.
+Depending on the device type, hard_start_xmit() builds different output
+buffer formats. For instance with HiperSockets, on both L2 and L3 we
+strip the ETH header from the skb - L3 doesn't need it, and L2 carries
+it in the buffer's header element.
+For this, we pass data_offset = ETH_HLEN all the way down to
+__qeth_fill_buffer(), where skb->data is then adjusted accordingly.
+But the initial size calculation still considers the *full* skb length
+(including the ETH header). So qeth_get_elements_no() can erroneously
+reject a skb as too big, even though it would actually fit into an
+output buffer once the ETH header has been trimmed off later.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Fix this by passing an additional offset to qeth_get_elements_no(),
+that indicates where in the skb the on-wire data actually begins.
+Since the current code uses data_offset=-1 for some special handling
+on OSA, we need to clamp data_offset to 0...
+
+On HiperSockets this helps when sending ~MTU-size skbs with weird page
+alignment. No change for OSA or AF_IUCV.
+
+Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c | 27 ++++++++++++++++-----------
- 1 file changed, 16 insertions(+), 11 deletions(-)
+ drivers/s390/net/qeth_core.h      | 3 ++-
+ drivers/s390/net/qeth_core_main.c | 5 +++--
+ drivers/s390/net/qeth_l2_main.c   | 5 +++--
+ drivers/s390/net/qeth_l3_main.c   | 5 +++--
+ 4 files changed, 11 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 6bdac4f..11e45f0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1565,17 +1565,22 @@ static void qed_hw_set_feat(struct qed_hwfn *p_hwfn)
- 		non_l2_sbs = feat_num[QED_RDMA_CNQ];
+diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
+index e7addea..d9561e3 100644
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -961,7 +961,8 @@ int qeth_bridgeport_query_ports(struct qeth_card *card,
+ int qeth_bridgeport_setrole(struct qeth_card *card, enum qeth_sbp_roles role);
+ int qeth_bridgeport_an_set(struct qeth_card *card, int enable);
+ int qeth_get_priority_queue(struct qeth_card *, struct sk_buff *, int, int);
+-int qeth_get_elements_no(struct qeth_card *, struct sk_buff *, int);
++int qeth_get_elements_no(struct qeth_card *card, struct sk_buff *skb,
++			 int extra_elems, int data_offset);
+ int qeth_get_elements_for_frags(struct sk_buff *);
+ int qeth_do_send_packet_fast(struct qeth_card *, struct qeth_qdio_out_q *,
+ 			struct sk_buff *, struct qeth_hdr *, int, int, int);
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index 315d8a2..9a5f99c 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -3837,6 +3837,7 @@ EXPORT_SYMBOL_GPL(qeth_get_elements_for_frags);
+  * @card:			qeth card structure, to check max. elems.
+  * @skb:			SKB address
+  * @extra_elems:		extra elems needed, to check against max.
++ * @data_offset:		range starts at skb->data + data_offset
+  *
+  * Returns the number of pages, and thus QDIO buffer elements, needed to cover
+  * skb data, including linear part and fragments. Checks if the result plus
+@@ -3844,10 +3845,10 @@ EXPORT_SYMBOL_GPL(qeth_get_elements_for_frags);
+  * Note: extra_elems is not included in the returned result.
+  */
+ int qeth_get_elements_no(struct qeth_card *card,
+-		     struct sk_buff *skb, int extra_elems)
++		     struct sk_buff *skb, int extra_elems, int data_offset)
+ {
+ 	int elements = qeth_get_elements_for_range(
+-				(addr_t)skb->data,
++				(addr_t)skb->data + data_offset,
+ 				(addr_t)skb->data + skb_headlen(skb)) +
+ 			qeth_get_elements_for_frags(skb);
+ 
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index bea4833..af4e6a6 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -849,7 +849,7 @@ static int qeth_l2_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * chaining we can not send long frag lists
+ 	 */
+ 	if ((card->info.type != QETH_CARD_TYPE_IQD) &&
+-	    !qeth_get_elements_no(card, new_skb, 0)) {
++	    !qeth_get_elements_no(card, new_skb, 0, 0)) {
+ 		int lin_rc = skb_linearize(new_skb);
+ 
+ 		if (card->options.performance_stats) {
+@@ -894,7 +894,8 @@ static int qeth_l2_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
  	}
  
--	feat_num[QED_PF_L2_QUE] = min_t(u32,
--					RESC_NUM(p_hwfn, QED_SB) -
--					non_l2_sbs,
--					RESC_NUM(p_hwfn, QED_L2_QUEUE));
--
--	memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
--	qed_int_get_num_sbs(p_hwfn, &sb_cnt_info);
--	feat_num[QED_VF_L2_QUE] =
--	    min_t(u32,
--		  RESC_NUM(p_hwfn, QED_L2_QUEUE) -
--		  FEAT_NUM(p_hwfn, QED_PF_L2_QUE), sb_cnt_info.sb_iov_cnt);
-+	if (p_hwfn->hw_info.personality == QED_PCI_ETH_ROCE ||
-+	    p_hwfn->hw_info.personality == QED_PCI_ETH) {
-+		/* Start by allocating VF queues, then PF's */
-+		memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
-+		qed_int_get_num_sbs(p_hwfn, &sb_cnt_info);
-+		feat_num[QED_VF_L2_QUE] = min_t(u32,
-+						RESC_NUM(p_hwfn, QED_L2_QUEUE),
-+						sb_cnt_info.sb_iov_cnt);
-+		feat_num[QED_PF_L2_QUE] = min_t(u32,
-+						RESC_NUM(p_hwfn, QED_SB) -
-+						non_l2_sbs,
-+						RESC_NUM(p_hwfn,
-+							 QED_L2_QUEUE) -
-+						FEAT_NUM(p_hwfn,
-+							 QED_VF_L2_QUE));
-+	}
+-	elements = qeth_get_elements_no(card, new_skb, elements_needed);
++	elements = qeth_get_elements_no(card, new_skb, elements_needed,
++					(data_offset > 0) ? data_offset : 0);
+ 	if (!elements) {
+ 		if (data_offset >= 0)
+ 			kmem_cache_free(qeth_core_header_cache, hdr);
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 06d0add..72aa953 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -2867,7 +2867,7 @@ static int qeth_l3_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	if ((card->info.type != QETH_CARD_TYPE_IQD) &&
+ 	    ((use_tso && !qeth_l3_get_elements_no_tso(card, new_skb, 1)) ||
+-	     (!use_tso && !qeth_get_elements_no(card, new_skb, 0)))) {
++	     (!use_tso && !qeth_get_elements_no(card, new_skb, 0, 0)))) {
+ 		int lin_rc = skb_linearize(new_skb);
  
- 	DP_VERBOSE(p_hwfn,
- 		   NETIF_MSG_PROBE,
+ 		if (card->options.performance_stats) {
+@@ -2909,7 +2909,8 @@ static int qeth_l3_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	elements = use_tso ?
+ 		   qeth_l3_get_elements_no_tso(card, new_skb, hdr_elements) :
+-		   qeth_get_elements_no(card, new_skb, hdr_elements);
++		   qeth_get_elements_no(card, new_skb, hdr_elements,
++					(data_offset > 0) ? data_offset : 0);
+ 	if (!elements) {
+ 		if (data_offset >= 0)
+ 			kmem_cache_free(qeth_core_header_cache, hdr);
 -- 
-1.9.3
+2.8.4
