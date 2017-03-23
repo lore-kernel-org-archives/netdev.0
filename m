@@ -1,85 +1,48 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH net-next] sched: act_csum: don't mangle TCP and UDP GSO packets
-Date: Thu, 23 Mar 2017 10:39:40 +0100
-Message-ID: <4e8409b7761a7b545febde6d2fcce0cbe7d0e759.1490261581.git.dcaratti@redhat.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43524 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751123AbdCWJjr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Mar 2017 05:39:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 1/2] net: phy: Fix PHY AN done state machine for
+ interrupt driven PHYs
+Date: Thu, 23 Mar 2017 12:52:10 +0300
+Message-ID: <fb34f546-f7a7-f09a-b301-af3fdc1709c0@cogentembedded.com>
+References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
+ <1490180524-28675-2-git-send-email-rogerq@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, davem@davemloft.net, kyle.roeschley@ni.com,
+        nsekhar@ti.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "stable # v4 . 9+" <stable@vger.kernel.org>
+To: Roger Quadros <rogerq@ti.com>, f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490180524-28675-2-git-send-email-rogerq@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-after act_csum computes the checksum on skbs carrying GSO TCP/UDP packets,
-subsequent segmentation fails because skb_needs_check(skb, true) returns
-true. Because of that, skb_warn_bad_offload() is invoked and the following
-message is displayed:
+Hello!
 
-WARNING: CPU: 3 PID: 28 at net/core/dev.c:2553 skb_warn_bad_offload+0xf0/0xfd
-<...>
+On 3/22/2017 2:02 PM, Roger Quadros wrote:
 
-  [<ffffffff8171f486>] skb_warn_bad_offload+0xf0/0xfd
-  [<ffffffff8161304c>] __skb_gso_segment+0xec/0x110
-  [<ffffffff8161340d>] validate_xmit_skb+0x12d/0x2b0
-  [<ffffffff816135d2>] validate_xmit_skb_list+0x42/0x70
-  [<ffffffff8163c560>] sch_direct_xmit+0xd0/0x1b0
-  [<ffffffff8163c760>] __qdisc_run+0x120/0x270
-  [<ffffffff81613b3d>] __dev_queue_xmit+0x23d/0x690
-  [<ffffffff81613fa0>] dev_queue_xmit+0x10/0x20
+> he ethernet link on an interrupt driven PHY was not coming up if the
 
-Since GSO is able to compute checksum on individual segments of such skbs,
-we can simply skip mangling the packet.
+    s/he/The/?
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
- net/sched/act_csum.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+> ethernet cable was plugged before the ethernet interface was brought up.
 
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index e978ccd4..6c319a4 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -181,6 +181,9 @@ static int tcf_csum_ipv4_tcp(struct sk_buff *skb, unsigned int ihl,
- 	struct tcphdr *tcph;
- 	const struct iphdr *iph;
- 
-+	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
-+		return 1;
-+
- 	tcph = tcf_csum_skb_nextlayer(skb, ihl, ipl, sizeof(*tcph));
- 	if (tcph == NULL)
- 		return 0;
-@@ -202,6 +205,9 @@ static int tcf_csum_ipv6_tcp(struct sk_buff *skb, unsigned int ihl,
- 	struct tcphdr *tcph;
- 	const struct ipv6hdr *ip6h;
- 
-+	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-+		return 1;
-+
- 	tcph = tcf_csum_skb_nextlayer(skb, ihl, ipl, sizeof(*tcph));
- 	if (tcph == NULL)
- 		return 0;
-@@ -225,6 +231,9 @@ static int tcf_csum_ipv4_udp(struct sk_buff *skb, unsigned int ihl,
- 	const struct iphdr *iph;
- 	u16 ul;
- 
-+	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
-+		return 1;
-+
- 	/*
- 	 * Support both UDP and UDPLITE checksum algorithms, Don't use
- 	 * udph->len to get the real length without any protocol check,
-@@ -278,6 +287,9 @@ static int tcf_csum_ipv6_udp(struct sk_buff *skb, unsigned int ihl,
- 	const struct ipv6hdr *ip6h;
- 	u16 ul;
- 
-+	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
-+		return 1;
-+
- 	/*
- 	 * Support both UDP and UDPLITE checksum algorithms, Don't use
- 	 * udph->len to get the real length without any protocol check,
--- 
-2.7.4
+    Also, my spell checker trips on "ethernet", perhaps should be capitalized?
+
+> The PHY state machine seems to be stuck from RUNNING to AN state
+> with no new interrupts from the PHY. So it doesn't know when the
+> PHY Auto-negotiation has been completed and doesn't transition to RUNNING
+> state with ANEG done thus netif_carrier_on() is never called.
+>
+> NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
+> advertisement parameters didn't change.
+>
+> Fix this by scheduling the PHY state machine in phy_start_aneg().
+>
+> Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
+> Cc: stable <stable@vger.kernel.org> # v4.9+
+> Signed-off-by: Roger Quadros <rogerq@ti.com>
+[...]
+
+MBR, Sergei
