@@ -1,91 +1,48 @@
-From: Daniel Lezcano <daniel.lezcano@linaro.org>
-Subject: Re: [PATCH V8 1/3] irq: Add flags to request_percpu_irq function
-Date: Thu, 23 Mar 2017 20:19:53 +0100
-Message-ID: <20170323191953.GC24630@mai>
-References: <1490290924-12958-1-git-send-email-daniel.lezcano@linaro.org>
- <20170323185449.GA21359@leverpostej>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: netlink: NULL timer crash
+Date: Thu, 23 Mar 2017 12:32:28 -0700
+Message-ID: <1490297548.9687.0.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+Yb9BvzcRT84EriUCqx6hnz_kciYNHjHNX56y1jDb70vw@mail.gmail.com>
+         <CANn89i+_+da3PBYjk-KwcUpa6qr0MdqVXOmrsQUM7_VzgBurnA@mail.gmail.com>
+         <1490284858.16816.205.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170323.120035.1924712018254677829.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: nicolas.pitre@linaro.org, linux-samsung-soc@vger.kernel.org,
- vincent.guittot@linaro.org, kernel@stlinux.com, kvm@vger.kernel.org,
- rafael@kernel.org, peterz@infradead.org, netdev@vger.kernel.org,
- will.deacon@arm.com, linux-kernel@vger.kernel.org, marc.zyngier@arm.com,
- xen-devel@lists.xenproject.org, tglx@linutronix.de,
- linux-snps-arc@lists.infradead.org, kvmarm@lists.cs.columbia.edu,
- linux-arm-kernel@lists.infradead.org
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <kvmarm-bounces@lists.cs.columbia.edu>
-Content-Disposition: inline
-In-Reply-To: <20170323185449.GA21359@leverpostej>
-List-Unsubscribe: <https://lists.cs.columbia.edu/mailman/options/kvmarm>,
- <mailto:kvmarm-request@lists.cs.columbia.edu?subject=unsubscribe>
-List-Archive: <https://lists.cs.columbia.edu/pipermail/kvmarm>
-List-Post: <mailto:kvmarm@lists.cs.columbia.edu>
-List-Help: <mailto:kvmarm-request@lists.cs.columbia.edu?subject=help>
-List-Subscribe: <https://lists.cs.columbia.edu/mailman/listinfo/kvmarm>,
- <mailto:kvmarm-request@lists.cs.columbia.edu?subject=subscribe>
-Errors-To: kvmarm-bounces@lists.cs.columbia.edu
-Sender: kvmarm-bounces@lists.cs.columbia.edu
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, dvyukov@google.com, xiyou.wangcong@gmail.com,
+        herbert@gondor.apana.org.au, ast@kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        syzkaller@googlegroups.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170323.120035.1924712018254677829.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgTWFyaywKCk9uIFRodSwgTWFyIDIzLCAyMDE3IGF0IDA2OjU0OjUyUE0gKzAwMDAsIE1hcmsg
-UnV0bGFuZCB3cm90ZToKPiBIaSBEYW5pZWwsCj4gCj4gT24gVGh1LCBNYXIgMjMsIDIwMTcgYXQg
-MDY6NDI6MDFQTSArMDEwMCwgRGFuaWVsIExlemNhbm8gd3JvdGU6Cj4gPiBJbiB0aGUgbmV4dCBj
-aGFuZ2VzLCB3ZSB0cmFjayB0aGUgaW50ZXJydXB0cyBidXQgd2UgZGlzY2FyZCB0aGUgdGltZXJz
-IGFzCj4gPiB0aGF0IGRvZXMgbm90IG1ha2Ugc2Vuc2UuIFRoZSBuZXh0IGludGVycnVwdCBvbiBh
-IHRpbWVyIGlzIHByZWRpY3RhYmxlLgo+IAo+IFNvcnJ5LCBidXQgSSBjb3VsZCBub3QgcGFyc2Ug
-dGhpcy4gCgpJIG1lYW50IHdlIGFyZSBtZWFzdXJpbmcgd2hlbiBhcmUgaGFwcGVuaW5nIHRoZSBp
-bnRlcnJ1cHRzIGJ5IGdldHRpbmcgdGhlIGxvY2FsCmNsb2NrIGluIHRoZSBpbnRlcnJ1cHQgaGFu
-ZGxlci4gQnV0IGlmIHRoZSBpbnRlcnJ1cHRzIGFyZSBjb21pbmcgZnJvbSBhIHRpbWVyLCBpdApp
-cyBub3QgbmVjZXNzYXJ5IHRvIGRvIHRoYXQgYmVjYXVzZSB3ZSBhbHJlYWR5IGtub3cgd2hlbiB0
-aGV5IHdpbGwgb2NjdXIuCgpTbywgaW4gb3JkZXIgdG8gc29ydCBvdXQgd2hpY2ggaW50ZXJydXB0
-IHdlIG1lYXN1cmUsIHdlIHVzZSB0aGUgSVJRRl9USU1FUiBmbGFnLgoKVW5mb3J0dW5hdGVseSwg
-dGhpcyBmbGFnIGlzIG1pc3Npbmcgd2hlbiB3ZSBkbyBhIHJlcXVlc3RfcGVyY3B1X2lycS4gVGhl
-CnB1cnBvc2Ugb2YgdGhpcyBwYXRjaCBpcyB0byBmaXggdGhhdC4KCj4gPiBkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9wZXJmL2FybV9wbXUuYyBiL2RyaXZlcnMvcGVyZi9hcm1fcG11LmMKPiA+IGluZGV4
-IDk2MTJiODQuLjBmNWFiNGEgMTAwNjQ0Cj4gPiAtLS0gYS9kcml2ZXJzL3BlcmYvYXJtX3BtdS5j
-Cj4gPiArKysgYi9kcml2ZXJzL3BlcmYvYXJtX3BtdS5jCj4gPiBAQCAtNjYxLDcgKzY2MSw3IEBA
-IHN0YXRpYyBpbnQgY3B1X3BtdV9yZXF1ZXN0X2lycShzdHJ1Y3QgYXJtX3BtdSAqY3B1X3BtdSwg
-aXJxX2hhbmRsZXJfdCBoYW5kbGVyKQo+ID4gIAo+ID4gIAlpcnEgPSBwbGF0Zm9ybV9nZXRfaXJx
-KHBtdV9kZXZpY2UsIDApOwo+ID4gIAlpZiAoaXJxID4gMCAmJiBpcnFfaXNfcGVyY3B1KGlycSkp
-IHsKPiA+IC0JCWVyciA9IHJlcXVlc3RfcGVyY3B1X2lycShpcnEsIGhhbmRsZXIsICJhcm0tcG11
-IiwKPiA+ICsJCWVyciA9IHJlcXVlc3RfcGVyY3B1X2lycShpcnEsIDAsIGhhbmRsZXIsICJhcm0t
-cG11IiwKPiA+ICAJCQkJCSAmaHdfZXZlbnRzLT5wZXJjcHVfcG11KTsKPiA+ICAJCWlmIChlcnIp
-IHsKPiA+ICAJCQlwcl9lcnIoInVuYWJsZSB0byByZXF1ZXN0IElSUSVkIGZvciBBUk0gUE1VIGNv
-dW50ZXJzXG4iLAo+IAo+IFBsZWFzZSBDYyBteXNlbGYgYW5kIFdpbGwgRGVhY29uIHdoZW4gbW9k
-aWZ5aW5nIHRoZSBhcm1fcG11IGRyaXZlciwgYXMKPiBwZXIgTUFJTlRBSU5FUlMuIEkgb25seSBz
-cG90dGVkIHRoaXMgcGF0Y2ggYnkgY2hhbmNlLgoKQWgsIG9rLCBzb3JyeSBmb3IgdGhhdC4gVGhh
-bmtzIGZvciBzcG90dGluZyB0aGlzLCB5b3Ugc2hvdWxkIGhhdmUgYmVlbiBDYydlZCBieQpteSBj
-Y2NtZCBzY3JpcHQuIEkgd2lsbCBjaGVjayB0aGF0LgoKPiBUaGlzIGNvbmZsaWN0cyB3aXRoIGFy
-bV9wbXUgY2hhbmdlcyBJIGhhdmUgcXVldWVkIGZvciB2NC4xMiBbMV0uCj4gCj4gU28sIGNhbiB3
-ZSBsZWF2ZSB0aGUgcHJvdG90eXBlIG9mIHJlcXVlc3RfcGVyY3B1X2lycSgpIGFzLWlzPwo+IAo+
-IFdoeSBub3QgYWRkIGEgbmV3IHJlcXVlc3RfcGVyY3B1X2lycV9mbGFncygpIGZ1bmN0aW9uLCBh
-bmQgbGVhdmUKPiByZXF1ZXN0X3BlcmNwdV9pcnEoKSBhcyBhIHdyYXBwZXIgZm9yIHRoYXQ/IGUu
-Zy4KClsgLi4uIF0KCj4gc3RhdGljIGlubGluZSBpbnQKPiByZXF1ZXN0X3BlcmNwdV9pcnEodW5z
-aWduZWQgaW50IGlycSwgaXJxX2hhbmRsZXJfdCBoYW5kbGVyLAo+IAkJICAgY29uc3QgY2hhciAq
-ZGV2bmFtZSwgdm9pZCBfX3BlcmNwdSAqcGVyY3B1X2Rldl9pZCkKPiB7Cj4gCXJldHVybiByZXF1
-ZXN0X3BlcmNwdV9pcnFfZmxhZ3MoaXJxLCBoYW5kbGVyLCBkZXZuYW1lLAo+IAkJCQkJcGVyY3B1
-X2Rldl9pZCwgMCk7Cj4gfQo+IAo+IC4uLiB0aGF0IHdvdWxkIGF2b2lkIGhhdmluZyB0byB0b3Vj
-aCBhbnkgbm9uLXRpbWVyIGRyaXZlciBmb3Igbm93LgoKTW1oLCB5ZXMuIFRoYXQncyBhIGdvb2Qg
-c3VnZ2VzdGlvbi4KCj4gWy4uLl0KPiAKPiA+IC1yZXF1ZXN0X3BlcmNwdV9pcnEodW5zaWduZWQg
-aW50IGlycSwgaXJxX2hhbmRsZXJfdCBoYW5kbGVyLAo+ID4gLQkJICAgY29uc3QgY2hhciAqZGV2
-bmFtZSwgdm9pZCBfX3BlcmNwdSAqcGVyY3B1X2Rldl9pZCk7Cj4gPiArcmVxdWVzdF9wZXJjcHVf
-aXJxKHVuc2lnbmVkIGludCBpcnEsIHVuc2lnbmVkIGxvbmcgZmxhZ3MsCj4gPiArCQkgICBpcnFf
-aGFuZGxlcl90IGhhbmRsZXIsICBjb25zdCBjaGFyICpkZXZuYW1lLAo+ID4gKwkJICAgdm9pZCBf
-X3BlcmNwdSAqcGVyY3B1X2Rldl9pZCk7Cj4gPiAgCj4gCj4gTG9va2luZyBhdCByZXF1ZXN0X2ly
-cSwgdGhlIHByb3RvdHlwZSBpczoKPiAKPiBpbnQgX19tdXN0X2NoZWNrCj4gcmVxdWVzdF9pcnEo
-dW5zaWduZWQgaW50IGlycSwgaXJxX2hhbmRsZXJfdCBoYW5kbGVyLAo+IAkgICAgdW5zaWduZWQg
-bG9uZyBmbGFncywgY29uc3QgY2hhciAqbmFtZSwKPiAJICAgIHZvaWQgKmRldik7Cj4gCj4gLi4u
-IHN1cmVseSBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8gc2hhcmUgdGhlIHNhbWUgYXJndW1lbnQgb3Jk
-ZXI/IGkuZS4KPiAKPiBpbnQgX19tdXN0X2NoZWNrCj4gcmVxdWVzdF9wZXJjcHVfaXJxKHVuc2ln
-bmVkIGludCBpcnEsIGlycV9oYW5kbGVyX3QgaGFuZGxlciwKPiAJCSAgIHVuc2lnbmVkIGxvbmcg
-ZmxhZ3MsIGNvbnN0IGNoYXIgKmRldm5hbWUsCj4gCQkgICB2b2lkIF9fcGVyY3B1ICpwZXJjcHVf
-ZGV2X2lkKTsKPiAKCkFncmVlLgoKVGhhbmtzIGZvciB0aGUgcmV2aWV3LgoKICAtLSBEYW5pZWwK
-CgotLSAKCiA8aHR0cDovL3d3dy5saW5hcm8ub3JnLz4gTGluYXJvLm9yZyDilIIgT3BlbiBzb3Vy
-Y2Ugc29mdHdhcmUgZm9yIEFSTSBTb0NzCgpGb2xsb3cgTGluYXJvOiAgPGh0dHA6Ly93d3cuZmFj
-ZWJvb2suY29tL3BhZ2VzL0xpbmFybz4gRmFjZWJvb2sgfAo8aHR0cDovL3R3aXR0ZXIuY29tLyMh
-L2xpbmFyb29yZz4gVHdpdHRlciB8CjxodHRwOi8vd3d3LmxpbmFyby5vcmcvbGluYXJvLWJsb2cv
-PiBCbG9nCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmt2
-bWFybSBtYWlsaW5nIGxpc3QKa3ZtYXJtQGxpc3RzLmNzLmNvbHVtYmlhLmVkdQpodHRwczovL2xp
-c3RzLmNzLmNvbHVtYmlhLmVkdS9tYWlsbWFuL2xpc3RpbmZvL2t2bWFybQo=
+On Thu, 2017-03-23 at 12:00 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 23 Mar 2017 09:00:58 -0700
+> 
+> > On Thu, 2017-03-23 at 07:53 -0700, Eric Dumazet wrote:
+> > 
+> >> Nice !
+> >> 
+> >> Looks like neigh->ops->solicit is NULL
+> > 
+> > Apparently we allow admins to do really stupid things with neighbours
+> > on tunnels.
+> > 
+> > Following patch should avoid the crash.
+> > 
+> > Anyone has better ideas ?
+> 
+> This is probably good enough for now, but you need to also handle
+> dn_neigh_ops.
+> 
+> Another way to solve this is to add a NULL method check to the
+> one spot where we invoke this method.  That clearly shows that
+> the method is optional.
+
+Yes, this would be a one liner. I will post this in a minute.
+
+Thanks.
