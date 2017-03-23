@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [net-next PATCH v2 0/8] Add busy poll support for epoll
-Date: Thu, 23 Mar 2017 14:36:29 -0700
-Message-ID: <20170323211820.12615.88907.stgit@localhost.localdomain>
+Subject: [net-next PATCH v2 1/8] net: Busy polling should ignore sender CPUs
+Date: Thu, 23 Mar 2017 14:36:37 -0700
+Message-ID: <20170323213637.12615.11197.stgit@localhost.localdomain>
+References: <20170323211820.12615.88907.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,80 +10,93 @@ Cc: sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4A
         davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170323211820.12615.88907.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is my second pass at trying to add support for busy polling when using
-epoll. It is pretty much a full rewrite as I have made serious changes to
-most of the patches.
+From: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-In the v1 series I had submitted we only allowed epoll to make use of busy
-poll when all NAPI IDs were the same. I gave this some more thought and
-after making several other changes based on feedback from Eric Dumazet I
-decided to try changing the main concept a bit and instead we will now
-attempt to busy poll on the NAPI ID of the last socket added to the ready
-list. By doing it this way we are able to take advantage of the changes
-Eric has already made so that we get woken up by the softirq, we then pull
-packets via busy poll, and will return to the softirq until we are woken up
-and a new socket has been added to the ready list.
+This patch is a cleanup/fix for NAPI IDs following the changes that made it
+so that sender_cpu and napi_id were doing a better job of sharing the same
+location in the sk_buff.
 
-Most of the changes in this set authored by me are meant to be cleanup or
-fixes for various things. For example, I am trying to make it so that we
-don't perform hash look-ups for the NAPI instance when we are only working
-with sender_cpu and the like.
+One issue I found is that we weren't validating the napi_id as being valid
+before we started trying to setup the busy polling.  This change corrects
+that by using the MIN_NAPI_ID value that is now used in both allocating the
+NAPI IDs, as well as validating them.
 
-The most complicated change of the set is probably the clean-ups for the
-timeout. I realized that the timeout could potentially get into a state
-where it would never timeout if the local_clock() was approaching a
-rollover and the added busy poll usecs interval would be enough to roll it
-over.  Because we were shifting the value you would never be able to get
-time_after to actually trigger.
-
-At the heart of this set is the last 3 patches which enable epoll support
-and add support for obtaining the NAPI ID of a given socket.  With these
-It becomes possible for an application to make use of epoll and get optimal
-busy poll utilization by stacking multiple sockets with the same NAPI ID on
-the same epoll context.
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
+ include/net/busy_poll.h |    9 +++++++--
+ net/core/dev.c          |   13 +++++++++----
+ 2 files changed, 16 insertions(+), 6 deletions(-)
 
-Alexander Duyck (5):
-      net: Busy polling should ignore sender CPUs
-      tcp: Record Rx hash and NAPI ID in tcp_child_process
-      net: Only define skb_mark_napi_id in one spot instead of two
-      net: Change return type of sk_busy_loop from bool to void
-      net: Track start of busy loop instead of when it should end
-
-Sridhar Samudrala (3):
-      net: Commonize busy polling code to focus on napi_id instead of socket
-      epoll: Add busy poll support to epoll with socket fds.
-      net: Introduce SO_INCOMING_NAPI_ID
-
-
- arch/alpha/include/uapi/asm/socket.h   |    2 +
- arch/avr32/include/uapi/asm/socket.h   |    2 +
- arch/frv/include/uapi/asm/socket.h     |    2 +
- arch/ia64/include/uapi/asm/socket.h    |    2 +
- arch/m32r/include/uapi/asm/socket.h    |    2 +
- arch/mips/include/uapi/asm/socket.h    |    1 
- arch/mn10300/include/uapi/asm/socket.h |    2 +
- arch/parisc/include/uapi/asm/socket.h  |    2 +
- arch/powerpc/include/uapi/asm/socket.h |    2 +
- arch/s390/include/uapi/asm/socket.h    |    2 +
- arch/sparc/include/uapi/asm/socket.h   |    2 +
- arch/xtensa/include/uapi/asm/socket.h  |    2 +
- fs/eventpoll.c                         |   93 +++++++++++++++++++++++++++
- fs/select.c                            |   16 ++---
- include/net/busy_poll.h                |  112 ++++++++++++++++++++------------
- include/uapi/asm-generic/socket.h      |    2 +
- net/core/datagram.c                    |    8 ++
- net/core/dev.c                         |   42 ++++++------
- net/core/sock.c                        |   23 +++++++
- net/core/sysctl_net_core.c             |   11 +++
- net/ipv4/tcp_ipv4.c                    |    2 -
- net/ipv4/tcp_minisocks.c               |    4 +
- net/ipv6/tcp_ipv6.c                    |    2 -
- net/sctp/socket.c                      |    9 ++-
- 24 files changed, 264 insertions(+), 83 deletions(-)
-
---
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index c0452de83086..3fcda9e70c3f 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -35,6 +35,12 @@
+ extern unsigned int sysctl_net_busy_read __read_mostly;
+ extern unsigned int sysctl_net_busy_poll __read_mostly;
+ 
++/*		0 - Reserved to indicate value not set
++ *     1..NR_CPUS - Reserved for sender_cpu
++ *  NR_CPUS+1..~0 - Region available for NAPI IDs
++ */
++#define MIN_NAPI_ID ((unsigned int)(NR_CPUS + 1))
++
+ static inline bool net_busy_loop_on(void)
+ {
+ 	return sysctl_net_busy_poll;
+@@ -58,10 +64,9 @@ static inline unsigned long busy_loop_end_time(void)
+ 
+ static inline bool sk_can_busy_loop(const struct sock *sk)
+ {
+-	return sk->sk_ll_usec && sk->sk_napi_id && !signal_pending(current);
++	return sk->sk_ll_usec && !signal_pending(current);
+ }
+ 
+-
+ static inline bool busy_loop_timeout(unsigned long end_time)
+ {
+ 	unsigned long now = busy_loop_us_clock();
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7869ae3837ca..ab337bf5bbf4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5066,15 +5066,20 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 	int (*napi_poll)(struct napi_struct *napi, int budget);
+ 	void *have_poll_lock = NULL;
+ 	struct napi_struct *napi;
++	unsigned int napi_id;
+ 	int rc;
+ 
+ restart:
++	napi_id = READ_ONCE(sk->sk_napi_id);
++	if (napi_id < MIN_NAPI_ID)
++		return 0;
++
+ 	rc = false;
+ 	napi_poll = NULL;
+ 
+ 	rcu_read_lock();
+ 
+-	napi = napi_by_id(sk->sk_napi_id);
++	napi = napi_by_id(napi_id);
+ 	if (!napi)
+ 		goto out;
+ 
+@@ -5143,10 +5148,10 @@ static void napi_hash_add(struct napi_struct *napi)
+ 
+ 	spin_lock(&napi_hash_lock);
+ 
+-	/* 0..NR_CPUS+1 range is reserved for sender_cpu use */
++	/* 0..NR_CPUS range is reserved for sender_cpu use */
+ 	do {
+-		if (unlikely(++napi_gen_id < NR_CPUS + 1))
+-			napi_gen_id = NR_CPUS + 1;
++		if (unlikely(++napi_gen_id < MIN_NAPI_ID))
++			napi_gen_id = MIN_NAPI_ID;
+ 	} while (napi_by_id(napi_gen_id));
+ 	napi->napi_id = napi_gen_id;
+ 
