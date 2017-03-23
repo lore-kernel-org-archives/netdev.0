@@ -1,57 +1,81 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/3] net: hns: fix uninitialized data use
-Date: Thu, 23 Mar 2017 15:55:51 +0100
-Message-ID: <20170323145610.54695-2-arnd@arndb.de>
-References: <20170323145610.54695-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Daode Huang <huangdaode@hisilicon.com>,
-        Qianqian Xie <xieqianqian@huawei.com>,
-        Kejian Yan <yankejian@huawei.com>,
-        oulijun <oulijun@huawei.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170323145610.54695-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: netlink: NULL timer crash
+Date: Thu, 23 Mar 2017 09:00:58 -0700
+Message-ID: <1490284858.16816.205.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+Yb9BvzcRT84EriUCqx6hnz_kciYNHjHNX56y1jDb70vw@mail.gmail.com>
+         <CANn89i+_+da3PBYjk-KwcUpa6qr0MdqVXOmrsQUM7_VzgBurnA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Alexei Starovoitov <ast@kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34742 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754542AbdCWQBB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 12:01:01 -0400
+In-Reply-To: <CANn89i+_+da3PBYjk-KwcUpa6qr0MdqVXOmrsQUM7_VzgBurnA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When dev_dbg() is enabled, we print uninitialized data, as gcc-7.0.1
-now points out:
+On Thu, 2017-03-23 at 07:53 -0700, Eric Dumazet wrote:
 
-ethernet/hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_promisc_tcam':
-ethernet/hisilicon/hns/hns_dsaf_main.c:2947:75: error: 'tbl_tcam_data.low.val' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-ethernet/hisilicon/hns/hns_dsaf_main.c:2947:75: error: 'tbl_tcam_data.high.val' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> Nice !
+> 
+> Looks like neigh->ops->solicit is NULL
 
-We also pass the data into hns_dsaf_tcam_mc_cfg(), which might later
-use it (not sure about that), so it seems safer to just always initialize
-the tbl_tcam_data structure.
+Apparently we allow admins to do really stupid things with neighbours
+on tunnels.
 
-Fixes: 1f5fa2dd1cfa ("net: hns: fix for promisc mode in HNS driver")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Following patch should avoid the crash.
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 1ec6d4bb6044..403ea9db6dbd 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2925,10 +2925,11 @@ void hns_dsaf_set_promisc_tcam(struct dsaf_device *dsaf_dev,
- 	/* find the tcam entry index for promisc */
- 	entry_index = dsaf_promisc_tcam_entry(port);
+Anyone has better ideas ?
+
+
+ net/ipv4/arp.c   |    5 +++++
+ net/ipv6/ndisc.c |    4 ++++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 51b27ae09fbd725bcd8030982e5850215ac4ce5c..963191b12e28041bf5df6f37f222a7155f83a414 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -146,8 +146,13 @@ static const struct neigh_ops arp_hh_ops = {
+ 	.connected_output =	neigh_resolve_output,
+ };
  
-+	memset(&tbl_tcam_data, 0, sizeof(tbl_tcam_data));
-+	memset(&tbl_tcam_mask, 0, sizeof(tbl_tcam_mask));
++static void arp_no_solicit(struct neighbour *neigh, struct sk_buff *skb)
++{
++}
 +
- 	/* config key mask */
- 	if (enable) {
--		memset(&tbl_tcam_data, 0, sizeof(tbl_tcam_data));
--		memset(&tbl_tcam_mask, 0, sizeof(tbl_tcam_mask));
- 		dsaf_set_field(tbl_tcam_data.low.bits.port_vlan,
- 			       DSAF_TBL_TCAM_KEY_PORT_M,
- 			       DSAF_TBL_TCAM_KEY_PORT_S, port);
--- 
-2.9.0
+ static const struct neigh_ops arp_direct_ops = {
+ 	.family =		AF_INET,
++	.solicit =		arp_no_solicit,
+ 	.output =		neigh_direct_output,
+ 	.connected_output =	neigh_direct_output,
+ };
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 7ebac630d3c603186be2fc0dcbaac7d7e74bfde6..86f290b749d5ca0db4310b17ebeff35d847540c7 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -99,9 +99,13 @@ static const struct neigh_ops ndisc_hh_ops = {
+ 	.connected_output =	neigh_resolve_output,
+ };
+ 
++static void ndisc_no_solicit(struct neighbour *neigh, struct sk_buff *skb)
++{
++}
+ 
+ static const struct neigh_ops ndisc_direct_ops = {
+ 	.family =		AF_INET6,
++	.solicit =		ndisc_no_solicit,
+ 	.output =		neigh_direct_output,
+ 	.connected_output =	neigh_direct_output,
+ };
