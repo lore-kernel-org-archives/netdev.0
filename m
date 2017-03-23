@@ -1,75 +1,125 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 7/8] vhost_net: try batch dequing from skb array
-Date: Thu, 23 Mar 2017 13:34:36 +0800
-Message-ID: <f41bb12f-10d6-9fb2-1cd2-76e3e9460aff@redhat.com>
-References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
-	<1490069087-4783-8-git-send-email-jasowang@redhat.com>
-	<20170322155111-mutt-send-email-mst@kernel.org>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH net-next v2 5/5] net-next: dsa: add dsa support for
+ Mediatek MT7530 switch
+Date: Thu, 23 Mar 2017 08:22:33 +0100
+Message-ID: <20170323072233.GA10076@lunn.ch>
+References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
+ <1490088910-19405-6-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170322155111-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1490088910-19405-6-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE35bm0MDPmnIgyMuaXpSAyMjoxNiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFR1ZSwgTWFyIDIxLCAyMDE3IGF0IDEyOjA0OjQ2UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+IFdlIHVzZWQgdG8gZGVxdWV1ZSBvbmUgc2tiIGR1cmluZyByZWN2bXNnKCkgZnJvbSBz
-a2JfYXJyYXksIHRoaXMgY291bGQKPj4gYmUgaW5lZmZpY2llbnQgYmVjYXVzZSBvZiB0aGUgYmFk
-IGNhY2hlIHV0aWxpemF0aW9uIGFuZCBzcGlubG9jawo+PiB0b3VjaGluZyBmb3IgZWFjaCBwYWNr
-ZXQuIFRoaXMgcGF0Y2ggdHJpZXMgdG8gYmF0Y2ggdGhlbSBieSBjYWxsaW5nCj4+IGJhdGNoIGRl
-cXVldWluZyBoZWxwZXJzIGV4cGxpY2l0bHkgb24gdGhlIGV4cG9ydGVkIHNrYiBhcnJheSBhbmQg
-cGFzcwo+PiB0aGUgc2tiIGJhY2sgdGhyb3VnaCBtc2dfY29udHJvbCBmb3IgdW5kZXJsYXllciBz
-b2NrZXQgdG8gZmluaXNoIHRoZQo+PiB1c2Vyc3BhY2UgY29weWluZy4KPj4KPj4gVGVzdHMgd2Vy
-ZSBkb25lIGJ5IFhEUDE6Cj4+IC0gc21hbGwgYnVmZmVyOgo+PiAgICBCZWZvcmU6IDEuODhNcHBz
-Cj4+ICAgIEFmdGVyIDogMi4yNU1wcHMgKCsxOS42JSkKPj4gLSBtZXJnZWFibGUgYnVmZmVyOgo+
-PiAgICBCZWZvcmU6IDEuODNNcHBzCj4+ICAgIEFmdGVyIDogMi4xME1wcHMgKCsxNC43JSkKPj4K
-Pj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4gLS0t
-Cj4+ICAgZHJpdmVycy92aG9zdC9uZXQuYyB8IDY0ICsrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKystLS0tCj4+ICAgMSBmaWxlIGNoYW5nZWQsIDYwIGluc2Vy
-dGlvbnMoKyksIDQgZGVsZXRpb25zKC0pCj4+Cj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0
-L25ldC5jIGIvZHJpdmVycy92aG9zdC9uZXQuYwo+PiBpbmRleCA5YjUxOTg5Li41M2YwOWYyIDEw
-MDY0NAo+PiAtLS0gYS9kcml2ZXJzL3Zob3N0L25ldC5jCj4+ICsrKyBiL2RyaXZlcnMvdmhvc3Qv
-bmV0LmMKPj4gQEAgLTI4LDYgKzI4LDggQEAKPj4gICAjaW5jbHVkZSA8bGludXgvaWZfbWFjdmxh
-bi5oPgo+PiAgICNpbmNsdWRlIDxsaW51eC9pZl90YXAuaD4KPj4gICAjaW5jbHVkZSA8bGludXgv
-aWZfdmxhbi5oPgo+PiArI2luY2x1ZGUgPGxpbnV4L3NrYl9hcnJheS5oPgo+PiArI2luY2x1ZGUg
-PGxpbnV4L3NrYnVmZi5oPgo+PiAgIAo+PiAgICNpbmNsdWRlIDxuZXQvc29jay5oPgo+PiAgIAo+
-PiBAQCAtODUsNiArODcsNyBAQCBzdHJ1Y3Qgdmhvc3RfbmV0X3VidWZfcmVmIHsKPj4gICAJc3Ry
-dWN0IHZob3N0X3ZpcnRxdWV1ZSAqdnE7Cj4+ICAgfTsKPj4gICAKPj4gKyNkZWZpbmUgVkhPU1Rf
-UlhfQkFUQ0ggNjQKPj4gICBzdHJ1Y3Qgdmhvc3RfbmV0X3ZpcnRxdWV1ZSB7Cj4+ICAgCXN0cnVj
-dCB2aG9zdF92aXJ0cXVldWUgdnE7Cj4+ICAgCXNpemVfdCB2aG9zdF9obGVuOwo+PiBAQCAtOTks
-NiArMTAyLDEwIEBAIHN0cnVjdCB2aG9zdF9uZXRfdmlydHF1ZXVlIHsKPj4gICAJLyogUmVmZXJl
-bmNlIGNvdW50aW5nIGZvciBvdXRzdGFuZGluZyB1YnVmcy4KPj4gICAJICogUHJvdGVjdGVkIGJ5
-IHZxIG11dGV4LiBXcml0ZXJzIG11c3QgYWxzbyB0YWtlIGRldmljZSBtdXRleC4gKi8KPj4gICAJ
-c3RydWN0IHZob3N0X25ldF91YnVmX3JlZiAqdWJ1ZnM7Cj4+ICsJc3RydWN0IHNrYl9hcnJheSAq
-cnhfYXJyYXk7Cj4+ICsJdm9pZCAqcnhxW1ZIT1NUX1JYX0JBVENIXTsKPj4gKwlpbnQgcnQ7Cj4+
-ICsJaW50IHJoOwo+PiAgIH07Cj4+ICAgCj4+ICAgc3RydWN0IHZob3N0X25ldCB7Cj4+IEBAIC0y
-MDEsNiArMjA4LDggQEAgc3RhdGljIHZvaWQgdmhvc3RfbmV0X3ZxX3Jlc2V0KHN0cnVjdCB2aG9z
-dF9uZXQgKm4pCj4+ICAgCQluLT52cXNbaV0udWJ1ZnMgPSBOVUxMOwo+PiAgIAkJbi0+dnFzW2ld
-LnZob3N0X2hsZW4gPSAwOwo+PiAgIAkJbi0+dnFzW2ldLnNvY2tfaGxlbiA9IDA7Cj4+ICsJCW4t
-PnZxc1tpXS5ydCA9IDA7Cj4+ICsJCW4tPnZxc1tpXS5yaCA9IDA7Cj4+ICAgCX0KPj4gICAKPj4g
-ICB9Cj4+IEBAIC01MDMsMTMgKzUxMiwzMCBAQCBzdGF0aWMgdm9pZCBoYW5kbGVfdHgoc3RydWN0
-IHZob3N0X25ldCAqbmV0KQo+PiAgIAltdXRleF91bmxvY2soJnZxLT5tdXRleCk7Cj4+ICAgfQo+
-PiAgIAo+PiAtc3RhdGljIGludCBwZWVrX2hlYWRfbGVuKHN0cnVjdCBzb2NrICpzaykKPj4gK3N0
-YXRpYyBpbnQgcGVla19oZWFkX2xlbl9iYXRjaGVkKHN0cnVjdCB2aG9zdF9uZXRfdmlydHF1ZXVl
-ICpydnEpCj4gUGxzIHJlbmFtZSB0byBzYXkgd2hhdCBpdCBhY3R1YWxseSBkb2VzOiBmZXRjaCBz
-a2JzCgpPay4KCj4KPj4gK3sKPj4gKwlpZiAocnZxLT5yaCAhPSBydnEtPnJ0KQo+PiArCQlnb3Rv
-IG91dDsKPj4gKwo+PiArCXJ2cS0+cmggPSBydnEtPnJ0ID0gMDsKPj4gKwlydnEtPnJ0ID0gc2ti
-X2FycmF5X2NvbnN1bWVfYmF0Y2hlZF9iaChydnEtPnJ4X2FycmF5LCBydnEtPnJ4cSwKPj4gKwkJ
-CQkJCVZIT1NUX1JYX0JBVENIKTsKPiBBIGNvbW1lbnQgZXhwbGFpbmluZyB3aHkgaXMgaXMgLWJo
-IHdvdWxkIGJlIGhlbHBmdWwuCgpPay4KClRoYW5rcwpfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVh
-bGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZv
-dW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+> +static int
+> +mt7623_trgmii_write(struct mt7530_priv *priv,  u32 reg, u32 val)
+> +{
+> +	int ret;
+> +
+> +	ret =  regmap_write(priv->ethernet, TRGMII_BASE(reg), val);
+> +	if (ret < 0)
+> +		dev_err(priv->dev,
+> +			"failed to priv write register\n");
+> +	return ret;
+> +}
+> +
+> +static u32
+> +mt7623_trgmii_read(struct mt7530_priv *priv, u32 reg)
+> +{
+> +	int ret;
+> +	u32 val;
+> +
+> +	ret = regmap_read(priv->ethernet, TRGMII_BASE(reg), &val);
+> +	if (ret < 0) {
+> +		dev_err(priv->dev,
+> +			"failed to priv read register\n");
+> +		return ret;
+> +	}
+> +
+> +	return val;
+> +}
+
+Hi Sean
+
+These appear to be the only two accessors which use the regmap.
+
+> +static int
+> +mt7530_regmap_read(void *ctx, uint32_t reg, uint32_t *val)
+> +{
+> +	struct mt7530_priv *priv = (struct mt7530_priv *)ctx;
+> +
+> +	/* BIT(15) is used as indication for pseudo registers
+> +	 * which would be translated into the general MDIO
+> +	 * access to leverage the unique regmap sys interface.
+> +	 */
+> +	if (reg & BIT(15))
+> +		*val = mdiobus_read_nested(priv->bus,
+> +					   (reg & 0xf00) >> 8,
+> +					   (reg & 0xff) >> 2);
+> +	else
+> +		*val = mt7530_read(priv, reg);
+> +
+> +	return 0;
+> +}
+
+.....
+
+> +static const struct regmap_range mt7530_readable_ranges[] = {
+> +	regmap_reg_range(0x0000, 0x00ac), /* Global control */
+> +	regmap_reg_range(0x2000, 0x202c), /* Port Control - P0 */
+> +	regmap_reg_range(0x2100, 0x212c), /* Port Control - P1 */
+> +	regmap_reg_range(0x2200, 0x222c), /* Port Control - P2 */
+> +	regmap_reg_range(0x2300, 0x232c), /* Port Control - P3 */
+> +	regmap_reg_range(0x2400, 0x242c), /* Port Control - P4 */
+> +	regmap_reg_range(0x2500, 0x252c), /* Port Control - P5 */
+> +	regmap_reg_range(0x2600, 0x262c), /* Port Control - P6 */
+> +	regmap_reg_range(0x30e0, 0x30f8), /* Port MAC - SYS */
+> +	regmap_reg_range(0x3000, 0x3014), /* Port MAC - P0 */
+> +	regmap_reg_range(0x3100, 0x3114), /* Port MAC - P1 */
+> +	regmap_reg_range(0x3200, 0x3214), /* Port MAC - P2*/
+> +	regmap_reg_range(0x3300, 0x3314), /* Port MAC - P3*/
+> +	regmap_reg_range(0x3400, 0x3414), /* Port MAC - P4 */
+> +	regmap_reg_range(0x3500, 0x3514), /* Port MAC - P5 */
+> +	regmap_reg_range(0x3600, 0x3614), /* Port MAC - P6 */
+> +	regmap_reg_range(0x4000, 0x40d4), /* MIB - P0 */
+> +	regmap_reg_range(0x4100, 0x41d4), /* MIB - P1 */
+> +	regmap_reg_range(0x4200, 0x42d4), /* MIB - P2 */
+> +	regmap_reg_range(0x4300, 0x43d4), /* MIB - P3 */
+> +	regmap_reg_range(0x4400, 0x44d4), /* MIB - P4 */
+> +	regmap_reg_range(0x4500, 0x45d4), /* MIB - P5 */
+> +	regmap_reg_range(0x4600, 0x46d4), /* MIB - P6 */
+> +	regmap_reg_range(0x4fe0, 0x4ff4), /* SYS */
+> +	regmap_reg_range(0x7000, 0x700c), /* SYS 2 */
+> +	regmap_reg_range(0x7018, 0x7028), /* SYS 3 */
+> +	regmap_reg_range(0x7800, 0x7830), /* SYS 4 */
+> +	regmap_reg_range(0x7a00, 0x7a7c), /* TRGMII */
+> +	regmap_reg_range(0x8000, 0x8078), /* Psedo address for Phy - P0 */
+> +	regmap_reg_range(0x8100, 0x8178), /* Psedo address for Phy - P1 */
+> +	regmap_reg_range(0x8200, 0x8278), /* Psedo address for Phy - P2 */
+> +	regmap_reg_range(0x8300, 0x8378), /* Psedo address for Phy - P3 */
+> +	regmap_reg_range(0x8400, 0x8478), /* Psedo address for Phy - P4 */
+> +};
+
+It looks like your regmap accessor are only used for 0x7a00 to 0x7a7c.
+
+It is not clear why you even bother with a regmap. If you have it, why
+not use it for all registers within the regmap?
+
+    Andrew
