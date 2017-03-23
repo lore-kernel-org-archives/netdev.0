@@ -1,72 +1,47 @@
-From: David Arcari <darcari@redhat.com>
-Subject: Re: [PATCH v3 net 2/5] net:ethernet:aquantia: Fix packet type
- detection (TCP/UDP) for IPv6.
-Date: Thu, 23 Mar 2017 08:13:06 -0400
-Message-ID: <8cd2beb7-b97d-2de3-3f6c-9bc595efb272@redhat.com>
-References: <cover.1490267633.git.pavel.belous@aquantia.com>
- <e291c95696469004331760a23230dd7793791a10.1490267633.git.pavel.belous@aquantia.com>
+From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
+Subject: Re: [PATCH net-next 0/2] net: bridge: allow user-space to
+ add ext learned entries
+Date: Thu, 23 Mar 2017 14:48:35 +0200
+Message-ID: <df54a306-debc-5c90-e0f1-b06fdf15f424@cumulusnetworks.com>
+References: <1490264833-28867-1-git-send-email-nikolay@cumulusnetworks.com>
+Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>
-To: Pavel Belous <Pavel.Belous@aquantia.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46168 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933030AbdCWMNM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Mar 2017 08:13:12 -0400
-In-Reply-To: <e291c95696469004331760a23230dd7793791a10.1490267633.git.pavel.belous@aquantia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, idosch@mellanox.com, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1490264833-28867-1-git-send-email-nikolay@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 03/23/2017 07:19 AM, Pavel Belous wrote:
-> From: Pavel Belous <pavel.belous@aquantia.com>
+On 23/03/17 12:27, Nikolay Aleksandrov wrote:
+> Hi,
+> This set adds the ability to add externally learned entries from
+> user-space. For symmetry and proper function we need to allow SW entries
+> to take over HW learned ones (similar to how HW can take over SW entries
+> currently) which is needed for our use case (evpn) where we have pure SW
+> ports and HW ports mixed in a single bridge. This does not play well with
+> switchdev devices currently because there's no feedback when the entry is
+> taken over, but this case has never worked anyway and feedback can be
+> easily added when needed.
+> Patch 02 simply allows to use NTF_EXT_LEARNED from user-space, we already
+> have Quagga patches that make use of this functionality.
 > 
-> In order for the checksum offloads to work correctly we need to set the
-> packet type bit (TCP/UDP) in the TX context buffer.
-> 
-> Fixes: 97bde5c4f909 ("net: ethernet: aquantia: Support for NIC-specific code")
-> 
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
-> ---
->  drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 20 ++++++++++++++++----
->  1 file changed, 16 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> index ee78444..db2b51d 100644
-> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-> @@ -510,10 +510,22 @@ static unsigned int aq_nic_map_skb(struct aq_nic_s *self,
->  	if (skb->ip_summed == CHECKSUM_PARTIAL) {
->  		dx_buff->is_ip_cso = (htons(ETH_P_IP) == skb->protocol) ?
->  			1U : 0U;
-> -		dx_buff->is_tcp_cso =
-> -			(ip_hdr(skb)->protocol == IPPROTO_TCP) ? 1U : 0U;
-> -		dx_buff->is_udp_cso =
-> -			(ip_hdr(skb)->protocol == IPPROTO_UDP) ? 1U : 0U;
-> +
-> +		if (ip_hdr(skb)->version == 4) {
-> +			dx_buff->is_tcp_cso =
-> +				(ip_hdr(skb)->protocol == IPPROTO_TCP) ?
-> +					1U : 0U;
-> +			dx_buff->is_udp_cso =
-> +				(ip_hdr(skb)->protocol == IPPROTO_UDP) ?
-> +					1U : 0U;
-> +		} else if (ip_hdr(skb)->version == 6) {
-> +			dx_buff->is_tcp_cso =
-> +				(ipv6_hdr(skb)->nexthdr == NEXTHDR_TCP) ?
-> +					1U : 0U;
-> +			dx_buff->is_udp_cso =
-> +				(ipv6_hdr(skb)->nexthdr == NEXTHDR_UDP) ?
-> +					1U : 0U;
-> +		}
->  	}
->  
->  	for (; nr_frags--; ++frag_count) {
+> Thanks,
+>  Nik
 > 
 
-Fixes tcp/ipv6
-
-Tested-by: David Arcari <darcari@redhat.com>
+A minor clarification: the functionality is necessary so the aging can
+be handled by user-space software (e.g. quagga w/ evpn) when the entry
+has been learned externally, but can also dynamically move to a local
+bridge port and then the aging should be done by the bridge.
