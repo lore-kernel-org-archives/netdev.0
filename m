@@ -1,81 +1,67 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] xfrm: branchless addr4_match() on 64-bit
-Date: Fri, 24 Mar 2017 02:32:47 +0300
-Message-ID: <20170323233247.GE31372@avx2>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] soc: qcom: smd: Transition client drivers from smd
+ to rpmsg
+Date: Thu, 23 Mar 2017 16:56:13 -0700 (PDT)
+Message-ID: <20170323.165613.802100008000968298.davem@davemloft.net>
+References: <20170320233544.1656-1-bjorn.andersson@linaro.org>
+        <20170322.114439.679826829857326050.davem@davemloft.net>
+        <20170322215733.GH20094@minitux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-        netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35188 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756620AbdCWXcw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 19:32:52 -0400
-Received: by mail-lf0-f67.google.com with SMTP id v2so18429242lfi.2
-        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 16:32:51 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
+        k.eugene.e@gmail.com, kvalo@codeaurora.org, andy.gross@linaro.org,
+        david.brown@linaro.org, arnd@arndb.de,
+        linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+        linux-soc@vger.kernel.org
+To: bjorn.andersson@linaro.org
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20170322215733.GH20094@minitux>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Current addr4_match() code has special test for /0 prefixes because of
-standard required undefined behaviour. However, it is possible to omit
-it on 64-bit because shifting can be done in a 64-bit register and then
-truncated to the expected value (which is 0 mask).
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Date: Wed, 22 Mar 2017 14:57:33 -0700
 
-Implicit truncation by htonl() fits nicely into R32-within-R64 model
-on x86-64.
+> On Wed 22 Mar 11:44 PDT 2017, David Miller wrote:
+> 
+>> From: Bjorn Andersson <bjorn.andersson@linaro.org>
+>> Date: Mon, 20 Mar 2017 16:35:42 -0700
+>> 
+>> What is the status of the Kconfig dependency fix and how will I be
+>> getting it?
+>> 
+> 
+> There are two Kconfig dependencies in play here, the first is
+> c3104aae5d8c ("remoteproc: qcom: fix QCOM_SMD dependencies"), this was
+> picked up by Linus yesterday and will as such be in v4.10-rc4.
+> 
+> The other dependency, is the one Marcel wants you to pick up here is
+> https://patchwork.kernel.org/patch/9635385/. It's on LKML, but if you
+> want I can resend it with you as direct recipient, with Marcel's ack.
+> 
+> Likely Arnd would like this fix to be sent upstream for v4.11 already.
+> 
+>> Second, should I merge all three of these patches to net-next or just
+>> this one?
+>> 
+> 
+> I would like all three to be merged in this cycle and in addition I have
+> a couple of patches coming up that will cause some minor conflicts with
+> patch 2 - so I would prefer if patch 2 was available in a tag I can
+> merge into my tree.
 
-Space savings: none (coincidence)
-Branch savings: 1
+I should have all the dependencies in net-next now, but when I apply
+this series I get undefined symbols:
 
+[davem@localhost net-next]$ time make -s -j8
+Kernel: arch/x86/boot/bzImage is ready  (#578)
+ERROR: "qcom_rpm_smd_write" [drivers/regulator/qcom_smd-regulator.ko] undefined!
+ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wcn36xx.ko] undefined!
+ERROR: "qcom_rpm_smd_write" [drivers/clk/qcom/clk-smd-rpm.ko] undefined!
+ERROR: "qcom_wcnss_open_channel" [drivers/bluetooth/btqcomsmd.ko] undefined!
+scripts/Makefile.modpost:91: recipe for target '__modpost' failed
 
-Before:
-
-	movzx  eax,BYTE PTR [rdi+0x2a]		# ->prefixlen_d
-	test   al,al
-	jne    xfrm_selector_match + 0x23f
-		...
-	movzx  eax,BYTE PTR [rbx+0x2b]		# ->prefixlen_s
-	test   al,al
-	je     xfrm_selector_match + 0x1c7
-
-
-After (no branches):
-
-	mov    r8d,0x20
-	mov    rdx,0xffffffffffffffff
-	mov    esi,DWORD PTR [rsi+0x2c]
-	mov    ecx,r8d
-	sub    cl,BYTE PTR [rdi+0x2a]
-	xor    esi,DWORD PTR [rbx]
-	mov    rdi,rdx
-	xor    eax,eax
-	shl    rdi,cl
-	bswap  edi
-
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- include/net/xfrm.h |    5 +++++
- 1 file changed, 5 insertions(+)
-
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -844,10 +844,15 @@ static inline bool addr_match(const void *token1, const void *token2,
- 
- static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
- {
-+#ifdef CONFIG_64BIT
-+	/* L in UL is not a typo. */
-+	return !((a1 ^ a2) & htonl(~0UL << (32 - prefixlen)));
-+#else
- 	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
- 	if (prefixlen == 0)
- 		return true;
- 	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-+#endif
- }
- 
- static __inline__
+Please fix this up.
