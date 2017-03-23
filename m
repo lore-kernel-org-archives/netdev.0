@@ -1,86 +1,68 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: netlink: NULL timer crash
-Date: Thu, 23 Mar 2017 07:53:07 -0700
-Message-ID: <CANn89i+_+da3PBYjk-KwcUpa6qr0MdqVXOmrsQUM7_VzgBurnA@mail.gmail.com>
-References: <CACT4Y+Yb9BvzcRT84EriUCqx6hnz_kciYNHjHNX56y1jDb70vw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Alexei Starovoitov <ast@kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 1/3] net: hns: avoid gcc-7.0.1 warning for uninitialized data
+Date: Thu, 23 Mar 2017 15:55:50 +0100
+Message-ID: <20170323145610.54695-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Daode Huang <huangdaode@hisilicon.com>,
+        Qianqian Xie <xieqianqian@huawei.com>,
+        Kejian Yan <yankejian@huawei.com>,
+        Wei Yongjun <weiyongjun1@huawei.com>,
+        oulijun <oulijun@huawei.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+Yb9BvzcRT84EriUCqx6hnz_kciYNHjHNX56y1jDb70vw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 23, 2017 at 5:55 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> Hello,
->
-> The following program triggers call of NULL timer func:
->
-> https://gist.githubusercontent.com/dvyukov/c210d01c74b911273469a93862ea7788/raw/2a3182772a6a6e20af3e71c02c2a1c2895d803fb/gistfile1.txt
->
->
-> BUG: unable to handle kernel NULL pointer dereference at           (null)
-> IP:           (null)
-> PGD 0
-> Oops: 0010 [#1] SMP KASAN
-> Modules linked in:
-> CPU: 2 PID: 0 Comm: swapper/2 Not tainted 4.11.0-rc3+ #365
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> task: ffff88006c634300 task.stack: ffff88006c640000
-> RIP: 0010:          (null)
-> RSP: 0018:ffff88006d1077c8 EFLAGS: 00010246
-> RAX: dffffc0000000000 RBX: ffff880062bddb00 RCX: ffffffff8154e161
-> RDX: 1ffffffff090c1f1 RSI: 0000000000000000 RDI: ffff880062bddb00
-> RBP: ffff88006d1077e8 R08: fffffbfff0a936a8 R09: 0000000000000001
-> R10: 0000000000000001 R11: fffffbfff0a936a7 R12: ffffffff84860f80
-> R13: 0000000000000000 R14: ffff880062bddb60 R15: 1ffff1000da20f05
-> FS:  0000000000000000(0000) GS:ffff88006d100000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000000000000 CR3: 0000000004e21000 CR4: 00000000001406e0
-> Call Trace:
->  <IRQ>
->  neigh_timer_handler+0x365/0xd40 net/core/neighbour.c:944
->  call_timer_fn+0x232/0x8c0 kernel/time/timer.c:1268
->  expire_timers kernel/time/timer.c:1307 [inline]
->  __run_timers+0x6f7/0xbd0 kernel/time/timer.c:1601
->  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
->  __do_softirq+0x2d6/0xb54 kernel/softirq.c:284
->  invoke_softirq kernel/softirq.c:364 [inline]
->  irq_exit+0x1b1/0x1e0 kernel/softirq.c:405
->  exiting_irq arch/x86/include/asm/apic.h:657 [inline]
->  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:962
->  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:487
-> RIP: 0010:native_safe_halt+0x6/0x10 arch/x86/include/asm/irqflags.h:53
-> RSP: 0018:ffff88006c647dc0 EFLAGS: 00000286 ORIG_RAX: ffffffffffffff10
-> RAX: dffffc0000000000 RBX: 1ffff1000d8c8fbb RCX: 0000000000000000
-> RDX: 1ffffffff09d8ed4 RSI: 0000000000000001 RDI: ffffffff84ec76a0
-> RBP: ffff88006c647dc0 R08: ffffed000d8c6861 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000000 R12: fffffbfff09d8ed2
-> R13: ffff88006c647e78 R14: ffffffff84ec7690 R15: 0000000000000002
->  </IRQ>
->  arch_safe_halt arch/x86/include/asm/paravirt.h:98 [inline]
->  default_idle+0xba/0x450 arch/x86/kernel/process.c:275
->  arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:266
->  default_idle_call+0x37/0x80 kernel/sched/idle.c:97
->  cpuidle_idle_call kernel/sched/idle.c:155 [inline]
->  do_idle+0x230/0x380 kernel/sched/idle.c:244
->  cpu_startup_entry+0x18/0x20 kernel/sched/idle.c:346
->  start_secondary+0x2a7/0x340 arch/x86/kernel/smpboot.c:275
->  start_cpu+0x14/0x14 arch/x86/kernel/head_64.S:306
-> Code:  Bad RIP value.
-> RIP:           (null) RSP: ffff88006d1077c8
-> CR2: 0000000000000000
-> ---[ end trace 845120b8a0d21411 ]---
->
-> On commit 093b995e3b55a0ae0670226ddfcb05bfbf0099ae
+hns_dsaf_set_mac_key() calls dsaf_set_field() on an uninitialized field,
+which will then change only a few of its bits, causing a warning with
+the latest gcc:
 
-Nice !
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_mac_uc_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+   (origin) &= (~(mask)); \
+            ^~
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_mac_mc_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_add_mac_mc_port':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_del_mac_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_rm_mac_addr':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_del_mac_mc_port':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_get_mac_uc_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_get_mac_mc_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-Looks like neigh->ops->solicit is NULL
+The code is actually correct since we always set all 16 bits of the
+port_vlan field, but gcc correctly points out that the first
+access does contain uninitialized data.
+
+This initializes the field to zero first before setting the
+individual bits.
+
+Fixes: 5483bfcb169c ("net: hns: modify tcam table and set mac key")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 90dbda792614..1ec6d4bb6044 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -1519,6 +1519,7 @@ static void hns_dsaf_set_mac_key(
+ 	mac_key->high.bits.mac_3 = addr[3];
+ 	mac_key->low.bits.mac_4 = addr[4];
+ 	mac_key->low.bits.mac_5 = addr[5];
++	mac_key->low.bits.port_vlan = 0;
+ 	dsaf_set_field(mac_key->low.bits.port_vlan, DSAF_TBL_TCAM_KEY_VLAN_M,
+ 		       DSAF_TBL_TCAM_KEY_VLAN_S, vlan_id);
+ 	dsaf_set_field(mac_key->low.bits.port_vlan, DSAF_TBL_TCAM_KEY_PORT_M,
+-- 
+2.9.0
