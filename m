@@ -1,105 +1,91 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: net/sched: GPF in qdisc_hash_add
-Date: Thu, 23 Mar 2017 12:10:53 -0700
-Message-ID: <CANn89iJ0y=Ee_79iCctMDM9uz2D7D1TL4nAd2BzEnVV9wi9+5A@mail.gmail.com>
-References: <CACT4Y+bemisEVj1nFmyFPuJZxh3oa8QOf-qDZmjRyPZBG4y7ng@mail.gmail.com>
- <CAM_iQpWG78yjRAQ673NyiVBJZRfH7WMjbteRw7EfTkfH2tU2-w@mail.gmail.com> <CACT4Y+ZBwr6CNr1j0Hx3ZptLePkbiGfws4q=uv=PFOYTkhcXuQ@mail.gmail.com>
+From: Daniel Lezcano <daniel.lezcano@linaro.org>
+Subject: Re: [PATCH V8 1/3] irq: Add flags to request_percpu_irq function
+Date: Thu, 23 Mar 2017 20:19:53 +0100
+Message-ID: <20170323191953.GC24630@mai>
+References: <1490290924-12958-1-git-send-email-daniel.lezcano@linaro.org>
+ <20170323185449.GA21359@leverpostej>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+ZBwr6CNr1j0Hx3ZptLePkbiGfws4q=uv=PFOYTkhcXuQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: nicolas.pitre@linaro.org, linux-samsung-soc@vger.kernel.org,
+ vincent.guittot@linaro.org, kernel@stlinux.com, kvm@vger.kernel.org,
+ rafael@kernel.org, peterz@infradead.org, netdev@vger.kernel.org,
+ will.deacon@arm.com, linux-kernel@vger.kernel.org, marc.zyngier@arm.com,
+ xen-devel@lists.xenproject.org, tglx@linutronix.de,
+ linux-snps-arc@lists.infradead.org, kvmarm@lists.cs.columbia.edu,
+ linux-arm-kernel@lists.infradead.org
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <kvmarm-bounces@lists.cs.columbia.edu>
+Content-Disposition: inline
+In-Reply-To: <20170323185449.GA21359@leverpostej>
+List-Unsubscribe: <https://lists.cs.columbia.edu/mailman/options/kvmarm>,
+ <mailto:kvmarm-request@lists.cs.columbia.edu?subject=unsubscribe>
+List-Archive: <https://lists.cs.columbia.edu/pipermail/kvmarm>
+List-Post: <mailto:kvmarm@lists.cs.columbia.edu>
+List-Help: <mailto:kvmarm-request@lists.cs.columbia.edu?subject=help>
+List-Subscribe: <https://lists.cs.columbia.edu/mailman/listinfo/kvmarm>,
+ <mailto:kvmarm-request@lists.cs.columbia.edu?subject=subscribe>
+Errors-To: kvmarm-bounces@lists.cs.columbia.edu
+Sender: kvmarm-bounces@lists.cs.columbia.edu
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 23, 2017 at 12:06 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->
-> On Thu, Mar 23, 2017 at 8:00 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > On Thu, Mar 23, 2017 at 9:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> >> kasan: CONFIG_KASAN_INLINE enabled
-> >> kasan: GPF could be caused by NULL-ptr deref or user memory access
-> >> general protection fault: 0000 [#1] SMP KASAN
-> >> Dumping ftrace buffer:
-> >>    (ftrace buffer empty)
-> >> Modules linked in:
-> >> CPU: 2 PID: 12732 Comm: syz-executor6 Not tainted 4.11.0-rc3+ #365
-> >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> >> task: ffff880062b7a2c0 task.stack: ffff880033480000
-> >> RIP: 0010:qdisc_hash_add.part.19+0xb6/0x3c0 net/sched/sch_api.c:280
-> >> RSP: 0018:ffff880033487820 EFLAGS: 00010202
-> >> RAX: dffffc0000000000 RBX: ffffffff85357e00 RCX: ffffc90002b24000
-> >> RDX: 000000000000007a RSI: ffffffff835a523a RDI: 00000000000003d0
-> >> RBP: ffff8800334878b8 R08: fffffbfff0a6afeb R09: fffffbfff0a6afeb
-> >> R10: 0000000000000001 R11: fffffbfff0a6afea R12: ffffffff85357e48
-> >> R13: 1ffff10006690f06 R14: ffff880033487890 R15: 0000000000000000
-> >> FS:  00007f68665d0700(0000) GS:ffff88006e200000(0000) knlGS:0000000000000000
-> >> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> >> CR2: 00000000004c2d44 CR3: 000000003c6f8000 CR4: 00000000000026e0
-> >> Call Trace:
-> >>  qdisc_hash_add+0x76/0x90 net/sched/sch_api.c:279
-> >>  attach_default_qdiscs net/sched/sch_generic.c:798 [inline]
-> >>  dev_activate+0x6ca/0x920 net/sched/sch_generic.c:829
-> >>  __dev_open+0x25b/0x360 net/core/dev.c:1348
-> >>  __dev_change_flags+0x159/0x3d0 net/core/dev.c:6460
-> >>  dev_change_flags+0x88/0x140 net/core/dev.c:6525
-> >>  dev_ifsioc+0x51f/0x9b0 net/core/dev_ioctl.c:254
-> >>  dev_ioctl+0x1fe/0x1030 net/core/dev_ioctl.c:532
-> >>  sock_do_ioctl+0x94/0xb0 net/socket.c:902
-> >>  sock_ioctl+0x2c2/0x440 net/socket.c:993
-> >>  vfs_ioctl fs/ioctl.c:45 [inline]
-> >>  do_vfs_ioctl+0x1af/0x16d0 fs/ioctl.c:685
-> >>  SYSC_ioctl fs/ioctl.c:700 [inline]
-> >>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
-> >>  entry_SYSCALL_64_fastpath+0x1f/0xc2
-> >
-> > The interesting part is why the NULL dereference is in
-> > qdisc_hash_add(), since we have a check before calling
-> > it:
-> >
-> > #ifdef CONFIG_NET_SCHED
-> >         if (dev->qdisc)
-> >                 qdisc_hash_add(dev->qdisc);
-> > #endif
-> >
-> >
-> > When attach_one_default_qdisc() fails, we should trigger
-> > the NULL pointer dereference bug at:
-> >
-> >     atomic_inc(&dev->qdisc->refcnt);
->
-> I think qdisc is not NULL, it's something _in_ qdisc that is NULL. The
-> crash happens here:
->
->                 struct Qdisc *root = qdisc_dev(q)->qdisc;
->
-> so it's probably device.
-
-
-
-Looks like this bug came with commit 59cc1f61f09c
-("net: sched: convert qdisc linked list to hashtable")
-
-I would simply guard qdisc_hash_add()
-
-(Against &noop_qdisc)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index bcf49cd2278670197f2a7e9d4e9a62ae8d117468..2bb34b51cffdb05434a488b9f45c344d57868253
-100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -276,6 +276,8 @@ static struct Qdisc *qdisc_match_from_root(struct
-Qdisc *root, u32 handle)
-
- void qdisc_hash_add(struct Qdisc *q)
- {
-+ if (q == &noop_qdisc)
-+ return;
-  if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
-  struct Qdisc *root = qdisc_dev(q)->qdisc;
+SGkgTWFyaywKCk9uIFRodSwgTWFyIDIzLCAyMDE3IGF0IDA2OjU0OjUyUE0gKzAwMDAsIE1hcmsg
+UnV0bGFuZCB3cm90ZToKPiBIaSBEYW5pZWwsCj4gCj4gT24gVGh1LCBNYXIgMjMsIDIwMTcgYXQg
+MDY6NDI6MDFQTSArMDEwMCwgRGFuaWVsIExlemNhbm8gd3JvdGU6Cj4gPiBJbiB0aGUgbmV4dCBj
+aGFuZ2VzLCB3ZSB0cmFjayB0aGUgaW50ZXJydXB0cyBidXQgd2UgZGlzY2FyZCB0aGUgdGltZXJz
+IGFzCj4gPiB0aGF0IGRvZXMgbm90IG1ha2Ugc2Vuc2UuIFRoZSBuZXh0IGludGVycnVwdCBvbiBh
+IHRpbWVyIGlzIHByZWRpY3RhYmxlLgo+IAo+IFNvcnJ5LCBidXQgSSBjb3VsZCBub3QgcGFyc2Ug
+dGhpcy4gCgpJIG1lYW50IHdlIGFyZSBtZWFzdXJpbmcgd2hlbiBhcmUgaGFwcGVuaW5nIHRoZSBp
+bnRlcnJ1cHRzIGJ5IGdldHRpbmcgdGhlIGxvY2FsCmNsb2NrIGluIHRoZSBpbnRlcnJ1cHQgaGFu
+ZGxlci4gQnV0IGlmIHRoZSBpbnRlcnJ1cHRzIGFyZSBjb21pbmcgZnJvbSBhIHRpbWVyLCBpdApp
+cyBub3QgbmVjZXNzYXJ5IHRvIGRvIHRoYXQgYmVjYXVzZSB3ZSBhbHJlYWR5IGtub3cgd2hlbiB0
+aGV5IHdpbGwgb2NjdXIuCgpTbywgaW4gb3JkZXIgdG8gc29ydCBvdXQgd2hpY2ggaW50ZXJydXB0
+IHdlIG1lYXN1cmUsIHdlIHVzZSB0aGUgSVJRRl9USU1FUiBmbGFnLgoKVW5mb3J0dW5hdGVseSwg
+dGhpcyBmbGFnIGlzIG1pc3Npbmcgd2hlbiB3ZSBkbyBhIHJlcXVlc3RfcGVyY3B1X2lycS4gVGhl
+CnB1cnBvc2Ugb2YgdGhpcyBwYXRjaCBpcyB0byBmaXggdGhhdC4KCj4gPiBkaWZmIC0tZ2l0IGEv
+ZHJpdmVycy9wZXJmL2FybV9wbXUuYyBiL2RyaXZlcnMvcGVyZi9hcm1fcG11LmMKPiA+IGluZGV4
+IDk2MTJiODQuLjBmNWFiNGEgMTAwNjQ0Cj4gPiAtLS0gYS9kcml2ZXJzL3BlcmYvYXJtX3BtdS5j
+Cj4gPiArKysgYi9kcml2ZXJzL3BlcmYvYXJtX3BtdS5jCj4gPiBAQCAtNjYxLDcgKzY2MSw3IEBA
+IHN0YXRpYyBpbnQgY3B1X3BtdV9yZXF1ZXN0X2lycShzdHJ1Y3QgYXJtX3BtdSAqY3B1X3BtdSwg
+aXJxX2hhbmRsZXJfdCBoYW5kbGVyKQo+ID4gIAo+ID4gIAlpcnEgPSBwbGF0Zm9ybV9nZXRfaXJx
+KHBtdV9kZXZpY2UsIDApOwo+ID4gIAlpZiAoaXJxID4gMCAmJiBpcnFfaXNfcGVyY3B1KGlycSkp
+IHsKPiA+IC0JCWVyciA9IHJlcXVlc3RfcGVyY3B1X2lycShpcnEsIGhhbmRsZXIsICJhcm0tcG11
+IiwKPiA+ICsJCWVyciA9IHJlcXVlc3RfcGVyY3B1X2lycShpcnEsIDAsIGhhbmRsZXIsICJhcm0t
+cG11IiwKPiA+ICAJCQkJCSAmaHdfZXZlbnRzLT5wZXJjcHVfcG11KTsKPiA+ICAJCWlmIChlcnIp
+IHsKPiA+ICAJCQlwcl9lcnIoInVuYWJsZSB0byByZXF1ZXN0IElSUSVkIGZvciBBUk0gUE1VIGNv
+dW50ZXJzXG4iLAo+IAo+IFBsZWFzZSBDYyBteXNlbGYgYW5kIFdpbGwgRGVhY29uIHdoZW4gbW9k
+aWZ5aW5nIHRoZSBhcm1fcG11IGRyaXZlciwgYXMKPiBwZXIgTUFJTlRBSU5FUlMuIEkgb25seSBz
+cG90dGVkIHRoaXMgcGF0Y2ggYnkgY2hhbmNlLgoKQWgsIG9rLCBzb3JyeSBmb3IgdGhhdC4gVGhh
+bmtzIGZvciBzcG90dGluZyB0aGlzLCB5b3Ugc2hvdWxkIGhhdmUgYmVlbiBDYydlZCBieQpteSBj
+Y2NtZCBzY3JpcHQuIEkgd2lsbCBjaGVjayB0aGF0LgoKPiBUaGlzIGNvbmZsaWN0cyB3aXRoIGFy
+bV9wbXUgY2hhbmdlcyBJIGhhdmUgcXVldWVkIGZvciB2NC4xMiBbMV0uCj4gCj4gU28sIGNhbiB3
+ZSBsZWF2ZSB0aGUgcHJvdG90eXBlIG9mIHJlcXVlc3RfcGVyY3B1X2lycSgpIGFzLWlzPwo+IAo+
+IFdoeSBub3QgYWRkIGEgbmV3IHJlcXVlc3RfcGVyY3B1X2lycV9mbGFncygpIGZ1bmN0aW9uLCBh
+bmQgbGVhdmUKPiByZXF1ZXN0X3BlcmNwdV9pcnEoKSBhcyBhIHdyYXBwZXIgZm9yIHRoYXQ/IGUu
+Zy4KClsgLi4uIF0KCj4gc3RhdGljIGlubGluZSBpbnQKPiByZXF1ZXN0X3BlcmNwdV9pcnEodW5z
+aWduZWQgaW50IGlycSwgaXJxX2hhbmRsZXJfdCBoYW5kbGVyLAo+IAkJICAgY29uc3QgY2hhciAq
+ZGV2bmFtZSwgdm9pZCBfX3BlcmNwdSAqcGVyY3B1X2Rldl9pZCkKPiB7Cj4gCXJldHVybiByZXF1
+ZXN0X3BlcmNwdV9pcnFfZmxhZ3MoaXJxLCBoYW5kbGVyLCBkZXZuYW1lLAo+IAkJCQkJcGVyY3B1
+X2Rldl9pZCwgMCk7Cj4gfQo+IAo+IC4uLiB0aGF0IHdvdWxkIGF2b2lkIGhhdmluZyB0byB0b3Vj
+aCBhbnkgbm9uLXRpbWVyIGRyaXZlciBmb3Igbm93LgoKTW1oLCB5ZXMuIFRoYXQncyBhIGdvb2Qg
+c3VnZ2VzdGlvbi4KCj4gWy4uLl0KPiAKPiA+IC1yZXF1ZXN0X3BlcmNwdV9pcnEodW5zaWduZWQg
+aW50IGlycSwgaXJxX2hhbmRsZXJfdCBoYW5kbGVyLAo+ID4gLQkJICAgY29uc3QgY2hhciAqZGV2
+bmFtZSwgdm9pZCBfX3BlcmNwdSAqcGVyY3B1X2Rldl9pZCk7Cj4gPiArcmVxdWVzdF9wZXJjcHVf
+aXJxKHVuc2lnbmVkIGludCBpcnEsIHVuc2lnbmVkIGxvbmcgZmxhZ3MsCj4gPiArCQkgICBpcnFf
+aGFuZGxlcl90IGhhbmRsZXIsICBjb25zdCBjaGFyICpkZXZuYW1lLAo+ID4gKwkJICAgdm9pZCBf
+X3BlcmNwdSAqcGVyY3B1X2Rldl9pZCk7Cj4gPiAgCj4gCj4gTG9va2luZyBhdCByZXF1ZXN0X2ly
+cSwgdGhlIHByb3RvdHlwZSBpczoKPiAKPiBpbnQgX19tdXN0X2NoZWNrCj4gcmVxdWVzdF9pcnEo
+dW5zaWduZWQgaW50IGlycSwgaXJxX2hhbmRsZXJfdCBoYW5kbGVyLAo+IAkgICAgdW5zaWduZWQg
+bG9uZyBmbGFncywgY29uc3QgY2hhciAqbmFtZSwKPiAJICAgIHZvaWQgKmRldik7Cj4gCj4gLi4u
+IHN1cmVseSBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8gc2hhcmUgdGhlIHNhbWUgYXJndW1lbnQgb3Jk
+ZXI/IGkuZS4KPiAKPiBpbnQgX19tdXN0X2NoZWNrCj4gcmVxdWVzdF9wZXJjcHVfaXJxKHVuc2ln
+bmVkIGludCBpcnEsIGlycV9oYW5kbGVyX3QgaGFuZGxlciwKPiAJCSAgIHVuc2lnbmVkIGxvbmcg
+ZmxhZ3MsIGNvbnN0IGNoYXIgKmRldm5hbWUsCj4gCQkgICB2b2lkIF9fcGVyY3B1ICpwZXJjcHVf
+ZGV2X2lkKTsKPiAKCkFncmVlLgoKVGhhbmtzIGZvciB0aGUgcmV2aWV3LgoKICAtLSBEYW5pZWwK
+CgotLSAKCiA8aHR0cDovL3d3dy5saW5hcm8ub3JnLz4gTGluYXJvLm9yZyDilIIgT3BlbiBzb3Vy
+Y2Ugc29mdHdhcmUgZm9yIEFSTSBTb0NzCgpGb2xsb3cgTGluYXJvOiAgPGh0dHA6Ly93d3cuZmFj
+ZWJvb2suY29tL3BhZ2VzL0xpbmFybz4gRmFjZWJvb2sgfAo8aHR0cDovL3R3aXR0ZXIuY29tLyMh
+L2xpbmFyb29yZz4gVHdpdHRlciB8CjxodHRwOi8vd3d3LmxpbmFyby5vcmcvbGluYXJvLWJsb2cv
+PiBCbG9nCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmt2
+bWFybSBtYWlsaW5nIGxpc3QKa3ZtYXJtQGxpc3RzLmNzLmNvbHVtYmlhLmVkdQpodHRwczovL2xp
+c3RzLmNzLmNvbHVtYmlhLmVkdS9tYWlsbWFuL2xpc3RpbmZvL2t2bWFybQo=
