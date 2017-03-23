@@ -1,57 +1,101 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Re: [PATCH net-next v2 5/5] net-next: dsa: add dsa support for
- Mediatek MT7530 switch
-Date: Thu, 23 Mar 2017 15:30:05 +0100
-Message-ID: <90daf3f4-cd9f-2c97-2781-feef4c5e2227@nbd.name>
-References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
- <1490088910-19405-6-git-send-email-sean.wang@mediatek.com>
- <20170323072233.GA10076@lunn.ch> <1490256416.14184.2.camel@mtkswgap22>
- <c9ffd691-b959-1e19-5bea-6386b816bac2@nbd.name>
- <e55dd89f-e2a6-284e-1905-bd8dc92a042d@phrozen.org>
+From: Alban <albeu@free.fr>
+Subject: Re: [PATCH 3/7] ath9k: Add support for reading the EEPROM data
+ using the nvmem API
+Date: Thu, 23 Mar 2017 15:43:28 +0100
+Message-ID: <20170323154328.4bb5db44@avionic-0020>
+References: <1489439116-4233-1-git-send-email-albeu@free.fr>
+        <1489439116-4233-3-git-send-email-albeu@free.fr>
+        <1609202.bQK0rlNN3Y@debian64>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, devicetree@vger.kernel.org,
-        Landen.Chao@mediatek.com, f.fainelli@gmail.com, keyhaede@gmail.com,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, robh+dt@kernel.org,
-        linux-mediatek@lists.infradead.org, objelf@gmail.com,
-        matthias.bgg@gmail.com, davem@davemloft.net
-To: John Crispin <john@phrozen.org>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/Qa.CfbMbWyb.SYL5PtXbDRf"; protocol="application/pgp-signature"
+Cc: Alban <albeu@free.fr>,
+        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        John Crispin <john@phrozen.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, chrisrblake93@gmail.com
+To: Christian Lamparter <chunkeey@googlemail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e55dd89f-e2a6-284e-1905-bd8dc92a042d@phrozen.org>
+In-Reply-To: <1609202.bQK0rlNN3Y@debian64>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2017-03-23 15:25, John Crispin wrote:
-> 
-> 
-> On 23/03/17 15:09, Felix Fietkau wrote:
->> On 2017-03-23 09:06, Sean Wang wrote:
->>> Hi Andrew,
->>>
->>> The purpose for the regmap table registered is to
->>>
->>> provide a way which helps us to look up a specific
->>>
->>> register on the switch through regmap-debugfs.
->>>
->>>
->>> And not all ranges of register is defined
->>>
->>> so I only include the meaningful ones in a sparse way
->>>
->>> for the table.
->> I think in that case it might be nice to make regmap support optional in
->> order to avoid pulling in bloat on platforms that don't need it.
->>
->> - Felix
->>
-> The 2 relevant platforms are mips/ralink and arm/mediatek. both require 
-> regmap for the eth_sysctl syscon if they want to utilize the mtk_soc_eth 
-> driver which is a prereq for mt7530. so regmap cannot be optional here.
-Makes sense, thanks.
+--Sig_/Qa.CfbMbWyb.SYL5PtXbDRf
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-- Felix
+On Tue, 14 Mar 2017 00:53:55 +0100
+Christian Lamparter <chunkeey@googlemail.com> wrote:
+
+> On Monday, March 13, 2017 10:05:11 PM CET Alban wrote:
+> > Currently SoC platforms use a firmware request to get the EEPROM data.
+> > This is mostly a hack and rely on using a user-helper scripts which is
+> > deprecated. A nicer alternative is to use the nvmem API which was
+> > designed for this kind of task.
+> >=20
+> > Furthermore we let CONFIG_ATH9K_AHB select CONFIG_NVMEM as such
+> > devices will generally use this method for loading the EEPROM data.
+> >=20
+> > Signed-off-by: Alban <albeu@free.fr>
+> > ---
+> > @@ -654,6 +656,25 @@ static int ath9k_init_softc(u16 devid, struct ath_=
+softc *sc,
+> >  	if (ret)
+> >  		return ret;
+> > =20
+> > +	/* If the EEPROM hasn't been retrieved via firmware request
+> > +	 * use the nvmem API insted.
+> > +	 */
+> > +	if (!ah->eeprom_blob) {
+> > +		struct nvmem_cell *eeprom_cell;
+> > +
+> > +		eeprom_cell =3D nvmem_cell_get(ah->dev, "eeprom");
+> > +		if (!IS_ERR(eeprom_cell)) {
+> > +			ah->eeprom_data =3D nvmem_cell_read(
+> > +				eeprom_cell, &ah->eeprom_size);
+> > +			nvmem_cell_put(eeprom_cell);
+> > +
+> > +			if (IS_ERR(ah->eeprom_data)) {
+> > +				dev_err(ah->dev, "failed to read eeprom");
+> > +				return PTR_ERR(ah->eeprom_data);
+> > +			}
+> > +		}
+> > +	}
+> > +
+> >  	if (ath9k_led_active_high !=3D -1)
+> >  		ah->config.led_active_high =3D ath9k_led_active_high =3D=3D 1;
+> >   =20
+> Are you sure this works with AR93XX SoCs that have the calibration data
+> in the OTP?
+
+I only tested this on an ar9132 platform, so it might well be that a
+few things are missing for the newer SoC. However this shouldn't break
+anything existing as a platform needs to define an nvmem cell on the
+athk9 device for this code to be used at all.
+
+Alban
+
+--Sig_/Qa.CfbMbWyb.SYL5PtXbDRf
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJY098QAAoJEHSUmkuduC28pU8P/i3jxIr34un4PVGUm2PtC+Ng
+f49Htkd72NLj/srYraNQUquaNvaWUvP6VwRv7SBxHuPPFe7E9cc9pYM2XQmacqFr
+EoeFW/1Zf0NhrKNn7pVPlV6+zTfxoxBZ+LpzAOfOnihwKtUwbkNM5bepYRgSjbSN
+DT2KoaulFqkvgg3394dHeK33K9WKdhJMKePB6BFNiJs0pKrJ9OA0dU7m5yMKQI3g
+7vFi2oduArbfqjeO0KJtIMefsknpxCmX1p+ERP3RxbH/stAA6Wuo7NUKk5afsBUa
+CWVJhNp/AFwY9WhnA3a/LygUN7vre+Oz25VTW8IiI2EjszgcG6EiQyaYNuFlErDI
+WSyH2jrH7wpDuwrFk64DiA9r1ZYkjlwTELmq181yEa2Hp9HgePHLMNzertgcChc+
+OY/DHV/ICtzOgialA8FzOV/DJadjB8rrgcoeCoGXkE5Za6l1+vRgPOD/Pd6J3LTm
+QR9Eooj/cb995Im1iWe/zaVoJKZgVD7HRkPL8flmUADqOgeW+p4rw1drW6fUma1h
+U2cCcMCBYOIbCrzu2b2BSi+R4EDr/zNRZtzimZxmHv/z0+2cEH8XAq+O5cfxkSKv
+1RP8rRX9B5iWwQnfWuhoyOzm5wusfT9dctkm1qdrzUM0hB6g6u4B/jertVwJSzHO
+1+TyxIhutQuwiS1a1vo/
+=J5ti
+-----END PGP SIGNATURE-----
+
+--Sig_/Qa.CfbMbWyb.SYL5PtXbDRf--
