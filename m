@@ -1,41 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4] net: Add sysctl to toggle early demux for
- tcp and udp
-Date: Wed, 22 Mar 2017 21:40:36 -0700 (PDT)
-Message-ID: <20170322.214036.1157623192132988457.davem@davemloft.net>
-References: <20170322.194357.531371967824197040.davem@davemloft.net>
-        <20170322.203618.972117086361436133.davem@davemloft.net>
-        <8d5e22e0bd21739b1d4ea21703ffde7d@codeaurora.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 1/8] ptr_ring: introduce batch dequeuing
+Date: Thu, 23 Mar 2017 13:33:28 +0800
+Message-ID: <516ec084-6d68-fba7-eea1-65d6746bb957@redhat.com>
+References: <1490069087-4783-1-git-send-email-jasowang@redhat.com>
+	<1490069087-4783-2-git-send-email-jasowang@redhat.com>
+	<20170322153638-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-        stephen@networkplumber.org, tom@herbertland.com
-To: subashab@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47764 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751792AbdCWElD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 00:41:03 -0400
-In-Reply-To: <8d5e22e0bd21739b1d4ea21703ffde7d@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170322153638-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Date: Wed, 22 Mar 2017 21:55:04 -0600
-
->> This doesn't build with ipv6 as a module:
->> net/built-in.o: In function `proc_tcp_early_demux':
->> sysctl_net_ipv4.c:(.text+0x145cfc): undefined reference to
->> `tcp_v6_early_demux_configure'
->> net/built-in.o: In function `proc_udp_early_demux':
->> sysctl_net_ipv4.c:(.text+0x145d4c): undefined reference to
->> `udp_v6_early_demux_configure'
->> Makefile:983: recipe for target 'vmlinux' failed
-> 
-> Hi David
-> 
-> Sorry about that (we always have IPV6 enabled).
-> Do I have to send a v5 or separate patch for this?
-
-Please send a v5, thanks.
+CgpPbiAyMDE35bm0MDPmnIgyMuaXpSAyMTo0MywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFR1ZSwgTWFyIDIxLCAyMDE3IGF0IDEyOjA0OjQwUE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+IFNpZ25lZC1vZmYtYnk6IEphc29uIFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4+
+IC0tLQo+PiAgIGluY2x1ZGUvbGludXgvcHRyX3JpbmcuaCB8IDY1ICsrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwo+PiAgIDEgZmlsZSBjaGFuZ2VkLCA2NSBp
+bnNlcnRpb25zKCspCj4+Cj4+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3B0cl9yaW5nLmgg
+Yi9pbmNsdWRlL2xpbnV4L3B0cl9yaW5nLmgKPj4gaW5kZXggNmM3MDQ0NC4uNDc3MWRlZCAxMDA2
+NDQKPj4gLS0tIGEvaW5jbHVkZS9saW51eC9wdHJfcmluZy5oCj4+ICsrKyBiL2luY2x1ZGUvbGlu
+dXgvcHRyX3JpbmcuaAo+PiBAQCAtMjQ3LDYgKzI0NywyMiBAQCBzdGF0aWMgaW5saW5lIHZvaWQg
+Kl9fcHRyX3JpbmdfY29uc3VtZShzdHJ1Y3QgcHRyX3JpbmcgKnIpCj4+ICAgCXJldHVybiBwdHI7
+Cj4+ICAgfQo+PiAgIAo+PiArc3RhdGljIGlubGluZSBpbnQgX19wdHJfcmluZ19jb25zdW1lX2Jh
+dGNoZWQoc3RydWN0IHB0cl9yaW5nICpyLAo+PiArCQkJCQkgICAgIHZvaWQgKiphcnJheSwgaW50
+IG4pCj4+ICt7Cj4+ICsJdm9pZCAqcHRyOwo+PiArCWludCBpID0gMDsKPj4gKwo+PiArCXdoaWxl
+IChpIDwgbikgewo+PiArCQlwdHIgPSBfX3B0cl9yaW5nX2NvbnN1bWUocik7Cj4+ICsJCWlmICgh
+cHRyKQo+PiArCQkJYnJlYWs7Cj4+ICsJCWFycmF5W2krK10gPSBwdHI7Cj4+ICsJfQo+PiArCj4+
+ICsJcmV0dXJuIGk7Cj4+ICt9Cj4+ICsKPj4gICAvKgo+PiAgICAqIE5vdGU6IHJlc2l6ZSAoYmVs
+b3cpIG5lc3RzIHByb2R1Y2VyIGxvY2sgd2l0aGluIGNvbnN1bWVyIGxvY2ssIHNvIGlmIHlvdQo+
+PiAgICAqIGNhbGwgdGhpcyBpbiBpbnRlcnJ1cHQgb3IgQkggY29udGV4dCwgeW91IG11c3QgZGlz
+YWJsZSBpbnRlcnJ1cHRzL0JIIHdoZW4KPgo+IFRoaXMgaWdub3JlcyB0aGUgY29tbWVudCBhYm92
+ZSB0aGF0IGZ1bmN0aW9uOgo+Cj4gLyogTm90ZTogY2FsbGVycyBpbnZva2luZyB0aGlzIGluIGEg
+bG9vcCBtdXN0IHVzZSBhIGNvbXBpbGVyIGJhcnJpZXIsCj4gICAqIGZvciBleGFtcGxlIGNwdV9y
+ZWxheCgpLgo+ICAgKi8KClllcywgX19wdHJfcmluZ19zd2FwX3F1ZXVlKCkgaWdub3JlcyB0aGlz
+IHRvby4KCj4KPiBBbHNvIC0gaXQgbG9va3MgbGlrZSBpdCBzaG91bGRuJ3QgbWF0dGVyIGlmIHJl
+YWRzIGFyZSByZW9yZGVyZWQgYnV0IEkgd29uZGVyLgo+IFRob3VnaHRzPyBJbmNsdWRpbmcgc29t
+ZSByZWFzb25pbmcgYWJvdXQgaXQgaW4gY29tbWl0IGxvZyB3b3VsZCBiZSBuaWNlLgoKWWVzLCBJ
+IHRoaW5rIGl0IGRvZXNuJ3QgbWF0dGVyIGluIHRoaXMgY2FzZSwgaXQgbWF0dGVycyBvbmx5IGZv
+ciBiYXRjaGVkIApwcm9kdWNpbmcuCgpUaGFua3MKCj4KPj4gQEAgLTI5Nyw2ICszMTMsNTUgQEAg
+c3RhdGljIGlubGluZSB2b2lkICpwdHJfcmluZ19jb25zdW1lX2JoKHN0cnVjdCBwdHJfcmluZyAq
+cikKPj4gICAJcmV0dXJuIHB0cjsKPj4gICB9Cj4+ICAgCj4+ICtzdGF0aWMgaW5saW5lIGludCBw
+dHJfcmluZ19jb25zdW1lX2JhdGNoZWQoc3RydWN0IHB0cl9yaW5nICpyLAo+PiArCQkJCQkgICB2
+b2lkICoqYXJyYXksIGludCBuKQo+PiArewo+PiArCWludCByZXQ7Cj4+ICsKPj4gKwlzcGluX2xv
+Y2soJnItPmNvbnN1bWVyX2xvY2spOwo+PiArCXJldCA9IF9fcHRyX3JpbmdfY29uc3VtZV9iYXRj
+aGVkKHIsIGFycmF5LCBuKTsKPj4gKwlzcGluX3VubG9jaygmci0+Y29uc3VtZXJfbG9jayk7Cj4+
+ICsKPj4gKwlyZXR1cm4gcmV0Owo+PiArfQo+PiArCj4+ICtzdGF0aWMgaW5saW5lIGludCBwdHJf
+cmluZ19jb25zdW1lX2JhdGNoZWRfaXJxKHN0cnVjdCBwdHJfcmluZyAqciwKPj4gKwkJCQkJICAg
+ICAgIHZvaWQgKiphcnJheSwgaW50IG4pCj4+ICt7Cj4+ICsJaW50IHJldDsKPj4gKwo+PiArCXNw
+aW5fbG9ja19pcnEoJnItPmNvbnN1bWVyX2xvY2spOwo+PiArCXJldCA9IF9fcHRyX3JpbmdfY29u
+c3VtZV9iYXRjaGVkKHIsIGFycmF5LCBuKTsKPj4gKwlzcGluX3VubG9ja19pcnEoJnItPmNvbnN1
+bWVyX2xvY2spOwo+PiArCj4+ICsJcmV0dXJuIHJldDsKPj4gK30KPj4gKwo+PiArc3RhdGljIGlu
+bGluZSBpbnQgcHRyX3JpbmdfY29uc3VtZV9iYXRjaGVkX2FueShzdHJ1Y3QgcHRyX3JpbmcgKnIs
+Cj4+ICsJCQkJCSAgICAgICB2b2lkICoqYXJyYXksIGludCBuKQo+PiArewo+PiArCXVuc2lnbmVk
+IGxvbmcgZmxhZ3M7Cj4+ICsJaW50IHJldDsKPj4gKwo+PiArCXNwaW5fbG9ja19pcnFzYXZlKCZy
+LT5jb25zdW1lcl9sb2NrLCBmbGFncyk7Cj4+ICsJcmV0ID0gX19wdHJfcmluZ19jb25zdW1lX2Jh
+dGNoZWQociwgYXJyYXksIG4pOwo+PiArCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJnItPmNvbnN1
+bWVyX2xvY2ssIGZsYWdzKTsKPj4gKwo+PiArCXJldHVybiByZXQ7Cj4+ICt9Cj4+ICsKPj4gK3N0
+YXRpYyBpbmxpbmUgaW50IHB0cl9yaW5nX2NvbnN1bWVfYmF0Y2hlZF9iaChzdHJ1Y3QgcHRyX3Jp
+bmcgKnIsCj4+ICsJCQkJCSAgICAgIHZvaWQgKiphcnJheSwgaW50IG4pCj4+ICt7Cj4+ICsJaW50
+IHJldDsKPj4gKwo+PiArCXNwaW5fbG9ja19iaCgmci0+Y29uc3VtZXJfbG9jayk7Cj4+ICsJcmV0
+ID0gX19wdHJfcmluZ19jb25zdW1lX2JhdGNoZWQociwgYXJyYXksIG4pOwo+PiArCXNwaW5fdW5s
+b2NrX2JoKCZyLT5jb25zdW1lcl9sb2NrKTsKPj4gKwo+PiArCXJldHVybiByZXQ7Cj4+ICt9Cj4+
+ICsKPj4gICAvKiBDYXN0IHRvIHN0cnVjdHVyZSB0eXBlIGFuZCBjYWxsIGEgZnVuY3Rpb24gd2l0
+aG91dCBkaXNjYXJkaW5nIGZyb20gRklGTy4KPj4gICAgKiBGdW5jdGlvbiBtdXN0IHJldHVybiBh
+IHZhbHVlLgo+PiAgICAqIENhbGxlcnMgbXVzdCB0YWtlIGNvbnN1bWVyX2xvY2suCj4+IC0tIAo+
+PiAyLjcuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+VmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZv
+dW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xp
+c3RpbmZvL3ZpcnR1YWxpemF0aW9u
