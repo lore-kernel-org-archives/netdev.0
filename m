@@ -1,39 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v2 1/8] net: Busy polling should ignore sender
- CPUs
-Date: Thu, 23 Mar 2017 15:05:52 -0700
-Message-ID: <1490306752.9687.7.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH v2 0/8] Add busy poll support for epoll
+Date: Thu, 23 Mar 2017 15:07:23 -0700
+Message-ID: <20170323220721.GA62356@ast-mbp.thefacebook.com>
 References: <20170323211820.12615.88907.stgit@localhost.localdomain>
-         <20170323213637.12615.11197.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         sridhar.samudrala@intel.com, edumazet@google.com,
         davem@davemloft.net, linux-api@vger.kernel.org
 To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:35818 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751584AbdCWWFz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 18:05:55 -0400
-In-Reply-To: <20170323213637.12615.11197.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170323211820.12615.88907.stgit@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-03-23 at 14:36 -0700, Alexander Duyck wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Thu, Mar 23, 2017 at 02:36:29PM -0700, Alexander Duyck wrote:
+> This is my second pass at trying to add support for busy polling when using
+> epoll. It is pretty much a full rewrite as I have made serious changes to
+> most of the patches.
 > 
-> This patch is a cleanup/fix for NAPI IDs following the changes that made it
-> so that sender_cpu and napi_id were doing a better job of sharing the same
-> location in the sk_buff.
+> In the v1 series I had submitted we only allowed epoll to make use of busy
+> poll when all NAPI IDs were the same. I gave this some more thought and
+> after making several other changes based on feedback from Eric Dumazet I
+> decided to try changing the main concept a bit and instead we will now
+> attempt to busy poll on the NAPI ID of the last socket added to the ready
+> list. By doing it this way we are able to take advantage of the changes
+> Eric has already made so that we get woken up by the softirq, we then pull
+> packets via busy poll, and will return to the softirq until we are woken up
+> and a new socket has been added to the ready list.
 > 
-> One issue I found is that we weren't validating the napi_id as being valid
-> before we started trying to setup the busy polling.  This change corrects
-> that by using the MIN_NAPI_ID value that is now used in both allocating the
-> NAPI IDs, as well as validating them.
+> Most of the changes in this set authored by me are meant to be cleanup or
+> fixes for various things. For example, I am trying to make it so that we
+> don't perform hash look-ups for the NAPI instance when we are only working
+> with sender_cpu and the like.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
+> The most complicated change of the set is probably the clean-ups for the
+> timeout. I realized that the timeout could potentially get into a state
+> where it would never timeout if the local_clock() was approaching a
+> rollover and the added busy poll usecs interval would be enough to roll it
+> over.  Because we were shifting the value you would never be able to get
+> time_after to actually trigger.
+> 
+> At the heart of this set is the last 3 patches which enable epoll support
+> and add support for obtaining the NAPI ID of a given socket.  With these
+> It becomes possible for an application to make use of epoll and get optimal
+> busy poll utilization by stacking multiple sockets with the same NAPI ID on
+> the same epoll context.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+it all sounds awesome, but i cannot quite visualize the impact.
+Can you post some sample code/minibenchmark and numbers before/after?
+
+Thanks!
