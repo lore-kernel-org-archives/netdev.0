@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [net-next PATCH v2 3/8] net: Only define skb_mark_napi_id in one
- spot instead of two
-Date: Thu, 23 Mar 2017 14:36:51 -0700
-Message-ID: <20170323213651.12615.62895.stgit@localhost.localdomain>
+Subject: [net-next PATCH v2 4/8] net: Change return type of sk_busy_loop
+ from bool to void
+Date: Thu, 23 Mar 2017 14:37:15 -0700
+Message-ID: <20170323213715.12615.49246.stgit@localhost.localdomain>
 References: <20170323211820.12615.88907.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,72 +10,167 @@ Content-Transfer-Encoding: 7bit
 Cc: sridhar.samudrala@intel.com, edumazet@google.com,
         davem@davemloft.net, linux-api@vger.kernel.org
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36391 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752592AbdCWVha (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 17:37:30 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170323211820.12615.88907.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Instead of defining two versions of skb_mark_napi_id I think it is more
-readable to just match the format of the sk_mark_napi_id functions and just
-wrap the contents of the function instead of defining two versions of the
-function.  This way we can save a few lines of code since we only need 2 of
-the ifdef/endif but needed 5 for the extra function declaration.
+>From what I can tell there is only a couple spots where we are actually
+checking the return value of sk_busy_loop. As there are only a few
+consumers of that data, and the data being checked for can be replaced
+with a check for !skb_queue_empty() we might as well just pull the code
+out of sk_busy_loop and place it in the spots that actually need it.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- include/net/busy_poll.h |   22 +++++++++-------------
- 1 file changed, 9 insertions(+), 13 deletions(-)
+ include/net/busy_poll.h |    5 ++---
+ net/core/datagram.c     |    8 ++++++--
+ net/core/dev.c          |   26 ++++++++++++--------------
+ net/sctp/socket.c       |    9 ++++++---
+ 4 files changed, 26 insertions(+), 22 deletions(-)
 
 diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-index 3fcda9e70c3f..b82d6ba70a14 100644
+index b82d6ba70a14..c55760f4820f 100644
 --- a/include/net/busy_poll.h
 +++ b/include/net/busy_poll.h
-@@ -76,14 +76,6 @@ static inline bool busy_loop_timeout(unsigned long end_time)
- 
- bool sk_busy_loop(struct sock *sk, int nonblock);
- 
--/* used in the NIC receive handler to mark the skb */
--static inline void skb_mark_napi_id(struct sk_buff *skb,
--				    struct napi_struct *napi)
--{
--	skb->napi_id = napi->napi_id;
--}
--
--
- #else /* CONFIG_NET_RX_BUSY_POLL */
- static inline unsigned long net_busy_loop_on(void)
- {
-@@ -100,11 +92,6 @@ static inline bool sk_can_busy_loop(struct sock *sk)
- 	return false;
+@@ -74,7 +74,7 @@ static inline bool busy_loop_timeout(unsigned long end_time)
+ 	return time_after(now, end_time);
  }
  
--static inline void skb_mark_napi_id(struct sk_buff *skb,
--				    struct napi_struct *napi)
--{
--}
--
- static inline bool busy_loop_timeout(unsigned long end_time)
- {
+-bool sk_busy_loop(struct sock *sk, int nonblock);
++void sk_busy_loop(struct sock *sk, int nonblock);
+ 
+ #else /* CONFIG_NET_RX_BUSY_POLL */
+ static inline unsigned long net_busy_loop_on(void)
+@@ -97,9 +97,8 @@ static inline bool busy_loop_timeout(unsigned long end_time)
  	return true;
-@@ -117,6 +104,15 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+ }
+ 
+-static inline bool sk_busy_loop(struct sock *sk, int nonblock)
++static inline void sk_busy_loop(struct sock *sk, int nonblock)
+ {
+-	return false;
+ }
  
  #endif /* CONFIG_NET_RX_BUSY_POLL */
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ea633342ab0d..4608aa245410 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -256,8 +256,12 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
+ 		}
  
-+/* used in the NIC receive handler to mark the skb */
-+static inline void skb_mark_napi_id(struct sk_buff *skb,
-+				    struct napi_struct *napi)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	skb->napi_id = napi->napi_id;
-+#endif
-+}
+ 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
+-	} while (sk_can_busy_loop(sk) &&
+-		 sk_busy_loop(sk, flags & MSG_DONTWAIT));
 +
- /* used in the protocol hanlder to propagate the napi_id to the socket */
- static inline void sk_mark_napi_id(struct sock *sk, const struct sk_buff *skb)
++		if (!sk_can_busy_loop(sk))
++			break;
++
++		sk_busy_loop(sk, flags & MSG_DONTWAIT);
++	} while (!skb_queue_empty(&sk->sk_receive_queue));
+ 
+ 	error = -EAGAIN;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ab337bf5bbf4..6b0458b5afe0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5060,21 +5060,21 @@ static void busy_poll_stop(struct napi_struct *napi, void *have_poll_lock)
+ 		do_softirq();
+ }
+ 
+-bool sk_busy_loop(struct sock *sk, int nonblock)
++void sk_busy_loop(struct sock *sk, int nonblock)
  {
+ 	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
+ 	int (*napi_poll)(struct napi_struct *napi, int budget);
+ 	void *have_poll_lock = NULL;
+ 	struct napi_struct *napi;
+ 	unsigned int napi_id;
+-	int rc;
++	int work;
+ 
+ restart:
+ 	napi_id = READ_ONCE(sk->sk_napi_id);
+ 	if (napi_id < MIN_NAPI_ID)
+-		return 0;
++		return;
+ 
+-	rc = false;
++	work = 0;
+ 	napi_poll = NULL;
+ 
+ 	rcu_read_lock();
+@@ -5085,7 +5085,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 
+ 	preempt_disable();
+ 	for (;;) {
+-		rc = 0;
++		work = 0;
+ 		local_bh_disable();
+ 		if (!napi_poll) {
+ 			unsigned long val = READ_ONCE(napi->state);
+@@ -5103,12 +5103,12 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 			have_poll_lock = netpoll_poll_lock(napi);
+ 			napi_poll = napi->poll;
+ 		}
+-		rc = napi_poll(napi, BUSY_POLL_BUDGET);
+-		trace_napi_poll(napi, rc, BUSY_POLL_BUDGET);
++		work = napi_poll(napi, BUSY_POLL_BUDGET);
++		trace_napi_poll(napi, work, BUSY_POLL_BUDGET);
+ count:
+-		if (rc > 0)
++		if (work > 0)
+ 			__NET_ADD_STATS(sock_net(sk),
+-					LINUX_MIB_BUSYPOLLRXPACKETS, rc);
++					LINUX_MIB_BUSYPOLLRXPACKETS, work);
+ 		local_bh_enable();
+ 
+ 		if (nonblock || !skb_queue_empty(&sk->sk_receive_queue) ||
+@@ -5121,9 +5121,9 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 			preempt_enable();
+ 			rcu_read_unlock();
+ 			cond_resched();
+-			rc = !skb_queue_empty(&sk->sk_receive_queue);
+-			if (rc || busy_loop_timeout(end_time))
+-				return rc;
++			if (!skb_queue_empty(&sk->sk_receive_queue) ||
++			    busy_loop_timeout(end_time))
++				return;
+ 			goto restart;
+ 		}
+ 		cpu_relax();
+@@ -5131,10 +5131,8 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 	if (napi_poll)
+ 		busy_poll_stop(napi, have_poll_lock);
+ 	preempt_enable();
+-	rc = !skb_queue_empty(&sk->sk_receive_queue);
+ out:
+ 	rcu_read_unlock();
+-	return rc;
+ }
+ EXPORT_SYMBOL(sk_busy_loop);
+ 
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 72cc3ecf6516..ccc08fc39722 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -7518,9 +7518,12 @@ struct sk_buff *sctp_skb_recv_datagram(struct sock *sk, int flags,
+ 		if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 			break;
+ 
+-		if (sk_can_busy_loop(sk) &&
+-		    sk_busy_loop(sk, noblock))
+-			continue;
++		if (sk_can_busy_loop(sk)) {
++			sk_busy_loop(sk, noblock);
++
++			if (!skb_queue_empty(&sk->sk_receive_queue))
++				continue;
++		}
+ 
+ 		/* User doesn't want to wait.  */
+ 		error = -EAGAIN;
