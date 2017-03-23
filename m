@@ -1,34 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] net:ethernet:aquantia: Fix for RX checksum
- offload.
-Date: Wed, 22 Mar 2017 19:41:13 -0700 (PDT)
-Message-ID: <20170322.194113.1618670734085210150.davem@davemloft.net>
-References: <29c8e2af99d9528db8cd4fa33c18080aaad6bef1.1490224721.git.pavel.belous@aquantia.com>
+Subject: Re: [PATCH net-next v4] net: Add sysctl to toggle early demux for
+ tcp and udp
+Date: Wed, 22 Mar 2017 19:43:57 -0700 (PDT)
+Message-ID: <20170322.194357.531371967824197040.davem@davemloft.net>
+References: <1490234441-19341-1-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Simon.Edelhaus@aquantia.com,
-        darcari@redhat.com
-To: Pavel.Belous@aquantia.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+        stephen@networkplumber.org, tom@herbertland.com
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47210 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47240 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751313AbdCWClO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 22:41:14 -0400
-In-Reply-To: <29c8e2af99d9528db8cd4fa33c18080aaad6bef1.1490224721.git.pavel.belous@aquantia.com>
+        with ESMTP id S1751456AbdCWCn6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 22:43:58 -0400
+In-Reply-To: <1490234441-19341-1-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Date: Thu, 23 Mar 2017 02:20:39 +0300
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Date: Wed, 22 Mar 2017 20:00:41 -0600
 
-> From: Pavel Belous <pavel.belous@aquantia.com>
+> Certain system process significant unconnected UDP workload.
+> It would be preferrable to disable UDP early demux for those systems
+> and enable it for TCP only.
 > 
-> Since AQC-100/107/108 chips supports hardware checksums for RX we should indicate this
-> via NETIF_F_RXCSUM flag.
+> By disabling UDP demux, we see these slight gains on an ARM64 system-
+> 782 -> 788Mbps unconnected single stream UDPv4
+> 633 -> 654Mbps unconnected UDPv4 different sources
 > 
-> v1->v2: 'Signed-off-by' tag added.
+> The performance impact can change based on CPU architecure and cache
+> sizes. There will not much difference seen if entire UDP hash table
+> is in cache.
 > 
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+> Both sysctls are enabled by default to preserve existing behavior.
+> 
+> v1->v2: Change function pointer instead of adding conditional as
+> suggested by Stephen.
+> 
+> v2->v3: Read once in callers to avoid issues due to compiler
+> optimizations. Also update commit message with the tests.
+> 
+> v3>v4: Store and use read once result instead of querying pointer
+> again incorrectly.
+> 
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+> Suggested-by: Eric Dumazet <edumazet@google.com>
 
 Applied, thanks.
