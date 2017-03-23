@@ -1,22 +1,37 @@
-From: =?UTF-8?Q?Mika_Penttil=c3=a4?= <mika.penttila@nextfour.com>
-Subject: [regression], wlcore, wl1835mod random firmware load failures
-Date: Thu, 23 Mar 2017 07:27:40 +0200
-Message-ID: <daeab501-eb1b-499d-c209-8f061526cfbc@nextfour.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: phy: Export mdiobus_register_board_info()
+Date: Wed, 22 Mar 2017 22:40:30 -0700
+Message-ID: <20170323054030.14613-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0073.outbound.protection.outlook.com ([104.47.0.73]:45696
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752196AbdCWHca (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Mar 2017 03:32:30 -0400
+Received: from mail-ot0-f194.google.com ([74.125.82.194]:34389 "EHLO
+        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932484AbdCWHif (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 03:38:35 -0400
+Received: by mail-ot0-f194.google.com with SMTP id y88so4937876ota.1
+        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 00:38:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We can build modular code that uses mdiobus_register_board_info() which would
+lead to linking failure since this symbol is not expoerted.
 
-With 4.11-rc+ we have seen randomly :
- wlcore: ERROR could not allocate memory for the firmware
+Fixes: 648ea0134069 ("net: phy: Allow pre-declaration of MDIO devices")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/mdio-boardinfo.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-when trying to load a firmware bundled in the kernel at boot time. Any ideas?
+diff --git a/drivers/net/phy/mdio-boardinfo.c b/drivers/net/phy/mdio-boardinfo.c
+index 6b988f77da08..61941e29daae 100644
+--- a/drivers/net/phy/mdio-boardinfo.c
++++ b/drivers/net/phy/mdio-boardinfo.c
+@@ -84,3 +84,4 @@ int mdiobus_register_board_info(const struct mdio_board_info *info,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(mdiobus_register_board_info);
+-- 
+2.9.3
