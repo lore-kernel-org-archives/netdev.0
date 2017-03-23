@@ -1,59 +1,105 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Thu, 23 Mar 2017 20:07:33 +0100
-Message-ID: <20170323190733.GA30056@localhost.localdomain>
-References: <20170207140144.GA11233@localhost>
- <20170209080242.GA1698@localhost.localdomain>
- <20170209110941.GA1449@localhost>
- <20170323162145.GB8192@localhost>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net/sched: GPF in qdisc_hash_add
+Date: Thu, 23 Mar 2017 12:10:53 -0700
+Message-ID: <CANn89iJ0y=Ee_79iCctMDM9uz2D7D1TL4nAd2BzEnVV9wi9+5A@mail.gmail.com>
+References: <CACT4Y+bemisEVj1nFmyFPuJZxh3oa8QOf-qDZmjRyPZBG4y7ng@mail.gmail.com>
+ <CAM_iQpWG78yjRAQ673NyiVBJZRfH7WMjbteRw7EfTkfH2tU2-w@mail.gmail.com> <CACT4Y+ZBwr6CNr1j0Hx3ZptLePkbiGfws4q=uv=PFOYTkhcXuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:38905 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754236AbdCWTHo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 15:07:44 -0400
-Received: by mail-wm0-f47.google.com with SMTP id t189so4411597wmt.1
-        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 12:07:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170323162145.GB8192@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+ZBwr6CNr1j0Hx3ZptLePkbiGfws4q=uv=PFOYTkhcXuQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 23, 2017 at 05:21:45PM +0100, Miroslav Lichvar wrote:
-> A better approach might be a control message that would provide the
-> original interface index together with the length of the packet, so
-> the application could transpose the HW timestamp and map the HW
-> interface to the PHC.
+On Thu, Mar 23, 2017 at 12:06 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>
+> On Thu, Mar 23, 2017 at 8:00 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > On Thu, Mar 23, 2017 at 9:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> >> kasan: CONFIG_KASAN_INLINE enabled
+> >> kasan: GPF could be caused by NULL-ptr deref or user memory access
+> >> general protection fault: 0000 [#1] SMP KASAN
+> >> Dumping ftrace buffer:
+> >>    (ftrace buffer empty)
+> >> Modules linked in:
+> >> CPU: 2 PID: 12732 Comm: syz-executor6 Not tainted 4.11.0-rc3+ #365
+> >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> >> task: ffff880062b7a2c0 task.stack: ffff880033480000
+> >> RIP: 0010:qdisc_hash_add.part.19+0xb6/0x3c0 net/sched/sch_api.c:280
+> >> RSP: 0018:ffff880033487820 EFLAGS: 00010202
+> >> RAX: dffffc0000000000 RBX: ffffffff85357e00 RCX: ffffc90002b24000
+> >> RDX: 000000000000007a RSI: ffffffff835a523a RDI: 00000000000003d0
+> >> RBP: ffff8800334878b8 R08: fffffbfff0a6afeb R09: fffffbfff0a6afeb
+> >> R10: 0000000000000001 R11: fffffbfff0a6afea R12: ffffffff85357e48
+> >> R13: 1ffff10006690f06 R14: ffff880033487890 R15: 0000000000000000
+> >> FS:  00007f68665d0700(0000) GS:ffff88006e200000(0000) knlGS:0000000000000000
+> >> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> >> CR2: 00000000004c2d44 CR3: 000000003c6f8000 CR4: 00000000000026e0
+> >> Call Trace:
+> >>  qdisc_hash_add+0x76/0x90 net/sched/sch_api.c:279
+> >>  attach_default_qdiscs net/sched/sch_generic.c:798 [inline]
+> >>  dev_activate+0x6ca/0x920 net/sched/sch_generic.c:829
+> >>  __dev_open+0x25b/0x360 net/core/dev.c:1348
+> >>  __dev_change_flags+0x159/0x3d0 net/core/dev.c:6460
+> >>  dev_change_flags+0x88/0x140 net/core/dev.c:6525
+> >>  dev_ifsioc+0x51f/0x9b0 net/core/dev_ioctl.c:254
+> >>  dev_ioctl+0x1fe/0x1030 net/core/dev_ioctl.c:532
+> >>  sock_do_ioctl+0x94/0xb0 net/socket.c:902
+> >>  sock_ioctl+0x2c2/0x440 net/socket.c:993
+> >>  vfs_ioctl fs/ioctl.c:45 [inline]
+> >>  do_vfs_ioctl+0x1af/0x16d0 fs/ioctl.c:685
+> >>  SYSC_ioctl fs/ioctl.c:700 [inline]
+> >>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+> >>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+> >
+> > The interesting part is why the NULL dereference is in
+> > qdisc_hash_add(), since we have a check before calling
+> > it:
+> >
+> > #ifdef CONFIG_NET_SCHED
+> >         if (dev->qdisc)
+> >                 qdisc_hash_add(dev->qdisc);
+> > #endif
+> >
+> >
+> > When attach_one_default_qdisc() fails, we should trigger
+> > the NULL pointer dereference bug at:
+> >
+> >     atomic_inc(&dev->qdisc->refcnt);
+>
+> I think qdisc is not NULL, it's something _in_ qdisc that is NULL. The
+> crash happens here:
+>
+>                 struct Qdisc *root = qdisc_dev(q)->qdisc;
+>
+> so it's probably device.
 
-This sounds better than trying to auto-magically transpose and correct
-for link speed.
 
-BTW, isn't there already a control message for "original interface
-index"?
- 
-> The two values could be saved in the skb_shared_info structure. Now
-> my question is if they could be useful also for other things than
-> timestamping
 
-such as?
+Looks like this bug came with commit 59cc1f61f09c
+("net: sched: convert qdisc linked list to hashtable")
 
-> and if it should be a new socket option which would work
-> on any socket independently from timestamping, or if it should rather
-> be a new flag for the SO_TIMESTAMPING option. If the latter, would it
-> make sense to put them in the skb_shared_hwtstamps structure and
-> modify all drivers to set the values when a HW timestamp is captured
-> instead of adding more code to __netif_receive_skb_core() or similar?
+I would simply guard qdisc_hash_add()
 
-This information is solely for a highly specialized NTP application.
-No normal program would ever need this, AFAICT.  So, if possible,
-getting the original frame length should be done in a way that doesn't
-affect users that don't need it.
+(Against &noop_qdisc)
 
-Thanks,
-Richard
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index bcf49cd2278670197f2a7e9d4e9a62ae8d117468..2bb34b51cffdb05434a488b9f45c344d57868253
+100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -276,6 +276,8 @@ static struct Qdisc *qdisc_match_from_root(struct
+Qdisc *root, u32 handle)
+
+ void qdisc_hash_add(struct Qdisc *q)
+ {
++ if (q == &noop_qdisc)
++ return;
+  if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
+  struct Qdisc *root = qdisc_dev(q)->qdisc;
