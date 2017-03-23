@@ -1,24 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/2] gtp: rename SGSN netlink attribute
-Date: Thu, 23 Mar 2017 14:16:22 -0700 (PDT)
-Message-ID: <20170323.141622.745302655159056947.davem@davemloft.net>
-References: <20170203091231.10142-1-jonas@southpole.se>
-        <20170321150430.23314-1-jonas@southpole.se>
+Subject: Re: [PATCH] net: phy: handle state correctly in phy_stop_machine
+Date: Thu, 23 Mar 2017 14:25:35 -0700 (PDT)
+Message-ID: <20170323.142535.1891859018491163013.davem@davemloft.net>
+References: <1490214421-7269-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: laforge@gnumonks.org, pablo@netfilter.org, netdev@vger.kernel.org
-To: jonas@southpole.se
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57456 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752070AbdCWVQY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 17:16:24 -0400
-In-Reply-To: <20170321150430.23314-1-jonas@southpole.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: zach.brown@ni.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490214421-7269-1-git-send-email-zach.brown@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Zach Brown <zach.brown@ni.com>
+Date: Wed, 22 Mar 2017 15:27:01 -0500
 
-Can I get a review of these two patches from some GTP experts?
+> From: Nathan Sullivan <nathan.sullivan@ni.com>
+> 
+> If the PHY is halted on stop, then do not set the state to PHY_UP.  This
+> ensures the phy will be restarted later in phy_start when the machine is
+> started again.
+> 
+> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+> Signed-off-by: Brad Mouring <brad.mouring@ni.com>
+> Acked-by: Xander Huff <xander.huff@ni.com>
+> Acked-by: Kyle Roeschley <kyle.roeschley@ni.com>
 
-Thanks.
+Florian, please review.
