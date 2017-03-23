@@ -1,78 +1,75 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: stmmac: Performance regression after commit aff3d9eff843 "net:
- stmmac: enable multiple buffers"
-Date: Thu, 23 Mar 2017 10:56:55 +0000
-Message-ID: <89948183-5dba-af4e-8fd1-2a6add6750c8@synopsys.com>
-References: <20170323100828.GC16625@Red>
- <68200e05-04fd-1cc1-f6d6-f77e9e6f1d9d@synopsys.com>
- <20170323102037.GD16625@Red>
- <a7c928ec-e4e5-b618-d0d4-2a833be10d53@synopsys.com>
- <465dc72e-8a1f-b41f-105f-add2164df6d5@st.com>
- <5c305629-0b61-88e5-5c48-4616cd687d9f@st.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8152: prevent the driver from transmitting packets with carrier off
+Date: Thu, 23 Mar 2017 19:14:19 +0800
+Message-ID: <1394712342-15778-259-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <alexandre.torgue@st.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        <linux-arm-kernel@lists.infradead.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:48538 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751313AbdCWK7I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 06:59:08 -0400
-In-Reply-To: <5c305629-0b61-88e5-5c48-4616cd687d9f@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Às 10:51 AM de 3/23/2017, Giuseppe CAVALLARO escreveu:
-> On 3/23/2017 11:48 AM, Giuseppe CAVALLARO wrote:
->> Hello
->>
->> On 3/23/2017 11:20 AM, Corentin Labbe wrote:
->>>> I have a 4.21 QoS Core with 4 RX + 4 TX and detected no regression.
->>>> >Could you please share the iperf cmds you are using in order for me to
->>>> reproduce
->>>> >in my side?
->>
->> Joao, you have a really powerful HW integration with multiple channels for
->> both RX and TX.
->> Often this is not the same for other setup where, usually just a DMA0 is
->> present or, sometime, there
->> is just one RX extra channel.
->>
->> My question is, what happens on this kind of configurations? Are we still
->> guarantying the best performances?
->>
->> Also we have to guarantee, that the TSO and SG are always working. Another
->> point is the buffer sizes that
->> can be different among platforms.
->>
->> The problem  below reported by Corentin push me to think that there is a bug,
->> so we should
->> understand when this has been introduced and if likely fixed by some
->> configuration we are
->> not take care right now.
->>
->> ndesc_get_rx_status: Oversized frame spanned multiple buffers"
-> 
-> I wonder if this could be easily triggered by getting a big file via FTP. So not
-> properly related on performance benchs
+The linking status may be changed when autosuspend. And, after
+autoresume, the driver may try to transmit packets when the device
+is carrier off, because the interrupt transfer doesn't update the
+linking status, yet. And, if the device is in ALDPS mode, the device
+would stop working.
 
-I am going to do that test and check it out and also run iperf a couple of
-times. I am counting on doing this today and send you later the results. If
-anyone gets results sooner please share.
+The another similar case is
+ 1. unplug the cable.
+ 2. interrupt transfer queue a work_queue for linking change.
+ 3. device enters the ALDPS mode.
+ 4. a tx occurs before the work_queue is called.
 
-> 
-> peppe
-> 
->>
->>
->> Best Regards
->> Peppe
->>
-> 
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-Thanks.
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 0b1b918..c34df33 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1294,6 +1294,7 @@ static void intr_callback(struct urb *urb)
+ 		}
+ 	} else {
+ 		if (netif_carrier_ok(tp->netdev)) {
++			netif_stop_queue(tp->netdev);
+ 			set_bit(RTL8152_LINK_CHG, &tp->flags);
+ 			schedule_delayed_work(&tp->schedule, 0);
+ 		}
+@@ -3169,6 +3170,9 @@ static void set_carrier(struct r8152 *tp)
+ 			napi_enable(&tp->napi);
+ 			netif_wake_queue(netdev);
+ 			netif_info(tp, link, netdev, "carrier on\n");
++		} else if (netif_queue_stopped(netdev) &&
++			   skb_queue_len(&tp->tx_queue) < tp->tx_qlen) {
++			netif_wake_queue(netdev);
+ 		}
+ 	} else {
+ 		if (netif_carrier_ok(netdev)) {
+@@ -3702,8 +3706,18 @@ static int rtl8152_resume(struct usb_interface *intf)
+ 			tp->rtl_ops.autosuspend_en(tp, false);
+ 			napi_disable(&tp->napi);
+ 			set_bit(WORK_ENABLE, &tp->flags);
+-			if (netif_carrier_ok(tp->netdev))
+-				rtl_start_rx(tp);
++
++			if (netif_carrier_ok(tp->netdev)) {
++				if (rtl8152_get_speed(tp) & LINK_STATUS) {
++					rtl_start_rx(tp);
++				} else {
++					netif_carrier_off(tp->netdev);
++					tp->rtl_ops.disable(tp);
++					netif_info(tp, link, tp->netdev,
++						   "linking down\n");
++				}
++			}
++
+ 			napi_enable(&tp->napi);
+ 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
+ 			smp_mb__after_atomic();
+-- 
+2.7.4
