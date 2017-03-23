@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] sfc: cleanup a condition in efx_udp_tunnel_del()
-Date: Wed, 22 Mar 2017 19:25:34 -0700 (PDT)
-Message-ID: <20170322.192534.1032558291775882753.davem@davemloft.net>
-References: <20170322091002.GB14520@mwanda>
+Subject: Re: [PATCH 2] net: virtio_net: use new api
+	ethtool_{get|set}_link_ksettings
+Date: Wed, 22 Mar 2017 19:27:35 -0700 (PDT)
+Message-ID: <20170322.192735.9680923843050031.davem@davemloft.net>
+References: <1490135064-23411-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, ecree@solarflare.com,
-        bkenward@solarflare.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46904 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753864AbdCWC0L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 22:26:11 -0400
-In-Reply-To: <20170322091002.GB14520@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: tremyfr@gmail.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1490135064-23411-1-git-send-email-tremyfr@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 22 Mar 2017 12:10:02 +0300
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Tue, 21 Mar 2017 23:24:24 +0100
 
-> Presumably if there is an "add" function, there is also a "del"
-> function.  But it causes a static checker warning because it looks like
-> a common cut and paste bug.
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+> Changelog:
+> v2:
+> - remove comment about the missing hardware,
+>   I've tested this change with qemu
 
-Looks good, applied, thanks Dan.
+Applied.
