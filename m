@@ -1,180 +1,64 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2] net: stmmac: add set_mac to the stmmac_ops
-Date: Thu, 23 Mar 2017 14:40:22 +0100
-Message-ID: <20170323134022.18740-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:36446 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933679AbdCWNme (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 09:42:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Thu, 23 Mar 2017 14:43:47 +0100
+Message-ID: <20170323144347.1e6f29de@redhat.com>
+References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
+	<20170301144845.783f8cad@redhat.com>
+	<d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
+	<83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+	<20170322234004.kffsce4owewgpqnm@techsingularity.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tariq Toukan <tariqt@mellanox.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, akpm@linux-foundation.org, linux-mm
+ <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
+ brouer@redhat.com
+To: Mel Gorman <mgorman@techsingularity.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170322234004.kffsce4owewgpqnm@techsingularity.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Two different set_mac functions exists but stmmac_dwmac4_set_mac() is
-only used for enabling and never for disabling.
-So on dwmac4, the MAC RX/TX is never disabled.
+On Wed, 22 Mar 2017 23:40:04 +0000
+Mel Gorman <mgorman@techsingularity.net> wrote:
 
-This patch add a generic function pointer set_mac() to stmmac_ops and
-replace all call to stmmac_set_mac/stmmac_dwmac4_set_mac by a call to
-this pointer.
+> On Wed, Mar 22, 2017 at 07:39:17PM +0200, Tariq Toukan wrote:
+> > > > > This modification may slow allocations from IRQ context slightly
+> > > > > but the
+> > > > > main gain from the per-cpu allocator is that it scales better for
+> > > > > allocations from multiple contexts.  There is an implicit
+> > > > > assumption that
+> > > > > intensive allocations from IRQ contexts on multiple CPUs from a single
+> > > > > NUMA node are rare  
+> > Hi Mel, Jesper, and all.
+> > 
+> > This assumption contradicts regular multi-stream traffic that is naturally
+> > handled
+> > over close numa cores.  I compared iperf TCP multistream (8 streams)
+> > over CX4 (mlx5 driver) with kernels v4.10 (before this series) vs
+> > kernel v4.11-rc1 (with this series).
+> > I disabled the page-cache (recycle) mechanism to stress the page allocator,
+> > and see a drastic degradation in BW, from 47.5 G in v4.10 to 31.4 G in
+> > v4.11-rc1 (34% drop).
+> > I noticed queued_spin_lock_slowpath occupies 62.87% of CPU time.  
+> 
+> Can you get the stack trace for the spin lock slowpath to confirm it's
+> from IRQ context?
 
-Since dwmac4_ops is const, set_mac cannot be modified after, and so dwmac4_ops
-is duplioacted like dwmac4_dma_ops.
+AFAIK allocations happen in softirq.  Argh and during review I missed
+that in_interrupt() also covers softirq.  To Mel, can we use a in_irq()
+check instead?
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h       |  2 ++
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  1 +
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |  1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 39 ++++++++++++++++++++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 11 +++---
- 5 files changed, 45 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 572cf8b..90d28bc 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -474,6 +474,8 @@ struct mac_device_info;
- struct stmmac_ops {
- 	/* MAC core initialization */
- 	void (*core_init)(struct mac_device_info *hw, int mtu);
-+	/* Enable the MAC RX/TX */
-+	void (*set_mac)(void __iomem *ioaddr, bool enable);
- 	/* Enable and verify that the IPC module is supported */
- 	int (*rx_ipc)(struct mac_device_info *hw);
- 	/* Enable RX Queues */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index 7f78f77..f3d9305 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -490,6 +490,7 @@ static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
- 
- static const struct stmmac_ops dwmac1000_ops = {
- 	.core_init = dwmac1000_core_init,
-+	.set_mac = stmmac_set_mac,
- 	.rx_ipc = dwmac1000_rx_ipc_enable,
- 	.dump_regs = dwmac1000_dump_regs,
- 	.host_irq_status = dwmac1000_irq_status,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index 524135e..1b36091 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -150,6 +150,7 @@ static void dwmac100_pmt(struct mac_device_info *hw, unsigned long mode)
- 
- static const struct stmmac_ops dwmac100_ops = {
- 	.core_init = dwmac100_core_init,
-+	.set_mac = stmmac_set_mac,
- 	.rx_ipc = dwmac100_rx_ipc_enable,
- 	.dump_regs = dwmac100_dump_mac_regs,
- 	.host_irq_status = dwmac100_irq_status,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 40ce202..48793f2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -669,6 +669,38 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
- 
- static const struct stmmac_ops dwmac4_ops = {
- 	.core_init = dwmac4_core_init,
-+	.set_mac = stmmac_set_mac,
-+	.rx_ipc = dwmac4_rx_ipc_enable,
-+	.rx_queue_enable = dwmac4_rx_queue_enable,
-+	.rx_queue_prio = dwmac4_rx_queue_priority,
-+	.tx_queue_prio = dwmac4_tx_queue_priority,
-+	.rx_queue_routing = dwmac4_tx_queue_routing,
-+	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
-+	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
-+	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
-+	.map_mtl_to_dma = dwmac4_map_mtl_dma,
-+	.config_cbs = dwmac4_config_cbs,
-+	.dump_regs = dwmac4_dump_regs,
-+	.host_irq_status = dwmac4_irq_status,
-+	.host_mtl_irq_status = dwmac4_irq_mtl_status,
-+	.flow_ctrl = dwmac4_flow_ctrl,
-+	.pmt = dwmac4_pmt,
-+	.set_umac_addr = dwmac4_set_umac_addr,
-+	.get_umac_addr = dwmac4_get_umac_addr,
-+	.set_eee_mode = dwmac4_set_eee_mode,
-+	.reset_eee_mode = dwmac4_reset_eee_mode,
-+	.set_eee_timer = dwmac4_set_eee_timer,
-+	.set_eee_pls = dwmac4_set_eee_pls,
-+	.pcs_ctrl_ane = dwmac4_ctrl_ane,
-+	.pcs_rane = dwmac4_rane,
-+	.pcs_get_adv_lp = dwmac4_get_adv_lp,
-+	.debug = dwmac4_debug,
-+	.set_filter = dwmac4_set_filter,
-+};
-+
-+static const struct stmmac_ops dwmac410_ops = {
-+	.core_init = dwmac4_core_init,
-+	.set_mac = stmmac_dwmac4_set_mac,
- 	.rx_ipc = dwmac4_rx_ipc_enable,
- 	.rx_queue_enable = dwmac4_rx_queue_enable,
- 	.rx_queue_prio = dwmac4_rx_queue_priority,
-@@ -715,8 +747,6 @@ struct mac_device_info *dwmac4_setup(void __iomem *ioaddr, int mcbins,
- 	if (mac->multicast_filter_bins)
- 		mac->mcast_bits_log2 = ilog2(mac->multicast_filter_bins);
- 
--	mac->mac = &dwmac4_ops;
--
- 	mac->link.port = GMAC_CONFIG_PS;
- 	mac->link.duplex = GMAC_CONFIG_DM;
- 	mac->link.speed = GMAC_CONFIG_FES;
-@@ -737,5 +767,10 @@ struct mac_device_info *dwmac4_setup(void __iomem *ioaddr, int mcbins,
- 	else
- 		mac->dma = &dwmac4_dma_ops;
- 
-+	if (*synopsys_id >= DWMAC_CORE_4_00)
-+		mac->mac = &dwmac410_ops;
-+	else
-+		mac->mac = &dwmac4_ops;
-+
- 	return mac;
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 63a6a90..886718a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2460,10 +2460,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
- 	}
- 
- 	/* Enable the MAC Rx/Tx */
--	if (priv->synopsys_id >= DWMAC_CORE_4_00)
--		stmmac_dwmac4_set_mac(priv->ioaddr, true);
--	else
--		stmmac_set_mac(priv->ioaddr, true);
-+	priv->hw->mac->set_mac(priv->ioaddr, true);
- 
- 	/* Set the HW DMA mode and the COE */
- 	stmmac_dma_operation_mode(priv);
-@@ -2663,7 +2660,7 @@ static int stmmac_release(struct net_device *dev)
- 	free_dma_desc_resources(priv);
- 
- 	/* Disable the MAC Rx/Tx */
--	stmmac_set_mac(priv->ioaddr, false);
-+	priv->hw->mac->set_mac(priv->ioaddr, false);
- 
- 	netif_carrier_off(dev);
- 
-@@ -4232,7 +4229,7 @@ int stmmac_dvr_remove(struct device *dev)
- 
- 	stmmac_stop_all_dma(priv);
- 
--	stmmac_set_mac(priv->ioaddr, false);
-+	priv->hw->mac->set_mac(priv->ioaddr, false);
- 	netif_carrier_off(ndev);
- 	unregister_netdev(ndev);
- 	if (priv->plat->stmmac_rst)
-@@ -4283,7 +4280,7 @@ int stmmac_suspend(struct device *dev)
- 		priv->hw->mac->pmt(priv->hw, priv->wolopts);
- 		priv->irq_wake = 1;
- 	} else {
--		stmmac_set_mac(priv->ioaddr, false);
-+		priv->hw->mac->set_mac(priv->ioaddr, false);
- 		pinctrl_pm_select_sleep_state(priv->device);
- 		/* Disable clock in case of PWM is off */
- 		clk_disable(priv->plat->pclk);
+(p.s. just landed and got home)
 -- 
-2.10.2
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
