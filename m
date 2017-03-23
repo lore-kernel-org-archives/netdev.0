@@ -1,147 +1,344 @@
-From: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: [PATCH] net: usbnet: support 64bit stats in qmi_wwan driver
-Date: Thu, 23 Mar 2017 11:25:32 +1000
-Message-ID: <1490232332-19274-1-git-send-email-gerg@linux-m68k.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-To: bjorn-yOkvZcmFvRU@public.gmane.org, oneukum-IBi9RG/b67k@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next v4] net: Add sysctl to toggle early demux for tcp and udp
+Date: Wed, 22 Mar 2017 20:00:41 -0600
+Message-ID: <1490234441-19341-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Tom Herbert <tom@herbertland.com>,
+        David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org, eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:51752 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752451AbdCWCCW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 22 Mar 2017 22:02:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for the net stats64 counters to the usbnet core and then to
-the qmi_wwan driver.
+Certain system process significant unconnected UDP workload.
+It would be preferrable to disable UDP early demux for those systems
+and enable it for TCP only.
 
-This is a strait forward addition of 64bit counters for RX and TX packets
-and byte counts. It is done in the same style as for the other net drivers
-that support stats64.
+By disabling UDP demux, we see these slight gains on an ARM64 system-
+782 -> 788Mbps unconnected single stream UDPv4
+633 -> 654Mbps unconnected UDPv4 different sources
 
-The bulk of the change is to the usbnet core. Then it is trivial to use
-that in the qmi_wwan.c driver. It would be very simple to extend this
-support to other usbnet based drivers.
+The performance impact can change based on CPU architecure and cache
+sizes. There will not much difference seen if entire UDP hash table
+is in cache.
 
-The motivation to add this is that it is not particularly difficult to
-get the RX and TX byte counts to wrap on 32bit platforms.
+Both sysctls are enabled by default to preserve existing behavior.
 
-Signed-off-by: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+v1->v2: Change function pointer instead of adding conditional as
+suggested by Stephen.
+
+v2->v3: Read once in callers to avoid issues due to compiler
+optimizations. Also update commit message with the tests.
+
+v3>v4: Store and use read once result instead of querying pointer
+again incorrectly.
+
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Tom Herbert <tom@herbertland.com>
+Cc: David Miller <davem@davemloft.net>
 ---
- drivers/net/usb/qmi_wwan.c |  1 +
- drivers/net/usb/usbnet.c   | 27 +++++++++++++++++++++++++++
- include/linux/usb/usbnet.h | 12 ++++++++++++
- 3 files changed, 40 insertions(+)
+ Documentation/networking/ip-sysctl.txt | 11 +++++++-
+ include/net/netns/ipv4.h               |  2 ++
+ include/net/tcp.h                      |  2 ++
+ include/net/udp.h                      |  3 +++
+ net/ipv4/af_inet.c                     | 22 ++++++++++++++--
+ net/ipv4/ip_input.c                    |  5 ++--
+ net/ipv4/sysctl_net_ipv4.c             | 48 ++++++++++++++++++++++++++++++++++
+ net/ipv6/ip6_input.c                   |  6 +++--
+ net/ipv6/tcp_ipv6.c                    | 10 ++++++-
+ net/ipv6/udp.c                         | 10 ++++++-
+ 10 files changed, 110 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 503a9f0..eb09e79 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -328,6 +328,7 @@ static int qmi_wwan_mac_addr(struct net_device *dev, void *p)
- 	.ndo_change_mtu		= usbnet_change_mtu,
- 	.ndo_set_mac_address	= qmi_wwan_mac_addr,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_get_stats64	= usbnet_get_stats64,
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index eaee2c8..b1c6500 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -856,12 +856,21 @@ ip_dynaddr - BOOLEAN
+ ip_early_demux - BOOLEAN
+ 	Optimize input packet processing down to one demux for
+ 	certain kinds of local sockets.  Currently we only do this
+-	for established TCP sockets.
++	for established TCP and connected UDP sockets.
+ 
+ 	It may add an additional cost for pure routing workloads that
+ 	reduces overall throughput, in such case you should disable it.
+ 	Default: 1
+ 
++tcp_early_demux - BOOLEAN
++	Enable early demux for established TCP sockets.
++	Default: 1
++
++udp_early_demux - BOOLEAN
++	Enable early demux for connected UDP sockets. Disable this if
++	your system could experience more unconnected load.
++	Default: 1
++
+ icmp_echo_ignore_all - BOOLEAN
+ 	If set non-zero, then the kernel will ignore all ICMP ECHO
+ 	requests sent to it.
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index a0e8919..cd686c4 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -95,6 +95,8 @@ struct netns_ipv4 {
+ 	/* Shall we try to damage output packets if routing dev changes? */
+ 	int sysctl_ip_dynaddr;
+ 	int sysctl_ip_early_demux;
++	int sysctl_tcp_early_demux;
++	int sysctl_udp_early_demux;
+ 
+ 	int sysctl_fwmark_reflect;
+ 	int sysctl_tcp_fwmark_accept;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index e614ad4..edc1df4 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1932,4 +1932,6 @@ static inline void tcp_listendrop(const struct sock *sk)
+ 	__NET_INC_STATS(sock_net(sk), LINUX_MIB_LISTENDROPS);
+ }
+ 
++void tcp_v4_early_demux_configure(int enable);
++void tcp_v6_early_demux_configure(int enable);
+ #endif	/* _TCP_H */
+diff --git a/include/net/udp.h b/include/net/udp.h
+index c9d8b8e..33198fa 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -372,4 +372,7 @@ struct udp_iter_state {
+ #if IS_ENABLED(CONFIG_IPV6)
+ void udpv6_encap_enable(void);
+ #endif
++
++void udp_v4_early_demux_configure(int enable);
++void udp_v6_early_demux_configure(int enable);
+ #endif	/* _UDP_H */
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 6b1fc6e..d286750 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1599,7 +1599,7 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ };
+ #endif
+ 
+-static const struct net_protocol tcp_protocol = {
++static struct net_protocol tcp_protocol = {
+ 	.early_demux	=	tcp_v4_early_demux,
+ 	.handler	=	tcp_v4_rcv,
+ 	.err_handler	=	tcp_v4_err,
+@@ -1608,7 +1608,7 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ 	.icmp_strict_tag_validation = 1,
  };
  
- /* using a counter to merge subdriver requests with our own into a
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 3de65ea..5dc0f15 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -330,6 +330,11 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
- 	dev->net->stats.rx_packets++;
- 	dev->net->stats.rx_bytes += skb->len;
+-static const struct net_protocol udp_protocol = {
++static struct net_protocol udp_protocol = {
+ 	.early_demux =	udp_v4_early_demux,
+ 	.handler =	udp_rcv,
+ 	.err_handler =	udp_err,
+@@ -1616,6 +1616,22 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ 	.netns_ok =	1,
+ };
  
-+	u64_stats_update_begin(&dev->stats.syncp);
-+	dev->stats.rx_packets++;
-+	dev->stats.rx_bytes += skb->len;
-+	u64_stats_update_end(&dev->stats.syncp);
-+
- 	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
- 		  skb->len + sizeof (struct ethhdr), skb->protocol);
- 	memset (skb->cb, 0, sizeof (struct skb_data));
-@@ -980,6 +985,22 @@ int usbnet_set_settings (struct net_device *net, struct ethtool_cmd *cmd)
- }
- EXPORT_SYMBOL_GPL(usbnet_set_settings);
- 
-+void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
++void tcp_v4_early_demux_configure(int enable)
 +{
-+	struct usbnet *dev = netdev_priv(net);
-+	unsigned int start;
-+
-+	netdev_stats_to_stats64(stats, &net->stats);
-+
-+	do {
-+		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
-+		stats->rx_packets = dev->stats.rx_packets;
-+		stats->rx_bytes = dev->stats.rx_bytes;
-+		stats->tx_packets = dev->stats.tx_packets;
-+		stats->tx_bytes = dev->stats.tx_bytes;
-+	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
++	if (enable)
++		tcp_protocol.early_demux = tcp_v4_early_demux;
++	else
++		tcp_protocol.early_demux = NULL;
 +}
 +
- u32 usbnet_get_link (struct net_device *net)
++void udp_v4_early_demux_configure(int enable)
++{
++	if (enable)
++		udp_protocol.early_demux = udp_v4_early_demux;
++	else
++		udp_protocol.early_demux = NULL;
++}
++
+ static const struct net_protocol icmp_protocol = {
+ 	.handler =	icmp_rcv,
+ 	.err_handler =	icmp_err,
+@@ -1720,6 +1736,8 @@ static __net_init int inet_init_net(struct net *net)
+ 	net->ipv4.sysctl_ip_default_ttl = IPDEFTTL;
+ 	net->ipv4.sysctl_ip_dynaddr = 0;
+ 	net->ipv4.sysctl_ip_early_demux = 1;
++	net->ipv4.sysctl_udp_early_demux = 1;
++	net->ipv4.sysctl_tcp_early_demux = 1;
+ #ifdef CONFIG_SYSCTL
+ 	net->ipv4.sysctl_ip_prot_sock = PROT_SOCK;
+ #endif
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index d6feabb..fa2dc8f 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -313,6 +313,7 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct rtable *rt;
+ 	struct net_device *dev = skb->dev;
++	void (*edemux)(struct sk_buff *skb);
+ 
+ 	/* if ingress device is enslaved to an L3 master device pass the
+ 	 * skb to its handler for processing
+@@ -329,8 +330,8 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		int protocol = iph->protocol;
+ 
+ 		ipprot = rcu_dereference(inet_protos[protocol]);
+-		if (ipprot && ipprot->early_demux) {
+-			ipprot->early_demux(skb);
++		if (ipprot && (edemux = READ_ONCE(ipprot->early_demux))) {
++			edemux(skb);
+ 			/* must reload iph, skb->head might have changed */
+ 			iph = ip_hdr(skb);
+ 		}
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 711c3e2..d5154c7 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -294,6 +294,40 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+ 	return ret;
+ }
+ 
++static int proc_tcp_early_demux(struct ctl_table *table, int write,
++				void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret = 0;
++
++	ret = proc_dointvec(table, write, buffer, lenp, ppos);
++
++	if (write && !ret) {
++		int enabled = init_net.ipv4.sysctl_tcp_early_demux;
++
++		tcp_v4_early_demux_configure(enabled);
++		tcp_v6_early_demux_configure(enabled);
++	}
++
++	return ret;
++}
++
++static int proc_udp_early_demux(struct ctl_table *table, int write,
++				void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret = 0;
++
++	ret = proc_dointvec(table, write, buffer, lenp, ppos);
++
++	if (write && !ret) {
++		int enabled = init_net.ipv4.sysctl_udp_early_demux;
++
++		udp_v4_early_demux_configure(enabled);
++		udp_v6_early_demux_configure(enabled);
++	}
++
++	return ret;
++}
++
+ static struct ctl_table ipv4_table[] = {
+ 	{
+ 		.procname	= "tcp_timestamps",
+@@ -750,6 +784,20 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+ 		.proc_handler	= proc_dointvec
+ 	},
+ 	{
++		.procname       = "udp_early_demux",
++		.data           = &init_net.ipv4.sysctl_udp_early_demux,
++		.maxlen         = sizeof(int),
++		.mode           = 0644,
++		.proc_handler   = proc_udp_early_demux
++	},
++	{
++		.procname       = "tcp_early_demux",
++		.data           = &init_net.ipv4.sysctl_tcp_early_demux,
++		.maxlen         = sizeof(int),
++		.mode           = 0644,
++		.proc_handler   = proc_tcp_early_demux
++	},
++	{
+ 		.procname	= "ip_default_ttl",
+ 		.data		= &init_net.ipv4.sysctl_ip_default_ttl,
+ 		.maxlen		= sizeof(int),
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index aacfb4b..b04539d 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -49,6 +49,8 @@
+ 
+ int ip6_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
  {
- 	struct usbnet *dev = netdev_priv(net);
-@@ -1213,6 +1234,11 @@ static void tx_complete (struct urb *urb)
- 	if (urb->status == 0) {
- 		dev->net->stats.tx_packets += entry->packets;
- 		dev->net->stats.tx_bytes += entry->length;
++	void (*edemux)(struct sk_buff *skb);
 +
-+		u64_stats_update_begin(&dev->stats.syncp);
-+		dev->stats.tx_packets += entry->packets;
-+		dev->stats.tx_bytes += entry->length;
-+		u64_stats_update_end(&dev->stats.syncp);
- 	} else {
- 		dev->net->stats.tx_errors++;
+ 	/* if ingress device is enslaved to an L3 master device pass the
+ 	 * skb to its handler for processing
+ 	 */
+@@ -60,8 +62,8 @@ int ip6_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		const struct inet6_protocol *ipprot;
  
-@@ -1657,6 +1683,7 @@ void usbnet_disconnect (struct usb_interface *intf)
- 	init_timer (&dev->delay);
- 	mutex_init (&dev->phy_mutex);
- 	mutex_init(&dev->interrupt_mutex);
-+	u64_stats_init(&dev->stats.syncp);
- 	dev->interrupt_count = 0;
+ 		ipprot = rcu_dereference(inet6_protos[ipv6_hdr(skb)->nexthdr]);
+-		if (ipprot && ipprot->early_demux)
+-			ipprot->early_demux(skb);
++		if (ipprot && (edemux = READ_ONCE(ipprot->early_demux)))
++			edemux(skb);
+ 	}
+ 	if (!skb_valid_dst(skb))
+ 		ip6_route_input(skb);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 0f08d71..e26622f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1925,13 +1925,21 @@ struct proto tcpv6_prot = {
+ 	.diag_destroy		= tcp_abort,
+ };
  
- 	dev->net = net;
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 6e0ce8c..f381dd8 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -22,6 +22,14 @@
- #ifndef	__LINUX_USB_USBNET_H
- #define	__LINUX_USB_USBNET_H
+-static const struct inet6_protocol tcpv6_protocol = {
++static struct inet6_protocol tcpv6_protocol = {
+ 	.early_demux	=	tcp_v6_early_demux,
+ 	.handler	=	tcp_v6_rcv,
+ 	.err_handler	=	tcp_v6_err,
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
  
-+struct usbnet_stats64 {
-+	struct u64_stats_sync	syncp;
-+	u64			rx_packets;
-+	u64			rx_bytes;
-+	u64			tx_packets;
-+	u64			tx_bytes;
-+};
++void tcp_v6_early_demux_configure(int enable)
++{
++	if (enable)
++		tcpv6_protocol.early_demux = tcp_v6_early_demux;
++	else
++		tcpv6_protocol.early_demux = NULL;
++}
 +
- /* interface from usbnet core to each USB networking link we handle */
- struct usbnet {
- 	/* housekeeping */
-@@ -64,6 +72,8 @@ struct usbnet {
- 	struct usb_anchor	deferred;
- 	struct tasklet_struct	bh;
+ static struct inet_protosw tcpv6_protosw = {
+ 	.type		=	SOCK_STREAM,
+ 	.protocol	=	IPPROTO_TCP,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 08a188f..7178a18 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1436,13 +1436,21 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
+ }
+ #endif
  
-+	struct usbnet_stats64	stats;
+-static const struct inet6_protocol udpv6_protocol = {
++static struct inet6_protocol udpv6_protocol = {
+ 	.early_demux	=	udp_v6_early_demux,
+ 	.handler	=	udpv6_rcv,
+ 	.err_handler	=	udpv6_err,
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
+ 
++void udp_v6_early_demux_configure(int enable)
++{
++	if (enable)
++		udpv6_protocol.early_demux = udp_v6_early_demux;
++	else
++		udpv6_protocol.early_demux = NULL;
++}
 +
- 	struct work_struct	kevent;
- 	unsigned long		flags;
- #		define EVENT_TX_HALT	0
-@@ -265,6 +275,8 @@ extern int usbnet_get_settings(struct net_device *net,
- 			       struct ethtool_cmd *cmd);
- extern int usbnet_set_settings(struct net_device *net,
- 			       struct ethtool_cmd *cmd);
-+extern void usbnet_get_stats64(struct net_device *dev,
-+			       struct rtnl_link_stats64 *stats);
- extern u32 usbnet_get_link(struct net_device *net);
- extern u32 usbnet_get_msglevel(struct net_device *);
- extern void usbnet_set_msglevel(struct net_device *, u32);
+ /* ------------------------------------------------------------------------ */
+ #ifdef CONFIG_PROC_FS
+ int udp6_seq_show(struct seq_file *seq, void *v)
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
