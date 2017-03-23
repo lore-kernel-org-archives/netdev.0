@@ -1,95 +1,102 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH v3 net 4/5] net:ethernet:aquantia: Fix for LSO with IPv6.
-Date: Thu, 23 Mar 2017 14:19:44 +0300
-Message-ID: <8f9be4922f65c7a39027fb386434b6ec3d80dd9b.1490267633.git.pavel.belous@aquantia.com>
-References: <cover.1490267633.git.pavel.belous@aquantia.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        David Arcari <darcari@redhat.com>,
-        Pavel Belous <pavel.belous@aquantia.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0051.outbound.protection.outlook.com ([104.47.34.51]:11640
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751235AbdCWLU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 23 Mar 2017 07:20:27 -0400
-In-Reply-To: <cover.1490267633.git.pavel.belous@aquantia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH] padata: avoid race in reordering
+Date: Thu, 23 Mar 2017 12:24:43 +0100
+Message-ID: <20170323112443.30843-1-Jason@zx2c4.com>
+References: <CAHmME9oLWiprOyZXo7zvGm7xq+1Kchw9ybLS_TM-9xDyHF0mxQ@mail.gmail.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9oLWiprOyZXo7zvGm7xq+1Kchw9ybLS_TM-9xDyHF0mxQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Belous <pavel.belous@aquantia.com>
+Under extremely heavy uses of padata, crashes occur, and with list
+debugging turned on, this happens instead:
 
-Fix Context Command bit: L3 type = "0" for IPv4, "1" for IPv6.
+[87487.298728] WARNING: CPU: 1 PID: 882 at lib/list_debug.c:33
+__list_add+0xae/0x130
+[87487.301868] list_add corruption. prev->next should be next
+(ffffb17abfc043d0), but was ffff8dba70872c80. (prev=ffff8dba70872b00).
+[87487.339011]  [<ffffffff9a53d075>] dump_stack+0x68/0xa3
+[87487.342198]  [<ffffffff99e119a1>] ? console_unlock+0x281/0x6d0
+[87487.345364]  [<ffffffff99d6b91f>] __warn+0xff/0x140
+[87487.348513]  [<ffffffff99d6b9aa>] warn_slowpath_fmt+0x4a/0x50
+[87487.351659]  [<ffffffff9a58b5de>] __list_add+0xae/0x130
+[87487.354772]  [<ffffffff9add5094>] ? _raw_spin_lock+0x64/0x70
+[87487.357915]  [<ffffffff99eefd66>] padata_reorder+0x1e6/0x420
+[87487.361084]  [<ffffffff99ef0055>] padata_do_serial+0xa5/0x120
 
-Fixes: bab6de8fd180 ("net: ethernet: aquantia:
- Atlantic A0 and B0 specific functions.")
+padata_reorder calls list_add_tail with the list to which its adding
+locked, which seems correct:
 
-Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+spin_lock(&squeue->serial.lock);
+list_add_tail(&padata->list, &squeue->serial.list);
+spin_unlock(&squeue->serial.lock);
+
+This therefore leaves only place where such inconsistency could occur:
+if padata->list is added at the same time on two different threads.
+This pdata pointer comes from the function call to
+padata_get_next(pd), which has in it the following block:
+
+next_queue = per_cpu_ptr(pd->pqueue, cpu);
+padata = NULL;
+reorder = &next_queue->reorder;
+if (!list_empty(&reorder->list)) {
+       padata = list_entry(reorder->list.next,
+                           struct padata_priv, list);
+       spin_lock(&reorder->lock);
+       list_del_init(&padata->list);
+       atomic_dec(&pd->reorder_objects);
+       spin_unlock(&reorder->lock);
+
+       pd->processed++;
+
+       goto out;
+}
+out:
+return padata;
+
+I strongly suspect that the problem here is that two threads can race
+on reorder list. Even though the deletion is locked, call to
+list_entry is not locked, which means it's feasible that two threads
+pick up the same padata object and subsequently call list_add_tail on
+them at the same time. The fix is thus be hoist that lock outside of
+that block.
+
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c           | 3 +++
- drivers/net/ethernet/aquantia/atlantic/aq_ring.h          | 3 ++-
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 3 +++
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 3 +++
- 4 files changed, 11 insertions(+), 1 deletion(-)
+ kernel/padata.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index db2b51d..cdb0299 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -487,6 +487,9 @@ static unsigned int aq_nic_map_skb(struct aq_nic_s *self,
- 		dx_buff->mss = skb_shinfo(skb)->gso_size;
- 		dx_buff->is_txc = 1U;
+diff --git a/kernel/padata.c b/kernel/padata.c
+index 05316c9f32da..3202aa17492c 100644
+--- a/kernel/padata.c
++++ b/kernel/padata.c
+@@ -186,19 +186,20 @@ static struct padata_priv *padata_get_next(struct parallel_data *pd)
  
-+		dx_buff->is_ipv6 =
-+			(ip_hdr(skb)->version == 6) ? 1U : 0U;
-+
- 		dx = aq_ring_next_dx(ring, dx);
- 		dx_buff = &ring->buff_ring[dx];
- 		++ret;
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-index 2572546..eecd6d1 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-@@ -58,7 +58,8 @@ struct __packed aq_ring_buff_s {
- 			u8 len_l2;
- 			u8 len_l3;
- 			u8 len_l4;
--			u8 rsvd2;
-+			u8 is_ipv6:1;
-+			u8 rsvd2:7;
- 			u32 len_pkt;
- 		};
- 	};
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-index a2b746a..a536875 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
-@@ -433,6 +433,9 @@ static int hw_atl_a0_hw_ring_tx_xmit(struct aq_hw_s *self,
- 				    buff->len_l3 +
- 				    buff->len_l2);
- 			is_gso = true;
-+
-+			if (buff->is_ipv6)
-+				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_IPV6;
- 		} else {
- 			buff_pa_len = buff->len;
+ 	reorder = &next_queue->reorder;
  
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-index cab2931..69488c9 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
-@@ -471,6 +471,9 @@ static int hw_atl_b0_hw_ring_tx_xmit(struct aq_hw_s *self,
- 				    buff->len_l3 +
- 				    buff->len_l2);
- 			is_gso = true;
-+
-+			if (buff->is_ipv6)
-+				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_IPV6;
- 		} else {
- 			buff_pa_len = buff->len;
++	spin_lock(&reorder->lock);
+ 	if (!list_empty(&reorder->list)) {
+ 		padata = list_entry(reorder->list.next,
+ 				    struct padata_priv, list);
  
+-		spin_lock(&reorder->lock);
+ 		list_del_init(&padata->list);
+ 		atomic_dec(&pd->reorder_objects);
+-		spin_unlock(&reorder->lock);
+ 
+ 		pd->processed++;
+ 
++		spin_unlock(&reorder->lock);
+ 		goto out;
+ 	}
++	spin_unlock(&reorder->lock);
+ 
+ 	if (__this_cpu_read(pd->pqueue->cpu_index) == next_queue->cpu_index) {
+ 		padata = ERR_PTR(-ENODATA);
 -- 
-2.7.4
+2.11.1
