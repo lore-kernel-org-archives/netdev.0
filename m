@@ -1,54 +1,41 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
-Date: Fri, 24 Mar 2017 17:19:00 +0000
-Message-ID: <9dfc9239-4146-3b4e-a2b1-f82cdff2b78e@synopsys.com>
-References: <abf8722f-5d3a-0bae-d6cd-6cc6fbb744cb@synopsys.com>
- <748685e5-86f8-5f6b-66db-04ec96af4bd6@synopsys.com>
- <20170324.101734.2195203757001166516.davem@davemloft.net>
+From: Akshay Bhat <akshay.bhat-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH v4 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
+Date: Fri, 24 Mar 2017 13:20:01 -0400
+Message-ID: <32114de2-8ab7-daec-9b36-209cab0ea550@timesys.com>
+References: <1489785040-26477-1-git-send-email-akshay.bhat@timesys.com>
+ <1489785040-26477-2-git-send-email-akshay.bhat@timesys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <clabbe.montjoie@gmail.com>, <thierry.reding@gmail.com>,
-        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:48817 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966918AbdCXRTW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:19:22 -0400
-In-Reply-To: <20170324.101734.2195203757001166516.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Akshay Bhat <nodeax-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489785040-26477-2-git-send-email-akshay.bhat-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Às 5:17 PM de 3/24/2017, David Miller escreveu:
-> From: Joao Pinto <Joao.Pinto@synopsys.com>
-> Date: Fri, 24 Mar 2017 15:02:27 +0000
-> 
->> Yes, I agree, it is better to revert and leave the tree functional for all.
->>
->> @David Miller:
->> The multiple-buffer patch introduced some problems in some setups that are being
->> hard to debug, so Corentin gave the idea of reverting the until
->> commit 7bac4e1ec3ca2342929a39638d615c6b672c27a0 (net: stmmac: stmmac interrupt
->> treatment prepared for multiple queues), which I fully agree.
->>
->> In my setup is ok, but the idea is to have everyone's setup working :), so lets
->> break them into smaller pieces, and let's only apply them when everyone confirms
->> that is working ok in your setups, agree?
->>
->> What is the typical mechanism for this? I send a patch reverting them?
-> 
-> If you can compose a single "git revert" command to achieve this, just
-> tell me what it is and I'll do it.
-> 
-> Otherwise send a patch that does the revert.
+Hi Marc,
 
-Ok, I sent 2 patches with fixes. Let's see if you get some happy clients.
-If not, I will inform the commit id to revert.
-
-Thanks David.
-
+On 03/17/2017 05:10 PM, Akshay Bhat wrote:
+> This patch adds support for the Holt HI-311x CAN controller. The HI311x
+> CAN controller is capable of transmitting and receiving standard data
+> frames, extended data frames and remote frames. The HI311x interfaces
+> with the host over SPI.
 > 
-> Thanks.
+> Datasheet: www.holtic.com/documents/371-hi-3110_v-rev-jpdf.do
 > 
+> Signed-off-by: Akshay Bhat <nodeax-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> 
+
+If there are no further review comments can this series be applied to
+can-next or does it need to wait for the next kernel release cycle (4.13)?
+
+Thanks,
+Akshay
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
