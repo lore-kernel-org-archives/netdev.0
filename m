@@ -1,152 +1,62 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCHv2] net: usbnet: support 64bit stats in qmi_wwan driver
-Date: Thu, 23 Mar 2017 21:59:20 -0700
-Message-ID: <1490331560.9687.42.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1490318850-23252-1-git-send-email-gerg@linux-m68k.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [net-next PATCH v2 8/8] net: Introduce SO_INCOMING_NAPI_ID
+Date: Thu, 23 Mar 2017 22:07:21 -0700
+Message-ID: <CANn89iKt8D0O87jt0zMLU+hMX2i9ZQO2ybHvsF_BKJO86mOdNg@mail.gmail.com>
+References: <20170323211820.12615.88907.stgit@localhost.localdomain>
+ <20170323213802.12615.58216.stgit@localhost.localdomain> <CALCETrUD_+JcoAd7Z5+E+fNgeLOy=6-DYOoaRDWDViYd=dWQ=A@mail.gmail.com>
+ <CAKgT0UcHJVycQ3+h09L2Ph=TVncqHPJ6dZpicUgBo7TaFTN7yw@mail.gmail.com> <CALCETrU+SfDAj4dzjtRCkRULa+NDcceM8ZYWg=dDMXkv5-Z3-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: bjorn-yOkvZcmFvRU@public.gmane.org, oneukum-IBi9RG/b67k@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1490318850-23252-1-git-send-email-gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux API <linux-api@vger.kernel.org>
+To: Andy Lutomirski <luto@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrU+SfDAj4dzjtRCkRULa+NDcceM8ZYWg=dDMXkv5-Z3-g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-03-24 at 11:27 +1000, Greg Ungerer wrote:
-> Add support for the net stats64 counters to the usbnet core and then to
-> the qmi_wwan driver.
-> 
-> This is a strait forward addition of 64bit counters for RX and TX packets
-> and byte counts. It is done in the same style as for the other net drivers
-> that support stats64.
-> 
-> The bulk of the change is to the usbnet core. Then it is trivial to use
-> that in the qmi_wwan.c driver. It would be very simple to extend this
-> support to other usbnet based drivers.
-> 
-> The motivation to add this is that it is not particularly difficult to
-> get the RX and TX byte counts to wrap on 32bit platforms.
-> 
-> Signed-off-by: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-> ---
->  drivers/net/usb/qmi_wwan.c |  1 +
->  drivers/net/usb/usbnet.c   | 28 ++++++++++++++++++++++++++++
->  include/linux/usb/usbnet.h | 12 ++++++++++++
->  3 files changed, 41 insertions(+)
-> 
-> v2: EXPORT symbol usbnet_get_stats64()
->     rebase on top of net-next
-> 
-> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-> index 8056745..db12a66 100644
-> --- a/drivers/net/usb/qmi_wwan.c
-> +++ b/drivers/net/usb/qmi_wwan.c
-> @@ -251,6 +251,7 @@ static int qmi_wwan_mac_addr(struct net_device *dev, void *p)
->  	.ndo_change_mtu		= usbnet_change_mtu,
->  	.ndo_set_mac_address	= qmi_wwan_mac_addr,
->  	.ndo_validate_addr	= eth_validate_addr,
-> +	.ndo_get_stats64	= usbnet_get_stats64,
->  };
->  
->  /* using a counter to merge subdriver requests with our own into a
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 13d4ec5..4499d89 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -330,6 +330,11 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
->  	dev->net->stats.rx_packets++;
->  	dev->net->stats.rx_bytes += skb->len;
+On Thu, Mar 23, 2017 at 9:47 PM, Andy Lutomirski <luto@kernel.org> wrote:
 
-Why updating dev->net->stats.rx_{packets|bytes} and
-dev->stats.rx_{packets|bytes}  ?
+> So don't we want queue id, not NAPI id?  Or am I still missing something?
+>
+> But I'm also a but confused as to the overall performance effect.
+> Suppose I have an rx queue that has its interrupt bound to cpu 0.  For
+> whatever reason (random chance if I'm hashing, for example), I end up
+> with the epoll caller on cpu 1.  Suppose further that cpus 0 and 1 are
+> on different NUMA nodes.
+>
+> Now, let's suppose that I get lucky and *all* the packets are pulled
+> off the queue by epoll busy polling.  Life is great [1].  But suppose
+> that, due to a tiny hiccup or simply user code spending some cycles
+> processing those packets, an rx interrupt fires.  Now cpu 0 starts
+> pulling packets off the queue via NAPI, right?  So both NUMA nodes are
+> fighting over all the cachelines involved in servicing the queue *and*
+> the packets just got dequeued on the wrong NUMA node.
+>
+> ISTM this would work better if the epoll busy polling could handle the
+> case where one epoll set polls sockets on different queues as long as
+> those queues are all owned by the same CPU.  Then user code could use
+> SO_INCOMING_CPU to sort out the sockets.
+>
 
-Seems redundant.
+Of course you can do that already.
+
+SO_REUSEPORT + appropriate eBPF filter can select the best socket to
+receive your packets, based
+on various smp/numa affinities ( BPF_FUNC_get_smp_processor_id or
+BPF_FUNC_get_numa_node_id )
+
+This new instruction is simply _allowing_ other schems, based on
+queues ID, in the case each NIC queue
+can be managed by a group of cores (presumably on same NUMA node)
 
 
-> +	u64_stats_update_begin(&dev->stats.syncp);
-> +	dev->stats.rx_packets++;
-> +	dev->stats.rx_bytes += skb->len;
-> +	u64_stats_update_end(&dev->stats.syncp);
-> +
->  	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
->  		  skb->len + sizeof (struct ethhdr), skb->protocol);
->  	memset (skb->cb, 0, sizeof (struct skb_data));
-> @@ -981,6 +986,23 @@ int usbnet_set_link_ksettings(struct net_device *net,
->  }
->  EXPORT_SYMBOL_GPL(usbnet_set_link_ksettings);
->  
-> +void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
-> +{
-> +	struct usbnet *dev = netdev_priv(net);
-> +	unsigned int start;
-> +
-> +	netdev_stats_to_stats64(stats, &net->stats);
-> +
-> +	do {
-> +		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
-> +		stats->rx_packets = dev->stats.rx_packets;
-> +		stats->rx_bytes = dev->stats.rx_bytes;
-> +		stats->tx_packets = dev->stats.tx_packets;
-> +		stats->tx_bytes = dev->stats.tx_bytes;
-> +	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
-> +}
-> +EXPORT_SYMBOL_GPL(usbnet_get_stats64);
-> +
->  u32 usbnet_get_link (struct net_device *net)
->  {
->  	struct usbnet *dev = netdev_priv(net);
-> @@ -1214,6 +1236,11 @@ static void tx_complete (struct urb *urb)
->  	if (urb->status == 0) {
->  		dev->net->stats.tx_packets += entry->packets;
->  		dev->net->stats.tx_bytes += entry->length;
-
-
-Why updating dev->net->stats.tx_{packets|bytes} and
-dev->stats.tx_{packets|bytes}  ?
-
-> +
-> +		u64_stats_update_begin(&dev->stats.syncp);
-> +		dev->stats.tx_packets += entry->packets;
-> +		dev->stats.tx_bytes += entry->length;
-> +		u64_stats_update_end(&dev->stats.syncp);
->  	} else {
->  		dev->net->stats.tx_errors++;
->  
-> @@ -1658,6 +1685,7 @@ void usbnet_disconnect (struct usb_interface *intf)
->  	init_timer (&dev->delay);
->  	mutex_init (&dev->phy_mutex);
->  	mutex_init(&dev->interrupt_mutex);
-> +	u64_stats_init(&dev->stats.syncp);
->  	dev->interrupt_count = 0;
->  
->  	dev->net = net;
-> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-> index e2b5691..d1501b8 100644
-> --- a/include/linux/usb/usbnet.h
-> +++ b/include/linux/usb/usbnet.h
-> @@ -22,6 +22,14 @@
->  #ifndef	__LINUX_USB_USBNET_H
->  #define	__LINUX_USB_USBNET_H
->  
-> +struct usbnet_stats64 {
-> +	struct u64_stats_sync	syncp;
-> +	u64			rx_packets;
-> +	u64			rx_bytes;
-> +	u64			tx_packets;
-> +	u64			tx_bytes;
-> +};
-> +
-
-You use the same syncp for TX and RX.
-
-Do you have guarantee that TX and RX paths can not run concurrently (on
-different cpus) ?
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Am I missing something?
+>
+> [1] Maybe.  How smart is direct cache access?  If it's smart enough,
+> it'll pre-populate node 0's LLC, which means that life isn't so great
+> after all.
