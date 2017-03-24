@@ -1,54 +1,46 @@
-From: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 0/2] net: usb: qmi_wwan: add qmap mux protocol support
-Date: Fri, 24 Mar 2017 14:22:44 +0100
-Message-ID: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] net: sched: atm: destroy main filter chain
+Date: Fri, 24 Mar 2017 14:39:49 +0100
+Message-ID: <1490362789-7293-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34751 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751492AbdCXNkO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 09:40:14 -0400
+Received: by mail-wm0-f65.google.com with SMTP id u132so661781wmg.1
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 06:39:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for qmap mux protocol available in recent
-Qualcomm based modems.
+From: Jiri Pirko <jiri@mellanox.com>
 
-The qmap mux protocol can be used for multiplexing data packets in
-order to have multiple ip streams through the same physical device.
+In atm_tc_destroy, the flow qdisc filter chains are destroyed. However
+the main chain is not. So fix this memory and reference leak.
 
-Two new sysfs files are added for adding/removing the qmap mux based
-interfaces (named qmimux):
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+Sending this for net-next because this is present at least from the
+beginning of git epoch. Feel free to apply on -net, however I don't have
+"Fixes: " :)
+---
+ net/sched/sch_atm.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-/sys/class/net/<iface>/qmi/add_mux
-/sys/class/net/<iface>/qmi/del_mux
-
-Main patch author is Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-
-An userspace implementation of the qmi requests needed to support
-multiple ip streams is already available (namely libqmi since
-version 1.18.0).
-
-The qmap mux feature has been recently implemented in Codeaurora
-gobinet out-of-kernel driver that was the inspiration for this
-development.
-
-Tests have been performed with Telit LE922A6 (PID 0x1040)
-
-Daniele Palmas (2):
-  net: usb: qmi_wwan: add qmap mux protocol support
-  Documentation: ABI: testing: sysfs-class-net-qmi: add new qmap mux
-    files description
-
- Documentation/ABI/testing/sysfs-class-net-qmi |  27 +++
- drivers/net/usb/qmi_wwan.c                    | 317 +++++++++++++++++++++++++-
- 2 files changed, 343 insertions(+), 1 deletion(-)
-
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index 2209c2d..56421da 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -560,6 +560,9 @@ static void atm_tc_destroy(struct Qdisc *sch)
+ 	struct atm_flow_data *flow, *tmp;
+ 
+ 	pr_debug("atm_tc_destroy(sch %p,[qdisc %p])\n", sch, p);
++
++	tcf_destroy_chain(&p->link.filter_list);
++
+ 	list_for_each_entry(flow, &p->flows, list)
+ 		tcf_destroy_chain(&flow->filter_list);
+ 
 -- 
-2.8.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.4
