@@ -1,68 +1,274 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/10][pull request] 40GbE Intel Wired LAN Driver Updates 2017-03-23
-Date: Thu, 23 Mar 2017 22:14:22 -0700
-Message-ID: <20170324051432.79216-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 02/10] i40e: check current configured input set when adding ntuple filters
+Date: Thu, 23 Mar 2017 22:14:24 -0700
+Message-ID: <20170324051432.79216-3-jeffrey.t.kirsher@intel.com>
+References: <20170324051432.79216-1-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:53066 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:12130 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751205AbdCXFOg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 01:14:36 -0400
+        id S1751567AbdCXFOh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 01:14:37 -0400
+In-Reply-To: <20170324051432.79216-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40e.txt documentation.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Jake provides all the changes in the series which are centered around
-ntuple filter fixes and additional support.  Fixed the current
-implementation of .set_rxnfc, where we were not reading the mask field
-for filter entries which was resulting in filters not behaving as
-expected and not working correctly.  When cleaning up after disabling
-flow director support, ensure that the default input set is correctly
-reprogrammed.  Since the hardware only supports a single input set for
-all flows of that type, the driver shall only allow the input set to
-change if there are no other configured filters for that flow type, so
-add support to detect when we can update the input set for each flow
-type.  Align the driver to other drivers to partition the ring_cookie
-value into 8bits of VF index, along with 32bits of queue number instead
-of using the user-def field.  Added support to parse the user-def field
-into a data structure format to allow future extensions of the user-def
-filed by keeping all the code that read/writes the field into a single
-location.  Added support for flexible payloads passed via ethtool
-user-def field.  We support a single flexible word (2byte) value per
-protocol type, and we handle the FLX_PIT register using a list of
-flexible entries so that each flow type may be configured separately.
-Enabled flow director filters for SCTPv4 packets using the ethtool
-ntuple interface to enable filters.  Updated the documentation on the
-i40e driver to include the newly added support to ntuple filters.
-Reduced complexity of a if-continue-else-break section of code by
-taking advantage of using hlist_for_each_entry_continue() instead.
+Do not assume that hardware has been programmed with the default mask,
+but instead read the input set registers to determine what is currently
+programmed. This ensures that all programmed filters match exactly how
+the hardware will interpret them, avoiding confusion regarding filter
+behavior.
 
-The following are changes since commit add641e7dee31b36aee83412c29e39dd1f5e0c9c:
-  sched: act_csum: don't mangle TCP and UDP GSO packets
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+This sets the initial ground-work for allowing custom input sets where
+some fields are disabled. A future patch will fully implement this
+feature.
 
-Jacob Keller (10):
-  i40e: correctly honor the mask fields for ETHTOOL_SRXCLSRLINS
-  i40e: check current configured input set when adding ntuple filters
-  i40e: restore default input set for each flow type
-  i40e: allow changing input set for ntuple filters
-  i40e: partition the ring_cookie to get VF index
-  i40e: add parsing of flexible filter fields from userdef
-  i40e: implement support for flexible word payload
-  i40e: add support for SCTPv4 FDir filters
-  i40e: document drivers use of ntuple filters
-  i40e: make use of hlist_for_each_entry_continue
+Instead of using bitwise negation, we'll just explicitly check for the
+correct value. The use of htonl and htons are used to silence sparse
+warnings. The compiler should be able to handle the constant value and
+avoid actually performing a byteswap.
 
- Documentation/networking/i40e.txt              |  72 ++
- drivers/net/ethernet/intel/i40e/i40e.h         | 130 ++++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 977 ++++++++++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  52 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 107 +++
- 5 files changed, 1294 insertions(+), 44 deletions(-)
+Change-Id: I3d8db46cb28ea0afdaac8c5b31a2bfb90e3a4102
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h         |  19 ++++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 117 +++++++++++++++++++++----
+ 2 files changed, 121 insertions(+), 15 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index c0f2286c2b72..0cd21ea48e1d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -734,6 +734,25 @@ static inline int i40e_get_fd_cnt_all(struct i40e_pf *pf)
+ 	return pf->hw.fdir_shared_filter_count + pf->fdir_pf_filter_count;
+ }
+ 
++/**
++ * i40e_read_fd_input_set - reads value of flow director input set register
++ * @pf: pointer to the PF struct
++ * @addr: register addr
++ *
++ * This function reads value of flow director input set register
++ * specified by 'addr' (which is specific to flow-type)
++ **/
++static inline u64 i40e_read_fd_input_set(struct i40e_pf *pf, u16 addr)
++{
++	u64 val;
++
++	val = i40e_read_rx_ctl(&pf->hw, I40E_PRTQF_FD_INSET(addr, 1));
++	val <<= 32;
++	val += i40e_read_rx_ctl(&pf->hw, I40E_PRTQF_FD_INSET(addr, 0));
++
++	return val;
++}
++
+ /* needed by i40e_ethtool.c */
+ int i40e_up(struct i40e_vsi *vsi);
+ void i40e_down(struct i40e_vsi *vsi);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index ac8d5cf720aa..1815c149040f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2384,6 +2384,8 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
+ 			(struct ethtool_rx_flow_spec *)&cmd->fs;
+ 	struct i40e_fdir_filter *rule = NULL;
+ 	struct hlist_node *node2;
++	u64 input_set;
++	u16 index;
+ 
+ 	hlist_for_each_entry_safe(rule, node2,
+ 				  &pf->fdir_filter_list, fdir_node) {
+@@ -2409,11 +2411,42 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
+ 	fsp->h_u.tcp_ip4_spec.ip4src = rule->dst_ip;
+ 	fsp->h_u.tcp_ip4_spec.ip4dst = rule->src_ip;
+ 
+-	/* Set the mask fields */
+-	fsp->m_u.tcp_ip4_spec.psrc = htons(0xFFFF);
+-	fsp->m_u.tcp_ip4_spec.pdst = htons(0xFFFF);
+-	fsp->m_u.tcp_ip4_spec.ip4src = htonl(0xFFFFFFFF);
+-	fsp->m_u.tcp_ip4_spec.ip4dst = htonl(0xFFFFFFFF);
++	switch (rule->flow_type) {
++	case TCP_V4_FLOW:
++		index = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
++		break;
++	case UDP_V4_FLOW:
++		index = I40E_FILTER_PCTYPE_NONF_IPV4_UDP;
++		break;
++	case IP_USER_FLOW:
++		index = I40E_FILTER_PCTYPE_NONF_IPV4_OTHER;
++		break;
++	default:
++		/* If we have stored a filter with a flow type not listed here
++		 * it is almost certainly a driver bug. WARN(), and then
++		 * assign the input_set as if all fields are enabled to avoid
++		 * reading unassigned memory.
++		 */
++		WARN(1, "Missing input set index for flow_type %d\n",
++		     rule->flow_type);
++		input_set = 0xFFFFFFFFFFFFFFFFULL;
++		goto no_input_set;
++	}
++
++	input_set = i40e_read_fd_input_set(pf, index);
++
++no_input_set:
++	if (input_set & I40E_L3_SRC_MASK)
++		fsp->m_u.tcp_ip4_spec.ip4src = htonl(0xFFFF);
++
++	if (input_set & I40E_L3_DST_MASK)
++		fsp->m_u.tcp_ip4_spec.ip4dst = htonl(0xFFFF);
++
++	if (input_set & I40E_L4_SRC_MASK)
++		fsp->m_u.tcp_ip4_spec.psrc = htons(0xFFFFFFFF);
++
++	if (input_set & I40E_L4_DST_MASK)
++		fsp->m_u.tcp_ip4_spec.pdst = htons(0xFFFFFFFF);
+ 
+ 	if (rule->dest_ctl == I40E_FILTER_PROGRAM_DESC_DEST_DROP_PACKET)
+ 		fsp->ring_cookie = RX_CLS_FLOW_DISC;
+@@ -2725,36 +2758,74 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+ 
+ /**
+  * i40e_check_fdir_input_set - Check that a given rx_flow_spec mask is valid
++ * @vsi: pointer to the targeted VSI
+  * @fsp: pointer to Rx flow specification
+  *
+  * Ensures that a given ethtool_rx_flow_spec has a valid mask.
+  **/
+-static int i40e_check_fdir_input_set(struct ethtool_rx_flow_spec *fsp)
++static int i40e_check_fdir_input_set(struct i40e_vsi *vsi,
++				     struct ethtool_rx_flow_spec *fsp)
+ {
++	struct i40e_pf *pf = vsi->back;
+ 	struct ethtool_tcpip4_spec *tcp_ip4_spec;
+ 	struct ethtool_usrip4_spec *usr_ip4_spec;
++	u64 current_mask, new_mask;
++	u16 index;
++
++	switch (fsp->flow_type & ~FLOW_EXT) {
++	case TCP_V4_FLOW:
++		index = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
++		break;
++	case UDP_V4_FLOW:
++		index = I40E_FILTER_PCTYPE_NONF_IPV4_UDP;
++		break;
++	case IP_USER_FLOW:
++		index = I40E_FILTER_PCTYPE_NONF_IPV4_OTHER;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	/* Read the current input set from register memory. */
++	current_mask = i40e_read_fd_input_set(pf, index);
++	new_mask = current_mask;
+ 
+ 	/* Verify the provided mask is valid. */
+ 	switch (fsp->flow_type & ~FLOW_EXT) {
+-	case SCTP_V4_FLOW:
+ 	case TCP_V4_FLOW:
+ 	case UDP_V4_FLOW:
+ 		tcp_ip4_spec = &fsp->m_u.tcp_ip4_spec;
+ 
+ 		/* IPv4 source address */
+-		if (!tcp_ip4_spec->ip4src || ~tcp_ip4_spec->ip4src)
++		if (tcp_ip4_spec->ip4src == htonl(0xFFFFFFFF))
++			new_mask |= I40E_L3_SRC_MASK;
++		else if (!tcp_ip4_spec->ip4src)
++			new_mask &= ~I40E_L3_SRC_MASK;
++		else
+ 			return -EOPNOTSUPP;
+ 
+ 		/* IPv4 destination address */
+-		if (!tcp_ip4_spec->ip4dst || ~tcp_ip4_spec->ip4dst)
++		if (tcp_ip4_spec->ip4dst == htonl(0xFFFFFFFF))
++			new_mask |= I40E_L3_DST_MASK;
++		else if (!tcp_ip4_spec->ip4dst)
++			new_mask &= ~I40E_L3_DST_MASK;
++		else
+ 			return -EOPNOTSUPP;
+ 
+ 		/* L4 source port */
+-		if (!tcp_ip4_spec->psrc || (__be16)~tcp_ip4_spec->psrc)
++		if (tcp_ip4_spec->psrc == htons(0xFFFF))
++			new_mask |= I40E_L4_SRC_MASK;
++		else if (!tcp_ip4_spec->psrc)
++			new_mask &= ~I40E_L4_SRC_MASK;
++		else
+ 			return -EOPNOTSUPP;
+ 
+ 		/* L4 destination port */
+-		if (!tcp_ip4_spec->pdst || (__be16)~tcp_ip4_spec->pdst)
++		if (tcp_ip4_spec->pdst == htons(0xFFFF))
++			new_mask |= I40E_L4_DST_MASK;
++		else if (!tcp_ip4_spec->pdst)
++			new_mask &= ~I40E_L4_DST_MASK;
++		else
+ 			return -EOPNOTSUPP;
+ 
+ 		/* Filtering on Type of Service is not supported. */
+@@ -2766,15 +2837,27 @@ static int i40e_check_fdir_input_set(struct ethtool_rx_flow_spec *fsp)
+ 		usr_ip4_spec = &fsp->m_u.usr_ip4_spec;
+ 
+ 		/* IPv4 source address */
+-		if (!usr_ip4_spec->ip4src || ~usr_ip4_spec->ip4src)
++		if (usr_ip4_spec->ip4src == htonl(0xFFFFFFFF))
++			new_mask |= I40E_L3_SRC_MASK;
++		else if (!usr_ip4_spec->ip4src)
++			new_mask &= ~I40E_L3_SRC_MASK;
++		else
+ 			return -EOPNOTSUPP;
+ 
+ 		/* IPv4 destination address */
+-		if (!usr_ip4_spec->ip4dst || ~usr_ip4_spec->ip4dst)
++		if (usr_ip4_spec->ip4dst == htonl(0xFFFFFFFF))
++			new_mask |= I40E_L3_DST_MASK;
++		else if (!usr_ip4_spec->ip4dst)
++			new_mask &= ~I40E_L3_DST_MASK;
++		else
+ 			return -EOPNOTSUPP;
+ 
+ 		/* First 4 bytes of L4 header */
+-		if (!usr_ip4_spec->l4_4_bytes || ~usr_ip4_spec->l4_4_bytes)
++		if (usr_ip4_spec->l4_4_bytes == htonl(0xFFFFFFFF))
++			new_mask |= I40E_L4_SRC_MASK | I40E_L4_DST_MASK;
++		else if (!usr_ip4_spec->l4_4_bytes)
++			new_mask &= ~(I40E_L4_SRC_MASK | I40E_L4_DST_MASK);
++		else
+ 			return -EOPNOTSUPP;
+ 
+ 		/* Filtering on Type of Service is not supported. */
+@@ -2788,11 +2871,15 @@ static int i40e_check_fdir_input_set(struct ethtool_rx_flow_spec *fsp)
+ 		/* L4 protocol doesn't have a mask field. */
+ 		if (usr_ip4_spec->proto)
+ 			return -EINVAL;
++
+ 		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+ 
++	if (new_mask != current_mask)
++		return -EOPNOTSUPP;
++
+ 	return 0;
+ }
+ 
+@@ -2836,7 +2923,7 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 	if (fsp->flow_type & FLOW_MAC_EXT)
+ 		return -EINVAL;
+ 
+-	ret = i40e_check_fdir_input_set(fsp);
++	ret = i40e_check_fdir_input_set(vsi, fsp);
+ 	if (ret)
+ 		return ret;
+ 
 -- 
 2.12.0
