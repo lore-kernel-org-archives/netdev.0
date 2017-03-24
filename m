@@ -1,42 +1,67 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: bcm_sf2: Add missing OF_MDIO dependency
-Date: Fri, 24 Mar 2017 14:57:22 -0700
-Message-ID: <20170324215722.6664-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 1/1] i40e: Do not enable NAPI on q_vectors that have no rings
+Date: Fri, 24 Mar 2017 15:01:42 -0700
+Message-ID: <20170324220142.8921-1-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:35377 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933254AbdCXWEI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:04:08 -0400
-Received: by mail-qt0-f193.google.com with SMTP id r5so446423qtb.2
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 15:04:02 -0700 (PDT)
+Received: from mga07.intel.com ([134.134.136.100]:10847 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754780AbdCXWFB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 18:05:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bcm_sf2 does require the MDIO_BCM_UNIMAC driver which is now dependent
-on OF_MDIO but also internally uses of_mdio.c provided routines which
-are guarted with OF_MDIO.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+When testing the epoll w/ busy poll code I found that I could get into a
+state where the i40e driver had q_vectors w/ active NAPI that had no rings.
+This was resulting in a divide by zero error.  To correct it I am updating
+the driver code so that we only support NAPI on q_vectors that have 1 or
+more rings allocated to them.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/dsa/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 065984670ff1..564b267c8428 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -11,7 +11,7 @@ config NET_DSA_MV88E6060
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index e8a8351c8ea9..82a95cc2c8ee 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4438,8 +4438,12 @@ static void i40e_napi_enable_all(struct i40e_vsi *vsi)
+ 	if (!vsi->netdev)
+ 		return;
  
- config NET_DSA_BCM_SF2
- 	tristate "Broadcom Starfighter 2 Ethernet switch support"
--	depends on HAS_IOMEM && NET_DSA
-+	depends on HAS_IOMEM && NET_DSA && OF_MDIO
- 	select NET_DSA_TAG_BRCM
- 	select FIXED_PHY
- 	select BCM7XXX_PHY
+-	for (q_idx = 0; q_idx < vsi->num_q_vectors; q_idx++)
+-		napi_enable(&vsi->q_vectors[q_idx]->napi);
++	for (q_idx = 0; q_idx < vsi->num_q_vectors; q_idx++) {
++		struct i40e_q_vector *q_vector = vsi->q_vectors[q_idx];
++
++		if (q_vector->rx.ring || q_vector->tx.ring)
++			napi_enable(&q_vector->napi);
++	}
+ }
+ 
+ /**
+@@ -4453,8 +4457,12 @@ static void i40e_napi_disable_all(struct i40e_vsi *vsi)
+ 	if (!vsi->netdev)
+ 		return;
+ 
+-	for (q_idx = 0; q_idx < vsi->num_q_vectors; q_idx++)
+-		napi_disable(&vsi->q_vectors[q_idx]->napi);
++	for (q_idx = 0; q_idx < vsi->num_q_vectors; q_idx++) {
++		struct i40e_q_vector *q_vector = vsi->q_vectors[q_idx];
++
++		if (q_vector->rx.ring || q_vector->tx.ring)
++			napi_disable(&q_vector->napi);
++	}
+ }
+ 
+ /**
 -- 
-2.9.3
+2.12.0
