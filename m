@@ -1,62 +1,126 @@
-From: Jonas Bonn <jonas@southpole.se>
-Subject: Re: [PATCH net-next v3 0/2] GTP SGSN-side tunnels
-Date: Fri, 24 Mar 2017 14:46:42 +0100
-Message-ID: <64102031-a435-9ca0-9dca-ec60d335c0e2@southpole.se>
-References: <20170324093358.31374-1-jonas@southpole.se>
- <20170324101525.5i26wlg5jbsp6qrh@nataraja>
+From: Ilya Dryomov <idryomov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 05/23] net, ceph: convert ceph_osd.o_ref from atomic_t to refcount_t
+Date: Fri, 24 Mar 2017 14:49:24 +0100
+Message-ID: <CAOi1vP8ajXGamJ_Et93sfAq4xr46sSuse8cP320j-aqnwrSqKg@mail.gmail.com>
+References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com> <1489752646-8749-6-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org
-To: Harald Welte <laforge@gnumonks.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([37.247.8.11]:50613 "EHLO mail.southpole.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754323AbdCXNqw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 09:46:52 -0400
-In-Reply-To: <20170324101525.5i26wlg5jbsp6qrh@nataraja>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-x25-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Ceph Development <ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "Yan, Zheng" <zyan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Sage Weil <sage-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+        Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+        santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, jreuter-K7Hl1MveuGQ@public.gmane.org,
+        ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1489752646-8749-6-git-send-email-elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Harald,
+On Fri, Mar 17, 2017 at 1:10 PM, Elena Reshetova
+<elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
+>
+> Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> Signed-off-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  include/linux/ceph/osd_client.h |  3 ++-
+>  net/ceph/osd_client.c           | 16 ++++++++--------
+>  2 files changed, 10 insertions(+), 9 deletions(-)
+>
+> diff --git a/include/linux/ceph/osd_client.h b/include/linux/ceph/osd_client.h
+> index 2ea0c28..5ce0cd6 100644
+> --- a/include/linux/ceph/osd_client.h
+> +++ b/include/linux/ceph/osd_client.h
+> @@ -5,6 +5,7 @@
+>  #include <linux/kref.h>
+>  #include <linux/mempool.h>
+>  #include <linux/rbtree.h>
+> +#include <linux/refcount.h>
+>
+>  #include <linux/ceph/types.h>
+>  #include <linux/ceph/osdmap.h>
+> @@ -27,7 +28,7 @@ typedef void (*ceph_osdc_callback_t)(struct ceph_osd_request *);
+>
+>  /* a given osd we're communicating with */
+>  struct ceph_osd {
+> -       atomic_t o_ref;
+> +       refcount_t o_ref;
+>         struct ceph_osd_client *o_osdc;
+>         int o_osd;
+>         int o_incarnation;
+> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
+> index b65bbf9..99a51f0 100644
+> --- a/net/ceph/osd_client.c
+> +++ b/net/ceph/osd_client.c
+> @@ -1005,7 +1005,7 @@ static bool osd_registered(struct ceph_osd *osd)
+>   */
+>  static void osd_init(struct ceph_osd *osd)
+>  {
+> -       atomic_set(&osd->o_ref, 1);
+> +       refcount_set(&osd->o_ref, 1);
+>         RB_CLEAR_NODE(&osd->o_node);
+>         osd->o_requests = RB_ROOT;
+>         osd->o_linger_requests = RB_ROOT;
+> @@ -1050,9 +1050,9 @@ static struct ceph_osd *create_osd(struct ceph_osd_client *osdc, int onum)
+>
+>  static struct ceph_osd *get_osd(struct ceph_osd *osd)
+>  {
+> -       if (atomic_inc_not_zero(&osd->o_ref)) {
+> -               dout("get_osd %p %d -> %d\n", osd, atomic_read(&osd->o_ref)-1,
+> -                    atomic_read(&osd->o_ref));
+> +       if (refcount_inc_not_zero(&osd->o_ref)) {
+> +               dout("get_osd %p %d -> %d\n", osd, refcount_read(&osd->o_ref)-1,
+> +                    refcount_read(&osd->o_ref));
+>                 return osd;
+>         } else {
+>                 dout("get_osd %p FAIL\n", osd);
+> @@ -1062,9 +1062,9 @@ static struct ceph_osd *get_osd(struct ceph_osd *osd)
+>
+>  static void put_osd(struct ceph_osd *osd)
+>  {
+> -       dout("put_osd %p %d -> %d\n", osd, atomic_read(&osd->o_ref),
+> -            atomic_read(&osd->o_ref) - 1);
+> -       if (atomic_dec_and_test(&osd->o_ref)) {
+> +       dout("put_osd %p %d -> %d\n", osd, refcount_read(&osd->o_ref),
+> +            refcount_read(&osd->o_ref) - 1);
+> +       if (refcount_dec_and_test(&osd->o_ref)) {
+>                 osd_cleanup(osd);
+>                 kfree(osd);
+>         }
+> @@ -4092,7 +4092,7 @@ void ceph_osdc_stop(struct ceph_osd_client *osdc)
+>                 close_osd(osd);
+>         }
+>         up_write(&osdc->lock);
+> -       WARN_ON(atomic_read(&osdc->homeless_osd.o_ref) != 1);
+> +       WARN_ON(refcount_read(&osdc->homeless_osd.o_ref) != 1);
+>         osd_cleanup(&osdc->homeless_osd);
+>
+>         WARN_ON(!list_empty(&osdc->osd_lru));
 
-On 03/24/2017 11:15 AM, Harald Welte wrote:
-> Hi Jonas,
->
-> looks fine to me, but I haven't tested it.  Did you manually test it
-> using the extended libgtpnl + tools?
+Applied.
 
-I have tested it against your libgtpnl branch laforge/sgsn-role. 
-Creating an interface with tools/gtp-link works fine.
-
-We have been running the v1 patches in a production load-testing system 
-for the last month.  That all works and gives good performance.  I 
-haven't been able to actually run the v2 and v3 patches in that 
-environment as access to it is a bit limited... that said, the changes 
-from v1 to v3 are really only cosmetic and don't even touch the "parts 
-that matter" with respect to encapsulation. Really the patch is pretty 
-trivial... mucking about with the netlink interface is the bulk of it 
-and that bit has been tested and works.
-
->
-> Also, in code like this:
-> in
-> +       if (gtp->role == GTP_ROLE_SGSN) {
-> +               pctx = ipv4_pdp_find(gtp, iph->saddr);
-> +       } else {
->
-> I think general Linux kernel coding style is to not have curly-brackets
-> around single-line blocks. See "Do not unnecessarily use braces where a
-> single statement will do." in line 169 of
-> Documentation/process/coding-style.rst
->
-> I won't mind your current style, and it is not a blocker issue to me,
-> but still it would be nice for general consistency.
-OK, I'll fix that up just for the sake of correctness and send a v4.
-
->
-> Acked-by: Harald Welte <laforge@gnumonks.org>
->
 Thanks,
 
-Jonas
+                Ilya
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
