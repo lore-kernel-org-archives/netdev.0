@@ -1,78 +1,67 @@
-From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: [PATCH 3/7] ath9k: Add support for reading the EEPROM data using the nvmem API
-Date: Fri, 24 Mar 2017 17:24:38 +0100
-Message-ID: <4828897.dR6pcKhMJ3@debian64>
-References: <1489439116-4233-1-git-send-email-albeu@free.fr> <1609202.bQK0rlNN3Y@debian64> <20170323154328.4bb5db44@avionic-0020>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] Documentation: ABI: testing: sysfs-class-net-qmi: add
+ new qmap mux files description
+Date: Fri, 24 Mar 2017 19:31:30 +0300
+Message-ID: <8982c186-0560-a426-2873-bc21bc2f1765@cogentembedded.com>
+References: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
+ <1490361766-24114-3-git-send-email-dnlplm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chrisrblake93-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Alban <albeu-GANU6spQydw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170323154328.4bb5db44@avionic-0020>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Daniele Palmas <dnlplm@gmail.com>,
+        =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:35550 "EHLO
+        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757367AbdCXQbf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 12:31:35 -0400
+Received: by mail-lf0-f53.google.com with SMTP id j90so3242892lfk.2
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 09:31:34 -0700 (PDT)
+In-Reply-To: <1490361766-24114-3-git-send-email-dnlplm@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, March 23, 2017 3:43:28 PM CET Alban wrote:
-> On Tue, 14 Mar 2017 00:53:55 +0100
-> Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> wrote:
-> 
-> > On Monday, March 13, 2017 10:05:11 PM CET Alban wrote:
-> > > Currently SoC platforms use a firmware request to get the EEPROM data.
-> > > This is mostly a hack and rely on using a user-helper scripts which is
-> > > deprecated. A nicer alternative is to use the nvmem API which was
-> > > designed for this kind of task.
-> > > 
-> > > Furthermore we let CONFIG_ATH9K_AHB select CONFIG_NVMEM as such
-> > > devices will generally use this method for loading the EEPROM data.
-> > > 
-> > > Signed-off-by: Alban <albeu-GANU6spQydw@public.gmane.org>
-> > > ---
-> > > @@ -654,6 +656,25 @@ static int ath9k_init_softc(u16 devid, struct ath_softc *sc,
-> > >  	if (ret)
-> > >  		return ret;
-> > >  
-> > > +	/* If the EEPROM hasn't been retrieved via firmware request
-> > > +	 * use the nvmem API insted.
-> > > +	 */
-> > > +	if (!ah->eeprom_blob) {
-> > > +		struct nvmem_cell *eeprom_cell;
-> > > +
-> > > +		eeprom_cell = nvmem_cell_get(ah->dev, "eeprom");
-> > > +		if (!IS_ERR(eeprom_cell)) {
-> > > +			ah->eeprom_data = nvmem_cell_read(
-> > > +				eeprom_cell, &ah->eeprom_size);
-> > > +			nvmem_cell_put(eeprom_cell);
-> > > +
-> > > +			if (IS_ERR(ah->eeprom_data)) {
-> > > +				dev_err(ah->dev, "failed to read eeprom");
-> > > +				return PTR_ERR(ah->eeprom_data);
-> > > +			}
-> > > +		}
-> > > +	}
-> > > +
-> > >  	if (ath9k_led_active_high != -1)
-> > >  		ah->config.led_active_high = ath9k_led_active_high == 1;
-> > >    
-> > Are you sure this works with AR93XX SoCs that have the calibration data
-> > in the OTP?
-> 
-> I only tested this on an ar9132 platform, so it might well be that a
-> few things are missing for the newer SoC. However this shouldn't break
-> anything existing as a platform needs to define an nvmem cell on the
-> athk9 device for this code to be used a all.
+Hello!
 
-Yes, I looked at it.
-+		eeprom_cell = nvmem_cell_get(ah->dev, "eeprom");
-+		if (!IS_ERR(eeprom_cell)) {
-+			...
-+		}
-So if there's a error with the "eeprom" nvmem property,
-(i.e.: it's not present) the driver should works as before.
+On 03/24/2017 04:22 PM, Daniele Palmas wrote:
 
-Thanks,
-Christian
+> This patch updates the documentation related to the new files added for
+> qmap mux support.
+>
+> Signed-off-by: Daniele Palmas <dnlplm@gmail.com>
+> ---
+>  Documentation/ABI/testing/sysfs-class-net-qmi | 27 +++++++++++++++++++++++++++
+>  1 file changed, 27 insertions(+)
+>
+> diff --git a/Documentation/ABI/testing/sysfs-class-net-qmi b/Documentation/ABI/testing/sysfs-class-net-qmi
+> index fa5a00b..5191dc3 100644
+> --- a/Documentation/ABI/testing/sysfs-class-net-qmi
+> +++ b/Documentation/ABI/testing/sysfs-class-net-qmi
+> @@ -21,3 +21,30 @@ Description:
+>  		is responsible for coordination of driver and firmware
+>  		link framing mode, changing this setting to 'Y' if the
+>  		firmware is configured for 'raw-ip' mode.
+> +
+> +What:		/sys/class/net/<iface>/qmi/add_mux
+> +Date:		March 2017
+> +KernelVersion:	4.11
+> +Contact:	Bjørn Mork <bjorn@mork.no>
+> +Description:
+> +		Unsigned integer.
+> +
+> +		Write a number ranging from 1 to 127 to add a qmap mux
+> +		based network device, supported by recent Qualcomm based
+> +		modems.
+> +
+> +		The network device will be called qmimux.
+> +
+> +		Userspace is in charge of managing the qmux network device
+> +		activation and data stream setup  on them modem side by
+
+    s/them/the/?
+
+> +		using the proper QMI protocol requests.
+[...]
+
+MBR, Sergei
