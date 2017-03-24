@@ -1,144 +1,113 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net-next v2 5/5] net-next: dsa: add dsa support for
- Mediatek MT7530 switch
-Date: Fri, 24 Mar 2017 15:19:53 +0100
-Message-ID: <20170324141953.GH28518@lunn.ch>
-References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
- <1490088910-19405-6-git-send-email-sean.wang@mediatek.com>
+From: Maxime Morin <maxime.morin@vitec.com>
+Subject: Re: Problem: net: mvneta: auto-negotiation with disconnected network
+ cable
+Date: Fri, 24 Mar 2017 14:39:54 +0000
+Message-ID: <AM4PR0501MB2708DA6340C51F283C2E4AF7943E0@AM4PR0501MB2708.eurprd05.prod.outlook.com>
+References: <DB6PR0501MB2712340C8CDC37F3038766AD943C0@DB6PR0501MB2712.eurprd05.prod.outlook.com>
+ <c5e143f0-f6b4-ff74-4239-e64ca025821b@list.ru>
+ <AM4PR0501MB270859E18A4D7F73F297AF64943F0@AM4PR0501MB2708.eurprd05.prod.outlook.com>,<1fbc5e19-b8d9-86bc-8683-e433977e73f5@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
-        matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1490088910-19405-6-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="koi8-r"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "thomas.petazzoni@free-electrons.com"
+        <thomas.petazzoni@free-electrons.com>
+To: Stas Sergeev <stsp@list.ru>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve1eur01on0051.outbound.protection.outlook.com ([104.47.1.51]:14266
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S964848AbdCXOj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 10:39:58 -0400
+In-Reply-To: <1fbc5e19-b8d9-86bc-8683-e433977e73f5@list.ru>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 21, 2017 at 05:35:10PM +0800, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
 
-Hi Sean
+>From: Stas Sergeev <stsp@list.ru>
+>
+>23.03.2017 14:30, Maxime Morin =D0=C9=DB=C5=D4:
+>> Hi,
+>> Thank you very much for your help and your reactivity! See my answer bel=
+low:
+>>
+>>> 22.03.2017 16:23, Maxime Morin =D0=C9=DB=C5=D4:
+>>>> Hi all,
+>>>>
+>>>> I work on an embedded platform based on the Marvell Armada 88F6707, th=
+at is connected to a Marvell Alaska 88E1512 ethernet transceiver. A defect =
+has appeared recently, and it turns out to be a regression on the network p=
+art. There is a complete lost of the network when following these steps:
+>>>>       1) boot the board with the network cable disconnected
+>>>>       2) run the following commands (or equivalent):
+>>>>           ip link set eth0 up
+>>>>           ip addr add 10.0.0.80/24 dev eth0
+>>>>           ethtool -s eth0 autoneg on #this is the command that really =
+breaks the network
+>>> Why do you call it a regression, if previously
+>>> this command did nothing at all?
+>> I called that a regression because we still pass through the function ph=
+y_ethtool_sset(), which I though was also doing something about the auto-ne=
+gotiation. But apparently not.
+>It does, but with mdio.
+>But in the MAC driver we have another autoneg
+>now, which is a great confusion. mvneta_set_autoneg()
+>could have been named mvneta_set_inband_autoneg(),
+>which would already help a lot. If you prepare the patch-set,
+>you can include such renaming
+>
+>>>> I did a "git bisect" to find when the regression was introduced, becau=
+se it previously worked with kernel 4.4, but not with the recent ones. The =
+commit that made appear the issue is this one: https://git.kernel.org/pub/s=
+cm/linux/kernel/git/torvalds/linux.git/commit/?id=3D0c0744fc1dd5b
+>>>> If I remove on mvneta.c the part that was added on this commit on the =
+function mvneta_ethtool_set_link_ksettings (mvneta_ethtool_set_settings at =
+that time), I do not have the issue, but I can't call that a fix...
+>>>> So, could it be a driver issue, or maybe a wrong configuration somewhe=
+re? If you need additional information to reproduce the problem please ask =
+me, I will be as responsive as possible.
+>>> It seems mvneta_set_autoneg() does some non-symmetric
+>>> things. It clears
+>>> MVNETA_GMAC_FORCE_LINK_PASS |
+>>> MVNETA_GMAC_FORCE_LINK_DOWN |
+>>> MVNETA_GMAC_AN_FLOW_CTRL_EN
+>>> when enabling autoneg, and does not restore these flags
+>>> when disabling it. Try to make it to set or to restore these
+>>> flags and see if that makes "ethtool -s eth0 autoneg off" to
+>>> get the network back alive> .
+>> As you suggested, I just set these three flags when the function is call=
+ed with "enable" set to 0. And it works!
+>Am I right that it works only when you set autoneg
+>to "off", while "on" still does not give you any link detect?
+>So this is a partial fix, right?
+No. It actually works for both modes in this case.
 
-> +	/* Lower Tx Driving */
-> +	for (i = 0 ; i < 6 ; i++)
-
-Could MT7530_CPU_PORT be used here? 
-
-> +		mt7530_write(priv, MT7530_TRGMII_TD_ODT(i),
-> +			     TD_DM_DRVP(8) | TD_DM_DRVN(8));
-> +
-> +	/* Setup MT7530 core clock */
-> +	if (!trgint) {
-> +		/* Disable MT7530 core clock */
-> +		core_clear(priv, CORE_TRGMII_GSW_CLK_CG, REG_GSWCK_EN);
-> +
-> +		/* Disable MT7530 PLL, since phy_device has not yet been
-> +		 * created when this function is called. So we provide
-> +		 * core_write_mmd_indirect to complete this function
-> +		 */
-> +		core_write_mmd_indirect(priv,
-> +					CORE_GSWPLL_GRP1,
-> +					MDIO_MMD_VEND2,
-> +					0);
-> +
-> +		/* Setup MT7530 core clock into 500Mhz */
-> +		core_write(priv, CORE_GSWPLL_GRP2,
-> +			   RG_GSWPLL_POSDIV_500M(1) |
-> +			   RG_GSWPLL_FBKDIV_500M(25));
-> +
-> +		/* Enable MT7530 PLL */
-> +		core_write(priv, CORE_GSWPLL_GRP1,
-> +			   RG_GSWPLL_EN_PRE |
-> +			   RG_GSWPLL_POSDIV_200M(2) |
-> +			   RG_GSWPLL_FBKDIV_200M(32));
-> +
-> +		/* Enable MT7530 core clock */
-> +		core_set(priv, CORE_TRGMII_GSW_CLK_CG, REG_GSWCK_EN);
-> +	}
-> +
-> +	/* Setup the MT7530 TRGMII Tx Clock */
-> +	core_set(priv, CORE_TRGMII_GSW_CLK_CG, REG_GSWCK_EN);
-> +	core_write(priv, CORE_PLL_GROUP5, RG_LCDDS_PCW_NCPO1(ncpo1));
-> +	core_write(priv, CORE_PLL_GROUP6, RG_LCDDS_PCW_NCPO0(0));
-> +	core_write(priv, CORE_PLL_GROUP10, RG_LCDDS_SSC_DELTA(ssc_delta));
-> +	core_write(priv, CORE_PLL_GROUP11, RG_LCDDS_SSC_DELTA1(ssc_delta));
-> +	core_write(priv, CORE_PLL_GROUP4,
-> +		   RG_SYSPLL_DDSFBK_EN | RG_SYSPLL_BIAS_EN |
-> +		   RG_SYSPLL_BIAS_LPF_EN);
-> +	core_write(priv, CORE_PLL_GROUP2,
-> +		   RG_SYSPLL_EN_NORMAL | RG_SYSPLL_VODEN |
-> +		   RG_SYSPLL_POSDIV(1));
-> +	core_write(priv, CORE_PLL_GROUP7,
-> +		   RG_LCDDS_PCW_NCPO_CHG | RG_LCCDS_C(3) |
-> +		   RG_LCDDS_PWDB | RG_LCDDS_ISO_EN);
-> +	core_set(priv, CORE_TRGMII_GSW_CLK_CG,
-> +		 REG_GSWCK_EN | REG_TRGMIICK_EN);
-> +
-> +	if (!trgint)
-> +		for (i = 0 ; i < 5 ; i++)
-
-Why only 5 here? All other similar loops are to 6.  Replacing 5 with a
-#define might help make this more readable.
-
-> +			mt7530_rmw(priv, MT7530_TRGMII_RD(i),
-> +				   RD_TAP_MASK, RD_TAP(16));
-> +	else
-> +		mt7623_trgmii_set(priv, GSW_INTF_MODE, INTF_MODE_TRGMII);
-> +
-> +	return 0;
-> +}
-> +
-> +static int
-> +mt7623_pad_clk_setup(struct dsa_switch *ds)
-> +{
-> +	struct mt7530_priv *priv = ds->priv;
-> +	int i;
-> +
-> +	for (i = 0 ; i < 6; i++)
-
-MT7530_CPU_PORT?
-
-> +
-> +/* Registers to mac forward conrol for unknown frames */
-
-/conrol/control
-
-> +
-> +/* Registor for port control */
-
-Register
-
-> +/* Regiser for TOP signal control */
-
-Register
-
-> +/* struct mt7530_priv -	This is the main datasructure for holding the state
-
-data structure
-
-> + *			of the driver
-> + * @dev:		The device pointer
-> + * @ds:			The pointer to the dsa core structure
-> + * @bus:		The bus used for the device and built-in PHY
-> + * @ethsys:		The regmap used for enabling the necessary PLL
-> + * @ethernet:		The regmap used for access TRGMII-based registers
-> + * @core_pwr:		The power supplied into the core
-> + * @io_pwr:		The power supplied into the I/O
-> + * @mcm:		Flag for distinguishing if standalone IC or module
-> + *			coupling
-> + * @reset:		The descriptor for GPIO line tied to its reset pin
-> + * @phy_mode:		The xMII for cpu port used
-> + * @ports:		Holding the state amongs ports
-
-among
-
-	Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Actually, I did not even have to set autoneg to off. When the module is =
+probed, the default param are applied (mvneta_defaults_set()), and mvneta_s=
+et_autoneg() is called with "enable" to 0, and it seems to fix everything.
+>It turns off SGMII-specific autoned and starts using
+>mdio autoneg instead... a great confusion.
+>
+>> I tested it then, by setting autoneg to off/on, booting with or without =
+the cable plugged, and I failed to break it. It seems to be fixed. Should I=
+ submit a patch? (would be the first time...)
+>After looking up my other patches to this driver, I
+>can see that
+>
+>MVNETA_GMAC_FORCE_LINK_PASS |
+>MVNETA_GMAC_FORCE_LINK_DOWN
+>
+>are left cleared willingly. I suspect that MVNETA_GMAC_AN_FLOW_CTRL_EN
+>breaks things for you. Could you please try with setting
+>back only this flag?
+I tested it, but not only this case. There are three flags, so 8 possibilit=
+ies (and already 2 tested), so I tested all of them one by one.
+And it shows that:
+- when MVNETA_GMAC_FORCE_LINK_PASS is not set,
+no matter the values of MVNETA_GMAC_FORCE_LINK_{PASS,DOWN}, the issue is re=
+produced
+- when MVNETA_GMAC_FORCE_LINK_PASS is set,
+no matter the values of MVNETA_GMAC_FORCE_LINK_{PASS,DOWN}, the network wor=
+ks (autoneg set off/on, booting with cable plugged/unplugged, etc)
