@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8152: prevent the driver from transmitting
- packets with carrier off
-Date: Fri, 24 Mar 2017 12:31:35 -0700 (PDT)
-Message-ID: <20170324.123135.1629675630856286721.davem@davemloft.net>
-References: <1394712342-15778-259-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH v3 net 0/5] net:ethernet:aquantia: Misc fixes for
+ atlantic driver.
+Date: Fri, 24 Mar 2017 12:33:33 -0700 (PDT)
+Message-ID: <20170324.123333.202342389645073925.davem@davemloft.net>
+References: <cover.1490267633.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: netdev@vger.kernel.org, Simon.Edelhaus@aquantia.com,
+        darcari@redhat.com
+To: Pavel.Belous@aquantia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43418 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43436 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967155AbdCXTbg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 15:31:36 -0400
-In-Reply-To: <1394712342-15778-259-Taiwan-albertk@realtek.com>
+        with ESMTP id S967054AbdCXTdp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 15:33:45 -0400
+In-Reply-To: <cover.1490267633.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 23 Mar 2017 19:14:19 +0800
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Date: Thu, 23 Mar 2017 14:19:40 +0300
 
-> The linking status may be changed when autosuspend. And, after
-> autoresume, the driver may try to transmit packets when the device
-> is carrier off, because the interrupt transfer doesn't update the
-> linking status, yet. And, if the device is in ALDPS mode, the device
-> would stop working.
+> From: Pavel Belous <pavel.belous@aquantia.com>
 > 
-> The another similar case is
->  1. unplug the cable.
->  2. interrupt transfer queue a work_queue for linking change.
->  3. device enters the ALDPS mode.
->  4. a tx occurs before the work_queue is called.
+> The following patchset containg several fixes for aQuantia AQtion driver
+> for net tree: A couple fixes for IPv6 and other fixes.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> v1->v2: Fix compilation error (using HW_ATL_A0_TXD_CTL_CMD_IPV6 instead
+>         HW_ATL_B0_TXD_CTL_CMD_IPV6).
+> v2->v3: Added "Fixes" tags.
 
-Applied.
+Series applied, thanks.
