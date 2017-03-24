@@ -1,161 +1,136 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/kcm: double free of kcm inode
-Date: Fri, 24 Mar 2017 09:51:33 +0100
-Message-ID: <CACT4Y+YWY2sY9UNn=t=veK190_i6FRb-RjNtNqUXS2Px-5PfzA@mail.gmail.com>
-References: <CACT4Y+Y=Wg6Dzn6jZnTwhRCTHA5M6+uaJPZbiR_50Xy5XLDeUQ@mail.gmail.com>
- <CAM_iQpW1K5PdNb-+jKuuapc1My2O4x5JQqk5u1guw5ZHs88CJg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Ingo Molnar <mingo@kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpW1K5PdNb-+jKuuapc1My2O4x5JQqk5u1guw5ZHs88CJg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jonas Bonn <jonas@southpole.se>
+Subject: [PATCH net-next v3 1/2] gtp: rename SGSN netlink attribute
+Date: Fri, 24 Mar 2017 10:33:57 +0100
+Message-ID: <20170324093358.31374-2-jonas@southpole.se>
+References: <20170324093358.31374-1-jonas@southpole.se>
+Cc: Jonas Bonn <jonas@southpole.se>
+To: pablo@netfilter.org, netdev@vger.kernel.org, laforge@gnumonks.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.southpole.se ([37.247.8.11]:49759 "EHLO mail.southpole.se"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751935AbdCXJex (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 05:34:53 -0400
+In-Reply-To: <20170324093358.31374-1-jonas@southpole.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 23, 2017 at 7:07 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Thu, Mar 23, 2017 at 5:09 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> Hello,
->>
->> I've got the following report while running syzkaller fuzzer. Note the
->> preceding kmem_cache_alloc injected failure, it's most likely the root
->> cause.
->>
->> FAULT_INJECTION: forcing a failure.
->> name failslab, interval 1, probability 0, space 0, times 0
->> CPU: 1 PID: 21839 Comm: syz-executor4 Not tainted 4.11.0-rc3+ #364
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> Call Trace:
->>  __dump_stack lib/dump_stack.c:16 [inline]
->>  dump_stack+0x1b8/0x28d lib/dump_stack.c:52
->>  fail_dump lib/fault-inject.c:45 [inline]
->>  should_fail+0x78a/0x870 lib/fault-inject.c:154
->>  should_failslab+0xec/0x120 mm/failslab.c:31
->>  slab_pre_alloc_hook mm/slab.h:434 [inline]
->>  slab_alloc mm/slab.c:3394 [inline]
->>  kmem_cache_alloc+0x200/0x720 mm/slab.c:3570
->>  sk_prot_alloc+0x65/0x2a0 net/core/sock.c:1331
->>  sk_alloc+0x8c/0x710 net/core/sock.c:1393
->>  kcm_clone net/kcm/kcmsock.c:1655 [inline]
->>  kcm_ioctl+0xb65/0x17e0 net/kcm/kcmsock.c:1713
->>  sock_do_ioctl+0x65/0xb0 net/socket.c:895
->>  sock_ioctl+0x2c2/0x440 net/socket.c:993
->>  vfs_ioctl fs/ioctl.c:45 [inline]
->>  do_vfs_ioctl+0x1af/0x16d0 fs/ioctl.c:685
->>  SYSC_ioctl fs/ioctl.c:700 [inline]
->>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
->>  entry_SYSCALL_64_fastpath+0x1f/0xc2
->
-> I don't know if this patch could fix this bug or not:
-> https://patchwork.ozlabs.org/patch/742860/
->
-> This is why I don't add your Reported-by. But it could be related.
->
-> Thanks.
+This is a mostly cosmetic rename of the SGSN netlink attribute to
+the GTP link.  The justification for this is that we will be making
+the module support decapsulation of "downstream" SGSN packets, in
+which case the netlink parameter actually refers to the upstream GGSN
+peer.  Renaming the parameter makes the relationship clearer.
 
-That patch only handles copy_from_user failures in kcm_ioctl. This
-issue is  kmem_cache_alloc failure in  sk_alloc called from kcm_clone.
-I would expect that the patch does not fix it.
+The legacy name is maintained as a define in the header file in order
+to not break existing code.
 
+Signed-off-by: Jonas Bonn <jonas@southpole.se>
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ drivers/net/gtp.c        | 22 +++++++++++-----------
+ include/uapi/linux/gtp.h |  3 ++-
+ 2 files changed, 13 insertions(+), 12 deletions(-)
 
->> RIP: 0033:0x445b79
->> RSP: 002b:00007f05eb28e858 EFLAGS: 00000286 ORIG_RAX: 0000000000000010
->> RAX: ffffffffffffffda RBX: 0000000000708000 RCX: 0000000000445b79
->> RDX: 0000000020001000 RSI: 00000000000089e2 RDI: 0000000000000005
->> RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
->> R10: 0000000000000000 R11: 0000000000000286 R12: 00000000004a7e31
->> R13: 0000000000000000 R14: 00007f05eb28e618 R15: 00007f05eb28e788
->> ==================================================================
->> BUG: KASAN: use-after-free in __fput+0x6b0/0x7f0 fs/file_table.c:211
->> at addr ffff880037a25670
->> Read of size 2 by task syz-executor4/21839
->> CPU: 1 PID: 21839 Comm: syz-executor4 Not tainted 4.11.0-rc3+ #364
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> Call Trace:
->>  __dump_stack lib/dump_stack.c:16 [inline]
->>  dump_stack+0x1b8/0x28d lib/dump_stack.c:52
->>  kasan_object_err+0x1c/0x70 mm/kasan/report.c:166
->>  print_address_description mm/kasan/report.c:210 [inline]
->>  kasan_report_error mm/kasan/report.c:294 [inline]
->>  kasan_report.part.2+0x1be/0x480 mm/kasan/report.c:316
->>  kasan_report mm/kasan/report.c:335 [inline]
->>  __asan_report_load2_noabort+0x29/0x30 mm/kasan/report.c:335
->>  __fput+0x6b0/0x7f0 fs/file_table.c:211
->>  ____fput+0x15/0x20 fs/file_table.c:245
->>  task_work_run+0x1a4/0x270 kernel/task_work.c:116
->>  tracehook_notify_resume include/linux/tracehook.h:191 [inline]
->>  exit_to_usermode_loop+0x24d/0x2d0 arch/x86/entry/common.c:161
->>  prepare_exit_to_usermode arch/x86/entry/common.c:191 [inline]
->>  syscall_return_slowpath+0x3bd/0x460 arch/x86/entry/common.c:260
->>  entry_SYSCALL_64_fastpath+0xc0/0xc2
->> RIP: 0033:0x445b79
->> RSP: 002b:00007f05eb28e858 EFLAGS: 00000286 ORIG_RAX: 0000000000000010
->> RAX: fffffffffffffff4 RBX: 0000000000708000 RCX: 0000000000445b79
->> RDX: 0000000020001000 RSI: 00000000000089e2 RDI: 0000000000000005
->> RBP: 0000000000002170 R08: 0000000000000000 R09: 0000000000000000
->> R10: 0000000000000000 R11: 0000000000000286 R12: 00000000006e0230
->> R13: 00000000000089e2 R14: 0000000020001000 R15: 0000000000000005
->> Object at ffff880037a25640, in cache sock_inode_cache size: 944
->> Allocated:
->> PID = 21839
->>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->>  save_stack+0x43/0xd0 mm/kasan/kasan.c:517
->>  set_track mm/kasan/kasan.c:529 [inline]
->>  kasan_kmalloc+0xbc/0xf0 mm/kasan/kasan.c:620
->>  kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:559
->>  kmem_cache_alloc+0x110/0x720 mm/slab.c:3572
->>  sock_alloc_inode+0x70/0x300 net/socket.c:250
->>  alloc_inode+0x65/0x180 fs/inode.c:207
->>  new_inode_pseudo+0x69/0x190 fs/inode.c:889
->>  sock_alloc+0x41/0x270 net/socket.c:565
->>  kcm_clone net/kcm/kcmsock.c:1634 [inline]
->>  kcm_ioctl+0x990/0x17e0 net/kcm/kcmsock.c:1713
->>  sock_do_ioctl+0x65/0xb0 net/socket.c:895
->>  sock_ioctl+0x2c2/0x440 net/socket.c:993
->>  vfs_ioctl fs/ioctl.c:45 [inline]
->>  do_vfs_ioctl+0x1af/0x16d0 fs/ioctl.c:685
->>  SYSC_ioctl fs/ioctl.c:700 [inline]
->>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
->>  entry_SYSCALL_64_fastpath+0x1f/0xc2
->> Freed:
->> PID = 21839
->>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->>  save_stack+0x43/0xd0 mm/kasan/kasan.c:517
->>  set_track mm/kasan/kasan.c:529 [inline]
->>  kasan_slab_free+0x81/0xc0 mm/kasan/kasan.c:593
->>  __cache_free mm/slab.c:3514 [inline]
->>  kmem_cache_free+0x71/0x240 mm/slab.c:3774
->>  sock_destroy_inode+0x56/0x70 net/socket.c:280
->>  destroy_inode+0x15d/0x200 fs/inode.c:264
->>  evict+0x57e/0x920 fs/inode.c:570
->>  iput_final fs/inode.c:1515 [inline]
->>  iput+0x62b/0xa20 fs/inode.c:1542
->>  sock_release+0x168/0x1e0 net/socket.c:607
->>  sock_close+0x16/0x20 net/socket.c:1061
->>  __fput+0x327/0x7f0 fs/file_table.c:209
->>  ____fput+0x15/0x20 fs/file_table.c:245
->>  task_work_run+0x1a4/0x270 kernel/task_work.c:116
->>  tracehook_notify_resume include/linux/tracehook.h:191 [inline]
->>  exit_to_usermode_loop+0x24d/0x2d0 arch/x86/entry/common.c:161
->>  prepare_exit_to_usermode arch/x86/entry/common.c:191 [inline]
->>  syscall_return_slowpath+0x3bd/0x460 arch/x86/entry/common.c:260
->>  entry_SYSCALL_64_fastpath+0xc0/0xc2
->> Memory state around the buggy address:
->>  ffff880037a25500: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->>  ffff880037a25580: fb fb fb fb fb fb fc fc fc fc fc fc fc fc fc fc
->>>ffff880037a25600: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
->>                                                              ^
->>  ffff880037a25680: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->>  ffff880037a25700: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->> ==================================================================
->>
->> On commit 093b995e3b55a0ae0670226ddfcb05bfbf0099ae
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 50349a9..3806be6 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -56,7 +56,7 @@ struct pdp_ctx {
+ 	u16			af;
+ 
+ 	struct in_addr		ms_addr_ip4;
+-	struct in_addr		sgsn_addr_ip4;
++	struct in_addr		peer_addr_ip4;
+ 
+ 	atomic_t		tx_seq;
+ 	struct rcu_head		rcu_head;
+@@ -522,17 +522,17 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 
+ 	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sock0->sk,
+-				  pctx->sgsn_addr_ip4.s_addr);
++				  pctx->peer_addr_ip4.s_addr);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to SSGN %pI4\n",
+-			   &pctx->sgsn_addr_ip4.s_addr);
++			   &pctx->peer_addr_ip4.s_addr);
+ 		dev->stats.tx_carrier_errors++;
+ 		goto err;
+ 	}
+ 
+ 	if (rt->dst.dev == dev) {
+ 		netdev_dbg(dev, "circular route to SSGN %pI4\n",
+-			   &pctx->sgsn_addr_ip4.s_addr);
++			   &pctx->peer_addr_ip4.s_addr);
+ 		dev->stats.collisions++;
+ 		goto err_rt;
+ 	}
+@@ -894,8 +894,8 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
+ {
+ 	pctx->gtp_version = nla_get_u32(info->attrs[GTPA_VERSION]);
+ 	pctx->af = AF_INET;
+-	pctx->sgsn_addr_ip4.s_addr =
+-		nla_get_be32(info->attrs[GTPA_SGSN_ADDRESS]);
++	pctx->peer_addr_ip4.s_addr =
++		nla_get_be32(info->attrs[GTPA_PEER_ADDRESS]);
+ 	pctx->ms_addr_ip4.s_addr =
+ 		nla_get_be32(info->attrs[GTPA_MS_ADDRESS]);
+ 
+@@ -981,13 +981,13 @@ static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
+ 	switch (pctx->gtp_version) {
+ 	case GTP_V0:
+ 		netdev_dbg(dev, "GTPv0-U: new PDP ctx id=%llx ssgn=%pI4 ms=%pI4 (pdp=%p)\n",
+-			   pctx->u.v0.tid, &pctx->sgsn_addr_ip4,
++			   pctx->u.v0.tid, &pctx->peer_addr_ip4,
+ 			   &pctx->ms_addr_ip4, pctx);
+ 		break;
+ 	case GTP_V1:
+ 		netdev_dbg(dev, "GTPv1-U: new PDP ctx id=%x/%x ssgn=%pI4 ms=%pI4 (pdp=%p)\n",
+ 			   pctx->u.v1.i_tei, pctx->u.v1.o_tei,
+-			   &pctx->sgsn_addr_ip4, &pctx->ms_addr_ip4, pctx);
++			   &pctx->peer_addr_ip4, &pctx->ms_addr_ip4, pctx);
+ 		break;
+ 	}
+ 
+@@ -1001,7 +1001,7 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	if (!info->attrs[GTPA_VERSION] ||
+ 	    !info->attrs[GTPA_LINK] ||
+-	    !info->attrs[GTPA_SGSN_ADDRESS] ||
++	    !info->attrs[GTPA_PEER_ADDRESS] ||
+ 	    !info->attrs[GTPA_MS_ADDRESS])
+ 		return -EINVAL;
+ 
+@@ -1114,7 +1114,7 @@ static int gtp_genl_fill_info(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
+ 		goto nlmsg_failure;
+ 
+ 	if (nla_put_u32(skb, GTPA_VERSION, pctx->gtp_version) ||
+-	    nla_put_be32(skb, GTPA_SGSN_ADDRESS, pctx->sgsn_addr_ip4.s_addr) ||
++	    nla_put_be32(skb, GTPA_PEER_ADDRESS, pctx->peer_addr_ip4.s_addr) ||
+ 	    nla_put_be32(skb, GTPA_MS_ADDRESS, pctx->ms_addr_ip4.s_addr))
+ 		goto nla_put_failure;
+ 
+@@ -1267,7 +1267,7 @@ static struct nla_policy gtp_genl_policy[GTPA_MAX + 1] = {
+ 	[GTPA_LINK]		= { .type = NLA_U32, },
+ 	[GTPA_VERSION]		= { .type = NLA_U32, },
+ 	[GTPA_TID]		= { .type = NLA_U64, },
+-	[GTPA_SGSN_ADDRESS]	= { .type = NLA_U32, },
++	[GTPA_PEER_ADDRESS]	= { .type = NLA_U32, },
+ 	[GTPA_MS_ADDRESS]	= { .type = NLA_U32, },
+ 	[GTPA_FLOW]		= { .type = NLA_U16, },
+ 	[GTPA_NET_NS_FD]	= { .type = NLA_U32, },
+diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
+index 72a04a0..57d1edb 100644
+--- a/include/uapi/linux/gtp.h
++++ b/include/uapi/linux/gtp.h
+@@ -19,7 +19,8 @@ enum gtp_attrs {
+ 	GTPA_LINK,
+ 	GTPA_VERSION,
+ 	GTPA_TID,	/* for GTPv0 only */
+-	GTPA_SGSN_ADDRESS,
++	GTPA_PEER_ADDRESS,	/* Remote GSN peer, either SGSN or GGSN */
++#define GTPA_SGSN_ADDRESS GTPA_PEER_ADDRESS /* maintain legacy attr name */
+ 	GTPA_MS_ADDRESS,
+ 	GTPA_FLOW,
+ 	GTPA_NET_NS_FD,
+-- 
+2.9.3
