@@ -1,177 +1,75 @@
-From: Jonas Bonn <jonas@southpole.se>
-Subject: [PATCH net-next v3 2/2] gtp: support SGSN-side tunnels
-Date: Fri, 24 Mar 2017 10:33:58 +0100
-Message-ID: <20170324093358.31374-3-jonas@southpole.se>
-References: <20170324093358.31374-1-jonas@southpole.se>
-Cc: Jonas Bonn <jonas@southpole.se>
-To: pablo@netfilter.org, netdev@vger.kernel.org, laforge@gnumonks.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([37.247.8.11]:49764 "EHLO mail.southpole.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751995AbdCXJex (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 05:34:53 -0400
-In-Reply-To: <20170324093358.31374-1-jonas@southpole.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] padata: avoid race in reordering
+Date: Fri, 24 Mar 2017 10:41:59 +0100
+Message-ID: <20170324094157.GE5279@secunet.com>
+References: <CAHmME9oLWiprOyZXo7zvGm7xq+1Kchw9ybLS_TM-9xDyHF0mxQ@mail.gmail.com>
+ <20170323112443.30843-1-Jason@zx2c4.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170323112443.30843-1-Jason@zx2c4.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
-contexts based on the incoming packets _destination_ address.  If we
-want to place ourselves on the SGSN side of the  tunnel, then we want
-to be identifying PDP contexts based on _source_ address.
+On Thu, Mar 23, 2017 at 12:24:43PM +0100, Jason A. Donenfeld wrote:
+> Under extremely heavy uses of padata, crashes occur, and with list
+> debugging turned on, this happens instead:
+> 
+> [87487.298728] WARNING: CPU: 1 PID: 882 at lib/list_debug.c:33
+> __list_add+0xae/0x130
+> [87487.301868] list_add corruption. prev->next should be next
+> (ffffb17abfc043d0), but was ffff8dba70872c80. (prev=ffff8dba70872b00).
+> [87487.339011]  [<ffffffff9a53d075>] dump_stack+0x68/0xa3
+> [87487.342198]  [<ffffffff99e119a1>] ? console_unlock+0x281/0x6d0
+> [87487.345364]  [<ffffffff99d6b91f>] __warn+0xff/0x140
+> [87487.348513]  [<ffffffff99d6b9aa>] warn_slowpath_fmt+0x4a/0x50
+> [87487.351659]  [<ffffffff9a58b5de>] __list_add+0xae/0x130
+> [87487.354772]  [<ffffffff9add5094>] ? _raw_spin_lock+0x64/0x70
+> [87487.357915]  [<ffffffff99eefd66>] padata_reorder+0x1e6/0x420
+> [87487.361084]  [<ffffffff99ef0055>] padata_do_serial+0xa5/0x120
+> 
+> padata_reorder calls list_add_tail with the list to which its adding
+> locked, which seems correct:
+> 
+> spin_lock(&squeue->serial.lock);
+> list_add_tail(&padata->list, &squeue->serial.list);
+> spin_unlock(&squeue->serial.lock);
+> 
+> This therefore leaves only place where such inconsistency could occur:
+> if padata->list is added at the same time on two different threads.
+> This pdata pointer comes from the function call to
+> padata_get_next(pd), which has in it the following block:
+> 
+> next_queue = per_cpu_ptr(pd->pqueue, cpu);
+> padata = NULL;
+> reorder = &next_queue->reorder;
+> if (!list_empty(&reorder->list)) {
+>        padata = list_entry(reorder->list.next,
+>                            struct padata_priv, list);
+>        spin_lock(&reorder->lock);
+>        list_del_init(&padata->list);
+>        atomic_dec(&pd->reorder_objects);
+>        spin_unlock(&reorder->lock);
+> 
+>        pd->processed++;
+> 
+>        goto out;
+> }
+> out:
+> return padata;
+> 
+> I strongly suspect that the problem here is that two threads can race
+> on reorder list. Even though the deletion is locked, call to
+> list_entry is not locked, which means it's feasible that two threads
+> pick up the same padata object and subsequently call list_add_tail on
+> them at the same time. The fix is thus be hoist that lock outside of
+> that block.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 
-Let it be noted that in a "real" configuration this module would never
-be used:  the SGSN normally does not see IP packets as input.  The
-justification for this functionality is for PGW load-testing applications
-where the input to the SGSN is locally generally IP traffic.
-
-This patch adds a "role" argument at GTP-link creation time to specify
-whether we are on the GGSN or SGSN side of the tunnel; this flag is then
-used to determine which part of the IP packet to use in determining
-the PDP context.
-
-Signed-off-by: Jonas Bonn <jonas@southpole.se>
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- drivers/net/gtp.c            | 41 +++++++++++++++++++++++++++++++----------
- include/uapi/linux/if_link.h |  7 +++++++
- 2 files changed, 38 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 3806be6..b54d1a3 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -72,6 +72,7 @@ struct gtp_dev {
- 	struct net		*net;
- 	struct net_device	*dev;
- 
-+	unsigned int		role;
- 	unsigned int		hash_size;
- 	struct hlist_head	*tid_hash;
- 	struct hlist_head	*addr_hash;
-@@ -150,8 +151,8 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp, __be32 ms_addr)
- 	return NULL;
- }
- 
--static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
--				  unsigned int hdrlen)
-+static bool gtp_check_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
-+				  unsigned int hdrlen, unsigned int role)
- {
- 	struct iphdr *iph;
- 
-@@ -160,18 +161,22 @@ static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
- 
- 	iph = (struct iphdr *)(skb->data + hdrlen);
- 
--	return iph->saddr == pctx->ms_addr_ip4.s_addr;
-+	if (role == GTP_ROLE_SGSN) {
-+		return iph->daddr == pctx->ms_addr_ip4.s_addr;
-+	} else {
-+		return iph->saddr == pctx->ms_addr_ip4.s_addr;
-+	}
- }
- 
--/* Check if the inner IP source address in this packet is assigned to any
-+/* Check if the inner IP address in this packet is assigned to any
-  * existing mobile subscriber.
-  */
--static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
--			     unsigned int hdrlen)
-+static bool gtp_check_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
-+			     unsigned int hdrlen, unsigned int role)
- {
- 	switch (ntohs(skb->protocol)) {
- 	case ETH_P_IP:
--		return gtp_check_src_ms_ipv4(skb, pctx, hdrlen);
-+		return gtp_check_ms_ipv4(skb, pctx, hdrlen, role);
- 	}
- 	return false;
- }
-@@ -205,7 +210,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		goto out_rcu;
- 	}
- 
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
- 		ret = -1;
- 		goto out_rcu;
-@@ -262,7 +267,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		goto out_rcu;
- 	}
- 
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
- 		ret = -1;
- 		goto out_rcu;
-@@ -491,7 +496,11 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	 * Prepend PDP header with TEI/TID from PDP ctx.
- 	 */
- 	iph = ip_hdr(skb);
--	pctx = ipv4_pdp_find(gtp, iph->daddr);
-+	if (gtp->role == GTP_ROLE_SGSN) {
-+		pctx = ipv4_pdp_find(gtp, iph->saddr);
-+	} else {
-+		pctx = ipv4_pdp_find(gtp, iph->daddr);
-+	}
- 	if (!pctx) {
- 		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
- 			   &iph->daddr);
-@@ -666,12 +675,23 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
- 	int hashsize, err, fd0, fd1;
- 	struct gtp_dev *gtp;
- 	struct gtp_net *gn;
-+	unsigned int role;
-+
-+	if (data[IFLA_GTP_ROLE]) {
-+		role = nla_get_u32(data[IFLA_GTP_ROLE]);
-+		if (role > GTP_ROLE_SGSN)
-+			return -EINVAL;
-+	} else {
-+		role = GTP_ROLE_GGSN;
-+	}
- 
- 	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
- 		return -EINVAL;
- 
- 	gtp = netdev_priv(dev);
- 
-+	gtp->role = role;
-+
- 	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
- 	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
- 
-@@ -723,6 +743,7 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1] = {
- 	[IFLA_GTP_FD0]			= { .type = NLA_U32 },
- 	[IFLA_GTP_FD1]			= { .type = NLA_U32 },
- 	[IFLA_GTP_PDP_HASHSIZE]		= { .type = NLA_U32 },
-+	[IFLA_GTP_ROLE]			= { .type = NLA_U32 },
- };
- 
- static int gtp_validate(struct nlattr *tb[], struct nlattr *data[])
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index ccde456..da62d8c 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -533,11 +533,18 @@ enum {
- #define IFLA_PPP_MAX (__IFLA_PPP_MAX - 1)
- 
- /* GTP section */
-+
-+enum ifla_gtp_role {
-+	GTP_ROLE_GGSN = 0,
-+	GTP_ROLE_SGSN,
-+};
-+
- enum {
- 	IFLA_GTP_UNSPEC,
- 	IFLA_GTP_FD0,
- 	IFLA_GTP_FD1,
- 	IFLA_GTP_PDP_HASHSIZE,
-+	IFLA_GTP_ROLE,
- 	__IFLA_GTP_MAX,
- };
- #define IFLA_GTP_MAX (__IFLA_GTP_MAX - 1)
--- 
-2.9.3
+Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
