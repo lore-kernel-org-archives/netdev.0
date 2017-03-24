@@ -1,7 +1,7 @@
-From: Dan Williams <dan@bigw.org>
+From: Dan Williams <dcbw@redhat.com>
 Subject: Re: [PATCH net-next 1/1 v2] net: rmnet_data: Initial implementation
-Date: Fri, 24 Mar 2017 17:15:00 -0500
-Message-ID: <1490393700.3227.7.camel@bigw.org>
+Date: Fri, 24 Mar 2017 17:21:15 -0500
+Message-ID: <1490394075.3227.9.camel@redhat.com>
 References: <1489390989-2408-1-git-send-email-subashab@codeaurora.org>
          <1489390989-2408-2-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
@@ -10,10 +10,10 @@ Content-Transfer-Encoding: 8bit
 To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
         netdev@vger.kernel.org, davem@davemloft.net, fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from claudius.bigw.org ([50.244.203.196]:64496 "EHLO
-        claudius.bigw.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934956AbdCXWVC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:21:02 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:34500 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934968AbdCXWVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 18:21:20 -0400
 In-Reply-To: <1489390989-2408-2-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,19 +26,21 @@ wrote:
 > physical device. This will be used to provide all MAP functionality
 > on future hardware in a single consistent location.
 
+(re-sending from an address that's actually subscribed to netdev@...)
+
 The first thing that jumps out at me is "why isn't this using
 rtnl_link_ops?"
 
 To me (and perhaps I'm completely wrong) the structure here is a lot
-like VLAN interfaces.  You have a base device (whether that's a netdev
+like VLAN interfaces.  You have a base device (whether that's a netdev
 or not) and you essentially "ip link add link cdc-wdm0 name rmnet0 type
-rmnet id 5".  Does the aggregation happen only on the downlink (eg,
+rmnet id 5".  Does the aggregation happen only on the downlink (eg,
 device -> host) or can the host send aggregated packets too?
 
 Using rtnl_link_ops would get rid of ASSOC_NET_DEV, UNASSOC_NET_DEV,
-NEW_VND, NEW_VND_WITH_PREFIX, and FREE_VND.  GET_NET_DEV_ASSOC goes
+NEW_VND, NEW_VND_WITH_PREFIX, and FREE_VND.  GET_NET_DEV_ASSOC goes
 away becuase you use normal 'kobject' associations and you can derive
-the rmnet parent through sysfs links.  rmnet_nl_msg_s goes away,
+the rmnet parent through sysfs links.  rmnet_nl_msg_s goes away,
 because you can use nla_policy.
 
 Just a thought; there seems to be a ton of overlap with rtnl_link_ops
@@ -48,7 +50,7 @@ Any thoughts on how this plays with net namespaces?
 
 Also, I'm not sure if it make sense to provide first class tracepoints
 for a specific driver, as it's not clear if they are userspace API or
-not and thus may need to be kept stable.   Or are perf probes enough
+not and thus may need to be kept stable.   Or are perf probes enough
 instead?
 
 What's RMNET_EPMODE_BRIDGE and how is it used?
