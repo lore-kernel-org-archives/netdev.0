@@ -1,74 +1,49 @@
-From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: Linux kernel ping socket / AF_LLC connect()
- sin_family race
-Date: Fri, 24 Mar 2017 15:21:06 -0700
-Message-ID: <CANn89iK-7r3KozC4K1rmWpJ1jM-bhBqessUrkg8HoftnjOks5g@mail.gmail.com>
-References: <20170324202714.GA29241@openwall.com> <CAAeHK+yrE7+BZztHVn-2jKgLqgzgbBEa4VWCO8SL45oD0nRxEw@mail.gmail.com>
-Reply-To: oss-security-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org
-Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=001a1147bfd0f331f0054b816841
-Cc: oss-security-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>, James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Vasily Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
-To: Andrey Konovalov <andreyknvl-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <oss-security-return-21992-gcsos-oss-security=m.gmane.org-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
-List-Post: <mailto:oss-security-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
-List-Help: <mailto:oss-security-help-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <mailto:oss-security-unsubscribe-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
-List-Subscribe: <mailto:oss-security-subscribe-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
-In-Reply-To: <CAAeHK+yrE7+BZztHVn-2jKgLqgzgbBEa4VWCO8SL45oD0nRxEw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] irda: vlsi_ir: fix check for dma mapping errors
+Date: Sat, 25 Mar 2017 01:48:08 +0300
+Message-ID: <1490395688-3666-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---001a1147bfd0f331f0054b816841
-Content-Type: text/plain; charset=UTF-8
+vlsi_alloc_ring() checks for dma mapping errors by comparison
+returned address with zero, while pci_dma_mapping_error() should be used.
 
-On Fri, Mar 24, 2017 at 1:43 PM, Andrey Konovalov <andreyknvl-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-wrote:
+Found by Linux Driver Verification project (linuxtesting.org).
 
-> On Fri, Mar 24, 2017 at 9:27 PM, Solar Designer <solar-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
-> wrote:
-> > Hi,
-> >
-> > I haven't fully investigated this issue, and the Subject is provisional
-> > (but will probably get stuck).  I am not yet sure which kernel
-> > subsystem(s) to blame here (ping sockets? LLC sockets? other/more?), and
-> > there might be other ways to trigger the issue.
->
-> Reproduced the crash on current upstream
-> (ebe64824e9de4b3ab3bd3928312b4b2bc57b4b7e).
->
-> Adding kernel maintainers.
->
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/irda/vlsi_ir.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Looks easy enough to fix ?
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index
-2af6244b83e27ae384e96cf071c10c5a89674804..ccfbce13a6333a65dab64e4847dd510dfafb1b43
-100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -156,17 +156,18 @@ int ping_hash(struct sock *sk)
- void ping_unhash(struct sock *sk)
- {
-        struct inet_sock *isk = inet_sk(sk);
-+
-        pr_debug("ping_unhash(isk=%p,isk->num=%u)\n", isk, isk->inet_num);
-+       write_lock_bh(&ping_table.lock);
-        if (sk_hashed(sk)) {
--               write_lock_bh(&ping_table.lock);
-                hlist_nulls_del(&sk->sk_nulls_node);
-                sk_nulls_node_init(&sk->sk_nulls_node);
-                sock_put(sk);
-                isk->inet_num = 0;
-                isk->inet_sport = 0;
-                sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
--               write_unlock_bh(&ping_table.lock);
-        }
-+       write_unlock_bh(&ping_table.lock);
- }
- EXPORT_SYMBOL_GPL(ping_unhash);
-
---001a1147bfd0f331f0054b816841--
+diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
+index ffedad2a360a..15b920086251 100644
+--- a/drivers/net/irda/vlsi_ir.c
++++ b/drivers/net/irda/vlsi_ir.c
+@@ -418,8 +418,9 @@ static struct vlsi_ring *vlsi_alloc_ring(struct pci_dev *pdev, struct ring_descr
+ 		memset(rd, 0, sizeof(*rd));
+ 		rd->hw = hwmap + i;
+ 		rd->buf = kmalloc(len, GFP_KERNEL|GFP_DMA);
+-		if (rd->buf == NULL ||
+-		    !(busaddr = pci_map_single(pdev, rd->buf, len, dir))) {
++		if (rd->buf)
++			busaddr = pci_map_single(pdev, rd->buf, len, dir);
++		if (rd->buf == NULL || pci_dma_mapping_error(pdev, busaddr)) {
+ 			if (rd->buf) {
+ 				net_err_ratelimited("%s: failed to create PCI-MAP for %p\n",
+ 						    __func__, rd->buf);
+@@ -430,8 +431,7 @@ static struct vlsi_ring *vlsi_alloc_ring(struct pci_dev *pdev, struct ring_descr
+ 				rd = r->rd + j;
+ 				busaddr = rd_get_addr(rd);
+ 				rd_set_addr_status(rd, 0, 0);
+-				if (busaddr)
+-					pci_unmap_single(pdev, busaddr, len, dir);
++				pci_unmap_single(pdev, busaddr, len, dir);
+ 				kfree(rd->buf);
+ 				rd->buf = NULL;
+ 			}
+-- 
+2.7.4
