@@ -1,106 +1,65 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: Re: [PATCH 04/23] net, ceph: convert ceph_snap_context.nref from
- atomic_t to refcount_t
-Date: Fri, 24 Mar 2017 14:20:42 +0100
-Message-ID: <CAOi1vP97Cq5UhxryxsLe2MuNi9zJZFDaY3_CT76uU=_H_sJ-Nw@mail.gmail.com>
-References: <1489752646-8749-1-git-send-email-elena.reshetova@intel.com> <1489752646-8749-5-git-send-email-elena.reshetova@intel.com>
+From: Daniele Palmas <dnlplm@gmail.com>
+Subject: [PATCH 2/2] Documentation: ABI: testing: sysfs-class-net-qmi: add new qmap mux files description
+Date: Fri, 24 Mar 2017 14:22:46 +0100
+Message-ID: <1490361766-24114-3-git-send-email-dnlplm@gmail.com>
+References: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        linux-rdma@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, linux-x25@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-hams@vger.kernel.org,
-        linux-nfs@vger.kernel.org,
-        Ceph Development <ceph-devel@vger.kernel.org>,
-        "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
-        bfields@fieldses.org, Jeff Layton <jlayton@poochiereds.net>,
-        steffen.klassert@secunet.com,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        santosh.shilimkar@oracle.com, jreuter@yaina.de,
-        ralf@linux-mips.org, peterz@infradead.org,
-        Kees Cook <keescook@chromium.org>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: Elena Reshetova <elena.reshetova@intel.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <1489752646-8749-5-git-send-email-elena.reshetova@intel.com>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        Daniele Palmas <dnlplm@gmail.com>
+To: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35594 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756022AbdCXNYO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 09:24:14 -0400
+In-Reply-To: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 17, 2017 at 1:10 PM, Elena Reshetova
-<elena.reshetova@intel.com> wrote:
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
->
-> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
-> ---
->  include/linux/ceph/libceph.h | 3 ++-
->  net/ceph/snapshot.c          | 6 +++---
->  2 files changed, 5 insertions(+), 4 deletions(-)
->
-> diff --git a/include/linux/ceph/libceph.h b/include/linux/ceph/libceph.h
-> index 1816c5e..26dc674 100644
-> --- a/include/linux/ceph/libceph.h
-> +++ b/include/linux/ceph/libceph.h
-> @@ -14,6 +14,7 @@
->  #include <linux/wait.h>
->  #include <linux/writeback.h>
->  #include <linux/slab.h>
-> +#include <linux/refcount.h>
->
->  #include <linux/ceph/types.h>
->  #include <linux/ceph/messenger.h>
-> @@ -159,7 +160,7 @@ struct ceph_client {
->   * dirtied.
->   */
->  struct ceph_snap_context {
-> -       atomic_t nref;
-> +       refcount_t nref;
->         u64 seq;
->         u32 num_snaps;
->         u64 snaps[];
-> diff --git a/net/ceph/snapshot.c b/net/ceph/snapshot.c
-> index 705414e..e14a5d0 100644
-> --- a/net/ceph/snapshot.c
-> +++ b/net/ceph/snapshot.c
-> @@ -49,7 +49,7 @@ struct ceph_snap_context *ceph_create_snap_context(u32 snap_count,
->         if (!snapc)
->                 return NULL;
->
-> -       atomic_set(&snapc->nref, 1);
-> +       refcount_set(&snapc->nref, 1);
->         snapc->num_snaps = snap_count;
->
->         return snapc;
-> @@ -59,7 +59,7 @@ EXPORT_SYMBOL(ceph_create_snap_context);
->  struct ceph_snap_context *ceph_get_snap_context(struct ceph_snap_context *sc)
->  {
->         if (sc)
-> -               atomic_inc(&sc->nref);
-> +               refcount_inc(&sc->nref);
->         return sc;
->  }
->  EXPORT_SYMBOL(ceph_get_snap_context);
-> @@ -68,7 +68,7 @@ void ceph_put_snap_context(struct ceph_snap_context *sc)
->  {
->         if (!sc)
->                 return;
-> -       if (atomic_dec_and_test(&sc->nref)) {
-> +       if (refcount_dec_and_test(&sc->nref)) {
->                 /*printk(" deleting snap_context %p\n", sc);*/
->                 kfree(sc);
->         }
+This patch updates the documentation related to the new files added for
+qmap mux support.
 
-Applied.
+Signed-off-by: Daniele Palmas <dnlplm@gmail.com>
+---
+ Documentation/ABI/testing/sysfs-class-net-qmi | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
 
-Thanks,
-
-                Ilya
+diff --git a/Documentation/ABI/testing/sysfs-class-net-qmi b/Documentation/ABI/testing/sysfs-class-net-qmi
+index fa5a00b..5191dc3 100644
+--- a/Documentation/ABI/testing/sysfs-class-net-qmi
++++ b/Documentation/ABI/testing/sysfs-class-net-qmi
+@@ -21,3 +21,30 @@ Description:
+ 		is responsible for coordination of driver and firmware
+ 		link framing mode, changing this setting to 'Y' if the
+ 		firmware is configured for 'raw-ip' mode.
++
++What:		/sys/class/net/<iface>/qmi/add_mux
++Date:		March 2017
++KernelVersion:	4.11
++Contact:	Bjørn Mork <bjorn@mork.no>
++Description:
++		Unsigned integer.
++
++		Write a number ranging from 1 to 127 to add a qmap mux
++		based network device, supported by recent Qualcomm based
++		modems.
++
++		The network device will be called qmimux.
++
++		Userspace is in charge of managing the qmux network device
++		activation and data stream setup  on them modem side by
++		using the proper QMI protocol requests.
++
++What:		/sys/class/net/<iface>/qmi/del_mux
++Date:		March 2017
++KernelVersion:	4.11
++Contact:	Bjørn Mork <bjorn@mork.no>
++Description:
++		Unsigned integer.
++
++		Write a number ranging from 1 to 127 to delete a previously
++		created qmap mux based network device.
+-- 
+2.8.1
