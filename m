@@ -1,44 +1,46 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net-next] net: sched: choke: remove dead filter classify code
-Date: Fri, 24 Mar 2017 10:59:15 -0700
-Message-ID: <CAM_iQpXTM9X75RXj6mvTYatL0=TjFyYmFaKLeQBv74zZVFUs6g@mail.gmail.com>
-References: <1490284936-19412-1-git-send-email-jiri@resnulli.us>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next v3 0/2] GTP SGSN-side tunnels
+Date: Fri, 24 Mar 2017 19:25:06 +0100
+Message-ID: <20170324182506.GA1389@salvia>
+References: <20170324093358.31374-1-jonas@southpole.se>
+ <20170324104111.GA1466@salvia>
+ <1b705318-c537-7ae7-47bc-89a5fbb93abf@southpole.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, laforge@gnumonks.org
+To: Jonas Bonn <jonas@southpole.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f180.google.com ([209.85.128.180]:33993 "EHLO
-        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933963AbdCXR7r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:59:47 -0400
-Received: by mail-wr0-f180.google.com with SMTP id l43so6606363wre.1
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 10:59:36 -0700 (PDT)
-In-Reply-To: <1490284936-19412-1-git-send-email-jiri@resnulli.us>
+Received: from mail.us.es ([193.147.175.20]:47936 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935889AbdCXSZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 14:25:28 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 6AD501EC2CA
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 19:25:24 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 5F07EA6B3
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 19:25:24 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id BBDBBA6C1
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 19:25:20 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <1b705318-c537-7ae7-47bc-89a5fbb93abf@southpole.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 23, 2017 at 9:02 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> sch_choke is classless qdisc so it does not define cl_ops. Therefore
-> filter_list cannot be ever changed, being NULL all the time.
-> Reason is this check in tc_ctl_tfilter:
+On Fri, Mar 24, 2017 at 02:57:41PM +0100, Jonas Bonn wrote:
+> On 03/24/2017 11:41 AM, Pablo Neira Ayuso wrote:
+> >On Fri, Mar 24, 2017 at 10:33:56AM +0100, Jonas Bonn wrote:
+> >>Changes since v2:
+> >>
+> >>* Move #define of legacy netlink attribute into enum
+> >>* Added note to commit message about load-testing use-case
+> >>* Ack from Pablo
+> >Thanks a lot Jonas!
+> >
+> >David, please apply. Thanks!
+> 
+> David, please apply v4 instead as it has a coding-style fixup requested by
+> Harald.
 
-Are you sure? According to the definition in comments:
-
-   CHOKe (CHOose and Keep for responsive flows, CHOose and Kill for
-   unresponsive flows) is a variant of RED that penalizes misbehaving flows but
-   maintains no flow state. The difference from RED is an additional step
-   during the enqueuing process. If average queue size is over the
-   low threshold (qmin), a packet is chosen at random from the queue.
-   If both the new and chosen packet are from the same flow, both
-   are dropped. Unlike RED, CHOKe is not really a "classful" qdisc because it
-   needs to access packets in queue randomly. It has a minimal class
-   interface to allow overriding the builtin flow classifier with
-   filters.
-
-It should implement filters otherwise how to classify flows in
-its definition?
+Right, please apply v4, thanks!
