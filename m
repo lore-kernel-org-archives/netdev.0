@@ -1,56 +1,50 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
-Date: Fri, 24 Mar 2017 11:21:12 +0000
-Message-ID: <d4041a18-ba5d-6235-fb6e-8830e4d352ce@synopsys.com>
-References: <1eb1ee4c84f61ff8dbc3f398f2e3f9b0bea3ee30.1489766674.git.jpinto@synopsys.com>
- <20170323171725.GA12548@ulmo.ba.sec>
- <2ec8451b-4d12-d7ea-a2ce-4f1add382df4@synopsys.com>
- <20170324074255.GB16730@lunn.ch>
- <cb5f5af2-6375-111b-e1aa-da48b5c42595@synopsys.com>
- <20170324111736.GB22281@lunn.ch>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next v3 0/2] GTP SGSN-side tunnels
+Date: Fri, 24 Mar 2017 12:23:18 +0100
+Message-ID: <20170324112318.GA1946@salvia>
+References: <20170324093358.31374-1-jonas@southpole.se>
+ <20170324101525.5i26wlg5jbsp6qrh@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: Thierry Reding <thierry.reding@gmail.com>, <davem@davemloft.net>,
-        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, Joao Pinto <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jonas Bonn <jonas@southpole.se>, netdev@vger.kernel.org
+To: Harald Welte <laforge@gnumonks.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.47.9]:54200 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751274AbdCXLVf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 07:21:35 -0400
-In-Reply-To: <20170324111736.GB22281@lunn.ch>
+Received: from mail.us.es ([193.147.175.20]:39940 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756641AbdCXLXa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 07:23:30 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id ACC4CE7B9C
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 12:23:21 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9E931DA862
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 12:23:21 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id BDB46DA862
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 12:23:18 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20170324101525.5i26wlg5jbsp6qrh@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Às 11:17 AM de 3/24/2017, Andrew Lunn escreveu:
->> Yes it would be fantastic to have a set of boards, but I rarely see this in any
->> maintainer :).
+On Fri, Mar 24, 2017 at 11:15:25AM +0100, Harald Welte wrote:
+> Hi Jonas,
 > 
-> Being a Marvell SoC and switch maintainer, i have around a dozen
-> boards. Some i got some simply by asking the manufacture, others i
-> purchased. I don't think i'm in the minority here. Without having
-> access to a number of different hardwares, i don't feel i would be
-> doing my work properly.
+> looks fine to me, but I haven't tested it.  Did you manually test it
+> using the extended libgtpnl + tools?
 > 
->> I try as hard as I can to network with people and try to minimize this
->> situations, but when there is so many different setups using a driver with diff
->> configurations, situations like this can happen, but I am here to help debugging
->> and solving them.
+> Also, in code like this:
 > 
-> You made a move to rename stmmac to synopsys not long ago. It gave the
-> impression that synopsis wants to take over this driver. If there are
-> a number of different configurations, who better than synopsys to
-> actually properly test these configurations? If you ask around, i'm
-> sure people will send you hardware.
+> +       if (gtp->role == GTP_ROLE_SGSN) {
+> +               pctx = ipv4_pdp_find(gtp, iph->saddr);
+> +       } else {
+> 
+> I think general Linux kernel coding style is to not have curly-brackets
+> around single-line blocks. See "Do not unnecessarily use braces where a
+> single statement will do." in line 169 of
+> Documentation/process/coding-style.rst
+> 
+> I won't mind your current style, and it is not a blocker issue to me,
+> but still it would be nice for general consistency.
 
-If the stmmac community wishes that I become the maintainer and are available to
-send me their ref hardware, I am available and I can build a farm in my site to
-make all necessary tests to all the patches made by me and the ones that I receive.
-
-> 
->      Andrew
-> 
-
-Joao
+Harald is right, I overlook this comestic thing.
