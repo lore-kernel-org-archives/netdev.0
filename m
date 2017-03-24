@@ -1,82 +1,42 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: Extending socket timestamping API for NTP
-Date: Fri, 24 Mar 2017 18:52:14 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5857DDFBB1@ORSMSX115.amr.corp.intel.com>
-References: <20170207140144.GA11233@localhost>
- <20170209080242.GA1698@localhost.localdomain>
- <20170209110941.GA1449@localhost> <20170323162145.GB8192@localhost>
- <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com>
- <20170324094530.GE8192@localhost>
- <89CFCD8E-1A58-48C5-9D6E-99695502CFD9@me.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: ethtool 4.10 released
+Date: Fri, 24 Mar 2017 14:47:48 -0400
+Message-ID: <20170324184747.GC16832@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Denny Page <dennypage@me.com>,
-        Miroslav Lichvar <mlichvar@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:42826 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965753AbdCXSwi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 14:52:38 -0400
-In-Reply-To: <89CFCD8E-1A58-48C5-9D6E-99695502CFD9@me.com>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39481 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965826AbdCXTAO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 15:00:14 -0400
+Received: from uucp by smtp.tuxdriver.com with local-rmail (Exim 4.63)
+        (envelope-from <linville@tuxdriver.com>)
+        id 1crURY-0005CK-BF
+        for netdev@vger.kernel.org; Fri, 24 Mar 2017 15:00:12 -0400
+Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
+        by localhost.localdomain (8.15.2/8.14.6) with ESMTP id v2OIlm0O005355
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 14:47:48 -0400
+Received: (from linville@localhost)
+        by localhost.localdomain (8.15.2/8.15.2/Submit) id v2OIlmi1005354
+        for netdev@vger.kernel.org; Fri, 24 Mar 2017 14:47:48 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEZW5ueSBQYWdlIFttYWlsdG86
-ZGVubnlwYWdlQG1lLmNvbV0NCj4gU2VudDogRnJpZGF5LCBNYXJjaCAyNCwgMjAxNyAxMDoxOCBB
-TQ0KPiBUbzogTWlyb3NsYXYgTGljaHZhciA8bWxpY2h2YXJAcmVkaGF0LmNvbT4NCj4gQ2M6IFJp
-Y2hhcmQgQ29jaHJhbiA8cmljaGFyZGNvY2hyYW5AZ21haWwuY29tPjsgbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZzsgSmlyaQ0KPiBCZW5jIDxqYmVuY0ByZWRoYXQuY29tPjsgS2VsbGVyLCBKYWNvYiBF
-IDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+OyBXaWxsZW0NCj4gZGUgQnJ1aWpuIDx3aWxsZW1i
-QGdvb2dsZS5jb20+DQo+IFN1YmplY3Q6IFJlOiBFeHRlbmRpbmcgc29ja2V0IHRpbWVzdGFtcGlu
-ZyBBUEkgZm9yIE5UUA0KPiANCj4gDQo+ID4gT24gTWFyIDI0LCAyMDE3LCBhdCAwMjo0NSwgTWly
-b3NsYXYgTGljaHZhciA8bWxpY2h2YXJAcmVkaGF0LmNvbT4gd3JvdGU6DQo+ID4NCj4gPiBPbiBU
-aHUsIE1hciAyMywgMjAxNyBhdCAxMDowODowMEFNIC0wNzAwLCBEZW5ueSBQYWdlIHdyb3RlOg0K
-PiA+Pj4gT24gTWFyIDIzLCAyMDE3LCBhdCAwOToyMSwgTWlyb3NsYXYgTGljaHZhciA8bWxpY2h2
-YXJAcmVkaGF0LmNvbT4gd3JvdGU6DQo+ID4+Pg0KPiA+Pj4gQWZ0ZXIgYmVjb21pbmcgYSBiaXQg
-bW9yZSBmYW1pbGlhciB3aXRoIHRoZSBjb2RlIEkgZG9uJ3QgdGhpbmsgdGhpcyBpcw0KPiA+Pj4g
-YSBnb29kIGlkZWEgYW55bW9yZSA6KS4gSSBzdXNwZWN0IHRoZXJlIHdvdWxkIGJlIGEgbm90aWNl
-YWJsZQ0KPiA+Pj4gcGVyZm9ybWFuY2UgaW1wYWN0IGlmIGVhY2ggdGltZXN0YW1wZWQgcGFja2V0
-IGNvdWxkIHRyaWdnZXIgcmVhZGluZyBvZg0KPiA+Pj4gdGhlIGN1cnJlbnQgbGluayBzcGVlZC4g
-SWYgdGhlIHZhbHVlIGhhZCB0byBiZSBjYWNoZWQgaXQgd291bGQgbWFrZQ0KPiA+Pj4gbW9yZSBz
-ZW5zZSB0byBkbyBpdCBpbiB0aGUgYXBwbGljYXRpb24uDQo+ID4+DQo+ID4+IEkgYW0gdmVyeSBz
-dXJwcmlzZWQgYXQgdGhpcy4gVGhlIGFwcGxpY2F0aW9uIGNhY2hpbmcgYXBwcm9hY2ggcmVxdWly
-ZXMgdGhlDQo+IGFwcGxpY2F0aW9uIHJldHJpZXZlIHRoZSB2YWx1ZSB2aWEgYSBzeXN0ZW0gY2Fs
-bC4gVGhlIHN5c3RlbSBjYWxsIG92ZXJoZWFkIGlzIGh1Z2UNCj4gaW4gY29tcGFyaXNvbiB0byBl
-dmVyeXRoaW5nIGVsc2UuIE1vcmUgaW1wb3J0YW50bHksIHRoZSBhcHBsaWNhdGlvbiBjYWNoZWQg
-dmFsdWUNCj4gbWF5IGJlIHdyb25nLiBJZiB0aGUgYXBwbGljYXRpb24gdGFrZXMgYSBzYW1wbGUg
-ZXZlcnkgNSBzZWNvbmRzLCB0aGVyZSBhcmUgNQ0KPiBzZWNvbmRzIG9mIHRpbWVzdGFtcHMgdGhh
-dCBjYW4gYmUgd2lsZGx5IHdyb25nLg0KPiA+DQo+ID4gSSdtIGp1c3QgdHJ5aW5nIHRvIGJlIHBy
-YWN0aWNhbCBhbmQgbWluaW1pemUgdGhlIHBlcmZvcm1hbmNlIGltcGFjdA0KPiA+IGFuZCB0aGUg
-YW1vdW50IG9mIGNvZGUgdGhhdCBuZWVkcyB0byBiZSB3cml0dGVuLCByZXZpZXdlZCBhbmQNCj4g
-PiBtYWludGFpbmVkLg0KPiA+DQo+ID4gSG93IGNvbW1vbiBpcyB0byBoYXZlIGxpbmsgc3BlZWQg
-Y2hhbmdpbmcgaW4gbm9ybWFsIG9wZXJhdGlvbiBvbiBMQU4/DQo+IA0KPiBJbiBteSBjYXNlLCBp
-dOKAmXMgY3VycmVudGx5IGV2ZXJ5IGZldyBtaW51dGVzIGJlY2F1c2UgSeKAmW0gZG9pbmcgaHcg
-dGltZXN0YW1wDQo+IHRlc3RpbmcuIDopDQo+IA0KPiBCdXQgdGhpcyBkb2VzIHNwZWFrIHRvIG15
-IHBvaW50LiBJZiBpdOKAmXMgY2FjaGVkIGJ5IHRoZSBhcHBsaWNhdGlvbiwgdGhlIGFwcGxpY2F0
-aW9uDQo+IGhhcyB0byBjaGVjayBpdCByZWd1bGFybHkgdG8gbWluaW1pemUgdGhlIHBvc3NpYmls
-aXR5IG9mIGJhZCB0aW1lc3RhbXBzLiBJZiB0aGUgbGluaw0KPiBzcGVlZCBkb2VzbuKAmXQgY2hh
-bmdlLCBldmVyeSBjYWxsIGJ5IHRoZSBhcHBsaWNhdGlvbiBpcyB3YXN0ZWQgb3ZlcmhlYWQuIElm
-IGl04oCZcw0KPiBjYWNoZWQgYnkgdGhlIGRyaXZlciwgdGhlcmUgaXMgbm8gd2FzdGUsIGFuZCB0
-aGUgc3RhbXBzIGFyZSBhbHdheXMgY29ycmVjdC4NCj4gDQo+IEkgc2hvdWxkIGhhdmUgcmVtZW1i
-ZXJlZCB0aGlzIHllc3RlcmRheS4uLiBJIHdlbnQgYW5kIGxvb2tlZCBhdCBteSBmYXZvcml0ZQ0K
-PiBkcml2ZXIsIEludGVsJ3MgaWdiLiBOb3Qgb25seSBpcyB0aGUgaWdiIGRyaXZlciBhbHJlYWR5
-IGNhY2hpbmcgbGluayBzcGVlZCwgaXQgaXMgYWxzbw0KPiBwZXJmb3JtaW5nIHRpbWVzdGFtcCBj
-b3JyZWN0aW9uIGJhc2VkIG9uIHRoYXQgbGluayBzcGVlZC4gSXQgYXBwZWFycyB0aGF0IGFsbA0K
-PiBJbnRlbCBkcml2ZXJzIGFyZSBjYWNoaW5nIGxpbmsgc3BlZWQuIEkgbG9va2VkIGF0IGEgZmV3
-IG90aGVyIHBvcHVsYXINCj4gbWFudWZhY3R1cmVycywgYW5kIGl0IGFwcGVhcnMgdGhhdCBjYWNo
-aW5nIGxpbmsgc3BlZWQgaXMgY29tbW9uLiBUaGUgb25seSBvbmUgSQ0KPiBxdWlja2x5IGZvdW5k
-IHRoYXQgZGlkbuKAmXQgY2FjaGUgd2FzIHJlYWx0ZWsuDQo+IA0KPiBJIGJlbGlldmUgdGhhdCB0
-aW1lc3RhbXAgY29ycmVjdGlvbiwgd2hldGhlciBpdCBiZSBzcGVlZCBiYXNlZCBsYXRlbmN5LCBo
-ZWFkZXIgLQ0KPiA+IHRyYWlsZXIsIG9yIHdoYXRldmVyIGVsc2UgbWlnaHQgYmUgbmVlZGVkIGxh
-dGVyIGRvd24gdGhlIGxpbmUsIGFyZSBwcm9wZXJseQ0KPiBkb25lIGluIHRoZSBkcml2ZXIuIEl0
-4oCZcyBhIGxvdCBmb3IgdGhlIGFwcGxpY2F0aW9uIHRvIHRyeSBhbmQgZmlndXJlIG91dCBpZiBp
-dCBzaG91bGQgb3INCj4gc2hvdWxkIG5vdCBiZSBkb2luZyBjb3JyZWN0aW9ucyBhbmQgd2hhdCBj
-b3JyZWN0aW9uIHRvIGFwcGx5LiBUaGUgZHJpdmVyIGtub3dzLg0KDQpJIGFsc28gYmVsaWV2ZSB0
-aGUgcmlnaHQgcGxhY2UgZm9yIHRoZXNlIGNvcnJlY3Rpb25zIGlzIGluIHRoZSBkcml2ZXIuDQoN
-ClRoYW5rcywNCkpha2UNCg==
+ethtool version 4.10 has been released.
+
+Home page: https://www.kernel.org/pub/software/network/ethtool/
+Download link:
+https://www.kernel.org/pub/software/network/ethtool/ethtool-4.10.tar.xz
+
+Release notes:
+
+	* Fix: Fix the "advertise" parameter logic.
+	* Feature: Implement ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE and PHY downshift
+	* Feature: add register dump support for fjes driver (-d option)
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
