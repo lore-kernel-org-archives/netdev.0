@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/10] i40e: check current configured input set when adding ntuple filters
-Date: Thu, 23 Mar 2017 22:14:24 -0700
-Message-ID: <20170324051432.79216-3-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/10] i40e: partition the ring_cookie to get VF index
+Date: Thu, 23 Mar 2017 22:14:27 -0700
+Message-ID: <20170324051432.79216-6-jeffrey.t.kirsher@intel.com>
 References: <20170324051432.79216-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,265 +10,145 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:12130 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751567AbdCXFOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 01:14:37 -0400
+        id S1752021AbdCXFOk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 01:14:40 -0400
 In-Reply-To: <20170324051432.79216-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Do not assume that hardware has been programmed with the default mask,
-but instead read the input set registers to determine what is currently
-programmed. This ensures that all programmed filters match exactly how
-the hardware will interpret them, avoiding confusion regarding filter
-behavior.
+Do not use the user-def field for determining the VF target. Instead,
+similar to ixgbe, partition the ring_cookie value into 8bits of VF
+index, along with 32bits of queue number. This is better than using the
+user-def field, because it leaves the field open for extension in
+a future patch which will enable flexible data. Also, this matches with
+convention used by ixgbe and other drivers.
 
-This sets the initial ground-work for allowing custom input sets where
-some fields are disabled. A future patch will fully implement this
-feature.
-
-Instead of using bitwise negation, we'll just explicitly check for the
-correct value. The use of htonl and htons are used to silence sparse
-warnings. The compiler should be able to handle the constant value and
-avoid actually performing a byteswap.
-
-Change-Id: I3d8db46cb28ea0afdaac8c5b31a2bfb90e3a4102
+Change-Id: Ie36745186d817216b12f0313b99ec95cb8a9130c
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  19 ++++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 117 +++++++++++++++++++++----
- 2 files changed, 121 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 74 ++++++++++++++------------
+ 1 file changed, 40 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index c0f2286c2b72..0cd21ea48e1d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -734,6 +734,25 @@ static inline int i40e_get_fd_cnt_all(struct i40e_pf *pf)
- 	return pf->hw.fdir_shared_filter_count + pf->fdir_pf_filter_count;
- }
- 
-+/**
-+ * i40e_read_fd_input_set - reads value of flow director input set register
-+ * @pf: pointer to the PF struct
-+ * @addr: register addr
-+ *
-+ * This function reads value of flow director input set register
-+ * specified by 'addr' (which is specific to flow-type)
-+ **/
-+static inline u64 i40e_read_fd_input_set(struct i40e_pf *pf, u16 addr)
-+{
-+	u64 val;
-+
-+	val = i40e_read_rx_ctl(&pf->hw, I40E_PRTQF_FD_INSET(addr, 1));
-+	val <<= 32;
-+	val += i40e_read_rx_ctl(&pf->hw, I40E_PRTQF_FD_INSET(addr, 0));
-+
-+	return val;
-+}
-+
- /* needed by i40e_ethtool.c */
- int i40e_up(struct i40e_vsi *vsi);
- void i40e_down(struct i40e_vsi *vsi);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index ac8d5cf720aa..1815c149040f 100644
+index a2ef49084d46..44b4a2fe9fb6 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2384,6 +2384,8 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
- 			(struct ethtool_rx_flow_spec *)&cmd->fs;
- 	struct i40e_fdir_filter *rule = NULL;
- 	struct hlist_node *node2;
-+	u64 input_set;
-+	u16 index;
+@@ -2458,8 +2458,13 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
  
- 	hlist_for_each_entry_safe(rule, node2,
- 				  &pf->fdir_filter_list, fdir_node) {
-@@ -2409,11 +2411,42 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
- 	fsp->h_u.tcp_ip4_spec.ip4src = rule->dst_ip;
- 	fsp->h_u.tcp_ip4_spec.ip4dst = rule->src_ip;
- 
--	/* Set the mask fields */
--	fsp->m_u.tcp_ip4_spec.psrc = htons(0xFFFF);
--	fsp->m_u.tcp_ip4_spec.pdst = htons(0xFFFF);
--	fsp->m_u.tcp_ip4_spec.ip4src = htonl(0xFFFFFFFF);
--	fsp->m_u.tcp_ip4_spec.ip4dst = htonl(0xFFFFFFFF);
-+	switch (rule->flow_type) {
-+	case TCP_V4_FLOW:
-+		index = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
-+		break;
-+	case UDP_V4_FLOW:
-+		index = I40E_FILTER_PCTYPE_NONF_IPV4_UDP;
-+		break;
-+	case IP_USER_FLOW:
-+		index = I40E_FILTER_PCTYPE_NONF_IPV4_OTHER;
-+		break;
-+	default:
-+		/* If we have stored a filter with a flow type not listed here
-+		 * it is almost certainly a driver bug. WARN(), and then
-+		 * assign the input_set as if all fields are enabled to avoid
-+		 * reading unassigned memory.
-+		 */
-+		WARN(1, "Missing input set index for flow_type %d\n",
-+		     rule->flow_type);
-+		input_set = 0xFFFFFFFFFFFFFFFFULL;
-+		goto no_input_set;
-+	}
+ 		vsi = i40e_find_vsi_from_id(pf, rule->dest_vsi);
+ 		if (vsi && vsi->type == I40E_VSI_SRIOV) {
+-			fsp->h_ext.data[1] = htonl(vsi->vf_id);
+-			fsp->m_ext.data[1] = htonl(0x1);
++			/* VFs are zero-indexed by the driver, but ethtool
++			 * expects them to be one-indexed, so add one here
++			 */
++			u64 ring_vf = vsi->vf_id + 1;
 +
-+	input_set = i40e_read_fd_input_set(pf, index);
-+
-+no_input_set:
-+	if (input_set & I40E_L3_SRC_MASK)
-+		fsp->m_u.tcp_ip4_spec.ip4src = htonl(0xFFFF);
-+
-+	if (input_set & I40E_L3_DST_MASK)
-+		fsp->m_u.tcp_ip4_spec.ip4dst = htonl(0xFFFF);
-+
-+	if (input_set & I40E_L4_SRC_MASK)
-+		fsp->m_u.tcp_ip4_spec.psrc = htons(0xFFFFFFFF);
-+
-+	if (input_set & I40E_L4_DST_MASK)
-+		fsp->m_u.tcp_ip4_spec.pdst = htons(0xFFFFFFFF);
- 
- 	if (rule->dest_ctl == I40E_FILTER_PROGRAM_DESC_DEST_DROP_PACKET)
- 		fsp->ring_cookie = RX_CLS_FLOW_DISC;
-@@ -2725,36 +2758,74 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
- 
- /**
-  * i40e_check_fdir_input_set - Check that a given rx_flow_spec mask is valid
-+ * @vsi: pointer to the targeted VSI
-  * @fsp: pointer to Rx flow specification
-  *
-  * Ensures that a given ethtool_rx_flow_spec has a valid mask.
-  **/
--static int i40e_check_fdir_input_set(struct ethtool_rx_flow_spec *fsp)
-+static int i40e_check_fdir_input_set(struct i40e_vsi *vsi,
-+				     struct ethtool_rx_flow_spec *fsp)
- {
-+	struct i40e_pf *pf = vsi->back;
- 	struct ethtool_tcpip4_spec *tcp_ip4_spec;
- 	struct ethtool_usrip4_spec *usr_ip4_spec;
-+	u64 current_mask, new_mask;
-+	u16 index;
-+
-+	switch (fsp->flow_type & ~FLOW_EXT) {
-+	case TCP_V4_FLOW:
-+		index = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
-+		break;
-+	case UDP_V4_FLOW:
-+		index = I40E_FILTER_PCTYPE_NONF_IPV4_UDP;
-+		break;
-+	case IP_USER_FLOW:
-+		index = I40E_FILTER_PCTYPE_NONF_IPV4_OTHER;
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	/* Read the current input set from register memory. */
-+	current_mask = i40e_read_fd_input_set(pf, index);
-+	new_mask = current_mask;
- 
- 	/* Verify the provided mask is valid. */
- 	switch (fsp->flow_type & ~FLOW_EXT) {
--	case SCTP_V4_FLOW:
- 	case TCP_V4_FLOW:
- 	case UDP_V4_FLOW:
- 		tcp_ip4_spec = &fsp->m_u.tcp_ip4_spec;
- 
- 		/* IPv4 source address */
--		if (!tcp_ip4_spec->ip4src || ~tcp_ip4_spec->ip4src)
-+		if (tcp_ip4_spec->ip4src == htonl(0xFFFFFFFF))
-+			new_mask |= I40E_L3_SRC_MASK;
-+		else if (!tcp_ip4_spec->ip4src)
-+			new_mask &= ~I40E_L3_SRC_MASK;
-+		else
- 			return -EOPNOTSUPP;
- 
- 		/* IPv4 destination address */
--		if (!tcp_ip4_spec->ip4dst || ~tcp_ip4_spec->ip4dst)
-+		if (tcp_ip4_spec->ip4dst == htonl(0xFFFFFFFF))
-+			new_mask |= I40E_L3_DST_MASK;
-+		else if (!tcp_ip4_spec->ip4dst)
-+			new_mask &= ~I40E_L3_DST_MASK;
-+		else
- 			return -EOPNOTSUPP;
- 
- 		/* L4 source port */
--		if (!tcp_ip4_spec->psrc || (__be16)~tcp_ip4_spec->psrc)
-+		if (tcp_ip4_spec->psrc == htons(0xFFFF))
-+			new_mask |= I40E_L4_SRC_MASK;
-+		else if (!tcp_ip4_spec->psrc)
-+			new_mask &= ~I40E_L4_SRC_MASK;
-+		else
- 			return -EOPNOTSUPP;
- 
- 		/* L4 destination port */
--		if (!tcp_ip4_spec->pdst || (__be16)~tcp_ip4_spec->pdst)
-+		if (tcp_ip4_spec->pdst == htons(0xFFFF))
-+			new_mask |= I40E_L4_DST_MASK;
-+		else if (!tcp_ip4_spec->pdst)
-+			new_mask &= ~I40E_L4_DST_MASK;
-+		else
- 			return -EOPNOTSUPP;
- 
- 		/* Filtering on Type of Service is not supported. */
-@@ -2766,15 +2837,27 @@ static int i40e_check_fdir_input_set(struct ethtool_rx_flow_spec *fsp)
- 		usr_ip4_spec = &fsp->m_u.usr_ip4_spec;
- 
- 		/* IPv4 source address */
--		if (!usr_ip4_spec->ip4src || ~usr_ip4_spec->ip4src)
-+		if (usr_ip4_spec->ip4src == htonl(0xFFFFFFFF))
-+			new_mask |= I40E_L3_SRC_MASK;
-+		else if (!usr_ip4_spec->ip4src)
-+			new_mask &= ~I40E_L3_SRC_MASK;
-+		else
- 			return -EOPNOTSUPP;
- 
- 		/* IPv4 destination address */
--		if (!usr_ip4_spec->ip4dst || ~usr_ip4_spec->ip4dst)
-+		if (usr_ip4_spec->ip4dst == htonl(0xFFFFFFFF))
-+			new_mask |= I40E_L3_DST_MASK;
-+		else if (!usr_ip4_spec->ip4dst)
-+			new_mask &= ~I40E_L3_DST_MASK;
-+		else
- 			return -EOPNOTSUPP;
- 
- 		/* First 4 bytes of L4 header */
--		if (!usr_ip4_spec->l4_4_bytes || ~usr_ip4_spec->l4_4_bytes)
-+		if (usr_ip4_spec->l4_4_bytes == htonl(0xFFFFFFFF))
-+			new_mask |= I40E_L4_SRC_MASK | I40E_L4_DST_MASK;
-+		else if (!usr_ip4_spec->l4_4_bytes)
-+			new_mask &= ~(I40E_L4_SRC_MASK | I40E_L4_DST_MASK);
-+		else
- 			return -EOPNOTSUPP;
- 
- 		/* Filtering on Type of Service is not supported. */
-@@ -2788,11 +2871,15 @@ static int i40e_check_fdir_input_set(struct ethtool_rx_flow_spec *fsp)
- 		/* L4 protocol doesn't have a mask field. */
- 		if (usr_ip4_spec->proto)
- 			return -EINVAL;
-+
- 		break;
- 	default:
- 		return -EOPNOTSUPP;
++			ring_vf <<= ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF;
++			fsp->ring_cookie |= ring_vf;
+ 		}
  	}
  
-+	if (new_mask != current_mask)
-+		return -EOPNOTSUPP;
-+
- 	return 0;
- }
+@@ -3038,9 +3043,10 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ {
+ 	struct ethtool_rx_flow_spec *fsp;
+ 	struct i40e_fdir_filter *input;
++	u16 dest_vsi = 0, q_index = 0;
+ 	struct i40e_pf *pf;
+ 	int ret = -EINVAL;
+-	u16 vf_id;
++	u8 dest_ctl;
  
-@@ -2836,7 +2923,7 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- 	if (fsp->flow_type & FLOW_MAC_EXT)
+ 	if (!vsi)
  		return -EINVAL;
+@@ -3074,9 +3080,32 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 		return -EINVAL;
+ 	}
  
--	ret = i40e_check_fdir_input_set(fsp);
-+	ret = i40e_check_fdir_input_set(vsi, fsp);
+-	if ((fsp->ring_cookie != RX_CLS_FLOW_DISC) &&
+-	    (fsp->ring_cookie >= vsi->num_queue_pairs))
+-		return -EINVAL;
++	/* ring_cookie is either the drop index, or is a mask of the queue
++	 * index and VF id we wish to target.
++	 */
++	if (fsp->ring_cookie == RX_CLS_FLOW_DISC) {
++		dest_ctl = I40E_FILTER_PROGRAM_DESC_DEST_DROP_PACKET;
++	} else {
++		u32 ring = ethtool_get_flow_spec_ring(fsp->ring_cookie);
++		u8 vf = ethtool_get_flow_spec_ring_vf(fsp->ring_cookie);
++
++		if (!vf) {
++			if (ring >= vsi->num_queue_pairs)
++				return -EINVAL;
++			dest_vsi = vsi->id;
++		} else {
++			/* VFs are zero-indexed, so we subtract one here */
++			vf--;
++
++			if (vf >= pf->num_alloc_vfs)
++				return -EINVAL;
++			if (ring >= pf->vf[vf].num_queue_pairs)
++				return -EINVAL;
++			dest_vsi = pf->vf[vf].lan_vsi_id;
++		}
++		dest_ctl = I40E_FILTER_PROGRAM_DESC_DEST_DIRECT_PACKET_QINDEX;
++		q_index = ring;
++	}
+ 
+ 	input = kzalloc(sizeof(*input), GFP_KERNEL);
+ 
+@@ -3084,19 +3113,13 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 		return -ENOMEM;
+ 
+ 	input->fd_id = fsp->location;
+-
+-	if (fsp->ring_cookie == RX_CLS_FLOW_DISC)
+-		input->dest_ctl = I40E_FILTER_PROGRAM_DESC_DEST_DROP_PACKET;
+-	else
+-		input->dest_ctl =
+-			     I40E_FILTER_PROGRAM_DESC_DEST_DIRECT_PACKET_QINDEX;
+-
+-	input->q_index = fsp->ring_cookie;
+-	input->flex_off = 0;
+-	input->pctype = 0;
+-	input->dest_vsi = vsi->id;
++	input->q_index = q_index;
++	input->dest_vsi = dest_vsi;
++	input->dest_ctl = dest_ctl;
+ 	input->fd_status = I40E_FILTER_PROGRAM_DESC_FD_STATUS_FD_ID;
+ 	input->cnt_index  = I40E_FD_SB_STAT_IDX(pf->hw.pf_id);
++	input->dst_ip = fsp->h_u.tcp_ip4_spec.ip4src;
++	input->src_ip = fsp->h_u.tcp_ip4_spec.ip4dst;
+ 	input->flow_type = fsp->flow_type;
+ 	input->ip4_proto = fsp->h_u.usr_ip4_spec.proto;
+ 
+@@ -3108,23 +3131,6 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 	input->dst_ip = fsp->h_u.tcp_ip4_spec.ip4src;
+ 	input->src_ip = fsp->h_u.tcp_ip4_spec.ip4dst;
+ 
+-	if (ntohl(fsp->m_ext.data[1])) {
+-		vf_id = ntohl(fsp->h_ext.data[1]);
+-		if (vf_id >= pf->num_alloc_vfs) {
+-			netif_info(pf, drv, vsi->netdev,
+-				   "Invalid VF id %d\n", vf_id);
+-			goto free_input;
+-		}
+-		/* Find vsi id from vf id and override dest vsi */
+-		input->dest_vsi = pf->vf[vf_id].lan_vsi_id;
+-		if (input->q_index >= pf->vf[vf_id].num_queue_pairs) {
+-			netif_info(pf, drv, vsi->netdev,
+-				   "Invalid queue id %d for VF %d\n",
+-				   input->q_index, vf_id);
+-			goto free_input;
+-		}
+-	}
+-
+ 	ret = i40e_add_del_fdir(vsi, input, true);
  	if (ret)
- 		return ret;
- 
+ 		goto free_input;
 -- 
 2.12.0
