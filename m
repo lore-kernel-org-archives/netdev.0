@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [RESEND PATCH 1/3] net: hns: fix uninitialized data use
-Date: Fri, 24 Mar 2017 23:02:49 +0100
-Message-ID: <20170324220250.2193128-3-arnd@arndb.de>
+Subject: [RESEND PATCH 2/3] net: hns: avoid gcc-7.0.1 warning for uninitialized data
+Date: Fri, 24 Mar 2017 23:02:50 +0100
+Message-ID: <20170324220250.2193128-4-arnd@arndb.de>
 References: <20170324220250.2193128-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>, Lijun Ou <oulijun@huawei.com>,
         "Wei Hu(Xavier)" <xavier.huwei@huawei.com>,
@@ -18,48 +18,61 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Lijun Ou <oulijun@huawei.com>,
 To: "David S . Miller" <davem@davemloft.net>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:54782 "EHLO
+Received: from mout.kundenserver.de ([212.227.17.24]:52372 "EHLO
         mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753140AbdCXWDi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:03:38 -0400
+        with ESMTP id S932271AbdCXWD4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:03:56 -0400
 In-Reply-To: <20170324220250.2193128-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When dev_dbg() is enabled, we print uninitialized data, as gcc-7.0.1
-now points out:
+hns_dsaf_set_mac_key() calls dsaf_set_field() on an uninitialized field,
+which will then change only a few of its bits, causing a warning with
+the latest gcc:
 
-ethernet/hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_promisc_tcam':
-ethernet/hisilicon/hns/hns_dsaf_main.c:2947:75: error: 'tbl_tcam_data.low.val' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-ethernet/hisilicon/hns/hns_dsaf_main.c:2947:75: error: 'tbl_tcam_data.high.val' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_mac_uc_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+   (origin) &= (~(mask)); \
+            ^~
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_mac_mc_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_add_mac_mc_port':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_del_mac_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_rm_mac_addr':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_del_mac_mc_port':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_get_mac_uc_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_get_mac_mc_entry':
+hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-We also pass the data into hns_dsaf_tcam_mc_cfg(), which might later
-use it (not sure about that), so it seems safer to just always initialize
-the tbl_tcam_data structure.
+The code is actually correct since we always set all 16 bits of the
+port_vlan field, but gcc correctly points out that the first
+access does contain uninitialized data.
 
-Fixes: 1f5fa2dd1cfa ("net: hns: fix for promisc mode in HNS driver")
+This initializes the field to zero first before setting the
+individual bits.
+
+Fixes: 5483bfcb169c ("net: hns: modify tcam table and set mac key")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 90dbda792614..cd93657abe87 100644
+index cd93657abe87..403ea9db6dbd 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2924,10 +2924,11 @@ void hns_dsaf_set_promisc_tcam(struct dsaf_device *dsaf_dev,
- 	/* find the tcam entry index for promisc */
- 	entry_index = dsaf_promisc_tcam_entry(port);
- 
-+	memset(&tbl_tcam_data, 0, sizeof(tbl_tcam_data));
-+	memset(&tbl_tcam_mask, 0, sizeof(tbl_tcam_mask));
-+
- 	/* config key mask */
- 	if (enable) {
--		memset(&tbl_tcam_data, 0, sizeof(tbl_tcam_data));
--		memset(&tbl_tcam_mask, 0, sizeof(tbl_tcam_mask));
- 		dsaf_set_field(tbl_tcam_data.low.bits.port_vlan,
- 			       DSAF_TBL_TCAM_KEY_PORT_M,
- 			       DSAF_TBL_TCAM_KEY_PORT_S, port);
+@@ -1519,6 +1519,7 @@ static void hns_dsaf_set_mac_key(
+ 	mac_key->high.bits.mac_3 = addr[3];
+ 	mac_key->low.bits.mac_4 = addr[4];
+ 	mac_key->low.bits.mac_5 = addr[5];
++	mac_key->low.bits.port_vlan = 0;
+ 	dsaf_set_field(mac_key->low.bits.port_vlan, DSAF_TBL_TCAM_KEY_VLAN_M,
+ 		       DSAF_TBL_TCAM_KEY_VLAN_S, vlan_id);
+ 	dsaf_set_field(mac_key->low.bits.port_vlan, DSAF_TBL_TCAM_KEY_PORT_M,
 -- 
 2.9.0
