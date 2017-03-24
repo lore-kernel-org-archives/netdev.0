@@ -1,78 +1,42 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [RESEND PATCH 2/3] net: hns: avoid gcc-7.0.1 warning for uninitialized data
-Date: Fri, 24 Mar 2017 23:02:50 +0100
-Message-ID: <20170324220250.2193128-4-arnd@arndb.de>
-References: <20170324220250.2193128-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Lijun Ou <oulijun@huawei.com>,
-        "Wei Hu(Xavier)" <xavier.huwei@huawei.com>,
-        Daode Huang <huangdaode@hisilicon.com>,
-        Kejian Yan <yankejian@huawei.com>,
-        Qianqian Xie <xieqianqian@huawei.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: dsa: bcm_sf2: Add missing OF_MDIO dependency
+Date: Fri, 24 Mar 2017 14:57:22 -0700
+Message-ID: <20170324215722.6664-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:52372 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932271AbdCXWD4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:03:56 -0400
-In-Reply-To: <20170324220250.2193128-1-arnd@arndb.de>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35377 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933254AbdCXWEI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:04:08 -0400
+Received: by mail-qt0-f193.google.com with SMTP id r5so446423qtb.2
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 15:04:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hns_dsaf_set_mac_key() calls dsaf_set_field() on an uninitialized field,
-which will then change only a few of its bits, causing a warning with
-the latest gcc:
+bcm_sf2 does require the MDIO_BCM_UNIMAC driver which is now dependent
+on OF_MDIO but also internally uses of_mdio.c provided routines which
+are guarted with OF_MDIO.
 
-hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_mac_uc_entry':
-hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-   (origin) &= (~(mask)); \
-            ^~
-hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_mac_mc_entry':
-hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_add_mac_mc_port':
-hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_del_mac_entry':
-hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_rm_mac_addr':
-hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_del_mac_mc_port':
-hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_get_mac_uc_entry':
-hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_get_mac_mc_entry':
-hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-
-The code is actually correct since we always set all 16 bits of the
-port_vlan field, but gcc correctly points out that the first
-access does contain uninitialized data.
-
-This initializes the field to zero first before setting the
-individual bits.
-
-Fixes: 5483bfcb169c ("net: hns: modify tcam table and set mac key")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/dsa/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index cd93657abe87..403ea9db6dbd 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -1519,6 +1519,7 @@ static void hns_dsaf_set_mac_key(
- 	mac_key->high.bits.mac_3 = addr[3];
- 	mac_key->low.bits.mac_4 = addr[4];
- 	mac_key->low.bits.mac_5 = addr[5];
-+	mac_key->low.bits.port_vlan = 0;
- 	dsaf_set_field(mac_key->low.bits.port_vlan, DSAF_TBL_TCAM_KEY_VLAN_M,
- 		       DSAF_TBL_TCAM_KEY_VLAN_S, vlan_id);
- 	dsaf_set_field(mac_key->low.bits.port_vlan, DSAF_TBL_TCAM_KEY_PORT_M,
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index 065984670ff1..564b267c8428 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -11,7 +11,7 @@ config NET_DSA_MV88E6060
+ 
+ config NET_DSA_BCM_SF2
+ 	tristate "Broadcom Starfighter 2 Ethernet switch support"
+-	depends on HAS_IOMEM && NET_DSA
++	depends on HAS_IOMEM && NET_DSA && OF_MDIO
+ 	select NET_DSA_TAG_BRCM
+ 	select FIXED_PHY
+ 	select BCM7XXX_PHY
 -- 
-2.9.0
+2.9.3
