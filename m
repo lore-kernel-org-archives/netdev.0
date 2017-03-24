@@ -1,67 +1,61 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] Documentation: ABI: testing: sysfs-class-net-qmi: add
- new qmap mux files description
-Date: Fri, 24 Mar 2017 19:31:30 +0300
-Message-ID: <8982c186-0560-a426-2873-bc21bc2f1765@cogentembedded.com>
-References: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
- <1490361766-24114-3-git-send-email-dnlplm@gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: [net PATCH] net: Do not allow negative values for busy_read and
+ busy_poll sysctl interfaces
+Date: Fri, 24 Mar 2017 09:38:03 -0700
+Message-ID: <20170324163630.14764.75429.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Daniele Palmas <dnlplm@gmail.com>,
-        =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:35550 "EHLO
-        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757367AbdCXQbf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 12:31:35 -0400
-Received: by mail-lf0-f53.google.com with SMTP id j90so3242892lfk.2
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 09:31:34 -0700 (PDT)
-In-Reply-To: <1490361766-24114-3-git-send-email-dnlplm@gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33428 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751520AbdCXQiG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 12:38:06 -0400
+Received: by mail-pg0-f67.google.com with SMTP id 79so1436285pgf.0
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 09:38:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-On 03/24/2017 04:22 PM, Daniele Palmas wrote:
+This change basically codifies what I think was already the limitations on
+the busy_poll and busy_read sysctl interfaces.  We weren't checking the
+lower bounds and as such could input negative values. The behavior when
+that was used was dependent on the architecture. In order to prevent any
+issues with that I am just disabling support for values less than 0 since
+this way we don't have to worry about any odd behaviors.
 
-> This patch updates the documentation related to the new files added for
-> qmap mux support.
->
-> Signed-off-by: Daniele Palmas <dnlplm@gmail.com>
-> ---
->  Documentation/ABI/testing/sysfs-class-net-qmi | 27 +++++++++++++++++++++++++++
->  1 file changed, 27 insertions(+)
->
-> diff --git a/Documentation/ABI/testing/sysfs-class-net-qmi b/Documentation/ABI/testing/sysfs-class-net-qmi
-> index fa5a00b..5191dc3 100644
-> --- a/Documentation/ABI/testing/sysfs-class-net-qmi
-> +++ b/Documentation/ABI/testing/sysfs-class-net-qmi
-> @@ -21,3 +21,30 @@ Description:
->  		is responsible for coordination of driver and firmware
->  		link framing mode, changing this setting to 'Y' if the
->  		firmware is configured for 'raw-ip' mode.
-> +
-> +What:		/sys/class/net/<iface>/qmi/add_mux
-> +Date:		March 2017
-> +KernelVersion:	4.11
-> +Contact:	Bjørn Mork <bjorn@mork.no>
-> +Description:
-> +		Unsigned integer.
-> +
-> +		Write a number ranging from 1 to 127 to add a qmap mux
-> +		based network device, supported by recent Qualcomm based
-> +		modems.
-> +
-> +		The network device will be called qmimux.
-> +
-> +		Userspace is in charge of managing the qmux network device
-> +		activation and data stream setup  on them modem side by
+By limiting the sysctl values this way it also makes it consistent with how
+we handle the SO_BUSY_POLL socket option since the value appears to be
+reported as a signed integer value and negative values are rejected.
 
-    s/them/the/?
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ net/core/sysctl_net_core.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-> +		using the proper QMI protocol requests.
-[...]
-
-MBR, Sergei
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 4ead336e14ea..7f9cc400eca0 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -408,14 +408,16 @@ static int proc_do_rss_key(struct ctl_table *table, int write,
+ 		.data		= &sysctl_net_busy_poll,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
+ 	},
+ 	{
+ 		.procname	= "busy_read",
+ 		.data		= &sysctl_net_busy_read,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
+ 	},
+ #endif
+ #ifdef CONFIG_NET_SCHED
