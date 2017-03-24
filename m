@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: bridge: allow user-space to
- add ext learned entries
-Date: Fri, 24 Mar 2017 12:31:29 -0700 (PDT)
-Message-ID: <20170324.123129.1392093132050044308.davem@davemloft.net>
-References: <1490264833-28867-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] r8152: prevent the driver from transmitting
+ packets with carrier off
+Date: Fri, 24 Mar 2017 12:31:35 -0700 (PDT)
+Message-ID: <20170324.123135.1629675630856286721.davem@davemloft.net>
+References: <1394712342-15778-259-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	bridge@lists.linux-foundation.org, idosch@mellanox.com
-To: nikolay@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1490264833-28867-1-git-send-email-nikolay@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43418 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967155AbdCXTbg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 15:31:36 -0400
+In-Reply-To: <1394712342-15778-259-Taiwan-albertk@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Thu, 23 Mar 2017 12:27:11 +0200
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Thu, 23 Mar 2017 19:14:19 +0800
 
-> This set adds the ability to add externally learned entries from
-> user-space. For symmetry and proper function we need to allow SW entries
-> to take over HW learned ones (similar to how HW can take over SW entries
-> currently) which is needed for our use case (evpn) where we have pure SW
-> ports and HW ports mixed in a single bridge. This does not play well with
-> switchdev devices currently because there's no feedback when the entry is
-> taken over, but this case has never worked anyway and feedback can be
-> easily added when needed.
-> Patch 02 simply allows to use NTF_EXT_LEARNED from user-space, we already
-> have Quagga patches that make use of this functionality.
+> The linking status may be changed when autosuspend. And, after
+> autoresume, the driver may try to transmit packets when the device
+> is carrier off, because the interrupt transfer doesn't update the
+> linking status, yet. And, if the device is in ALDPS mode, the device
+> would stop working.
+> 
+> The another similar case is
+>  1. unplug the cable.
+>  2. interrupt transfer queue a work_queue for linking change.
+>  3. device enters the ALDPS mode.
+>  4. a tx occurs before the work_queue is called.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-Series applied.
+Applied.
