@@ -1,39 +1,32 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: mpls: Fix setting ttl_propagate for rt2
-Date: Thu, 23 Mar 2017 19:02:27 -0600
-Message-ID: <20170324010227.45375-1-dsa@cumulusnetworks.com>
-Cc: rshearma@brocade.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35320 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934663AbdCXBCc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 21:02:32 -0400
-Received: by mail-pf0-f172.google.com with SMTP id 20so194417pfk.2
-        for <netdev@vger.kernel.org>; Thu, 23 Mar 2017 18:02:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [net-next PATCH v2 4/8] net: Change return type of sk_busy_loop
+ from bool to void
+Date: Thu, 23 Mar 2017 18:02:56 -0700
+Message-ID: <1490317376.9687.12.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170323211820.12615.88907.stgit@localhost.localdomain>
+         <20170323213715.12615.49246.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170323213715.12615.49246.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fix copy and paste error setting rt_ttl_propagate.
+On Thu, 2017-03-23 at 14:37 -0700, Alexander Duyck wrote:
+> From: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> 
+> >From what I can tell there is only a couple spots where we are actually
+> checking the return value of sk_busy_loop. As there are only a few
+> consumers of that data, and the data being checked for can be replaced
+> with a check for !skb_queue_empty() we might as well just pull the code
+> out of sk_busy_loop and place it in the spots that actually need it.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
 
-Fixes: 5b441ac8784c1 ("mpls: allow TTL propagation to IP packets to be configured")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/mpls/af_mpls.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 82589b2abf3c..cd8be8d5e4ad 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -1949,7 +1949,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 		RCU_INIT_POINTER(rt2->rt_nh->nh_dev, lo);
- 		rt2->rt_protocol = RTPROT_KERNEL;
- 		rt2->rt_payload_type = MPT_IPV6;
--		rt0->rt_ttl_propagate = MPLS_TTL_PROP_DEFAULT;
-+		rt2->rt_ttl_propagate = MPLS_TTL_PROP_DEFAULT;
- 		rt2->rt_nh->nh_via_table = NEIGH_LINK_TABLE;
- 		rt2->rt_nh->nh_via_alen = lo->addr_len;
- 		memcpy(__mpls_nh_via(rt2, rt2->rt_nh), lo->dev_addr,
--- 
-2.10.1 (Apple Git-78)
+Acked-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
