@@ -1,29 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: phy: Export mdiobus_register_board_info()
-Date: Thu, 23 Mar 2017 17:14:01 -0700 (PDT)
-Message-ID: <20170323.171401.1895711974296614879.davem@davemloft.net>
-References: <20170323054030.14613-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] sched: act_csum: don't mangle TCP and UDP GSO
+ packets
+Date: Thu, 23 Mar 2017 17:40:57 -0700 (PDT)
+Message-ID: <20170323.174057.898674889050712997.davem@davemloft.net>
+References: <4e8409b7761a7b545febde6d2fcce0cbe7d0e759.1490261581.git.dcaratti@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch
-To: f.fainelli@gmail.com
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org
+To: dcaratti@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59932 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60360 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751198AbdCXAOC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 20:14:02 -0400
-In-Reply-To: <20170323054030.14613-1-f.fainelli@gmail.com>
+        with ESMTP id S1756876AbdCXAtA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 20:49:00 -0400
+In-Reply-To: <4e8409b7761a7b545febde6d2fcce0cbe7d0e759.1490261581.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 22 Mar 2017 22:40:30 -0700
+From: Davide Caratti <dcaratti@redhat.com>
+Date: Thu, 23 Mar 2017 10:39:40 +0100
 
-> We can build modular code that uses mdiobus_register_board_info() which would
-> lead to linking failure since this symbol is not expoerted.
+> after act_csum computes the checksum on skbs carrying GSO TCP/UDP packets,
+> subsequent segmentation fails because skb_needs_check(skb, true) returns
+> true. Because of that, skb_warn_bad_offload() is invoked and the following
+> message is displayed:
 > 
-> Fixes: 648ea0134069 ("net: phy: Allow pre-declaration of MDIO devices")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> WARNING: CPU: 3 PID: 28 at net/core/dev.c:2553 skb_warn_bad_offload+0xf0/0xfd
+> <...>
+> 
+>   [<ffffffff8171f486>] skb_warn_bad_offload+0xf0/0xfd
+>   [<ffffffff8161304c>] __skb_gso_segment+0xec/0x110
+>   [<ffffffff8161340d>] validate_xmit_skb+0x12d/0x2b0
+>   [<ffffffff816135d2>] validate_xmit_skb_list+0x42/0x70
+>   [<ffffffff8163c560>] sch_direct_xmit+0xd0/0x1b0
+>   [<ffffffff8163c760>] __qdisc_run+0x120/0x270
+>   [<ffffffff81613b3d>] __dev_queue_xmit+0x23d/0x690
+>   [<ffffffff81613fa0>] dev_queue_xmit+0x10/0x20
+> 
+> Since GSO is able to compute checksum on individual segments of such skbs,
+> we can simply skip mangling the packet.
+> 
+> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 
-Applied, thanks.
+Seems reasonable, applied, thanks.
