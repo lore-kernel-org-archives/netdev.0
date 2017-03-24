@@ -1,32 +1,66 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 0/2] net: mpls: multipath route cleanups
-Date: Fri, 24 Mar 2017 15:21:55 -0700
-Message-ID: <1490394117-19268-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/2] net: mpls: Don't show nexthop if device has been deleted
+Date: Fri, 24 Mar 2017 15:21:56 -0700
+Message-ID: <1490394117-19268-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1490394117-19268-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: rshearma@brocade.com, roopa@cumulusnetworks.com,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33800 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935137AbdCXWWJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:22:09 -0400
-Received: by mail-pf0-f174.google.com with SMTP id p189so1402487pfp.1
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 15:22:08 -0700 (PDT)
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:36350 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934956AbdCXWWK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:22:10 -0400
+Received: by mail-pg0-f51.google.com with SMTP id g2so1550433pge.3
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 15:22:09 -0700 (PDT)
+In-Reply-To: <1490394117-19268-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a device associated with a nexthop is deleted, the nexthop in
-the route is effectively removed, so remove it from the route dump.
+If the device for a nexthop in a multipath route is deleted, the nexthop
+is effectively removed from the route. Currently, a route dump still
+returns the nexhop though without the device set:
 
-Further, when all nexhops have been deleted the route is effectively
-done, so remove the route. 
+$ ip -f mpls ro ls
+100
+	nexthopvia inet 10.11.1.2  dev br0
+	nexthopvia inet 10.100.3.1  dev eth3
+$ ip li del br0
+$ ip -f mpls ro ls
+100
+	nexthopvia inet 10.11.1.2  dev * dead linkdown
+	nexthopvia inet 10.100.3.1  dev eth3
 
-David Ahern (2):
-  mpls: Don't show nexthop if device has been deleted
-  mpls: Delete route when all nexthops have been deleted
+Since the nexthop is effectively deleted, drop the hop from the route
+dump.
 
- net/mpls/af_mpls.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/mpls/af_mpls.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index cd8be8d5e4ad..3861f8dfa9c1 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -1769,13 +1769,15 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 			goto nla_put_failure;
+ 
+ 		for_nexthops(rt) {
++			dev = rtnl_dereference(nh->nh_dev);
++			if (!dev)
++				continue;
++
+ 			rtnh = nla_reserve_nohdr(skb, sizeof(*rtnh));
+ 			if (!rtnh)
+ 				goto nla_put_failure;
+ 
+-			dev = rtnl_dereference(nh->nh_dev);
+-			if (dev)
+-				rtnh->rtnh_ifindex = dev->ifindex;
++			rtnh->rtnh_ifindex = dev->ifindex;
+ 			if (nh->nh_flags & RTNH_F_LINKDOWN) {
+ 				rtnh->rtnh_flags |= RTNH_F_LINKDOWN;
+ 				linkdown++;
 -- 
 2.1.4
