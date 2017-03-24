@@ -1,67 +1,46 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Fri, 24 Mar 2017 10:45:30 +0100
-Message-ID: <20170324094530.GE8192@localhost>
-References: <20170207140144.GA11233@localhost>
- <20170209080242.GA1698@localhost.localdomain>
- <20170209110941.GA1449@localhost>
- <20170323162145.GB8192@localhost>
- <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH net-next 0/2] Performances improvement for IPv6 Segment Routing
+Date: Fri, 24 Mar 2017 10:46:25 +0100
+Message-ID: <20170324094627.16796-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-        Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Denny Page <dennypage@me.com>
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44544 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751618AbdCXJpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 05:45:34 -0400
-Content-Disposition: inline
-In-Reply-To: <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:45979 "EHLO
+        smtp3.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751683AbdCXJy0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 05:54:26 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp3.sgsi.ucl.ac.be (Postfix) with ESMTPS id E5EC067DA48
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 10:46:04 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 23, 2017 at 10:08:00AM -0700, Denny Page wrote:
-> > On Mar 23, 2017, at 09:21, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> > 
-> > After becoming a bit more familiar with the code I don't think this is
-> > a good idea anymore :). I suspect there would be a noticeable
-> > performance impact if each timestamped packet could trigger reading of
-> > the current link speed. If the value had to be cached it would make
-> > more sense to do it in the application.
-> 
-> I am very surprised at this. The application caching approach requires the application retrieve the value via a system call. The system call overhead is huge in comparison to everything else. More importantly, the application cached value may be wrong. If the application takes a sample every 5 seconds, there are 5 seconds of timestamps that can be wildly wrong.
+This patch series improves the performances of IPv6 SR by optimizing skb head
+reallocation and extending the use of dst_cache. The overall performances improve
+by 35%.
 
-I'm just trying to be practical and minimize the performance impact
-and the amount of code that needs to be written, reviewed and
-maintained.
+Before patch series (SRH encap):
+Result: OK: 7348320(c7347271+d1048) usec, 5000000 (1000byte,0frags)
+  680427pps 5443Mb/sec (5443416000bps) errors: 0
 
-How common is to have link speed changing in normal operation on LAN?
+After patch series (SRH encap):
+Result: OK: 4774543(c4774084+d459) usec, 5000000 (1000byte,0frags)
+  1047220pps 8377Mb/sec (8377760000bps) errors: 0
 
-There are other problems with changing link speed. It does not affect
-only the transposition.
+Baseline for plain IPv6 forwarding:
+Result: OK: 4244144(c4243722+d422) usec, 5000000 (1000byte,0frags)
+  1178093pps 9424Mb/sec (9424744000bps) errors: 0
 
-- If the change happens during a measurement, anywhere on the path
-  between the server and client, the measured offset will have an
-  error due to the asymmetry in the network delay. An NTP measurement
-  in the basic mode is short (it's just the rount-trip time), so it's
-  not very likely to be hit by a link speed change, but in the
-  interleaved mode the probability is exactly the opposite.
+David Lebrun (2):
+  ipv6: sr: expand skb head only if necessary
+  ipv6: sr: use dst_cache in seg6_input
 
-- Even if the measurement is not hit and the measured offset is
-  accurate, the change in the measured delay may confuse the NTP
-  client (e.g. temporarily disrupt its sample filtering).
-
-- The TX/RX compensation values depend on the link speed. If the
-  application doesn't reliably know link speed for each packet, the
-  compensation cannot be reliable either.
-
-It seems to me for best timekeeping with NTP it is necessary to make
-sure the link speed in the network is constant, even if the
-transposition was always accurate.
+ net/ipv6/seg6_iptunnel.c | 31 ++++++++++++++++++++++++++++---
+ 1 file changed, 28 insertions(+), 3 deletions(-)
 
 -- 
-Miroslav Lichvar
+2.10.2
