@@ -1,146 +1,253 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH v2 5/8] net: Track start of busy loop instead of
- when it should end
-Date: Thu, 23 Mar 2017 22:55:11 -0700
-Message-ID: <CAKgT0UfQPLqHtZ_SjanbLoG6t5f36C4nsORuw6yjLT0xZrEoEQ@mail.gmail.com>
-References: <20170323211820.12615.88907.stgit@localhost.localdomain>
- <20170323213742.12615.85793.stgit@localhost.localdomain> <1490318682.9687.22.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0Ue+UFOAhwxN-EOjWYZa9YZc2QaT5gvoLap70COs0rF7NA@mail.gmail.com> <1490329655.9687.33.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Linux API <linux-api@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [ethtool] ethtool: support queue and VF fields for rxclass filters
+Date: Thu, 23 Mar 2017 23:07:13 -0700
+Message-ID: <20170324060713.81808-1-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:35743 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751313AbdCXFzN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 01:55:13 -0400
-In-Reply-To: <1490329655.9687.33.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mga06.intel.com ([134.134.136.31]:27298 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751235AbdCXGHV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 02:07:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 23, 2017 at 9:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-03-23 at 20:42 -0700, Alexander Duyck wrote:
->> On Thu, Mar 23, 2017 at 6:24 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Thu, 2017-03-23 at 14:37 -0700, Alexander Duyck wrote:
->> >> From: Alexander Duyck <alexander.h.duyck@intel.com>
->> >>
->> >
->> >> The last bit I changed is to move from using a shift by 10 to just using
->> >> NSEC_PER_USEC and using multiplication for any run time calculations and
->> >> division for a few compile time ones.  This should be more accurate and
->> >> perform about the same on most architectures since modern CPUs typically
->> >> handle multiplication without too much overhead.
->> >
->> >
->> > busy polling thread can be preempted for more than 2 seconds.
->>
->> If it is preempted is the timing value even valid anymore?  I was
->> wondering about that.  Also when preemption is enabled is there
->> anything to prevent us from being migrated to a CPU?  If so what do we
->> do about architectures that allow drift between the clocks?
->>
->> > Using usec instead of nanoseconds gave us 3 orders of magnitude cushion.
->>
->> Yes, but the problem is we also opened up an issue where if the clock
->> was approaching a roll-over we could add a value to it that would put
->> us in a state where we would never time out.
->
-> If you believe there is a bug, send a fix for net tree ?
->
-> I really do not see a bug, given we use time_after(now, end_time) which
-> handles roll-over just fine.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Right, but time_after assumes roll over.  When you are using a time
-value based off of local_clock() >> 10, you don't ever roll over when
-you do addition.  Just the clock rolls over.  At least on 64 bit
-systems.
+Recent kernels have made it possible to specify filters applying to
+a virtual function by partitioning the ring_cookie (action) value. The
+lower 32bits will represent the queue, while the next 8bits represent
+the virtual function.
 
-So if local time approaches something like all 1's, and we have
-shifted it by 10 it is then the max it can ever reach is
-0x003FFFFFFFFFFFFF.  I can add our loop time to that and it won't roll
-over.  In the mean time the busy_loop_us_ can never exceed whatever I
-added to that so we are now locked into a loop.  I realize I am
-probably being pedantic, and it will have an exceedingly small rate of
-occurrence, but it is still an issue.
+Add support to view and specify the ring_cookie in this way so that
+users do not have to manually create action values, and don't need to
+understand the underlying layout of the ring_cookie value.
 
->>
->> > We do not need nsec accuracy for busy polling users, if this restricts
->> > range and usability under stress.
->>
->> Yes and no.  So the standard use cases suggest using values of 50 to
->> 100 microseconds.  I suspect that for most people that is probably
->> what they are using.  The addition of preemption kind of threw a
->> wrench in the works because now instead of spending that time busy
->> polling you can get preempted and then are off doing something else
->> for the entire period of time.
->
-> That is fine. Busy polling heavy users are pinning threads to cpu, and
-> the re-schedule check is basically a way to make sure ksoftirqd will get
-> a chance to service BH.
->
->>
->> What would you think of changing this so that instead of tracking the
->> total time this function is active, instead we tracked the total time
->> we spent with preemption disabled?  What I would do is move the
->> start_time configuration to just after the preempt_disable() call.
->> Then if we end up yielding to another thread we would just reset the
->> start_time when we restarted instead of trying to deal with all the
->> extra clock nonsense that we would have to deal with otherwise since I
->> don't know if we actually want to count time where we aren't actually
->> doing anything.  In addition this would bring us closer to how NAPI
->> already works since it essentially will either find an event, or if we
->> time out we hand it off to the softirq which in turn can handle it or
->> hand it off to softirqd.  The only item that might be a bit more
->> difficult to deal with then would be the way the times are used in
->> fs/select.c but I don't know if that is really the right way to go
->> anyway. With the preemption changes and such it might just make sense
->> to drop those bits and rely on just the socket polling alone.
->>
->> The other option is to switch over everything from using unsigned long
->> to using uint64_t and time_after64.  Then we can guarantee the range
->> needed and then some, but then we are playing with a u64 time value on
->> 32b architectures which might be a bit more expensive.  Even with that
->> though I still need to clean up the sysctl since it doesn't make sense
->> to allow negative values for the busy_poll usec to be used which is
->> currently the case.
->>
->> Anyway let me know what you think and I can probably spin out a new
->> set tomorrow.
->
->
-> Leave usec resolution, I see no point switching to nsec, as long we
-> support 32bit kernels.
+Support using queue and VF fields which will fill in their specific bits
+of the ring_cookie value, using new customized OPT_RING_VF and
+OPT_RING_QUEUE.
 
-I wonder how much it really matters in the grand scheme of things.
-The question I would have is which is more expensive.  We are either
-having to do a set of double precision shifts, or a multiplication,
-double precision addition, and double precision compare.  I need to
-take a look at some instruction tables to see which is more expensive.
+Add support to display the ring cookie value as a split VF identifier
+and queue.
 
-My preference would be to switch things over to a u64 at this point as
-it fixes the time_after problem, and has no additional cost on 64b and
-bumps up the maximum usable value on 32b systems by a power of 2, but
-I will have to think about it and see if there isn't a better way to
-deal with that issue.
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ ethtool.8.in |   7 ++++
+ rxclass.c    | 102 +++++++++++++++++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 92 insertions(+), 17 deletions(-)
 
-> If you believe min/max values should be added to the sysctls, because we
-> do not trust root anymore, please send patches only addressing that.
-
-It isn't so much a min/max as just the wrong function used.  I will
-switch it over to using proc_douintvec().
-
-Also it isn't that I don't trust root, I don't like us giving root the
-option of configuring things wrongly without giving them some sort of
-warning.  So switching things over to using unsigned int will match
-what we are actually storing but the problem is anything over INT_MAX
-on 32 bit systems will give you busy polling with an immediate time
-out since the signed bit is what is being used in "time_after" to
-determine if we crossed the boundary or not.
-
-- Alex
+diff --git a/ethtool.8.in b/ethtool.8.in
+index aad96b7..13bc8b1 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -835,6 +835,13 @@ lB	l.
+ 0 or higher	Rx queue to route the flow
+ .TE
+ .TP
++.BI vf \ N
++Specifies the Virtual Function the filter applies to. A value of 0 indicates
++the PF, and thus the VF index is offset by 1. Not compatible with action.
++.TP
++.BI queue \ N
++Specifies the Rx queue to send packets to. Not compatible with action.
++.TP
+ .BI loc \ N
+ Specify the location/ID to insert the rule. This will overwrite
+ any rule present in that location and will not go through any
+diff --git a/rxclass.c b/rxclass.c
+index c7bfeba..ebc3e1a 100644
+--- a/rxclass.c
++++ b/rxclass.c
+@@ -247,11 +247,19 @@ static void rxclass_print_nfc_rule(struct ethtool_rx_flow_spec *fsp)
+ 
+ 	rxclass_print_nfc_spec_ext(fsp);
+ 
+-	if (fsp->ring_cookie != RX_CLS_FLOW_DISC)
+-		fprintf(stdout, "\tAction: Direct to queue %llu\n",
+-			fsp->ring_cookie);
+-	else
++	if (fsp->ring_cookie != RX_CLS_FLOW_DISC) {
++		u64 vf = ethtool_get_flow_spec_ring_vf(fsp->ring_cookie);
++		u64 queue = ethtool_get_flow_spec_ring(fsp->ring_cookie);
++
++		if (vf)
++			fprintf(stdout, "\tAction: Direct to queue %llu\n",
++				queue);
++		else
++			fprintf(stdout, "\tAction: Direct to VF %llu queue %llu\n",
++				vf, queue);
++	} else {
+ 		fprintf(stdout, "\tAction: Drop\n");
++	}
+ 
+ 	fprintf(stdout, "\n");
+ }
+@@ -600,6 +608,8 @@ typedef enum {
+ 	OPT_U16,
+ 	OPT_U32,
+ 	OPT_U64,
++	OPT_RING_VF,
++	OPT_RING_QUEUE,
+ 	OPT_BE16,
+ 	OPT_BE32,
+ 	OPT_BE64,
+@@ -608,19 +618,21 @@ typedef enum {
+ 	OPT_MAC,
+ } rule_opt_type_t;
+ 
+-#define NFC_FLAG_RING		0x001
+-#define NFC_FLAG_LOC		0x002
+-#define NFC_FLAG_SADDR		0x004
+-#define NFC_FLAG_DADDR		0x008
+-#define NFC_FLAG_SPORT		0x010
+-#define NFC_FLAG_DPORT		0x020
+-#define NFC_FLAG_SPI		0x030
+-#define NFC_FLAG_TOS		0x040
+-#define NFC_FLAG_PROTO		0x080
+-#define NTUPLE_FLAG_VLAN	0x100
+-#define NTUPLE_FLAG_UDEF	0x200
+-#define NTUPLE_FLAG_VETH	0x400
+-#define NFC_FLAG_MAC_ADDR	0x800
++#define NFC_FLAG_RING		0x0001
++#define NFC_FLAG_LOC		0x0002
++#define NFC_FLAG_SADDR		0x0004
++#define NFC_FLAG_DADDR		0x0008
++#define NFC_FLAG_SPORT		0x0010
++#define NFC_FLAG_DPORT		0x0020
++#define NFC_FLAG_SPI		0x0030
++#define NFC_FLAG_TOS		0x0040
++#define NFC_FLAG_PROTO		0x0080
++#define NTUPLE_FLAG_VLAN	0x0100
++#define NTUPLE_FLAG_UDEF	0x0200
++#define NTUPLE_FLAG_VETH	0x0400
++#define NFC_FLAG_MAC_ADDR	0x0800
++#define NFC_FLAG_RING_VF	0x1000
++#define NFC_FLAG_RING_QUEUE	0x2000
+ 
+ struct rule_opts {
+ 	const char	*name;
+@@ -648,6 +660,10 @@ static const struct rule_opts rule_nfc_tcp_ip4[] = {
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.tcp_ip4_spec.pdst) },
+ 	{ "action", OPT_U64, NFC_FLAG_RING,
+ 	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "vf", OPT_RING_VF, NFC_FLAG_RING_VF,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "queue", OPT_RING_QUEUE, NFC_FLAG_RING_QUEUE,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
+ 	{ "loc", OPT_U32, NFC_FLAG_LOC,
+ 	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
+ 	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
+@@ -679,6 +695,10 @@ static const struct rule_opts rule_nfc_esp_ip4[] = {
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.esp_ip4_spec.spi) },
+ 	{ "action", OPT_U64, NFC_FLAG_RING,
+ 	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "vf", OPT_RING_VF, NFC_FLAG_RING_VF,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "queue", OPT_RING_QUEUE, NFC_FLAG_RING_QUEUE,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
+ 	{ "loc", OPT_U32, NFC_FLAG_LOC,
+ 	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
+ 	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
+@@ -722,6 +742,10 @@ static const struct rule_opts rule_nfc_usr_ip4[] = {
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip4_spec.l4_4_bytes) + 2 },
+ 	{ "action", OPT_U64, NFC_FLAG_RING,
+ 	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "vf", OPT_RING_VF, NFC_FLAG_RING_VF,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "queue", OPT_RING_QUEUE, NFC_FLAG_RING_QUEUE,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
+ 	{ "loc", OPT_U32, NFC_FLAG_LOC,
+ 	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
+ 	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
+@@ -756,6 +780,10 @@ static const struct rule_opts rule_nfc_tcp_ip6[] = {
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.tcp_ip6_spec.pdst) },
+ 	{ "action", OPT_U64, NFC_FLAG_RING,
+ 	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "vf", OPT_RING_VF, NFC_FLAG_RING_VF,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "queue", OPT_RING_QUEUE, NFC_FLAG_RING_QUEUE,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
+ 	{ "loc", OPT_U32, NFC_FLAG_LOC,
+ 	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
+ 	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
+@@ -787,6 +815,10 @@ static const struct rule_opts rule_nfc_esp_ip6[] = {
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.esp_ip6_spec.spi) },
+ 	{ "action", OPT_U64, NFC_FLAG_RING,
+ 	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "vf", OPT_RING_VF, NFC_FLAG_RING_VF,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "queue", OPT_RING_QUEUE, NFC_FLAG_RING_QUEUE,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
+ 	{ "loc", OPT_U32, NFC_FLAG_LOC,
+ 	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
+ 	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
+@@ -830,6 +862,10 @@ static const struct rule_opts rule_nfc_usr_ip6[] = {
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.l4_4_bytes) + 2 },
+ 	{ "action", OPT_U64, NFC_FLAG_RING,
+ 	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "vf", OPT_RING_VF, NFC_FLAG_RING_VF,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "queue", OPT_RING_QUEUE, NFC_FLAG_RING_QUEUE,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
+ 	{ "loc", OPT_U32, NFC_FLAG_LOC,
+ 	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
+ 	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
+@@ -858,6 +894,10 @@ static const struct rule_opts rule_nfc_ether[] = {
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_proto) },
+ 	{ "action", OPT_U64, NFC_FLAG_RING,
+ 	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "vf", OPT_RING_VF, NFC_FLAG_RING_VF,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "queue", OPT_RING_QUEUE, NFC_FLAG_RING_QUEUE,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
+ 	{ "loc", OPT_U32, NFC_FLAG_LOC,
+ 	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
+ 	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
+@@ -1002,6 +1042,24 @@ static int rxclass_get_val(char *str, unsigned char *p, u32 *flags,
+ 			*(u64 *)&p[opt->moffset] = (u64)mask;
+ 		break;
+ 	}
++	case OPT_RING_VF: {
++		unsigned long long val;
++		err = rxclass_get_ulong(str, &val, 8);
++		if (err)
++			return -1;
++		*(u64 *)&p[opt->offset] &= ~ETHTOOL_RX_FLOW_SPEC_RING_VF;
++		*(u64 *)&p[opt->offset] = (u64)val << ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF;
++		break;
++	}
++	case OPT_RING_QUEUE: {
++		unsigned long long val;
++		err = rxclass_get_ulong(str, &val, 32);
++		if (err)
++			return -1;
++		*(u64 *)&p[opt->offset] &= ~ETHTOOL_RX_FLOW_SPEC_RING;
++		*(u64 *)&p[opt->offset] |= (u64)val;
++		break;
++	}
+ 	case OPT_BE16: {
+ 		unsigned long long val;
+ 		err = rxclass_get_ulong(str, &val, 16);
+@@ -1320,6 +1378,16 @@ int rxclass_parse_ruleopts(struct cmd_context *ctx,
+ 		}
+ 	}
+ 
++	if ((flags & NFC_FLAG_RING) && (flags & NFC_FLAG_RING_QUEUE)) {
++		fprintf(stderr, "action and queue are not compatible\n");
++			return -1;
++	}
++
++	if ((flags & NFC_FLAG_RING) && (flags & NFC_FLAG_RING_VF)) {
++		fprintf(stderr, "action and vf are not compatible\n");
++			return -1;
++	}
++
+ 	if (flow_type == IPV4_USER_FLOW)
+ 		fsp->h_u.usr_ip4_spec.ip_ver = ETH_RX_NFC_IP4;
+ 	if (flags & (NTUPLE_FLAG_VLAN | NTUPLE_FLAG_UDEF | NTUPLE_FLAG_VETH))
+-- 
+2.12.0
