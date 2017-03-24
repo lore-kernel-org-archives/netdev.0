@@ -1,43 +1,46 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [net-next PATCH v2 5/8] net: Track start of busy loop instead
- of when it should end
-Date: Fri, 24 Mar 2017 04:16:50 -0700
-Message-ID: <1490354210.9687.44.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170323211820.12615.88907.stgit@localhost.localdomain>
-         <20170323213742.12615.85793.stgit@localhost.localdomain>
-         <1490318682.9687.22.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAKgT0Ue+UFOAhwxN-EOjWYZa9YZc2QaT5gvoLap70COs0rF7NA@mail.gmail.com>
-         <1490329655.9687.33.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAKgT0UfQPLqHtZ_SjanbLoG6t5f36C4nsORuw6yjLT0xZrEoEQ@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
+Date: Fri, 24 Mar 2017 12:17:36 +0100
+Message-ID: <20170324111736.GB22281@lunn.ch>
+References: <1eb1ee4c84f61ff8dbc3f398f2e3f9b0bea3ee30.1489766674.git.jpinto@synopsys.com>
+ <20170323171725.GA12548@ulmo.ba.sec>
+ <2ec8451b-4d12-d7ea-a2ce-4f1add382df4@synopsys.com>
+ <20170324074255.GB16730@lunn.ch>
+ <cb5f5af2-6375-111b-e1aa-da48b5c42595@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Samudrala, Sridhar" <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKgT0UfQPLqHtZ_SjanbLoG6t5f36C4nsORuw6yjLT0xZrEoEQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thierry Reding <thierry.reding@gmail.com>, davem@davemloft.net,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:59654 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932442AbdCXLRu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 07:17:50 -0400
+Content-Disposition: inline
+In-Reply-To: <cb5f5af2-6375-111b-e1aa-da48b5c42595@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-03-23 at 22:55 -0700, Alexander Duyck wrote:
+> Yes it would be fantastic to have a set of boards, but I rarely see this in any
+> maintainer :).
 
-> Right, but time_after assumes roll over.  When you are using a time
-> value based off of local_clock() >> 10, you don't ever roll over when
-> you do addition.  Just the clock rolls over.  At least on 64 bit
-> systems.
-> 
-> So if local time approaches something like all 1's, and we have
-> shifted it by 10 it is then the max it can ever reach is
-> 0x003FFFFFFFFFFFFF.  I can add our loop time to that and it won't roll
-> over.  In the mean time the busy_loop_us_ can never exceed whatever I
-> added to that so we are now locked into a loop.  I realize I am
-> probably being pedantic, and it will have an exceedingly small rate of
-> occurrence, but it is still an issue.
+Being a Marvell SoC and switch maintainer, i have around a dozen
+boards. Some i got some simply by asking the manufacture, others i
+purchased. I don't think i'm in the minority here. Without having
+access to a number of different hardwares, i don't feel i would be
+doing my work properly.
 
-Do you realize that a 64bit clock wont rollover before the host has
-reached 584 years of uptime ?
+> I try as hard as I can to network with people and try to minimize this
+> situations, but when there is so many different setups using a driver with diff
+> configurations, situations like this can happen, but I am here to help debugging
+> and solving them.
+
+You made a move to rename stmmac to synopsys not long ago. It gave the
+impression that synopsis wants to take over this driver. If there are
+a number of different configurations, who better than synopsys to
+actually properly test these configurations? If you ask around, i'm
+sure people will send you hardware.
+
+     Andrew
