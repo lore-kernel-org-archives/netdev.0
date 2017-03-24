@@ -1,81 +1,54 @@
-From: Denny Page <dennypage@me.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Fri, 24 Mar 2017 10:17:51 -0700
-Message-ID: <89CFCD8E-1A58-48C5-9D6E-99695502CFD9@me.com>
-References: <20170207140144.GA11233@localhost>
- <20170209080242.GA1698@localhost.localdomain>
- <20170209110941.GA1449@localhost> <20170323162145.GB8192@localhost>
- <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com> <20170324094530.GE8192@localhost>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-        Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
+Date: Fri, 24 Mar 2017 17:19:00 +0000
+Message-ID: <9dfc9239-4146-3b4e-a2b1-f82cdff2b78e@synopsys.com>
+References: <abf8722f-5d3a-0bae-d6cd-6cc6fbb744cb@synopsys.com>
+ <748685e5-86f8-5f6b-66db-04ec96af4bd6@synopsys.com>
+ <20170324.101734.2195203757001166516.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <clabbe.montjoie@gmail.com>, <thierry.reding@gmail.com>,
+        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+        <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from st11p06im-asmtp002.me.com ([17.172.125.150]:38720 "EHLO
-        st11p06im-asmtp002.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966927AbdCXRR7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:17:59 -0400
-Received: from process-dkim-sign-daemon.st11p06im-asmtp002.me.com by
- st11p06im-asmtp002.me.com
- (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
- id <0ONB00P00WT3G000@st11p06im-asmtp002.me.com> for netdev@vger.kernel.org;
- Fri, 24 Mar 2017 17:17:55 +0000 (GMT)
-In-reply-to: <20170324094530.GE8192@localhost>
+Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:48817 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966918AbdCXRTW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:19:22 -0400
+In-Reply-To: <20170324.101734.2195203757001166516.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Às 5:17 PM de 3/24/2017, David Miller escreveu:
+> From: Joao Pinto <Joao.Pinto@synopsys.com>
+> Date: Fri, 24 Mar 2017 15:02:27 +0000
+> 
+>> Yes, I agree, it is better to revert and leave the tree functional for all.
+>>
+>> @David Miller:
+>> The multiple-buffer patch introduced some problems in some setups that are being
+>> hard to debug, so Corentin gave the idea of reverting the until
+>> commit 7bac4e1ec3ca2342929a39638d615c6b672c27a0 (net: stmmac: stmmac interrupt
+>> treatment prepared for multiple queues), which I fully agree.
+>>
+>> In my setup is ok, but the idea is to have everyone's setup working :), so lets
+>> break them into smaller pieces, and let's only apply them when everyone confirms
+>> that is working ok in your setups, agree?
+>>
+>> What is the typical mechanism for this? I send a patch reverting them?
+> 
+> If you can compose a single "git revert" command to achieve this, just
+> tell me what it is and I'll do it.
+> 
+> Otherwise send a patch that does the revert.
 
-> On Mar 24, 2017, at 02:45, Miroslav Lichvar <mlichvar@redhat.com> =
-wrote:
->=20
-> On Thu, Mar 23, 2017 at 10:08:00AM -0700, Denny Page wrote:
->>> On Mar 23, 2017, at 09:21, Miroslav Lichvar <mlichvar@redhat.com> =
-wrote:
->>>=20
->>> After becoming a bit more familiar with the code I don't think this =
-is
->>> a good idea anymore :). I suspect there would be a noticeable
->>> performance impact if each timestamped packet could trigger reading =
-of
->>> the current link speed. If the value had to be cached it would make
->>> more sense to do it in the application.
->>=20
->> I am very surprised at this. The application caching approach =
-requires the application retrieve the value via a system call. The =
-system call overhead is huge in comparison to everything else. More =
-importantly, the application cached value may be wrong. If the =
-application takes a sample every 5 seconds, there are 5 seconds of =
-timestamps that can be wildly wrong.
->=20
-> I'm just trying to be practical and minimize the performance impact
-> and the amount of code that needs to be written, reviewed and
-> maintained.
->=20
-> How common is to have link speed changing in normal operation on LAN?
+Ok, I sent 2 patches with fixes. Let's see if you get some happy clients.
+If not, I will inform the commit id to revert.
 
-In my case, it=E2=80=99s currently every few minutes because I=E2=80=99m =
-doing hw timestamp testing. :)
+Thanks David.
 
-But this does speak to my point. If it=E2=80=99s cached by the =
-application, the application has to check it regularly to minimize the =
-possibility of bad timestamps. If the link speed doesn=E2=80=99t change, =
-every call by the application is wasted overhead. If it=E2=80=99s cached =
-by the driver, there is no waste, and the stamps are always correct.
-
-I should have remembered this yesterday... I went and looked at my =
-favorite driver, Intel's igb. Not only is the igb driver already caching =
-link speed, it is also performing timestamp correction based on that =
-link speed. It appears that all Intel drivers are caching link speed. I =
-looked at a few other popular manufacturers, and it appears that caching =
-link speed is common. The only one I quickly found that didn=E2=80=99t =
-cache was realtek.
-
-I believe that timestamp correction, whether it be speed based latency, =
-header -> trailer, or whatever else might be needed later down the line, =
-are properly done in the driver. It=E2=80=99s a lot for the application =
-to try and figure out if it should or should not be doing corrections =
-and what correction to apply. The driver knows.
+> 
+> Thanks.
+> 
