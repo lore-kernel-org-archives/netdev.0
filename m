@@ -1,46 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sched: act_csum: don't mangle TCP and UDP GSO
- packets
-Date: Thu, 23 Mar 2017 17:40:57 -0700 (PDT)
-Message-ID: <20170323.174057.898674889050712997.davem@davemloft.net>
-References: <4e8409b7761a7b545febde6d2fcce0cbe7d0e759.1490261581.git.dcaratti@redhat.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH] e1000e: fix timing for 82579 Gigabit Ethernet controller
+Date: Fri, 24 Mar 2017 00:43:12 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C5DC96A@ORSMSX101.amr.corp.intel.com>
+References: <1487270527-4549-1-git-send-email-berndfaust@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: dcaratti@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+To: Bernd Faust <berndfaust@gmail.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "Lubetkin, YanirX" <yanirx.lubetkin@intel.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60360 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756876AbdCXAtA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 20:49:00 -0400
-In-Reply-To: <4e8409b7761a7b545febde6d2fcce0cbe7d0e759.1490261581.git.dcaratti@redhat.com>
+Received: from mga02.intel.com ([134.134.136.20]:43749 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756896AbdCXAtD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 23 Mar 2017 20:49:03 -0400
+In-Reply-To: <1487270527-4549-1-git-send-email-berndfaust@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Davide Caratti <dcaratti@redhat.com>
-Date: Thu, 23 Mar 2017 10:39:40 +0100
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Bernd Faust
+> Sent: Thursday, February 16, 2017 10:42 AM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; Lubetkin, YanirX
+> <yanirx.lubetkin@intel.com>; intel-wired-lan@lists.osuosl.org;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Cc: Bernd Faust <berndfaust@gmail.com>
+> Subject: [PATCH] e1000e: fix timing for 82579 Gigabit Ethernet controller
+>=20
+> After an upgrade to Linux kernel v4.x the hardware timestamps of the
+> 82579 Gigabit Ethernet Controller are different than expected.
+> The values that are being read are almost four times as big as before
+> the kernel upgrade.
+>=20
+> The difference is that after the upgrade the driver sets the clock
+> frequency to 25MHz, where before the upgrade it was set to 96MHz. Intel
+> confirmed that the correct frequency for this network adapter is 96MHz.
+>=20
+> Signed-off-by: Bernd Faust <berndfaust@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
 
-> after act_csum computes the checksum on skbs carrying GSO TCP/UDP packets,
-> subsequent segmentation fails because skb_needs_check(skb, true) returns
-> true. Because of that, skb_warn_bad_offload() is invoked and the following
-> message is displayed:
-> 
-> WARNING: CPU: 3 PID: 28 at net/core/dev.c:2553 skb_warn_bad_offload+0xf0/0xfd
-> <...>
-> 
->   [<ffffffff8171f486>] skb_warn_bad_offload+0xf0/0xfd
->   [<ffffffff8161304c>] __skb_gso_segment+0xec/0x110
->   [<ffffffff8161340d>] validate_xmit_skb+0x12d/0x2b0
->   [<ffffffff816135d2>] validate_xmit_skb_list+0x42/0x70
->   [<ffffffff8163c560>] sch_direct_xmit+0xd0/0x1b0
->   [<ffffffff8163c760>] __qdisc_run+0x120/0x270
->   [<ffffffff81613b3d>] __dev_queue_xmit+0x23d/0x690
->   [<ffffffff81613fa0>] dev_queue_xmit+0x10/0x20
-> 
-> Since GSO is able to compute checksum on individual segments of such skbs,
-> we can simply skip mangling the packet.
-> 
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
-
-Seems reasonable, applied, thanks.
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
