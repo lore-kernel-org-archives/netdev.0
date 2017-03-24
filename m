@@ -1,79 +1,109 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net] Revert "e1000e: driver trying to free already-free irq"
-Date: Thu, 23 Mar 2017 20:57:26 -0700
-Message-ID: <1490327846.5679.24.camel@intel.com>
-References: <20170324034715.72855-1-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [net-next PATCH v2 5/8] net: Track start of busy loop instead
+ of when it should end
+Date: Thu, 23 Mar 2017 21:27:35 -0700
+Message-ID: <1490329655.9687.33.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170323211820.12615.88907.stgit@localhost.localdomain>
+         <20170323213742.12615.85793.stgit@localhost.localdomain>
+         <1490318682.9687.22.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAKgT0Ue+UFOAhwxN-EOjWYZa9YZc2QaT5gvoLap70COs0rF7NA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-fb+xttE9NqN1p/VBuXi6"
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: davem@davemloft.net, stable@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170324034715.72855-1-jeffrey.t.kirsher@intel.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "Samudrala, Sridhar" <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKgT0Ue+UFOAhwxN-EOjWYZa9YZc2QaT5gvoLap70COs0rF7NA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2017-03-23 at 20:42 -0700, Alexander Duyck wrote:
+> On Thu, Mar 23, 2017 at 6:24 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > On Thu, 2017-03-23 at 14:37 -0700, Alexander Duyck wrote:
+> >> From: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> >>
+> >
+> >> The last bit I changed is to move from using a shift by 10 to just using
+> >> NSEC_PER_USEC and using multiplication for any run time calculations and
+> >> division for a few compile time ones.  This should be more accurate and
+> >> perform about the same on most architectures since modern CPUs typically
+> >> handle multiplication without too much overhead.
+> >
+> >
+> > busy polling thread can be preempted for more than 2 seconds.
+> 
+> If it is preempted is the timing value even valid anymore?  I was
+> wondering about that.  Also when preemption is enabled is there
+> anything to prevent us from being migrated to a CPU?  If so what do we
+> do about architectures that allow drift between the clocks?
+> 
+> > Using usec instead of nanoseconds gave us 3 orders of magnitude cushion.
+> 
+> Yes, but the problem is we also opened up an issue where if the clock
+> was approaching a roll-over we could add a value to it that would put
+> us in a state where we would never time out.
 
---=-fb+xttE9NqN1p/VBuXi6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+If you believe there is a bug, send a fix for net tree ?
 
-On Thu, 2017-03-23 at 20:47 -0700, Jeff Kirsher wrote:
-> This reverts commit 7e54d9d063fa239c95c21548c5267f0ef419ff56.
->=20
-> After additional regression testing, several users are experiencing
-> kernel panics during shutdown on e1000e devices.=C2=A0=C2=A0Reverting thi=
-s
-> change resolves the issue.
->=20
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+I really do not see a bug, given we use time_after(now, end_time) which
+handles roll-over just fine.
 
-CC: <stable@vger.kernel.org>
 
-Sorry, meant to queue this up for stable as well.
 
-> ---
-> =C2=A0drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
-> =C2=A01 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
-> b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index 2175cced402f..e9af89ad039c 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -6274,8 +6274,8 @@ static int e1000e_pm_freeze(struct device *dev)
-> =C2=A0		/* Quiesce the device without resetting the hardware
-> */
-> =C2=A0		e1000e_down(adapter, false);
-> =C2=A0		e1000_free_irq(adapter);
-> -		e1000e_reset_interrupt_capability(adapter);
-> =C2=A0	}
-> +	e1000e_reset_interrupt_capability(adapter);
-> =C2=A0
-> =C2=A0	/* Allow time for pending master requests to run */
-> =C2=A0	e1000e_disable_pcie_master(&adapter->hw);
+> 
+> > We do not need nsec accuracy for busy polling users, if this restricts
+> > range and usability under stress.
+> 
+> Yes and no.  So the standard use cases suggest using values of 50 to
+> 100 microseconds.  I suspect that for most people that is probably
+> what they are using.  The addition of preemption kind of threw a
+> wrench in the works because now instead of spending that time busy
+> polling you can get preempted and then are off doing something else
+> for the entire period of time.
 
---=-fb+xttE9NqN1p/VBuXi6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+That is fine. Busy polling heavy users are pinning threads to cpu, and
+the re-schedule check is basically a way to make sure ksoftirqd will get
+a chance to service BH.
 
------BEGIN PGP SIGNATURE-----
+> 
+> What would you think of changing this so that instead of tracking the
+> total time this function is active, instead we tracked the total time
+> we spent with preemption disabled?  What I would do is move the
+> start_time configuration to just after the preempt_disable() call.
+> Then if we end up yielding to another thread we would just reset the
+> start_time when we restarted instead of trying to deal with all the
+> extra clock nonsense that we would have to deal with otherwise since I
+> don't know if we actually want to count time where we aren't actually
+> doing anything.  In addition this would bring us closer to how NAPI
+> already works since it essentially will either find an event, or if we
+> time out we hand it off to the softirq which in turn can handle it or
+> hand it off to softirqd.  The only item that might be a bit more
+> difficult to deal with then would be the way the times are used in
+> fs/select.c but I don't know if that is really the right way to go
+> anyway. With the preemption changes and such it might just make sense
+> to drop those bits and rely on just the socket polling alone.
+> 
+> The other option is to switch over everything from using unsigned long
+> to using uint64_t and time_after64.  Then we can guarantee the range
+> needed and then some, but then we are playing with a u64 time value on
+> 32b architectures which might be a bit more expensive.  Even with that
+> though I still need to clean up the sysctl since it doesn't make sense
+> to allow negative values for the busy_poll usec to be used which is
+> currently the case.
+> 
+> Anyway let me know what you think and I can probably spin out a new
+> set tomorrow.
 
-iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAljUmSYACgkQ5W/vlVpL
-7c5TjA/+I6HFJLXFq3y5JgHeH9Jgeycp7mPp3euJ4s0XO8ktIQRr76OXGTb+ocKd
-QwFXEQo4o7Bl9w+3ZQFDEcL/uIaWf6ZhWSCYMBMj7SlwV4jdGv2lMFz+cES5P0Nb
-uwPzRNIqpk4b4tU6EYppu9Wt/9EltjOCPd2YVkFt/fJOmwvwmSD5mJ7dfMgn0tG4
-yZoP+XByrV2ciosudrjCjnNekpxBPhj0TGucqMG9nEthFUosvNWso9tAas5Ddq48
-Db1Z3UjZAlr9xgx/UXB+rH0C9vHl06sRKCVlGAVVeIQk9SzBIpiIPe1/GLnf5ZNO
-v60hwwwmg7l7cnIzKSwUoTfzvpabmJNeVNgZch58+IaOuXwlGbjXOEY4YYLExS3r
-zq2FrKyuRWFz8lKyH1D73jqOvh6r7BvOWLpCec2oDaIdMXhoPzcCOJkBZHScZgqw
-mHQeJdEwWxsxabr5pryk8vjoVhFj4+Y1K+ygu4426LhQuGZFX638HnrL2bdmozcV
-UzNBsyAse9vhIaUrcrXG4ybBcfMBqtJtVKGXjwjFy0inP9ke40J+eqTC8xC72Ah2
-1Ejx2M1W0kXkn3Mh+DtEdUDVqLNPJl6eMObopS1noF27BOsm2sRKn+hB083f4wqg
-4icTpMU6LY5QdMikIqkKBTapncSVT5jS82IhpZ5zZklugkyGDts=
-=H6vG
------END PGP SIGNATURE-----
 
---=-fb+xttE9NqN1p/VBuXi6--
+Leave usec resolution, I see no point switching to nsec, as long we
+support 32bit kernels.
+
+If you believe min/max values should be added to the sysctls, because we
+do not trust root anymore, please send patches only addressing that. 
+
+Thanks.
