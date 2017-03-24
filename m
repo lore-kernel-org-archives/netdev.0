@@ -1,28 +1,26 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
-Date: Fri, 24 Mar 2017 14:59:26 +0000
-Message-ID: <abf8722f-5d3a-0bae-d6cd-6cc6fbb744cb@synopsys.com>
-References: <1eb1ee4c84f61ff8dbc3f398f2e3f9b0bea3ee30.1489766674.git.jpinto@synopsys.com>
- <20170323171725.GA12548@ulmo.ba.sec>
- <2ec8451b-4d12-d7ea-a2ce-4f1add382df4@synopsys.com>
- <20170323181059.GA4249@ulmo.ba.sec> <20170324140937.GB15844@Red>
+Subject: Fwd: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
+Date: Fri, 24 Mar 2017 15:02:27 +0000
+Message-ID: <748685e5-86f8-5f6b-66db-04ec96af4bd6@synopsys.com>
+References: <abf8722f-5d3a-0bae-d6cd-6cc6fbb744cb@synopsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <peppe.cavallaro@st.com>,
-        <alexandre.torgue@st.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>
-To: Corentin Labbe <clabbe.montjoie@gmail.com>,
-        Thierry Reding <thierry.reding@gmail.com>,
-        <Joao.Pinto@synopsys.com>
+Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+        <f.fainelli@gmail.com>, netdev <netdev@vger.kernel.org>
+To: <clabbe.montjoie@gmail.com>, <thierry.reding@gmail.com>,
+        <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:43861 "EHLO
+Received: from smtprelay.synopsys.com ([198.182.47.9]:56969 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750995AbdCXPAY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 11:00:24 -0400
-In-Reply-To: <20170324140937.GB15844@Red>
+        with ESMTP id S936052AbdCXPMN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 11:12:13 -0400
+In-Reply-To: <abf8722f-5d3a-0bae-d6cd-6cc6fbb744cb@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+
+Sorry, sending again with David Miller in TO: instead of CC.
 
 Às 2:09 PM de 3/24/2017, Corentin Labbe escreveu:
 > On Thu, Mar 23, 2017 at 07:10:59PM +0100, Thierry Reding wrote:
