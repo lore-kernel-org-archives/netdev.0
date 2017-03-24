@@ -1,239 +1,226 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/10] i40e: allow changing input set for ntuple filters
-Date: Thu, 23 Mar 2017 22:14:26 -0700
-Message-ID: <20170324051432.79216-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/10] i40e: add parsing of flexible filter fields from userdef
+Date: Thu, 23 Mar 2017 22:14:28 -0700
+Message-ID: <20170324051432.79216-7-jeffrey.t.kirsher@intel.com>
 References: <20170324051432.79216-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:32063 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:53066 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751991AbdCXFOk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 01:14:40 -0400
+        id S1752325AbdCXFOl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 01:14:41 -0400
 In-Reply-To: <20170324051432.79216-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Add support to detect when we can update the input set for each flow
-type.
+Add code to parse the user-def field into a data structure format. This
+code is intended to allow future extensions of the user-def field by
+keeping all code that actually reads and writes the field into a single
+location. This ensures that we do not litter the driver with references
+to the user-def field and minimizes the amount of bitwise operations we
+need to do on the data.
 
-Because the hardware only supports a single input set for all flows of
-that matching type, the driver shall only allow the input set to change
-if there are no other configured filters for that flow type.
+Add code which parses the lower 32bits into a flexible word and its
+offset. This will be used in a future patch to enable flexible filters
+which can match on some arbitrary data in the packet payload. For now,
+we just return -EOPNOTSUPP when this is used.
 
-Thus, the first filter added for each flow type is allowed to change the
-input set, and all future filters must match the same input set. Display
-a diagnostic message whenever the filter input set changes, and
-a warning whenever a filter cannot be accepted because it does not match
-the configured input set.
+Add code to fill in the user-def field when reporting the filter back,
+even though we don't actually implement any user-def fields yet.
 
-Change-Id: Ic22e1c267ae37518bb036aca4a5694681449f283
+Additionally, ensure that we mask the extended FLOW_EXT bit from the
+flow_type now that we will be accepting filters which have the FLOW_EXT
+bit set (and thus make use of the user-def field).
+
+Change-Id: I238845035c179380a347baa8db8223304f5f6dd7
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 148 ++++++++++++++++++++++++-
- 1 file changed, 145 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |   9 ++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 110 ++++++++++++++++++++++++-
+ 2 files changed, 118 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 95b1a1e7b906..3bf0e7ed4eda 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -202,6 +202,15 @@ enum i40e_fd_stat_idx {
+ #define I40E_FD_ATR_TUNNEL_STAT_IDX(pf_id) \
+ 			(I40E_FD_STAT_PF_IDX(pf_id) + I40E_FD_STAT_ATR_TUNNEL)
+ 
++/* The following structure contains the data parsed from the user-defined
++ * field of the ethtool_rx_flow_spec structure.
++ */
++struct i40e_rx_flow_userdef {
++	bool flex_filter;
++	u16 flex_word;
++	u16 flex_offset;
++};
++
+ struct i40e_fdir_filter {
+ 	struct hlist_node fdir_node;
+ 	/* filter ipnut set */
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 1815c149040f..a2ef49084d46 100644
+index 44b4a2fe9fb6..f04a06d0dbf8 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2757,11 +2757,107 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+@@ -2332,6 +2332,102 @@ static int i40e_get_rss_hash_opts(struct i40e_pf *pf, struct ethtool_rxnfc *cmd)
  }
  
  /**
-+ * i40e_flow_str - Converts a flow_type into a human readable string
-+ * @flow_type: the flow type from a flow specification
++ * i40e_check_mask - Check whether a mask field is set
++ * @mask: the full mask value
++ * @field; mask of the field to check
 + *
-+ * Currently only flow types we support are included here, and the string
-+ * value attempts to match what ethtool would use to configure this flow type.
++ * If the given mask is fully set, return positive value. If the mask for the
++ * field is fully unset, return zero. Otherwise return a negative error code.
 + **/
-+static const char *i40e_flow_str(struct ethtool_rx_flow_spec *fsp)
++static int i40e_check_mask(u64 mask, u64 field)
 +{
-+	switch (fsp->flow_type & ~FLOW_EXT) {
-+	case TCP_V4_FLOW:
-+		return "tcp4";
-+	case UDP_V4_FLOW:
-+		return "udp4";
-+	case SCTP_V4_FLOW:
-+		return "sctp4";
-+	case IP_USER_FLOW:
-+		return "ip4";
-+	default:
-+		return "unknown";
-+	}
++	u64 value = mask & field;
++
++	if (value == field)
++		return 1;
++	else if (!value)
++		return 0;
++	else
++		return -1;
 +}
 +
 +/**
-+ * i40e_print_input_set - Show changes between two input sets
-+ * @vsi: the vsi being configured
-+ * @old: the old input set
-+ * @new: the new input set
++ * i40e_parse_rx_flow_user_data - Deconstruct user-defined data
++ * @fsp: pointer to rx flow specification
++ * @data: pointer to userdef data structure for storage
 + *
-+ * Print the difference between old and new input sets by showing which series
-+ * of words are toggled on or off. Only displays the bits we actually support
-+ * changing.
++ * Read the user-defined data and deconstruct the value into a structure. No
++ * other code should read the user-defined data, so as to ensure that every
++ * place consistently reads the value correctly.
++ *
++ * The user-defined field is a 64bit Big Endian format value, which we
++ * deconstruct by reading bits or bit fields from it. Single bit flags shall
++ * be defined starting from the highest bits, while small bit field values
++ * shall be defined starting from the lowest bits.
++ *
++ * Returns 0 if the data is valid, and non-zero if the userdef data is invalid
++ * and the filter should be rejected. The data structure will always be
++ * modified even if FLOW_EXT is not set.
++ *
 + **/
-+static void i40e_print_input_set(struct i40e_vsi *vsi, u64 old, u64 new)
++static int i40e_parse_rx_flow_user_data(struct ethtool_rx_flow_spec *fsp,
++					struct i40e_rx_flow_userdef *data)
 +{
-+	struct i40e_pf *pf = vsi->back;
-+	bool old_value, new_value;
++	u64 value, mask;
++	int valid;
 +
-+	old_value = !!(old & I40E_L3_SRC_MASK);
-+	new_value = !!(new & I40E_L3_SRC_MASK);
-+	if (old_value != new_value)
-+		netif_info(pf, drv, vsi->netdev, "L3 source address: %s -> %s\n",
-+			   old_value ? "ON" : "OFF",
-+			   new_value ? "ON" : "OFF");
++	/* Zero memory first so it's always consistent. */
++	memset(data, 0, sizeof(*data));
 +
-+	old_value = !!(old & I40E_L3_DST_MASK);
-+	new_value = !!(new & I40E_L3_DST_MASK);
-+	if (old_value != new_value)
-+		netif_info(pf, drv, vsi->netdev, "L3 destination address: %s -> %s\n",
-+			   old_value ? "ON" : "OFF",
-+			   new_value ? "ON" : "OFF");
-+
-+	old_value = !!(old & I40E_L4_SRC_MASK);
-+	new_value = !!(new & I40E_L4_SRC_MASK);
-+	if (old_value != new_value)
-+		netif_info(pf, drv, vsi->netdev, "L4 source port: %s -> %s\n",
-+			   old_value ? "ON" : "OFF",
-+			   new_value ? "ON" : "OFF");
-+
-+	old_value = !!(old & I40E_L4_DST_MASK);
-+	new_value = !!(new & I40E_L4_DST_MASK);
-+	if (old_value != new_value)
-+		netif_info(pf, drv, vsi->netdev, "L4 destination port: %s -> %s\n",
-+			   old_value ? "ON" : "OFF",
-+			   new_value ? "ON" : "OFF");
-+
-+	old_value = !!(old & I40E_VERIFY_TAG_MASK);
-+	new_value = !!(new & I40E_VERIFY_TAG_MASK);
-+	if (old_value != new_value)
-+		netif_info(pf, drv, vsi->netdev, "SCTP verification tag: %s -> %s\n",
-+			   old_value ? "ON" : "OFF",
-+			   new_value ? "ON" : "OFF");
-+
-+	netif_info(pf, drv, vsi->netdev, "  Current input set: %0llx\n",
-+		   old);
-+	netif_info(pf, drv, vsi->netdev, "Requested input set: %0llx\n",
-+		   new);
-+}
-+
-+/**
-  * i40e_check_fdir_input_set - Check that a given rx_flow_spec mask is valid
-  * @vsi: pointer to the targeted VSI
-  * @fsp: pointer to Rx flow specification
-  *
-- * Ensures that a given ethtool_rx_flow_spec has a valid mask.
-+ * Ensures that a given ethtool_rx_flow_spec has a valid mask. Some support
-+ * for partial matches exists with a few limitations. First, hardware only
-+ * supports masking by word boundary (2 bytes) and not per individual bit.
-+ * Second, hardware is limited to using one mask for a flow type and cannot
-+ * use a separate mask for each filter.
-+ *
-+ * To support these limitations, if we already have a configured filter for
-+ * the specified type, this function enforces that new filters of the type
-+ * match the configured input set. Otherwise, if we do not have a filter of
-+ * the specified type, we allow the input set to be updated to match the
-+ * desired filter.
-+ *
-+ * To help ensure that administrators understand why filters weren't displayed
-+ * as supported, we print a diagnostic message displaying how the input set
-+ * would change and warning to delete the preexisting filters if required.
-+ *
-+ * Returns 0 on successful input set match, and a negative return code on
-+ * failure.
-  **/
- static int i40e_check_fdir_input_set(struct i40e_vsi *vsi,
- 				     struct ethtool_rx_flow_spec *fsp)
-@@ -2770,17 +2866,21 @@ static int i40e_check_fdir_input_set(struct i40e_vsi *vsi,
- 	struct ethtool_tcpip4_spec *tcp_ip4_spec;
- 	struct ethtool_usrip4_spec *usr_ip4_spec;
- 	u64 current_mask, new_mask;
-+	u16 *fdir_filter_count;
- 	u16 index;
- 
- 	switch (fsp->flow_type & ~FLOW_EXT) {
- 	case TCP_V4_FLOW:
- 		index = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
-+		fdir_filter_count = &pf->fd_tcp4_filter_cnt;
- 		break;
- 	case UDP_V4_FLOW:
- 		index = I40E_FILTER_PCTYPE_NONF_IPV4_UDP;
-+		fdir_filter_count = &pf->fd_udp4_filter_cnt;
- 		break;
- 	case IP_USER_FLOW:
- 		index = I40E_FILTER_PCTYPE_NONF_IPV4_OTHER;
-+		fdir_filter_count = &pf->fd_ip4_filter_cnt;
- 		break;
- 	default:
- 		return -EOPNOTSUPP;
-@@ -2790,7 +2890,15 @@ static int i40e_check_fdir_input_set(struct i40e_vsi *vsi,
- 	current_mask = i40e_read_fd_input_set(pf, index);
- 	new_mask = current_mask;
- 
--	/* Verify the provided mask is valid. */
-+	/* Determine, if any, the required changes to the input set in order
-+	 * to support the provided mask.
-+	 *
-+	 * Hardware only supports masking at word (2 byte) granularity and does
-+	 * not support full bitwise masking. This implementation simplifies
-+	 * even further and only supports fully enabled or fully disabled
-+	 * masks for each field, even though we could split the ip4src and
-+	 * ip4dst fields.
-+	 */
- 	switch (fsp->flow_type & ~FLOW_EXT) {
- 	case TCP_V4_FLOW:
- 	case UDP_V4_FLOW:
-@@ -2877,8 +2985,42 @@ static int i40e_check_fdir_input_set(struct i40e_vsi *vsi,
- 		return -EOPNOTSUPP;
- 	}
- 
--	if (new_mask != current_mask)
-+	/* If the input set doesn't need any changes then this filter is safe
-+	 * to apply.
-+	 */
-+	if (new_mask == current_mask)
++	if (!(fsp->flow_type & FLOW_EXT))
 +		return 0;
 +
-+	netif_info(pf, drv, vsi->netdev, "Input set change requested for %s flows:\n",
-+		   i40e_flow_str(fsp));
-+	i40e_print_input_set(vsi, current_mask, new_mask);
++	value = be64_to_cpu(*((__be64 *)fsp->h_ext.data));
++	mask = be64_to_cpu(*((__be64 *)fsp->m_ext.data));
 +
-+	/* Hardware input sets are global across multiple ports, so even the
-+	 * main port cannot change them when in MFP mode as this would impact
-+	 * any filters on the other ports.
-+	 */
-+	if (pf->flags & I40E_FLAG_MFP_ENABLED) {
-+		netif_err(pf, drv, vsi->netdev, "Cannot change Flow Director input sets while MFP is enabled\n");
-+		return -EOPNOTSUPP;
++#define I40E_USERDEF_FLEX_WORD		GENMASK_ULL(15, 0)
++#define I40E_USERDEF_FLEX_OFFSET	GENMASK_ULL(31, 16)
++#define I40E_USERDEF_FLEX_FILTER	GENMASK_ULL(31, 0)
++
++	valid = i40e_check_mask(mask, I40E_USERDEF_FLEX_FILTER);
++	if (valid < 0) {
++		return -EINVAL;
++	} else if (valid) {
++		data->flex_word = value & I40E_USERDEF_FLEX_WORD;
++		data->flex_offset =
++			(value & I40E_USERDEF_FLEX_OFFSET) >> 16;
++		data->flex_filter = true;
 +	}
 +
-+	/* This filter requires us to update the input set. However, hardware
-+	 * only supports one input set per flow type, and does not support
-+	 * separate masks for each filter. This means that we can only support
-+	 * a single mask for all filters of a specific type.
-+	 *
-+	 * If we have preexisting filters, they obviously depend on the
-+	 * current programmed input set. Display a diagnostic message in this
-+	 * case explaining why the filter could not be accepted.
-+	 */
-+	if (*fdir_filter_count) {
-+		netif_err(pf, drv, vsi->netdev, "Cannot change input set for %s flows until %d preexisting filters are removed\n",
-+			  i40e_flow_str(fsp),
-+			  *fdir_filter_count);
- 		return -EOPNOTSUPP;
++	return 0;
++}
++
++/**
++ * i40e_fill_rx_flow_user_data - Fill in user-defined data field
++ * @fsp: pointer to rx_flow specification
++ *
++ * Reads the userdef data structure and properly fills in the user defined
++ * fields of the rx_flow_spec.
++ **/
++static void i40e_fill_rx_flow_user_data(struct ethtool_rx_flow_spec *fsp,
++					struct i40e_rx_flow_userdef *data)
++{
++	u64 value = 0, mask = 0;
++
++	if (data->flex_filter) {
++		value |= data->flex_word;
++		value |= (u64)data->flex_offset << 16;
++		mask |= I40E_USERDEF_FLEX_FILTER;
 +	}
 +
-+	i40e_write_fd_input_set(pf, index, new_mask);
++	if (value || mask)
++		fsp->flow_type |= FLOW_EXT;
++
++	*((__be64 *)fsp->h_ext.data) = cpu_to_be64(value);
++	*((__be64 *)fsp->m_ext.data) = cpu_to_be64(mask);
++}
++
++/**
+  * i40e_get_ethtool_fdir_all - Populates the rule count of a command
+  * @pf: Pointer to the physical function struct
+  * @cmd: The command to get or set Rx flow classification rules
+@@ -2382,6 +2478,7 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
+ {
+ 	struct ethtool_rx_flow_spec *fsp =
+ 			(struct ethtool_rx_flow_spec *)&cmd->fs;
++	struct i40e_rx_flow_userdef userdef = {0};
+ 	struct i40e_fdir_filter *rule = NULL;
+ 	struct hlist_node *node2;
+ 	u64 input_set;
+@@ -2468,6 +2565,8 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
+ 		}
+ 	}
  
++	i40e_fill_rx_flow_user_data(fsp, &userdef);
++
  	return 0;
  }
+ 
+@@ -3041,6 +3140,7 @@ static int i40e_check_fdir_input_set(struct i40e_vsi *vsi,
+ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 				 struct ethtool_rxnfc *cmd)
+ {
++	struct i40e_rx_flow_userdef userdef;
+ 	struct ethtool_rx_flow_spec *fsp;
+ 	struct i40e_fdir_filter *input;
+ 	u16 dest_vsi = 0, q_index = 0;
+@@ -3067,6 +3167,14 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 
+ 	fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
+ 
++	/* Parse the user-defined field */
++	if (i40e_parse_rx_flow_user_data(fsp, &userdef))
++		return -EINVAL;
++
++	/* Flexible filters not yet supported */
++	if (userdef.flex_filter)
++		return -EOPNOTSUPP;
++
+ 	/* Extended MAC field is not supported */
+ 	if (fsp->flow_type & FLOW_MAC_EXT)
+ 		return -EINVAL;
+@@ -3120,7 +3228,7 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 	input->cnt_index  = I40E_FD_SB_STAT_IDX(pf->hw.pf_id);
+ 	input->dst_ip = fsp->h_u.tcp_ip4_spec.ip4src;
+ 	input->src_ip = fsp->h_u.tcp_ip4_spec.ip4dst;
+-	input->flow_type = fsp->flow_type;
++	input->flow_type = fsp->flow_type & ~FLOW_EXT;
+ 	input->ip4_proto = fsp->h_u.usr_ip4_spec.proto;
+ 
+ 	/* Reverse the src and dest notion, since the HW expects them to be from
 -- 
 2.12.0
