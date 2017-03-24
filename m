@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [PATCH] igb: add module param to set max-rss-queues.
-Date: Fri, 24 Mar 2017 14:12:37 -0700 (PDT)
-Message-ID: <20170324.141237.1992801159655201421.davem@davemloft.net>
+Date: Fri, 24 Mar 2017 14:20:56 -0700
+Message-ID: <255aaae0-8634-c6b5-f4aa-545d2f717aed@candelatech.com>
 References: <1490389127-23171-1-git-send-email-greearb@candelatech.com>
+ <20170324.141237.1992801159655201421.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44680 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966588AbdCXVMi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 17:12:38 -0400
-In-Reply-To: <1490389127-23171-1-git-send-email-greearb@candelatech.com>
+Received: from mail2.candelatech.com ([208.74.158.173]:59100 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932650AbdCXVU6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 17:20:58 -0400
+In-Reply-To: <20170324.141237.1992801159655201421.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: greearb@candelatech.com
-Date: Fri, 24 Mar 2017 13:58:47 -0700
+On 03/24/2017 02:12 PM, David Miller wrote:
+> From: greearb@candelatech.com
+> Date: Fri, 24 Mar 2017 13:58:47 -0700
+>
+>> From: Ben Greear <greearb@candelatech.com>
+>>
+>> In systems where you may have a very large number of network
+>> adapters, certain drivers may consume an unfair amount of
+>> IRQ resources.  So, allow a module param that will limit the
+>> number of IRQs at driver load time.  This way, other drivers
+>> (40G Ethernet, for instance), which probably will need the
+>> multiple IRQs more, will not be starved of IRQ resources.
+>>
+>> Signed-off-by: Ben Greear <greearb@candelatech.com>
+>
+> Sorry, no module params.
+>
+> Use generic run-time facilities such as ethtool to configure
+> such things.
 
-> From: Ben Greear <greearb@candelatech.com>
-> 
-> In systems where you may have a very large number of network
-> adapters, certain drivers may consume an unfair amount of
-> IRQ resources.  So, allow a module param that will limit the
-> number of IRQs at driver load time.  This way, other drivers
-> (40G Ethernet, for instance), which probably will need the
-> multiple IRQs more, will not be starved of IRQ resources.
-> 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
+You cannot call ethtool before module load time, and that is when
+the IRQs are first acquired.  It may be way more useful to give each
+of 20 network adapters 2 irqs than have the first few grab 16 and the rest
+get lumped into legacy crap.
 
-Sorry, no module params.
+Thanks,
+Ben
 
-Use generic run-time facilities such as ethtool to configure
-such things.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
