@@ -1,52 +1,45 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] xfrm: branchless addr4_match() on 64-bit
-Date: Fri, 24 Mar 2017 17:16:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFB93A8@AcuExch.aculab.com>
-References: <20170323233247.GE31372@avx2>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
+Date: Fri, 24 Mar 2017 10:17:34 -0700 (PDT)
+Message-ID: <20170324.101734.2195203757001166516.davem@davemloft.net>
+References: <abf8722f-5d3a-0bae-d6cd-6cc6fbb744cb@synopsys.com>
+        <748685e5-86f8-5f6b-66db-04ec96af4bd6@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Alexey Dobriyan' <adobriyan@gmail.com>,
-        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: clabbe.montjoie@gmail.com, thierry.reding@gmail.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:54563 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966910AbdCXRRB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:17:01 -0400
-In-Reply-To: <20170323233247.GE31372@avx2>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:41560 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966906AbdCXRRg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:17:36 -0400
+In-Reply-To: <748685e5-86f8-5f6b-66db-04ec96af4bd6@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan
-> Sent: 23 March 2017 23:33
-> Current addr4_match() code has special test for /0 prefixes because of
-> standard required undefined behaviour. However, it is possible to omit
-> it on 64-bit because shifting can be done in a 64-bit register and then
-> truncated to the expected value (which is 0 mask).
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Fri, 24 Mar 2017 15:02:27 +0000
+
+> Yes, I agree, it is better to revert and leave the tree functional for all.
 > 
-> Implicit truncation by htonl() fits nicely into R32-within-R64 model
-> on x86-64.
-...
->  static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
->  {
-> +#ifdef CONFIG_64BIT
-> +	/* L in UL is not a typo. */
-> +	return !((a1 ^ a2) & htonl(~0UL << (32 - prefixlen)));
-> +#else
->  	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
->  	if (prefixlen == 0)
->  		return true;
->  	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-> +#endif
+> @David Miller:
+> The multiple-buffer patch introduced some problems in some setups that are being
+> hard to debug, so Corentin gave the idea of reverting the until
+> commit 7bac4e1ec3ca2342929a39638d615c6b672c27a0 (net: stmmac: stmmac interrupt
+> treatment prepared for multiple queues), which I fully agree.
+> 
+> In my setup is ok, but the idea is to have everyone's setup working :), so lets
+> break them into smaller pieces, and let's only apply them when everyone confirms
+> that is working ok in your setups, agree?
+> 
+> What is the typical mechanism for this? I send a patch reverting them?
 
-Can't this just be written:
+If you can compose a single "git revert" command to achieve this, just
+tell me what it is and I'll do it.
 
-  	if (sizeof (long) == 4 && prefixlen == 0)
-  		return true;
-	return !((a1 ^ a2) & htonl(0xFFFFFFFFUL << (32 - prefixlen)));
+Otherwise send a patch that does the revert.
 
-	David
+Thanks.
