@@ -1,57 +1,74 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: EINVAL when using connect() for udp sockets
-Date: Fri, 24 Mar 2017 15:34:51 -0700
-Message-ID: <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
-References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
- <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com> <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Linux kernel ping socket / AF_LLC connect()
+ sin_family race
+Date: Fri, 24 Mar 2017 15:21:06 -0700
+Message-ID: <CANn89iK-7r3KozC4K1rmWpJ1jM-bhBqessUrkg8HoftnjOks5g@mail.gmail.com>
+References: <20170324202714.GA29241@openwall.com> <CAAeHK+yrE7+BZztHVn-2jKgLqgzgbBEa4VWCO8SL45oD0nRxEw@mail.gmail.com>
+Reply-To: oss-security-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
+Content-Type: multipart/alternative; boundary=001a1147bfd0f331f0054b816841
+Cc: oss-security-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>, James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Vasily Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+To: Andrey Konovalov <andreyknvl-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <oss-security-return-21992-gcsos-oss-security=m.gmane.org-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
+List-Post: <mailto:oss-security-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
+List-Help: <mailto:oss-security-help-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <mailto:oss-security-unsubscribe-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
+List-Subscribe: <mailto:oss-security-subscribe-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>
+In-Reply-To: <CAAeHK+yrE7+BZztHVn-2jKgLqgzgbBEa4VWCO8SL45oD0nRxEw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Id: netdev.vger.kernel.org
+
+--001a1147bfd0f331f0054b816841
 Content-Type: text/plain; charset=UTF-8
-Cc: Daurnimator <quae@daurnimator.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        William Ahern <william@25thandclement.com>,
-        "Santi T." <santitm99@gmail.com>, mtk.manpages@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f171.google.com ([209.85.128.171]:35646 "EHLO
-        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751417AbdCXWfN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:35:13 -0400
-Received: by mail-wr0-f171.google.com with SMTP id u1so2009245wra.2
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 15:35:12 -0700 (PDT)
-In-Reply-To: <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-(Cc'ing Michael Kerrisk)
+On Fri, Mar 24, 2017 at 1:43 PM, Andrey Konovalov <andreyknvl-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+wrote:
 
-On Wed, Mar 22, 2017 at 10:18 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-03-23 at 13:22 +1100, Daurnimator wrote:
->> On 9 March 2017 at 14:10, Daurnimator <quae@daurnimator.com> wrote:
->> > When debugging https://github.com/daurnimator/lua-http/issues/73 which
->> > uses https://github.com/wahern/dns we ran into an issue where modern
->> > linux kernels return EINVAL if you try and re-use a udp socket.
->> > The issue seems to occur if you go from a local destination ip to a
->> > non-local one.
->>
->> Did anyone get a chance to look into this issue?
+> On Fri, Mar 24, 2017 at 9:27 PM, Solar Designer <solar-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+> wrote:
+> > Hi,
+> >
+> > I haven't fully investigated this issue, and the Subject is provisional
+> > (but will probably get stuck).  I am not yet sure which kernel
+> > subsystem(s) to blame here (ping sockets? LLC sockets? other/more?), and
+> > there might be other ways to trigger the issue.
 >
-> I believe man page is not complete.
+> Reproduced the crash on current upstream
+> (ebe64824e9de4b3ab3bd3928312b4b2bc57b4b7e).
 >
-> A disconnect is needed before another connect()
+> Adding kernel maintainers.
+>
 
-Is it? Making connect() reentrant is reasonable for connection-less
-protocol like UDP, but I don't dig POSIX for the details. If so we need
-something like below...
+Looks easy enough to fix ?
 
---- a/net/ipv4/datagram.c
-+++ b/net/ipv4/datagram.c
-@@ -40,7 +40,7 @@ int __ip4_datagram_connect(struct sock *sk, struct
-sockaddr *uaddr, int addr_len
-        sk_dst_reset(sk);
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index
+2af6244b83e27ae384e96cf071c10c5a89674804..ccfbce13a6333a65dab64e4847dd510dfafb1b43
+100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -156,17 +156,18 @@ int ping_hash(struct sock *sk)
+ void ping_unhash(struct sock *sk)
+ {
+        struct inet_sock *isk = inet_sk(sk);
++
+        pr_debug("ping_unhash(isk=%p,isk->num=%u)\n", isk, isk->inet_num);
++       write_lock_bh(&ping_table.lock);
+        if (sk_hashed(sk)) {
+-               write_lock_bh(&ping_table.lock);
+                hlist_nulls_del(&sk->sk_nulls_node);
+                sk_nulls_node_init(&sk->sk_nulls_node);
+                sock_put(sk);
+                isk->inet_num = 0;
+                isk->inet_sport = 0;
+                sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+-               write_unlock_bh(&ping_table.lock);
+        }
++       write_unlock_bh(&ping_table.lock);
+ }
+ EXPORT_SYMBOL_GPL(ping_unhash);
 
-        oif = sk->sk_bound_dev_if;
--       saddr = inet->inet_saddr;
-+       saddr = inet->inet_saddr = 0;
-        if (ipv4_is_multicast(usin->sin_addr.s_addr)) {
-                if (!oif)
-                        oif = inet->mc_index;
+--001a1147bfd0f331f0054b816841--
