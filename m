@@ -1,63 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: EINVAL when using connect() for udp sockets
-Date: Fri, 24 Mar 2017 16:19:20 -0700
-Message-ID: <1490397560.24891.0.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
-         <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com>
-         <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next 00/12] Mellanox mlx5e XDP performance
+ optimization
+Date: Fri, 24 Mar 2017 16:26:25 -0700
+Message-ID: <420dc52e-8b39-a083-941e-d87eb941771a@fb.com>
+References: <20170324215214.25711-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daurnimator <quae@daurnimator.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        William Ahern <william@25thandclement.com>,
-        "Santi T." <santitm99@gmail.com>, mtk.manpages@gmail.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:36403 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933879AbdCXXTX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 19:19:23 -0400
-Received: by mail-pf0-f179.google.com with SMTP id o126so1786928pfb.3
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 16:19:22 -0700 (PDT)
-In-Reply-To: <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34539 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754764AbdCXX0k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 19:26:40 -0400
+In-Reply-To: <20170324215214.25711-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-03-24 at 15:34 -0700, Cong Wang wrote:
-> (Cc'ing Michael Kerrisk)
-> 
-> On Wed, Mar 22, 2017 at 10:18 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Thu, 2017-03-23 at 13:22 +1100, Daurnimator wrote:
-> >> On 9 March 2017 at 14:10, Daurnimator <quae@daurnimator.com> wrote:
-> >> > When debugging https://github.com/daurnimator/lua-http/issues/73 which
-> >> > uses https://github.com/wahern/dns we ran into an issue where modern
-> >> > linux kernels return EINVAL if you try and re-use a udp socket.
-> >> > The issue seems to occur if you go from a local destination ip to a
-> >> > non-local one.
-> >>
-> >> Did anyone get a chance to look into this issue?
-> >
-> > I believe man page is not complete.
-> >
-> > A disconnect is needed before another connect()
-> 
-> Is it? Making connect() reentrant is reasonable for connection-less
-> protocol like UDP, but I don't dig POSIX for the details. If so we need
-> something like below...
-> 
-> --- a/net/ipv4/datagram.c
-> +++ b/net/ipv4/datagram.c
-> @@ -40,7 +40,7 @@ int __ip4_datagram_connect(struct sock *sk, struct
-> sockaddr *uaddr, int addr_len
->         sk_dst_reset(sk);
-> 
->         oif = sk->sk_bound_dev_if;
-> -       saddr = inet->inet_saddr;
-> +       saddr = inet->inet_saddr = 0;
->         if (ipv4_is_multicast(usin->sin_addr.s_addr)) {
->                 if (!oif)
->                         oif = inet->mc_index;
+On 3/24/17 2:52 PM, Saeed Mahameed wrote:
+> Hi Dave,
+>
+> This series provides some preformancee optimizations for mlx5e
+> driver, especially for XDP TX flows.
+>
+> 1st patch is a simple change of rmb to dma_rmb in CQE fetch routine
+> which shows a huge gain for both RX and TX packet rates.
+>
+> 2nd patch removes write combining logic from the driver TX handler
+> and simplifies the TX logic while improving TX CPU utilization.
+>
+> All other patches combined provide some refactoring to the driver TX
+> flows to allow some significant XDP TX improvements.
+>
+> More details and performance numbers per patch can be found in each patch
+> commit message compared to the preceding patch.
+>
+> Overall performance improvemnets
+>   System: Intel(R) Xeon(R) CPU E5-2620 v3 @ 2.40GHz
+>
+> Test case                   Baseline      Now      improvement
+> ---------------------------------------------------------------
+> TX packets (24 threads)     45Mpps        54Mpps      20%
+> TC stack Drop (1 core)      3.45Mpps      3.6Mpps     5%
+> XDP Drop      (1 core)      14Mpps        16.9Mpps    20%
+> XDP TX        (1 core)      10.4Mpps      13.7Mpps    31%
 
-Wont this break bind() ?
+Excellent work!
+All patches look great, so for the series:
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+
+in patch 12 I noticed that inline_mode is being evaluated.
+I think for xdp queues it's guaranteed to be fixed.
+Can we optimize that path little bit more as well?
+Thanks!
