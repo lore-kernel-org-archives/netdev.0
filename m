@@ -1,57 +1,33 @@
-From: Yuri Gribov <tetra2005@gmail.com>
-Subject: [Bug-report][iproute2] Buffer overflow in inverttable
-Date: Fri, 24 Mar 2017 08:35:46 +0000
-Message-ID: <CAJOtW+6+WmruYfCFPuWp_H+HPaLpzrVYFt7-AS_OT6e52J1TnQ@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [iproute2 net-next v2 0/3] ip netconf improvements
+Date: Fri, 24 Mar 2017 09:37:40 +0100
+Message-ID: <77c62847-e1ae-ebda-64ae-7e04fecbace7@6wind.com>
+References: <1490323882-11609-1-git-send-email-dsa@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: shemminger@osdl.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f182.google.com ([209.85.161.182]:34762 "EHLO
-        mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932790AbdCXIft (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 04:35:49 -0400
-Received: by mail-yw0-f182.google.com with SMTP id p77so4738087ywg.1
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 01:35:48 -0700 (PDT)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38228 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751564AbdCXIho (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 04:37:44 -0400
+Received: by mail-wm0-f51.google.com with SMTP id t189so7269690wmt.1
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 01:37:42 -0700 (PDT)
+In-Reply-To: <1490323882-11609-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-The following code in inverttable in netem/maketable.c
-    inverse = (short *)malloc(inversesize*sizeof(short));
-    ...
-    for (i=0; i < tablesize; ++i) {
-        findex = ((double)i/(double)DISTTABLEGRANULARITY) - DISTTABLEDOMAIN;
-        fvalue = (double)table[i]/(double)cumulative;
-        inverseindex = (int)rint(fvalue*inversesize);
-        ...
-        inverse[inverseindex] = inversevalue;
-writes value past the end of malloc buffer because fvalue evaluates to
-1 for the last value of table.
-
-AddressSanitizer report is
-  ==18736==ERROR: AddressSanitizer: heap-buffer-overflow on address
-0x62500000e900 at pc 0x000000401b09 bp 0x7ffe03fb04d0 sp
-0x7ffe03fb04c0
-  WRITE of size 2 at 0x62500000e900 thread T0
-    #0 0x401b08 in inverttable (/build/iproute2-4.3.0/netem/maketable+0x401b08)
-    #1 0x40216f in main (/build/iproute2-4.3.0/netem/maketable+0x40216f)
-    #2 0x7ff1d736082f in __libc_start_main
-(/lib/x86_64-linux-gnu/libc.so.6+0x2082f)
-    #3 0x400fc8 in _start (/build/iproute2-4.3.0/netem/maketable+0x400fc8)
- 0x62500000e900 is located 0 bytes to the right of 8192-byte region
-[0x62500000c900,0x62500000e900)
-
-  allocated by thread T0 here:
-    #0 0x7ff1d7cf5f20 in __interceptor_malloc
-(/usr/lib/x86_64-linux-gnu/libasan.so.3+0xc6f20)
-    #1 0x401966 in inverttable (/build/iproute2-4.3.0/netem/maketable+0x401966)
-    #2 0x40216f in main (/build/iproute2-4.3.0/netem/maketable+0x40216f)
-    #3 0x7ff1d736082f in __libc_start_main
-(/lib/x86_64-linux-gnu/libc.so.6+0x2082f)
-
-Bug was found with AddressSanitizer and debian_pkg_test
-(https://github.com/yugr/debian_pkg_test).
-
--Yury
+Le 24/03/2017 à 03:51, David Ahern a écrit :
+> Currently, ip netconf only shows data for ipv4 and ipv6 for dumps
+> and just ipv4 for device requests. Improve the user experience by
+> using the new kernel patch to dump all address families that have
+> registered. For example, if mpls_router module is loaded then mpls
+> values are displayed along with ipv4 and ipv6.
+> 
+> If the new feature is not supported (new iproute2 on older kernel)
+> the kernel returns the nlmsg error EOPNOTSUPP which can be trapped
+> and fallback to existing behavior.
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
