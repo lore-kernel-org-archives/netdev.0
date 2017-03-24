@@ -1,127 +1,152 @@
-From: Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [net-next PATCH v2 8/8] net: Introduce SO_INCOMING_NAPI_ID
-Date: Thu, 23 Mar 2017 21:47:55 -0700
-Message-ID: <CALCETrU+SfDAj4dzjtRCkRULa+NDcceM8ZYWg=dDMXkv5-Z3-g@mail.gmail.com>
-References: <20170323211820.12615.88907.stgit@localhost.localdomain>
- <20170323213802.12615.58216.stgit@localhost.localdomain> <CALCETrUD_+JcoAd7Z5+E+fNgeLOy=6-DYOoaRDWDViYd=dWQ=A@mail.gmail.com>
- <CAKgT0UcHJVycQ3+h09L2Ph=TVncqHPJ6dZpicUgBo7TaFTN7yw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCHv2] net: usbnet: support 64bit stats in qmi_wwan driver
+Date: Thu, 23 Mar 2017 21:59:20 -0700
+Message-ID: <1490331560.9687.42.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1490318850-23252-1-git-send-email-gerg@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Samudrala, Sridhar" <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKgT0UcHJVycQ3+h09L2Ph=TVncqHPJ6dZpicUgBo7TaFTN7yw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: bjorn-yOkvZcmFvRU@public.gmane.org, oneukum-IBi9RG/b67k@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490318850-23252-1-git-send-email-gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 23, 2017 at 5:58 PM, Alexander Duyck
-<alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Thu, Mar 23, 2017 at 3:43 PM, Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
->> On Thu, Mar 23, 2017 at 2:38 PM, Alexander Duyck
->> <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>> From: Sridhar Samudrala <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
->>>
->>> This socket option returns the NAPI ID associated with the queue on which
->>> the last frame is received. This information can be used by the apps to
->>> split the incoming flows among the threads based on the Rx queue on which
->>> they are received.
->>>
->>> If the NAPI ID actually represents a sender_cpu then the value is ignored
->>> and 0 is returned.
->>
->> This may be more of a naming / documentation issue than a
->> functionality issue, but to me this reads as:
->>
->> "This socket option returns an internal implementation detail that, if
->> you are sufficiently clueful about the current performance heuristics
->> used by the Linux networking stack, just might give you a hint as to
->> which epoll set to put the socket in."  I've done some digging into
->> Linux networking stuff, but not nearly enough to have the slighest
->> clue what you're supposed to do with the NAPI ID.
->
-> Really the NAPI ID is an arbitrary number that will be unique per
-> device queue, though multiple Rx queues can share a NAPI ID if they
-> are meant to be processed in the same call to poll.
->
-> If we wanted we could probably rename it to something like Device Poll
-> Identifier or Device Queue Identifier, DPID or DQID, if that would
-> work for you.  Essentially it is just a unique u32 value that should
-> not identify any other queue in the system while this device queue is
-> active.  Really the number itself is mostly arbitrary, the main thing
-> is that it doesn't change and uniquely identifies the queue in the
-> system.
+On Fri, 2017-03-24 at 11:27 +1000, Greg Ungerer wrote:
+> Add support for the net stats64 counters to the usbnet core and then to
+> the qmi_wwan driver.
+> 
+> This is a strait forward addition of 64bit counters for RX and TX packets
+> and byte counts. It is done in the same style as for the other net drivers
+> that support stats64.
+> 
+> The bulk of the change is to the usbnet core. Then it is trivial to use
+> that in the qmi_wwan.c driver. It would be very simple to extend this
+> support to other usbnet based drivers.
+> 
+> The motivation to add this is that it is not particularly difficult to
+> get the RX and TX byte counts to wrap on 32bit platforms.
+> 
+> Signed-off-by: Greg Ungerer <gerg-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+> ---
+>  drivers/net/usb/qmi_wwan.c |  1 +
+>  drivers/net/usb/usbnet.c   | 28 ++++++++++++++++++++++++++++
+>  include/linux/usb/usbnet.h | 12 ++++++++++++
+>  3 files changed, 41 insertions(+)
+> 
+> v2: EXPORT symbol usbnet_get_stats64()
+>     rebase on top of net-next
+> 
+> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+> index 8056745..db12a66 100644
+> --- a/drivers/net/usb/qmi_wwan.c
+> +++ b/drivers/net/usb/qmi_wwan.c
+> @@ -251,6 +251,7 @@ static int qmi_wwan_mac_addr(struct net_device *dev, void *p)
+>  	.ndo_change_mtu		= usbnet_change_mtu,
+>  	.ndo_set_mac_address	= qmi_wwan_mac_addr,
+>  	.ndo_validate_addr	= eth_validate_addr,
+> +	.ndo_get_stats64	= usbnet_get_stats64,
+>  };
+>  
+>  /* using a counter to merge subdriver requests with our own into a
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 13d4ec5..4499d89 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -330,6 +330,11 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
+>  	dev->net->stats.rx_packets++;
+>  	dev->net->stats.rx_bytes += skb->len;
 
-That seems reasonably sane to me.
+Why updating dev->net->stats.rx_{packets|bytes} and
+dev->stats.rx_{packets|bytes}  ?
 
->
->> It would be nice to make this a bit more concrete and a bit less tied
->> in Linux innards.  Perhaps a socket option could instead return a hint
->> saying "for best results, put this socket in an epoll set that's on
->> cpu N"?  After all, you're unlikely to do anything productive with
->> busy polling at all, even on a totally different kernel
->> implementation, if you have more than one epoll set per CPU.  I can
->> see cases where you could plausibly poll with fewer than one set per
->> CPU, I suppose.
->
-> Really we kind of already have an option that does what you are
-> implying called SO_INCOMING_CPU.  The problem is it requires pinning
-> the interrupts to the CPUs in order to keep the values consistent,
+Seems redundant.
 
-Some day the kernel should just solve this problem once and for all.
-Have root give a basic policy for mapping queues to CPUs (one per
-physical core / one per logical core / use this subset of cores) and
-perhaps forcibly prevent irqbalanced from even seeing it.  I'm sure
-other solutions are possible.
 
-> and
-> even then busy polling can mess that up if the busy poll thread is
-> running on a different CPU.  With the NAPI ID we have to do a bit of
-> work on the application end, but we can uniquely identify each
-> incoming queue and interrupt migration and busy polling don't have any
-> effect on it.  So for example we could stack all the interrupts on CPU
-> 0, and have our main thread located there doing the sorting of
-> incoming requests and handing them out to epoll listener threads on
-> other CPUs.  When those epoll listener threads start doing busy
-> polling the NAPI ID won't change even though the packet is being
-> processed on a different CPU.
->
->> Again, though, from the description, it's totally unclear what a user
->> is supposed to do.
->
-> What you end up having to do is essentially create a hash of sorts so
-> that you can go from NAPI IDs to threads.  In an ideal setup what you
-> end up with multiple threads, each one running one epoll, and each
-> epoll polling on one specific queue.
+> +	u64_stats_update_begin(&dev->stats.syncp);
+> +	dev->stats.rx_packets++;
+> +	dev->stats.rx_bytes += skb->len;
+> +	u64_stats_update_end(&dev->stats.syncp);
+> +
+>  	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
+>  		  skb->len + sizeof (struct ethhdr), skb->protocol);
+>  	memset (skb->cb, 0, sizeof (struct skb_data));
+> @@ -981,6 +986,23 @@ int usbnet_set_link_ksettings(struct net_device *net,
+>  }
+>  EXPORT_SYMBOL_GPL(usbnet_set_link_ksettings);
+>  
+> +void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
+> +{
+> +	struct usbnet *dev = netdev_priv(net);
+> +	unsigned int start;
+> +
+> +	netdev_stats_to_stats64(stats, &net->stats);
+> +
+> +	do {
+> +		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
+> +		stats->rx_packets = dev->stats.rx_packets;
+> +		stats->rx_bytes = dev->stats.rx_bytes;
+> +		stats->tx_packets = dev->stats.tx_packets;
+> +		stats->tx_bytes = dev->stats.tx_bytes;
+> +	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
+> +}
+> +EXPORT_SYMBOL_GPL(usbnet_get_stats64);
+> +
+>  u32 usbnet_get_link (struct net_device *net)
+>  {
+>  	struct usbnet *dev = netdev_priv(net);
+> @@ -1214,6 +1236,11 @@ static void tx_complete (struct urb *urb)
+>  	if (urb->status == 0) {
+>  		dev->net->stats.tx_packets += entry->packets;
+>  		dev->net->stats.tx_bytes += entry->length;
 
-So don't we want queue id, not NAPI id?  Or am I still missing something?
 
-But I'm also a but confused as to the overall performance effect.
-Suppose I have an rx queue that has its interrupt bound to cpu 0.  For
-whatever reason (random chance if I'm hashing, for example), I end up
-with the epoll caller on cpu 1.  Suppose further that cpus 0 and 1 are
-on different NUMA nodes.
+Why updating dev->net->stats.tx_{packets|bytes} and
+dev->stats.tx_{packets|bytes}  ?
 
-Now, let's suppose that I get lucky and *all* the packets are pulled
-off the queue by epoll busy polling.  Life is great [1].  But suppose
-that, due to a tiny hiccup or simply user code spending some cycles
-processing those packets, an rx interrupt fires.  Now cpu 0 starts
-pulling packets off the queue via NAPI, right?  So both NUMA nodes are
-fighting over all the cachelines involved in servicing the queue *and*
-the packets just got dequeued on the wrong NUMA node.
+> +
+> +		u64_stats_update_begin(&dev->stats.syncp);
+> +		dev->stats.tx_packets += entry->packets;
+> +		dev->stats.tx_bytes += entry->length;
+> +		u64_stats_update_end(&dev->stats.syncp);
+>  	} else {
+>  		dev->net->stats.tx_errors++;
+>  
+> @@ -1658,6 +1685,7 @@ void usbnet_disconnect (struct usb_interface *intf)
+>  	init_timer (&dev->delay);
+>  	mutex_init (&dev->phy_mutex);
+>  	mutex_init(&dev->interrupt_mutex);
+> +	u64_stats_init(&dev->stats.syncp);
+>  	dev->interrupt_count = 0;
+>  
+>  	dev->net = net;
+> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+> index e2b5691..d1501b8 100644
+> --- a/include/linux/usb/usbnet.h
+> +++ b/include/linux/usb/usbnet.h
+> @@ -22,6 +22,14 @@
+>  #ifndef	__LINUX_USB_USBNET_H
+>  #define	__LINUX_USB_USBNET_H
+>  
+> +struct usbnet_stats64 {
+> +	struct u64_stats_sync	syncp;
+> +	u64			rx_packets;
+> +	u64			rx_bytes;
+> +	u64			tx_packets;
+> +	u64			tx_bytes;
+> +};
+> +
 
-ISTM this would work better if the epoll busy polling could handle the
-case where one epoll set polls sockets on different queues as long as
-those queues are all owned by the same CPU.  Then user code could use
-SO_INCOMING_CPU to sort out the sockets.
+You use the same syncp for TX and RX.
 
-Am I missing something?
+Do you have guarantee that TX and RX paths can not run concurrently (on
+different cpus) ?
 
-[1] Maybe.  How smart is direct cache access?  If it's smart enough,
-it'll pre-populate node 0's LLC, which means that life isn't so great
-after all.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
