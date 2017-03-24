@@ -1,42 +1,27 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Fri, 24 Mar 2017 10:55:48 +0100
-Message-ID: <20170324105549.34b3e778@griffin>
-References: <20170207140144.GA11233@localhost>
-        <20170209080242.GA1698@localhost.localdomain>
-        <20170209110941.GA1449@localhost>
-        <20170323162145.GB8192@localhost>
-        <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next] net: mpls: Fix setting ttl_propagate for rt2
+Date: Fri, 24 Mar 2017 10:05:17 +0000
+Message-ID: <7c8e101a-fc99-85bb-b4f8-7d1a411511fd@brocade.com>
+References: <20170324010227.45375-1-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Miroslav Lichvar <mlichvar@redhat.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        netdev@vger.kernel.org,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Denny Page <dennypage@me.com>
+To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45472 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751567AbdCXJzx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 05:55:53 -0400
-In-Reply-To: <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:57203 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751995AbdCXKF3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 06:05:29 -0400
+In-Reply-To: <20170324010227.45375-1-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Mar 2017 10:08:00 -0700, Denny Page wrote:
-> I am very surprised at this. The application caching approach
-> requires the application retrieve the value via a system call. The
-> system call overhead is huge in comparison to everything else. More
-> importantly, the application cached value may be wrong. If the
-> application takes a sample every 5 seconds, there are 5 seconds of
-> timestamps that can be wildly wrong.
+On 24/03/17 01:02, David Ahern wrote:
+> Fix copy and paste error setting rt_ttl_propagate.
+>
+> Fixes: 5b441ac8784c1 ("mpls: allow TTL propagation to IP packets to be configured")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-You can add a netlink event that is sent on speed change. No need for
-polling then and the wrong timestamp window will be very tiny. (It
-can't be zero, even with per-packet data.)
+Good catch.
 
-ethtool needs to be converted to netlink, anyway.
-
- Jiri
+Acked-by: Robert Shearman <rshearma@brocade.com>
