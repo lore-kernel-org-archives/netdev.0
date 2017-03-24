@@ -1,75 +1,67 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] padata: avoid race in reordering
-Date: Fri, 24 Mar 2017 10:41:59 +0100
-Message-ID: <20170324094157.GE5279@secunet.com>
-References: <CAHmME9oLWiprOyZXo7zvGm7xq+1Kchw9ybLS_TM-9xDyHF0mxQ@mail.gmail.com>
- <20170323112443.30843-1-Jason@zx2c4.com>
+From: Miroslav Lichvar <mlichvar@redhat.com>
+Subject: Re: Extending socket timestamping API for NTP
+Date: Fri, 24 Mar 2017 10:45:30 +0100
+Message-ID: <20170324094530.GE8192@localhost>
+References: <20170207140144.GA11233@localhost>
+ <20170209080242.GA1698@localhost.localdomain>
+ <20170209110941.GA1449@localhost>
+ <20170323162145.GB8192@localhost>
+ <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+        Jiri Benc <jbenc@redhat.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Denny Page <dennypage@me.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44544 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751618AbdCXJpe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 05:45:34 -0400
 Content-Disposition: inline
-In-Reply-To: <20170323112443.30843-1-Jason@zx2c4.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 23, 2017 at 12:24:43PM +0100, Jason A. Donenfeld wrote:
-> Under extremely heavy uses of padata, crashes occur, and with list
-> debugging turned on, this happens instead:
+On Thu, Mar 23, 2017 at 10:08:00AM -0700, Denny Page wrote:
+> > On Mar 23, 2017, at 09:21, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> > 
+> > After becoming a bit more familiar with the code I don't think this is
+> > a good idea anymore :). I suspect there would be a noticeable
+> > performance impact if each timestamped packet could trigger reading of
+> > the current link speed. If the value had to be cached it would make
+> > more sense to do it in the application.
 > 
-> [87487.298728] WARNING: CPU: 1 PID: 882 at lib/list_debug.c:33
-> __list_add+0xae/0x130
-> [87487.301868] list_add corruption. prev->next should be next
-> (ffffb17abfc043d0), but was ffff8dba70872c80. (prev=ffff8dba70872b00).
-> [87487.339011]  [<ffffffff9a53d075>] dump_stack+0x68/0xa3
-> [87487.342198]  [<ffffffff99e119a1>] ? console_unlock+0x281/0x6d0
-> [87487.345364]  [<ffffffff99d6b91f>] __warn+0xff/0x140
-> [87487.348513]  [<ffffffff99d6b9aa>] warn_slowpath_fmt+0x4a/0x50
-> [87487.351659]  [<ffffffff9a58b5de>] __list_add+0xae/0x130
-> [87487.354772]  [<ffffffff9add5094>] ? _raw_spin_lock+0x64/0x70
-> [87487.357915]  [<ffffffff99eefd66>] padata_reorder+0x1e6/0x420
-> [87487.361084]  [<ffffffff99ef0055>] padata_do_serial+0xa5/0x120
-> 
-> padata_reorder calls list_add_tail with the list to which its adding
-> locked, which seems correct:
-> 
-> spin_lock(&squeue->serial.lock);
-> list_add_tail(&padata->list, &squeue->serial.list);
-> spin_unlock(&squeue->serial.lock);
-> 
-> This therefore leaves only place where such inconsistency could occur:
-> if padata->list is added at the same time on two different threads.
-> This pdata pointer comes from the function call to
-> padata_get_next(pd), which has in it the following block:
-> 
-> next_queue = per_cpu_ptr(pd->pqueue, cpu);
-> padata = NULL;
-> reorder = &next_queue->reorder;
-> if (!list_empty(&reorder->list)) {
->        padata = list_entry(reorder->list.next,
->                            struct padata_priv, list);
->        spin_lock(&reorder->lock);
->        list_del_init(&padata->list);
->        atomic_dec(&pd->reorder_objects);
->        spin_unlock(&reorder->lock);
-> 
->        pd->processed++;
-> 
->        goto out;
-> }
-> out:
-> return padata;
-> 
-> I strongly suspect that the problem here is that two threads can race
-> on reorder list. Even though the deletion is locked, call to
-> list_entry is not locked, which means it's feasible that two threads
-> pick up the same padata object and subsequently call list_add_tail on
-> them at the same time. The fix is thus be hoist that lock outside of
-> that block.
-> 
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> I am very surprised at this. The application caching approach requires the application retrieve the value via a system call. The system call overhead is huge in comparison to everything else. More importantly, the application cached value may be wrong. If the application takes a sample every 5 seconds, there are 5 seconds of timestamps that can be wildly wrong.
 
-Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+I'm just trying to be practical and minimize the performance impact
+and the amount of code that needs to be written, reviewed and
+maintained.
+
+How common is to have link speed changing in normal operation on LAN?
+
+There are other problems with changing link speed. It does not affect
+only the transposition.
+
+- If the change happens during a measurement, anywhere on the path
+  between the server and client, the measured offset will have an
+  error due to the asymmetry in the network delay. An NTP measurement
+  in the basic mode is short (it's just the rount-trip time), so it's
+  not very likely to be hit by a link speed change, but in the
+  interleaved mode the probability is exactly the opposite.
+
+- Even if the measurement is not hit and the measured offset is
+  accurate, the change in the measured delay may confuse the NTP
+  client (e.g. temporarily disrupt its sample filtering).
+
+- The TX/RX compensation values depend on the link speed. If the
+  application doesn't reliably know link speed for each packet, the
+  compensation cannot be reliable either.
+
+It seems to me for best timekeeping with NTP it is necessary to make
+sure the link speed in the network is constant, even if the
+transposition was always accurate.
+
+-- 
+Miroslav Lichvar
