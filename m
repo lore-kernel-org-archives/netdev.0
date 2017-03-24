@@ -1,78 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] padata: avoid race in reordering
-Date: Fri, 24 Mar 2017 22:16:08 +0800
-Message-ID: <20170324141608.GA15370@gondor.apana.org.au>
-References: <20170323112443.30843-1-Jason@zx2c4.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2] net: usbnet: support 64bit stats in qmi_wwan driver
+Date: Fri, 24 Mar 2017 07:17:50 -0700
+Message-ID: <1490365070.9687.46.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1490318850-23252-1-git-send-email-gerg@linux-m68k.org>
+         <1490331560.9687.42.camel@edumazet-glaptop3.roam.corp.google.com>
+         <44b9bf7a-70e5-a5f7-53f0-4ea3205638f1@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, linux-crypto@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Jason@zx2c4.com
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170323112443.30843-1-Jason@zx2c4.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: bjorn@mork.no, oneukum@suse.com, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org
+To: Greg Ungerer <gerg@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35766 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935237AbdCXOSE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 10:18:04 -0400
+In-Reply-To: <44b9bf7a-70e5-a5f7-53f0-4ea3205638f1@linux-m68k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jason A. Donenfeld <Jason@zx2c4.com> wrote:
-> Under extremely heavy uses of padata, crashes occur, and with list
-> debugging turned on, this happens instead:
-> 
-> [87487.298728] WARNING: CPU: 1 PID: 882 at lib/list_debug.c:33
-> __list_add+0xae/0x130
-> [87487.301868] list_add corruption. prev->next should be next
-> (ffffb17abfc043d0), but was ffff8dba70872c80. (prev=ffff8dba70872b00).
-> [87487.339011]  [<ffffffff9a53d075>] dump_stack+0x68/0xa3
-> [87487.342198]  [<ffffffff99e119a1>] ? console_unlock+0x281/0x6d0
-> [87487.345364]  [<ffffffff99d6b91f>] __warn+0xff/0x140
-> [87487.348513]  [<ffffffff99d6b9aa>] warn_slowpath_fmt+0x4a/0x50
-> [87487.351659]  [<ffffffff9a58b5de>] __list_add+0xae/0x130
-> [87487.354772]  [<ffffffff9add5094>] ? _raw_spin_lock+0x64/0x70
-> [87487.357915]  [<ffffffff99eefd66>] padata_reorder+0x1e6/0x420
-> [87487.361084]  [<ffffffff99ef0055>] padata_do_serial+0xa5/0x120
-> 
-> padata_reorder calls list_add_tail with the list to which its adding
-> locked, which seems correct:
-> 
-> spin_lock(&squeue->serial.lock);
-> list_add_tail(&padata->list, &squeue->serial.list);
-> spin_unlock(&squeue->serial.lock);
-> 
-> This therefore leaves only place where such inconsistency could occur:
-> if padata->list is added at the same time on two different threads.
-> This pdata pointer comes from the function call to
-> padata_get_next(pd), which has in it the following block:
-> 
-> next_queue = per_cpu_ptr(pd->pqueue, cpu);
-> padata = NULL;
-> reorder = &next_queue->reorder;
-> if (!list_empty(&reorder->list)) {
->       padata = list_entry(reorder->list.next,
->                           struct padata_priv, list);
->       spin_lock(&reorder->lock);
->       list_del_init(&padata->list);
->       atomic_dec(&pd->reorder_objects);
->       spin_unlock(&reorder->lock);
-> 
->       pd->processed++;
-> 
->       goto out;
-> }
-> out:
-> return padata;
-> 
-> I strongly suspect that the problem here is that two threads can race
-> on reorder list. Even though the deletion is locked, call to
-> list_entry is not locked, which means it's feasible that two threads
-> pick up the same padata object and subsequently call list_add_tail on
-> them at the same time. The fix is thus be hoist that lock outside of
-> that block.
-> 
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+On Fri, 2017-03-24 at 15:42 +1000, Greg Ungerer wrote:
 
-Patch applied.  Thanks.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> The usbnet core is used by a number of drivers. This patch only
+> updates the qmi-wwan driver to use stats64. If you remove the
+> dev->stats.rx_* updates all those other driver users will have
+> no counts.
+
+I see. Then I guess the u64 stuff could be done only if running 32bit
+kernels. (The existing stats are using 'unsigned long' so are already
+64bit wide on 64bit kernels)
