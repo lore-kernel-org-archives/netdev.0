@@ -1,76 +1,43 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net-next 2/2] sctp: add support for MSG_MORE
-Date: Sat, 25 Mar 2017 00:09:09 +0800
-Message-ID: <CADvbK_fU5Pm5qmb4LfBEy_r73utNXa+yTVZB=hfH64PKoiPFcw@mail.gmail.com>
-References: <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
- <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
- <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
- <20170321220405.GF23553@localhost.localdomain> <063D6719AE5E284EB5DD2968C1650D6DCFFB73FD@AcuExch.aculab.com>
- <20170322173324.GG23553@localhost.localdomain> <CADvbK_cvPxk6c-vpqqo-UO5P4j6L4XK9wBPsgqpcJG_hc8Ztqw@mail.gmail.com>
- <20170323164225.GH23553@localhost.localdomain>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/5] dt-bindings: net: dsa: add Mediatek
+ MT7530 binding
+Date: Fri, 24 Mar 2017 11:16:08 -0500
+Message-ID: <20170324161608.umbjpei4g6eryk6v@rob-hp-laptop>
+References: <1490088910-19405-1-git-send-email-sean.wang@mediatek.com>
+ <1490088910-19405-2-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-        network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f171.google.com ([209.85.216.171]:33773 "EHLO
-        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757257AbdCXQJL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 12:09:11 -0400
-In-Reply-To: <20170323164225.GH23553@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, Landen.Chao-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1490088910-19405-2-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 24, 2017 at 12:42 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> On Thu, Mar 23, 2017 at 12:35:46PM +0800, Xin Long wrote:
->> On Thu, Mar 23, 2017 at 1:33 AM, Marcelo Ricardo Leitner
->> <marcelo.leitner@gmail.com> wrote:
->> > On Wed, Mar 22, 2017 at 02:07:37PM +0000, David Laight wrote:
->> >> Regardless of the MSG_MORE flags associated with any specific send()
->> >> request there will always be protocol effects (like retransmissions
->> >> or flow control 'on') that will generate different 'chunking'.
->> >
->> > Yes, those are the ones that may lead to some confusion on how it
->> > actually works, and mangling them is not really desired for the
->> > sideeffects that it might have.
->> >
->> > Sooner or later we could have bug reports like "hey this chunk shouldn't
->> > have been packed with that." if we stick with the initial proposition,
->> > while with David's view, we are only promising to not send packets with
->> > a single chunk and as long as the application send more data fast enough.
->> >
->> > David, are we on the same page now? ;-)
->> >
->> > Xin, what do you think?
->> If we insist that MSG_MORE means not to send  ANY data, I compromise.
->> does ANY include retransmission DATA? should MSG_MORE block
->> retransmission ?
->
-> That's not really what he meant by that, I think. That "ANY" in there is
-> a way to refer to the entire buf and not that msg sendmsg is sending.
-> Later I explained what I got from his explanation, which should be more
-> like:
-> "If MSG_MORE was used, and there are no packets in flight, do not send a
-> packet right away because the application is going to send more data."
-> Would have to handle the (Not-)Nagle situation too:
-> "If not using Nagle and using MSG_MORE, try to not generate a packet
-> right away." (because this may send packets with a single chunk even if
-> in_flight != 0)
-> In both cases, if the flush is generated by other triggers, it's okay.
->
-> Because if there are chunks already queued, they will be sent as soon as
-> in_flight reaches 0 or some other break is lifted (flow control).
-> Holding the chunk that was queued with MSG_MORE and sending a partial
-> packet in this case because of MSG_MORE is not good, it's possibly not
-> saving anything.
+On Tue, Mar 21, 2017 at 05:35:06PM +0800, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
+> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> 
+> Add device-tree binding for Mediatek MT7530 switch.
+> 
+> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/dsa/mt7530.txt         | 92 ++++++++++++++++++++++
+>  1 file changed, 92 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/dsa/mt7530.txt
 
-Makes sence, thanks for making this clear, will post a new fix.
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
