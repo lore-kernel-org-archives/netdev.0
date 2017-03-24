@@ -1,109 +1,37 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [net-next PATCH v2 5/8] net: Track start of busy loop instead
- of when it should end
-Date: Thu, 23 Mar 2017 21:27:35 -0700
-Message-ID: <1490329655.9687.33.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170323211820.12615.88907.stgit@localhost.localdomain>
-         <20170323213742.12615.85793.stgit@localhost.localdomain>
-         <1490318682.9687.22.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAKgT0Ue+UFOAhwxN-EOjWYZa9YZc2QaT5gvoLap70COs0rF7NA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: neigh: guard against NULL solicit() method
+Date: Thu, 23 Mar 2017 21:28:49 -0700 (PDT)
+Message-ID: <20170323.212849.796880770292613157.davem@davemloft.net>
+References: <1490284858.16816.205.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20170323.120035.1924712018254677829.davem@davemloft.net>
+        <1490297961.9687.6.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Samudrala, Sridhar" <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKgT0Ue+UFOAhwxN-EOjWYZa9YZc2QaT5gvoLap70COs0rF7NA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: edumazet@google.com, dvyukov@google.com, xiyou.wangcong@gmail.com,
+        herbert@gondor.apana.org.au, ast@kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        syzkaller@googlegroups.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490297961.9687.6.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-03-23 at 20:42 -0700, Alexander Duyck wrote:
-> On Thu, Mar 23, 2017 at 6:24 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On Thu, 2017-03-23 at 14:37 -0700, Alexander Duyck wrote:
-> >> From: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> >>
-> >
-> >> The last bit I changed is to move from using a shift by 10 to just using
-> >> NSEC_PER_USEC and using multiplication for any run time calculations and
-> >> division for a few compile time ones.  This should be more accurate and
-> >> perform about the same on most architectures since modern CPUs typically
-> >> handle multiplication without too much overhead.
-> >
-> >
-> > busy polling thread can be preempted for more than 2 seconds.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 Mar 2017 12:39:21 -0700
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> If it is preempted is the timing value even valid anymore?  I was
-> wondering about that.  Also when preemption is enabled is there
-> anything to prevent us from being migrated to a CPU?  If so what do we
-> do about architectures that allow drift between the clocks?
+> Dmitry posted a nice reproducer of a bug triggering in neigh_probe()
+> when dereferencing a NULL neigh->ops->solicit method.
 > 
-> > Using usec instead of nanoseconds gave us 3 orders of magnitude cushion.
+> This can happen for arp_direct_ops/ndisc_direct_ops and similar,
+> which can be used for NUD_NOARP neighbours (created when dev->header_ops
+> is NULL). Admin can then force changing nud_state to some other state
+> that would fire neigh timer.
 > 
-> Yes, but the problem is we also opened up an issue where if the clock
-> was approaching a roll-over we could add a value to it that would put
-> us in a state where we would never time out.
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-If you believe there is a bug, send a fix for net tree ?
-
-I really do not see a bug, given we use time_after(now, end_time) which
-handles roll-over just fine.
-
-
-
-> 
-> > We do not need nsec accuracy for busy polling users, if this restricts
-> > range and usability under stress.
-> 
-> Yes and no.  So the standard use cases suggest using values of 50 to
-> 100 microseconds.  I suspect that for most people that is probably
-> what they are using.  The addition of preemption kind of threw a
-> wrench in the works because now instead of spending that time busy
-> polling you can get preempted and then are off doing something else
-> for the entire period of time.
-
-That is fine. Busy polling heavy users are pinning threads to cpu, and
-the re-schedule check is basically a way to make sure ksoftirqd will get
-a chance to service BH.
-
-> 
-> What would you think of changing this so that instead of tracking the
-> total time this function is active, instead we tracked the total time
-> we spent with preemption disabled?  What I would do is move the
-> start_time configuration to just after the preempt_disable() call.
-> Then if we end up yielding to another thread we would just reset the
-> start_time when we restarted instead of trying to deal with all the
-> extra clock nonsense that we would have to deal with otherwise since I
-> don't know if we actually want to count time where we aren't actually
-> doing anything.  In addition this would bring us closer to how NAPI
-> already works since it essentially will either find an event, or if we
-> time out we hand it off to the softirq which in turn can handle it or
-> hand it off to softirqd.  The only item that might be a bit more
-> difficult to deal with then would be the way the times are used in
-> fs/select.c but I don't know if that is really the right way to go
-> anyway. With the preemption changes and such it might just make sense
-> to drop those bits and rely on just the socket polling alone.
-> 
-> The other option is to switch over everything from using unsigned long
-> to using uint64_t and time_after64.  Then we can guarantee the range
-> needed and then some, but then we are playing with a u64 time value on
-> 32b architectures which might be a bit more expensive.  Even with that
-> though I still need to clean up the sysctl since it doesn't make sense
-> to allow negative values for the busy_poll usec to be used which is
-> currently the case.
-> 
-> Anyway let me know what you think and I can probably spin out a new
-> set tomorrow.
-
-
-Leave usec resolution, I see no point switching to nsec, as long we
-support 32bit kernels.
-
-If you believe min/max values should be added to the sysctls, because we
-do not trust root anymore, please send patches only addressing that. 
-
-Thanks.
+Applied and queued up for -stable, thanks Eric.
