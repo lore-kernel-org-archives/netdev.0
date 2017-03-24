@@ -1,28 +1,31 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: mpls: Fix setting ttl_propagate for rt2
-Date: Fri, 24 Mar 2017 15:36:20 -0600
-Message-ID: <cb2bb70e-21f0-6386-d5b7-790f380626f5@cumulusnetworks.com>
-References: <20170324010227.45375-1-dsa@cumulusnetworks.com>
- <20170324.132939.982617243186545861.davem@davemloft.net>
- <c6ad237b-8a83-32bb-0a1b-3599c8b0d66b@cumulusnetworks.com>
- <20170324.141138.874207018978092750.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 0/2] GTP SGSN-side tunnels
+Date: Fri, 24 Mar 2017 14:42:20 -0700 (PDT)
+Message-ID: <20170324.144220.208574941746128439.davem@davemloft.net>
+References: <20170324135628.22955-1-jonas@southpole.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rshearma@brocade.com
-To: David Miller <davem@davemloft.net>
+Cc: pablo@netfilter.org, netdev@vger.kernel.org, laforge@gnumonks.org
+To: jonas@southpole.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34701 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751972AbdCXVgX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 17:36:23 -0400
-Received: by mail-pf0-f176.google.com with SMTP id p189so1037258pfp.1
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 14:36:22 -0700 (PDT)
-In-Reply-To: <20170324.141138.874207018978092750.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44868 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933340AbdCXVmW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 17:42:22 -0400
+In-Reply-To: <20170324135628.22955-1-jonas@southpole.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/24/17 3:11 PM, David Miller wrote:
-> I did a merge yesterday, so I am not likely to do another for about a week.
+From: Jonas Bonn <jonas@southpole.se>
+Date: Fri, 24 Mar 2017 14:56:26 +0100
 
-hmmm.... some how I missed it. That merge has what I need.
+> Changes from v3:
+> 
+> * Coding style fixup: remove extraneous braces on if-statement
+> * Ack from Harald
+
+These patches do not apply cleanly to the net-next tree, please
+respin.
+
+Thanks.
