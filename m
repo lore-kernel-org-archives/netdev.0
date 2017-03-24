@@ -1,137 +1,57 @@
-From: Jonas Bonn <jonas@southpole.se>
-Subject: [PATCH net-next v5 1/2] gtp: rename SGSN netlink attribute
-Date: Fri, 24 Mar 2017 23:23:20 +0100
-Message-ID: <20170324222321.28618-2-jonas@southpole.se>
-References: <20170324222321.28618-1-jonas@southpole.se>
-Cc: Jonas Bonn <jonas@southpole.se>
-To: pablo@netfilter.org, netdev@vger.kernel.org, laforge@gnumonks.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: EINVAL when using connect() for udp sockets
+Date: Fri, 24 Mar 2017 15:34:51 -0700
+Message-ID: <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
+References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
+ <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com> <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Daurnimator <quae@daurnimator.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        William Ahern <william@25thandclement.com>,
+        "Santi T." <santitm99@gmail.com>, mtk.manpages@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([37.247.8.11]:52228 "EHLO mail.southpole.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935214AbdCXWX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 18:23:27 -0400
-In-Reply-To: <20170324222321.28618-1-jonas@southpole.se>
+Received: from mail-wr0-f171.google.com ([209.85.128.171]:35646 "EHLO
+        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751417AbdCXWfN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:35:13 -0400
+Received: by mail-wr0-f171.google.com with SMTP id u1so2009245wra.2
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 15:35:12 -0700 (PDT)
+In-Reply-To: <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a mostly cosmetic rename of the SGSN netlink attribute to
-the GTP link.  The justification for this is that we will be making
-the module support decapsulation of "downstream" SGSN packets, in
-which case the netlink parameter actually refers to the upstream GGSN
-peer.  Renaming the parameter makes the relationship clearer.
+(Cc'ing Michael Kerrisk)
 
-The legacy name is maintained as a define in the header file in order
-to not break existing code.
+On Wed, Mar 22, 2017 at 10:18 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2017-03-23 at 13:22 +1100, Daurnimator wrote:
+>> On 9 March 2017 at 14:10, Daurnimator <quae@daurnimator.com> wrote:
+>> > When debugging https://github.com/daurnimator/lua-http/issues/73 which
+>> > uses https://github.com/wahern/dns we ran into an issue where modern
+>> > linux kernels return EINVAL if you try and re-use a udp socket.
+>> > The issue seems to occur if you go from a local destination ip to a
+>> > non-local one.
+>>
+>> Did anyone get a chance to look into this issue?
+>
+> I believe man page is not complete.
+>
+> A disconnect is needed before another connect()
 
-Signed-off-by: Jonas Bonn <jonas@southpole.se>
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Acked-by: Harald Welte <laforge@gnumonks.org>
----
- drivers/net/gtp.c        | 22 +++++++++++-----------
- include/uapi/linux/gtp.h |  3 ++-
- 2 files changed, 13 insertions(+), 12 deletions(-)
+Is it? Making connect() reentrant is reasonable for connection-less
+protocol like UDP, but I don't dig POSIX for the details. If so we need
+something like below...
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 3e1854f..1f6d911 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -56,7 +56,7 @@ struct pdp_ctx {
- 	u16			af;
- 
- 	struct in_addr		ms_addr_ip4;
--	struct in_addr		sgsn_addr_ip4;
-+	struct in_addr		peer_addr_ip4;
- 
- 	struct sock		*sk;
- 	struct net_device       *dev;
-@@ -489,17 +489,17 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	}
- 	netdev_dbg(dev, "found PDP context %p\n", pctx);
- 
--	rt = ip4_route_output_gtp(&fl4, pctx->sk, pctx->sgsn_addr_ip4.s_addr);
-+	rt = ip4_route_output_gtp(&fl4, pctx->sk, pctx->peer_addr_ip4.s_addr);
- 	if (IS_ERR(rt)) {
- 		netdev_dbg(dev, "no route to SSGN %pI4\n",
--			   &pctx->sgsn_addr_ip4.s_addr);
-+			   &pctx->peer_addr_ip4.s_addr);
- 		dev->stats.tx_carrier_errors++;
- 		goto err;
- 	}
- 
- 	if (rt->dst.dev == dev) {
- 		netdev_dbg(dev, "circular route to SSGN %pI4\n",
--			   &pctx->sgsn_addr_ip4.s_addr);
-+			   &pctx->peer_addr_ip4.s_addr);
- 		dev->stats.collisions++;
- 		goto err_rt;
- 	}
-@@ -866,8 +866,8 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
- {
- 	pctx->gtp_version = nla_get_u32(info->attrs[GTPA_VERSION]);
- 	pctx->af = AF_INET;
--	pctx->sgsn_addr_ip4.s_addr =
--		nla_get_be32(info->attrs[GTPA_SGSN_ADDRESS]);
-+	pctx->peer_addr_ip4.s_addr =
-+		nla_get_be32(info->attrs[GTPA_PEER_ADDRESS]);
- 	pctx->ms_addr_ip4.s_addr =
- 		nla_get_be32(info->attrs[GTPA_MS_ADDRESS]);
- 
-@@ -957,13 +957,13 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
- 	switch (pctx->gtp_version) {
- 	case GTP_V0:
- 		netdev_dbg(dev, "GTPv0-U: new PDP ctx id=%llx ssgn=%pI4 ms=%pI4 (pdp=%p)\n",
--			   pctx->u.v0.tid, &pctx->sgsn_addr_ip4,
-+			   pctx->u.v0.tid, &pctx->peer_addr_ip4,
- 			   &pctx->ms_addr_ip4, pctx);
- 		break;
- 	case GTP_V1:
- 		netdev_dbg(dev, "GTPv1-U: new PDP ctx id=%x/%x ssgn=%pI4 ms=%pI4 (pdp=%p)\n",
- 			   pctx->u.v1.i_tei, pctx->u.v1.o_tei,
--			   &pctx->sgsn_addr_ip4, &pctx->ms_addr_ip4, pctx);
-+			   &pctx->peer_addr_ip4, &pctx->ms_addr_ip4, pctx);
- 		break;
- 	}
- 
-@@ -994,7 +994,7 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
- 
- 	if (!info->attrs[GTPA_VERSION] ||
- 	    !info->attrs[GTPA_LINK] ||
--	    !info->attrs[GTPA_SGSN_ADDRESS] ||
-+	    !info->attrs[GTPA_PEER_ADDRESS] ||
- 	    !info->attrs[GTPA_MS_ADDRESS])
- 		return -EINVAL;
- 
-@@ -1126,7 +1126,7 @@ static int gtp_genl_fill_info(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
- 		goto nlmsg_failure;
- 
- 	if (nla_put_u32(skb, GTPA_VERSION, pctx->gtp_version) ||
--	    nla_put_be32(skb, GTPA_SGSN_ADDRESS, pctx->sgsn_addr_ip4.s_addr) ||
-+	    nla_put_be32(skb, GTPA_PEER_ADDRESS, pctx->peer_addr_ip4.s_addr) ||
- 	    nla_put_be32(skb, GTPA_MS_ADDRESS, pctx->ms_addr_ip4.s_addr))
- 		goto nla_put_failure;
- 
-@@ -1237,7 +1237,7 @@ static struct nla_policy gtp_genl_policy[GTPA_MAX + 1] = {
- 	[GTPA_LINK]		= { .type = NLA_U32, },
- 	[GTPA_VERSION]		= { .type = NLA_U32, },
- 	[GTPA_TID]		= { .type = NLA_U64, },
--	[GTPA_SGSN_ADDRESS]	= { .type = NLA_U32, },
-+	[GTPA_PEER_ADDRESS]	= { .type = NLA_U32, },
- 	[GTPA_MS_ADDRESS]	= { .type = NLA_U32, },
- 	[GTPA_FLOW]		= { .type = NLA_U16, },
- 	[GTPA_NET_NS_FD]	= { .type = NLA_U32, },
-diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
-index 72a04a0..57d1edb 100644
---- a/include/uapi/linux/gtp.h
-+++ b/include/uapi/linux/gtp.h
-@@ -19,7 +19,8 @@ enum gtp_attrs {
- 	GTPA_LINK,
- 	GTPA_VERSION,
- 	GTPA_TID,	/* for GTPv0 only */
--	GTPA_SGSN_ADDRESS,
-+	GTPA_PEER_ADDRESS,	/* Remote GSN peer, either SGSN or GGSN */
-+#define GTPA_SGSN_ADDRESS GTPA_PEER_ADDRESS /* maintain legacy attr name */
- 	GTPA_MS_ADDRESS,
- 	GTPA_FLOW,
- 	GTPA_NET_NS_FD,
--- 
-2.9.3
+--- a/net/ipv4/datagram.c
++++ b/net/ipv4/datagram.c
+@@ -40,7 +40,7 @@ int __ip4_datagram_connect(struct sock *sk, struct
+sockaddr *uaddr, int addr_len
+        sk_dst_reset(sk);
+
+        oif = sk->sk_bound_dev_if;
+-       saddr = inet->inet_saddr;
++       saddr = inet->inet_saddr = 0;
+        if (ipv4_is_multicast(usin->sin_addr.s_addr)) {
+                if (!oif)
+                        oif = inet->mc_index;
