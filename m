@@ -1,59 +1,76 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
- performance may be compromised." message with "ethtool -K eth0 gro off"
-Date: Fri, 24 Mar 2017 12:56:19 -0300
-Message-ID: <20170324155619.GC23552@localhost.localdomain>
-References: <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170203135355.GA3413@localhost.localdomain>
- <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170203142828.GB3413@localhost.localdomain>
- <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170206211226.GC3413@localhost.localdomain>
- <20170319121417.GA293@x4>
- <1489951226.16816.5.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170320192714.GB23552@localhost.localdomain>
- <1490190462.16816.144.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next 2/2] sctp: add support for MSG_MORE
+Date: Sat, 25 Mar 2017 00:09:09 +0800
+Message-ID: <CADvbK_fU5Pm5qmb4LfBEy_r73utNXa+yTVZB=hfH64PKoiPFcw@mail.gmail.com>
+References: <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
+ <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
+ <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
+ <20170321220405.GF23553@localhost.localdomain> <063D6719AE5E284EB5DD2968C1650D6DCFFB73FD@AcuExch.aculab.com>
+ <20170322173324.GG23553@localhost.localdomain> <CADvbK_cvPxk6c-vpqqo-UO5P4j6L4XK9wBPsgqpcJG_hc8Ztqw@mail.gmail.com>
+ <20170323164225.GH23553@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+        network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40780 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934511AbdCXP4X (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 11:56:23 -0400
-Content-Disposition: inline
-In-Reply-To: <1490190462.16816.144.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:33773 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757257AbdCXQJL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 12:09:11 -0400
+In-Reply-To: <20170323164225.GH23553@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 22, 2017 at 06:47:42AM -0700, Eric Dumazet wrote:
-> On Mon, 2017-03-20 at 16:27 -0300, Marcelo Ricardo Leitner wrote:
-> >  This warning is a hint, and can not assume senders are not dumb.
-> > 
-> > Agreed. But we can make it consider such cases. What about the following
-> > patch? (untested)
-> > 
-> > I think we can directly account for the size of the timestamps in there,
-> > as that won't make a difference to congestion control in case it's
-> > wrong, and also validate against MTU if we have it. I didn't subtract
-> > the headers from MTU on purpose, as dealing with ipv4/ipv6 there is
-> > not worth for the same reason.
-> > 
-> > This should silent this false-positive.
-> 
-> 
-> Note that the problem could have its origin on a middle box,
-> not on the host terminating the TCP flow.
-> 
-> So we can try hard, but we can't eliminate false positives.
+On Fri, Mar 24, 2017 at 12:42 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Thu, Mar 23, 2017 at 12:35:46PM +0800, Xin Long wrote:
+>> On Thu, Mar 23, 2017 at 1:33 AM, Marcelo Ricardo Leitner
+>> <marcelo.leitner@gmail.com> wrote:
+>> > On Wed, Mar 22, 2017 at 02:07:37PM +0000, David Laight wrote:
+>> >> Regardless of the MSG_MORE flags associated with any specific send()
+>> >> request there will always be protocol effects (like retransmissions
+>> >> or flow control 'on') that will generate different 'chunking'.
+>> >
+>> > Yes, those are the ones that may lead to some confusion on how it
+>> > actually works, and mangling them is not really desired for the
+>> > sideeffects that it might have.
+>> >
+>> > Sooner or later we could have bug reports like "hey this chunk shouldn't
+>> > have been packed with that." if we stick with the initial proposition,
+>> > while with David's view, we are only promising to not send packets with
+>> > a single chunk and as long as the application send more data fast enough.
+>> >
+>> > David, are we on the same page now? ;-)
+>> >
+>> > Xin, what do you think?
+>> If we insist that MSG_MORE means not to send  ANY data, I compromise.
+>> does ANY include retransmission DATA? should MSG_MORE block
+>> retransmission ?
+>
+> That's not really what he meant by that, I think. That "ANY" in there is
+> a way to refer to the entire buf and not that msg sendmsg is sending.
+> Later I explained what I got from his explanation, which should be more
+> like:
+> "If MSG_MORE was used, and there are no packets in flight, do not send a
+> packet right away because the application is going to send more data."
+> Would have to handle the (Not-)Nagle situation too:
+> "If not using Nagle and using MSG_MORE, try to not generate a packet
+> right away." (because this may send packets with a single chunk even if
+> in_flight != 0)
+> In both cases, if the flush is generated by other triggers, it's okay.
+>
+> Because if there are chunks already queued, they will be sent as soon as
+> in_flight reaches 0 or some other break is lifted (flow control).
+> Holding the chunk that was queued with MSG_MORE and sending a partial
+> packet in this case because of MSG_MORE is not good, it's possibly not
+> saving anything.
 
-Agreed both.
-
-> 
-> Maybe replace the 12 by MAX_TCP_OPTION_SPACE ?
-
-Yes, can be. Thanks.
-
-  Marcelo
+Makes sence, thanks for making this clear, will post a new fix.
