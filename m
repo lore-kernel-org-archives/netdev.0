@@ -1,50 +1,36 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Thu, 23 Mar 2017 18:24:11 -0700
-Message-ID: <9414bc03-4b88-83e3-0cd7-9c227b756da9@fb.com>
-References: <20170324110514.0376c46f@canb.auug.org.au>
- <20170323.171035.27948034948873194.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v2 5/8] net: Track start of busy loop instead
+ of when it should end
+Date: Thu, 23 Mar 2017 18:24:42 -0700
+Message-ID: <1490318682.9687.22.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170323211820.12615.88907.stgit@localhost.localdomain>
+         <20170323213742.12615.85793.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-next@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <kafai@fb.com>
-To: David Miller <davem@davemloft.net>, <sfr@canb.auug.org.au>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        sridhar.samudrala@intel.com, edumazet@google.com,
+        davem@davemloft.net, linux-api@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170323.171035.27948034948873194.davem@davemloft.net>
+In-Reply-To: <20170323213742.12615.85793.stgit@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/23/17 5:10 PM, David Miller wrote:
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 24 Mar 2017 11:05:14 +1100
->
->> Hi all,
->>
->> Today's linux-next merge of the net-next tree got a conflict in:
->>
->>   kernel/bpf/hashtab.c
->>
->> between commit:
->>
->>   8c290e60fa2a ("bpf: fix hashmap extra_elems logic")
->>
->> from Linus' tree and commit:
->>
->>   bcc6b1b7ebf8 ("bpf: Add hash of maps support")
->>
->> from the net-next tree.
->>
->> I fixed it up (see below) and can carry the fix as necessary. This
->> is now fixed as far as linux-next is concerned, but any non trivial
->> conflicts should be mentioned to your upstream maintainer when your tree
->> is submitted for merging.  You may also want to consider cooperating
->> with the maintainer of the conflicting tree to minimise any particularly
->> complex conflicts.
->
-> I did the same resolution just an hour ago when merging net into
-> net-next.
+On Thu, 2017-03-23 at 14:37 -0700, Alexander Duyck wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
 
-yes. that's correct merge conflict resolution.
-Just rebuilt and retested. All looks good.
-Thanks!
+> The last bit I changed is to move from using a shift by 10 to just using
+> NSEC_PER_USEC and using multiplication for any run time calculations and
+> division for a few compile time ones.  This should be more accurate and
+> perform about the same on most architectures since modern CPUs typically
+> handle multiplication without too much overhead.
+
+
+busy polling thread can be preempted for more than 2 seconds.
+
+Using usec instead of nanoseconds gave us 3 orders of magnitude cushion.
+
+We do not need nsec accuracy for busy polling users, if this restricts
+range and usability under stress.
