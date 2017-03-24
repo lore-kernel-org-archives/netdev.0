@@ -1,77 +1,54 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Fwd: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
-Date: Fri, 24 Mar 2017 15:02:27 +0000
-Message-ID: <748685e5-86f8-5f6b-66db-04ec96af4bd6@synopsys.com>
-References: <abf8722f-5d3a-0bae-d6cd-6cc6fbb744cb@synopsys.com>
+From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [net-next PATCH v2 5/8] net: Track start of busy loop instead of
+ when it should end
+Date: Fri, 24 Mar 2017 08:48:13 -0700
+Message-ID: <CAKgT0UeWdiOwKz2rqK64xPvHM-W5eZdEfHW4SvN0QMHWD79_-w@mail.gmail.com>
+References: <20170323211820.12615.88907.stgit@localhost.localdomain>
+ <20170323213742.12615.85793.stgit@localhost.localdomain> <1490318682.9687.22.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0Ue+UFOAhwxN-EOjWYZa9YZc2QaT5gvoLap70COs0rF7NA@mail.gmail.com>
+ <1490329655.9687.33.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0UfQPLqHtZ_SjanbLoG6t5f36C4nsORuw6yjLT0xZrEoEQ@mail.gmail.com> <1490354210.9687.44.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <f.fainelli@gmail.com>, netdev <netdev@vger.kernel.org>
-To: <clabbe.montjoie@gmail.com>, <thierry.reding@gmail.com>,
-        <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.47.9]:56969 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936052AbdCXPMN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 11:12:13 -0400
-In-Reply-To: <abf8722f-5d3a-0bae-d6cd-6cc6fbb744cb@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "Samudrala, Sridhar" <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490354210.9687.44.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-Sorry, sending again with David Miller in TO: instead of CC.
-
-Às 2:09 PM de 3/24/2017, Corentin Labbe escreveu:
-> On Thu, Mar 23, 2017 at 07:10:59PM +0100, Thierry Reding wrote:
->> On Thu, Mar 23, 2017 at 05:27:08PM +0000, Joao Pinto wrote:
->>> Hi Thierry,
->>>
+On Fri, Mar 24, 2017 at 4:16 AM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Thu, 2017-03-23 at 22:55 -0700, Alexander Duyck wrote:
+>
+>> Right, but time_after assumes roll over.  When you are using a time
+>> value based off of local_clock() >> 10, you don't ever roll over when
+>> you do addition.  Just the clock rolls over.  At least on 64 bit
+>> systems.
 >>
->> Yes, I can submit a patch for that.
->>
->> After some more testing I did get a couple (roughly 2 out of 10)
->> successful boots (I'm booting over NFS using the EQOS), and given that
->> this pointed towards something related to uninitialized data, I changed
->> all occurrences of kmalloc_array() with kcalloc() and that I've gotten
->> 10 successful reboots out of 10.
->>
->> I still can't pinpoint why this is now necessary since previously the
->> kmalloc_array() was working just fine. The only thing I can think of is
->> that we're not properly initializing all fields of the new queue
->> structures, since that's the only thing that's changed with this commit.
->>
->> I haven't investigated in detail yet, but from nothing so far has jumped
->> out at me.
->>
->> Thierry
-> 
-> I have tried this change, but it made the situation worse on dwmac-sunxi (no network at all).
-> 
-> Joao, perhaps it's time to revert the faulty (and very huge) patch and rework it by splitting at least in two:
-> - adding RX queue / adding TX queue
-> And more if possible (like just adding an unused queue parameter) or a patch just for adding stmmac_free_tx_buffers() for example.
-> I think it will help to find where the problem is.
-> 
-> And this time I will test them before applying:)
-> 
-> Regards
-> Corentin Labbe
-> 
+>> So if local time approaches something like all 1's, and we have
+>> shifted it by 10 it is then the max it can ever reach is
+>> 0x003FFFFFFFFFFFFF.  I can add our loop time to that and it won't roll
+>> over.  In the mean time the busy_loop_us_ can never exceed whatever I
+>> added to that so we are now locked into a loop.  I realize I am
+>> probably being pedantic, and it will have an exceedingly small rate of
+>> occurrence, but it is still an issue.
+>
+> Do you realize that a 64bit clock wont rollover before the host has
+> reached 584 years of uptime ?
 
-Yes, I agree, it is better to revert and leave the tree functional for all.
+Yeah, that is what I meant by "probably being pedantic".  I was being
+a too much of a perfectionist.
 
-@David Miller:
-The multiple-buffer patch introduced some problems in some setups that are being
-hard to debug, so Corentin gave the idea of reverting the until
-commit 7bac4e1ec3ca2342929a39638d615c6b672c27a0 (net: stmmac: stmmac interrupt
-treatment prepared for multiple queues), which I fully agree.
-
-In my setup is ok, but the idea is to have everyone's setup working :), so lets
-break them into smaller pieces, and let's only apply them when everyone confirms
-that is working ok in your setups, agree?
-
-What is the typical mechanism for this? I send a patch reverting them?
-
-Thanks,
-Joao
+So I can work with the ">> 10" approach.  The only thing I think I may
+still want to change is that on 32b systems I will still use the
+do_procintvec_minmax for busy_poll and busy_read to prevent us from
+inputting values less than 0. For 64b systems we can do_procuintvec.
+It isn't so much that I don't trust root, it is just that we didn't
+really document the ranges anywhere for this so I figure if we at
+least lock that down to the usable ranges since root may not be aware
+of the implementation details.
