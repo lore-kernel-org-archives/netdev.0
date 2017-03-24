@@ -1,51 +1,39 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [patch net-next] net: sched: choke: remove dead filter
  classify code
-Date: Fri, 24 Mar 2017 12:46:38 -0700 (PDT)
-Message-ID: <20170324.124638.1229066743314753196.davem@davemloft.net>
+Date: Fri, 24 Mar 2017 12:47:41 -0700 (PDT)
+Message-ID: <20170324.124741.1497247366241339255.davem@davemloft.net>
 References: <1490284936-19412-1-git-send-email-jiri@resnulli.us>
-        <CAM_iQpXTM9X75RXj6mvTYatL0=TjFyYmFaKLeQBv74zZVFUs6g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, jhs@mojatatu.com,
-        mlxsw@mellanox.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43584 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43610 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966477AbdCXTqj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 15:46:39 -0400
-In-Reply-To: <CAM_iQpXTM9X75RXj6mvTYatL0=TjFyYmFaKLeQBv74zZVFUs6g@mail.gmail.com>
+        with ESMTP id S965599AbdCXTrn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 15:47:43 -0400
+In-Reply-To: <1490284936-19412-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 24 Mar 2017 10:59:15 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 23 Mar 2017 17:02:16 +0100
 
-> On Thu, Mar 23, 2017 at 9:02 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->>
->> sch_choke is classless qdisc so it does not define cl_ops. Therefore
->> filter_list cannot be ever changed, being NULL all the time.
->> Reason is this check in tc_ctl_tfilter:
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Are you sure? According to the definition in comments:
+> sch_choke is classless qdisc so it does not define cl_ops. Therefore
+> filter_list cannot be ever changed, being NULL all the time.
+> Reason is this check in tc_ctl_tfilter:
 > 
->    CHOKe (CHOose and Keep for responsive flows, CHOose and Kill for
->    unresponsive flows) is a variant of RED that penalizes misbehaving flows but
->    maintains no flow state. The difference from RED is an additional step
->    during the enqueuing process. If average queue size is over the
->    low threshold (qmin), a packet is chosen at random from the queue.
->    If both the new and chosen packet are from the same flow, both
->    are dropped. Unlike RED, CHOKe is not really a "classful" qdisc because it
->    needs to access packets in queue randomly. It has a minimal class
->    interface to allow overriding the builtin flow classifier with
->    filters.
+> 	/* Is it classful? */
+> 	cops = q->ops->cl_ops;
+> 	if (!cops)
+> 		return -EINVAL;
 > 
-> It should implement filters otherwise how to classify flows in
-> its definition?
+> So remove this dead code.
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-The flows are matched by hand using the flow dissector.
-
-Jiri is right, this is all dead code and should be removed.
+Applied, thanks Jiri.
