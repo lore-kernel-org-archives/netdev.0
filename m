@@ -1,252 +1,57 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 11/12] net/mlx5e: Generalize SQ create/modify/destroy functions
-Date: Sat, 25 Mar 2017 00:52:13 +0300
-Message-ID: <20170324215214.25711-12-saeedm@mellanox.com>
+Subject: [PATCH net-next 07/12] net/mlx5e: Poll XDP TX CQ before RX CQ
+Date: Sat, 25 Mar 2017 00:52:09 +0300
+Message-ID: <20170324215214.25711-8-saeedm@mellanox.com>
 References: <20170324215214.25711-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, kernel-team@fb.com,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35774 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35766 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S934739AbdCXVwj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 17:52:39 -0400
+        with ESMTP id S966697AbdCXVwo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 17:52:44 -0400
 In-Reply-To: <20170324215214.25711-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the next patches we will introduce different SQ types,
-and we would want to reuse those functions, in this patch we make them
-agnostic to SQ type (txq, xdp, ico).
+Handle XDP TX completions before handling RX packets, to make sure more
+free space is available for XDP TX packets a moment before handling
+RX packets.
+
+Performance improvement:
+System: Intel(R) Xeon(R) CPU E5-2620 v3 @ 2.40GHz
+
+Test case              Before     Now      improvement
+---------------------------------------------------------------
+XDP Drop (1 core)      16.9Mpps  16.9Mpps    No change
+XDP TX   (1 core)      12Mpps    13Mpps      8%
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 111 ++++++++++++++--------
- 1 file changed, 69 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index d03afa535064..dcc67df54a5c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1057,10 +1057,19 @@ static void mlx5e_free_sq(struct mlx5e_sq *sq)
- 	mlx5_wq_destroy(&sq->wq_ctrl);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 9beeb4a1212f..c880022bb21a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -118,12 +118,12 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 	for (i = 0; i < c->num_tc; i++)
+ 		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq, budget);
  
--static int mlx5e_create_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
-+struct mlx5e_create_sq_param {
-+	struct mlx5_wq_ctrl        *wq_ctrl;
-+	u32                         cqn;
-+	u32                         tisn;
-+	u8                          tis_lst_sz;
-+	u8                          min_inline_mode;
-+};
-+
-+static int mlx5e_create_sq(struct mlx5e_priv *priv,
-+			   struct mlx5e_sq_param *param,
-+			   struct mlx5e_create_sq_param *csp,
-+			   u32 *sqn)
- {
--	struct mlx5e_channel *c = sq->channel;
--	struct mlx5e_priv *priv = c->priv;
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 
- 	void *in;
-@@ -1070,7 +1079,7 @@ static int mlx5e_create_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
- 	int err;
- 
- 	inlen = MLX5_ST_SZ_BYTES(create_sq_in) +
--		sizeof(u64) * sq->wq_ctrl.buf.npages;
-+		sizeof(u64) * csp->wq_ctrl->buf.npages;
- 	in = mlx5_vzalloc(inlen);
- 	if (!in)
- 		return -ENOMEM;
-@@ -1079,38 +1088,41 @@ static int mlx5e_create_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
- 	wq = MLX5_ADDR_OF(sqc, sqc, wq);
- 
- 	memcpy(sqc, param->sqc, sizeof(param->sqc));
+-	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
+-	busy |= work_done == budget;
 -
--	MLX5_SET(sqc,  sqc, tis_num_0, param->type == MLX5E_SQ_ICO ?
--				       0 : priv->tisn[sq->tc]);
--	MLX5_SET(sqc,  sqc, cqn,		sq->cq.mcq.cqn);
-+	MLX5_SET(sqc,  sqc, tis_lst_sz, csp->tis_lst_sz);
-+	MLX5_SET(sqc,  sqc, tis_num_0, csp->tisn);
-+	MLX5_SET(sqc,  sqc, cqn, csp->cqn);
+ 	if (c->xdp)
+ 		busy |= mlx5e_poll_xdpsq_cq(&c->rq.xdpsq.cq);
  
- 	if (MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_VPORT_CONTEXT)
--		MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
-+		MLX5_SET(sqc,  sqc, min_wqe_inline_mode, csp->min_inline_mode);
- 
--	MLX5_SET(sqc,  sqc, state,		MLX5_SQC_STATE_RST);
--	MLX5_SET(sqc,  sqc, tis_lst_sz, param->type == MLX5E_SQ_ICO ? 0 : 1);
-+	MLX5_SET(sqc,  sqc, state, MLX5_SQC_STATE_RST);
- 
- 	MLX5_SET(wq,   wq, wq_type,       MLX5_WQ_TYPE_CYCLIC);
--	MLX5_SET(wq,   wq, uar_page,      mdev->mlx5e_res.bfreg.index);
--	MLX5_SET(wq,   wq, log_wq_pg_sz,  sq->wq_ctrl.buf.page_shift -
-+	MLX5_SET(wq,   wq, uar_page,      priv->mdev->mlx5e_res.bfreg.index);
-+	MLX5_SET(wq,   wq, log_wq_pg_sz,  csp->wq_ctrl->buf.page_shift -
- 					  MLX5_ADAPTER_PAGE_SHIFT);
--	MLX5_SET64(wq, wq, dbr_addr,      sq->wq_ctrl.db.dma);
-+	MLX5_SET64(wq, wq, dbr_addr,      csp->wq_ctrl->db.dma);
- 
--	mlx5_fill_page_array(&sq->wq_ctrl.buf,
--			     (__be64 *)MLX5_ADDR_OF(wq, wq, pas));
-+	mlx5_fill_page_array(&csp->wq_ctrl->buf, (__be64 *)MLX5_ADDR_OF(wq, wq, pas));
- 
--	err = mlx5_core_create_sq(mdev, in, inlen, &sq->sqn);
-+	err = mlx5_core_create_sq(mdev, in, inlen, sqn);
- 
- 	kvfree(in);
- 
- 	return err;
- }
- 
--static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state,
--			   int next_state, bool update_rl, int rl_index)
-+struct mlx5e_modify_sq_param {
-+	int curr_state;
-+	int next_state;
-+	bool rl_update;
-+	int rl_index;
-+};
++	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
++	busy |= work_done == budget;
 +
-+static int mlx5e_modify_sq(struct mlx5e_priv *priv,
-+			   u32 sqn,
-+			   struct mlx5e_modify_sq_param *p)
- {
--	struct mlx5e_channel *c = sq->channel;
--	struct mlx5e_priv *priv = c->priv;
- 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	mlx5e_poll_ico_cq(&c->icosq.cq);
  
- 	void *in;
-@@ -1125,29 +1137,24 @@ static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state,
- 
- 	sqc = MLX5_ADDR_OF(modify_sq_in, in, ctx);
- 
--	MLX5_SET(modify_sq_in, in, sq_state, curr_state);
--	MLX5_SET(sqc, sqc, state, next_state);
--	if (update_rl && next_state == MLX5_SQC_STATE_RDY) {
-+	MLX5_SET(modify_sq_in, in, sq_state, p->curr_state);
-+	MLX5_SET(sqc, sqc, state, p->next_state);
-+	if (p->rl_update && p->next_state == MLX5_SQC_STATE_RDY) {
- 		MLX5_SET64(modify_sq_in, in, modify_bitmask, 1);
--		MLX5_SET(sqc,  sqc, packet_pacing_rate_limit_index, rl_index);
-+		MLX5_SET(sqc,  sqc, packet_pacing_rate_limit_index, p->rl_index);
- 	}
- 
--	err = mlx5_core_modify_sq(mdev, sq->sqn, in, inlen);
-+	err = mlx5_core_modify_sq(mdev, sqn, in, inlen);
- 
- 	kvfree(in);
- 
- 	return err;
- }
- 
--static void mlx5e_destroy_sq(struct mlx5e_sq *sq)
--{
--	struct mlx5e_channel *c = sq->channel;
--	struct mlx5e_priv *priv = c->priv;
--	struct mlx5_core_dev *mdev = priv->mdev;
- 
--	mlx5_core_destroy_sq(mdev, sq->sqn);
--	if (sq->rate_limit)
--		mlx5_rl_remove_rate(mdev, sq->rate_limit);
-+static void mlx5e_destroy_sq(struct mlx5e_priv *priv, u32 sqn)
-+{
-+	mlx5_core_destroy_sq(priv->mdev, sqn);
- }
- 
- static int mlx5e_open_sq(struct mlx5e_channel *c,
-@@ -1155,19 +1162,29 @@ static int mlx5e_open_sq(struct mlx5e_channel *c,
- 			 struct mlx5e_sq_param *param,
- 			 struct mlx5e_sq *sq)
- {
-+	struct mlx5e_create_sq_param csp = {0};
-+	struct mlx5e_modify_sq_param msp = {0};
-+	struct mlx5e_priv *priv = c->priv;
- 	int err;
- 
- 	err = mlx5e_alloc_sq(c, tc, param, sq);
- 	if (err)
- 		return err;
- 
--	err = mlx5e_create_sq(sq, param);
-+	csp.tisn            = param->type == MLX5E_SQ_ICO ? 0 : priv->tisn[sq->tc];
-+	csp.tis_lst_sz      = param->type == MLX5E_SQ_ICO ? 0 : 1;
-+	csp.cqn             = sq->cq.mcq.cqn;
-+	csp.wq_ctrl         = &sq->wq_ctrl;
-+	csp.min_inline_mode = sq->min_inline_mode;
-+
-+	err = mlx5e_create_sq(c->priv, param, &csp, &sq->sqn);
- 	if (err)
- 		goto err_free_sq;
- 
- 	set_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
--	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY,
--			      false, 0);
-+	msp.curr_state = MLX5_SQC_STATE_RST;
-+	msp.next_state = MLX5_SQC_STATE_RDY;
-+	err = mlx5e_modify_sq(priv, sq->sqn, &msp);
- 	if (err)
- 		goto err_destroy_sq;
- 
-@@ -1180,7 +1197,7 @@ static int mlx5e_open_sq(struct mlx5e_channel *c,
- 
- err_destroy_sq:
- 	clear_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
--	mlx5e_destroy_sq(sq);
-+	mlx5e_destroy_sq(priv, sq->sqn);
- err_free_sq:
- 	mlx5e_free_sq(sq);
- 
-@@ -1196,9 +1213,13 @@ static inline void netif_tx_disable_queue(struct netdev_queue *txq)
- 
- static void mlx5e_close_sq(struct mlx5e_sq *sq)
- {
-+	struct mlx5e_channel *c = sq->channel;
-+	struct mlx5e_priv *priv = c->priv;
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+
- 	clear_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
- 	/* prevent netif_tx_wake_queue */
--	napi_synchronize(&sq->channel->napi);
-+	napi_synchronize(&c->napi);
- 
- 	if (sq->txq) {
- 		netif_tx_disable_queue(sq->txq);
-@@ -1213,7 +1234,9 @@ static void mlx5e_close_sq(struct mlx5e_sq *sq)
- 		}
- 	}
- 
--	mlx5e_destroy_sq(sq);
-+	mlx5e_destroy_sq(priv, sq->sqn);
-+	if (sq->rate_limit)
-+		mlx5_rl_remove_rate(mdev, sq->rate_limit);
- 	mlx5e_free_sq_descs(sq);
- 	mlx5e_free_sq(sq);
- }
-@@ -1439,6 +1462,7 @@ static int mlx5e_set_sq_maxrate(struct net_device *dev,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct mlx5e_modify_sq_param msp = {0};
- 	u16 rl_index = 0;
- 	int err;
- 
-@@ -1461,8 +1485,11 @@ static int mlx5e_set_sq_maxrate(struct net_device *dev,
- 		}
- 	}
- 
--	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY,
--			      MLX5_SQC_STATE_RDY, true, rl_index);
-+	msp.curr_state = MLX5_SQC_STATE_RDY;
-+	msp.next_state = MLX5_SQC_STATE_RDY;
-+	msp.rl_index   = rl_index;
-+	msp.rl_update  = true;
-+	err = mlx5e_modify_sq(priv, sq->sqn, &msp);
- 	if (err) {
- 		netdev_err(dev, "Failed configuring rate %u: %d\n",
- 			   rate, err);
+ 	busy |= mlx5e_post_rx_wqes(&c->rq);
 -- 
 2.11.0
