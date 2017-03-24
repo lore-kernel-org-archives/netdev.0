@@ -1,106 +1,74 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/sched: GPF in qdisc_hash_add
-Date: Fri, 24 Mar 2017 10:28:12 -0700
-Message-ID: <CAM_iQpVu9CRm-MwGPshQrpYj8Sj3cDCLuo_Ta=svKBBpGLRfcg@mail.gmail.com>
-References: <CACT4Y+bemisEVj1nFmyFPuJZxh3oa8QOf-qDZmjRyPZBG4y7ng@mail.gmail.com>
- <CAM_iQpWG78yjRAQ673NyiVBJZRfH7WMjbteRw7EfTkfH2tU2-w@mail.gmail.com>
- <CACT4Y+ZBwr6CNr1j0Hx3ZptLePkbiGfws4q=uv=PFOYTkhcXuQ@mail.gmail.com> <CANn89iJ0y=Ee_79iCctMDM9uz2D7D1TL4nAd2BzEnVV9wi9+5A@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/2] sctp: add support for MSG_MORE
+Date: Fri, 24 Mar 2017 17:38:09 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFB942C@AcuExch.aculab.com>
+References: <d6f2835b0bd655a563896e86648cbd9b4e01374e.1487440272.git.lucien.xin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6C9B9@AcuExch.aculab.com>
+ <CADvbK_dDgFc78dBCpTkNxM3kU-GAYbh6CCGTtO=r9ZeNyb2X0A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6E5BB@AcuExch.aculab.com>
+ <CADvbK_d9dyL0PFPrAyNqFT_URNdq75NPdQe8tqQkFO4aCg2DdA@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DCFE6EDE0@AcuExch.aculab.com>
+ <20170321220405.GF23553@localhost.localdomain>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFB73FD@AcuExch.aculab.com>
+ <20170322173324.GG23553@localhost.localdomain>
+ <CADvbK_cvPxk6c-vpqqo-UO5P4j6L4XK9wBPsgqpcJG_hc8Ztqw@mail.gmail.com>
+ <20170323164225.GH23553@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "Vlad Yasevich" <vyasevich@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>,
+        Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:35460 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751519AbdCXR2f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:28:35 -0400
-In-Reply-To: <CANn89iJ0y=Ee_79iCctMDM9uz2D7D1TL4nAd2BzEnVV9wi9+5A@mail.gmail.com>
+Received: from smtp-out4.electric.net ([192.162.216.191]:64228 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751084AbdCXRiQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:38:16 -0400
+In-Reply-To: <20170323164225.GH23553@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 23, 2017 at 12:10 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Thu, Mar 23, 2017 at 12:06 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>
->> On Thu, Mar 23, 2017 at 8:00 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> > On Thu, Mar 23, 2017 at 9:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> >> kasan: CONFIG_KASAN_INLINE enabled
->> >> kasan: GPF could be caused by NULL-ptr deref or user memory access
->> >> general protection fault: 0000 [#1] SMP KASAN
->> >> Dumping ftrace buffer:
->> >>    (ftrace buffer empty)
->> >> Modules linked in:
->> >> CPU: 2 PID: 12732 Comm: syz-executor6 Not tainted 4.11.0-rc3+ #365
->> >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> >> task: ffff880062b7a2c0 task.stack: ffff880033480000
->> >> RIP: 0010:qdisc_hash_add.part.19+0xb6/0x3c0 net/sched/sch_api.c:280
->> >> RSP: 0018:ffff880033487820 EFLAGS: 00010202
->> >> RAX: dffffc0000000000 RBX: ffffffff85357e00 RCX: ffffc90002b24000
->> >> RDX: 000000000000007a RSI: ffffffff835a523a RDI: 00000000000003d0
->> >> RBP: ffff8800334878b8 R08: fffffbfff0a6afeb R09: fffffbfff0a6afeb
->> >> R10: 0000000000000001 R11: fffffbfff0a6afea R12: ffffffff85357e48
->> >> R13: 1ffff10006690f06 R14: ffff880033487890 R15: 0000000000000000
->> >> FS:  00007f68665d0700(0000) GS:ffff88006e200000(0000) knlGS:0000000000000000
->> >> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> >> CR2: 00000000004c2d44 CR3: 000000003c6f8000 CR4: 00000000000026e0
->> >> Call Trace:
->> >>  qdisc_hash_add+0x76/0x90 net/sched/sch_api.c:279
->> >>  attach_default_qdiscs net/sched/sch_generic.c:798 [inline]
->> >>  dev_activate+0x6ca/0x920 net/sched/sch_generic.c:829
->> >>  __dev_open+0x25b/0x360 net/core/dev.c:1348
->> >>  __dev_change_flags+0x159/0x3d0 net/core/dev.c:6460
->> >>  dev_change_flags+0x88/0x140 net/core/dev.c:6525
->> >>  dev_ifsioc+0x51f/0x9b0 net/core/dev_ioctl.c:254
->> >>  dev_ioctl+0x1fe/0x1030 net/core/dev_ioctl.c:532
->> >>  sock_do_ioctl+0x94/0xb0 net/socket.c:902
->> >>  sock_ioctl+0x2c2/0x440 net/socket.c:993
->> >>  vfs_ioctl fs/ioctl.c:45 [inline]
->> >>  do_vfs_ioctl+0x1af/0x16d0 fs/ioctl.c:685
->> >>  SYSC_ioctl fs/ioctl.c:700 [inline]
->> >>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
->> >>  entry_SYSCALL_64_fastpath+0x1f/0xc2
->> >
->> > The interesting part is why the NULL dereference is in
->> > qdisc_hash_add(), since we have a check before calling
->> > it:
->> >
->> > #ifdef CONFIG_NET_SCHED
->> >         if (dev->qdisc)
->> >                 qdisc_hash_add(dev->qdisc);
->> > #endif
->> >
->> >
->> > When attach_one_default_qdisc() fails, we should trigger
->> > the NULL pointer dereference bug at:
->> >
->> >     atomic_inc(&dev->qdisc->refcnt);
->>
->> I think qdisc is not NULL, it's something _in_ qdisc that is NULL. The
->> crash happens here:
->>
->>                 struct Qdisc *root = qdisc_dev(q)->qdisc;
->>
->> so it's probably device.
->
->
->
-> Looks like this bug came with commit 59cc1f61f09c
-> ("net: sched: convert qdisc linked list to hashtable")
->
-> I would simply guard qdisc_hash_add()
->
-> (Against &noop_qdisc)
+From: Marcelo Ricardo Leitner
+> Sent: 23 March 2017 16:42
+...
+> > > David, are we on the same page now? ;-)
 
-Yeah, I missed that dev_init_scheduler() could assign noop_qdisc
-to each tx queue. Then the check in attach_default_qdiscs()
-is always false? If so we need...
+Probably...
 
- #ifdef CONFIG_NET_SCHED
--       if (dev->qdisc)
-+       if (dev->qdisc != &noop_qdisc)
-                qdisc_hash_add(dev->qdisc);
- #endif
+> > > Xin, what do you think?
+> > If we insist that MSG_MORE means not to send  ANY data, I compromise.
+> > does ANY include retransmission DATA? should MSG_MORE block
+> > retransmission ?
+> 
+> That's not really what he meant by that, I think. That "ANY" in there is
+> a way to refer to the entire buf and not that msg sendmsg is sending.
+> Later I explained what I got from his explanation, which should be more
+> like:
+> "If MSG_MORE was used, and there are no packets in flight, do not send a
+> packet right away because the application is going to send more data."
+> Would have to handle the (Not-)Nagle situation too:
+> "If not using Nagle and using MSG_MORE, try to not generate a packet
+> right away." (because this may send packets with a single chunk even if
+> in_flight != 0)
+> In both cases, if the flush is generated by other triggers, it's okay.
+> 
+> Because if there are chunks already queued, they will be sent as soon as
+> in_flight reaches 0 or some other break is lifted (flow control).
+> Holding the chunk that was queued with MSG_MORE and sending a partial
+> packet in this case because of MSG_MORE is not good, it's possibly not
+> saving anything.
+
+It is also worth remembering that this is all about whether the first
+chunk in an ethernet frame is a data chunk.
+If a frame is being sent for some other reason (eg ack or heartbeat)
+then it will collect queued data chunks.
+
+I've seen hearbeats collect data chunks, I've not checked that this
+doesn't happen for heartbeats that are probing IP addresses.
+
+	David
