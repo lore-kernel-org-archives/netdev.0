@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net_sched: use setup_deferrable_timer
-Date: Fri, 24 Mar 2017 14:43:03 -0700 (PDT)
-Message-ID: <20170324.144303.1499801244994529133.davem@davemloft.net>
-References: <8333b4c5b4aef4b847b1132d52c214764c41ebe5.1490340639.git.geliangtang@gmail.com>
+Subject: Re: [PATCH net-next 0/2] Performances improvement for IPv6 Segment
+ Routing
+Date: Fri, 24 Mar 2017 14:48:05 -0700 (PDT)
+Message-ID: <20170324.144805.1899893937234644395.davem@davemloft.net>
+References: <20170324094627.16796-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: geliangtang@gmail.com
+Cc: netdev@vger.kernel.org
+To: david.lebrun@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44884 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44950 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933123AbdCXVnT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 17:43:19 -0400
-In-Reply-To: <8333b4c5b4aef4b847b1132d52c214764c41ebe5.1490340639.git.geliangtang@gmail.com>
+        with ESMTP id S933123AbdCXVsG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 17:48:06 -0400
+In-Reply-To: <20170324094627.16796-1-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geliang Tang <geliangtang@gmail.com>
-Date: Fri, 24 Mar 2017 22:14:36 +0800
+From: David Lebrun <david.lebrun@uclouvain.be>
+Date: Fri, 24 Mar 2017 10:46:25 +0100
 
-> Use setup_deferrable_timer() instead of init_timer_deferrable() to
-> simplify the code.
-> 
-> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+> This patch series improves the performances of IPv6 SR by optimizing skb head
+> reallocation and extending the use of dst_cache. The overall performances improve
+> by 35%.
 
-Applied, thanks.
+Series applied, thanks.
+
+I think you should make SEG6_IPTUNNEL select DST_CACHE and then remove all of
+these ugly ifdefs.
+
+Thanks.
