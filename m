@@ -1,216 +1,164 @@
-From: Jonathan Woithe <jwoithe@atrad.com.au>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Fri, 24 Mar 2017 15:35:54 +1030
-Message-ID: <20170324050553.GI30415@marvin.atrad.com.au>
-References: <20151201235852.GA16429@electric-eye.fr.zoreil.com>
- <20160208023318.GJ9174@marvin.atrad.com.au>
- <20160407024417.GE17921@marvin.atrad.com.au>
- <20160517065231.GO30050@marvin.atrad.com.au>
- <20160518065137.GJ27564@marvin.atrad.com.au>
- <20160601003123.GE3384@marvin.atrad.com.au>
- <20160621032133.GC19735@marvin.atrad.com.au>
- <20160621230957.GA19674@electric-eye.fr.zoreil.com>
- <20160621235938.GB13364@marvin.atrad.com.au>
- <20160622232250.GA26424@electric-eye.fr.zoreil.com>
+From: Greg Ungerer <gerg@linux-m68k.org>
+Subject: Re: [PATCHv2] net: usbnet: support 64bit stats in qmi_wwan driver
+Date: Fri, 24 Mar 2017 15:42:38 +1000
+Message-ID: <44b9bf7a-70e5-a5f7-53f0-4ea3205638f1@linux-m68k.org>
+References: <1490318850-23252-1-git-send-email-gerg@linux-m68k.org>
+ <1490331560.9687.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: bjorn@mork.no, oneukum@suse.com, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.atrad.com.au ([150.101.241.2]:52934 "EHLO
-        server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751552AbdCXFdd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 01:33:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20160622232250.GA26424@electric-eye.fr.zoreil.com>
+Received: from icp-osb-irony-out9.external.iinet.net.au ([203.59.1.226]:25001
+        "EHLO icp-osb-irony-out9.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751496AbdCXFmn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 01:42:43 -0400
+In-Reply-To: <1490331560.9687.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 23, 2016 at 01:22:50AM +0200, Francois Romieu wrote:
-> Jonathan Woithe <jwoithe@atrad.com.au> :
-> [...]
-> > to mainline (in which case I'll keep watching out for it)?  Or is the
-> > out-of-tree workaround mentioned above considered to be the long term
-> > fix for those who encounter the problem?
+Hi Eric,
+
+On 24/03/17 14:59, Eric Dumazet wrote:
+> On Fri, 2017-03-24 at 11:27 +1000, Greg Ungerer wrote:
+>> Add support for the net stats64 counters to the usbnet core and then to
+>> the qmi_wwan driver.
+>>
+>> This is a strait forward addition of 64bit counters for RX and TX packets
+>> and byte counts. It is done in the same style as for the other net drivers
+>> that support stats64.
+>>
+>> The bulk of the change is to the usbnet core. Then it is trivial to use
+>> that in the qmi_wwan.c driver. It would be very simple to extend this
+>> support to other usbnet based drivers.
+>>
+>> The motivation to add this is that it is not particularly difficult to
+>> get the RX and TX byte counts to wrap on 32bit platforms.
+>>
+>> Signed-off-by: Greg Ungerer <gerg@linux-m68k.org>
+>> ---
+>>  drivers/net/usb/qmi_wwan.c |  1 +
+>>  drivers/net/usb/usbnet.c   | 28 ++++++++++++++++++++++++++++
+>>  include/linux/usb/usbnet.h | 12 ++++++++++++
+>>  3 files changed, 41 insertions(+)
+>>
+>> v2: EXPORT symbol usbnet_get_stats64()
+>>     rebase on top of net-next
+>>
+>> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+>> index 8056745..db12a66 100644
+>> --- a/drivers/net/usb/qmi_wwan.c
+>> +++ b/drivers/net/usb/qmi_wwan.c
+>> @@ -251,6 +251,7 @@ static int qmi_wwan_mac_addr(struct net_device *dev, void *p)
+>>  	.ndo_change_mtu		= usbnet_change_mtu,
+>>  	.ndo_set_mac_address	= qmi_wwan_mac_addr,
+>>  	.ndo_validate_addr	= eth_validate_addr,
+>> +	.ndo_get_stats64	= usbnet_get_stats64,
+>>  };
+>>  
+>>  /* using a counter to merge subdriver requests with our own into a
+>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+>> index 13d4ec5..4499d89 100644
+>> --- a/drivers/net/usb/usbnet.c
+>> +++ b/drivers/net/usb/usbnet.c
+>> @@ -330,6 +330,11 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
+>>  	dev->net->stats.rx_packets++;
+>>  	dev->net->stats.rx_bytes += skb->len;
 > 
-> It's a workaround. Nothing less, nothing more.
+> Why updating dev->net->stats.rx_{packets|bytes} and
+> dev->stats.rx_{packets|bytes}  ?
+> 
+> Seems redundant.
 
-Recently I have had a chance to revisit this issue.  I have written a
-program (r8196-test, source is included below) which recreates the problem
-without requiring our external hardware devices.  That is, this program
-triggers the fault when run between two networked computers.  To use, two
-PCs are needed.  One (the "master") has an rtl8169 network card fitted (ours
-has a Netgear GA311, but the problem has been seen with others too from
-memory).  The network hardware of the other computer (the "slave") isn't
-important.  First run
+The usbnet core is used by a number of drivers. This patch only
+updates the qmi-wwan driver to use stats64. If you remove the
+dev->stats.rx_* updates all those other driver users will have
+no counts.
 
-  ./r8196-test
 
-on the slave, followed by 
+>> +	u64_stats_update_begin(&dev->stats.syncp);
+>> +	dev->stats.rx_packets++;
+>> +	dev->stats.rx_bytes += skb->len;
+>> +	u64_stats_update_end(&dev->stats.syncp);
+>> +
+>>  	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
+>>  		  skb->len + sizeof (struct ethhdr), skb->protocol);
+>>  	memset (skb->cb, 0, sizeof (struct skb_data));
+>> @@ -981,6 +986,23 @@ int usbnet_set_link_ksettings(struct net_device *net,
+>>  }
+>>  EXPORT_SYMBOL_GPL(usbnet_set_link_ksettings);
+>>  
+>> +void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
+>> +{
+>> +	struct usbnet *dev = netdev_priv(net);
+>> +	unsigned int start;
+>> +
+>> +	netdev_stats_to_stats64(stats, &net->stats);
+>> +
+>> +	do {
+>> +		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
+>> +		stats->rx_packets = dev->stats.rx_packets;
+>> +		stats->rx_bytes = dev->stats.rx_bytes;
+>> +		stats->tx_packets = dev->stats.tx_packets;
+>> +		stats->tx_bytes = dev->stats.tx_bytes;
+>> +	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
+>> +}
+>> +EXPORT_SYMBOL_GPL(usbnet_get_stats64);
+>> +
+>>  u32 usbnet_get_link (struct net_device *net)
+>>  {
+>>  	struct usbnet *dev = netdev_priv(net);
+>> @@ -1214,6 +1236,11 @@ static void tx_complete (struct urb *urb)
+>>  	if (urb->status == 0) {
+>>  		dev->net->stats.tx_packets += entry->packets;
+>>  		dev->net->stats.tx_bytes += entry->length;
+> 
+> 
+> Why updating dev->net->stats.tx_{packets|bytes} and
+> dev->stats.tx_{packets|bytes}  ?
+> 
+>> +
+>> +		u64_stats_update_begin(&dev->stats.syncp);
+>> +		dev->stats.tx_packets += entry->packets;
+>> +		dev->stats.tx_bytes += entry->length;
+>> +		u64_stats_update_end(&dev->stats.syncp);
+>>  	} else {
+>>  		dev->net->stats.tx_errors++;
+>>  
+>> @@ -1658,6 +1685,7 @@ void usbnet_disconnect (struct usb_interface *intf)
+>>  	init_timer (&dev->delay);
+>>  	mutex_init (&dev->phy_mutex);
+>>  	mutex_init(&dev->interrupt_mutex);
+>> +	u64_stats_init(&dev->stats.syncp);
+>>  	dev->interrupt_count = 0;
+>>  
+>>  	dev->net = net;
+>> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+>> index e2b5691..d1501b8 100644
+>> --- a/include/linux/usb/usbnet.h
+>> +++ b/include/linux/usb/usbnet.h
+>> @@ -22,6 +22,14 @@
+>>  #ifndef	__LINUX_USB_USBNET_H
+>>  #define	__LINUX_USB_USBNET_H
+>>  
+>> +struct usbnet_stats64 {
+>> +	struct u64_stats_sync	syncp;
+>> +	u64			rx_packets;
+>> +	u64			rx_bytes;
+>> +	u64			tx_packets;
+>> +	u64			tx_bytes;
+>> +};
+>> +
+> 
+> You use the same syncp for TX and RX.
+> 
+> Do you have guarantee that TX and RX paths can not run concurrently (on
+> different cpus) ?
 
-  ./r8196-test <IPv4 address of slave>
-
-on the master.  When running stock kernel version 4.3 the master stops
-reliably within a minute or so with a timeout, indicating (in this case)
-that the response packet never arrived within the 0.5 second timeout period. 
-The ID whose response was never received by the master is reported as having
-been seen (and a response sent) by the slave.
-
-If I substitute the forward ported r8169 driver mentioned earlier in this
-thread into kernel 4.3, the above program sequence runs seemingly
-indefinitely without any timeouts (runtime is beyond two hours as of this
-writing, compared to tens of seconds with the standard driver).
-
-This demonstrates that the problem is independent of our custom network
-devices and allows the fault to be recreated using commodity hardware.
-
-Does this make it any easier to develop a mainline fix for the regression?
+Hmm, no, I don't there is any guarantee of that here.
+I'll split rx and tx counters out with their own syncp.
 
 Regards
-  jonathan
-
-/*
- * To test, the "master" mode is run on a PC with an RTL-8169 card.
- * The "slave" mode is run on any other PC.  "Master" mode is activated
- * by providing the IP of the slave PC on the command line.  The slave
- * should be started before the master; without a running slave the master
- * will time out.
- *
- * This code is in the public domain.
- */
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <stdio.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <errno.h>
-
-unsigned char ping_payload[] = {
-    0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00,
-};
-
-#define PING_PAYLOAD_SIZE 6
-
-unsigned char ack_payload[] = {
-    0x12, 0x34,
-    0x01, 0x01, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00,
-};
-
-#define ACK_PAYLOAD_SIZE 14
-
-#define UDP_PORT 49491
-
-signed int open_udp(const char *target_addr)
-{
-    struct sockaddr_in local_addr;
-    struct timeval tv;
-    int sock;
-
-    sock = socket(PF_INET,SOCK_DGRAM, 0);
-    if (sock < 0) {
-        return -1;
-    }
-
-    tv.tv_sec = 0;
-    tv.tv_usec = 500000;
-    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&tv, sizeof(tv));
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv));
-
-    memset(&local_addr, 0, sizeof(local_addr));
-    local_addr.sin_family = AF_INET;
-    local_addr.sin_addr.s_addr = INADDR_ANY;
-    local_addr.sin_port = htons(49491);
-    if (bind(sock, (struct sockaddr *)&local_addr,
-             sizeof(struct sockaddr)) < 0) {
-        return -1;
-    }
-
-    if (target_addr != NULL) {
-        struct sockaddr_in dest_addr;
-        memset(&dest_addr, 0, sizeof(dest_addr));
-        dest_addr.sin_family = AF_INET;
-        dest_addr.sin_port = htons(49491);
-        if (inet_aton(target_addr, &dest_addr.sin_addr) < 0) {
-            return -1;
-        }
-        if (connect(sock, (struct sockaddr *)&dest_addr,
-                    sizeof(dest_addr)) < 0) {
-            return -1;
-        }
-    }
-    return sock;
-}
-
-void master(const char *target_addr)
-{
-    signed int id = 0;
-    int sock = open_udp(target_addr);
-
-    printf("master()\n");
-    if (sock < 0) {
-        return;
-    }
-
-    for (;; id++) {
-        unsigned char buf[1024];
-        signed int n;
-        ping_payload[0] = id & 0xff;
-        if (send(sock, ping_payload, PING_PAYLOAD_SIZE, 0) < 0) {
-            break;
-        }
-        n = recv(sock, buf, sizeof(buf), 0);
-        if (n == -1) {
-            if (errno == EAGAIN) {
-                printf("id 0x%02x: no response received (timeout)\n", 
-                       ping_payload[0]);
-                break;
-            }
-        } else {
-            printf("id 0x%02x: recv %d\n", buf[0], n);
-        }
-        usleep(10000);
-    }
-    close(sock);
-}
-
-void slave()
-{
-    int sock = open_udp(NULL);
-
-    printf("slave()\n");
-    if (sock < 0) {
-        return;
-    }
-
-    for ( ; ; ) {
-        struct sockaddr master_addr;
-        unsigned char buf[1024];
-        signed int n;
-
-        socklen_t len = sizeof(master_addr);
-        n = recvfrom(sock, buf, sizeof(buf), 0, &master_addr, &len);
-        if (n == PING_PAYLOAD_SIZE) {
-            printf("id 0x%02x: recv %d, sending %d\n", buf[0], n,
-                   ACK_PAYLOAD_SIZE);
-            ack_payload[0] = buf[0];
-            sendto(sock, ack_payload, ACK_PAYLOAD_SIZE, 0, &master_addr, len);
-        }
-    }
-
-    close(sock);
-}
-
-int main(int argc, char *argv[]) {
-    if (argc > 1) {
-        master(argv[1]);
-    } else {
-        slave();
-    }
-    return 0;
-}
+Greg
