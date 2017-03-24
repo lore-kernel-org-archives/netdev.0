@@ -1,41 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net PATCH] net: Do not allow negative values for busy_read and
- busy_poll sysctl interfaces
-Date: Fri, 24 Mar 2017 12:43:45 -0700
-Message-ID: <1490384625.9687.47.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170324163630.14764.75429.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] net: sched: choke: remove dead filter
+ classify code
+Date: Fri, 24 Mar 2017 12:46:38 -0700 (PDT)
+Message-ID: <20170324.124638.1229066743314753196.davem@davemloft.net>
+References: <1490284936-19412-1-git-send-email-jiri@resnulli.us>
+        <CAM_iQpXTM9X75RXj6mvTYatL0=TjFyYmFaKLeQBv74zZVFUs6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: jiri@resnulli.us, netdev@vger.kernel.org, jhs@mojatatu.com,
+        mlxsw@mellanox.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36277 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752209AbdCXTns (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 15:43:48 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 81so2273pgh.3
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 12:43:47 -0700 (PDT)
-In-Reply-To: <20170324163630.14764.75429.stgit@localhost.localdomain>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43584 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966477AbdCXTqj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 15:46:39 -0400
+In-Reply-To: <CAM_iQpXTM9X75RXj6mvTYatL0=TjFyYmFaKLeQBv74zZVFUs6g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-03-24 at 09:38 -0700, Alexander Duyck wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This change basically codifies what I think was already the limitations on
-> the busy_poll and busy_read sysctl interfaces.  We weren't checking the
-> lower bounds and as such could input negative values. The behavior when
-> that was used was dependent on the architecture. In order to prevent any
-> issues with that I am just disabling support for values less than 0 since
-> this way we don't have to worry about any odd behaviors.
-> 
-> By limiting the sysctl values this way it also makes it consistent with how
-> we handle the SO_BUSY_POLL socket option since the value appears to be
-> reported as a signed integer value and negative values are rejected.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 24 Mar 2017 10:59:15 -0700
 
+> On Thu, Mar 23, 2017 at 9:02 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> sch_choke is classless qdisc so it does not define cl_ops. Therefore
+>> filter_list cannot be ever changed, being NULL all the time.
+>> Reason is this check in tc_ctl_tfilter:
+> 
+> Are you sure? According to the definition in comments:
+> 
+>    CHOKe (CHOose and Keep for responsive flows, CHOose and Kill for
+>    unresponsive flows) is a variant of RED that penalizes misbehaving flows but
+>    maintains no flow state. The difference from RED is an additional step
+>    during the enqueuing process. If average queue size is over the
+>    low threshold (qmin), a packet is chosen at random from the queue.
+>    If both the new and chosen packet are from the same flow, both
+>    are dropped. Unlike RED, CHOKe is not really a "classful" qdisc because it
+>    needs to access packets in queue randomly. It has a minimal class
+>    interface to allow overriding the builtin flow classifier with
+>    filters.
+> 
+> It should implement filters otherwise how to classify flows in
+> its definition?
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+The flows are matched by hand using the flow dissector.
+
+Jiri is right, this is all dead code and should be removed.
