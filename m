@@ -1,57 +1,66 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 00/12] Mellanox mlx5e XDP performance
- optimization
-Date: Fri, 24 Mar 2017 16:26:25 -0700
-Message-ID: <420dc52e-8b39-a083-941e-d87eb941771a@fb.com>
-References: <20170324215214.25711-1-saeedm@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ping: implement proper locking
+Date: Fri, 24 Mar 2017 16:29:45 -0700
+Message-ID: <1490398185.24891.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>,
+        Solar Designer <solar@openwall.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34539 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754764AbdCXX0k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 19:26:40 -0400
-In-Reply-To: <20170324215214.25711-1-saeedm@mellanox.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36410 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932972AbdCXX3s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 19:29:48 -0400
+Received: by mail-pf0-f195.google.com with SMTP id r137so643409pfr.3
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 16:29:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/24/17 2:52 PM, Saeed Mahameed wrote:
-> Hi Dave,
->
-> This series provides some preformancee optimizations for mlx5e
-> driver, especially for XDP TX flows.
->
-> 1st patch is a simple change of rmb to dma_rmb in CQE fetch routine
-> which shows a huge gain for both RX and TX packet rates.
->
-> 2nd patch removes write combining logic from the driver TX handler
-> and simplifies the TX logic while improving TX CPU utilization.
->
-> All other patches combined provide some refactoring to the driver TX
-> flows to allow some significant XDP TX improvements.
->
-> More details and performance numbers per patch can be found in each patch
-> commit message compared to the preceding patch.
->
-> Overall performance improvemnets
->   System: Intel(R) Xeon(R) CPU E5-2620 v3 @ 2.40GHz
->
-> Test case                   Baseline      Now      improvement
-> ---------------------------------------------------------------
-> TX packets (24 threads)     45Mpps        54Mpps      20%
-> TC stack Drop (1 core)      3.45Mpps      3.6Mpps     5%
-> XDP Drop      (1 core)      14Mpps        16.9Mpps    20%
-> XDP TX        (1 core)      10.4Mpps      13.7Mpps    31%
+From: Eric Dumazet <edumazet@google.com>
 
-Excellent work!
-All patches look great, so for the series:
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+We got a report of yet another bug in ping
 
-in patch 12 I noticed that inline_mode is being evaluated.
-I think for xdp queues it's guaranteed to be fixed.
-Can we optimize that path little bit more as well?
-Thanks!
+http://www.openwall.com/lists/oss-security/2017/03/24/6
+
+->disconnect() is not called with socket lock held.
+
+Fix this by acquiring ping rwlock earlier.
+
+Thanks to Alexander and Andrey for letting us know of this problem.
+
+Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
+Reported-by: Solar Designer <solar@openwall.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+---
+ net/ipv4/ping.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 2af6244b83e27ae384e96cf071c10c5a89674804..ccfbce13a6333a65dab64e4847dd510dfafb1b43 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -156,17 +156,18 @@ int ping_hash(struct sock *sk)
+ void ping_unhash(struct sock *sk)
+ {
+ 	struct inet_sock *isk = inet_sk(sk);
++
+ 	pr_debug("ping_unhash(isk=%p,isk->num=%u)\n", isk, isk->inet_num);
++	write_lock_bh(&ping_table.lock);
+ 	if (sk_hashed(sk)) {
+-		write_lock_bh(&ping_table.lock);
+ 		hlist_nulls_del(&sk->sk_nulls_node);
+ 		sk_nulls_node_init(&sk->sk_nulls_node);
+ 		sock_put(sk);
+ 		isk->inet_num = 0;
+ 		isk->inet_sport = 0;
+ 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+-		write_unlock_bh(&ping_table.lock);
+ 	}
++	write_unlock_bh(&ping_table.lock);
+ }
+ EXPORT_SYMBOL_GPL(ping_unhash);
+ 
