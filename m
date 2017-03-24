@@ -1,39 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] net: Do not allow negative values for busy_read
- and busy_poll sysctl interfaces
-Date: Fri, 24 Mar 2017 15:02:38 -0700 (PDT)
-Message-ID: <20170324.150238.1364516032866728084.davem@davemloft.net>
-References: <20170324163630.14764.75429.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45224 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752618AbdCXWDH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 18:03:07 -0400
-In-Reply-To: <20170324163630.14764.75429.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [RESEND PATCH 0/3] hisilicon hns warning fixes for gcc-7.0.1
+Date: Fri, 24 Mar 2017 23:02:47 +0100
+Message-ID: <20170324220250.2193128-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        "Wei Hu(Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        Daode Huang <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+        Kejian Yan <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        Qianqian Xie <xieqianqian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        Wei Yongjun <weiyongjun1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Fri, 24 Mar 2017 09:38:03 -0700
+Building with gcc-7 found three new warnings in the hns ethernet and
+rdma drivers. Only one of them appears to be an actual bug, the
+other two are variations of a single problem, but are unfortunately
+part of different subsystems.
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This change basically codifies what I think was already the limitations on
-> the busy_poll and busy_read sysctl interfaces.  We weren't checking the
-> lower bounds and as such could input negative values. The behavior when
-> that was used was dependent on the architecture. In order to prevent any
-> issues with that I am just disabling support for values less than 0 since
-> this way we don't have to worry about any odd behaviors.
-> 
-> By limiting the sysctl values this way it also makes it consistent with how
-> we handle the SO_BUSY_POLL socket option since the value appears to be
-> reported as a signed integer value and negative values are rejected.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+I'm resending all three patches to both the ethernet and the rdma
+maintainers, as the first submission was a bit confusing when only
+part of the series arrived for a subset of maintainers, sorry about
+that.
 
-Applied, thanks.
+All three patches are address issues in released kernels
+and apply to v4.11-rc3 or linux-next.
+
+      Arnd
+
+Arnd Bergmann
+  net: hns: fix uninitialized data use
+  net: hns: avoid gcc-7.0.1 warning for uninitialized data
+  infiniband: hns: avoid gcc-7.0.1 warning for uninitialized data
+
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c         | 1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 6 ++++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+-- 
+2.9.0
+
+Cc: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: "Wei Hu(Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: Daode Huang <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Cc: Kejian Yan <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: Qianqian Xie <xieqianqian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: Wei Yongjun <weiyongjun1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
