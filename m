@@ -1,149 +1,72 @@
-From: Greg Ungerer <gerg@linux-m68k.org>
-Subject: [PATCHv2] net: usbnet: support 64bit stats in qmi_wwan driver
-Date: Fri, 24 Mar 2017 11:27:30 +1000
-Message-ID: <1490318850-23252-1-git-send-email-gerg@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-        Greg Ungerer <gerg@linux-m68k.org>
-To: bjorn@mork.no, oneukum@suse.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from icp-osb-irony-out9.external.iinet.net.au ([203.59.1.226]:54906
-        "EHLO icp-osb-irony-out9.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754132AbdCXB1h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 23 Mar 2017 21:27:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: Re: [PATCH net-next v4 1/2] New kernel function to get IP overhead
+ on a socket.
+Date: Thu, 23 Mar 2017 18:51:44 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1703231809410.19388@vera100.eng.brocade.com>
+References: <alpine.DEB.2.11.1703221554000.9002@vera100.eng.brocade.com> <20170323.150500.1211908608737471263.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kleptog@svana.org, jchapman@katalix.com, davem@redhat.com,
+        nprachan@brocade.com, rshearma@brocade.com,
+        stephen@networkplumber.org, sdietric@brocade.com,
+        ciwillia@brocade.com, lboccass@brocade.com, dfawcus@brocade.com,
+        bhong@brocade.com, jblunck@brocade.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170323.150500.1211908608737471263.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support for the net stats64 counters to the usbnet core and then to
-the qmi_wwan driver.
 
-This is a strait forward addition of 64bit counters for RX and TX packets
-and byte counts. It is done in the same style as for the other net drivers
-that support stats64.
+Hi Dave,
 
-The bulk of the change is to the usbnet core. Then it is trivial to use
-that in the qmi_wwan.c driver. It would be very simple to extend this
-support to other usbnet based drivers.
+Please see inline:
 
-The motivation to add this is that it is not particularly difficult to
-get the RX and TX byte counts to wrap on 32bit platforms.
+On Thu, 23 Mar 2017, David Miller wrote:
 
-Signed-off-by: Greg Ungerer <gerg@linux-m68k.org>
----
- drivers/net/usb/qmi_wwan.c |  1 +
- drivers/net/usb/usbnet.c   | 28 ++++++++++++++++++++++++++++
- include/linux/usb/usbnet.h | 12 ++++++++++++
- 3 files changed, 41 insertions(+)
+> From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+> Date: Wed, 22 Mar 2017 15:59:13 -0700 (PDT)
+> 
+> > A new function, kernel_sock_ip_overhead(), is provided
+> > to calculate the cumulative overhead imposed by the IP
+> > Header and IP options, if any, on a socket's payload.
+> > The new function returns an overhead of zero for sockets
+> > that do not belong to the IPv4 or IPv6 address families.
+> > 
+> > Signed-off-by: R. Parameswaran <rparames@brocade.com>
+> 
+> Just use the IPv4/IPv6 header size for now, just like the VXLAN
+> driver does.
+>
 
-v2: EXPORT symbol usbnet_get_stats64()
-    rebase on top of net-next
+Actually, that's how the original posting was - it was changed in 
+response to a review comment from James Chapman requesting the IP
+Options overhead to be factored in and for this to be calculated in
+a new standalone function that can be reused in other situations. 
+The review comment makes sense to me - the kernel seems to do a 
+good job of accounting for the cumulative size of IP Options and
+if the information is available, it may make sense to factor it in.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 8056745..db12a66 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -251,6 +251,7 @@ static int qmi_wwan_mac_addr(struct net_device *dev, void *p)
- 	.ndo_change_mtu		= usbnet_change_mtu,
- 	.ndo_set_mac_address	= qmi_wwan_mac_addr,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_get_stats64	= usbnet_get_stats64,
- };
+I guess you are concerned about compatibility between vxlan and
+L2TP? There may be one difference  - the socket for vxlan
+appears to be opened/controlled entirely within kernel code (seems
+to call udp_sock_create() which does not appear to turn on any options), 
+but in the case of L2TP, it is possible for the tunnel socket to be 
+opened from user space, if a user space control plane daemon is running.
+Regardless of how user space daemons are written right now, it is 
+possible in theory for the user space code to turn on options on the 
+L2TP tunnel socket. So it seems that IP options might be enabled on the 
+L2TP socket, but are probably unlikely on the vxlan socket? 
+
+I'd suggest giving this a few days for James to respond. 
+At that time if there is agreement that we don't need to factor options, 
+I can rework it.
+
+thanks,
+
+Ramkumar
+  
  
- /* using a counter to merge subdriver requests with our own into a
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 13d4ec5..4499d89 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -330,6 +330,11 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
- 	dev->net->stats.rx_packets++;
- 	dev->net->stats.rx_bytes += skb->len;
- 
-+	u64_stats_update_begin(&dev->stats.syncp);
-+	dev->stats.rx_packets++;
-+	dev->stats.rx_bytes += skb->len;
-+	u64_stats_update_end(&dev->stats.syncp);
-+
- 	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
- 		  skb->len + sizeof (struct ethhdr), skb->protocol);
- 	memset (skb->cb, 0, sizeof (struct skb_data));
-@@ -981,6 +986,23 @@ int usbnet_set_link_ksettings(struct net_device *net,
- }
- EXPORT_SYMBOL_GPL(usbnet_set_link_ksettings);
- 
-+void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
-+{
-+	struct usbnet *dev = netdev_priv(net);
-+	unsigned int start;
-+
-+	netdev_stats_to_stats64(stats, &net->stats);
-+
-+	do {
-+		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
-+		stats->rx_packets = dev->stats.rx_packets;
-+		stats->rx_bytes = dev->stats.rx_bytes;
-+		stats->tx_packets = dev->stats.tx_packets;
-+		stats->tx_bytes = dev->stats.tx_bytes;
-+	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
-+}
-+EXPORT_SYMBOL_GPL(usbnet_get_stats64);
-+
- u32 usbnet_get_link (struct net_device *net)
- {
- 	struct usbnet *dev = netdev_priv(net);
-@@ -1214,6 +1236,11 @@ static void tx_complete (struct urb *urb)
- 	if (urb->status == 0) {
- 		dev->net->stats.tx_packets += entry->packets;
- 		dev->net->stats.tx_bytes += entry->length;
-+
-+		u64_stats_update_begin(&dev->stats.syncp);
-+		dev->stats.tx_packets += entry->packets;
-+		dev->stats.tx_bytes += entry->length;
-+		u64_stats_update_end(&dev->stats.syncp);
- 	} else {
- 		dev->net->stats.tx_errors++;
- 
-@@ -1658,6 +1685,7 @@ void usbnet_disconnect (struct usb_interface *intf)
- 	init_timer (&dev->delay);
- 	mutex_init (&dev->phy_mutex);
- 	mutex_init(&dev->interrupt_mutex);
-+	u64_stats_init(&dev->stats.syncp);
- 	dev->interrupt_count = 0;
- 
- 	dev->net = net;
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index e2b5691..d1501b8 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -22,6 +22,14 @@
- #ifndef	__LINUX_USB_USBNET_H
- #define	__LINUX_USB_USBNET_H
- 
-+struct usbnet_stats64 {
-+	struct u64_stats_sync	syncp;
-+	u64			rx_packets;
-+	u64			rx_bytes;
-+	u64			tx_packets;
-+	u64			tx_bytes;
-+};
-+
- /* interface from usbnet core to each USB networking link we handle */
- struct usbnet {
- 	/* housekeeping */
-@@ -64,6 +72,8 @@ struct usbnet {
- 	struct usb_anchor	deferred;
- 	struct tasklet_struct	bh;
- 
-+	struct usbnet_stats64	stats;
-+
- 	struct work_struct	kevent;
- 	unsigned long		flags;
- #		define EVENT_TX_HALT	0
-@@ -278,5 +288,7 @@ extern int usbnet_set_link_ksettings(struct net_device *net,
- extern void usbnet_status_stop(struct usbnet *dev);
- 
- extern void usbnet_update_max_qlen(struct usbnet *dev);
-+extern void usbnet_get_stats64(struct net_device *dev,
-+			       struct rtnl_link_stats64 *stats);
- 
- #endif /* __LINUX_USB_USBNET_H */
--- 
-1.9.1
+> Thanks.
+> 
