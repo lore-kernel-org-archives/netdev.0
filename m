@@ -1,191 +1,176 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [net-next PATCH v3 7/8] epoll: Add busy poll support to epoll with
- socket fds.
-Date: Fri, 24 Mar 2017 10:08:30 -0700
-Message-ID: <20170324170830.15226.9932.stgit@localhost.localdomain>
+From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [net-next PATCH v3 4/8] net: Change return type of sk_busy_loop
+ from bool to void
+Date: Fri, 24 Mar 2017 10:08:12 -0700
+Message-ID: <20170324170812.15226.97497.stgit@localhost.localdomain>
 References: <20170324164902.15226.48358.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: sridhar.samudrala@intel.com, edumazet@google.com,
-        davem@davemloft.net, linux-api@vger.kernel.org
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33355 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966061AbdCXRIi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:08:38 -0400
-In-Reply-To: <20170324164902.15226.48358.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170324164902.15226.48358.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+From: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-This patch adds busy poll support to epoll. The implementation is meant to
-be opportunistic in that it will take the NAPI ID from the last socket
-that is added to the ready list that contains a valid NAPI ID and it will
-use that for busy polling until the ready list goes empty.  Once the ready
-list goes empty the NAPI ID is reset and busy polling is disabled until a
-new socket is added to the ready list.
+>From what I can tell there is only a couple spots where we are actually
+checking the return value of sk_busy_loop. As there are only a few
+consumers of that data, and the data being checked for can be replaced
+with a check for !skb_queue_empty() we might as well just pull the code
+out of sk_busy_loop and place it in the spots that actually need it.
 
-In addition when we insert a new socket into the epoll we record the NAPI
-ID and assume we are going to receive events on it.  If that doesn't occur
-it will be evicted as the active NAPI ID and we will resume normal
-behavior.
-
-An application can use SO_INCOMING_CPU or SO_REUSEPORT_ATTACH_C/EBPF socket
-options to spread the incoming connections to specific worker threads
-based on the incoming queue. This enables epoll for each worker thread
-to have only sockets that receive packets from a single queue. So when an
-application calls epoll_wait() and there are no events available to report,
-busy polling is done on the associated queue to pull the packets.
-
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Acked-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 ---
- fs/eventpoll.c |   93 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 93 insertions(+)
+ include/net/busy_poll.h |    5 ++---
+ net/core/datagram.c     |    8 ++++++--
+ net/core/dev.c          |   25 +++++++++++--------------
+ net/sctp/socket.c       |    9 ++++++---
+ 4 files changed, 25 insertions(+), 22 deletions(-)
 
-diff --git a/fs/eventpoll.c b/fs/eventpoll.c
-index 341251421ced..5420767c9b68 100644
---- a/fs/eventpoll.c
-+++ b/fs/eventpoll.c
-@@ -42,6 +42,7 @@
- #include <linux/seq_file.h>
- #include <linux/compat.h>
- #include <linux/rculist.h>
-+#include <net/busy_poll.h>
- 
- /*
-  * LOCKING:
-@@ -224,6 +225,11 @@ struct eventpoll {
- 	/* used to optimize loop detection check */
- 	int visited;
- 	struct list_head visited_list_link;
-+
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	/* used to track busy poll napi_id */
-+	unsigned int napi_id;
-+#endif
- };
- 
- /* Wait structure used by the poll hooks */
-@@ -384,6 +390,77 @@ static inline int ep_events_available(struct eventpoll *ep)
- 	return !list_empty(&ep->rdllist) || ep->ovflist != EP_UNACTIVE_PTR;
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index b82d6ba70a14..c55760f4820f 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -74,7 +74,7 @@ static inline bool busy_loop_timeout(unsigned long end_time)
+ 	return time_after(now, end_time);
  }
  
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static bool ep_busy_loop_end(void *p, unsigned long start_time)
-+{
-+	struct eventpoll *ep = p;
+-bool sk_busy_loop(struct sock *sk, int nonblock);
++void sk_busy_loop(struct sock *sk, int nonblock);
+ 
+ #else /* CONFIG_NET_RX_BUSY_POLL */
+ static inline unsigned long net_busy_loop_on(void)
+@@ -97,9 +97,8 @@ static inline bool busy_loop_timeout(unsigned long end_time)
+ 	return true;
+ }
+ 
+-static inline bool sk_busy_loop(struct sock *sk, int nonblock)
++static inline void sk_busy_loop(struct sock *sk, int nonblock)
+ {
+-	return false;
+ }
+ 
+ #endif /* CONFIG_NET_RX_BUSY_POLL */
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ea633342ab0d..4608aa245410 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -256,8 +256,12 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
+ 		}
+ 
+ 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
+-	} while (sk_can_busy_loop(sk) &&
+-		 sk_busy_loop(sk, flags & MSG_DONTWAIT));
 +
-+	return ep_events_available(ep) || busy_loop_timeout(start_time);
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
++		if (!sk_can_busy_loop(sk))
++			break;
 +
-+/*
-+ * Busy poll if globally on and supporting sockets found && no events,
-+ * busy loop will return if need_resched or ep_events_available.
-+ *
-+ * we must do our busy polling with irqs enabled
-+ */
-+static void ep_busy_loop(struct eventpoll *ep, int nonblock)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	unsigned int napi_id = READ_ONCE(ep->napi_id);
-+
-+	if ((napi_id >= MIN_NAPI_ID) && net_busy_loop_on())
-+		napi_busy_loop(napi_id, nonblock ? NULL : ep_busy_loop_end, ep);
-+#endif
-+}
-+
-+static inline void ep_reset_busy_poll_napi_id(struct eventpoll *ep)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	if (ep->napi_id)
-+		ep->napi_id = 0;
-+#endif
-+}
-+
-+/*
-+ * Set epoll busy poll NAPI ID from sk.
-+ */
-+static inline void ep_set_busy_poll_napi_id(struct epitem *epi)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	struct eventpoll *ep;
-+	unsigned int napi_id;
-+	struct socket *sock;
-+	struct sock *sk;
-+	int err;
-+
-+	if (!net_busy_loop_on())
++		sk_busy_loop(sk, flags & MSG_DONTWAIT);
++	} while (!skb_queue_empty(&sk->sk_receive_queue));
+ 
+ 	error = -EAGAIN;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ab337bf5bbf4..af70eb6ba682 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5060,21 +5060,19 @@ static void busy_poll_stop(struct napi_struct *napi, void *have_poll_lock)
+ 		do_softirq();
+ }
+ 
+-bool sk_busy_loop(struct sock *sk, int nonblock)
++void sk_busy_loop(struct sock *sk, int nonblock)
+ {
+ 	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
+ 	int (*napi_poll)(struct napi_struct *napi, int budget);
+ 	void *have_poll_lock = NULL;
+ 	struct napi_struct *napi;
+ 	unsigned int napi_id;
+-	int rc;
+ 
+ restart:
+ 	napi_id = READ_ONCE(sk->sk_napi_id);
+ 	if (napi_id < MIN_NAPI_ID)
+-		return 0;
 +		return;
-+
-+	sock = sock_from_file(epi->ffd.file, &err);
-+	if (!sock)
-+		return;
-+
-+	sk = sock->sk;
-+	if (!sk)
-+		return;
-+
-+	napi_id = READ_ONCE(sk->sk_napi_id);
-+	ep = epi->ep;
-+
-+	/* Non-NAPI IDs can be rejected
-+	 *	or
-+	 * Nothing to do if we already have this ID
-+	 */
-+	if (napi_id < MIN_NAPI_ID || napi_id == ep->napi_id)
-+		return;
-+
-+	/* record NAPI ID for use in next busy poll */
-+	ep->napi_id = napi_id;
-+#endif
-+}
-+
- /**
-  * ep_call_nested - Perform a bound (possibly) nested call, by checking
-  *                  that the recursion limit is not exceeded, and that
-@@ -1022,6 +1099,8 @@ static int ep_poll_callback(wait_queue_t *wait, unsigned mode, int sync, void *k
  
- 	spin_lock_irqsave(&ep->lock, flags);
+-	rc = false;
+ 	napi_poll = NULL;
  
-+	ep_set_busy_poll_napi_id(epi);
-+
- 	/*
- 	 * If the event mask does not contain any poll(2) event, we consider the
- 	 * descriptor to be disabled. This condition is likely the effect of the
-@@ -1363,6 +1442,9 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
- 	/* We have to drop the new item inside our item list to keep track of it */
- 	spin_lock_irqsave(&ep->lock, flags);
+ 	rcu_read_lock();
+@@ -5085,7 +5083,8 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
  
-+	/* record NAPI ID of new item if present */
-+	ep_set_busy_poll_napi_id(epi);
+ 	preempt_disable();
+ 	for (;;) {
+-		rc = 0;
++		int work = 0;
 +
- 	/* If the file is already "ready" we drop it inside the ready list */
- 	if ((revents & event->events) && !ep_is_linked(&epi->rdllink)) {
- 		list_add_tail(&epi->rdllink, &ep->rdllist);
-@@ -1637,10 +1719,21 @@ static int ep_poll(struct eventpoll *ep, struct epoll_event __user *events,
- 	}
+ 		local_bh_disable();
+ 		if (!napi_poll) {
+ 			unsigned long val = READ_ONCE(napi->state);
+@@ -5103,12 +5102,12 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 			have_poll_lock = netpoll_poll_lock(napi);
+ 			napi_poll = napi->poll;
+ 		}
+-		rc = napi_poll(napi, BUSY_POLL_BUDGET);
+-		trace_napi_poll(napi, rc, BUSY_POLL_BUDGET);
++		work = napi_poll(napi, BUSY_POLL_BUDGET);
++		trace_napi_poll(napi, work, BUSY_POLL_BUDGET);
+ count:
+-		if (rc > 0)
++		if (work > 0)
+ 			__NET_ADD_STATS(sock_net(sk),
+-					LINUX_MIB_BUSYPOLLRXPACKETS, rc);
++					LINUX_MIB_BUSYPOLLRXPACKETS, work);
+ 		local_bh_enable();
  
- fetch_events:
-+
-+	if (!ep_events_available(ep))
-+		ep_busy_loop(ep, timed_out);
-+
- 	spin_lock_irqsave(&ep->lock, flags);
+ 		if (nonblock || !skb_queue_empty(&sk->sk_receive_queue) ||
+@@ -5121,9 +5120,9 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 			preempt_enable();
+ 			rcu_read_unlock();
+ 			cond_resched();
+-			rc = !skb_queue_empty(&sk->sk_receive_queue);
+-			if (rc || busy_loop_timeout(end_time))
+-				return rc;
++			if (!skb_queue_empty(&sk->sk_receive_queue) ||
++			    busy_loop_timeout(end_time))
++				return;
+ 			goto restart;
+ 		}
+ 		cpu_relax();
+@@ -5131,10 +5130,8 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 	if (napi_poll)
+ 		busy_poll_stop(napi, have_poll_lock);
+ 	preempt_enable();
+-	rc = !skb_queue_empty(&sk->sk_receive_queue);
+ out:
+ 	rcu_read_unlock();
+-	return rc;
+ }
+ EXPORT_SYMBOL(sk_busy_loop);
  
- 	if (!ep_events_available(ep)) {
- 		/*
-+		 * Busy poll timed out.  Drop NAPI ID for now, we can add
-+		 * it back in when we have moved a socket with a valid NAPI
-+		 * ID onto the ready list.
-+		 */
-+		ep_reset_busy_poll_napi_id(ep);
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 72cc3ecf6516..ccc08fc39722 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -7518,9 +7518,12 @@ struct sk_buff *sctp_skb_recv_datagram(struct sock *sk, int flags,
+ 		if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 			break;
+ 
+-		if (sk_can_busy_loop(sk) &&
+-		    sk_busy_loop(sk, noblock))
+-			continue;
++		if (sk_can_busy_loop(sk)) {
++			sk_busy_loop(sk, noblock);
 +
-+		/*
- 		 * We don't have any available event to return to the caller.
- 		 * We need to sleep here, and we will be wake up by
- 		 * ep_poll_callback() when events will become available.
++			if (!skb_queue_empty(&sk->sk_receive_queue))
++				continue;
++		}
+ 
+ 		/* User doesn't want to wait.  */
+ 		error = -EAGAIN;
