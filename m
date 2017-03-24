@@ -1,41 +1,106 @@
-From: Akshay Bhat <akshay.bhat-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH v4 2/2] can: spi: hi311x: Add Holt HI-311x CAN driver
-Date: Fri, 24 Mar 2017 13:20:01 -0400
-Message-ID: <32114de2-8ab7-daec-9b36-209cab0ea550@timesys.com>
-References: <1489785040-26477-1-git-send-email-akshay.bhat@timesys.com>
- <1489785040-26477-2-git-send-email-akshay.bhat@timesys.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/sched: GPF in qdisc_hash_add
+Date: Fri, 24 Mar 2017 10:28:12 -0700
+Message-ID: <CAM_iQpVu9CRm-MwGPshQrpYj8Sj3cDCLuo_Ta=svKBBpGLRfcg@mail.gmail.com>
+References: <CACT4Y+bemisEVj1nFmyFPuJZxh3oa8QOf-qDZmjRyPZBG4y7ng@mail.gmail.com>
+ <CAM_iQpWG78yjRAQ673NyiVBJZRfH7WMjbteRw7EfTkfH2tU2-w@mail.gmail.com>
+ <CACT4Y+ZBwr6CNr1j0Hx3ZptLePkbiGfws4q=uv=PFOYTkhcXuQ@mail.gmail.com> <CANn89iJ0y=Ee_79iCctMDM9uz2D7D1TL4nAd2BzEnVV9wi9+5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Akshay Bhat <nodeax-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1489785040-26477-2-git-send-email-akshay.bhat-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35460 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751519AbdCXR2f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:28:35 -0400
+In-Reply-To: <CANn89iJ0y=Ee_79iCctMDM9uz2D7D1TL4nAd2BzEnVV9wi9+5A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marc,
+On Thu, Mar 23, 2017 at 12:10 PM, Eric Dumazet <edumazet@google.com> wrote:
+> On Thu, Mar 23, 2017 at 12:06 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>>
+>> On Thu, Mar 23, 2017 at 8:00 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> > On Thu, Mar 23, 2017 at 9:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>> >> kasan: CONFIG_KASAN_INLINE enabled
+>> >> kasan: GPF could be caused by NULL-ptr deref or user memory access
+>> >> general protection fault: 0000 [#1] SMP KASAN
+>> >> Dumping ftrace buffer:
+>> >>    (ftrace buffer empty)
+>> >> Modules linked in:
+>> >> CPU: 2 PID: 12732 Comm: syz-executor6 Not tainted 4.11.0-rc3+ #365
+>> >> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>> >> task: ffff880062b7a2c0 task.stack: ffff880033480000
+>> >> RIP: 0010:qdisc_hash_add.part.19+0xb6/0x3c0 net/sched/sch_api.c:280
+>> >> RSP: 0018:ffff880033487820 EFLAGS: 00010202
+>> >> RAX: dffffc0000000000 RBX: ffffffff85357e00 RCX: ffffc90002b24000
+>> >> RDX: 000000000000007a RSI: ffffffff835a523a RDI: 00000000000003d0
+>> >> RBP: ffff8800334878b8 R08: fffffbfff0a6afeb R09: fffffbfff0a6afeb
+>> >> R10: 0000000000000001 R11: fffffbfff0a6afea R12: ffffffff85357e48
+>> >> R13: 1ffff10006690f06 R14: ffff880033487890 R15: 0000000000000000
+>> >> FS:  00007f68665d0700(0000) GS:ffff88006e200000(0000) knlGS:0000000000000000
+>> >> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> >> CR2: 00000000004c2d44 CR3: 000000003c6f8000 CR4: 00000000000026e0
+>> >> Call Trace:
+>> >>  qdisc_hash_add+0x76/0x90 net/sched/sch_api.c:279
+>> >>  attach_default_qdiscs net/sched/sch_generic.c:798 [inline]
+>> >>  dev_activate+0x6ca/0x920 net/sched/sch_generic.c:829
+>> >>  __dev_open+0x25b/0x360 net/core/dev.c:1348
+>> >>  __dev_change_flags+0x159/0x3d0 net/core/dev.c:6460
+>> >>  dev_change_flags+0x88/0x140 net/core/dev.c:6525
+>> >>  dev_ifsioc+0x51f/0x9b0 net/core/dev_ioctl.c:254
+>> >>  dev_ioctl+0x1fe/0x1030 net/core/dev_ioctl.c:532
+>> >>  sock_do_ioctl+0x94/0xb0 net/socket.c:902
+>> >>  sock_ioctl+0x2c2/0x440 net/socket.c:993
+>> >>  vfs_ioctl fs/ioctl.c:45 [inline]
+>> >>  do_vfs_ioctl+0x1af/0x16d0 fs/ioctl.c:685
+>> >>  SYSC_ioctl fs/ioctl.c:700 [inline]
+>> >>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+>> >>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+>> >
+>> > The interesting part is why the NULL dereference is in
+>> > qdisc_hash_add(), since we have a check before calling
+>> > it:
+>> >
+>> > #ifdef CONFIG_NET_SCHED
+>> >         if (dev->qdisc)
+>> >                 qdisc_hash_add(dev->qdisc);
+>> > #endif
+>> >
+>> >
+>> > When attach_one_default_qdisc() fails, we should trigger
+>> > the NULL pointer dereference bug at:
+>> >
+>> >     atomic_inc(&dev->qdisc->refcnt);
+>>
+>> I think qdisc is not NULL, it's something _in_ qdisc that is NULL. The
+>> crash happens here:
+>>
+>>                 struct Qdisc *root = qdisc_dev(q)->qdisc;
+>>
+>> so it's probably device.
+>
+>
+>
+> Looks like this bug came with commit 59cc1f61f09c
+> ("net: sched: convert qdisc linked list to hashtable")
+>
+> I would simply guard qdisc_hash_add()
+>
+> (Against &noop_qdisc)
 
-On 03/17/2017 05:10 PM, Akshay Bhat wrote:
-> This patch adds support for the Holt HI-311x CAN controller. The HI311x
-> CAN controller is capable of transmitting and receiving standard data
-> frames, extended data frames and remote frames. The HI311x interfaces
-> with the host over SPI.
-> 
-> Datasheet: www.holtic.com/documents/371-hi-3110_v-rev-jpdf.do
-> 
-> Signed-off-by: Akshay Bhat <nodeax-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> 
+Yeah, I missed that dev_init_scheduler() could assign noop_qdisc
+to each tx queue. Then the check in attach_default_qdiscs()
+is always false? If so we need...
 
-If there are no further review comments can this series be applied to
-can-next or does it need to wait for the next kernel release cycle (4.13)?
-
-Thanks,
-Akshay
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ #ifdef CONFIG_NET_SCHED
+-       if (dev->qdisc)
++       if (dev->qdisc != &noop_qdisc)
+                qdisc_hash_add(dev->qdisc);
+ #endif
