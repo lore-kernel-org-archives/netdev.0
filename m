@@ -1,164 +1,146 @@
-From: Greg Ungerer <gerg@linux-m68k.org>
-Subject: Re: [PATCHv2] net: usbnet: support 64bit stats in qmi_wwan driver
-Date: Fri, 24 Mar 2017 15:42:38 +1000
-Message-ID: <44b9bf7a-70e5-a5f7-53f0-4ea3205638f1@linux-m68k.org>
-References: <1490318850-23252-1-git-send-email-gerg@linux-m68k.org>
- <1490331560.9687.42.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH v2 5/8] net: Track start of busy loop instead of
+ when it should end
+Date: Thu, 23 Mar 2017 22:55:11 -0700
+Message-ID: <CAKgT0UfQPLqHtZ_SjanbLoG6t5f36C4nsORuw6yjLT0xZrEoEQ@mail.gmail.com>
+References: <20170323211820.12615.88907.stgit@localhost.localdomain>
+ <20170323213742.12615.85793.stgit@localhost.localdomain> <1490318682.9687.22.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0Ue+UFOAhwxN-EOjWYZa9YZc2QaT5gvoLap70COs0rF7NA@mail.gmail.com> <1490329655.9687.33.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: bjorn@mork.no, oneukum@suse.com, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Linux API <linux-api@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from icp-osb-irony-out9.external.iinet.net.au ([203.59.1.226]:25001
-        "EHLO icp-osb-irony-out9.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751496AbdCXFmn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 01:42:43 -0400
-In-Reply-To: <1490331560.9687.42.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35743 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751313AbdCXFzN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 01:55:13 -0400
+In-Reply-To: <1490329655.9687.33.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
-
-On 24/03/17 14:59, Eric Dumazet wrote:
-> On Fri, 2017-03-24 at 11:27 +1000, Greg Ungerer wrote:
->> Add support for the net stats64 counters to the usbnet core and then to
->> the qmi_wwan driver.
+On Thu, Mar 23, 2017 at 9:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2017-03-23 at 20:42 -0700, Alexander Duyck wrote:
+>> On Thu, Mar 23, 2017 at 6:24 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Thu, 2017-03-23 at 14:37 -0700, Alexander Duyck wrote:
+>> >> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>> >>
+>> >
+>> >> The last bit I changed is to move from using a shift by 10 to just using
+>> >> NSEC_PER_USEC and using multiplication for any run time calculations and
+>> >> division for a few compile time ones.  This should be more accurate and
+>> >> perform about the same on most architectures since modern CPUs typically
+>> >> handle multiplication without too much overhead.
+>> >
+>> >
+>> > busy polling thread can be preempted for more than 2 seconds.
 >>
->> This is a strait forward addition of 64bit counters for RX and TX packets
->> and byte counts. It is done in the same style as for the other net drivers
->> that support stats64.
+>> If it is preempted is the timing value even valid anymore?  I was
+>> wondering about that.  Also when preemption is enabled is there
+>> anything to prevent us from being migrated to a CPU?  If so what do we
+>> do about architectures that allow drift between the clocks?
 >>
->> The bulk of the change is to the usbnet core. Then it is trivial to use
->> that in the qmi_wwan.c driver. It would be very simple to extend this
->> support to other usbnet based drivers.
+>> > Using usec instead of nanoseconds gave us 3 orders of magnitude cushion.
 >>
->> The motivation to add this is that it is not particularly difficult to
->> get the RX and TX byte counts to wrap on 32bit platforms.
+>> Yes, but the problem is we also opened up an issue where if the clock
+>> was approaching a roll-over we could add a value to it that would put
+>> us in a state where we would never time out.
+>
+> If you believe there is a bug, send a fix for net tree ?
+>
+> I really do not see a bug, given we use time_after(now, end_time) which
+> handles roll-over just fine.
+
+Right, but time_after assumes roll over.  When you are using a time
+value based off of local_clock() >> 10, you don't ever roll over when
+you do addition.  Just the clock rolls over.  At least on 64 bit
+systems.
+
+So if local time approaches something like all 1's, and we have
+shifted it by 10 it is then the max it can ever reach is
+0x003FFFFFFFFFFFFF.  I can add our loop time to that and it won't roll
+over.  In the mean time the busy_loop_us_ can never exceed whatever I
+added to that so we are now locked into a loop.  I realize I am
+probably being pedantic, and it will have an exceedingly small rate of
+occurrence, but it is still an issue.
+
 >>
->> Signed-off-by: Greg Ungerer <gerg@linux-m68k.org>
->> ---
->>  drivers/net/usb/qmi_wwan.c |  1 +
->>  drivers/net/usb/usbnet.c   | 28 ++++++++++++++++++++++++++++
->>  include/linux/usb/usbnet.h | 12 ++++++++++++
->>  3 files changed, 41 insertions(+)
+>> > We do not need nsec accuracy for busy polling users, if this restricts
+>> > range and usability under stress.
 >>
->> v2: EXPORT symbol usbnet_get_stats64()
->>     rebase on top of net-next
+>> Yes and no.  So the standard use cases suggest using values of 50 to
+>> 100 microseconds.  I suspect that for most people that is probably
+>> what they are using.  The addition of preemption kind of threw a
+>> wrench in the works because now instead of spending that time busy
+>> polling you can get preempted and then are off doing something else
+>> for the entire period of time.
+>
+> That is fine. Busy polling heavy users are pinning threads to cpu, and
+> the re-schedule check is basically a way to make sure ksoftirqd will get
+> a chance to service BH.
+>
 >>
->> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
->> index 8056745..db12a66 100644
->> --- a/drivers/net/usb/qmi_wwan.c
->> +++ b/drivers/net/usb/qmi_wwan.c
->> @@ -251,6 +251,7 @@ static int qmi_wwan_mac_addr(struct net_device *dev, void *p)
->>  	.ndo_change_mtu		= usbnet_change_mtu,
->>  	.ndo_set_mac_address	= qmi_wwan_mac_addr,
->>  	.ndo_validate_addr	= eth_validate_addr,
->> +	.ndo_get_stats64	= usbnet_get_stats64,
->>  };
->>  
->>  /* using a counter to merge subdriver requests with our own into a
->> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
->> index 13d4ec5..4499d89 100644
->> --- a/drivers/net/usb/usbnet.c
->> +++ b/drivers/net/usb/usbnet.c
->> @@ -330,6 +330,11 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
->>  	dev->net->stats.rx_packets++;
->>  	dev->net->stats.rx_bytes += skb->len;
-> 
-> Why updating dev->net->stats.rx_{packets|bytes} and
-> dev->stats.rx_{packets|bytes}  ?
-> 
-> Seems redundant.
+>> What would you think of changing this so that instead of tracking the
+>> total time this function is active, instead we tracked the total time
+>> we spent with preemption disabled?  What I would do is move the
+>> start_time configuration to just after the preempt_disable() call.
+>> Then if we end up yielding to another thread we would just reset the
+>> start_time when we restarted instead of trying to deal with all the
+>> extra clock nonsense that we would have to deal with otherwise since I
+>> don't know if we actually want to count time where we aren't actually
+>> doing anything.  In addition this would bring us closer to how NAPI
+>> already works since it essentially will either find an event, or if we
+>> time out we hand it off to the softirq which in turn can handle it or
+>> hand it off to softirqd.  The only item that might be a bit more
+>> difficult to deal with then would be the way the times are used in
+>> fs/select.c but I don't know if that is really the right way to go
+>> anyway. With the preemption changes and such it might just make sense
+>> to drop those bits and rely on just the socket polling alone.
+>>
+>> The other option is to switch over everything from using unsigned long
+>> to using uint64_t and time_after64.  Then we can guarantee the range
+>> needed and then some, but then we are playing with a u64 time value on
+>> 32b architectures which might be a bit more expensive.  Even with that
+>> though I still need to clean up the sysctl since it doesn't make sense
+>> to allow negative values for the busy_poll usec to be used which is
+>> currently the case.
+>>
+>> Anyway let me know what you think and I can probably spin out a new
+>> set tomorrow.
+>
+>
+> Leave usec resolution, I see no point switching to nsec, as long we
+> support 32bit kernels.
 
-The usbnet core is used by a number of drivers. This patch only
-updates the qmi-wwan driver to use stats64. If you remove the
-dev->stats.rx_* updates all those other driver users will have
-no counts.
+I wonder how much it really matters in the grand scheme of things.
+The question I would have is which is more expensive.  We are either
+having to do a set of double precision shifts, or a multiplication,
+double precision addition, and double precision compare.  I need to
+take a look at some instruction tables to see which is more expensive.
 
+My preference would be to switch things over to a u64 at this point as
+it fixes the time_after problem, and has no additional cost on 64b and
+bumps up the maximum usable value on 32b systems by a power of 2, but
+I will have to think about it and see if there isn't a better way to
+deal with that issue.
 
->> +	u64_stats_update_begin(&dev->stats.syncp);
->> +	dev->stats.rx_packets++;
->> +	dev->stats.rx_bytes += skb->len;
->> +	u64_stats_update_end(&dev->stats.syncp);
->> +
->>  	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
->>  		  skb->len + sizeof (struct ethhdr), skb->protocol);
->>  	memset (skb->cb, 0, sizeof (struct skb_data));
->> @@ -981,6 +986,23 @@ int usbnet_set_link_ksettings(struct net_device *net,
->>  }
->>  EXPORT_SYMBOL_GPL(usbnet_set_link_ksettings);
->>  
->> +void usbnet_get_stats64(struct net_device *net, struct rtnl_link_stats64 *stats)
->> +{
->> +	struct usbnet *dev = netdev_priv(net);
->> +	unsigned int start;
->> +
->> +	netdev_stats_to_stats64(stats, &net->stats);
->> +
->> +	do {
->> +		start = u64_stats_fetch_begin_irq(&dev->stats.syncp);
->> +		stats->rx_packets = dev->stats.rx_packets;
->> +		stats->rx_bytes = dev->stats.rx_bytes;
->> +		stats->tx_packets = dev->stats.tx_packets;
->> +		stats->tx_bytes = dev->stats.tx_bytes;
->> +	} while (u64_stats_fetch_retry_irq(&dev->stats.syncp, start));
->> +}
->> +EXPORT_SYMBOL_GPL(usbnet_get_stats64);
->> +
->>  u32 usbnet_get_link (struct net_device *net)
->>  {
->>  	struct usbnet *dev = netdev_priv(net);
->> @@ -1214,6 +1236,11 @@ static void tx_complete (struct urb *urb)
->>  	if (urb->status == 0) {
->>  		dev->net->stats.tx_packets += entry->packets;
->>  		dev->net->stats.tx_bytes += entry->length;
-> 
-> 
-> Why updating dev->net->stats.tx_{packets|bytes} and
-> dev->stats.tx_{packets|bytes}  ?
-> 
->> +
->> +		u64_stats_update_begin(&dev->stats.syncp);
->> +		dev->stats.tx_packets += entry->packets;
->> +		dev->stats.tx_bytes += entry->length;
->> +		u64_stats_update_end(&dev->stats.syncp);
->>  	} else {
->>  		dev->net->stats.tx_errors++;
->>  
->> @@ -1658,6 +1685,7 @@ void usbnet_disconnect (struct usb_interface *intf)
->>  	init_timer (&dev->delay);
->>  	mutex_init (&dev->phy_mutex);
->>  	mutex_init(&dev->interrupt_mutex);
->> +	u64_stats_init(&dev->stats.syncp);
->>  	dev->interrupt_count = 0;
->>  
->>  	dev->net = net;
->> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
->> index e2b5691..d1501b8 100644
->> --- a/include/linux/usb/usbnet.h
->> +++ b/include/linux/usb/usbnet.h
->> @@ -22,6 +22,14 @@
->>  #ifndef	__LINUX_USB_USBNET_H
->>  #define	__LINUX_USB_USBNET_H
->>  
->> +struct usbnet_stats64 {
->> +	struct u64_stats_sync	syncp;
->> +	u64			rx_packets;
->> +	u64			rx_bytes;
->> +	u64			tx_packets;
->> +	u64			tx_bytes;
->> +};
->> +
-> 
-> You use the same syncp for TX and RX.
-> 
-> Do you have guarantee that TX and RX paths can not run concurrently (on
-> different cpus) ?
+> If you believe min/max values should be added to the sysctls, because we
+> do not trust root anymore, please send patches only addressing that.
 
-Hmm, no, I don't there is any guarantee of that here.
-I'll split rx and tx counters out with their own syncp.
+It isn't so much a min/max as just the wrong function used.  I will
+switch it over to using proc_douintvec().
 
-Regards
-Greg
+Also it isn't that I don't trust root, I don't like us giving root the
+option of configuring things wrongly without giving them some sort of
+warning.  So switching things over to using unsigned int will match
+what we are actually storing but the problem is anything over INT_MAX
+on 32 bit systems will give you busy polling with an immediate time
+out since the signed bit is what is being used in "time_after" to
+determine if we crossed the boundary or not.
+
+- Alex
