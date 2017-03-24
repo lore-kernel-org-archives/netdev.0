@@ -1,92 +1,52 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH net-next 1/2] net: stmmac: fix netdev release
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] xfrm: branchless addr4_match() on 64-bit
 Date: Fri, 24 Mar 2017 17:16:44 +0000
-Message-ID: <c4e0980b1d5eb5ba48e1cdebe565d3d6bd3a4dc0.1490375512.git.jpinto@synopsys.com>
-References: <cover.1490375512.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        clabbe.montjoie@gmail.com, thierry.reding@gmail.com,
-        sergei.shtylyov@cogentembedded.com, f.fainelli@gmail.com,
-        niklas.cassel@axis.com, netdev@vger.kernel.org,
-        Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFB93A8@AcuExch.aculab.com>
+References: <20170323233247.GE31372@avx2>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Alexey Dobriyan' <adobriyan@gmail.com>,
+        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:48762 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965669AbdCXRQy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:16:54 -0400
-In-Reply-To: <cover.1490375512.git.jpinto@synopsys.com>
-In-Reply-To: <cover.1490375512.git.jpinto@synopsys.com>
-References: <cover.1490375512.git.jpinto@synopsys.com>
+Received: from smtp-out4.electric.net ([192.162.216.194]:54563 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966910AbdCXRRB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 13:17:01 -0400
+In-Reply-To: <20170323233247.GE31372@avx2>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the kernel crash problem that happens when the driver
-exits. The dma resouces must be freed after netdev resouces get freed and
-in driver removed, multiple napi's should be deleted before removing
-netdev resouces or it will hang.
+From: Alexey Dobriyan
+> Sent: 23 March 2017 23:33
+> Current addr4_match() code has special test for /0 prefixes because of
+> standard required undefined behaviour. However, it is possible to omit
+> it on 64-bit because shifting can be done in a 64-bit register and then
+> truncated to the expected value (which is 0 mask).
+> 
+> Implicit truncation by htonl() fits nicely into R32-within-R64 model
+> on x86-64.
+...
+>  static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
+>  {
+> +#ifdef CONFIG_64BIT
+> +	/* L in UL is not a typo. */
+> +	return !((a1 ^ a2) & htonl(~0UL << (32 - prefixlen)));
+> +#else
+>  	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
+>  	if (prefixlen == 0)
+>  		return true;
+>  	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
+> +#endif
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+Can't this just be written:
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 4b418d2..3827952 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2659,9 +2659,6 @@ static int stmmac_release(struct net_device *dev)
- 	/* Stop TX/RX DMA and clear the descriptors */
- 	stmmac_stop_all_dma(priv);
- 
--	/* Release and free the Rx/Tx resources */
--	free_dma_desc_resources(priv);
--
- 	/* Disable the MAC Rx/Tx */
- 	stmmac_set_mac(priv->ioaddr, false);
- 
-@@ -4080,7 +4077,7 @@ int stmmac_dvr_probe(struct device *device,
- 	/* Init MAC and get the capabilities */
- 	ret = stmmac_hw_init(priv);
- 	if (ret)
--		goto error_hw_init;
-+		return ret;
- 
- 	/* Configure real RX and TX queues */
- 	ndev->real_num_rx_queues = priv->plat->rx_queues_to_use;
-@@ -4207,9 +4204,8 @@ int stmmac_dvr_probe(struct device *device,
- 		netif_napi_del(&rx_q->napi);
- 	}
- init_dma_error:
--	free_dma_desc_resources(priv);
--error_hw_init:
- 	free_netdev(ndev);
-+	free_dma_desc_resources(priv);
- 
- 	return ret;
- }
-@@ -4225,6 +4221,7 @@ int stmmac_dvr_remove(struct device *dev)
- {
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct stmmac_priv *priv = netdev_priv(ndev);
-+	u32 queue = 0;
- 
- 	netdev_info(priv->dev, "%s: removing driver", __func__);
- 
-@@ -4241,7 +4238,15 @@ int stmmac_dvr_remove(struct device *dev)
- 	    priv->hw->pcs != STMMAC_PCS_TBI &&
- 	    priv->hw->pcs != STMMAC_PCS_RTBI)
- 		stmmac_mdio_unregister(ndev);
-+
-+	for (queue = 0; queue < priv->plat->rx_queues_to_use; queue++) {
-+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
-+
-+		netif_napi_del(&rx_q->napi);
-+	}
-+
- 	free_netdev(ndev);
-+	free_dma_desc_resources(priv);
- 
- 	return 0;
- }
--- 
-2.9.3
+  	if (sizeof (long) == 4 && prefixlen == 0)
+  		return true;
+	return !((a1 ^ a2) & htonl(0xFFFFFFFFUL << (32 - prefixlen)));
+
+	David
