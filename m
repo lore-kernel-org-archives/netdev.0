@@ -1,65 +1,79 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] igb: add module param to set max-rss-queues.
-Date: Fri, 24 Mar 2017 18:35:28 -0700
-Message-ID: <ca61a7cf-9e64-6077-9ea9-c039a2314da0@candelatech.com>
-References: <1490389127-23171-1-git-send-email-greearb@candelatech.com>
- <20170324.141237.1992801159655201421.davem@davemloft.net>
- <255aaae0-8634-c6b5-f4aa-545d2f717aed@candelatech.com>
- <20170324161457.13d86ee0@xeon-e3>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] uapi: fix rdma/mlx5-abi.h userspace compilation errors
+Date: Fri, 24 Mar 2017 22:02:25 -0400
+Message-ID: <1490407345.2404.36.camel@redhat.com>
+References: <20170224002813.GB31010@altlinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:36630 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965359AbdCYBfa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 21:35:30 -0400
-In-Reply-To: <20170324161457.13d86ee0@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Dmitry V. Levin" <ldv-u2l5PoMzF/Vg9hUCZPvPmw@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170224002813.GB31010-u2l5PoMzF/Vg9hUCZPvPmw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 2017-02-24 at 03:28 +0300, Dmitry V. Levin wrote:
+> Consistently use types from linux/types.h to fix the following
+> rdma/mlx5-abi.h userspace compilation errors:
+> 
+> /usr/include/rdma/mlx5-abi.h:69:25: error: 'u64' undeclared here (not
+> in a function)
+>   MLX5_LIB_CAP_4K_UAR = (u64)1 << 0,
+> /usr/include/rdma/mlx5-abi.h:69:29: error: expected ',' or '}' before
+> numeric constant
+>   MLX5_LIB_CAP_4K_UAR = (u64)1 << 0,
+> 
+> Include <linux/if_ether.h> to fix the following rdma/mlx5-abi.h
+> userspace compilation error:
+> 
+> /usr/include/rdma/mlx5-abi.h:286:12: error: 'ETH_ALEN' undeclared
+> here (not in a function)
+>   __u8 dmac[ETH_ALEN];
+> 
+> Signed-off-by: Dmitry V. Levin <ldv-u2l5PoMzF/Vg9hUCZPvPmw@public.gmane.org>
 
+Thanks, applied.
 
-On 03/24/2017 04:14 PM, Stephen Hemminger wrote:
-> On Fri, 24 Mar 2017 14:20:56 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
->
->> On 03/24/2017 02:12 PM, David Miller wrote:
->>> From: greearb@candelatech.com
->>> Date: Fri, 24 Mar 2017 13:58:47 -0700
->>>
->>>> From: Ben Greear <greearb@candelatech.com>
->>>>
->>>> In systems where you may have a very large number of network
->>>> adapters, certain drivers may consume an unfair amount of
->>>> IRQ resources.  So, allow a module param that will limit the
->>>> number of IRQs at driver load time.  This way, other drivers
->>>> (40G Ethernet, for instance), which probably will need the
->>>> multiple IRQs more, will not be starved of IRQ resources.
->>>>
->>>> Signed-off-by: Ben Greear <greearb@candelatech.com>
->>>
->>> Sorry, no module params.
->>>
->>> Use generic run-time facilities such as ethtool to configure
->>> such things.
->>
->> You cannot call ethtool before module load time, and that is when
->> the IRQs are first acquired.  It may be way more useful to give each
->> of 20 network adapters 2 irqs than have the first few grab 16 and the rest
->> get lumped into legacy crap.
->
-> Almost all network devices do not acquire interrupts until device is brought up.
-> I.e request_irq is called from open not probe. This is done so that configuration
-> can be done and also so that unused ports don't consume interrupt space.
-
-If I ever have to deal with this on stock kernels again I'll keep that in mind.
-
-Thanks,
-Ben
-
+> ---
+>  include/uapi/rdma/mlx5-abi.h | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/uapi/rdma/mlx5-abi.h b/include/uapi/rdma/mlx5-
+> abi.h
+> index da7cd62..0b3d308 100644
+> --- a/include/uapi/rdma/mlx5-abi.h
+> +++ b/include/uapi/rdma/mlx5-abi.h
+> @@ -34,6 +34,7 @@
+>  #define MLX5_ABI_USER_H
+>  
+>  #include <linux/types.h>
+> +#include <linux/if_ether.h>	/* For ETH_ALEN. */
+>  
+>  enum {
+>  	MLX5_QP_FLAG_SIGNATURE		= 1 << 0,
+> @@ -66,7 +67,7 @@ struct mlx5_ib_alloc_ucontext_req {
+>  };
+>  
+>  enum mlx5_lib_caps {
+> -	MLX5_LIB_CAP_4K_UAR	= (u64)1 << 0,
+> +	MLX5_LIB_CAP_4K_UAR	= (__u64)1 << 0,
+>  };
+>  
+>  struct mlx5_ib_alloc_ucontext_req_v2 {
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+    GPG KeyID: B826A3330E572FDD
+   
+Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
