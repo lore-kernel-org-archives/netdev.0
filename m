@@ -1,36 +1,59 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [net-next PATCH v3 5/8] net: Track start of busy loop instead
- of when it should end
-Date: Fri, 24 Mar 2017 20:34:15 -0700
-Message-ID: <1490412855.24891.10.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170324164902.15226.48358.stgit@localhost.localdomain>
-         <20170324170818.15226.51326.stgit@localhost.localdomain>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH v6 06/15] mlx5: Replace PCI pool old API
+Date: Fri, 24 Mar 2017 23:47:24 -0400
+Message-ID: <1490413644.2404.46.camel@redhat.com>
+References: <20170319170404.17362-1-romain.perier@collabora.com>
+         <20170319170404.17362-7-romain.perier@collabora.com>
+         <20170320063109.GT2079@mtr-leonro.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170324170818.15226.51326.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 8bit
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Leon Romanovsky <leon@kernel.org>,
+        Romain Perier <romain.perier@collabora.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20170320063109.GT2079@mtr-leonro.local>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-03-24 at 10:08 -0700, Alexander Duyck wrote:
-> From: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+On Mon, 2017-03-20 at 08:31 +0200, Leon Romanovsky wrote:
+> On Sun, Mar 19, 2017 at 06:03:55PM +0100, Romain Perier wrote:
+> > 
+> > The PCI pool API is deprecated. This commit replaces the PCI pool
+> > old
+> > API by the appropriate function with the DMA pool API.
+> > 
+> > Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> > Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> > ---
+> >  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 11 ++++++-----
+> >  include/linux/mlx5/driver.h                   |  2 +-
+> >  2 files changed, 7 insertions(+), 6 deletions(-)
+> > 
 > 
-> This patch flips the logic we were using to determine if the busy polling
-> has timed out.  The main motivation for this is that we will need to
-> support two different possible timeout values in the future and by
-> recording the start time rather than when we would want to end we can focus
-> on making the end_time specific to the task be it epoll or socket based
-> polling.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
+> Thanks,
+> Acked-by: Leon Romanovsky <leonro@mellanox.com>
 
+Changes look fine to me, and in addition I've compiled and tested them
+on mlx5 hardware and verified that RDMA communications still work.
 
-Acked-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Acked-by: Doug Ledford <dledford@redhat.com>
+Tested-by: Doug Ledford <dledford@redhat.com>
 
-Thanks guys !
+-- 
+Doug Ledford <dledford@redhat.com>
+    GPG KeyID: B826A3330E572FDD
+   
+Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
