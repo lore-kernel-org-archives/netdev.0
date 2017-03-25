@@ -1,37 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 1/1] i40e: Do not enable NAPI on q_vectors that have no
- rings
-Date: Fri, 24 Mar 2017 19:29:07 -0700 (PDT)
-Message-ID: <20170324.192907.2169002295728740570.davem@davemloft.net>
-References: <20170324220142.8921-1-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net] ping: implement proper locking
+Date: Fri, 24 Mar 2017 19:33:56 -0700
+Message-ID: <CANn89iKqhNpvRKndbJxAXxGyfA0ER90puEzr6_QL5xhqKkU6Pg@mail.gmail.com>
+References: <1490398185.24891.5.camel@edumazet-glaptop3.roam.corp.google.com> <20170324.191016.1704224805339195329.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        netdev <netdev@vger.kernel.org>, solar@openwall.com,
+        Andrey Konovalov <andreyknvl@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48154 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S937053AbdCYC3I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 22:29:08 -0400
-In-Reply-To: <20170324220142.8921-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36090 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936916AbdCYCd7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 22:33:59 -0400
+Received: by mail-wm0-f50.google.com with SMTP id n11so25185253wma.1
+        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 19:33:58 -0700 (PDT)
+In-Reply-To: <20170324.191016.1704224805339195329.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 24 Mar 2017 15:01:42 -0700
+On Fri, Mar 24, 2017 at 7:10 PM, David Miller <davem@davemloft.net> wrote:
+>
+>
+> Eric, please add a proper signoff for yourself, and also please
+> add the following tag:
+>
+> Reported-by: Daniel Jiang <danieljiang0415@gmail.com>
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> When testing the epoll w/ busy poll code I found that I could get into a
-> state where the i40e driver had q_vectors w/ active NAPI that had no rings.
-> This was resulting in a divide by zero error.  To correct it I am updating
-> the driver code so that we only support NAPI on q_vectors that have 1 or
-> more rings allocated to them.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied, thanks.
+Oh right, will send a v2 immediately. Thanks.
