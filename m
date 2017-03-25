@@ -1,52 +1,54 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v6 03/15] IB/mthca: Replace PCI pool old API
-Date: Sat, 25 Mar 2017 01:24:16 -0400
-Message-ID: <1490419456.2404.47.camel@redhat.com>
-References: <20170319170404.17362-1-romain.perier@collabora.com>
-         <20170319170404.17362-4-romain.perier@collabora.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: stmmac: fix number of tx queues in
+ stmmac_poll
+Date: Sat, 25 Mar 2017 08:26:21 +0100
+Message-ID: <20170325072621.GA20997@Red>
+References: <cover.1490375512.git.jpinto@synopsys.com>
+ <b6f44c16abea1693dcc1333517778bd7a3e0b0f5.1490375512.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-To: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
-        Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170319170404.17362-4-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, thierry.reding@gmail.com,
+        sergei.shtylyov@cogentembedded.com, f.fainelli@gmail.com,
+        niklas.cassel@axis.com, netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35622 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752824AbdCYH02 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 03:26:28 -0400
+Received: by mail-wm0-f66.google.com with SMTP id z133so1819751wmb.2
+        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 00:26:27 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <b6f44c16abea1693dcc1333517778bd7a3e0b0f5.1490375512.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2017-03-19 at 18:03 +0100, Romain Perier wrote:
-> The PCI pool API is deprecated. This commit replaces the PCI pool old
-> API by the appropriate function with the DMA pool API.
+On Fri, Mar 24, 2017 at 05:16:45PM +0000, Joao Pinto wrote:
+> For cores that have more than 1 TX queue configured, the kernel would crash,
+> since only one TX queue is permitted by default.
 > 
-> Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> Acked-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> Tested-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> 
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 3827952..1eab084 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -3429,7 +3429,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+>  	struct stmmac_rx_queue *rx_q =
+>  		container_of(napi, struct stmmac_rx_queue, napi);
+>  	struct stmmac_priv *priv = rx_q->priv_data;
+> -	u32 tx_count = priv->dma_cap.number_tx_queues;
+> +	u32 tx_count = priv->plat->tx_queues_to_use;
+>  	u32 chan = rx_q->queue_index;
+>  	u32 work_done = 0;
+>  	u32 queue = 0;
+> -- 
+> 2.9.3
+> 
 
-Changes look ok, and I've tested them here as well.
-
-Acked-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Tested-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch fix the performance issue on dwmac-sun8i only.
+The dwmac-sunxi is still broken.
