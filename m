@@ -1,69 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] ping: implement proper locking
-Date: Fri, 24 Mar 2017 19:36:13 -0700
-Message-ID: <1490409373.24891.8.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1490398185.24891.5.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170324.191016.1704224805339195329.davem@davemloft.net>
+From: "Gao Feng" <gfree.wind@foxmail.com>
+Subject: RE: [PATCH net-next 1/1] tcp: sysctl: Fix a race to avoid unexpected 0 window from space
+Date: Sat, 25 Mar 2017 11:32:12 +0800
+Message-ID: <000501d2a518$64719850$2d54c8f0$@foxmail.com>
+References: <1490310312-20661-1-git-send-email-gfree.wind@foxmail.com> <20170324133147.55d2ea3a@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+        charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, solar@openwall.com, andreyknvl@google.com,
-        edumazet@google.com, Daniel Jiang <danieljiang0415@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        "'Gao Feng'" <fgao@ikuai8.com>
+To: "'Stephen Hemminger'" <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35679 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965027AbdCYCgQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 22:36:16 -0400
-Received: by mail-pg0-f67.google.com with SMTP id g2so1187527pge.2
-        for <netdev@vger.kernel.org>; Fri, 24 Mar 2017 19:36:15 -0700 (PDT)
-In-Reply-To: <20170324.191016.1704224805339195329.davem@davemloft.net>
+Received: from smtpbgau1.qq.com ([54.206.16.166]:47884 "EHLO smtpbgau1.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S966014AbdCYDcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 24 Mar 2017 23:32:20 -0400
+In-Reply-To: <20170324133147.55d2ea3a@xeon-e3>
+Content-Language: zh-cn
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Stephen Hemminger
+> Sent: Saturday, March 25, 2017 4:32 AM
+> To: gfree.wind@foxmail.com
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; Gao Feng
+> <fgao@ikuai8.com>
+> Subject: Re: [PATCH net-next 1/1] tcp: sysctl: Fix a race to avoid
+unexpected 0
+> window from space
+> 
+> On Fri, 24 Mar 2017 07:05:12 +0800
+> gfree.wind@foxmail.com wrote:
+> 
+> > From: Gao Feng <fgao@ikuai8.com>
+> >
+> > Because sysctl_tcp_adv_win_scale could be changed any time, so there
+> > is one race in tcp_win_from_space.
+> > For example,
+> > 1.sysctl_tcp_adv_win_scale<=0 (sysctl_tcp_adv_win_scale is negative
+> > now)
+> > 2.space>>(-sysctl_tcp_adv_win_scale) (sysctl_tcp_adv_win_scale is
+> > postive now)
+> >
+> > As a result, tcp_win_from_space returns 0. It is unexpected.
+> >
+> > Certainly if the compiler put the sysctl_tcp_adv_win_scale into one
+> > register firstly, then use the register directly, it would be ok.
+> > But we could not depend on the compiler behavior.
+> >
+> > Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> > ---
+> >  include/net/tcp.h | 8 +++++---
+> >  1 file changed, 5 insertions(+), 3 deletions(-)
+> >
+> > diff --git a/include/net/tcp.h b/include/net/tcp.h index
+> > 6ec4ea6..119b592 100644
+> > --- a/include/net/tcp.h
+> > +++ b/include/net/tcp.h
+> > @@ -1252,9 +1252,11 @@ void tcp_select_initial_window(int __space,
+> > __u32 mss, __u32 *rcv_wnd,
+> >
+> >  static inline int tcp_win_from_space(int space)  {
+> > -	return sysctl_tcp_adv_win_scale<=0 ?
+> > -		(space>>(-sysctl_tcp_adv_win_scale)) :
+> > -		space - (space>>sysctl_tcp_adv_win_scale);
+> > +	int tcp_adv_win_scale = sysctl_tcp_adv_win_scale;
+> > +
+> > +	return tcp_adv_win_scale <= 0 ?
+> > +		(space>>(-tcp_adv_win_scale)) :
+> > +		space - (space>>tcp_adv_win_scale);
+> >  }
+> >
+> >  /* Note: caller must be prepared to deal with negative returns */
+> 
+> You need to use READ_ONCE() to be safe. The compiler is free to optimized
+the
+> code back to the original unless READ_ONCE() is used.
 
-We got a report of yet another bug in ping
+Thanks your reminder.
+I could not figure out why compiler would do the optimization, rollback the
+global variable instead of local tmp variable.
+It breaks the original logic.
 
-http://www.openwall.com/lists/oss-security/2017/03/24/6
+BTW, I think the READ_ONCE is used to avoid reorder. 
+Could you give some guides please ?
 
-->disconnect() is not called with socket lock held.
-
-Fix this by acquiring ping rwlock earlier.
-
-Thanks to Daniel, Alexander and Andrey for letting us know this problem.
-
-Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Daniel Jiang <danieljiang0415@gmail.com>
-Reported-by: Solar Designer <solar@openwall.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
----
- net/ipv4/ping.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 2af6244b83e27ae384e96cf071c10c5a89674804..ccfbce13a6333a65dab64e4847dd510dfafb1b43 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -156,17 +156,18 @@ int ping_hash(struct sock *sk)
- void ping_unhash(struct sock *sk)
- {
- 	struct inet_sock *isk = inet_sk(sk);
-+
- 	pr_debug("ping_unhash(isk=%p,isk->num=%u)\n", isk, isk->inet_num);
-+	write_lock_bh(&ping_table.lock);
- 	if (sk_hashed(sk)) {
--		write_lock_bh(&ping_table.lock);
- 		hlist_nulls_del(&sk->sk_nulls_node);
- 		sk_nulls_node_init(&sk->sk_nulls_node);
- 		sock_put(sk);
- 		isk->inet_num = 0;
- 		isk->inet_sport = 0;
- 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
--		write_unlock_bh(&ping_table.lock);
- 	}
-+	write_unlock_bh(&ping_table.lock);
- }
- EXPORT_SYMBOL_GPL(ping_unhash);
- 
+Best Regards
+Feng
