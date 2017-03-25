@@ -1,85 +1,60 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 00/12] Mellanox mlx5e XDP performance optimization
-Date: Sat, 25 Mar 2017 09:54:59 -0700
-Message-ID: <CALx6S35AMWNeGDOx7d+M5Dqd-B60HGzwhmbLtcoPS2PfpA2m9Q@mail.gmail.com>
-References: <20170324215214.25711-1-saeedm@mellanox.com>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH v6 05/15] mlx4: Replace PCI pool old API
+Date: Sat, 25 Mar 2017 13:03:25 -0400
+Message-ID: <1490461405.2404.52.camel@redhat.com>
+References: <20170319170404.17362-1-romain.perier@collabora.com>
+         <20170319170404.17362-6-romain.perier@collabora.com>
+         <20170320063225.GU2079@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:33177 "EHLO
-        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751258AbdCYQzB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 12:55:01 -0400
-Received: by mail-qk0-f174.google.com with SMTP id f11so12453575qkb.0
-        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 09:55:00 -0700 (PDT)
-In-Reply-To: <20170324215214.25711-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Leon Romanovsky <leon@kernel.org>,
+        Romain Perier <romain.perier@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170320063225.GU2079@mtr-leonro.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 24, 2017 at 2:52 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
-> Hi Dave,
->
-> This series provides some preformancee optimizations for mlx5e
-> driver, especially for XDP TX flows.
->
-> 1st patch is a simple change of rmb to dma_rmb in CQE fetch routine
-> which shows a huge gain for both RX and TX packet rates.
->
-> 2nd patch removes write combining logic from the driver TX handler
-> and simplifies the TX logic while improving TX CPU utilization.
->
-> All other patches combined provide some refactoring to the driver TX
-> flows to allow some significant XDP TX improvements.
->
-> More details and performance numbers per patch can be found in each patch
-> commit message compared to the preceding patch.
->
-> Overall performance improvemnets
->   System: Intel(R) Xeon(R) CPU E5-2620 v3 @ 2.40GHz
->
-> Test case                   Baseline      Now      improvement
-> ---------------------------------------------------------------
-> TX packets (24 threads)     45Mpps        54Mpps      20%
-> TC stack Drop (1 core)      3.45Mpps      3.6Mpps     5%
-> XDP Drop      (1 core)      14Mpps        16.9Mpps    20%
-> XDP TX        (1 core)      10.4Mpps      13.7Mpps    31%
->
-Awesome, and good timing. I'll be presenting XDP at IETF next and
-would like to include these numbers in the presentation if you don't
-mind...
-
-Tom
-
+On Mon, 2017-03-20 at 08:32 +0200, Leon Romanovsky wrote:
+> On Sun, Mar 19, 2017 at 06:03:54PM +0100, Romain Perier wrote:
+> > 
+> > The PCI pool API is deprecated. This commit replaces the PCI pool
+> > old
+> > API by the appropriate function with the DMA pool API.
+> > 
+> > Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> > Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> > Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> > ---
+> >  drivers/net/ethernet/mellanox/mlx4/cmd.c  | 10 +++++-----
+> >  drivers/net/ethernet/mellanox/mlx4/mlx4.h |  2 +-
+> >  2 files changed, 6 insertions(+), 6 deletions(-)
+> > 
+> 
 > Thanks,
-> Saeed.
->
-> Saeed Mahameed (12):
->   net/mlx5e: Use dma_rmb rather than rmb in CQE fetch routine
->   net/mlx5e: Xmit, no write combining
->   net/mlx5e: Single bfreg (UAR) for all mlx5e SQs and netdevs
->   net/mlx5e: Move XDP completion functions to rx file
->   net/mlx5e: Move mlx5e_rq struct declaration
->   net/mlx5e: Move XDP SQ instance into RQ
->   net/mlx5e: Poll XDP TX CQ before RX CQ
->   net/mlx5e: Optimize XDP frame xmit
->   net/mlx5e: Generalize tx helper functions for different SQ types
->   net/mlx5e: Proper names for SQ/RQ/CQ functions
->   net/mlx5e: Generalize SQ create/modify/destroy functions
->   net/mlx5e: Different SQ types
->
->  drivers/net/ethernet/mellanox/mlx5/core/en.h       | 319 +++++-----
->  .../net/ethernet/mellanox/mlx5/core/en_common.c    |   9 +
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 644 +++++++++++++--------
->  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 124 +++-
->  drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 147 +----
->  drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  70 +--
->  include/linux/mlx5/driver.h                        |   1 +
->  7 files changed, 716 insertions(+), 598 deletions(-)
->
-> --
-> 2.11.0
->
+> Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+
+Changes look fine to me, and it has been tested on this specific
+hardware and confirmed RDMA communications still work.
+
+Acked-by: Doug Ledford <dledford@redhat.com>
+Tested-by: Doug Ledford <dledford@redhat.com>
+
+-- 
+Doug Ledford <dledford@redhat.com>
+    GPG KeyID: B826A3330E572FDD
+   
+Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
