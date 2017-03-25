@@ -1,53 +1,58 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] irda: vlsi_ir: fix check for dma mapping errors
-Date: Sat, 25 Mar 2017 13:19:49 +0300
-Message-ID: <d818142b-b934-c5ff-6ef6-23bfdd836723@cogentembedded.com>
-References: <1490395688-3666-1-git-send-email-khoroshilov@ispras.ru>
+Subject: Re: [net-next 05/11] i40e: fix for queue timing delays
+Date: Sat, 25 Mar 2017 13:31:42 +0300
+Message-ID: <6f47c4cb-c345-99f9-aabd-eec274ecfbcf@cogentembedded.com>
+References: <20170325081305.31835-1-jeffrey.t.kirsher@intel.com>
+ <20170325081305.31835-6-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ldv-project@linuxtesting.org
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-        Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1490395688-3666-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:34018 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751054AbdCYKbp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 06:31:45 -0400
+Received: by mail-lf0-f42.google.com with SMTP id z15so4059406lfd.1
+        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 03:31:43 -0700 (PDT)
+In-Reply-To: <20170325081305.31835-6-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On 3/25/2017 11:12 AM, Jeff Kirsher wrote:
 
-On 3/25/2017 1:48 AM, Alexey Khoroshilov wrote:
-
-> vlsi_alloc_ring() checks for dma mapping errors by comparison
-
-    DMA. Comparing.
-
-> returned address with zero, while pci_dma_mapping_error() should be used.
+> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 >
-> Found by Linux Driver Verification project (linuxtesting.org).
+> This patch adds a delay to Rx queue disables to accommodate HW needs.
 >
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> Change-ID: I2864ca667ce5dcc2cc44f8718113b719742a46a1
+> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
->  drivers/net/irda/vlsi_ir.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+>  drivers/net/ethernet/intel/i40e/i40e_main.c | 2 ++
+>  1 file changed, 2 insertions(+)
 >
-> diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
-> index ffedad2a360a..15b920086251 100644
-> --- a/drivers/net/irda/vlsi_ir.c
-> +++ b/drivers/net/irda/vlsi_ir.c
-> @@ -418,8 +418,9 @@ static struct vlsi_ring *vlsi_alloc_ring(struct pci_dev *pdev, struct ring_descr
->  		memset(rd, 0, sizeof(*rd));
->  		rd->hw = hwmap + i;
->  		rd->buf = kmalloc(len, GFP_KERNEL|GFP_DMA);
-> -		if (rd->buf == NULL ||
-> -		    !(busaddr = pci_map_single(pdev, rd->buf, len, dir))) {
-> +		if (rd->buf)
-> +			busaddr = pci_map_single(pdev, rd->buf, len, dir);
-> +		if (rd->buf == NULL || pci_dma_mapping_error(pdev, busaddr)) {
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index 5da990909a88..1435033faefe 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -4181,6 +4181,8 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+>  		}
+>  	}
+>
+> +	/* HW needs up to 50ms to finish RX queue disable*/
 
-    '!rd->buf' is preferred in the networking trees.
+    Please add a space before */.
 
-[...]
+> +	mdelay(50);
+
+    Ugh...
+
+>  	return ret;
+>  }
 
 MBR, Sergei
