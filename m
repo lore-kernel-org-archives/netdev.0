@@ -1,60 +1,60 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH v6 05/15] mlx4: Replace PCI pool old API
-Date: Sat, 25 Mar 2017 13:03:25 -0400
-Message-ID: <1490461405.2404.52.camel@redhat.com>
-References: <20170319170404.17362-1-romain.perier@collabora.com>
-         <20170319170404.17362-6-romain.perier@collabora.com>
-         <20170320063225.GU2079@mtr-leonro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Dan Williams <dan.j.williams@intel.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Leon Romanovsky <leon@kernel.org>,
-        Romain Perier <romain.perier@collabora.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170320063225.GU2079@mtr-leonro.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/4] net: mpls: Allow users to configure more labels per route
+Date: Sat, 25 Mar 2017 10:03:24 -0700
+Message-ID: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
+        ebiederm@xmission.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:36777 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751576AbdCYRDl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 13:03:41 -0400
+Received: by mail-pf0-f172.google.com with SMTP id o126so8210988pfb.3
+        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 10:03:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-03-20 at 08:32 +0200, Leon Romanovsky wrote:
-> On Sun, Mar 19, 2017 at 06:03:54PM +0100, Romain Perier wrote:
-> > 
-> > The PCI pool API is deprecated. This commit replaces the PCI pool
-> > old
-> > API by the appropriate function with the DMA pool API.
-> > 
-> > Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> > Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-> > Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
-> > ---
-> >  drivers/net/ethernet/mellanox/mlx4/cmd.c  | 10 +++++-----
-> >  drivers/net/ethernet/mellanox/mlx4/mlx4.h |  2 +-
-> >  2 files changed, 6 insertions(+), 6 deletions(-)
-> > 
-> 
-> Thanks,
-> Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+Bump the maximum number of labels for MPLS routes from 2 to 12. To keep
+memory consumption in check the labels array is moved to the end of mpls_nh
+and mpls_iptunnel_encap structs as a 0-sized array. Allocations use the
+maximum number of labels across all nexthops in a route for LSR and the
+number of labels configured for LWT.
 
-Changes look fine to me, and it has been tested on this specific
-hardware and confirmed RDMA communications still work.
+The mpls_route layout is changed to:
 
-Acked-by: Doug Ledford <dledford@redhat.com>
-Tested-by: Doug Ledford <dledford@redhat.com>
+   +----------------------+
+   | mpls_route           |
+   +----------------------+
+   | mpls_nh 0            |
+   +----------------------+
+   | alignment padding    |   4 bytes for odd number of labels; 0 for even
+   +----------------------+
+   | via[rt_max_alen] 0   |
+   +----------------------+
+   | alignment padding    |   via's aligned on sizeof(unsigned long)
+   +----------------------+
+   | ...                  |
+
+Meaning the via follows its mpls_nh providing better locality as the
+number of labels increases. UDP_RR tests with namespaces shows no impact
+to a modest performance increase with this layout for 1 or 2 labels and
+1 or 2 nexthops.
+
+The new limit is set to 12 to cover all currently known segment
+routing use cases.
+
+David Ahern (4):
+  mpls: Convert number of nexthops to u8
+  net: mpls: change mpls_route layout
+  net: mpls: bump maximum number of labels
+  net: mpls: Increase max number of labels for lwt encap
+
+ include/net/mpls_iptunnel.h |   4 +-
+ net/mpls/af_mpls.c          | 108 ++++++++++++++++++++++++++------------------
+ net/mpls/internal.h         |  52 ++++++++++++++-------
+ net/mpls/mpls_iptunnel.c    |  13 ++++--
+ 4 files changed, 112 insertions(+), 65 deletions(-)
 
 -- 
-Doug Ledford <dledford@redhat.com>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+2.1.4
