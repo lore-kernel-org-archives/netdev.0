@@ -1,91 +1,48 @@
-From: "Gao Feng" <gfree.wind@foxmail.com>
-Subject: RE: [PATCH net-next 1/1] tcp: sysctl: Fix a race to avoid unexpected 0 window from space
-Date: Sat, 25 Mar 2017 11:32:12 +0800
-Message-ID: <000501d2a518$64719850$2d54c8f0$@foxmail.com>
-References: <1490310312-20661-1-git-send-email-gfree.wind@foxmail.com> <20170324133147.55d2ea3a@xeon-e3>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [net-next PATCH v3 7/8] epoll: Add busy poll support to epoll
+ with socket fds.
+Date: Fri, 24 Mar 2017 20:33:38 -0700
+Message-ID: <1490412818.24891.9.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170324164902.15226.48358.stgit@localhost.localdomain>
+         <20170324170830.15226.9932.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        "'Gao Feng'" <fgao@ikuai8.com>
-To: "'Stephen Hemminger'" <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgau1.qq.com ([54.206.16.166]:47884 "EHLO smtpbgau1.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966014AbdCYDcU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 24 Mar 2017 23:32:20 -0400
-In-Reply-To: <20170324133147.55d2ea3a@xeon-e3>
-Content-Language: zh-cn
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170324170830.15226.9932.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Stephen Hemminger
-> Sent: Saturday, March 25, 2017 4:32 AM
-> To: gfree.wind@foxmail.com
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; Gao Feng
-> <fgao@ikuai8.com>
-> Subject: Re: [PATCH net-next 1/1] tcp: sysctl: Fix a race to avoid
-unexpected 0
-> window from space
+On Fri, 2017-03-24 at 10:08 -0700, Alexander Duyck wrote:
+> From: Sridhar Samudrala <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 > 
-> On Fri, 24 Mar 2017 07:05:12 +0800
-> gfree.wind@foxmail.com wrote:
+> This patch adds busy poll support to epoll. The implementation is meant to
+> be opportunistic in that it will take the NAPI ID from the last socket
+> that is added to the ready list that contains a valid NAPI ID and it will
+> use that for busy polling until the ready list goes empty.  Once the ready
+> list goes empty the NAPI ID is reset and busy polling is disabled until a
+> new socket is added to the ready list.
 > 
-> > From: Gao Feng <fgao@ikuai8.com>
-> >
-> > Because sysctl_tcp_adv_win_scale could be changed any time, so there
-> > is one race in tcp_win_from_space.
-> > For example,
-> > 1.sysctl_tcp_adv_win_scale<=0 (sysctl_tcp_adv_win_scale is negative
-> > now)
-> > 2.space>>(-sysctl_tcp_adv_win_scale) (sysctl_tcp_adv_win_scale is
-> > postive now)
-> >
-> > As a result, tcp_win_from_space returns 0. It is unexpected.
-> >
-> > Certainly if the compiler put the sysctl_tcp_adv_win_scale into one
-> > register firstly, then use the register directly, it would be ok.
-> > But we could not depend on the compiler behavior.
-> >
-> > Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> > ---
-> >  include/net/tcp.h | 8 +++++---
-> >  1 file changed, 5 insertions(+), 3 deletions(-)
-> >
-> > diff --git a/include/net/tcp.h b/include/net/tcp.h index
-> > 6ec4ea6..119b592 100644
-> > --- a/include/net/tcp.h
-> > +++ b/include/net/tcp.h
-> > @@ -1252,9 +1252,11 @@ void tcp_select_initial_window(int __space,
-> > __u32 mss, __u32 *rcv_wnd,
-> >
-> >  static inline int tcp_win_from_space(int space)  {
-> > -	return sysctl_tcp_adv_win_scale<=0 ?
-> > -		(space>>(-sysctl_tcp_adv_win_scale)) :
-> > -		space - (space>>sysctl_tcp_adv_win_scale);
-> > +	int tcp_adv_win_scale = sysctl_tcp_adv_win_scale;
-> > +
-> > +	return tcp_adv_win_scale <= 0 ?
-> > +		(space>>(-tcp_adv_win_scale)) :
-> > +		space - (space>>tcp_adv_win_scale);
-> >  }
-> >
-> >  /* Note: caller must be prepared to deal with negative returns */
+> In addition when we insert a new socket into the epoll we record the NAPI
+> ID and assume we are going to receive events on it.  If that doesn't occur
+> it will be evicted as the active NAPI ID and we will resume normal
+> behavior.
 > 
-> You need to use READ_ONCE() to be safe. The compiler is free to optimized
-the
-> code back to the original unless READ_ONCE() is used.
+> An application can use SO_INCOMING_CPU or SO_REUSEPORT_ATTACH_C/EBPF socket
+> options to spread the incoming connections to specific worker threads
+> based on the incoming queue. This enables epoll for each worker thread
+> to have only sockets that receive packets from a single queue. So when an
+> application calls epoll_wait() and there are no events available to report,
+> busy polling is done on the associated queue to pull the packets.
+> 
+> Signed-off-by: Sridhar Samudrala <sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
+>  fs/eventpoll.c |   93 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 93 insertions(+)
 
-Thanks your reminder.
-I could not figure out why compiler would do the optimization, rollback the
-global variable instead of local tmp variable.
-It breaks the original logic.
-
-BTW, I think the READ_ONCE is used to avoid reorder. 
-Could you give some guides please ?
-
-Best Regards
-Feng
+Acked-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
