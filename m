@@ -1,113 +1,137 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/11] i40e: Drop FCoE code that always evaluates to false or 0
-Date: Sat, 25 Mar 2017 01:13:03 -0700
-Message-ID: <20170325081305.31835-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/11] i40e: Fixed race conditions in VF reset
+Date: Sat, 25 Mar 2017 01:12:58 -0700
+Message-ID: <20170325081305.31835-5-jeffrey.t.kirsher@intel.com>
 References: <20170325081305.31835-1-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: Robert Konklewski <robertx.konklewski@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:13298 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:23525 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751111AbdCYINL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 25 Mar 2017 04:13:11 -0400
+        id S1751054AbdCYINK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 25 Mar 2017 04:13:10 -0400
 In-Reply-To: <20170325081305.31835-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Robert Konklewski <robertx.konklewski@intel.com>
 
-Since FCoE isn't supported by the i40e products there isn't much point in
-carrying around code that will always evaluate to false. This patch goes
-through and strips out the code in several spots so that we don't go around
-carrying variables and/or code that is always going to evaluate to false or
-0.
+First, this patch eliminates IOMMU DMAR Faults caused by VF hardware.
+This is done by enabling VF hardware only after VSI resources are
+freed. Otherwise, hardware could DMA into memory that is (or just has
+been) being freed.
 
-Change-ID: I39d1d779c66c638b75525839db2b6208fdc809d7
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Then, the VF driver is activated only after VSI resources have been
+reallocated. That's because the VF driver can request resources
+immediately after it's activated. So they need to be ready at that
+point.
+
+The second race condition happens when the OS initiates a VF reset,
+and then before it's finished modifies VF's settings by changing its
+MAC, VLAN ID, bandwidth allocation, anti-spoof checking, etc. These
+functions needed to be blocked while VF is undergoing reset. Otherwise,
+they could operate on data structures that had just been freed or not
+yet fully initialized.
+
+Change-ID: I43ba5a7ae2c9a1cce3911611ffc4598ae33ae3ff
+Signed-off-by: Robert Konklewski <robertx.konklewski@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |  3 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 17 +++--------------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  1 -
- 3 files changed, 3 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 43 ++++++++++++++++++----
+ 1 file changed, 35 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index ee298adbb6db..d7e84f99eb2d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -502,9 +502,6 @@ struct i40e_pf {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index cfe8b78dac0e..d526940ff951 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -809,6 +809,11 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
+ 	u32 reg_idx, reg;
+ 	int i, msix_vf;
+ 
++	/* Start by disabling VF's configuration API to prevent the OS from
++	 * accessing the VF's VSI after it's freed / invalidated.
++	 */
++	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
++
+ 	/* free vsi & disconnect it from the parent uplink */
+ 	if (vf->lan_vsi_idx) {
+ 		i40e_vsi_release(pf->vsi[vf->lan_vsi_idx]);
+@@ -848,7 +853,6 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
+ 	/* reset some of the state variables keeping track of the resources */
+ 	vf->num_queue_pairs = 0;
+ 	vf->vf_states = 0;
+-	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
+ }
+ 
+ /**
+@@ -939,6 +943,14 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 	/* warn the VF */
+ 	clear_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
+ 
++	/* Disable VF's configuration API during reset. The flag is re-enabled
++	 * in i40e_alloc_vf_res(), when it's safe again to access VF's VSI.
++	 * It's normally disabled in i40e_free_vf_res(), but it's safer
++	 * to do it earlier to give some time to finish to any VF config
++	 * functions that may still be running at this point.
++	 */
++	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
++
+ 	/* In the case of a VFLR, the HW has already reset the VF and we
+ 	 * just need to clean up, so don't hit the VFRTRIG register.
  	 */
- 	u16 dcbx_cap;
+@@ -982,11 +994,6 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 	if (!rsd)
+ 		dev_err(&pf->pdev->dev, "VF reset check timeout on VF %d\n",
+ 			vf->vf_id);
+-	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_COMPLETED);
+-	/* clear the reset bit in the VPGEN_VFRTRIG reg */
+-	reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
+-	reg &= ~I40E_VPGEN_VFRTRIG_VFSWR_MASK;
+-	wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
  
--	u32 fcoe_hmc_filt_num;
--	u32 fcoe_hmc_cntx_num;
--
- 	struct i40e_filter_control_settings filter_settings;
+ 	/* On initial reset, we won't have any queues */
+ 	if (vf->lan_vsi_idx == 0)
+@@ -994,8 +1001,24 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
  
- 	struct ptp_clock *ptp_clock;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index f4258ec3a68c..781edfc86baf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4371,14 +4371,6 @@ static void i40e_quiesce_vsi(struct i40e_vsi *vsi)
- 	if (test_bit(__I40E_DOWN, &vsi->state))
- 		return;
- 
--	/* No need to disable FCoE VSI when Tx suspended */
--	if ((test_bit(__I40E_PORT_TX_SUSPENDED, &vsi->back->state)) &&
--	    vsi->type == I40E_VSI_FCOE) {
--		dev_dbg(&vsi->back->pdev->dev,
--			 "VSI seid %d skipping FCoE VSI disable\n", vsi->seid);
--		return;
--	}
--
- 	set_bit(__I40E_NEEDS_RESTART, &vsi->state);
- 	if (vsi->netdev && netif_running(vsi->netdev))
- 		vsi->netdev->netdev_ops->ndo_stop(vsi->netdev);
-@@ -4481,8 +4473,7 @@ static int i40e_pf_wait_queues_disabled(struct i40e_pf *pf)
- 	int v, ret = 0;
- 
- 	for (v = 0; v < pf->hw.func_caps.num_vsis; v++) {
--		/* No need to wait for FCoE VSI queues */
--		if (pf->vsi[v] && pf->vsi[v]->type != I40E_VSI_FCOE) {
-+		if (pf->vsi[v]) {
- 			ret = i40e_vsi_wait_queues_disabled(pf->vsi[v]);
- 			if (ret)
- 				break;
-@@ -6970,8 +6961,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 		goto end_core_reset;
- 
- 	ret = i40e_init_lan_hmc(hw, hw->func_caps.num_tx_qp,
--				hw->func_caps.num_rx_qp,
--				pf->fcoe_hmc_cntx_num, pf->fcoe_hmc_filt_num);
-+				hw->func_caps.num_rx_qp, 0, 0);
- 	if (ret) {
- 		dev_info(&pf->pdev->dev, "init_lan_hmc failed: %d\n", ret);
- 		goto end_core_reset;
-@@ -11016,8 +11006,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	i40e_vsi_stop_rings(pf->vsi[vf->lan_vsi_idx]);
+ complete_reset:
+-	/* reallocate VF resources to reset the VSI state */
++	/* free VF resources to begin resetting the VSI state */
+ 	i40e_free_vf_res(vf);
++
++	/* Enable hardware by clearing the reset bit in the VPGEN_VFRTRIG reg.
++	 * By doing this we allow HW to access VF memory at any point. If we
++	 * did it any sooner, HW could access memory while it was being freed
++	 * in i40e_free_vf_res(), causing an IOMMU fault.
++	 *
++	 * On the other hand, this needs to be done ASAP, because the VF driver
++	 * is waiting for this to happen and may report a timeout. It's
++	 * harmless, but it gets logged into Guest OS kernel log, so best avoid
++	 * it.
++	 */
++	reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
++	reg &= ~I40E_VPGEN_VFRTRIG_VFSWR_MASK;
++	wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
++
++	/* reallocate VF resources to finish resetting the VSI state */
+ 	if (!i40e_alloc_vf_res(vf)) {
+ 		int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 		i40e_enable_vf_mappings(vf);
+@@ -1006,7 +1029,11 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 			i40e_notify_client_of_vf_reset(pf, abs_vf_id);
+ 		vf->num_vlan = 0;
  	}
+-	/* tell the VF the reset is done */
++
++	/* Tell the VF driver the reset is done. This needs to be done only
++	 * after VF has been fully initialized, because the VF driver may
++	 * request resources immediately after setting this flag.
++	 */
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
  
- 	err = i40e_init_lan_hmc(hw, hw->func_caps.num_tx_qp,
--				hw->func_caps.num_rx_qp,
--				pf->fcoe_hmc_cntx_num, pf->fcoe_hmc_filt_num);
-+				hw->func_caps.num_rx_qp, 0, 0);
- 	if (err) {
- 		dev_info(&pdev->dev, "init_lan_hmc failed: %d\n", err);
- 		goto err_init_lan_hmc;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 4012d069939a..37af437daa5d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -87,7 +87,6 @@ struct i40e_vf {
- 	u16 stag;
- 
- 	struct i40e_virtchnl_ether_addr default_lan_addr;
--	struct i40e_virtchnl_ether_addr default_fcoe_addr;
- 	u16 port_vlan_id;
- 	bool pf_set_mac;	/* The VMM admin set the VF MAC address */
- 	bool trusted;
+ 	i40e_flush(hw);
 -- 
 2.12.0
