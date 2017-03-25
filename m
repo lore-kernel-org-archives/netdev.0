@@ -1,58 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/11] i40e/i40evf: Fix use after free in Rx cleanup path
-Date: Sat, 25 Mar 2017 01:12:57 -0700
-Message-ID: <20170325081305.31835-4-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/11] i40e: initialize params before notifying of l2_param_changes
+Date: Sat, 25 Mar 2017 01:13:05 -0700
+Message-ID: <20170325081305.31835-12-jeffrey.t.kirsher@intel.com>
 References: <20170325081305.31835-1-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:32490 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:13298 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750766AbdCYINJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 25 Mar 2017 04:13:09 -0400
+        id S1751159AbdCYINL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 25 Mar 2017 04:13:11 -0400
 In-Reply-To: <20170325081305.31835-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-We need to reset skb back to NULL when we have freed it in the Rx cleanup
-path.  I found one spot where this wasn't occurring so this patch fixes it.
+Probably due to some mis-merging fix a bug associated with commits
+d7ce6422d6e6 ("i40e: don't check params until after checking for client
+instance", 2017-02-09) and 3140aa9a78c9 ("i40e: KISS the client
+interface", 2017-03-14)
 
-Change-ID: Iaca68934200732cd4a63eb0bd83b539c95f8c4dd
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+The first commit tried to move the initialization of the params
+structure so that we didn't bother doing this if we didn't have a client
+interface. You can already see that it looks fishy because of the
+indentation. The second commit refactors a bunch of the interface, and
+incorrectly drops the params initialization.
+
+I believe what occurred is that internally the two patches were
+re-ordered, and the merge conflicts as a result were performed
+incorrectly.
+
+Fix the use of an uninitialized variable by correctly initializing the
+params variable via i40e_client_get_params().
+
+Reported-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 1 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_client.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index e5c89770cbc2..9f2c9f1b8e06 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1941,6 +1941,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		 */
- 		if (unlikely(i40e_test_staterr(rx_desc, BIT(I40E_RXD_QW1_ERROR_SHIFT)))) {
- 			dev_kfree_skb_any(skb);
-+			skb = NULL;
- 			continue;
- 		}
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index d892922a2ed9..38f93075f496 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1299,6 +1299,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		 */
- 		if (unlikely(i40e_test_staterr(rx_desc, BIT(I40E_RXD_QW1_ERROR_SHIFT)))) {
- 			dev_kfree_skb_any(skb);
-+			skb = NULL;
- 			continue;
- 		}
- 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
+index a9f0d22a7cf4..191028b1489b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+@@ -147,6 +147,8 @@ void i40e_notify_client_of_l2_param_changes(struct i40e_vsi *vsi)
+ 		dev_dbg(&vsi->back->pdev->dev, "Client is not open, abort l2 param change\n");
+ 		return;
+ 	}
++	memset(&params, 0, sizeof(params));
++	i40e_client_get_params(vsi, &params);
+ 	memcpy(&cdev->lan_info.params, &params, sizeof(struct i40e_params));
+ 	cdev->client->ops->l2_param_change(&cdev->lan_info, cdev->client,
+ 					   &params);
 -- 
 2.12.0
