@@ -1,54 +1,49 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH ethtool] ethtool: Support for configurable RSS hash
- function
-Date: Sat, 25 Mar 2017 14:50:47 -0700
-Message-ID: <20170325145047.6a5a7967@cakuba.netronome.com>
-References: <1488981831-19376-1-git-send-email-galp@mellanox.com>
+From: "HEIDI MEIER" <heidimeier3@aol.com>
+Subject: EMAIL BENUTZER
+Date: Sat, 25 Mar 2017 14:39:14 -0000
+Message-ID: <50cc504dca09659864df39021c259b83.squirrel__3492.29530334032$1490484046$gmane$org@89.36.222.158>
+Reply-To: heidi_meier4@aol.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Gal Pressman <galp@mellanox.com>, netdev@vger.kernel.org,
-        Eyal Perry <eyalpe@mellanox.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain;charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:48580 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751054AbdCYVu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 25 Mar 2017 17:50:58 -0400
-In-Reply-To: <1488981831-19376-1-git-send-email-galp@mellanox.com>
+Received: from host158-222-36-89.serverdedicati.aruba.it ([89.36.222.158]:52663
+        "EHLO mail.dealer.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751164AbdCYXUp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 19:20:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  8 Mar 2017 16:03:51 +0200, Gal Pressman wrote:
-> This ethtool patch adds support to set and get the current RSS hash
-> function for the device through the new hfunc mask field in the
-> ethtool_rxfh struct. Kernel supported hash function names are queried
-> with ETHTOOL_GSTRINGS - each string is corresponding with a bit in hfunc
-> mask according to its index in the string-set.
-> 
-> Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
-> Signed-off-by: Gal Pressman <galp@mellanox.com>
-> Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
 
-Hi John,
 
-It seems you have applied both my earlier patch with get support and
-this:
 
-adbaa18b9bc1 ("ethtool: Support for configurable RSS hash function")
-b932835d2302 ("ethtool: print hash function with ethtool -x|--show-rxfh-indir")
+-- 
+Attn: Gewinner
 
-Now we print the RSS function twice:
+Ihre E-Mail-Adresse hat die Summe von €1,200.000.00 Euro gewonnen.
+Im Email Benützer Online Programm Weihnachtslotterie Navida , in Madrid
+Spanien .
+Wir schreiben ihnen ,um sich offiziel über die Auszeichnung zu
+Benachrichtigen ,
+damit Sie sich mit der Zuständigen Vermittlerin in verbindung setzten können.
+Frau HEIDI  MEIER, per E-Mail: heidi_meier4@aol.com
+Zur Bearbeitung und Freigabe Ihrer Zahlung per Scheck oder Banküberweisung.
+Bitte füllen Sie das untenstehende Formular aus.
+NAME: ___________________
+FAMILIENNAME:_____________________
+ADRESSE:__________________________________________________
+STADT: ________________PLZ: ____________LAND: _______________
+GEB: DATUM: __________________BERUF:________________________
+FESTNETZ TEL.NR: ____________________________________________
+MOBILETELEFON NR: ___________________
+FAX: ___________________
+EMAIL:___________________________
+DATE____________________
+SIGNATURE:_________________________
 
-RX flow hash indirection table for em4 with 4 RX ring(s):
-    0:      [...]
-RSS hash function: toeplitz  <--- from my adbaa18b9bc1
-RSS hash key:
-Operation not supported
-RSS hash function:           <--- from this patch
-    toeplitz: on
-    xor: off
-    crc32: off
-
-Reverting my patch is probably the easiest way forward, although I find
-it more concise and easier to parse in test scripts :)
+bitte füllen Sie das anschließende Formular vollständig aus und senden es
+per email zurück !
+Hochachtungsvoll
+Francisco Blázquez
+Koordinator.
