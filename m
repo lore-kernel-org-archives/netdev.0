@@ -1,32 +1,43 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [net-next PATCH v3 0/8] Add busy poll support for epoll
-Date: Fri, 24 Mar 2017 19:23:36 -0700 (PDT)
-Message-ID: <20170324.192336.1475562799079946827.davem@davemloft.net>
-References: <20170324164902.15226.48358.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] secure_seq: downgrade to per-host timestamp offsets
+Date: Fri, 24 Mar 2017 19:28:26 -0700 (PDT)
+Message-ID: <20170324.192826.11282993769447164.davem@davemloft.net>
+References: <20170324184237.16044-1-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-        linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170324164902.15226.48358.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, soheil@google.com, edumazet@google.com,
+        ncardwell@google.com, ycheng@google.com
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48126 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937053AbdCYC21 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 22:28:27 -0400
+In-Reply-To: <20170324184237.16044-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Fri, 24 Mar 2017 10:07:47 -0700
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 24 Mar 2017 19:42:37 +0100
 
-> v3: Split off the code for limiting busy_poll and busy_read into a separate
->     patch for net.
->     Updated patch that changed busy loop time tracking so that it uses
->     "local_clock() >> 10" as we originally did.
->     Tweaked "Change return type.." patch by moving declaration of "work"
->     inside the loop where is was accessed and always reset to 0.
->     Added "Acked-by" for patches that received acks.
+> Unfortunately too many devices (not under our control) use tcp_tw_recycle=1,
+> which depends on timestamps being identical of the same saddr.
+> 
+> Although tcp_tw_recycle got removed in net-next we can't make
+> such end hosts disappear so downgrade to per-host timestamp offsets.
+> 
+> Cc: Soheil Hassas Yeganeh <soheil@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Reported-by: Yvan Vanrossomme <yvan@vanrossomme.net>
+> Fixes: 95a22caee396c ("tcp: randomize tcp timestamp offsets for each connection")
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Eric, I believe Alexander has addresed your concerns.  Could you please
-review patches 5 and 7 and ACK if they look ok to you?
+Ok, applied and queued up for -stable.
 
-Thanks.
+> David, I can cook a stable patch using jhash if needed, just let me know
+> (siphash was added after 4.10).
+
+Yes, I'll need that, thanks!
