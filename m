@@ -1,272 +1,96 @@
-From: Arushi Singhal <arushisinghal19971997@gmail.com>
-Subject: [PATCH 2/2] net: netfilter: Remove typedef from "typedef struct bitstr_t"
-Date: Sat, 25 Mar 2017 17:57:56 +0530
-Message-ID: <20170325122756.8743-3-arushisinghal19971997@gmail.com>
-References: <20170325122756.8743-1-arushisinghal19971997@gmail.com>
-Cc: pablo@netfilter.org, davem@davemloft.net,
-        outreachy-kernel@googlegroups.com, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, gregkh@linuxfoundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Arushi Singhal <arushisinghal19971997@gmail.com>
-To: kadlec@blackhole.kfki.hu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170325122756.8743-1-arushisinghal19971997@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 00/12] Mellanox mlx5e XDP performance optimization
+Date: Sat, 25 Mar 2017 15:30:11 +0300
+Message-ID: <CALzJLG_5yPXULm_n8cSdpcL8TZBFEZVpTEt7Dx7NQnUQYcGAJA@mail.gmail.com>
+References: <20170324215214.25711-1-saeedm@mellanox.com> <420dc52e-8b39-a083-941e-d87eb941771a@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:36147 "EHLO
+        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751293AbdCYMad (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 08:30:33 -0400
+Received: by mail-qk0-f172.google.com with SMTP id p22so9771677qka.3
+        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 05:30:32 -0700 (PDT)
+In-Reply-To: <420dc52e-8b39-a083-941e-d87eb941771a@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch removes typedefs from struct and renames it from "typedef struct
-bitstr_t" to "struct bitstr" as per kernel coding standards."
+On Sat, Mar 25, 2017 at 2:26 AM, Alexei Starovoitov <ast@fb.com> wrote:
+> On 3/24/17 2:52 PM, Saeed Mahameed wrote:
+>>
+>> Hi Dave,
+>>
+>> This series provides some preformancee optimizations for mlx5e
+>> driver, especially for XDP TX flows.
+>>
+>> 1st patch is a simple change of rmb to dma_rmb in CQE fetch routine
+>> which shows a huge gain for both RX and TX packet rates.
+>>
+>> 2nd patch removes write combining logic from the driver TX handler
+>> and simplifies the TX logic while improving TX CPU utilization.
+>>
+>> All other patches combined provide some refactoring to the driver TX
+>> flows to allow some significant XDP TX improvements.
+>>
+>> More details and performance numbers per patch can be found in each patch
+>> commit message compared to the preceding patch.
+>>
+>> Overall performance improvemnets
+>>   System: Intel(R) Xeon(R) CPU E5-2620 v3 @ 2.40GHz
+>>
+>> Test case                   Baseline      Now      improvement
+>> ---------------------------------------------------------------
+>> TX packets (24 threads)     45Mpps        54Mpps      20%
+>> TC stack Drop (1 core)      3.45Mpps      3.6Mpps     5%
+>> XDP Drop      (1 core)      14Mpps        16.9Mpps    20%
+>> XDP TX        (1 core)      10.4Mpps      13.7Mpps    31%
+>
+>
+> Excellent work!
+> All patches look great, so for the series:
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+>
 
-Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
----
- net/netfilter/nf_conntrack_h323_asn1.c | 80 +++++++++++++++++-----------------
- 1 file changed, 40 insertions(+), 40 deletions(-)
+Thanks Alexei !
 
-diff --git a/net/netfilter/nf_conntrack_h323_asn1.c b/net/netfilter/nf_conntrack_h323_asn1.c
-index fb8cf238a76f..4502c0d6071d 100644
---- a/net/netfilter/nf_conntrack_h323_asn1.c
-+++ b/net/netfilter/nf_conntrack_h323_asn1.c
-@@ -91,41 +91,41 @@ struct field {
- };
- 
- /* Bit Stream */
--typedef struct {
-+struct bitstr {
- 	unsigned char *buf;
- 	unsigned char *beg;
- 	unsigned char *end;
- 	unsigned char *cur;
- 	unsigned int bit;
--} bitstr_t;
-+};
- 
- /* Tool Functions */
- #define INC_BIT(bs) if((++(bs)->bit)>7){(bs)->cur++;(bs)->bit=0;}
- #define INC_BITS(bs,b) if(((bs)->bit+=(b))>7){(bs)->cur+=(bs)->bit>>3;(bs)->bit&=7;}
- #define BYTE_ALIGN(bs) if((bs)->bit){(bs)->cur++;(bs)->bit=0;}
- #define CHECK_BOUND(bs,n) if((bs)->cur+(n)>(bs)->end)return(H323_ERROR_BOUND)
--static unsigned int get_len(bitstr_t *bs);
--static unsigned int get_bit(bitstr_t *bs);
--static unsigned int get_bits(bitstr_t *bs, unsigned int b);
--static unsigned int get_bitmap(bitstr_t *bs, unsigned int b);
--static unsigned int get_uint(bitstr_t *bs, int b);
-+static unsigned int get_len(struct bitstr *bs);
-+static unsigned int get_bit(struct bitstr *bs);
-+static unsigned int get_bits(struct bitstr *bs, unsigned int b);
-+static unsigned int get_bitmap(struct bitstr *bs, unsigned int b);
-+static unsigned int get_uint(struct bitstr *bs, int b);
- 
- /* Decoder Functions */
--static int decode_nul(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_bool(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_oid(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_int(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_enum(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_bitstr(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_numstr(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_octstr(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_bmpstr(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_seq(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_seqof(bitstr_t *bs, const struct field *f, char *base, int level);
--static int decode_choice(bitstr_t *bs, const struct field *f, char *base, int level);
-+static int decode_nul(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_bool(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_oid(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_int(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_enum(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_bitstr(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_numstr(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_octstr(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_bmpstr(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_seq(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_seqof(struct bitstr *bs, const struct field *f, char *base, int level);
-+static int decode_choice(struct bitstr *bs, const struct field *f, char *base, int level);
- 
- /* Decoder Functions Vector */
--typedef int (*decoder_t)(bitstr_t *, const struct field *, char *, int);
-+typedef int (*decoder_t)(struct bitstr *, const struct field *, char *, int);
- static const decoder_t Decoders[] = {
- 	decode_nul,
- 	decode_bool,
-@@ -150,7 +150,7 @@ static const decoder_t Decoders[] = {
-  * Functions
-  ****************************************************************************/
- /* Assume bs is aligned && v < 16384 */
--static unsigned int get_len(bitstr_t *bs)
-+static unsigned int get_len(struct bitstr *bs)
- {
- 	unsigned int v;
- 
-@@ -166,7 +166,7 @@ static unsigned int get_len(bitstr_t *bs)
- }
- 
- /****************************************************************************/
--static unsigned int get_bit(bitstr_t *bs)
-+static unsigned int get_bit(struct bitstr *bs)
- {
- 	unsigned int b = (*bs->cur) & (0x80 >> bs->bit);
- 
-@@ -177,7 +177,7 @@ static unsigned int get_bit(bitstr_t *bs)
- 
- /****************************************************************************/
- /* Assume b <= 8 */
--static unsigned int get_bits(bitstr_t *bs, unsigned int b)
-+static unsigned int get_bits(struct bitstr *bs, unsigned int b)
- {
- 	unsigned int v, l;
- 
-@@ -203,7 +203,7 @@ static unsigned int get_bits(bitstr_t *bs, unsigned int b)
- 
- /****************************************************************************/
- /* Assume b <= 32 */
--static unsigned int get_bitmap(bitstr_t *bs, unsigned int b)
-+static unsigned int get_bitmap(struct bitstr *bs, unsigned int b)
- {
- 	unsigned int v, l, shift, bytes;
- 
-@@ -242,7 +242,7 @@ static unsigned int get_bitmap(bitstr_t *bs, unsigned int b)
- /****************************************************************************
-  * Assume bs is aligned and sizeof(unsigned int) == 4
-  ****************************************************************************/
--static unsigned int get_uint(bitstr_t *bs, int b)
-+static unsigned int get_uint(struct bitstr *bs, int b)
- {
- 	unsigned int v = 0;
- 
-@@ -264,7 +264,7 @@ static unsigned int get_uint(bitstr_t *bs, int b)
- }
- 
- /****************************************************************************/
--static int decode_nul(bitstr_t *bs, const struct field *f,
-+static int decode_nul(struct bitstr *bs, const struct field *f,
-                       char *base, int level)
- {
- 	PRINT("%*.s%s\n", level * TAB_SIZE, " ", f->name);
-@@ -273,7 +273,7 @@ static int decode_nul(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_bool(bitstr_t *bs, const struct field *f,
-+static int decode_bool(struct bitstr *bs, const struct field *f,
-                        char *base, int level)
- {
- 	PRINT("%*.s%s\n", level * TAB_SIZE, " ", f->name);
-@@ -285,7 +285,7 @@ static int decode_bool(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_oid(bitstr_t *bs, const struct field *f,
-+static int decode_oid(struct bitstr *bs, const struct field *f,
-                       char *base, int level)
- {
- 	int len;
-@@ -302,7 +302,7 @@ static int decode_oid(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_int(bitstr_t *bs, const struct field *f,
-+static int decode_int(struct bitstr *bs, const struct field *f,
-                       char *base, int level)
- {
- 	unsigned int len;
-@@ -346,7 +346,7 @@ static int decode_int(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_enum(bitstr_t *bs, const struct field *f,
-+static int decode_enum(struct bitstr *bs, const struct field *f,
-                        char *base, int level)
- {
- 	PRINT("%*.s%s\n", level * TAB_SIZE, " ", f->name);
-@@ -362,7 +362,7 @@ static int decode_enum(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_bitstr(bitstr_t *bs, const struct field *f,
-+static int decode_bitstr(struct bitstr *bs, const struct field *f,
-                          char *base, int level)
- {
- 	unsigned int len;
-@@ -396,7 +396,7 @@ static int decode_bitstr(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_numstr(bitstr_t *bs, const struct field *f,
-+static int decode_numstr(struct bitstr *bs, const struct field *f,
-                          char *base, int level)
- {
- 	unsigned int len;
-@@ -414,7 +414,7 @@ static int decode_numstr(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_octstr(bitstr_t *bs, const struct field *f,
-+static int decode_octstr(struct bitstr *bs, const struct field *f,
-                          char *base, int level)
- {
- 	unsigned int len;
-@@ -463,7 +463,7 @@ static int decode_octstr(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_bmpstr(bitstr_t *bs, const struct field *f,
-+static int decode_bmpstr(struct bitstr *bs, const struct field *f,
-                          char *base, int level)
- {
- 	unsigned int len;
-@@ -489,7 +489,7 @@ static int decode_bmpstr(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_seq(bitstr_t *bs, const struct field *f,
-+static int decode_seq(struct bitstr *bs, const struct field *f,
-                       char *base, int level)
- {
- 	unsigned int ext, bmp, i, opt, len = 0, bmp2, bmp2_len;
-@@ -606,7 +606,7 @@ static int decode_seq(bitstr_t *bs, const struct field *f,
- }
- 
- /****************************************************************************/
--static int decode_seqof(bitstr_t *bs, const struct field *f,
-+static int decode_seqof(struct bitstr *bs, const struct field *f,
-                         char *base, int level)
- {
- 	unsigned int count, effective_count = 0, i, len = 0;
-@@ -696,7 +696,7 @@ static int decode_seqof(bitstr_t *bs, const struct field *f,
- 
- 
- /****************************************************************************/
--static int decode_choice(bitstr_t *bs, const struct field *f,
-+static int decode_choice(struct bitstr *bs, const struct field *f,
-                          char *base, int level)
- {
- 	unsigned int type, ext, len = 0;
-@@ -772,7 +772,7 @@ int DecodeRasMessage(unsigned char *buf, size_t sz, RasMessage *ras)
- 		FNAME("RasMessage") CHOICE, 5, 24, 32, DECODE | EXT,
- 		0, _RasMessage
- 	};
--	bitstr_t bs;
-+	struct bitstr bs;
- 
- 	bs.buf = bs.beg = bs.cur = buf;
- 	bs.end = buf + sz;
-@@ -789,7 +789,7 @@ static int DecodeH323_UserInformation(unsigned char *buf, unsigned char *beg,
- 		FNAME("H323-UserInformation") SEQ, 1, 2, 2, DECODE | EXT,
- 		0, _H323_UserInformation
- 	};
--	bitstr_t bs;
-+	struct bitstr bs;
- 
- 	bs.buf = buf;
- 	bs.beg = bs.cur = beg;
-@@ -808,7 +808,7 @@ int DecodeMultimediaSystemControlMessage(unsigned char *buf, size_t sz,
- 		FNAME("MultimediaSystemControlMessage") CHOICE, 2, 4, 4,
- 		DECODE | EXT, 0, _MultimediaSystemControlMessage
- 	};
--	bitstr_t bs;
-+	struct bitstr bs;
- 
- 	bs.buf = bs.beg = bs.cur = buf;
- 	bs.end = buf + sz;
--- 
-2.11.0
+> in patch 12 I noticed that inline_mode is being evaluated.
+> I think for xdp queues it's guaranteed to be fixed.
+> Can we optimize that path little bit more as well?
+
+Yes, you are right, we do evaluate it in  mlx5e_alloc_xdpsq
++       if (sq->min_inline_mode != MLX5_INLINE_MODE_NONE) {
++               inline_hdr_sz = MLX5E_XDP_MIN_INLINE;
++               ds_cnt++;
++       }
+
+and check it again in mlx5e_xmit_xdp_frame
+
++      /* copy the inline part if required */
++      if (sq->min_inline_mode != MLX5_INLINE_MODE_NONE) {
+
+sq->min_inline_mode is fixed in run-time, but it is different across
+HW versions.
+This condition is needed so we would not copy inline headers and waste
+CPU cycles while it is not required from ConnectX-5 and later.
+Actually this is a 5% XDP_TX optimization you get when you run over
+ConnectX-5 [1].
+
+in ConnectX-4 and 4-LX driver is still required to copy L2 headers
+into TX descriptor so the HW can make the loopback decision correctly
+(needed in case you want XDP program to switch packets between
+different PFs/VFs running on the same box/NIC).
+
+So i don't see anyway to do this without breaking XDP loopback
+functionality or removing the connectX-5 optimization.
+
+for my taste this condition is good as is.
+
+[1] https://www.spinics.net/lists/netdev/msg419215.html
+
+> Thanks!
