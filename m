@@ -1,64 +1,67 @@
-From: <cbordinaro@csudh.edu>
-Subject: 54285 netdev
-Date: Sat, 25 Mar 2017 08:48:23 -0000
-Message-ID: <149043170337.16100.17678016420463057299@118-83-197-173.ohta.j-cnet.jp>
-Reply-To: <cbordinaro@csudh.edu>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [PATCH net-next 0/2] Performances improvement for IPv6 Segment
+ Routing
+Date: Sat, 25 Mar 2017 09:56:03 +0100
+Message-ID: <dfafbcb8-ec24-4585-71b2-025aff0d22e5@uclouvain.be>
+References: <20170324094627.16796-1-david.lebrun@uclouvain.be>
+ <20170324.144805.1899893937234644395.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: application/zip; name="631584100.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="BQdKg8Ehh1oFD6TTk9GUQw3CrDvuFLsJQ"
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 118-83-197-173.ohta.j-cnet.jp ([118.83.197.173]:58412 "HELO
-        118-83-197-173.ohta.j-cnet.jp" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with SMTP id S1750968AbdCYIs2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 04:48:28 -0400
-Content-Disposition: attachment
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:50572 "EHLO
+        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750994AbdCYIzp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 04:55:45 -0400
+In-Reply-To: <20170324.144805.1899893937234644395.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-7huK+t6t6n+YLuC1q1ox6IQfmRIHXxc11NzrNdzQoqhLZy7jvrObpu+VjrdN+pvOR0ytMw1nUVO8
-lDjGnHOEO75PkUXnG6nWob5KCK9epgnGk2um5OrG3tOoZSpGstFuQYU84CoK4Red6f5QpZL3+6fv
-auPX763R63sn3KhL9yro5AyXBjActJYYJpjnXO14oJBaK0uF1t6T9/NY/O232f42Pqm6HtRb1XZ1
-yv5du/2w2y4/hHB99/SJHH4tyV922/P16/f149sHP5lctvyh6s5PF5dXbX27+9A2+uyn291n/ejf
-l5VHZ0fDab/sm87W2/bp6C978+vV9v3128+rk5Wu/cfrd9vzM33+590ufV4bF0+MCycmmhMz83li
-rDsxkz2xw+ZEtu+urs76/mfX6bZcrH9++fL51/Hu5/PNyfn2cpvPXq5erk5u8jZvz4ZTudmt9ZT9
-9cmbL9fXmfv9+o/d2rOrtj2/vVhuHR8vS46PN18vZd2//+ms+7hft/l6sHHXzztaHV+/O38n683x
-6uz57e6SlbK7uf7lIu1+ualt/Tbt3re/bm/X/bQX/ZhXhLj5ezf7opt7tTm9uzf0rz5X637k5nS1
-2Wdns6Ccdy296V/v9F/pyLTd5lta9PbdfdIPqXyY9P0h9/m++XL+4fXZqh1/vErH6ap9XH2D/PlX
-o4if7lfKm5s37ayvf/G3dHvxTK5uAL5/3aVtvbleb47+sBg8wPjqAQf7/sWdhXr7n+s2p/8EUEsB
-Ah4DFAACAAgAhHJ5SlLCsV7QCAAAwRMAAAcAGAAAAAAAAQAAAKSBAAAAADQ2MjYuanNVVAUAAzco
-1lh1eAsAAQQAAAAABAAAAABQSwUGAAAAAAEAAQBNAAAAEQkAAAAAUEsBAh4DCgACAAAAhHJ5SpTj
-lHJ0CQAAdAkAAAwAGAAAAAAAAAAAAKSBAAAAAHppcC00NjI2LnppcFVUBQADNyjWWHV4CwABBAAA
-AAAEAAAAAFBLBQYAAAAAAQABAFIAAAC6CQAAAAA=
+--BQdKg8Ehh1oFD6TTk9GUQw3CrDvuFLsJQ
+Content-Type: multipart/mixed; boundary="REgtE355Kp064FbL0cSSC7kec7EeoMQI6"
+From: David Lebrun <david.lebrun@uclouvain.be>
+To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Message-ID: <dfafbcb8-ec24-4585-71b2-025aff0d22e5@uclouvain.be>
+Subject: Re: [PATCH net-next 0/2] Performances improvement for IPv6 Segment
+ Routing
+References: <20170324094627.16796-1-david.lebrun@uclouvain.be>
+ <20170324.144805.1899893937234644395.davem@davemloft.net>
+In-Reply-To: <20170324.144805.1899893937234644395.davem@davemloft.net>
+
+--REgtE355Kp064FbL0cSSC7kec7EeoMQI6
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
+
+On 03/24/2017 10:48 PM, David Miller wrote:
+> Series applied, thanks.
+>=20
+> I think you should make SEG6_IPTUNNEL select DST_CACHE and then remove =
+all of
+> these ugly ifdefs.
+
+Thanks
+
+Agreed, I'll submit a patch for that :)
+
+David
+
+
+--REgtE355Kp064FbL0cSSC7kec7EeoMQI6--
+
+--BQdKg8Ehh1oFD6TTk9GUQw3CrDvuFLsJQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWNYwowAKCRCNvOfruxno
+A4iMAJ955p1wtyMAQMolg0vqR2pGTGovVQCbBvEd6g2QSmMV0iXSBRdvBeqyCB0=
+=lnI2
+-----END PGP SIGNATURE-----
+
+--BQdKg8Ehh1oFD6TTk9GUQw3CrDvuFLsJQ--
