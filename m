@@ -1,7 +1,7 @@
 From: kys@exchange.microsoft.com
-Subject: [PATCH net-next 2/2] netvsc: Properly initialize the return value
-Date: Fri, 24 Mar 2017 20:54:37 -0700
-Message-ID: <1490414077-12617-2-git-send-email-kys@exchange.microsoft.com>
+Subject: [PATCH net-next 1/2] netvsc: Fix a bug in sub-channel handling
+Date: Fri, 24 Mar 2017 20:54:36 -0700
+Message-ID: <1490414077-12617-1-git-send-email-kys@exchange.microsoft.com>
 References: <1490414048-12578-1-git-send-email-kys@exchange.microsoft.com>
 Reply-To: kys@microsoft.com
 Mime-Version: 1.0
@@ -26,25 +26,29 @@ List-Id: netdev.vger.kernel.org
 
 From: K. Y. Srinivasan <kys@microsoft.com>
 
-Initialize the return value correctly.
+All netvsc channels are handled via NAPI. Setup the "read mode" correctly
+for the netvsc sub-channels.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/hyperv/rndis_filter.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index eb7ae79..f830bbb 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -855,7 +855,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	struct hv_device *hdev = ndevctx->device_ctx;
- 	struct netvsc_device_info device_info;
- 	bool was_running;
--	int ret;
-+	int ret = 0;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 91b3bcf..9835825 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1002,6 +1002,11 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	if (!nvchan->mrc.buf)
+ 		return;
  
- 	if (!nvdev || nvdev->destroy)
- 		return -ENODEV;
++	/* Because the device uses NAPI, all the interrupt batching and
++	 * control is done via Net softirq, not the channel handling
++	 */
++	set_channel_read_mode(new_sc, HV_CALL_ISR);
++
+ 	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
+ 			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
+ 			 netvsc_channel_cb, nvchan);
 -- 
 1.7.1
