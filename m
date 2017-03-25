@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 8/8] mlxsw: spectrum: Add Support for erif table entries access
-Date: Sat, 25 Mar 2017 08:35:42 +0100
-Message-ID: <1490427342-2061-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/8] mlxsw: reg: Add counter fields to RITR register
+Date: Sat, 25 Mar 2017 08:35:36 +0100
+Message-ID: <1490427342-2061-3-git-send-email-jiri@resnulli.us>
 References: <1490427342-2061-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
@@ -10,236 +10,91 @@ Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         andrew@lunn.ch, simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34423 "EHLO
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35988 "EHLO
         mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751123AbdCYHf5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 03:35:57 -0400
-Received: by mail-wr0-f196.google.com with SMTP id y90so1393056wrb.1
-        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 00:35:56 -0700 (PDT)
+        with ESMTP id S1750836AbdCYHft (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 03:35:49 -0400
+Received: by mail-wr0-f196.google.com with SMTP id u1so1385828wra.3
+        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 00:35:48 -0700 (PDT)
 In-Reply-To: <1490427342-2061-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Implement dpipe's table ops for erif table which provide:
-1. Getting the entries in the table with the associate values.
-	- match on "mlxsw_meta:erif_index"
-	- action on "mlxsw_meta:forwared_out"
-2. Synchronize the hardware in case of enabling/disabling counters which
-   mean removing erif counters from all interfaces.
+Update RITR for counter support. This allows adding counters for
+ASIC's router ports.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 185 +++++++++++++++++++++
- 1 file changed, 185 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 54 +++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-index 60f2207..7ab759e 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-@@ -37,6 +37,7 @@
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index e7a652c..82aaa3e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -4125,6 +4125,60 @@ MLXSW_ITEM32(reg, ritr, sp_if_system_port, 0x08, 0, 16);
+  */
+ MLXSW_ITEM32(reg, ritr, sp_if_vid, 0x18, 0, 12);
  
- #include "spectrum.h"
- #include "spectrum_dpipe.h"
-+#include "spectrum_router.h"
- 
- enum mlxsw_sp_field_metadata_id {
- 	MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT,
-@@ -113,9 +114,193 @@ static int mlxsw_sp_dpipe_table_erif_matches_dump(void *priv,
- 	return devlink_dpipe_match_put(skb, &match);
- }
- 
-+static void mlxsw_sp_erif_entry_clear(struct devlink_dpipe_entry *entry)
++/* Shared between ingress/egress */
++enum mlxsw_reg_ritr_counter_set_type {
++	/* No Count. */
++	MLXSW_REG_RITR_COUNTER_SET_TYPE_NO_COUNT = 0x0,
++	/* Basic. Used for router interfaces, counting the following:
++	 *	- Error and Discard counters.
++	 *	- Unicast, Multicast and Broadcast counters. Sharing the
++	 *	  same set of counters for the different type of traffic
++	 *	  (IPv4, IPv6 and mpls).
++	 */
++	MLXSW_REG_RITR_COUNTER_SET_TYPE_BASIC = 0x9,
++};
++
++/* reg_ritr_ingress_counter_index
++ * Counter Index for flow counter.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, ingress_counter_index, 0x38, 0, 24);
++
++/* reg_ritr_ingress_counter_set_type
++ * Igress Counter Set Type for router interface counter.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, ingress_counter_set_type, 0x38, 24, 8);
++
++/* reg_ritr_egress_counter_index
++ * Counter Index for flow counter.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, egress_counter_index, 0x3C, 0, 24);
++
++/* reg_ritr_egress_counter_set_type
++ * Egress Counter Set Type for router interface counter.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, egress_counter_set_type, 0x3C, 24, 8);
++
++static inline void mlxsw_reg_ritr_counter_pack(char *payload, u32 index,
++					       bool enable, bool egress)
 +{
-+	unsigned int value_count, value_index;
-+	struct devlink_dpipe_value *value;
++	enum mlxsw_reg_ritr_counter_set_type set_type;
 +
-+	value = entry->action_values;
-+	value_count = entry->action_values_count;
-+	for (value_index = 0; value_index < value_count; value_index++) {
-+		kfree(value[value_index].value);
-+		kfree(value[value_index].mask);
-+	}
++	if (enable)
++		set_type = MLXSW_REG_RITR_COUNTER_SET_TYPE_BASIC;
++	else
++		set_type = MLXSW_REG_RITR_COUNTER_SET_TYPE_NO_COUNT;
++	mlxsw_reg_ritr_egress_counter_set_type_set(payload, set_type);
 +
-+	value = entry->match_values;
-+	value_count = entry->match_values_count;
-+	for (value_index = 0; value_index < value_count; value_index++) {
-+		kfree(value[value_index].value);
-+		kfree(value[value_index].mask);
-+	}
++	if (egress)
++		mlxsw_reg_ritr_egress_counter_index_set(payload, index);
++	else
++		mlxsw_reg_ritr_ingress_counter_index_set(payload, index);
 +}
 +
-+static void
-+mlxsw_sp_erif_match_action_prepare(struct devlink_dpipe_match *match,
-+				   struct devlink_dpipe_action *action)
-+{
-+	action->type = DEVLINK_DPIPE_ACTION_TYPE_FIELD_MODIFY;
-+	action->header = &mlxsw_sp_dpipe_header_metadata;
-+	action->field_id = MLXSW_SP_DPIPE_FIELD_METADATA_L3_FORWARD;
-+
-+	match->type = DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT;
-+	match->header = &mlxsw_sp_dpipe_header_metadata;
-+	match->field_id = MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT;
-+}
-+
-+static int mlxsw_sp_erif_entry_prepare(struct devlink_dpipe_entry *entry,
-+				       struct devlink_dpipe_value *match_value,
-+				       struct devlink_dpipe_match *match,
-+				       struct devlink_dpipe_value *action_value,
-+				       struct devlink_dpipe_action *action)
-+{
-+	entry->match_values = match_value;
-+	entry->match_values_count = 1;
-+
-+	entry->action_values = action_value;
-+	entry->action_values_count = 1;
-+
-+	match_value->match = match;
-+	match_value->value_size = sizeof(u32);
-+	match_value->value = kmalloc(match_value->value_size, GFP_KERNEL);
-+	if (!match_value->value)
-+		return -ENOMEM;
-+
-+	action_value->action = action;
-+	action_value->value_size = sizeof(u32);
-+	action_value->value = kmalloc(action_value->value_size, GFP_KERNEL);
-+	if (!action_value->value)
-+		goto err_action_alloc;
-+	return 0;
-+
-+err_action_alloc:
-+	kfree(match_value->value);
-+	return -ENOMEM;
-+}
-+
-+static int mlxsw_sp_erif_entry_get(struct mlxsw_sp *mlxsw_sp,
-+				   struct devlink_dpipe_entry *entry,
-+				   struct mlxsw_sp_rif *rif,
-+				   bool counters_enabled)
-+{
-+	u32 *action_value;
-+	u32 *rif_value;
-+	u64 cnt;
-+	int err;
-+
-+	/* Set Match RIF index */
-+	rif_value = entry->match_values->value;
-+	*rif_value = mlxsw_sp_rif_index_get(rif);
-+	entry->match_values->mapping_value = mlxsw_sp_rif_dev_ifindex_get(rif);
-+	entry->match_values->mapping_valid = true;
-+
-+	/* Set Action Forwarding */
-+	action_value = entry->action_values->value;
-+	*action_value = 1;
-+
-+	entry->counter_valid = false;
-+	entry->counter = 0;
-+	if (!counters_enabled)
-+		return 0;
-+
-+	entry->index = mlxsw_sp_rif_index_get(rif);
-+	err = mlxsw_sp_rif_counter_value_get(mlxsw_sp, rif,
-+					     MLXSW_SP_RIF_COUNTER_EGRESS,
-+					     &cnt);
-+	if (!err) {
-+		entry->counter = cnt;
-+		entry->counter_valid = true;
-+	}
-+	return 0;
-+}
-+
-+static int
-+mlxsw_sp_table_erif_entries_dump(void *priv, bool counters_enabled,
-+				 struct devlink_dpipe_dump_ctx *dump_ctx)
-+{
-+	struct devlink_dpipe_value match_value = {0}, action_value = {0};
-+	struct devlink_dpipe_action action = {0};
-+	struct devlink_dpipe_match match = {0};
-+	struct devlink_dpipe_entry entry = {0};
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	unsigned int rif_count;
-+	int i, j;
-+	int err;
-+
-+	mlxsw_sp_erif_match_action_prepare(&match, &action);
-+	err = mlxsw_sp_erif_entry_prepare(&entry, &match_value, &match,
-+					  &action_value, &action);
-+	if (err)
-+		return err;
-+
-+	rif_count = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
-+	rtnl_lock();
-+	i = 0;
-+start_again:
-+	err = devlink_dpipe_entry_ctx_prepare(dump_ctx);
-+	if (err)
-+		return err;
-+	j = 0;
-+	for (; i < rif_count; i++) {
-+		if (!mlxsw_sp->rifs[i])
-+			continue;
-+		err = mlxsw_sp_erif_entry_get(mlxsw_sp, &entry,
-+					      mlxsw_sp->rifs[i],
-+					      counters_enabled);
-+		if (err)
-+			goto err_entry_get;
-+		err = devlink_dpipe_entry_ctx_append(dump_ctx, &entry);
-+		if (err) {
-+			if (err == -EMSGSIZE) {
-+				if (!j)
-+					goto err_entry_append;
-+				break;
-+			}
-+			goto err_entry_append;
-+		}
-+		j++;
-+	}
-+
-+	devlink_dpipe_entry_ctx_close(dump_ctx);
-+	if (i != rif_count)
-+		goto start_again;
-+	rtnl_unlock();
-+
-+	mlxsw_sp_erif_entry_clear(&entry);
-+	return 0;
-+err_entry_append:
-+err_entry_get:
-+	rtnl_unlock();
-+	mlxsw_sp_erif_entry_clear(&entry);
-+	return err;
-+}
-+
-+static int mlxsw_sp_table_erif_counters_update(void *priv, bool enable)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	int i;
-+
-+	rtnl_lock();
-+	for (i = 0; i < MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS); i++) {
-+		if (!mlxsw_sp->rifs[i])
-+			continue;
-+		if (enable)
-+			mlxsw_sp_rif_counter_alloc(mlxsw_sp,
-+						   mlxsw_sp->rifs[i],
-+						   MLXSW_SP_RIF_COUNTER_EGRESS);
-+		else
-+			mlxsw_sp_rif_counter_free(mlxsw_sp,
-+						  mlxsw_sp->rifs[i],
-+						  MLXSW_SP_RIF_COUNTER_EGRESS);
-+	}
-+	rtnl_unlock();
-+	return 0;
-+}
-+
- static struct devlink_dpipe_table_ops mlxsw_sp_erif_ops = {
- 	.matches_dump = mlxsw_sp_dpipe_table_erif_matches_dump,
- 	.actions_dump = mlxsw_sp_dpipe_table_erif_actions_dump,
-+	.entries_dump = mlxsw_sp_table_erif_entries_dump,
-+	.counters_set_update = mlxsw_sp_table_erif_counters_update,
- };
- 
- static int mlxsw_sp_dpipe_erif_table_init(struct mlxsw_sp *mlxsw_sp)
+ static inline void mlxsw_reg_ritr_rif_pack(char *payload, u16 rif)
+ {
+ 	MLXSW_REG_ZERO(ritr, payload);
 -- 
 2.7.4
