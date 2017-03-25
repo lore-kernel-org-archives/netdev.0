@@ -1,23 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [net-next PATCH v3 0/8] Add busy poll support for epoll
-Date: Fri, 24 Mar 2017 20:49:48 -0700 (PDT)
-Message-ID: <20170324.204948.1297518352456382551.davem@davemloft.net>
-References: <20170324164902.15226.48358.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] ping: implement proper locking
+Date: Fri, 24 Mar 2017 20:51:04 -0700 (PDT)
+Message-ID: <20170324.205104.1461669236183327007.davem@davemloft.net>
+References: <1490398185.24891.5.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20170324.191016.1704224805339195329.davem@davemloft.net>
+        <1490409373.24891.8.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sridhar.samudrala-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-        linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170324164902.15226.48358.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, solar@openwall.com, andreyknvl@google.com,
+        edumazet@google.com, danieljiang0415@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48768 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966059AbdCYDvG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 23:51:06 -0400
+In-Reply-To: <1490409373.24891.8.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Fri, 24 Mar 2017 10:07:47 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 24 Mar 2017 19:36:13 -0700
 
-> This patch set adds support for using busy polling with epoll.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> We got a report of yet another bug in ping
+> 
+> http://www.openwall.com/lists/oss-security/2017/03/24/6
+> 
+> ->disconnect() is not called with socket lock held.
+> 
+> Fix this by acquiring ping rwlock earlier.
+> 
+> Thanks to Daniel, Alexander and Andrey for letting us know this problem.
+> 
+> Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Daniel Jiang <danieljiang0415@gmail.com>
+> Reported-by: Solar Designer <solar@openwall.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
 
-Series applied, thanks!
+Applied and queued up for -stable, thanks.
