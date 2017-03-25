@@ -1,84 +1,58 @@
-From: Daniele Palmas <dnlplm@gmail.com>
-Subject: Re: [PATCH 0/2] net: usb: qmi_wwan: add qmap mux protocol support
-Date: Sat, 25 Mar 2017 17:05:16 +0100
-Message-ID: <CAGRyCJG+-10Uj_4vrafvYmcj9Ram7qPJ6Yar_1CEfN8i5VsjqQ@mail.gmail.com>
-References: <1490361766-24114-1-git-send-email-dnlplm@gmail.com> <f2c10991c8da27f209132efaebfce871@codeaurora.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] xfrm: branchless addr4_match() on 64-bit
+Date: Sat, 25 Mar 2017 19:37:12 +0300
+Message-ID: <20170325163712.GA4950@avx2>
+References: <20170323233247.GE31372@avx2>
+ <063D6719AE5E284EB5DD2968C1650D6DCFFB93A8@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
-        linux-usb <linux-usb@vger.kernel.org>, netdev@vger.kernel.org,
-        netdev-owner@vger.kernel.org
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
+        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f195.google.com ([74.125.82.195]:34599 "EHLO
-        mail-ot0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751106AbdCYQLz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 12:11:55 -0400
-In-Reply-To: <f2c10991c8da27f209132efaebfce871@codeaurora.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:35574 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751450AbdCYQhS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 12:37:18 -0400
+Received: by mail-lf0-f68.google.com with SMTP id v2so2169063lfi.2
+        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 09:37:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DCFFB93A8@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Subash,
+On Fri, Mar 24, 2017 at 05:16:44PM +0000, David Laight wrote:
+> From: Alexey Dobriyan
+> > Sent: 23 March 2017 23:33
+> > Current addr4_match() code has special test for /0 prefixes because of
+> > standard required undefined behaviour. However, it is possible to omit
+> > it on 64-bit because shifting can be done in a 64-bit register and then
+> > truncated to the expected value (which is 0 mask).
+> > 
+> > Implicit truncation by htonl() fits nicely into R32-within-R64 model
+> > on x86-64.
+> ...
+> >  static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
+> >  {
+> > +#ifdef CONFIG_64BIT
+> > +	/* L in UL is not a typo. */
+> > +	return !((a1 ^ a2) & htonl(~0UL << (32 - prefixlen)));
+> > +#else
+> >  	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
+> >  	if (prefixlen == 0)
+> >  		return true;
+> >  	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
+> > +#endif
+> 
+> Can't this just be written:
+> 
+>   	if (sizeof (long) == 4 && prefixlen == 0)
 
-2017-03-24 18:45 GMT+01:00 Subash Abhinov Kasiviswanathan
-<subashab@codeaurora.org>:
-> On 2017-03-24 07:22, Daniele Palmas wrote:
->>
->> This patch adds support for qmap mux protocol available in recent
->> Qualcomm based modems.
->>
->> The qmap mux protocol can be used for multiplexing data packets in
->> order to have multiple ip streams through the same physical device.
->>
->> Two new sysfs files are added for adding/removing the qmap mux based
->> interfaces (named qmimux):
->>
->> /sys/class/net/<iface>/qmi/add_mux
->> /sys/class/net/<iface>/qmi/del_mux
->>
->> Main patch author is Bj=C3=B8rn Mork <bjorn@mork.no>
->>
->> An userspace implementation of the qmi requests needed to support
->> multiple ip streams is already available (namely libqmi since
->> version 1.18.0).
->>
->> The qmap mux feature has been recently implemented in Codeaurora
->> gobinet out-of-kernel driver that was the inspiration for this
->> development.
->>
->> Tests have been performed with Telit LE922A6 (PID 0x1040)
->>
->> Daniele Palmas (2):
->>   net: usb: qmi_wwan: add qmap mux protocol support
->>   Documentation: ABI: testing: sysfs-class-net-qmi: add new qmap mux
->>     files description
->>
->>  Documentation/ABI/testing/sysfs-class-net-qmi |  27 +++
->>  drivers/net/usb/qmi_wwan.c                    | 317
->> +++++++++++++++++++++++++-
->>  2 files changed, 343 insertions(+), 1 deletion(-)
->
->
-> Hi Daniele
->
-> We are working on something similar
-> https://www.mail-archive.com/netdev@vger.kernel.org/msg157677.html
->
-> We are planning to upstream this as a platform agnostic driver without
-> tying it to a particular physical transport here.
->
-> We also add support for aggregation and flow control (control packet 0x80=
-)
-> apart from the multiplexing.
->
+Indeed.
 
-Thanks, I'll take a look at your patch series.
+>   		return true;
+> 	return !((a1 ^ a2) & htonl(0xFFFFFFFFUL << (32 - prefixlen)));
 
-Regards,
-Daniele
-
-> --
-> The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum=
-,
-> a Linux Foundation Collaborative Project
+0xFFFFFFFFUL is really long movabs, ~0UL is better.
