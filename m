@@ -1,125 +1,93 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 4/4] net: mpls: Increase max number of labels for lwt encap
-Date: Sat, 25 Mar 2017 10:03:28 -0700
-Message-ID: <1490461408-9551-5-git-send-email-dsa@cumulusnetworks.com>
-References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
-        ebiederm@xmission.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:34666 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751644AbdCYRD7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 13:03:59 -0400
-Received: by mail-pg0-f50.google.com with SMTP id 21so9499671pgg.1
-        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 10:03:44 -0700 (PDT)
-In-Reply-To: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: cris: eth_v10: use new api ethtool_{get|set}_link_ksettings
+Date: Sat, 25 Mar 2017 19:39:05 +0100
+Message-ID: <1490467145-32724-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, paul.gortmaker@windriver.com,
+        mugunthanvnm@ti.com, a@unstable.cc, fw@strlen.de, jarod@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alow users to push down more labels per MPLS encap. Same logic as LSR
-use case, so re-use the maximum number of labels.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
+
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- include/net/mpls_iptunnel.h |  4 +---
- net/mpls/af_mpls.c          |  5 -----
- net/mpls/internal.h         |  5 +++++
- net/mpls/mpls_iptunnel.c    | 13 ++++++++++---
- 4 files changed, 16 insertions(+), 11 deletions(-)
+ drivers/net/cris/eth_v10.c |   32 ++++++++++++++++++++------------
+ 1 files changed, 20 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/mpls_iptunnel.h b/include/net/mpls_iptunnel.h
-index a18af6a16eb5..038fa9985521 100644
---- a/include/net/mpls_iptunnel.h
-+++ b/include/net/mpls_iptunnel.h
-@@ -14,13 +14,11 @@
- #ifndef _NET_MPLS_IPTUNNEL_H
- #define _NET_MPLS_IPTUNNEL_H 1
+diff --git a/drivers/net/cris/eth_v10.c b/drivers/net/cris/eth_v10.c
+index 91c876a..da02041 100644
+--- a/drivers/net/cris/eth_v10.c
++++ b/drivers/net/cris/eth_v10.c
+@@ -1412,31 +1412,39 @@ struct transceiver_ops transceivers[] =
+ 	return rc;
+ }
  
--#define MAX_NEW_LABELS 2
--
- struct mpls_iptunnel_encap {
--	u32	label[MAX_NEW_LABELS];
- 	u8	labels;
- 	u8	ttl_propagate;
- 	u8	default_ttl;
-+	u32	label[0];
+-static int e100_get_settings(struct net_device *dev,
+-			     struct ethtool_cmd *cmd)
++static int e100_get_link_ksettings(struct net_device *dev,
++				   struct ethtool_link_ksettings *cmd)
+ {
+ 	struct net_local *np = netdev_priv(dev);
++	u32 supported;
+ 	int err;
+ 
+ 	spin_lock_irq(&np->lock);
+-	err = mii_ethtool_gset(&np->mii_if, cmd);
++	err = mii_ethtool_get_link_ksettings(&np->mii_if, cmd);
+ 	spin_unlock_irq(&np->lock);
+ 
+ 	/* The PHY may support 1000baseT, but the Etrax100 does not.  */
+-	cmd->supported &= ~(SUPPORTED_1000baseT_Half
+-			    | SUPPORTED_1000baseT_Full);
++	ethtool_convert_link_mode_to_legacy_u32(&supported,
++						cmd->link_modes.supported);
++
++	supported &= ~(SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full);
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++
+ 	return err;
+ }
+ 
+-static int e100_set_settings(struct net_device *dev,
+-			     struct ethtool_cmd *ecmd)
++static int e100_set_link_ksettings(struct net_device *dev,
++				   const struct ethtool_link_ksettings *ecmd)
+ {
+-	if (ecmd->autoneg == AUTONEG_ENABLE) {
++	if (ecmd->base.autoneg == AUTONEG_ENABLE) {
+ 		e100_set_duplex(dev, autoneg);
+ 		e100_set_speed(dev, 0);
+ 	} else {
+-		e100_set_duplex(dev, ecmd->duplex == DUPLEX_HALF ? half : full);
+-		e100_set_speed(dev, ecmd->speed == SPEED_10 ? 10: 100);
++		e100_set_duplex(dev, ecmd->base.duplex == DUPLEX_HALF ?
++				half : full);
++		e100_set_speed(dev, ecmd->base.speed == SPEED_10 ? 10 : 100);
+ 	}
+ 
+ 	return 0;
+@@ -1459,11 +1467,11 @@ static int e100_nway_reset(struct net_device *dev)
+ }
+ 
+ static const struct ethtool_ops e100_ethtool_ops = {
+-	.get_settings	= e100_get_settings,
+-	.set_settings	= e100_set_settings,
+ 	.get_drvinfo	= e100_get_drvinfo,
+ 	.nway_reset	= e100_nway_reset,
+ 	.get_link	= ethtool_op_get_link,
++	.get_link_ksettings	= e100_get_link_ksettings,
++	.set_link_ksettings	= e100_set_link_ksettings,
  };
  
- static inline struct mpls_iptunnel_encap *mpls_lwtunnel_encap(struct lwtunnel_state *lwtstate)
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 3023c261a04b..0ced87a51326 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -24,11 +24,6 @@
- #include <net/nexthop.h>
- #include "internal.h"
- 
--/* put a reasonable limit on the number of labels
-- * we will accept from userspace
-- */
--#define MAX_NEW_LABELS 12
--
- /* Maximum number of labels to look ahead at when selecting a path of
-  * a multipath route
-  */
-diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index 302d48f54b57..d43f8bc52653 100644
---- a/net/mpls/internal.h
-+++ b/net/mpls/internal.h
-@@ -2,6 +2,11 @@
- #define MPLS_INTERNAL_H
- #include <net/mpls.h>
- 
-+/* put a reasonable limit on the number of labels
-+ * we will accept from userspace
-+ */
-+#define MAX_NEW_LABELS 12
-+
- struct mpls_entry_decoded {
- 	u32 label;
- 	u8 ttl;
-diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
-index 22f71fce0bfb..fe00e98667cf 100644
---- a/net/mpls/mpls_iptunnel.c
-+++ b/net/mpls/mpls_iptunnel.c
-@@ -164,6 +164,7 @@ static int mpls_build_state(struct nlattr *nla,
- 	struct mpls_iptunnel_encap *tun_encap_info;
- 	struct nlattr *tb[MPLS_IPTUNNEL_MAX + 1];
- 	struct lwtunnel_state *newts;
-+	u8 n_labels;
- 	int ret;
- 
- 	ret = nla_parse_nested(tb, MPLS_IPTUNNEL_MAX, nla,
-@@ -175,12 +176,18 @@ static int mpls_build_state(struct nlattr *nla,
- 		return -EINVAL;
- 
- 
--	newts = lwtunnel_state_alloc(sizeof(*tun_encap_info));
-+	/* determine number of labels */
-+	if (nla_get_labels(tb[MPLS_IPTUNNEL_DST],
-+			   MAX_NEW_LABELS, &n_labels, NULL))
-+		return -EINVAL;
-+
-+	newts = lwtunnel_state_alloc(sizeof(*tun_encap_info) +
-+				     n_labels * sizeof(u32));
- 	if (!newts)
- 		return -ENOMEM;
- 
- 	tun_encap_info = mpls_lwtunnel_encap(newts);
--	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], MAX_NEW_LABELS,
-+	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], n_labels,
- 			     &tun_encap_info->labels, tun_encap_info->label);
- 	if (ret)
- 		goto errout;
-@@ -257,7 +264,7 @@ static int mpls_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
- 	    a_hdr->default_ttl != b_hdr->default_ttl)
- 		return 1;
- 
--	for (l = 0; l < MAX_NEW_LABELS; l++)
-+	for (l = 0; l < a_hdr->labels; l++)
- 		if (a_hdr->label[l] != b_hdr->label[l])
- 			return 1;
- 	return 0;
+ static int
 -- 
-2.1.4
+1.7.4.4
