@@ -1,45 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ping: implement proper locking
-Date: Fri, 24 Mar 2017 19:10:16 -0700 (PDT)
-Message-ID: <20170324.191016.1704224805339195329.davem@davemloft.net>
-References: <1490398185.24891.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next 00/12] Mellanox mlx5e XDP performance
+ optimization
+Date: Fri, 24 Mar 2017 19:12:14 -0700 (PDT)
+Message-ID: <20170324.191214.1940392515243856830.davem@davemloft.net>
+References: <20170324215214.25711-1-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, solar@openwall.com, andreyknvl@google.com,
-        edumazet@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47948 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47966 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936795AbdCYCKk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 22:10:40 -0400
-In-Reply-To: <1490398185.24891.5.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S936815AbdCYCMP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 24 Mar 2017 22:12:15 -0400
+In-Reply-To: <20170324215214.25711-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 24 Mar 2017 16:29:45 -0700
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Sat, 25 Mar 2017 00:52:02 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> We got a report of yet another bug in ping
-> 
-> http://www.openwall.com/lists/oss-security/2017/03/24/6
-> 
-> ->disconnect() is not called with socket lock held.
-> 
-> Fix this by acquiring ping rwlock earlier.
-> 
-> Thanks to Alexander and Andrey for letting us know of this problem.
-> 
-> Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
-> Reported-by: Solar Designer <solar@openwall.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> This series provides some preformancee optimizations for mlx5e
+> driver, especially for XDP TX flows.
 
-Eric, please add a proper signoff for yourself, and also please
-add the following tag:
-
-Reported-by: Daniel Jiang <danieljiang0415@gmail.com>
-
-Thank you.
+This looks really great, series applied, thanks!
