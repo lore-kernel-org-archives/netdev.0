@@ -1,303 +1,125 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/4] net: mpls: change mpls_route layout
-Date: Sat, 25 Mar 2017 10:03:26 -0700
-Message-ID: <1490461408-9551-3-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 4/4] net: mpls: Increase max number of labels for lwt encap
+Date: Sat, 25 Mar 2017 10:03:28 -0700
+Message-ID: <1490461408-9551-5-git-send-email-dsa@cumulusnetworks.com>
 References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, rshearma@brocade.com,
         ebiederm@xmission.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:34663 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751576AbdCYRDn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 13:03:43 -0400
-Received: by mail-pg0-f47.google.com with SMTP id 21so9499503pgg.1
-        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 10:03:37 -0700 (PDT)
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:34666 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751644AbdCYRD7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 13:03:59 -0400
+Received: by mail-pg0-f50.google.com with SMTP id 21so9499671pgg.1
+        for <netdev@vger.kernel.org>; Sat, 25 Mar 2017 10:03:44 -0700 (PDT)
 In-Reply-To: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move labels to the end of mpls_nh as a 0-sized array and within mpls_route
-move the via for a nexthop after the mpls_nh. The new layout becomes:
-
-   +----------------------+
-   | mpls_route           |
-   +----------------------+
-   | mpls_nh 0            |
-   +----------------------+
-   | alignment padding    |   4 bytes for odd number of labels; 0 for even
-   +----------------------+
-   | via[rt_max_alen] 0   |
-   +----------------------+
-   | alignment padding    |   via's aligned on sizeof(unsigned long)
-   +----------------------+
-   | ...                  |
-   +----------------------+
-   | mpls_nh n-1          |
-   +----------------------+
-   | via[rt_max_alen] n-1 |
-   +----------------------+
-
-Memory allocated for nexthop + via is constant across all nexthops and
-their via is based on the maximum number of labels across all nexthops and
-the maximum via length. The size is saved in the mpls_route as rt_nh_size.
-Accessing a nexthop becomes rt->rt_nh + index * rt->rt_nh_size.
-
-The offset of the via address from a nexthop is saved as rt_via_offset
-so that given an mpls_nh pointer the via for that hop is simply
-nh + rt->rt_via_offset.
-
-With prior code, memory allocated per mpls_route with 1 nexthop:
-     via is a h/w address   - 64 bytes
-     via is an ipv4 address - 64
-     via is an ipv6 address - 72
-
-With this patch set, memory allocated per mpls_route with 1 nexthop and
-1 or 2 labels:
-     via is a h/w address   - 56 bytes
-     via is an ipv4 address - 56
-     via is an ipv6 address - 64
-
-The 8-byte reduction is due to the previous patch; the change introduced
-by this patch has no impact on the size of allocations for 1 or 2 labels.
-
-Performance impact of this change was examined using network namespaces
-with veth pairs connecting namespaces. ns0 inserts the packet to the
-label-switched path using an lwt route with encap mpls. ns1 adds 1 or 2
-labels depending on test, ns2 (and ns3 for 2-label test) pops the label
-and forwards. ns3 (or ns4) for a 2-label is the destination. Similar
-series of namespaces used for 2-nexthop test.
-
-Intent is to measure changes to latency (overhead in manipulating the
-packet) in the forwarding path. Tests used netperf with UDP_RR.
-
-IPv4:                     current   patches
-   1 label, 1 nexthop      29908     30115
-   2 label, 1 nexthop      29071     29612
-   1 label, 2 nexthop      29582     29776
-   2 label, 2 nexthop      29086     29149
-
-IPv6:                     current   patches
-   1 label, 1 nexthop      24502     24960
-   2 label, 1 nexthop      24041     24407
-   1 label, 2 nexthop      23795     23899
-   2 label, 2 nexthop      23074     22959
-
-In short, the change has no effect to a modest increase in performance.
-This is expected since this patch does not really have an impact on routes
-with 1 or 2 labels (the current limit) and 1 or 2 nexthops.
+Alow users to push down more labels per MPLS encap. Same logic as LSR
+use case, so re-use the maximum number of labels.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/mpls/af_mpls.c  | 37 +++++++++++++++++++++----------------
- net/mpls/internal.h | 43 +++++++++++++++++++++++++++++--------------
- 2 files changed, 50 insertions(+), 30 deletions(-)
+ include/net/mpls_iptunnel.h |  4 +---
+ net/mpls/af_mpls.c          |  5 -----
+ net/mpls/internal.h         |  5 +++++
+ net/mpls/mpls_iptunnel.c    | 13 ++++++++++---
+ 4 files changed, 16 insertions(+), 11 deletions(-)
 
+diff --git a/include/net/mpls_iptunnel.h b/include/net/mpls_iptunnel.h
+index a18af6a16eb5..038fa9985521 100644
+--- a/include/net/mpls_iptunnel.h
++++ b/include/net/mpls_iptunnel.h
+@@ -14,13 +14,11 @@
+ #ifndef _NET_MPLS_IPTUNNEL_H
+ #define _NET_MPLS_IPTUNNEL_H 1
+ 
+-#define MAX_NEW_LABELS 2
+-
+ struct mpls_iptunnel_encap {
+-	u32	label[MAX_NEW_LABELS];
+ 	u8	labels;
+ 	u8	ttl_propagate;
+ 	u8	default_ttl;
++	u32	label[0];
+ };
+ 
+ static inline struct mpls_iptunnel_encap *mpls_lwtunnel_encap(struct lwtunnel_state *lwtstate)
 diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index d3dc6c43a1d1..e402e5148765 100644
+index 3023c261a04b..0ced87a51326 100644
 --- a/net/mpls/af_mpls.c
 +++ b/net/mpls/af_mpls.c
-@@ -24,6 +24,8 @@
+@@ -24,11 +24,6 @@
  #include <net/nexthop.h>
  #include "internal.h"
  
-+#define MAX_NEW_LABELS 2
-+
+-/* put a reasonable limit on the number of labels
+- * we will accept from userspace
+- */
+-#define MAX_NEW_LABELS 12
+-
  /* Maximum number of labels to look ahead at when selecting a path of
   * a multipath route
   */
-@@ -60,10 +62,7 @@ EXPORT_SYMBOL_GPL(mpls_output_possible);
- 
- static u8 *__mpls_nh_via(struct mpls_route *rt, struct mpls_nh *nh)
- {
--	u8 *nh0_via = PTR_ALIGN((u8 *)&rt->rt_nh[rt->rt_nhn], VIA_ALEN_ALIGN);
--	int nh_index = nh - rt->rt_nh;
--
--	return nh0_via + rt->rt_max_alen * nh_index;
-+	return (u8 *)nh + rt->rt_via_offset;
- }
- 
- static const u8 *mpls_nh_via(const struct mpls_route *rt,
-@@ -189,6 +188,11 @@ static u32 mpls_multipath_hash(struct mpls_route *rt, struct sk_buff *skb)
- 	return hash;
- }
- 
-+static struct mpls_nh *mpls_get_nexthop(struct mpls_route *rt, u8 index)
-+{
-+	return (struct mpls_nh *)((u8 *)rt->rt_nh + index * rt->rt_nh_size);
-+}
-+
- static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
- 					     struct sk_buff *skb)
- {
-@@ -201,7 +205,7 @@ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
- 	 * one path
- 	 */
- 	if (rt->rt_nhn == 1)
--		goto out;
-+		return rt->rt_nh;
- 
- 	if (alive <= 0)
- 		return NULL;
-@@ -219,7 +223,7 @@ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
- 	} endfor_nexthops(rt);
- 
- out:
--	return &rt->rt_nh[nh_index];
-+	return mpls_get_nexthop(rt, nh_index);
- }
- 
- static bool mpls_egress(struct net *net, struct mpls_route *rt,
-@@ -458,19 +462,20 @@ struct mpls_route_config {
- 	int			rc_mp_len;
- };
- 
--static struct mpls_route *mpls_rt_alloc(u8 num_nh, u8 max_alen)
-+/* all nexthops within a route have the same size based on max
-+ * number of labels and max via length for a hop
-+ */
-+static struct mpls_route *mpls_rt_alloc(u8 num_nh, u8 max_alen, u8 max_labels)
- {
--	u8 max_alen_aligned = ALIGN(max_alen, VIA_ALEN_ALIGN);
-+	u8 nh_size = MPLS_NH_SIZE(max_labels, max_alen);
- 	struct mpls_route *rt;
- 
--	rt = kzalloc(ALIGN(sizeof(*rt) + num_nh * sizeof(*rt->rt_nh),
--			   VIA_ALEN_ALIGN) +
--		     num_nh * max_alen_aligned,
--		     GFP_KERNEL);
-+	rt = kzalloc(sizeof(*rt) + num_nh * nh_size, GFP_KERNEL);
- 	if (rt) {
- 		rt->rt_nhn = num_nh;
- 		rt->rt_nhn_alive = num_nh;
--		rt->rt_max_alen = max_alen_aligned;
-+		rt->rt_nh_size = nh_size;
-+		rt->rt_via_offset = MPLS_NH_VIA_OFF(max_labels);
- 	}
- 
- 	return rt;
-@@ -885,7 +890,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 		goto errout;
- 
- 	err = -ENOMEM;
--	rt = mpls_rt_alloc(nhs, max_via_alen);
-+	rt = mpls_rt_alloc(nhs, max_via_alen, MAX_NEW_LABELS);
- 	if (!rt)
- 		goto errout;
- 
-@@ -1936,7 +1941,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 	/* In case the predefined labels need to be populated */
- 	if (limit > MPLS_LABEL_IPV4NULL) {
- 		struct net_device *lo = net->loopback_dev;
--		rt0 = mpls_rt_alloc(1, lo->addr_len);
-+		rt0 = mpls_rt_alloc(1, lo->addr_len, MAX_NEW_LABELS);
- 		if (!rt0)
- 			goto nort0;
- 		RCU_INIT_POINTER(rt0->rt_nh->nh_dev, lo);
-@@ -1950,7 +1955,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 	}
- 	if (limit > MPLS_LABEL_IPV6NULL) {
- 		struct net_device *lo = net->loopback_dev;
--		rt2 = mpls_rt_alloc(1, lo->addr_len);
-+		rt2 = mpls_rt_alloc(1, lo->addr_len, MAX_NEW_LABELS);
- 		if (!rt2)
- 			goto nort2;
- 		RCU_INIT_POINTER(rt2->rt_nh->nh_dev, lo);
 diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index 66f388ba2d49..302d48f54b57 100644
+index 302d48f54b57..d43f8bc52653 100644
 --- a/net/mpls/internal.h
 +++ b/net/mpls/internal.h
-@@ -64,7 +64,6 @@ struct mpls_dev {
- struct sk_buff;
+@@ -2,6 +2,11 @@
+ #define MPLS_INTERNAL_H
+ #include <net/mpls.h>
  
- #define LABEL_NOT_SPECIFIED (1 << 20)
--#define MAX_NEW_LABELS 2
- 
- /* This maximum ha length copied from the definition of struct neighbour */
- #define VIA_ALEN_ALIGN sizeof(unsigned long)
-@@ -84,12 +83,25 @@ enum mpls_payload_type {
- struct mpls_nh { /* next hop label forwarding entry */
- 	struct net_device __rcu *nh_dev;
- 	unsigned int		nh_flags;
--	u32			nh_label[MAX_NEW_LABELS];
- 	u8			nh_labels;
- 	u8			nh_via_alen;
- 	u8			nh_via_table;
-+	/* u8 hole */
-+	u32			nh_label[0];
- };
- 
-+/* offset of via from beginning of mpls_nh */
-+#define MPLS_NH_VIA_OFF(num_labels) \
-+		ALIGN(sizeof(struct mpls_nh) + (num_labels) * sizeof(u32), \
-+		      VIA_ALEN_ALIGN)
-+
-+/* all nexthops within a route have the same size based on the
-+ * max number of labels and max via length across all nexthops
++/* put a reasonable limit on the number of labels
++ * we will accept from userspace
 + */
-+#define MPLS_NH_SIZE(num_labels, max_via_alen)		\
-+		(MPLS_NH_VIA_OFF((num_labels)) +	\
-+		ALIGN((max_via_alen), VIA_ALEN_ALIGN))
++#define MAX_NEW_LABELS 12
 +
- enum mpls_ttl_propagation {
- 	MPLS_TTL_PROP_DEFAULT,
- 	MPLS_TTL_PROP_ENABLED,
-@@ -104,16 +116,16 @@ enum mpls_ttl_propagation {
-  * +----------------------+
-  * | mpls_nh 0            |
-  * +----------------------+
-- * | ...                  |
-- * +----------------------+
-- * | mpls_nh n-1          |
-- * +----------------------+
-- * | alignment padding    |
-+ * | alignment padding    |   4 bytes for odd number of labels
-  * +----------------------+
-  * | via[rt_max_alen] 0   |
-  * +----------------------+
-+ * | alignment padding    |   via's aligned on sizeof(unsigned long)
-+ * +----------------------+
-  * | ...                  |
-  * +----------------------+
-+ * | mpls_nh n-1          |
-+ * +----------------------+
-  * | via[rt_max_alen] n-1 |
-  * +----------------------+
-  */
-@@ -121,24 +133,27 @@ struct mpls_route { /* next hop label forwarding entry */
- 	struct rcu_head		rt_rcu;
- 	u8			rt_protocol;
- 	u8			rt_payload_type;
--	u8			rt_max_alen;
- 	u8			rt_ttl_propagate;
- 	u8			rt_nhn;
- 	u8			rt_nhn_alive;
-+	u8			rt_nh_size;
-+	u8			rt_via_offset;
-+	/* u8 hole */
- 	struct mpls_nh		rt_nh[0];
- };
+ struct mpls_entry_decoded {
+ 	u32 label;
+ 	u8 ttl;
+diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
+index 22f71fce0bfb..fe00e98667cf 100644
+--- a/net/mpls/mpls_iptunnel.c
++++ b/net/mpls/mpls_iptunnel.c
+@@ -164,6 +164,7 @@ static int mpls_build_state(struct nlattr *nla,
+ 	struct mpls_iptunnel_encap *tun_encap_info;
+ 	struct nlattr *tb[MPLS_IPTUNNEL_MAX + 1];
+ 	struct lwtunnel_state *newts;
++	u8 n_labels;
+ 	int ret;
  
- #define for_nexthops(rt) {						\
--	int nhsel; struct mpls_nh *nh;			\
--	for (nhsel = 0, nh = (rt)->rt_nh;				\
-+	int nhsel; struct mpls_nh *nh;	u8 *__nh;			\
-+	for (nhsel = 0, nh = (rt)->rt_nh, __nh = (u8 *)((rt)->rt_nh);	\
- 	     nhsel < (rt)->rt_nhn;					\
--	     nh++, nhsel++)
-+	     __nh += rt->rt_nh_size, nh = (struct mpls_nh *)__nh, nhsel++)
+ 	ret = nla_parse_nested(tb, MPLS_IPTUNNEL_MAX, nla,
+@@ -175,12 +176,18 @@ static int mpls_build_state(struct nlattr *nla,
+ 		return -EINVAL;
  
- #define change_nexthops(rt) {						\
--	int nhsel; struct mpls_nh *nh;				\
--	for (nhsel = 0,	nh = (struct mpls_nh *)((rt)->rt_nh);	\
-+	int nhsel; struct mpls_nh *nh; u8 *__nh;			\
-+	for (nhsel = 0,	nh = (struct mpls_nh *)((rt)->rt_nh),		\
-+			__nh = (u8 *)((rt)->rt_nh);			\
- 	     nhsel < (rt)->rt_nhn;					\
--	     nh++, nhsel++)
-+	     __nh += rt->rt_nh_size, nh = (struct mpls_nh *)__nh, nhsel++)
  
- #define endfor_nexthops(rt) }
+-	newts = lwtunnel_state_alloc(sizeof(*tun_encap_info));
++	/* determine number of labels */
++	if (nla_get_labels(tb[MPLS_IPTUNNEL_DST],
++			   MAX_NEW_LABELS, &n_labels, NULL))
++		return -EINVAL;
++
++	newts = lwtunnel_state_alloc(sizeof(*tun_encap_info) +
++				     n_labels * sizeof(u32));
+ 	if (!newts)
+ 		return -ENOMEM;
  
+ 	tun_encap_info = mpls_lwtunnel_encap(newts);
+-	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], MAX_NEW_LABELS,
++	ret = nla_get_labels(tb[MPLS_IPTUNNEL_DST], n_labels,
+ 			     &tun_encap_info->labels, tun_encap_info->label);
+ 	if (ret)
+ 		goto errout;
+@@ -257,7 +264,7 @@ static int mpls_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
+ 	    a_hdr->default_ttl != b_hdr->default_ttl)
+ 		return 1;
+ 
+-	for (l = 0; l < MAX_NEW_LABELS; l++)
++	for (l = 0; l < a_hdr->labels; l++)
+ 		if (a_hdr->label[l] != b_hdr->label[l])
+ 			return 1;
+ 	return 0;
 -- 
 2.1.4
