@@ -1,107 +1,62 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Sun, 26 Mar 2017 11:21:37 +0300
-Message-ID: <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
-References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
- <20170301144845.783f8cad@redhat.com>
- <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
- <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
- <20170322234004.kffsce4owewgpqnm@techsingularity.net>
- <20170323144347.1e6f29de@redhat.com>
- <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 00/12] Mellanox mlx5e XDP performance optimization
+Date: Sun, 26 Mar 2017 11:16:38 +0200
+Message-ID: <CALzJLG80OErFDz=6x3q4p3-tCNXV5RZeAK6E4dvYeCYpKQHCgQ@mail.gmail.com>
+References: <20170324215214.25711-1-saeedm@mellanox.com> <CALx6S35AMWNeGDOx7d+M5Dqd-B60HGzwhmbLtcoPS2PfpA2m9Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tariq Toukan <tariqt@mellanox.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
- Saeed Mahameed <saeedm@mellanox.com>
-To: Mel Gorman <mgorman@techsingularity.net>,
- Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:35717 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751227AbdCZJRA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 26 Mar 2017 05:17:00 -0400
+Received: by mail-qk0-f180.google.com with SMTP id v127so19022240qkb.2
+        for <netdev@vger.kernel.org>; Sun, 26 Mar 2017 02:16:59 -0700 (PDT)
+In-Reply-To: <CALx6S35AMWNeGDOx7d+M5Dqd-B60HGzwhmbLtcoPS2PfpA2m9Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 23/03/2017 4:51 PM, Mel Gorman wrote:
-> On Thu, Mar 23, 2017 at 02:43:47PM +0100, Jesper Dangaard Brouer wrote:
->> On Wed, 22 Mar 2017 23:40:04 +0000
->> Mel Gorman <mgorman@techsingularity.net> wrote:
+On Sat, Mar 25, 2017 at 6:54 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Fri, Mar 24, 2017 at 2:52 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+>> Hi Dave,
 >>
->>> On Wed, Mar 22, 2017 at 07:39:17PM +0200, Tariq Toukan wrote:
->>>>>>> This modification may slow allocations from IRQ context slightly
->>>>>>> but the
->>>>>>> main gain from the per-cpu allocator is that it scales better for
->>>>>>> allocations from multiple contexts.  There is an implicit
->>>>>>> assumption that
->>>>>>> intensive allocations from IRQ contexts on multiple CPUs from a single
->>>>>>> NUMA node are rare
->>>> Hi Mel, Jesper, and all.
->>>>
->>>> This assumption contradicts regular multi-stream traffic that is naturally
->>>> handled
->>>> over close numa cores.  I compared iperf TCP multistream (8 streams)
->>>> over CX4 (mlx5 driver) with kernels v4.10 (before this series) vs
->>>> kernel v4.11-rc1 (with this series).
->>>> I disabled the page-cache (recycle) mechanism to stress the page allocator,
->>>> and see a drastic degradation in BW, from 47.5 G in v4.10 to 31.4 G in
->>>> v4.11-rc1 (34% drop).
->>>> I noticed queued_spin_lock_slowpath occupies 62.87% of CPU time.
->>>
->>> Can you get the stack trace for the spin lock slowpath to confirm it's
->>> from IRQ context?
+>> This series provides some preformancee optimizations for mlx5e
+>> driver, especially for XDP TX flows.
 >>
->> AFAIK allocations happen in softirq.  Argh and during review I missed
->> that in_interrupt() also covers softirq.  To Mel, can we use a in_irq()
->> check instead?
+>> 1st patch is a simple change of rmb to dma_rmb in CQE fetch routine
+>> which shows a huge gain for both RX and TX packet rates.
 >>
->> (p.s. just landed and got home)
-
-Glad to hear. Thanks for your suggestion.
-
->
-> Not built or even boot tested. I'm unable to run tests at the moment
-
-Thanks Mel, I will test it soon.
-
->
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 6cbde310abed..f82225725bc1 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -2481,7 +2481,7 @@ void free_hot_cold_page(struct page *page, bool cold)
->  	unsigned long pfn = page_to_pfn(page);
->  	int migratetype;
->
-> -	if (in_interrupt()) {
-> +	if (in_irq()) {
->  		__free_pages_ok(page, 0);
->  		return;
->  	}
-> @@ -2647,7 +2647,7 @@ static struct page *__rmqueue_pcplist(struct zone *zone, int migratetype,
->  {
->  	struct page *page;
->
-> -	VM_BUG_ON(in_interrupt());
-> +	VM_BUG_ON(in_irq());
->
->  	do {
->  		if (list_empty(list)) {
-> @@ -2704,7 +2704,7 @@ struct page *rmqueue(struct zone *preferred_zone,
->  	unsigned long flags;
->  	struct page *page;
->
-> -	if (likely(order == 0) && !in_interrupt()) {
-> +	if (likely(order == 0) && !in_irq()) {
->  		page = rmqueue_pcplist(preferred_zone, zone, order,
->  				gfp_flags, migratetype);
->  		goto out;
+>> 2nd patch removes write combining logic from the driver TX handler
+>> and simplifies the TX logic while improving TX CPU utilization.
+>>
+>> All other patches combined provide some refactoring to the driver TX
+>> flows to allow some significant XDP TX improvements.
+>>
+>> More details and performance numbers per patch can be found in each patch
+>> commit message compared to the preceding patch.
+>>
+>> Overall performance improvemnets
+>>   System: Intel(R) Xeon(R) CPU E5-2620 v3 @ 2.40GHz
+>>
+>> Test case                   Baseline      Now      improvement
+>> ---------------------------------------------------------------
+>> TX packets (24 threads)     45Mpps        54Mpps      20%
+>> TC stack Drop (1 core)      3.45Mpps      3.6Mpps     5%
+>> XDP Drop      (1 core)      14Mpps        16.9Mpps    20%
+>> XDP TX        (1 core)      10.4Mpps      13.7Mpps    31%
+>>
+> Awesome, and good timing. I'll be presenting XDP at IETF next and
+> would like to include these numbers in the presentation if you don't
+> mind...
 >
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Not at all, please go ahead.
+
+But as you see, the system i tested on is not that powerful. We can
+get even better results with a modern system.
+If you want i can provide you those numbers by mid-week.
