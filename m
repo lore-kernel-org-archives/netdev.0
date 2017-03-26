@@ -1,74 +1,60 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/2] net: mpls: Don't show nexthop if device
- has been deleted
-Date: Sun, 26 Mar 2017 10:20:50 -0700
-Message-ID: <58D7F872.9070707@cumulusnetworks.com>
-References: <1490394117-19268-1-git-send-email-dsa@cumulusnetworks.com> <1490394117-19268-2-git-send-email-dsa@cumulusnetworks.com>
+From: Deepa Dinamani <deepa.kernel@gmail.com>
+Subject: [PATCH v2 0/7] Change k_clock interfaces to use timespec64
+Date: Sun, 26 Mar 2017 12:04:11 -0700
+Message-ID: <1490555058-4603-1-git-send-email-deepa.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rshearma@brocade.com
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:33312 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751889AbdCZRU5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Mar 2017 13:20:57 -0400
-Received: by mail-pg0-f51.google.com with SMTP id n5so10389660pgh.0
-        for <netdev@vger.kernel.org>; Sun, 26 Mar 2017 10:20:56 -0700 (PDT)
-In-Reply-To: <1490394117-19268-2-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: arnd@arndb.de, y2038@lists.linaro.org, netdev@vger.kernel.org,
+ Richard Cochran <richardcochran@gmail.com>, john.stultz@linaro.org,
+ linux-alpha@vger.kernel.org
+To: tglx@linutronix.de,
+	linux-kernel@vger.kernel.org
+Return-path: <y2038-bounces@lists.linaro.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-On 3/24/17, 3:21 PM, David Ahern wrote:
-> If the device for a nexthop in a multipath route is deleted, the nexthop
-> is effectively removed from the route. Currently, a route dump still
-> returns the nexhop though without the device set:
->
-> $ ip -f mpls ro ls
-> 100
-> 	nexthopvia inet 10.11.1.2  dev br0
-> 	nexthopvia inet 10.100.3.1  dev eth3
-> $ ip li del br0
-> $ ip -f mpls ro ls
-> 100
-> 	nexthopvia inet 10.11.1.2  dev * dead linkdown
-> 	nexthopvia inet 10.100.3.1  dev eth3
->
-> Since the nexthop is effectively deleted, drop the hop from the route
-> dump.
->
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  net/mpls/af_mpls.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
->
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index cd8be8d5e4ad..3861f8dfa9c1 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -1769,13 +1769,15 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
->  			goto nla_put_failure;
->  
->  		for_nexthops(rt) {
-> +			dev = rtnl_dereference(nh->nh_dev);
-> +			if (!dev)
-> +				continue;
-> +
-
-size calculation may have to account for this too ?.
->  			rtnh = nla_reserve_nohdr(skb, sizeof(*rtnh));
->  			if (!rtnh)
->  				goto nla_put_failure;
->  
-> -			dev = rtnl_dereference(nh->nh_dev);
-> -			if (dev)
-> -				rtnh->rtnh_ifindex = dev->ifindex;
-> +			rtnh->rtnh_ifindex = dev->ifindex;
->  			if (nh->nh_flags & RTNH_F_LINKDOWN) {
->  				rtnh->rtnh_flags |= RTNH_F_LINKDOWN;
->  				linkdown++;
-
-
-
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+VGhlIHNlcmllcyBpcyBhaW1lZCBhdCByZXBsYWNpbmcgc3RydWN0IHRpbWVzcGVjIHdoaWNoIGlz
+IG5vdAp5MjAzOCBzYWZlIHdpdGggeTIwMzggc2FmZSBzdHJ1Y3QgdGltZXNwZWM2NCBmb3Iga19j
+bG9jayBpbnRlcmZhY2VzLgpUaGUgc2VyaWVzIGFsc28gcmVwbGFjZXMgc3RydWN0IGl0aW1lcnNw
+ZWMgd2hpY2ggdXNlcyBzdHJ1Y3QgdGltZXNwZWMKaW50ZXJuYWxseSB3aXRoIHN0cnVjdCBpdGlt
+ZXJzcGVjNjQgZm9yIHRoZSBrX2Nsb2NrIGludGVyZmFjZXMuCgpUaGUgc2VyaWVzIGRvZXMgbm90
+IGNoYW5nZSB0aGUgc3lzY2FsbCBpbnRlcmZhY2UuClRoaXMgd2lsbCBiZSBkb25lIGluIGEgZm9s
+bG93IHVwIHNlcmllcy4KCkEgZmV3IGV4aXN0aW5nIGNoZWNrcGF0Y2gtbm90ZWQgc3R5bGUgaXNz
+dWVzLCBzdWNoIGFzIHRoZSA4MCBsaW5lCmNoYXJhY3RlciBsaW1pdCwgaGF2ZSBiZWVuIGxlZnQg
+YXMtaXMgdG8gZmFjaWxpdGF0ZSBlYXNpZXIgcmV2aWV3LgoKQ2hhbmdlcyBzaW5jZSB2MToKKiBB
+ZGRyZXNzIHJldmlldyBjb21tZW50cyBmb3IgY2hhbmdlIGxvZ3MgYW5kIGNvZGluZyBzdHlsZS4K
+KiBGaXgga2J1aWxkIHRlc3QgZXJyb3IgZm9yIGFscGhhLgoKRGVlcGEgRGluYW1hbmkgKDcpOgog
+IHRpbWU6IERlbGV0ZSBkb19zeXNfc2V0aW1lb2ZkYXkoKQogIHRpbWU6IENoYW5nZSBwb3NpeCBj
+bG9ja3Mgb3BzIGludGVyZmFjZXMgdG8gdXNlIHRpbWVzcGVjNjQKICBDaGFuZ2Uga19jbG9jayBj
+bG9ja19nZXQoKSB0byB1c2UgdGltZXNwZWM2NAogIENoYW5nZSBrX2Nsb2NrIGNsb2NrX2dldHJl
+cygpIHRvIHVzZSB0aW1lc3BlYzY0CiAgQ2hhbmdlIGtfY2xvY2sgY2xvY2tfc2V0KCkgdG8gdXNl
+IHRpbWVzcGVjNjQKICBDaGFuZ2Uga19jbG9jayB0aW1lcl9zZXQoKSBhbmQgdGltZXJfZ2V0KCkg
+dG8gdXNlIHRpbWVzcGVjNjQKICBDaGFuZ2Uga19jbG9jayBuc2xlZXAoKSB0byB1c2UgdGltZXNw
+ZWM2NAoKIGFyY2gvYWxwaGEva2VybmVsL29zZl9zeXMuYyAgICB8ICA0ICstCiBkcml2ZXJzL2No
+YXIvbW10aW1lci5jICAgICAgICAgfCAyOCArKysrKystLS0tLS0tCiBkcml2ZXJzL3B0cC9wdHBf
+Y2xvY2suYyAgICAgICAgfCAxOCArKysrLS0tLQogaW5jbHVkZS9saW51eC9ocnRpbWVyLmggICAg
+ICAgIHwgIDIgKy0KIGluY2x1ZGUvbGludXgvcG9zaXgtY2xvY2suaCAgICB8IDEwICsrLS0tCiBp
+bmNsdWRlL2xpbnV4L3Bvc2l4LXRpbWVycy5oICAgfCAyMCArKysrLS0tLS0KIGluY2x1ZGUvbGlu
+dXgvdGltZWtlZXBpbmcuaCAgICB8IDIwICsrKy0tLS0tLQoga2VybmVsL2NvbXBhdC5jICAgICAg
+ICAgICAgICAgIHwgMTAgKysrLS0KIGtlcm5lbC90aW1lL2FsYXJtdGltZXIuYyAgICAgICB8IDI0
+ICsrKysrLS0tLS0tCiBrZXJuZWwvdGltZS9ocnRpbWVyLmMgICAgICAgICAgfCAxMCArKystLQog
+a2VybmVsL3RpbWUvcG9zaXgtY2xvY2suYyAgICAgIHwgMTAgKystLS0KIGtlcm5lbC90aW1lL3Bv
+c2l4LWNwdS10aW1lcnMuYyB8IDY2ICsrKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tCiBrZXJu
+ZWwvdGltZS9wb3NpeC1zdHVicy5jICAgICAgfCAyMCArKysrKystLS0KIGtlcm5lbC90aW1lL3Bv
+c2l4LXRpbWVycy5jICAgICB8IDk1ICsrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0t
+LS0tLS0tLQoga2VybmVsL3RpbWUvdGltZS5jICAgICAgICAgICAgIHwgIDQgKy0KIDE1IGZpbGVz
+IGNoYW5nZWQsIDE3OSBpbnNlcnRpb25zKCspLCAxNjIgZGVsZXRpb25zKC0pCgotLSAKMi43LjQK
+CkNjOiBSaWNoYXJkIENvY2hyYW4gPHJpY2hhcmRjb2NocmFuQGdtYWlsLmNvbT4KQ2M6IGxpbnV4
+LWFscGhhQHZnZXIua2VybmVsLm9yZwpDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZwpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxp
+c3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1h
+bi9saXN0aW5mby95MjAzOAo=
