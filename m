@@ -1,37 +1,34 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the gfs2 tree with the net tree
-Date: Mon, 27 Mar 2017 10:52:17 +1100
-Message-ID: <20170327105217.1c29fe0b@canb.auug.org.au>
+Date: Mon, 27 Mar 2017 10:56:40 +1100
+Message-ID: <20170327105640.699082ee@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Hayes Wang <hayeswang@realtek.com>
+        Florian Westphal <fw@strlen.de>,
+        Alexey Kodanev <alexey.kodanev@oracle.com>
 To: Steven Whitehouse <swhiteho@redhat.com>,
         Bob Peterson <rpeterso@redhat.com>,
         David Miller <davem@davemloft.net>,
         Networking <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:58061 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751191AbdCZXwm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 26 Mar 2017 19:52:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi all,
 
 Today's linux-next merge of the gfs2 tree got a conflict in:
 
-  drivers/net/usb/r8152.c
+  net/core/secure_seq.c
 
 between commit:
 
-  2f25abe6bac5 ("r8152: prevent the driver from transmitting packets with carrier off")
+  28ee1b746f49 ("secure_seq: downgrade to per-host timestamp offsets")
 
 from the net tree and commit:
 
-  ce594e9824ab ("r8152: simply the arguments")
+  a30aad50c26c ("tcp: rename *_sequence_number() to *_seq_and_tsoff()")
 
 from the gfs2 and net-next trees.
 
@@ -46,46 +43,66 @@ complex conflicts.
 Cheers,
 Stephen Rothwell
 
-diff --cc drivers/net/usb/r8152.c
-index c34df33c6d72,3262a326aae6..000000000000
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@@ -3698,27 -3697,19 +3705,29 @@@ static int rtl8152_resume(struct usb_in
-  	if (!test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
-  		tp->rtl_ops.init(tp);
-  		queue_delayed_work(system_long_wq, &tp->hw_phy_work, 0);
-- 		netif_device_attach(tp->netdev);
-+ 		netif_device_attach(netdev);
-  	}
+diff --cc net/core/secure_seq.c
+index d28da7d363f1,fb87e78a2cc7..000000000000
+--- a/net/core/secure_seq.c
++++ b/net/core/secure_seq.c
+@@@ -47,25 -45,8 +47,25 @@@ static u32 seq_scale(u32 seq
+  #endif
   
-- 	if (netif_running(tp->netdev) && tp->netdev->flags & IFF_UP) {
-+ 	if (netif_running(netdev) && netdev->flags & IFF_UP) {
-  		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
-+ 			struct napi_struct *napi = &tp->napi;
-+ 
-  			tp->rtl_ops.autosuspend_en(tp, false);
-- 			napi_disable(&tp->napi);
-+ 			napi_disable(napi);
-  			set_bit(WORK_ENABLE, &tp->flags);
- -			if (netif_carrier_ok(netdev))
- -				rtl_start_rx(tp);
+  #if IS_ENABLED(CONFIG_IPV6)
+ +static u32 secure_tcpv6_ts_off(const __be32 *saddr, const __be32 *daddr)
+ +{
+ +	const struct {
+ +		struct in6_addr saddr;
+ +		struct in6_addr daddr;
+ +	} __aligned(SIPHASH_ALIGNMENT) combined = {
+ +		.saddr = *(struct in6_addr *)saddr,
+ +		.daddr = *(struct in6_addr *)daddr,
+ +	};
  +
-- 			if (netif_carrier_ok(tp->netdev)) {
-++			if (netif_carrier_ok(netdev)) {
- +				if (rtl8152_get_speed(tp) & LINK_STATUS) {
- +					rtl_start_rx(tp);
- +				} else {
-- 					netif_carrier_off(tp->netdev);
-++					netif_carrier_off(netdev);
- +					tp->rtl_ops.disable(tp);
-- 					netif_info(tp, link, tp->netdev,
-++					netif_info(tp, link, netdev,
- +						   "linking down\n");
- +				}
- +			}
+ +	if (sysctl_tcp_timestamps != 1)
+ +		return 0;
  +
-- 			napi_enable(&tp->napi);
-+ 			napi_enable(napi);
-  			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-  			smp_mb__after_atomic();
-  			if (!list_empty(&tp->rx_done))
+ +	return siphash(&combined, offsetofend(typeof(combined), daddr),
+ +		       &ts_secret);
+ +}
+ +
+- u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+- 				 __be16 sport, __be16 dport, u32 *tsoff)
++ u32 secure_tcpv6_seq_and_tsoff(const __be32 *saddr, const __be32 *daddr,
++ 			       __be16 sport, __be16 dport, u32 *tsoff)
+  {
+  	const struct {
+  		struct in6_addr saddr;
+@@@ -82,10 -63,10 +82,10 @@@
+  	net_secret_init();
+  	hash = siphash(&combined, offsetofend(typeof(combined), dport),
+  		       &net_secret);
+ -	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
+ +	*tsoff = secure_tcpv6_ts_off(saddr, daddr);
+  	return seq_scale(hash);
+  }
+- EXPORT_SYMBOL(secure_tcpv6_sequence_number);
++ EXPORT_SYMBOL(secure_tcpv6_seq_and_tsoff);
+  
+  u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+  			       __be16 dport)
+@@@ -107,16 -88,8 +107,16 @@@ EXPORT_SYMBOL(secure_ipv6_port_ephemera
+  #endif
+  
+  #ifdef CONFIG_INET
+ +static u32 secure_tcp_ts_off(__be32 saddr, __be32 daddr)
+ +{
+ +	if (sysctl_tcp_timestamps != 1)
+ +		return 0;
+ +
+ +	return siphash_2u32((__force u32)saddr, (__force u32)daddr,
+ +			    &ts_secret);
+ +}
+  
+- /* secure_tcp_sequence_number(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
++ /* secure_tcp_seq_and_tsoff(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
+   * but fortunately, `sport' cannot be 0 in any circumstances. If this changes,
+   * it would be easy enough to have the former function use siphash_4u32, passing
+   * the arguments as separate u32.
