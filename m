@@ -1,39 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] padata: avoid race in reordering
-Date: Sun, 26 Mar 2017 11:11:45 +0800
-Message-ID: <20170326031145.GA19335@gondor.apana.org.au>
-References: <CAHmME9oLWiprOyZXo7zvGm7xq+1Kchw9ybLS_TM-9xDyHF0mxQ@mail.gmail.com>
- <20170323112443.30843-1-Jason@zx2c4.com>
- <20170324094157.GE5279@secunet.com>
- <20170325.200151.245940842455044501.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5 0/2] GTP SGSN-side tunnel
+Date: Sat, 25 Mar 2017 20:13:17 -0700 (PDT)
+Message-ID: <20170325.201317.114625190800188227.davem@davemloft.net>
+References: <20170324222321.28618-1-jonas@southpole.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, Jason@zx2c4.com,
-        linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170325.200151.245940842455044501.davem@davemloft.net>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, netdev@vger.kernel.org, laforge@gnumonks.org
+To: jonas@southpole.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60044 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751263AbdCZDNv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 23:13:51 -0400
+In-Reply-To: <20170324222321.28618-1-jonas@southpole.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 25, 2017 at 08:01:51PM -0700, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Fri, 24 Mar 2017 10:41:59 +0100
-> 
-> > On Thu, Mar 23, 2017 at 12:24:43PM +0100, Jason A. Donenfeld wrote:
-> >> Under extremely heavy uses of padata, crashes occur, and with list
-> >> debugging turned on, this happens instead:
->  ...
-> >> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-> > 
-> > Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
-> 
-> Herbert, this should probably go via your crypto tree.
+From: Jonas Bonn <jonas@southpole.se>
+Date: Fri, 24 Mar 2017 23:23:19 +0100
 
-Thanks David.  It's already in the crypto tree.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Changes since v4:
+> 
+> * Respin the series on top of net-next; the conflicts were trivial,
+>   amounting to just code having been shifted about
+
+Series applied, but you really have to make improvements to your header
+postings.
+
+First of all, what is the point of only listing the most recent "v4"
+changes entry?  Leave every single changes entry in there, it's
+history information and useful to people reviewing the series.
+
+Also, this posting also requires that you explain, in detail, at
+a high level, what the patch series is doing, how it is doing it,
+and why it is doing it that way.
+
+It should be written in a way that a skilled programmer, after
+reading it, can probably predict what your patches look like.  It
+is an assistance to comprehension and understanding of your changes
+and an essential part of patch series submission.
+
+Thank you.
