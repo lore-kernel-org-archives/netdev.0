@@ -1,71 +1,95 @@
-From: Alexander Alemayhu <alexander@alemayhu.com>
-Subject: [PATCH iproute2] man: fix man page warnings
-Date: Sun, 26 Mar 2017 21:11:14 +0200
-Message-ID: <20170326191114.3756-1-alexander@alemayhu.com>
-Cc: stephen@networkplumber.org,
-        Alexander Alemayhu <alexander@alemayhu.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:33911 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751612AbdCZTMB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Mar 2017 15:12:01 -0400
-Received: by mail-lf0-f50.google.com with SMTP id z15so11710156lfd.1
-        for <netdev@vger.kernel.org>; Sun, 26 Mar 2017 12:11:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: tehuti: use new api ethtool_{get|set}_link_ksettings
+Date: Sun, 26 Mar 2017 22:03:13 +0200
+Message-ID: <1490558593-17411-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: andy@greyhouse.net, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While generating PDFs from the man pages, I saw the warning below from
-several files. Compared the tc-matchall.8 with bridge.8 and used .RI
-instead of .R. It should have no effect on the man page rendering.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-    `R' is a string (producing the registered sign), not a macro.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- man/man8/tc-flower.8   | 2 +-
- man/man8/tc-ife.8      | 2 +-
- man/man8/tc-matchall.8 | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/tehuti/tehuti.c |   43 ++++++++++++++-------------------
+ 1 files changed, 18 insertions(+), 25 deletions(-)
 
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index fc5bac503324..ba290657c224 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@@ -20,7 +20,7 @@ flower \- flow based traffic control filter
- .B indev
- .IR ifname " | "
- .BR skip_sw " | " skip_hw
--.R " | { "
-+.RI " | { "
- .BR dst_mac " | " src_mac " } "
- .IR MASKED_LLADDR " | "
- .B vlan_id
-diff --git a/man/man8/tc-ife.8 b/man/man8/tc-ife.8
-index dae8b9be9bcb..a8f1f287d150 100644
---- a/man/man8/tc-ife.8
-+++ b/man/man8/tc-ife.8
-@@ -13,7 +13,7 @@ IFE - encapsulate/decapsulate metadata
- .IR SMAC " ] "
- .RB "[ " type
- .IR TYPE " ] "
--.R "[ "
-+.RI "[ "
- .IR CONTROL " ] "
- .RB "[ " index
- .IR INDEX " ] "
-diff --git a/man/man8/tc-matchall.8 b/man/man8/tc-matchall.8
-index 53b2194e023a..e3cddb1f1ca5 100644
---- a/man/man8/tc-matchall.8
-+++ b/man/man8/tc-matchall.8
-@@ -7,7 +7,7 @@ matchall \- traffic control filter that matches every packet
- .ti -8
- .BR tc " " filter " ... " matchall " [ "
- .BR skip_sw " | " skip_hw
--.R " ] [ "
-+.RI " ] [ "
- .B action
- .IR ACTION_SPEC " ] [ "
- .B classid
+diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
+index f864fd0..711fbbb 100644
+--- a/drivers/net/ethernet/tehuti/tehuti.c
++++ b/drivers/net/ethernet/tehuti/tehuti.c
+@@ -2124,33 +2124,26 @@ static void bdx_tx_push_desc_safe(struct bdx_priv *priv, void *data, int size)
+ };
+ 
+ /*
+- * bdx_get_settings - get device-specific settings
++ * bdx_get_link_ksettings - get device-specific settings
+  * @netdev
+  * @ecmd
+  */
+-static int bdx_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+-{
+-	u32 rdintcm;
+-	u32 tdintcm;
+-	struct bdx_priv *priv = netdev_priv(netdev);
+-
+-	rdintcm = priv->rdintcm;
+-	tdintcm = priv->tdintcm;
+-
+-	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
+-	ecmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
+-	ethtool_cmd_speed_set(ecmd, SPEED_10000);
+-	ecmd->duplex = DUPLEX_FULL;
+-	ecmd->port = PORT_FIBRE;
+-	ecmd->transceiver = XCVR_EXTERNAL;	/* what does it mean? */
+-	ecmd->autoneg = AUTONEG_DISABLE;
+-
+-	/* PCK_TH measures in multiples of FIFO bytes
+-	   We translate to packets */
+-	ecmd->maxtxpkt =
+-	    ((GET_PCK_TH(tdintcm) * PCK_TH_MULT) / BDX_TXF_DESC_SZ);
+-	ecmd->maxrxpkt =
+-	    ((GET_PCK_TH(rdintcm) * PCK_TH_MULT) / sizeof(struct rxf_desc));
++static int bdx_get_link_ksettings(struct net_device *netdev,
++				  struct ethtool_link_ksettings *ecmd)
++{
++	ethtool_link_ksettings_zero_link_mode(ecmd, supported);
++	ethtool_link_ksettings_add_link_mode(ecmd, supported,
++					     10000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(ecmd, supported, FIBRE);
++	ethtool_link_ksettings_zero_link_mode(ecmd, advertising);
++	ethtool_link_ksettings_add_link_mode(ecmd, advertising,
++					     10000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(ecmd, advertising, FIBRE);
++
++	ecmd->base.speed = SPEED_10000;
++	ecmd->base.duplex = DUPLEX_FULL;
++	ecmd->base.port = PORT_FIBRE;
++	ecmd->base.autoneg = AUTONEG_DISABLE;
+ 
+ 	return 0;
+ }
+@@ -2384,7 +2377,6 @@ static void bdx_get_ethtool_stats(struct net_device *netdev,
+ static void bdx_set_ethtool_ops(struct net_device *netdev)
+ {
+ 	static const struct ethtool_ops bdx_ethtool_ops = {
+-		.get_settings = bdx_get_settings,
+ 		.get_drvinfo = bdx_get_drvinfo,
+ 		.get_link = ethtool_op_get_link,
+ 		.get_coalesce = bdx_get_coalesce,
+@@ -2394,6 +2386,7 @@ static void bdx_set_ethtool_ops(struct net_device *netdev)
+ 		.get_strings = bdx_get_strings,
+ 		.get_sset_count = bdx_get_sset_count,
+ 		.get_ethtool_stats = bdx_get_ethtool_stats,
++		.get_link_ksettings = bdx_get_link_ksettings,
+ 	};
+ 
+ 	netdev->ethtool_ops = &bdx_ethtool_ops;
 -- 
-2.9.3
+1.7.4.4
