@@ -1,64 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RESEND PATCH 2/3] net: hns: avoid gcc-7.0.1 warning for
- uninitialized data
-Date: Sat, 25 Mar 2017 20:05:53 -0700 (PDT)
-Message-ID: <20170325.200553.661929780985796313.davem@davemloft.net>
-References: <20170324220250.2193128-1-arnd@arndb.de>
-        <20170324220250.2193128-4-arnd@arndb.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] padata: avoid race in reordering
+Date: Sun, 26 Mar 2017 11:11:45 +0800
+Message-ID: <20170326031145.GA19335@gondor.apana.org.au>
+References: <CAHmME9oLWiprOyZXo7zvGm7xq+1Kchw9ybLS_TM-9xDyHF0mxQ@mail.gmail.com>
+ <20170323112443.30843-1-Jason@zx2c4.com>
+ <20170324094157.GE5279@secunet.com>
+ <20170325.200151.245940842455044501.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        xieqianqian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, weiyongjun1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170324220250.2193128-4-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: steffen.klassert@secunet.com, Jason@zx2c4.com,
+        linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170325.200151.245940842455044501.davem@davemloft.net>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Date: Fri, 24 Mar 2017 23:02:50 +0100
+On Sat, Mar 25, 2017 at 08:01:51PM -0700, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Fri, 24 Mar 2017 10:41:59 +0100
+> 
+> > On Thu, Mar 23, 2017 at 12:24:43PM +0100, Jason A. Donenfeld wrote:
+> >> Under extremely heavy uses of padata, crashes occur, and with list
+> >> debugging turned on, this happens instead:
+>  ...
+> >> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> > 
+> > Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+> 
+> Herbert, this should probably go via your crypto tree.
 
-> hns_dsaf_set_mac_key() calls dsaf_set_field() on an uninitialized field,
-> which will then change only a few of its bits, causing a warning with
-> the latest gcc:
-> 
-> hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_mac_uc_entry':
-> hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
->    (origin) &= (~(mask)); \
->             ^~
-> hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_set_mac_mc_entry':
-> hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_add_mac_mc_port':
-> hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_del_mac_entry':
-> hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_rm_mac_addr':
-> hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_del_mac_mc_port':
-> hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_get_mac_uc_entry':
-> hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> hisilicon/hns/hns_dsaf_main.c: In function 'hns_dsaf_get_mac_mc_entry':
-> hisilicon/hns/hns_dsaf_reg.h:1046:12: error: 'mac_key.low.bits.port_vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> The code is actually correct since we always set all 16 bits of the
-> port_vlan field, but gcc correctly points out that the first
-> access does contain uninitialized data.
-> 
-> This initializes the field to zero first before setting the
-> individual bits.
-> 
-> Fixes: 5483bfcb169c ("net: hns: modify tcam table and set mac key")
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks David.  It's already in the crypto tree.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
