@@ -1,47 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: usb: qmi_wwan: add qmap mux protocol support
-Date: Sat, 25 Mar 2017 20:03:49 -0700 (PDT)
-Message-ID: <20170325.200349.1859365878558524339.davem@davemloft.net>
-References: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
+Subject: Re: [patch net-next] mlxsw: spectrum_kvdl: Cosmetic kvdl allocator
+ API change
+Date: Sat, 25 Mar 2017 19:56:27 -0700 (PDT)
+Message-ID: <20170325.195627.1031680764200229260.davem@davemloft.net>
+References: <1490426902-1981-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: bjorn@mork.no, linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: dnlplm@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59948 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59960 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbdCZDDv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 23:03:51 -0400
-In-Reply-To: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
+        with ESMTP id S1751258AbdCZDEQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 23:04:16 -0400
+In-Reply-To: <1490426902-1981-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniele Palmas <dnlplm@gmail.com>
-Date: Fri, 24 Mar 2017 14:22:44 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sat, 25 Mar 2017 08:28:22 +0100
 
-> This patch adds support for qmap mux protocol available in recent
-> Qualcomm based modems.
+> From: Arkadi Sharshevsky <arkadis@mellanox.com>
 > 
-> The qmap mux protocol can be used for multiplexing data packets in
-> order to have multiple ip streams through the same physical device.
+> Currently the return allocated index and err value are multiplexed.
+> This patch changes the API to decouple the ret value from the allocated
+> index.
 > 
-> Two new sysfs files are added for adding/removing the qmap mux based
-> interfaces (named qmimux):
-> 
-> /sys/class/net/<iface>/qmi/add_mux
-> /sys/class/net/<iface>/qmi/del_mux
-> 
-> Main patch author is Bjørn Mork <bjorn@mork.no>
-> 
-> An userspace implementation of the qmi requests needed to support
-> multiple ip streams is already available (namely libqmi since
-> version 1.18.0).
-> 
-> The qmap mux feature has been recently implemented in Codeaurora
-> gobinet out-of-kernel driver that was the inspiration for this
-> development.
-> 
-> Tests have been performed with Telit LE922A6 (PID 0x1040)
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Series applied, thanks.
+Applied, thanks.
