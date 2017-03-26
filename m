@@ -1,55 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 05/11] i40e: fix for queue timing delays
-Date: Sat, 25 Mar 2017 20:00:45 -0700 (PDT)
-Message-ID: <20170325.200045.766752589165691684.davem@davemloft.net>
-References: <20170325081305.31835-1-jeffrey.t.kirsher@intel.com>
-        <20170325081305.31835-6-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/2] net: usb: qmi_wwan: add qmap mux protocol support
+Date: Sat, 25 Mar 2017 20:03:49 -0700 (PDT)
+Message-ID: <20170325.200349.1859365878558524339.davem@davemloft.net>
+References: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: carolyn.wyborny@intel.com, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: bjorn@mork.no, linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: dnlplm@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59900 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59948 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751271AbdCZDA4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 23:00:56 -0400
-In-Reply-To: <20170325081305.31835-6-jeffrey.t.kirsher@intel.com>
+        with ESMTP id S1751263AbdCZDDv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 25 Mar 2017 23:03:51 -0400
+In-Reply-To: <1490361766-24114-1-git-send-email-dnlplm@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 25 Mar 2017 01:12:59 -0700
+From: Daniele Palmas <dnlplm@gmail.com>
+Date: Fri, 24 Mar 2017 14:22:44 +0100
 
-> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> This patch adds support for qmap mux protocol available in recent
+> Qualcomm based modems.
 > 
-> This patch adds a delay to Rx queue disables to accommodate HW needs.
+> The qmap mux protocol can be used for multiplexing data packets in
+> order to have multiple ip streams through the same physical device.
 > 
-> Change-ID: I2864ca667ce5dcc2cc44f8718113b719742a46a1
-> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c | 2 ++
->  1 file changed, 2 insertions(+)
+> Two new sysfs files are added for adding/removing the qmap mux based
+> interfaces (named qmimux):
 > 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 5da990909a88..1435033faefe 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -4181,6 +4181,8 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
->  		}
->  	}
->  
-> +	/* HW needs up to 50ms to finish RX queue disable*/
-> +	mdelay(50);
+> /sys/class/net/<iface>/qmi/add_mux
+> /sys/class/net/<iface>/qmi/del_mux
+> 
+> Main patch author is Bjørn Mork <bjorn@mork.no>
+> 
+> An userspace implementation of the qmi requests needed to support
+> multiple ip streams is already available (namely libqmi since
+> version 1.18.0).
+> 
+> The qmap mux feature has been recently implemented in Codeaurora
+> gobinet out-of-kernel driver that was the inspiration for this
+> development.
+> 
+> Tests have been performed with Telit LE922A6 (PID 0x1040)
 
-You just polled a register which indicates that the request is finished.
-Needing futher time for the operation to complete doesn't make any
-sense.
-
-If this is really needed, you need to explain in the commit message, in
-detail, what is really the problem here.
-
-THanks.
+Series applied, thanks.
