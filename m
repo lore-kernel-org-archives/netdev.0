@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] netvsc: Fix miscellaneous issues
-Date: Sat, 25 Mar 2017 20:16:11 -0700 (PDT)
-Message-ID: <20170325.201611.1888731685484684516.davem@davemloft.net>
-References: <1490414048-12578-1-git-send-email-kys@exchange.microsoft.com>
+Subject: Re: [PATCH] irda: vlsi_ir: fix check for dma mapping errors
+Date: Sat, 25 Mar 2017 20:14:59 -0700 (PDT)
+Message-ID: <20170325.201459.415344501888164456.davem@davemloft.net>
+References: <1490395688-3666-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, sthemmin@microsoft.com, netdev@vger.kernel.org,
- jasowang@redhat.com, linux-kernel@vger.kernel.org, marcelo.cerri@canonical.com,
- apw@canonical.com, devel@linuxdriverproject.org,
- leann.ogasawara@canonical.comi
-To: kys@microsoft.com, kys@exchange.microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1490414048-12578-1-git-send-email-kys@exchange.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490395688-3666-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: kys@exchange.microsoft.com
-Date: Fri, 24 Mar 2017 20:54:08 -0700
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Sat, 25 Mar 2017 01:48:08 +0300
 
-> Fix miscellaneous issues.
+> vlsi_alloc_ring() checks for dma mapping errors by comparison
+> returned address with zero, while pci_dma_mapping_error() should be used.
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-Series applied, thanks.
+Applied.
