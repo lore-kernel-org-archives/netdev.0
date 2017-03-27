@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH RFC v4 04/10] net: qualcomm: rename qca_framing.c to qca_common.c
-Date: Mon, 27 Mar 2017 15:37:22 +0200
-Message-ID: <1490621848-24828-5-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH RFC v4 07/10] dt-bindings: net: add binding for QCA7000 UART
+Date: Mon, 27 Mar 2017 15:37:25 +0200
+Message-ID: <1490621848-24828-8-git-send-email-stefan.wahren@i2se.com>
 References: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>,
@@ -13,85 +13,67 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 To: Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
         "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.130]:60234 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752278AbdC0Nkg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 09:40:36 -0400
 In-Reply-To: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As preparation for the upcoming UART driver we need a module
-which contains common functions for both interfaces. The module
-qca_framing is a good candidate but renaming to qca_common would
-make it clear.
+This is the serdev binding for the QCA7000 UART driver (Ethernet over UART).
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/Makefile                        | 2 +-
- drivers/net/ethernet/qualcomm/{qca_framing.c => qca_common.c} | 2 +-
- drivers/net/ethernet/qualcomm/{qca_framing.h => qca_common.h} | 0
- drivers/net/ethernet/qualcomm/qca_spi.c                       | 2 +-
- drivers/net/ethernet/qualcomm/qca_spi.h                       | 2 +-
- 5 files changed, 4 insertions(+), 4 deletions(-)
- rename drivers/net/ethernet/qualcomm/{qca_framing.c => qca_common.c} (99%)
- rename drivers/net/ethernet/qualcomm/{qca_framing.h => qca_common.h} (100%)
 
-diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
-index aacb0a5..8080570 100644
---- a/drivers/net/ethernet/qualcomm/Makefile
-+++ b/drivers/net/ethernet/qualcomm/Makefile
-@@ -3,6 +3,6 @@
- #
- 
- obj-$(CONFIG_QCA7000) += qcaspi.o
--qcaspi-objs := qca_spi.o qca_framing.o qca_7k.o qca_debug.o
-+qcaspi-objs := qca_spi.o qca_common.o qca_7k.o qca_debug.o
- 
- obj-y += emac/
-diff --git a/drivers/net/ethernet/qualcomm/qca_framing.c b/drivers/net/ethernet/qualcomm/qca_common.c
-similarity index 99%
-rename from drivers/net/ethernet/qualcomm/qca_framing.c
-rename to drivers/net/ethernet/qualcomm/qca_common.c
-index faa924c..26453a9 100644
---- a/drivers/net/ethernet/qualcomm/qca_framing.c
-+++ b/drivers/net/ethernet/qualcomm/qca_common.c
-@@ -23,7 +23,7 @@
- 
- #include <linux/kernel.h>
- 
--#include "qca_framing.h"
-+#include "qca_common.h"
- 
- u16
- qcafrm_create_header(u8 *buf, u16 length)
-diff --git a/drivers/net/ethernet/qualcomm/qca_framing.h b/drivers/net/ethernet/qualcomm/qca_common.h
-similarity index 100%
-rename from drivers/net/ethernet/qualcomm/qca_framing.h
-rename to drivers/net/ethernet/qualcomm/qca_common.h
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index 4f431bc..65adc10 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -43,8 +43,8 @@
- #include <linux/types.h>
- 
- #include "qca_7k.h"
-+#include "qca_common.h"
- #include "qca_debug.h"
--#include "qca_framing.h"
- #include "qca_spi.h"
- 
- #define MAX_DMA_BURST_LEN 5000
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.h b/drivers/net/ethernet/qualcomm/qca_spi.h
-index 064853d..cce4802 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.h
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.h
-@@ -32,7 +32,7 @@
- #include <linux/spi/spi.h>
- #include <linux/types.h>
- 
--#include "qca_framing.h"
-+#include "qca_common.h"
- 
- #define QCASPI_DRV_VERSION "0.2.7-i"
- #define QCASPI_DRV_NAME    "qcaspi"
+According to this binding are still some questions:
+
+Where should be the optional hardware flow control defined (at master or slave side)?
+
+Is it okay to have two bindings (qca-qca7000-spi and qca-qca7000-uart) or should they be merged?
+
+
+ .../devicetree/bindings/net/qca-qca7000-uart.txt   | 31 ++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-uart.txt
+
+diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-uart.txt b/Documentation/devicetree/bindings/net/qca-qca7000-uart.txt
+new file mode 100644
+index 0000000..f2e0450
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/qca-qca7000-uart.txt
+@@ -0,0 +1,31 @@
++* Qualcomm QCA7000 (Ethernet over UART protocol)
++
++Note: This binding applies in case the QCA7000 is configured as a
++UART slave device. It is possible to preconfigure the UART settings
++of the QCA7000 firmware, which can't be changed during runtime.
++
++Required properties:
++- compatible        : Should be "qca,qca7000-uart"
++
++Optional properties:
++- local-mac-address : 6 bytes, Specifies MAC address
++- current-speed     : Specifies the serial device speed in
++		      bits per second (default = 115200), which is
++		      predefined by the QCA7000 firmware configuration
++
++Example:
++
++/* Freescale i.MX28 UART */
++auart0: serial@8006a000 {
++	compatible = "fsl,imx28-auart", "fsl,imx23-auart";
++	reg = <0x8006a000 0x2000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&auart0_2pins_a>;
++	status = "okay";
++
++	qca7000: ethernet {
++		compatible = "qca,qca7000-uart";
++		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
++		current-speed = <38400>;
++	};
++};
 -- 
 2.1.4
