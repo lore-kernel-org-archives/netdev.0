@@ -1,8 +1,8 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH RFC v2 2/3] net: phy: restart phy autonegotiation after EEE
- advertisment change
-Date: Mon, 27 Mar 2017 10:58:56 +0100
-Message-ID: <E1csRQO-0004rE-Px@rmk-PC.armlinux.org.uk>
+Subject: [PATCH RFC v2 1/3] net: phy: avoid setting unsupported EEE
+ advertisments
+Date: Mon, 27 Mar 2017 10:58:51 +0100
+Message-ID: <E1csRQJ-0004qu-M0@rmk-PC.armlinux.org.uk>
 References: <20170327095826.GA2310@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,65 +10,72 @@ Content-Transfer-Encoding: 8bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:36108 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:36102 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752290AbdC0J7P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:59:15 -0400
+        with ESMTP id S1752176AbdC0J7Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:59:16 -0400
 In-Reply-To: <20170327095826.GA2310@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the EEE advertisment is changed, we should restart autonegotiation
-to update the link partner with the new EEE settings.  Add this trigger
-but only if the advertisment has changed.
+We currently allow userspace to set any EEE advertisments it desires,
+whether or not the PHY supports them.  For example:
+
+ # ethtool --set-eee eth1 advertise 0xffffffff
+ # ethtool --show-eee eth1
+ EEE Settings for eth1:
+        EEE status: disabled
+        Tx LPI: disabled
+        Supported EEE link modes:  100baseT/Full
+                                   1000baseT/Full
+                                   10000baseT/Full
+        Advertised EEE link modes:  100baseT/Full
+                                    1000baseT/Full
+                                    1000baseKX/Full
+                                    10000baseT/Full
+                                    10000baseKX4/Full
+                                    10000baseKR/Full
+
+Clearly, this is not sane, we should only allow link modes that are
+supported to be advertised (as we do elsewhere.)  Ensure that we mask
+the MDIO_AN_EEE_ADV value with the capabilities retrieved from the
+MDIO_PCS_EEE_ABLE register.
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/phy.c | 21 +++++++++++++++++++--
- 1 file changed, 19 insertions(+), 2 deletions(-)
+ drivers/net/phy/phy.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 7b1c93b0233a..345251f21699 100644
+index ba4676ee9018..7b1c93b0233a 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -1332,7 +1332,7 @@ EXPORT_SYMBOL(phy_ethtool_get_eee);
+@@ -1332,17 +1332,22 @@ EXPORT_SYMBOL(phy_ethtool_get_eee);
   */
  int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
  {
--	int cap, adv;
-+	int cap, old_adv, adv, ret;
+-	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
++	int cap, adv;
  
  	if (!phydev->drv)
  		return -EIO;
-@@ -1342,12 +1342,29 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
- 	if (cap < 0)
- 		return cap;
  
-+	old_adv = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV);
-+	if (old_adv < 0)
-+		return old_adv;
-+
- 	adv = ethtool_adv_to_mmd_eee_adv_t(data->advertised) & cap;
+-	/* Mask prohibited EEE modes */
+-	val &= ~phydev->eee_broken_modes;
++	/* Get Supported EEE */
++	cap = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_PCS_EEE_ABLE);
++	if (cap < 0)
++		return cap;
  
- 	/* Mask prohibited EEE modes */
- 	adv &= ~phydev->eee_broken_modes;
+-	phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, val);
++	adv = ethtool_adv_to_mmd_eee_adv_t(data->advertised) & cap;
  
--	return phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, adv);
-+	if (old_adv != adv) {
-+		ret = phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, adv);
-+		if (ret < 0)
-+			return ret;
+-	return 0;
++	/* Mask prohibited EEE modes */
++	adv &= ~phydev->eee_broken_modes;
 +
-+		/* Restart autonegotiation so the new modes get sent to the
-+		 * link partner.
-+		 */
-+		ret = genphy_restart_aneg(phydev);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
-+	return 0;
++	return phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, adv);
  }
  EXPORT_SYMBOL(phy_ethtool_set_eee);
  
