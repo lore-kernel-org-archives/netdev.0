@@ -1,48 +1,204 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 0/2] netfilter: Remove unnecessary cast on void pointer
-Date: Mon, 27 Mar 2017 14:27:03 +0200
-Message-ID: <20170327122703.GA25227@salvia>
-References: <1490098794-22518-1-git-send-email-singhalsimran0@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Mon, 27 Mar 2017 14:39:47 +0200
+Message-ID: <20170327143947.4c237e54@redhat.com>
+References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
+	<d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
+	<83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+	<20170322234004.kffsce4owewgpqnm@techsingularity.net>
+	<20170323144347.1e6f29de@redhat.com>
+	<20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+	<779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
+	<1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
+	<2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
+	<20170327105514.1ed5b1ba@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kadlec@blackhole.kfki.hu, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        outreachy-kernel@googlegroups.com, gregkh@linuxfoundation.org
-To: simran singhal <singhalsimran0@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36156 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751813AbdC0Mdt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 08:33:49 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id ADDD2EAA62
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 14:27:08 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A08ABDA729
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 14:27:08 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D9DD2BAC26
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 14:27:02 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <1490098794-22518-1-git-send-email-singhalsimran0@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman
+ <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
+ netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
+ <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
+ brouer@redhat.com
+To: Pankaj Gupta <pagupta@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170327105514.1ed5b1ba@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 21, 2017 at 05:49:52PM +0530, simran singhal wrote:
-> This patch series remove unnecessary cast on void pointer.
-> 
-> simran singhal (2):
->   netfilter: ipset: Remove unnecessary cast on void pointer
->   netfilter: Remove unnecessary cast on void pointer
+On Mon, 27 Mar 2017 10:55:14 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-Please, merge this two patches in one single patch.
+> A possible solution, would be use the local_bh_{disable,enable} instead
+> of the {preempt_disable,enable} calls.  But it is slower, using numbers
+> from [1] (19 vs 11 cycles), thus the expected cycles saving is 38-19=3D19.
+>=20
+> The problematic part of using local_bh_enable is that this adds a
+> softirq/bottom-halves rescheduling point (as it checks for pending
+> BHs).  Thus, this might affects real workloads.
 
-I have to pass up batches to David, and I would like this cleanups are
-grouped into the same logical change.
+I implemented this solution in patch below... and tested it on mlx5 at
+50G with manually disabled driver-page-recycling.  It works for me.
 
-Is there more occurrences of this in the Netfilter tree? Please have a
-look at net/ipv4/netfilter/ net/ipv6/netfilter/ and
-net/bridge/netfilter, we also have code there.
+To Mel, that do you prefer... a partial-revert or something like this?
 
-Thanks.
+
+[PATCH] mm, page_alloc: re-enable softirq use of per-cpu page allocator
+
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+
+IRQ context were excluded from using the Per-Cpu-Pages (PCP) lists
+caching of order-0 pages in commit 374ad05ab64d ("mm, page_alloc: only
+use per-cpu allocator for irq-safe requests").
+
+This unfortunately also included excluded SoftIRQ.  This hurt the
+performance for the use-case of refilling DMA RX rings in softirq
+context.
+
+This patch re-allow softirq context, which should be safe by disabling
+BH/softirq, while accessing the list.  And makes sure to avoid
+PCP-lists access from both hard-IRQ and NMI context.
+
+One concern with this change is adding a BH (enable) scheduling point
+at both PCP alloc and free.
+
+Fixes: 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-sa=
+fe requests")
+---
+ include/trace/events/kmem.h |    2 ++
+ mm/page_alloc.c             |   41 ++++++++++++++++++++++++++++++++++-----=
+--
+ 2 files changed, 36 insertions(+), 7 deletions(-)
+
+diff --git a/include/trace/events/kmem.h b/include/trace/events/kmem.h
+index 6b2e154fd23a..ad412ad1b092 100644
+--- a/include/trace/events/kmem.h
++++ b/include/trace/events/kmem.h
+@@ -244,6 +244,8 @@ DECLARE_EVENT_CLASS(mm_page,
+ 		__entry->order,
+ 		__entry->migratetype,
+ 		__entry->order =3D=3D 0)
++// WARNING: percpu_refill check not 100% correct after commit
++// 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe =
+requests")
+ );
+=20
+ DEFINE_EVENT(mm_page, mm_page_alloc_zone_locked,
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 6cbde310abed..db9ffc8ac538 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -2470,6 +2470,25 @@ void mark_free_pages(struct zone *zone)
+ }
+ #endif /* CONFIG_PM */
+=20
++static __always_inline int in_irq_or_nmi(void)
++{
++	return in_irq() || in_nmi();
++// XXX: hoping compiler will optimize this (todo verify) into:
++// #define in_irq_or_nmi()	(preempt_count() & (HARDIRQ_MASK | NMI_MASK))
++
++	/* compiler was smart enough to only read __preempt_count once
++	 * but added two branches
++asm code:
++ =E2=94=82       mov    __preempt_count,%eax
++ =E2=94=82       test   $0xf0000,%eax    // HARDIRQ_MASK: 0x000f0000
++ =E2=94=82    =E2=94=8C=E2=94=80=E2=94=80jne    2a
++ =E2=94=82    =E2=94=82  test   $0x100000,%eax   // NMI_MASK:     0x001000=
+00
++ =E2=94=82    =E2=94=82=E2=86=93 je     3f
++ =E2=94=82 2a:=E2=94=94=E2=94=80=E2=86=92mov    %rbx,%rdi
++
++	 */
++}
++
+ /*
+  * Free a 0-order page
+  * cold =3D=3D true ? free a cold page : free a hot page
+@@ -2481,7 +2500,11 @@ void free_hot_cold_page(struct page *page, bool cold)
+ 	unsigned long pfn =3D page_to_pfn(page);
+ 	int migratetype;
+=20
+-	if (in_interrupt()) {
++	/*
++	 * Exclude (hard) IRQ and NMI context from using the pcplists.
++	 * But allow softirq context, via disabling BH.
++	 */
++	if (in_irq_or_nmi()) {
+ 		__free_pages_ok(page, 0);
+ 		return;
+ 	}
+@@ -2491,7 +2514,7 @@ void free_hot_cold_page(struct page *page, bool cold)
+=20
+ 	migratetype =3D get_pfnblock_migratetype(page, pfn);
+ 	set_pcppage_migratetype(page, migratetype);
+-	preempt_disable();
++	local_bh_disable();
+=20
+ 	/*
+ 	 * We only track unmovable, reclaimable and movable on pcp lists.
+@@ -2522,7 +2545,7 @@ void free_hot_cold_page(struct page *page, bool cold)
+ 	}
+=20
+ out:
+-	preempt_enable();
++	local_bh_enable();
+ }
+=20
+ /*
+@@ -2647,7 +2670,7 @@ static struct page *__rmqueue_pcplist(struct zone *zo=
+ne, int migratetype,
+ {
+ 	struct page *page;
+=20
+-	VM_BUG_ON(in_interrupt());
++	VM_BUG_ON(in_irq());
+=20
+ 	do {
+ 		if (list_empty(list)) {
+@@ -2680,7 +2703,7 @@ static struct page *rmqueue_pcplist(struct zone *pref=
+erred_zone,
+ 	bool cold =3D ((gfp_flags & __GFP_COLD) !=3D 0);
+ 	struct page *page;
+=20
+-	preempt_disable();
++	local_bh_disable();
+ 	pcp =3D &this_cpu_ptr(zone->pageset)->pcp;
+ 	list =3D &pcp->lists[migratetype];
+ 	page =3D __rmqueue_pcplist(zone,  migratetype, cold, pcp, list);
+@@ -2688,7 +2711,7 @@ static struct page *rmqueue_pcplist(struct zone *pref=
+erred_zone,
+ 		__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
+ 		zone_statistics(preferred_zone, zone);
+ 	}
+-	preempt_enable();
++	local_bh_enable();
+ 	return page;
+ }
+=20
+@@ -2704,7 +2727,11 @@ struct page *rmqueue(struct zone *preferred_zone,
+ 	unsigned long flags;
+ 	struct page *page;
+=20
+-	if (likely(order =3D=3D 0) && !in_interrupt()) {
++	/*
++	 * Exclude (hard) IRQ and NMI context from using the pcplists.
++	 * But allow softirq context, via disabling BH.
++	 */
++	if (likely(order =3D=3D 0) && !in_irq_or_nmi() ) {
+ 		page =3D rmqueue_pcplist(preferred_zone, zone, order,
+ 				gfp_flags, migratetype);
+ 		goto out;
+
+
+--=20
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
