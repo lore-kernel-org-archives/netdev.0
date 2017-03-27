@@ -1,166 +1,258 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 09/14] net/mlx5e: Minimize mlx5e_{open/close}_locked
-Date: Mon, 27 Mar 2017 23:49:05 +0300
-Message-ID: <20170327204910.20287-10-saeedm@mellanox.com>
+Subject: [net-next 14/14] net/mlx5e: Fail safe mtu and lro setting
+Date: Mon, 27 Mar 2017 23:49:10 +0300
+Message-ID: <20170327204910.20287-15-saeedm@mellanox.com>
 References: <20170327204910.20287-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44889 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44903 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752542AbdC0UuQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 16:50:16 -0400
+        with ESMTP id S1752560AbdC0UuM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 16:50:12 -0400
 In-Reply-To: <20170327204910.20287-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-mlx5e_redirect_rqts_to_{channels,drop} and mlx5e_{add,del}_sqs_fwd_rules
-and Set real num tx/rx queues belong to
-mlx5e_{activate,deactivate}_priv_channels, for that we move those functions
-and minimize mlx5e_open/close flows.
+Use the new fail-safe channels switch mechanism to set new
+netdev mtu and lro settings.
 
-This will be needed in downstream patches to replace old channels with new
-ones without the need to call mlx5e_close/open.
+MTU and lro settings demand some HW configuration changes after new
+channels are created and ready for action. In order to unify switch
+channels routine for LRO and MTU changes, and maybe future configuration
+features, we now pass to it a modify HW function pointer to be
+invoked directly after old channels are de-activated and before new
+channels are activated.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 40 +++++++++++------------
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 10 ++++--
- 2 files changed, 26 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  8 ++-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 12 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 70 ++++++++++++++--------
+ 3 files changed, 58 insertions(+), 32 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 8b93d8d02116..150fb52a0737 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -867,8 +867,14 @@ int mlx5e_close_locked(struct net_device *netdev);
+ int mlx5e_open_channels(struct mlx5e_priv *priv,
+ 			struct mlx5e_channels *chs);
+ void mlx5e_close_channels(struct mlx5e_channels *chs);
++
++/* Function pointer to be used to modify WH settings while
++ * switching channels
++ */
++typedef int (*mlx5e_fp_hw_modify)(struct mlx5e_priv *priv);
+ void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
+-				struct mlx5e_channels *new_chs);
++				struct mlx5e_channels *new_chs,
++				mlx5e_fp_hw_modify hw_modify);
+ 
+ void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
+ 				   u32 *indirection_rqt, int len,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index c5f49e294987..40912937d211 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -540,7 +540,7 @@ static int mlx5e_set_ringparam(struct net_device *dev,
+ 	if (err)
+ 		goto unlock;
+ 
+-	mlx5e_switch_priv_channels(priv, &new_channels);
++	mlx5e_switch_priv_channels(priv, &new_channels, NULL);
+ 
+ unlock:
+ 	mutex_unlock(&priv->state_lock);
+@@ -597,7 +597,7 @@ static int mlx5e_set_channels(struct net_device *dev,
+ 		mlx5e_arfs_disable(priv);
+ 
+ 	/* Switch to new channels, set new parameters and close old ones */
+-	mlx5e_switch_priv_channels(priv, &new_channels);
++	mlx5e_switch_priv_channels(priv, &new_channels, NULL);
+ 
+ 	if (arfs_enabled) {
+ 		err = mlx5e_arfs_enable(priv);
+@@ -691,7 +691,7 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
+ 	if (err)
+ 		goto out;
+ 
+-	mlx5e_switch_priv_channels(priv, &new_channels);
++	mlx5e_switch_priv_channels(priv, &new_channels, NULL);
+ 
+ out:
+ 	mutex_unlock(&priv->state_lock);
+@@ -1166,7 +1166,7 @@ static int mlx5e_set_tunable(struct net_device *dev,
+ 		err = mlx5e_open_channels(priv, &new_channels);
+ 		if (err)
+ 			break;
+-		mlx5e_switch_priv_channels(priv, &new_channels);
++		mlx5e_switch_priv_channels(priv, &new_channels, NULL);
+ 
+ 		break;
+ 	default:
+@@ -1503,7 +1503,7 @@ static int set_pflag_rx_cqe_based_moder(struct net_device *netdev, bool enable)
+ 	if (err)
+ 		return err;
+ 
+-	mlx5e_switch_priv_channels(priv, &new_channels);
++	mlx5e_switch_priv_channels(priv, &new_channels, NULL);
+ 	return 0;
+ }
+ 
+@@ -1534,7 +1534,7 @@ int mlx5e_modify_rx_cqe_compression_locked(struct mlx5e_priv *priv, bool new_val
+ 	if (err)
+ 		return err;
+ 
+-	mlx5e_switch_priv_channels(priv, &new_channels);
++	mlx5e_switch_priv_channels(priv, &new_channels, NULL);
+ 	return 0;
+ }
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index a6e09c46440b..a94f84ec2c1a 100644
+index 1e29f40d84ca..68d6c3c58ba7 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2498,14 +2498,33 @@ static void mlx5e_build_channels_tx_maps(struct mlx5e_priv *priv)
- 
- static void mlx5e_activate_priv_channels(struct mlx5e_priv *priv)
- {
-+	int num_txqs = priv->channels.num * priv->channels.params.num_tc;
-+	struct net_device *netdev = priv->netdev;
-+
-+	mlx5e_netdev_set_tcs(netdev);
-+	if (netdev->real_num_tx_queues != num_txqs)
-+		netif_set_real_num_tx_queues(netdev, num_txqs);
-+	if (netdev->real_num_rx_queues != priv->channels.num)
-+		netif_set_real_num_rx_queues(netdev, priv->channels.num);
-+
- 	mlx5e_build_channels_tx_maps(priv);
- 	mlx5e_activate_channels(&priv->channels);
- 	netif_tx_start_all_queues(priv->netdev);
-+
-+	if (MLX5_CAP_GEN(priv->mdev, vport_group_manager))
-+		mlx5e_add_sqs_fwd_rules(priv);
-+
- 	mlx5e_wait_channels_min_rx_wqes(&priv->channels);
-+	mlx5e_redirect_rqts_to_channels(priv, &priv->channels);
+@@ -2437,9 +2437,9 @@ static void mlx5e_query_mtu(struct mlx5e_priv *priv, u16 *mtu)
+ 	*mtu = MLX5E_HW2SW_MTU(hw_mtu);
  }
  
- static void mlx5e_deactivate_priv_channels(struct mlx5e_priv *priv)
+-static int mlx5e_set_dev_port_mtu(struct net_device *netdev)
++static int mlx5e_set_dev_port_mtu(struct mlx5e_priv *priv)
  {
-+	mlx5e_redirect_rqts_to_drop(priv);
-+
-+	if (MLX5_CAP_GEN(priv->mdev, vport_group_manager))
-+		mlx5e_remove_sqs_fwd_rules(priv);
-+
- 	/* FIXME: This is a W/A only for tx timeout watch dog false alarm when
- 	 * polling for inactive tx queues.
- 	 */
-@@ -2517,40 +2536,24 @@ static void mlx5e_deactivate_priv_channels(struct mlx5e_priv *priv)
- int mlx5e_open_locked(struct net_device *netdev)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
--	struct mlx5_core_dev *mdev = priv->mdev;
--	int num_txqs;
+-	struct mlx5e_priv *priv = netdev_priv(netdev);
++	struct net_device *netdev = priv->netdev;
+ 	u16 mtu;
  	int err;
  
- 	set_bit(MLX5E_STATE_OPENED, &priv->state);
+@@ -2534,7 +2534,8 @@ static void mlx5e_deactivate_priv_channels(struct mlx5e_priv *priv)
+ }
  
--	mlx5e_netdev_set_tcs(netdev);
--
--	num_txqs = priv->channels.params.num_channels * priv->channels.params.num_tc;
--	netif_set_real_num_tx_queues(netdev, num_txqs);
--	netif_set_real_num_rx_queues(netdev, priv->channels.params.num_channels);
--
- 	err = mlx5e_open_channels(priv, &priv->channels);
- 	if (err)
- 		goto err_clear_state_opened_flag;
+ void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
+-				struct mlx5e_channels *new_chs)
++				struct mlx5e_channels *new_chs,
++				mlx5e_fp_hw_modify hw_modify)
+ {
+ 	struct net_device *netdev = priv->netdev;
+ 	int new_num_txqs;
+@@ -2551,6 +2552,10 @@ void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
  
+ 	priv->channels = *new_chs;
+ 
++	/* New channels are ready to roll, modify HW settings if needed */
++	if (hw_modify)
++		hw_modify(priv);
++
  	mlx5e_refresh_tirs(priv, false);
  	mlx5e_activate_priv_channels(priv);
--	mlx5e_redirect_rqts_to_channels(priv, &priv->channels);
- 	mlx5e_update_carrier(priv);
- 	mlx5e_timestamp_init(priv);
  
- 	if (priv->profile->update_stats)
- 		queue_delayed_work(priv->wq, &priv->update_stats_work, 0);
+@@ -2930,7 +2935,7 @@ static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
+ 	if (err)
+ 		goto out;
  
--	if (MLX5_CAP_GEN(mdev, vport_group_manager)) {
--		err = mlx5e_add_sqs_fwd_rules(priv);
--		if (err)
--			goto err_close_channels;
--	}
- 	return 0;
- 
--err_close_channels:
--	mlx5e_close_channels(&priv->channels);
- err_clear_state_opened_flag:
- 	clear_bit(MLX5E_STATE_OPENED, &priv->state);
+-	mlx5e_switch_priv_channels(priv, &new_channels);
++	mlx5e_switch_priv_channels(priv, &new_channels, NULL);
+ out:
+ 	mutex_unlock(&priv->state_lock);
  	return err;
-@@ -2571,7 +2574,6 @@ int mlx5e_open(struct net_device *netdev)
- int mlx5e_close_locked(struct net_device *netdev)
+@@ -3049,26 +3054,31 @@ typedef int (*mlx5e_feature_handler)(struct net_device *netdev, bool enable);
+ static int set_feature_lro(struct net_device *netdev, bool enable)
  {
  	struct mlx5e_priv *priv = netdev_priv(netdev);
--	struct mlx5_core_dev *mdev = priv->mdev;
+-	bool was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+-	int err;
++	struct mlx5e_channels new_channels = {};
++	int err = 0;
++	bool reset;
  
- 	/* May already be CLOSED in case a previous configuration operation
- 	 * (e.g RX/TX queue size change) that involves close&open failed.
-@@ -2581,12 +2583,8 @@ int mlx5e_close_locked(struct net_device *netdev)
+ 	mutex_lock(&priv->state_lock);
  
- 	clear_bit(MLX5E_STATE_OPENED, &priv->state);
+-	if (was_opened && (priv->channels.params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST))
+-		mlx5e_close_locked(priv->netdev);
++	reset = (priv->channels.params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST);
++	reset = reset && test_bit(MLX5E_STATE_OPENED, &priv->state);
  
--	if (MLX5_CAP_GEN(mdev, vport_group_manager))
--		mlx5e_remove_sqs_fwd_rules(priv);
--
- 	mlx5e_timestamp_cleanup(priv);
- 	netif_carrier_off(priv->netdev);
--	mlx5e_redirect_rqts_to_drop(priv);
- 	mlx5e_deactivate_priv_channels(priv);
- 	mlx5e_close_channels(&priv->channels);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index d277c1979b2a..53db5ec2c122 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -189,12 +189,13 @@ int mlx5e_add_sqs_fwd_rules(struct mlx5e_priv *priv)
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 	struct mlx5_eswitch_rep *rep = priv->ppriv;
- 	struct mlx5e_channel *c;
--	int n, tc, err, num_sqs = 0;
-+	int n, tc, num_sqs = 0;
-+	int err = -ENOMEM;
- 	u16 *sqs;
- 
- 	sqs = kcalloc(priv->channels.num * priv->channels.params.num_tc, sizeof(u16), GFP_KERNEL);
- 	if (!sqs)
--		return -ENOMEM;
+-	priv->channels.params.lro_en = enable;
+-	err = mlx5e_modify_tirs_lro(priv);
+-	if (err) {
+-		netdev_err(netdev, "lro modify failed, %d\n", err);
+-		priv->channels.params.lro_en = !enable;
++	new_channels.params = priv->channels.params;
++	new_channels.params.lro_en = enable;
++
++	if (!reset) {
++		priv->channels.params = new_channels.params;
++		err = mlx5e_modify_tirs_lro(priv);
 +		goto out;
- 
- 	for (n = 0; n < priv->channels.num; n++) {
- 		c = priv->channels.c[n];
-@@ -203,8 +204,11 @@ int mlx5e_add_sqs_fwd_rules(struct mlx5e_priv *priv)
  	}
  
- 	err = mlx5_eswitch_sqs2vport_start(esw, rep, sqs, num_sqs);
--
- 	kfree(sqs);
-+
-+out:
+-	if (was_opened && (priv->channels.params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST))
+-		mlx5e_open_locked(priv->netdev);
++	err = mlx5e_open_channels(priv, &new_channels);
 +	if (err)
-+		netdev_warn(priv->netdev, "Failed to add SQs FWD rules %d\n", err);
++		goto out;
+ 
++	mlx5e_switch_priv_channels(priv, &new_channels, mlx5e_modify_tirs_lro);
++out:
+ 	mutex_unlock(&priv->state_lock);
+-
  	return err;
  }
  
+@@ -3191,7 +3201,8 @@ static int mlx5e_set_features(struct net_device *netdev,
+ static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+-	bool was_opened;
++	struct mlx5e_channels new_channels = {};
++	int curr_mtu;
+ 	int err = 0;
+ 	bool reset;
+ 
+@@ -3201,18 +3212,27 @@ static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
+ 		(priv->channels.params.rq_wq_type !=
+ 		 MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ);
+ 
+-	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+-	if (was_opened && reset)
+-		mlx5e_close_locked(netdev);
++	reset = reset && test_bit(MLX5E_STATE_OPENED, &priv->state);
+ 
++	curr_mtu    = netdev->mtu;
+ 	netdev->mtu = new_mtu;
+-	mlx5e_set_dev_port_mtu(netdev);
+ 
+-	if (was_opened && reset)
+-		err = mlx5e_open_locked(netdev);
++	if (!reset) {
++		mlx5e_set_dev_port_mtu(priv);
++		goto out;
++	}
+ 
+-	mutex_unlock(&priv->state_lock);
++	new_channels.params = priv->channels.params;
++	err = mlx5e_open_channels(priv, &new_channels);
++	if (err) {
++		netdev->mtu = curr_mtu;
++		goto out;
++	}
++
++	mlx5e_switch_priv_channels(priv, &new_channels, mlx5e_set_dev_port_mtu);
+ 
++out:
++	mutex_unlock(&priv->state_lock);
+ 	return err;
+ }
+ 
+@@ -4169,7 +4189,7 @@ int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
+ 	mlx5_query_port_max_mtu(priv->mdev, &max_mtu, 1);
+ 	netdev->max_mtu = MLX5E_HW2SW_MTU(max_mtu);
+ 
+-	mlx5e_set_dev_port_mtu(netdev);
++	mlx5e_set_dev_port_mtu(priv);
+ 
+ 	if (profile->enable)
+ 		profile->enable(priv);
 -- 
 2.11.0
