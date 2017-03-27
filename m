@@ -1,46 +1,42 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next] vxlan: don't age NTF_EXT_LEARNED fdb entries
-Date: Mon, 27 Mar 2017 15:46:41 -0700
-Message-ID: <1490654801-10488-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 0/8] Add support for pipeline debug (dpipe)
+Date: Mon, 27 Mar 2017 15:48:34 -0700 (PDT)
+Message-ID: <20170327.154834.1733255928137862540.davem@davemloft.net>
+References: <1490427342-2061-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, jhs@mojatatu.com, ivecera@redhat.com,
+        roopa@cumulusnetworks.com, f.fainelli@gmail.com,
+        vivien.didelot@savoirfairelinux.com, john.fastabend@gmail.com,
+        andrew@lunn.ch, simon.horman@netronome.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:35280 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752108AbdC0WrU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 18:47:20 -0400
-Received: by mail-pg0-f48.google.com with SMTP id 81so39113018pgh.2
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 15:47:20 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:52678 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752620AbdC0Wsn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 18:48:43 -0400
+In-Reply-To: <1490427342-2061-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-
-vxlan driver already implicitly supports installing
-of external fdb entries with NTF_EXT_LEARNED. This
-patch just makes sure these entries are not aged
-by the vxlan driver. An external entity managing these
-entries will age them out. This is consistent with
-the use of NTF_EXT_LEARNED in the bridge driver.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- drivers/net/vxlan.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 09855be..1e54fb5 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2322,6 +2322,9 @@ static void vxlan_cleanup(unsigned long arg)
- 			if (f->state & (NUD_PERMANENT | NUD_NOARP))
- 				continue;
- 
-+			if (f->flags & NTF_EXT_LEARNED)
-+				continue;
-+
- 			timeout = f->used + vxlan->cfg.age_interval * HZ;
- 			if (time_before_eq(timeout, jiffies)) {
- 				netdev_dbg(vxlan->dev,
--- 
-1.9.1
+DQpQbGVhc2UgZml4IHVwIHRoZXNlIHdhcm5pbmdzIGFuZCByZXN1Ym1pdDoNCg0KZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4c3cvc3BlY3RydW1fcm91dGVyLmM6IEluIGZ1bmN0aW9u
+IKFtbHhzd19zcF9yaWZfY291bnRlcl9mcmVlojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxh
+bm94L21seHN3L3NwZWN0cnVtX3JvdXRlci5jOjIwODoyOiB3YXJuaW5nOiChcF9jb3VudGVyX2lu
+ZGV4oiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1XbWF5YmUt
+dW5pbml0aWFsaXplZF0NCiAgbWx4c3dfc3BfcmlmX2NvdW50ZXJfZWRpdChtbHhzd19zcCwgcmlm
+LT5yaWZfaW5kZXgsDQogIF4NCmRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seHN3L3Nw
+ZWN0cnVtX2RwaXBlLmM6IEluIGZ1bmN0aW9uIKFtbHhzd19zcF90YWJsZV9lcmlmX2VudHJpZXNf
+ZHVtcKI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHhzdy9zcGVjdHJ1bV9kcGlw
+ZS5jOjIyMDo5OiB3YXJuaW5nOiBtaXNzaW5nIGJyYWNlcyBhcm91bmQgaW5pdGlhbGl6ZXIgWy1X
+bWlzc2luZy1icmFjZXNdDQogIHN0cnVjdCBkZXZsaW5rX2RwaXBlX3ZhbHVlIG1hdGNoX3ZhbHVl
+ID0gezB9LCBhY3Rpb25fdmFsdWUgPSB7MH07DQogICAgICAgICBeDQpkcml2ZXJzL25ldC9ldGhl
+cm5ldC9tZWxsYW5veC9tbHhzdy9zcGVjdHJ1bV9kcGlwZS5jOjIyMDo5OiB3YXJuaW5nOiAobmVh
+ciBpbml0aWFsaXphdGlvbiBmb3IgoW1hdGNoX3ZhbHVlLjxhbm9ueW1vdXM+oikgWy1XbWlzc2lu
+Zy1icmFjZXNdDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHhzdy9zcGVjdHJ1bV9k
+cGlwZS5jOjIyMDo5OiB3YXJuaW5nOiBtaXNzaW5nIGJyYWNlcyBhcm91bmQgaW5pdGlhbGl6ZXIg
+Wy1XbWlzc2luZy1icmFjZXNdDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHhzdy9z
+cGVjdHJ1bV9kcGlwZS5jOjIyMDo5OiB3YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3Ig
+oWFjdGlvbl92YWx1ZS48YW5vbnltb3VzPqIpIFstV21pc3NpbmctYnJhY2VzXQ0K
