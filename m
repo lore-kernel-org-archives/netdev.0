@@ -1,111 +1,110 @@
-From: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Subject: [PATCH RFC v4 06/10] net: qualcomm: make qca_common a separate kernel module
-Date: Mon, 27 Mar 2017 15:37:24 +0200
-Message-ID: <1490621848-24828-7-git-send-email-stefan.wahren@i2se.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: [PATCH RFC v4 03/10] net: qualcomm: move qcaspi_tx_cmd to qca_spi.c
+Date: Mon, 27 Mar 2017 15:37:21 +0200
+Message-ID: <1490621848-24828-4-git-send-email-stefan.wahren@i2se.com>
 References: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>,
-        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1490621848-24828-1-git-send-email-stefan.wahren-eS4NqCHxEME@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Sebastian Reichel <sre@kernel.org>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-serial@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Stefan Wahren <stefan.wahren@i2se.com>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to share common functions between QCA7000 SPI and UART protocol
-driver the qca_common needs to be a separate kernel module.
+The function qcaspi_tx_cmd() is only called from qca_spi.c. So we better
+move it there.
 
-Signed-off-by: Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/Kconfig      |  8 +++++++-
- drivers/net/ethernet/qualcomm/Makefile     |  5 +++--
- drivers/net/ethernet/qualcomm/qca_common.c | 10 ++++++++++
- 3 files changed, 20 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/qualcomm/qca_7k.c  | 24 ------------------------
+ drivers/net/ethernet/qualcomm/qca_7k.h  |  1 -
+ drivers/net/ethernet/qualcomm/qca_spi.c | 24 ++++++++++++++++++++++++
+ 3 files changed, 24 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
-index d7720bf..b4c369d 100644
---- a/drivers/net/ethernet/qualcomm/Kconfig
-+++ b/drivers/net/ethernet/qualcomm/Kconfig
-@@ -16,7 +16,13 @@ config NET_VENDOR_QUALCOMM
- if NET_VENDOR_QUALCOMM
- 
- config QCA7000
--	tristate "Qualcomm Atheros QCA7000 support"
-+	tristate
-+	help
-+	  This enables support for the Qualcomm Atheros QCA7000.
-+
-+config QCA7000_SPI
-+	tristate "Qualcomm Atheros QCA7000 SPI support"
-+	select QCA7000
- 	depends on SPI_MASTER && OF
- 	---help---
- 	  This SPI protocol driver supports the Qualcomm Atheros QCA7000.
-diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
-index 8080570..00d8729 100644
---- a/drivers/net/ethernet/qualcomm/Makefile
-+++ b/drivers/net/ethernet/qualcomm/Makefile
-@@ -2,7 +2,8 @@
- # Makefile for the Qualcomm network device drivers.
- #
- 
--obj-$(CONFIG_QCA7000) += qcaspi.o
--qcaspi-objs := qca_spi.o qca_common.o qca_7k.o qca_debug.o
-+obj-$(CONFIG_QCA7000) += qca_common.o
-+obj-$(CONFIG_QCA7000_SPI) += qcaspi.o
-+qcaspi-objs := qca_7k.o qca_debug.o qca_spi.o
- 
- obj-y += emac/
-diff --git a/drivers/net/ethernet/qualcomm/qca_common.c b/drivers/net/ethernet/qualcomm/qca_common.c
-index d930524..f2c9e76 100644
---- a/drivers/net/ethernet/qualcomm/qca_common.c
-+++ b/drivers/net/ethernet/qualcomm/qca_common.c
-@@ -21,7 +21,9 @@
-  *   by an atheros frame while transmitted over a serial channel;
-  */
- 
-+#include <linux/init.h>
- #include <linux/kernel.h>
-+#include <linux/module.h>
- 
- #include "qca_common.h"
- 
-@@ -46,6 +48,7 @@ qcafrm_create_header(u8 *buf, u16 length)
- 
- 	return QCAFRM_HEADER_LEN;
- }
-+EXPORT_SYMBOL_GPL(qcafrm_create_header);
- 
- u16
- qcafrm_create_footer(u8 *buf)
-@@ -57,6 +60,7 @@ qcafrm_create_footer(u8 *buf)
- 	buf[1] = 0x55;
- 	return QCAFRM_FOOTER_LEN;
- }
-+EXPORT_SYMBOL_GPL(qcafrm_create_footer);
- 
- /*   Gather received bytes and try to extract a full ethernet frame by
-  *   following a simple state machine.
-@@ -154,3 +158,9 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.c b/drivers/net/ethernet/qualcomm/qca_7k.c
+index 557d53c..aa90a1d 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.c
++++ b/drivers/net/ethernet/qualcomm/qca_7k.c
+@@ -119,27 +119,3 @@ qcaspi_write_register(struct qcaspi *qca, u16 reg, u16 value)
  
  	return ret;
  }
-+EXPORT_SYMBOL_GPL(qcafrm_fsm_decode);
+-
+-int
+-qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd)
+-{
+-	__be16 tx_data;
+-	struct spi_message *msg = &qca->spi_msg1;
+-	struct spi_transfer *transfer = &qca->spi_xfer1;
+-	int ret;
+-
+-	tx_data = cpu_to_be16(cmd);
+-	transfer->len = sizeof(tx_data);
+-	transfer->tx_buf = &tx_data;
+-	transfer->rx_buf = NULL;
+-
+-	ret = spi_sync(qca->spi_dev, msg);
+-
+-	if (!ret)
+-		ret = msg->status;
+-
+-	if (ret)
+-		qcaspi_spi_error(qca);
+-
+-	return ret;
+-}
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.h b/drivers/net/ethernet/qualcomm/qca_7k.h
+index 1cad851..b390b1f 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.h
++++ b/drivers/net/ethernet/qualcomm/qca_7k.h
+@@ -67,6 +67,5 @@
+ void qcaspi_spi_error(struct qcaspi *qca);
+ int qcaspi_read_register(struct qcaspi *qca, u16 reg, u16 *result);
+ int qcaspi_write_register(struct qcaspi *qca, u16 reg, u16 value);
+-int qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd);
+ 
+ #endif /* _QCA_7K_H */
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index 513e6c7..4f431bc 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -193,6 +193,30 @@ qcaspi_read_legacy(struct qcaspi *qca, u8 *dst, u32 len)
+ }
+ 
+ static int
++qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd)
++{
++	__be16 tx_data;
++	struct spi_message *msg = &qca->spi_msg1;
++	struct spi_transfer *transfer = &qca->spi_xfer1;
++	int ret;
 +
-+MODULE_DESCRIPTION("Qualcomm Atheros Common");
-+MODULE_AUTHOR("Qualcomm Atheros Communications");
-+MODULE_AUTHOR("Stefan Wahren <stefan.wahren-eS4NqCHxEME@public.gmane.org>");
-+MODULE_LICENSE("Dual BSD/GPL");
++	tx_data = cpu_to_be16(cmd);
++	transfer->len = sizeof(tx_data);
++	transfer->tx_buf = &tx_data;
++	transfer->rx_buf = NULL;
++
++	ret = spi_sync(qca->spi_dev, msg);
++
++	if (!ret)
++		ret = msg->status;
++
++	if (ret)
++		qcaspi_spi_error(qca);
++
++	return ret;
++}
++
++static int
+ qcaspi_tx_frame(struct qcaspi *qca, struct sk_buff *skb)
+ {
+ 	u32 count;
 -- 
 2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
