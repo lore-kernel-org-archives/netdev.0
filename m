@@ -1,69 +1,97 @@
-From: Matthew Wilcox <willy@infradead.org>
-Subject: in_irq_or_nmi()
-Date: Mon, 27 Mar 2017 09:58:17 -0700
-Message-ID: <20170327165817.GA28494@bombadil.infradead.org>
-References: <20170322234004.kffsce4owewgpqnm@techsingularity.net>
- <20170323144347.1e6f29de@redhat.com>
- <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
- <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
- <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
- <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
- <20170327105514.1ed5b1ba@redhat.com>
- <20170327143947.4c237e54@redhat.com>
- <20170327141518.GB27285@bombadil.infradead.org>
- <20170327171500.4beef762@redhat.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH 5/5] PCI: remove pci_enable_msix
+Date: Mon, 27 Mar 2017 09:59:35 -0700
+Message-ID: <83f97789-0817-7549-bfa9-1f8dcb0c26d9@gmail.com>
+References: <20170327082936.6830-1-hch@lst.de>
+ <20170327082936.6830-6-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Pankaj Gupta <pagupta@redhat.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>, linux-kernel@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170327171500.4beef762@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, bhelgaas@google.com,
+        davem@davemloft.net, netanel@annapurnalabs.com, jcliburn@gmail.com,
+        chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20170327082936.6830-6-hch@lst.de>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 27, 2017 at 05:15:00PM +0200, Jesper Dangaard Brouer wrote:
-> And I also verified it worked:
-> 
->   0.63 │       mov    __preempt_count,%eax
->        │     free_hot_cold_page():
->   1.25 │       test   $0x1f0000,%eax
->        │     ↓ jne    1e4
-> 
-> And this simplification also made the compiler change this into a
-> unlikely branch, which is a micro-optimization (that I will leave up to
-> the compiler).
+On 03/27/2017 01:29 AM, Christoph Hellwig wrote:
+> Unused now that all callers switched to pci_alloc_irq_vectors.
+>
 
-Excellent!  That said, I think we should define in_irq_or_nmi() in
-preempt.h, rather than hiding it in the memory allocator.  And since we're
-doing that, we might as well make it look like the other definitions:
+And you are aware that the ThunderX GPIO driver that I am attempting to 
+merge uses this interface.
 
-diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index 7eeceac52dea..af98c29abd9d 100644
---- a/include/linux/preempt.h
-+++ b/include/linux/preempt.h
-@@ -81,6 +81,7 @@
- #define in_interrupt()		(irq_count())
- #define in_serving_softirq()	(softirq_count() & SOFTIRQ_OFFSET)
- #define in_nmi()		(preempt_count() & NMI_MASK)
-+#define in_irq_or_nmi()		(preempt_count() & (HARDIRQ_MASK | NMI_MASK))
- #define in_task()		(!(preempt_count() & \
- 				   (NMI_MASK | HARDIRQ_MASK | SOFTIRQ_OFFSET)))
- 
+If this patch gets merged, should I ask to revert it when the GPIO 
+driver goes in?
 
-I think there are some genuine questions to be asked about the other
-users of in_irq() whether they really want to use in_irq_or_nmi().
-There's fewer than a hundred of them, so somebody sufficiently motivated
-could take a look in a few days.
+You offer no solution for drivers that would benefit from using a sparse 
+sub set of the available MSI-X vectors.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+David Daney
+
+
+
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  drivers/pci/msi.c   | 21 ---------------------
+>  include/linux/pci.h |  4 ----
+>  2 files changed, 25 deletions(-)
+>
+> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+> index d571bc330686..0042c365b29b 100644
+> --- a/drivers/pci/msi.c
+> +++ b/drivers/pci/msi.c
+> @@ -973,27 +973,6 @@ static int __pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries,
+>  	return msix_capability_init(dev, entries, nvec, affd);
+>  }
+>
+> -/**
+> - * pci_enable_msix - configure device's MSI-X capability structure
+> - * @dev: pointer to the pci_dev data structure of MSI-X device function
+> - * @entries: pointer to an array of MSI-X entries (optional)
+> - * @nvec: number of MSI-X irqs requested for allocation by device driver
+> - *
+> - * Setup the MSI-X capability structure of device function with the number
+> - * of requested irqs upon its software driver call to request for
+> - * MSI-X mode enabled on its hardware device function. A return of zero
+> - * indicates the successful configuration of MSI-X capability structure
+> - * with new allocated MSI-X irqs. A return of < 0 indicates a failure.
+> - * Or a return of > 0 indicates that driver request is exceeding the number
+> - * of irqs or MSI-X vectors available. Driver should use the returned value to
+> - * re-send its request.
+> - **/
+> -int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
+> -{
+> -	return __pci_enable_msix(dev, entries, nvec, NULL);
+> -}
+> -EXPORT_SYMBOL(pci_enable_msix);
+> -
+>  void pci_msix_shutdown(struct pci_dev *dev)
+>  {
+>  	struct msi_desc *entry;
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index eb3da1a04e6c..82dec36845e6 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -1300,7 +1300,6 @@ int pci_msi_vec_count(struct pci_dev *dev);
+>  void pci_msi_shutdown(struct pci_dev *dev);
+>  void pci_disable_msi(struct pci_dev *dev);
+>  int pci_msix_vec_count(struct pci_dev *dev);
+> -int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec);
+>  void pci_msix_shutdown(struct pci_dev *dev);
+>  void pci_disable_msix(struct pci_dev *dev);
+>  void pci_restore_msi_state(struct pci_dev *dev);
+> @@ -1330,9 +1329,6 @@ static inline int pci_msi_vec_count(struct pci_dev *dev) { return -ENOSYS; }
+>  static inline void pci_msi_shutdown(struct pci_dev *dev) { }
+>  static inline void pci_disable_msi(struct pci_dev *dev) { }
+>  static inline int pci_msix_vec_count(struct pci_dev *dev) { return -ENOSYS; }
+> -static inline int pci_enable_msix(struct pci_dev *dev,
+> -				  struct msix_entry *entries, int nvec)
+> -{ return -ENOSYS; }
+>  static inline void pci_msix_shutdown(struct pci_dev *dev) { }
+>  static inline void pci_disable_msix(struct pci_dev *dev) { }
+>  static inline void pci_restore_msi_state(struct pci_dev *dev) { }
+>
