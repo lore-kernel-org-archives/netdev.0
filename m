@@ -1,96 +1,137 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/10][pull request] 40GbE Intel Wired LAN Driver Updates 2017-03-27
-Date: Mon, 27 Mar 2017 16:52:00 -0700
-Message-ID: <20170327235210.28652-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next v2 04/10] i40e: Fixed race conditions in VF reset
+Date: Mon, 27 Mar 2017 16:52:04 -0700
+Message-ID: <20170327235210.28652-5-jeffrey.t.kirsher@intel.com>
+References: <20170327235210.28652-1-jeffrey.t.kirsher@intel.com>
+Cc: Robert Konklewski <robertx.konklewski@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:27157 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:46923 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752575AbdC0XwQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 19:52:16 -0400
+        id S1753296AbdC0Xwe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Mar 2017 19:52:34 -0400
+In-Reply-To: <20170327235210.28652-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Robert Konklewski <robertx.konklewski@intel.com>
 
-Alex updates the driver code so that we can do bulk updates of the page
-reference count instead of just incrementing it by one reference at a
-time.  Fixed an issue where we were not resetting skb back to NULL when
-we have freed it.  Cleaned up the i40e_process_skb_fields() to align with
-other Intel drivers.  Removed FCoE code, since it is not supported in any
-of the Fortville/Fortpark hardware, so there is not much point of carrying
-the code around, especially if it is broken and untested.
+First, this patch eliminates IOMMU DMAR Faults caused by VF hardware.
+This is done by enabling VF hardware only after VSI resources are
+freed. Otherwise, hardware could DMA into memory that is (or just has
+been) being freed.
 
-Harshitha fixes a bug in the driver where the calculation of the RSS size
-was not taking into account the number of traffic classes enabled.
+Then, the VF driver is activated only after VSI resources have been
+reallocated. That's because the VF driver can request resources
+immediately after it's activated. So they need to be ready at that
+point.
 
-Robert fixes a potential race condition during VF reset by eliminating
-IOMMU DMAR Faults caused by VF hardware and when the OS initiates a VF
-reset and before the reset is finished we modify the VF's settings.
+The second race condition happens when the OS initiates a VF reset,
+and then before it's finished modifies VF's settings by changing its
+MAC, VLAN ID, bandwidth allocation, anti-spoof checking, etc. These
+functions needed to be blocked while VF is undergoing reset. Otherwise,
+they could operate on data structures that had just been freed or not
+yet fully initialized.
 
-Bimmy removes a delay that is no longer needed, since it was only needed
-for preproduction hardware.
+Change-ID: I43ba5a7ae2c9a1cce3911611ffc4598ae33ae3ff
+Signed-off-by: Robert Konklewski <robertx.konklewski@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 43 ++++++++++++++++++----
+ 1 file changed, 35 insertions(+), 8 deletions(-)
 
-Colin King fixes null pointer dereference, where VSI was being
-dereferenced before the VSI NULL check.
-
-Jake fixes an issue with the recent addition of the "client code" to the
-driver, where we attempt to use an uninitialized variable, so correctly
-initialize the params variable by calling i40e_client_get_params().
-
-v2: dropped patch 5 of the original series from Carolyn since we need
-    more documentation and reason why the added delay, so Carolyn is
-    taking the time to update the patch before we re-submit it for
-    kernel inclusion.
-
-The following are changes since commit 402a5bc462d47f0b7c9e8a516c124c9c162fe2aa:
-  ipv6: sr: select DST_CACHE by default
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alexander Duyck (5):
-  i40e/i40evf: Update code to better handle incrementing page count
-  i40e/i40evf: Fix use after free in Rx cleanup path
-  i40e/i40evf: Clean-up process_skb_fields
-  i40e: Drop FCoE code from core driver files
-  i40e: Drop FCoE code that always evaluates to false or 0
-
-Bimmy Pujari (1):
-  i40e: removed no longer needed delays
-
-Colin Ian King (1):
-  i40evf: dereference VSI after VSI has been null checked
-
-Harshitha Ramamurthy (1):
-  i40e: fix configuration of RSS table with DCB
-
-Jacob Keller (1):
-  i40e: initialize params before notifying of l2_param_changes
-
-Robert Konklewski (1):
-  i40e: Fixed race conditions in VF reset
-
- drivers/net/ethernet/intel/Kconfig                 |  11 -
- drivers/net/ethernet/intel/i40e/Makefile           |   1 -
- drivers/net/ethernet/intel/i40e/i40e.h             |  62 -----
- drivers/net/ethernet/intel/i40e/i40e_client.c      |   2 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  27 --
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  19 --
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  35 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 295 +--------------------
- drivers/net/ethernet/intel/i40e/i40e_osdep.h       |   3 -
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   3 -
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  60 ++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  24 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        | 138 ----------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  43 ++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   1 -
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  33 ++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  19 +-
- drivers/net/ethernet/intel/i40evf/i40evf_client.c  |   9 +-
- 18 files changed, 112 insertions(+), 673 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index cfe8b78dac0e..d526940ff951 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -809,6 +809,11 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
+ 	u32 reg_idx, reg;
+ 	int i, msix_vf;
+ 
++	/* Start by disabling VF's configuration API to prevent the OS from
++	 * accessing the VF's VSI after it's freed / invalidated.
++	 */
++	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
++
+ 	/* free vsi & disconnect it from the parent uplink */
+ 	if (vf->lan_vsi_idx) {
+ 		i40e_vsi_release(pf->vsi[vf->lan_vsi_idx]);
+@@ -848,7 +853,6 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
+ 	/* reset some of the state variables keeping track of the resources */
+ 	vf->num_queue_pairs = 0;
+ 	vf->vf_states = 0;
+-	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
+ }
+ 
+ /**
+@@ -939,6 +943,14 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 	/* warn the VF */
+ 	clear_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
+ 
++	/* Disable VF's configuration API during reset. The flag is re-enabled
++	 * in i40e_alloc_vf_res(), when it's safe again to access VF's VSI.
++	 * It's normally disabled in i40e_free_vf_res(), but it's safer
++	 * to do it earlier to give some time to finish to any VF config
++	 * functions that may still be running at this point.
++	 */
++	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
++
+ 	/* In the case of a VFLR, the HW has already reset the VF and we
+ 	 * just need to clean up, so don't hit the VFRTRIG register.
+ 	 */
+@@ -982,11 +994,6 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 	if (!rsd)
+ 		dev_err(&pf->pdev->dev, "VF reset check timeout on VF %d\n",
+ 			vf->vf_id);
+-	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_COMPLETED);
+-	/* clear the reset bit in the VPGEN_VFRTRIG reg */
+-	reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
+-	reg &= ~I40E_VPGEN_VFRTRIG_VFSWR_MASK;
+-	wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
+ 
+ 	/* On initial reset, we won't have any queues */
+ 	if (vf->lan_vsi_idx == 0)
+@@ -994,8 +1001,24 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 
+ 	i40e_vsi_stop_rings(pf->vsi[vf->lan_vsi_idx]);
+ complete_reset:
+-	/* reallocate VF resources to reset the VSI state */
++	/* free VF resources to begin resetting the VSI state */
+ 	i40e_free_vf_res(vf);
++
++	/* Enable hardware by clearing the reset bit in the VPGEN_VFRTRIG reg.
++	 * By doing this we allow HW to access VF memory at any point. If we
++	 * did it any sooner, HW could access memory while it was being freed
++	 * in i40e_free_vf_res(), causing an IOMMU fault.
++	 *
++	 * On the other hand, this needs to be done ASAP, because the VF driver
++	 * is waiting for this to happen and may report a timeout. It's
++	 * harmless, but it gets logged into Guest OS kernel log, so best avoid
++	 * it.
++	 */
++	reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
++	reg &= ~I40E_VPGEN_VFRTRIG_VFSWR_MASK;
++	wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
++
++	/* reallocate VF resources to finish resetting the VSI state */
+ 	if (!i40e_alloc_vf_res(vf)) {
+ 		int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 		i40e_enable_vf_mappings(vf);
+@@ -1006,7 +1029,11 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 			i40e_notify_client_of_vf_reset(pf, abs_vf_id);
+ 		vf->num_vlan = 0;
+ 	}
+-	/* tell the VF the reset is done */
++
++	/* Tell the VF driver the reset is done. This needs to be done only
++	 * after VF has been fully initialized, because the VF driver may
++	 * request resources immediately after setting this flag.
++	 */
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
+ 
+ 	i40e_flush(hw);
 -- 
 2.12.0
