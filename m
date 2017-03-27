@@ -1,63 +1,95 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH v2] xfrm: branchless addr4_match() on 64-bit
-Date: Mon, 27 Mar 2017 12:37:19 +0200
-Message-ID: <20170327103719.GI23004@secunet.com>
-References: <20170323233247.GE31372@avx2>
- <063D6719AE5E284EB5DD2968C1650D6DCFFB93A8@AcuExch.aculab.com>
- <20170325163712.GA4950@avx2>
- <20170325164117.GB4950@avx2>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next 0/4] net: mpls: Allow users to configure more
+ labels per route
+Date: Mon, 27 Mar 2017 11:39:10 +0100
+Message-ID: <5fe416c3-3e56-4e31-f92b-33e3e7b2e3c0@brocade.com>
+References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
+ <87shm1np5h.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        <David.Laight@ACULAB.COM>
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+        David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:39998 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751989AbdC0Kix (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 06:38:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20170325164117.GB4950@avx2>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33751 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750781AbdC0Kjg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 06:39:36 -0400
+In-Reply-To: <87shm1np5h.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 25, 2017 at 07:41:17PM +0300, Alexey Dobriyan wrote:
-> Current addr4_match() code has special test for /0 prefixes because of
-> standard required undefined behaviour. However, it is possible to omit
-> it on 64-bit because shifting can be done within a 64-bit register and
-> then truncated to the expected value (which is 0 mask).
-> 
-> Implicit truncation by htonl() fits nicely into R32-within-R64 model
-> on x86-64.
-> 
-> Space savings: none (coincidence)
-> Branch savings: 1
-> 
-> Before:
-> 
-> 	movzx  eax,BYTE PTR [rdi+0x2a]		# ->prefixlen_d
-> 	test   al,al
-> 	jne    xfrm_selector_match + 0x23f
-> 		...
-> 	movzx  eax,BYTE PTR [rbx+0x2b]		# ->prefixlen_s
-> 	test   al,al
-> 	je     xfrm_selector_match + 0x1c7
-> 
-> After (no branches):
-> 
-> 	mov    r8d,0x20
-> 	mov    rdx,0xffffffffffffffff
-> 	mov    esi,DWORD PTR [rsi+0x2c]
-> 	mov    ecx,r8d
-> 	sub    cl,BYTE PTR [rdi+0x2a]
-> 	xor    esi,DWORD PTR [rbx]
-> 	mov    rdi,rdx
-> 	xor    eax,eax
-> 	shl    rdi,cl
-> 	bswap  edi
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+On 25/03/17 19:15, Eric W. Biederman wrote:
+> David Ahern <dsa@cumulusnetworks.com> writes:
+>
+>> Bump the maximum number of labels for MPLS routes from 2 to 12. To keep
+>> memory consumption in check the labels array is moved to the end of mpls_nh
+>> and mpls_iptunnel_encap structs as a 0-sized array. Allocations use the
+>> maximum number of labels across all nexthops in a route for LSR and the
+>> number of labels configured for LWT.
+>>
+>> The mpls_route layout is changed to:
+>>
+>>    +----------------------+
+>>    | mpls_route           |
+>>    +----------------------+
+>>    | mpls_nh 0            |
+>>    +----------------------+
+>>    | alignment padding    |   4 bytes for odd number of labels; 0 for even
+>>    +----------------------+
+>>    | via[rt_max_alen] 0   |
+>>    +----------------------+
+>>    | alignment padding    |   via's aligned on sizeof(unsigned long)
+>>    +----------------------+
+>>    | ...                  |
+>>
+>> Meaning the via follows its mpls_nh providing better locality as the
+>> number of labels increases. UDP_RR tests with namespaces shows no impact
+>> to a modest performance increase with this layout for 1 or 2 labels and
+>> 1 or 2 nexthops.
+>>
+>> The new limit is set to 12 to cover all currently known segment
+>> routing use cases.
+>
+> How does this compare with running the packet a couple of times through
+> the mpls table to get all of the desired labels applied?
 
-Also applied to ipsec-next, thanks for the patches Alexey!
+At the moment (i.e setting output interface for a route to the loopback 
+interface) the TTL would currently be calculated incorrectly since it'll 
+be decremented each time the packet is run through the input processing. 
+If that was avoided, then the only issue would be the lower performance.
+
+>
+> I can certainly see the case in an mpls tunnel ingress where this might
+> could be desirable.    Which is something you implement in your last
+> patch.  However is it at all common to push lots of labels at once
+> during routing?
+>
+> I am probably a bit naive but it seems absurd to push more
+> than a handful of labels onto a packet as you are routing it.
+
+ From draft-ietf-spring-segment-routing-mpls-07:
+
+    Note that the kind of deployment of Segment Routing may affect the
+    depth of the MPLS label stack.  As every segment in the list is
+    represented by an additional MPLS label, the length of the segment
+    list directly correlates to the depth of the label stack.
+    Implementing a long path with many explicit hops as a segment list
+    may thus yield a deep label stack that would need to be pushed at the
+    head of the SR tunnel.
+
+    However, many use cases would need very few segments in the list.
+    This is especially true when taking good advantage of the ECMP aware
+    routing within each segment.  In fact most use cases need just one
+    additional segment and thus lead to a similar label stack depth as
+    e.g.  RSVP-based routing.
+
+The summary is that when using short-path routing then the number of 
+labels needed to be pushed on will be small (2 or 3). However, if using 
+SR to implement traffic engineering through a list of explicit hops then 
+the number of labels pushed could be much greater and up to the diameter 
+of the IGP network. Traffic engineering like this is not unusual.
+
+Thanks,
+Rob
