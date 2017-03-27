@@ -1,86 +1,138 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Mon, 27 Mar 2017 13:28:16 +0100
-Message-ID: <20170327122816.dvnfxkyqxasfiknj@techsingularity.net>
-References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
- <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
- <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
- <20170322234004.kffsce4owewgpqnm@techsingularity.net>
- <20170323144347.1e6f29de@redhat.com>
- <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
- <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
- <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
- <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
- <20170327105514.1ed5b1ba@redhat.com>
+From: Jonas Jensen <jonas.jensen@gmail.com>
+Subject: [PATCH v2] net: moxa: fix TX overrun memory leak
+Date: Mon, 27 Mar 2017 14:31:19 +0200
+Message-ID: <1490617879-14014-1-git-send-email-jonas.jensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Pankaj Gupta <pagupta@redhat.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170327105514.1ed5b1ba@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ Jonas Jensen <jonas.jensen@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 27, 2017 at 10:55:14AM +0200, Jesper Dangaard Brouer wrote:
-> On Mon, 27 Mar 2017 03:32:47 -0400 (EDT)
-> Pankaj Gupta <pagupta@redhat.com> wrote:
-> 
-> > Hello,
-> > 
-> > It looks like a race with softirq and normal process context.
-> > 
-> > Just thinking if we really want allocations from 'softirqs' to be
-> > done using per cpu list? 
-> 
-> Yes, softirq need fast page allocs. The softirq use-case is refilling
-> the DMA RX rings, which is time critical, especially for NIC drivers.
-> For this reason most drivers implement different page recycling tricks.
-> 
-> > Or we can have some check in  'free_hot_cold_page' for softirqs 
-> > to check if we are on a path of returning from hard interrupt don't
-> > allocate from per cpu list.
-> 
-> A possible solution, would be use the local_bh_{disable,enable} instead
-> of the {preempt_disable,enable} calls.  But it is slower, using numbers
-> from [1] (19 vs 11 cycles), thus the expected cycles saving is 38-19=19.
-> 
-> The problematic part of using local_bh_enable is that this adds a
-> softirq/bottom-halves rescheduling point (as it checks for pending
-> BHs).  Thus, this might affects real workloads.
-> 
-> 
-> I'm unsure what the best option is.  I'm leaning towards partly
-> reverting[1] and go back to doing the slower local_irq_save +
-> local_irq_restore as before.
-> 
-> Afterwards we can add a bulk page alloc+free call, that can amortize
-> this 38 cycles cost (of local_irq_{save,restore}).  Or add a function
-> call that MUST only be called from contexts with IRQs enabled, which
-> allow using the unconditionally local_irq_{disable,enable} as it only
-> costs 7 cycles.
-> 
+moxart_mac_start_xmit() doesn't care where tx_tail is, tx_head can
+catch and pass tx_tail, which is bad because moxart_tx_finished()
+isn't guaranteed to catch up on freeing resources from tx_tail.
 
-It's possible to have a separate list for hard/soft IRQ that are protected
-although great care is needed to drain properly. I have a partial prototype
-lying around marked as "interesting if we ever need it" but it needs more
-work. It's sufficiently complex that I couldn't rush it as a fix with the
-time I currently have available. For 4.11, it's safer to revert and try
-again later bearing in mind that softirqs are in the critical allocation
-path for some drivers.
+Add a check in moxart_mac_start_xmit() stopping the queue at
+the end of the circular buffer. Wake it on completion.
 
-I'll prepare a patch.
+Addresses https://bugzilla.kernel.org/show_bug.cgi?id=99451
 
+Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+---
+
+Notes:
+    ChangeLog v1->v2:
+    - stop queue instead of dropping frames
+    
+    The following trick was used to trigger the leak.
+    
+    On the host (where this driver runs):
+    1. iptables-restore /etc/iptables.conf && echo 1 > /proc/sys/net/ipv4/ip_forward && ifconfig eth0:0 192.168.5.1
+    2. cat /dev/zero | nc -l -p 3334
+    
+    On a client configured with 192.168.5.1 as a gateway:
+    1. nc -v 192.168.5.1 3334 > /dev/null &
+    repeat the following multiple times, interrup after a few seconds with CTRL+C:
+    2. wget http://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-8.7.1-amd64-netinst.iso
+    
+    Result (especially note columns <active_objs> and <num_objs> of kmalloc-192 and kmalloc-2048):
+    
+    date && ifconfig && echo 1 > /proc/sys/vm/drop_caches && cat /proc/slabinfo
+    Fri Mar 24 16:22:54 CET 2017
+    ..
+              RX bytes:57737 (56.3 KiB)  TX bytes:6638 (6.4 KiB)
+    ..
+     # name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab> : tunables <limit> ..
+    ..
+    kmalloc-8192           8      8   8192    4    8 : tunables    0    0    0 : slabdata      2      2      0
+    kmalloc-4096          13     16   4096    8    8 : tunables    0    0    0 : slabdata      2      2      0
+    kmalloc-2048          40     40   2048    8    4 : tunables    0    0    0 : slabdata      5      5      0
+    kmalloc-1024          94     96   1024    8    2 : tunables    0    0    0 : slabdata     12     12      0
+    kmalloc-512          179    184    512    8    1 : tunables    0    0    0 : slabdata     23     23      0
+    kmalloc-256           76     80    256   16    1 : tunables    0    0    0 : slabdata      5      5      0
+    kmalloc-192          126    126    192   21    1 : tunables    0    0    0 : slabdata      6      6      0
+    kmalloc-128          340    416    128   32    1 : tunables    0    0    0 : slabdata     13     13      0
+    kmalloc-96          8353   8358     96   42    1 : tunables    0    0    0 : slabdata    199    199      0
+    kmalloc-64           313    320     64   64    1 : tunables    0    0    0 : slabdata      5      5      0
+    kmalloc-32          1460   1536     32  128    1 : tunables    0    0    0 : slabdata     12     12      0
+    
+    date && ifconfig && echo 1 > /proc/sys/vm/drop_caches && cat /proc/slabinfo
+    Fri Mar 24 16:26:36 CET 2017
+    ..
+              RX bytes:70381213 (67.1 MiB)  TX bytes:86208719 (82.2 MiB)
+    ..
+     # name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab> : tunables <limit> ..
+    ..
+    kmalloc-8192           8      8   8192    4    8 : tunables    0    0    0 : slabdata      2      2      0
+    kmalloc-4096          13     16   4096    8    8 : tunables    0    0    0 : slabdata      2      2      0
+    kmalloc-2048        2159   2194   2048    8    4 : tunables    0    0    0 : slabdata    275    275      0
+    kmalloc-1024         100    104   1024    8    2 : tunables    0    0    0 : slabdata     13     13      0
+    kmalloc-512          182    184    512    8    1 : tunables    0    0    0 : slabdata     23     23      0
+    kmalloc-256           76     80    256   16    1 : tunables    0    0    0 : slabdata      5      5      0
+    kmalloc-192         2638   2667    192   21    1 : tunables    0    0    0 : slabdata    127    127      0
+    kmalloc-128          344    416    128   32    1 : tunables    0    0    0 : slabdata     13     13      0
+    kmalloc-96          8353   8358     96   42    1 : tunables    0    0    0 : slabdata    199    199      0
+    kmalloc-64           313    320     64   64    1 : tunables    0    0    0 : slabdata      5      5      0
+    kmalloc-32          1625   1664     32  128    1 : tunables    0    0    0 : slabdata     13     13      0
+    
+    Applies to next-20170310
+
+ drivers/net/ethernet/moxa/moxart_ether.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index 06c9f41..fa571d5 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -25,6 +25,7 @@
+ #include <linux/of_irq.h>
+ #include <linux/crc32.h>
+ #include <linux/crc32c.h>
++#include <linux/circ_buf.h>
+ 
+ #include "moxart_ether.h"
+ 
+@@ -297,6 +298,7 @@ static void moxart_tx_finished(struct net_device *ndev)
+ 		tx_tail = TX_NEXT(tx_tail);
+ 	}
+ 	priv->tx_tail = tx_tail;
++	netif_wake_queue(ndev);
+ }
+ 
+ static irqreturn_t moxart_mac_interrupt(int irq, void *dev_id)
+@@ -324,13 +326,19 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
+ 	void *desc;
+ 	unsigned int len;
+-	unsigned int tx_head = priv->tx_head;
++	unsigned int tx_head, tx_tail;
+ 	u32 txdes1;
+ 	int ret = NETDEV_TX_BUSY;
+ 
++	spin_lock_irq(&priv->txlock);
++
++	tx_head = priv->tx_head;
++	tx_tail = priv->tx_tail;
+ 	desc = priv->tx_desc_base + (TX_REG_DESC_SIZE * tx_head);
+ 
+-	spin_lock_irq(&priv->txlock);
++	if (CIRC_SPACE(tx_head, tx_tail, TX_DESC_NUM) == 1)
++		netif_stop_queue(ndev);
++
+ 	if (moxart_desc_read(desc + TX_REG_OFFSET_DESC0) & TX_DESC0_DMA_OWN) {
+ 		net_dbg_ratelimited("no TX space for packet\n");
+ 		priv->stats.tx_dropped++;
 -- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.8.2.1
