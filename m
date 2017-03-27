@@ -1,55 +1,62 @@
-From: Arushi Singhal <arushisinghal19971997@gmail.com>
-Subject: [PATCH v2] net: netfilter: Remove multiple assignment.
-Date: Tue, 28 Mar 2017 04:03:27 +0530
-Message-ID: <20170327223326.GA486@arushi-HP-Pavilion-Notebook>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC v2 3/3] net: phy: allow EEE with SGMII interface modes
+Date: Mon, 27 Mar 2017 15:42:57 -0700
+Message-ID: <3bcc3380-6e59-06e3-9ebd-5450e89c90a2@gmail.com>
+References: <20170327095826.GA2310@n2100.armlinux.org.uk>
+ <E1csRQT-0004rM-Tq@rmk-PC.armlinux.org.uk>
+ <5d3c3ce0-fabc-6b96-c7e9-c2e46ffe4d23@gmail.com>
+ <20170327170019.GR7909@n2100.armlinux.org.uk>
+ <9f523664-9479-26ca-e3f7-95453ed03560@gmail.com>
+ <20170327194747.GS7909@n2100.armlinux.org.uk>
+ <705b10f9-6a0c-3a35-ddff-04b75c6f80ec@gmail.com>
+ <20170327201529.GT7909@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        outreachy-kernel@googlegroups.com
-To: pablo@netfilter.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Andrew Lunn <andrew@lunn.ch>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35349 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751968AbdC0Wdw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 18:33:52 -0400
-Content-Disposition: inline
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:34410 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752443AbdC0WnG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 18:43:06 -0400
+Received: by mail-qk0-f196.google.com with SMTP id 10so3757066qkh.1
+        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 15:43:05 -0700 (PDT)
+In-Reply-To: <20170327201529.GT7909@n2100.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes multiple assignments to follow the kernel coding
-style as also reported by checkpatch.pl.
-Done using coccinelle.
-@@
-identifier i1,i2;
-constant c;
-@@
-- i1=i2=c;
-+ i1=c;
-+ i2=i1;
+On 03/27/2017 01:15 PM, Russell King - ARM Linux wrote:
+> Here's the revised patch as requested.
+> 
+> Thanks.
+> 
+> 8<===
+> From: Russell King <rmk+kernel@armlinux.org.uk>
+> Subject: [PATCH] net: phy: allow EEE with any interface mode
+> 
+> EEE is able to work in any PHY interface mode, there is nothing which
+> fundamentally restricts it to only a few modes.  For example, EEE works
+> in SGMII mode with the Marvell 88E1512.
+> 
+> Rather than just adding SGMII mode to the list, Florian suggests
+> removing the list of interface modes entirely:
+> 
+>   It actually sounds like we should just kill the check entirely,
+>   it does not appear that any of the interface mode would not
+>   fundamentally be able to support EEE, because the "lowest" mode
+>   we support is MII, and even there it's quite possible to support
+>   EEE.
+> 
+> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 
-Signed-off-by: Arushi Singhal <arushisinghal19971997@gmail.com>
----
-changes in v2
- -Make the commit message more clear and appropriate.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
- net/netfilter/nf_conntrack_proto_sctp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+I think David will require you to resubmit this as an entire patch
+series and without an RFC tag. Do you want to hold off a bit to get
+build coverage or go ahead and target net-next right away?
 
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-index 33279aab583d..723386bcc2cb 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -346,7 +346,8 @@ static int sctp_packet(struct nf_conn *ct,
- 		goto out;
- 	}
- 
--	old_state = new_state = SCTP_CONNTRACK_NONE;
-+	old_state = SCTP_CONNTRACK_NONE;
-+	new_state = old_state;
- 	spin_lock_bh(&ct->lock);
- 	for_each_sctp_chunk (skb, sch, _sch, offset, dataoff, count) {
- 		/* Special cases of Verification tag check (Sec 8.5.1) */
+Thanks!
 -- 
-2.11.0
+Florian
