@@ -1,40 +1,53 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 5/5] PCI: remove pci_enable_msix
-Date: Mon, 27 Mar 2017 14:06:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFBAAD0@AcuExch.aculab.com>
-References: <20170327082936.6830-1-hch@lst.de>
- <20170327082936.6830-6-hch@lst.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: 'Christoph Hellwig' <hch@lst.de>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netanel@annapurnalabs.com" <netanel@annapurnalabs.com>,
-        "jcliburn@gmail.com" <jcliburn@gmail.com>,
-        "chris.snook@gmail.com" <chris.snook@gmail.com>,
-        "sgoutham@cavium.com" <sgoutham@cavium.com>,
-        "rric@kernel.org" <rric@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.189]:52121 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752832AbdC0OHH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 10:07:07 -0400
-In-Reply-To: <20170327082936.6830-6-hch@lst.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 05/18] net, bluetooth: convert rfcomm_dlc.refcnt from
+ atomic_t to refcount_t
+Date: Mon, 27 Mar 2017 16:05:34 +0200
+Message-ID: <54BFC171-C8E2-47BB-811D-6E9832246256@holtmann.org>
+References: <1489749179-12063-1-git-send-email-elena.reshetova@intel.com>
+ <1489749179-12063-6-git-send-email-elena.reshetova@intel.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-decnet-user@lists.sourceforge.net,
+        "David S. Miller" <davem@davemloft.net>,
+        James Morris <jmorris@namei.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, 3chas3@gmail.com,
+        ralf@linux-mips.org, stephen@networkplumber.org,
+        jchapman@katalix.com, jhs@mojatatu.com,
+        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
+        linux-x25@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+        Johan Hedberg <johan.hedberg@gmail.com>, peterz@infradead.org,
+        keescook@chromium.org, Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
+To: Elena Reshetova <elena.reshetova@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489749179-12063-6-git-send-email-elena.reshetova@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig
-> Sent: 27 March 2017 09:30
->
-> Unused now that all callers switched to pci_alloc_irq_vectors.
+Hi Elena,
 
-Apart from all the 'out of tree' drivers that will need
-fixing and a conditional compile added.
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
+> 
+> Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+> Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Signed-off-by: David Windsor <dwindsor@gmail.com>
+> ---
+> include/net/bluetooth/rfcomm.h | 8 +++++---
+> net/bluetooth/rfcomm/core.c    | 4 ++--
+> 2 files changed, 7 insertions(+), 5 deletions(-)
 
-At least give us a couple of kernel versions to get it sorted.
+patch has been applied to bluetooth-next tree.
 
-	David
+Regards
+
+Marcel
