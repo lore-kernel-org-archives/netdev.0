@@ -1,244 +1,198 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Mon, 27 Mar 2017 10:55:14 +0200
-Message-ID: <20170327105514.1ed5b1ba@redhat.com>
-References: <58b48b1f.F/jo2/WiSxvvGm/z%akpm@linux-foundation.org>
-	<d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
-	<83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
-	<20170322234004.kffsce4owewgpqnm@techsingularity.net>
-	<20170323144347.1e6f29de@redhat.com>
-	<20170323145133.twzt4f5ci26vdyut@techsingularity.net>
-	<779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
-	<1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
-	<2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman
- <mgorman@techsingularity.net>, Tariq Toukan <tariqt@mellanox.com>,
- netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm
- <linux-mm@kvack.org>, Saeed Mahameed <saeedm@mellanox.com>,
- brouer@redhat.com
-To: Pankaj Gupta <pagupta@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH 4/5] net/ena: switch to pci_alloc_irq_vectors
+Date: Mon, 27 Mar 2017 10:29:35 +0200
+Message-ID: <20170327082936.6830-5-hch@lst.de>
+References: <20170327082936.6830-1-hch@lst.de>
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: bhelgaas@google.com, davem@davemloft.net,
+        netanel@annapurnalabs.com, jcliburn@gmail.com,
+        chris.snook@gmail.com, sgoutham@cavium.com, rric@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([65.50.211.133]:36442 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752098AbdC0JAN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:00:13 -0400
+In-Reply-To: <20170327082936.6830-1-hch@lst.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 27 Mar 2017 03:32:47 -0400 (EDT)
-Pankaj Gupta <pagupta@redhat.com> wrote:
+Remove the deprecated pci_enable_msix API in favour of it's successor.
 
-> Hello,
-> 
-> It looks like a race with softirq and normal process context.
-> 
-> Just thinking if we really want allocations from 'softirqs' to be
-> done using per cpu list? 
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 55 ++++++----------------------
+ drivers/net/ethernet/amazon/ena/ena_netdev.h |  2 -
+ 2 files changed, 12 insertions(+), 45 deletions(-)
 
-Yes, softirq need fast page allocs. The softirq use-case is refilling
-the DMA RX rings, which is time critical, especially for NIC drivers.
-For this reason most drivers implement different page recycling tricks.
-
-> Or we can have some check in  'free_hot_cold_page' for softirqs 
-> to check if we are on a path of returning from hard interrupt don't
-> allocate from per cpu list.
-
-A possible solution, would be use the local_bh_{disable,enable} instead
-of the {preempt_disable,enable} calls.  But it is slower, using numbers
-from [1] (19 vs 11 cycles), thus the expected cycles saving is 38-19=19.
-
-The problematic part of using local_bh_enable is that this adds a
-softirq/bottom-halves rescheduling point (as it checks for pending
-BHs).  Thus, this might affects real workloads.
-
-
-I'm unsure what the best option is.  I'm leaning towards partly
-reverting[1] and go back to doing the slower local_irq_save +
-local_irq_restore as before.
-
-Afterwards we can add a bulk page alloc+free call, that can amortize
-this 38 cycles cost (of local_irq_{save,restore}).  Or add a function
-call that MUST only be called from contexts with IRQs enabled, which
-allow using the unconditionally local_irq_{disable,enable} as it only
-costs 7 cycles.
-
-
-[1] commit 374ad05ab64d ("mm, page_alloc: only use per-cpu allocator for irq-safe requests")
- https://git.kernel.org/torvalds/c/374ad05ab64d
-
-
-> > On 26/03/2017 11:21 AM, Tariq Toukan wrote:  
-> > >
-> > >
-> > > On 23/03/2017 4:51 PM, Mel Gorman wrote:  
-> > >> On Thu, Mar 23, 2017 at 02:43:47PM +0100, Jesper Dangaard Brouer wrote:  
-> > >>> On Wed, 22 Mar 2017 23:40:04 +0000
-> > >>> Mel Gorman <mgorman@techsingularity.net> wrote:
-> > >>>  
-> > >>>> On Wed, Mar 22, 2017 at 07:39:17PM +0200, Tariq Toukan wrote:  
-> > >>>>>>>> This modification may slow allocations from IRQ context slightly
-> > >>>>>>>> but the
-> > >>>>>>>> main gain from the per-cpu allocator is that it scales better for
-> > >>>>>>>> allocations from multiple contexts.  There is an implicit
-> > >>>>>>>> assumption that
-> > >>>>>>>> intensive allocations from IRQ contexts on multiple CPUs from a
-> > >>>>>>>> single
-> > >>>>>>>> NUMA node are rare  
-> > >>>>> Hi Mel, Jesper, and all.
-> > >>>>>
-> > >>>>> This assumption contradicts regular multi-stream traffic that is
-> > >>>>> naturally
-> > >>>>> handled
-> > >>>>> over close numa cores.  I compared iperf TCP multistream (8 streams)
-> > >>>>> over CX4 (mlx5 driver) with kernels v4.10 (before this series) vs
-> > >>>>> kernel v4.11-rc1 (with this series).
-> > >>>>> I disabled the page-cache (recycle) mechanism to stress the page
-> > >>>>> allocator,
-> > >>>>> and see a drastic degradation in BW, from 47.5 G in v4.10 to 31.4 G in
-> > >>>>> v4.11-rc1 (34% drop).
-> > >>>>> I noticed queued_spin_lock_slowpath occupies 62.87% of CPU time.  
-> > >>>>
-> > >>>> Can you get the stack trace for the spin lock slowpath to confirm it's
-> > >>>> from IRQ context?  
-> > >>>
-> > >>> AFAIK allocations happen in softirq.  Argh and during review I missed
-> > >>> that in_interrupt() also covers softirq.  To Mel, can we use a in_irq()
-> > >>> check instead?
-> > >>>
-> > >>> (p.s. just landed and got home)  
-> > >
-> > > Glad to hear. Thanks for your suggestion.
-> > >  
-> > >>
-> > >> Not built or even boot tested. I'm unable to run tests at the moment  
-> > >
-> > > Thanks Mel, I will test it soon.
-> > >  
-> > Crashed in iperf single stream test:
-> > 
-> > [ 3974.123386] ------------[ cut here ]------------
-> > [ 3974.128778] WARNING: CPU: 2 PID: 8754 at lib/list_debug.c:53
-> > __list_del_entry_valid+0xa3/0xd0
-> > [ 3974.138751] list_del corruption. prev->next should be
-> > ffffea0040369c60, but was dead000000000100
-> > [ 3974.149016] Modules linked in: netconsole nfsv3 nfs fscache dm_mirror
-> > dm_region_hash dm_log dm_mod sb_edac edac_core x86_pkg_temp_thermal
-> > coretemp i2c_diolan_u2c kvm irqbypass ipmi_si ipmi_devintf crc32_pclmul
-> > iTCO_wdt ghash_clmulni_intel ipmi_msghandler dcdbas iTCO_vendor_support
-> > sg pcspkr lpc_ich shpchp wmi mfd_core acpi_power_meter nfsd auth_rpcgss
-> > nfs_acl lockd grace sunrpc binfmt_misc ip_tables mlx4_en sr_mod cdrom
-> > sd_mod i2c_algo_bit drm_kms_helper syscopyarea sysfillrect sysimgblt
-> > fb_sys_fops mlx5_core ttm tg3 ahci libahci mlx4_core drm libata ptp
-> > megaraid_sas crc32c_intel i2c_core pps_core [last unloaded: netconsole]
-> > [ 3974.212743] CPU: 2 PID: 8754 Comm: iperf Not tainted 4.11.0-rc2+ #30
-> > [ 3974.220073] Hardware name: Dell Inc. PowerEdge R730/0H21J3, BIOS
-> > 1.5.4 10/002/2015
-> > [ 3974.228974] Call Trace:
-> > [ 3974.231925]  <IRQ>
-> > [ 3974.234405]  dump_stack+0x63/0x8c
-> > [ 3974.238355]  __warn+0xd1/0xf0
-> > [ 3974.241891]  warn_slowpath_fmt+0x4f/0x60
-> > [ 3974.246494]  __list_del_entry_valid+0xa3/0xd0
-> > [ 3974.251583]  get_page_from_freelist+0x84c/0xb40
-> > [ 3974.256868]  ? napi_gro_receive+0x38/0x140
-> > [ 3974.261666]  __alloc_pages_nodemask+0xca/0x200
-> > [ 3974.266866]  mlx5e_alloc_rx_wqe+0x49/0x130 [mlx5_core]
-> > [ 3974.272862]  mlx5e_post_rx_wqes+0x84/0xc0 [mlx5_core]
-> > [ 3974.278725]  mlx5e_napi_poll+0xc7/0x450 [mlx5_core]
-> > [ 3974.284409]  net_rx_action+0x23d/0x3a0
-> > [ 3974.288819]  __do_softirq+0xd1/0x2a2
-> > [ 3974.293054]  irq_exit+0xb5/0xc0
-> > [ 3974.296783]  do_IRQ+0x51/0xd0
-> > [ 3974.300353]  common_interrupt+0x89/0x89
-> > [ 3974.304859] RIP: 0010:free_hot_cold_page+0x228/0x280
-> > [ 3974.310629] RSP: 0018:ffffc9000ea07c90 EFLAGS: 00000202 ORIG_RAX:
-> > ffffffffffffffa8
-> > [ 3974.319565] RAX: 0000000000000001 RBX: ffff88103f85f158 RCX:
-> > ffffea0040369c60
-> > [ 3974.327764] RDX: ffffea0040369c60 RSI: ffff88103f85f168 RDI:
-> > ffffea0040369ca0
-> > [ 3974.335961] RBP: ffffc9000ea07cc0 R08: ffff88103f85f168 R09:
-> > 00000000000005a8
-> > [ 3974.344178] R10: 00000000000005a8 R11: 0000000000010468 R12:
-> > ffffea0040369c80
-> > [ 3974.352387] R13: ffff88103f85f168 R14: ffff88107ffdeb80 R15:
-> > ffffea0040369ca0
-> > [ 3974.360577]  </IRQ>
-> > [ 3974.363145]  __put_page+0x34/0x40
-> > [ 3974.367068]  skb_release_data+0xca/0xe0
-> > [ 3974.371575]  skb_release_all+0x24/0x30
-> > [ 3974.375984]  __kfree_skb+0x12/0x20
-> > [ 3974.380003]  tcp_recvmsg+0x6ac/0xaf0
-> > [ 3974.384251]  inet_recvmsg+0x3c/0xa0
-> > [ 3974.388394]  sock_recvmsg+0x3d/0x50
-> > [ 3974.392511]  SYSC_recvfrom+0xd3/0x140
-> > [ 3974.396826]  ? handle_mm_fault+0xce/0x240
-> > [ 3974.401535]  ? SyS_futex+0x71/0x150
-> > [ 3974.405653]  SyS_recvfrom+0xe/0x10
-> > [ 3974.409673]  entry_SYSCALL_64_fastpath+0x1a/0xa9
-> > [ 3974.415056] RIP: 0033:0x7f04ca9315bb
-> > [ 3974.419309] RSP: 002b:00007f04c955de70 EFLAGS: 00000246 ORIG_RAX:
-> > 000000000000002d
-> > [ 3974.428243] RAX: ffffffffffffffda RBX: 0000000000020000 RCX:
-> > 00007f04ca9315bb
-> > [ 3974.436450] RDX: 0000000000020000 RSI: 00007f04bc0008f0 RDI:
-> > 0000000000000004
-> > [ 3974.444653] RBP: 0000000000000000 R08: 0000000000000000 R09:
-> > 0000000000000000
-> > [ 3974.452851] R10: 0000000000000000 R11: 0000000000000246 R12:
-> > 00007f04bc0008f0
-> > [ 3974.461051] R13: 0000000000034ac8 R14: 00007f04bc020910 R15:
-> > 000000000001c480
-> > [ 3974.469297] ---[ end trace 6fd472c9e1973d53 ]---
-> > 
-> >   
-> > >>
-> > >> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> > >> index 6cbde310abed..f82225725bc1 100644
-> > >> --- a/mm/page_alloc.c
-> > >> +++ b/mm/page_alloc.c
-> > >> @@ -2481,7 +2481,7 @@ void free_hot_cold_page(struct page *page, bool
-> > >> cold)
-> > >>      unsigned long pfn = page_to_pfn(page);
-> > >>      int migratetype;
-> > >>
-> > >> -    if (in_interrupt()) {
-> > >> +    if (in_irq()) {
-> > >>          __free_pages_ok(page, 0);
-> > >>          return;
-> > >>      }
-> > >> @@ -2647,7 +2647,7 @@ static struct page *__rmqueue_pcplist(struct
-> > >> zone *zone, int migratetype,
-> > >>  {
-> > >>      struct page *page;
-> > >>
-> > >> -    VM_BUG_ON(in_interrupt());
-> > >> +    VM_BUG_ON(in_irq());
-> > >>
-> > >>      do {
-> > >>          if (list_empty(list)) {
-> > >> @@ -2704,7 +2704,7 @@ struct page *rmqueue(struct zone *preferred_zone,
-> > >>      unsigned long flags;
-> > >>      struct page *page;
-> > >>
-> > >> -    if (likely(order == 0) && !in_interrupt()) {
-> > >> +    if (likely(order == 0) && !in_irq()) {
-> > >>          page = rmqueue_pcplist(preferred_zone, zone, order,
-> > >>                  gfp_flags, migratetype);
-> > >>          goto out;
-> > >>  
-> >   
-
-
-
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index 35f19430c84a..7c1214d78855 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -133,7 +133,7 @@ static int ena_init_rx_cpu_rmap(struct ena_adapter *adapter)
+ 		int irq_idx = ENA_IO_IRQ_IDX(i);
+ 
+ 		rc = irq_cpu_rmap_add(adapter->netdev->rx_cpu_rmap,
+-				      adapter->msix_entries[irq_idx].vector);
++				      pci_irq_vector(adapter->pdev, irq_idx));
+ 		if (rc) {
+ 			free_irq_cpu_rmap(adapter->netdev->rx_cpu_rmap);
+ 			adapter->netdev->rx_cpu_rmap = NULL;
+@@ -1208,13 +1208,7 @@ static irqreturn_t ena_intr_msix_io(int irq, void *data)
+ 
+ static int ena_enable_msix(struct ena_adapter *adapter, int num_queues)
+ {
+-	int i, msix_vecs, rc;
+-
+-	if (test_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags)) {
+-		netif_err(adapter, probe, adapter->netdev,
+-			  "Error, MSI-X is already enabled\n");
+-		return -EPERM;
+-	}
++	int msix_vecs, rc;
+ 
+ 	/* Reserved the max msix vectors we might need */
+ 	msix_vecs = ENA_MAX_MSIX_VEC(num_queues);
+@@ -1222,16 +1216,9 @@ static int ena_enable_msix(struct ena_adapter *adapter, int num_queues)
+ 	netif_dbg(adapter, probe, adapter->netdev,
+ 		  "trying to enable MSI-X, vectors %d\n", msix_vecs);
+ 
+-	adapter->msix_entries = vzalloc(msix_vecs * sizeof(struct msix_entry));
+-
+-	if (!adapter->msix_entries)
+-		return -ENOMEM;
+-
+-	for (i = 0; i < msix_vecs; i++)
+-		adapter->msix_entries[i].entry = i;
+-
+-	rc = pci_enable_msix(adapter->pdev, adapter->msix_entries, msix_vecs);
+-	if (rc != 0) {
++	rc = pci_alloc_irq_vectors(adapter->pdev, msix_vecs, msix_vecs,
++			PCI_IRQ_MSIX);
++	if (rc < 0) {
+ 		netif_err(adapter, probe, adapter->netdev,
+ 			  "Failed to enable MSI-X, vectors %d rc %d\n",
+ 			  msix_vecs, rc);
+@@ -1248,7 +1235,6 @@ static int ena_enable_msix(struct ena_adapter *adapter, int num_queues)
+ 	}
+ 
+ 	adapter->msix_vecs = msix_vecs;
+-	set_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags);
+ 
+ 	return 0;
+ }
+@@ -1264,7 +1250,7 @@ static void ena_setup_mgmnt_intr(struct ena_adapter *adapter)
+ 		ena_intr_msix_mgmnt;
+ 	adapter->irq_tbl[ENA_MGMNT_IRQ_IDX].data = adapter;
+ 	adapter->irq_tbl[ENA_MGMNT_IRQ_IDX].vector =
+-		adapter->msix_entries[ENA_MGMNT_IRQ_IDX].vector;
++		pci_irq_vector(adapter->pdev, ENA_MGMNT_IRQ_IDX);
+ 	cpu = cpumask_first(cpu_online_mask);
+ 	adapter->irq_tbl[ENA_MGMNT_IRQ_IDX].cpu = cpu;
+ 	cpumask_set_cpu(cpu,
+@@ -1287,7 +1273,7 @@ static void ena_setup_io_intr(struct ena_adapter *adapter)
+ 		adapter->irq_tbl[irq_idx].handler = ena_intr_msix_io;
+ 		adapter->irq_tbl[irq_idx].data = &adapter->ena_napi[i];
+ 		adapter->irq_tbl[irq_idx].vector =
+-			adapter->msix_entries[irq_idx].vector;
++			pci_irq_vector(adapter->pdev, irq_idx);
+ 		adapter->irq_tbl[irq_idx].cpu = cpu;
+ 
+ 		cpumask_set_cpu(cpu,
+@@ -1325,12 +1311,6 @@ static int ena_request_io_irq(struct ena_adapter *adapter)
+ 	struct ena_irq *irq;
+ 	int rc = 0, i, k;
+ 
+-	if (!test_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags)) {
+-		netif_err(adapter, ifup, adapter->netdev,
+-			  "Failed to request I/O IRQ: MSI-X is not enabled\n");
+-		return -EINVAL;
+-	}
+-
+ 	for (i = ENA_IO_IRQ_FIRST_IDX; i < adapter->msix_vecs; i++) {
+ 		irq = &adapter->irq_tbl[i];
+ 		rc = request_irq(irq->vector, irq->handler, flags, irq->name,
+@@ -1389,16 +1369,6 @@ static void ena_free_io_irq(struct ena_adapter *adapter)
+ 	}
+ }
+ 
+-static void ena_disable_msix(struct ena_adapter *adapter)
+-{
+-	if (test_and_clear_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags))
+-		pci_disable_msix(adapter->pdev);
+-
+-	if (adapter->msix_entries)
+-		vfree(adapter->msix_entries);
+-	adapter->msix_entries = NULL;
+-}
+-
+ static void ena_disable_io_intr_sync(struct ena_adapter *adapter)
+ {
+ 	int i;
+@@ -2479,8 +2449,7 @@ static int ena_enable_msix_and_set_admin_interrupts(struct ena_adapter *adapter,
+ 	return 0;
+ 
+ err_disable_msix:
+-	ena_disable_msix(adapter);
+-
++	pci_free_irq_vectors(adapter->pdev);
+ 	return rc;
+ }
+ 
+@@ -2518,7 +2487,7 @@ static void ena_fw_reset_device(struct work_struct *work)
+ 
+ 	ena_free_mgmnt_irq(adapter);
+ 
+-	ena_disable_msix(adapter);
++	pci_free_irq_vectors(adapter->pdev);
+ 
+ 	ena_com_abort_admin_commands(ena_dev);
+ 
+@@ -2569,7 +2538,7 @@ static void ena_fw_reset_device(struct work_struct *work)
+ 	return;
+ err_disable_msix:
+ 	ena_free_mgmnt_irq(adapter);
+-	ena_disable_msix(adapter);
++	pci_free_irq_vectors(adapter->pdev);
+ err_device_destroy:
+ 	ena_com_admin_destroy(ena_dev);
+ err:
+@@ -3103,7 +3072,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ err_free_msix:
+ 	ena_com_dev_reset(ena_dev);
+ 	ena_free_mgmnt_irq(adapter);
+-	ena_disable_msix(adapter);
++	pci_free_irq_vectors(adapter->pdev);
+ err_worker_destroy:
+ 	ena_com_destroy_interrupt_moderation(ena_dev);
+ 	del_timer(&adapter->timer_service);
+@@ -3188,7 +3157,7 @@ static void ena_remove(struct pci_dev *pdev)
+ 
+ 	ena_free_mgmnt_irq(adapter);
+ 
+-	ena_disable_msix(adapter);
++	pci_free_irq_vectors(adapter->pdev);
+ 
+ 	free_netdev(netdev);
+ 
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index ed62d8e231a1..0e22bce6239d 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -248,7 +248,6 @@ enum ena_flags_t {
+ 	ENA_FLAG_DEVICE_RUNNING,
+ 	ENA_FLAG_DEV_UP,
+ 	ENA_FLAG_LINK_UP,
+-	ENA_FLAG_MSIX_ENABLED,
+ 	ENA_FLAG_TRIGGER_RESET
+ };
+ 
+@@ -267,7 +266,6 @@ struct ena_adapter {
+ 
+ 	int num_queues;
+ 
+-	struct msix_entry *msix_entries;
+ 	int msix_vecs;
+ 
+ 	u32 tx_usecs, rx_usecs; /* interrupt moderation */
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.11.0
