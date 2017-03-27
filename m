@@ -1,166 +1,214 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 1/4] net: mpls: Convert number of nexthops to u8
-Date: Sun, 26 Mar 2017 22:11:51 -0500
-Message-ID: <871stjmn0o.fsf@xmission.com>
-References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
-        <1490461408-9551-2-git-send-email-dsa@cumulusnetworks.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv2 net-next 2/7] sctp: implement receiver-side procedures
+ for the SSN/TSN Reset Request Parameter
+Date: Mon, 27 Mar 2017 12:48:31 +0800
+Message-ID: <CADvbK_c5HsfBfA6GPaiHd1GRGRK5GnMY-3GCCGoZJMmHJsVYXg@mail.gmail.com>
+References: <cover.1489118815.git.lucien.xin@gmail.com> <f224235b4621ea3a182e959873f6fe0ba78e5416.1489118815.git.lucien.xin@gmail.com>
+ <20170320180457.GD23553@localhost.localdomain> <CADvbK_cqZDTDg8xOAwSqdq+L8G85uDyeSoeqfP6PBAbzhZUOhA@mail.gmail.com>
+ <20170324235105.GI23553@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        rshearma@brocade.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        davem <davem@davemloft.net>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:49486 "EHLO
-        out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751832AbdC0DRH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 26 Mar 2017 23:17:07 -0400
-In-Reply-To: <1490461408-9551-2-git-send-email-dsa@cumulusnetworks.com> (David
-        Ahern's message of "Sat, 25 Mar 2017 10:03:25 -0700")
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:36003 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751794AbdC0Ese (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 00:48:34 -0400
+In-Reply-To: <20170324235105.GI23553@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Ahern <dsa@cumulusnetworks.com> writes:
-
-> Number of nexthops and number of alive nexthops are tracked using an
-> unsigned int. A route should never have more than 255 nexthops so
-> convert both to u8. Update all references and intermediate variables
-> to consistently use u8 as well.
+On Sat, Mar 25, 2017 at 7:52 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Tue, Mar 21, 2017 at 01:44:32PM +0800, Xin Long wrote:
+>> On Tue, Mar 21, 2017 at 2:04 AM, Marcelo Ricardo Leitner
+>> <marcelo.leitner@gmail.com> wrote:
+>> > On Fri, Mar 10, 2017 at 12:11:07PM +0800, Xin Long wrote:
+>> >> This patch is to implement Receiver-Side Procedures for the SSN/TSN
+>> >> Reset Request Parameter described in rfc6525 section 6.2.4.
+>> >>
+>> >> The process is kind of complicate, it's wonth having some comments
+>> >> from section 6.2.4 in the codes.
+>> >>
+>> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> >> ---
+>> >>  include/net/sctp/sm.h   |  4 +++
+>> >>  net/sctp/sm_statefuns.c |  3 ++
+>> >>  net/sctp/stream.c       | 79 +++++++++++++++++++++++++++++++++++++++++++++++++
+>> >>  3 files changed, 86 insertions(+)
+>> >>
+>> >> diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+>> >> index b6f682e..2629d66 100644
+>> >> --- a/include/net/sctp/sm.h
+>> >> +++ b/include/net/sctp/sm.h
+>> >> @@ -293,6 +293,10 @@ struct sctp_chunk *sctp_process_strreset_inreq(
+>> >>                               struct sctp_association *asoc,
+>> >>                               union sctp_params param,
+>> >>                               struct sctp_ulpevent **evp);
+>> >> +struct sctp_chunk *sctp_process_strreset_tsnreq(
+>> >> +                             struct sctp_association *asoc,
+>> >> +                             union sctp_params param,
+>> >> +                             struct sctp_ulpevent **evp);
+>> >>
+>> >>  /* Prototypes for statetable processing. */
+>> >>
+>> >> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+>> >> index e03bb1a..6982064 100644
+>> >> --- a/net/sctp/sm_statefuns.c
+>> >> +++ b/net/sctp/sm_statefuns.c
+>> >> @@ -3872,6 +3872,9 @@ sctp_disposition_t sctp_sf_do_reconf(struct net *net,
+>> >>               else if (param.p->type == SCTP_PARAM_RESET_IN_REQUEST)
+>> >>                       reply = sctp_process_strreset_inreq(
+>> >>                               (struct sctp_association *)asoc, param, &ev);
+>> >> +             else if (param.p->type == SCTP_PARAM_RESET_TSN_REQUEST)
+>> >> +                     reply = sctp_process_strreset_tsnreq(
+>> >> +                             (struct sctp_association *)asoc, param, &ev);
+>> >>               /* More handles for other types will be added here, by now it
+>> >>                * just ignores other types.
+>> >>                */
+>> >> diff --git a/net/sctp/stream.c b/net/sctp/stream.c
+>> >> index 1c6cc04..7e993b0 100644
+>> >> --- a/net/sctp/stream.c
+>> >> +++ b/net/sctp/stream.c
+>> >> @@ -477,3 +477,82 @@ struct sctp_chunk *sctp_process_strreset_inreq(
+>> >>
+>> >>       return chunk;
+>> >>  }
+>> >> +
+>> >> +struct sctp_chunk *sctp_process_strreset_tsnreq(
+>> >> +                             struct sctp_association *asoc,
+>> >> +                             union sctp_params param,
+>> >> +                             struct sctp_ulpevent **evp)
+>> >> +{
+>> >> +     __u32 init_tsn = 0, next_tsn = 0, max_tsn_seen;
+>> >> +     struct sctp_strreset_tsnreq *tsnreq = param.v;
+>> >> +     struct sctp_stream *stream = asoc->stream;
+>> >> +     __u32 result = SCTP_STRRESET_DENIED;
+>> >> +     __u32 request_seq;
+>> >> +     __u16 i;
+>> >> +
+>> >> +     request_seq = ntohl(tsnreq->request_seq);
+>> >> +     if (request_seq > asoc->strreset_inseq) {
+>> >> +             result = SCTP_STRRESET_ERR_BAD_SEQNO;
+>> >> +             goto out;
+>> >> +     } else if (request_seq == asoc->strreset_inseq) {
+>> >> +             asoc->strreset_inseq++;
+>> >> +     }
+>> >
+>> > I guess I already asked this, but.. why request_seq <
+>> > asoc->strreset_inseq is allowed?
+>> we can not just ignore or response with ERR.
+>> rfc6525#section-5.2.1:
+>>
+>>    ... If the received RE-CONFIG chunk contains at least
+>>    one request and based on the analysis of the Re-configuration Request
+>>    Sequence Numbers this is the last received RE-CONFIG chunk (i.e., a
+>                                   ^^^^^^^^^^^^^
+>>    retransmission), the same RE-CONFIG chunk MUST to be sent back in
+>>    response, as it was earlier.
 >
-> Shrinks the size of mpls_route from 32 bytes to 24 bytes with a 2-byte
-> hole before the nexthops.
+> That means we should only re-process that *last* reconf request, and not
+> just any old one. My understanding is that we need something like:
+> +     } else if (request_seq < asoc->strreset_inseq-1) {
+> +             result = SCTP_STRRESET_ERR_BAD_SEQNO;
+> +             goto out;
+> +     }
 >
-> Also, the ACCESS_ONCE is changed to READ_ONCE per checkpatch message.
+> And then this makes it evident that we have to handle request_seq as
+> serial numbers (like TSNs are handled).
+Got you.
 
-I don't like this.  Byte writes don't exist on all architectures.
+Here is actually also a replay attack. If a duplicate request happens:
 
-So while I think always writing to rtn_nhn_alive under the
-rtn_lock ensures that we don't have wrong values written
-it is quite subtle.  And I don't know how this will interact with other
-fields that you are introducing.
+In  sender side, If the request is not yet acked, it will just process the
+response as usual. If It's acked already, It will drop the duplicate
+response as no matched asoc->strreset_chunk any more. It's safe.
 
-AKA this might be ok, but I expect this formulation of the code
-will easily bit-rot and break.
+But in receiver side. It will process stream/asoc again when receiving
+a duplicate request. If receiver side has processed some data chunks
+and tsn/ssn have been increased before this.  we shouldn't process
+this request, but only send back a response with the original result.
+The problem is that we didn't save the result of last request.
 
-Eric
 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  net/mpls/af_mpls.c  | 29 ++++++++++++++++++-----------
->  net/mpls/internal.h |  4 ++--
->  2 files changed, 20 insertions(+), 13 deletions(-)
 >
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index cd8be8d5e4ad..d3dc6c43a1d1 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -192,7 +192,7 @@ static u32 mpls_multipath_hash(struct mpls_route *rt, struct sk_buff *skb)
->  static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
->  					     struct sk_buff *skb)
->  {
-> -	int alive = ACCESS_ONCE(rt->rt_nhn_alive);
-> +	u8 alive = READ_ONCE(rt->rt_nhn_alive);
->  	u32 hash = 0;
->  	int nh_index = 0;
->  	int n = 0;
-> @@ -458,7 +458,7 @@ struct mpls_route_config {
->  	int			rc_mp_len;
->  };
->  
-> -static struct mpls_route *mpls_rt_alloc(int num_nh, u8 max_alen)
-> +static struct mpls_route *mpls_rt_alloc(u8 num_nh, u8 max_alen)
->  {
->  	u8 max_alen_aligned = ALIGN(max_alen, VIA_ALEN_ALIGN);
->  	struct mpls_route *rt;
-> @@ -736,11 +736,11 @@ static int mpls_nh_build(struct net *net, struct mpls_route *rt,
->  	return err;
->  }
->  
-> -static int mpls_count_nexthops(struct rtnexthop *rtnh, int len,
-> -			       u8 cfg_via_alen, u8 *max_via_alen)
-> +static u8 mpls_count_nexthops(struct rtnexthop *rtnh, int len,
-> +			      u8 cfg_via_alen, u8 *max_via_alen)
->  {
-> -	int nhs = 0;
->  	int remaining = len;
-> +	u8 nhs = 0;
->  
->  	if (!rtnh) {
->  		*max_via_alen = cfg_via_alen;
-> @@ -765,7 +765,14 @@ static int mpls_count_nexthops(struct rtnexthop *rtnh, int len,
->  						      via_alen);
->  		}
->  
-> +		/* number of nexthops is tracked by a u8.
-> +		 * Check for overflow.
-> +		 */
-> +		if (nhs == 255)
-> +			return 0;
-> +
->  		nhs++;
-> +
->  		rtnh = rtnh_next(rtnh, &remaining);
->  	}
->  
-> @@ -779,8 +786,8 @@ static int mpls_nh_build_multi(struct mpls_route_config *cfg,
->  	struct rtnexthop *rtnh = cfg->rc_mp;
->  	struct nlattr *nla_via, *nla_newdst;
->  	int remaining = cfg->rc_mp_len;
-> -	int nhs = 0;
->  	int err = 0;
-> +	u8 nhs = 0;
->  
->  	change_nexthops(rt) {
->  		int attrlen;
-> @@ -834,7 +841,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
->  	int err = -EINVAL;
->  	u8 max_via_alen;
->  	unsigned index;
-> -	int nhs;
-> +	u8 nhs;
->  
->  	index = cfg->rc_label;
->  
-> @@ -1299,8 +1306,8 @@ static void mpls_ifdown(struct net_device *dev, int event)
->  	struct mpls_route __rcu **platform_label;
->  	struct net *net = dev_net(dev);
->  	unsigned int nh_flags = RTNH_F_DEAD | RTNH_F_LINKDOWN;
-> -	unsigned int alive;
->  	unsigned index;
-> +	u8 alive;
->  
->  	platform_label = rtnl_dereference(net->mpls.platform_label);
->  	for (index = 0; index < net->mpls.platform_labels; index++) {
-> @@ -1339,7 +1346,7 @@ static void mpls_ifup(struct net_device *dev, unsigned int nh_flags)
->  	struct mpls_route __rcu **platform_label;
->  	struct net *net = dev_net(dev);
->  	unsigned index;
-> -	int alive;
-> +	u8 alive;
->  
->  	platform_label = rtnl_dereference(net->mpls.platform_label);
->  	for (index = 0; index < net->mpls.platform_labels; index++) {
-> @@ -1761,8 +1768,8 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
->  	} else {
->  		struct rtnexthop *rtnh;
->  		struct nlattr *mp;
-> -		int dead = 0;
-> -		int linkdown = 0;
-> +		u8 linkdown = 0;
-> +		u8 dead = 0;
->  
->  		mp = nla_nest_start(skb, RTA_MULTIPATH);
->  		if (!mp)
-> diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-> index 62928d8fabd1..66f388ba2d49 100644
-> --- a/net/mpls/internal.h
-> +++ b/net/mpls/internal.h
-> @@ -123,8 +123,8 @@ struct mpls_route { /* next hop label forwarding entry */
->  	u8			rt_payload_type;
->  	u8			rt_max_alen;
->  	u8			rt_ttl_propagate;
-> -	unsigned int		rt_nhn;
-> -	unsigned int		rt_nhn_alive;
-> +	u8			rt_nhn;
-> +	u8			rt_nhn_alive;
->  	struct mpls_nh		rt_nh[0];
->  };
+>
+>>
+>>
+>> >
+>> >> +
+>> >> +     if (!(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
+>> >> +             goto out;
+>> >> +
+>> >> +     if (asoc->strreset_outstanding) {
+>> >> +             result = SCTP_STRRESET_ERR_IN_PROGRESS;
+>> >> +             goto out;
+>> >> +     }
+>> >> +
+>> >> +     /* G3: The same processing as though a SACK chunk with no gap report
+>> >> +      *     and a cumulative TSN ACK of the Sender's Next TSN minus 1 were
+>> >> +      *     received MUST be performed.
+>> >> +      */
+>> >> +     max_tsn_seen = sctp_tsnmap_get_max_tsn_seen(&asoc->peer.tsn_map);
+>> >> +     sctp_ulpq_reasm_flushtsn(&asoc->ulpq, max_tsn_seen);
+>> >> +     sctp_ulpq_abort_pd(&asoc->ulpq, GFP_ATOMIC);
+>> >> +
+>> >> +     /* G1: Compute an appropriate value for the Receiver's Next TSN -- the
+>> >> +      *     TSN that the peer should use to send the next DATA chunk.  The
+>> >> +      *     value SHOULD be the smallest TSN not acknowledged by the
+>> >> +      *     receiver of the request plus 2^31.
+>> >> +      */
+>> >> +     init_tsn = sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + (1 << 31);
+>> >> +     sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
+>> >> +                      init_tsn, GFP_ATOMIC);
+>> >> +
+>> >> +     /* G4: The same processing as though a FWD-TSN chunk (as defined in
+>> >> +      *     [RFC3758]) with all streams affected and a new cumulative TSN
+>> >> +      *     ACK of the Receiver's Next TSN minus 1 were received MUST be
+>> >> +      *     performed.
+>> >> +      */
+>> >> +     sctp_outq_free(&asoc->outqueue);
+>> >> +
+>> >> +     /* G2: Compute an appropriate value for the local endpoint's next TSN,
+>> >> +      *     i.e., the next TSN assigned by the receiver of the SSN/TSN reset
+>> >> +      *     chunk.  The value SHOULD be the highest TSN sent by the receiver
+>> >> +      *     of the request plus 1.
+>> >> +      */
+>> >> +     next_tsn = asoc->next_tsn;
+>> >> +     asoc->ctsn_ack_point = next_tsn - 1;
+>> >> +     asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
+>> >> +
+>> >> +     /* G5:  The next expected and outgoing SSNs MUST be reset to 0 for all
+>> >> +      *      incoming and outgoing streams.
+>> >> +      */
+>> >> +     for (i = 0; i < stream->outcnt; i++)
+>> >> +             stream->out[i].ssn = 0;
+>> >> +     for (i = 0; i < stream->incnt; i++)
+>> >> +             stream->in[i].ssn = 0;
+>> >> +
+>> >> +     result = SCTP_STRRESET_PERFORMED;
+>> >> +
+>> >> +     *evp = sctp_ulpevent_make_assoc_reset_event(asoc, 0, init_tsn,
+>> >> +                                                 next_tsn, GFP_ATOMIC);
+>> >> +
+>> >> +out:
+>> >> +     return sctp_make_strreset_tsnresp(asoc, result, request_seq,
+>> >> +                                       next_tsn, init_tsn);
+>> >> +}
+>> >> --
+>> >> 2.1.0
+>> >>
+>> >> --
+>> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> >> the body of a message to majordomo@vger.kernel.org
+>> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> >>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
