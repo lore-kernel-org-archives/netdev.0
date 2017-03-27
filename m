@@ -1,234 +1,114 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv2 net-next 2/7] sctp: implement receiver-side procedures
- for the SSN/TSN Reset Request Parameter
-Date: Mon, 27 Mar 2017 11:16:19 -0300
-Message-ID: <20170327141619.GJ23553@localhost.localdomain>
-References: <cover.1489118815.git.lucien.xin@gmail.com>
- <f224235b4621ea3a182e959873f6fe0ba78e5416.1489118815.git.lucien.xin@gmail.com>
- <20170320180457.GD23553@localhost.localdomain>
- <CADvbK_cqZDTDg8xOAwSqdq+L8G85uDyeSoeqfP6PBAbzhZUOhA@mail.gmail.com>
- <20170324235105.GI23553@localhost.localdomain>
- <CADvbK_c5HsfBfA6GPaiHd1GRGRK5GnMY-3GCCGoZJMmHJsVYXg@mail.gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/4] net: mpls: Allow users to configure more
+ labels per route
+Date: Mon, 27 Mar 2017 08:21:24 -0600
+Message-ID: <608c60ac-7669-86f0-b0ef-02add5287009@cumulusnetworks.com>
+References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
+ <87shm1np5h.fsf@xmission.com>
+ <5fe416c3-3e56-4e31-f92b-33e3e7b2e3c0@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        davem <davem@davemloft.net>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: Robert Shearman <rshearma@brocade.com>,
+        "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47190 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752297AbdC0OQr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 10:16:47 -0400
-Content-Disposition: inline
-In-Reply-To: <CADvbK_c5HsfBfA6GPaiHd1GRGRK5GnMY-3GCCGoZJMmHJsVYXg@mail.gmail.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33525 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753511AbdC0OWH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 10:22:07 -0400
+Received: by mail-pg0-f49.google.com with SMTP id n5so33940290pgh.0
+        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 07:22:06 -0700 (PDT)
+In-Reply-To: <5fe416c3-3e56-4e31-f92b-33e3e7b2e3c0@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 27, 2017 at 12:48:31PM +0800, Xin Long wrote:
-> On Sat, Mar 25, 2017 at 7:52 AM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
-> > On Tue, Mar 21, 2017 at 01:44:32PM +0800, Xin Long wrote:
-> >> On Tue, Mar 21, 2017 at 2:04 AM, Marcelo Ricardo Leitner
-> >> <marcelo.leitner@gmail.com> wrote:
-> >> > On Fri, Mar 10, 2017 at 12:11:07PM +0800, Xin Long wrote:
-> >> >> This patch is to implement Receiver-Side Procedures for the SSN/TSN
-> >> >> Reset Request Parameter described in rfc6525 section 6.2.4.
-> >> >>
-> >> >> The process is kind of complicate, it's wonth having some comments
-> >> >> from section 6.2.4 in the codes.
-> >> >>
-> >> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> >> >> ---
-> >> >>  include/net/sctp/sm.h   |  4 +++
-> >> >>  net/sctp/sm_statefuns.c |  3 ++
-> >> >>  net/sctp/stream.c       | 79 +++++++++++++++++++++++++++++++++++++++++++++++++
-> >> >>  3 files changed, 86 insertions(+)
-> >> >>
-> >> >> diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-> >> >> index b6f682e..2629d66 100644
-> >> >> --- a/include/net/sctp/sm.h
-> >> >> +++ b/include/net/sctp/sm.h
-> >> >> @@ -293,6 +293,10 @@ struct sctp_chunk *sctp_process_strreset_inreq(
-> >> >>                               struct sctp_association *asoc,
-> >> >>                               union sctp_params param,
-> >> >>                               struct sctp_ulpevent **evp);
-> >> >> +struct sctp_chunk *sctp_process_strreset_tsnreq(
-> >> >> +                             struct sctp_association *asoc,
-> >> >> +                             union sctp_params param,
-> >> >> +                             struct sctp_ulpevent **evp);
-> >> >>
-> >> >>  /* Prototypes for statetable processing. */
-> >> >>
-> >> >> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> >> >> index e03bb1a..6982064 100644
-> >> >> --- a/net/sctp/sm_statefuns.c
-> >> >> +++ b/net/sctp/sm_statefuns.c
-> >> >> @@ -3872,6 +3872,9 @@ sctp_disposition_t sctp_sf_do_reconf(struct net *net,
-> >> >>               else if (param.p->type == SCTP_PARAM_RESET_IN_REQUEST)
-> >> >>                       reply = sctp_process_strreset_inreq(
-> >> >>                               (struct sctp_association *)asoc, param, &ev);
-> >> >> +             else if (param.p->type == SCTP_PARAM_RESET_TSN_REQUEST)
-> >> >> +                     reply = sctp_process_strreset_tsnreq(
-> >> >> +                             (struct sctp_association *)asoc, param, &ev);
-> >> >>               /* More handles for other types will be added here, by now it
-> >> >>                * just ignores other types.
-> >> >>                */
-> >> >> diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-> >> >> index 1c6cc04..7e993b0 100644
-> >> >> --- a/net/sctp/stream.c
-> >> >> +++ b/net/sctp/stream.c
-> >> >> @@ -477,3 +477,82 @@ struct sctp_chunk *sctp_process_strreset_inreq(
-> >> >>
-> >> >>       return chunk;
-> >> >>  }
-> >> >> +
-> >> >> +struct sctp_chunk *sctp_process_strreset_tsnreq(
-> >> >> +                             struct sctp_association *asoc,
-> >> >> +                             union sctp_params param,
-> >> >> +                             struct sctp_ulpevent **evp)
-> >> >> +{
-> >> >> +     __u32 init_tsn = 0, next_tsn = 0, max_tsn_seen;
-> >> >> +     struct sctp_strreset_tsnreq *tsnreq = param.v;
-> >> >> +     struct sctp_stream *stream = asoc->stream;
-> >> >> +     __u32 result = SCTP_STRRESET_DENIED;
-> >> >> +     __u32 request_seq;
-> >> >> +     __u16 i;
-> >> >> +
-> >> >> +     request_seq = ntohl(tsnreq->request_seq);
-> >> >> +     if (request_seq > asoc->strreset_inseq) {
-> >> >> +             result = SCTP_STRRESET_ERR_BAD_SEQNO;
-> >> >> +             goto out;
-> >> >> +     } else if (request_seq == asoc->strreset_inseq) {
-> >> >> +             asoc->strreset_inseq++;
-> >> >> +     }
-> >> >
-> >> > I guess I already asked this, but.. why request_seq <
-> >> > asoc->strreset_inseq is allowed?
-> >> we can not just ignore or response with ERR.
-> >> rfc6525#section-5.2.1:
-> >>
-> >>    ... If the received RE-CONFIG chunk contains at least
-> >>    one request and based on the analysis of the Re-configuration Request
-> >>    Sequence Numbers this is the last received RE-CONFIG chunk (i.e., a
-> >                                   ^^^^^^^^^^^^^
-> >>    retransmission), the same RE-CONFIG chunk MUST to be sent back in
-> >>    response, as it was earlier.
-> >
-> > That means we should only re-process that *last* reconf request, and not
-> > just any old one. My understanding is that we need something like:
-> > +     } else if (request_seq < asoc->strreset_inseq-1) {
-> > +             result = SCTP_STRRESET_ERR_BAD_SEQNO;
-> > +             goto out;
-> > +     }
-> >
-> > And then this makes it evident that we have to handle request_seq as
-> > serial numbers (like TSNs are handled).
-> Got you.
+On 3/27/17 4:39 AM, Robert Shearman wrote:
+> On 25/03/17 19:15, Eric W. Biederman wrote:
+>> David Ahern <dsa@cumulusnetworks.com> writes:
+>>
+>>> Bump the maximum number of labels for MPLS routes from 2 to 12. To keep
+>>> memory consumption in check the labels array is moved to the end of
+>>> mpls_nh
+>>> and mpls_iptunnel_encap structs as a 0-sized array. Allocations use the
+>>> maximum number of labels across all nexthops in a route for LSR and the
+>>> number of labels configured for LWT.
+>>>
+>>> The mpls_route layout is changed to:
+>>>
+>>>    +----------------------+
+>>>    | mpls_route           |
+>>>    +----------------------+
+>>>    | mpls_nh 0            |
+>>>    +----------------------+
+>>>    | alignment padding    |   4 bytes for odd number of labels; 0 for
+>>> even
+>>>    +----------------------+
+>>>    | via[rt_max_alen] 0   |
+>>>    +----------------------+
+>>>    | alignment padding    |   via's aligned on sizeof(unsigned long)
+>>>    +----------------------+
+>>>    | ...                  |
+>>>
+>>> Meaning the via follows its mpls_nh providing better locality as the
+>>> number of labels increases. UDP_RR tests with namespaces shows no impact
+>>> to a modest performance increase with this layout for 1 or 2 labels and
+>>> 1 or 2 nexthops.
+>>>
+>>> The new limit is set to 12 to cover all currently known segment
+>>> routing use cases.
+>>
+>> How does this compare with running the packet a couple of times through
+>> the mpls table to get all of the desired labels applied?
 > 
-> Here is actually also a replay attack. If a duplicate request happens:
+> At the moment (i.e setting output interface for a route to the loopback
+> interface) the TTL would currently be calculated incorrectly since it'll
+> be decremented each time the packet is run through the input processing.
+> If that was avoided, then the only issue would be the lower performance.
 
-Yep.
+We have the infrastructure to add all the labels on one pass. It does
+not make sense to recirculate the packet to get the same effect.
+
 
 > 
-> In  sender side, If the request is not yet acked, it will just process the
-> response as usual. If It's acked already, It will drop the duplicate
-> response as no matched asoc->strreset_chunk any more. It's safe.
+>>
+>> I can certainly see the case in an mpls tunnel ingress where this might
+>> could be desirable.    Which is something you implement in your last
+>> patch.  However is it at all common to push lots of labels at once
+>> during routing?
+>>
+>> I am probably a bit naive but it seems absurd to push more
+>> than a handful of labels onto a packet as you are routing it.
 > 
-> But in receiver side. It will process stream/asoc again when receiving
-> a duplicate request. If receiver side has processed some data chunks
-> and tsn/ssn have been increased before this.  we shouldn't process
-> this request, but only send back a response with the original result.
-> The problem is that we didn't save the result of last request.
+> From draft-ietf-spring-segment-routing-mpls-07:
+> 
+>    Note that the kind of deployment of Segment Routing may affect the
+>    depth of the MPLS label stack.  As every segment in the list is
+>    represented by an additional MPLS label, the length of the segment
+>    list directly correlates to the depth of the label stack.
+>    Implementing a long path with many explicit hops as a segment list
+>    may thus yield a deep label stack that would need to be pushed at the
+>    head of the SR tunnel.
+> 
+>    However, many use cases would need very few segments in the list.
+>    This is especially true when taking good advantage of the ECMP aware
+>    routing within each segment.  In fact most use cases need just one
+>    additional segment and thus lead to a similar label stack depth as
+>    e.g.  RSVP-based routing.
+> 
+> The summary is that when using short-path routing then the number of
+> labels needed to be pushed on will be small (2 or 3). However, if using
+> SR to implement traffic engineering through a list of explicit hops then
+> the number of labels pushed could be much greater and up to the diameter
+> of the IGP network. Traffic engineering like this is not unusual.
 
-Sender will stop sending DATA while the reset is happening. We probably
-can use the "first DATA" as a trigger to then free the response chunk in
-receiver, or the next request (as it can't have 2 requests at the same,
-issuing the 2nd one means it got the ack for the previous one),
-whichever happens first.
+And the thread on the FRR mailing list has other ietf references. The
+summary is that are plenty of use cases for more labels on ingress
+(ip->mpls) and route paths (mpls->mpls). I did see one comment that 12
+may not be enough for all use cases. Why not 16 or 20?
 
-> 
-> 
-> >
-> >
-> >>
-> >>
-> >> >
-> >> >> +
-> >> >> +     if (!(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
-> >> >> +             goto out;
-> >> >> +
-> >> >> +     if (asoc->strreset_outstanding) {
-> >> >> +             result = SCTP_STRRESET_ERR_IN_PROGRESS;
-> >> >> +             goto out;
-> >> >> +     }
-> >> >> +
-> >> >> +     /* G3: The same processing as though a SACK chunk with no gap report
-> >> >> +      *     and a cumulative TSN ACK of the Sender's Next TSN minus 1 were
-> >> >> +      *     received MUST be performed.
-> >> >> +      */
-> >> >> +     max_tsn_seen = sctp_tsnmap_get_max_tsn_seen(&asoc->peer.tsn_map);
-> >> >> +     sctp_ulpq_reasm_flushtsn(&asoc->ulpq, max_tsn_seen);
-> >> >> +     sctp_ulpq_abort_pd(&asoc->ulpq, GFP_ATOMIC);
-> >> >> +
-> >> >> +     /* G1: Compute an appropriate value for the Receiver's Next TSN -- the
-> >> >> +      *     TSN that the peer should use to send the next DATA chunk.  The
-> >> >> +      *     value SHOULD be the smallest TSN not acknowledged by the
-> >> >> +      *     receiver of the request plus 2^31.
-> >> >> +      */
-> >> >> +     init_tsn = sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + (1 << 31);
-> >> >> +     sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
-> >> >> +                      init_tsn, GFP_ATOMIC);
-> >> >> +
-> >> >> +     /* G4: The same processing as though a FWD-TSN chunk (as defined in
-> >> >> +      *     [RFC3758]) with all streams affected and a new cumulative TSN
-> >> >> +      *     ACK of the Receiver's Next TSN minus 1 were received MUST be
-> >> >> +      *     performed.
-> >> >> +      */
-> >> >> +     sctp_outq_free(&asoc->outqueue);
-> >> >> +
-> >> >> +     /* G2: Compute an appropriate value for the local endpoint's next TSN,
-> >> >> +      *     i.e., the next TSN assigned by the receiver of the SSN/TSN reset
-> >> >> +      *     chunk.  The value SHOULD be the highest TSN sent by the receiver
-> >> >> +      *     of the request plus 1.
-> >> >> +      */
-> >> >> +     next_tsn = asoc->next_tsn;
-> >> >> +     asoc->ctsn_ack_point = next_tsn - 1;
-> >> >> +     asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
-> >> >> +
-> >> >> +     /* G5:  The next expected and outgoing SSNs MUST be reset to 0 for all
-> >> >> +      *      incoming and outgoing streams.
-> >> >> +      */
-> >> >> +     for (i = 0; i < stream->outcnt; i++)
-> >> >> +             stream->out[i].ssn = 0;
-> >> >> +     for (i = 0; i < stream->incnt; i++)
-> >> >> +             stream->in[i].ssn = 0;
-> >> >> +
-> >> >> +     result = SCTP_STRRESET_PERFORMED;
-> >> >> +
-> >> >> +     *evp = sctp_ulpevent_make_assoc_reset_event(asoc, 0, init_tsn,
-> >> >> +                                                 next_tsn, GFP_ATOMIC);
-> >> >> +
-> >> >> +out:
-> >> >> +     return sctp_make_strreset_tsnresp(asoc, result, request_seq,
-> >> >> +                                       next_tsn, init_tsn);
-> >> >> +}
-> >> >> --
-> >> >> 2.1.0
-> >> >>
-> >> >> --
-> >> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> >> >> the body of a message to majordomo@vger.kernel.org
-> >> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >> >>
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+This patch set bumps the number of labels and the performance impact is
+only to users that use a high label count. Other than a temporary stack
+variable for installing the routes, no memory is allocated based on the
+limit as an array size, so we could just as easily go with 16 - a nice
+round number.
