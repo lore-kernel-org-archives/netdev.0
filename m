@@ -1,137 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/10] i40e: Fixed race conditions in VF reset
-Date: Mon, 27 Mar 2017 16:52:04 -0700
-Message-ID: <20170327235210.28652-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/10] i40e/i40evf: Fix use after free in Rx cleanup path
+Date: Mon, 27 Mar 2017 16:52:03 -0700
+Message-ID: <20170327235210.28652-4-jeffrey.t.kirsher@intel.com>
 References: <20170327235210.28652-1-jeffrey.t.kirsher@intel.com>
-Cc: Robert Konklewski <robertx.konklewski@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:46923 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:27157 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753296AbdC0Xwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 19:52:34 -0400
+        id S1752814AbdC0Xwc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Mar 2017 19:52:32 -0400
 In-Reply-To: <20170327235210.28652-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Konklewski <robertx.konklewski@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-First, this patch eliminates IOMMU DMAR Faults caused by VF hardware.
-This is done by enabling VF hardware only after VSI resources are
-freed. Otherwise, hardware could DMA into memory that is (or just has
-been) being freed.
+We need to reset skb back to NULL when we have freed it in the Rx cleanup
+path.  I found one spot where this wasn't occurring so this patch fixes it.
 
-Then, the VF driver is activated only after VSI resources have been
-reallocated. That's because the VF driver can request resources
-immediately after it's activated. So they need to be ready at that
-point.
-
-The second race condition happens when the OS initiates a VF reset,
-and then before it's finished modifies VF's settings by changing its
-MAC, VLAN ID, bandwidth allocation, anti-spoof checking, etc. These
-functions needed to be blocked while VF is undergoing reset. Otherwise,
-they could operate on data structures that had just been freed or not
-yet fully initialized.
-
-Change-ID: I43ba5a7ae2c9a1cce3911611ffc4598ae33ae3ff
-Signed-off-by: Robert Konklewski <robertx.konklewski@intel.com>
+Change-ID: Iaca68934200732cd4a63eb0bd83b539c95f8c4dd
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 43 ++++++++++++++++++----
- 1 file changed, 35 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 1 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index cfe8b78dac0e..d526940ff951 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -809,6 +809,11 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
- 	u32 reg_idx, reg;
- 	int i, msix_vf;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index e5c89770cbc2..9f2c9f1b8e06 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1941,6 +1941,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		 */
+ 		if (unlikely(i40e_test_staterr(rx_desc, BIT(I40E_RXD_QW1_ERROR_SHIFT)))) {
+ 			dev_kfree_skb_any(skb);
++			skb = NULL;
+ 			continue;
+ 		}
  
-+	/* Start by disabling VF's configuration API to prevent the OS from
-+	 * accessing the VF's VSI after it's freed / invalidated.
-+	 */
-+	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
-+
- 	/* free vsi & disconnect it from the parent uplink */
- 	if (vf->lan_vsi_idx) {
- 		i40e_vsi_release(pf->vsi[vf->lan_vsi_idx]);
-@@ -848,7 +853,6 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
- 	/* reset some of the state variables keeping track of the resources */
- 	vf->num_queue_pairs = 0;
- 	vf->vf_states = 0;
--	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
- }
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index d892922a2ed9..38f93075f496 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1299,6 +1299,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		 */
+ 		if (unlikely(i40e_test_staterr(rx_desc, BIT(I40E_RXD_QW1_ERROR_SHIFT)))) {
+ 			dev_kfree_skb_any(skb);
++			skb = NULL;
+ 			continue;
+ 		}
  
- /**
-@@ -939,6 +943,14 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 	/* warn the VF */
- 	clear_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
- 
-+	/* Disable VF's configuration API during reset. The flag is re-enabled
-+	 * in i40e_alloc_vf_res(), when it's safe again to access VF's VSI.
-+	 * It's normally disabled in i40e_free_vf_res(), but it's safer
-+	 * to do it earlier to give some time to finish to any VF config
-+	 * functions that may still be running at this point.
-+	 */
-+	clear_bit(I40E_VF_STAT_INIT, &vf->vf_states);
-+
- 	/* In the case of a VFLR, the HW has already reset the VF and we
- 	 * just need to clean up, so don't hit the VFRTRIG register.
- 	 */
-@@ -982,11 +994,6 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 	if (!rsd)
- 		dev_err(&pf->pdev->dev, "VF reset check timeout on VF %d\n",
- 			vf->vf_id);
--	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_COMPLETED);
--	/* clear the reset bit in the VPGEN_VFRTRIG reg */
--	reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
--	reg &= ~I40E_VPGEN_VFRTRIG_VFSWR_MASK;
--	wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
- 
- 	/* On initial reset, we won't have any queues */
- 	if (vf->lan_vsi_idx == 0)
-@@ -994,8 +1001,24 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 
- 	i40e_vsi_stop_rings(pf->vsi[vf->lan_vsi_idx]);
- complete_reset:
--	/* reallocate VF resources to reset the VSI state */
-+	/* free VF resources to begin resetting the VSI state */
- 	i40e_free_vf_res(vf);
-+
-+	/* Enable hardware by clearing the reset bit in the VPGEN_VFRTRIG reg.
-+	 * By doing this we allow HW to access VF memory at any point. If we
-+	 * did it any sooner, HW could access memory while it was being freed
-+	 * in i40e_free_vf_res(), causing an IOMMU fault.
-+	 *
-+	 * On the other hand, this needs to be done ASAP, because the VF driver
-+	 * is waiting for this to happen and may report a timeout. It's
-+	 * harmless, but it gets logged into Guest OS kernel log, so best avoid
-+	 * it.
-+	 */
-+	reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
-+	reg &= ~I40E_VPGEN_VFRTRIG_VFSWR_MASK;
-+	wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
-+
-+	/* reallocate VF resources to finish resetting the VSI state */
- 	if (!i40e_alloc_vf_res(vf)) {
- 		int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 		i40e_enable_vf_mappings(vf);
-@@ -1006,7 +1029,11 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 			i40e_notify_client_of_vf_reset(pf, abs_vf_id);
- 		vf->num_vlan = 0;
- 	}
--	/* tell the VF the reset is done */
-+
-+	/* Tell the VF driver the reset is done. This needs to be done only
-+	 * after VF has been fully initialized, because the VF driver may
-+	 * request resources immediately after setting this flag.
-+	 */
- 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
- 
- 	i40e_flush(hw);
 -- 
 2.12.0
