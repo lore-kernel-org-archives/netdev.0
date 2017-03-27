@@ -1,104 +1,63 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Mon, 27 Mar 2017 17:15:00 +0200
-Message-ID: <20170327171500.4beef762@redhat.com>
-References: <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
-	<83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
-	<20170322234004.kffsce4owewgpqnm@techsingularity.net>
-	<20170323144347.1e6f29de@redhat.com>
-	<20170323145133.twzt4f5ci26vdyut@techsingularity.net>
-	<779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
-	<1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
-	<2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
-	<20170327105514.1ed5b1ba@redhat.com>
-	<20170327143947.4c237e54@redhat.com>
-	<20170327141518.GB27285@bombadil.infradead.org>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH net-next 2/2] net: stmmac: fix number of tx queues in
+ stmmac_poll
+Date: Mon, 27 Mar 2017 16:26:48 +0100
+Message-ID: <74765cbf-897a-67a1-7f42-337bf7dff6a8@synopsys.com>
+References: <cover.1490375512.git.jpinto@synopsys.com>
+ <b6f44c16abea1693dcc1333517778bd7a3e0b0f5.1490375512.git.jpinto@synopsys.com>
+ <20170325072621.GA20997@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Pankaj Gupta <pagupta@redhat.com>, Tariq Toukan
- <ttoukan.linux@gmail.com>, Mel Gorman <mgorman@techsingularity.net>, Tariq
- Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
- akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>, Saeed Mahameed
- <saeedm@mellanox.com>, brouer@redhat.com
-To: Matthew Wilcox <willy@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170327141518.GB27285@bombadil.infradead.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+        <thierry.reding@gmail.com>, <sergei.shtylyov@cogentembedded.com>,
+        <f.fainelli@gmail.com>, <niklas.cassel@axis.com>,
+        <netdev@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:34869 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752303AbdC0P0y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 11:26:54 -0400
+In-Reply-To: <20170325072621.GA20997@Red>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 27 Mar 2017 07:15:18 -0700
-Matthew Wilcox <willy@infradead.org> wrote:
+Hi David,
 
-> On Mon, Mar 27, 2017 at 02:39:47PM +0200, Jesper Dangaard Brouer wrote:
-> > =20
-> > +static __always_inline int in_irq_or_nmi(void)
-> > +{
-> > +	return in_irq() || in_nmi();
-> > +// XXX: hoping compiler will optimize this (todo verify) into:
-> > +// #define in_irq_or_nmi()	(preempt_count() & (HARDIRQ_MASK | NMI_MASK=
-))
-> > +
-> > +	/* compiler was smart enough to only read __preempt_count once
-> > +	 * but added two branches
-> > +asm code:
-> > + =E2=94=82       mov    __preempt_count,%eax
-> > + =E2=94=82       test   $0xf0000,%eax    // HARDIRQ_MASK: 0x000f0000
-> > + =E2=94=82    =E2=94=8C=E2=94=80=E2=94=80jne    2a
-> > + =E2=94=82    =E2=94=82  test   $0x100000,%eax   // NMI_MASK:     0x00=
-100000
-> > + =E2=94=82    =E2=94=82=E2=86=93 je     3f
-> > + =E2=94=82 2a:=E2=94=94=E2=94=80=E2=86=92mov    %rbx,%rdi
-> > +
-> > +	 */
-> > +} =20
->=20
-> To be fair, you told the compiler to do that with your use of fancy-pants=
- ||
-> instead of optimisable |.  Try this instead:
+Às 7:26 AM de 3/25/2017, Corentin Labbe escreveu:
+> On Fri, Mar 24, 2017 at 05:16:45PM +0000, Joao Pinto wrote:
+>> For cores that have more than 1 TX queue configured, the kernel would crash,
+>> since only one TX queue is permitted by default.
+>>
+>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+>> ---
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index 3827952..1eab084 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -3429,7 +3429,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+>>  	struct stmmac_rx_queue *rx_q =
+>>  		container_of(napi, struct stmmac_rx_queue, napi);
+>>  	struct stmmac_priv *priv = rx_q->priv_data;
+>> -	u32 tx_count = priv->dma_cap.number_tx_queues;
+>> +	u32 tx_count = priv->plat->tx_queues_to_use;
+>>  	u32 chan = rx_q->queue_index;
+>>  	u32 work_done = 0;
+>>  	u32 queue = 0;
+>> -- 
+>> 2.9.3
+>>
+> 
+> This patch fix the performance issue on dwmac-sun8i only.
+> The dwmac-sunxi is still broken.
+> 
 
-Thanks you! -- good point! :-)
+This patch series can be upstreamed please, since they make 2 fixes, one of them
+solving the problem in dwmac-sun8i.
 
-> static __always_inline int in_irq_or_nmi(void)
-> {
-> 	return in_irq() | in_nmi();
-> }
->=20
-> 0000000000001770 <test_fn>:
->     1770:       65 8b 05 00 00 00 00    mov    %gs:0x0(%rip),%eax        =
-# 1777 <test_fn+0x7>
->                         1773: R_X86_64_PC32     __preempt_count-0x4
-> #define in_nmi()                (preempt_count() & NMI_MASK)
-> #define in_task()               (!(preempt_count() & \
->                                    (NMI_MASK | HARDIRQ_MASK | SOFTIRQ_OFF=
-SET)))
-> static __always_inline int in_irq_or_nmi(void)
-> {
->         return in_irq() | in_nmi();
->     1777:       25 00 00 1f 00          and    $0x1f0000,%eax
-> }
->     177c:       c3                      retq  =20
->     177d:       0f 1f 00                nopl   (%rax)
-
-And I also verified it worked:
-
-  0.63 =E2=94=82       mov    __preempt_count,%eax
-       =E2=94=82     free_hot_cold_page():
-  1.25 =E2=94=82       test   $0x1f0000,%eax
-       =E2=94=82     =E2=86=93 jne    1e4
-
-And this simplification also made the compiler change this into a
-unlikely branch, which is a micro-optimization (that I will leave up to
-the compiler).
-
---=20
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks.
