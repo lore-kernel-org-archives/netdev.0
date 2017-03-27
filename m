@@ -1,108 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the gfs2 tree with the net tree
-Date: Mon, 27 Mar 2017 10:56:40 +1100
-Message-ID: <20170327105640.699082ee@canb.auug.org.au>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] netvsc: fix dereference before null check errors
+Date: Mon, 27 Mar 2017 00:50:27 +0000
+Message-ID: <BLUPR03MB141236E1502819C7B992C9F9CA330@BLUPR03MB1412.namprd03.prod.outlook.com>
+References: <20170325142639.11452-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Florian Westphal <fw@strlen.de>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>
-To: Steven Whitehouse <swhiteho@redhat.com>,
-        Bob Peterson <rpeterso@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>, KY Srinivasan <kys@microsoft.com>,
+ Stephen Hemminger <sthemmin@microsoft.com>, "devel@linuxdriverproject.org"
+ <devel@linuxdriverproject.org>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170325142639.11452-1-colin.king@canonical.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Hi all,
 
-Today's linux-next merge of the gfs2 tree got a conflict in:
 
-  net/core/secure_seq.c
+> -----Original Message-----
+> From: Colin King [mailto:colin.king@canonical.com]
+> Sent: Saturday, March 25, 2017 10:27 AM
+> To: KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
+> <haiyangz@microsoft.com>; Stephen Hemminger <sthemmin@microsoft.com>;
+> devel@linuxdriverproject.org; netdev@vger.kernel.org
+> Cc: kernel-janitors@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: [PATCH] netvsc: fix dereference before null check errors
+> 
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> ndev is being checked to see if it is a null pointer however before
+> the null check ndev is being dereferenced; hence there is a potential
+> null pointer dereference bug that needs fixing. Fix this by only
+> dereferencing ndev after the null check.
+> 
+> Detected by CoverityScan, CID#1420760, CID#140761 ("Dereference
+> before null check")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-between commit:
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-  28ee1b746f49 ("secure_seq: downgrade to per-host timestamp offsets")
-
-from the net tree and commit:
-
-  a30aad50c26c ("tcp: rename *_sequence_number() to *_seq_and_tsoff()")
-
-from the gfs2 and net-next trees.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/core/secure_seq.c
-index d28da7d363f1,fb87e78a2cc7..000000000000
---- a/net/core/secure_seq.c
-+++ b/net/core/secure_seq.c
-@@@ -47,25 -45,8 +47,25 @@@ static u32 seq_scale(u32 seq
-  #endif
-  
-  #if IS_ENABLED(CONFIG_IPV6)
- +static u32 secure_tcpv6_ts_off(const __be32 *saddr, const __be32 *daddr)
- +{
- +	const struct {
- +		struct in6_addr saddr;
- +		struct in6_addr daddr;
- +	} __aligned(SIPHASH_ALIGNMENT) combined = {
- +		.saddr = *(struct in6_addr *)saddr,
- +		.daddr = *(struct in6_addr *)daddr,
- +	};
- +
- +	if (sysctl_tcp_timestamps != 1)
- +		return 0;
- +
- +	return siphash(&combined, offsetofend(typeof(combined), daddr),
- +		       &ts_secret);
- +}
- +
-- u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
-- 				 __be16 sport, __be16 dport, u32 *tsoff)
-+ u32 secure_tcpv6_seq_and_tsoff(const __be32 *saddr, const __be32 *daddr,
-+ 			       __be16 sport, __be16 dport, u32 *tsoff)
-  {
-  	const struct {
-  		struct in6_addr saddr;
-@@@ -82,10 -63,10 +82,10 @@@
-  	net_secret_init();
-  	hash = siphash(&combined, offsetofend(typeof(combined), dport),
-  		       &net_secret);
- -	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
- +	*tsoff = secure_tcpv6_ts_off(saddr, daddr);
-  	return seq_scale(hash);
-  }
-- EXPORT_SYMBOL(secure_tcpv6_sequence_number);
-+ EXPORT_SYMBOL(secure_tcpv6_seq_and_tsoff);
-  
-  u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
-  			       __be16 dport)
-@@@ -107,16 -88,8 +107,16 @@@ EXPORT_SYMBOL(secure_ipv6_port_ephemera
-  #endif
-  
-  #ifdef CONFIG_INET
- +static u32 secure_tcp_ts_off(__be32 saddr, __be32 daddr)
- +{
- +	if (sysctl_tcp_timestamps != 1)
- +		return 0;
- +
- +	return siphash_2u32((__force u32)saddr, (__force u32)daddr,
- +			    &ts_secret);
- +}
-  
-- /* secure_tcp_sequence_number(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
-+ /* secure_tcp_seq_and_tsoff(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
-   * but fortunately, `sport' cannot be 0 in any circumstances. If this changes,
-   * it would be easy enough to have the former function use siphash_4u32, passing
-   * the arguments as separate u32.
+Thank you!
