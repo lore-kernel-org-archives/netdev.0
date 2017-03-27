@@ -1,7 +1,7 @@
 From: Denny Page <dennypage@me.com>
 Subject: Re: Extending socket timestamping API for NTP
-Date: Mon, 27 Mar 2017 12:18:47 -0700
-Message-ID: <48C4929F-680A-4F8F-8CE8-7DF3A3E5D83E@me.com>
+Date: Mon, 27 Mar 2017 12:21:13 -0700
+Message-ID: <6004E65D-EFD0-486B-9229-D004C20A2010@me.com>
 References: <20170207140144.GA11233@localhost>
  <20170209080242.GA1698@localhost.localdomain>
  <20170209110941.GA1449@localhost> <20170323162145.GB8192@localhost>
@@ -20,19 +20,20 @@ Cc: Miroslav Lichvar <mlichvar@redhat.com>, netdev@vger.kernel.org,
         Willem de Bruijn <willemb@google.com>
 To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from st11p06im-asmtp001.me.com ([17.172.125.149]:35479 "EHLO
+Received: from st11p06im-asmtp001.me.com ([17.172.125.149]:49872 "EHLO
         st11p06im-asmtp001.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751828AbdC0TTC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 15:19:02 -0400
+        with ESMTP id S1751714AbdC0TVU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 15:21:20 -0400
 Received: from process-dkim-sign-daemon.st11p06im-asmtp001.me.com by
  st11p06im-asmtp001.me.com
  (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
- id <0ONH00300MXTQ700@st11p06im-asmtp001.me.com> for netdev@vger.kernel.org;
- Mon, 27 Mar 2017 19:18:51 +0000 (GMT)
+ id <0ONH00800N2RX300@st11p06im-asmtp001.me.com> for netdev@vger.kernel.org;
+ Mon, 27 Mar 2017 19:21:19 +0000 (GMT)
 In-reply-to: <20170327182828.GA2254@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+[Resend in plain text for vger]
 
 > On Mar 27, 2017, at 11:28, Richard Cochran <richardcochran@gmail.com> =
 wrote:
