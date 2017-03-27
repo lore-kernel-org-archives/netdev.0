@@ -1,64 +1,81 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH v3 1/2] net: phy: Fix PHY AN done state machine for interrupt
- driven PHYs
-Date: Mon, 27 Mar 2017 14:59:04 +0300
-Message-ID: <078917ad-77a1-a722-1688-6203ae183a46@ti.com>
-References: <1490180524-28675-1-git-send-email-rogerq@ti.com>
- <1490180524-28675-2-git-send-email-rogerq@ti.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] net: netfilters: Remove extra parenthesis
+Date: Mon, 27 Mar 2017 14:02:09 +0200
+Message-ID: <20170327120209.GA13666@salvia>
+References: <20170325135313.GA10861@arushi-HP-Pavilion-Notebook>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <andrew@lunn.ch>, <davem@davemloft.net>, <kyle.roeschley@ni.com>,
-        <nsekhar@ti.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        "stable # v4 . 9+" <stable@vger.kernel.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        <rogerq@ti.com>
-To: <f.fainelli@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1490180524-28675-2-git-send-email-rogerq@ti.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: wensong@linux-vs.org, Simon Horman <horms@verge.net.au>,
+        Julian Anastasov <ja@ssi.bg>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel@googlegroups.com
+To: Arushi Singhal <arushisinghal19971997@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170325135313.GA10861@arushi-HP-Pavilion-Notebook>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Ethernet link on an interrupt driven PHY was not coming up if the
-Ethernet cable was plugged before the Ethernet interface was brought up.
+Hi Arushi,
 
-The PHY state machine seems to be stuck from RUNNING to AN state
-with no new interrupts from the PHY. So it doesn't know when the
-PHY Auto-negotiation has been completed and doesn't transition to RUNNING
-state with ANEG done thus netif_carrier_on() is never called.
+On Sat, Mar 25, 2017 at 07:23:13PM +0530, Arushi Singhal wrote:
+> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+> index 6806b5e73567..aa344c5868c5 100644
+> --- a/net/netfilter/nf_conntrack_netlink.c
+> +++ b/net/netfilter/nf_conntrack_netlink.c
+> @@ -467,7 +467,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+>  	struct nlattr *nest_parms;
+>  	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
+>  
+> -	event = (NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_NEW);
+> +	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_NEW;
 
-NOTE: genphy_config_aneg() will not restart PHY Auto-negotiation of
-advertisement parameters didn't change.
+Could you send us a unfront patch to add something like:
 
-Fix this by scheduling the PHY state machine in phy_start_aneg().
-There is no way of knowing in phy.c whether auto-negotiation was
-restarted or not by the PHY driver so we just wait for the next
-poll/interrupt to update the PHY state machine.
+static inline u16 nfnl_msg_type(u8 subsys, u8 msg_type)
+{
+        return subsys << 8 | msg_type;
+}
 
-Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
-Cc: stable <stable@vger.kernel.org> # v4.9+
-Signed-off-by: Roger Quadros <rogerq@ti.com>
----
-v3: Fix typo in commit message
+I would suggest you place this in include/linux/netfilter/nfnetlink.h
 
- drivers/net/phy/phy.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Then, use it here.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 1be69d8..49dedf8 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -630,6 +630,10 @@ int phy_start_aneg(struct phy_device *phydev)
- 
- out_unlock:
- 	mutex_unlock(&phydev->lock);
-+	if (!err && phy_interrupt_is_valid(phydev))
-+		queue_delayed_work(system_power_efficient_wq,
-+				   &phydev->state_queue, HZ);
-+
- 	return err;
- }
- EXPORT_SYMBOL(phy_start_aneg);
--- 
-2.7.4
+>  	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+>  	if (nlh == NULL)
+>  		goto nlmsg_failure;
+> @@ -1983,7 +1983,7 @@ ctnetlink_ct_stat_cpu_fill_info(struct sk_buff *skb, u32 portid, u32 seq,
+>  	struct nfgenmsg *nfmsg;
+>  	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
+>  
+> -	event = (NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS_CPU);
+> +	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS_CPU;
+
+... And here too.
+
+>  	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
+>  	if (nlh == NULL)
+>  		goto nlmsg_failure;
+> @@ -2066,7 +2066,7 @@ ctnetlink_stat_ct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+>  	unsigned int flags = portid ? NLM_F_MULTI : 0, event;
+>  	unsigned int nr_conntracks = atomic_read(&net->ct.count);
+>  
+> -	event = (NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS);
+> +	event = NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_GET_STATS;
+
+And so on. Look for more spots where we can replace this opencoded
+thing.
+
+I guess there are more spots in all of the net/netfilter/ netlink
+subsystems.
+
+Once that patch gets in, you can follow up with this parens cleanup.
+
+Thanks!
+
+P.S: Cc'ing netfilter-devel@vger.kernel.org (and
+lvs-devel@vger.kernel.org if you touch 'ipvs' bits) should be fine. No
+need to Cc all those many lists, better to narrow down you target.
