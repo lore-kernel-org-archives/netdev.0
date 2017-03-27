@@ -1,54 +1,73 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH RFC v2 3/3] net: phy: allow EEE with SGMII interface modes
-Date: Mon, 27 Mar 2017 20:47:48 +0100
-Message-ID: <20170327194747.GS7909@n2100.armlinux.org.uk>
-References: <20170327095826.GA2310@n2100.armlinux.org.uk>
- <E1csRQT-0004rM-Tq@rmk-PC.armlinux.org.uk>
- <5d3c3ce0-fabc-6b96-c7e9-c2e46ffe4d23@gmail.com>
- <20170327170019.GR7909@n2100.armlinux.org.uk>
- <9f523664-9479-26ca-e3f7-95453ed03560@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Matthias Kaehlcke <mka@chromium.org>
+Subject: [PATCH v2] cfg80211: Fix array-bounds warning in fragment copy
+Date: Mon, 27 Mar 2017 12:58:22 -0700
+Message-ID: <20170327195822.123034-1-mka@chromium.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Grant Grundler <grundler@chromium.org>,
+        Matthias Kaehlcke <mka@chromium.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:43372 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751651AbdC0T4C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 15:56:02 -0400
-Content-Disposition: inline
-In-Reply-To: <9f523664-9479-26ca-e3f7-95453ed03560@gmail.com>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:36139 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751852AbdC0T6u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 15:58:50 -0400
+Received: by mail-pg0-f43.google.com with SMTP id g2so49721347pge.3
+        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 12:58:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 27, 2017 at 11:03:12AM -0700, Florian Fainelli wrote:
-> On 03/27/2017 10:00 AM, Russell King - ARM Linux wrote:
-> > On Mon, Mar 27, 2017 at 09:47:31AM -0700, Florian Fainelli wrote:
-> >> On 03/27/2017 02:59 AM, Russell King wrote:
-> >>> As EEE is able to work in SGMII mode as well, add it to the list of
-> >>> permissable EEE modes that phy_init_eee() will accept.  This is
-> >>> necessary so that EEE can work with an 88E1512 connected in SGMII mode.
-> >>
-> >> As you mention in your cover letter, we should probably reverse this
-> >> test and make it reject modes where EEE has no chance of being supported
-> >> at all.
-> > 
-> > Want me to re-spin?  Any thought on which interface modes we should
-> > explicitly exclude?
-> 
-> It actually sounds like we should just kill the check entirely, it does
-> not appear that any of the interface mode would not fundamentally be
-> able to support EEE, because the "lowest" mode we support is MII, and
-> even there it's quite possible to support EEE.
+__ieee80211_amsdu_copy_frag intentionally initializes a pointer to
+array[-1] to increment it later to valid values. clang rightfully
+generates an array-bounds warning on the initialization statement.
 
-Right, so it looks like the test reduces down to just:
+Initialize the pointer to array[0] and change the algorithm from
+increment before to increment after consume.
 
-	if (phydev->duplex == DUPLEX_FULL) {
+Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+---
+ net/wireless/util.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-agreed?
-
+diff --git a/net/wireless/util.c b/net/wireless/util.c
+index 68e5f2ecee1a..52795ae5337f 100644
+--- a/net/wireless/util.c
++++ b/net/wireless/util.c
+@@ -659,7 +659,7 @@ __ieee80211_amsdu_copy_frag(struct sk_buff *skb, struct sk_buff *frame,
+ 			    int offset, int len)
+ {
+ 	struct skb_shared_info *sh = skb_shinfo(skb);
+-	const skb_frag_t *frag = &sh->frags[-1];
++	const skb_frag_t *frag = &sh->frags[0];
+ 	struct page *frag_page;
+ 	void *frag_ptr;
+ 	int frag_len, frag_size;
+@@ -672,10 +672,10 @@ __ieee80211_amsdu_copy_frag(struct sk_buff *skb, struct sk_buff *frame,
+ 
+ 	while (offset >= frag_size) {
+ 		offset -= frag_size;
+-		frag++;
+ 		frag_page = skb_frag_page(frag);
+ 		frag_ptr = skb_frag_address(frag);
+ 		frag_size = skb_frag_size(frag);
++		frag++;
+ 	}
+ 
+ 	frag_ptr += offset;
+@@ -687,12 +687,12 @@ __ieee80211_amsdu_copy_frag(struct sk_buff *skb, struct sk_buff *frame,
+ 	len -= cur_len;
+ 
+ 	while (len > 0) {
+-		frag++;
+ 		frag_len = skb_frag_size(frag);
+ 		cur_len = min(len, frag_len);
+ 		__frame_add_frag(frame, skb_frag_page(frag),
+ 				 skb_frag_address(frag), cur_len, frag_len);
+ 		len -= cur_len;
++		frag++;
+ 	}
+ }
+ 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.12.1.578.ge9c3154ca4-goog
