@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH RFC v4 02/10] net: qca_debug: use net_device_ops instead of direct call
-Date: Mon, 27 Mar 2017 15:37:20 +0200
-Message-ID: <1490621848-24828-3-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH RFC v4 09/10] tty: serdev-ttyport: return actual baudrate from ttyport_set_baudrate
+Date: Mon, 27 Mar 2017 15:37:27 +0200
+Message-ID: <1490621848-24828-10-git-send-email-stefan.wahren@i2se.com>
 References: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>,
@@ -18,54 +18,26 @@ In-Reply-To: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no need to export qcaspi_netdev_open and qcaspi_netdev_close
-because they are also accessible via the net_device_ops.
+Instead of returning the requested baudrate, we better return the
+actual one because it isn't always the same.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/ethernet/qualcomm/qca_debug.c | 5 +++--
- drivers/net/ethernet/qualcomm/qca_spi.h   | 3 ---
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ drivers/tty/serdev/serdev-ttyport.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_debug.c b/drivers/net/ethernet/qualcomm/qca_debug.c
-index d145df9..92b6be9 100644
---- a/drivers/net/ethernet/qualcomm/qca_debug.c
-+++ b/drivers/net/ethernet/qualcomm/qca_debug.c
-@@ -275,6 +275,7 @@ qcaspi_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
- static int
- qcaspi_set_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
- {
-+	const struct net_device_ops *ops = dev->netdev_ops;
- 	struct qcaspi *qca = netdev_priv(dev);
+diff --git a/drivers/tty/serdev/serdev-ttyport.c b/drivers/tty/serdev/serdev-ttyport.c
+index d053935..8a30abe 100644
+--- a/drivers/tty/serdev/serdev-ttyport.c
++++ b/drivers/tty/serdev/serdev-ttyport.c
+@@ -150,7 +150,7 @@ static unsigned int ttyport_set_baudrate(struct serdev_controller *ctrl, unsigne
  
- 	if ((ring->rx_pending) ||
-@@ -283,13 +284,13 @@ qcaspi_set_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
- 		return -EINVAL;
- 
- 	if (netif_running(dev))
--		qcaspi_netdev_close(dev);
-+		ops->ndo_stop(dev);
- 
- 	qca->txr.count = max_t(u32, ring->tx_pending, TX_RING_MIN_LEN);
- 	qca->txr.count = min_t(u16, qca->txr.count, TX_RING_MAX_LEN);
- 
- 	if (netif_running(dev))
--		qcaspi_netdev_open(dev);
-+		ops->ndo_open(dev);
- 
- 	return 0;
+ 	/* tty_set_termios() return not checked as it is always 0 */
+ 	tty_set_termios(tty, &ktermios);
+-	return speed;
++	return ktermios.c_ospeed;
  }
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.h b/drivers/net/ethernet/qualcomm/qca_spi.h
-index 6e31a0e..064853d 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.h
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.h
-@@ -108,7 +108,4 @@ struct qcaspi {
- 	u16 burst_len;
- };
  
--int qcaspi_netdev_open(struct net_device *dev);
--int qcaspi_netdev_close(struct net_device *dev);
--
- #endif /* _QCA_SPI_H */
+ static void ttyport_set_flow_control(struct serdev_controller *ctrl, bool enable)
 -- 
 2.1.4
