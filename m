@@ -1,114 +1,199 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/2] flow_dissector: add mpls support
-Date: Mon, 27 Mar 2017 22:39:06 +0200
-Message-ID: <20170327203906.GI1869@nanopsycho.orion>
+From: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+Subject: Re: [PATCH net-next 2/2] cls_flower: add support for matching MPLS
+ labels
+Date: Mon, 27 Mar 2017 16:49:07 -0400
+Message-ID: <20170327204907.GB3230@nvt-d.home.kvack.org>
 References: <20170327181342.GA3230@nvt-d.home.kvack.org>
+ <20170327181602.GA3260@nvt-d.home.kvack.org>
+ <20170327203041.GH1869@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:35929 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751677AbdC0UrG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 16:47:06 -0400
-Received: by mail-wr0-f193.google.com with SMTP id u1so16853824wra.3
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 13:47:04 -0700 (PDT)
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:36257 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751677AbdC0UtM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 16:49:12 -0400
+Received: by mail-qt0-f171.google.com with SMTP id r45so48631579qte.3
+        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 13:49:11 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170327181342.GA3230@nvt-d.home.kvack.org>
+In-Reply-To: <20170327203041.GH1869@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 27, 2017 at 08:13:42PM CEST, benjamin.lahaise@netronome.com wrote:
->Add support for parsing MPLS flows to the flow dissector in preparation for
->adding MPLS match support to cls_flower.
->
->Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
->Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
->Reviewed-by: Simon Horman <simon.horman@netronome.com>
->Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->
->diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
->index ac97030..00d704f 100644
->--- a/include/net/flow_dissector.h
->+++ b/include/net/flow_dissector.h
->@@ -41,6 +41,13 @@ struct flow_dissector_key_vlan {
-> 	u16	padding;
-> };
+On Mon, Mar 27, 2017 at 10:30:41PM +0200, Jiri Pirko wrote:
+> Mon, Mar 27, 2017 at 08:16:02PM CEST, benjamin.lahaise@netronome.com wrote:
+> >Add support to tc flower to match based on fields in MPLS labels (TTL, 
+> >Bottom of Stack, TC field, Label).
 > 
->+struct flow_dissector_key_mpls {
->+	u32	mpls_ttl : 8,
-                        ^ remove this space
-           ^^^^^        
-         unnecessary tab
+> Please use scripts/get_maintainer.pl to get list of ccs for the patches
+> you submit.
 
->+		mpls_bos : 1,
->+		mpls_tc : 3,
->+		mpls_label : 20;
->+};
->+
-> struct flow_dissector_key_keyid {
-> 	__be32	keyid;
-              ^^ also tab not necessary
+Oops.  Adding Jamal to the Cc -- please holler if you want me to resend.
 
+		-ben
 
-Other than this nits, the patch looks good to me.
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-
-
-
-> };
->@@ -169,6 +176,7 @@ enum flow_dissector_key_id {
-> 	FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS, /* struct flow_dissector_key_ipv6_addrs */
-> 	FLOW_DISSECTOR_KEY_ENC_CONTROL, /* struct flow_dissector_key_control */
-> 	FLOW_DISSECTOR_KEY_ENC_PORTS, /* struct flow_dissector_key_ports */
->+	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
 > 
-> 	FLOW_DISSECTOR_KEY_MAX,
-> };
->diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->index 5f3ae92..15185d8 100644
->--- a/net/core/flow_dissector.c
->+++ b/net/core/flow_dissector.c
->@@ -126,9 +126,11 @@ __skb_flow_dissect_mpls(const struct sk_buff *skb,
-> {
-> 	struct flow_dissector_key_keyid *key_keyid;
-> 	struct mpls_label *hdr, _hdr[2];
->+	u32 entry, label;
-> 
-> 	if (!dissector_uses_key(flow_dissector,
->-				FLOW_DISSECTOR_KEY_MPLS_ENTROPY))
->+				FLOW_DISSECTOR_KEY_MPLS_ENTROPY) &&
->+	    !dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_MPLS))
-> 		return FLOW_DISSECT_RET_OUT_GOOD;
-> 
-> 	hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data,
->@@ -136,8 +138,25 @@ __skb_flow_dissect_mpls(const struct sk_buff *skb,
-> 	if (!hdr)
-> 		return FLOW_DISSECT_RET_OUT_BAD;
-> 
->-	if ((ntohl(hdr[0].entry) & MPLS_LS_LABEL_MASK) >>
->-	    MPLS_LS_LABEL_SHIFT == MPLS_LABEL_ENTROPY) {
->+	entry = ntohl(hdr[0].entry);
->+	label = (entry & MPLS_LS_LABEL_MASK) >> MPLS_LS_LABEL_SHIFT;
->+
->+	if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_MPLS)) {
->+		struct flow_dissector_key_mpls *key_mpls;
->+
->+		key_mpls = skb_flow_dissector_target(flow_dissector,
->+						     FLOW_DISSECTOR_KEY_MPLS,
->+						     target_container);
->+		key_mpls->mpls_label = label;
->+		key_mpls->mpls_ttl = (entry & MPLS_LS_TTL_MASK)
->+					>> MPLS_LS_TTL_SHIFT;
->+		key_mpls->mpls_tc = (entry & MPLS_LS_TC_MASK)
->+					>> MPLS_LS_TC_SHIFT;
->+		key_mpls->mpls_bos = (entry & MPLS_LS_S_MASK)
->+					>> MPLS_LS_S_SHIFT;
->+	}
->+
->+	if (label == MPLS_LABEL_ENTROPY) {
-> 		key_keyid = skb_flow_dissector_target(flow_dissector,
-> 						      FLOW_DISSECTOR_KEY_MPLS_ENTROPY,
-> 						      target_container);
->
+> >
+> >Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+> >Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+> >Reviewed-by: Simon Horman <simon.horman@netronome.com>
+> >Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> >
+> >diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+> >index 7a69f2a..f1129e3 100644
+> >--- a/include/uapi/linux/pkt_cls.h
+> >+++ b/include/uapi/linux/pkt_cls.h
+> >@@ -432,6 +432,11 @@ enum {
+> > 	TCA_FLOWER_KEY_ARP_THA,		/* ETH_ALEN */
+> > 	TCA_FLOWER_KEY_ARP_THA_MASK,	/* ETH_ALEN */
+> > 
+> >+	TCA_FLOWER_KEY_MPLS_TTL,	/* u8 - 8 bits */
+> >+	TCA_FLOWER_KEY_MPLS_BOS,	/* u8 - 1 bit */
+> >+	TCA_FLOWER_KEY_MPLS_TC,		/* u8 - 3 bits */
+> >+	TCA_FLOWER_KEY_MPLS_LABEL,	/* be32 - 20 bits */
+> >+
+> > 	__TCA_FLOWER_MAX,
+> > };
+> > 
+> >diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+> >index 9d0c99d..24619f9 100644
+> >--- a/net/sched/cls_flower.c
+> >+++ b/net/sched/cls_flower.c
+> >@@ -18,6 +18,7 @@
+> > #include <linux/if_ether.h>
+> > #include <linux/in6.h>
+> > #include <linux/ip.h>
+> >+#include <linux/mpls.h>
+> > 
+> > #include <net/sch_generic.h>
+> > #include <net/pkt_cls.h>
+> >@@ -47,6 +48,7 @@ struct fl_flow_key {
+> > 		struct flow_dissector_key_ipv6_addrs enc_ipv6;
+> > 	};
+> > 	struct flow_dissector_key_ports enc_tp;
+> >+	struct flow_dissector_key_mpls mpls;
+> > } __aligned(BITS_PER_LONG / 8); /* Ensure that we can do comparisons as longs. */
+> > 
+> > struct fl_flow_mask_range {
+> >@@ -423,6 +425,10 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+> > 	[TCA_FLOWER_KEY_ARP_SHA_MASK]	= { .len = ETH_ALEN },
+> > 	[TCA_FLOWER_KEY_ARP_THA]	= { .len = ETH_ALEN },
+> > 	[TCA_FLOWER_KEY_ARP_THA_MASK]	= { .len = ETH_ALEN },
+> >+	[TCA_FLOWER_KEY_MPLS_TTL]	= { .type = NLA_U8 },
+> >+	[TCA_FLOWER_KEY_MPLS_BOS]	= { .type = NLA_U8 },
+> >+	[TCA_FLOWER_KEY_MPLS_TC]	= { .type = NLA_U8 },
+> >+	[TCA_FLOWER_KEY_MPLS_LABEL]	= { .type = NLA_U32 },
+> > };
+> > 
+> > static void fl_set_key_val(struct nlattr **tb,
+> >@@ -438,6 +444,36 @@ static void fl_set_key_val(struct nlattr **tb,
+> > 		memcpy(mask, nla_data(tb[mask_type]), len);
+> > }
+> > 
+> >+static void fl_set_key_mpls(struct nlattr **tb,
+> >+			    struct flow_dissector_key_mpls *key_val,
+> >+			    struct flow_dissector_key_mpls *key_mask)
+> >+{
+> >+#define MPLS_TTL_MASK	(MPLS_LS_TTL_MASK >> MPLS_LS_TTL_SHIFT)
+> >+#define MPLS_BOS_MASK	(MPLS_LS_S_MASK >> MPLS_LS_S_SHIFT)
+> >+#define MPLS_TC_MASK	(MPLS_LS_TC_MASK >> MPLS_LS_TC_SHIFT)
+> >+#define MPLS_LABEL_MASK	(MPLS_LS_LABEL_MASK >> MPLS_LS_LABEL_SHIFT)
+> >+
+> >+	if (tb[TCA_FLOWER_KEY_MPLS_TTL]) {
+> >+		key_val->mpls_ttl = nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_TTL]);
+> >+		key_mask->mpls_ttl = MPLS_TTL_MASK;
+> >+	}
+> >+	if (tb[TCA_FLOWER_KEY_MPLS_BOS]) {
+> >+		key_val->mpls_bos = nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_BOS]);
+> >+		key_mask->mpls_bos = MPLS_BOS_MASK;
+> >+	}
+> >+	if (tb[TCA_FLOWER_KEY_MPLS_TC]) {
+> >+		key_val->mpls_tc =
+> >+			nla_get_u8(tb[TCA_FLOWER_KEY_MPLS_TC]) & MPLS_TC_MASK;
+> >+		key_mask->mpls_tc = MPLS_TC_MASK;
+> >+	}
+> >+	if (tb[TCA_FLOWER_KEY_MPLS_LABEL]) {
+> >+		key_val->mpls_label =
+> >+			nla_get_u32(tb[TCA_FLOWER_KEY_MPLS_LABEL]) &
+> >+			MPLS_LABEL_MASK;
+> >+		key_mask->mpls_label = MPLS_LABEL_MASK;
+> >+	}
+> >+}
+> >+
+> > static void fl_set_key_vlan(struct nlattr **tb,
+> > 			    struct flow_dissector_key_vlan *key_val,
+> > 			    struct flow_dissector_key_vlan *key_mask)
+> >@@ -594,6 +630,9 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+> > 			       &mask->icmp.code,
+> > 			       TCA_FLOWER_KEY_ICMPV6_CODE_MASK,
+> > 			       sizeof(key->icmp.code));
+> >+	} else if (key->basic.n_proto == htons(ETH_P_MPLS_UC) ||
+> >+		   key->basic.n_proto == htons(ETH_P_MPLS_MC)) {
+> >+		fl_set_key_mpls(tb, &key->mpls, &mask->mpls);
+> > 	} else if (key->basic.n_proto == htons(ETH_P_ARP) ||
+> > 		   key->basic.n_proto == htons(ETH_P_RARP)) {
+> > 		fl_set_key_val(tb, &key->arp.sip, TCA_FLOWER_KEY_ARP_SIP,
+> >@@ -730,6 +769,8 @@ static void fl_init_dissector(struct cls_fl_head *head,
+> > 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+> > 			     FLOW_DISSECTOR_KEY_ARP, arp);
+> > 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+> >+			     FLOW_DISSECTOR_KEY_MPLS, mpls);
+> >+	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+> > 			     FLOW_DISSECTOR_KEY_VLAN, vlan);
+> > 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+> > 			     FLOW_DISSECTOR_KEY_ENC_KEYID, enc_key_id);
+> >@@ -994,6 +1035,41 @@ static int fl_dump_key_val(struct sk_buff *skb,
+> > 	return 0;
+> > }
+> > 
+> >+static int fl_dump_key_mpls(struct sk_buff *skb,
+> >+			    struct flow_dissector_key_mpls *mpls_key,
+> >+			    struct flow_dissector_key_mpls *mpls_mask)
+> >+{
+> >+	int err;
+> >+
+> >+	if (!memchr_inv(mpls_mask, 0, sizeof(*mpls_mask)))
+> >+		return 0;
+> >+	if (mpls_mask->mpls_ttl) {
+> >+		err = nla_put_u8(skb, TCA_FLOWER_KEY_MPLS_TTL,
+> >+				 mpls_key->mpls_ttl);
+> >+		if (err)
+> >+			return err;
+> >+	}
+> >+	if (mpls_mask->mpls_tc) {
+> >+		err = nla_put_u8(skb, TCA_FLOWER_KEY_MPLS_TC,
+> >+				 mpls_key->mpls_tc);
+> >+		if (err)
+> >+			return err;
+> >+	}
+> >+	if (mpls_mask->mpls_label) {
+> >+		err = nla_put_u32(skb, TCA_FLOWER_KEY_MPLS_LABEL,
+> >+				  mpls_key->mpls_label);
+> >+		if (err)
+> >+			return err;
+> >+	}
+> >+	if (mpls_mask->mpls_bos) {
+> >+		err = nla_put_u8(skb, TCA_FLOWER_KEY_MPLS_BOS,
+> >+				 mpls_key->mpls_bos);
+> >+		if (err)
+> >+			return err;
+> >+	}
+> >+	return 0;
+> >+}
+> >+
+> > static int fl_dump_key_vlan(struct sk_buff *skb,
+> > 			    struct flow_dissector_key_vlan *vlan_key,
+> > 			    struct flow_dissector_key_vlan *vlan_mask)
+> >@@ -1099,6 +1175,9 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+> > 			    sizeof(key->basic.n_proto)))
+> > 		goto nla_put_failure;
+> > 
+> >+	if (fl_dump_key_mpls(skb, &key->mpls, &mask->mpls))
+> >+		goto nla_put_failure;
+> >+
+> > 	if (fl_dump_key_vlan(skb, &key->vlan, &mask->vlan))
+> > 		goto nla_put_failure;
+> > 
+> >
