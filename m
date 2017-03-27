@@ -1,79 +1,124 @@
-From: Denny Page <dennypage@me.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Mon, 27 Mar 2017 09:25:03 -0700
-Message-ID: <6DE3E5F4-E69F-4334-9012-FD273ACA3C5B@me.com>
-References: <20170207140144.GA11233@localhost>
- <20170209080242.GA1698@localhost.localdomain>
- <20170209110941.GA1449@localhost> <20170323162145.GB8192@localhost>
- <6121D504-288F-4C9B-9AB3-D1C8292965D5@me.com>
- <20170324094530.GE8192@localhost>
- <89CFCD8E-1A58-48C5-9D6E-99695502CFD9@me.com>
- <20170327101324.GI8192@localhost>
- <20170327142925.GA13305@localhost.localdomain>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/1] ethtool : added
+ get_phy_stats,get_strings,get_sset_count
+Date: Mon, 27 Mar 2017 09:44:37 -0700
+Message-ID: <5153db09-092f-55b1-a8fc-aa23433c52a0@gmail.com>
+References: <1490609570-3571-1-git-send-email-thomasscariah@gmail.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Miroslav Lichvar <mlichvar@redhat.com>, netdev@vger.kernel.org,
-        Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Transfer-Encoding: 8bit
+Cc: nsekhar@ti.com, grygorii.strashko@ti.com, davem@davemloft.net,
+        drivshin@allworx.com, mugunthanvnm@ti.com,
+        ivan.khoronzhuk@linaro.org, thomas.scariah@harman.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andrew Lunn <andrew@lunn.ch>
+To: Thomas Scariah <thomasscariah@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from st11p06im-asmtp001.me.com ([17.172.125.149]:43438 "EHLO
-        st11p06im-asmtp001.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751367AbdC0QZ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 12:25:26 -0400
-Received: from process-dkim-sign-daemon.st11p06im-asmtp001.me.com by
- st11p06im-asmtp001.me.com
- (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
- id <0ONH00K00EW1F000@st11p06im-asmtp001.me.com> for netdev@vger.kernel.org;
- Mon, 27 Mar 2017 16:25:07 +0000 (GMT)
-In-reply-to: <20170327142925.GA13305@localhost.localdomain>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35359 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751124AbdC0Qp5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 12:45:57 -0400
+In-Reply-To: <1490609570-3571-1-git-send-email-thomasscariah@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
-> On Mar 27, 2017, at 07:29, Richard Cochran <richardcochran@gmail.com> =
-wrote:
->=20
-> At the end of the day, the correction in the igb driver is useless and
-> even harmful.  Why?  Because if the app cares about this level of
-> accuracy, it is going to have to implement special logic anyhow, and
-> having a special case for the igb is even more work for the app.
+On 03/27/2017 03:12 AM, Thomas Scariah wrote:
+> From: "Scariah, Thomas" <thomas.scariah@harman.com>
+> 
+>  Added functions to support ethtool to print the phy statistics and error
+>  information along with other ethtool statistics. This will help ethtool
+>  information to know the error is from physical layer or MAC layer.
+>  This is an enahancement for ethtool to accommodate phy statistics
 
-If you are doing correction in the application, _every_ driver is a =
-special case. The a driver making average (known) correction is no more =
-special than any other.
+It sounds like your patch should actually be 3 different patches:
+
+- add helper function to the core PHY library
+- add statistics support to the Micrel PHY driver
+- hook the proper ndo operations in cpsw to allow querying the PHY
+driver's statistics
+
+> 
+> Signed-off-by: Thomas Scariah <thomasscariah@gmail.com>
+> ---
+>  drivers/net/ethernet/ti/cpsw.c |   16 ++++++++++++-
+>  drivers/net/phy/micrel.c       |   50 ++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/phy/phy.c          |   23 ++++++++++++++++++
+>  include/linux/phy.h            |   14 +++++++++++
+>  4 files changed, 102 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 3f48bb9..26d2dc5 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -1001,9 +1001,16 @@ update_return:
+>  
+>  static int cpsw_get_sset_count(struct net_device *ndev, int sset)
+>  {
+> +	struct cpsw_priv *priv = netdev_priv(ndev);
+> +	int slave_no = cpsw_slave_index(priv);
+> +	int count;
+> +
+>  	switch (sset) {
+>  	case ETH_SS_STATS:
+> -		return CPSW_STATS_LEN;
+> +		count = CPSW_STATS_LEN;
+> +		count += phy_ethtool_get_sset_count(priv->slaves[slave_no].phy,
+> +						    sset);
+> +		return count;
+>  	default:
+>  		return -EOPNOTSUPP;
+>  	}
+
+We already have a way to obtain PHY specific statistics through the
+ETH_SS_PHY_STATS string set, cannot we use that here too? It certainly
+makes it easier to overlay cpsw statistics with PHY device statistics,
+but when Andrew added support for that, AFAIR this was made
+intentionally separate.
+
+> @@ -1011,6 +1018,8 @@ static int cpsw_get_sset_count(struct net_device *ndev, int sset)
+>  
+>  static void cpsw_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
+>  {
+> +	struct cpsw_priv *priv = netdev_priv(ndev);
+> +	int slave_no = cpsw_slave_index(priv);
+>  	u8 *p = data;
+>  	int i;
+>  
+> @@ -1021,6 +1030,8 @@ static void cpsw_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
+>  			       ETH_GSTRING_LEN);
+>  			p += ETH_GSTRING_LEN;
+>  		}
+> +		phy_ethtool_get_strings(priv->slaves[slave_no].phy,
+> +					stringset, p);
+
+Same here.
+
+>  		break;
+>  	}
+>  }
+> @@ -1031,6 +1042,7 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
+>  	struct cpsw_priv *priv = netdev_priv(ndev);
+>  	struct cpdma_chan_stats rx_stats;
+>  	struct cpdma_chan_stats tx_stats;
+> +	int slave_no = cpsw_slave_index(priv);
+>  	u32 val;
+>  	u8 *p;
+>  	int i, ret;
+> @@ -1067,6 +1079,8 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
+>  		}
+>  	}
+>  
+> +	phy_ethtool_get_stats(priv->slaves[slave_no].phy, stats,
+> +			      &data[CPSW_STATS_LEN]);
+
+And here.
+
+>  	pm_runtime_put(&priv->pdev->dev);
+>  }
+>  
 
 
-> In addition, if you look into the igb data sheet, you will find a
-> range of correction values, with little indication of how they
-> measured the latency and what the ranges depend on.
-
-You are looking at the 2.2 datasheet I expect. The values for 10Mb and =
-1Gb have been removed from subsequent datasheets, however they have =
-added a bit more detail as to how the values are measured and what the =
-values.
-
-
-> In my
-> experiments, I have seen the igb consistently land on the extreme of
-> one of the ranges (who knows why), but the driver corrects using the
-> average, forcing me then to correct the remaining offset by hand.
-
-I agree that the values in the igb driver are incorrect. They were =
-middle of the range values from the old tables. At least for 100Mb, =
-Intel seems to know that the original table was incorrect. I=E2=80=99ve =
-done extensive measurements of the i210 and i211 at both 100Mb and 1Gb. =
-The =E2=80=9Cexternal link partner=E2=80=9D numbers Intel currently =
-publishes for the 100Mb appear accurate. I=E2=80=99m still finalizing =
-the values for 1Gb, but one thing I will note is that the values for =
-master mode and slave mode are quite different. FWIW, master/slave mode =
-correction is also something that can only be corrected in the driver :)
-
-I am curious to know any data you developed in your experiments and how =
-you did the measurements. Please email me directly if you are willing to =
-share.
-
-Thanks,
-Denny
+-- 
+Florian
