@@ -1,50 +1,104 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: netfilter: Remove multiple assignment.
-Date: Mon, 27 Mar 2017 15:09:13 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFFBAC5F@AcuExch.aculab.com>
-References: <20170325124946.GA9109@arushi-HP-Pavilion-Notebook>
- <20170327120827.GA15676@salvia>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Page allocator order-0 optimizations merged
+Date: Mon, 27 Mar 2017 17:15:00 +0200
+Message-ID: <20170327171500.4beef762@redhat.com>
+References: <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
+	<83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
+	<20170322234004.kffsce4owewgpqnm@techsingularity.net>
+	<20170323144347.1e6f29de@redhat.com>
+	<20170323145133.twzt4f5ci26vdyut@techsingularity.net>
+	<779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
+	<1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
+	<2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
+	<20170327105514.1ed5b1ba@redhat.com>
+	<20170327143947.4c237e54@redhat.com>
+	<20170327141518.GB27285@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "coreteam@netfilter.org" <coreteam@netfilter.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "outreachy-kernel@googlegroups.com"
-        <outreachy-kernel@googlegroups.com>
-To: 'Pablo Neira Ayuso' <pablo@netfilter.org>,
-        Arushi Singhal <arushisinghal19971997@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.186]:61650 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752297AbdC0PKB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 11:10:01 -0400
-In-Reply-To: <20170327120827.GA15676@salvia>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Pankaj Gupta <pagupta@redhat.com>, Tariq Toukan
+ <ttoukan.linux@gmail.com>, Mel Gorman <mgorman@techsingularity.net>, Tariq
+ Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+ akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>, Saeed Mahameed
+ <saeedm@mellanox.com>, brouer@redhat.com
+To: Matthew Wilcox <willy@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170327141518.GB27285@bombadil.infradead.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso
-> Sent: 27 March 2017 13:08
-> On Sat, Mar 25, 2017 at 06:19:47PM +0530, Arushi Singhal wrote:
-> > This patch removes multiple assignments.
-> > Done using coccinelle.
-> > @@
-> > identifier i1,i2;
-> > constant c;
-> > @@
-> > - i1=i2=c;
-> > + i1=c;
-> > + i2=c;
-> 
-> You have to explain why this is bad.
+On Mon, 27 Mar 2017 07:15:18 -0700
+Matthew Wilcox <willy@infradead.org> wrote:
 
-And your substituted code isn't equivalent.
-The correct replacement is:
-	i2 = c;
-	i1 = i2;
+> On Mon, Mar 27, 2017 at 02:39:47PM +0200, Jesper Dangaard Brouer wrote:
+> > =20
+> > +static __always_inline int in_irq_or_nmi(void)
+> > +{
+> > +	return in_irq() || in_nmi();
+> > +// XXX: hoping compiler will optimize this (todo verify) into:
+> > +// #define in_irq_or_nmi()	(preempt_count() & (HARDIRQ_MASK | NMI_MASK=
+))
+> > +
+> > +	/* compiler was smart enough to only read __preempt_count once
+> > +	 * but added two branches
+> > +asm code:
+> > + =E2=94=82       mov    __preempt_count,%eax
+> > + =E2=94=82       test   $0xf0000,%eax    // HARDIRQ_MASK: 0x000f0000
+> > + =E2=94=82    =E2=94=8C=E2=94=80=E2=94=80jne    2a
+> > + =E2=94=82    =E2=94=82  test   $0x100000,%eax   // NMI_MASK:     0x00=
+100000
+> > + =E2=94=82    =E2=94=82=E2=86=93 je     3f
+> > + =E2=94=82 2a:=E2=94=94=E2=94=80=E2=86=92mov    %rbx,%rdi
+> > +
+> > +	 */
+> > +} =20
+>=20
+> To be fair, you told the compiler to do that with your use of fancy-pants=
+ ||
+> instead of optimisable |.  Try this instead:
 
-	David
+Thanks you! -- good point! :-)
+
+> static __always_inline int in_irq_or_nmi(void)
+> {
+> 	return in_irq() | in_nmi();
+> }
+>=20
+> 0000000000001770 <test_fn>:
+>     1770:       65 8b 05 00 00 00 00    mov    %gs:0x0(%rip),%eax        =
+# 1777 <test_fn+0x7>
+>                         1773: R_X86_64_PC32     __preempt_count-0x4
+> #define in_nmi()                (preempt_count() & NMI_MASK)
+> #define in_task()               (!(preempt_count() & \
+>                                    (NMI_MASK | HARDIRQ_MASK | SOFTIRQ_OFF=
+SET)))
+> static __always_inline int in_irq_or_nmi(void)
+> {
+>         return in_irq() | in_nmi();
+>     1777:       25 00 00 1f 00          and    $0x1f0000,%eax
+> }
+>     177c:       c3                      retq  =20
+>     177d:       0f 1f 00                nopl   (%rax)
+
+And I also verified it worked:
+
+  0.63 =E2=94=82       mov    __preempt_count,%eax
+       =E2=94=82     free_hot_cold_page():
+  1.25 =E2=94=82       test   $0x1f0000,%eax
+       =E2=94=82     =E2=86=93 jne    1e4
+
+And this simplification also made the compiler change this into a
+unlikely branch, which is a micro-optimization (that I will leave up to
+the compiler).
+
+--=20
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
