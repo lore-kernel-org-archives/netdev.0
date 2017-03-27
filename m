@@ -1,95 +1,61 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 0/4] net: mpls: Allow users to configure more
- labels per route
-Date: Mon, 27 Mar 2017 11:39:10 +0100
-Message-ID: <5fe416c3-3e56-4e31-f92b-33e3e7b2e3c0@brocade.com>
-References: <1490461408-9551-1-git-send-email-dsa@cumulusnetworks.com>
- <87shm1np5h.fsf@xmission.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] cfg80211: Fix array-bounds warning in fragment copy
+Date: Mon, 27 Mar 2017 12:47:59 +0200
+Message-ID: <1490611679.3393.0.camel@sipsolutions.net>
+References: <20170325010644.190368-1-mka@chromium.org>
+         (sfid-20170325_020717_155658_DF54EC50)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-        David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Grant Grundler <grundler@chromium.org>
+To: Matthias Kaehlcke <mka@chromium.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33751 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750781AbdC0Kjg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 06:39:36 -0400
-In-Reply-To: <87shm1np5h.fsf@xmission.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:46160 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751559AbdC0KsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Mar 2017 06:48:12 -0400
+In-Reply-To: <20170325010644.190368-1-mka@chromium.org> (sfid-20170325_020717_155658_DF54EC50)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/03/17 19:15, Eric W. Biederman wrote:
-> David Ahern <dsa@cumulusnetworks.com> writes:
->
->> Bump the maximum number of labels for MPLS routes from 2 to 12. To keep
->> memory consumption in check the labels array is moved to the end of mpls_nh
->> and mpls_iptunnel_encap structs as a 0-sized array. Allocations use the
->> maximum number of labels across all nexthops in a route for LSR and the
->> number of labels configured for LWT.
->>
->> The mpls_route layout is changed to:
->>
->>    +----------------------+
->>    | mpls_route           |
->>    +----------------------+
->>    | mpls_nh 0            |
->>    +----------------------+
->>    | alignment padding    |   4 bytes for odd number of labels; 0 for even
->>    +----------------------+
->>    | via[rt_max_alen] 0   |
->>    +----------------------+
->>    | alignment padding    |   via's aligned on sizeof(unsigned long)
->>    +----------------------+
->>    | ...                  |
->>
->> Meaning the via follows its mpls_nh providing better locality as the
->> number of labels increases. UDP_RR tests with namespaces shows no impact
->> to a modest performance increase with this layout for 1 or 2 labels and
->> 1 or 2 nexthops.
->>
->> The new limit is set to 12 to cover all currently known segment
->> routing use cases.
->
-> How does this compare with running the packet a couple of times through
-> the mpls table to get all of the desired labels applied?
+On Fri, 2017-03-24 at 18:06 -0700, Matthias Kaehlcke wrote:
+> __ieee80211_amsdu_copy_frag intentionally initializes a pointer to
+> array[-1] to increment it later to valid values. clang rightfully
+> generates an array-bounds warning on the initialization statement.
+> Work around this by initializing the pointer to array[0] and
+> decrementing it later, which allows to leave the rest of the
+> algorithm untouched.
+> 
+> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+> ---
+>  net/wireless/util.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/wireless/util.c b/net/wireless/util.c
+> index 68e5f2ecee1a..d3d459e4a070 100644
+> --- a/net/wireless/util.c
+> +++ b/net/wireless/util.c
+> @@ -659,7 +659,7 @@ __ieee80211_amsdu_copy_frag(struct sk_buff *skb,
+> struct sk_buff *frame,
+>  			    int offset, int len)
+>  {
+>  	struct skb_shared_info *sh = skb_shinfo(skb);
+> -	const skb_frag_t *frag = &sh->frags[-1];
+> +	const skb_frag_t *frag = &sh->frags[0];
+>  	struct page *frag_page;
+>  	void *frag_ptr;
+>  	int frag_len, frag_size;
+> @@ -669,6 +669,7 @@ __ieee80211_amsdu_copy_frag(struct sk_buff *skb,
+> struct sk_buff *frame,
+>  	frag_page = virt_to_head_page(skb->head);
+>  	frag_ptr = skb->data;
+>  	frag_size = head_size;
+> +	frag--;
 
-At the moment (i.e setting output interface for a route to the loopback 
-interface) the TTL would currently be calculated incorrectly since it'll 
-be decremented each time the packet is run through the input processing. 
-If that was avoided, then the only issue would be the lower performance.
+Isn't it just a question of time until the compiler will see through
+this trick and warn about it?
 
->
-> I can certainly see the case in an mpls tunnel ingress where this might
-> could be desirable.    Which is something you implement in your last
-> patch.  However is it at all common to push lots of labels at once
-> during routing?
->
-> I am probably a bit naive but it seems absurd to push more
-> than a handful of labels onto a packet as you are routing it.
-
- From draft-ietf-spring-segment-routing-mpls-07:
-
-    Note that the kind of deployment of Segment Routing may affect the
-    depth of the MPLS label stack.  As every segment in the list is
-    represented by an additional MPLS label, the length of the segment
-    list directly correlates to the depth of the label stack.
-    Implementing a long path with many explicit hops as a segment list
-    may thus yield a deep label stack that would need to be pushed at the
-    head of the SR tunnel.
-
-    However, many use cases would need very few segments in the list.
-    This is especially true when taking good advantage of the ECMP aware
-    routing within each segment.  In fact most use cases need just one
-    additional segment and thus lead to a similar label stack depth as
-    e.g.  RSVP-based routing.
-
-The summary is that when using short-path routing then the number of 
-labels needed to be pushed on will be small (2 or 3). However, if using 
-SR to implement traffic engineering through a list of explicit hops then 
-the number of labels pushed could be much greater and up to the diameter 
-of the IGP network. Traffic engineering like this is not unusual.
-
-Thanks,
-Rob
+johannes
