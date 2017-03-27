@@ -1,73 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/10] i40evf: dereference VSI after VSI has been null checked
-Date: Mon, 27 Mar 2017 16:52:09 -0700
-Message-ID: <20170327235210.28652-10-jeffrey.t.kirsher@intel.com>
-References: <20170327235210.28652-1-jeffrey.t.kirsher@intel.com>
-Cc: Colin Ian King <colin.king@canonical.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: "Goel, Sameer" <sgoel@codeaurora.org>
+Subject: [BUG] ethernet:mellanox:mlx5: Oops in health_recover
+ get_nic_state(dev)
+Date: Mon, 27 Mar 2017 17:45:44 -0600
+Message-ID: <4a3539ba-6ce0-8ecf-1b1b-3c70cace6c2a@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        shankerd@codeaurora.org, rruigrok@codeaurora.org
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:46923 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753582AbdC0XxA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 19:53:00 -0400
-In-Reply-To: <20170327235210.28652-1-jeffrey.t.kirsher@intel.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:51544 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753546AbdC0Xww (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 19:52:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Stack frame:
+[ 1744.418958] [<ffff00000328936c>] get_nic_state+0x24/0x40 [mlx5_core]
+[ 1744.425273] [<ffff0000032899c0>] health_recover+0x28/0x80 [mlx5_core]
+[ 1744.431496] [<ffff0000080e3280>] process_one_work+0x150/0x460
+[ 1744.437218] [<ffff0000080e35e0>] worker_thread+0x50/0x4b8
+[ 1744.442609] [<ffff0000080e9b98>] kthread+0xd8/0xf0
+[ 1744.447377] [<ffff000008083330>] ret_from_fork+0x10/0x20
 
-VSI is being dereferenced before the VSI null check; if VSI is
-null we end up with a null pointer dereference.  Fix this by
-performing VSI deference after the VSI null check.  Also remove
-the need for using adapter by using vsi->back->cinst.
+Summary:
+This issue was seen on QDF2400 system 30 mins after while running speccpu 2006. During the test a recoverable PCIe error was seen that gave the following log:
+[ 1673.170969] pcieport 0002:00:00.0: aer_status: 0x00004000, aer_mask: 0x00400000
+[ 1673.177961] pcieport 0002:00:00.0: aer_layer=Transaction Layer, aer_agent=Requester ID
+[ 1673.185832] pcieport 0002:00:00.0: aer_uncor_severity: 0x00462030
+[ 1675.536391] mlx5_core 0002:01:00.0: assert_var[0] 0xffffffff
+[ 1675.541093] mlx5_core 0002:01:00.0: assert_var[1] 0xffffffff
+[ 1675.546750] mlx5_core 0002:01:00.0: assert_var[2] 0xffffffff
+[ 1675.552377] mlx5_core 0002:01:00.0: assert_var[3] 0xffffffff
+[ 1675.558040] mlx5_core 0002:01:00.0: assert_var[4] 0xffffffff
+[ 1675.563661] mlx5_core 0002:01:00.0: assert_exit_ptr 0xffffffff
+[ 1675.569488] mlx5_core 0002:01:00.0: assert_callra 0xffffffff
+[ 1675.575120] mlx5_core 0002:01:00.0: fw_ver 15.4095.65535
+[ 1675.580426] mlx5_core 0002:01:00.0: hw_id 0xffffffff
+[ 1675.585363] mlx5_core 0002:01:00.0: irisc_index 255
+[ 1675.590242] mlx5_core 0002:01:00.0: synd 0xff: unrecognized error
+[ 1675.596301] mlx5_core 0002:01:00.0: ext_synd 0xffff
+[ 1675.601209] mlx5_core 0002:01:00.0: mlx5_enter_error_state:120:(pid 7205): start
+[ 1675.608613] mlx5_core 0002:01:00.0: mlx5_enter_error_state:127:(pid 7205): end
 
-Detected by CoverityScan, CID#1419696, CID#1419697
-("Dereference before null check")
+After the above log we see the above stackframe and a page fault due to invalid dev pointer.
 
-Fixes: ed0e894de7c133 ("i40evf: add client interface")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf_client.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+So the the recovery work is queued and the timer is stopped. Somehow the workqueue is not cleared and when it runs the dev pointer is invalid.
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_client.c b/drivers/net/ethernet/intel/i40evf/i40evf_client.c
-index 5b43e5b6e2eb..ee737680a0e9 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_client.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_client.c
-@@ -34,12 +34,12 @@ static struct i40e_ops i40evf_lan_ops = {
-  **/
- void i40evf_notify_client_message(struct i40e_vsi *vsi, u8 *msg, u16 len)
- {
--	struct i40evf_adapter *adapter = vsi->back;
--	struct i40e_client_instance *cinst = adapter->cinst;
-+	struct i40e_client_instance *cinst;
- 
- 	if (!vsi)
- 		return;
- 
-+	cinst = vsi->back->cinst;
- 	if (!cinst || !cinst->client || !cinst->client->ops ||
- 	    !cinst->client->ops->virtchnl_receive) {
- 		dev_dbg(&vsi->back->pdev->dev,
-@@ -58,12 +58,13 @@ void i40evf_notify_client_message(struct i40e_vsi *vsi, u8 *msg, u16 len)
-  **/
- void i40evf_notify_client_l2_params(struct i40e_vsi *vsi)
- {
--	struct i40evf_adapter *adapter = vsi->back;
--	struct i40e_client_instance *cinst = adapter->cinst;
-+	struct i40e_client_instance *cinst;
- 	struct i40e_params params;
- 
- 	if (!vsi)
- 		return;
-+
-+	cinst = vsi->back->cinst;
- 	memset(&params, 0, sizeof(params));
- 	params.mtu = vsi->netdev->mtu;
- 	params.link_up = vsi->back->link_up;
+This issue was difficult to repro and was seen only once in multiple runs on a specific device.
+
+Thanks,
+Sameer 
 -- 
-2.12.0
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm Technologies, Inc.
+Qualcomm Technologies, Inc. is a member of the Code Aurora Forum,
+a Linux Foundation Collaborative Project.
