@@ -1,7 +1,7 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH RFC v4 10/10] tty: serdev: add functions to retrieve common UART settings
-Date: Mon, 27 Mar 2017 15:37:28 +0200
-Message-ID: <1490621848-24828-11-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH RFC v4 04/10] net: qualcomm: rename qca_framing.c to qca_common.c
+Date: Mon, 27 Mar 2017 15:37:22 +0200
+Message-ID: <1490621848-24828-5-git-send-email-stefan.wahren@i2se.com>
 References: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>,
@@ -18,180 +18,80 @@ In-Reply-To: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently serdev core doesn't provide functions to retrieve common
-UART settings like data bits, stop bits or parity. This patch adds
-the interface to the core and the necessary implementation for
-serdev-ttyport.
+As preparation for the upcoming UART driver we need a module
+which contains common functions for both interfaces. The module
+qca_framing is a good candidate but renaming to qca_common would
+make it clear.
 
 Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/tty/serdev/core.c           | 33 ++++++++++++++++++++++++++
- drivers/tty/serdev/serdev-ttyport.c | 47 +++++++++++++++++++++++++++++++++++++
- include/linux/serdev.h              | 22 +++++++++++++++++
- 3 files changed, 102 insertions(+)
+ drivers/net/ethernet/qualcomm/Makefile                        | 2 +-
+ drivers/net/ethernet/qualcomm/{qca_framing.c => qca_common.c} | 2 +-
+ drivers/net/ethernet/qualcomm/{qca_framing.h => qca_common.h} | 0
+ drivers/net/ethernet/qualcomm/qca_spi.c                       | 2 +-
+ drivers/net/ethernet/qualcomm/qca_spi.h                       | 2 +-
+ 5 files changed, 4 insertions(+), 4 deletions(-)
+ rename drivers/net/ethernet/qualcomm/{qca_framing.c => qca_common.c} (99%)
+ rename drivers/net/ethernet/qualcomm/{qca_framing.h => qca_common.h} (100%)
 
-diff --git a/drivers/tty/serdev/core.c b/drivers/tty/serdev/core.c
-index 531aa89..7b1e5bf 100644
---- a/drivers/tty/serdev/core.c
-+++ b/drivers/tty/serdev/core.c
-@@ -173,6 +173,39 @@ void serdev_device_set_flow_control(struct serdev_device *serdev, bool enable)
- }
- EXPORT_SYMBOL_GPL(serdev_device_set_flow_control);
+diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
+index aacb0a5..8080570 100644
+--- a/drivers/net/ethernet/qualcomm/Makefile
++++ b/drivers/net/ethernet/qualcomm/Makefile
+@@ -3,6 +3,6 @@
+ #
  
-+int serdev_device_get_data_bits(struct serdev_device *serdev)
-+{
-+	struct serdev_controller *ctrl = serdev->ctrl;
-+
-+	if (!ctrl || !ctrl->ops->get_data_bits)
-+		return -EINVAL;
-+
-+	return ctrl->ops->get_data_bits(ctrl);
-+}
-+EXPORT_SYMBOL_GPL(serdev_device_get_data_bits);
-+
-+int serdev_device_get_parity(struct serdev_device *serdev)
-+{
-+	struct serdev_controller *ctrl = serdev->ctrl;
-+
-+	if (!ctrl || !ctrl->ops->get_parity)
-+		return -EINVAL;
-+
-+	return ctrl->ops->get_parity(ctrl);
-+}
-+EXPORT_SYMBOL_GPL(serdev_device_get_parity);
-+
-+int serdev_device_get_stop_bits(struct serdev_device *serdev)
-+{
-+	struct serdev_controller *ctrl = serdev->ctrl;
-+
-+	if (!ctrl || !ctrl->ops->get_stop_bits)
-+		return -EINVAL;
-+
-+	return ctrl->ops->get_stop_bits(ctrl);
-+}
-+EXPORT_SYMBOL_GPL(serdev_device_get_stop_bits);
-+
- static int serdev_drv_probe(struct device *dev)
- {
- 	const struct serdev_device_driver *sdrv = to_serdev_device_driver(dev->driver);
-diff --git a/drivers/tty/serdev/serdev-ttyport.c b/drivers/tty/serdev/serdev-ttyport.c
-index 8a30abe..5698682 100644
---- a/drivers/tty/serdev/serdev-ttyport.c
-+++ b/drivers/tty/serdev/serdev-ttyport.c
-@@ -167,6 +167,50 @@ static void ttyport_set_flow_control(struct serdev_controller *ctrl, bool enable
- 	tty_set_termios(tty, &ktermios);
- }
+ obj-$(CONFIG_QCA7000) += qcaspi.o
+-qcaspi-objs := qca_spi.o qca_framing.o qca_7k.o qca_debug.o
++qcaspi-objs := qca_spi.o qca_common.o qca_7k.o qca_debug.o
  
-+static int ttyport_get_data_bits(struct serdev_controller *ctrl)
-+{
-+	struct serport *serport = serdev_controller_get_drvdata(ctrl);
-+	struct tty_struct *tty = serport->tty;
-+	struct ktermios ktermios = tty->termios;
-+
-+	switch (ktermios.c_cflag & CSIZE) {
-+	case CS5:
-+		return 5;
-+	case CS6:
-+		return 6;
-+	case CS7:
-+		return 7;
-+	case CS8:
-+		return 8;
-+	}
-+
-+	return 0;
-+}
-+
-+static int ttyport_get_parity(struct serdev_controller *ctrl)
-+{
-+	struct serport *serport = serdev_controller_get_drvdata(ctrl);
-+	struct tty_struct *tty = serport->tty;
-+	struct ktermios ktermios = tty->termios;
-+
-+	if (!(ktermios.c_cflag & PARENB))
-+		return SERDEV_PARITY_NONE;
-+
-+	if (ktermios.c_cflag & PARODD)
-+		return SERDEV_PARITY_ODD;
-+
-+	return SERDEV_PARITY_EVEN;
-+}
-+
-+static int ttyport_get_stop_bits(struct serdev_controller *ctrl)
-+{
-+	struct serport *serport = serdev_controller_get_drvdata(ctrl);
-+	struct tty_struct *tty = serport->tty;
-+	struct ktermios ktermios = tty->termios;
-+
-+	return (ktermios.c_cflag & CSTOPB) ? 2 : 1;
-+}
-+
- static const struct serdev_controller_ops ctrl_ops = {
- 	.write_buf = ttyport_write_buf,
- 	.write_flush = ttyport_write_flush,
-@@ -175,6 +219,9 @@ static const struct serdev_controller_ops ctrl_ops = {
- 	.close = ttyport_close,
- 	.set_flow_control = ttyport_set_flow_control,
- 	.set_baudrate = ttyport_set_baudrate,
-+	.get_data_bits = ttyport_get_data_bits,
-+	.get_parity = ttyport_get_parity,
-+	.get_stop_bits = ttyport_get_stop_bits,
- };
+ obj-y += emac/
+diff --git a/drivers/net/ethernet/qualcomm/qca_framing.c b/drivers/net/ethernet/qualcomm/qca_common.c
+similarity index 99%
+rename from drivers/net/ethernet/qualcomm/qca_framing.c
+rename to drivers/net/ethernet/qualcomm/qca_common.c
+index faa924c..26453a9 100644
+--- a/drivers/net/ethernet/qualcomm/qca_framing.c
++++ b/drivers/net/ethernet/qualcomm/qca_common.c
+@@ -23,7 +23,7 @@
  
- struct device *serdev_tty_port_register(struct tty_port *port,
-diff --git a/include/linux/serdev.h b/include/linux/serdev.h
-index 5176cdc..6180aa2 100644
---- a/include/linux/serdev.h
-+++ b/include/linux/serdev.h
-@@ -16,6 +16,10 @@
+ #include <linux/kernel.h>
+ 
+-#include "qca_framing.h"
++#include "qca_common.h"
+ 
+ u16
+ qcafrm_create_header(u8 *buf, u16 length)
+diff --git a/drivers/net/ethernet/qualcomm/qca_framing.h b/drivers/net/ethernet/qualcomm/qca_common.h
+similarity index 100%
+rename from drivers/net/ethernet/qualcomm/qca_framing.h
+rename to drivers/net/ethernet/qualcomm/qca_common.h
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index 4f431bc..65adc10 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -43,8 +43,8 @@
  #include <linux/types.h>
- #include <linux/device.h>
  
-+#define SERDEV_PARITY_NONE	0
-+#define SERDEV_PARITY_ODD	1
-+#define SERDEV_PARITY_EVEN	2
-+
- struct serdev_controller;
- struct serdev_device;
+ #include "qca_7k.h"
++#include "qca_common.h"
+ #include "qca_debug.h"
+-#include "qca_framing.h"
+ #include "qca_spi.h"
  
-@@ -81,6 +85,9 @@ struct serdev_controller_ops {
- 	void (*close)(struct serdev_controller *);
- 	void (*set_flow_control)(struct serdev_controller *, bool);
- 	unsigned int (*set_baudrate)(struct serdev_controller *, unsigned int);
-+	int (*get_data_bits)(struct serdev_controller *);
-+	int (*get_parity)(struct serdev_controller *);
-+	int (*get_stop_bits)(struct serdev_controller *);
- };
+ #define MAX_DMA_BURST_LEN 5000
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.h b/drivers/net/ethernet/qualcomm/qca_spi.h
+index 064853d..cce4802 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.h
++++ b/drivers/net/ethernet/qualcomm/qca_spi.h
+@@ -32,7 +32,7 @@
+ #include <linux/spi/spi.h>
+ #include <linux/types.h>
  
- /**
-@@ -189,6 +196,9 @@ void serdev_device_set_flow_control(struct serdev_device *, bool);
- int serdev_device_write_buf(struct serdev_device *, const unsigned char *, size_t);
- void serdev_device_write_flush(struct serdev_device *);
- int serdev_device_write_room(struct serdev_device *);
-+int serdev_device_get_data_bits(struct serdev_device *);
-+int serdev_device_get_parity(struct serdev_device *);
-+int serdev_device_get_stop_bits(struct serdev_device *);
+-#include "qca_framing.h"
++#include "qca_common.h"
  
- /*
-  * serdev device driver functions
-@@ -232,6 +242,18 @@ static inline int serdev_device_write_room(struct serdev_device *sdev)
- {
- 	return 0;
- }
-+static inline int serdev_device_get_data_bits(struct serdev_device *sdev)
-+{
-+	return -ENODEV;
-+}
-+static inline int serdev_device_get_parity(struct serdev_device *sdev)
-+{
-+	return -ENODEV;
-+}
-+static inline int serdev_device_get_stop_bits(struct serdev_device *sdev)
-+{
-+	return -ENODEV;
-+}
- 
- #define serdev_device_driver_register(x)
- #define serdev_device_driver_unregister(x)
+ #define QCASPI_DRV_VERSION "0.2.7-i"
+ #define QCASPI_DRV_NAME    "qcaspi"
 -- 
 2.1.4
