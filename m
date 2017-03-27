@@ -1,7 +1,8 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH RFC v2 3/3] net: phy: allow EEE with SGMII interface modes
-Date: Mon, 27 Mar 2017 10:59:01 +0100
-Message-ID: <E1csRQT-0004rM-Tq@rmk-PC.armlinux.org.uk>
+Subject: [PATCH RFC v2 2/3] net: phy: restart phy autonegotiation after EEE
+ advertisment change
+Date: Mon, 27 Mar 2017 10:58:56 +0100
+Message-ID: <E1csRQO-0004rE-Px@rmk-PC.armlinux.org.uk>
 References: <20170327095826.GA2310@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,35 +10,67 @@ Content-Transfer-Encoding: 8bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:36116 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:36108 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751973AbdC0J7M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:59:12 -0400
+        with ESMTP id S1752290AbdC0J7P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:59:15 -0400
 In-Reply-To: <20170327095826.GA2310@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As EEE is able to work in SGMII mode as well, add it to the list of
-permissable EEE modes that phy_init_eee() will accept.  This is
-necessary so that EEE can work with an 88E1512 connected in SGMII mode.
+When the EEE advertisment is changed, we should restart autonegotiation
+to update the link partner with the new EEE settings.  Add this trigger
+but only if the advertisment has changed.
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/phy.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/phy/phy.c | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 345251f21699..3529cc8bec10 100644
+index 7b1c93b0233a..345251f21699 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -1215,6 +1215,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 	if ((phydev->duplex == DUPLEX_FULL) &&
- 	    ((phydev->interface == PHY_INTERFACE_MODE_MII) ||
- 	    (phydev->interface == PHY_INTERFACE_MODE_GMII) ||
-+	     phydev->interface == PHY_INTERFACE_MODE_SGMII ||
- 	     phy_interface_is_rgmii(phydev) ||
- 	     phy_is_internal(phydev))) {
- 		int eee_lp, eee_cap, eee_adv;
+@@ -1332,7 +1332,7 @@ EXPORT_SYMBOL(phy_ethtool_get_eee);
+  */
+ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ {
+-	int cap, adv;
++	int cap, old_adv, adv, ret;
+ 
+ 	if (!phydev->drv)
+ 		return -EIO;
+@@ -1342,12 +1342,29 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ 	if (cap < 0)
+ 		return cap;
+ 
++	old_adv = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV);
++	if (old_adv < 0)
++		return old_adv;
++
+ 	adv = ethtool_adv_to_mmd_eee_adv_t(data->advertised) & cap;
+ 
+ 	/* Mask prohibited EEE modes */
+ 	adv &= ~phydev->eee_broken_modes;
+ 
+-	return phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, adv);
++	if (old_adv != adv) {
++		ret = phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, adv);
++		if (ret < 0)
++			return ret;
++
++		/* Restart autonegotiation so the new modes get sent to the
++		 * link partner.
++		 */
++		ret = genphy_restart_aneg(phydev);
++		if (ret < 0)
++			return ret;
++	}
++
++	return 0;
+ }
+ EXPORT_SYMBOL(phy_ethtool_set_eee);
+ 
 -- 
 2.7.4
