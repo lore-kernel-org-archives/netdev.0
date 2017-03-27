@@ -1,37 +1,81 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next] net: ibmvnic: Remove unused net_stats member from struct ibmvnic_adapter
-Date: Mon, 27 Mar 2017 08:56:59 +0200
-Message-ID: <20170327065659.27307-1-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-        John Allen <jallen@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:51204 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751746AbdC0G5D (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 27 Mar 2017 02:57:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 3/5] rds: remove unnecessary returned value check
+Date: Mon, 27 Mar 2017 03:06:28 -0400
+Message-ID: <1490598390-13812-4-git-send-email-yanjun.zhu@oracle.com>
+References: <1490598390-13812-1-git-send-email-yanjun.zhu@oracle.com>
+To: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1490598390-13812-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The ibmvnic driver keeps its statistics in net_device->stats, so the
-net_stats member in struct ibmvnic_adapter is unused. Remove it.
+In the function rds_stats_init, the returned value
+is always zero. As such, it is not necessary to check it.
+And change the return type to void.
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/ibm/ibmvnic.h | 1 -
- 1 file changed, 1 deletion(-)
+ net/rds/af_rds.c | 5 +----
+ net/rds/rds.h    | 2 +-
+ net/rds/stats.c  | 3 +--
+ 3 files changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
-index 10ad259208cb..42ad648c174d 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.h
-+++ b/drivers/net/ethernet/ibm/ibmvnic.h
-@@ -953,7 +953,6 @@ struct ibmvnic_adapter {
- 	dma_addr_t bounce_buffer_dma;
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index b405f77..a696096 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -658,9 +658,7 @@ static int rds_init(void)
+ 	ret = rds_sysctl_init();
+ 	if (ret)
+ 		goto out_threads;
+-	ret = rds_stats_init();
+-	if (ret)
+-		goto out_sysctl;
++	rds_stats_init();
+ 	ret = proto_register(&rds_proto, 1);
+ 	if (ret)
+ 		goto out_stats;
+@@ -677,7 +675,6 @@ static int rds_init(void)
+ 	proto_unregister(&rds_proto);
+ out_stats:
+ 	rds_stats_exit();
+-out_sysctl:
+ 	rds_sysctl_exit();
+ out_threads:
+ 	rds_threads_exit();
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 82d38cc..82a8856 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -870,7 +870,7 @@ DECLARE_PER_CPU_SHARED_ALIGNED(struct rds_statistics, rds_stats);
+ 	put_cpu();					\
+ } while (0)
+ #define rds_stats_add(member, count) rds_stats_add_which(rds_stats, member, count)
+-int rds_stats_init(void);
++void rds_stats_init(void);
+ void rds_stats_exit(void);
+ void rds_stats_info_copy(struct rds_info_iterator *iter,
+ 			 uint64_t *values, const char *const *names,
+diff --git a/net/rds/stats.c b/net/rds/stats.c
+index 73be187..e83b4bb 100644
+--- a/net/rds/stats.c
++++ b/net/rds/stats.c
+@@ -145,8 +145,7 @@ void rds_stats_exit(void)
+ 	rds_info_deregister_func(RDS_INFO_COUNTERS, rds_stats_info);
+ }
  
- 	/* Statistics */
--	struct net_device_stats net_stats;
- 	struct ibmvnic_statistics stats;
- 	dma_addr_t stats_token;
- 	struct completion stats_done;
+-int rds_stats_init(void)
++void rds_stats_init(void)
+ {
+ 	rds_info_register_func(RDS_INFO_COUNTERS, rds_stats_info);
+-	return 0;
+ }
 -- 
-2.11.0
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
