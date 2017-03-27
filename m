@@ -1,93 +1,126 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v3 3/3] net: phy: Allow splitting MDIO bus/device
- support from PHYs
-Date: Mon, 27 Mar 2017 17:41:49 +0200
-Message-ID: <CAK8P3a2C2cwOugYcPABxySEwiDTM5Grje7tpJiMf4gJJFFoVzg@mail.gmail.com>
-References: <20170323170119.4004-1-f.fainelli@gmail.com> <20170323170119.4004-4-f.fainelli@gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH RFC v4 06/10] net: qualcomm: make qca_common a separate
+ kernel module
+Date: Mon, 27 Mar 2017 10:44:04 -0500
+Message-ID: <1490629444.2719.3.camel@redhat.com>
+References: <1490621848-24828-1-git-send-email-stefan.wahren@i2se.com>
+         <1490621848-24828-7-git-send-email-stefan.wahren@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Networking <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, rmk+kernel@armlinux.org.uk
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Sebastian Reichel <sre@kernel.org>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-serial@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Stefan Wahren <stefan.wahren@i2se.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:35771 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752146AbdC0Plv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 11:41:51 -0400
-Received: by mail-ot0-f196.google.com with SMTP id s100so4321587ota.2
-        for <netdev@vger.kernel.org>; Mon, 27 Mar 2017 08:41:50 -0700 (PDT)
-In-Reply-To: <20170323170119.4004-4-f.fainelli@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49792 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751385AbdC0PoK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Mar 2017 11:44:10 -0400
+In-Reply-To: <1490621848-24828-7-git-send-email-stefan.wahren@i2se.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 23, 2017 at 6:01 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> Introduce a new configuration symbol: MDIO_DEVICE which allows building
-> the MDIO devices and bus code, without pulling in the entire Ethernet
-> PHY library and devices code.
->
-> PHYLIB nows select MDIO_DEVICE and the relevant Makefile files are
-> updated to reflect that.
->
-> When MDIO_DEVICE (MDIO bus/device only) is selected, but not PHYLIB, we
-> have mdio-bus.ko as a loadable module, and it does not have a
-> module_exit() function because the safety of removing a bus class is
-> unclear.
->
-> When both MDIO_DEVICE and PHYLIB are enabled, we need to assemble
-> everything into a common loadable module: libphy.ko because of nasty
-> circular dependencies between phy.c, phy_device.c and mdio_bus.c which
-> are really tough to untangle.
+On Mon, 2017-03-27 at 15:37 +0200, Stefan Wahren wrote:
+> In order to share common functions between QCA7000 SPI and UART
+> protocol
+> driver the qca_common needs to be a separate kernel module.
 
-I'm getting a couple of link errors with this:
+Maybe "qca_eth_common"?  There are many things Qualcomm, slightly fewer
+things Qualcomm Atheros, and "qca_common" isn't very descriptive.
 
-- ARCH_ORION5X calls mdiobus_register_board_info and must force
-  mdio-boardinfo.o to be built-in, but I don't see how it should
-ideally do that:
+Dan
 
-arch/arm/plat-orion/common.o: In function `orion_ge00_switch_init':
-common.c:(.init.text+0x6a6): undefined reference to
-`mdiobus_register_board_info'
-
-- sun4i_mdio.ko depends on mdiobus, but it gets selected from another driver
-  which makes it built-in without checking if mdiobus is a module
-
-drivers/net/built-in.o: In function `sun4i_mdio_remove':
-:(.text+0x51c): undefined reference to `mdiobus_unregister'
-:(.text+0x524): undefined reference to `mdiobus_free'
-drivers/net/built-in.o: In function `sun4i_mdio_probe':
-:(.text+0x728): undefined reference to `mdiobus_alloc_size'
-:(.text+0x85c): undefined reference to `of_mdiobus_register'
-:(.text+0x894): undefined reference to `mdiobus_free'
-
-- Some drivers select MDIO_BITBANG, which may need to be a module:
-warning: (FS_ENET_MDIO_FCC && AX88796 && SH_ETH && RAVB) selects
-MDIO_BITBANG which has unmet direct dependencies (NETDEVICES &&
-MDIO_DEVICE && (MDIO_DEVICE!=y || PHYLIB!=m))
-
-I've been able to work around the latter two using this hack:
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 60ffc9da6a28..d82857f46cec 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -28,7 +28,7 @@ config MDIO_BCM_UNIMAC
-
- config MDIO_BITBANG
-  tristate "Bitbanged MDIO buses"
-- depends on !(MDIO_DEVICE=y && PHYLIB=m)
-+ depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
-  help
-   This module implements the MDIO bus protocol in software,
-   for use by low level drivers that export the ability to
-@@ -118,6 +118,7 @@ config MDIO_OCTEON
- config MDIO_SUN4I
-  tristate "Allwinner sun4i MDIO interface support"
-  depends on ARCH_SUNXI
-+ depends on m || !(MDIO_DEVICE=y && PHYLIB=m)
-  help
-   This driver supports the MDIO interface found in the network
-   interface units of the Allwinner SoC that have an EMAC (A10,
-
-
-      Arnd
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> ---
+>  drivers/net/ethernet/qualcomm/Kconfig      |  8 +++++++-
+>  drivers/net/ethernet/qualcomm/Makefile     |  5 +++--
+>  drivers/net/ethernet/qualcomm/qca_common.c | 10 ++++++++++
+>  3 files changed, 20 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/qualcomm/Kconfig
+> b/drivers/net/ethernet/qualcomm/Kconfig
+> index d7720bf..b4c369d 100644
+> --- a/drivers/net/ethernet/qualcomm/Kconfig
+> +++ b/drivers/net/ethernet/qualcomm/Kconfig
+> @@ -16,7 +16,13 @@ config NET_VENDOR_QUALCOMM
+>  if NET_VENDOR_QUALCOMM
+>  
+>  config QCA7000
+> -	tristate "Qualcomm Atheros QCA7000 support"
+> +	tristate
+> +	help
+> +	  This enables support for the Qualcomm Atheros QCA7000.
+> +
+> +config QCA7000_SPI
+> +	tristate "Qualcomm Atheros QCA7000 SPI support"
+> +	select QCA7000
+>  	depends on SPI_MASTER && OF
+>  	---help---
+>  	  This SPI protocol driver supports the Qualcomm Atheros
+> QCA7000.
+> diff --git a/drivers/net/ethernet/qualcomm/Makefile
+> b/drivers/net/ethernet/qualcomm/Makefile
+> index 8080570..00d8729 100644
+> --- a/drivers/net/ethernet/qualcomm/Makefile
+> +++ b/drivers/net/ethernet/qualcomm/Makefile
+> @@ -2,7 +2,8 @@
+>  # Makefile for the Qualcomm network device drivers.
+>  #
+>  
+> -obj-$(CONFIG_QCA7000) += qcaspi.o
+> -qcaspi-objs := qca_spi.o qca_common.o qca_7k.o qca_debug.o
+> +obj-$(CONFIG_QCA7000) += qca_common.o
+> +obj-$(CONFIG_QCA7000_SPI) += qcaspi.o
+> +qcaspi-objs := qca_7k.o qca_debug.o qca_spi.o
+>  
+>  obj-y += emac/
+> diff --git a/drivers/net/ethernet/qualcomm/qca_common.c
+> b/drivers/net/ethernet/qualcomm/qca_common.c
+> index d930524..f2c9e76 100644
+> --- a/drivers/net/ethernet/qualcomm/qca_common.c
+> +++ b/drivers/net/ethernet/qualcomm/qca_common.c
+> @@ -21,7 +21,9 @@
+>   *   by an atheros frame while transmitted over a serial channel;
+>   */
+>  
+> +#include <linux/init.h>
+>  #include <linux/kernel.h>
+> +#include <linux/module.h>
+>  
+>  #include "qca_common.h"
+>  
+> @@ -46,6 +48,7 @@ qcafrm_create_header(u8 *buf, u16 length)
+>  
+>  	return QCAFRM_HEADER_LEN;
+>  }
+> +EXPORT_SYMBOL_GPL(qcafrm_create_header);
+>  
+>  u16
+>  qcafrm_create_footer(u8 *buf)
+> @@ -57,6 +60,7 @@ qcafrm_create_footer(u8 *buf)
+>  	buf[1] = 0x55;
+>  	return QCAFRM_FOOTER_LEN;
+>  }
+> +EXPORT_SYMBOL_GPL(qcafrm_create_footer);
+>  
+>  /*   Gather received bytes and try to extract a full ethernet frame
+> by
+>   *   following a simple state machine.
+> @@ -154,3 +158,9 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle,
+> u8 *buf, u16 buf_len, u8 recv_by
+>  
+>  	return ret;
+>  }
+> +EXPORT_SYMBOL_GPL(qcafrm_fsm_decode);
+> +
+> +MODULE_DESCRIPTION("Qualcomm Atheros Common");
+> +MODULE_AUTHOR("Qualcomm Atheros Communications");
+> +MODULE_AUTHOR("Stefan Wahren <stefan.wahren@i2se.com>");
+> +MODULE_LICENSE("Dual BSD/GPL");
