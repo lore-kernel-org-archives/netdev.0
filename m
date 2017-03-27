@@ -1,52 +1,43 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: [PATCH RFC v2 0/3] phylib EEE updates
-Date: Mon, 27 Mar 2017 10:58:26 +0100
-Message-ID: <20170327095826.GA2310@n2100.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH RFC v2 3/3] net: phy: allow EEE with SGMII interface modes
+Date: Mon, 27 Mar 2017 10:59:01 +0100
+Message-ID: <E1csRQT-0004rM-Tq@rmk-PC.armlinux.org.uk>
+References: <20170327095826.GA2310@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:36092 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:36116 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751407AbdC0J6t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:58:49 -0400
+        with ESMTP id S1751973AbdC0J7M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:59:12 -0400
+In-Reply-To: <20170327095826.GA2310@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian,
+As EEE is able to work in SGMII mode as well, add it to the list of
+permissable EEE modes that phy_init_eee() will accept.  This is
+necessary so that EEE can work with an 88E1512 connected in SGMII mode.
 
-This series of patches depends on the previous set of changes, and is
-therefore net-next material.
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/phy/phy.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-While testing the EEE code, I discovered a number of issues:
-
-1. It is possible to enable advertisment of EEE modes which are not
-   supported by the hardware.  We omit to check the supported modes
-   and mask off those modes that are not supported before writing the
-   EEE advertisment register.
-
-2. We need to restart autonegotiation after a change of the EEE
-   advertisment, otherwise the link partner does not see the updated
-   EEE modes.
-
-3. SGMII connected PHYs are also capable of supporting EEE.
-
-I'm not too sure why we have the test in phylib for the interface mode,
-as the list of interface modes that support EEE is likely to increase
-(eg, 10G interface modes have provision to support EEE mode.)  I did
-think about killing the test, but the older interface modes probably
-don't support it.  Any thoughts on what to do about that - maybe the
-test should be reversed to exclude those modes which definitely don't
-support EEE?
-
- drivers/net/phy/phy.c | 29 ++++++++++++++++++++++++++---
- 1 file changed, 26 insertions(+), 3 deletions(-)
-
-v2: fix "phy_restart_aneg" build error identified by 0-day
-   
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 345251f21699..3529cc8bec10 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -1215,6 +1215,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ 	if ((phydev->duplex == DUPLEX_FULL) &&
+ 	    ((phydev->interface == PHY_INTERFACE_MODE_MII) ||
+ 	    (phydev->interface == PHY_INTERFACE_MODE_GMII) ||
++	     phydev->interface == PHY_INTERFACE_MODE_SGMII ||
+ 	     phy_interface_is_rgmii(phydev) ||
+ 	     phy_is_internal(phydev))) {
+ 		int eee_lp, eee_cap, eee_adv;
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.7.4
