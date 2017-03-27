@@ -1,84 +1,52 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [v2,net-next,1/3] net: stmmac: enable multiple buffers
-Date: Mon, 27 Mar 2017 11:28:25 +0200
-Message-ID: <13caf663-ba0f-941c-0d1e-f043cb9a7a0b@st.com>
-References: <20170324074255.GB16730@lunn.ch>
- <cb5f5af2-6375-111b-e1aa-da48b5c42595@synopsys.com>
- <20170324111736.GB22281@lunn.ch>
- <20170324.100557.1391035515160209574.davem@davemloft.net>
- <742f3185-1b4e-f801-5b5e-cc835953ff0c@synopsys.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH RFC v2 0/3] phylib EEE updates
+Date: Mon, 27 Mar 2017 10:58:26 +0100
+Message-ID: <20170327095826.GA2310@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: <thierry.reding@gmail.com>, <peppe.cavallaro@st.com>,
-        <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-To: Joao Pinto <Joao.Pinto@synopsys.com>,
-        David Miller <davem@davemloft.net>, <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:55095 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752710AbdC0Jy3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:54:29 -0400
-In-Reply-To: <742f3185-1b4e-f801-5b5e-cc835953ff0c@synopsys.com>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:36092 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751407AbdC0J6t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 05:58:49 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Joao
+Florian,
 
-On 03/24/2017 06:09 PM, Joao Pinto wrote:
->
-> Hello David,
->
-> Às 5:05 PM de 3/24/2017, David Miller escreveu:
->> From: Andrew Lunn <andrew@lunn.ch>
->> Date: Fri, 24 Mar 2017 12:17:36 +0100
->>
->>>> Yes it would be fantastic to have a set of boards, but I rarely see this in any
->>>> maintainer :).
->>>
->>> Being a Marvell SoC and switch maintainer, i have around a dozen
->>> boards. Some i got some simply by asking the manufacture, others i
->>> purchased. I don't think i'm in the minority here. Without having
->>> access to a number of different hardwares, i don't feel i would be
->>> doing my work properly.
->>>
->>>> I try as hard as I can to network with people and try to minimize this
->>>> situations, but when there is so many different setups using a driver with diff
->>>> configurations, situations like this can happen, but I am here to help debugging
->>>> and solving them.
->>>
->>> You made a move to rename stmmac to synopsys not long ago. It gave the
->>> impression that synopsis wants to take over this driver. If there are
->>> a number of different configurations, who better than synopsys to
->>> actually properly test these configurations? If you ask around, i'm
->>> sure people will send you hardware.
->>
->> I completely agree with everything Andrew is saying here.
->>
->
-> I'll maintain the driver if everyone agrees with it, no problem, mas I would
-> like to hear from Peppe and Alex, since they are the current maintainers.
+This series of patches depends on the previous set of changes, and is
+therefore net-next material.
 
-I agree with this proposition. As you can see (and unfortunately) I have 
-currently no time for reviewing (I'm busy on another subsystem). You are 
-close to new GMAC evolution and very active (I hope for a long time).
-For sure you need boards with old GMAC Ips. I will send you an STM32 
-with GMAC IP 3.5. Don't hesitate to contact us if you have question 
-about historic content of stmmac driver.
+While testing the EEE code, I discovered a number of issues:
 
-Thanks!
+1. It is possible to enable advertisment of EEE modes which are not
+   supported by the hardware.  We omit to check the supported modes
+   and mask off those modes that are not supported before writing the
+   EEE advertisment register.
 
-Alex
+2. We need to restart autonegotiation after a change of the EEE
+   advertisment, otherwise the link partner does not see the updated
+   EEE modes.
 
+3. SGMII connected PHYs are also capable of supporting EEE.
 
+I'm not too sure why we have the test in phylib for the interface mode,
+as the list of interface modes that support EEE is likely to increase
+(eg, 10G interface modes have provision to support EEE mode.)  I did
+think about killing the test, but the older interface modes probably
+don't support it.  Any thoughts on what to do about that - maybe the
+test should be reversed to exclude those modes which definitely don't
+support EEE?
 
->
-> HW testing would be nice, but hard to justify investing in one shot, so it would
-> be great to receive hardware to make tests if the companies wish it.
->
-> About the problems in the last patch I am going to send a 2 patch set with 2
-> fixes, lets see if stuff gets better.
->
-> Thnaks
-> Joao
->
+ drivers/net/phy/phy.c | 29 ++++++++++++++++++++++++++---
+ 1 file changed, 26 insertions(+), 3 deletions(-)
+
+v2: fix "phy_restart_aneg" build error identified by 0-day
+   
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
