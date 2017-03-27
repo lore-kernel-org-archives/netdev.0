@@ -1,60 +1,109 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: Page allocator order-0 optimizations merged
-Date: Mon, 27 Mar 2017 14:32:12 +0100
-Message-ID: <20170327133212.6azfgrariwocdzzd@techsingularity.net>
-References: <d4c1625e-cacf-52a9-bfcb-b32a185a2008@mellanox.com>
- <83a0e3ef-acfa-a2af-2770-b9a92bda41bb@mellanox.com>
- <20170322234004.kffsce4owewgpqnm@techsingularity.net>
- <20170323144347.1e6f29de@redhat.com>
- <20170323145133.twzt4f5ci26vdyut@techsingularity.net>
- <779ab72d-94b9-1a28-c192-377e91383b4e@gmail.com>
- <1fc7338f-2b36-75f7-8a7e-8321f062207b@gmail.com>
- <2123321554.7161128.1490599967015.JavaMail.zimbra@redhat.com>
- <20170327105514.1ed5b1ba@redhat.com>
- <20170327143947.4c237e54@redhat.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH net-next 2/2] net: stmmac: fix number of tx queues in
+ stmmac_poll
+Date: Mon, 27 Mar 2017 14:34:46 +0100
+Message-ID: <54e400ac-69c7-a56e-a7c2-7385dfe0e4a7@synopsys.com>
+References: <cover.1490375512.git.jpinto@synopsys.com>
+ <b6f44c16abea1693dcc1333517778bd7a3e0b0f5.1490375512.git.jpinto@synopsys.com>
+ <20170325072621.GA20997@Red>
+ <9f9f20d0-198b-6928-6c78-6982030f9101@synopsys.com>
+ <20170327090941.GC12523@Red>
+ <a4813594-191b-d374-27da-6c87b1c72e3e@synopsys.com>
+ <bac808d4-8c0e-c445-8478-262e691cf715@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Pankaj Gupta <pagupta@redhat.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170327143947.4c237e54@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <davem@davemloft.net>, <peppe.cavallaro@st.com>,
+        <alexandre.torgue@st.com>, <sergei.shtylyov@cogentembedded.com>,
+        <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Corentin Labbe <clabbe.montjoie@gmail.com>,
+        <thierry.reding@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:52831 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751903AbdC0Nfl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 27 Mar 2017 09:35:41 -0400
+In-Reply-To: <bac808d4-8c0e-c445-8478-262e691cf715@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 27, 2017 at 02:39:47PM +0200, Jesper Dangaard Brouer wrote:
-> On Mon, 27 Mar 2017 10:55:14 +0200
-> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+Às 2:28 PM de 3/27/2017, Niklas Cassel escreveu:
 > 
-> > A possible solution, would be use the local_bh_{disable,enable} instead
-> > of the {preempt_disable,enable} calls.  But it is slower, using numbers
-> > from [1] (19 vs 11 cycles), thus the expected cycles saving is 38-19=19.
-> > 
-> > The problematic part of using local_bh_enable is that this adds a
-> > softirq/bottom-halves rescheduling point (as it checks for pending
-> > BHs).  Thus, this might affects real workloads.
 > 
-> I implemented this solution in patch below... and tested it on mlx5 at
-> 50G with manually disabled driver-page-recycling.  It works for me.
+> On 03/27/2017 11:12 AM, Joao Pinto wrote:
+>> Às 10:09 AM de 3/27/2017, Corentin Labbe escreveu:
+>>> On Mon, Mar 27, 2017 at 10:04:57AM +0100, Joao Pinto wrote:
+>>>> Às 7:26 AM de 3/25/2017, Corentin Labbe escreveu:
+>>>>> On Fri, Mar 24, 2017 at 05:16:45PM +0000, Joao Pinto wrote:
+>>>>>> For cores that have more than 1 TX queue configured, the kernel would crash,
+>>>>>> since only one TX queue is permitted by default.
+>>>>>>
+>>>>>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+>>>>>> ---
+>>>>>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>>>>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>>>
+>>>>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>>>>> index 3827952..1eab084 100644
+>>>>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>>>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>>>>> @@ -3429,7 +3429,7 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+>>>>>>  	struct stmmac_rx_queue *rx_q =
+>>>>>>  		container_of(napi, struct stmmac_rx_queue, napi);
+>>>>>>  	struct stmmac_priv *priv = rx_q->priv_data;
+>>>>>> -	u32 tx_count = priv->dma_cap.number_tx_queues;
+>>>>>> +	u32 tx_count = priv->plat->tx_queues_to_use;
+>>>>>>  	u32 chan = rx_q->queue_index;
+>>>>>>  	u32 work_done = 0;
+>>>>>>  	u32 queue = 0;
+>>>>>> -- 
+>>>>>> 2.9.3
+>>>>>>
+>>>>>
+>>>>> This patch fix the performance issue on dwmac-sun8i only.
+>>>>
+>>>> Ok, great!
+>>>>
+>>>
+>>> Sorry, in the we, I see that my gigabit dwmac-sun8i didnt work... (but didnt have time to find why).
+>>>
+>>>>> The dwmac-sunxi is still broken.
+>>
+>> Ok, let's see what others report.
+>>
+>>>>>
+>>>>
+>>>> What is the difference between the setups?
+>>>
+>>> dwmac-sun8i use chain mode, dwmac-sunxi use ring mode
+>>>
+>>
+>> @Thierry and Niklas: Hi! Your setup is working well with these 2 fix patches?
+>>
 > 
-> To Mel, that do you prefer... a partial-revert or something like this?
+> Hello Joao,
 > 
+> I have not tested these 2 patches.
+> 
+> Previously, when I tested next-20170321, artpec-6 SoC got TX queue timeouts.
+> When testing today's linux-next, next-20170327, things are working again :)
+> 
+> 
+> So I guess one of the following patches fixed our problem:
+> 
+> 270c7759fbbc net: stmmac: add set_mac to the stmmac_ops
+> b4f0a6615556 net: stmmac: fix dma operation mode config for older versions
+> 33e85b8dd69e net: stmmac: Restore DT backwards-compatibility
+> f39768744fd6 net: stmmac: Always enable MAC RX queues
+> abe80fdc6ee6 net: stmmac: RX queue routing configuration
+> a8f5102af2a7 net: stmmac: TX and RX queue priority configuration
+> aff3d9eff843 net: stmmac: enable multiple buffers
 
-If Tariq confirms it works for him as well, this looks far safer patch
-than having a dedicate IRQ-safe queue. Your concern about the BH
-scheduling point is valid but if it's proven to be a problem, there is
-still the option of a partial revert.
+Yes for sure :) Great! Thanks.
 
--- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> 
+> Regards,
+> Niklas
+> 
