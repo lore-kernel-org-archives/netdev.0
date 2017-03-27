@@ -1,93 +1,65 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: [PATCH 1/7] Documentation: dt: net: Update the ath9k binding for SoC devices
-Date: Mon, 27 Mar 2017 18:11:15 +0200
-Message-ID: <1897671.fKa4XTnU1K@debian64>
-References: <1489439116-4233-1-git-send-email-albeu@free.fr>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [net-next 05/11] i40e: fix for queue timing delays
+Date: Mon, 27 Mar 2017 16:12:37 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B626503F4598@ORSMSX102.amr.corp.intel.com>
+References: <20170325081305.31835-1-jeffrey.t.kirsher@intel.com>
+        <20170325081305.31835-6-jeffrey.t.kirsher@intel.com>
+ <20170325.200045.766752589165691684.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        John Crispin <john@phrozen.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        m@kresin.me
-To: Alban <albeu@free.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1489439116-4233-1-git-send-email-albeu@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: David Miller <davem@davemloft.net>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:3544 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751574AbdC0QNb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 27 Mar 2017 12:13:31 -0400
+In-Reply-To: <20170325.200045.766752589165691684.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, March 13, 2017 10:05:09 PM CEST Alban wrote:
-> The current binding only cover PCI devices so extend it for SoC devices.
-> 
-> Most SoC platforms use an MTD partition for the calibration data
-> instead of an EEPROM. The qca,no-eeprom property was added to allow
-> loading the EEPROM content using firmware loading. This new binding
-> replace this hack with NVMEM cells, so we also mark the qca,no-eeprom
-> property as deprecated in case anyone ever used it.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Saturday, March 25, 2017 8:01 PM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+> Cc: Wyborny, Carolyn <carolyn.wyborny@intel.com>;
+> netdev@vger.kernel.org; nhorman@redhat.com; sassmann@redhat.com;
+> jogreene@redhat.com
+> Subject: Re: [net-next 05/11] i40e: fix for queue timing delays
+>=20
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Sat, 25 Mar 2017 01:12:59 -0700
+>=20
+> > From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> >
+> > This patch adds a delay to Rx queue disables to accommodate HW needs.
+> >
+[..]
+> > +	/* HW needs up to 50ms to finish RX queue disable*/
+> > +	mdelay(50);
+>=20
+> You just polled a register which indicates that the request is finished.
+> Needing futher time for the operation to complete doesn't make any
+> sense.
+>=20
+> If this is really needed, you need to explain in the commit message, in
+> detail, what is really the problem here.
+>=20
+> THanks.
 
-Please don't mark "qca,no-eeprom" as deprecated then.
-If some devices geniously need to rely on userspace for extracting 
-and processing the calibration data, it should be stay a
-optional properties.
-
-For example: A device that can't do easily without "qca,no-eeprom" is
-the AVM FRITZ!WLAN Repeater 300E. For this device, the caldata 
-is stored in the flash, however for whatever reason the vendor
-choose to "reverse" it. (like completely back to front, not byteswapped
-or something). So an extra "unreversing step" is required. So, it would
-require some sort of a special nvmem-provider-processor as an 
-alternative.
-
-> Signed-off-by: Alban <albeu@free.fr>
-> ---
-> diff --git a/Documentation/devicetree/bindings/net/wireless/qca,ath9k.txt b/Documentation/devicetree/bindings/net/wireless/qca,ath9k.txt
-> index b7396c8..61f5f6d 100644
-> --- a/Documentation/devicetree/bindings/net/wireless/qca,ath9k.txt
-> +++ b/Documentation/devicetree/bindings/net/wireless/qca,ath9k.txt
-> @@ -27,16 +27,34 @@ Required properties:
->  			- 0034 for AR9462
->  			- 0036 for AR9565
->  			- 0037 for AR9485
-> +		For SoC devices the compatible should be "qca,<soctype>-wmac"
-> +		and one of the following fallbacks:
-> +			- "qca,ar9100-wmac"
-> +			- "qca,ar9330-wmac"
-> +			- "qca,ar9340-wmac"
-> +			- "qca,qca9550-wmac"
-> +			- "qca,qca9530-wmac"
->  - reg: Address and length of the register set for the device.
->  
-> +Required properties for SoC devices:
-> +- interrupt-parent: phandle of the parent interrupt controller.
-> +- interrupts: Interrupt specifier for the controllers interrupt.
-> +
->  Optional properties:
-> +- mac-address: See ethernet.txt in the parent directory
-> +- local-mac-address: See ethernet.txt in the parent directory
-> +- clock-names: has to be "ref"
-> +- clocks: phandle of the reference clock
-> +- resets: phandle of the reset line
-> +- nvmem-cell-names: has to be "eeprom" and/or "address"
-> +- nvmem-cells: phandle to the eeprom nvmem cell and/or to the mac address
-> +		nvmem cell.
-> +
-> +Deprecated properties:
->  - qca,no-eeprom: Indicates that there is no physical EEPROM connected to the
->  			ath9k wireless chip (in this case the calibration /
->  			EEPROM data will be loaded from userspace using the
->  			kernel firmware loader).
-> -- mac-address: See ethernet.txt in the parent directory
-> -- local-mac-address: See ethernet.txt in the parent directory
-> -
-It sounds like you want to deprecate mac-address and local-mac-address as well.
-If so you sould add this to the commit as well. From my point of view, people
-mostly flat-out patched the eeprom-image if they wanted to set the mac-address.
-However, this was an extra step, if nvmem does away with it, I'm completely
-fine with deprecating these properties.
+It's a hw limitation, will submit an updated patch with more detail.
 
 Thanks,
-Christian
+
+Carolyn
+
+Carolyn Wyborny=20
+Linux Development=20
+Networking Division=20
+Intel Corporation=20
